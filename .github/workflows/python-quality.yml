@@ -1,0 +1,24 @@
+name: Python quality
+
+on:
+  push:
+    branches:
+      - "*"
+
+jobs:
+  check_code_quality:
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v2
+    - name: Set up Python
+      uses: actions/setup-python@v2
+      with:
+        python-version: 3.9
+    - name: Install dependencies
+      run: |
+        pip install --upgrade pip
+        pip install .[testing]
+    - run: black --check examples tests src
+    - run: isort --check-only examples tests src
+    - run: flake8 examples tests src
