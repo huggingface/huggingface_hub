@@ -14,5 +14,5 @@ style:
 	isort $(check_dirs)
 
 test:
-	python -m pytest --dist=loadfile -s -v ./tests/
+	pytest -sv ./tests/
 

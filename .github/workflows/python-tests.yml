@@ -23,4 +23,4 @@ jobs:
         pip install --upgrade pip
         pip install .[testing]
     - name: pytest
-      run: pytest --dist=loadfile -s -v ./tests/
+      run: pytest -sv ./tests/

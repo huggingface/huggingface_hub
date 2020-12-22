@@ -18,7 +18,7 @@ jobs:
     - name: Install dependencies
       run: |
         pip install --upgrade pip
-        pip install .[testing]
+        pip install .[dev]
     - run: black --check examples tests src
     - run: isort --check-only examples tests src
     - run: flake8 examples tests src
