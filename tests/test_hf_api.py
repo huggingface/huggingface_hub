@@ -164,7 +164,7 @@ class HfLargefilesTest(HfApiCommonTest):
         )
         self.assertEqual(failed_process.returncode, 1)
         self.assertIn(
-            "huggingface-cli lfs-enable-largefiles", failed_process.stderr.decode()
+            "cli lfs-enable-largefiles", failed_process.stderr.decode()
         )
         # ^ Instructions on how to fix this are included in the error message.
 
