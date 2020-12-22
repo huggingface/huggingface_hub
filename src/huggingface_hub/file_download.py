@@ -47,6 +47,19 @@ def is_tf_available():
     return _tf_available
 
 
+# Constants for file downloads
+
+PYTORCH_WEIGHTS_NAME = "pytorch_model.bin"
+TF2_WEIGHTS_NAME = "tf_model.h5"
+TF_WEIGHTS_NAME = "model.ckpt"
+FLAX_WEIGHTS_NAME = "flax_model.msgpack"
+CONFIG_NAME = "config.json"
+
+HUGGINGFACE_CO_URL_TEMPLATE = (
+    "https://huggingface.co/{model_id}/resolve/{revision}/{filename}"
+)
+
+
 # default cache
 hf_cache_home = os.path.expanduser(
     os.getenv(
@@ -56,13 +69,6 @@ hf_cache_home = os.path.expanduser(
 default_cache_path = os.path.join(hf_cache_home, "hub")
 
 HUGGINGFACE_HUB_CACHE = os.getenv("HUGGINGFACE_HUB_CACHE", default_cache_path)
-
-# Constants for file downloads
-
-HF_PYTORCH_WEIGHTS_NAME = "pytorch_model.bin"
-HUGGINGFACE_CO_URL_TEMPLATE = (
-    "https://huggingface.co/{model_id}/resolve/{revision}/{filename}"
-)
 
 
 def hf_hub_url(
@@ -168,7 +174,7 @@ def http_get(
     progress.close()
 
 
-def hf_cached_download(
+def cached_download(
     url: str,
     library_name: str,
     library_version: str,

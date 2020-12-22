@@ -1,7 +1,3 @@
-# flake8: noqa
-# There's no way to ignore "F401 '...' imported but unused" warnings in this
-# module, but to preserve other warnings. So, don't check this module at all.
-
 # Copyright 2020 The HuggingFace Team. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -16,7 +12,16 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-__version__ = "0.1.0"
+from abc import ABC, abstractmethod
+from argparse import ArgumentParser
 
-from .file_download import HUGGINGFACE_CO_URL_TEMPLATE, cached_download, hf_hub_url
-from .hf_api import HfApi, HfFolder
+
+class BaseHuggingfaceCLICommand(ABC):
+    @staticmethod
+    @abstractmethod
+    def register_subcommand(parser: ArgumentParser):
+        raise NotImplementedError()
+
+    @abstractmethod
+    def run(self):
+        raise NotImplementedError()
