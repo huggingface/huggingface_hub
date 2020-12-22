@@ -17,6 +17,7 @@ lfs-multipart-upload ```
 """
 
 import json
+import logging
 import os
 import subprocess
 import sys
@@ -27,10 +28,8 @@ from typing import Dict, List, Optional
 import requests
 from huggingface_hub.commands import BaseHuggingfaceCLICommand
 
-from ..utils import logging
 
-
-logger = logging.get_logger(__name__)  # pylint: disable=invalid-name
+logger = logging.getLogger(__name__)
 
 
 LFS_MULTIPART_UPLOAD_COMMAND = "lfs-multipart-upload"
