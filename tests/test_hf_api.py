@@ -31,8 +31,8 @@ PASS = "__DUMMY_TRANSFORMERS_PASS__"
 ENDPOINT_STAGING = "https://moon-staging.huggingface.co"
 ENDPOINT_STAGING_BASIC_AUTH = f"https://{USER}:{PASS}@moon-staging.huggingface.co"
 
-REPO_NAME = "my-model-{}".format(int(time.time()))
-REPO_NAME_LARGE_FILE = "my-model-largefiles-{}".format(int(time.time()))
+REPO_NAME = "my-model-{}".format(int(time.time() * 10e3))
+REPO_NAME_LARGE_FILE = "my-model-largefiles-{}".format(int(time.time() * 10e3))
 WORKING_REPO_DIR = os.path.join(
     os.path.dirname(os.path.abspath(__file__)), "fixtures/working_repo"
 )

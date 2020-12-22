@@ -23,4 +23,4 @@ jobs:
         pip install --upgrade pip
         pip install .[testing]
     - name: pytest
-      run: pytest -sv ./tests/
+      run: RUN_GIT_LFS_TESTS=1 pytest -sv ./tests/
