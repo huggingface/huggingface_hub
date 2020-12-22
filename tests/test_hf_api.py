@@ -163,9 +163,7 @@ class HfLargefilesTest(HfApiCommonTest):
             ["git", "push"], capture_output=True, cwd=WORKING_REPO_DIR
         )
         self.assertEqual(failed_process.returncode, 1)
-        self.assertIn(
-            "cli lfs-enable-largefiles", failed_process.stderr.decode()
-        )
+        self.assertIn("cli lfs-enable-largefiles", failed_process.stderr.decode())
         # ^ Instructions on how to fix this are included in the error message.
 
         subprocess.run(
