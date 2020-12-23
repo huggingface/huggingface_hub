@@ -23,7 +23,8 @@ jobs:
         pip install --upgrade pip
         pip install setuptools wheel
 
-    - run: setup.py sdist bdist_wheel
+    - run: python setup.py sdist bdist_wheel
+
     - run: |
         pip install twine
 
