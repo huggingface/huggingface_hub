@@ -86,8 +86,7 @@ huggingface-cli repo create
 
 ### Need to upload large (>5GB) files?
 
-To upload large files (>5GB 🔥), you need to install the custom transfer agent for git-lfs, bundled in this package. Spec for LFS custom transfer agent is:
-https://github.com/git-lfs/git-lfs/blob/master/docs/custom-transfers.md
+To upload large files (>5GB 🔥), you need to install the custom transfer agent for git-lfs, bundled in this package. You can learn how to add an LFS custom transfer agent [here](https://github.com/git-lfs/git-lfs/blob/master/docs/custom-transfers.md).
 
 To install, just run:
 
@@ -95,8 +94,7 @@ To install, just run:
 $ huggingface-cli lfs-enable-largefiles
 ```
 
-This should be executed once for each model repo that contains a model file >5GB. It's documented in the error
-message you get if you just try to git push a 5GB file without enabling it before.
+This should be executed once for each model repo that contains a model file >5GB. If you just try to push a file bigger than 5GB without running that command, you will get an error with a message reminding you to run it.
 
 Finally, there's a `huggingface-cli lfs-multipart-upload` command but that one is internal (called by lfs directly) and is not meant to be called by the user.
 
