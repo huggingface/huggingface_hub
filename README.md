@@ -62,7 +62,7 @@ Check out the source code for all possible params (we'll create a real doc page 
 Uploading a model to the hub is super simple too:
 - create a model repo directly from the website, at huggingface.co/new (models can be public or private, and are namespaced under either a user or an organization)
 - clone it with git
-- install [lfs](https://git-lfs.github.com/) with `git lfs install` if you haven't done that before
+- [download and install git lfs](https://git-lfs.github.com/) if you don't already have it on your machine (you can check by running a simple `git lfs`)
 - add, commit and push your files, from git, as you usually do.
 
 **We are intentionally not wrapping git too much, so that you can go on with the workflow you’re used to and the tools you already know.**
