@@ -10,14 +10,34 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        python-version: ["3.7", "3.8", "3.9"]
+        python-version: ["3.6", "3.7", "3.8", "3.9"]
 
     steps:
     - uses: actions/checkout@v2
+
     - name: Set up Python ${{ matrix.python-version }}
       uses: actions/setup-python@v2
       with:
         python-version: ${{ matrix.python-version }}
+
+    - name: Install dependencies
+      run: |
+        pip install --upgrade pip
+        pip install .[testing]
+
+    - run: pytest -sv ./tests/
+
+
+  tests_lfs:
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v2
+
+    - name: Set up Python
+      uses: actions/setup-python@v2
+      with:
+        python-version: 3.9
 
     - run: |
         git config --global user.email "ci@dummy.com"
@@ -27,5 +47,5 @@ jobs:
       run: |
         pip install --upgrade pip
         pip install .[testing]
-    - name: pytest
-      run: RUN_GIT_LFS_TESTS=1 pytest -sv ./tests/
+
+    - run: RUN_GIT_LFS_TESTS=1 pytest -sv ./tests/ -k "HfLargefilesTest"
