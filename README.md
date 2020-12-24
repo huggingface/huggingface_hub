@@ -85,6 +85,8 @@ Users add tags into their README.md model cards (e.g. your `library_name`, a dom
 
 You don't need them for the standard publishing workflow, however, if you need a programmatic way of creating a repo, deleting it (`⚠️ caution`), or listing models from the hub, you'll find helpers in `hf_api.py`.
 
+We also have an API to query models by specific tags (e.g. if you want to list models compatible to your library)
+
 ### `huggingface-cli`
 
 Those API utilities are also exposed through a CLI:
@@ -111,5 +113,12 @@ This should be executed once for each model repo that contains a model file >5GB
 Finally, there's a `huggingface-cli lfs-multipart-upload` command but that one is internal (called by lfs directly) and is not meant to be called by the user.
 
 <br>
+
+## Visual integration into the huggingface.co hub
+
+
+
+<br>
+
 
 ## Feedback (feature requests, bugs, etc.) is super welcome 💙💚💛💜♥️🧡
