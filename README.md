@@ -15,7 +15,14 @@
 > **Do you have an open source ML library?**
 > We're looking to partner with a small number of other cool open source ML libraries to provide model hosting + versioning. 
 > https://twitter.com/julien_c/status/1336374565157679104 https://twitter.com/mnlpariente/status/1336277058062852096
-> Let us know if interested 😎
+>
+> Advantages are:
+> - versioning is built-in (as hosting is built around git and git-lfs), no lock-in, you can just `git clone` away.
+> - anyone can upload a new model for your library, just need to add the corresponding tag for the model to be discoverable – no more need for a hardcoded list in your code
+> - Fast downloads! We use Cloudfront (a CDN) to geo-replicate downloads so they're blazing fast from anywhere on the globe
+> - Usage stats and more features to come
+>
+> Ping us if interested 😎
 
 <br>
 
@@ -24,6 +31,7 @@
 - http://github.com/asteroid-team/asteroid [[initial PR 👀](https://github.com/asteroid-team/asteroid/pull/377)]
 - https://github.com/pyannote/pyannote-audio [[initial PR 👀](https://github.com/pyannote/pyannote-audio/pull/549)]
 - https://github.com/flairNLP/flair [[work-in-progress, initial PR 👀](https://github.com/flairNLP/flair/pull/1974)]
+- ESPNet [coming soon]
 
 <br>
 
@@ -69,9 +77,15 @@ Uploading a model to the hub is super simple too:
 
 > 👀 To see an example of how we document the model sharing process in `transformers`, check out https://huggingface.co/transformers/model_sharing.html
 
+Users add tags into their README.md model cards (e.g. your `library_name`, a domain tag like `audio`, etc.) to make sure their models are discoverable.
+
+**Documentation about the model hub itself is at https://huggingface.co/docs**
+
 ### API utilities in `hf_api.py`
 
 You don't need them for the standard publishing workflow, however, if you need a programmatic way of creating a repo, deleting it (`⚠️ caution`), or listing models from the hub, you'll find helpers in `hf_api.py`.
+
+We also have an API to query models by specific tags (e.g. if you want to list models compatible to your library)
 
 ### `huggingface-cli`
 
@@ -97,5 +111,25 @@ $ huggingface-cli lfs-enable-largefiles
 This should be executed once for each model repo that contains a model file >5GB. If you just try to push a file bigger than 5GB without running that command, you will get an error with a message reminding you to run it.
 
 Finally, there's a `huggingface-cli lfs-multipart-upload` command but that one is internal (called by lfs directly) and is not meant to be called by the user.
+
+<br>
+
+## Visual integration into the huggingface.co hub
+
+Finally, we'll implement a few tweaks to improve the UX for your models on the website – let's use [Asteroid](https://github.com/asteroid-team/asteroid) as an example:
+
+![asteroid-model](https://cdn-media.huggingface.co/huggingface_hub/asteroid-model.png)
+
+Model authors add an `asteroid` tag to their model card and they get the advantages of model versioning built-in
+
+![use-in-asteroid](https://cdn-media.huggingface.co/huggingface_hub/use-in-asteroid.png)
+
+We add a custom "Use in Asteroid" button.
+
+![asteroid-code-sample](https://cdn-media.huggingface.co/huggingface_hub/asteroid-code-sample.png)
+
+When clicked you get a library-specific code sample that you'll be able to specify. 🔥
+
+<br>
 
 ## Feedback (feature requests, bugs, etc.) is super welcome 💙💚💛💜♥️🧡
