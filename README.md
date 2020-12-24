@@ -42,7 +42,7 @@ Integration inside a library is super simple. We expose two functions, `hf_hub_u
 ### `hf_hub_url`
 
 `hf_hub_url()` takes:
-- a model id (like `julien-c/EsperBERTo-small`),
+- a model id (like `julien-c/EsperBERTo-small` i.e. a user or organization name and a repo name, separated by `/`),
 - a filename (like `pytorch_model.bin`),
 - and an optional git revision id (can be a branch name, a tag, or a commit hash)
 
@@ -118,7 +118,7 @@ Finally, there's a `huggingface-cli lfs-multipart-upload` command but that one i
 
 Finally, we'll implement a few tweaks to improve the UX for your models on the website – let's use [Asteroid](https://github.com/asteroid-team/asteroid) as an example:
 
-![asteroid-model](https://cdn-media.huggingface.co/huggingface_hub/asteroid-model.png)
+![asteroid-model](https://cdn-media.huggingface.co/huggingface_hub/asteroid-model-optim.png)
 
 Model authors add an `asteroid` tag to their model card and they get the advantages of model versioning built-in
 
