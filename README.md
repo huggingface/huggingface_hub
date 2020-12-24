@@ -15,6 +15,11 @@
 > **Do you have an open source ML library?**
 > We're looking to partner with a small number of other cool open source ML libraries to provide model hosting + versioning. 
 > https://twitter.com/julien_c/status/1336374565157679104 https://twitter.com/mnlpariente/status/1336277058062852096
+> Advantages are:
+> - versioning is built-in (as hosting is built around git and git-lfs), no lock-in, you can just `git clone` away.
+> - anyone can upload a new model for your library, just need to add the corresponding tag for the model to be discoverable – no more need for a hardcoded list in your code
+> - Fast downloads! We use Cloudfront (a CDN) to geo-replicate downloads so they're blazing fast from anywhere on the globe
+> - Usage stats and more features to come
 > Let us know if interested 😎
 
 <br>
