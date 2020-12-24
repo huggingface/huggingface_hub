@@ -22,7 +22,7 @@
 > - Fast downloads! We use Cloudfront (a CDN) to geo-replicate downloads so they're blazing fast from anywhere on the globe
 > - Usage stats and more features to come
 >
-> Let us know if interested 😎
+> Ping us if interested 😎
 
 <br>
 
@@ -116,9 +116,20 @@ Finally, there's a `huggingface-cli lfs-multipart-upload` command but that one i
 
 ## Visual integration into the huggingface.co hub
 
+Finally, we'll implement a few tweaks to improve the UX for your models on the website – let's use [Asteroid](https://github.com/asteroid-team/asteroid) as an example:
 
+![asteroid-model](https://cdn-media.huggingface.co/huggingface_hub/asteroid-model.png)
+
+Model authors add an `asteroid` tag to their model card and they get the advantages of model versioning built-in
+
+![use-in-asteroid](https://cdn-media.huggingface.co/huggingface_hub/use-in-asteroid.png)
+
+We add a custom "Use in Asteroid" button.
+
+![asteroid-code-sample](https://cdn-media.huggingface.co/huggingface_hub/asteroid-code-sample.png)
+
+When clicked you get a library-specific code sample that you'll be able to specify. 🔥
 
 <br>
-
 
 ## Feedback (feature requests, bugs, etc.) is super welcome 💙💚💛💜♥️🧡
