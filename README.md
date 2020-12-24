@@ -62,7 +62,7 @@ Check out the source code for all possible params (we'll create a real doc page 
 Uploading a model to the hub is super simple too:
 - create a model repo directly from the website, at huggingface.co/new (models can be public or private, and are namespaced under either a user or an organization)
 - clone it with git
-- install [lfs](https://git-lfs.github.com/) with `git lfs install` if you haven't done that before
+- [download and install git lfs](https://git-lfs.github.com/) if you don't already have it on your machine (you can check by running a simple `git lfs`)
 - add, commit and push your files, from git, as you usually do.
 
 **We are intentionally not wrapping git too much, so that you can go on with the workflow you’re used to and the tools you already know.**
@@ -86,8 +86,7 @@ huggingface-cli repo create
 
 ### Need to upload large (>5GB) files?
 
-To upload large files (>5GB 🔥), you need to install the custom transfer agent for git-lfs, bundled in this package. Spec for LFS custom transfer agent is:
-https://github.com/git-lfs/git-lfs/blob/master/docs/custom-transfers.md
+To upload large files (>5GB 🔥), you need to install the custom transfer agent for git-lfs, bundled in this package. 
 
 To install, just run:
 
@@ -95,8 +94,7 @@ To install, just run:
 $ huggingface-cli lfs-enable-largefiles
 ```
 
-This should be executed once for each model repo that contains a model file >5GB. It's documented in the error
-message you get if you just try to git push a 5GB file without enabling it before.
+This should be executed once for each model repo that contains a model file >5GB. If you just try to push a file bigger than 5GB without running that command, you will get an error with a message reminding you to run it.
 
 Finally, there's a `huggingface-cli lfs-multipart-upload` command but that one is internal (called by lfs directly) and is not meant to be called by the user.
 
