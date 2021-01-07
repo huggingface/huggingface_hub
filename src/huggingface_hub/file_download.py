@@ -55,6 +55,7 @@ TF_WEIGHTS_NAME = "model.ckpt"
 FLAX_WEIGHTS_NAME = "flax_model.msgpack"
 CONFIG_NAME = "config.json"
 
+HUGGINGFACE_CO_REPO_URL_BASE = "https://huggingface.co/"
 HUGGINGFACE_CO_URL_TEMPLATE = (
     "https://huggingface.co/{model_id}/resolve/{revision}/{filename}"
 )
@@ -92,6 +93,9 @@ def hf_hub_url(
     In terms of client-side caching from this library, we base our caching on the objects' ETag. An object's ETag is:
     its git-sha1 if stored in git, or its sha256 if stored in git-lfs.
     """
+    if model_id.startswith(HUGGINGFACE_CO_REPO_URL_BASE):
+        model_id = model_id[len(HUGGINGFACE_CO_REPO_URL_BASE) :]
+
     if subfolder is not None:
         filename = f"{subfolder}/{filename}"
 

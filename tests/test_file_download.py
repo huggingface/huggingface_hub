@@ -17,6 +17,7 @@ import unittest
 import requests
 from huggingface_hub.file_download import (
     CONFIG_NAME,
+    HUGGINGFACE_CO_REPO_URL_BASE,
     PYTORCH_WEIGHTS_NAME,
     cached_download,
     filename_to_url,
@@ -78,6 +79,11 @@ class CachedDownloadTests(unittest.TestCase):
         metadata = filename_to_url(filepath)
         self.assertNotEqual(metadata[1], f'"{PINNED_SHA1}"')
         # Caution: check that the etag is *not* equal to the one from `test_standard_object`
+
+    def test_repo_url(self):
+        url1 = hf_hub_url(HUGGINGFACE_CO_REPO_URL_BASE + MODEL_ID, filename=CONFIG_NAME, revision=REVISION_ID_DEFAULT)
+        url2  = hf_hub_url(MODEL_ID, filename=CONFIG_NAME, revision=REVISION_ID_DEFAULT)
+        assert url1 == url2
 
     def test_lfs_object(self):
         url = hf_hub_url(
