@@ -1,8 +1,7 @@
-import sys
-import subprocess
-import json
 import os
+import subprocess
 from typing import Dict, List
+
 
 MODEL_CARD_TEMPLATE = """
 ---
@@ -33,14 +32,21 @@ class HfRepository:
         repo_url: str,
         huggingface_token: str,
         model_dir: str,
+    ):
+        self.repo_url = self.add_token_to_repository_url(repo_url, huggingface_token)
+
+        self.model_dir = model_dir
+
+    def init_new_repository(
+        self,
         large_file_tracking_list=[],
         user="sagemaker",
         email="sagemaker@huggingface.co",
     ):
-        self.repo_url = self.add_token_to_repository_url(repo_url, huggingface_token)
+        """Initializes a new hf hub repository"""
+
         self.email = email
         self.user = user
-        self.model_dir = model_dir
         self.large_file_tracking_list = [
             "*.bin.*",
             "*.lfs.*",
@@ -52,13 +58,13 @@ class HfRepository:
             "*.onnx",
         ] + large_file_tracking_list
 
-        self.config_git_username_and_email()
-
         self.install_lfs_in_repo()
 
         self.clone_remote_repository_to_local_dir()
 
         self.add_tracking_for_large_files()
+
+        # self.config_git_username_and_email()
 
     def install_lfs_in_repo(self):
         """installs git lfs for current shell user"""
@@ -78,9 +84,10 @@ class HfRepository:
         #       print(e.output.decode())
         try:
             subprocess.run(f"git clone {self.repo_url} {self.model_dir}".split(), check=True)
-        except:
+        except Exception:
             subprocess.run(f"git init .".split(), check=True, cwd=self.model_dir)
             subprocess.run(f"git remote add origin {self.repo_url}".split(), check=True, cwd=self.model_dir)
+            subprocess.run(f"git checkout -b main".split(), check=True, cwd=self.model_dir)
 
     def add_token_to_repository_url(self, repo_url: str, huggingface_token: str) -> str:
         """replaces default repository url and adds huggingface token to so git push is possible"""
@@ -109,6 +116,7 @@ class HfRepository:
         subprocess.run(f"git add .".split(), check=True, cwd=self.model_dir)
         subprocess.run(["git", "commit", "-m", commit_message], check=True, cwd=self.model_dir)
 
+    # FIXME: not working
     def push_to_hub(self):
         """pushes commited files to HuggingFace Hub"""
         # TODO: refactor exception handling to avoidtry:
@@ -118,11 +126,13 @@ class HfRepository:
         #       print(e.output.decode())
         try:
             subprocess.run(f"git push".split(), check=True, cwd=self.model_dir)
-        except:
-            subprocess.run(f"git push --set-upstream origin master".split(), check=True, cwd=self.model_dir)
+        except Exception:
+            subprocess.run(f"git fetch".split(), check=True, cwd=self.model_dir)
+            subprocess.run(f"git branch --set-upstream-to=origin/main main".split(), check=True, cwd=self.model_dir)
+            subprocess.run(f"git pull --allow-unrelated-histories".split(), check=True, cwd=self.model_dir)
+            subprocess.run(f"git push".split(), check=True, cwd=self.model_dir)
 
     def commit_files_and_push_to_hub(self, commit_message="commit model from SageMaker"):
         """combines commit_files and push_to_hub"""
         self.commit_files(commit_message)
         self.push_to_hub()
-
