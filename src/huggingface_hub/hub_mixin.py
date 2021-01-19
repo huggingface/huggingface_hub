@@ -8,9 +8,12 @@ from .file_download import (
     )
 
 import torch
+import subprocess
+import os
 
+PREFIX = "https://huggingface.co/"
 
-class SavingUtils(object):
+class ModelHubMixin(object):
 
     def __init__(self, **kwargs):
         """
@@ -19,8 +22,9 @@ class SavingUtils(object):
 
     def save_pretrained(self, save_directory:str):
         """
-            Saving weights in local directory that can be loaded directly from huggingface hub
+            Saving weights in local directory that can be loaded directly from huggingface-hub
         """
+        self.wts_directory = save_directory
 
         if save_directory not in os.listdir(): 
             os.makedirs(save_directory)
@@ -92,3 +96,57 @@ class SavingUtils(object):
         model.eval()
 
         return model
+
+    def upload_to_hub(self, model_id:str, wts_directory:str=None, branch:str="main", commit_message:str="add model"):
+        """
+            This method will upload your model weights to huggingface-hub
+
+            ARGUMENTS:
+                model_id :       model_id which will be used later using from_pretrained (Generally: username/model_name)   
+                wts_directory :  directory made using save_pretrained
+
+            NOTE:
+                - You need to create repository in huggingface hub manually
+                - This may take some time depending on your directory size
+        """
+
+        if wts_directory is None:
+            wts_directory = self.wts_directory if hasattr(self, wts_directory) else wts_directory
+
+        if not os.path.isdir(wts_directory):
+            raise FileExistsError(f"{wts_directory} doesn't exist")
+
+        os.chdir(wts_directory)
+        if not os.path.isdir(".git"):
+            print(1)
+            subprocess.run(["git", "init"], stdout=subprocess.PIPE)
+
+        if not os.path.isdir(".git/lfs"):
+            print(2)
+            subprocess.run(["git-lfs", "install"], stdout=subprocess.PIPE)
+
+        with open(".git/config", "r") as f:
+            git_config = f.read().split()
+        if "url" not in git_config:
+            print(3)
+            subprocess.run(["git", "remote", "add", "origin", PREFIX+model_id], stdout=subprocess.PIPE)
+            subprocess.run(["git", "pull", "origin", branch, "--rebase"])
+
+        if not branch in os.listdir(".git/refs/heads"):
+            print(4)
+            subprocess.run(["git", "checkout", "-b", branch], stdout=subprocess.PIPE)
+
+        print(5)
+        subprocess.run(["git", "add", "--all"], stdout=subprocess.PIPE)
+        print(6)
+        subprocess.run(["git", "commit", "-m", commit_message], stdout=subprocess.PIPE)
+
+        print(7)
+        subprocess.run(["git", "push", "origin", branch])
+        print(8)
+
+
+if __name__ == "__main__":
+
+    mix = ModelHubMixin()
+    mix.upload_to_hub("vasudevgupta/test", "test")
