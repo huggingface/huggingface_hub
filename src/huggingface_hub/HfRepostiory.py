@@ -56,6 +56,7 @@ class HfRepository:
             "*.tar.gz",
             "*.ot",
             "*.onnx",
+            "*.pt",
         ] + large_file_tracking_list
 
         self.install_lfs_in_repo()
