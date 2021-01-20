@@ -117,7 +117,6 @@ class HfRepository:
         subprocess.run(f"git add .".split(), check=True, cwd=self.model_dir)
         subprocess.run(["git", "commit", "-m", commit_message], check=True, cwd=self.model_dir)
 
-    # FIXME: not working
     def push_to_hub(self):
         """pushes commited files to HuggingFace Hub"""
         # TODO: refactor exception handling to avoidtry:
