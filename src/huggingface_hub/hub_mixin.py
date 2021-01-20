@@ -10,6 +10,7 @@ from .file_download import (
 import torch
 import subprocess
 import os
+import shutil
 
 PREFIX = "https://huggingface.co/"
 
@@ -184,7 +185,8 @@ class ModelHubMixin(object):
         wts_directory = kwargs.pop("wts_directory", None)
         branch = kwargs.pop("branch", "main")
         commit_message = kwargs.pop("commit_message", "add model")
-        track_extensions = kwargs.pop("track_extensions", ["*.bin", "*pt", ".h5"])
+        track_extensions = ["*.bin.*", "*.lfs.*", "*.bin", ".h5", "*.tflite", "*.tar.gz", "*.ot", "*.onnx", "*pt"]
+        track_extensions = kwargs.pop("track_extensions", track_extensions)
 
         if wts_directory is None:
             wts_directory = self.wts_directory if hasattr(self, "wts_directory") else wts_directory
@@ -199,19 +201,32 @@ class ModelHubMixin(object):
         if not os.path.isdir(".git/lfs"):
             subprocess.run(["git-lfs", "install"], stdout=subprocess.PIPE)
 
-        with open(".git/config", "r") as f:
-            git_config = f.read().split()
-        if "url" not in git_config:
-            subprocess.run(["git", "remote", "add", "origin", PREFIX+model_id], stdout=subprocess.PIPE)
-
-        if not branch in os.listdir(".git/refs/heads"):
+        if branch not in os.listdir(".git/refs/heads"):
             subprocess.run(["git", "checkout", "-b", branch], stdout=subprocess.PIPE)
 
-        if (branch == "main") and ("url" not in git_config):
-            subprocess.run(["git", "pull", "origin", "main"], stdout=subprocess.PIPE)
+        with open(".git/HEAD") as f:
+            content = f.read().split("/")
+        if content[-1][:-1] != branch:
+            subprocess.run(["git", "checkout", branch], stdout=subprocess.PIPE)
+
+        with open(".git/config", "r") as f:
+            git_config = f.read().split()
+        if (PREFIX+model_id) not in git_config:
+            subprocess.run(["git", "remote", "add", "origin", PREFIX+model_id], stdout=subprocess.PIPE)
+
+            common_files = os.listdir()
+            common_files.remove(".git")
+            subprocess.run(["git", "fetch", "origin"], stdout=subprocess.PIPE)
+            if branch in os.listdir(".git/refs/remotes/origin"):
+                os.mkdir("temporary")
+                for file_name in common_files:
+                    shutil.move(file_name, os.path.join("temporary", file_name))
+                subprocess.run(["git", "merge", f"origin/{branch}"], stdout=subprocess.PIPE)
+                for file_name in common_files:
+                    shutil.move(os.path.join("temporary", file_name), file_name)
+                os.rmdir("temporary")
 
         subprocess.run(["git-lfs", "track"]+track_extensions, stdout=subprocess.PIPE)
-
         subprocess.run(["git", "add", "."], stdout=subprocess.PIPE)
         subprocess.run(["git", "commit", "-m", commit_message], stdout=subprocess.PIPE)
 
