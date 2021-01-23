@@ -41,13 +41,46 @@ class ModelHubMixin(object):
             >>> model = MyModel.from_pretrained("username/mymodel")
         """
 
-    def save_pretrained(self, save_directory:str):
+    def save_pretrained(self, save_directory:str, **kwargs):
         """
             Saving weights in local directory that can be loaded pushed directly to huggingface-hub
+
+            Parameters:
+                save_directory (:obj:`str`, `optional`):  
+                    Directory having model-weights & config.
+                upload_to_hub (:obj:`bool`, `optional`):
+                    Specify `True` if you want to push model weights & config to huggingface-hub. default: `False`
+                model_id (:obj:`str`, `optional`):
+                    model_id which will be used later using from_pretrained (Generally: username/model_name). You will have to specify `model_id` incase `upload_to_hub` is True.
+                branch (:obj:`str`, `optional`):
+                    Since huggingface-hub is relying on git-lfs for versioning weights, you can specify branch in which you want to commit
+                commit_message(:obj:`str`, `optional`):
+                    your commit message to hub
+                track_extensions(:obj:`list`, `optional`):
+                    extensions of large files which should be tracked with git-lfs
+
+            Setting-up if `upload_to_hub` is True:
+                - You need to have `git-lfs` installed
+                    Ubuntu: `sudo apt-get install git-lfs`
+                    Gcolab: `!sudo apt-get install git-lfs`
+                    MAC-OS: `brew install git-lfs`
+                - You need to create repository in huggingface-hub manually
         """
+
+        upload_to_hub = kwargs.pop("upload_to_hub", False)
+        model_id = kwargs.pop("model_id", None)
+        branch = kwargs.pop("branch", "main")
+        commit_message = kwargs.pop("commit_message", "add model")
+        track_extensions = ["*.bin.*", "*.lfs.*", "*.bin", ".h5", "*.tflite", "*.tar.gz", "*.ot", "*.onnx", "*pt"]
+        track_extensions = kwargs.pop("track_extensions", track_extensions)
+
+        if upload_to_hub and (model_id is None):
+            raise ValueError("model_id can't be None. Please specify model_id in format `username/modelname`")
+
         os.makedirs(save_directory, exist_ok=True)
 
-        self.wts_directory = save_directory
+        if upload_to_hub:
+            self._init_git(model_id, save_directory, branch)
 
         # saving config
         if hasattr(self, 'config'):
@@ -58,6 +91,9 @@ class ModelHubMixin(object):
         # saving model weights
         path = os.path.join(save_directory, PYTORCH_WEIGHTS_NAME)
         self._save_pretrained(path)
+
+        if upload_to_hub:
+            self._push_git(save_directory, track_extensions, commit_message, branch)
 
     def _save_pretrained(self, path):
         """
@@ -158,43 +194,9 @@ class ModelHubMixin(object):
 
         return model
 
-    def upload_to_hub(self, model_id:str, **kwargs):
-        """
-            This method will upload your model weights to huggingface-hub.
+    def _init_git(self, model_id, save_directory, branch):
 
-            Parameters:
-                model_id (:obj:`str`):
-                    model_id which will be used later using from_pretrained (Generally: username/model_name)   
-                wts_directory (:obj:`str`, `optional`):  
-                    Directory having model-weights & config. Specify this only incase you are not saving using `.save_pretrained()` method
-                branch (:obj:`str`, `optional`):
-                    Since huggingface-hub is relying on git-lfs for versioning weights, you can specify branch in which you want to commit
-                commit_message(:obj:`str`, `optional`):
-                    your commit message to hub
-                track_extensions(:obj:`list`, `optional`):
-                    extensions of large files which should be tracked with git-lfs
-
-            NOTE:
-                - You need to have `git-lfs` installed
-                    Ubuntu: `sudo apt-get install git-lfs`
-                    Gcolab: `!sudo apt-get install git-lfs`
-                    MAC-OS: `brew install git-lfs`
-                - You need to create repository in huggingface-hub manually
-        """
-
-        wts_directory = kwargs.pop("wts_directory", None)
-        branch = kwargs.pop("branch", "main")
-        commit_message = kwargs.pop("commit_message", "add model")
-        track_extensions = ["*.bin.*", "*.lfs.*", "*.bin", ".h5", "*.tflite", "*.tar.gz", "*.ot", "*.onnx", "*pt"]
-        track_extensions = kwargs.pop("track_extensions", track_extensions)
-
-        if wts_directory is None:
-            wts_directory = self.wts_directory if hasattr(self, "wts_directory") else wts_directory
-
-        if not os.path.isdir(wts_directory):
-            raise FileExistsError(f"{wts_directory} doesn't exist")
-
-        os.chdir(wts_directory)
+        os.chdir(save_directory)
         if not os.path.isdir(".git"):
             subprocess.run(["git", "init"], stdout=subprocess.PIPE)
 
@@ -213,19 +215,14 @@ class ModelHubMixin(object):
             git_config = f.read().split()
         if (PREFIX+model_id) not in git_config:
             subprocess.run(["git", "remote", "add", "origin", PREFIX+model_id], stdout=subprocess.PIPE)
-
-            common_files = os.listdir()
-            common_files.remove(".git")
             subprocess.run(["git", "fetch", "origin"], stdout=subprocess.PIPE)
             if branch in os.listdir(".git/refs/remotes/origin"):
-                os.mkdir("temporary")
-                for file_name in common_files:
-                    shutil.move(file_name, os.path.join("temporary", file_name))
                 subprocess.run(["git", "merge", f"origin/{branch}"], stdout=subprocess.PIPE)
-                for file_name in common_files:
-                    shutil.move(os.path.join("temporary", file_name), file_name)
-                os.rmdir("temporary")
+        os.chdir("../")
 
+    def _push_git(self, save_directory, track_extensions, commit_message, branch):
+
+        os.chdir(save_directory)
         subprocess.run(["git-lfs", "track"]+track_extensions, stdout=subprocess.PIPE)
         subprocess.run(["git", "add", "."], stdout=subprocess.PIPE)
         subprocess.run(["git", "commit", "-m", commit_message], stdout=subprocess.PIPE)
