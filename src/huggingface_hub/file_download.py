@@ -215,7 +215,7 @@ def cached_download(
     proxies=None,
     etag_timeout=10,
     resume_download=False,
-    use_auth_token: Union[str, None] = None,
+    use_auth_token: Union[bool, str, None] = None,
     local_files_only=False,
 ) -> Optional[str]:  # pragma: no cover
     """

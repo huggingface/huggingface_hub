@@ -31,7 +31,7 @@
 - http://github.com/asteroid-team/asteroid [[initial PR 👀](https://github.com/asteroid-team/asteroid/pull/377)]
 - https://github.com/pyannote/pyannote-audio [[initial PR 👀](https://github.com/pyannote/pyannote-audio/pull/549)]
 - https://github.com/flairNLP/flair [[work-in-progress, initial PR 👀](https://github.com/flairNLP/flair/pull/1974)]
-- ESPNet [coming soon]
+- https://github.com/espnet/espnet [[initial PR 👀](https://github.com/espnet/espnet/pull/2815)]
 
 <br>
 
