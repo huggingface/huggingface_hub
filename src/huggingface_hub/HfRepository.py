@@ -6,13 +6,13 @@ class HfRepository:
     """Git-based system for HuggingFace Hub repositories"""
 
     def __init__(
-        self, repo_url: str, model_dir=".", huggingface_token: str = None, user: str = None, email: str = None
+        self, repo_url: str, model_dir=".", huggingface_token: str = None, user: str = None, email: str = None,
     ):
         """
         Initializes an existing HuggingFace-Hub repository that was previously created using ``HfApi().create_repo(token=huggingface_token,name=repo_name)``.
         ``HfRepository`` uses the local git credentials by default, but if required, the ``huggingface_token`` as well as the git ``user`` and the ``email`` can be specified.
         ``HfRepository`` will then override them. If the repository is being initialized into a directory where files already exists, e.g. a directory with your
-        trained model files, it will automatically merge them. 
+        trained model files, it will automatically merge them.
         Args:
             repo_url (``str``): repository url (e.g. ``'https://huggingface.co/philschmid/playground-tests'``) of the ``HfRepository`` on the HuggingFace Hub.
             model_dir (``str``, `optional`, defaults ``.``): path (e.g. ``'my_trained_model/'``) to the local directory, where the ``HfRepository``will be either cloned or initalized.
@@ -32,7 +32,9 @@ class HfRepository:
             subprocess.run(f"git clone {self.repo_url}".split(), check=True, cwd=self.model_dir)
         else:
             subprocess.run("git init".split(), check=True, cwd=self.model_dir)
-            subprocess.run(f"git remote add origin {self.repo_url}".split(), check=True, cwd=self.model_dir)
+            subprocess.run(
+                f"git remote add origin {self.repo_url}".split(), check=True, cwd=self.model_dir,
+            )
             subprocess.run("git fetch".split(), check=True, cwd=self.model_dir)
             subprocess.run("git reset origin/main".split(), check=True, cwd=self.model_dir)
             subprocess.run("git checkout origin/main -ft".split(), check=True, cwd=self.model_dir)
@@ -56,7 +58,7 @@ class HfRepository:
         """
         adds and commits files ine ``model_dir``.
         Args:
-            commit_message (``str``, default ``'commit files to HF hub'``): commit message. 
+            commit_message (``str``, default ``'commit files to HF hub'``): commit message.
         """
         subprocess.run("git add .".split(), check=True, cwd=self.model_dir)
         subprocess.run(["git", "commit", "-m", commit_message], check=True, cwd=self.model_dir)
@@ -71,7 +73,7 @@ class HfRepository:
         """
         commits and pushed files to remote repository on the HuggingFace Hub.
         Args:
-            commit_message (``str``, default ``'commit files to HF hub'``): commit message. 
+            commit_message (``str``, default ``'commit files to HF hub'``): commit message.
         """
         self.commit_files(commit_message)
         self.push_files()
