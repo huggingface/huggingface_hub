@@ -22,12 +22,14 @@ class HfRepository:
         """
 
         self.repo_url = repo_url
+        # adds huggingface_token to repo url if it is provided.
         if huggingface_token is not None:
             self.repo_url.replace("https://", f"https://user:{huggingface_token}@")
 
         os.makedirs(model_dir, exist_ok=True)
         self.model_dir = model_dir
 
+        # checks if repository is initialized in a empty repository or in an one with files
         if len(os.listdir(model_dir)) == 0:
             subprocess.run(f"git clone {self.repo_url}".split(), check=True, cwd=self.model_dir)
         else:
@@ -41,6 +43,7 @@ class HfRepository:
 
         subprocess.run("git lfs install".split(), check=True)
 
+        # overrides .git config if user and email is provided.
         if user is not None and email is not None:
             self.config_git_username_and_email(user, email)
 
