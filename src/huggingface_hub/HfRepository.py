@@ -1,27 +1,5 @@
 import os
 import subprocess
-from typing import Dict, List
-
-
-MODEL_CARD_TEMPLATE = """
----
-tags:
-- sagemaker
-datasets:
-- {dataset}
----
-## {model_id} Trained from SageMaker HuggingFace extension.
-
-#### Hyperparameters
-```json
-{hyperparameters}
-```
-
-#### Eval
-| key | value |
-| --- | ----- |
-{eval_table}
-"""
 
 
 class HfRepository:
