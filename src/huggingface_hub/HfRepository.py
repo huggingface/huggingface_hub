@@ -6,7 +6,7 @@ class HfRepository:
     """Git-based system for HuggingFace Hub repositories"""
 
     def __init__(
-        self, repo_url: str, model_dir: str = ".", huggingface_token: str = None, user: str = None, email: str = None
+        self, repo_url: str, model_dir=".", huggingface_token: str = None, user: str = None, email: str = None
     ):
         """
         Initializes an existing HuggingFace-Hub repository that was previously created using ``HfApi().create_repo(token=huggingface_token,name=repo_name)``.
@@ -34,6 +34,7 @@ class HfRepository:
             subprocess.run("git init".split(), check=True, cwd=self.model_dir)
             subprocess.run(f"git remote add origin {self.repo_url}".split(), check=True, cwd=self.model_dir)
             subprocess.run("git fetch".split(), check=True, cwd=self.model_dir)
+            subprocess.run("git reset origin/main".split(), check=True, cwd=self.model_dir)
             subprocess.run("git checkout origin/main -ft".split(), check=True, cwd=self.model_dir)
 
         subprocess.run("git lfs install".split(), check=True)
@@ -73,4 +74,4 @@ class HfRepository:
             commit_message (``str``, default ``'commit files to HF hub'``): commit message. 
         """
         self.commit_files(commit_message)
-        self.push_to_hub()
+        self.push_files()
