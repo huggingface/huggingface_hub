@@ -23,20 +23,28 @@ from .hf_api import HfFolder
 
 logger = logging.getLogger(__name__)
 
+_PY_VERSION: str = sys.version.split()[0]
 
+if tuple(int(i) for i in _PY_VERSION.split(".")) < (3, 8, 0):
+    import importlib_metadata
+else:
+    import importlib.metadata as importlib_metadata
+
+_torch_version = "N/A"
+_torch_available = False
 try:
-    import torch
-
+    _torch_version = importlib_metadata.version("torch")
     _torch_available = True
-except ImportError:
-    _torch_available = False
+except importlib_metadata.PackageNotFoundError:
+    pass
 
+_tf_version = "N/A"
+_tf_available = False
 try:
-    import tensorflow as tf
-
+    _tf_version = importlib_metadata.version("tensorflow")
     _tf_available = True
-except ImportError:
-    _tf_available = False
+except importlib_metadata.PackageNotFoundError:
+    pass
 
 
 def is_torch_available():
@@ -161,11 +169,11 @@ def http_user_agent(
     else:
         ua = "unknown/None"
     ua += "; hf_hub/{}".format(__version__)
-    ua += "; python/{}".format(sys.version.split()[0])
+    ua += "; python/{}".format(_PY_VERSION)
     if is_torch_available():
-        ua += "; torch/{}".format(torch.__version__)
+        ua += "; torch/{}".format(_torch_version)
     if is_tf_available():
-        ua += "; tensorflow/{}".format(tf.__version__)
+        ua += "; tensorflow/{}".format(_tf_version)
     if isinstance(user_agent, dict):
         ua += "; " + "; ".join("{}/{}".format(k, v) for k, v in user_agent.items())
     elif isinstance(user_agent, str):

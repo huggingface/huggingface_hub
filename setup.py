@@ -15,6 +15,7 @@ install_requires = [
     "filelock",
     "requests",
     "tqdm",
+    "importlib_metadata;python_version<'3.8'",
 ]
 
 extras = {}
