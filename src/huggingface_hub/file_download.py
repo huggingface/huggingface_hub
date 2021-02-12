@@ -18,6 +18,13 @@ import requests
 from filelock import FileLock
 
 from . import __version__
+from .constants import (
+    HUGGINGFACE_CO_URL_TEMPLATE,
+    HUGGINGFACE_HUB_CACHE,
+    REPO_TYPE_DATASET,
+    REPO_TYPE_DATASET_URL_PREFIX,
+    REPO_TYPES,
+)
 from .hf_api import HfFolder
 
 
@@ -55,34 +62,6 @@ def is_tf_available():
     return _tf_available
 
 
-# Constants for file downloads
-
-PYTORCH_WEIGHTS_NAME = "pytorch_model.bin"
-TF2_WEIGHTS_NAME = "tf_model.h5"
-TF_WEIGHTS_NAME = "model.ckpt"
-FLAX_WEIGHTS_NAME = "flax_model.msgpack"
-CONFIG_NAME = "config.json"
-
-HUGGINGFACE_CO_URL_HOME = "https://huggingface.co/"
-
-HUGGINGFACE_CO_URL_TEMPLATE = (
-    "https://huggingface.co/{repo_id}/resolve/{revision}/{filename}"
-)
-
-REPO_TYPE_DATASET = "datasets"
-REPO_TYPES = [None, REPO_TYPE_DATASET]
-
-# default cache
-hf_cache_home = os.path.expanduser(
-    os.getenv(
-        "HF_HOME", os.path.join(os.getenv("XDG_CACHE_HOME", "~/.cache"), "huggingface")
-    )
-)
-default_cache_path = os.path.join(hf_cache_home, "hub")
-
-HUGGINGFACE_HUB_CACHE = os.getenv("HUGGINGFACE_HUB_CACHE", default_cache_path)
-
-
 def hf_hub_url(
     repo_id: str,
     filename: str,
@@ -111,8 +90,8 @@ def hf_hub_url(
     if repo_type not in REPO_TYPES:
         raise ValueError("Invalid repo type")
 
-    if repo_type is not None:
-        repo_id = f"{repo_type}/{repo_id}"
+    if repo_type == REPO_TYPE_DATASET:
+        repo_id = f"{REPO_TYPE_DATASET_URL_PREFIX}{repo_id}"
 
     if revision is None:
         revision = "main"

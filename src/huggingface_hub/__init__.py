@@ -18,7 +18,7 @@
 
 __version__ = "0.0.1"
 
-from .file_download import (
+from .constants import (
     CONFIG_NAME,
     FLAX_WEIGHTS_NAME,
     HUGGINGFACE_CO_URL_HOME,
@@ -27,7 +27,6 @@ from .file_download import (
     REPO_TYPE_DATASET,
     TF2_WEIGHTS_NAME,
     TF_WEIGHTS_NAME,
-    cached_download,
-    hf_hub_url,
 )
+from .file_download import cached_download, hf_hub_url
 from .hf_api import HfApi, HfFolder

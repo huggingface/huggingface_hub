@@ -15,14 +15,12 @@
 import unittest
 
 import requests
-from huggingface_hub.file_download import (
+from huggingface_hub.constants import (
     CONFIG_NAME,
     PYTORCH_WEIGHTS_NAME,
     REPO_TYPE_DATASET,
-    cached_download,
-    filename_to_url,
-    hf_hub_url,
 )
+from huggingface_hub.file_download import cached_download, filename_to_url, hf_hub_url
 
 from .testing_utils import DUMMY_UNKWOWN_IDENTIFIER, SAMPLE_DATASET_IDENTIFIER
 
