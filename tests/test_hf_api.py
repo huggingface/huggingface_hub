@@ -19,6 +19,7 @@ import subprocess
 import time
 import unittest
 
+from huggingface_hub.constants import REPO_TYPE_DATASET
 from huggingface_hub.hf_api import HfApi, HfFolder, ModelInfo, RepoObj
 from requests.exceptions import HTTPError
 
@@ -33,6 +34,7 @@ ENDPOINT_STAGING_BASIC_AUTH = f"https://{USER}:{PASS}@moon-staging.huggingface.c
 
 REPO_NAME = "my-model-{}".format(int(time.time() * 10e3))
 REPO_NAME_LARGE_FILE = "my-model-largefiles-{}".format(int(time.time() * 10e3))
+DATASET_REPO_NAME = "my-dataset-{}".format(int(time.time() * 10e3))
 WORKING_REPO_DIR = os.path.join(
     os.path.dirname(os.path.abspath(__file__)), "fixtures/working_repo"
 )
@@ -77,6 +79,14 @@ class HfApiEndpointsTest(HfApiCommonTest):
     def test_create_and_delete_repo(self):
         self._api.create_repo(token=self._token, name=REPO_NAME)
         self._api.delete_repo(token=self._token, name=REPO_NAME)
+
+    def test_create_and_delete_dataset_repo(self):
+        self._api.create_repo(
+            token=self._token, name=REPO_NAME, repo_type=REPO_TYPE_DATASET
+        )
+        self._api.delete_repo(
+            token=self._token, name=REPO_NAME, repo_type=REPO_TYPE_DATASET
+        )
 
 
 class HfApiPublicTest(unittest.TestCase):

@@ -91,7 +91,7 @@ def hf_hub_url(
         raise ValueError("Invalid repo type")
 
     if repo_type == REPO_TYPE_DATASET:
-        repo_id = f"{REPO_TYPE_DATASET_URL_PREFIX}{repo_id}"
+        repo_id = REPO_TYPE_DATASET_URL_PREFIX + repo_id
 
     if revision is None:
         revision = "main"
