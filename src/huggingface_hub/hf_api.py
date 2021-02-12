@@ -20,6 +20,8 @@ from typing import Dict, List, Optional, Tuple
 
 import requests
 
+from .constants import REPO_TYPES
+
 
 ENDPOINT = "https://huggingface.co"
 
@@ -139,6 +141,7 @@ class HfApi:
         name: str,
         organization: Optional[str] = None,
         private: Optional[bool] = None,
+        repo_type: Optional[str] = None,
         exist_ok=False,
         lfsmultipartthresh: Optional[int] = None,
     ) -> str:
@@ -150,12 +153,20 @@ class HfApi:
         Params:
             private: Whether the model repo should be private (requires a paid huggingface.co account)
 
+            repo_type: Set to "dataset" if creating a dataset, default is model
+
             exist_ok: Do not raise an error if repo already exists
 
             lfsmultipartthresh: Optional: internal param for testing purposes.
         """
         path = "{}/api/repos/create".format(self.endpoint)
+
+        if repo_type not in REPO_TYPES:
+            raise ValueError("Invalid repo type")
+
         json = {"name": name, "organization": organization, "private": private}
+        if repo_type is not None:
+            json["type"] = repo_type
         if lfsmultipartthresh is not None:
             json["lfsmultipartthresh"] = lfsmultipartthresh
         r = requests.post(
@@ -169,7 +180,13 @@ class HfApi:
         d = r.json()
         return d["url"]
 
-    def delete_repo(self, token: str, name: str, organization: Optional[str] = None):
+    def delete_repo(
+        self,
+        token: str,
+        name: str,
+        organization: Optional[str] = None,
+        repo_type: Optional[str] = None,
+    ):
         """
         HuggingFace git-based system, used for models.
 
@@ -178,10 +195,18 @@ class HfApi:
         CAUTION(this is irreversible).
         """
         path = "{}/api/repos/delete".format(self.endpoint)
+
+        if repo_type not in REPO_TYPES:
+            raise ValueError("Invalid repo type")
+
+        json = {"name": name, "organization": organization}
+        if repo_type is not None:
+            json["type"] = repo_type
+
         r = requests.delete(
             path,
             headers={"authorization": "Bearer {}".format(token)},
-            json={"name": name, "organization": organization},
+            json=json,
         )
         r.raise_for_status()
 

@@ -8,6 +8,9 @@ DUMMY_UNKWOWN_IDENTIFIER = "julien-c/dummy-unknown"
 DUMMY_DIFF_TOKENIZER_IDENTIFIER = "julien-c/dummy-diff-tokenizer"
 # Example model ids
 
+SAMPLE_DATASET_IDENTIFIER = "lhoestq/custom_squad"
+# Example dataset ids
+
 
 def parse_flag_from_env(key, default=False):
     try:

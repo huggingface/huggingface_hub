@@ -18,6 +18,11 @@ from getpass import getpass
 from typing import List, Union
 
 from huggingface_hub.commands import BaseHuggingfaceCLICommand
+from huggingface_hub.constants import (
+    REPO_TYPE_DATASET,
+    REPO_TYPE_DATASET_URL_PREFIX,
+    REPO_TYPES,
+)
 from huggingface_hub.hf_api import HfApi, HfFolder
 from requests.exceptions import HTTPError
 
@@ -57,7 +62,12 @@ class UserCommands(BaseHuggingfaceCLICommand):
         repo_create_parser.add_argument(
             "name",
             type=str,
-            help="Name for your model's repo. Will be namespaced under your username to build the model id.",
+            help="Name for your repo. Will be namespaced under your username to build the repo id.",
+        )
+        repo_create_parser.add_argument(
+            "--type",
+            type=str,
+            help='Optional: repo_type: set to "dataset" if creating a dataset, default is model.',
         )
         repo_create_parser.add_argument(
             "--organization", type=str, help="Optional: organization namespace."
@@ -223,11 +233,16 @@ class RepoCreateCommand(BaseUserCommand):
             self.args.organization if self.args.organization is not None else user
         )
 
-        print(
-            "You are about to create {}".format(
-                ANSI.bold(namespace + "/" + self.args.name)
-            )
-        )
+        repo_id = f"{namespace}/{self.args.name}"
+
+        if self.args.type not in REPO_TYPES:
+            print("Invalid repo --type")
+            exit(1)
+
+        if self.args.type == REPO_TYPE_DATASET:
+            repo_id = REPO_TYPE_DATASET_URL_PREFIX + repo_id
+
+        print("You are about to create {}".format(ANSI.bold(repo_id)))
 
         if not self.args.yes:
             choice = input("Proceed? [Y/n] ").lower()
@@ -236,7 +251,10 @@ class RepoCreateCommand(BaseUserCommand):
                 exit()
         try:
             url = self._api.create_repo(
-                token, name=self.args.name, organization=self.args.organization
+                token,
+                name=self.args.name,
+                organization=self.args.organization,
+                repo_type=self.args.type,
             )
         except HTTPError as e:
             print(e)

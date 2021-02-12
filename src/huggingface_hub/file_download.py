@@ -18,6 +18,13 @@ import requests
 from filelock import FileLock
 
 from . import __version__
+from .constants import (
+    HUGGINGFACE_CO_URL_TEMPLATE,
+    HUGGINGFACE_HUB_CACHE,
+    REPO_TYPE_DATASET,
+    REPO_TYPE_DATASET_URL_PREFIX,
+    REPO_TYPES,
+)
 from .hf_api import HfFolder
 
 
@@ -55,34 +62,11 @@ def is_tf_available():
     return _tf_available
 
 
-# Constants for file downloads
-
-PYTORCH_WEIGHTS_NAME = "pytorch_model.bin"
-TF2_WEIGHTS_NAME = "tf_model.h5"
-TF_WEIGHTS_NAME = "model.ckpt"
-FLAX_WEIGHTS_NAME = "flax_model.msgpack"
-CONFIG_NAME = "config.json"
-
-HUGGINGFACE_CO_URL_TEMPLATE = (
-    "https://huggingface.co/{model_id}/resolve/{revision}/{filename}"
-)
-
-
-# default cache
-hf_cache_home = os.path.expanduser(
-    os.getenv(
-        "HF_HOME", os.path.join(os.getenv("XDG_CACHE_HOME", "~/.cache"), "huggingface")
-    )
-)
-default_cache_path = os.path.join(hf_cache_home, "hub")
-
-HUGGINGFACE_HUB_CACHE = os.getenv("HUGGINGFACE_HUB_CACHE", default_cache_path)
-
-
 def hf_hub_url(
-    model_id: str,
+    repo_id: str,
     filename: str,
     subfolder: Optional[str] = None,
+    repo_type: Optional[str] = None,
     revision: Optional[str] = None,
 ) -> str:
     """
@@ -103,10 +87,16 @@ def hf_hub_url(
     if subfolder is not None:
         filename = f"{subfolder}/{filename}"
 
+    if repo_type not in REPO_TYPES:
+        raise ValueError("Invalid repo type")
+
+    if repo_type == REPO_TYPE_DATASET:
+        repo_id = REPO_TYPE_DATASET_URL_PREFIX + repo_id
+
     if revision is None:
         revision = "main"
     return HUGGINGFACE_CO_URL_TEMPLATE.format(
-        model_id=model_id, revision=revision, filename=filename
+        repo_id=repo_id, revision=revision, filename=filename
     )
 
 
@@ -286,8 +276,17 @@ def cached_download(
             # between the HEAD and the GET (unlikely, but hey).
             if 300 <= r.status_code <= 399:
                 url_to_download = r.headers["Location"]
-        except (requests.exceptions.ConnectionError, requests.exceptions.Timeout):
-            # etag is already None
+        except (
+            requests.exceptions.ConnectionError,
+            requests.exceptions.Timeout,
+        ) as exc:
+            # Actually raise for those subclasses of ConnectionError:
+            if isinstance(exc, requests.exceptions.SSLError) or isinstance(
+                exc, requests.exceptions.ProxyError
+            ):
+                raise exc
+            # Otherwise, our Internet connection is down.
+            # etag is None
             pass
 
     filename = url_to_filename(url, etag)
