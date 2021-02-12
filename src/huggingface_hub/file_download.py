@@ -66,9 +66,10 @@ CONFIG_NAME = "config.json"
 HUGGINGFACE_CO_URL_HOME = "https://huggingface.co/"
 
 HUGGINGFACE_CO_URL_TEMPLATE = (
-    "https://huggingface.co/{model_id}/resolve/{revision}/{filename}"
+    "https://huggingface.co/{repo_id}/resolve/{revision}/{filename}"
 )
 
+REPO_TYPES = [None, "datasets"]
 
 # default cache
 hf_cache_home = os.path.expanduser(
@@ -82,9 +83,10 @@ HUGGINGFACE_HUB_CACHE = os.getenv("HUGGINGFACE_HUB_CACHE", default_cache_path)
 
 
 def hf_hub_url(
-    model_id: str,
+    repo_id: str,
     filename: str,
     subfolder: Optional[str] = None,
+    repo_type: Optional[str] = None,
     revision: Optional[str] = None,
 ) -> str:
     """
@@ -105,10 +107,16 @@ def hf_hub_url(
     if subfolder is not None:
         filename = f"{subfolder}/{filename}"
 
+    if repo_type not in REPO_TYPES:
+        raise ValueError("Invalid repo type")
+
+    if repo_type is not None:
+        repo_id = f"{repo_type}/{repo_id}"
+
     if revision is None:
         revision = "main"
     return HUGGINGFACE_CO_URL_TEMPLATE.format(
-        model_id=model_id, revision=revision, filename=filename
+        repo_id=repo_id, revision=revision, filename=filename
     )
 
 

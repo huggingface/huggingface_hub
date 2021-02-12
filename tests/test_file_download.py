@@ -23,11 +23,15 @@ from huggingface_hub.file_download import (
     hf_hub_url,
 )
 
-from .testing_utils import DUMMY_UNKWOWN_IDENTIFIER
+from .testing_utils import DUMMY_UNKWOWN_IDENTIFIER, SAMPLE_DATASET_IDENTIFIER
 
 
 MODEL_ID = DUMMY_UNKWOWN_IDENTIFIER
 # An actual model hosted on huggingface.co
+
+DATASET_ID = SAMPLE_DATASET_IDENTIFIER
+# An actual dataset hosted on huggingface.co
+
 
 REVISION_ID_DEFAULT = "main"
 # Default branch name
@@ -40,6 +44,10 @@ PINNED_SHA1 = "d9e9f15bc825e4b2c9249e9578f884bbcb5e3684"
 # Sha-1 of config.json on the top of `main`, for checking purposes
 PINNED_SHA256 = "4b243c475af8d0a7754e87d7d096c92e5199ec2fe168a2ee7998e3b8e9bcb1d3"
 # Sha-256 of pytorch_model.bin on the top of `main`, for checking purposes
+
+DATASET_REVISION_ID_ONE_SPECIFIC_COMMIT = "e25d55a1c4933f987c46cc75d8ffadd67f257c61"
+# One particular commit for DATASET_ID
+DATASET_SAMPLE_PY_FILE = "custom_squad.py"
 
 
 class CachedDownloadTests(unittest.TestCase):
@@ -86,3 +94,36 @@ class CachedDownloadTests(unittest.TestCase):
         filepath = cached_download(url, force_download=True)
         metadata = filename_to_url(filepath)
         self.assertEqual(metadata, (url, f'"{PINNED_SHA256}"'))
+
+    def test_dataset_standard_object_rev(self):
+        url = hf_hub_url(
+            DATASET_ID,
+            filename=DATASET_SAMPLE_PY_FILE,
+            repo_type="datasets",
+            revision=DATASET_REVISION_ID_ONE_SPECIFIC_COMMIT,
+        )
+        # We can also just get the same url by prefixing "datasets" to repo_id:
+        url2 = hf_hub_url(
+            repo_id=f"datasets/{DATASET_ID}",
+            filename=DATASET_SAMPLE_PY_FILE,
+            revision=DATASET_REVISION_ID_ONE_SPECIFIC_COMMIT,
+        )
+        self.assertEqual(url, url2)
+        # now let's download
+        filepath = cached_download(url, force_download=True)
+        metadata = filename_to_url(filepath)
+        self.assertNotEqual(metadata[1], f'"{PINNED_SHA1}"')
+
+    def test_dataset_lfs_object(self):
+        url = hf_hub_url(
+            DATASET_ID,
+            filename="dev-v1.1.json",
+            repo_type="datasets",
+            revision=DATASET_REVISION_ID_ONE_SPECIFIC_COMMIT,
+        )
+        filepath = cached_download(url, force_download=True)
+        metadata = filename_to_url(filepath)
+        self.assertEqual(
+            metadata,
+            (url, '"95aa6a52d5d6a735563366753ca50492a658031da74f301ac5238b03966972c9"'),
+        )

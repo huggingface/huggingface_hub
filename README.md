@@ -42,7 +42,7 @@ Integration inside a library is super simple. We expose two functions, `hf_hub_u
 ### `hf_hub_url`
 
 `hf_hub_url()` takes:
-- a model id (like `julien-c/EsperBERTo-small` i.e. a user or organization name and a repo name, separated by `/`),
+- a repo id (e.g. a model id like `julien-c/EsperBERTo-small` i.e. a user or organization name and a repo name, separated by `/`),
 - a filename (like `pytorch_model.bin`),
 - and an optional git revision id (can be a branch name, a tag, or a commit hash)
 
