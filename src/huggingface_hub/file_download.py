@@ -69,7 +69,8 @@ HUGGINGFACE_CO_URL_TEMPLATE = (
     "https://huggingface.co/{repo_id}/resolve/{revision}/{filename}"
 )
 
-REPO_TYPES = [None, "datasets"]
+REPO_TYPE_DATASET = "datasets"
+REPO_TYPES = [None, REPO_TYPE_DATASET]
 
 # default cache
 hf_cache_home = os.path.expanduser(

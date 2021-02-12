@@ -24,6 +24,7 @@ from .file_download import (
     HUGGINGFACE_CO_URL_HOME,
     HUGGINGFACE_CO_URL_TEMPLATE,
     PYTORCH_WEIGHTS_NAME,
+    REPO_TYPE_DATASET,
     TF2_WEIGHTS_NAME,
     TF_WEIGHTS_NAME,
     cached_download,

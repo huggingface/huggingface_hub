@@ -18,6 +18,7 @@ import requests
 from huggingface_hub.file_download import (
     CONFIG_NAME,
     PYTORCH_WEIGHTS_NAME,
+    REPO_TYPE_DATASET,
     cached_download,
     filename_to_url,
     hf_hub_url,
@@ -99,7 +100,7 @@ class CachedDownloadTests(unittest.TestCase):
         url = hf_hub_url(
             DATASET_ID,
             filename=DATASET_SAMPLE_PY_FILE,
-            repo_type="datasets",
+            repo_type=REPO_TYPE_DATASET,
             revision=DATASET_REVISION_ID_ONE_SPECIFIC_COMMIT,
         )
         # We can also just get the same url by prefixing "datasets" to repo_id:
@@ -118,7 +119,7 @@ class CachedDownloadTests(unittest.TestCase):
         url = hf_hub_url(
             DATASET_ID,
             filename="dev-v1.1.json",
-            repo_type="datasets",
+            repo_type=REPO_TYPE_DATASET,
             revision=DATASET_REVISION_ID_ONE_SPECIFIC_COMMIT,
         )
         filepath = cached_download(url, force_download=True)
