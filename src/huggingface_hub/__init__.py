@@ -18,5 +18,15 @@
 
 __version__ = "0.0.1"
 
-from .file_download import HUGGINGFACE_CO_URL_TEMPLATE, cached_download, hf_hub_url
+from .file_download import (
+    CONFIG_NAME,
+    FLAX_WEIGHTS_NAME,
+    HUGGINGFACE_CO_URL_HOME,
+    HUGGINGFACE_CO_URL_TEMPLATE,
+    PYTORCH_WEIGHTS_NAME,
+    TF2_WEIGHTS_NAME,
+    TF_WEIGHTS_NAME,
+    cached_download,
+    hf_hub_url,
+)
 from .hf_api import HfApi, HfFolder
