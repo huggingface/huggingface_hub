@@ -3,7 +3,7 @@ name: Release - Conda
 on:
   push:
     tags:
-      - "[0-9]+.[0-9]+.[0-9]+*"
+      - v*
     branches:
       - conda_*
 
