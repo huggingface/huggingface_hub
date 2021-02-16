@@ -42,4 +42,4 @@ jobs:
 
       - name: Upload to Anaconda
         run: |
-          anaconda upload `conda-build .github/conda --output -c conda-forge` --force
+          anaconda upload `conda-build .github/conda --output` --force
