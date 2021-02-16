@@ -1,4 +1,4 @@
-name: Release - Conda
+name: Release Conda
 
 on:
   push:
