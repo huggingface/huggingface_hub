@@ -1,0 +1,35 @@
+{% set name = "huggingface_hub" %}
+
+package:
+  name: "{{ name|lower }}"
+  version: "{{ HUB_VERSION }}"
+
+source:
+  path: ../../
+
+build:
+  noarch: python
+
+requirements:
+  host:
+    - python
+    - pip
+    - filelock
+    - requests
+    - tqdm
+  run:
+    - python
+    - pip
+    - filelock
+    - requests
+    - tqdm
+
+test:
+  imports:
+    - huggingface_hub
+
+about:
+  home: https://huggingface.co
+  license: Apache License 2.0
+  license_file: LICENSE
+  summary: "Client library to download and publish models and other files on the huggingface.co hub"
