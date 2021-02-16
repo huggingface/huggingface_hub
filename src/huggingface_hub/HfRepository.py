@@ -24,7 +24,7 @@ class HfRepository:
         self.repo_url = repo_url
         # adds huggingface_token to repo url if it is provided.
         if huggingface_token is not None:
-            self.repo_url.replace("https://", f"https://user:{huggingface_token}@")
+            self.repo_url = self.repo_url.replace("https://", f"https://user:{huggingface_token}@")
 
         os.makedirs(model_dir, exist_ok=True)
         self.model_dir = model_dir
@@ -41,11 +41,11 @@ class HfRepository:
             subprocess.run("git reset origin/main".split(), check=True, cwd=self.model_dir)
             subprocess.run("git checkout origin/main -ft".split(), check=True, cwd=self.model_dir)
 
-        subprocess.run("git lfs install".split(), check=True)
-
         # overrides .git config if user and email is provided.
         if user is not None and email is not None:
             self.config_git_username_and_email(user, email)
+
+        subprocess.run("git lfs install".split(), check=True)
 
     def config_git_username_and_email(self, user: str, email: str):
         """
@@ -54,8 +54,8 @@ class HfRepository:
             user (``str``): will override the ``git config user.name`` for committing and pushing files to the hub.
             email (``str``): will override the ``git config user.email`` for committing and pushing files to the hub.
         """
-        subprocess.run(f"git config user.email {email}".split(), check=True)
-        subprocess.run(f"git config user.name {user}".split(), check=True)
+        subprocess.run(f"git config user.email {email}".split(), check=True, cwd=self.model_dir)
+        subprocess.run(f"git config user.name {user}".split(), check=True, cwd=self.model_dir)
 
     def commit_files(self, commit_message="commit files to HF hub"):
         """
