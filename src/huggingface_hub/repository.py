@@ -61,13 +61,11 @@ class Repository:
             self.clone_from(repo_url=clone_from, use_auth_token=use_auth_token)
         else:
             try:
-                remotes = subprocess.run(
+                remotes = subprocess.check_output(
                     ["git", "remote", "-v"],
-                    check=True,
-                    capture_output=True,
                     encoding="utf-8",
                     cwd=self.local_dir,
-                ).stdout
+                )
                 logger.debug("[Repository] has remotes")
                 logger.debug(remotes)
             except subprocess.CalledProcessError:
@@ -87,21 +85,19 @@ class Repository:
         print git and git-lfs versions, raises if they aren't installed.
         """
         try:
-            git_version = subprocess.run(
-                ["git", "--version"], check=True, capture_output=True, encoding="utf-8"
-            ).stdout.strip()
+            git_version = subprocess.check_output(
+                ["git", "--version"], encoding="utf-8"
+            ).strip()
         except FileNotFoundError:
             raise EnvironmentError(
                 "Looks like you do not have git installed, please install."
             )
 
         try:
-            lfs_version = subprocess.run(
+            lfs_version = subprocess.check_output(
                 ["git-lfs", "--version"],
-                check=True,
-                capture_output=True,
                 encoding="utf-8",
-            ).stdout.strip()
+            ).strip()
         except FileNotFoundError:
             raise EnvironmentError(
                 "Looks like you do not have git-lfs installed, please install."

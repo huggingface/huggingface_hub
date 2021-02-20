@@ -60,7 +60,6 @@ class RepositoryTest(RepositoryCommonTest):
         subprocess.run(
             ["git", "clone", self._repo_url, WORKING_REPO_DIR],
             check=True,
-            capture_output=True,
         )
 
         repo = Repository(WORKING_REPO_DIR)
@@ -110,4 +109,8 @@ class RepositoryTest(RepositoryCommonTest):
 
         repo.git_add()
         repo.git_commit()
-        repo.git_push()
+        try:
+            repo.git_push()
+        except subprocess.CalledProcessError as exc:
+            print(exc.stderr)
+            raise exc
