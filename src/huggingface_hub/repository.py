@@ -2,7 +2,7 @@ import os
 import subprocess
 
 
-class HfRepository:
+class Repository:
     """Git-based system for HuggingFace Hub repositories"""
 
     def __init__(
@@ -10,12 +10,12 @@ class HfRepository:
     ):
         """
         Initializes an existing HuggingFace-Hub repository that was previously created using ``HfApi().create_repo(token=huggingface_token,name=repo_name)``.
-        ``HfRepository`` uses the local git credentials by default, but if required, the ``huggingface_token`` as well as the git ``user`` and the ``email`` can be specified.
-        ``HfRepository`` will then override them. If the repository is being initialized into a directory where files already exists, e.g. a directory with your
+        ``Repository`` uses the local git credentials by default, but if required, the ``huggingface_token`` as well as the git ``user`` and the ``email`` can be specified.
+        ``Repository`` will then override them. If the repository is being initialized into a directory where files already exists, e.g. a directory with your
         trained model files, it will automatically merge them.
         Args:
-            repo_url (``str``): repository url (e.g. ``'https://huggingface.co/philschmid/playground-tests'``) of the ``HfRepository`` on the HuggingFace Hub.
-            model_dir (``str``, `optional`, defaults ``.``): path (e.g. ``'my_trained_model/'``) to the local directory, where the ``HfRepository``will be either cloned or initalized.
+            repo_url (``str``): repository url (e.g. ``'https://huggingface.co/philschmid/playground-tests'``) of the ``Repository`` on the HuggingFace Hub.
+            model_dir (``str``, `optional`, defaults ``.``): path (e.g. ``'my_trained_model/'``) to the local directory, where the ``Repository``will be either cloned or initalized.
             huggingface_token (``str``, `optional`, defaults ``None``): huggingface_token can be extract from ``HfApi().login(username, password)`` and is used to authenticate against the hub.
             user (``str``, `optional`, defaults ``None``): will override the ``git config user.name`` for committing and pushing files to the hub.
             email (``str``, `optional`, defaults ``None``): will override the ``git config user.email`` for committing and pushing files to the hub.
