@@ -27,12 +27,10 @@ from typing import Dict, List, Optional
 
 import requests
 from huggingface_hub.commands import BaseHuggingfaceCLICommand
+from huggingface_hub.lfs import LFS_MULTIPART_UPLOAD_COMMAND
 
 
 logger = logging.getLogger(__name__)
-
-
-LFS_MULTIPART_UPLOAD_COMMAND = "lfs-multipart-upload"
 
 
 class LfsCommands(BaseHuggingfaceCLICommand):
