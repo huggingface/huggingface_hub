@@ -6,7 +6,12 @@ class Repository:
     """Git-based system for HuggingFace Hub repositories"""
 
     def __init__(
-        self, repo_url: str, model_dir=".", huggingface_token: str = None, user: str = None, email: str = None,
+        self,
+        repo_url: str,
+        model_dir=".",
+        huggingface_token: str = None,
+        user: str = None,
+        email: str = None,
     ):
         """
         Initializes an existing HuggingFace-Hub repository that was previously created using ``HfApi().create_repo(token=huggingface_token,name=repo_name)``.
@@ -24,22 +29,32 @@ class Repository:
         self.repo_url = repo_url
         # adds huggingface_token to repo url if it is provided.
         if huggingface_token is not None:
-            self.repo_url = self.repo_url.replace("https://", f"https://user:{huggingface_token}@")
+            self.repo_url = self.repo_url.replace(
+                "https://", f"https://user:{huggingface_token}@"
+            )
 
         os.makedirs(model_dir, exist_ok=True)
         self.model_dir = model_dir
 
         # checks if repository is initialized in a empty repository or in an one with files
         if len(os.listdir(model_dir)) == 0:
-            subprocess.run(f"git clone {self.repo_url}".split(), check=True, cwd=self.model_dir)
+            subprocess.run(
+                f"git clone {self.repo_url}".split(), check=True, cwd=self.model_dir
+            )
         else:
             subprocess.run("git init".split(), check=True, cwd=self.model_dir)
             subprocess.run(
-                f"git remote add origin {self.repo_url}".split(), check=True, cwd=self.model_dir,
+                f"git remote add origin {self.repo_url}".split(),
+                check=True,
+                cwd=self.model_dir,
             )
             subprocess.run("git fetch".split(), check=True, cwd=self.model_dir)
-            subprocess.run("git reset origin/main".split(), check=True, cwd=self.model_dir)
-            subprocess.run("git checkout origin/main -ft".split(), check=True, cwd=self.model_dir)
+            subprocess.run(
+                "git reset origin/main".split(), check=True, cwd=self.model_dir
+            )
+            subprocess.run(
+                "git checkout origin/main -ft".split(), check=True, cwd=self.model_dir
+            )
 
         # overrides .git config if user and email is provided.
         if user is not None and email is not None:
@@ -54,8 +69,12 @@ class Repository:
             user (``str``): will override the ``git config user.name`` for committing and pushing files to the hub.
             email (``str``): will override the ``git config user.email`` for committing and pushing files to the hub.
         """
-        subprocess.run(f"git config user.email {email}".split(), check=True, cwd=self.model_dir)
-        subprocess.run(f"git config user.name {user}".split(), check=True, cwd=self.model_dir)
+        subprocess.run(
+            f"git config user.email {email}".split(), check=True, cwd=self.model_dir
+        )
+        subprocess.run(
+            f"git config user.name {user}".split(), check=True, cwd=self.model_dir
+        )
 
     def commit_files(self, commit_message="commit files to HF hub"):
         """
@@ -64,7 +83,9 @@ class Repository:
             commit_message (``str``, default ``'commit files to HF hub'``): commit message.
         """
         subprocess.run("git add .".split(), check=True, cwd=self.model_dir)
-        subprocess.run(["git", "commit", "-m", commit_message], check=True, cwd=self.model_dir)
+        subprocess.run(
+            ["git", "commit", "-m", commit_message], check=True, cwd=self.model_dir
+        )
 
     def push_files(self):
         """
