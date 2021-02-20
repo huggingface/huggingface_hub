@@ -93,7 +93,13 @@ class RepositoryTest(RepositoryCommonTest):
         repo.git_pull()
 
     def test_add_commit_push(self):
-        repo = Repository(WORKING_REPO_DIR, clone_from=self._repo_url)
+        repo = Repository(
+            WORKING_REPO_DIR,
+            clone_from=self._repo_url,
+            use_auth_token=self._token,
+            git_user="ci",
+            git_email="ci@dummy.com",
+        )
 
         # Create dummy files
         # one is lfs-tracked, the other is not.
