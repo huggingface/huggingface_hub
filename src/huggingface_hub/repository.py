@@ -3,7 +3,12 @@ import subprocess
 
 
 class Repository:
-    """Git-based system for HuggingFace Hub repositories"""
+    """
+    Helper class to wrap the git and git-lfs commands.
+
+    The aim is to facilitate interacting with huggingface.co hosted model or dataset repos,
+    though not a lot here (if any) is actually specific to huggingface.co.
+    """
 
     def __init__(
         self,
