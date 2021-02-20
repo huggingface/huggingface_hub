@@ -1,9 +1,10 @@
 import logging
 import os
 import subprocess
-from typing import Optional
+from typing import List, Optional, Union
 
 from .constants import HUGGINGFACE_CO_URL_HOME
+from .lfs import LFS_MULTIPART_UPLOAD_COMMAND
 
 
 logger = logging.getLogger(__name__)
@@ -28,12 +29,13 @@ class Repository:
         """
         Instantiate a local clone of a git repo.
 
-        If specifying a `clone_from`, will clone an existing HuggingFace-Hub repository
+        If specifying a `clone_from`:
+        will clone an existing remote repository
         that was previously created using ``HfApi().create_repo(token=huggingface_token, name=repo_name)``.
         ``Repository`` uses the local git credentials by default, but if required, the ``huggingface_token``
         as well as the git ``user`` and the ``email`` can be specified.
         ``Repository`` will then override them.
-        If `clone_from` is used, and the repository is being instantiated into a directory where files already exists,
+        If `clone_from` is used, and the repository is being instantiated into a non-empty directory,
         e.g. a directory with your trained model files, it will automatically merge them.
 
         Args:
@@ -64,10 +66,13 @@ class Repository:
                 pass
 
         # overrides .git config if user and email is provided.
-        if user is not None or email is not None:
-            self.git_config_username_and_email(user, email)
+        if git_user is not None or git_email is not None:
+            self.git_config_username_and_email(git_user, git_email)
 
     def check_git_versions(self):
+        """
+        print git and git-lfs versions
+        """
         try:
             stdout = subprocess.check_output(["git", "--version"]).decode("utf-8")
             print(ANSI.gray(stdout.strip()))
@@ -88,8 +93,9 @@ class Repository:
         print("")
 
     def clone_from(self, repo_url: str, use_auth_token: Union[bool, str, None] = None):
-
-        # adds huggingface_token to repo url if it is provided.
+        """
+        Clone from a remote.
+        """
         if isinstance(use_auth_token, str):
             huggingface_token = use_auth_token
         elif use_auth_token:
@@ -98,6 +104,8 @@ class Repository:
         if huggingface_token is not None and repo_url.startswith(
             HUGGINGFACE_CO_URL_HOME
         ):
+            # adds huggingface_token to repo url if it is provided.
+            # do not leak user token if it's not a repo on hf.co
             repo_url = repo_url.replace(
                 "https://", f"https://user:{huggingface_token}@"
             )
@@ -129,61 +137,86 @@ class Repository:
             )
 
     def git_config_username_and_email(
-        self, user: Optional[str] = None, email: Optional[str] = None
+        self, git_user: Optional[str] = None, git_email: Optional[str] = None
     ):
         """
-        sets git user and email for committing files to repository
-        Args:
-            user (``str``):
-                will override the ``git config user.name`` for committing.
-            email (``str``):
-                will override the ``git config user.email`` for committing.
+        sets git user name and email
         """
-        if email is not None:
+        if git_user is not None:
             subprocess.run(
-                f"git config user.email {email}".split(), check=True, cwd=self.local_dir
+                f"git config user.name {git_user}".split(),
+                check=True,
+                cwd=self.local_dir,
             )
-        if user is not None:
+        if git_email is not None:
             subprocess.run(
-                f"git config user.name {user}".split(), check=True, cwd=self.local_dir
+                f"git config user.email {git_email}".split(),
+                check=True,
+                cwd=self.local_dir,
             )
 
-    def git_lfs_track():
-        pass
-
-    def git_add(self):
+    def lfs_track(self, patterns: List[str]):
         """
-        adds and commits files ine ``local_dir``.
-        Args:
-            commit_message (``str``, default ``'commit files to HF hub'``): commit message.
+        Tell git-lfs to track those files.
+        """
+        for pattern in patterns:
+            subprocess.run(
+                ["git", "lfs", "track", pattern], check=True, cwd=self.local_dir
+            )
+
+    def lfs_enable_largesfiles(self):
+        """
+        HF-specific. This enables upload support of files >5GB.
+        """
+        subprocess.run(
+            "git config lfs.customtransfer.multipart.path huggingface-cli".split(),
+            check=True,
+            cwd=self.local_dir,
+        )
+        subprocess.run(
+            f"git config lfs.customtransfer.multipart.args {LFS_MULTIPART_UPLOAD_COMMAND}".split(),
+            check=True,
+            cwd=self.local_dir,
+        )
+
+    def git_pull(self, rebase: Optional[bool] = False):
+        """
+        git pull
+        """
+        args = "git add".split()
+        if rebase:
+            args.append("--rebase")
+        subprocess.run(args, check=True, cwd=self.local_dir)
+
+    def git_add(self, pattern="."):
+        """
+        git add
         """
         subprocess.run("git add .".split(), check=True, cwd=self.local_dir)
+        subprocess.run(
+            ["git", "commit", "-m", commit_message], check=True, cwd=self.local_dir
+        )
+
+    def git_commit(self, commit_message="commit files to HF hub"):
+        """
+        git commit
+        """
         subprocess.run(
             ["git", "commit", "-m", commit_message], check=True, cwd=self.local_dir
         )
 
     def git_push(self):
         """
-        pushes committed files to remote repository on the HuggingFace Hub.
+        git push
         """
         subprocess.run("git push".split(), check=True, cwd=self.local_dir)
 
-    def commit_files(self, commit_message="commit files to HF hub"):
-        """
-        adds and commits files ine ``local_dir``.
-        Args:
-            commit_message (``str``, default ``'commit files to HF hub'``): commit message.
-        """
-        subprocess.run("git add .".split(), check=True, cwd=self.local_dir)
-        subprocess.run(
-            ["git", "commit", "-m", commit_message], check=True, cwd=self.local_dir
-        )
-
     def push_to_hub(self, commit_message="commit files to HF hub"):
         """
-        commits and pushed files to remote repository on the HuggingFace Hub.
+        Helper to add, commit, and pushe file to remote repository on the HuggingFace Hub.
         Args:
-            commit_message (``str``, default ``'commit files to HF hub'``): commit message.
+            commit_message: commit message.
         """
-        self.commit_files(commit_message)
-        self.push_files()
+        self.git_add()
+        self.git_commit(commit_message)
+        self.git_push()

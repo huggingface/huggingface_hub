@@ -23,14 +23,9 @@ from huggingface_hub.constants import REPO_TYPE_DATASET
 from huggingface_hub.hf_api import HfApi, HfFolder, ModelInfo, RepoObj
 from requests.exceptions import HTTPError
 
+from .testing_constants import ENDPOINT_STAGING, ENDPOINT_STAGING_BASIC_AUTH, PASS, USER
 from .testing_utils import require_git_lfs
 
-
-USER = "__DUMMY_TRANSFORMERS_USER__"
-PASS = "__DUMMY_TRANSFORMERS_PASS__"
-
-ENDPOINT_STAGING = "https://moon-staging.huggingface.co"
-ENDPOINT_STAGING_BASIC_AUTH = f"https://{USER}:{PASS}@moon-staging.huggingface.co"
 
 REPO_NAME = "my-model-{}".format(int(time.time() * 10e3))
 REPO_NAME_LARGE_FILE = "my-model-largefiles-{}".format(int(time.time() * 10e3))
