@@ -15,6 +15,7 @@
 import os
 import shutil
 import subprocess
+import tempfile
 import time
 import unittest
 
@@ -50,7 +51,7 @@ class RepositoryTest(RepositoryCommonTest):
         except FileNotFoundError:
             pass
 
-        cls._repo_url = self._api.create_repo(token=self._token, name=REPO_NAME)
+        self._repo_url = self._api.create_repo(token=self._token, name=REPO_NAME)
 
     def tearDown(self):
         self._api.delete_repo(token=self._token, name=REPO_NAME)
@@ -64,25 +65,31 @@ class RepositoryTest(RepositoryCommonTest):
 
         repo = Repository(WORKING_REPO_DIR)
         repo.lfs_track(["*.pdf"])
-        repo.lfs_enable_largesfiles()
+        repo.lfs_enable_largefiles()
         repo.git_pull()
+
+    def test_init_failure(self):
+        with tempfile.TemporaryDirectory() as tmpdirname:
+            with self.assertRaises(ValueError):
+                _ = Repository(tmpdirname)
 
     def test_init_clone_in_empty_folder(self):
         repo = Repository(WORKING_REPO_DIR, clone_from=self._repo_url)
         repo.lfs_track(["*.pdf"])
-        repo.lfs_enable_largesfiles()
+        repo.lfs_enable_largefiles()
         repo.git_pull()
 
     def test_init_clone_in_nonempty_folder(self):
         # Create dummy files
         # one is lfs-tracked, the other is not.
+        os.makedirs(WORKING_REPO_DIR, exist_ok=True)
         with open(os.path.join(WORKING_REPO_DIR, "dummy.txt"), "w") as f:
             f.write("hello")
         with open(os.path.join(WORKING_REPO_DIR, "model.bin"), "w") as f:
             f.write("hello")
         repo = Repository(WORKING_REPO_DIR, clone_from=self._repo_url)
         repo.lfs_track(["*.pdf"])
-        repo.lfs_enable_largesfiles()
+        repo.lfs_enable_largefiles()
         repo.git_pull()
 
     def test_add_commit_push(self):

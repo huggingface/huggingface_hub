@@ -4,6 +4,7 @@ import subprocess
 from typing import List, Optional, Union
 
 from .constants import HUGGINGFACE_CO_URL_HOME
+from .hf_api import HfFolder
 from .lfs import LFS_MULTIPART_UPLOAD_COMMAND
 
 
@@ -41,7 +42,7 @@ class Repository:
         Args:
             local_dir (``str``):
                 path (e.g. ``'my_trained_model/'``) to the local directory, where the ``Repository`` will be either initalized.
-            repo_url (``str``, optional):
+            clone_from (``str``, optional):
                 repository url (e.g. ``'https://huggingface.co/philschmid/playground-tests'``).
             use_auth_token (``str`` or ``bool``, `optional`, defaults ``None``):
                 huggingface_token can be extract from ``HfApi().login(username, password)`` and is used to authenticate against the hub.
@@ -56,14 +57,26 @@ class Repository:
 
         self.check_git_versions()
 
-        if clone_from:
+        if clone_from is not None:
             self.clone_from(repo_url=clone_from, use_auth_token=use_auth_token)
         else:
-            subprocess.run("git remote -v")
-            if error:
-                raise
-            else:
-                pass
+            try:
+                remotes = subprocess.run(
+                    ["git", "remote", "-v"],
+                    check=True,
+                    capture_output=True,
+                    encoding="utf-8",
+                    cwd=self.local_dir,
+                ).stdout
+                logger.debug("[Repository] has remotes")
+                logger.debug(remotes)
+            except subprocess.CalledProcessError:
+                logger.error(
+                    "If not specifying `clone_from`, you need to pass Repository a valid git clone."
+                )
+                raise ValueError(
+                    "If not specifying `clone_from`, you need to pass Repository a valid git clone."
+                )
 
         # overrides .git config if user and email is provided.
         if git_user is not None or git_email is not None:
@@ -71,26 +84,31 @@ class Repository:
 
     def check_git_versions(self):
         """
-        print git and git-lfs versions
+        print git and git-lfs versions, raises if they aren't installed.
         """
         try:
-            stdout = subprocess.check_output(["git", "--version"]).decode("utf-8")
-            print(ANSI.gray(stdout.strip()))
+            git_version = subprocess.run(
+                ["git", "--version"], check=True, capture_output=True, encoding="utf-8"
+            ).stdout.strip()
         except FileNotFoundError:
-            print("Looks like you do not have git installed, please install.")
+            raise EnvironmentError(
+                "Looks like you do not have git installed, please install."
+            )
 
         try:
-            stdout = subprocess.check_output(["git-lfs", "--version"]).decode("utf-8")
-            print(ANSI.gray(stdout.strip()))
+            lfs_version = subprocess.run(
+                ["git-lfs", "--version"],
+                check=True,
+                capture_output=True,
+                encoding="utf-8",
+            ).stdout.strip()
         except FileNotFoundError:
-            print(
-                ANSI.red(
-                    "Looks like you do not have git-lfs installed, please install."
-                    " You can install from https://git-lfs.github.com/."
-                    " Then run `git lfs install` (you only have to do this once)."
-                )
+            raise EnvironmentError(
+                "Looks like you do not have git-lfs installed, please install."
+                " You can install from https://git-lfs.github.com/."
+                " Then run `git lfs install` (you only have to do this once)."
             )
-        print("")
+        logger.info(git_version + "\n" + lfs_version)
 
     def clone_from(self, repo_url: str, use_auth_token: Union[bool, str, None] = None):
         """
@@ -100,6 +118,8 @@ class Repository:
             huggingface_token = use_auth_token
         elif use_auth_token:
             huggingface_token = HfFolder.get_token()
+        else:
+            huggingface_token = None
 
         if huggingface_token is not None and repo_url.startswith(
             HUGGINGFACE_CO_URL_HOME
@@ -115,7 +135,7 @@ class Repository:
         # checks if repository is initialized in a empty repository or in one with files
         if len(os.listdir(self.local_dir)) == 0:
             subprocess.run(
-                f"git clone {self.repo_url}".split(), check=True, cwd=self.local_dir
+                ["git", "clone", repo_url, "."], check=True, cwd=self.local_dir
             )
         else:
             logger.warning(
@@ -123,7 +143,7 @@ class Repository:
             )
             subprocess.run("git init".split(), check=True, cwd=self.local_dir)
             subprocess.run(
-                f"git remote add origin {self.repo_url}".split(),
+                ["git", "remote", "add", "origin", repo_url],
                 check=True,
                 cwd=self.local_dir,
             )
@@ -140,7 +160,7 @@ class Repository:
         self, git_user: Optional[str] = None, git_email: Optional[str] = None
     ):
         """
-        sets git user name and email
+        sets git user name and email (only in the current repo)
         """
         if git_user is not None:
             subprocess.run(
@@ -164,7 +184,7 @@ class Repository:
                 ["git", "lfs", "track", pattern], check=True, cwd=self.local_dir
             )
 
-    def lfs_enable_largesfiles(self):
+    def lfs_enable_largefiles(self):
         """
         HF-specific. This enables upload support of files >5GB.
         """
@@ -193,9 +213,6 @@ class Repository:
         git add
         """
         subprocess.run("git add .".split(), check=True, cwd=self.local_dir)
-        subprocess.run(
-            ["git", "commit", "-m", commit_message], check=True, cwd=self.local_dir
-        )
 
     def git_commit(self, commit_message="commit files to HF hub"):
         """
