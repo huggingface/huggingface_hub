@@ -158,6 +158,9 @@ class HfApi:
             exist_ok: Do not raise an error if repo already exists
 
             lfsmultipartthresh: Optional: internal param for testing purposes.
+
+        Returns:
+            URL to the newly created repo.
         """
         path = "{}/api/repos/create".format(self.endpoint)
 
