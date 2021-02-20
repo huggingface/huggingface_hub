@@ -199,7 +199,7 @@ class Repository:
         """
         git pull
         """
-        args = "git add".split()
+        args = "git pull".split()
         if rebase:
             args.append("--rebase")
         subprocess.run(args, check=True, cwd=self.local_dir)
