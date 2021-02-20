@@ -3,7 +3,6 @@ import os
 import subprocess
 from typing import List, Optional, Union
 
-from .constants import HUGGINGFACE_CO_URL_HOME
 from .hf_api import HfFolder
 from .lfs import LFS_MULTIPART_UPLOAD_COMMAND
 
@@ -117,8 +116,10 @@ class Repository:
         else:
             huggingface_token = None
 
-        if huggingface_token is not None and repo_url.startswith(
-            HUGGINGFACE_CO_URL_HOME
+        if (
+            huggingface_token is not None
+            and "huggingface.co" in repo_url
+            and "@" not in repo_url
         ):
             # adds huggingface_token to repo url if it is provided.
             # do not leak user token if it's not a repo on hf.co
