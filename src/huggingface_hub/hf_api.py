@@ -178,7 +178,8 @@ class HfApi:
             json=json,
         )
         if exist_ok and r.status_code == 409:
-            return ""
+            d = r.json()
+            return d["url"]
         r.raise_for_status()
         d = r.json()
         return d["url"]
