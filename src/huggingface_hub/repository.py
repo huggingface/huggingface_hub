@@ -172,10 +172,12 @@ class Repository:
                 cwd=self.local_dir,
             )
 
-    def lfs_track(self, patterns: List[str]):
+    def lfs_track(self, patterns: Union[str, List[str]]):
         """
         Tell git-lfs to track those files.
         """
+        if isinstance(patterns, str):
+            patterns = [patterns]
         for pattern in patterns:
             subprocess.run(
                 ["git", "lfs", "track", pattern], check=True, cwd=self.local_dir
