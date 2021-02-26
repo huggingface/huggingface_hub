@@ -299,7 +299,7 @@ class Repository:
         git add
         """
         try:
-            subprocess.run(
+            result = subprocess.run(
                 "git add .".split(),
                 stderr=subprocess.PIPE,
                 stdout=subprocess.PIPE,
@@ -324,14 +324,17 @@ class Repository:
                 cwd=self.local_dir,
             )
         except subprocess.CalledProcessError as exc:
-            raise EnvironmentError(exc.stderr)
+            if len(exc.stderr) > 0:
+                raise EnvironmentError(exc.stderr)
+            else:
+                raise EnvironmentError(exc.stdout)
 
     def git_push(self):
         """
         git push
         """
         try:
-            subprocess.run(
+            result = subprocess.run(
                 "git push".split(),
                 stderr=subprocess.PIPE,
                 stdout=subprocess.PIPE,
@@ -339,6 +342,7 @@ class Repository:
                 encoding="utf-8",
                 cwd=self.local_dir,
             )
+            logger.info(result.stdout)
         except subprocess.CalledProcessError as exc:
             raise EnvironmentError(exc.stderr)
 
