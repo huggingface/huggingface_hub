@@ -299,7 +299,7 @@ class Repository:
         git add
         """
         try:
-            result = subprocess.run(
+            subprocess.run(
                 "git add .".split(),
                 stderr=subprocess.PIPE,
                 stdout=subprocess.PIPE,
