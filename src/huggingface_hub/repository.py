@@ -59,19 +59,9 @@ class Repository:
         if clone_from is not None:
             self.clone_from(repo_url=clone_from, use_auth_token=use_auth_token)
         else:
-            try:
-                remotes = subprocess.run(
-                    ["git", "remote", "-v"],
-                    stderr=subprocess.PIPE,
-                    stdout=subprocess.PIPE,
-                    check=True,
-                    encoding="utf-8",
-                    cwd=self.local_dir,
-                )
-                logger.debug("[Repository] has remotes")
-                logger.debug(remotes.stdout)
-            except subprocess.CalledProcessError as exc:
-                logger.error(exc.stderr)
+            if os.path.isdir(os.path.join(self.local_dir, ".git")):
+                logger.debug("[Repository] is a valid git repo")
+            else:
                 logger.error(
                     "If not specifying `clone_from`, you need to pass Repository a valid git clone."
                 )
