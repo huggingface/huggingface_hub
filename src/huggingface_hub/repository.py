@@ -1,5 +1,6 @@
 import logging
 import os
+import re
 import subprocess
 from typing import List, Optional, Union
 
@@ -252,7 +253,9 @@ class Repository:
                 check=True,
                 cwd=self.local_dir,
             )
-            return p.stdout.strip()
+            url = p.stdout.strip()
+            # Strip basic auth info.
+            return re.sub(r"https://.*@", "https://", url)
         except subprocess.CalledProcessError as exc:
             raise EnvironmentError(exc.stderr)
 
