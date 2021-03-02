@@ -19,6 +19,7 @@ import tempfile
 import time
 import unittest
 
+import requests
 from huggingface_hub.hf_api import HfApi
 from huggingface_hub.repository import Repository
 
@@ -110,7 +111,11 @@ class RepositoryTest(RepositoryCommonTest):
         repo.git_add()
         repo.git_commit()
         try:
-            repo.git_push()
+            url = repo.git_push()
         except subprocess.CalledProcessError as exc:
             print(exc.stderr)
             raise exc
+        # Check that the returned commit url
+        # actually exists.
+        r = requests.head(url)
+        r.raise_for_status()
