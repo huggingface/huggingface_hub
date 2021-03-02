@@ -30,21 +30,21 @@ class Repository:
         Instantiate a local clone of a git repo.
 
         If specifying a `clone_from`:
-        will clone an existing remote repository
+        will clone an existing remote repository, for instance one
         that was previously created using ``HfApi().create_repo(token=huggingface_token, name=repo_name)``.
         ``Repository`` uses the local git credentials by default, but if required, the ``huggingface_token``
-        as well as the git ``user`` and the ``email`` can be specified.
-        ``Repository`` will then override them.
+        as well as the git ``user`` and the ``email`` can be explicitly specified.
         If `clone_from` is used, and the repository is being instantiated into a non-empty directory,
         e.g. a directory with your trained model files, it will automatically merge them.
 
         Args:
             local_dir (``str``):
-                path (e.g. ``'my_trained_model/'``) to the local directory, where the ``Repository`` will be either initalized.
+                path (e.g. ``'my_trained_model/'``) to the local directory, where the ``Repository`` will be initalized.
             clone_from (``str``, optional):
                 repository url (e.g. ``'https://huggingface.co/philschmid/playground-tests'``).
             use_auth_token (``str`` or ``bool``, `optional`, defaults ``None``):
-                huggingface_token can be extract from ``HfApi().login(username, password)`` and is used to authenticate against the hub.
+                huggingface_token can be extract from ``HfApi().login(username, password)`` and is used to authenticate against the hub
+                (useful from Google Colab for instance).
             git_user (``str``, `optional`, defaults ``None``):
                 will override the ``git config user.name`` for committing and pushing files to the hub.
             git_email (``str``, `optional`, defaults ``None``):
@@ -213,7 +213,7 @@ class Repository:
         try:
             if git_user is not None:
                 subprocess.run(
-                    f"git config user.name {git_user}".split(),
+                    ["git", "config", "user.name", git_user],
                     stderr=subprocess.PIPE,
                     stdout=subprocess.PIPE,
                     check=True,
@@ -222,7 +222,7 @@ class Repository:
                 )
             if git_email is not None:
                 subprocess.run(
-                    f"git config user.email {git_email}".split(),
+                    ["git", "config", "user.email", git_email],
                     stderr=subprocess.PIPE,
                     stdout=subprocess.PIPE,
                     check=True,
