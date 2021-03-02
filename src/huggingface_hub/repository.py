@@ -300,7 +300,7 @@ class Repository:
         """
         try:
             subprocess.run(
-                "git add .".split(),
+                ["git", "add", pattern],
                 stderr=subprocess.PIPE,
                 stdout=subprocess.PIPE,
                 check=True,
