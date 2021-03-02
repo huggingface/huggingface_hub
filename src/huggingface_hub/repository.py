@@ -222,6 +222,52 @@ class Repository:
         except subprocess.CalledProcessError as exc:
             raise EnvironmentError(exc.stderr)
 
+    def git_head_hash(self) -> str:
+        """
+        Get commit sha on top of HEAD.
+        """
+        try:
+            p = subprocess.run(
+                "git rev-parse HEAD".split(),
+                stderr=subprocess.PIPE,
+                stdout=subprocess.PIPE,
+                encoding="utf-8",
+                check=True,
+                cwd=self.local_dir,
+            )
+            return p.stdout.strip()
+        except subprocess.CalledProcessError as exc:
+            raise EnvironmentError(exc.stderr)
+
+    def git_remote_url(self) -> str:
+        """
+        Get URL to origin remote.
+        """
+        try:
+            p = subprocess.run(
+                "git config --get remote.origin.url".split(),
+                stderr=subprocess.PIPE,
+                stdout=subprocess.PIPE,
+                encoding="utf-8",
+                check=True,
+                cwd=self.local_dir,
+            )
+            return p.stdout.strip()
+        except subprocess.CalledProcessError as exc:
+            raise EnvironmentError(exc.stderr)
+
+    def git_head_commit_url(self) -> str:
+        """
+        Get URL to last commit on HEAD
+        We assume it's been pushed, and the url scheme is
+        the same one as for GitHub or HuggingFace.
+        """
+        sha = self.git_head_hash()
+        url = self.git_remote_url()
+        if url.endswith("/"):
+            url = url[:-1]
+        return f"{url}/commit/{sha}"
+
     def lfs_track(self, patterns: Union[str, List[str]]):
         """
         Tell git-lfs to track those files.
@@ -319,9 +365,11 @@ class Repository:
             else:
                 raise EnvironmentError(exc.stdout)
 
-    def git_push(self):
+    def git_push(self) -> str:
         """
         git push
+
+        Returns url to commit on remote repo.
         """
         try:
             result = subprocess.run(
@@ -336,7 +384,9 @@ class Repository:
         except subprocess.CalledProcessError as exc:
             raise EnvironmentError(exc.stderr)
 
-    def push_to_hub(self, commit_message="commit files to HF hub"):
+        return self.git_head_commit_url()
+
+    def push_to_hub(self, commit_message="commit files to HF hub") -> str:
         """
         Helper to add, commit, and pushe file to remote repository on the HuggingFace Hub.
         Args:
@@ -344,4 +394,4 @@ class Repository:
         """
         self.git_add()
         self.git_commit(commit_message)
-        self.git_push()
+        return self.git_push()
