@@ -189,6 +189,18 @@ class LfsUploadCommand:
             chunk_size = int(header.pop("chunk_size"))
             presigned_urls: List[str] = list(header.values())
 
+            # Send a "started" progress event to allow other workers to start.
+            # Otherwise they're delayed until first "progress" event is reported,
+            # i.e. after the first 5GB by default (!)
+            write_msg(
+                {
+                    "event": "progress",
+                    "oid": oid,
+                    "bytesSoFar": 1,
+                    "bytesSinceLast": 0,
+                }
+            )
+
             parts = []
             for i, presigned_url in enumerate(presigned_urls):
                 with FileSlice(
