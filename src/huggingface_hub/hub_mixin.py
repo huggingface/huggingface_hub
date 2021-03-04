@@ -1,18 +1,14 @@
+
 import os
 import json
-from .file_download import (
-    hf_hub_url, 
-    cached_download,
-    CONFIG_NAME,
-    PYTORCH_WEIGHTS_NAME
-    )
+
+from .file_download import hf_hub_url, cached_download
+from .constants import CONFIG_NAME, PYTORCH_WEIGHTS_NAME
+from .hf_api import HfApi, HfFolder
+from .repository import Repository
 
 import torch
-import subprocess
-import os
-import shutil
 
-PREFIX = "https://huggingface.co/"
 
 class ModelHubMixin(object):
 
@@ -32,68 +28,42 @@ class ModelHubMixin(object):
             ...        return ...
 
             >>> model = MyModel()
-            >>> # train your model using whatever trainer you link
-            >>> # Saving model-weights in required format in specified directory
-            >>> model.save_pretrained("mymodel")
-            >>> # Pushing model-weights to hf-hub
-            >>> model.upload_to_hub("username/mymodel")
+            >>> model.save_pretrained("mymodel") # Saving model weights in the directory
+            >>> model.upload_to_hub("mymodel", "model-1") # Pushing model-weights to hf-hub
+
             >>> # Downloading weights from hf-hub & model will be initialized from those weights
             >>> model = MyModel.from_pretrained("username/mymodel")
         """
 
-    def save_pretrained(self, save_directory:str, **kwargs):
+    def save_pretrained(self, save_directory:str, config:dict=None):
         """
-            Saving weights in local directory that can be loaded pushed directly to huggingface-hub
+            Saving weights in local directory.
 
             Parameters:
-                save_directory (:obj:`str`, `optional`):  
-                    Directory having model-weights & config.
-                upload_to_hub (:obj:`bool`, `optional`):
-                    Specify `True` if you want to push model weights & config to huggingface-hub. default: `False`
-                model_id (:obj:`str`, `optional`):
-                    model_id which will be used later using from_pretrained (Generally: username/model_name). You will have to specify `model_id` incase `upload_to_hub` is True.
-                branch (:obj:`str`, `optional`):
-                    Since huggingface-hub is relying on git-lfs for versioning weights, you can specify branch in which you want to commit
-                commit_message(:obj:`str`, `optional`):
-                    your commit message to hub
-                track_extensions(:obj:`list`, `optional`):
-                    extensions of large files which should be tracked with git-lfs
-
-            Setting-up if `upload_to_hub` is True:
-                - You need to have `git-lfs` installed
-                    Ubuntu: `sudo apt-get install git-lfs`
-                    Gcolab: `!sudo apt-get install git-lfs`
-                    MAC-OS: `brew install git-lfs`
-                - You need to create repository in huggingface-hub manually
+                save_directory (:obj:`str`):
+                    Directory in which you want to save weights.
+                config (:obj:`dict`, `optional`):
+                    specify config incase you want to save config.
         """
-
-        upload_to_hub = kwargs.pop("upload_to_hub", False)
-        model_id = kwargs.pop("model_id", None)
-        branch = kwargs.pop("branch", "main")
-        commit_message = kwargs.pop("commit_message", "add model")
-        track_extensions = ["*.bin.*", "*.lfs.*", "*.bin", ".h5", "*.tflite", "*.tar.gz", "*.ot", "*.onnx", "*pt"]
-        track_extensions = kwargs.pop("track_extensions", track_extensions)
-
-        if upload_to_hub and (model_id is None):
-            raise ValueError("model_id can't be None. Please specify model_id in format `username/modelname`")
-
         os.makedirs(save_directory, exist_ok=True)
-
-        if upload_to_hub:
-            self._init_git(model_id, save_directory, branch)
+        config_to_save = None
 
         # saving config
         if hasattr(self, 'config'):
+            if isinstance(self.config, dict):
+                config_to_save = self.config
+
+        if isinstance(config, dict):
+            config_to_save = config
+
+        if config_to_save is not None:
             path = os.path.join(save_directory, CONFIG_NAME)
             with open(path, "w") as f:
-                json.dump(self.config, f)
+                json.dump(config_to_save, f)
 
         # saving model weights
         path = os.path.join(save_directory, PYTORCH_WEIGHTS_NAME)
         self._save_pretrained(path)
-
-        if upload_to_hub:
-            self._push_git(save_directory, track_extensions, commit_message, branch)
 
     def _save_pretrained(self, path):
         """
@@ -194,38 +164,19 @@ class ModelHubMixin(object):
 
         return model
 
-    def _init_git(self, model_id, save_directory, branch):
+    @staticmethod
+    def upload_to_hub(weights_directory: str, model_id: str, **kwargs):
+        """
+        Parameters:
+            weights_directory (:obj:`Union[str, os.PathLike]`):
+                Directory having model-weights & config.
+        """
 
-        os.chdir(save_directory)
-        if not os.path.isdir(".git"):
-            subprocess.run(["git", "init"], stdout=subprocess.PIPE)
+        commit_message = kwargs.pop("commit_message", "add model")
+        organization = kwargs.pop("organization", None)
+        private = kwargs.pop("private", None)
 
-        if not os.path.isdir(".git/lfs"):
-            subprocess.run(["git-lfs", "install"], stdout=subprocess.PIPE)
-
-        if branch not in os.listdir(".git/refs/heads"):
-            subprocess.run(["git", "checkout", "-b", branch], stdout=subprocess.PIPE)
-
-        with open(".git/HEAD") as f:
-            content = f.read().split("/")
-        if content[-1][:-1] != branch:
-            subprocess.run(["git", "checkout", branch], stdout=subprocess.PIPE)
-
-        with open(".git/config", "r") as f:
-            git_config = f.read().split()
-        if (PREFIX+model_id) not in git_config:
-            subprocess.run(["git", "remote", "add", "origin", PREFIX+model_id], stdout=subprocess.PIPE)
-            subprocess.run(["git", "fetch", "origin"], stdout=subprocess.PIPE)
-            if branch in os.listdir(".git/refs/remotes/origin"):
-                subprocess.run(["git", "merge", f"origin/{branch}"], stdout=subprocess.PIPE)
-        os.chdir("../")
-
-    def _push_git(self, save_directory, track_extensions, commit_message, branch):
-
-        os.chdir(save_directory)
-        subprocess.run(["git-lfs", "track"]+track_extensions, stdout=subprocess.PIPE)
-        subprocess.run(["git", "add", "."], stdout=subprocess.PIPE)
-        subprocess.run(["git", "commit", "-m", commit_message], stdout=subprocess.PIPE)
-
-        subprocess.run(["git", "push", "origin", branch])
-        os.chdir("../")
+        token = HfFolder.get_token()
+        repo_url = HfApi().create_repo(token, model_id, organization=organization, private=private, repo_type=None, exist_ok=True)
+        repo = Repository(weights_directory, clone_from=repo_url, use_auth_token=token)
+        repo.push_to_hub(commit_message=commit_message)
