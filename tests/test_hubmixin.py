@@ -46,6 +46,3 @@ class DummyModelTest(unittest.TestCase):
         model = DummyModel()
         _ = model.save_pretrained("dummy-wts", push_to_hub=False)
         model.push_to_hub("dummy-wts", model_id=DUMMY_REPO_NAME)
-
-if __name__ == '__main__':
-    DummyModelTest().test_save_pretrained()
