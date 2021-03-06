@@ -159,14 +159,19 @@ class Repository:
                     encoding="utf-8",
                     cwd=self.local_dir,
                 )
-                subprocess.run(
-                    ["git", "remote", "add", "origin", repo_url],
-                    stderr=subprocess.PIPE,
-                    stdout=subprocess.PIPE,
-                    check=True,
-                    encoding="utf-8",
-                    cwd=self.local_dir,
-                )
+
+                try:
+                    subprocess.run(
+                        ["git", "remote", "add", "origin", repo_url],
+                        stderr=subprocess.PIPE,
+                        stdout=subprocess.PIPE,
+                        check=True,
+                        encoding="utf-8",
+                        cwd=self.local_dir,
+                    )
+                except:
+                    logger.info("remote ORIGIN already exist")
+
                 subprocess.run(
                     "git fetch".split(),
                     stderr=subprocess.PIPE,
@@ -184,14 +189,18 @@ class Repository:
                     cwd=self.local_dir,
                 )
                 # TODO(check if we really want the --force flag)
-                subprocess.run(
-                    "git checkout origin/main -ft".split(),
-                    stderr=subprocess.PIPE,
-                    stdout=subprocess.PIPE,
-                    encoding="utf-8",
-                    check=True,
-                    cwd=self.local_dir,
-                )
+                try:
+                    subprocess.run(
+                        "git checkout origin/main -ft".split(),
+                        stderr=subprocess.PIPE,
+                        stdout=subprocess.PIPE,
+                        encoding="utf-8",
+                        check=True,
+                        cwd=self.local_dir,
+                    )
+                except:
+                    logger.info("Already on branch main")
+
         except subprocess.CalledProcessError as exc:
             raise EnvironmentError(exc.stderr)
 
