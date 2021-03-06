@@ -35,7 +35,7 @@ class ModelHubMixin(object):
             >>> model = MyModel.from_pretrained("username/mymodel")
         """
 
-    def save_pretrained(self, save_directory:str, config:dict=None):
+    def save_pretrained(self, save_directory:str, config:dict=None, push_to_hub=False, model_id=None):
         """
             Saving weights in local directory.
 
@@ -65,6 +65,12 @@ class ModelHubMixin(object):
         path = os.path.join(save_directory, PYTORCH_WEIGHTS_NAME)
         self._save_pretrained(path)
 
+        if model_id is None:
+            model_id = save_directory
+
+        if push_to_hub:
+            self.push_to_hub(save_directory, model_id)
+
     def _save_pretrained(self, path):
         """
             Overwrite this method in case you don't want to save complete model, rather some specific layers
@@ -85,6 +91,9 @@ class ModelHubMixin(object):
                     - A string, the `model id` of a pretrained model hosted inside a model repo on huggingface.co.
                       Valid model ids can be located at the root-level, like ``bert-base-uncased``, or namespaced under
                       a user or organization name, like ``dbmdz/bert-base-german-cased``.
+                    - You can add `revision` by appending `@` at the end of model_id simply like this: ``dbmdz/bert-base-german-cased@main`` 
+                      Revision is the specific model version to use. It can be a branch name, a tag name, or a commit id, 
+                      since we use a git-based system for storing models and other artifacts on huggingface.co, so ``revision`` can be any identifier allowed by git.
                     - A path to a `directory` containing model weights saved using
                       :func:`~transformers.PreTrainedModel.save_pretrained`, e.g., ``./my_model_directory/``.
                     - A path or url to a `tensorflow index checkpoint file` (e.g, ``./tf_model/model.ckpt.index``). In
@@ -110,10 +119,6 @@ class ModelHubMixin(object):
             use_auth_token (:obj:`str` or `bool`, `optional`):
                 The token to use as HTTP bearer authorization for remote files. If :obj:`True`, will use the token
                 generated when running :obj:`transformers-cli login` (stored in :obj:`~/.huggingface`).
-            revision(:obj:`str`, `optional`, defaults to :obj:`"main"`):
-                The specific model version to use. It can be a branch name, a tag name, or a commit id, since we use a
-                git-based system for storing models and other artifacts on huggingface.co, so ``revision`` can be any
-                identifier allowed by git.
         .. note::
             Passing :obj:`use_auth_token=True` is required when you want to use a private model.
         """
@@ -121,7 +126,6 @@ class ModelHubMixin(object):
         model_id = pretrained_model_name_or_path
         strict = kwargs.pop("strict", True)
         map_location = kwargs.pop("map_location", torch.device("cpu"))
-        revision = kwargs.pop("revision", None)
         force_download = kwargs.pop("force_download", False)
         resume_download = kwargs.pop("resume_download", False)
         proxies = kwargs.pop("proxies", None)
@@ -133,6 +137,10 @@ class ModelHubMixin(object):
             name = model_id
         else:
             _, name = model_id.split("/")
+
+        revision = "main"
+        if len(name.split('@')) > 1:
+            name, revision = name.split('@')
 
         if name in os.listdir() and CONFIG_NAME in os.listdir(name):
             print("LOADING weights from local directory")
@@ -165,18 +173,27 @@ class ModelHubMixin(object):
         return model
 
     @staticmethod
-    def upload_to_hub(weights_directory: str, model_id: str, **kwargs):
+    def push_to_hub(weights_directory: str, model_id: str, **kwargs):
         """
         Parameters:
             weights_directory (:obj:`Union[str, os.PathLike]`):
                 Directory having model-weights & config.
+            model_id is like ``bert-base-uncased@main``
         """
+        repo_url = kwargs.pop("repo_url", None)
 
         commit_message = kwargs.pop("commit_message", "add model")
         organization = kwargs.pop("organization", None)
         private = kwargs.pop("private", None)
 
+        revision = "main"
+        if len(model_id.split('@')) > 1:
+            model_id, revision = model_id.split('@')
+
         token = HfFolder.get_token()
-        repo_url = HfApi().create_repo(token, model_id, organization=organization, private=private, repo_type=None, exist_ok=True)
+        if repo_url is None:
+            repo_url = HfApi().create_repo(token, model_id, organization=organization, private=private, repo_type=None, exist_ok=True)
+
         repo = Repository(weights_directory, clone_from=repo_url, use_auth_token=token)
-        repo.push_to_hub(commit_message=commit_message)
+        
+        return repo.push_to_hub(commit_message=commit_message)
