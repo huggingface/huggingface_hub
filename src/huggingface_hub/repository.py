@@ -385,7 +385,7 @@ class Repository:
         """
         try:
             result = subprocess.run(
-                "git push".split(),
+                "git push origin main".split(),
                 stderr=subprocess.PIPE,
                 stdout=subprocess.PIPE,
                 check=True,
