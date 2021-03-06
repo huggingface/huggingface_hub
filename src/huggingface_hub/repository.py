@@ -327,7 +327,7 @@ class Repository:
         """
         git pull
         """
-        args = "git pull".split()
+        args = "git pull origin main".split()
         if rebase:
             args.append("--rebase")
         try:

@@ -1,17 +1,15 @@
-
-import os
 import json
-
-from .file_download import hf_hub_url, cached_download
-from .constants import CONFIG_NAME, PYTORCH_WEIGHTS_NAME
-from .hf_api import HfApi, HfFolder
-from .repository import Repository
+import os
 
 import torch
 
+from .constants import CONFIG_NAME, PYTORCH_WEIGHTS_NAME
+from .file_download import cached_download, hf_hub_url
+from .hf_api import HfApi, HfFolder
+from .repository import Repository
+
 
 class ModelHubMixin(object):
-
     def __init__(self, *args, **kwargs):
         """
         Mix this class with your torch-model class for ease process of saving & loading from huggingface-hub
@@ -35,21 +33,23 @@ class ModelHubMixin(object):
             >>> model = MyModel.from_pretrained("username/mymodel")
         """
 
-    def save_pretrained(self, save_directory:str, config:dict=None, push_to_hub=False, model_id=None):
+    def save_pretrained(
+        self, save_directory: str, config: dict = None, push_to_hub=False, model_id=None
+    ):
         """
-            Saving weights in local directory.
+        Saving weights in local directory.
 
-            Parameters:
-                save_directory (:obj:`str`):
-                    Directory in which you want to save weights.
-                config (:obj:`dict`, `optional`):
-                    specify config incase you want to save config.
+        Parameters:
+            save_directory (:obj:`str`):
+                Directory in which you want to save weights.
+            config (:obj:`dict`, `optional`):
+                specify config incase you want to save config.
         """
         os.makedirs(save_directory, exist_ok=True)
         config_to_save = None
 
         # saving config
-        if hasattr(self, 'config'):
+        if hasattr(self, "config"):
             if isinstance(self.config, dict):
                 config_to_save = self.config
 
@@ -73,13 +73,13 @@ class ModelHubMixin(object):
 
     def _save_pretrained(self, path):
         """
-            Overwrite this method in case you don't want to save complete model, rather some specific layers
+        Overwrite this method in case you don't want to save complete model, rather some specific layers
         """
         model_to_save = self.module if hasattr(self, "module") else self
         torch.save(model_to_save.state_dict(), path)
 
     @classmethod
-    def from_pretrained(cls, pretrained_model_name_or_path:str, *model_args, **kwargs):
+    def from_pretrained(cls, pretrained_model_name_or_path: str, *model_args, **kwargs):
         r"""
         Instantiate a pretrained pytorch model from a pre-trained model configuration from huggingface-hub.
         The model is set in evaluation mode by default using ``model.eval()`` (Dropout modules are deactivated). To
@@ -91,8 +91,8 @@ class ModelHubMixin(object):
                     - A string, the `model id` of a pretrained model hosted inside a model repo on huggingface.co.
                       Valid model ids can be located at the root-level, like ``bert-base-uncased``, or namespaced under
                       a user or organization name, like ``dbmdz/bert-base-german-cased``.
-                    - You can add `revision` by appending `@` at the end of model_id simply like this: ``dbmdz/bert-base-german-cased@main`` 
-                      Revision is the specific model version to use. It can be a branch name, a tag name, or a commit id, 
+                    - You can add `revision` by appending `@` at the end of model_id simply like this: ``dbmdz/bert-base-german-cased@main``
+                      Revision is the specific model version to use. It can be a branch name, a tag name, or a commit id,
                       since we use a git-based system for storing models and other artifacts on huggingface.co, so ``revision`` can be any identifier allowed by git.
                     - A path to a `directory` containing model weights saved using
                       :func:`~transformers.PreTrainedModel.save_pretrained`, e.g., ``./my_model_directory/``.
@@ -139,16 +139,26 @@ class ModelHubMixin(object):
             _, name = model_id.split("/")
 
         revision = "main"
-        if len(name.split('@')) > 1:
-            name, revision = name.split('@')
+        if len(name.split("@")) > 1:
+            name, revision = name.split("@")
 
         if name in os.listdir() and CONFIG_NAME in os.listdir(name):
             print("LOADING weights from local directory")
             config_file = os.path.join(name, CONFIG_NAME)
         else:
             try:
-                config_url = hf_hub_url(model_id, filename=CONFIG_NAME, revision=revision)
-                config_file = cached_download(config_url, cache_dir=cache_dir, force_download=force_download, proxies=proxies, resume_download=resume_download, local_files_only=local_files_only, use_auth_token=use_auth_token)
+                config_url = hf_hub_url(
+                    model_id, filename=CONFIG_NAME, revision=revision
+                )
+                config_file = cached_download(
+                    config_url,
+                    cache_dir=cache_dir,
+                    force_download=force_download,
+                    proxies=proxies,
+                    resume_download=resume_download,
+                    local_files_only=local_files_only,
+                    use_auth_token=use_auth_token,
+                )
             except:
                 config_file = None
 
@@ -156,8 +166,18 @@ class ModelHubMixin(object):
             print("LOADING weights from local directory")
             model_file = os.path.join(name, PYTORCH_WEIGHTS_NAME)
         else:
-            model_url = hf_hub_url(model_id, filename=PYTORCH_WEIGHTS_NAME, revision=revision)
-            model_file = cached_download(model_url, cache_dir=cache_dir, force_download=force_download, proxies=proxies, resume_download=resume_download, local_files_only=local_files_only, use_auth_token=use_auth_token)
+            model_url = hf_hub_url(
+                model_id, filename=PYTORCH_WEIGHTS_NAME, revision=revision
+            )
+            model_file = cached_download(
+                model_url,
+                cache_dir=cache_dir,
+                force_download=force_download,
+                proxies=proxies,
+                resume_download=resume_download,
+                local_files_only=local_files_only,
+                use_auth_token=use_auth_token,
+            )
 
         if config_file is not None:
             with open(config_file, "r", encoding="utf-8") as f:
@@ -187,13 +207,20 @@ class ModelHubMixin(object):
         private = kwargs.pop("private", None)
 
         revision = "main"
-        if len(model_id.split('@')) > 1:
-            model_id, revision = model_id.split('@')
+        if len(model_id.split("@")) > 1:
+            model_id, revision = model_id.split("@")
 
         token = HfFolder.get_token()
         if repo_url is None:
-            repo_url = HfApi().create_repo(token, model_id, organization=organization, private=private, repo_type=None, exist_ok=True)
+            repo_url = HfApi().create_repo(
+                token,
+                model_id,
+                organization=organization,
+                private=private,
+                repo_type=None,
+                exist_ok=True,
+            )
 
         repo = Repository(weights_directory, clone_from=repo_url, use_auth_token=token)
-        
+
         return repo.push_to_hub(commit_message=commit_message)
