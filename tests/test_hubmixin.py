@@ -22,20 +22,20 @@ class DummyModel(nn.Module, ModelHubMixin):
 class DummyModelTest(unittest.TestCase):
     def test_save_pretrained(self):
         model = DummyModel()
-        _ = model.save_pretrained(DUMMY_REPO_NAME)
-        _ = model.save_pretrained(
+        model.save_pretrained(DUMMY_REPO_NAME)
+        model.save_pretrained(
             DUMMY_REPO_NAME, config={"num": 12, "act": "gelu"}, push_to_hub=True
         )
-        _ = model.save_pretrained(
+        model.save_pretrained(
             DUMMY_REPO_NAME, config={"num": 24, "act": "relu"}, push_to_hub=True
         )
-        _ = model.save_pretrained(
+        model.save_pretrained(
             "dummy-wts", config=None, push_to_hub=True, model_id=DUMMY_REPO_NAME
         )
 
     def test_from_pretrained(self):
         model = DummyModel()
-        _ = model.save_pretrained(
+        model.save_pretrained(
             DUMMY_REPO_NAME, config={"num": 7, "act": "gelu_fast"}, push_to_hub=True
         )
 
@@ -44,5 +44,5 @@ class DummyModelTest(unittest.TestCase):
 
     def test_push_to_hub(self):
         model = DummyModel()
-        _ = model.save_pretrained("dummy-wts", push_to_hub=False)
+        model.save_pretrained("dummy-wts", push_to_hub=False)
         model.push_to_hub("dummy-wts", model_id=DUMMY_REPO_NAME)

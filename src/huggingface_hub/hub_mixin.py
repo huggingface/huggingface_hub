@@ -2,6 +2,7 @@ import json
 import os
 
 import torch
+from typing import Dict
 
 from .constants import CONFIG_NAME, PYTORCH_WEIGHTS_NAME
 from .file_download import cached_download, hf_hub_url
@@ -39,7 +40,7 @@ class ModelHubMixin(object):
         save_directory: str,
         config: dict = None,
         push_to_hub: bool = False,
-        model_id: str = None,
+        **kwargs,
     ):
         """
         Saving weights in local directory.
@@ -53,7 +54,10 @@ class ModelHubMixin(object):
                 Set it to `True` in case you want to push your weights to huggingface_hub
             model_id (:obj:`str`, `optional`, defaults to :obj:`save_directory`):
                 Repo name in huggingface_hub. If not specified, repo name will be same as `save_directory`
+            kwargs (:obj:`Dict`, `optional`):
+                kwargs will be passed to `push_to_hub`
         """
+
         os.makedirs(save_directory, exist_ok=True)
 
         # saving config
@@ -66,11 +70,8 @@ class ModelHubMixin(object):
         path = os.path.join(save_directory, PYTORCH_WEIGHTS_NAME)
         self._save_pretrained(path)
 
-        if model_id is None:
-            model_id = save_directory
-
         if push_to_hub:
-            return self.push_to_hub(save_directory, model_id=model_id)
+            return self.push_to_hub(save_directory, **kwargs)
 
     def _save_pretrained(self, path):
         """
@@ -80,7 +81,19 @@ class ModelHubMixin(object):
         torch.save(model_to_save.state_dict(), path)
 
     @classmethod
-    def from_pretrained(cls, pretrained_model_name_or_path: str, **kwargs):
+    def from_pretrained(
+        cls, 
+        pretrained_model_name_or_path: str, 
+        strict: bool = True,
+        map_location: str = "cpu",
+        force_download: bool = False,
+        resume_download: bool = False,
+        proxies: Dict = None,
+        use_auth_token: str = None,
+        cache_dir: str = None,
+        local_files_only: bool =False,
+        **model_kwargs,
+        ):
         r"""
         Instantiate a pretrained pytorch model from a pre-trained model configuration from huggingface-hub.
         The model is set in evaluation mode by default using ``model.eval()`` (Dropout modules are deactivated). To
@@ -120,19 +133,14 @@ class ModelHubMixin(object):
             use_auth_token (:obj:`str` or `bool`, `optional`):
                 The token to use as HTTP bearer authorization for remote files. If :obj:`True`, will use the token
                 generated when running :obj:`transformers-cli login` (stored in :obj:`~/.huggingface`).
+            model_kwargs (:obj:`Dict`, `optional`)::
+                model_kwargs will be passed to the model during initialization
         .. note::
             Passing :obj:`use_auth_token=True` is required when you want to use a private model.
         """
 
         model_id = pretrained_model_name_or_path
-        strict = kwargs.pop("strict", True)
-        map_location = kwargs.pop("map_location", torch.device("cpu"))
-        force_download = kwargs.pop("force_download", False)
-        resume_download = kwargs.pop("resume_download", False)
-        proxies = kwargs.pop("proxies", None)
-        use_auth_token = kwargs.pop("use_auth_token", None)
-        cache_dir = kwargs.pop("cache_dir", None)
-        local_files_only = kwargs.pop("local_files_only", False)
+        map_location = torch.device(map_location)
 
         revision = None
         if len(model_id.split("@")) == 2:
@@ -177,9 +185,9 @@ class ModelHubMixin(object):
         if config_file is not None:
             with open(config_file, "r", encoding="utf-8") as f:
                 config = json.load(f)
-            kwargs.update({"config": config})
+            model_kwargs.update({"config": config})
 
-        model = cls(**kwargs)
+        model = cls(**model_kwargs)
 
         state_dict = torch.load(model_file, map_location=map_location)
         model.load_state_dict(state_dict, strict=strict)
@@ -188,7 +196,13 @@ class ModelHubMixin(object):
         return model
 
     @staticmethod
-    def push_to_hub(save_directory: str, **kwargs):
+    def push_to_hub(
+        save_directory: str,
+        model_id=None,
+        repo_url=None,
+        commit_message="add model",
+        organization=None,
+        private=None):
         """
         Parameters:
             save_directory (:obj:`Union[str, os.PathLike]`):
@@ -204,11 +218,8 @@ class ModelHubMixin(object):
             commit_message (:obj:`str`, `optional`, defaults to :obj:`add model`):
                 Message to commit while pushing
         """
-        repo_url = kwargs.pop("repo_url", None)
-        commit_message = kwargs.pop("commit_message", "add model")
-        organization = kwargs.pop("organization", None)
-        private = kwargs.pop("private", None)
-        model_id = kwargs.pop("model_id", save_directory)
+        if model_id is None:
+            model_id = save_directory
 
         token = HfFolder.get_token()
         if repo_url is None:
