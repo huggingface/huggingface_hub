@@ -160,7 +160,16 @@ class Repository:
                     cwd=self.local_dir,
                 )
 
-                try:
+                output = subprocess.run(
+                    "git remote -v".split(),
+                    stderr=subprocess.PIPE,
+                    stdout=subprocess.PIPE,
+                    check=True,
+                    encoding="utf-8",
+                    cwd=self.local_dir,
+                )
+
+                if not "origin" in output.stdout.split():
                     subprocess.run(
                         ["git", "remote", "add", "origin", repo_url],
                         stderr=subprocess.PIPE,
@@ -169,8 +178,6 @@ class Repository:
                         encoding="utf-8",
                         cwd=self.local_dir,
                     )
-                except:
-                    logger.info("remote ORIGIN already exist")
 
                 subprocess.run(
                     "git fetch".split(),
@@ -188,8 +195,18 @@ class Repository:
                     check=True,
                     cwd=self.local_dir,
                 )
-                # TODO(check if we really want the --force flag)
-                try:
+
+                output = subprocess.run(
+                    "git branch".split(),
+                    stderr=subprocess.PIPE,
+                    stdout=subprocess.PIPE,
+                    check=True,
+                    encoding="utf-8",
+                    cwd=self.local_dir,
+                )
+
+                if not "main" in output.stdout.split():
+                    # TODO(check if we really want the --force flag)
                     subprocess.run(
                         "git checkout origin/main -ft".split(),
                         stderr=subprocess.PIPE,
@@ -198,8 +215,6 @@ class Repository:
                         check=True,
                         cwd=self.local_dir,
                     )
-                except:
-                    logger.info("Already on branch main")
 
         except subprocess.CalledProcessError as exc:
             raise EnvironmentError(exc.stderr)
@@ -385,7 +400,7 @@ class Repository:
         """
         try:
             result = subprocess.run(
-                "git push origin main".split(),
+                "git push".split(),
                 stderr=subprocess.PIPE,
                 stdout=subprocess.PIPE,
                 check=True,

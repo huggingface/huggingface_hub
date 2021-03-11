@@ -1,13 +1,19 @@
 import json
+import logging
 import os
+from typing import Dict, Optional
 
 import torch
-from typing import Dict
+
+import requests
 
 from .constants import CONFIG_NAME, PYTORCH_WEIGHTS_NAME
 from .file_download import cached_download, hf_hub_url
 from .hf_api import HfApi, HfFolder
 from .repository import Repository
+
+
+logger = logging.getLogger(__name__)
 
 
 class ModelHubMixin(object):
@@ -37,8 +43,8 @@ class ModelHubMixin(object):
 
     def save_pretrained(
         self,
-        save_directory: str,
-        config: dict = None,
+        save_directory: Optional[str],
+        config: Optional[dict] = None,
         push_to_hub: bool = False,
         **kwargs,
     ):
@@ -82,18 +88,18 @@ class ModelHubMixin(object):
 
     @classmethod
     def from_pretrained(
-        cls, 
-        pretrained_model_name_or_path: str, 
+        cls,
+        pretrained_model_name_or_path: Optional[str],
         strict: bool = True,
-        map_location: str = "cpu",
+        map_location: Optional[str] = "cpu",
         force_download: bool = False,
         resume_download: bool = False,
         proxies: Dict = None,
-        use_auth_token: str = None,
-        cache_dir: str = None,
-        local_files_only: bool =False,
+        use_auth_token: Optional[str] = None,
+        cache_dir: Optional[str] = None,
+        local_files_only: bool = False,
         **model_kwargs,
-        ):
+    ):
         r"""
         Instantiate a pretrained pytorch model from a pre-trained model configuration from huggingface-hub.
         The model is set in evaluation mode by default using ``model.eval()`` (Dropout modules are deactivated). To
@@ -162,7 +168,8 @@ class ModelHubMixin(object):
                     local_files_only=local_files_only,
                     use_auth_token=use_auth_token,
                 )
-            except:
+            except requests.exceptions.RequestException:
+                logger.warning("config.json NOT FOUND in HuggingFace Hub")
                 config_file = None
 
         if model_id in os.listdir():
@@ -197,12 +204,13 @@ class ModelHubMixin(object):
 
     @staticmethod
     def push_to_hub(
-        save_directory: str,
-        model_id=None,
-        repo_url=None,
-        commit_message="add model",
-        organization=None,
-        private=None):
+        save_directory: Optional[str],
+        model_id: Optional[str] = None,
+        repo_url: Optional[str] = None,
+        commit_message: Optional[str] = "add model",
+        organization: Optional[str] = None,
+        private: bool = None,
+    ):
         """
         Parameters:
             save_directory (:obj:`Union[str, os.PathLike]`):
