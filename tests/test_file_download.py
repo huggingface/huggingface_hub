@@ -22,7 +22,12 @@ from huggingface_hub.constants import (
 )
 from huggingface_hub.file_download import cached_download, filename_to_url, hf_hub_url
 
-from .testing_utils import DUMMY_UNKWOWN_IDENTIFIER, SAMPLE_DATASET_IDENTIFIER
+from .testing_utils import (
+    DUMMY_UNKWOWN_IDENTIFIER,
+    SAMPLE_DATASET_IDENTIFIER,
+    OfflineSimulationMode,
+    offline,
+)
 
 
 MODEL_ID = DUMMY_UNKWOWN_IDENTIFIER
@@ -51,12 +56,25 @@ DATASET_SAMPLE_PY_FILE = "custom_squad.py"
 
 class CachedDownloadTests(unittest.TestCase):
     def test_bogus_url(self):
-        # This lets us simulate no connection
-        # as the error raised is the same
-        # `ConnectionError`
         url = "https://bogus"
         with self.assertRaisesRegex(ValueError, "Connection error"):
             _ = cached_download(url)
+
+    def test_no_connection(self):
+        invalid_url = hf_hub_url(
+            MODEL_ID, filename=CONFIG_NAME, revision=REVISION_ID_INVALID
+        )
+        valid_url = hf_hub_url(
+            MODEL_ID, filename=CONFIG_NAME, revision=REVISION_ID_DEFAULT
+        )
+        self.assertIsNotNone(cached_download(valid_url, force_download=True))
+        for offline_mode in OfflineSimulationMode:
+            with offline(mode=offline_mode):
+                with self.assertRaisesRegex(ValueError, "Connection error"):
+                    _ = cached_download(invalid_url)
+                with self.assertRaisesRegex(ValueError, "Connection error"):
+                    _ = cached_download(valid_url, force_download=True)
+                self.assertIsNotNone(cached_download(valid_url))
 
     def test_file_not_found(self):
         # Valid revision (None) but missing file.
