@@ -6,6 +6,7 @@ import logging
 import os
 import sys
 import tempfile
+import time
 from contextlib import contextmanager
 from functools import partial
 from hashlib import sha256
@@ -16,6 +17,7 @@ from tqdm.auto import tqdm
 
 import requests
 from filelock import FileLock
+from huggingface_hub import constants
 
 from . import __version__
 from .constants import (
@@ -171,12 +173,73 @@ def http_user_agent(
     return ua
 
 
+class OfflineModeIsEnabled(ConnectionError):
+    pass
+
+
+def _raise_if_offline_mode_is_enabled(msg: Optional[str] = None):
+    """Raise a OfflineModeIsEnabled error (subclass of ConnectionError) if HF_HUB_OFFLINE is True."""
+    if constants.HF_HUB_OFFLINE:
+        raise OfflineModeIsEnabled(
+            "Offline mode is enabled."
+            if msg is None
+            else "Offline mode is enabled. " + str(msg)
+        )
+
+
+def _request_with_retry(
+    method: str,
+    url: str,
+    max_retries: int = 0,
+    base_wait_time: float = 0.5,
+    max_wait_time: float = 2,
+    timeout: float = 10.0,
+    **params,
+) -> requests.Response:
+    """Wrapper around requests to retry in case it fails with a ConnectTimeout, with exponential backoff.
+
+    Note that if the environment variable HF_DATASETS_OFFLINE is set to 1, then a OfflineModeIsEnabled error is raised.
+
+    Args:
+        method (str): HTTP method, such as 'GET' or 'HEAD'
+        url (str): The URL of the ressource to fetch
+        max_retries (int): Maximum number of retries, defaults to 0 (no retries)
+        base_wait_time (float): Duration (in seconds) to wait before retrying the first time. Wait time between
+            retries then grows exponentially, capped by max_wait_time.
+        max_wait_time (float): Maximum amount of time between two retries, in seconds
+        **params: Params to pass to `requests.request`
+    """
+    _raise_if_offline_mode_is_enabled(f"Tried to reach {url}")
+    tries, success = 0, False
+    while not success:
+        tries += 1
+        try:
+            response = requests.request(
+                method=method.upper(), url=url, timeout=timeout, **params
+            )
+            success = True
+        except requests.exceptions.ConnectTimeout as err:
+            if tries > max_retries:
+                raise err
+            else:
+                logger.info(
+                    f"{method} request to {url} timed out, retrying... [{tries/max_retries}]"
+                )
+                sleep_time = max(
+                    max_wait_time, base_wait_time * 2 ** (tries - 1)
+                )  # Exponential backoff
+                time.sleep(sleep_time)
+    return response
+
+
 def http_get(
     url: str,
     temp_file: BinaryIO,
     proxies=None,
     resume_size=0,
     headers: Optional[Dict[str, str]] = None,
+    timeout=10.0,
+    max_retries=0,
 ):
     """
     Donwload remote file. Do not gobble up errors.
@@ -184,7 +247,15 @@ def http_get(
     headers = copy.deepcopy(headers)
     if resume_size > 0:
         headers["Range"] = "bytes=%d-" % (resume_size,)
-    r = requests.get(url, stream=True, proxies=proxies, headers=headers)
+    r = _request_with_retry(
+        method="GET",
+        url=url,
+        stream=True,
+        proxies=proxies,
+        headers=headers,
+        timeout=timeout,
+        max_retries=max_retries,
+    )
     r.raise_for_status()
     content_length = r.headers.get("Content-Length")
     total = resume_size + int(content_length) if content_length is not None else None
@@ -254,8 +325,9 @@ def cached_download(
     etag = None
     if not local_files_only:
         try:
-            r = requests.head(
-                url,
+            r = _request_with_retry(
+                method="HEAD",
+                url=url,
                 headers=headers,
                 allow_redirects=False,
                 proxies=proxies,
@@ -279,11 +351,10 @@ def cached_download(
         except (
             requests.exceptions.ConnectionError,
             requests.exceptions.Timeout,
+            OfflineModeIsEnabled,
         ) as exc:
             # Actually raise for those subclasses of ConnectionError:
-            if isinstance(exc, requests.exceptions.SSLError) or isinstance(
-                exc, requests.exceptions.ProxyError
-            ):
+            if isinstance(exc, requests.exceptions.ProxyError):
                 raise exc
             # Otherwise, our Internet connection is down.
             # etag is None
@@ -297,7 +368,7 @@ def cached_download(
     # etag is None == we don't have a connection or we passed local_files_only.
     # try to get the last downloaded one
     if etag is None:
-        if os.path.exists(cache_path):
+        if os.path.exists(cache_path) and not force_download:
             return cache_path
         else:
             matching_files = [
@@ -307,7 +378,7 @@ def cached_download(
                 )
                 if not file.endswith(".json") and not file.endswith(".lock")
             ]
-            if len(matching_files) > 0:
+            if len(matching_files) > 0 and not force_download:
                 return os.path.join(cache_dir, matching_files[-1])
             else:
                 # If files cannot be found and local_files_only=True,
