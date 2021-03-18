@@ -116,10 +116,6 @@ class ModelHubMixin(object):
                       since we use a git-based system for storing models and other artifacts on huggingface.co, so ``revision`` can be any identifier allowed by git.
                     - A path to a `directory` containing model weights saved using
                       :func:`~transformers.PreTrainedModel.save_pretrained`, e.g., ``./my_model_directory/``.
-                    - A path or url to a `tensorflow index checkpoint file` (e.g, ``./tf_model/model.ckpt.index``). In
-                      this case, ``from_tf`` should be set to :obj:`True` and a configuration object should be provided
-                      as ``config`` argument. This loading path is slower than converting the TensorFlow checkpoint in
-                      a PyTorch model using the provided conversion scripts and loading the PyTorch model afterwards.
                     - :obj:`None` if you are both providing the configuration and state dictionary (resp. with keyword
                       arguments ``config`` and ``state_dict``).
             cache_dir (:obj:`Union[str, os.PathLike]`, `optional`):
