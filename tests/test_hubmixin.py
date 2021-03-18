@@ -26,7 +26,7 @@ def require_torch(test_case):
 
 
 @require_torch
-class DummyModel(nn.Module, ModelHubMixin):
+class DummyModel(ModelHubMixin):
     def __init__(self, **kwargs):
         super().__init__()
         self.config = kwargs.pop("config", None)
