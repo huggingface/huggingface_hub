@@ -3,14 +3,16 @@ import logging
 import os
 from typing import Dict, Optional
 
-import torch
-
 import requests
 
 from .constants import CONFIG_NAME, PYTORCH_WEIGHTS_NAME
-from .file_download import cached_download, hf_hub_url
+from .file_download import cached_download, hf_hub_url, is_torch_available
 from .hf_api import HfApi, HfFolder
 from .repository import Repository
+
+
+if is_torch_available():
+    import torch
 
 
 logger = logging.getLogger(__name__)

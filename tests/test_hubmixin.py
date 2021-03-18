@@ -1,14 +1,31 @@
 import unittest
 
-import torch.nn as nn
+from huggingface_hub.file_download import is_torch_available
+from huggingface_hub.hub_mixin import ModelHubMixin
 
-from huggingface_hub import ModelHubMixin
+
+if is_torch_available():
+    import torch.nn as nn
 
 
 HUGGINGFACE_ID = "vasudevgupta"
 DUMMY_REPO_NAME = "dummy"
 
 
+def require_torch(test_case):
+    """
+    Decorator marking a test that requires PyTorch.
+
+    These tests are skipped when PyTorch isn't installed.
+
+    """
+    if not is_torch_available():
+        return unittest.skip("test requires PyTorch")(test_case)
+    else:
+        return test_case
+
+
+@require_torch
 class DummyModel(nn.Module, ModelHubMixin):
     def __init__(self, **kwargs):
         super().__init__()
@@ -19,6 +36,7 @@ class DummyModel(nn.Module, ModelHubMixin):
         return self.l1(x)
 
 
+@require_torch
 class DummyModelTest(unittest.TestCase):
     def test_save_pretrained(self):
         model = DummyModel()
