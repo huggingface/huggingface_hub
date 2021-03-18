@@ -159,14 +159,26 @@ class Repository:
                     encoding="utf-8",
                     cwd=self.local_dir,
                 )
-                subprocess.run(
-                    ["git", "remote", "add", "origin", repo_url],
+
+                output = subprocess.run(
+                    "git remote -v".split(),
                     stderr=subprocess.PIPE,
                     stdout=subprocess.PIPE,
                     check=True,
                     encoding="utf-8",
                     cwd=self.local_dir,
                 )
+
+                if "origin" not in output.stdout.split():
+                    subprocess.run(
+                        ["git", "remote", "add", "origin", repo_url],
+                        stderr=subprocess.PIPE,
+                        stdout=subprocess.PIPE,
+                        check=True,
+                        encoding="utf-8",
+                        cwd=self.local_dir,
+                    )
+
                 subprocess.run(
                     "git fetch".split(),
                     stderr=subprocess.PIPE,
@@ -183,15 +195,27 @@ class Repository:
                     check=True,
                     cwd=self.local_dir,
                 )
-                # TODO(check if we really want the --force flag)
-                subprocess.run(
-                    "git checkout origin/main -ft".split(),
+
+                output = subprocess.run(
+                    "git branch".split(),
                     stderr=subprocess.PIPE,
                     stdout=subprocess.PIPE,
-                    encoding="utf-8",
                     check=True,
+                    encoding="utf-8",
                     cwd=self.local_dir,
                 )
+
+                if "main" not in output.stdout.split():
+                    # TODO(check if we really want the --force flag)
+                    subprocess.run(
+                        "git checkout origin/main -ft".split(),
+                        stderr=subprocess.PIPE,
+                        stdout=subprocess.PIPE,
+                        encoding="utf-8",
+                        check=True,
+                        cwd=self.local_dir,
+                    )
+
         except subprocess.CalledProcessError as exc:
             raise EnvironmentError(exc.stderr)
 
