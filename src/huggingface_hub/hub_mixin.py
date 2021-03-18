@@ -43,7 +43,7 @@ class ModelHubMixin(object):
 
     def save_pretrained(
         self,
-        save_directory: Optional[str],
+        save_directory: str,
         config: Optional[dict] = None,
         push_to_hub: bool = False,
         **kwargs,
@@ -206,7 +206,7 @@ class ModelHubMixin(object):
         commit_message: Optional[str] = "add model",
         organization: Optional[str] = None,
         private: bool = None,
-    ):
+    ) -> str:
         """
         Parameters:
             save_directory (:obj:`Union[str, os.PathLike]`):
@@ -221,6 +221,9 @@ class ModelHubMixin(object):
                 private: Whether the model repo should be private (requires a paid huggingface.co account)
             commit_message (:obj:`str`, `optional`, defaults to :obj:`add model`):
                 Message to commit while pushing
+
+        Returns:
+            url to commit on remote repo.
         """
         if model_id is None:
             model_id = save_directory
