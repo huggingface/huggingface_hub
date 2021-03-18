@@ -169,7 +169,7 @@ class Repository:
                     cwd=self.local_dir,
                 )
 
-                if not "origin" in output.stdout.split():
+                if "origin" not in output.stdout.split():
                     subprocess.run(
                         ["git", "remote", "add", "origin", repo_url],
                         stderr=subprocess.PIPE,
@@ -205,7 +205,7 @@ class Repository:
                     cwd=self.local_dir,
                 )
 
-                if not "main" in output.stdout.split():
+                if "main" not in output.stdout.split():
                     # TODO(check if we really want the --force flag)
                     subprocess.run(
                         "git checkout origin/main -ft".split(),
