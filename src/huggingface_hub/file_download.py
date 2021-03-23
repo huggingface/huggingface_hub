@@ -225,7 +225,7 @@ def _request_with_retry(
                 logger.info(
                     f"{method} request to {url} timed out, retrying... [{tries/max_retries}]"
                 )
-                sleep_time = max(
+                sleep_time = min(
                     max_wait_time, base_wait_time * 2 ** (tries - 1)
                 )  # Exponential backoff
                 time.sleep(sleep_time)
