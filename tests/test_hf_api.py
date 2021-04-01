@@ -24,7 +24,11 @@ from huggingface_hub.hf_api import HfApi, HfFolder, ModelInfo, RepoObj
 from requests.exceptions import HTTPError
 
 from .testing_constants import ENDPOINT_STAGING, ENDPOINT_STAGING_BASIC_AUTH, PASS, USER
-from .testing_utils import require_git_lfs
+from .testing_utils import (
+    DUMMY_MODEL_ID,
+    DUMMY_MODEL_ID_REVISION_ONE_SPECIFIC_COMMIT,
+    require_git_lfs,
+)
 
 
 REPO_NAME = "my-model-{}".format(int(time.time() * 10e3))
@@ -85,15 +89,27 @@ class HfApiEndpointsTest(HfApiCommonTest):
 
 
 class HfApiPublicTest(unittest.TestCase):
-    def test_staging_model_list(self):
+    def test_staging_list_models(self):
         _api = HfApi(endpoint=ENDPOINT_STAGING)
-        _ = _api.model_list()
+        _ = _api.list_models()
 
-    def test_model_list(self):
+    def test_list_models(self):
         _api = HfApi()
-        models = _api.model_list()
+        models = _api.list_models()
         self.assertGreater(len(models), 100)
         self.assertIsInstance(models[0], ModelInfo)
+
+    def test_model_info(self):
+        _api = HfApi()
+        model = _api.model_info(repo_id=DUMMY_MODEL_ID)
+        self.assertIsInstance(model, ModelInfo)
+        self.assertNotEquals(model.sha, DUMMY_MODEL_ID_REVISION_ONE_SPECIFIC_COMMIT)
+        # One particular commit (not the top of `main`)
+        model = _api.model_info(
+            repo_id=DUMMY_MODEL_ID, revision=DUMMY_MODEL_ID_REVISION_ONE_SPECIFIC_COMMIT
+        )
+        self.assertIsInstance(model, ModelInfo)
+        self.assertEquals(model.sha, DUMMY_MODEL_ID_REVISION_ONE_SPECIFIC_COMMIT)
 
 
 class HfFolderTest(unittest.TestCase):
