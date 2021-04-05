@@ -57,6 +57,14 @@ def snapshot_download(
         )
         os.makedirs(nested_dirname, exist_ok=True)
 
-        cached_download(url, cache_dir=storage_folder, force_filename=relative_filepath)
+        path = cached_download(
+            url, cache_dir=storage_folder, force_filename=relative_filepath
+        )
+
+        if os.path.exists(path + ".lock"):
+            os.remove(path + ".lock")
+
+        if os.path.exists(path + ".json"):
+            os.remove(path + ".json")
 
     return storage_folder
