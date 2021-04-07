@@ -451,10 +451,11 @@ def cached_download(
         logger.info("storing %s in cache at %s", url, cache_path)
         os.replace(temp_file.name, cache_path)
 
-        logger.info("creating metadata file for %s", cache_path)
-        meta = {"url": url, "etag": etag}
-        meta_path = cache_path + ".json"
-        with open(meta_path, "w") as meta_file:
-            json.dump(meta, meta_file)
+        if force_filename is None:
+            logger.info("creating metadata file for %s", cache_path)
+            meta = {"url": url, "etag": etag}
+            meta_path = cache_path + ".json"
+            with open(meta_path, "w") as meta_file:
+                json.dump(meta, meta_file)
 
     return cache_path

@@ -64,7 +64,4 @@ def snapshot_download(
         if os.path.exists(path + ".lock"):
             os.remove(path + ".lock")
 
-        if os.path.exists(path + ".json"):
-            os.remove(path + ".json")
-
     return storage_folder
