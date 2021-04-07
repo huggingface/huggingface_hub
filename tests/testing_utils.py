@@ -7,9 +7,23 @@ from unittest.mock import patch
 
 
 SMALL_MODEL_IDENTIFIER = "julien-c/bert-xsmall-dummy"
-DUMMY_UNKWOWN_IDENTIFIER = "julien-c/dummy-unknown"
 DUMMY_DIFF_TOKENIZER_IDENTIFIER = "julien-c/dummy-diff-tokenizer"
 # Example model ids
+
+# An actual model hosted on huggingface.co,
+# w/ more details.
+DUMMY_MODEL_ID = "julien-c/dummy-unknown"
+DUMMY_MODEL_ID_REVISION_ONE_SPECIFIC_COMMIT = "f2c752cfc5c0ab6f4bdec59acea69eefbee381c2"
+# One particular commit (not the top of `main`)
+DUMMY_MODEL_ID_REVISION_INVALID = "aaaaaaa"
+# This commit does not exist, so we should 404.
+DUMMY_MODEL_ID_PINNED_SHA1 = "d9e9f15bc825e4b2c9249e9578f884bbcb5e3684"
+# Sha-1 of config.json on the top of `main`, for checking purposes
+DUMMY_MODEL_ID_PINNED_SHA256 = (
+    "4b243c475af8d0a7754e87d7d096c92e5199ec2fe168a2ee7998e3b8e9bcb1d3"
+)
+# Sha-256 of pytorch_model.bin on the top of `main`, for checking purposes
+
 
 SAMPLE_DATASET_IDENTIFIER = "lhoestq/custom_squad"
 # Example dataset ids

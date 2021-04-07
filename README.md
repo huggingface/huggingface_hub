@@ -63,6 +63,16 @@ Parameters:
 
 Check out the source code for all possible params (we'll create a real doc page in the future).
 
+### Bonus: `snapshot_download`
+
+`snapshot_download()` downloads all the files from the remote repository at the specified revision, 
+stores it to disk (in a versioning-aware way) and returns its local file path.
+
+Parameters:
+- a `repo_id` in the format `namespace/repository`
+- a `revision` on which the repository will be downloaded
+- a `cache_dir` which you can specify if you want to control where on disk the files are cached.
+
 <br>
 
 ## Publish models to the huggingface.co hub

@@ -15,6 +15,7 @@
 
 
 import os
+import warnings
 from os.path import expanduser
 from typing import Dict, List, Optional, Tuple
 
@@ -36,7 +37,7 @@ class RepoObj:
             setattr(self, k, v)
 
 
-class ModelSibling:
+class ModelFile:
     """
     Data structure that represents a public file inside a model, accessible from huggingface.co
     """
@@ -55,6 +56,7 @@ class ModelInfo:
     def __init__(
         self,
         modelId: Optional[str] = None,  # id of model
+        sha: Optional[str] = None,  # commit sha at the specified revision
         tags: List[str] = [],
         pipeline_tag: Optional[str] = None,
         siblings: Optional[
@@ -63,10 +65,11 @@ class ModelInfo:
         **kwargs
     ):
         self.modelId = modelId
+        self.sha = sha
         self.tags = tags
         self.pipeline_tag = pipeline_tag
         self.siblings = (
-            [ModelSibling(**x) for x in siblings] if siblings is not None else None
+            [ModelFile(**x) for x in siblings] if siblings is not None else None
         )
         for k, v in kwargs.items():
             setattr(self, k, v)
@@ -108,15 +111,50 @@ class HfApi:
         r = requests.post(path, headers={"authorization": "Bearer {}".format(token)})
         r.raise_for_status()
 
-    def model_list(self) -> List[ModelInfo]:
+    def list_models(self, filter: Optional[str] = None) -> List[ModelInfo]:
         """
         Get the public list of all the models on huggingface.co
         """
         path = "{}/api/models".format(self.endpoint)
-        r = requests.get(path)
+        params = {"filter": filter, "full": True} if filter is not None else None
+        r = requests.get(path, params=params)
         r.raise_for_status()
         d = r.json()
         return [ModelInfo(**x) for x in d]
+
+    def model_list(self) -> List[ModelInfo]:
+        """
+        Deprecated method name, renamed to `list_models`.
+
+        Get the public list of all the models on huggingface.co
+        """
+        warnings.warn(
+            "This method has been renamed to `list_models` for consistency and will be removed in a future version."
+        )
+        return self.list_models()
+
+    def model_info(
+        self, repo_id: str, revision: Optional[str] = None, token: Optional[str] = None
+    ) -> ModelInfo:
+        """
+        Get info on one specific model on huggingface.co
+
+        Model can be private if you pass an acceptable token.
+        """
+        path = (
+            "{}/api/models/{repo_id}".format(self.endpoint, repo_id=repo_id)
+            if revision is None
+            else "{}/api/models/{repo_id}/revision/{revision}".format(
+                self.endpoint, repo_id=repo_id, revision=revision
+            )
+        )
+        headers = (
+            {"authorization": "Bearer {}".format(token)} if token is not None else None
+        )
+        r = requests.get(path, headers=headers)
+        r.raise_for_status()
+        d = r.json()
+        return ModelInfo(**d)
 
     def list_repos_objs(
         self, token: str, organization: Optional[str] = None
