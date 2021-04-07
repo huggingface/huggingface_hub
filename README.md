@@ -63,10 +63,10 @@ Parameters:
 
 Check out the source code for all possible params (we'll create a real doc page in the future).
 
-### `snapshot_download`
+### Bonus: `snapshot_download`
 
-`snapshot_download()` takes the following parameters, downloads the remote repository at the specified revision, 
-stores it to disk (in a versioning-aware) way and returns its local file path.
+`snapshot_download()` downloads all the files from the remote repository at the specified revision, 
+stores it to disk (in a versioning-aware way) and returns its local file path.
 
 Parameters:
 - a `repo_id` in the format `namespace/repository`
