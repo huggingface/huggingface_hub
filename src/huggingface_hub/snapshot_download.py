@@ -1,10 +1,33 @@
 import os
+from enum import Enum
 from pathlib import Path
 from typing import Optional, Union
 
-from .constants import HUGGINGFACE_HUB_CACHE
+from .constants import (
+    FILE_LIST_NAMES,
+    FLAX_WEIGHTS_NAME,
+    HUGGINGFACE_HUB_CACHE,
+    PYTORCH_WEIGHTS_NAME,
+    TF2_WEIGHTS_NAME,
+    TF_WEIGHTS_NAME,
+)
 from .file_download import cached_download, hf_hub_url
 from .hf_api import HfApi
+
+
+class Frameworks(str, Enum):
+    pytorch = "pytorch"
+    tensorflow = "tensorflow"
+    tensorflow1 = "tensorflow1"
+    flax = "flax"
+
+
+framework_mapping = {
+    Frameworks.pytorch: PYTORCH_WEIGHTS_NAME,
+    Frameworks.tensorflow: TF2_WEIGHTS_NAME,
+    Frameworks.tensorflow1: TF_WEIGHTS_NAME,
+    Frameworks.flax: FLAX_WEIGHTS_NAME,
+}
 
 
 REPO_ID_SEPARATOR = "__"
@@ -15,6 +38,7 @@ def snapshot_download(
     repo_id: str,
     revision: Optional[str] = None,
     cache_dir: Union[str, Path, None] = None,
+    framework: Optional[Frameworks] = None,
 ) -> str:
     """
     Downloads a whole snapshot of a repo's files at the specified revision.
@@ -29,7 +53,15 @@ def snapshot_download(
     Note: at some point maybe this format of storage should actually replace
     the flat storage structure we've used so far (initially from allennlp
     if I remember correctly).
-
+    Args:
+        repo_id (:obj:`str`):
+            Repository Id from the Hub in the format `namespace/repository`.
+        revision (:obj:`str`, `optional`):
+            Specifies the revision on which the repository will be downloaded.
+        cache_dir (:obj:`str`, `optional`):
+            Directory which you can specify if you want to control where on disk the files are cached.
+        framework (:obj:`Frameworks`, `optional`):
+            Specify the framework and filters the download files to only load the framework specific ones.
     Return:
         Local folder path (string) of repo snapshot
     """
@@ -44,6 +76,14 @@ def snapshot_download(
     storage_folder = os.path.join(
         cache_dir, repo_id.replace("/", REPO_ID_SEPARATOR) + "." + model_info.sha
     )
+
+    if framework is not None:
+        wanted_file_list_names = FILE_LIST_NAMES + [framework_mapping[framework]]
+        model_info.siblings = [
+            file
+            for file in model_info.siblings
+            if file.rfilename in wanted_file_list_names
+        ]
 
     for model_file in model_info.siblings:
         url = hf_hub_url(

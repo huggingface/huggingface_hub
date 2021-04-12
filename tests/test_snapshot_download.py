@@ -2,10 +2,17 @@ import os
 import tempfile
 import unittest
 
+from huggingface_hub.constants import (
+    FILE_LIST_NAMES,
+    FLAX_WEIGHTS_NAME,
+    PYTORCH_WEIGHTS_NAME,
+    TF2_WEIGHTS_NAME,
+)
 from huggingface_hub.snapshot_download import snapshot_download
 
 
 SNAPSHOT_MODEL_ID = "lysandre/dummy-hf-hub"
+FRAMEWORK_MODEL_ID = "lysandre/tiny-bert-random"
 
 # Commit at the top of main
 SNAPSHOT_MODEL_ID_REVISION_MAIN = "4958076ba4a2f5b261e1ba190d343d21b844fc96"
@@ -56,3 +63,52 @@ class SnapshotDownloadTests(unittest.TestCase):
 
             # folder name contains the revision's commit sha.
             self.assertTrue(SNAPSHOT_MODEL_ID_REVISION_MASTER in storage_folder)
+
+    def test_download_model_with_framework(self):
+        with tempfile.TemporaryDirectory() as tmpdirname:
+            storage_folder = snapshot_download(
+                FRAMEWORK_MODEL_ID,
+                revision="main",
+                cache_dir=tmpdirname,
+                framework="pytorch",
+            )
+
+            # folder contains all config files and pytorch_model.bin
+            folder_contents = os.listdir(storage_folder)
+            self.assertTrue(
+                any([True for files in FILE_LIST_NAMES if files in folder_contents])
+            )
+            self.assertTrue(PYTORCH_WEIGHTS_NAME in folder_contents)
+            self.assertFalse(TF2_WEIGHTS_NAME in folder_contents)
+
+        with tempfile.TemporaryDirectory() as tmpdirname:
+            storage_folder = snapshot_download(
+                FRAMEWORK_MODEL_ID,
+                revision="main",
+                cache_dir=tmpdirname,
+                framework="tensorflow",
+            )
+
+            # folder contains all config files and tf_model.h5
+            folder_contents = os.listdir(storage_folder)
+            self.assertTrue(
+                any([True for files in FILE_LIST_NAMES if files in folder_contents])
+            )
+            self.assertTrue(TF2_WEIGHTS_NAME in folder_contents)
+            self.assertFalse(PYTORCH_WEIGHTS_NAME in folder_contents)
+
+        with tempfile.TemporaryDirectory() as tmpdirname:
+            storage_folder = snapshot_download(
+                FRAMEWORK_MODEL_ID,
+                revision="main",
+                cache_dir=tmpdirname,
+                framework="flax",
+            )
+
+            # folder contains all config files and flax_model.msgpack
+            folder_contents = os.listdir(storage_folder)
+            self.assertTrue(
+                any([True for files in FILE_LIST_NAMES if files in folder_contents])
+            )
+            self.assertTrue(FLAX_WEIGHTS_NAME in folder_contents)
+            self.assertFalse(PYTORCH_WEIGHTS_NAME in folder_contents)

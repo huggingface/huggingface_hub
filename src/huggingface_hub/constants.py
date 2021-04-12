@@ -14,6 +14,17 @@ TF_WEIGHTS_NAME = "model.ckpt"
 FLAX_WEIGHTS_NAME = "flax_model.msgpack"
 CONFIG_NAME = "config.json"
 
+FILE_LIST_NAMES = [
+    "config.json",
+    "special_tokens_map.json",
+    "tokenizer_config.json",
+    "tokenizer.json",
+    "vocab.json",
+    "vocab.txt",
+    "merges.txt",
+    "preprocessor_config.json",
+]
+
 HUGGINGFACE_CO_URL_HOME = "https://huggingface.co/"
 
 HUGGINGFACE_CO_URL_TEMPLATE = (

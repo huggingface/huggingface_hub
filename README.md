@@ -72,6 +72,7 @@ Parameters:
 - a `repo_id` in the format `namespace/repository`
 - a `revision` on which the repository will be downloaded
 - a `cache_dir` which you can specify if you want to control where on disk the files are cached.
+- a `framework` if only framework specific files should be downloaded. 
 
 <br>
 
