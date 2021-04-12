@@ -38,6 +38,7 @@ def snapshot_download(
     repo_id: str,
     revision: Optional[str] = None,
     cache_dir: Union[str, Path, None] = None,
+    use_auth_token: Union[bool, str, None] = None,
     framework: Optional[Frameworks] = None,
 ) -> str:
     """
@@ -60,6 +61,8 @@ def snapshot_download(
             Specifies the revision on which the repository will be downloaded.
         cache_dir (:obj:`str`, `optional`):
             Directory which you can specify if you want to control where on disk the files are cached.
+        use_auth_token (:obj:`str`, `optional`):
+            Defines a Hub api token used for downloading
         framework (:obj:`Frameworks`, `optional`):
             Specify the framework and filters the download files to only load the framework specific ones.
     Return:
@@ -98,7 +101,10 @@ def snapshot_download(
         os.makedirs(nested_dirname, exist_ok=True)
 
         path = cached_download(
-            url, cache_dir=storage_folder, force_filename=relative_filepath
+            url,
+            cache_dir=storage_folder,
+            force_filename=relative_filepath,
+            use_auth_token=use_auth_token,
         )
 
         if os.path.exists(path + ".lock"):
