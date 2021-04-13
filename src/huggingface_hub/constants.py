@@ -23,13 +23,14 @@ FILE_LIST_NAMES = [
     "vocab.txt",
     "merges.txt",
     "preprocessor_config.json",
+    "added_tokens.json",
+    "README.md",
+    "spiece.model",
 ]
 
 HUGGINGFACE_CO_URL_HOME = "https://huggingface.co/"
 
-HUGGINGFACE_CO_URL_TEMPLATE = (
-    "https://huggingface.co/{repo_id}/resolve/{revision}/{filename}"
-)
+HUGGINGFACE_CO_URL_TEMPLATE = "https://huggingface.co/{repo_id}/resolve/{revision}/{filename}"
 
 REPO_TYPE_DATASET = "dataset"
 REPO_TYPES = [None, REPO_TYPE_DATASET]
@@ -39,9 +40,7 @@ REPO_TYPE_DATASET_URL_PREFIX = "datasets/"
 
 # default cache
 hf_cache_home = os.path.expanduser(
-    os.getenv(
-        "HF_HOME", os.path.join(os.getenv("XDG_CACHE_HOME", "~/.cache"), "huggingface")
-    )
+    os.getenv("HF_HOME", os.path.join(os.getenv("XDG_CACHE_HOME", "~/.cache"), "huggingface"))
 )
 default_cache_path = os.path.join(hf_cache_home, "hub")
 
