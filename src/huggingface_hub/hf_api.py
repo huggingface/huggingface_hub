@@ -73,6 +73,11 @@ class ModelInfo:
         )
         for k, v in kwargs.items():
             setattr(self, k, v)
+            
+    def __repr__(self): 
+        r = f'Model Name: {self.modelId}, Tags: {self.tags}'
+        if self.pipeline_tag: r += f', Task: {self.pipeline_tag}'
+        return r
 
 
 class HfApi:
