@@ -20,9 +20,13 @@ install_requires = [
 
 extras = {}
 
+extras["torch"] = [
+    "torch",
+]
+
 extras["testing"] = [
     "pytest",
-]
+] + extras["torch"]
 
 extras["quality"] = [
     "black>=20.8b1",
