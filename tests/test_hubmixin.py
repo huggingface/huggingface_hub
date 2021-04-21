@@ -116,6 +116,8 @@ class HubMixingTest(HubMixingCommonTest):
             f"{REPO_NAME}-PUSH_TO_HUB",
             api_endpoint=ENDPOINT_STAGING,
             use_auth_token=self._token,
+            git_user="ci",
+            git_email="ci@dummy.com",
         )
 
         model_info = self._api.model_info(
