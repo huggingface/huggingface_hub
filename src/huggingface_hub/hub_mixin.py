@@ -1,7 +1,7 @@
 import json
 import logging
 import os
-from typing import Dict, Optional
+from typing import Dict, Optional, Union
 
 import requests
 
@@ -150,7 +150,7 @@ class ModelHubMixin(object):
         if len(model_id.split("@")) == 2:
             model_id, revision = model_id.split("@")
 
-        if model_id in os.listdir() and CONFIG_NAME in os.listdir(model_id):
+        if os.path.isdir(model_id) and CONFIG_NAME in os.listdir(model_id):
             config_file = os.path.join(model_id, CONFIG_NAME)
         else:
             try:
@@ -170,7 +170,7 @@ class ModelHubMixin(object):
                 logger.warning("config.json NOT FOUND in HuggingFace Hub")
                 config_file = None
 
-        if model_id in os.listdir():
+        if os.path.isdir(model_id):
             print("LOADING weights from local directory")
             model_file = os.path.join(model_id, PYTORCH_WEIGHTS_NAME)
         else:
@@ -208,6 +208,10 @@ class ModelHubMixin(object):
         commit_message: Optional[str] = "add model",
         organization: Optional[str] = None,
         private: bool = None,
+        api_endpoint=None,
+        use_auth_token: Union[bool, str, None] = None,
+        git_user: Optional[str] = None,
+        git_email: Optional[str] = None,
     ) -> str:
         """
         Parameters:
@@ -223,17 +227,34 @@ class ModelHubMixin(object):
                 private: Whether the model repo should be private (requires a paid huggingface.co account)
             commit_message (:obj:`str`, `optional`, defaults to :obj:`add model`):
                 Message to commit while pushing
+            api_endpoint (:obj:`str`, `optional`):
+                The API endpoint to use when pushing the model to the hub.
+            use_auth_token (``str`` or ``bool``, `optional`, defaults ``None``):
+                huggingface_token can be extract from ``HfApi().login(username, password)`` and is used to authenticate
+                 against the hub (useful from Google Colab for instance).
+            git_user (``str``, `optional`, defaults ``None``):
+                will override the ``git config user.name`` for committing and pushing files to the hub.
+            git_email (``str``, `optional`, defaults ``None``):
+                will override the ``git config user.email`` for committing and pushing files to the hub.
 
         Returns:
             url to commit on remote repo.
         """
         if model_id is None:
-            model_id = save_directory
+            model_id = save_directory.split("/")[-1]
 
-        token = HfFolder.get_token()
+        # The auth token is necessary to create a repo
+        if isinstance(use_auth_token, str):
+            huggingface_token = use_auth_token
+        elif use_auth_token is None and repo_url is not None:
+            # If the repo url exists, then no need for a token
+            huggingface_token = None
+        else:
+            huggingface_token = HfFolder.get_token()
+
         if repo_url is None:
-            repo_url = HfApi().create_repo(
-                token,
+            repo_url = HfApi(endpoint=api_endpoint).create_repo(
+                huggingface_token,
                 model_id,
                 organization=organization,
                 private=private,
@@ -241,6 +262,12 @@ class ModelHubMixin(object):
                 exist_ok=True,
             )
 
-        repo = Repository(save_directory, clone_from=repo_url, use_auth_token=token)
+        repo = Repository(
+            save_directory,
+            clone_from=repo_url,
+            use_auth_token=use_auth_token,
+            git_user=git_user,
+            git_email=git_email,
+        )
 
         return repo.push_to_hub(commit_message=commit_message)

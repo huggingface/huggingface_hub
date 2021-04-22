@@ -20,6 +20,10 @@ install_requires = [
 
 extras = {}
 
+extras["torch"] = [
+    "torch",
+]
+
 extras["testing"] = [
     "pytest",
 ]
