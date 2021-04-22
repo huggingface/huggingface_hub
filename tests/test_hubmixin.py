@@ -102,7 +102,7 @@ class HubMixingTest(HubMixingCommonTest):
         model = DummyModel.from_pretrained(
             f"{WORKING_REPO_DIR}/{REPO_NAME}-FROM_PRETRAINED"
         )
-        self.assertTrue(model.config == {"num": 10, "act": "gelu_fast"})
+        self.assertDictEqual(model.config, {"num": 10, "act": "gelu_fast"})
 
     def test_push_to_hub(self):
         model = DummyModel()

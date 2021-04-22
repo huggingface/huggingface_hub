@@ -26,7 +26,7 @@ extras["torch"] = [
 
 extras["testing"] = [
     "pytest",
-] + extras["torch"]
+]
 
 extras["quality"] = [
     "black>=20.8b1",

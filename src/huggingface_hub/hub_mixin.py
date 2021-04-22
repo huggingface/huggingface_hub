@@ -1,6 +1,7 @@
 import json
 import logging
 import os
+from pathlib import Path
 from typing import Dict, Optional, Union
 
 import requests
@@ -241,7 +242,7 @@ class ModelHubMixin(object):
             url to commit on remote repo.
         """
         if model_id is None:
-            model_id = save_directory
+            model_id = save_directory.split("/")[-1]
 
         # The auth token is necessary to create a repo
         if isinstance(use_auth_token, str):
