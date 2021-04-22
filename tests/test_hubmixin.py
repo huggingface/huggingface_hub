@@ -50,6 +50,7 @@ class HubMixingCommonTest(unittest.TestCase):
     _api = HfApi(endpoint=ENDPOINT_STAGING)
 
 
+@require_torch
 class HubMixingTest(HubMixingCommonTest):
     def tearDown(self) -> None:
         try:
