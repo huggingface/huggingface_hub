@@ -34,15 +34,20 @@ def require_torch(test_case):
         return test_case
 
 
-@require_torch
-class DummyModel(nn.Module, ModelHubMixin):
-    def __init__(self, **kwargs):
-        super().__init__()
-        self.config = kwargs.pop("config", None)
-        self.l1 = nn.Linear(2, 2)
+if is_torch_available():
 
-    def forward(self, x):
-        return self.l1(x)
+    class DummyModel(nn.Module, ModelHubMixin):
+        def __init__(self, **kwargs):
+            super().__init__()
+            self.config = kwargs.pop("config", None)
+            self.l1 = nn.Linear(2, 2)
+
+        def forward(self, x):
+            return self.l1(x)
+
+
+else:
+    DummyModel = None
 
 
 @require_torch
