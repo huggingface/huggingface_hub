@@ -62,7 +62,7 @@ class ModelInfo:
         siblings: Optional[
             List[Dict]
         ] = None,  # list of files that constitute the model
-        **kwargs
+        **kwargs,
     ):
         self.modelId = modelId
         self.sha = sha
@@ -73,6 +73,18 @@ class ModelInfo:
         )
         for k, v in kwargs.items():
             setattr(self, k, v)
+
+    def __repr__(self):
+        s = f"{self.__class__.__name__}:" + " {"
+        for key, val in self.__dict__.items():
+            s += f"\n\t{key}: {val}"
+        return s + "\n}"
+
+    def __str__(self):
+        r = f"Model Name: {self.modelId}, Tags: {self.tags}"
+        if self.pipeline_tag:
+            r += f", Task: {self.pipeline_tag}"
+        return r
 
 
 class HfApi:
