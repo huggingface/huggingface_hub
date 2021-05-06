@@ -29,3 +29,4 @@ model-index:
         value: {metric_value}  # Example: 20.90
 ---
 
+This markdown file contains the spec for the modelcard metadata regarding evaluation parameters. 
