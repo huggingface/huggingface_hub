@@ -1,6 +1,6 @@
 import os
 from pathlib import Path
-from typing import Optional, Union
+from typing import Dict, Optional, Union
 
 from .constants import HUGGINGFACE_HUB_CACHE
 from .file_download import cached_download, hf_hub_url
@@ -15,6 +15,9 @@ def snapshot_download(
     repo_id: str,
     revision: Optional[str] = None,
     cache_dir: Union[str, Path, None] = None,
+    library_name: Optional[str] = None,
+    library_version: Optional[str] = None,
+    user_agent: Union[Dict, str, None] = None,
 ) -> str:
     """
     Downloads a whole snapshot of a repo's files at the specified revision.
@@ -58,7 +61,12 @@ def snapshot_download(
         os.makedirs(nested_dirname, exist_ok=True)
 
         path = cached_download(
-            url, cache_dir=storage_folder, force_filename=relative_filepath
+            url,
+            cache_dir=storage_folder,
+            force_filename=relative_filepath,
+            library_name=library_name,
+            library_version=library_version,
+            user_agent=user_agent,
         )
 
         if os.path.exists(path + ".lock"):
