@@ -413,10 +413,10 @@ def cached_download(
     # Some Windows versions do not allow for paths longer than 255 characters.
     # In this case, we must specify it is an extended path by using the "\\?\" prefix.
     if os.name == "nt" and len(os.path.abspath(lock_path)) > 255:
-        lock_path = u"\\\\?\\" + os.path.abspath(lock_path)
+        lock_path = "\\\\?\\" + os.path.abspath(lock_path)
 
     if os.name == "nt" and len(os.path.abspath(cache_path)) > 255:
-        cache_path = u"\\\\?\\" + os.path.abspath(cache_path)
+        cache_path = "\\\\?\\" + os.path.abspath(cache_path)
 
     with FileLock(lock_path):
 
