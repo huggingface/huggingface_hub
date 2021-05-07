@@ -132,6 +132,29 @@ class HfApi:
     def list_models(self, filter: Optional[str] = None) -> List[ModelInfo]:
         """
         Get the public list of all the models on huggingface.co
+
+        Args:
+            filter (:obj:`str`, `optional`):
+                A string which can be used to identify models on the hub by their tags.
+                Example usage:
+
+                    >>> from huggingface_hub import HfApi
+                    >>> api = HfApi()
+
+                    >>> # List all models
+                    >>> api.list_models()
+
+                    >>> # List only the text classification models
+                    >>> api.list_models(filter="text-classification")
+
+                    >>> # List only the russian models
+                    >>> api.list_models(filter="ru")
+
+                    >>> # List only the models trained on the "common_voice" dataset
+                    >>> api.list_models(filter="dataset:common_voice")
+
+                    >>> # List only the models from the AllenNLP library
+                    >>> api.list_models(filter="allennlp")
         """
         path = "{}/api/models".format(self.endpoint)
         params = {"filter": filter, "full": True} if filter is not None else None
