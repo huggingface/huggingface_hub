@@ -16,10 +16,13 @@
 import os
 import shutil
 import subprocess
+import tempfile
 import time
 import unittest
+from io import BytesIO
 
 from huggingface_hub.constants import REPO_TYPE_DATASET
+from huggingface_hub.file_download import cached_download
 from huggingface_hub.hf_api import HfApi, HfFolder, ModelInfo, RepoObj
 from requests.exceptions import HTTPError
 
@@ -86,6 +89,113 @@ class HfApiEndpointsTest(HfApiCommonTest):
         self._api.delete_repo(
             token=self._token, name=REPO_NAME, repo_type=REPO_TYPE_DATASET
         )
+
+
+class HfApiUploadFileTest(HfApiEndpointsTest):
+    def setUp(self) -> None:
+        super().setUp()
+        self.tmp_dir = tempfile.mkdtemp()
+        self.tmp_file = os.path.join(self.tmp_dir, "temp")
+        self.tmp_file_content = "Content of the file"
+        with open(self.tmp_file, "w+") as f:
+            f.write(self.tmp_file_content)
+        self.addCleanup(lambda: shutil.rmtree(self.tmp_dir))
+
+    def test_upload_file_validation(self):
+        with self.assertRaises(ValueError, msg="Wrong repo type"):
+            self._api.upload_file(
+                path_or_fileobj=self.tmp_file,
+                path_in_repo="README.md",
+                repo_id=REPO_NAME,
+                repo_type="this type does not exist",
+                token=self._token,
+            )
+
+        with self.assertRaises(ValueError, msg="File opened in text mode"):
+            with open(self.tmp_file, "rt") as ftext:
+                self._api.upload_file(
+                    path_or_fileobj=ftext,
+                    path_in_repo="README.md",
+                    repo_id=REPO_NAME,
+                    token=self._token,
+                )
+
+        with self.assertRaises(
+            ValueError, msg="path_or_fileobj is str but does not point to a file"
+        ):
+            self._api.upload_file(
+                path_or_fileobj=os.path.join(self.tmp_dir, "nofile.pth"),
+                path_in_repo="README.md",
+                repo_id=REPO_NAME,
+                token=self._token,
+            )
+
+        with self.assertRaises(ValueError, msg="path_in_repo is an absolute path"):
+            self._api.upload_file(
+                path_or_fileobj=self.tmp_file,
+                path_in_repo="C:\\Remote\\README.md",
+                repo_id=REPO_NAME,
+                token=self._token,
+            )
+
+    def test_upload_file_path(self):
+        self._api.create_repo(token=self._token, name=REPO_NAME)
+        try:
+            url = self._api.upload_file(
+                path_or_fileobj=self.tmp_file,
+                path_in_repo="temp/new file.md",
+                repo_id=REPO_NAME,
+                token=self._token,
+            )
+            filepath = cached_download(url, force_download=True)
+            with open(filepath) as downloaded_file:
+                content = downloaded_file.read()
+            self.assertEqual(content, self.tmp_file_content)
+
+        except Exception as err:
+            self.fail(err)
+        finally:
+            self._api.delete_repo(token=self._token, name=REPO_NAME)
+
+    def test_upload_file_fileobj(self):
+        self._api.create_repo(token=self._token, name=REPO_NAME)
+        try:
+            with open(self.tmp_file, "rb") as filestream:
+                url = self._api.upload_file(
+                    path_or_fileobj=filestream,
+                    path_in_repo="temp/new file.md",
+                    repo_id=REPO_NAME,
+                    token=self._token,
+                )
+            filepath = cached_download(url, force_download=True)
+            with open(filepath) as downloaded_file:
+                content = downloaded_file.read()
+            self.assertEqual(content, self.tmp_file_content)
+
+        except Exception as err:
+            self.fail(err)
+        finally:
+            self._api.delete_repo(token=self._token, name=REPO_NAME)
+
+    def test_upload_file_bytesio(self):
+        self._api.create_repo(token=self._token, name=REPO_NAME)
+        try:
+            filecontent = BytesIO(b"File content, but in bytes IO")
+            url = self._api.upload_file(
+                path_or_fileobj=filecontent,
+                path_in_repo="temp/new file.md",
+                repo_id=REPO_NAME,
+                token=self._token,
+            )
+            filepath = cached_download(url, force_download=True)
+            with open(filepath) as downloaded_file:
+                content = downloaded_file.read()
+            self.assertEqual(content, filecontent)
+
+        except Exception as err:
+            self.fail(err)
+        finally:
+            self._api.delete_repo(token=self._token, name=REPO_NAME)
 
 
 class HfApiPublicTest(unittest.TestCase):
