@@ -106,7 +106,7 @@ class HfApiUploadFileTest(HfApiEndpointsTest):
             self._api.upload_file(
                 path_or_fileobj=self.tmp_file,
                 path_in_repo="README.md",
-                repo_id=REPO_NAME,
+                repo_id=f"{USER}/{REPO_NAME}",
                 repo_type="this type does not exist",
                 token=self._token,
             )
@@ -116,7 +116,7 @@ class HfApiUploadFileTest(HfApiEndpointsTest):
                 self._api.upload_file(
                     path_or_fileobj=ftext,
                     path_in_repo="README.md",
-                    repo_id=REPO_NAME,
+                    repo_id=f"{USER}/{REPO_NAME}",
                     token=self._token,
                 )
 
@@ -126,7 +126,7 @@ class HfApiUploadFileTest(HfApiEndpointsTest):
             self._api.upload_file(
                 path_or_fileobj=os.path.join(self.tmp_dir, "nofile.pth"),
                 path_in_repo="README.md",
-                repo_id=REPO_NAME,
+                repo_id=f"{USER}/{REPO_NAME}",
                 token=self._token,
             )
 
@@ -134,18 +134,23 @@ class HfApiUploadFileTest(HfApiEndpointsTest):
             self._api.upload_file(
                 path_or_fileobj=self.tmp_file,
                 path_in_repo="C:\\Remote\\README.md",
-                repo_id=REPO_NAME,
+                repo_id=f"{USER}/{REPO_NAME}",
                 token=self._token,
             )
 
     def test_upload_file_path(self):
         self._api.create_repo(token=self._token, name=REPO_NAME)
         try:
-            url = self._api.upload_file(
+            self._api.upload_file(
                 path_or_fileobj=self.tmp_file,
-                path_in_repo="temp/new file.md",
-                repo_id=REPO_NAME,
+                path_in_repo="temp/new_file.md",
+                repo_id=f"{USER}/{REPO_NAME}",
                 token=self._token,
+            )
+            url = "{}/{user}/{repo}/resolve/main/temp/new_file.md".format(
+                ENDPOINT_STAGING,
+                user=USER,
+                repo=REPO_NAME,
             )
             filepath = cached_download(url, force_download=True)
             with open(filepath) as downloaded_file:
@@ -161,12 +166,17 @@ class HfApiUploadFileTest(HfApiEndpointsTest):
         self._api.create_repo(token=self._token, name=REPO_NAME)
         try:
             with open(self.tmp_file, "rb") as filestream:
-                url = self._api.upload_file(
+                self._api.upload_file(
                     path_or_fileobj=filestream,
-                    path_in_repo="temp/new file.md",
-                    repo_id=REPO_NAME,
+                    path_in_repo="temp/new_file.md",
+                    repo_id=f"{USER}/{REPO_NAME}",
                     token=self._token,
                 )
+            url = "{}/{user}/{repo}/resolve/main/temp/new_file.md".format(
+                ENDPOINT_STAGING,
+                user=USER,
+                repo=REPO_NAME,
+            )
             filepath = cached_download(url, force_download=True)
             with open(filepath) as downloaded_file:
                 content = downloaded_file.read()
@@ -181,16 +191,21 @@ class HfApiUploadFileTest(HfApiEndpointsTest):
         self._api.create_repo(token=self._token, name=REPO_NAME)
         try:
             filecontent = BytesIO(b"File content, but in bytes IO")
-            url = self._api.upload_file(
+            self._api.upload_file(
                 path_or_fileobj=filecontent,
-                path_in_repo="temp/new file.md",
-                repo_id=REPO_NAME,
+                path_in_repo="temp/new_file.md",
+                repo_id=f"{USER}/{REPO_NAME}",
                 token=self._token,
+            )
+            url = "{}/{user}/{repo}/resolve/main/temp/new_file.md".format(
+                ENDPOINT_STAGING,
+                user=USER,
+                repo=REPO_NAME,
             )
             filepath = cached_download(url, force_download=True)
             with open(filepath) as downloaded_file:
                 content = downloaded_file.read()
-            self.assertEqual(content, filecontent)
+            self.assertEqual(content, filecontent.getvalue().decode())
 
         except Exception as err:
             self.fail(err)
