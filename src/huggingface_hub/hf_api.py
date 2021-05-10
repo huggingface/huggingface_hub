@@ -286,7 +286,7 @@ class HfApi:
                 Relative filepath in the repo, for example: :obj:`"checkpoints/1fec34a/weights.bin"`
 
             repo_id (:obj:`str`):
-                The repository to which the file will be uplaoded, for example: :obj:`"username/custom_transformers"`
+                The repository to which the file will be uploaded, for example: :obj:`"username/custom_transformers"`
 
             repo_type (:obj:`str`, Optional):
                 Set to "dataset" if uploading to a dataset, default is model.
