@@ -276,7 +276,7 @@ class HfApi:
         repo_id: str,
         repo_type: Optional[str] = None,
         revision: Optional[str] = None,
-        token: Optional[str] = None,
+        token: Union[bool, str, None] = None,
     ) -> str:
         """
         Upload a local file (up to 5GB) to the given repo, tracking it with LFS if it's larger than 10MB
@@ -292,13 +292,14 @@ class HfApi:
                 The repository to which the file will be uploaded, for example: :obj:`"username/custom_transformers"`
 
             repo_type (:obj:`str`, Optional):
-                Set to "dataset" if uploading to a dataset, default is model.
+                Set to :obj:`"dataset"` if uploading to a dataset, :obj:`None` if uploading to a model. Default is :obj:`None`.
 
             revision (:obj:`str`, Optional):
                 The git revision to commit from. Defaults to the :obj:`"main"` branch.
 
             token (:obj:`str`, Optional):
-                Authentication token, obtained with :function:`HfApi.login` method
+                Authentication token, obtained with :function:`HfApi.login` method. If :obj:`None`,
+                will use the token from :class:`HfFolder` or raise if it's not set.
 
         Returns:
             :obj:`str` : The URL to visualize the uploaded file on the hub
@@ -313,22 +314,27 @@ class HfApi:
             ...     upload_file(
             ...         path_or_fileobj=fileobj,
             ...         path_in_repo="remote/file/path.h5",
-            ...         repo_id="username/private-dataset",
+            ...         repo_id="username/my-dataset",
             ...         repo_type="datasets",
             ...         token="my_token",
             ...    )
-            "https://huggingface.co/datasets/username/private-dataset/blob/main/remote/file/path.h5"
+            "https://huggingface.co/datasets/username/my-dataset/blob/main/remote/file/path.h5"
 
             >>> upload_file(
             ...     path_or_fileobj=".\\\\local\\\\file\\\\path",
             ...     path_in_repo="remote/file/path.h5",
-            ...     repo_id="username/private-model",
+            ...     repo_id="username/my-model",
             ...     token="my_token",
             ... )
-            "https://huggingface.co/username/private-model/blob/main/remote/file/path.h5"
+            "https://huggingface.co/username/my-model/blob/main/remote/file/path.h5"
 
 
         """
+        if token is None:
+            token = HfFolder.get_token()
+        if token is None:
+            raise ValueError("A huggingface token was not found.")
+
         if repo_type not in REPO_TYPES:
             raise ValueError("Invalid repo type, must be one of {}".format(REPO_TYPES))
 

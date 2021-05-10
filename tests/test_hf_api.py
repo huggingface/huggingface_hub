@@ -102,6 +102,14 @@ class HfApiUploadFileTest(HfApiEndpointsTest):
         self.addCleanup(lambda: shutil.rmtree(self.tmp_dir))
 
     def test_upload_file_validation(self):
+        with self.assertRaises(ValueError, msg="HuggingFace token is not set"):
+            self._api.upload_file(
+                path_or_fileobj=self.tmp_file,
+                path_in_repo="README.md",
+                repo_id=f"{USER}/{REPO_NAME}",
+                token=None,
+            )
+
         with self.assertRaises(ValueError, msg="Wrong repo type"):
             self._api.upload_file(
                 path_or_fileobj=self.tmp_file,
