@@ -15,18 +15,19 @@
 
 
 import os
+import re
 import warnings
 from io import BufferedIOBase, RawIOBase
 from os.path import expanduser
 from typing import BinaryIO, Dict, List, Optional, Tuple, Union
 
 import requests
-from huggingface_hub.utils import normalize
 
 from .constants import REPO_TYPE_DATASET, REPO_TYPE_DATASET_URL_PREFIX, REPO_TYPES
 
 
 ENDPOINT = "https://huggingface.co"
+REMOTE_FILEPATH_REGEX = re.compile(r"^[\w]+[\w\/]*(\.\w+)?$")
 
 
 class RepoObj:
@@ -344,11 +345,10 @@ class HfApi:
             )
 
         # Normalize path separators and strip leading slashes
-        path_in_repo = normalize(path_in_repo)
-        if os.path.isabs(path_in_repo):
+        if not REMOTE_FILEPATH_REGEX.match(path_in_repo):
             raise ValueError(
-                "path_in_repo must be a relative path, but '{}' is an absolute path".format(
-                    path_in_repo
+                "Invalid path_in_repo '{}', path_in_repo must match regex {}".format(
+                    path_in_repo, REMOTE_FILEPATH_REGEX.pattern
                 )
             )
 
