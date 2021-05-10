@@ -27,7 +27,9 @@ from .constants import REPO_TYPE_DATASET, REPO_TYPE_DATASET_URL_PREFIX, REPO_TYP
 
 
 ENDPOINT = "https://huggingface.co"
-REMOTE_FILEPATH_REGEX = re.compile(r"^[\w]+[\w\/]*(\.\w+)?$")
+REMOTE_FILEPATH_REGEX = re.compile(r"^\w[\w\/]*(\.\w+)?$")
+# ^^ No trailing slash, no backslash, no spaces, no relative parts ("." or "..")
+#    Only word characters and an optional extension
 
 
 class RepoObj:
