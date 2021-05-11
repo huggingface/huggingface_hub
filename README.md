@@ -93,7 +93,7 @@ Users add tags into their README.md model cards (e.g. your `library_name`, a dom
 
 ### API utilities in `hf_api.py`
 
-You don't need them for the standard publishing workflow, however, if you need a programmatic way of creating a repo, deleting it (`⚠️ caution`), or listing models from the hub, you'll find helpers in `hf_api.py`.
+You don't need them for the standard publishing workflow, however, if you need a programmatic way of creating a repo, deleting it (`⚠️ caution`), pushing a single file to a repo or listing models from the hub, you'll find helpers in `hf_api.py`.
 
 We also have an API to query models by specific tags (e.g. if you want to list models compatible to your library)
 

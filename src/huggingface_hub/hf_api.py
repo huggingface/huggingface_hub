@@ -15,16 +15,21 @@
 
 
 import os
+import re
 import warnings
+from io import BufferedIOBase, RawIOBase
 from os.path import expanduser
-from typing import Dict, List, Optional, Tuple
+from typing import BinaryIO, Dict, List, Optional, Tuple, Union
 
 import requests
 
-from .constants import REPO_TYPES
+from .constants import REPO_TYPE_DATASET, REPO_TYPE_DATASET_URL_PREFIX, REPO_TYPES
 
 
 ENDPOINT = "https://huggingface.co"
+REMOTE_FILEPATH_REGEX = re.compile(r"^\w[\w\/]*(\.\w+)?$")
+# ^^ No trailing slash, no backslash, no spaces, no relative parts ("." or "..")
+#    Only word characters and an optional extension
 
 
 class RepoObj:
@@ -263,6 +268,121 @@ class HfApi:
             json=json,
         )
         r.raise_for_status()
+
+    def upload_file(
+        self,
+        token: str,
+        path_or_fileobj: Union[str, BinaryIO],
+        path_in_repo: str,
+        repo_id: str,
+        repo_type: Optional[str] = None,
+        revision: Optional[str] = None,
+    ) -> str:
+        """
+        Upload a local file (up to 5GB) to the given repo, tracking it with LFS if it's larger than 10MB
+
+        Params:
+            token (``str``):
+                Authentication token, obtained with :function:`HfApi.login` method
+
+            path_or_fileobj (``str`` or ``BinaryIO``):
+                Path to a file on the local machine or binary data stream / fileobj.
+
+            path_in_repo (``str``):
+                Relative filepath in the repo, for example: :obj:`"checkpoints/1fec34a/weights.bin"`
+
+            repo_id (``str``):
+                The repository to which the file will be uploaded, for example: :obj:`"username/custom_transformers"`
+
+            repo_type (``str``, Optional):
+                Set to :obj:`"dataset"` if uploading to a dataset, :obj:`None` if uploading to a model. Default is :obj:`None`.
+
+            revision (``str``, Optional):
+                The git revision to commit from. Defaults to the :obj:`"main"` branch.
+
+        Returns:
+            ``str``: The URL to visualize the uploaded file on the hub
+
+        Raises:
+            :class:`ValueError`: if some parameter value is invalid
+
+            :class:`requests.HTTPError`: if the HuggingFace API returned an error
+
+        Examples:
+            >>> with open("./local/filepath", "rb") as fobj:
+            ...     upload_file(
+            ...         path_or_fileobj=fileobj,
+            ...         path_in_repo="remote/file/path.h5",
+            ...         repo_id="username/my-dataset",
+            ...         repo_type="datasets",
+            ...         token="my_token",
+            ...    )
+            "https://huggingface.co/datasets/username/my-dataset/blob/main/remote/file/path.h5"
+
+            >>> upload_file(
+            ...     path_or_fileobj=".\\\\local\\\\file\\\\path",
+            ...     path_in_repo="remote/file/path.h5",
+            ...     repo_id="username/my-model",
+            ...     token="my_token",
+            ... )
+            "https://huggingface.co/username/my-model/blob/main/remote/file/path.h5"
+
+
+        """
+        if repo_type not in REPO_TYPES:
+            raise ValueError("Invalid repo type, must be one of {}".format(REPO_TYPES))
+
+        # Validate path_or_fileobj
+        if isinstance(path_or_fileobj, str):
+            path_or_fileobj = os.path.normpath(os.path.expanduser(path_or_fileobj))
+            if not os.path.isfile(path_or_fileobj):
+                raise ValueError(
+                    "Provided path: '{}' is not a file".format(path_or_fileobj)
+                )
+        elif not isinstance(path_or_fileobj, (RawIOBase, BufferedIOBase)):
+            # ^^ Test from: https://stackoverflow.com/questions/44584829/how-to-determine-if-file-is-opened-in-binary-or-text-mode
+            raise ValueError(
+                "path_or_fileobj must be either an instance of str or BinaryIO. "
+                "If you passed a fileobj, make sure you've opened the file in binary mode."
+            )
+
+        # Normalize path separators and strip leading slashes
+        if not REMOTE_FILEPATH_REGEX.match(path_in_repo):
+            raise ValueError(
+                "Invalid path_in_repo '{}', path_in_repo must match regex {}".format(
+                    path_in_repo, REMOTE_FILEPATH_REGEX.pattern
+                )
+            )
+
+        repo_id = "{prefix}{repo_id}".format(
+            prefix=REPO_TYPE_DATASET_URL_PREFIX
+            if (repo_type == REPO_TYPE_DATASET)
+            else "",
+            repo_id=repo_id,
+        )
+
+        revision = revision if revision is not None else "main"
+
+        path = "{}/api/{repo_id}/upload/{revision}/{path_in_repo}".format(
+            self.endpoint,
+            repo_id=repo_id,
+            revision=revision,
+            path_in_repo=path_in_repo,
+        )
+
+        headers = (
+            {"authorization": "Bearer {}".format(token)} if token is not None else None
+        )
+
+        if isinstance(path_or_fileobj, str):
+            with open(path_or_fileobj, "rb") as bytestream:
+                r = requests.post(path, headers=headers, data=bytestream)
+        else:
+            r = requests.post(path, headers=headers, data=path_or_fileobj)
+
+        r.raise_for_status()
+        d = r.json()
+        return d["url"]
 
 
 class HfFolder:
