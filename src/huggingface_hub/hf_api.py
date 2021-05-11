@@ -271,43 +271,42 @@ class HfApi:
 
     def upload_file(
         self,
+        token: str,
         path_or_fileobj: Union[str, BinaryIO],
         path_in_repo: str,
         repo_id: str,
         repo_type: Optional[str] = None,
         revision: Optional[str] = None,
-        token: Union[bool, str, None] = None,
     ) -> str:
         """
         Upload a local file (up to 5GB) to the given repo, tracking it with LFS if it's larger than 10MB
 
         Params:
-            filepath (:obj:`os.Pathlike`):
-                Path to the file on the local machine, for instance: :obj:`"~/my_models/weights.bin"`
+            token (``str``):
+                Authentication token, obtained with :function:`HfApi.login` method
 
-            path_in_repo (:obj:`str`):
+            path_or_fileobj (``str`` or ``BinaryIO``):
+                Path to a file on the local machine or binary data stream / fileobj.
+
+            path_in_repo (``str``):
                 Relative filepath in the repo, for example: :obj:`"checkpoints/1fec34a/weights.bin"`
 
-            repo_id (:obj:`str`):
+            repo_id (``str``):
                 The repository to which the file will be uploaded, for example: :obj:`"username/custom_transformers"`
 
-            repo_type (:obj:`str`, Optional):
+            repo_type (``str``, Optional):
                 Set to :obj:`"dataset"` if uploading to a dataset, :obj:`None` if uploading to a model. Default is :obj:`None`.
 
-            revision (:obj:`str`, Optional):
+            revision (``str``, Optional):
                 The git revision to commit from. Defaults to the :obj:`"main"` branch.
 
-            token (:obj:`str`, Optional):
-                Authentication token, obtained with :function:`HfApi.login` method. If :obj:`None`,
-                will use the token from :class:`HfFolder` or raise if it's not set.
-
         Returns:
-            :obj:`str` : The URL to visualize the uploaded file on the hub
+            ``str``: The URL to visualize the uploaded file on the hub
 
         Raises:
-            :class:`ValueError` : if some parameter value is invalid
+            :class:`ValueError`: if some parameter value is invalid
 
-            :class:`requests.HTTPError` : if the HuggingFace API returned an error
+            :class:`requests.HTTPError`: if the HuggingFace API returned an error
 
         Examples:
             >>> with open("./local/filepath", "rb") as fobj:
@@ -330,11 +329,6 @@ class HfApi:
 
 
         """
-        if token is None:
-            token = HfFolder.get_token()
-        if token is None:
-            raise ValueError("A huggingface token was not found.")
-
         if repo_type not in REPO_TYPES:
             raise ValueError("Invalid repo type, must be one of {}".format(REPO_TYPES))
 
