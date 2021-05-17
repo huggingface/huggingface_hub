@@ -22,6 +22,7 @@ from os.path import expanduser
 from typing import BinaryIO, Dict, List, Optional, Tuple, Union
 
 import requests
+from requests.exceptions import HTTPError
 
 from .constants import REPO_TYPE_DATASET, REPO_TYPE_DATASET_URL_PREFIX, REPO_TYPES
 
@@ -235,7 +236,15 @@ class HfApi:
         if exist_ok and r.status_code == 409:
             d = r.json()
             return d["url"]
-        r.raise_for_status()
+
+        try:
+            r.raise_for_status()
+        except HTTPError as e:
+            if r.json():
+                if "error" in r.json():
+                    raise HTTPError("{} - {}".format(e, r.json()["error"]))
+            raise e
+
         d = r.json()
         return d["url"]
 
