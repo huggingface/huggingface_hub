@@ -240,10 +240,10 @@ class HfApi:
         try:
             r.raise_for_status()
         except HTTPError as e:
-            if r.text:
-                raise HTTPError("{} - {}".format(e, r.json()["error"]))
-            else:
-                raise e
+            if r.json():
+                if "error" in r.json():
+                    raise HTTPError("{} - {}".format(e, r.json()["error"]))
+            raise e
 
         d = r.json()
         return d["url"]
