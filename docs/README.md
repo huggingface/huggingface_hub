@@ -85,6 +85,11 @@ Example inputs are the random inputs that pre-populate your widget on page launc
 We try to provide example inputs for some languages and widget types, but it's better if you provide your own examples. You can add them to your model card: see [this commit](https://github.com/huggingface/transformers/commit/6a495cae0090307198131c07cd4f3f1e9b38b4e6) for the format you need to use.
 
 
+## How can I turn off the inference API for my model?
+
+Specify `inference: false` in your model card's metadata.
+
+
 ## Can I send large volumes of requests? Can I get accelerated APIs?
 
 If you are interested in accelerated inference and/or higher volumes of requests and/or a SLA, please contact us at `api-enterprise at huggingface.co`.
