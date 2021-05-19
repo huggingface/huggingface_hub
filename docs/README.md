@@ -71,16 +71,16 @@ You can always manually override your pipeline type with `pipeline_tag: xxx` in 
 ## What are all the possible pipeline/widget types?
 
 Here they are, with links to examples:
-- `text-classification`, for instance [`roberta-large-mnli`](/roberta-large-mnli)
-- `token-classification`, for instance [`dbmdz/bert-large-cased-finetuned-conll03-english`](/dbmdz/bert-large-cased-finetuned-conll03-english)
-- `question-answering`, for instance [`distilbert-base-uncased-distilled-squad`](/distilbert-base-uncased-distilled-squad)
-- `translation`, for instance [`t5-base`](/t5-base)
-- `summarization`, for instance [`facebook/bart-large-cnn`](/facebook/bart-large-cnn)
-- `conversational`, for instance [`facebook/blenderbot-400M-distill`](/facebook/blenderbot-400M-distill)
-- `text-generation`, for instance [`gpt2`](/gpt2)
-- `fill-mask`, for instance [`distilroberta-base`](/distilroberta-base)
-- `zero-shot-classification` (implemented on top of a nli `text-classification` model), for instance [`facebook/bart-large-mnli`](/facebook/bart-large-mnli)
-- `table-question-answering`, for instance [`google/tapas-base-finetuned-wtq`](/google/tapas-base-finetuned-wtq)
+- `text-classification`, for instance [`roberta-large-mnli`](https://huggingface.co/roberta-large-mnli)
+- `token-classification`, for instance [`dbmdz/bert-large-cased-finetuned-conll03-english`](https://huggingface.co/dbmdz/bert-large-cased-finetuned-conll03-english)
+- `question-answering`, for instance [`distilbert-base-uncased-distilled-squad`](https://huggingface.co/distilbert-base-uncased-distilled-squad)
+- `translation`, for instance [`t5-base`](https://huggingface.co/t5-base)
+- `summarization`, for instance [`facebook/bart-large-cnn`](https://huggingface.co/facebook/bart-large-cnn)
+- `conversational`, for instance [`facebook/blenderbot-400M-distill`](https://huggingface.co/facebook/blenderbot-400M-distill)
+- `text-generation`, for instance [`gpt2`](https://huggingface.co/gpt2)
+- `fill-mask`, for instance [`distilroberta-base`](https://huggingface.co/distilroberta-base)
+- `zero-shot-classification` (implemented on top of a nli `text-classification` model), for instance [`facebook/bart-large-mnli`](https://huggingface.co/facebook/bart-large-mnli)
+- `table-question-answering`, for instance [`google/tapas-base-finetuned-wtq`](https://huggingface.co/google/tapas-base-finetuned-wtq)
 
 ## How can I control my model's widget's example inputs?
 
@@ -126,4 +126,3 @@ mse = (\frac{1}{n})\sum_{i=1}^{n}(y_{i} - x_{i})^{2}
 $$
 
 $$ e=mc^2 $$
-
