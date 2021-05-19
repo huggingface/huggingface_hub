@@ -32,6 +32,7 @@ title: Datasets Tags documentation
 - `structure-prediction`: predicting structural properties of the text, such as syntax
 	- [`coreference-resolution`](/datasets?filter=task_ids:coreference-resolution)
 	- [`named-entity-recognition`](/datasets?filter=task_ids:named-entity-recognition)
+	- [`part-of-speech-tagging`](/datasets?filter=task_ids:part-of-speech-tagging)
 	- [`parsing`](/datasets?filter=task_ids:parsing)
 	- [`other`](/datasets?filter=task_ids:other)
 - `text-classification`: predicting a class index or boolean value
