@@ -44,7 +44,7 @@ metrics:
 
 License identifiers are those standardized by GitHub [here](https://help.github.com/en/github/creating-cloning-and-archiving-repositories/licensing-a-repository#searching-github-by-license-type).
 
-Dataset and metric identifiers are those listed on the [datasets](https://huggingface.co/datasets) and [metrics](https://huggingface.co/metrics) pages and in the [`nlp`](https://github.com/huggingface/nlp) repository.
+Dataset and metric identifiers are those listed on the [datasets](https://huggingface.co/datasets) and [metrics](https://huggingface.co/metrics) pages and in the [`datasets`](https://github.com/huggingface/datasets) repository.
 
 All the tags can then be used to filter the list of models on https://huggingface.co/models.
 
