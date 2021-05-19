@@ -72,6 +72,16 @@ We try to use the most specific pipeline for each model, see pseudo-code in [thi
 If you are interested in accelerated inference and/or higher volumes of requests and/or a SLA, please contact us at `clara at huggingface.co`.
 
 
+## What technology do you use to power the inference API?
+
+The API is built on top of our [Pipelines](https://huggingface.co/transformers/main_classes/pipelines.html) feature.
+
+On top of Pipelines and depending on the model type, we build a number of production optimizations like:
+- compiling models to optimized intermediary representations (e.g. [ONNX](https://medium.com/microsoftazure/accelerate-your-nlp-pipelines-using-hugging-face-transformers-and-onnx-runtime-2443578f4333)),
+- maintaining a Least Recently Used cache ensuring that the most popular models are always loaded,
+- scaling the underlying compute infrastructure on the fly depending on the load constraints.
+
+
 ## Can I write \\( \LaTeX \\) in my model card?
 
 Yes, we use the [KaTeX](https://katex.org/) math typesetting library to render math formulas server-side,
