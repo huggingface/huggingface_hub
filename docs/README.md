@@ -67,6 +67,13 @@ To determine which pipeline and widget to display (text-classification, token-cl
 We try to use the most specific pipeline for each model, see pseudo-code in [this gist](https://gist.github.com/julien-c/857ba86a6c6a895ecd90e7f7cab48046).
 
 
+## How can I control my model's widget's example inputs?
+
+Example inputs are the random inputs that pre-populate your widget on page launch (unless you specify an input by URL parameters).
+
+We try to provide example inputs for some languages and widget types, but it's better if you provide your own examples. You can add them to your model card: see [this commit](https://github.com/huggingface/transformers/commit/6a495cae0090307198131c07cd4f3f1e9b38b4e6) for the format you need to use.
+
+
 ## Can I send large volumes of requests? Can I get accelerated APIs?
 
 If you are interested in accelerated inference and/or higher volumes of requests and/or a SLA, please contact us at `clara at huggingface.co`.
