@@ -51,7 +51,7 @@ All the tags can then be used to filter the list of models on https://huggingfac
 
 ## How are model tags determined?
 
-On top of each model page (see e.g. [`distilbert-base-uncased`](https://huggingface.co/distilbert-base-uncased)) you'll see the model's tags – they help for discovery and condition which features are enabled on which model page.
+On top of each model page (see e.g. [`distilbert-base-uncased`](/distilbert-base-uncased)) you'll see the model's tags – they help for discovery and condition which features are enabled on which model page.
 
 - The weight files that compose the models condition the framework(s) like `pytorch`, `tf`, etc.
 - The `"architectures"` field of the model's config.json file – which should be automatically filled if you save your model using `.save_pretrained()` – condition the type of pipeline used in the inference API, and the type of widget present on the model page
@@ -66,6 +66,17 @@ To determine which pipeline and widget to display (text-classification, token-cl
 
 We try to use the most specific pipeline for each model, see pseudo-code in [this gist](https://gist.github.com/julien-c/857ba86a6c6a895ecd90e7f7cab48046).
 
+
+## What are all the possible pipeline/widget types?
+
+Here they are, with links to examples:
+- `text-classification`, for instance [`roberta-large-mnli`](/roberta-large-mnli)
+- `token-classification`, for instance [`dbmdz/bert-large-cased-finetuned-conll03-english`](/dbmdz/bert-large-cased-finetuned-conll03-english)
+- `question-answering`, for instance [`distilbert-base-uncased-distilled-squad`](/distilbert-base-uncased-distilled-squad)
+- `translation`, for instance [`t5-base`](/t5-base)
+- `summarization`, for instance [`facebook/bart-large-cnn`](/facebook/bart-large-cnn)
+- `text-generation`, for instance [`gpt2`](/gpt2)
+- `fill-mask`, for instance [`distilroberta-base`](/distilroberta-base)
 
 ## How can I control my model's widget's example inputs?
 
