@@ -55,7 +55,7 @@ On top of each model page (see e.g. [`distilbert-base-uncased`](https://huggingf
 
 - The weight files that compose the models condition the framework(s) like `pytorch`, `tf`, etc.
 - The `"architectures"` field of the model's config.json file – which should be automatically filled if you save your model using `.save_pretrained()` – condition the type of pipeline used in the inference API, and the type of widget present on the model page
-	- A simplified snapshot of the mapping code can be found in [this gist]().
+	- A simplified snapshot of the mapping code can be found in [this gist](https://gist.github.com/julien-c/857ba86a6c6a895ecd90e7f7cab48046).
 - If your config.json file contains a `task_specific_params` subfield, its sub-keys will be added as `pipeline:` tags. See [`t5-base`](http://localhost:5564/t5-base) for example.
 - Most other metadata from the metadata block are also added as extra tags, at the end of the list.
 
@@ -64,7 +64,7 @@ On top of each model page (see e.g. [`distilbert-base-uncased`](https://huggingf
 
 To determine which pipeline and widget to display (text-classification, token-classification, translation, etc.), we use a simple mapping from model tags to one particular `pipeline_tag` (we currently only expose *one* pipeline and widget on each model page, even for models that would support several).
 
-We try to use the most specific pipeline for each model, see pseudo-code in [this gist]().
+We try to use the most specific pipeline for each model, see pseudo-code in [this gist](https://gist.github.com/julien-c/857ba86a6c6a895ecd90e7f7cab48046).
 
 
 ## Can I send large volumes of requests? Can I get accelerated APIs?
