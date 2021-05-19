@@ -76,7 +76,7 @@ We try to provide example inputs for some languages and widget types, but it's b
 
 ## Can I send large volumes of requests? Can I get accelerated APIs?
 
-If you are interested in accelerated inference and/or higher volumes of requests and/or a SLA, please contact us at `clara at huggingface.co`.
+If you are interested in accelerated inference and/or higher volumes of requests and/or a SLA, please contact us at `api-enterprise at huggingface.co`.
 
 
 ## What technology do you use to power the inference API?
