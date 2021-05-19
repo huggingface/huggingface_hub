@@ -42,7 +42,7 @@ metrics:
 ---
 ```
 
-License identifiers are those standardized by GitHub [here](https://help.github.com/en/github/creating-cloning-and-archiving-repositories/licensing-a-repository#searching-github-by-license-type).
+License identifiers are those standardized by GitHub in the right column (keywords) [here](https://help.github.com/en/github/creating-cloning-and-archiving-repositories/licensing-a-repository#searching-github-by-license-type).
 
 Dataset and metric identifiers are those listed on the [datasets](https://huggingface.co/datasets) and [metrics](https://huggingface.co/metrics) pages and in the [`datasets`](https://github.com/huggingface/datasets) repository.
 
@@ -66,6 +66,7 @@ To determine which pipeline and widget to display (text-classification, token-cl
 
 We try to use the most specific pipeline for each model, see pseudo-code in [this gist](https://gist.github.com/julien-c/857ba86a6c6a895ecd90e7f7cab48046).
 
+You can always manually override your pipeline type with `pipeline_tag: xxx` in your model card metadata.
 
 ## What are all the possible pipeline/widget types?
 
@@ -83,6 +84,8 @@ Here they are, with links to examples:
 Example inputs are the random inputs that pre-populate your widget on page launch (unless you specify an input by URL parameters).
 
 We try to provide example inputs for some languages and widget types, but it's better if you provide your own examples. You can add them to your model card: see [this commit](https://github.com/huggingface/transformers/commit/6a495cae0090307198131c07cd4f3f1e9b38b4e6) for the format you need to use.
+
+If we don't provide default inputs for your model's language, please open a PR against [this DefaultWidget.ts file](https://github.com/huggingface/widgets-server/blob/master/DefaultWidget.ts) to add them. Thanks!
 
 
 ## How can I turn off the inference API for my model?
