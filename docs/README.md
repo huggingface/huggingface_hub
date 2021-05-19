@@ -79,6 +79,7 @@ Here they are, with links to examples:
 - `text-generation`, for instance [`gpt2`](/gpt2)
 - `fill-mask`, for instance [`distilroberta-base`](/distilroberta-base)
 - `zero-shot-classification` (implemented on top of a nli `text-classification` model), for instance [`facebook/bart-large-mnli`](/facebook/bart-large-mnli)
+- `table-question-answering`, for instance [`google/tapas-base-finetuned-wtq`](/google/tapas-base-finetuned-wtq)
 
 ## How can I control my model's widget's example inputs?
 
