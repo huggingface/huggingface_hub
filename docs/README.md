@@ -76,6 +76,7 @@ Here they are, with links to examples:
 - `question-answering`, for instance [`distilbert-base-uncased-distilled-squad`](/distilbert-base-uncased-distilled-squad)
 - `translation`, for instance [`t5-base`](/t5-base)
 - `summarization`, for instance [`facebook/bart-large-cnn`](/facebook/bart-large-cnn)
+- `conversational`, for instance [`facebook/blenderbot-400M-distill`](/facebook/blenderbot-400M-distill)
 - `text-generation`, for instance [`gpt2`](/gpt2)
 - `fill-mask`, for instance [`distilroberta-base`](/distilroberta-base)
 - `zero-shot-classification` (implemented on top of a nli `text-classification` model), for instance [`facebook/bart-large-mnli`](/facebook/bart-large-mnli)
