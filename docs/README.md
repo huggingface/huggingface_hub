@@ -69,7 +69,7 @@ We try to use the most specific pipeline for each model, see pseudo-code in [thi
 
 ## Can I send large volumes of requests? Can I get accelerated APIs?
 
-If you are interested in accelerated inference and/or higher volumes of requests and/or a SLA, please contact us at `team at huggingface.co`.
+If you are interested in accelerated inference and/or higher volumes of requests and/or a SLA, please contact us at `clara at huggingface.co`.
 
 
 ## Can I write \\( \LaTeX \\) in my model card?
