@@ -134,7 +134,7 @@ class HfApi:
     def list_models(
         self,
         filter: Union[str, Iterable[str], None] = None,
-        sort: Optional[str] = None,
+        sort: Union[Literal["lastModified"], str, None] = None,
         direction: Optional[Literal[-1]] = None,
         limit: Optional[int] = None,
         full: Optional[bool] = None,
