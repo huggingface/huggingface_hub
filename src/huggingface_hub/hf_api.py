@@ -19,7 +19,7 @@ import re
 import warnings
 from io import BufferedIOBase, RawIOBase
 from os.path import expanduser
-from typing import BinaryIO, Dict, List, Optional, Tuple, Union
+from typing import BinaryIO, Dict, Iterable, List, Literal, Optional, Tuple, Union
 
 import requests
 from requests.exceptions import HTTPError
@@ -63,6 +63,7 @@ class ModelInfo:
         self,
         modelId: Optional[str] = None,  # id of model
         sha: Optional[str] = None,  # commit sha at the specified revision
+        lastModified: Optional[str] = None,  # date of last commit to repo
         tags: List[str] = [],
         pipeline_tag: Optional[str] = None,
         siblings: Optional[
@@ -72,6 +73,7 @@ class ModelInfo:
     ):
         self.modelId = modelId
         self.sha = sha
+        self.lastModified = lastModified
         self.tags = tags
         self.pipeline_tag = pipeline_tag
         self.siblings = (
@@ -129,7 +131,14 @@ class HfApi:
         r = requests.post(path, headers={"authorization": "Bearer {}".format(token)})
         r.raise_for_status()
 
-    def list_models(self, filter: Optional[str] = None) -> List[ModelInfo]:
+    def list_models(
+        self,
+        filter: Union[str, Iterable[str], None] = None,
+        sort: Optional[str] = None,
+        direction: Optional[Literal[-1]] = None,
+        limit: Optional[int] = None,
+        full: Optional[bool] = None,
+    ) -> List[ModelInfo]:
         """
         Get the public list of all the models on huggingface.co
 
@@ -147,8 +156,8 @@ class HfApi:
                     >>> # List only the text classification models
                     >>> api.list_models(filter="text-classification")
 
-                    >>> # List only the russian models
-                    >>> api.list_models(filter="ru")
+                    >>> # List only the russian models compatible with pytorch
+                    >>> api.list_models(filter=("ru", "pytorch"))
 
                     >>> # List only the models trained on the "common_voice" dataset
                     >>> api.list_models(filter="dataset:common_voice")
@@ -157,7 +166,18 @@ class HfApi:
                     >>> api.list_models(filter="allennlp")
         """
         path = "{}/api/models".format(self.endpoint)
-        params = {"filter": filter, "full": True} if filter is not None else None
+        params = {}
+        if filter is not None:
+            params.update({"filter": filter})
+            params.update({"full": True})
+        if sort is not None:
+            params.update({"sort": sort})
+        if direction is not None:
+            params.update({"direction": direction})
+        if limit is not None:
+            params.update({"limit": limit})
+        if full is not None:
+            params.update({"full": full})
         r = requests.get(path, params=params)
         r.raise_for_status()
         d = r.json()
