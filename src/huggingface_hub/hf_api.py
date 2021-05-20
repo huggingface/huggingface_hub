@@ -171,6 +171,18 @@ class HfApi:
 
                     >>> # List only the models from the AllenNLP library
                     >>> api.list_models(filter="allennlp")
+            sort (:obj:`Literal["lastModified"]` or :obj:`str`, `optional`):
+                The key with which to sort the resulting models. Possible values are the properties of the `ModelInfo`
+                class.
+            direction (:obj:`Literal[-1]` or :obj:`int`, `optional`):
+                Direction in which to sort. The value `-1` sorts by descending order while all other values
+                sort by ascending order.
+            limit (:obj:`int`, `optional`):
+                The limit on the number of models fetched. Leaving this option to `None` fetches all models.
+            full (:obj:`bool`, `optional`):
+                Whether to fetch all model data, including the `lastModified`, the `sha`, the files and the `tags`.
+                This is set to `True` by default when using a filter.
+
         """
         path = "{}/api/models".format(self.endpoint)
         params = {}
@@ -184,7 +196,10 @@ class HfApi:
         if limit is not None:
             params.update({"limit": limit})
         if full is not None:
-            params.update({"full": full})
+            if full:
+                params.update({"full": True})
+            elif "full" in params:
+                del params["full"]
         r = requests.get(path, params=params)
         r.raise_for_status()
         d = r.json()
