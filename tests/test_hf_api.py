@@ -230,6 +230,21 @@ class HfApiPublicTest(unittest.TestCase):
         self.assertGreater(len(models), 100)
         self.assertIsInstance(models[0], ModelInfo)
 
+    def test_list_models_complex_query(self):
+        # Let's list the 10 most recent models
+        # with tags "bert" and "jax",
+        # ordered by last modified date.
+        _api = HfApi()
+        models = _api.list_models(
+            filter=("bert", "jax"), sort="lastModified", direction=-1, limit=10
+        )
+        # we have at least 1 models
+        self.assertGreater(len(models), 1)
+        self.assertLessEqual(len(models), 10)
+        model = models[0]
+        self.assertIsInstance(model, ModelInfo)
+        self.assertTrue(all(tag in model.tags for tag in ["bert", "jax"]))
+
     def test_model_info(self):
         _api = HfApi()
         model = _api.model_info(repo_id=DUMMY_MODEL_ID)
