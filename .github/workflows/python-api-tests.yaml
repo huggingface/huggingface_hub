@@ -1,0 +1,33 @@
+name: Python-tests
+
+on:
+  push:
+    branches:
+      - "*"
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ["3.8"]
+
+    steps:
+      - run: |
+          sudo apt-get install ffmpeg
+
+      - uses: actions/checkout@v2
+
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v2
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: Install dependencies
+        workdir: api-inference-community
+        run: |
+          pip install --upgrade pip
+          pip install pytest pillow httpx
+          pip install -e .
+      - run: make test
+        workdir: api-inference-community

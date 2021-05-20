@@ -1,0 +1,64 @@
+repos:
+  - repo: https://github.com/ambv/black
+    rev: 20.8b1
+    hooks:
+      - id: black
+  - repo: https://gitlab.com/pycqa/flake8
+    rev: 3.8.3
+    hooks:
+      - id: flake8
+  - repo: https://github.com/pre-commit/mirrors-isort
+    rev: v5.7.0 # Use the revision sha / tag you want to point at
+    hooks:
+      - id: isort
+  - repo: https://github.com/pre-commit/mirrors-mypy
+    rev: "b84ce099a2fd3c5216b6ccf3fd176c3828b075fb" # Use the sha / tag you want to point at
+    hooks:
+      - id: mypy
+        args: [--ignore-missing-imports]
+        additional_dependencies: [tokenize-rt==3.2.0]
+        files: ^docker_images/common/
+        entry: mypy docker_images/common/
+        pass_filenames: false
+      - id: mypy
+        args: [--ignore-missing-imports]
+        additional_dependencies: [tokenize-rt==3.2.0]
+        files: ^docker_images/speechbrain/
+        entry: mypy docker_images/speechbrain/
+        pass_filenames: false
+      - id: mypy
+        args: [--ignore-missing-imports]
+        additional_dependencies: [tokenize-rt==3.2.0]
+        files: ^docker_images/kasteroid/
+        entry: mypy docker_images/asteroid/
+        pass_filenames: false
+      - id: mypy
+        args: [--ignore-missing-imports]
+        additional_dependencies: [tokenize-rt==3.2.0]
+        files: ^docker_images/allennlp/
+        entry: mypy docker_images/allennlp/
+        pass_filenames: false
+      - id: mypy
+        args: [--ignore-missing-imports]
+        additional_dependencies: [tokenize-rt==3.2.0]
+        files: ^docker_images/espnet/
+        entry: mypy docker_images/espnet/
+        pass_filenames: false
+      - id: mypy
+        args: [--ignore-missing-imports]
+        additional_dependencies: [tokenize-rt==3.2.0]
+        files: ^docker_images/timm/
+        entry: mypy docker_images/timm/
+        pass_filenames: false
+      - id: mypy
+        args: [--ignore-missing-imports]
+        additional_dependencies: [tokenize-rt==3.2.0]
+        files: ^docker_images/flair/
+        entry: mypy docker_images/flair/
+        pass_filenames: false
+      - id: mypy
+        args: [--ignore-missing-imports]
+        additional_dependencies: [tokenize-rt==3.2.0]
+        files: ^docker_images/sentence_transformers/
+        entry: mypy docker_images/sentence_transformers/
+        pass_filenames: false
