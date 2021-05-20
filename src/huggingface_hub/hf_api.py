@@ -150,7 +150,7 @@ class HfApi:
         Get the public list of all the models on huggingface.co
 
         Args:
-            filter (:obj:`str`, `optional`):
+            filter (:obj:`str` or :class:`Iterable`, `optional`):
                 A string which can be used to identify models on the hub by their tags.
                 Example usage:
 
