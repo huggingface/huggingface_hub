@@ -2,7 +2,7 @@
 title: Model Hub docs
 ---
 
-<h1 class="no-top-margin">Model Hub documentation</h1>
+<h1>Model Hub documentation</h1>
 
 
 ## What's the Hugging Face model hub?
