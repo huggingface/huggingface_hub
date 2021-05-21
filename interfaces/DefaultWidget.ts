@@ -7,6 +7,16 @@ type PerLanguageMapping = Map<
 	(Record<string, string> | string)[]
 >;
 
+	
+/// NOTE TO CONTRIBUTORS:
+///
+/// When adding sample inputs for a new language, you don't
+/// necessarily have to translate the inputs from existing languages.
+/// (which were quite random to begin with)
+///
+/// i.e. Feel free to be creative and provide better samples.
+//
+
 /// The <mask> placeholder will be replaced by the correct mask token
 /// in the following examples, depending on the model type
 ///
