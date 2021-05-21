@@ -3,8 +3,8 @@
 export enum PipelineType {
 	"text-classification" = "text-classification",
 	"token-classification" = "token-classification",
-	"question-answering" = "question-answering",
 	"table-question-answering" = "table-question-answering",
+	"question-answering" = "question-answering",
 	"zero-shot-classification" = "zero-shot-classification",
 	"translation" = "translation",
 	"summarization" = "summarization",
