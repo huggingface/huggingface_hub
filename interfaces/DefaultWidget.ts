@@ -253,6 +253,28 @@ const MAPPING_IT: PerLanguageMapping = new Map([
 		`Lo scopo della vita è <mask>.`,
 	] ],
 ]);
+	
+const MAPPING_FA: PerLanguageMapping = new Map([
+	[ "text-classification", [
+		`به موقع تحویل شد و همه چیز خوب بود.`,
+		`سیب زمینی بی کیفیت بود.`,
+		`قیمت و کیفیت عالی`,
+		`خوب نبود اصلا`,
+	] ],
+	[ "token-classification", [
+		`این سریال به صورت رسمی در تاریخ دهم می ۲۰۱۱ توسط شبکه فاکس برای پخش رزرو شد.`,
+		`دفتر مرکزی شرکت کامیکو در شهر ساسکاتون ساسکاچوان قرار دارد.`,
+		`در سال ۲۰۱۳ درگذشت و آندرتیکر و کین برای او مراسم یادبود گرفتند.`,
+	] ],
+	[ "question-answering", [],
+	[ "translation", [] ],
+	[ "summarization", [] ],
+	[ "text-generation", [] ],
+	[ "fill-mask", [
+		`زندگی یک سوال است و این که چگونه <mask> کنیم پاسخ این سوال!`,
+		`زندگی از مرگ پرسید: چرا همه من را <mask> دارند اما از تو متنفرند؟`,
+	] ],
+]);
 
 export const MAPPING_DEFAULT_WIDGET = new Map<LanguageCode, PerLanguageMapping>([
 	[ "en", MAPPING_EN ],
@@ -261,5 +283,6 @@ export const MAPPING_DEFAULT_WIDGET = new Map<LanguageCode, PerLanguageMapping>(
 	[ "es", MAPPING_ES ],
 	[ "ru", MAPPING_RU ],
 	[ "uk", MAPPING_UK ],
-	[ "it", MAPPING_IT ]
+	[ "it", MAPPING_IT ],
+	[ "fa", MAPPING_FA ],
 ]);
