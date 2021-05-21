@@ -130,14 +130,14 @@ const MAPPING_FR: PerLanguageMapping = new Map([
 
 const MAPPING_ES: PerLanguageMapping = new Map([
 	[ "text-classification", [
-		`Me gustas tu. Te quiero.`,
+		`Te quiero. Te amo.`,
 	] ],
 	[ "token-classification", [
 		`Me llamo Wolfgang y vivo en Berlin`,
 	] ],
 	[ "question-answering", [
 		{
-			text: `¿Donde vivo?`,
+			text: `¿Dónde vivo?`,
 			context: `Me llamo Wolfgang y vivo en Berlin`,
 		}
 	] ],
