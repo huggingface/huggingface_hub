@@ -32,24 +32,6 @@ const MAPPING_EN: PerLanguageMapping = new Map([
 		`My name is Sarah and I live in London`,
 		`My name is Clara and I live in Berkeley, California.`,
 	] ],
-	[ "question-answering", [
-		{
-			text: `Where do I live?`,
-			context: `My name is Wolfgang and I live in Berlin`,
-		},
-		{
-			text: `Where do I live?`,
-			context: `My name is Sarah and I live in London`,
-		},
-		{
-			text: `What's my name?`,
-			context: `My name is Clara and I live in Berkeley.`,
-		},
-		{
-			text: `Which name is also used to describe the Amazon rainforest in English?`,
-			context: `The Amazon rainforest (Portuguese: Floresta Amazônica or Amazônia; Spanish: Selva Amazónica, Amazonía or usually Amazonia; French: Forêt amazonienne; Dutch: Amazoneregenwoud), also known in English as Amazonia or the Amazon Jungle, is a moist broadleaf forest that covers most of the Amazon basin of South America. This basin encompasses 7,000,000 square kilometres (2,700,000 sq mi), of which 5,500,000 square kilometres (2,100,000 sq mi) are covered by the rainforest. This region includes territory belonging to nine nations. The majority of the forest is contained within Brazil, with 60% of the rainforest, followed by Peru with 13%, Colombia with 10%, and with minor amounts in Venezuela, Ecuador, Bolivia, Guyana, Suriname and French Guiana. States or departments in four nations contain "Amazonas" in their names. The Amazon represents over half of the planet's remaining rainforests, and comprises the largest and most biodiverse tract of tropical rainforest in the world, with an estimated 390 billion individual trees divided into 16,000 species.`,
-		}
-	] ],
 	[ "table-question-answering", [
 		{
 			text: `How many stars does the transformers repository have?`,
@@ -77,31 +59,23 @@ const MAPPING_EN: PerLanguageMapping = new Map([
 			},
 		},
 	] ],
-	[ "translation", [
-		`My name is Wolfgang and I live in Berlin`,
-		`My name is Sarah and I live in London`,
-	] ],
-	[ "summarization", [
-		`The tower is 324 metres (1,063 ft) tall, about the same height as an 81-storey building, and the tallest structure in Paris. Its base is square, measuring 125 metres (410 ft) on each side. During its construction, the Eiffel Tower surpassed the Washington Monument to become the tallest man-made structure in the world, a title it held for 41 years until the Chrysler Building in New York City was finished in 1930. It was the first structure to reach a height of 300 metres. Due to the addition of a broadcasting aerial at the top of the tower in 1957, it is now taller than the Chrysler Building by 5.2 metres (17 ft). Excluding transmitters, the Eiffel Tower is the second tallest free-standing structure in France after the Millau Viaduct.`,
-	] ],
-	[ "text-generation", [
-		`My name is Julien and I like to`,
-		`My name is Thomas and my main`,
-		`My name is Mariama, my favorite`,
-		`My name is Clara and I am`,
-		`Once upon a time,`,
-	] ],
-	[ "conversational", [
-		`Hey my name is Julien ! How are you ?`,
-		`Hey my name is Thomas ! How are you ?`,
-		`Hey my name is Mariama ! How are you ?`,
-		`Hey my name is Clara ! How are you ?`,
-		`Hey my name is Julien ! How are you ?`,
-		`Hi.`,
-	] ],
-	[ "fill-mask", [
-		`Paris is the <mask> of France.`,
-		`The goal of life is <mask>.`,
+	[ "question-answering", [
+		{
+			text: `Where do I live?`,
+			context: `My name is Wolfgang and I live in Berlin`,
+		},
+		{
+			text: `Where do I live?`,
+			context: `My name is Sarah and I live in London`,
+		},
+		{
+			text: `What's my name?`,
+			context: `My name is Clara and I live in Berkeley.`,
+		},
+		{
+			text: `Which name is also used to describe the Amazon rainforest in English?`,
+			context: `The Amazon rainforest (Portuguese: Floresta Amazônica or Amazônia; Spanish: Selva Amazónica, Amazonía or usually Amazonia; French: Forêt amazonienne; Dutch: Amazoneregenwoud), also known in English as Amazonia or the Amazon Jungle, is a moist broadleaf forest that covers most of the Amazon basin of South America. This basin encompasses 7,000,000 square kilometres (2,700,000 sq mi), of which 5,500,000 square kilometres (2,100,000 sq mi) are covered by the rainforest. This region includes territory belonging to nine nations. The majority of the forest is contained within Brazil, with 60% of the rainforest, followed by Peru with 13%, Colombia with 10%, and with minor amounts in Venezuela, Ecuador, Bolivia, Guyana, Suriname and French Guiana. States or departments in four nations contain "Amazonas" in their names. The Amazon represents over half of the planet's remaining rainforests, and comprises the largest and most biodiverse tract of tropical rainforest in the world, with an estimated 390 billion individual trees divided into 16,000 species.`,
+		}
 	] ],
 	[ "zero-shot-classification", [
 		{
@@ -119,6 +93,32 @@ const MAPPING_EN: PerLanguageMapping = new Map([
 			candidate_labels: "space & cosmos, scientific discovery, microbiology, robots, archeology",
 			multi_class: true,
 		}
+	] ],
+	[ "translation", [
+		`My name is Wolfgang and I live in Berlin`,
+		`My name is Sarah and I live in London`,
+	] ],
+	[ "summarization", [
+		`The tower is 324 metres (1,063 ft) tall, about the same height as an 81-storey building, and the tallest structure in Paris. Its base is square, measuring 125 metres (410 ft) on each side. During its construction, the Eiffel Tower surpassed the Washington Monument to become the tallest man-made structure in the world, a title it held for 41 years until the Chrysler Building in New York City was finished in 1930. It was the first structure to reach a height of 300 metres. Due to the addition of a broadcasting aerial at the top of the tower in 1957, it is now taller than the Chrysler Building by 5.2 metres (17 ft). Excluding transmitters, the Eiffel Tower is the second tallest free-standing structure in France after the Millau Viaduct.`,
+	] ],
+	[ "conversational", [
+		`Hey my name is Julien! How are you?`,
+		`Hey my name is Thomas! How are you?`,
+		`Hey my name is Mariama! How are you?`,
+		`Hey my name is Clara! How are you?`,
+		`Hey my name is Julien! How are you?`,
+		`Hi.`,
+	] ],
+	[ "text-generation", [
+		`My name is Julien and I like to`,
+		`My name is Thomas and my main`,
+		`My name is Mariama, my favorite`,
+		`My name is Clara and I am`,
+		`Once upon a time,`,
+	] ],
+	[ "fill-mask", [
+		`Paris is the <mask> of France.`,
+		`The goal of life is <mask>.`,
 	] ],
 ]);
 
