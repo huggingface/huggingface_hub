@@ -1,6 +1,9 @@
 name: Inference API code quality
 
-on: push
+on:
+  push:
+    paths:
+      - "api-inference-community/**"
 
 jobs:
   run_tests:
