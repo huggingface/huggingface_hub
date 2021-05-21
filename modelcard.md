@@ -27,6 +27,7 @@ model-index:
       - name: {metric_name}  # Example: Test WER
         type: {metric_type}  # Example: wer
         value: {metric_value}  # Example: 20.90
+        args: {arg_0}  # Example for BLEU: max_order
 ---
 
 This markdown file contains the spec for the modelcard metadata regarding evaluation parameters. 
