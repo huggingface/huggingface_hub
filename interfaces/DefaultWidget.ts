@@ -91,6 +91,14 @@ const MAPPING_EN: PerLanguageMapping = new Map([
 		`My name is Clara and I am`,
 		`Once upon a time,`,
 	] ],
+	[ "conversational", [
+		`Hey my name is Julien ! How are you ?`,
+		`Hey my name is Thomas ! How are you ?`,
+		`Hey my name is Mariama ! How are you ?`,
+		`Hey my name is Clara ! How are you ?`,
+		`Hey my name is Julien ! How are you ?`,
+		`Hi.`,
+	] ],
 	[ "fill-mask", [
 		`Paris is the <mask> of France.`,
 		`The goal of life is <mask>.`,
