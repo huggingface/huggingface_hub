@@ -1,5 +1,6 @@
 
 /// In each category, order by decreasing specificity
+/// The order can influence which default pipeline tag is affected to a model (if unspecified in model card)
 export enum PipelineType {
 	/// nlp
 	"text-classification" = "text-classification",
@@ -9,10 +10,10 @@ export enum PipelineType {
 	"zero-shot-classification" = "zero-shot-classification",
 	"translation" = "translation",
 	"summarization" = "summarization",
+	"conversational" = "conversational",
 	"text-generation" = "text-generation",
 	"text2text-generation" = "text2text-generation",
 	"fill-mask" = "fill-mask",
-	"conversational" = "conversational",
 	/// audio
 	"text-to-speech" = "text-to-speech",
 	"automatic-speech-recognition" = "automatic-speech-recognition",
