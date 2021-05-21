@@ -2,8 +2,8 @@ name: Inference API Python-tests
 
 on:
   push:
-    branches:
-      - "*"
+    paths:
+      - "api-inference-community/**"
 
 jobs:
   build:
