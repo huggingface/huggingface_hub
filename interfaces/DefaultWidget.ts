@@ -7,7 +7,7 @@ type PerLanguageMapping = Map<
 	(Record<string, string | boolean> | string)[]
 >;
 
-	
+
 /// NOTE TO CONTRIBUTORS:
 ///
 /// When adding sample inputs for a new language, you don't
@@ -101,7 +101,7 @@ const MAPPING_ZH: PerLanguageMapping = new Map([
 			text: `我住在哪里？`,
 			context: `我叫沃尔夫冈，我住在柏林。`,
 		},
-	        {
+		{
 			text: `我住在哪里？`,
 			context: `我叫萨拉，我住在伦敦。`,
 		},
@@ -430,7 +430,7 @@ const MAPPING_SI: PerLanguageMapping = new Map([
 		`<mask> ඉගෙනීමට ගියාය.`,
 	] ],
 ]);
-	
+
 export const MAPPING_DEFAULT_WIDGET = new Map<LanguageCode, PerLanguageMapping>([
 	[ "en", MAPPING_EN ],
 	[ "zh", MAPPING_ZH ],
