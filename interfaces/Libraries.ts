@@ -137,7 +137,7 @@ model = ${model.autoArchitecture}.from_pretrained("${model.modelId}"${model.priv
 
 
 
-const MODEL_LIBRARIES_UI_ELEMENTS: { [key in keyof typeof ModelLibrary]: LibraryUiElement } = {
+export const MODEL_LIBRARIES_UI_ELEMENTS: { [key in keyof typeof ModelLibrary]: LibraryUiElement } = {
 	asteroid: {
 		btnLabel: "Asteroid",
 		repoName: "Asteroid",
