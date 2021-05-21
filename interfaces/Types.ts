@@ -1,6 +1,7 @@
 
-/// Order by decreasing specificity
+/// In each category, order by decreasing specificity
 export enum PipelineType {
+	/// nlp
 	"text-classification" = "text-classification",
 	"token-classification" = "token-classification",
 	"table-question-answering" = "table-question-answering",
@@ -14,6 +15,8 @@ export enum PipelineType {
 	/// audio
 	"text-to-speech" = "text-to-speech",
 	"automatic-speech-recognition" = "automatic-speech-recognition",
+	"audio-source-separation" = "audio-source-separation",
+	"voice-activity-detection" = "voice-activity-detection",
 }
 
 export const ALL_PIPELINE_TYPES = Object.keys(PipelineType) as (keyof typeof PipelineType)[];
