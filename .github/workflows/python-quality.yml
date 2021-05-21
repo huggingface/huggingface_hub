@@ -4,8 +4,12 @@ on:
   push:
     branches:
       - main
+    paths-ignore:
+      - "interfaces/**"
   pull_request:
     types: [assigned, opened, synchronize, reopened]
+    paths-ignore:
+      - "interfaces/**"
 
 jobs:
   check_code_quality:
