@@ -13,6 +13,7 @@ export enum PipelineType {
 	"fill-mask" = "fill-mask",
 	/// audio
 	"text-to-speech" = "text-to-speech",
+	"automatic-speech-recognition" = "automatic-speech-recognition",
 }
 
 export const ALL_PIPELINE_TYPES = Object.keys(PipelineType) as (keyof typeof PipelineType)[];
