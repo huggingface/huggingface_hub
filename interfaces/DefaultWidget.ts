@@ -402,6 +402,17 @@ const MAPPING_MN: PerLanguageMapping = new Map([
 		`Миний амьдралын зорилго бол <mask>.`,
 	] ],
 ]);
+
+const MAPPING_SI: PerLanguageMapping = new Map([
+	[ "translation", [
+		`සිංහල ඉතා අලංකාර භාෂාවකි.`,
+		`මෙම තාක්ෂණය භාවිතා කරන ඔබට ස්තූතියි.`,
+	] ],
+	[ "fill-mask", [
+		`මම ගෙදර <mask>.`,
+		`<mask> ඉගෙනීමට ගියාය.`,
+	] ],
+]);
 	
 export const MAPPING_DEFAULT_WIDGET = new Map<LanguageCode, PerLanguageMapping>([
 	[ "en", MAPPING_EN ],
@@ -415,4 +426,5 @@ export const MAPPING_DEFAULT_WIDGET = new Map<LanguageCode, PerLanguageMapping>(
 	[ "ar", MAPPING_AR ],
 	[ "bn", MAPPING_BN ],
 	[ "mn", MAPPING_MN ],
+	[ "si", MAPPING_SI ],
 ]);
