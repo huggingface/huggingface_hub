@@ -11,6 +11,8 @@ export enum PipelineType {
 	"text-generation" = "text-generation",
 	"text2text-generation" = "text2text-generation",
 	"fill-mask" = "fill-mask",
+	/// audio
+	"text-to-speech" = "text-to-speech",
 }
 
 export const ALL_PIPELINE_TYPES = Object.keys(PipelineType) as (keyof typeof PipelineType)[];
