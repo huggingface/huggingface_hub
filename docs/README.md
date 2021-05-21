@@ -7,9 +7,9 @@ title: Model Hub docs
 
 ## What's the Hugging Face model hub?
 
-We are helping the community work together towards the goal of advancing NLP 🔥.
+We are helping the community work together towards the goal of advancing Artificial Intelligence 🔥.
 
-Not one company, even the Tech Titans, will be able to “solve NLP” by themselves – the only way we'll achieve this is by sharing knowledge and resources. On this model hub we are building the largest collection of models, datasets and metrics to democratize and advance AI and NLP for everyone 🚀.
+Not one company, even the Tech Titans, will be able to “solve AI” by itself – the only way we'll achieve this is by sharing knowledge and resources. On this model hub we are building the largest collection of models, datasets and metrics to democratize and advance AI and NLP for everyone 🚀.
 
 ## When sharing a model, what should I add to my model card?
 
