@@ -329,7 +329,7 @@ const MAPPING_FA: PerLanguageMapping = new Map([
 		`زندگی از مرگ پرسید: چرا همه من را <mask> دارند اما از تو متنفرند؟`,
 	] ],
 ]);
-	
+
 const MAPPING_AR: PerLanguageMapping = new Map([
 	[ "text-classification", [
 		`أحبك. أهواك`,
@@ -404,7 +404,7 @@ const MAPPING_BN: PerLanguageMapping = new Map([
 		`আমি <mask> খুব ভালোবাসি। `,
 	] ],
 ]);
-	
+
 const MAPPING_MN: PerLanguageMapping = new Map([
 	[ "text-classification", [
 		`Би чамд хайртай`,
@@ -458,6 +458,19 @@ const MAPPING_SI: PerLanguageMapping = new Map([
 	] ],
 ]);
 
+const MAPPING_DE: PerLanguageMapping = new Map([
+	[ "question-answering", [
+		{
+			text: `Wo wohne ich?`,
+			context: `Mein Name ist Wolfgang und ich lebe in Berlin`,
+		},
+		{
+			text: `Welcher Name wird auch verwendet, um den Amazonas-Regenwald auf Englisch zu beschreiben?`,
+			context: `Der Amazonas-Regenwald, auf Englisch auch als Amazonien oder Amazonas-Dschungel bekannt, ist ein feuchter Laubwald, der den größten Teil des Amazonas-Beckens Südamerikas bedeckt. Dieses Becken umfasst 7.000.000 Quadratkilometer (2.700.000 Quadratmeilen), von denen 5.500.000 Quadratkilometer (2.100.000 Quadratmeilen) vom Regenwald bedeckt sind. Diese Region umfasst Gebiete von neun Nationen. Der größte Teil des Waldes befindet sich in Brasilien mit 60% des Regenwaldes, gefolgt von Peru mit 13%, Kolumbien mit 10% und geringen Mengen in Venezuela, Ecuador, Bolivien, Guyana, Suriname und Französisch-Guayana. Staaten oder Abteilungen in vier Nationen enthalten "Amazonas" in ihren Namen. Der Amazonas repräsentiert mehr als die Hälfte der verbleibenden Regenwälder des Planeten und umfasst den größten und artenreichsten tropischen Regenwald der Welt mit geschätzten 390 Milliarden Einzelbäumen, die in 16.000 Arten unterteilt sind.`,
+		}
+	] ],
+]);
+
 export const MAPPING_DEFAULT_WIDGET = new Map<LanguageCode, PerLanguageMapping>([
 	[ "en", MAPPING_EN ],
 	[ "zh", MAPPING_ZH ],
@@ -471,4 +484,5 @@ export const MAPPING_DEFAULT_WIDGET = new Map<LanguageCode, PerLanguageMapping>(
 	[ "bn", MAPPING_BN ],
 	[ "mn", MAPPING_MN ],
 	[ "si", MAPPING_SI ],
+	[ "de", MAPPING_DE ],
 ]);
