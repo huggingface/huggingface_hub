@@ -453,6 +453,21 @@ const MAPPING_MN: PerLanguageMapping = new Map([
 		`Монгол улсын <mask> Улаанбаатар хотоос ярьж байна.`,
 		`Миний амьдралын зорилго бол <mask>.`,
 	] ],
+	[ "automatic-speech-recognition", [
+		{
+			label: `Common Voice Train Example`,
+			src: `https://cdn-media.huggingface.co/common_voice/train/common_voice_mn_18577472.wav`,
+		},
+		{
+			label: `Common Voice Test Example`,
+			src: `https://cdn-media.huggingface.co/common_voice/test/common_voice_mn_18577346.wav`,
+		},
+	] ],
+	[ "text-to-speech", [
+		`Би Монгол улсын иргэн.`,
+		`Энэхүү жишээ нь цаанаа ямар ч утга агуулаагүй болно`,
+		`Сар шинэдээ сайхан шинэлэж байна уу?`,
+	] ],
 ]);
 
 const MAPPING_SI: PerLanguageMapping = new Map([
