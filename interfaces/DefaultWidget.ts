@@ -253,7 +253,7 @@ const MAPPING_IT: PerLanguageMapping = new Map([
 		`Lo scopo della vita è <mask>.`,
 	] ],
 ]);
-	
+
 const MAPPING_FA: PerLanguageMapping = new Map([
 	[ "text-classification", [
 		`به موقع تحویل شد و همه چیز خوب بود.`,
@@ -266,7 +266,7 @@ const MAPPING_FA: PerLanguageMapping = new Map([
 		`دفتر مرکزی شرکت کامیکو در شهر ساسکاتون ساسکاچوان قرار دارد.`,
 		`در سال ۲۰۱۳ درگذشت و آندرتیکر و کین برای او مراسم یادبود گرفتند.`,
 	] ],
-	[ "question-answering", [],
+	[ "question-answering", [] ],
 	[ "translation", [] ],
 	[ "summarization", [] ],
 	[ "text-generation", [] ],
