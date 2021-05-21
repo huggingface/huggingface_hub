@@ -198,10 +198,20 @@ const MAPPING_RU: PerLanguageMapping = new Map([
 	] ],
 ]);
 
+const MAPPING_UK: PerLanguageMapping = new Map([
+	[ "translation", [
+		`Мене звати Вольфґанґ і я живу в Берліні.`,
+	] ],
+	[ "fill-mask", [
+		`Мене звати <mask>.`,
+	] ],
+]);
+
 export const MAPPING_DEFAULT_WIDGET = new Map<LanguageCode, PerLanguageMapping>([
 	[ "en", MAPPING_EN ],
 	[ "zh", MAPPING_ZH ],
 	[ "fr", MAPPING_FR ],
 	[ "es", MAPPING_ES ],
 	[ "ru", MAPPING_RU ],
+	[ "uk", MAPPING_UK ],
 ]);
