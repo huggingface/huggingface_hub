@@ -17,12 +17,14 @@ requirements:
     - filelock
     - requests
     - tqdm
+    - typing-extensions
   run:
     - python
     - pip
     - filelock
     - requests
     - tqdm
+    - typing-extensions
 
 test:
   imports:
