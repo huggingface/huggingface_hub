@@ -8,6 +8,7 @@ export enum PipelineType {
 	"translation" = "translation",
 	"summarization" = "summarization",
 	"text-generation" = "text-generation",
+	"text2text-generation" = "text2text-generation",
 	"fill-mask" = "fill-mask",
 }
 
