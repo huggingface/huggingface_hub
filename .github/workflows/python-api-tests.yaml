@@ -1,4 +1,4 @@
-name: Python-tests
+name: Inference API Python-tests
 
 on:
   push:
