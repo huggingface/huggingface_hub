@@ -20,3 +20,23 @@ export enum PipelineType {
 }
 
 export const ALL_PIPELINE_TYPES = Object.keys(PipelineType) as (keyof typeof PipelineType)[];
+
+export const PIPELINE_TYPE_PRETTY_NAMES: { [key in PipelineType]: string } = {
+	/// nlp
+	"text-classification":                                      "Text Classification",
+	"token-classification":                                     "Token Classification",
+	"table-question-answering":                                 "Table Question Answering",
+	"question-answering":                                       "Question Answering",
+	"zero-shot-classification":                                 "Zero-Shot Classification",
+	"translation":                                              "Translation",
+	"summarization":                                            "Summarization",
+	"text-generation":                                          "Text Generation",
+	"text2text-generation":                                     "Text2Text Generation",
+	"fill-mask":                                                "Fill-Mask",
+	/// audio
+	"text-to-speech":                                           "Text-to-Speech",
+	"automatic-speech-recognition":                             "Automatic Speech Recognition",
+	"audio-source-separation":                                  "Audio Source Separation",
+	"voice-activity-detection":                                 "Voice Activity Detection",
+};
+
