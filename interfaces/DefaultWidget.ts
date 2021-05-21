@@ -48,11 +48,11 @@ const MAPPING_EN: PerLanguageMapping = new Map([
 		`The tower is 324 metres (1,063 ft) tall, about the same height as an 81-storey building, and the tallest structure in Paris. Its base is square, measuring 125 metres (410 ft) on each side. During its construction, the Eiffel Tower surpassed the Washington Monument to become the tallest man-made structure in the world, a title it held for 41 years until the Chrysler Building in New York City was finished in 1930. It was the first structure to reach a height of 300 metres. Due to the addition of a broadcasting aerial at the top of the tower in 1957, it is now taller than the Chrysler Building by 5.2 metres (17 ft). Excluding transmitters, the Eiffel Tower is the second tallest free-standing structure in France after the Millau Viaduct.`,
 	] ],
 	[ "text-generation", [
-		`My name is Julien and I like to `,
-		`My name is Thomas and my main `,
-		`My name is Mariama, my favorite `,
-		`My name is Clara and I am `,
-		`Once upon a time, `,
+		`My name is Julien and I like to`,
+		`My name is Thomas and my main`,
+		`My name is Mariama, my favorite`,
+		`My name is Clara and I am`,
+		`Once upon a time,`,
 	] ],
 	[ "fill-mask", [
 		`Paris is the <mask> of France.`,
@@ -123,9 +123,9 @@ const MAPPING_FR: PerLanguageMapping = new Map([
 		`La tour fait 324 mètres (1,063 pieds) de haut, environ la même hauteur qu'un immeuble de 81 étages, et est la plus haute structure de Paris. Sa base est carrée, mesurant 125 mètres (410 pieds) sur chaque côté. Durant sa construction, la tour Eiffel surpassa le Washington Monument pour devenir la plus haute structure construite par l'homme dans le monde, un titre qu'elle conserva pendant 41 ans jusqu'à l'achèvement du Chrysler Building à New-York City en 1930. Ce fut la première structure à atteindre une hauteur de 300 mètres. Avec l'ajout d'une antenne de radiodiffusion au sommet de la tour Eiffel en 1957, celle-ci redevint plus haute que le Chrysler Building de 5,2 mètres (17 pieds). En excluant les transmetteurs, elle est la seconde plus haute stucture autoportante de France après le viaduc de Millau.`,
 	] ],
 	[ "text-generation", [
-		`Mon nom est Julien et j'aime `,
-		`Mon nom est Thomas et mon principal `,
-		`Il était une fois, `,
+		`Mon nom est Julien et j'aime`,
+		`Mon nom est Thomas et mon principal`,
+		`Il était une fois`,
 	] ],
 	[ "fill-mask", [
 		`Paris est la <mask> de la France.`,
@@ -161,10 +161,10 @@ const MAPPING_ES: PerLanguageMapping = new Map([
 		`La torre tiene 324 metros (1.063 pies) de altura, aproximadamente la misma altura que un edificio de 81 pisos y la estructura más alta de París. Su base es cuadrada, mide 125 metros (410 pies) a cada lado. Durante su construcción, la Torre Eiffel superó al Washington Monument para convertirse en la estructura artificial más alta del mundo, un título que mantuvo durante 41 años hasta que el Chrysler Building en la ciudad de Nueva York se terminó en 1930. Fue la primera estructura en llegar Una altura de 300 metros. Debido a la adición de una antena de transmisión en la parte superior de la torre en 1957, ahora es más alta que el Chrysler Building en 5,2 metros (17 pies). Excluyendo los transmisores, la Torre Eiffel es la segunda estructura independiente más alta de Francia después del Viaducto de Millau.`,
 	] ],
 	[ "text-generation", [
-		`Me llamo Julien y me gusta `,
-		`Me llamo Thomas y mi principal `,
-		`Me llamo Manuel y trabajo en `,
-		`Érase una vez, `,
+		`Me llamo Julien y me gusta`,
+		`Me llamo Thomas y mi principal`,
+		`Me llamo Manuel y trabajo en`,
+		`Érase una vez,`,
 		`Si tú me dices ven, `
 	] ],
 	[ "fill-mask", [
@@ -193,9 +193,9 @@ const MAPPING_RU: PerLanguageMapping = new Map([
 		`Высота башни составляет 324 метра (1063 фута), примерно такая же высота, как у 81-этажного здания, и самое высокое сооружение в Париже. Его основание квадратно, размером 125 метров (410 футов) с любой стороны. Во время строительства Эйфелева башня превзошла монумент Вашингтона, став самым высоким искусственным сооружением в мире, и этот титул она удерживала в течение 41 года до завершения строительство здания Крайслер в Нью-Йорке в 1930 году. Это первое сооружение которое достигло высоты 300 метров. Из-за добавления вещательной антенны на вершине башни в 1957 году она сейчас выше здания Крайслер на 5,2 метра (17 футов). За исключением передатчиков, Эйфелева башня является второй самой высокой отдельно стоящей структурой во Франции после виадука Мийо.`,
 	] ],
 	[ "text-generation", [
-		`Меня зовут Жюльен и `,
-		`Меня зовут Томас и мой основной `,
-		`Однажды `,
+		`Меня зовут Жюльен и`,
+		`Меня зовут Томас и мой основной`,
+		`Однажды`,
 	] ],
 	[ "fill-mask", [
 		`Меня зовут <mask> и я инженер живущий в Нью-Йорке.`,
@@ -242,11 +242,11 @@ const MAPPING_IT: PerLanguageMapping = new Map([
 		`La torre degli Asinelli è una delle cosiddette due torri di Bologna, simbolo della città, situate in piazza di porta Ravegnana, all'incrocio tra le antiche strade San Donato (ora via Zamboni), San Vitale, Maggiore e Castiglione. Eretta, secondo la tradizione, fra il 1109 e il 1119 dal nobile Gherardo Asinelli, la torre è alta 97,20 metri, pende verso ovest per 2,23 metri e presenta all'interno una scalinata composta da 498 gradini. Ancora non si può dire con certezza quando e da chi fu costruita la torre degli Asinelli. Si presume che la torre debba il proprio nome a Gherardo Asinelli, il nobile cavaliere di fazione ghibellina al quale se ne attribuisce la costruzione, iniziata secondo una consolidata tradizione l'11 ottobre 1109 e terminata dieci anni dopo, nel 1119.`,
 	] ],
 	[ "text-generation", [
-		`Mi chiamo Loreto e mi piace `,
-		`Mi chiamo Thomas e il mio principale `,
-		`Mi chiamo Marianna, la mia cosa preferita `,
-		`Mi chiamo Clara e sono `,
-		`C'era una volta `,
+		`Mi chiamo Loreto e mi piace`,
+		`Mi chiamo Thomas e il mio principale`,
+		`Mi chiamo Marianna, la mia cosa preferita`,
+		`Mi chiamo Clara e sono`,
+		`C'era una volta`,
 	] ],
 	[ "fill-mask", [
 		`Roma è la <mask> d'Italia.`,
