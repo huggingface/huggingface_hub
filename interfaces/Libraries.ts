@@ -41,7 +41,7 @@ interface ModelData {
 /**
  * Elements configurable by a model library.
  */
-interface LibraryUiElement {
+export interface LibraryUiElement {
 	/**
 	 * Name displayed on the main
 	 * call-to-action button on the model page.
