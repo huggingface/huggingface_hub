@@ -36,10 +36,10 @@ export const PIPELINE_TYPE_PRETTY_NAMES: { [key in PipelineType]: string } = {
 	"zero-shot-classification":                                 "Zero-Shot Classification",
 	"translation":                                              "Translation",
 	"summarization":                                            "Summarization",
+	"conversational":                                           "Conversational",
 	"text-generation":                                          "Text Generation",
 	"text2text-generation":                                     "Text2Text Generation",
 	"fill-mask":                                                "Fill-Mask",
-	"conversational":                                           "Conversational",
 	/// audio
 	"text-to-speech":                                           "Text-to-Speech",
 	"automatic-speech-recognition":                             "Automatic Speech Recognition",
