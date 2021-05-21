@@ -139,21 +139,33 @@ const MAPPING_ES: PerLanguageMapping = new Map([
 		{
 			text: `¿Dónde vivo?`,
 			context: `Me llamo Wolfgang y vivo en Berlin`,
+		},
+		{
+			text: `¿Quién inventó el submarino?`,
+			context: `Isaac Peral fue un murciano que inventó el submarino`,
+		},
+		{
+			text: `¿Cuántas personas hablan español?`,
+			context: `El español es el segundo idioma más hablado del mundo con más de 442 millones de hablantes`,
 		}
 	] ],
 	[ "translation", [
 		`Me llamo Wolfgang y vivo en Berlin`,
+		`Los ingredientes de una tortilla de patatas son: huevos, patatas y cebolla`,
 	] ],
 	[ "summarization", [
 		`La torre tiene 324 metros (1.063 pies) de altura, aproximadamente la misma altura que un edificio de 81 pisos y la estructura más alta de París. Su base es cuadrada, mide 125 metros (410 pies) a cada lado. Durante su construcción, la Torre Eiffel superó al Washington Monument para convertirse en la estructura artificial más alta del mundo, un título que mantuvo durante 41 años hasta que el Chrysler Building en la ciudad de Nueva York se terminó en 1930. Fue la primera estructura en llegar Una altura de 300 metros. Debido a la adición de una antena de transmisión en la parte superior de la torre en 1957, ahora es más alta que el Chrysler Building en 5,2 metros (17 pies). Excluyendo los transmisores, la Torre Eiffel es la segunda estructura independiente más alta de Francia después del Viaducto de Millau.`,
 	] ],
 	[ "text-generation", [
-		`Mi nombre es Julien y me gusta `,
-		`Mi nombre es Thomas y mi principal `,
+		`Me llamo Julien y me gusta `,
+		`Me llamo Thomas y mi principal `,
+		`Me llamo Manuel y trabajo en `,
 		`Érase una vez, `,
+		`Si tú me dices ven, `
 	] ],
 	[ "fill-mask", [
 		`Mi nombre es <mask> y vivo en Nueva York.`,
+		`El español es un idioma muy <mask> en el mundo.`,
 	] ],
 ]);
 
