@@ -17,6 +17,10 @@ export enum PipelineType {
 	"automatic-speech-recognition" = "automatic-speech-recognition",
 	"audio-source-separation" = "audio-source-separation",
 	"voice-activity-detection" = "voice-activity-detection",
+	/// computer vision
+	"image-classification" = "image-classification",
+	"object-detection" = "object-detection",
+	"image-segmentation" = "image-segmentation",
 }
 
 export const ALL_PIPELINE_TYPES = Object.keys(PipelineType) as (keyof typeof PipelineType)[];
@@ -38,5 +42,9 @@ export const PIPELINE_TYPE_PRETTY_NAMES: { [key in PipelineType]: string } = {
 	"automatic-speech-recognition":                             "Automatic Speech Recognition",
 	"audio-source-separation":                                  "Audio Source Separation",
 	"voice-activity-detection":                                 "Voice Activity Detection",
+	/// computer vision
+	"image-classification":                                     "Image Classification",
+	"object-detection":                                         "Object Detection",
+	"image-segmentation":                                       "Image Segmentation",
 };
 
