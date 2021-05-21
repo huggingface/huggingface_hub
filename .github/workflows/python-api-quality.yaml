@@ -1,4 +1,4 @@
-name: Check code quality
+name: Inference API code quality
 
 on: push
 
