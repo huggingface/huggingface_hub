@@ -207,6 +207,49 @@ const MAPPING_UK: PerLanguageMapping = new Map([
 	] ],
 ]);
 
+const MAPPING_IT: PerLanguageMapping = new Map([
+	[ "text-classification", [
+		`Mi piaci. Ti amo`,
+	] ],
+	[ "token-classification", [
+		`Mi chiamo Wolfgang e vivo a Berlino`,
+		`Mi chiamo Sarah e vivo a Londra`,
+		`Mi chiamo Clara e vivo a Berkeley in California.`,
+	] ],
+	[ "question-answering", [
+		{
+			text: `Dove vivo?`,
+			context: `Mi chiamo Wolfgang e vivo a Berlino`,
+		},
+		{
+			text: `Dove vivo?`,
+			context: `Mi chiamo Sarah e vivo a Londra`,
+		},
+		{
+			text: `Come mio chiamo?`,
+			context: `Mi chiamo Clara e vivo a Berkeley.`,
+		},
+	] ],
+	[ "translation", [
+		`Mi chiamo Wolfgang e vivo a Berlino`,
+		`Mi chiamo Sarah e vivo a Londra`,
+	] ],
+	[ "summarization", [
+		`La torre degli Asinelli è una delle cosiddette due torri di Bologna, simbolo della città, situate in piazza di porta Ravegnana, all'incrocio tra le antiche strade San Donato (ora via Zamboni), San Vitale, Maggiore e Castiglione. Eretta, secondo la tradizione, fra il 1109 e il 1119 dal nobile Gherardo Asinelli, la torre è alta 97,20 metri, pende verso ovest per 2,23 metri e presenta all'interno una scalinata composta da 498 gradini. Ancora non si può dire con certezza quando e da chi fu costruita la torre degli Asinelli. Si presume che la torre debba il proprio nome a Gherardo Asinelli, il nobile cavaliere di fazione ghibellina al quale se ne attribuisce la costruzione, iniziata secondo una consolidata tradizione l'11 ottobre 1109 e terminata dieci anni dopo, nel 1119.`,
+	] ],
+	[ "text-generation", [
+		`Mi chiamo Loreto e mi piace `,
+		`Mi chiamo Thomas e il mio principale `,
+		`Mi chiamo Marianna, la mia cosa preferita `,
+		`Mi chiamo Clara e sono `,
+		`C'era una volta `,
+	] ],
+	[ "fill-mask", [
+		`Roma è la <mask> d'Italia.`,
+		`Lo scopo della vita è <mask>.`,
+	] ],
+]);
+
 export const MAPPING_DEFAULT_WIDGET = new Map<LanguageCode, PerLanguageMapping>([
 	[ "en", MAPPING_EN ],
 	[ "zh", MAPPING_ZH ],
@@ -214,4 +257,5 @@ export const MAPPING_DEFAULT_WIDGET = new Map<LanguageCode, PerLanguageMapping>(
 	[ "es", MAPPING_ES ],
 	[ "ru", MAPPING_RU ],
 	[ "uk", MAPPING_UK ],
+	[ "it", MAPPING_IT ]
 ]);
