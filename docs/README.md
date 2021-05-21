@@ -88,7 +88,7 @@ Example inputs are the random inputs that pre-populate your widget on page launc
 
 We try to provide example inputs for some languages and widget types, but it's better if you provide your own examples. You can add them to your model card: see [this commit](https://github.com/huggingface/transformers/commit/6a495cae0090307198131c07cd4f3f1e9b38b4e6) for the format you need to use.
 
-If we don't provide default inputs for your model's language, please open a PR against [this DefaultWidget.ts file](https://github.com/huggingface/widgets-server/blob/master/DefaultWidget.ts) to add them. Thanks!
+If we don't provide default inputs for your model's language, please open a PR against [this DefaultWidget.ts file](https://github.com/huggingface/huggingface_hub/blob/master/interfaces/DefaultWidget.ts) to add them. Thanks!
 
 
 ## How can I turn off the inference API for my model?
