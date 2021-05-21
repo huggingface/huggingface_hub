@@ -1,0 +1,195 @@
+import { PipelineType } from './Types';
+
+type LanguageCode = string;
+
+type PerLanguageMapping = Map<
+	keyof typeof PipelineType,
+	(Record<string, string> | string)[]
+>;
+
+/// The <mask> placeholder will be replaced by the correct mask token
+/// in the following examples, depending on the model type
+///
+/// see [INTERNAL] github.com/huggingface/moon-landing/blob/c5c3d45fe0ab27347b3ab27bdad646ef20732351/server/lib/App.ts#L254
+//
+
+const MAPPING_EN: PerLanguageMapping = new Map([
+	[ "text-classification", [
+		`I like you. I love you`,
+	] ],
+	[ "token-classification", [
+		`My name is Wolfgang and I live in Berlin`,
+		`My name is Sarah and I live in London`,
+		`My name is Clara and I live in Berkeley, California.`,
+	] ],
+	[ "question-answering", [
+		{
+			text: `Where do I live?`,
+			context: `My name is Wolfgang and I live in Berlin`,
+		},
+		{
+			text: `Where do I live?`,
+			context: `My name is Sarah and I live in London`,
+		},
+		{
+			text: `What's my name?`,
+			context: `My name is Clara and I live in Berkeley.`,
+		},
+	] ],
+	[ "translation", [
+		`My name is Wolfgang and I live in Berlin`,
+		`My name is Sarah and I live in London`,
+	] ],
+	[ "summarization", [
+		`The tower is 324 metres (1,063 ft) tall, about the same height as an 81-storey building, and the tallest structure in Paris. Its base is square, measuring 125 metres (410 ft) on each side. During its construction, the Eiffel Tower surpassed the Washington Monument to become the tallest man-made structure in the world, a title it held for 41 years until the Chrysler Building in New York City was finished in 1930. It was the first structure to reach a height of 300 metres. Due to the addition of a broadcasting aerial at the top of the tower in 1957, it is now taller than the Chrysler Building by 5.2 metres (17 ft). Excluding transmitters, the Eiffel Tower is the second tallest free-standing structure in France after the Millau Viaduct.`,
+	] ],
+	[ "text-generation", [
+		`My name is Julien and I like to `,
+		`My name is Thomas and my main `,
+		`My name is Mariama, my favorite `,
+		`My name is Clara and I am `,
+		`Once upon a time, `,
+	] ],
+	[ "fill-mask", [
+		`Paris is the <mask> of France.`,
+		`The goal of life is <mask>.`,
+	] ],
+]);
+
+const MAPPING_ZH: PerLanguageMapping = new Map([
+	[ "text-classification", [
+		`我喜欢你。 我爱你`,
+	] ],
+	[ "token-classification", [
+		`我叫沃尔夫冈，我住在柏林。`,
+	        `我叫萨拉，我住在伦敦。`,
+	        `我叫克拉拉，我住在加州伯克利。`,
+	] ],
+	[ "question-answering", [
+		{
+			text: `我住在哪里？`,
+			context: `我叫沃尔夫冈，我住在柏林。`,
+		},
+	        {
+			text: `我住在哪里？`,
+			context: `我叫萨拉，我住在伦敦。`,
+		},
+		{
+			text: `我的名字是什么？`,
+			context: `我叫克拉拉，我住在伯克利。`,
+		},
+	] ],
+	[ "translation", [
+		`我叫沃尔夫冈，我住在柏林。`,
+	        `我叫萨拉，我住在伦敦。`,
+	] ],
+	[ "summarization", [
+		`该塔高324米（1063英尺），与一幢81层的建筑物一样高，是巴黎最高的建筑物。 它的底座是方形的，每边长125米（410英尺）。 在建造过程中，艾菲尔铁塔超过了华盛顿纪念碑，成为世界上最高的人造结构，它保持了41年的头衔，直到1930年纽约市的克莱斯勒大楼竣工。这是第一个到达300米高度的结构。 由于1957年在塔顶增加了广播天线，因此它现在比克莱斯勒大厦高5.2米（17英尺）。 除发射器外，艾菲尔铁塔是法国第二高的独立式建筑，仅次于米劳高架桥。`,
+	] ],
+	[ "text-generation", [
+		`我叫朱利安，我喜欢`,
+	        `我叫托马斯，我的主要`,
+	        `我叫玛丽亚，我最喜欢的`,
+	        `我叫克拉拉，我是`,
+	        `从前，`,
+	] ],
+	[ "fill-mask", [
+		`巴黎是<mask>国的首都。`,
+	        `生活的真谛是<mask>。`
+	] ],
+]);
+
+const MAPPING_FR: PerLanguageMapping = new Map([
+	[ "text-classification", [
+		`Je t'apprécie beaucoup. Je t'aime.`,
+	] ],
+	[ "token-classification", [
+		`Mon nom est Wolfgang et je vis à Berlin`,
+	] ],
+	[ "question-answering", [
+		{
+			text: `Où est-ce que je vis?`,
+			context: `Mon nom est Wolfgang et je vis à Berlin`,
+		}
+	] ],
+	[ "translation", [
+		`Mon nom est Wolfgang et je vis à Berlin`,
+	] ],
+	[ "summarization", [
+		`La tour fait 324 mètres (1,063 pieds) de haut, environ la même hauteur qu'un immeuble de 81 étages, et est la plus haute structure de Paris. Sa base est carrée, mesurant 125 mètres (410 pieds) sur chaque côté. Durant sa construction, la tour Eiffel surpassa le Washington Monument pour devenir la plus haute structure construite par l'homme dans le monde, un titre qu'elle conserva pendant 41 ans jusqu'à l'achèvement du Chrysler Building à New-York City en 1930. Ce fut la première structure à atteindre une hauteur de 300 mètres. Avec l'ajout d'une antenne de radiodiffusion au sommet de la tour Eiffel en 1957, celle-ci redevint plus haute que le Chrysler Building de 5,2 mètres (17 pieds). En excluant les transmetteurs, elle est la seconde plus haute stucture autoportante de France après le viaduc de Millau.`,
+	] ],
+	[ "text-generation", [
+		`Mon nom est Julien et j'aime `,
+		`Mon nom est Thomas et mon principal `,
+		`Il était une fois, `,
+	] ],
+	[ "fill-mask", [
+		`Paris est la <mask> de la France.`,
+	] ],
+]);
+
+const MAPPING_ES: PerLanguageMapping = new Map([
+	[ "text-classification", [
+		`Me gustas tu. Te quiero.`,
+	] ],
+	[ "token-classification", [
+		`Me llamo Wolfgang y vivo en Berlin`,
+	] ],
+	[ "question-answering", [
+		{
+			text: `¿Donde vivo?`,
+			context: `Me llamo Wolfgang y vivo en Berlin`,
+		}
+	] ],
+	[ "translation", [
+		`Me llamo Wolfgang y vivo en Berlin`,
+	] ],
+	[ "summarization", [
+		`La torre tiene 324 metros (1.063 pies) de altura, aproximadamente la misma altura que un edificio de 81 pisos y la estructura más alta de París. Su base es cuadrada, mide 125 metros (410 pies) a cada lado. Durante su construcción, la Torre Eiffel superó al Washington Monument para convertirse en la estructura artificial más alta del mundo, un título que mantuvo durante 41 años hasta que el Chrysler Building en la ciudad de Nueva York se terminó en 1930. Fue la primera estructura en llegar Una altura de 300 metros. Debido a la adición de una antena de transmisión en la parte superior de la torre en 1957, ahora es más alta que el Chrysler Building en 5,2 metros (17 pies). Excluyendo los transmisores, la Torre Eiffel es la segunda estructura independiente más alta de Francia después del Viaducto de Millau.`,
+	] ],
+	[ "text-generation", [
+		`Mi nombre es Julien y me gusta `,
+		`Mi nombre es Thomas y mi principal `,
+		`Érase una vez, `,
+	] ],
+	[ "fill-mask", [
+		`Mi nombre es <mask> y vivo en Nueva York.`,
+	] ],
+]);
+
+const MAPPING_RU: PerLanguageMapping = new Map([
+	[ "text-classification", [
+		`Ты мне нравишься. Я тебя люблю`,
+	] ],
+	[ "token-classification", [
+		`Меня зовут Вольфганг и я живу в Берлине`,
+	] ],
+	[ "question-answering", [
+		{
+			text: `Где живу?`,
+			context: `Меня зовут Вольфганг и я живу в Берлине`,
+		}
+	] ],
+	[ "translation", [
+		`Меня зовут Вольфганг и я живу в Берлине`,
+	] ],
+	[ "summarization", [
+		`Высота башни составляет 324 метра (1063 фута), примерно такая же высота, как у 81-этажного здания, и самое высокое сооружение в Париже. Его основание квадратно, размером 125 метров (410 футов) с любой стороны. Во время строительства Эйфелева башня превзошла монумент Вашингтона, став самым высоким искусственным сооружением в мире, и этот титул она удерживала в течение 41 года до завершения строительство здания Крайслер в Нью-Йорке в 1930 году. Это первое сооружение которое достигло высоты 300 метров. Из-за добавления вещательной антенны на вершине башни в 1957 году она сейчас выше здания Крайслер на 5,2 метра (17 футов). За исключением передатчиков, Эйфелева башня является второй самой высокой отдельно стоящей структурой во Франции после виадука Мийо.`,
+	] ],
+	[ "text-generation", [
+		`Меня зовут Жюльен и `,
+		`Меня зовут Томас и мой основной `,
+		`Однажды `,
+	] ],
+	[ "fill-mask", [
+		`Меня зовут <mask> и я инженер живущий в Нью-Йорке.`,
+	] ],
+]);
+
+export const MAPPING_DEFAULT_WIDGET = new Map<LanguageCode, PerLanguageMapping>([
+	[ "en", MAPPING_EN ],
+	[ "zh", MAPPING_ZH ],
+	[ "fr", MAPPING_FR ],
+	[ "es", MAPPING_ES ],
+	[ "ru", MAPPING_RU ],
+]);
