@@ -120,6 +120,15 @@ const MAPPING_EN: PerLanguageMapping = new Map([
 		`Paris is the <mask> of France.`,
 		`The goal of life is <mask>.`,
 	] ],
+	[ "sentence-similarity", [
+		{
+			source_sentence: "That is a happy person",
+			sentences: ["That is a happy dog",
+				"That is a very happy person",
+				"Today is a sunny day"
+			]
+		},
+	] ],
 ]);
 
 const MAPPING_ZH: PerLanguageMapping = new Map([
