@@ -123,7 +123,8 @@ const MAPPING_EN: PerLanguageMapping = new Map([
 	[ "sentence-similarity", [
 		{
 			source_sentence: "That is a happy person",
-			sentences: ["That is a happy dog",
+			sentences: [
+				"That is a happy dog",
 				"That is a very happy person",
 				"Today is a sunny day"
 			]
