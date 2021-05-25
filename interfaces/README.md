@@ -1,4 +1,4 @@
-## Interfaces
+# Interfaces
 
 This folder contains the definition files (written in Typescript) for the huggingface.co hub's:
 - **pipeline types** (used to determine which widget to display on the model page, and which inference API to run)
