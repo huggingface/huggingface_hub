@@ -120,6 +120,16 @@ const MAPPING_EN: PerLanguageMapping = new Map([
 		`Paris is the <mask> of France.`,
 		`The goal of life is <mask>.`,
 	] ],
+	[ "sentence-similarity", [
+		{
+			source_sentence: "That is a happy person",
+			sentences: [
+				"That is a happy dog",
+				"That is a very happy person",
+				"Today is a sunny day"
+			]
+		},
+	] ],
 ]);
 
 const MAPPING_ZH: PerLanguageMapping = new Map([
@@ -163,6 +173,16 @@ const MAPPING_ZH: PerLanguageMapping = new Map([
 		`巴黎是<mask>国的首都。`,
 		`生活的真谛是<mask>。`
 	] ],
+	[ "sentence-similarity", [
+		{
+			source_sentence: "那是 個快樂的人",
+			sentences: [
+				"那是 條快樂的狗",
+				"那是 個非常幸福的人",
+				"今天是晴天"
+			]
+		},
+	] ],
 ]);
 
 const MAPPING_FR: PerLanguageMapping = new Map([
@@ -191,6 +211,16 @@ const MAPPING_FR: PerLanguageMapping = new Map([
 	] ],
 	[ "fill-mask", [
 		`Paris est la <mask> de la France.`,
+	] ],
+	[ "sentence-similarity", [
+		{
+			source_sentence: "C'est une personne heureuse",
+			sentences: [
+				"C'est un chien heureux",
+				"C'est une personne très heureuse",
+				"Aujourd'hui est une journée ensoleillée"
+			]
+		},
 	] ],
 ]);
 
@@ -233,6 +263,16 @@ const MAPPING_ES: PerLanguageMapping = new Map([
 		`Mi nombre es <mask> y vivo en Nueva York.`,
 		`El español es un idioma muy <mask> en el mundo.`,
 	] ],
+	[ "sentence-similarity", [
+		{
+			source_sentence: "Esa es una persona feliz",
+			sentences: [
+				"Ese es un perro feliz",
+				"Esa es una persona muy feliz",
+				"Hoy es un día soleado"
+			]
+		},
+	] ],
 ]);
 
 const MAPPING_RU: PerLanguageMapping = new Map([
@@ -261,6 +301,16 @@ const MAPPING_RU: PerLanguageMapping = new Map([
 	] ],
 	[ "fill-mask", [
 		`Меня зовут <mask> и я инженер живущий в Нью-Йорке.`,
+	] ],
+	[ "sentence-similarity", [
+		{
+			source_sentence: "Это счастливый человек",
+			sentences: [
+				"Это счастливая собака",
+				"Это очень счастливый человек",
+				"Сегодня солнечный день"
+			]
+		},
 	] ],
 ]);
 
@@ -313,6 +363,16 @@ const MAPPING_IT: PerLanguageMapping = new Map([
 	[ "fill-mask", [
 		`Roma è la <mask> d'Italia.`,
 		`Lo scopo della vita è <mask>.`,
+	] ],
+	[ "sentence-similarity", [
+		{
+			source_sentence: "Questa è una persona felice",
+			sentences: [
+				"Questo è un cane felice",
+				"Questa è una persona molto felice",
+				"Oggi è una giornata di sole"
+			]
+		},
 	] ],
 ]);
 
@@ -383,6 +443,16 @@ const MAPPING_AR: PerLanguageMapping = new Map([
 		`باريس <mask> فرنسا.`,
 		`فلسفة الحياة هي <mask>.`,
 	] ],
+	[ "sentence-similarity", [
+		{
+			source_sentence: "هذا شخص سعيد",
+			sentences: [
+				"هذا كلب سعيد",
+				"هذا شخص سعيد جدا",
+				"اليوم هو يوم مشمس"
+			]
+		},
+	] ],
 ]);
 
 
@@ -410,6 +480,16 @@ const MAPPING_BN: PerLanguageMapping = new Map([
 	[ "fill-mask", [
 		`আমি বাংলায় <mask> গাই।`,
 		`আমি <mask> খুব ভালোবাসি। `,
+	] ],
+	[ "sentence-similarity", [
+		{
+			source_sentence: "সে একজন সুখী ব্যক্তি",
+			sentences: [
+				"সে হ্যাপি কুকুর",
+				"সে খুব সুখী মানুষ",
+				"আজ একটি রৌদ্রোজ্জ্বল দিন"
+			]
+		},
 	] ],
 ]);
 
@@ -468,6 +548,16 @@ const MAPPING_MN: PerLanguageMapping = new Map([
 		`Энэхүү жишээ нь цаанаа ямар ч утга агуулаагүй болно`,
 		`Сар шинэдээ сайхан шинэлэж байна уу?`,
 	] ],
+	[ "sentence-similarity", [
+		{
+			source_sentence: "Энэ бол аз жаргалтай хүн юм",
+			sentences: [
+				"Энэ бол аз жаргалтай нохой юм",
+				"Энэ бол маш их аз жаргалтай хүн юм",
+				"Өнөөдөр нарлаг өдөр байна"
+			]
+		},
+	] ],
 ]);
 
 const MAPPING_SI: PerLanguageMapping = new Map([
@@ -491,6 +581,16 @@ const MAPPING_DE: PerLanguageMapping = new Map([
 			text: `Welcher Name wird auch verwendet, um den Amazonas-Regenwald auf Englisch zu beschreiben?`,
 			context: `Der Amazonas-Regenwald, auf Englisch auch als Amazonien oder Amazonas-Dschungel bekannt, ist ein feuchter Laubwald, der den größten Teil des Amazonas-Beckens Südamerikas bedeckt. Dieses Becken umfasst 7.000.000 Quadratkilometer (2.700.000 Quadratmeilen), von denen 5.500.000 Quadratkilometer (2.100.000 Quadratmeilen) vom Regenwald bedeckt sind. Diese Region umfasst Gebiete von neun Nationen. Der größte Teil des Waldes befindet sich in Brasilien mit 60% des Regenwaldes, gefolgt von Peru mit 13%, Kolumbien mit 10% und geringen Mengen in Venezuela, Ecuador, Bolivien, Guyana, Suriname und Französisch-Guayana. Staaten oder Abteilungen in vier Nationen enthalten "Amazonas" in ihren Namen. Der Amazonas repräsentiert mehr als die Hälfte der verbleibenden Regenwälder des Planeten und umfasst den größten und artenreichsten tropischen Regenwald der Welt mit geschätzten 390 Milliarden Einzelbäumen, die in 16.000 Arten unterteilt sind.`,
 		}
+	] ],
+	[ "sentence-similarity", [
+		{
+			source_sentence: "Das ist eine glückliche Person",
+			sentences: [
+				"Das ist ein glücklicher Hund",
+				"Das ist eine sehr glückliche Person",
+				"Heute ist ein sonniger Tag"
+			]
+		},
 	] ],
 ]);
 
