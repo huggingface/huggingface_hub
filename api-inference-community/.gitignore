@@ -1,0 +1,9 @@
+__pycache__/
+*.py[cod]
+
+# Speechbrain artefact.
+pretrained_checkpoints
+
+*.egg-info/
+build/
+dist/

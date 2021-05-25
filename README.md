@@ -140,6 +140,10 @@ We add a custom "Use in Asteroid" button.
 
 When clicked you get a library-specific code sample that you'll be able to specify. 🔥
 
+## Inference API integration into the huggingface.co hub
+
+In order to get a functional Inference API on the hub for your models (and thus, cool working widgets!) check out this [doc](https://github.com/huggingface/huggingface_hub/tree/master/api-inference-community)
+
 <br>
 
 ## Feedback (feature requests, bugs, etc.) is super welcome 💙💚💛💜♥️🧡

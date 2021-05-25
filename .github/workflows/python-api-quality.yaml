@@ -1,0 +1,23 @@
+name: Inference API code quality
+
+on:
+  push:
+    paths:
+      - "api-inference-community/**"
+
+jobs:
+  run_tests:
+    runs-on: ubuntu-18.04
+    steps:
+      - uses: actions/checkout@v2
+      - name: Set up Python
+        uses: actions/setup-python@v1
+        with:
+          python-version: 3.8
+      - name: Install dependencies
+        run: |
+          pip install black isort flake8 mypy
+      - name: Make quality
+        workdir: api-inference-community
+        run: |
+          make quality

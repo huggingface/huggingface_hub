@@ -1,0 +1,3 @@
+api-inference-community==0.0.6
+-e git+https://github.com/julien-c/espnet.git@hf_model_hub#egg=espnet
+torch==1.8.1
