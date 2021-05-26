@@ -8,7 +8,7 @@ export enum ModelLibrary {
 	'flair'                  = 'Flair',
 	'pyannote'               = 'Pyannote',
 	'sentence-transformers'  = 'Sentence Transformers',
-	'tensorflowtts'			 = 'TensorFlowTTS',
+	'tensorflowtts'          = 'TensorFlowTTS',
 	'timm'                   = 'Timm',
 	'transformers'           = 'Transformers',
 };
