@@ -116,10 +116,34 @@ from pyannote.core import Segment
 excerpt = Segment(start=2.0, end=5.0)
 model.crop("file.wav", excerpt)`;
 
-const tensorflowtts = (model: ModelData) =>
-`from tensorflow_tts.inference import TFAutoModel
+const tensorflowttsTextToMel = (model: ModelData) =>
+`from tensorflow_tts.inference import AutoProcessor, TFAutoModel
+
+processor = AutoProcessor.from_pretrained("${model.modelId}")
 model = TFAutoModel.from_pretrained("${model.modelId}")
 `;
+
+const tensorflowttsMelToWav = (model: ModelData) =>
+`from tensorflow_tts.inference import TFAutoModel
+
+model = TFAutoModel.from_pretrained("${model.modelId}")
+audios = model.inference(mels)
+`;
+
+const tensorflowttsUnknown = (model: ModelData) =>
+`from tensorflow_tts.inference import TFAutoModel
+
+model = TFAutoModel.from_pretrained("${model.modelId}")
+`;
+
+const tensorflowtts = (model: ModelData) => {
+	if (model.tags.includes("text-to-mel")){
+		return tensorflowttsTextToMel(model);
+	} else if (model.tags.includes("mel-to-wav")) {
+		return tensorflowttsMelToWav(model);
+	}
+	return tensorflowttsUnknown(model);
+};
 
 const timm = (model: ModelData) =>
 `import timm
