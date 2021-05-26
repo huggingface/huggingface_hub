@@ -8,6 +8,7 @@ export enum ModelLibrary {
 	'flair'                  = 'Flair',
 	'pyannote'               = 'Pyannote',
 	'sentence-transformers'  = 'Sentence Transformers',
+	'tensorflowtts'			 = 'TensorFlowTTS',
 	'timm'                   = 'Timm',
 	'transformers'           = 'Transformers',
 };
@@ -76,7 +77,7 @@ model = Text2Speech.from_pretrained("${model.modelId}")
 speech, *_ = model("text to generate speech from")`;
 
 const espnetASR = (model: ModelData) =>
-` from espnet2.bin.asr_inference import Speech2Text
+`from espnet2.bin.asr_inference import Speech2Text
     
 model = Speech2Text.from_pretrained(
   "${model.modelId}"
@@ -102,7 +103,6 @@ const flair = (model: ModelData) =>
   
 tagger = SequenceTagger.load("${model.modelId}")`;
 
-
 const pyannote = (model: ModelData) =>
 `from pyannote.audio.core.inference import Inference
   
@@ -115,6 +115,11 @@ model("file.wav")
 from pyannote.core import Segment
 excerpt = Segment(start=2.0, end=5.0)
 model.crop("file.wav", excerpt)`;
+
+const tensorflowtts = (model: ModelData) =>
+`from tensorflow_tts.inference import TFAutoModel
+model = TFAutoModel.from_pretrained("${model.modelId}")
+`;
 
 const timm = (model: ModelData) =>
 `import timm
@@ -167,6 +172,12 @@ export const MODEL_LIBRARIES_UI_ELEMENTS: { [key in keyof typeof ModelLibrary]: 
 		repoName: "sentence-transformers",
 		repoUrl: "https://github.com/UKPLab/sentence-transformers",
 		snippet: sentenceTransformers,
+	},
+	tensorflowtts : {
+		btnLabel: "TensorFlowTTS",
+		repoName: "TensorFlowTTS",
+		repoUrl: "https://github.com/TensorSpeech/TensorFlowTTS",
+		snippet: tensorflowtts
 	},
 	timm: {
 		btnLabel: "timm",
