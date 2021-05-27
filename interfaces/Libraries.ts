@@ -214,8 +214,8 @@ export const MODEL_LIBRARIES_UI_ELEMENTS: { [key in keyof typeof ModelLibrary]: 
 		snippet: sentenceTransformers,
 	},
 	spacy: {
-		btnLabel: "spacy",
-		repoName: "spacy",
+		btnLabel: "spaCy",
+		repoName: "spaCy",
 		repoUrl: "https://github.com/explosion/spaCy/stargazers",
 		snippet: spacy,
 	},
