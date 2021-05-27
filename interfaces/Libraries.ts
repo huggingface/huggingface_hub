@@ -8,6 +8,7 @@ export enum ModelLibrary {
 	'flair'                  = 'Flair',
 	'pyannote'               = 'Pyannote',
 	'sentence-transformers'  = 'Sentence Transformers',
+	'spacy'                  = 'spaCy',
 	'tensorflowtts'          = 'TensorFlowTTS',
 	'timm'                   = 'Timm',
 	'transformers'           = 'Transformers',
@@ -21,9 +22,13 @@ export const ALL_MODEL_LIBRARY_KEYS = Object.keys(ModelLibrary) as (keyof typeof
  */
 interface ModelData {
 	/**
-	 * id of model
+	 * id of model (e.g. 'user/repo_name')
 	 */
 	modelId: string;
+	/**
+	 * name of repository.
+	 */
+	repoName: string;
 	/**
 	 * is this model private?
 	 */
@@ -155,6 +160,12 @@ const sentenceTransformers = (model: ModelData) =>
 
 model = SentenceTransformer("${model.modelId}")`;
 
+const spacy = (model: ModelData) =>
+`# pip install https://huggingface.co/${model.modelId}/resolve/main/${model.repoName}.whl
+
+import ${model.repoName}
+nlp = ${model.repoName}.load()`;
+
 const transformers = (model: ModelData) =>
 `from transformers import AutoTokenizer, ${model.autoArchitecture}
   
@@ -196,6 +207,12 @@ export const MODEL_LIBRARIES_UI_ELEMENTS: { [key in keyof typeof ModelLibrary]: 
 		repoName: "sentence-transformers",
 		repoUrl: "https://github.com/UKPLab/sentence-transformers",
 		snippet: sentenceTransformers,
+	},
+	spacy: {
+		btnLabel: "spacy",
+		repoName: "spacy",
+		repoUrl: "https://github.com/explosion/spaCy/stargazers",
+		snippet: spacy,
 	},
 	tensorflowtts : {
 		btnLabel: "TensorFlowTTS",
