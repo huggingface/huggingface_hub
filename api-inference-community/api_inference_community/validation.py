@@ -4,7 +4,19 @@ from io import BytesIO
 from typing import Any, Dict, List, Optional, Tuple, Union
 
 import numpy as np
-from pydantic import BaseModel, ConstrainedFloat, ConstrainedInt, ConstrainedList
+from pydantic import (
+    BaseModel,
+    ConstrainedFloat,
+    ConstrainedInt,
+    ConstrainedList,
+    validator,
+)
+
+
+class MinLength(ConstrainedInt):
+    ge = 1
+    le = 500
+    strict = True
 
 
 class MaxLength(ConstrainedInt):
@@ -24,6 +36,18 @@ class TopP(ConstrainedFloat):
     strict = True
 
 
+class MaxTime(ConstrainedFloat):
+    ge = 0.0
+    le = 120.0
+    strict = True
+
+
+class NumReturnSequences(ConstrainedInt):
+    ge = 1
+    le = 10
+    strict = True
+
+
 class RepetitionPenalty(ConstrainedFloat):
     ge = 0.0
     le = 100.0
@@ -36,48 +60,84 @@ class Temperature(ConstrainedFloat):
     strict = True
 
 
-class TextGenerationCheck(BaseModel):
-    max_length: Optional[MaxLength] = None
-    top_k: Optional[TopK] = None
-    top_p: Optional[TopP] = None
-    repetition_penalty: Optional[RepetitionPenalty] = None
-    temperature: Optional[Temperature] = None
-
-
-class FillMaskCheck(BaseModel):
-    top_k: Optional[TopK] = None
-
-
 class CandidateLabels(ConstrainedList):
     min_items = 1
     __args__ = [str]
 
 
-class ZeroShotCheck(BaseModel):
+class FillMaskParamsCheck(BaseModel):
+    top_k: Optional[TopK] = None
+
+
+class ZeroShotParamsCheck(BaseModel):
     candidate_labels: Union[str, CandidateLabels]
-    multi_class: Optional[bool] = None
     multi_label: Optional[bool] = None
 
 
-class Question(BaseModel):
+class SharedGenerationParams(BaseModel):
+    min_length: Optional[MinLength] = None
+    max_length: Optional[MaxLength] = None
+    top_k: Optional[TopK] = None
+    top_p: Optional[TopP] = None
+    max_time: Optional[MaxTime] = None
+    repetition_penalty: Optional[RepetitionPenalty] = None
+    temperature: Optional[Temperature] = None
+
+    @validator("max_length")
+    def max_length_must_be_larger_than_min_length(
+        cls, max_length: Optional[MinLength], values: Dict[str, Optional[str]]
+    ):
+        if "min_length" in values:
+            if values["min_length"] is not None:
+                if max_length < values["min_length"]:
+                    raise ValueError("min_length cannot be larger than max_length")
+        return max_length
+
+
+class TextGenerationParamsCheck(SharedGenerationParams):
+    return_full_text: Optional[bool] = None
+    num_return_sequences: Optional[NumReturnSequences] = None
+
+
+class SummarizationParamsCheck(SharedGenerationParams):
+    num_return_sequences: Optional[NumReturnSequences] = None
+
+
+class ConversationalInputsCheck(BaseModel):
+    text: str
+    past_user_inputs: List[str]
+    generated_responses: List[str]
+
+
+class QuestionInputsCheck(BaseModel):
     question: str
     context: str
 
 
-class SentenceSimilarityCheck(BaseModel):
+class SentenceSimilarityInputsCheck(BaseModel):
     source_sentence: str
     sentences: List[str]
 
 
+class TableQuestionAnsweringInputsCheck(BaseModel):
+    table: Dict[str, List[str]]
+    query: str
+
+
 PARAMS_MAPPING = {
-    "conversational": TextGenerationCheck,
-    "text-generation": TextGenerationCheck,
-    "fill-mask": FillMaskCheck,
-    "zero-shot-classification": ZeroShotCheck,
+    "conversational": SharedGenerationParams,
+    "fill-mask": FillMaskParamsCheck,
+    "text2text-generation": TextGenerationParamsCheck,
+    "text-generation": TextGenerationParamsCheck,
+    "summarization": SummarizationParamsCheck,
+    "zero-shot-classification": ZeroShotParamsCheck,
 }
+
 INPUTS_MAPPING = {
-    "question-answering": Question,
-    "sentence-similarity": SentenceSimilarityCheck,
+    "conversational": ConversationalInputsCheck,
+    "question-answering": QuestionInputsCheck,
+    "sentence-similarity": SentenceSimilarityInputsCheck,
+    "table-question-answering": TableQuestionAnsweringInputsCheck,
 }
 
 
@@ -91,6 +151,14 @@ def check_inputs(inputs, tag):
     if tag in INPUTS_MAPPING:
         INPUTS_MAPPING[tag].parse_obj(inputs)
     else:
+        # Some tasks just expect {inputs: "str"}. Such as:
+        # feature-extraction
+        # fill-mask
+        # text2text-generation
+        # text-classification
+        # text-generation
+        # token-classification
+        # translation
         if not isinstance(inputs, str):
             raise ValueError("The inputs is invalid, we expect a string")
     return True

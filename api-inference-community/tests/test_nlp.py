@@ -21,7 +21,7 @@ class ValidationTestCase(TestCase):
 
 
 class QuestionAnsweringValidationTestCase(TestCase):
-    def test_question_answering(self):
+    def test_valid_input(self):
         inputs = {"question": "question", "context": "context"}
         bpayload = json.dumps({"inputs": inputs}).encode("utf-8")
         normalized_inputs, processed_params = normalize_payload_nlp(
@@ -30,7 +30,7 @@ class QuestionAnsweringValidationTestCase(TestCase):
         self.assertEqual(processed_params, {})
         self.assertEqual(inputs, normalized_inputs)
 
-    def test_question_answering_missing_input(self):
+    def test_missing_input(self):
         inputs = {"question": "question"}
         bpayload = json.dumps({"inputs": inputs}).encode("utf-8")
         with self.assertRaises(ValidationError):
@@ -38,7 +38,7 @@ class QuestionAnsweringValidationTestCase(TestCase):
 
 
 class SentenceSimilarityValidationTestCase(TestCase):
-    def test_sentence_similarity(self):
+    def test_valid_input(self):
         source_sentence = "why is the sky blue?"
         sentences = ["this is", "a list of sentences"]
         inputs = {"source_sentence": source_sentence, "sentences": sentences}
@@ -49,7 +49,7 @@ class SentenceSimilarityValidationTestCase(TestCase):
         self.assertEqual(processed_params, {})
         self.assertEqual(inputs, normalized_inputs)
 
-    def test_sentence_similarity_missing_input(self):
+    def test_missing_input(self):
         source_sentence = "why is the sky blue?"
         inputs = {"source_sentence": source_sentence}
         bpayload = json.dumps({"inputs": inputs}).encode("utf-8")
@@ -57,8 +57,185 @@ class SentenceSimilarityValidationTestCase(TestCase):
             normalize_payload_nlp(bpayload, "sentence-similarity")
 
 
+class ConversationalValidationTestCase(TestCase):
+    def test_valid_inputs(self):
+        past_user_inputs = ["Which movie is the best ?"]
+        generated_responses = ["It's Die Hard for sure."]
+        text = "Can you explain why ?"
+
+        inputs = {
+            "past_user_inputs": past_user_inputs,
+            "generated_responses": generated_responses,
+            "text": text,
+        }
+
+        bpayload = json.dumps({"inputs": inputs}).encode("utf-8")
+        normalized_inputs, processed_params = normalize_payload_nlp(
+            bpayload, "conversational"
+        )
+        self.assertEqual(processed_params, {})
+        self.assertEqual(inputs, normalized_inputs)
+
+
+class TableQuestionAnsweringValidationTestCase(TestCase):
+    def test_valid_input(self):
+        query = "How many stars does the transformers repository have?"
+        table = {
+            "Repository": ["Transformers", "Datasets", "Tokenizers"],
+            "Stars": ["36542", "4512", "3934"],
+        }
+
+        inputs = {"query": query, "table": table}
+        bpayload = json.dumps({"inputs": inputs}).encode("utf-8")
+        normalized_inputs, processed_params = normalize_payload_nlp(
+            bpayload, "table-question-answering"
+        )
+        self.assertEqual(processed_params, {})
+        self.assertEqual(inputs, normalized_inputs)
+
+    def test_invalid_question(self):
+        query = "How many stars does the transformers repository have?"
+        table = "Invalid table"
+        inputs = {"query": query, "table": table}
+        bpayload = json.dumps({"inputs": inputs}).encode("utf-8")
+        with self.assertRaises(ValidationError):
+            normalize_payload_nlp(bpayload, "table-question-answering")
+
+    def test_invalid_query(self):
+        query = {"not a": "query"}
+        table = {
+            "Repository": ["Transformers", "Datasets", "Tokenizers"],
+            "Stars": ["36542", "4512", "3934"],
+        }
+        inputs = {"query": query, "table": table}
+        bpayload = json.dumps({"inputs": inputs}).encode("utf-8")
+        with self.assertRaises(ValidationError):
+            normalize_payload_nlp(bpayload, "table-question-answering")
+
+    def test_no_table(self):
+        query = "How many stars does the transformers repository have?"
+        inputs = {
+            "query": query,
+        }
+        bpayload = json.dumps({"inputs": inputs}).encode("utf-8")
+        with self.assertRaises(ValidationError):
+            normalize_payload_nlp(bpayload, "table-question-answering")
+
+    def test_no_query(self):
+        table = {
+            "Repository": ["Transformers", "Datasets", "Tokenizers"],
+            "Stars": ["36542", "4512", "3934"],
+        }
+        inputs = {"table": table}
+        bpayload = json.dumps({"inputs": inputs}).encode("utf-8")
+        with self.assertRaises(ValidationError):
+            normalize_payload_nlp(bpayload, "table-question-answering")
+
+
+class SummarizationValidationTestCase(TestCase):
+    def test_no_params(self):
+        bpayload = json.dumps({"inputs": "whatever"}).encode("utf-8")
+        normalized_inputs, processed_params = normalize_payload_nlp(
+            bpayload, "summarization"
+        )
+        self.assertEqual(processed_params, {})
+        self.assertEqual(normalized_inputs, "whatever")
+
+    def test_valid_min_length(self):
+        params = {"min_length": 10}
+        bpayload = json.dumps({"inputs": "whatever", "parameters": params}).encode(
+            "utf-8"
+        )
+        normalized_inputs, processed_params = normalize_payload_nlp(
+            bpayload, "summarization"
+        )
+        self.assertEqual(processed_params, params)
+        self.assertEqual(normalized_inputs, "whatever")
+
+    def test_invalid_negative_min_length(self):
+        params = {"min_length": -1}
+        bpayload = json.dumps({"inputs": "whatever", "parameters": params}).encode(
+            "utf-8"
+        )
+        with self.assertRaises(ValidationError):
+            normalized_inputs, processed_params = normalize_payload_nlp(
+                bpayload, "summarization"
+            )
+
+    def test_invalid_large_min_length(self):
+        params = {"min_length": 1000}
+        bpayload = json.dumps({"inputs": "whatever", "parameters": params}).encode(
+            "utf-8"
+        )
+        with self.assertRaises(ValidationError):
+            normalized_inputs, processed_params = normalize_payload_nlp(
+                bpayload, "summarization"
+            )
+
+    def test_invalid_type_min_length(self):
+        params = {"min_length": "invalid"}
+        bpayload = json.dumps({"inputs": "whatever", "parameters": params}).encode(
+            "utf-8"
+        )
+        with self.assertRaises(ValidationError):
+            normalized_inputs, processed_params = normalize_payload_nlp(
+                bpayload, "summarization"
+            )
+
+    def test_valid_max_length(self):
+        params = {"max_length": 10}
+        bpayload = json.dumps({"inputs": "whatever", "parameters": params}).encode(
+            "utf-8"
+        )
+        normalized_inputs, processed_params = normalize_payload_nlp(
+            bpayload, "summarization"
+        )
+        self.assertEqual(processed_params, params)
+        self.assertEqual(normalized_inputs, "whatever")
+
+    def test_invalid_negative_max_length(self):
+        params = {"max_length": -1}
+        bpayload = json.dumps({"inputs": "whatever", "parameters": params}).encode(
+            "utf-8"
+        )
+        with self.assertRaises(ValidationError):
+            normalized_inputs, processed_params = normalize_payload_nlp(
+                bpayload, "summarization"
+            )
+
+    def test_invalid_large_max_length(self):
+        params = {"max_length": 1000}
+        bpayload = json.dumps({"inputs": "whatever", "parameters": params}).encode(
+            "utf-8"
+        )
+        with self.assertRaises(ValidationError):
+            normalized_inputs, processed_params = normalize_payload_nlp(
+                bpayload, "summarization"
+            )
+
+    def test_invalid_type_max_length(self):
+        params = {"max_length": "invalid"}
+        bpayload = json.dumps({"inputs": "whatever", "parameters": params}).encode(
+            "utf-8"
+        )
+        with self.assertRaises(ValidationError):
+            normalized_inputs, processed_params = normalize_payload_nlp(
+                bpayload, "summarization"
+            )
+
+    def test_invalid_min_length_larger_than_max_length(self):
+        params = {"min_length": 20, "max_length": 10}
+        bpayload = json.dumps({"inputs": "whatever", "parameters": params}).encode(
+            "utf-8"
+        )
+        with self.assertRaises(ValidationError):
+            normalized_inputs, processed_params = normalize_payload_nlp(
+                bpayload, "summarization"
+            )
+
+
 class ZeroShotValidationTestCase(TestCase):
-    def test_zero_shot_single_label(self):
+    def test_single_label(self):
         params = {"candidate_labels": "happy"}
         bpayload = json.dumps({"inputs": "whatever", "parameters": params}).encode(
             "utf-8"
@@ -69,7 +246,7 @@ class ZeroShotValidationTestCase(TestCase):
         self.assertEqual(processed_params, params)
         self.assertEqual(normalized_inputs, "whatever")
 
-    def test_zero_shot_list_labels(self):
+    def test_list_labels(self):
         params = {"candidate_labels": ["happy", "sad"]}
         bpayload = json.dumps({"inputs": "whatever", "parameters": params}).encode(
             "utf-8"
@@ -80,7 +257,7 @@ class ZeroShotValidationTestCase(TestCase):
         self.assertEqual(processed_params, params)
         self.assertEqual(normalized_inputs, "whatever")
 
-    def test_zero_shot_empty_list(self):
+    def test_empty_list(self):
         params = {"candidate_labels": []}
         bpayload = json.dumps({"inputs": "whatever", "parameters": params}).encode(
             "utf-8"
@@ -88,13 +265,13 @@ class ZeroShotValidationTestCase(TestCase):
         with self.assertRaises(ValidationError):
             normalize_payload_nlp(bpayload, "zero-shot-classification")
 
-    def test_zero_shot_no_params(self):
+    def test_no_params(self):
         bpayload = json.dumps({"inputs": "whatever"}).encode("utf-8")
         with self.assertRaises(ValidationError):
             normalize_payload_nlp(bpayload, "zero-shot-classification")
 
-    def test_zero_shot_multi_class(self):
-        params = {"candidate_labels": "happy", "multi_class": True}
+    def test_multi_label(self):
+        params = {"candidate_labels": "happy", "multi_label": True}
         bpayload = json.dumps({"inputs": "whatever", "parameters": params}).encode(
             "utf-8"
         )
@@ -104,8 +281,8 @@ class ZeroShotValidationTestCase(TestCase):
         self.assertEqual(processed_params, params)
         self.assertEqual(normalized_inputs, "whatever")
 
-    def test_zero_shot_multi_class_wrong_type(self):
-        params = {"candidate_labels": "happy", "multi_class": "wrong type"}
+    def test_multi_label_wrong_type(self):
+        params = {"candidate_labels": "happy", "multi_label": "wrong type"}
         bpayload = json.dumps({"inputs": "whatever", "parameters": params}).encode(
             "utf-8"
         )
@@ -114,7 +291,7 @@ class ZeroShotValidationTestCase(TestCase):
 
 
 class FillMaskValidationTestCase(TestCase):
-    def test_fill_mask_no_params(self):
+    def test_no_params(self):
         bpayload = json.dumps({"inputs": "whatever"}).encode("utf-8")
         normalized_inputs, processed_params = normalize_payload_nlp(
             bpayload, "fill-mask"
@@ -122,7 +299,7 @@ class FillMaskValidationTestCase(TestCase):
         self.assertEqual(processed_params, {})
         self.assertEqual(normalized_inputs, "whatever")
 
-    def test_fill_mask_with_top_k(self):
+    def test_top_k(self):
         params = {"top_k": 10}
         bpayload = json.dumps({"inputs": "whatever", "parameters": params}).encode(
             "utf-8"
@@ -133,7 +310,7 @@ class FillMaskValidationTestCase(TestCase):
         self.assertEqual(processed_params, params)
         self.assertEqual(normalized_inputs, "whatever")
 
-    def test_fill_mask_with_top_k_invalid_value(self):
+    def test_top_k_invalid_value(self):
         params = {"top_k": 0}
         bpayload = json.dumps({"inputs": "whatever", "parameters": params}).encode(
             "utf-8"
@@ -141,7 +318,7 @@ class FillMaskValidationTestCase(TestCase):
         with self.assertRaises(ValidationError):
             normalize_payload_nlp(bpayload, "fill-mask")
 
-    def test_fill_mask_top_k_wrong_type(self):
+    def test_top_k_wrong_type(self):
         params = {"top_k": "wrong type"}
         bpayload = json.dumps({"inputs": "whatever", "parameters": params}).encode(
             "utf-8"
@@ -153,15 +330,21 @@ class FillMaskValidationTestCase(TestCase):
 def make_text_generation_test_case(tag):
     def valid_params():
         return [
-            ("max_length", 10),
+            ("max_new_tokens", 10),
             ("top_k", 5),
             ("top_p", 0.5),
+            ("max_time", 20.0),
             ("repetition_penalty", 50.0),
             ("temperature", 10.0),
+            ("return_full_text", True),
+            ("num_return_sequences", 2),
         ]
 
     def invalid_params():
         return [
+            ("min_length", 1000),
+            ("min_length", 0),
+            ("min_length", "invalid"),
             ("max_length", 1000),
             ("max_length", 0),
             ("max_length", "invalid"),
@@ -170,23 +353,29 @@ def make_text_generation_test_case(tag):
             ("top_p", -0.1),
             ("top_p", 2.1),
             ("top_p", "invalid"),
+            ("max_time", -0.1),
+            ("max_time", 120.1),
+            ("max_time", "invalid"),
             ("repetition_penalty", -0.1),
             ("repetition_penalty", 200.1),
             ("repetition_penalty", "invalid"),
             ("temperature", -0.1),
             ("temperature", 200.1),
             ("temperature", "invalid"),
+            ("return_full_text", "invalid"),
+            ("num_return_sequences", -1),
+            ("num_return_sequences", 100),
         ]
 
     class TextGenerationTestCase(TestCase):
-        def test_text_generation_no_params(self):
+        def test_no_params(self):
             bpayload = json.dumps({"inputs": "whatever"}).encode("utf-8")
             normalized_inputs, processed_params = normalize_payload_nlp(bpayload, tag)
             self.assertEqual(processed_params, {})
             self.assertEqual(normalized_inputs, "whatever")
 
         @parameterized.expand(valid_params())
-        def test_text_generation_valid_params(self, param_name, param_value):
+        def test_valid_params(self, param_name, param_value):
             params = {param_name: param_value}
             bpayload = json.dumps({"inputs": "whatever", "parameters": params}).encode(
                 "utf-8"
@@ -196,7 +385,7 @@ def make_text_generation_test_case(tag):
             self.assertEqual(normalized_inputs, "whatever")
 
         @parameterized.expand(invalid_params())
-        def test_text_generation_invalid_params(self, param_name, param_value):
+        def test_invalid_params(self, param_name, param_value):
             params = {param_name: param_value}
             bpayload = json.dumps({"inputs": "whatever", "parameters": params}).encode(
                 "utf-8"
@@ -207,9 +396,53 @@ def make_text_generation_test_case(tag):
     return TextGenerationTestCase
 
 
+class Text2TextGenerationTestCase(
+    make_text_generation_test_case("text2text-generation")
+):
+    pass
+
+
 class TextGenerationTestCase(make_text_generation_test_case("text-generation")):
     pass
 
 
-class ConversationalTestCase(make_text_generation_test_case("conversational")):
-    pass
+class TasksWithOnlyInputStringTestCase(TestCase):
+    def test_feature_extraction_accept_string_no_params(self):
+        bpayload = json.dumps({"inputs": "whatever"}).encode("utf-8")
+        normalized_inputs, processed_params = normalize_payload_nlp(
+            bpayload, "feature-extraction"
+        )
+        self.assertEqual(processed_params, {})
+        self.assertEqual(normalized_inputs, "whatever")
+
+    def test_fill_mask_accept_string_no_params(self):
+        bpayload = json.dumps({"inputs": "whatever"}).encode("utf-8")
+        normalized_inputs, processed_params = normalize_payload_nlp(
+            bpayload, "fill-mask"
+        )
+        self.assertEqual(processed_params, {})
+        self.assertEqual(normalized_inputs, "whatever")
+
+    def test_text_classification_accept_string_no_params(self):
+        bpayload = json.dumps({"inputs": "whatever"}).encode("utf-8")
+        normalized_inputs, processed_params = normalize_payload_nlp(
+            bpayload, "text-classification"
+        )
+        self.assertEqual(processed_params, {})
+        self.assertEqual(normalized_inputs, "whatever")
+
+    def test_token_classification_accept_string_no_params(self):
+        bpayload = json.dumps({"inputs": "whatever"}).encode("utf-8")
+        normalized_inputs, processed_params = normalize_payload_nlp(
+            bpayload, "token-classification"
+        )
+        self.assertEqual(processed_params, {})
+        self.assertEqual(normalized_inputs, "whatever")
+
+    def test_translation_accept_string_no_params(self):
+        bpayload = json.dumps({"inputs": "whatever"}).encode("utf-8")
+        normalized_inputs, processed_params = normalize_payload_nlp(
+            bpayload, "translation"
+        )
+        self.assertEqual(processed_params, {})
+        self.assertEqual(normalized_inputs, "whatever")
