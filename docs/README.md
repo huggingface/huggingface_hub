@@ -111,7 +111,7 @@ On top of Pipelines and depending on the model type, we build a number of produc
 - scaling the underlying compute infrastructure on the fly depending on the load constraints.
 
 
-## Can I write \\( \LaTeX \\) in my model card?
+## Can I write LaTeX in my model card?
 
 Yes, we use the [KaTeX](https://katex.org/) math typesetting library to render math formulas server-side,
 before parsing the markdown.
@@ -120,6 +120,10 @@ You have to use the following delimiters:
 - `\\` `(` `...` `\\` `)` for inline mode (no space between the slashes and the parenthesis).
 
 Then you'll be able to write:
+
+$$
+\LaTeX
+$$
 
 $$
 mse = (\frac{1}{n})\sum_{i=1}^{n}(y_{i} - x_{i})^{2}
