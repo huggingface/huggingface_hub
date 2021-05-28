@@ -217,7 +217,7 @@ export const MODEL_LIBRARIES_UI_ELEMENTS: { [key in keyof typeof ModelLibrary]: 
 	spacy: {
 		btnLabel: "spaCy",
 		repoName: "spaCy",
-		repoUrl: "https://github.com/explosion/spaCy/stargazers",
+		repoUrl: "https://github.com/explosion/spaCy",
 		snippet: spacy,
 	},
 	tensorflowtts : {
