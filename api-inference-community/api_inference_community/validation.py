@@ -9,11 +9,17 @@ from pydantic import BaseModel, ConstrainedFloat, ConstrainedInt, ConstrainedLis
 
 class MinLength(ConstrainedInt):
     ge = 1
-    le = 256
+    le = 500
     strict = True
 
 
 class MaxLength(ConstrainedInt):
+    ge = 1
+    le = 500
+    strict = True
+
+
+class MaxNewTokensTextGeneration(ConstrainedInt):
     ge = 1
     le = 256
     strict = True
@@ -63,7 +69,7 @@ class ZeroShotParamsCheck(BaseModel):
 
 
 class TextGenerationParamsCheck(BaseModel):
-    max_new_tokens: Optional[MaxLength] = None
+    max_new_tokens: Optional[MaxNewTokensTextGeneration] = None
     top_k: Optional[TopK] = None
     top_p: Optional[TopP] = None
     repetition_penalty: Optional[RepetitionPenalty] = None
