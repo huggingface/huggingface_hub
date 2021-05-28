@@ -7,9 +7,15 @@ import numpy as np
 from pydantic import BaseModel, ConstrainedFloat, ConstrainedInt, ConstrainedList
 
 
+class MinLength(ConstrainedInt):
+    ge = 1
+    le = 256
+    strict = True
+
+
 class MaxLength(ConstrainedInt):
     ge = 1
-    le = 500
+    le = 256
     strict = True
 
 
@@ -21,6 +27,12 @@ class TopK(ConstrainedInt):
 class TopP(ConstrainedFloat):
     ge = 0.0
     le = 1.0
+    strict = True
+
+
+class NumReturnSequences(ConstrainedInt):
+    ge = 1
+    le = 10
     strict = True
 
 
@@ -36,48 +48,69 @@ class Temperature(ConstrainedFloat):
     strict = True
 
 
-class TextGenerationCheck(BaseModel):
-    max_length: Optional[MaxLength] = None
-    top_k: Optional[TopK] = None
-    top_p: Optional[TopP] = None
-    repetition_penalty: Optional[RepetitionPenalty] = None
-    temperature: Optional[Temperature] = None
-
-
-class FillMaskCheck(BaseModel):
-    top_k: Optional[TopK] = None
-
-
 class CandidateLabels(ConstrainedList):
     min_items = 1
     __args__ = [str]
 
 
-class ZeroShotCheck(BaseModel):
+class FillMaskParamsCheck(BaseModel):
+    top_k: Optional[TopK] = None
+
+
+class ZeroShotParamsCheck(BaseModel):
     candidate_labels: Union[str, CandidateLabels]
-    multi_class: Optional[bool] = None
     multi_label: Optional[bool] = None
 
 
-class Question(BaseModel):
+class TextGenerationParamsCheck(BaseModel):
+    max_new_tokens: Optional[MaxLength] = None
+    top_k: Optional[TopK] = None
+    top_p: Optional[TopP] = None
+    repetition_penalty: Optional[RepetitionPenalty] = None
+    temperature: Optional[Temperature] = None
+    return_full_text: Optional[bool] = None
+    num_return_sequences: Optional[NumReturnSequences] = None
+
+
+class SummarizationParamsCheck(BaseModel):
+    min_length: Optional[MinLength] = None
+    max_length: Optional[MaxLength] = None
+
+
+class ConversationalInputsCheck(BaseModel):
+    text: str
+    past_user_inputs: List[str]
+    generated_responses: List[str]
+
+
+class QuestionInputsCheck(BaseModel):
     question: str
     context: str
 
 
-class SentenceSimilarityCheck(BaseModel):
+class SentenceSimilarityInputsCheck(BaseModel):
     source_sentence: str
     sentences: List[str]
 
 
+class TableQuestionAnsweringInputsCheck(BaseModel):
+    table: Dict[str, List[str]]
+    query: str
+
+
 PARAMS_MAPPING = {
-    "conversational": TextGenerationCheck,
-    "text-generation": TextGenerationCheck,
-    "fill-mask": FillMaskCheck,
-    "zero-shot-classification": ZeroShotCheck,
+    "fill-mask": FillMaskParamsCheck,
+    "text2text-generation": TextGenerationParamsCheck,
+    "text-generation": TextGenerationParamsCheck,
+    "summarization": SummarizationParamsCheck,
+    "zero-shot-classification": ZeroShotParamsCheck,
 }
+
 INPUTS_MAPPING = {
-    "question-answering": Question,
-    "sentence-similarity": SentenceSimilarityCheck,
+    "conversational": ConversationalInputsCheck,
+    "question-answering": QuestionInputsCheck,
+    "sentence-similarity": SentenceSimilarityInputsCheck,
+    "table-question-answering": TableQuestionAnsweringInputsCheck,
 }
 
 
@@ -91,6 +124,14 @@ def check_inputs(inputs, tag):
     if tag in INPUTS_MAPPING:
         INPUTS_MAPPING[tag].parse_obj(inputs)
     else:
+        # Some tasks just expect {inputs: "str"}. Such as:
+        # feature-extraction
+        # fill-mask
+        # text2text-generation
+        # text-classification
+        # text-generation
+        # token-classification
+        # translation
         if not isinstance(inputs, str):
             raise ValueError("The inputs is invalid, we expect a string")
     return True
