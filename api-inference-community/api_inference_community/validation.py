@@ -4,7 +4,13 @@ from io import BytesIO
 from typing import Any, Dict, List, Optional, Tuple, Union
 
 import numpy as np
-from pydantic import BaseModel, ConstrainedFloat, ConstrainedInt, ConstrainedList
+from pydantic import (
+    BaseModel,
+    ConstrainedFloat,
+    ConstrainedInt,
+    ConstrainedList,
+    validator,
+)
 
 
 class MinLength(ConstrainedInt):
@@ -19,12 +25,6 @@ class MaxLength(ConstrainedInt):
     strict = True
 
 
-class MaxNewTokensTextGeneration(ConstrainedInt):
-    ge = 1
-    le = 256
-    strict = True
-
-
 class TopK(ConstrainedInt):
     ge = 1
     strict = True
@@ -33,6 +33,12 @@ class TopK(ConstrainedInt):
 class TopP(ConstrainedFloat):
     ge = 0.0
     le = 1.0
+    strict = True
+
+
+class MaxTime(ConstrainedFloat):
+    ge = 0.0
+    le = 120.0
     strict = True
 
 
@@ -68,19 +74,33 @@ class ZeroShotParamsCheck(BaseModel):
     multi_label: Optional[bool] = None
 
 
-class TextGenerationParamsCheck(BaseModel):
-    max_new_tokens: Optional[MaxNewTokensTextGeneration] = None
+class SharedGenerationParams(BaseModel):
+    min_length: Optional[MinLength] = None
+    max_length: Optional[MaxLength] = None
     top_k: Optional[TopK] = None
     top_p: Optional[TopP] = None
+    max_time: Optional[MaxTime] = None
     repetition_penalty: Optional[RepetitionPenalty] = None
     temperature: Optional[Temperature] = None
+
+    @validator("max_length")
+    def max_length_must_be_larger_than_min_length(
+        cls, max_length: Optional[MinLength], values: Dict[str, Optional[str]]
+    ):
+        if "min_length" in values:
+            if values["min_length"] is not None:
+                if max_length < values["min_length"]:
+                    raise ValueError("min_length cannot be larger than max_length")
+        return max_length
+
+
+class TextGenerationParamsCheck(SharedGenerationParams):
     return_full_text: Optional[bool] = None
     num_return_sequences: Optional[NumReturnSequences] = None
 
 
-class SummarizationParamsCheck(BaseModel):
-    min_length: Optional[MinLength] = None
-    max_length: Optional[MaxLength] = None
+class SummarizationParamsCheck(SharedGenerationParams):
+    num_return_sequences: Optional[NumReturnSequences] = None
 
 
 class ConversationalInputsCheck(BaseModel):
@@ -105,6 +125,7 @@ class TableQuestionAnsweringInputsCheck(BaseModel):
 
 
 PARAMS_MAPPING = {
+    "conversational": SharedGenerationParams,
     "fill-mask": FillMaskParamsCheck,
     "text2text-generation": TextGenerationParamsCheck,
     "text-generation": TextGenerationParamsCheck,

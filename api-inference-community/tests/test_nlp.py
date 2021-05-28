@@ -152,7 +152,37 @@ class SummarizationValidationTestCase(TestCase):
         self.assertEqual(processed_params, params)
         self.assertEqual(normalized_inputs, "whatever")
 
-    def test_max_length(self):
+    def test_invalid_negative_min_length(self):
+        params = {"min_length": -1}
+        bpayload = json.dumps({"inputs": "whatever", "parameters": params}).encode(
+            "utf-8"
+        )
+        with self.assertRaises(ValidationError):
+            normalized_inputs, processed_params = normalize_payload_nlp(
+                bpayload, "summarization"
+            )
+
+    def test_invalid_large_min_length(self):
+        params = {"min_length": 1000}
+        bpayload = json.dumps({"inputs": "whatever", "parameters": params}).encode(
+            "utf-8"
+        )
+        with self.assertRaises(ValidationError):
+            normalized_inputs, processed_params = normalize_payload_nlp(
+                bpayload, "summarization"
+            )
+
+    def test_invalid_type_min_length(self):
+        params = {"min_length": "invalid"}
+        bpayload = json.dumps({"inputs": "whatever", "parameters": params}).encode(
+            "utf-8"
+        )
+        with self.assertRaises(ValidationError):
+            normalized_inputs, processed_params = normalize_payload_nlp(
+                bpayload, "summarization"
+            )
+
+    def test_valid_max_length(self):
         params = {"max_length": 10}
         bpayload = json.dumps({"inputs": "whatever", "parameters": params}).encode(
             "utf-8"
@@ -163,24 +193,38 @@ class SummarizationValidationTestCase(TestCase):
         self.assertEqual(processed_params, params)
         self.assertEqual(normalized_inputs, "whatever")
 
-    @parameterized.expand(
-        [
-            (
-                "max_length",
-                -1,
-            ),
-            ("max_length", 1000),
-            ("max_length", "invalid_type"),
-            (
-                "min_length",
-                -1,
-            ),
-            ("min_length", 1000),
-            ("min_length", "invalid_type"),
-        ]
-    )
-    def test_invalid_params(self, param_name, param_value):
-        params = {param_name: param_value}
+    def test_invalid_negative_max_length(self):
+        params = {"max_length": -1}
+        bpayload = json.dumps({"inputs": "whatever", "parameters": params}).encode(
+            "utf-8"
+        )
+        with self.assertRaises(ValidationError):
+            normalized_inputs, processed_params = normalize_payload_nlp(
+                bpayload, "summarization"
+            )
+
+    def test_invalid_large_max_length(self):
+        params = {"max_length": 1000}
+        bpayload = json.dumps({"inputs": "whatever", "parameters": params}).encode(
+            "utf-8"
+        )
+        with self.assertRaises(ValidationError):
+            normalized_inputs, processed_params = normalize_payload_nlp(
+                bpayload, "summarization"
+            )
+
+    def test_invalid_type_max_length(self):
+        params = {"max_length": "invalid"}
+        bpayload = json.dumps({"inputs": "whatever", "parameters": params}).encode(
+            "utf-8"
+        )
+        with self.assertRaises(ValidationError):
+            normalized_inputs, processed_params = normalize_payload_nlp(
+                bpayload, "summarization"
+            )
+
+    def test_invalid_min_length_larger_than_max_length(self):
+        params = {"min_length": 20, "max_length": 10}
         bpayload = json.dumps({"inputs": "whatever", "parameters": params}).encode(
             "utf-8"
         )
@@ -289,6 +333,7 @@ def make_text_generation_test_case(tag):
             ("max_new_tokens", 10),
             ("top_k", 5),
             ("top_p", 0.5),
+            ("max_time", 20.0),
             ("repetition_penalty", 50.0),
             ("temperature", 10.0),
             ("return_full_text", True),
@@ -297,14 +342,20 @@ def make_text_generation_test_case(tag):
 
     def invalid_params():
         return [
-            ("max_new_tokens", 1000),
-            ("max_new_tokens", 0),
-            ("max_new_tokens", "invalid"),
+            ("min_length", 1000),
+            ("min_length", 0),
+            ("min_length", "invalid"),
+            ("max_length", 1000),
+            ("max_length", 0),
+            ("max_length", "invalid"),
             ("top_k", 0),
             ("top_k", "invalid"),
             ("top_p", -0.1),
             ("top_p", 2.1),
             ("top_p", "invalid"),
+            ("max_time", -0.1),
+            ("max_time", 120.1),
+            ("max_time", "invalid"),
             ("repetition_penalty", -0.1),
             ("repetition_penalty", 200.1),
             ("repetition_penalty", "invalid"),
@@ -356,16 +407,42 @@ class TextGenerationTestCase(make_text_generation_test_case("text-generation")):
 
 
 class TasksWithOnlyInputStringTestCase(TestCase):
-    @parameterized.expand(
-        [
-            "feature-extraction",
-            "fill-mask" "text-classification",
-            "token-classification",
-            "translation",
-        ]
-    )
-    def test_accept_string_no_params(self, task):
+    def test_feature_extraction_accept_string_no_params(self):
         bpayload = json.dumps({"inputs": "whatever"}).encode("utf-8")
-        normalized_inputs, processed_params = normalize_payload_nlp(bpayload, task)
+        normalized_inputs, processed_params = normalize_payload_nlp(
+            bpayload, "feature-extraction"
+        )
+        self.assertEqual(processed_params, {})
+        self.assertEqual(normalized_inputs, "whatever")
+
+    def test_fill_mask_accept_string_no_params(self):
+        bpayload = json.dumps({"inputs": "whatever"}).encode("utf-8")
+        normalized_inputs, processed_params = normalize_payload_nlp(
+            bpayload, "fill-mask"
+        )
+        self.assertEqual(processed_params, {})
+        self.assertEqual(normalized_inputs, "whatever")
+
+    def test_text_classification_accept_string_no_params(self):
+        bpayload = json.dumps({"inputs": "whatever"}).encode("utf-8")
+        normalized_inputs, processed_params = normalize_payload_nlp(
+            bpayload, "text-classification"
+        )
+        self.assertEqual(processed_params, {})
+        self.assertEqual(normalized_inputs, "whatever")
+
+    def test_token_classification_accept_string_no_params(self):
+        bpayload = json.dumps({"inputs": "whatever"}).encode("utf-8")
+        normalized_inputs, processed_params = normalize_payload_nlp(
+            bpayload, "token-classification"
+        )
+        self.assertEqual(processed_params, {})
+        self.assertEqual(normalized_inputs, "whatever")
+
+    def test_translation_accept_string_no_params(self):
+        bpayload = json.dumps({"inputs": "whatever"}).encode("utf-8")
+        normalized_inputs, processed_params = normalize_payload_nlp(
+            bpayload, "translation"
+        )
         self.assertEqual(processed_params, {})
         self.assertEqual(normalized_inputs, "whatever")
