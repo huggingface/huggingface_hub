@@ -26,10 +26,6 @@ interface ModelData {
 	 */
 	modelId: string;
 	/**
-	 * name of repository.
-	 */
-	repoName: string;
-	/**
 	 * is this model private?
 	 */
 	private: boolean;
@@ -65,6 +61,11 @@ export interface LibraryUiElement {
 	 * Code snippet displayed on model page
 	 */
 	snippet:   (model: ModelData) => string;
+}
+
+function nameWithoutNamespace(modelId: string): string {
+	const splitted = modelId.split('/');
+	return splitted.length === 1 ? splitted[0] : splitted[1];
 }
 
 //#region snippets
@@ -161,15 +162,15 @@ const sentenceTransformers = (model: ModelData) =>
 model = SentenceTransformer("${model.modelId}")`;
 
 const spacy = (model: ModelData) =>
-`# pip install https://huggingface.co/${model.modelId}/resolve/main/${model.repoName}.whl
+`# pip install https://huggingface.co/${model.modelId}/resolve/main/${nameWithoutNamespace(model.modelId)}.whl
 
 # Importing as module.
-import ${model.repoName}
-nlp = ${model.repoName}.load()
+import ${nameWithoutNamespace(model.modelId)}
+nlp = ${nameWithoutNamespace(model.modelId)}.load()
 
 # Using spaCy.load().
 import spacy
-nlp = spacy.load(${model.repoName})`;
+nlp = spacy.load(${nameWithoutNamespace(model.modelId)})`;
 
 const transformers = (model: ModelData) =>
 `from transformers import AutoTokenizer, ${model.autoArchitecture}
