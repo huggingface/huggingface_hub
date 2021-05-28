@@ -162,7 +162,7 @@ const sentenceTransformers = (model: ModelData) =>
 model = SentenceTransformer("${model.modelId}")`;
 
 const spacy = (model: ModelData) =>
-`# pip install https://huggingface.co/${model.modelId}/resolve/main/${nameWithoutNamespace(model.modelId)}.whl
+`# pip install https://huggingface.co/${model.modelId}/resolve/main/${nameWithoutNamespace(model.modelId)}-any-py3-none-any.whl
 
 # Importing as module.
 import ${nameWithoutNamespace(model.modelId)}
