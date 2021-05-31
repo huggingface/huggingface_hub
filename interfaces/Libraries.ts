@@ -8,6 +8,7 @@ export enum ModelLibrary {
 	'flair'                  = 'Flair',
 	'pyannote'               = 'Pyannote',
 	'sentence-transformers'  = 'Sentence Transformers',
+	'spacy'                  = 'spaCy',
 	'tensorflowtts'          = 'TensorFlowTTS',
 	'timm'                   = 'Timm',
 	'transformers'           = 'Transformers',
@@ -21,7 +22,7 @@ export const ALL_MODEL_LIBRARY_KEYS = Object.keys(ModelLibrary) as (keyof typeof
  */
 interface ModelData {
 	/**
-	 * id of model
+	 * id of model (e.g. 'user/repo_name')
 	 */
 	modelId: string;
 	/**
@@ -60,6 +61,11 @@ export interface LibraryUiElement {
 	 * Code snippet displayed on model page
 	 */
 	snippet:   (model: ModelData) => string;
+}
+
+function nameWithoutNamespace(modelId: string): string {
+	const splitted = modelId.split('/');
+	return splitted.length === 1 ? splitted[0] : splitted[1];
 }
 
 //#region snippets
@@ -155,6 +161,17 @@ const sentenceTransformers = (model: ModelData) =>
 
 model = SentenceTransformer("${model.modelId}")`;
 
+const spacy = (model: ModelData) =>
+`# pip install https://huggingface.co/${model.modelId}/resolve/main/${nameWithoutNamespace(model.modelId)}-any-py3-none-any.whl
+
+# Importing as module.
+import ${nameWithoutNamespace(model.modelId)}
+nlp = ${nameWithoutNamespace(model.modelId)}.load()
+
+# Using spaCy.load().
+import spacy
+nlp = spacy.load(${nameWithoutNamespace(model.modelId)})`;
+
 const transformers = (model: ModelData) =>
 `from transformers import AutoTokenizer, ${model.autoArchitecture}
   
@@ -196,6 +213,12 @@ export const MODEL_LIBRARIES_UI_ELEMENTS: { [key in keyof typeof ModelLibrary]: 
 		repoName: "sentence-transformers",
 		repoUrl: "https://github.com/UKPLab/sentence-transformers",
 		snippet: sentenceTransformers,
+	},
+	spacy: {
+		btnLabel: "spaCy",
+		repoName: "spaCy",
+		repoUrl: "https://github.com/explosion/spaCy",
+		snippet: spacy,
 	},
 	tensorflowtts : {
 		btnLabel: "TensorFlowTTS",
