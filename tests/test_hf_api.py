@@ -90,7 +90,7 @@ class HfApiEndpointsTest(HfApiCommonTest):
         self.assertFalse(res["private"])
         self._api.delete_repo(token=self._token, name=REPO_NAME)
 
-    def test_create_and_delete_dataset_repo(self):
+    def test_create_update_and_delete_dataset_repo(self):
         self._api.create_repo(
             token=self._token, name=REPO_NAME, repo_type=REPO_TYPE_DATASET
         )
