@@ -78,14 +78,33 @@ class HfApiEndpointsTest(HfApiCommonTest):
             o = objs[-1]
             self.assertIsInstance(o, RepoObj)
 
-    def test_create_and_delete_repo(self):
+    def test_create_update_and_delete_repo(self):
         self._api.create_repo(token=self._token, name=REPO_NAME)
+        res = self._api.update_repo_visibility(
+            token=self._token, name=REPO_NAME, private=True
+        )
+        self.assertTrue(res["private"])
+        res = self._api.update_repo_visibility(
+            token=self._token, name=REPO_NAME, private=False
+        )
+        self.assertFalse(res["private"])
         self._api.delete_repo(token=self._token, name=REPO_NAME)
 
     def test_create_and_delete_dataset_repo(self):
         self._api.create_repo(
             token=self._token, name=REPO_NAME, repo_type=REPO_TYPE_DATASET
         )
+        res = self._api.update_repo_visibility(
+            token=self._token, name=REPO_NAME, private=True, repo_type=REPO_TYPE_DATASET
+        )
+        self.assertTrue(res["private"])
+        res = self._api.update_repo_visibility(
+            token=self._token,
+            name=REPO_NAME,
+            private=False,
+            repo_type=REPO_TYPE_DATASET,
+        )
+        self.assertFalse(res["private"])
         self._api.delete_repo(
             token=self._token, name=REPO_NAME, repo_type=REPO_TYPE_DATASET
         )

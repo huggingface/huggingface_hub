@@ -343,6 +343,39 @@ class HfApi:
         )
         r.raise_for_status()
 
+    def update_repo_visibility(
+        self,
+        token: str,
+        name: str,
+        private: bool,
+        organization: Optional[str] = None,
+        repo_type: Optional[str] = None,
+    ) -> Dict[str, bool]:
+        """
+        Update the visibility setting of a repository.
+        """
+        if repo_type not in REPO_TYPES:
+            raise ValueError("Invalid repo type")
+
+        if organization is None:
+            namespace, _ = self.whoami(token)
+        else:
+            namespace = organization
+
+        path = "{}/api/{}/{}/settings".format(self.endpoint, namespace, name)
+
+        json = {"private": private}
+        if repo_type is not None:
+            json["type"] = repo_type
+
+        r = requests.put(
+            path,
+            headers={"authorization": "Bearer {}".format(token)},
+            json=json,
+        )
+        r.raise_for_status()
+        return r.json()
+
     def upload_file(
         self,
         token: str,
