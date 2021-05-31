@@ -362,8 +362,11 @@ class HfApi:
         else:
             namespace = organization
 
-        path = "{}/api/{}/{}/settings".format(self.endpoint, namespace, name)
+        path_prefix = "{}/api/".format(self.endpoint)
+        if repo_type == REPO_TYPE_DATASET:
+            path_prefix += REPO_TYPE_DATASET_URL_PREFIX
 
+        path = "{}{}/{}/settings".format(path_prefix, namespace, name)
         json = {"private": private}
         if repo_type is not None:
             json["type"] = repo_type
