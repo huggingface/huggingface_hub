@@ -1,11 +1,13 @@
+import os
 import subprocess
 import sys
-import os
 from typing import Any, Dict, List
 
 from app.pipelines import Pipeline
 
+
 ALLOWLIST: List[str] = ["spacy"]
+
 
 class TokenClassificationPipeline(Pipeline):
     def __init__(
@@ -15,17 +17,20 @@ class TokenClassificationPipeline(Pipeline):
         # At the time, only public models from spaCy are allowed in the inference API.
         full_model_path = model_id.split("/")
         if len(full_model_path) != 2:
-            return
+            raise ValueError(
+                f"Invalid model_id: {model_id}. It should have a namespace (:namespace:/:model_name:)"
+            )
         namespace, model_name = full_model_path
         if namespace not in ALLOWLIST:
-            return
-        package = (
-            "https://huggingface.co/{}/{}/resolve/main/{}-any-py3-none-any.whl".format(
-                namespace, model_name, model_name
+            raise ValueError(
+                f"Invalid namespace {namespace}. It should be in user/organization allowlist"
             )
-        )
+
+        package = f"https://huggingface.co/{namespace}/{model_name}/resolve/main/{model_name}-any-py3-none-any.whl"
         cache_dir = os.environ["PIP_CACHE"]
-        subprocess.check_call([sys.executable, "-m", "pip", "install", "--cache-dir", cache_dir, package])
+        subprocess.check_call(
+            [sys.executable, "-m", "pip", "install", "--cache-dir", cache_dir, package]
+        )
 
         import spacy
 
