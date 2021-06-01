@@ -48,7 +48,7 @@ interface ModelData {
 	/**
 	 * this dictionary has useful information about the model configuration
 	 */
-	config: Obj
+	config: Record<string, any>;
 }
 
 
@@ -264,4 +264,3 @@ export const MODEL_LIBRARIES_UI_ELEMENTS: { [key in keyof typeof ModelLibrary]: 
 		snippet: transformers,
 	},
 } as const;
-
