@@ -1,5 +1,5 @@
 FROM tiangolo/uvicorn-gunicorn:python3.8
-LABEL maintainer="me <me@example.com>"
+LABEL maintainer="Omar Sanseviero omar@huggingface.com"
 
 # Add any system dependency here
 # RUN apt-get update -y && apt-get install libXXX -y
