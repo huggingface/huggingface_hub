@@ -2,7 +2,7 @@
 /**
  * Add your new library here.
  */
- export enum ModelLibrary {
+export enum ModelLibrary {
 	'adapter-transformers'   = 'Adapter Transformers',
 	'asteroid'               = 'Asteroid',
 	'espnet'                 = 'ESPnet',
