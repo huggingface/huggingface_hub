@@ -1,9 +1,11 @@
 import subprocess
 import sys
+import os
 from typing import Any, Dict, List
 
 from app.pipelines import Pipeline
 
+ALLOWLIST: List[str] = ["spacy"]
 
 class TokenClassificationPipeline(Pipeline):
     def __init__(
@@ -15,15 +17,15 @@ class TokenClassificationPipeline(Pipeline):
         if len(full_model_path) != 2:
             return
         namespace, model_name = full_model_path
-        if namespace != "spacy":
+        if namespace not in ALLOWLIST:
             return
-
         package = (
             "https://huggingface.co/{}/{}/resolve/main/{}-any-py3-none-any.whl".format(
                 namespace, model_name, model_name
             )
         )
-        subprocess.check_call([sys.executable, "-m", "pip", "install", package])
+        cache_dir = os.environ["PIP_CACHE"]
+        subprocess.check_call([sys.executable, "-m", "pip", "install", "--cache-dir", cache_dir, package])
 
         import spacy
 
@@ -46,7 +48,6 @@ class TokenClassificationPipeline(Pipeline):
 
         entities = []
         for ent in doc.ents:
-            print(ent.text, ent.start_char, ent.end_char, ent.label_)
             # Score is currently not well supported, see
             # https://github.com/explosion/spaCy/issues/5917.
             current_entity = {
