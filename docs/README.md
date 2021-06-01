@@ -81,6 +81,7 @@ Here they are, with links to examples:
 - `fill-mask`, for instance [`distilroberta-base`](https://huggingface.co/distilroberta-base)
 - `zero-shot-classification` (implemented on top of a nli `text-classification` model), for instance [`facebook/bart-large-mnli`](https://huggingface.co/facebook/bart-large-mnli)
 - `table-question-answering`, for instance [`google/tapas-base-finetuned-wtq`](https://huggingface.co/google/tapas-base-finetuned-wtq)
+- `sentence-similarity`, for instance [`osanseviero/full-sentence-distillroberta2`](/osanseviero/full-sentence-distillroberta2)
 
 ## How can I control my model's widget's example inputs?
 
