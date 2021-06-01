@@ -1,12 +1,5 @@
 
 /**
- * Hf helper type for a dictionary-like object with arbitrary keys.
- */
- declare interface Obj<T = any> {
-	[key: string]: T
-}
-
-/**
  * Add your new library here.
  */
 export enum ModelLibrary {
