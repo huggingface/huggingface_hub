@@ -2,7 +2,8 @@
 /**
  * Add your new library here.
  */
-export enum ModelLibrary {
+ export enum ModelLibrary {
+	'adapter-transformers'   = 'Adapter Transformers',
 	'asteroid'               = 'Asteroid',
 	'espnet'                 = 'ESPnet',
 	'flair'                  = 'Flair',
@@ -37,6 +38,10 @@ interface ModelData {
 	 * this is transformers-specific
 	 */
 	autoArchitecture: string;
+	/**
+	 * this dictionary has useful information about the model configuration
+	 */
+	config: Obj
 }
 
 
@@ -69,6 +74,13 @@ function nameWithoutNamespace(modelId: string): string {
 }
 
 //#region snippets
+
+const adapter_transformers = (model: ModelData) =>
+`from transformers import ${model.config.adapter_transformers.model_class}
+
+model = ${model.config.adapter_transformers.model_class}.from_pretrained("${model.config.adapter_transformers.model_name}")
+model.load_adapter("${model.modelId}", source="hf")`;
+
 
 const asteroid = (model: ModelData) =>
 `from asteroid.models import BaseModel
@@ -184,6 +196,12 @@ model = ${model.autoArchitecture}.from_pretrained("${model.modelId}"${model.priv
 
 
 export const MODEL_LIBRARIES_UI_ELEMENTS: { [key in keyof typeof ModelLibrary]: LibraryUiElement } = {
+	"adapter-transformers": {
+		btnLabel: "Adapter Transformers",
+		repoName: "adapter-transformers",
+		repoUrl: "https://github.com/Adapter-Hub/adapter-transformers",
+		snippet: adapter_transformers,
+	},
 	asteroid: {
 		btnLabel: "Asteroid",
 		repoName: "Asteroid",
