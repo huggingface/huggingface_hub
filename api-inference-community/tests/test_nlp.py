@@ -93,6 +93,18 @@ class TableQuestionAnsweringValidationTestCase(TestCase):
         self.assertEqual(processed_params, {})
         self.assertEqual(inputs, normalized_inputs)
 
+    def test_invalid_table_input(self):
+        query = "How many stars does the transformers repository have?"
+        table = {
+            "Repository": ["Transformers", "Datasets", "Tokenizers"],
+            "Stars": ["36542", "4512"],
+        }
+
+        inputs = {"query": query, "table": table}
+        bpayload = json.dumps({"inputs": inputs}).encode("utf-8")
+        with self.assertRaises(ValidationError):
+            normalize_payload_nlp(bpayload, "table-question-answering")
+
     def test_invalid_question(self):
         query = "How many stars does the transformers repository have?"
         table = "Invalid table"
