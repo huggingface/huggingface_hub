@@ -56,6 +56,33 @@ class SentenceSimilarityValidationTestCase(TestCase):
         with self.assertRaises(ValidationError):
             normalize_payload_nlp(bpayload, "sentence-similarity")
 
+    def test_valid_similarity_function(self):
+        source_sentence = "why is the sky blue?"
+        sentences = ["this is", "a list of sentences"]
+        inputs = {
+            "source_sentence": source_sentence,
+            "sentences": sentences,
+            "similarity_method": "dot_product",
+        }
+        bpayload = json.dumps({"inputs": inputs}).encode("utf-8")
+        normalized_inputs, processed_params = normalize_payload_nlp(
+            bpayload, "sentence-similarity"
+        )
+        self.assertEqual(processed_params, {})
+        self.assertEqual(inputs, normalized_inputs)
+
+    def test_invalid_similarity_function(self):
+        source_sentence = "why is the sky blue?"
+        sentences = ["this is", "a list of sentences"]
+        inputs = {
+            "source_sentence": source_sentence,
+            "sentences": sentences,
+            "similarity_method": "invalid",
+        }
+        bpayload = json.dumps({"inputs": inputs}).encode("utf-8")
+        with self.assertRaises(ValidationError):
+            normalize_payload_nlp(bpayload, "sentence-similarity")
+
 
 class ConversationalValidationTestCase(TestCase):
     def test_valid_inputs(self):

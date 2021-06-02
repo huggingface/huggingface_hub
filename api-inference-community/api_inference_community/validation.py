@@ -1,5 +1,6 @@
 import json
 import subprocess
+from enum import Enum
 from io import BytesIO
 from typing import Any, Dict, List, Optional, Tuple, Union
 
@@ -114,10 +115,16 @@ class QuestionInputsCheck(BaseModel):
     context: str
 
 
+class SimilarityFunctionEnum(str, Enum):
+    default = "default"
+    cosine_similarity = "cosine_similarity"
+    dot_product = "dot_product"
+
+
 class SentenceSimilarityInputsCheck(BaseModel):
     source_sentence: str
     sentences: List[str]
-    similarity_method: Optional[str]
+    similarity_function: Optional[SimilarityFunctionEnum] = SimilarityFunctionEnum.default
 
 
 class TableQuestionAnsweringInputsCheck(BaseModel):
