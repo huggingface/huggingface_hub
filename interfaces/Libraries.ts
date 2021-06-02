@@ -176,13 +176,14 @@ model = SentenceTransformer("${model.modelId}")`;
 const spacy = (model: ModelData) =>
 `!pip install https://huggingface.co/${model.modelId}/resolve/main/${nameWithoutNamespace(model.modelId)}-any-py3-none-any.whl
 
+# Using spacy.load().
+import spacy
+nlp = spacy.load("${nameWithoutNamespace(model.modelId)}")
+
 # Importing as module.
 import ${nameWithoutNamespace(model.modelId)}
-nlp = ${nameWithoutNamespace(model.modelId)}.load()
+nlp = ${nameWithoutNamespace(model.modelId)}.load()`;
 
-# Using spaCy.load().
-import spacy
-nlp = spacy.load("${nameWithoutNamespace(model.modelId)}")`;
 
 const transformers = (model: ModelData) =>
 `from transformers import AutoTokenizer, ${model.autoArchitecture}
