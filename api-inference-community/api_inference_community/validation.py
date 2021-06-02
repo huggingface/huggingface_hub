@@ -117,6 +117,7 @@ class QuestionInputsCheck(BaseModel):
 class SentenceSimilarityInputsCheck(BaseModel):
     source_sentence: str
     sentences: List[str]
+    similarity_method: Optional[str]
 
 
 class TableQuestionAnsweringInputsCheck(BaseModel):
