@@ -26,6 +26,11 @@ class InferenceApi:
             >>> api.set_inputs(inputs="The goal of life is [MASK].")
             >>> api.call()
 
+            >>> # Question Answering example
+            >>> api = InferenceApi("deepset/roberta-base-squad2")
+            >>> api.set_inputs(question="What's my name?", context="My name is Clara and I live in Berkeley.")
+            >>> api.call()
+
             >>> # Zero-shot example
             >>> api = InferenceApi("typeform/distilbert-base-uncased-mnli")
             >>> api.set_inputs(inputs="Hi, I recently bought a device from your company but it is not working as advertised and I would like to get reimbursed!")
@@ -66,7 +71,7 @@ class InferenceApi:
             self.task = modelInfo.pipeline_tag
 
         # Configure url, headers and options
-        self.api_url = ENDPOINT + "/" + self.task + "/" + repoId
+        self.api_url = f"{ENDPOINT}/{self.task}/{repoId}"
         self.headers = {"authorization": "Bearer {}".format(token)}
         self.options = {"wait_for_model": True, "use_gpu": gpu}
         self.inputs = {}
