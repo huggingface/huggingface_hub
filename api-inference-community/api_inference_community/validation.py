@@ -124,7 +124,9 @@ class SimilarityFunctionEnum(str, Enum):
 class SentenceSimilarityInputsCheck(BaseModel):
     source_sentence: str
     sentences: List[str]
-    similarity_function: Optional[SimilarityFunctionEnum] = SimilarityFunctionEnum.default
+    similarity_function: Optional[
+        SimilarityFunctionEnum
+    ] = SimilarityFunctionEnum.default
 
 
 class TableQuestionAnsweringInputsCheck(BaseModel):
