@@ -82,13 +82,23 @@ const adapter_transformers = (model: ModelData) =>
 model = ${model.config.adapter_transformers.model_class}.from_pretrained("${model.config.adapter_transformers.model_name}")
 model.load_adapter("${model.modelId}", source="hf")`;
 
-const allennlp = (model: ModelData) =>
+const allennlpUnknown = () =>
+`unknown model type `
+
+const allennlpQuestionAnswering = (model: ModelData) =>
 `import allennlp_models
 from allennlp.predictors.predictor import Predictor
 
 predictor = Predictor.from_path("${model.modelId}")
 predictor_input = {"passage": "My name is Wolfgang and I live in Berlin", "question": "Where do I live?"}
 predictions = predictor.predict_json(predictor_input)`;
+
+const allennlp = (model: ModelData) => {
+	if (model.tags.includes("question-answering")){
+		return allennlpQuestionAnswering(model);
+	}
+	return allennlpUnknown();
+};
 
 const asteroid = (model: ModelData) =>
 `from asteroid.models import BaseModel
