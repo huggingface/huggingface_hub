@@ -123,6 +123,17 @@ class TableQuestionAnsweringInputsCheck(BaseModel):
     table: Dict[str, List[str]]
     query: str
 
+    @validator("table")
+    def all_rows_must_have_same_length(
+        cls, table: Dict[str, List[str]]
+    ):
+        rows = list(table.values())
+        n = len(rows[0])
+        if all(len(x) == n for x in rows):
+            return table
+        raise ValueError("All rows in the table must be the same length")
+
+
 
 PARAMS_MAPPING = {
     "conversational": SharedGenerationParams,
