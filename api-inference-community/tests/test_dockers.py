@@ -107,7 +107,7 @@ class DockerImageTests(unittest.TestCase):
             "speechbrain",
             "automatic-speech-recognition",
             "speechbrain/asr-crdnn-commonvoice-it",
-        ),    
+        )
 
     def test_timm(self):
         self.framework_docker_test("timm", "image-classification", "sgugger/resnet50d")
