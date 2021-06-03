@@ -4,6 +4,7 @@
  */
 export enum ModelLibrary {
 	'adapter-transformers'   = 'Adapter Transformers',
+	'allennlp'               = 'allennlp',
 	'asteroid'               = 'Asteroid',
 	'espnet'                 = 'ESPnet',
 	'flair'                  = 'Flair',
@@ -75,12 +76,20 @@ function nameWithoutNamespace(modelId: string): string {
 
 //#region snippets
 
+
 const adapter_transformers = (model: ModelData) =>
 `from transformers import ${model.config.adapter_transformers.model_class}
 
 model = ${model.config.adapter_transformers.model_class}.from_pretrained("${model.config.adapter_transformers.model_name}")
 model.load_adapter("${model.modelId}", source="hf")`;
 
+const allennlp = (model: ModelData) =>
+`import allennlp_models
+from allennlp.predictors.predictor import Predictor
+
+predictor = Predictor.from_path("${model.modelId}")
+predictor_input = {"passage": "My name is Wolfgang and I live in Berlin", "question": "Where do I live?"}
+predictions = predictor.predict_json(predictor_input)`;
 
 const asteroid = (model: ModelData) =>
 `from asteroid.models import BaseModel
@@ -184,7 +193,6 @@ nlp = spacy.load("${nameWithoutNamespace(model.modelId)}")
 import ${nameWithoutNamespace(model.modelId)}
 nlp = ${nameWithoutNamespace(model.modelId)}.load()`;
 
-
 const transformers = (model: ModelData) =>
 `from transformers import AutoTokenizer, ${model.autoArchitecture}
   
@@ -202,6 +210,12 @@ export const MODEL_LIBRARIES_UI_ELEMENTS: { [key in keyof typeof ModelLibrary]: 
 		repoName: "adapter-transformers",
 		repoUrl: "https://github.com/Adapter-Hub/adapter-transformers",
 		snippet: adapter_transformers,
+	},
+	allennlp: {
+		btnLabel: "AllenNLP",
+		repoName: "AllenNLP",
+		repoUrl: "https://github.com/allenai/allennlp",
+		snippet: allennlp,
 	},
 	asteroid: {
 		btnLabel: "Asteroid",
