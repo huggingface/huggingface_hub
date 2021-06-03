@@ -95,12 +95,19 @@ class DockerImageTests(unittest.TestCase):
             "flair", "token-classification", "flair/chunk-english-fast"
         )
 
+    def test_spacy(self):
+        self.framework_docker_test(
+            "spacy",
+            "token-classification",
+            "spacy/en_core_web_sm",
+        )
+
     def test_speechbrain(self):
         self.framework_docker_test(
             "speechbrain",
             "automatic-speech-recognition",
             "speechbrain/asr-crdnn-commonvoice-it",
-        ),
+        ),    
 
     def test_timm(self):
         self.framework_docker_test("timm", "image-classification", "sgugger/resnet50d")
