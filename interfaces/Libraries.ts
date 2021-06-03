@@ -76,7 +76,6 @@ function nameWithoutNamespace(modelId: string): string {
 
 //#region snippets
 
-
 const adapter_transformers = (model: ModelData) =>
 `from transformers import ${model.config.adapter_transformers.model_class}
 
