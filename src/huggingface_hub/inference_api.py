@@ -48,34 +48,39 @@ class InferenceApi:
 
             >>> # Mask-fill example
             >>> api = InferenceApi("bert-base-uncased")
-            >>> api.set_inputs(inputs="The goal of life is [MASK].")
-            >>> api.call()
+            >>> api(inputs="The goal of life is [MASK].")
 
             >>> # Question Answering example
             >>> api = InferenceApi("deepset/roberta-base-squad2")
-            >>> api.set_inputs(question="What's my name?", context="My name is Clara and I live in Berkeley.")
-            >>> api.call()
+            >>> inputs = {"question":"What's my name?", "context":"My name is Clara and I live in Berkeley."}
+            >>> api(inputs)
 
             >>> # Zero-shot example
             >>> api = InferenceApi("typeform/distilbert-base-uncased-mnli")
-            >>> api.set_inputs(inputs="Hi, I recently bought a device from your company but it is not working as advertised and I would like to get reimbursed!")
-            >>> api.set_params(candidate_labels=["refund", "legal", "faq"])
-            >>> api.call()
+            >>> inputs = "Hi, I recently bought a device from your company but it is not working as advertised and I would like to get reimbursed!"
+            >>> params = {"candidate_labels":["refund", "legal", "faq"]}
+            >>> api(inputs, params)
     """
 
     def __init__(
-        self, repoId: str, task: Optional[str] = None, gpu: Optional[bool] = False
+        self, repoId: str, task: Optional[str] = None, token: Union[str, None] = None, gpu: Optional[bool] = False
     ):
         """Inits InferenceApi headers and API call information.
 
         Args:
             repoId (``str``): Id of model (e.g. `bert-base-uncased`).
             task (``str``, `optional`, defaults ``None``): Whether to force a task instead of using task specified in repository.
+            token (:obj:`str`, `optional`):
+                The token to use as HTTP bearer authorization for Inference API call. If None, will use the token
+                generated when running :obj:`huggingface-cli login` (stored in :obj:`~/.huggingface`).
             gpu (``bool``, `optional`, defaults ``None``): Whether to use GPU instead of CPU for inference(requires Startup plan at least).
         """
-        token = HfFolder.get_token()
-        if token is None:
-            raise EnvironmentError("A Hugging Face token was not found.")
+        if token is not None and not isinstance(token, str):
+            raise EnvironmentError("The specified token must be a string. You can get the token with `HfFolder.get_token()` or search it in https://huggingface.co/settings/token.")
+        elif token is None:
+            token = HfFolder.get_token()
+            if token is None:
+                raise EnvironmentError("A Hugging Face token was not found. You can use `huggingface-cli login` or search for your token in https://huggingface.co/settings/token.")
 
         # Configure task
         modelInfo = HfApi().model_info(repo_id=repoId, token=token)
@@ -107,8 +112,10 @@ class InferenceApi:
     ):
         payload = {
             "inputs": inputs,
-            "params": params,
             "options": self.options,
         }
+
+        if params:
+            payload["parameters"] = params
         response = requests.post(self.api_url, headers=self.headers, json=payload)
         return response.json()
