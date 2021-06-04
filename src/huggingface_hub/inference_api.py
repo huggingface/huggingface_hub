@@ -101,8 +101,7 @@ class InferenceApi:
             "parameters": self.params,
             "options": self.options,
         }
-        data = json.dumps(payload)
-        response = requests.request(
-            "POST", self.api_url, headers=self.headers, data=data
+        response = requests.post(
+            self.api_url, headers=self.headers, json=payload
         )
-        return json.loads(response.content.decode("utf-8"))
+        return response.json()
