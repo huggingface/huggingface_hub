@@ -20,7 +20,30 @@ If needed you can find a template [here](https://github.com/huggingface/model_ca
 
 ## How are model tags determined?
 
-The model cards have a YAML section that specify metadata. Here is an example
+The model cards have a YAML section that specify metadata. These are the fields
+
+```
+---
+language: "ISO 639-1 code for your language, or `multilingual`"
+thumbnail: "url to a thumbnail used in social sharing"
+tags:
+- array
+- of
+- tags
+license: "any valid license identifier"
+datasets:
+- array of dataset identifiers
+metrics:
+- array of metric identifiers
+---
+```
+
+Some useful information on them:
+* License identifiers are those standardized by GitHub in the right column (keywords) [here](https://docs.github.com/en/github/creating-cloning-and-archiving-repositories/creating-a-repository-on-github/licensing-a-repository#searching-github-by-license-type).
+* Dataset, metric, and language identifiers are those listed on the [Datasets](https://huggingface.co/datasets), [Metrics](https://huggingface.co/metrics) and [Languages](https://huggingface.co/languages) pages and in the [`datasets`](https://github.com/huggingface/datasets) repository.
+
+
+Here is an example: 
 ```
 ---
 language:
@@ -69,7 +92,7 @@ datasets:
 
 ## Can I access models programatically?
 
-You can use the [huggingface_hub](https://github.com/huggingface/huggingface_hub) library to create, delete and update repos. You can also use it to download files from repos and integrate it to your own library! For example, you can easily load a Scikit learn model with few lines.
+You can use the [`huggingface_hub`](https://github.com/huggingface/huggingface_hub) library to create, delete and update repos. You can also use it to download files from repos and integrate it to your own library! For example, you can easily load a Scikit learn model with few lines.
 
 ```
 from huggingface_hub import hf_hub_url, cached_download

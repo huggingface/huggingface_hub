@@ -75,6 +75,8 @@ Here are some with links to examples:
 
 You have access to the repos as with any other Git-based repository! You can even upload very large files. Read more about it [here](https://huggingface.co/welcome).
 
+TODO: Add video.
+
 ## What's the origin of 🤗 name? 
 
 🤗
