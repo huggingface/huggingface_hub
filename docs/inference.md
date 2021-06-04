@@ -1,5 +1,5 @@
 ---
-title: 🤗 Hub docs
+title: 🤗 Hub Inference API
 ---
 
 <h1>🤗 Hub Inference API</h1>
