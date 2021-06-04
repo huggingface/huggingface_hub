@@ -39,6 +39,7 @@ metrics:
 ```
 
 Some useful information on them:
+* All the tags can be used to filter the list of models on https://huggingface.co/models.
 * License identifiers are those standardized by GitHub in the right column (keywords) [here](https://docs.github.com/en/github/creating-cloning-and-archiving-repositories/creating-a-repository-on-github/licensing-a-repository#searching-github-by-license-type).
 * Dataset, metric, and language identifiers are those listed on the [Datasets](https://huggingface.co/datasets), [Metrics](https://huggingface.co/metrics) and [Languages](https://huggingface.co/languages) pages and in the [`datasets`](https://github.com/huggingface/datasets) repository.
 
