@@ -12,7 +12,7 @@ No, the 🤗 Hub supports other libraries, and we're working on expanding this s
 
 Find all our supported libraries [here](https://github.com/huggingface/huggingface_hub/blob/main/interfaces/Libraries.ts)!
 
-| Library               | Description                                                                   | Inference API | Widget | Download from Hub | Push to Hub |
+| Library               | Description                                                                   | Inference API | Widgets | Download from Hub | Push to Hub |
 |-----------------------|-------------------------------------------------------------------------------|---------------|-------:|-------------------|-------------|
 | [Adapter Transformers](https://github.com/Adapter-Hub/adapter-transformers)  | Extends 🤗Transformers with Adapters.                                          |       ❌       | ❌      |         ✅         |      ❌      |
 | [Asteroid](https://github.com/asteroid-team/asteroid)              | Pytorch-based audio source separation toolkit                                 |       ✅       | ❌      |         ✅         |      ❌      |
