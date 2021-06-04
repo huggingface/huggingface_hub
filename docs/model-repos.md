@@ -4,17 +4,17 @@ title: Model Repos docs
 
 <h1>Model Repos docs</h1>
 
-## What are model cards and why are they useful?
+## What are model cards and why are they useful?
 
-The model card are markdown files that accompany the models and provide very useful information. They are extremely important for discoverability, reproducibility and sharing! They are the `README.md` file in any repo.
+The model cards are markdown files that accompany the models and provide very useful information. They are extremely important for discoverability, reproducibility and sharing! They are the `README.md` file in any repo.
 
 ## When sharing a model, what should I add to my model card?
 
 The model card should describe:
 - the model
 - its intended uses & potential limitations, including bias and ethical considerations as detailed in [Mitchell, 2018](https://arxiv.org/abs/1810.03993)
-- the training params and experimental info – you can embed or link to an experiment tracking platform for reference
-- which datasets did you train on, and your eval results
+- the training params and experimental info (you can embed or link to an experiment tracking platform for reference)
+- which datasets did you train on and your eval results
 
 If needed you can find a template [here](https://github.com/huggingface/model_card).
 
@@ -48,7 +48,7 @@ widget:
 
 ## Can I specify which framework supports my model?
 
-Yes! You can specify the framework in the model card metadata section:
+Yes!🔥 You can specify the framework in the model card metadata section:
 
 ```
 tags:
@@ -59,7 +59,7 @@ Find all our supported libraries [here](https://github.com/huggingface/huggingfa
 
 ## How can I link a model to a dataset?
 
-You can specify the dataset in the description:
+You can specify the dataset in the metadata:
 
 ```
 datasets:
