@@ -1,4 +1,3 @@
-import json
 import logging
 from typing import Dict, List, Optional, Union
 
@@ -63,7 +62,11 @@ class InferenceApi:
     """
 
     def __init__(
-        self, repoId: str, task: Optional[str] = None, token: Union[str, None] = None, gpu: Optional[bool] = False
+        self,
+        repoId: str,
+        task: Optional[str] = None,
+        token: Union[str, None] = None,
+        gpu: Optional[bool] = False,
     ):
         """Inits InferenceApi headers and API call information.
 
@@ -76,11 +79,15 @@ class InferenceApi:
             gpu (``bool``, `optional`, defaults ``None``): Whether to use GPU instead of CPU for inference(requires Startup plan at least).
         """
         if token is not None and not isinstance(token, str):
-            raise EnvironmentError("The specified token must be a string. You can get the token with `HfFolder.get_token()` or search it in https://huggingface.co/settings/token.")
+            raise EnvironmentError(
+                "The specified token must be a string. You can get the token with `HfFolder.get_token()` or search it in https://huggingface.co/settings/token."
+            )
         elif token is None:
             token = HfFolder.get_token()
             if token is None:
-                raise EnvironmentError("A Hugging Face token was not found. You can use `huggingface-cli login` or search for your token in https://huggingface.co/settings/token.")
+                raise EnvironmentError(
+                    "A Hugging Face token was not found. You can use `huggingface-cli login` or search for your token in https://huggingface.co/settings/token."
+                )
 
         # Configure task
         modelInfo = HfApi().model_info(repo_id=repoId, token=token)
@@ -108,7 +115,9 @@ class InferenceApi:
         print(f"Initialized Inference API for {repoId} with task {self.task}")
 
     def __call__(
-        self, inputs: Union[str, Dict, List[str], List[List[str]]], params: Optional[Dict] = None
+        self,
+        inputs: Union[str, Dict, List[str], List[List[str]]],
+        params: Optional[Dict] = None,
     ):
         payload = {
             "inputs": inputs,
