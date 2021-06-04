@@ -1,17 +1,42 @@
 import json
 import logging
-from typing import Optional
+from typing import Dict, List, Optional, Union
 
 import requests
 
 from .hf_api import HfApi, HfFolder
-from .validation import ALL_TASKS, check_inputs, check_params
 
 
 logger = logging.getLogger(__name__)
 
 
 ENDPOINT = "https://api-inference.huggingface.co/pipeline"
+
+ALL_TASKS = [
+    # NLP
+    "text-classification",
+    "token-classification",
+    "table-question-answering",
+    "question-answering",
+    "zero-shot-classification",
+    "translation",
+    "summarization",
+    "conversational",
+    "feature-extraction",
+    "text-generation",
+    "text2text-generation",
+    "fill-mask",
+    "sentence-similarity",
+    # Audio
+    "text-to-speech",
+    "automatic-speech-recognition",
+    "audio-source-separation",
+    "voice-activity-detection",
+    # Computer vision
+    "image-classification",
+    "object-detection",
+    "image-segmentation",
+]
 
 
 class InferenceApi:
@@ -74,34 +99,16 @@ class InferenceApi:
         self.api_url = f"{ENDPOINT}/{self.task}/{repoId}"
         self.headers = {"authorization": "Bearer {}".format(token)}
         self.options = {"wait_for_model": True, "use_gpu": gpu}
-        self.inputs = {}
-        self.params = {}
 
         print(f"Initialized Inference API for {repoId} with task {self.task}")
 
-    def set_inputs(self, **kwargs):
-        # In some tasks, inputs is just a string
-        if "inputs" in kwargs and isinstance(kwargs["inputs"], str):
-            inputs = kwargs["inputs"]
-        else:
-            inputs = kwargs
-
-        check_inputs(inputs, self.task)
-        self.inputs = inputs
-
-    def set_params(self, **kwargs):
-        check_params(kwargs, self.task)
-        self.params = kwargs
-
-    def call(self):
-        # TODO: Allow specifying options (such as using GPU).
-
+    def __call__(
+        self, inputs: Union[str, Dict, List[str], List[List[str]]], params: Optional[Dict] = None
+    ):
         payload = {
-            "inputs": self.inputs,
-            "parameters": self.params,
+            "inputs": inputs,
+            "params": params,
             "options": self.options,
         }
-        response = requests.post(
-            self.api_url, headers=self.headers, json=payload
-        )
+        response = requests.post(self.api_url, headers=self.headers, json=payload)
         return response.json()
