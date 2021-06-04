@@ -2,7 +2,7 @@
 /**
  * Add your new library here.
  */
- export enum ModelLibrary {
+export enum ModelLibrary {
 	'adapter-transformers'   = 'Adapter Transformers',
 	'asteroid'               = 'Asteroid',
 	'espnet'                 = 'ESPnet',
@@ -75,7 +75,6 @@ function nameWithoutNamespace(modelId: string): string {
 }
 
 //#region snippets
-
 
 const adapter_transformers = (model: ModelData) =>
 `from transformers import ${model.config.adapter_transformers.model_class}
@@ -213,7 +212,6 @@ const speechbrain = (model: ModelData) => {
 	}
 	return "# Unable to determine model type";
 };
-
 
 const transformers = (model: ModelData) =>
 `from transformers import AutoTokenizer, ${model.autoArchitecture}
