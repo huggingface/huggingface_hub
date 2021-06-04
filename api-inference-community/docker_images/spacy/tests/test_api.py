@@ -12,6 +12,7 @@ TESTABLE_MODELS: Dict[str, str] = {
     #  IMPLEMENT_THIS
     # "automatic-speech-recognition": "mysample-ASR",
     # "text-generation": "mysample-gpt2",
+    "token-classification": "spacy/en_core_web_sm"
 }
 
 
@@ -24,7 +25,6 @@ ALL_TASKS = {
     "sentence-similarity",
     "text-generation",
     "text-to-speech",
-    "token-classification",
 }
 
 
