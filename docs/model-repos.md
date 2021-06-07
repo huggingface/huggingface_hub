@@ -93,7 +93,7 @@ datasets:
 
 ## Can I access models programatically?
 
-You can use the [`huggingface_hub`](https://github.com/huggingface/huggingface_hub) library to create, delete and update repos. You can also use it to download files from repos and integrate it to your own library! For example, you can easily load a Scikit learn model with few lines.
+You can use the [`huggingface_hub`](https://github.com/huggingface/huggingface_hub) library to create, delete, update and retrieve information from repos. You can also use it to download files from repos and integrate it to your own library! For example, you can easily load a Scikit learn model with few lines.
 
 ```
 from huggingface_hub import hf_hub_url, cached_download
@@ -126,4 +126,3 @@ mse = (\frac{1}{n})\sum_{i=1}^{n}(y_{i} - x_{i})^{2}
 $$
 
 $$ e=mc^2 $$
-
