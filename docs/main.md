@@ -36,6 +36,12 @@ Many repos have a widget that allows anyone to do inference directly on the brow
 
 ![A screenshot of a widget for the fill-token task.](/docs/assets/widget.png)
 
+Here are other examples:
+* [Named Entity Recognition](https://huggingface.co/spacy/en_core_web_sm?text=My+name+is+Sarah+and+I+live+in+London) using [spaCy](https://spacy.io/).
+* [Image Classification](https://huggingface.co/google/vit-base-patch16-224) using [🤗 Transformers](https://github.com/huggingface/transformers)
+* [Text to Speech](https://huggingface.co/julien-c/ljspeech_tts_train_tacotron2_raw_phn_tacotron_g2p_en_no_space_train) using [ESPnet](https://github.com/espnet/espnet).
+* [Sentence Similarity](https://huggingface.co/osanseviero/full-sentence-distillroberta3) using [Sentence Transformers](https://github.com/UKPLab/sentence-transformers).
+
 
 ## What's the Inference API?
 
@@ -47,14 +53,18 @@ The Inference API allows doing simple HTTP requests to models in the 🤗 Hub. T
 
 ## How is a model's type of inference API and widget determined?
 
-To determine which pipeline and widget to display (text-classification, token-classification, translation, etc.), we analyze information in the repo such as the metadata provided in the model card and configuration files. This information is mapped to a single `pipeline_tag`. At the moment, we expose **only one** widget per model. We try to use the most specific pipeline for each model, see pseudo-code in [this gist](https://gist.github.com/julien-c/857ba86a6c6a895ecd90e7f7cab48046).
+To determine which pipeline and widget to display (`text-classification`, `token-classification`, `translation`, etc.), we analyze information in the repo such as the metadata provided in the model card and configuration files. This information is mapped to a single `pipeline_tag`. At the moment, we expose **only one** widget per model. 
 
-You can always manually override your pipeline type with `pipeline_tag: xxx` in your model card metadata.
+For most use cases, the model type is determined from the tags. For example, if there is `tag: text-classification` in the metadata, the inferred `pipeline_tag` will be `text-classification`.
+
+For `🤗 Transformers`, additional information is obtained from `config.json`. The architecture can be used to determine the type: for example, `AutoModelForTokenClassification` corresponds to `token-classification`. If you're really interested on this, you can see pseudo-code in [this gist](https://gist.github.com/julien-c/857ba86a6c6a895ecd90e7f7cab48046).
+
+**You can always manually override your pipeline type with pipeline_tag: xxx in your model card metadata.**
 
 
-## What are all the possible pipeline/widget types?
+## What are all the possible task/widget types?
 
-You can find all the supported pipelines [here](https://github.com/huggingface/huggingface_hub/blob/main/interfaces/Types.ts).
+You can find all the supported tasks [here](https://github.com/huggingface/huggingface_hub/blob/main/interfaces/Types.ts).
 
 Here are some with links to examples:
 
