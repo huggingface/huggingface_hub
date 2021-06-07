@@ -207,7 +207,7 @@ const speechbrain = (model: ModelData) => {
 		return speechbrainASR(model);
 	} else if (model.tags.includes("audio-to-audio")) {
 		return speechbrainEnhancement(model);
-	} else if (model.tags.includes("source-separation")) {
+	} else if (model.tags.includes("audio-source-separation")) {
 		return speechbrainSeparator(model);
 	}
 	return "# Unable to determine model type";
@@ -292,4 +292,3 @@ export const MODEL_LIBRARIES_UI_ELEMENTS: { [key in keyof typeof ModelLibrary]: 
 		snippet: transformers,
 	},
 } as const;
-
