@@ -97,7 +97,7 @@ class ModelHubMixin(object):
         force_download: bool = False,
         resume_download: bool = False,
         proxies: Dict = None,
-        use_auth_token: Optional[str] = None,
+        use_auth_token: Optional[Union[str, bool, None]] = None,
         cache_dir: Optional[str] = None,
         local_files_only: bool = False,
         **model_kwargs,
