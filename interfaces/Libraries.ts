@@ -205,7 +205,7 @@ est_sources = separator_model.separate_file("file.wav")`;
 const speechbrain = (model: ModelData) => {
 	if (model.tags.includes("automatic-speech-recognition")){
 		return speechbrainASR(model);
-	} else if (model.tags.includes("speech-enhancement")) {
+	} else if (model.tags.includes("audio-to-audio")) {
 		return speechbrainEnhancement(model);
 	} else if (model.tags.includes("source-separation")) {
 		return speechbrainSeparator(model);
