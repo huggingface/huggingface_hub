@@ -77,9 +77,9 @@ function nameWithoutNamespace(modelId: string): string {
 //#region snippets
 
 const adapter_transformers = (model: ModelData) =>
-`from transformers import ${model.config.adapter_transformers.model_class}
+`from transformers import ${model.config?.adapter_transformers?.model_class}
 
-model = ${model.config.adapter_transformers.model_class}.from_pretrained("${model.config.adapter_transformers.model_name}")
+model = ${model.config?.adapter_transformers?.model_class}.from_pretrained("${model.config?.adapter_transformers?.model_name}")
 model.load_adapter("${model.modelId}", source="hf")`;
 
 const allennlpUnknown = () =>
