@@ -16,7 +16,7 @@ The model card should describe:
 - the training params and experimental info (you can embed or link to an experiment tracking platform for reference)
 - which datasets did you train on and your eval results
 
-If needed you can find a template [here](https://github.com/huggingface/model_card).
+If needed you can find the specification [here](https://raw.githubusercontent.com/huggingface/huggingface_hub/main/modelcard.md).
 
 ## How are model tags determined?
 
@@ -79,7 +79,7 @@ tags:
 - flair
 ```
 
-Find all our supported libraries [here](https://github.com/huggingface/huggingface_hub/blob/main/interfaces/Libraries.ts)!
+Find more about our supported libraries [here](/docs/libraries)!
 
 ## How can I link a model to a dataset?
 

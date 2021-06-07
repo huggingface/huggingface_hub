@@ -9,7 +9,7 @@ title: 🤗 Hub Libraries Docs
 
 No, the 🤗 Hub supports other libraries, and we're working on expanding this support! We're happy to welcome to the 🤗 a set of Open Source libraries that are pushing Machine Learning forward.
 
-Find all our supported libraries [here](https://github.com/huggingface/huggingface_hub/blob/main/interfaces/Libraries.ts)!
+The table below summarizes the supported libraries and how they are integrated. Find all our supported libraries [here](https://github.com/huggingface/huggingface_hub/blob/main/interfaces/Libraries.ts)! 
 
 | Library               | Description                                                                   | Inference API | Widgets | Download from Hub | Push to Hub |
 |-----------------------|-------------------------------------------------------------------------------|---------------|-------:|-------------------|-------------|
