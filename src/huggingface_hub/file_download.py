@@ -12,7 +12,7 @@ from functools import partial
 from hashlib import sha256
 from pathlib import Path
 from typing import BinaryIO, Dict, Optional, Tuple, Union
-import re
+import packaging.version
 
 from tqdm.auto import tqdm
 
@@ -35,7 +35,7 @@ logger = logging.getLogger(__name__)
 
 _PY_VERSION: str = sys.version.split()[0]
 
-if tuple(int(i) for i in re.findall(r'\d+', _PY_VERSION)) < (3, 8, 0):
+if packaging.version.Version(_PY_VERSION) < packaging.version.Version("3.8.0"):
     import importlib_metadata
 else:
     import importlib.metadata as importlib_metadata
