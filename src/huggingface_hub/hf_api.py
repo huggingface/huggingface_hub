@@ -49,6 +49,10 @@ class RepoObj:
         for k, v in kwargs.items():
             setattr(self, k, v)
 
+    def __repr__(self):
+        items = (f"{k}='{v}'" for k, v in self.__dict__.items())
+        return f"{self.__class__.__name__}({', '.join(items)})"
+
 
 class ModelFile:
     """
@@ -59,6 +63,10 @@ class ModelFile:
         self.rfilename = rfilename  # filename relative to the model root
         for k, v in kwargs.items():
             setattr(self, k, v)
+
+    def __repr__(self):
+        items = (f"{k}='{v}'" for k, v in self.__dict__.items())
+        return f"{self.__class__.__name__}({', '.join(items)})"
 
 
 class ModelInfo:
