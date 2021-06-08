@@ -43,13 +43,15 @@ class AudioSourceSeparationPipeline(Pipeline):
         # separate
         est_sources = self.model.separate_batch(mix)
 
-        # normalize for loudness
-        est_sources = est_sources / est_sources.max(dim=1, keepdim=True)[0]
+        # Only 1 element in the batch is present
+        est_sources = est_sources[0]
+
+        #normalize for loudness
+        est_sources = est_sources / est_sources.abs().max(dim=0, keepdim=True)[0]
 
         # return estimated sources as a T(time) x S(n.sources) matrix 
-        return est_sources[0].numpy(), fs_model
+        return est_sources.numpy(), fs_model
 
-         
 
-        
+
         
