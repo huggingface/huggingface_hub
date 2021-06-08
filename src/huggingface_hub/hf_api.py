@@ -239,16 +239,13 @@ class HfApi:
         except HTTPError as err:
             if not (exist_ok and err.response.status_code == 409):
                 try:
-                    additional_info = r.json().get("error")
+                    additional_info = r.json().get("error", None)
+                    if additional_info:
+                        new_err = f"{err.args[0]} - {additional_info}"
+                        err.args = (new_err,) + err.args[1:]
                 except ValueError:
-                    additional_info = None
+                    pass
 
-                if additional_info:
-                    old_args = err.args
-                    err.args = (err.args[0] + f" - {additional_info}",)
-                    # ^^ update the error message
-                    if len(old_args) > 1:
-                        err.args = err.args + old_args[1:]
                 raise err
 
         d = r.json()
