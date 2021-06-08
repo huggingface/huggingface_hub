@@ -42,7 +42,7 @@ interface ModelData {
 	/**
 	 * this dictionary has useful information about the model configuration
 	 */
-	config: Record<string, any>;
+	config?: Record<string, any>;
 }
 
 
