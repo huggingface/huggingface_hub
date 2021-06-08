@@ -233,17 +233,23 @@ class HfApi:
             headers={"authorization": "Bearer {}".format(token)},
             json=json,
         )
-        if exist_ok and r.status_code == 409:
-            d = r.json()
-            return d["url"]
 
         try:
             r.raise_for_status()
-        except HTTPError as e:
-            if r.json():
-                if "error" in r.json():
-                    raise HTTPError("{} - {}".format(e, r.json()["error"]))
-            raise e
+        except HTTPError as err:
+            if not (exist_ok and err.response.status_code == 409):
+                try:
+                    additional_info = r.json().get("error")
+                except ValueError:
+                    additional_info = None
+
+                if additional_info:
+                    old_args = err.args
+                    err.args = (err.args[0] + f" - {additional_info}",)
+                    # ^^ update the error message
+                    if len(old_args) > 1:
+                        err.args = err.args + old_args[1:]
+                raise err
 
         d = r.json()
         return d["url"]
