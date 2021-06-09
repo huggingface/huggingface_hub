@@ -13,7 +13,9 @@ The table below summarizes the supported libraries and how they are integrated. 
 
 | Library               | Description                                                                   | Inference API | Widgets | Download from Hub | Push to Hub |
 |-----------------------|-------------------------------------------------------------------------------|---------------|-------:|-------------------|-------------|
+| [🤗 Transformers](https://github.com/huggingface/transformers)         | State-of-the-art Natural Language Processing for Pytorch, TensorFlow, and JAX |       ✅       |    ✅   |         ✅         |      ✅      |
 | [Adapter Transformers](https://github.com/Adapter-Hub/adapter-transformers)  | Extends 🤗Transformers with Adapters.                                          |       ❌       | ❌      |         ✅         |      ❌      |
+| [AllenNLP](https://github.com/allenai/allennlp)              | An open-source NLP research library, built on PyTorch.                        |       ✅       |    ✅   |         ✅         |      ❌      |
 | [Asteroid](https://github.com/asteroid-team/asteroid)              | Pytorch-based audio source separation toolkit                                 |       ✅       | ❌      |         ✅         |      ❌      |
 | [ESPnet](https://github.com/espnet/espnet)                | End-to-end speech processing toolkit (e.g. TTS)                               |       ✅       | ✅      |         ✅         |      ❌      |
 | [Flair](https://github.com/flairNLP/flair)                 | Very simple framework for state-of-the-art NLP. |       ✅       |    ✅   |         ✅         |      ❌      |
@@ -22,10 +24,10 @@ The table below summarizes the supported libraries and how they are integrated. 
 | [spaCy](https://github.com/explosion/spaCy)                 | Advanced Natural Language Processing in Python and Cython.                    |       ✅       |    ✅   |         ✅         |      ❌      |
 | [TensorFlowTTS](https://github.com/TensorSpeech/TensorFlowTTS)         | Real-time state-of-the-art speech synthesis architectures.                    |       ❌       |    ❌   |         ✅         |      ❌      |
 | [Timm](https://github.com/rwightman/pytorch-image-models)                  | Collection of image models, scripts, pretrained weights, etc.                 |       ❌       |    ❌   |         ✅         |      ❌      |
-| [🤗 Transformers](https://github.com/huggingface/transformers)         | State-of-the-art Natural Language Processing for Pytorch, TensorFlow, and JAX |       ✅       |    ✅   |         ✅         |      ✅      |
 
-Would you like to see your library here? Head to [huggingface_hub](https://github.com/huggingface/huggingface_hub)!
+
+Would you like to see your library here? Read about it in [Adding a Library Guide](/docs/adding-a-library.md).
 
 ## How can I add a new library to the Inference API?
 
-You can find detailed instructions in [huggingface_hub](https://github.com/huggingface/huggingface_hub).
+Read about it in [Adding a Library Guide](/docs/adding-a-library.md).
