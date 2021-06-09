@@ -2,3 +2,7 @@
 static/**
 build/**
 node_modules/**
+*.js
+*.mjs
+*.md
+*.ts
