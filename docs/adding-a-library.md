@@ -4,6 +4,8 @@ The Hugging Face hub aims to facilitate the sharing of machine learning models, 
 This endeavor starts with the integration of its tool stack within downstream libraries, and we're happy to announce 
 the fruitful collaboration between Hugging Face and SpaCy, AllenNLP, Timm, among many other incredible libraries.
 
+> For a full list of supported libraries see [the following table](https://github.com/huggingface/huggingface_hub/blob/96e49483ace685cf526492b248ba3341bc1b1564/docs/libraries.md).
+
 We believe the model hub is a step in the correct direction for several reasons. It offers:
 
 - Free model hosting for libraries and their users. Custom plans exist for users wishing to keep their models 
@@ -53,9 +55,10 @@ retrieve files from the hub:
 ### `hf_hub_url`
 
 This method can be used to construct the URL of a file from a given repository. For example, the 
-repository `lysandre/arxiv-nlp` has a few model, configuration and tokenizer files:
+repository [`lysandre/arxiv-nlp`](https://huggingface.co/lysandre/arxiv-nlp) has a few model, configuration and tokenizer files:
 
 ![Images/repo.png](Images/repo.png)
+
 
 We would like to fetch the configuration file of that model specifically. The `hf_hub_url` method is tailored for 
 that use-case especially:
@@ -65,6 +68,7 @@ that use-case especially:
 >>> hf_hub_url("lysandre/arxiv-nlp", filename="config.json")
 'https://huggingface.co/lysandre/arxiv-nlp/resolve/main/config.json'
 ```
+
 
 This method is powerful: it can take a revision and return the URL of a file given a revision, which is the same 
 as clicking on the "Download" button on the web interface. This revision can be a branch, a tag or a commit hash:
@@ -175,10 +179,10 @@ token, a path to a file, the final path in the repo, as well as the ID of the re
 
 ```python
 >>> api.upload_file(
-...			token, 
-...			path_or_fileobj="/home/lysandre/dummy-test/README.md", 
-...			path_in_repo="README.md", 
-...			repo_id="lysandre/test-model"
+...	token, 
+...	path_or_fileobj="/home/lysandre/dummy-test/README.md", 
+...	path_in_repo="README.md", 
+...	repo_id="lysandre/test-model"
 ... )
 'https://huggingface.co/lysandre/test-model/blob/main/README.md'
 ```
@@ -258,15 +262,13 @@ model-index:
 None of the fields are required - but any field added will improve the discoverability of your model and open it to
 features such as the inference API. 
 
-[Encourage modelcards]
-
 ## Setting up the Inference API
 
 ### Docker image
 
 All third-party libraries are dockerized: in this environment, you can install the libraries you'll need for your 
 models to work correctly. In order to add your library to the existing docker images, head over to 
-the `[inference-api-community` docker images folder](https://github.com/huggingface/huggingface_hub/tree/main/api-inference-community/docker_images).
+the [`inference-api-community` docker images folder](https://github.com/huggingface/huggingface_hub/tree/main/api-inference-community/docker_images).
 
 Here, you'll be facing a folder for each library already implemented - as well as a `common` folder. Copy this 
 folder and paste it with the name of your library. You'll need to edit three files to make this docker image yours:
@@ -278,7 +280,10 @@ folder and paste it with the name of your library. You'll need to edit three fil
   for examples.
 - Finally, the meat of the changes is to be applied to each pipeline you would like to see enabled for your model. 
   Modify the files `app/pipelines/{task_name}.py` accordingly. Here too, look for the `IMPLEMENT_THIS` sample and 
-  edit to fit your needs. Feel free to add any pipeline you need if it isn't among the others.
+  edit to fit your needs. While keeping in mind that we aim for our pipelines to be as generic as possible, feel 
+  free to add any pipeline you need if it isn't among the others. If you run into any issues, please 
+  [open an issue](https://github.com/huggingface/huggingface_hub/issues/new) so that we may take a  look and help 
+  you out.
 
 For additional information, please take a look at the README available in the`api-inference-community` [folder](https://github.com/huggingface/huggingface_hub/tree/main/api-inference-community). 
 This README contains information about the tests necessary to ensure that your library's docker image will continue working.
@@ -288,7 +293,9 @@ This README contains information about the tests necessary to ensure that your l
 For users to understand how the model should be used in your downstream library, we recommend adding a code snippet 
 explaining how that should be done. In order to do this, please take a look and update the following file with 
 mentions of your library: [interfaces/Libraries.ts](https://github.com/huggingface/huggingface_hub/blob/main/interfaces/Libraries.ts). 
-This file is in Typescript as this is the ground truth that we're using on the Hugging Face website.
+This file is in Typescript as this is the ground truth that we're using on the Hugging Face website. A good 
+understanding of Typescript isn't necessary to edit the file.
+
 Additionally, this will add a tag with which users may filter models. All models from your library will 
 be easily identifiable!
 
