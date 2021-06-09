@@ -89,7 +89,7 @@ def call_pipe(pipe: Any, inputs, params: Dict, start: float) -> Response:
     if status_code == 200:
         headers[HF_HEADER_COMPUTE_CHARACTERS] = f"{n_characters}"
         task = os.getenv("TASK")
-        if task in {"text-to-speech", "audio-source-separation"}:
+        if task == "text-to-speech":
             # Special case, right now everything is flac audio we can output
             waveform, sampling_rate = outputs
             data = ffmpeg_convert(waveform, sampling_rate)
