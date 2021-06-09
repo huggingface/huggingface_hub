@@ -1,8 +1,8 @@
-# Integrating a library within the hub
+# Integrating a library within the Hub
 
-The Hugging Face hub aims to facilitate the sharing of machine learning models, checkpoints, and artifacts. 
+The Hugging Face Hub aims to facilitate the sharing of machine learning models, checkpoints, and artifacts. 
 This endeavor starts with the integration of its tool stack within downstream libraries, and we're happy to announce 
-the fruitful collaboration between Hugging Face and SpaCy, AllenNLP, Timm, among many other incredible libraries.
+the fruitful collaboration between Hugging Face and spaCy, AllenNLP, and Timm, among many other incredible libraries.
 
 > For a full list of supported libraries see [the following table](https://github.com/huggingface/huggingface_hub/blob/96e49483ace685cf526492b248ba3341bc1b1564/docs/libraries.md).
 
