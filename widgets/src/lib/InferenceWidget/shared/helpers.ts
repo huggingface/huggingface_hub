@@ -1,4 +1,4 @@
-import { ModelData } from '../../../../lib/FrontData';
+import type { ModelData } from '../../../../../interfaces/Types';
 import { randomItem, parseJSON, } from './ViewUtils';
 import type { LoadingStatus } from './types';
 

@@ -21,7 +21,7 @@ export function escape(html) {
  * @param ms Number of ms to wait
  */
  export function delay(ms: number): Promise<void> {
-	return new Promise((resolve, reject) => {
+	return new Promise((resolve) => {
 		setTimeout(() => resolve(), ms);
 	});
 }

@@ -70,6 +70,10 @@ export interface ModelData {
 	 */
 	private: boolean;
 	/**
+	 * this dictionary has useful information about the model configuration
+	 */
+	config?: Record<string, any>;
+	/**
 	 * all the model tags
 	 */
 	tags: string[];
@@ -78,7 +82,18 @@ export interface ModelData {
 	 */
 	autoArchitecture: string;
 	/**
-	 * this dictionary has useful information about the model configuration
+	 * Pipeline type
 	 */
-	config?: Record<string, any>;
+	pipeline_tag?: (keyof typeof PipelineType) | undefined;
+	/**
+	 * for relevant models, get mask token
+	 */
+	mask_token?: string | undefined;
+	/**
+	 * Example data that will be fed into the widget.
+	 *
+	 * can be set in the model card metadata (under `widget`),
+	 * or by default in `DefaultWidget.ts`
+	 */
+	widgetData?: Record<string, any>[] | undefined;
 }
