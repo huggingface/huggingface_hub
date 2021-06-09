@@ -4,6 +4,7 @@
 	import type { WidgetProps } from "./shared/types";
 
 	import AudioSourceSeparationWidget from "./widgets/AudioSourceSeparationWidget/AudioSourceSeparationWidget.svelte";
+	import AudioToAudioWidget from "./widgets/AudioToAudioWidget/AudioToAudioWidget.svelte";
 	import AutomaticSpeechRecognitionWidget from "./widgets/AutomaticSpeechRecognitionWidget/AutomaticSpeechRecognitionWidget.svelte";
 	import ConversationalWidget from "./widgets/ConversationalWidget/ConversationalWidget.svelte";
 	import FeatureExtractionWidget from "./widgets/FeatureExtractionWidget/FeatureExtractionWidget.svelte";
@@ -20,7 +21,8 @@
 
 	export let apiToken: WidgetProps["apiToken"] = undefined;
 	export let callApiOnMount = false;
-	export let apiUrl = "https://api-inference.huggingface.co";
+	//export let apiUrl = "https://api-inference.huggingface.co";
+	export let apiUrl = "http://localhost:8000";
 	export let model: WidgetProps["model"];
 	export let noTitle = false;
 	export let shouldUpdateUrl = false;
@@ -34,6 +36,7 @@
 		[key in keyof typeof PipelineType]?: typeof SvelteComponent;
 	} = {
 		"audio-source-separation": AudioSourceSeparationWidget,
+		"audio-to-audio": AudioToAudioWidget,
 		"automatic-speech-recognition": AutomaticSpeechRecognitionWidget,
 		conversational: ConversationalWidget,
 		"feature-extraction": FeatureExtractionWidget,
