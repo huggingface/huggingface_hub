@@ -20,7 +20,7 @@
 
 	export let apiToken: WidgetProps["apiToken"];
 	export let callApiOnMount = false;
-	export let apiUrl = "";
+	export let apiUrl = "https://api-inference.huggingface.co";
 	export let model: WidgetProps["model"];
 	export let noTitle = false;
 	export let shouldUpdateUrl = false;
