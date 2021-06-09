@@ -12,6 +12,7 @@
 	},
 	"devDependencies": {
 		"@sveltejs/kit": "next",
+		"@types/dom-mediacapture-record": "^1.0.7",
 		"prettier": "2.3.0",
 		"prettier-plugin-svelte": "2.3.0",
 		"svelte": "^3.34.0",

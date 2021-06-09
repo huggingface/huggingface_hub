@@ -1,6 +1,6 @@
 <script>
 	import { onMount, tick } from "svelte";
-	import { scrollToMax } from "../../../../../lib/ViewUtils";
+	import { scrollToMax } from "../ViewUtils";
 	import IconRow from "../../../Icons/IconRow.svelte";
 
 	export let onChange: (table: string[][]) => void;

@@ -1,4 +1,4 @@
-import { delay } from '../../../../../lib/ViewUtils';
+import { delay } from '../ViewUtils';
 
 export default class Recorder {
 	// see developers.google.com/web/updates/2016/01/mediarecorder

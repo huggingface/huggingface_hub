@@ -6,7 +6,7 @@
 	import WidgetOutputTableQA from "../../shared/WidgetOutputTableQA/WidgetOutputTableQA.svelte";
 	import WidgetTableInput from "../../shared/WidgetTableInput/WidgetTableInput.svelte";
 	import WidgetWrapper from "../../shared/WidgetWrapper/WidgetWrapper.svelte";
-	import { parseJSON } from "../../../../../lib/ViewUtils";
+	import { parseJSON } from "../../shared/ViewUtils";
 	import {
 		getDemoInputs,
 		getResponse,

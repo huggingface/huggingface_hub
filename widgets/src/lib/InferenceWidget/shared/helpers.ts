@@ -1,5 +1,5 @@
 import { ModelData } from '../../../../lib/FrontData';
-import { randomItem, parseJSON, } from '../../../../lib/ViewUtils';
+import { randomItem, parseJSON, } from './ViewUtils';
 import type { LoadingStatus } from './types';
 
 export function getSearchParams(keys: string[]): string[] {
