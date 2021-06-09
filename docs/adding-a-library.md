@@ -6,12 +6,13 @@ the fruitful collaboration between Hugging Face and SpaCy, AllenNLP, Timm, among
 
 We believe the model hub is a step in the correct direction for several reasons. It offers:
 
-- Hosting models for downstream libraries, as well as their users, is free with some custom plans for users wishing 
-  for privacy while keeping the ease of use.
+- Free model hosting for libraries and their users. Custom plans exist for users wishing to keep their models 
+  private but keep the ease of use.
 - Built-in file versioning, even with very large files, thanks to a git-based approach
 - Hosted inference API for all models publicly available
+- In-browser widgets to play with the uploaded models.
 
-Thanks to these, we hope to achieve true sharability across the machine learning ecosystem, reproducibility, 
+Thanks to these, we hope to achieve true shareability across the machine learning ecosystem, reproducibility, 
 and the ability to offer simple solutions directly from the browser. To that end, we're looking to make it very 
 simple to integrate the hub within downstream libraries or standalone machine learning models.
 
@@ -51,7 +52,7 @@ retrieve files from the hub:
 
 ### `hf_hub_url`
 
-This method can be used to retrieve the URL of a file from a given repository. For example, the 
+This method can be used to construct the URL of a file from a given repository. For example, the 
 repository `lysandre/arxiv-nlp` has a few model, configuration and tokenizer files:
 
 ![Integrating%20a%20library%20within%20the%20hub%20e1ae45ce33c84bfeacf68708e41af6b3/Untitled.png](Integrating%20a%20library%20within%20the%20hub%20e1ae45ce33c84bfeacf68708e41af6b3/Untitled.png)
@@ -65,8 +66,8 @@ that use-case especially:
 'https://huggingface.co/lysandre/arxiv-nlp/resolve/main/config.json'
 ```
 
-This method is powerful: it can take a revision and return the URL of a file given a revision. This revision can be 
-a branch, a tag or a commit hash:
+This method is powerful: it can take a revision and return the URL of a file given a revision, which is the same 
+as clicking on the "Download" button on the web interface. This revision can be a branch, a tag or a commit hash:
 
 ```python
 >>> hf_hub_url("lysandre/arxiv-nlp", filename="config.json", revision="877b84a8f93f2d619faa2a6e514a32beef88ab0a")
@@ -86,7 +87,9 @@ file! Let's try it with the configuration file we just retrieved thanks to the `
 ```
 
 The file is now downloaded and stored in my cache: `~/.cache/huggingface/hub`. It isn't necessarily noticeable for 
-small files such as a configuration file - but larger files, such as model files would be hard to work with if they had to be re-downloaded every time. Downloads of large files are fast because we use Cloudfront (a CDN) to geo-replicate downloads so they're blazing fast from anywhere on the globe.
+small files such as a configuration file - but larger files, such as model files would be hard to work with if they 
+had to be re-downloaded every time. Additionally, these large files will always be downloaded with a blazing fast
+download speed: we use Cloudfront (a CDN) to geo-replicate downloads across the globe.
 
 If the repository is updated with a new version of the file we just downloaded, then the `huggingface_hub` will 
 download the new version and store it in the cache next time, without any action needed from your part to specify 
@@ -97,7 +100,7 @@ it should fetch an updated version
 The `hf_hub_url` and `cached_download` combo works wonders when you have a fixed repository structure; for example 
 a model file alongside a configuration file, both with static names.
 
-However, this is not always the case. You may choose to have a more fluid approach without sticking to a specific 
+However, this is not always the case. You may choose to have a more flexible approach without sticking to a specific 
 file schema. This is what the authors of AllenNLP chose to do for instance. In that case `snapshot_download` comes 
 in handy: it downloads a whole snapshot of a repo's files at the specified revision. All files are nested inside a 
 folder in order to keep their actual filename relative to that folder.
@@ -204,17 +207,20 @@ This README contains information about the tests necessary to ensure that your l
 ### Code sample
 
 For users to understand how the model should be used in your downstream library, we recommend adding a code snippet 
-explaining how that should be done. In order to do this, please take a look and update the following file with mentions of your library: [interfaces/Libraries.ts](https://github.com/huggingface/huggingface_hub/blob/main/interfaces/Libraries.ts). Additionally, this will add a tag with which users may filter models. All models from your library will be easily identifiable!
+explaining how that should be done. In order to do this, please take a look and update the following file with 
+mentions of your library: [interfaces/Libraries.ts](https://github.com/huggingface/huggingface_hub/blob/main/interfaces/Libraries.ts). 
+This file is in Typescript as this is the ground truth that we're using on the Hugging Face website.
+Additionally, this will add a tag with which users may filter models. All models from your library will 
+be easily identifiable!
 
 If you're adding a new pipeline, you might also want to take a look at adding it to the 
 [Types.ts](https://github.com/huggingface/huggingface_hub/blob/main/interfaces/Types.ts) for it to be identifiable 
 as a possible pipeline.
 
 Secondly, you should set the 
-[widget default for that pipeline](https://github.com/huggingface/huggingface_hub/blob/main/interfaces/DefaultWidget.ts) 
-(<PROBABLY NOT NEEDED UNTIL OPEN SOURCING WIDGETS>)
+[widget default for that pipeline](https://github.com/huggingface/huggingface_hub/blob/main/interfaces/DefaultWidget.ts).
 
 ### Implementing a widget
 
-As of now, the widgets are not open source. Please open an issue with the widget you would like to have and a 
-description of how it would work with your library.
+As of now, the widgets are being open sourced. While we work to make them publicly available, please open an issue 
+with the widget you would like to have and a description of how it would work with your library.
