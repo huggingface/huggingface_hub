@@ -60,6 +60,8 @@ class AudioToAudioTestCase(TestCase):
         data = base64.b64decode(audio[0]["blob"])
         wavform = ffmpeg_read(data)
         self.assertGreater(wavform.shape[0], 1000)
+        self.assertTrue(isinstance(audio[0]["content-type"], str))
+        self.assertTrue(isinstance(audio[0]["label"], str))
 
     def test_malformed_audio(self):
         bpayload = self.read("malformed.flac")
@@ -91,6 +93,8 @@ class AudioToAudioTestCase(TestCase):
         data = base64.b64decode(audio[0]["blob"])
         wavform = ffmpeg_read(data)
         self.assertGreater(wavform.shape[0], 1000)
+        self.assertTrue(isinstance(audio[0]["content-type"], str))
+        self.assertTrue(isinstance(audio[0]["label"], str))
 
     def test_webm_audiofile(self):
         bpayload = self.read("sample1.webm")
@@ -110,3 +114,5 @@ class AudioToAudioTestCase(TestCase):
         data = base64.b64decode(audio[0]["blob"])
         wavform = ffmpeg_read(data)
         self.assertGreater(wavform.shape[0], 1000)
+        self.assertTrue(isinstance(audio[0]["content-type"], str))
+        self.assertTrue(isinstance(audio[0]["label"], str))

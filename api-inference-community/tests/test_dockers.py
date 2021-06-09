@@ -56,12 +56,12 @@ class DockerImageTests(unittest.TestCase):
     def test_asteroid(self):
         self.framework_docker_test(
             "asteroid",
-            "audio-source-separation",
+            "audio-to-audio",
             "mhu-coder/ConvTasNet_Libri1Mix_enhsingle",
         )
         self.framework_docker_test(
             "asteroid",
-            "audio-source-separation",
+            "audio-to-audio",
             "julien-c/DPRNNTasNet-ks16_WHAM_sepclean",
         )
         self.framework_invalid_test("asteroid")
