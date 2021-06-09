@@ -10,6 +10,7 @@ from app.main import ALLOWED_TASKS, get_pipeline
 # models are recommended for faster tests.
 TESTABLE_MODELS: Dict[str, str] = {
     "automatic-speech-recognition": "speechbrain/asr-crdnn-commonvoice-it",
+    "audio-to-audio": "speechbrain/mtl-mimic-voicebank"
 }
 
 

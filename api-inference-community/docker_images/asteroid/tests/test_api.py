@@ -12,6 +12,8 @@ TESTABLE_MODELS: Dict[str, str] = {
     #  IMPLEMENT_THIS
     # "automatic-speech-recognition": "mysample-ASR",
     # "text-generation": "mysample-gpt2",
+    "audio-source-separation": "julien-c/DPRNNTasNet-ks16_WHAM_sepclean",
+    "audio-to-audio": "julien-c/DPRNNTasNet-ks16_WHAM_sepclean"
 }
 
 

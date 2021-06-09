@@ -3,7 +3,9 @@ import os
 from typing import Dict, Type
 
 from api_inference_community.routes import pipeline_route, status_ok
-from app.pipelines import AudioSourceSeparationPipeline, Pipeline
+from app.pipelines import AudioToAudioPipeline, Pipeline, AudioSourceSeparationPipeline
+from starlette.middleware import Middleware
+from starlette.middleware.gzip import GZipMiddleware
 from starlette.applications import Starlette
 from starlette.routing import Route
 
@@ -30,7 +32,8 @@ logger = logging.getLogger(__name__)
 # You can check the requirements and expectations of each pipelines in their respective
 # directories. Implement directly within the directories.
 ALLOWED_TASKS: Dict[str, Type[Pipeline]] = {
-    "audio-source-separation": AudioSourceSeparationPipeline
+    "audio-source-separation": AudioSourceSeparationPipeline,
+    "audio-to-audio": AudioToAudioPipeline
 }
 
 
@@ -45,13 +48,17 @@ routes = [
     Route("/{whatever:path}", pipeline_route, methods=["POST"]),
 ]
 
-app = Starlette(routes=routes)
+middleware = [
+    Middleware(GZipMiddleware, minimum_size=1000)
+]
 if os.environ.get("DEBUG", "") == "1":
     from starlette.middleware.cors import CORSMiddleware
 
-    app.add_middleware(
-        CORSMiddleware, allow_origins=["*"], allow_headers=["*"], allow_methods=["*"]
+    middleware.append(
+        Middleware(CORSMiddleware, allow_origins=["*"], allow_headers=["*"], allow_methods=["*"])
     )
+
+app = Starlette(routes=routes, middleware=middleware)
 
 
 @app.on_event("startup")
