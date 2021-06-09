@@ -181,6 +181,7 @@ def normalize_payload(
     if task in {
         "automatic-speech-recognition",
         "audio-source-separation",
+        "audio-to-audio",
     }:
         if sampling_rate is None:
             raise EnvironmentError(
@@ -262,7 +263,7 @@ def ffmpeg_read(bpayload: bytes, sampling_rate: int) -> np.array:
     output_stream = ffmpeg_process.communicate(bpayload)
     out_bytes = output_stream[0]
 
-    audio = np.frombuffer(out_bytes, np.float32)
+    audio = np.frombuffer(out_bytes, np.float32).copy()
     if audio.shape[0] == 0:
         raise ValueError("Malformed soundfile")
     return audio
