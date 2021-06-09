@@ -55,7 +55,7 @@ retrieve files from the hub:
 This method can be used to construct the URL of a file from a given repository. For example, the 
 repository `lysandre/arxiv-nlp` has a few model, configuration and tokenizer files:
 
-![Integrating%20a%20library%20within%20the%20hub%20e1ae45ce33c84bfeacf68708e41af6b3/Untitled.png](Integrating%20a%20library%20within%20the%20hub%20e1ae45ce33c84bfeacf68708e41af6b3/Untitled.png)
+![Images/repo.png](Images/repo.png)
 
 We would like to fetch the configuration file of that model specifically. The `hf_hub_url` method is tailored for 
 that use-case especially:
@@ -126,7 +126,17 @@ feel free to open an issue if you're lost as to how apply it to your library - w
 ## Upstream: creating repositories and uploading files to the hub
 
 The `huggingface_hub` library offers a few tools to make it super simple to create a repository on the hub 
-programmatically, and upload files to that repository. It is based on the `HfApi` class:
+programmatically, and upload files to that repository. 
+
+We'll see two approaches, that work slightly differently.
+- The `HfApi` class
+- The `Repository` class.
+
+### `HfApi`
+
+The `HfApi` class is a low level class that acts as a thin wrapper around HTTP requests. It has no dependency
+other than `requests`, and can handle repository creation and deletion, repository visibility, model search, as well
+as file uploads.
 
 ```python
 >>> from huggingface_hub import HfApi
@@ -144,7 +154,7 @@ need one to create a repository and upload files to it. You can retrieve your to
 >>> token = folder.get_token()
 ```
 
-### `create_repo`
+#### `create_repo`
 
 The `create_repo` method may be used to create a repository directly on the model hub. Once you have your 
 token in hand
@@ -158,7 +168,7 @@ token in hand
 
 You can choose to create repository privately, and to upload it to an organization you are part of.
 
-### `upload_file`
+#### `upload_file`
 
 The `upload_file` method may be used to upload files to a repository directly on the model hub. It needs a 
 token, a path to a file, the final path in the repo, as well as the ID of the repo we're pushing to.
@@ -173,11 +183,80 @@ token, a path to a file, the final path in the repo, as well as the ID of the re
 'https://huggingface.co/lysandre/test-model/blob/main/README.md'
 ```
 
-### Mention of `Repository`?
+### `Repository`
+
+The `Repository` class is thought differently to the `HfApi` class: it is a wrapper over usual git & git-lfs methods.
+Therefore, handling repositories with this class requires you and your users to have `git` and `git-lfs` correctly
+set up.
+
+We recommend taking a look at the 
+[python file directly](https://github.com/huggingface/huggingface_hub/blob/main/src/huggingface_hub/repository.py) 
+to see what is possible, as it offers a lot of very useful wrappers.
+
+It offers several methods that can be used directly from a Python runtime, namely:
+- `git_add`
+- `git_pull`
+- `git_commit`
+- `git_push`
+- A `push_to_hub` which takes care of adding all files to the staging area, commit them and push them to the repo.
 
 ### Finalizing the upstream approach
 
-With these two methods, creating and managing repositories is done very simply.
+With these two methods, creating and managing repositories is done very simply! When offering uploading possibilities
+through your library, we recommend you also set up a workflow to automatically create model cards for your users.
+
+#### Model cards
+
+Model cards are arguably as important as the model and tokenizer files in a model repository. They are the central 
+definition of the model, ensuring reusability by fellow community members and reproducibility of results, 
+while providing a platform on which other members may build their artifacts.
+
+Without model cards, then the Hugging Face Hub is nothing more than a storage tool; in order to exploit the full
+potential of widgets, inference API as well as usability of models, the model cards should be defined.
+
+#### Model card metadata
+
+The metadata held in model cards is the best way to supercharge your model. It is through the metadata that you can
+define tags for your library or framework, the type of model uploaded, the language, license, evaluation results,
+and more.
+
+The full model card specification can be seen below:
+```
+---
+language:
+- {lang_0}  # Example: fr
+- {lang_1}  # Example: en
+license: {license}  # Example: apache-2.0
+tags:
+- {tag_0}  # Example: audio
+- {tag_1}  # Example: automatic-speech-recognition
+- {tag_2}  # Example: speech
+- {tag_3}  # Example to specify a library: allennlp
+datasets:
+- {dataset_0}  # Example: common_voice
+metrics:
+- {metric_0}  # Example: wer
+
+model-index:  
+- name: {model_id}
+  results:
+  - task: 
+      name: {task_name}  # Example: Speech Recognition
+      type: {task_type}  # Example: automatic-speech-recognition
+    dataset:
+      name: {dataset_name}  # Example: Common Voice zh-CN
+      type: {dataset_type}  # Example: common_voice
+      args: {arg_0}  # Example: zh-CN
+    metrics:
+      - name: {metric_name}  # Example: Test WER
+        type: {metric_type}  # Example: wer
+        value: {metric_value}  # Example: 20.90
+        args: {arg_0}  # Example for BLEU: max_order
+---
+```
+
+None of the fields are required - but any field added will improve the discoverability of your model and open it to
+features such as the inference API. 
 
 [Encourage modelcards]
 
