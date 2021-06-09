@@ -95,11 +95,8 @@ class AudioToAudioTestCase(TestCase):
         data = base64.b64decode(audio[0]["blob"])
         wavform = ffmpeg_read(data)
         self.assertGreater(wavform.shape[0], 1000)
-<<<<<<< HEAD:api-inference-community/docker_images/common/tests/test_api_audio_to_audio.py
         self.assertTrue(isinstance(audio[0]["content-type"], str))
         self.assertTrue(isinstance(audio[0]["label"], str))
-=======
->>>>>>> 220a8a0 (Adding `audio-to-audio` task.):api-inference-community/docker_images/common/tests/test_api_audio_source_separation.py
 
     def test_webm_audiofile(self):
         bpayload = self.read("sample1.webm")
@@ -119,8 +116,5 @@ class AudioToAudioTestCase(TestCase):
         data = base64.b64decode(audio[0]["blob"])
         wavform = ffmpeg_read(data)
         self.assertGreater(wavform.shape[0], 1000)
-<<<<<<< HEAD:api-inference-community/docker_images/common/tests/test_api_audio_to_audio.py
         self.assertTrue(isinstance(audio[0]["content-type"], str))
         self.assertTrue(isinstance(audio[0]["label"], str))
-=======
->>>>>>> 220a8a0 (Adding `audio-to-audio` task.):api-inference-community/docker_images/common/tests/test_api_audio_source_separation.py
