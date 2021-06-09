@@ -1,3 +1,4 @@
+import type { ModelData } from "./Types";
 
 /**
  * Add your new library here.
@@ -17,33 +18,6 @@ export enum ModelLibrary {
 };
 
 export const ALL_MODEL_LIBRARY_KEYS = Object.keys(ModelLibrary) as (keyof typeof ModelLibrary)[];
-
-/**
- * subset of model metadata that
- * a code snippet can depend on.
- */
-interface ModelData {
-	/**
-	 * id of model (e.g. 'user/repo_name')
-	 */
-	modelId: string;
-	/**
-	 * is this model private?
-	 */
-	private: boolean;
-	/**
-	 * all the model tags
-	 */
-	tags: string[];
-	/**
-	 * this is transformers-specific
-	 */
-	autoArchitecture: string;
-	/**
-	 * this dictionary has useful information about the model configuration
-	 */
-	config?: Record<string, any>;
-}
 
 
 /**
