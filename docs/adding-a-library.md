@@ -10,8 +10,8 @@ We believe the model hub is a step in the correct direction for several reasons.
 
 - Free model hosting for libraries and their users. Custom plans exist for users wishing to keep their models 
   private but keep the ease of use.
-- Built-in file versioning, even with very large files, thanks to a git-based approach
-- Hosted inference API for all models publicly available
+- Built-in file versioning, even with very large files, thanks to a git-based approach.
+- Hosted inference API for all models publicly available.
 - In-browser widgets to play with the uploaded models.
 
 Thanks to these, we hope to achieve true shareability across the machine learning ecosystem, reproducibility, 
