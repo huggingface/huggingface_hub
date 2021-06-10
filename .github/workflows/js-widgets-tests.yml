@@ -37,3 +37,16 @@ jobs:
         working-directory: widgets
         run: |
           npm run build
+
+      # CD of static site
+      - name: Netlify install
+        working-directory: widgets
+        run: |
+          npm i netlify-cli
+      - name: Netlify deploy
+        working-directory: widgets
+        env:
+          NETLIFY_AUTH_TOKEN: ${{ secrets.NETLIFY_AUTH_TOKEN }}
+          NETLIFY_SITE_ID: 69b9df00-bfdd-4499-bd7f-6add4d703d99
+        run: |
+          npx netlify deploy --auth "$NETLIFY_AUTH_TOKEN" --dir ./build/ --site "${NETLIFY_SITE_ID}"
