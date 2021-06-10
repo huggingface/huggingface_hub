@@ -144,6 +144,67 @@ class TableQuestionAnsweringValidationTestCase(TestCase):
             normalize_payload_nlp(bpayload, "table-question-answering")
 
 
+class StructuredDataClassificationValidationTestCase(TestCase):
+    def test_valid_input(self):
+        data = [[1, 2, 3, "blue"], [4, 5, 6, "red"]]
+
+        inputs = {"data": data}
+        bpayload = json.dumps({"inputs": inputs}).encode("utf-8")
+        normalized_inputs, processed_params = normalize_payload_nlp(
+            bpayload, "structured-data-classification"
+        )
+        self.assertEqual(processed_params, {})
+        self.assertEqual(inputs, normalized_inputs)
+
+    def test_valid_input_widh_col_names(self):
+        column_names = ["a", "b", "c", "d"]
+        data = [[1, 2, 3, "blue"]]
+
+        inputs = {"data": data, "column_names": column_names}
+        bpayload = json.dumps({"inputs": inputs}).encode("utf-8")
+        normalized_inputs, processed_params = normalize_payload_nlp(
+            bpayload, "structured-data-classification"
+        )
+        self.assertEqual(processed_params, {})
+        self.assertEqual(inputs, normalized_inputs)
+
+    def test_different_row_lengths(self):
+        data = [[1, 2, 3, "blue"], [4, 5, 6]]
+
+        inputs = {"data": data}
+        bpayload = json.dumps({"inputs": inputs}).encode("utf-8")
+        with self.assertRaises(ValidationError):
+            normalized_inputs, processed_params = normalize_payload_nlp(
+                bpayload, "structured-data-classification"
+            )
+
+    def test_with_more_col_names(self):
+        column_names = ["a", "b", "c", "d", "d"]
+        data = [[1, 2, 3, "blue"]]
+
+        inputs = {"data": data, "column_names": column_names}
+        bpayload = json.dumps({"inputs": inputs}).encode("utf-8")
+        with self.assertRaises(ValidationError):
+            normalized_inputs, processed_params = normalize_payload_nlp(
+                bpayload, "structured-data-classification"
+            )
+
+    def test_with_empty_data(self):
+        inputs = {"data": [[]]}
+        bpayload = json.dumps({"inputs": inputs}).encode("utf-8")
+        with self.assertRaises(ValidationError):
+            normalized_inputs, processed_params = normalize_payload_nlp(
+                bpayload, "structured-data-classification"
+            )
+
+        inputs = {"data": []}
+        bpayload = json.dumps({"inputs": inputs}).encode("utf-8")
+        with self.assertRaises(ValidationError):
+            normalized_inputs, processed_params = normalize_payload_nlp(
+                bpayload, "structured-data-classification"
+            )
+
+
 class SummarizationValidationTestCase(TestCase):
     def test_no_params(self):
         bpayload = json.dumps({"inputs": "whatever"}).encode("utf-8")

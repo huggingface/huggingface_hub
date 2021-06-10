@@ -85,7 +85,7 @@ class SharedGenerationParams(BaseModel):
 
     @validator("max_length")
     def max_length_must_be_larger_than_min_length(
-        cls, max_length: Optional[MinLength], values: Dict[str, Optional[str]]
+        cls, max_length: Optional[MinLength], values: Dict[str, any]
     ):
         if "min_length" in values:
             if values["min_length"] is not None:
@@ -124,15 +124,47 @@ class TableQuestionAnsweringInputsCheck(BaseModel):
     query: str
 
     @validator("table")
-    def all_rows_must_have_same_length(
-        cls, table: Dict[str, List[str]]
-    ):
+    def all_rows_must_have_same_length(cls, table: Dict[str, List[str]]):
         rows = list(table.values())
         n = len(rows[0])
         if all(len(x) == n for x in rows):
             return table
         raise ValueError("All rows in the table must be the same length")
 
+
+StructuredData = List[List[Union[str, float]]]
+
+
+class StructuredDataClassificationInputsCheck(BaseModel):
+    data: StructuredData
+    column_names: Optional[List[str]]
+
+    @validator("data")
+    def data_must_not_be_empty(cls, data: StructuredData):
+        if len(data) == 0:
+            raise ValueError("data cannot be empty")
+        if len(data[0]) == 0:
+            raise ValueError("data cannot be empty")
+        return data
+
+    @validator("data")
+    def all_rows_must_have_same_length(cls, data: StructuredData):
+        for row in data:
+            if len(row) == len(data[0]):
+                pass
+            else:
+                raise ValueError("All rows must be the same length")
+        return data
+
+    @validator("column_names")
+    def column_names_and_data_have_same_length(
+        cls, column_names: List[str], values: Dict[str, any]
+    ):
+        if len(column_names) != len(values["data"][0]):
+            raise ValueError(
+                "the number of columns should be the same as the column names"
+            )
+        return column_names
 
 
 PARAMS_MAPPING = {
@@ -149,6 +181,7 @@ INPUTS_MAPPING = {
     "question-answering": QuestionInputsCheck,
     "sentence-similarity": SentenceSimilarityInputsCheck,
     "table-question-answering": TableQuestionAnsweringInputsCheck,
+    "structured-data-classification": StructuredDataClassificationInputsCheck,
 }
 
 
