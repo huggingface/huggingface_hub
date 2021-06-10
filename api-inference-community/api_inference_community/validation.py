@@ -141,19 +141,15 @@ class StructuredDataClassificationInputsCheck(BaseModel):
 
     @validator("data")
     def data_must_not_be_empty(cls, data: StructuredData):
-        if len(data) == 0:
-            raise ValueError("data cannot be empty")
-        if len(data[0]) == 0:
+        if not any(data):
             raise ValueError("data cannot be empty")
         return data
 
     @validator("data")
     def all_rows_must_have_same_length(cls, data: StructuredData):
-        for row in data:
-            if len(row) == len(data[0]):
-                pass
-            else:
-                raise ValueError("All rows must be the same length")
+        first_length = len(data[0])
+        if not all(len(row) == first_length for row in data):
+            raise ValueError("All rows must be the same length")
         return data
 
     @validator("column_names")
@@ -162,7 +158,7 @@ class StructuredDataClassificationInputsCheck(BaseModel):
     ):
         if len(column_names) != len(values["data"][0]):
             raise ValueError(
-                "the number of columns should be the same as the column names"
+                "The number of columns should be the same as the column names"
             )
         return column_names
 
