@@ -1,0 +1,39 @@
+name: JS Widgets
+
+on:
+  push:
+    paths:
+      - "widgets/**"
+  pull_request:
+    paths:
+      - "widgets/**"
+
+
+jobs:
+  build:
+
+    runs-on: ubuntu-latest
+
+    timeout-minutes: 10
+
+    steps:
+      - uses: actions/checkout@v1
+      - name: Use Node.js
+        uses: actions/setup-node@v1
+        with:
+          node-version: 14
+      - working-directory: widgets
+        run: |
+          npm ci
+      - name: Check style
+        working-directory: widgets
+        run: |
+          npm run lint
+      - name: Check svelte
+        working-directory: widgets
+        run: |
+          npm run check
+      - name: Build front
+        working-directory: widgets
+        run: |
+          npm run build
