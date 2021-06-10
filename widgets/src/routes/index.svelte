@@ -1,4 +1,6 @@
 <script>
+	import "../tailwind.css";
+
 	import InferenceWidget from "$lib/InferenceWidget/InferenceWidget.svelte";
 	import type { ModelData } from "../../../interfaces/Types";
 
