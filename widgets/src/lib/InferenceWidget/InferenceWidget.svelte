@@ -18,7 +18,7 @@
 	import TokenClassificationWidget from "./widgets/TokenClassificationWidget/TokenClassificationWidget.svelte";
 	import ZeroShotClassificationWidget from "./widgets/ZeroShowClassificationWidget/ZeroShotClassificationWidget.svelte";
 
-	export let apiToken: WidgetProps["apiToken"];
+	export let apiToken: WidgetProps["apiToken"] = undefined;
 	export let callApiOnMount = false;
 	export let apiUrl = "https://api-inference.huggingface.co";
 	export let model: WidgetProps["model"];
