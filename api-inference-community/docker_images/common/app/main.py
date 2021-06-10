@@ -1,4 +1,5 @@
 import logging
+import functools
 import os
 from typing import Dict, Type
 
@@ -36,20 +37,13 @@ ALLOWED_TASKS: Dict[str, Type[Pipeline]] = {
 }
 
 
-PIPELINE = None
-
-
+@functools.cache
 def get_pipeline() -> Pipeline:
-    global PIPELINE
-    if PIPELINE is None:
-        task = os.environ["TASK"]
-        model_id = os.environ["MODEL_ID"]
-        if task not in ALLOWED_TASKS:
-            raise EnvironmentError(
-                f"{task} is not a valid pipeline for model : {model_id}"
-            )
-        PIPELINE = ALLOWED_TASKS[task](model_id)
-    return PIPELINE
+    task = os.environ["TASK"]
+    model_id = os.environ["MODEL_ID"]
+    if task not in ALLOWED_TASKS:
+        raise EnvironmentError(f"{task} is not a valid pipeline for model : {model_id}")
+    return ALLOWED_TASKS[task](model_id)
 
 
 routes = [
@@ -57,14 +51,17 @@ routes = [
     Route("/{whatever:path}", pipeline_route, methods=["POST"]),
 ]
 
-middleware = [
-    Middleware(GZipMiddleware, minimum_size=1000)
-]
+middleware = [Middleware(GZipMiddleware, minimum_size=1000)]
 if os.environ.get("DEBUG", "") == "1":
     from starlette.middleware.cors import CORSMiddleware
 
     middleware.append(
-        Middleware(CORSMiddleware, allow_origins=["*"], allow_headers=["*"], allow_methods=["*"])
+        Middleware(
+            CORSMiddleware,
+            allow_origins=["*"],
+            allow_headers=["*"],
+            allow_methods=["*"],
+        )
     )
 
 app = Starlette(routes=routes, middleware=middleware)
