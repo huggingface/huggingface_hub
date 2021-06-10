@@ -85,7 +85,7 @@ class SharedGenerationParams(BaseModel):
 
     @validator("max_length")
     def max_length_must_be_larger_than_min_length(
-        cls, max_length: Optional[MinLength], values: Dict[str, Optional[str]]
+        cls, max_length: Optional[MinLength], values: Dict[str, any]
     ):
         if "min_length" in values:
             if values["min_length"] is not None:
