@@ -1,22 +1,18 @@
-# create-svelte
+# huggingface-widgets
 
-Everything you need to build a Svelte project, powered by [`create-svelte`](https://github.com/sveltejs/kit/tree/master/packages/create-svelte);
+Open-source version of the inference widgets from huggingface.co
 
-## Creating a project
+> Built with Svelte and SvelteKit
 
-If you're seeing this, you've probably already done this step. Congrats!
+**Demo page:** https://huggingface-widgets.netlify.app/
 
-```bash
-# create a new project in the current directory
-npm init svelte@next
+## Documentation
 
-# create a new project in my-app
-npm init svelte@next my-app
-```
+For now checkout the Pull Request's description: https://github.com/huggingface/huggingface_hub/pull/87
 
-> Note: the `@next` is temporary
+TODO: write more documentation
 
-## Developing
+## How to develop
 
 Once you've created a project and installed dependencies with `npm install` (or `pnpm install` or `yarn`), start a development server:
 
@@ -27,12 +23,9 @@ npm run dev
 npm run dev -- --open
 ```
 
-## Building
-
-Before creating a production version of your app, install an [adapter](https://kit.svelte.dev/docs#adapters) for your target environment. Then:
+## Build for production
 
 ```bash
 npm run build
 ```
 
-> You can preview the built app with `npm run preview`, regardless of whether you installed an adapter. This should _not_ be used to serve your app in production.
