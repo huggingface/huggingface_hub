@@ -7,19 +7,13 @@
 	const models: ModelData[] = [
 		{
 			modelId: "distilbert-base-uncased",
-			private: false,
-			autoArchitecture: "AutoModelForMaskedLM",
 			pipeline_tag: "fill-mask",
 			mask_token: "[MASK]",
-			tags: [],
 			widgetData: [{ text: "The goal of life is [MASK]." }],
 		},
 		{
 			modelId: "dbmdz/bert-large-cased-finetuned-conll03-english",
-			private: false,
-			autoArchitecture: "AutoModelForTokenClassification",
 			pipeline_tag: "token-classification",
-			tags: [],
 			widgetData: [
 				{
 					text: "My name is Clara and I live in Berkeley, California. I work at this cool company called Hugging Face.",
@@ -27,14 +21,21 @@
 			],
 		},
 	];
-	const model = models[0];
 </script>
 
-<h1>Welcome to SvelteKit</h1>
-<p>
-	Visit <a href="https://kit.svelte.dev">kit.svelte.dev</a> to read the documentation
-</p>
-
-{#each models as model}
-	<InferenceWidget {model} apiToken="" />
-{/each}
+<div class="py-24 min-h-screen bg-gray-50 dark:bg-gray-900">
+	<div
+		class=" mx-4 space-y-4 lg:space-y-0 lg:grid lg:grid-cols-2 lg:gap-4 xl:grid-cols-3"
+	>
+		{#each models as model}
+			<div>
+				<a class="text-xs block mb-3 text-gray-300" href="/{model.modelId}">
+					<code>{model.modelId}</code>
+				</a>
+				<div class="p-5 shadow-sm rounded-xl bg-white max-w-md">
+					<InferenceWidget {model} />
+				</div>
+			</div>
+		{/each}
+	</div>
+</div>

@@ -68,7 +68,7 @@ export interface ModelData {
 	/**
 	 * is this model private?
 	 */
-	private: boolean;
+	private?: boolean;
 	/**
 	 * this dictionary has useful information about the model configuration
 	 */
@@ -76,11 +76,11 @@ export interface ModelData {
 	/**
 	 * all the model tags
 	 */
-	tags: string[];
+	tags?: string[];
 	/**
 	 * this is transformers-specific
 	 */
-	autoArchitecture: string;
+	autoArchitecture?: string;
 	/**
 	 * Pipeline type
 	 */
