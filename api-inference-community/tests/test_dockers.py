@@ -95,6 +95,13 @@ class DockerImageTests(unittest.TestCase):
             "flair", "token-classification", "flair/chunk-english-fast"
         )
 
+    def test_sklearn(self):
+        self.framework_docker_test(
+            "sklearn",
+            "structured-data-classification",
+            "julien-c/wine-quality",
+        )
+
     def test_spacy(self):
         self.framework_docker_test(
             "spacy",
