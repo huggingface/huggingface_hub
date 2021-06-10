@@ -31,12 +31,16 @@
 </script>
 
 <script>
+	import ModeSwitcher from "$lib/_demo/ModeSwitcher.svelte";
+
 	export let model: ModelData | undefined;
 	export let message: string | undefined;
 </script>
 
 <div class="min-h-screen bg-gray-50 dark:bg-gray-900">
 	<a href="/" class="pt-3 ml-3 block underline">← Back to index</a>
+	<ModeSwitcher />
+
 	<div class="container py-24">
 		{#if model}
 			<div>
