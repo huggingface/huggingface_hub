@@ -12,6 +12,7 @@ DEFAULT_FILENAME = "sklearn_model.joblib"
 
 class StructuredDataClassificationPipeline(Pipeline):
     def __init__(self, model_id: str):
+        # TODO: Obtain expected column names from repo.
         self.model = joblib.load(
             cached_download(hf_hub_url(model_id, DEFAULT_FILENAME))
         )
@@ -30,4 +31,7 @@ class StructuredDataClassificationPipeline(Pipeline):
         Return:
             A :obj:`list` of floats or strings: The classification output for each row.
         """
+        # TODO: If there are expected column names, and the columns
+        # are passed, change the input order so it matches the
+        # expectation.
         return self.model.predict(inputs["data"]).tolist()
