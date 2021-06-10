@@ -1,8 +1,6 @@
 from typing import Dict, List, Union
 
 import joblib
-import numpy as np
-import pandas as pd
 from app.pipelines import Pipeline
 from huggingface_hub import cached_download, hf_hub_url
 
@@ -12,6 +10,7 @@ DEFAULT_FILENAME = "sklearn_model.joblib"
 
 class StructuredDataClassificationPipeline(Pipeline):
     def __init__(self, model_id: str):
+        # TODO: Obtain expected column names from repo.
         self.model = joblib.load(
             cached_download(hf_hub_url(model_id, DEFAULT_FILENAME))
         )
