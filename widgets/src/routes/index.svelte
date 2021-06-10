@@ -22,8 +22,9 @@
 	];
 </script>
 
-<div class="py-24 min-h-screen bg-gray-50 dark:bg-gray-900">
+<div class="py-24">
 	<ModeSwitcher />
+
 	<div
 		class="mx-4 space-y-4 lg:space-y-0 lg:grid lg:grid-cols-2 lg:gap-4 xl:grid-cols-3"
 	>

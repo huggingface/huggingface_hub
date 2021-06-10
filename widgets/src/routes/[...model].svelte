@@ -37,27 +37,25 @@
 	export let message: string | undefined;
 </script>
 
-<div class="min-h-screen bg-gray-50 dark:bg-gray-900">
-	<a href="/" class="pt-3 ml-3 block underline">← Back to index</a>
-	<ModeSwitcher />
+<a href="/" class="pt-3 ml-3 block underline">← Back to index</a>
+<ModeSwitcher />
 
-	<div class="container py-24">
-		{#if model}
-			<div>
-				<a class="text-xs block mb-3 text-gray-300" href="/{model.modelId}">
-					<code>{model.modelId}</code>
-				</a>
-				<div class="p-5 shadow-sm rounded-xl bg-white max-w-3xl">
-					<InferenceWidget {model} />
-				</div>
+<div class="container py-24">
+	{#if model}
+		<div>
+			<a class="text-xs block mb-3 text-gray-300" href="/{model.modelId}">
+				<code>{model.modelId}</code>
+			</a>
+			<div class="p-5 shadow-sm rounded-xl bg-white max-w-3xl">
+				<InferenceWidget {model} />
 			</div>
+		</div>
 
-			<pre
-				class="text-xs text-gray-900 px-3 py-4 mt-16">
-				{ JSON.stringify(model, null, 2) }
-			</pre>
-		{:else}
-			<div>Error. Probably non existent model. {message}</div>
-		{/if}
-	</div>
+		<pre
+			class="text-xs text-gray-900 px-3 py-4 mt-16">
+			{ JSON.stringify(model, null, 2) }
+		</pre>
+	{:else}
+		<div>Error. Probably non existent model. {message}</div>
+	{/if}
 </div>
