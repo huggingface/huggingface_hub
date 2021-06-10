@@ -22,12 +22,12 @@ async def pipeline_route(request: Request) -> Response:
     start = time.time()
     payload = await request.body()
     task = os.environ["TASK"]
-    pipe = request.app.pipeline
     try:
-        sampling_rate = pipe.sampling_rate
-    except Exception:
-        sampling_rate = None
-    try:
+        pipe = request.app.get_pipeline()
+        try:
+            sampling_rate = pipe.sampling_rate
+        except Exception:
+            sampling_rate = None
         inputs, params = normalize_payload(payload, task, sampling_rate=sampling_rate)
     except ValidationError as e:
         errors = []
