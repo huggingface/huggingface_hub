@@ -27,14 +27,15 @@ The model cards have a YAML section that specify metadata. These are the fields
 language: "ISO 639-1 code for your language, or `multilingual`"
 thumbnail: "url to a thumbnail used in social sharing"
 tags:
-- array
-- of
-- tags
+- tag1
+- tag2
 license: "any valid license identifier"
 datasets:
-- array of dataset identifiers
+- dataset1
+- dataset2
 metrics:
-- array of metric identifiers
+- metric1
+- metric2
 ---
 ```
 
