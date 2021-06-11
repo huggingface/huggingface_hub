@@ -237,6 +237,42 @@ class HfApiUploadFileTest(HfApiEndpointsTest):
         finally:
             self._api.delete_repo(token=self._token, name=REPO_NAME)
 
+    def test_upload_file_conflict(self):
+        self._api.create_repo(token=self._token, name=REPO_NAME)
+        try:
+            filecontent = BytesIO(b"File content, but in bytes IO")
+            self._api.upload_file(
+                path_or_fileobj=filecontent,
+                path_in_repo="temp/new_file.md",
+                repo_id=f"{USER}/{REPO_NAME}",
+                token=self._token,
+                identical_ok=True,
+            )
+
+            # No exception raised when identical_ok is True
+            self._api.upload_file(
+                path_or_fileobj=filecontent,
+                path_in_repo="temp/new_file.md",
+                repo_id=f"{USER}/{REPO_NAME}",
+                token=self._token,
+                identical_ok=True,
+            )
+
+            with self.assertRaises(HTTPError) as err_ctx:
+                self._api.upload_file(
+                    path_or_fileobj=filecontent,
+                    path_in_repo="temp/new_file.md",
+                    repo_id=f"{USER}/{REPO_NAME}",
+                    token=self._token,
+                    identical_ok=False,
+                )
+                self.assertEqual(err_ctx.exception.response.status_code, 409)
+
+        except Exception as err:
+            self.fail(err)
+        finally:
+            self._api.delete_repo(token=self._token, name=REPO_NAME)
+
 
 class HfApiPublicTest(unittest.TestCase):
     def test_staging_list_models(self):
