@@ -31,6 +31,7 @@ from .testing_utils import (
     DUMMY_MODEL_ID,
     DUMMY_MODEL_ID_REVISION_ONE_SPECIFIC_COMMIT,
     require_git_lfs,
+    set_write_permission_and_retry,
 )
 
 
@@ -118,7 +119,9 @@ class HfApiUploadFileTest(HfApiEndpointsTest):
         self.tmp_file_content = "Content of the file"
         with open(self.tmp_file, "w+") as f:
             f.write(self.tmp_file_content)
-        self.addCleanup(lambda: shutil.rmtree(self.tmp_dir))
+        self.addCleanup(
+            lambda: shutil.rmtree(self.tmp_dir, onerror=set_write_permission_and_retry)
+        )
 
     def test_upload_file_validation(self):
         with self.assertRaises(ValueError, msg="Wrong repo type"):
@@ -304,7 +307,7 @@ class HfLargefilesTest(HfApiCommonTest):
 
     def setUp(self):
         try:
-            shutil.rmtree(WORKING_REPO_DIR)
+            shutil.rmtree(WORKING_REPO_DIR, onerror=set_write_permission_and_retry)
         except FileNotFoundError:
             pass
 
