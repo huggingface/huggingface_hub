@@ -35,14 +35,13 @@ class StructuredDataClassificationTestCase(TestCase):
 
     def test_simple(self):
         data = [
-            [7.4, 0.7, 0, 1.9, 0.076, 11, 34, 0.9978, 3.51, 0.56, 9.4],
-            [7.8, 0.88, 0, 2.6, 0.098, 25, 67, 0.9968, 3.2, 0.68, 9.8],
+            [0.1, 1.3, 2.9],
+            [3.0, 1.3, 0.1]
         ]
 
         inputs = {"data": data}
         with TestClient(self.app) as client:
             response = client.post("/", json={"inputs": inputs})
-
         self.assertEqual(
             response.status_code,
             200,
