@@ -16,7 +16,7 @@ if is_torch_available():
     import torch
 
 try:
-    import joblib
+    import cloudpickle
 except importlib_metadata.PackageNotFoundError:
     pass
 
@@ -301,7 +301,7 @@ class SklearnPipelineHubMixin(object):
     @staticmethod
     def from_hub(
         repo_id_or_path: Union[str, os.PathLike],
-        model_filename: Optional[str] = "sklearn_model.joblib",
+        model_filename: Optional[str] = "sklearn_model.pickle",
         use_auth_token: Optional[Union[str, bool]] = None,
         cache_dir: Optional[str] = None,
         local_files_only: bool = False,
@@ -358,6 +358,7 @@ class SklearnPipelineHubMixin(object):
                 model_file_url = hf_hub_url(
                     model_id, filename=model_filename, revision=revision
                 )
+                print(model_file_url)
                 model_file = cached_download(
                     model_file_url,
                     cache_dir=cache_dir,
@@ -370,9 +371,8 @@ class SklearnPipelineHubMixin(object):
             except requests.exceptions.RequestException:
                 logger.warning(f"{model_filename} NOT FOUND in Hugging Face Hub")
                 model_file = None
-
         if model_file is not None:
-            return joblib.load(model_file)
+            return cloudpickle.load(open(model_file, "rb"))
         return None
 
 
@@ -380,7 +380,7 @@ class SklearnPipelineHubMixin(object):
         self,
         repo_name: str = None,
         organization: Optional[str] = None,
-        model_filename: Optional[str] = "sklearn_model.joblib",
+        model_filename: Optional[str] = "sklearn_model.pickle",
         private: bool = None,
         commit_message: Optional[str] = "add model",
         token: Optional[str] = None,
@@ -432,7 +432,7 @@ class SklearnPipelineHubMixin(object):
             repo_id = namespace + "/" + repo_name
 
             local_path = os.path.join(tmp_dir, model_filename)
-            joblib.dump(self, local_path)
+            cloudpickle.dump(self, open(local_path, "wb"))
             api.upload_file(
                 token,
                 path_or_fileobj=local_path,
