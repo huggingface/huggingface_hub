@@ -122,7 +122,7 @@ $$
 $$
 
 $$
-mse = (\frac{1}{n})\sum_{i=1}^{n}(y_{i} - x_{i})^{2}
+\mathrm{MSE} = \left(\frac{1}{n}\right)\sum_{i=1}^{n}(y_{i} - x_{i})^{2}
 $$
 
 $$ E=mc^2 $$
