@@ -1,10 +1,6 @@
 from typing import Dict, List, Union
 
-import joblib
-import numpy as np
-import pandas as pd
 from app.pipelines import Pipeline
-from huggingface_hub import cached_download, hf_hub_url
 
 
 class StructuredDataClassificationPipeline(Pipeline):
