@@ -34,10 +34,7 @@ class StructuredDataClassificationTestCase(TestCase):
             del os.environ["TASK"]
 
     def test_simple(self):
-        data = [
-            [0.1, 1.3, 2.9],
-            [3.0, 1.3, 0.1]
-        ]
+        data = [[0.1, 1.3, 2.9], [3.0, 1.3, 0.1]]
 
         inputs = {"data": data}
         with TestClient(self.app) as client:
