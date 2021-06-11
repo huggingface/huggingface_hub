@@ -294,7 +294,7 @@ class HfFolderTest(unittest.TestCase):
 
 
 @require_git_lfs
-class HfLargefilesTest(HfApiCommonTest):
+class HfLargeFilesBase(HfApiCommonTest):
     @classmethod
     def setUpClass(cls):
         """
@@ -327,6 +327,9 @@ class HfLargefilesTest(HfApiCommonTest):
             ["git", "lfs", "track", "*.epub"], check=True, cwd=WORKING_REPO_DIR
         )
 
+
+@require_git_lfs
+class HfLargefilesTest(HfLargeFilesBase):
     def test_end_to_end_thresh_6M(self):
         REMOTE_URL = self._api.create_repo(
             token=self._token, name=REPO_NAME_LARGE_FILE, lfsmultipartthresh=6 * 10 ** 6
@@ -407,3 +410,50 @@ class HfLargefilesTest(HfApiCommonTest):
         start_time = time.time()
         subprocess.run(["git", "push"], check=True, cwd=WORKING_REPO_DIR)
         print("took", time.time() - start_time)
+
+
+@require_git_lfs
+class HfSubtreeSizeTest(HfLargeFilesBase):
+    def clone_and_upload(self):
+        REMOTE_URL = self._api.create_repo(
+            token=self._token, name=REPO_NAME_LARGE_FILE, lfsmultipartthresh=6 * 10 ** 6
+        )
+        self.setup_local_clone(REMOTE_URL)
+
+        subprocess.run(
+            ["wget", LARGE_FILE_18MB],
+            check=True,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            cwd=WORKING_REPO_DIR,
+        )
+        subprocess.run(["git", "add", "*"], check=True, cwd=WORKING_REPO_DIR)
+        subprocess.run(
+            ["git", "commit", "-m", "commit message"], check=True, cwd=WORKING_REPO_DIR
+        )
+
+        subprocess.run(
+            ["huggingface-cli", "lfs-enable-largefiles", WORKING_REPO_DIR], check=True
+        )
+        subprocess.run(["git", "push"], check=True, cwd=WORKING_REPO_DIR)
+
+    def test_it_works(self):
+        self.clone_and_upload()
+
+        start_time = time.time()
+        size_dict = self._api.subtree_size(
+            token=self._token,
+            path_in_repo="/progit.pdf",
+            repo_id=REPO_NAME_LARGE_FILE,
+        )
+        duration = time.time() - start_time
+        print(f"treesize took {duration}s")
+
+        self.assertDictEqual(size_dict, dict(path="/progit.pdf", size=18685041))
+
+        with self.assertRaises(HTTPError):
+            self._api.subtree_size(
+                self._token,
+                path_in_repo="/does/not/exits.pt",
+                repo_id=REPO_NAME_LARGE_FILE,
+            )

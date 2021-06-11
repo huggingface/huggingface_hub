@@ -24,9 +24,10 @@ from typing import BinaryIO, Dict, Iterable, List, Optional, Tuple, Union
 
 
 if sys.version_info >= (3, 8):
-    from typing import Literal
+    from typing import Literal, TypedDict
 else:
     from typing_extensions import Literal
+    from typing_extensions import TypedDict
 
 import requests
 from requests.exceptions import HTTPError
@@ -38,6 +39,11 @@ ENDPOINT = "https://huggingface.co"
 REMOTE_FILEPATH_REGEX = re.compile(r"^\w[\w\/]*(\.\w+)?$")
 # ^^ No trailing slash, no backslash, no spaces, no relative parts ("." or "..")
 #    Only word characters and an optional extension
+
+
+class SubtreeSizeResponse(TypedDict):
+    path: str
+    size: int
 
 
 class RepoObj:
@@ -504,6 +510,63 @@ class HfApi:
         r.raise_for_status()
         d = r.json()
         return d["url"]
+
+    def subtree_size(
+        self,
+        token: str,
+        path_in_repo: str,
+        repo_id: str,
+        repo_type: Optional[str] = None,
+        revision: Optional[str] = None,
+    ) -> SubtreeSizeResponse:
+        """
+        Returns the size in bytes of the file or file tree located at the given path in the HF repository
+
+        Params:
+            token (``str``):
+                Authentication token, obtained with :function:`HfApi.login` method
+
+            path_in_repo (``str``):
+                Relative path to a file or directory in the repo, for example: ``"checkpoints/1fec34a/weights.bin"``
+                or ``"checkpoints/1fec34a"``
+
+            repo_id (``str``):
+                The repository in which the files are located, for example: ``"username/custom_dataset"``
+
+            repo_type (``str``, Optional):
+                Set to ``"dataset"`` if the repo is a dataset, ``None`` if the repo is a model. Default is ``None``.
+
+            revision (``str``, Optional):
+                The git revision of the repo. Defaults to the ``"main"`` branch.
+
+        Returns:
+            :class:`SubtreeSizeResponse`
+
+        Raises:
+            ``requests.HTTPError``: if the HuggingFace API returned an error, eg if the provided path or revision does not
+                exist in the repo
+        """
+        if repo_type not in REPO_TYPES:
+            raise ValueError("Invalid repo type, must be one of {}".format(REPO_TYPES))
+
+        repo_type_prefix = "datasets" if repo_type == REPO_TYPE_DATASET else "models"
+        revision = revision if revision is not None else "main"
+
+        url = "{}/api/{repo_type_prefix}/{repo_id}/treesize/{revision}/{path_in_repo}".format(
+            self.endpoint,
+            repo_type_prefix=repo_type_prefix,
+            repo_id=repo_id,
+            revision=revision,
+            path_in_repo=path_in_repo.lstrip("/"),
+        )
+        headers = (
+            {"authorization": "Bearer {}".format(token)} if token is not None else None
+        )
+
+        resp = requests.get(url, headers=headers)
+        resp.raise_for_status()
+
+        return resp.json()
 
 
 class HfFolder:
