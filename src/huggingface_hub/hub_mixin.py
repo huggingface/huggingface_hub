@@ -23,8 +23,80 @@ except importlib_metadata.PackageNotFoundError:
 
 logger = logging.getLogger(__name__)
 
+class PushToHubMixin(object):
+    @staticmethod
+    def push_to_hub(
+        save_directory: Optional[str],
+        model_id: Optional[str] = None,
+        repo_url: Optional[str] = None,
+        commit_message: Optional[str] = "add model",
+        organization: Optional[str] = None,
+        private: bool = None,
+        api_endpoint=None,
+        use_auth_token: Union[bool, str, None] = None,
+        git_user: Optional[str] = None,
+        git_email: Optional[str] = None,
+    ) -> str:
+        """
+        Parameters:
+            save_directory (:obj:`Union[str, os.PathLike]`):
+                Directory with the model.
+            model_id (:obj:`str`, `optional`, defaults to :obj:`save_directory`):
+                Repo name in huggingface_hub. If not specified, repo name will be same as `save_directory`
+            repo_url (:obj:`str`, `optional`):
+                Specify this in case you want to push to existing repo in hub.
+            organization (:obj:`str`, `optional`):
+                Organization in which you want to push your model.
+            private (:obj:`bool`, `optional`):
+                private: Whether the model repo should be private (requires a paid huggingface.co account)
+            commit_message (:obj:`str`, `optional`, defaults to :obj:`add model`):
+                Message to commit while pushing
+            api_endpoint (:obj:`str`, `optional`):
+                The API endpoint to use when pushing the model to the hub.
+            use_auth_token (``str`` or ``bool``, `optional`, defaults ``None``):
+                huggingface_token can be extract from ``HfApi().login(username, password)`` and is used to authenticate
+                 against the hub (useful from Google Colab for instance).
+            git_user (``str``, `optional`, defaults ``None``):
+                will override the ``git config user.name`` for committing and pushing files to the hub.
+            git_email (``str``, `optional`, defaults ``None``):
+                will override the ``git config user.email`` for committing and pushing files to the hub.
 
-class ModelHubMixin(object):
+        Returns:
+            url to commit on remote repo.
+        """
+        if model_id is None:
+            model_id = save_directory.split("/")[-1]
+
+        # The auth token is necessary to create a repo
+        if isinstance(use_auth_token, str):
+            huggingface_token = use_auth_token
+        elif use_auth_token is None and repo_url is not None:
+            # If the repo url exists, then no need for a token
+            huggingface_token = None
+        else:
+            huggingface_token = HfFolder.get_token()
+
+        if repo_url is None:
+            repo_url = HfApi(endpoint=api_endpoint).create_repo(
+                huggingface_token,
+                model_id,
+                organization=organization,
+                private=private,
+                repo_type=None,
+                exist_ok=True,
+            )
+
+        repo = Repository(
+            save_directory,
+            clone_from=repo_url,
+            use_auth_token=use_auth_token,
+            git_user=git_user,
+            git_email=git_email,
+        )
+
+        return repo.push_to_hub(commit_message=commit_message)
+
+class ModelHubMixin(PushToHubMixin):
     def __init__(self, *args, **kwargs):
         """
         Mix this class with your torch-model class for ease process of saving & loading from huggingface-hub
@@ -66,8 +138,6 @@ class ModelHubMixin(object):
                 specify config (must be dict) incase you want to save it.
             push_to_hub (:obj:`bool`, `optional`, defaults to :obj:`False`):
                 Set it to `True` in case you want to push your weights to huggingface_hub
-            model_id (:obj:`str`, `optional`, defaults to :obj:`save_directory`):
-                Repo name in huggingface_hub. If not specified, repo name will be same as `save_directory`
             kwargs (:obj:`Dict`, `optional`):
                 kwargs will be passed to `push_to_hub`
         """
@@ -206,80 +276,8 @@ class ModelHubMixin(object):
 
         return model
 
-    @staticmethod
-    def push_to_hub(
-        save_directory: Optional[str],
-        model_id: Optional[str] = None,
-        repo_url: Optional[str] = None,
-        commit_message: Optional[str] = "add model",
-        organization: Optional[str] = None,
-        private: bool = None,
-        api_endpoint=None,
-        use_auth_token: Union[bool, str, None] = None,
-        git_user: Optional[str] = None,
-        git_email: Optional[str] = None,
-    ) -> str:
-        """
-        Parameters:
-            save_directory (:obj:`Union[str, os.PathLike]`):
-                Directory having model weights & config.
-            model_id (:obj:`str`, `optional`, defaults to :obj:`save_directory`):
-                Repo name in huggingface_hub. If not specified, repo name will be same as `save_directory`
-            repo_url (:obj:`str`, `optional`):
-                Specify this in case you want to push to existing repo in hub.
-            organization (:obj:`str`, `optional`):
-                Organization in which you want to push your model.
-            private (:obj:`bool`, `optional`):
-                private: Whether the model repo should be private (requires a paid huggingface.co account)
-            commit_message (:obj:`str`, `optional`, defaults to :obj:`add model`):
-                Message to commit while pushing
-            api_endpoint (:obj:`str`, `optional`):
-                The API endpoint to use when pushing the model to the hub.
-            use_auth_token (``str`` or ``bool``, `optional`, defaults ``None``):
-                huggingface_token can be extract from ``HfApi().login(username, password)`` and is used to authenticate
-                 against the hub (useful from Google Colab for instance).
-            git_user (``str``, `optional`, defaults ``None``):
-                will override the ``git config user.name`` for committing and pushing files to the hub.
-            git_email (``str``, `optional`, defaults ``None``):
-                will override the ``git config user.email`` for committing and pushing files to the hub.
 
-        Returns:
-            url to commit on remote repo.
-        """
-        if model_id is None:
-            model_id = save_directory.split("/")[-1]
-
-        # The auth token is necessary to create a repo
-        if isinstance(use_auth_token, str):
-            huggingface_token = use_auth_token
-        elif use_auth_token is None and repo_url is not None:
-            # If the repo url exists, then no need for a token
-            huggingface_token = None
-        else:
-            huggingface_token = HfFolder.get_token()
-
-        if repo_url is None:
-            repo_url = HfApi(endpoint=api_endpoint).create_repo(
-                huggingface_token,
-                model_id,
-                organization=organization,
-                private=private,
-                repo_type=None,
-                exist_ok=True,
-            )
-
-        repo = Repository(
-            save_directory,
-            clone_from=repo_url,
-            use_auth_token=use_auth_token,
-            git_user=git_user,
-            git_email=git_email,
-        )
-
-        return repo.push_to_hub(commit_message=commit_message)
-
-
-class SklearnPipelineHubMixin(object):
+class SklearnPipelineHubMixin(PushToHubMixin):
     def __init__(self, *args, **kwargs):
         """
         Mix this class with your sklearn pipeline for ease process of saving & loading
@@ -292,14 +290,44 @@ class SklearnPipelineHubMixin(object):
             >>>
             >>> # Pushing to Hub
             >>> pipe = MyPipeline([('scaler', StandardScaler()), ('svc', SVC())])
-            >>> pipe.push_to_hub("random_regression")
+            >>> pipe.save_pretrained("mymodel", push_to_hub=False) # Saving model in directory
+            >>> pipe.push_to_hub("mymodel", "model-1") # Pushing model to HF Hub
             >>>
             >>> # Loading from Hub
             >>> pipe = SklearnPipelineHubMixin.from_pretrained("username/mymodel")
         """
 
+    def save_pretrained(
+        self,
+        save_directory: str,
+        model_filename: Optional[str] = "sklearn_model.pickle",
+        push_to_hub: bool = False,
+        **kwargs,
+    ):
+        """
+        Save model in local directory.
+
+        Parameters:
+            save_directory (:obj:`str`):
+                Specify directory in which you want to save weights.
+            config (:obj:`dict`, `optional`):
+                specify config (must be dict) incase you want to save it.
+            push_to_hub (:obj:`bool`, `optional`, defaults to :obj:`False`):
+                Set it to `True` in case you want to push your weights to huggingface_hub
+            model_filename: (:obj:`str`, `optional`, defaults to :obj:`sklearn_model.joblib`):
+                The name of the model file to be saved.
+            kwargs (:obj:`Dict`, `optional`):
+                kwargs will be passed to `push_to_hub`
+        """
+        os.makedirs(save_directory, exist_ok=True)
+
+        local_path = os.path.join(save_directory, model_filename)
+        cloudpickle.dump(self, open(local_path, "wb"))
+        if push_to_hub:
+            return self.push_to_hub(save_directory, **kwargs)
+
     @staticmethod
-    def from_hub(
+    def from_pretrained(
         repo_id_or_path: Union[str, os.PathLike],
         model_filename: Optional[str] = "sklearn_model.pickle",
         use_auth_token: Optional[Union[str, bool]] = None,
@@ -323,9 +351,9 @@ class SklearnPipelineHubMixin(object):
                         It can be a branch name, a tag name, or a commit id, since we use a git-based system
                         for storing models and other artifacts on huggingface.co, so ``revision`` can be any
                         identifier allowed by git.
-                    - A path to a `directory` containing the saved pipeline using :func:`~joblib.dump`, e.g.,
+                    - A path to a `directory` containing the saved pipeline using :func:`~cloudpickle.dump`, e.g.,
                         ``./my_model_directory/``.
-            model_filename: (:obj:`str`, `optional`, defaults to :obj:`sklearn_model.joblib`):
+            model_filename: (:obj:`str`, `optional`, defaults to :obj:`sklearn_model.pickle`):
                 The name of the model file in the directory or repository.
             use_auth_token (:obj:`str` or `bool`, `optional`):
                 The token to use as HTTP bearer authorization for remote files. If :obj:`True`, will use
@@ -358,7 +386,6 @@ class SklearnPipelineHubMixin(object):
                 model_file_url = hf_hub_url(
                     model_id, filename=model_filename, revision=revision
                 )
-                print(model_file_url)
                 model_file = cached_download(
                     model_file_url,
                     cache_dir=cache_dir,
@@ -374,68 +401,3 @@ class SklearnPipelineHubMixin(object):
         if model_file is not None:
             return cloudpickle.load(open(model_file, "rb"))
         return None
-
-
-    def push_to_hub(
-        self,
-        repo_name: str = None,
-        organization: Optional[str] = None,
-        model_filename: Optional[str] = "sklearn_model.pickle",
-        private: bool = None,
-        commit_message: Optional[str] = "add model",
-        token: Optional[str] = None,
-        api_endpoint: Optional[str] = None,
-    ):
-        """
-        Args:
-            repo_name (:obj:`str`):
-                Repo name in huggingface_hub.
-            organization (:obj:`str`, `optional`):
-                Organization in which you want to push your model.
-            model_filename: (:obj:`str`, `optional`, defaults to :obj:`sklearn_model.joblib`):
-                The name of the model file to be saved.
-            private (:obj:`bool`, `optional`):
-                private: Whether the model repo should be private (requires a paid huggingface.co account).
-            commit_message (:obj:`str`, `optional`, defaults to :obj:`add model`):
-                Message to commit while pushing
-            token (``str``, `optional`, defaults ``None``):
-                huggingface_token can be extracted from ``HfApi().login(username, password)`` and is used 
-                to authenticate against the hub (useful from Google Colab for instance).
-            api_endpoint (:obj:`str`, `optional`):
-                The API endpoint to use when pushing the model to the hub.
-        Returns:
-            url to commit on remote repo.
-        """
-
-        if token is None:
-            token = HfFolder.get_token()
-            if token is None:
-                raise ValueError(
-                    "You must login to the Hugging Face Hub on this computer by typing `huggingface-cli login`."
-                )
-
-        api = HfApi()
-        api.create_repo(
-            token,
-            repo_name,
-            organization=organization,
-            private=None,
-            repo_type=None,
-            exist_ok=True,
-        )
-
-        with tempfile.TemporaryDirectory() as tmp_dir:
-            # Get repo_id (e.g. org/repo_name or user/repo_name)
-            namespace = organization
-            if not namespace:
-                namespace, _ = api.whoami(token)
-            repo_id = namespace + "/" + repo_name
-
-            local_path = os.path.join(tmp_dir, model_filename)
-            cloudpickle.dump(self, open(local_path, "wb"))
-            api.upload_file(
-                token,
-                path_or_fileobj=local_path,
-                path_in_repo=model_filename,
-                repo_id=repo_id,
-            )
