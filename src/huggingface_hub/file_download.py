@@ -73,11 +73,14 @@ except importlib_metadata.PackageNotFoundError:
 def is_torch_available():
     return _torch_available
 
+
 def is_tf_available():
     return _tf_available
 
+
 def is_sklearn_available():
     return _sklearn_available
+
 
 def is_cloudpickle_available():
     return _cloudpickle_available

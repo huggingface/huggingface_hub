@@ -1,13 +1,17 @@
 import json
 import logging
 import os
-import tempfile
 from typing import Dict, Optional, Union
 
 import requests
 
 from .constants import CONFIG_NAME, PYTORCH_WEIGHTS_NAME
-from .file_download import cached_download, hf_hub_url, is_torch_available, is_cloudpickle_available
+from .file_download import (
+    cached_download,
+    hf_hub_url,
+    is_cloudpickle_available,
+    is_torch_available,
+)
 from .hf_api import HfApi, HfFolder
 from .repository import Repository
 

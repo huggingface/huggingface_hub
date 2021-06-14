@@ -4,7 +4,11 @@ import time
 import unittest
 
 from huggingface_hub import HfApi
-from huggingface_hub.file_download import is_torch_available, is_sklearn_available, is_cloudpickle_available
+from huggingface_hub.file_download import (
+    is_cloudpickle_available,
+    is_sklearn_available,
+    is_torch_available,
+)
 from huggingface_hub.hub_mixin import ModelHubMixin, SklearnPipelineHubMixin
 
 from .testing_constants import ENDPOINT_STAGING, PASS, USER
@@ -135,10 +139,10 @@ class HubMixinTest(HubMixinCommonTest):
         self._api.delete_repo(token=self._token, name=f"{REPO_NAME}-PUSH_TO_HUB")
 
 
-if is_sklearn_available() and is_cloudpickle_available():
-    import cloudpickle
+if is_sklearn_available():
     from sklearn.pipeline import Pipeline
     from sklearn.svm import SVC
+
 
 def require_sklearn(test_case):
     """
@@ -277,9 +281,5 @@ class SklearnHubMixinTest(SklearnHubMixinCommonTest):
             f"{USER}/{REPO_NAME}-PUSH_TO_HUB",
         )
         self.assertEqual(model_info.modelId, f"{USER}/{REPO_NAME}-PUSH_TO_HUB")
-
-        new_model = SklearnPipelineHubMixin.from_pretrained(f"{REPO_NAME}-PUSH_TO_HUB")
-        self.assertTrue(len(model.steps) == 1)
-        self.assertTrue(model.steps[0][0] == "svc")
 
         self._api.delete_repo(token=self._token, name=f"{REPO_NAME}-PUSH_TO_HUB")
