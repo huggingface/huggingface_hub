@@ -33,7 +33,7 @@ jobs:
 
       - run: pytest -sv ./tests/
 
-  build_pytorch:
+  build_dependencies:
     runs-on: ubuntu-latest
 
     steps:
@@ -44,10 +44,10 @@ jobs:
       with:
         python-version: ${{ matrix.python-version }}
 
-    - name: Install dependencies
+    - name: Install test dependencies
       run: |
         pip install --upgrade pip
-        pip install .[testing,torch]
+        pip install .[testing,torch,sklearn]
 
     - run: pytest -sv ./tests/
 
