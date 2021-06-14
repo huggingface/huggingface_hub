@@ -43,7 +43,7 @@ Here are some examples:
 
 ## What's the Inference API?
 
-The Inference API allows doing simple HTTP requests to models in the 🤗 Hub. The Inference API is 2x to 10x faster than the widgets! ⚡⚡
+The Inference API allows you to send HTTP requests to models in the 🤗 Hub. The Inference API is 2x to 10x faster than the widgets! ⚡⚡
 
 
 ## How can I explore the 🤗 Hub?
@@ -56,7 +56,7 @@ To determine which pipeline and widget to display (`text-classification`, `token
 
 For most use cases, the model type is determined from the tags. For example, if there is `tag: text-classification` in the metadata, the inferred `pipeline_tag` will be `text-classification`.
 
-For `🤗 Transformers`, additional information is obtained from `config.json`. The architecture can be used to determine the type: for example, `AutoModelForTokenClassification` corresponds to `token-classification`. If you're really interested on this, you can see pseudo-code in [this gist](https://gist.github.com/julien-c/857ba86a6c6a895ecd90e7f7cab48046).
+For `🤗 Transformers`, additional information is obtained from `config.json`. The architecture can be used to determine the type: for example, `AutoModelForTokenClassification` corresponds to `token-classification`. If you're really interested in this, you can see pseudo-code in [this gist](https://gist.github.com/julien-c/857ba86a6c6a895ecd90e7f7cab48046).
 
 **You can always manually override your pipeline type with pipeline_tag: xxx in your model card metadata.**
 
