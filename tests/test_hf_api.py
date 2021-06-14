@@ -357,7 +357,8 @@ class HfLargefilesTest(HfApiCommonTest):
         subprocess.run(
             ["git", "clone", REMOTE_URL_AUTH, WORKING_REPO_DIR],
             check=True,
-            capture_output=True,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
         )
         subprocess.run(
             ["git", "lfs", "track", "*.pdf"], check=True, cwd=WORKING_REPO_DIR
@@ -375,7 +376,8 @@ class HfLargefilesTest(HfApiCommonTest):
         subprocess.run(
             ["wget", LARGE_FILE_18MB],
             check=True,
-            capture_output=True,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
             cwd=WORKING_REPO_DIR,
         )
         subprocess.run(["git", "add", "*"], check=True, cwd=WORKING_REPO_DIR)
@@ -385,7 +387,10 @@ class HfLargefilesTest(HfApiCommonTest):
 
         # This will fail as we haven't set up our custom transfer agent yet.
         failed_process = subprocess.run(
-            ["git", "push"], capture_output=True, cwd=WORKING_REPO_DIR
+            ["git", "push"],
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            cwd=WORKING_REPO_DIR,
         )
         self.assertEqual(failed_process.returncode, 1)
         self.assertIn("cli lfs-enable-largefiles", failed_process.stderr.decode())
@@ -405,7 +410,8 @@ class HfLargefilesTest(HfApiCommonTest):
         subprocess.run(
             ["wget", pdf_url, "-O", DEST_FILENAME],
             check=True,
-            capture_output=True,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
             cwd=WORKING_REPO_DIR,
         )
         dest_filesize = os.stat(os.path.join(WORKING_REPO_DIR, DEST_FILENAME)).st_size
@@ -423,13 +429,15 @@ class HfLargefilesTest(HfApiCommonTest):
         subprocess.run(
             ["wget", LARGE_FILE_18MB],
             check=True,
-            capture_output=True,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
             cwd=WORKING_REPO_DIR,
         )
         subprocess.run(
             ["wget", LARGE_FILE_14MB],
             check=True,
-            capture_output=True,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
             cwd=WORKING_REPO_DIR,
         )
         subprocess.run(["git", "add", "*"], check=True, cwd=WORKING_REPO_DIR)
