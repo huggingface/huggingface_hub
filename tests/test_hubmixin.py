@@ -10,6 +10,7 @@ from huggingface_hub.hub_mixin import ModelHubMixin, SklearnPipelineHubMixin
 from .testing_constants import ENDPOINT_STAGING, PASS, USER
 from .testing_utils import set_write_permission_and_retry
 
+
 REPO_NAME = "mixin-repo-{}".format(int(time.time() * 10e3))
 
 WORKING_REPO_SUBDIR = "fixtures/working_repo_2"
@@ -136,16 +137,19 @@ class HubMixinTest(HubMixinCommonTest):
 
 def is_sklearn_available():
     try:
-        import sklearn
         import cloudpickle
+        import sklearn
+
         return True
     except importlib_metadata.PackageNotFoundError:
         return False
-    
+
+
 if is_sklearn_available():
+    import cloudpickle
     from sklearn.pipeline import Pipeline
     from sklearn.svm import SVC
-    import cloudpickle
+
 
 def require_sklearn(test_case):
     """
@@ -159,10 +163,14 @@ def require_sklearn(test_case):
     else:
         return test_case
 
+
 if is_sklearn_available():
+
     class SkLearnDummyModel(Pipeline, SklearnPipelineHubMixin):
         def __init__(self, steps):
             super().__init__(steps)
+
+
 else:
     SkLearnDummyModel = None
 
@@ -186,11 +194,13 @@ class SklearnHubMixinTest(SklearnHubMixinCommonTest):
         Share this valid token in all tests below.
         """
         cls._token = cls._api.login(username=USER, password=PASS)
-    
+
     def test_save_pretrained(self):
-        model = SkLearnDummyModel([
-            ('svc', SVC()),
-        ])
+        model = SkLearnDummyModel(
+            [
+                ("svc", SVC()),
+            ]
+        )
 
         model.save_pretrained(f"{WORKING_REPO_DIR}/{REPO_NAME}")
         files = os.listdir(f"{WORKING_REPO_DIR}/{REPO_NAME}")
@@ -198,19 +208,25 @@ class SklearnHubMixinTest(SklearnHubMixinCommonTest):
         self.assertEqual(len(files), 1)
 
     def test_save_pretrained_with_name(self):
-        model = SkLearnDummyModel([
-            ('svc', SVC()),
-        ])
+        model = SkLearnDummyModel(
+            [
+                ("svc", SVC()),
+            ]
+        )
 
-        model.save_pretrained(f"{WORKING_REPO_DIR}/{REPO_NAME}", model_filename="model.pickle")
+        model.save_pretrained(
+            f"{WORKING_REPO_DIR}/{REPO_NAME}", model_filename="model.pickle"
+        )
         files = os.listdir(f"{WORKING_REPO_DIR}/{REPO_NAME}")
         self.assertTrue("model.pickle" in files)
         self.assertEqual(len(files), 1)
 
     def test_from_pretrained_rel_path(self):
-        model = SkLearnDummyModel([
-            ('svc', SVC()),
-        ])
+        model = SkLearnDummyModel(
+            [
+                ("svc", SVC()),
+            ]
+        )
         model.save_pretrained(
             f"tests/{WORKING_REPO_SUBDIR}/FROM_PRETRAINED",
         )
@@ -222,23 +238,25 @@ class SklearnHubMixinTest(SklearnHubMixinCommonTest):
         self.assertTrue(model.steps[0][0] == "svc")
 
     def test_from_pretrained_abs_path(self):
-        model = SkLearnDummyModel([
-            ('svc', SVC()),
-        ])
-        model.save_pretrained(
-            f"{WORKING_REPO_DIR}/{REPO_NAME}-FROM_PRETRAINED"
+        model = SkLearnDummyModel(
+            [
+                ("svc", SVC()),
+            ]
         )
+        model.save_pretrained(f"{WORKING_REPO_DIR}/{REPO_NAME}-FROM_PRETRAINED")
 
         model = SklearnPipelineHubMixin.from_pretrained(
             f"{WORKING_REPO_DIR}/{REPO_NAME}-FROM_PRETRAINED"
         )
         self.assertTrue(len(model.steps) == 1)
         self.assertTrue(model.steps[0][0] == "svc")
-    
+
     def test_from_pretrained_with_custom_name(self):
-        model = SkLearnDummyModel([
-            ('svc', SVC()),
-        ])
+        model = SkLearnDummyModel(
+            [
+                ("svc", SVC()),
+            ]
+        )
         model.save_pretrained(
             f"tests/{WORKING_REPO_SUBDIR}/FROM_PRETRAINED", "model.pickle"
         )
@@ -250,12 +268,12 @@ class SklearnHubMixinTest(SklearnHubMixinCommonTest):
         self.assertTrue(model.steps[0][0] == "svc")
 
     def test_push_to_hub(self):
-        model = SkLearnDummyModel([
-            ('svc', SVC()),
-        ])
-        model.save_pretrained(
-            f"{WORKING_REPO_DIR}/{REPO_NAME}-PUSH_TO_HUB"
+        model = SkLearnDummyModel(
+            [
+                ("svc", SVC()),
+            ]
         )
+        model.save_pretrained(f"{WORKING_REPO_DIR}/{REPO_NAME}-PUSH_TO_HUB")
 
         model.push_to_hub(
             f"{WORKING_REPO_DIR}/{REPO_NAME}-PUSH_TO_HUB",
@@ -271,9 +289,7 @@ class SklearnHubMixinTest(SklearnHubMixinCommonTest):
         )
         self.assertEqual(model_info.modelId, f"{USER}/{REPO_NAME}-PUSH_TO_HUB")
 
-        new_model = SklearnPipelineHubMixin.from_pretrained(
-            f"{REPO_NAME}-PUSH_TO_HUB"
-        )
+        new_model = SklearnPipelineHubMixin.from_pretrained(f"{REPO_NAME}-PUSH_TO_HUB")
         self.assertTrue(len(model.steps) == 1)
         self.assertTrue(model.steps[0][0] == "svc")
 

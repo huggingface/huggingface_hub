@@ -1,10 +1,10 @@
 import json
 import logging
 import os
+import tempfile
 from typing import Dict, Optional, Union
 
 import requests
-import tempfile
 
 from .constants import CONFIG_NAME, PYTORCH_WEIGHTS_NAME
 from .file_download import cached_download, hf_hub_url, is_torch_available
@@ -22,6 +22,7 @@ except importlib_metadata.PackageNotFoundError:
 
 
 logger = logging.getLogger(__name__)
+
 
 class PushToHubMixin(object):
     @staticmethod
@@ -95,6 +96,7 @@ class PushToHubMixin(object):
         )
 
         return repo.push_to_hub(commit_message=commit_message)
+
 
 class ModelHubMixin(PushToHubMixin):
     def __init__(self, *args, **kwargs):
@@ -310,8 +312,6 @@ class SklearnPipelineHubMixin(PushToHubMixin):
         Parameters:
             save_directory (:obj:`str`):
                 Specify directory in which you want to save weights.
-            config (:obj:`dict`, `optional`):
-                specify config (must be dict) incase you want to save it.
             push_to_hub (:obj:`bool`, `optional`, defaults to :obj:`False`):
                 Set it to `True` in case you want to push your weights to huggingface_hub
             model_filename: (:obj:`str`, `optional`, defaults to :obj:`sklearn_model.joblib`):
@@ -368,7 +368,7 @@ class SklearnPipelineHubMixin(PushToHubMixin):
                 Whether or not to force the (re-)download of the model weights and configuration files,
                 overriding the cached versions if they exist.
             resume_download (:obj:`bool`, `optional`, defaults to :obj:`False`):
-                Whether or not to delete incompletely received files. Will attempt to resume the download if 
+                Whether or not to delete incompletely received files. Will attempt to resume the download if
                 such a file exists.
             proxies (:obj:`Dict[str, str], `optional`):
                 A dictionary of proxy servers to use by protocol or endpoint, e.g., :obj:`{'http': 'foo.bar:3128',
