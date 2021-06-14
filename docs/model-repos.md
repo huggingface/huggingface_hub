@@ -22,7 +22,7 @@ If needed you can find the specification [here](https://raw.githubusercontent.co
 
 The model cards have a YAML section that specify metadata. These are the fields
 
-```
+```yaml
 ---
 language: "ISO 639-1 code for your language, or `multilingual`"
 thumbnail: "url to a thumbnail used in social sharing"
@@ -46,7 +46,7 @@ Some useful information on them:
 
 
 Here is an example: 
-```
+```yaml
 ---
 language:
 - ru
@@ -66,7 +66,7 @@ metrics:
 
 You can specify the widget input in the model card metadata section:
 
-```
+```yaml
 widget:
 - text: "Jens Peter Hansen kommer fra Danmark"
 ```
@@ -75,7 +75,7 @@ widget:
 
 Yes!🔥 You can specify the framework in the model card metadata section:
 
-```
+```yaml
 tags:
 - flair
 ```
@@ -86,7 +86,7 @@ Find more about our supported libraries [here](/docs/libraries)!
 
 You can specify the dataset in the metadata:
 
-```
+```yaml
 datasets:
 - wmt19
 ```
@@ -96,7 +96,7 @@ datasets:
 
 You can use the [`huggingface_hub`](https://github.com/huggingface/huggingface_hub) library to create, delete, update and retrieve information from repos. You can also use it to download files from repos and integrate it to your own library! For example, you can easily load a Scikit learn model with few lines.
 
-```
+```py
 from huggingface_hub import hf_hub_url, cached_download
 import joblib
 
