@@ -43,7 +43,7 @@ Here are some examples:
 
 ## What's the Inference API?
 
-The Inference API allows doing simple HTTP requests to models in the 🤗 Hub. The Inference API is 2x to 10x faster than the widgets! ⚡⚡
+The Inference API allows you to send HTTP requests to models in the 🤗 Hub. The Inference API is 2x to 10x faster than the widgets! ⚡⚡
 
 
 ## How can I explore the 🤗 Hub?
