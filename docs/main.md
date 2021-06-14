@@ -82,7 +82,10 @@ Here are some with links to examples:
 
 ## How can I load/push from/to the Hub?
 
-You have access to the repos as with any other Git-based repository! You can even upload very large files. Read more about it [here](https://huggingface.co/welcome).
+You have access to the repos as with any other Git-based repository! You can even upload very large files. 
+
+Here is a video to learn more about it from our [course](http://hf.co/course)!
+[![Model Hub Video](https://img.youtube.com/vi/rkCly_cbMBk/0.jpg)](https://www.youtube.com/watch?v=rkCly_cbMBk)
 
 ## What's the origin of 🤗 name? 
 
