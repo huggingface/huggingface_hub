@@ -4,7 +4,7 @@ import time
 import unittest
 
 from huggingface_hub import HfApi
-from huggingface_hub.file_download import is_torch_available
+from huggingface_hub.file_download import is_torch_available, is_sklearn_available, is_cloudpickle_available
 from huggingface_hub.hub_mixin import ModelHubMixin, SklearnPipelineHubMixin
 
 from .testing_constants import ENDPOINT_STAGING, PASS, USER
@@ -135,22 +135,10 @@ class HubMixinTest(HubMixinCommonTest):
         self._api.delete_repo(token=self._token, name=f"{REPO_NAME}-PUSH_TO_HUB")
 
 
-def is_sklearn_available():
-    try:
-        import cloudpickle
-        import sklearn
-
-        return True
-
-    except ModuleNotFoundError:
-        return False
-
-
-if is_sklearn_available():
+if is_sklearn_available() and is_cloudpickle_available():
     import cloudpickle
     from sklearn.pipeline import Pipeline
     from sklearn.svm import SVC
-
 
 def require_sklearn(test_case):
     """
@@ -159,13 +147,13 @@ def require_sklearn(test_case):
     These tests are skipped when Sklearn and Cloudpickle aren't installed.
 
     """
-    if not is_sklearn_available():
+    if not is_sklearn_available() or not is_cloudpickle_available():
         return unittest.skip("test requires Sklearn and Cloudpickle")(test_case)
     else:
         return test_case
 
 
-if is_sklearn_available():
+if is_sklearn_available() and is_cloudpickle_available():
 
     class SkLearnDummyModel(Pipeline, SklearnPipelineHubMixin):
         def __init__(self, steps):
