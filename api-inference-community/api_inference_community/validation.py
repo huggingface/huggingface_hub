@@ -124,15 +124,12 @@ class TableQuestionAnsweringInputsCheck(BaseModel):
     query: str
 
     @validator("table")
-    def all_rows_must_have_same_length(
-        cls, table: Dict[str, List[str]]
-    ):
+    def all_rows_must_have_same_length(cls, table: Dict[str, List[str]]):
         rows = list(table.values())
         n = len(rows[0])
         if all(len(x) == n for x in rows):
             return table
         raise ValueError("All rows in the table must be the same length")
-
 
 
 PARAMS_MAPPING = {
@@ -151,6 +148,8 @@ INPUTS_MAPPING = {
     "table-question-answering": TableQuestionAnsweringInputsCheck,
 }
 
+BATCH_ENABLED__PIPELINES = ["feature-extraction"]
+
 
 def check_params(params, tag):
     if tag in PARAMS_MAPPING:
@@ -161,9 +160,18 @@ def check_params(params, tag):
 def check_inputs(inputs, tag):
     if tag in INPUTS_MAPPING:
         INPUTS_MAPPING[tag].parse_obj(inputs)
+    elif tag in BATCH_ENABLED__PIPELINES:
+        if isinstance(inputs, list):
+            if len(inputs) == 0:
+                raise ValueError(
+                    "The inputs is invalid, at least one input is required"
+                )
+            if not all(isinstance(input, str) for input in inputs):
+                raise ValueError("The inputs is invalid, we expect a list of strings")
+        elif not isinstance(inputs, str):
+            raise ValueError("The inputs is invalid, we expect a string")
     else:
         # Some tasks just expect {inputs: "str"}. Such as:
-        # feature-extraction
         # fill-mask
         # text2text-generation
         # text-classification
