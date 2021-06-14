@@ -32,11 +32,9 @@ On top of that, 🤗 Hub repositories have many other advantages:
 
 ## What's a widget?
 
-Many repos have a widget that allows anyone to do inference directly on the browser! Here is an example in which the model determines what's the most likely word in the middle of a sentence.
+Many repos have a widget that allows anyone to do inference directly on the browser!
 
-![A screenshot of a widget for the fill-token task.](/docs/assets/widget.png)
-
-Here are other examples:
+Here are some examples:
 * [Named Entity Recognition](https://huggingface.co/spacy/en_core_web_sm?text=My+name+is+Sarah+and+I+live+in+London) using [spaCy](https://spacy.io/).
 * [Image Classification](https://huggingface.co/google/vit-base-patch16-224) using [🤗 Transformers](https://github.com/huggingface/transformers)
 * [Text to Speech](https://huggingface.co/julien-c/ljspeech_tts_train_tacotron2_raw_phn_tacotron_g2p_en_no_space_train) using [ESPnet](https://github.com/espnet/espnet).
@@ -49,7 +47,8 @@ The Inference API allows doing simple HTTP requests to models in the 🤗 Hub. T
 
 
 ## How can I explore the 🤗 Hub?
-**Add video from Lysandre here**
+
+[![Model Hub Video](https://img.youtube.com/vi/XvSGPZFEjDY/0.jpg)](https://www.youtube.com/watch?v=XvSGPZFEjDY)
 
 ## How is a model's type of inference API and widget determined?
 
@@ -84,8 +83,6 @@ Here are some with links to examples:
 ## How can I load/push from/to the Hub?
 
 You have access to the repos as with any other Git-based repository! You can even upload very large files. Read more about it [here](https://huggingface.co/welcome).
-
-TODO: Add video.
 
 ## What's the origin of 🤗 name? 
 
