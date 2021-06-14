@@ -55,3 +55,45 @@ export const PIPELINE_TYPE_PRETTY_NAMES: { [key in PipelineType]: string } = {
 	"image-segmentation":                                       "Image Segmentation",
 };
 
+
+
+/**
+ * Public interface for model metadata
+ */
+export interface ModelData {
+	/**
+	 * id of model (e.g. 'user/repo_name')
+	 */
+	modelId: string;
+	/**
+	 * is this model private?
+	 */
+	private?: boolean;
+	/**
+	 * this dictionary has useful information about the model configuration
+	 */
+	config?: Record<string, any>;
+	/**
+	 * all the model tags
+	 */
+	tags?: string[];
+	/**
+	 * this is transformers-specific
+	 */
+	autoArchitecture?: string;
+	/**
+	 * Pipeline type
+	 */
+	pipeline_tag?: (keyof typeof PipelineType) | undefined;
+	/**
+	 * for relevant models, get mask token
+	 */
+	mask_token?: string | undefined;
+	/**
+	 * Example data that will be fed into the widget.
+	 *
+	 * can be set in the model card metadata (under `widget`),
+	 * or by default in `DefaultWidget.ts`
+	 */
+	widgetData?: Record<string, any>[] | undefined;
+}
