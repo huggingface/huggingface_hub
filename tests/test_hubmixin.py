@@ -141,7 +141,8 @@ def is_sklearn_available():
         import sklearn
 
         return True
-    except importlib_metadata.PackageNotFoundError:
+
+    except ModuleNotFoundError:
         return False
 
 

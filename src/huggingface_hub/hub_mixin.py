@@ -1,7 +1,6 @@
 import json
 import logging
 import os
-import sys
 import tempfile
 from typing import Dict, Optional, Union
 
@@ -16,16 +15,9 @@ from .repository import Repository
 if is_torch_available():
     import torch
 
-_PY_VERSION: str = sys.version.split()[0]
-
-if tuple(int(i) for i in _PY_VERSION.split(".")) < (3, 8, 0):
-    import importlib_metadata
-else:
-    import importlib.metadata as importlib_metadata
-
 try:
     import cloudpickle
-except importlib_metadata.PackageNotFoundError:
+except ModuleNotFoundError:
     pass
 
 
