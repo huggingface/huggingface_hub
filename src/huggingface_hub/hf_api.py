@@ -379,8 +379,6 @@ class HfApi:
 
         path = "{}{}/{}/settings".format(path_prefix, namespace, name)
         json = {"private": private}
-        if repo_type is not None:
-            json["type"] = repo_type
 
         r = requests.put(
             path,
