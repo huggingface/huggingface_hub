@@ -1,0 +1,11 @@
+- local: main
+  title: Hub documentation
+
+- local: model-repos
+  title: Everything you wanted to know about repos
+
+- local: libraries
+  title: Libraries
+
+- local: inference
+  title: Inference
