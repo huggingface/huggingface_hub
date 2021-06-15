@@ -109,7 +109,7 @@
 	}
 
 	function parseOutput(body: AudioItem[]): AudioItem[] {
-		for (let item of body) {
+		for (const item of body) {
 			item.src = `data:${item["content-type"]};base64,${item.blob}`;
 		}
 		return body;
