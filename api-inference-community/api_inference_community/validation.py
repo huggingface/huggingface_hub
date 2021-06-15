@@ -131,6 +131,7 @@ class TableQuestionAnsweringInputsCheck(BaseModel):
             return table
         raise ValueError("All rows in the table must be the same length")
 
+
 class StringOrStringBatchInputCheck(BaseModel):
     __root__: Union[List[str], str]
 
@@ -142,6 +143,7 @@ class StringOrStringBatchInputCheck(BaseModel):
                     "The inputs is invalid, at least one input is required"
                 )
         return __root__
+
 
 class StringInput(BaseModel):
     __root__: str
