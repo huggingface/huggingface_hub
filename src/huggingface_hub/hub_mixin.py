@@ -5,11 +5,12 @@ from typing import Dict, Optional, Union
 
 import requests
 
-from .constants import CONFIG_NAME, PYTORCH_WEIGHTS_NAME
+from .constants import CONFIG_NAME, PYTORCH_WEIGHTS_NAME, TF2_WEIGHTS_NAME
 from .file_download import (
     cached_download,
     hf_hub_url,
     is_cloudpickle_available,
+    is_tf_available,
     is_torch_available,
 )
 from .hf_api import HfApi, HfFolder
@@ -18,6 +19,9 @@ from .repository import Repository
 
 if is_torch_available():
     import torch
+
+if is_tf_available():
+    import tensorflow as tf
 
 if is_cloudpickle_available():
     import cloudpickle
@@ -271,13 +275,195 @@ class ModelHubMixin(PushToHubMixin):
                 config = json.load(f)
             model_kwargs.update({"config": config})
 
-        model = cls(**model_kwargs)
+        model = torch.nn.Module(**model_kwargs)
 
         state_dict = torch.load(model_file, map_location=map_location)
         model.load_state_dict(state_dict, strict=strict)
         model.eval()
 
         return model
+
+class KerasModelHubMixin(PushToHubMixin):
+    def __init__(self, *args, **kwargs):
+        """
+        Mix this class with your Keras class for ease process of saving & loading from huggingface-hub
+
+        Example::
+
+            >>> from huggingface_hub import KerasModelHubMixin
+
+            >>> class MyModel(tf.keras.Model, KerasModelHubMixin):
+            ...    def __init__(self):
+            ...        super(MyModel, self).__init__()
+            ...        self.dense1 = tf.keras.layers.Dense(4, activation=tf.nn.relu)
+            ...        ...
+            ...    def call(self, inputs)
+            ...        return ...
+
+            >>> # Save model weights and push to Hub
+            >>> model = MyModel()
+            >>> model.save_pretrained("mymodel", push_to_hub=False)
+            >>> model.push_to_hub("mymodel", "model-1")
+
+            >>> # Downloading weights from Hub & model will be initialized from those weights
+            >>> model = MyModel.from_pretrained("username/mymodel@main")
+        """
+
+    def save_pretrained(
+        self,
+        save_directory: str,
+        config: Optional[dict] = None,
+        saved_model: bool = False,
+        version: int = 1,
+        push_to_hub: bool = False,
+        **kwargs,
+    ):
+        """
+        Saving weights in local directory.
+
+        Parameters:
+            save_directory (:obj:`str`):
+                Specify directory in which you want to save weights.
+            config (:obj:`dict`, `optional`):
+                specify config (must be dict) incase you want to save it.
+            saved_model (:obj:`bool`, `optional`, defaults to :obj:`False`):
+                If the model has to be saved in saved model format as well or not.
+            version (:obj:`int`, `optional`, defaults to 1):
+                The version of the saved model. A saved model needs to be versioned in order to be properly loaded by
+                TensorFlow Serving as detailed in the official documentation
+                https://www.tensorflow.org/tfx/serving/serving_basic
+            push_to_hub (:obj:`bool`, `optional`, defaults to :obj:`False`):
+                Set it to `True` in case you want to push your weights to huggingface_hub
+            kwargs (:obj:`Dict`, `optional`):
+                kwargs will be passed to `push_to_hub`
+        """
+
+        os.makedirs(save_directory, exist_ok=True)
+
+        # Save configuration if provided.
+        if isinstance(config, dict):
+            path = os.path.join(save_directory, CONFIG_NAME)
+            with open(path, "w") as f:
+                json.dump(config, f)
+
+        # Save in saved model format
+        if saved_model:
+            saved_model_dir = os.path.join(save_directory, "saved_model", str(version))
+            self.save(saved_model_dir)
+
+        # Save model weights
+        weights_file_path = os.path.join(save_directory, TF2_WEIGHTS_NAME)
+        self.save_weights(weights_file_path)
+
+        if push_to_hub:
+            return self.push_to_hub(save_directory, **kwargs)
+
+    @classmethod
+    def from_pretrained(
+        cls,
+        pretrained_model_name_or_path: Optional[str],
+        strict: bool = True,
+        force_download: bool = False,
+        resume_download: bool = False,
+        proxies: Dict = None,
+        use_auth_token: Optional[str] = None,
+        cache_dir: Optional[str] = None,
+        local_files_only: bool = False,
+        **model_kwargs,
+    ):
+        r"""
+        Instantiate a pretrained TF 2.0 model from a pre-trained model configuration from HuggingFace Hub.
+
+        Parameters:
+            pretrained_model_name_or_path (:obj:`str` or :obj:`os.PathLike`, `optional`):
+                Can be either:
+                    - A string, the `model id` of a pretrained model hosted inside a model repo on huggingface.co.
+                      Valid model ids can be located at the root-level, like ``bert-base-uncased``, or namespaced under
+                      a user or organization name, like ``dbmdz/bert-base-german-cased``.
+                    - You can add `revision` by appending `@` at the end of model_id simply like this: ``dbmdz/bert-base-german-cased@main``
+                      Revision is the specific model version to use. It can be a branch name, a tag name, or a commit id,
+                      since we use a git-based system for storing models and other artifacts on huggingface.co, so ``revision`` can be any identifier allowed by git.
+                    - A path to a `directory` containing model weights saved using
+                      :func:`~transformers.PreTrainedModel.save_pretrained`, e.g., ``./my_model_directory/``.
+                    - :obj:`None` if you are both providing the configuration and state dictionary (resp. with keyword
+                      arguments ``config`` and ``state_dict``).
+            cache_dir (:obj:`Union[str, os.PathLike]`, `optional`):
+                Path to a directory in which a downloaded pretrained model configuration should be cached if the
+                standard cache should not be used.
+            force_download (:obj:`bool`, `optional`, defaults to :obj:`False`):
+                Whether or not to force the (re-)download of the model weights and configuration files, overriding the
+                cached versions if they exist.
+            resume_download (:obj:`bool`, `optional`, defaults to :obj:`False`):
+                Whether or not to delete incompletely received files. Will attempt to resume the download if such a
+                file exists.
+            proxies (:obj:`Dict[str, str], `optional`):
+                A dictionary of proxy servers to use by protocol or endpoint, e.g., :obj:`{'http': 'foo.bar:3128',
+                'http://hostname': 'foo.bar:4012'}`. The proxies are used on each request.
+            local_files_only(:obj:`bool`, `optional`, defaults to :obj:`False`):
+                Whether or not to only look at local files (i.e., do not try to download the model).
+            use_auth_token (:obj:`str` or `bool`, `optional`):
+                The token to use as HTTP bearer authorization for remote files. If :obj:`True`, will use the token
+                generated when running :obj:`huggingface-cli login` (stored in :obj:`~/.huggingface`).
+            model_kwargs (:obj:`Dict`, `optional`)::
+                model_kwargs will be passed to the model during initialization
+        .. note::
+            Passing :obj:`use_auth_token=True` is required when you want to use a private model.
+        """
+
+        model_id = pretrained_model_name_or_path
+
+        revision = None
+        if len(model_id.split("@")) == 2:
+            model_id, revision = model_id.split("@")
+
+        if os.path.isdir(model_id) and CONFIG_NAME in os.listdir(model_id):
+            config_file = os.path.join(model_id, CONFIG_NAME)
+        else:
+            try:
+                config_url = hf_hub_url(
+                    model_id, filename=CONFIG_NAME, revision=revision
+                )
+                config_file = cached_download(
+                    config_url,
+                    cache_dir=cache_dir,
+                    force_download=force_download,
+                    proxies=proxies,
+                    resume_download=resume_download,
+                    local_files_only=local_files_only,
+                    use_auth_token=use_auth_token,
+                )
+            except requests.exceptions.RequestException:
+                logger.warning("config.json NOT FOUND in Hugging Face Hub")
+                config_file = None
+
+        if os.path.isdir(model_id):
+            print("Loading weights from local directory")
+            model_file = os.path.join(model_id, TF2_WEIGHTS_NAME)
+        else:
+            model_url = hf_hub_url(
+                model_id, filename=TF2_WEIGHTS_NAME, revision=revision
+            )
+            model_file = cached_download(
+                model_url,
+                cache_dir=cache_dir,
+                force_download=force_download,
+                proxies=proxies,
+                resume_download=resume_download,
+                local_files_only=local_files_only,
+                use_auth_token=use_auth_token,
+            )
+
+        config=None
+        if config_file is not None:
+            with open(config_file, "r", encoding="utf-8") as f:
+                config = json.load(f)
+            model_kwargs.update({"config": config})
+
+        model = cls(config, **model_kwargs)
+        print(model)
+        return model
+        #model = cls.load_weights(config, )
+        #return model
 
 
 class SklearnPipelineHubMixin(PushToHubMixin):
