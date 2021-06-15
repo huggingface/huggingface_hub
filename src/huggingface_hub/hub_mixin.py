@@ -18,7 +18,7 @@ if is_torch_available():
 logger = logging.getLogger(__name__)
 
 
-class ModelHubMixin(object):
+class ModelHubMixin:
     def __init__(self, *args, **kwargs):
         """
         Mix this class with your torch-model class for ease process of saving & loading from huggingface-hub
