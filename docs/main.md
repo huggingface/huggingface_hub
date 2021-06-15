@@ -52,11 +52,11 @@ The Inference API allows you to send HTTP requests to models in the 🤗 Hub. Th
 
 ## How is a model's type of inference API and widget determined?
 
-To determine which pipeline and widget to display (`text-classification`, `token-classification`, `translation`, etc.), we analyze information in the repo such as the metadata provided in the model card and configuration files. This information is mapped to a single `pipeline_tag`. At the moment, we expose **only one** widget per model. 
+To determine which pipeline and widget to display (`text-classification`, `token-classification`, `translation`, etc.), we analyze information in the repo such as the metadata provided in the model card and configuration files. This information is mapped to a single `pipeline_tag`. We choose to expose **only one** widget per model for simplicity.
 
 For most use cases, the model type is determined from the tags. For example, if there is `tag: text-classification` in the metadata, the inferred `pipeline_tag` will be `text-classification`.
 
-For `🤗 Transformers`, additional information is obtained from `config.json`. The architecture can be used to determine the type: for example, `AutoModelForTokenClassification` corresponds to `token-classification`. If you're really interested in this, you can see pseudo-code in [this gist](https://gist.github.com/julien-c/857ba86a6c6a895ecd90e7f7cab48046).
+For `🤗 Transformers` however, the model type is determined automatically from `config.json`. The architecture can be used to determine the type: for example, `AutoModelForTokenClassification` corresponds to `token-classification`. If you're really interested in this, you can see pseudo-code in [this gist](https://gist.github.com/julien-c/857ba86a6c6a895ecd90e7f7cab48046).
 
 **You can always manually override your pipeline type with pipeline_tag: xxx in your model card metadata.**
 
