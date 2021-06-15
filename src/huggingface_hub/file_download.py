@@ -17,6 +17,7 @@ from tqdm.auto import tqdm
 
 import requests
 from filelock import FileLock
+from huggingface_hub import constants
 
 from . import __version__
 from .constants import (
@@ -178,7 +179,7 @@ class OfflineModeIsEnabled(ConnectionError):
 
 def _raise_if_offline_mode_is_enabled(msg: Optional[str] = None):
     """Raise a OfflineModeIsEnabled error (subclass of ConnectionError) if HF_HUB_OFFLINE is True."""
-    if HF_HUB_OFFLINE:
+    if constants.HF_HUB_OFFLINE:
         raise OfflineModeIsEnabled(
             "Offline mode is enabled."
             if msg is None
