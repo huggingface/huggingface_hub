@@ -21,7 +21,7 @@ import time
 import unittest
 from io import BytesIO
 
-from huggingface_hub.constants import REPO_TYPE_DATASET
+from huggingface_hub.constants import REPO_TYPE_DATASET, REPO_TYPE_SPACE
 from huggingface_hub.file_download import cached_download
 from huggingface_hub.hf_api import HfApi, HfFolder, ModelInfo, RepoObj
 from requests.exceptions import HTTPError
@@ -38,6 +38,7 @@ from .testing_utils import (
 REPO_NAME = "my-model-{}".format(int(time.time() * 10e3))
 REPO_NAME_LARGE_FILE = "my-model-largefiles-{}".format(int(time.time() * 10e3))
 DATASET_REPO_NAME = "my-dataset-{}".format(int(time.time() * 10e3))
+SPACE_REPO_NAME = "my-space-{}".format(int(time.time() * 10e3))
 WORKING_REPO_DIR = os.path.join(
     os.path.dirname(os.path.abspath(__file__)), "fixtures/working_repo"
 )
@@ -93,21 +94,46 @@ class HfApiEndpointsTest(HfApiCommonTest):
 
     def test_create_update_and_delete_dataset_repo(self):
         self._api.create_repo(
-            token=self._token, name=REPO_NAME, repo_type=REPO_TYPE_DATASET
+            token=self._token, name=DATASET_REPO_NAME, repo_type=REPO_TYPE_DATASET
         )
         res = self._api.update_repo_visibility(
-            token=self._token, name=REPO_NAME, private=True, repo_type=REPO_TYPE_DATASET
+            token=self._token,
+            name=DATASET_REPO_NAME,
+            private=True,
+            repo_type=REPO_TYPE_DATASET,
         )
         self.assertTrue(res["private"])
         res = self._api.update_repo_visibility(
             token=self._token,
-            name=REPO_NAME,
+            name=DATASET_REPO_NAME,
             private=False,
             repo_type=REPO_TYPE_DATASET,
         )
         self.assertFalse(res["private"])
         self._api.delete_repo(
-            token=self._token, name=REPO_NAME, repo_type=REPO_TYPE_DATASET
+            token=self._token, name=DATASET_REPO_NAME, repo_type=REPO_TYPE_DATASET
+        )
+
+    def test_create_update_and_delete_space_repo(self):
+        self._api.create_repo(
+            token=self._token, name=SPACE_REPO_NAME, repo_type=REPO_TYPE_SPACE
+        )
+        res = self._api.update_repo_visibility(
+            token=self._token,
+            name=SPACE_REPO_NAME,
+            private=True,
+            repo_type=REPO_TYPE_SPACE,
+        )
+        self.assertTrue(res["private"])
+        res = self._api.update_repo_visibility(
+            token=self._token,
+            name=SPACE_REPO_NAME,
+            private=False,
+            repo_type=REPO_TYPE_SPACE,
+        )
+        self.assertFalse(res["private"])
+        self._api.delete_repo(
+            token=self._token, name=SPACE_REPO_NAME, repo_type=REPO_TYPE_SPACE
         )
 
 

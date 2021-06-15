@@ -18,11 +18,7 @@ from getpass import getpass
 from typing import List, Union
 
 from huggingface_hub.commands import BaseHuggingfaceCLICommand
-from huggingface_hub.constants import (
-    REPO_TYPE_DATASET,
-    REPO_TYPE_DATASET_URL_PREFIX,
-    REPO_TYPES,
-)
+from huggingface_hub.constants import REPO_TYPES, REPO_TYPES_URL_PREFIXES
 from huggingface_hub.hf_api import HfApi, HfFolder
 from requests.exceptions import HTTPError
 
@@ -67,7 +63,7 @@ class UserCommands(BaseHuggingfaceCLICommand):
         repo_create_parser.add_argument(
             "--type",
             type=str,
-            help='Optional: repo_type: set to "dataset" if creating a dataset, default is model.',
+            help='Optional: repo_type: set to "dataset" or "space" if creating a dataset or space, default is model.',
         )
         repo_create_parser.add_argument(
             "--organization", type=str, help="Optional: organization namespace."
@@ -239,8 +235,8 @@ class RepoCreateCommand(BaseUserCommand):
             print("Invalid repo --type")
             exit(1)
 
-        if self.args.type == REPO_TYPE_DATASET:
-            repo_id = REPO_TYPE_DATASET_URL_PREFIX + repo_id
+        if self.args.type in REPO_TYPES_URL_PREFIXES:
+            repo_id = REPO_TYPES_URL_PREFIXES[self.args.type] + repo_id
 
         print("You are about to create {}".format(ANSI.bold(repo_id)))
 

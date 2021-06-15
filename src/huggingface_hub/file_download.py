@@ -17,14 +17,13 @@ from tqdm.auto import tqdm
 
 import requests
 from filelock import FileLock
-from huggingface_hub import constants
 
 from . import __version__
 from .constants import (
+    HF_HUB_OFFLINE,
     HUGGINGFACE_CO_URL_TEMPLATE,
     HUGGINGFACE_HUB_CACHE,
-    REPO_TYPE_DATASET,
-    REPO_TYPE_DATASET_URL_PREFIX,
+    REPO_TYPE_URL_PREFIXES,
     REPO_TYPES,
 )
 from .hf_api import HfFolder
@@ -92,8 +91,8 @@ def hf_hub_url(
     if repo_type not in REPO_TYPES:
         raise ValueError("Invalid repo type")
 
-    if repo_type == REPO_TYPE_DATASET:
-        repo_id = REPO_TYPE_DATASET_URL_PREFIX + repo_id
+    if repo_type in REPO_TYPE_URL_PREFIXES:
+        repo_id = REPO_TYPE_URL_PREFIXES[repo_type] + repo_id
 
     if revision is None:
         revision = "main"
@@ -179,7 +178,7 @@ class OfflineModeIsEnabled(ConnectionError):
 
 def _raise_if_offline_mode_is_enabled(msg: Optional[str] = None):
     """Raise a OfflineModeIsEnabled error (subclass of ConnectionError) if HF_HUB_OFFLINE is True."""
-    if constants.HF_HUB_OFFLINE:
+    if HF_HUB_OFFLINE:
         raise OfflineModeIsEnabled(
             "Offline mode is enabled."
             if msg is None
