@@ -5,7 +5,7 @@ from typing import Dict, Optional, Union
 
 import requests
 
-from .constants import CONFIG_NAME, PYTORCH_WEIGHTS_NAME, TF2_WEIGHTS_NAME
+from .constants import CONFIG_NAME, PYTORCH_WEIGHTS_NAME, TF2_WEIGHTS_NAME, TF_SAVED_MODEL_NAME
 from .file_download import (
     cached_download,
     hf_hub_url,
@@ -101,7 +101,6 @@ class PushToHubMixin(object):
         )
 
         return repo.push_to_hub(commit_message=commit_message)
-
 
 class ModelHubMixin(PushToHubMixin):
     def __init__(self, *args, **kwargs):
@@ -275,7 +274,7 @@ class ModelHubMixin(PushToHubMixin):
                 config = json.load(f)
             model_kwargs.update({"config": config})
 
-        model = torch.nn.Module(**model_kwargs)
+        model = cls(**model_kwargs)
 
         state_dict = torch.load(model_file, map_location=map_location)
         model.load_state_dict(state_dict, strict=strict)
@@ -305,9 +304,43 @@ class KerasModelHubMixin(PushToHubMixin):
             >>> model.save_pretrained("mymodel", push_to_hub=False)
             >>> model.push_to_hub("mymodel", "model-1")
 
+            >>> # Save full model and push to Hub
+            >>> model = MyModel()
+            >>> model.save_pretrained("mymodel", push_to_hub=False, saved_model=True)
+            >>> model.push_to_hub("mymodel", saved_model=True)
+
+            >>> # Downloading full model from Hub
+            >>> model = MyModel.from_pretrained("username/mymodel", saved_model=True)
+
             >>> # Downloading weights from Hub & model will be initialized from those weights
             >>> model = MyModel.from_pretrained("username/mymodel@main")
         """
+
+    def save_weights(
+        self,
+        filepath: str,
+        push_to_hub: bool = False,
+        **kwargs,
+    ):
+        """
+        Save weights
+
+        Parameters:
+            filepath (:obj:`str`):
+                Specify directory in which you want to save weights.
+            push_to_hub (:obj:`bool`, `optional`, defaults to :obj:`False`):
+                Set it to `True` in case you want to push your weights to huggingface_hub
+            kwargs (:obj:`Dict`, `optional`):
+                kwargs will be passed to `save_weights`
+
+        Example::
+            >>> model = MyModel()
+            >>> model.save_weights("keras)
+        """
+        weights_file_path = os.path.join(save_directory, TF2_WEIGHTS_NAME)
+        super(filepath, **kwargs).save_weights(weights_file_path)
+
+        return self.push_to_hub(save_directory, **kwargs)
 
     def save_pretrained(
         self,
@@ -348,7 +381,7 @@ class KerasModelHubMixin(PushToHubMixin):
 
         # Save in saved model format
         if saved_model:
-            saved_model_dir = os.path.join(save_directory, "saved_model", str(version))
+            saved_model_dir = os.path.join(save_directory, TF_SAVED_MODEL_NAME, str(version))
             self.save(saved_model_dir)
 
         # Save model weights
@@ -362,12 +395,14 @@ class KerasModelHubMixin(PushToHubMixin):
     def from_pretrained(
         cls,
         pretrained_model_name_or_path: Optional[str],
+        cache_dir: Optional[str] = None,
+        saved_model: bool = False,
+        version: int = 1,
         strict: bool = True,
         force_download: bool = False,
         resume_download: bool = False,
         proxies: Dict = None,
         use_auth_token: Optional[str] = None,
-        cache_dir: Optional[str] = None,
         local_files_only: bool = False,
         **model_kwargs,
     ):
@@ -390,6 +425,12 @@ class KerasModelHubMixin(PushToHubMixin):
             cache_dir (:obj:`Union[str, os.PathLike]`, `optional`):
                 Path to a directory in which a downloaded pretrained model configuration should be cached if the
                 standard cache should not be used.
+            saved_model (:obj:`bool`, `optional`, defaults to :obj:`False`):
+                If the model has to be saved in saved model format as well or not.
+            version (:obj:`int`, `optional`, defaults to 1):
+                The version of the saved model. A saved model needs to be versioned in order to be properly loaded by
+                TensorFlow Serving as detailed in the official documentation
+                https://www.tensorflow.org/tfx/serving/serving_basic
             force_download (:obj:`bool`, `optional`, defaults to :obj:`False`):
                 Whether or not to force the (re-)download of the model weights and configuration files, overriding the
                 cached versions if they exist.
@@ -416,6 +457,29 @@ class KerasModelHubMixin(PushToHubMixin):
         if len(model_id.split("@")) == 2:
             model_id, revision = model_id.split("@")
 
+        # When specified, load the full model
+        if saved_model:
+            if os.path.isdir(model_id) and TF_SAVED_MODEL_NAME in os.listdir(model_id):
+                saved_model_dir = os.path.join(model_id, TF_SAVED_MODEL_NAME, str(version))
+                return tf.keras.models.load_model(saved_model_dir)
+            else:
+                try:
+                    model_url = hf_hub_url(
+                        model_id, filename=TF_SAVED_MODEL_NAME, revision=revision
+                    )
+                    saved_model_filename = cached_download(
+                        model_url,
+                        cache_dir=cache_dir,
+                        force_download=force_download,
+                        proxies=proxies,
+                        resume_download=resume_download,
+                        local_files_only=local_files_only,
+                        use_auth_token=use_auth_token,
+                    )
+                    return tf.keras.models.load_model(saved_model_dir)
+                except requests.exceptions.RequestException as err:
+                    raise err("saved_model not found in Hugging Face Hub")
+
         if os.path.isdir(model_id) and CONFIG_NAME in os.listdir(model_id):
             config_file = os.path.join(model_id, CONFIG_NAME)
         else:
@@ -436,14 +500,23 @@ class KerasModelHubMixin(PushToHubMixin):
                 logger.warning("config.json NOT FOUND in Hugging Face Hub")
                 config_file = None
 
+        config=None
+        if config_file is not None:
+            with open(config_file, "r", encoding="utf-8") as f:
+                config = json.load(f)
+                #model = cls(**model_kwargs)
+                #model = cls(**config)
+        else:
+            model = cls(**model_kwargs)
+        model = cls.from_config(config)
+
         if os.path.isdir(model_id):
-            print("Loading weights from local directory")
-            model_file = os.path.join(model_id, TF2_WEIGHTS_NAME)
+            weight_file = os.path.join(model_id, TF2_WEIGHTS_NAME)
         else:
             model_url = hf_hub_url(
                 model_id, filename=TF2_WEIGHTS_NAME, revision=revision
             )
-            model_file = cached_download(
+            weight_file = cached_download(
                 model_url,
                 cache_dir=cache_dir,
                 force_download=force_download,
@@ -452,18 +525,9 @@ class KerasModelHubMixin(PushToHubMixin):
                 local_files_only=local_files_only,
                 use_auth_token=use_auth_token,
             )
-
-        config=None
-        if config_file is not None:
-            with open(config_file, "r", encoding="utf-8") as f:
-                config = json.load(f)
-            model_kwargs.update({"config": config})
-
-        model = cls(config, **model_kwargs)
-        print(model)
+        print(model.get_config())
+        model.load_weights(weight_file)
         return model
-        #model = cls.load_weights(config, )
-        #return model
 
 
 class SklearnPipelineHubMixin(PushToHubMixin):
@@ -485,6 +549,7 @@ class SklearnPipelineHubMixin(PushToHubMixin):
             >>> # Loading from Hub
             >>> pipe = SklearnPipelineHubMixin.from_pretrained("username/mymodel")
         """
+        
 
     def save_pretrained(
         self,

@@ -27,6 +27,7 @@ from .constants import (
     REPO_TYPE_DATASET,
     TF2_WEIGHTS_NAME,
     TF_WEIGHTS_NAME,
+    TF_SAVED_MODEL_NAME
 )
 from .file_download import cached_download, hf_hub_url
 from .hf_api import HfApi, HfFolder
