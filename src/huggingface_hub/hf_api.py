@@ -22,16 +22,16 @@ from io import BufferedIOBase, RawIOBase
 from os.path import expanduser
 from typing import BinaryIO, Dict, Iterable, List, Optional, Tuple, Union
 
+import requests
+from requests.exceptions import HTTPError
+
+from .constants import REPO_TYPES, REPO_TYPES_URL_PREFIXES
+
 
 if sys.version_info >= (3, 8):
     from typing import Literal
 else:
     from typing_extensions import Literal
-
-import requests
-from requests.exceptions import HTTPError
-
-from .constants import REPO_TYPE_DATASET, REPO_TYPE_DATASET_URL_PREFIX, REPO_TYPES
 
 
 ENDPOINT = "https://huggingface.co"
@@ -251,7 +251,7 @@ class HfApi:
         self, token: str, organization: Optional[str] = None
     ) -> List[RepoObj]:
         """
-        HuggingFace git-based system, used for models.
+        HuggingFace git-based system, used for models, datasets, and spaces.
 
         Call HF API to list all stored files for user (or one of their organizations).
         """
@@ -275,14 +275,14 @@ class HfApi:
         lfsmultipartthresh: Optional[int] = None,
     ) -> str:
         """
-        HuggingFace git-based system, used for models.
+        HuggingFace git-based system, used for models, datasets, and spaces.
 
         Call HF API to create a whole repo.
 
         Params:
             private: Whether the model repo should be private (requires a paid huggingface.co account)
 
-            repo_type: Set to "dataset" if creating a dataset, default is model
+            repo_type: Set to "dataset" or "space" if creating a dataset or space, default is model
 
             exist_ok: Do not raise an error if repo already exists
 
@@ -332,7 +332,7 @@ class HfApi:
         repo_type: Optional[str] = None,
     ):
         """
-        HuggingFace git-based system, used for models.
+        HuggingFace git-based system, used for models, datasets, and spaces.
 
         Call HF API to delete a whole repo.
 
@@ -374,13 +374,11 @@ class HfApi:
             namespace = organization
 
         path_prefix = "{}/api/".format(self.endpoint)
-        if repo_type == REPO_TYPE_DATASET:
-            path_prefix += REPO_TYPE_DATASET_URL_PREFIX
+        if repo_type in REPO_TYPES_URL_PREFIXES:
+            path_prefix += REPO_TYPES_URL_PREFIXES[repo_type]
 
         path = "{}{}/{}/settings".format(path_prefix, namespace, name)
         json = {"private": private}
-        if repo_type is not None:
-            json["type"] = repo_type
 
         r = requests.put(
             path,
@@ -417,7 +415,7 @@ class HfApi:
                 The repository to which the file will be uploaded, for example: :obj:`"username/custom_transformers"`
 
             repo_type (``str``, Optional):
-                Set to :obj:`"dataset"` if uploading to a dataset, :obj:`None` if uploading to a model. Default is :obj:`None`.
+                Set to :obj:`"dataset"` or :obj:`"space"` if uploading to a dataset or space, :obj:`None` if uploading to a model. Default is :obj:`None`.
 
             revision (``str``, Optional):
                 The git revision to commit from. Defaults to the :obj:`"main"` branch.
@@ -480,12 +478,8 @@ class HfApi:
                 )
             )
 
-        repo_id = "{prefix}{repo_id}".format(
-            prefix=REPO_TYPE_DATASET_URL_PREFIX
-            if (repo_type == REPO_TYPE_DATASET)
-            else "",
-            repo_id=repo_id,
-        )
+        if repo_type in REPO_TYPES_URL_PREFIXES:
+            repo_id = REPO_TYPES_URL_PREFIXES[repo_type] + repo_id
 
         revision = revision if revision is not None else "main"
 
