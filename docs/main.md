@@ -1,20 +1,20 @@
 ---
-title: 🤗 Hub docs
+title: Hugging Face Hub docs
 ---
 
-<h1>🤗 Hub documentation</h1>
+<h1>Hugging Face Hub documentation</h1>
 
 
-## What's the 🤗 Hub?
+## What's the Hugging Face Hub?
 
 We are helping the community work together towards the goal of advancing Artificial Intelligence 🔥.
 
-Not one company, even the Tech Titans, will be able to “solve AI” by itself – the only way we'll achieve this is by sharing knowledge and resources. On the 🤗 Hub we are building the largest collection of models, datasets and metrics in order to democratize and advance AI for everyone 🚀. The 🤗 Hub works as a central place where anyone can share and explore models and datasets.
+Not one company, even the Tech Titans, will be able to “solve AI” by itself – the only way we'll achieve this is by sharing knowledge and resources. On the Hugging Face Hub we are building the largest collection of models, datasets and metrics in order to democratize and advance AI for everyone 🚀. The Hugging Face Hub works as a central place where anyone can share and explore models and datasets.
 
 
 ## What's a repository?
 
-The 🤗 Hub hosts Git-based repositories which are storage spaces that can contain all your files 💾.
+The Hugging Face Hub hosts Git-based repositories which are storage spaces that can contain all your files 💾.
 
 These repositories have multiple advantages over other hosting solutions:
 
@@ -22,12 +22,12 @@ These repositories have multiple advantages over other hosting solutions:
 * commit history and diffs
 * branches
 
-On top of that, 🤗 Hub repositories have many other advantages:
+On top of that, Hugging Face Hub repositories have many other advantages:
 
 * Repos provide useful [metadata](https://raw.githubusercontent.com/huggingface/huggingface_hub/main/modelcard.md) about their tasks, languages, metrics, etc.
 * Anyone can play with the model directly in the browser!
 * An API is provided to use the models in production settings.
-* [Over 10 frameworks](/docs/libraries) such as 🤗 Transformers, Asteroid and ESPnet support using models from the 🤗 Hub. 
+* [Over 10 frameworks](/docs/libraries) such as 🤗 Transformers, Asteroid and ESPnet support using models from the Hugging Face Hub. 
 
 
 ## What's a widget?
@@ -43,20 +43,20 @@ Here are some examples:
 
 ## What's the Inference API?
 
-The Inference API allows you to send HTTP requests to models in the 🤗 Hub. The Inference API is 2x to 10x faster than the widgets! ⚡⚡
+The Inference API allows you to send HTTP requests to models in the Hugging Face Hub. The Inference API is 2x to 10x faster than the widgets! ⚡⚡
 
 
-## How can I explore the 🤗 Hub?
+## How can I explore the Hugging Face Hub?
 
 [![Model Hub Video](https://img.youtube.com/vi/XvSGPZFEjDY/0.jpg)](https://www.youtube.com/watch?v=XvSGPZFEjDY)
 
 ## How is a model's type of inference API and widget determined?
 
-To determine which pipeline and widget to display (`text-classification`, `token-classification`, `translation`, etc.), we analyze information in the repo such as the metadata provided in the model card and configuration files. This information is mapped to a single `pipeline_tag`. At the moment, we expose **only one** widget per model. 
+To determine which pipeline and widget to display (`text-classification`, `token-classification`, `translation`, etc.), we analyze information in the repo such as the metadata provided in the model card and configuration files. This information is mapped to a single `pipeline_tag`. We choose to expose **only one** widget per model for simplicity.
 
 For most use cases, the model type is determined from the tags. For example, if there is `tag: text-classification` in the metadata, the inferred `pipeline_tag` will be `text-classification`.
 
-For `🤗 Transformers`, additional information is obtained from `config.json`. The architecture can be used to determine the type: for example, `AutoModelForTokenClassification` corresponds to `token-classification`. If you're really interested in this, you can see pseudo-code in [this gist](https://gist.github.com/julien-c/857ba86a6c6a895ecd90e7f7cab48046).
+For `🤗 Transformers` however, the model type is determined automatically from `config.json`. The architecture can be used to determine the type: for example, `AutoModelForTokenClassification` corresponds to `token-classification`. If you're really interested in this, you can see pseudo-code in [this gist](https://gist.github.com/julien-c/857ba86a6c6a895ecd90e7f7cab48046).
 
 **You can always manually override your pipeline type with pipeline_tag: xxx in your model card metadata.**
 

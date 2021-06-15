@@ -1,13 +1,13 @@
 ---
-title: 🤗 Hub Libraries Docs
+title: Hugging Face Hub Libraries Docs
 ---
 
-<h1>🤗 Hub Libraries</h1>
+<h1>Hugging Face Hub Libraries</h1>
 
 
 ## Do you only support 🤗 Transformers?
 
-No, the 🤗 Hub supports other libraries and we're working on expanding this support! We're happy to welcome to the 🤗 Hub a set of Open Source libraries that are pushing Machine Learning forward.
+No, the Hub supports other libraries and we're working on expanding this support! We're happy to welcome to the Hub a set of Open Source libraries that are pushing Machine Learning forward.
 
 The table below summarizes the supported libraries and how they are integrated. Find all our supported libraries [here](https://github.com/huggingface/huggingface_hub/blob/main/interfaces/Libraries.ts)! 
 

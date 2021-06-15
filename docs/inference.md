@@ -1,8 +1,8 @@
 ---
-title: 🤗 Hub Inference API docs
+title: Inference API docs
 ---
 
-<h1>🤗 Hub Inference API</h1>
+<h1>Inference API</h1>
 
 For detailed usage documentation, please refer to [Accelerated Inference API Documentation](https://api-inference.huggingface.co/docs/python/html/index.html).
 

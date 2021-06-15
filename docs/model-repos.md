@@ -71,6 +71,8 @@ widget:
 - text: "Jens Peter Hansen kommer fra Danmark"
 ```
 
+We try to provide example inputs for some languages and most widget types in [this DefaultWidget.ts file](https://github.com/huggingface/huggingface_hub/blob/master/interfaces/DefaultWidget.ts). If we lack some examples, please open a PR updating this file to add them. Thanks!
+
 ## Can I specify which framework supports my model?
 
 Yes!🔥 You can specify the framework in the model card metadata section:
