@@ -131,6 +131,21 @@ class TableQuestionAnsweringInputsCheck(BaseModel):
             return table
         raise ValueError("All rows in the table must be the same length")
 
+class StringOrStringBatchInputCheck(BaseModel):
+    __root__: Union[List[str], str]
+
+    @validator("__root__")
+    def input_must_not_be_empty(cls, __root__: Union[List[str], str]):
+        if isinstance(__root__, list):
+            if len(__root__) == 0:
+                raise ValueError(
+                    "The inputs is invalid, at least one input is required"
+                )
+        return __root__
+
+class StringInput(BaseModel):
+    __root__: str
+
 
 PARAMS_MAPPING = {
     "conversational": SharedGenerationParams,
@@ -144,8 +159,17 @@ PARAMS_MAPPING = {
 INPUTS_MAPPING = {
     "conversational": ConversationalInputsCheck,
     "question-answering": QuestionInputsCheck,
+    "feature-extraction": StringOrStringBatchInputCheck,
     "sentence-similarity": SentenceSimilarityInputsCheck,
     "table-question-answering": TableQuestionAnsweringInputsCheck,
+    "fill-mask": StringInput,
+    "summarization": StringInput,
+    "text2text-generation": StringInput,
+    "text-generation": StringInput,
+    "text-classification": StringInput,
+    "token-classification": StringInput,
+    "translation": StringInput,
+    "zero-shot-classification": StringInput,
 }
 
 BATCH_ENABLED_PIPELINES = ["feature-extraction"]
@@ -160,26 +184,6 @@ def check_params(params, tag):
 def check_inputs(inputs, tag):
     if tag in INPUTS_MAPPING:
         INPUTS_MAPPING[tag].parse_obj(inputs)
-    elif tag in BATCH_ENABLED_PIPELINES:
-        if isinstance(inputs, list):
-            if len(inputs) == 0:
-                raise ValueError(
-                    "The inputs is invalid, at least one input is required"
-                )
-            if not all(isinstance(input, str) for input in inputs):
-                raise ValueError("The inputs is invalid, we expect a list of strings")
-        elif not isinstance(inputs, str):
-            raise ValueError("The inputs is invalid, we expect a string")
-    else:
-        # Some tasks just expect {inputs: "str"}. Such as:
-        # fill-mask
-        # text2text-generation
-        # text-classification
-        # text-generation
-        # token-classification
-        # translation
-        if not isinstance(inputs, str):
-            raise ValueError("The inputs is invalid, we expect a string")
     return True
 
 

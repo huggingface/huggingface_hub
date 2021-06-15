@@ -436,20 +436,14 @@ class FeatureExtractionTestCase(TestCase):
         self.assertEqual(processed_params, {})
         self.assertEqual(normalized_inputs, inputs)
 
-    def test_invalid_list_with_number(self):
-        inputs = ["hugging", 5]
+    def test_invalid_list_with_other_type(self):
+        inputs = ["hugging", [1,2,3]]
         bpayload = json.dumps({"inputs": inputs}).encode("utf-8")
         with self.assertRaises(ValueError):
             normalize_payload_nlp(bpayload, "feature-extraction")
 
     def test_invalid_empty_list(self):
         inputs = []
-        bpayload = json.dumps({"inputs": inputs}).encode("utf-8")
-        with self.assertRaises(ValueError):
-            normalize_payload_nlp(bpayload, "feature-extraction")
-
-    def test_invalid_input_no_string(self):
-        inputs = 123
         bpayload = json.dumps({"inputs": inputs}).encode("utf-8")
         with self.assertRaises(ValueError):
             normalize_payload_nlp(bpayload, "feature-extraction")
