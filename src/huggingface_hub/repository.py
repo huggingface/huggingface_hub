@@ -206,9 +206,8 @@ class Repository:
                 )
 
                 if "main" not in output.stdout.split():
-                    # TODO(check if we really want the --force flag)
                     subprocess.run(
-                        "git checkout origin/main -ft".split(),
+                        "git checkout origin/main -t".split(),
                         stderr=subprocess.PIPE,
                         stdout=subprocess.PIPE,
                         encoding="utf-8",
@@ -415,7 +414,7 @@ class Repository:
 
     def push_to_hub(self, commit_message="commit files to HF hub") -> str:
         """
-        Helper to add, commit, and pushe file to remote repository on the HuggingFace Hub.
+        Helper to add, commit, and push files to remote repository on the HuggingFace Hub.
         Args:
             commit_message: commit message.
         """
