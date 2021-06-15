@@ -148,7 +148,7 @@ INPUTS_MAPPING = {
     "table-question-answering": TableQuestionAnsweringInputsCheck,
 }
 
-BATCH_ENABLED__PIPELINES = ["feature-extraction"]
+BATCH_ENABLED_PIPELINES = ["feature-extraction"]
 
 
 def check_params(params, tag):
@@ -160,7 +160,7 @@ def check_params(params, tag):
 def check_inputs(inputs, tag):
     if tag in INPUTS_MAPPING:
         INPUTS_MAPPING[tag].parse_obj(inputs)
-    elif tag in BATCH_ENABLED__PIPELINES:
+    elif tag in BATCH_ENABLED_PIPELINES:
         if isinstance(inputs, list):
             if len(inputs) == 0:
                 raise ValueError(
