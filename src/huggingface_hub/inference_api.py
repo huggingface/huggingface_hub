@@ -67,7 +67,7 @@ class InferenceApi:
 
     def __init__(
         self,
-        repoId: str,
+        repo_id: str,
         task: Optional[str] = None,
         use_auth_token: Union[bool, str, None] = None,
         gpu: Optional[bool] = False,
