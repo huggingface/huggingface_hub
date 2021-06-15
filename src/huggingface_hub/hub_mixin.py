@@ -1,11 +1,11 @@
 import json
 import logging
 import os
+import tempfile
+from distutils.dir_util import copy_tree
 from typing import Dict, Optional, Union
 
-from distutils.dir_util import copy_tree
 import requests
-import tempfile
 
 from .constants import CONFIG_NAME, PYTORCH_WEIGHTS_NAME
 from .file_download import cached_download, hf_hub_url, is_torch_available
@@ -263,17 +263,10 @@ class ModelHubMixin(object):
                 repo_type=None,
                 exist_ok=True,
             )
-        repo = Repository(
-            save_directory,
-            clone_from=repo_url,
-            use_auth_token=use_auth_token,
-            git_user=git_user,
-            git_email=git_email,
-        )
 
         with tempfile.TemporaryDirectory() as tmp_dir:
-            # First create the repo (and clone its content if it's nonempty), then add the files (otherwise there is
-            # no diff so nothing is pushed).
+            # First create the repo (and clone its content if it's nonempty), then
+            # add the files (otherwise there is no diff so nothing is pushed).
             repo = Repository(
                 tmp_dir,
                 clone_from=repo_url,
