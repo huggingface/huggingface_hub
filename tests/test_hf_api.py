@@ -60,7 +60,7 @@ class HfApiLoginTest(HfApiCommonTest):
         self.assertIsInstance(token, str)
 
 
-class HfApiEndpointsTest(HfApiCommonTest):
+class HfApiCommonTestWithLogin(HfApiCommonTest):
     @classmethod
     def setUpClass(cls):
         """
@@ -68,6 +68,8 @@ class HfApiEndpointsTest(HfApiCommonTest):
         """
         cls._token = cls._api.login(username=USER, password=PASS)
 
+
+class HfApiEndpointsTest(HfApiCommonTestWithLogin):
     def test_whoami(self):
         user, orgs = self._api.whoami(token=self._token)
         self.assertEqual(user, USER)
@@ -137,7 +139,7 @@ class HfApiEndpointsTest(HfApiCommonTest):
         )
 
 
-class HfApiUploadFileTest(HfApiEndpointsTest):
+class HfApiUploadFileTest(HfApiCommonTestWithLogin):
     def setUp(self) -> None:
         super().setUp()
         self.tmp_dir = tempfile.mkdtemp()
