@@ -196,12 +196,14 @@ separator_model = SepformerSeparation.from_hparams(source="${model.modelId}")
 est_sources = separator_model.separate_file("file.wav")`;
 
 const speechbrain = (model: ModelData) => {
-	if (model.tags.includes("automatic-speech-recognition")){
+	if (model.tags?.includes("automatic-speech-recognition")){
 		return speechbrainASR(model);
-	} else if (model.tags.includes("speech-enhancement") || model.tags.includes("audio-to-audio")) {
-		return speechbrainEnhancement(model);
-	} else if (model.tags.includes("audio-source-separation")) {
-		return speechbrainSeparator(model);
+	} else if (model.tags?.includes("audio-to-audio")) {
+		if (model.tags?.includes("speech-enhancement")) {
+			return speechbrainEnhancement(model);
+		} else if (model.tags?.includes("audio-source-separation")) {
+			return speechbrainSeparator(model);
+		} 
 	}
 	return "# Unable to determine model type";
 };
