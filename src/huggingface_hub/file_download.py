@@ -21,7 +21,6 @@ from huggingface_hub import constants
 
 from . import __version__
 from .constants import (
-    HF_HUB_OFFLINE,
     HUGGINGFACE_CO_URL_TEMPLATE,
     HUGGINGFACE_HUB_CACHE,
     REPO_TYPES,
