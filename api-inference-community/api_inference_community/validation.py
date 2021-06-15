@@ -140,7 +140,7 @@ class StringOrStringBatchInputCheck(BaseModel):
         if isinstance(__root__, list):
             if len(__root__) == 0:
                 raise ValueError(
-                    "The inputs is invalid, at least one input is required"
+                    "The inputs are invalid, at least one input is required"
                 )
         return __root__
 
