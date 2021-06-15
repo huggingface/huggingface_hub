@@ -26,9 +26,15 @@
 		isLoading: false,
 		estimatedTime: 0,
 	};
-	let output = "";
+	let output: AudioItem[] = [];
 	let outputJson: string;
 	let selectedSampleUrl = "";
+
+	interface AudioItem {
+		blob: string;
+		label: string;
+		src: string;
+	}
 
 	function onChangeRadio() {
 		file = null;
@@ -85,8 +91,7 @@
 		computeTime = "";
 		error = "";
 		modelLoading = { isLoading: false, estimatedTime: 0 };
-		output = "";
-		outputJson = "";
+		output = [];
 
 		if (res.status === "success") {
 			computeTime = res.computeTime;
@@ -103,7 +108,7 @@
 		}
 	}
 
-	function parseOutput(body: unknown): string {
+	function parseOutput(body: AudioItem[]): AudioItem[] {
 		for (let item of body) {
 			item.src = `data:${item["content-type"]};base64,${item.blob}`;
 		}
