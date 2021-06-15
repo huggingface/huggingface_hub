@@ -3,6 +3,7 @@ import argparse
 import os
 import subprocess
 import uuid
+import ast
 
 
 class cd:
@@ -34,6 +35,24 @@ def create_docker(name: str) -> str:
     ):
         subprocess.run(["docker", "build", ".", "-t", tag])
     return tag
+
+
+def show(args):
+    directory = os.path.join(os.path.dirname(os.path.dirname(__file__)), "docker_images")
+    for framework in sorted(os.listdir(directory)):
+        print(f"{framework}")
+        local_path = os.path.join(
+            os.path.dirname(os.path.dirname(__file__)), "docker_images", framework,
+            "app", "main.py"
+        )
+        # Using ast to prevent import issues with missing dependencies.
+        # and slow loads.
+        with open(local_path, "r") as source:
+            tree = ast.parse(source.read())
+            for item in tree.body:
+                if isinstance(item, ast.AnnAssign) and item.target.id == "ALLOWED_TASKS":
+                    for key in item.value.keys:
+                        print(" " * 4, key.value)
 
 
 def start(args):
@@ -129,6 +148,10 @@ def main():
         help="Which framework to load",
     )
     parser_docker.set_defaults(func=docker)
+    parser_show = subparsers.add_parser(
+        "show", help="Show dockers and the various pipelines they implement"
+    )
+    parser_show.set_defaults(func=show)
     args = parser.parse_args()
     args.func(args)
 

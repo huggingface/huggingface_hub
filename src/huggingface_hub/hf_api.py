@@ -49,6 +49,10 @@ class RepoObj:
         for k, v in kwargs.items():
             setattr(self, k, v)
 
+    def __repr__(self):
+        items = (f"{k}='{v}'" for k, v in self.__dict__.items())
+        return f"{self.__class__.__name__}({', '.join(items)})"
+
 
 class ModelFile:
     """
@@ -59,6 +63,10 @@ class ModelFile:
         self.rfilename = rfilename  # filename relative to the model root
         for k, v in kwargs.items():
             setattr(self, k, v)
+
+    def __repr__(self):
+        items = (f"{k}='{v}'" for k, v in self.__dict__.items())
+        return f"{self.__class__.__name__}({', '.join(items)})"
 
 
 class ModelInfo:
@@ -298,17 +306,20 @@ class HfApi:
             headers={"authorization": "Bearer {}".format(token)},
             json=json,
         )
-        if exist_ok and r.status_code == 409:
-            d = r.json()
-            return d["url"]
 
         try:
             r.raise_for_status()
-        except HTTPError as e:
-            if r.json():
-                if "error" in r.json():
-                    raise HTTPError("{} - {}".format(e, r.json()["error"]))
-            raise e
+        except HTTPError as err:
+            if not (exist_ok and err.response.status_code == 409):
+                try:
+                    additional_info = r.json().get("error", None)
+                    if additional_info:
+                        new_err = f"{err.args[0]} - {additional_info}"
+                        err.args = (new_err,) + err.args[1:]
+                except ValueError:
+                    pass
+
+                raise err
 
         d = r.json()
         return d["url"]
@@ -387,6 +398,7 @@ class HfApi:
         repo_id: str,
         repo_type: Optional[str] = None,
         revision: Optional[str] = None,
+        identical_ok: bool = True,
     ) -> str:
         """
         Upload a local file (up to 5GB) to the given repo, tracking it with LFS if it's larger than 10MB
@@ -409,6 +421,10 @@ class HfApi:
 
             revision (``str``, Optional):
                 The git revision to commit from. Defaults to the :obj:`"main"` branch.
+
+            identical_ok (``bool``, defaults to ``True``):
+                When set to false, will raise an HTTPError when the file you're trying to upload already exists on the hub
+                and its content did not change.
 
         Returns:
             ``str``: The URL to visualize the uploaded file on the hub
@@ -490,7 +506,12 @@ class HfApi:
         else:
             r = requests.post(path, headers=headers, data=path_or_fileobj)
 
-        r.raise_for_status()
+        try:
+            r.raise_for_status()
+        except HTTPError as err:
+            if not (identical_ok and err.response.status_code == 409):
+                raise err
+
         d = r.json()
         return d["url"]
 

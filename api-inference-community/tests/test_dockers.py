@@ -112,8 +112,44 @@ class DockerImageTests(unittest.TestCase):
     def test_timm(self):
         self.framework_docker_test("timm", "image-classification", "sgugger/resnet50d")
 
-    def framework_docker_test(self, framework: str, task: str, model_id: str):
+    def framework_invalid_test(self, framework: str):
+        task = "invalid"
+        model_id = "invalid"
+        tag = self.create_docker(framework)
+        run_docker_command = [
+            "docker",
+            "run",
+            "-p",
+            "8000:80",
+            "-e",
+            f"TASK={task}",
+            "-e",
+            f"MODEL_ID={model_id}",
+            "-v",
+            "/tmp:/data",
+            "-t",
+            tag,
+        ]
 
+        url = "http://localhost:8000"
+        timeout = 60
+        with DockerPopen(run_docker_command) as proc:
+            for i in range(400):
+                try:
+                    response = httpx.get(url, timeout=10)
+                    break
+                except Exception:
+                    time.sleep(1)
+            self.assertEqual(response.content, b'{"ok":"ok"}')
+
+            response = httpx.post(url, data=b"This is a test", timeout=timeout)
+            self.assertEqual(response.status_code, 500)
+            self.assertEqual(response.headers["content-type"], "application/json")
+
+            proc.terminate()
+            proc.wait(5)
+
+    def framework_docker_test(self, framework: str, task: str, model_id: str):
         tag = self.create_docker(framework)
         run_docker_command = [
             "docker",
