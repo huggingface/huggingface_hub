@@ -10,14 +10,22 @@ class ValidationTestCase(TestCase):
     def test_malformed_input(self):
         bpayload = b"\xc3\x28"
         with self.assertRaises(UnicodeDecodeError):
-            normalize_payload_nlp(bpayload, "tag")
+            normalize_payload_nlp(bpayload, "question-answering")
 
     def test_accept_raw_string_for_backward_compatibility(self):
         query = "funny cats"
         bpayload = query.encode("utf-8")
-        normalized_inputs, processed_params = normalize_payload_nlp(bpayload, "tag")
+        normalized_inputs, processed_params = normalize_payload_nlp(
+            bpayload, "translation"
+        )
         self.assertEqual(processed_params, {})
         self.assertEqual(normalized_inputs, query)
+
+    def test_invalid_tag(self):
+        query = "funny cats"
+        bpayload = query.encode("utf-8")
+        with self.assertRaises(ValueError):
+            normalize_payload_nlp(bpayload, "invalid-tag")
 
 
 class QuestionAnsweringValidationTestCase(TestCase):
@@ -418,8 +426,8 @@ class TextGenerationTestCase(make_text_generation_test_case("text-generation")):
     pass
 
 
-class TasksWithOnlyInputStringTestCase(TestCase):
-    def test_feature_extraction_accept_string_no_params(self):
+class FeatureExtractionTestCase(TestCase):
+    def test_valid_string(self):
         bpayload = json.dumps({"inputs": "whatever"}).encode("utf-8")
         normalized_inputs, processed_params = normalize_payload_nlp(
             bpayload, "feature-extraction"
@@ -427,6 +435,29 @@ class TasksWithOnlyInputStringTestCase(TestCase):
         self.assertEqual(processed_params, {})
         self.assertEqual(normalized_inputs, "whatever")
 
+    def test_valid_list_of_strings(self):
+        inputs = ["hugging", "face"]
+        bpayload = json.dumps({"inputs": inputs}).encode("utf-8")
+        normalized_inputs, processed_params = normalize_payload_nlp(
+            bpayload, "feature-extraction"
+        )
+        self.assertEqual(processed_params, {})
+        self.assertEqual(normalized_inputs, inputs)
+
+    def test_invalid_list_with_other_type(self):
+        inputs = ["hugging", [1, 2, 3]]
+        bpayload = json.dumps({"inputs": inputs}).encode("utf-8")
+        with self.assertRaises(ValueError):
+            normalize_payload_nlp(bpayload, "feature-extraction")
+
+    def test_invalid_empty_list(self):
+        inputs = []
+        bpayload = json.dumps({"inputs": inputs}).encode("utf-8")
+        with self.assertRaises(ValueError):
+            normalize_payload_nlp(bpayload, "feature-extraction")
+
+
+class TasksWithOnlyInputStringTestCase(TestCase):
     def test_fill_mask_accept_string_no_params(self):
         bpayload = json.dumps({"inputs": "whatever"}).encode("utf-8")
         normalized_inputs, processed_params = normalize_payload_nlp(
