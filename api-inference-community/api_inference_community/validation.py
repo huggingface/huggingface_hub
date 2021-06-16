@@ -186,7 +186,9 @@ def check_params(params, tag):
 def check_inputs(inputs, tag):
     if tag in INPUTS_MAPPING:
         INPUTS_MAPPING[tag].parse_obj(inputs)
-    return True
+        return True
+    else:
+        raise ValueError(f"{tag} is not a valid pipeline.")
 
 
 def normalize_payload(

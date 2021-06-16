@@ -10,14 +10,22 @@ class ValidationTestCase(TestCase):
     def test_malformed_input(self):
         bpayload = b"\xc3\x28"
         with self.assertRaises(UnicodeDecodeError):
-            normalize_payload_nlp(bpayload, "tag")
+            normalize_payload_nlp(bpayload, "question-answering")
 
     def test_accept_raw_string_for_backward_compatibility(self):
         query = "funny cats"
         bpayload = query.encode("utf-8")
-        normalized_inputs, processed_params = normalize_payload_nlp(bpayload, "tag")
+        normalized_inputs, processed_params = normalize_payload_nlp(
+            bpayload, "translation"
+        )
         self.assertEqual(processed_params, {})
         self.assertEqual(normalized_inputs, query)
+
+    def test_invalid_tag(self):
+        query = "funny cats"
+        bpayload = query.encode("utf-8")
+        with self.assertRaises(ValueError):
+            normalize_payload_nlp(bpayload, "invalid-tag")
 
 
 class QuestionAnsweringValidationTestCase(TestCase):
