@@ -1,15 +1,15 @@
-import { delay } from '../ViewUtils';
+import { delay } from "../ViewUtils";
 
 export default class Recorder {
 	// see developers.google.com/web/updates/2016/01/mediarecorder
-	type: 'audio' | 'video' = 'audio';
+	type: "audio" | "video" = "audio";
 	private stream: MediaStream;
 	private mediaRecorder: MediaRecorder;
 	private recordedBlobs: Blob[] = [];
 	public outputBlob?: Blob;
 
 	get desiredMimeType(): string {
-		return this.type === 'video' ? 'video/webm' : 'audio/webm';
+		return this.type === "video" ? "video/webm" : "audio/webm";
 	}
 	get mimeType() {
 		return this.mediaRecorder.mimeType;
@@ -18,7 +18,9 @@ export default class Recorder {
 		this.recordedBlobs = [];
 
 		const constraints: MediaStreamConstraints =
-			this.type === 'video' ? { audio: true, video: true } : { audio: true };
+			this.type === "video"
+				? { audio: true, video: true }
+				: { audio: true };
 		this.stream = await navigator.mediaDevices.getUserMedia(constraints);
 		this.startRecording();
 	}
@@ -28,11 +30,12 @@ export default class Recorder {
 			mimeType: this.desiredMimeType,
 		});
 		this.mediaRecorder.onstop = this.handleStop.bind(this);
-		this.mediaRecorder.ondataavailable = this.handleDataAvailable.bind(this);
+		this.mediaRecorder.ondataavailable =
+			this.handleDataAvailable.bind(this);
 		this.mediaRecorder.start(10); // timeslice in ms
 	}
-	handleStop(evt) {}
-	handleDataAvailable(evt) {
+	handleStop() {}
+	handleDataAvailable(evt: any) {
 		if (evt.data && evt.data.size > 0) {
 			this.recordedBlobs.push(evt.data);
 		}
@@ -48,7 +51,9 @@ export default class Recorder {
 		await delay(30);
 		// Wait for the last blob in handleDataAvailable.
 		// Alternative: hook into `onstop` event.
-		const superBuffer = new Blob(this.recordedBlobs, { type: this.mimeType });
+		const superBuffer = new Blob(this.recordedBlobs, {
+			type: this.mimeType,
+		});
 		this.outputBlob = superBuffer;
 		return superBuffer;
 	}
