@@ -16,13 +16,14 @@ CONFIG_FILENAME = "config.json"
 
 class ImageClassificationPipeline(Pipeline):
     def __init__(self, model_id: str):
+        # Warning: this is a short term solution to get something working :)
         # This loading has strong assumptions and should be replaced with a better
-        # wrapper for this. This currently assumed the full model is saved, not just
+        # wrapper for this. This assumes the full model is saved, not just
         # the weights.
         model_file = cached_download(hf_hub_url(model_id, filename=MODEL_FILENAME))
         self.model = tf.keras.models.load_model(model_file)
 
-        # Handle binary classification with single output unit
+        # Handle binary classification with a single output unit.
         self.single_output_unit = self.model.output_shape[1] == 1
 
         # Config is required to know the mapping to label.
@@ -58,11 +59,9 @@ class ImageClassificationPipeline(Pipeline):
                 {"label": self.id2label["1"], "score": str(score)},
                 {"label": self.id2label["0"], "score": str(1 - score)},
             ]
-            print("Return unique label", labels)
-            return labels
         else:
             labels = [
                 {"label": self.id2label[str(i)], "score": score.item()}
                 for i, score in enumerate(predictions[0])
             ]
-            return labels
+        return labels
