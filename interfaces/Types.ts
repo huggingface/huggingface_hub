@@ -53,8 +53,8 @@ export const PIPELINE_TYPE_PRETTY_NAMES: { [key in PipelineType]: string } = {
 	"audio-source-separation":                                  "Audio Source Separation",
 	"voice-activity-detection":                                 "Voice Activity Detection",
 	/// computer vision
-	"image-classification":                                     "Image Classification",
 	"image-captioning":                                         "Image Captioning",
+	"image-classification":                                     "Image Classification",
 	"object-detection":                                         "Object Detection",
 	"image-segmentation":                                       "Image Segmentation",
 };
