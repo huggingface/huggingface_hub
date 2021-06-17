@@ -10,7 +10,7 @@
 	import FeatureExtractionWidget from "./widgets/FeatureExtractionWidget/FeatureExtractionWidget.svelte";
 	import FillMaskWidget from "./widgets/FillMaskWidget/FillMaskWidget.svelte";
 	import ImageClassificationWidget from "./widgets/ImageClassificationWidget/ImageClassificationWidget.svelte";
-	import ImageCaptioningWidget from "./widgets/ImageCaptioningWidget/ImageCaptioningWidget.svelte";
+	import ImageToTextWidget from "./widgets/ImageToTextWidget/ImageToTextWidget.svelte";
 	import QuestionAnsweringWidget from "./widgets/QuestionAnsweringWidget/QuestionAnsweringWidget.svelte";
 	import SentenceSimilarityWidget from "./widgets/SentenceSimilarityWidget/SentenceSimilarityWidget.svelte";
 	import SummarizationWidget from "./widgets/SummarizationWidget/SummarizationWidget.svelte";
@@ -41,8 +41,8 @@
 		conversational: ConversationalWidget,
 		"feature-extraction": FeatureExtractionWidget,
 		"fill-mask": FillMaskWidget,
-		"image-captioning": ImageCaptioningWidget,
 		"image-classification": ImageClassificationWidget,
+		"image-to-text": ImageToTextWidget,
 		"question-answering": QuestionAnsweringWidget,
 		"sentence-similarity": SentenceSimilarityWidget,
 		summarization: SummarizationWidget,
