@@ -8,6 +8,7 @@
 	import IconFeatureExtraction from "../Icons/IconFeatureExtraction.svelte";
 	import IconFillMask from "../Icons/IconFillMask.svelte";
 	import IconImageClassification from "../Icons/IconImageClassification.svelte";
+	import IconImageToText from "../Icons/IconImageToText.svelte";
 	import IconImageSegmentation from "../Icons/IconImageSegmentation.svelte";
 	import IconObjectDetection from "../Icons/IconObjectDetection.svelte";
 	import IconQuestionAnswering from "../Icons/IconQuestionAnswering.svelte";
@@ -51,6 +52,7 @@
 		"image-classification": IconImageClassification,
 		"object-detection": IconObjectDetection,
 		"image-segmentation": IconImageSegmentation,
+		"image-to-text": IconImageToText,
 	};
 </script>
 
