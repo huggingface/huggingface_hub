@@ -23,9 +23,8 @@ from . import __version__
 from .constants import (
     HUGGINGFACE_CO_URL_TEMPLATE,
     HUGGINGFACE_HUB_CACHE,
-    REPO_TYPE_DATASET,
-    REPO_TYPE_DATASET_URL_PREFIX,
     REPO_TYPES,
+    REPO_TYPES_URL_PREFIXES,
 )
 from .hf_api import HfFolder
 
@@ -114,8 +113,8 @@ def hf_hub_url(
     if repo_type not in REPO_TYPES:
         raise ValueError("Invalid repo type")
 
-    if repo_type == REPO_TYPE_DATASET:
-        repo_id = REPO_TYPE_DATASET_URL_PREFIX + repo_id
+    if repo_type in REPO_TYPES_URL_PREFIXES:
+        repo_id = REPO_TYPES_URL_PREFIXES[repo_type] + repo_id
 
     if revision is None:
         revision = "main"

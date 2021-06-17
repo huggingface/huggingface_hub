@@ -108,7 +108,7 @@ class PushToHubMixin(object):
         return repo.push_to_hub(commit_message=commit_message)
 
 
-class ModelHubMixin(PushToHubMixin):
+class ModelHubMixin:
     def __init__(self, *args, **kwargs):
         """
         Mix this class with your torch-model class for ease process of saving & loading from huggingface-hub

@@ -152,6 +152,20 @@
 				},
 			],
 		},
+		{
+			modelId: "speechbrain/mtl-mimic-voicebank",
+			private: false,
+			pipeline_tag: "audio-to-audio",
+			tags: ["speech-enhancement"],
+			widgetData: [],
+		},
+		{
+			modelId: "speechbrain/sepformer-wham",
+			private: false,
+			pipeline_tag: "audio-to-audio",
+			tags: ["audio-source-separation"],
+			widgetData: [],
+		},
 	];
 </script>
 

@@ -12,6 +12,7 @@ export enum ModelLibrary {
 	'pyannote'               = 'Pyannote',
 	'sentence-transformers'  = 'Sentence Transformers',
 	'spacy'                  = 'spaCy',
+	'speechbrain'            = 'speechbrain',
 	'tensorflowtts'          = 'TensorFlowTTS',
 	'timm'                   = 'Timm',
 	'transformers'           = 'Transformers',
@@ -176,6 +177,37 @@ nlp = spacy.load("${nameWithoutNamespace(model.modelId)}")
 import ${nameWithoutNamespace(model.modelId)}
 nlp = ${nameWithoutNamespace(model.modelId)}.load()`;
 
+const speechbrainASR = (model: ModelData) =>
+`from speechbrain.pretrained import EncoderDecoderASR
+
+asr_model = EncoderDecoderASR.from_hparams(source="${model.modelId}")
+asr_model.transcribe_file("file.wav")`;
+
+const speechbrainEnhancement = (model: ModelData) =>
+`from speechbrain.pretrained import SpectralMaskEnhancement
+
+enhance_model = SpectralMaskEnhancement.from_hparams(source="${model.modelId}")
+enhanced = enhance_model.enhance_file("file.wav")`;
+
+const speechbrainSeparator = (model: ModelData) =>
+`from speechbrain.pretrained import SepformerSeparation
+
+separator_model = SepformerSeparation.from_hparams(source="${model.modelId}")
+est_sources = separator_model.separate_file("file.wav")`;
+
+const speechbrain = (model: ModelData) => {
+	if (model.tags?.includes("automatic-speech-recognition")){
+		return speechbrainASR(model);
+	} else if (model.tags?.includes("audio-to-audio")) {
+		if (model.tags?.includes("speech-enhancement")) {
+			return speechbrainEnhancement(model);
+		} else if (model.tags?.includes("audio-source-separation")) {
+			return speechbrainSeparator(model);
+		} 
+	}
+	return "# Unable to determine model type";
+};
+
 const transformers = (model: ModelData) =>
 `from transformers import AutoTokenizer, ${model.autoArchitecture}
   
@@ -235,6 +267,12 @@ export const MODEL_LIBRARIES_UI_ELEMENTS: { [key in keyof typeof ModelLibrary]: 
 		repoName: "spaCy",
 		repoUrl: "https://github.com/explosion/spaCy",
 		snippet: spacy,
+	},
+	speechbrain: {
+		btnLabel: "speechbrain",
+		repoName: "speechbrain",
+		repoUrl: "https://github.com/speechbrain/speechbrain",
+		snippet: speechbrain,
 	},
 	tensorflowtts : {
 		btnLabel: "TensorFlowTTS",
