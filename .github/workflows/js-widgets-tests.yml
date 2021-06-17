@@ -1,0 +1,58 @@
+name: JS Widgets
+
+on:
+  push:
+    paths:
+      - "widgets/**"
+  pull_request:
+    paths:
+      - "widgets/**"
+
+
+jobs:
+  build:
+
+    runs-on: ubuntu-latest
+
+    timeout-minutes: 10
+
+    steps:
+      - uses: actions/checkout@v1
+      - name: Use Node.js
+        uses: actions/setup-node@v1
+        with:
+          node-version: 14
+      - working-directory: widgets
+        run: |
+          npm ci
+      - name: Check style
+        working-directory: widgets
+        run: |
+          npm run lint
+      - name: Check svelte
+        working-directory: widgets
+        run: |
+          npm run check
+      - name: Build front
+        working-directory: widgets
+        run: |
+          npm run build
+
+      # CD of static site
+      - name: Netlify install
+        working-directory: widgets
+        run: |
+          npm i netlify-cli
+
+      - name: Netlify find out whether push to prod
+        if: endsWith(github.ref, '/master')
+        run: |
+          echo "::set-env name=NETLIFY_EXTRA_FLAG::--prod"
+
+      - name: Netlify deploy
+        working-directory: widgets
+        env:
+          NETLIFY_AUTH_TOKEN: ${{ secrets.NETLIFY_AUTH_TOKEN }}
+          NETLIFY_SITE_ID: 69b9df00-bfdd-4499-bd7f-6add4d703d99
+        run: |
+          npx netlify deploy --auth "$NETLIFY_AUTH_TOKEN" --dir ./build/ --site ${NETLIFY_SITE_ID} ${NETLIFY_EXTRA_FLAG}

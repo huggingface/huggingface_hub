@@ -1,4 +1,4 @@
-import { PipelineType } from './Types';
+import type { PipelineType } from './Types';
 
 type LanguageCode = string;
 
