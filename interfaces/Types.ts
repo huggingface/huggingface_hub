@@ -2,30 +2,30 @@
 /// In each category, order by decreasing specificity
 /// The order can influence which default pipeline tag is affected to a model (if unspecified in model card)
 export enum PipelineType {
-	/// nlp
-	"text-classification" = "text-classification",
-	"token-classification" = "token-classification",
-	"table-question-answering" = "table-question-answering",
-	"question-answering" = "question-answering",
-	"zero-shot-classification" = "zero-shot-classification",
-	"translation" = "translation",
-	"summarization" = "summarization",
-	"conversational" = "conversational",
-	"feature-extraction" = "feature-extraction",
-	"text-generation" = "text-generation",
-	"text2text-generation" = "text2text-generation",
-	"fill-mask" = "fill-mask",
-	"sentence-similarity" = "sentence-similarity",
-	/// audio
-	"text-to-speech" = "text-to-speech",
-	"automatic-speech-recognition" = "automatic-speech-recognition",
-	"audio-to-audio" = "audio-to-audio",
-	"audio-source-separation" = "audio-source-separation",
-	"voice-activity-detection" = "voice-activity-detection",
-	/// computer vision
-	"image-classification" = "image-classification",
-	"object-detection" = "object-detection",
-	"image-segmentation" = "image-segmentation",
+  /// nlp
+  "text-classification" = "text-classification",
+  "token-classification" = "token-classification",
+  "table-question-answering" = "table-question-answering",
+  "question-answering" = "question-answering",
+  "zero-shot-classification" = "zero-shot-classification",
+  "translation" = "translation",
+  "summarization" = "summarization",
+  "conversational" = "conversational",
+  "feature-extraction" = "feature-extraction",
+  "text-generation" = "text-generation",
+  "text2text-generation" = "text2text-generation",
+  "fill-mask" = "fill-mask",
+  "sentence-similarity" = "sentence-similarity",
+  /// audio
+  "text-to-speech" = "text-to-speech",
+  "automatic-speech-recognition" = "automatic-speech-recognition",
+  "audio-source-separation" = "audio-source-separation",
+  "voice-activity-detection" = "voice-activity-detection",
+  /// computer vision
+  "image-classification" = "image-classification",
+  "image-captioning" = "image-captioning",
+  "object-detection" = "object-detection",
+  "image-segmentation" = "image-segmentation",
 }
 
 export const ALL_PIPELINE_TYPES = Object.keys(PipelineType) as (keyof typeof PipelineType)[];
@@ -53,6 +53,7 @@ export const PIPELINE_TYPE_PRETTY_NAMES: { [key in PipelineType]: string } = {
 	"voice-activity-detection":                                 "Voice Activity Detection",
 	/// computer vision
 	"image-classification":                                     "Image Classification",
+	"image-captioning":                                         "Image Captioning",
 	"object-detection":                                         "Object Detection",
 	"image-segmentation":                                       "Image Segmentation",
 };

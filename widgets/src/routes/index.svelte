@@ -9,6 +9,10 @@
 			pipeline_tag: "image-classification",
 		},
 		{
+			modelId: "",
+			pipeline_tag: "image-captioning",
+		},
+		{
 			modelId: "julien-c/distilbert-feature-extraction",
 			pipeline_tag: "feature-extraction",
 			widgetData: [{ text: "Hello world" }],
