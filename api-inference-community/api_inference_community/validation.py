@@ -205,7 +205,6 @@ def normalize_payload(
         return normalize_payload_audio(bpayload, sampling_rate)
     elif task in {
         "image-classification",
-        "image-to-text",
     }:
         return normalize_payload_image(bpayload)
     else:

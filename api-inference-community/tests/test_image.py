@@ -6,7 +6,7 @@ from api_inference_community.validation import normalize_payload_image
 
 
 class ValidationTestCase(TestCase):
-    def test_original_imagefile(self):
+    def test_original_audiofile(self):
         dirname = os.path.dirname(os.path.abspath(__file__))
         filename = os.path.join(dirname, "samples", "plane.jpg")
         with open(filename, "rb") as f:
