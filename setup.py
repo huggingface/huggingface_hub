@@ -25,11 +25,6 @@ extras["torch"] = [
     "torch",
 ]
 
-extras["sklearn"] = [
-    "sklearn",
-    "cloudpickle",
-]
-
 extras["testing"] = [
     "pytest",
 ]

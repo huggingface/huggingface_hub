@@ -54,35 +54,11 @@ try:
 except importlib_metadata.PackageNotFoundError:
     pass
 
-_sklearn_available = False
-try:
-    importlib_metadata.version("sklearn")
-    _sklearn_available = True
-except importlib_metadata.PackageNotFoundError:
-    pass
-
-_cloudpickle_available = False
-try:
-    importlib_metadata.version("cloudpickle")
-    _cloudpickle_available = True
-except importlib_metadata.PackageNotFoundError:
-    pass
-
-
 def is_torch_available():
     return _torch_available
 
-
 def is_tf_available():
     return _tf_available
-
-
-def is_sklearn_available():
-    return _sklearn_available
-
-
-def is_cloudpickle_available():
-    return _cloudpickle_available
 
 
 def hf_hub_url(
