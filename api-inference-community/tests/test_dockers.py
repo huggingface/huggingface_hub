@@ -112,6 +112,9 @@ class DockerImageTests(unittest.TestCase):
     def test_timm(self):
         self.framework_docker_test("timm", "image-classification", "sgugger/resnet50d")
 
+    def test_keras(self):
+        self.framework_docker_test("timm", "image-classification", "osanseviero/")
+
     def framework_invalid_test(self, framework: str):
         task = "invalid"
         model_id = "invalid"
