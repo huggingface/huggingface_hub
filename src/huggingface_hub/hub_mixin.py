@@ -27,9 +27,6 @@ if is_torch_available():
 if is_tf_available():
     import tensorflow as tf
 
-if is_cloudpickle_available():
-    import cloudpickle
-
 logger = logging.getLogger(__name__)
 
 
@@ -149,6 +146,8 @@ class ModelHubMixin:
                 specify config (must be dict) incase you want to save it.
             push_to_hub (:obj:`bool`, `optional`, defaults to :obj:`False`):
                 Set it to `True` in case you want to push your weights to huggingface_hub
+            model_id (:obj:`str`, `optional`, defaults to :obj:`save_directory`):
+                Repo name in huggingface_hub. If not specified, repo name will be same as `save_directory`
             kwargs (:obj:`Dict`, `optional`):
                 kwargs will be passed to `push_to_hub`
         """
@@ -223,7 +222,7 @@ class ModelHubMixin:
                 Whether or not to only look at local files (i.e., do not try to download the model).
             use_auth_token (:obj:`str` or `bool`, `optional`):
                 The token to use as HTTP bearer authorization for remote files. If :obj:`True`, will use the token
-                generated when running :obj:`huggingface-cli login` (stored in :obj:`~/.huggingface`).
+                generated when running :obj:`transformers-cli login` (stored in :obj:`~/.huggingface`).
             model_kwargs (:obj:`Dict`, `optional`)::
                 model_kwargs will be passed to the model during initialization
         .. note::
@@ -254,7 +253,7 @@ class ModelHubMixin:
                     use_auth_token=use_auth_token,
                 )
             except requests.exceptions.RequestException:
-                logger.warning("config.json NOT FOUND in Hugging Face Hub")
+                logger.warning("config.json NOT FOUND in HuggingFace Hub")
                 config_file = None
 
         if os.path.isdir(model_id):

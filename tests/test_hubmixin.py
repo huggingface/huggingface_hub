@@ -4,12 +4,8 @@ import time
 import unittest
 
 from huggingface_hub import HfApi
-from huggingface_hub.file_download import (
-    is_cloudpickle_available,
-    is_sklearn_available,
-    is_torch_available,
-)
-from huggingface_hub.hub_mixin import ModelHubMixin, SklearnPipelineHubMixin
+from huggingface_hub.file_download import is_torch_available
+from huggingface_hub.hub_mixin import ModelHubMixin
 
 from .testing_constants import ENDPOINT_STAGING, PASS, USER
 from .testing_utils import set_write_permission_and_retry
@@ -56,12 +52,12 @@ else:
 
 
 @require_torch
-class HubMixinCommonTest(unittest.TestCase):
+class HubMixingCommonTest(unittest.TestCase):
     _api = HfApi(endpoint=ENDPOINT_STAGING)
 
 
 @require_torch
-class HubMixinTest(HubMixinCommonTest):
+class HubMixingTest(HubMixinCommonTest):
     def tearDown(self) -> None:
         try:
             shutil.rmtree(WORKING_REPO_DIR, onerror=set_write_permission_and_retry)
