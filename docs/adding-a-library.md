@@ -174,7 +174,7 @@ You can choose to create repository privately, and to upload it to an organizati
 
 #### `upload_file`
 
-The `upload_file` method may be used to upload files to a repository directly on the model hub. It needs a 
+The `upload_file` method may be used to upload files to a repository directly on the model hub (bypassing git and git-lfs). It needs a 
 token, a path to a file, the final path in the repo, as well as the ID of the repo we're pushing to.
 
 ```python
