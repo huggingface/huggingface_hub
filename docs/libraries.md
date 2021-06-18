@@ -30,4 +30,4 @@ Would you like to see your library here? Read about it in [Adding a Library Guid
 
 ## How can I add a new library to the Inference API?
 
-Read about it in [Adding a Library Guide](/docs/adding-a-library.md).
+Read about it in [Adding a Library Guide](/docs/adding-a-library).

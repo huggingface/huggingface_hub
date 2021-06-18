@@ -1,31 +1,35 @@
-# Integrating a library within the Hub
+---
+title: Adding your Library
+---
 
-The Hugging Face Hub aims to facilitate the sharing of machine learning models, checkpoints, and artifacts. 
-This endeavor starts with the integration of its tool stack within downstream libraries, and we're happy to announce 
-the fruitful collaboration between Hugging Face and spaCy, AllenNLP, and Timm, among many other incredible libraries.
+# Integrating your library to the Hub
 
-> For a full list of supported libraries see [the following table](https://github.com/huggingface/huggingface_hub/blob/96e49483ace685cf526492b248ba3341bc1b1564/docs/libraries.md).
+## Introduction
+
+The Hugging Face Hub aims to facilitate the sharing of machine learning models, checkpoints, and artifacts.  This endeavor starts with the integration of its tool stack within downstream libraries, and we're happy to announce  the fruitful collaboration between Hugging Face and spaCy, AllenNLP, and Timm, among many other incredible libraries.
+
+**For a full list of supported libraries, see [the following table](/docs/libraries).**
 
 We believe the Hub is a step in the correct direction for several reasons. It offers:
 
-- Free model hosting for libraries and their users. Custom plans exist for users wishing to keep their models 
-  private but keep the ease of use.
+- Free model hosting for libraries and their users. Custom plans exist for users wishing to keep their models  private but keep the ease of use.
 - Built-in file versioning, even with very large files, thanks to a git-based approach.
 - Hosted inference API for all models publicly available.
-- In-browser widgets to play with the uploaded models.
+- In-browser widgets to play with the uploaded models (you can read more about the widgets [here](/docs#whats-a-widget)).
 
 Thanks to these, we hope to achieve true shareability across the machine learning ecosystem, reproducibility, 
 and the ability to offer simple solutions directly from the browser. To that end, we're looking to make it very 
-simple to integrate the hub within downstream libraries or standalone machine learning models.
+simple to integrate the Hub within downstream libraries or standalone machine learning models.
 
-The approach can be split in three different steps detailed below:
+In order to provide help in the integration, feel free to open an issue in the Hub [repository](https://github.com/huggingface/huggingface_hub) so we can track and discuss about the process.
 
-- The "downstream" approach: downloading files from the hub so that they may be used simply locally.
-- The "upstream" approach: creating repositories and uploading files to the hub directly from your library.
-- Setting up the inference API for uploaded models.
+The approach can be split in three different steps:
 
-Before getting started, we recommend you first [create a HuggingFace account](https://huggingface.co/join). This will 
-create a namespace on which you can create repositories, and to which you can upload files to.
+1. The "downstream" approach: downloading files from the Hub so that they may be used easily locally from your library.
+2. The "upstream" approach: creating repositories and uploading files to the Hub directly from your library.
+3. Setting up the inference API for uploaded models, allowing users to try out the models directly in the browser.
+
+Before getting started, we recommend you first [create a Hugging Face account](/join). This will create a namespace on which you can create repositories and to which you can upload files to. If your library already has a set of pretrained models, you can create an organization where users would find the canonical models.
 
 Once your account is created, jump to your environment with the `huggingface_hub` library installed and log in:
 
@@ -49,7 +53,7 @@ You're now ready to go!
 
 ## Downstream: fetching files from the hub
 
-The downstream approach is managed by the `huggingface_hub` library. Three methods may prove helpful when trying to 
+The downstream approach is managed by the [`huggingface_hub`](https://github.com/huggingface/huggingface_hub/tree/main/src/huggingface_hub) library. Three methods may prove helpful when trying to 
 retrieve files from the hub:
 
 ### `hf_hub_url`
@@ -57,10 +61,10 @@ retrieve files from the hub:
 This method can be used to construct the URL of a file from a given repository. For example, the 
 repository [`lysandre/arxiv-nlp`](https://huggingface.co/lysandre/arxiv-nlp) has a few model, configuration and tokenizer files:
 
-![Images/repo.png](Images/repo.png)
+![assets/repo.png](assets/repo.png)
 
 
-We would like to fetch the configuration file of that model specifically. The `hf_hub_url` method is tailored for 
+We would like to specifically fetch the configuration file of that model. The `hf_hub_url` method is tailored for 
 that use-case especially:
 
 ```python
@@ -91,13 +95,13 @@ file! Let's try it with the configuration file we just retrieved thanks to the `
 ```
 
 The file is now downloaded and stored in my cache: `~/.cache/huggingface/hub`. It isn't necessarily noticeable for 
-small files such as a configuration file - but larger files, such as model files would be hard to work with if they 
+small files such as a configuration file - but larger files, such as model files, would be hard to work with if they 
 had to be re-downloaded every time. Additionally, these large files will always be downloaded with a blazing fast
-download speed: we use Cloudfront (a CDN) to geo-replicate downloads across the globe.
+download speed: we use Cloudfront (a CDN) to geo-replicate downloads across the globe. ⚡⚡
 
 If the repository is updated with a new version of the file we just downloaded, then the `huggingface_hub` will 
 download the new version and store it in the cache next time, without any action needed from your part to specify 
-it should fetch an updated version
+it should fetch an updated version.
 
 ### `snapshot_download`
 
@@ -105,7 +109,7 @@ The `hf_hub_url` and `cached_download` combo works wonders when you have a fixed
 a model file alongside a configuration file, both with static names.
 
 However, this is not always the case. You may choose to have a more flexible approach without sticking to a specific 
-file schema. This is what the authors of AllenNLP chose to do for instance. In that case `snapshot_download` comes 
+file schema. This is what the authors of `AllenNLP` and `Sentence Transformers` chose to do for instance. In that case `snapshot_download` comes 
 in handy: it downloads a whole snapshot of a repo's files at the specified revision, without having to have git or git-lfs installed. All files are nested inside a 
 folder in order to keep their actual filename relative to that folder.
 
@@ -126,6 +130,24 @@ updated repository next time it is run.
 
 With the help of these three methods, implementing a download mechanism from the hub should be super simple! Please, 
 feel free to open an issue if you're lost as to how apply it to your library - we'll be happy to help.
+
+### Code sample
+
+For users to understand how the model should be used in your downstream library, we recommend adding a code snippet 
+explaining how that should be done. 
+
+![assets/code_snippet.png](assets/code_snippet.png)
+
+
+In order to do this, please take a look and update the following file with 
+mentions of your library: [interfaces/Libraries.ts](https://github.com/huggingface/huggingface_hub/blob/main/interfaces/Libraries.ts). 
+This file is in Typescript as this is the ground truth that we're using on the Hugging Face website. A good 
+understanding of Typescript isn't necessary to edit the file.
+
+Additionally, this will add a tag with which users may filter models. All models from your library will 
+be easily identifiable!
+
+![assets/libraries-tags.png](assets/libraries-tags.png)
 
 ## Upstream: creating repositories and uploading files to the hub
 
@@ -189,12 +211,12 @@ token, a path to a file, the final path in the repo, as well as the ID of the re
 
 ### `Repository`
 
-The `Repository` class is thought differently to the `HfApi` class: it is a wrapper over usual git & git-lfs methods.
-Therefore, handling repositories with this class requires you and your users to have `git` and `git-lfs` correctly
-set up.
+The Repository class is the main way to programmatically push models or other repos to huggingface.co, and it is simply a wrapper over git & git-lfs methods.
+
+Therefore, handling repositories with this class requires you and your users to have git and git-lfs correctly set up.
 
 We recommend taking a look at the 
-[python file directly](https://github.com/huggingface/huggingface_hub/blob/main/src/huggingface_hub/repository.py) 
+[class definition directly](https://github.com/huggingface/huggingface_hub/blob/main/src/huggingface_hub/repository.py) 
 to see what is possible, as it offers a lot of very useful wrappers.
 
 It offers several methods that can be used directly from a Python runtime, namely:
@@ -225,7 +247,7 @@ define tags for your library or framework, the type of model uploaded, the langu
 and more.
 
 The full model card specification can be seen below:
-```
+```yaml
 ---
 language:
 - {lang_0}  # Example: fr
@@ -259,16 +281,15 @@ model-index:
 ---
 ```
 
-None of the fields are required - but any field added will improve the discoverability of your model and open it to
-features such as the inference API. 
+None of the fields are required - but any added field will improve the discoverability of your model and open it to features such as the inference API. You can find more information on repos and model cards [here](/docs/model-repos).
 
 ## Setting up the Inference API
 
 ### Docker image
 
-All third-party libraries are dockerized: in this environment, you can install the libraries you'll need for your 
-models to work correctly. In order to add your library to the existing docker images, head over to 
-the [`inference-api-community` docker images folder](https://github.com/huggingface/huggingface_hub/tree/main/api-inference-community/docker_images).
+All third-party libraries are dockerized: in this environment, you can install the dependencies you'll need for your 
+library to work correctly. In order to add your library to the existing docker images, head over to 
+the [`inference-api-community` docker images folder](https://github.com/huggingface/huggingface_hub/tree/main/api-inference-community).
 
 Here, you'll be facing a folder for each library already implemented - as well as a `common` folder. Copy this 
 folder and paste it with the name of your library. You'll need to edit three files to make this docker image yours:
@@ -285,28 +306,17 @@ folder and paste it with the name of your library. You'll need to edit three fil
   [open an issue](https://github.com/huggingface/huggingface_hub/issues/new) so that we may take a  look and help 
   you out.
 
-For additional information, please take a look at the README available in the`api-inference-community` [folder](https://github.com/huggingface/huggingface_hub/tree/main/api-inference-community). 
+For additional information, please take a look at the README available in the `api-inference-community` [folder](https://github.com/huggingface/huggingface_hub/tree/main/api-inference-community). 
 This README contains information about the tests necessary to ensure that your library's docker image will continue working.
-
-### Code sample
-
-For users to understand how the model should be used in your downstream library, we recommend adding a code snippet 
-explaining how that should be done. In order to do this, please take a look and update the following file with 
-mentions of your library: [interfaces/Libraries.ts](https://github.com/huggingface/huggingface_hub/blob/main/interfaces/Libraries.ts). 
-This file is in Typescript as this is the ground truth that we're using on the Hugging Face website. A good 
-understanding of Typescript isn't necessary to edit the file.
-
-Additionally, this will add a tag with which users may filter models. All models from your library will 
-be easily identifiable!
-
-If you're adding a new pipeline type, you might also want to take a look at adding it to the 
-[Types.ts](https://github.com/huggingface/huggingface_hub/blob/main/interfaces/Types.ts) for it to be identifiable 
-as a possible pipeline.
-
-Secondly, you should set the 
-[widget default for that new pipeline](https://github.com/huggingface/huggingface_hub/blob/main/interfaces/DefaultWidget.ts) if you can.
 
 ### Implementing a widget
 
-As of now, the widgets are being open sourced. While we work to make them publicly available, please open an issue 
-with the widget you would like to have and a description of how it would work with your library.
+All our widgets are [open sourced](https://github.com/huggingface/huggingface_hub/tree/main/widgets)!. You can try them out [here](https://huggingface-widgets.netlify.app/). If you would like to contribute or propose a new widget, please open an issue in the repo.
+
+### New pipelines
+
+If you're adding a new pipeline type, you might also want to take a look at adding it to the 
+[Types.ts](https://github.com/huggingface/huggingface_hub/blob/main/interfaces/Types.ts) for it to be identifiable as a possible pipeline.
+
+Secondly, you should set the 
+[widget default for that new pipeline](https://github.com/huggingface/huggingface_hub/blob/main/interfaces/DefaultWidget.ts) if you can.
