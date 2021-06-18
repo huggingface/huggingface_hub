@@ -17,6 +17,9 @@ from tests.test_api import TESTABLE_MODELS
 )
 class SentenceSimilarityTestCase(TestCase):
     def setUp(self):
+        model_id = TESTABLE_MODELS["sentence-similarity"]
+        self.old_model_id = os.getenv("MODEL_ID")
+        self.old_task = os.getenv("TASK")
         os.environ["MODEL_ID"] = self.model_id
         os.environ["TASK"] = "sentence-similarity"
         from app.main import app
@@ -24,8 +27,14 @@ class SentenceSimilarityTestCase(TestCase):
         self.app = app
 
     def tearDown(self):
-        del os.environ["MODEL_ID"]
-        del os.environ["TASK"]
+        if self.old_model_id is not None:
+            os.environ["MODEL_ID"] = self.old_model_id
+        else:
+            del os.environ["MODEL_ID"]
+        if self.old_task is not None:
+            os.environ["TASK"] = self.old_task
+        else:
+            del os.environ["TASK"]
 
     def test_simple(self):
         source_sentence = "I am a very happy man"
