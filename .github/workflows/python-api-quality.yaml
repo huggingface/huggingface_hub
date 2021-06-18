@@ -1,7 +1,7 @@
 name: Inference API code quality
 
 on:
-  push:
+  pull_request:
     paths:
       - "api-inference-community/**"
 

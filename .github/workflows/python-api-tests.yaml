@@ -1,6 +1,6 @@
 name: Inference API Python-tests
 on:
-  push:
+  pull_request:
     paths:
       - "api-inference-community/**"
 jobs:
