@@ -63,10 +63,10 @@
 		}
 
 		const requestBody = {
-			inputs: imageBase64,
 			parameters: {
+				images: [imageBase64],
 				candidate_labels: trimmedCandidateLabels,
-				multi_class: multiClass,
+				hypothesis_template: multiClass,
 			},
 		};
 
