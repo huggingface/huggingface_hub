@@ -22,6 +22,7 @@
 	import IconTranslation from "../Icons/IconTranslation.svelte";
 	import IconVoiceActivityDetection from "../Icons/IconVoiceActivityDetection.svelte";
 	import IconZeroShotClassification from "../Icons/IconZeroShotClassification.svelte";
+	import IconZeroShotImageClassification from "../Icons/IconZeroShotImageClassification.svelte";
 
 	export let classNames = "";
 	export let pipeline = "";
@@ -51,6 +52,7 @@
 		"image-classification": IconImageClassification,
 		"object-detection": IconObjectDetection,
 		"image-segmentation": IconImageSegmentation,
+		"zero-shot-image-classification": IconZeroShotImageClassification,
 	};
 </script>
 
