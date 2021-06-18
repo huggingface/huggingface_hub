@@ -25,7 +25,7 @@ jobs:
         working-directory: api-inference-community
         run: |
           pip install --upgrade pip
-          pip install pytest pillow httpx
+          pip install pytest pillow httpx huggingface_hub
           pip install -e .
       - run: make test
         working-directory: api-inference-community
