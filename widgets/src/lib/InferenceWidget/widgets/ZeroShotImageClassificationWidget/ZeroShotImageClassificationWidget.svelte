@@ -14,6 +14,7 @@
 	export let model: WidgetProps["model"];
 	export let noTitle: WidgetProps["noTitle"];
 
+	const accept = "image/*";
 	let candidateLabels = "";
 	let computeTime = "";
 	let error: string = "";
@@ -28,6 +29,12 @@
 	let imageBase64 = "";
 
 	function onSelectFile(file: File) {
+		error = file.type.match(accept) ? "" : "You need to upload an image";
+		if(error){
+			imageBase64 = "";
+			return;
+		}
+
 		let fileReader: FileReader = new FileReader();
 		fileReader.onload = () => {
 			const imageBase64WithPrefix: string = (fileReader.result as string);
@@ -126,7 +133,7 @@
 >
 	<svelte:fragment slot="top">
 		<form class="flex flex-col space-y-2">
-			<WidgetDropzone {isLoading} {onSelectFile} />
+			<WidgetDropzone {accept} {isLoading} {onSelectFile} />
 			<WidgetTextInput
 				bind:value={candidateLabels}
 				label="Possible class names (comma-separated)"
