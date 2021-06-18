@@ -48,7 +48,7 @@ The Inference API allows you to send HTTP requests to models in the Hugging Face
 
 ## How can I explore the Hugging Face Hub?
 
-[![Model Hub Video](https://img.youtube.com/vi/XvSGPZFEjDY/0.jpg)](https://www.youtube.com/watch?v=XvSGPZFEjDY)
+<iframe width="560" height="315" src="https://www.youtube-nocookie.com/embed/XvSGPZFEjDY" title="Model Hub Video" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>
 
 ## How is a model's type of inference API and widget determined?
 
@@ -85,7 +85,8 @@ Here are some with links to examples:
 You have access to the repos as with any other Git-based repository! You can even upload very large files. 
 
 Here is a video to learn more about it from our [course](http://hf.co/course)!
-[![Model Hub Video](https://img.youtube.com/vi/rkCly_cbMBk/0.jpg)](https://www.youtube.com/watch?v=rkCly_cbMBk)
+
+<iframe width="560" height="315" src="https://www.youtube-nocookie.com/embed/rkCly_cbMBk" title="Managing a repo" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>
 
 ## What's the origin of 🤗 name? 
 
