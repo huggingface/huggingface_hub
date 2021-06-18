@@ -30,14 +30,14 @@
 
 	function onSelectFile(file: File) {
 		error = file.type.match(accept) ? "" : "You need to upload an image";
-		if(error){
+		if (error) {
 			imageBase64 = "";
 			return;
 		}
 
 		let fileReader: FileReader = new FileReader();
 		fileReader.onload = () => {
-			const imageBase64WithPrefix: string = (fileReader.result as string);
+			const imageBase64WithPrefix: string = fileReader.result as string;
 			imageBase64 = imageBase64WithPrefix.split(",")[1]; // remove prefix
 			isLoading = false;
 		};
