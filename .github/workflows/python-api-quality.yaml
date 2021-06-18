@@ -18,6 +18,6 @@ jobs:
         run: |
           pip install black isort flake8 mypy
       - name: Make quality
-        workdir: api-inference-community
+        working-directory: api-inference-community
         run: |
           make quality
