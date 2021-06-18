@@ -51,6 +51,7 @@ class DockerImageTests(unittest.TestCase):
         self.framework_docker_test(
             "allennlp", "question-answering", "lysandre/bidaf-elmo-model-2020.03.19"
         )
+        self.framework_invalid_test("allennlp")
 
     def test_asteroid(self):
         self.framework_docker_test(
@@ -63,6 +64,7 @@ class DockerImageTests(unittest.TestCase):
             "audio-source-separation",
             "julien-c/DPRNNTasNet-ks16_WHAM_sepclean",
         )
+        self.framework_invalid_test("asteroid")
 
     def test_espnet(self):
         self.framework_docker_test(
@@ -70,6 +72,7 @@ class DockerImageTests(unittest.TestCase):
             "text-to-speech",
             "julien-c/ljspeech_tts_train_tacotron2_raw_phn_tacotron_g2p_en_no_space_train",
         )
+        self.framework_invalid_test("espnet")
         # TOO SLOW
         # (
         #     "espnet",
@@ -89,11 +92,13 @@ class DockerImageTests(unittest.TestCase):
             "sentence-similarity",
             "paraphrase-distilroberta-base-v1",
         )
+        self.framework_invalid_test("sentence_transformers")
 
     def test_flair(self):
         self.framework_docker_test(
             "flair", "token-classification", "flair/chunk-english-fast"
         )
+        self.framework_invalid_test("flair")
 
     def test_spacy(self):
         self.framework_docker_test(
@@ -101,6 +106,7 @@ class DockerImageTests(unittest.TestCase):
             "token-classification",
             "spacy/en_core_web_sm",
         )
+        self.framework_invalid_test("spacy")
 
     def test_speechbrain(self):
         self.framework_docker_test(
@@ -108,9 +114,11 @@ class DockerImageTests(unittest.TestCase):
             "automatic-speech-recognition",
             "speechbrain/asr-crdnn-commonvoice-it",
         )
+        self.framework_invalid_test("speechbrain")
 
     def test_timm(self):
         self.framework_docker_test("timm", "image-classification", "sgugger/resnet50d")
+        self.framework_invalid_test("timm")
 
     def framework_invalid_test(self, framework: str):
         task = "invalid"
@@ -143,7 +151,7 @@ class DockerImageTests(unittest.TestCase):
             self.assertEqual(response.content, b'{"ok":"ok"}')
 
             response = httpx.post(url, data=b"This is a test", timeout=timeout)
-            self.assertEqual(response.status_code, 500)
+            self.assertIn(response.status_code, {400, 500})
             self.assertEqual(response.headers["content-type"], "application/json")
 
             proc.terminate()

@@ -37,7 +37,7 @@ ALLOWED_TASKS: Dict[str, Type[Pipeline]] = {
 }
 
 
-@functools.cache
+@functools.lru_cache()
 def get_pipeline() -> Pipeline:
     task = os.environ["TASK"]
     model_id = os.environ["MODEL_ID"]
