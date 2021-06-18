@@ -1,4 +1,4 @@
 starlette==0.14.2
-api-inference-community==0.0.6
+api-inference-community==0.0.7
 -e git+https://github.com/osanseviero/sentence-transformers@v2_dev#egg=sentence-transformers
 protobuf==3.17.1
