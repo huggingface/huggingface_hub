@@ -12,7 +12,7 @@ The Hugging Face Hub aims to facilitate the sharing of machine learning models, 
 
 We believe the Hub is a step in the correct direction for several reasons. It offers:
 
-- Free model hosting for libraries and their users. Custom plans exist for users wishing to keep their models  private but keep the ease of use.
+- Free model hosting for libraries and their users.
 - Built-in file versioning, even with very large files, thanks to a git-based approach.
 - Hosted inference API for all models publicly available.
 - In-browser widgets to play with the uploaded models (you can read more about the widgets [here](/docs#whats-a-widget)).
