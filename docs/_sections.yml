@@ -7,5 +7,8 @@
 - local: libraries
   title: Libraries
 
+- local: adding-a-library
+  title: Integrating a library to the Hub
+
 - local: inference
   title: Inference
