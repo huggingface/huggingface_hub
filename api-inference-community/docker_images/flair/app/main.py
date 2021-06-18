@@ -1,6 +1,6 @@
+import functools
 import logging
 import os
-import functools
 from typing import Dict, Type
 
 from api_inference_community.routes import pipeline_route, status_ok

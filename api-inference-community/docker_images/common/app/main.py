@@ -1,13 +1,13 @@
-import logging
 import functools
+import logging
 import os
 from typing import Dict, Type
 
 from api_inference_community.routes import pipeline_route, status_ok
 from app.pipelines import Pipeline
+from starlette.applications import Starlette
 from starlette.middleware import Middleware
 from starlette.middleware.gzip import GZipMiddleware
-from starlette.applications import Starlette
 from starlette.routing import Route
 
 
