@@ -299,7 +299,7 @@ understanding of Typescript isn't necessary to edit the file.
 Additionally, this will add a tag with which users may filter models. All models from your library will 
 be easily identifiable!
 
-If you're adding a new pipeline, you might also want to take a look at adding it to the 
+If you're adding a new pipeline type, you might also want to take a look at adding it to the 
 [Types.ts](https://github.com/huggingface/huggingface_hub/blob/main/interfaces/Types.ts) for it to be identifiable 
 as a possible pipeline.
 
