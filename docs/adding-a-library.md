@@ -304,7 +304,7 @@ If you're adding a new pipeline, you might also want to take a look at adding it
 as a possible pipeline.
 
 Secondly, you should set the 
-[widget default for that pipeline](https://github.com/huggingface/huggingface_hub/blob/main/interfaces/DefaultWidget.ts).
+[widget default for that new pipeline](https://github.com/huggingface/huggingface_hub/blob/main/interfaces/DefaultWidget.ts) if you can.
 
 ### Implementing a widget
 
