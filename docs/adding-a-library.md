@@ -106,7 +106,7 @@ a model file alongside a configuration file, both with static names.
 
 However, this is not always the case. You may choose to have a more flexible approach without sticking to a specific 
 file schema. This is what the authors of AllenNLP chose to do for instance. In that case `snapshot_download` comes 
-in handy: it downloads a whole snapshot of a repo's files at the specified revision. All files are nested inside a 
+in handy: it downloads a whole snapshot of a repo's files at the specified revision, without having to have git or git-lfs installed. All files are nested inside a 
 folder in order to keep their actual filename relative to that folder.
 
 This is similar to what you would obtain if you were to clone the repository yourself - however, this does not 
