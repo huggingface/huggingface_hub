@@ -87,7 +87,7 @@ class DockerImageTests(unittest.TestCase):
         self.framework_docker_test(
             "sentence_transformers",
             "sentence-similarity",
-            "paraphrase-distilroberta-base-v1",
+            "sentence-transformers/paraphrase-distilroberta-base-v1",
         )
 
     def test_flair(self):
