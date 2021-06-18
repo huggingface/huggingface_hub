@@ -1,5 +1,4 @@
 starlette==0.14.2
-numpy<1.20.0
 pydantic==1.8.1
--e git+https://github.com/Narsil/flair.git@master#egg=flair
-api-inference-community==0.0.6
+-e git+https://github.com/flairNLP/flair@master#egg=flair
+api-inference-community==0.0.8
