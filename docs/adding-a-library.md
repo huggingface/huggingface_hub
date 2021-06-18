@@ -61,7 +61,7 @@ retrieve files from the hub:
 This method can be used to construct the URL of a file from a given repository. For example, the 
 repository [`lysandre/arxiv-nlp`](https://huggingface.co/lysandre/arxiv-nlp) has a few model, configuration and tokenizer files:
 
-![assets/repo.png](assets/repo.png)
+![/docs/assets/repo.png](/docs/assets/repo.png)
 
 
 We would like to specifically fetch the configuration file of that model. The `hf_hub_url` method is tailored for 
@@ -136,7 +136,7 @@ feel free to open an issue if you're lost as to how apply it to your library - w
 For users to understand how the model should be used in your downstream library, we recommend adding a code snippet 
 explaining how that should be done. 
 
-![assets/code_snippet.png](assets/code_snippet.png)
+![/docs/assets/code_snippet.png](/docs/assets/code_snippet.png)
 
 
 In order to do this, please take a look and update the following file with 
