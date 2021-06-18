@@ -6,7 +6,7 @@ the fruitful collaboration between Hugging Face and spaCy, AllenNLP, and Timm, a
 
 > For a full list of supported libraries see [the following table](https://github.com/huggingface/huggingface_hub/blob/96e49483ace685cf526492b248ba3341bc1b1564/docs/libraries.md).
 
-We believe the model hub is a step in the correct direction for several reasons. It offers:
+We believe the Hub is a step in the correct direction for several reasons. It offers:
 
 - Free model hosting for libraries and their users. Custom plans exist for users wishing to keep their models 
   private but keep the ease of use.
