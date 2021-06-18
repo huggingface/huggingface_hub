@@ -76,6 +76,11 @@ async def startup_event():
 
     # Link between `api-inference-community` and framework code.
     app.get_pipeline = get_pipeline
+    try:
+        get_pipeline()
+    except Exception:
+        # We can fail so we can show exception later.
+        pass
 
 
 if __name__ == "__main__":
