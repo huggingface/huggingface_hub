@@ -18,6 +18,7 @@
 	import TextToSpeechWidget from "./widgets/TextToSpeechWidget/TextToSpeechWidget.svelte";
 	import TokenClassificationWidget from "./widgets/TokenClassificationWidget/TokenClassificationWidget.svelte";
 	import ZeroShotClassificationWidget from "./widgets/ZeroShowClassificationWidget/ZeroShotClassificationWidget.svelte";
+	import ZeroShotImageClassificationWidget from "./widgets/ZeroShotImageClassificationWidget/ZeroShotImageClassificationWidget.svelte";
 
 	export let apiToken: WidgetProps["apiToken"] = undefined;
 	export let callApiOnMount = false;
@@ -52,6 +53,7 @@
 		"text-to-speech": TextToSpeechWidget,
 		translation: TextGenerationWidget,
 		"zero-shot-classification": ZeroShotClassificationWidget,
+		"zero-shot-image-classification": ZeroShotImageClassificationWidget,
 	};
 
 	$: widgetComponent = WIDGET_COMPONENTS[model.pipeline_tag ?? ""];
