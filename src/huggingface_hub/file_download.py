@@ -33,7 +33,7 @@ from .hf_api import HfFolder
 
 logger = logging.getLogger(__name__)
 
-_PY_VERSION: str = sys.version.split()[0]
+_PY_VERSION: str = sys.version.split()[0].rstrip("+")
 
 if packaging.version.Version(_PY_VERSION) < packaging.version.Version("3.8.0"):
     import importlib_metadata
