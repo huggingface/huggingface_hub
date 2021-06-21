@@ -134,6 +134,5 @@ class InferenceApi:
 
         if params:
             payload["parameters"] = params
-        print(self.api_url, self.headers, payload)
         response = requests.post(self.api_url, headers=self.headers, json=payload)
         return response.json()
