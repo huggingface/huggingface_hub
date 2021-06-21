@@ -23,10 +23,9 @@ In addition to Hugging Face DLCs, we created a first-class Hugging Face extensio
 
 You can use the Hugging Face DLCs with the Automatic Model Tuning capability of Amazon SageMaker, in order to automatically optimize your training hyperparameters and quickly increase the accuracy of your models.
 
-<!-- TODO: Add after Inference announcement -->
-<!-- *  
+<!-- TODO: Add after Inference announcement --> 
 You can deploy your trained models for inference with just one more line of code, or select any of the 10,000+ publicly available models from the Model Hub, and deploy them with Amazon SageMaker.
- -->
+
 
 Thanks to the SageMaker Studio web-based Integrated Development Environment (IDE), you can easily track and compare your experiments and your training artifacts.
 
@@ -36,10 +35,9 @@ With the Hugging Face DLCs, SageMaker customers will benefit from built-in perfo
 
 The Hugging Face Training DLCs are fully integrated with the SageMaker distributed training libraries, to train models faster than was ever possible before, using the latest generation of instances available on Amazon EC2.
 
-<!-- TODO: Add after Inference announcement -->
-<!-- *  
+<!-- TODO: Add after Inference announcement --> 
 The Hugging Face Inference DLCs provide you with production-ready endpoints that scale easily within your AWS environment, with built-in monitoring and a ton of enterprise features. 
--->
+
 
 ---
 
@@ -82,8 +80,8 @@ Below you can find all the important resources to all published blog posts, vide
 - [Distributed Training Summarization](https://github.com/huggingface/notebooks/blob/master/sagemaker/08_distributed_summarization_bart_t5/sagemaker-notebook.ipynb)
 - [Image Classification with Vision Transformer](https://github.com/huggingface/notebooks/blob/master/sagemaker/09_image_classification_vision_transformer/sagemaker-notebook.ipynb)
 <!-- TODO: Add after Inference announcement -->
-<!-- - [Deploy transformers to Amazon SageMaker]()
--  [Deploy with custom inference code to Amazon SageMaker]() -->
+- [Deploy transformers to Amazon SageMaker]()
+- [Deploy with custom inference code to Amazon SageMaker]()
 
 ---
 
