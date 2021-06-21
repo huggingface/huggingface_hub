@@ -42,7 +42,7 @@ A: No - the Hugging Face DLCs are open source and licensed under Apache 2.0.
 
 A: You have multiple options to run inference on your trained models. One option is to use Hugging Face [Accelerated Inference-API](https://api-inference.huggingface.co/docs/python/html/index.html) hosted service: start by [uploading the trained models to your Hugging Face account](https://huggingface.co/new) to deploy them publicly, or privately. Another great option is to use [SageMaker Inference](https://docs.aws.amazon.com/sagemaker/latest/dg/your-algorithms-inference-main.html) to run your own inference code in Amazon SageMaker. We are working on offering an integrated solution for Amazon SageMaker with Hugging Face Inference DLCs in the future - stay tuned!
 <!-- TODO: Adjust after inference -->
-<!-- ## _Q: Which models can I deploy for Inference?_
+## _Q: Which models can I deploy for Inference?_
 
 A: You can deploy
 
@@ -54,7 +54,7 @@ A: You can deploy
 
 A: The Inference Toolkit and DLC support any of the `transformers` `pipelines`. You can find the full list[ here](https://huggingface.co/transformers/main_classes/pipelines.html)
 
- -->
+
 
 ## _Q: Do you offer premium support or support SLAs for this solution?_
 
