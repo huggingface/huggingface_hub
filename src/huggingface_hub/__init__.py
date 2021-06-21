@@ -16,7 +16,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-__version__ = "0.0.9"
+__version__ = "0.0.10"
 
 from .constants import (
     CONFIG_NAME,
@@ -25,6 +25,7 @@ from .constants import (
     HUGGINGFACE_CO_URL_TEMPLATE,
     PYTORCH_WEIGHTS_NAME,
     REPO_TYPE_DATASET,
+    REPO_TYPE_SPACE,
     TF2_WEIGHTS_NAME,
     TF_WEIGHTS_NAME,
 )

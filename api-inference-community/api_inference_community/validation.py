@@ -123,6 +123,31 @@ class TableQuestionAnsweringInputsCheck(BaseModel):
     table: Dict[str, List[str]]
     query: str
 
+    @validator("table")
+    def all_rows_must_have_same_length(cls, table: Dict[str, List[str]]):
+        rows = list(table.values())
+        n = len(rows[0])
+        if all(len(x) == n for x in rows):
+            return table
+        raise ValueError("All rows in the table must be the same length")
+
+
+class StringOrStringBatchInputCheck(BaseModel):
+    __root__: Union[List[str], str]
+
+    @validator("__root__")
+    def input_must_not_be_empty(cls, __root__: Union[List[str], str]):
+        if isinstance(__root__, list):
+            if len(__root__) == 0:
+                raise ValueError(
+                    "The inputs are invalid, at least one input is required"
+                )
+        return __root__
+
+
+class StringInput(BaseModel):
+    __root__: str
+
 
 PARAMS_MAPPING = {
     "conversational": SharedGenerationParams,
@@ -136,9 +161,21 @@ PARAMS_MAPPING = {
 INPUTS_MAPPING = {
     "conversational": ConversationalInputsCheck,
     "question-answering": QuestionInputsCheck,
+    "feature-extraction": StringOrStringBatchInputCheck,
     "sentence-similarity": SentenceSimilarityInputsCheck,
     "table-question-answering": TableQuestionAnsweringInputsCheck,
+    "fill-mask": StringInput,
+    "summarization": StringInput,
+    "text2text-generation": StringInput,
+    "text-generation": StringInput,
+    "text-classification": StringInput,
+    "token-classification": StringInput,
+    "translation": StringInput,
+    "zero-shot-classification": StringInput,
+    "text-to-speech": StringInput,
 }
+
+BATCH_ENABLED_PIPELINES = ["feature-extraction"]
 
 
 def check_params(params, tag):
@@ -150,18 +187,9 @@ def check_params(params, tag):
 def check_inputs(inputs, tag):
     if tag in INPUTS_MAPPING:
         INPUTS_MAPPING[tag].parse_obj(inputs)
+        return True
     else:
-        # Some tasks just expect {inputs: "str"}. Such as:
-        # feature-extraction
-        # fill-mask
-        # text2text-generation
-        # text-classification
-        # text-generation
-        # token-classification
-        # translation
-        if not isinstance(inputs, str):
-            raise ValueError("The inputs is invalid, we expect a string")
-    return True
+        raise ValueError(f"{tag} is not a valid pipeline.")
 
 
 def normalize_payload(
@@ -169,7 +197,7 @@ def normalize_payload(
 ) -> Tuple[Any, Dict]:
     if task in {
         "automatic-speech-recognition",
-        "audio-source-separation",
+        "audio-to-audio",
     }:
         if sampling_rate is None:
             raise EnvironmentError(
@@ -178,6 +206,7 @@ def normalize_payload(
         return normalize_payload_audio(bpayload, sampling_rate)
     elif task in {
         "image-classification",
+        "image-to-text",
     }:
         return normalize_payload_image(bpayload)
     else:
@@ -251,7 +280,7 @@ def ffmpeg_read(bpayload: bytes, sampling_rate: int) -> np.array:
     output_stream = ffmpeg_process.communicate(bpayload)
     out_bytes = output_stream[0]
 
-    audio = np.frombuffer(out_bytes, np.float32)
+    audio = np.frombuffer(out_bytes, np.float32).copy()
     if audio.shape[0] == 0:
         raise ValueError("Malformed soundfile")
     return audio

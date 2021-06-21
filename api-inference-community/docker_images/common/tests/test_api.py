@@ -17,13 +17,13 @@ TESTABLE_MODELS: Dict[str, str] = {
 
 ALL_TASKS = {
     "automatic-speech-recognition",
-    "audio-source-separation",
     "feature-extraction",
     "image-classification",
     "question-answering",
     "sentence-similarity",
     "text-generation",
     "text-to-speech",
+    "token-classification",
 }
 
 

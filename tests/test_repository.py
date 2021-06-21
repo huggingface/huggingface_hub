@@ -24,6 +24,7 @@ from huggingface_hub.hf_api import HfApi
 from huggingface_hub.repository import Repository
 
 from .testing_constants import ENDPOINT_STAGING, PASS, USER
+from .testing_utils import set_write_permission_and_retry
 
 
 REPO_NAME = "repo-{}".format(int(time.time() * 10e3))
@@ -48,7 +49,7 @@ class RepositoryTest(RepositoryCommonTest):
 
     def setUp(self):
         try:
-            shutil.rmtree(WORKING_REPO_DIR)
+            shutil.rmtree(WORKING_REPO_DIR, onerror=set_write_permission_and_retry)
         except FileNotFoundError:
             pass
 
