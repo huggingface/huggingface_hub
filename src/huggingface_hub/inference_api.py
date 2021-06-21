@@ -74,7 +74,7 @@ class InferenceApi:
         task: Optional[str] = None,
         token: Optional[str] = None,
         gpu: Optional[bool] = False,
-        skip_validation: Optional[bool] = False
+        skip_validation: Optional[bool] = False,
     ):
         """Inits InferenceApi headers and API call information.
 
@@ -119,10 +119,12 @@ class InferenceApi:
             self.task = task
         else:
             self.task = modelInfo.pipeline_tag
-        
+
         self.api_url = f"{ENDPOINT}/pipeline({self.task}/{repo_id}"
 
-        print(f"Initialized Inference API for {repo_id} with task {self.task} for {modelInfo.library_name} library")
+        print(
+            f"Initialized Inference API for {repo_id} with task {self.task} for {modelInfo.library_name} library"
+        )
 
     def __repr__(self):
         items = (f"{k}='{v}'" for k, v in self.__dict__.items())
