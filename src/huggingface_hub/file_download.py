@@ -12,8 +12,8 @@ from functools import partial
 from hashlib import sha256
 from pathlib import Path
 from typing import BinaryIO, Dict, Optional, Tuple, Union
-import packaging.version
 
+import packaging.version
 from tqdm.auto import tqdm
 
 import requests
