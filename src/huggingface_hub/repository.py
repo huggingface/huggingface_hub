@@ -169,7 +169,9 @@ class Repository:
                         cwd=self.local_dir,
                     ).stdout
 
-                    if repo_url in remotes.split():
+                    # Remove token for the test with remotes.
+                    remote_url = re.sub(r"https://.*@", "https://", repo_url)
+                    if remote_url in remotes.split():
                         try:
                             self.git_pull()
                         except EnvironmentError as e:
