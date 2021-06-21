@@ -26,8 +26,6 @@ The table below summarizes the supported libraries and how they are integrated. 
 | [Timm](https://github.com/rwightman/pytorch-image-models)                  | Collection of image models, scripts, pretrained weights, etc.                 |       ❌       |    ❌   |         ✅         |      ❌      |
 
 
-Would you like to see your library here? Read about it in [Adding a Library Guide](/docs/adding-a-library.md).
-
 ## How can I add a new library to the Inference API?
 
 Read about it in [Adding a Library Guide](/docs/adding-a-library).
