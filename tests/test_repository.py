@@ -143,7 +143,12 @@ class RepositoryTest(RepositoryCommonTest):
 
     def test_init_clone_in_nonempty_linked_git_repo_unrelated_histories(self):
         # Clone the repository to disk
-        repo = Repository(WORKING_REPO_DIR, clone_from=self._repo_url)
+        repo = Repository(
+            WORKING_REPO_DIR,
+            clone_from=self._repo_url,
+            git_user="ci",
+            git_email="ci@dummy.com",
+        )
 
         with open(f"{WORKING_REPO_DIR}/random_file_3.txt", "w+") as f:
             f.write("New file.")

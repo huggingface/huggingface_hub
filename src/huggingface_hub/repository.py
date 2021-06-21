@@ -153,7 +153,10 @@ class Repository:
                 # Check if the folder is the root of a git repository
                 in_repository = (
                     os.path.exists(os.path.join(self.local_dir, ".git"))
-                    and subprocess.run("git branch".split(), cwd=self.local_dir).returncode == 0
+                    and subprocess.run(
+                        "git branch".split(), cwd=self.local_dir
+                    ).returncode
+                    == 0
                 )
 
                 if in_repository:
@@ -188,9 +191,7 @@ class Repository:
                             f"error, please add a remote with the following URL: {repo_url}."
                         )
                         if output.returncode == 0:
-                            error_msg += (
-                                f"\nLocal path has its origin defined as: {output.stdout}"
-                            )
+                            error_msg += f"\nLocal path has its origin defined as: {output.stdout}"
 
                         raise EnvironmentError(error_msg)
 
