@@ -5,6 +5,8 @@ import os
 import subprocess
 import uuid
 
+from huggingface_hub import HfApi
+
 
 class cd:
     """Context manager for changing the current working directory"""
@@ -63,6 +65,13 @@ def show(args):
                         print(" " * 4, key.value)
 
 
+def resolve(model_id: str) -> [str, str]:
+    info = HfApi().model_info(model_id)
+    task = info.pipeline_tag
+    framework = info.library_name
+    return task, framework.replace("-", "_")
+
+
 def start(args):
     import sys
 
@@ -71,6 +80,14 @@ def start(args):
     model_id = args.model_id
     task = args.task
     framework = args.framework
+    if task is None or framework is None:
+        rtask, rframework = resolve(model_id)
+        if task is None:
+            task = rtask
+            print(f"Inferred task : {task}")
+        if framework is None:
+            framework = rframework
+            print(f"Inferred framework : {framework}")
 
     local_path = os.path.join(
         os.path.dirname(os.path.dirname(__file__)), "docker_images", framework
@@ -85,6 +102,12 @@ def docker(args):
     model_id = args.model_id
     task = args.task
     framework = args.framework
+    if task is None or framework is None:
+        rtask, rframework = resolve(model_id)
+        if task is None:
+            task = rtask
+        if framework is None:
+            framework = rframework
 
     tag = create_docker(framework)
     run_docker_command = [
@@ -124,13 +147,11 @@ def main():
     parser_start.add_argument(
         "--task",
         type=str,
-        required=True,
         help="Which task to load",
     )
     parser_start.add_argument(
         "--framework",
         type=str,
-        required=True,
         help="Which framework to load",
     )
     parser_start.set_defaults(func=start)
@@ -146,13 +167,11 @@ def main():
     parser_docker.add_argument(
         "--task",
         type=str,
-        required=True,
         help="Which task to load",
     )
     parser_docker.add_argument(
         "--framework",
         type=str,
-        required=True,
         help="Which framework to load",
     )
     parser_docker.set_defaults(func=docker)

@@ -124,7 +124,7 @@ class ValidationTestCase(TestCase):
             app.get_pipeline = get_pipeline
 
         with TestClient(app) as client:
-            response = client.post("/", data=b"")
+            response = client.post("/", data=b"2222")
 
         self.assertEqual(
             response.status_code,

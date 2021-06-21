@@ -1,7 +1,7 @@
 name: allennlp-docker
 
 on:
-  push:
+  pull-request:
     paths:
       - "api-inference-community/docker_images/allennlp/**"
 jobs:

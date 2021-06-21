@@ -172,6 +172,7 @@ INPUTS_MAPPING = {
     "token-classification": StringInput,
     "translation": StringInput,
     "zero-shot-classification": StringInput,
+    "text-to-speech": StringInput,
 }
 
 BATCH_ENABLED_PIPELINES = ["feature-extraction"]
