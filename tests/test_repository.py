@@ -116,7 +116,7 @@ class RepositoryTest(RepositoryCommonTest):
 
         # Clone the new repository
         os.makedirs(WORKING_REPO_DIR, exist_ok=True)
-        repo = Repository(WORKING_REPO_DIR, clone_from=self._repo_url)
+        Repository(WORKING_REPO_DIR, clone_from=self._repo_url)
 
         # Try and clone another repository within the same directory. Should error out due to mismatched remotes.
         self.assertRaises(
@@ -127,7 +127,7 @@ class RepositoryTest(RepositoryCommonTest):
 
     def test_init_clone_in_nonempty_linked_git_repo(self):
         # Clone the repository to disk
-        repo = Repository(WORKING_REPO_DIR, clone_from=self._repo_url)
+        Repository(WORKING_REPO_DIR, clone_from=self._repo_url)
 
         # Add to the remote repository without doing anything to the local repository.
         self._api.upload_file(
@@ -138,7 +138,7 @@ class RepositoryTest(RepositoryCommonTest):
         )
 
         # Cloning the repository in the same directory should result in a git pull.
-        repo = Repository(WORKING_REPO_DIR, clone_from=self._repo_url)
+        Repository(WORKING_REPO_DIR, clone_from=self._repo_url)
         self.assertIn("random_file_3.txt", os.listdir(WORKING_REPO_DIR))
 
     def test_init_clone_in_nonempty_linked_git_repo_unrelated_histories(self):
@@ -165,8 +165,9 @@ class RepositoryTest(RepositoryCommonTest):
         )
 
         # Cloning the repository in the same directory should result in a git pull.
-        repo = Repository(WORKING_REPO_DIR, clone_from=self._repo_url)
-        self.assertIn("random_file_3.txt", os.listdir(WORKING_REPO_DIR))
+        self.assertRaises(
+            EnvironmentError, Repository, WORKING_REPO_DIR, clone_from=self._repo_url
+        )
 
     def test_add_commit_push(self):
         repo = Repository(
