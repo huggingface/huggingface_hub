@@ -68,25 +68,7 @@ def show(args):
 def resolve(model_id: str) -> [str, str]:
     info = HfApi().model_info(model_id)
     task = info.pipeline_tag
-    framework = None
-    frameworks = {
-        "allennlp",
-        "asteroid",
-        "espnet",
-        "flair",
-        "sentence-transformers",
-        "spacy",
-        "speechbrain",
-        "timm",
-    }
-    for tag in info.tags:
-        if tag in frameworks:
-            if framework is None:
-                framework = tag
-            else:
-                raise Exception(
-                    "This model seems to implement 2 frameworks, we cannot infer"
-                )
+    framework = info.library_name
     return task, framework.replace("-", "_")
 
 
