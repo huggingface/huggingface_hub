@@ -1,5 +1,6 @@
 <script>
 	import IconSpin from "../../../Icons/IconSpin.svelte";
+	import WidgetImage from "../WidgetImage/WidgetImage.svelte";
 
 	export let accept = "image/*";
 	export let isLoading = false;
@@ -50,9 +51,8 @@
 	{#if !imgSrc}
 		<span class="pointer-events-none text-sm">{label}</span>
 	{:else}
-		<img
-			alt=""
-			class="pointer-events-none shadow mx-auto max-h-44"
+		<WidgetImage
+			classNames="pointer-events-none shadow mx-auto max-h-44"
 			src={imgSrc}
 		/>
 	{/if}

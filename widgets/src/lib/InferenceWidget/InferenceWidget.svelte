@@ -14,6 +14,7 @@
 	import SummarizationWidget from "./widgets/SummarizationWidget/SummarizationWidget.svelte";
 	import TableQuestionAnsweringWidget from "./widgets/TableQuestionAnsweringWidget/TableQuestionAnsweringWidget.svelte";
 	import TextGenerationWidget from "./widgets/TextGenerationWidget/TextGenerationWidget.svelte";
+	import TextToImageWidget from "./widgets/TextToImageWidget/TextToImageWidget.svelte";
 	import TextToSpeechWidget from "./widgets/TextToSpeechWidget/TextToSpeechWidget.svelte";
 	import TokenClassificationWidget from "./widgets/TokenClassificationWidget/TokenClassificationWidget.svelte";
 	import ZeroShotClassificationWidget from "./widgets/ZeroShowClassificationWidget/ZeroShotClassificationWidget.svelte";
@@ -47,6 +48,7 @@
 		"text-classification": FillMaskWidget,
 		"text-generation": TextGenerationWidget,
 		"token-classification": TokenClassificationWidget,
+		"text-to-image": TextToImageWidget,
 		"text-to-speech": TextToSpeechWidget,
 		translation: TextGenerationWidget,
 		"zero-shot-classification": ZeroShotClassificationWidget,
