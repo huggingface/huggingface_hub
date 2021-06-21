@@ -70,13 +70,14 @@ def resolve(model_id: str) -> [str, str]:
     task = info.pipeline_tag
     framework = None
     frameworks = {
-        "flair",
-        "speechbrain",
         "allennlp",
         "asteroid",
         "espnet",
+        "flair",
         "sentence-transformers",
         "spacy",
+        "speechbrain",
+        "timm",
     }
     for tag in info.tags:
         if tag in frameworks:
