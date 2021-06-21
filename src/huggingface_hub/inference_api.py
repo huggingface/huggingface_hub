@@ -9,7 +9,7 @@ from .hf_api import HfApi, HfFolder
 logger = logging.getLogger(__name__)
 
 
-ENDPOINT = "https://api-inference.huggingface.co/pipeline"
+ENDPOINT = "https://api-inference.huggingface.co"
 
 ALL_TASKS = [
     # NLP
@@ -29,6 +29,7 @@ ALL_TASKS = [
     # Audio
     "text-to-speech",
     "automatic-speech-recognition",
+    "audio-to-audio",
     "audio-source-separation",
     "voice-activity-detection",
     # Computer vision
@@ -50,7 +51,6 @@ class InferenceApi:
             >>> api(inputs="The goal of life is [MASK].")
             >>> >> [{'sequence': 'the goal of life is life.', 'score': 0.10933292657136917, 'token': 2166, 'token_str': 'life'}]
 
-
             >>> # Question Answering example
             >>> api = InferenceApi("deepset/roberta-base-squad2")
             >>> inputs = {"question":"What's my name?", "context":"My name is Clara and I live in Berkeley."}
@@ -63,44 +63,47 @@ class InferenceApi:
             >>> params = {"candidate_labels":["refund", "legal", "faq"]}
             >>> api(inputs, params)
             >>> >> {'sequence': 'Hi, I recently bought a device from your company but it is not working as advertised and I would like to get reimbursed!', 'labels': ['refund', 'faq', 'legal'], 'scores': [0.9378499388694763, 0.04914155602455139, 0.013008488342165947]}
+
+            >>> # Overriding configured task
+            >>> api = InferenceApi("bert-base-uncased", task="feature-extraction")
     """
 
     def __init__(
         self,
-        repoId: str,
+        repo_id: str,
         task: Optional[str] = None,
-        use_auth_token: Union[bool, str, None] = None,
+        token: Optional[str] = None,
         gpu: Optional[bool] = False,
+        skip_validation: Optional[bool] = False
     ):
         """Inits InferenceApi headers and API call information.
 
         Args:
-            repoId (``str``): Id of model (e.g. `bert-base-uncased`).
+            repo_id (``str``): Id of model (e.g. `bert-base-uncased`).
             task (``str``, `optional`, defaults ``None``): Whether to force a task instead of using task specified in repository.
-            use_auth_token (:obj:`str` or `bool`, `optional`):
-                The token to use as HTTP bearer authorization for remote files. If :obj:`True`, will use the token
-            gpu (``bool``, `optional`, defaults ``None``): Whether to use GPU instead of CPU for inference(requires Startup plan at least).
+            token (:obj:`str`, `optional`):
+                The API token to use as HTTP bearer authorization. This is not the authentication token.
+                You can find the token in https://huggingface.co/settings/token. Alternatively, you can
+                find both your organizations and personal API tokens using `HfApi().whoami(token)` and
+                `HfApi().api_token(token)`.
+            gpu (``bool``, `optional`, defaults ``False``): Whether to use GPU instead of CPU for inference(requires Startup plan at least).
+            skip_validation (``bool``, `optional`, defaults ``False``): Whether to skip validating the task.
         .. note::
             Passing :obj:`use_auth_token=True` is required when you want to use a private model.
         """
+        self.options = {"wait_for_model": True, "use_gpu": gpu}
 
         self.headers = {}
-        token = None
-        if isinstance(use_auth_token, str):
-            self.headers["authorization"] = "Bearer {}".format(use_auth_token)
-            token = use_auth_token
-        elif use_auth_token:
-            huggingface_token = HfFolder.get_token()
-            if huggingface_token is None:
-                raise EnvironmentError(
-                    "You specified use_auth_token=True, but a huggingface token was not found. You can use `huggingface-cli login` to get a token."
-                )
-            self.headers["authorization"] = "Bearer {}".format(huggingface_token)
-            token = huggingface_token
-        token = None
+        if isinstance(token, str):
+            self.headers["Authorization"] = "Bearer {}".format(token)
+
+        if skip_validation:
+            self.api_url = f"{ENDPOINT}/models/{repo_id}"
+            print(f"Initialized Inference API for {repo_id}.")
+            return
 
         # Configure task
-        modelInfo = HfApi().model_info(repo_id=repoId, token=token)
+        modelInfo = HfApi().model_info(repo_id=repo_id)
         if not modelInfo.pipeline_tag and not task:
             raise ValueError(
                 "Task not specified in the repository. Please add it to the model card using pipeline_tag (https://huggingface.co/docs#how-is-a-models-type-of-inference-api-and-widget-determined)"
@@ -116,12 +119,14 @@ class InferenceApi:
             self.task = task
         else:
             self.task = modelInfo.pipeline_tag
+        
+        self.api_url = f"{ENDPOINT}/pipeline({self.task}/{repo_id}"
 
-        # Configure url, headers and options
-        self.api_url = f"{ENDPOINT}/{self.task}/{repoId}"
-        self.options = {"wait_for_model": True, "use_gpu": gpu}
+        print(f"Initialized Inference API for {repo_id} with task {self.task} for {modelInfo.library_name} library")
 
-        print(f"Initialized Inference API for {repoId} with task {self.task}")
+    def __repr__(self):
+        items = (f"{k}='{v}'" for k, v in self.__dict__.items())
+        return f"{self.__class__.__name__}({', '.join(items)})"
 
     def __call__(
         self,
@@ -135,5 +140,6 @@ class InferenceApi:
 
         if params:
             payload["parameters"] = params
+        print(self.api_url, self.headers, payload)
         response = requests.post(self.api_url, headers=self.headers, json=payload)
         return response.json()
