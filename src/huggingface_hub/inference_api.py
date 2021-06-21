@@ -3,7 +3,7 @@ from typing import Dict, List, Optional, Union
 
 import requests
 
-from .hf_api import HfApi, HfFolder
+from .hf_api import HfApi
 
 
 logger = logging.getLogger(__name__)
@@ -74,7 +74,6 @@ class InferenceApi:
         task: Optional[str] = None,
         token: Optional[str] = None,
         gpu: Optional[bool] = False,
-        skip_validation: Optional[bool] = False,
     ):
         """Inits InferenceApi headers and API call information.
 
@@ -87,7 +86,6 @@ class InferenceApi:
                 find both your organizations and personal API tokens using `HfApi().whoami(token)` and
                 `HfApi().api_token(token)`.
             gpu (``bool``, `optional`, defaults ``False``): Whether to use GPU instead of CPU for inference(requires Startup plan at least).
-            skip_validation (``bool``, `optional`, defaults ``False``): Whether to skip validating the task.
         .. note::
             Passing :obj:`use_auth_token=True` is required when you want to use a private model.
         """
@@ -97,19 +95,14 @@ class InferenceApi:
         if isinstance(token, str):
             self.headers["Authorization"] = "Bearer {}".format(token)
 
-        if skip_validation:
-            self.api_url = f"{ENDPOINT}/models/{repo_id}"
-            print(f"Initialized Inference API for {repo_id}.")
-            return
-
         # Configure task
-        modelInfo = HfApi().model_info(repo_id=repo_id)
-        if not modelInfo.pipeline_tag and not task:
+        model_info = HfApi().model_info(repo_id=repo_id, token=token)
+        if not model_info.pipeline_tag and not task:
             raise ValueError(
                 "Task not specified in the repository. Please add it to the model card using pipeline_tag (https://huggingface.co/docs#how-is-a-models-type-of-inference-api-and-widget-determined)"
             )
 
-        if task and task != modelInfo.pipeline_tag:
+        if task and task != model_info.pipeline_tag:
             if task not in ALL_TASKS:
                 raise ValueError(f"Invalid task {task}. Make sure it's valid.")
 
@@ -118,12 +111,11 @@ class InferenceApi:
             )
             self.task = task
         else:
-            self.task = modelInfo.pipeline_tag
+            self.task = model_info.pipeline_tag
 
-        self.api_url = f"{ENDPOINT}/pipeline({self.task}/{repo_id}"
-
+        self.api_url = f"{ENDPOINT}/pipeline/{self.task}/{repo_id}"
         print(
-            f"Initialized Inference API for {repo_id} with task {self.task} for {modelInfo.library_name} library"
+            f"Initialized Inference API for {repo_id} with task {self.task} for {model_info.library_name} library"
         )
 
     def __repr__(self):
