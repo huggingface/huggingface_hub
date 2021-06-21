@@ -4,7 +4,7 @@ title: Hugging Face on Amazon SageMaker
 
 <h1>Hugging Face on Amazon SageMaker</h1>
 
-![cover](/docs/sagemaker/assets/cover.png)
+![cover](/docs/assets/sagemaker/cover.png)
 
 
 Earlier this year [we announced a strategic collaboration with Amazon](https://huggingface.co/blog/the-partnership-amazon-sagemaker-and-hugging-face) to make it easier for companies to use Hugging Face in SageMaker, and ship cutting-edge Machine Learning features faster. We introduced new Hugging Face Deep Learning Containers (DLCs) to[ train Hugging Face Transformer models in Amazon SageMaker](https://huggingface.co/transformers/sagemaker.html#getting-started-train-a-transformers-model).
