@@ -97,10 +97,9 @@ class RepositoryTest(RepositoryCommonTest):
             f.write("hello")
         with open(os.path.join(WORKING_REPO_DIR, "model.bin"), "w") as f:
             f.write("hello")
-        repo = Repository(WORKING_REPO_DIR, clone_from=self._repo_url)
-        repo.lfs_track(["*.pdf"])
-        repo.lfs_enable_largefiles()
-        repo.git_pull()
+        self.assertRaises(
+            OSError, Repository, WORKING_REPO_DIR, clone_from=self._repo_url
+        )
 
     def test_init_clone_in_nonempty_non_linked_git_repo(self):
         # Create a new repository on the HF Hub
@@ -137,9 +136,9 @@ class RepositoryTest(RepositoryCommonTest):
             repo_id=f"{USER}/{REPO_NAME}",
         )
 
-        # Cloning the repository in the same directory should result in a git pull.
+        # Cloning the repository in the same directory should not result in a git pull.
         Repository(WORKING_REPO_DIR, clone_from=self._repo_url)
-        self.assertIn("random_file_3.txt", os.listdir(WORKING_REPO_DIR))
+        self.assertNotIn("random_file_3.txt", os.listdir(WORKING_REPO_DIR))
 
     def test_init_clone_in_nonempty_linked_git_repo_unrelated_histories(self):
         # Clone the repository to disk
@@ -164,10 +163,8 @@ class RepositoryTest(RepositoryCommonTest):
             repo_id=f"{USER}/{REPO_NAME}",
         )
 
-        # Cloning the repository in the same directory should result in a git pull.
-        self.assertRaises(
-            EnvironmentError, Repository, WORKING_REPO_DIR, clone_from=self._repo_url
-        )
+        # The repo should initialize correctly as the remote is the same, even with unrelated historied
+        Repository(WORKING_REPO_DIR, clone_from=self._repo_url)
 
     def test_add_commit_push(self):
         repo = Repository(
