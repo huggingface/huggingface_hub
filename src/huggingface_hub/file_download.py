@@ -495,8 +495,7 @@ def hf_hub_download(
     The file is cached locally: look for the corresponding file in the local cache. If it's not there,
     download it. Then return the path to the cached file.
 
-    Cloudfront is replicated over the globe so downloads are way faster for the end user (and it also lowers our
-    bandwidth costs).
+    Cloudfront is replicated over the globe so downloads are way faster for the end user.
 
     Cloudfront aggressively caches files by default (default TTL is 24 hours), however this is not an issue here
     because we implement a git-based versioning system on huggingface.co, which means that we store the files on S3/Cloudfront
