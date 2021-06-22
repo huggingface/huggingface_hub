@@ -1,18 +1,17 @@
 from typing import Dict, List, Union
 
-import cloudpickle
+import joblib
 from app.pipelines import Pipeline
 from huggingface_hub import cached_download, hf_hub_url
 
 
-ALLOWLIST: List[str] = ["scikit-learn-examples"]
-DEFAULT_FILENAME = "sklearn_model.pickle"
+ALLOWLIST: List[str] = ["scikit-learn-examples", "julien-c"]
+DEFAULT_FILENAME = "sklearn_model.joblib"
 
 
 class StructuredDataClassificationPipeline(Pipeline):
     def __init__(self, model_id: str):
-        # TODO: Obtain expected column names from repo.
-        # TODO: Add to model info if it's sklearn_model.pickle" (default) or some other name.
+        # Check if there are class definitions
 
         full_model_path = model_id.split("/")
         if len(full_model_path) != 2:
@@ -24,25 +23,24 @@ class StructuredDataClassificationPipeline(Pipeline):
             raise ValueError(
                 f"Invalid namespace {namespace}. It should be in user/organization allowlist"
             )
+    
+        print("Loading")
+        self.model = joblib.load(
+            cached_download(hf_hub_url(model_id, DEFAULT_FILENAME)))
+        print("This is the model")
+        print(self.model)
+        print("Classes:", self.model.columns_)
+        print("Nice")
 
-        self.model = cloudpickle.load(
-            open(cached_download(hf_hub_url(model_id, DEFAULT_FILENAME)), "rb")
-        )
-
-    def __call__(
-        self, inputs: Dict[str, Union[List[str], List[List[Union[str, float]]]]]
-    ) -> List[Union[str, float]]:
+    def __call__(self, inputs: Dict[str, List[str]]) -> List[Union[str, float]]:
         """
         Args:
             inputs (:obj:`dict`):
-                a dictionary containing one or two keys, 'data' mapping
-                to a list of lists representing each row, and, optionally,
-                column_names, containing the column name corresponding to
-                each row.
+                a dictionary containing a key 'data' mapping to a list representing
+                a column.
         Return:
             A :obj:`list` of floats or strings: The classification output for each row.
         """
-        # TODO: If there are expected column names, and the columns
-        # are passed, change the input order so it matches the
-        # expectation.
+        print("Inputs")
+        print(inputs)
         return self.model.predict(inputs["data"]).tolist()
