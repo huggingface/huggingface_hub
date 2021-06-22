@@ -399,7 +399,8 @@ class HfApi:
         identical_ok: bool = True,
     ) -> str:
         """
-        Upload a local file (up to 5GB) to the given repo, tracking it with LFS if it's larger than 10MB
+        Upload a local file (up to 5GB) to the given repo. The upload is done through a HTTP post request, and
+        doesn't require git or git-lfs to be installed.
 
         Params:
             token (``str``):
