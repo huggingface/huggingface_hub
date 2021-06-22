@@ -12,7 +12,6 @@ TESTABLE_MODELS: Dict[str, str] = {
     "structured-data-classification": "julien-c/wine-quality"
 }
 
-
 ALL_TASKS = {
     "automatic-speech-recognition",
     "audio-source-separation",

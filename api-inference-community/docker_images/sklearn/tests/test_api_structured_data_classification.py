@@ -51,7 +51,7 @@ class StructuredDataClassificationTestCase(TestCase):
         inputs = {"data": data}
         with TestClient(self.app) as client:
             response = client.post("/", json={"inputs": inputs})
-
+        print(response.json())
         self.assertEqual(
             response.status_code,
             200,
