@@ -101,5 +101,5 @@ export interface ModelData {
 	/**
 	 * information on all files in the repo.
 	 */
-	 siblings?: Record<string, any>;
+	 siblings?: Record<string, any>[];
 }
