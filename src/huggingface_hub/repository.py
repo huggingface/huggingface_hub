@@ -12,15 +12,20 @@ logger = logging.getLogger(__name__)
 
 
 def is_git_repo(folder):
-    # Check if the folder is the root of a git repository
-    git_folder = os.path.join(folder, ".git")
-    return (
-        os.path.exists(git_folder)
-        and subprocess.run("git branch".split(), cwd=folder).returncode == 0
+    """
+    Check if the folder is the root of a git repository
+    """
+    folder_exists = os.path.exists(os.path.join(folder, ".git"))
+    git_branch = subprocess.run(
+        "git branch".split(), cwd=folder, stdout=subprocess.PIPE, stderr=subprocess.PIPE
     )
+    return folder_exists and git_branch.returncode == 0
 
 
 def is_local_clone(folder, remote_url):
+    """
+    Check if the folder is the a local clone of the remote_url
+    """
     if not is_git_repo(folder):
         return False
 
