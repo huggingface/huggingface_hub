@@ -119,7 +119,7 @@ class SentenceSimilarityInputsCheck(BaseModel):
     sentences: List[str]
 
 
-class TableInputsCheck(BaseModel):
+class TableQuestionAnsweringInputsCheck(BaseModel):
     table: Dict[str, List[str]]
     query: str
 
@@ -130,6 +130,18 @@ class TableInputsCheck(BaseModel):
         if all(len(x) == n for x in rows):
             return table
         raise ValueError("All rows in the table must be the same length")
+
+
+class StructuredDataClassificationValidationInputsCheck(BaseModel):
+    data: Dict[str, List[str]]
+
+    @validator("data")
+    def all_rows_must_have_same_length(cls, data: Dict[str, List[str]]):
+        rows = list(data.values())
+        n = len(rows[0])
+        if all(len(x) == n for x in rows):
+            return data
+        raise ValueError("All rows in the data must be the same length")
 
 
 class StringOrStringBatchInputCheck(BaseModel):
@@ -163,8 +175,8 @@ INPUTS_MAPPING = {
     "question-answering": QuestionInputsCheck,
     "feature-extraction": StringOrStringBatchInputCheck,
     "sentence-similarity": SentenceSimilarityInputsCheck,
-    "table-question-answering": TableInputsCheck,
-    "structured-data-classification": TableInputsCheck,
+    "table-question-answering": TableQuestionAnsweringInputsCheck,
+    "structured-data-classification": StructuredDataClassificationValidationInputsCheck,
     "fill-mask": StringInput,
     "summarization": StringInput,
     "text2text-generation": StringInput,
