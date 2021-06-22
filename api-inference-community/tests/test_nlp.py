@@ -146,9 +146,13 @@ class TableQuestionAnsweringValidationTestCase(TestCase):
 
 class StructuredDataClassificationValidationTestCase(TestCase):
     def test_valid_input(self):
-        data = [[1, 2, 3, "blue"], [4, 5, 6, "red"]]
+        query = "How many stars does the transformers repository have?"
+        table = {
+            "Repository": ["Transformers", "Datasets", "Tokenizers"],
+            "Stars": ["36542", "4512", "3934"],
+        }
 
-        inputs = {"data": data}
+        inputs = {"query": query, "table": table}
         bpayload = json.dumps({"inputs": inputs}).encode("utf-8")
         normalized_inputs, processed_params = normalize_payload_nlp(
             bpayload, "structured-data-classification"
@@ -156,53 +160,55 @@ class StructuredDataClassificationValidationTestCase(TestCase):
         self.assertEqual(processed_params, {})
         self.assertEqual(inputs, normalized_inputs)
 
-    def test_valid_input_widh_col_names(self):
-        column_names = ["a", "b", "c", "d"]
-        data = [[1, 2, 3, "blue"]]
+    def test_invalid_table_input(self):
+        query = "How many stars does the transformers repository have?"
+        table = {
+            "Repository": ["Transformers", "Datasets", "Tokenizers"],
+            "Stars": ["36542", "4512"],
+        }
 
-        inputs = {"data": data, "column_names": column_names}
-        bpayload = json.dumps({"inputs": inputs}).encode("utf-8")
-        normalized_inputs, processed_params = normalize_payload_nlp(
-            bpayload, "structured-data-classification"
-        )
-        self.assertEqual(processed_params, {})
-        self.assertEqual(inputs, normalized_inputs)
-
-    def test_different_row_lengths(self):
-        data = [[1, 2, 3, "blue"], [4, 5, 6]]
-
-        inputs = {"data": data}
+        inputs = {"query": query, "table": table}
         bpayload = json.dumps({"inputs": inputs}).encode("utf-8")
         with self.assertRaises(ValidationError):
-            normalized_inputs, processed_params = normalize_payload_nlp(
-                bpayload, "structured-data-classification"
-            )
+            normalize_payload_nlp(bpayload, "structured-data-classification")
 
-    def test_with_more_col_names(self):
-        column_names = ["a", "b", "c", "d", "d"]
-        data = [[1, 2, 3, "blue"]]
-
-        inputs = {"data": data, "column_names": column_names}
+    def test_invalid_question(self):
+        query = "How many stars does the transformers repository have?"
+        table = "Invalid table"
+        inputs = {"query": query, "table": table}
         bpayload = json.dumps({"inputs": inputs}).encode("utf-8")
         with self.assertRaises(ValidationError):
-            normalized_inputs, processed_params = normalize_payload_nlp(
-                bpayload, "structured-data-classification"
-            )
+            normalize_payload_nlp(bpayload, "structured-data-classification")
 
-    def test_with_empty_data(self):
-        inputs = {"data": [[]]}
+    def test_invalid_query(self):
+        query = {"not a": "query"}
+        table = {
+            "Repository": ["Transformers", "Datasets", "Tokenizers"],
+            "Stars": ["36542", "4512", "3934"],
+        }
+        inputs = {"query": query, "table": table}
         bpayload = json.dumps({"inputs": inputs}).encode("utf-8")
         with self.assertRaises(ValidationError):
-            normalized_inputs, processed_params = normalize_payload_nlp(
-                bpayload, "structured-data-classification"
-            )
+            normalize_payload_nlp(bpayload, "structured-data-classification")
 
-        inputs = {"data": []}
+    def test_no_table(self):
+        query = "How many stars does the transformers repository have?"
+        inputs = {
+            "query": query,
+        }
         bpayload = json.dumps({"inputs": inputs}).encode("utf-8")
         with self.assertRaises(ValidationError):
-            normalized_inputs, processed_params = normalize_payload_nlp(
-                bpayload, "structured-data-classification"
-            )
+            normalize_payload_nlp(bpayload, "structured-data-classification")
+
+    def test_no_query(self):
+        table = {
+            "Repository": ["Transformers", "Datasets", "Tokenizers"],
+            "Stars": ["36542", "4512", "3934"],
+        }
+        inputs = {"table": table}
+        bpayload = json.dumps({"inputs": inputs}).encode("utf-8")
+        with self.assertRaises(ValidationError):
+            normalize_payload_nlp(bpayload, "structured-data-classification")
 
 
 class SummarizationValidationTestCase(TestCase):
