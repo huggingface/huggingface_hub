@@ -213,7 +213,10 @@ class Repository:
 
                 if not in_repository:
                     raise EnvironmentError(
-                        "Tried to clone a repository in a non-empty folder that isn't a git repository."
+                        "Tried to clone a repository in a non-empty folder that isn't a git repository. If you really "
+                        "want to do this, do it manually:\m"
+                        "git init && git remote add origin && git pull origin main\n"
+                        " or clone repo to a new folder and move your existing files there afterwards."
                     )
 
         except subprocess.CalledProcessError as exc:
