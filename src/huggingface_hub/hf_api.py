@@ -84,6 +84,7 @@ class ModelInfo:
         siblings: Optional[
             List[Dict]
         ] = None,  # list of files that constitute the model
+        config:  Optional[Dict] = None,
         **kwargs,
     ):
         self.modelId = modelId
@@ -94,6 +95,7 @@ class ModelInfo:
         self.siblings = (
             [ModelFile(**x) for x in siblings] if siblings is not None else None
         )
+        self.config = config
         for k, v in kwargs.items():
             setattr(self, k, v)
 
