@@ -11,6 +11,33 @@ from .lfs import LFS_MULTIPART_UPLOAD_COMMAND
 logger = logging.getLogger(__name__)
 
 
+def is_git_repo(folder):
+    # Check if the folder is the root of a git repository
+    git_folder = os.path.join(folder, ".git")
+    return (
+        os.path.exists(git_folder)
+        and subprocess.run("git branch".split(), cwd=folder).returncode == 0
+    )
+
+
+def is_local_clone(folder, remote_url):
+    if not is_git_repo(folder):
+        return False
+
+    remotes = subprocess.run(
+        "git remote -v".split(),
+        stderr=subprocess.PIPE,
+        stdout=subprocess.PIPE,
+        check=True,
+        encoding="utf-8",
+        cwd=folder,
+    ).stdout
+
+    # Remove token for the test with remotes.
+    remote_url = re.sub(r"https://.*@", "https://", remote_url)
+    return remote_url in remotes.split()
+
+
 class Repository:
     """
     Helper class to wrap the git and git-lfs commands.
@@ -151,27 +178,10 @@ class Repository:
                 )
             else:
                 # Check if the folder is the root of a git repository
-                in_repository = (
-                    os.path.exists(os.path.join(self.local_dir, ".git"))
-                    and subprocess.run(
-                        "git branch".split(), cwd=self.local_dir
-                    ).returncode
-                    == 0
-                )
+                in_repository = is_git_repo(self.local_dir)
 
                 if in_repository:
-                    remotes = subprocess.run(
-                        "git remote -v".split(),
-                        stderr=subprocess.PIPE,
-                        stdout=subprocess.PIPE,
-                        check=True,
-                        encoding="utf-8",
-                        cwd=self.local_dir,
-                    ).stdout
-
-                    # Remove token for the test with remotes.
-                    remote_url = re.sub(r"https://.*@", "https://", repo_url)
-                    if remote_url in remotes.split():
+                    if is_local_clone(self.local_dir, repo_url):
                         try:
                             self.git_pull()
                         except EnvironmentError as e:
