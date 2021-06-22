@@ -2,6 +2,7 @@ import logging
 import os
 import re
 import subprocess
+from pathlib import Path
 from typing import List, Optional, Union
 
 from .hf_api import HfFolder
@@ -11,7 +12,7 @@ from .lfs import LFS_MULTIPART_UPLOAD_COMMAND
 logger = logging.getLogger(__name__)
 
 
-def is_git_repo(folder):
+def is_git_repo(folder: Union[str, Path]):
     """
     Check if the folder is the root of a git repository
     """
@@ -22,7 +23,7 @@ def is_git_repo(folder):
     return folder_exists and git_branch.returncode == 0
 
 
-def is_local_clone(folder, remote_url):
+def is_local_clone(folder: Union[str, Path], remote_url: str):
     """
     Check if the folder is the a local clone of the remote_url
     """
