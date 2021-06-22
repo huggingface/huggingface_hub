@@ -107,13 +107,6 @@ class DockerImageTests(unittest.TestCase):
             "julien-c/wine-quality",
         )
 
-    def test_sklearn(self):
-        self.framework_docker_test(
-            "sklearn",
-            "structured-data-classification",
-            "julien-c/wine-quality",
-        )
-
     def test_spacy(self):
         self.framework_docker_test(
             "spacy",
