@@ -4,12 +4,7 @@ title: Deploy models to Amazon SageMaker
 
 <h1>Deploy models to Amazon SageMaker</h1>
 
-There are multiple ways to deploy a 🤗 Transformers model to Amazon SageMaker. Further below you can find documentation on:
-
-- [Deploy a trained Hugging Face Transformer model to SageMaker for inference](#deploy-a-trained-hugging-face-transformer-model-to-sagemaker-for-inference)
-- [Deploy one of the 10,000+ Hugging Face Transformers to Amazon SageMaker for Inference](#deploy-one-of-the-10,000+-hugging-face-transformers-to-amazon-sagemaker-for-infernece)
-
-Here's how to use the new [SageMaker Hugging Face Inference Toolkit](https://github.com/aws/sagemaker-huggingface-inference-toolkit) to deploy Transformers-based models:
+Here's how easy it is to use the new [SageMaker Hugging Face Inference Toolkit](https://github.com/aws/sagemaker-huggingface-inference-toolkit) to deploy 🤗 Transformers models in SageMaker:
 
 ```python
 from sagemaker.huggingface import HuggingFaceModel
@@ -18,17 +13,31 @@ from sagemaker.huggingface import HuggingFaceModel
 huggingface_model = HuggingFaceModel(...).deploy()
 ```
 
+There are many ways to deploy a 🤗 Transformers model to Amazon SageMaker.  Below we document the following use cases:
+
+- [Deploy for inference a 🤗 Transformers model trained in SageMaker](#deploy-a-trained-hugging-face-transformer-model-to-sagemaker-for-inference)
+- [Deploy for inference one of the 10,000+ 🤗 Transformers models available in the 🤗 Hub](#deploy-one-of-the-10,000+-hugging-face-transformers-to-amazon-sagemaker-for-infernece)
+
+
 ## [SageMaker Hugging Face Inference Toolkit](https://github.com/aws/sagemaker-huggingface-inference-toolkit)
 
-In addition to the Hugging Face Transformers-optimized Deep Learning Containers for inference, we have created a new[ Inference Toolkit](https://github.com/aws/sagemaker-huggingface-inference-toolkit) for SageMaker. This new Inference Toolkit leverages the `pipelines` from the `transformers` library to allow zero-code deployments of models without writing any code for pre- or post-processing. In the "Getting Started" section below you find two examples of how to deploy your models to Amazon SageMaker.
+In addition to the Hugging Face Inference Deep Learning Containers, we created a new [Inference Toolkit](https://github.com/aws/sagemaker-huggingface-inference-toolkit) for SageMaker. This new Inference Toolkit leverages the `pipelines` from the `transformers` library to allow zero-code deployments of models, without requiring any code for pre- or post-processing. In the "Getting Started" section below, you will find two examples of how to deploy your models to Amazon SageMaker.
 
-In addition to the zero-code deployment, the Inference Toolkit supports "bring your own code" methods, where you can override the default methods. You can learn more about "bring your own code" in the documentation[ here](https://github.com/aws/sagemaker-huggingface-inference-toolkit#-user-defined-codemodules) or you can check out the sample notebook "deploy custom inference code to Amazon SageMaker".
+In addition to zero-code deployment, the Inference Toolkit supports "bring your own code" methods, where you can override the default methods. You can learn more about "bring your own code" in the documentation[ here](https://github.com/aws/sagemaker-huggingface-inference-toolkit#-user-defined-codemodules), or you can check out the sample notebook "deploy custom inference code to Amazon SageMaker".
 
-## API - Inference Toolkit Description
+## Inference Toolkit - API Description
 
-Using the `transformers pipelines`, we designed an API, which makes it easy for you to benefit from all `pipelines` features. The API has a similar interface than the [🤗 Accelerated Inference API](https://api-inference.huggingface.co/docs/python/html/detailed_parameters.html), meaning your inputs need to be defined in the `inputs` key and if you want additional supported `pipelines` parameters you can add them in the `parameters` key. Below you can find examples for requests.
+Using the `transformers pipelines`, we designed an API, which makes it easy for you to benefit from all `pipelines` features. The API has a similar interface than the [🤗 Accelerated Inference API](https://api-inference.huggingface.co/docs/python/html/detailed_parameters.html) hosted service: your inputs need to be defined in the `inputs` key, and additional supported `pipelines` parameters can be added in the `parameters` key. Below, you can find request examples.
 
-**`text-classification`/`sentiment-analysis`/`token-classification`/`feature-extraction`/`fill-mask`/`summarization`/`translation_xx_to_yy`/`text2text-generation`/`text-generation`**
+**`text-classification`**
+**`sentiment-analysis`**
+**`token-classification`**
+**`feature-extraction`**
+**`fill-mask`**
+**`summarization`**
+**`translation_xx_to_yy`**
+**`text2text-generation`**
+**`text-generation`**
 
 ```json
 {
@@ -76,9 +85,9 @@ Using the `transformers pipelines`, we designed an API, which makes it easy for 
 
 ## Setup & Installation
 
-Before you can deploy a transformers models to Amazon SageMaker you need to sign up for an AWS account. If you do not have an AWS account yet learn more [here](https://docs.aws.amazon.com/sagemaker/latest/dg/gs-set-up.html).
+Before you can deploy a 🤗 Transformers model to Amazon SageMaker you need to sign up for an AWS account. If you do not have an AWS account yet learn more [here](https://docs.aws.amazon.com/sagemaker/latest/dg/gs-set-up.html).
 
-After you complete these tasks you can get started using either [SageMaker Studio](https://docs.aws.amazon.com/sagemaker/latest/dg/gs-studio-onboard.html), [SageMaker Notebook Instances](https://docs.aws.amazon.com/sagemaker/latest/dg/gs-console.html), or a local environment. To deploy from your local machine you need configure the right [IAM permission](https://docs.aws.amazon.com/sagemaker/latest/dg/sagemaker-roles.html).
+After you complete these tasks you can get started using either [SageMaker Studio](https://docs.aws.amazon.com/sagemaker/latest/dg/gs-studio-onboard.html), [SageMaker Notebook Instances](https://docs.aws.amazon.com/sagemaker/latest/dg/gs-console.html), or a local environment. To deploy from your local machine you need to configure the right [IAM permission](https://docs.aws.amazon.com/sagemaker/latest/dg/sagemaker-roles.html).
 
 Upgrade to the latest `sagemaker` version.
 
@@ -109,11 +118,11 @@ sess = sagemaker.Session()
 
 ---
 
-## Deploy a trained Hugging Face Transformer model to SageMaker for inference
+## Deploy for inference a 🤗 Transformers model trained in SageMaker
 
 <iframe width="700" height="394" src="https://www.youtube.com/embed" title="YouTube video player" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>
 
-There are two ways to deploy your SageMaker trained Hugging Face model. You can either deploy it after your training is finished, or you can deploy it later, using the `model_data` pointing to your saved model on s3.
+There are two ways to deploy your Hugging Face model trained in SageMaker. You can either deploy it after your training is finished, or you can deploy it later, using the `model_data` pointing to your saved model on s3.
 
 ### Deploy the model directly after training
 
@@ -186,14 +195,16 @@ After we run our request, we can delete the endpoint again with:
 predictor.delete_endpoint()
 ```
 
-## Deploy one of the 10,000+ Hugging Face Transformers to Amazon SageMaker for Inference
+---
+
+## Deploy for inference one of the 10,000+ 🤗 Transformers models available in the 🤗 Hub
 
 <iframe width="700" height="394" src="https://www.youtube.com/embed" title="YouTube video player" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>
 
-To deploy a model directly from the Hub to SageMaker we need to define 2 environment variables when creating the HuggingFaceModel. We need to define:
+To deploy a model directly from the 🤗 Hub to SageMaker, we need to define 2 environment variables when creating the HuggingFaceModel. We need to define:
 
-- `HF_MODEL_ID`: defines the model id, which will be automatically loaded from[ huggingface.co/models](http://huggingface.co/models) when creating or SageMaker Endpoint. The 🤗 Hub provides +10 000 models all available through this environment variable.
-- `HF_TASK`: defines the task for the used 🤗 Transformers pipeline. A full list of tasks can be found[ here](https://huggingface.co/transformers/main_classes/pipelines.html).
+- `HF_MODEL_ID`: defines the model id, which will be automatically loaded from[ huggingface.co/models](http://huggingface.co/models) when creating or SageMaker Endpoint. The 🤗 Hub provides 10,000+ models, all available through this environment variable.
+- `HF_TASK`: defines the task for the 🤗 Transformers pipeline used. A full list of tasks can be found[ here](https://huggingface.co/transformers/main_classes/pipelines.html).
 
 ```python
 from sagemaker.huggingface.model import HuggingFaceModel
@@ -230,7 +241,7 @@ data = {
 predictor.predict(data)
 ```
 
-After we run our request we can delete the endpoint again with.
+After we run our request, we can delete the endpoint again with.
 
 ```python
 # delete endpoint
@@ -247,7 +258,7 @@ The SageMaker Hugging Face Inference Toolkit implements various additional envir
 
 #### `HF_TASK`
 
-The `HF_TASK` environment variable defines the task for the used 🤗 Transformers pipeline. A full list of tasks can be find [here](https://huggingface.co/transformers/main_classes/pipelines.html).
+The `HF_TASK` environment variable defines the task for the 🤗 Transformers pipeline used . A full list of tasks can be find [here](https://huggingface.co/transformers/main_classes/pipelines.html).
 
 ```bash
 HF_TASK="question-answering"
@@ -255,7 +266,7 @@ HF_TASK="question-answering"
 
 #### `HF_MODEL_ID`
 
-The `HF_MODEL_ID` environment variable defines the model id, which will be automatically loaded from [huggingface.co/models](https://huggingface.co/models) when creating or SageMaker Endpoint. The 🤗 Hub provides +10 000 models all available through this environment variable.
+The `HF_MODEL_ID` environment variable defines the model id, which will be automatically loaded from [huggingface.co/models](https://huggingface.co/models) when creating or SageMaker Endpoint. The 🤗 Hub provides 10,000+ models, all available through this environment variable.
 
 ```bash
 HF_MODEL_ID="distilbert-base-uncased-finetuned-sst-2-english"
@@ -271,7 +282,7 @@ HF_MODEL_REVISION="03b4d196c19d0a73c7e0322684e97db1ec397613"
 
 #### `HF_API_TOKEN`
 
-The `HF_API_TOKEN` environment variable defines the your Hugging Face authorization token. The `HF_API_TOKEN` is used as a HTTP bearer authorization for remote files, like private models. You can find your token at your [settings page](https://huggingface.co/settings/token).
+The `HF_API_TOKEN` environment variable defines your Hugging Face authorization token. The `HF_API_TOKEN` is used as a HTTP bearer authorization for remote files, like private models. You can find your token at your [settings page](https://huggingface.co/settings/token).
 
 ```bash
 HF_API_TOKEN="api_XXXXXXXXXXXXXXXXXXXXXXXXXXXXX"
@@ -279,7 +290,7 @@ HF_API_TOKEN="api_XXXXXXXXXXXXXXXXXXXXXXXXXXXXX"
 
 ### User defined code/modules
 
-The Hugging Face Inference Toolkit allows user to override the default methods of the `HuggingFaceHandlerService`. Therefor the need to create a named `code/` with a `inference.py` file in it.
+The Hugging Face Inference Toolkit allows user to override the default methods of the `HuggingFaceHandlerService`. Therefore, we need to create a folder named `code/` with a `inference.py` file in it.
 For example:
 
 ```bash
@@ -295,9 +306,9 @@ In this example, `pytroch_model.bin` is the model file saved from training, `inf
 The custom module can override the following methods:
 
 - `load_fn(model_dir)`: overrides the default method for loading the model, the return value `model` will be used in the `predict()` for predicitions. It receives argument the `model_dir`, the path to your unzipped `model.tar.gz`.
-- `preprocess_fn(input_data, content_type)`: overrides the default method for prerprocessing, the return value `data` will be used in the `predict()` method for predicitions. The input is `input_data`, the raw body of your request and `content_type`, the content type form the request Header.
+- `preprocess_fn(input_data, content_type)`: overrides the default method for pre-processing, the return value `data` will be used in the `predict()` method for predictions. The input is `input_data`, the raw body of your request and `content_type`, the content type form the request Header.
 - `predict(processed_data)`: overrides the default method for predictions, the return value `predictions` will be used in the `postprocess()` method. The input is `processed_data`, the result of the `preprocess()` method.
-- `postprocess(prediction, accept)`: overrides the default method for postprocessing, the return value `result` will be the respond of your request(e.g.`JSON`). The inputs are `predictions`, the result of the `predict()` method and `accept` the return accept type from the HTTP Request, e.g. `application/json`
+- `postprocess(prediction, accept)`: overrides the default method for post-processing, the return value `result` will be the response of your request(e.g.`JSON`). The inputs are `predictions`, the result of the `predict()` method and `accept` the return accept type from the HTTP Request, e.g. `application/json`
 
 Example of an `inference.py`
 
