@@ -132,7 +132,7 @@ class TableQuestionAnsweringInputsCheck(BaseModel):
         raise ValueError("All rows in the table must be the same length")
 
 
-class StructuredDataClassificationValidationInputsCheck(BaseModel):
+class StructuredDataClassificationInputsCheck(BaseModel):
     data: Dict[str, List[str]]
 
     @validator("data")
@@ -176,7 +176,7 @@ INPUTS_MAPPING = {
     "feature-extraction": StringOrStringBatchInputCheck,
     "sentence-similarity": SentenceSimilarityInputsCheck,
     "table-question-answering": TableQuestionAnsweringInputsCheck,
-    "structured-data-classification": StructuredDataClassificationValidationInputsCheck,
+    "structured-data-classification": StructuredDataClassificationInputsCheck,
     "fill-mask": StringInput,
     "summarization": StringInput,
     "text2text-generation": StringInput,
