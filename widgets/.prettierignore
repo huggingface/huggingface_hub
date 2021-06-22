@@ -1,0 +1,10 @@
+.svelte-kit/**
+static/**
+build/**
+node_modules/**
+*.js
+*.mjs
+*.cjs
+*.md
+*.ts
+*.css

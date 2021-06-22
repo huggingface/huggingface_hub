@@ -6,10 +6,12 @@ on:
       - main
     paths-ignore:
       - "interfaces/**"
+      - "widgets/**"
   pull_request:
     types: [assigned, opened, synchronize, reopened]
     paths-ignore:
       - "interfaces/**"
+      - "widgets/**"
 
 jobs:
   build:

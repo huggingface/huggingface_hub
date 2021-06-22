@@ -1,4 +1,5 @@
 import os
+import stat
 import unittest
 from contextlib import contextmanager
 from distutils.util import strtobool
@@ -139,3 +140,8 @@ def offline(mode=OfflineSimulationMode.CONNECTION_FAILS, timeout=1e-16):
             yield
     else:
         raise ValueError("Please use a value from the OfflineSimulationMode enum.")
+
+
+def set_write_permission_and_retry(func, path, excinfo):
+    os.chmod(path, stat.S_IWRITE)
+    func(path)
