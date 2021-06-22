@@ -11,6 +11,7 @@ export enum ModelLibrary {
 	'flair'                  = 'Flair',
 	'pyannote'               = 'Pyannote',
 	'sentence-transformers'  = 'Sentence Transformers',
+	'sklearn'  			     = 'Scikit-learn',
 	'spacy'                  = 'spaCy',
 	'speechbrain'            = 'speechbrain',
 	'tensorflowtts'          = 'TensorFlowTTS',
@@ -161,6 +162,32 @@ const timm = (model: ModelData) =>
 
 model = timm.create_model("${model.modelId}", pretrained=True)`;
 
+const sklearn_with_filename = (model: ModelData, filename: string) =>  
+`from huggingface_hub import hf_hub_url, cached_download
+import joblib
+
+model = joblib.load(cached_download(
+	hf_hub_url("${model.modelId}", "${filename}")
+))`;
+
+const sklearn_no_joblib = (model: ModelData) =>  
+`from huggingface_hub import hf_hub_url, cached_download
+import joblib
+
+# No joblib file found!
+model = joblib.load(cached_download(
+	hf_hub_url("${model.modelId}", "name of file")
+))`;
+
+const sklearn = (model: ModelData) => {
+	const joblib_file = model.siblings?.find(file => file.rfilename.endsWith(".joblib"));
+	if (joblib_file) {
+		return sklearn_with_filename(model, joblib_file.rfilename);
+	}
+	return sklearn_no_joblib(model);
+};
+	
+
 const sentenceTransformers = (model: ModelData) =>
 `from sentence_transformers import SentenceTransformer
 
@@ -261,6 +288,12 @@ export const MODEL_LIBRARIES_UI_ELEMENTS: { [key in keyof typeof ModelLibrary]: 
 		repoName: "sentence-transformers",
 		repoUrl: "https://github.com/UKPLab/sentence-transformers",
 		snippet: sentenceTransformers,
+	},
+	sklearn: {
+		btnLabel: "Scikit-learn",
+		repoName: "Scikit-learn",
+		repoUrl: "https://github.com/scikit-learn/scikit-learn",
+		snippet: sklearn,
 	},
 	spacy: {
 		btnLabel: "spaCy",

@@ -98,4 +98,8 @@ export interface ModelData {
 	 * or by default in `DefaultWidget.ts`
 	 */
 	widgetData?: Record<string, any>[] | undefined;
+	/**
+	 * information on all files in the repo.
+	 */
+	 siblings?: Obj[];
 }
