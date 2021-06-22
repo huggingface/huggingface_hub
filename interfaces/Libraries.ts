@@ -11,7 +11,7 @@ export enum ModelLibrary {
 	'flair'                  = 'Flair',
 	'pyannote'               = 'Pyannote',
 	'sentence-transformers'  = 'Sentence Transformers',
-	'sklearn'  			     = 'Scikit-learn',
+	'sklearn'                = 'Scikit-learn',
 	'spacy'                  = 'spaCy',
 	'speechbrain'            = 'speechbrain',
 	'tensorflowtts'          = 'TensorFlowTTS',
