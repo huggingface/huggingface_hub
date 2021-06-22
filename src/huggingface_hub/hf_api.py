@@ -84,7 +84,7 @@ class ModelInfo:
         siblings: Optional[
             List[Dict]
         ] = None,  # list of files that constitute the model
-        config:  Optional[Dict] = None,
+        config:  Optional[Dict] = None,  # information about model configuration
         **kwargs,
     ):
         self.modelId = modelId
