@@ -18,6 +18,7 @@ What can you find in this repo?
 * `api-inference-community`, the Inference API for open source machine learning libraries.
 * `widgets`, the open-sourced widgets that allow people to try out the models in the browser.
 * `interfaces`, Typescript definition files for the Hugging Face Hub.
+* `docs`, containing the official [Hugging Face Hub documentation](https://hf.co/docs).
 
 ## The `huggingface_hub` client library
 
@@ -59,19 +60,16 @@ All our widgets are open-sourced. Feel free to propose and implement widgets. Yo
 
 ## Code Snippets
 
-We'll implement a few tweaks to improve the UX for your models on the website – let's use [Asteroid](https://github.com/asteroid-team/asteroid) as an example:
-
-![asteroid-model](https://cdn-media.huggingface.co/huggingface_hub/asteroid-model-optim.png)
+We'll implement a few tweaks to improve the UX for your models on the website – let's use [Asteroid](https://github.com/asteroid-team/asteroid) as an example.
 
 Model authors add an `asteroid` tag to their model card and they get the advantages of model versioning built-in
 
-![use-in-asteroid](https://cdn-media.huggingface.co/huggingface_hub/use-in-asteroid.png)
+![asteroid-model](docs/assets/asteroid_repo.png)
 
-We add a custom "Use in Asteroid" button.
+We add a custom "Use in Asteroid" button. When clicked, you get a library-specific code sample that you'll be able to specify. 🔥
 
-![asteroid-code-sample](https://cdn-media.huggingface.co/huggingface_hub/asteroid-code-sample.png)
+![asteroid-code-sample](docs/assets/asteroid_snippet.png)
 
-When clicked you get a library-specific code sample that you'll be able to specify. 🔥
 
 <br>
 
