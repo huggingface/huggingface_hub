@@ -14,15 +14,13 @@ class StructuredDataClassificationPipeline(Pipeline):
         )
 
     def __call__(
-        self, inputs: Dict[str, Union[List[str], List[List[Union[str, float]]]]]
+        self, inputs: Dict[str, Dict[str, List[Union[str, float]]]]
     ) -> List[Union[str, float]]:
         """
         Args:
             inputs (:obj:`dict`):
-                a dictionary containing one or two keys, 'data' mapping
-                to a list of lists representing each row, and, *optionally*,
-                column_names, containing the column name corresponding to
-                each row.
+                a dictionary containing a key 'data' mapping to a dict in which
+                the values represent each column.
         Return:
             A :obj:`list` of floats or strings: The classification output for each row.
         """

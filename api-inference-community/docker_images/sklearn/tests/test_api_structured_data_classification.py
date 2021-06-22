@@ -34,11 +34,24 @@ class StructuredDataClassificationTestCase(TestCase):
             del os.environ["TASK"]
 
     def test_simple(self):
-        data = [[0.1, 1.3, 2.9], [3.0, 1.3, 0.1]]
+        data = {
+            "1": [7.4, 7.8],
+            "2": [0.7, 0.88],
+            "3": [7.4, 7.8],
+            "4": [7.4, 7.8],
+            "5": [7.4, 7.8],
+            "6": [7.4, 7.8],
+            "7": [7.4, 7.8],
+            "8": [7.4, 7.8],
+            "9": [7.4, 7.8],
+            "10": [7.4, 7.8],
+            "11": [7.4, 7.8],
+        }
 
         inputs = {"data": data}
         with TestClient(self.app) as client:
             response = client.post("/", json={"inputs": inputs})
+
         self.assertEqual(
             response.status_code,
             200,
@@ -57,3 +70,14 @@ class StructuredDataClassificationTestCase(TestCase):
         )
         content = json.loads(response.content)
         self.assertEqual(set(content.keys()), {"error"})
+
+    def test_missing_columns(self):
+        data = {"1": [7.4, 7.8], "2": [0.7, 0.88]}
+
+        inputs = {"data": data}
+        with TestClient(self.app) as client:
+            response = client.post("/", json={"inputs": inputs})
+        self.assertEqual(
+            response.status_code,
+            400,
+        )

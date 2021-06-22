@@ -36,7 +36,7 @@ class StructuredDataClassificationTestCase(TestCase):
     def test_simple(self):
         # IMPLEMENT_THIS
         # Add one or multiple rows that the test model expects.
-        data = []
+        data = {}
 
         inputs = {"data": data}
         with TestClient(self.app) as client:
@@ -60,3 +60,16 @@ class StructuredDataClassificationTestCase(TestCase):
         )
         content = json.loads(response.content)
         self.assertEqual(set(content.keys()), {"error"})
+
+    def test_missing_columns(self):
+        # IMPLEMENT_THIS
+        # Add wrong number of columns
+        data = {}
+
+        inputs = {"data": data}
+        with TestClient(self.app) as client:
+            response = client.post("/", json={"inputs": inputs})
+        self.assertEqual(
+            response.status_code,
+            400,
+        )
