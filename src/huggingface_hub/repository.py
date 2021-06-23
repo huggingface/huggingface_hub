@@ -164,7 +164,7 @@ class Repository:
             repo_url = repo_url.replace(
                 "https://", f"https://user:{huggingface_token}@"
             )
-        
+
         # For error messages, it's cleaner to show the repo url without the token.
         clean_repo_url = re.sub(r"https://.*@", "https://", repo_url)
         try:
