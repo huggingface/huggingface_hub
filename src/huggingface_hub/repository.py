@@ -2,6 +2,7 @@ import logging
 import os
 import re
 import subprocess
+from pathlib import Path
 from typing import List, Optional, Union
 
 from .hf_api import HfFolder
@@ -9,6 +10,38 @@ from .lfs import LFS_MULTIPART_UPLOAD_COMMAND
 
 
 logger = logging.getLogger(__name__)
+
+
+def is_git_repo(folder: Union[str, Path]):
+    """
+    Check if the folder is the root of a git repository
+    """
+    folder_exists = os.path.exists(os.path.join(folder, ".git"))
+    git_branch = subprocess.run(
+        "git branch".split(), cwd=folder, stdout=subprocess.PIPE, stderr=subprocess.PIPE
+    )
+    return folder_exists and git_branch.returncode == 0
+
+
+def is_local_clone(folder: Union[str, Path], remote_url: str):
+    """
+    Check if the folder is the a local clone of the remote_url
+    """
+    if not is_git_repo(folder):
+        return False
+
+    remotes = subprocess.run(
+        "git remote -v".split(),
+        stderr=subprocess.PIPE,
+        stdout=subprocess.PIPE,
+        check=True,
+        encoding="utf-8",
+        cwd=folder,
+    ).stdout
+
+    # Remove token for the test with remotes.
+    remote_url = re.sub(r"https://.*@", "https://", remote_url)
+    return remote_url in remotes.split()
 
 
 class Repository:
@@ -60,7 +93,7 @@ class Repository:
         if clone_from is not None:
             self.clone_from(repo_url=clone_from, use_auth_token=use_auth_token)
         else:
-            if os.path.isdir(os.path.join(self.local_dir, ".git")):
+            if is_git_repo(self.local_dir):
                 logger.debug("[Repository] is a valid git repo")
             else:
                 logger.error(
@@ -109,7 +142,9 @@ class Repository:
 
     def clone_from(self, repo_url: str, use_auth_token: Union[bool, str, None] = None):
         """
-        Clone from a remote.
+        Clone from a remote. If the folder already exists, will try to clone the repository within it.
+
+        If this folder is a git repository with linked history, will try to update the repository.
         """
         if isinstance(use_auth_token, str):
             huggingface_token = use_auth_token
@@ -139,6 +174,7 @@ class Repository:
 
             # checks if repository is initialized in a empty repository or in one with files
             if len(os.listdir(self.local_dir)) == 0:
+                logger.debug(f"Cloning {repo_url} into local empty directory.")
                 subprocess.run(
                     ["git", "clone", repo_url, "."],
                     stderr=subprocess.PIPE,
@@ -148,71 +184,39 @@ class Repository:
                     cwd=self.local_dir,
                 )
             else:
-                logger.warning(
-                    "[Repository] local_dir is not empty, so let's try to pull the remote over a non-empty folder."
-                )
-                subprocess.run(
-                    "git init".split(),
-                    stderr=subprocess.PIPE,
-                    stdout=subprocess.PIPE,
-                    check=True,
-                    encoding="utf-8",
-                    cwd=self.local_dir,
-                )
+                # Check if the folder is the root of a git repository
+                in_repository = is_git_repo(self.local_dir)
 
-                output = subprocess.run(
-                    "git remote -v".split(),
-                    stderr=subprocess.PIPE,
-                    stdout=subprocess.PIPE,
-                    check=True,
-                    encoding="utf-8",
-                    cwd=self.local_dir,
-                )
+                if in_repository:
+                    if is_local_clone(self.local_dir, repo_url):
+                        logger.debug(
+                            f"{self.local_dir} is already a clone of {repo_url}. Make sure you pull the latest"
+                            "changes with `repo.git_pull()`."
+                        )
+                    else:
+                        output = subprocess.run(
+                            "git remote get-url origin".split(),
+                            stderr=subprocess.PIPE,
+                            stdout=subprocess.PIPE,
+                            encoding="utf-8",
+                            cwd=self.local_dir,
+                        )
 
-                if "origin" not in output.stdout.split():
-                    subprocess.run(
-                        ["git", "remote", "add", "origin", repo_url],
-                        stderr=subprocess.PIPE,
-                        stdout=subprocess.PIPE,
-                        check=True,
-                        encoding="utf-8",
-                        cwd=self.local_dir,
-                    )
+                        error_msg = (
+                            f"Tried to clone {repo_url} in an unrelated git repository.\nIf you believe this is an "
+                            f"error, please add a remote with the following URL: {repo_url}."
+                        )
+                        if output.returncode == 0:
+                            error_msg += f"\nLocal path has its origin defined as: {output.stdout}"
 
-                subprocess.run(
-                    "git fetch".split(),
-                    stderr=subprocess.PIPE,
-                    stdout=subprocess.PIPE,
-                    check=True,
-                    encoding="utf-8",
-                    cwd=self.local_dir,
-                )
-                subprocess.run(
-                    "git reset origin/main".split(),
-                    stderr=subprocess.PIPE,
-                    stdout=subprocess.PIPE,
-                    encoding="utf-8",
-                    check=True,
-                    cwd=self.local_dir,
-                )
+                        raise EnvironmentError(error_msg)
 
-                output = subprocess.run(
-                    "git branch".split(),
-                    stderr=subprocess.PIPE,
-                    stdout=subprocess.PIPE,
-                    check=True,
-                    encoding="utf-8",
-                    cwd=self.local_dir,
-                )
-
-                if "main" not in output.stdout.split():
-                    subprocess.run(
-                        "git checkout origin/main -t".split(),
-                        stderr=subprocess.PIPE,
-                        stdout=subprocess.PIPE,
-                        encoding="utf-8",
-                        check=True,
-                        cwd=self.local_dir,
+                if not in_repository:
+                    raise EnvironmentError(
+                        "Tried to clone a repository in a non-empty folder that isn't a git repository. If you really "
+                        "want to do this, do it manually:\m"
+                        "git init && git remote add origin && git pull origin main\n"
+                        " or clone repo to a new folder and move your existing files there afterwards."
                     )
 
         except subprocess.CalledProcessError as exc:

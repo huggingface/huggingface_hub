@@ -18,6 +18,7 @@ import subprocess
 import tempfile
 import time
 import unittest
+from io import BytesIO
 
 import requests
 from huggingface_hub.hf_api import HfApi
@@ -54,6 +55,12 @@ class RepositoryTest(RepositoryCommonTest):
             pass
 
         self._repo_url = self._api.create_repo(token=self._token, name=REPO_NAME)
+        self._api.upload_file(
+            token=self._token,
+            path_or_fileobj=BytesIO(b"some initial binary data: \x00\x01"),
+            path_in_repo="random_file.txt",
+            repo_id=f"{USER}/{REPO_NAME}",
+        )
 
     def tearDown(self):
         self._api.delete_repo(token=self._token, name=REPO_NAME)
@@ -80,6 +87,8 @@ class RepositoryTest(RepositoryCommonTest):
         repo.lfs_enable_largefiles()
         repo.git_pull()
 
+        self.assertIn("random_file.txt", os.listdir(WORKING_REPO_DIR))
+
     def test_init_clone_in_nonempty_folder(self):
         # Create dummy files
         # one is lfs-tracked, the other is not.
@@ -88,10 +97,74 @@ class RepositoryTest(RepositoryCommonTest):
             f.write("hello")
         with open(os.path.join(WORKING_REPO_DIR, "model.bin"), "w") as f:
             f.write("hello")
-        repo = Repository(WORKING_REPO_DIR, clone_from=self._repo_url)
-        repo.lfs_track(["*.pdf"])
-        repo.lfs_enable_largefiles()
-        repo.git_pull()
+        self.assertRaises(
+            OSError, Repository, WORKING_REPO_DIR, clone_from=self._repo_url
+        )
+
+    def test_init_clone_in_nonempty_non_linked_git_repo(self):
+        # Create a new repository on the HF Hub
+        temp_repo_url = self._api.create_repo(
+            token=self._token, name=f"{REPO_NAME}-temp"
+        )
+        self._api.upload_file(
+            token=self._token,
+            path_or_fileobj=BytesIO(b"some initial binary data: \x00\x01"),
+            path_in_repo="random_file_2.txt",
+            repo_id=f"{USER}/{REPO_NAME}-temp",
+        )
+
+        # Clone the new repository
+        os.makedirs(WORKING_REPO_DIR, exist_ok=True)
+        Repository(WORKING_REPO_DIR, clone_from=self._repo_url)
+
+        # Try and clone another repository within the same directory. Should error out due to mismatched remotes.
+        self.assertRaises(
+            EnvironmentError, Repository, WORKING_REPO_DIR, clone_from=temp_repo_url
+        )
+
+        self._api.delete_repo(token=self._token, name=f"{REPO_NAME}-temp")
+
+    def test_init_clone_in_nonempty_linked_git_repo(self):
+        # Clone the repository to disk
+        Repository(WORKING_REPO_DIR, clone_from=self._repo_url)
+
+        # Add to the remote repository without doing anything to the local repository.
+        self._api.upload_file(
+            token=self._token,
+            path_or_fileobj=BytesIO(b"some initial binary data: \x00\x01"),
+            path_in_repo="random_file_3.txt",
+            repo_id=f"{USER}/{REPO_NAME}",
+        )
+
+        # Cloning the repository in the same directory should not result in a git pull.
+        Repository(WORKING_REPO_DIR, clone_from=self._repo_url)
+        self.assertNotIn("random_file_3.txt", os.listdir(WORKING_REPO_DIR))
+
+    def test_init_clone_in_nonempty_linked_git_repo_unrelated_histories(self):
+        # Clone the repository to disk
+        repo = Repository(
+            WORKING_REPO_DIR,
+            clone_from=self._repo_url,
+            git_user="ci",
+            git_email="ci@dummy.com",
+        )
+
+        with open(f"{WORKING_REPO_DIR}/random_file_3.txt", "w+") as f:
+            f.write("New file.")
+
+        repo.git_add()
+        repo.git_commit("Unrelated commit")
+
+        # Add to the remote repository without doing anything to the local repository.
+        self._api.upload_file(
+            token=self._token,
+            path_or_fileobj=BytesIO(b"some initial binary data: \x00\x01"),
+            path_in_repo="random_file_3.txt",
+            repo_id=f"{USER}/{REPO_NAME}",
+        )
+
+        # The repo should initialize correctly as the remote is the same, even with unrelated historied
+        Repository(WORKING_REPO_DIR, clone_from=self._repo_url)
 
     def test_add_commit_push(self):
         repo = Repository(
