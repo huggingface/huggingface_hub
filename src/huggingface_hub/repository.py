@@ -178,7 +178,7 @@ class Repository:
 
             # checks if repository is initialized in a empty repository or in one with files
             if len(os.listdir(self.local_dir)) == 0:
-                logger.debug(f"Cloning {repo_url} into local empty directory.")
+                logger.debug(f"Cloning {clean_repo_url} into local empty directory.")
                 subprocess.run(
                     ["git", "clone", repo_url, "."],
                     stderr=subprocess.PIPE,
