@@ -211,7 +211,10 @@ class Repository:
                             f"an error, please add a remote with the following URL: {clean_repo_url}."
                         )
                         if output.returncode == 0:
-                            error_msg += f"\nLocal path has its origin defined as: {output.stdout}"
+                            clean_local_remote_url = re.sub(
+                                r"https://.*@", "https://", output.stdout
+                            )
+                            error_msg += f"\nLocal path has its origin defined as: {clean_local_remote_url}"
 
                         raise EnvironmentError(error_msg)
 
