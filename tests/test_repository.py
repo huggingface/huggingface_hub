@@ -124,6 +124,14 @@ class RepositoryTest(RepositoryCommonTest):
 
         self._api.delete_repo(token=self._token, name=f"{REPO_NAME}-temp")
 
+    def test_init_clone_in_nonempty_linked_git_repo_with_token(self):
+        Repository(
+            WORKING_REPO_DIR, clone_from=self._repo_url, use_auth_token=self._token
+        )
+        Repository(
+            WORKING_REPO_DIR, clone_from=self._repo_url, use_auth_token=self._token
+        )
+
     def test_init_clone_in_nonempty_linked_git_repo(self):
         # Clone the repository to disk
         Repository(WORKING_REPO_DIR, clone_from=self._repo_url)

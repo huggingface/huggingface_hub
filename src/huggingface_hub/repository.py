@@ -41,7 +41,8 @@ def is_local_clone(folder: Union[str, Path], remote_url: str):
 
     # Remove token for the test with remotes.
     remote_url = re.sub(r"https://.*@", "https://", remote_url)
-    return remote_url in remotes.split()
+    remotes = [re.sub(r"https://.*@", "https://", remote) for remote in remotes.split()]
+    return remote_url in remotes
 
 
 class Repository:
@@ -163,6 +164,9 @@ class Repository:
             repo_url = repo_url.replace(
                 "https://", f"https://user:{huggingface_token}@"
             )
+
+        # For error messages, it's cleaner to show the repo url without the token.
+        clean_repo_url = re.sub(r"https://.*@", "https://", repo_url)
         try:
             subprocess.run(
                 "git lfs install".split(),
@@ -174,7 +178,7 @@ class Repository:
 
             # checks if repository is initialized in a empty repository or in one with files
             if len(os.listdir(self.local_dir)) == 0:
-                logger.debug(f"Cloning {repo_url} into local empty directory.")
+                logger.debug(f"Cloning {clean_repo_url} into local empty directory.")
                 subprocess.run(
                     ["git", "clone", repo_url, "."],
                     stderr=subprocess.PIPE,
@@ -190,7 +194,7 @@ class Repository:
                 if in_repository:
                     if is_local_clone(self.local_dir, repo_url):
                         logger.debug(
-                            f"{self.local_dir} is already a clone of {repo_url}. Make sure you pull the latest"
+                            f"{self.local_dir} is already a clone of {clean_repo_url}. Make sure you pull the latest"
                             "changes with `repo.git_pull()`."
                         )
                     else:
@@ -203,11 +207,14 @@ class Repository:
                         )
 
                         error_msg = (
-                            f"Tried to clone {repo_url} in an unrelated git repository.\nIf you believe this is an "
-                            f"error, please add a remote with the following URL: {repo_url}."
+                            f"Tried to clone {clean_repo_url} in an unrelated git repository.\nIf you believe this is "
+                            f"an error, please add a remote with the following URL: {clean_repo_url}."
                         )
                         if output.returncode == 0:
-                            error_msg += f"\nLocal path has its origin defined as: {output.stdout}"
+                            clean_local_remote_url = re.sub(
+                                r"https://.*@", "https://", output.stdout
+                            )
+                            error_msg += f"\nLocal path has its origin defined as: {clean_local_remote_url}"
 
                         raise EnvironmentError(error_msg)
 
