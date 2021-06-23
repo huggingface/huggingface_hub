@@ -286,10 +286,6 @@ class ModelHubMixin:
                 exist_ok=True,
             )
 
-        # Create a working directory if it does not exist.
-        if not os.path.exists(repo_path_or_name):
-            os.makedirs(repo_path_or_name)
-
         repo = Repository(
             repo_path_or_name,
             clone_from=repo_url,
@@ -297,7 +293,7 @@ class ModelHubMixin:
             git_user=git_user,
             git_email=git_email,
         )
-        repo.git_pull()
+        repo.git_pull(rebase=True)
 
         # Save the files in the cloned repo
         self.save_pretrained(repo_path_or_name, config=config)
