@@ -168,8 +168,7 @@ import joblib
 
 model = joblib.load(
 	hf_hub_download("${model.modelId}", "sklearn_model.joblib")
-)
-`;
+)`;
 
 const sentenceTransformers = (model: ModelData) =>
 `from sentence_transformers import SentenceTransformer
