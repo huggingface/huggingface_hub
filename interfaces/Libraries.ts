@@ -162,31 +162,14 @@ const timm = (model: ModelData) =>
 
 model = timm.create_model("${model.modelId}", pretrained=True)`;
 
-const sklearn_with_filename = (model: ModelData, filename: string) =>  
-`from huggingface_hub import hf_hub_url, cached_download
+const sklearn = (model: ModelData) => 
+`from huggingface_hub import hf_hub_download
 import joblib
 
-model = joblib.load(cached_download(
-	hf_hub_url("${model.modelId}", "${filename}")
-))`;
-
-const sklearn_no_joblib = (model: ModelData) =>  
-`from huggingface_hub import hf_hub_url, cached_download
-import joblib
-
-# No joblib file found!
-model = joblib.load(cached_download(
-	hf_hub_url("${model.modelId}", "name of file")
-))`;
-
-const sklearn = (model: ModelData) => {
-	const joblib_file = model.siblings?.find(file => file.rfilename.endsWith(".joblib"));
-	if (joblib_file) {
-		return sklearn_with_filename(model, joblib_file.rfilename);
-	}
-	return sklearn_no_joblib(model);
-};
-	
+model = joblib.load(
+	hf_hub_download("${model.modelId}", "sklearn_model.joblib")
+)
+`;
 
 const sentenceTransformers = (model: ModelData) =>
 `from sentence_transformers import SentenceTransformer
