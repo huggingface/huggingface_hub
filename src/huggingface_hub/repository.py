@@ -512,6 +512,15 @@ class Commit:
         self._git_user = git_user
         self._git_email = git_email
 
+        if "huggingface.co" in self.repo_url and "@" not in self.repo_url:
+            # adds huggingface_token to repo url if it is provided.
+            # do not leak user token if it's not a repo on hf.co
+            self._auth_repo_url = self.repo_url.replace(
+                "https://", f"https://user:{self._token}@"
+            )
+        else:
+            self._auth_repo_url = self.repo_url
+
     def __enter__(self):
         self._api.create_repo(
             self._token,
@@ -524,7 +533,7 @@ class Commit:
 
         self._repository = Repository(
             self.local_dir,
-            clone_from=self.repo_url,
+            clone_from=self._auth_repo_url,
             git_user=self._git_user,
             git_email=self._git_email,
         )
