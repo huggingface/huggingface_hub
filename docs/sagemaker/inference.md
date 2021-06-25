@@ -290,8 +290,9 @@ HF_API_TOKEN="api_XXXXXXXXXXXXXXXXXXXXXXXXXXXXX"
 
 ### User defined code/modules
 
-The Hugging Face Inference Toolkit allows user to override the default methods of the `HuggingFaceHandlerService`. Therefore, we need to create a folder named `code/` with a `inference.py` file in it.
-For example:
+
+The Hugging Face Inference Toolkit allows user to override the default methods of the `HuggingFaceHandlerService`. Therefor the need to create a named `code/` with a `inference.py` file in it. 
+For example:  
 
 ```bash
 model.tar.gz/
@@ -299,34 +300,48 @@ model.tar.gz/
 |- ....
 |- code/
   |- inference.py
-  |- requirements.txt
+  |- requirements.txt 
 ```
 
 In this example, `pytroch_model.bin` is the model file saved from training, `inference.py` is the custom inference module, and `requirements.txt` is a requirements file to add additional dependencies.
-The custom module can override the following methods:
+The custom module can override the following methods:  
 
-- `load_fn(model_dir)`: overrides the default method for loading the model, the return value `model` will be used in the `predict()` for predicitions. It receives argument the `model_dir`, the path to your unzipped `model.tar.gz`.
-- `preprocess_fn(input_data, content_type)`: overrides the default method for pre-processing, the return value `data` will be used in the `predict()` method for predictions. The input is `input_data`, the raw body of your request and `content_type`, the content type form the request Header.
-- `predict(processed_data)`: overrides the default method for predictions, the return value `predictions` will be used in the `postprocess()` method. The input is `processed_data`, the result of the `preprocess()` method.
-- `postprocess(prediction, accept)`: overrides the default method for post-processing, the return value `result` will be the response of your request(e.g.`JSON`). The inputs are `predictions`, the result of the `predict()` method and `accept` the return accept type from the HTTP Request, e.g. `application/json`
+* `model_fn(model_dir)`: Overrides the default method for loading the model, the return value `model` will be used in the `predict()` for predicitions. It receives argument the `model_dir`, the path to your unzipped `model.tar.gz`.
+* `transform_fn(model, data, content_type, accept_type)`: Overrides the default transform function with custom implementation. Customers using this would have to implement `preprocess`, `predict` and `postprocess` steps in the `transform_fn`. **NOTE: This method can't be combined with `input_fn`, `predict_fn` or `output_fn` mentioned below.** 
+* `input_fn(input_data, content_type)`: Overrides the default method for prerprocessing, the return value `data` will be used in the `predict()` method for predicitions. The input is `input_data`, the raw body of your request and `content_type`, the content type form the request Header.
+* `predict_fn(processed_data, model)`: Overrides the default method for predictions, the return value `predictions` will be used in the `postprocess()` method. The input is `processed_data`, the result of the `preprocess()` method.
+* `output_fn(prediction, accept)`: Overrides the default method for postprocessing, the return value `result` will be the respond of your request(e.g.`JSON`). The inputs are `predictions`, the result of the `predict()` method and `accept` the return accept type from the HTTP Request, e.g. `application/json`
 
-Example of an `inference.py`
+
+
+Example of an `inference.py` with `model_fn`, `input_fn`, `predict_fn` & `output_fn`:  
 
 ```python
-def load_fn(model_dir):
+def model_fn(model_dir):
     return "model"
 
 
-def preprocess_fn(data, content_type):
+def input_fn(data, content_type):
     return "data"
 
 
-def predict_fn(data):
+def predict_fn(data, model):
     return "output"
 
 
-def postprocess_fn(prediction, accept):
+def output_fn(prediction, accept):
     return prediction
+```
+
+Example of an `inference.py` with `model_fn` & `transform_fn`:   
+
+```python
+def model_fn(model_dir):
+    return "loading model"
+
+
+def transform_fn(model, input_data, content_type, accept):
+    return f"output"
 ```
 
 ## Additional Resources
