@@ -471,6 +471,15 @@ class Repository:
                 if "nothing to commit" not in str(e):
                     raise e
 
-            self.git_push()
+            try:
+                self.git_push()
+            except OSError as e:
+                # If no changes are detected, there is nothing to commit.
+                if "could not read Username" in str(e):
+                    raise OSError(
+                        "Couldn't authenticate user for push. Did you set `use_auth_token` to `True`?"
+                    ) from e
+                else:
+                    raise e
 
             os.chdir(current_working_directory)
