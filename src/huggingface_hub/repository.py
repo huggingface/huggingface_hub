@@ -5,7 +5,7 @@ import subprocess
 from pathlib import Path
 from typing import List, Optional, Union
 
-from .hf_api import HfFolder
+from .hf_api import ENDPOINT, HfApi, HfFolder
 from .lfs import LFS_MULTIPART_UPLOAD_COMMAND
 
 
@@ -432,3 +432,116 @@ class Repository:
         self.git_add()
         self.git_commit(commit_message)
         return self.git_push()
+
+
+class Commit:
+    def __init__(
+        self,
+        repo_id: str,
+        commit_message: str,
+        token: Optional[str] = None,
+        local_dir: Optional[str] = None,
+        private: Optional[bool] = False,
+        repo_type: Optional[str] = None,
+        api_endpoint: Optional[str] = None,
+        git_user: Optional[str] = None,
+        git_email: Optional[str] = None,
+    ):
+        """
+
+        Context manager that handles committing to a repository.
+
+        Args:
+            repo_id (``str``):
+                The repository identifier. This can be either `repo_id`, `user/repo_id`, or `org/repo_id`.
+            commit_message (``str``):
+                The commit message associated with the file update.
+            token (``str``, `optional`):
+                An optional authentication token. If not passed, will look for the token in the `HfFolder()`.
+            local_dir (``str``, `optional`):
+                An optional local directory in which to clone the repository. If not specified, will create a folder
+                from the `repo_id` passed in the current working directory.
+            private (``bool``, `optional`):
+                Whether the repository should be public or private. Public by default.
+            repo_type (``str``, `optional`):
+                Type of repository. Will default to the model hub. Other possible choices: `space` and `dataset`.
+            api_endpoint (``str``, `optional`):
+                The API endpoint to use when pushing the model to the hub.
+            git_user (``str``, `optional`):
+                will override the ``git config user.name`` for committing and pushing files to the hub.
+            git_email (``str``, `optional`):
+                will override the ``git config user.email`` for committing and pushing files to the hub.
+
+        """
+        split_repo_id = repo_id.split("/")
+        if not len(split_repo_id) in [1, 2]:
+            raise ValueError("Invalid model identifier.")
+
+        self._token = HfFolder.get_token() if token is None else token
+        if self._token is None:
+            raise ValueError(
+                "Please login with `huggingface_cli login` in order to push to a repository."
+            )
+
+        self._api = HfApi(endpoint=api_endpoint)
+        self.user_id, organizations = self._api.whoami(self._token)
+
+        if len(split_repo_id) == 1:
+            self.repo_id = split_repo_id[0]
+            self.organization = None
+        else:
+            self.repo_id = split_repo_id[1]
+            if split_repo_id[0].lower() == self.user_id.lower():
+                self.organization = None
+            else:
+                self.organization = split_repo_id[0]
+
+        self.local_dir = (
+            os.path.join(os.getcwd(), self.repo_id) if local_dir is None else local_dir
+        )
+        self.namespace = (
+            self.organization if self.organization is not None else self.user_id
+        )
+        self.repo_name = f"{self.namespace}/{self.repo_id}"
+        self.repo_url = (
+            f"{ENDPOINT if api_endpoint is None else api_endpoint}/{self.repo_name}"
+        )
+        self.commit_message = commit_message
+        self.private = private
+        self.repo_type = repo_type
+        self._git_user = git_user
+        self._git_email = git_email
+
+    def __enter__(self):
+        self._api.create_repo(
+            self._token,
+            self.repo_id,
+            organization=self.organization,
+            private=self.private,
+            repo_type=self.repo_type,
+            exist_ok=True,
+        )
+
+        self._repository = Repository(
+            self.local_dir,
+            clone_from=self.repo_url,
+            git_user=self._git_user,
+            git_email=self._git_email,
+        )
+        self._repository.git_pull(rebase=True)
+
+        os.chdir(os.path.join(os.getcwd(), self.local_dir))
+
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        self._repository.git_add()
+
+        try:
+            self._repository.git_commit(self.commit_message)
+        except OSError as e:
+            # If no changes are detected, there is nothing to commit.
+            if "nothing to commit" not in str(e):
+                raise e
+
+        self._repository.git_push()

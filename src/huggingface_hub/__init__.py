@@ -32,5 +32,5 @@ from .constants import (
 from .file_download import cached_download, hf_hub_download, hf_hub_url
 from .hf_api import HfApi, HfFolder
 from .hub_mixin import ModelHubMixin
-from .repository import Repository
+from .repository import Commit, Repository
 from .snapshot_download import snapshot_download
