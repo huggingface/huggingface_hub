@@ -109,7 +109,7 @@
 			arg.every(
 				(x) =>
 					typeof x.blob === "string" &&
-					x.label === "string" &&
+					typeof x.label === "string" &&
 					typeof x.src === "string"
 			)
 		);
