@@ -145,10 +145,6 @@
 		if (body.length === 1) {
 			body = body[0];
 		}
-		if (model.modelId.startsWith(`sentence-`)) {
-			/// Dev(while correct pooling isn't applied)
-			body = body[0];
-		}
 		return new DataTable(body);
 	}
 
