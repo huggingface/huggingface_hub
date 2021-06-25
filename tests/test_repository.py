@@ -22,7 +22,7 @@ from io import BytesIO
 
 import requests
 from huggingface_hub.hf_api import HfApi
-from huggingface_hub.repository import Commit, Repository
+from huggingface_hub.repository import Repository
 
 from .testing_constants import ENDPOINT_STAGING, PASS, USER
 from .testing_utils import set_write_permission_and_retry
@@ -202,57 +202,28 @@ class RepositoryTest(RepositoryCommonTest):
         r = requests.head(url)
         r.raise_for_status()
 
-    def test_clone_with_repo_name(self):
-        with Commit(
+        shutil.rmtree(WORKING_REPO_DIR)
+
+    def test_clone_with_repo_name_and_organization(self):
+        clone = Repository(
             REPO_NAME,
-            commit_message="Initial commit",
-            token=self._token,
-            api_endpoint=ENDPOINT_STAGING,
-            git_user="ci",
-            git_email="ci@dummy.com",
-        ) as repository:
-            # Create dummy files
-            # one is lfs-tracked, the other is not.
-            with open("dummy.txt", "w") as f:
-                f.write("hello")
-            with open("model.bin", "w") as f:
-                f.write("hello")
-
-            url = repository.repo_url
-
-        Repository(
-            f"{WORKING_REPO_DIR}/{REPO_NAME}",
-            clone_from=url,
+            clone_from=f"{ENDPOINT_STAGING}/valid_org/{REPO_NAME}",
             use_auth_token=self._token,
             git_user="ci",
             git_email="ci@dummy.com",
         )
 
-        files = os.listdir(f"{WORKING_REPO_DIR}/{REPO_NAME}")
-        self.assertTrue("dummy.txt" in files)
-        self.assertTrue("model.bin" in files)
-
-    def test_clone_with_repo_name_and_org_namespace(self):
-        with Commit(
-            f"valid_org/{REPO_NAME}",
-            commit_message="Initial commit",
-            token=self._token,
-            api_endpoint=ENDPOINT_STAGING,
-            git_user="ci",
-            git_email="ci@dummy.com",
-        ) as repository:
-            # Create dummy files
-            # one is lfs-tracked, the other is not.
+        with clone.commit("Commit"):
             with open("dummy.txt", "w") as f:
                 f.write("hello")
             with open("model.bin", "w") as f:
                 f.write("hello")
 
-            url = repository.repo_url
+        shutil.rmtree(REPO_NAME)
 
         Repository(
             f"{WORKING_REPO_DIR}/{REPO_NAME}",
-            clone_from=url,
+            clone_from=f"{ENDPOINT_STAGING}/valid_org/{REPO_NAME}",
             use_auth_token=self._token,
             git_user="ci",
             git_email="ci@dummy.com",
@@ -263,14 +234,15 @@ class RepositoryTest(RepositoryCommonTest):
         self.assertTrue("model.bin" in files)
 
     def test_clone_with_repo_name_and_user_namespace(self):
-        with Commit(
-            f"{USER}/{REPO_NAME}",
-            commit_message="Initial commit",
-            token=self._token,
-            api_endpoint=ENDPOINT_STAGING,
+        clone = Repository(
+            REPO_NAME,
+            clone_from=f"{ENDPOINT_STAGING}/{USER}/{REPO_NAME}",
+            use_auth_token=self._token,
             git_user="ci",
             git_email="ci@dummy.com",
-        ) as repository:
+        )
+
+        with clone.commit("Commit"):
             # Create dummy files
             # one is lfs-tracked, the other is not.
             with open("dummy.txt", "w") as f:
@@ -278,11 +250,11 @@ class RepositoryTest(RepositoryCommonTest):
             with open("model.bin", "w") as f:
                 f.write("hello")
 
-            url = repository.repo_url
+        shutil.rmtree(REPO_NAME)
 
         Repository(
             f"{WORKING_REPO_DIR}/{REPO_NAME}",
-            clone_from=url,
+            clone_from=f"{ENDPOINT_STAGING}/{USER}/{REPO_NAME}",
             use_auth_token=self._token,
             git_user="ci",
             git_email="ci@dummy.com",
@@ -291,16 +263,3 @@ class RepositoryTest(RepositoryCommonTest):
         files = os.listdir(f"{WORKING_REPO_DIR}/{REPO_NAME}")
         self.assertTrue("dummy.txt" in files)
         self.assertTrue("model.bin" in files)
-
-    def test_clone_with_repo_name_and_organization(self):
-        clone = Commit(
-            f"ORG/{REPO_NAME}",
-            commit_message="Initial commit",
-            token=self._token,
-            api_endpoint=ENDPOINT_STAGING,
-            git_user="ci",
-            git_email="ci@dummy.com",
-        )
-
-        # Make sure that it raises if unauthorized organization
-        self.assertRaises(requests.exceptions.HTTPError, clone.__enter__)
