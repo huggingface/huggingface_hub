@@ -153,28 +153,23 @@ class Repository:
             )
         logger.info(git_version + "\n" + lfs_version)
 
-    def clone_from(self, repo_url: str):
+    def clone_from(self, repo_url: str, use_auth_token: Union[bool, str, None] = None):
         """
         Clone from a remote. If the folder already exists, will try to clone the repository within it.
 
         If this folder is a git repository with linked history, will try to update the repository.
         """
-        if (
-            self.huggingface_token is not None
-            and "huggingface.co" in repo_url
-            and "@" not in repo_url
-        ):
+        token = use_auth_token if use_auth_token is not None else self.huggingface_token
+        if token is not None and "huggingface.co" in repo_url and "@" not in repo_url:
             endpoint = "/".join(repo_url.split("/")[:-2])
             # adds huggingface_token to repo url if it is provided.
             # do not leak user token if it's not a repo on hf.co
-            repo_url = repo_url.replace(
-                "https://", f"https://user:{self.huggingface_token}@"
-            )
+            repo_url = repo_url.replace("https://", f"https://user:{token}@")
 
             organization, repo_id = repo_url.split("/")[-2:]
 
             HfApi(endpoint=endpoint).create_repo(
-                self.huggingface_token,
+                token,
                 repo_id,
                 organization=organization,
                 exist_ok=True,
@@ -452,7 +447,9 @@ class Repository:
         self,
         commit_message: str,
     ):
-        """"""
+        """
+        Context manager utility to handle committing to a repository.
+        """
 
         self.git_pull(rebase=True)
 
