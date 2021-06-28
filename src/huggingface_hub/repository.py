@@ -2,10 +2,11 @@ import logging
 import os
 import re
 import subprocess
+from contextlib import contextmanager
 from pathlib import Path
 from typing import List, Optional, Union
 
-from .hf_api import HfFolder
+from .hf_api import ENDPOINT, HfApi, HfFolder
 from .lfs import LFS_MULTIPART_UPLOAD_COMMAND
 
 
@@ -87,12 +88,23 @@ class Repository:
         """
 
         os.makedirs(local_dir, exist_ok=True)
-        self.local_dir = local_dir
+        self.local_dir = os.path.join(os.getcwd(), local_dir)
 
         self.check_git_versions()
 
+        if isinstance(use_auth_token, str):
+            self.huggingface_token = use_auth_token
+        elif use_auth_token:
+            self.huggingface_token = HfFolder.get_token()
+        else:
+            self.huggingface_token = None
+
         if clone_from is not None:
-            self.clone_from(repo_url=clone_from, use_auth_token=use_auth_token)
+
+            if "http" not in clone_from:
+                clone_from = f"{ENDPOINT}/{clone_from}"
+
+            self.clone_from(repo_url=clone_from)
         else:
             if is_git_repo(self.local_dir):
                 logger.debug("[Repository] is a valid git repo")
@@ -147,24 +159,21 @@ class Repository:
 
         If this folder is a git repository with linked history, will try to update the repository.
         """
-        if isinstance(use_auth_token, str):
-            huggingface_token = use_auth_token
-        elif use_auth_token:
-            huggingface_token = HfFolder.get_token()
-        else:
-            huggingface_token = None
-
-        if (
-            huggingface_token is not None
-            and "huggingface.co" in repo_url
-            and "@" not in repo_url
-        ):
+        token = use_auth_token if use_auth_token is not None else self.huggingface_token
+        if token is not None and "huggingface.co" in repo_url and "@" not in repo_url:
+            endpoint = "/".join(repo_url.split("/")[:-2])
             # adds huggingface_token to repo url if it is provided.
             # do not leak user token if it's not a repo on hf.co
-            repo_url = repo_url.replace(
-                "https://", f"https://user:{huggingface_token}@"
-            )
+            repo_url = repo_url.replace("https://", f"https://user:{token}@")
 
+            organization, repo_id = repo_url.split("/")[-2:]
+
+            HfApi(endpoint=endpoint).create_repo(
+                token,
+                repo_id,
+                organization=organization,
+                exist_ok=True,
+            )
         # For error messages, it's cleaner to show the repo url without the token.
         clean_repo_url = re.sub(r"https://.*@", "https://", repo_url)
         try:
@@ -432,3 +441,54 @@ class Repository:
         self.git_add()
         self.git_commit(commit_message)
         return self.git_push()
+
+    @contextmanager
+    def commit(
+        self,
+        commit_message: str,
+    ):
+        """
+        Context manager utility to handle committing to a repository.
+
+        Examples:
+
+            >>> with Repository("text-files", clone_from="<user>/text-files", use_auth_token=True).commit("My first file :)"):
+            ...     with open("file.txt", "w+") as f:
+            ...         f.write(json.dumps({"hey": 8}))
+
+            >>> import torch
+            >>> model = torch.nn.Transformer()
+            >>> with Repository("torch-model", clone_from="<user>/torch-model", use_auth_token=True).commit("My cool model :)"):
+            ...     torch.save(model.state_dict(), "model.pt")
+
+        """
+
+        self.git_pull(rebase=True)
+
+        current_working_directory = os.getcwd()
+        os.chdir(os.path.join(current_working_directory, self.local_dir))
+
+        try:
+            yield self
+        finally:
+            self.git_add()
+
+            try:
+                self.git_commit(commit_message)
+            except OSError as e:
+                # If no changes are detected, there is nothing to commit.
+                if "nothing to commit" not in str(e):
+                    raise e
+
+            try:
+                self.git_push()
+            except OSError as e:
+                # If no changes are detected, there is nothing to commit.
+                if "could not read Username" in str(e):
+                    raise OSError(
+                        "Couldn't authenticate user for push. Did you set `use_auth_token` to `True`?"
+                    ) from e
+                else:
+                    raise e
+
+            os.chdir(current_working_directory)
