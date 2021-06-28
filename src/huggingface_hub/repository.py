@@ -449,6 +449,18 @@ class Repository:
     ):
         """
         Context manager utility to handle committing to a repository.
+
+        Examples:
+
+            >>> with Repository("text-files", clone_from="<user>/text-files", use_auth_token=True).commit("My first file :)"):
+            ...     with open("file.txt", "w+") as f:
+            ...         f.write(json.dumps({"hey": 8}))
+
+            >>> import torch
+            >>> model = torch.nn.Transformer()
+            >>> with Repository("torch-model", clone_from="<user>/torch-model", use_auth_token=True).commit("My cool model :)"):
+            ...     torch.save(model.state_dict(), "model.pt")
+
         """
 
         self.git_pull(rebase=True)
