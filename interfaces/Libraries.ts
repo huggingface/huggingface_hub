@@ -11,6 +11,7 @@ export enum ModelLibrary {
 	'flair'                  = 'Flair',
 	'pyannote'               = 'Pyannote',
 	'sentence-transformers'  = 'Sentence Transformers',
+	'sklearn'                = 'Scikit-learn',
 	'spacy'                  = 'spaCy',
 	'speechbrain'            = 'speechbrain',
 	'tensorflowtts'          = 'TensorFlowTTS',
@@ -161,6 +162,14 @@ const timm = (model: ModelData) =>
 
 model = timm.create_model("${model.modelId}", pretrained=True)`;
 
+const sklearn = (model: ModelData) => 
+`from huggingface_hub import hf_hub_download
+import joblib
+
+model = joblib.load(
+	hf_hub_download("${model.modelId}", "sklearn_model.joblib")
+)`;
+
 const sentenceTransformers = (model: ModelData) =>
 `from sentence_transformers import SentenceTransformer
 
@@ -261,6 +270,12 @@ export const MODEL_LIBRARIES_UI_ELEMENTS: { [key in keyof typeof ModelLibrary]: 
 		repoName: "sentence-transformers",
 		repoUrl: "https://github.com/UKPLab/sentence-transformers",
 		snippet: sentenceTransformers,
+	},
+	sklearn: {
+		btnLabel: "Scikit-learn",
+		repoName: "Scikit-learn",
+		repoUrl: "https://github.com/scikit-learn/scikit-learn",
+		snippet: sklearn,
 	},
 	spacy: {
 		btnLabel: "spaCy",
