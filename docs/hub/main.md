@@ -27,7 +27,7 @@ On top of that, Hugging Face Hub repositories have many other advantages:
 * Repos provide useful [metadata](https://raw.githubusercontent.com/huggingface/huggingface_hub/main/modelcard.md) about their tasks, languages, metrics, etc.
 * Anyone can play with the model directly in the browser!
 * An API is provided to use the models in production settings.
-* [Over 10 frameworks](/docs/libraries) such as 🤗 Transformers, Asteroid and ESPnet support using models from the Hugging Face Hub. 
+* [Over 10 frameworks](/docs/hub/libraries) such as 🤗 Transformers, Asteroid and ESPnet support using models from the Hugging Face Hub. 
 
 
 ## What's a widget?

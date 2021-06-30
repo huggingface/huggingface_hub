@@ -28,4 +28,4 @@ The table below summarizes the supported libraries and how they are integrated. 
 
 ## How can I add a new library to the Inference API?
 
-Read about it in [Adding a Library Guide](/docs/adding-a-library).
+Read about it in [Adding a Library Guide](/docs/hub/adding-a-library).

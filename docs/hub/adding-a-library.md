@@ -8,7 +8,7 @@ title: Adding your Library
 
 The Hugging Face Hub aims to facilitate the sharing of machine learning models, checkpoints, and artifacts.  This endeavor starts with the integration of its tool stack within downstream libraries, and we're happy to announce  the fruitful collaboration between Hugging Face and spaCy, AllenNLP, and Timm, among many other incredible libraries.
 
-**For a full list of supported libraries, see [the following table](/docs/libraries).**
+**For a full list of supported libraries, see [the following table](/docs/hub/libraries).**
 
 We believe the Hub is a step in the correct direction for several reasons. It offers:
 
@@ -281,7 +281,7 @@ model-index:
 ---
 ```
 
-None of the fields are required - but any added field will improve the discoverability of your model and open it to features such as the inference API. You can find more information on repos and model cards [here](/docs/model-repos).
+None of the fields are required - but any added field will improve the discoverability of your model and open it to features such as the inference API. You can find more information on repos and model cards [here](/docs/hub/model-repos).
 
 ## Setting up the Inference API
 
