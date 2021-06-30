@@ -34,7 +34,15 @@ else:
     from typing_extensions import Literal
 
 
-ENDPOINT = "https://huggingface.co"
+ENV_VARS_TRUE_VALUES = {"1", "ON", "YES", "TRUE"}
+_staging_mode = (
+    os.environ.get("HUGGINGFACE_CO_STAGING", "NO").upper() in ENV_VARS_TRUE_VALUES
+)
+
+ENDPOINT = (
+    "https://moon-staging.huggingface.co" if _staging_mode else "https://huggingface.co"
+)
+
 REMOTE_FILEPATH_REGEX = re.compile(r"^\w[\w\/]*(\.\w+)?$")
 # ^^ No trailing slash, no backslash, no spaces, no relative parts ("." or "..")
 #    Only word characters and an optional extension

@@ -207,7 +207,7 @@ class RepositoryTest(RepositoryCommonTest):
     def test_clone_with_repo_name_and_organization(self):
         clone = Repository(
             REPO_NAME,
-            clone_from=f"{ENDPOINT_STAGING}/valid_org/{REPO_NAME}",
+            clone_from=f"valid_org/{REPO_NAME}",
             use_auth_token=self._token,
             git_user="ci",
             git_email="ci@dummy.com",
@@ -236,7 +236,7 @@ class RepositoryTest(RepositoryCommonTest):
     def test_clone_with_repo_name_and_user_namespace(self):
         clone = Repository(
             REPO_NAME,
-            clone_from=f"{ENDPOINT_STAGING}/{USER}/{REPO_NAME}",
+            clone_from=f"{USER}/{REPO_NAME}",
             use_auth_token=self._token,
             git_user="ci",
             git_email="ci@dummy.com",
