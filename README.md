@@ -28,7 +28,7 @@ This library allows anyone to work with the Hub repositories: you can clone them
 
 ## Integrating to the Hub.
 
-We're partnering with cool open source ML libraries to provide free model hosting and versioning. You can find the existing integrations [here](https://huggingface.co/docs/libraries).
+We're partnering with cool open source ML libraries to provide free model hosting and versioning. You can find the existing integrations [here](https://huggingface.co/docs/hub/libraries).
 
 The advantages are:
 
@@ -40,7 +40,7 @@ The advantages are:
 - Fast downloads! We use Cloudfront (a CDN) to geo-replicate downloads so they're blazing fast from anywhere on the globe.
 - Usage stats and more features to come.
 
-If you would like to integrate your library, feel free to open an issue to begin the discussion. We wrote a [step-by-step guide](https://huggingface.co/docs/adding-a-library) with ❤️ showing how to do this integration.
+If you would like to integrate your library, feel free to open an issue to begin the discussion. We wrote a [step-by-step guide](https://huggingface.co/docs/hub/adding-a-library) with ❤️ showing how to do this integration.
 
 <br>
 

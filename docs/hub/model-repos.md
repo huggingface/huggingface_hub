@@ -82,7 +82,7 @@ tags:
 - flair
 ```
 
-Find more about our supported libraries [here](/docs/libraries)!
+Find more about our supported libraries [here](/docs/hub/libraries)!
 
 ## How can I link a model to a dataset?
 
