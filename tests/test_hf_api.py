@@ -32,6 +32,7 @@ from .testing_utils import (
     DUMMY_MODEL_ID_REVISION_ONE_SPECIFIC_COMMIT,
     require_git_lfs,
     set_write_permission_and_retry,
+    with_production_testing,
 )
 
 
@@ -311,12 +312,14 @@ class HfApiPublicTest(unittest.TestCase):
         _api = HfApi(endpoint=ENDPOINT_STAGING)
         _ = _api.list_models()
 
+    @with_production_testing
     def test_list_models(self):
         _api = HfApi()
         models = _api.list_models()
         self.assertGreater(len(models), 100)
         self.assertIsInstance(models[0], ModelInfo)
 
+    @with_production_testing
     def test_list_models_complex_query(self):
         # Let's list the 10 most recent models
         # with tags "bert" and "jax",
@@ -332,6 +335,7 @@ class HfApiPublicTest(unittest.TestCase):
         self.assertIsInstance(model, ModelInfo)
         self.assertTrue(all(tag in model.tags for tag in ["bert", "jax"]))
 
+    @with_production_testing
     def test_model_info(self):
         _api = HfApi()
         model = _api.model_info(repo_id=DUMMY_MODEL_ID)
