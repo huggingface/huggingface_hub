@@ -25,7 +25,7 @@ from typing import BinaryIO, Dict, Iterable, List, Optional, Tuple, Union
 import requests
 from requests.exceptions import HTTPError
 
-from .constants import REPO_TYPES, REPO_TYPES_URL_PREFIXES
+from .constants import ENDPOINT, REPO_TYPES, REPO_TYPES_URL_PREFIXES
 
 
 if sys.version_info >= (3, 8):
@@ -33,15 +33,6 @@ if sys.version_info >= (3, 8):
 else:
     from typing_extensions import Literal
 
-
-ENV_VARS_TRUE_VALUES = {"1", "ON", "YES", "TRUE"}
-_staging_mode = (
-    os.environ.get("HUGGINGFACE_CO_STAGING", "NO").upper() in ENV_VARS_TRUE_VALUES
-)
-
-ENDPOINT = (
-    "https://moon-staging.huggingface.co" if _staging_mode else "https://huggingface.co"
-)
 
 REMOTE_FILEPATH_REGEX = re.compile(r"^\w[\w\/]*(\.\w+)?$")
 # ^^ No trailing slash, no backslash, no spaces, no relative parts ("." or "..")
