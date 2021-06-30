@@ -2,57 +2,84 @@ import os
 import tempfile
 import unittest
 
+from huggingface_hub import HfApi, Repository
 from huggingface_hub.snapshot_download import snapshot_download
+from tests.testing_constants import ENDPOINT_STAGING, PASS, USER
 
 
-SNAPSHOT_MODEL_ID = "lysandre/dummy-hf-hub"
-
-# Commit at the top of main
-SNAPSHOT_MODEL_ID_REVISION_MAIN = "4958076ba4a2f5b261e1ba190d343d21b844fc96"
-# The `main` branch contains only a README.md file (and .gitattributes)
-
-# Commit at the top of master
-SNAPSHOT_MODEL_ID_REVISION_MASTER = "00c48906118a75ac112639c30e190d6a481acc7f"
-# The `master` branch contains several files (and .gitattributes):
-# | README.md
-# | model_files
-# | ---- config.json
-# | ---- pytorch_model.bin
-# | fast_tokenizer
-# | ---- special_tokens_map.json
-# | ---- tokenizer.json
-# | ---- tokenizer_config.json
-# | slow_tokenizer
-# | ---- special_tokens_map.json
-# | ---- vocab.txt
-# | ---- tokenizer_config.json
+REPO_NAME = "dummy-hf-hub"
 
 
 class SnapshotDownloadTests(unittest.TestCase):
+    _api = HfApi(endpoint=ENDPOINT_STAGING)
+
+    @classmethod
+    def setUpClass(cls):
+        """
+        Share this valid token in all tests below.
+        """
+        cls._token = cls._api.login(username=USER, password=PASS)
+
+    def setUp(self) -> None:
+        repo = Repository(
+            REPO_NAME, clone_from=f"{USER}/{REPO_NAME}", use_auth_token=self._token
+        )
+
+        with repo.commit("Add file to main branch"):
+            with open("dummy_file.txt", "w+") as f:
+                f.write("v1")
+
+        self.first_commit_hash = repo.git_head_hash()
+
+        with repo.commit("Add file to main branch"):
+            with open("dummy_file.txt", "w+") as f:
+                f.write("v2")
+            with open("dummy_file_2.txt", "w+") as f:
+                f.write("v3")
+
+        self.second_commit_hash = repo.git_head_hash()
+
+    def tearDown(self) -> None:
+        self._api.delete_repo(token=self._token, name=REPO_NAME)
+
     def test_download_model(self):
+        # Test `main` branch
         with tempfile.TemporaryDirectory() as tmpdirname:
             storage_folder = snapshot_download(
-                SNAPSHOT_MODEL_ID, revision="main", cache_dir=tmpdirname
+                f"{USER}/{REPO_NAME}", revision="main", cache_dir=tmpdirname
             )
 
-            # folder contains two files and the README.md
+            # folder contains the two files contributed and the .gitattributes
+            folder_contents = os.listdir(storage_folder)
+            self.assertEqual(len(folder_contents), 3)
+            self.assertTrue("dummy_file.txt" in folder_contents)
+            self.assertTrue("dummy_file_2.txt" in folder_contents)
+            self.assertTrue(".gitattributes" in folder_contents)
+
+            with open(os.path.join(storage_folder, "dummy_file.txt"), "r") as f:
+                contents = f.read()
+                self.assertEqual(contents, "v2")
+
+            # folder name contains the revision's commit sha.
+            self.assertTrue(self.second_commit_hash in storage_folder)
+
+        # Test with specific revision
+        with tempfile.TemporaryDirectory() as tmpdirname:
+            storage_folder = snapshot_download(
+                f"{USER}/{REPO_NAME}",
+                revision=self.first_commit_hash,
+                cache_dir=tmpdirname,
+            )
+
+            # folder contains the two files contributed and the .gitattributes
             folder_contents = os.listdir(storage_folder)
             self.assertEqual(len(folder_contents), 2)
-            self.assertTrue("README.md" in folder_contents)
-            self.assertFalse("slow_tokenizer" in folder_contents)
+            self.assertTrue("dummy_file.txt" in folder_contents)
+            self.assertTrue(".gitattributes" in folder_contents)
+
+            with open(os.path.join(storage_folder, "dummy_file.txt"), "r") as f:
+                contents = f.read()
+                self.assertEqual(contents, "v1")
 
             # folder name contains the revision's commit sha.
-            self.assertTrue(SNAPSHOT_MODEL_ID_REVISION_MAIN in storage_folder)
-
-            storage_folder = snapshot_download(
-                SNAPSHOT_MODEL_ID, revision="master", cache_dir=tmpdirname
-            )
-
-            # folder contains two files and the README.md
-            folder_contents = os.listdir(storage_folder)
-            self.assertEqual(len(folder_contents), 5)
-            self.assertTrue("README.md" in folder_contents)
-            self.assertTrue("slow_tokenizer" in folder_contents)
-
-            # folder name contains the revision's commit sha.
-            self.assertTrue(SNAPSHOT_MODEL_ID_REVISION_MASTER in storage_folder)
+            self.assertTrue(self.first_commit_hash in storage_folder)
