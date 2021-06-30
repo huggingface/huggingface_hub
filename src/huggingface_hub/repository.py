@@ -58,6 +58,7 @@ class Repository:
         self,
         local_dir: str,
         clone_from: Optional[str] = None,
+        repo_type: Optional[str] = None,
         use_auth_token: Union[bool, str, None] = None,
         git_user: Optional[str] = None,
         git_email: Optional[str] = None,
@@ -76,8 +77,10 @@ class Repository:
         Args:
             local_dir (``str``):
                 path (e.g. ``'my_trained_model/'``) to the local directory, where the ``Repository`` will be initalized.
-            clone_from (``str``, optional):
+            clone_from (``str``, `optional`):
                 repository url (e.g. ``'https://huggingface.co/philschmid/playground-tests'``).
+            repo_type (``str``, `optional`):
+                To set when creating a repo: et to "dataset" or "space" if creating a dataset or space, default is model.
             use_auth_token (``str`` or ``bool``, `optional`, defaults ``None``):
                 huggingface_token can be extract from ``HfApi().login(username, password)`` and is used to authenticate against the hub
                 (useful from Google Colab for instance).
@@ -89,6 +92,7 @@ class Repository:
 
         os.makedirs(local_dir, exist_ok=True)
         self.local_dir = os.path.join(os.getcwd(), local_dir)
+        self.repo_type = repo_type
 
         self.check_git_versions()
 
@@ -160,18 +164,27 @@ class Repository:
         is_hf_id = len(repo_url.split("/")) <= 2
         api = HfApi()
 
+        if not is_hf_id and repo_url.split("/")[-3] == "datasets":
+            self.repo_type = "dataset"
+
         if token is not None:
+            user, valid_organisations = api.whoami(token)
             if is_hf_url:
-                organization, repo_id = repo_url.split("/")[-2:]
+                namespace, repo_id = repo_url.split("/")[-2:]
             elif is_hf_id:
                 if len(repo_url.split("/")) == 2:
                     # Passed <user>/<model_id> or <org>/<model_id>
-                    organization, repo_id = repo_url.split("/")[-2:]
+                    namespace, repo_id = repo_url.split("/")[-2:]
                 else:
                     # Passed <model_id>
-                    organization, repo_id = api.whoami(token)[0], repo_url
+                    namespace, repo_id = user, repo_url
 
-                repo_url = f"{ENDPOINT}/{organization}/{repo_id}"
+                repo_url = ENDPOINT
+
+                if self.repo_type == "dataset":
+                    repo_url += "/datasets"
+
+                repo_url += f"/{namespace}/{repo_id}"
             else:
                 raise ValueError(
                     f"Unable to retrieve user and repo ID from the passed clone URL: {repo_url}"
@@ -179,13 +192,14 @@ class Repository:
 
             repo_url = repo_url.replace("https://", f"https://user:{token}@")
 
-            print("Creating model under", repo_id, organization)
-            api.create_repo(
-                token,
-                repo_id,
-                organization=organization,
-                exist_ok=True,
-            )
+            if namespace == user or namespace in valid_organisations:
+                api.create_repo(
+                    token,
+                    repo_id,
+                    repo_type=self.repo_type,
+                    organization=namespace,
+                    exist_ok=True,
+                )
         # For error messages, it's cleaner to show the repo url without the token.
         clean_repo_url = re.sub(r"https://.*@", "https://", repo_url)
         try:
