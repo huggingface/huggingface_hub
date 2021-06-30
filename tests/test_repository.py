@@ -263,3 +263,34 @@ class RepositoryTest(RepositoryCommonTest):
         files = os.listdir(f"{WORKING_REPO_DIR}/{REPO_NAME}")
         self.assertTrue("dummy.txt" in files)
         self.assertTrue("model.bin" in files)
+
+    def test_clone_with_repo_name_and_no_namespace(self):
+        clone = Repository(
+            REPO_NAME,
+            clone_from=REPO_NAME,
+            use_auth_token=self._token,
+            git_user="ci",
+            git_email="ci@dummy.com",
+        )
+
+        with clone.commit("Commit"):
+            # Create dummy files
+            # one is lfs-tracked, the other is not.
+            with open("dummy.txt", "w") as f:
+                f.write("hello")
+            with open("model.bin", "w") as f:
+                f.write("hello")
+
+        shutil.rmtree(REPO_NAME)
+
+        Repository(
+            f"{WORKING_REPO_DIR}/{REPO_NAME}",
+            clone_from=f"{ENDPOINT_STAGING}/{USER}/{REPO_NAME}",
+            use_auth_token=self._token,
+            git_user="ci",
+            git_email="ci@dummy.com",
+        )
+
+        files = os.listdir(f"{WORKING_REPO_DIR}/{REPO_NAME}")
+        self.assertTrue("dummy.txt" in files)
+        self.assertTrue("model.bin" in files)

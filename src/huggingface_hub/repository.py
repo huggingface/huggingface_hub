@@ -100,10 +100,6 @@ class Repository:
             self.huggingface_token = None
 
         if clone_from is not None:
-
-            if "http" not in clone_from:
-                clone_from = f"{ENDPOINT}/{clone_from}"
-
             self.clone_from(repo_url=clone_from)
         else:
             if is_git_repo(self.local_dir):
@@ -160,12 +156,31 @@ class Repository:
         If this folder is a git repository with linked history, will try to update the repository.
         """
         token = use_auth_token if use_auth_token is not None else self.huggingface_token
-        if token is not None and "huggingface.co" in repo_url and "@" not in repo_url:
+        is_hf_url = "huggingface.co" in repo_url and "@" not in repo_url
+        is_hf_id = len(repo_url.split("/")) <= 2
+        api = HfApi()
+
+        if token is not None:
+            if is_hf_url:
+                organization, repo_id = repo_url.split("/")[-2:]
+            elif is_hf_id:
+                if len(repo_url.split("/")) == 2:
+                    # Passed <user>/<model_id> or <org>/<model_id>
+                    organization, repo_id = repo_url.split("/")[-2:]
+                else:
+                    # Passed <model_id>
+                    organization, repo_id = api.whoami(token)[0], repo_url
+
+                repo_url = f"{ENDPOINT}/{organization}/{repo_id}"
+            else:
+                raise ValueError(
+                    f"Unable to retrieve user and repo ID from the passed clone URL: {repo_url}"
+                )
+
             repo_url = repo_url.replace("https://", f"https://user:{token}@")
 
-            organization, repo_id = repo_url.split("/")[-2:]
-
-            HfApi().create_repo(
+            print("Creating model under", repo_id, organization)
+            api.create_repo(
                 token,
                 repo_id,
                 organization=organization,
