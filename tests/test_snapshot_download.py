@@ -22,7 +22,11 @@ class SnapshotDownloadTests(unittest.TestCase):
 
     def setUp(self) -> None:
         repo = Repository(
-            REPO_NAME, clone_from=f"{USER}/{REPO_NAME}", use_auth_token=self._token
+            REPO_NAME,
+            clone_from=f"{USER}/{REPO_NAME}",
+            use_auth_token=self._token,
+            git_user="ci",
+            git_email="ci@dummy.com",
         )
 
         with repo.commit("Add file to main branch"):
