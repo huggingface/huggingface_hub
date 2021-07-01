@@ -334,7 +334,9 @@ class HfApiPublicTest(unittest.TestCase):
 
     def test_list_models_with_config(self):
         _api = HfApi()
-        models = _api.list_models(filter="adapter-transformers", config=True, limit=20)
+        models = _api.list_models(
+            filter="adapter-transformers", fetch_config=True, limit=20
+        )
         found_configs = 0
         for model in models:
             if model.config:

@@ -155,7 +155,7 @@ class HfApi:
         direction: Optional[Literal[-1]] = None,
         limit: Optional[int] = None,
         full: Optional[bool] = None,
-        config: Optional[bool] = None,
+        fetch_config: Optional[bool] = None,
     ) -> List[ModelInfo]:
         """
         Get the public list of all the models on huggingface.co
@@ -193,7 +193,7 @@ class HfApi:
             full (:obj:`bool`, `optional`):
                 Whether to fetch all model data, including the `lastModified`, the `sha`, the files and the `tags`.
                 This is set to `True` by default when using a filter.
-            config (:obj:`bool`, `optional`):
+            fetch_config (:obj:`bool`, `optional`):
                 Whether to fetch the model configs as well. This is not included in `full` due to its size.
 
         """
@@ -213,8 +213,8 @@ class HfApi:
                 params.update({"full": True})
             elif "full" in params:
                 del params["full"]
-        if config is not None:
-            params.update({"config": config})
+        if fetch_config is not None:
+            params.update({"config": fetch_config})
         r = requests.get(path, params=params)
         r.raise_for_status()
         d = r.json()
