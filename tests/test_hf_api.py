@@ -499,8 +499,8 @@ class HfApiMiscTest(unittest.TestCase):
     def test_repo_type_and_id_from_hf_id(self):
         possible_values = {
             "https://huggingface.co/user/id": [None, "user", "id"],
-            "https://huggingface.co/dataset/user/id": ["dataset", "user", "id"],
-            "https://huggingface.co/space/user/id": ["space", "user", "id"],
+            "https://huggingface.co/datasets/user/id": ["dataset", "user", "id"],
+            "https://huggingface.co/spaces/user/id": ["space", "user", "id"],
             "user/id": [None, "user", "id"],
             "dataset/user/id": ["dataset", "user", "id"],
             "space/user/id": ["space", "user", "id"],

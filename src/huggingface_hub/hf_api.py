@@ -79,7 +79,9 @@ def repo_type_and_id_from_hf_id(hf_id: str):
             f"Unable to retrieve user and repo ID from the passed HF ID: {hf_id}"
         )
 
-    repo_type = REPO_TYPES_MAPPING.get(repo_type)
+    repo_type = (
+        repo_type if repo_type in REPO_TYPES else REPO_TYPES_MAPPING.get(repo_type)
+    )
 
     return repo_type, namespace, repo_id
 
