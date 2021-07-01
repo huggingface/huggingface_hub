@@ -332,6 +332,15 @@ class HfApiPublicTest(unittest.TestCase):
         self.assertIsInstance(model, ModelInfo)
         self.assertTrue(all(tag in model.tags for tag in ["bert", "jax"]))
 
+    def test_list_models_with_config(self):
+        _api = HfApi()
+        models = _api.list_models(filter="adapter-transformers", config=True, limit=20)
+        found_configs = 0
+        for model in models:
+            if model.config:
+                found_configs = found_configs + 1
+        self.assertGreater(found_configs, 0)
+
     def test_model_info(self):
         _api = HfApi()
         model = _api.model_info(repo_id=DUMMY_MODEL_ID)
