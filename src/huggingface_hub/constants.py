@@ -36,6 +36,7 @@ REPO_TYPES_URL_PREFIXES = {
     REPO_TYPE_DATASET: "datasets/",
     REPO_TYPE_SPACE: "spaces/",
 }
+REPO_TYPES_MAPPING = {"datasets": REPO_TYPE_DATASET, "spaces": REPO_TYPE_SPACE}
 
 
 # default cache
