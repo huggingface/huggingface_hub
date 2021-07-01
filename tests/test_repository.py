@@ -13,6 +13,7 @@
 # limitations under the License.
 
 import os
+import pathlib
 import shutil
 import subprocess
 import tempfile
@@ -33,6 +34,13 @@ REPO_NAME = "repo-{}".format(int(time.time() * 10e3))
 
 WORKING_REPO_DIR = os.path.join(
     os.path.dirname(os.path.abspath(__file__)), "fixtures/working_repo_2"
+)
+
+DATASET_FIXTURE = os.path.join(
+    os.path.dirname(os.path.abspath(__file__)), "fixtures/tiny_dataset"
+)
+WORKING_DATASET_DIR = os.path.join(
+    os.path.dirname(os.path.abspath(__file__)), "fixtures/working_dataset"
 )
 
 
@@ -63,7 +71,12 @@ class RepositoryTest(RepositoryCommonTest):
         )
 
     def tearDown(self):
-        self._api.delete_repo(token=self._token, name=REPO_NAME)
+        try:
+            self._api.delete_repo(token=self._token, name=REPO_NAME)
+        except requests.exceptions.HTTPError:
+            self._api.delete_repo(
+                token=self._token, organization="valid_org", name=REPO_NAME
+            )
 
     def test_init_from_existing_local_clone(self):
         subprocess.run(
@@ -204,7 +217,36 @@ class RepositoryTest(RepositoryCommonTest):
 
         shutil.rmtree(WORKING_REPO_DIR)
 
-    def test_clone_with_repo_name_and_organization(self):
+    def test_clone_with_endpoint(self):
+        clone = Repository(
+            REPO_NAME,
+            clone_from=f"{ENDPOINT_STAGING}/valid_org/{REPO_NAME}",
+            use_auth_token=self._token,
+            git_user="ci",
+            git_email="ci@dummy.com",
+        )
+
+        with clone.commit("Commit"):
+            with open("dummy.txt", "w") as f:
+                f.write("hello")
+            with open("model.bin", "w") as f:
+                f.write("hello")
+
+        shutil.rmtree(REPO_NAME)
+
+        Repository(
+            f"{WORKING_REPO_DIR}/{REPO_NAME}",
+            clone_from=f"{ENDPOINT_STAGING}/valid_org/{REPO_NAME}",
+            use_auth_token=self._token,
+            git_user="ci",
+            git_email="ci@dummy.com",
+        )
+
+        files = os.listdir(f"{WORKING_REPO_DIR}/{REPO_NAME}")
+        self.assertTrue("dummy.txt" in files)
+        self.assertTrue("model.bin" in files)
+
+    def test_clone_with_repo_name_and_org(self):
         clone = Repository(
             REPO_NAME,
             clone_from=f"valid_org/{REPO_NAME}",
@@ -223,7 +265,7 @@ class RepositoryTest(RepositoryCommonTest):
 
         Repository(
             f"{WORKING_REPO_DIR}/{REPO_NAME}",
-            clone_from=f"{ENDPOINT_STAGING}/valid_org/{REPO_NAME}",
+            clone_from=f"valid_org/{REPO_NAME}",
             use_auth_token=self._token,
             git_user="ci",
             git_email="ci@dummy.com",
@@ -254,7 +296,7 @@ class RepositoryTest(RepositoryCommonTest):
 
         Repository(
             f"{WORKING_REPO_DIR}/{REPO_NAME}",
-            clone_from=f"{ENDPOINT_STAGING}/{USER}/{REPO_NAME}",
+            clone_from=f"{USER}/{REPO_NAME}",
             use_auth_token=self._token,
             git_user="ci",
             git_email="ci@dummy.com",
@@ -263,3 +305,176 @@ class RepositoryTest(RepositoryCommonTest):
         files = os.listdir(f"{WORKING_REPO_DIR}/{REPO_NAME}")
         self.assertTrue("dummy.txt" in files)
         self.assertTrue("model.bin" in files)
+
+    def test_clone_with_repo_name_and_no_namespace(self):
+        clone = Repository(
+            REPO_NAME,
+            clone_from=REPO_NAME,
+            use_auth_token=self._token,
+            git_user="ci",
+            git_email="ci@dummy.com",
+        )
+
+        with clone.commit("Commit"):
+            # Create dummy files
+            # one is lfs-tracked, the other is not.
+            with open("dummy.txt", "w") as f:
+                f.write("hello")
+            with open("model.bin", "w") as f:
+                f.write("hello")
+
+        shutil.rmtree(REPO_NAME)
+
+        Repository(
+            f"{WORKING_REPO_DIR}/{REPO_NAME}",
+            clone_from=REPO_NAME,
+            use_auth_token=self._token,
+            git_user="ci",
+            git_email="ci@dummy.com",
+        )
+
+        files = os.listdir(f"{WORKING_REPO_DIR}/{REPO_NAME}")
+        self.assertTrue("dummy.txt" in files)
+        self.assertTrue("model.bin" in files)
+
+
+class RepositoryDatasetTest(RepositoryCommonTest):
+    @classmethod
+    def setUpClass(cls):
+        """
+        Share this valid token in all tests below.
+        """
+        cls._token = cls._api.login(username=USER, password=PASS)
+
+    def tearDown(self):
+        try:
+            self._api.delete_repo(
+                token=self._token, name=REPO_NAME, repo_type="dataset"
+            )
+        except requests.exceptions.HTTPError:
+            self._api.delete_repo(
+                token=self._token,
+                organization="valid_org",
+                name=REPO_NAME,
+                repo_type="dataset",
+            )
+
+        shutil.rmtree(
+            f"{WORKING_DATASET_DIR}/{REPO_NAME}", onerror=set_write_permission_and_retry
+        )
+
+    def test_clone_with_endpoint(self):
+        clone = Repository(
+            f"{WORKING_DATASET_DIR}/{REPO_NAME}",
+            clone_from=f"{ENDPOINT_STAGING}/datasets/{USER}/{REPO_NAME}",
+            repo_type="dataset",
+            use_auth_token=self._token,
+            git_user="ci",
+            git_email="ci@dummy.com",
+        )
+
+        with clone.commit("Commit"):
+            for file in os.listdir(DATASET_FIXTURE):
+                shutil.copyfile(pathlib.Path(DATASET_FIXTURE) / file, file)
+
+        shutil.rmtree(f"{WORKING_DATASET_DIR}/{REPO_NAME}")
+
+        Repository(
+            f"{WORKING_DATASET_DIR}/{REPO_NAME}",
+            clone_from=f"{ENDPOINT_STAGING}/datasets/{USER}/{REPO_NAME}",
+            use_auth_token=self._token,
+            repo_type="dataset",
+            git_user="ci",
+            git_email="ci@dummy.com",
+        )
+
+        files = os.listdir(f"{WORKING_DATASET_DIR}/{REPO_NAME}")
+        self.assertTrue("some_text.txt" in files)
+        self.assertTrue("test.py" in files)
+
+    def test_clone_with_repo_name_and_org(self):
+        clone = Repository(
+            f"{WORKING_DATASET_DIR}/{REPO_NAME}",
+            clone_from=f"valid_org/{REPO_NAME}",
+            repo_type="dataset",
+            use_auth_token=self._token,
+            git_user="ci",
+            git_email="ci@dummy.com",
+        )
+
+        with clone.commit("Commit"):
+            for file in os.listdir(DATASET_FIXTURE):
+                shutil.copyfile(pathlib.Path(DATASET_FIXTURE) / file, file)
+
+        shutil.rmtree(f"{WORKING_DATASET_DIR}/{REPO_NAME}")
+
+        Repository(
+            f"{WORKING_DATASET_DIR}/{REPO_NAME}",
+            clone_from=f"valid_org/{REPO_NAME}",
+            use_auth_token=self._token,
+            repo_type="dataset",
+            git_user="ci",
+            git_email="ci@dummy.com",
+        )
+
+        files = os.listdir(f"{WORKING_DATASET_DIR}/{REPO_NAME}")
+        self.assertTrue("some_text.txt" in files)
+        self.assertTrue("test.py" in files)
+
+    def test_clone_with_repo_name_and_user_namespace(self):
+        clone = Repository(
+            f"{WORKING_DATASET_DIR}/{REPO_NAME}",
+            clone_from=f"{USER}/{REPO_NAME}",
+            repo_type="dataset",
+            use_auth_token=self._token,
+            git_user="ci",
+            git_email="ci@dummy.com",
+        )
+
+        with clone.commit("Commit"):
+            for file in os.listdir(DATASET_FIXTURE):
+                shutil.copyfile(pathlib.Path(DATASET_FIXTURE) / file, file)
+
+        shutil.rmtree(f"{WORKING_DATASET_DIR}/{REPO_NAME}")
+
+        Repository(
+            f"{WORKING_DATASET_DIR}/{REPO_NAME}",
+            clone_from=f"{USER}/{REPO_NAME}",
+            use_auth_token=self._token,
+            repo_type="dataset",
+            git_user="ci",
+            git_email="ci@dummy.com",
+        )
+
+        files = os.listdir(f"{WORKING_DATASET_DIR}/{REPO_NAME}")
+        self.assertTrue("some_text.txt" in files)
+        self.assertTrue("test.py" in files)
+
+    def test_clone_with_repo_name_and_no_namespace(self):
+        clone = Repository(
+            f"{WORKING_DATASET_DIR}/{REPO_NAME}",
+            clone_from=REPO_NAME,
+            repo_type="dataset",
+            use_auth_token=self._token,
+            git_user="ci",
+            git_email="ci@dummy.com",
+        )
+
+        with clone.commit("Commit"):
+            for file in os.listdir(DATASET_FIXTURE):
+                shutil.copyfile(pathlib.Path(DATASET_FIXTURE) / file, file)
+
+        shutil.rmtree(f"{WORKING_DATASET_DIR}/{REPO_NAME}")
+
+        Repository(
+            f"{WORKING_DATASET_DIR}/{REPO_NAME}",
+            clone_from=REPO_NAME,
+            use_auth_token=self._token,
+            repo_type="dataset",
+            git_user="ci",
+            git_email="ci@dummy.com",
+        )
+
+        files = os.listdir(f"{WORKING_DATASET_DIR}/{REPO_NAME}")
+        self.assertTrue("some_text.txt" in files)
+        self.assertTrue("test.py" in files)
