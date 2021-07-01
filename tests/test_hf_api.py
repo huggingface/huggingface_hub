@@ -23,7 +23,13 @@ from io import BytesIO
 
 from huggingface_hub.constants import REPO_TYPE_DATASET, REPO_TYPE_SPACE
 from huggingface_hub.file_download import cached_download
-from huggingface_hub.hf_api import HfApi, HfFolder, ModelInfo, RepoObj
+from huggingface_hub.hf_api import (
+    HfApi,
+    HfFolder,
+    ModelInfo,
+    RepoObj,
+    repo_type_and_id_from_hf_id,
+)
 from requests.exceptions import HTTPError
 
 from .testing_constants import ENDPOINT_STAGING, ENDPOINT_STAGING_BASIC_AUTH, PASS, USER
@@ -487,3 +493,19 @@ class HfLargefilesTest(HfApiCommonTest):
         start_time = time.time()
         subprocess.run(["git", "push"], check=True, cwd=WORKING_REPO_DIR)
         print("took", time.time() - start_time)
+
+
+class HfApiMiscTest(unittest.TestCase):
+    def test_repo_type_and_id_from_hf_id(self):
+        possible_values = {
+            "https://huggingface.co/user/id": [None, "user", "id"],
+            "https://huggingface.co/dataset/user/id": ["dataset", "user", "id"],
+            "https://huggingface.co/space/user/id": ["space", "user", "id"],
+            "user/id": [None, "user", "id"],
+            "dataset/user/id": ["dataset", "user", "id"],
+            "space/user/id": ["space", "user", "id"],
+            "id": [None, None, "id"],
+        }
+
+        for key, value in possible_values.items():
+            self.assertEqual(repo_type_and_id_from_hf_id(key), tuple(value))

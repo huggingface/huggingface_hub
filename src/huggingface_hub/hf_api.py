@@ -25,7 +25,7 @@ from typing import BinaryIO, Dict, Iterable, List, Optional, Tuple, Union
 import requests
 from requests.exceptions import HTTPError
 
-from .constants import ENDPOINT, REPO_TYPES, REPO_TYPES_URL_PREFIXES
+from .constants import ENDPOINT, REPO_TYPES, REPO_TYPES_MAPPING, REPO_TYPES_URL_PREFIXES
 
 
 if sys.version_info >= (3, 8):
@@ -37,6 +37,51 @@ else:
 REMOTE_FILEPATH_REGEX = re.compile(r"^\w[\w\/]*(\.\w+)?$")
 # ^^ No trailing slash, no backslash, no spaces, no relative parts ("." or "..")
 #    Only word characters and an optional extension
+
+
+def repo_type_and_id_from_hf_id(hf_id: str):
+    """
+    Returns the repo type and ID from a huggingface.co URL linking to a repository
+
+    Args:
+        hf_id (``str``):
+            An URL or ID of a repository on the HF hub. Accepted values are:
+            - https://huggingface.co/<repo_type>/<namespace>/<repo_id>
+            - https://huggingface.co/<namespace>/<repo_id>
+            - <repo_type>/<namespace>/<repo_id>
+            - <namespace>/<repo_id>
+            - <repo_id>
+    """
+    is_hf_url = "huggingface.co" in hf_id and "@" not in hf_id
+    url_segments = hf_id.split("/")
+    is_hf_id = len(url_segments) <= 3
+
+    if is_hf_url:
+        namespace, repo_id = url_segments[-2:]
+        if len(url_segments) > 2 and "huggingface.co" not in url_segments[-3]:
+            repo_type = url_segments[-3]
+        else:
+            repo_type = None
+    elif is_hf_id:
+        if len(url_segments) == 3:
+            # Passed <repo_type>/<user>/<model_id> or <repo_type>/<org>/<model_id>
+            repo_type, namespace, repo_id = url_segments[-3:]
+        elif len(url_segments) == 2:
+            # Passed <user>/<model_id> or <org>/<model_id>
+            namespace, repo_id = hf_id.split("/")[-2:]
+            repo_type = None
+        else:
+            # Passed <model_id>
+            repo_id = url_segments[0]
+            namespace, repo_type = None, None
+    else:
+        raise ValueError(
+            f"Unable to retrieve user and repo ID from the passed HF ID: {hf_id}"
+        )
+
+    repo_type = REPO_TYPES_MAPPING.get(repo_type)
+
+    return repo_type, namespace, repo_id
 
 
 class RepoObj:

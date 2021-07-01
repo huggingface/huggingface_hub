@@ -6,7 +6,9 @@ from contextlib import contextmanager
 from pathlib import Path
 from typing import List, Optional, Union
 
-from .hf_api import ENDPOINT, HfApi, HfFolder
+from huggingface_hub.constants import REPO_TYPES_URL_PREFIXES
+
+from .hf_api import ENDPOINT, HfApi, HfFolder, repo_type_and_id_from_hf_id
 from .lfs import LFS_MULTIPART_UPLOAD_COMMAND
 
 
@@ -160,35 +162,24 @@ class Repository:
         If this folder is a git repository with linked history, will try to update the repository.
         """
         token = use_auth_token if use_auth_token is not None else self.huggingface_token
-        is_hf_url = "huggingface.co" in repo_url and "@" not in repo_url
-        is_hf_id = len(repo_url.split("/")) <= 2
         api = HfApi()
-
-        if not is_hf_id and repo_url.split("/")[-3] == "datasets":
-            self.repo_type = "dataset"
 
         if token is not None:
             user, valid_organisations = api.whoami(token)
-            if is_hf_url:
-                namespace, repo_id = repo_url.split("/")[-2:]
-            elif is_hf_id:
-                if len(repo_url.split("/")) == 2:
-                    # Passed <user>/<model_id> or <org>/<model_id>
-                    namespace, repo_id = repo_url.split("/")[-2:]
-                else:
-                    # Passed <model_id>
-                    namespace, repo_id = user, repo_url
+            repo_type, namespace, repo_id = repo_type_and_id_from_hf_id(repo_url)
 
-                repo_url = ENDPOINT
+            if namespace is None:
+                namespace = user
 
-                if self.repo_type == "dataset":
-                    repo_url += "/datasets"
+            if repo_type is not None:
+                self.repo_type = repo_type
 
-                repo_url += f"/{namespace}/{repo_id}"
-            else:
-                raise ValueError(
-                    f"Unable to retrieve user and repo ID from the passed clone URL: {repo_url}"
-                )
+            repo_url = ENDPOINT + "/"
+
+            if self.repo_type in REPO_TYPES_URL_PREFIXES:
+                repo_url += REPO_TYPES_URL_PREFIXES[self.repo_type]
+
+            repo_url += f"{namespace}/{repo_id}"
 
             repo_url = repo_url.replace("https://", f"https://user:{token}@")
 
