@@ -36,6 +36,7 @@ from .testing_utils import (
     SAMPLE_DATASET_IDENTIFIER,
     OfflineSimulationMode,
     offline,
+    with_production_testing,
 )
 
 
@@ -51,6 +52,7 @@ DATASET_REVISION_ID_ONE_SPECIFIC_COMMIT = "e25d55a1c4933f987c46cc75d8ffadd67f257
 DATASET_SAMPLE_PY_FILE = "custom_squad.py"
 
 
+@with_production_testing
 class CachedDownloadTests(unittest.TestCase):
     def test_bogus_url(self):
         url = "https://bogus"
