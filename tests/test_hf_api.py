@@ -23,7 +23,13 @@ from io import BytesIO
 
 from huggingface_hub.constants import REPO_TYPE_DATASET, REPO_TYPE_SPACE
 from huggingface_hub.file_download import cached_download
-from huggingface_hub.hf_api import HfApi, HfFolder, ModelInfo, RepoObj
+from huggingface_hub.hf_api import (
+    HfApi,
+    HfFolder,
+    ModelInfo,
+    RepoObj,
+    repo_type_and_id_from_hf_id,
+)
 from requests.exceptions import HTTPError
 
 from .testing_constants import ENDPOINT_STAGING, ENDPOINT_STAGING_BASIC_AUTH, PASS, USER
@@ -32,6 +38,7 @@ from .testing_utils import (
     DUMMY_MODEL_ID_REVISION_ONE_SPECIFIC_COMMIT,
     require_git_lfs,
     set_write_permission_and_retry,
+    with_production_testing,
 )
 
 
@@ -311,12 +318,14 @@ class HfApiPublicTest(unittest.TestCase):
         _api = HfApi(endpoint=ENDPOINT_STAGING)
         _ = _api.list_models()
 
+    @with_production_testing
     def test_list_models(self):
         _api = HfApi()
         models = _api.list_models()
         self.assertGreater(len(models), 100)
         self.assertIsInstance(models[0], ModelInfo)
 
+    @with_production_testing
     def test_list_models_complex_query(self):
         # Let's list the 10 most recent models
         # with tags "bert" and "jax",
@@ -332,6 +341,7 @@ class HfApiPublicTest(unittest.TestCase):
         self.assertIsInstance(model, ModelInfo)
         self.assertTrue(all(tag in model.tags for tag in ["bert", "jax"]))
 
+    @with_production_testing
     def test_list_models_with_config(self):
         _api = HfApi()
         models = _api.list_models(
@@ -343,6 +353,7 @@ class HfApiPublicTest(unittest.TestCase):
                 found_configs = found_configs + 1
         self.assertGreater(found_configs, 0)
 
+    @with_production_testing
     def test_model_info(self):
         _api = HfApi()
         model = _api.model_info(repo_id=DUMMY_MODEL_ID)
@@ -494,3 +505,19 @@ class HfLargefilesTest(HfApiCommonTest):
         start_time = time.time()
         subprocess.run(["git", "push"], check=True, cwd=WORKING_REPO_DIR)
         print("took", time.time() - start_time)
+
+
+class HfApiMiscTest(unittest.TestCase):
+    def test_repo_type_and_id_from_hf_id(self):
+        possible_values = {
+            "https://huggingface.co/user/id": [None, "user", "id"],
+            "https://huggingface.co/datasets/user/id": ["dataset", "user", "id"],
+            "https://huggingface.co/spaces/user/id": ["space", "user", "id"],
+            "user/id": [None, "user", "id"],
+            "dataset/user/id": ["dataset", "user", "id"],
+            "space/user/id": ["space", "user", "id"],
+            "id": [None, None, "id"],
+        }
+
+        for key, value in possible_values.items():
+            self.assertEqual(repo_type_and_id_from_hf_id(key), tuple(value))

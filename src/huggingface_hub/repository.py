@@ -6,7 +6,9 @@ from contextlib import contextmanager
 from pathlib import Path
 from typing import List, Optional, Union
 
-from .hf_api import ENDPOINT, HfApi, HfFolder
+from huggingface_hub.constants import REPO_TYPES_URL_PREFIXES
+
+from .hf_api import ENDPOINT, HfApi, HfFolder, repo_type_and_id_from_hf_id
 from .lfs import LFS_MULTIPART_UPLOAD_COMMAND
 
 
@@ -58,6 +60,7 @@ class Repository:
         self,
         local_dir: str,
         clone_from: Optional[str] = None,
+        repo_type: Optional[str] = None,
         use_auth_token: Union[bool, str, None] = None,
         git_user: Optional[str] = None,
         git_email: Optional[str] = None,
@@ -76,8 +79,10 @@ class Repository:
         Args:
             local_dir (``str``):
                 path (e.g. ``'my_trained_model/'``) to the local directory, where the ``Repository`` will be initalized.
-            clone_from (``str``, optional):
+            clone_from (``str``, `optional`):
                 repository url (e.g. ``'https://huggingface.co/philschmid/playground-tests'``).
+            repo_type (``str``, `optional`):
+                To set when creating a repo: et to "dataset" or "space" if creating a dataset or space, default is model.
             use_auth_token (``str`` or ``bool``, `optional`, defaults ``None``):
                 huggingface_token can be extract from ``HfApi().login(username, password)`` and is used to authenticate against the hub
                 (useful from Google Colab for instance).
@@ -89,6 +94,7 @@ class Repository:
 
         os.makedirs(local_dir, exist_ok=True)
         self.local_dir = os.path.join(os.getcwd(), local_dir)
+        self.repo_type = repo_type
 
         self.check_git_versions()
 
@@ -100,10 +106,6 @@ class Repository:
             self.huggingface_token = None
 
         if clone_from is not None:
-
-            if "http" not in clone_from:
-                clone_from = f"{ENDPOINT}/{clone_from}"
-
             self.clone_from(repo_url=clone_from)
         else:
             if is_git_repo(self.local_dir):
@@ -160,20 +162,35 @@ class Repository:
         If this folder is a git repository with linked history, will try to update the repository.
         """
         token = use_auth_token if use_auth_token is not None else self.huggingface_token
-        if token is not None and "huggingface.co" in repo_url and "@" not in repo_url:
-            endpoint = "/".join(repo_url.split("/")[:-2])
-            # adds huggingface_token to repo url if it is provided.
-            # do not leak user token if it's not a repo on hf.co
+        api = HfApi()
+
+        if token is not None:
+            user, valid_organisations = api.whoami(token)
+            repo_type, namespace, repo_id = repo_type_and_id_from_hf_id(repo_url)
+
+            if namespace is None:
+                namespace = user
+
+            if repo_type is not None:
+                self.repo_type = repo_type
+
+            repo_url = ENDPOINT + "/"
+
+            if self.repo_type in REPO_TYPES_URL_PREFIXES:
+                repo_url += REPO_TYPES_URL_PREFIXES[self.repo_type]
+
+            repo_url += f"{namespace}/{repo_id}"
+
             repo_url = repo_url.replace("https://", f"https://user:{token}@")
 
-            organization, repo_id = repo_url.split("/")[-2:]
-
-            HfApi(endpoint=endpoint).create_repo(
-                token,
-                repo_id,
-                organization=organization,
-                exist_ok=True,
-            )
+            if namespace == user or namespace in valid_organisations:
+                api.create_repo(
+                    token,
+                    repo_id,
+                    repo_type=self.repo_type,
+                    organization=namespace,
+                    exist_ok=True,
+                )
         # For error messages, it's cleaner to show the repo url without the token.
         clean_repo_url = re.sub(r"https://.*@", "https://", repo_url)
         try:

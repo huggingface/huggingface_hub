@@ -3,7 +3,7 @@ name: Python tests
 on:
   push:
     branches:
-      - main
+      - *
     paths-ignore:
       - "interfaces/**"
       - "widgets/**"
@@ -12,6 +12,9 @@ on:
     paths-ignore:
       - "interfaces/**"
       - "widgets/**"
+
+env:
+  HUGGINGFACE_CO_STAGING: yes
 
 jobs:
   build:
