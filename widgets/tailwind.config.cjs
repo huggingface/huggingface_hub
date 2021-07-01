@@ -14,12 +14,7 @@ module.exports = {
 		},
 		extend: {
 			colors: {
-				orange: colors.orange,
-				teal: colors.teal,
-				lightBlue: colors.lightBlue,
-				violet: colors.violet,
-				fuchsia: colors.fuchsia,
-				pink: colors.pink,
+				...colors,
 				gray: {
 					350: '#b3bcc9',
 					// Dark blue

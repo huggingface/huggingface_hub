@@ -2,6 +2,7 @@
 	import type { WidgetProps } from "../../shared/types";
 
 	import WidgetDropzone from "../../shared/WidgetDropzone/WidgetDropzone.svelte";
+	import WidgetImage from "../../shared/WidgetImage/WidgetImage.svelte";
 	import WidgetOutputChart from "../../shared/WidgetOutputChart/WidgetOutputChart.svelte";
 	import WidgetWrapper from "../../shared/WidgetWrapper/WidgetWrapper.svelte";
 	import { getResponse } from "../../shared/helpers";
@@ -13,7 +14,9 @@
 
 	let computeTime = "";
 	let error: string = "";
+	let fileInput: HTMLInputElement;
 	let isLoading = false;
+	let imgSrc = "";
 	let modelLoading = {
 		isLoading: false,
 		estimatedTime: 0,
@@ -21,8 +24,12 @@
 	let output: Array<{ label: string; score: number }> = [];
 	let outputJson: string;
 
-	function onSelectFile(file: File) {
-		getOutput(file);
+	function onSelectFile() {
+		const file = fileInput.files?.[0];
+		if (file) {
+			imgSrc = URL.createObjectURL(file);
+			getOutput(file);
+		}
 	}
 
 	async function getOutput(file: File, withModelLoading = false) {
@@ -91,7 +98,17 @@
 >
 	<svelte:fragment slot="top">
 		<form>
-			<WidgetDropzone {isLoading} {onSelectFile} />
+			<WidgetDropzone
+				{isLoading}
+				bind:fileInput
+				onChange={onSelectFile}
+				{imgSrc}
+				innerWidget={WidgetImage}
+				innerWidgetProps={{
+					classNames: "pointer-events-none shadow mx-auto max-h-44",
+					src: imgSrc,
+				}}
+			/>
 		</form>
 	</svelte:fragment>
 	<svelte:fragment slot="bottom">
