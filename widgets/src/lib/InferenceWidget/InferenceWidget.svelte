@@ -9,6 +9,7 @@
 	import FeatureExtractionWidget from "./widgets/FeatureExtractionWidget/FeatureExtractionWidget.svelte";
 	import FillMaskWidget from "./widgets/FillMaskWidget/FillMaskWidget.svelte";
 	import ImageClassificationWidget from "./widgets/ImageClassificationWidget/ImageClassificationWidget.svelte";
+	import ObjectDetectionWidget from "./widgets/ObjectDetectionWidget/ObjectDetectionWidget.svelte";
 	import QuestionAnsweringWidget from "./widgets/QuestionAnsweringWidget/QuestionAnsweringWidget.svelte";
 	import SentenceSimilarityWidget from "./widgets/SentenceSimilarityWidget/SentenceSimilarityWidget.svelte";
 	import SummarizationWidget from "./widgets/SummarizationWidget/SummarizationWidget.svelte";
@@ -39,6 +40,7 @@
 		"feature-extraction": FeatureExtractionWidget,
 		"fill-mask": FillMaskWidget,
 		"image-classification": ImageClassificationWidget,
+		"object-detection": ObjectDetectionWidget,
 		"question-answering": QuestionAnsweringWidget,
 		"sentence-similarity": SentenceSimilarityWidget,
 		summarization: SummarizationWidget,

@@ -1,11 +1,11 @@
 <script>
 	import type { WidgetProps } from "../../shared/types";
+	import { mod } from "../../shared/ViewUtils";
 
+	import WidgetCanvas from "./SvgBoundingBoxes.svelte";
 	import WidgetDropzone from "../../shared/WidgetDropzone/WidgetDropzone.svelte";
-	import WidgetImage from "../../shared/WidgetImage/WidgetImage.svelte";
 	import WidgetOutputChart from "../../shared/WidgetOutputChart/WidgetOutputChart.svelte";
 	import WidgetWrapper from "../../shared/WidgetWrapper/WidgetWrapper.svelte";
-	import { getResponse } from "../../shared/helpers";
 
 	export let apiToken: WidgetProps["apiToken"];
 	export let apiUrl: WidgetProps["apiUrl"];
@@ -21,8 +21,30 @@
 		isLoading: false,
 		estimatedTime: 0,
 	};
-	let output: Array<{ label: string; score: number }> = [];
+	let output: Array<{
+		label: string;
+		score: number;
+		boundingBox: any;
+	}> = []; //TODO: define boundingBox type
 	let outputJson: string;
+	let outputWithColor: any;
+	let highlightIndex = -1;
+
+	const COLORS = [
+		"red",
+		"green",
+		"yellow",
+		"blue",
+		"orange",
+		"purple",
+		"cyan",
+		"lime",
+	] as const;
+	$: outputWithColor = output.map((val, index) => {
+		const hash = mod(index, COLORS.length);
+		const color = COLORS[hash];
+		return { ...val, color };
+	});
 
 	function onSelectFile() {
 		const file = fileInput.files?.[0];
@@ -61,7 +83,7 @@
 		if (res.status === "success") {
 			computeTime = res.computeTime;
 			output = res.output;
-			outputJson = res.outputJson;
+			// outputJson = res.outputJson;
 		} else if (res.status === "loading-model") {
 			modelLoading = {
 				isLoading: true,
@@ -73,17 +95,30 @@
 		}
 	}
 
-	function isValidOutput(arg: any): arg is { label: string; score: number }[] {
+	function isValidOutput(
+		arg: any
+	): arg is { label: string; score: number; boundingBox: any }[] {
 		return (
 			Array.isArray(arg) &&
 			arg.every(
 				(x) => typeof x.label === "string" && typeof x.score === "number"
+				// TODO: check boundingBox type
 			)
 		);
 	}
 
-	function parseOutput(body: unknown): Array<{ label: string; score: number }> {
+	function parseOutput(
+		body: unknown
+	): Array<{ label: string; score: number; boundingBox: any }> {
 		return isValidOutput(body) ? body : [];
+	}
+
+	function mouseout(): void {
+		highlightIndex = -1;
+	}
+
+	function mouseover(index: number): void {
+		highlightIndex = index;
 	}
 </script>
 
@@ -103,15 +138,24 @@
 				bind:fileInput
 				onChange={onSelectFile}
 				{imgSrc}
-				innerWidget={WidgetImage}
+				innerWidget={WidgetCanvas}
 				innerWidgetProps={{
-					classNames: "pointer-events-none shadow mx-auto max-h-44",
 					src: imgSrc,
+					mouseover,
+					mouseout,
+					output: outputWithColor,
+					highlightIndex,
 				}}
 			/>
 		</form>
 	</svelte:fragment>
 	<svelte:fragment slot="bottom">
-		<WidgetOutputChart classNames="mt-4" {output} />
+		<WidgetOutputChart
+			classNames="mt-4"
+			output={outputWithColor}
+			{highlightIndex}
+			{mouseover}
+			{mouseout}
+		/>
 	</svelte:fragment>
 </WidgetWrapper>

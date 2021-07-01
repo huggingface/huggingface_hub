@@ -1,23 +1,19 @@
 <script>
+	import type { SvelteComponent } from "svelte";
+
 	import IconSpin from "../../../Icons/IconSpin.svelte";
 
 	export let accept = "image/*";
 	export let isLoading = false;
+	export let fileInput: HTMLInputElement;
 	export let label =
 		"Drag image file here or click to browse from your computer";
-	export let onSelectFile: (file: File) => void;
+	export let onChange: () => void;
+	export let imgSrc = "";
+	export let innerWidget: typeof SvelteComponent;
+	export let innerWidgetProps: { [key: string]: any } = {};
 
-	let fileInput: HTMLInputElement;
 	let isDragging = false;
-	let imgSrc = "";
-
-	function onChange() {
-		const file = fileInput.files?.[0];
-		if (file) {
-			imgSrc = URL.createObjectURL(file);
-			onSelectFile(file);
-		}
-	}
 </script>
 
 <input
@@ -50,11 +46,7 @@
 	{#if !imgSrc}
 		<span class="pointer-events-none text-sm">{label}</span>
 	{:else}
-		<img
-			alt=""
-			class="pointer-events-none shadow mx-auto max-h-44"
-			src={imgSrc}
-		/>
+		<svelte:component this={innerWidget} {...innerWidgetProps} />
 	{/if}
 	{#if isLoading}
 		<div
