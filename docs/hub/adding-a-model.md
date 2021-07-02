@@ -67,7 +67,7 @@ The directory should contain the `README.md` file created in the previous sectio
 
 4. Add your files to the repository
 
-Now it's the time 🔥. You can add any files you want to the repository. 
+Now's the time 🔥. You can add any files you want to the repository. 
 
 5. Commit and push your files
 
