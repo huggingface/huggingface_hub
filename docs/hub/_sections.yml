@@ -4,6 +4,9 @@
 - local: model-repos
   title: Everything you wanted to know about repos
 
+- local: adding-a-model
+  title: Adding a model to the Hub
+
 - local: libraries
   title: Libraries
 
