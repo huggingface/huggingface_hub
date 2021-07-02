@@ -1,4 +1,5 @@
 USER = "__DUMMY_TRANSFORMERS_USER__"
+FULL_NAME = "Dummy User"
 PASS = "__DUMMY_TRANSFORMERS_PASS__"
 
 ENDPOINT_PRODUCTION = "https://huggingface.co"

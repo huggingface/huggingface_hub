@@ -176,15 +176,31 @@ class HfApi:
         d = r.json()
         return d["token"]
 
-    def whoami(self, token: str) -> Tuple[str, List[str]]:
+    def whoami(
+        self, token: str, full: Optional[str] = None
+    ) -> Union[Dict, Tuple[str, List[str]]]:
         """
-        Call HF API to know "whoami"
+        Call HF API to know "whoami".
+
+        Args:
+            token (``str``): Hugging Face token.
+            full (``bool``, `optional`):
+                Whether to call the whoami-v2 endpoint and return all the info on the user.
+                This contains more information on the user including the Inference API
+                token.
         """
-        path = "{}/api/whoami".format(self.endpoint)
+        if full:
+            path = "{}/api/whoami-v2".format(self.endpoint)
+        else:
+            path = "{}/api/whoami".format(self.endpoint)
+
         r = requests.get(path, headers={"authorization": "Bearer {}".format(token)})
         r.raise_for_status()
         d = r.json()
-        return d["user"], d["orgs"]
+        if full:
+            return d
+        else:
+            return d["user"], d["orgs"]
 
     def logout(self, token: str) -> None:
         """

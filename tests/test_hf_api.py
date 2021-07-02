@@ -32,7 +32,13 @@ from huggingface_hub.hf_api import (
 )
 from requests.exceptions import HTTPError
 
-from .testing_constants import ENDPOINT_STAGING, ENDPOINT_STAGING_BASIC_AUTH, PASS, USER
+from .testing_constants import (
+    ENDPOINT_STAGING,
+    ENDPOINT_STAGING_BASIC_AUTH,
+    FULL_NAME,
+    PASS,
+    USER,
+)
 from .testing_utils import (
     DUMMY_MODEL_ID,
     DUMMY_MODEL_ID_REVISION_ONE_SPECIFIC_COMMIT,
@@ -81,6 +87,15 @@ class HfApiEndpointsTest(HfApiCommonTestWithLogin):
         user, orgs = self._api.whoami(token=self._token)
         self.assertEqual(user, USER)
         self.assertIsInstance(orgs, list)
+
+    def test_whoami_full(self):
+        info = self._api.whoami(token=self._token, full=True)
+        print("Test", info)
+        self.assertEqual(info["name"], USER)
+        self.assertEqual(info["fullname"], FULL_NAME)
+        self.assertIsInstance(info["apiToken"], str)
+        self.assertIsInstance(info["orgs"], list)
+        self.assertIsInstance(info["orgs"][0]["apiToken"], str)
 
     def test_list_repos_objs(self):
         objs = self._api.list_repos_objs(token=self._token)
