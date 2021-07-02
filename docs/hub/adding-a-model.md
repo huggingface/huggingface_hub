@@ -6,7 +6,7 @@ title: Adding your model to the Hugging Face Hub
 
 ## Why?
 
-Uploading models to the Hugging Face Hub have many [benefits](https://huggingface.co/docs/hub/main#whats-a-repository). In summary, you get versioning, branches, discoverability and sharing features, integration with over a dozen libraries and more!
+Uploading models to the Hugging Face Hub has many [benefits](https://huggingface.co/docs/hub/main#whats-a-repository). In summary, you get versioning, branches, discoverability and sharing features, integration with over a dozen libraries and more!
 
 ## Accounts and organizations
 
@@ -16,7 +16,7 @@ The repository can be either linked with an individual, such as [osanseviero/fas
 
 ## Creating a repository
 
-The web interface offers tools to manage repositories directly in the Hub. Using the interface, you can easily create repositories, add files (even large ones!), explore models, visualize diffs, and much more.
+Using the web interface, you can easily create repositories, add files (even large ones!), explore models, visualize diffs, and much more. Let's begin by creating a repository.
 
 1. To create a new repository, visit [huggingface.co/new](http://huggingface.co/new):
 
