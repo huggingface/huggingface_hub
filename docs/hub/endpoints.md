@@ -5,7 +5,7 @@ title: Hugging Face Hub Endpoints
 # Hugging Face Hub API Endpoints
 
 
-We have open endpoints that you can use to retrieve information from the Hub as well as perform certain actions such as creating model repos. We offer a wrapper Python library, [`huggingface_hub`](https://github.com/huggingface/huggingface_hub), that allows easy access to these endpoints. Enjoy!
+We have open endpoints that you can use to retrieve information from the Hub as well as perform certain actions such as creating model repos. We offer a wrapper Python library, [`huggingface_hub`](https://github.com/huggingface/huggingface_hub), that allows easy access to these endpoints. We also provide a webhook to receive real-time incremental info about models. Enjoy!
 
 
 ## Endpoints table
@@ -22,3 +22,20 @@ We have open endpoints that you can use to retrieve information from the Hub as 
 | /api/login <br/>  POST                                                           | Login user and obtain authentication token.                                                                                                                                                                                                                                                                                                                                                                                                                                       | `login(username, password)`            | ```json = { username :  username, password: password }```                                                                                | Get username and organizations the user belongs to.
 | /api/whoami  <br/> GET                                                           | Get username and organizations the user belongs to.                                                                                                                                                                                                                                                                                                                                                                                                                               | `whoami(token)`                        | ```headers = { authorization :  "Bearer $token" }```                                                                                     |
 /api/logout  <br/>                 POST                                          | Log out user.                                                                                                                                                                                                                                                                                                                                                                                                                                                                     | `logout(token)`                        | ```headers = { authorization :  "Bearer $token" }```                                                                                     |
+
+## Webhook
+
+If you ever need to programmatically get notified about all changes/additions to models on the Hugging Face Hub, you can subscribe to the Hub webhook.
+
+When you're subscribed – meaning you sent us a URL on your side, that you want us to ping – we will call it over HTTP with the following payload:
+
+```python
+{ "add": "user/model_id" }
+# or
+{ "update": "user/model_id" }
+# or
+{ "remove": "user/model_id" }
+```
+
+✉️ Contact us at `website at huggingface.co` if you would like to subscribe to the webhook.
+
