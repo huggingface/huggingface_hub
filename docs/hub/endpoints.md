@@ -1,8 +1,8 @@
 ---
-title: Hugging Face Endpoints
+title: Hugging Face Hub Endpoints
 ---
 
-<h1>Hugging Face Endpoints</h1>
+<h1>Hugging Face Hub Endpoints</h1>
 
 
 We have open endpoints that you can use to retrieve information from the Hub as well as perform certain actions such as creating model repos. We offer a wrapper Python library, [`huggingface_hub`](https://github.com/huggingface/huggingface_hub), that allows easy access to these endpoints. Enjoy!
