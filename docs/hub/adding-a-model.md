@@ -50,6 +50,9 @@ There is only one key difference if you have large files (over 10MB). These file
 
 1. Please make sure you have both **git** and **git-lfs** installed on your system.
 
+* [Install Git](https://git-scm.com/book/en/v2/Getting-Started-Installing-Git)
+* [Install Git LFS](https://git-lfs.github.com/)
+
 2. Run `git lfs install` to initialize **git-lfs**:
 
 ```
