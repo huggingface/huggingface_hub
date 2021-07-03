@@ -25,17 +25,16 @@ We have open endpoints that you can use to retrieve information from the Hub as 
 
 ## Webhook
 
-If you ever need to programmatically get notified about all changes/additions to models on the Hugging Face Hub, you can subscribe to the Hub webhook.
+If you ever need to programmatically get notified about all the changes/additions to model repositories on the Hugging Face Hub, you can subscribe to the Hugging Face Hub webhook.
 
-When you're subscribed – meaning you sent us a URL on your side, that you want us to ping – we will call it over HTTP with the following payload:
+When you're subscribed – meaning you sent us a URL on your side that you want us to ping – we will call it over HTTP with the following payload:
 
 ```python
 { "add": "user/model_id" }
 # or
-{ "update": "user/model_id" }
+{ "update": "organization/model_id" }
 # or
 { "remove": "user/model_id" }
 ```
 
 ✉️ Contact us at `website at huggingface.co` if you would like to subscribe to the webhook.
-
