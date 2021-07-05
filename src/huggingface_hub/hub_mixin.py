@@ -193,13 +193,18 @@ class ModelHubMixin:
                 config = json.load(f)
             model_kwargs.update({"config": config})
 
-        model = cls(**model_kwargs)
+        model = cls._from_pretrained(model_kwargs)
 
         state_dict = torch.load(model_file, map_location=map_location)
         model.load_state_dict(state_dict, strict=strict)
         model.eval()
 
         return model
+
+    @classmethod
+    def _from_pretrained(cls, model_kwargs: dict):
+        """Overwrite this method in case you want to initialize your model another way."""
+        return cls(**model_kwargs)
 
     def push_to_hub(
         self,
