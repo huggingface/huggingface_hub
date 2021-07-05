@@ -14,7 +14,9 @@ def get_info(model_id: str):
     if response.status_code != 200:
         raise Exception("Cannot infer the code properly, please set some tags")
     model_info = json.loads(response.content.decode("utf-8"))
-    tags = [tag.lower().replace(" ", "-").replace("_", "-") for tag in model_info["tags"]]
+    tags = [
+        tag.lower().replace(" ", "-").replace("_", "-") for tag in model_info["tags"]
+    ]
     return tags
 
 

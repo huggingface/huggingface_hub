@@ -33,7 +33,7 @@ logger = logging.getLogger(__name__)
 # directories. Implement directly within the directories.
 ALLOWED_TASKS: Dict[str, Type[Pipeline]] = {
     "audio-source-separation": AudioSourceSeparationPipeline,
-    "audio-to-audio": AudioToAudioPipeline
+    "audio-to-audio": AudioToAudioPipeline,
 }
 
 
@@ -48,14 +48,17 @@ routes = [
     Route("/{whatever:path}", pipeline_route, methods=["POST"]),
 ]
 
-middleware = [
-    Middleware(GZipMiddleware, minimum_size=1000)
-]
+middleware = [Middleware(GZipMiddleware, minimum_size=1000)]
 if os.environ.get("DEBUG", "") == "1":
     from starlette.middleware.cors import CORSMiddleware
 
     middleware.append(
-        Middleware(CORSMiddleware, allow_origins=["*"], allow_headers=["*"], allow_methods=["*"])
+        Middleware(
+            CORSMiddleware,
+            allow_origins=["*"],
+            allow_headers=["*"],
+            allow_methods=["*"],
+        )
     )
 
 app = Starlette(routes=routes, middleware=middleware)
