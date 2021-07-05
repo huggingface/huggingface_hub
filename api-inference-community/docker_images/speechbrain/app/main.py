@@ -4,9 +4,9 @@ from typing import Dict, Type
 
 from api_inference_community.routes import pipeline_route, status_ok
 from app.pipelines import (
+    AudioToAudioPipeline,
     AutomaticSpeechRecognitionPipeline,
     Pipeline,
-    AudioToAudioPipeline,
 )
 from starlette.applications import Starlette
 from starlette.routing import Route

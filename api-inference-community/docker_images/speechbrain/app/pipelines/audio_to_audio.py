@@ -1,11 +1,11 @@
-from typing import Tuple, List
+import json
+from typing import List, Tuple
 
 import numpy as np
+import requests
 import torch
 from app.pipelines import Pipeline
 from speechbrain.pretrained import SepformerSeparation, SpectralMaskEnhancement
-import requests
-import json
 
 
 def get_info(model_id: str):
