@@ -7,6 +7,12 @@ const ESCAPED = {
     '>': '&gt;'
 };
 
+/**
+ *  Returns a function that clamps input value to range [min <= x <= max].
+ */
+ export function clip(x: number, min: number, max: number): number {
+	return Math.max(min, Math.min(x, max));
+}
 
 /**
  * HTML escapes the passed string
