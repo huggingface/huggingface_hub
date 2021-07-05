@@ -177,7 +177,7 @@ class HfApi:
         return d["token"]
 
     def whoami(
-        self, token: str, full: Optional[str] = None
+        self, token: str, full: Optional[bool] = None
     ) -> Union[Dict, Tuple[str, List[str]]]:
         """
         Call HF API to know "whoami".
