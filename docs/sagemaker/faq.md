@@ -8,13 +8,14 @@ title: Frequently Asked Questions
 
 A: Deep Learning Containers (DLCs) are Docker images pre-installed with deep learning frameworks and libraries (e.g. transformers, datasets, tokenizers) to make it easy to train models by letting you skip the complicated process of building and optimizing your environments from scratch.
 
+## _Q: Why should I use the Hugging Face Deep Learning Containers?_
+
+A: The DLCs are fully tested, maintained, optimized deep learning environments that require no installation, configuration, or maintenance. In particular, the Hugging Face inference DLC comes with a pre-written serving stack, which drastically lowers the technical bar of DL serving.
+
 ## _Q: Do I have to use the SageMaker Python SDK to use the Hugging Face Deep Learning Containers?_
 
 A: You can use the HF DLC without the SageMaker Python SDK and launch SageMaker Training jobs with other SDKs, such as the [AWS CLI](https://docs.aws.amazon.com/cli/latest/reference/sagemaker/create-training-job.html) or [boto3](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/sagemaker.html#SageMaker.Client.create_training_job). The DLCs are also available through Amazon ECR and can be pulled and used in any environment of choice.
 
-## _Q: Why should I use the Hugging Face Deep Learning Containers?_
-
-A: The DLCs are fully tested, maintained, optimized deep learning environments that require no installation, configuration, or maintenance.
 
 ## _Q: Why should I use SageMaker Training to train Hugging Face models?_
 
@@ -36,17 +37,14 @@ A: For a list of the supported regions, please visit the [AWS region table](http
 
 A: No - the Hugging Face DLCs are open source and licensed under Apache 2.0.
 
-<!-- TODO: Adjust after inference -->
-
 ## _Q: How can I run inference on my trained models?_
 
-A: You have multiple options to run inference on your trained models. One option is to use Hugging Face [Accelerated Inference-API](https://api-inference.huggingface.co/docs/python/html/index.html) hosted service: start by [uploading the trained models to your Hugging Face account](https://huggingface.co/new) to deploy them publicly, or privately. Another great option is to use [SageMaker Inference](https://docs.aws.amazon.com/sagemaker/latest/dg/your-algorithms-inference-main.html) to run your own inference code in Amazon SageMaker. We are working on offering an integrated solution for Amazon SageMaker with Hugging Face Inference DLCs in the future - stay tuned!
-<!-- TODO: Adjust after inference -->
+A: You have multiple options to run inference on your trained models. One option is to use [the SageMaker Hugging Face Inference Toolkit](https://github.com/aws/sagemaker-huggingface-inference-toolkit) to run inference in Amazon SageMaker. This Inference Toolkit provides default pre-processing, predict and postprocessing for certain 🤗 Transformers models and tasks. It utilizes the SageMaker Inference Toolkit for starting up the model server, which is responsible for handling inference requests. Another great option is to use Hugging Face [Accelerated Inference-API](https://api-inference.huggingface.co/docs/python/html/index.html) hosted service: start by [uploading the trained models to your Hugging Face account](https://huggingface.co/new) to deploy them publicly, or privately.
 ## _Q: Which models can I deploy for Inference?_
 
 A: You can deploy
 
-- any 🤗 Transformers model trained in Amazon SageMaker, or
+- any 🤗 Transformers model trained in Amazon SageMaker, or other compatible platforms and that can accomodate the SageMaker Hosting design
 - any of the 10 000+ publicly available Transformer models from the Hugging Face [Model Hub](https://huggingface.co/models), or
 - your private models hosted in your Hugging Face premium account!
 
@@ -54,7 +52,9 @@ A: You can deploy
 
 A: The Inference Toolkit and DLC support any of the `transformers` `pipelines`. You can find the full list[ here](https://huggingface.co/transformers/main_classes/pipelines.html)
 
+## _Q: Do I have to use the transformers pipelines when hosting SageMaker endpoints?_  
 
+A: No, you can also write your custom inference code to serve your own models and logic, documented here.  
 
 ## _Q: Do you offer premium support or support SLAs for this solution?_
 
