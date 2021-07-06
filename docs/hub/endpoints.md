@@ -30,11 +30,11 @@ If you ever need to programmatically get notified about all the changes/addition
 When you're subscribed – meaning you sent us a URL on your side that you want us to ping – we will call it over HTTP with the following payload:
 
 ```python
-{ "add": ["user/model_id"] }
+{ "add": "user/model_id" }
 # or
-{ "update": ["organization/model_id"] }
+{ "update": "organization/model_id" }
 # or
-{ "remove": ["user/model_id"] }
+{ "remove": "user/model_id" }
 ```
 
 ✉️ Contact us at `website at huggingface.co` if you would like to subscribe to the webhook.
