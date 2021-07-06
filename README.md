@@ -46,7 +46,7 @@ If you would like to integrate your library, feel free to open an issue to begin
 
 ## Inference API integration into the Hugging Face Hub
 
-In order to get a functional Inference API on the Hub for your models (and thus, cool working widgets!) check out this [doc](https://github.com/huggingface/huggingface_hub/tree/master/api-inference-community). There is a docker image for each library. Within the image, you can find the implementation for supported pipelines for the given library.
+In order to get a functional Inference API on the Hub for your models (and thus, cool working widgets!) check out this [doc](https://github.com/huggingface/huggingface_hub/tree/main/api-inference-community). There is a docker image for each library. Within the image, you can find the implementation for supported pipelines for the given library.
 
 <br>
 
