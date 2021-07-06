@@ -1,4 +1,5 @@
 starlette==0.14.2
-api-inference-community==0.0.12
+api-inference-community==0.0.8
 numpy>=1.17
 tensorflow>=2.3
+huggingface_hub===0.0.13

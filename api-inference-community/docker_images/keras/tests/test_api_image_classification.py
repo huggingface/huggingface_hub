@@ -24,6 +24,10 @@ class ImageClassificationTestCase(TestCase):
         os.environ["TASK"] = "image-classification"
         from app.main import app
 
+        @app.on_event("shutdown")
+        def shutdown_event():
+            app.get_pipeline.cache_clear()
+
         self.app = app
 
     def tearDown(self):

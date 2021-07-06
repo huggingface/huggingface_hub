@@ -68,12 +68,6 @@ async def startup_event():
         pass
 
 
-@app.on_event("shutdown")
-def shutdown_event():
-    # Clear cache for tests that use multiple models.
-    app.get_pipeline.cache_clear()
-
-
 if __name__ == "__main__":
     try:
         get_pipeline()
