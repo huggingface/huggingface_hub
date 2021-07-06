@@ -23,7 +23,6 @@ In addition to Hugging Face DLCs, we created a first-class Hugging Face extensio
 
 You can use the Hugging Face DLCs with the Automatic Model Tuning capability of Amazon SageMaker, in order to automatically optimize your training hyperparameters and quickly increase the accuracy of your models.
 
-<!-- TODO: Add after Inference announcement --> 
 You can deploy your trained models for inference with just one more line of code, or select any of the 10,000+ publicly available models from the Model Hub, and deploy them with Amazon SageMaker.
 
 
@@ -35,7 +34,6 @@ With the Hugging Face DLCs, SageMaker customers will benefit from built-in perfo
 
 The Hugging Face Training DLCs are fully integrated with the SageMaker distributed training libraries, to train models faster than was ever possible before, using the latest generation of instances available on Amazon EC2.
 
-<!-- TODO: Add after Inference announcement --> 
 The Hugging Face Inference DLCs provide you with production-ready endpoints that scale easily within your AWS environment, with built-in monitoring and a ton of enterprise features. 
 
 
@@ -53,8 +51,8 @@ Below you can find all the important resources to all published blog posts, vide
 - [Working with Hugging Face models on Amazon SageMaker](https://youtu.be/leyrCgLAGjMn)
 - [Distributed Training: Train BART/T5 for Summarization using 🤗 Transformers and Amazon SageMaker](https://huggingface.co/blog/sagemaker-distributed-training-seq2seq)
 <!-- TODO: Add after Inference announcement -->
-<!-- *   [Deploy a trained Hugging Face Transformer model to SageMaker for inference]()
-*   [Deploy one of the 10 000+ Hugging Face Transformers to Amazon SageMaker for Inference]() -->
+*   [Deploy a trained Hugging Face Transformer model to SageMaker for inference]()
+*   [Deploy one of the 10 000+ Hugging Face Transformers to Amazon SageMaker for Inference]()
 
 ### Documentation
 
