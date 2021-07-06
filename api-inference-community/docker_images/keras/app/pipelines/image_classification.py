@@ -1,7 +1,6 @@
 import json
 from typing import TYPE_CHECKING, Any, Dict, List
 
-import numpy
 import tensorflow as tf
 from app.pipelines import Pipeline
 from huggingface_hub import cached_download, hf_hub_url
