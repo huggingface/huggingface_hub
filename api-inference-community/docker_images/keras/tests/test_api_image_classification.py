@@ -17,7 +17,6 @@ from tests.test_api import TESTABLE_MODELS
 )
 class ImageClassificationTestCase(TestCase):
     def setUp(self):
-        model_id = TESTABLE_MODELS["image-classification"]
         self.old_model_id = os.getenv("MODEL_ID")
         self.old_task = os.getenv("TASK")
         os.environ["MODEL_ID"] = self.model_id
@@ -52,7 +51,6 @@ class ImageClassificationTestCase(TestCase):
 
         with TestClient(self.app) as client:
             response = client.post("/", data=bpayload)
-            print(response.json())
 
         self.assertEqual(
             response.status_code,
