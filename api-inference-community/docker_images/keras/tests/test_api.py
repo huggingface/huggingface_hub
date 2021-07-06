@@ -1,5 +1,5 @@
 import os
-from typing import Dict
+from typing import Dict, List
 from unittest import TestCase, skipIf
 
 from app.main import ALLOWED_TASKS, get_pipeline
@@ -8,11 +8,16 @@ from app.main import ALLOWED_TASKS, get_pipeline
 # Must contain at least one example of each implemented pipeline
 # Tests do not check the actual values of the model output, so small dummy
 # models are recommended for faster tests.
-TESTABLE_MODELS: Dict[str, str] = {
+TESTABLE_MODELS: Dict[str, List[str]] = {
     #  IMPLEMENT_THIS
     # "automatic-speech-recognition": "mysample-ASR",
     # "text-generation": "mysample-gpt2",
-    "image-classification": "osanseviero/keras-dog-or-cat"
+    "image-classification": [
+        # Binary classifier, rgb images.
+        "osanseviero/keras-dog-or-cat",
+        # Multilabel classifier, grayscale images.
+        "osanseviero/keras-conv-mnist",
+    ]
 }
 
 

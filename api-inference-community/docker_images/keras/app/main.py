@@ -22,7 +22,7 @@ ALLOWED_TASKS: Dict[str, Type[Pipeline]] = {
 }
 
 
-@functools.cache
+@functools.lru_cache()
 def get_pipeline() -> Pipeline:
     task = os.environ["TASK"]
     model_id = os.environ["MODEL_ID"]
@@ -61,6 +61,17 @@ async def startup_event():
 
     # Link between `api-inference-community` and framework code.
     app.get_pipeline = get_pipeline
+    try:
+        get_pipeline()
+    except Exception:
+        # We can fail so we can show exception later.
+        pass
+
+
+@app.on_event("shutdown")
+def shutdown_event():
+    # Clear cache for tests that use multiple models.
+    app.get_pipeline.cache_clear()
 
 
 if __name__ == "__main__":

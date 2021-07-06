@@ -64,4 +64,4 @@ class ImageClassificationPipeline(Pipeline):
                 {"label": self.id2label[str(i)], "score": score.item()}
                 for i, score in enumerate(predictions[0])
             ]
-        return labels
+        return sorted(labels, key=lambda tup: tup["score"], reverse=True)
