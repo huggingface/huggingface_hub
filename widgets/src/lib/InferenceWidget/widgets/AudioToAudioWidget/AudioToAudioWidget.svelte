@@ -54,7 +54,6 @@
 		areSamplesVisible = false;
 		isRecording = false;
 		selectedSampleUrl = "";
-
 		if (updatedFile.size !== 0) {
 			const date = new Date();
 			const time = date.toLocaleTimeString("en-US");
@@ -72,11 +71,8 @@
 			error = "You must select or record an audio file";
 			return;
 		}
-
 		const requestBody = file ? { file } : { url: selectedSampleUrl };
-
 		isLoading = true;
-
 		const res = await getResponse(
 			apiUrl,
 			model.modelId,
@@ -85,7 +81,6 @@
 			parseOutput,
 			withModelLoading
 		);
-
 		isLoading = false;
 		// Reset values
 		computeTime = "";
@@ -108,11 +103,26 @@
 		}
 	}
 
-	function parseOutput(body: AudioItem[]): AudioItem[] {
-		for (const item of body) {
-			item.src = `data:${item["content-type"]};base64,${item.blob}`;
+	function isValidOutput(arg: any): arg is AudioItem[] {
+		return (
+			Array.isArray(arg) &&
+			arg.every(
+				(x) =>
+					typeof x.blob === "string" &&
+					typeof x.label === "string" &&
+					typeof x.src === "string"
+			)
+		);
+	}
+
+	function parseOutput(body: unknown): AudioItem[] {
+		if (isValidOutput(body)) {
+			for (const item of body) {
+				item.src = `data:${item["content-type"]};base64,${item.blob}`;
+			}
+			return body;
 		}
-		return body;
+		return [];
 	}
 </script>
 

@@ -16,9 +16,17 @@ CONFIG_NAME = "config.json"
 
 HUGGINGFACE_CO_URL_HOME = "https://huggingface.co/"
 
-HUGGINGFACE_CO_URL_TEMPLATE = (
-    "https://huggingface.co/{repo_id}/resolve/{revision}/{filename}"
+ENV_VARS_TRUE_VALUES = {"1", "ON", "YES", "TRUE"}
+_staging_mode = (
+    os.environ.get("HUGGINGFACE_CO_STAGING", "NO").upper() in ENV_VARS_TRUE_VALUES
 )
+
+ENDPOINT = (
+    "https://moon-staging.huggingface.co" if _staging_mode else "https://huggingface.co"
+)
+
+
+HUGGINGFACE_CO_URL_TEMPLATE = ENDPOINT + "/{repo_id}/resolve/{revision}/{filename}"
 
 REPO_TYPE_DATASET = "dataset"
 REPO_TYPE_SPACE = "space"
@@ -28,6 +36,7 @@ REPO_TYPES_URL_PREFIXES = {
     REPO_TYPE_DATASET: "datasets/",
     REPO_TYPE_SPACE: "spaces/",
 }
+REPO_TYPES_MAPPING = {"datasets": REPO_TYPE_DATASET, "spaces": REPO_TYPE_SPACE}
 
 
 # default cache

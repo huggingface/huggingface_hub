@@ -1,6 +1,6 @@
-import os
-import json
 import base64
+import json
+import os
 from unittest import TestCase, skipIf
 
 from api_inference_community.validation import ffmpeg_read
