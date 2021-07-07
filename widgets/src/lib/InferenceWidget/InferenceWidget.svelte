@@ -4,6 +4,7 @@
 	import type { WidgetProps } from "./shared/types";
 
 	import AudioSourceSeparationWidget from "./widgets/AudioSourceSeparationWidget/AudioSourceSeparationWidget.svelte";
+	import AudioToAudioWidget from "./widgets/AudioToAudioWidget/AudioToAudioWidget.svelte";
 	import AutomaticSpeechRecognitionWidget from "./widgets/AutomaticSpeechRecognitionWidget/AutomaticSpeechRecognitionWidget.svelte";
 	import ConversationalWidget from "./widgets/ConversationalWidget/ConversationalWidget.svelte";
 	import FeatureExtractionWidget from "./widgets/FeatureExtractionWidget/FeatureExtractionWidget.svelte";
@@ -35,6 +36,7 @@
 		[key in keyof typeof PipelineType]?: typeof SvelteComponent;
 	} = {
 		"audio-source-separation": AudioSourceSeparationWidget,
+		"audio-to-audio": AudioToAudioWidget,
 		"automatic-speech-recognition": AutomaticSpeechRecognitionWidget,
 		conversational: ConversationalWidget,
 		"feature-extraction": FeatureExtractionWidget,

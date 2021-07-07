@@ -20,7 +20,12 @@ from huggingface_hub.constants import (
     PYTORCH_WEIGHTS_NAME,
     REPO_TYPE_DATASET,
 )
-from huggingface_hub.file_download import cached_download, filename_to_url, hf_hub_url
+from huggingface_hub.file_download import (
+    cached_download,
+    filename_to_url,
+    hf_hub_download,
+    hf_hub_url,
+)
 
 from .testing_utils import (
     DUMMY_MODEL_ID,
@@ -31,6 +36,7 @@ from .testing_utils import (
     SAMPLE_DATASET_IDENTIFIER,
     OfflineSimulationMode,
     offline,
+    with_production_testing,
 )
 
 
@@ -46,6 +52,7 @@ DATASET_REVISION_ID_ONE_SPECIFIC_COMMIT = "e25d55a1c4933f987c46cc75d8ffadd67f257
 DATASET_SAMPLE_PY_FILE = "custom_squad.py"
 
 
+@with_production_testing
 class CachedDownloadTests(unittest.TestCase):
     def test_bogus_url(self):
         url = "https://bogus"
@@ -146,3 +153,13 @@ class CachedDownloadTests(unittest.TestCase):
             metadata,
             (url, '"95aa6a52d5d6a735563366753ca50492a658031da74f301ac5238b03966972c9"'),
         )
+
+    def test_hf_hub_download(self):
+        filepath = hf_hub_download(
+            DUMMY_MODEL_ID,
+            filename=CONFIG_NAME,
+            revision=REVISION_ID_DEFAULT,
+            force_download=True,
+        )
+        metadata = filename_to_url(filepath)
+        self.assertEqual(metadata[1], f'"{DUMMY_MODEL_ID_PINNED_SHA1}"')

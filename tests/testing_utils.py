@@ -6,6 +6,8 @@ from distutils.util import strtobool
 from enum import Enum
 from unittest.mock import patch
 
+from tests.testing_constants import ENDPOINT_PRODUCTION, ENDPOINT_PRODUCTION_URL_SCHEME
+
 
 SMALL_MODEL_IDENTIFIER = "julien-c/bert-xsmall-dummy"
 DUMMY_DIFF_TOKENIZER_IDENTIFIER = "julien-c/dummy-diff-tokenizer"
@@ -145,3 +147,17 @@ def offline(mode=OfflineSimulationMode.CONNECTION_FAILS, timeout=1e-16):
 def set_write_permission_and_retry(func, path, excinfo):
     os.chmod(path, stat.S_IWRITE)
     func(path)
+
+
+def with_production_testing(func):
+    file_download = patch(
+        "huggingface_hub.file_download.HUGGINGFACE_CO_URL_TEMPLATE",
+        ENDPOINT_PRODUCTION_URL_SCHEME,
+    )
+
+    hf_api = patch(
+        "huggingface_hub.hf_api.ENDPOINT",
+        ENDPOINT_PRODUCTION,
+    )
+
+    return hf_api(file_download(func))

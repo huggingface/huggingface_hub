@@ -6,9 +6,6 @@ from typing import Any, Dict, List
 from app.pipelines import Pipeline
 
 
-ALLOWLIST: List[str] = ["spacy"]
-
-
 class TokenClassificationPipeline(Pipeline):
     def __init__(
         self,
@@ -21,11 +18,6 @@ class TokenClassificationPipeline(Pipeline):
                 f"Invalid model_id: {model_id}. It should have a namespace (:namespace:/:model_name:)"
             )
         namespace, model_name = full_model_path
-        if namespace not in ALLOWLIST:
-            raise ValueError(
-                f"Invalid namespace {namespace}. It should be in user/organization allowlist"
-            )
-
         package = f"https://huggingface.co/{namespace}/{model_name}/resolve/main/{model_name}-any-py3-none-any.whl"
         cache_dir = os.environ["PIP_CACHE"]
         subprocess.check_call(

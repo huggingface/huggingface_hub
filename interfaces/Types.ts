@@ -19,6 +19,7 @@ export enum PipelineType {
 	/// audio
 	"text-to-speech" = "text-to-speech",
 	"automatic-speech-recognition" = "automatic-speech-recognition",
+	"audio-to-audio" = "audio-to-audio",
 	"audio-source-separation" = "audio-source-separation",
 	"voice-activity-detection" = "voice-activity-detection",
 	/// computer vision
@@ -47,6 +48,7 @@ export const PIPELINE_TYPE_PRETTY_NAMES: { [key in PipelineType]: string } = {
 	/// audio
 	"text-to-speech":                                           "Text-to-Speech",
 	"automatic-speech-recognition":                             "Automatic Speech Recognition",
+	"audio-to-audio":                                           "Audio-to-Audio",
 	"audio-source-separation":                                  "Audio Source Separation",
 	"voice-activity-detection":                                 "Voice Activity Detection",
 	/// computer vision
