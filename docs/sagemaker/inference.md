@@ -120,7 +120,7 @@ sess = sagemaker.Session()
 
 ## Deploy for inference a 🤗 Transformers model trained in SageMaker
 
-<iframe width="700" height="394" src="https://www.youtube.com/embed" title="YouTube video player" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>
+<iframe width="700" height="394" src="https://www.youtube.com/embed/pfBGgSGnYLs" title="YouTube video player" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>
 
 There are two ways to deploy your Hugging Face model trained in SageMaker. You can either deploy it after your training is finished, or you can deploy it later, using the `model_data` pointing to your saved model on s3.
 
@@ -199,7 +199,7 @@ predictor.delete_endpoint()
 
 ## Deploy for inference one of the 10,000+ 🤗 Transformers models available in the 🤗 Hub
 
-<iframe width="700" height="394" src="https://www.youtube.com/embed" title="YouTube video player" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>
+<iframe width="700" height="394" src="https://www.youtube.com/embed/l9QZuazbzWM" title="YouTube video player" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>
 
 To deploy a model directly from the 🤗 Hub to SageMaker, we need to define 2 environment variables when creating the HuggingFaceModel. We need to define:
 
