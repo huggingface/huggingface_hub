@@ -351,7 +351,6 @@ class HfApi:
         Args:
             full (:obj:`bool`, `optional`):
                 Whether to fetch all dataset data, including the `lastModified` and the `card_data`.
-                This is set to `True` by default when using a filter.
 
         """
         path = "{}/api/datasets".format(self.endpoint)
