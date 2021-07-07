@@ -1,0 +1,20 @@
+- local: main
+  title: Hub documentation
+
+- local: model-repos
+  title: Everything you wanted to know about repos
+
+- local: adding-a-model
+  title: Adding a model to the Hub
+
+- local: libraries
+  title: Libraries
+
+- local: adding-a-library
+  title: Integrating a library to the Hub
+
+- local: inference
+  title: Inference
+
+- local: endpoints
+  title: Hub API Endpoints

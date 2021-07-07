@@ -25,7 +25,7 @@ from typing import BinaryIO, Dict, Iterable, List, Optional, Tuple, Union
 import requests
 from requests.exceptions import HTTPError
 
-from .constants import REPO_TYPES, REPO_TYPES_URL_PREFIXES
+from .constants import ENDPOINT, REPO_TYPES, REPO_TYPES_MAPPING, REPO_TYPES_URL_PREFIXES
 
 
 if sys.version_info >= (3, 8):
@@ -34,10 +34,56 @@ else:
     from typing_extensions import Literal
 
 
-ENDPOINT = "https://huggingface.co"
 REMOTE_FILEPATH_REGEX = re.compile(r"^\w[\w\/]*(\.\w+)?$")
 # ^^ No trailing slash, no backslash, no spaces, no relative parts ("." or "..")
 #    Only word characters and an optional extension
+
+
+def repo_type_and_id_from_hf_id(hf_id: str):
+    """
+    Returns the repo type and ID from a huggingface.co URL linking to a repository
+
+    Args:
+        hf_id (``str``):
+            An URL or ID of a repository on the HF hub. Accepted values are:
+            - https://huggingface.co/<repo_type>/<namespace>/<repo_id>
+            - https://huggingface.co/<namespace>/<repo_id>
+            - <repo_type>/<namespace>/<repo_id>
+            - <namespace>/<repo_id>
+            - <repo_id>
+    """
+    is_hf_url = "huggingface.co" in hf_id and "@" not in hf_id
+    url_segments = hf_id.split("/")
+    is_hf_id = len(url_segments) <= 3
+
+    if is_hf_url:
+        namespace, repo_id = url_segments[-2:]
+        if len(url_segments) > 2 and "huggingface.co" not in url_segments[-3]:
+            repo_type = url_segments[-3]
+        else:
+            repo_type = None
+    elif is_hf_id:
+        if len(url_segments) == 3:
+            # Passed <repo_type>/<user>/<model_id> or <repo_type>/<org>/<model_id>
+            repo_type, namespace, repo_id = url_segments[-3:]
+        elif len(url_segments) == 2:
+            # Passed <user>/<model_id> or <org>/<model_id>
+            namespace, repo_id = hf_id.split("/")[-2:]
+            repo_type = None
+        else:
+            # Passed <model_id>
+            repo_id = url_segments[0]
+            namespace, repo_type = None, None
+    else:
+        raise ValueError(
+            f"Unable to retrieve user and repo ID from the passed HF ID: {hf_id}"
+        )
+
+    repo_type = (
+        repo_type if repo_type in REPO_TYPES else REPO_TYPES_MAPPING.get(repo_type)
+    )
+
+    return repo_type, namespace, repo_id
 
 
 class RepoObj:
@@ -84,6 +130,7 @@ class ModelInfo:
         siblings: Optional[
             List[Dict]
         ] = None,  # list of files that constitute the model
+        config: Optional[Dict] = None,  # information about model configuration
         **kwargs,
     ):
         self.modelId = modelId
@@ -94,6 +141,7 @@ class ModelInfo:
         self.siblings = (
             [ModelFile(**x) for x in siblings] if siblings is not None else None
         )
+        self.config = config
         for k, v in kwargs.items():
             setattr(self, k, v)
 
@@ -153,6 +201,7 @@ class HfApi:
         direction: Optional[Literal[-1]] = None,
         limit: Optional[int] = None,
         full: Optional[bool] = None,
+        fetch_config: Optional[bool] = None,
     ) -> List[ModelInfo]:
         """
         Get the public list of all the models on huggingface.co
@@ -190,6 +239,8 @@ class HfApi:
             full (:obj:`bool`, `optional`):
                 Whether to fetch all model data, including the `lastModified`, the `sha`, the files and the `tags`.
                 This is set to `True` by default when using a filter.
+            fetch_config (:obj:`bool`, `optional`):
+                Whether to fetch the model configs as well. This is not included in `full` due to its size.
 
         """
         path = "{}/api/models".format(self.endpoint)
@@ -208,6 +259,8 @@ class HfApi:
                 params.update({"full": True})
             elif "full" in params:
                 del params["full"]
+        if fetch_config is not None:
+            params.update({"config": fetch_config})
         r = requests.get(path, params=params)
         r.raise_for_status()
         d = r.json()
@@ -399,7 +452,8 @@ class HfApi:
         identical_ok: bool = True,
     ) -> str:
         """
-        Upload a local file (up to 5GB) to the given repo, tracking it with LFS if it's larger than 10MB
+        Upload a local file (up to 5GB) to the given repo. The upload is done through a HTTP post request, and
+        doesn't require git or git-lfs to be installed.
 
         Params:
             token (``str``):
