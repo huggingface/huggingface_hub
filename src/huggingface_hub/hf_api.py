@@ -12,8 +12,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-
-
+import logging
 import os
 import re
 import sys
@@ -33,6 +32,7 @@ if sys.version_info >= (3, 8):
 else:
     from typing_extensions import Literal
 
+logger = logging.getLogger(__name__)
 
 REMOTE_FILEPATH_REGEX = re.compile(r"^\w[\w\/]*(\.\w+)?$")
 # ^^ No trailing slash, no backslash, no spaces, no relative parts ("." or "..")
@@ -174,6 +174,9 @@ class HfApi:
         r = requests.post(path, json={"username": username, "password": password})
         r.raise_for_status()
         d = r.json()
+
+        logger.info("token added to the environment variable $HF_AUTH.")
+        os.environ["HF_AUTH"] = f"user:{d['token']}"
         return d["token"]
 
     def whoami(self, token: str) -> Tuple[str, List[str]]:
