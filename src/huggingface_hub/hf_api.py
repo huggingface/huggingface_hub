@@ -175,7 +175,7 @@ class HfApi:
         r.raise_for_status()
         d = r.json()
 
-        logger.info("token added to the environment variable $HF_AUTH.")
+        print("token added to the environment variable $HF_AUTH.")
         os.environ["HF_AUTH"] = f"user:{d['token']}"
         return d["token"]
 
