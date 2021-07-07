@@ -46,13 +46,13 @@ Below you can find all the important resources to all published blog posts, vide
 ### Blog/Video
 
 - [AWS: Embracing natural language processing with Hugging Face](https://aws.amazon.com/de/blogs/opensource/embracing-natural-language-processing-with-hugging-face/)
+- [Deploy Hugging Face models easily with Amazon SageMaker](https://huggingface.co/blog/deploy-hugging-face-models-easily-with-amazon-sagemaker)
 - [AWS and Hugging Face collaborate to simplify and accelerate adoption of natural language processing models](https://aws.amazon.com/blogs/machine-learning/aws-and-hugging-face-collaborate-to-simplify-and-accelerate-adoption-of-natural-language-processing-models/)
 - [Walkthrough: End-to-End Text Classification](https://youtu.be/ok3hetb42gU)
 - [Working with Hugging Face models on Amazon SageMaker](https://youtu.be/leyrCgLAGjMn)
 - [Distributed Training: Train BART/T5 for Summarization using 🤗 Transformers and Amazon SageMaker](https://huggingface.co/blog/sagemaker-distributed-training-seq2seq)
-<!-- TODO: Add after Inference announcement -->
-*   [Deploy a trained Hugging Face Transformer model to SageMaker for inference]()
-*   [Deploy one of the 10 000+ Hugging Face Transformers to Amazon SageMaker for Inference]()
+- [Deploy a Hugging Face Transformers Model from S3 to Amazon SageMaker](https://youtu.be/pfBGgSGnYLs)
+- [Deploy a Hugging Face Transformers Model from the Model Hub to Amazon SageMaker](https://youtu.be/l9QZuazbzWM)
 
 ### Documentation
 
@@ -77,9 +77,8 @@ Below you can find all the important resources to all published blog posts, vide
 - [Distributed Training Data Parallelism Tensorflow](https://github.com/huggingface/notebooks/blob/master/sagemaker/07_tensorflow_distributed_training_data_parallelism/sagemaker-notebook.ipynb)
 - [Distributed Training Summarization](https://github.com/huggingface/notebooks/blob/master/sagemaker/08_distributed_summarization_bart_t5/sagemaker-notebook.ipynb)
 - [Image Classification with Vision Transformer](https://github.com/huggingface/notebooks/blob/master/sagemaker/09_image_classification_vision_transformer/sagemaker-notebook.ipynb)
-<!-- TODO: Add after Inference announcement -->
-- [Deploy transformers to Amazon SageMaker]()
-- [Deploy with custom inference code to Amazon SageMaker]()
+- [Deploy one of the 10 000+ Hugging Face Transformers to Amazon SageMaker for Inference](https://github.com/huggingface/notebooks/blob/master/sagemaker/11_deploy_model_from_hf_hub/deploy_transformer_model_from_hf_hub.ipynb)
+- [Deploy a Hugging Face Transformer model from S3 to SageMaker for inference](https://github.com/huggingface/notebooks/blob/master/sagemaker/10_deploy_model_from_s3/deploy_transformer_model_from_s3.ipynb)
 
 ---
 
@@ -96,5 +95,9 @@ The Deep Learning Container are in every available where Amazon SageMaker is ava
 | 4.6.1                   | 1.6.2               | PyTorch 1.6.0              | training | GPU    | 3.6            | `763104351884.dkr.ecr.us-west-2.amazonaws.com/huggingface-pytorch-training:1.6.0-transformers4.5.0-gpu-py36-cu110-ubuntu18.04`    |
 | 4.6.1                   | 1.6.2               | PyTorch 1.7.1               | training | GPU    | 3.6            | `763104351884.dkr.ecr.us-west-2.amazonaws.com/huggingface-pytorch-training:1.7.1-transformers4.6.1-gpu-py36-cu110-ubuntu18.04` |
 | 4.6.1                   | 1.6.2               | TensorFlow 2.4.1           | training | GPU    | 3.7            | `763104351884.dkr.ecr.us-west-2.amazonaws.com/huggingface-tensorflow-training:2.4.1-transformers4.6.1-gpu-py37-cu110-ubuntu18.04` |
+| 4.6.1                   | 1.6.2               | PyTorch 1.7.1               | inference | CPU    | 3.6            | `763104351884.dkr.ecr.us-east-1.amazonaws.com/huggingface-pytorch-inference:1.7.1-transformers4.6.1-cpu-py36-ubuntu18.04` |
+| 4.6.1                   | 1.6.2               | PyTorch 1.7.1               | inference | GPU    | 3.6            | `763104351884.dkr.ecr.us-east-1.amazonaws.com/huggingface-pytorch-inference:1.7.1-transformers4.6.1-gpu-py36-cu110-ubuntu18.04` |
+| 4.6.1                   | 1.6.2               | TensorFlow 2.4.1           | inference | CPU    | 3.7            | `763104351884.dkr.ecr.us-east-1.amazonaws.com/huggingface-tensorflow-inference:2.4.1-transformers4.6.1-cpu-py37-ubuntu18.04` |
+| 4.6.1                   | 1.6.2               | TensorFlow 2.4.1           | inference | GPU    | 3.7            | `763104351884.dkr.ecr.us-east-1.amazonaws.com/huggingface-tensorflow-inference:2.4.1-transformers4.6.1-gpu-py37-cu110-ubuntu18.04` |
 
 ---

@@ -124,6 +124,9 @@ sess = sagemaker.Session()
 
 There are two ways to deploy your Hugging Face model trained in SageMaker. You can either deploy it after your training is finished, or you can deploy it later, using the `model_data` pointing to your saved model on s3.
 
+- [Deploy a Hugging Face Transformer model from S3 to SageMaker for inference](https://github.com/huggingface/notebooks/blob/master/sagemaker/10_deploy_model_from_s3/deploy_transformer_model_from_s3.ipynb)
+
+
 ### Deploy the model directly after training
 
 If you deploy your model directly after training, you need to ensure that all required files are saved in your training script, including the Tokenizer and the Model.
@@ -200,6 +203,8 @@ predictor.delete_endpoint()
 ## Deploy for inference one of the 10,000+ 🤗 Transformers models available in the 🤗 Hub
 
 <iframe width="700" height="394" src="https://www.youtube.com/embed/l9QZuazbzWM" title="YouTube video player" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>
+
+- [Deploy one of the 10 000+ Hugging Face Transformers to Amazon SageMaker for Inference](https://github.com/huggingface/notebooks/blob/master/sagemaker/11_deploy_model_from_hf_hub/deploy_transformer_model_from_hf_hub.ipynb)
 
 To deploy a model directly from the 🤗 Hub to SageMaker, we need to define 2 environment variables when creating the HuggingFaceModel. We need to define:
 
@@ -363,6 +368,8 @@ def transform_fn(model, input_data, content_type, accept):
 ## Additional Resources
 
 - [Announcement Blog Post](https://huggingface.co/blog/the-partnership-amazon-sagemaker-and-hugging-face)
+
+- [Deploy Hugging Face models easily with Amazon SageMaker](https://huggingface.co/blog/deploy-hugging-face-models-easily-with-amazon-sagemaker)
 
 - [AWS and Hugging Face collaborate to simplify and accelerate adoption of natural language processing](https://aws.amazon.com/blogs/machine-learning/aws-and-hugging-face-collaborate-to-simplify-and-accelerate-adoption-of-natural-language-processing-models/)
 
