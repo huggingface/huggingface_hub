@@ -15,7 +15,7 @@
 	let height = 0;
 	let maskW = 0;
 	let maskH = 0;
-	
+
 	$: ctx = canvas?.getContext("2d");
 	$: maskW = output?.[0]?.["mask"].length ?? 0;
 	$: maskH = output?.[0]?.["mask"]?.[0].length ?? 0;

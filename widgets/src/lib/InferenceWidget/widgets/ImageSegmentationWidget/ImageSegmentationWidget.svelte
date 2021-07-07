@@ -8,7 +8,10 @@
 	import WidgetWrapper from "../../shared/WidgetWrapper/WidgetWrapper.svelte";
 	import { getResponse } from "../../shared/helpers";
 	import { onMount } from "svelte";
-	import { highlightIndex as highlightIndexCanvas, updateCounter } from "./stores";
+	import {
+		highlightIndex as highlightIndexCanvas,
+		updateCounter,
+	} from "./stores";
 
 	export let apiToken: WidgetProps["apiToken"];
 	export let apiUrl: WidgetProps["apiUrl"];
@@ -47,8 +50,8 @@
 	$: outputWithColor = output.map((val, index) => {
 		const hash = mod(index, COLORS.length);
 		const color = COLORS[hash];
-		return {...val, color};
-	})
+		return { ...val, color };
+	});
 
 	function onSelectFile() {
 		const file = fileInput.files?.[0];
@@ -128,7 +131,6 @@
 		$highlightIndexCanvas = index;
 		$updateCounter++;
 	}
-	
 </script>
 
 <WidgetWrapper
@@ -148,7 +150,12 @@
 				onChange={onSelectFile}
 				{imgSrc}
 				innerWidget={WidgetCanvas}
-				innerWidgetProps={{ src: imgSrc, mouseover, mouseout, output:outputWithColor }}
+				innerWidgetProps={{
+					src: imgSrc,
+					mouseover,
+					mouseout,
+					output: outputWithColor,
+				}}
 			/>
 		</form>
 	</svelte:fragment>
