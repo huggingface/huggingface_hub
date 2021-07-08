@@ -228,6 +228,30 @@ class DockerImageTests(unittest.TestCase):
             self.assertIn(response.status_code, {200, 400})
             counter[response.status_code] += 1
 
+            response = httpx.post(
+                url,
+                json={
+                    "inputs": {
+                        "data": {
+                            "1": [7.4],
+                            "2": [7.5],
+                            "3": [7.7],
+                            "4": [7.7],
+                            "5": [7.7],
+                            "6": [7.7],
+                            "7": [7.7],
+                            "8": [7.7],
+                            "9": [7.7],
+                            "10": [7.7],
+                            "11": [7.7],
+                        }
+                    }
+                },
+                timeout=timeout,
+            )
+            self.assertIn(response.status_code, {200, 400})
+            counter[response.status_code] += 1
+
             with open(
                 os.path.join(os.path.dirname(__file__), "samples", "sample1.flac"), "rb"
             ) as f:
