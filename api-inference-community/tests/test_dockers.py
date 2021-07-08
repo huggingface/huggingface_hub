@@ -279,7 +279,15 @@ class DockerImageTests(unittest.TestCase):
             if response.status_code == 200:
                 if response.headers["content-type"] == "application/json":
                     data = json.loads(response.content)
-                    self.assertEqual(set(data.keys()), {"text"})
+                    if isinstance(data, dict):
+                        # ASR
+                        self.assertEqual(set(data.keys()), {"text"})
+                    elif isinstance(data, list):
+                        self.assertEqual(
+                            set(data[0].keys()), {"blob", "content-type", "label"}
+                        )
+                    else:
+                        raise Exception("Invalid result")
                 elif response.headers["content-type"] == "audio/flac":
                     pass
                 else:
