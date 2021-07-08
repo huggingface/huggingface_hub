@@ -56,12 +56,12 @@ class DockerImageTests(unittest.TestCase):
     def test_asteroid(self):
         self.framework_docker_test(
             "asteroid",
-            "audio-source-separation",
+            "audio-to-audio",
             "mhu-coder/ConvTasNet_Libri1Mix_enhsingle",
         )
         self.framework_docker_test(
             "asteroid",
-            "audio-source-separation",
+            "audio-to-audio",
             "julien-c/DPRNNTasNet-ks16_WHAM_sepclean",
         )
         self.framework_invalid_test("asteroid")
@@ -122,6 +122,18 @@ class DockerImageTests(unittest.TestCase):
             "speechbrain/asr-crdnn-commonvoice-it",
         )
         self.framework_invalid_test("speechbrain")
+
+        self.framework_docker_test(
+            "speechbrain",
+            "audio-to-audio",
+            "speechbrain/sepformer-wham",
+        )
+
+        self.framework_docker_test(
+            "speechbrain",
+            "audio-to-audio",
+            "speechbrain/mtl-mimic-voicebank",
+        )
 
     def test_timm(self):
         self.framework_docker_test("timm", "image-classification", "sgugger/resnet50d")
@@ -267,7 +279,15 @@ class DockerImageTests(unittest.TestCase):
             if response.status_code == 200:
                 if response.headers["content-type"] == "application/json":
                     data = json.loads(response.content)
-                    self.assertEqual(set(data.keys()), {"text"})
+                    if isinstance(data, dict):
+                        # ASR
+                        self.assertEqual(set(data.keys()), {"text"})
+                    elif isinstance(data, list):
+                        self.assertEqual(
+                            set(data[0].keys()), {"blob", "content-type", "label"}
+                        )
+                    else:
+                        raise Exception("Invalid result")
                 elif response.headers["content-type"] == "audio/flac":
                     pass
                 else:
