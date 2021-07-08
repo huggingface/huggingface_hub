@@ -17,7 +17,6 @@ from tests.test_api import TESTABLE_MODELS
 )
 class SentenceSimilarityTestCase(TestCase):
     def setUp(self):
-        model_id = TESTABLE_MODELS["sentence-similarity"]
         self.old_model_id = os.getenv("MODEL_ID")
         self.old_task = os.getenv("TASK")
         os.environ["MODEL_ID"] = self.model_id
