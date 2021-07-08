@@ -100,6 +100,13 @@ class DockerImageTests(unittest.TestCase):
         )
         self.framework_invalid_test("flair")
 
+    def test_sklearn(self):
+        self.framework_docker_test(
+            "sklearn",
+            "structured-data-classification",
+            "julien-c/wine-quality",
+        )
+
     def test_spacy(self):
         self.framework_docker_test(
             "spacy",
@@ -219,6 +226,30 @@ class DockerImageTests(unittest.TestCase):
                     "inputs": {
                         "source_sentence": "This is a test",
                         "sentences": ["Some context", "Something else"],
+                    }
+                },
+                timeout=timeout,
+            )
+            self.assertIn(response.status_code, {200, 400})
+            counter[response.status_code] += 1
+
+            response = httpx.post(
+                url,
+                json={
+                    "inputs": {
+                        "data": {
+                            "1": [7.4],
+                            "2": [7.5],
+                            "3": [7.7],
+                            "4": [7.7],
+                            "5": [7.7],
+                            "6": [7.7],
+                            "7": [7.7],
+                            "8": [7.7],
+                            "9": [7.7],
+                            "10": [7.7],
+                            "11": [7.7],
+                        }
                     }
                 },
                 timeout=timeout,

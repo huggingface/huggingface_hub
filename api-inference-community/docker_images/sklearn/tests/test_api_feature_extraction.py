@@ -3,7 +3,6 @@ import os
 from unittest import TestCase, skipIf
 
 from app.main import ALLOWED_TASKS
-from parameterized import parameterized_class
 from starlette.testclient import TestClient
 from tests.test_api import TESTABLE_MODELS
 
@@ -12,15 +11,13 @@ from tests.test_api import TESTABLE_MODELS
     "feature-extraction" not in ALLOWED_TASKS,
     "feature-extraction not implemented",
 )
-@parameterized_class(
-    [{"model_id": model_id} for model_id in TESTABLE_MODELS["sentence-similarity"]]
-)
-class SentenceSimilarityTestCase(TestCase):
+class FeatureExtractionTestCase(TestCase):
     def setUp(self):
+        model_id = TESTABLE_MODELS["feature-extraction"]
         self.old_model_id = os.getenv("MODEL_ID")
         self.old_task = os.getenv("TASK")
-        os.environ["MODEL_ID"] = self.model_id
-        os.environ["TASK"] = "sentence-similarity"
+        os.environ["MODEL_ID"] = model_id
+        os.environ["TASK"] = "feature-extraction"
         from app.main import app
 
         self.app = app
@@ -36,14 +33,7 @@ class SentenceSimilarityTestCase(TestCase):
             del os.environ["TASK"]
 
     def test_simple(self):
-        source_sentence = "I am a very happy man"
-        sentences = [
-            "What is this?",
-            "I am a super happy man",
-            "I am a sad man",
-            "I am a happy dog",
-        ]
-        inputs = {"source_sentence": source_sentence, "sentences": sentences}
+        inputs = "Hello, my name is John and I live in New York"
 
         with TestClient(self.app) as client:
             response = client.post("/", json={"inputs": inputs})
@@ -68,19 +58,7 @@ class SentenceSimilarityTestCase(TestCase):
         self.assertEqual(type(content), list)
         self.assertEqual({type(item) for item in content}, {float})
 
-    def test_missing_input_sentences(self):
-        source_sentence = "I am a very happy man"
-        inputs = {"source_sentence": source_sentence}
-
-        with TestClient(self.app) as client:
-            response = client.post("/", json={"inputs": inputs})
-
-        self.assertEqual(
-            response.status_code,
-            400,
-        )
-
-    def test_malformed_input(self):
+    def test_malformed_sentence(self):
         with TestClient(self.app) as client:
             response = client.post("/", data=b"\xc3\x28")
 
