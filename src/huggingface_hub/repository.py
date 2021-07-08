@@ -48,6 +48,41 @@ def is_local_clone(folder: Union[str, Path], remote_url: str):
     return remote_url in remotes
 
 
+def is_tracked_with_lfs(filename: str):
+    """
+    Check if the file passed is tracked with git-lfs.
+    """
+    folder = Path(filename).parent
+
+    try:
+        p = subprocess.run(
+            ["git", "check-attr", "-a", filename],
+            stderr=subprocess.PIPE,
+            stdout=subprocess.PIPE,
+            check=True,
+            encoding="utf-8",
+            cwd=folder,
+        )
+        attributes = p.stdout.strip()
+    except subprocess.CalledProcessError as exc:
+        if "not a git repository" in exc.stderr:
+            return False
+        else:
+            raise OSError(exc.stderr)
+
+    if len(attributes) == 0:
+        return False
+
+    found_lfs_tag = {"diff": False, "merge": False, "filter": False}
+
+    for attribute in attributes.split("\n"):
+        for tag in found_lfs_tag.keys():
+            if tag in attribute and "lfs" in attribute:
+                found_lfs_tag[tag] = True
+
+    return all(found_lfs_tag.values())
+
+
 class Repository:
     """
     Helper class to wrap the git and git-lfs commands.
@@ -393,10 +428,40 @@ class Repository:
         except subprocess.CalledProcessError as exc:
             raise EnvironmentError(exc.stderr)
 
-    def git_add(self, pattern="."):
+    def auto_track_large_files(self, pattern="."):
+        """
+        Automatically track large files with git-lfs
+        """
+        try:
+            p = subprocess.run(
+                ["git", "ls-files", "-mo", pattern],
+                stderr=subprocess.PIPE,
+                stdout=subprocess.PIPE,
+                check=True,
+                encoding="utf-8",
+                cwd=self.local_dir,
+            )
+            files_to_be_staged = p.stdout.strip().split("\n")
+        except subprocess.CalledProcessError as exc:
+            raise EnvironmentError(exc.stderr)
+
+        for filename in files_to_be_staged:
+            path_to_file = os.path.join(os.getcwd(), self.local_dir, filename)
+            size_in_mb = os.path.getsize(path_to_file) / (1024 * 1024)
+
+            if size_in_mb >= 10 and not is_tracked_with_lfs(path_to_file):
+                self.lfs_track(filename)
+
+    def git_add(self, pattern=".", auto_lfs_track=False):
         """
         git add
+
+        Setting the `auto_lfs_track` parameter to `True` will automatically track files that are larger
+        than 10MB with `git-lfs`.
         """
+        if auto_lfs_track:
+            self.auto_track_large_files(pattern)
+
         try:
             subprocess.run(
                 ["git", "add", pattern],
@@ -488,7 +553,7 @@ class Repository:
         try:
             yield self
         finally:
-            self.git_add()
+            self.git_add(auto_lfs_track=True)
 
             try:
                 self.git_commit(commit_message)
