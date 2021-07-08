@@ -55,12 +55,12 @@ class ImageClassificationPipeline(Pipeline):
         if self.single_output_unit:
             score = predictions[0][0]
             labels = [
-                {"label": self.id2label["1"], "score": str(score)},
-                {"label": self.id2label["0"], "score": str(1 - score)},
+                {"label": str(self.id2label["1"]), "score": float(score)},
+                {"label": str(self.id2label["0"]), "score": float(1 - score)},
             ]
         else:
             labels = [
-                {"label": self.id2label[str(i)], "score": score.item()}
+                {"label": str(self.id2label[str(i)]), "score": float(score)}
                 for i, score in enumerate(predictions[0])
             ]
         return sorted(labels, key=lambda tup: tup["score"], reverse=True)
