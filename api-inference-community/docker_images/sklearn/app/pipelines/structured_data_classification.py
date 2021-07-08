@@ -5,15 +5,11 @@ from app.pipelines import Pipeline
 from huggingface_hub import cached_download, hf_hub_url
 
 
-ALLOWLIST: List[str] = ["scikit-learn-examples"]
-DEFAULT_FILENAME = "sklearn_model.pickle"
+DEFAULT_FILENAME = "sklearn_model.joblib"
 
 
 class StructuredDataClassificationPipeline(Pipeline):
     def __init__(self, model_id: str):
-        # TODO: Obtain expected column names from repo.
-        # TODO: Add to model info if it's sklearn_model.pickle" (default) or some other name.
-
         self.model = joblib.load(
             open(cached_download(hf_hub_url(model_id, DEFAULT_FILENAME)), "rb")
         )
