@@ -43,7 +43,9 @@ def get_pipeline() -> Pipeline:
     task = os.environ["TASK"]
     model_id = os.environ["MODEL_ID"]
     if task not in ALLOWED_TASKS:
-        raise EnvironmentError(f"{task} is not a valid pipeline for model : {model_id}")
+        raise EnvironmentError(
+            f"{task} is not a valid pipeline for model : {model_id} ({','.join(ALLOWED_TASKS.keys())})"
+        )
     return ALLOWED_TASKS[task](model_id)
 
 
