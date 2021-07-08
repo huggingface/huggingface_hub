@@ -428,24 +428,33 @@ class Repository:
             else:
                 raise EnvironmentError(exc.stdout)
 
-    def git_push(self) -> str:
+    def git_push(self, non_blocking: Optional[bool] = False) -> str:
         """
         git push
 
         Returns url to commit on remote repo.
+        Args:
+            non_blocking (``bool``, `optional`, defaults ``False``):
+                if ``True``, will return without waiting for the push to finish.
         """
-        try:
-            result = subprocess.run(
+        if non_blocking:
+            _ = subprocess.Popen(
                 "git push".split(),
-                stderr=subprocess.PIPE,
-                stdout=subprocess.PIPE,
-                check=True,
-                encoding="utf-8",
                 cwd=self.local_dir,
             )
-            logger.info(result.stdout)
-        except subprocess.CalledProcessError as exc:
-            raise EnvironmentError(exc.stderr)
+        else:
+            try:
+                result = subprocess.run(
+                    "git push".split(),
+                    stderr=subprocess.PIPE,
+                    stdout=subprocess.PIPE,
+                    check=True,
+                    encoding="utf-8",
+                    cwd=self.local_dir,
+                )
+                logger.info(result.stdout)
+            except subprocess.CalledProcessError as exc:
+                raise EnvironmentError(exc.stderr)
 
         return self.git_head_commit_url()
 
