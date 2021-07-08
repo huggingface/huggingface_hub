@@ -1,10 +1,12 @@
 <script>
+	import type { HighlightCoordinates } from "../types";
+
 	import { onMount, tick } from "svelte";
 	import { scrollToMax } from "../ViewUtils";
 	import IconRow from "../../../Icons/IconRow.svelte";
 
 	export let onChange: (table: string[][]) => void;
-	export let highlighted: [y: number, x: number][] = [];
+	export let highlighted: HighlightCoordinates = {};
 	export let table: string[][] = [[]];
 
 	let initialTable: string[][] = [[]];
@@ -59,18 +61,10 @@
 		</thead>
 		<tbody>
 			{#each table.slice(1) as row, y}
-				<tr
-					class={highlighted.some(([yCor]) => yCor === y)
-						? "bg-green-50"
-						: "bg-white"}
-				>
+				<tr class={highlighted[`${y}`] ?? "bg-white"}>
 					{#each row as cell, x}
 						<td
-							class={highlighted.some(
-								([yCor, xCor]) => yCor === y && xCor === x
-							)
-								? "bg-green-100 border-green-100"
-								: "border-gray-100"}
+							class={highlighted[`${y}-${x}`] ?? "border-gray-100"}
 							contenteditable
 							on:input={(e) => editCell(e, [x, y + 1])}>{cell}</td
 						>

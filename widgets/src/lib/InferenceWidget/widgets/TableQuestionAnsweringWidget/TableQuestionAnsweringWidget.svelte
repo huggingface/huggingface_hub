@@ -1,21 +1,26 @@
 <script>
-	import type { WidgetProps } from "../../shared/types";
+	import type {
+		WidgetProps,
+		TableData,
+		HighlightCoordinates,
+	} from "../../shared/types";
 
 	import { onMount } from "svelte";
 	import WidgetQuickInput from "../../shared/WidgetQuickInput/WidgetQuickInput.svelte";
 	import WidgetOutputTableQA from "../../shared/WidgetOutputTableQA/WidgetOutputTableQA.svelte";
 	import WidgetTableInput from "../../shared/WidgetTableInput/WidgetTableInput.svelte";
 	import WidgetWrapper from "../../shared/WidgetWrapper/WidgetWrapper.svelte";
-	import { parseJSON } from "../../shared/ViewUtils";
+	import {
+		parseJSON,
+		convertTableToData,
+		convertDataToTable,
+	} from "../../shared/ViewUtils";
 	import {
 		getDemoInputs,
 		getResponse,
 		getSearchParams,
 		updateUrl,
 	} from "../../shared/helpers";
-
-	type TableData = Record<string, string[]>;
-
 	interface Output {
 		aggregator?: string;
 		answer: string;
@@ -41,6 +46,15 @@
 	let outputJson: string;
 	let table: string[][] = [[]];
 	let query = "";
+
+	let highlighted: HighlightCoordinates = {};
+	$: highlighted =
+		output?.coordinates?.reduce((acc, [yCor, xCor]) => {
+			acc[`${yCor}`] = "bg-green-50 dark:bg-green-900";
+			acc[`${yCor}-${xCor}`] =
+				"bg-green-100 border-green-100 dark:bg-green-700 dark:border-green-700";
+			return acc;
+		}, {}) ?? {};
 
 	onMount(() => {
 		const [queryParam, tableParam] = getSearchParams(["query", "table"]);
@@ -133,42 +147,6 @@
 	function parseOutput(body: unknown): Output | null {
 		return isValidOutput(body) ? body : null;
 	}
-
-	/*
-	 * Converts table from [[Header0, Header1, Header2], [Column0Val0, Column1Val0, Column2Val0], ...]
-	 * to {Header0: [ColumnVal0, ...], Header1: [Column1Val0, ...], Header2: [Column2Val0, ...]}
-	 */
-	function convertTableToData(table: string[][]): TableData {
-		return Object.fromEntries(
-			table[0].map((cell, x) => {
-				return [
-					cell,
-					table
-						.slice(1)
-						.flat()
-						.filter((_, i) => i % table[0].length === x)
-						.map((x) => String(x)), // some models can only handle strings (no numbers)
-				];
-			})
-		);
-	}
-
-	/*
-	 * Converts data from {Header0: [ColumnVal0, ...], Header1: [Column1Val0, ...], Header2: [Column2Val0, ...]}
-	 * to [[Header0, Header1, Header2], [Column0Val0, Column1Val0, Column2Val0], ...]
-	 */
-	function convertDataToTable(data: TableData): string[][] {
-		const dataArray = Object.entries(data); // [header, cell[]][]
-		const nbCols = dataArray.length;
-		const nbRows = (dataArray[0]?.[1]?.length ?? 0) + 1;
-		return Array(nbRows)
-			.fill("")
-			.map((_, y) =>
-				Array(nbCols)
-					.fill("")
-					.map((_, x) => (y === 0 ? dataArray[x][0] : dataArray[x][1][y - 1]))
-			);
-	}
 </script>
 
 <WidgetWrapper
@@ -197,11 +175,7 @@
 				<WidgetOutputTableQA {output} />
 			{/if}
 			{#if table.length > 1 || table[0].length > 1}
-				<WidgetTableInput
-					highlighted={output ? output.coordinates : []}
-					onChange={onChangeTable}
-					{table}
-				/>
+				<WidgetTableInput {highlighted} onChange={onChangeTable} {table} />
 			{/if}
 		</div>
 	</svelte:fragment>

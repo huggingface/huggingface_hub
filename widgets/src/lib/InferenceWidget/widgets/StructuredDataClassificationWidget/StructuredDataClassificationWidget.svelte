@@ -1,27 +1,26 @@
 <script>
-	import type { WidgetProps } from "../../shared/types";
+	import type {
+		WidgetProps,
+		TableData,
+		HighlightCoordinates,
+	} from "../../shared/types";
 
 	import { onMount } from "svelte";
-	import WidgetOutputTableQA from "../../shared/WidgetOutputTableQA/WidgetOutputTableQA.svelte";
 	import WidgetTableInput from "../../shared/WidgetTableInput/WidgetTableInput.svelte";
 	import WidgetSubmitBtn from "../../shared/WidgetSubmitBtn/WidgetSubmitBtn.svelte";
 	import WidgetWrapper from "../../shared/WidgetWrapper/WidgetWrapper.svelte";
-	import { parseJSON } from "../../shared/ViewUtils";
+	import {
+		mod,
+		convertTableToData,
+		convertDataToTable,
+		parseJSON,
+	} from "../../shared/ViewUtils";
 	import {
 		getDemoInputs,
 		getResponse,
 		getSearchParams,
 		updateUrl,
 	} from "../../shared/helpers";
-
-	type TableData = Record<string, string[]>;
-
-	interface Output {
-		aggregator?: string;
-		answer: string;
-		coordinates: [number, number][];
-		cells: number[];
-	}
 
 	export let apiToken: WidgetProps["apiToken"];
 	export let apiUrl: WidgetProps["apiUrl"];
@@ -41,10 +40,26 @@
 		isLoading: false,
 		estimatedTime: 0,
 	};
-	let output: Output | null = null;
+	let output: string[] = [];
 	let outputJson: string;
 	let table: string[][] = [columns];
-	let query = "How many stars does the transformers repository have?";
+
+	let highlighted: HighlightCoordinates = {};
+	let tableWithOutput: string[][];
+	$: {
+		const strucuredData = convertTableToData(table);
+		if (output?.length) {
+			strucuredData.Prediction = output;
+			const lastColIndex = Object.keys(strucuredData).length - 1;
+			highlighted = getHighlighted(output, lastColIndex);
+		} else {
+			delete strucuredData.Prediction;
+			highlighted = {};
+		}
+		tableWithOutput = convertDataToTable(strucuredData);
+	}
+
+	const COLORS = ["blue", "green", "yellow", "purple", "red"] as const;
 
 	onMount(() => {
 		const [dataParam] = getSearchParams(["structuredData"]);
@@ -54,7 +69,7 @@
 		} else {
 			const [demoTable] = getDemoInputs(model, ["structuredData"]);
 			table = convertDataToTable(demoTable as TableData);
-			if (query && table && callApiOnMount) {
+			if (table && callApiOnMount) {
 				getOutput();
 			}
 		}
@@ -62,6 +77,7 @@
 
 	function onChangeTable(updatedTable: string[][]) {
 		table = updatedTable;
+		output = [];
 	}
 
 	async function getOutput(withModelLoading = false) {
@@ -118,54 +134,35 @@
 		}
 	}
 
-	function isValidOutput(arg: any): arg is Output {
+	function isValidOutput(arg: any): arg is (string | number)[] {
 		return (
-			arg &&
-			typeof arg === "object" &&
-			typeof arg["answer"] === "string" &&
-			Array.isArray(arg["coordinates"]) &&
-			Array.isArray(arg["cells"])
+			Array.isArray(arg) &&
+			arg.every((x) => typeof x === "string" || typeof x === "number")
 		);
 	}
 
-	function parseOutput(body: unknown): Output | null {
-		return isValidOutput(body) ? body : null;
+	function parseOutput(body: unknown): string[] {
+		return isValidOutput(body) ? body.map((val) => String(val)) : [];
 	}
 
-	/*
-	 * Converts table from [[Header0, Header1, Header2], [Column0Val0, Column1Val0, Column2Val0], ...]
-	 * to {Header0: [ColumnVal0, ...], Header1: [Column1Val0, ...], Header2: [Column2Val0, ...]}
-	 */
-	function convertTableToData(table: string[][]): TableData {
-		return Object.fromEntries(
-			table[0].map((cell, x) => {
-				return [
-					cell,
-					table
-						.slice(1)
-						.flat()
-						.filter((_, i) => i % table[0].length === x)
-						.map((x) => String(x)), // some models can only handle strings (no numbers)
-				];
-			})
-		);
-	}
+	function getHighlighted(
+		output: string[],
+		colIndex: number
+	): HighlightCoordinates {
+		const set: Set<string> = new Set(output);
+		let classes: Record<string, number> = {};
+		if (set.size < COLORS.length) {
+			classes = [...set].reduce((acc, cls, i) => ({ ...acc, [cls]: i }), {});
+		}
 
-	/*
-	 * Converts data from {Header0: [ColumnVal0, ...], Header1: [Column1Val0, ...], Header2: [Column2Val0, ...]}
-	 * to [[Header0, Header1, Header2], [Column0Val0, Column1Val0, Column2Val0], ...]
-	 */
-	function convertDataToTable(data: TableData): string[][] {
-		const dataArray = Object.entries(data); // [header, cell[]][]
-		const nbCols = dataArray.length;
-		const nbRows = (dataArray[0]?.[1]?.length ?? 0) + 1;
-		return Array(nbRows)
-			.fill("")
-			.map((_, y) =>
-				Array(nbCols)
-					.fill("")
-					.map((_, x) => (y === 0 ? dataArray[x][0] : dataArray[x][1][y - 1]))
-			);
+		return output.reduce((acc, row, rowIndex) => {
+			const colorIndex = classes[row] ?? mod(rowIndex, COLORS.length);
+			const color = COLORS[colorIndex];
+			acc[
+				`${rowIndex}-${colIndex}`
+			] = `bg-${color}-100 border-${color}-100 dark:bg-${color}-800 dark:border-${color}-800`;
+			return acc;
+		}, {});
 	}
 </script>
 
@@ -181,14 +178,11 @@
 	<svelte:fragment slot="top">
 		<form>
 			<div class="mt-4">
-				{#if output}
-					<WidgetOutputTableQA {output} />
-				{/if}
 				{#if table.length > 1 || table[0].length > 1}
 					<WidgetTableInput
-						highlighted={output ? output.coordinates : []}
+						{highlighted}
 						onChange={onChangeTable}
-						{table}
+						table={tableWithOutput}
 					/>
 				{/if}
 			</div>
