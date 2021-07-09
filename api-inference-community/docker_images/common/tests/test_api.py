@@ -9,7 +9,7 @@ from app.main import ALLOWED_TASKS, get_pipeline
 # Tests do not check the actual values of the model output, so small dummy
 # models are recommended for faster tests.
 TESTABLE_MODELS: Dict[str, str] = {
-    #  IMPLEMENT_THIS
+    # IMPLEMENT_THIS
     # "automatic-speech-recognition": "mysample-ASR",
     # "text-generation": "mysample-gpt2",
 }
@@ -21,6 +21,7 @@ ALL_TASKS = {
     "image-classification",
     "question-answering",
     "sentence-similarity",
+    "structure-data-classification",
     "text-generation",
     "text-to-speech",
     "token-classification",
@@ -41,5 +42,7 @@ class PipelineTestCase(TestCase):
         unsupported_tasks = ALL_TASKS - ALLOWED_TASKS.keys()
         for unsupported_task in unsupported_tasks:
             with self.subTest(msg=unsupported_task, task=unsupported_task):
+                os.environ["TASK"] = unsupported_task
+                os.environ["MODEL_ID"] = "XX"
                 with self.assertRaises(EnvironmentError):
-                    get_pipeline(unsupported_task, model_id="XX")
+                    get_pipeline()

@@ -1,6 +1,6 @@
 name: Inference API Python-tests
 on:
-  push:
+  pull_request:
     paths:
       - "api-inference-community/**"
 jobs:
@@ -22,10 +22,10 @@ jobs:
           python-version: ${{ matrix.python-version }}
 
       - name: Install dependencies
-        workdir: api-inference-community
+        working-directory: api-inference-community
         run: |
           pip install --upgrade pip
-          pip install pytest pillow httpx
+          pip install pytest pillow httpx huggingface_hub
           pip install -e .
       - run: make test
-        workdir: api-inference-community
+        working-directory: api-inference-community

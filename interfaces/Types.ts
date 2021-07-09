@@ -27,6 +27,8 @@ export enum PipelineType {
 	"object-detection" = "object-detection",
 	"image-segmentation" = "image-segmentation",
 	"image-to-text" = "image-to-text",
+	// others
+	"structured-data-classification" = "structured-data-classification",
 }
 
 export const ALL_PIPELINE_TYPES = Object.keys(PipelineType) as (keyof typeof PipelineType)[];
@@ -57,6 +59,8 @@ export const PIPELINE_TYPE_PRETTY_NAMES: { [key in PipelineType]: string } = {
 	"object-detection":                                         "Object Detection",
 	"image-segmentation":                                       "Image Segmentation",
 	"image-to-text":                                            "Image-to-Text",
+	/// others
+	"structured-data-classification":                           "Structured Data Classification",
 };
 
 

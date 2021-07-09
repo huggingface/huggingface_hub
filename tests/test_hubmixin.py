@@ -113,18 +113,13 @@ class HubMixingTest(HubMixingCommonTest):
 
     def test_push_to_hub(self):
         model = DummyModel()
-        model.save_pretrained(
-            f"{WORKING_REPO_DIR}/{REPO_NAME}-PUSH_TO_HUB",
-            config={"num": 7, "act": "gelu_fast"},
-        )
-
         model.push_to_hub(
-            f"{WORKING_REPO_DIR}/{REPO_NAME}-PUSH_TO_HUB",
-            f"{REPO_NAME}-PUSH_TO_HUB",
+            repo_path_or_name=f"{WORKING_REPO_DIR}/{REPO_NAME}-PUSH_TO_HUB",
             api_endpoint=ENDPOINT_STAGING,
             use_auth_token=self._token,
             git_user="ci",
             git_email="ci@dummy.com",
+            config={"num": 7, "act": "gelu_fast"},
         )
 
         model_info = self._api.model_info(

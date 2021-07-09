@@ -132,6 +132,18 @@ class TableQuestionAnsweringInputsCheck(BaseModel):
         raise ValueError("All rows in the table must be the same length")
 
 
+class StructuredDataClassificationInputsCheck(BaseModel):
+    data: Dict[str, List[str]]
+
+    @validator("data")
+    def all_rows_must_have_same_length(cls, data: Dict[str, List[str]]):
+        rows = list(data.values())
+        n = len(rows[0])
+        if all(len(x) == n for x in rows):
+            return data
+        raise ValueError("All rows in the data must be the same length")
+
+
 class StringOrStringBatchInputCheck(BaseModel):
     __root__: Union[List[str], str]
 
@@ -164,6 +176,7 @@ INPUTS_MAPPING = {
     "feature-extraction": StringOrStringBatchInputCheck,
     "sentence-similarity": SentenceSimilarityInputsCheck,
     "table-question-answering": TableQuestionAnsweringInputsCheck,
+    "structured-data-classification": StructuredDataClassificationInputsCheck,
     "fill-mask": StringInput,
     "summarization": StringInput,
     "text2text-generation": StringInput,
@@ -172,6 +185,7 @@ INPUTS_MAPPING = {
     "token-classification": StringInput,
     "translation": StringInput,
     "zero-shot-classification": StringInput,
+    "text-to-speech": StringInput,
 }
 
 BATCH_ENABLED_PIPELINES = ["feature-extraction"]
@@ -205,6 +219,7 @@ def normalize_payload(
         return normalize_payload_audio(bpayload, sampling_rate)
     elif task in {
         "image-classification",
+        "image-to-text",
     }:
         return normalize_payload_image(bpayload)
     else:

@@ -1,9 +1,10 @@
-import os
 import json
-import numpy as np
-from unittest import TestCase
 import logging
-from api_inference_community.routes import status_ok, pipeline_route
+import os
+from unittest import TestCase
+
+import numpy as np
+from api_inference_community.routes import pipeline_route, status_ok
 from starlette.applications import Starlette
 from starlette.routing import Route
 from starlette.testclient import TestClient
@@ -123,7 +124,7 @@ class ValidationTestCase(TestCase):
             app.get_pipeline = get_pipeline
 
         with TestClient(app) as client:
-            response = client.post("/", data=b"")
+            response = client.post("/", data=b"2222")
 
         self.assertEqual(
             response.status_code,

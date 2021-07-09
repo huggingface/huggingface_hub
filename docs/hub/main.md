@@ -27,7 +27,7 @@ On top of that, Hugging Face Hub repositories have many other advantages:
 * Repos provide useful [metadata](https://raw.githubusercontent.com/huggingface/huggingface_hub/main/modelcard.md) about their tasks, languages, metrics, etc.
 * Anyone can play with the model directly in the browser!
 * An API is provided to use the models in production settings.
-* [Over 10 frameworks](/docs/libraries) such as 🤗 Transformers, Asteroid and ESPnet support using models from the Hugging Face Hub. 
+* [Over 10 frameworks](/docs/hub/libraries) such as 🤗 Transformers, Asteroid and ESPnet support using models from the Hugging Face Hub. 
 
 
 ## What's a widget?
@@ -40,6 +40,7 @@ Here are some examples:
 * [Text to Speech](https://huggingface.co/julien-c/ljspeech_tts_train_tacotron2_raw_phn_tacotron_g2p_en_no_space_train) using [ESPnet](https://github.com/espnet/espnet).
 * [Sentence Similarity](https://huggingface.co/osanseviero/full-sentence-distillroberta3) using [Sentence Transformers](https://github.com/UKPLab/sentence-transformers).
 
+You can try out all the widgets [here](https://huggingface-widgets.netlify.app/).
 
 ## What's the Inference API?
 
@@ -48,7 +49,7 @@ The Inference API allows you to send HTTP requests to models in the Hugging Face
 
 ## How can I explore the Hugging Face Hub?
 
-[![Model Hub Video](https://img.youtube.com/vi/XvSGPZFEjDY/0.jpg)](https://www.youtube.com/watch?v=XvSGPZFEjDY)
+<iframe width="560" height="315" src="https://www.youtube-nocookie.com/embed/XvSGPZFEjDY" title="Model Hub Video" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>
 
 ## How is a model's type of inference API and widget determined?
 
@@ -85,7 +86,8 @@ Here are some with links to examples:
 You have access to the repos as with any other Git-based repository! You can even upload very large files. 
 
 Here is a video to learn more about it from our [course](http://hf.co/course)!
-[![Model Hub Video](https://img.youtube.com/vi/rkCly_cbMBk/0.jpg)](https://www.youtube.com/watch?v=rkCly_cbMBk)
+
+<iframe width="560" height="315" src="https://www.youtube-nocookie.com/embed/rkCly_cbMBk" title="Managing a repo" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>
 
 ## What's the origin of 🤗 name? 
 

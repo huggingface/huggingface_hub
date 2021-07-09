@@ -1,9 +1,11 @@
 #!/usr/bin/env python
 import argparse
+import ast
 import os
 import subprocess
 import uuid
-import ast
+
+from huggingface_hub import HfApi
 
 
 class cd:
@@ -38,21 +40,36 @@ def create_docker(name: str) -> str:
 
 
 def show(args):
-    directory = os.path.join(os.path.dirname(os.path.dirname(__file__)), "docker_images")
+    directory = os.path.join(
+        os.path.dirname(os.path.dirname(__file__)), "docker_images"
+    )
     for framework in sorted(os.listdir(directory)):
         print(f"{framework}")
         local_path = os.path.join(
-            os.path.dirname(os.path.dirname(__file__)), "docker_images", framework,
-            "app", "main.py"
+            os.path.dirname(os.path.dirname(__file__)),
+            "docker_images",
+            framework,
+            "app",
+            "main.py",
         )
         # Using ast to prevent import issues with missing dependencies.
         # and slow loads.
         with open(local_path, "r") as source:
             tree = ast.parse(source.read())
             for item in tree.body:
-                if isinstance(item, ast.AnnAssign) and item.target.id == "ALLOWED_TASKS":
+                if (
+                    isinstance(item, ast.AnnAssign)
+                    and item.target.id == "ALLOWED_TASKS"
+                ):
                     for key in item.value.keys:
                         print(" " * 4, key.value)
+
+
+def resolve(model_id: str) -> [str, str]:
+    info = HfApi().model_info(model_id)
+    task = info.pipeline_tag
+    framework = info.library_name
+    return task, framework.replace("-", "_")
 
 
 def start(args):
@@ -63,6 +80,14 @@ def start(args):
     model_id = args.model_id
     task = args.task
     framework = args.framework
+    if task is None or framework is None:
+        rtask, rframework = resolve(model_id)
+        if task is None:
+            task = rtask
+            print(f"Inferred task : {task}")
+        if framework is None:
+            framework = rframework
+            print(f"Inferred framework : {framework}")
 
     local_path = os.path.join(
         os.path.dirname(os.path.dirname(__file__)), "docker_images", framework
@@ -77,6 +102,12 @@ def docker(args):
     model_id = args.model_id
     task = args.task
     framework = args.framework
+    if task is None or framework is None:
+        rtask, rframework = resolve(model_id)
+        if task is None:
+            task = rtask
+        if framework is None:
+            framework = rframework
 
     tag = create_docker(framework)
     run_docker_command = [
@@ -116,13 +147,11 @@ def main():
     parser_start.add_argument(
         "--task",
         type=str,
-        required=True,
         help="Which task to load",
     )
     parser_start.add_argument(
         "--framework",
         type=str,
-        required=True,
         help="Which framework to load",
     )
     parser_start.set_defaults(func=start)
@@ -138,13 +167,11 @@ def main():
     parser_docker.add_argument(
         "--task",
         type=str,
-        required=True,
         help="Which task to load",
     )
     parser_docker.add_argument(
         "--framework",
         type=str,
-        required=True,
         help="Which framework to load",
     )
     parser_docker.set_defaults(func=docker)
