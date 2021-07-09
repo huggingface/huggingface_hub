@@ -2,7 +2,6 @@ from typing import Dict
 
 import numpy as np
 from app.pipelines import Pipeline
-from model import PreTrainedModel
 
 
 class AutomaticSpeechRecognitionPipeline(Pipeline):
@@ -13,7 +12,10 @@ class AutomaticSpeechRecognitionPipeline(Pipeline):
         # This function is only called once, so do all the heavy processing I/O here
         # IMPLEMENT_THIS : Please define a `self.sampling_rate` for this pipeline
         # to automatically read the input correctly
-        self.model = PreTrainedModel()
+        self.sampling_rate = 16000
+        raise NotImplementedError(
+            "Please implement AutomaticSpeechRecognitionPipeline __init__ function"
+        )
 
     def __call__(self, inputs: np.array) -> Dict[str, str]:
         """
@@ -26,4 +28,7 @@ class AutomaticSpeechRecognitionPipeline(Pipeline):
             A :obj:`dict`:. The object return should be liked {"text": "XXX"} containing
             the detected langage from the input audio
         """
-        return PreTrainedModel
+        # IMPLEMENT_THIS
+        raise NotImplementedError(
+            "Please implement AutomaticSpeechRecognitionPipeline __call__ function"
+        )
