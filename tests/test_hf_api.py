@@ -84,13 +84,7 @@ class HfApiCommonTestWithLogin(HfApiCommonTest):
 
 class HfApiEndpointsTest(HfApiCommonTestWithLogin):
     def test_whoami(self):
-        user, orgs = self._api.whoami(token=self._token)
-        self.assertEqual(user, USER)
-        self.assertIsInstance(orgs, list)
-
-    def test_whoami_full(self):
-        info = self._api.whoami(token=self._token, full=True)
-        print("Test", info)
+        info = self._api.whoami(token=self._token)
         self.assertEqual(info["name"], USER)
         self.assertEqual(info["fullname"], FULL_NAME)
         self.assertIsInstance(info["apiToken"], str)

@@ -165,7 +165,9 @@ class Repository:
         api = HfApi()
 
         if token is not None:
-            user, valid_organisations = api.whoami(token)
+            whoami_info = api.whoami(token)
+            user = whoami_info["user"]
+            valid_organisations = [org["name"] for org in whoami_info["orgs"]]
             repo_type, namespace, repo_id = repo_type_and_id_from_hf_id(repo_url)
 
             if namespace is None:

@@ -20,7 +20,7 @@ import sys
 import warnings
 from io import BufferedIOBase, RawIOBase
 from os.path import expanduser
-from typing import BinaryIO, Dict, Iterable, List, Optional, Tuple, Union
+from typing import BinaryIO, Dict, Iterable, List, Optional, Union
 
 import requests
 from requests.exceptions import HTTPError
@@ -176,31 +176,17 @@ class HfApi:
         d = r.json()
         return d["token"]
 
-    def whoami(
-        self, token: str, full: Optional[str] = None
-    ) -> Union[Dict, Tuple[str, List[str]]]:
+    def whoami(self, token: str) -> Dict:
         """
         Call HF API to know "whoami".
 
         Args:
             token (``str``): Hugging Face token.
-            full (``bool``, `optional`):
-                Whether to call the whoami-v2 endpoint and return all the info on the user.
-                This contains more information on the user including the Inference API
-                token.
         """
-        if full:
-            path = "{}/api/whoami-v2".format(self.endpoint)
-        else:
-            path = "{}/api/whoami".format(self.endpoint)
-
+        path = "{}/api/whoami-v2".format(self.endpoint)
         r = requests.get(path, headers={"authorization": "Bearer {}".format(token)})
         r.raise_for_status()
-        d = r.json()
-        if full:
-            return d
-        else:
-            return d["user"], d["orgs"]
+        return r.json()
 
     def logout(self, token: str) -> None:
         """
@@ -438,7 +424,7 @@ class HfApi:
             raise ValueError("Invalid repo type")
 
         if organization is None:
-            namespace, _ = self.whoami(token)
+            namespace = self.whoami(token)["name"]
         else:
             namespace = organization
 

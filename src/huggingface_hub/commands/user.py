@@ -157,8 +157,9 @@ class WhoamiCommand(BaseUserCommand):
             print("Not logged in")
             exit()
         try:
-            user, orgs = self._api.whoami(token)
-            print(user)
+            info = self._api.whoami(token)
+            print(info["name"])
+            orgs = [org["name"] for org in info["orgs"]]
             if orgs:
                 print(ANSI.bold("orgs: "), ",".join(orgs))
         except HTTPError as e:
