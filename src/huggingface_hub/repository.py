@@ -406,6 +406,9 @@ class Repository:
         except subprocess.CalledProcessError as exc:
             raise EnvironmentError(exc.stderr)
 
+        if len(git_status) == 0:
+            return []
+
         # Receives a status like the following
         #  D .gitignore
         #  D new_file.json

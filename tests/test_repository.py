@@ -74,9 +74,14 @@ class RepositoryTest(RepositoryCommonTest):
         try:
             self._api.delete_repo(token=self._token, name=REPO_NAME)
         except requests.exceptions.HTTPError:
+            pass
+
+        try:
             self._api.delete_repo(
                 token=self._token, organization="valid_org", name=REPO_NAME
             )
+        except requests.exceptions.HTTPError:
+            pass
 
     def test_init_from_existing_local_clone(self):
         subprocess.run(
