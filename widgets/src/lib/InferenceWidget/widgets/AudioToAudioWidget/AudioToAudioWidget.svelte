@@ -34,7 +34,7 @@
 		blob: string;
 		label: string;
 		src?: string;
-        content-type: string;
+        "content-type": string;
 	}
 
 	function onChangeRadio() {
