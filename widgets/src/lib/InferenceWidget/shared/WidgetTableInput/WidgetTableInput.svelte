@@ -8,9 +8,11 @@
 	export let onChange: (table: string[][]) => void;
 	export let highlighted: HighlightCoordinates = {};
 	export let table: string[][] = [[]];
+	export let canAddRow = true;
+	export let canAddCol = true;
 
 	let initialTable: string[][] = [[]];
-	let tableContainerEl: HTMLElement;
+	let tableContainerEl: HTMLElement = null;
 
 	onMount(() => {
 		initialTable = table.map((row) => row.map((cell) => cell));
@@ -22,6 +24,10 @@
 			colIndex === 0 ? `Header ${table[0].length + 1}` : "",
 		]);
 		onChange(updatedTable);
+		await scrollTableToRight();
+	}
+
+	export async function scrollTableToRight() {
 		await tick();
 		scrollToMax(tableContainerEl, "x");
 	}
@@ -31,9 +37,13 @@
 		onChange(updatedTable);
 	}
 
-	function editCell(e: Event, [x, y]) {
-		const value = (e.target as HTMLElement)?.innerText;
-
+	function editCell(e: KeyboardEvent, [x, y]) {
+		const htmlElement = e.target as HTMLElement;
+		const value = htmlElement?.innerText;
+		if (e.code == "Enter") {
+			htmlElement?.blur();
+			return;
+		}
 		const updatedTable = table.map((row, rowIndex) =>
 			rowIndex === y
 				? row.map((col, colIndex) => (colIndex === x ? value : col))
@@ -53,7 +63,11 @@
 		<thead>
 			<tr>
 				{#each table[0] as header, x}
-					<th contenteditable on:input={(e) => editCell(e, [x, 0])}>
+					<th
+						contenteditable
+						class="border-2 border-gray-100"
+						on:keydown={(e) => editCell(e, [x, 0])}
+					>
 						{header}
 					</th>
 				{/each}
@@ -64,9 +78,10 @@
 				<tr class={highlighted[`${y}`] ?? "bg-white"}>
 					{#each row as cell, x}
 						<td
-							class={highlighted[`${y}-${x}`] ?? "border-gray-100"}
+							class={(highlighted[`${y}-${x}`] ?? "border-gray-100") +
+								" border-2"}
 							contenteditable
-							on:input={(e) => editCell(e, [x, y + 1])}>{cell}</td
+							on:keydown={(e) => editCell(e, [x, y + 1])}>{cell}</td
 						>
 					{/each}
 				</tr>
@@ -76,22 +91,26 @@
 </div>
 
 <div class="flex mb-1 flex-wrap">
-	<button
-		class="btn-widget flex-1 lg:flex-none mt-2  mr-1.5"
-		on:click={addRow}
-		type="button"
-	>
-		<IconRow classNames="mr-2" />
-		Add row
-	</button>
-	<button
-		class="btn-widget flex-1 lg:flex-none mt-2 lg:mr-1.5"
-		on:click={addCol}
-		type="button"
-	>
-		<IconRow classNames="transform rotate-90 mr-1" />
-		Add col
-	</button>
+	{#if canAddRow}
+		<button
+			class="btn-widget flex-1 lg:flex-none mt-2  mr-1.5"
+			on:click={addRow}
+			type="button"
+		>
+			<IconRow classNames="mr-2" />
+			Add row
+		</button>
+	{/if}
+	{#if canAddCol}
+		<button
+			class="btn-widget flex-1 lg:flex-none mt-2 lg:mr-1.5"
+			on:click={addCol}
+			type="button"
+		>
+			<IconRow classNames="transform rotate-90 mr-1" />
+			Add col
+		</button>
+	{/if}
 	<button
 		class="btn-widget flex-1 mt-2 lg:flex-none lg:ml-auto"
 		on:click={resetTable}

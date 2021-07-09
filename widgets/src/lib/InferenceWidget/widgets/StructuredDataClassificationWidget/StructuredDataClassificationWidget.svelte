@@ -30,7 +30,7 @@
 	export let shouldUpdateUrl: WidgetProps["shouldUpdateUrl"];
 
 	const columns: string[] = Object.keys(
-		model?.widgetData[0]?.structuredData ?? {}
+		model?.widgetData?.[0]?.structuredData ?? {}
 	);
 
 	let computeTime = "";
@@ -45,6 +45,7 @@
 	let table: string[][] = [columns];
 
 	let highlighted: HighlightCoordinates = {};
+	let scrollTableToRight: () => Promise<void>;
 	let tableWithOutput: string[][];
 	$: {
 		const strucuredData = convertTableToData(table);
@@ -52,6 +53,7 @@
 			strucuredData.Prediction = output;
 			const lastColIndex = Object.keys(strucuredData).length - 1;
 			highlighted = getHighlighted(output, lastColIndex);
+			scrollTableToRight();
 		} else {
 			delete strucuredData.Prediction;
 			highlighted = {};
@@ -67,8 +69,9 @@
 			table = convertDataToTable((parseJSON(dataParam) as TableData) ?? {});
 			getOutput();
 		} else {
+			// TODO: check demoTable when highlighted
 			const [demoTable] = getDemoInputs(model, ["structuredData"]);
-			table = convertDataToTable(demoTable as TableData);
+			table = convertDataToTable((demoTable as TableData) ?? {});
 			if (table && callApiOnMount) {
 				getOutput();
 			}
@@ -154,7 +157,6 @@
 		if (set.size < COLORS.length) {
 			classes = [...set].reduce((acc, cls, i) => ({ ...acc, [cls]: i }), {});
 		}
-
 		return output.reduce((acc, row, rowIndex) => {
 			const colorIndex = classes[row] ?? mod(rowIndex, COLORS.length);
 			const color = COLORS[colorIndex];
@@ -178,11 +180,13 @@
 	<svelte:fragment slot="top">
 		<form>
 			<div class="mt-4">
-				{#if table.length > 1 || table[0].length > 1}
+				{#if table.length > 1 || table[1]?.length > 1}
 					<WidgetTableInput
 						{highlighted}
 						onChange={onChangeTable}
 						table={tableWithOutput}
+						canAddCol={false}
+						bind:scrollTableToRight
 					/>
 				{/if}
 			</div>
