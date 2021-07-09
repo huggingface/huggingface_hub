@@ -14,14 +14,14 @@ The table below summarizes the supported libraries and how they are integrated. 
 | Library               | Description                                                                   | Inference API | Widgets | Download from Hub | Push to Hub |
 |-----------------------|-------------------------------------------------------------------------------|---------------|-------:|-------------------|-------------|
 | [🤗 Transformers](https://github.com/huggingface/transformers)         | State-of-the-art Natural Language Processing for Pytorch, TensorFlow, and JAX |       ✅       |    ✅   |         ✅         |      ✅      |
-| [Adapter Transformers](https://github.com/Adapter-Hub/adapter-transformers)  | Extends 🤗Transformers with Adapters.                                          |       ❌       | ❌      |         ✅         |      ❌      |
+| [Adapter Transformers](https://github.com/Adapter-Hub/adapter-transformers)  | Extends 🤗Transformers with Adapters.                                          |       ❌       | ❌      |         ✅         |      ✅      |
 | [AllenNLP](https://github.com/allenai/allennlp)              | An open-source NLP research library, built on PyTorch.                        |       ✅       |    ✅   |         ✅         |      ❌      |
 | [Asteroid](https://github.com/asteroid-team/asteroid)              | Pytorch-based audio source separation toolkit                                 |       ✅       | ❌      |         ✅         |      ❌      |
 | [ESPnet](https://github.com/espnet/espnet)                | End-to-end speech processing toolkit (e.g. TTS)                               |       ✅       | ✅      |         ✅         |      ❌      |
 | [Flair](https://github.com/flairNLP/flair)                 | Very simple framework for state-of-the-art NLP. |       ✅       |    ✅   |         ✅         |      ❌      |
 | [Pyannote](https://github.com/pyannote/pyannote-audio)              | Neural building blocks for speaker diarization.                               |       ❌       |    ❌   |         ✅         |      ❌      |
 | [Sentence Transformers](https://github.com/UKPLab/sentence-transformers) | Compute dense vector representations for sentences, paragraphs, and images.   |       ✅       |    ✅   |         ✅         |      ✅      |
-| [spaCy](https://github.com/explosion/spaCy)                 | Advanced Natural Language Processing in Python and Cython.                    |       ✅       |    ✅   |         ✅         |      ❌      |
+| [spaCy](https://github.com/explosion/spaCy)                 | Advanced Natural Language Processing in Python and Cython.                    |       ✅       |    ✅   |         ✅         |      ✅      |
 | [TensorFlowTTS](https://github.com/TensorSpeech/TensorFlowTTS)         | Real-time state-of-the-art speech synthesis architectures.                    |       ❌       |    ❌   |         ✅         |      ❌      |
 | [Timm](https://github.com/rwightman/pytorch-image-models)                  | Collection of image models, scripts, pretrained weights, etc.                 |       ❌       |    ❌   |         ✅         |      ❌      |
 
