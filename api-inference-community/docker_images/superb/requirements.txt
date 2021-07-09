@@ -2,4 +2,5 @@ starlette==0.14.2
 api-inference-community==0.0.7
 transformers
 numpy
-pytorch_lightning
+torch
+huggingface-hub===0.0.13

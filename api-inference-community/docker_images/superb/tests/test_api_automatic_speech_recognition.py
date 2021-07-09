@@ -1,26 +1,43 @@
 import json
 import os
+import shutil
 from unittest import TestCase, skipIf
 
-from app.main import ALLOWED_TASKS
+from huggingface_hub import snapshot_download
 from starlette.testclient import TestClient
 from tests.test_api import TESTABLE_MODELS
 
 
-@skipIf(
-    "automatic-speech-recognition" not in ALLOWED_TASKS,
-    "automatic-speech-recognition not implemented",
-)
 class AutomaticSpeecRecognitionTestCase(TestCase):
+    @classmethod
+    def setUpClass(cls):
+        """
+        Clone the test repository and make its code available.
+        """
+        model_id = TESTABLE_MODELS["automatic-speech-recognition"]
+        filepath = snapshot_download(
+            model_id, cache_dir="docker_images/superb/app/pipelines/"
+        )
+        os.rename(filepath, "docker_images/superb/app/pipelines/code")
+
     def setUp(self):
+        """
+        This logic is done in the docker prestart step, this is just
+        to replicate the logic.
+        """
         model_id = TESTABLE_MODELS["automatic-speech-recognition"]
         self.old_model_id = os.getenv("MODEL_ID")
         self.old_task = os.getenv("TASK")
         os.environ["MODEL_ID"] = model_id
         os.environ["TASK"] = "automatic-speech-recognition"
+
         from app.main import app
 
         self.app = app
+
+    @classmethod
+    def tearDownClass(cls):
+        shutil.rmtree("docker_images/superb/app/pipelines/code")
 
     def tearDown(self):
         if self.old_model_id is not None:
@@ -57,7 +74,7 @@ class AutomaticSpeecRecognitionTestCase(TestCase):
 
         with TestClient(self.app) as client:
             response = client.post("/", data=bpayload)
-
+        print(response.content)
         self.assertEqual(
             response.status_code,
             400,
@@ -83,6 +100,7 @@ class AutomaticSpeecRecognitionTestCase(TestCase):
         with TestClient(self.app) as client:
             response = client.post("/", data=bpayload)
 
+        print(response.content)
         self.assertEqual(
             response.status_code,
             200,
