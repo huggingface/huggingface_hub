@@ -62,7 +62,7 @@ class ModelHubMixin:
 
     def _save_pretrained(self, save_directory):
         """
-        Overwrite this method in case you don't want to save complete model, rather some specific layers
+        Overwrite this method in subclass to define how to save your model.
         """
         raise NotImplementedError
 
@@ -307,6 +307,9 @@ class PyTorchModelHubMixin(ModelHubMixin):
         """
 
     def _save_pretrained(self, save_directory):
+        """
+        Overwrite this method in case you don't want to save complete model, rather some specific layers
+        """
         path = os.path.join(save_directory, PYTORCH_WEIGHTS_NAME)
         model_to_save = self.module if hasattr(self, "module") else self
         torch.save(model_to_save.state_dict(), path)
@@ -326,6 +329,9 @@ class PyTorchModelHubMixin(ModelHubMixin):
         strict=False,
         **model_kwargs,
     ):
+        """
+        Overwrite this method in case you wish to initialize your model in a different way.
+        """
         map_location = torch.device(map_location)
 
         if os.path.isdir(model_id):
