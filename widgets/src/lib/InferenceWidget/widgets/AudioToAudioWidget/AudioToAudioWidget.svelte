@@ -33,7 +33,8 @@
 	interface AudioItem {
 		blob: string;
 		label: string;
-		src: string;
+		src?: string;
+        content-type: string;
 	}
 
 	function onChangeRadio() {
@@ -110,7 +111,7 @@
 				(x) =>
 					typeof x.blob === "string" &&
 					typeof x.label === "string" &&
-					typeof x.src === "string"
+					typeof x["content-type"] === "string"
 			)
 		);
 	}
