@@ -71,7 +71,6 @@
 			const firstEntry = body[0];
 			return (
 				firstEntry["generated_text"] ?? // text-generation + text2text-generation + image-to-text
-				firstEntry["translation_text"] ?? // translation
 				""
 			);
 		}
