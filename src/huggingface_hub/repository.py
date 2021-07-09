@@ -166,7 +166,7 @@ class Repository:
 
         if token is not None:
             whoami_info = api.whoami(token)
-            user = whoami_info["user"]
+            user = whoami_info["name"]
             valid_organisations = [org["name"] for org in whoami_info["orgs"]]
             repo_type, namespace, repo_id = repo_type_and_id_from_hf_id(repo_url)
 
