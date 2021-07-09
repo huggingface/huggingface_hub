@@ -31,7 +31,11 @@ from .constants import (
 )
 from .file_download import cached_download, hf_hub_download, hf_hub_url
 from .hf_api import HfApi, HfFolder, repo_type_and_id_from_hf_id
+<<<<<<< HEAD
 from .hub_mixin import ModelHubMixin
 from .inference_api import InferenceApi
+=======
+from .hub_mixin import ModelHubMixin, PyTorchModelHubMixin
+>>>>>>> :art: decouple torch from ModelHubMixin
 from .repository import Repository
 from .snapshot_download import snapshot_download
