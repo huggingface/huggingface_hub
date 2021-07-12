@@ -144,6 +144,26 @@ class DockerImageTests(unittest.TestCase):
             "keras", "image-classification", "osanseviero/keras-dog-or-cat"
         )
 
+    def test_superb(self):
+        # Very basic repo just using transformers.
+        self.framework_docker_test(
+            "superb",
+            "automatic-speech-recognition",
+            "osanseviero/asr-with-transformers-wav2vec2",
+        )
+
+        # Repo with all s3prl code with many dependencies.
+        # Requires fairseq to work.
+
+        self.framework_docker_test(
+            "superb",
+            "automatic-speech-recognition",
+            "osanseviero/asr-with-s3prl",
+        )
+        
+    
+        self.framework_invalid_test("superb")
+
     def framework_invalid_test(self, framework: str):
         task = "invalid"
         model_id = "invalid"
@@ -275,6 +295,8 @@ class DockerImageTests(unittest.TestCase):
                 data = f.read()
             response = httpx.post(url, data=data, timeout=timeout)
             self.assertIn(response.status_code, {200, 400})
+            print(response.json())
+            self.assertEqual(response.json(), 3)
             counter[response.status_code] += 1
             if response.status_code == 200:
                 if response.headers["content-type"] == "application/json":

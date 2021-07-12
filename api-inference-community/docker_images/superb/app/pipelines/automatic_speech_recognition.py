@@ -5,7 +5,7 @@ from app.pipelines import Pipeline
 from app.pipelines.code.model import PreTrainedModel
 
 
-class AutomaticSpeechRecognitionInferencePipeline(Pipeline):
+class AutomaticSpeechRecognitionPipeline(Pipeline):
     def __init__(self, model_id: str):
         # IMPLEMENT_THIS
         # Preload all the elements you are going to need at inference.

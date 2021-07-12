@@ -1,7 +1,7 @@
 import json
 import os
 import shutil
-from unittest import TestCase, skipIf
+from unittest import TestCase
 
 from huggingface_hub import snapshot_download
 from starlette.testclient import TestClient

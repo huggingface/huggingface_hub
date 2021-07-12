@@ -5,8 +5,7 @@ git clone "https://huggingface.co/${MODEL_ID}"
 REPO_NAME=${MODEL_ID#*/}  
 REQUIREMENTS="${REPO_NAME}/requirements.txt"
 if [ -f "${REQUIREMENTS}" ]; then
-    pip install -r "${REQUIREMENTS}"
+    pip install --no-cache-dir -r "${REQUIREMENTS}"
 fi
 mv "${REPO_NAME}" app/pipelines/code
-
 python app/main.py

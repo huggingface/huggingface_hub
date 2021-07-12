@@ -4,7 +4,7 @@ import os
 from typing import Dict, Type
 
 from api_inference_community.routes import pipeline_route, status_ok
-from app.pipelines import AutomaticSpeechRecognitionInferencePipeline, Pipeline
+from app.pipelines import AutomaticSpeechRecognitionPipeline, Pipeline
 from starlette.applications import Starlette
 from starlette.middleware import Middleware
 from starlette.middleware.gzip import GZipMiddleware
@@ -33,7 +33,7 @@ logger = logging.getLogger(__name__)
 # You can check the requirements and expectations of each pipelines in their respective
 # directories. Implement directly within the directories.
 ALLOWED_TASKS: Dict[str, Type[Pipeline]] = {
-    "automatic-speech-recognition": AutomaticSpeechRecognitionInferencePipeline,
+    "automatic-speech-recognition": AutomaticSpeechRecognitionPipeline,
 }
 
 
