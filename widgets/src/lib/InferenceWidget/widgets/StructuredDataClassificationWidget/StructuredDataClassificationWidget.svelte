@@ -45,6 +45,7 @@
 	let table: string[][] = [columns];
 
 	let highlighted: HighlightCoordinates = {};
+	let highlightError = "";
 	let scrollTableToRight: () => Promise<void>;
 	let tableWithOutput: string[][];
 	$: {
@@ -52,11 +53,15 @@
 		if (output?.length) {
 			strucuredData.Prediction = output;
 			const lastColIndex = Object.keys(strucuredData).length - 1;
-			highlighted = getHighlighted(output, lastColIndex);
+			highlighted = highlightOutput(output, lastColIndex);
 			scrollTableToRight();
 		} else {
 			delete strucuredData.Prediction;
 			highlighted = {};
+			if(highlightError){
+				highlighted[highlightError] = "bg-red-100 border-red-100 dark:bg-red-800 dark:border-red-800";
+				highlightError = "";
+			}
 		}
 		tableWithOutput = convertDataToTable(strucuredData);
 	}
@@ -83,10 +88,11 @@
 	}
 
 	async function getOutput(withModelLoading = false) {
-		for (const [i, row] of table.entries()) {
+		for (let [i, row] of table.entries()) {
 			for (const [j, cell] of row.entries()) {
 				if (!String(cell)) {
 					error = `Missing value at row=${i} & column='${columns[j]}'`;
+					highlightError = `${--i}-${j}`;
 					output = null;
 					outputJson = "";
 					return;
@@ -151,7 +157,7 @@
 		return isValidOutput(body) ? body.map((val) => String(val)) : [];
 	}
 
-	function getHighlighted(
+	function highlightOutput(
 		output: string[],
 		colIndex: number
 	): HighlightCoordinates {
