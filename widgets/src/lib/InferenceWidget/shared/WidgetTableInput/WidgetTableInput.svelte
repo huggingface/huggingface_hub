@@ -12,7 +12,7 @@
 	export let canAddCol = true;
 
 	let initialTable: string[][] = [[]];
-	let tableContainerEl: HTMLElement = null;
+	let tableContainerEl: HTMLElement;
 
 	onMount(() => {
 		initialTable = table.map((row) => row.map((cell) => cell));
