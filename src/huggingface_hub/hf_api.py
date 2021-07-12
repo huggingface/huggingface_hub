@@ -20,7 +20,7 @@ import sys
 import warnings
 from io import BufferedIOBase, RawIOBase
 from os.path import expanduser
-from typing import BinaryIO, Dict, Iterable, List, Optional, Tuple, Union
+from typing import BinaryIO, Dict, Iterable, List, Optional, Union
 
 import requests
 from requests.exceptions import HTTPError
@@ -176,15 +176,17 @@ class HfApi:
         d = r.json()
         return d["token"]
 
-    def whoami(self, token: str) -> Tuple[str, List[str]]:
+    def whoami(self, token: str) -> Dict:
         """
-        Call HF API to know "whoami"
+        Call HF API to know "whoami".
+
+        Args:
+            token (``str``): Hugging Face token.
         """
-        path = "{}/api/whoami".format(self.endpoint)
+        path = "{}/api/whoami-v2".format(self.endpoint)
         r = requests.get(path, headers={"authorization": "Bearer {}".format(token)})
         r.raise_for_status()
-        d = r.json()
-        return d["user"], d["orgs"]
+        return r.json()
 
     def logout(self, token: str) -> None:
         """
@@ -422,7 +424,7 @@ class HfApi:
             raise ValueError("Invalid repo type")
 
         if organization is None:
-            namespace, _ = self.whoami(token)
+            namespace = self.whoami(token)["name"]
         else:
             namespace = organization
 
