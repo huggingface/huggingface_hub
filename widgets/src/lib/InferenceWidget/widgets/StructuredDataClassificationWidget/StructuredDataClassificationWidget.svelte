@@ -58,8 +58,9 @@
 		} else {
 			delete strucuredData.Prediction;
 			highlighted = {};
-			if(highlightError){
-				highlighted[highlightError] = "bg-red-100 border-red-100 dark:bg-red-800 dark:border-red-800";
+			if (highlightError) {
+				highlighted[highlightError] =
+					"bg-red-100 border-red-100 dark:bg-red-800 dark:border-red-800";
 				highlightError = "";
 			}
 		}
