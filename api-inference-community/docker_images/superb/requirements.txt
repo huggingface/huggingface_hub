@@ -1,6 +1,7 @@
 starlette==0.14.2
 api-inference-community==0.0.7
-transformers
+transformers>=4.8
 numpy
 torch
-huggingface-hub===0.0.13
+huggingface-hub===0.0.12
+-e git+https://github.com/pytorch/fairseq.git@8df9e3a4#egg=fairseq

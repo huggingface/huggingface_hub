@@ -3,11 +3,10 @@ LABEL maintainer="Omar osanseviero@gmail.com"
 
 # Add any system dependency here
 # RUN apt-get update -y && apt-get install libXXX -y
-
+RUN apt-get update -y && apt-get install git -y
 COPY ./requirements.txt /app
 RUN pip install --no-cache-dir -r requirements.txt
 COPY ./prestart.sh /app/
-
 
 # Most DL models are quite large in terms of memory, using workers is a HUGE
 # slowdown because of the fork and GIL with python.
