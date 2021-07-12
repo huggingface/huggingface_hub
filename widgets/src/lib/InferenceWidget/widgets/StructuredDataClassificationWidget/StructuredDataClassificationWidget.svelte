@@ -86,7 +86,7 @@
 		for (const [i, row] of table.entries()) {
 			for (const [j, cell] of row.entries()) {
 				if (!String(cell)) {
-					error = `Missing value at row=${i} column='${columns[j]}'`;
+					error = `Missing value at row=${i} & column='${columns[j]}'`;
 					output = null;
 					outputJson = "";
 					return;
