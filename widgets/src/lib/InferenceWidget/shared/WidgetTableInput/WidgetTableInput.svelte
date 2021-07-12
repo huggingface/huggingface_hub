@@ -37,19 +37,20 @@
 		onChange(updatedTable);
 	}
 
-	function editCell(e: KeyboardEvent, [x, y]) {
-		const htmlElement = e.target as HTMLElement;
-		const value = htmlElement?.innerText;
-		if (e.code == "Enter") {
-			htmlElement?.blur();
-			return;
-		}
+	function editCell(e: Event, [x, y]) {
+		const value = (e.target as HTMLElement)?.innerText;
 		const updatedTable = table.map((row, rowIndex) =>
 			rowIndex === y
 				? row.map((col, colIndex) => (colIndex === x ? value : col))
 				: row
 		);
 		onChange(updatedTable);
+	}
+
+	function onKeyDown(e: KeyboardEvent) {
+		if (e.code == "Enter") {
+			(e.target as HTMLElement)?.blur();
+		}
 	}
 
 	function resetTable() {
@@ -64,9 +65,10 @@
 			<tr>
 				{#each table[0] as header, x}
 					<th
-						contenteditable
+						contenteditable={canAddCol}
 						class="border-2 border-gray-100"
-						on:keydown={(e) => editCell(e, [x, 0])}
+						on:keydown={onKeyDown}
+						on:input={(e) => editCell(e, [x, 0])}
 					>
 						{header}
 					</th>
@@ -81,7 +83,8 @@
 							class={(highlighted[`${y}-${x}`] ?? "border-gray-100") +
 								" border-2"}
 							contenteditable
-							on:keydown={(e) => editCell(e, [x, y + 1])}>{cell}</td
+							on:keydown={onKeyDown}
+							on:input={(e) => editCell(e, [x, y + 1])}>{cell}</td
 						>
 					{/each}
 				</tr>

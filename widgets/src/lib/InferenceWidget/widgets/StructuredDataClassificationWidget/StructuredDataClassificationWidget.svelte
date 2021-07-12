@@ -69,7 +69,6 @@
 			table = convertDataToTable((parseJSON(dataParam) as TableData) ?? {});
 			getOutput();
 		} else {
-			// TODO: check demoTable when highlighted
 			const [demoTable] = getDemoInputs(model, ["structuredData"]);
 			table = convertDataToTable((demoTable as TableData) ?? {});
 			if (table && callApiOnMount) {
@@ -84,11 +83,15 @@
 	}
 
 	async function getOutput(withModelLoading = false) {
-		if (table?.[0].length !== columns.length) {
-			error = `Data needs to have ${columns.length} columns`;
-			output = null;
-			outputJson = "";
-			return;
+		for (const [i, row] of table.entries()) {
+			for (const [j, cell] of row.entries()) {
+				if (!String(cell)) {
+					error = `Missing value at row=${i} column='${columns[j]}'`;
+					output = null;
+					outputJson = "";
+					return;
+				}
+			}
 		}
 
 		if (shouldUpdateUrl) {
