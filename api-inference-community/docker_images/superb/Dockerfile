@@ -10,8 +10,8 @@ RUN apt-get install ffmpeg -y
 
 COPY ./requirements.txt /app
 RUN pip install --no-cache-dir -r requirements.txt
-COPY ./prestart.sh /app/
 
+COPY ./prestart.sh /app/
 
 # Most DL models are quite large in terms of memory, using workers is a HUGE
 # slowdown because of the fork and GIL with python.

@@ -1,3 +1,5 @@
+#!/bin/bash -x
+
 git-lfs install
 git clone "https://huggingface.co/${MODEL_ID}"
 
@@ -8,8 +10,6 @@ REQUIREMENTS="${REPO_NAME}/requirements.txt"
 if [ -f "${REQUIREMENTS}" ]; then
     pip install --no-cache-dir -r "${REQUIREMENTS}"
     cd ${REPO_NAME} && git lfs fetch && cd ..
+
 fi
-
 mv ${REPO_NAME}/* .
-
-python app/main.py
