@@ -7,5 +7,6 @@ REQUIREMENTS="${REPO_NAME}/requirements.txt"
 if [ -f "${REQUIREMENTS}" ]; then
     pip install --no-cache-dir -r "${REQUIREMENTS}"
 fi
-mv "${REPO_NAME}" app/pipelines/code
+rm -rf src/
+mv ${REPO_NAME}/* .
 python app/main.py

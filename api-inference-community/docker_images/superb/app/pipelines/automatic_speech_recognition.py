@@ -2,7 +2,7 @@ from typing import Dict
 
 import numpy as np
 from app.pipelines import Pipeline
-from app.pipelines.code.model import PreTrainedModel
+from model import PreTrainedModel
 
 
 class AutomaticSpeechRecognitionPipeline(Pipeline):
