@@ -1,6 +1,6 @@
 import json
 import os
-import shutil
+import sys
 from unittest import TestCase
 
 from huggingface_hub import snapshot_download
@@ -16,12 +16,8 @@ class AutomaticSpeecRecognitionTestCase(TestCase):
         This replicates a git clone + moving files to running directory.
         """
         model_id = TESTABLE_MODELS["automatic-speech-recognition"]
-        filepath = snapshot_download(model_id, cache_dir=os.getcwd())
-        file_names = os.listdir(filepath)
-        for file_name in file_names:
-            shutil.move(os.path.join(filepath, file_name), os.getcwd())
-        shutil.rmtree(filepath)
-        cls.file_names = file_names
+        filepath = snapshot_download(model_id)
+        sys.path.append(filepath)
 
     def setUp(self):
         """
@@ -37,14 +33,6 @@ class AutomaticSpeecRecognitionTestCase(TestCase):
         from app.main import app
 
         self.app = app
-
-    @classmethod
-    def tearDownClass(cls):
-        for file_name in cls.file_names:
-            if os.path.isfile(file_name):
-                os.remove(file_name)
-            elif os.path.isdir(file_name):
-                shutil.rmtree(file_name)
 
     def tearDown(self):
         if self.old_model_id is not None:

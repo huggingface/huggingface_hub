@@ -4,12 +4,13 @@ import os
 from typing import Dict, Type
 
 from api_inference_community.routes import pipeline_route, status_ok
-from app.pipelines import AutomaticSpeechRecognitionPipeline, Pipeline
 from starlette.applications import Starlette
 from starlette.middleware import Middleware
 from starlette.middleware.gzip import GZipMiddleware
 from starlette.routing import Route
 
+import sys
+from huggingface_hub import snapshot_download
 
 TASK = os.getenv("TASK")
 MODEL_ID = os.getenv("MODEL_ID")
@@ -18,27 +19,12 @@ MODEL_ID = os.getenv("MODEL_ID")
 logger = logging.getLogger(__name__)
 
 
-# Add the allowed tasks
-# Supported tasks are:
-# - text-generation
-# - text-classification
-# - token-classification
-# - translation
-# - summarization
-# - automatic-speech-recognition
-# - ...
-# For instance
-# from app.pipelines import AutomaticSpeechRecognitionPipeline
-# ALLOWED_TASKS = {"automatic-speech-recognition": AutomaticSpeechRecognitionPipeline}
-# You can check the requirements and expectations of each pipelines in their respective
-# directories. Implement directly within the directories.
-ALLOWED_TASKS: Dict[str, Type[Pipeline]] = {
-    "automatic-speech-recognition": AutomaticSpeechRecognitionPipeline,
-}
-
-
 @functools.lru_cache()
-def get_pipeline() -> Pipeline:
+def get_pipeline():
+    from app.pipelines import AutomaticSpeechRecognitionPipeline, Pipeline
+    ALLOWED_TASKS: Dict[str, Type[Pipeline]] = {
+        "automatic-speech-recognition": AutomaticSpeechRecognitionPipeline,
+    }
     task = os.environ["TASK"]
     model_id = os.environ["MODEL_ID"]
     if task not in ALLOWED_TASKS:
@@ -75,6 +61,8 @@ async def startup_event():
     logger.handlers = [handler]
 
     # Link between `api-inference-community` and framework code.
+    filepath = snapshot_download(os.environ["MODEL_ID"])
+    sys.path.append(filepath)
     app.get_pipeline = get_pipeline
     try:
         get_pipeline()
@@ -85,6 +73,8 @@ async def startup_event():
 
 if __name__ == "__main__":
     try:
+        filepath = snapshot_download(os.environ["MODEL_ID"])
+        sys.path.append(filepath)
         get_pipeline()
     except Exception:
         # We can fail so we can show exception later.

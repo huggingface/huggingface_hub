@@ -12,7 +12,7 @@ import httpx
 class DockerPopen(subprocess.Popen):
     def __exit__(self, exc_type, exc_val, traceback):
         self.terminate()
-        self.wait(20)
+        self.wait(30)
         return super().__exit__(exc_type, exc_val, traceback)
 
 
@@ -224,6 +224,7 @@ class DockerImageTests(unittest.TestCase):
             self.assertEqual(response.content, b'{"ok":"ok"}')
 
             response = httpx.post(url, data=b"This is a test", timeout=timeout)
+            print(response.json())
             self.assertIn(response.status_code, {200, 400})
             counter[response.status_code] += 1
 
@@ -341,7 +342,7 @@ class DockerImageTests(unittest.TestCase):
             counter[response.status_code] += 1
 
             proc.terminate()
-            proc.wait(30)
+            proc.wait(20)
 
         self.assertEqual(proc.returncode, 0)
         self.assertGreater(
