@@ -2,7 +2,6 @@ from typing import Dict
 
 import numpy as np
 from app.pipelines import Pipeline
-from model import PreTrainedModel
 
 
 class AutomaticSpeechRecognitionPipeline(Pipeline):
@@ -13,6 +12,7 @@ class AutomaticSpeechRecognitionPipeline(Pipeline):
         # This function is only called once, so do all the heavy processing I/O here
         # IMPLEMENT_THIS : Please define a `self.sampling_rate` for this pipeline
         # to automatically read the input correctly
+        from model import PreTrainedModel
         self.model = PreTrainedModel()
         self.sampling_rate = 16000
 

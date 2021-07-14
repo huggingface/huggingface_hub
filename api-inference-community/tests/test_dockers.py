@@ -47,7 +47,6 @@ class DockerImageTests(unittest.TestCase):
         self.assertEqual(proc.returncode, 0)
         return tag
 
-    """
     def test_allennlp(self):
         self.framework_docker_test(
             "allennlp", "question-answering", "lysandre/bidaf-elmo-model-2020.03.19"
@@ -144,15 +143,13 @@ class DockerImageTests(unittest.TestCase):
         self.framework_docker_test(
             "keras", "image-classification", "osanseviero/keras-dog-or-cat"
         )
-    """
 
     def test_superb(self):
         # Very basic repo just using transformers.
         self.framework_docker_test(
             "superb",
             "automatic-speech-recognition",
-            "osanseviero/asr-with-transformers-wav2vec2",
-            fast_reload=False,
+            "osanseviero/asr-with-transformers-wav2vec2"
         )
 
     def framework_invalid_test(self, framework: str):
@@ -193,7 +190,7 @@ class DockerImageTests(unittest.TestCase):
             proc.wait(5)
 
     def framework_docker_test(
-        self, framework: str, task: str, model_id: str, fast_reload: bool = True
+        self, framework: str, task: str, model_id: str
     ):
         tag = self.create_docker(framework)
         run_docker_command = [
@@ -352,15 +349,14 @@ class DockerImageTests(unittest.TestCase):
         )
 
         # Follow up loading are much faster, 20s should be ok.
-        if fast_reload is True:
-            with DockerPopen(run_docker_command) as proc2:
-                for i in range(20):
-                    try:
-                        response = httpx.get(url, timeout=10)
-                        break
-                    except Exception:
-                        time.sleep(1)
-                self.assertEqual(response.content, b'{"ok":"ok"}')
-                proc2.terminate()
-                proc2.wait(5)
-            self.assertEqual(proc2.returncode, 0)
+        with DockerPopen(run_docker_command) as proc2:
+            for i in range(20):
+                try:
+                    response = httpx.get(url, timeout=10)
+                    break
+                except Exception:
+                    time.sleep(1)
+            self.assertEqual(response.content, b'{"ok":"ok"}')
+            proc2.terminate()
+            proc2.wait(5)
+        self.assertEqual(proc2.returncode, 0)
