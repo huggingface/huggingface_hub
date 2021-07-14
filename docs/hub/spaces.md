@@ -8,7 +8,7 @@ title: Documentation for Spaces
 
 ## What are Spaces?
 
-Spaces are a simple way to host a ML demo app, directly on your or your organization’s hf.co profile.
+Spaces are a simple way to host a ML demo app, directly on your user profile or your organization’s hf.co profile.
 
 We support two awesome SDKs that let you build cool apps in Python: **[Streamlit](https://streamlit.io/)** and **[Gradio](https://gradio.app/)**.
 
@@ -36,6 +36,8 @@ Our 2 cents:
 
 You can also take a look at some sample apps on the [Spaces directory](https://huggingface.co/spaces) to make up your mind.
 
+<!-- Add screencap of listing directory -->
+
 Finally, we've been thinking of providing a way to run **custom apps**, for instance Python server code for the backend + a unified set of widgets/frontend JS code, or even custom Docker image serving. Do get in touch if you would like to build something more custom.
 
 
@@ -44,18 +46,18 @@ Finally, we've been thinking of providing a way to run **custom apps**, for inst
 In addition to the Streamlit or Gradio SDK, the environment we run your app in includes the following Python libraries out-of-the-box:
 - [`huggingface_hub`](https://github.com/huggingface/huggingface_hub), so you can list models, query the hf.co API, etc. **You can also use this to call our Accelerated Inference API from your Space**. If your app instantiates a model to run inference on, consider calling the Inference API instead, because you'll then leverage the acceleration optimizations we already built, and it's also consuming less computing resources, which is always nice 🌎.
 <!-- TODO(merge and ship the Inference API wrapper) -->
-- [`requests`] the famous HTTP request library
-- [`datasets`](https://github.com/huggingface/datasets) so that you can easily fetch data from inside your app.
+- [`requests`](https://docs.python-requests.org/en/master/) the famous HTTP request library, useful if you want to call a third-party API from your app.
+- [`datasets`](https://github.com/huggingface/datasets) so that you can easily fetch or display data from inside your app.
 
 ## How can I install other dependencies?
 
-If you need other Python packages, you can simply add a `requirements.txt` at the root of your repo.
+If you need any other Python package, you can simply add a `requirements.txt` at the root of your repo.
 
 A custom environment will be created on the fly by the Spaces runtime engine.
 
-We do not support installing `apt-get` dependencies yet but it's on our roadmap.
+We do not support installing `apt-get` dependencies yet, but it's on our roadmap.
 
-## What are the RAM limitations?
+## What are the RAM and CPU or GPU limitations?
 
 Each environment is currently limited to 16GB RAM and 8 CPU cores.
 
@@ -63,11 +65,11 @@ Some Spaces can have one T4 GPU on a case-by-case basis, contact us if you need 
 
 ## How does it work?
 
-We deploy a containerized version of your code on our Infra, each time you commit. Many cool infra challenges to solve in the future, if you'd like to help us, please consider reaching out 🙂.
+We deploy a containerized version of your code on our Infra, each time you commit. As a sidenote, we have many cool infra challenges to solve, if you'd like to help us, please consider reaching out 🙂.
 
 ## Secret management
 
-If your app needs any secret keys or tokens to run, you do not want to hardcode them inside your code. Instead, over to the settings page for your Space repo and you'll be able to input key/secret pairs.
+If your app needs any secret keys or tokens to run, you do not want to hardcode them inside your code. Instead, head over to the settings page for your Space repo and you'll be able to input key/secret pairs.
 
 Those secrets will be exposed to your app using the [Streamlit Secrets](https://blog.streamlit.io/secrets-in-sharing-apps/) feature if it's a Streamlit app, or as env variables in other cases.
 
