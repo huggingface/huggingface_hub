@@ -16,7 +16,7 @@ We support two awesome SDKs that let you build cool apps in Python: **[Streamlit
 
 ![/docs/assets/hub/new-space.gif](/docs/assets/hub/new-space.gif)
 
-Under the hood, we are storing your code inside a hf.co-hosted git repository, similar to what we're doing for models and datasets. So the same tools you're already used to (git and git-lfs) will also work for Spaces.
+Under the hood, we are storing your code inside a hf.co-hosted git repository, similar to what we're doing for models and datasets. So the same tools you're already used to (`git` and `git-lfs`) will also work for Spaces.
 
 We then deploy a containerized version of your code on our Infra, each time you commit. More details below!
 
