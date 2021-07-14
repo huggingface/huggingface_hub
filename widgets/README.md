@@ -1,16 +1,16 @@
-# huggingface-widgets
+<h1 align="center">🤗-widgets</h1>
 
-Open-source version of the inference widgets from huggingface.co
+<p align="center">
+  <a href="https://huggingface-widgets.netlify.app/"><img src="https://img.shields.io/badge/demo_page-Netlify-008080.svg" alt="demo page with Netlify"></a>
+  <a href="https://github.com/huggingface/huggingface_hub/actions/workflows/js-widgets-tests.yml"><img src="https://github.com/huggingface/huggingface_hub/actions/workflows/js-widgets-tests.yml/badge.svg" alt="Build Status"></a>
+  <a href="https://github.com/prettier/prettier"><img src="https://img.shields.io/badge/styled_with-prettier-ff69b4.svg" alt="styled with prettier"></a>
+  <a href="https://kit.svelte.dev/"><img src="https://img.shields.io/badge/made_with-SvelteKit-ff3e00.svg" alt="made with SvelteKit"></a>
+  <a href="https://github.com/huggingface/huggingface_hub/blob/main/LICENSE"><img src="https://img.shields.io/badge/license-Apache%202.0-informational" alt="License"></a>
+</p>
 
-> Built with Svelte and SvelteKit
+# 
 
-**Demo page:** https://huggingface-widgets.netlify.app/
-
-## Documentation
-
-For now checkout the Pull Request's description: https://github.com/huggingface/huggingface_hub/pull/87
-
-TODO: write more documentation
+Open-source version of the inference widgets from huggingface.co. Widgets allow anyone to do inference directly on the browser! For more information about widgets, please go to our [documentation](https://huggingface.co/docs/hub/main#whats-a-widget).
 
 ## How to develop
 
@@ -23,9 +23,14 @@ npm run dev
 npm run dev -- --open
 ```
 
-## Build for production
+## Build for Netlify
 
 ```bash
 npm run build
+```
+## Publish package
+
+```bash
+npm publish
 ```
 

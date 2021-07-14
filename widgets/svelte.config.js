@@ -7,6 +7,7 @@ const config = {
 	// for more information about preprocessors
 	preprocess: preprocess({
 		defaults: { script: "typescript" },
+		typescript: { tsconfigFile: `./tsconfig.svelte.json` },
 		postcss: true,
 	}),
 

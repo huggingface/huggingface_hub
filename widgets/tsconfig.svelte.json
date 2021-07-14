@@ -1,0 +1,12 @@
+{
+	"extends": "@tsconfig/svelte/tsconfig.json",
+	"include": ["src/**/*"],
+	"compilerOptions": {
+		"target": "es2018",
+		"alwaysStrict": true,
+		"strictFunctionTypes": true,
+		"strictNullChecks": true,
+		"strictBindCallApply": true,
+		"lib": ["es6", "es2016", "es2017", "es2018", "esnext"]
+	}
+}

@@ -1,10 +1,31 @@
 {
-	"name": "huggingface-widgets",
-	"version": "0.0.1",
+	"name": "hf-widgets",
+	"version": "0.0.4",
+	"type": "module",
+	"main": "./package/InferenceWidget/InferenceWidget.svelte",
+	"exports": {
+		".": {
+			"import": "./package/InferenceWidget/InferenceWidget.svelte",
+			"require": "./package/InferenceWidget/InferenceWidget.svelte.js"
+		},
+		"./WidgetHeader.svelte.js": "./package/InferenceWidget/shared/WidgetHeader/WidgetHeader.svelte.js"
+	},
+	"repository": {
+		"type": "git",
+		"url": "git+https://github.com/huggingface/huggingface_hub.git"
+	},
+	"bugs": {
+		"url": "https://github.com/huggingface/huggingface_hub/issues"
+	},
+	"homepage": "https://github.com/huggingface/huggingface_hub/tree/main/widgets",
 	"scripts": {
 		"dev": "svelte-kit dev",
 		"build": "svelte-kit build",
+		"package": "npm run package:svelte-kit && npm run package:custom",
+		"package:svelte-kit": "svelte-kit package",
+		"package:custom": "tsc ../interfaces/Types.ts --outDir ./package/interfaces/ && node build.js",
 		"preview": "svelte-kit preview",
+		"prepublishOnly": "npm run package",
 		"check": "svelte-check --tsconfig ./tsconfig.json",
 		"check:watch": "svelte-check --tsconfig ./tsconfig.json --watch",
 		"lint": "prettier --check --plugin-search-dir=. .",
@@ -15,6 +36,7 @@
 		"@sveltejs/kit": "next",
 		"@tailwindcss/forms": "^0.3.3",
 		"@tailwindcss/line-clamp": "^0.2.1",
+		"@tsconfig/svelte": "^2.0.1",
 		"@types/dom-mediacapture-record": "^1.0.7",
 		"autoprefixer": "^10.2.6",
 		"postcss": "^8.3.1",
@@ -24,9 +46,18 @@
 		"svelte": "^3.34.0",
 		"svelte-check": "^2.0.0",
 		"svelte-preprocess": "^4.0.0",
+		"svelte2tsx": "^0.4.1",
 		"tailwindcss": "^2.1.4",
 		"tslib": "^2.0.0",
 		"typescript": "^4.0.0"
 	},
-	"type": "module"
+	"files": [
+		"package/**/*"
+	],
+	"keywords": [
+		"hugging face",
+		"machine learning inference",
+		"svelte"
+	],
+	"license": "Apache-2.0"
 }
