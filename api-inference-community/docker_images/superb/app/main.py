@@ -5,6 +5,8 @@ from typing import Dict, Type
 
 from api_inference_community.routes import pipeline_route, status_ok
 from app.pipelines import AutomaticSpeechRecognitionPipeline, Pipeline
+from huggingface_hub import snapshot_download
+import sys
 from starlette.applications import Starlette
 from starlette.middleware import Middleware
 from starlette.middleware.gzip import GZipMiddleware
@@ -79,7 +81,6 @@ async def startup_event():
     try:
         filepath = snapshot_download(os.environ["MODEL_ID"])
         sys.path.append(filepath)
-        app.get_pipeline = get_pipeline
         get_pipeline()
     except Exception:
         # We can fail so we can show exception later.
@@ -90,7 +91,6 @@ if __name__ == "__main__":
     try:
         filepath = snapshot_download(os.environ["MODEL_ID"])
         sys.path.append(filepath)
-        app.get_pipeline = get_pipeline
         get_pipeline()
     except Exception:
         # We can fail so we can show exception later.
