@@ -293,7 +293,7 @@ The `HF_API_TOKEN` environment variable defines your Hugging Face authorization 
 HF_API_TOKEN="api_XXXXXXXXXXXXXXXXXXXXXXXXXXXXX"
 ```
 
-### Model artificat structure `model.tar.gz`
+### Model artifact structure `model.tar.gz`
 
 The `model.tar.gz` contains all required files to run your model including your model file either `pytorch_model.bin`, `tf_model.h5`, `tokenizer.json` , `tokenizer_config.json` etc. All model artifacts need to be directly in the archive without folder hierarchy. 
 
