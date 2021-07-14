@@ -79,6 +79,12 @@ We support those Streamlit features transparently:
 - `st.experimental_get_query_params()` and `st.experimental_set_query_params(**parameter)` to manage app state in the url
 - if something doesn't work, please reach out.
 
+## Can I use the Spaces logo to link to my app from my website?
+
+Yes that would be great, here's the logo in SVG:
+
+<img style="width: 280px;" src="/docs/assets/hub/icon-space.svg">
+
 
 ## Why did you build this?
 
