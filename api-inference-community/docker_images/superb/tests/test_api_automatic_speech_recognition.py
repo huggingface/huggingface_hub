@@ -13,12 +13,15 @@ class AutomaticSpeecRecognitionTestCase(TestCase):
     def setUpClass(cls):
         """
         Clone the test repository and make its code available.
+        This replicates a git clone + moving files to running directory.
         """
         model_id = TESTABLE_MODELS["automatic-speech-recognition"]
-        filepath = snapshot_download(
-            model_id, cache_dir="docker_images/superb/app/pipelines/"
-        )
-        os.rename(filepath, "docker_images/superb/app/pipelines/code")
+        filepath = snapshot_download(model_id, cache_dir=os.getcwd())
+        file_names = os.listdir(filepath)
+        for file_name in file_names:
+            shutil.move(os.path.join(filepath, file_name), os.getcwd())
+        shutil.rmtree(filepath)
+        cls.file_names = file_names
 
     def setUp(self):
         """
@@ -37,7 +40,11 @@ class AutomaticSpeecRecognitionTestCase(TestCase):
 
     @classmethod
     def tearDownClass(cls):
-        shutil.rmtree("docker_images/superb/app/pipelines/code")
+        for file_name in cls.file_names:
+            if os.path.isfile(file_name):
+                os.remove(file_name)
+            elif os.path.isdir(file_name):
+                shutil.rmtree(file_name)
 
     def tearDown(self):
         if self.old_model_id is not None:

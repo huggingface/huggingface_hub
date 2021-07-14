@@ -34,14 +34,20 @@ class PipelineTestCase(TestCase):
         This is required in order to import app without breaking.
         """
         model_id = TESTABLE_MODELS["automatic-speech-recognition"]
-        filepath = snapshot_download(
-            model_id, cache_dir="docker_images/superb/app/pipelines/"
-        )
-        os.rename(filepath, "docker_images/superb/app/pipelines/code")
+        filepath = snapshot_download(model_id, cache_dir=os.getcwd())
+        file_names = os.listdir(filepath)
+        for file_name in file_names:
+            shutil.move(os.path.join(filepath, file_name), os.getcwd())
+        shutil.rmtree(filepath)
+        cls.file_names = file_names
 
     @classmethod
     def tearDownClass(cls):
-        shutil.rmtree("docker_images/superb/app/pipelines/code")
+        for file_name in cls.file_names:
+            if os.path.isfile(file_name):
+                os.remove(file_name)
+            elif os.path.isdir(file_name):
+                shutil.rmtree(file_name)
 
     @skipIf(
         os.path.dirname(os.path.dirname(__file__)).endswith("common"),

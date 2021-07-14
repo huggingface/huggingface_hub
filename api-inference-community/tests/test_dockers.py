@@ -152,6 +152,7 @@ class DockerImageTests(unittest.TestCase):
             "superb",
             "automatic-speech-recognition",
             "osanseviero/asr-with-transformers-wav2vec2",
+            fast_reload=False,
         )
 
     def framework_invalid_test(self, framework: str):
@@ -189,9 +190,11 @@ class DockerImageTests(unittest.TestCase):
             self.assertEqual(response.headers["content-type"], "application/json")
 
             proc.terminate()
-            #proc.wait(5)
+            proc.wait(5)
 
-    def framework_docker_test(self, framework: str, task: str, model_id: str):
+    def framework_docker_test(
+        self, framework: str, task: str, model_id: str, fast_reload: bool = True
+    ):
         tag = self.create_docker(framework)
         run_docker_command = [
             "docker",
@@ -209,7 +212,7 @@ class DockerImageTests(unittest.TestCase):
         ]
 
         url = "http://localhost:8000"
-        timeout = 120
+        timeout = 60
         counter = Counter()
         with DockerPopen(run_docker_command) as proc:
             for i in range(400):
@@ -283,7 +286,7 @@ class DockerImageTests(unittest.TestCase):
                 os.path.join(os.path.dirname(__file__), "samples", "sample1.flac"), "rb"
             ) as f:
                 data = f.read()
-            response = httpx.post(url, data=data, timeout=300)
+            response = httpx.post(url, data=data, timeout=timeout)
             self.assertIn(response.status_code, {200, 400})
             counter[response.status_code] += 1
             if response.status_code == 200:
@@ -338,8 +341,7 @@ class DockerImageTests(unittest.TestCase):
             counter[response.status_code] += 1
 
             proc.terminate()
-            proc.wait(20)
-            
+            proc.wait(30)
 
         self.assertEqual(proc.returncode, 0)
         self.assertGreater(
@@ -349,15 +351,15 @@ class DockerImageTests(unittest.TestCase):
         )
 
         # Follow up loading are much faster, 20s should be ok.
-        with DockerPopen(run_docker_command) as proc2:
-            for i in range(20):
-                try:
-                    response = httpx.get(url, timeout=10)
-                    break
-                except Exception:
-                    time.sleep(1)
-            self.assertEqual(response.content, b'{"ok":"ok"}')
-            proc2.terminate()
-            proc2.wait(5)
-        self.assertEqual(proc2.returncode, 0)
-        
+        if fast_reload == True:
+            with DockerPopen(run_docker_command) as proc2:
+                for i in range(20):
+                    try:
+                        response = httpx.get(url, timeout=10)
+                        break
+                    except Exception:
+                        time.sleep(1)
+                self.assertEqual(response.content, b'{"ok":"ok"}')
+                proc2.terminate()
+                proc2.wait(5)
+            self.assertEqual(proc2.returncode, 0)
