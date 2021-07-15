@@ -11,7 +11,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-
+import json
 import os
 import pathlib
 import shutil
@@ -23,7 +23,7 @@ from io import BytesIO
 
 import requests
 from huggingface_hub.hf_api import HfApi
-from huggingface_hub.repository import Repository
+from huggingface_hub.repository import Repository, is_tracked_with_lfs
 
 from .testing_constants import ENDPOINT_STAGING, PASS, USER
 from .testing_utils import set_write_permission_and_retry
@@ -74,9 +74,14 @@ class RepositoryTest(RepositoryCommonTest):
         try:
             self._api.delete_repo(token=self._token, name=REPO_NAME)
         except requests.exceptions.HTTPError:
+            pass
+
+        try:
             self._api.delete_repo(
                 token=self._token, organization="valid_org", name=REPO_NAME
             )
+        except requests.exceptions.HTTPError:
+            pass
 
     def test_init_from_existing_local_clone(self):
         subprocess.run(
@@ -336,6 +341,271 @@ class RepositoryTest(RepositoryCommonTest):
         files = os.listdir(f"{WORKING_REPO_DIR}/{REPO_NAME}")
         self.assertTrue("dummy.txt" in files)
         self.assertTrue("model.bin" in files)
+
+
+class RepositoryAutoLFSTrackingTest(RepositoryCommonTest):
+    @classmethod
+    def setUpClass(cls) -> None:
+        if os.path.exists(WORKING_REPO_DIR):
+            shutil.rmtree(WORKING_REPO_DIR, onerror=set_write_permission_and_retry)
+
+        os.makedirs(WORKING_REPO_DIR, exist_ok=True)
+        subprocess.run(
+            ["git", "init"],
+            stderr=subprocess.PIPE,
+            stdout=subprocess.PIPE,
+            check=True,
+            cwd=WORKING_REPO_DIR,
+        )
+
+        repo = Repository(WORKING_REPO_DIR, git_user="ci", git_email="ci@dummy.ci")
+
+        with open(f"{WORKING_REPO_DIR}/.gitattributes", "w+") as f:
+            f.write("*.pt filter=lfs diff=lfs merge=lfs -text")
+
+        repo.git_add(".gitattributes")
+        repo.git_commit("Add .gitattributes")
+
+    def tearDown(self):
+        subprocess.run(
+            ["git", "reset", "--hard"],
+            stderr=subprocess.PIPE,
+            stdout=subprocess.PIPE,
+            check=True,
+            cwd=WORKING_REPO_DIR,
+        )
+        subprocess.run(
+            ["git", "clean", "-fdx"],
+            stderr=subprocess.PIPE,
+            stdout=subprocess.PIPE,
+            check=True,
+            cwd=WORKING_REPO_DIR,
+        )
+
+    @classmethod
+    def tearDownClass(cls) -> None:
+        shutil.rmtree(WORKING_REPO_DIR, onerror=set_write_permission_and_retry)
+
+    def test_is_tracked_with_lfs(self):
+        repo = Repository(WORKING_REPO_DIR)
+
+        # This content is under 10MB
+        small_file = [100]
+
+        with open(f"{WORKING_REPO_DIR}/small_file.txt", "w+") as f:
+            f.write(json.dumps(small_file))
+
+        with open(f"{WORKING_REPO_DIR}/small_file_2.txt", "w+") as f:
+            f.write(json.dumps(small_file))
+
+        with open(f"{WORKING_REPO_DIR}/model.pt", "w+") as f:
+            f.write(json.dumps(small_file))
+
+        repo.lfs_track("small_file.txt")
+
+        self.assertTrue(
+            is_tracked_with_lfs(os.path.join(WORKING_REPO_DIR, "small_file.txt"))
+        )
+        self.assertFalse(
+            is_tracked_with_lfs(os.path.join(WORKING_REPO_DIR, "small_file_2.txt"))
+        )
+        self.assertTrue(is_tracked_with_lfs(os.path.join(WORKING_REPO_DIR, "model.pt")))
+
+    def test_is_tracked_with_lfs_with_pattern(self):
+        repo = Repository(WORKING_REPO_DIR)
+
+        # This content is 5MB (under 10MB)
+        small_file = [100] * int(1e6)
+
+        # This content is 20MB (over 10MB)
+        large_file = [100] * int(4e6)
+
+        with open(f"{WORKING_REPO_DIR}/large_file.txt", "w+") as f:
+            f.write(json.dumps(large_file))
+
+        with open(f"{WORKING_REPO_DIR}/small_file.txt", "w+") as f:
+            f.write(json.dumps(small_file))
+
+        os.makedirs(f"{WORKING_REPO_DIR}/dir", exist_ok=True)
+
+        with open(f"{WORKING_REPO_DIR}/dir/large_file.txt", "w+") as f:
+            f.write(json.dumps(large_file))
+
+        with open(f"{WORKING_REPO_DIR}/dir/small_file.txt", "w+") as f:
+            f.write(json.dumps(small_file))
+
+        repo.auto_track_large_files("dir")
+
+        self.assertFalse(
+            is_tracked_with_lfs(os.path.join(WORKING_REPO_DIR, "large_file.txt"))
+        )
+        self.assertFalse(
+            is_tracked_with_lfs(os.path.join(WORKING_REPO_DIR, "small_file.txt"))
+        )
+        self.assertTrue(
+            is_tracked_with_lfs(os.path.join(WORKING_REPO_DIR, "dir/large_file.txt"))
+        )
+        self.assertFalse(
+            is_tracked_with_lfs(os.path.join(WORKING_REPO_DIR, "dir/small_file.txt"))
+        )
+
+    def test_auto_track_large_files(self):
+        repo = Repository(WORKING_REPO_DIR)
+
+        # This content is 5MB (under 10MB)
+        small_file = [100] * int(1e6)
+
+        # This content is 20MB (over 10MB)
+        large_file = [100] * int(4e6)
+
+        with open(f"{WORKING_REPO_DIR}/large_file.txt", "w+") as f:
+            f.write(json.dumps(large_file))
+
+        with open(f"{WORKING_REPO_DIR}/small_file.txt", "w+") as f:
+            f.write(json.dumps(small_file))
+
+        repo.auto_track_large_files()
+
+        self.assertTrue(
+            is_tracked_with_lfs(os.path.join(WORKING_REPO_DIR, "large_file.txt"))
+        )
+        self.assertFalse(
+            is_tracked_with_lfs(os.path.join(WORKING_REPO_DIR, "small_file.txt"))
+        )
+
+    def test_auto_track_large_files_ignored_with_gitignore(self):
+        repo = Repository(WORKING_REPO_DIR)
+
+        # This content is 20MB (over 10MB)
+        large_file = [100] * int(4e6)
+
+        # Test nested gitignores
+        os.makedirs(f"{WORKING_REPO_DIR}/directory")
+
+        with open(f"{WORKING_REPO_DIR}/.gitignore", "w+") as f:
+            f.write("large_file.txt")
+
+        with open(f"{WORKING_REPO_DIR}/directory/.gitignore", "w+") as f:
+            f.write("large_file_3.txt")
+
+        with open(f"{WORKING_REPO_DIR}/large_file.txt", "w+") as f:
+            f.write(json.dumps(large_file))
+
+        with open(f"{WORKING_REPO_DIR}/large_file_2.txt", "w+") as f:
+            f.write(json.dumps(large_file))
+
+        with open(f"{WORKING_REPO_DIR}/directory/large_file_3.txt", "w+") as f:
+            f.write(json.dumps(large_file))
+
+        with open(f"{WORKING_REPO_DIR}/directory/large_file_4.txt", "w+") as f:
+            f.write(json.dumps(large_file))
+
+        repo.auto_track_large_files()
+
+        self.assertFalse(
+            is_tracked_with_lfs(os.path.join(WORKING_REPO_DIR, "large_file.txt"))
+        )
+        self.assertTrue(
+            is_tracked_with_lfs(os.path.join(WORKING_REPO_DIR, "large_file_2.txt"))
+        )
+
+        self.assertFalse(
+            is_tracked_with_lfs(
+                os.path.join(WORKING_REPO_DIR, "directory/large_file_3.txt")
+            )
+        )
+        self.assertTrue(
+            is_tracked_with_lfs(
+                os.path.join(WORKING_REPO_DIR, "directory/large_file_4.txt")
+            )
+        )
+
+    def test_auto_track_large_files_through_git_add(self):
+        repo = Repository(WORKING_REPO_DIR)
+
+        # This content is 5MB (under 10MB)
+        small_file = [100] * int(1e6)
+
+        # This content is 20MB (over 10MB)
+        large_file = [100] * int(4e6)
+
+        with open(f"{WORKING_REPO_DIR}/large_file.txt", "w+") as f:
+            f.write(json.dumps(large_file))
+
+        with open(f"{WORKING_REPO_DIR}/small_file.txt", "w+") as f:
+            f.write(json.dumps(small_file))
+
+        repo.git_add(auto_lfs_track=True)
+
+        self.assertTrue(
+            is_tracked_with_lfs(os.path.join(WORKING_REPO_DIR, "large_file.txt"))
+        )
+        self.assertFalse(
+            is_tracked_with_lfs(os.path.join(WORKING_REPO_DIR, "small_file.txt"))
+        )
+
+    def test_auto_no_track_large_files_through_git_add(self):
+        repo = Repository(WORKING_REPO_DIR)
+
+        # This content is 5MB (under 10MB)
+        small_file = [100] * int(1e6)
+
+        # This content is 20MB (over 10MB)
+        large_file = [100] * int(4e6)
+
+        with open(f"{WORKING_REPO_DIR}/large_file.txt", "w+") as f:
+            f.write(json.dumps(large_file))
+
+        with open(f"{WORKING_REPO_DIR}/small_file.txt", "w+") as f:
+            f.write(json.dumps(small_file))
+
+        repo.git_add(auto_lfs_track=False)
+
+        self.assertFalse(
+            is_tracked_with_lfs(os.path.join(WORKING_REPO_DIR, "large_file.txt"))
+        )
+        self.assertFalse(
+            is_tracked_with_lfs(os.path.join(WORKING_REPO_DIR, "small_file.txt"))
+        )
+
+    def test_auto_track_updates_removed_gitattributes(self):
+        repo = Repository(WORKING_REPO_DIR)
+
+        # This content is 5MB (under 10MB)
+        small_file = [100] * int(1e6)
+
+        # This content is 20MB (over 10MB)
+        large_file = [100] * int(4e6)
+
+        with open(f"{WORKING_REPO_DIR}/large_file.txt", "w+") as f:
+            f.write(json.dumps(large_file))
+
+        with open(f"{WORKING_REPO_DIR}/small_file.txt", "w+") as f:
+            f.write(json.dumps(small_file))
+
+        repo.git_add(auto_lfs_track=True)
+
+        self.assertTrue(
+            is_tracked_with_lfs(os.path.join(WORKING_REPO_DIR, "large_file.txt"))
+        )
+        self.assertFalse(
+            is_tracked_with_lfs(os.path.join(WORKING_REPO_DIR, "small_file.txt"))
+        )
+
+        # Remove large file
+        os.remove(f"{WORKING_REPO_DIR}/large_file.txt")
+
+        # Auto track should remove the entry from .gitattributes
+        repo.auto_track_large_files()
+
+        # Recreate the large file with smaller contents
+        with open(f"{WORKING_REPO_DIR}/large_file.txt", "w+") as f:
+            f.write(json.dumps(large_file))
+
+        # Ensure the file is not LFS tracked anymore
+        self.assertFalse(
+            is_tracked_with_lfs(os.path.join(WORKING_REPO_DIR, "large_file.txt"))
+        )
 
 
 class RepositoryDatasetTest(RepositoryCommonTest):
