@@ -34,7 +34,7 @@ Our 2 cents:
 - **Gradio** is great if you want to build a super-easy-to-use interface to run a model from just the list of its inputs and its outputs. The Gradio team wrote a great [tutorial on our blog about building GUIs for Hugging Face models](https://huggingface.co/blog/gradio).
 - **Streamlit** gives you more freedom to build a full-featured Web app from Python, in a _reactive_ way (meaning that code gets re-run when the state of the app changes).
 
-You can also take a look at some sample apps on the [Spaces directory](https://huggingface.co/spaces) to make up your mind.
+You can also take a look at some sample apps on the [Spaces directory](https://huggingface.co/spaces) (⚠️ Note: not live yet!) to make up your mind.
 
 <!-- Add screencap of listing directory -->
 
