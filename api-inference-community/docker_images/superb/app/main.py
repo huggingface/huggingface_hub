@@ -78,7 +78,7 @@ async def startup_event():
     app.get_pipeline = get_pipeline
     try:
         get_pipeline()
-    except Exception as e:
+    except Exception:
         # We can fail so we can show exception later.
         pass
 
@@ -86,6 +86,6 @@ async def startup_event():
 if __name__ == "__main__":
     try:
         get_pipeline()
-    except Exception as e:
+    except Exception:
         # We can fail so we can show exception later.
         pass

@@ -1,10 +1,8 @@
 import json
 import os
-import sys
 from unittest import TestCase, skipIf
 
 from app.main import ALLOWED_TASKS
-from huggingface_hub import snapshot_download
 from parameterized import parameterized_class
 from starlette.testclient import TestClient
 from tests.test_api import TESTABLE_MODELS
