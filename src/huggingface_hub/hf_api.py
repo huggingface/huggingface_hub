@@ -130,23 +130,13 @@ class HfApi:
 
     def whoami(self, token: str) -> Tuple[str, List[str]]:
         """
-        Call HF API to know "whoami".
+        Call HF API to know "whoami"
         """
-        path = "{}/api/whoami-v2".format(self.endpoint)
+        path = "{}/api/whoami".format(self.endpoint)
         r = requests.get(path, headers={"authorization": "Bearer {}".format(token)})
         r.raise_for_status()
         d = r.json()
-        return d["name"], d["orgs"]
-
-    def get_api_token(self, token: str) -> str:
-        """
-        Call HF API to get the personal API token.
-        """
-        path = "{}/api/whoami-v2".format(self.endpoint)
-        r = requests.get(path, headers={"authorization": "Bearer {}".format(token)})
-        r.raise_for_status()
-        d = r.json()
-        return d["apiToken"]
+        return d["user"], d["orgs"]
 
     def logout(self, token: str) -> None:
         """

@@ -36,6 +36,8 @@ ALL_TASKS = [
     "image-classification",
     "object-detection",
     "image-segmentation",
+    # Others
+    "structured-data-classification",
 ]
 
 
@@ -75,19 +77,18 @@ class InferenceApi:
         token: Optional[str] = None,
         gpu: Optional[bool] = False,
     ):
-        """Inits InferenceApi headers and API call information.
+        """Inits headers and API call information.
 
         Args:
             repo_id (``str``): Id of model (e.g. `bert-base-uncased`).
-            task (``str``, `optional`, defaults ``None``): Whether to force a task instead of using task specified in repository.
+            task (``str``, `optional`, defaults ``None``): Whether to force a task instead of using task specified in the repository.
             token (:obj:`str`, `optional`):
                 The API token to use as HTTP bearer authorization. This is not the authentication token.
                 You can find the token in https://huggingface.co/settings/token. Alternatively, you can
-                find both your organizations and personal API tokens using `HfApi().whoami(token)` and
-                `HfApi().api_token(token)`.
+                find both your organizations and personal API tokens using `HfApi().whoami(token)`.
             gpu (``bool``, `optional`, defaults ``False``): Whether to use GPU instead of CPU for inference(requires Startup plan at least).
         .. note::
-            Passing :obj:`use_auth_token=True` is required when you want to use a private model.
+            Setting :obj:`token` is required when you want to use a private model.
         """
         self.options = {"wait_for_model": True, "use_gpu": gpu}
 
@@ -134,5 +135,10 @@ class InferenceApi:
 
         if params:
             payload["parameters"] = params
-        response = requests.post(self.api_url, headers=self.headers, json=payload)
-        return response.json()
+
+        # TODO: Decide if we should raise an error instead of
+        # returning the json.
+        response = requests.post(
+            self.api_url, headers=self.headers, json=payload
+        ).json()
+        return response

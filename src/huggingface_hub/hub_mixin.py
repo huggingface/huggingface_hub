@@ -53,7 +53,7 @@ class ModelHubMixin:
         """
         Saving weights in local directory.
 
-        Args:
+        Parameters:
             save_directory (:obj:`str`):
                 Specify directory in which you want to save weights.
             config (:obj:`dict`, `optional`):
@@ -97,7 +97,7 @@ class ModelHubMixin:
         force_download: bool = False,
         resume_download: bool = False,
         proxies: Dict = None,
-        use_auth_token: Union[str, bool, None] = None,
+        use_auth_token: Optional[str] = None,
         cache_dir: Optional[str] = None,
         local_files_only: bool = False,
         **model_kwargs,
@@ -107,7 +107,7 @@ class ModelHubMixin:
         The model is set in evaluation mode by default using ``model.eval()`` (Dropout modules are deactivated). To
         train the model, you should first set it back in training mode with ``model.train()``.
 
-        Args:
+        Parameters:
             pretrained_model_name_or_path (:obj:`str` or :obj:`os.PathLike`, `optional`):
                 Can be either:
                     - A string, the `model id` of a pretrained model hosted inside a model repo on huggingface.co.
@@ -214,7 +214,7 @@ class ModelHubMixin:
         git_email: Optional[str] = None,
     ) -> str:
         """
-        Args:
+        Parameters:
             save_directory (:obj:`Union[str, os.PathLike]`):
                 Directory having model weights & config.
             model_id (:obj:`str`, `optional`, defaults to :obj:`save_directory`):
