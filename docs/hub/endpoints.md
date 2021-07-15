@@ -5,7 +5,7 @@ title: Hugging Face Hub Endpoints
 # Hugging Face Hub API Endpoints
 
 
-We have open endpoints that you can use to retrieve information from the Hub as well as perform certain actions such as creating model repos. We offer a wrapper Python library, [`huggingface_hub`](https://github.com/huggingface/huggingface_hub), that allows easy access to these endpoints. We also provide a webhook to receive real-time incremental info about models. Enjoy!
+We have open endpoints that you can use to retrieve information from the Hub as well as perform certain actions such as creating model repos. We offer a wrapper Python library, [`huggingface_hub`](https://github.com/huggingface/huggingface_hub), that allows easy access to these endpoints. We also provide a [webhook](#webhook) to receive real-time incremental info about models. Enjoy!
 
 
 ## Endpoints table
