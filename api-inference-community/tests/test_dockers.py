@@ -12,7 +12,7 @@ import httpx
 class DockerPopen(subprocess.Popen):
     def __exit__(self, exc_type, exc_val, traceback):
         self.terminate()
-        self.wait(30)
+        self.wait(20)
         return super().__exit__(exc_type, exc_val, traceback)
 
 
@@ -149,8 +149,12 @@ class DockerImageTests(unittest.TestCase):
         self.framework_docker_test(
             "superb",
             "automatic-speech-recognition",
-            "osanseviero/asr-with-transformers-wav2vec2"
+            "osanseviero/asr-with-transformers-wav2vec2",
         )
+        # Too slow, requires downloading the upstream model from PyTorch Hub which is quite heavy
+        # self.framework_docker_test(
+        #    "superb", "automatic-speech-recognition", "osanseviero/hubert_s3prl_req"
+        # )
 
     def framework_invalid_test(self, framework: str):
         task = "invalid"
@@ -187,11 +191,9 @@ class DockerImageTests(unittest.TestCase):
             self.assertEqual(response.headers["content-type"], "application/json")
 
             proc.terminate()
-            proc.wait(5)
+            proc.wait(20)
 
-    def framework_docker_test(
-        self, framework: str, task: str, model_id: str
-    ):
+    def framework_docker_test(self, framework: str, task: str, model_id: str):
         tag = self.create_docker(framework)
         run_docker_command = [
             "docker",
@@ -221,7 +223,6 @@ class DockerImageTests(unittest.TestCase):
             self.assertEqual(response.content, b'{"ok":"ok"}')
 
             response = httpx.post(url, data=b"This is a test", timeout=timeout)
-            print(response.json())
             self.assertIn(response.status_code, {200, 400})
             counter[response.status_code] += 1
 
@@ -358,5 +359,5 @@ class DockerImageTests(unittest.TestCase):
                     time.sleep(1)
             self.assertEqual(response.content, b'{"ok":"ok"}')
             proc2.terminate()
-            proc2.wait(5)
+            proc2.wait(20)
         self.assertEqual(proc2.returncode, 0)

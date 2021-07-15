@@ -79,7 +79,6 @@ async def startup_event():
     try:
         get_pipeline()
     except Exception as e:
-        print(f"We failed to get the pipeline with exception {e}")
         # We can fail so we can show exception later.
         pass
 
@@ -88,6 +87,5 @@ if __name__ == "__main__":
     try:
         get_pipeline()
     except Exception as e:
-        print(f"We failed to get the pipeline with exception {e}")
         # We can fail so we can show exception later.
         pass
