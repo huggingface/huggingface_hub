@@ -80,7 +80,7 @@ class InferenceApi:
         """Inits headers and API call information.
 
         Args:
-            repo_id (``str``): Id of model (e.g. `bert-base-uncased`).
+            repo_id (``str``): Id of repository (e.g. `user/bert-base-uncased`).
             task (``str``, `optional`, defaults ``None``): Whether to force a task instead of using task specified in the repository.
             token (:obj:`str`, `optional`):
                 The API token to use as HTTP bearer authorization. This is not the authentication token.
