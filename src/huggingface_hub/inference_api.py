@@ -10,6 +10,7 @@ logger = logging.getLogger(__name__)
 
 
 ENDPOINT = "https://api-inference.huggingface.co"
+ENDPOINT_HUB = "https://huggingface.co"
 
 ALL_TASKS = [
     # NLP
@@ -97,7 +98,7 @@ class InferenceApi:
             self.headers["Authorization"] = "Bearer {}".format(token)
 
         # Configure task
-        model_info = HfApi().model_info(repo_id=repo_id, token=token)
+        model_info = HfApi(ENDPOINT_HUB).model_info(repo_id=repo_id, token=token)
         if not model_info.pipeline_tag and not task:
             raise ValueError(
                 "Task not specified in the repository. Please add it to the model card using pipeline_tag (https://huggingface.co/docs#how-is-a-models-type-of-inference-api-and-widget-determined)"
