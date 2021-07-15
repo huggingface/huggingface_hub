@@ -1,33 +1,30 @@
 import json
 import os
 import sys
-from unittest import TestCase
+from unittest import TestCase, skipIf
 
+from app.main import ALLOWED_TASKS
 from huggingface_hub import snapshot_download
+from parameterized import parameterized_class
 from starlette.testclient import TestClient
 from tests.test_api import TESTABLE_MODELS
 
 
+@skipIf(
+    "automatic-speech-recognition" not in ALLOWED_TASKS,
+    "automatic-speech-recognition not implemented",
+)
+@parameterized_class(
+    [
+        {"model_id": model_id}
+        for model_id in TESTABLE_MODELS["automatic-speech-recognition"]
+    ]
+)
 class AutomaticSpeecRecognitionTestCase(TestCase):
-    @classmethod
-    def setUpClass(cls):
-        """
-        Clone the test repository and make its code available.
-        This replicates a git clone + moving files to running directory.
-        """
-        model_id = TESTABLE_MODELS["automatic-speech-recognition"]
-        filepath = snapshot_download(model_id)
-        sys.path.append(filepath)
-
     def setUp(self):
-        """
-        This logic is done in the docker prestart step, this is just
-        to replicate the logic.
-        """
-        model_id = TESTABLE_MODELS["automatic-speech-recognition"]
         self.old_model_id = os.getenv("MODEL_ID")
         self.old_task = os.getenv("TASK")
-        os.environ["MODEL_ID"] = model_id
+        os.environ["MODEL_ID"] = self.model_id
         os.environ["TASK"] = "automatic-speech-recognition"
 
         from app.main import app
@@ -56,7 +53,6 @@ class AutomaticSpeecRecognitionTestCase(TestCase):
 
         with TestClient(self.app) as client:
             response = client.post("/", data=bpayload)
-
         self.assertEqual(
             response.status_code,
             200,

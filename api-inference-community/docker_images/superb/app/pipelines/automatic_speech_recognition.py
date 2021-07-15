@@ -1,7 +1,11 @@
+import os
+import subprocess
+import sys
 from typing import Dict
 
 import numpy as np
 from app.pipelines import Pipeline
+from huggingface_hub import snapshot_download
 
 
 class AutomaticSpeechRecognitionPipeline(Pipeline):
@@ -12,8 +16,23 @@ class AutomaticSpeechRecognitionPipeline(Pipeline):
         # This function is only called once, so do all the heavy processing I/O here
         # IMPLEMENT_THIS : Please define a `self.sampling_rate` for this pipeline
         # to automatically read the input correctly
+        filepath = snapshot_download(model_id)
+        sys.path.append(filepath)
+        if "requirements.txt" in os.listdir(filepath):
+            subprocess.check_call(
+                [
+                    sys.executable,
+                    "-m",
+                    "pip",
+                    "install",
+                    "-r",
+                    os.path.join(filepath, "requirements.txt"),
+                ]
+            )
+
         from model import PreTrainedModel
-        self.model = PreTrainedModel()
+
+        self.model = PreTrainedModel(filepath)
         self.sampling_rate = 16000
 
     def __call__(self, inputs: np.array) -> Dict[str, str]:
