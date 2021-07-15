@@ -621,12 +621,10 @@ class Repository:
         return self.git_push()
 
     @contextmanager
-    def commit(
-        self,
-        commit_message: str,
-    ):
+    def commit(self, commit_message: str, track_large_files: bool = True):
         """
-        Context manager utility to handle committing to a repository.
+        Context manager utility to handle committing to a repository. This automatically tracks large files (>10Mb)
+        with git-lfs. Set the `track_large_files` argument to `False` if you wish to ignore that behavior.
 
         Examples:
 
