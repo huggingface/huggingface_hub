@@ -16,6 +16,7 @@
 import unittest
 
 from huggingface_hub.inference_api import InferenceApi
+
 from .testing_utils import with_production_testing
 
 
