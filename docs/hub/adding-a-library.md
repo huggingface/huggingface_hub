@@ -8,7 +8,7 @@ title: Adding your Library
 
 The Hugging Face Hub aims to facilitate the sharing of machine learning models, checkpoints, and artifacts.  This endeavor starts with the integration of its tool stack within downstream libraries, and we're happy to announce  the fruitful collaboration between Hugging Face and spaCy, AllenNLP, and Timm, among many other incredible libraries.
 
-**For a full list of supported libraries, see [the following table](/docs/libraries).**
+**For a full list of supported libraries, see [the following table](/docs/hub/libraries).**
 
 We believe the Hub is a step in the correct direction for several reasons. It offers:
 
@@ -61,7 +61,7 @@ retrieve files from the hub:
 This method can be used to construct the URL of a file from a given repository. For example, the 
 repository [`lysandre/arxiv-nlp`](https://huggingface.co/lysandre/arxiv-nlp) has a few model, configuration and tokenizer files:
 
-![/docs/assets/repo.png](/docs/assets/repo.png)
+![/docs/assets/hub/repo.png](/docs/assets/hub/repo.png)
 
 
 We would like to specifically fetch the configuration file of that model. The `hf_hub_url` method is tailored for 
@@ -136,7 +136,7 @@ feel free to open an issue if you're lost as to how apply it to your library - w
 For users to understand how the model should be used in your downstream library, we recommend adding a code snippet 
 explaining how that should be done. 
 
-![/docs/assets/code_snippet.png](/docs/assets/code_snippet.png)
+![/docs/assets/hub/code_snippet.png](/docs/assets/hub/code_snippet.png)
 
 
 In order to do this, please take a look and update the following file with 
@@ -281,7 +281,7 @@ model-index:
 ---
 ```
 
-None of the fields are required - but any added field will improve the discoverability of your model and open it to features such as the inference API. You can find more information on repos and model cards [here](/docs/model-repos).
+None of the fields are required - but any added field will improve the discoverability of your model and open it to features such as the inference API. You can find more information on repos and model cards [here](/docs/hub/model-repos).
 
 ## Setting up the Inference API
 

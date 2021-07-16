@@ -23,15 +23,31 @@ from io import BytesIO
 
 from huggingface_hub.constants import REPO_TYPE_DATASET, REPO_TYPE_SPACE
 from huggingface_hub.file_download import cached_download
-from huggingface_hub.hf_api import HfApi, HfFolder, ModelInfo, RepoObj
+from huggingface_hub.hf_api import (
+    DatasetInfo,
+    HfApi,
+    HfFolder,
+    ModelInfo,
+    RepoObj,
+    repo_type_and_id_from_hf_id,
+)
 from requests.exceptions import HTTPError
 
-from .testing_constants import ENDPOINT_STAGING, ENDPOINT_STAGING_BASIC_AUTH, PASS, USER
+from .testing_constants import (
+    ENDPOINT_STAGING,
+    ENDPOINT_STAGING_BASIC_AUTH,
+    FULL_NAME,
+    PASS,
+    USER,
+)
 from .testing_utils import (
+    DUMMY_DATASET_ID,
+    DUMMY_DATASET_ID_REVISION_ONE_SPECIFIC_COMMIT,
     DUMMY_MODEL_ID,
     DUMMY_MODEL_ID_REVISION_ONE_SPECIFIC_COMMIT,
     require_git_lfs,
     set_write_permission_and_retry,
+    with_production_testing,
 )
 
 
@@ -71,9 +87,12 @@ class HfApiCommonTestWithLogin(HfApiCommonTest):
 
 class HfApiEndpointsTest(HfApiCommonTestWithLogin):
     def test_whoami(self):
-        user, orgs = self._api.whoami(token=self._token)
-        self.assertEqual(user, USER)
-        self.assertIsInstance(orgs, list)
+        info = self._api.whoami(token=self._token)
+        self.assertEqual(info["name"], USER)
+        self.assertEqual(info["fullname"], FULL_NAME)
+        self.assertIsInstance(info["apiToken"], str)
+        self.assertIsInstance(info["orgs"], list)
+        self.assertIsInstance(info["orgs"][0]["apiToken"], str)
 
     def test_list_repos_objs(self):
         objs = self._api.list_repos_objs(token=self._token)
@@ -311,12 +330,14 @@ class HfApiPublicTest(unittest.TestCase):
         _api = HfApi(endpoint=ENDPOINT_STAGING)
         _ = _api.list_models()
 
+    @with_production_testing
     def test_list_models(self):
         _api = HfApi()
         models = _api.list_models()
         self.assertGreater(len(models), 100)
         self.assertIsInstance(models[0], ModelInfo)
 
+    @with_production_testing
     def test_list_models_complex_query(self):
         # Let's list the 10 most recent models
         # with tags "bert" and "jax",
@@ -332,6 +353,19 @@ class HfApiPublicTest(unittest.TestCase):
         self.assertIsInstance(model, ModelInfo)
         self.assertTrue(all(tag in model.tags for tag in ["bert", "jax"]))
 
+    @with_production_testing
+    def test_list_models_with_config(self):
+        _api = HfApi()
+        models = _api.list_models(
+            filter="adapter-transformers", fetch_config=True, limit=20
+        )
+        found_configs = 0
+        for model in models:
+            if model.config:
+                found_configs = found_configs + 1
+        self.assertGreater(found_configs, 0)
+
+    @with_production_testing
     def test_model_info(self):
         _api = HfApi()
         model = _api.model_info(repo_id=DUMMY_MODEL_ID)
@@ -343,6 +377,45 @@ class HfApiPublicTest(unittest.TestCase):
         )
         self.assertIsInstance(model, ModelInfo)
         self.assertEqual(model.sha, DUMMY_MODEL_ID_REVISION_ONE_SPECIFIC_COMMIT)
+
+    def test_staging_list_datasets(self):
+        _api = HfApi(endpoint=ENDPOINT_STAGING)
+        _ = _api.list_datasets()
+
+    @with_production_testing
+    def test_list_datasets(self):
+        _api = HfApi()
+        datasets = _api.list_datasets()
+        self.assertGreater(len(datasets), 100)
+        self.assertIsInstance(datasets[0], DatasetInfo)
+
+    @with_production_testing
+    def test_list_datasets_full(self):
+        _api = HfApi()
+        datasets = _api.list_datasets(full=True)
+        self.assertGreater(len(datasets), 100)
+        dataset = datasets[0]
+        self.assertIsInstance(dataset, DatasetInfo)
+        self.assertTrue(any(dataset.card_data for dataset in datasets))
+
+    @with_production_testing
+    def test_dataset_info(self):
+        _api = HfApi()
+        dataset = _api.dataset_info(repo_id=DUMMY_DATASET_ID)
+        self.assertTrue(
+            isinstance(dataset.card_data, dict) and len(dataset.card_data) > 0
+        )
+        self.assertTrue(
+            isinstance(dataset.siblings, list) and len(dataset.siblings) > 0
+        )
+        self.assertIsInstance(dataset, DatasetInfo)
+        self.assertNotEqual(dataset.sha, DUMMY_DATASET_ID_REVISION_ONE_SPECIFIC_COMMIT)
+        dataset = _api.dataset_info(
+            repo_id=DUMMY_DATASET_ID,
+            revision=DUMMY_DATASET_ID_REVISION_ONE_SPECIFIC_COMMIT,
+        )
+        self.assertIsInstance(dataset, DatasetInfo)
+        self.assertEqual(dataset.sha, DUMMY_DATASET_ID_REVISION_ONE_SPECIFIC_COMMIT)
 
 
 class HfFolderTest(unittest.TestCase):
@@ -483,3 +556,19 @@ class HfLargefilesTest(HfApiCommonTest):
         start_time = time.time()
         subprocess.run(["git", "push"], check=True, cwd=WORKING_REPO_DIR)
         print("took", time.time() - start_time)
+
+
+class HfApiMiscTest(unittest.TestCase):
+    def test_repo_type_and_id_from_hf_id(self):
+        possible_values = {
+            "https://huggingface.co/user/id": [None, "user", "id"],
+            "https://huggingface.co/datasets/user/id": ["dataset", "user", "id"],
+            "https://huggingface.co/spaces/user/id": ["space", "user", "id"],
+            "user/id": [None, "user", "id"],
+            "dataset/user/id": ["dataset", "user", "id"],
+            "space/user/id": ["space", "user", "id"],
+            "id": [None, None, "id"],
+        }
+
+        for key, value in possible_values.items():
+            self.assertEqual(repo_type_and_id_from_hf_id(key), tuple(value))

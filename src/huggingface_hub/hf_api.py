@@ -20,12 +20,12 @@ import sys
 import warnings
 from io import BufferedIOBase, RawIOBase
 from os.path import expanduser
-from typing import BinaryIO, Dict, Iterable, List, Optional, Tuple, Union
+from typing import BinaryIO, Dict, Iterable, List, Optional, Union
 
 import requests
 from requests.exceptions import HTTPError
 
-from .constants import REPO_TYPES, REPO_TYPES_URL_PREFIXES
+from .constants import ENDPOINT, REPO_TYPES, REPO_TYPES_MAPPING, REPO_TYPES_URL_PREFIXES
 
 
 if sys.version_info >= (3, 8):
@@ -34,10 +34,56 @@ else:
     from typing_extensions import Literal
 
 
-ENDPOINT = "https://huggingface.co"
 REMOTE_FILEPATH_REGEX = re.compile(r"^\w[\w\/]*(\.\w+)?$")
 # ^^ No trailing slash, no backslash, no spaces, no relative parts ("." or "..")
 #    Only word characters and an optional extension
+
+
+def repo_type_and_id_from_hf_id(hf_id: str):
+    """
+    Returns the repo type and ID from a huggingface.co URL linking to a repository
+
+    Args:
+        hf_id (``str``):
+            An URL or ID of a repository on the HF hub. Accepted values are:
+            - https://huggingface.co/<repo_type>/<namespace>/<repo_id>
+            - https://huggingface.co/<namespace>/<repo_id>
+            - <repo_type>/<namespace>/<repo_id>
+            - <namespace>/<repo_id>
+            - <repo_id>
+    """
+    is_hf_url = "huggingface.co" in hf_id and "@" not in hf_id
+    url_segments = hf_id.split("/")
+    is_hf_id = len(url_segments) <= 3
+
+    if is_hf_url:
+        namespace, repo_id = url_segments[-2:]
+        if len(url_segments) > 2 and "huggingface.co" not in url_segments[-3]:
+            repo_type = url_segments[-3]
+        else:
+            repo_type = None
+    elif is_hf_id:
+        if len(url_segments) == 3:
+            # Passed <repo_type>/<user>/<model_id> or <repo_type>/<org>/<model_id>
+            repo_type, namespace, repo_id = url_segments[-3:]
+        elif len(url_segments) == 2:
+            # Passed <user>/<model_id> or <org>/<model_id>
+            namespace, repo_id = hf_id.split("/")[-2:]
+            repo_type = None
+        else:
+            # Passed <model_id>
+            repo_id = url_segments[0]
+            namespace, repo_type = None, None
+    else:
+        raise ValueError(
+            f"Unable to retrieve user and repo ID from the passed HF ID: {hf_id}"
+        )
+
+    repo_type = (
+        repo_type if repo_type in REPO_TYPES else REPO_TYPES_MAPPING.get(repo_type)
+    )
+
+    return repo_type, namespace, repo_id
 
 
 class RepoObj:
@@ -69,6 +115,21 @@ class ModelFile:
         return f"{self.__class__.__name__}({', '.join(items)})"
 
 
+class DatasetFile:
+    """
+    Data structure that represents a public file inside a dataset, accessible from huggingface.co
+    """
+
+    def __init__(self, rfilename: str, **kwargs):
+        self.rfilename = rfilename  # filename relative to the dataset root
+        for k, v in kwargs.items():
+            setattr(self, k, v)
+
+    def __repr__(self):
+        items = (f"{k}='{v}'" for k, v in self.__dict__.items())
+        return f"{self.__class__.__name__}({', '.join(items)})"
+
+
 class ModelInfo:
     """
     Info about a public model accessible from huggingface.co
@@ -84,6 +145,7 @@ class ModelInfo:
         siblings: Optional[
             List[Dict]
         ] = None,  # list of files that constitute the model
+        config: Optional[Dict] = None,  # information about model configuration
         **kwargs,
     ):
         self.modelId = modelId
@@ -94,6 +156,7 @@ class ModelInfo:
         self.siblings = (
             [ModelFile(**x) for x in siblings] if siblings is not None else None
         )
+        self.config = config
         for k, v in kwargs.items():
             setattr(self, k, v)
 
@@ -107,6 +170,55 @@ class ModelInfo:
         r = f"Model Name: {self.modelId}, Tags: {self.tags}"
         if self.pipeline_tag:
             r += f", Task: {self.pipeline_tag}"
+        return r
+
+
+class DatasetInfo:
+    """
+    Info about a public dataset accessible from huggingface.co
+    """
+
+    def __init__(
+        self,
+        id: Optional[str] = None,  # id of dataset
+        lastModified: Optional[str] = None,  # date of last commit to repo
+        tags: List[str] = [],  # tags of the dataset
+        siblings: Optional[
+            List[Dict]
+        ] = None,  # list of files that constitute the dataset
+        private: Optional[bool] = None,  # community datasets only
+        author: Optional[str] = None,  # community datasets only
+        description: Optional[str] = None,
+        citation: Optional[str] = None,
+        card_data: Optional[dict] = None,
+        **kwargs,
+    ):
+        self.id = id
+        self.lastModified = lastModified
+        self.tags = tags
+        self.private = private
+        self.author = author
+        self.description = description
+        self.citation = citation
+        self.card_data = card_data
+        self.siblings = (
+            [DatasetFile(**x) for x in siblings] if siblings is not None else None
+        )
+        # Legacy stuff, "key" is always returned with an empty string
+        # because of old versions of the datasets lib that need this field
+        kwargs.pop("key", None)
+        # Store all the other fields returned by the API
+        for k, v in kwargs.items():
+            setattr(self, k, v)
+
+    def __repr__(self):
+        s = f"{self.__class__.__name__}:" + " {"
+        for key, val in self.__dict__.items():
+            s += f"\n\t{key}: {val}"
+        return s + "\n}"
+
+    def __str__(self):
+        r = f"Dataset Name: {self.id}, Tags: {self.tags}"
         return r
 
 
@@ -128,15 +240,17 @@ class HfApi:
         d = r.json()
         return d["token"]
 
-    def whoami(self, token: str) -> Tuple[str, List[str]]:
+    def whoami(self, token: str) -> Dict:
         """
-        Call HF API to know "whoami"
+        Call HF API to know "whoami".
+
+        Args:
+            token (``str``): Hugging Face token.
         """
-        path = "{}/api/whoami".format(self.endpoint)
+        path = "{}/api/whoami-v2".format(self.endpoint)
         r = requests.get(path, headers={"authorization": "Bearer {}".format(token)})
         r.raise_for_status()
-        d = r.json()
-        return d["user"], d["orgs"]
+        return r.json()
 
     def logout(self, token: str) -> None:
         """
@@ -153,6 +267,7 @@ class HfApi:
         direction: Optional[Literal[-1]] = None,
         limit: Optional[int] = None,
         full: Optional[bool] = None,
+        fetch_config: Optional[bool] = None,
     ) -> List[ModelInfo]:
         """
         Get the public list of all the models on huggingface.co
@@ -190,6 +305,8 @@ class HfApi:
             full (:obj:`bool`, `optional`):
                 Whether to fetch all model data, including the `lastModified`, the `sha`, the files and the `tags`.
                 This is set to `True` by default when using a filter.
+            fetch_config (:obj:`bool`, `optional`):
+                Whether to fetch the model configs as well. This is not included in `full` due to its size.
 
         """
         path = "{}/api/models".format(self.endpoint)
@@ -208,6 +325,8 @@ class HfApi:
                 params.update({"full": True})
             elif "full" in params:
                 del params["full"]
+        if fetch_config is not None:
+            params.update({"config": fetch_config})
         r = requests.get(path, params=params)
         r.raise_for_status()
         d = r.json()
@@ -223,6 +342,28 @@ class HfApi:
             "This method has been renamed to `list_models` for consistency and will be removed in a future version."
         )
         return self.list_models()
+
+    def list_datasets(
+        self,
+        full: Optional[bool] = None,
+    ) -> List[DatasetInfo]:
+        """
+        Get the public list of all the datasets on huggingface.co
+
+        Args:
+            full (:obj:`bool`, `optional`):
+                Whether to fetch all dataset data, including the `lastModified` and the `card_data`.
+
+        """
+        path = "{}/api/datasets".format(self.endpoint)
+        params = {}
+        if full is not None:
+            if full:
+                params.update({"full": True})
+        r = requests.get(path, params=params)
+        r.raise_for_status()
+        d = r.json()
+        return [DatasetInfo(**x) for x in d]
 
     def model_info(
         self, repo_id: str, revision: Optional[str] = None, token: Optional[str] = None
@@ -263,6 +404,30 @@ class HfApi:
         r.raise_for_status()
         d = r.json()
         return [RepoObj(**x) for x in d]
+
+    def dataset_info(
+        self, repo_id: str, revision: Optional[str] = None, token: Optional[str] = None
+    ) -> DatasetInfo:
+        """
+        Get info on one specific dataset on huggingface.co
+
+        Dataset can be private if you pass an acceptable token.
+        """
+        path = (
+            "{}/api/datasets/{repo_id}".format(self.endpoint, repo_id=repo_id)
+            if revision is None
+            else "{}/api/datasets/{repo_id}/revision/{revision}".format(
+                self.endpoint, repo_id=repo_id, revision=revision
+            )
+        )
+        headers = (
+            {"authorization": "Bearer {}".format(token)} if token is not None else None
+        )
+        params = {"full": "true"}
+        r = requests.get(path, headers=headers, params=params)
+        r.raise_for_status()
+        d = r.json()
+        return DatasetInfo(**d)
 
     def create_repo(
         self,
@@ -369,7 +534,7 @@ class HfApi:
             raise ValueError("Invalid repo type")
 
         if organization is None:
-            namespace, _ = self.whoami(token)
+            namespace = self.whoami(token)["name"]
         else:
             namespace = organization
 
@@ -399,7 +564,8 @@ class HfApi:
         identical_ok: bool = True,
     ) -> str:
         """
-        Upload a local file (up to 5GB) to the given repo, tracking it with LFS if it's larger than 10MB
+        Upload a local file (up to 5GB) to the given repo. The upload is done through a HTTP post request, and
+        doesn't require git or git-lfs to be installed.
 
         Params:
             token (``str``):
