@@ -1,5 +1,6 @@
 import os
 import tempfile
+import time
 import unittest
 
 from huggingface_hub import HfApi, Repository
@@ -7,7 +8,7 @@ from huggingface_hub.snapshot_download import snapshot_download
 from tests.testing_constants import ENDPOINT_STAGING, PASS, USER
 
 
-REPO_NAME = "dummy-hf-hub"
+REPO_NAME = "dummy-hf-hub-{}".format(int(time.time() * 10e3))
 
 
 class SnapshotDownloadTests(unittest.TestCase):
