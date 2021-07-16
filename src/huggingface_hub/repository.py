@@ -403,7 +403,7 @@ class Repository:
         """
         try:
             git_status = subprocess.run(
-                ["git", "status", "--no-renames", "-s"],
+                ["git", "status", "-s"],
                 stderr=subprocess.PIPE,
                 stdout=subprocess.PIPE,
                 check=True,
