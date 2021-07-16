@@ -16,9 +16,11 @@
 import unittest
 
 from huggingface_hub.inference_api import InferenceApi
+from .testing_utils import with_production_testing
 
 
 class InferenceApiTest(unittest.TestCase):
+    @with_production_testing
     def test_simple_inference(self):
         api = InferenceApi("bert-base-uncased")
         inputs = "Hi, I think [MASK] is cool"
@@ -30,6 +32,7 @@ class InferenceApiTest(unittest.TestCase):
         self.assertTrue("sequence" in result)
         self.assertTrue("score" in result)
 
+    @with_production_testing
     def test_inference_with_params(self):
         api = InferenceApi("typeform/distilbert-base-uncased-mnli")
         inputs = "I bought a device but it is not working and I would like to get reimbursed!"
@@ -39,6 +42,7 @@ class InferenceApiTest(unittest.TestCase):
         self.assertTrue("sequence" in result)
         self.assertTrue("scores" in result)
 
+    @with_production_testing
     def test_inference_with_dict_inputs(self):
         api = InferenceApi("deepset/roberta-base-squad2")
         inputs = {
@@ -50,6 +54,7 @@ class InferenceApiTest(unittest.TestCase):
         self.assertTrue("score" in result)
         self.assertTrue("answer" in result)
 
+    @with_production_testing
     def test_inference_overriding_task(self):
         api = InferenceApi(
             "sentence-transformers/paraphrase-albert-small-v2",
@@ -59,12 +64,14 @@ class InferenceApiTest(unittest.TestCase):
         result = api(inputs)
         self.assertIsInstance(result, list)
 
+    @with_production_testing
     def test_inference_overriding_invalid_task(self):
         with self.assertRaises(
             ValueError, msg="Invalid task invalid-task. Make sure it's valid."
         ):
             InferenceApi("bert-base-uncased", task="invalid-task")
 
+    @with_production_testing
     def test_inference_missing_input(self):
         api = InferenceApi("deepset/roberta-base-squad2")
         result = api({"question": "What's my name?"})
