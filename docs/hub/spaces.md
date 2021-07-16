@@ -4,7 +4,9 @@ title: Documentation for Spaces
 
 <h1>How to get started with Spaces</h1>
 
-> ⚠️ This feature is currently in private beta, reach out to [julien-c](https://huggingface.co/julien-c) if you'd like to try it out ⚠️
+<div class="p-4 border border-gray-200 rounded-lg">
+	⚠️ This feature is currently in private beta, <a style="font-weight: bold !important" href="/spaces">sign up to the waiting list</a> or reach out to <a href="https://twitter.com/huggingface">us</a> if you'd like to try it out ⚠️
+</div>
 
 ## What are Spaces?
 
@@ -34,9 +36,10 @@ Our 2 cents:
 - **Gradio** is great if you want to build a super-easy-to-use interface to run a model from just the list of its inputs and its outputs. The Gradio team wrote a great [tutorial on our blog about building GUIs for Hugging Face models](https://huggingface.co/blog/gradio).
 - **Streamlit** gives you more freedom to build a full-featured Web app from Python, in a _reactive_ way (meaning that code gets re-run when the state of the app changes).
 
-You can also take a look at some sample apps on the [Spaces directory](https://huggingface.co/spaces) (⚠️ Note: not live yet!) to make up your mind.
+You can also take a look at some sample apps on the [Spaces directory](https://huggingface.co/spaces) (⚠️ Note: spaces themselves are still in private beta) to make up your mind.
 
-<!-- Add screencap of listing directory -->
+[![screenshot of listing directory and landing page](/docs/assets/hub/spaces-landing.png)](https://huggingface.co/spaces)
+
 
 Finally, we've been thinking of providing a way to run **custom apps**, for instance Python server code for the backend + a unified set of widgets/frontend JS code, or even custom Docker image serving. Do get in touch if you would like to build something more custom.
 
@@ -45,7 +48,6 @@ Finally, we've been thinking of providing a way to run **custom apps**, for inst
 
 In addition to the Streamlit or Gradio SDK, the environment we run your app in includes the following Python libraries out-of-the-box:
 - [`huggingface_hub`](https://github.com/huggingface/huggingface_hub), so you can list models, query the hf.co API, etc. **You can also use this to call our Accelerated Inference API from your Space**. If your app instantiates a model to run inference on, consider calling the Inference API instead, because you'll then leverage the acceleration optimizations we already built, and it's also consuming less computing resources, which is always nice 🌎.
-<!-- TODO(merge and ship the Inference API wrapper) -->
 - [`requests`](https://docs.python-requests.org/en/master/) the famous HTTP request library, useful if you want to call a third-party API from your app.
 - [`datasets`](https://github.com/huggingface/datasets) so that you can easily fetch or display data from inside your app.
 
