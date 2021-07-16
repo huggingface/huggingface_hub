@@ -164,4 +164,9 @@ def with_production_testing(func):
         ENDPOINT_PRODUCTION,
     )
 
-    return hf_api(file_download(func))
+    repository = patch(
+        "huggingface_hub.repository.ENDPOINT",
+        ENDPOINT_PRODUCTION,
+    )
+
+    return repository(hf_api(file_download(func)))

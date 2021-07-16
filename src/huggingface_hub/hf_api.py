@@ -58,6 +58,8 @@ def repo_type_and_id_from_hf_id(hf_id: str):
 
     if is_hf_url:
         namespace, repo_id = url_segments[-2:]
+        if namespace == "huggingface.co":
+            namespace = None
         if len(url_segments) > 2 and "huggingface.co" not in url_segments[-3]:
             repo_type = url_segments[-3]
         else:

@@ -225,12 +225,6 @@ class Repository:
 
         repo_type, namespace, repo_id = repo_type_and_id_from_hf_id(repo_url)
 
-        if namespace is None and token is None:
-            raise ValueError(
-                f"Cannot clone from URL {repo_url}. If this repository lives under your namespace, make sure to "
-                "pass your authentication token with the `use_auth_token` parameter."
-            )
-
         if repo_type is not None:
             self.repo_type = repo_type
 
@@ -244,10 +238,9 @@ class Repository:
             user = whoami_info["name"]
             valid_organisations = [org["name"] for org in whoami_info["orgs"]]
 
-            if namespace is None:
-                namespace = user
-
-            repo_url += f"{namespace}/{repo_id}"
+            if namespace is not None:
+                repo_url += f"{namespace}/"
+            repo_url += repo_id
 
             repo_url = repo_url.replace("https://", f"https://user:{token}@")
 
@@ -260,7 +253,9 @@ class Repository:
                     exist_ok=True,
                 )
         else:
-            repo_url += f"{namespace}/{repo_id}"
+            if namespace is not None:
+                repo_url += f"{namespace}/"
+            repo_url += repo_id
 
         # For error messages, it's cleaner to show the repo url without the token.
         clean_repo_url = re.sub(r"https://.*@", "https://", repo_url)
