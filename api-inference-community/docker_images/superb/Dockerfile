@@ -3,6 +3,10 @@ LABEL maintainer="Omar osanseviero@gmail.com"
 
 # Add any system dependency here
 # RUN apt-get update -y && apt-get install libXXX -y
+RUN apt-get update -y
+RUN apt-get install git -y
+RUN apt-get install libsndfile1 -y
+RUN apt-get install ffmpeg -y
 
 COPY ./requirements.txt /app
 RUN pip install --no-cache-dir -r requirements.txt
@@ -16,6 +20,7 @@ COPY ./prestart.sh /app/
 ARG max_workers=1
 ENV MAX_WORKERS=$max_workers
 ENV HUGGINGFACE_HUB_CACHE=/data
+ENV TORCH_HOME=/data
 
 # Necessary on GPU environment docker.
 # TIMEOUT env variable is used by nvcr.io/nvidia/pytorch:xx for another purpose
