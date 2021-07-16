@@ -342,6 +342,41 @@ class RepositoryTest(RepositoryCommonTest):
         self.assertTrue("dummy.txt" in files)
         self.assertTrue("model.bin" in files)
 
+    def test_clone_with_repo_name_user_and_no_auth_token(self):
+        # Create repo
+        clone = Repository(
+            f"{WORKING_REPO_DIR}/{REPO_NAME}",
+            clone_from=f"{USER}/{REPO_NAME}",
+            git_user="ci",
+            git_email="ci@dummy.com",
+        )
+
+        # Instantiate it without token
+        clone = Repository(
+            f"{WORKING_REPO_DIR}/{REPO_NAME}",
+            clone_from=f"{USER}/{REPO_NAME}",
+            git_user="ci",
+            git_email="ci@dummy.com",
+        )
+
+    def test_clone_with_repo_name_org_and_no_auth_token(self):
+        # Create repo
+        clone = Repository(
+            f"{WORKING_REPO_DIR}/{REPO_NAME}",
+            use_auth_token=self._token,
+            clone_from=f"valid_org/{REPO_NAME}",
+            git_user="ci",
+            git_email="ci@dummy.com",
+        )
+
+        # Instantiate it without token
+        clone = Repository(
+            f"{WORKING_REPO_DIR}/{REPO_NAME}",
+            clone_from=f"valid_org/{REPO_NAME}",
+            git_user="ci",
+            git_email="ci@dummy.com",
+        )
+
 
 class RepositoryAutoLFSTrackingTest(RepositoryCommonTest):
     @classmethod
@@ -748,3 +783,43 @@ class RepositoryDatasetTest(RepositoryCommonTest):
         files = os.listdir(f"{WORKING_DATASET_DIR}/{REPO_NAME}")
         self.assertTrue("some_text.txt" in files)
         self.assertTrue("test.py" in files)
+
+    def test_clone_with_repo_name_user_and_no_auth_token(self):
+        # Create repo
+        clone = Repository(
+            f"{WORKING_DATASET_DIR}/{REPO_NAME}",
+            clone_from=REPO_NAME,
+            repo_type="dataset",
+            use_auth_token=self._token,
+            git_user="ci",
+            git_email="ci@dummy.com",
+        )
+
+        # Instantiate it without token
+        clone = Repository(
+            f"{WORKING_DATASET_DIR}/{REPO_NAME}",
+            clone_from=f"{USER}/{REPO_NAME}",
+            repo_type="dataset",
+            git_user="ci",
+            git_email="ci@dummy.com",
+        )
+
+    def test_clone_with_repo_name_org_and_no_auth_token(self):
+        # Create repo
+        clone = Repository(
+            f"{WORKING_DATASET_DIR}/{REPO_NAME}",
+            clone_from=f"valid_org/{REPO_NAME}",
+            repo_type="dataset",
+            use_auth_token=self._token,
+            git_user="ci",
+            git_email="ci@dummy.com",
+        )
+
+        # Instantiate it without token
+        clone = Repository(
+            f"{WORKING_DATASET_DIR}/{REPO_NAME}",
+            clone_from=f"valid_org/{REPO_NAME}",
+            repo_type="dataset",
+            git_user="ci",
+            git_email="ci@dummy.com",
+        )
