@@ -223,24 +223,24 @@ class Repository:
         token = use_auth_token if use_auth_token is not None else self.huggingface_token
         api = HfApi()
 
+        repo_type, namespace, repo_id = repo_type_and_id_from_hf_id(repo_url)
+
+        if repo_type is not None:
+            self.repo_type = repo_type
+
+        repo_url = ENDPOINT + "/"
+
+        if self.repo_type in REPO_TYPES_URL_PREFIXES:
+            repo_url += REPO_TYPES_URL_PREFIXES[self.repo_type]
+
         if token is not None:
             whoami_info = api.whoami(token)
             user = whoami_info["name"]
             valid_organisations = [org["name"] for org in whoami_info["orgs"]]
-            repo_type, namespace, repo_id = repo_type_and_id_from_hf_id(repo_url)
 
-            if namespace is None:
-                namespace = user
-
-            if repo_type is not None:
-                self.repo_type = repo_type
-
-            repo_url = ENDPOINT + "/"
-
-            if self.repo_type in REPO_TYPES_URL_PREFIXES:
-                repo_url += REPO_TYPES_URL_PREFIXES[self.repo_type]
-
-            repo_url += f"{namespace}/{repo_id}"
+            if namespace is not None:
+                repo_url += f"{namespace}/"
+            repo_url += repo_id
 
             repo_url = repo_url.replace("https://", f"https://user:{token}@")
 
@@ -252,6 +252,11 @@ class Repository:
                     organization=namespace,
                     exist_ok=True,
                 )
+        else:
+            if namespace is not None:
+                repo_url += f"{namespace}/"
+            repo_url += repo_id
+
         # For error messages, it's cleaner to show the repo url without the token.
         clean_repo_url = re.sub(r"https://.*@", "https://", repo_url)
         try:
@@ -265,7 +270,7 @@ class Repository:
 
             # checks if repository is initialized in a empty repository or in one with files
             if len(os.listdir(self.local_dir)) == 0:
-                logger.debug(f"Cloning {clean_repo_url} into local empty directory.")
+                logger.warning(f"Cloning {clean_repo_url} into local empty directory.")
                 subprocess.run(
                     ["git", "clone", repo_url, "."],
                     stderr=subprocess.PIPE,
