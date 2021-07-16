@@ -120,7 +120,7 @@ class Repository:
         local_dir: str,
         clone_from: Optional[str] = None,
         repo_type: Optional[str] = None,
-        use_auth_token: Union[bool, str, None] = None,
+        use_auth_token: Union[bool, str] = True,
         git_user: Optional[str] = None,
         git_email: Optional[str] = None,
     ):
