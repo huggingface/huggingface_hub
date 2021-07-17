@@ -1,4 +1,4 @@
-# Hugging Face Cliet library
+# Hugging Face Client library
 
 ## Download files from the huggingface.co hub
 
