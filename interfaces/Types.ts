@@ -1,4 +1,3 @@
-
 /// In each category, order by decreasing specificity
 /// The order can influence which default pipeline tag is affected to a model (if unspecified in model card)
 export enum PipelineType {
@@ -28,6 +27,7 @@ export enum PipelineType {
 	"image-segmentation" = "image-segmentation",
 	// others
 	"structured-data-classification" = "structured-data-classification",
+	"protein-folding" = "protein-folding",
 }
 
 export const ALL_PIPELINE_TYPES = Object.keys(PipelineType) as (keyof typeof PipelineType)[];
@@ -59,6 +59,7 @@ export const PIPELINE_TYPE_PRETTY_NAMES: { [key in PipelineType]: string } = {
 	"image-segmentation":                                       "Image Segmentation",
 	/// others
 	"structured-data-classification":                           "Structured Data Classification",
+	"protein-folding":                                          "Protein folding",
 };
 
 

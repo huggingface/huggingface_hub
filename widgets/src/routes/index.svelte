@@ -173,6 +173,13 @@
 			tags: ["audio-source-separation"],
 			widgetData: [],
 		},
+		{
+			modelId: "deepmind/alphafold-v2",
+			private: false,
+			pipeline_tag: "protein-folding",
+			tags: ["audio-source-separation"],
+			widgetData: [],
+		},
 	];
 </script>
 

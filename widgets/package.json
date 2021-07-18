@@ -28,5 +28,8 @@
 		"tslib": "^2.0.0",
 		"typescript": "^4.0.0"
 	},
-	"type": "module"
+	"type": "module",
+	"dependencies": {
+		"ngl": "^0.10.4"
+	}
 }
