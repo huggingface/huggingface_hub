@@ -125,7 +125,8 @@ export async function getResponse<T>(
 			return { computeTime, output, outputJson, response, status: 'success' }
 		}catch(e){
 			// Invalid output
-			return { error: e.message, status: 'error' }
+			const error = `API Implementation Error: ${e.message}`;
+			return { error, status: 'error' }
 		}
 	} else {
 		// Error
