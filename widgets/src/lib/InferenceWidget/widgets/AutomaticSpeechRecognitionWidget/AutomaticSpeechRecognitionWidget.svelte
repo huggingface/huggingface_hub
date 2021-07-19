@@ -107,9 +107,10 @@
 	}
 
 	function parseOutput(body: unknown): string {
-		return body && typeof body === "object" && typeof body["text"] === "string"
-			? body["text"]
-			: "";
+		if (body && typeof body === "object" && typeof body["text"] === "string") {
+			return body["text"];
+		}
+		throw new TypeError("Invalid output: output must be of type <text:string>");
 	}
 </script>
 

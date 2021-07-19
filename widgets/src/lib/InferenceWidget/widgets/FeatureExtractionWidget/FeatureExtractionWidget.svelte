@@ -138,14 +138,13 @@
 	}
 
 	function parseOutput(body: any): DataTable {
-		if (!Array.isArray(body)) {
-			throw new Error(`invalid`);
+		if (Array.isArray(body)) {
+			if (body.length === 1) {
+				body = body[0];
+			}
+			return new DataTable(body);
 		}
-
-		if (body.length === 1) {
-			body = body[0];
-		}
-		return new DataTable(body);
+		throw new TypeError("Invalid output: output must be of type Array");
 	}
 
 	const SINGLE_DIM_COLS = 4;

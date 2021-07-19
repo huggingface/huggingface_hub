@@ -118,10 +118,15 @@ export async function getResponse<T>(
 		const body = !isMediaContent 
 			? await response.json()
 			: await response.blob();
-		const output = outputParsingFn(body);
-		const outputJson = !isMediaContent ? JSON.stringify(body, null, 2) : '';
-		
-		return { computeTime, output, outputJson, response, status: 'success' }
+
+		try{
+			const output = outputParsingFn(body);
+			const outputJson = !isMediaContent ? JSON.stringify(body, null, 2) : '';
+			return { computeTime, output, outputJson, response, status: 'success' }
+		}catch(e){
+			// Invalid output
+			return { error: e.message, status: 'error' }
+		}
 	} else {
 		// Error
 		const bodyText = await response.text();
