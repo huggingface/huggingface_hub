@@ -22,7 +22,7 @@
 	});
 
 	async function onClick() {
-		try{
+		try {
 			isRecording = !isRecording;
 			error = "";
 			if (isRecording) {
@@ -32,7 +32,7 @@
 				const blob = await recorder.stopRecording();
 				onRecordStop(blob);
 			}
-		}catch(e){
+		} catch (e) {
 			isRecording = false;
 			error = "You haven't allowed 🤗 access to your microphone";
 		}
