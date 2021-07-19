@@ -361,7 +361,7 @@ class RepositoryTest(RepositoryCommonTest):
         # Should not error out
         Repository(
             f"{WORKING_REPO_DIR}/{REPO_NAME}",
-            clone_from=f"https://hf.co/hf-internal-testing/huggingface-hub-dummy-repository",
+            clone_from="https://hf.co/hf-internal-testing/huggingface-hub-dummy-repository",
         )
 
     @with_production_testing
