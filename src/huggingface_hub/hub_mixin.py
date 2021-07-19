@@ -20,12 +20,11 @@ logger = logging.getLogger(__name__)
 
 
 class ModelHubMixin:
-    def __init__(self, *args, **kwargs):
-        """
-        A Generic Base Model Hub Mixin. Define your own mixin for anything by inheriting from this class
-        and overwriting _from_pretrained and _save_pretrained to define custom logic for saving/loading
-        your classes. See ``huggingface_hub.PyTorchModelHubMixin`` for an example.
-        """
+    """
+    A Generic Base Model Hub Mixin. Define your own mixin for anything by inheriting from this class
+    and overwriting _from_pretrained and _save_pretrained to define custom logic for saving/loading
+    your classes. See ``huggingface_hub.PyTorchModelHubMixin`` for an example.
+    """
 
     def save_pretrained(
         self,
