@@ -223,39 +223,42 @@ class Repository:
         token = use_auth_token if use_auth_token is not None else self.huggingface_token
         api = HfApi()
 
-        repo_type, namespace, repo_id = repo_type_and_id_from_hf_id(repo_url)
+        if "huggingface.co" in repo_url or (
+            "http" not in repo_url and len(repo_url.split("/")) <= 2
+        ):
+            repo_type, namespace, repo_id = repo_type_and_id_from_hf_id(repo_url)
 
-        if repo_type is not None:
-            self.repo_type = repo_type
+            if repo_type is not None:
+                self.repo_type = repo_type
 
-        repo_url = ENDPOINT + "/"
+            repo_url = ENDPOINT + "/"
 
-        if self.repo_type in REPO_TYPES_URL_PREFIXES:
-            repo_url += REPO_TYPES_URL_PREFIXES[self.repo_type]
+            if self.repo_type in REPO_TYPES_URL_PREFIXES:
+                repo_url += REPO_TYPES_URL_PREFIXES[self.repo_type]
 
-        if token is not None:
-            whoami_info = api.whoami(token)
-            user = whoami_info["name"]
-            valid_organisations = [org["name"] for org in whoami_info["orgs"]]
+            if token is not None:
+                whoami_info = api.whoami(token)
+                user = whoami_info["name"]
+                valid_organisations = [org["name"] for org in whoami_info["orgs"]]
 
-            if namespace is not None:
-                repo_url += f"{namespace}/"
-            repo_url += repo_id
+                if namespace is not None:
+                    repo_url += f"{namespace}/"
+                repo_url += repo_id
 
-            repo_url = repo_url.replace("https://", f"https://user:{token}@")
+                repo_url = repo_url.replace("https://", f"https://user:{token}@")
 
-            if namespace == user or namespace in valid_organisations:
-                api.create_repo(
-                    token,
-                    repo_id,
-                    repo_type=self.repo_type,
-                    organization=namespace,
-                    exist_ok=True,
-                )
-        else:
-            if namespace is not None:
-                repo_url += f"{namespace}/"
-            repo_url += repo_id
+                if namespace == user or namespace in valid_organisations:
+                    api.create_repo(
+                        token,
+                        repo_id,
+                        repo_type=self.repo_type,
+                        organization=namespace,
+                        exist_ok=True,
+                    )
+            else:
+                if namespace is not None:
+                    repo_url += f"{namespace}/"
+                repo_url += repo_id
 
         # For error messages, it's cleaner to show the repo url without the token.
         clean_repo_url = re.sub(r"https://.*@", "https://", repo_url)
