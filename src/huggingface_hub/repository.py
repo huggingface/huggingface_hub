@@ -438,16 +438,21 @@ class Repository:
 
         return deleted_files
 
-    def lfs_track(self, patterns: Union[str, List[str]]):
+    def lfs_track(self, patterns: Union[str, List[str]], filename: bool = False):
         """
         Tell git-lfs to track those files.
+
+        Setting the `filename` argument to `True` will treat the arguments as literal filenames,
+        not as patterns. Any special glob characters in the filename will be escaped when
+        writing the .gitattributes file.
         """
         if isinstance(patterns, str):
             patterns = [patterns]
         try:
             for pattern in patterns:
+                cmd = f"git lfs track {'--filename' if filename else ''} {pattern}"
                 subprocess.run(
-                    ["git", "lfs", "track", pattern],
+                    cmd.split(),
                     stderr=subprocess.PIPE,
                     stdout=subprocess.PIPE,
                     check=True,

@@ -107,6 +107,30 @@ class RepositoryTest(RepositoryCommonTest):
 
         self.assertIn("random_file.txt", os.listdir(WORKING_REPO_DIR))
 
+    def test_git_lfs_filename(self):
+        os.mkdir(WORKING_REPO_DIR)
+        subprocess.run(
+            ["git", "init"],
+            stderr=subprocess.PIPE,
+            stdout=subprocess.PIPE,
+            check=True,
+            cwd=WORKING_REPO_DIR,
+        )
+
+        repo = Repository(WORKING_REPO_DIR)
+
+        large_file = [100] * int(4e6)
+        with open(os.path.join(WORKING_REPO_DIR, "[].txt"), "w") as f:
+            f.write(json.dumps(large_file))
+
+        repo.git_add()
+
+        repo.lfs_track(["[].txt"])
+        self.assertFalse(is_tracked_with_lfs(f"{WORKING_REPO_DIR}/[].txt"))
+
+        repo.lfs_track(["[].txt"], filename=True)
+        self.assertTrue(is_tracked_with_lfs(f"{WORKING_REPO_DIR}/[].txt"))
+
     def test_init_clone_in_nonempty_folder(self):
         # Create dummy files
         # one is lfs-tracked, the other is not.
