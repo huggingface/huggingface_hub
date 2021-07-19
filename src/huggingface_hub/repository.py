@@ -654,7 +654,7 @@ class Repository:
         try:
             yield self
         finally:
-            self.git_add(auto_lfs_track=True)
+            self.git_add(auto_lfs_track=track_large_files)
 
             try:
                 self.git_commit(commit_message)
