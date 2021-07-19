@@ -14,6 +14,7 @@
 # limitations under the License.
 
 
+import enum
 import os
 import re
 import sys
@@ -37,6 +38,53 @@ else:
 REMOTE_FILEPATH_REGEX = re.compile(r"^\w[\w\/]*(\.\w+)?$")
 # ^^ No trailing slash, no backslash, no spaces, no relative parts ("." or "..")
 #    Only word characters and an optional extension
+
+
+class TagManager(tuple):
+    def __and__(self, other: "Languages"):
+        return TagUnion((self, other))
+
+    def __or__(self, other: "Languages"):
+        return TagIntersection((self, other))
+
+    def __invert__(self: "Languages"):
+        return TagInversion((self,))
+
+    def __sub__(self, other: "Languages"):
+        return TagSubtraction((self, other))
+
+    def __repr__(self):
+        return self.__class__.__name__ + str([x for x in self])
+
+
+class TagUnion(TagManager):
+    pass
+
+
+class TagIntersection(TagManager):
+    pass
+
+
+class TagInversion(TagManager):
+    pass
+
+
+class TagSubtraction(TagManager):
+    pass
+
+
+class LogicalEnum(enum.Enum):
+    def __and__(self, other: "Languages") -> TagUnion["Languages", "Languages"]:
+        return TagUnion((self, other))
+
+    def __or__(self, other: "Languages") -> TagIntersection["Languages", "Languages"]:
+        return TagIntersection((self, other))
+
+    def __invert__(self: "Languages") -> TagInversion["Languages"]:
+        return TagInversion((self,))
+
+    def __sub__(self, other: "Languages") -> TagSubtraction["Languages", "Languages"]:
+        return TagSubtraction((self, other))
 
 
 def repo_type_and_id_from_hf_id(hf_id: str):
@@ -333,6 +381,69 @@ class HfApi:
         r.raise_for_status()
         d = r.json()
         return [ModelInfo(**x) for x in d]
+
+    def _retrieve_models(self, tag=None):
+        if tag is None:
+            return self.list_models()
+
+        if isinstance(tag, (Language, Task, License, Library, Dataset)):
+            return self.list_models(filter=tag.value)
+
+        if isinstance(tag, tuple):
+            if isinstance(tag, TagUnion):
+                tag_0, tag_1 = tag
+
+                models_tagged_0 = self._retrieve_models(tag_0)
+                models_tagged_1 = self._retrieve_models(tag_1)
+                filtered_models_tagged_0_ids = [m.modelId for m in models_tagged_0]
+
+                return list(
+                    {
+                        m.modelId: m
+                        for m in models_tagged_1
+                        if m.modelId in filtered_models_tagged_0_ids
+                    }.values()
+                )
+
+            elif isinstance(tag, TagIntersection):
+                tag_0, tag_1 = tag
+
+                models = self._retrieve_models(tag_0)
+                models.extend(self._retrieve_models(tag_1))
+
+                # Remove duplicates that have the same key.
+                return list({m.modelId: m for m in models}.values())
+
+            elif isinstance(tag, TagInversion):
+                (tag,) = tag
+                all_models = self._retrieve_models()
+                filtered_models_ids = [m.modelId for m in self._retrieve_models(tag)]
+
+                return list(
+                    {
+                        m.modelId: m
+                        for m in all_models
+                        if m.modelId not in filtered_models_ids
+                    }.values()
+                )
+
+            elif isinstance(tag, TagSubtraction):
+                tag_0, tag_1 = tag
+
+                wanted_models = self._retrieve_models(tag_0)
+                unwanted_models = self._retrieve_models(tag_1)
+                unwanted_models_ids = [m.modelId for m in unwanted_models]
+
+                return list(
+                    {
+                        m.modelId: m
+                        for m in wanted_models
+                        if m.modelId not in unwanted_models_ids
+                    }.values()
+                )
+
+    def list_models_by_tag(self, tag: Union[str, "Tag"]):
+        return self._retrieve_models(tag)
 
     def model_list(self) -> List[ModelInfo]:
         """
@@ -712,6 +823,13 @@ class HfApi:
         d = r.json()
         return d["url"]
 
+    def get_tags_by_type(self):
+        path = "{}/api/models-tags-by-type".format(self.endpoint)
+        r = requests.get(path)
+        r.raise_for_status()
+        d = r.json()
+        return d
+
 
 class HfFolder:
     path_token = expanduser("~/.huggingface/token")
@@ -745,3 +863,31 @@ class HfFolder:
             os.remove(cls.path_token)
         except FileNotFoundError:
             pass
+
+
+tags = HfApi().get_tags_by_type()
+
+
+def get_enum(name: str, type_: str):
+    def clean_label(label):
+        return "".join([i if i.isalnum() else "_" for i in label])
+
+    return LogicalEnum(name, {clean_label(tag["id"]): tag["id"] for tag in tags[type_]})
+
+
+Language = get_enum("Language", "language")
+Languages = Union[Language, Iterable["Language"]]
+
+Task = get_enum("Task", "pipeline_tag")
+Tasks = Union[Task, Iterable["Task"]]
+
+Dataset = get_enum("Dataset", "dataset")
+Datasets = Union[Dataset, Iterable["Dataset"]]
+
+License = get_enum("License", "license")
+Licenses = Union[License, Iterable["License"]]
+
+Library = get_enum("Library", "library")
+Libraries = Union[Library, Iterable["Libraries"]]
+
+Tag = Union[Languages, Tasks, Datasets, Licenses, Libraries]
