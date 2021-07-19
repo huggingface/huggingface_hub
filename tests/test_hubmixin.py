@@ -5,7 +5,7 @@ import unittest
 
 from huggingface_hub import HfApi
 from huggingface_hub.file_download import is_torch_available
-from huggingface_hub.hub_mixin import ModelHubMixin
+from huggingface_hub.hub_mixin import PyTorchModelHubMixin
 
 from .testing_constants import ENDPOINT_STAGING, PASS, USER
 from .testing_utils import set_write_permission_and_retry
@@ -37,7 +37,7 @@ def require_torch(test_case):
 
 if is_torch_available():
 
-    class DummyModel(nn.Module, ModelHubMixin):
+    class DummyModel(nn.Module, PyTorchModelHubMixin):
         def __init__(self, **kwargs):
             super().__init__()
             self.config = kwargs.pop("config", None)
