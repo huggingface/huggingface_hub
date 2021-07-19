@@ -135,6 +135,7 @@
 					classNames="mt-1.5"
 					{onRecordStart}
 					onRecordStop={onSelectFile}
+					bind:error
 				/>
 			</div>
 			{#if fileUrl}

@@ -4,6 +4,7 @@
 	import Recorder from "./Recorder";
 
 	export let classNames = "";
+	export let error = "";
 	export let onRecordStart: () => void = () => null;
 	export let onRecordStop: (blob: Blob) => void = () => null;
 
@@ -21,13 +22,19 @@
 	});
 
 	async function onClick() {
-		isRecording = !isRecording;
-		if (isRecording) {
-			recorder.start();
-			onRecordStart();
-		} else {
-			const blob = await recorder.stopRecording();
-			onRecordStop(blob);
+		try{
+			isRecording = !isRecording;
+			error = "";
+			if (isRecording) {
+				await recorder.start();
+				onRecordStart();
+			} else {
+				const blob = await recorder.stopRecording();
+				onRecordStop(blob);
+			}
+		}catch(e){
+			isRecording = false;
+			error = "You haven't allowed 🤗 access to your microphone";
 		}
 	}
 </script>
