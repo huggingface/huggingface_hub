@@ -1,11 +1,9 @@
 <script>
 	import { onMount } from "svelte";
-	export let autoplay = false;
 	export let classNames = "";
-	export let controls = true;
 	export let label = "";
 	export let src: string;
-	export let pdb_src: string;
+	export let pdb_src: string = "";
 	// create a `stage` object
 
 	onMount(async () => {
