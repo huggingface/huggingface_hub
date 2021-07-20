@@ -46,7 +46,7 @@ Uploading a model to the hub is super simple too:
 - create a model repo directly from the website, at huggingface.co/new (models can be public or private, and are namespaced under either a user or an organization)
 - clone it with git
 - [download and install git lfs](https://git-lfs.github.com/) if you don't already have it on your machine (you can check by running a simple `git lfs`)
-- add, commit and push your files, from git, as you usually do (or using the `Repository` class detailed below). 
+- add, commit and push your files, from git, as you usually do (from the CLI, or through the `Repository` wrapper class detailed below). 
 
 **We are intentionally not wrapping git too much, so that you can go on with the workflow you’re used to and the tools you already know.**
 
@@ -122,8 +122,7 @@ instantiating the `Repository` object:
 >>> repo = Repository("my-model", clone_from="<user>/<model_id>", use_auth_token=True)
 ```
 
-This works for models, datasets and spaces repositories; but you will need to explicitely specify the type for the two
-last options:
+This works for models, datasets and spaces repositories; but you will need to explicitely specify the type for the last two options:
 
 ```python
 >>> repo = Repository("my-dataset", clone_from="<user>/<dataset_id>", use_auth_token=True, repo_type="dataset")
@@ -161,7 +160,7 @@ LFS-tracking methods:
 - `auto_track_large_files()`: automatically tracks files that are larger than 10MB. Make sure to call this
   after adding files to the index.
   
-On top of these unitary methods lie some additional useful methods:
+On top of these unitary methods lie some useful additional methods:
 
 - `push_to_hub(commit_message)`: consecutively does `git_add`, `git_commit` and `git_push`.
 - `commit(commit_message: str, track_large_files: bool)`: this is a context manager utility that handles
