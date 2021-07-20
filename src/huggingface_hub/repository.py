@@ -444,7 +444,7 @@ class Repository:
 
         Setting the `filename` argument to `True` will treat the arguments as literal filenames,
         not as patterns. Any special glob characters in the filename will be escaped when
-        writing the .gitattributes file.
+        writing to the .gitattributes file.
         """
         if isinstance(patterns, str):
             patterns = [patterns]
