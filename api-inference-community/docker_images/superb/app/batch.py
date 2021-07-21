@@ -1,6 +1,5 @@
 #!/usr/bin/env python
 import io
-import logging
 import os
 
 import datasets
