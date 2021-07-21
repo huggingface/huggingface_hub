@@ -4,7 +4,7 @@ import os
 
 import datasets
 import tqdm
-from app.model import get_pipeline
+from app.main import get_pipeline
 from huggingface_hub import HfApi
 
 
