@@ -397,7 +397,7 @@ class RepositoryTest(RepositoryCommonTest):
         )
 
 
-class RepositoryAutoLFSTrackingTest(RepositoryCommonTest):
+class RepositoryOfflineTests(RepositoryCommonTest):
     @classmethod
     def setUpClass(cls) -> None:
         if os.path.exists(WORKING_REPO_DIR):
@@ -439,6 +439,22 @@ class RepositoryAutoLFSTrackingTest(RepositoryCommonTest):
     @classmethod
     def tearDownClass(cls) -> None:
         shutil.rmtree(WORKING_REPO_DIR, onerror=set_write_permission_and_retry)
+
+    def test_empty_commit(self):
+        repo = Repository(WORKING_REPO_DIR)
+
+        # This content is under 10MB
+        small_file = [100]
+
+        with open(f"{WORKING_REPO_DIR}/small_file.txt", "w+") as f:
+            f.write(json.dumps(small_file))
+
+        repo.git_add("small_file.txt")
+        repo.git_commit("New commit")
+
+        self.assertRaises(OSError, repo.git_commit, "Second commit")
+
+        repo.git_commit("Third commit", allow_empty=True)
 
     def test_is_tracked_with_lfs(self):
         repo = Repository(WORKING_REPO_DIR)

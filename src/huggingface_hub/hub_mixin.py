@@ -280,7 +280,7 @@ class ModelHubMixin:
 
         # Commit and push!
         repo.git_add()
-        repo.git_commit(commit_message)
+        repo.git_commit(commit_message, allow_empty=True)
         return repo.git_push()
 
 

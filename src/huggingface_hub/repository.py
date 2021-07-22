@@ -582,13 +582,19 @@ class Repository:
         except subprocess.CalledProcessError as exc:
             raise EnvironmentError(exc.stderr)
 
-    def git_commit(self, commit_message="commit files to HF hub"):
+    def git_commit(
+        self, commit_message: str = "commit files to HF hub", allow_empty: bool = False
+    ):
         """
         git commit
         """
         try:
+            command = ["git", "commit", "-m", commit_message]
+            if allow_empty:
+                command += ["--allow-empty"]
+
             subprocess.run(
-                ["git", "commit", "-m", commit_message],
+                command,
                 stderr=subprocess.PIPE,
                 stdout=subprocess.PIPE,
                 check=True,
@@ -629,7 +635,7 @@ class Repository:
             commit_message: commit message.
         """
         self.git_add()
-        self.git_commit(commit_message)
+        self.git_commit(commit_message, allow_empty=True)
         return self.git_push()
 
     @contextmanager
