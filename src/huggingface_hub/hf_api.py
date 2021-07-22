@@ -274,6 +274,29 @@ def read_from_credential_store(
     return username.split("=")[1], password.split("=")[1]
 
 
+def erase_from_credential_store(username=None):
+    """
+    Erases the credential store relative to huggingface.co. If no `username` is specified, will erase the first
+    entry for huggingface.co, otherwise will erase the entry corresponding to the username specified.
+    """
+    process = subprocess.Popen(
+        "git credential-store erase".split(),
+        stdin=subprocess.PIPE,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.STDOUT,
+    )
+
+    standard_input = f"url={ENDPOINT}\n"
+
+    if username is not None:
+        standard_input += f"username={username}\n"
+
+    standard_input += "\n"
+
+    process.stdin.write(standard_input.encode("utf-8"))
+    process.stdin.flush()
+
+
 class HfApi:
     def __init__(self, endpoint=None):
         self.endpoint = endpoint if endpoint is not None else ENDPOINT
@@ -291,7 +314,8 @@ class HfApi:
         r.raise_for_status()
         d = r.json()
 
-        write_to_credential_store(username, password)
+        cased_username = self.whoami(d["token"])["name"]
+        write_to_credential_store(cased_username, password)
         return d["token"]
 
     def whoami(self, token: str) -> Dict:
@@ -310,6 +334,9 @@ class HfApi:
         """
         Call HF API to log out.
         """
+        username = self.whoami(token)["name"]
+        erase_from_credential_store(username)
+
         path = "{}/api/logout".format(self.endpoint)
         r = requests.post(path, headers={"authorization": "Bearer {}".format(token)})
         r.raise_for_status()
