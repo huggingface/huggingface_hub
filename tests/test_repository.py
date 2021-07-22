@@ -381,6 +381,13 @@ class RepositoryTest(RepositoryCommonTest):
             git_email="ci@dummy.com",
         )
 
+    def test_clone_not_hf_url(self):
+        # Should not error out
+        Repository(
+            f"{WORKING_REPO_DIR}/{REPO_NAME}",
+            clone_from="https://hf.co/hf-internal-testing/huggingface-hub-dummy-repository",
+        )
+
     @with_production_testing
     def test_clone_repo_at_root(self):
         os.environ["GIT_LFS_SKIP_SMUDGE"] = "1"
