@@ -16,11 +16,12 @@
 
 import os
 import re
+import subprocess
 import sys
 import warnings
 from io import BufferedIOBase, RawIOBase
 from os.path import expanduser
-from typing import BinaryIO, Dict, Iterable, List, Optional, Union
+from typing import BinaryIO, Dict, Iterable, List, Optional, Tuple, Union
 
 import requests
 from requests.exceptions import HTTPError
@@ -224,6 +225,55 @@ class DatasetInfo:
         return r
 
 
+def write_to_credential_store(username: str, password: str):
+    process = subprocess.Popen(
+        "git credential-store store".split(),
+        stdin=subprocess.PIPE,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.STDOUT,
+    )
+
+    input_username = f"username={username}"
+    input_password = f"password={password}"
+
+    process.stdin.write(
+        f"url={ENDPOINT}\n{input_username}\n{input_password}\n\n".encode("utf-8")
+    )
+    process.stdin.flush()
+
+
+def read_from_credential_store(
+    username=None,
+) -> Tuple[Union[str, None], Union[str, None]]:
+    """
+    Reads the credential store relative to huggingface.co. If no `username` is specified, will read the first
+    entry for huggingface.co, otherwise will read the entry corresponding to the username specified.
+    """
+    process = subprocess.Popen(
+        "git credential-store get".split(),
+        stdin=subprocess.PIPE,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.STDOUT,
+    )
+
+    standard_input = f"url={ENDPOINT}\n"
+
+    if username is not None:
+        standard_input += f"username={username}\n"
+
+    standard_input += "\n"
+
+    process.stdin.write(standard_input.encode("utf-8"))
+    process.stdin.flush()
+    output = process.stdout.read().decode("utf-8")
+
+    if len(output) == 0:
+        return None, None
+
+    username, password = [line for line in output.split("\n") if len(line) != 0]
+    return username.split("=")[1], password.split("=")[1]
+
+
 class HfApi:
     def __init__(self, endpoint=None):
         self.endpoint = endpoint if endpoint is not None else ENDPOINT
@@ -240,6 +290,8 @@ class HfApi:
         r = requests.post(path, json={"username": username, "password": password})
         r.raise_for_status()
         d = r.json()
+
+        write_to_credential_store(username, password)
         return d["token"]
 
     def whoami(self, token: str) -> Dict:
