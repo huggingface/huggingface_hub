@@ -181,6 +181,8 @@ class Repository:
         if git_user is not None or git_email is not None:
             self.git_config_username_and_email(git_user, git_email)
 
+        self.lfs_enable_largefiles()
+
     def check_git_versions(self):
         """
         print git and git-lfs versions, raises if they aren't installed.
