@@ -87,8 +87,8 @@ We support those Streamlit features transparently:
 Github is great for collaboration. You can keep your app in sync with your Github repository by leveraging Github Actions:
 
 - We require Git LFS for files above 10MB so you may need to review your files if you don't want to use Git LFS. This includes your history. You can use handy tools such as [BFG Repo-Cleaner](https://rtyley.github.io/bfg-repo-cleaner/) to remove the large files from your history (keep a local copy of your repository for backup).
-- Set your Github repository and your Spaces app initially in sync (you may need to force push).
-- Set up a Github Action to push your Github main branch automatically to Spaces: replace `HF_USERNAME` with your Hugging Face username and [create a Github secret](https://docs.github.com/en/actions/reference/encrypted-secrets#creating-encrypted-secrets-for-an-environment) `HF_TOKEN` containing your Hugging Face API token.
+- Set your Github repository and your Spaces app initially in sync: to add your Spaces app as an additional remote to your existing git repository, you can use the command `git remote add space https://huggingface.co/spaces/FULL_SPACE_NAME`. You can then force-push to sync everything for the first time: `git push --force space main`
+- Set up a Github Action to push your Github main branch automatically to Spaces: replace `HF_USERNAME` with your Hugging Face username, `FULL_SPACE_NAME` with your Spaces name, and [create a Github secret](https://docs.github.com/en/actions/reference/encrypted-secrets#creating-encrypted-secrets-for-an-environment) `HF_TOKEN` containing your Hugging Face API token.
 
 ```
 name: Sync to Hugging Face hub
@@ -110,7 +110,7 @@ jobs:
       - name: Push to hub
         env:
           HF_TOKEN: ${{ secrets.HF_TOKEN }}
-        run: git push https://HF_USERNAME:$HF_TOKEN@huggingface.co/spaces/flax-community/dalle-mini main
+        run: git push https://HF_USERNAME:$HF_TOKEN@huggingface.co/spaces/FULL_SPACE_NAME main
 ```
 
 - Create an action so file sizes are automatically checked on any new PR
@@ -118,7 +118,7 @@ jobs:
 ```
 name: Check file size
 
-on:
+on:               # or directly `on: [push]` to run the action on every push on any branch
   pull_request:
     branches: [main]
 
