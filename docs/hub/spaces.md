@@ -90,7 +90,7 @@ Github is great for collaboration. You can keep your app in sync with your Githu
 - Set your Github repository and your Spaces app initially in sync: to add your Spaces app as an additional remote to your existing git repository, you can use the command `git remote add space https://huggingface.co/spaces/FULL_SPACE_NAME`. You can then force-push to sync everything for the first time: `git push --force space main`
 - Set up a Github Action to push your Github main branch automatically to Spaces: replace `HF_USERNAME` with your Hugging Face username, `FULL_SPACE_NAME` with your Spaces name, and [create a Github secret](https://docs.github.com/en/actions/reference/encrypted-secrets#creating-encrypted-secrets-for-an-environment) `HF_TOKEN` containing your Hugging Face API token.
 
-```
+```yaml
 name: Sync to Hugging Face hub
 
 on:
@@ -115,7 +115,7 @@ jobs:
 
 - Create an action so file sizes are automatically checked on any new PR
 
-```
+```yaml
 name: Check file size
 
 on:               # or directly `on: [push]` to run the action on every push on any branch
