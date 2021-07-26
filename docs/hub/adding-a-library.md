@@ -311,7 +311,7 @@ This README contains information about the tests necessary to ensure that your l
 
 ### Implementing a widget
 
-All our widgets are [open sourced](https://github.com/huggingface/huggingface_hub/tree/main/widgets)!. You can try them out [here](https://huggingface-widgets.netlify.app/). If you would like to contribute or propose a new widget, please open an issue in the repo.
+All our widgets are [open sourced](https://github.com/huggingface/huggingface_hub/tree/main/interfaces/widgets)!. You can try them out [here](https://huggingface-widgets.netlify.app/). If you would like to contribute or propose a new widget, please open an issue in the repo.
 
 ### New pipelines
 

@@ -16,8 +16,8 @@ What can you find in this repo?
 
 * `huggingface_hub`, a client library to download and publish on the Hugging Face Hub as well as extracting useful information from there.
 * `api-inference-community`, the Inference API for open source machine learning libraries.
-* `widgets`, the open-sourced widgets that allow people to try out the models in the browser.
 * `interfaces`, Typescript definition files for the Hugging Face Hub.
+	* `widgets`, the open-sourced widgets that allow people to try out the models in the browser.
 * `docs`, containing the official [Hugging Face Hub documentation](https://hf.co/docs).
 
 ## The `huggingface_hub` client library
