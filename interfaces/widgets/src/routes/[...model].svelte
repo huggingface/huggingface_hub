@@ -1,6 +1,6 @@
 <script context="module">
 	import type { Load } from "@sveltejs/kit";
-	import type { ModelData } from "../../../interfaces/Types";
+	import type { ModelData } from "../../../Types";
 
 	import InferenceWidget from "$lib/InferenceWidget/InferenceWidget.svelte";
 

@@ -1,7 +1,7 @@
 <script>
 	import InferenceWidget from "$lib/InferenceWidget/InferenceWidget.svelte";
 	import ModeSwitcher from "$lib/_demo/ModeSwitcher.svelte";
-	import type { ModelData } from "../../../interfaces/Types";
+	import type { ModelData } from "../../../Types";
 
 	const models: ModelData[] = [
 		{
