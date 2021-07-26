@@ -6,13 +6,11 @@ on:
       - main
     paths-ignore:
       - "interfaces/**"
-      - "widgets/**"
       - "api-inference-community/**"
   pull_request:
     types: [assigned, opened, synchronize, reopened]
     paths-ignore:
       - "interfaces/**"
-      - "widgets/**"
       - "api-inference-community/**"
 
 env:
