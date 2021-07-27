@@ -4,7 +4,7 @@ import numpy as np
 from app.pipelines import Pipeline
 
 
-class SpeechClassificationPipeline(Pipeline):
+class SpeechSegmentationPipeline(Pipeline):
     def __init__(self, model_id: str):
         # IMPLEMENT_THIS
         # Preload all the elements you are going to need at inference.
@@ -14,7 +14,7 @@ class SpeechClassificationPipeline(Pipeline):
         # to automatically read the input correctly
         self.sampling_rate = 16000
         raise NotImplementedError(
-            "Please implement SpeechClassificationPipeline __init__ function"
+            "Please implement SpeechSegmentationPipeline __init__ function"
         )
 
     def __call__(self, inputs: np.array) -> Dict[str, str]:
@@ -30,5 +30,5 @@ class SpeechClassificationPipeline(Pipeline):
         # IMPLEMENT_THIS
         # api_inference_community.normalizers.speaker_diarization_normalize could help.
         raise NotImplementedError(
-            "Please implement SpeechClassificationPipeline __call__ function"
+            "Please implement SpeechSegmentationPipeline __call__ function"
         )

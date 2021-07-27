@@ -9,7 +9,7 @@ from app.pipelines import Pipeline
 from huggingface_hub import snapshot_download
 
 
-class SpeechClassificationPipeline(Pipeline):
+class SpeechSegmentationPipeline(Pipeline):
     def __init__(self, model_id: str):
         # IMPLEMENT_THIS
         # Preload all the elements you are going to need at inference.
@@ -44,7 +44,7 @@ class SpeechClassificationPipeline(Pipeline):
         Return:
             A :obj:`list`:. Each item in the list is like {"class": "XXX", "start": float, "end": float}
             "class" is the associated class of the audio segment, "start" and "end" are markers expressed in seconds
-            within the audio file.
+            within the audio file. Segments can overlap in any way the want.
         """
         # S x N boolean tensor
         # S : sequence_length

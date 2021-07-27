@@ -7,7 +7,7 @@ from api_inference_community.routes import pipeline_route, status_ok
 from app.pipelines import (
     AutomaticSpeechRecognitionPipeline,
     Pipeline,
-    SpeechClassificationPipeline,
+    SpeechSegmentationPipeline,
 )
 from starlette.applications import Starlette
 from starlette.middleware import Middleware
@@ -38,7 +38,7 @@ logger = logging.getLogger(__name__)
 # directories. Implement directly within the directories.
 ALLOWED_TASKS: Dict[str, Type[Pipeline]] = {
     "automatic-speech-recognition": AutomaticSpeechRecognitionPipeline,
-    "speech-classification": SpeechClassificationPipeline,
+    "speech-segmentation": SpeechSegmentationPipeline,
 }
 
 

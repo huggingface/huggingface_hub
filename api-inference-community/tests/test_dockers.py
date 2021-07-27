@@ -153,7 +153,7 @@ class DockerImageTests(unittest.TestCase):
         )
         self.framework_docker_test(
             "superb",
-            "speech-classification",
+            "speech-segmentation",
             "lewtun/s3prl-sd-hubert-dummy",
         )
         # # Too slow, requires downloading the upstream model from PyTorch Hub which is quite heavy
@@ -351,9 +351,16 @@ class DockerImageTests(unittest.TestCase):
                         # ASR
                         self.assertEqual(set(data.keys()), {"text"})
                     elif isinstance(data, list):
-                        self.assertEqual(
-                            set(data[0].keys()), {"blob", "content-type", "label"}
-                        )
+                        if len(data) > 0:
+                            keys = set(data[0].keys())
+                            if keys == {"blob", "content-type", "label"}:
+                                # audio-to-audio
+                                self.assertEqual(
+                                    keys, {"blob", "content-type", "label"}
+                                )
+                            else:
+                                # speech-segmentation
+                                self.assertEqual(keys, {"class", "start", "end"})
                     else:
                         raise Exception("Invalid result")
                 elif response.headers["content-type"] == "audio/flac":
