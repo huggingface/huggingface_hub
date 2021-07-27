@@ -1,4 +1,4 @@
-import type { ModelData } from '../../interfaces/Types';
+import type { ModelData } from '$lib/interfaces/Types';
 import { randomItem, parseJSON, } from './ViewUtils';
 import type { LoadingStatus } from './types';
 
