@@ -15,12 +15,12 @@ if TYPE_CHECKING:
 
 
 def speaker_diarization_normalize(
-    tensor: "torch.Tensor", sampling_rate: int, classe_names: List[str]
+    tensor: "torch.Tensor", sampling_rate: int, classnames: List[str]
 ) -> List[Classes]:
     N = tensor.shape[1]
-    if len(classe_names) != N:
+    if len(classnames) != N:
         raise ValueError(
-            f"There is a mismatch between classe_names ({len(classe_names)}) and number of speakers ({N})"
+            f"There is a mismatch between classnames ({len(classnames)}) and number of speakers ({N})"
         )
     classes = []
     for i in range(N):
@@ -30,7 +30,7 @@ def speaker_diarization_normalize(
             if v == 1:
                 classes.append(
                     {
-                        "class": classe_names[i],
+                        "class": classnames[i],
                         "start": offset / sampling_rate,
                         "end": (offset + c.item()) / sampling_rate,
                     }

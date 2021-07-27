@@ -40,12 +40,11 @@ class SpeechClassificationPipeline(Pipeline):
         """
         Args:
             inputs (:obj:`np.array`):
-                The raw waveform of audio received. By default at 16KHz.
-                Check `app.validation` if a different sample rate is required
-                or if it depends on the model
+                The raw waveform of audio received. By default at self.sampling_rate, otherwise 16KHz.
         Return:
-            A :obj:`dict`:. The object return should be liked {"text": "XXX"} containing
-            the detected langage from the input audio
+            A :obj:`list`:. Each item in the list is like {"class": "XXX", "start": float, "end": float}
+            "class" is the associated class of the audio segment, "start" and "end" are markers expressed in seconds
+            within the audio file.
         """
         # S x N boolean tensor
         # S : sequence_length

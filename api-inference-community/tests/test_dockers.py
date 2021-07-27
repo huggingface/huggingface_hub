@@ -151,6 +151,11 @@ class DockerImageTests(unittest.TestCase):
             "automatic-speech-recognition",
             "osanseviero/asr-with-transformers-wav2vec2",
         )
+        self.framework_docker_test(
+            "superb",
+            "speech-classification",
+            "lewtun/s3prl-sd-hubert-dummy",
+        )
         # # Too slow, requires downloading the upstream model from PyTorch Hub which is quite heavy
         # # self.framework_docker_test(
         # #    "superb", "automatic-speech-recognition", "osanseviero/hubert_s3prl_req"
