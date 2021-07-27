@@ -84,7 +84,7 @@ Below you can find all the important resources to all published blog posts, vide
 
 ## Deep Learning Container (DLC) overview
 
-The Deep Learning Container are in every available where Amazon SageMaker is available. You can see the [AWS region table](https://aws.amazon.com/about-aws/global-infrastructure/regional-product-services/) for all AWS global infrastructure. To get an detailed overview of all included packages look [here in the release notes](https://docs.aws.amazon.com/deep-learning-containers/latest/devguide/deep-learning-containers-images.html).
+The Deep Learning Container are available everywhere Amazon SageMaker is available. You can see the [AWS region table](https://aws.amazon.com/about-aws/global-infrastructure/regional-product-services/) for all AWS global infrastructure. To get an detailed overview of all included packages look [here in the release notes](https://docs.aws.amazon.com/deep-learning-containers/latest/devguide/deep-learning-containers-images.html).
 
 | 🤗 Transformers version | 🤗 Datasets version | PyTorch/TensorFlow version | type     | device | Python Version | Example `image_uri`                                                                                                               |
 | ----------------------- | ------------------- | -------------------------- | -------- | ------ | -------------- | --------------------------------------------------------------------------------------------------------------------------------- |

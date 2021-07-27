@@ -12,7 +12,7 @@ import httpx
 class DockerPopen(subprocess.Popen):
     def __exit__(self, exc_type, exc_val, traceback):
         self.terminate()
-        self.wait(5)
+        self.wait(20)
         return super().__exit__(exc_type, exc_val, traceback)
 
 
@@ -144,6 +144,18 @@ class DockerImageTests(unittest.TestCase):
             "keras", "image-classification", "osanseviero/keras-dog-or-cat"
         )
 
+    def test_superb(self):
+        # Very basic repo just using transformers.
+        self.framework_docker_test(
+            "superb",
+            "automatic-speech-recognition",
+            "osanseviero/asr-with-transformers-wav2vec2",
+        )
+        # Too slow, requires downloading the upstream model from PyTorch Hub which is quite heavy
+        # self.framework_docker_test(
+        #    "superb", "automatic-speech-recognition", "osanseviero/hubert_s3prl_req"
+        # )
+
     def framework_invalid_test(self, framework: str):
         task = "invalid"
         model_id = "invalid"
@@ -179,7 +191,7 @@ class DockerImageTests(unittest.TestCase):
             self.assertEqual(response.headers["content-type"], "application/json")
 
             proc.terminate()
-            proc.wait(5)
+            proc.wait(20)
 
     def framework_docker_test(self, framework: str, task: str, model_id: str):
         tag = self.create_docker(framework)
@@ -328,7 +340,7 @@ class DockerImageTests(unittest.TestCase):
             counter[response.status_code] += 1
 
             proc.terminate()
-            proc.wait(5)
+            proc.wait(20)
 
         self.assertEqual(proc.returncode, 0)
         self.assertGreater(
@@ -347,5 +359,5 @@ class DockerImageTests(unittest.TestCase):
                     time.sleep(1)
             self.assertEqual(response.content, b'{"ok":"ok"}')
             proc2.terminate()
-            proc2.wait(5)
+            proc2.wait(20)
         self.assertEqual(proc2.returncode, 0)

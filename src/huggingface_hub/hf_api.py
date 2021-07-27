@@ -20,7 +20,7 @@ import sys
 import warnings
 from io import BufferedIOBase, RawIOBase
 from os.path import expanduser
-from typing import BinaryIO, Dict, Iterable, List, Optional, Tuple, Union
+from typing import BinaryIO, Dict, Iterable, List, Optional, Union
 
 import requests
 from requests.exceptions import HTTPError
@@ -58,6 +58,8 @@ def repo_type_and_id_from_hf_id(hf_id: str):
 
     if is_hf_url:
         namespace, repo_id = url_segments[-2:]
+        if namespace == "huggingface.co":
+            namespace = None
         if len(url_segments) > 2 and "huggingface.co" not in url_segments[-3]:
             repo_type = url_segments[-3]
         else:
@@ -115,6 +117,21 @@ class ModelFile:
         return f"{self.__class__.__name__}({', '.join(items)})"
 
 
+class DatasetFile:
+    """
+    Data structure that represents a public file inside a dataset, accessible from huggingface.co
+    """
+
+    def __init__(self, rfilename: str, **kwargs):
+        self.rfilename = rfilename  # filename relative to the dataset root
+        for k, v in kwargs.items():
+            setattr(self, k, v)
+
+    def __repr__(self):
+        items = (f"{k}='{v}'" for k, v in self.__dict__.items())
+        return f"{self.__class__.__name__}({', '.join(items)})"
+
+
 class ModelInfo:
     """
     Info about a public model accessible from huggingface.co
@@ -158,6 +175,55 @@ class ModelInfo:
         return r
 
 
+class DatasetInfo:
+    """
+    Info about a public dataset accessible from huggingface.co
+    """
+
+    def __init__(
+        self,
+        id: Optional[str] = None,  # id of dataset
+        lastModified: Optional[str] = None,  # date of last commit to repo
+        tags: List[str] = [],  # tags of the dataset
+        siblings: Optional[
+            List[Dict]
+        ] = None,  # list of files that constitute the dataset
+        private: Optional[bool] = None,  # community datasets only
+        author: Optional[str] = None,  # community datasets only
+        description: Optional[str] = None,
+        citation: Optional[str] = None,
+        card_data: Optional[dict] = None,
+        **kwargs,
+    ):
+        self.id = id
+        self.lastModified = lastModified
+        self.tags = tags
+        self.private = private
+        self.author = author
+        self.description = description
+        self.citation = citation
+        self.card_data = card_data
+        self.siblings = (
+            [DatasetFile(**x) for x in siblings] if siblings is not None else None
+        )
+        # Legacy stuff, "key" is always returned with an empty string
+        # because of old versions of the datasets lib that need this field
+        kwargs.pop("key", None)
+        # Store all the other fields returned by the API
+        for k, v in kwargs.items():
+            setattr(self, k, v)
+
+    def __repr__(self):
+        s = f"{self.__class__.__name__}:" + " {"
+        for key, val in self.__dict__.items():
+            s += f"\n\t{key}: {val}"
+        return s + "\n}"
+
+    def __str__(self):
+        r = f"Dataset Name: {self.id}, Tags: {self.tags}"
+        return r
+
+
 class HfApi:
     def __init__(self, endpoint=None):
         self.endpoint = endpoint if endpoint is not None else ENDPOINT
@@ -176,15 +242,17 @@ class HfApi:
         d = r.json()
         return d["token"]
 
-    def whoami(self, token: str) -> Tuple[str, List[str]]:
+    def whoami(self, token: str) -> Dict:
         """
-        Call HF API to know "whoami"
+        Call HF API to know "whoami".
+
+        Args:
+            token (``str``): Hugging Face token.
         """
-        path = "{}/api/whoami".format(self.endpoint)
+        path = "{}/api/whoami-v2".format(self.endpoint)
         r = requests.get(path, headers={"authorization": "Bearer {}".format(token)})
         r.raise_for_status()
-        d = r.json()
-        return d["user"], d["orgs"]
+        return r.json()
 
     def logout(self, token: str) -> None:
         """
@@ -277,6 +345,63 @@ class HfApi:
         )
         return self.list_models()
 
+    def list_datasets(
+        self,
+        filter: Union[str, Iterable[str], None] = None,
+        sort: Union[Literal["lastModified"], str, None] = None,
+        direction: Optional[Literal[-1]] = None,
+        limit: Optional[int] = None,
+        full: Optional[bool] = None,
+    ) -> List[DatasetInfo]:
+        """
+        Get the public list of all the datasets on huggingface.co
+
+        Args:
+            filter (:obj:`str` or :class:`Iterable`, `optional`):
+                A string which can be used to identify datasets on the hub by their tags.
+                Example usage:
+
+                    >>> from huggingface_hub import HfApi
+                    >>> api = HfApi()
+
+                    >>> # List all datasets
+                    >>> api.list_datasets()
+
+                    >>> # List only the text classification datasets
+                    >>> api.list_datasets(filter="task_categories:text-classification")
+
+                    >>> # List only the datasets in russian for language modeling
+                    >>> api.list_datasets(filter=("languages:ru", "task_ids:language-modeling"))
+            sort (:obj:`Literal["lastModified"]` or :obj:`str`, `optional`):
+                The key with which to sort the resulting datasets. Possible values are the properties of the `DatasetInfo`
+                class.
+            direction (:obj:`Literal[-1]` or :obj:`int`, `optional`):
+                Direction in which to sort. The value `-1` sorts by descending order while all other values
+                sort by ascending order.
+            limit (:obj:`int`, `optional`):
+                The limit on the number of datasets fetched. Leaving this option to `None` fetches all datasets.
+            full (:obj:`bool`, `optional`):
+                Whether to fetch all dataset data, including the `lastModified` and the `card_data`.
+
+        """
+        path = "{}/api/datasets".format(self.endpoint)
+        params = {}
+        if filter is not None:
+            params.update({"filter": filter})
+        if sort is not None:
+            params.update({"sort": sort})
+        if direction is not None:
+            params.update({"direction": direction})
+        if limit is not None:
+            params.update({"limit": limit})
+        if full is not None:
+            if full:
+                params.update({"full": True})
+        r = requests.get(path, params=params)
+        r.raise_for_status()
+        d = r.json()
+        return [DatasetInfo(**x) for x in d]
+
     def model_info(
         self, repo_id: str, revision: Optional[str] = None, token: Optional[str] = None
     ) -> ModelInfo:
@@ -316,6 +441,30 @@ class HfApi:
         r.raise_for_status()
         d = r.json()
         return [RepoObj(**x) for x in d]
+
+    def dataset_info(
+        self, repo_id: str, revision: Optional[str] = None, token: Optional[str] = None
+    ) -> DatasetInfo:
+        """
+        Get info on one specific dataset on huggingface.co
+
+        Dataset can be private if you pass an acceptable token.
+        """
+        path = (
+            "{}/api/datasets/{repo_id}".format(self.endpoint, repo_id=repo_id)
+            if revision is None
+            else "{}/api/datasets/{repo_id}/revision/{revision}".format(
+                self.endpoint, repo_id=repo_id, revision=revision
+            )
+        )
+        headers = (
+            {"authorization": "Bearer {}".format(token)} if token is not None else None
+        )
+        params = {"full": "true"}
+        r = requests.get(path, headers=headers, params=params)
+        r.raise_for_status()
+        d = r.json()
+        return DatasetInfo(**d)
 
     def create_repo(
         self,
@@ -422,7 +571,7 @@ class HfApi:
             raise ValueError("Invalid repo type")
 
         if organization is None:
-            namespace, _ = self.whoami(token)
+            namespace = self.whoami(token)["name"]
         else:
             namespace = organization
 

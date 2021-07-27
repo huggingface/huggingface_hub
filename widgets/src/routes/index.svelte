@@ -187,6 +187,13 @@
 			tags: ["audio-source-separation"],
 			widgetData: [],
 		},
+		{
+			modelId: "julien-c/DPRNNTasNet-ks16_WHAM_sepclean",
+			private: false,
+			pipeline_tag: "audio-to-audio",
+			tags: ["audio-source-separation"],
+			widgetData: [],
+		},
 	];
 </script>
 

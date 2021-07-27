@@ -30,6 +30,10 @@ DUMMY_MODEL_ID_PINNED_SHA256 = (
 
 SAMPLE_DATASET_IDENTIFIER = "lhoestq/custom_squad"
 # Example dataset ids
+DUMMY_DATASET_ID = "lhoestq/test"
+DUMMY_DATASET_ID_REVISION_ONE_SPECIFIC_COMMIT = (
+    "81d06f998585f8ee10e6e3a2ea47203dc75f2a16"  # on branch "test-branch"
+)
 
 
 def parse_flag_from_env(key, default=False):
@@ -160,4 +164,9 @@ def with_production_testing(func):
         ENDPOINT_PRODUCTION,
     )
 
-    return hf_api(file_download(func))
+    repository = patch(
+        "huggingface_hub.repository.ENDPOINT",
+        ENDPOINT_PRODUCTION,
+    )
+
+    return repository(hf_api(file_download(func)))
