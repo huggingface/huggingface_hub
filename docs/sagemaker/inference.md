@@ -404,7 +404,7 @@ def transform_fn(model, input_data, content_type, accept):
 
 ### Batch Transform
 
-After you train a model, you can use [Amazon SageMaker Batch Transform](https://docs.aws.amazon.com/sagemaker/latest/dg/how-it-works-batch.html) to perform inferences with the model. In Batch Transform you provide your inference data S3 uri and SageMaker will care of pulling it, running the prediction and uploading the results afterwards to S3 again. You can find more documentation for Batch Transform [here](https://docs.aws.amazon.com/sagemaker/latest/dg/batch-transform.html)
+After you train a model, you can use [Amazon SageMaker Batch Transform](https://docs.aws.amazon.com/sagemaker/latest/dg/how-it-works-batch.html) to perform inferences with the model. In Batch Transform you provide your inference data as a S3 uri and SageMaker will care of downloading it, running the prediction and uploading the results afterwards to S3 again. You can find more documentation for Batch Transform [here](https://docs.aws.amazon.com/sagemaker/latest/dg/batch-transform.html)
 
 If you trained the model using the `HuggingFace` estimator, you can invoke `transformer()` method to create a transform job for a model based on the training job.
 
@@ -423,7 +423,7 @@ batch_job.transform(
 
 For more details about what can be specified here, see [API docs](https://sagemaker.readthedocs.io/en/stable/overview.html#sagemaker-batch-transform).
 
-If you want to run your Batch Transform Job later or with a model from hf.co/models you can do this by creating a `HuggingFaceModel` instance and then using the `.transform()` method.
+If you want to run your Batch Transform Job later or with a model from hf.co/models you can do this by creating a `HuggingFaceModel` instance and then using the `transformer()` method.
 
 ```python
 from sagemaker.huggingface.model import HuggingFaceModel
@@ -457,6 +457,7 @@ batch_job.transform(
 ```
 
 The `input.jsonl` looks like this.
+
 ```jsonl
 {"inputs":"this movie is terrible"}
 {"inputs":"this movie is amazing"}
