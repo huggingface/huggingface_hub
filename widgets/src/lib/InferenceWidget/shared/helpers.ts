@@ -141,6 +141,7 @@ export async function getResponse<T>(
 	}
 }
 
+
 export async function getModelStatus(url: string, modelId: string): Promise<LoadingStatus> {
 	const response = await fetch(`${url}/status/${modelId}`);
 	const output = await response.json();

@@ -39,6 +39,7 @@
 
 	function editCell(e: Event, [x, y]) {
 		const value = (e.target as HTMLElement)?.innerText;
+		
 		const updatedTable = table.map((row, rowIndex) =>
 			rowIndex === y
 				? row.map((col, colIndex) => (colIndex === x ? value : col))
