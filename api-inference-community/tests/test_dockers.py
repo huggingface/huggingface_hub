@@ -154,7 +154,7 @@ class DockerImageTests(unittest.TestCase):
         self.framework_docker_test(
             "superb",
             "speech-segmentation",
-            "lewtun/s3prl-sd-hubert-dummy",
+            "osanseviero/hubert-sd",
         )
         # # Too slow, requires downloading the upstream model from PyTorch Hub which is quite heavy
         # # self.framework_docker_test(
@@ -279,6 +279,7 @@ class DockerImageTests(unittest.TestCase):
             self.assertEqual(response.content, b'{"ok":"ok"}')
 
             response = httpx.post(url, data=b"This is a test", timeout=timeout)
+            print(response.content)
             self.assertIn(response.status_code, {200, 400})
             counter[response.status_code] += 1
 
