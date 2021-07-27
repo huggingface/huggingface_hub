@@ -20,6 +20,7 @@ setup(
             "huggingface_hub==0.0.13",
             "httpx==0.18",
             "torch==1.9.0",
+            "pytest==6.2",
         ]
     },
 )
