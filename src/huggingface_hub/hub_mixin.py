@@ -58,12 +58,12 @@ class ModelHubMixin:
                 json.dump(config, f)
 
         # saving model weights/files
-        self._save_pretrained(save_directory)
+        self._save_pretrained(save_directory, **kwargs)
 
         if push_to_hub:
             return self.push_to_hub(save_directory, **kwargs)
 
-    def _save_pretrained(self, save_directory):
+    def _save_pretrained(self, save_directory, **kwargs):
         """
         Overwrite this method in subclass to define how to save your model.
         """
