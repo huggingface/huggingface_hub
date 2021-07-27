@@ -4,8 +4,8 @@ import sys
 from typing import Dict, List, Union
 
 import numpy as np
-from app.pipelines import Pipeline
 from api_inference_community.normalizers import speaker_diarization_normalize
+from app.pipelines import Pipeline
 from huggingface_hub import snapshot_download
 
 

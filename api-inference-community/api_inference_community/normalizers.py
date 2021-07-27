@@ -2,7 +2,8 @@
 Helper classes to modify pipeline outputs from tensors to expected pipeline output
 """
 
-from typing import List, Dict, Union, TYPE_CHECKING
+from typing import TYPE_CHECKING, Dict, List, Union
+
 
 Classes = Dict[str, Union[str, float]]
 
