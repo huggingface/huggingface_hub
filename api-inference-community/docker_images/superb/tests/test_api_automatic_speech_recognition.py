@@ -25,7 +25,9 @@ class AutomaticSpeecRecognitionTestCase(TestCase):
         os.environ["MODEL_ID"] = self.model_id
         os.environ["TASK"] = "automatic-speech-recognition"
 
-        from app.main import app
+        from app.main import app, get_pipeline
+
+        get_pipeline.cache_clear()
 
         self.app = app
 

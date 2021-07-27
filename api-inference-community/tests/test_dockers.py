@@ -151,6 +151,11 @@ class DockerImageTests(unittest.TestCase):
             "automatic-speech-recognition",
             "osanseviero/asr-with-transformers-wav2vec2",
         )
+        self.framework_docker_test(
+            "superb",
+            "speech-segmentation",
+            "osanseviero/hubert-sd",
+        )
         # # Too slow, requires downloading the upstream model from PyTorch Hub which is quite heavy
         # # self.framework_docker_test(
         # #    "superb", "automatic-speech-recognition", "osanseviero/hubert_s3prl_req"
@@ -274,6 +279,7 @@ class DockerImageTests(unittest.TestCase):
             self.assertEqual(response.content, b'{"ok":"ok"}')
 
             response = httpx.post(url, data=b"This is a test", timeout=timeout)
+            print(response.content)
             self.assertIn(response.status_code, {200, 400})
             counter[response.status_code] += 1
 
@@ -346,9 +352,16 @@ class DockerImageTests(unittest.TestCase):
                         # ASR
                         self.assertEqual(set(data.keys()), {"text"})
                     elif isinstance(data, list):
-                        self.assertEqual(
-                            set(data[0].keys()), {"blob", "content-type", "label"}
-                        )
+                        if len(data) > 0:
+                            keys = set(data[0].keys())
+                            if keys == {"blob", "content-type", "label"}:
+                                # audio-to-audio
+                                self.assertEqual(
+                                    keys, {"blob", "content-type", "label"}
+                                )
+                            else:
+                                # speech-segmentation
+                                self.assertEqual(keys, {"class", "start", "end"})
                     else:
                         raise Exception("Invalid result")
                 elif response.headers["content-type"] == "audio/flac":
