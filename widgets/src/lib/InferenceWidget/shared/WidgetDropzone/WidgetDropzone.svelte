@@ -5,7 +5,8 @@
 	export let isLoading = false;
 	export let label =
 		"Drag image file here or click to browse from your computer";
-	export let onSelectFile: (file: File) => void;
+	export let onSelectFile: (file: File | Blob) => void;
+	export let onError: (e: string) => void;
 
 	let fileInput: HTMLInputElement;
 	let isDragging = false;
@@ -16,6 +17,46 @@
 		if (file) {
 			imgSrc = URL.createObjectURL(file);
 			onSelectFile(file);
+		}
+	}
+
+	async function onDrop(e: DragEvent) {
+		isDragging = false;
+		const itemList = e.dataTransfer?.items;
+		if (!itemList) {
+			return;
+		}
+		const items: DataTransferItem[] = [];
+		for (let i = 0; i < itemList.length; i++) {
+			items.push(itemList[i]);
+		}
+		const uriItem = items.find(
+			(x) => x.kind === "string" && x.type === "text/uri-list"
+		);
+		const fileItem = items.find((x) => x.kind === "file");
+		if (uriItem) {
+			const url = await new Promise<string>((resolve) =>
+				uriItem.getAsString((s) => resolve(s))
+			);
+			/// Run through our own proxy to bypass CORS:
+			const proxiedUrl =
+				url.startsWith(`http://localhost`) ||
+				new URL(url).host === window.location.host
+					? url
+					: `https://widgets-cors-proxy.huggingface.co/proxy?url=${url}`;
+			const res = await fetch(proxiedUrl);
+			const file = await res.blob();
+
+			imgSrc = URL.createObjectURL(file);
+			onSelectFile(file);
+		} else if (fileItem) {
+			const file = fileItem.getAsFile();
+			if (file) {
+				imgSrc = URL.createObjectURL(file);
+				onSelectFile(file);
+			}
+		} else {
+			onError(`Unrecognized dragged and dropped file or element.`);
 		}
 	}
 </script>
@@ -41,11 +82,7 @@
 		isDragging = false;
 	}}
 	on:dragover|preventDefault
-	on:drop|preventDefault={(e) => {
-		isDragging = false;
-		fileInput.files = e.dataTransfer?.files ?? null;
-		onChange();
-	}}
+	on:drop|preventDefault={onDrop}
 >
 	{#if !imgSrc}
 		<span class="pointer-events-none text-sm">{label}</span>

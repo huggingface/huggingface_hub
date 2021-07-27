@@ -21,11 +21,11 @@
 	let output: Array<{ label: string; score: number }> = [];
 	let outputJson: string;
 
-	function onSelectFile(file: File) {
+	function onSelectFile(file: File | Blob) {
 		getOutput(file);
 	}
 
-	async function getOutput(file: File, withModelLoading = false) {
+	async function getOutput(file: File | Blob, withModelLoading = false) {
 		if (!file) {
 			return;
 		}
@@ -91,7 +91,7 @@
 >
 	<svelte:fragment slot="top">
 		<form>
-			<WidgetDropzone {isLoading} {onSelectFile} />
+			<WidgetDropzone {isLoading} {onSelectFile} onError={(e) => (error = e)} />
 		</form>
 	</svelte:fragment>
 	<svelte:fragment slot="bottom">
