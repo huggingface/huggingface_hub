@@ -13,6 +13,31 @@ class KerasModelHubMixin(ModelHubMixin):
     _CONFIG_NAME = "config.json"
     _WEIGHTS_NAME = "tf_model.h5"
 
+    def __init__(self, *args, **kwargs):
+        """
+        Mix this class with your keras-model class for ease process of saving & loading from huggingface-hub
+
+        Example::
+
+            >>> from huggingface_hub import KerasModelHubMixin
+
+            >>> class MyModel(tf.keras.Model, KerasModelHubMixin):
+            ...    def __init__(self, **kwargs):
+            ...        super().__init__()
+            ...        self.config = kwargs.pop("config", None)
+            ...        self.dummy_inputs = ...
+            ...        self.layer = ...
+            ...    def call(self, ...)
+            ...        return ...
+
+            >>> model = MyModel()
+            >>> model.save_pretrained("mymodel", push_to_hub=False) # Saving model weights in the directory
+            >>> model.push_to_hub("mymodel", "model-1") # Pushing model-weights to hf-hub
+
+            >>> # Downloading weights from hf-hub & model will be initialized from those weights
+            >>> model = MyModel.from_pretrained("username/mymodel@main")
+        """
+
     def _save_pretrained(self, save_directory, dummy_inputs=None, **kwargs):
 
         dummy_inputs = (
