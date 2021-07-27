@@ -49,11 +49,13 @@ except importlib_metadata.PackageNotFoundError:
 
 _tf_version = "N/A"
 _tf_available = False
-try:
-    _tf_version = importlib_metadata.version("tensorflow")
-    _tf_available = True
-except importlib_metadata.PackageNotFoundError:
-    pass
+for package_name in ['tensorflow', 'tensorflow-cpu', 'tensorflow-gpu']:
+    try:
+        _tf_version = importlib_metadata.version(package_name)
+        _tf_available = True
+        break
+    except importlib_metadata.PackageNotFoundError:
+        pass
 
 
 def is_torch_available():
