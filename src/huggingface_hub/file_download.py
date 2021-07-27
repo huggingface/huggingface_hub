@@ -49,7 +49,7 @@ except importlib_metadata.PackageNotFoundError:
 
 _tf_version = "N/A"
 _tf_available = False
-for package_name in ['tensorflow', 'tensorflow-cpu', 'tensorflow-gpu']:
+for package_name in ["tensorflow", "tensorflow-cpu", "tensorflow-gpu"]:
     try:
         _tf_version = importlib_metadata.version(package_name)
         _tf_available = True

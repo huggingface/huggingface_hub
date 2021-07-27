@@ -10,15 +10,21 @@ logger = logging.getLogger(__name__)
 
 class KerasModelHubMixin(ModelHubMixin):
 
-    _CONFIG_NAME = 'config.json'
-    _WEIGHTS_NAME = 'tf_model.h5'
+    _CONFIG_NAME = "config.json"
+    _WEIGHTS_NAME = "tf_model.h5"
 
     def _save_pretrained(self, save_directory, dummy_inputs=None, **kwargs):
 
-        dummy_inputs = dummy_inputs if dummy_inputs is not None else getattr(self, 'dummy_inputs', None)
+        dummy_inputs = (
+            dummy_inputs
+            if dummy_inputs is not None
+            else getattr(self, "dummy_inputs", None)
+        )
 
         if dummy_inputs is None:
-            raise RuntimeError("You must either provide dummy inputs or have them assigned as an attribute of this model")
+            raise RuntimeError(
+                "You must either provide dummy inputs or have them assigned as an attribute of this model"
+            )
 
         _ = self(dummy_inputs, training=False)
 
@@ -54,12 +60,14 @@ class KerasModelHubMixin(ModelHubMixin):
                 proxies=proxies,
                 resume_download=resume_download,
                 use_auth_token=use_auth_token,
-                local_files_only=local_files_only
+                local_files_only=local_files_only,
             )
 
         model = cls(**model_kwargs)
 
-        assert hasattr(model, 'dummy_inputs') and model.dummy_inputs is not None, "Model must have a dummy_inputs attribute"
+        assert (
+            hasattr(model, "dummy_inputs") and model.dummy_inputs is not None
+        ), "Model must have a dummy_inputs attribute"
 
         _ = model(model.dummy_inputs, training=False)
 
