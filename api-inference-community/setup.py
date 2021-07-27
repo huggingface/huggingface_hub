@@ -13,4 +13,13 @@ setup(
     python_requires=">=3.6.0",
     zip_safe=False,
     install_requires=list(line for line in open("requirements.txt", "r")),
+    extras_require={
+        "test": [
+            "httpx==0.18",
+            "Pillow==8.2",
+            "huggingface_hub==0.0.13",
+            "httpx==0.18",
+            "torch==1.9.0",
+        ]
+    },
 )
