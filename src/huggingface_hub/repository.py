@@ -15,7 +15,7 @@ from .lfs import LFS_MULTIPART_UPLOAD_COMMAND
 logger = logging.getLogger(__name__)
 
 
-def is_git_repo(folder: Union[str, Path]):
+def is_git_repo(folder: Union[str, Path]) -> bool:
     """
     Check if the folder is the root of a git repository
     """
@@ -26,7 +26,7 @@ def is_git_repo(folder: Union[str, Path]):
     return folder_exists and git_branch.returncode == 0
 
 
-def is_local_clone(folder: Union[str, Path], remote_url: str):
+def is_local_clone(folder: Union[str, Path], remote_url: str) -> bool:
     """
     Check if the folder is the a local clone of the remote_url
     """
@@ -48,6 +48,65 @@ def is_local_clone(folder: Union[str, Path], remote_url: str):
     return remote_url in remotes
 
 
+def is_tracked_with_lfs(filename: Union[str, Path]) -> bool:
+    """
+    Check if the file passed is tracked with git-lfs.
+    """
+    folder = Path(filename).parent
+    filename = Path(filename).name
+
+    try:
+        p = subprocess.run(
+            ["git", "check-attr", "-a", filename],
+            stderr=subprocess.PIPE,
+            stdout=subprocess.PIPE,
+            check=True,
+            encoding="utf-8",
+            cwd=folder,
+        )
+        attributes = p.stdout.strip()
+    except subprocess.CalledProcessError as exc:
+        if "not a git repository" in exc.stderr:
+            return False
+        else:
+            raise OSError(exc.stderr)
+
+    if len(attributes) == 0:
+        return False
+
+    found_lfs_tag = {"diff": False, "merge": False, "filter": False}
+
+    for attribute in attributes.split("\n"):
+        for tag in found_lfs_tag.keys():
+            if tag in attribute and "lfs" in attribute:
+                found_lfs_tag[tag] = True
+
+    return all(found_lfs_tag.values())
+
+
+def is_git_ignored(filename: Union[str, Path]) -> bool:
+    """
+    Check if file is git-ignored. Supports nested .gitignore files.
+    """
+    folder = Path(filename).parent
+    filename = Path(filename).name
+
+    try:
+        p = subprocess.run(
+            ["git", "check-ignore", filename],
+            stderr=subprocess.PIPE,
+            stdout=subprocess.PIPE,
+            encoding="utf-8",
+            cwd=folder,
+        )
+        # Will return exit code 1 if not gitignored
+        is_ignored = not bool(p.returncode)
+    except subprocess.CalledProcessError as exc:
+        raise OSError(exc.stderr)
+
+    return is_ignored
+
+
 class Repository:
     """
     Helper class to wrap the git and git-lfs commands.
@@ -61,7 +120,7 @@ class Repository:
         local_dir: str,
         clone_from: Optional[str] = None,
         repo_type: Optional[str] = None,
-        use_auth_token: Union[bool, str, None] = None,
+        use_auth_token: Union[bool, str] = True,
         git_user: Optional[str] = None,
         git_email: Optional[str] = None,
     ):
@@ -164,12 +223,10 @@ class Repository:
         token = use_auth_token if use_auth_token is not None else self.huggingface_token
         api = HfApi()
 
-        if token is not None:
-            user, valid_organisations = api.whoami(token)
+        if "huggingface.co" in repo_url or (
+            "http" not in repo_url and len(repo_url.split("/")) <= 2
+        ):
             repo_type, namespace, repo_id = repo_type_and_id_from_hf_id(repo_url)
-
-            if namespace is None:
-                namespace = user
 
             if repo_type is not None:
                 self.repo_type = repo_type
@@ -179,18 +236,30 @@ class Repository:
             if self.repo_type in REPO_TYPES_URL_PREFIXES:
                 repo_url += REPO_TYPES_URL_PREFIXES[self.repo_type]
 
-            repo_url += f"{namespace}/{repo_id}"
+            if token is not None:
+                whoami_info = api.whoami(token)
+                user = whoami_info["name"]
+                valid_organisations = [org["name"] for org in whoami_info["orgs"]]
 
-            repo_url = repo_url.replace("https://", f"https://user:{token}@")
+                if namespace is not None:
+                    repo_url += f"{namespace}/"
+                repo_url += repo_id
 
-            if namespace == user or namespace in valid_organisations:
-                api.create_repo(
-                    token,
-                    repo_id,
-                    repo_type=self.repo_type,
-                    organization=namespace,
-                    exist_ok=True,
-                )
+                repo_url = repo_url.replace("https://", f"https://user:{token}@")
+
+                if namespace == user or namespace in valid_organisations:
+                    api.create_repo(
+                        token,
+                        repo_id,
+                        repo_type=self.repo_type,
+                        organization=namespace,
+                        exist_ok=True,
+                    )
+            else:
+                if namespace is not None:
+                    repo_url += f"{namespace}/"
+                repo_url += repo_id
+
         # For error messages, it's cleaner to show the repo url without the token.
         clean_repo_url = re.sub(r"https://.*@", "https://", repo_url)
         try:
@@ -204,7 +273,7 @@ class Repository:
 
             # checks if repository is initialized in a empty repository or in one with files
             if len(os.listdir(self.local_dir)) == 0:
-                logger.debug(f"Cloning {clean_repo_url} into local empty directory.")
+                logger.warning(f"Cloning {clean_repo_url} into local empty directory.")
                 subprocess.run(
                     ["git", "clone", repo_url, "."],
                     stderr=subprocess.PIPE,
@@ -331,16 +400,81 @@ class Repository:
             url = url[:-1]
         return f"{url}/commit/{sha}"
 
-    def lfs_track(self, patterns: Union[str, List[str]]):
+    def list_deleted_files(self) -> List[str]:
+        """
+        Returns a list of the files that are deleted in the working directory or index.
+        """
+        try:
+            git_status = subprocess.run(
+                ["git", "status", "-s"],
+                stderr=subprocess.PIPE,
+                stdout=subprocess.PIPE,
+                check=True,
+                encoding="utf-8",
+                cwd=self.local_dir,
+            ).stdout.strip()
+        except subprocess.CalledProcessError as exc:
+            raise EnvironmentError(exc.stderr)
+
+        if len(git_status) == 0:
+            return []
+
+        # Receives a status like the following
+        #  D .gitignore
+        #  D new_file.json
+        # AD new_file1.json
+        # ?? new_file2.json
+        # ?? new_file4.json
+
+        # Strip each line of whitespaces
+        modified_files_statuses = [status.strip() for status in git_status.split("\n")]
+
+        # Only keep files that are deleted using the D prefix
+        deleted_files_statuses = [
+            status for status in modified_files_statuses if "D" in status.split()[0]
+        ]
+
+        # Remove the D prefix and strip to keep only the relevant filename
+        deleted_files = [
+            status.split()[-1].strip() for status in deleted_files_statuses
+        ]
+
+        return deleted_files
+
+    def lfs_track(self, patterns: Union[str, List[str]], filename: bool = False):
         """
         Tell git-lfs to track those files.
+
+        Setting the `filename` argument to `True` will treat the arguments as literal filenames,
+        not as patterns. Any special glob characters in the filename will be escaped when
+        writing to the .gitattributes file.
+        """
+        if isinstance(patterns, str):
+            patterns = [patterns]
+        try:
+            for pattern in patterns:
+                cmd = f"git lfs track {'--filename' if filename else ''} {pattern}"
+                subprocess.run(
+                    cmd.split(),
+                    stderr=subprocess.PIPE,
+                    stdout=subprocess.PIPE,
+                    check=True,
+                    encoding="utf-8",
+                    cwd=self.local_dir,
+                )
+        except subprocess.CalledProcessError as exc:
+            raise EnvironmentError(exc.stderr)
+
+    def lfs_untrack(self, patterns: Union[str, List[str]]):
+        """
+        Tell git-lfs to untrack those files.
         """
         if isinstance(patterns, str):
             patterns = [patterns]
         try:
             for pattern in patterns:
                 subprocess.run(
-                    ["git", "lfs", "track", pattern],
+                    ["git", "lfs", "untrack", pattern],
                     stderr=subprocess.PIPE,
                     stdout=subprocess.PIPE,
                     check=True,
@@ -374,6 +508,42 @@ class Repository:
         except subprocess.CalledProcessError as exc:
             raise EnvironmentError(exc.stderr)
 
+    def auto_track_large_files(self, pattern="."):
+        """
+        Automatically track large files with git-lfs
+        """
+        try:
+            p = subprocess.run(
+                ["git", "ls-files", "-mo", pattern],
+                stderr=subprocess.PIPE,
+                stdout=subprocess.PIPE,
+                check=True,
+                encoding="utf-8",
+                cwd=self.local_dir,
+            )
+            files_to_be_staged = p.stdout.strip().split("\n")
+        except subprocess.CalledProcessError as exc:
+            raise EnvironmentError(exc.stderr)
+
+        deleted_files = self.list_deleted_files()
+
+        for filename in files_to_be_staged:
+            if filename in deleted_files:
+                continue
+
+            path_to_file = os.path.join(os.getcwd(), self.local_dir, filename)
+            size_in_mb = os.path.getsize(path_to_file) / (1024 * 1024)
+
+            if (
+                size_in_mb >= 10
+                and not is_tracked_with_lfs(path_to_file)
+                and not is_git_ignored(path_to_file)
+            ):
+                self.lfs_track(filename)
+
+        # Cleanup the .gitattributes if files were deleted
+        self.lfs_untrack(deleted_files)
+
     def git_pull(self, rebase: Optional[bool] = False):
         """
         git pull
@@ -393,10 +563,16 @@ class Repository:
         except subprocess.CalledProcessError as exc:
             raise EnvironmentError(exc.stderr)
 
-    def git_add(self, pattern="."):
+    def git_add(self, pattern=".", auto_lfs_track=False):
         """
         git add
+
+        Setting the `auto_lfs_track` parameter to `True` will automatically track files that are larger
+        than 10MB with `git-lfs`.
         """
+        if auto_lfs_track:
+            self.auto_track_large_files(pattern)
+
         try:
             subprocess.run(
                 ["git", "add", pattern],
@@ -460,12 +636,10 @@ class Repository:
         return self.git_push()
 
     @contextmanager
-    def commit(
-        self,
-        commit_message: str,
-    ):
+    def commit(self, commit_message: str, track_large_files: bool = True):
         """
-        Context manager utility to handle committing to a repository.
+        Context manager utility to handle committing to a repository. This automatically tracks large files (>10Mb)
+        with git-lfs. Set the `track_large_files` argument to `False` if you wish to ignore that behavior.
 
         Examples:
 
@@ -488,7 +662,7 @@ class Repository:
         try:
             yield self
         finally:
-            self.git_add()
+            self.git_add(auto_lfs_track=track_large_files)
 
             try:
                 self.git_commit(commit_message)
