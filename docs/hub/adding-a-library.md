@@ -140,7 +140,7 @@ explaining how that should be done.
 
 
 In order to do this, please take a look and update the following file with 
-mentions of your library: [interfaces/Libraries.ts](https://github.com/huggingface/huggingface_hub/blob/main/interfaces/Libraries.ts). 
+mentions of your library: [interfaces/Libraries.ts](https://github.com/huggingface/huggingface_hub/blob/main/widgets/lib/interfaces/Libraries.ts). 
 This file is in Typescript as this is the ground truth that we're using on the Hugging Face website. A good 
 understanding of Typescript isn't necessary to edit the file.
 
@@ -316,7 +316,7 @@ All our widgets are [open sourced](https://github.com/huggingface/huggingface_hu
 ### New pipelines
 
 If you're adding a new pipeline type, you might also want to take a look at adding it to the 
-[Types.ts](https://github.com/huggingface/huggingface_hub/blob/main/interfaces/Types.ts) for it to be identifiable as a possible pipeline.
+[Types.ts](https://github.com/huggingface/huggingface_hub/blob/main/widgets/lib/interfaces/Types.ts) for it to be identifiable as a possible pipeline.
 
 Secondly, you should set the 
-[widget default for that new pipeline](https://github.com/huggingface/huggingface_hub/blob/main/interfaces/DefaultWidget.ts) if you can.
+[widget default for that new pipeline](https://github.com/huggingface/huggingface_hub/blob/main/widgets/lib/interfaces/DefaultWidget.ts) if you can.
