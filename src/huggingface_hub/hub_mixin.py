@@ -7,7 +7,7 @@ from typing import Dict, Optional, Union
 import requests
 
 from .constants import CONFIG_NAME, PYTORCH_WEIGHTS_NAME
-from .file_download import cached_download, hf_hub_url, is_torch_available
+from .file_download import hf_hub_download, is_torch_available
 from .hf_api import HfApi, HfFolder
 from .repository import Repository
 
@@ -132,17 +132,16 @@ class ModelHubMixin:
             config_file = os.path.join(model_id, CONFIG_NAME)
         else:
             try:
-                config_url = hf_hub_url(
-                    model_id, filename=CONFIG_NAME, revision=revision
-                )
-                config_file = cached_download(
-                    config_url,
+                config_file = hf_hub_download(
+                    repo_id=model_id,
+                    filename=CONFIG_NAME,
+                    revision=revision,
                     cache_dir=cache_dir,
                     force_download=force_download,
                     proxies=proxies,
                     resume_download=resume_download,
-                    local_files_only=local_files_only,
                     use_auth_token=use_auth_token,
+                    local_files_only=local_files_only,
                 )
             except requests.exceptions.RequestException:
                 logger.warning("config.json NOT FOUND in HuggingFace Hub")
@@ -338,22 +337,20 @@ class PyTorchModelHubMixin(ModelHubMixin):
         map_location = torch.device(map_location)
 
         if os.path.isdir(model_id):
-            print("LOADING weights from local directory")
+            print("Loading weights from local directory")
             model_file = os.path.join(model_id, PYTORCH_WEIGHTS_NAME)
         else:
-            model_url = hf_hub_url(
-                model_id, filename=PYTORCH_WEIGHTS_NAME, revision=revision
-            )
-            model_file = cached_download(
-                model_url,
+            model_file = hf_hub_download(
+                repo_id=model_id,
+                filename=PYTORCH_WEIGHTS_NAME,
+                revision=revision,
                 cache_dir=cache_dir,
                 force_download=force_download,
                 proxies=proxies,
                 resume_download=resume_download,
-                local_files_only=local_files_only,
                 use_auth_token=use_auth_token,
+                local_files_only=local_files_only,
             )
-
         model = cls(**model_kwargs)
 
         state_dict = torch.load(model_file, map_location=map_location)
