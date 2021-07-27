@@ -1,7 +1,5 @@
-import os
 from unittest import TestCase
 
-import numpy as np
 import torch
 from api_inference_community.normalizers import speaker_diarization_normalize
 
