@@ -151,10 +151,20 @@ class DockerImageTests(unittest.TestCase):
             "automatic-speech-recognition",
             "osanseviero/asr-with-transformers-wav2vec2",
         )
-        # Too slow, requires downloading the upstream model from PyTorch Hub which is quite heavy
-        # self.framework_docker_test(
-        #    "superb", "automatic-speech-recognition", "osanseviero/hubert_s3prl_req"
-        # )
+        # # Too slow, requires downloading the upstream model from PyTorch Hub which is quite heavy
+        # # self.framework_docker_test(
+        # #    "superb", "automatic-speech-recognition", "osanseviero/hubert_s3prl_req"
+        # # )
+        self.framework_invalid_test("superb")
+        self.framework_docker_batch(
+            "superb",
+            "automatic-speech-recognition",
+            "osanseviero/asr-with-transformers-wav2vec2",
+            dataset_name="Narsil/asr_dummy",
+            dataset_config="asr",
+            dataset_split="test",
+            dataset_column="file",
+        )
 
     def framework_invalid_test(self, framework: str):
         task = "invalid"
@@ -192,6 +202,47 @@ class DockerImageTests(unittest.TestCase):
 
             proc.terminate()
             proc.wait(20)
+
+    def framework_docker_batch(
+        self,
+        framework: str,
+        task: str,
+        model_id: str,
+        dataset_name: str,
+        dataset_config: str,
+        dataset_split: str,
+        dataset_column: str,
+    ):
+        tag = self.create_docker(framework)
+        run_docker_command = [
+            "docker",
+            "run",
+            "-p",
+            "8000:80",
+            "-it",
+            "-e",
+            f"TASK={task}",
+            "-e",
+            f"MODEL_ID={model_id}",
+            "-e",
+            f"DATASET_NAME={dataset_name}",
+            "-e",
+            f"DATASET_CONFIG={dataset_config}",
+            "-e",
+            f"DATASET_SPLIT={dataset_split}",
+            "-e",
+            f"DATASET_COLUMN={dataset_column}",
+            "-v",
+            "/tmp:/data",
+            "-t",
+            tag,
+            "python",
+            "app/batch.py",
+        ]
+
+        with DockerPopen(run_docker_command) as proc:
+            proc.wait()
+        self.assertTrue(True)
 
     def framework_docker_test(self, framework: str, task: str, model_id: str):
         tag = self.create_docker(framework)
