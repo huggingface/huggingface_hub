@@ -4,9 +4,11 @@ on:
   push:
     paths:
       - "widgets/**"
+      - "!widgets/lib/interfaces/**"
   pull_request:
     paths:
       - "widgets/**"
+      - "!widgets/lib/interfaces/**"
 
 
 jobs:
