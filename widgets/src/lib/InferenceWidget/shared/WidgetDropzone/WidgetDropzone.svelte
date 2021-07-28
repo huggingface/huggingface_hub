@@ -1,5 +1,6 @@
 <script>
 	import IconSpin from "../../../Icons/IconSpin.svelte";
+	import { proxify } from "../../shared/helpers";
 
 	export let accept = "image/*";
 	export let isLoading = false;
@@ -38,12 +39,7 @@
 			const url = await new Promise<string>((resolve) =>
 				uriItem.getAsString((s) => resolve(s))
 			);
-			/// Run through our own proxy to bypass CORS:
-			const proxiedUrl =
-				url.startsWith(`http://localhost`) ||
-				new URL(url).host === window.location.host
-					? url
-					: `https://widgets-cors-proxy.huggingface.co/proxy?url=${url}`;
+			const proxiedUrl = proxify(url);
 			const res = await fetch(proxiedUrl);
 			const file = await res.blob();
 
