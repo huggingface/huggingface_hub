@@ -732,7 +732,7 @@ class HfFolder:
         """
         try:
             with open(cls.path_token, "r") as f:
-                return f.read()
+                return f.read().strip()
         except FileNotFoundError:
             pass
 
