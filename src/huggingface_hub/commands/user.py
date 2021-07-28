@@ -224,7 +224,7 @@ class RepoCreateCommand(BaseUserCommand):
             )
         print("")
 
-        user, _ = self._api.whoami(token)
+        user = self._api.whoami(token)["name"]
         namespace = (
             self.args.organization if self.args.organization is not None else user
         )
