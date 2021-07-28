@@ -146,7 +146,6 @@ class LoginCommand(BaseUserCommand):
             exit(1)
         HfFolder.save_token(token)
         print("Login successful")
-        print("Your token:", token, "\n")
         print("Your token has been saved to", HfFolder.path_token)
 
 
