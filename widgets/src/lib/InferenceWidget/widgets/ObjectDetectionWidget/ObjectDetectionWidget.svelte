@@ -109,11 +109,11 @@
 		return isValidOutput(body) ? body : [];
 	}
 
-	function mouseout(): void {
+	function mouseout() {
 		highlightIndex = -1;
 	}
 
-	function mouseover(index: number): void {
+	function mouseover(index: number) {
 		highlightIndex = index;
 	}
 
