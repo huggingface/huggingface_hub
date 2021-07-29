@@ -34,7 +34,7 @@
 			}
 		} catch (e) {
 			isRecording = false;
-			error = "You haven't allowed 🤗 access to your microphone";
+			error = "Please allow 🤗 to access your microphone";
 		}
 	}
 </script>
