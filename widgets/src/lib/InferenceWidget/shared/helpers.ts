@@ -39,6 +39,14 @@ export function updateUrl(obj: Record<string, string>) {
 	window.history.replaceState(null, "", path);
 }
 
+// Run through our own proxy to bypass CORS:
+export function proxify(url: string): string {
+	return url.startsWith(`http://localhost`)
+		|| new URL(url).host === window.location.host
+		? url
+		: `https://widgets-cors-proxy.huggingface.co/proxy?url=${url}`;
+}
+
 async function callApi(
 	url: string, 
 	modelId: string, 

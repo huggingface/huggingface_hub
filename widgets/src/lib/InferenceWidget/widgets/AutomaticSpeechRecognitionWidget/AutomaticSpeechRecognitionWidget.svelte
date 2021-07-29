@@ -8,7 +8,7 @@
 	import WidgetRecorder from "../../shared/WidgetRecorder/WidgetRecorder.svelte";
 	import WidgetSubmitBtn from "../../shared/WidgetSubmitBtn/WidgetSubmitBtn.svelte";
 	import WidgetWrapper from "../../shared/WidgetWrapper/WidgetWrapper.svelte";
-	import { getResponse } from "../../shared/helpers";
+	import { getResponse, proxify } from "../../shared/helpers";
 
 	export let apiToken: WidgetProps["apiToken"];
 	export let apiUrl: WidgetProps["apiUrl"];
@@ -71,12 +71,7 @@
 		}
 
 		if (!file && selectedSampleUrl) {
-			/// Run through our own proxy to bypass CORS:
-			const proxiedUrl =
-				selectedSampleUrl.startsWith(`http://localhost`) ||
-				new URL(selectedSampleUrl).host === window.location.host
-					? selectedSampleUrl
-					: `https://widgets-cors-proxy.huggingface.co/proxy?url=${selectedSampleUrl}`;
+			const proxiedUrl = proxify(selectedSampleUrl);
 			const res = await fetch(proxiedUrl);
 			file = await res.blob();
 		}
