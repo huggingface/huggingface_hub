@@ -3,16 +3,16 @@
 	export let height = 0;
 	export let src = "";
 	export let highlightIndex = -1;
-	export let output: Array<{ boundingBox: any; color: string }> = [];
+	export let output: Array<{ box: any; color: string }> = [];
 	export let mouseover: (index: number) => void = () => {};
 	export let mouseout: () => void = () => {};
 
 	// TODO: define boxes type
 	$: boxes = output
 		.map((val, index) => ({ ...val, index }))
-		.sort((a, b) => getArea(b.boundingBox) - getArea(a.boundingBox))
-		.map(({ boundingBox, color, index }) => {
-			const vertices = boundingBox.map(({ x, y }) => {
+		.sort((a, b) => getArea(b.box) - getArea(a.box))
+		.map(({ box, color, index }) => {
+			const vertices = box.map(({ x, y }) => {
 				x *= width;
 				y *= height;
 				return `${x},${y}`;
@@ -21,10 +21,10 @@
 			return { points, color, index };
 		});
 
-	// TODO: define boundingBox type
-	function getArea(boundingBox: any): number {
-		const corner1 = boundingBox[0];
-		const corner3 = boundingBox[2];
+	// TODO: define box type
+	function getArea(box: any): number {
+		const corner1 = box[0];
+		const corner3 = box[2];
 		return Math.abs(corner1.x - corner3.x) * Math.abs(corner1.y - corner3.y);
 	}
 </script>
@@ -46,12 +46,12 @@
 				{points}
 				stroke={color}
 				fill={color}
-				stroke-width="3"
+				stroke-width="2"
 				opacity={highlightIndex === -1 || highlightIndex === index
 					? "1"
 					: "0.0"}
 				fill-opacity={highlightIndex === -1 || highlightIndex === index
-					? "0.15"
+					? "0.1"
 					: "0.0"}
 				class="transition duration-200 ease-in-out"
 				on:mouseover={() => mouseover(index)}

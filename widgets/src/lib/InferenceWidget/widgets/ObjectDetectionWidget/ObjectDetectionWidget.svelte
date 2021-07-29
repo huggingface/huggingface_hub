@@ -1,8 +1,9 @@
 <script>
+	import {onMount} from "svelte";
 	import type { WidgetProps } from "../../shared/types";
 	import { mod } from "../../shared/ViewUtils";
 
-	import WidgetCanvas from "./SvgBoundingBoxes.svelte";
+	import BoundingBoxes from "./SvgBoundingBoxes.svelte";
 	import WidgetDropzone from "../../shared/WidgetDropzone/WidgetDropzone.svelte";
 	import WidgetOutputChart from "../../shared/WidgetOutputChart/WidgetOutputChart.svelte";
 	import WidgetWrapper from "../../shared/WidgetWrapper/WidgetWrapper.svelte";
@@ -25,10 +26,9 @@
 	let output: Array<{
 		label: string;
 		score: number;
-		boundingBox: any;
-	}> = []; //TODO: define boundingBox type
+		box: any;
+	}> = []; //TODO: define box type
 	let outputJson: string;
-	let outputWithColor: any;
 	let highlightIndex = -1;
 
 	const COLORS = [
@@ -54,8 +54,12 @@
 			getOutput(file);
 		}
 	}
-
+	
 	async function getOutput(file: File, withModelLoading = false) {
+		imgSrc = '/cat.jpg'
+		let oddata = await fetch('./od.json')
+		output = await oddata.json()
+		return;
 		if (!file) {
 			return;
 		}
@@ -98,19 +102,19 @@
 
 	function isValidOutput(
 		arg: any
-	): arg is { label: string; score: number; boundingBox: any }[] {
+	): arg is { label: string; score: number; box: any }[] {
 		return (
 			Array.isArray(arg) &&
 			arg.every(
 				(x) => typeof x.label === "string" && typeof x.score === "number"
-				// TODO: check boundingBox type
+				// TODO: check box type
 			)
 		);
 	}
 
 	function parseOutput(
 		body: unknown
-	): Array<{ label: string; score: number; boundingBox: any }> {
+	): Array<{ label: string; score: number; box: any }> {
 		return isValidOutput(body) ? body : [];
 	}
 
@@ -121,6 +125,10 @@
 	function mouseover(index: number): void {
 		highlightIndex = index;
 	}
+
+	onMount(async() => {
+		getOutput()
+	})
 </script>
 
 <WidgetWrapper
@@ -139,7 +147,7 @@
 				bind:fileInput
 				onChange={onSelectFile}
 				{imgSrc}
-				innerWidget={WidgetCanvas}
+				innerWidget={BoundingBoxes}
 				innerWidgetProps={{
 					src: imgSrc,
 					mouseover,

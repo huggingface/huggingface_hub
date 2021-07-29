@@ -1,5 +1,5 @@
 <!-- 
-prevent Tailwind pruning of dynamic classes
+for Tailwind:
 from-red-400 to-red-200 dark:from-red-400 dark:to-red-600
 from-green-400 to-green-200 dark:from-green-400 dark:to-green-600
 from-yellow-400 to-yellow-200 dark:from-yellow-400 dark:to-yellow-600
