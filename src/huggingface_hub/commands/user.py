@@ -146,7 +146,6 @@ class LoginCommand(BaseUserCommand):
             exit(1)
         HfFolder.save_token(token)
         print("Login successful")
-        print("Your token:", token, "\n")
         print("Your token has been saved to", HfFolder.path_token)
 
 
@@ -225,7 +224,7 @@ class RepoCreateCommand(BaseUserCommand):
             )
         print("")
 
-        user, _ = self._api.whoami(token)
+        user = self._api.whoami(token)["name"]
         namespace = (
             self.args.organization if self.args.organization is not None else user
         )

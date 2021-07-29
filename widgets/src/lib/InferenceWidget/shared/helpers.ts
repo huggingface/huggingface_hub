@@ -1,4 +1,4 @@
-import type { ModelData } from '../../../../../interfaces/Types';
+import type { ModelData } from '$lib/interfaces/Types';
 import { randomItem, parseJSON, } from './ViewUtils';
 import type { LoadingStatus } from './types';
 
@@ -37,6 +37,14 @@ export function updateUrl(obj: Record<string, string>) {
 	}
 	const path = `${window.location.pathname}?${sp.toString()}`;
 	window.history.replaceState(null, "", path);
+}
+
+// Run through our own proxy to bypass CORS:
+export function proxify(url: string): string {
+	return url.startsWith(`http://localhost`)
+		|| new URL(url).host === window.location.host
+		? url
+		: `https://widgets-cors-proxy.huggingface.co/proxy?url=${url}`;
 }
 
 async function callApi(
