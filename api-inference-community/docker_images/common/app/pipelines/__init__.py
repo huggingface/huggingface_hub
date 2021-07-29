@@ -8,6 +8,7 @@ from app.pipelines.feature_extraction import FeatureExtractionPipeline
 from app.pipelines.image_classification import ImageClassificationPipeline
 from app.pipelines.question_answering import QuestionAnsweringPipeline
 from app.pipelines.sentence_similarity import SentenceSimilarityPipeline
+from app.pipelines.speech_segmentation import SpeechSegmentationPipeline
 from app.pipelines.structured_data_classification import (
     StructuredDataClassificationPipeline,
 )

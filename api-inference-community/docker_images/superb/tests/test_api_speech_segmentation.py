@@ -1,25 +1,23 @@
-import base64
 import json
 import os
 from unittest import TestCase, skipIf
 
-from api_inference_community.validation import ffmpeg_read
 from app.main import ALLOWED_TASKS
 from starlette.testclient import TestClient
 from tests.test_api import TESTABLE_MODELS
 
 
 @skipIf(
-    "audio-to-audio" not in ALLOWED_TASKS,
-    "audio-to-audio not implemented",
+    "speech-segmentation" not in ALLOWED_TASKS,
+    "speech-segmentation not implemented",
 )
-class AudioToAudioTestCase(TestCase):
+class SpeechSegmentationTestCase(TestCase):
     def setUp(self):
-        model_id = TESTABLE_MODELS["audio-to-audio"]
+        model_id = TESTABLE_MODELS["speech-segmentation"]
         self.old_model_id = os.getenv("MODEL_ID")
         self.old_task = os.getenv("TASK")
         os.environ["MODEL_ID"] = model_id
-        os.environ["TASK"] = "audio-to-audio"
+        os.environ["TASK"] = "speech-segmentation"
         from app.main import app
 
         self.app = app
@@ -47,7 +45,7 @@ class AudioToAudioTestCase(TestCase):
             bpayload = f.read()
         return bpayload
 
-    def test_simple(self):
+    def test_original_audiofile(self):
         bpayload = self.read("sample1.flac")
 
         with TestClient(self.app) as client:
@@ -57,17 +55,13 @@ class AudioToAudioTestCase(TestCase):
             response.status_code,
             200,
         )
-        self.assertEqual(response.headers["content-type"], "application/json")
-        audio = json.loads(response.content)
-
-        self.assertTrue(isinstance(audio, list))
-        self.assertEqual(set(audio[0].keys()), {"blob", "content-type", "label"})
-
-        data = base64.b64decode(audio[0]["blob"])
-        wavform = ffmpeg_read(data)
-        self.assertGreater(wavform.shape[0], 1000)
-        self.assertTrue(isinstance(audio[0]["content-type"], str))
-        self.assertTrue(isinstance(audio[0]["label"], str))
+        content = json.loads(response.content)
+        self.assertIsInstance(content, list)
+        for c in content:
+            self.assertEqual(set(c.keys()), {"class", "start", "end"})
+            self.assertIsInstance(c["class"], str)
+            self.assertIsInstance(c["start"], float)
+            self.assertIsInstance(c["end"], float)
 
     def test_malformed_audio(self):
         bpayload = self.read("malformed.flac")
@@ -83,6 +77,7 @@ class AudioToAudioTestCase(TestCase):
 
     def test_dual_channel_audiofile(self):
         bpayload = self.read("sample1_dual.ogg")
+
         with TestClient(self.app) as client:
             response = client.post("/", data=bpayload)
 
@@ -90,20 +85,17 @@ class AudioToAudioTestCase(TestCase):
             response.status_code,
             200,
         )
-        self.assertEqual(response.headers["content-type"], "application/json")
-        audio = json.loads(response.content)
-
-        self.assertTrue(isinstance(audio, list))
-        self.assertEqual(set(audio[0].keys()), {"blob", "content-type", "label"})
-
-        data = base64.b64decode(audio[0]["blob"])
-        wavform = ffmpeg_read(data)
-        self.assertGreater(wavform.shape[0], 1000)
-        self.assertTrue(isinstance(audio[0]["content-type"], str))
-        self.assertTrue(isinstance(audio[0]["label"], str))
+        content = json.loads(response.content)
+        self.assertIsInstance(content, list)
+        for c in content:
+            self.assertEqual(set(c.keys()), {"class", "start", "end"})
+            self.assertIsInstance(c["class"], str)
+            self.assertIsInstance(c["start"], float)
+            self.assertIsInstance(c["end"], float)
 
     def test_webm_audiofile(self):
         bpayload = self.read("sample1.webm")
+
         with TestClient(self.app) as client:
             response = client.post("/", data=bpayload)
 
@@ -111,14 +103,10 @@ class AudioToAudioTestCase(TestCase):
             response.status_code,
             200,
         )
-        self.assertEqual(response.headers["content-type"], "application/json")
-        audio = json.loads(response.content)
-
-        self.assertTrue(isinstance(audio, list))
-        self.assertEqual(set(audio[0].keys()), {"blob", "content-type", "label"})
-
-        data = base64.b64decode(audio[0]["blob"])
-        wavform = ffmpeg_read(data)
-        self.assertGreater(wavform.shape[0], 1000)
-        self.assertTrue(isinstance(audio[0]["content-type"], str))
-        self.assertTrue(isinstance(audio[0]["label"], str))
+        content = json.loads(response.content)
+        self.assertIsInstance(content, list)
+        for c in content:
+            self.assertEqual(set(c.keys()), {"class", "start", "end"})
+            self.assertIsInstance(c["class"], str)
+            self.assertIsInstance(c["start"], float)
+            self.assertIsInstance(c["end"], float)
