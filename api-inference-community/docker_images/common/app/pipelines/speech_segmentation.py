@@ -4,7 +4,7 @@ import numpy as np
 from app.pipelines import Pipeline
 
 
-class AutomaticSpeechRecognitionPipeline(Pipeline):
+class SpeechSegmentationPipeline(Pipeline):
     def __init__(self, model_id: str):
         # IMPLEMENT_THIS
         # Preload all the elements you are going to need at inference.
@@ -14,7 +14,7 @@ class AutomaticSpeechRecognitionPipeline(Pipeline):
         # to automatically read the input correctly
         self.sampling_rate = 16000
         raise NotImplementedError(
-            "Please implement AutomaticSpeechRecognitionPipeline __init__ function"
+            "Please implement SpeechSegmentationPipeline __init__ function"
         )
 
     def __call__(self, inputs: np.array) -> Dict[str, str]:
@@ -23,10 +23,12 @@ class AutomaticSpeechRecognitionPipeline(Pipeline):
             inputs (:obj:`np.array`):
                 The raw waveform of audio received. By default at self.sampling_rate, otherwise 16KHz.
         Return:
-            A :obj:`dict`:. The object return should be liked {"text": "XXX"} containing
-            the detected langage from the input audio
+            A :obj:`list`:. Each item in the list is like {"class": "XXX", "start": float, "end": float}
+            "class" is the associated class of the audio segment, "start" and "end" are markers expressed in seconds
+            within the audio file.
         """
         # IMPLEMENT_THIS
+        # api_inference_community.normalizers.speaker_diarization_normalize could help.
         raise NotImplementedError(
-            "Please implement AutomaticSpeechRecognitionPipeline __call__ function"
+            "Please implement SpeechSegmentationPipeline __call__ function"
         )

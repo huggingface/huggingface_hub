@@ -13,10 +13,21 @@ from sagemaker.huggingface import HuggingFaceModel
 huggingface_model = HuggingFaceModel(...).deploy()
 ```
 
-There are many ways to deploy a 🤗 Transformers model to Amazon SageMaker.  Below we document the following use cases:
+## Overview
 
-- [Deploy for inference a 🤗 Transformers model trained in SageMaker](#deploy-a-trained-hugging-face-transformer-model-to-sagemaker-for-inference)
-- [Deploy for inference one of the 10,000+ 🤗 Transformers models available in the 🤗 Hub](#deploy-one-of-the-10,000+-hugging-face-transformers-to-amazon-sagemaker-for-infernece)
+- [SageMaker Hugging Face Inference Toolkit](#sagemaker-hugging-face-inference-toolkit)
+- [Inference Toolkit - API Description](#inference-toolkit---api-description)
+  - [Setup & Installation](#setup--installation)
+- [Deploy for inference a 🤗 Transformers model trained in SageMaker](#deploy-for-inference-a-🤗-transformers-model-trained-in-sagemaker)
+  - [Deploy the model directly after training](#deploy-the-model-directly-after-training)
+  - [Deploy the model using `model_data`](#deploy-the-model-using-model_data)
+- [Deploy for inference one of the 10,000+ 🤗 Transformers models available in the 🤗 Hub](#deploy-for-inference-one-of-the-10000-%F0%9F%A4%97-transformers-models-available-in-the-%F0%9F%A4%97-hub)
+- [Advanced Features](#advanced-features)
+  - [Environment variables](#environment-variables)
+  - [Creating a Model artifact model.tar.gz for deployment](#creating-a-model-artifact-modeltargz-for-deployment)
+  - [User defined code/modules](#user-defined-codemodules)
+  - [Batch transform](#batch-transform)
+- [Additional Resources](#additional-resources)
 
 
 ## [SageMaker Hugging Face Inference Toolkit](https://github.com/aws/sagemaker-huggingface-inference-toolkit)
@@ -122,7 +133,7 @@ sess = sagemaker.Session()
 
 <iframe width="700" height="394" src="https://www.youtube.com/embed/pfBGgSGnYLs" title="YouTube video player" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>
 
-There are two ways to deploy your Hugging Face model trained in SageMaker. You can either deploy it after your training is finished, or you can deploy it later, using the `model_data` pointing to your saved model on s3.
+There are two ways to deploy your Hugging Face model trained in SageMaker. You can either deploy it after your training is finished, or you can deploy it later, using the `model_data` pointing to your saved model on S3.
 
 - [Deploy a Hugging Face Transformer model from S3 to SageMaker for inference](https://github.com/huggingface/notebooks/blob/master/sagemaker/10_deploy_model_from_s3/deploy_transformer_model_from_s3.ipynb)
 
@@ -175,6 +186,7 @@ huggingface_model = HuggingFaceModel(
    role=role, # iam role with permissions to create an Endpoint
    transformers_version="4.6", # transformers version used
    pytorch_version="1.7", # pytorch version used
+   py_version='py36', # python version used
 )
 # deploy model to SageMaker Inference
 predictor = huggingface_model.deploy(
@@ -226,6 +238,7 @@ huggingface_model = HuggingFaceModel(
    role=role, # iam role with permissions to create an Endpoint
    transformers_version="4.6", # transformers version used
    pytorch_version="1.7", # pytorch version used
+   py_version='py36', # python version used
 )
 
 # deploy model to SageMaker Inference
@@ -293,9 +306,10 @@ The `HF_API_TOKEN` environment variable defines your Hugging Face authorization 
 HF_API_TOKEN="api_XXXXXXXXXXXXXXXXXXXXXXXXXXXXX"
 ```
 
-### Model artifact structure `model.tar.gz`
+### Creating a Model artifact `model.tar.gz` for deployment 
 
-The `model.tar.gz` contains all required files to run your model including your model file either `pytorch_model.bin`, `tf_model.h5`, `tokenizer.json` , `tokenizer_config.json` etc. All model artifacts need to be directly in the archive without folder hierarchy. 
+As shown in [Deploy the model using `model_data`](#deploy-the-model-using-model_data) you can either deploy your model directly after training or creating a `model.tar.gz` later and using it for deployment.
+The `model.tar.gz` contains all required files to run your model including your model file either `pytorch_model.bin`, `tf_model.h5`, `tokenizer.json` , `tokenizer_config.json` etc. All model artifacts need to be directly in the archive without folder hierarchy.
 
 examples for PyTorch:
 
@@ -307,6 +321,28 @@ model.tar.gz/
 |- config.json
 |- special_tokens_map.json
 ```
+
+Steps how to create a `model.tar.gz` from a model of hf.co/models
+
+
+1. Download the model
+```bash
+git lfs install
+git clone https://huggingface.co/{repository}
+```
+
+2. Create a tar file
+```bash
+cd {repository}
+tar zcvf model.tar.gz *
+```
+
+3. Upload `model.tar.gz` to s3
+```bash
+aws s3 cp model.tar.gz <s3://{my-s3-path}>
+```
+
+After that you can use the S3 uri as `model_data`. 
 
 
 ### User defined code/modules
@@ -364,6 +400,73 @@ def model_fn(model_dir):
 def transform_fn(model, input_data, content_type, accept):
     return f"output"
 ```
+
+
+### Batch Transform
+
+After you train a model, you can use [Amazon SageMaker Batch Transform](https://docs.aws.amazon.com/sagemaker/latest/dg/how-it-works-batch.html) to perform inferences with the model. In Batch Transform you provide your inference data as a S3 uri and SageMaker will care of downloading it, running the prediction and uploading the results afterwards to S3 again. You can find more documentation for Batch Transform [here](https://docs.aws.amazon.com/sagemaker/latest/dg/batch-transform.html)
+
+If you trained the model using the `HuggingFace` estimator, you can invoke `transformer()` method to create a transform job for a model based on the training job.
+
+```python
+batch_job = huggingface_estimator.transformer(
+    instance_count=1,
+    instance_type='ml.c5.2xlarge',
+    strategy='SingleRecord')
+
+
+batch_job.transform(
+    data='s3://s3-uri-to-batch-data',
+    content_type='application/json',    
+    split_type='Line')
+```
+
+For more details about what can be specified here, see [API docs](https://sagemaker.readthedocs.io/en/stable/overview.html#sagemaker-batch-transform).
+
+If you want to run your Batch Transform Job later or with a model from hf.co/models you can do this by creating a `HuggingFaceModel` instance and then using the `transformer()` method.
+
+```python
+from sagemaker.huggingface.model import HuggingFaceModel
+
+# Hub Model configuration. <https://huggingface.co/models>
+hub = {
+	'HF_MODEL_ID':'distilbert-base-uncased-finetuned-sst-2-english',
+	'HF_TASK':'text-classification'
+}
+
+# create Hugging Face Model Class
+huggingface_model = HuggingFaceModel(
+   env=hub, # configuration for loading model from Hub
+   role=role, # iam role with permissions to create an Endpoint
+   transformers_version="4.6", # transformers version used
+   pytorch_version="1.7", # pytorch version used
+       py_version='py36', # python version used
+)
+
+# create Transformer to run our batch job
+batch_job = huggingface_model.transformer(
+    instance_count=1,
+    instance_type='ml.c5.2xlarge',
+    strategy='SingleRecord')
+
+# starts batch transform job and uses s3 data as input
+batch_job.transform(
+    data='s3://sagemaker-s3-demo-test/samples/input.jsonl',
+    content_type='application/json',    
+    split_type='Line')
+```
+
+The `input.jsonl` looks like this.
+
+```jsonl
+{"inputs":"this movie is terrible"}
+{"inputs":"this movie is amazing"}
+{"inputs":"SageMaker is pretty cool"}
+{"inputs":"SageMaker is pretty cool"}
+{"inputs":"this movie is terrible"}
+{"inputs":"this movie is amazing"}
+```
+
 
 ## Additional Resources
 
