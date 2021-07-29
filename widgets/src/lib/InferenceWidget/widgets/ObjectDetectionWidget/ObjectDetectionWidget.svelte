@@ -16,7 +16,6 @@
 
 	let computeTime = "";
 	let error: string = "";
-	let fileInput: HTMLInputElement;
 	let isLoading = false;
 	let imgSrc = "";
 	let modelLoading = {
@@ -47,15 +46,11 @@
 		return { ...val, color };
 	});
 
-	function onSelectFile() {
-		const file = fileInput.files?.[0];
-		if (file) {
-			imgSrc = URL.createObjectURL(file);
-			getOutput(file);
-		}
+	function onSelectFile(file: File | Blob) {
+		getOutput(file);
 	}
 
-	async function getOutput(file: File, withModelLoading = false) {
+	async function getOutput(file: File | Blob, withModelLoading = false) {
 		if (!file) {
 			return;
 		}
@@ -142,8 +137,8 @@
 		<form>
 			<WidgetDropzone
 				{isLoading}
-				bind:fileInput
-				onChange={onSelectFile}
+				{onSelectFile}
+				onError={(e) => (error = e)}
 				{imgSrc}
 				innerWidget={BoundingBoxes}
 				innerWidgetProps={{
