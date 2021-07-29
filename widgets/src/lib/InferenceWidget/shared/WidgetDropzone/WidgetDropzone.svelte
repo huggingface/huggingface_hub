@@ -5,7 +5,7 @@
 	import { proxify } from "../../shared/helpers";
 
 	let fileInput: HTMLInputElement;
-	
+
 	export let accept = "image/*";
 	export let isLoading = false;
 	export let label =

@@ -54,7 +54,7 @@
 			getOutput(file);
 		}
 	}
-	
+
 	async function getOutput(file: File, withModelLoading = false) {
 		if (!file) {
 			return;
@@ -122,11 +122,11 @@
 		highlightIndex = index;
 	}
 
-	onMount(async() => {
-		imgSrc = '/cat.jpg'
-		let objectDetectionData = await fetch('./od.json')
-		output = await objectDetectionData.json()
-	})
+	onMount(async () => {
+		imgSrc = "/cat.jpg";
+		let objectDetectionData = await fetch("./od.json");
+		output = await objectDetectionData.json();
+	});
 </script>
 
 <WidgetWrapper
