@@ -133,7 +133,7 @@
 	function parseOutput(body: unknown): {
 		conversation: Conversation;
 		output: Output;
-	} | null {
+	} {
 		if (isValidOutput(body)) {
 			const conversation = body.conversation;
 			const pastUserInputs = conversation.past_user_inputs;
@@ -146,7 +146,9 @@
 				}));
 			return { conversation, output };
 		}
-		return null;
+		throw new TypeError(
+			"Invalid output: output must be of type <conversation: <generated_responses:Array; past_user_inputs:Array>>"
+		);
 	}
 </script>
 

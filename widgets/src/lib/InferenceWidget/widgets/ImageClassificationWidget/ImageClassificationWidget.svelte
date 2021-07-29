@@ -76,7 +76,12 @@
 	}
 
 	function parseOutput(body: unknown): Array<{ label: string; score: number }> {
-		return isValidOutput(body) ? body : [];
+		if (isValidOutput(body)) {
+			return body;
+		}
+		throw new TypeError(
+			"Invalid output: output must be of type Array<label: string, score:number>"
+		);
 	}
 </script>
 

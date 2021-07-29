@@ -158,7 +158,9 @@
 
 			return spans;
 		}
-		return [];
+		throw new TypeError(
+			"Invalid output: output must be of type Array<word:string; entity_group:string; score:number>"
+		);
 	}
 
 	function getSpanData(
