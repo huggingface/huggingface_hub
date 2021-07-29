@@ -121,6 +121,7 @@
 		imgSrc = "/cat.jpg";
 		let objectDetectionData = await fetch("./od.json");
 		output = await objectDetectionData.json();
+		outputJson = JSON.stringify(output, null, 2);
 	});
 </script>
 
