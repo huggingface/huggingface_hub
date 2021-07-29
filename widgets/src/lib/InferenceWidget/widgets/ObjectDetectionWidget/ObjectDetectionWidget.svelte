@@ -1,5 +1,5 @@
 <script>
-	import {onMount} from "svelte";
+	import { onMount } from "svelte";
 	import type { WidgetProps } from "../../shared/types";
 	import { mod } from "../../shared/ViewUtils";
 
@@ -56,10 +56,6 @@
 	}
 	
 	async function getOutput(file: File, withModelLoading = false) {
-		imgSrc = '/cat.jpg'
-		let oddata = await fetch('./od.json')
-		output = await oddata.json()
-		return;
 		if (!file) {
 			return;
 		}
@@ -127,7 +123,9 @@
 	}
 
 	onMount(async() => {
-		getOutput()
+		imgSrc = '/cat.jpg'
+		let objectDetectionData = await fetch('./od.json')
+		output = await objectDetectionData.json()
 	})
 </script>
 
