@@ -1,6 +1,6 @@
 <script>
-	export let width = 0;
-	export let height = 0;
+	let height = 0;
+	let width = 0;
 	export let src = "";
 	export let highlightIndex = -1;
 	export let output: Array<{ box: any; color: string }> = [];
