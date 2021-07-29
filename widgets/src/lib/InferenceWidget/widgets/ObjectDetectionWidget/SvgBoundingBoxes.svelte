@@ -30,7 +30,7 @@
 </script>
 
 <div
-	class="relative top-0 left-0"
+	class="relative top-0 left-0 inline-flex"
 	bind:clientWidth={width}
 	bind:clientHeight={height}
 >
