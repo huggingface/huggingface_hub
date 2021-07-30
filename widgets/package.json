@@ -1,6 +1,6 @@
 {
 	"name": "hf-widgets-t",
-	"version": "0.0.11",
+	"version": "0.0.15",
 	"type": "module",
 	"main": "./package/InferenceWidget/InferenceWidget.svelte",
 	"exports": {
@@ -8,9 +8,20 @@
 			"import": "./package/InferenceWidget/InferenceWidget.svelte",
 			"require": "./package/InferenceWidget/InferenceWidget.svelte.js"
 		},
+		"./ModelPipelineIcon.js": "./package/ModelPipelineIcon/ModelPipelineIcon.js",
 		"./ModelPipelineIcon.svelte.js": "./package/ModelPipelineIcon/ModelPipelineIcon.svelte.js",
+		"./ModelPipelineTag.js": "./package/ModelPipelineTag/ModelPipelineTag.js",
 		"./ModelPipelineTag.svelte.js": "./package/ModelPipelineTag/ModelPipelineTag.svelte.js",
-		"./WidgetHeader.svelte.js": "./package/InferenceWidget/shared/WidgetHeader/WidgetHeader.svelte.js"
+		"./WidgetHeader.js": "./package/InferenceWidget/shared/WidgetHeader/WidgetHeader.js",
+		"./WidgetHeader.svelte.js": "./package/InferenceWidget/shared/WidgetHeader/WidgetHeader.svelte.js",
+		"./interfaces/DefaultWidget": "./package/interfaces/DefaultWidget.js",
+		"./interfaces/DefaultWidget.js": "./package/interfaces/DefaultWidget.js",
+		"./interfaces/Language": "./package/interfaces/Language.js",
+		"./interfaces/Language.js": "./package/interfaces/Language.js",
+		"./interfaces/Libraries": "./package/interfaces/Libraries.js",
+		"./interfaces/Libraries.js": "./package/interfaces/Libraries.js",
+		"./interfaces/Types": "./package/interfaces/Types.js",
+		"./interfaces/Types.js": "./package/interfaces/Types.js"
 	},
 	"repository": {
 		"type": "git",
@@ -27,7 +38,7 @@
 		"package:svelte-kit": "svelte-kit package",
 		"package:custom": "node build.js",
 		"preview": "svelte-kit preview",
-		"prepublishOnly": "npm run package",
+		"publish": "npm run package && npm publish package",
 		"check": "svelte-check --tsconfig ./tsconfig.json",
 		"check:watch": "svelte-check --tsconfig ./tsconfig.json --watch",
 		"lint": "prettier --check --plugin-search-dir=. .",
