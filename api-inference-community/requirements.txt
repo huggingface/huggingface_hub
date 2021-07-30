@@ -4,3 +4,4 @@ pydantic==1.8.1
 parameterized==0.8.1
 pillow==8.2.0
 huggingface_hub==0.0.15
+datasets==1.10
