@@ -1,6 +1,5 @@
 import io
 import json
-import os
 
 import datasets
 import tqdm
