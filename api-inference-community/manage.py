@@ -116,6 +116,7 @@ def do_batch(args):
         repo_id=repo_id,
         use_gpu=False,
         pipeline=pipeline,
+        task=task,
     )
 
 
