@@ -1,5 +1,5 @@
 {
-	"name": "hf-widgets",
+	"name": "hf-widgets-test",
 	"version": "0.0.4",
 	"type": "module",
 	"main": "./package/InferenceWidget/InferenceWidget.svelte",
@@ -8,6 +8,8 @@
 			"import": "./package/InferenceWidget/InferenceWidget.svelte",
 			"require": "./package/InferenceWidget/InferenceWidget.svelte.js"
 		},
+		"./ModelPipelineIcon.svelte.js": "./package/ModelPipelineIcon/ModelPipelineIcon.svelte.js",
+		"./ModelPipelineTag.svelte.js": "./package/ModelPipelineTag/ModelPipelineTag.svelte.js",
 		"./WidgetHeader.svelte.js": "./package/InferenceWidget/shared/WidgetHeader/WidgetHeader.svelte.js"
 	},
 	"repository": {
