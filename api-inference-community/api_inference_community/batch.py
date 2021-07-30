@@ -33,6 +33,7 @@ def batch(
     dataset_column: str,
     token: str,
     repo_id: str,
+    use_gpu: bool,
     pipeline,
 ):
     dset = datasets.load_dataset(dataset_name, name=dataset_config, split=dataset_split)
