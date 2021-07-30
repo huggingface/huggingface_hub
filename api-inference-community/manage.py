@@ -1,11 +1,14 @@
 #!/usr/bin/env python
 import argparse
 import ast
+import sys
 import os
+import hashlib
 import subprocess
 import uuid
 
 from huggingface_hub import HfApi
+from api_inference_community.batch import batch
 
 
 class cd:
@@ -37,6 +40,77 @@ def create_docker(name: str) -> str:
     ):
         subprocess.run(["docker", "build", ".", "-t", tag])
     return tag
+
+
+def resolve_dataset(args, task: str):
+    import datasets
+
+    builder = datasets.load_dataset_builder(
+        args.dataset_name, use_auth_token=args.token
+    )
+
+    if args.dataset_config is None:
+        args.dataset_config = builder.config_id
+        print(f"Inferred dataset_config {args.dataset_config}")
+
+    splits = builder.info.splits
+    if splits is not None:
+        if args.dataset_split not in splits:
+            raise ValueError(
+                f"The split `{args.dataset_split}` is not a valid split, please choose from {','.join(splits.keys())}"
+            )
+
+    task_templates = builder.info.task_templates
+    if task_templates is not None:
+        for task_template in task_templates:
+            if task_template.task == task:
+                args.dataset_column = task_template.audio_file_path_column
+                print(f"Inferred dataset_column {args.dataset_column}")
+    return (
+        args.dataset_name,
+        args.dataset_config,
+        args.dataset_split,
+        args.dataset_column,
+    )
+
+
+def get_repo_name(model_id: str, dataset_name: str) -> str:
+    # Hash needs to have the fully qualified name to disambiguate.
+    hash_ = hashlib.md5((model_id + dataset_name).encode("utf-8")).hexdigest()
+
+    model_name = model_id.split("/")[-1]
+    dataset_name = dataset_name.split("/")[-1]
+    return f"bulk-{model_name[:10]}-{dataset_name[:10]}-{hash_[:5]}"
+
+
+def do_batch(args):
+    model_id, task, framework = resolve_task_framework(args)
+    dataset_name, dataset_config, dataset_split, dataset_column = resolve_dataset(
+        args, task
+    )
+    repo_name = get_repo_name(model_id, dataset_name)
+
+    local_path = os.path.join(
+        os.path.dirname(os.path.dirname(__file__)), "docker_images", framework
+    )
+    sys.path.append(local_path)
+    os.environ["MODEL_ID"] = model_id
+    os.environ["TASK"] = task
+
+    from app.main import get_pipeline
+
+    pipeline = get_pipeline()
+
+    batch(
+        dataset_name=dataset_name,
+        dataset_config=dataset_config,
+        dataset_split=dataset_split,
+        dataset_column=dataset_column,
+        token=args.token,
+        repo_id=repo_name,
+        use_gpu=False,
+        pipeline=pipeline,
+    )
 
 
 def show(args):
@@ -72,11 +146,7 @@ def resolve(model_id: str) -> [str, str]:
     return task, framework.replace("-", "_")
 
 
-def start(args):
-    import sys
-
-    import uvicorn
-
+def resolve_task_framework(args):
     model_id = args.model_id
     task = args.task
     framework = args.framework
@@ -88,6 +158,13 @@ def start(args):
         if framework is None:
             framework = rframework
             print(f"Inferred framework : {framework}")
+    return model_id, task, framework
+
+
+def start(args):
+    import uvicorn
+
+    model_id, task, framework = resolve_task_framework(args)
 
     local_path = os.path.join(
         os.path.dirname(os.path.dirname(__file__)), "docker_images", framework
@@ -99,15 +176,7 @@ def start(args):
 
 
 def docker(args):
-    model_id = args.model_id
-    task = args.task
-    framework = args.framework
-    if task is None or framework is None:
-        rtask, rframework = resolve(model_id)
-        if task is None:
-            task = rtask
-        if framework is None:
-            framework = rframework
+    model_id, task, framework = resolve_task_framework(args)
 
     tag = create_docker(framework)
     run_docker_command = [
@@ -179,6 +248,51 @@ def main():
         "show", help="Show dockers and the various pipelines they implement"
     )
     parser_show.set_defaults(func=show)
+    parser_batch = subparsers.add_parser("batch", help="Run a batch job")
+    parser_batch.add_argument(
+        "--model-id",
+        type=str,
+        required=True,
+        help="Which model_id to batch.",
+    )
+    parser_batch.add_argument(
+        "--task",
+        type=str,
+        help="Which task to load",
+    )
+    parser_batch.add_argument(
+        "--framework",
+        type=str,
+        help="Which framework to load",
+    )
+    parser_batch.add_argument(
+        "--dataset-name",
+        type=str,
+        required=True,
+        help="Which dataset_name to batch.",
+    )
+    parser_batch.add_argument(
+        "--dataset-config",
+        type=str,
+        help="Which dataset_config to batch.",
+    )
+    parser_batch.add_argument(
+        "--dataset-split",
+        type=str,
+        required=True,
+        help="Which dataset_split to batch.",
+    )
+    parser_batch.add_argument(
+        "--dataset-column",
+        type=str,
+        help="Which column to batch.",
+    )
+    parser_batch.add_argument(
+        "--token",
+        type=str,
+        help="Your API token",
+    )
+    parser_batch.set_defaults(func=do_batch)
     args = parser.parse_args()
     args.func(args)
 

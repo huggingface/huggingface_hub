@@ -1,9 +1,11 @@
 import io
 import json
+import os
 
 import datasets
 import tqdm
 from huggingface_hub import HfApi
+from api_inference_community.validation import normalize_payload
 
 
 def iterate(pipe, dataset, f):
@@ -14,7 +16,18 @@ def iterate(pipe, dataset, f):
 def iterate_slow(pipe, dataset, f):
     for i, item in enumerate(tqdm.tqdm(dataset)):
         try:
-            result = pipe(item)
+            if isinstance(item, str):
+                # Can be filename
+                item = item.encode("utf-8")
+            assert isinstance(
+                item, bytes
+            ), f"Batching cannot validate received {type(item)} but expected (str, bytes)"
+            inputs, parameters = normalize_payload(
+                item,
+                os.getenv("TASK"),
+                sampling_rate=getattr(pipe, "sampling_rate", None),
+            )
+            result = pipe(inputs, **parameters)
         except Exception as e:
             result = {"error": str(e)}
 

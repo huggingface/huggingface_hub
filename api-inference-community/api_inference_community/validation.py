@@ -1,6 +1,7 @@
 import json
 import subprocess
 from io import BytesIO
+import os
 from typing import Any, Dict, List, Optional, Tuple, Union
 
 import numpy as np
@@ -309,7 +310,22 @@ def normalize_payload_image(bpayload: bytes) -> Tuple[Any, Dict]:
     return img, {}
 
 
+AUDIO_EXTENSIONS = {"mp3", "wav", "flac", "mp4", "webm", "aac"}
+
+
 def normalize_payload_audio(bpayload: bytes, sampling_rate: int) -> Tuple[Any, Dict]:
+    if bpayload.startswith(b"/data/") and os.path.isfile(bpayload):
+        # XXX:
+        # This is necessary for batch jobs where the datasets can contain
+        # filenames instead of the raw data.
+        # We attempt to sanitize this roughly, by checking it lives on the data
+        # path (harcoded in the deployment and in all the dockerfiles)
+        # We also attempt to prevent opening files that are not obviously
+        # audio files, to prevent opening stuff like model weights.
+        filename, ext = os.path.splitext(bpayload)
+        if ext.decode("utf-8") in AUDIO_EXTENSIONS:
+            with open(bpayload, "rb") as f:
+                bpayload = f.read()
     inputs = ffmpeg_read(bpayload, sampling_rate)
     if len(inputs.shape) > 1:
         # ogg can take dual channel input -> take only first input channel in this case
