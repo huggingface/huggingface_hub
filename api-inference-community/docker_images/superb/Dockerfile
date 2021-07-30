@@ -8,7 +8,7 @@ RUN apt-get install git -y
 RUN apt-get install libsndfile1 -y
 RUN apt-get install ffmpeg -y
 
-RUN pip install --no-cache-dir torch==1.8.0
+RUN pip install --no-cache-dir torch==1.9
 COPY ./requirements.txt /app
 # Speeding up requirements
 RUN pip install --no-cache-dir -r requirements.txt
