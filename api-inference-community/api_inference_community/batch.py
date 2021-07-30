@@ -17,6 +17,7 @@ def iterate_slow(pipe, dataset, f, task: str):
             assert isinstance(
                 item, bytes
             ), f"Batching cannot validate received {type(item)} but expected (str, bytes)"
+            print(item)
             inputs, parameters = normalize_payload(
                 item,
                 task,
@@ -24,6 +25,7 @@ def iterate_slow(pipe, dataset, f, task: str):
             )
             result = pipe(inputs, **parameters)
         except Exception as e:
+            print(e)
             result = {"error": str(e)}
 
         write_result(result, f)
