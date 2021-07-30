@@ -3,7 +3,7 @@ from setuptools import setup
 
 setup(
     name="api_inference_community",
-    version="0.0.14",
+    version="0.0.15",
     description="A package with helper tools to build an API Inference docker app for Hugging Face API inference using huggingface_hub",
     url="http://github.com/huggingface/api-inference-community",
     author="Nicolas Patry",

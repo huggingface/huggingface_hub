@@ -89,6 +89,12 @@ def do_batch(args):
         args, task
     )
     repo_name = get_repo_name(model_id, dataset_name)
+    api = HfApi()
+    full_repo_id = api.create_repo(
+        args.token, repo_name, private=True, repo_type="dataset", exist_ok=True
+    )
+    repo_id = "/".join(full_repo_id.split("/")[-2:])
+    print(f"Created dataset for results {repo_id}")
 
     local_path = os.path.join(
         os.path.dirname(os.path.dirname(__file__)), "docker_images", framework
@@ -107,7 +113,7 @@ def do_batch(args):
         dataset_split=dataset_split,
         dataset_column=dataset_column,
         token=args.token,
-        repo_id=repo_name,
+        repo_id=repo_id,
         use_gpu=False,
         pipeline=pipeline,
     )
