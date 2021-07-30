@@ -27,4 +27,6 @@ jobs:
           pip install --upgrade pip
           pip install -e .[test]
       - run: make test
+        env: # Or as an environment variable
+          API_TOKEN: ${{ secrets.USER_API_TOKEN }}
         working-directory: api-inference-community
