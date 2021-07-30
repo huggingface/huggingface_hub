@@ -11,7 +11,7 @@ const distDir = './package';
 
 await compileFiles(srcDir, distDir);
 await updatePackageJson(distDir);
-// await replaceTypesImport(distDir);
+await applyPathAliases(distDir);
 
 console.info('[svelte] build complete');
 
@@ -101,17 +101,21 @@ async function compileFiles(srcDir, distDir) {
 	}
 }
 
-async function replaceTypesImport(distDir) {
+/*
+Apply path alises defined in tsconfig.json
+Currently, only one path alias is defined: $lib -> src/lib
+*/
+async function applyPathAliases(distDir) {
 	const filenames = (
 		await readdirREnt(distDir, (dirent) => dirent.isFile())
 	).map((x) => path.relative(distDir, x));
 	for (const fname of filenames) {
 		const originFile = path.join(distDir, fname);
 		let content = await fs.readFile(originFile, 'utf8');
-		if (content.includes('interfaces/Types')) {
+		if (content.includes('$lib')) {
 			const destFile = path.join(distDir, fname);
-			const typesPath = path.relative(destFile, `${distDir}/interfaces/Types`);
-			content = content.replace(/["']([.\/in]+interfaces\/Types)["']/g, `"${typesPath.slice(3)}"`);
+			const typesPath = path.relative(destFile, distDir);
+			content = content.replace(/\$lib/gm, typesPath.slice(3));
 			await fs.writeFile(destFile, content, { encoding: 'utf-8' });
 		}
 	}
