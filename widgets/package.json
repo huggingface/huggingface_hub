@@ -1,6 +1,6 @@
 {
-	"name": "hf-widgets-t",
-	"version": "0.0.15",
+	"name": "huggingface-widgets",
+	"version": "0.0.1",
 	"type": "module",
 	"main": "./package/InferenceWidget/InferenceWidget.svelte",
 	"exports": {
