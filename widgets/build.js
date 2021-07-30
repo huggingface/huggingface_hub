@@ -11,8 +11,7 @@ const distDir = './package';
 
 await compileFiles(srcDir, distDir);
 await updatePackageJson(distDir);
-await updateDTSFilePaths(distDir);
-await replaceTypesImport(distDir);
+// await replaceTypesImport(distDir);
 
 console.info('[svelte] build complete');
 
@@ -159,18 +158,3 @@ async function updatePackageJson(distDir) {
 	await fs.writeFile(destFile, jsonString, { encoding: 'utf-8' });
 }
 
-async function updateDTSFilePaths(distDir) {
-	const dir = `${distDir}/widgets/src/lib`;
-	const filenames = (
-		await readdirREnt(dir, (dirent) => dirent.isFile())
-	).map((x) => path.relative(dir, x));
-	for (const fname of filenames) {
-		const originFile = path.join(dir, fname);
-		const content = await fs.readFile(originFile, 'utf8');
-		const destFile = path.join(dir.replace('/widgets/src/lib', ''), fname);
-		const destFile_ = path.join(destFile.replace('.d', '.js.d'));
-		await fs.writeFile(destFile, content, { encoding: 'utf-8' });
-		await fs.writeFile(destFile_, content, { encoding: 'utf-8' });
-	}
-	await fs.rmdir(`${distDir}/widgets`, { recursive: true });
-}

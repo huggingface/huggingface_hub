@@ -23,7 +23,7 @@
 		"build": "svelte-kit build",
 		"package": "npm run package:svelte-kit && npm run package:custom",
 		"package:svelte-kit": "svelte-kit package",
-		"package:custom": "tsc ../interfaces/Types.ts --outDir ./package/interfaces/ && node build.js",
+		"package:custom": "node build.js",
 		"preview": "svelte-kit preview",
 		"prepublishOnly": "npm run package",
 		"check": "svelte-check --tsconfig ./tsconfig.json",
