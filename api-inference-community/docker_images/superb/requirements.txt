@@ -1,5 +1,5 @@
 starlette==0.14.2
-git+https://github.com/huggingface/huggingface_hub.git@batch_v2#egg=api-inference-community&subdirectory=api-inference-community
+api-inference-community==0.0.13
 git+https://github.com/pytorch/fairseq.git@f2146bd#egg=fairseq
 git+https://github.com/huggingface/s3prl.git@huggingface2#egg=s3prl
 hf-lfs
