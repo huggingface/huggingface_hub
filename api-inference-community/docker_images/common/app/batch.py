@@ -1,8 +1,10 @@
 #!/usr/bin/env python
 
+import os
+
 from api_inference_community.batch import batch
 from app.main import get_pipeline
-import os
+
 
 DATASET_NAME = os.getenv("DATASET_NAME")
 DATASET_CONFIG = os.getenv("DATASET_CONFIG", None)

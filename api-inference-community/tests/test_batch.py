@@ -1,7 +1,7 @@
 import os
 from unittest import TestCase
-import requests
 
+import requests
 from api_inference_community.batch import batch
 
 
