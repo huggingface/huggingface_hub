@@ -1,6 +1,6 @@
 {
 	"extends": "@tsconfig/svelte/tsconfig.json",
-	"include": ["src/**/*"],
+	"include": ["src/lib/**/*"],
 	"compilerOptions": {
 		"target": "es2018",
 		"alwaysStrict": true,
