@@ -24,6 +24,7 @@ class BatchTestCase(TestCase):
             repo_id="Narsil/bulk-dummy",
             use_gpu=False,
             pipeline=pipeline,
+            use_gpu=False,
         )
 
         response = requests.get(
