@@ -4,7 +4,6 @@ import json
 
 import datasets
 import tqdm
-from app.main import get_pipeline
 from huggingface_hub import HfApi
 
 
@@ -24,8 +23,8 @@ def iterate_slow(pipe, dataset, f):
 
 
 def write_result(result, f):
-    f.write(json.dumps(result))
-    f.write("\n")
+    f.write(json.dumps(result).encode("utf-8"))
+    f.write(b"\n")
 
 
 def batch(
@@ -55,5 +54,5 @@ def batch(
     repo_id = repo_id
     try:
         api.upload_file(token, f, filename, repo_id, repo_type="dataset")
-    except Exception:
-        pass
+    except KeyError:
+        print("Unchanged ? ")
