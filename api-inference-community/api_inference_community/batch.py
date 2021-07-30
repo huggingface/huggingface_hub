@@ -4,8 +4,8 @@ import os
 
 import datasets
 import tqdm
-from huggingface_hub import HfApi
 from api_inference_community.validation import normalize_payload
+from huggingface_hub import HfApi
 
 
 def iterate(pipe, dataset, f):

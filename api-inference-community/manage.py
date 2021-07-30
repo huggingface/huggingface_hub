@@ -1,14 +1,14 @@
 #!/usr/bin/env python
 import argparse
 import ast
-import sys
-import os
 import hashlib
+import os
 import subprocess
+import sys
 import uuid
 
-from huggingface_hub import HfApi
 from api_inference_community.batch import batch
+from huggingface_hub import HfApi
 
 
 class cd:
