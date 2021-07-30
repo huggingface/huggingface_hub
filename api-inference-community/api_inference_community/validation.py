@@ -211,12 +211,14 @@ def normalize_payload(
     if task in {
         "automatic-speech-recognition",
         "audio-to-audio",
+        "speech-segmentation",
     }:
         if sampling_rate is None:
             raise EnvironmentError(
                 "We cannot normalize audio file if we don't know the sampling rate"
             )
-        return normalize_payload_audio(bpayload, sampling_rate)
+        outputs = normalize_payload_audio(bpayload, sampling_rate)
+        return outputs
     elif task in {
         "image-classification",
         "image-to-text",

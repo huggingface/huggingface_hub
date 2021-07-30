@@ -26,7 +26,7 @@ from huggingface_hub.hf_api import HfApi
 from huggingface_hub.repository import Repository, is_tracked_with_lfs
 
 from .testing_constants import ENDPOINT_STAGING, PASS, USER
-from .testing_utils import set_write_permission_and_retry
+from .testing_utils import set_write_permission_and_retry, with_production_testing
 
 
 REPO_NAME = "repo-{}".format(int(time.time() * 10e3))
@@ -106,6 +106,30 @@ class RepositoryTest(RepositoryCommonTest):
         repo.git_pull()
 
         self.assertIn("random_file.txt", os.listdir(WORKING_REPO_DIR))
+
+    def test_git_lfs_filename(self):
+        os.mkdir(WORKING_REPO_DIR)
+        subprocess.run(
+            ["git", "init"],
+            stderr=subprocess.PIPE,
+            stdout=subprocess.PIPE,
+            check=True,
+            cwd=WORKING_REPO_DIR,
+        )
+
+        repo = Repository(WORKING_REPO_DIR)
+
+        large_file = [100] * int(4e6)
+        with open(os.path.join(WORKING_REPO_DIR, "[].txt"), "w") as f:
+            f.write(json.dumps(large_file))
+
+        repo.git_add()
+
+        repo.lfs_track(["[].txt"])
+        self.assertFalse(is_tracked_with_lfs(f"{WORKING_REPO_DIR}/[].txt"))
+
+        repo.lfs_track(["[].txt"], filename=True)
+        self.assertTrue(is_tracked_with_lfs(f"{WORKING_REPO_DIR}/[].txt"))
 
     def test_init_clone_in_nonempty_folder(self):
         # Create dummy files
@@ -312,25 +336,9 @@ class RepositoryTest(RepositoryCommonTest):
         self.assertTrue("model.bin" in files)
 
     def test_clone_with_repo_name_and_no_namespace(self):
-        clone = Repository(
-            REPO_NAME,
-            clone_from=REPO_NAME,
-            use_auth_token=self._token,
-            git_user="ci",
-            git_email="ci@dummy.com",
-        )
-
-        with clone.commit("Commit"):
-            # Create dummy files
-            # one is lfs-tracked, the other is not.
-            with open("dummy.txt", "w") as f:
-                f.write("hello")
-            with open("model.bin", "w") as f:
-                f.write("hello")
-
-        shutil.rmtree(REPO_NAME)
-
-        Repository(
+        self.assertRaises(
+            OSError,
+            Repository,
             f"{WORKING_REPO_DIR}/{REPO_NAME}",
             clone_from=REPO_NAME,
             use_auth_token=self._token,
@@ -338,9 +346,62 @@ class RepositoryTest(RepositoryCommonTest):
             git_email="ci@dummy.com",
         )
 
-        files = os.listdir(f"{WORKING_REPO_DIR}/{REPO_NAME}")
-        self.assertTrue("dummy.txt" in files)
-        self.assertTrue("model.bin" in files)
+    def test_clone_with_repo_name_user_and_no_auth_token(self):
+        # Create repo
+        Repository(
+            f"{WORKING_REPO_DIR}/{REPO_NAME}",
+            clone_from=f"{USER}/{REPO_NAME}",
+            git_user="ci",
+            git_email="ci@dummy.com",
+        )
+
+        # Instantiate it without token
+        Repository(
+            f"{WORKING_REPO_DIR}/{REPO_NAME}",
+            clone_from=f"{USER}/{REPO_NAME}",
+            git_user="ci",
+            git_email="ci@dummy.com",
+        )
+
+    def test_clone_with_repo_name_org_and_no_auth_token(self):
+        # Create repo
+        Repository(
+            f"{WORKING_REPO_DIR}/{REPO_NAME}",
+            use_auth_token=self._token,
+            clone_from=f"valid_org/{REPO_NAME}",
+            git_user="ci",
+            git_email="ci@dummy.com",
+        )
+
+        # Instantiate it without token
+        Repository(
+            f"{WORKING_REPO_DIR}/{REPO_NAME}",
+            clone_from=f"valid_org/{REPO_NAME}",
+            git_user="ci",
+            git_email="ci@dummy.com",
+        )
+
+    def test_clone_not_hf_url(self):
+        # Should not error out
+        Repository(
+            f"{WORKING_REPO_DIR}/{REPO_NAME}",
+            clone_from="https://hf.co/hf-internal-testing/huggingface-hub-dummy-repository",
+        )
+
+    @with_production_testing
+    def test_clone_repo_at_root(self):
+        os.environ["GIT_LFS_SKIP_SMUDGE"] = "1"
+        Repository(
+            f"{WORKING_REPO_DIR}/{REPO_NAME}",
+            clone_from="bert-base-cased",
+        )
+
+        shutil.rmtree(f"{WORKING_REPO_DIR}/{REPO_NAME}")
+
+        Repository(
+            f"{WORKING_REPO_DIR}/{REPO_NAME}",
+            clone_from="https://huggingface.co/bert-base-cased",
+        )
 
 
 class RepositoryAutoLFSTrackingTest(RepositoryCommonTest):
@@ -622,12 +683,15 @@ class RepositoryDatasetTest(RepositoryCommonTest):
                 token=self._token, name=REPO_NAME, repo_type="dataset"
             )
         except requests.exceptions.HTTPError:
-            self._api.delete_repo(
-                token=self._token,
-                organization="valid_org",
-                name=REPO_NAME,
-                repo_type="dataset",
-            )
+            try:
+                self._api.delete_repo(
+                    token=self._token,
+                    organization="valid_org",
+                    name=REPO_NAME,
+                    repo_type="dataset",
+                )
+            except requests.exceptions.HTTPError:
+                pass
 
         shutil.rmtree(
             f"{WORKING_DATASET_DIR}/{REPO_NAME}", onerror=set_write_permission_and_retry
@@ -721,7 +785,9 @@ class RepositoryDatasetTest(RepositoryCommonTest):
         self.assertTrue("test.py" in files)
 
     def test_clone_with_repo_name_and_no_namespace(self):
-        clone = Repository(
+        self.assertRaises(
+            OSError,
+            Repository,
             f"{WORKING_DATASET_DIR}/{REPO_NAME}",
             clone_from=REPO_NAME,
             repo_type="dataset",
@@ -730,21 +796,42 @@ class RepositoryDatasetTest(RepositoryCommonTest):
             git_email="ci@dummy.com",
         )
 
-        with clone.commit("Commit"):
-            for file in os.listdir(DATASET_FIXTURE):
-                shutil.copyfile(pathlib.Path(DATASET_FIXTURE) / file, file)
-
-        shutil.rmtree(f"{WORKING_DATASET_DIR}/{REPO_NAME}")
-
+    def test_clone_with_repo_name_user_and_no_auth_token(self):
+        # Create repo
         Repository(
             f"{WORKING_DATASET_DIR}/{REPO_NAME}",
-            clone_from=REPO_NAME,
+            clone_from=f"{USER}/{REPO_NAME}",
+            repo_type="dataset",
             use_auth_token=self._token,
+            git_user="ci",
+            git_email="ci@dummy.com",
+        )
+
+        # Instantiate it without token
+        Repository(
+            f"{WORKING_DATASET_DIR}/{REPO_NAME}",
+            clone_from=f"{USER}/{REPO_NAME}",
             repo_type="dataset",
             git_user="ci",
             git_email="ci@dummy.com",
         )
 
-        files = os.listdir(f"{WORKING_DATASET_DIR}/{REPO_NAME}")
-        self.assertTrue("some_text.txt" in files)
-        self.assertTrue("test.py" in files)
+    def test_clone_with_repo_name_org_and_no_auth_token(self):
+        # Create repo
+        Repository(
+            f"{WORKING_DATASET_DIR}/{REPO_NAME}",
+            clone_from=f"valid_org/{REPO_NAME}",
+            repo_type="dataset",
+            use_auth_token=self._token,
+            git_user="ci",
+            git_email="ci@dummy.com",
+        )
+
+        # Instantiate it without token
+        Repository(
+            f"{WORKING_DATASET_DIR}/{REPO_NAME}",
+            clone_from=f"valid_org/{REPO_NAME}",
+            repo_type="dataset",
+            git_user="ci",
+            git_email="ci@dummy.com",
+        )

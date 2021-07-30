@@ -130,8 +130,13 @@
 		);
 	}
 
-	function parseOutput(body: unknown): Output | null {
-		return isValidOutput(body) ? body : null;
+	function parseOutput(body: unknown): Output {
+		if (isValidOutput(body)) {
+			return body;
+		}
+		throw new TypeError(
+			"Invalid output: output must be of type <answer:string; coordinates:Array; cells:Array>"
+		);
 	}
 
 	/*

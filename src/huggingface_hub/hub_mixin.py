@@ -7,7 +7,7 @@ from typing import Dict, Optional, Union
 import requests
 
 from .constants import CONFIG_NAME, PYTORCH_WEIGHTS_NAME
-from .file_download import cached_download, hf_hub_url, is_torch_available
+from .file_download import hf_hub_download, is_torch_available
 from .hf_api import HfApi, HfFolder
 from .repository import Repository
 
@@ -20,29 +20,11 @@ logger = logging.getLogger(__name__)
 
 
 class ModelHubMixin:
-    def __init__(self, *args, **kwargs):
-        """
-        Mix this class with your torch-model class for ease process of saving & loading from huggingface-hub
-
-        Example::
-
-            >>> from huggingface_hub import ModelHubMixin
-
-            >>> class MyModel(nn.Module, ModelHubMixin):
-            ...    def __init__(self, **kwargs):
-            ...        super().__init__()
-            ...        self.config = kwargs.pop("config", None)
-            ...        self.layer = ...
-            ...    def forward(self, ...)
-            ...        return ...
-
-            >>> model = MyModel()
-            >>> model.save_pretrained("mymodel", push_to_hub=False) # Saving model weights in the directory
-            >>> model.push_to_hub("mymodel", "model-1") # Pushing model-weights to hf-hub
-
-            >>> # Downloading weights from hf-hub & model will be initialized from those weights
-            >>> model = MyModel.from_pretrained("username/mymodel@main")
-        """
+    """
+    A Generic Base Model Hub Mixin. Define your own mixin for anything by inheriting from this class
+    and overwriting _from_pretrained and _save_pretrained to define custom logic for saving/loading
+    your classes. See ``huggingface_hub.PyTorchModelHubMixin`` for an example.
+    """
 
     def save_pretrained(
         self,
@@ -75,26 +57,22 @@ class ModelHubMixin:
             with open(path, "w") as f:
                 json.dump(config, f)
 
-        # saving model weights
-        path = os.path.join(save_directory, PYTORCH_WEIGHTS_NAME)
-        self._save_pretrained(path)
+        # saving model weights/files
+        self._save_pretrained(save_directory)
 
         if push_to_hub:
             return self.push_to_hub(save_directory, **kwargs)
 
-    def _save_pretrained(self, path):
+    def _save_pretrained(self, save_directory):
         """
-        Overwrite this method in case you don't want to save complete model, rather some specific layers
+        Overwrite this method in subclass to define how to save your model.
         """
-        model_to_save = self.module if hasattr(self, "module") else self
-        torch.save(model_to_save.state_dict(), path)
+        raise NotImplementedError
 
     @classmethod
     def from_pretrained(
         cls,
         pretrained_model_name_or_path: Optional[str],
-        strict: bool = True,
-        map_location: Optional[str] = "cpu",
         force_download: bool = False,
         resume_download: bool = False,
         proxies: Dict = None,
@@ -145,7 +123,6 @@ class ModelHubMixin:
         """
 
         model_id = pretrained_model_name_or_path
-        map_location = torch.device(map_location)
 
         revision = None
         if len(model_id.split("@")) == 2:
@@ -155,51 +132,53 @@ class ModelHubMixin:
             config_file = os.path.join(model_id, CONFIG_NAME)
         else:
             try:
-                config_url = hf_hub_url(
-                    model_id, filename=CONFIG_NAME, revision=revision
-                )
-                config_file = cached_download(
-                    config_url,
+                config_file = hf_hub_download(
+                    repo_id=model_id,
+                    filename=CONFIG_NAME,
+                    revision=revision,
                     cache_dir=cache_dir,
                     force_download=force_download,
                     proxies=proxies,
                     resume_download=resume_download,
-                    local_files_only=local_files_only,
                     use_auth_token=use_auth_token,
+                    local_files_only=local_files_only,
                 )
             except requests.exceptions.RequestException:
                 logger.warning("config.json NOT FOUND in HuggingFace Hub")
                 config_file = None
-
-        if os.path.isdir(model_id):
-            print("LOADING weights from local directory")
-            model_file = os.path.join(model_id, PYTORCH_WEIGHTS_NAME)
-        else:
-            model_url = hf_hub_url(
-                model_id, filename=PYTORCH_WEIGHTS_NAME, revision=revision
-            )
-            model_file = cached_download(
-                model_url,
-                cache_dir=cache_dir,
-                force_download=force_download,
-                proxies=proxies,
-                resume_download=resume_download,
-                local_files_only=local_files_only,
-                use_auth_token=use_auth_token,
-            )
 
         if config_file is not None:
             with open(config_file, "r", encoding="utf-8") as f:
                 config = json.load(f)
             model_kwargs.update({"config": config})
 
-        model = cls(**model_kwargs)
+        return cls._from_pretrained(
+            model_id,
+            revision,
+            cache_dir,
+            force_download,
+            proxies,
+            resume_download,
+            local_files_only,
+            use_auth_token,
+            **model_kwargs,
+        )
 
-        state_dict = torch.load(model_file, map_location=map_location)
-        model.load_state_dict(state_dict, strict=strict)
-        model.eval()
-
-        return model
+    @classmethod
+    def _from_pretrained(
+        cls,
+        model_id,
+        revision,
+        cache_dir,
+        force_download,
+        proxies,
+        resume_download,
+        local_files_only,
+        use_auth_token,
+        **model_kwargs,
+    ):
+        """Overwrite this method in subclass to define how to load your model from pretrained"""
+        raise NotImplementedError
 
     def push_to_hub(
         self,
@@ -302,3 +281,80 @@ class ModelHubMixin:
         repo.git_add()
         repo.git_commit(commit_message)
         return repo.git_push()
+
+
+class PyTorchModelHubMixin(ModelHubMixin):
+    def __init__(self, *args, **kwargs):
+        """
+        Mix this class with your torch-model class for ease process of saving & loading from huggingface-hub
+
+        Example::
+
+            >>> from huggingface_hub import PyTorchModelHubMixin
+
+            >>> class MyModel(nn.Module, PyTorchModelHubMixin):
+            ...    def __init__(self, **kwargs):
+            ...        super().__init__()
+            ...        self.config = kwargs.pop("config", None)
+            ...        self.layer = ...
+            ...    def forward(self, ...)
+            ...        return ...
+
+            >>> model = MyModel()
+            >>> model.save_pretrained("mymodel", push_to_hub=False) # Saving model weights in the directory
+            >>> model.push_to_hub("mymodel", "model-1") # Pushing model-weights to hf-hub
+
+            >>> # Downloading weights from hf-hub & model will be initialized from those weights
+            >>> model = MyModel.from_pretrained("username/mymodel@main")
+        """
+
+    def _save_pretrained(self, save_directory):
+        """
+        Overwrite this method in case you don't want to save complete model, rather some specific layers
+        """
+        path = os.path.join(save_directory, PYTORCH_WEIGHTS_NAME)
+        model_to_save = self.module if hasattr(self, "module") else self
+        torch.save(model_to_save.state_dict(), path)
+
+    @classmethod
+    def _from_pretrained(
+        cls,
+        model_id,
+        revision,
+        cache_dir,
+        force_download,
+        proxies,
+        resume_download,
+        local_files_only,
+        use_auth_token,
+        map_location="cpu",
+        strict=False,
+        **model_kwargs,
+    ):
+        """
+        Overwrite this method in case you wish to initialize your model in a different way.
+        """
+        map_location = torch.device(map_location)
+
+        if os.path.isdir(model_id):
+            print("Loading weights from local directory")
+            model_file = os.path.join(model_id, PYTORCH_WEIGHTS_NAME)
+        else:
+            model_file = hf_hub_download(
+                repo_id=model_id,
+                filename=PYTORCH_WEIGHTS_NAME,
+                revision=revision,
+                cache_dir=cache_dir,
+                force_download=force_download,
+                proxies=proxies,
+                resume_download=resume_download,
+                use_auth_token=use_auth_token,
+                local_files_only=local_files_only,
+            )
+        model = cls(**model_kwargs)
+
+        state_dict = torch.load(model_file, map_location=map_location)
+        model.load_state_dict(state_dict, strict=strict)
+        model.eval()
+
+        return model

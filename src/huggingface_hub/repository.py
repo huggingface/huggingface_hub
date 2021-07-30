@@ -120,7 +120,7 @@ class Repository:
         local_dir: str,
         clone_from: Optional[str] = None,
         repo_type: Optional[str] = None,
-        use_auth_token: Union[bool, str, None] = None,
+        use_auth_token: Union[bool, str] = True,
         git_user: Optional[str] = None,
         git_email: Optional[str] = None,
     ):
@@ -223,14 +223,10 @@ class Repository:
         token = use_auth_token if use_auth_token is not None else self.huggingface_token
         api = HfApi()
 
-        if token is not None:
-            whoami_info = api.whoami(token)
-            user = whoami_info["name"]
-            valid_organisations = [org["name"] for org in whoami_info["orgs"]]
+        if "huggingface.co" in repo_url or (
+            "http" not in repo_url and len(repo_url.split("/")) <= 2
+        ):
             repo_type, namespace, repo_id = repo_type_and_id_from_hf_id(repo_url)
-
-            if namespace is None:
-                namespace = user
 
             if repo_type is not None:
                 self.repo_type = repo_type
@@ -240,18 +236,30 @@ class Repository:
             if self.repo_type in REPO_TYPES_URL_PREFIXES:
                 repo_url += REPO_TYPES_URL_PREFIXES[self.repo_type]
 
-            repo_url += f"{namespace}/{repo_id}"
+            if token is not None:
+                whoami_info = api.whoami(token)
+                user = whoami_info["name"]
+                valid_organisations = [org["name"] for org in whoami_info["orgs"]]
 
-            repo_url = repo_url.replace("https://", f"https://user:{token}@")
+                if namespace is not None:
+                    repo_url += f"{namespace}/"
+                repo_url += repo_id
 
-            if namespace == user or namespace in valid_organisations:
-                api.create_repo(
-                    token,
-                    repo_id,
-                    repo_type=self.repo_type,
-                    organization=namespace,
-                    exist_ok=True,
-                )
+                repo_url = repo_url.replace("https://", f"https://user:{token}@")
+
+                if namespace == user or namespace in valid_organisations:
+                    api.create_repo(
+                        token,
+                        repo_id,
+                        repo_type=self.repo_type,
+                        organization=namespace,
+                        exist_ok=True,
+                    )
+            else:
+                if namespace is not None:
+                    repo_url += f"{namespace}/"
+                repo_url += repo_id
+
         # For error messages, it's cleaner to show the repo url without the token.
         clean_repo_url = re.sub(r"https://.*@", "https://", repo_url)
         try:
@@ -265,7 +273,7 @@ class Repository:
 
             # checks if repository is initialized in a empty repository or in one with files
             if len(os.listdir(self.local_dir)) == 0:
-                logger.debug(f"Cloning {clean_repo_url} into local empty directory.")
+                logger.warning(f"Cloning {clean_repo_url} into local empty directory.")
                 subprocess.run(
                     ["git", "clone", repo_url, "."],
                     stderr=subprocess.PIPE,
@@ -398,7 +406,7 @@ class Repository:
         """
         try:
             git_status = subprocess.run(
-                ["git", "status", "--no-renames", "-s"],
+                ["git", "status", "-s"],
                 stderr=subprocess.PIPE,
                 stdout=subprocess.PIPE,
                 check=True,
@@ -433,16 +441,21 @@ class Repository:
 
         return deleted_files
 
-    def lfs_track(self, patterns: Union[str, List[str]]):
+    def lfs_track(self, patterns: Union[str, List[str]], filename: bool = False):
         """
         Tell git-lfs to track those files.
+
+        Setting the `filename` argument to `True` will treat the arguments as literal filenames,
+        not as patterns. Any special glob characters in the filename will be escaped when
+        writing to the .gitattributes file.
         """
         if isinstance(patterns, str):
             patterns = [patterns]
         try:
             for pattern in patterns:
+                cmd = f"git lfs track {'--filename' if filename else ''} {pattern}"
                 subprocess.run(
-                    ["git", "lfs", "track", pattern],
+                    cmd.split(),
                     stderr=subprocess.PIPE,
                     stdout=subprocess.PIPE,
                     check=True,
@@ -649,7 +662,7 @@ class Repository:
         try:
             yield self
         finally:
-            self.git_add(auto_lfs_track=True)
+            self.git_add(auto_lfs_track=track_large_files)
 
             try:
                 self.git_commit(commit_message)

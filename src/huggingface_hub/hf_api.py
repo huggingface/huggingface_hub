@@ -58,6 +58,8 @@ def repo_type_and_id_from_hf_id(hf_id: str):
 
     if is_hf_url:
         namespace, repo_id = url_segments[-2:]
+        if namespace == "huggingface.co":
+            namespace = None
         if len(url_segments) > 2 and "huggingface.co" not in url_segments[-3]:
             repo_type = url_segments[-3]
         else:
@@ -345,18 +347,53 @@ class HfApi:
 
     def list_datasets(
         self,
+        filter: Union[str, Iterable[str], None] = None,
+        sort: Union[Literal["lastModified"], str, None] = None,
+        direction: Optional[Literal[-1]] = None,
+        limit: Optional[int] = None,
         full: Optional[bool] = None,
     ) -> List[DatasetInfo]:
         """
         Get the public list of all the datasets on huggingface.co
 
         Args:
+            filter (:obj:`str` or :class:`Iterable`, `optional`):
+                A string which can be used to identify datasets on the hub by their tags.
+                Example usage:
+
+                    >>> from huggingface_hub import HfApi
+                    >>> api = HfApi()
+
+                    >>> # List all datasets
+                    >>> api.list_datasets()
+
+                    >>> # List only the text classification datasets
+                    >>> api.list_datasets(filter="task_categories:text-classification")
+
+                    >>> # List only the datasets in russian for language modeling
+                    >>> api.list_datasets(filter=("languages:ru", "task_ids:language-modeling"))
+            sort (:obj:`Literal["lastModified"]` or :obj:`str`, `optional`):
+                The key with which to sort the resulting datasets. Possible values are the properties of the `DatasetInfo`
+                class.
+            direction (:obj:`Literal[-1]` or :obj:`int`, `optional`):
+                Direction in which to sort. The value `-1` sorts by descending order while all other values
+                sort by ascending order.
+            limit (:obj:`int`, `optional`):
+                The limit on the number of datasets fetched. Leaving this option to `None` fetches all datasets.
             full (:obj:`bool`, `optional`):
                 Whether to fetch all dataset data, including the `lastModified` and the `card_data`.
 
         """
         path = "{}/api/datasets".format(self.endpoint)
         params = {}
+        if filter is not None:
+            params.update({"filter": filter})
+        if sort is not None:
+            params.update({"sort": sort})
+        if direction is not None:
+            params.update({"direction": direction})
+        if limit is not None:
+            params.update({"limit": limit})
         if full is not None:
             if full:
                 params.update({"full": True})

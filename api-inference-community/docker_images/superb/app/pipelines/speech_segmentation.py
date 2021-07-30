@@ -1,14 +1,15 @@
 import os
 import subprocess
 import sys
-from typing import Dict
+from typing import Dict, List, Union
 
 import numpy as np
+from api_inference_community.normalizers import speaker_diarization_normalize
 from app.pipelines import Pipeline
 from huggingface_hub import snapshot_download
 
 
-class AutomaticSpeechRecognitionPipeline(Pipeline):
+class SpeechSegmentationPipeline(Pipeline):
     def __init__(self, model_id: str):
         # IMPLEMENT_THIS
         # Preload all the elements you are going to need at inference.
@@ -35,15 +36,21 @@ class AutomaticSpeechRecognitionPipeline(Pipeline):
         self.model = PreTrainedModel(filepath)
         self.sampling_rate = 16000
 
-    def __call__(self, inputs: np.array) -> Dict[str, str]:
+    def __call__(self, inputs: np.array) -> List[Dict[str, Union[str, float]]]:
         """
         Args:
             inputs (:obj:`np.array`):
-                The raw waveform of audio received. By default at 16KHz.
-                Check `app.validation` if a different sample rate is required
-                or if it depends on the model
+                The raw waveform of audio received. By default at self.sampling_rate, otherwise 16KHz.
         Return:
-            A :obj:`dict`:. The object return should be liked {"text": "XXX"} containing
-            the detected langage from the input audio
+            A :obj:`list`:. Each item in the list is like {"class": "XXX", "start": float, "end": float}
+            "class" is the associated class of the audio segment, "start" and "end" are markers expressed in seconds
+            within the audio file. Segments can overlap in any way the want.
         """
-        return self.model(inputs)
+        # S x N boolean tensor
+        # S : sequence_length
+        # N : Number of expected speakers
+        # Filled with ones where speaker-n is speaking
+        outputs = self.model(inputs)
+        return speaker_diarization_normalize(
+            outputs, self.sampling_rate, ["SPEAKER_0", "SPEAKER_1"]
+        )
