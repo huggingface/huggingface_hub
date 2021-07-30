@@ -1,6 +1,6 @@
 {
-	"name": "hf-widgets-test",
-	"version": "0.0.4",
+	"name": "hf-widgets-t",
+	"version": "0.0.11",
 	"type": "module",
 	"main": "./package/InferenceWidget/InferenceWidget.svelte",
 	"exports": {
@@ -53,9 +53,6 @@
 		"tslib": "^2.0.0",
 		"typescript": "^4.0.0"
 	},
-	"files": [
-		"package/**/*"
-	],
 	"keywords": [
 		"hugging face",
 		"machine learning inference",
