@@ -44,7 +44,6 @@
 			xmlns="http://www.w3.org/2000/svg"
 		>
 			{#each boxes as { points, color, index }}
-			{console.log(color)}
 				<polygon
 					{points}
 					stroke={colors[color][400]}
