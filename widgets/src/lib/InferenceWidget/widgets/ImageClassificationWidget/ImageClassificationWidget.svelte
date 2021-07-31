@@ -98,13 +98,13 @@
 				{isLoading}
 				onSelectFile={getOutput}
 				onError={(e) => (error = e)}
-				{imgSrc}
-				innerWidget={WidgetImage}
-				innerWidgetProps={{
-					classNames: "pointer-events-none shadow mx-auto max-h-44",
-					src: imgSrc,
-				}}
-			/>
+				bind:imgSrc
+			>
+				<WidgetImage
+					classNames="pointer-events-none shadow mx-auto max-h-44"
+					{imgSrc}
+				/>
+			</WidgetDropzone>
 		</form>
 	</svelte:fragment>
 	<svelte:fragment slot="bottom">

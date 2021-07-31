@@ -1,7 +1,7 @@
 <script>
 	let height = 0;
 	let width = 0;
-	export let src = "";
+	export let imgSrc = "";
 	export let highlightIndex = -1;
 	export let output: Array<{ box: any; color: string }> = [];
 	export let mouseover: (index: number) => void = () => {};
@@ -29,34 +29,36 @@
 	}
 </script>
 
-<div
-	class="relative top-0 left-0 inline-flex"
-	bind:clientWidth={width}
-	bind:clientHeight={height}
->
-	<img alt="" class="relative top-0 left-0" {src} />
-
-	<svg
-		class="absolute top-0 left-0"
-		viewBox={`0 0 ${width} ${height}`}
-		xmlns="http://www.w3.org/2000/svg"
+{#if imgSrc}
+	<div
+		class="relative top-0 left-0 inline-flex"
+		bind:clientWidth={width}
+		bind:clientHeight={height}
 	>
-		{#each boxes as { points, color, index }}
-			<polygon
-				{points}
-				stroke={color}
-				fill={color}
-				stroke-width="2"
-				opacity={highlightIndex === -1 || highlightIndex === index
-					? "1"
-					: "0.0"}
-				fill-opacity={highlightIndex === -1 || highlightIndex === index
-					? "0.1"
-					: "0.0"}
-				class="transition duration-200 ease-in-out"
-				on:mouseover={() => mouseover(index)}
-				on:mouseout={mouseout}
-			/>
-		{/each}
-	</svg>
-</div>
+		<img alt="" class="relative top-0 left-0" src={imgSrc} />
+
+		<svg
+			class="absolute top-0 left-0"
+			viewBox={`0 0 ${width} ${height}`}
+			xmlns="http://www.w3.org/2000/svg"
+		>
+			{#each boxes as { points, color, index }}
+				<polygon
+					{points}
+					stroke={color}
+					fill={color}
+					stroke-width="2"
+					opacity={highlightIndex === -1 || highlightIndex === index
+						? "1"
+						: "0.0"}
+					fill-opacity={highlightIndex === -1 || highlightIndex === index
+						? "0.1"
+						: "0.0"}
+					class="transition duration-200 ease-in-out"
+					on:mouseover={() => mouseover(index)}
+					on:mouseout={mouseout}
+				/>
+			{/each}
+		</svg>
+	</div>
+{/if}

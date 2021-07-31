@@ -118,7 +118,7 @@
 	}
 
 	onMount(async () => {
-		imgSrc = "/cat.jpg";
+		// imgSrc = "/cat.jpg";
 		let objectDetectionData = await fetch("./od.json");
 		output = await objectDetectionData.json();
 		outputJson = JSON.stringify(output, null, 2);
@@ -140,16 +140,16 @@
 				{isLoading}
 				{onSelectFile}
 				onError={(e) => (error = e)}
-				{imgSrc}
-				innerWidget={BoundingBoxes}
-				innerWidgetProps={{
-					src: imgSrc,
-					mouseover,
-					mouseout,
-					output: outputWithColor,
-					highlightIndex,
-				}}
-			/>
+				bind:imgSrc
+			>
+				<BoundingBoxes
+					{imgSrc}
+					{mouseover}
+					{mouseout}
+					output={outputWithColor}
+					{highlightIndex}
+				/>
+			</WidgetDropzone>
 		</form>
 	</svelte:fragment>
 	<svelte:fragment slot="bottom">

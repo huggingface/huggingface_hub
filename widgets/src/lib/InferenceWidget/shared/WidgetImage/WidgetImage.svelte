@@ -1,7 +1,9 @@
 <script>
 	export let alt = "";
 	export let classNames = "";
-	export let src = "";
+	export let imgSrc = "";
 </script>
 
-<img {alt} class={classNames} {src} />
+{#if imgSrc}
+	<img {alt} class={classNames} src={imgSrc} />
+{/if}

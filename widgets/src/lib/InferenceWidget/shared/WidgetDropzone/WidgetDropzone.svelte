@@ -1,6 +1,5 @@
 <script>
-	import type { SvelteComponent } from "svelte";
-
+	import { onMount } from "svelte";
 	import IconSpin from "../../../Icons/IconSpin.svelte";
 	import { proxify } from "../../shared/helpers";
 
@@ -11,8 +10,6 @@
 	export let label =
 		"Drag image file here or click to browse from your computer";
 	export let imgSrc = "";
-	export let innerWidget: typeof SvelteComponent;
-	export let innerWidgetProps: { [key: string]: any } = {};
 	export let onSelectFile: (file: File | Blob) => void;
 	export let onError: (e: string) => void;
 
@@ -60,6 +57,10 @@
 			onError(`Unrecognized dragged and dropped file or element.`);
 		}
 	}
+
+	onMount(async () => {
+		// imgSrc = "/cat.jpg";
+	});
 </script>
 
 <input
@@ -88,7 +89,7 @@
 	{#if !imgSrc}
 		<span class="pointer-events-none text-sm">{label}</span>
 	{:else}
-		<svelte:component this={innerWidget} {...innerWidgetProps} />
+		<slot />
 	{/if}
 	{#if isLoading}
 		<div
