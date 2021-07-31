@@ -59,7 +59,7 @@
 	}
 
 	onMount(async () => {
-		// imgSrc = "/cat.jpg";
+		imgSrc = "/cat.jpg";
 	});
 </script>
 

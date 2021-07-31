@@ -1,4 +1,5 @@
 <script>
+	import * as colors from "tailwindcss/colors";
 	let height = 0;
 	let width = 0;
 	export let imgSrc = "";
@@ -43,10 +44,11 @@
 			xmlns="http://www.w3.org/2000/svg"
 		>
 			{#each boxes as { points, color, index }}
+			{console.log(color)}
 				<polygon
 					{points}
-					stroke={color}
-					fill={color}
+					stroke={colors[color][400]}
+					fill={colors[color][400]}
 					stroke-width="2"
 					opacity={highlightIndex === -1 || highlightIndex === index
 						? "1"
