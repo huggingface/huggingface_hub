@@ -96,9 +96,12 @@
 	}
 
 	function parseOutput(body: unknown): string {
-		return Array.isArray(body) && body.length
-			? body[0]?.["summary_text"] ?? ""
-			: "";
+		if (Array.isArray(body) && body.length) {
+			return body[0]?.["summary_text"] ?? "";
+		}
+		throw new TypeError(
+			"Invalid output: output must be of type Array & non-empty"
+		);
 	}
 </script>
 

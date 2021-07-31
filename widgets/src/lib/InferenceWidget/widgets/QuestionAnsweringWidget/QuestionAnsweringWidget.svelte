@@ -112,15 +112,18 @@
 		}
 	}
 
-	function parseOutput(
-		body: unknown
-	): { answer: string; score: number } | null {
-		return body &&
+	function parseOutput(body: unknown): { answer: string; score: number } {
+		if (
+			body &&
 			typeof body === "object" &&
 			"answer" in body &&
 			"score" in body
-			? { answer: body["answer"], score: body["score"] }
-			: null;
+		) {
+			return { answer: body["answer"], score: body["score"] };
+		}
+		throw new TypeError(
+			"Invalid output: output must be of type <answer:string; score:number>"
+		);
 	}
 </script>
 
