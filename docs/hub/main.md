@@ -65,7 +65,7 @@ For `🤗 Transformers` however, the model type is determined automatically from
 
 ## What are all the possible task/widget types?
 
-You can find all the supported tasks [here](https://github.com/huggingface/huggingface_hub/blob/main/widgets/lib/interfaces/Types.ts).
+You can find all the supported tasks [here](https://github.com/huggingface/huggingface_hub/blob/main/widgets/src/lib/interfaces/Types.ts).
 
 Here are some with links to examples:
 
