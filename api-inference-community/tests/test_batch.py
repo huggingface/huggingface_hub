@@ -22,6 +22,7 @@ class BatchTestCase(TestCase):
             dataset_column="file",
             token=token,
             repo_id="Narsil/bulk-dummy",
+            use_gpu=False,
             pipeline=pipeline,
         )
 
