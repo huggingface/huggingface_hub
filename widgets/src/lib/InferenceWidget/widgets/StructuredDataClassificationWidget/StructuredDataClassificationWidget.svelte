@@ -45,7 +45,7 @@
 	let table: (string | number)[][] = [columns];
 
 	let highlighted: HighlightCoordinates = {};
-	let highlightErrorKey = ""; 
+	let highlightErrorKey = "";
 	let scrollTableToRight: () => Promise<void>;
 	let tableWithOutput: (string | number)[][];
 	$: {
