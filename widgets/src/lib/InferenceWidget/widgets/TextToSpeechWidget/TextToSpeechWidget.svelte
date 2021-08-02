@@ -94,9 +94,12 @@
 	}
 
 	function parseOutput(body: unknown): string {
-		return body && typeof body === "object" && body instanceof Blob
-			? URL.createObjectURL(body)
-			: "";
+		if (body && typeof body === "object" && body instanceof Blob) {
+			return URL.createObjectURL(body);
+		}
+		throw new TypeError(
+			"Invalid output: output must be of type object & instance of Blob"
+		);
 	}
 </script>
 

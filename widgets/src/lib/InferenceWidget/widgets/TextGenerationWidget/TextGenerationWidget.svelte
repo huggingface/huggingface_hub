@@ -1,6 +1,6 @@
 <script>
 	import type { WidgetProps } from "../../shared/types";
-	import type { PipelineType } from "../../../../../../interfaces/Types";
+	import type { PipelineType } from "$lib/interfaces/Types";
 
 	import { onMount } from "svelte";
 	import WidgetOutputText from "../../shared/WidgetOutputText/WidgetOutputText.svelte";
@@ -113,7 +113,9 @@
 				""
 			);
 		}
-		return "";
+		throw new TypeError(
+			"Invalid output: output must be of type Array & non-empty"
+		);
 	}
 </script>
 

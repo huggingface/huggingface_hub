@@ -16,7 +16,8 @@ TESTABLE_MODELS: Dict[str, List[str]] = {
         "osanseviero/hubert_s3prl",
         # Repo using s3prl and installing a custom dependency.
         "osanseviero/hubert_s3prl_req",
-    ]
+    ],
+    "speech-segmentation": "osanseviero/hubert-sd",
 }
 
 

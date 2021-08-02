@@ -63,7 +63,7 @@ We do not support installing `apt-get` dependencies yet, but it's on our roadmap
 
 Each environment is currently limited to 16GB RAM and 8 CPU cores.
 
-Some Spaces can have one T4 GPU on a case-by-case basis, contact us if you need one.
+For hf.co Pro or Organization (Lab or Startup plan) subscribers, Spaces can have one T4 GPU on a case-by-case basis, contact us if you need one.
 
 ## How does it work?
 
