@@ -154,8 +154,13 @@
 		);
 	}
 
-	function parseOutput(body: unknown): string[] {
-		return isValidOutput(body) ? body.map((val) => String(val)) : [];
+	function parseOutput(body: unknown): (string | number)[] {
+		if (isValidOutput(body)) {
+			return body;
+		}
+		throw new TypeError(
+			"Invalid output: output must be of type Array<string | number>"
+		);
 	}
 
 	function highlightOutput(
