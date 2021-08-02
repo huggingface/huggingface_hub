@@ -490,40 +490,6 @@ class FeatureExtractionTestCase(TestCase):
             normalize_payload_nlp(bpayload, "feature-extraction")
 
 
-class TextToImageTestCase(TestCase):
-    def test_valid_string(self):
-        bpayload = json.dumps({"inputs": "whatever"}).encode("utf-8")
-        normalized_inputs, processed_params = normalize_payload_nlp(
-            bpayload, "text-to-image"
-        )
-        self.assertEqual(processed_params, {})
-        self.assertEqual(normalized_inputs, "whatever")
-
-    def test_invalid_input(self):
-        bpayload = json.dumps({"inputs": [1, 2]}).encode("utf-8")
-        with self.assertRaises(ValidationError):
-            normalize_payload_nlp(bpayload, "text-to-image")
-
-    def test_with_valid_number_of_images(self):
-        params = {"num_return_images": 2}
-        bpayload = json.dumps({"inputs": "whatever", "parameters": params}).encode(
-            "utf-8"
-        )
-        normalized_inputs, processed_params = normalize_payload_nlp(
-            bpayload, "text-to-image"
-        )
-        self.assertEqual(processed_params, params)
-        self.assertEqual(normalized_inputs, "whatever")
-
-    def test_with_invalid_number_of_images(self):
-        params = {"num_return_images": 100}
-        bpayload = json.dumps({"inputs": "whatever", "parameters": params}).encode(
-            "utf-8"
-        )
-        with self.assertRaises(ValidationError):
-            normalize_payload_nlp(bpayload, "text-to-image")
-
-
 class TasksWithOnlyInputStringTestCase(TestCase):
     def test_fill_mask_accept_string_no_params(self):
         bpayload = json.dumps({"inputs": "whatever"}).encode("utf-8")
@@ -553,6 +519,14 @@ class TasksWithOnlyInputStringTestCase(TestCase):
         bpayload = json.dumps({"inputs": "whatever"}).encode("utf-8")
         normalized_inputs, processed_params = normalize_payload_nlp(
             bpayload, "translation"
+        )
+        self.assertEqual(processed_params, {})
+        self.assertEqual(normalized_inputs, "whatever")
+
+    def test_text_to_image_accept_string_no_params(self):
+        bpayload = json.dumps({"inputs": "whatever"}).encode("utf-8")
+        normalized_inputs, processed_params = normalize_payload_nlp(
+            bpayload, "text-to-image"
         )
         self.assertEqual(processed_params, {})
         self.assertEqual(normalized_inputs, "whatever")

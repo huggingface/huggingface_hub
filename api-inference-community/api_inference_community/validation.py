@@ -103,10 +103,6 @@ class SummarizationParamsCheck(SharedGenerationParams):
     num_return_sequences: Optional[NumReturnSequences] = None
 
 
-class TextToImageParamsCheck(BaseModel):
-    num_return_images: Optional[NumReturnSequences] = None
-
-
 class ConversationalInputsCheck(BaseModel):
     text: str
     past_user_inputs: List[str]
@@ -170,7 +166,6 @@ PARAMS_MAPPING = {
     "fill-mask": FillMaskParamsCheck,
     "text2text-generation": TextGenerationParamsCheck,
     "text-generation": TextGenerationParamsCheck,
-    "text-to-image": TextToImageParamsCheck,
     "summarization": SummarizationParamsCheck,
     "zero-shot-classification": ZeroShotParamsCheck,
 }
