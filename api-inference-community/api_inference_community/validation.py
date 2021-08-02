@@ -313,8 +313,11 @@ def normalize_payload_image(bpayload: bytes) -> Tuple[Any, Dict]:
 AUDIO_EXTENSIONS = {"mp3", "wav", "flac", "mp4", "webm", "aac"}
 
 
+DATA_PREFIX = os.getenv("HF_TRANSFORMERS_CACHE", "")
+
+
 def normalize_payload_audio(bpayload: bytes, sampling_rate: int) -> Tuple[Any, Dict]:
-    if os.path.isfile(bpayload) and bpayload.startswith(b"/data/"):
+    if os.path.isfile(bpayload) and bpayload.startswith(DATA_PREFIX.encode("utf-8")):
         # XXX:
         # This is necessary for batch jobs where the datasets can contain
         # filenames instead of the raw data.
