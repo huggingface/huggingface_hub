@@ -17,6 +17,7 @@
 	import TextGenerationWidget from "./widgets/TextGenerationWidget/TextGenerationWidget.svelte";
 	import TextToSpeechWidget from "./widgets/TextToSpeechWidget/TextToSpeechWidget.svelte";
 	import TokenClassificationWidget from "./widgets/TokenClassificationWidget/TokenClassificationWidget.svelte";
+	import StructuredDataClassificationWidget from "./widgets/StructuredDataClassificationWidget/StructuredDataClassificationWidget.svelte";
 	import ZeroShotClassificationWidget from "./widgets/ZeroShowClassificationWidget/ZeroShotClassificationWidget.svelte";
 
 	export let apiToken: WidgetProps["apiToken"] = undefined;
@@ -51,6 +52,7 @@
 		"token-classification": TokenClassificationWidget,
 		"text-to-speech": TextToSpeechWidget,
 		translation: TextGenerationWidget,
+		"structured-data-classification": StructuredDataClassificationWidget,
 		"zero-shot-classification": ZeroShotClassificationWidget,
 	};
 
