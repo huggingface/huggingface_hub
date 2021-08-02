@@ -40,14 +40,14 @@
 		isLoading: false,
 		estimatedTime: 0,
 	};
-	let output: string[] = [];
+	let output: (string | number)[] = [];
 	let outputJson: string;
-	let table: string[][] = [columns];
+	let table: (string | number)[][] = [columns];
 
 	let highlighted: HighlightCoordinates = {};
-	let highlightError = "";
+	let highlightErrorKey = ""; 
 	let scrollTableToRight: () => Promise<void>;
-	let tableWithOutput: string[][];
+	let tableWithOutput: (string | number)[][];
 	$: {
 		const strucuredData = convertTableToData(table);
 		if (output?.length) {
@@ -58,10 +58,10 @@
 		} else {
 			delete strucuredData.Prediction;
 			highlighted = {};
-			if (highlightError) {
-				highlighted[highlightError] =
+			if (highlightErrorKey) {
+				highlighted[highlightErrorKey] =
 					"bg-red-100 border-red-100 dark:bg-red-800 dark:border-red-800";
-				highlightError = "";
+				highlightErrorKey = "";
 			}
 		}
 		tableWithOutput = convertDataToTable(strucuredData);
@@ -93,7 +93,7 @@
 			for (const [j, cell] of row.entries()) {
 				if (!String(cell)) {
 					error = `Missing value at row=${i} & column='${columns[j]}'`;
-					highlightError = `${--i}-${j}`;
+					highlightErrorKey = `${--i}-${j}`;
 					output = null;
 					outputJson = "";
 					return;
@@ -159,10 +159,10 @@
 	}
 
 	function highlightOutput(
-		output: string[],
+		output: (string | number)[],
 		colIndex: number
 	): HighlightCoordinates {
-		const set: Set<string> = new Set(output);
+		const set: Set<string | number> = new Set(output);
 		let classes: Record<string, number> = {};
 		if (set.size < COLORS.length) {
 			classes = [...set].reduce((acc, cls, i) => ({ ...acc, [cls]: i }), {});

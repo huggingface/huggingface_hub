@@ -5,13 +5,13 @@
 	import { scrollToMax } from "../ViewUtils";
 	import IconRow from "../../../Icons/IconRow.svelte";
 
-	export let onChange: (table: string[][]) => void;
+	export let onChange: (table: (string | number)[][]) => void;
 	export let highlighted: HighlightCoordinates;
-	export let table: string[][] = [[]];
+	export let table: (string | number)[][] = [[]];
 	export let canAddRow = true;
 	export let canAddCol = true;
 
-	let initialTable: string[][] = [[]];
+	let initialTable: (string | number)[][] = [[]];
 	let tableContainerEl: HTMLElement;
 
 	onMount(() => {

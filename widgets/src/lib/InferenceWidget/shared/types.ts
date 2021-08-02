@@ -12,6 +12,6 @@ export interface WidgetProps {
 
 export type LoadingStatus = "error" | "loaded" | "unknown";
 
-export type TableData = Record<string, string[]>;
+export type TableData = Record<string, (string | number)[]>;
 
 export type HighlightCoordinates = Record<string, string>;

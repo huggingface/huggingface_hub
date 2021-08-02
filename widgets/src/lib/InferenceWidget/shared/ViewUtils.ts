@@ -104,7 +104,7 @@ export function scrollToMax(elt: HTMLElement, axis: "x" | "y" = "y") {
 * Converts table from [[Header0, Header1, Header2], [Column0Val0, Column1Val0, Column2Val0], ...]
 * to {Header0: [ColumnVal0, ...], Header1: [Column1Val0, ...], Header2: [Column2Val0, ...]}
 */
-export function convertTableToData(table: string[][]): TableData {
+export function convertTableToData(table: (string | number)[][]): TableData {
 	return Object.fromEntries(
 		table[0].map((cell, x) => {
 			return [
@@ -123,7 +123,7 @@ export function convertTableToData(table: string[][]): TableData {
 	* Converts data from {Header0: [ColumnVal0, ...], Header1: [Column1Val0, ...], Header2: [Column2Val0, ...]}
 	* to [[Header0, Header1, Header2], [Column0Val0, Column1Val0, Column2Val0], ...]
 	*/
-export function convertDataToTable(data: TableData): string[][] {
+export function convertDataToTable(data: TableData): (string | number)[][] {
 	const dataArray = Object.entries(data); // [header, cell[]][]
 	const nbCols = dataArray.length;
 	const nbRows = (dataArray[0]?.[1]?.length ?? 0) + 1;
