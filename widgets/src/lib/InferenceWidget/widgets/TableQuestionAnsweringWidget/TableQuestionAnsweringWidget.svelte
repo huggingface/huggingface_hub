@@ -44,7 +44,7 @@
 	};
 	let output: Output | null = null;
 	let outputJson: string;
-	let table: string[][] = [[]];
+	let table: (string | number)[][] = [[]];
 	let query = "";
 
 	let highlighted: HighlightCoordinates = {};
