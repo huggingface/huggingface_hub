@@ -186,6 +186,7 @@ INPUTS_MAPPING = {
     "translation": StringInput,
     "zero-shot-classification": StringInput,
     "text-to-speech": StringInput,
+    "text-to-image": StringInput,
 }
 
 BATCH_ENABLED_PIPELINES = ["feature-extraction"]
