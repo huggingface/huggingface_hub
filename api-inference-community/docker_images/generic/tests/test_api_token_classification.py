@@ -50,7 +50,6 @@ class TokenClassificationTestCase(TestCase):
         with TestClient(self.app) as client:
             response = client.post("/", json={"inputs": inputs})
 
-        print(response.to_json())
         self.assertEqual(
             response.status_code,
             200,
@@ -80,7 +79,6 @@ class TokenClassificationTestCase(TestCase):
         with TestClient(self.app) as client:
             response = client.post("/", data=b"\xc3\x28")
 
-        print(response.to_json())
         self.assertEqual(
             response.status_code,
             400,
