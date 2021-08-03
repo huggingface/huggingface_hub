@@ -310,7 +310,7 @@ def normalize_payload_image(bpayload: bytes) -> Tuple[Any, Dict]:
     return img, {}
 
 
-AUDIO_EXTENSIONS = {"mp3", "wav", "flac", "mp4", "webm", "aac"}
+AUDIO_EXTENSIONS = {".mp3", ".wav", ".flac", ".mp4", ".webm", ".aac"}
 
 
 DATA_PREFIX = os.getenv("HF_TRANSFORMERS_CACHE", "")
