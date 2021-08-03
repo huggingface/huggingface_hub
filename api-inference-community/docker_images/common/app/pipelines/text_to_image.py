@@ -21,5 +21,5 @@ class TextToImagePipeline(Pipeline):
         """
         # IMPLEMENT_THIS
         raise NotImplementedError(
-            "Please implement TextToImagePipeline __call__ function"
+            "Please implement TextToImagePipeline.__call__ function"
         )
