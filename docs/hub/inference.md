@@ -31,3 +31,16 @@ If you are interested in accelerated inference and/or higher volumes of requests
 ## How can I see my usage?
 
 You can head to the [Inference API dashboard](https://api-inference.huggingface.co/dashboard/). Learn more about it in the [Inference API documentation](https://api-inference.huggingface.co/docs/python/html/usage.html#api-usage-dashboard). 
+
+## Is there programmatic access to the Inference API?
+
+Yes, you can do usual HTTP requests with the language and tools of your choice. Take a look at the [Inference API documentation](https://api-inference.huggingface.co/docs/python/html/detailed_parameters.html) for more information on the requests. 
+
+For Python users, we also provide the `huggingface_hub` client [library](https://github.com/huggingface/huggingface_hub/tree/main/src/huggingface_hub) which has a wrapper to make calls to the Inference API.
+
+```
+from huggingface_hub.inference_api import InferenceApi
+inference = InferenceApi("bert-base-uncased")
+inference(inputs="The goal of life is [MASK].", token=API_TOKEN)
+>> [{'sequence': 'the goal of life is life.', 'score': 0.10933292657136917, 'token': 2166, 'token_str': 'life'}]
+```

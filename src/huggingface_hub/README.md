@@ -183,4 +183,47 @@ Examples using the `commit` context manager:
 
 <br>
 
+## Using the Inference API wrapper
+
+`huggingface_hub` comes with a wrapper client to make calls to the Inference API! You can find some examples below, but we encourage you to visit the Inference API [documentation](https://api-inference.huggingface.co/docs/python/html/detailed_parameters.html) to review the specific parameters for the different tasks.
+
+When you instantiate the wrapper to the Inference API, you specify the model repository id. The pipeline (`text-classification`,  `text-to-speech`, etc) is automatically extracted from the [repository](https://huggingface.co/docs/hub/main#how-is-a-models-type-of-inference-api-and-widget-determined), but you can also override it as shown below.
+
+
+### Examples
+
+Here is a basic example of calling the Inference API for a `fill-mask` task using the `bert-base-uncased` model. The `fill-mask` task only expects a string (or list of strings) as input.
+
+```
+from huggingface_hub.inference_api import InferenceApi
+inference = InferenceApi("bert-base-uncased", token=API_TOKEN)
+inference(inputs="The goal of life is [MASK].")
+>> [{'sequence': 'the goal of life is life.', 'score': 0.10933292657136917, 'token': 2166, 'token_str': 'life'}]
+```
+
+This is an example of a task (`question-answering`) which requires a dictionary as input thas has the `question` and `context` keys.
+
+```
+inference = InferenceApi("deepset/roberta-base-squad2", token=API_TOKEN)
+inputs = {"question":"What's my name?", "context":"My name is Clara and I live in Berkeley."}
+inference(inputs)
+>> {'score': 0.9326569437980652, 'start': 11, 'end': 16, 'answer': 'Clara'}
+```
+
+Some tasks might also require additional params in the request. Here is an example using a `zero-shot-classification` model.
+
+```
+inference = InferenceApi("typeform/distilbert-base-uncased-mnli", token=API_TOKEN)
+inputs = "Hi, I recently bought a device from your company but it is not working as advertised and I would like to get reimbursed!"
+params = {"candidate_labels":["refund", "legal", "faq"]}
+inference(inputs, params)
+>> {'sequence': 'Hi, I recently bought a device from your company but it is not working as advertised and I would like to get reimbursed!', 'labels': ['refund', 'faq', 'legal'], 'scores': [0.9378499388694763, 0.04914155602455139, 0.013008488342165947]}
+```
+
+Finally, there are some models that might support multiple tasks. For example, `sentence-transformers` models can do `sentence-similarity` and `feature-extraction`. You can override the configured task when initializing the API.
+
+```
+inference = InferenceApi("bert-base-uncased", task="feature-extraction", token=API_TOKEN)
+```
+
 ## Feedback (feature requests, bugs, etc.) is super welcome 💙💚💛💜♥️🧡
