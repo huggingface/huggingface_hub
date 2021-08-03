@@ -1,15 +1,36 @@
+import os
+import subprocess
+import sys
 from abc import ABC, abstractmethod
 from typing import Any
+
+from huggingface_hub import snapshot_download
 
 
 class Pipeline(ABC):
     @abstractmethod
     def __init__(self, model_id: str):
-        raise NotImplementedError("Pipelines should implement an __init__ method")
+        filepath = snapshot_download(model_id)
+        sys.path.append(filepath)
+        if "requirements.txt" in os.listdir(filepath):
+            subprocess.check_call(
+                [
+                    sys.executable,
+                    "-m",
+                    "pip",
+                    "install",
+                    "-r",
+                    os.path.join(filepath, "requirements.txt"),
+                ]
+            )
+
+        from pipeline import PreTrainedPipeline
+
+        self.model = PreTrainedPipeline(filepath)
 
     @abstractmethod
     def __call__(self, inputs: Any) -> Any:
-        raise NotImplementedError("Pipelines should implement a __call__ method")
+        return self.model(inputs)
 
 
 class PipelineException(Exception):
