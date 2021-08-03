@@ -278,7 +278,7 @@ def ffmpeg_read(bpayload: bytes, sampling_rate: int) -> np.array:
     ffmpeg_command = [
         "ffmpeg",
         "-i",
-        bpayload,
+        "pipe:0",
         "-ac",
         ac,
         "-ar",
