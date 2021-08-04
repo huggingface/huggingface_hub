@@ -149,3 +149,11 @@ In the past few years, our team, in collaboration with other research groups, ha
 We host [widgets](https://huggingface-widgets.netlify.app/) for every model on the Hub, but in some cases (for instance if you want to compare two models) there is a need for a demo app that can't simply be implemented in a widget, so we needed something more flexible.
 
 This project's goal is to experiment with an extensible way for users and organizations to host demos/apps on huggingface.co, in a more productized/scalable way than we’ve done in the past.
+
+## Changelog
+
+* [`2021-08-04`] - Add support for Debian packages
+* [`2021-08-03`] - Add support for Streamlit components
+* [`2021-08-03`] - Make Flax / Jax run smoothly on GPU
+* [`2021-08-02`] - Upgrade Streamlit to `0.82.0`
+* [`2021-08-01`] - Link to raw logs (build and container) from the space repository
