@@ -38,7 +38,7 @@ Yes, you can do usual HTTP requests with the language and tools of your choice. 
 
 For Python users, we also provide the `huggingface_hub` client [library](https://github.com/huggingface/huggingface_hub/tree/main/src/huggingface_hub) which has a wrapper to make calls to the Inference API.
 
-```
+```python
 from huggingface_hub.inference_api import InferenceApi
 inference = InferenceApi("bert-base-uncased")
 inference(inputs="The goal of life is [MASK].", token=API_TOKEN)

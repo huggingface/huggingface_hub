@@ -194,7 +194,7 @@ When you instantiate the wrapper to the Inference API, you specify the model rep
 
 Here is a basic example of calling the Inference API for a `fill-mask` task using the `bert-base-uncased` model. The `fill-mask` task only expects a string (or list of strings) as input.
 
-```
+```python
 from huggingface_hub.inference_api import InferenceApi
 inference = InferenceApi("bert-base-uncased", token=API_TOKEN)
 inference(inputs="The goal of life is [MASK].")
@@ -203,7 +203,7 @@ inference(inputs="The goal of life is [MASK].")
 
 This is an example of a task (`question-answering`) which requires a dictionary as input thas has the `question` and `context` keys.
 
-```
+```python
 inference = InferenceApi("deepset/roberta-base-squad2", token=API_TOKEN)
 inputs = {"question":"What's my name?", "context":"My name is Clara and I live in Berkeley."}
 inference(inputs)
@@ -212,7 +212,7 @@ inference(inputs)
 
 Some tasks might also require additional params in the request. Here is an example using a `zero-shot-classification` model.
 
-```
+```python
 inference = InferenceApi("typeform/distilbert-base-uncased-mnli", token=API_TOKEN)
 inputs = "Hi, I recently bought a device from your company but it is not working as advertised and I would like to get reimbursed!"
 params = {"candidate_labels":["refund", "legal", "faq"]}
@@ -222,7 +222,7 @@ inference(inputs, params)
 
 Finally, there are some models that might support multiple tasks. For example, `sentence-transformers` models can do `sentence-similarity` and `feature-extraction`. You can override the configured task when initializing the API.
 
-```
+```python
 inference = InferenceApi("bert-base-uncased", task="feature-extraction", token=API_TOKEN)
 ```
 
