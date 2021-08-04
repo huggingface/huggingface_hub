@@ -57,7 +57,7 @@ If you need any other Python package, you can simply add a `requirements.txt` at
 
 A custom environment will be created on the fly by the Spaces runtime engine.
 
-We do not support installing `apt-get` dependencies yet, but it's on our roadmap.
+We also support Debian dependencies : add a `packages.txt` file at the root of your repo and list all your dependencies, one per line (each line will go through `apt-get install`)
 
 ## What are the RAM and CPU or GPU limitations?
 
