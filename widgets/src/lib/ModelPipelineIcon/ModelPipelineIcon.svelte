@@ -13,11 +13,13 @@
 	import IconObjectDetection from "../Icons/IconObjectDetection.svelte";
 	import IconQuestionAnswering from "../Icons/IconQuestionAnswering.svelte";
 	import IconSentenceSimilarity from "../Icons/IconSentenceSimilarity.svelte";
+	import IconStructuredDataClassification from "../Icons/IconStructuredDataClassification.svelte";
 	import IconSummarization from "../Icons/IconSummarization.svelte";
 	import IconTableQuestionAnswering from "../Icons/IconTableQuestionAnswering.svelte";
 	import IconText2textGeneration from "../Icons/IconText2textGeneration.svelte";
 	import IconTextClassification from "../Icons/IconTextClassification.svelte";
 	import IconTextGeneration from "../Icons/IconTextGeneration.svelte";
+	import IconTextToImage from "../Icons/IconTextToImage.svelte";
 	import IconTextToSpeech from "../Icons/IconTextToSpeech.svelte";
 	import IconTokenClassification from "../Icons/IconTokenClassification.svelte";
 	import IconTranslation from "../Icons/IconTranslation.svelte";
@@ -53,6 +55,8 @@
 		"image-classification": IconImageClassification,
 		"object-detection": IconObjectDetection,
 		"image-segmentation": IconImageSegmentation,
+		"text-to-image": IconTextToImage,
+		"structured-data-classification": IconStructuredDataClassification,
 	};
 </script>
 

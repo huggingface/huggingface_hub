@@ -26,6 +26,7 @@ export enum PipelineType {
 	"image-classification" = "image-classification",
 	"object-detection" = "object-detection",
 	"image-segmentation" = "image-segmentation",
+	"text-to-image" = "text-to-image",
 	// others
 	"structured-data-classification" = "structured-data-classification",
 }
@@ -57,6 +58,7 @@ export const PIPELINE_TYPE_PRETTY_NAMES: { [key in PipelineType]: string } = {
 	"image-classification":                                     "Image Classification",
 	"object-detection":                                         "Object Detection",
 	"image-segmentation":                                       "Image Segmentation",
+	"text-to-image":											"Text-to-Image",
 	/// others
 	"structured-data-classification":                           "Structured Data Classification",
 };
