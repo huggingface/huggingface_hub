@@ -12,7 +12,8 @@ TESTABLE_MODELS: Dict[str, str] = {
     #  IMPLEMENT_THIS
     # "automatic-speech-recognition": "mysample-ASR",
     # "text-generation": "mysample-gpt2",
-    "token-classification": "spacy/en_core_web_sm"
+    "token-classification": "spacy/en_core_web_sm",
+    "text-classification": "explosion/en_textcat_goemotions",
 }
 
 
