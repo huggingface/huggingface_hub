@@ -1,6 +1,5 @@
 <script>
 	export let classNames = "";
-
 </script>
 
 <svg
