@@ -50,7 +50,6 @@ export const PIPELINE_TYPE_PRETTY_NAMES: { [key in PipelineType]: string } = {
 	"text-to-speech":                                           "Text-to-Speech",
 	"automatic-speech-recognition":                             "Automatic Speech Recognition",
 	"audio-to-audio":                                           "Audio-to-Audio",
-	"audio-source-separation":                                  "Audio Source Separation",
 	"voice-activity-detection":                                 "Voice Activity Detection",
 	/// computer vision
 	"image-classification":                                     "Image Classification",
