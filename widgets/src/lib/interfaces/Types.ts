@@ -58,7 +58,7 @@ export const PIPELINE_TYPE_PRETTY_NAMES: { [key in PipelineType]: string } = {
 	"image-classification":                                     "Image Classification",
 	"object-detection":                                         "Object Detection",
 	"image-segmentation":                                       "Image Segmentation",
-	"text-to-image":											"Text-to-Image",
+	"text-to-image":                                            "Text-to-Image",
 	/// others
 	"structured-data-classification":                           "Structured Data Classification",
 };
