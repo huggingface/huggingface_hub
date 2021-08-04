@@ -2,7 +2,6 @@
 	import type { SvelteComponent } from "svelte";
 	import type { PipelineType } from "$lib/interfaces/Types";
 
-	import IconAudioSourceSeparation from "../Icons/IconAudioSourceSeparation.svelte";
 	import IconAudioToAudio from "../Icons/IconAudioToAudio.svelte";
 	import IconAutomaticSpeechRecognition from "../Icons/IconAutomaticSpeechRecognition.svelte";
 	import IconConversational from "../Icons/IconConversational.svelte";
@@ -47,7 +46,6 @@
 		"sentence-similarity": IconSentenceSimilarity,
 		"text-to-speech": IconTextToSpeech,
 		"automatic-speech-recognition": IconAutomaticSpeechRecognition,
-		"audio-source-separation": IconAudioSourceSeparation,
 		"audio-to-audio": IconAudioToAudio,
 		"voice-activity-detection": IconVoiceActivityDetection,
 		"image-classification": IconImageClassification,

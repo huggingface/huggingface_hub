@@ -20,7 +20,6 @@ export enum PipelineType {
 	"text-to-speech" = "text-to-speech",
 	"automatic-speech-recognition" = "automatic-speech-recognition",
 	"audio-to-audio" = "audio-to-audio",
-	"audio-source-separation" = "audio-source-separation",
 	"voice-activity-detection" = "voice-activity-detection",
 	/// computer vision
 	"image-classification" = "image-classification",
