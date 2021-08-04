@@ -24,7 +24,10 @@ The model cards have a YAML section that specify metadata. These are the fields
 
 ```yaml
 ---
-language: "ISO 639-1 code for your language, or `multilingual`"
+language: 
+  - "List of ISO 639-1 code for your language"
+  - lang1
+  - lang2
 thumbnail: "url to a thumbnail used in social sharing"
 tags:
 - tag1
