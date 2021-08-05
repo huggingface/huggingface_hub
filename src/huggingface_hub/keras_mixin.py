@@ -17,6 +17,12 @@ class KerasModelHubMixin(ModelHubMixin):
         """
         Mix this class with your keras-model class for ease process of saving & loading from huggingface-hub
 
+        NOTE - Dummy Inputs are required to save/load models using this mixin. When saving, you are required to either:
+
+            1. Assign an attribute to your class, self.dummy_inputs, that defines inputs to be passed to the model's call
+            function to build the model.
+            2. Pass the dummy_inputs kwarg to save_pretrained. We will save this along with the model (as if it were an attribute).
+
         Example::
 
             >>> from huggingface_hub import KerasModelHubMixin
