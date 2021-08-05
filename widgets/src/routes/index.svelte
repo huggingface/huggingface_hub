@@ -146,10 +146,6 @@
 			pipeline_tag: "automatic-speech-recognition",
 		},
 		{
-			modelId: "mhu-coder/ConvTasNet_Libri1Mix_enhsingle",
-			pipeline_tag: "audio-source-separation",
-		},
-		{
 			modelId: "facebook/wav2vec2-base-960h",
 			pipeline_tag: "automatic-speech-recognition",
 			widgetData: [
