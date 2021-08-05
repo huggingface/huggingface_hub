@@ -2,7 +2,6 @@ import copy
 import fnmatch
 import io
 import json
-import logging
 import os
 import sys
 import tempfile
@@ -28,9 +27,10 @@ from .constants import (
     REPO_TYPES_URL_PREFIXES,
 )
 from .hf_api import HfFolder
+from .utils import logging
 
 
-logger = logging.getLogger(__name__)
+logger = logging.get_logger(__name__)
 
 _PY_VERSION: str = sys.version.split()[0].rstrip("+")
 
