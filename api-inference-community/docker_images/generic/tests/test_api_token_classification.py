@@ -5,20 +5,25 @@ from unittest import TestCase, skipIf
 from app.main import ALLOWED_TASKS
 from starlette.testclient import TestClient
 from tests.test_api import TESTABLE_MODELS
-
+from parameterized import parameterized_class
 
 @skipIf(
     "token-classification" not in ALLOWED_TASKS,
     "token-classification not implemented",
 )
+@parameterized_class(
+    [{"model_id": model_id} for model_id in TESTABLE_MODELS["token-classification"]]
+)
 class TokenClassificationTestCase(TestCase):
     def setUp(self):
-        model_id = TESTABLE_MODELS["token-classification"]
         self.old_model_id = os.getenv("MODEL_ID")
         self.old_task = os.getenv("TASK")
-        os.environ["MODEL_ID"] = model_id
+        os.environ["MODEL_ID"] = self.model_id
         os.environ["TASK"] = "token-classification"
-        from app.main import app
+
+        from app.main import app, get_pipeline
+
+        get_pipeline.cache_clear()
 
         self.app = app
 

@@ -12,10 +12,7 @@ class SpeechSegmentationPipeline(Pipeline):
         # This function is only called once, so do all the heavy processing I/O here
         # IMPLEMENT_THIS : Please define a `self.sampling_rate` for this pipeline
         # to automatically read the input correctly
-        self.sampling_rate = 16000
-        raise NotImplementedError(
-            "Please implement SpeechSegmentationPipeline __init__ function"
-        )
+        super().__init__(model_id)
 
     def __call__(self, inputs: np.array) -> Dict[str, str]:
         """
@@ -27,8 +24,4 @@ class SpeechSegmentationPipeline(Pipeline):
             "class" is the associated class of the audio segment, "start" and "end" are markers expressed in seconds
             within the audio file.
         """
-        # IMPLEMENT_THIS
-        # api_inference_community.normalizers.speaker_diarization_normalize could help.
-        raise NotImplementedError(
-            "Please implement SpeechSegmentationPipeline __call__ function"
-        )
+        return super().__call__(inputs)

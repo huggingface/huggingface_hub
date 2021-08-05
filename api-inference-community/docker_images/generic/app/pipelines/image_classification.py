@@ -13,9 +13,7 @@ class ImageClassificationPipeline(Pipeline):
         # Preload all the elements you are going to need at inference.
         # For instance your model, processors, tokenizer that might be needed.
         # This function is only called once, so do all the heavy processing I/O here
-        raise NotImplementedError(
-            "Please implement ImageClassificationPipeline __init__ function"
-        )
+        super().__init__(model_id)
 
     def __call__(self, inputs: "Image.Image") -> List[Dict[str, Any]]:
         """
@@ -27,7 +25,4 @@ class ImageClassificationPipeline(Pipeline):
             A :obj:`list`:. The list contains items that are dicts should be liked {"label": "XXX", "score": 0.82}
                 It is preferred if the returned list is in decreasing `score` order
         """
-        # IMPLEMENT_THIS
-        raise NotImplementedError(
-            "Please implement ImageClassificationPipeline __call__ function"
-        )
+        return super().__call__(inputs)

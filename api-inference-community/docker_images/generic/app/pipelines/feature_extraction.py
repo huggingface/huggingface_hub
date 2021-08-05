@@ -12,9 +12,7 @@ class FeatureExtractionPipeline(Pipeline):
         # Preload all the elements you are going to need at inference.
         # For instance your model, processors, tokenizer that might be needed.
         # This function is only called once, so do all the heavy processing I/O here
-        raise NotImplementedError(
-            "Please implement FeatureExtractionPipeline __init__ function"
-        )
+        super().__init__(model_id)
 
     def __call__(self, inputs: str) -> List[float]:
         """
@@ -24,7 +22,4 @@ class FeatureExtractionPipeline(Pipeline):
         Return:
             A :obj:`list` of floats: The features computed by the model.
         """
-        # IMPLEMENT_THIS
-        raise NotImplementedError(
-            "Please implement FeatureExtractionPipeline __call__ function"
-        )
+        return super().__call__(inputs)

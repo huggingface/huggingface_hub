@@ -10,12 +10,7 @@ class AudioToAudioPipeline(Pipeline):
         # Preload all the elements you are going to need at inference.
         # For instance your model, processors, tokenizer that might be needed.
         # This function is only called once, so do all the heavy processing I/O here
-        # IMPLEMENT_THIS : Please define a `self.sampling_rate` for this pipeline
-        # to automatically read the input correctly
-        self.sampling_rate = 16000
-        raise NotImplementedError(
-            "Please implement AudioToAudioPipeline __init__ function"
-        )
+        super().__init__(model_id)
 
     def __call__(self, inputs: np.array) -> Tuple[np.array, int, List[str]]:
         """
@@ -32,7 +27,4 @@ class AudioToAudioPipeline(Pipeline):
                     This can be the name of the instruments for audio source separation
                     or some annotation for speech enhancement. The length must be `C'`.
         """
-        # IMPLEMENT_THIS
-        raise NotImplementedError(
-            "Please implement AudioToAudioPipeline __call__ function"
-        )
+        return super().__call__(inputs)

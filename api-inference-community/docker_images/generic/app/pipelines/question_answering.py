@@ -12,9 +12,7 @@ class QuestionAnsweringPipeline(Pipeline):
         # Preload all the elements you are going to need at inference.
         # For instance your model, processors, tokenizer that might be needed.
         # This function is only called once, so do all the heavy processing I/O here
-        raise NotImplementedError(
-            "Please implement QuestionAnsweringPipeline __init__ function"
-        )
+        super().__init__(model_id)
 
     def __call__(self, inputs: Dict[str, str]) -> Dict[str, Any]:
         """
@@ -28,7 +26,4 @@ class QuestionAnsweringPipeline(Pipeline):
                 - "end": the ending offset within `context` leading to `answer`. context[start:stop] === answer
                 - "score": A score between 0 and 1 describing how confident the model is for this answer.
         """
-        # IMPLEMENT_THIS
-        raise NotImplementedError(
-            "Please implement QuestionAnsweringPipeline __call__ function"
-        )
+        return super().__call__(inputs)

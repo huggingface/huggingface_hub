@@ -10,12 +10,7 @@ class AutomaticSpeechRecognitionPipeline(Pipeline):
         # Preload all the elements you are going to need at inference.
         # For instance your model, processors, tokenizer that might be needed.
         # This function is only called once, so do all the heavy processing I/O here
-        # IMPLEMENT_THIS : Please define a `self.sampling_rate` for this pipeline
-        # to automatically read the input correctly
-        self.sampling_rate = 16000
-        raise NotImplementedError(
-            "Please implement AutomaticSpeechRecognitionPipeline __init__ function"
-        )
+        super().__init__(model_id)
 
     def __call__(self, inputs: np.array) -> Dict[str, str]:
         """
@@ -26,7 +21,4 @@ class AutomaticSpeechRecognitionPipeline(Pipeline):
             A :obj:`dict`:. The object return should be liked {"text": "XXX"} containing
             the detected langage from the input audio
         """
-        # IMPLEMENT_THIS
-        raise NotImplementedError(
-            "Please implement AutomaticSpeechRecognitionPipeline __call__ function"
-        )
+        return super().__call__(inputs)

@@ -12,9 +12,7 @@ class SentenceSimilarityPipeline(Pipeline):
         # Preload all the elements you are going to need at inference.
         # For instance your model, processors, tokenizer that might be needed.
         # This function is only called once, so do all the heavy processing I/O here
-        raise NotImplementedError(
-            "Please implement SentenceSimilarityPipeline __init__ function"
-        )
+        super().__init__(model_id)
 
     def __call__(self, inputs: Dict[str, Union[str, List[str]]]) -> List[float]:
         """
@@ -27,7 +25,4 @@ class SentenceSimilarityPipeline(Pipeline):
         Return:
             A :obj:`list` of floats: Some similarity measure between `source_sentence` and each sentence from `sentences`.
         """
-        # IMPLEMENT_THIS
-        raise NotImplementedError(
-            "Please implement SentenceSimilarityPipeline __call__ function"
-        )
+        return super().__call__(inputs)
