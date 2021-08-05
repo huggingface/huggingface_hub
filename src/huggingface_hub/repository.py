@@ -654,12 +654,13 @@ class Repository:
         if rebase:
             args.append("--rebase")
         try:
-            subprocess.run(
-                args,
-                check=True,
-                encoding="utf-8",
-                cwd=self.local_dir,
-            )
+            with lfs_log_progress():
+                subprocess.run(
+                    args,
+                    check=True,
+                    encoding="utf-8",
+                    cwd=self.local_dir,
+                )
         except subprocess.CalledProcessError as exc:
             raise EnvironmentError(exc.stderr)
 
