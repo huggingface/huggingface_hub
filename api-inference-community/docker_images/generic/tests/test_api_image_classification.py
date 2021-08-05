@@ -12,9 +12,11 @@ from parameterized import parameterized_class
     "image-classification" not in ALLOWED_TASKS,
     "image-classification not implemented",
 )
+@parameterized_class(
+    [{"model_id": model_id} for model_id in TESTABLE_MODELS["image-classification"]]
+)
 class ImageClassificationTestCase(TestCase):
     def setUp(self):
-        def setUp(self):
         self.old_model_id = os.getenv("MODEL_ID")
         self.old_task = os.getenv("TASK")
         os.environ["MODEL_ID"] = self.model_id
@@ -67,6 +69,7 @@ class ImageClassificationTestCase(TestCase):
             {("label", str), ("score", float)},
         )
 
+    
     def test_different_resolution(self):
         bpayload = self.read("plane2.jpg")
 
@@ -83,3 +86,4 @@ class ImageClassificationTestCase(TestCase):
         self.assertEqual(
             set(k for el in content for k in el.keys()), {"label", "score"}
         )
+

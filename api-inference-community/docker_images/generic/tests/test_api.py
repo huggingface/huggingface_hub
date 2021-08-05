@@ -9,17 +9,18 @@ from app.main import ALLOWED_TASKS, get_pipeline
 # Tests do not check the actual values of the model output, so small dummy
 # models are recommended for faster tests.
 TESTABLE_MODELS: Dict[str, List[str]] = {
+    "image-classification": ["osanseviero/fastai_cat_vs_dog"],
     "token-classification": ["osanseviero/en_core_web_sm"],
 }
 
 ALL_TASKS = {
+    "audio-to-audio",
     "automatic-speech-recognition",
     "feature-extraction",
     "image-classification",
     "question-answering",
     "sentence-similarity",
     "structure-data-classification",
-    "text-generation",
     "text-to-speech",
     "token-classification",
 }
