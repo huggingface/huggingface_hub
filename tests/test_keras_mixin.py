@@ -134,20 +134,20 @@ class HubMixingTest(HubMixingCommonTest):
         )
         self.assertDictEqual(model.config, {"num": 10, "act": "gelu_fast"})
 
-    # def test_push_to_hub(self):
-    #     model = DummyModel()
-    #     model.push_to_hub(
-    #         repo_path_or_name=f"{WORKING_REPO_DIR}/{REPO_NAME}-PUSH_TO_HUB",
-    #         api_endpoint=ENDPOINT_STAGING,
-    #         use_auth_token=self._token,
-    #         git_user="ci",
-    #         git_email="ci@dummy.com",
-    #         config={"num": 7, "act": "gelu_fast"},
-    #     )
+    def test_push_to_hub(self):
+        model = DummyModel()
+        model.push_to_hub(
+            repo_path_or_name=f"{WORKING_REPO_DIR}/{REPO_NAME}-PUSH_TO_HUB",
+            api_endpoint=ENDPOINT_STAGING,
+            use_auth_token=self._token,
+            git_user="ci",
+            git_email="ci@dummy.com",
+            config={"num": 7, "act": "gelu_fast"},
+        )
 
-    #     model_info = self._api.model_info(
-    #         f"{USER}/{REPO_NAME}-PUSH_TO_HUB",
-    #     )
-    #     self.assertEqual(model_info.modelId, f"{USER}/{REPO_NAME}-PUSH_TO_HUB")
+        model_info = self._api.model_info(
+            f"{USER}/{REPO_NAME}-PUSH_TO_HUB",
+        )
+        self.assertEqual(model_info.modelId, f"{USER}/{REPO_NAME}-PUSH_TO_HUB")
 
-    #     self._api.delete_repo(token=self._token, name=f"{REPO_NAME}-PUSH_TO_HUB")
+        self._api.delete_repo(token=self._token, name=f"{REPO_NAME}-PUSH_TO_HUB")
