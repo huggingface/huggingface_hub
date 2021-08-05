@@ -170,7 +170,6 @@ def lfs_log_progress():
             total_bytes = int(total_bytes)
 
             if pbars.get((state, filename)) is None:
-                print((state, filename))
                 pbars[(state, filename)] = {
                     "bar": tqdm(
                         desc=description,
