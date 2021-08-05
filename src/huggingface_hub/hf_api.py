@@ -50,9 +50,6 @@ class TagManager(tuple):
     def __invert__(self: "Languages"):
         return TagInversion((self,))
 
-    def __sub__(self, other: "Languages"):
-        return TagSubtraction((self, other))
-
     def __repr__(self):
         return self.__class__.__name__ + str([x for x in self])
 
@@ -69,10 +66,6 @@ class TagInversion(TagManager):
     pass
 
 
-class TagSubtraction(TagManager):
-    pass
-
-
 class LogicalEnum(enum.Enum):
     def __and__(self, other: "Languages") -> TagUnion["Languages", "Languages"]:
         return TagUnion((self, other))
@@ -82,9 +75,6 @@ class LogicalEnum(enum.Enum):
 
     def __invert__(self: "Languages") -> TagInversion["Languages"]:
         return TagInversion((self,))
-
-    def __sub__(self, other: "Languages") -> TagSubtraction["Languages", "Languages"]:
-        return TagSubtraction((self, other))
 
 
 def repo_type_and_id_from_hf_id(hf_id: str):
@@ -424,21 +414,6 @@ class HfApi:
                         m.modelId: m
                         for m in all_models
                         if m.modelId not in filtered_models_ids
-                    }.values()
-                )
-
-            elif isinstance(tag, TagSubtraction):
-                tag_0, tag_1 = tag
-
-                wanted_models = self._retrieve_models(tag_0)
-                unwanted_models = self._retrieve_models(tag_1)
-                unwanted_models_ids = [m.modelId for m in unwanted_models]
-
-                return list(
-                    {
-                        m.modelId: m
-                        for m in wanted_models
-                        if m.modelId not in unwanted_models_ids
                     }.values()
                 )
 
