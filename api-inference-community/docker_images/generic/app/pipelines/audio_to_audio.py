@@ -11,6 +11,7 @@ class AudioToAudioPipeline(Pipeline):
         # For instance your model, processors, tokenizer that might be needed.
         # This function is only called once, so do all the heavy processing I/O here
         super().__init__(model_id)
+        self.sampling_rate = self.model.sampling_rate
 
     def __call__(self, inputs: np.array) -> Tuple[np.array, int, List[str]]:
         """

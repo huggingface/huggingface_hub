@@ -70,10 +70,11 @@ class AudioToAudioTestCase(TestCase):
         self.assertEqual(set(audio[0].keys()), {"blob", "content-type", "label"})
 
         data = base64.b64decode(audio[0]["blob"])
-        wavform = ffmpeg_read(data)
+        wavform = ffmpeg_read(data, 16000)
         self.assertGreater(wavform.shape[0], 1000)
         self.assertTrue(isinstance(audio[0]["content-type"], str))
         self.assertTrue(isinstance(audio[0]["label"], str))
+
 
     def test_malformed_audio(self):
         bpayload = self.read("malformed.flac")
@@ -103,7 +104,7 @@ class AudioToAudioTestCase(TestCase):
         self.assertEqual(set(audio[0].keys()), {"blob", "content-type", "label"})
 
         data = base64.b64decode(audio[0]["blob"])
-        wavform = ffmpeg_read(data)
+        wavform = ffmpeg_read(data, 16000)
         self.assertGreater(wavform.shape[0], 1000)
         self.assertTrue(isinstance(audio[0]["content-type"], str))
         self.assertTrue(isinstance(audio[0]["label"], str))
@@ -124,7 +125,7 @@ class AudioToAudioTestCase(TestCase):
         self.assertEqual(set(audio[0].keys()), {"blob", "content-type", "label"})
 
         data = base64.b64decode(audio[0]["blob"])
-        wavform = ffmpeg_read(data)
+        wavform = ffmpeg_read(data, 16000)
         self.assertGreater(wavform.shape[0], 1000)
         self.assertTrue(isinstance(audio[0]["content-type"], str))
         self.assertTrue(isinstance(audio[0]["label"], str))

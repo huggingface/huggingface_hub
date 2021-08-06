@@ -9,6 +9,7 @@ from app.main import ALLOWED_TASKS, get_pipeline
 # Tests do not check the actual values of the model output, so small dummy
 # models are recommended for faster tests.
 TESTABLE_MODELS: Dict[str, List[str]] = {
+    "audio-to-audio": ["osanseviero/ConvTasNet_Libri1Mix_enhsingle_16k"],
     "image-classification": ["osanseviero/fastai_cat_vs_dog"],
     "token-classification": ["osanseviero/en_core_web_sm"],
     "structured-data-classification": ["osanseviero/wine-quality"],
