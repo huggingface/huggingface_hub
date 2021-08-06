@@ -13,7 +13,7 @@ datasets:
 metrics:
 - {metric_0}  # Example: wer. Use metric id from https://hf.co/metrics
 
-model-index:  
+model-index:
 - name: {model_id}
   results:
   - task: 
