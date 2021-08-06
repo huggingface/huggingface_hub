@@ -246,7 +246,8 @@ The metadata held in model cards is the best way to supercharge your model. It i
 define tags for your library or framework, the type of model uploaded, the language, license, evaluation results,
 and more.
 
-The full model card specification can be seen below:
+The full model card specification is  [here](https://github.com/huggingface/huggingface_hub/blame/main/modelcard.md), it's also repeated below for convenience:
+
 ```yaml
 ---
 language:
@@ -281,7 +282,7 @@ model-index:
 ---
 ```
 
-None of the fields are required - but any added field will improve the discoverability of your model and open it to features such as the inference API. You can find more information on repos and model cards [here](/docs/hub/model-repos).
+None of the fields are required - but any added field will improve the discoverability of your model and open it to features such as the inference API. You can find more information on repos and model cards [here](/docs/hub/model-repos#model-card-metadata).
 
 ## Setting up the Inference API
 

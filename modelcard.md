@@ -9,9 +9,9 @@ tags:
 - {tag_2}  # Example: speech
 - {tag_3}  # Example to specify a library: allennlp
 datasets:
-- {dataset_0}  # Example: common_voice
+- {dataset_0}  # Example: common_voice. Use dataset id from https://hf.co/datasets
 metrics:
-- {metric_0}  # Example: wer
+- {metric_0}  # Example: wer. Use metric id from https://hf.co/metrics
 
 model-index:  
 - name: {model_id}
@@ -21,7 +21,7 @@ model-index:
       type: {task_type}  # Example: automatic-speech-recognition
     dataset:
       name: {dataset_name}  # Example: Common Voice zh-CN
-      type: {dataset_type}  # Example: common_voice
+      type: {dataset_type}  # Example: common_voice. Use dataset id from https://hf.co/datasets
       args: {arg_0}  # Example: zh-CN
     metrics:
       - name: {metric_name}  # Example: Test WER
