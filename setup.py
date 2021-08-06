@@ -18,8 +18,7 @@ install_requires = [
     "typing-extensions",
     "importlib_metadata;python_version<'3.8'",
     "packaging>=20.9",
-    "dataclasses;python<'3.6'",
-    "importlib_metadata;python<'3.6'",
+    "dataclasses;python_version<'3.6'"
 ]
 
 extras = {}
