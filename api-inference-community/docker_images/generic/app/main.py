@@ -8,9 +8,7 @@ from app.pipelines import (
     Pipeline, TokenClassificationPipeline,
     AudioToAudioPipeline, AutomaticSpeechRecognitionPipeline,
     FeatureExtractionPipeline, ImageClassificationPipeline,
-    QuestionAnsweringPipeline, SentenceSimilarityPipeline,
-    SpeechSegmentationPipeline, StructuredDataClassificationPipeline,
-    TextToSpeechPipeline)
+    StructuredDataClassificationPipeline)
 from starlette.applications import Starlette
 from starlette.middleware import Middleware
 from starlette.middleware.gzip import GZipMiddleware
@@ -29,11 +27,7 @@ ALLOWED_TASKS: Dict[str, Type[Pipeline]] = {
     "automatic-speech-recognition": AutomaticSpeechRecognitionPipeline,
     "feature-extraction": FeatureExtractionPipeline,
     "image-classification": ImageClassificationPipeline,
-    "question-answering": QuestionAnsweringPipeline,
-    "sentence-similarity": SentenceSimilarityPipeline,
-    "speech-segmentation": SpeechSegmentationPipeline,
     "structured-data-classification": StructuredDataClassificationPipeline,
-    "text-to-speech": TextToSpeechPipeline,
     "token-classification": TokenClassificationPipeline
 }
 
