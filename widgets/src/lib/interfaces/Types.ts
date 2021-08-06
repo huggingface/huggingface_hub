@@ -1,4 +1,12 @@
 
+/// Coarse-grained task classification.
+///
+/// This type is used to determine which inference API & widget
+/// we want to display for each given model.
+///
+/// As such, they describe the "shape" of each model's API (inputs and outputs)
+/// so the number of different types is not expected to grow very significantly over time.
+///
 /// In each category, order by decreasing specificity
 /// The order can influence which default pipeline tag is affected to a model (if unspecified in model card)
 export enum PipelineType {
@@ -29,6 +37,21 @@ export enum PipelineType {
 	// others
 	"structured-data-classification" = "structured-data-classification",
 }
+
+
+/// Finer-grained task classification
+///
+/// This is used in a model card's `model-index` metadata.
+/// (see https://github.com/huggingface/huggingface_hub/blame/main/modelcard.md for spec)
+/// and is a more granular classification that can grow significantly over time
+/// as we provide support for more ML tasks.
+///
+/// We decide to keep it flat (non-hierchical) for simplicity and consistency.
+export enum FinerGrainedTaskType {
+	"audio-source-separation"                                  = "Audio Source Separation",
+	"speech-enhancement"                                       = "Speech Enhancement",
+}
+
 
 export const ALL_PIPELINE_TYPES = Object.keys(PipelineType) as (keyof typeof PipelineType)[];
 
