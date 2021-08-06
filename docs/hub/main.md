@@ -60,7 +60,7 @@ For most use cases, the model type is determined from the tags. For example, if 
 
 For `🤗 Transformers` however, the model type is determined automatically from `config.json`. The architecture can be used to determine the type: for example, `AutoModelForTokenClassification` corresponds to `token-classification`. If you're really interested in this, you can see pseudo-code in [this gist](https://gist.github.com/julien-c/857ba86a6c6a895ecd90e7f7cab48046).
 
-**You can always manually override your pipeline type with pipeline_tag: xxx in your model card metadata.**
+You can always manually override your pipeline type with pipeline_tag: xxx in your model card metadata.
 
 
 ## What are all the possible task/widget types?
