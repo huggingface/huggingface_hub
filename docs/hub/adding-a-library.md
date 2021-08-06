@@ -15,7 +15,7 @@ We believe the Hub is a step in the correct direction for several reasons. It of
 - Free model hosting for libraries and their users.
 - Built-in file versioning, even with very large files, thanks to a git-based approach.
 - Hosted inference API for all models publicly available.
-- In-browser widgets to play with the uploaded models (you can read more about the widgets [here](/docs#whats-a-widget)).
+- In-browser widgets to play with the uploaded models (you can read more about the widgets [here](/docs/hub/main#whats-a-widget)).
 
 Thanks to these, we hope to achieve true shareability across the machine learning ecosystem, reproducibility, 
 and the ability to offer simple solutions directly from the browser. To that end, we're looking to make it very 
