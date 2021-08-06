@@ -12,8 +12,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-
-
+import dataclasses
 import enum
 import os
 import re
@@ -41,13 +40,13 @@ REMOTE_FILEPATH_REGEX = re.compile(r"^\w[\w\/]*(\.\w+)?$")
 
 
 class TagManager(tuple):
-    def __and__(self, other: "Languages"):
+    def __and__(self, other: Union["ModelTags", "DatasetTags"]):
         return TagUnion((self, other))
 
-    def __or__(self, other: "Languages"):
+    def __or__(self, other: Union["ModelTags", "DatasetTags"]):
         return TagIntersection((self, other))
 
-    def __invert__(self: "Languages"):
+    def __invert__(self: Union["ModelTags", "DatasetTags"]):
         return TagInversion((self,))
 
     def __repr__(self):
@@ -66,14 +65,26 @@ class TagInversion(TagManager):
     pass
 
 
+def check_correct_types(tag_0, tag_1):
+    if (not isinstance(tag_0, ModelTags) and isinstance(tag_1, ModelTags)) and (
+        not isinstance(tag_0, DatasetTags) and isinstance(tag_1, DatasetTags)
+    ):
+        raise ValueError(
+            "Cannot mix two tags of different types. ModelTags only work with "
+            "other ModelTags, and DatasetTags only work with DatasetTags."
+        )
+
+
 class LogicalEnum(enum.Enum):
-    def __and__(self, other: "Languages") -> TagUnion["Languages", "Languages"]:
+    def __and__(self, other: Union["ModelTags", "DatasetTags"]) -> TagUnion:
+        check_correct_types(self, other)
         return TagUnion((self, other))
 
-    def __or__(self, other: "Languages") -> TagIntersection["Languages", "Languages"]:
+    def __or__(self, other: Union["ModelTags", "DatasetTags"]) -> TagIntersection:
+        check_correct_types(self, other)
         return TagIntersection((self, other))
 
-    def __invert__(self: "Languages") -> TagInversion["Languages"]:
+    def __invert__(self: Union["ModelTags", "DatasetTags"]) -> TagInversion:
         return TagInversion((self,))
 
 
@@ -372,19 +383,21 @@ class HfApi:
         d = r.json()
         return [ModelInfo(**x) for x in d]
 
-    def _retrieve_models(self, tag=None):
+    def _retrieve_models_and_datasets(self, tag=None):
         if tag is None:
             return self.list_models()
 
-        if isinstance(tag, (Language, Task, License, Library, Dataset)):
+        if isinstance(tag, ModelTags):
             return self.list_models(filter=tag.value)
+        elif isinstance(tag, DatasetTags):
+            return self.list_datasets(filter=tag.value)
 
         if isinstance(tag, tuple):
             if isinstance(tag, TagUnion):
                 tag_0, tag_1 = tag
 
-                models_tagged_0 = self._retrieve_models(tag_0)
-                models_tagged_1 = self._retrieve_models(tag_1)
+                models_tagged_0 = self._retrieve_models_and_datasets(tag_0)
+                models_tagged_1 = self._retrieve_models_and_datasets(tag_1)
                 filtered_models_tagged_0_ids = [m.modelId for m in models_tagged_0]
 
                 return list(
@@ -398,16 +411,18 @@ class HfApi:
             elif isinstance(tag, TagIntersection):
                 tag_0, tag_1 = tag
 
-                models = self._retrieve_models(tag_0)
-                models.extend(self._retrieve_models(tag_1))
+                models = self._retrieve_models_and_datasets(tag_0)
+                models.extend(self._retrieve_models_and_datasets(tag_1))
 
                 # Remove duplicates that have the same key.
                 return list({m.modelId: m for m in models}.values())
 
             elif isinstance(tag, TagInversion):
                 (tag,) = tag
-                all_models = self._retrieve_models()
-                filtered_models_ids = [m.modelId for m in self._retrieve_models(tag)]
+                all_models = self._retrieve_models_and_datasets()
+                filtered_models_ids = [
+                    m.modelId for m in self._retrieve_models_and_datasets(tag)
+                ]
 
                 return list(
                     {
@@ -417,8 +432,11 @@ class HfApi:
                     }.values()
                 )
 
-    def list_models_by_tag(self, tag: Union[str, "Tag"]):
-        return self._retrieve_models(tag)
+    def list_datasets_by_tag(self, tag: Union[str, "DatasetTags"]):
+        return self._retrieve_models_and_datasets(tag)
+
+    def list_models_by_tag(self, tag: Union[str, "ModelTags"]):
+        return self._retrieve_models_and_datasets(tag)
 
     def model_list(self) -> List[ModelInfo]:
         """
@@ -798,8 +816,15 @@ class HfApi:
         d = r.json()
         return d["url"]
 
-    def get_tags_by_type(self):
+    def get_models_tags_by_type(self):
         path = "{}/api/models-tags-by-type".format(self.endpoint)
+        r = requests.get(path)
+        r.raise_for_status()
+        d = r.json()
+        return d
+
+    def get_datasets_tags_by_type(self):
+        path = "{}/api/datasets-tags-by-type".format(self.endpoint)
         r = requests.get(path)
         r.raise_for_status()
         d = r.json()
@@ -840,29 +865,50 @@ class HfFolder:
             pass
 
 
-tags = HfApi().get_tags_by_type()
+model_tags = HfApi().get_models_tags_by_type()
+dataset_tags = HfApi().get_datasets_tags_by_type()
 
 
-def get_enum(name: str, type_: str):
+class ModelTags(LogicalEnum):
+    pass
+
+
+class DatasetTags(LogicalEnum):
+    pass
+
+
+def get_enum(name: str, type_: str, tag_dictionary: Dict):
     def clean_label(label):
+        label = label.strip()
+        if label.startswith(f"{type_}:") and len(label) != len(type_) + 1:
+            label = label[len(type_) + 1 :]
+
         return "".join([i if i.isalnum() else "_" for i in label])
 
-    return LogicalEnum(name, {clean_label(tag["id"]): tag["id"] for tag in tags[type_]})
+    return DatasetTags(
+        name, {clean_label(tag["id"]): tag["id"] for tag in tag_dictionary[type_]}
+    )
 
 
-Language = get_enum("Language", "language")
-Languages = Union[Language, Iterable["Language"]]
+@dataclasses.dataclass
+class ModelTag:
+    Language = get_enum("Language", "language", model_tags)
+    Task = get_enum("Task", "pipeline_tag", model_tags)
+    Dataset = get_enum("Dataset", "dataset", model_tags)
+    License = get_enum("License", "license", model_tags)
+    Library = get_enum("Library", "library", model_tags)
 
-Task = get_enum("Task", "pipeline_tag")
-Tasks = Union[Task, Iterable["Task"]]
 
-Dataset = get_enum("Dataset", "dataset")
-Datasets = Union[Dataset, Iterable["Dataset"]]
-
-License = get_enum("License", "license")
-Licenses = Union[License, Iterable["License"]]
-
-Library = get_enum("Library", "library")
-Libraries = Union[Library, Iterable["Libraries"]]
-
-Tag = Union[Languages, Tasks, Datasets, Licenses, Libraries]
+@dataclasses.dataclass
+class DatasetTag:
+    Language = get_enum("Language", "languages", dataset_tags)
+    Multilinguality = get_enum("Multilinguality", "multilinguality", dataset_tags)
+    LanguageCreator = get_enum("LanguageCreator", "language_creators", dataset_tags)
+    AnnotationsCreator = get_enum(
+        "AnnotationsCreator", "language_creators", dataset_tags
+    )
+    TaskCategory = get_enum("TaskCategory", "task_categories", dataset_tags)
+    SizeCategory = get_enum("SizeCategory", "size_categories", dataset_tags)
+    Benchmark = get_enum("Benchmark", "benchmark", dataset_tags)
+    Task = get_enum("Task", "task_ids", dataset_tags)
+    License = get_enum("License", "licenses", dataset_tags)
