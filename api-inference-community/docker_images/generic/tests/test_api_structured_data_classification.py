@@ -13,7 +13,10 @@ from parameterized import parameterized_class
     "structured-data-classification not implemented",
 )
 @parameterized_class(
-    [{"model_id": model_id} for model_id in TESTABLE_MODELS["structured-data-classification"]]
+    [
+        {"model_id": model_id}
+        for model_id in TESTABLE_MODELS["structured-data-classification"]
+    ]
 )
 class StructuredDataClassificationTestCase(TestCase):
     def setUp(self):

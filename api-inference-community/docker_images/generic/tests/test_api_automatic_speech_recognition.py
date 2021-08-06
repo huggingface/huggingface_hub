@@ -13,7 +13,10 @@ from parameterized import parameterized_class
     "automatic-speech-recognition not implemented",
 )
 @parameterized_class(
-    [{"model_id": model_id} for model_id in TESTABLE_MODELS["automatic-speech-recognition"]]
+    [
+        {"model_id": model_id}
+        for model_id in TESTABLE_MODELS["automatic-speech-recognition"]
+    ]
 )
 class AutomaticSpeecRecognitionTestCase(TestCase):
     def setUp(self):
@@ -27,7 +30,6 @@ class AutomaticSpeecRecognitionTestCase(TestCase):
         get_pipeline.cache_clear()
 
         self.app = app
-
 
     @classmethod
     def setUpClass(cls):

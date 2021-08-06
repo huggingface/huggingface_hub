@@ -69,7 +69,6 @@ class ImageClassificationTestCase(TestCase):
             {("label", str), ("score", float)},
         )
 
-    
     def test_different_resolution(self):
         bpayload = self.read("plane2.jpg")
 
@@ -86,4 +85,3 @@ class ImageClassificationTestCase(TestCase):
         self.assertEqual(
             set(k for el in content for k in el.keys()), {"label", "score"}
         )
-

@@ -7,6 +7,7 @@ from starlette.testclient import TestClient
 from tests.test_api import TESTABLE_MODELS
 from parameterized import parameterized_class
 
+
 @skipIf(
     "token-classification" not in ALLOWED_TASKS,
     "token-classification not implemented",

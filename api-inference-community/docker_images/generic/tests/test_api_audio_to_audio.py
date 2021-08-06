@@ -75,7 +75,6 @@ class AudioToAudioTestCase(TestCase):
         self.assertTrue(isinstance(audio[0]["content-type"], str))
         self.assertTrue(isinstance(audio[0]["label"], str))
 
-
     def test_malformed_audio(self):
         bpayload = self.read("malformed.flac")
 

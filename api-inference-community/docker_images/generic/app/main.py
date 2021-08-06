@@ -5,10 +5,14 @@ from typing import Dict, Type
 
 from api_inference_community.routes import pipeline_route, status_ok
 from app.pipelines import (
-    Pipeline, TokenClassificationPipeline,
-    AudioToAudioPipeline, AutomaticSpeechRecognitionPipeline,
-    FeatureExtractionPipeline, ImageClassificationPipeline,
-    StructuredDataClassificationPipeline)
+    Pipeline,
+    TokenClassificationPipeline,
+    AudioToAudioPipeline,
+    AutomaticSpeechRecognitionPipeline,
+    FeatureExtractionPipeline,
+    ImageClassificationPipeline,
+    StructuredDataClassificationPipeline,
+)
 from starlette.applications import Starlette
 from starlette.middleware import Middleware
 from starlette.middleware.gzip import GZipMiddleware
@@ -28,7 +32,7 @@ ALLOWED_TASKS: Dict[str, Type[Pipeline]] = {
     "feature-extraction": FeatureExtractionPipeline,
     "image-classification": ImageClassificationPipeline,
     "structured-data-classification": StructuredDataClassificationPipeline,
-    "token-classification": TokenClassificationPipeline
+    "token-classification": TokenClassificationPipeline,
 }
 
 
