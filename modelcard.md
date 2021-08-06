@@ -17,17 +17,17 @@ model-index:
 - name: {model_id}
   results:
   - task: 
-      name: {task_name}  # Example: Speech Recognition
       type: {task_type}  # Example: automatic-speech-recognition
+      name: {task_name}  # Optional. Example: Speech Recognition
     dataset:
-      name: {dataset_name}  # Example: Common Voice zh-CN
       type: {dataset_type}  # Example: common_voice. Use dataset id from https://hf.co/datasets
-      args: {arg_0}  # Example: zh-CN
+      name: {dataset_name}  # Optional. Example: Common Voice zh-CN
+      args: {arg_0}  # Optional. Example: zh-CN
     metrics:
-      - name: {metric_name}  # Example: Test WER
-        type: {metric_type}  # Example: wer
+      - type: {metric_type}  # Example: wer
         value: {metric_value}  # Example: 20.90
-        args: {arg_0}  # Example for BLEU: max_order
+        name: {metric_name}  # Optional. Example: Test WER
+        args: {arg_0}  # Optional. Example for BLEU: max_order
 ---
 
 This markdown file contains the spec for the modelcard metadata regarding evaluation parameters. 
