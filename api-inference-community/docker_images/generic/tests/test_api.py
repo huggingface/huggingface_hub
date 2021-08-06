@@ -11,6 +11,7 @@ from app.main import ALLOWED_TASKS, get_pipeline
 TESTABLE_MODELS: Dict[str, List[str]] = {
     "image-classification": ["osanseviero/fastai_cat_vs_dog"],
     "token-classification": ["osanseviero/en_core_web_sm"],
+    "structured-data-classification": ["osanseviero/wine-quality"],
 }
 
 ALL_TASKS = {
