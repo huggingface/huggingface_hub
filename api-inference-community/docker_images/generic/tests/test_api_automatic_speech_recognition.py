@@ -59,6 +59,7 @@ class AutomaticSpeecRecognitionTestCase(TestCase):
 
         with TestClient(self.app) as client:
             response = client.post("/", data=bpayload)
+
         self.assertEqual(
             response.status_code,
             200,

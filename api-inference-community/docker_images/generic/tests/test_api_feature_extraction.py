@@ -54,6 +54,7 @@ class FeatureExtractionTestCase(TestCase):
             response.status_code,
             200,
         )
+
         content = json.loads(response.content)
         self.assertEqual(type(content), list)
         self.assertEqual({type(item) for item in content}, {float})
