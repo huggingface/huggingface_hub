@@ -5,9 +5,9 @@ from unittest import TestCase, skipIf
 
 from api_inference_community.validation import ffmpeg_read
 from app.main import ALLOWED_TASKS
+from parameterized import parameterized_class
 from starlette.testclient import TestClient
 from tests.test_api import TESTABLE_MODELS
-from parameterized import parameterized_class
 
 
 @skipIf(
