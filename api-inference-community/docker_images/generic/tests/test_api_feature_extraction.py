@@ -5,20 +5,26 @@ from unittest import TestCase, skipIf
 from app.main import ALLOWED_TASKS
 from starlette.testclient import TestClient
 from tests.test_api import TESTABLE_MODELS
+from parameterized import parameterized_class
 
 
 @skipIf(
     "feature-extraction" not in ALLOWED_TASKS,
     "feature-extraction not implemented",
 )
+@parameterized_class(
+    [{"model_id": model_id} for model_id in TESTABLE_MODELS["feature-extraction"]]
+)
 class FeatureExtractionTestCase(TestCase):
     def setUp(self):
-        model_id = TESTABLE_MODELS["feature-extraction"]
         self.old_model_id = os.getenv("MODEL_ID")
         self.old_task = os.getenv("TASK")
-        os.environ["MODEL_ID"] = model_id
+        os.environ["MODEL_ID"] = self.model_id
         os.environ["TASK"] = "feature-extraction"
-        from app.main import app
+
+        from app.main import app, get_pipeline
+
+        get_pipeline.cache_clear()
 
         self.app = app
 
@@ -48,7 +54,6 @@ class FeatureExtractionTestCase(TestCase):
             response.status_code,
             200,
         )
-
         content = json.loads(response.content)
         self.assertEqual(type(content), list)
         self.assertEqual({type(item) for item in content}, {float})
