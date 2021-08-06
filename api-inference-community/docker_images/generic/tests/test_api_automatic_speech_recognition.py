@@ -5,22 +5,29 @@ from unittest import TestCase, skipIf
 from app.main import ALLOWED_TASKS
 from starlette.testclient import TestClient
 from tests.test_api import TESTABLE_MODELS
+from parameterized import parameterized_class
 
 
 @skipIf(
     "automatic-speech-recognition" not in ALLOWED_TASKS,
     "automatic-speech-recognition not implemented",
 )
+@parameterized_class(
+    [{"model_id": model_id} for model_id in TESTABLE_MODELS["automatic-speech-recognition"]]
+)
 class AutomaticSpeecRecognitionTestCase(TestCase):
     def setUp(self):
-        model_id = TESTABLE_MODELS["automatic-speech-recognition"]
         self.old_model_id = os.getenv("MODEL_ID")
         self.old_task = os.getenv("TASK")
-        os.environ["MODEL_ID"] = model_id
+        os.environ["MODEL_ID"] = self.model_id
         os.environ["TASK"] = "automatic-speech-recognition"
-        from app.main import app
+
+        from app.main import app, get_pipeline
+
+        get_pipeline.cache_clear()
 
         self.app = app
+
 
     @classmethod
     def setUpClass(cls):
@@ -50,7 +57,6 @@ class AutomaticSpeecRecognitionTestCase(TestCase):
 
         with TestClient(self.app) as client:
             response = client.post("/", data=bpayload)
-
         self.assertEqual(
             response.status_code,
             200,

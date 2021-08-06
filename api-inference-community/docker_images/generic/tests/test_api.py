@@ -10,6 +10,7 @@ from app.main import ALLOWED_TASKS, get_pipeline
 # models are recommended for faster tests.
 TESTABLE_MODELS: Dict[str, List[str]] = {
     "audio-to-audio": ["osanseviero/ConvTasNet_Libri1Mix_enhsingle_16k"],
+    "automatic-speech-recognition": ["osanseviero/pyctcdecode_asr"],
     # This is very slow the first time as fasttext model is large.
     "feature-extraction": ["osanseviero/fasttext_english"],
     "image-classification": ["osanseviero/fastai_cat_vs_dog"],

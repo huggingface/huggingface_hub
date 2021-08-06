@@ -26,7 +26,7 @@ logger = logging.getLogger(__name__)
 
 ALLOWED_TASKS: Dict[str, Type[Pipeline]] = {
     "audio-to-audio": AudioToAudioPipeline,
-    "automatic-speech-recogition": AutomaticSpeechRecognitionPipeline,
+    "automatic-speech-recognition": AutomaticSpeechRecognitionPipeline,
     "feature-extraction": FeatureExtractionPipeline,
     "image-classification": ImageClassificationPipeline,
     "question-answering": QuestionAnsweringPipeline,
