@@ -48,8 +48,12 @@ export enum PipelineType {
 ///
 /// We decide to keep it flat (non-hierchical) for simplicity and consistency.
 export enum FinerGrainedTaskType {
-	"audio-source-separation"                                  = "Audio Source Separation",
-	"speech-enhancement"                                       = "Speech Enhancement",
+	/// nlp
+	"named-entity-recognition"                                = "Named Entity Recognition",
+	"part-of-speech-tagging"                                  = "Part-Of-Speech Tagging",
+	/// audio
+	"audio-source-separation"                                 = "Audio Source Separation",
+	"speech-enhancement"                                      = "Speech Enhancement",
 }
 
 
