@@ -16,9 +16,9 @@ The model card should describe:
 - the training params and experimental info (you can embed or link to an experiment tracking platform for reference)
 - which datasets did you train on and your eval results
 
-If needed you can find the specification [here](https://raw.githubusercontent.com/huggingface/huggingface_hub/main/modelcard.md).
 
-## How are model tags determined?
+## Model card metadata
+<!-- Try not to change this header as we use the corresponding anchor link -->
 
 The model cards have a YAML section that specify metadata. These are the fields
 
@@ -42,6 +42,9 @@ metrics:
 ---
 ```
 
+You can find the detailed specification [here](https://github.com/huggingface/huggingface_hub/blame/main/modelcard.md).
+
+
 Some useful information on them:
 * All the tags can be used to filter the list of models on https://huggingface.co/models.
 * License identifiers are those standardized by GitHub in the right column (keywords) [here](https://docs.github.com/en/github/creating-cloning-and-archiving-repositories/creating-a-repository-on-github/licensing-a-repository#searching-github-by-license-type).
@@ -64,6 +67,12 @@ metrics:
 - sacrebleu
 ---
 ```
+
+## How are model tags determined?
+
+Each model page lists all the model's tags in the page header, below the model name.
+
+Those are primarily computed from the model card metadata, except that we also add some of them automatically, as described in [How is a model's type of inference API and widget determined?](/docs/hub/main#how-is-a-models-type-of-inference-api-and-widget-determined).
 
 ## How can I control my model's widget's example inputs?
 
