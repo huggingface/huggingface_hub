@@ -1,7 +1,7 @@
 import os
 import subprocess
 import sys
-from typing import Any, Dict
+from typing import Dict, List
 
 from app.pipelines import Pipeline
 
@@ -28,16 +28,20 @@ class TextClassificationPipeline(Pipeline):
 
         self.model = spacy.load(model_name)
 
-    def __call__(self, inputs: str) -> Dict[str, Any]:
+    def __call__(self, inputs: str) -> List[Dict[str, float]]:
         """
         Args:
             inputs (:obj:`str`):
                 a string containing some text
         Return:
-            A :obj:`dict`:. The object returned should be like {"label": 0.9939950108528137} containing :
+            A :obj:`list`:. The object returned should be like [{"label": 0.9939950108528137}] containing :
                 - "label": A string representing what the label/class is. There can be multiple labels.
                 - "score": A score between 0 and 1 describing how confident the model is for this label/class.
         """
         doc = self.model(inputs)
 
-        return doc.cats
+        categories = []
+        for cat, score in doc.cats.items():
+            categories.append({"label": cat, "score": score})
+
+        return categories

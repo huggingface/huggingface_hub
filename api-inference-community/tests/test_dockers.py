@@ -113,6 +113,11 @@ class DockerImageTests(unittest.TestCase):
             "token-classification",
             "spacy/en_core_web_sm",
         )
+        self.framework_docker_test(
+            "spacy",
+            "text-classification",
+            "explosion/en_textcat_goemotions",
+        )
         self.framework_invalid_test("spacy")
 
     def test_speechbrain(self):
