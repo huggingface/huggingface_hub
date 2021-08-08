@@ -13,6 +13,7 @@ datasets:
 metrics:
 - {metric_0}  # Example: wer. Use metric id from https://hf.co/metrics
 
+# Optional. Add this if you want to encode your eval results in a structured way.
 model-index:
 - name: {model_id}
   results:
@@ -21,7 +22,7 @@ model-index:
       name: {task_name}  # Optional. Example: Speech Recognition
     dataset:
       type: {dataset_type}  # Required. Example: common_voice. Use dataset id from https://hf.co/datasets
-      name: {dataset_name}  # Optional. Example: Common Voice zh-CN
+      name: {dataset_name}  # Required. Example: Common Voice zh-CN
       args: {arg_0}         # Optional. Example: zh-CN
     metrics:
       - type: {metric_type}    # Required. Example: wer
