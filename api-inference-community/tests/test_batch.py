@@ -29,9 +29,8 @@ class BatchTestCase(TestCase):
             token=token,
             repo_id="Narsil/bulk-dummy",
             use_gpu=False,
-            pipeline=pipeline,
-            use_gpu=False,
             task="automatic-speech-recognition",
+            pipeline=pipeline,
         )
 
         response = requests.get(
