@@ -189,7 +189,7 @@ def lfs_log_progress():
     current_lfs_progress_value = os.environ.get("GIT_LFS_PROGRESS", "")
 
     with tempfile.TemporaryDirectory() as tmpdir:
-        os.environ["GIT_LFS_PROGRESS"] = tmpdir + "/lfs_progress"
+        os.environ["GIT_LFS_PROGRESS"] = os.path.join(tmpdir, "lfs_progress")
 
         exit_event = threading.Event()
         x = threading.Thread(target=output_progress, args=(exit_event,), daemon=True)
