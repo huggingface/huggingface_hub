@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - main
+      - windows-tests
     paths-ignore:
       - "widgets/**"
       - "api-inference-community/**"
