@@ -3,19 +3,27 @@ import json
 
 import datasets
 import tqdm
+from api_inference_community.validation import normalize_payload
 from huggingface_hub import HfApi
 
 
-def iterate(pipe, dataset, f):
-    for i, result in enumerate(tqdm.tqdm(pipe.iter(dataset))):
-        write_result(result, f)
-
-
-def iterate_slow(pipe, dataset, f):
+def iterate(pipe, dataset, f, task: str):
     for i, item in enumerate(tqdm.tqdm(dataset)):
         try:
-            result = pipe(item)
+            if isinstance(item, str):
+                # Can be filename
+                item = item.encode("utf-8")
+            assert isinstance(
+                item, bytes
+            ), f"Batching cannot validate received {type(item)} but expected (str, bytes)"
+            inputs, parameters = normalize_payload(
+                item,
+                task,
+                sampling_rate=getattr(pipe, "sampling_rate", None),
+            )
+            result = pipe(inputs, **parameters)
         except Exception as e:
+            print(e)
             result = {"error": str(e)}
 
         write_result(result, f)
@@ -34,6 +42,7 @@ def batch(
     token: str,
     repo_id: str,
     use_gpu: bool,
+    task: str,
     pipeline,
 ):
     dset = datasets.load_dataset(dataset_name, name=dataset_config, split=dataset_split)
@@ -43,10 +52,7 @@ def batch(
     # TODO change to .iter(...) to get max performance on GPUs
     print("Start batch")
 
-    if hasattr(pipeline, "iter"):
-        iterate(pipeline, dset[dataset_column], f)
-    else:
-        iterate_slow(pipeline, dset[dataset_column], f)
+    iterate(pipeline, dset[dataset_column], f, task)
 
     f.seek(0)
 
