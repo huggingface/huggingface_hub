@@ -7,7 +7,7 @@ from api_inference_community.validation import normalize_payload
 from huggingface_hub import HfApi
 
 
-def iterate_slow(pipe, dataset, f, task: str):
+def iterate(pipe, dataset, f, task: str):
     for i, item in enumerate(tqdm.tqdm(dataset)):
         try:
             if isinstance(item, str):
@@ -52,7 +52,7 @@ def batch(
     # TODO change to .iter(...) to get max performance on GPUs
     print("Start batch")
 
-    iterate_slow(pipeline, dset[dataset_column], f, task)
+    iterate(pipeline, dset[dataset_column], f, task)
 
     f.seek(0)
 
