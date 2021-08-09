@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - main
+      - ci_*
     paths-ignore:
       - "widgets/**"
       - "api-inference-community/**"
