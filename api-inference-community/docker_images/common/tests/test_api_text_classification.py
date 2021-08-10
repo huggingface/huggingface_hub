@@ -49,7 +49,10 @@ class TextClassificationTestCase(TestCase):
         )
         content = json.loads(response.content)
         self.assertEqual(type(content), list)
-        self.assertEqual(len(content), 28)
+        self.assertEqual(
+            set(k for el in content for k in el.keys()),
+            {"label", "score"},
+        )
 
         with TestClient(self.app) as client:
             response = client.post("/", json=inputs)
@@ -60,7 +63,10 @@ class TextClassificationTestCase(TestCase):
         )
         content = json.loads(response.content)
         self.assertEqual(type(content), list)
-        self.assertEqual(len(content), 28)
+        self.assertEqual(
+            set(k for el in content for k in el.keys()),
+            {"label", "score"},
+        )
 
     def test_malformed_question(self):
         with TestClient(self.app) as client:
