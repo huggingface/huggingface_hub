@@ -96,9 +96,8 @@ class KerasModelHubMixin(ModelHubMixin):
 
         model = cls(**model_kwargs)
 
-        assert (
-            hasattr(model, "dummy_inputs") and model.dummy_inputs is not None
-        ), "Model must have a dummy_inputs attribute"
+        if hasattr(model, "dummy_inputs") and model.dummy_inputs is not None:
+            raise ValueError("Model must have a dummy_inputs attribute")
 
         _ = model(model.dummy_inputs, training=False)
 
