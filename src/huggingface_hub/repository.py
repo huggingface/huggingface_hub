@@ -112,6 +112,29 @@ def is_git_ignored(filename: Union[str, Path]) -> bool:
     return is_ignored
 
 
+def is_tracked_upstream(folder: Union[str, Path]) -> bool:
+    """
+    Check if the current checked-out branch is tracked upstream.
+    """
+    try:
+        p = subprocess.run(
+            ["git", "status", "-sb"],
+            stderr=subprocess.PIPE,
+            stdout=subprocess.PIPE,
+            encoding="utf-8",
+            cwd=folder,
+        )
+        status = p.stdout
+    except subprocess.CalledProcessError as exc:
+        raise OSError(exc.stderr)
+
+    if "HEAD" in status:
+        raise OSError("No branch checked out.")
+
+    is_tracked = ".." in status
+    return is_tracked
+
+
 @contextmanager
 def lfs_log_progress():
     """
@@ -279,6 +302,30 @@ class Repository:
             self.git_config_username_and_email(git_user, git_email)
 
         self.lfs_enable_largefiles()
+
+    @property
+    def current_branch(self):
+        """
+        git checkout
+
+        Specify `create_branch` to `True` to create the branch if it doesn't exist.
+
+        Returns url to commit on remote repo.
+        """
+        command = "git rev-parse --abbrev-ref HEAD"
+        try:
+            result = subprocess.run(
+                command.split(),
+                stderr=subprocess.PIPE,
+                stdout=subprocess.PIPE,
+                check=True,
+                encoding="utf-8",
+                cwd=self.local_dir,
+            ).stdout.strip()
+        except subprocess.CalledProcessError as exc:
+            raise EnvironmentError(exc.stderr)
+
+        return result
 
     def check_git_versions(self):
         """
@@ -709,12 +756,17 @@ class Repository:
             else:
                 raise EnvironmentError(exc.stdout)
 
-    def git_push(self) -> str:
+    def git_push(self, upstream=None) -> str:
         """
         git push
 
         Returns url to commit on remote repo.
         """
+        command = "git push"
+
+        if upstream:
+            command += f" --set-upstream {upstream}"
+
         try:
             with lfs_log_progress():
                 subprocess.run(
@@ -729,6 +781,28 @@ class Repository:
             raise EnvironmentError(exc.stderr)
 
         return self.git_head_commit_url()
+
+    def git_checkout(self, revision, create_branch=False):
+        """
+        git checkout
+
+        Specify `create_branch` to `True` to create the branch if it doesn't exist.
+
+        Returns url to commit on remote repo.
+        """
+        command = f"git checkout {'-b ' if create_branch else ''}{revision}"
+        try:
+            result = subprocess.run(
+                command.split(),
+                stderr=subprocess.PIPE,
+                stdout=subprocess.PIPE,
+                check=True,
+                encoding="utf-8",
+                cwd=self.local_dir,
+            )
+            logger.info(result.stdout)
+        except subprocess.CalledProcessError as exc:
+            raise EnvironmentError(exc.stderr)
 
     def push_to_hub(self, commit_message="commit files to HF hub") -> str:
         """
@@ -759,7 +833,13 @@ class Repository:
 
         """
 
-        self.git_pull(rebase=True)
+        if is_tracked_upstream(self.local_dir):
+            logger.warning("Pulling changes ...")
+            self.git_pull(rebase=True)
+        else:
+            logger.warning(
+                f"The current branch has no upstream branch. Will push to 'origin {self.current_branch}'"
+            )
 
         current_working_directory = os.getcwd()
         os.chdir(os.path.join(current_working_directory, self.local_dir))
@@ -777,7 +857,7 @@ class Repository:
                     raise e
 
             try:
-                self.git_push()
+                self.git_push(upstream=f"origin {self.current_branch}")
             except OSError as e:
                 # If no changes are detected, there is nothing to commit.
                 if "could not read Username" in str(e):
