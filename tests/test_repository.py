@@ -33,14 +33,14 @@ REPO_NAME = "repo-{}".format(int(time.time() * 10e3))
 
 
 WORKING_REPO_DIR = os.path.join(
-    os.path.dirname(os.path.abspath(__file__)), "fixtures/working_repo_2"
+    os.path.dirname(os.path.abspath(__file__)), os.path.join("fixtures", "working_repo_2")
 )
 
 DATASET_FIXTURE = os.path.join(
-    os.path.dirname(os.path.abspath(__file__)), "fixtures/tiny_dataset"
+    os.path.dirname(os.path.abspath(__file__)), os.path.join("fixtures", "tiny_dataset")
 )
 WORKING_DATASET_DIR = os.path.join(
-    os.path.dirname(os.path.abspath(__file__)), "fixtures/working_dataset"
+    os.path.dirname(os.path.abspath(__file__)), os.path.join("fixtures", "working_dataset")
 )
 
 
