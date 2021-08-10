@@ -15,7 +15,7 @@ We believe the Hub is a step in the correct direction for several reasons. It of
 - Free model hosting for libraries and their users.
 - Built-in file versioning, even with very large files, thanks to a git-based approach.
 - Hosted inference API for all models publicly available.
-- In-browser widgets to play with the uploaded models (you can read more about the widgets [here](/docs#whats-a-widget)).
+- In-browser widgets to play with the uploaded models (you can read more about the widgets [here](/docs/hub/main#whats-a-widget)).
 
 Thanks to these, we hope to achieve true shareability across the machine learning ecosystem, reproducibility, 
 and the ability to offer simple solutions directly from the browser. To that end, we're looking to make it very 
@@ -140,7 +140,7 @@ explaining how that should be done.
 
 
 In order to do this, please take a look and update the following file with 
-mentions of your library: [interfaces/Libraries.ts](https://github.com/huggingface/huggingface_hub/blob/main/widgets/lib/interfaces/Libraries.ts). 
+mentions of your library: [interfaces/Libraries.ts](https://github.com/huggingface/huggingface_hub/blob/main/widgets/src/lib/interfaces/Libraries.ts). 
 This file is in Typescript as this is the ground truth that we're using on the Hugging Face website. A good 
 understanding of Typescript isn't necessary to edit the file.
 
@@ -246,7 +246,8 @@ The metadata held in model cards is the best way to supercharge your model. It i
 define tags for your library or framework, the type of model uploaded, the language, license, evaluation results,
 and more.
 
-The full model card specification can be seen below:
+The full model card specification is  [here](https://github.com/huggingface/huggingface_hub/blame/main/modelcard.md), it's also repeated below for convenience:
+
 ```yaml
 ---
 language:
@@ -281,7 +282,7 @@ model-index:
 ---
 ```
 
-None of the fields are required - but any added field will improve the discoverability of your model and open it to features such as the inference API. You can find more information on repos and model cards [here](/docs/hub/model-repos).
+None of the fields are required - but any added field will improve the discoverability of your model and open it to features such as the inference API. You can find more information on repos and model cards [here](/docs/hub/model-repos#model-card-metadata).
 
 ## Setting up the Inference API
 
@@ -316,7 +317,7 @@ All our widgets are [open sourced](https://github.com/huggingface/huggingface_hu
 ### New pipelines
 
 If you're adding a new pipeline type, you might also want to take a look at adding it to the 
-[Types.ts](https://github.com/huggingface/huggingface_hub/blob/main/widgets/lib/interfaces/Types.ts) for it to be identifiable as a possible pipeline.
+[Types.ts](https://github.com/huggingface/huggingface_hub/blob/main/widgets/src/lib/interfaces/Types.ts) for it to be identifiable as a possible pipeline.
 
 Secondly, you should set the 
-[widget default for that new pipeline](https://github.com/huggingface/huggingface_hub/blob/main/widgets/lib/interfaces/DefaultWidget.ts) if you can.
+[widget default for that new pipeline](https://github.com/huggingface/huggingface_hub/blob/main/widgets/src/lib/interfaces/DefaultWidget.ts) if you can.

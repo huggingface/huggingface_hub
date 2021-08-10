@@ -16,15 +16,18 @@ The model card should describe:
 - the training params and experimental info (you can embed or link to an experiment tracking platform for reference)
 - which datasets did you train on and your eval results
 
-If needed you can find the specification [here](https://raw.githubusercontent.com/huggingface/huggingface_hub/main/modelcard.md).
 
-## How are model tags determined?
+## Model card metadata
+<!-- Try not to change this header as we use the corresponding anchor link -->
 
 The model cards have a YAML section that specify metadata. These are the fields
 
 ```yaml
 ---
-language: "ISO 639-1 code for your language, or `multilingual`"
+language: 
+  - "List of ISO 639-1 code for your language"
+  - lang1
+  - lang2
 thumbnail: "url to a thumbnail used in social sharing"
 tags:
 - tag1
@@ -38,6 +41,9 @@ metrics:
 - metric2
 ---
 ```
+
+You can find the detailed specification [here](https://github.com/huggingface/huggingface_hub/blame/main/modelcard.md).
+
 
 Some useful information on them:
 * All the tags can be used to filter the list of models on https://huggingface.co/models.
@@ -62,6 +68,12 @@ metrics:
 ---
 ```
 
+## How are model tags determined?
+
+Each model page lists all the model's tags in the page header, below the model name.
+
+Those are primarily computed from the model card metadata, except that we also add some of them automatically, as described in [How is a model's type of inference API and widget determined?](/docs/hub/main#how-is-a-models-type-of-inference-api-and-widget-determined).
+
 ## How can I control my model's widget's example inputs?
 
 You can specify the widget input in the model card metadata section:
@@ -71,7 +83,7 @@ widget:
 - text: "Jens Peter Hansen kommer fra Danmark"
 ```
 
-We try to provide example inputs for some languages and most widget types in [this DefaultWidget.ts file](https://github.com/huggingface/huggingface_hub/blob/master/widgets/lib/interfaces/DefaultWidget.ts). If we lack some examples, please open a PR updating this file to add them. Thanks!
+We try to provide example inputs for some languages and most widget types in [this DefaultWidget.ts file](https://github.com/huggingface/huggingface_hub/blob/master/widgets/src/lib/interfaces/DefaultWidget.ts). If we lack some examples, please open a PR updating this file to add them. Thanks!
 
 ## Can I specify which framework supports my model?
 

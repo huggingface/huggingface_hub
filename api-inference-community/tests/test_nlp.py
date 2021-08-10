@@ -522,3 +522,11 @@ class TasksWithOnlyInputStringTestCase(TestCase):
         )
         self.assertEqual(processed_params, {})
         self.assertEqual(normalized_inputs, "whatever")
+
+    def test_text_to_image_accept_string_no_params(self):
+        bpayload = json.dumps({"inputs": "whatever"}).encode("utf-8")
+        normalized_inputs, processed_params = normalize_payload_nlp(
+            bpayload, "text-to-image"
+        )
+        self.assertEqual(processed_params, {})
+        self.assertEqual(normalized_inputs, "whatever")

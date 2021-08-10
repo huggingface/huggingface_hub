@@ -3,7 +3,6 @@
 	import type { PipelineType } from "$lib/interfaces/Types";
 	import type { WidgetProps } from "./shared/types";
 
-	import AudioSourceSeparationWidget from "./widgets/AudioSourceSeparationWidget/AudioSourceSeparationWidget.svelte";
 	import AudioToAudioWidget from "./widgets/AudioToAudioWidget/AudioToAudioWidget.svelte";
 	import AutomaticSpeechRecognitionWidget from "./widgets/AutomaticSpeechRecognitionWidget/AutomaticSpeechRecognitionWidget.svelte";
 	import ConversationalWidget from "./widgets/ConversationalWidget/ConversationalWidget.svelte";
@@ -17,6 +16,7 @@
 	import TextGenerationWidget from "./widgets/TextGenerationWidget/TextGenerationWidget.svelte";
 	import TextToSpeechWidget from "./widgets/TextToSpeechWidget/TextToSpeechWidget.svelte";
 	import TokenClassificationWidget from "./widgets/TokenClassificationWidget/TokenClassificationWidget.svelte";
+	import StructuredDataClassificationWidget from "./widgets/StructuredDataClassificationWidget/StructuredDataClassificationWidget.svelte";
 	import ZeroShotClassificationWidget from "./widgets/ZeroShowClassificationWidget/ZeroShotClassificationWidget.svelte";
 
 	export let apiToken: WidgetProps["apiToken"] = undefined;
@@ -34,7 +34,6 @@
 	const WIDGET_COMPONENTS: {
 		[key in keyof typeof PipelineType]?: typeof SvelteComponent;
 	} = {
-		"audio-source-separation": AudioSourceSeparationWidget,
 		"audio-to-audio": AudioToAudioWidget,
 		"automatic-speech-recognition": AutomaticSpeechRecognitionWidget,
 		conversational: ConversationalWidget,
@@ -51,6 +50,7 @@
 		"token-classification": TokenClassificationWidget,
 		"text-to-speech": TextToSpeechWidget,
 		translation: TextGenerationWidget,
+		"structured-data-classification": StructuredDataClassificationWidget,
 		"zero-shot-classification": ZeroShotClassificationWidget,
 	};
 

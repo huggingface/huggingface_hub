@@ -30,7 +30,7 @@ We recommend you try both as they're both really awesome! 😎
 
 Streamlit's documentation is at https://docs.streamlit.io/, and Gradio's doc is https://gradio.app/getting_started.
 
-In the default environment, we're currently running version `"0.79.0"` of Streamlit and version `"2.0.9"` of Gradio.
+In the default environment, we're currently running version `"0.82.0"` of Streamlit and version `"2.2.6"` of Gradio.
 
 Our 2 cents:
 
@@ -57,7 +57,7 @@ If you need any other Python package, you can simply add a `requirements.txt` at
 
 A custom environment will be created on the fly by the Spaces runtime engine.
 
-We do not support installing `apt-get` dependencies yet, but it's on our roadmap.
+We also support Debian dependencies : add a `packages.txt` file at the root of your repo and list all your dependencies, one per line (each line will go through `apt-get install`)
 
 ## What are the RAM and CPU or GPU limitations?
 
@@ -149,3 +149,20 @@ In the past few years, our team, in collaboration with other research groups, ha
 We host [widgets](https://huggingface-widgets.netlify.app/) for every model on the Hub, but in some cases (for instance if you want to compare two models) there is a need for a demo app that can't simply be implemented in a widget, so we needed something more flexible.
 
 This project's goal is to experiment with an extensible way for users and organizations to host demos/apps on huggingface.co, in a more productized/scalable way than we’ve done in the past.
+
+## Changelog
+
+#### [2021-08-04] - Debian packages
+- You can now add your `apt-get` dependencies into a `packages.txt` file
+
+#### [2021-08-03] - Streamlit components
+- Add support for [Streamlit components](https://streamlit.io/components)
+
+#### [2021-08-03] - Flax/Jax GPU improvements
+- For GPU-activated Spaces, make sure Flax / Jax runs smoothly on GPU
+
+#### [2021-08-02] - Upgrade Streamlit to `0.82.0`
+- [Streamlit changelog](https://github.com/streamlit/streamlit/releases/tag/0.82.0)
+
+#### [2021-08-01] - Raw logs available
+- Add link to raw logs (build and container) from the space repository (viewable by users with write access to a Space)

@@ -171,6 +171,13 @@ class DockerImageTests(unittest.TestCase):
             dataset_column="file",
         )
 
+    def test_generic(self):
+        self.framework_docker_test(
+            "generic",
+            "token-classification",
+            "osanseviero/en_core_web_sm",
+        )
+
     def framework_invalid_test(self, framework: str):
         task = "invalid"
         model_id = "invalid"

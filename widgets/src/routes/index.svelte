@@ -107,6 +107,27 @@
 			],
 		},
 		{
+			modelId: "julien-c/wine-quality",
+			pipeline_tag: "structured-data-classification",
+			widgetData: [
+				{
+					structuredData: {
+						fixed_acidity: [7.4, 7.8, 10.3],
+						volatile_acidity: [0.7, 0.88, 0.32],
+						citric_acid: [0.0, 0.0, 0.45],
+						residual_sugar: [1.9, 2.6, 6.4],
+						chlorides: [0.076, 0.098, 0.073],
+						free_sulfur_dioxide: [11.0, 25.0, 5.0],
+						total_sulfur_dioxide: [34.0, 67.0, 13.0],
+						density: [0.9978, 0.9968, 0.9976],
+						pH: [3.51, 3.2, 3.23],
+						sulphates: [0.56, 0.68, 0.82],
+						alcohol: [9.4, 9.8, 12.6],
+					},
+				},
+			],
+		},
+		{
 			modelId: "google/t5-small-ssm-nq",
 			pipeline_tag: "text2text-generation",
 		},
@@ -123,10 +144,6 @@
 		{
 			modelId: "julien-c/mini_an4_asr_train_raw_bpe_valid",
 			pipeline_tag: "automatic-speech-recognition",
-		},
-		{
-			modelId: "mhu-coder/ConvTasNet_Libri1Mix_enhsingle",
-			pipeline_tag: "audio-source-separation",
 		},
 		{
 			modelId: "facebook/wav2vec2-base-960h",
