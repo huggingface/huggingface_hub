@@ -15,11 +15,11 @@ from tests.test_api import TESTABLE_MODELS
 )
 class TextToImageTestCase(TestCase):
     def setUp(self):
-        model_id = TESTABLE_MODELS["text-to-speech"]
+        model_id = TESTABLE_MODELS["text-to-image"]
         self.old_model_id = os.getenv("MODEL_ID")
         self.old_task = os.getenv("TASK")
         os.environ["MODEL_ID"] = model_id
-        os.environ["TASK"] = "text-to-speech"
+        os.environ["TASK"] = "text-to-image"
         from app.main import app
 
         self.app = app
