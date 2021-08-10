@@ -59,6 +59,67 @@ export enum FinerGrainedTaskType {
 
 export const ALL_PIPELINE_TYPES = Object.keys(PipelineType) as (keyof typeof PipelineType)[];
 
+/*
+ * Specification of tag icon color.
+ */
+export const PIPELINE_TAG_ICO_CLASS: {
+	[key in keyof typeof PipelineType]?: string;
+} = {
+	"audio-to-audio": "tag-ico-blue",
+	"automatic-speech-recognition": "tag-ico-yellow",
+	"conversational": "tag-ico-green",
+	"fill-mask": "tag-ico-red",
+	"feature-extraction": "tag-ico-red",
+	"image-classification": "tag-ico-blue",
+	"image-segmentation": "tag-ico-green",
+	"object-detection": "tag-ico-orange",
+	"question-answering": "tag-ico-blue",
+	"sentence-similarity": "tag-ico-orange",
+	"structured-data-classification": "tag-ico-indigo",
+	"summarization": "tag-ico-indigo",
+	"table-question-answering": "tag-ico-green",
+	"token-classification": "tag-ico-blue",
+	"text2text-generation": "tag-ico-indigo",
+	"text-classification": "tag-ico-orange",
+	"text-generation": "tag-ico-indigo",
+	"text-to-image": "tag-ico-orange",
+	"text-to-speech": "tag-ico-yellow",
+	"translation": "tag-ico-green",
+	"voice-activity-detection": "tag-ico-red",
+	"zero-shot-classification": "tag-ico-yellow",
+};
+
+/*
+ * Specification of pipeline tag display order.
+ */
+export const PIPELINE_TAGS_DISPLAY_ORDER: Array<keyof typeof PipelineType> = [
+	/// nlp
+	"fill-mask",
+	"question-answering",
+	"summarization",
+	"table-question-answering",
+	"text-classification",
+	"text-generation",
+	"text2text-generation",
+	"token-classification",
+	"translation",
+	"zero-shot-classification",
+	"sentence-similarity",
+	"conversational",
+	"feature-extraction",
+	/// audio
+	"text-to-speech",
+	"automatic-speech-recognition",
+	"audio-to-audio",
+	"voice-activity-detection",
+	/// computer vision
+	"image-classification",
+	"object-detection",
+	"image-segmentation",
+	"text-to-image",
+	/// others
+	"structured-data-classification",
+];
 
 /**
  * Public interface for model metadata
