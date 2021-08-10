@@ -1,58 +1,58 @@
-import { getModelInputSnippet } from "$lib/inferenceSnippets/inputsSnippets";
-import type { PipelineType, ModelData } from "$lib/interfaces/Types";
+import { getModelInputSnippet } from "./inputsSnippets";
+import type { PipelineType, ModelData } from "../interfaces/Types";
 
-const bodyZeroShotClassification = (model: ModelData): string =>
+export const bodyZeroShotClassification = (model: ModelData): string =>
 	`output = query({
     "inputs": ${getModelInputSnippet(model)},
     "parameters": {"candidate_labels": ["refund", "legal", "faq"]},
 })`;
 
-const bodyTranslation = (model: ModelData): string =>
+export const bodyTranslation = (model: ModelData): string =>
 	`output = query({
     "inputs": ${getModelInputSnippet(model)},
 })`;
 
-const bodySummarization = (model: ModelData): string =>
+export const bodySummarization = (model: ModelData): string =>
 	`output = query({
     "inputs": ${getModelInputSnippet(model)},
 })`;
 
-const bodyConversational = (model: ModelData): string =>
+export const bodyConversational = (model: ModelData): string =>
 	`output = query({
     "inputs": ${getModelInputSnippet(model)},
 })`;
 
-const bodyTableQuestionAnswering = (model: ModelData): string =>
+export const bodyTableQuestionAnswering = (model: ModelData): string =>
 	`output = query({
     "inputs": ${getModelInputSnippet(model)},
 })`;
 
-const bodyQuestionAnswering = (model: ModelData): string =>
+export const bodyQuestionAnswering = (model: ModelData): string =>
 	`output = query({
     "inputs": ${getModelInputSnippet(model)},
 })`;
 
-const bodyTextClassification = (model: ModelData): string =>
+export const bodyTextClassification = (model: ModelData): string =>
 	`output = query({"inputs": ${getModelInputSnippet(model)}})`;
 
-const bodyTokenClassification = (model: ModelData): string =>
+export const bodyTokenClassification = (model: ModelData): string =>
 	`output = query({"inputs": ${getModelInputSnippet(model)}})`;
 
-const bodyTextGeneration = (model: ModelData): string =>
+export const bodyTextGeneration = (model: ModelData): string =>
 	`output = query(${getModelInputSnippet(model)})`;
 
-const bodyText2TextGeneration = (model: ModelData): string =>
+export const bodyText2TextGeneration = (model: ModelData): string =>
 	`output = query({"inputs": ${getModelInputSnippet(model)}})`;
 
-const bodyFillMask = (model: ModelData): string =>
+export const bodyFillMask = (model: ModelData): string =>
 	`output = query({"inputs": ${getModelInputSnippet(model)}})`;
 
-const bodySentenceSimilarity = (model: ModelData): string =>
+export const bodySentenceSimilarity = (model: ModelData): string =>
 	`output = query({
     "inputs": ${getModelInputSnippet(model)},
 })`;
 
-const bodyFeatureExtraction = (model: ModelData): string =>
+export const bodyFeatureExtraction = (model: ModelData): string =>
 	`output = query({
     "inputs": ${getModelInputSnippet(model)},
 })`;

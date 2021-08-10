@@ -1,4 +1,4 @@
-import type { PipelineType, ModelData } from "$lib/interfaces/Types";
+import type { PipelineType, ModelData } from "../interfaces/Types";
 
 const inputsZeroShotClassification = () =>
 	`"Hi, I recently bought a device from your company but it is not working as advertised and I would like to get reimbursed!"`;
