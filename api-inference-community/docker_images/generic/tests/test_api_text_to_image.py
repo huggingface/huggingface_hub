@@ -56,6 +56,7 @@ class TextToImageTestCase(TestCase):
             response.status_code,
             200,
         )
+
         image = PIL.Image.open(BytesIO(base64.b64decode(response.text)))
         self.assertTrue(isinstance(image, PIL.Image.Image))
 
