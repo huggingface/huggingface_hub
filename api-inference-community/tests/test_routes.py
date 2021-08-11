@@ -220,7 +220,7 @@ class ValidationTestCase(TestCase):
         with TestClient(app) as client:
             response = client.post("/", data=b"")
 
-        buf = io.BytesIO(base64.b64decode(response.text))
+        buf = io.BytesIO(response.content)
         image = Image.open(buf)
         self.assertEqual(
             response.status_code,

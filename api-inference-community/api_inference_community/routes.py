@@ -114,9 +114,8 @@ def call_pipe(pipe: Any, inputs, params: Dict, start: float) -> Response:
             outputs.save(buf, format="JPEG")
             buf.seek(0)
             img_bytes = buf.read()
-            b64_img_bytes = base64.b64encode(img_bytes)
             return Response(
-                b64_img_bytes,
+                img_bytes,
                 headers=headers,
                 status_code=200,
                 media_type="image/jpeg",
