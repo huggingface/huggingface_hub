@@ -243,6 +243,7 @@ class Repository:
         use_auth_token: Union[bool, str] = True,
         git_user: Optional[str] = None,
         git_email: Optional[str] = None,
+        revision: Optional[str] = None,
     ):
         """
         Instantiate a local clone of a git repo.
@@ -265,10 +266,13 @@ class Repository:
             use_auth_token (``str`` or ``bool``, `optional`, defaults ``None``):
                 huggingface_token can be extract from ``HfApi().login(username, password)`` and is used to authenticate against the hub
                 (useful from Google Colab for instance).
-            git_user (``str``, `optional`, defaults ``None``):
+            git_user (``str``, `optional`):
                 will override the ``git config user.name`` for committing and pushing files to the hub.
-            git_email (``str``, `optional`, defaults ``None``):
+            git_email (``str``, `optional`):
                 will override the ``git config user.email`` for committing and pushing files to the hub.
+            revision (``str``, `optional`):
+                Revision to checkout after initializing the repository. If the revision doesn't exist, a
+                branch will be created with that revision name.
         """
 
         os.makedirs(local_dir, exist_ok=True)
@@ -302,6 +306,9 @@ class Repository:
             self.git_config_username_and_email(git_user, git_email)
 
         self.lfs_enable_largefiles()
+
+        if revision is not None:
+            self.git_checkout(revision)
 
     @property
     def current_branch(self):
@@ -782,15 +789,15 @@ class Repository:
 
         return self.git_head_commit_url()
 
-    def git_checkout(self, revision, create_branch=False):
+    def git_checkout(self, revision, create_branch_ok=False):
         """
-        git checkout
+        git checkout a given revision
 
-        Specify `create_branch` to `True` to create the branch if it doesn't exist.
+        Specifying `create_branch_ok` to `True` will create the branch to the given revision if that revision doesn't exist.
 
         Returns url to commit on remote repo.
         """
-        command = f"git checkout {'-b ' if create_branch else ''}{revision}"
+        command = f"git checkout {revision}"
         try:
             result = subprocess.run(
                 command.split(),
@@ -800,9 +807,28 @@ class Repository:
                 encoding="utf-8",
                 cwd=self.local_dir,
             )
-            logger.info(result.stdout)
+            logger.warning(f"Checked out {revision}.")
+            logger.warning(result.stdout)
         except subprocess.CalledProcessError as exc:
-            raise EnvironmentError(exc.stderr)
+            if not create_branch_ok:
+                raise EnvironmentError(exc.stderr)
+            else:
+                command = f"git checkout -b {revision}"
+                try:
+                    result = subprocess.run(
+                        command.split(),
+                        stderr=subprocess.PIPE,
+                        stdout=subprocess.PIPE,
+                        check=True,
+                        encoding="utf-8",
+                        cwd=self.local_dir,
+                    )
+                    logger.warning(
+                        f"{revision} did not exist. Created and checked out branch {revision}."
+                    )
+                    logger.warning(result.stdout)
+                except subprocess.CalledProcessError as exc:
+                    raise EnvironmentError(exc.stderr)
 
     def push_to_hub(self, commit_message="commit files to HF hub") -> str:
         """
