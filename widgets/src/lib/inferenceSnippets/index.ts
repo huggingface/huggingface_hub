@@ -1,4 +1,4 @@
-import { getModelInputSnippet } from "./inputsSnippets";
+import { getModelInputSnippet } from "./inputs";
 import type { PipelineType, ModelData } from "../interfaces/Types";
 
 export const bodyZeroShotClassification = (model: ModelData): string =>
