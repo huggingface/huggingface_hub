@@ -29,6 +29,8 @@ from huggingface_hub.hf_api import (
     HfFolder,
     ModelInfo,
     RepoObj,
+    erase_from_credential_store,
+    read_from_credential_store,
     repo_type_and_id_from_hf_id,
 )
 from requests.exceptions import HTTPError
@@ -67,6 +69,9 @@ class HfApiCommonTest(unittest.TestCase):
 
 
 class HfApiLoginTest(HfApiCommonTest):
+    def setUp(self) -> None:
+        erase_from_credential_store(USER)
+
     def test_login_invalid(self):
         with self.assertRaises(HTTPError):
             self._api.login(username=USER, password="fake")
@@ -74,6 +79,13 @@ class HfApiLoginTest(HfApiCommonTest):
     def test_login_valid(self):
         token = self._api.login(username=USER, password=PASS)
         self.assertIsInstance(token, str)
+
+    def test_login_git_credentials(self):
+        self.assertTupleEqual(read_from_credential_store(USER), (None, None))
+        token = self._api.login(username=USER, password=PASS)
+        self.assertTupleEqual(read_from_credential_store(USER), (USER, PASS))
+        self._api.logout(token)
+        self.assertTupleEqual(read_from_credential_store(USER), (None, None))
 
 
 class HfApiCommonTestWithLogin(HfApiCommonTest):

@@ -226,20 +226,19 @@ class DatasetInfo:
 
 
 def write_to_credential_store(username: str, password: str):
-    process = subprocess.Popen(
+    with subprocess.Popen(
         "git credential-store store".split(),
         stdin=subprocess.PIPE,
         stdout=subprocess.PIPE,
         stderr=subprocess.STDOUT,
-    )
+    ) as process:
+        input_username = f"username={username}"
+        input_password = f"password={password}"
 
-    input_username = f"username={username}"
-    input_password = f"password={password}"
-
-    process.stdin.write(
-        f"url={ENDPOINT}\n{input_username}\n{input_password}\n\n".encode("utf-8")
-    )
-    process.stdin.flush()
+        process.stdin.write(
+            f"url={ENDPOINT}\n{input_username}\n{input_password}\n\n".encode("utf-8")
+        )
+        process.stdin.flush()
 
 
 def read_from_credential_store(
@@ -249,23 +248,26 @@ def read_from_credential_store(
     Reads the credential store relative to huggingface.co. If no `username` is specified, will read the first
     entry for huggingface.co, otherwise will read the entry corresponding to the username specified.
     """
-    process = subprocess.Popen(
+    with subprocess.Popen(
         "git credential-store get".split(),
         stdin=subprocess.PIPE,
         stdout=subprocess.PIPE,
         stderr=subprocess.STDOUT,
-    )
+    ) as process:
+        standard_input = f"url={ENDPOINT}\n"
 
-    standard_input = f"url={ENDPOINT}\n"
+        if username is not None:
+            standard_input += f"username={username}\n"
 
-    if username is not None:
-        standard_input += f"username={username}\n"
+        standard_input += "\n"
+        print(standard_input.encode("utf-8"))
 
-    standard_input += "\n"
-
-    process.stdin.write(standard_input.encode("utf-8"))
-    process.stdin.flush()
-    output = process.stdout.read().decode("utf-8")
+        process.stdin.write(standard_input.encode("utf-8"))
+        process.stdin.flush()
+        output = process.stdout.read()
+        print(output)
+        output = output.decode("utf-8")
+        print(output)
 
     if len(output) == 0:
         return None, None
@@ -279,22 +281,22 @@ def erase_from_credential_store(username=None):
     Erases the credential store relative to huggingface.co. If no `username` is specified, will erase the first
     entry for huggingface.co, otherwise will erase the entry corresponding to the username specified.
     """
-    process = subprocess.Popen(
+    with subprocess.Popen(
         "git credential-store erase".split(),
         stdin=subprocess.PIPE,
         stdout=subprocess.PIPE,
         stderr=subprocess.STDOUT,
-    )
+    ) as process:
+        standard_input = f"url={ENDPOINT}\n"
 
-    standard_input = f"url={ENDPOINT}\n"
+        if username is not None:
+            standard_input += f"username={username}\n"
 
-    if username is not None:
-        standard_input += f"username={username}\n"
+        standard_input += "\n"
 
-    standard_input += "\n"
-
-    process.stdin.write(standard_input.encode("utf-8"))
-    process.stdin.flush()
+        process.stdin.write(standard_input.encode("utf-8"))
+        print(standard_input)
+        process.stdin.flush()
 
 
 class HfApi:

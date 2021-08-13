@@ -22,6 +22,7 @@ import unittest
 from io import BytesIO
 
 import requests
+from huggingface_hub.commands.user import currently_setup_credential_helper
 from huggingface_hub.hf_api import HfApi
 from huggingface_hub.repository import (
     Repository,
@@ -814,6 +815,74 @@ class RepositoryOfflineTest(RepositoryCommonTest):
         current_head_repo = Repository(WORKING_REPO_DIR, revision=new_head_hash)
         files = os.listdir(current_head_repo.local_dir)
         self.assertIn("file.txt", files)
+
+    def test_repo_user(self):
+        api = HfApi(endpoint=ENDPOINT_STAGING)
+        token = api.login(USER, PASS)
+
+        repo = Repository(WORKING_REPO_DIR, use_auth_token=token)
+        user = api.whoami(token)
+
+        username = subprocess.run(
+            ["git", "config", "user.name"],
+            stderr=subprocess.PIPE,
+            stdout=subprocess.PIPE,
+            check=True,
+            encoding="utf-8",
+            cwd=repo.local_dir,
+        )
+        email = subprocess.run(
+            ["git", "config", "user.email"],
+            stderr=subprocess.PIPE,
+            stdout=subprocess.PIPE,
+            check=True,
+            encoding="utf-8",
+            cwd=repo.local_dir,
+        )
+
+        self.assertEqual(username, user["fullname"])
+        self.assertEqual(email, user["email"])
+
+    def test_repo_passed_user(self):
+        api = HfApi(endpoint=ENDPOINT_STAGING)
+        token = api.login(USER, PASS)
+        repo = Repository(
+            WORKING_REPO_DIR,
+            git_user="RANDOM_USER",
+            git_email="EMAIL@EMAIL.EMAIL",
+            use_auth_token=token,
+        )
+        username = subprocess.run(
+            ["git", "config", "user.name"],
+            stderr=subprocess.PIPE,
+            stdout=subprocess.PIPE,
+            check=True,
+            encoding="utf-8",
+            cwd=repo.local_dir,
+        )
+        email = subprocess.run(
+            ["git", "config", "user.email"],
+            stderr=subprocess.PIPE,
+            stdout=subprocess.PIPE,
+            check=True,
+            encoding="utf-8",
+            cwd=repo.local_dir,
+        )
+
+        self.assertEqual(username, "RANDOM_USER")
+        self.assertEqual(email, "EMAIL@EMAIL.EMAIL")
+
+    def test_correct_helper(self):
+        subprocess.run(
+            ["git", "config", "--global", "credential.helper", "get"],
+            stderr=subprocess.PIPE,
+            stdout=subprocess.PIPE,
+            check=True,
+            encoding="utf-8",
+        )
+        repo = Repository(WORKING_REPO_DIR)
+        self.assertEqual(currently_setup_credential_helper(repo.local_dir), "store")
+        self.assertEqual(currently_setup_credential_helper(), "get")
 
 
 class RepositoryDatasetTest(RepositoryCommonTest):

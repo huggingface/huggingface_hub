@@ -117,7 +117,7 @@ def tabulate(rows: List[List[Union[str, int]]], headers: List[str]) -> str:
     return "\n".join(lines)
 
 
-def currently_setup_credential_helper():
+def currently_setup_credential_helper(directory=None):
     try:
         output = subprocess.run(
             "git config --list".split(),
@@ -125,6 +125,7 @@ def currently_setup_credential_helper():
             stdout=subprocess.PIPE,
             encoding="utf-8",
             check=True,
+            cwd=directory,
         ).stdout.split("\n")
 
         current_credential_helper = ""
