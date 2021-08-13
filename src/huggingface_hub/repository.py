@@ -117,22 +117,21 @@ def is_tracked_upstream(folder: Union[str, Path]) -> bool:
     Check if the current checked-out branch is tracked upstream.
     """
     try:
-        p = subprocess.run(
-            ["git", "status", "-sb"],
+        command = "git rev-parse --symbolic-full-name --abbrev-ref @{u}"
+        subprocess.run(
+            command.split(),
             stderr=subprocess.PIPE,
             stdout=subprocess.PIPE,
             encoding="utf-8",
+            check=True,
             cwd=folder,
         )
-        status = p.stdout
+        return True
     except subprocess.CalledProcessError as exc:
-        raise OSError(exc.stderr)
+        if "HEAD" in exc.stderr:
+            raise OSError("No branch checked out")
 
-    if "HEAD" in status:
-        raise OSError("No branch checked out.")
-
-    is_tracked = ".." in status
-    return is_tracked
+        return False
 
 
 @contextmanager
