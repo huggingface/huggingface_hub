@@ -300,7 +300,17 @@ class Repository:
                     "If not specifying `clone_from`, you need to pass Repository a valid git clone."
                 )
 
-        # overrides .git config if user and email is provided.
+        if self.huggingface_token is not None and (
+            git_email is None or git_user is None
+        ):
+            user = HfApi().whoami(self.huggingface_token)
+
+            if git_email is None:
+                git_email = user["email"]
+
+            if git_user is None:
+                git_user = user["fullname"]
+
         if git_user is not None or git_email is not None:
             self.git_config_username_and_email(git_user, git_email)
 
