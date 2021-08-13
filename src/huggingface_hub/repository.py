@@ -313,11 +313,7 @@ class Repository:
     @property
     def current_branch(self):
         """
-        git checkout
-
-        Specify `create_branch` to `True` to create the branch if it doesn't exist.
-
-        Returns url to commit on remote repo.
+        Returns the current checked out branch.
         """
         command = "git rev-parse --abbrev-ref HEAD"
         try:
@@ -794,8 +790,6 @@ class Repository:
         git checkout a given revision
 
         Specifying `create_branch_ok` to `True` will create the branch to the given revision if that revision doesn't exist.
-
-        Returns url to commit on remote repo.
         """
         command = f"git checkout {revision}"
         try:
