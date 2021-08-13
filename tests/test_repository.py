@@ -451,7 +451,7 @@ class RepositoryTest(RepositoryCommonTest):
             git_email="ci@dummy.com",
         )
         branch = repo.current_branch
-        repo.git_checkout("new-branch", create_branch=True)
+        repo.git_checkout("new-branch", create_branch_ok=True)
         repo.git_checkout(branch)
 
         with repo.commit("New commit"):
@@ -752,20 +752,20 @@ class RepositoryOfflineTest(RepositoryCommonTest):
 
     def test_checkout_new_branch(self):
         repo = Repository(WORKING_REPO_DIR)
-        repo.git_checkout("new-branch", create_branch=True)
+        repo.git_checkout("new-branch", create_branch_ok=True)
 
         self.assertEqual(repo.current_branch, "new-branch")
 
     def test_checkout_existing_branch(self):
         repo = Repository(WORKING_REPO_DIR)
-        repo.git_checkout("new-branch", create_branch=True)
-        repo.git_checkout("new-branch-2", create_branch=True)
+        repo.git_checkout("new-branch", create_branch_ok=True)
+        repo.git_checkout("new-branch-2", create_branch_ok=True)
 
-        self.assertRaises(repo.git_checkout, "new-branch", create_branch=True)
+        self.assertRaises(repo.git_checkout, "new-branch", create_branch_ok=True)
 
     def test_is_not_tracked_upstream(self):
         repo = Repository(WORKING_REPO_DIR)
-        repo.git_checkout("new-branch", create_branch=True)
+        repo.git_checkout("new-branch", create_branch_ok=True)
         self.assertFalse(is_tracked_upstream(repo.local_dir))
 
     def test_no_branch_checked_out_raises(self):
@@ -781,6 +781,38 @@ class RepositoryOfflineTest(RepositoryCommonTest):
 
         repo.git_checkout(head_commit_ref)
         self.assertRaises(is_tracked_upstream, repo.local_dir)
+
+    def test_repo_init_checkout_default_revision(self):
+        # Instantiate repository on a given revision
+        repo = Repository(WORKING_REPO_DIR, revision="new-branch")
+        self.assertEqual(repo.current_branch, "new-branch")
+
+        # The revision should be kept when re-initializing the repo
+        repo_2 = Repository(WORKING_REPO_DIR)
+        self.assertEqual(repo_2.current_branch, "new-branch")
+
+    def test_repo_init_checkout_revision(self):
+        # Instantiate repository on a given revision
+        repo = Repository(WORKING_REPO_DIR)
+        current_head_hash = repo.git_head_hash()
+
+        with open(os.path.join(repo.local_dir, "file.txt"), "w+") as f:
+            f.write("File")
+
+        repo.git_add()
+        repo.git_commit("Add file.txt")
+
+        new_head_hash = repo.git_head_hash()
+
+        self.assertNotEqual(current_head_hash, new_head_hash)
+
+        previous_head_repo = Repository(WORKING_REPO_DIR, revision=current_head_hash)
+        files = os.listdir(previous_head_repo.local_dir)
+        self.assertNotIn("file.txt", files)
+
+        current_head_repo = Repository(WORKING_REPO_DIR, revision=new_head_hash)
+        files = os.listdir(current_head_repo.local_dir)
+        self.assertIn("file.txt", files)
 
 
 class RepositoryDatasetTest(RepositoryCommonTest):
