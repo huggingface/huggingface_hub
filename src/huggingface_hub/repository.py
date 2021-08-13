@@ -305,6 +305,7 @@ class Repository:
             self.git_config_username_and_email(git_user, git_email)
 
         self.lfs_enable_largefiles()
+        self.git_credential_helper_store()
 
         if revision is not None:
             self.git_checkout(revision, create_branch_ok=True)
@@ -498,6 +499,22 @@ class Repository:
                     encoding="utf-8",
                     cwd=self.local_dir,
                 )
+        except subprocess.CalledProcessError as exc:
+            raise EnvironmentError(exc.stderr)
+
+    def git_credential_helper_store(self):
+        """
+        sets the git credential helper to `store`
+        """
+        try:
+            subprocess.run(
+                ["git", "config", "credential.helper", "store"],
+                stderr=subprocess.PIPE,
+                stdout=subprocess.PIPE,
+                check=True,
+                encoding="utf-8",
+                cwd=self.local_dir,
+            )
         except subprocess.CalledProcessError as exc:
             raise EnvironmentError(exc.stderr)
 

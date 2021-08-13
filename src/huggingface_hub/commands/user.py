@@ -117,6 +117,26 @@ def tabulate(rows: List[List[Union[str, int]]], headers: List[str]) -> str:
     return "\n".join(lines)
 
 
+def currently_setup_credential_helper():
+    try:
+        output = subprocess.run(
+            "git config --list".split(),
+            stderr=subprocess.PIPE,
+            stdout=subprocess.PIPE,
+            encoding="utf-8",
+            check=True,
+        ).stdout.split("\n")
+
+        current_credential_helper = ""
+        for line in output:
+            if "credential.helper" in line:
+                current_credential_helper = line.split("=")[-1]
+    except subprocess.CalledProcessError as exc:
+        raise EnvironmentError(exc.stderr)
+
+    return current_credential_helper
+
+
 class BaseUserCommand:
     def __init__(self, args):
         self.args = args
@@ -147,6 +167,16 @@ class LoginCommand(BaseUserCommand):
         HfFolder.save_token(token)
         print("Login successful")
         print("Your token has been saved to", HfFolder.path_token)
+        helper = currently_setup_credential_helper()
+
+        if helper != "store":
+            print(
+                ANSI.red(
+                    "Authenticated through git-crendential store but this isn't the helper defined on your machine.\nYou "
+                    "will have to re-authenticate when pushing to the Hugging Face Hub. Run the following command in your "
+                    "terminal to set it as the default\n\ngit config --global credential.helper store"
+                )
+            )
 
 
 class WhoamiCommand(BaseUserCommand):
