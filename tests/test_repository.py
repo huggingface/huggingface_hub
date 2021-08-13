@@ -427,13 +427,17 @@ class RepositoryTest(RepositoryCommonTest):
             git_email="ci@dummy.com",
         )
 
-        head_commit_ref = subprocess.run(
-            "git show --oneline -s".split(),
-            stderr=subprocess.PIPE,
-            stdout=subprocess.PIPE,
-            check=True,
-            cwd=WORKING_REPO_DIR,
-        ).stdout.split()[0]
+        head_commit_ref = (
+            subprocess.run(
+                "git show --oneline -s".split(),
+                stderr=subprocess.PIPE,
+                stdout=subprocess.PIPE,
+                check=True,
+                cwd=repo.local_dir,
+            )
+            .stdout.decode()
+            .split()[0]
+        )
 
         repo.git_checkout(head_commit_ref)
 
@@ -747,21 +751,14 @@ class RepositoryOfflineTest(RepositoryCommonTest):
         )
 
     def test_checkout_non_existant_branch(self):
-        Repository(WORKING_REPO_DIR)
-        self.assertRaises(Repository.git_checkout, "new-branch")
+        repo = Repository(WORKING_REPO_DIR)
+        self.assertRaises(EnvironmentError, repo.git_checkout, "brand-new-branch")
 
     def test_checkout_new_branch(self):
         repo = Repository(WORKING_REPO_DIR)
         repo.git_checkout("new-branch", create_branch_ok=True)
 
         self.assertEqual(repo.current_branch, "new-branch")
-
-    def test_checkout_existing_branch(self):
-        repo = Repository(WORKING_REPO_DIR)
-        repo.git_checkout("new-branch", create_branch_ok=True)
-        repo.git_checkout("new-branch-2", create_branch_ok=True)
-
-        self.assertRaises(repo.git_checkout, "new-branch", create_branch_ok=True)
 
     def test_is_not_tracked_upstream(self):
         repo = Repository(WORKING_REPO_DIR)
@@ -771,16 +768,20 @@ class RepositoryOfflineTest(RepositoryCommonTest):
     def test_no_branch_checked_out_raises(self):
         repo = Repository(WORKING_REPO_DIR)
 
-        head_commit_ref = subprocess.run(
-            "git show --oneline -s".split(),
-            stderr=subprocess.PIPE,
-            stdout=subprocess.PIPE,
-            check=True,
-            cwd=WORKING_REPO_DIR,
-        ).stdout.split()[0]
+        head_commit_ref = (
+            subprocess.run(
+                "git show --oneline -s".split(),
+                stderr=subprocess.PIPE,
+                stdout=subprocess.PIPE,
+                check=True,
+                cwd=WORKING_REPO_DIR,
+            )
+            .stdout.decode()
+            .split()[0]
+        )
 
         repo.git_checkout(head_commit_ref)
-        self.assertRaises(is_tracked_upstream, repo.local_dir)
+        self.assertRaises(OSError, is_tracked_upstream, repo.local_dir)
 
     def test_repo_init_checkout_default_revision(self):
         # Instantiate repository on a given revision
