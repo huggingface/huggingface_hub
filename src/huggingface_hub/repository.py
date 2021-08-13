@@ -272,7 +272,7 @@ class Repository:
                 will override the ``git config user.email`` for committing and pushing files to the hub.
             revision (``str``, `optional`):
                 Revision to checkout after initializing the repository. If the revision doesn't exist, a
-                branch will be created with that revision name.
+                branch will be created with that revision name from the default branch's current HEAD.
         """
 
         os.makedirs(local_dir, exist_ok=True)
@@ -308,7 +308,7 @@ class Repository:
         self.lfs_enable_largefiles()
 
         if revision is not None:
-            self.git_checkout(revision)
+            self.git_checkout(revision, create_branch_ok=True)
 
     @property
     def current_branch(self):
