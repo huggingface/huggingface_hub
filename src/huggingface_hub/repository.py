@@ -112,6 +112,28 @@ def is_git_ignored(filename: Union[str, Path]) -> bool:
     return is_ignored
 
 
+def is_tracked_upstream(folder: Union[str, Path]) -> bool:
+    """
+    Check if the current checked-out branch is tracked upstream.
+    """
+    try:
+        command = "git rev-parse --symbolic-full-name --abbrev-ref @{u}"
+        subprocess.run(
+            command.split(),
+            stderr=subprocess.PIPE,
+            stdout=subprocess.PIPE,
+            encoding="utf-8",
+            check=True,
+            cwd=folder,
+        )
+        return True
+    except subprocess.CalledProcessError as exc:
+        if "HEAD" in exc.stderr:
+            raise OSError("No branch checked out")
+
+        return False
+
+
 @contextmanager
 def lfs_log_progress():
     """
@@ -156,7 +178,7 @@ def lfs_log_progress():
         while not os.path.exists(os.environ["GIT_LFS_PROGRESS"]):
             if stopping_event.is_set():
                 close_pbars()
-                break
+                return
 
             time.sleep(2)
 
@@ -220,6 +242,7 @@ class Repository:
         use_auth_token: Union[bool, str] = True,
         git_user: Optional[str] = None,
         git_email: Optional[str] = None,
+        revision: Optional[str] = None,
     ):
         """
         Instantiate a local clone of a git repo.
@@ -242,10 +265,13 @@ class Repository:
             use_auth_token (``str`` or ``bool``, `optional`, defaults ``None``):
                 huggingface_token can be extract from ``HfApi().login(username, password)`` and is used to authenticate against the hub
                 (useful from Google Colab for instance).
-            git_user (``str``, `optional`, defaults ``None``):
+            git_user (``str``, `optional`):
                 will override the ``git config user.name`` for committing and pushing files to the hub.
-            git_email (``str``, `optional`, defaults ``None``):
+            git_email (``str``, `optional`):
                 will override the ``git config user.email`` for committing and pushing files to the hub.
+            revision (``str``, `optional`):
+                Revision to checkout after initializing the repository. If the revision doesn't exist, a
+                branch will be created with that revision name from the default branch's current HEAD.
         """
 
         os.makedirs(local_dir, exist_ok=True)
@@ -279,6 +305,29 @@ class Repository:
             self.git_config_username_and_email(git_user, git_email)
 
         self.lfs_enable_largefiles()
+
+        if revision is not None:
+            self.git_checkout(revision, create_branch_ok=True)
+
+    @property
+    def current_branch(self):
+        """
+        Returns the current checked out branch.
+        """
+        command = "git rev-parse --abbrev-ref HEAD"
+        try:
+            result = subprocess.run(
+                command.split(),
+                stderr=subprocess.PIPE,
+                stdout=subprocess.PIPE,
+                check=True,
+                encoding="utf-8",
+                cwd=self.local_dir,
+            ).stdout.strip()
+        except subprocess.CalledProcessError as exc:
+            raise EnvironmentError(exc.stderr)
+
+        return result
 
     def check_git_versions(self):
         """
@@ -709,16 +758,21 @@ class Repository:
             else:
                 raise EnvironmentError(exc.stdout)
 
-    def git_push(self) -> str:
+    def git_push(self, upstream=None) -> str:
         """
         git push
 
         Returns url to commit on remote repo.
         """
+        command = "git push"
+
+        if upstream:
+            command += f" --set-upstream {upstream}"
+
         try:
             with lfs_log_progress():
                 subprocess.run(
-                    "git push".split(),
+                    command.split(),
                     stderr=subprocess.PIPE,
                     stdout=subprocess.PIPE,
                     check=True,
@@ -729,6 +783,45 @@ class Repository:
             raise EnvironmentError(exc.stderr)
 
         return self.git_head_commit_url()
+
+    def git_checkout(self, revision, create_branch_ok=False):
+        """
+        git checkout a given revision
+
+        Specifying `create_branch_ok` to `True` will create the branch to the given revision if that revision doesn't exist.
+        """
+        command = f"git checkout {revision}"
+        try:
+            result = subprocess.run(
+                command.split(),
+                stderr=subprocess.PIPE,
+                stdout=subprocess.PIPE,
+                check=True,
+                encoding="utf-8",
+                cwd=self.local_dir,
+            )
+            logger.warning(f"Checked out {revision}.")
+            logger.warning(result.stdout)
+        except subprocess.CalledProcessError as exc:
+            if not create_branch_ok:
+                raise EnvironmentError(exc.stderr)
+            else:
+                command = f"git checkout -b {revision}"
+                try:
+                    result = subprocess.run(
+                        command.split(),
+                        stderr=subprocess.PIPE,
+                        stdout=subprocess.PIPE,
+                        check=True,
+                        encoding="utf-8",
+                        cwd=self.local_dir,
+                    )
+                    logger.warning(
+                        f"{revision} did not exist. Created and checked out branch {revision}."
+                    )
+                    logger.warning(result.stdout)
+                except subprocess.CalledProcessError as exc:
+                    raise EnvironmentError(exc.stderr)
 
     def push_to_hub(self, commit_message="commit files to HF hub") -> str:
         """
@@ -759,7 +852,13 @@ class Repository:
 
         """
 
-        self.git_pull(rebase=True)
+        if is_tracked_upstream(self.local_dir):
+            logger.warning("Pulling changes ...")
+            self.git_pull(rebase=True)
+        else:
+            logger.warning(
+                f"The current branch has no upstream branch. Will push to 'origin {self.current_branch}'"
+            )
 
         current_working_directory = os.getcwd()
         os.chdir(os.path.join(current_working_directory, self.local_dir))
@@ -777,7 +876,7 @@ class Repository:
                     raise e
 
             try:
-                self.git_push()
+                self.git_push(upstream=f"origin {self.current_branch}")
             except OSError as e:
                 # If no changes are detected, there is nothing to commit.
                 if "could not read Username" in str(e):
