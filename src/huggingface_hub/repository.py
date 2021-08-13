@@ -179,7 +179,7 @@ def lfs_log_progress():
         while not os.path.exists(os.environ["GIT_LFS_PROGRESS"]):
             if stopping_event.is_set():
                 close_pbars()
-                break
+                return
 
             time.sleep(2)
 
@@ -773,7 +773,7 @@ class Repository:
         try:
             with lfs_log_progress():
                 subprocess.run(
-                    "git push".split(),
+                    command.split(),
                     stderr=subprocess.PIPE,
                     stdout=subprocess.PIPE,
                     check=True,
