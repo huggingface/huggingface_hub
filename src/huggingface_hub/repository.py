@@ -841,6 +841,8 @@ class Repository:
     def push_to_hub(self, commit_message: str = "commit files to HF hub") -> str:
         """
         Helper to add, commit, and push files to remote repository on the HuggingFace Hub.
+        Will automatically track large files (>10MB).
+
         Args:
             commit_message: commit message.
         """
@@ -858,6 +860,14 @@ class Repository:
         """
         Context manager utility to handle committing to a repository. This automatically tracks large files (>10Mb)
         with git-lfs. Set the `track_large_files` argument to `False` if you wish to ignore that behavior.
+
+        Args:
+            commit_message (`str`):
+                Message to use for the commit.
+            branch (`str`, `optional`):
+                The branch on which the commit will appear. This branch will be checked-out before any operation.
+            track_large_files (`bool`, `optional`, defaults to `True`):
+                Whether to automatically track large files or not. Will do so by default.
 
         Examples:
 
