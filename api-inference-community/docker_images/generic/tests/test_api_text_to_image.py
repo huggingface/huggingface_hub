@@ -1,7 +1,9 @@
-import json
+import base64
 import os
+from io import BytesIO
 from unittest import TestCase, skipIf
 
+import PIL
 from app.main import ALLOWED_TASKS
 from parameterized import parameterized_class
 from starlette.testclient import TestClient
@@ -9,18 +11,18 @@ from tests.test_api import TESTABLE_MODELS
 
 
 @skipIf(
-    "token-classification" not in ALLOWED_TASKS,
-    "token-classification not implemented",
+    "text-to-image" not in ALLOWED_TASKS,
+    "text-to-image not implemented",
 )
 @parameterized_class(
-    [{"model_id": model_id} for model_id in TESTABLE_MODELS["token-classification"]]
+    [{"model_id": model_id} for model_id in TESTABLE_MODELS["text-to-image"]]
 )
-class TokenClassificationTestCase(TestCase):
+class TextToImageTestCase(TestCase):
     def setUp(self):
         self.old_model_id = os.getenv("MODEL_ID")
         self.old_task = os.getenv("TASK")
         os.environ["MODEL_ID"] = self.model_id
-        os.environ["TASK"] = "token-classification"
+        os.environ["TASK"] = "text-to-image"
 
         from app.main import app, get_pipeline
 
@@ -45,7 +47,7 @@ class TokenClassificationTestCase(TestCase):
             del os.environ["TASK"]
 
     def test_simple(self):
-        inputs = "Hello, my name is John and I live in New York"
+        inputs = "soap bubble"
 
         with TestClient(self.app) as client:
             response = client.post("/", json={"inputs": inputs})
@@ -54,28 +56,11 @@ class TokenClassificationTestCase(TestCase):
             response.status_code,
             200,
         )
-        content = json.loads(response.content)
-        self.assertEqual(type(content), list)
-        self.assertEqual(
-            set(k for el in content for k in el.keys()),
-            {"entity_group", "word", "start", "end", "score"},
-        )
 
-        with TestClient(self.app) as client:
-            response = client.post("/", json=inputs)
+        image = PIL.Image.open(BytesIO(response.content))
+        self.assertTrue(isinstance(image, PIL.Image.Image))
 
-        self.assertEqual(
-            response.status_code,
-            200,
-        )
-        content = json.loads(response.content)
-        self.assertEqual(type(content), list)
-        self.assertEqual(
-            set(k for el in content for k in el.keys()),
-            {"entity_group", "word", "start", "end", "score"},
-        )
-
-    def test_malformed_question(self):
+    def test_malformed_input(self):
         with TestClient(self.app) as client:
             response = client.post("/", data=b"\xc3\x28")
 
