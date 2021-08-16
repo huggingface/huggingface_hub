@@ -118,7 +118,7 @@
 		if (Array.isArray(body)) {
 			return body;
 		}
-		return [];
+		throw new TypeError("Invalid output: output must be of type Array");
 	}
 </script>
 

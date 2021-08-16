@@ -109,7 +109,7 @@
 					score: x.score ? Number(x.score) : 0,
 				}));
 		}
-		return [];
+		throw new TypeError("Invalid output: output must be of type Array");
 	}
 </script>
 

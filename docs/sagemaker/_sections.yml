@@ -1,0 +1,15 @@
+- local: main
+  title: Hugging Face on Amazon SageMaker
+
+- local: train
+  title: Run training on Amazon SageMaker
+
+- local: inference
+  title: Deploy models to Amazon SageMaker
+
+# TODO not sure if needed
+# - local: getting-started
+#   title: End-to-End Example with training and deployment
+
+- local: faq
+  title: Frequently Asked Questions

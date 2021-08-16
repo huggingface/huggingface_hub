@@ -3,20 +3,23 @@ import os
 from unittest import TestCase, skipIf
 
 from app.main import ALLOWED_TASKS
+from parameterized import parameterized_class
 from starlette.testclient import TestClient
 from tests.test_api import TESTABLE_MODELS
 
 
 @skipIf(
-    "sentence-similarity" not in ALLOWED_TASKS,
-    "sentence-similarity not implemented",
+    "feature-extraction" not in ALLOWED_TASKS,
+    "feature-extraction not implemented",
+)
+@parameterized_class(
+    [{"model_id": model_id} for model_id in TESTABLE_MODELS["sentence-similarity"]]
 )
 class SentenceSimilarityTestCase(TestCase):
     def setUp(self):
-        model_id = TESTABLE_MODELS["sentence-similarity"]
         self.old_model_id = os.getenv("MODEL_ID")
         self.old_task = os.getenv("TASK")
-        os.environ["MODEL_ID"] = model_id
+        os.environ["MODEL_ID"] = self.model_id
         os.environ["TASK"] = "sentence-similarity"
         from app.main import app
 

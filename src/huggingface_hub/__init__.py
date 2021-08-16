@@ -16,7 +16,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-__version__ = "0.0.10"
+__version__ = "0.0.15"
 
 from .constants import (
     CONFIG_NAME,
@@ -29,8 +29,9 @@ from .constants import (
     TF2_WEIGHTS_NAME,
     TF_WEIGHTS_NAME,
 )
-from .file_download import cached_download, hf_hub_url
-from .hf_api import HfApi, HfFolder
-from .hub_mixin import ModelHubMixin
+from .file_download import cached_download, hf_hub_download, hf_hub_url
+from .hf_api import HfApi, HfFolder, repo_type_and_id_from_hf_id
+from .hub_mixin import ModelHubMixin, PyTorchModelHubMixin
+from .inference_api import InferenceApi
 from .repository import Repository
 from .snapshot_download import snapshot_download
