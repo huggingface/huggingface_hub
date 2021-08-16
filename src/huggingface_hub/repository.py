@@ -300,11 +300,22 @@ class Repository:
                     "If not specifying `clone_from`, you need to pass Repository a valid git clone."
                 )
 
-        # overrides .git config if user and email is provided.
+        if self.huggingface_token is not None and (
+            git_email is None or git_user is None
+        ):
+            user = HfApi().whoami(self.huggingface_token)
+
+            if git_email is None:
+                git_email = user["email"]
+
+            if git_user is None:
+                git_user = user["fullname"]
+
         if git_user is not None or git_email is not None:
             self.git_config_username_and_email(git_user, git_email)
 
         self.lfs_enable_largefiles()
+        self.git_credential_helper_store()
 
         if revision is not None:
             self.git_checkout(revision, create_branch_ok=True)
@@ -498,6 +509,22 @@ class Repository:
                     encoding="utf-8",
                     cwd=self.local_dir,
                 )
+        except subprocess.CalledProcessError as exc:
+            raise EnvironmentError(exc.stderr)
+
+    def git_credential_helper_store(self):
+        """
+        sets the git credential helper to `store`
+        """
+        try:
+            subprocess.run(
+                ["git", "config", "credential.helper", "store"],
+                stderr=subprocess.PIPE,
+                stdout=subprocess.PIPE,
+                check=True,
+                encoding="utf-8",
+                cwd=self.local_dir,
+            )
         except subprocess.CalledProcessError as exc:
             raise EnvironmentError(exc.stderr)
 
