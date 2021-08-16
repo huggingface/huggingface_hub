@@ -485,6 +485,87 @@ class RepositoryTest(RepositoryCommonTest):
             self.assertFalse("file.txt" in files)
             self.assertTrue("new_file.txt" in files)
 
+    def test_repo_checkout_push(self):
+        repo = Repository(
+            REPO_NAME,
+            clone_from=f"{USER}/{REPO_NAME}",
+            use_auth_token=self._token,
+            git_user="ci",
+            git_email="ci@dummy.com",
+        )
+
+        repo.git_checkout("new-branch", create_branch_ok=True)
+        repo.git_checkout("main")
+
+        with open(os.path.join(repo.local_dir, "file.txt"), "w+") as f:
+            f.write("Ok")
+
+        repo.push_to_hub("Commit #1")
+        repo.git_checkout("new-branch", create_branch_ok=True)
+
+        with open(os.path.join(repo.local_dir, "new_file.txt"), "w+") as f:
+            f.write("Ok")
+
+        repo.push_to_hub("Commit #2")
+
+        with tempfile.TemporaryDirectory() as tmp:
+            clone = Repository(
+                tmp,
+                clone_from=f"{USER}/{REPO_NAME}",
+                use_auth_token=self._token,
+                git_user="ci",
+                git_email="ci@dummy.com",
+            )
+            files = os.listdir(clone.local_dir)
+            self.assertTrue("file.txt" in files)
+            self.assertFalse("new_file.txt" in files)
+
+            clone.git_checkout("new-branch")
+            files = os.listdir(clone.local_dir)
+            self.assertFalse("file.txt" in files)
+            self.assertTrue("new_file.txt" in files)
+
+    def test_repo_checkout_commit_context_manager(self):
+        repo = Repository(
+            REPO_NAME,
+            clone_from=f"{USER}/{REPO_NAME}",
+            use_auth_token=self._token,
+            git_user="ci",
+            git_email="ci@dummy.com",
+        )
+
+        with repo.commit("Commit #1", branch="new-branch"):
+            with open(os.path.join(repo.local_dir, "file.txt"), "w+") as f:
+                f.write("Ok")
+
+        with repo.commit("Commit #2", branch="main"):
+            with open(os.path.join(repo.local_dir, "new_file.txt"), "w+") as f:
+                f.write("Ok")
+
+        # Maintains lastly used branch
+        with repo.commit("Commit #3"):
+            with open(os.path.join(repo.local_dir, "new_file-2.txt"), "w+") as f:
+                f.write("Ok")
+
+        with tempfile.TemporaryDirectory() as tmp:
+            clone = Repository(
+                tmp,
+                clone_from=f"{USER}/{REPO_NAME}",
+                use_auth_token=self._token,
+                git_user="ci",
+                git_email="ci@dummy.com",
+            )
+            files = os.listdir(clone.local_dir)
+            self.assertFalse("file.txt" in files)
+            self.assertTrue("new_file-2.txt" in files)
+            self.assertTrue("new_file.txt" in files)
+
+            clone.git_checkout("new-branch")
+            files = os.listdir(clone.local_dir)
+            self.assertTrue("file.txt" in files)
+            self.assertFalse("new_file.txt" in files)
+            self.assertFalse("new_file-2.txt" in files)
+
 
 class RepositoryOfflineTest(RepositoryCommonTest):
     @classmethod

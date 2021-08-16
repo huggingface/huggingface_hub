@@ -112,6 +112,26 @@ def is_git_ignored(filename: Union[str, Path]) -> bool:
     return is_ignored
 
 
+def files_to_be_staged(pattern: str, folder: Union[str, Path]) -> List[str]:
+    try:
+        p = subprocess.run(
+            ["git", "ls-files", "-mo", pattern],
+            stderr=subprocess.PIPE,
+            stdout=subprocess.PIPE,
+            check=True,
+            encoding="utf-8",
+            cwd=folder,
+        )
+        if len(p.stdout.strip()):
+            files = p.stdout.strip().split("\n")
+        else:
+            files = []
+    except subprocess.CalledProcessError as exc:
+        raise EnvironmentError(exc.stderr)
+
+    return files
+
+
 def is_tracked_upstream(folder: Union[str, Path]) -> bool:
     """
     Check if the current checked-out branch is tracked upstream.
@@ -661,22 +681,11 @@ class Repository:
         """
         Automatically track large files with git-lfs
         """
-        try:
-            p = subprocess.run(
-                ["git", "ls-files", "-mo", pattern],
-                stderr=subprocess.PIPE,
-                stdout=subprocess.PIPE,
-                check=True,
-                encoding="utf-8",
-                cwd=self.local_dir,
-            )
-            files_to_be_staged = p.stdout.strip().split("\n")
-        except subprocess.CalledProcessError as exc:
-            raise EnvironmentError(exc.stderr)
+        files_to_be_tracked_with_lfs = []
 
         deleted_files = self.list_deleted_files()
 
-        for filename in files_to_be_staged:
+        for filename in files_to_be_staged(pattern, folder=self.local_dir):
             if filename in deleted_files:
                 continue
 
@@ -689,11 +698,12 @@ class Repository:
                 and not is_git_ignored(path_to_file)
             ):
                 self.lfs_track(filename)
+                files_to_be_tracked_with_lfs.append(filename)
 
         # Cleanup the .gitattributes if files were deleted
         self.lfs_untrack(deleted_files)
 
-        return files_to_be_staged
+        return files_to_be_tracked_with_lfs
 
     def git_pull(self, rebase: Optional[bool] = False):
         """
@@ -704,12 +714,15 @@ class Repository:
             args.append("--rebase")
         try:
             with lfs_log_progress():
-                subprocess.run(
+                result = subprocess.run(
                     args,
+                    stderr=subprocess.PIPE,
+                    stdout=subprocess.PIPE,
                     check=True,
                     encoding="utf-8",
                     cwd=self.local_dir,
                 )
+                logger.info(result.stdout)
         except subprocess.CalledProcessError as exc:
             raise EnvironmentError(exc.stderr)
 
@@ -724,18 +737,19 @@ class Repository:
             tracked_files = self.auto_track_large_files(pattern)
             if len(tracked_files) > 0:
                 logger.warning(
-                    "Adding files tracked by Git LFS. This may take a bit of time if the files are large."
+                    f"Adding files tracked by Git LFS: {tracked_files}. This may take a bit of time if the files are large."
                 )
 
         try:
-            subprocess.run(
-                ["git", "add", pattern],
+            result = subprocess.run(
+                ["git", "add", "-v", pattern],
                 stderr=subprocess.PIPE,
                 stdout=subprocess.PIPE,
                 check=True,
                 encoding="utf-8",
                 cwd=self.local_dir,
             )
+            logger.info(f"Adding to index:\n{result.stdout}\n")
         except subprocess.CalledProcessError as exc:
             raise EnvironmentError(exc.stderr)
 
@@ -744,14 +758,15 @@ class Repository:
         git commit
         """
         try:
-            subprocess.run(
-                ["git", "commit", "-m", commit_message],
+            result = subprocess.run(
+                ["git", "commit", "-m", commit_message, "-v"],
                 stderr=subprocess.PIPE,
                 stdout=subprocess.PIPE,
                 check=True,
                 encoding="utf-8",
                 cwd=self.local_dir,
             )
+            logger.info(f"Committed:\n{result.stdout}\n")
         except subprocess.CalledProcessError as exc:
             if len(exc.stderr) > 0:
                 raise EnvironmentError(exc.stderr)
@@ -800,7 +815,7 @@ class Repository:
                 encoding="utf-8",
                 cwd=self.local_dir,
             )
-            logger.warning(f"Checked out {revision}.")
+            logger.warning(f"Checked out {revision} from {self.current_branch}.")
             logger.warning(result.stdout)
         except subprocess.CalledProcessError as exc:
             if not create_branch_ok:
@@ -817,24 +832,29 @@ class Repository:
                         cwd=self.local_dir,
                     )
                     logger.warning(
-                        f"{revision} did not exist. Created and checked out branch {revision}."
+                        f"Revision `{revision}` does not exist. Created and checked out branch `{revision}`."
                     )
                     logger.warning(result.stdout)
                 except subprocess.CalledProcessError as exc:
                     raise EnvironmentError(exc.stderr)
 
-    def push_to_hub(self, commit_message="commit files to HF hub") -> str:
+    def push_to_hub(self, commit_message: str = "commit files to HF hub") -> str:
         """
         Helper to add, commit, and push files to remote repository on the HuggingFace Hub.
         Args:
             commit_message: commit message.
         """
-        self.git_add()
+        self.git_add(auto_lfs_track=True)
         self.git_commit(commit_message)
-        return self.git_push()
+        return self.git_push(upstream=f"origin {self.current_branch}")
 
     @contextmanager
-    def commit(self, commit_message: str, track_large_files: bool = True):
+    def commit(
+        self,
+        commit_message: str,
+        branch: Optional[str] = None,
+        track_large_files: bool = True,
+    ):
         """
         Context manager utility to handle committing to a repository. This automatically tracks large files (>10Mb)
         with git-lfs. Set the `track_large_files` argument to `False` if you wish to ignore that behavior.
@@ -851,6 +871,21 @@ class Repository:
             ...     torch.save(model.state_dict(), "model.pt")
 
         """
+
+        files_to_stage = files_to_be_staged(".", folder=self.local_dir)
+
+        if len(files_to_stage):
+            if len(files_to_stage) > 5:
+                files_to_stage = str(files_to_stage[:5])[:-1] + ", ...]"
+
+            logger.error(
+                f"There exists some updated files in the local repository that are not committed: {files_to_stage}. "
+                "This may lead to errors if checking out a branch. "
+                "These files and their modifications will be added to the current commit."
+            )
+
+        if branch is not None:
+            self.git_checkout(branch, create_branch_ok=True)
 
         if is_tracked_upstream(self.local_dir):
             logger.warning("Pulling changes ...")
