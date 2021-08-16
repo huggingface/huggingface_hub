@@ -88,14 +88,17 @@
 			};
 			getOutput(true);
 		} else if (res.status === "error") {
-			error = res.error;
+			error = res.error || `Error encountered on input "${trimmedText}"`;
 		}
 	}
 
 	function parseOutput(body: unknown): string {
-		return body && typeof body === "object" && body instanceof Blob
-			? URL.createObjectURL(body)
-			: "";
+		if (body && typeof body === "object" && body instanceof Blob) {
+			return URL.createObjectURL(body);
+		}
+		throw new TypeError(
+			"Invalid output: output must be of type object & of instance Blob"
+		);
 	}
 </script>
 
