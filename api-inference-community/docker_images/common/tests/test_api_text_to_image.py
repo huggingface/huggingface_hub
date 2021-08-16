@@ -50,7 +50,8 @@ class TextToImageTestCase(TestCase):
             response.status_code,
             200,
         )
-        image = PIL.Image.open(BytesIO(base64.b64decode(response.text)))
+
+        image = PIL.Image.open(BytesIO(response.content))
         self.assertTrue(isinstance(image, PIL.Image.Image))
 
     def test_malformed_input(self):
