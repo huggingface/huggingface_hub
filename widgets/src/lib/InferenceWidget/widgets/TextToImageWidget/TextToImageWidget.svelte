@@ -114,9 +114,7 @@
 			<WidgetQuickInput
 				bind:value={text}
 				{isLoading}
-				onClickSubmitBtn={() => {
-					getOutput();
-				}}
+				onClickSubmitBtn={getOutput}
 			/>
 		</form>
 	</svelte:fragment>
