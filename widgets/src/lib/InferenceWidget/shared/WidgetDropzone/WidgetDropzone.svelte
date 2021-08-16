@@ -83,8 +83,9 @@
 	{#if !imgSrc}
 		<span class="pointer-events-none text-sm">{label}</span>
 	{:else}
-		<WidgetImage
-			classNames="pointer-events-none shadow mx-auto max-h-44"
+		<img
+			alt=""
+			class="pointer-events-none shadow mx-auto max-h-44"
 			src={imgSrc}
 		/>
 	{/if}
