@@ -72,6 +72,10 @@ class HfApiLoginTest(HfApiCommonTest):
     def setUp(self) -> None:
         erase_from_credential_store(USER)
 
+    @classmethod
+    def tearDownClass(cls) -> None:
+        cls._api.login(username=USER, password=PASS)
+
     def test_login_invalid(self):
         with self.assertRaises(HTTPError):
             self._api.login(username=USER, password="fake")
@@ -82,9 +86,9 @@ class HfApiLoginTest(HfApiCommonTest):
 
     def test_login_git_credentials(self):
         self.assertTupleEqual(read_from_credential_store(USER), (None, None))
-        token = self._api.login(username=USER, password=PASS)
+        self._api.login(username=USER, password=PASS)
         self.assertTupleEqual(read_from_credential_store(USER), (USER.lower(), PASS))
-        self._api.logout(token)
+        erase_from_credential_store(username=USER)
         self.assertTupleEqual(read_from_credential_store(USER), (None, None))
 
 

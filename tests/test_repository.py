@@ -830,7 +830,7 @@ class RepositoryOfflineTest(RepositoryCommonTest):
             check=True,
             encoding="utf-8",
             cwd=repo.local_dir,
-        )
+        ).stdout.strip()
         email = subprocess.run(
             ["git", "config", "user.email"],
             stderr=subprocess.PIPE,
@@ -838,7 +838,7 @@ class RepositoryOfflineTest(RepositoryCommonTest):
             check=True,
             encoding="utf-8",
             cwd=repo.local_dir,
-        )
+        ).stdout.strip()
 
         self.assertEqual(username, user["fullname"])
         self.assertEqual(email, user["email"])
@@ -859,7 +859,7 @@ class RepositoryOfflineTest(RepositoryCommonTest):
             check=True,
             encoding="utf-8",
             cwd=repo.local_dir,
-        )
+        ).stdout.strip()
         email = subprocess.run(
             ["git", "config", "user.email"],
             stderr=subprocess.PIPE,
@@ -867,7 +867,7 @@ class RepositoryOfflineTest(RepositoryCommonTest):
             check=True,
             encoding="utf-8",
             cwd=repo.local_dir,
-        )
+        ).stdout.strip()
 
         self.assertEqual(username, "RANDOM_USER")
         self.assertEqual(email, "EMAIL@EMAIL.EMAIL")
@@ -882,7 +882,7 @@ class RepositoryOfflineTest(RepositoryCommonTest):
         )
         repo = Repository(WORKING_REPO_DIR)
         self.assertListEqual(
-            currently_setup_credential_helpers(repo.local_dir), ["store"]
+            currently_setup_credential_helpers(repo.local_dir), ["get", "store"]
         )
         self.assertEqual(currently_setup_credential_helpers(), ["get"])
 
