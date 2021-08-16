@@ -22,7 +22,7 @@ import unittest
 from io import BytesIO
 
 import requests
-from huggingface_hub.commands.user import currently_setup_credential_helper
+from huggingface_hub.commands.user import currently_setup_credential_helpers
 from huggingface_hub.hf_api import HfApi
 from huggingface_hub.repository import (
     Repository,
@@ -881,8 +881,10 @@ class RepositoryOfflineTest(RepositoryCommonTest):
             encoding="utf-8",
         )
         repo = Repository(WORKING_REPO_DIR)
-        self.assertEqual(currently_setup_credential_helper(repo.local_dir), "store")
-        self.assertEqual(currently_setup_credential_helper(), "get")
+        self.assertListEqual(
+            currently_setup_credential_helpers(repo.local_dir), ["store"]
+        )
+        self.assertEqual(currently_setup_credential_helpers(), ["get"])
 
 
 class RepositoryDatasetTest(RepositoryCommonTest):

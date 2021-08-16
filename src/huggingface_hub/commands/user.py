@@ -117,7 +117,7 @@ def tabulate(rows: List[List[Union[str, int]]], headers: List[str]) -> str:
     return "\n".join(lines)
 
 
-def currently_setup_credential_helper(directory=None):
+def currently_setup_credential_helpers(directory=None) -> List[str]:
     try:
         output = subprocess.run(
             "git config --list".split(),
@@ -128,14 +128,14 @@ def currently_setup_credential_helper(directory=None):
             cwd=directory,
         ).stdout.split("\n")
 
-        current_credential_helper = ""
+        current_credential_helpers = []
         for line in output:
             if "credential.helper" in line:
-                current_credential_helper = line.split("=")[-1]
+                current_credential_helpers.append(line.split("=")[-1])
     except subprocess.CalledProcessError as exc:
         raise EnvironmentError(exc.stderr)
 
-    return current_credential_helper
+    return current_credential_helpers
 
 
 class BaseUserCommand:
@@ -168,9 +168,9 @@ class LoginCommand(BaseUserCommand):
         HfFolder.save_token(token)
         print("Login successful")
         print("Your token has been saved to", HfFolder.path_token)
-        helper = currently_setup_credential_helper()
+        helpers = currently_setup_credential_helpers()
 
-        if helper != "store":
+        if "store" not in helpers:
             print(
                 ANSI.red(
                     "Authenticated through git-crendential store but this isn't the helper defined on your machine.\nYou "

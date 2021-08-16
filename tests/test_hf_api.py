@@ -83,7 +83,7 @@ class HfApiLoginTest(HfApiCommonTest):
     def test_login_git_credentials(self):
         self.assertTupleEqual(read_from_credential_store(USER), (None, None))
         token = self._api.login(username=USER, password=PASS)
-        self.assertTupleEqual(read_from_credential_store(USER), (USER, PASS))
+        self.assertTupleEqual(read_from_credential_store(USER), (USER.lower(), PASS))
         self._api.logout(token)
         self.assertTupleEqual(read_from_credential_store(USER), (None, None))
 

@@ -232,7 +232,7 @@ def write_to_credential_store(username: str, password: str):
         stdout=subprocess.PIPE,
         stderr=subprocess.STDOUT,
     ) as process:
-        input_username = f"username={username}"
+        input_username = f"username={username.lower()}"
         input_password = f"password={password}"
 
         process.stdin.write(
@@ -247,6 +247,8 @@ def read_from_credential_store(
     """
     Reads the credential store relative to huggingface.co. If no `username` is specified, will read the first
     entry for huggingface.co, otherwise will read the entry corresponding to the username specified.
+
+    The username returned will be all lowercase.
     """
     with subprocess.Popen(
         "git credential-store get".split(),
@@ -257,17 +259,14 @@ def read_from_credential_store(
         standard_input = f"url={ENDPOINT}\n"
 
         if username is not None:
-            standard_input += f"username={username}\n"
+            standard_input += f"username={username.lower()}\n"
 
         standard_input += "\n"
-        print(standard_input.encode("utf-8"))
 
         process.stdin.write(standard_input.encode("utf-8"))
         process.stdin.flush()
         output = process.stdout.read()
-        print(output)
         output = output.decode("utf-8")
-        print(output)
 
     if len(output) == 0:
         return None, None
@@ -290,7 +289,7 @@ def erase_from_credential_store(username=None):
         standard_input = f"url={ENDPOINT}\n"
 
         if username is not None:
-            standard_input += f"username={username}\n"
+            standard_input += f"username={username.lower()}\n"
 
         standard_input += "\n"
 
@@ -316,8 +315,7 @@ class HfApi:
         r.raise_for_status()
         d = r.json()
 
-        cased_username = self.whoami(d["token"])["name"]
-        write_to_credential_store(cased_username, password)
+        write_to_credential_store(username, password)
         return d["token"]
 
     def whoami(self, token: str) -> Dict:
