@@ -3,7 +3,6 @@
 
 	import { onMount } from "svelte";
 	import WidgetQuickInput from "../../shared/WidgetQuickInput/WidgetQuickInput.svelte";
-	import WidgetImage from "../../shared/WidgetImage/WidgetImage.svelte";
 	import WidgetWrapper from "../../shared/WidgetWrapper/WidgetWrapper.svelte";
 	import {
 		getDemoInputs,
@@ -120,7 +119,7 @@
 	</svelte:fragment>
 	<svelte:fragment slot="bottom">
 		{#if output.length}
-			<WidgetImage classNames="mt-4" src={output} />
+			<img class="mt-4" src={output} alt="Generated image" />
 		{/if}
 	</svelte:fragment>
 </WidgetWrapper>
