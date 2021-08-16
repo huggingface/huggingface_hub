@@ -1,6 +1,6 @@
 <script>
 	import type { SvelteComponent } from "svelte";
-	import type { PipelineType } from "$lib/interfaces/Types";
+	import type { PipelineType } from "../interfaces/Types";
 	import type { WidgetProps } from "./shared/types";
 
 	import AudioToAudioWidget from "./widgets/AudioToAudioWidget/AudioToAudioWidget.svelte";

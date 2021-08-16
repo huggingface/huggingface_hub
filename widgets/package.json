@@ -1,28 +1,9 @@
 {
 	"name": "huggingface-widgets",
-	"version": "0.0.1",
+	"version": "0.3.0",
 	"type": "module",
-	"main": "./package/InferenceWidget/InferenceWidget.svelte",
-	"exports": {
-		".": {
-			"import": "./package/InferenceWidget/InferenceWidget.svelte",
-			"require": "./package/InferenceWidget/InferenceWidget.svelte.js"
-		},
-		"./ModelPipelineIcon.svelte": "./package/ModelPipelineIcon/ModelPipelineIcon.svelte",
-		"./ModelPipelineIcon.svelte.js": "./package/ModelPipelineIcon/ModelPipelineIcon.svelte.js",
-		"./ModelPipelineTag.svelte": "./package/ModelPipelineTag/ModelPipelineTag.svelte",
-		"./ModelPipelineTag.svelte.js": "./package/ModelPipelineTag/ModelPipelineTag.svelte.js",
-		"./WidgetHeader.svelte": "./package/InferenceWidget/shared/WidgetHeader/WidgetHeader.svelte",
-		"./WidgetHeader.svelte.js": "./package/InferenceWidget/shared/WidgetHeader/WidgetHeader.svelte.js",
-		"./interfaces/DefaultWidget": "./package/interfaces/DefaultWidget.js",
-		"./interfaces/DefaultWidget.js": "./package/interfaces/DefaultWidget.js",
-		"./interfaces/Language": "./package/interfaces/Language.js",
-		"./interfaces/Language.js": "./package/interfaces/Language.js",
-		"./interfaces/Libraries": "./package/interfaces/Libraries.js",
-		"./interfaces/Libraries.js": "./package/interfaces/Libraries.js",
-		"./interfaces/Types": "./package/interfaces/Types.js",
-		"./interfaces/Types.js": "./package/interfaces/Types.js"
-	},
+	"main": "./src/lib/index",
+	"svelte": "./src/lib/index",
 	"repository": {
 		"type": "git",
 		"url": "git+https://github.com/huggingface/huggingface_hub.git"
@@ -34,9 +15,7 @@
 	"scripts": {
 		"dev": "svelte-kit dev",
 		"build": "svelte-kit build",
-		"package": "npm run package:svelte-kit && npm run package:custom",
-		"package:svelte-kit": "svelte-kit package",
-		"package:custom": "node build.js",
+		"package": "svelte-kit package",
 		"preview": "svelte-kit preview",
 		"publish": "npm run package && npm publish package",
 		"check": "svelte-check --tsconfig ./tsconfig.json",
@@ -59,7 +38,7 @@
 		"svelte": "^3.34.0",
 		"svelte-check": "^2.2.3",
 		"svelte-preprocess": "^4.0.0",
-		"svelte2tsx": "^0.4.1",
+		"svelte2tsx": "^0.4.5",
 		"tailwindcss": "^2.1.4",
 		"tslib": "^2.0.0",
 		"typescript": "^4.0.0"
