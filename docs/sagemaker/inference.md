@@ -279,7 +279,7 @@ After you train a model, you can use [Amazon SageMaker Batch Transform](https://
 
 >**The Hugging Face Inference DLC currently only supports `.jsonl` for batch transform, due to the complex structure of textual data.** 
 
-_**NOTE**: While preprocessing you need to make sure that your `inputs` fit the `max_length`of the model._
+_**NOTE**: While preprocessing, you need to make sure that your `inputs` fit the `max_length`of the model._
 
 If you trained the model using the `HuggingFace` estimator, you can invoke `transformer()` method to create a transform job for a model based on the training job.
 
