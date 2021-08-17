@@ -735,7 +735,7 @@ class Repository:
         """
         if auto_lfs_track:
             tracked_files = self.auto_track_large_files(pattern)
-            if len(tracked_files) > 0:
+            if tracked_files:
                 logger.warning(
                     f"Adding files tracked by Git LFS: {tracked_files}. This may take a bit of time if the files are large."
                 )
