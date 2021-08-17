@@ -275,7 +275,7 @@ predictor.delete_endpoint()
 
 - [Notebook Example](https://github.com/huggingface/notebooks/blob/master/sagemaker/12_batch_transform_inference/sagemaker-notebook.ipynb)
 
-After you train a model, you can use [Amazon SageMaker Batch Transform](https://docs.aws.amazon.com/sagemaker/latest/dg/how-it-works-batch.html) to perform inferences with the model. In Batch Transform you provide your inference data as a S3 uri and SageMaker will care of downloading it, running the prediction and uploading the results afterwards to S3 again. You can find more documentation for Batch Transform [here](https://docs.aws.amazon.com/sagemaker/latest/dg/batch-transform.html)
+After you train a model, you can use [Amazon SageMaker Batch Transform](https://docs.aws.amazon.com/sagemaker/latest/dg/how-it-works-batch.html) to perform inferences with the model. In Batch Transform you provide your inference data as an S3 URI and SageMaker will take care of downloading it, running the prediction, and uploading the results afterward to S3 again. You can find more documentation for Batch Transform [here](https://docs.aws.amazon.com/sagemaker/latest/dg/batch-transform.html)
 
 >**The Hugging Face Inference DLC currently only supports `.jsonl` for batch transform, due to the complext structure of textual data.** 
 
