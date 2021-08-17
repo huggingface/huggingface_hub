@@ -257,7 +257,7 @@ class RepositoryTest(RepositoryCommonTest):
 
     def test_clone_with_endpoint(self):
         clone = Repository(
-            REPO_NAME,
+            WORKING_REPO_DIR,
             clone_from=f"{ENDPOINT_STAGING}/valid_org/{REPO_NAME}",
             use_auth_token=self._token,
             git_user="ci",
@@ -286,7 +286,7 @@ class RepositoryTest(RepositoryCommonTest):
 
     def test_clone_with_repo_name_and_org(self):
         clone = Repository(
-            REPO_NAME,
+            WORKING_REPO_DIR,
             clone_from=f"valid_org/{REPO_NAME}",
             use_auth_token=self._token,
             git_user="ci",
@@ -315,7 +315,7 @@ class RepositoryTest(RepositoryCommonTest):
 
     def test_clone_with_repo_name_and_user_namespace(self):
         clone = Repository(
-            REPO_NAME,
+            WORKING_REPO_DIR,
             clone_from=f"{USER}/{REPO_NAME}",
             use_auth_token=self._token,
             git_user="ci",
@@ -425,7 +425,7 @@ class RepositoryTest(RepositoryCommonTest):
 
     def test_push_errors_on_wrong_checkout(self):
         repo = Repository(
-            REPO_NAME,
+            WORKING_REPO_DIR,
             clone_from=f"{USER}/{REPO_NAME}",
             use_auth_token=self._token,
             git_user="ci",
@@ -453,7 +453,7 @@ class RepositoryTest(RepositoryCommonTest):
 
     def test_commits_on_correct_branch(self):
         repo = Repository(
-            REPO_NAME,
+            WORKING_REPO_DIR,
             clone_from=f"{USER}/{REPO_NAME}",
             use_auth_token=self._token,
             git_user="ci",
@@ -492,7 +492,7 @@ class RepositoryTest(RepositoryCommonTest):
 
     def test_repo_checkout_push(self):
         repo = Repository(
-            REPO_NAME,
+            WORKING_REPO_DIR,
             clone_from=f"{USER}/{REPO_NAME}",
             use_auth_token=self._token,
             git_user="ci",
@@ -532,11 +532,12 @@ class RepositoryTest(RepositoryCommonTest):
 
     def test_repo_checkout_commit_context_manager(self):
         repo = Repository(
-            REPO_NAME,
+            WORKING_REPO_DIR,
             clone_from=f"{USER}/{REPO_NAME}",
             use_auth_token=self._token,
             git_user="ci",
             git_email="ci@dummy.com",
+            revision="main",
         )
 
         with repo.commit("Commit #1", branch="new-branch"):
