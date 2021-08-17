@@ -76,6 +76,11 @@ class RepositoryTest(RepositoryCommonTest):
 
     def tearDown(self):
         try:
+            self._api.delete_repo(token=self._token, name=f"{USER}/{REPO_NAME}")
+        except requests.exceptions.HTTPError:
+            pass
+
+        try:
             self._api.delete_repo(token=self._token, name=REPO_NAME)
         except requests.exceptions.HTTPError:
             pass
