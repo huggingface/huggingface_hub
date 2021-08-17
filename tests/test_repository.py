@@ -257,7 +257,7 @@ class RepositoryTest(RepositoryCommonTest):
 
     def test_clone_with_endpoint(self):
         clone = Repository(
-            WORKING_REPO_DIR,
+            f"{WORKING_REPO_DIR}/{REPO_NAME}",
             clone_from=f"{ENDPOINT_STAGING}/valid_org/{REPO_NAME}",
             use_auth_token=self._token,
             git_user="ci",
@@ -270,7 +270,7 @@ class RepositoryTest(RepositoryCommonTest):
             with open("model.bin", "w") as f:
                 f.write("hello")
 
-        shutil.rmtree(REPO_NAME)
+        shutil.rmtree(f"{WORKING_REPO_DIR}/{REPO_NAME}")
 
         Repository(
             f"{WORKING_REPO_DIR}/{REPO_NAME}",
@@ -286,7 +286,7 @@ class RepositoryTest(RepositoryCommonTest):
 
     def test_clone_with_repo_name_and_org(self):
         clone = Repository(
-            WORKING_REPO_DIR,
+            f"{WORKING_REPO_DIR}/{REPO_NAME}",
             clone_from=f"valid_org/{REPO_NAME}",
             use_auth_token=self._token,
             git_user="ci",
@@ -299,7 +299,7 @@ class RepositoryTest(RepositoryCommonTest):
             with open("model.bin", "w") as f:
                 f.write("hello")
 
-        shutil.rmtree(REPO_NAME)
+        shutil.rmtree(f"{WORKING_REPO_DIR}/{REPO_NAME}")
 
         Repository(
             f"{WORKING_REPO_DIR}/{REPO_NAME}",
@@ -315,7 +315,7 @@ class RepositoryTest(RepositoryCommonTest):
 
     def test_clone_with_repo_name_and_user_namespace(self):
         clone = Repository(
-            WORKING_REPO_DIR,
+            f"{WORKING_REPO_DIR}/{REPO_NAME}",
             clone_from=f"{USER}/{REPO_NAME}",
             use_auth_token=self._token,
             git_user="ci",
@@ -330,7 +330,7 @@ class RepositoryTest(RepositoryCommonTest):
             with open("model.bin", "w") as f:
                 f.write("hello")
 
-        shutil.rmtree(REPO_NAME)
+        shutil.rmtree(f"{WORKING_REPO_DIR}/{REPO_NAME}")
 
         Repository(
             f"{WORKING_REPO_DIR}/{REPO_NAME}",
