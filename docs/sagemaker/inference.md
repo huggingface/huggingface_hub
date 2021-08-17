@@ -277,7 +277,7 @@ predictor.delete_endpoint()
 
 After you train a model, you can use [Amazon SageMaker Batch Transform](https://docs.aws.amazon.com/sagemaker/latest/dg/how-it-works-batch.html) to perform inferences with the model. In Batch Transform you provide your inference data as an S3 URI and SageMaker will take care of downloading it, running the prediction, and uploading the results afterward to S3 again. You can find more documentation for Batch Transform [here](https://docs.aws.amazon.com/sagemaker/latest/dg/batch-transform.html)
 
->**The Hugging Face Inference DLC currently only supports `.jsonl` for batch transform, due to the complext structure of textual data.** 
+>**The Hugging Face Inference DLC currently only supports `.jsonl` for batch transform, due to the complex structure of textual data.** 
 
 _**NOTE**: While preprocessing you need to make sure that your `inputs` fit the `max_length`of the model._
 
