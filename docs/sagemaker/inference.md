@@ -331,7 +331,7 @@ batch_job.transform(
     split_type='Line')
 ```
 
-The `input.jsonl` looks like this.
+The `input.jsonl` looks like this:
 
 ```jsonl
 {"inputs":"this movie is terrible"}
