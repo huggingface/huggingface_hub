@@ -1,20 +1,23 @@
 from typing import Any, Dict, List
 
 from app.pipelines import Pipeline
+from transformers import AutoModelWithHeads, AutoTokenizer, get_adapter_info
+from transformers import TokenClassificationPipeline as TransformersTokenClassificationPipeline
 
 
 class TokenClassificationPipeline(Pipeline):
     def __init__(
         self,
-        model_id: str,
+        adapter_id: str,
     ):
-        # IMPLEMENT_THIS
-        # Preload all the elements you are going to need at inference.
-        # For instance your model, processors, tokenizer that might be needed.
-        # This function is only called once, so do all the heavy processing I/O here
-        raise NotImplementedError(
-            "Please implement TokenClassificationPipeline __init__ function"
-        )
+        adapter_info = get_adapter_info(adapter_id, source="hf")
+        if adapter_info is None:
+            raise ValueError(f"Adapter with id '{adapter_id}' not available.")
+
+        tokenizer = AutoTokenizer.from_pretrained(adapter_info.model_name)
+        model = AutoModelWithHeads.from_pretrained(adapter_info.model_name)
+        model.load_adapter(adapter_id, source="hf", set_active=True)
+        self.pipeline = TransformersTokenClassificationPipeline(model, tokenizer)
 
     def __call__(self, inputs: str) -> List[Dict[str, Any]]:
         """
@@ -29,7 +32,4 @@ class TokenClassificationPipeline(Pipeline):
                 - "end": the ending offset within `input` leading to `answer`. context[start:stop] === word
                 - "score": A score between 0 and 1 describing how confident the model is for this entity.
         """
-        # IMPLEMENT_THIS
-        raise NotImplementedError(
-            "Please implement TokenClassificationPipeline __call__ function"
-        )
+        self.pipeline(inputs)

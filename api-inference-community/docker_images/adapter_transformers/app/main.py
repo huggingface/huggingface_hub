@@ -4,7 +4,7 @@ import os
 from typing import Dict, Type
 
 from api_inference_community.routes import pipeline_route, status_ok
-from app.pipelines import Pipeline, QuestionAnsweringPipeline
+from app.pipelines import Pipeline, QuestionAnsweringPipeline, TextClassificationPipeline, TokenClassificationPipeline
 from starlette.applications import Starlette
 from starlette.middleware import Middleware
 from starlette.middleware.gzip import GZipMiddleware
@@ -34,6 +34,8 @@ logger = logging.getLogger(__name__)
 # directories. Implement directly within the directories.
 ALLOWED_TASKS: Dict[str, Type[Pipeline]] = {
     "question-answering": QuestionAnsweringPipeline,
+    "text-classification": TextClassificationPipeline,
+    "token-classification": TokenClassificationPipeline,
     # IMPLEMENT_THIS: Add your implemented tasks here !
 }
 
