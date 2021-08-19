@@ -58,8 +58,11 @@ const adapter_transformers = (model: ModelData) =>
 model = ${model.config?.adapter_transformers?.model_class}.from_pretrained("${model.config?.adapter_transformers?.model_name}")
 model.load_adapter("${model.modelId}", source="hf")`;
 
-const allennlpUnknown = () =>
-`unknown model type `
+const allennlpUnknown = (model: ModelData) =>
+`import allennlp_models
+from allennlp.predictors.predictor import Predictor
+
+predictor = Predictor.from_path("hf://${model.modelId}")`
 
 const allennlpQuestionAnswering = (model: ModelData) =>
 `import allennlp_models
@@ -73,7 +76,7 @@ const allennlp = (model: ModelData) => {
 	if (model.tags?.includes("question-answering")){
 		return allennlpQuestionAnswering(model);
 	}
-	return allennlpUnknown();
+	return allennlpUnknown(model);
 };
 
 const asteroid = (model: ModelData) =>
