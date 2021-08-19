@@ -22,7 +22,7 @@ class BatchTestCase(TestCase):
 
         token = os.getenv("API_TOKEN")
         batch(
-            dataset_name="Narsil/automatic_speech_recognition_dummy",
+            dataset_name="Narsil/asr_dummy",
             dataset_config="asr",
             dataset_split="test",
             dataset_column="file",
