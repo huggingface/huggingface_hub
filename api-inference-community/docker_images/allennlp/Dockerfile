@@ -7,6 +7,7 @@ LABEL maintainer="me <me@example.com>"
 COPY ./requirements.txt /app
 RUN pip install --no-cache-dir -r requirements.txt
 
+RUN pip install spacy && python -m spacy download en_core_web_sm
 COPY ./prestart.sh /app/
 
 
