@@ -24,7 +24,5 @@ jobs:
           pip install --upgrade pip
           pip install pytest pillow httpx
           pip install -e .
-      - run: RUN_DOCKER=1 pytest -sv tests/test_dockers.py::DockerImageTests::test_allennlp
+      - run: RUN_DOCKER_TESTS=1 pytest -sv tests/test_dockers.py::DockerImageTests::test_allennlp
         working-directory: api-inference-community
-        env:
-          RUN_DOCKER_TESTS: 1
