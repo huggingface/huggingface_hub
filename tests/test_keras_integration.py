@@ -305,9 +305,11 @@ def test_push_to_hub(model, hf_token):
         config={"num": 7, "act": "gelu_fast"},
     )
 
-    model_info = HfApi().model_info(
+    model_info = HfApi(endpoint=ENDPOINT_STAGING).model_info(
         f"{USER}/{REPO_NAME}-PUSH_TO_HUB",
     )
     assert model_info.modelId == f"{USER}/{REPO_NAME}-PUSH_TO_HUB"
 
-    HfApi().delete_repo(token=hf_token, name=f"{REPO_NAME}-PUSH_TO_HUB")
+    HfApi(endpoint=ENDPOINT_STAGING).delete_repo(
+        token=hf_token, name=f"{REPO_NAME}-PUSH_TO_HUB"
+    )
