@@ -183,6 +183,7 @@ def hf_token():
         pass
 
 
+@require_tf
 @pytest.mark.parametrize(
     "model",
     [
@@ -201,6 +202,7 @@ def test_save_pretrained(model, hf_token):
     assert len(files) == 4
 
 
+@require_tf
 @pytest.mark.parametrize(
     "model",
     [
@@ -227,6 +229,7 @@ def test_keras_from_pretrained_weights(model, hf_token):
     )
 
 
+@require_tf
 @pytest.mark.parametrize(
     "model",
     [
@@ -247,6 +250,7 @@ def test_rel_path_from_pretrained(model, hf_token):
     assert tf.reduce_all(tf.equal(new_model.weights[0], model.weights[0]))
 
 
+@require_tf
 @pytest.mark.parametrize(
     "model",
     [
@@ -265,6 +269,7 @@ def test_abs_path_from_pretrained(model, hf_token):
     assert tf.reduce_all(tf.equal(new_model.weights[0], model.weights[0]))
 
 
+@require_tf
 @pytest.mark.parametrize(
     "model",
     [
