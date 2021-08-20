@@ -198,7 +198,6 @@ def hf_token():
     ],
 )
 def test_save_pretrained(model, hf_token):
-    # model = dummy_model_sequential if model_type == 'sequential' else dummy_model_functional
     model.build((None, 2))
     save_pretrained_keras(model, f"{WORKING_REPO_DIR}/{REPO_NAME}")
     files = os.listdir(f"{WORKING_REPO_DIR}/{REPO_NAME}")
