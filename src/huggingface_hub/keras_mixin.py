@@ -3,10 +3,11 @@ import os
 from pathlib import Path
 from typing import Optional, Union
 
-from huggingface_hub.file_download import is_tf_available
-from huggingface_hub.snapshot_download import snapshot_download
 from huggingface_hub import ModelHubMixin, hf_hub_download
 from huggingface_hub.constants import HUGGINGFACE_HUB_CACHE
+from huggingface_hub.file_download import is_tf_available
+from huggingface_hub.snapshot_download import snapshot_download
+
 from .hf_api import HfApi, HfFolder
 from .repository import Repository
 
@@ -26,14 +27,16 @@ def save_pretrained_keras(model, save_dir):
 
 
 def from_pretrained_keras(model_name_or_path, revision=None, cache_dir=None, **kwargs):
-    """Function mimicing from_pretrained. Use this if you're using the Functional or Sequential APIs."""    
+    """Function mimicing from_pretrained. Use this if you're using the Functional or Sequential APIs."""
 
     # Root is either a local filepath matching model_id or a cached snapshot
-    storage_folder = snapshot_download(
-        repo_id=model_name_or_path,
-        revision=revision,
-        cache_dir=cache_dir
-    ) if not os.path.isdir(model_name_or_path) else model_name_or_path
+    storage_folder = (
+        snapshot_download(
+            repo_id=model_name_or_path, revision=revision, cache_dir=cache_dir
+        )
+        if not os.path.isdir(model_name_or_path)
+        else model_name_or_path
+    )
 
     return tf.keras.models.load_model(storage_folder, **kwargs)
 
@@ -52,9 +55,7 @@ def push_to_hub_keras(
     config: Optional[dict] = None,
 ):
     if repo_path_or_name is None and repo_url is None:
-        raise ValueError(
-            "You need to specify a `repo_path_or_name` or a `repo_url`."
-        )
+        raise ValueError("You need to specify a `repo_path_or_name` or a `repo_url`.")
 
     if use_auth_token is None and repo_url is None:
         token = HfFolder.get_token()
@@ -102,7 +103,6 @@ def push_to_hub_keras(
 
 
 class KerasModelHubMixin(ModelHubMixin):
-
     def __init__(self, *args, **kwargs):
         """
         Mix this class with your keras-model class for ease process of saving & loading from huggingface-hub
@@ -119,7 +119,7 @@ class KerasModelHubMixin(ModelHubMixin):
             ...        self.layer = ...
             ...    def call(self, ...)
             ...        return ...
-            
+
             >>> # Init and compile the model as you normally would
             >>> model = MyModel()
             >>> model.compile(...)
@@ -151,7 +151,15 @@ class KerasModelHubMixin(ModelHubMixin):
         **model_kwargs,
     ):
         """Here we just call from_pretrained_keras function so both the mixin and functional APIs stay in sync.
-        
+
         TODO - Some args above aren't used since we are calling snapshot_download instead of hf_hub_download.
         """
-        return from_pretrained_keras(model_id, revision, cache_dir, **model_kwargs)
+
+        # TODO - Figure out what to do about these config values. Config is not going to be needed to load model
+        cfg = model_kwargs.pop("config", None)
+
+        model = from_pretrained_keras(model_id, revision, cache_dir, **model_kwargs)
+
+        model.config = cfg
+
+        return model

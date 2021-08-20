@@ -75,27 +75,26 @@ class HubMixingTest(HubMixingCommonTest):
 
     def test_save_pretrained(self):
         model = DummyModel()
-
+        model(model.dummy_inputs)
         model.save_pretrained(f"{WORKING_REPO_DIR}/{REPO_NAME}")
         files = os.listdir(f"{WORKING_REPO_DIR}/{REPO_NAME}")
-        self.assertTrue("tf_model.h5" in files)
-        self.assertEqual(len(files), 1)
+        self.assertTrue("saved_model.pb" in files)
+        self.assertTrue("keras_metadata.pb" in files)
+        self.assertEqual(len(files), 4)
 
         model.save_pretrained(
             f"{WORKING_REPO_DIR}/{REPO_NAME}", config={"num": 12, "act": "gelu"}
         )
         files = os.listdir(f"{WORKING_REPO_DIR}/{REPO_NAME}")
         self.assertTrue("config.json" in files)
-        self.assertTrue("tf_model.h5" in files)
-        self.assertEqual(len(files), 2)
+        self.assertTrue("saved_model.pb" in files)
+        self.assertEqual(len(files), 5)
 
     def test_keras_from_pretrained_weights(self):
         model = DummyModel()
-        model.dummy_inputs = None
-        model.save_pretrained(
-            f"{WORKING_REPO_DIR}/{REPO_NAME}", dummy_inputs=tf.ones([2, 2])
-        )
-        assert model.built
+        model(model.dummy_inputs)
+
+        model.save_pretrained(f"{WORKING_REPO_DIR}/{REPO_NAME}")
         new_model = DummyModel.from_pretrained(f"{WORKING_REPO_DIR}/{REPO_NAME}")
 
         # Check the reloaded model's weights match the original model's weights
@@ -112,6 +111,7 @@ class HubMixingTest(HubMixingCommonTest):
 
     def test_rel_path_from_pretrained(self):
         model = DummyModel()
+        model(model.dummy_inputs)
         model.save_pretrained(
             f"tests/{WORKING_REPO_SUBDIR}/FROM_PRETRAINED",
             config={"num": 10, "act": "gelu_fast"},
@@ -124,6 +124,7 @@ class HubMixingTest(HubMixingCommonTest):
 
     def test_abs_path_from_pretrained(self):
         model = DummyModel()
+        model(model.dummy_inputs)
         model.save_pretrained(
             f"{WORKING_REPO_DIR}/{REPO_NAME}-FROM_PRETRAINED",
             config={"num": 10, "act": "gelu_fast"},
