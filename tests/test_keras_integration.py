@@ -190,14 +190,15 @@ def hf_token():
     "model",
     [
         pytest.param(
-            tf.keras.models.clone_model(dummy_model_sequential), id="sequential"
+            dummy_model_sequential, id="sequential"
         ),
         pytest.param(
-            tf.keras.models.clone_model(dummy_model_functional), id="functional"
+            dummy_model_functional, id="functional"
         ),
     ],
 )
 def test_save_pretrained(model, hf_token):
+    model = tf.keras.models.clone_model(model)
     model.build((None, 2))
     save_pretrained_keras(model, f"{WORKING_REPO_DIR}/{REPO_NAME}")
     files = os.listdir(f"{WORKING_REPO_DIR}/{REPO_NAME}")
@@ -212,14 +213,15 @@ def test_save_pretrained(model, hf_token):
     "model",
     [
         pytest.param(
-            tf.keras.models.clone_model(dummy_model_sequential), id="sequential"
+            dummy_model_sequential, id="sequential"
         ),
         pytest.param(
-            tf.keras.models.clone_model(dummy_model_functional), id="functional"
+            dummy_model_functional, id="functional"
         ),
     ],
 )
 def test_keras_from_pretrained_weights(model, hf_token):
+    model = tf.keras.models.clone_model(model)
     model.build((None, 2))
 
     save_pretrained_keras(model, f"{WORKING_REPO_DIR}/{REPO_NAME}")
@@ -243,14 +245,15 @@ def test_keras_from_pretrained_weights(model, hf_token):
     "model",
     [
         pytest.param(
-            tf.keras.models.clone_model(dummy_model_sequential), id="sequential"
+            dummy_model_sequential, id="sequential"
         ),
         pytest.param(
-            tf.keras.models.clone_model(dummy_model_functional), id="functional"
+            dummy_model_functional, id="functional"
         ),
     ],
 )
 def test_rel_path_from_pretrained(model, hf_token):
+    model = tf.keras.models.clone_model(model)
     model.build((None, 2))
     save_pretrained_keras(
         model,
@@ -268,14 +271,15 @@ def test_rel_path_from_pretrained(model, hf_token):
     "model",
     [
         pytest.param(
-            tf.keras.models.clone_model(dummy_model_sequential), id="sequential"
+            dummy_model_sequential, id="sequential"
         ),
         pytest.param(
-            tf.keras.models.clone_model(dummy_model_functional), id="functional"
+            dummy_model_functional, id="functional"
         ),
     ],
 )
 def test_abs_path_from_pretrained(model, hf_token):
+    model = tf.keras.models.clone_model(model)
     model.build((None, 2))
     save_pretrained_keras(
         model,
@@ -291,15 +295,15 @@ def test_abs_path_from_pretrained(model, hf_token):
     "model",
     [
         pytest.param(
-            tf.keras.models.clone_model(dummy_model_sequential), id="sequential"
+            dummy_model_sequential, id="sequential"
         ),
         pytest.param(
-            tf.keras.models.clone_model(dummy_model_functional), id="functional"
+            dummy_model_functional, id="functional"
         ),
     ],
 )
 def test_push_to_hub(model, hf_token):
-
+    model = tf.keras.models.clone_model(model)
     model.build((None, 2))
     push_to_hub_keras(
         model,
