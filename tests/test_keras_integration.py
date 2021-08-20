@@ -189,12 +189,8 @@ def hf_token():
 @pytest.mark.parametrize(
     "model",
     [
-        pytest.param(
-            dummy_model_sequential, id="sequential"
-        ),
-        pytest.param(
-            dummy_model_functional, id="functional"
-        ),
+        pytest.param(dummy_model_sequential, id="sequential"),
+        pytest.param(dummy_model_functional, id="functional"),
     ],
 )
 def test_save_pretrained(model, hf_token):
@@ -212,12 +208,8 @@ def test_save_pretrained(model, hf_token):
 @pytest.mark.parametrize(
     "model",
     [
-        pytest.param(
-            dummy_model_sequential, id="sequential"
-        ),
-        pytest.param(
-            dummy_model_functional, id="functional"
-        ),
+        pytest.param(dummy_model_sequential, id="sequential"),
+        pytest.param(dummy_model_functional, id="functional"),
     ],
 )
 def test_keras_from_pretrained_weights(model, hf_token):
@@ -244,12 +236,8 @@ def test_keras_from_pretrained_weights(model, hf_token):
 @pytest.mark.parametrize(
     "model",
     [
-        pytest.param(
-            dummy_model_sequential, id="sequential"
-        ),
-        pytest.param(
-            dummy_model_functional, id="functional"
-        ),
+        pytest.param(dummy_model_sequential, id="sequential"),
+        pytest.param(dummy_model_functional, id="functional"),
     ],
 )
 def test_rel_path_from_pretrained(model, hf_token):
@@ -270,12 +258,8 @@ def test_rel_path_from_pretrained(model, hf_token):
 @pytest.mark.parametrize(
     "model",
     [
-        pytest.param(
-            dummy_model_sequential, id="sequential"
-        ),
-        pytest.param(
-            dummy_model_functional, id="functional"
-        ),
+        pytest.param(dummy_model_sequential, id="sequential"),
+        pytest.param(dummy_model_functional, id="functional"),
     ],
 )
 def test_abs_path_from_pretrained(model, hf_token):
@@ -294,12 +278,8 @@ def test_abs_path_from_pretrained(model, hf_token):
 @pytest.mark.parametrize(
     "model",
     [
-        pytest.param(
-            dummy_model_sequential, id="sequential"
-        ),
-        pytest.param(
-            dummy_model_functional, id="functional"
-        ),
+        pytest.param(dummy_model_sequential, id="sequential"),
+        pytest.param(dummy_model_functional, id="functional"),
     ],
 )
 def test_push_to_hub(model, hf_token):
