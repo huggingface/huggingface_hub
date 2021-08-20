@@ -3,8 +3,7 @@ import os
 from pathlib import Path
 from typing import Optional, Union
 
-from huggingface_hub import ModelHubMixin, hf_hub_download
-from huggingface_hub.constants import HUGGINGFACE_HUB_CACHE
+from huggingface_hub import ModelHubMixin
 from huggingface_hub.file_download import is_tf_available
 from huggingface_hub.snapshot_download import snapshot_download
 
