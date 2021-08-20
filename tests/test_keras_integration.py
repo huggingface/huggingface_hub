@@ -69,6 +69,9 @@ if is_tf_available():
 
 else:
     DummyModel = None
+    dummy_model_sequential = None
+    dummy_model_functional = None
+
 
 
 @require_tf
