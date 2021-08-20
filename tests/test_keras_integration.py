@@ -195,7 +195,17 @@ def hf_token():
 )
 def test_save_pretrained(model, hf_token):
     model = tf.keras.models.clone_model(model)
+
+    # Here we make sure saving doesn't work for Sequential API if it hasn't been built yet.
+    # NOTE - Functional API comes built as we passed inputs on init, so this just runs for dummy_model_sequential.
+    if not model.built:
+        with pytest.raises(ValueError, match="Model should be built*"):
+            save_pretrained_keras(model, f"{WORKING_REPO_DIR}/{REPO_NAME}")
+
+    # Builds the sequential model.
+    # NOTE - For functional model, this won't do anything since it's already built.
     model.build((None, 2))
+
     save_pretrained_keras(model, f"{WORKING_REPO_DIR}/{REPO_NAME}")
     files = os.listdir(f"{WORKING_REPO_DIR}/{REPO_NAME}")
 
