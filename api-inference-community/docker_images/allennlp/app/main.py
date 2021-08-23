@@ -11,6 +11,10 @@ from starlette.middleware.gzip import GZipMiddleware
 from starlette.routing import Route
 
 
+TASK = os.getenv("TASK")
+MODEL_ID = os.getenv("MODEL_ID")
+
+
 logger = logging.getLogger(__name__)
 
 
