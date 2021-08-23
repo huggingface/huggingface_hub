@@ -291,7 +291,6 @@ class DockerImageTests(unittest.TestCase):
                     time.sleep(1)
             self.assertEqual(response.content, b'{"ok":"ok"}')
 
-            """
             response = httpx.post(url, data=b"This is a test", timeout=timeout)
             print(response.content)
             self.assertIn(response.status_code, {200, 400})
@@ -304,7 +303,7 @@ class DockerImageTests(unittest.TestCase):
             )
             self.assertIn(response.status_code, {200, 400})
             counter[response.status_code] += 1
-            """
+
             response = httpx.post(
                 url,
                 json={
@@ -314,7 +313,7 @@ class DockerImageTests(unittest.TestCase):
             )
             self.assertIn(response.status_code, {200, 400})
             counter[response.status_code] += 1
-            """
+
             response = httpx.post(
                 url,
                 json={
@@ -416,7 +415,7 @@ class DockerImageTests(unittest.TestCase):
             response = httpx.post(url, data=data, timeout=timeout)
             self.assertIn(response.status_code, {200, 400})
             counter[response.status_code] += 1
-            """
+
             proc.terminate()
             proc.wait(20)
 
@@ -439,4 +438,3 @@ class DockerImageTests(unittest.TestCase):
             proc2.terminate()
             proc2.wait(20)
         self.assertEqual(proc2.returncode, 0)
-        
