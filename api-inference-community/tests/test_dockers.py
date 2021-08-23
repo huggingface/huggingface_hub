@@ -281,7 +281,6 @@ class DockerImageTests(unittest.TestCase):
         url = "http://localhost:8000"
         timeout = 60
         counter = Counter()
-
         with DockerPopen(run_docker_command) as proc:
             for i in range(400):
                 try:
@@ -425,10 +424,10 @@ class DockerImageTests(unittest.TestCase):
             0,
             f"At least one request should have gone through {framework}, {task}, {model_id}",
         )
-        print("TRY RETRY")
+
         # Follow up loading are much faster, 20s should be ok.
         with DockerPopen(run_docker_command) as proc2:
-            for i in range(200):
+            for i in range(20):
                 try:
                     response2 = httpx.get(url, timeout=10)
                     break
