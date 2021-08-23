@@ -429,11 +429,11 @@ class DockerImageTests(unittest.TestCase):
         with DockerPopen(run_docker_command) as proc2:
             for i in range(20):
                 try:
-                    response = httpx.get(url, timeout=10)
+                    response2 = httpx.get(url, timeout=10)
                     break
                 except Exception:
                     time.sleep(1)
-            self.assertEqual(response.content, b'{"ok":"ok"}')
+            self.assertEqual(response2.content, b'{"ok":"ok"}')
             proc2.terminate()
             proc2.wait(20)
         self.assertEqual(proc2.returncode, 0)

@@ -2,8 +2,10 @@ from typing import TYPE_CHECKING
 
 from app.pipelines import Pipeline
 
+
 if TYPE_CHECKING:
     from PIL import Image
+
 
 class TextToImagePipeline(Pipeline):
     def __init__(self, model_id: str):
