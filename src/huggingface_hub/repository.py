@@ -71,7 +71,7 @@ def is_tracked_with_lfs(filename: Union[str, Path]) -> bool:
         )
         attributes = p.stdout.strip()
     except subprocess.CalledProcessError as exc:
-        if "not a git repository" in exc.stderr:
+        if not is_git_repo(folder):
             return False
         else:
             raise OSError(exc.stderr)
