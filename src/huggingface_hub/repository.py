@@ -1,4 +1,3 @@
-import logging
 import os
 import re
 import subprocess
@@ -15,9 +14,10 @@ from huggingface_hub.constants import REPO_TYPES_URL_PREFIXES
 
 from .hf_api import ENDPOINT, HfApi, HfFolder, repo_type_and_id_from_hf_id
 from .lfs import LFS_MULTIPART_UPLOAD_COMMAND
+from .utils import logging
 
 
-logger = logging.getLogger(__name__)
+logger = logging.get_logger(__name__)
 
 
 def is_git_repo(folder: Union[str, Path]) -> bool:
@@ -313,9 +313,6 @@ class Repository:
             if is_git_repo(self.local_dir):
                 logger.debug("[Repository] is a valid git repo")
             else:
-                logger.error(
-                    "If not specifying `clone_from`, you need to pass Repository a valid git clone."
-                )
                 raise ValueError(
                     "If not specifying `clone_from`, you need to pass Repository a valid git clone."
                 )
@@ -468,7 +465,7 @@ class Repository:
 
                 if in_repository:
                     if is_local_clone(self.local_dir, repo_url):
-                        logger.debug(
+                        logger.warning(
                             f"{self.local_dir} is already a clone of {clean_repo_url}. Make sure you pull the latest"
                             "changes with `repo.git_pull()`."
                         )

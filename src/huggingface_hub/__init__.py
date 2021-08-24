@@ -35,3 +35,4 @@ from .hub_mixin import ModelHubMixin, PyTorchModelHubMixin
 from .inference_api import InferenceApi
 from .repository import Repository
 from .snapshot_download import snapshot_download
+from .utils import logging
