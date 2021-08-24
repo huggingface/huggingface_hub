@@ -232,6 +232,7 @@ def lfs_log_progress():
 
     with tempfile.TemporaryDirectory() as tmpdir:
         os.environ["GIT_LFS_PROGRESS"] = os.path.join(tmpdir, "lfs_progress")
+        logger.debug(f"Following progress in {os.environ['GIT_LFS_PROGRESS']}")
 
         exit_event = threading.Event()
         x = threading.Thread(target=output_progress, args=(exit_event,), daemon=True)
