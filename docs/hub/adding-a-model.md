@@ -10,7 +10,7 @@ Uploading models to the Hugging Face Hub has many [benefits](https://huggingface
 
 ## Accounts and organizations
 
-The first step is to create an account at [Hugging Face](https://huggingface.co/login). The models are shared in the form of git-based repositories. You have control over your repository, so you can have checkpoints, configs and any files you might want to upload.
+The first step is to create an account at [Hugging Face](https://huggingface.co/login). The models are shared in the form of Git-based repositories. You have control over your repository, so you can have checkpoints, configs and any files you might want to upload.
 
 The repository can be either linked with an individual, such as [osanseviero/fashion_brands_patterns](https://huggingface.co/osanseviero/fashion_brands_patterns) or with an organization, such as [facebook/bart-large-xsum](https://huggingface.co/facebook/bart-large-xsum). Organizations can be used if you want to upload models that are related to a company, community or library! If you choose an organization, the model will be featured on the organization’s page and every member of the organization will have the ability to contribute to the repository. You can create a new organization [here](https://huggingface.co/organizations/new).
 

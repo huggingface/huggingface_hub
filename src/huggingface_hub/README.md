@@ -16,7 +16,7 @@ Parameters:
 - a repo id (e.g. a model id like `julien-c/EsperBERTo-small` i.e. a user or
   organization name and a repo name, separated by `/`)
 - a filename (like `pytorch_model.bin`)
-- an optional git revision id (can be a branch name, a tag, or a commit hash)
+- an optional Git revision id (can be a branch name, a tag, or a commit hash)
 
 If you check out this URL's headers with a `HEAD` http request (which you can do
 from the command line with `curl -I`) for a few different files, you'll see
@@ -57,7 +57,7 @@ Parameters:
 - a repo id (e.g. a model id like `julien-c/EsperBERTo-small` i.e. a user or
   organization name and a repo name, separated by `/`)
 - a filename (like `pytorch_model.bin`)
-- an optional git revision id (can be a branch name, a tag, or a commit hash)
+- an optional Git revision id (can be a branch name, a tag, or a commit hash)
 - a `cache_dir` which you can specify if you want to control where on disk the
   files are cached.
 
@@ -123,7 +123,7 @@ The `Repository` class helps manage both offline Git repositories and Hugging
 Face Hub repositories. Using the `Repository` class requires `git` and `git-lfs`
 to be installed.
 
-Instantiate a `Repository` object by calling it with a path to a local git
+Instantiate a `Repository` object by calling it with a path to a local Git
 clone/repository:
 
 ```python
@@ -132,7 +132,7 @@ clone/repository:
 ```
 
 The `Repository` takes a `clone_from` string as parameter. This can stay as
-`None` for offline management, but can also be set to any URL pointing to a git
+`None` for offline management, but can also be set to any URL pointing to a Git
 repo to clone that repository in the specified directory:
 
 ```python
@@ -177,9 +177,9 @@ will clone that repository:
 >>> repo = Repository("w2v2", clone_from="facebook/wav2vec2-large-960h-lv60")
 ```
 
-Finally, you can choose to specify the git username and email attributed to that
+Finally, you can choose to specify the Git username and email attributed to that
 clone directly by using the `git_user` and `git_email` parameters. When
-committing to that repository, git will therefore be aware of who you are and
+committing to that repository, Git will therefore be aware of who you are and
 who will be the author of the commits:
 
 ```python
@@ -194,7 +194,7 @@ who will be the author of the commits:
 ```
 
 The repository can be managed through this object, through wrappers of
-traditional git methods:
+traditional Git methods:
 
 - `git_add(pattern: str, auto_lfs_track: bool)`. The `auto_lfs_track` flag
   triggers auto tracking of large files (>10MB) with `git-lfs`
@@ -218,7 +218,7 @@ On top of these unitary methods lie some useful additional methods:
   `git_push`.
 - `commit(commit_message: str, track_large_files: bool)`: this is a context
   manager utility that handles committing to a repository. This automatically
-  tracks large files (>10Mb) with git-lfs. The `track_large_files` argument can
+  tracks large files (>10Mb) with `git-lfs`. The `track_large_files` argument can
   be set to `False` if you wish to ignore that behavior.
 
 
@@ -228,7 +228,8 @@ Examples using the `commit` context manager:
 ...     with open("file.txt", "w+") as f:
 ...         f.write(json.dumps({"hey": 8}))
 ```
-```pythonŒ
+
+```python
 >>> import torch
 >>> model = torch.nn.Transformer()
 >>> with Repository("torch-model", clone_from="<user>/torch-model", use_auth_token=True).commit("My cool model :)"):
