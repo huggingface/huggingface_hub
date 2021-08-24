@@ -137,6 +137,10 @@
 			widgetData: [{ text: "Hey my name is Julien! How are you?" }],
 		},
 		{
+			modelId: "osanseviero/BigGAN-deep-128",
+			pipeline_tag: "text-to-image",
+		},
+		{
 			modelId: "julien-c/kan-bayashi_csmsc_tacotron2",
 			pipeline_tag: "text-to-speech",
 			widgetData: [{ text: "请您说得慢些好吗" }],

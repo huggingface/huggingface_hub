@@ -22,11 +22,11 @@ huggingface_model = HuggingFaceModel(...).deploy()
   - [Deploy the model directly after training](#deploy-the-model-directly-after-training)
   - [Deploy the model using `model_data`](#deploy-the-model-using-model_data)
 - [Deploy for inference one of the 10,000+ 🤗 Transformers models available in the 🤗 Hub](#deploy-for-inference-one-of-the-10000-%F0%9F%A4%97-transformers-models-available-in-the-%F0%9F%A4%97-hub)
+- [Run a Batch Transform Job using 🤗 Transformers and Amazon SageMaker](#run-a-batch-transform-job-using-🤗-transformers-and-amazon-sagemaker)
 - [Advanced Features](#advanced-features)
   - [Environment variables](#environment-variables)
   - [Creating a Model artifact model.tar.gz for deployment](#creating-a-model-artifact-modeltargz-for-deployment)
   - [User defined code/modules](#user-defined-codemodules)
-  - [Batch transform](#batch-transform)
 - [Additional Resources](#additional-resources)
 
 
@@ -135,7 +135,7 @@ sess = sagemaker.Session()
 
 There are two ways to deploy your Hugging Face model trained in SageMaker. You can either deploy it after your training is finished, or you can deploy it later, using the `model_data` pointing to your saved model on S3.
 
-- [Deploy a Hugging Face Transformer model from S3 to SageMaker for inference](https://github.com/huggingface/notebooks/blob/master/sagemaker/10_deploy_model_from_s3/deploy_transformer_model_from_s3.ipynb)
+- [Notebook Example](https://github.com/huggingface/notebooks/blob/master/sagemaker/10_deploy_model_from_s3/deploy_transformer_model_from_s3.ipynb)
 
 
 ### Deploy the model directly after training
@@ -216,7 +216,7 @@ predictor.delete_endpoint()
 
 <iframe width="700" height="394" src="https://www.youtube.com/embed/l9QZuazbzWM" title="YouTube video player" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>
 
-- [Deploy one of the 10 000+ Hugging Face Transformers to Amazon SageMaker for Inference](https://github.com/huggingface/notebooks/blob/master/sagemaker/11_deploy_model_from_hf_hub/deploy_transformer_model_from_hf_hub.ipynb)
+- [Notebook Example](https://github.com/huggingface/notebooks/blob/master/sagemaker/11_deploy_model_from_hf_hub/deploy_transformer_model_from_hf_hub.ipynb)
 
 To deploy a model directly from the 🤗 Hub to SageMaker, we need to define 2 environment variables when creating the HuggingFaceModel. We need to define:
 
@@ -264,6 +264,82 @@ After we run our request, we can delete the endpoint again with.
 ```python
 # delete endpoint
 predictor.delete_endpoint()
+```
+
+---
+
+
+## Run a Batch Transform Job using 🤗 Transformers and Amazon SageMaker
+
+<iframe width="700" height="394" src="https://www.youtube.com/embed/lnTixz0tUBg" title="YouTube video player" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>
+
+- [Notebook Example](https://github.com/huggingface/notebooks/blob/master/sagemaker/12_batch_transform_inference/sagemaker-notebook.ipynb)
+
+After you train a model, you can use [Amazon SageMaker Batch Transform](https://docs.aws.amazon.com/sagemaker/latest/dg/how-it-works-batch.html) to perform inferences with the model. In Batch Transform you provide your inference data as an S3 URI and SageMaker will take care of downloading it, running the prediction, and uploading the results afterward to S3 again. You can find more documentation for Batch Transform [here](https://docs.aws.amazon.com/sagemaker/latest/dg/batch-transform.html)
+
+>**The Hugging Face Inference DLC currently only supports `.jsonl` for batch transform, due to the complex structure of textual data.** 
+
+_**NOTE**: While preprocessing, you need to make sure that your `inputs` fit the `max_length`of the model._
+
+If you trained the model using the `HuggingFace` estimator, you can invoke `transformer()` method to create a transform job for a model based on the training job.
+
+```python
+batch_job = huggingface_estimator.transformer(
+    instance_count=1,
+    instance_type='ml.p3.2xlarge',
+    strategy='SingleRecord')
+
+
+batch_job.transform(
+    data='s3://s3-uri-to-batch-data',
+    content_type='application/json',    
+    split_type='Line')
+```
+
+For more details about what can be specified here, see [API docs](https://sagemaker.readthedocs.io/en/stable/overview.html#sagemaker-batch-transform).
+
+If you want to run your Batch Transform Job later or with a model from hf.co/models you can do this by creating a `HuggingFaceModel` instance and then using the `transformer()` method.
+
+```python
+from sagemaker.huggingface.model import HuggingFaceModel
+
+# Hub Model configuration. <https://huggingface.co/models>
+hub = {
+	'HF_MODEL_ID':'distilbert-base-uncased-finetuned-sst-2-english',
+	'HF_TASK':'text-classification'
+}
+
+# create Hugging Face Model Class
+huggingface_model = HuggingFaceModel(
+   env=hub, # configuration for loading model from Hub
+   role=role, # iam role with permissions to create an Endpoint
+   transformers_version="4.6", # transformers version used
+   pytorch_version="1.7", # pytorch version used
+       py_version='py36', # python version used
+)
+
+# create Transformer to run our batch job
+batch_job = huggingface_model.transformer(
+    instance_count=1,
+    instance_type='ml.p3.2xlarge',
+    strategy='SingleRecord')
+
+# starts batch transform job and uses s3 data as input
+batch_job.transform(
+    data='s3://sagemaker-s3-demo-test/samples/input.jsonl',
+    content_type='application/json',    
+    split_type='Line')
+```
+
+The `input.jsonl` looks like this:
+
+```jsonl
+{"inputs":"this movie is terrible"}
+{"inputs":"this movie is amazing"}
+{"inputs":"SageMaker is pretty cool"}
+{"inputs":"SageMaker is pretty cool"}
+{"inputs":"this movie is terrible"}
+{"inputs":"this movie is amazing"}
 ```
 
 ---
@@ -399,72 +475,6 @@ def model_fn(model_dir):
 
 def transform_fn(model, input_data, content_type, accept):
     return f"output"
-```
-
-
-### Batch Transform
-
-After you train a model, you can use [Amazon SageMaker Batch Transform](https://docs.aws.amazon.com/sagemaker/latest/dg/how-it-works-batch.html) to perform inferences with the model. In Batch Transform you provide your inference data as a S3 uri and SageMaker will care of downloading it, running the prediction and uploading the results afterwards to S3 again. You can find more documentation for Batch Transform [here](https://docs.aws.amazon.com/sagemaker/latest/dg/batch-transform.html)
-
-If you trained the model using the `HuggingFace` estimator, you can invoke `transformer()` method to create a transform job for a model based on the training job.
-
-```python
-batch_job = huggingface_estimator.transformer(
-    instance_count=1,
-    instance_type='ml.c5.2xlarge',
-    strategy='SingleRecord')
-
-
-batch_job.transform(
-    data='s3://s3-uri-to-batch-data',
-    content_type='application/json',    
-    split_type='Line')
-```
-
-For more details about what can be specified here, see [API docs](https://sagemaker.readthedocs.io/en/stable/overview.html#sagemaker-batch-transform).
-
-If you want to run your Batch Transform Job later or with a model from hf.co/models you can do this by creating a `HuggingFaceModel` instance and then using the `transformer()` method.
-
-```python
-from sagemaker.huggingface.model import HuggingFaceModel
-
-# Hub Model configuration. <https://huggingface.co/models>
-hub = {
-	'HF_MODEL_ID':'distilbert-base-uncased-finetuned-sst-2-english',
-	'HF_TASK':'text-classification'
-}
-
-# create Hugging Face Model Class
-huggingface_model = HuggingFaceModel(
-   env=hub, # configuration for loading model from Hub
-   role=role, # iam role with permissions to create an Endpoint
-   transformers_version="4.6", # transformers version used
-   pytorch_version="1.7", # pytorch version used
-       py_version='py36', # python version used
-)
-
-# create Transformer to run our batch job
-batch_job = huggingface_model.transformer(
-    instance_count=1,
-    instance_type='ml.c5.2xlarge',
-    strategy='SingleRecord')
-
-# starts batch transform job and uses s3 data as input
-batch_job.transform(
-    data='s3://sagemaker-s3-demo-test/samples/input.jsonl',
-    content_type='application/json',    
-    split_type='Line')
-```
-
-The `input.jsonl` looks like this.
-
-```jsonl
-{"inputs":"this movie is terrible"}
-{"inputs":"this movie is amazing"}
-{"inputs":"SageMaker is pretty cool"}
-{"inputs":"SageMaker is pretty cool"}
-{"inputs":"this movie is terrible"}
-{"inputs":"this movie is amazing"}
 ```
 
 

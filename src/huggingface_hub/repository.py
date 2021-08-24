@@ -112,6 +112,48 @@ def is_git_ignored(filename: Union[str, Path]) -> bool:
     return is_ignored
 
 
+def files_to_be_staged(pattern: str, folder: Union[str, Path]) -> List[str]:
+    try:
+        p = subprocess.run(
+            ["git", "ls-files", "-mo", pattern],
+            stderr=subprocess.PIPE,
+            stdout=subprocess.PIPE,
+            check=True,
+            encoding="utf-8",
+            cwd=folder,
+        )
+        if len(p.stdout.strip()):
+            files = p.stdout.strip().split("\n")
+        else:
+            files = []
+    except subprocess.CalledProcessError as exc:
+        raise EnvironmentError(exc.stderr)
+
+    return files
+
+
+def is_tracked_upstream(folder: Union[str, Path]) -> bool:
+    """
+    Check if the current checked-out branch is tracked upstream.
+    """
+    try:
+        command = "git rev-parse --symbolic-full-name --abbrev-ref @{u}"
+        subprocess.run(
+            command.split(),
+            stderr=subprocess.PIPE,
+            stdout=subprocess.PIPE,
+            encoding="utf-8",
+            check=True,
+            cwd=folder,
+        )
+        return True
+    except subprocess.CalledProcessError as exc:
+        if "HEAD" in exc.stderr:
+            raise OSError("No branch checked out")
+
+        return False
+
+
 @contextmanager
 def lfs_log_progress():
     """
@@ -156,7 +198,7 @@ def lfs_log_progress():
         while not os.path.exists(os.environ["GIT_LFS_PROGRESS"]):
             if stopping_event.is_set():
                 close_pbars()
-                break
+                return
 
             time.sleep(2)
 
@@ -178,7 +220,6 @@ def lfs_log_progress():
                         unit="B",
                         unit_scale=True,
                         unit_divisor=1024,
-                        disable=logger.getEffectiveLevel() > logging.WARN,
                     ),
                     "past_bytes": current_bytes,
                 }
@@ -190,7 +231,7 @@ def lfs_log_progress():
     current_lfs_progress_value = os.environ.get("GIT_LFS_PROGRESS", "")
 
     with tempfile.TemporaryDirectory() as tmpdir:
-        os.environ["GIT_LFS_PROGRESS"] = tmpdir + "/lfs_progress"
+        os.environ["GIT_LFS_PROGRESS"] = os.path.join(tmpdir, "lfs_progress")
 
         exit_event = threading.Event()
         x = threading.Thread(target=output_progress, args=(exit_event,), daemon=True)
@@ -221,6 +262,7 @@ class Repository:
         use_auth_token: Union[bool, str] = True,
         git_user: Optional[str] = None,
         git_email: Optional[str] = None,
+        revision: Optional[str] = None,
     ):
         """
         Instantiate a local clone of a git repo.
@@ -243,10 +285,13 @@ class Repository:
             use_auth_token (``str`` or ``bool``, `optional`, defaults ``None``):
                 huggingface_token can be extract from ``HfApi().login(username, password)`` and is used to authenticate against the hub
                 (useful from Google Colab for instance).
-            git_user (``str``, `optional`, defaults ``None``):
+            git_user (``str``, `optional`):
                 will override the ``git config user.name`` for committing and pushing files to the hub.
-            git_email (``str``, `optional`, defaults ``None``):
+            git_email (``str``, `optional`):
                 will override the ``git config user.email`` for committing and pushing files to the hub.
+            revision (``str``, `optional`):
+                Revision to checkout after initializing the repository. If the revision doesn't exist, a
+                branch will be created with that revision name from the default branch's current HEAD.
         """
 
         os.makedirs(local_dir, exist_ok=True)
@@ -272,11 +317,45 @@ class Repository:
                     "If not specifying `clone_from`, you need to pass Repository a valid git clone."
                 )
 
-        # overrides .git config if user and email is provided.
+        if self.huggingface_token is not None and (
+            git_email is None or git_user is None
+        ):
+            user = HfApi().whoami(self.huggingface_token)
+
+            if git_email is None:
+                git_email = user["email"]
+
+            if git_user is None:
+                git_user = user["fullname"]
+
         if git_user is not None or git_email is not None:
             self.git_config_username_and_email(git_user, git_email)
 
         self.lfs_enable_largefiles()
+        self.git_credential_helper_store()
+
+        if revision is not None:
+            self.git_checkout(revision, create_branch_ok=True)
+
+    @property
+    def current_branch(self):
+        """
+        Returns the current checked out branch.
+        """
+        command = "git rev-parse --abbrev-ref HEAD"
+        try:
+            result = subprocess.run(
+                command.split(),
+                stderr=subprocess.PIPE,
+                stdout=subprocess.PIPE,
+                check=True,
+                encoding="utf-8",
+                cwd=self.local_dir,
+            ).stdout.strip()
+        except subprocess.CalledProcessError as exc:
+            raise EnvironmentError(exc.stderr)
+
+        return result
 
     def check_git_versions(self):
         """
@@ -370,7 +449,7 @@ class Repository:
 
             # checks if repository is initialized in a empty repository or in one with files
             if len(os.listdir(self.local_dir)) == 0:
-                logger.error(f"Cloning {clean_repo_url} into local empty directory.")
+                logger.warning(f"Cloning {clean_repo_url} into local empty directory.")
                 with lfs_log_progress():
                     subprocess.run(
                         f"git lfs clone {repo_url} .".split(),
@@ -447,6 +526,22 @@ class Repository:
                     encoding="utf-8",
                     cwd=self.local_dir,
                 )
+        except subprocess.CalledProcessError as exc:
+            raise EnvironmentError(exc.stderr)
+
+    def git_credential_helper_store(self):
+        """
+        sets the git credential helper to `store`
+        """
+        try:
+            subprocess.run(
+                ["git", "config", "credential.helper", "store"],
+                stderr=subprocess.PIPE,
+                stdout=subprocess.PIPE,
+                check=True,
+                encoding="utf-8",
+                cwd=self.local_dir,
+            )
         except subprocess.CalledProcessError as exc:
             raise EnvironmentError(exc.stderr)
 
@@ -610,22 +705,11 @@ class Repository:
         """
         Automatically track large files with git-lfs
         """
-        try:
-            p = subprocess.run(
-                ["git", "ls-files", "-mo", pattern],
-                stderr=subprocess.PIPE,
-                stdout=subprocess.PIPE,
-                check=True,
-                encoding="utf-8",
-                cwd=self.local_dir,
-            )
-            files_to_be_staged = p.stdout.strip().split("\n")
-        except subprocess.CalledProcessError as exc:
-            raise EnvironmentError(exc.stderr)
+        files_to_be_tracked_with_lfs = []
 
         deleted_files = self.list_deleted_files()
 
-        for filename in files_to_be_staged:
+        for filename in files_to_be_staged(pattern, folder=self.local_dir):
             if filename in deleted_files:
                 continue
 
@@ -638,11 +722,12 @@ class Repository:
                 and not is_git_ignored(path_to_file)
             ):
                 self.lfs_track(filename)
+                files_to_be_tracked_with_lfs.append(filename)
 
         # Cleanup the .gitattributes if files were deleted
         self.lfs_untrack(deleted_files)
 
-        return files_to_be_staged
+        return files_to_be_tracked_with_lfs
 
     def git_pull(self, rebase: Optional[bool] = False):
         """
@@ -653,12 +738,15 @@ class Repository:
             args.append("--rebase")
         try:
             with lfs_log_progress():
-                subprocess.run(
+                result = subprocess.run(
                     args,
+                    stderr=subprocess.PIPE,
+                    stdout=subprocess.PIPE,
                     check=True,
                     encoding="utf-8",
                     cwd=self.local_dir,
                 )
+                logger.info(result.stdout)
         except subprocess.CalledProcessError as exc:
             raise EnvironmentError(exc.stderr)
 
@@ -671,20 +759,21 @@ class Repository:
         """
         if auto_lfs_track:
             tracked_files = self.auto_track_large_files(pattern)
-            if len(tracked_files) > 0:
+            if tracked_files:
                 logger.warning(
-                    "Adding files tracked by Git LFS. This may take a bit of time if the files are large."
+                    f"Adding files tracked by Git LFS: {tracked_files}. This may take a bit of time if the files are large."
                 )
 
         try:
-            subprocess.run(
-                ["git", "add", pattern],
+            result = subprocess.run(
+                ["git", "add", "-v", pattern],
                 stderr=subprocess.PIPE,
                 stdout=subprocess.PIPE,
                 check=True,
                 encoding="utf-8",
                 cwd=self.local_dir,
             )
+            logger.info(f"Adding to index:\n{result.stdout}\n")
         except subprocess.CalledProcessError as exc:
             raise EnvironmentError(exc.stderr)
 
@@ -693,30 +782,36 @@ class Repository:
         git commit
         """
         try:
-            subprocess.run(
-                ["git", "commit", "-m", commit_message],
+            result = subprocess.run(
+                ["git", "commit", "-m", commit_message, "-v"],
                 stderr=subprocess.PIPE,
                 stdout=subprocess.PIPE,
                 check=True,
                 encoding="utf-8",
                 cwd=self.local_dir,
             )
+            logger.info(f"Committed:\n{result.stdout}\n")
         except subprocess.CalledProcessError as exc:
             if len(exc.stderr) > 0:
                 raise EnvironmentError(exc.stderr)
             else:
                 raise EnvironmentError(exc.stdout)
 
-    def git_push(self) -> str:
+    def git_push(self, upstream=None) -> str:
         """
         git push
 
         Returns url to commit on remote repo.
         """
+        command = "git push"
+
+        if upstream:
+            command += f" --set-upstream {upstream}"
+
         try:
             with lfs_log_progress():
                 subprocess.run(
-                    "git push".split(),
+                    command.split(),
                     stderr=subprocess.PIPE,
                     stdout=subprocess.PIPE,
                     check=True,
@@ -728,21 +823,75 @@ class Repository:
 
         return self.git_head_commit_url()
 
-    def push_to_hub(self, commit_message="commit files to HF hub") -> str:
+    def git_checkout(self, revision, create_branch_ok=False):
+        """
+        git checkout a given revision
+
+        Specifying `create_branch_ok` to `True` will create the branch to the given revision if that revision doesn't exist.
+        """
+        command = f"git checkout {revision}"
+        try:
+            result = subprocess.run(
+                command.split(),
+                stderr=subprocess.PIPE,
+                stdout=subprocess.PIPE,
+                check=True,
+                encoding="utf-8",
+                cwd=self.local_dir,
+            )
+            logger.warning(f"Checked out {revision} from {self.current_branch}.")
+            logger.warning(result.stdout)
+        except subprocess.CalledProcessError as exc:
+            if not create_branch_ok:
+                raise EnvironmentError(exc.stderr)
+            else:
+                command = f"git checkout -b {revision}"
+                try:
+                    result = subprocess.run(
+                        command.split(),
+                        stderr=subprocess.PIPE,
+                        stdout=subprocess.PIPE,
+                        check=True,
+                        encoding="utf-8",
+                        cwd=self.local_dir,
+                    )
+                    logger.warning(
+                        f"Revision `{revision}` does not exist. Created and checked out branch `{revision}`."
+                    )
+                    logger.warning(result.stdout)
+                except subprocess.CalledProcessError as exc:
+                    raise EnvironmentError(exc.stderr)
+
+    def push_to_hub(self, commit_message: str = "commit files to HF hub") -> str:
         """
         Helper to add, commit, and push files to remote repository on the HuggingFace Hub.
+        Will automatically track large files (>10MB).
+
         Args:
             commit_message: commit message.
         """
-        self.git_add()
+        self.git_add(auto_lfs_track=True)
         self.git_commit(commit_message)
-        return self.git_push()
+        return self.git_push(upstream=f"origin {self.current_branch}")
 
     @contextmanager
-    def commit(self, commit_message: str, track_large_files: bool = True):
+    def commit(
+        self,
+        commit_message: str,
+        branch: Optional[str] = None,
+        track_large_files: bool = True,
+    ):
         """
         Context manager utility to handle committing to a repository. This automatically tracks large files (>10Mb)
         with git-lfs. Set the `track_large_files` argument to `False` if you wish to ignore that behavior.
+
+        Args:
+            commit_message (`str`):
+                Message to use for the commit.
+            branch (`str`, `optional`):
+                The branch on which the commit will appear. This branch will be checked-out before any operation.
+            track_large_files (`bool`, `optional`, defaults to `True`):
+                Whether to automatically track large files or not. Will do so by default.
 
         Examples:
 
@@ -757,7 +906,28 @@ class Repository:
 
         """
 
-        self.git_pull(rebase=True)
+        files_to_stage = files_to_be_staged(".", folder=self.local_dir)
+
+        if len(files_to_stage):
+            if len(files_to_stage) > 5:
+                files_to_stage = str(files_to_stage[:5])[:-1] + ", ...]"
+
+            logger.error(
+                f"There exists some updated files in the local repository that are not committed: {files_to_stage}. "
+                "This may lead to errors if checking out a branch. "
+                "These files and their modifications will be added to the current commit."
+            )
+
+        if branch is not None:
+            self.git_checkout(branch, create_branch_ok=True)
+
+        if is_tracked_upstream(self.local_dir):
+            logger.warning("Pulling changes ...")
+            self.git_pull(rebase=True)
+        else:
+            logger.warning(
+                f"The current branch has no upstream branch. Will push to 'origin {self.current_branch}'"
+            )
 
         current_working_directory = os.getcwd()
         os.chdir(os.path.join(current_working_directory, self.local_dir))
@@ -775,7 +945,7 @@ class Repository:
                     raise e
 
             try:
-                self.git_push()
+                self.git_push(upstream=f"origin {self.current_branch}")
             except OSError as e:
                 # If no changes are detected, there is nothing to commit.
                 if "could not read Username" in str(e):

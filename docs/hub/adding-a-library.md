@@ -15,7 +15,7 @@ We believe the Hub is a step in the correct direction for several reasons. It of
 - Free model hosting for libraries and their users.
 - Built-in file versioning, even with very large files, thanks to a git-based approach.
 - Hosted inference API for all models publicly available.
-- In-browser widgets to play with the uploaded models (you can read more about the widgets [here](/docs#whats-a-widget)).
+- In-browser widgets to play with the uploaded models (you can read more about the widgets [here](/docs/hub/main#whats-a-widget)).
 
 Thanks to these, we hope to achieve true shareability across the machine learning ecosystem, reproducibility, 
 and the ability to offer simple solutions directly from the browser. To that end, we're looking to make it very 
@@ -246,7 +246,8 @@ The metadata held in model cards is the best way to supercharge your model. It i
 define tags for your library or framework, the type of model uploaded, the language, license, evaluation results,
 and more.
 
-The full model card specification can be seen below:
+The full model card specification is  [here](https://github.com/huggingface/huggingface_hub/blame/main/modelcard.md), it's also repeated below for convenience:
+
 ```yaml
 ---
 language:
@@ -281,7 +282,7 @@ model-index:
 ---
 ```
 
-None of the fields are required - but any added field will improve the discoverability of your model and open it to features such as the inference API. You can find more information on repos and model cards [here](/docs/hub/model-repos).
+None of the fields are required - but any added field will improve the discoverability of your model and open it to features such as the inference API. You can find more information on repos and model cards [here](/docs/hub/model-repos#model-card-metadata).
 
 ## Setting up the Inference API
 

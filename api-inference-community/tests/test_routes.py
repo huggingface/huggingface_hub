@@ -1,3 +1,4 @@
+import io
 import json
 import logging
 import os
@@ -5,6 +6,7 @@ from unittest import TestCase
 
 import numpy as np
 from api_inference_community.routes import pipeline_route, status_ok
+from PIL import Image
 from starlette.applications import Starlette
 from starlette.routing import Route
 from starlette.testclient import TestClient
@@ -178,3 +180,49 @@ class ValidationTestCase(TestCase):
         self.assertEqual(set(data[0].keys()), {"blob", "label", "content-type"})
         self.assertEqual(data[0]["content-type"], "audio/flac")
         self.assertEqual(data[0]["label"], "label_0")
+
+    def test_text_to_image_pipeline(self):
+        os.environ["TASK"] = "text-to-image"
+
+        class Pipeline:
+            def __init__(self):
+                pass
+
+            def __call__(self, input_: str):
+                dirname = os.path.dirname(os.path.abspath(__file__))
+                filename = os.path.join(dirname, "samples", "plane.jpg")
+                returned_image = Image.open(filename)
+                return returned_image
+
+        def get_pipeline():
+            return Pipeline()
+
+        routes = [
+            Route("/{whatever:path}", status_ok),
+            Route("/{whatever:path}", pipeline_route, methods=["POST"]),
+        ]
+
+        app = Starlette(routes=routes)
+
+        @app.on_event("startup")
+        async def startup_event():
+            logger = logging.getLogger("uvicorn.access")
+            handler = logging.StreamHandler()
+            handler.setFormatter(
+                logging.Formatter("%(asctime)s - %(levelname)s - %(message)s")
+            )
+            logger.handlers = [handler]
+
+            # Link between `api-inference-community` and framework code.
+            app.get_pipeline = get_pipeline
+
+        with TestClient(app) as client:
+            response = client.post("/", data=b"")
+
+        buf = io.BytesIO(response.content)
+        image = Image.open(buf)
+        self.assertEqual(
+            response.status_code,
+            200,
+        )
+        self.assertTrue(isinstance(image, Image.Image))

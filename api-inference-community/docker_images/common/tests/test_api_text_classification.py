@@ -3,28 +3,22 @@ import os
 from unittest import TestCase, skipIf
 
 from app.main import ALLOWED_TASKS
-from parameterized import parameterized_class
 from starlette.testclient import TestClient
 from tests.test_api import TESTABLE_MODELS
 
 
 @skipIf(
-    "token-classification" not in ALLOWED_TASKS,
-    "token-classification not implemented",
+    "text-classification" not in ALLOWED_TASKS,
+    "text-classification not implemented",
 )
-@parameterized_class(
-    [{"model_id": model_id} for model_id in TESTABLE_MODELS["token-classification"]]
-)
-class TokenClassificationTestCase(TestCase):
+class TextClassificationTestCase(TestCase):
     def setUp(self):
+        model_id = TESTABLE_MODELS["text-classification"]
         self.old_model_id = os.getenv("MODEL_ID")
         self.old_task = os.getenv("TASK")
-        os.environ["MODEL_ID"] = self.model_id
-        os.environ["TASK"] = "token-classification"
-
-        from app.main import app, get_pipeline
-
-        get_pipeline.cache_clear()
+        os.environ["MODEL_ID"] = model_id
+        os.environ["TASK"] = "text-classification"
+        from app.main import app
 
         self.app = app
 
@@ -45,20 +39,21 @@ class TokenClassificationTestCase(TestCase):
             del os.environ["TASK"]
 
     def test_simple(self):
-        inputs = "Hello, my name is John and I live in New York"
+        inputs = "It is a beautiful day outside"
 
         with TestClient(self.app) as client:
             response = client.post("/", json={"inputs": inputs})
-
         self.assertEqual(
             response.status_code,
             200,
         )
         content = json.loads(response.content)
         self.assertEqual(type(content), list)
+        self.assertEqual(len(content), 1)
+        self.assertEqual(type(content[0]), list)
         self.assertEqual(
-            set(k for el in content for k in el.keys()),
-            {"entity_group", "word", "start", "end", "score"},
+            set(k for el in content[0] for k in el.keys()),
+            {"label", "score"},
         )
 
         with TestClient(self.app) as client:
@@ -70,9 +65,11 @@ class TokenClassificationTestCase(TestCase):
         )
         content = json.loads(response.content)
         self.assertEqual(type(content), list)
+        self.assertEqual(len(content), 1)
+        self.assertEqual(type(content[0]), list)
         self.assertEqual(
-            set(k for el in content for k in el.keys()),
-            {"entity_group", "word", "start", "end", "score"},
+            set(k for el in content[0] for k in el.keys()),
+            {"label", "score"},
         )
 
     def test_malformed_question(self):

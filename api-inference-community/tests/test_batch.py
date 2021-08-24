@@ -1,17 +1,23 @@
 import os
 from unittest import TestCase
+from unittest.mock import patch
 
 import requests
 from api_inference_community.batch import batch
 
 
 class DummyPipeline:
+    sampling_rate = 16000
+
     def __call__(self, *args, **kwargs):
         return {"text": "Something"}
 
 
 class BatchTestCase(TestCase):
-    def test_batch_simple(self):
+    @patch("api_inference_community.batch.normalize_payload")
+    def test_batch_simple(self, normalize_payload):
+        # We don't need to follow the real normalization.
+        normalize_payload.return_value = None, {}
         pipeline = DummyPipeline()
 
         token = os.getenv("API_TOKEN")
@@ -23,6 +29,7 @@ class BatchTestCase(TestCase):
             token=token,
             repo_id="Narsil/bulk-dummy",
             use_gpu=False,
+            task="automatic-speech-recognition",
             pipeline=pipeline,
         )
 

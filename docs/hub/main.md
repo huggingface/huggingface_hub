@@ -24,7 +24,7 @@ These repositories have multiple advantages over other hosting solutions:
 
 On top of that, Hugging Face Hub repositories have many other advantages:
 
-* Repos provide useful [metadata](https://raw.githubusercontent.com/huggingface/huggingface_hub/main/modelcard.md) about their tasks, languages, metrics, etc.
+* Repos provide useful [metadata](/docs/hub/model-repos#model-card-metadata) about their tasks, languages, metrics, etc.
 * Anyone can play with the model directly in the browser!
 * Training metrics charts are displayed if the repository contains [TensorBoard traces](https://huggingface.co/models?filter=tensorboard).
 * An API is provided to use the models in production settings.
@@ -60,7 +60,7 @@ For most use cases, the model type is determined from the tags. For example, if 
 
 For `🤗 Transformers` however, the model type is determined automatically from `config.json`. The architecture can be used to determine the type: for example, `AutoModelForTokenClassification` corresponds to `token-classification`. If you're really interested in this, you can see pseudo-code in [this gist](https://gist.github.com/julien-c/857ba86a6c6a895ecd90e7f7cab48046).
 
-**You can always manually override your pipeline type with pipeline_tag: xxx in your model card metadata.**
+You can always manually override your pipeline type with pipeline_tag: xxx in your model card metadata.
 
 
 ## What are all the possible task/widget types?
