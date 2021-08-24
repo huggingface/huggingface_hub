@@ -1,17 +1,17 @@
-# Hugging Face Client library
+# Hugging Face Hub Client library
 
-## Download files from the huggingface.co hub
+## Download files from the Hub
 
-Integration inside a library is super simple. We expose two functions, `hf_hub_url()` and `cached_download()`.
+Three utility functions are provided to dowload files from the Hub. One advantage of using them is that files are cached locally, so you won't have to download the files multiple times. If there are changes in the repository, the files will be automatically downloaded again.
 
 ### `hf_hub_url`
 
-`hf_hub_url()` takes:
-- a repo id (e.g. a model id like `julien-c/EsperBERTo-small` i.e. a user or organization name and a repo name, separated by `/`),
-- a filename (like `pytorch_model.bin`),
-- and an optional git revision id (can be a branch name, a tag, or a commit hash)
+`hf_hub_url()` returns the url we'll use to download the actual files: `https://huggingface.co/julien-c/EsperBERTo-small/resolve/main/pytorch_model.bin`
 
-and returns the url we'll use to download the actual files: `https://huggingface.co/julien-c/EsperBERTo-small/resolve/main/pytorch_model.bin`
+Parameters:
+- a repo id (e.g. a model id like `julien-c/EsperBERTo-small` i.e. a user or organization name and a repo name, separated by `/`)
+- a filename (like `pytorch_model.bin`)
+- an optional git revision id (can be a branch name, a tag, or a commit hash)
 
 If you check out this URL's headers with a `HEAD` http request (which you can do from the command line with `curl -I`) for a few different files, you'll see that:
 - small files are returned directly
@@ -23,48 +23,61 @@ If you check out this URL's headers with a `HEAD` http request (which you can do
 
 Parameters:
 - a remote `url`
-- your library's name and version (`library_name` and `library_version`), which will be added to the HTTP requests' user-agent so that we can provide some usage stats.
 - a `cache_dir` which you can specify if you want to control where on disk the files are cached.
+
+A common use case is to download the files from a download url
+
+```python
+from huggingface_hub import hf_hub_url, cached_download
+config_file_url = hf_hub_url("lysandre/arxiv-nlp", filename="config.json")
+cached_download(config_file_url)
+```
 
 Check out the source code for all possible params (we'll create a real doc page in the future).
 
-### Bonus: `snapshot_download`
+### `hf_hub_download`
 
-`snapshot_download()` downloads all the files from the remote repository at the specified revision, 
-stores it to disk (in a versioning-aware way) and returns its local file path.
+Since the use case of combining `hf_hub_url()` and `cached_download()` is very common, we also provide a wrapper that calls both functions.
+
+Parameters:
+- a repo id (e.g. a model id like `julien-c/EsperBERTo-small` i.e. a user or organization name and a repo name, separated by `/`)
+- a filename (like `pytorch_model.bin`)
+- an optional git revision id (can be a branch name, a tag, or a commit hash)
+- a `cache_dir` which you can specify if you want to control where on disk the files are cached.
+
+```python
+from huggingface_hub import hf_hub_download
+hf_hub_download("lysandre/arxiv-nlp", filename="config.json")
+```
+
+### `snapshot_download`
+
+Using `hf_hub_download()` works well when you have a fixed repository structure; for example a model file alongside a configuration file, both with static names. There are cases in which you will prefer to download all the files of the remote repository at a specified revision. That's what `snapshot_download()` does. It downloads and stores a remote repository to disk (in a versioning-aware way) and returns its local file path.
 
 Parameters:
 - a `repo_id` in the format `namespace/repository`
 - a `revision` on which the repository will be downloaded
-- a `cache_dir` which you can specify if you want to control where on disk the files are cached.
+- a `cache_dir` which you can specify if you want to control where on disk the files are cached
 
 <br>
 
-## Publish models to the huggingface.co hub
+## Publish files to the Hub
 
-Uploading a model to the hub is super simple too:
-- create a model repo directly from the website, at huggingface.co/new (models can be public or private, and are namespaced under either a user or an organization)
-- clone it with git
-- [download and install git lfs](https://git-lfs.github.com/) if you don't already have it on your machine (you can check by running a simple `git lfs`)
-- add, commit and push your files, from git, as you usually do (from the CLI, or through the `Repository` wrapper class detailed below). 
+If you've used Git before, this will be very easy since Git is used to manage files in the Hub. You can find a step-by-step guide on how to upload your model to the Hub: https://huggingface.co/docs/hub/adding-a-model. 
 
-**We are intentionally not wrapping git too much, so that you can go on with the workflow you’re used to and the tools you already know.**
-
-> 👀 To see an example of how we document the model sharing process in `transformers`, check out https://huggingface.co/transformers/model_sharing.html
-
-Users add tags into their README.md model cards (e.g. your `library_name`, a domain tag like `audio`, etc.) to make sure their models are discoverable.
-
-**Documentation about the model hub itself is at https://huggingface.co/docs**
 
 ### API utilities in `hf_api.py`
 
-You don't need them for the standard publishing workflow, however, if you need a programmatic way of creating a repo, deleting it (`⚠️ caution`), pushing a single file to a repo or listing models from the hub, you'll find helpers in `hf_api.py`.
+You don't need them for the standard publishing workflow, however, if you need a programmatic way of creating a repo, deleting it (`⚠️ caution`), pushing a single file to a repo or listing models from the Hub, you'll find helpers in `hf_api.py`. Some examples:
 
-We also have an API to query models by specific tags (e.g. if you want to list models compatible to your library)
+* `login()`
+* `whoami()`
+* `create_repo()`
+* `delete_repo()`
+* `update_repo_visibility()`
+* `upload_file()`
 
-### `huggingface-cli`
-
-Those API utilities are also exposed through a CLI:
+Those API utilities are also exposed through the `huggingface-cli` CLI:
 
 ```bash
 huggingface-cli login
@@ -73,25 +86,11 @@ huggingface-cli whoami
 huggingface-cli repo create
 ```
 
-### Need to upload large (>5GB) files?
+We also have an API to query models and datasets by specific tags (e.g. if you want to list models compatible to your library). Look at `list_models()`, `model_info()`, `list_datasets()`, and `dataset_info()`. 
 
-To upload large files (>5GB 🔥), you need to install the custom transfer agent for git-lfs, bundled in this package. 
+### Advanced programmatic repository management 
 
-To install, just run:
-
-```bash
-$ huggingface-cli lfs-enable-largefiles
-```
-
-This should be executed once for each model repo that contains a model file >5GB. If you just try to push a file bigger than 5GB without running that command, you will get an error with a message reminding you to run it.
-
-Finally, there's a `huggingface-cli lfs-multipart-upload` command but that one is internal (called by lfs directly) and is not meant to be called by the user.
-
-
-## Managing a repository with `Repository`
-
-The `Repository` class helps manage both offline git repositories, and huggingface hub repositories. Using the
-`Repository` class requires `git` and `git-lfs` to be installed.
+The `Repository` class helps manage both offline Git repositories and Hugging Face Hub repositories. Using the `Repository` class requires `git` and `git-lfs` to be installed.
 
 Instantiate a `Repository` object by calling it with a path to a local git clone/repository:
 
@@ -100,8 +99,7 @@ Instantiate a `Repository` object by calling it with a path to a local git clone
 >>> repo = Repository("<path>/<to>/<folder>")
 ```
 
-The `Repository` takes a `clone_from` string as parameter. This can stay as `None` for offline management, but can
-also be set to any URL pointing to a git repo to clone that repository in the specified directory:
+The `Repository` takes a `clone_from` string as parameter. This can stay as `None` for offline management, but can also be set to any URL pointing to a git repo to clone that repository in the specified directory:
 
 ```python
 >>> repo = Repository("huggingface-hub", clone_from="https://github.com/huggingface/huggingface_hub")
@@ -113,10 +111,7 @@ The `clone_from` method can also take any Hugging Face model ID as input, and wi
 >>> repo = Repository("w2v2", clone_from="facebook/wav2vec2-large-960h-lv60")
 ```
 
-If the repository you're cloning is one of yours or one of your organisation's, then having the ability
-to commit and push to that repository is important. In order to do that, you should make sure to be logged-in
-using `huggingface-cli login`, and to have the `use_auth_token` parameter set to `True` (the default) when 
-instantiating the `Repository` object:
+If the repository you're cloning is one of yours or one of your organisation's, then having the ability to commit and push to that repository is important. In order to do that, you should make sure to be logged-in using `huggingface-cli login`, and to have the `use_auth_token` parameter set to `True` (the default) when  instantiating the `Repository` object:
 
 ```python
 >>> repo = Repository("my-model", clone_from="<user>/<model_id>", use_auth_token=True)
@@ -128,9 +123,20 @@ This works for models, datasets and spaces repositories; but you will need to ex
 >>> repo = Repository("my-dataset", clone_from="<user>/<dataset_id>", use_auth_token=True, repo_type="dataset")
 ```
 
-Finally, you can choose to specify the git username and email attributed to that clone directly by using
-the `git_user` and `git_email` parameters. When committing to that repository, git will therefore be aware
-of who you are and who will be the author of the commits:
+You can also change between branches:
+
+```python
+>>> repo = Repository("huggingface-hub", clone_from="<user>/<dataset_id>", revision='branch1')
+>>> repo.git_checkout("branch2")
+```
+
+The `clone_from` method can also take any Hugging Face model ID as input, and will clone that repository:
+
+```python
+>>> repo = Repository("w2v2", clone_from="facebook/wav2vec2-large-960h-lv60")
+```
+
+Finally, you can choose to specify the git username and email attributed to that clone directly by using the `git_user` and `git_email` parameters. When committing to that repository, git will therefore be aware of who you are and who will be the author of the commits:
 
 ```python
 >>> repo = Repository(
@@ -146,10 +152,11 @@ of who you are and who will be the author of the commits:
 The repository can be managed through this object, through wrappers of traditional git methods:
 
 - `git_add(pattern: str, auto_lfs_track: bool)`. The `auto_lfs_track` flag
-  triggers auto tracking of large files (>10MB) with `git-lfs`.
-- `git_commit(commit_message: str)`.
-- `git_pull(rebase: bool)`.
-- `git_push()`.
+  triggers auto tracking of large files (>10MB) with `git-lfs`
+- `git_commit(commit_message: str)`
+- `git_pull(rebase: bool)`
+- `git_push()`
+- `git_checkout(branch)`
 
 LFS-tracking methods:
 
@@ -180,6 +187,21 @@ Examples using the `commit` context manager:
 >>> with Repository("torch-model", clone_from="<user>/torch-model", use_auth_token=True).commit("My cool model :)"):
 ...     torch.save(model.state_dict(), "model.pt")
   ```
+
+
+### Need to upload very large (>5GB) files?
+
+To upload large files (>5GB 🔥), you need to install the custom transfer agent for git-lfs, bundled in this package. 
+
+To install, just run:
+
+```bash
+$ huggingface-cli lfs-enable-largefiles
+```
+
+This should be executed once for each model repo that contains a model file >5GB. If you just try to push a file bigger than 5GB without running that command, you will get an error with a message reminding you to run it.
+
+Finally, there's a `huggingface-cli lfs-multipart-upload` command but that one is internal (called by lfs directly) and is not meant to be called by the user.
 
 <br>
 
@@ -225,5 +247,3 @@ Finally, there are some models that might support multiple tasks. For example, `
 ```python
 inference = InferenceApi("bert-base-uncased", task="feature-extraction", token=API_TOKEN)
 ```
-
-## Feedback (feature requests, bugs, etc.) is super welcome 💙💚💛💜♥️🧡

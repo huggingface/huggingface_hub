@@ -55,6 +55,10 @@ There is only one key difference if you have large files (over 10MB). These file
 
 2. Run `git lfs install` to initialize **git-lfs**:
 
+Do you have files larger than 10MB? Those files are tracked with `git-lfs`. We already provide a list of common file extensions for these files in `.gitattributes`, but you might need to add new extensions if they are not already handled. You can do so with `git lfs track "*.your_extension"`.
+
+Once ready, just run:
+
 ```
 git lfs install
 ```
@@ -74,7 +78,7 @@ Now's the time 🔥. You can add any files you want to the repository.
 
 5. Commit and push your files
 
-You can do this with the usual Git workflow
+You can do this with the usual Git workflow:
 
 ```
 git add .
