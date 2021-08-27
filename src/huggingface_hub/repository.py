@@ -160,6 +160,12 @@ def lfs_log_progress():
     This is a context manager that will log the Git LFS progress of cleaning, smudging, pulling and pushing.
     """
 
+    if logger.getEffectiveLevel() >= logging.ERROR:
+        try:
+            yield
+        finally:
+            return
+
     def output_progress(stopping_event: threading.Event):
         """
         To be launched as a separate thread with an event meaning it should stop the tail.
@@ -467,7 +473,7 @@ class Repository:
                 if in_repository:
                     if is_local_clone(self.local_dir, repo_url):
                         logger.warning(
-                            f"{self.local_dir} is already a clone of {clean_repo_url}. Make sure you pull the latest"
+                            f"{self.local_dir} is already a clone of {clean_repo_url}. Make sure you pull the latest "
                             "changes with `repo.git_pull()`."
                         )
                     else:
