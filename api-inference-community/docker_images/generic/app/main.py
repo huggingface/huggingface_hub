@@ -11,6 +11,7 @@ from app.pipelines import (
     ImageClassificationPipeline,
     Pipeline,
     StructuredDataClassificationPipeline,
+    TextToImagePipeline,
     TokenClassificationPipeline,
 )
 from starlette.applications import Starlette
