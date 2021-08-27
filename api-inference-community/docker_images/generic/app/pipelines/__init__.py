@@ -12,5 +12,6 @@ from app.pipelines.speech_segmentation import SpeechSegmentationPipeline
 from app.pipelines.structured_data_classification import (
     StructuredDataClassificationPipeline,
 )
+from app.pipelines.text_to_image import TextToImagePipeline
 from app.pipelines.text_to_speech import TextToSpeechPipeline
 from app.pipelines.token_classification import TokenClassificationPipeline

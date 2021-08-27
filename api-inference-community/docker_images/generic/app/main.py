@@ -13,6 +13,7 @@ from app.pipelines import (
     StructuredDataClassificationPipeline,
     TokenClassificationPipeline,
 )
+
 from starlette.applications import Starlette
 from starlette.middleware import Middleware
 from starlette.middleware.gzip import GZipMiddleware
@@ -32,6 +33,7 @@ ALLOWED_TASKS: Dict[str, Type[Pipeline]] = {
     "feature-extraction": FeatureExtractionPipeline,
     "image-classification": ImageClassificationPipeline,
     "structured-data-classification": StructuredDataClassificationPipeline,
+    "text-to-image": TextToImagePipeline,
     "token-classification": TokenClassificationPipeline,
 }
 

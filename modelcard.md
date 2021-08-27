@@ -9,25 +9,26 @@ tags:
 - {tag_2}  # Example: speech
 - {tag_3}  # Example to specify a library: allennlp
 datasets:
-- {dataset_0}  # Example: common_voice
+- {dataset_0}  # Example: common_voice. Use dataset id from https://hf.co/datasets
 metrics:
-- {metric_0}  # Example: wer
+- {metric_0}  # Example: wer. Use metric id from https://hf.co/metrics
 
-model-index:  
+# Optional. Add this if you want to encode your eval results in a structured way.
+model-index:
 - name: {model_id}
   results:
   - task: 
-      name: {task_name}  # Example: Speech Recognition
-      type: {task_type}  # Example: automatic-speech-recognition
+      type: {task_type}  # Required. Example: automatic-speech-recognition
+      name: {task_name}  # Optional. Example: Speech Recognition
     dataset:
-      name: {dataset_name}  # Example: Common Voice zh-CN
-      type: {dataset_type}  # Example: common_voice
-      args: {arg_0}  # Example: zh-CN
+      type: {dataset_type}  # Required. Example: common_voice. Use dataset id from https://hf.co/datasets
+      name: {dataset_name}  # Required. Example: Common Voice zh-CN
+      args: {arg_0}         # Optional. Example: zh-CN
     metrics:
-      - name: {metric_name}  # Example: Test WER
-        type: {metric_type}  # Example: wer
-        value: {metric_value}  # Example: 20.90
-        args: {arg_0}  # Example for BLEU: max_order
+      - type: {metric_type}    # Required. Example: wer
+        value: {metric_value}  # Required. Example: 20.90
+        name: {metric_name}    # Optional. Example: Test WER
+        args: {arg_0}          # Optional. Example for BLEU: max_order
 ---
 
-This markdown file contains the spec for the modelcard metadata regarding evaluation parameters. 
+This markdown file contains the spec for the modelcard metadata regarding evaluation parameters.

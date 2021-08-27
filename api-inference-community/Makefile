@@ -1,7 +1,7 @@
 .PHONY: quality style
 
 
-check_dirs := .
+check_dirs := api_inference_community tests docker_images
 
 
 
