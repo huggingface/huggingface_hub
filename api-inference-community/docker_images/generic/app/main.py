@@ -13,7 +13,6 @@ from app.pipelines import (
     StructuredDataClassificationPipeline,
     TokenClassificationPipeline,
 )
-
 from starlette.applications import Starlette
 from starlette.middleware import Middleware
 from starlette.middleware.gzip import GZipMiddleware
