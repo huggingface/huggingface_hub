@@ -4,16 +4,7 @@ import os
 from typing import Dict, Type
 
 from api_inference_community.routes import pipeline_route, status_ok
-from app.pipelines import (
-    AudioToAudioPipeline,
-    AutomaticSpeechRecognitionPipeline,
-    FeatureExtractionPipeline,
-    ImageClassificationPipeline,
-    Pipeline,
-    StructuredDataClassificationPipeline,
-    TextToImagePipeline,
-    TokenClassificationPipeline,
-)
+from app.pipelines import Pipeline
 from starlette.applications import Starlette
 from starlette.middleware import Middleware
 from starlette.middleware.gzip import GZipMiddleware
@@ -28,13 +19,13 @@ logger = logging.getLogger(__name__)
 
 
 ALLOWED_TASKS: Dict[str, Type[Pipeline]] = {
-    "audio-to-audio": AudioToAudioPipeline,
-    "automatic-speech-recognition": AutomaticSpeechRecognitionPipeline,
-    "feature-extraction": FeatureExtractionPipeline,
-    "image-classification": ImageClassificationPipeline,
-    "structured-data-classification": StructuredDataClassificationPipeline,
-    "text-to-image": TextToImagePipeline,
-    "token-classification": TokenClassificationPipeline,
+    "audio-to-audio": Pipeline,
+    "automatic-speech-recognition": Pipeline,
+    "feature-extraction": Pipeline,
+    "image-classification": Pipeline,
+    "structured-data-classification": Pipeline,
+    "text-to-image": Pipeline,
+    "token-classification": Pipeline,
 }
 
 
