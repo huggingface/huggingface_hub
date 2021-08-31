@@ -26,9 +26,6 @@ class ModelHubMixin:
     your classes. See ``huggingface_hub.PyTorchModelHubMixin`` for an example.
     """
 
-    _CONFIG_NAME = CONFIG_NAME
-    _WEIGHTS_NAME = PYTORCH_WEIGHTS_NAME
-
     def save_pretrained(
         self,
         save_directory: str,
@@ -56,7 +53,7 @@ class ModelHubMixin:
 
         # saving config
         if isinstance(config, dict):
-            path = os.path.join(save_directory, self._CONFIG_NAME)
+            path = os.path.join(save_directory, CONFIG_NAME)
             with open(path, "w") as f:
                 json.dump(config, f)
 
@@ -131,13 +128,13 @@ class ModelHubMixin:
         if len(model_id.split("@")) == 2:
             model_id, revision = model_id.split("@")
 
-        if os.path.isdir(model_id) and cls._CONFIG_NAME in os.listdir(model_id):
-            config_file = os.path.join(model_id, cls._CONFIG_NAME)
+        if os.path.isdir(model_id) and CONFIG_NAME in os.listdir(model_id):
+            config_file = os.path.join(model_id, CONFIG_NAME)
         else:
             try:
                 config_file = hf_hub_download(
                     repo_id=model_id,
-                    filename=cls._CONFIG_NAME,
+                    filename=CONFIG_NAME,
                     revision=revision,
                     cache_dir=cache_dir,
                     force_download=force_download,
@@ -147,7 +144,7 @@ class ModelHubMixin:
                     local_files_only=local_files_only,
                 )
             except requests.exceptions.RequestException:
-                logger.warning(f"{cls._CONFIG_NAME} NOT FOUND in HuggingFace Hub")
+                logger.warning(f"{CONFIG_NAME} NOT FOUND in HuggingFace Hub")
                 config_file = None
 
         if config_file is not None and config_file.endswith(".json"):
