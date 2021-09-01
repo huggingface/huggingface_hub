@@ -4,15 +4,15 @@ import timm
 import torch
 from app.pipelines import Pipeline
 from PIL import Image
-from timm.models.hub import load_model_config_from_hf, load_state_dict_from_hf
 from timm.data import resolve_data_config
 from timm.data.transforms_factory import create_transform
+from timm.models.hub import load_model_config_from_hf, load_state_dict_from_hf
 
 
 class ImageClassificationPipeline(Pipeline):
     def __init__(self, model_id: str):
         self.hf_cfg, self.arch = load_model_config_from_hf(model_id)
-        self.model = timm.create_model(f'hf_hub:{model_id}')
+        self.model = timm.create_model(f"hf_hub:{model_id}")
         state_dict = load_state_dict_from_hf(model_id)
         self.model.load_state_dict(state_dict, strict=True)
         self.model.eval()
@@ -20,7 +20,7 @@ class ImageClassificationPipeline(Pipeline):
         self.transform = create_transform(**resolve_data_config({}, model=self.model))
         self.top_k = min(self.model.num_classes, 5)
 
-        self.labels = self.hf_cfg.get('labels', None)
+        self.labels = self.hf_cfg.get("labels", None)
         if self.labels is None:
             if self.model.num_classes == 1000:
                 self.labels = IMAGENET_LABELS
@@ -52,7 +52,6 @@ class ImageClassificationPipeline(Pipeline):
             for i, v in zip(indices, values)
         ]
         return labels
-
 
 
 IMAGENET_LABELS = [
