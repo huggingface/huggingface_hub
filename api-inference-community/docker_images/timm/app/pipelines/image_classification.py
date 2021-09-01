@@ -4,16 +4,28 @@ import timm
 import torch
 from app.pipelines import Pipeline
 from PIL import Image
+from timm.models.hub import load_model_config_from_hf, load_state_dict_from_hf
+from timm.data import resolve_data_config
+from timm.data.transforms_factory import create_transform
 
 
 class ImageClassificationPipeline(Pipeline):
     def __init__(self, model_id: str):
-        if "resnet50d" in model_id:
-            self.model = timm.create_model("resnet50d", pretrained=True).eval()
-        elif "dpn92" in model_id:
-            self.model = timm.create_model("dpn92", pretrained=True).eval()
-        else:
-            raise EnvironmentError("Cannot detect the correct arch for this model")
+        self.hf_cfg, self.arch = load_model_config_from_hf(model_id)
+        self.model = timm.create_model(f'hf_hub:{model_id}')
+        state_dict = load_state_dict_from_hf(model_id)
+        self.model.load_state_dict(state_dict, strict=True)
+        self.model.eval()
+
+        self.transform = create_transform(**resolve_data_config({}, model=self.model))
+        self.top_k = min(self.model.num_classes, 5)
+
+        self.labels = self.hf_cfg.get('labels', None)
+        if self.labels is None:
+            if self.model.num_classes == 1000:
+                self.labels = IMAGENET_LABELS
+            else:
+                self.labels = [f"LABEL_{i}" for i in range(self.model.num_classes)]
 
     def __call__(self, inputs: Image.Image) -> List[Dict[str, Any]]:
         """
@@ -25,35 +37,22 @@ class ImageClassificationPipeline(Pipeline):
             A :obj:`list`:. The list contains items that are dicts should be liked {"label": "XXX", "score": 0.82}
                 It is preferred if the returned list is in decreasing `score` order
         """
-        img = inputs.convert("RGB")
-        config = self.model.default_cfg
+        im = inputs.convert("RGB")
+        inputs = self.transform(im).unsqueeze(0)
 
-        if isinstance(config["input_size"], tuple):
-            img_size = config["input_size"][-2:]
-        else:
-            img_size = config["input_size"]
-
-        transform = timm.data.transforms_factory.transforms_imagenet_eval(
-            img_size=img_size,
-            interpolation=config["interpolation"],
-            mean=config["mean"],
-            std=config["std"],
-        )
-
-        input_tensor = transform(img)
-        input_tensor = input_tensor.unsqueeze(0)
-        # ^ batch size = 1
         with torch.no_grad():
-            output = self.model(input_tensor)
+            out = self.model(inputs)
 
-        probs = output.squeeze(0).softmax(dim=0)
+        probabilities = torch.nn.functional.softmax(out[0], dim=0)
 
-        values, indices = torch.topk(probs, k=5)
+        values, indices = torch.topk(probabilities, self.top_k)
+
         labels = [
-            {"label": IMAGENET_LABELS[i], "score": v.item()}
+            {"label": self.labels[i], "score": v.item()}
             for i, v in zip(indices, values)
         ]
         return labels
+
 
 
 IMAGENET_LABELS = [
