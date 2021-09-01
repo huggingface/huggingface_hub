@@ -93,7 +93,7 @@ def push_to_hub_keras(
     )
     repo.git_pull(rebase=True)
 
-    save_pretrained_keras(model, repo_path_or_name, config=config)
+    save_pretrained_keras(model, repo_path_or_name)
 
     # Commit and push!
     repo.git_add()
@@ -123,7 +123,7 @@ class KerasModelHubMixin(ModelHubMixin):
             >>> model = MyModel()
             >>> model.compile(...)
             >>> # Build the graph by training it or passing dummy inputs
-            >>> model(model.dummy_inputs)
+            >>> _ = model(model.dummy_inputs)
             >>> # You can save your model like this
             >>> model.save_pretrained("local_model_dir/", push_to_hub=False)
             >>> # Or, you can push to a new public model repo like this
