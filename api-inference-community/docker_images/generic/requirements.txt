@@ -5,3 +5,6 @@ scikit-learn>=0.23.2
 scipy>=1.5.4
 transformers>=4.6.1
 tensorflow>=2.3
+fastai>=2.4.1
+scikit-learn>=0.24.2
+joblib>=1.0.1

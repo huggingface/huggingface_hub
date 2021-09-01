@@ -4,7 +4,7 @@ import os
 from typing import Dict, Type
 
 from api_inference_community.routes import pipeline_route, status_ok
-from app.pipelines import Pipeline, TextToImagePipeline, TokenClassificationPipeline
+from app.pipelines import Pipeline
 from starlette.applications import Starlette
 from starlette.middleware import Middleware
 from starlette.middleware.gzip import GZipMiddleware
@@ -18,23 +18,14 @@ MODEL_ID = os.getenv("MODEL_ID")
 logger = logging.getLogger(__name__)
 
 
-# Add the allowed tasks
-# Supported tasks are:
-# - text-generation
-# - text-classification
-# - token-classification
-# - translation
-# - summarization
-# - automatic-speech-recognition
-# - ...
-# For instance
-# from app.pipelines import AutomaticSpeechRecognitionPipeline
-# ALLOWED_TASKS = {"automatic-speech-recognition": AutomaticSpeechRecognitionPipeline}
-# You can check the requirements and expectations of each pipelines in their respective
-# directories. Implement directly within the directories.
 ALLOWED_TASKS: Dict[str, Type[Pipeline]] = {
-    "token-classification": TokenClassificationPipeline,
-    "text-to-image": TextToImagePipeline,
+    "audio-to-audio": Pipeline,
+    "automatic-speech-recognition": Pipeline,
+    "feature-extraction": Pipeline,
+    "image-classification": Pipeline,
+    "structured-data-classification": Pipeline,
+    "text-to-image": Pipeline,
+    "token-classification": Pipeline,
 }
 
 
