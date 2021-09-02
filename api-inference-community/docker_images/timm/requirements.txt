@@ -1,5 +1,4 @@
 starlette==0.14.2
-numpy==1.20.2
-pydantic==1.8.1
 pillow==8.2.0
 timm==0.4.5
+api-inference-community==0.0.17
