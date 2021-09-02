@@ -56,16 +56,6 @@ if is_tf_available():
         def call(self, x):
             return self.l1(x)
 
-    # Define dummy sequential model...
-    dummy_model_sequential = tf.keras.models.Sequential()
-    dummy_model_sequential.add(tf.keras.layers.Dense(2, activation="relu"))
-    dummy_model_sequential.compile(optimizer="adam", loss="mse")
-
-    # Define dummy functional model...
-    inputs = tf.keras.layers.Input(shape=(2,))
-    x = tf.keras.layers.Dense(2, activation="relu")(inputs)
-    dummy_model_functional = tf.keras.models.Model(inputs=inputs, outputs=x)
-    dummy_model_functional.compile(optimizer="adam", loss="mse")
 
 else:
     DummyModel = None
@@ -74,12 +64,7 @@ else:
 
 
 @require_tf
-class HubMixingCommonTest(unittest.TestCase):
-    _api = HfApi(endpoint=ENDPOINT_STAGING)
-
-
-@require_tf
-class HubMixingTest(HubMixingCommonTest):
+class HubMixingTestKeras(unittest.TestCase):
     def tearDown(self) -> None:
         try:
             shutil.rmtree(WORKING_REPO_DIR, onerror=set_write_permission_and_retry)
@@ -91,6 +76,7 @@ class HubMixingTest(HubMixingCommonTest):
         """
         Share this valid token in all tests below.
         """
+        cls._api = HfApi(endpoint=ENDPOINT_STAGING)
         cls._token = cls._api.login(username=USER, password=PASS)
 
     def test_save_pretrained(self):
@@ -174,142 +160,114 @@ class HubMixingTest(HubMixingCommonTest):
         self._api.delete_repo(token=self._token, name=f"{REPO_NAME}-PUSH_TO_HUB")
 
 
-@pytest.fixture()
-def hf_token():
-    _api = HfApi(endpoint=ENDPOINT_STAGING)
-    token = _api.login(username=USER, password=PASS)
-    yield token
-    try:
-        shutil.rmtree(WORKING_REPO_DIR, onerror=set_write_permission_and_retry)
-    except FileNotFoundError:
-        pass
-
-
 @require_tf
-@pytest.mark.parametrize(
-    "model",
-    [
-        pytest.param(dummy_model_sequential, id="sequential"),
-        pytest.param(dummy_model_functional, id="functional"),
-    ],
-)
-def test_save_pretrained(model, hf_token):
-    model = tf.keras.models.clone_model(model)
+class HubKerasSequentialTest(HubMixingTestKeras):
+    def model_init(self):
+        model = tf.keras.models.Sequential()
+        model.add(tf.keras.layers.Dense(2, activation="relu"))
+        model.compile(optimizer="adam", loss="mse")
+        return model
 
-    # Here we make sure saving doesn't work for Sequential API if it hasn't been built yet.
-    # NOTE - Functional API comes built as we passed inputs on init, so this just runs for dummy_model_sequential.
-    if not model.built:
+    def test_save_pretrained(self):
+        model = self.model_init()
+
         with pytest.raises(ValueError, match="Model should be built*"):
             save_pretrained_keras(model, f"{WORKING_REPO_DIR}/{REPO_NAME}")
 
-    # Builds the sequential model.
-    # NOTE - For functional model, this won't do anything since it's already built.
-    model.build((None, 2))
+        model.build((None, 2))
 
-    save_pretrained_keras(model, f"{WORKING_REPO_DIR}/{REPO_NAME}")
-    files = os.listdir(f"{WORKING_REPO_DIR}/{REPO_NAME}")
+        save_pretrained_keras(model, f"{WORKING_REPO_DIR}/{REPO_NAME}")
+        files = os.listdir(f"{WORKING_REPO_DIR}/{REPO_NAME}")
 
-    assert "saved_model.pb" in files
-    assert "keras_metadata.pb" in files
-    assert len(files) == 4
+        assert "saved_model.pb" in files
+        assert "keras_metadata.pb" in files
+        assert len(files) == 4
 
+    def test_from_pretrained_weights(self):
+        model = self.model_init()
+        model.build((None, 2))
 
-@require_tf
-@pytest.mark.parametrize(
-    "model",
-    [
-        pytest.param(dummy_model_sequential, id="sequential"),
-        pytest.param(dummy_model_functional, id="functional"),
-    ],
-)
-def test_keras_from_pretrained_weights(model, hf_token):
-    model = tf.keras.models.clone_model(model)
-    model.build((None, 2))
+        save_pretrained_keras(model, f"{WORKING_REPO_DIR}/{REPO_NAME}")
+        new_model = from_pretrained_keras(f"{WORKING_REPO_DIR}/{REPO_NAME}")
 
-    save_pretrained_keras(model, f"{WORKING_REPO_DIR}/{REPO_NAME}")
-    new_model = from_pretrained_keras(f"{WORKING_REPO_DIR}/{REPO_NAME}")
+        # Check the reloaded model's weights match the original model's weights
+        assert tf.reduce_all(tf.equal(new_model.weights[0], model.weights[0]))
 
-    # Check the reloaded model's weights match the original model's weights
-    assert tf.reduce_all(tf.equal(new_model.weights[0], model.weights[0]))
+        # Check a new model's weights are not the same as the reloaded model's weights
+        another_model = DummyModel()
+        another_model(tf.ones([2, 2]))
+        assert not (
+            tf.reduce_all(tf.equal(new_model.weights[0], another_model.weights[0]))
+            .numpy()
+            .item()
+        )
 
-    # Check a new model's weights are not the same as the reloaded model's weights
-    another_model = DummyModel()
-    another_model(tf.ones([2, 2]))
-    assert not (
-        tf.reduce_all(tf.equal(new_model.weights[0], another_model.weights[0]))
-        .numpy()
-        .item()
-    )
+    def test_rel_path_from_pretrained(self):
+        model = self.model_init()
+        model.build((None, 2))
+        save_pretrained_keras(
+            model,
+            f"tests/{WORKING_REPO_SUBDIR}/FROM_PRETRAINED",
+        )
 
+        new_model = from_pretrained_keras(
+            f"tests/{WORKING_REPO_SUBDIR}/FROM_PRETRAINED"
+        )
 
-@require_tf
-@pytest.mark.parametrize(
-    "model",
-    [
-        pytest.param(dummy_model_sequential, id="sequential"),
-        pytest.param(dummy_model_functional, id="functional"),
-    ],
-)
-def test_rel_path_from_pretrained(model, hf_token):
-    model = tf.keras.models.clone_model(model)
-    model.build((None, 2))
-    save_pretrained_keras(
-        model,
-        f"tests/{WORKING_REPO_SUBDIR}/FROM_PRETRAINED",
-    )
+        # Check the reloaded model's weights match the original model's weights
+        assert tf.reduce_all(tf.equal(new_model.weights[0], model.weights[0]))
 
-    new_model = from_pretrained_keras(f"tests/{WORKING_REPO_SUBDIR}/FROM_PRETRAINED")
+    def test_abs_path_from_pretrained(self):
+        model = self.model_init()
+        model.build((None, 2))
+        save_pretrained_keras(
+            model,
+            f"{WORKING_REPO_DIR}/{REPO_NAME}-FROM_PRETRAINED",
+        )
 
-    # Check the reloaded model's weights match the original model's weights
-    assert tf.reduce_all(tf.equal(new_model.weights[0], model.weights[0]))
+        new_model = from_pretrained_keras(
+            f"{WORKING_REPO_DIR}/{REPO_NAME}-FROM_PRETRAINED"
+        )
+        assert tf.reduce_all(tf.equal(new_model.weights[0], model.weights[0]))
 
+    def test_push_to_hub(self):
+        model = self.model_init()
+        model.build((None, 2))
+        push_to_hub_keras(
+            model,
+            repo_path_or_name=f"{WORKING_REPO_DIR}/{REPO_NAME}-PUSH_TO_HUB",
+            api_endpoint=ENDPOINT_STAGING,
+            use_auth_token=self._token,
+            git_user="ci",
+            git_email="ci@dummy.com",
+            config={"num": 7, "act": "gelu_fast"},
+        )
 
-@require_tf
-@pytest.mark.parametrize(
-    "model",
-    [
-        pytest.param(dummy_model_sequential, id="sequential"),
-        pytest.param(dummy_model_functional, id="functional"),
-    ],
-)
-def test_abs_path_from_pretrained(model, hf_token):
-    model = tf.keras.models.clone_model(model)
-    model.build((None, 2))
-    save_pretrained_keras(
-        model,
-        f"{WORKING_REPO_DIR}/{REPO_NAME}-FROM_PRETRAINED",
-    )
+        model_info = HfApi(endpoint=ENDPOINT_STAGING).model_info(
+            f"{USER}/{REPO_NAME}-PUSH_TO_HUB",
+        )
+        assert model_info.modelId == f"{USER}/{REPO_NAME}-PUSH_TO_HUB"
 
-    new_model = from_pretrained_keras(f"{WORKING_REPO_DIR}/{REPO_NAME}-FROM_PRETRAINED")
-    assert tf.reduce_all(tf.equal(new_model.weights[0], model.weights[0]))
+        self._api.delete_repo(token=self._token, name=f"{REPO_NAME}-PUSH_TO_HUB")
 
 
 @require_tf
-@pytest.mark.parametrize(
-    "model",
-    [
-        pytest.param(dummy_model_sequential, id="sequential"),
-        pytest.param(dummy_model_functional, id="functional"),
-    ],
-)
-def test_push_to_hub(model, hf_token):
-    model = tf.keras.models.clone_model(model)
-    model.build((None, 2))
-    push_to_hub_keras(
-        model,
-        repo_path_or_name=f"{WORKING_REPO_DIR}/{REPO_NAME}-PUSH_TO_HUB",
-        api_endpoint=ENDPOINT_STAGING,
-        use_auth_token=hf_token,
-        git_user="ci",
-        git_email="ci@dummy.com",
-        config={"num": 7, "act": "gelu_fast"},
-    )
+class HubKerasFunctionalTest(HubKerasSequentialTest):
+    def model_init(self):
+        inputs = tf.keras.layers.Input(shape=(2,))
+        x = tf.keras.layers.Dense(2, activation="relu")(inputs)
+        model = tf.keras.models.Model(inputs=inputs, outputs=x)
+        model.compile(optimizer="adam", loss="mse")
+        return model
 
-    model_info = HfApi(endpoint=ENDPOINT_STAGING).model_info(
-        f"{USER}/{REPO_NAME}-PUSH_TO_HUB",
-    )
-    assert model_info.modelId == f"{USER}/{REPO_NAME}-PUSH_TO_HUB"
+    def test_save_pretrained(self):
+        model = self.model_init()
 
-    HfApi(endpoint=ENDPOINT_STAGING).delete_repo(
-        token=hf_token, name=f"{REPO_NAME}-PUSH_TO_HUB"
-    )
+        self.assertTrue(model.built)
+
+        save_pretrained_keras(model, f"{WORKING_REPO_DIR}/{REPO_NAME}")
+        files = os.listdir(f"{WORKING_REPO_DIR}/{REPO_NAME}")
+
+        self.assertIn("saved_model.pb", files)
+        self.assertIn("keras_metadata.pb", files)
+        self.assertEqual(len(files), 4)
