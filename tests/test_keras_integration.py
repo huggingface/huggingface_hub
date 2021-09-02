@@ -126,7 +126,7 @@ class HubMixingTestKeras(unittest.TestCase):
         model = DummyModel.from_pretrained(
             f"tests/{WORKING_REPO_SUBDIR}/FROM_PRETRAINED"
         )
-        self.assertTrue(model.config == {"num": 10, "act": "gelu_fast"})
+        self.assertTrue(model.hf_config == {"num": 10, "act": "gelu_fast"})
 
     def test_abs_path_from_pretrained(self):
         model = DummyModel()
@@ -139,7 +139,7 @@ class HubMixingTestKeras(unittest.TestCase):
         model = DummyModel.from_pretrained(
             f"{WORKING_REPO_DIR}/{REPO_NAME}-FROM_PRETRAINED"
         )
-        self.assertDictEqual(model.config, {"num": 10, "act": "gelu_fast"})
+        self.assertDictEqual(model.hf_config, {"num": 10, "act": "gelu_fast"})
 
     def test_push_to_hub(self):
         model = DummyModel()
@@ -208,6 +208,7 @@ class HubKerasSequentialTest(HubMixingTestKeras):
         save_pretrained_keras(
             model,
             f"tests/{WORKING_REPO_SUBDIR}/FROM_PRETRAINED",
+            config={"num": 10, "act": "gelu_fast"},
         )
 
         new_model = from_pretrained_keras(
@@ -215,7 +216,10 @@ class HubKerasSequentialTest(HubMixingTestKeras):
         )
 
         # Check the reloaded model's weights match the original model's weights
-        assert tf.reduce_all(tf.equal(new_model.weights[0], model.weights[0]))
+        self.assertTrue(tf.reduce_all(tf.equal(new_model.weights[0], model.weights[0])))
+
+        # Check saved configuration is what we expect
+        self.assertTrue(new_model.hf_config == {"num": 10, "act": "gelu_fast"})
 
     def test_abs_path_from_pretrained(self):
         model = self.model_init()
@@ -223,12 +227,14 @@ class HubKerasSequentialTest(HubMixingTestKeras):
         save_pretrained_keras(
             model,
             f"{WORKING_REPO_DIR}/{REPO_NAME}-FROM_PRETRAINED",
+            config={"num": 10, "act": "gelu_fast"},
         )
 
         new_model = from_pretrained_keras(
             f"{WORKING_REPO_DIR}/{REPO_NAME}-FROM_PRETRAINED"
         )
         assert tf.reduce_all(tf.equal(new_model.weights[0], model.weights[0]))
+        self.assertTrue(new_model.hf_config == {"num": 10, "act": "gelu_fast"})
 
     def test_push_to_hub(self):
         model = self.model_init()

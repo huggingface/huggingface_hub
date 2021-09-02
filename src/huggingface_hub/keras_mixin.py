@@ -1,12 +1,14 @@
+import json
 import logging
 import os
 from pathlib import Path
-from typing import Optional, Union
+from typing import Any, Dict, Optional, Union
 
 from huggingface_hub import ModelHubMixin
 from huggingface_hub.file_download import is_tf_available
 from huggingface_hub.snapshot_download import snapshot_download
 
+from .constants import CONFIG_NAME
 from .hf_api import HfApi, HfFolder
 from .repository import Repository
 
@@ -17,27 +19,35 @@ if is_tf_available():
     import tensorflow as tf
 
 
-def save_pretrained_keras(model, save_dir):
-    """Function mimicing save_pretrained. Use this if you're using the Functional or Sequential APIs."""
+def save_pretrained_keras(
+    model, save_directory: str, config: Optional[Dict[str, Any]] = None
+):
+    """Saves a Keras model to save_directory in SavedModel format. Use this if you're using the Functional or Sequential APIs.
+
+    model:
+        The Keras model you'd like to save. It model must be compiled and built.
+    save_directory (:obj:`str`):
+        Specify directory in which you want to save the Keras model.
+    config (:obj:`dict`, `optional`):
+        Configuration object to be saved alongside the model weights.
+    """
+
     if not model.built:
         raise ValueError("Model should be built before trying to save")
 
-    tf.keras.models.save_model(model, save_dir)
+    os.makedirs(save_directory, exist_ok=True)
+
+    # saving config
+    if isinstance(config, dict):
+        path = os.path.join(save_directory, CONFIG_NAME)
+        with open(path, "w") as f:
+            json.dump(config, f)
+
+    tf.keras.models.save_model(model, save_directory)
 
 
-def from_pretrained_keras(model_name_or_path, revision=None, cache_dir=None, **kwargs):
-    """Function mimicing from_pretrained. Use this if you're using the Functional or Sequential APIs."""
-
-    # Root is either a local filepath matching model_id or a cached snapshot
-    storage_folder = (
-        snapshot_download(
-            repo_id=model_name_or_path, revision=revision, cache_dir=cache_dir
-        )
-        if not os.path.isdir(model_name_or_path)
-        else model_name_or_path
-    )
-
-    return tf.keras.models.load_model(storage_folder, **kwargs)
+def from_pretrained_keras(*args, **kwargs):
+    return KerasModelHubMixin.from_pretrained(*args, **kwargs)
 
 
 def push_to_hub_keras(
@@ -53,6 +63,46 @@ def push_to_hub_keras(
     git_email: Optional[str] = None,
     config: Optional[dict] = None,
 ):
+    """
+    Upload model checkpoint or tokenizer files to the 🤗 Model Hub while synchronizing a local clone of the repo in
+    :obj:`repo_path_or_name`.
+
+    Parameters:
+        model:
+            The Keras model you'd like to push to the hub. It model must be compiled and built.
+        repo_path_or_name (:obj:`str`, `optional`):
+            Can either be a repository name for your model or tokenizer in the Hub or a path to a local folder (in
+            which case the repository will have the name of that local folder). If not specified, will default to
+            the name given by :obj:`repo_url` and a local directory with that name will be created.
+        repo_url (:obj:`str`, `optional`):
+            Specify this in case you want to push to an existing repository in the hub. If unspecified, a new
+            repository will be created in your namespace (unless you specify an :obj:`organization`) with
+            :obj:`repo_name`.
+        commit_message (:obj:`str`, `optional`):
+            Message to commit while pushing. Will default to :obj:`"add config"`, :obj:`"add tokenizer"` or
+            :obj:`"add model"` depending on the type of the class.
+        organization (:obj:`str`, `optional`):
+            Organization in which you want to push your model or tokenizer (you must be a member of this
+            organization).
+        private (:obj:`bool`, `optional`):
+            Whether or not the repository created should be private (requires a paying subscription).
+        api_endpoint (:obj:`str`, `optional`):
+            The API endpoint to use when pushing the model to the hub.
+        use_auth_token (:obj:`bool` or :obj:`str`, `optional`):
+            The token to use as HTTP bearer authorization for remote files. If :obj:`True`, will use the token
+            generated when running :obj:`transformers-cli login` (stored in :obj:`~/.huggingface`). Will default to
+            :obj:`True` if :obj:`repo_url` is not specified.
+        git_user (``str``, `optional`):
+            will override the ``git config user.name`` for committing and pushing files to the hub.
+        git_email (``str``, `optional`):
+            will override the ``git config user.email`` for committing and pushing files to the hub.
+        config (:obj:`dict`, `optional`):
+            Configuration object to be saved alongside the model weights.
+
+    Returns:
+        The url of the commit of your model in the given repository.
+    """
+
     if repo_path_or_name is None and repo_url is None:
         raise ValueError("You need to specify a `repo_path_or_name` or a `repo_url`.")
 
@@ -93,7 +143,7 @@ def push_to_hub_keras(
     )
     repo.git_pull(rebase=True)
 
-    save_pretrained_keras(model, repo_path_or_name)
+    save_pretrained_keras(model, repo_path_or_name, config=config)
 
     # Commit and push!
     repo.git_add()
@@ -157,8 +207,17 @@ class KerasModelHubMixin(ModelHubMixin):
         # TODO - Figure out what to do about these config values. Config is not going to be needed to load model
         cfg = model_kwargs.pop("config", None)
 
-        model = from_pretrained_keras(model_id, revision, cache_dir, **model_kwargs)
+        # Root is either a local filepath matching model_id or a cached snapshot
+        if not os.path.isdir(model_id):
+            storage_folder = snapshot_download(
+                repo_id=model_id, revision=revision, cache_dir=cache_dir
+            )
+        else:
+            storage_folder = model_id
 
-        model.config = cfg
+        model = tf.keras.models.load_model(storage_folder, **model_kwargs)
+
+        # For now, we add a new attribute, hf_config, to store the config loaded from the hub/a local dir.
+        model.hf_config = cfg
 
         return model
