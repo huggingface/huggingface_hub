@@ -8,12 +8,12 @@ from starlette.testclient import TestClient
 from tests.test_api import TESTABLE_MODELS
 
 
-@parameterized_class(
-    [{"model_id": model_id} for model_id in TESTABLE_MODELS["image-classification"]]
-)
 @skipIf(
     "image-classification" not in ALLOWED_TASKS,
     "image-classification not implemented",
+)
+@parameterized_class(
+    [{"model_id": model_id} for model_id in TESTABLE_MODELS["image-classification"]]
 )
 class ImageClassificationTestCase(TestCase):
     def setUp(self):
