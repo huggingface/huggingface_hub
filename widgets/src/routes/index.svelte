@@ -146,6 +146,16 @@
 			widgetData: [{ text: "请您说得慢些好吗" }],
 		},
 		{
+			modelId: "superb/wav2vec2-base-superb-sid",
+			pipeline_tag: "audio-classification",
+			widgetData: [
+				{
+					label: "Librispeech sample 1",
+					src: "https://cdn-media.huggingface.co/speech_samples/sample1.flac",
+				},
+			],
+		},
+		{
 			modelId: "julien-c/mini_an4_asr_train_raw_bpe_valid",
 			pipeline_tag: "automatic-speech-recognition",
 		},
