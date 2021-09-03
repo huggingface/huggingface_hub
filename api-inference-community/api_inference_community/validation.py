@@ -214,6 +214,7 @@ def normalize_payload(
         "automatic-speech-recognition",
         "audio-to-audio",
         "speech-segmentation",
+        "audio-classification",
     }:
         if sampling_rate is None:
             raise EnvironmentError(
