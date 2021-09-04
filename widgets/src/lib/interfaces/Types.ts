@@ -28,6 +28,7 @@ export enum PipelineType {
 	"text-to-speech"                                          = "Text-to-Speech",
 	"automatic-speech-recognition"                            = "Automatic Speech Recognition",
 	"audio-to-audio"                                          = "Audio-to-Audio",
+	"audio-classification"                                    = "Audio Classification",
 	"voice-activity-detection"                                = "Voice Activity Detection",
 	/// computer vision
 	"image-classification"                                    = "Image Classification",
@@ -65,6 +66,7 @@ export const ALL_PIPELINE_TYPES = Object.keys(PipelineType) as (keyof typeof Pip
 export const PIPELINE_TAG_ICO_CLASS: {
 	[key in keyof typeof PipelineType]?: string;
 } = {
+	"audio-classification": "tag-ico-green",
 	"audio-to-audio": "tag-ico-blue",
 	"automatic-speech-recognition": "tag-ico-yellow",
 	"conversational": "tag-ico-green",
@@ -111,6 +113,7 @@ export const PIPELINE_TAGS_DISPLAY_ORDER: Array<keyof typeof PipelineType> = [
 	"text-to-speech",
 	"automatic-speech-recognition",
 	"audio-to-audio",
+	"audio-classification",
 	"voice-activity-detection",
 	/// computer vision
 	"image-classification",

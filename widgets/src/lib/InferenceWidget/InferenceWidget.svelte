@@ -3,6 +3,7 @@
 	import type { PipelineType } from "$lib/interfaces/Types";
 	import type { WidgetProps } from "./shared/types";
 
+	import AudioClassificationWidget from "./widgets/AudioClassificationWidget/AudioClassificationWidget.svelte";
 	import AudioToAudioWidget from "./widgets/AudioToAudioWidget/AudioToAudioWidget.svelte";
 	import AutomaticSpeechRecognitionWidget from "./widgets/AutomaticSpeechRecognitionWidget/AutomaticSpeechRecognitionWidget.svelte";
 	import ConversationalWidget from "./widgets/ConversationalWidget/ConversationalWidget.svelte";
@@ -36,6 +37,7 @@
 		[key in keyof typeof PipelineType]?: typeof SvelteComponent;
 	} = {
 		"audio-to-audio": AudioToAudioWidget,
+		"audio-classification": AudioClassificationWidget,
 		"automatic-speech-recognition": AutomaticSpeechRecognitionWidget,
 		conversational: ConversationalWidget,
 		"feature-extraction": FeatureExtractionWidget,
