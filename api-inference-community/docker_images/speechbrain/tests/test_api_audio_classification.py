@@ -1,26 +1,35 @@
+import json
 import os
 from unittest import TestCase, skipIf
 
-from api_inference_community.validation import ffmpeg_read
 from app.main import ALLOWED_TASKS
+from parameterized import parameterized_class
 from starlette.testclient import TestClient
 from tests.test_api import TESTABLE_MODELS
 
 
 @skipIf(
-    "audio-source-separation" not in ALLOWED_TASKS,
-    "audio-source-separation not implemented",
+    "audio-classification" not in ALLOWED_TASKS,
+    "audio-classification not implemented",
 )
-class AudioSourceSeparationTestCase(TestCase):
+@parameterized_class(
+    [{"model_id": model_id} for model_id in TESTABLE_MODELS["audio-classification"]]
+)
+class AudioClassificationTestCase(TestCase):
     def setUp(self):
-        model_id = TESTABLE_MODELS["audio-source-separation"]
         self.old_model_id = os.getenv("MODEL_ID")
         self.old_task = os.getenv("TASK")
-        os.environ["MODEL_ID"] = model_id
-        os.environ["TASK"] = "audio-source-separation"
+        os.environ["MODEL_ID"] = self.model_id
+        os.environ["TASK"] = "audio-classification"
         from app.main import app
 
         self.app = app
+
+    @classmethod
+    def setUpClass(cls):
+        from app.main import get_pipeline
+
+        get_pipeline.cache_clear()
 
     def tearDown(self):
         if self.old_model_id is not None:
@@ -39,21 +48,23 @@ class AudioSourceSeparationTestCase(TestCase):
             bpayload = f.read()
         return bpayload
 
-    def test_simple(self):
+    def test_original_audiofile(self):
         bpayload = self.read("sample1.flac")
 
         with TestClient(self.app) as client:
             response = client.post("/", data=bpayload)
-
         self.assertEqual(
             response.status_code,
             200,
         )
-        self.assertEqual(response.headers["content-type"], "audio/flac")
-        audio = ffmpeg_read(response.content)
 
-        self.assertEqual(len(audio.shape), 1)
-        self.assertGreater(audio.shape[0], 1000)
+        content = json.loads(response.content)
+        self.assertEqual(type(content), list)
+        self.assertEqual(type(content[0]), dict)
+        self.assertEqual(
+            set(k for el in content for k in el.keys()),
+            {"label", "score"},
+        )
 
     def test_malformed_audio(self):
         bpayload = self.read("malformed.flac")
@@ -77,9 +88,14 @@ class AudioSourceSeparationTestCase(TestCase):
             response.status_code,
             200,
         )
-        self.assertEqual(response.header["content-type"], "audio/wav")
-        audio = ffmpeg_read(response.content)
-        self.assertEqual(audio.shape, (10,))
+
+        content = json.loads(response.content)
+        self.assertEqual(type(content), list)
+        self.assertEqual(type(content[0]), dict)
+        self.assertEqual(
+            set(k for el in content for k in el.keys()),
+            {"label", "score"},
+        )
 
     def test_webm_audiofile(self):
         bpayload = self.read("sample1.webm")
@@ -91,6 +107,11 @@ class AudioSourceSeparationTestCase(TestCase):
             response.status_code,
             200,
         )
-        self.assertEqual(response.header["content-type"], "audio/wav")
-        audio = ffmpeg_read(response.content)
-        self.assertEqual(audio.shape, (10,))
+
+        content = json.loads(response.content)
+        self.assertEqual(type(content), list)
+        self.assertEqual(type(content[0]), dict)
+        self.assertEqual(
+            set(k for el in content for k in el.keys()),
+            {"label", "score"},
+        )
