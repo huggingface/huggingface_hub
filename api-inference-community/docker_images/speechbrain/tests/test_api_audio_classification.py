@@ -9,21 +9,18 @@ from tests.test_api import TESTABLE_MODELS
 
 
 @skipIf(
-    "automatic-speech-recognition" not in ALLOWED_TASKS,
-    "automatic-speech-recognition not implemented",
+    "audio-classification" not in ALLOWED_TASKS,
+    "audio-classification not implemented",
 )
 @parameterized_class(
-    [
-        {"model_id": model_id}
-        for model_id in TESTABLE_MODELS["automatic-speech-recognition"]
-    ]
+    [{"model_id": model_id} for model_id in TESTABLE_MODELS["audio-classification"]]
 )
-class AutomaticSpeecRecognitionTestCase(TestCase):
+class AudioClassificationTestCase(TestCase):
     def setUp(self):
         self.old_model_id = os.getenv("MODEL_ID")
         self.old_task = os.getenv("TASK")
         os.environ["MODEL_ID"] = self.model_id
-        os.environ["TASK"] = "automatic-speech-recognition"
+        os.environ["TASK"] = "audio-classification"
         from app.main import app
 
         self.app = app
@@ -56,13 +53,18 @@ class AutomaticSpeecRecognitionTestCase(TestCase):
 
         with TestClient(self.app) as client:
             response = client.post("/", data=bpayload)
-
         self.assertEqual(
             response.status_code,
             200,
         )
+
         content = json.loads(response.content)
-        self.assertEqual(set(content.keys()), {"text"})
+        self.assertEqual(type(content), list)
+        self.assertEqual(type(content[0]), dict)
+        self.assertEqual(
+            set(k for el in content for k in el.keys()),
+            {"label", "score"},
+        )
 
     def test_malformed_audio(self):
         bpayload = self.read("malformed.flac")
@@ -86,8 +88,14 @@ class AutomaticSpeecRecognitionTestCase(TestCase):
             response.status_code,
             200,
         )
+
         content = json.loads(response.content)
-        self.assertEqual(set(content.keys()), {"text"})
+        self.assertEqual(type(content), list)
+        self.assertEqual(type(content[0]), dict)
+        self.assertEqual(
+            set(k for el in content for k in el.keys()),
+            {"label", "score"},
+        )
 
     def test_webm_audiofile(self):
         bpayload = self.read("sample1.webm")
@@ -99,5 +107,11 @@ class AutomaticSpeecRecognitionTestCase(TestCase):
             response.status_code,
             200,
         )
+
         content = json.loads(response.content)
-        self.assertEqual(set(content.keys()), {"text"})
+        self.assertEqual(type(content), list)
+        self.assertEqual(type(content[0]), dict)
+        self.assertEqual(
+            set(k for el in content for k in el.keys()),
+            {"label", "score"},
+        )
