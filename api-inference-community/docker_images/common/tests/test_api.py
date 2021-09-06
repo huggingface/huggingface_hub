@@ -16,8 +16,8 @@ TESTABLE_MODELS: Dict[str, str] = {
 
 
 ALL_TASKS = {
-    "audio-to-audio",
     "audio-classification",
+    "audio-to-audio",
     "automatic-speech-recognition",
     "feature-extraction",
     "image-classification",
