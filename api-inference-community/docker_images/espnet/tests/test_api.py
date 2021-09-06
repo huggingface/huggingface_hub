@@ -9,8 +9,8 @@ from app.main import ALLOWED_TASKS, get_pipeline
 # Tests do not check the actual values of the model output, so small dummy
 # models are recommended for faster tests.
 TESTABLE_MODELS: Dict[str, str] = {
-    "text-to-speech": "julien-c/ljspeech_tts_train_tacotron2_raw_phn_tacotron_g2p_en_no_space_train",
-    "automatic-speech-recognition": "julien-c/mini_an4_asr_train_raw_bpe_valid",
+    "text-to-speech": "espnet/kan-bayashi_ljspeech_fastspeech2",
+    "automatic-speech-recognition": "espnet/kamo-naoyuki_mini_an4_asr_train_raw_bpe_valid.acc.best",
 }
 
 

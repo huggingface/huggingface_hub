@@ -2,7 +2,7 @@ import os
 from unittest import TestCase, skipIf
 
 from app.main import ALLOWED_TASKS
-from app.validation import ffmpeg_read
+from api_inference_community.validation import ffmpeg_read
 from starlette.testclient import TestClient
 from tests.test_api import TESTABLE_MODELS
 
@@ -36,6 +36,7 @@ class TextToSpeechTestCase(TestCase):
         with TestClient(self.app) as client:
             response = client.post("/", json={"inputs": "This is some text"})
 
+        print(response.content)
         self.assertEqual(
             response.status_code,
             200,
