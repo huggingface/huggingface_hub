@@ -32,6 +32,6 @@ class AudioClassificationPipeline(Pipeline):
         probs = torch.softmax(probs[0], dim=0)
         labels = self.model.hparams.label_encoder.decode_ndim(range(len(probs)))
         results = []
-        for label, prob in sorted(zip(labels, probs), reverse=True)[: self.top_k]:
+        for prob, label in sorted(zip(probs, labels), reverse=True)[: self.top_k]:
             results.append({"label": label, "score": prob.item()})
         return results
