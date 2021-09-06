@@ -9,15 +9,12 @@ from app.main import ALLOWED_TASKS, get_pipeline
 # Tests do not check the actual values of the model output, so small dummy
 # models are recommended for faster tests.
 TESTABLE_MODELS: Dict[str, List[str]] = {
-    # "audio-classification": ,
-    # "audio-classification": ,
-    # "audio-classification": ,
     "audio-classification": [
         # Language Identification
         "speechbrain/lang-id-commonlanguage_ecapa",
         # Command recognition
         "speechbrain/google_speech_command_xvector",
-        # Speaer recognitio
+        # Speaker recognitio
         "speechbrain/spkrec-xvect-voxceleb",
     ],
     "audio-to-audio": ["speechbrain/mtl-mimic-voicebank"],

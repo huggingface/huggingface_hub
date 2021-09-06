@@ -121,7 +121,6 @@ class DockerImageTests(unittest.TestCase):
         self.framework_invalid_test("spacy")
 
     def test_speechbrain(self):
-        """
         self.framework_docker_test(
             "speechbrain",
             "automatic-speech-recognition",
@@ -141,7 +140,7 @@ class DockerImageTests(unittest.TestCase):
             "audio-to-audio",
             "speechbrain/mtl-mimic-voicebank",
         )
-        """
+
         self.framework_docker_test(
             "speechbrain",
             "audio-classification",
@@ -299,7 +298,6 @@ class DockerImageTests(unittest.TestCase):
             self.assertEqual(response.content, b'{"ok":"ok"}')
 
             response = httpx.post(url, data=b"This is a test", timeout=timeout)
-            print(response.content)
             self.assertIn(response.status_code, {200, 400})
             counter[response.status_code] += 1
 
@@ -308,7 +306,6 @@ class DockerImageTests(unittest.TestCase):
                 json={"inputs": "This is a test"},
                 timeout=timeout,
             )
-            print(response.content)
             self.assertIn(response.status_code, {200, 400})
             counter[response.status_code] += 1
 
@@ -319,7 +316,6 @@ class DockerImageTests(unittest.TestCase):
                 },
                 timeout=timeout,
             )
-            print(response.content)
             self.assertIn(response.status_code, {200, 400})
             counter[response.status_code] += 1
 
