@@ -361,7 +361,6 @@ class DockerImageTests(unittest.TestCase):
             ) as f:
                 data = f.read()
             response = httpx.post(url, data=data, timeout=timeout)
-            print("AUDIO RESPONSE", response.content)
             self.assertIn(response.status_code, {200, 400})
             counter[response.status_code] += 1
             if response.status_code == 200:
