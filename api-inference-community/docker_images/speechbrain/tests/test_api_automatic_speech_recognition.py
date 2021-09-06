@@ -51,7 +51,7 @@ class AutomaticSpeecRecognitionTestCase(TestCase):
             bpayload = f.read()
         return bpayload
 
-    def test_original_audiofile(self):
+    def test_simple(self):
         bpayload = self.read("sample1.flac")
 
         with TestClient(self.app) as client:
