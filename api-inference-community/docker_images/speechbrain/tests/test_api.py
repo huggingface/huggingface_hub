@@ -14,7 +14,7 @@ TESTABLE_MODELS: Dict[str, List[str]] = {
         "speechbrain/lang-id-commonlanguage_ecapa",
         # Command recognition
         "speechbrain/google_speech_command_xvector",
-        # Speaker recognitio
+        # Speaker recognition
         "speechbrain/spkrec-xvect-voxceleb",
     ],
     "audio-to-audio": ["speechbrain/mtl-mimic-voicebank"],
