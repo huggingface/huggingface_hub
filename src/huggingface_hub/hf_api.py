@@ -27,6 +27,7 @@ import requests
 from requests.exceptions import HTTPError
 
 from .constants import ENDPOINT, REPO_TYPES, REPO_TYPES_MAPPING, REPO_TYPES_URL_PREFIXES
+from .utils import logging
 
 
 if sys.version_info >= (3, 8):
@@ -38,6 +39,8 @@ else:
 REMOTE_FILEPATH_REGEX = re.compile(r"^\w[\w\/]*(\.\w+)?$")
 # ^^ No trailing slash, no backslash, no spaces, no relative parts ("." or "..")
 #    Only word characters and an optional extension
+
+logger = logging.get_logger(__name__)
 
 
 def repo_type_and_id_from_hf_id(hf_id: str):
@@ -745,6 +748,11 @@ class HfApi:
                 raise ValueError(
                     "Provided path: '{}' is not a file".format(path_or_fileobj)
                 )
+            if os.stat(path_or_fileobj).st_size // 1_000_000_000 >= 5:
+                raise ValueError(
+                    f"The file {path_or_fileobj} is larger than 5GB and cannot be uploaded "
+                    "with `upload_file`. Please use the `Repository` object instead."
+                )
         elif not isinstance(path_or_fileobj, (RawIOBase, BufferedIOBase)):
             # ^^ Test from: https://stackoverflow.com/questions/44584829/how-to-determine-if-file-is-opened-in-binary-or-text-mode
             raise ValueError(
@@ -789,7 +797,11 @@ class HfApi:
                 raise err
 
         d = r.json()
-        return d["url"]
+
+        if "error" in d:
+            logger.error(d["error"])
+
+        return d.get("url", None)
 
 
 class HfFolder:
