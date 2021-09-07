@@ -64,7 +64,6 @@ class AutomaticSpeecRecognitionTestCase(TestCase):
         )
         self.assertEqual(response.content, b'{"error":"Malformed soundfile"}')
 
-    
     def test_dual_channel_audiofile(self):
         bpayload = self.read("sample1_dual.ogg")
 

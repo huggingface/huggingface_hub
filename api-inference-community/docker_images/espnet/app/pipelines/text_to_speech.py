@@ -7,7 +7,6 @@ from espnet2.bin.tts_inference import Text2Speech
 
 class TextToSpeechPipeline(Pipeline):
     def __init__(self, model_id: str):
-        print("LOADING MODEL")
         self.model = Text2Speech.from_pretrained(model_id, device="cpu")
 
         if hasattr(self.model.fs, "sampling_rate"):

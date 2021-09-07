@@ -10,9 +10,9 @@ from app.pipelines import (  # AutomaticSpeechRecognitionPipeline,
     TextToSpeechPipeline,
 )
 from starlette.applications import Starlette
-from starlette.routing import Route
 from starlette.middleware import Middleware
 from starlette.middleware.gzip import GZipMiddleware
+from starlette.routing import Route
 
 
 TASK = os.getenv("TASK")
