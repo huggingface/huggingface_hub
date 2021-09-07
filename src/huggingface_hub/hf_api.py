@@ -53,6 +53,8 @@ REMOTE_FILEPATH_REGEX = re.compile(r"^\w[\w\/\-]*(\.\w+)?$")
 # ^^ No trailing slash, no backslash, no spaces, no relative parts ("." or "..")
 #    Only word characters and an optional extension
 
+logger = logging.get_logger(__name__)
+
 
 def repo_type_and_id_from_hf_id(hf_id: str):
     """
@@ -1303,6 +1305,11 @@ class HfApi:
             path_or_fileobj = os.path.normpath(os.path.expanduser(path_or_fileobj))
             if not os.path.isfile(path_or_fileobj):
                 raise ValueError(f"Provided path: '{path_or_fileobj}' is not a file")
+            if os.stat(path_or_fileobj).st_size // 1_000_000_000 >= 5:
+                raise ValueError(
+                    f"The file {path_or_fileobj} is larger than 5GB and cannot be uploaded "
+                    "with `upload_file`. Please use the `Repository` object instead."
+                )
         elif not isinstance(path_or_fileobj, (RawIOBase, BufferedIOBase, bytes)):
             # ^^ Test from: https://stackoverflow.com/questions/44584829/how-to-determine-if-file-is-opened-in-binary-or-text-mode
             raise ValueError(
@@ -1346,7 +1353,12 @@ class HfApi:
                 raise err
 
         d = r.json()
-        return d["url"]
+
+        if "error" in d:
+            logger.error(d["error"])
+            
+        return d.get("url", None)
+
 
     def delete_file(
         self,
@@ -1358,6 +1370,7 @@ class HfApi:
     ):
         """
         Deletes a file in the given repo.
+
 
         Params:
             path_in_repo (``str``):
