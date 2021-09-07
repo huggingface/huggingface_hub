@@ -7,7 +7,7 @@ from espnet2.bin.asr_inference import Speech2Text
 
 class AutomaticSpeechRecognitionPipeline(Pipeline):
     def __init__(self, model_id: str):
-        self.model = Speech2Text.from_pretrained(model_id, device="cpu")
+        self.model = Speech2Text.from_pretrained(model_id, device="cpu", beam_size=1)
         self.sampling_rate = 16000
 
     def __call__(self, inputs: np.array) -> Dict[str, str]:
