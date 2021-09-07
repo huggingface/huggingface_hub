@@ -36,13 +36,12 @@ class TextToSpeechTestCase(TestCase):
         with TestClient(self.app) as client:
             response = client.post("/", json={"inputs": "This is some text"})
 
-        print(response.content)
         self.assertEqual(
             response.status_code,
             200,
         )
         self.assertEqual(response.headers["content-type"], "audio/flac")
-        audio = ffmpeg_read(response.content)
+        audio = ffmpeg_read(response.content, 16000)
         self.assertEqual(len(audio.shape), 1)
         self.assertGreater(audio.shape[0], 1000)
 

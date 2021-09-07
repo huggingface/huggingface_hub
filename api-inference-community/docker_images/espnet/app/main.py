@@ -15,6 +15,10 @@ from starlette.middleware import Middleware
 from starlette.middleware.gzip import GZipMiddleware
 
 
+TASK = os.getenv("TASK")
+MODEL_ID = os.getenv("MODEL_ID")
+
+
 logger = logging.getLogger(__name__)
 
 

@@ -24,7 +24,6 @@ class TextToSpeechPipeline(Pipeline):
         Return:
             A :obj:`np.array` and a :obj:`int`: The raw waveform as a numpy array, and the sampling rate as an int.
         """
-        text = inputs
-        outputs = self.model(text)
+        outputs = self.model(inputs)
         speech = outputs["wav"]
         return speech.numpy(), self.sampling_rate
