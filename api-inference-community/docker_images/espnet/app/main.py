@@ -38,7 +38,6 @@ logger = logging.getLogger(__name__)
 # directories. Implement directly within the directories.
 ALLOWED_TASKS: Dict[str, Type[Pipeline]] = {
     "text-to-speech": TextToSpeechPipeline,
-    # Disabling this it's waaayy too slow.
     "automatic-speech-recognition": AutomaticSpeechRecognitionPipeline,
 }
 

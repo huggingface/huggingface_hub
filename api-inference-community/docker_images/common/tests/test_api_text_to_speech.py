@@ -47,7 +47,7 @@ class TextToSpeechTestCase(TestCase):
             200,
         )
         self.assertEqual(response.headers["content-type"], "audio/flac")
-        audio = ffmpeg_read(response.content)
+        audio = ffmpeg_read(response.content, 16000)
         self.assertEqual(len(audio.shape), 1)
         self.assertGreater(audio.shape[0], 1000)
 

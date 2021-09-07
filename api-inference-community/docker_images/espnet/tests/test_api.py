@@ -38,5 +38,7 @@ class PipelineTestCase(TestCase):
         unsupported_tasks = ALL_TASKS - ALLOWED_TASKS.keys()
         for unsupported_task in unsupported_tasks:
             with self.subTest(msg=unsupported_task, task=unsupported_task):
+                os.environ["TASK"] = unsupported_task
+                os.environ["MODEL_ID"] = "XX"
                 with self.assertRaises(EnvironmentError):
-                    get_pipeline(unsupported_task, model_id="XX")
+                    get_pipeline()
