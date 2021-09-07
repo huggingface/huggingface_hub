@@ -30,7 +30,7 @@ We recommend you try both as they're both really awesome! 😎
 
 Streamlit's documentation is at https://docs.streamlit.io/, and Gradio's doc is https://gradio.app/getting_started.
 
-In the default environment, we're currently running version `"0.83.0"` of Streamlit and version `"2.2.6"` of Gradio.
+In the default environment, we're currently running version `"0.84.2"` of Streamlit and version `"2.2.6"` of Gradio.
 
 Our 2 cents:
 
@@ -151,6 +151,10 @@ We host [widgets](https://huggingface-widgets.netlify.app/) for every model on t
 This project's goal is to experiment with an extensible way for users and organizations to host demos/apps on huggingface.co, in a more productized/scalable way than we’ve done in the past.
 
 ## Changelog
+
+#### [2021-09-06] - Upgrade Streamlit to `0.84.2`
+- Supporting Session State API
+- [Streamlit changelog](https://github.com/streamlit/streamlit/releases/tag/0.84.0)
 
 #### [2021-08-10] - Upgrade Streamlit to `0.83.0`
 - [Streamlit changelog](https://github.com/streamlit/streamlit/releases/tag/0.83.0)
