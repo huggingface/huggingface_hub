@@ -101,6 +101,13 @@ model = Speech2Text.from_pretrained(
 speech, rate = soundfile.read("speech.wav")
 text, *_ = model(speech)`;
 
+const espnetAudioClassification = (model: ModelData) =>
+`from speechbrain.pretrained import EncoderClassifier
+
+model = EncoderClassifier.from_hparams(
+  "${model.modelId}"
+)`;
+
 const espnetUnknown = () =>
 `unknown model type (must be text-to-speech or automatic-speech-recognition)`;
 
@@ -109,6 +116,8 @@ const espnet = (model: ModelData) => {
 		return espnetTTS(model);
 	} else if (model.tags?.includes("automatic-speech-recognition")) {
 		return espnetASR(model);
+	} else if (model.tags?.includes("audio-classification")) {
+		return espnetAudioClassification(model);
 	}
 	return espnetUnknown();
 };
