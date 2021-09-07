@@ -30,7 +30,7 @@ We recommend you try both as they're both really awesome! 😎
 
 Streamlit's documentation is at https://docs.streamlit.io/, and Gradio's doc is https://gradio.app/getting_started.
 
-In the default environment, we're currently running version `"0.84.2"` of Streamlit and version `"2.2.6"` of Gradio.
+In the default environment, we're currently running version `"0.84.2"` of Streamlit and the latest version of Gradio.
 
 Our 2 cents:
 
@@ -149,6 +149,52 @@ In the past few years, our team, in collaboration with other research groups, ha
 We host [widgets](https://huggingface-widgets.netlify.app/) for every model on the Hub, but in some cases (for instance if you want to compare two models) there is a need for a demo app that can't simply be implemented in a widget, so we needed something more flexible.
 
 This project's goal is to experiment with an extensible way for users and organizations to host demos/apps on huggingface.co, in a more productized/scalable way than we’ve done in the past.
+
+## Configuration
+
+All the settings of your Space are stored inside a YAML block on top of the `README.md` file at the root of the repository.
+
+To modify those settings, you can push changes on this file, either via command-line or directly on the hub
+
+Sample `README.md` file :
+```Markdown
+---
+title: Demo Space
+emoji: 🤗
+colorFrom: yellow
+colorTo: orange
+sdk: gradio
+app_file: app.py
+pinned: false
+---
+```
+
+### Reference
+
+`title`: _string_  
+Display title for the Space
+
+`emoji`: _string_  
+Space emoji (emoji-only character allowed)
+
+`colorFrom`: _string_  
+Color for Thumbnail gradient (red, yellow, green, blue, indigo, purple, pink, gray)
+
+`colorTo`: _string_  
+Color for Thumbnail gradient (red, yellow, green, blue, indigo, purple, pink, gray)
+
+`sdk`: _string_  
+Can be either `gradio` or `streamlit`
+
+`sdk_version`: _string_  
+Only applicable for `streamlit` SDK. See available versions #TODO
+
+`app_file`: _string_  
+Path to your main application file (which contains either `gradio` or `streamlit` Python code).  
+Path is relative to the root of the repository.
+
+`pinned`: _boolean_  
+Whether the Space stays on top of your list.
 
 ## Changelog
 
