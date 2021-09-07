@@ -32,6 +32,8 @@ Streamlit's documentation is at https://docs.streamlit.io/, and Gradio's doc is 
 
 In the default environment, we're currently running version `"0.84.2"` of Streamlit and the latest version of Gradio.
 
+See [Configuration reference](#configuration) for more infos
+
 Our 2 cents:
 
 - **Gradio** is great if you want to build a super-easy-to-use interface to run a model from just the list of its inputs and its outputs. The Gradio team wrote a great [tutorial on our blog about building GUIs for Hugging Face models](https://huggingface.co/blog/gradio).
