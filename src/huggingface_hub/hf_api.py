@@ -88,6 +88,7 @@ def _validate_repo_id_deprecation(repo_id, name, organization):
             organization, name = None, repo_id
     return name, organization
 
+logger = logging.get_logger(__name__)
 
 def repo_type_and_id_from_hf_id(hf_id: str, hub_url: Optional[str] = None):
     """
@@ -1826,6 +1827,11 @@ class HfApi:
             path_or_fileobj = os.path.normpath(os.path.expanduser(path_or_fileobj))
             if not os.path.isfile(path_or_fileobj):
                 raise ValueError(f"Provided path: '{path_or_fileobj}' is not a file")
+            if os.stat(path_or_fileobj).st_size // 1_000_000_000 >= 5:
+                raise ValueError(
+                    f"The file {path_or_fileobj} is larger than 5GB and cannot be uploaded "
+                    "with `upload_file`. Please use the `Repository` object instead."
+                )
         elif not isinstance(path_or_fileobj, (RawIOBase, BufferedIOBase, bytes)):
             # ^^ Test from: https://stackoverflow.com/questions/44584829/how-to-determine-if-file-is-opened-in-binary-or-text-mode
             raise ValueError(
@@ -1861,7 +1867,12 @@ class HfApi:
                 raise err
 
         d = r.json()
-        return d["url"]
+
+        if "error" in d:
+            logger.error(d["error"])
+            
+        return d.get("url", None)
+
 
     @_deprecate_positional_args
     def delete_file(
