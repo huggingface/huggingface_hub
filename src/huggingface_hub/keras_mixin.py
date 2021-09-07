@@ -58,7 +58,7 @@ def push_to_hub_keras(
     organization: Optional[str] = None,
     private: Optional[bool] = None,
     api_endpoint: Optional[str] = None,
-    use_auth_token: Optional[Union[bool, str]] = None,
+    use_auth_token: Optional[Union[bool, str]] = True,
     git_user: Optional[str] = None,
     git_email: Optional[str] = None,
     config: Optional[dict] = None,
@@ -79,8 +79,7 @@ def push_to_hub_keras(
             repository will be created in your namespace (unless you specify an :obj:`organization`) with
             :obj:`repo_name`.
         commit_message (:obj:`str`, `optional`):
-            Message to commit while pushing. Will default to :obj:`"add config"`, :obj:`"add tokenizer"` or
-            :obj:`"add model"` depending on the type of the class.
+            Message to commit while pushing. Will default to :obj:`"add model"`.
         organization (:obj:`str`, `optional`):
             Organization in which you want to push your model or tokenizer (you must be a member of this
             organization).
@@ -91,7 +90,7 @@ def push_to_hub_keras(
         use_auth_token (:obj:`bool` or :obj:`str`, `optional`):
             The token to use as HTTP bearer authorization for remote files. If :obj:`True`, will use the token
             generated when running :obj:`transformers-cli login` (stored in :obj:`~/.huggingface`). Will default to
-            :obj:`True` if :obj:`repo_url` is not specified.
+            :obj:`True`.
         git_user (``str``, `optional`):
             will override the ``git config user.name`` for committing and pushing files to the hub.
         git_email (``str``, `optional`):
@@ -106,7 +105,7 @@ def push_to_hub_keras(
     if repo_path_or_name is None and repo_url is None:
         raise ValueError("You need to specify a `repo_path_or_name` or a `repo_url`.")
 
-    if use_auth_token is None and repo_url is None:
+    if use_auth_token:
         token = HfFolder.get_token()
         if token is None:
             raise ValueError(
@@ -146,7 +145,7 @@ def push_to_hub_keras(
     save_pretrained_keras(model, repo_path_or_name, config=config)
 
     # Commit and push!
-    repo.git_add()
+    repo.git_add(auto_lfs_track=True)
     repo.git_commit(commit_message)
     return repo.git_push()
 

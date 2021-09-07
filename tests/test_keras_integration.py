@@ -143,6 +143,7 @@ class HubMixingTestKeras(unittest.TestCase):
 
     def test_push_to_hub(self):
         model = DummyModel()
+        model(model.dummy_inputs)
         model.push_to_hub(
             repo_path_or_name=f"{WORKING_REPO_DIR}/{REPO_NAME}-PUSH_TO_HUB",
             api_endpoint=ENDPOINT_STAGING,
