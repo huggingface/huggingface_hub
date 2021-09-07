@@ -38,7 +38,7 @@ In addition to zero-code deployment, the Inference Toolkit supports "bring your 
 
 ## Inference Toolkit - API Description
 
-Using the `transformers pipelines`, we designed an API, which makes it easy for you to benefit from all `pipelines` features. The API has a similar interface than the [🤗 Accelerated Inference API](https://api-inference.huggingface.co/docs/python/html/detailed_parameters.html) hosted service: your inputs need to be defined in the `inputs` key, and additional supported `pipelines` parameters can be added in the `parameters` key. Below, you can find request examples.
+Using the `transformers pipelines`, we designed an API, which makes it easy for you to benefit from all `pipelines` features. The API has a similar interface than the [🤗 Accelerated Inference API](https://api-inference.huggingface.co/docs/python/html/detailed_parameters.html) hosted service: your inputs need to be defined in the `inputs` key, and additional supported `pipelines` parameters can be added in the `parameters` key. You can provide as `parameters` any supported `kwargs` for your [transformers pipeline](https://huggingface.co/transformers/main_classes/pipelines.html)  Below, you can find request examples.
 
 **`text-classification`**
 **`sentiment-analysis`**
@@ -93,6 +93,19 @@ Using the `transformers pipelines`, we designed an API, which makes it easy for 
   }
 }
 ```
+
+**`paramterized-request`**
+
+```json
+{
+	"inputs": "Hugging Face, the winner of VentureBeat’s Innovation in Natural Language Process/Understanding Award for 2021, is looking to level the playing field. The team, launched by Clément Delangue and Julien Chaumond in 2016, was recognized for its work in democratizing NLP, the global market value for which is expected to hit $35.1 billion by 2026. This week, Google’s former head of Ethical AI Margaret Mitchell joined the team.",
+	"paramters": {
+		"repetition_penalty": 4.0,
+		"length_penalty": 1.5
+	}
+}
+```
+
 
 ## Setup & Installation
 
