@@ -1,9 +1,10 @@
-name: allennlp-docker
+# TODO: Merge this with allenNLP to have a single workflow for all docker images.
+name: espnet-docker
 
 on:
   pull_request:
     paths:
-      - "api-inference-community/docker_images/allennlp/**"
+      - "api-inference-community/docker_images/espnet/**"
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -24,5 +25,5 @@ jobs:
           pip install --upgrade pip
           pip install pytest pillow httpx
           pip install -e .
-      - run: RUN_DOCKER_TESTS=1 pytest -sv tests/test_dockers.py::DockerImageTests::test_allennlp
+      - run: RUN_DOCKER_TESTS=1 pytest -sv tests/test_dockers.py::DockerImageTests::test_espnet
         working-directory: api-inference-community

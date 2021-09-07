@@ -73,12 +73,11 @@ class DockerImageTests(unittest.TestCase):
             "espnet/kan-bayashi_ljspeech_fastspeech2",
         )
         self.framework_invalid_test("espnet")
-        # TOO SLOW
-        # (
-        #     "espnet",
-        #     "automatic-speech-recognition",
-        #     "julien-c/mini_an4_asr_train_raw_bpe_valid",
-        # ),
+        self.framework_docker_test(
+            "espnet",
+            "automatic-speech-recognition",
+            "espnet/kamo-naoyuki_mini_an4_asr_train_raw_bpe_valid.acc.best",
+        )
 
     def test_sentence_transformers(self):
         self.framework_docker_test(
