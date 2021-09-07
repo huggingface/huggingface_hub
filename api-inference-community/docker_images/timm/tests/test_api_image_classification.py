@@ -21,9 +21,17 @@ class ImageClassificationTestCase(TestCase):
         self.old_task = os.getenv("TASK")
         os.environ["MODEL_ID"] = self.model_id
         os.environ["TASK"] = "image-classification"
-        from app.main import app
+        from app.main import app, get_pipeline
+
+        get_pipeline.cache_clear()
 
         self.app = app
+
+    @classmethod
+    def setUpClass(cls):
+        from app.main import get_pipeline
+
+        get_pipeline.cache_clear()
 
     def tearDown(self):
         if self.old_model_id is not None:
