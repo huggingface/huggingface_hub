@@ -105,7 +105,7 @@ def push_to_hub_keras(
     if repo_path_or_name is None and repo_url is None:
         raise ValueError("You need to specify a `repo_path_or_name` or a `repo_url`.")
 
-    if use_auth_token:
+    if isinstance(use_auth_token, bool) and use_auth_token:
         token = HfFolder.get_token()
         if token is None:
             raise ValueError(
