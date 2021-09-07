@@ -397,7 +397,7 @@ class Repository:
             )
         logger.info(git_version + "\n" + lfs_version)
 
-    def clone_from(self, repo_url: str, use_auth_token: Union[bool, str, None] = None):
+    def clone_from(self, repo_url: str, use_auth_token: Union[bool, str, None] = None, **repository_kwargs):
         """
         Clone from a remote. If the folder already exists, will try to clone the repository within it.
 
@@ -423,7 +423,8 @@ class Repository:
                 whoami_info = api.whoami(token)
                 user = whoami_info["name"]
                 valid_organisations = [org["name"] for org in whoami_info["orgs"]]
-
+                is_repo_private = repository_kwargs.pop("private",False)
+                
                 if namespace is not None:
                     repo_url += f"{namespace}/"
                 repo_url += repo_id
@@ -437,6 +438,7 @@ class Repository:
                         repo_type=self.repo_type,
                         organization=namespace,
                         exist_ok=True,
+                        private=is_repo_private
                     )
             else:
                 if namespace is not None:
