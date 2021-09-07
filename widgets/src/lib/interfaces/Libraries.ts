@@ -163,7 +163,7 @@ const tensorflowtts = (model: ModelData) => {
 const timm = (model: ModelData) =>
 `import timm
 
-model = timm.create_model("${model.modelId}", pretrained=True)`;
+model = timm.create_model("hf_hub:${model.modelId}", pretrained=True)`;
 
 const sklearn = (model: ModelData) => 
 `from huggingface_hub import hf_hub_download
