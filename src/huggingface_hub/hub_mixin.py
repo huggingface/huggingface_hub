@@ -144,7 +144,7 @@ class ModelHubMixin:
                     local_files_only=local_files_only,
                 )
             except requests.exceptions.RequestException:
-                logger.warning(f"{CONFIG_NAME} NOT FOUND in HuggingFace Hub")
+                logger.warning(f"{CONFIG_NAME} not found in HuggingFace Hub")
                 config_file = None
 
         if config_file is not None and config_file.endswith(".json"):

@@ -25,7 +25,7 @@ def save_pretrained_keras(
     """Saves a Keras model to save_directory in SavedModel format. Use this if you're using the Functional or Sequential APIs.
 
     model:
-        The Keras model you'd like to save. It model must be compiled and built.
+        The Keras model you'd like to save. The model must be compiled and built.
     save_directory (:obj:`str`):
         Specify directory in which you want to save the Keras model.
     config (:obj:`dict`, `optional`):

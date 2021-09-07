@@ -20,7 +20,7 @@ from .testing_utils import set_write_permission_and_retry
 
 REPO_NAME = "mixin-repo-{}".format(int(time.time() * 10e3))
 
-WORKING_REPO_SUBDIR = "fixtures/working_repo_3"
+WORKING_REPO_SUBDIR = f"fixtures/working_repo_{__name__.split('.')[-1]}"
 WORKING_REPO_DIR = os.path.join(
     os.path.dirname(os.path.abspath(__file__)), WORKING_REPO_SUBDIR
 )
