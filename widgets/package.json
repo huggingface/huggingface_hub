@@ -1,9 +1,9 @@
 {
 	"name": "huggingface-widgets",
-	"version": "0.6.0",
+	"version": "0.9.0",
 	"type": "module",
-	"main": "./src/lib/index",
-	"svelte": "./src/lib/index",
+	"main": "./InferenceWidget/InferenceWidget.svelte",
+	"svelte": "./InferenceWidget/InferenceWidget.svelte",
 	"repository": {
 		"type": "git",
 		"url": "git+https://github.com/huggingface/huggingface_hub.git"
@@ -48,5 +48,16 @@
 		"machine learning inference",
 		"svelte"
 	],
+	"exports": {
+		".": "./InferenceWidget/InferenceWidget.svelte",
+		"./ModelPipelineIcon.svelte": "./ModelPipelineIcon/ModelPipelineIcon.svelte",
+		"./ModelPipelineTag.svelte": "./ModelPipelineTag/ModelPipelineTag.svelte",
+		"./inferenceSnippets": "./inferenceSnippets/index.js",
+		"./inferenceSnippets/inputs": "./inferenceSnippets/inputs.js",
+		"./interfaces/DefaultWidget": "./interfaces/DefaultWidget.js",
+		"./interfaces/Language": "./interfaces/Language.js",
+		"./interfaces/Libraries": "./interfaces/Libraries.js",
+		"./interfaces/Types": "./interfaces/Types.js"
+	},
 	"license": "Apache-2.0"
 }
