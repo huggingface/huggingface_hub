@@ -1032,6 +1032,100 @@ class Repository:
                 except subprocess.CalledProcessError as exc:
                     raise EnvironmentError(exc.stderr)
 
+    def tag_exists(self, tag_name: str) -> bool:
+        """
+        Check if a tag exists or not
+        """
+        try:
+            git_tags = subprocess.run(
+                ["git", "tag"],
+                stderr=subprocess.PIPE,
+                stdout=subprocess.PIPE,
+                check=True,
+                encoding="utf-8",
+                cwd=self.local_dir,
+            ).stdout.strip()
+        except subprocess.CalledProcessError as exc:
+            raise EnvironmentError(exc.stderr)
+
+        git_tags = git_tags.split("\n")
+        return tag_name in git_tags
+
+    def delete_tag(self, tag_name: str, remote: str = "origin") -> bool:
+        """
+        Delete a tag, both local and remote, if it exists
+
+        Return True if deleted.  Returns False if the tag didn't exist
+        If remote is None, will just be updated locally
+        """
+        if not self.tag_exists(tag_name):
+            return False
+
+        try:
+            git_tags = subprocess.run(
+                ["git", "tag", "-d", tag_name],
+                stderr=subprocess.PIPE,
+                stdout=subprocess.PIPE,
+                check=True,
+                encoding="utf-8",
+                cwd=self.local_dir,
+            ).stdout.strip()
+        except subprocess.CalledProcessError as exc:
+            raise EnvironmentError(exc.stderr)
+
+        if remote:
+            try:
+                git_tags = subprocess.run(
+                    ["git", "push", remote, "--delete", tag_name],
+                    stderr=subprocess.PIPE,
+                    stdout=subprocess.PIPE,
+                    check=True,
+                    encoding="utf-8",
+                    cwd=self.local_dir,
+                ).stdout.strip()
+            except subprocess.CalledProcessError as exc:
+                raise EnvironmentError(exc.stderr)
+
+        return True
+
+    def add_tag(self, tag_name: str, message: str = None, remote: str = "origin"):
+        """
+        Add a tag at the current head and push it
+
+        If remote is None, will just be updated locally
+
+        If no message is provided, the tag will be lightweight.
+        if a message is provided, the tag will be annotated.
+        """
+        if message:
+            tag_args = ["git", "tag", "-a", tag_name, "-m", message]
+        else:
+            tag_args = ["git", "tag", tag_name]
+        try:
+            git_status = subprocess.run(
+                tag_args,
+                stderr=subprocess.PIPE,
+                stdout=subprocess.PIPE,
+                check=True,
+                encoding="utf-8",
+                cwd=self.local_dir,
+            ).stdout.strip()
+        except subprocess.CalledProcessError as exc:
+            raise EnvironmentError(exc.stderr)
+
+        if remote:
+            try:
+                git_status = subprocess.run(
+                    ["git", "push", "origin", tag_name],
+                    stderr=subprocess.PIPE,
+                    stdout=subprocess.PIPE,
+                    check=True,
+                    encoding="utf-8",
+                    cwd=self.local_dir,
+                ).stdout.strip()
+            except subprocess.CalledProcessError as exc:
+                raise EnvironmentError(exc.stderr)
+
     def is_repo_clean(self) -> bool:
         """
         Return whether or not the git status is clean or not
