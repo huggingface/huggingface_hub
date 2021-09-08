@@ -23,7 +23,7 @@ The first step is to upload a model for your proposed task. Once you have a mode
 
 Finally, there are a couple of UI elements that can be added, such as the task icon and the widget, that complete the integration in the Hub. 📷 
 
-Some steps are exclusive. **You don't need the Inference API to add the icon.** This means that, even if there isn't full integration at the moment, users can still search for models of a given task.
+Some steps are orthogonal, you don't need to do them in order. **You don't need the Inference API to add the icon.** This means that, even if there isn't full integration at the moment, users can still search for models of a given task.
 
 ## Using Hugging Face transformers library
 
