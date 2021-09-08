@@ -827,10 +827,10 @@ class Repository:
                 ).stderr.strip()
         except subprocess.CalledProcessError as exc:
             raise EnvironmentError(exc.stderr)
-        
+
         if len(stderr):
             logger.warning(stderr)
-        
+
         return self.git_head_commit_url()
 
     def git_checkout(self, revision, create_branch_ok=False):
