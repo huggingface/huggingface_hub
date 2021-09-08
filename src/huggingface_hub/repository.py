@@ -270,6 +270,7 @@ class Repository:
         git_user: Optional[str] = None,
         git_email: Optional[str] = None,
         revision: Optional[str] = None,
+        private: bool = False,
     ):
         """
         Instantiate a local clone of a git repo.
@@ -299,11 +300,14 @@ class Repository:
             revision (``str``, `optional`):
                 Revision to checkout after initializing the repository. If the revision doesn't exist, a
                 branch will be created with that revision name from the default branch's current HEAD.
+            private (``bool``, `optional`):
+                whether the repository is private or not.
         """
 
         os.makedirs(local_dir, exist_ok=True)
         self.local_dir = os.path.join(os.getcwd(), local_dir)
         self.repo_type = repo_type
+        self.private = private
 
         self.check_git_versions()
 
@@ -404,6 +408,11 @@ class Repository:
         If this folder is a git repository with linked history, will try to update the repository.
         """
         token = use_auth_token if use_auth_token is not None else self.huggingface_token
+        if token is None and self.private:
+            raise ValueError(
+                "Couldn't load Hugging Face Authorization Token. Credentials are required to work with private repositories."
+                " Please login in using `huggingface-cli login` or provide your token manually with the `use_auth_token` key."
+            )
         api = HfApi()
 
         if "huggingface.co" in repo_url or (
@@ -437,6 +446,7 @@ class Repository:
                         repo_type=self.repo_type,
                         organization=namespace,
                         exist_ok=True,
+                        private=self.private,
                     )
             else:
                 if namespace is not None:
