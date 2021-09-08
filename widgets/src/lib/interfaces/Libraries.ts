@@ -194,7 +194,8 @@ const speechbrainAudioClassification = (model: ModelData) =>
 
 model = EncoderClassifier.from_hparams(
   "${model.modelId}"
-)`;
+)
+model.classify_file("file.wav")`;
 
 const speechbrainASR = (model: ModelData) =>
 `from speechbrain.pretrained import EncoderDecoderASR
