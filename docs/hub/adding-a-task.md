@@ -11,17 +11,19 @@ Having a new task fully integrated in the Hub means that:
 * The Inference API supports the task.
 * Users can try out models directly with the widget. 🏆
 
-Note that you're not expected to implement all the steps. Adding a new task is a community effort, and multiple people can contribute to it. 
+Note that you're not expected to implement all the steps. Adding a new task is a community effort, and multiple people can contribute to it. 🧑‍🤝‍🧑
 
-To begin the process, open a new issue in the [huggingface_hub](https://github.com/huggingface/huggingface_hub/issues) repository. Please use the "Adding a new task" template. Before doing any coding, it's suggested to go over this document.
+To begin the process, open a new issue in the [huggingface_hub](https://github.com/huggingface/huggingface_hub/issues) repository. Please use the "Adding a new task" template. ⚠️Before doing any coding, it's suggested to go over this document. ⚠️
 
 The first step is to upload a model for your proposed task. Once you have a model in the Hub for the new task, the next step is to enable it in the Inference API. There are three types of support that you can choose from:
 
-* using a `transformers` model
-* using a model from an [officially supported library](/docs/hub/libraries)
-* using a model with custom inference code. This option is experimental and has downsides, so it's always suggested to use any of the other two approaches if possible.
+* 🤗 using a `transformers` model
+* 🐳 using a model from an [officially supported library](/docs/hub/libraries)
+* 🖨️ using a model with custom inference code. This option is experimental and has downsides, so it's always suggested to use any of the other two approaches if possible.
 
-Finally, there are a couple of UI elements that can be added, such as the task icon and the widget, that complete the integration in the Hub. Some steps are exclusive. **You don't need the Inference API to add the icon.** This means that, even if there isn't full integration at the moment, users can still search for models of a given task.
+Finally, there are a couple of UI elements that can be added, such as the task icon and the widget, that complete the integration in the Hub. 📷 
+
+Some steps are exclusive. **You don't need the Inference API to add the icon.** This means that, even if there isn't full integration at the moment, users can still search for models of a given task.
 
 ## Using Hugging Face transformers library
 
