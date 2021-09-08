@@ -4,18 +4,20 @@ title: Adding a task
 
 # Adding a task to the Hub
 
+## What's a task?
+
+Tasks, or pipeline types, describe the "shape" of each model's API (inputs and outputs) and is used to determine which Inference API and widget we want to display for any given model. 
+
+![/docs/assets/hub/tasks.png](/docs/assets/hub/tasks.png)
+
+This classification is rather coarse-grained (you can always add more fine-grained task name in your model tags), so **you should rarely have to create a new task**. If you do want to add support for a new task, this document explains the required steps.
+
 ## Overview
 
 Having a new task fully integrated in the Hub means that:
 * Users can search for all models of a given task.
 * The Inference API supports the task.
 * Users can try out models directly with the widget. 🏆
-
-Tasks, or pipeline types, describe the "shape" of each model's API (inputs and outputs) and is used to determine which inference API & widget we want to display for any given model.
-
-As such, this classification is rather coarse-grained (you can always add more fine-grained task name in your model tags), so **you should rarely have to create a new task**.
-
-If you do want to add support for a new task, this document explains the required steps.
 
 Note that you're not expected to implement all the steps. Adding a new task is a community effort, and multiple people can contribute to it. 🧑‍🤝‍🧑
 
@@ -64,7 +66,7 @@ How does it work from the user point of view? Users create a copy of a [template
 
 The Hub allows users to filter models by a given task. In order to do this, you need to add the task to a couple of places and pick an icon for the task.
 
-1. Add the the repo type to `Types.ts`
+1. Add the task type to `Types.ts`
 
 In [interfaces/Types.ts](https://github.com/huggingface/huggingface_hub/blob/main/widgets/src/lib/interfaces/Types.ts), you need to do a couple of things
 
