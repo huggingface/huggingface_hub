@@ -266,11 +266,11 @@ class Repository:
         local_dir: str,
         clone_from: Optional[str] = None,
         repo_type: Optional[str] = None,
-        repo_visibility: Optional[str] = None,
         use_auth_token: Union[bool, str] = True,
         git_user: Optional[str] = None,
         git_email: Optional[str] = None,
         revision: Optional[str] = None,
+        private: Optional[bool] = None,
     ):
         """
         Instantiate a local clone of a git repo.
@@ -290,8 +290,6 @@ class Repository:
                 repository url (e.g. ``'https://huggingface.co/philschmid/playground-tests'``).
             repo_type (``str``, `optional`):
                 To set when creating a repo: et to "dataset" or "space" if creating a dataset or space, default is model.
-            repo_visibility (``str``, `optional`):
-                visibility of the repository, needed for creating private repositories.
             use_auth_token (``str`` or ``bool``, `optional`, defaults ``None``):
                 huggingface_token can be extract from ``HfApi().login(username, password)`` and is used to authenticate against the hub
                 (useful from Google Colab for instance).
@@ -302,12 +300,14 @@ class Repository:
             revision (``str``, `optional`):
                 Revision to checkout after initializing the repository. If the revision doesn't exist, a
                 branch will be created with that revision name from the default branch's current HEAD.
+            private (``bool``, `optional`):
+                whether the repository is private or not.
         """
 
         os.makedirs(local_dir, exist_ok=True)
         self.local_dir = os.path.join(os.getcwd(), local_dir)
         self.repo_type = repo_type
-        self.repo_visibility = "public" if repo_visibility is None else repo_visibility
+        self.private = private
 
         self.check_git_versions()
 
@@ -408,7 +408,10 @@ class Repository:
         If this folder is a git repository with linked history, will try to update the repository.
         """
         token = use_auth_token if use_auth_token is not None else self.huggingface_token
-        repo_visibility = "public" if token is None else self.repo_visibility
+        if token is None and self.private is True:
+            raise ValueError(
+                "You need to provide a Hugging Face Token in `use_auth_token` to work with private repositories"
+            )
         api = HfApi()
 
         if "huggingface.co" in repo_url or (
@@ -436,14 +439,13 @@ class Repository:
                 repo_url = repo_url.replace("https://", f"https://user:{token}@")
 
                 if namespace == user or namespace in valid_organisations:
-                    is_repo_private = True if repo_visibility == "private" else False
                     api.create_repo(
                         token,
                         repo_id,
                         repo_type=self.repo_type,
                         organization=namespace,
                         exist_ok=True,
-                        private=is_repo_private,
+                        private=self.private,
                     )
             else:
                 if namespace is not None:
