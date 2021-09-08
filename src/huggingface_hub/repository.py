@@ -408,7 +408,7 @@ class Repository:
         If this folder is a git repository with linked history, will try to update the repository.
         """
         token = use_auth_token if use_auth_token is not None else self.huggingface_token
-        if token is None and self.private is True:
+        if token is None and self.private:
             raise ValueError(
                 "You need to provide a Hugging Face Token in `use_auth_token` to work with private repositories"
             )
