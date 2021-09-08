@@ -18,6 +18,7 @@
 
 __version__ = "0.0.16"
 
+from .commands.user import notebook_login
 from .constants import (
     CONFIG_NAME,
     FLAX_WEIGHTS_NAME,

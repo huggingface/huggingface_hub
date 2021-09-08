@@ -295,3 +295,74 @@ class RepoCreateCommand(BaseUserCommand):
         )
         print(f"\n  git clone {url}")
         print("")
+
+
+LOGIN_NOTEBOOK_HTML = """<center>
+<img src=https://huggingface.co/front/assets/huggingface_logo-noborder.svg alt='Hugging Face'>
+<br>
+<b>The AI community building the future</b>
+<br>
+Immediately click login after typing your password or it might be stored in plain text in this notebook file.
+</center>"""
+
+
+def notebook_login():
+    """
+    Displays a widget to login to the HF website and store the token.
+    """
+    try:
+        import ipywidgets.widgets as widgets
+        from IPython.display import clear_output, display
+    except ImportError:
+        raise ImportError(
+            "The `notebook_login` function can only be used in a notebook (Jupyter or Colab) and you need the "
+            "`ipywdidgets` module: `pip install ipywidgets`."
+        )
+
+    input_widget = widgets.Text(description="Username:")
+    password_widget = widgets.Password(description="Password:")
+    finish_button = widgets.Button(description="Login")
+    box_layout = widgets.Layout(
+        display="flex", flex_flow="column", align_items="center", width="50%"
+    )
+    main_widget = widgets.VBox(
+        [
+            widgets.HTML(value=LOGIN_NOTEBOOK_HTML),
+            widgets.HBox([input_widget, password_widget]),
+            finish_button,
+        ],
+        layout=box_layout,
+    )
+
+    display(main_widget)
+
+    def login_event(t):
+        username = input_widget.value
+        password = password_widget.value
+        clear_output()
+        _login(username, password)
+
+    finish_button.on_click(login_event)
+
+
+def _login(username, password):
+    try:
+        token = HfApi().login(username, password)
+    except HTTPError as e:
+        # probably invalid credentials, display error message.
+        print(e)
+        print(ANSI.red(e.response.text))
+        exit(1)
+    HfFolder.save_token(token)
+    print("Login successful")
+    print("Your token has been saved to", HfFolder.path_token)
+    helpers = currently_setup_credential_helpers()
+
+    if "store" not in helpers:
+        print(
+            ANSI.red(
+                "Authenticated through git-crendential store but this isn't the helper defined on your machine.\nYou "
+                "will have to re-authenticate when pushing to the Hugging Face Hub. Run the following command in your "
+                "terminal to set it as the default\n\ngit config --global credential.helper store"
+            )
+        )
