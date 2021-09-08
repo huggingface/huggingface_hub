@@ -70,15 +70,14 @@ class DockerImageTests(unittest.TestCase):
         self.framework_docker_test(
             "espnet",
             "text-to-speech",
-            "julien-c/ljspeech_tts_train_tacotron2_raw_phn_tacotron_g2p_en_no_space_train",
+            "espnet/kan-bayashi_ljspeech_fastspeech2",
         )
         self.framework_invalid_test("espnet")
-        # TOO SLOW
-        # (
-        #     "espnet",
-        #     "automatic-speech-recognition",
-        #     "julien-c/mini_an4_asr_train_raw_bpe_valid",
-        # ),
+        self.framework_docker_test(
+            "espnet",
+            "automatic-speech-recognition",
+            "espnet/kamo-naoyuki_mini_an4_asr_train_raw_bpe_valid.acc.best",
+        )
 
     def test_sentence_transformers(self):
         self.framework_docker_test(
