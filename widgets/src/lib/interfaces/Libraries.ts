@@ -101,13 +101,6 @@ model = Speech2Text.from_pretrained(
 speech, rate = soundfile.read("speech.wav")
 text, *_ = model(speech)`;
 
-const espnetAudioClassification = (model: ModelData) =>
-`from speechbrain.pretrained import EncoderClassifier
-
-model = EncoderClassifier.from_hparams(
-  "${model.modelId}"
-)`;
-
 const espnetUnknown = () =>
 `unknown model type (must be text-to-speech or automatic-speech-recognition)`;
 
@@ -116,9 +109,7 @@ const espnet = (model: ModelData) => {
 		return espnetTTS(model);
 	} else if (model.tags?.includes("automatic-speech-recognition")) {
 		return espnetASR(model);
-	} else if (model.tags?.includes("audio-classification")) {
-		return espnetAudioClassification(model);
-	}
+	} 
 	return espnetUnknown();
 };
 
@@ -198,6 +189,13 @@ nlp = spacy.load("${nameWithoutNamespace(model.modelId)}")
 import ${nameWithoutNamespace(model.modelId)}
 nlp = ${nameWithoutNamespace(model.modelId)}.load()`;
 
+const speechbrainAudioClassification = (model: ModelData) =>
+`from speechbrain.pretrained import EncoderClassifier
+
+model = EncoderClassifier.from_hparams(
+  "${model.modelId}"
+)`;
+
 const speechbrainASR = (model: ModelData) =>
 `from speechbrain.pretrained import EncoderDecoderASR
 
@@ -216,6 +214,7 @@ const speechbrainSeparator = (model: ModelData) =>
 separator_model = SepformerSeparation.from_hparams(source="${model.modelId}")
 est_sources = separator_model.separate_file("file.wav")`;
 
+
 const speechbrain = (model: ModelData) => {
 	if (model.tags?.includes("automatic-speech-recognition")){
 		return speechbrainASR(model);
@@ -225,6 +224,8 @@ const speechbrain = (model: ModelData) => {
 		} else if (model.tags?.includes("audio-source-separation")) {
 			return speechbrainSeparator(model);
 		} 
+	} else if (model.tags?.includes("audio-classification")) {
+		return speechbrainAudioClassification(model);
 	}
 	return "# Unable to determine model type";
 };
