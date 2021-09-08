@@ -10,9 +10,6 @@
 - local: libraries
   title: Libraries
 
-- local: adding-a-library
-  title: Integrating a library to the Hub
-
 - local: inference
   title: Inference
 
@@ -21,3 +18,9 @@
 
 - local: spaces
   title: Spaces documentation (beta)
+
+- local: adding-a-library
+  title: Integrating a library to the Hub
+
+- local: adding-a-task
+  title: Adding a new task to the Hub
