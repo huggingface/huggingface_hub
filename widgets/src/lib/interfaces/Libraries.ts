@@ -189,6 +189,14 @@ nlp = spacy.load("${nameWithoutNamespace(model.modelId)}")
 import ${nameWithoutNamespace(model.modelId)}
 nlp = ${nameWithoutNamespace(model.modelId)}.load()`;
 
+const speechbrainAudioClassification = (model: ModelData) =>
+`from speechbrain.pretrained import EncoderClassifier
+
+model = EncoderClassifier.from_hparams(
+  "${model.modelId}"
+)
+model.classify_file("file.wav")`;
+
 const speechbrainASR = (model: ModelData) =>
 `from speechbrain.pretrained import EncoderDecoderASR
 
@@ -216,6 +224,8 @@ const speechbrain = (model: ModelData) => {
 		} else if (model.tags?.includes("audio-source-separation")) {
 			return speechbrainSeparator(model);
 		} 
+	} else if (model.tags?.includes("audio-classification")) {
+		return speechbrainAudioClassification(model);
 	}
 	return "# Unable to determine model type";
 };
