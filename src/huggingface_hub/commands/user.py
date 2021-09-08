@@ -158,26 +158,7 @@ class LoginCommand(BaseUserCommand):
         )
         username = input("Username: ")
         password = getpass()
-        try:
-            token = self._api.login(username, password)
-        except HTTPError as e:
-            # probably invalid credentials, display error message.
-            print(e)
-            print(ANSI.red(e.response.text))
-            exit(1)
-        HfFolder.save_token(token)
-        print("Login successful")
-        print("Your token has been saved to", HfFolder.path_token)
-        helpers = currently_setup_credential_helpers()
-
-        if "store" not in helpers:
-            print(
-                ANSI.red(
-                    "Authenticated through git-crendential store but this isn't the helper defined on your machine.\nYou "
-                    "will have to re-authenticate when pushing to the Hugging Face Hub. Run the following command in your "
-                    "terminal to set it as the default\n\ngit config --global credential.helper store"
-                )
-            )
+        _login(self._api, username, password)
 
 
 class WhoamiCommand(BaseUserCommand):
@@ -339,15 +320,17 @@ def notebook_login():
     def login_event(t):
         username = input_widget.value
         password = password_widget.value
+        # Erase password and clear value to make sure it's not saved in the notebook.
+        password_widget.value = ""
         clear_output()
-        _login(username, password)
+        _login(HfApi(), username, password)
 
     finish_button.on_click(login_event)
 
 
-def _login(username, password):
+def _login(hf_api, username, password):
     try:
-        token = HfApi().login(username, password)
+        token = hf_api.login(username, password)
     except HTTPError as e:
         # probably invalid credentials, display error message.
         print(e)
