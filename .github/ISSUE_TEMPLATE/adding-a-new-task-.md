@@ -9,6 +9,8 @@ assignees: ''
 
 ## Tracking integration of task - **name of task**
 
+Note that you're not expected to do all of the following steps. This PR helps track all the steps required to get a new task fully supported in the Hub 🔥
+
 - [ ] Integration with Inference API. Select at least one of the following:
   - [ ] Added a `transformers` `pipeline`
   - [ ] Added to Community Inference API for 3rd party library
