@@ -147,7 +147,7 @@ understanding of Typescript isn't necessary to edit the file.
 Additionally, this will add a tag with which users may filter models. All models from your library will 
 be easily identifiable!
 
-![assets/libraries-tags.png](assets/libraries-tags.png)
+![/docs/assets/hub/libraries-tags.png](/docs/assets/hub/libraries-tags.png)
 
 ## Upstream: creating repositories and uploading files to the hub
 

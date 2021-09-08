@@ -70,15 +70,14 @@ class DockerImageTests(unittest.TestCase):
         self.framework_docker_test(
             "espnet",
             "text-to-speech",
-            "julien-c/ljspeech_tts_train_tacotron2_raw_phn_tacotron_g2p_en_no_space_train",
+            "espnet/kan-bayashi_ljspeech_fastspeech2",
         )
         self.framework_invalid_test("espnet")
-        # TOO SLOW
-        # (
-        #     "espnet",
-        #     "automatic-speech-recognition",
-        #     "julien-c/mini_an4_asr_train_raw_bpe_valid",
-        # ),
+        self.framework_docker_test(
+            "espnet",
+            "automatic-speech-recognition",
+            "espnet/kamo-naoyuki_mini_an4_asr_train_raw_bpe_valid.acc.best",
+        )
 
     def test_sentence_transformers(self):
         self.framework_docker_test(
@@ -113,6 +112,11 @@ class DockerImageTests(unittest.TestCase):
             "token-classification",
             "spacy/en_core_web_sm",
         )
+        self.framework_docker_test(
+            "spacy",
+            "text-classification",
+            "explosion/en_textcat_goemotions",
+        )
         self.framework_invalid_test("spacy")
 
     def test_speechbrain(self):
@@ -121,6 +125,7 @@ class DockerImageTests(unittest.TestCase):
             "automatic-speech-recognition",
             "speechbrain/asr-crdnn-commonvoice-it",
         )
+
         self.framework_invalid_test("speechbrain")
 
         self.framework_docker_test(
@@ -133,6 +138,12 @@ class DockerImageTests(unittest.TestCase):
             "speechbrain",
             "audio-to-audio",
             "speechbrain/mtl-mimic-voicebank",
+        )
+
+        self.framework_docker_test(
+            "speechbrain",
+            "audio-classification",
+            "speechbrain/lang-id-commonlanguage_ecapa",
         )
 
     def test_timm(self):
@@ -286,7 +297,6 @@ class DockerImageTests(unittest.TestCase):
             self.assertEqual(response.content, b'{"ok":"ok"}')
 
             response = httpx.post(url, data=b"This is a test", timeout=timeout)
-            print(response.content)
             self.assertIn(response.status_code, {200, 400})
             counter[response.status_code] += 1
 
@@ -367,8 +377,15 @@ class DockerImageTests(unittest.TestCase):
                                     keys, {"blob", "content-type", "label"}
                                 )
                             else:
-                                # speech-segmentation
-                                self.assertEqual(keys, {"class", "start", "end"})
+                                speech_segmentation_keys = {"class", "start", "end"}
+                                audio_classification_keys = {"label", "score"}
+                                self.assertIn(
+                                    keys,
+                                    [
+                                        audio_classification_keys,
+                                        speech_segmentation_keys,
+                                    ],
+                                )
                     else:
                         raise Exception("Invalid result")
                 elif response.headers["content-type"] == "audio/flac":
@@ -424,11 +441,11 @@ class DockerImageTests(unittest.TestCase):
         with DockerPopen(run_docker_command) as proc2:
             for i in range(20):
                 try:
-                    response = httpx.get(url, timeout=10)
+                    response2 = httpx.get(url, timeout=10)
                     break
                 except Exception:
                     time.sleep(1)
-            self.assertEqual(response.content, b'{"ok":"ok"}')
+            self.assertEqual(response2.content, b'{"ok":"ok"}')
             proc2.terminate()
             proc2.wait(20)
         self.assertEqual(proc2.returncode, 0)

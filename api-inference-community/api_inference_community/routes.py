@@ -1,4 +1,5 @@
 import base64
+import io
 import logging
 import os
 import time
@@ -108,6 +109,17 @@ def call_pipe(pipe: Any, inputs, params: Dict, start: float) -> Response:
                     }
                 )
             return JSONResponse(items, headers=headers, status_code=status_code)
+        elif task == "text-to-image":
+            buf = io.BytesIO()
+            outputs.save(buf, format="JPEG")
+            buf.seek(0)
+            img_bytes = buf.read()
+            return Response(
+                img_bytes,
+                headers=headers,
+                status_code=200,
+                media_type="image/jpeg",
+            )
 
     return JSONResponse(
         outputs,

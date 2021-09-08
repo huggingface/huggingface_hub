@@ -2,6 +2,7 @@
 	import type { SvelteComponent } from "svelte";
 	import type { PipelineType } from "../interfaces/Types";
 
+	import IconAudioClassification from "../Icons/IconAudioClassification.svelte";
 	import IconAudioToAudio from "../Icons/IconAudioToAudio.svelte";
 	import IconAutomaticSpeechRecognition from "../Icons/IconAutomaticSpeechRecognition.svelte";
 	import IconConversational from "../Icons/IconConversational.svelte";
@@ -55,6 +56,7 @@
 		"image-segmentation": IconImageSegmentation,
 		"text-to-image": IconTextToImage,
 		"structured-data-classification": IconStructuredDataClassification,
+		"audio-classification": IconAudioClassification,
 	};
 </script>
 

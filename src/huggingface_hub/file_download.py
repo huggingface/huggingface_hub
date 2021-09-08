@@ -2,7 +2,6 @@ import copy
 import fnmatch
 import io
 import json
-import logging
 import os
 import sys
 import tempfile
@@ -28,9 +27,10 @@ from .constants import (
     REPO_TYPES_URL_PREFIXES,
 )
 from .hf_api import HfFolder
+from .utils import logging
 
 
-logger = logging.getLogger(__name__)
+logger = logging.get_logger(__name__)
 
 _PY_VERSION: str = sys.version.split()[0].rstrip("+")
 
@@ -49,11 +49,25 @@ except importlib_metadata.PackageNotFoundError:
 
 _tf_version = "N/A"
 _tf_available = False
-try:
-    _tf_version = importlib_metadata.version("tensorflow")
-    _tf_available = True
-except importlib_metadata.PackageNotFoundError:
-    pass
+_tf_candidates = (
+    "tensorflow",
+    "tensorflow-cpu",
+    "tensorflow-gpu",
+    "tf-nightly",
+    "tf-nightly-cpu",
+    "tf-nightly-gpu",
+    "intel-tensorflow",
+    "intel-tensorflow-avx512",
+    "tensorflow-rocm",
+    "tensorflow-macos",
+)
+for package_name in _tf_candidates:
+    try:
+        _tf_version = importlib_metadata.version(package_name)
+        _tf_available = True
+        break
+    except importlib_metadata.PackageNotFoundError:
+        pass
 
 
 def is_torch_available():

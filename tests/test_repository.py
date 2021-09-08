@@ -22,8 +22,13 @@ import unittest
 from io import BytesIO
 
 import requests
+from huggingface_hub.commands.user import currently_setup_credential_helpers
 from huggingface_hub.hf_api import HfApi
-from huggingface_hub.repository import Repository, is_tracked_with_lfs
+from huggingface_hub.repository import (
+    Repository,
+    is_tracked_upstream,
+    is_tracked_with_lfs,
+)
 
 from .testing_constants import ENDPOINT_STAGING, PASS, USER
 from .testing_utils import set_write_permission_and_retry, with_production_testing
@@ -71,6 +76,11 @@ class RepositoryTest(RepositoryCommonTest):
         )
 
     def tearDown(self):
+        try:
+            self._api.delete_repo(token=self._token, name=f"{USER}/{REPO_NAME}")
+        except requests.exceptions.HTTPError:
+            pass
+
         try:
             self._api.delete_repo(token=self._token, name=REPO_NAME)
         except requests.exceptions.HTTPError:
@@ -248,7 +258,7 @@ class RepositoryTest(RepositoryCommonTest):
 
     def test_clone_with_endpoint(self):
         clone = Repository(
-            REPO_NAME,
+            f"{WORKING_REPO_DIR}/{REPO_NAME}",
             clone_from=f"{ENDPOINT_STAGING}/valid_org/{REPO_NAME}",
             use_auth_token=self._token,
             git_user="ci",
@@ -261,7 +271,7 @@ class RepositoryTest(RepositoryCommonTest):
             with open("model.bin", "w") as f:
                 f.write("hello")
 
-        shutil.rmtree(REPO_NAME)
+        shutil.rmtree(f"{WORKING_REPO_DIR}/{REPO_NAME}")
 
         Repository(
             f"{WORKING_REPO_DIR}/{REPO_NAME}",
@@ -277,7 +287,7 @@ class RepositoryTest(RepositoryCommonTest):
 
     def test_clone_with_repo_name_and_org(self):
         clone = Repository(
-            REPO_NAME,
+            f"{WORKING_REPO_DIR}/{REPO_NAME}",
             clone_from=f"valid_org/{REPO_NAME}",
             use_auth_token=self._token,
             git_user="ci",
@@ -290,7 +300,7 @@ class RepositoryTest(RepositoryCommonTest):
             with open("model.bin", "w") as f:
                 f.write("hello")
 
-        shutil.rmtree(REPO_NAME)
+        shutil.rmtree(f"{WORKING_REPO_DIR}/{REPO_NAME}")
 
         Repository(
             f"{WORKING_REPO_DIR}/{REPO_NAME}",
@@ -306,7 +316,7 @@ class RepositoryTest(RepositoryCommonTest):
 
     def test_clone_with_repo_name_and_user_namespace(self):
         clone = Repository(
-            REPO_NAME,
+            f"{WORKING_REPO_DIR}/{REPO_NAME}",
             clone_from=f"{USER}/{REPO_NAME}",
             use_auth_token=self._token,
             git_user="ci",
@@ -321,7 +331,7 @@ class RepositoryTest(RepositoryCommonTest):
             with open("model.bin", "w") as f:
                 f.write("hello")
 
-        shutil.rmtree(REPO_NAME)
+        shutil.rmtree(f"{WORKING_REPO_DIR}/{REPO_NAME}")
 
         Repository(
             f"{WORKING_REPO_DIR}/{REPO_NAME}",
@@ -403,8 +413,168 @@ class RepositoryTest(RepositoryCommonTest):
             clone_from="https://huggingface.co/bert-base-cased",
         )
 
+    def test_is_tracked_upstream(self):
+        repo = Repository(
+            REPO_NAME,
+            clone_from=f"{USER}/{REPO_NAME}",
+            use_auth_token=self._token,
+            git_user="ci",
+            git_email="ci@dummy.com",
+        )
 
-class RepositoryAutoLFSTrackingTest(RepositoryCommonTest):
+        self.assertTrue(is_tracked_upstream(repo.local_dir))
+
+    def test_push_errors_on_wrong_checkout(self):
+        repo = Repository(
+            WORKING_REPO_DIR,
+            clone_from=f"{USER}/{REPO_NAME}",
+            use_auth_token=self._token,
+            git_user="ci",
+            git_email="ci@dummy.com",
+        )
+
+        head_commit_ref = (
+            subprocess.run(
+                "git show --oneline -s".split(),
+                stderr=subprocess.PIPE,
+                stdout=subprocess.PIPE,
+                check=True,
+                cwd=repo.local_dir,
+            )
+            .stdout.decode()
+            .split()[0]
+        )
+
+        repo.git_checkout(head_commit_ref)
+
+        with self.assertRaises(OSError):
+            with repo.commit("New commit"):
+                with open("new_file", "w+") as f:
+                    f.write("Ok")
+
+    def test_commits_on_correct_branch(self):
+        repo = Repository(
+            WORKING_REPO_DIR,
+            clone_from=f"{USER}/{REPO_NAME}",
+            use_auth_token=self._token,
+            git_user="ci",
+            git_email="ci@dummy.com",
+        )
+        branch = repo.current_branch
+        repo.git_checkout("new-branch", create_branch_ok=True)
+        repo.git_checkout(branch)
+
+        with repo.commit("New commit"):
+            with open("file.txt", "w+") as f:
+                f.write("Ok")
+
+        repo.git_checkout("new-branch")
+
+        with repo.commit("New commit"):
+            with open("new_file.txt", "w+") as f:
+                f.write("Ok")
+
+        with tempfile.TemporaryDirectory() as tmp:
+            clone = Repository(
+                tmp,
+                clone_from=f"{USER}/{REPO_NAME}",
+                use_auth_token=self._token,
+                git_user="ci",
+                git_email="ci@dummy.com",
+            )
+            files = os.listdir(clone.local_dir)
+            self.assertTrue("file.txt" in files)
+            self.assertFalse("new_file.txt" in files)
+
+            clone.git_checkout("new-branch")
+            files = os.listdir(clone.local_dir)
+            self.assertFalse("file.txt" in files)
+            self.assertTrue("new_file.txt" in files)
+
+    def test_repo_checkout_push(self):
+        repo = Repository(
+            WORKING_REPO_DIR,
+            clone_from=f"{USER}/{REPO_NAME}",
+            use_auth_token=self._token,
+            git_user="ci",
+            git_email="ci@dummy.com",
+        )
+
+        repo.git_checkout("new-branch", create_branch_ok=True)
+        repo.git_checkout("main")
+
+        with open(os.path.join(repo.local_dir, "file.txt"), "w+") as f:
+            f.write("Ok")
+
+        repo.push_to_hub("Commit #1")
+        repo.git_checkout("new-branch", create_branch_ok=True)
+
+        with open(os.path.join(repo.local_dir, "new_file.txt"), "w+") as f:
+            f.write("Ok")
+
+        repo.push_to_hub("Commit #2")
+
+        with tempfile.TemporaryDirectory() as tmp:
+            clone = Repository(
+                tmp,
+                clone_from=f"{USER}/{REPO_NAME}",
+                use_auth_token=self._token,
+                git_user="ci",
+                git_email="ci@dummy.com",
+            )
+            files = os.listdir(clone.local_dir)
+            self.assertTrue("file.txt" in files)
+            self.assertFalse("new_file.txt" in files)
+
+            clone.git_checkout("new-branch")
+            files = os.listdir(clone.local_dir)
+            self.assertFalse("file.txt" in files)
+            self.assertTrue("new_file.txt" in files)
+
+    def test_repo_checkout_commit_context_manager(self):
+        repo = Repository(
+            WORKING_REPO_DIR,
+            clone_from=f"{USER}/{REPO_NAME}",
+            use_auth_token=self._token,
+            git_user="ci",
+            git_email="ci@dummy.com",
+            revision="main",
+        )
+
+        with repo.commit("Commit #1", branch="new-branch"):
+            with open(os.path.join(repo.local_dir, "file.txt"), "w+") as f:
+                f.write("Ok")
+
+        with repo.commit("Commit #2", branch="main"):
+            with open(os.path.join(repo.local_dir, "new_file.txt"), "w+") as f:
+                f.write("Ok")
+
+        # Maintains lastly used branch
+        with repo.commit("Commit #3"):
+            with open(os.path.join(repo.local_dir, "new_file-2.txt"), "w+") as f:
+                f.write("Ok")
+
+        with tempfile.TemporaryDirectory() as tmp:
+            clone = Repository(
+                tmp,
+                clone_from=f"{USER}/{REPO_NAME}",
+                use_auth_token=self._token,
+                git_user="ci",
+                git_email="ci@dummy.com",
+            )
+            files = os.listdir(clone.local_dir)
+            self.assertFalse("file.txt" in files)
+            self.assertTrue("new_file-2.txt" in files)
+            self.assertTrue("new_file.txt" in files)
+
+            clone.git_checkout("new-branch")
+            files = os.listdir(clone.local_dir)
+            self.assertTrue("file.txt" in files)
+            self.assertFalse("new_file.txt" in files)
+            self.assertFalse("new_file-2.txt" in files)
+
+
+class RepositoryOfflineTest(RepositoryCommonTest):
     @classmethod
     def setUpClass(cls) -> None:
         if os.path.exists(WORKING_REPO_DIR):
@@ -667,6 +837,141 @@ class RepositoryAutoLFSTrackingTest(RepositoryCommonTest):
         self.assertFalse(
             is_tracked_with_lfs(os.path.join(WORKING_REPO_DIR, "large_file.txt"))
         )
+
+    def test_checkout_non_existant_branch(self):
+        repo = Repository(WORKING_REPO_DIR)
+        self.assertRaises(EnvironmentError, repo.git_checkout, "brand-new-branch")
+
+    def test_checkout_new_branch(self):
+        repo = Repository(WORKING_REPO_DIR)
+        repo.git_checkout("new-branch", create_branch_ok=True)
+
+        self.assertEqual(repo.current_branch, "new-branch")
+
+    def test_is_not_tracked_upstream(self):
+        repo = Repository(WORKING_REPO_DIR)
+        repo.git_checkout("new-branch", create_branch_ok=True)
+        self.assertFalse(is_tracked_upstream(repo.local_dir))
+
+    def test_no_branch_checked_out_raises(self):
+        repo = Repository(WORKING_REPO_DIR)
+
+        head_commit_ref = (
+            subprocess.run(
+                "git show --oneline -s".split(),
+                stderr=subprocess.PIPE,
+                stdout=subprocess.PIPE,
+                check=True,
+                cwd=WORKING_REPO_DIR,
+            )
+            .stdout.decode()
+            .split()[0]
+        )
+
+        repo.git_checkout(head_commit_ref)
+        self.assertRaises(OSError, is_tracked_upstream, repo.local_dir)
+
+    def test_repo_init_checkout_default_revision(self):
+        # Instantiate repository on a given revision
+        repo = Repository(WORKING_REPO_DIR, revision="new-branch")
+        self.assertEqual(repo.current_branch, "new-branch")
+
+        # The revision should be kept when re-initializing the repo
+        repo_2 = Repository(WORKING_REPO_DIR)
+        self.assertEqual(repo_2.current_branch, "new-branch")
+
+    def test_repo_init_checkout_revision(self):
+        # Instantiate repository on a given revision
+        repo = Repository(WORKING_REPO_DIR)
+        current_head_hash = repo.git_head_hash()
+
+        with open(os.path.join(repo.local_dir, "file.txt"), "w+") as f:
+            f.write("File")
+
+        repo.git_add()
+        repo.git_commit("Add file.txt")
+
+        new_head_hash = repo.git_head_hash()
+
+        self.assertNotEqual(current_head_hash, new_head_hash)
+
+        previous_head_repo = Repository(WORKING_REPO_DIR, revision=current_head_hash)
+        files = os.listdir(previous_head_repo.local_dir)
+        self.assertNotIn("file.txt", files)
+
+        current_head_repo = Repository(WORKING_REPO_DIR, revision=new_head_hash)
+        files = os.listdir(current_head_repo.local_dir)
+        self.assertIn("file.txt", files)
+
+    def test_repo_user(self):
+        api = HfApi(endpoint=ENDPOINT_STAGING)
+        token = api.login(USER, PASS)
+
+        repo = Repository(WORKING_REPO_DIR, use_auth_token=token)
+        user = api.whoami(token)
+
+        username = subprocess.run(
+            ["git", "config", "user.name"],
+            stderr=subprocess.PIPE,
+            stdout=subprocess.PIPE,
+            check=True,
+            encoding="utf-8",
+            cwd=repo.local_dir,
+        ).stdout.strip()
+        email = subprocess.run(
+            ["git", "config", "user.email"],
+            stderr=subprocess.PIPE,
+            stdout=subprocess.PIPE,
+            check=True,
+            encoding="utf-8",
+            cwd=repo.local_dir,
+        ).stdout.strip()
+
+        self.assertEqual(username, user["fullname"])
+        self.assertEqual(email, user["email"])
+
+    def test_repo_passed_user(self):
+        api = HfApi(endpoint=ENDPOINT_STAGING)
+        token = api.login(USER, PASS)
+        repo = Repository(
+            WORKING_REPO_DIR,
+            git_user="RANDOM_USER",
+            git_email="EMAIL@EMAIL.EMAIL",
+            use_auth_token=token,
+        )
+        username = subprocess.run(
+            ["git", "config", "user.name"],
+            stderr=subprocess.PIPE,
+            stdout=subprocess.PIPE,
+            check=True,
+            encoding="utf-8",
+            cwd=repo.local_dir,
+        ).stdout.strip()
+        email = subprocess.run(
+            ["git", "config", "user.email"],
+            stderr=subprocess.PIPE,
+            stdout=subprocess.PIPE,
+            check=True,
+            encoding="utf-8",
+            cwd=repo.local_dir,
+        ).stdout.strip()
+
+        self.assertEqual(username, "RANDOM_USER")
+        self.assertEqual(email, "EMAIL@EMAIL.EMAIL")
+
+    def test_correct_helper(self):
+        subprocess.run(
+            ["git", "config", "--global", "credential.helper", "get"],
+            stderr=subprocess.PIPE,
+            stdout=subprocess.PIPE,
+            check=True,
+            encoding="utf-8",
+        )
+        repo = Repository(WORKING_REPO_DIR)
+        self.assertListEqual(
+            currently_setup_credential_helpers(repo.local_dir), ["get", "store"]
+        )
+        self.assertEqual(currently_setup_credential_helpers(), ["get"])
 
 
 class RepositoryDatasetTest(RepositoryCommonTest):

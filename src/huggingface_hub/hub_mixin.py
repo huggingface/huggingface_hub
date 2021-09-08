@@ -1,5 +1,4 @@
 import json
-import logging
 import os
 from pathlib import Path
 from typing import Dict, Optional, Union
@@ -10,13 +9,14 @@ from .constants import CONFIG_NAME, PYTORCH_WEIGHTS_NAME
 from .file_download import hf_hub_download, is_torch_available
 from .hf_api import HfApi, HfFolder
 from .repository import Repository
+from .utils import logging
 
 
 if is_torch_available():
     import torch
 
 
-logger = logging.getLogger(__name__)
+logger = logging.get_logger(__name__)
 
 
 class ModelHubMixin:
@@ -58,12 +58,12 @@ class ModelHubMixin:
                 json.dump(config, f)
 
         # saving model weights/files
-        self._save_pretrained(save_directory)
+        self._save_pretrained(save_directory, **kwargs)
 
         if push_to_hub:
             return self.push_to_hub(save_directory, **kwargs)
 
-    def _save_pretrained(self, save_directory):
+    def _save_pretrained(self, save_directory, **kwargs):
         """
         Overwrite this method in subclass to define how to save your model.
         """

@@ -137,9 +137,23 @@
 			widgetData: [{ text: "Hey my name is Julien! How are you?" }],
 		},
 		{
+			modelId: "osanseviero/BigGAN-deep-128",
+			pipeline_tag: "text-to-image",
+		},
+		{
 			modelId: "julien-c/kan-bayashi_csmsc_tacotron2",
 			pipeline_tag: "text-to-speech",
 			widgetData: [{ text: "请您说得慢些好吗" }],
+		},
+		{
+			modelId: "superb/wav2vec2-base-superb-sid",
+			pipeline_tag: "audio-classification",
+			widgetData: [
+				{
+					label: "Librispeech sample 1",
+					src: "https://cdn-media.huggingface.co/speech_samples/sample1.flac",
+				},
+			],
 		},
 		{
 			modelId: "julien-c/mini_an4_asr_train_raw_bpe_valid",

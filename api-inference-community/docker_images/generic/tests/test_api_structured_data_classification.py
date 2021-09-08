@@ -3,6 +3,7 @@ import os
 from unittest import TestCase, skipIf
 
 from app.main import ALLOWED_TASKS
+from parameterized import parameterized_class
 from starlette.testclient import TestClient
 from tests.test_api import TESTABLE_MODELS
 
@@ -11,15 +12,22 @@ from tests.test_api import TESTABLE_MODELS
     "structured-data-classification" not in ALLOWED_TASKS,
     "structured-data-classification not implemented",
 )
+@parameterized_class(
+    [
+        {"model_id": model_id}
+        for model_id in TESTABLE_MODELS["structured-data-classification"]
+    ]
+)
 class StructuredDataClassificationTestCase(TestCase):
     def setUp(self):
-        model_id = TESTABLE_MODELS["structured-data-classification"]
         self.old_model_id = os.getenv("MODEL_ID")
         self.old_task = os.getenv("TASK")
-        os.environ["MODEL_ID"] = model_id
+        os.environ["MODEL_ID"] = self.model_id
         os.environ["TASK"] = "structured-data-classification"
 
-        from app.main import app
+        from app.main import app, get_pipeline
+
+        get_pipeline.cache_clear()
 
         self.app = app
 
@@ -40,9 +48,19 @@ class StructuredDataClassificationTestCase(TestCase):
             del os.environ["TASK"]
 
     def test_simple(self):
-        # IMPLEMENT_THIS
-        # Add one or multiple rows that the test model expects.
-        data = {}
+        data = {
+            "1": [7.4, 7.8],
+            "2": [0.7, 0.88],
+            "3": [7.4, 7.8],
+            "4": [7.4, 7.8],
+            "5": [7.4, 7.8],
+            "6": [7.4, 7.8],
+            "7": [7.4, 7.8],
+            "8": [7.4, 7.8],
+            "9": [7.4, 7.8],
+            "10": [7.4, 7.8],
+            "11": [7.4, 7.8],
+        }
 
         inputs = {"data": data}
         with TestClient(self.app) as client:
@@ -68,9 +86,7 @@ class StructuredDataClassificationTestCase(TestCase):
         self.assertEqual(set(content.keys()), {"error"})
 
     def test_missing_columns(self):
-        # IMPLEMENT_THIS
-        # Add wrong number of columns
-        data = {}
+        data = {"1": [7.4, 7.8], "2": [0.7, 0.88]}
 
         inputs = {"data": data}
         with TestClient(self.app) as client:

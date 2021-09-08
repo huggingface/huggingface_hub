@@ -5,6 +5,7 @@ from typing import Dict, Type
 
 from api_inference_community.routes import pipeline_route, status_ok
 from app.pipelines import (
+    AudioClassificationPipeline,
     AudioToAudioPipeline,
     AutomaticSpeechRecognitionPipeline,
     Pipeline,
@@ -35,8 +36,9 @@ logger = logging.getLogger(__name__)
 # You can check the requirements and expectations of each pipelines in their respective
 # directories. Implement directly within the directories.
 ALLOWED_TASKS: Dict[str, Type[Pipeline]] = {
-    "automatic-speech-recognition": AutomaticSpeechRecognitionPipeline,
+    "audio-classification": AudioClassificationPipeline,
     "audio-to-audio": AudioToAudioPipeline,
+    "automatic-speech-recognition": AutomaticSpeechRecognitionPipeline,
 }
 
 

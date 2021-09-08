@@ -12,6 +12,7 @@ jobs:
 
     steps:
       - run: |
+          sudo apt-get update
           sudo apt-get install ffmpeg
 
       - uses: actions/checkout@v2

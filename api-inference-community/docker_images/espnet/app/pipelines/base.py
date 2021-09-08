@@ -1,11 +1,8 @@
 from abc import ABC, abstractmethod
-from typing import Any, Optional
+from typing import Any
 
 
 class Pipeline(ABC):
-    task: Optional[str] = None
-    model_id: Optional[str] = None
-
     @abstractmethod
     def __init__(self, model_id: str):
         raise NotImplementedError("Pipelines should implement an __init__ method")
