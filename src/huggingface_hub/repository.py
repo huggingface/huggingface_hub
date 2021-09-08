@@ -817,17 +817,20 @@ class Repository:
 
         try:
             with lfs_log_progress():
-                subprocess.run(
+                stderr = subprocess.run(
                     command.split(),
                     stderr=subprocess.PIPE,
                     stdout=subprocess.PIPE,
                     check=True,
                     encoding="utf-8",
                     cwd=self.local_dir,
-                )
+                ).stderr.strip()
         except subprocess.CalledProcessError as exc:
             raise EnvironmentError(exc.stderr)
-
+        
+        if len(stderr):
+            logger.warning(stderr)
+        
         return self.git_head_commit_url()
 
     def git_checkout(self, revision, create_branch_ok=False):
