@@ -1,6 +1,6 @@
 {
 	"name": "huggingface-widgets",
-	"version": "0.3.0",
+	"version": "0.6.0",
 	"type": "module",
 	"main": "./src/lib/index",
 	"svelte": "./src/lib/index",
@@ -15,7 +15,7 @@
 	"scripts": {
 		"dev": "svelte-kit dev",
 		"build": "svelte-kit build",
-		"package": "svelte-kit package",
+		"package": "svelte-kit package && node postpackage.js",
 		"preview": "svelte-kit preview",
 		"publish": "npm run package && npm publish package",
 		"check": "svelte-check --tsconfig ./tsconfig.json",
