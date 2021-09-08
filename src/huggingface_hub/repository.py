@@ -270,7 +270,7 @@ class Repository:
         git_user: Optional[str] = None,
         git_email: Optional[str] = None,
         revision: Optional[str] = None,
-        private: Optional[bool] = None,
+        private: bool = False,
     ):
         """
         Instantiate a local clone of a git repo.
@@ -410,7 +410,8 @@ class Repository:
         token = use_auth_token if use_auth_token is not None else self.huggingface_token
         if token is None and self.private:
             raise ValueError(
-                "You need to provide a Hugging Face Token in `use_auth_token` to work with private repositories"
+                "Couldn't load Hugging Face Authorization Token. Credentials are required to work with private repositories."
+                " Please login in using `huggingface-cli login` or provide your token manually with the `use_auth_token` key."
             )
         api = HfApi()
 
