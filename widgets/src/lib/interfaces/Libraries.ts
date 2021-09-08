@@ -109,7 +109,7 @@ const espnet = (model: ModelData) => {
 		return espnetTTS(model);
 	} else if (model.tags?.includes("automatic-speech-recognition")) {
 		return espnetASR(model);
-	} 
+	}
 	return espnetUnknown();
 };
 
@@ -213,7 +213,6 @@ const speechbrainSeparator = (model: ModelData) =>
 
 separator_model = SepformerSeparation.from_hparams(source="${model.modelId}")
 est_sources = separator_model.separate_file("file.wav")`;
-
 
 const speechbrain = (model: ModelData) => {
 	if (model.tags?.includes("automatic-speech-recognition")){
