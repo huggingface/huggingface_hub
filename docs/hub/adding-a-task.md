@@ -11,6 +11,12 @@ Having a new task fully integrated in the Hub means that:
 * The Inference API supports the task.
 * Users can try out models directly with the widget. 🏆
 
+Tasks, or pipeline types, describe the "shape" of each model's API (inputs and outputs) and is used to determine which inference API & widget we want to display for any given model.
+
+As such, this classification is rather coarse-grained (you can always add more fine-grained task name in your model tags), so **you should rarely have to create a new task**.
+
+If you do want to add support for a new task, this document explains the required steps.
+
 Note that you're not expected to implement all the steps. Adding a new task is a community effort, and multiple people can contribute to it. 🧑‍🤝‍🧑
 
 To begin the process, open a new issue in the [huggingface_hub](https://github.com/huggingface/huggingface_hub/issues) repository. Please use the "Adding a new task" template. ⚠️Before doing any coding, it's suggested to go over this document. ⚠️
