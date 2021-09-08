@@ -1032,10 +1032,29 @@ class Repository:
                 except subprocess.CalledProcessError as exc:
                     raise EnvironmentError(exc.stderr)
 
+    def is_repo_clean(self) -> bool:
+        """
+        Return whether or not the git status is clean or not
+        """
+        try:
+            git_status = subprocess.run(
+                ["git", "status", "--porcelain"],
+                stderr=subprocess.PIPE,
+                stdout=subprocess.PIPE,
+                check=True,
+                encoding="utf-8",
+                cwd=self.local_dir,
+            ).stdout.strip()
+        except subprocess.CalledProcessError as exc:
+            raise EnvironmentError(exc.stderr)
+
+        return len(git_status) == 0
+
     def push_to_hub(
         self,
         commit_message: Optional[str] = "commit files to HF hub",
         blocking: Optional[bool] = True,
+        clean_ok: Optional[bool] = False
     ) -> str:
         """
         Helper to add, commit, and push files to remote repository on the HuggingFace Hub.
@@ -1047,6 +1066,9 @@ class Repository:
             blocking (`bool`, `optional`, defaults to `True`):
                 Whether the function should return only when the `git push` has finished.
         """
+        if clean_ok and self.is_repo_clean():
+            logger.info("Repo currently clean.  Ignoring push_to_hub")
+            return ""  # TODO: is there something else we should return here?
         self.git_add(auto_lfs_track=True)
         self.git_commit(commit_message)
         return self.git_push(
