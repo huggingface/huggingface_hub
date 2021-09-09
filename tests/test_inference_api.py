@@ -12,8 +12,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-
 import unittest
+
+import datasets
 
 from huggingface_hub.inference_api import InferenceApi
 
@@ -21,6 +22,11 @@ from .testing_utils import with_production_testing
 
 
 class InferenceApiTest(unittest.TestCase):
+    def read(self, filename: str) -> bytes:
+        with open(filename, "rb") as f:
+            bpayload = f.read()
+        return bpayload
+
     @with_production_testing
     def test_simple_inference(self):
         api = InferenceApi("bert-base-uncased")
@@ -54,6 +60,29 @@ class InferenceApiTest(unittest.TestCase):
         self.assertIsInstance(result, dict)
         self.assertTrue("score" in result)
         self.assertTrue("answer" in result)
+
+    @with_production_testing
+    def test_inference_with_audio(self):
+        api = InferenceApi("facebook/wav2vec2-large-960h-lv60-self")
+        dataset = datasets.load_dataset(
+            "patrickvonplaten/librispeech_asr_dummy", "clean", split="validation"
+        )
+        data = self.read(dataset[0]["file"])
+        result = api(data=data)
+        self.assertIsInstance(result, dict)
+        self.assertTrue("text" in result)
+
+    @with_production_testing
+    def test_inference_with_image(self):
+        api = InferenceApi("google/vit-base-patch16-224")
+        dataset = datasets.load_dataset("Narsil/image_dummy", "image", split="test")
+        data = self.read(dataset[0]["file"])
+        result = api(data=data)
+        self.assertIsInstance(result, list)
+        for classification in result:
+            self.assertIsInstance(classification, dict)
+            self.assertTrue("score" in classification)
+            self.assertTrue("label" in classification)
 
     @with_production_testing
     def test_inference_overriding_task(self):
