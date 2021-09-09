@@ -1,6 +1,7 @@
 <script>
 	import type { Box } from "../../shared/types";
-	import * as colors from "tailwindcss/colors";
+	// include .js ext so that `svelte-kit build` can find the file
+	import * as colors from "tailwindcss/colors.js";
 	let height = 0;
 	let width = 0;
 	export let imgSrc = "";
