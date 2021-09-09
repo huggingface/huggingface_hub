@@ -1,3 +1,6 @@
-api-inference-community==0.0.9
--e git+https://github.com/julien-c/espnet.git@hf_model_hub#egg=espnet
+api-inference-community==0.0.19
+espnet==0.10.2
 torch==1.8.1
+torchaudio==0.8.1
+torch_optimizer==0.1.0
+espnet_model_zoo==0.1.0

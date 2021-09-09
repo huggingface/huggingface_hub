@@ -8,10 +8,6 @@
 			modelId: "facebook/detr-resnet-50",
 			pipeline_tag: "object-detection",
 		},
-		{
-			modelId: "sgugger/resnet50d",
-			pipeline_tag: "image-classification",
-		},
 	];
 </script>
 

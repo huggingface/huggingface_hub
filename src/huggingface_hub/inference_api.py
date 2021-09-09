@@ -1,12 +1,12 @@
-import logging
 from typing import Dict, List, Optional, Union
 
 import requests
 
 from .hf_api import HfApi
+from .utils import logging
 
 
-logger = logging.getLogger(__name__)
+logger = logging.get_logger(__name__)
 
 
 ENDPOINT = "https://api-inference.huggingface.co"
@@ -49,25 +49,25 @@ class InferenceApi:
             >>> from huggingface_hub.inference_api import InferenceApi
 
             >>> # Mask-fill example
-            >>> api = InferenceApi("bert-base-uncased")
-            >>> api(inputs="The goal of life is [MASK].")
+            >>> inference = InferenceApi("bert-base-uncased")
+            >>> inference(inputs="The goal of life is [MASK].")
             >>> >> [{'sequence': 'the goal of life is life.', 'score': 0.10933292657136917, 'token': 2166, 'token_str': 'life'}]
 
             >>> # Question Answering example
-            >>> api = InferenceApi("deepset/roberta-base-squad2")
+            >>> inference = InferenceApi("deepset/roberta-base-squad2")
             >>> inputs = {"question":"What's my name?", "context":"My name is Clara and I live in Berkeley."}
-            >>> api(inputs)
+            >>> inference(inputs)
             >>> >> {'score': 0.9326569437980652, 'start': 11, 'end': 16, 'answer': 'Clara'}
 
             >>> # Zero-shot example
-            >>> api = InferenceApi("typeform/distilbert-base-uncased-mnli")
+            >>> inference = InferenceApi("typeform/distilbert-base-uncased-mnli")
             >>> inputs = "Hi, I recently bought a device from your company but it is not working as advertised and I would like to get reimbursed!"
             >>> params = {"candidate_labels":["refund", "legal", "faq"]}
-            >>> api(inputs, params)
+            >>> inference(inputs, params)
             >>> >> {'sequence': 'Hi, I recently bought a device from your company but it is not working as advertised and I would like to get reimbursed!', 'labels': ['refund', 'faq', 'legal'], 'scores': [0.9378499388694763, 0.04914155602455139, 0.013008488342165947]}
 
             >>> # Overriding configured task
-            >>> api = InferenceApi("bert-base-uncased", task="feature-extraction")
+            >>> inference = InferenceApi("bert-base-uncased", task="feature-extraction")
     """
 
     def __init__(
