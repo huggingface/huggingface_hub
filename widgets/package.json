@@ -1,14 +1,9 @@
 {
 	"name": "huggingface-widgets",
-	"version": "0.14.0",
+	"version": "0.15.0",
 	"type": "module",
 	"main": "./InferenceWidget/InferenceWidget.svelte",
-	"svelte": {
-		".": "./InferenceWidget/InferenceWidget.svelte",
-		"./WidgetHeader.svelte": "./InferenceWidget/shared/WidgetHeader/WidgetHeader.svelte",
-		"./ModelPipelineIcon.svelte": "./ModelPipelineIcon/ModelPipelineIcon.svelte",
-		"./ModelPipelineTag.svelte": "./ModelPipelineTag/ModelPipelineTag.svelte"
-	},
+	"svelte": "./InferenceWidget/InferenceWidget.svelte",
 	"repository": {
 		"type": "git",
 		"url": "git+https://github.com/huggingface/huggingface_hub.git"
@@ -58,16 +53,12 @@
 		"./WidgetHeader.svelte": "./InferenceWidget/shared/WidgetHeader/WidgetHeader.svelte",
 		"./ModelPipelineIcon.svelte": "./ModelPipelineIcon/ModelPipelineIcon.svelte",
 		"./ModelPipelineTag.svelte": "./ModelPipelineTag/ModelPipelineTag.svelte",
-		"./WidgetHeader.svelte.d.ts": "./InferenceWidget/shared/WidgetHeader/WidgetHeader.svelte.d.ts",
-		"./ModelPipelineIcon.svelte.d.ts": "./ModelPipelineIcon/ModelPipelineIcon.svelte.d.ts",
-		"./ModelPipelineTag.svelte.d.ts": "./ModelPipelineTag/ModelPipelineTag.svelte.d.ts",
 		"./inferenceSnippets": "./inferenceSnippets/index.js",
 		"./inferenceSnippets/inputs": "./inferenceSnippets/inputs.js",
 		"./interfaces/DefaultWidget": "./interfaces/DefaultWidget.js",
 		"./interfaces/Language": "./interfaces/Language.js",
 		"./interfaces/Libraries": "./interfaces/Libraries.js",
-		"./interfaces/Types": "./interfaces/Types.js",
-		"./docs/**/*": "./docs/**/*"
+		"./interfaces/Types": "./interfaces/Types.js"
 	},
 	"license": "Apache-2.0"
 }
