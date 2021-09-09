@@ -11,7 +11,7 @@ class QuestionAnsweringPipeline(Pipeline):
         self,
         model_id: str,
     ):
-        self.predictor = Predictor.from_path(model_id)
+        self.predictor = Predictor.from_path("hf://" + model_id)
 
     def __call__(self, inputs: Dict[str, str]) -> Dict[str, Any]:
         """

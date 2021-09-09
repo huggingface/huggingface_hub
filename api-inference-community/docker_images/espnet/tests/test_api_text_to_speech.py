@@ -1,8 +1,8 @@
 import os
 from unittest import TestCase, skipIf
 
+from api_inference_community.validation import ffmpeg_read
 from app.main import ALLOWED_TASKS
-from app.validation import ffmpeg_read
 from starlette.testclient import TestClient
 from tests.test_api import TESTABLE_MODELS
 
@@ -21,6 +21,12 @@ class TextToSpeechTestCase(TestCase):
         from app.main import app
 
         self.app = app
+
+    @classmethod
+    def setUpClass(cls):
+        from app.main import get_pipeline
+
+        get_pipeline.cache_clear()
 
     def tearDown(self):
         if self.old_model_id is not None:
@@ -41,7 +47,7 @@ class TextToSpeechTestCase(TestCase):
             200,
         )
         self.assertEqual(response.headers["content-type"], "audio/flac")
-        audio = ffmpeg_read(response.content)
+        audio = ffmpeg_read(response.content, 16000)
         self.assertEqual(len(audio.shape), 1)
         self.assertGreater(audio.shape[0], 1000)
 

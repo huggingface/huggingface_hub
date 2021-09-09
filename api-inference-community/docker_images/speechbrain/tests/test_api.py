@@ -1,5 +1,5 @@
 import os
-from typing import Dict
+from typing import Dict, List
 from unittest import TestCase, skipIf
 
 from app.main import ALLOWED_TASKS, get_pipeline
@@ -8,13 +8,23 @@ from app.main import ALLOWED_TASKS, get_pipeline
 # Must contain at least one example of each implemented pipeline
 # Tests do not check the actual values of the model output, so small dummy
 # models are recommended for faster tests.
-TESTABLE_MODELS: Dict[str, str] = {
-    "automatic-speech-recognition": "speechbrain/asr-crdnn-commonvoice-it",
-    "audio-to-audio": "speechbrain/mtl-mimic-voicebank",
+TESTABLE_MODELS: Dict[str, List[str]] = {
+    "audio-classification": [
+        # Language Identification
+        "speechbrain/lang-id-commonlanguage_ecapa",
+        # Command recognition
+        "speechbrain/google_speech_command_xvector",
+        # Speaker recognition
+        "speechbrain/spkrec-xvect-voxceleb",
+    ],
+    "audio-to-audio": ["speechbrain/mtl-mimic-voicebank"],
+    "automatic-speech-recognition": ["speechbrain/asr-crdnn-commonvoice-it"],
 }
 
 
 ALL_TASKS = {
+    "audio-classification",
+    "audio-to-audio",
     "automatic-speech-recognition",
     "audio-source-separation",
     "image-classification",

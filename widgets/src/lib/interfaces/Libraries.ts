@@ -58,8 +58,11 @@ const adapter_transformers = (model: ModelData) =>
 model = ${model.config?.adapter_transformers?.model_class}.from_pretrained("${model.config?.adapter_transformers?.model_name}")
 model.load_adapter("${model.modelId}", source="hf")`;
 
-const allennlpUnknown = () =>
-`unknown model type `
+const allennlpUnknown = (model: ModelData) =>
+`import allennlp_models
+from allennlp.predictors.predictor import Predictor
+
+predictor = Predictor.from_path("hf://${model.modelId}")`
 
 const allennlpQuestionAnswering = (model: ModelData) =>
 `import allennlp_models
@@ -73,7 +76,7 @@ const allennlp = (model: ModelData) => {
 	if (model.tags?.includes("question-answering")){
 		return allennlpQuestionAnswering(model);
 	}
-	return allennlpUnknown();
+	return allennlpUnknown(model);
 };
 
 const asteroid = (model: ModelData) =>
@@ -186,6 +189,14 @@ nlp = spacy.load("${nameWithoutNamespace(model.modelId)}")
 import ${nameWithoutNamespace(model.modelId)}
 nlp = ${nameWithoutNamespace(model.modelId)}.load()`;
 
+const speechbrainAudioClassification = (model: ModelData) =>
+`from speechbrain.pretrained import EncoderClassifier
+
+model = EncoderClassifier.from_hparams(
+  "${model.modelId}"
+)
+model.classify_file("file.wav")`;
+
 const speechbrainASR = (model: ModelData) =>
 `from speechbrain.pretrained import EncoderDecoderASR
 
@@ -213,6 +224,8 @@ const speechbrain = (model: ModelData) => {
 		} else if (model.tags?.includes("audio-source-separation")) {
 			return speechbrainSeparator(model);
 		} 
+	} else if (model.tags?.includes("audio-classification")) {
+		return speechbrainAudioClassification(model);
 	}
 	return "# Unable to determine model type";
 };

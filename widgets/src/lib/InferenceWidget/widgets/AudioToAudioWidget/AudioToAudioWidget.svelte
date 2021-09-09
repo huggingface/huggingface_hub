@@ -131,7 +131,9 @@
 			}
 			return body;
 		}
-		return [];
+		throw new TypeError(
+			"Invalid output: output must be of type Array<blob:string, label:string, content-type:string>"
+		);
 	}
 </script>
 

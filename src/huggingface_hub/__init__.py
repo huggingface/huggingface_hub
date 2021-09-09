@@ -16,8 +16,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-__version__ = "0.0.15"
+__version__ = "0.0.16"
 
+from .commands.user import notebook_login
 from .constants import (
     CONFIG_NAME,
     FLAX_WEIGHTS_NAME,
@@ -35,3 +36,4 @@ from .hub_mixin import ModelHubMixin, PyTorchModelHubMixin
 from .inference_api import InferenceApi
 from .repository import Repository
 from .snapshot_download import snapshot_download
+from .utils import logging

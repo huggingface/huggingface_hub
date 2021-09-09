@@ -9,7 +9,7 @@ title: Hugging Face Hub Libraries Docs
 
 No, the Hub supports other libraries and we're working on expanding this support! We're happy to welcome to the Hub a set of Open Source libraries that are pushing Machine Learning forward.
 
-The table below summarizes the supported libraries and how they are integrated. Find all our supported libraries [here](https://github.com/huggingface/huggingface_hub/blob/main/widgets/lib/interfaces/Libraries.ts)! 
+The table below summarizes the supported libraries and how they are integrated. Find all our supported libraries [here](https://github.com/huggingface/huggingface_hub/blob/main/widgets/src/lib/interfaces/Libraries.ts)! 
 
 | Library               | Description                                                                   | Inference API | Widgets | Download from Hub | Push to Hub |
 |-----------------------|-------------------------------------------------------------------------------|---------------|-------:|-------------------|-------------|
@@ -22,6 +22,7 @@ The table below summarizes the supported libraries and how they are integrated. 
 | [Pyannote](https://github.com/pyannote/pyannote-audio)              | Neural building blocks for speaker diarization.                               |       ❌       |    ❌   |         ✅         |      ❌      |
 | [Sentence Transformers](https://github.com/UKPLab/sentence-transformers) | Compute dense vector representations for sentences, paragraphs, and images.   |       ✅       |    ✅   |         ✅         |      ✅      |
 | [spaCy](https://github.com/explosion/spaCy)                 | Advanced Natural Language Processing in Python and Cython.                    |       ✅       |    ✅   |         ✅         |      ✅      |
+| [Speechbrain](https://speechbrain.github.io/)                 | A PyTorch Powered Speech Toolkit. |       ✅       |    ✅   |         ✅         |      ❌      |
 | [TensorFlowTTS](https://github.com/TensorSpeech/TensorFlowTTS)         | Real-time state-of-the-art speech synthesis architectures.                    |       ❌       |    ❌   |         ✅         |      ❌      |
 | [Timm](https://github.com/rwightman/pytorch-image-models)                  | Collection of image models, scripts, pretrained weights, etc.                 |       ❌       |    ❌   |         ✅         |      ❌      |
 
