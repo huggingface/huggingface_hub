@@ -15,6 +15,7 @@ install_requires = [
     "filelock",
     "requests",
     "tqdm",
+    "pyyaml",
     "typing-extensions",
     "importlib_metadata;python_version<'3.8'",
     "packaging>=20.9",
