@@ -2,7 +2,6 @@
 	import type { WidgetProps } from "../../shared/types";
 
 	import WidgetDropzone from "../../shared/WidgetDropzone/WidgetDropzone.svelte";
-	import WidgetImage from "../../shared/WidgetImage/WidgetImage.svelte";
 	import WidgetOutputChart from "../../shared/WidgetOutputChart/WidgetOutputChart.svelte";
 	import WidgetWrapper from "../../shared/WidgetWrapper/WidgetWrapper.svelte";
 	import { getResponse } from "../../shared/helpers";
@@ -100,10 +99,7 @@
 				onError={(e) => (error = e)}
 				bind:imgSrc
 			>
-				<WidgetImage
-					classNames="pointer-events-none shadow mx-auto max-h-44"
-					{imgSrc}
-				/>
+				<img src={imgSrc} class="pointer-events-none shadow mx-auto max-h-44" alt=""/>
 			</WidgetDropzone>
 		</form>
 	</svelte:fragment>
