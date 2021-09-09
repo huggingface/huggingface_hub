@@ -1,32 +1,29 @@
 <script>
+	import type { Box } from "../../shared/types";
 	import * as colors from "tailwindcss/colors";
 	let height = 0;
 	let width = 0;
 	export let imgSrc = "";
 	export let highlightIndex = -1;
-	export let output: Array<{ box: any; color: string }> = [];
+	export let output: Array<{ box: Box; color: string }> = [];
 	export let mouseover: (index: number) => void = () => {};
 	export let mouseout: () => void = () => {};
 
-	// TODO: define boxes type
 	$: boxes = output
 		.map((val, index) => ({ ...val, index }))
 		.sort((a, b) => getArea(b.box) - getArea(a.box))
 		.map(({ box, color, index }) => {
-			const vertices = box.map(({ x, y }) => {
-				x *= width;
-				y *= height;
-				return `${x},${y}`;
-			});
-			const points = `${vertices.join(" ")}`;
-			return { points, color, index };
+			const rect = {
+				x: box.xmin,
+				y: box.ymin,
+				width: box.xmax - box.xmin, 
+				height: box.ymax - box.ymin, 
+			}
+			return { rect, color, index };
 		});
 
-	// TODO: define box type
-	function getArea(box: any): number {
-		const corner1 = box[0];
-		const corner3 = box[2];
-		return Math.abs(corner1.x - corner3.x) * Math.abs(corner1.y - corner3.y);
+	function getArea(box: Box): number {
+		return (box.xmax - box.xmin) * (box.ymax - box.ymin);
 	}
 </script>
 
@@ -43,9 +40,9 @@
 			viewBox={`0 0 ${width} ${height}`}
 			xmlns="http://www.w3.org/2000/svg"
 		>
-			{#each boxes as { points, color, index }}
-				<polygon
-					{points}
+			{#each boxes as { rect, color, index }}
+				<rect
+					{...rect}
 					stroke={colors[color][400]}
 					fill={colors[color][400]}
 					stroke-width="2"

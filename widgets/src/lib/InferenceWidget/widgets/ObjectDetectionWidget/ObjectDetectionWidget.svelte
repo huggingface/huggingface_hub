@@ -1,6 +1,6 @@
 <script>
+	import type { WidgetProps, Box } from "../../shared/types";
 	import { onMount } from "svelte";
-	import type { WidgetProps } from "../../shared/types";
 	import { mod } from "../../shared/ViewUtils";
 
 	import BoundingBoxes from "./SvgBoundingBoxes.svelte";
@@ -25,8 +25,8 @@
 	let output: Array<{
 		label: string;
 		score: number;
-		box: any;
-	}> = []; //TODO: define box type
+		box: Box;
+	}> = [];
 	let outputJson: string;
 	let highlightIndex = -1;
 
@@ -93,19 +93,19 @@
 
 	function isValidOutput(
 		arg: any
-	): arg is { label: string; score: number; box: any }[] {
+	): arg is { label: string; score: number; box: Box }[] {
 		return (
 			Array.isArray(arg) &&
 			arg.every(
-				(x) => typeof x.label === "string" && typeof x.score === "number"
-				// TODO: check box type
+				(x) => typeof x.label === "string" && typeof x.score === "number" &&
+				(x.box.xmin === "number" && x.box.ymin === "number" && x.box.xmax === "number" && x.box.ymax === "number")
 			)
 		);
 	}
 
 	function parseOutput(
 		body: unknown
-	): Array<{ label: string; score: number; box: any }> {
+	): Array<{ label: string; score: number; box: Box }> {
 		return isValidOutput(body) ? body : [];
 	}
 
