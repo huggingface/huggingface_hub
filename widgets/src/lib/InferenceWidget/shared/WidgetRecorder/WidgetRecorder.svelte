@@ -4,9 +4,9 @@
 	import Recorder from "./Recorder";
 
 	export let classNames = "";
-	export let error = "";
 	export let onRecordStart: () => void = () => null;
 	export let onRecordStop: (blob: Blob) => void = () => null;
+	export let onError: (err: string) => void = () => null;
 
 	let isRecording = false;
 	let recorder: Recorder;
@@ -24,7 +24,6 @@
 	async function onClick() {
 		try {
 			isRecording = !isRecording;
-			error = "";
 			if (isRecording) {
 				await recorder.start();
 				onRecordStart();
@@ -36,15 +35,15 @@
 			isRecording = false;
 			switch (e.name) {
 				case "NotAllowedError": {
-					error = "Please allow 🤗 to access your microphone";
+					onError("Please allow 🤗 to access your microphone");
 					break;
 				}
 				case "NotFoundError": {
-					error = "🤗 couldn't find microphone on your device";
+					onError("🤗 couldn't find microphone on your device");
 					break;
 				}
 				default: {
-					error = `Encountered error "${e.name}" "${e.message}"`;
+					onError(`Encountered error "${e.name}" "${e.message}"`);
 					break;
 				}
 			}
