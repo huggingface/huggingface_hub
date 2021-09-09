@@ -111,10 +111,12 @@
 	function parseOutput(
 		body: unknown
 	): Array<{ label: string; score: number; box: Box }> {
-		if(isValidOutput(body)){
+		if (isValidOutput(body)) {
 			return body;
 		}
-		throw new TypeError("Invalid output: output must be of type Array<{label:string; score:number; box:{xmin:number; ymin:number; xmax:number; ymax:number}}>");
+		throw new TypeError(
+			"Invalid output: output must be of type Array<{label:string; score:number; box:{xmin:number; ymin:number; xmax:number; ymax:number}}>"
+		);
 	}
 
 	function mouseout() {
