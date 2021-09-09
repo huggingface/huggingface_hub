@@ -47,7 +47,7 @@ You can find the detailed specification [here](https://github.com/huggingface/hu
 
 Some useful information on them:
 * All the tags can be used to filter the list of models on https://huggingface.co/models.
-* License identifiers are listed in the first column of [this table](#list-of-license-identifiers).
+* License identifiers are the keywords listed in the right column of [this table](#list-of-license-identifiers).
 * Dataset, metric, and language identifiers are those listed on the [Datasets](https://huggingface.co/datasets), [Metrics](https://huggingface.co/metrics) and [Languages](https://huggingface.co/languages) pages and in the [`datasets`](https://github.com/huggingface/datasets) repository.
 
 
@@ -144,7 +144,7 @@ $$ E=mc^2 $$
 
 ## List of license identifiers
 
-Fullname	| License identifier
+Fullname | License identifier (to use in model card)
 --- | ---
 Academic Free License v3.0	| `afl-3.0`
 Apache license 2.0	| `apache-2.0`
