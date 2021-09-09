@@ -16,9 +16,9 @@
 			const rect = {
 				x: box.xmin,
 				y: box.ymin,
-				width: box.xmax - box.xmin, 
-				height: box.ymax - box.ymin, 
-			}
+				width: box.xmax - box.xmin,
+				height: box.ymax - box.ymin,
+			};
 			return { rect, color, index };
 		});
 

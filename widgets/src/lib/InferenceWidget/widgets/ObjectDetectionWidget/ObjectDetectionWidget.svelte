@@ -97,8 +97,13 @@
 		return (
 			Array.isArray(arg) &&
 			arg.every(
-				(x) => typeof x.label === "string" && typeof x.score === "number" &&
-				(x.box.xmin === "number" && x.box.ymin === "number" && x.box.xmax === "number" && x.box.ymax === "number")
+				(x) =>
+					typeof x.label === "string" &&
+					typeof x.score === "number" &&
+					x.box.xmin === "number" &&
+					x.box.ymin === "number" &&
+					x.box.xmax === "number" &&
+					x.box.ymax === "number"
 			)
 		);
 	}

@@ -99,7 +99,11 @@
 				onError={(e) => (error = e)}
 				bind:imgSrc
 			>
-				<img src={imgSrc} class="pointer-events-none shadow mx-auto max-h-44" alt=""/>
+				<img
+					src={imgSrc}
+					class="pointer-events-none shadow mx-auto max-h-44"
+					alt=""
+				/>
 			</WidgetDropzone>
 		</form>
 	</svelte:fragment>
