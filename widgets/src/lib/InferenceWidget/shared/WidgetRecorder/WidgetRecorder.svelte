@@ -34,7 +34,20 @@
 			}
 		} catch (e) {
 			isRecording = false;
-			error = "Please allow 🤗 to access your microphone";
+			switch (e.name) {
+				case "NotAllowedError": {
+					error = "Please allow 🤗 to access your microphone";
+					break;
+				}
+				case "NotFoundError": {
+					error = "🤗 couldn't find microphone on your device";
+					break;
+				}
+				default: {
+					error = `Encountered error "${e.name}" "${e.message}"`;
+					break;
+				}
+			}
 		}
 	}
 </script>
