@@ -30,7 +30,9 @@ We recommend you try both as they're both really awesome! 😎
 
 Streamlit's documentation is at https://docs.streamlit.io/, and Gradio's doc is https://gradio.app/getting_started.
 
-In the default environment, we're currently running version `"0.84.2"` of Streamlit and version `"2.2.6"` of Gradio.
+In the default environment, we're currently running version `"0.84.2"` of Streamlit and the latest version of Gradio.
+
+See [Configuration](#configuration) section for more infos on SDK versions.
 
 Our 2 cents:
 
@@ -150,7 +152,57 @@ We host [widgets](https://huggingface-widgets.netlify.app/) for every model on t
 
 This project's goal is to experiment with an extensible way for users and organizations to host demos/apps on huggingface.co, in a more productized/scalable way than we’ve done in the past.
 
+## Configuration
+
+All the settings of your Space are stored inside a YAML block on top of the `README.md` file at the root of the repository.
+
+To modify those settings, you can edit this file, either by pushing to the repo via command-line, or directly on the hub
+
+Sample `README.md` file :
+```Markdown
+---
+title: Demo Space
+emoji: 🤗
+colorFrom: yellow
+colorTo: orange
+sdk: gradio
+app_file: app.py
+pinned: false
+---
+```
+
+### Reference
+
+**`title`** : _string_  
+Display title for the Space
+
+**`emoji`** : _string_  
+Space emoji (emoji-only character allowed)
+
+**`colorFrom`** : _string_  
+Color for Thumbnail gradient (red, yellow, green, blue, indigo, purple, pink, gray)
+
+**`colorTo`** : _string_  
+Color for Thumbnail gradient (red, yellow, green, blue, indigo, purple, pink, gray)
+
+**`sdk`** : _string_  
+Can be either `gradio` or `streamlit`
+
+**`sdk_version`** : _string_  
+Only applicable for `streamlit` SDK. Currently available versions are :  
+`0.79.0, 0.80.0, 0.81.1, 0.82.0, 0.83.0, 0.84.2`
+
+**`app_file`** : _string_  
+Path to your main application file (which contains either `gradio` or `streamlit` Python code).  
+Path is relative to the root of the repository.
+
+**`pinned`** : _boolean_  
+Whether the Space stays on top of your list.
+
 ## Changelog
+
+#### [2021-09-07] - Streamlit version pinning
+- You can now choose which version of Streamlit will be installed within your Space
 
 #### [2021-09-06] - Upgrade Streamlit to `0.84.2`
 - Supporting Session State API
