@@ -3,13 +3,15 @@
 	// include .js ext so that `svelte-kit build` can find the module
 	import * as colors from "tailwindcss/colors.js";
 
+	type Rect = { x: number; y: number; width: number; height: number };
+
 	let imgEl: HTMLImageElement;
 	let wrapperHeight = 0;
 	let wrapperWidth = 0;
 	let boxes: Array<{
 		color: string;
 		index: number;
-		rect: { x: number; y: number; width: number; height: number };
+		rect: Rect;
 	}> = [];
 
 	export let imgSrc = "";
@@ -24,7 +26,6 @@
 			const heightScale = wrapperHeight / imgEl.naturalHeight;
 			boxes = output
 				.map((val, index) => ({ ...val, index }))
-				.sort((a, b) => getArea(b.box) - getArea(a.box))
 				.map(({ box, color, index }) => {
 					const rect = {
 						x: box.xmin * widthScale,
@@ -33,12 +34,13 @@
 						height: (box.ymax - box.ymin) * heightScale,
 					};
 					return { rect, color, index };
-				});
+				})
+				.sort((a, b) => getArea(b.rect) - getArea(a.rect));
 		}
 	}
 
-	function getArea(box: Box): number {
-		return (box.xmax - box.xmin) * (box.ymax - box.ymin);
+	function getArea(rect: Rect): number {
+		return rect.width * rect.height;
 	}
 </script>
 
