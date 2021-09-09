@@ -30,12 +30,13 @@ ALL_TASKS = [
     "text-to-speech",
     "automatic-speech-recognition",
     "audio-to-audio",
-    "audio-source-separation",
+    "audio-classification",
     "voice-activity-detection",
     # Computer vision
     "image-classification",
     "object-detection",
     "image-segmentation",
+    "text-to-image",
     # Others
     "structured-data-classification",
 ]

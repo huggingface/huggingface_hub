@@ -28,6 +28,7 @@ extras["torch"] = [
 
 extras["testing"] = [
     "pytest",
+    "datasets",
 ]
 
 extras["quality"] = [

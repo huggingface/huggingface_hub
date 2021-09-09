@@ -12,8 +12,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import os
 import unittest
+
+import datasets
 
 from huggingface_hub.inference_api import InferenceApi
 
@@ -22,8 +23,6 @@ from .testing_utils import with_production_testing
 
 class InferenceApiTest(unittest.TestCase):
     def read(self, filename: str) -> bytes:
-        dirname = os.path.dirname(os.path.abspath(__file__))
-        filename = os.path.join(dirname, "samples", filename)
         with open(filename, "rb") as f:
             bpayload = f.read()
         return bpayload
@@ -65,7 +64,10 @@ class InferenceApiTest(unittest.TestCase):
     @with_production_testing
     def test_inference_with_audio(self):
         api = InferenceApi("facebook/wav2vec2-large-960h-lv60-self")
-        data = self.read("sample1.flac")
+        dataset = datasets.load_dataset(
+            "patrickvonplaten/librispeech_asr_dummy", "clean", split="validation"
+        )
+        data = self.read(dataset[0]["file"])
         result = api(data=data)
         self.assertIsInstance(result, dict)
         self.assertTrue("text" in result)
@@ -73,7 +75,8 @@ class InferenceApiTest(unittest.TestCase):
     @with_production_testing
     def test_inference_with_image(self):
         api = InferenceApi("google/vit-base-patch16-224")
-        data = self.read("plane.jpg")
+        dataset = datasets.load_dataset("Narsil/image_dummy", "image", split="test")
+        data = self.read(dataset[0]["file"])
         result = api(data=data)
         self.assertIsInstance(result, list)
         for classification in result:
