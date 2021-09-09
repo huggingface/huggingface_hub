@@ -26,7 +26,7 @@ def metadata_load(local_path: Union[str, Path]) -> Optional[Dict]:
 def metadata_save(local_path: Union[str, Path], data: Dict) -> None:
     data_yaml = yaml.dump(data, sort_keys=False)
     # keep dict order
-    content = Path(local_path).read_text()
+    content = Path(local_path).read_text() if Path(local_path).is_file() else ""
     match = REGEX_YAML_BLOCK.search(content)
     if match:
         output = (

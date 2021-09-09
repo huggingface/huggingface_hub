@@ -979,7 +979,9 @@ class Repository:
             os.chdir(current_working_directory)
 
     def repocard_metadata_load(self) -> Optional[Dict]:
-        return metadata_load(os.path.join(self.local_dir, MODELCARD_NAME))
+        filepath = os.path.join(self.local_dir, MODELCARD_NAME)
+        if os.path.isfile(filepath):
+            return metadata_load(filepath)
 
     def repocard_metadata_save(self, data: Dict) -> None:
         return metadata_save(os.path.join(self.local_dir, MODELCARD_NAME), data)
