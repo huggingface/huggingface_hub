@@ -4,7 +4,7 @@ from typing import Dict, Optional, Union
 
 from .constants import HUGGINGFACE_HUB_CACHE
 from .file_download import cached_download, hf_hub_url
-from .hf_api import HfApi
+from .hf_api import HfApi, HfFolder
 
 
 REPO_ID_SEPARATOR = "__"
@@ -18,7 +18,7 @@ def snapshot_download(
     library_name: Optional[str] = None,
     library_version: Optional[str] = None,
     user_agent: Union[Dict, str, None] = None,
-    token: Union[str, None] = None,
+    use_auth_token: Union[bool, str, None] = None,
 ) -> str:
     """
     Downloads a whole snapshot of a repo's files at the specified revision.
@@ -41,6 +41,13 @@ def snapshot_download(
         cache_dir = HUGGINGFACE_HUB_CACHE
     if isinstance(cache_dir, Path):
         cache_dir = str(cache_dir)
+
+    if use_auth_token:
+        token = HfFolder.get_token()
+        if token is None:
+            raise EnvironmentError(
+                "You specified use_auth_token=True, but a Hugging Face token was not found."
+            )
 
     _api = HfApi()
     model_info = _api.model_info(repo_id=repo_id, revision=revision, token=token)
@@ -68,7 +75,7 @@ def snapshot_download(
             library_name=library_name,
             library_version=library_version,
             user_agent=user_agent,
-            use_auth_token=token,
+            use_auth_token=use_auth_token,
         )
 
         if os.path.exists(path + ".lock"):
