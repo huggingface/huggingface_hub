@@ -5,8 +5,8 @@ from typing import Dict, Optional, Union
 import yaml
 
 
+# exact same regex as in the Hub server. Please keep in sync.
 REGEX_YAML_BLOCK = re.compile(r"---[\n\r]+([\S\s]*?)[\n\r]+---[\n\r]")
-# exact same regex as in the hf hub server. Please keep in sync.
 
 
 def metadata_load(local_path: Union[str, Path]) -> Optional[Dict]:
