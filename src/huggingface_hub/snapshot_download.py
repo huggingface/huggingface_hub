@@ -42,7 +42,7 @@ def snapshot_download(
     if isinstance(cache_dir, Path):
         cache_dir = str(cache_dir)
 
-    if use_auth_token:
+    if use_auth_token == True:
         token = HfFolder.get_token()
         if token is None:
             raise EnvironmentError(
