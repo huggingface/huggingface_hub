@@ -1,17 +1,17 @@
-import json
+from enum import Enum
 from typing import List, Tuple
 
 import numpy as np
-import requests
 import torch
 from app.pipelines import Pipeline
-from speechbrain.pretrained import SepformerSeparation, SpectralMaskEnhancement
-from enum import Enum
 from huggingface_hub import HfApi
+from speechbrain.pretrained import SepformerSeparation, SpectralMaskEnhancement
+
 
 class ModelType(Enum):
     AUDIO_SOURCE_SEPARATION = 1
     SPEECH_ENHANCEMENT = 2
+
 
 def interface_to_type(interface_str):
     if interface_str == "SepformerSeparation":
@@ -19,14 +19,15 @@ def interface_to_type(interface_str):
     elif interface_str == "SpectralMaskEnhancement":
         return ModelType.SPEECH_ENHANCEMENT
     else:
-        raise ValueError(
-            f"Invalid interface: {interface_str} for Audio to Audio."
-        )
+        raise ValueError(f"Invalid interface: {interface_str} for Audio to Audio.")
+
 
 def get_type(model_id):
     info = HfApi().model_info(repo_id=model_id)
     if "speechbrain" in info.config:
-        interface_str = info.config["speechbrain"].get("interface", "SepformerSeparation")
+        interface_str = info.config["speechbrain"].get(
+            "interface", "SepformerSeparation"
+        )
     else:
         interface_str = "SepformerSeparation"
     return interface_to_type(interface_str)
