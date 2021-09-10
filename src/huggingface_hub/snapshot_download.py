@@ -45,14 +45,20 @@ def snapshot_download(
     _api = HfApi()
     model_info = _api.model_info(repo_id=repo_id, revision=revision, token=token)
 
-    storage_folder = os.path.join(cache_dir, repo_id.replace("/", REPO_ID_SEPARATOR) + "." + model_info.sha)
+    storage_folder = os.path.join(
+        cache_dir, repo_id.replace("/", REPO_ID_SEPARATOR) + "." + model_info.sha
+    )
 
     for model_file in model_info.siblings:
-        url = hf_hub_url(repo_id, filename=model_file.rfilename, revision=model_info.sha)
+        url = hf_hub_url(
+            repo_id, filename=model_file.rfilename, revision=model_info.sha
+        )
         relative_filepath = os.path.join(*model_file.rfilename.split("/"))
 
         # Create potential nested dir
-        nested_dirname = os.path.dirname(os.path.join(storage_folder, relative_filepath))
+        nested_dirname = os.path.dirname(
+            os.path.join(storage_folder, relative_filepath)
+        )
         os.makedirs(nested_dirname, exist_ok=True)
 
         path = cached_download(
