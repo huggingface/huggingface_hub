@@ -50,6 +50,8 @@ def snapshot_download(
             raise EnvironmentError(
                 "You specified use_auth_token=True, but a Hugging Face token was not found."
             )
+    else:
+        token = None
 
     _api = HfApi()
     model_info = _api.model_info(repo_id=repo_id, revision=revision, token=token)
