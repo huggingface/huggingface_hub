@@ -6,27 +6,39 @@ import requests
 import torch
 from app.pipelines import Pipeline
 from speechbrain.pretrained import SepformerSeparation, SpectralMaskEnhancement
+from enum import Enum
+from huggingface_hub import HfApi
 
+class ModelType(Enum):
+    AUDIO_SOURCE_SEPARATION = 1
+    SPEECH_ENHANCEMENT = 2
 
-def get_info(model_id: str):
-    ENDPOINT = "https://huggingface.co/api/models/"
-    response = requests.get(f"{ENDPOINT}{model_id}")
-    if response.status_code != 200:
-        raise Exception("Cannot infer the code properly, please set some tags")
-    model_info = json.loads(response.content.decode("utf-8"))
-    tags = [
-        tag.lower().replace(" ", "-").replace("_", "-") for tag in model_info["tags"]
-    ]
-    return tags
+def interface_to_type(interface_str):
+    if interface_str == "SepformerSeparation":
+        return ModelType.AUDIO_SOURCE_SEPARATION
+    elif interface_str == "SpectralMaskEnhancement":
+        return ModelType.SPEECH_ENHANCEMENT
+    else:
+        raise ValueError(
+            f"Invalid interface: {interface_str} for Audio to Audio."
+        )
+
+def get_type(model_id):
+    info = HfApi().model_info(repo_id=model_id)
+    if "speechbrain" in info.config:
+        interface_str = info.config["speechbrain"].get("interface", "SepformerSeparation")
+    else:
+        interface_str = "SepformerSeparation"
+    return interface_to_type(interface_str)
 
 
 class AudioToAudioPipeline(Pipeline):
     def __init__(self, model_id: str):
-        tags = get_info(model_id)
-        if "audio-source-separation" in tags:
+        model_type = get_type(model_id)
+        if model_type == ModelType.AUDIO_SOURCE_SEPARATION:
             self.model = SepformerSeparation.from_hparams(source=model_id)
             self.type = "audio-source-separation"
-        elif "speech-enhancement" in tags:
+        elif model_type == ModelType.SPEECH_ENHANCEMENT:
             self.model = SpectralMaskEnhancement.from_hparams(source=model_id)
             self.type = "speech-enhancement"
         self.sampling_rate = self.model.hparams.sample_rate
