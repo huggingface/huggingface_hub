@@ -4,6 +4,7 @@ import time
 import unittest
 
 from huggingface_hub import HfApi, Repository
+from huggingface_hub.hf_api import HfFolder
 from huggingface_hub.snapshot_download import snapshot_download
 from tests.testing_constants import ENDPOINT_STAGING, PASS, USER
 
@@ -88,3 +89,29 @@ class SnapshotDownloadTests(unittest.TestCase):
 
             # folder name contains the revision's commit sha.
             self.assertTrue(self.first_commit_hash in storage_folder)
+
+    def test_download_private_model(self):
+        self._api.update_repo_visibility(self._token, REPO_NAME, private=True)
+        # Test we can download files from private repo
+        with tempfile.TemporaryDirectory() as tmpdirname:
+            HfFolder.save_token(self._token)
+            storage_folder = snapshot_download(
+                f"{USER}/{REPO_NAME}",
+                revision="main",
+                cache_dir=tmpdirname,
+                use_auth_token=True,
+            )
+
+            # folder contains the two files contributed and the .gitattributes
+            folder_contents = os.listdir(storage_folder)
+            self.assertEqual(len(folder_contents), 3)
+            self.assertTrue("dummy_file.txt" in folder_contents)
+            self.assertTrue("dummy_file_2.txt" in folder_contents)
+            self.assertTrue(".gitattributes" in folder_contents)
+
+            with open(os.path.join(storage_folder, "dummy_file.txt"), "r") as f:
+                contents = f.read()
+                self.assertEqual(contents, "v2")
+
+            # folder name contains the revision's commit sha.
+            self.assertTrue(self.second_commit_hash in storage_folder)
