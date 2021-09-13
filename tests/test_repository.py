@@ -324,11 +324,9 @@ class RepositoryTest(RepositoryCommonTest):
         # Create dummy files
         # one is lfs-tracked, the other is not.
         with open(os.path.join(WORKING_REPO_DIR, "dummy.txt"), "w") as f:
-            f.write("hello")
-        with open(os.path.join(WORKING_REPO_DIR, "model.bin"), "w") as f:
-            f.write("hello")
+            f.write(str([[1] * 10000] * 1000))
 
-        repo.git_add()
+        repo.git_add(auto_lfs_track=True)
         repo.git_commit()
         url, result = repo.git_push(blocking=False)
 
