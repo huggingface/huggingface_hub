@@ -1062,7 +1062,7 @@ class Repository:
             return False
 
         try:
-            git_tags = subprocess.run(
+            subprocess.run(
                 ["git", "tag", "-d", tag_name],
                 stderr=subprocess.PIPE,
                 stdout=subprocess.PIPE,
@@ -1075,7 +1075,7 @@ class Repository:
 
         if remote:
             try:
-                git_tags = subprocess.run(
+                subprocess.run(
                     ["git", "push", remote, "--delete", tag_name],
                     stderr=subprocess.PIPE,
                     stdout=subprocess.PIPE,
