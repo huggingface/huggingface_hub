@@ -438,10 +438,7 @@ class HfApiPublicTest(unittest.TestCase):
 class HfApiPrivateTest(HfApiCommonTestWithLogin):
     def setUp(self) -> None:
         super().setUp()
-        self._api.create_repo(token=self._token, name=REPO_NAME)
-        self._api.update_repo_visibility(
-            token=self._token, name=REPO_NAME, private=True
-        )
+        self._api.create_repo(token=self._token, name=REPO_NAME, private=True)
 
     def tearDown(self) -> None:
         self._api.delete_repo(token=self._token, name=REPO_NAME)
