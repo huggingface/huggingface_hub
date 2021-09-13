@@ -203,6 +203,10 @@ traditional Git methods:
 - `git_push()`
 - `git_checkout(branch)`
 
+The `git_push` method has a parameter `blocking` which is `True` by default. When set to `False`, the push will
+happen behind the scenes - which can be helpful if you would like your script to continue on while the push is 
+happening.
+
 LFS-tracking methods:
 
 - `lfs_track(pattern: Union[str, List[str]], filename: bool)`. Setting
@@ -221,6 +225,7 @@ On top of these unitary methods lie some useful additional methods:
   tracks large files (>10Mb) with `git-lfs`. The `track_large_files` argument can
   be set to `False` if you wish to ignore that behavior.
 
+These two methods also have support for the `blocking` parameter.
 
 Examples using the `commit` context manager:
 ```python
@@ -235,6 +240,46 @@ Examples using the `commit` context manager:
 >>> with Repository("torch-model", clone_from="<user>/torch-model", use_auth_token=True).commit("My cool model :)"):
 ...     torch.save(model.state_dict(), "model.pt")
   ```
+
+### Non-blocking behavior
+
+The pushing methods have access to a `blocking` boolean parameter to indicate whether the push should happen
+asynchronously.
+
+In order to see if the push has finished or its status code (to spot a failure), one should use the `command_queue`
+property on the `Repository` object.
+
+For example:
+
+```python
+from huggingface_hub import Repository
+
+repo = Repository("<local_folder>", clone_from="<user>/<model_name>")
+
+with repo.commit("Commit message", blocking=False):
+    # Save data
+
+last_command = repo.command_queue[-1]
+
+# Status of the push command
+last_command.status  
+# Will return the status code
+#     -> -1 will indicate the push is still ongoing
+#     -> 0 will indicate the push has completed successfully
+#     -> non-zero code indicates the error code if there was an error
+
+# if there was an error, the stderr may be inspected
+last_command.stderr
+
+# Whether the command finished or if it is still ongoing
+last_command.is_done
+
+# Whether the command errored-out.
+last_command.failed
+```
+
+When using `blocking=False`, the commands will be tracked and your script will exit only when all pushes are done, even
+if other errors happen in your script (a failed push counts as done).
 
 
 ### Need to upload very large (>5GB) files?
