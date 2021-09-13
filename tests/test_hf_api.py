@@ -21,6 +21,7 @@ import time
 import unittest
 from io import BytesIO
 
+import requests
 from huggingface_hub.constants import REPO_TYPE_DATASET, REPO_TYPE_SPACE
 from huggingface_hub.file_download import cached_download
 from huggingface_hub.hf_api import (
@@ -448,6 +449,28 @@ class HfFolderTest(unittest.TestCase):
         # ^^ not an error, we test that the
         # second call does not fail.
         self.assertEqual(HfFolder.get_token(), None)
+
+
+class HfApiPrivateTest(HfApiCommonTestWithLogin):
+    def setUp(self) -> None:
+        super().setUp()
+        self._api.create_repo(token=self._token, name=REPO_NAME)
+        self._api.update_repo_visibility(
+            token=self._token, name=REPO_NAME, private=True
+        )
+
+    def tearDown(self) -> None:
+        self._api.delete_repo(token=self._token, name=REPO_NAME)
+
+    def test_model_info(self):
+        # Test we cannot access model info without a token
+        with self.assertRaisesRegex(requests.exceptions.HTTPError, "404 Client Error"):
+            _ = self._api.model_info(repo_id=f"{USER}/{REPO_NAME}")
+        # Test we can access model info with a token
+        model_info = self._api.model_info(
+            repo_id=f"{USER}/{REPO_NAME}", token=self._token
+        )
+        self.assertIsInstance(model_info, ModelInfo)
 
 
 @require_git_lfs
