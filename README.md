@@ -22,6 +22,8 @@ What can you find in this repo?
 
 
 ## Quickstart
+
+In this quick tour, we show you how to install the library and some of its core features.
 ### Installation
 
 To install, run:
