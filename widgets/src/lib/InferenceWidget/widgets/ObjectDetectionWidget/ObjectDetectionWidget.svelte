@@ -1,6 +1,6 @@
 <script>
 	import type { WidgetProps, Box } from "../../shared/types";
-	import { onMount } from "svelte";
+	import { beforeUpdate } from "svelte";
 	import { mod } from "../../shared/ViewUtils";
 
 	import BoundingBoxes from "./SvgBoundingBoxes.svelte";
@@ -30,6 +30,7 @@
 	}> = [];
 	let outputJson: string;
 	let highlightIndex = -1;
+	let highlightInterval: any;
 
 	const COLORS = [
 		"red",
@@ -41,11 +42,21 @@
 		"cyan",
 		"lime",
 	] as const;
+
 	$: outputWithColor = output.map((val, index) => {
 		const hash = mod(index, COLORS.length);
 		const color = COLORS[hash];
 		return { ...val, color };
 	});
+
+	function isMobile() {
+		if (typeof navigator !== "undefined") {
+			return /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(
+				navigator.userAgent
+			);
+		}
+		return false;
+	}
 
 	function onSelectFile(file: File | Blob) {
 		imgSrc = URL.createObjectURL(file);
@@ -127,14 +138,24 @@
 
 	function mouseover(index: number) {
 		highlightIndex = index;
+		if (highlightInterval) {
+			clearInterval(highlightInterval);
+		}
+		highlightInterval = setInterval(() => {
+			highlightIndex = -1;
+		}, 1500);
 	}
 
-	// onMount(async () => {
-	// 	// imgSrc = "/cat.jpg";
-	// 	let objectDetectionData = await fetch("./od.json");
-	// 	output = await objectDetectionData.json();
-	// 	outputJson = JSON.stringify(output, null, 2);
-	// });
+	beforeUpdate(async () => {
+		// isMobile =
+		// 	/Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(
+		// 		navigator.userAgent
+		// 	);
+		// imgSrc = "/cat.jpg";
+		// let objectDetectionData = await fetch("./od.json");
+		// output = await objectDetectionData.json();
+		// outputJson = JSON.stringify(output, null, 2);
+	});
 </script>
 
 <WidgetWrapper
@@ -148,11 +169,17 @@
 >
 	<svelte:fragment slot="top">
 		<form>
-			<WidgetDropzone
-				{isLoading}
-				{onSelectFile}
-				onError={(e) => (error = e)}
-			>
+			{#if !isMobile()}
+				<WidgetDropzone {isLoading} {onSelectFile} onError={(e) => (error = e)}>
+					<BoundingBoxes
+						{imgSrc}
+						{mouseover}
+						{mouseout}
+						output={outputWithColor}
+						{highlightIndex}
+					/>
+				</WidgetDropzone>
+			{:else}
 				<BoundingBoxes
 					{imgSrc}
 					{mouseover}
@@ -160,12 +187,13 @@
 					output={outputWithColor}
 					{highlightIndex}
 				/>
-			</WidgetDropzone>
-			<WidgetFileInput
-				accept="image/*"
-				classNames="mt-1.5 mr-2"
-				{onSelectFile}
-			/>
+				<WidgetFileInput
+					accept="image/*"
+					classNames="mt-1.5 mr-2"
+					label="Browse for image"
+					{onSelectFile}
+				/>
+			{/if}
 		</form>
 	</svelte:fragment>
 	<svelte:fragment slot="bottom">
