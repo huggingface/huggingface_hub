@@ -100,10 +100,10 @@
 				(x) =>
 					typeof x.label === "string" &&
 					typeof x.score === "number" &&
-					x.box.xmin === "number" &&
-					x.box.ymin === "number" &&
-					x.box.xmax === "number" &&
-					x.box.ymax === "number"
+					typeof x.box.xmin === "number" &&
+					typeof x.box.ymin === "number" &&
+					typeof x.box.xmax === "number" &&
+					typeof x.box.ymax === "number"
 			)
 		);
 	}
@@ -127,12 +127,12 @@
 		highlightIndex = index;
 	}
 
-	onMount(async () => {
-		// imgSrc = "/cat.jpg";
-		let objectDetectionData = await fetch("./od.json");
-		output = await objectDetectionData.json();
-		outputJson = JSON.stringify(output, null, 2);
-	});
+	// onMount(async () => {
+	// 	// imgSrc = "/cat.jpg";
+	// 	let objectDetectionData = await fetch("./od.json");
+	// 	output = await objectDetectionData.json();
+	// 	outputJson = JSON.stringify(output, null, 2);
+	// });
 </script>
 
 <WidgetWrapper
