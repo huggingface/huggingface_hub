@@ -1102,7 +1102,7 @@ class Repository:
         else:
             tag_args = ["git", "tag", tag_name]
         try:
-            git_status = subprocess.run(
+            subprocess.run(
                 tag_args,
                 stderr=subprocess.PIPE,
                 stdout=subprocess.PIPE,
@@ -1115,7 +1115,7 @@ class Repository:
 
         if remote:
             try:
-                git_status = subprocess.run(
+                subprocess.run(
                     ["git", "push", "origin", tag_name],
                     stderr=subprocess.PIPE,
                     stdout=subprocess.PIPE,
