@@ -22,6 +22,11 @@
 	let output: Array<{ label: string; score: number }> = [];
 	let outputJson: string;
 
+	function onSelectFile(file: File | Blob) {
+		imgSrc = URL.createObjectURL(file);
+		getOutput(file);
+	}
+
 	async function getOutput(file: File | Blob, withModelLoading = false) {
 		if (!file) {
 			return;
@@ -95,9 +100,8 @@
 		<form>
 			<WidgetDropzone
 				{isLoading}
-				onSelectFile={getOutput}
+				{onSelectFile}
 				onError={(e) => (error = e)}
-				bind:imgSrc
 			>
 				<img
 					src={imgSrc}
