@@ -338,10 +338,6 @@ class RepositoryTest(RepositoryCommonTest):
         self.assertTrue(result.is_done)
         self.assertEqual(result.status, -9)
 
-        r = requests.head(url)
-        with self.assertRaises(requests.exceptions.HTTPError):
-            r.raise_for_status()
-
         shutil.rmtree(WORKING_REPO_DIR)
 
     def test_clone_with_endpoint(self):
