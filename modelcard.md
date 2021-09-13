@@ -2,7 +2,7 @@
 language:
 - {lang_0}  # Example: fr
 - {lang_1}  # Example: en
-license: {license}  # Example: apache-2.0
+license: {license}  # Example: apache-2.0 or any license from https://huggingface.co/docs/hub/model-repos#list-of-license-identifiers
 tags:
 - {tag_0}  # Example: audio
 - {tag_1}  # Example: automatic-speech-recognition
@@ -32,3 +32,5 @@ model-index:
 ---
 
 This markdown file contains the spec for the modelcard metadata regarding evaluation parameters.
+When present, and only then, 'model-index', 'datasets' and 'license' contents will be verified when git pushing changes to your README.me file.
+Valid license identifiers can be found in [our docs](https://huggingface.co/docs/hub/model-repos#list-of-license-identifiers)

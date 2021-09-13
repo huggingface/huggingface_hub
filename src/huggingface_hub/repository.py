@@ -510,7 +510,7 @@ class Repository:
                 if not in_repository:
                     raise EnvironmentError(
                         "Tried to clone a repository in a non-empty folder that isn't a git repository. If you really "
-                        "want to do this, do it manually:\m"
+                        "want to do this, do it manually:\n"
                         "git init && git remote add origin && git pull origin main\n"
                         " or clone repo to a new folder and move your existing files there afterwards."
                     )
@@ -827,16 +827,19 @@ class Repository:
 
         try:
             with lfs_log_progress():
-                subprocess.run(
+                stderr = subprocess.run(
                     command.split(),
                     stderr=subprocess.PIPE,
                     stdout=subprocess.PIPE,
                     check=True,
                     encoding="utf-8",
                     cwd=self.local_dir,
-                )
+                ).stderr.strip()
         except subprocess.CalledProcessError as exc:
             raise EnvironmentError(exc.stderr)
+
+        if len(stderr):
+            logger.warning(stderr)
 
         return self.git_head_commit_url()
 
