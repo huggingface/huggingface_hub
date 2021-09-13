@@ -93,6 +93,7 @@ class SnapshotDownloadTests(unittest.TestCase):
 
     def test_download_private_model(self):
         self._api.update_repo_visibility(self._token, REPO_NAME, private=True)
+
         # Test download fails without token
         with tempfile.TemporaryDirectory() as tmpdirname:
             with self.assertRaisesRegex(
@@ -101,6 +102,7 @@ class SnapshotDownloadTests(unittest.TestCase):
                 _ = snapshot_download(
                     f"{USER}/{REPO_NAME}", revision="main", cache_dir=tmpdirname
                 )
+
         # Test we can download with token from cache
         with tempfile.TemporaryDirectory() as tmpdirname:
             HfFolder.save_token(self._token)
