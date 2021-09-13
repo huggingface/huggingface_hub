@@ -4,6 +4,7 @@
 	import { mod } from "../../shared/ViewUtils";
 
 	import BoundingBoxes from "./SvgBoundingBoxes.svelte";
+	import WidgetFileInput from "../../shared/WidgetFileInput/WidgetFileInput.svelte";
 	import WidgetDropzone from "../../shared/WidgetDropzone/WidgetDropzone.svelte";
 	import WidgetOutputChart from "../../shared/WidgetOutputChart/WidgetOutputChart.svelte";
 	import WidgetWrapper from "../../shared/WidgetWrapper/WidgetWrapper.svelte";
@@ -47,6 +48,7 @@
 	});
 
 	function onSelectFile(file: File | Blob) {
+		imgSrc = URL.createObjectURL(file);
 		getOutput(file);
 	}
 
@@ -150,7 +152,6 @@
 				{isLoading}
 				{onSelectFile}
 				onError={(e) => (error = e)}
-				bind:imgSrc
 			>
 				<BoundingBoxes
 					{imgSrc}
@@ -160,6 +161,11 @@
 					{highlightIndex}
 				/>
 			</WidgetDropzone>
+			<WidgetFileInput
+				accept="image/*"
+				classNames="mt-1.5 mr-2"
+				{onSelectFile}
+			/>
 		</form>
 	</svelte:fragment>
 	<svelte:fragment slot="bottom">

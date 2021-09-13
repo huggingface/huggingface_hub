@@ -4,16 +4,15 @@
 	import { proxify } from "../../shared/helpers";
 
 	let fileInput: HTMLInputElement;
+	let imgSrc = "";
+	let isDragging = false;
 
 	export let accept = "image/*";
 	export let isLoading = false;
 	export let label =
 		"Drag image file here or click to browse from your computer";
-	export let imgSrc = "";
 	export let onSelectFile: (file: File | Blob) => void;
 	export let onError: (e: string) => void;
-
-	let isDragging = false;
 
 	function onChange() {
 		const file = fileInput.files?.[0];
@@ -58,9 +57,9 @@
 		}
 	}
 
-	onMount(async () => {
-		imgSrc = "/cat.jpg";
-	});
+	// onMount(async () => {
+	// 	imgSrc = "/cat.jpg";
+	// });
 </script>
 
 <input
