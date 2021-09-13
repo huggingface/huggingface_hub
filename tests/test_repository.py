@@ -244,15 +244,99 @@ class RepositoryTest(RepositoryCommonTest):
 
         repo.git_add()
         repo.git_commit()
-        try:
-            url = repo.git_push()
-        except subprocess.CalledProcessError as exc:
-            print(exc.stderr)
-            raise exc
+        url = repo.git_push()
         # Check that the returned commit url
         # actually exists.
         r = requests.head(url)
         r.raise_for_status()
+
+        shutil.rmtree(WORKING_REPO_DIR)
+
+    def test_add_commit_push_non_blocking(self):
+        repo = Repository(
+            WORKING_REPO_DIR,
+            clone_from=self._repo_url,
+            use_auth_token=self._token,
+            git_user="ci",
+            git_email="ci@dummy.com",
+        )
+
+        # Create dummy files
+        # one is lfs-tracked, the other is not.
+        with open(os.path.join(WORKING_REPO_DIR, "dummy.txt"), "w") as f:
+            f.write("hello")
+        with open(os.path.join(WORKING_REPO_DIR, "model.bin"), "w") as f:
+            f.write("hello")
+
+        repo.git_add()
+        repo.git_commit()
+        url, result = repo.git_push(blocking=False)
+        # Check that the returned commit url
+        # actually exists.
+
+        if result._process.poll() is None:
+            self.assertEqual(result.status, -1)
+
+        while not result.is_done:
+            time.sleep(0.5)
+
+        self.assertTrue(result.is_done)
+        self.assertEqual(result.status, 0)
+
+        r = requests.head(url)
+        r.raise_for_status()
+
+        shutil.rmtree(WORKING_REPO_DIR)
+
+    def test_context_manager_non_blocking(self):
+        repo = Repository(
+            WORKING_REPO_DIR,
+            clone_from=self._repo_url,
+            use_auth_token=self._token,
+            git_user="ci",
+            git_email="ci@dummy.com",
+        )
+
+        with repo.commit("New commit", blocking=False):
+            with open(os.path.join(WORKING_REPO_DIR, "dummy.txt"), "w") as f:
+                f.write("hello")
+
+        while repo.commands_in_progress:
+            time.sleep(1)
+
+        self.assertEqual(len(repo.commands_in_progress), 0)
+        self.assertEqual(len(repo.command_queue), 1)
+        self.assertEqual(repo.command_queue[-1].status, 0)
+        self.assertEqual(repo.command_queue[-1].is_done, True)
+        self.assertEqual(repo.command_queue[-1].title, "push")
+
+        shutil.rmtree(WORKING_REPO_DIR)
+
+    def test_add_commit_push_non_blocking_process_killed(self):
+        repo = Repository(
+            WORKING_REPO_DIR,
+            clone_from=self._repo_url,
+            use_auth_token=self._token,
+            git_user="ci",
+            git_email="ci@dummy.com",
+        )
+
+        # Create dummy files
+        # one is lfs-tracked, the other is not.
+        with open(os.path.join(WORKING_REPO_DIR, "dummy.txt"), "w") as f:
+            f.write(str([[[1] * 10000] * 1000] * 10))
+
+        repo.git_add(auto_lfs_track=True)
+        repo.git_commit()
+        url, result = repo.git_push(blocking=False)
+
+        result._process.kill()
+
+        while result._process.poll() is None:
+            time.sleep(0.5)
+
+        self.assertTrue(result.is_done)
+        self.assertEqual(result.status, -9)
 
         shutil.rmtree(WORKING_REPO_DIR)
 
