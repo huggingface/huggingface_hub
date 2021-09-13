@@ -98,11 +98,7 @@
 >
 	<svelte:fragment slot="top">
 		<form>
-			<WidgetDropzone
-				{isLoading}
-				{onSelectFile}
-				onError={(e) => (error = e)}
-			>
+			<WidgetDropzone {isLoading} {onSelectFile} onError={(e) => (error = e)}>
 				<img
 					src={imgSrc}
 					class="pointer-events-none shadow mx-auto max-h-44"
