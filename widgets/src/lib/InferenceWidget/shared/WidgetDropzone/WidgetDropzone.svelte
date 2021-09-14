@@ -2,16 +2,16 @@
 	import IconSpin from "../../../Icons/IconSpin.svelte";
 	import { proxify } from "../../shared/helpers";
 
-	let fileInput: HTMLInputElement;
-	let imgSrc = "";
-	let isDragging = false;
-
 	export let accept = "image/*";
 	export let isLoading = false;
 	export let label =
 		"Drag image file here or click to browse from your computer";
 	export let onSelectFile: (file: File | Blob) => void;
 	export let onError: (e: string) => void;
+
+	let fileInput: HTMLInputElement;
+	let isDragging = false;
+	let imgSrc = "";
 
 	function onChange() {
 		const file = fileInput.files?.[0];
