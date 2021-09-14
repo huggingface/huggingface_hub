@@ -1,5 +1,4 @@
 <script>
-	import { onMount } from "svelte";
 	import IconSpin from "../../../Icons/IconSpin.svelte";
 	import { proxify } from "../../shared/helpers";
 
@@ -56,10 +55,6 @@
 			onError(`Unrecognized dragged and dropped file or element.`);
 		}
 	}
-
-	// onMount(async () => {
-	// 	imgSrc = "/cat.jpg";
-	// });
 </script>
 
 <input

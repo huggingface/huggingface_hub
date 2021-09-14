@@ -1,6 +1,5 @@
 <script>
 	import type { WidgetProps, Box } from "../../shared/types";
-	import { beforeUpdate } from "svelte";
 	import { mod } from "../../shared/ViewUtils";
 
 	import BoundingBoxes from "./SvgBoundingBoxes.svelte";
@@ -92,7 +91,7 @@
 		if (res.status === "success") {
 			computeTime = res.computeTime;
 			output = res.output;
-			// outputJson = res.outputJson;
+			outputJson = res.outputJson;
 		} else if (res.status === "loading-model") {
 			modelLoading = {
 				isLoading: true,
@@ -145,17 +144,6 @@
 			highlightIndex = -1;
 		}, 1500);
 	}
-
-	beforeUpdate(async () => {
-		// isMobile =
-		// 	/Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(
-		// 		navigator.userAgent
-		// 	);
-		// imgSrc = "/cat.jpg";
-		// let objectDetectionData = await fetch("./od.json");
-		// output = await objectDetectionData.json();
-		// outputJson = JSON.stringify(output, null, 2);
-	});
 </script>
 
 <WidgetWrapper
