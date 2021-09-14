@@ -50,7 +50,12 @@
 		bind:clientWidth={wrapperWidth}
 		bind:clientHeight={wrapperHeight}
 	>
-		<img alt="" class="relative top-0 left-0" src={imgSrc} bind:this={imgEl} />
+		<img
+			alt=""
+			class="relative top-0 left-0 max-w-sm object-contain"
+			src={imgSrc}
+			bind:this={imgEl}
+		/>
 
 		<svg
 			class="absolute top-0 left-0"
