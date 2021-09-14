@@ -529,17 +529,22 @@ def hf_hub_download(
         repo_id, filename, subfolder=subfolder, repo_type=repo_type, revision=revision
     )
 
-    return cached_download(
+    path = cached_download(
         url,
         library_name=library_name,
         library_version=library_version,
         cache_dir=cache_dir,
         user_agent=user_agent,
         force_download=force_download,
-        force_filename=force_filename,
+        force_filename=filename,
         proxies=proxies,
         etag_timeout=etag_timeout,
         resume_download=resume_download,
         use_auth_token=use_auth_token,
         local_files_only=local_files_only,
     )
+    # removes lock file if created
+    if os.path.exists(path + ".lock"):
+        os.remove(path + ".lock")
+        
+    return path
