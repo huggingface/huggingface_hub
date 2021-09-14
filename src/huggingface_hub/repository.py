@@ -1,3 +1,4 @@
+import atexit
 import os
 import re
 import subprocess
@@ -6,7 +7,7 @@ import threading
 import time
 from contextlib import contextmanager
 from pathlib import Path
-from typing import Dict, Iterator, List, Optional, Union
+from typing import Callable, Dict, Iterator, List, Optional, Tuple, Union
 
 from tqdm.auto import tqdm
 
@@ -19,6 +20,70 @@ from .utils import logging
 
 
 logger = logging.get_logger(__name__)
+
+
+class CommandInProgress:
+    def __init__(
+        self,
+        title: str,
+        is_done_method: Callable,
+        status_method: Callable,
+        process: subprocess.Popen,
+    ):
+        self.title = title
+        self._is_done = is_done_method
+        self._status = status_method
+        self._process = process
+        self._stderr = ""
+        self._stdout = ""
+
+    @property
+    def is_done(self) -> bool:
+        """
+        Whether the process is done.
+        """
+        return self._is_done()
+
+    @property
+    def status(self) -> int:
+        """
+        The exit code/status of the current action. Will return `0` if the command has completed
+        successfully, and a number between 1 and 255 if the process errored-out.
+
+        Will return -1 if the command is still ongoing.
+        """
+        return self._status()
+
+    @property
+    def failed(self) -> bool:
+        """
+        Whether the process errored-out.
+        """
+        return self.status > 0
+
+    @property
+    def stderr(self) -> str:
+        """
+        The current output message on the standard error.
+        """
+        self._stderr += self._process.stderr.read()
+        return self._stderr
+
+    @property
+    def stdout(self) -> str:
+        """
+        The current output message on the standard output.
+        """
+        self._stdout += self._process.stdout.read()
+        return self._stdout
+
+    def __repr__(self):
+        status = self.status
+
+        if status == -1:
+            status = "running"
+
+        return f"[{self.title} command, status code: {status}, {'in progress.' if not self.is_done else 'finished.'} PID: {self._process.pid}]"
 
 
 def is_git_repo(folder: Union[str, Path]) -> bool:
@@ -155,6 +220,25 @@ def is_tracked_upstream(folder: Union[str, Path]) -> bool:
         return False
 
 
+def commits_to_push(folder: Union[str, Path], upstream: Optional[str] = None) -> int:
+    """
+    Check the number of commits that would be pushed upstream
+    """
+    try:
+        command = f"git cherry -v {upstream or ''}"
+        result = subprocess.run(
+            command.split(),
+            stderr=subprocess.PIPE,
+            stdout=subprocess.PIPE,
+            encoding="utf-8",
+            check=True,
+            cwd=folder,
+        )
+        return len(result.stdout.split("\n")) - 1
+    except subprocess.CalledProcessError as exc:
+        raise EnvironmentError(exc.stderr)
+
+
 @contextmanager
 def lfs_log_progress():
     """
@@ -262,6 +346,8 @@ class Repository:
     though not a lot here (if any) is actually specific to huggingface.co.
     """
 
+    command_queue: List[CommandInProgress]
+
     def __init__(
         self,
         local_dir: str,
@@ -308,6 +394,7 @@ class Repository:
         os.makedirs(local_dir, exist_ok=True)
         self.local_dir = os.path.join(os.getcwd(), local_dir)
         self.repo_type = repo_type
+        self.command_queue = []
         self.private = private
 
         self.check_git_versions()
@@ -348,6 +435,10 @@ class Repository:
 
         if revision is not None:
             self.git_checkout(revision, create_branch_ok=True)
+
+        # This ensures that all commands exit before exiting the Python runtime.
+        # This will ensure all pushes register on the hub, even if other errors happen in subsequent operations.
+        atexit.register(self.wait_for_commands)
 
     @property
     def current_branch(self):
@@ -652,7 +743,9 @@ class Repository:
 
         return deleted_files
 
-    def lfs_track(self, patterns: Union[str, List[str]], filename: bool = False):
+    def lfs_track(
+        self, patterns: Union[str, List[str]], filename: Optional[bool] = False
+    ):
         """
         Tell git-lfs to track those files.
 
@@ -719,7 +812,7 @@ class Repository:
         except subprocess.CalledProcessError as exc:
             raise EnvironmentError(exc.stderr)
 
-    def auto_track_large_files(self, pattern=".") -> List[str]:
+    def auto_track_large_files(self, pattern: Optional[str] = ".") -> List[str]:
         """
         Automatically track large files with git-lfs
         """
@@ -768,7 +861,9 @@ class Repository:
         except subprocess.CalledProcessError as exc:
             raise EnvironmentError(exc.stderr)
 
-    def git_add(self, pattern=".", auto_lfs_track=False):
+    def git_add(
+        self, pattern: Optional[str] = ".", auto_lfs_track: Optional[bool] = False
+    ):
         """
         git add
 
@@ -795,7 +890,7 @@ class Repository:
         except subprocess.CalledProcessError as exc:
             raise EnvironmentError(exc.stderr)
 
-    def git_commit(self, commit_message="commit files to HF hub"):
+    def git_commit(self, commit_message: str = "commit files to HF hub"):
         """
         git commit
         """
@@ -815,36 +910,91 @@ class Repository:
             else:
                 raise EnvironmentError(exc.stdout)
 
-    def git_push(self, upstream=None) -> str:
+    def git_push(
+        self,
+        upstream: Optional[str] = None,
+        blocking: Optional[bool] = True,
+    ) -> Union[str, Tuple[str, CommandInProgress]]:
         """
         git push
 
-        Returns url to commit on remote repo.
+        If used without setting `blocking`, will return url to commit on remote repo.
+        If used with `blocking=True`, will return a tuple containing the url to commit
+        and the command object to follow for information about the process.
+
+        Args:
+            upstream (`str`, `optional`):
+                Upstream to which this should push. If not specified, will push
+                to the lastly defined upstream or to the default one (`origin main`).
+            blocking (`bool`, defaults to `True`):
+                Whether the function should return only when the push has finished.
+                Setting this to `False` will return an `CommandInProgress` object
+                which has an `is_done` property. This property will be set to
+                `True` when the push is finished.
         """
         command = "git push"
 
         if upstream:
             command += f" --set-upstream {upstream}"
 
+        number_of_commits = commits_to_push(self.local_dir, upstream)
+
+        if number_of_commits > 1:
+            logger.warning(
+                f"Several commits ({number_of_commits}) will be pushed upstream."
+            )
+            if blocking:
+                logger.warning("The progress bars may be unreliable.")
+
         try:
             with lfs_log_progress():
-                stderr = subprocess.run(
+                process = subprocess.Popen(
                     command.split(),
                     stderr=subprocess.PIPE,
                     stdout=subprocess.PIPE,
-                    check=True,
                     encoding="utf-8",
                     cwd=self.local_dir,
-                ).stderr.strip()
+                )
+
+                if blocking:
+                    stdout, stderr = process.communicate()
+                    return_code = process.poll()
+                    process.kill()
+
+                    if len(stderr):
+                        logger.warning(stderr)
+
+                    if return_code:
+                        raise subprocess.CalledProcessError(
+                            return_code, process.args, output=stdout, stderr=stderr
+                        )
+
         except subprocess.CalledProcessError as exc:
             raise EnvironmentError(exc.stderr)
 
-        if len(stderr):
-            logger.warning(stderr)
+        if not blocking:
+
+            def status_method():
+                status = process.poll()
+                if status is None:
+                    return -1
+                else:
+                    return status
+
+            command = CommandInProgress(
+                "push",
+                is_done_method=lambda: process.poll() is not None,
+                status_method=status_method,
+                process=process,
+            )
+
+            self.command_queue.append(command)
+
+            return self.git_head_commit_url(), command
 
         return self.git_head_commit_url()
 
-    def git_checkout(self, revision, create_branch_ok=False):
+    def git_checkout(self, revision: str, create_branch_ok: Optional[bool] = False):
         """
         git checkout a given revision
 
@@ -883,24 +1033,34 @@ class Repository:
                 except subprocess.CalledProcessError as exc:
                     raise EnvironmentError(exc.stderr)
 
-    def push_to_hub(self, commit_message: str = "commit files to HF hub") -> str:
+    def push_to_hub(
+        self,
+        commit_message: Optional[str] = "commit files to HF hub",
+        blocking: Optional[bool] = True,
+    ) -> str:
         """
         Helper to add, commit, and push files to remote repository on the HuggingFace Hub.
         Will automatically track large files (>10MB).
 
         Args:
-            commit_message: commit message.
+            commit_message (`str`):
+                Message to use for the commit.
+            blocking (`bool`, `optional`, defaults to `True`):
+                Whether the function should return only when the `git push` has finished.
         """
         self.git_add(auto_lfs_track=True)
         self.git_commit(commit_message)
-        return self.git_push(upstream=f"origin {self.current_branch}")
+        return self.git_push(
+            upstream=f"origin {self.current_branch}", blocking=blocking
+        )
 
     @contextmanager
     def commit(
         self,
         commit_message: str,
         branch: Optional[str] = None,
-        track_large_files: bool = True,
+        track_large_files: Optional[bool] = True,
+        blocking: Optional[bool] = True,
     ):
         """
         Context manager utility to handle committing to a repository. This automatically tracks large files (>10Mb)
@@ -913,6 +1073,8 @@ class Repository:
                 The branch on which the commit will appear. This branch will be checked-out before any operation.
             track_large_files (`bool`, `optional`, defaults to `True`):
                 Whether to automatically track large files or not. Will do so by default.
+            blocking (`bool`, `optional`, defaults to `True`):
+                Whether the function should return only when the `git push` has finished.
 
         Examples:
 
@@ -966,7 +1128,9 @@ class Repository:
                     raise e
 
             try:
-                self.git_push(upstream=f"origin {self.current_branch}")
+                self.git_push(
+                    upstream=f"origin {self.current_branch}", blocking=blocking
+                )
             except OSError as e:
                 # If no changes are detected, there is nothing to commit.
                 if "could not read Username" in str(e):
@@ -985,3 +1149,29 @@ class Repository:
 
     def repocard_metadata_save(self, data: Dict) -> None:
         return metadata_save(os.path.join(self.local_dir, REPOCARD_NAME), data)
+
+    @property
+    def commands_failed(self):
+        return [c for c in self.command_queue if c.status > 0]
+
+    @property
+    def commands_in_progress(self):
+        return [c for c in self.command_queue if not c.is_done]
+
+    def wait_for_commands(self):
+        index = 0
+        for command_failed in self.commands_failed:
+            logger.error(
+                f"The {command_failed.title} command with PID {command_failed._process.pid} failed."
+            )
+            logger.error(command_failed.stderr)
+
+        while self.commands_in_progress:
+            if index % 10 == 0:
+                logger.error(
+                    f"Waiting for the following commands to finish before shutting down: {self.commands_in_progress}."
+                )
+
+            index += 1
+
+            time.sleep(1)

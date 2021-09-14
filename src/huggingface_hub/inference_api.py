@@ -30,12 +30,13 @@ ALL_TASKS = [
     "text-to-speech",
     "automatic-speech-recognition",
     "audio-to-audio",
-    "audio-source-separation",
+    "audio-classification",
     "voice-activity-detection",
     # Computer vision
     "image-classification",
     "object-detection",
     "image-segmentation",
+    "text-to-image",
     # Others
     "structured-data-classification",
 ]
@@ -122,13 +123,16 @@ class InferenceApi:
 
     def __call__(
         self,
-        inputs: Union[str, Dict, List[str], List[List[str]]],
+        inputs: Optional[Union[str, Dict, List[str], List[List[str]]]] = None,
         params: Optional[Dict] = None,
+        data: Optional[bytes] = None,
     ):
         payload = {
-            "inputs": inputs,
             "options": self.options,
         }
+
+        if inputs:
+            payload["inputs"] = inputs
 
         if params:
             payload["parameters"] = params
@@ -136,6 +140,6 @@ class InferenceApi:
         # TODO: Decide if we should raise an error instead of
         # returning the json.
         response = requests.post(
-            self.api_url, headers=self.headers, json=payload
+            self.api_url, headers=self.headers, json=payload, data=data
         ).json()
         return response
