@@ -13,7 +13,7 @@ TF2_WEIGHTS_NAME = "tf_model.h5"
 TF_WEIGHTS_NAME = "model.ckpt"
 FLAX_WEIGHTS_NAME = "flax_model.msgpack"
 CONFIG_NAME = "config.json"
-MODELCARD_NAME = "README.md"
+REPOCARD_NAME = "README.md"
 
 HUGGINGFACE_CO_URL_HOME = "https://huggingface.co/"
 

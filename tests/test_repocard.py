@@ -16,7 +16,7 @@ import shutil
 import unittest
 from pathlib import Path
 
-from huggingface_hub.constants import MODELCARD_NAME
+from huggingface_hub.constants import REPOCARD_NAME
 from huggingface_hub.repocard import metadata_load, metadata_save
 
 from .testing_utils import set_write_permission_and_retry
@@ -69,7 +69,7 @@ class RepocardTest(unittest.TestCase):
             pass
 
     def test_metadata_load(self):
-        filepath = Path(REPOCARD_DIR) / MODELCARD_NAME
+        filepath = Path(REPOCARD_DIR) / REPOCARD_NAME
         filepath.write_text(DUMMY_MODELCARD)
         data = metadata_load(filepath)
         self.assertDictEqual(data, {"license": "mit", "datasets": ["foo", "bar"]})

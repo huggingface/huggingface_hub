@@ -10,7 +10,7 @@ from typing import Dict, Iterator, List, Optional, Union
 
 from tqdm.auto import tqdm
 
-from huggingface_hub.constants import MODELCARD_NAME, REPO_TYPES_URL_PREFIXES
+from huggingface_hub.constants import REPO_TYPES_URL_PREFIXES, REPOCARD_NAME
 from huggingface_hub.repocard import metadata_load, metadata_save
 
 from .hf_api import ENDPOINT, HfApi, HfFolder, repo_type_and_id_from_hf_id
@@ -979,9 +979,9 @@ class Repository:
             os.chdir(current_working_directory)
 
     def repocard_metadata_load(self) -> Optional[Dict]:
-        filepath = os.path.join(self.local_dir, MODELCARD_NAME)
+        filepath = os.path.join(self.local_dir, REPOCARD_NAME)
         if os.path.isfile(filepath):
             return metadata_load(filepath)
 
     def repocard_metadata_save(self, data: Dict) -> None:
-        return metadata_save(os.path.join(self.local_dir, MODELCARD_NAME), data)
+        return metadata_save(os.path.join(self.local_dir, REPOCARD_NAME), data)
