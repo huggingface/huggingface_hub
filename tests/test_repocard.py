@@ -53,6 +53,10 @@ meaning_of_life: 42
 Hello
 """
 
+DUMMY_MODELCARD_TARGET_NO_TAGS = """
+Hello
+"""
+
 REPOCARD_DIR = os.path.join(
     os.path.dirname(os.path.abspath(__file__)), "fixtures/repocard"
 )
@@ -89,3 +93,10 @@ class RepocardTest(unittest.TestCase):
         metadata_save(filepath, {"meaning_of_life": 42})
         content = filepath.read_text()
         self.assertEqual(content, DUMMY_MODELCARD_TARGET_NO_YAML)
+
+    def test_no_metadata_returns_none(self):
+        filename = "dummy_target_3.md"
+        filepath = Path(REPOCARD_DIR) / filename
+        filepath.write_text(DUMMY_MODELCARD_TARGET_NO_TAGS)
+        data = metadata_load(filepath)
+        self.assertEqual(data, None)
