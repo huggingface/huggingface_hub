@@ -24,10 +24,13 @@ def interface_to_type(interface_str):
 
 def get_type(model_id):
     info = HfApi().model_info(repo_id=model_id)
-    if "speechbrain" in info.config:
-        interface_str = info.config["speechbrain"].get(
-            "interface", "SepformerSeparation"
-        )
+    if info.config:
+        if "speechbrain" in info.config:
+            interface_str = info.config["speechbrain"].get(
+                "interface", "SepformerSeparation"
+            )
+        else:
+            interface_str = "SepformerSeparation"
     else:
         interface_str = "SepformerSeparation"
     return interface_to_type(interface_str)
