@@ -48,7 +48,7 @@
 		return { ...val, color };
 	});
 
-	function isMobile() {
+	function isToucDevice() {
 		if (typeof window !== "undefined") {
 			return (
 				"ontouchstart" in window ||
@@ -160,7 +160,7 @@
 >
 	<svelte:fragment slot="top">
 		<form>
-			{#if !isMobile()}
+			{#if !isToucDevice()}
 				<WidgetDropzone {isLoading} {onSelectFile} onError={(e) => (error = e)}>
 					<BoundingBoxes
 						{imgSrc}
