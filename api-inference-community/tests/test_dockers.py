@@ -134,14 +134,14 @@ class DockerImageTests(unittest.TestCase):
 
         self.framework_invalid_test("speechbrain")
 
-        # source-separation
+        # source-separation
         self.framework_docker_test(
             "speechbrain",
             "audio-to-audio",
             "speechbrain/sepformer-wham",
         )
 
-        # speech-enchancement
+        # speech-enchancement
         self.framework_docker_test(
             "speechbrain",
             "audio-to-audio",
