@@ -1032,48 +1032,70 @@ class Repository:
                 except subprocess.CalledProcessError as exc:
                     raise EnvironmentError(exc.stderr)
 
-    def tag_exists(self, tag_name: str) -> bool:
+    def tag_exists(self, tag_name: str, remote: Optional[str] = None) -> bool:
         """
         Check if a tag exists or not
         """
-        try:
-            git_tags = subprocess.run(
-                ["git", "tag"],
-                stderr=subprocess.PIPE,
-                stdout=subprocess.PIPE,
-                check=True,
-                encoding="utf-8",
-                cwd=self.local_dir,
-            ).stdout.strip()
-        except subprocess.CalledProcessError as exc:
-            raise EnvironmentError(exc.stderr)
+        if remote:
+            try:
+                result = subprocess.run(
+                    ["git", "ls-remote", "origin", f"refs/tags/{tag_name}"],
+                    stderr=subprocess.PIPE,
+                    stdout=subprocess.PIPE,
+                    check=True,
+                    encoding="utf-8",
+                    cwd=self.local_dir,
+                ).stdout.strip()
+            except subprocess.CalledProcessError as exc:
+                raise EnvironmentError(exc.stderr)
 
-        git_tags = git_tags.split("\n")
-        return tag_name in git_tags
+            return len(result) != 0
+        else:
+            try:
+                git_tags = subprocess.run(
+                    ["git", "tag"],
+                    stderr=subprocess.PIPE,
+                    stdout=subprocess.PIPE,
+                    check=True,
+                    encoding="utf-8",
+                    cwd=self.local_dir,
+                ).stdout.strip()
+            except subprocess.CalledProcessError as exc:
+                raise EnvironmentError(exc.stderr)
 
-    def delete_tag(self, tag_name: str, remote: str = "origin") -> bool:
+            git_tags = git_tags.split("\n")
+            return tag_name in git_tags
+
+    def delete_tag(self, tag_name: str, remote: Optional[str] = None) -> bool:
         """
         Delete a tag, both local and remote, if it exists
 
         Return True if deleted.  Returns False if the tag didn't exist
         If remote is None, will just be updated locally
         """
+        delete_locally = True
+        delete_remotely = True
+
         if not self.tag_exists(tag_name):
-            return False
+            delete_locally = False
 
-        try:
-            subprocess.run(
-                ["git", "tag", "-d", tag_name],
-                stderr=subprocess.PIPE,
-                stdout=subprocess.PIPE,
-                check=True,
-                encoding="utf-8",
-                cwd=self.local_dir,
-            ).stdout.strip()
-        except subprocess.CalledProcessError as exc:
-            raise EnvironmentError(exc.stderr)
+        if not self.tag_exists(tag_name, remote=remote):
+            delete_remotely = False
 
-        if remote:
+        if delete_locally:
+            try:
+                subprocess.run(
+                    ["git", "tag", "-d", tag_name],
+                    stderr=subprocess.PIPE,
+                    stdout=subprocess.PIPE,
+                    check=True,
+                    encoding="utf-8",
+                    cwd=self.local_dir,
+                ).stdout.strip()
+            except subprocess.CalledProcessError as exc:
+                raise EnvironmentError(exc.stderr)
+
+        if remote and delete_remotely:
             try:
                 subprocess.run(
                     ["git", "push", remote, "--delete", tag_name],
@@ -1088,7 +1110,7 @@ class Repository:
 
         return True
 
-    def add_tag(self, tag_name: str, message: str = None, remote: str = "origin"):
+    def add_tag(self, tag_name: str, message: str = None, remote: Optional[str] = None):
         """
         Add a tag at the current head and push it
 
@@ -1116,7 +1138,7 @@ class Repository:
         if remote:
             try:
                 subprocess.run(
-                    ["git", "push", "origin", tag_name],
+                    ["git", "push", remote, tag_name],
                     stderr=subprocess.PIPE,
                     stdout=subprocess.PIPE,
                     check=True,
@@ -1148,7 +1170,7 @@ class Repository:
         self,
         commit_message: Optional[str] = "commit files to HF hub",
         blocking: Optional[bool] = True,
-        clean_ok: Optional[bool] = False
+        clean_ok: Optional[bool] = False,
     ) -> str:
         """
         Helper to add, commit, and push files to remote repository on the HuggingFace Hub.
