@@ -7,11 +7,12 @@ import threading
 import time
 from contextlib import contextmanager
 from pathlib import Path
-from typing import Callable, Iterator, List, Optional, Tuple, Union
+from typing import Callable, Dict, Iterator, List, Optional, Tuple, Union
 
 from tqdm.auto import tqdm
 
-from huggingface_hub.constants import REPO_TYPES_URL_PREFIXES
+from huggingface_hub.constants import REPO_TYPES_URL_PREFIXES, REPOCARD_NAME
+from huggingface_hub.repocard import metadata_load, metadata_save
 
 from .hf_api import ENDPOINT, HfApi, HfFolder, repo_type_and_id_from_hf_id
 from .lfs import LFS_MULTIPART_UPLOAD_COMMAND
@@ -1140,6 +1141,14 @@ class Repository:
                     raise e
 
             os.chdir(current_working_directory)
+
+    def repocard_metadata_load(self) -> Optional[Dict]:
+        filepath = os.path.join(self.local_dir, REPOCARD_NAME)
+        if os.path.isfile(filepath):
+            return metadata_load(filepath)
+
+    def repocard_metadata_save(self, data: Dict) -> None:
+        return metadata_save(os.path.join(self.local_dir, REPOCARD_NAME), data)
 
     @property
     def commands_failed(self):
