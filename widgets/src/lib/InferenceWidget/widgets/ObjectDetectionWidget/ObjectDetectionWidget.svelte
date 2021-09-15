@@ -49,9 +49,11 @@
 	});
 
 	function isMobile() {
-		if (typeof navigator !== "undefined") {
-			return /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(
-				navigator.userAgent
+		if (typeof window !== "undefined") {
+			return (
+				"ontouchstart" in window ||
+				navigator.maxTouchPoints > 0 ||
+				navigator.msMaxTouchPoints > 0
 			);
 		}
 		return false;
