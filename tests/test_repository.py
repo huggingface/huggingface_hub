@@ -657,6 +657,84 @@ class RepositoryTest(RepositoryCommonTest):
             self.assertFalse("new_file.txt" in files)
             self.assertFalse("new_file-2.txt" in files)
 
+    def test_add_tag(self):
+        repo = Repository(
+            WORKING_REPO_DIR,
+            clone_from=f"{USER}/{REPO_NAME}",
+            use_auth_token=self._token,
+            git_user="ci",
+            git_email="ci@dummy.com",
+            revision="main",
+        )
+
+        repo.add_tag("v4.6.0", remote="origin")
+        self.assertTrue(repo.tag_exists("v4.6.0", remote="origin"))
+
+    def test_add_annotated_tag(self):
+        repo = Repository(
+            WORKING_REPO_DIR,
+            clone_from=f"{USER}/{REPO_NAME}",
+            use_auth_token=self._token,
+            git_user="ci",
+            git_email="ci@dummy.com",
+            revision="main",
+        )
+
+        repo.add_tag("v4.5.0", message="This is an annotated tag", remote="origin")
+
+        # Unfortunately git offers no built-in way to check the annotated
+        # message of a remote tag.
+        # In order to check that the remote tag was correctly annotated,
+        # we delete the local tag before pulling the remote tag (which
+        # should be the same). We then check that this tag is correctly
+        # annotated.
+        repo.delete_tag("v4.5.0")
+
+        self.assertTrue(repo.tag_exists("v4.5.0", remote="origin"))
+        self.assertFalse(repo.tag_exists("v4.5.0"))
+
+        subprocess.run(
+            ["git", "pull", "--tags"],
+            stderr=subprocess.PIPE,
+            stdout=subprocess.PIPE,
+            check=True,
+            encoding="utf-8",
+            cwd=repo.local_dir,
+        )
+
+        self.assertTrue(repo.tag_exists("v4.5.0"))
+
+        result = subprocess.run(
+            ["git", "tag", "-n9"],
+            stderr=subprocess.PIPE,
+            stdout=subprocess.PIPE,
+            check=True,
+            encoding="utf-8",
+            cwd=repo.local_dir,
+        ).stdout.strip()
+
+        self.assertIn("This is an annotated tag", result)
+
+    def test_delete_tag(self):
+        repo = Repository(
+            WORKING_REPO_DIR,
+            clone_from=f"{USER}/{REPO_NAME}",
+            use_auth_token=self._token,
+            git_user="ci",
+            git_email="ci@dummy.com",
+            revision="main",
+        )
+
+        repo.add_tag("v4.6.0", message="This is an annotated tag", remote="origin")
+        self.assertTrue(repo.tag_exists("v4.6.0", remote="origin"))
+
+        repo.delete_tag("v4.6.0")
+        self.assertFalse(repo.tag_exists("v4.6.0"))
+        self.assertTrue(repo.tag_exists("v4.6.0", remote="origin"))
+
+        repo.delete_tag("v4.6.0", remote="origin")
+        self.assertFalse(repo.tag_exists("v4.6.0", remote="origin"))
+
 
 class RepositoryOfflineTest(RepositoryCommonTest):
     @classmethod
@@ -696,6 +774,23 @@ class RepositoryOfflineTest(RepositoryCommonTest):
             check=True,
             cwd=WORKING_REPO_DIR,
         )
+
+        all_local_tags = subprocess.run(
+            ["git", "tag", "-l"],
+            stderr=subprocess.PIPE,
+            stdout=subprocess.PIPE,
+            check=True,
+            cwd=WORKING_REPO_DIR,
+        ).stdout.strip()
+
+        if len(all_local_tags):
+            subprocess.run(
+                ["git", "tag", "-d", all_local_tags],
+                stderr=subprocess.PIPE,
+                stdout=subprocess.PIPE,
+                check=True,
+                cwd=WORKING_REPO_DIR,
+            )
 
     @classmethod
     def tearDownClass(cls) -> None:
@@ -1056,6 +1151,64 @@ class RepositoryOfflineTest(RepositoryCommonTest):
             currently_setup_credential_helpers(repo.local_dir), ["get", "store"]
         )
         self.assertEqual(currently_setup_credential_helpers(), ["get"])
+
+    def test_add_tag(self):
+        repo = Repository(
+            WORKING_REPO_DIR,
+            git_user="RANDOM_USER",
+            git_email="EMAIL@EMAIL.EMAIL",
+        )
+
+        repo.add_tag("v4.6.0")
+        self.assertTrue(repo.tag_exists("v4.6.0"))
+
+    def test_add_annotated_tag(self):
+        repo = Repository(
+            WORKING_REPO_DIR,
+            git_user="RANDOM_USER",
+            git_email="EMAIL@EMAIL.EMAIL",
+        )
+
+        repo.add_tag("v4.6.0", message="This is an annotated tag")
+        self.assertTrue(repo.tag_exists("v4.6.0"))
+
+        result = subprocess.run(
+            ["git", "tag", "-n9"],
+            stderr=subprocess.PIPE,
+            stdout=subprocess.PIPE,
+            check=True,
+            encoding="utf-8",
+            cwd=repo.local_dir,
+        ).stdout.strip()
+
+        self.assertIn("This is an annotated tag", result)
+
+    def test_delete_tag(self):
+        repo = Repository(
+            WORKING_REPO_DIR,
+            git_user="RANDOM_USER",
+            git_email="EMAIL@EMAIL.EMAIL",
+        )
+
+        repo.add_tag("v4.6.0", message="This is an annotated tag")
+        self.assertTrue(repo.tag_exists("v4.6.0"))
+
+        repo.delete_tag("v4.6.0")
+        self.assertFalse(repo.tag_exists("v4.6.0"))
+
+    def test_repo_clean(self):
+        repo = Repository(
+            WORKING_REPO_DIR,
+            git_user="RANDOM_USER",
+            git_email="EMAIL@EMAIL.EMAIL",
+        )
+
+        self.assertTrue(repo.is_repo_clean())
+
+        with open(os.path.join(repo.local_dir, "file.txt"), "w+") as f:
+            f.write("Test")
+
+        self.assertFalse(repo.is_repo_clean())
 
 
 class RepositoryDatasetTest(RepositoryCommonTest):
