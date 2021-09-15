@@ -21,7 +21,7 @@ TESTABLE_MODELS: Dict[str, List[str]] = {
         # Speech Enhancement
         "speechbrain/mtl-mimic-voicebank",
         # Source separation
-        "speechbrain/mtl-mimic-voicebank",
+        "speechbrain/sepformer-wham",
     ],
     "automatic-speech-recognition": [
         # ASR with EncoderASR
