@@ -102,6 +102,7 @@
 			<WidgetDropzone
 				classNames="hidden lg:block"
 				{isLoading}
+				{imgSrc}
 				{onSelectFile}
 				onError={(e) => (error = e)}
 			>

@@ -5,18 +5,17 @@
 	export let accept = "image/*";
 	export let classNames = "";
 	export let isLoading = false;
+	export let imgSrc = "";
 	export let label = "Drag image file here or click to browse from your device";
 	export let onSelectFile: (file: File | Blob) => void;
 	export let onError: (e: string) => void;
 
 	let fileInput: HTMLInputElement;
 	let isDragging = false;
-	let imgSrc = "";
 
 	function onChange() {
 		const file = fileInput.files?.[0];
 		if (file) {
-			imgSrc = URL.createObjectURL(file);
 			onSelectFile(file);
 		}
 	}
@@ -43,12 +42,10 @@
 			const res = await fetch(proxiedUrl);
 			const file = await res.blob();
 
-			imgSrc = URL.createObjectURL(file);
 			onSelectFile(file);
 		} else if (fileItem) {
 			const file = fileItem.getAsFile();
 			if (file) {
-				imgSrc = URL.createObjectURL(file);
 				onSelectFile(file);
 			}
 		} else {
