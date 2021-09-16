@@ -139,7 +139,5 @@ class InferenceApi:
 
         # TODO: Decide if we should raise an error instead of
         # returning the json.
-        response = requests.post(
-            self.api_url, headers=self.headers, json=payload, data=data
-        ).json()
+        response = requests.post(self.api_url, headers=self.headers, json=payload, data=data).json()
         return response

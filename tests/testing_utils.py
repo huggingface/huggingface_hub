@@ -22,18 +22,14 @@ DUMMY_MODEL_ID_REVISION_INVALID = "aaaaaaa"
 # This commit does not exist, so we should 404.
 DUMMY_MODEL_ID_PINNED_SHA1 = "d9e9f15bc825e4b2c9249e9578f884bbcb5e3684"
 # Sha-1 of config.json on the top of `main`, for checking purposes
-DUMMY_MODEL_ID_PINNED_SHA256 = (
-    "4b243c475af8d0a7754e87d7d096c92e5199ec2fe168a2ee7998e3b8e9bcb1d3"
-)
+DUMMY_MODEL_ID_PINNED_SHA256 = "4b243c475af8d0a7754e87d7d096c92e5199ec2fe168a2ee7998e3b8e9bcb1d3"
 # Sha-256 of pytorch_model.bin on the top of `main`, for checking purposes
 
 
 SAMPLE_DATASET_IDENTIFIER = "lhoestq/custom_squad"
 # Example dataset ids
 DUMMY_DATASET_ID = "lhoestq/test"
-DUMMY_DATASET_ID_REVISION_ONE_SPECIFIC_COMMIT = (
-    "81d06f998585f8ee10e6e3a2ea47203dc75f2a16"  # on branch "test-branch"
-)
+DUMMY_DATASET_ID_REVISION_ONE_SPECIFIC_COMMIT = "81d06f998585f8ee10e6e3a2ea47203dc75f2a16"  # on branch "test-branch"
 
 
 def parse_flag_from_env(key, default=False):
@@ -124,9 +120,7 @@ def offline(mode=OfflineSimulationMode.CONNECTION_FAILS, timeout=1e-16):
             # The following changes in the error are just here to make the offline timeout error prettier
             e.request.url = url
             max_retry_error = e.args[0]
-            max_retry_error.args = (
-                max_retry_error.args[0].replace("10.255.255.1", f"OfflineMock[{url}]"),
-            )
+            max_retry_error.args = (max_retry_error.args[0].replace("10.255.255.1", f"OfflineMock[{url}]"),)
             e.args = (max_retry_error,)
             raise
 

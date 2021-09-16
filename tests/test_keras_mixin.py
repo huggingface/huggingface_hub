@@ -14,9 +14,7 @@ from .testing_utils import set_write_permission_and_retry
 REPO_NAME = "mixin-repo-{}".format(int(time.time() * 10e3))
 
 WORKING_REPO_SUBDIR = "fixtures/working_repo_3"
-WORKING_REPO_DIR = os.path.join(
-    os.path.dirname(os.path.abspath(__file__)), WORKING_REPO_SUBDIR
-)
+WORKING_REPO_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), WORKING_REPO_SUBDIR)
 
 if is_tf_available():
     import tensorflow as tf
@@ -81,9 +79,7 @@ class HubMixingTest(HubMixingCommonTest):
         self.assertTrue("tf_model.h5" in files)
         self.assertEqual(len(files), 1)
 
-        model.save_pretrained(
-            f"{WORKING_REPO_DIR}/{REPO_NAME}", config={"num": 12, "act": "gelu"}
-        )
+        model.save_pretrained(f"{WORKING_REPO_DIR}/{REPO_NAME}", config={"num": 12, "act": "gelu"})
         files = os.listdir(f"{WORKING_REPO_DIR}/{REPO_NAME}")
         self.assertTrue("config.json" in files)
         self.assertTrue("tf_model.h5" in files)
@@ -92,9 +88,7 @@ class HubMixingTest(HubMixingCommonTest):
     def test_keras_from_pretrained_weights(self):
         model = DummyModel()
         model.dummy_inputs = None
-        model.save_pretrained(
-            f"{WORKING_REPO_DIR}/{REPO_NAME}", dummy_inputs=tf.ones([2, 2])
-        )
+        model.save_pretrained(f"{WORKING_REPO_DIR}/{REPO_NAME}", dummy_inputs=tf.ones([2, 2]))
         assert model.built
         new_model = DummyModel.from_pretrained(f"{WORKING_REPO_DIR}/{REPO_NAME}")
 
@@ -104,11 +98,7 @@ class HubMixingTest(HubMixingCommonTest):
         # Check a new model's weights are not the same as the reloaded model's weights
         another_model = DummyModel()
         another_model(tf.ones([2, 2]))
-        self.assertFalse(
-            tf.reduce_all(tf.equal(new_model.weights[0], another_model.weights[0]))
-            .numpy()
-            .item()
-        )
+        self.assertFalse(tf.reduce_all(tf.equal(new_model.weights[0], another_model.weights[0])).numpy().item())
 
     def test_rel_path_from_pretrained(self):
         model = DummyModel()
@@ -117,9 +107,7 @@ class HubMixingTest(HubMixingCommonTest):
             config={"num": 10, "act": "gelu_fast"},
         )
 
-        model = DummyModel.from_pretrained(
-            f"tests/{WORKING_REPO_SUBDIR}/FROM_PRETRAINED"
-        )
+        model = DummyModel.from_pretrained(f"tests/{WORKING_REPO_SUBDIR}/FROM_PRETRAINED")
         self.assertTrue(model.config == {"num": 10, "act": "gelu_fast"})
 
     def test_abs_path_from_pretrained(self):
@@ -129,9 +117,7 @@ class HubMixingTest(HubMixingCommonTest):
             config={"num": 10, "act": "gelu_fast"},
         )
 
-        model = DummyModel.from_pretrained(
-            f"{WORKING_REPO_DIR}/{REPO_NAME}-FROM_PRETRAINED"
-        )
+        model = DummyModel.from_pretrained(f"{WORKING_REPO_DIR}/{REPO_NAME}-FROM_PRETRAINED")
         self.assertDictEqual(model.config, {"num": 10, "act": "gelu_fast"})
 
     def test_push_to_hub(self):

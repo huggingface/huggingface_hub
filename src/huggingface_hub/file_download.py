@@ -20,12 +20,7 @@ from filelock import FileLock
 from huggingface_hub import constants
 
 from . import __version__
-from .constants import (
-    HUGGINGFACE_CO_URL_TEMPLATE,
-    HUGGINGFACE_HUB_CACHE,
-    REPO_TYPES,
-    REPO_TYPES_URL_PREFIXES,
-)
+from .constants import HUGGINGFACE_CO_URL_TEMPLATE, HUGGINGFACE_HUB_CACHE, REPO_TYPES, REPO_TYPES_URL_PREFIXES
 from .hf_api import HfFolder
 from .utils import logging
 
@@ -111,9 +106,7 @@ def hf_hub_url(
 
     if revision is None:
         revision = "main"
-    return HUGGINGFACE_CO_URL_TEMPLATE.format(
-        repo_id=repo_id, revision=revision, filename=filename
-    )
+    return HUGGINGFACE_CO_URL_TEMPLATE.format(repo_id=repo_id, revision=revision, filename=filename)
 
 
 def url_to_filename(url: str, etag: Optional[str] = None) -> str:
@@ -195,9 +188,7 @@ def _raise_if_offline_mode_is_enabled(msg: Optional[str] = None):
     """Raise a OfflineModeIsEnabled error (subclass of ConnectionError) if HF_HUB_OFFLINE is True."""
     if constants.HF_HUB_OFFLINE:
         raise OfflineModeIsEnabled(
-            "Offline mode is enabled."
-            if msg is None
-            else "Offline mode is enabled. " + str(msg)
+            "Offline mode is enabled." if msg is None else "Offline mode is enabled. " + str(msg)
         )
 
 
@@ -228,20 +219,14 @@ def _request_with_retry(
     while not success:
         tries += 1
         try:
-            response = requests.request(
-                method=method.upper(), url=url, timeout=timeout, **params
-            )
+            response = requests.request(method=method.upper(), url=url, timeout=timeout, **params)
             success = True
         except requests.exceptions.ConnectTimeout as err:
             if tries > max_retries:
                 raise err
             else:
-                logger.info(
-                    f"{method} request to {url} timed out, retrying... [{tries/max_retries}]"
-                )
-                sleep_time = min(
-                    max_wait_time, base_wait_time * 2 ** (tries - 1)
-                )  # Exponential backoff
+                logger.info(f"{method} request to {url} timed out, retrying... [{tries/max_retries}]")
+                sleep_time = min(max_wait_time, base_wait_time * 2 ** (tries - 1))  # Exponential backoff
                 time.sleep(sleep_time)
     return response
 
@@ -331,9 +316,7 @@ def cached_download(
     elif use_auth_token:
         token = HfFolder.get_token()
         if token is None:
-            raise EnvironmentError(
-                "You specified use_auth_token=True, but a huggingface token was not found."
-            )
+            raise EnvironmentError("You specified use_auth_token=True, but a huggingface token was not found.")
         headers["authorization"] = "Bearer {}".format(token)
 
     url_to_download = url
@@ -375,9 +358,7 @@ def cached_download(
             # etag is None
             pass
 
-    filename = (
-        force_filename if force_filename is not None else url_to_filename(url, etag)
-    )
+    filename = force_filename if force_filename is not None else url_to_filename(url, etag)
 
     # get cache path to put the file
     cache_path = os.path.join(cache_dir, filename)
@@ -390,16 +371,10 @@ def cached_download(
         else:
             matching_files = [
                 file
-                for file in fnmatch.filter(
-                    os.listdir(cache_dir), filename.split(".")[0] + ".*"
-                )
+                for file in fnmatch.filter(os.listdir(cache_dir), filename.split(".")[0] + ".*")
                 if not file.endswith(".json") and not file.endswith(".lock")
             ]
-            if (
-                len(matching_files) > 0
-                and not force_download
-                and force_filename is None
-            ):
+            if len(matching_files) > 0 and not force_download and force_filename is None:
                 return os.path.join(cache_dir, matching_files[-1])
             else:
                 # If files cannot be found and local_files_only=True,
@@ -453,9 +428,7 @@ def cached_download(
             else:
                 resume_size = 0
         else:
-            temp_file_manager = partial(
-                tempfile.NamedTemporaryFile, mode="wb", dir=cache_dir, delete=False
-            )
+            temp_file_manager = partial(tempfile.NamedTemporaryFile, mode="wb", dir=cache_dir, delete=False)
             resume_size = 0
 
         # Download to temporary file, then copy to cache dir once finished.
@@ -525,9 +498,7 @@ def hf_hub_download(
     Raises:
         In case of non-recoverable file (non-existent or inaccessible url + no cache on disk).
     """
-    url = hf_hub_url(
-        repo_id, filename, subfolder=subfolder, repo_type=repo_type, revision=revision
-    )
+    url = hf_hub_url(repo_id, filename, subfolder=subfolder, repo_type=repo_type, revision=revision)
 
     return cached_download(
         url,

@@ -15,17 +15,8 @@
 import unittest
 
 import requests
-from huggingface_hub.constants import (
-    CONFIG_NAME,
-    PYTORCH_WEIGHTS_NAME,
-    REPO_TYPE_DATASET,
-)
-from huggingface_hub.file_download import (
-    cached_download,
-    filename_to_url,
-    hf_hub_download,
-    hf_hub_url,
-)
+from huggingface_hub.constants import CONFIG_NAME, PYTORCH_WEIGHTS_NAME, REPO_TYPE_DATASET
+from huggingface_hub.file_download import cached_download, filename_to_url, hf_hub_download, hf_hub_url
 
 from .testing_utils import (
     DUMMY_MODEL_ID,
@@ -65,9 +56,7 @@ class CachedDownloadTests(unittest.TestCase):
             filename=CONFIG_NAME,
             revision=DUMMY_MODEL_ID_REVISION_INVALID,
         )
-        valid_url = hf_hub_url(
-            DUMMY_MODEL_ID, filename=CONFIG_NAME, revision=REVISION_ID_DEFAULT
-        )
+        valid_url = hf_hub_url(DUMMY_MODEL_ID, filename=CONFIG_NAME, revision=REVISION_ID_DEFAULT)
         self.assertIsNotNone(cached_download(valid_url, force_download=True))
         for offline_mode in OfflineSimulationMode:
             with offline(mode=offline_mode):
@@ -94,9 +83,7 @@ class CachedDownloadTests(unittest.TestCase):
             _ = cached_download(url)
 
     def test_standard_object(self):
-        url = hf_hub_url(
-            DUMMY_MODEL_ID, filename=CONFIG_NAME, revision=REVISION_ID_DEFAULT
-        )
+        url = hf_hub_url(DUMMY_MODEL_ID, filename=CONFIG_NAME, revision=REVISION_ID_DEFAULT)
         filepath = cached_download(url, force_download=True)
         metadata = filename_to_url(filepath)
         self.assertEqual(metadata, (url, f'"{DUMMY_MODEL_ID_PINNED_SHA1}"'))
@@ -114,9 +101,7 @@ class CachedDownloadTests(unittest.TestCase):
         # Caution: check that the etag is *not* equal to the one from `test_standard_object`
 
     def test_lfs_object(self):
-        url = hf_hub_url(
-            DUMMY_MODEL_ID, filename=PYTORCH_WEIGHTS_NAME, revision=REVISION_ID_DEFAULT
-        )
+        url = hf_hub_url(DUMMY_MODEL_ID, filename=PYTORCH_WEIGHTS_NAME, revision=REVISION_ID_DEFAULT)
         filepath = cached_download(url, force_download=True)
         metadata = filename_to_url(filepath)
         self.assertEqual(metadata, (url, f'"{DUMMY_MODEL_ID_PINNED_SHA256}"'))

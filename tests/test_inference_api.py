@@ -64,9 +64,7 @@ class InferenceApiTest(unittest.TestCase):
     @with_production_testing
     def test_inference_with_audio(self):
         api = InferenceApi("facebook/wav2vec2-large-960h-lv60-self")
-        dataset = datasets.load_dataset(
-            "patrickvonplaten/librispeech_asr_dummy", "clean", split="validation"
-        )
+        dataset = datasets.load_dataset("patrickvonplaten/librispeech_asr_dummy", "clean", split="validation")
         data = self.read(dataset[0]["file"])
         result = api(data=data)
         self.assertIsInstance(result, dict)
@@ -96,9 +94,7 @@ class InferenceApiTest(unittest.TestCase):
 
     @with_production_testing
     def test_inference_overriding_invalid_task(self):
-        with self.assertRaises(
-            ValueError, msg="Invalid task invalid-task. Make sure it's valid."
-        ):
+        with self.assertRaises(ValueError, msg="Invalid task invalid-task. Make sure it's valid."):
             InferenceApi("bert-base-uncased", task="invalid-task")
 
     @with_production_testing

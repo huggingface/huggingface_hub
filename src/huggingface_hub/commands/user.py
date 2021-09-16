@@ -26,13 +26,9 @@ from requests.exceptions import HTTPError
 class UserCommands(BaseHuggingfaceCLICommand):
     @staticmethod
     def register_subcommand(parser: ArgumentParser):
-        login_parser = parser.add_parser(
-            "login", help="Log in using the same credentials as on huggingface.co"
-        )
+        login_parser = parser.add_parser("login", help="Log in using the same credentials as on huggingface.co")
         login_parser.set_defaults(func=lambda args: LoginCommand(args))
-        whoami_parser = parser.add_parser(
-            "whoami", help="Find out which huggingface.co account you are logged in as."
-        )
+        whoami_parser = parser.add_parser("whoami", help="Find out which huggingface.co account you are logged in as.")
         whoami_parser.set_defaults(func=lambda args: WhoamiCommand(args))
         logout_parser = parser.add_parser("logout", help="Log out")
         logout_parser.set_defaults(func=lambda args: LogoutCommand(args))
@@ -42,19 +38,11 @@ class UserCommands(BaseHuggingfaceCLICommand):
             "repo",
             help="{create, ls-files} Commands to interact with your huggingface.co repos.",
         )
-        repo_subparsers = repo_parser.add_subparsers(
-            help="huggingface.co repos related commands"
-        )
-        ls_parser = repo_subparsers.add_parser(
-            "ls-files", help="List all your files on huggingface.co"
-        )
-        ls_parser.add_argument(
-            "--organization", type=str, help="Optional: organization namespace."
-        )
+        repo_subparsers = repo_parser.add_subparsers(help="huggingface.co repos related commands")
+        ls_parser = repo_subparsers.add_parser("ls-files", help="List all your files on huggingface.co")
+        ls_parser.add_argument("--organization", type=str, help="Optional: organization namespace.")
         ls_parser.set_defaults(func=lambda args: ListReposObjsCommand(args))
-        repo_create_parser = repo_subparsers.add_parser(
-            "create", help="Create a new repo on huggingface.co"
-        )
+        repo_create_parser = repo_subparsers.add_parser("create", help="Create a new repo on huggingface.co")
         repo_create_parser.add_argument(
             "name",
             type=str,
@@ -65,9 +53,7 @@ class UserCommands(BaseHuggingfaceCLICommand):
             type=str,
             help='Optional: repo_type: set to "dataset" or "space" if creating a dataset or space, default is model.',
         )
-        repo_create_parser.add_argument(
-            "--organization", type=str, help="Optional: organization namespace."
-        )
+        repo_create_parser.add_argument("--organization", type=str, help="Optional: organization namespace.")
         repo_create_parser.add_argument(
             "-y",
             "--yes",
@@ -206,9 +192,7 @@ class ListReposObjsCommand(BaseUserCommand):
             print("No shared file yet")
             exit()
         rows = [[obj.filename, obj.lastModified, obj.commit, obj.size] for obj in objs]
-        print(
-            tabulate(rows, headers=["Filename", "LastModified", "Commit-Sha", "Size"])
-        )
+        print(tabulate(rows, headers=["Filename", "LastModified", "Commit-Sha", "Size"]))
 
 
 class RepoCreateCommand(BaseUserCommand):
@@ -237,9 +221,7 @@ class RepoCreateCommand(BaseUserCommand):
         print("")
 
         user = self._api.whoami(token)["name"]
-        namespace = (
-            self.args.organization if self.args.organization is not None else user
-        )
+        namespace = self.args.organization if self.args.organization is not None else user
 
         repo_id = f"{namespace}/{self.args.name}"
 
@@ -270,10 +252,7 @@ class RepoCreateCommand(BaseUserCommand):
             exit(1)
         print("\nYour repo now lives at:")
         print("  {}".format(ANSI.bold(url)))
-        print(
-            "\nYou can clone it locally with the command below,"
-            " and commit/push as usual."
-        )
+        print("\nYou can clone it locally with the command below," " and commit/push as usual.")
         print(f"\n  git clone {url}")
         print("")
 
@@ -303,9 +282,7 @@ def notebook_login():
     input_widget = widgets.Text(description="Username:")
     password_widget = widgets.Password(description="Password:")
     finish_button = widgets.Button(description="Login")
-    box_layout = widgets.Layout(
-        display="flex", flex_flow="column", align_items="center", width="50%"
-    )
+    box_layout = widgets.Layout(display="flex", flex_flow="column", align_items="center", width="50%")
     main_widget = widgets.VBox(
         [
             widgets.HTML(value=LOGIN_NOTEBOOK_HTML),

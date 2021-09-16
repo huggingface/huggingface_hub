@@ -14,9 +14,7 @@ from .testing_utils import set_write_permission_and_retry
 REPO_NAME = "mixin-repo-{}".format(int(time.time() * 10e3))
 
 WORKING_REPO_SUBDIR = "fixtures/working_repo_2"
-WORKING_REPO_DIR = os.path.join(
-    os.path.dirname(os.path.abspath(__file__)), WORKING_REPO_SUBDIR
-)
+WORKING_REPO_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), WORKING_REPO_SUBDIR)
 
 if is_torch_available():
     import torch.nn as nn
@@ -79,9 +77,7 @@ class HubMixingTest(HubMixingCommonTest):
         self.assertTrue("pytorch_model.bin" in files)
         self.assertEqual(len(files), 1)
 
-        model.save_pretrained(
-            f"{WORKING_REPO_DIR}/{REPO_NAME}", config={"num": 12, "act": "gelu"}
-        )
+        model.save_pretrained(f"{WORKING_REPO_DIR}/{REPO_NAME}", config={"num": 12, "act": "gelu"})
         files = os.listdir(f"{WORKING_REPO_DIR}/{REPO_NAME}")
         self.assertTrue("config.json" in files)
         self.assertTrue("pytorch_model.bin" in files)
@@ -94,9 +90,7 @@ class HubMixingTest(HubMixingCommonTest):
             config={"num": 10, "act": "gelu_fast"},
         )
 
-        model = DummyModel.from_pretrained(
-            f"tests/{WORKING_REPO_SUBDIR}/FROM_PRETRAINED"
-        )
+        model = DummyModel.from_pretrained(f"tests/{WORKING_REPO_SUBDIR}/FROM_PRETRAINED")
         self.assertTrue(model.config == {"num": 10, "act": "gelu_fast"})
 
     def test_abs_path_from_pretrained(self):
@@ -106,9 +100,7 @@ class HubMixingTest(HubMixingCommonTest):
             config={"num": 10, "act": "gelu_fast"},
         )
 
-        model = DummyModel.from_pretrained(
-            f"{WORKING_REPO_DIR}/{REPO_NAME}-FROM_PRETRAINED"
-        )
+        model = DummyModel.from_pretrained(f"{WORKING_REPO_DIR}/{REPO_NAME}-FROM_PRETRAINED")
         self.assertDictEqual(model.config, {"num": 10, "act": "gelu_fast"})
 
     def test_push_to_hub(self):

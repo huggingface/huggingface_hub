@@ -46,11 +46,7 @@ class KerasModelHubMixin(ModelHubMixin):
 
     def _save_pretrained(self, save_directory, dummy_inputs=None, **kwargs):
 
-        dummy_inputs = (
-            dummy_inputs
-            if dummy_inputs is not None
-            else getattr(self, "dummy_inputs", None)
-        )
+        dummy_inputs = dummy_inputs if dummy_inputs is not None else getattr(self, "dummy_inputs", None)
 
         if dummy_inputs is None:
             raise RuntimeError(

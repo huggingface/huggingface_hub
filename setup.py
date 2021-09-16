@@ -33,7 +33,7 @@ extras["testing"] = [
 ]
 
 extras["quality"] = [
-    "black>=20.8b1",
+    "black==21.4b0",
     "isort>=5.5.4",
     "flake8>=3.8.3",
 ]

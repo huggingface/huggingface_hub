@@ -29,9 +29,7 @@ def metadata_save(local_path: Union[str, Path], data: Dict) -> None:
     content = Path(local_path).read_text() if Path(local_path).is_file() else ""
     match = REGEX_YAML_BLOCK.search(content)
     if match:
-        output = (
-            content[: match.start()] + f"---\n{data_yaml}---\n" + content[match.end() :]
-        )
+        output = content[: match.start()] + f"---\n{data_yaml}---\n" + content[match.end() :]
     else:
         output = f"---\n{data_yaml}---\n{content}"
 

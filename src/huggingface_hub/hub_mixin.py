@@ -233,9 +233,7 @@ class ModelHubMixin:
         """
 
         if repo_path_or_name is None and repo_url is None:
-            raise ValueError(
-                "You need to specify a `repo_path_or_name` or a `repo_url`."
-            )
+            raise ValueError("You need to specify a `repo_path_or_name` or a `repo_url`.")
 
         if use_auth_token is None and repo_url is None:
             token = HfFolder.get_token()

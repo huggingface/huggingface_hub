@@ -78,13 +78,9 @@ def repo_type_and_id_from_hf_id(hf_id: str):
             repo_id = url_segments[0]
             namespace, repo_type = None, None
     else:
-        raise ValueError(
-            f"Unable to retrieve user and repo ID from the passed HF ID: {hf_id}"
-        )
+        raise ValueError(f"Unable to retrieve user and repo ID from the passed HF ID: {hf_id}")
 
-    repo_type = (
-        repo_type if repo_type in REPO_TYPES else REPO_TYPES_MAPPING.get(repo_type)
-    )
+    repo_type = repo_type if repo_type in REPO_TYPES else REPO_TYPES_MAPPING.get(repo_type)
 
     return repo_type, namespace, repo_id
 
@@ -145,9 +141,7 @@ class ModelInfo:
         lastModified: Optional[str] = None,  # date of last commit to repo
         tags: List[str] = [],
         pipeline_tag: Optional[str] = None,
-        siblings: Optional[
-            List[Dict]
-        ] = None,  # list of files that constitute the model
+        siblings: Optional[List[Dict]] = None,  # list of files that constitute the model
         config: Optional[Dict] = None,  # information about model configuration
         **kwargs,
     ):
@@ -156,9 +150,7 @@ class ModelInfo:
         self.lastModified = lastModified
         self.tags = tags
         self.pipeline_tag = pipeline_tag
-        self.siblings = (
-            [ModelFile(**x) for x in siblings] if siblings is not None else None
-        )
+        self.siblings = [ModelFile(**x) for x in siblings] if siblings is not None else None
         self.config = config
         for k, v in kwargs.items():
             setattr(self, k, v)
@@ -186,9 +178,7 @@ class DatasetInfo:
         id: Optional[str] = None,  # id of dataset
         lastModified: Optional[str] = None,  # date of last commit to repo
         tags: List[str] = [],  # tags of the dataset
-        siblings: Optional[
-            List[Dict]
-        ] = None,  # list of files that constitute the dataset
+        siblings: Optional[List[Dict]] = None,  # list of files that constitute the dataset
         private: Optional[bool] = None,  # community datasets only
         author: Optional[str] = None,  # community datasets only
         description: Optional[str] = None,
@@ -204,9 +194,7 @@ class DatasetInfo:
         self.description = description
         self.citation = citation
         self.card_data = card_data
-        self.siblings = (
-            [DatasetFile(**x) for x in siblings] if siblings is not None else None
-        )
+        self.siblings = [DatasetFile(**x) for x in siblings] if siblings is not None else None
         # Legacy stuff, "key" is always returned with an empty string
         # because of old versions of the datasets lib that need this field
         kwargs.pop("key", None)
@@ -235,9 +223,7 @@ def write_to_credential_store(username: str, password: str):
         input_username = f"username={username.lower()}"
         input_password = f"password={password}"
 
-        process.stdin.write(
-            f"url={ENDPOINT}\n{input_username}\n{input_password}\n\n".encode("utf-8")
-        )
+        process.stdin.write(f"url={ENDPOINT}\n{input_username}\n{input_password}\n\n".encode("utf-8"))
         process.stdin.flush()
 
 
@@ -481,9 +467,7 @@ class HfApi:
         d = r.json()
         return [DatasetInfo(**x) for x in d]
 
-    def model_info(
-        self, repo_id: str, revision: Optional[str] = None, token: Optional[str] = None
-    ) -> ModelInfo:
+    def model_info(self, repo_id: str, revision: Optional[str] = None, token: Optional[str] = None) -> ModelInfo:
         """
         Get info on one specific model on huggingface.co
 
@@ -496,17 +480,13 @@ class HfApi:
                 self.endpoint, repo_id=repo_id, revision=revision
             )
         )
-        headers = (
-            {"authorization": "Bearer {}".format(token)} if token is not None else None
-        )
+        headers = {"authorization": "Bearer {}".format(token)} if token is not None else None
         r = requests.get(path, headers=headers)
         r.raise_for_status()
         d = r.json()
         return ModelInfo(**d)
 
-    def list_repos_objs(
-        self, token: str, organization: Optional[str] = None
-    ) -> List[RepoObj]:
+    def list_repos_objs(self, token: str, organization: Optional[str] = None) -> List[RepoObj]:
         """
         HuggingFace git-based system, used for models, datasets, and spaces.
 
@@ -514,16 +494,12 @@ class HfApi:
         """
         path = "{}/api/repos/ls".format(self.endpoint)
         params = {"organization": organization} if organization is not None else None
-        r = requests.get(
-            path, params=params, headers={"authorization": "Bearer {}".format(token)}
-        )
+        r = requests.get(path, params=params, headers={"authorization": "Bearer {}".format(token)})
         r.raise_for_status()
         d = r.json()
         return [RepoObj(**x) for x in d]
 
-    def dataset_info(
-        self, repo_id: str, revision: Optional[str] = None, token: Optional[str] = None
-    ) -> DatasetInfo:
+    def dataset_info(self, repo_id: str, revision: Optional[str] = None, token: Optional[str] = None) -> DatasetInfo:
         """
         Get info on one specific dataset on huggingface.co
 
@@ -536,9 +512,7 @@ class HfApi:
                 self.endpoint, repo_id=repo_id, revision=revision
             )
         )
-        headers = (
-            {"authorization": "Bearer {}".format(token)} if token is not None else None
-        )
+        headers = {"authorization": "Bearer {}".format(token)} if token is not None else None
         params = {"full": "true"}
         r = requests.get(path, headers=headers, params=params)
         r.raise_for_status()
@@ -742,9 +716,7 @@ class HfApi:
         if isinstance(path_or_fileobj, str):
             path_or_fileobj = os.path.normpath(os.path.expanduser(path_or_fileobj))
             if not os.path.isfile(path_or_fileobj):
-                raise ValueError(
-                    "Provided path: '{}' is not a file".format(path_or_fileobj)
-                )
+                raise ValueError("Provided path: '{}' is not a file".format(path_or_fileobj))
         elif not isinstance(path_or_fileobj, (RawIOBase, BufferedIOBase)):
             # ^^ Test from: https://stackoverflow.com/questions/44584829/how-to-determine-if-file-is-opened-in-binary-or-text-mode
             raise ValueError(
@@ -772,9 +744,7 @@ class HfApi:
             path_in_repo=path_in_repo,
         )
 
-        headers = (
-            {"authorization": "Bearer {}".format(token)} if token is not None else None
-        )
+        headers = {"authorization": "Bearer {}".format(token)} if token is not None else None
 
         if isinstance(path_or_fileobj, str):
             with open(path_or_fileobj, "rb") as bytestream:

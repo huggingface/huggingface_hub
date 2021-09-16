@@ -24,11 +24,7 @@ from io import BytesIO
 import requests
 from huggingface_hub.commands.user import currently_setup_credential_helpers
 from huggingface_hub.hf_api import HfApi
-from huggingface_hub.repository import (
-    Repository,
-    is_tracked_upstream,
-    is_tracked_with_lfs,
-)
+from huggingface_hub.repository import Repository, is_tracked_upstream, is_tracked_with_lfs
 
 from .testing_constants import ENDPOINT_STAGING, PASS, USER
 from .testing_utils import set_write_permission_and_retry, with_production_testing
@@ -37,16 +33,10 @@ from .testing_utils import set_write_permission_and_retry, with_production_testi
 REPO_NAME = "repo-{}".format(int(time.time() * 10e3))
 
 
-WORKING_REPO_DIR = os.path.join(
-    os.path.dirname(os.path.abspath(__file__)), "fixtures/working_repo_2"
-)
+WORKING_REPO_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "fixtures/working_repo_2")
 
-DATASET_FIXTURE = os.path.join(
-    os.path.dirname(os.path.abspath(__file__)), "fixtures/tiny_dataset"
-)
-WORKING_DATASET_DIR = os.path.join(
-    os.path.dirname(os.path.abspath(__file__)), "fixtures/working_dataset"
-)
+DATASET_FIXTURE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "fixtures/tiny_dataset")
+WORKING_DATASET_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "fixtures/working_dataset")
 
 
 class RepositoryCommonTest(unittest.TestCase):
@@ -87,9 +77,7 @@ class RepositoryTest(RepositoryCommonTest):
             pass
 
         try:
-            self._api.delete_repo(
-                token=self._token, organization="valid_org", name=REPO_NAME
-            )
+            self._api.delete_repo(token=self._token, organization="valid_org", name=REPO_NAME)
         except requests.exceptions.HTTPError:
             pass
 
@@ -149,15 +137,11 @@ class RepositoryTest(RepositoryCommonTest):
             f.write("hello")
         with open(os.path.join(WORKING_REPO_DIR, "model.bin"), "w") as f:
             f.write("hello")
-        self.assertRaises(
-            OSError, Repository, WORKING_REPO_DIR, clone_from=self._repo_url
-        )
+        self.assertRaises(OSError, Repository, WORKING_REPO_DIR, clone_from=self._repo_url)
 
     def test_init_clone_in_nonempty_non_linked_git_repo(self):
         # Create a new repository on the HF Hub
-        temp_repo_url = self._api.create_repo(
-            token=self._token, name=f"{REPO_NAME}-temp"
-        )
+        temp_repo_url = self._api.create_repo(token=self._token, name=f"{REPO_NAME}-temp")
         self._api.upload_file(
             token=self._token,
             path_or_fileobj=BytesIO(b"some initial binary data: \x00\x01"),
@@ -170,19 +154,13 @@ class RepositoryTest(RepositoryCommonTest):
         Repository(WORKING_REPO_DIR, clone_from=self._repo_url)
 
         # Try and clone another repository within the same directory. Should error out due to mismatched remotes.
-        self.assertRaises(
-            EnvironmentError, Repository, WORKING_REPO_DIR, clone_from=temp_repo_url
-        )
+        self.assertRaises(EnvironmentError, Repository, WORKING_REPO_DIR, clone_from=temp_repo_url)
 
         self._api.delete_repo(token=self._token, name=f"{REPO_NAME}-temp")
 
     def test_init_clone_in_nonempty_linked_git_repo_with_token(self):
-        Repository(
-            WORKING_REPO_DIR, clone_from=self._repo_url, use_auth_token=self._token
-        )
-        Repository(
-            WORKING_REPO_DIR, clone_from=self._repo_url, use_auth_token=self._token
-        )
+        Repository(WORKING_REPO_DIR, clone_from=self._repo_url, use_auth_token=self._token)
+        Repository(WORKING_REPO_DIR, clone_from=self._repo_url, use_auth_token=self._token)
 
     def test_init_clone_in_nonempty_linked_git_repo(self):
         # Clone the repository to disk
@@ -813,12 +791,8 @@ class RepositoryOfflineTest(RepositoryCommonTest):
 
         repo.lfs_track("small_file.txt")
 
-        self.assertTrue(
-            is_tracked_with_lfs(os.path.join(WORKING_REPO_DIR, "small_file.txt"))
-        )
-        self.assertFalse(
-            is_tracked_with_lfs(os.path.join(WORKING_REPO_DIR, "small_file_2.txt"))
-        )
+        self.assertTrue(is_tracked_with_lfs(os.path.join(WORKING_REPO_DIR, "small_file.txt")))
+        self.assertFalse(is_tracked_with_lfs(os.path.join(WORKING_REPO_DIR, "small_file_2.txt")))
         self.assertTrue(is_tracked_with_lfs(os.path.join(WORKING_REPO_DIR, "model.pt")))
 
     def test_is_tracked_with_lfs_with_pattern(self):
@@ -846,18 +820,10 @@ class RepositoryOfflineTest(RepositoryCommonTest):
 
         repo.auto_track_large_files("dir")
 
-        self.assertFalse(
-            is_tracked_with_lfs(os.path.join(WORKING_REPO_DIR, "large_file.txt"))
-        )
-        self.assertFalse(
-            is_tracked_with_lfs(os.path.join(WORKING_REPO_DIR, "small_file.txt"))
-        )
-        self.assertTrue(
-            is_tracked_with_lfs(os.path.join(WORKING_REPO_DIR, "dir/large_file.txt"))
-        )
-        self.assertFalse(
-            is_tracked_with_lfs(os.path.join(WORKING_REPO_DIR, "dir/small_file.txt"))
-        )
+        self.assertFalse(is_tracked_with_lfs(os.path.join(WORKING_REPO_DIR, "large_file.txt")))
+        self.assertFalse(is_tracked_with_lfs(os.path.join(WORKING_REPO_DIR, "small_file.txt")))
+        self.assertTrue(is_tracked_with_lfs(os.path.join(WORKING_REPO_DIR, "dir/large_file.txt")))
+        self.assertFalse(is_tracked_with_lfs(os.path.join(WORKING_REPO_DIR, "dir/small_file.txt")))
 
     def test_auto_track_large_files(self):
         repo = Repository(WORKING_REPO_DIR)
@@ -876,12 +842,8 @@ class RepositoryOfflineTest(RepositoryCommonTest):
 
         repo.auto_track_large_files()
 
-        self.assertTrue(
-            is_tracked_with_lfs(os.path.join(WORKING_REPO_DIR, "large_file.txt"))
-        )
-        self.assertFalse(
-            is_tracked_with_lfs(os.path.join(WORKING_REPO_DIR, "small_file.txt"))
-        )
+        self.assertTrue(is_tracked_with_lfs(os.path.join(WORKING_REPO_DIR, "large_file.txt")))
+        self.assertFalse(is_tracked_with_lfs(os.path.join(WORKING_REPO_DIR, "small_file.txt")))
 
     def test_auto_track_large_files_ignored_with_gitignore(self):
         repo = Repository(WORKING_REPO_DIR)
@@ -912,23 +874,11 @@ class RepositoryOfflineTest(RepositoryCommonTest):
 
         repo.auto_track_large_files()
 
-        self.assertFalse(
-            is_tracked_with_lfs(os.path.join(WORKING_REPO_DIR, "large_file.txt"))
-        )
-        self.assertTrue(
-            is_tracked_with_lfs(os.path.join(WORKING_REPO_DIR, "large_file_2.txt"))
-        )
+        self.assertFalse(is_tracked_with_lfs(os.path.join(WORKING_REPO_DIR, "large_file.txt")))
+        self.assertTrue(is_tracked_with_lfs(os.path.join(WORKING_REPO_DIR, "large_file_2.txt")))
 
-        self.assertFalse(
-            is_tracked_with_lfs(
-                os.path.join(WORKING_REPO_DIR, "directory/large_file_3.txt")
-            )
-        )
-        self.assertTrue(
-            is_tracked_with_lfs(
-                os.path.join(WORKING_REPO_DIR, "directory/large_file_4.txt")
-            )
-        )
+        self.assertFalse(is_tracked_with_lfs(os.path.join(WORKING_REPO_DIR, "directory/large_file_3.txt")))
+        self.assertTrue(is_tracked_with_lfs(os.path.join(WORKING_REPO_DIR, "directory/large_file_4.txt")))
 
     def test_auto_track_large_files_through_git_add(self):
         repo = Repository(WORKING_REPO_DIR)
@@ -947,12 +897,8 @@ class RepositoryOfflineTest(RepositoryCommonTest):
 
         repo.git_add(auto_lfs_track=True)
 
-        self.assertTrue(
-            is_tracked_with_lfs(os.path.join(WORKING_REPO_DIR, "large_file.txt"))
-        )
-        self.assertFalse(
-            is_tracked_with_lfs(os.path.join(WORKING_REPO_DIR, "small_file.txt"))
-        )
+        self.assertTrue(is_tracked_with_lfs(os.path.join(WORKING_REPO_DIR, "large_file.txt")))
+        self.assertFalse(is_tracked_with_lfs(os.path.join(WORKING_REPO_DIR, "small_file.txt")))
 
     def test_auto_no_track_large_files_through_git_add(self):
         repo = Repository(WORKING_REPO_DIR)
@@ -971,12 +917,8 @@ class RepositoryOfflineTest(RepositoryCommonTest):
 
         repo.git_add(auto_lfs_track=False)
 
-        self.assertFalse(
-            is_tracked_with_lfs(os.path.join(WORKING_REPO_DIR, "large_file.txt"))
-        )
-        self.assertFalse(
-            is_tracked_with_lfs(os.path.join(WORKING_REPO_DIR, "small_file.txt"))
-        )
+        self.assertFalse(is_tracked_with_lfs(os.path.join(WORKING_REPO_DIR, "large_file.txt")))
+        self.assertFalse(is_tracked_with_lfs(os.path.join(WORKING_REPO_DIR, "small_file.txt")))
 
     def test_auto_track_updates_removed_gitattributes(self):
         repo = Repository(WORKING_REPO_DIR)
@@ -995,12 +937,8 @@ class RepositoryOfflineTest(RepositoryCommonTest):
 
         repo.git_add(auto_lfs_track=True)
 
-        self.assertTrue(
-            is_tracked_with_lfs(os.path.join(WORKING_REPO_DIR, "large_file.txt"))
-        )
-        self.assertFalse(
-            is_tracked_with_lfs(os.path.join(WORKING_REPO_DIR, "small_file.txt"))
-        )
+        self.assertTrue(is_tracked_with_lfs(os.path.join(WORKING_REPO_DIR, "large_file.txt")))
+        self.assertFalse(is_tracked_with_lfs(os.path.join(WORKING_REPO_DIR, "small_file.txt")))
 
         # Remove large file
         os.remove(f"{WORKING_REPO_DIR}/large_file.txt")
@@ -1013,9 +951,7 @@ class RepositoryOfflineTest(RepositoryCommonTest):
             f.write(json.dumps(large_file))
 
         # Ensure the file is not LFS tracked anymore
-        self.assertFalse(
-            is_tracked_with_lfs(os.path.join(WORKING_REPO_DIR, "large_file.txt"))
-        )
+        self.assertFalse(is_tracked_with_lfs(os.path.join(WORKING_REPO_DIR, "large_file.txt")))
 
     def test_checkout_non_existant_branch(self):
         repo = Repository(WORKING_REPO_DIR)
@@ -1147,9 +1083,7 @@ class RepositoryOfflineTest(RepositoryCommonTest):
             encoding="utf-8",
         )
         repo = Repository(WORKING_REPO_DIR)
-        self.assertListEqual(
-            currently_setup_credential_helpers(repo.local_dir), ["get", "store"]
-        )
+        self.assertListEqual(currently_setup_credential_helpers(repo.local_dir), ["get", "store"])
         self.assertEqual(currently_setup_credential_helpers(), ["get"])
 
     def test_add_tag(self):
@@ -1221,9 +1155,7 @@ class RepositoryDatasetTest(RepositoryCommonTest):
 
     def tearDown(self):
         try:
-            self._api.delete_repo(
-                token=self._token, name=REPO_NAME, repo_type="dataset"
-            )
+            self._api.delete_repo(token=self._token, name=REPO_NAME, repo_type="dataset")
         except requests.exceptions.HTTPError:
             try:
                 self._api.delete_repo(
@@ -1235,9 +1167,7 @@ class RepositoryDatasetTest(RepositoryCommonTest):
             except requests.exceptions.HTTPError:
                 pass
 
-        shutil.rmtree(
-            f"{WORKING_DATASET_DIR}/{REPO_NAME}", onerror=set_write_permission_and_retry
-        )
+        shutil.rmtree(f"{WORKING_DATASET_DIR}/{REPO_NAME}", onerror=set_write_permission_and_retry)
 
     def test_clone_with_endpoint(self):
         clone = Repository(

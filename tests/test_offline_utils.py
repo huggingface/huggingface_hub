@@ -5,11 +5,7 @@ import pytest
 import requests
 from huggingface_hub.file_download import http_get
 
-from .testing_utils import (
-    OfflineSimulationMode,
-    RequestWouldHangIndefinitelyError,
-    offline,
-)
+from .testing_utils import OfflineSimulationMode, RequestWouldHangIndefinitelyError, offline
 
 
 def test_offline_with_timeout():

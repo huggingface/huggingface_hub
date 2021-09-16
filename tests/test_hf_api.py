@@ -36,13 +36,7 @@ from huggingface_hub.hf_api import (
 )
 from requests.exceptions import HTTPError
 
-from .testing_constants import (
-    ENDPOINT_STAGING,
-    ENDPOINT_STAGING_BASIC_AUTH,
-    FULL_NAME,
-    PASS,
-    USER,
-)
+from .testing_constants import ENDPOINT_STAGING, ENDPOINT_STAGING_BASIC_AUTH, FULL_NAME, PASS, USER
 from .testing_utils import (
     DUMMY_DATASET_ID,
     DUMMY_DATASET_ID_REVISION_ONE_SPECIFIC_COMMIT,
@@ -58,9 +52,7 @@ REPO_NAME = "my-model-{}".format(int(time.time() * 10e3))
 REPO_NAME_LARGE_FILE = "my-model-largefiles-{}".format(int(time.time() * 10e3))
 DATASET_REPO_NAME = "my-dataset-{}".format(int(time.time() * 10e3))
 SPACE_REPO_NAME = "my-space-{}".format(int(time.time() * 10e3))
-WORKING_REPO_DIR = os.path.join(
-    os.path.dirname(os.path.abspath(__file__)), "fixtures/working_repo"
-)
+WORKING_REPO_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "fixtures/working_repo")
 LARGE_FILE_14MB = "https://cdn-media.huggingface.co/lfs-largefiles/progit.epub"
 LARGE_FILE_18MB = "https://cdn-media.huggingface.co/lfs-largefiles/progit.pdf"
 
@@ -120,20 +112,14 @@ class HfApiEndpointsTest(HfApiCommonTestWithLogin):
 
     def test_create_update_and_delete_repo(self):
         self._api.create_repo(token=self._token, name=REPO_NAME)
-        res = self._api.update_repo_visibility(
-            token=self._token, name=REPO_NAME, private=True
-        )
+        res = self._api.update_repo_visibility(token=self._token, name=REPO_NAME, private=True)
         self.assertTrue(res["private"])
-        res = self._api.update_repo_visibility(
-            token=self._token, name=REPO_NAME, private=False
-        )
+        res = self._api.update_repo_visibility(token=self._token, name=REPO_NAME, private=False)
         self.assertFalse(res["private"])
         self._api.delete_repo(token=self._token, name=REPO_NAME)
 
     def test_create_update_and_delete_dataset_repo(self):
-        self._api.create_repo(
-            token=self._token, name=DATASET_REPO_NAME, repo_type=REPO_TYPE_DATASET
-        )
+        self._api.create_repo(token=self._token, name=DATASET_REPO_NAME, repo_type=REPO_TYPE_DATASET)
         res = self._api.update_repo_visibility(
             token=self._token,
             name=DATASET_REPO_NAME,
@@ -148,15 +134,11 @@ class HfApiEndpointsTest(HfApiCommonTestWithLogin):
             repo_type=REPO_TYPE_DATASET,
         )
         self.assertFalse(res["private"])
-        self._api.delete_repo(
-            token=self._token, name=DATASET_REPO_NAME, repo_type=REPO_TYPE_DATASET
-        )
+        self._api.delete_repo(token=self._token, name=DATASET_REPO_NAME, repo_type=REPO_TYPE_DATASET)
 
     @unittest.skip("skipped while spaces in beta")
     def test_create_update_and_delete_space_repo(self):
-        self._api.create_repo(
-            token=self._token, name=SPACE_REPO_NAME, repo_type=REPO_TYPE_SPACE
-        )
+        self._api.create_repo(token=self._token, name=SPACE_REPO_NAME, repo_type=REPO_TYPE_SPACE)
         res = self._api.update_repo_visibility(
             token=self._token,
             name=SPACE_REPO_NAME,
@@ -171,9 +153,7 @@ class HfApiEndpointsTest(HfApiCommonTestWithLogin):
             repo_type=REPO_TYPE_SPACE,
         )
         self.assertFalse(res["private"])
-        self._api.delete_repo(
-            token=self._token, name=SPACE_REPO_NAME, repo_type=REPO_TYPE_SPACE
-        )
+        self._api.delete_repo(token=self._token, name=SPACE_REPO_NAME, repo_type=REPO_TYPE_SPACE)
 
 
 class HfApiUploadFileTest(HfApiCommonTestWithLogin):
@@ -184,9 +164,7 @@ class HfApiUploadFileTest(HfApiCommonTestWithLogin):
         self.tmp_file_content = "Content of the file"
         with open(self.tmp_file, "w+") as f:
             f.write(self.tmp_file_content)
-        self.addCleanup(
-            lambda: shutil.rmtree(self.tmp_dir, onerror=set_write_permission_and_retry)
-        )
+        self.addCleanup(lambda: shutil.rmtree(self.tmp_dir, onerror=set_write_permission_and_retry))
 
     def test_upload_file_validation(self):
         with self.assertRaises(ValueError, msg="Wrong repo type"):
@@ -207,9 +185,7 @@ class HfApiUploadFileTest(HfApiCommonTestWithLogin):
                     token=self._token,
                 )
 
-        with self.assertRaises(
-            ValueError, msg="path_or_fileobj is str but does not point to a file"
-        ):
+        with self.assertRaises(ValueError, msg="path_or_fileobj is str but does not point to a file"):
             self._api.upload_file(
                 path_or_fileobj=os.path.join(self.tmp_dir, "nofile.pth"),
                 path_in_repo="README.md",
@@ -360,9 +336,7 @@ class HfApiPublicTest(unittest.TestCase):
         # with tags "bert" and "jax",
         # ordered by last modified date.
         _api = HfApi()
-        models = _api.list_models(
-            filter=("bert", "jax"), sort="lastModified", direction=-1, limit=10
-        )
+        models = _api.list_models(filter=("bert", "jax"), sort="lastModified", direction=-1, limit=10)
         # we have at least 1 models
         self.assertGreater(len(models), 1)
         self.assertLessEqual(len(models), 10)
@@ -373,9 +347,7 @@ class HfApiPublicTest(unittest.TestCase):
     @with_production_testing
     def test_list_models_with_config(self):
         _api = HfApi()
-        models = _api.list_models(
-            filter="adapter-transformers", fetch_config=True, limit=20
-        )
+        models = _api.list_models(filter="adapter-transformers", fetch_config=True, limit=20)
         found_configs = 0
         for model in models:
             if model.config:
@@ -389,9 +361,7 @@ class HfApiPublicTest(unittest.TestCase):
         self.assertIsInstance(model, ModelInfo)
         self.assertNotEqual(model.sha, DUMMY_MODEL_ID_REVISION_ONE_SPECIFIC_COMMIT)
         # One particular commit (not the top of `main`)
-        model = _api.model_info(
-            repo_id=DUMMY_MODEL_ID, revision=DUMMY_MODEL_ID_REVISION_ONE_SPECIFIC_COMMIT
-        )
+        model = _api.model_info(repo_id=DUMMY_MODEL_ID, revision=DUMMY_MODEL_ID_REVISION_ONE_SPECIFIC_COMMIT)
         self.assertIsInstance(model, ModelInfo)
         self.assertEqual(model.sha, DUMMY_MODEL_ID_REVISION_ONE_SPECIFIC_COMMIT)
 
@@ -419,12 +389,8 @@ class HfApiPublicTest(unittest.TestCase):
     def test_dataset_info(self):
         _api = HfApi()
         dataset = _api.dataset_info(repo_id=DUMMY_DATASET_ID)
-        self.assertTrue(
-            isinstance(dataset.card_data, dict) and len(dataset.card_data) > 0
-        )
-        self.assertTrue(
-            isinstance(dataset.siblings, list) and len(dataset.siblings) > 0
-        )
+        self.assertTrue(isinstance(dataset.card_data, dict) and len(dataset.card_data) > 0)
+        self.assertTrue(isinstance(dataset.siblings, list) and len(dataset.siblings) > 0)
         self.assertIsInstance(dataset, DatasetInfo)
         self.assertNotEqual(dataset.sha, DUMMY_DATASET_ID_REVISION_ONE_SPECIFIC_COMMIT)
         dataset = _api.dataset_info(
@@ -448,9 +414,7 @@ class HfApiPrivateTest(HfApiCommonTestWithLogin):
         with self.assertRaisesRegex(requests.exceptions.HTTPError, "404 Client Error"):
             _ = self._api.model_info(repo_id=f"{USER}/{REPO_NAME}")
         # Test we can access model info with a token
-        model_info = self._api.model_info(
-            repo_id=f"{USER}/{REPO_NAME}", token=self._token
-        )
+        model_info = self._api.model_info(repo_id=f"{USER}/{REPO_NAME}", token=self._token)
         self.assertIsInstance(model_info, ModelInfo)
 
 
@@ -489,21 +453,15 @@ class HfLargefilesTest(HfApiCommonTest):
         self._api.delete_repo(token=self._token, name=REPO_NAME_LARGE_FILE)
 
     def setup_local_clone(self, REMOTE_URL):
-        REMOTE_URL_AUTH = REMOTE_URL.replace(
-            ENDPOINT_STAGING, ENDPOINT_STAGING_BASIC_AUTH
-        )
+        REMOTE_URL_AUTH = REMOTE_URL.replace(ENDPOINT_STAGING, ENDPOINT_STAGING_BASIC_AUTH)
         subprocess.run(
             ["git", "clone", REMOTE_URL_AUTH, WORKING_REPO_DIR],
             check=True,
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
         )
-        subprocess.run(
-            ["git", "lfs", "track", "*.pdf"], check=True, cwd=WORKING_REPO_DIR
-        )
-        subprocess.run(
-            ["git", "lfs", "track", "*.epub"], check=True, cwd=WORKING_REPO_DIR
-        )
+        subprocess.run(["git", "lfs", "track", "*.pdf"], check=True, cwd=WORKING_REPO_DIR)
+        subprocess.run(["git", "lfs", "track", "*.epub"], check=True, cwd=WORKING_REPO_DIR)
 
     def test_end_to_end_thresh_6M(self):
         REMOTE_URL = self._api.create_repo(
@@ -519,9 +477,7 @@ class HfLargefilesTest(HfApiCommonTest):
             cwd=WORKING_REPO_DIR,
         )
         subprocess.run(["git", "add", "*"], check=True, cwd=WORKING_REPO_DIR)
-        subprocess.run(
-            ["git", "commit", "-m", "commit message"], check=True, cwd=WORKING_REPO_DIR
-        )
+        subprocess.run(["git", "commit", "-m", "commit message"], check=True, cwd=WORKING_REPO_DIR)
 
         # This will fail as we haven't set up our custom transfer agent yet.
         failed_process = subprocess.run(
@@ -534,9 +490,7 @@ class HfLargefilesTest(HfApiCommonTest):
         self.assertIn("cli lfs-enable-largefiles", failed_process.stderr.decode())
         # ^ Instructions on how to fix this are included in the error message.
 
-        subprocess.run(
-            ["huggingface-cli", "lfs-enable-largefiles", WORKING_REPO_DIR], check=True
-        )
+        subprocess.run(["huggingface-cli", "lfs-enable-largefiles", WORKING_REPO_DIR], check=True)
 
         start_time = time.time()
         subprocess.run(["git", "push"], check=True, cwd=WORKING_REPO_DIR)
@@ -585,9 +539,7 @@ class HfLargefilesTest(HfApiCommonTest):
             cwd=WORKING_REPO_DIR,
         )
 
-        subprocess.run(
-            ["huggingface-cli", "lfs-enable-largefiles", WORKING_REPO_DIR], check=True
-        )
+        subprocess.run(["huggingface-cli", "lfs-enable-largefiles", WORKING_REPO_DIR], check=True)
 
         start_time = time.time()
         subprocess.run(["git", "push"], check=True, cwd=WORKING_REPO_DIR)

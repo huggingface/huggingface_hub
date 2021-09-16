@@ -52,9 +52,7 @@ class SnapshotDownloadTests(unittest.TestCase):
     def test_download_model(self):
         # Test `main` branch
         with tempfile.TemporaryDirectory() as tmpdirname:
-            storage_folder = snapshot_download(
-                f"{USER}/{REPO_NAME}", revision="main", cache_dir=tmpdirname
-            )
+            storage_folder = snapshot_download(f"{USER}/{REPO_NAME}", revision="main", cache_dir=tmpdirname)
 
             # folder contains the two files contributed and the .gitattributes
             folder_contents = os.listdir(storage_folder)
@@ -96,12 +94,8 @@ class SnapshotDownloadTests(unittest.TestCase):
 
         # Test download fails without token
         with tempfile.TemporaryDirectory() as tmpdirname:
-            with self.assertRaisesRegex(
-                requests.exceptions.HTTPError, "404 Client Error"
-            ):
-                _ = snapshot_download(
-                    f"{USER}/{REPO_NAME}", revision="main", cache_dir=tmpdirname
-                )
+            with self.assertRaisesRegex(requests.exceptions.HTTPError, "404 Client Error"):
+                _ = snapshot_download(f"{USER}/{REPO_NAME}", revision="main", cache_dir=tmpdirname)
 
         # Test we can download with token from cache
         with tempfile.TemporaryDirectory() as tmpdirname:

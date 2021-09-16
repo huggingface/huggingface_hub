@@ -57,9 +57,7 @@ DUMMY_MODELCARD_TARGET_NO_TAGS = """
 Hello
 """
 
-REPOCARD_DIR = os.path.join(
-    os.path.dirname(os.path.abspath(__file__)), "fixtures/repocard"
-)
+REPOCARD_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "fixtures/repocard")
 
 
 class RepocardTest(unittest.TestCase):

@@ -31,8 +31,6 @@ def install_lfs_in_userspace():
     GIT_LFS_TARBALL = "https://github.com/git-lfs/git-lfs/releases/download/v2.13.1/git-lfs-linux-amd64-v2.13.1.tar.gz"
     CWD = os.path.join(os.getcwd(), "install_lfs")
     os.makedirs(CWD, exist_ok=True)
-    subprocess.run(
-        ["wget", "-O", "tarball.tar.gz", GIT_LFS_TARBALL], check=True, cwd=CWD
-    )
+    subprocess.run(["wget", "-O", "tarball.tar.gz", GIT_LFS_TARBALL], check=True, cwd=CWD)
     subprocess.run(["tar", "-xvzf", "tarball.tar.gz"], check=True, cwd=CWD)
     subprocess.run(["bash", "install.sh"], check=True, cwd=CWD)

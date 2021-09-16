@@ -18,13 +18,9 @@ REPOCARD_NAME = "README.md"
 HUGGINGFACE_CO_URL_HOME = "https://huggingface.co/"
 
 ENV_VARS_TRUE_VALUES = {"1", "ON", "YES", "TRUE"}
-_staging_mode = (
-    os.environ.get("HUGGINGFACE_CO_STAGING", "NO").upper() in ENV_VARS_TRUE_VALUES
-)
+_staging_mode = os.environ.get("HUGGINGFACE_CO_STAGING", "NO").upper() in ENV_VARS_TRUE_VALUES
 
-ENDPOINT = (
-    "https://moon-staging.huggingface.co" if _staging_mode else "https://huggingface.co"
-)
+ENDPOINT = "https://moon-staging.huggingface.co" if _staging_mode else "https://huggingface.co"
 
 
 HUGGINGFACE_CO_URL_TEMPLATE = ENDPOINT + "/{repo_id}/resolve/{revision}/{filename}"
@@ -42,9 +38,7 @@ REPO_TYPES_MAPPING = {"datasets": REPO_TYPE_DATASET, "spaces": REPO_TYPE_SPACE}
 
 # default cache
 hf_cache_home = os.path.expanduser(
-    os.getenv(
-        "HF_HOME", os.path.join(os.getenv("XDG_CACHE_HOME", "~/.cache"), "huggingface")
-    )
+    os.getenv("HF_HOME", os.path.join(os.getenv("XDG_CACHE_HOME", "~/.cache"), "huggingface"))
 )
 default_cache_path = os.path.join(hf_cache_home, "hub")
 
