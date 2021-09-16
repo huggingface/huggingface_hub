@@ -106,11 +106,13 @@
 				{onSelectFile}
 				onError={(e) => (error = e)}
 			>
-				<img
-					src={imgSrc}
-					class="pointer-events-none shadow mx-auto max-h-44"
-					alt=""
-				/>
+				{#if imgSrc}
+					<img
+						src={imgSrc}
+						class="pointer-events-none shadow mx-auto max-h-44"
+						alt=""
+					/>
+				{/if}
 			</WidgetDropzone>
 			<!-- Better UX for mobile/table through CSS breakpoints -->
 			{#if imgSrc}

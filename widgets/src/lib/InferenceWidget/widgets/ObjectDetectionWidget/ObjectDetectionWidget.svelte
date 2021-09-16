@@ -156,23 +156,27 @@
 				{onSelectFile}
 				onError={(e) => (error = e)}
 			>
+				{#if imgSrc}
+					<BoundingBoxes
+						{imgSrc}
+						{mouseover}
+						{mouseout}
+						output={outputWithColor}
+						{highlightIndex}
+					/>
+				{/if}
+			</WidgetDropzone>
+			<!-- Better UX for mobile/table through CSS breakpoints -->
+			{#if imgSrc}
 				<BoundingBoxes
+					classNames="mb-2 with-hover:hidden"
 					{imgSrc}
 					{mouseover}
 					{mouseout}
 					output={outputWithColor}
 					{highlightIndex}
 				/>
-			</WidgetDropzone>
-			<!-- Better UX for mobile/table through CSS breakpoints -->
-			<BoundingBoxes
-				classNames="mb-2 with-hover:hidden"
-				{imgSrc}
-				{mouseover}
-				{mouseout}
-				output={outputWithColor}
-				{highlightIndex}
-			/>
+			{/if}
 			<WidgetFileInput
 				accept="image/*"
 				classNames="mr-2 with-hover:hidden"

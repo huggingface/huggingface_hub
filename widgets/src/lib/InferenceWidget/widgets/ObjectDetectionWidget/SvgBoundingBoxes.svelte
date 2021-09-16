@@ -15,8 +15,8 @@
 	}> = [];
 
 	export let classNames = "";
-	export let imgSrc = "";
 	export let highlightIndex = -1;
+	export let imgSrc: string;
 	export let output: Array<{ box: Box; color: string }> = [];
 	export let mouseover: (index: number) => void = () => {};
 	export let mouseout: () => void = () => {};
@@ -45,43 +45,41 @@
 	}
 </script>
 
-{#if imgSrc}
-	<div
-		class="relative top-0 left-0 inline-flex {classNames}"
-		bind:clientWidth={wrapperWidth}
-		bind:clientHeight={wrapperHeight}
-	>
-		<div class="flex justify-center max-w-sm">
-			<img
-				alt=""
-				class="relative top-0 left-0 object-contain"
-				src={imgSrc}
-				bind:this={imgEl}
-			/>
-		</div>
-
-		<svg
-			class="absolute top-0 left-0"
-			viewBox={`0 0 ${wrapperWidth} ${wrapperHeight}`}
-			xmlns="http://www.w3.org/2000/svg"
-		>
-			{#each boxes as { rect, color, index }}
-				<rect
-					class="transition duration-200 ease-in-out"
-					fill={colors[color][400]}
-					fill-opacity={highlightIndex === -1 || highlightIndex === index
-						? "0.1"
-						: "0.0"}
-					opacity={highlightIndex === -1 || highlightIndex === index
-						? "1"
-						: "0.0"}
-					{...rect}
-					stroke={colors[color][400]}
-					stroke-width="2"
-					on:mouseover={() => mouseover(index)}
-					on:mouseout={mouseout}
-				/>
-			{/each}
-		</svg>
+<div
+	class="relative top-0 left-0 inline-flex {classNames}"
+	bind:clientWidth={wrapperWidth}
+	bind:clientHeight={wrapperHeight}
+>
+	<div class="flex justify-center max-w-sm">
+		<img
+			alt=""
+			class="relative top-0 left-0 object-contain"
+			src={imgSrc}
+			bind:this={imgEl}
+		/>
 	</div>
-{/if}
+
+	<svg
+		class="absolute top-0 left-0"
+		viewBox={`0 0 ${wrapperWidth} ${wrapperHeight}`}
+		xmlns="http://www.w3.org/2000/svg"
+	>
+		{#each boxes as { rect, color, index }}
+			<rect
+				class="transition duration-200 ease-in-out"
+				fill={colors[color][400]}
+				fill-opacity={highlightIndex === -1 || highlightIndex === index
+					? "0.1"
+					: "0.0"}
+				opacity={highlightIndex === -1 || highlightIndex === index
+					? "1"
+					: "0.0"}
+				{...rect}
+				stroke={colors[color][400]}
+				stroke-width="2"
+				on:mouseover={() => mouseover(index)}
+				on:mouseout={mouseout}
+			/>
+		{/each}
+	</svg>
+</div>
