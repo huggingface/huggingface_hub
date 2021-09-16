@@ -17,8 +17,18 @@ TESTABLE_MODELS: Dict[str, List[str]] = {
         # Speaker recognition
         "speechbrain/spkrec-xvect-voxceleb",
     ],
-    "audio-to-audio": ["speechbrain/mtl-mimic-voicebank"],
-    "automatic-speech-recognition": ["speechbrain/asr-crdnn-commonvoice-it"],
+    "audio-to-audio": [
+        # Speech Enhancement
+        "speechbrain/mtl-mimic-voicebank",
+        # Source separation
+        "speechbrain/sepformer-wham",
+    ],
+    "automatic-speech-recognition": [
+        # ASR with EncoderASR
+        "speechbrain/asr-wav2vec2-commonvoice-fr",
+        # ASR with EncoderDecoderASR
+        "speechbrain/asr-crdnn-commonvoice-it",
+    ],
 }
 
 
