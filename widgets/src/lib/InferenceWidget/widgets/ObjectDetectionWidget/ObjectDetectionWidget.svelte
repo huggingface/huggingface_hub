@@ -48,17 +48,6 @@
 		return { ...val, color };
 	});
 
-	function isToucDevice() {
-		if (typeof window !== "undefined") {
-			return (
-				"ontouchstart" in window ||
-				navigator.maxTouchPoints > 0 ||
-				navigator.msMaxTouchPoints > 0
-			);
-		}
-		return false;
-	}
-
 	function onSelectFile(file: File | Blob) {
 		imgSrc = URL.createObjectURL(file);
 		getOutput(file);
