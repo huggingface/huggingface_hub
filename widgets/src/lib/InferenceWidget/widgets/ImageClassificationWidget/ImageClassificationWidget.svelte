@@ -118,11 +118,7 @@
 			{#if imgSrc}
 				{#if imgSrc}
 					<div class="mb-2 flex justify-center bg-gray-50 with-hover:hidden">
-						<img
-							src={imgSrc}
-							class="pointer-events-none max-h-44"
-							alt=""
-						/>
+						<img src={imgSrc} class="pointer-events-none max-h-44" alt="" />
 					</div>
 				{/if}
 			{/if}
