@@ -1,6 +1,7 @@
 <script>
 	import type { WidgetProps } from "../../shared/types";
 
+	import WidgetFileInput from "../../shared/WidgetFileInput/WidgetFileInput.svelte";
 	import WidgetDropzone from "../../shared/WidgetDropzone/WidgetDropzone.svelte";
 	import WidgetOutputChart from "../../shared/WidgetOutputChart/WidgetOutputChart.svelte";
 	import WidgetWrapper from "../../shared/WidgetWrapper/WidgetWrapper.svelte";
@@ -98,13 +99,30 @@
 >
 	<svelte:fragment slot="top">
 		<form>
-			<WidgetDropzone {isLoading} {onSelectFile} onError={(e) => (error = e)}>
+			<WidgetDropzone
+				classNames="hidden lg:block"
+				{isLoading}
+				{onSelectFile}
+				onError={(e) => (error = e)}
+			>
 				<img
 					src={imgSrc}
 					class="pointer-events-none shadow mx-auto max-h-44"
 					alt=""
 				/>
 			</WidgetDropzone>
+			<!-- Better UX for mobile/table through CSS breakpoints -->
+			<img
+				src={imgSrc}
+				class="pointer-events-none shadow mx-auto max-h-44 lg:hidden"
+				alt=""
+			/>
+			<WidgetFileInput
+				accept="image/*"
+				classNames="mt-2 mr-2 lg:hidden"
+				label="Browse for image"
+				{onSelectFile}
+			/>
 		</form>
 	</svelte:fragment>
 	<svelte:fragment slot="bottom">

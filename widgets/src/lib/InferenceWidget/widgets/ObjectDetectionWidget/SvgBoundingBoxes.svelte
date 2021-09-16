@@ -14,6 +14,7 @@
 		rect: Rect;
 	}> = [];
 
+	export let classNames = "";
 	export let imgSrc = "";
 	export let highlightIndex = -1;
 	export let output: Array<{ box: Box; color: string }> = [];
@@ -46,7 +47,7 @@
 
 {#if imgSrc}
 	<div
-		class="relative top-0 left-0 inline-flex"
+		class="relative top-0 left-0 inline-flex {classNames}"
 		bind:clientWidth={wrapperWidth}
 		bind:clientHeight={wrapperHeight}
 	>

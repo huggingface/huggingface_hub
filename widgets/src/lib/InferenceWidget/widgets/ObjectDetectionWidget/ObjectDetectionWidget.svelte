@@ -160,17 +160,12 @@
 >
 	<svelte:fragment slot="top">
 		<form>
-			{#if !isToucDevice()}
-				<WidgetDropzone {isLoading} {onSelectFile} onError={(e) => (error = e)}>
-					<BoundingBoxes
-						{imgSrc}
-						{mouseover}
-						{mouseout}
-						output={outputWithColor}
-						{highlightIndex}
-					/>
-				</WidgetDropzone>
-			{:else}
+			<WidgetDropzone
+				classNames="hidden lg:block"
+				{isLoading}
+				{onSelectFile}
+				onError={(e) => (error = e)}
+			>
 				<BoundingBoxes
 					{imgSrc}
 					{mouseover}
@@ -178,13 +173,22 @@
 					output={outputWithColor}
 					{highlightIndex}
 				/>
-				<WidgetFileInput
-					accept="image/*"
-					classNames="mt-1.5 mr-2"
-					label="Browse for image"
-					{onSelectFile}
-				/>
-			{/if}
+			</WidgetDropzone>
+			<!-- Better UX for mobile/table through CSS breakpoints -->
+			<BoundingBoxes
+				classNames="lg:hidden"
+				{imgSrc}
+				{mouseover}
+				{mouseout}
+				output={outputWithColor}
+				{highlightIndex}
+			/>
+			<WidgetFileInput
+				accept="image/*"
+				classNames="mt-1.5 mr-2 lg:hidden"
+				label="Browse for image"
+				{onSelectFile}
+			/>
 		</form>
 	</svelte:fragment>
 	<svelte:fragment slot="bottom">

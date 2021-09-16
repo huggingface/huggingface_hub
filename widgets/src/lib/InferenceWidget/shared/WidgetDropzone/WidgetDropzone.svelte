@@ -3,9 +3,9 @@
 	import { proxify } from "../../shared/helpers";
 
 	export let accept = "image/*";
+	export let classNames = "";
 	export let isLoading = false;
-	export let label =
-		"Drag image file here or click to browse from your computer";
+	export let label = "Drag image file here or click to browse from your device";
 	export let onSelectFile: (file: File | Blob) => void;
 	export let onError: (e: string) => void;
 
@@ -67,7 +67,7 @@
 <div
 	class="relative border-2 border-dashed rounded mb-2 px-3 py-7 text-center cursor-pointer {isDragging
 		? 'border-green-300 bg-green-50 text-green-500'
-		: 'text-gray-500'}"
+		: 'text-gray-500'} {classNames}"
 	on:click={() => {
 		fileInput.click();
 	}}
