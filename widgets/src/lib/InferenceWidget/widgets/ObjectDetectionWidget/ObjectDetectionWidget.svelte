@@ -150,7 +150,7 @@
 	<svelte:fragment slot="top">
 		<form>
 			<WidgetDropzone
-				classNames="hidden lg:block"
+				classNames="no-hover:hidden"
 				{isLoading}
 				{imgSrc}
 				{onSelectFile}
@@ -166,7 +166,7 @@
 			</WidgetDropzone>
 			<!-- Better UX for mobile/table through CSS breakpoints -->
 			<BoundingBoxes
-				classNames="lg:hidden"
+				classNames="with-hover:hidden"
 				{imgSrc}
 				{mouseover}
 				{mouseout}
@@ -175,7 +175,7 @@
 			/>
 			<WidgetFileInput
 				accept="image/*"
-				classNames="mt-1.5 mr-2 lg:hidden"
+				classNames="mt-1.5 mr-2 with-hover:hidden"
 				{isLoading}
 				label="Browse for image"
 				{onSelectFile}
