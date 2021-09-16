@@ -166,7 +166,7 @@
 			</WidgetDropzone>
 			<!-- Better UX for mobile/table through CSS breakpoints -->
 			<BoundingBoxes
-				classNames="with-hover:hidden"
+				classNames="mb-2 with-hover:hidden"
 				{imgSrc}
 				{mouseover}
 				{mouseout}
@@ -175,7 +175,7 @@
 			/>
 			<WidgetFileInput
 				accept="image/*"
-				classNames="mt-1.5 mr-2 with-hover:hidden"
+				classNames="mr-2 with-hover:hidden"
 				{isLoading}
 				label="Browse for image"
 				{onSelectFile}

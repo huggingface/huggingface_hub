@@ -113,14 +113,16 @@
 				/>
 			</WidgetDropzone>
 			<!-- Better UX for mobile/table through CSS breakpoints -->
-			<img
-				src={imgSrc}
-				class="pointer-events-none shadow mx-auto max-h-44 with-hover:hidden"
-				alt=""
-			/>
+			{#if imgSrc}
+				<img
+					src={imgSrc}
+					class="mb-2 pointer-events-none shadow mx-auto max-h-44 with-hover:hidden"
+					alt=""
+				/>
+			{/if}
 			<WidgetFileInput
 				accept="image/*"
-				classNames="mt-2 mr-2 with-hover:hidden"
+				classNames="mr-2 with-hover:hidden"
 				{isLoading}
 				label="Browse for image"
 				{onSelectFile}
