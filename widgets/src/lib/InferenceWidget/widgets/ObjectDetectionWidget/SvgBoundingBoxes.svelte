@@ -67,17 +67,17 @@
 		>
 			{#each boxes as { rect, color, index }}
 				<rect
-					{...rect}
-					stroke={colors[color][400]}
+					class="transition duration-200 ease-in-out"
 					fill={colors[color][400]}
-					stroke-width="2"
-					opacity={highlightIndex === -1 || highlightIndex === index
-						? "1"
-						: "0.0"}
 					fill-opacity={highlightIndex === -1 || highlightIndex === index
 						? "0.1"
 						: "0.0"}
-					class="transition duration-200 ease-in-out"
+					opacity={highlightIndex === -1 || highlightIndex === index
+						? "1"
+						: "0.0"}
+					{...rect}
+					stroke={colors[color][400]}
+					stroke-width="2"
 					on:mouseover={() => mouseover(index)}
 					on:mouseout={mouseout}
 				/>
