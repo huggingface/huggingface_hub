@@ -116,11 +116,15 @@
 			</WidgetDropzone>
 			<!-- Better UX for mobile/table through CSS breakpoints -->
 			{#if imgSrc}
-				<img
-					src={imgSrc}
-					class="mb-2 pointer-events-none shadow mx-auto max-h-44 with-hover:hidden"
-					alt=""
-				/>
+				{#if imgSrc}
+					<div class="mb-2 flex justify-center bg-gray-50 with-hover:hidden">
+						<img
+							src={imgSrc}
+							class="pointer-events-none max-h-44"
+							alt=""
+						/>
+					</div>
+				{/if}
 			{/if}
 			<WidgetFileInput
 				accept="image/*"
