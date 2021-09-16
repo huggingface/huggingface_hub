@@ -176,6 +176,7 @@
 			<WidgetFileInput
 				accept="image/*"
 				classNames="mt-1.5 mr-2 lg:hidden"
+				{isLoading}
 				label="Browse for image"
 				{onSelectFile}
 			/>
