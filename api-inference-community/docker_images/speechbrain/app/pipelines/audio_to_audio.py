@@ -1,50 +1,24 @@
-from enum import Enum
 from typing import List, Tuple
 
 import numpy as np
 import torch
+from app.common import ModelType, get_type
 from app.pipelines import Pipeline
-from huggingface_hub import HfApi
 from speechbrain.pretrained import SepformerSeparation, SpectralMaskEnhancement
-
-
-class ModelType(Enum):
-    AUDIO_SOURCE_SEPARATION = 1
-    SPEECH_ENHANCEMENT = 2
-
-
-def interface_to_type(interface_str):
-    if interface_str == "SepformerSeparation":
-        return ModelType.AUDIO_SOURCE_SEPARATION
-    elif interface_str == "SpectralMaskEnhancement":
-        return ModelType.SPEECH_ENHANCEMENT
-    else:
-        raise ValueError(f"Invalid interface: {interface_str} for Audio to Audio.")
-
-
-def get_type(model_id):
-    info = HfApi().model_info(repo_id=model_id)
-    if info.config:
-        if "speechbrain" in info.config:
-            interface_str = info.config["speechbrain"].get(
-                "interface", "SepformerSeparation"
-            )
-        else:
-            interface_str = "SepformerSeparation"
-    else:
-        interface_str = "SepformerSeparation"
-    return interface_to_type(interface_str)
 
 
 class AudioToAudioPipeline(Pipeline):
     def __init__(self, model_id: str):
         model_type = get_type(model_id)
-        if model_type == ModelType.AUDIO_SOURCE_SEPARATION:
+        if model_type == ModelType.SEPFORMERSEPARATION:
             self.model = SepformerSeparation.from_hparams(source=model_id)
             self.type = "audio-source-separation"
-        elif model_type == ModelType.SPEECH_ENHANCEMENT:
+        elif model_type == ModelType.SPECTRALMASKENHANCEMENT:
             self.model = SpectralMaskEnhancement.from_hparams(source=model_id)
             self.type = "speech-enhancement"
+        else:
+            raise ValueError(f"{model_type.value} is invalid for audio-to-audio")
+
         self.sampling_rate = self.model.hparams.sample_rate
 
     def __call__(self, inputs: np.array) -> Tuple[np.array, int, List[str]]:

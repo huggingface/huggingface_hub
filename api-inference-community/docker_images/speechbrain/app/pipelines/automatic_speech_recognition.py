@@ -1,53 +1,26 @@
-from enum import Enum
 from typing import Dict
 
 import numpy as np
 import torch
+from app.common import ModelType, get_type
 from app.pipelines import Pipeline
-from huggingface_hub import HfApi
 from speechbrain.pretrained import EncoderASR, EncoderDecoderASR
-
-
-class ModelType(Enum):
-    ENCODER_ASR = 1
-    ENCODER_DECODER_ASR = 2
-
-
-def interface_to_type(interface_str):
-    if interface_str == "EncoderASR":
-        return ModelType.ENCODER_ASR
-    elif interface_str == "EncoderDecoderASR":
-        return ModelType.ENCODER_DECODER_ASR
-    else:
-        raise ValueError(
-            f"Invalid interface: {interface_str} for Automatic Speech Recognition."
-        )
-
-
-def get_type(model_id):
-    info = HfApi().model_info(repo_id=model_id)
-    if info.config:
-        if "speechbrain" in info.config:
-            interface_str = info.config["speechbrain"].get(
-                "interface", "EncoderDecoderASR"
-            )
-        else:
-            interface_str = "EncoderDecoderASR"
-    else:
-        interface_str = "EncoderDecoderASR"
-    return interface_to_type(interface_str)
 
 
 class AutomaticSpeechRecognitionPipeline(Pipeline):
     def __init__(self, model_id: str):
         model_type = get_type(model_id)
-        if model_type is ModelType.ENCODER_ASR:
+        if model_type is ModelType.ENCODERASR:
             self.model = EncoderASR.from_hparams(source=model_id)
-        elif model_type is ModelType.ENCODER_DECODER_ASR:
+        elif model_type is ModelType.ENCODERDECODERASR:
             self.model = EncoderDecoderASR.from_hparams(source=model_id)
 
             # Reduce latency
             self.model.modules.decoder.beam_size = 1
+        else:
+            raise ValueError(
+                f"{model_type.value} is invalid for automatic-speech-recognition"
+            )
 
         # Please define a `self.sampling_rate` for this pipeline
         # to automatically read the input correctly
