@@ -209,12 +209,12 @@ const speechBrainMethod = (speechbrainInterface: string) => {
 const speechbrain = (model: ModelData) => {
 	const speechbrainInterface = model.config?.speechbrain?.interface;
 	if(speechbrainInterface === undefined) {
-		return `interface not specified in config.json`
+		return `# interface not specified in config.json`
 	}
 
 	const speechbrainMethod = speechBrainMethod(speechbrainInterface);
 	if(speechbrainMethod === undefined) {
-		return `interface in config.json invalid`
+		return `# interface in config.json invalid`
 	}
 
 	return `from speechbrain.pretrained import ${speechbrainInterface}
