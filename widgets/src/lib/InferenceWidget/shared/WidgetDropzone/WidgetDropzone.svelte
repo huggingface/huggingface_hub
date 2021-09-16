@@ -3,20 +3,19 @@
 	import { proxify } from "../../shared/helpers";
 
 	export let accept = "image/*";
+	export let classNames = "";
 	export let isLoading = false;
-	export let label =
-		"Drag image file here or click to browse from your computer";
+	export let imgSrc = "";
+	export let label = "Drag image file here or click to browse from your device";
 	export let onSelectFile: (file: File | Blob) => void;
 	export let onError: (e: string) => void;
 
 	let fileInput: HTMLInputElement;
 	let isDragging = false;
-	let imgSrc = "";
 
 	function onChange() {
 		const file = fileInput.files?.[0];
 		if (file) {
-			imgSrc = URL.createObjectURL(file);
 			onSelectFile(file);
 		}
 	}
@@ -43,12 +42,10 @@
 			const res = await fetch(proxiedUrl);
 			const file = await res.blob();
 
-			imgSrc = URL.createObjectURL(file);
 			onSelectFile(file);
 		} else if (fileItem) {
 			const file = fileItem.getAsFile();
 			if (file) {
-				imgSrc = URL.createObjectURL(file);
 				onSelectFile(file);
 			}
 		} else {
@@ -67,7 +64,7 @@
 <div
 	class="relative border-2 border-dashed rounded mb-2 px-3 py-7 text-center cursor-pointer {isDragging
 		? 'border-green-300 bg-green-50 text-green-500'
-		: 'text-gray-500'}"
+		: 'text-gray-500'} {classNames}"
 	on:click={() => {
 		fileInput.click();
 	}}
@@ -83,11 +80,7 @@
 	{#if !imgSrc}
 		<span class="pointer-events-none text-sm">{label}</span>
 	{:else}
-		<img
-			alt=""
-			class="pointer-events-none shadow mx-auto max-h-44"
-			src={imgSrc}
-		/>
+		<slot />
 	{/if}
 	{#if isLoading}
 		<div

@@ -1,6 +1,8 @@
 <script>
-	import type { WidgetProps } from "../../shared/types";
+	import type { WidgetProps, Box } from "../../shared/types";
+	import { mod } from "../../shared/ViewUtils";
 
+	import BoundingBoxes from "./SvgBoundingBoxes.svelte";
 	import WidgetFileInput from "../../shared/WidgetFileInput/WidgetFileInput.svelte";
 	import WidgetDropzone from "../../shared/WidgetDropzone/WidgetDropzone.svelte";
 	import WidgetOutputChart from "../../shared/WidgetOutputChart/WidgetOutputChart.svelte";
@@ -20,8 +22,31 @@
 		isLoading: false,
 		estimatedTime: 0,
 	};
-	let output: Array<{ label: string; score: number }> = [];
+	let output: Array<{
+		label: string;
+		score: number;
+		box: Box;
+	}> = [];
 	let outputJson: string;
+	let highlightIndex = -1;
+	let highlightInterval: any;
+
+	const COLORS = [
+		"red",
+		"green",
+		"yellow",
+		"blue",
+		"orange",
+		"purple",
+		"cyan",
+		"lime",
+	] as const;
+
+	$: outputWithColor = output.map((val, index) => {
+		const hash = mod(index, COLORS.length);
+		const color = COLORS[hash];
+		return { ...val, color };
+	});
 
 	function onSelectFile(file: File | Blob) {
 		imgSrc = URL.createObjectURL(file);
@@ -32,6 +57,12 @@
 		if (!file) {
 			return;
 		}
+
+		// Reset values
+		computeTime = "";
+		error = "";
+		output = [];
+		outputJson = "";
 
 		const requestBody = { file };
 
@@ -47,12 +78,7 @@
 		);
 
 		isLoading = false;
-		// Reset values
-		computeTime = "";
-		error = "";
 		modelLoading = { isLoading: false, estimatedTime: 0 };
-		output = [];
-		outputJson = "";
 
 		if (res.status === "success") {
 			computeTime = res.computeTime;
@@ -69,22 +95,46 @@
 		}
 	}
 
-	function isValidOutput(arg: any): arg is { label: string; score: number }[] {
+	function isValidOutput(
+		arg: any
+	): arg is { label: string; score: number; box: Box }[] {
 		return (
 			Array.isArray(arg) &&
 			arg.every(
-				(x) => typeof x.label === "string" && typeof x.score === "number"
+				(x) =>
+					typeof x.label === "string" &&
+					typeof x.score === "number" &&
+					typeof x.box.xmin === "number" &&
+					typeof x.box.ymin === "number" &&
+					typeof x.box.xmax === "number" &&
+					typeof x.box.ymax === "number"
 			)
 		);
 	}
 
-	function parseOutput(body: unknown): Array<{ label: string; score: number }> {
+	function parseOutput(
+		body: unknown
+	): Array<{ label: string; score: number; box: Box }> {
 		if (isValidOutput(body)) {
 			return body;
 		}
 		throw new TypeError(
-			"Invalid output: output must be of type Array<label: string, score:number>"
+			"Invalid output: output must be of type Array<{label:string; score:number; box:{xmin:number; ymin:number; xmax:number; ymax:number}}>"
 		);
+	}
+
+	function mouseout() {
+		highlightIndex = -1;
+	}
+
+	function mouseover(index: number) {
+		highlightIndex = index;
+		if (highlightInterval) {
+			clearInterval(highlightInterval);
+		}
+		highlightInterval = setInterval(() => {
+			highlightIndex = -1;
+		}, 1500);
 	}
 </script>
 
@@ -107,20 +157,25 @@
 				onError={(e) => (error = e)}
 			>
 				{#if imgSrc}
-					<img
-						src={imgSrc}
-						class="pointer-events-none shadow mx-auto max-h-44"
-						alt=""
+					<BoundingBoxes
+						{imgSrc}
+						{mouseover}
+						{mouseout}
+						output={outputWithColor}
+						{highlightIndex}
 					/>
 				{/if}
 			</WidgetDropzone>
 			<!-- Better UX for mobile/table through CSS breakpoints -->
 			{#if imgSrc}
-				{#if imgSrc}
-					<div class="mb-2 flex justify-center bg-gray-50 with-hover:hidden">
-						<img src={imgSrc} class="pointer-events-none max-h-44" alt="" />
-					</div>
-				{/if}
+				<BoundingBoxes
+					classNames="mb-2 with-hover:hidden"
+					{imgSrc}
+					{mouseover}
+					{mouseout}
+					output={outputWithColor}
+					{highlightIndex}
+				/>
 			{/if}
 			<WidgetFileInput
 				accept="image/*"
@@ -132,6 +187,12 @@
 		</form>
 	</svelte:fragment>
 	<svelte:fragment slot="bottom">
-		<WidgetOutputChart classNames="mt-4" {output} />
+		<WidgetOutputChart
+			classNames="mt-4"
+			output={outputWithColor}
+			{highlightIndex}
+			{mouseover}
+			{mouseout}
+		/>
 	</svelte:fragment>
 </WidgetWrapper>
