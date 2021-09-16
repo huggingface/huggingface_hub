@@ -61,7 +61,6 @@
 		// Reset values
 		computeTime = "";
 		error = "";
-		modelLoading = { isLoading: false, estimatedTime: 0 };
 		output = [];
 		outputJson = "";
 
@@ -79,6 +78,7 @@
 		);
 
 		isLoading = false;
+		modelLoading = { isLoading: false, estimatedTime: 0 };
 
 		if (res.status === "success") {
 			computeTime = res.computeTime;
