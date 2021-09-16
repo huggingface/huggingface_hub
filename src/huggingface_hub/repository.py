@@ -1171,7 +1171,7 @@ class Repository:
         commit_message: Optional[str] = "commit files to HF hub",
         blocking: Optional[bool] = True,
         clean_ok: Optional[bool] = False,
-    ) -> str:
+    ) -> Optional[str]:
         """
         Helper to add, commit, and push files to remote repository on the HuggingFace Hub.
         Will automatically track large files (>10MB).
@@ -1181,10 +1181,13 @@ class Repository:
                 Message to use for the commit.
             blocking (`bool`, `optional`, defaults to `True`):
                 Whether the function should return only when the `git push` has finished.
+            clean_ok (`bool`, `optional`, defaults to `False`):
+                If True, this function will return None if the repo is untouched.
+                Default behavior is to fail because the git command fails.
         """
         if clean_ok and self.is_repo_clean():
             logger.info("Repo currently clean.  Ignoring push_to_hub")
-            return ""  # TODO: is there something else we should return here?
+            return None
         self.git_add(auto_lfs_track=True)
         self.git_commit(commit_message)
         return self.git_push(
