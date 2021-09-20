@@ -39,7 +39,7 @@
 					break;
 				}
 				case "NotFoundError": {
-					onError("🤗 couldn't find microphone on your device");
+					onError("No microphone found on your device");
 					break;
 				}
 				default: {
