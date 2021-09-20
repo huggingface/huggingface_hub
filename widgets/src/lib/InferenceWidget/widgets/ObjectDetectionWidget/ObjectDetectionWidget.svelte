@@ -16,6 +16,7 @@
 
 	let computeTime = "";
 	let error: string = "";
+	let warning: string = "";
 	let isLoading = false;
 	let imgSrc = "";
 	let modelLoading = {
@@ -29,7 +30,6 @@
 	}> = [];
 	let outputJson: string;
 	let highlightIndex = -1;
-	let highlightInterval: any;
 
 	const COLORS = [
 		"red",
@@ -61,6 +61,7 @@
 		// Reset values
 		computeTime = "";
 		error = "";
+		warning = "";
 		output = [];
 		outputJson = "";
 
@@ -84,6 +85,9 @@
 			computeTime = res.computeTime;
 			output = res.output;
 			outputJson = res.outputJson;
+			if (output.length === 0) {
+				warning = "No object was detected";
+			}
 		} else if (res.status === "loading-model") {
 			modelLoading = {
 				isLoading: true,
@@ -129,12 +133,6 @@
 
 	function mouseover(index: number) {
 		highlightIndex = index;
-		if (highlightInterval) {
-			clearInterval(highlightInterval);
-		}
-		highlightInterval = setInterval(() => {
-			highlightIndex = -1;
-		}, 1500);
 	}
 </script>
 
@@ -184,6 +182,9 @@
 				label="Browse for image"
 				{onSelectFile}
 			/>
+			{#if warning}
+				<div class="alert alert-warning mt-2">{warning}</div>
+			{/if}
 		</form>
 	</svelte:fragment>
 	<svelte:fragment slot="bottom">
