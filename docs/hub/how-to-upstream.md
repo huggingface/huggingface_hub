@@ -1,0 +1,259 @@
+# How to integrate upstream methods in your library
+
+Now that you've seen more downstream methods for downloading files, it is time to introduce you to additional *upstream* methods. Upstream methods refers to functions that publish files to the Hub from your library. This guide will show you how to:
+
+* Use the `HfApi` class to manage a repository.
+* Use the `Repository` class to manage a repository with Git-like commands.
+
+## `HfApi`
+
+The `HfApi` class is a low level class that wraps around HTTP requests. There are many useful tasks you can accomplish with the `HfApi` class including: 
+
+- List and filter models.
+- Inspect model or dataset metadata.
+- Delete a repository.
+- Change the visibility of a repository.
+
+### List and filter
+
+It can be helpful for users to see a list of available models, and filter those models according to a specific language or framework. Use the `list_models` function with the `filter` parameter to search for a model of interest:
+
+```python
+>>> from huggingface_hub import HfApi
+>>> api = HfApi()
+
+# List all models.
+>>> api.list_models()
+
+# List only text classification models.
+>>> api.list_models(filter="text-classification")
+
+# List only Russian models compatible with PyTorch.
+>>> api.list_models(filter=("ru", "pytorch"))
+
+# List only the models trained on the "common_voice" dataset.
+>>> api.list_models(filter="dataset:common_voice")
+
+# List only the models from the spaCy library.
+>>> api.list_models(filter="spacy")
+```
+
+Explore available public datasets with `list_datasets`:
+
+```python
+>>> from huggingface_hub import HfApi
+>>> api = HfApi()
+
+# List only text classification datasets.
+>>> api.list_datasets(filter="task_categories:text-classification")
+
+# List only datasets in Russian for language modeling.
+>>> api.list_datasets(filter=("languages:ru", "task_ids:language-modeling"))
+```
+
+### Inspect model or dataset metadata
+
+Get important information about a model or dataset as shown in the following:
+
+```python
+>>> from huggingface_hub import HfApi
+>>> api = HfApi()
+
+# Get metadata of a single model.
+>>> api.model_info("distilbert-base-uncased")
+
+# Get metadata of a single dataset.
+>>> api.dataset_info("glue")
+```
+
+### Delete a repository
+
+Delete a repository with `delete_repo`. Make sure you are certain you want to delete a repository because this is an irreversible process!
+
+1. Get your Hugging Face API token:
+
+```python
+>>> from huggingface_hub import HfFolder
+>>> folder = HfFolder()
+>>> token = folder.get_token()
+```
+
+2. Give `delete_repo` your token and the name of the repository to delete:
+
+```python
+>>> api.delete_repo(token=YOUR_HF_API_TOKEN name=REPO_NAME)
+```
+
+Delete a dataset repository by adding the `type` parameter:
+
+```python
+>>> api.create_repo(token=YOUR_HF_API_TOKEN, name=REPO_NAME, type="dataset")
+```
+
+### Change repository visibility
+
+A repository can be public or private. A private repository is only visible to you or members of your organization. Change a repository to private as shown in the following:
+
+```python
+>>> api.update_repo_visibility(token=YOUR_HF_API_TOKEN, name=REPO_NAME, private=True)
+```
+
+## `Repository` 
+
+The `Repository` class allows you to push models or other repositories to the Hub. `Repository` is a wrapper over Git and Git-LFS methods, so make sure you have Git-LFS installed (see [here](https://git-lfs.github.com/) for more instructions) and set up before you begin. If you are already familiar with common Git commands, then the `Repository` class should feel familiar. 
+
+Start by instantiating a `Repository` object with a path to a local Git clone or repository:
+
+```python
+>>> from huggingface_hub import Repository
+>>> repo = Repository(local_dir="<path>/<to>/<folder>")
+```
+
+### Clone a repository
+
+The `clone_from` parameter clones a repository from a specified directory using a URL (if you are working offline, this parameter should be `None`):
+
+```python
+>>> repo = Repository(local_dir="huggingface-hub", clone_from="https://github.com/huggingface/huggingface_hub")
+```
+
+This parameter can also clone a repository from a Hugging Face model ID:
+
+```python
+>>> repo = Repository(local_dir="w2v2", clone_from="facebook/wav2vec2-large-960h-lv60")
+```
+
+If you want to commit or push to a cloned repository that belongs to you or your organizations:
+
+1. Log in to your Hugging Face account with the following command:
+
+   ```bash
+   huggingface-cli login
+   ```
+
+2. Instantiate your `Repository` class with the parameter `use_auth_token=True`:
+   
+   ```python
+   >>> repo = Repository(local_dir="my-model", clone_from="<user>/<model_id>", use_auth_token=True)
+   ```
+
+You can also attribute a Git username and email to a cloned repository by specifiying the `git_user` and `git_email` parameters. When users commit to that repository, Git will be aware of the commit author.
+
+```python
+>>> repo = Repository(
+...   "my-dataset", 
+...   clone_from="<user>/<dataset_id>", 
+...   use_auth_token=True, 
+...   repo_type="dataset",
+...   git_user="MyName",
+...   git_email="me@cool.mail"
+... )
+```
+
+### Branch
+
+Switch between branches with `git_checkout`. For example, if you want to switch from `branch1` to `branch2`:
+
+```python
+>>> repo = Repository(local_dir="huggingface-hub", clone_from="<user>/<dataset_id>", revision='branch1')
+>>> repo.git_checkout("branch2")
+```
+
+### Add
+
+Add a file to commit with `git_add`:
+
+```python
+>>> repo = Repository(local_dir="huggingface-hub", clone_from="<user>/<dataset_id>")
+>>> repo.git_add("my-awesome-file")
+```
+
+This method has an `auto-lfs-track` parameter that can be set to `True` if you want to automatically track large files (>10MB):
+
+```python
+>>> repo = Repository(local_dir="huggingface-hub", clone_from="<user>/<dataset_id>")
+>>> repo.git_add("my-awesome-file", auto_lfs_track=True)
+```
+
+### Commit
+
+Commit a file with `git_commit`:
+
+```python
+>>> repo = Repository(local_dir="huggingface-hub", clone_from="<user>/<dataset_id>")
+>>> repo.git_add(commit_message="Commit my-awesome-file to the Hub")
+```
+
+### Pull
+
+Update a current local branch with `git_pull`:
+
+```python
+>>> repo = Repository(local_dir="huggingface-hub", clone_from="<user>/<dataset_id>")
+>>> repo.git_pull()
+```
+
+Set `rebase=True` if you want your local commits to occur after your branch is updated with the new commits from the remote:
+
+```python
+>>> repo = Repository(local_dir="huggingface-hub", clone_from="<user>/<dataset_id>")
+>>> repo.git_pull(rebase=True)
+```
+
+### Push
+
+Push all your local branch commits to the remote branch with `git_push`:
+
+```python
+>>> repo = Repository(local_dir="huggingface-hub", clone_from="<user>/<dataset_id>")
+>>> repo.git_push()
+```
+
+Change the `blocking` parameter to `False` if you would like to push your commits asynchronously. Non-blocking behavior is helpful when you want to continue running your script while you push your commits.
+
+```python
+>>> repo = Repository(local_dir="huggingface-hub", clone_from="<user>/<dataset_id>")
+>>> repo.git_push(blocking=False)
+```
+
+Check the status of your push with the `command_queue` property:
+
+```python
+>>> last_command = repo.command_queue[-1]
+>>> last_command.status
+# -> -1 indicates the push is ongoing.
+# -> 0 indicates the push has completed successfully.
+# -> Non-zero code indicates the error code if there was an error.
+```
+
+When `blocking=False`, commands are tracked and your script will only exit when all pushes are completed, even if other errors occur in your script. Some additional useful commands for checking the status of a push include:
+
+```python
+# Inspect an error.
+>>> last_command.stderr
+
+# Check whether a push is completed or ongoing.
+>>> last_command.is_done
+
+# Check whether a push command has errored.
+>>> last_command.failed
+```
+
+### `push_to_hub`
+
+For convenience, the `Repository` class also has a `push_to_hub` method that will add files to commit, commit the files, and push them to a repository:
+
+```python
+>>> repo = Repository(local_dir="huggingface-hub", clone_from="<user>/<dataset_id>")
+>>> repo.push_to_hub(commit_message="Commit my-awesome-file to the Hub")
+```
+
+## Upload very large files
+
+For very large files (>5GB), you need to install a custom transfer agent for Git-LFS:
+
+```bash
+huggingface-cli lfs-enable-largefiles
+```
+
+This should be installed for each model repository that contains a model file. Once installed, you are now able to push files larger than 5GB.
