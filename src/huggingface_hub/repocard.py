@@ -27,7 +27,7 @@ def metadata_save(local_path: Union[str, Path], data: Dict) -> None:
     # try to preserve newlines
     linebrk = "\n"
     # this is known not to work with ^M linebreaks, so ^M are replaced by \n
-    with open(local_path, "r") as readme:
+    with open(local_path, "r", newline="") as readme:
         if type(readme.newlines) is tuple:
             linebrk = readme.newlines[0]
         if type(readme.newlines) is str:
