@@ -37,6 +37,7 @@ def metadata_save(local_path: Union[str, Path], data: Dict) -> None:
     if content:
         with open(local_path, "w", newline="") as readme:
             data_yaml = yaml.dump(data, sort_keys=False, line_break=linebrk)
+            # sort_keys: keep dict order
             match = REGEX_YAML_BLOCK.search(content)
             if match:
                 output = (
