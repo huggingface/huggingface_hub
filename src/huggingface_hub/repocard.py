@@ -41,7 +41,9 @@ def metadata_save(local_path: Union[str, Path], data: Dict) -> None:
             match = REGEX_YAML_BLOCK.search(content)
             if match:
                 output = (
-                    content[: match.start()] + f"---{linebrk}{data_yaml}---{linebrk}" + content[match.end() :]
+                    content[: match.start()]
+                    + f"---{linebrk}{data_yaml}---{linebrk}"
+                    + content[match.end() :]
                 )
             else:
                 output = f"---{linebrk}{data_yaml}---{linebrk}{content}"
