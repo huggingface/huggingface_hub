@@ -45,6 +45,10 @@
 		isRecording = true;
 	}
 
+	function onRecordError(err: string) {
+		error = err;
+	}
+
 	function onSelectFile(updatedFile: Blob | File) {
 		areSamplesVisible = false;
 		isRecording = false;
@@ -153,6 +157,7 @@
 					classNames="mt-1.5"
 					{onRecordStart}
 					onRecordStop={onSelectFile}
+					onError={onRecordError}
 				/>
 			</div>
 			{#if fileUrl}

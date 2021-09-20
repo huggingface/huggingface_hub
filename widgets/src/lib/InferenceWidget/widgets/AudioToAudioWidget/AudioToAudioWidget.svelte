@@ -7,7 +7,7 @@
 	import WidgetRecorder from "../../shared/WidgetRecorder/WidgetRecorder.svelte";
 	import WidgetSubmitBtn from "../../shared/WidgetSubmitBtn/WidgetSubmitBtn.svelte";
 	import WidgetWrapper from "../../shared/WidgetWrapper/WidgetWrapper.svelte";
-	import { getResponse } from "../../shared/helpers";
+	import { getResponse, proxify } from "../../shared/helpers";
 
 	export let apiToken: WidgetProps["apiToken"];
 	export let apiUrl: WidgetProps["apiUrl"];
@@ -51,6 +51,10 @@
 		isRecording = true;
 	}
 
+	function onRecordError(err: string) {
+		error = err;
+	}
+
 	function onSelectFile(updatedFile: Blob | File) {
 		areSamplesVisible = false;
 		isRecording = false;
@@ -72,8 +76,16 @@
 			error = "You must select or record an audio file";
 			return;
 		}
-		const requestBody = file ? { file } : { url: selectedSampleUrl };
+
+		if (!file && selectedSampleUrl) {
+			const proxiedUrl = proxify(selectedSampleUrl);
+			const res = await fetch(proxiedUrl);
+			file = await res.blob();
+		}
+		const requestBody = { file };
+
 		isLoading = true;
+
 		const res = await getResponse(
 			apiUrl,
 			model.modelId,
@@ -151,6 +163,7 @@
 					classNames="mt-1.5"
 					{onRecordStart}
 					onRecordStop={onSelectFile}
+					onError={onRecordError}
 				/>
 			</div>
 			{#if fileUrl}
