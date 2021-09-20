@@ -1,5 +1,6 @@
 api-inference-community==0.0.19
 espnet==0.10.2
+pyopenjtalk==0.1.5
 torch==1.8.1
 torchaudio==0.8.1
 torch_optimizer==0.1.0
