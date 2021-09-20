@@ -1,3 +1,4 @@
+import os
 import re
 from pathlib import Path
 from typing import Dict, Optional, Union
@@ -24,15 +25,26 @@ def metadata_load(local_path: Union[str, Path]) -> Optional[Dict]:
 
 
 def metadata_save(local_path: Union[str, Path], data: Dict) -> None:
-    data_yaml = yaml.dump(data, sort_keys=False)
-    # sort_keys: keep dict order
-    content = Path(local_path).read_text() if Path(local_path).is_file() else ""
-    match = REGEX_YAML_BLOCK.search(content)
-    if match:
-        output = (
-            content[: match.start()] + f"---\n{data_yaml}---\n" + content[match.end() :]
-        )
-    else:
-        output = f"---\n{data_yaml}---\n{content}"
+    # try to preserve newlines
+    linebrk = "\n"
+    # this is known not to work with ^M linebreaks, so ^M are replaced by \n
+    with open(local_path, "r") as readme:
+        if type(readme.newlines) is tuple:
+            linebrk = readme.newlines[0]
+        if type(readme.newlines) is str:
+            linebrk = readme.newlines
+        content = readme.read()
 
-    Path(local_path).write_text(output)
+    if content:
+        with open(local_path, "w", newline="") as readme:
+            data_yaml = yaml.dump(data, sort_keys=False, line_break=linebrk)
+            match = REGEX_YAML_BLOCK.search(content)
+            if match:
+                output = (
+                    content[: match.start()] + f"---{linebrk}{data_yaml}---{linebrk}" + content[match.end() :]
+                )
+            else:
+                output = f"---{linebrk}{data_yaml}---{linebrk}{content}"
+
+            readme.write(output)
+            readme.close()
