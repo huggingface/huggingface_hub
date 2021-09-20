@@ -25,6 +25,8 @@ def metadata_load(local_path: Union[str, Path]) -> Optional[Dict]:
 
 def metadata_save(local_path: Union[str, Path], data: Dict) -> None:
     # try to preserve newlines
+    # docs about open()  newline="" parameter:
+    # https://docs.python.org/3/library/functions.html?highlight=open#open
     linebrk = "\n"
     # this is known not to work with ^M linebreaks, so ^M are replaced by \n
     with open(local_path, "r", newline="") as readme:
