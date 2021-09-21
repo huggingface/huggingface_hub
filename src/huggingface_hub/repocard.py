@@ -1,3 +1,4 @@
+import io
 import os
 import re
 from pathlib import Path
@@ -49,7 +50,9 @@ def metadata_save(local_path: Union[str, Path], data: Dict) -> None:
 
     # creates a new file if it not
     with open(local_path, "w", newline="") as readme:
-        data_yaml = yaml.dump(data)
+        stream = io.StringIO()
+        yaml.dump(data, stream)
+        data_yaml = stream.getvalue()
         # sort_keys: keep dict order
         match = REGEX_YAML_BLOCK.search(content)
         if match:
@@ -63,3 +66,4 @@ def metadata_save(local_path: Union[str, Path], data: Dict) -> None:
 
         readme.write(output)
         readme.close()
+        stream.close()
