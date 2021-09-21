@@ -1,24 +1,34 @@
+import json
 from typing import List, Tuple
 
 import numpy as np
+import requests
 import torch
-from app.common import ModelType, get_type
 from app.pipelines import Pipeline
 from speechbrain.pretrained import SepformerSeparation, SpectralMaskEnhancement
 
 
+def get_info(model_id: str):
+    ENDPOINT = "https://huggingface.co/api/models/"
+    response = requests.get(f"{ENDPOINT}{model_id}")
+    if response.status_code != 200:
+        raise Exception("Cannot infer the code properly, please set some tags")
+    model_info = json.loads(response.content.decode("utf-8"))
+    tags = [
+        tag.lower().replace(" ", "-").replace("_", "-") for tag in model_info["tags"]
+    ]
+    return tags
+
+
 class AudioToAudioPipeline(Pipeline):
     def __init__(self, model_id: str):
-        model_type = get_type(model_id)
-        if model_type == ModelType.SEPFORMERSEPARATION:
+        tags = get_info(model_id)
+        if "audio-source-separation" in tags:
             self.model = SepformerSeparation.from_hparams(source=model_id)
             self.type = "audio-source-separation"
-        elif model_type == ModelType.SPECTRALMASKENHANCEMENT:
+        elif "speech-enhancement" in tags:
             self.model = SpectralMaskEnhancement.from_hparams(source=model_id)
             self.type = "speech-enhancement"
-        else:
-            raise ValueError(f"{model_type.value} is invalid for audio-to-audio")
-
         self.sampling_rate = self.model.hparams.sample_rate
 
     def __call__(self, inputs: np.array) -> Tuple[np.array, int, List[str]]:

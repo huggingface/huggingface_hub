@@ -55,6 +55,7 @@ class AudioToAudioTestCase(TestCase):
 
         with TestClient(self.app) as client:
             response = client.post("/", data=bpayload)
+
         self.assertEqual(
             response.status_code,
             200,
@@ -66,7 +67,7 @@ class AudioToAudioTestCase(TestCase):
         self.assertEqual(set(audio[0].keys()), {"blob", "content-type", "label"})
 
         data = base64.b64decode(audio[0]["blob"])
-        wavform = ffmpeg_read(data, 16000)
+        wavform = ffmpeg_read(data)
         self.assertGreater(wavform.shape[0], 1000)
         self.assertTrue(isinstance(audio[0]["content-type"], str))
         self.assertTrue(isinstance(audio[0]["label"], str))
@@ -99,7 +100,7 @@ class AudioToAudioTestCase(TestCase):
         self.assertEqual(set(audio[0].keys()), {"blob", "content-type", "label"})
 
         data = base64.b64decode(audio[0]["blob"])
-        wavform = ffmpeg_read(data, 16000)
+        wavform = ffmpeg_read(data)
         self.assertGreater(wavform.shape[0], 1000)
         self.assertTrue(isinstance(audio[0]["content-type"], str))
         self.assertTrue(isinstance(audio[0]["label"], str))
@@ -120,7 +121,7 @@ class AudioToAudioTestCase(TestCase):
         self.assertEqual(set(audio[0].keys()), {"blob", "content-type", "label"})
 
         data = base64.b64decode(audio[0]["blob"])
-        wavform = ffmpeg_read(data, 16000)
+        wavform = ffmpeg_read(data)
         self.assertGreater(wavform.shape[0], 1000)
         self.assertTrue(isinstance(audio[0]["content-type"], str))
         self.assertTrue(isinstance(audio[0]["label"], str))

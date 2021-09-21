@@ -126,22 +126,14 @@ class DockerImageTests(unittest.TestCase):
             "speechbrain/asr-crdnn-commonvoice-it",
         )
 
-        self.framework_docker_test(
-            "speechbrain",
-            "automatic-speech-recognition",
-            "speechbrain/asr-wav2vec2-commonvoice-fr",
-        )
-
         self.framework_invalid_test("speechbrain")
 
-        # source-separation
         self.framework_docker_test(
             "speechbrain",
             "audio-to-audio",
             "speechbrain/sepformer-wham",
         )
 
-        # speech-enchancement
         self.framework_docker_test(
             "speechbrain",
             "audio-to-audio",

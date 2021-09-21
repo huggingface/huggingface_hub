@@ -2,17 +2,12 @@ from typing import Dict, List
 
 import numpy as np
 import torch
-from app.common import ModelType, get_type
 from app.pipelines import Pipeline
 from speechbrain.pretrained import EncoderClassifier
 
 
 class AudioClassificationPipeline(Pipeline):
     def __init__(self, model_id: str):
-        model_type = get_type(model_id)
-        if model_type != ModelType.ENCODERCLASSIFIER:
-            raise ValueError(f"{model_type.value} is invalid for audio-classification")
-
         self.model = EncoderClassifier.from_hparams(source=model_id)
 
         self.top_k = 5
