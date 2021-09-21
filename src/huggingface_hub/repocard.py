@@ -1,3 +1,4 @@
+import os
 import re
 from pathlib import Path
 from typing import Dict, Optional, Union
@@ -24,17 +25,23 @@ def metadata_load(local_path: Union[str, Path]) -> Optional[Dict]:
 
 
 def metadata_save(local_path: Union[str, Path], data: Dict) -> None:
-    # try to preserve newlines
-    # docs about open()  newline="" parameter:
-    # https://docs.python.org/3/library/functions.html?highlight=open#open
+    """
+    Save the metadata dict in the upper YAML part
+    Trying to preserve newlines as in the existing file.
+    Docs about open() with newline="" parameter:
+    https://docs.python.org/3/library/functions.html?highlight=open#open
+    Does not work with "^M" linebreaks, which are replaced by \n
+    """
     linebrk = "\n"
+    content = ""
     # this is known not to work with ^M linebreaks, so ^M are replaced by \n
-    with open(local_path, "r", newline="") as readme:
-        if type(readme.newlines) is tuple:
-            linebrk = readme.newlines[0]
-        if type(readme.newlines) is str:
-            linebrk = readme.newlines
-        content = readme.read()
+    if os.path.exists(local_path):
+        with open(local_path, "r", newline="") as readme:
+            if type(readme.newlines) is tuple:
+                linebrk = readme.newlines[0]
+            if type(readme.newlines) is str:
+                linebrk = readme.newlines
+            content = readme.read()
 
     if content:
         with open(local_path, "w", newline="") as readme:

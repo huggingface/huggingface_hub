@@ -53,6 +53,11 @@ meaning_of_life: 42
 Hello
 """
 
+DUMMY_NEW_MODELCARD_TARGET = """---
+meaning_of_life: 42
+---
+"""
+
 DUMMY_MODELCARD_TARGET_NO_TAGS = """
 Hello
 """
@@ -93,6 +98,13 @@ class RepocardTest(unittest.TestCase):
         metadata_save(filepath, {"meaning_of_life": 42})
         content = filepath.read_text()
         self.assertEqual(content, DUMMY_MODELCARD_TARGET_NO_YAML)
+
+    def test_metadata_save_new_file(self):
+        filename = "new_dummy_target.md"
+        filepath = Path(REPOCARD_DIR) / filename
+        metadata_save(filepath, {"meaning_of_life": 42})
+        content = filepath.read_text()
+        self.assertEqual(content, DUMMY_NEW_MODELCARD_TARGET)
 
     def test_no_metadata_returns_none(self):
         filename = "dummy_target_3.md"
