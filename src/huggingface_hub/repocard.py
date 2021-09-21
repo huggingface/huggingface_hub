@@ -34,7 +34,7 @@ def metadata_save(local_path: Union[str, Path], data: Dict) -> None:
     """
     linebrk = "\n"
     content = ""
-    # this is known not to work with ^M linebreaks, so ^M are replaced by \n
+    # try to detect existing newline character
     if os.path.exists(local_path):
         with open(local_path, "r", newline="") as readme:
             if type(readme.newlines) is tuple:
@@ -43,19 +43,19 @@ def metadata_save(local_path: Union[str, Path], data: Dict) -> None:
                 linebrk = readme.newlines
             content = readme.read()
 
-    if content:
-        with open(local_path, "w", newline="") as readme:
-            data_yaml = yaml.dump(data, sort_keys=False, line_break=linebrk)
-            # sort_keys: keep dict order
-            match = REGEX_YAML_BLOCK.search(content)
-            if match:
-                output = (
-                    content[: match.start()]
-                    + f"---{linebrk}{data_yaml}---{linebrk}"
-                    + content[match.end() :]
-                )
-            else:
-                output = f"---{linebrk}{data_yaml}---{linebrk}{content}"
+    # creates a new file if it not
+    with open(local_path, "w", newline="") as readme:
+        data_yaml = yaml.dump(data, sort_keys=False, line_break=linebrk)
+        # sort_keys: keep dict order
+        match = REGEX_YAML_BLOCK.search(content)
+        if match:
+            output = (
+                content[: match.start()]
+                + f"---{linebrk}{data_yaml}---{linebrk}"
+                + content[match.end() :]
+            )
+        else:
+            output = f"---{linebrk}{data_yaml}---{linebrk}{content}"
 
-            readme.write(output)
-            readme.close()
+        readme.write(output)
+        readme.close()
