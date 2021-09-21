@@ -151,7 +151,7 @@ class DockerImageTests(unittest.TestCase):
         self.framework_docker_test(
             "speechbrain",
             "audio-classification",
-            "speechbrain/lang-id-commonlanguage_ecapa",
+            "speechbrain/urbansound8k_ecapa",
         )
 
     def test_timm(self):
