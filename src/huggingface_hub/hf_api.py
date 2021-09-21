@@ -327,7 +327,13 @@ class HfApi:
         """
         path = "{}/api/whoami-v2".format(self.endpoint)
         r = requests.get(path, headers={"authorization": "Bearer {}".format(token)})
-        r.raise_for_status()
+        try:
+            r.raise_for_status()
+        except HTTPError as e:
+            raise HTTPError(
+                "Invalid user token. If you didn't pass a user token, make sure you are properly logged in by "
+                "executing `huggingface-cli login`, and if you did pass a user token, double-check it's correct."
+            ) from e
         return r.json()
 
     def logout(self, token: str) -> None:
