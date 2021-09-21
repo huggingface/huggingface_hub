@@ -43,7 +43,7 @@ Password:
 
 Integrating the Hub into your library allows users to download your hosted files directly from the Hub. 
 
-Use the `hf_hub_download` function to download files from your repository. The downloaded files are stored in your cache: `~/.cache/huggingface/hub`. You don't have to redownload the file the next time you use it, and for larger files, this can save a lot of time! Furthermore, if the repository is updated with a new version of the file, our library will automatically download the new version and store it in the cache for you. Users don't have to worry about updating their files.
+Use the `hf_hub_download` function to retrieve a URL and download files from your repository. The downloaded files are stored in your cache: `~/.cache/huggingface/hub`. You don't have to redownload the file the next time you use it, and for larger files, this can save a lot of time! Furthermore, if the repository is updated with a new version of the file, our library will automatically download the new version and store it in the cache for you. Users don't have to worry about updating their files.
 
 For example, download the `config.json` file from the [lysandre/arxiv-nlp](https://huggingface.co/lysandre/arxiv-nlp) repository:
 

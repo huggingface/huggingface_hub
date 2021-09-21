@@ -8,7 +8,7 @@ In the tutorial, you learned some basic functions for integrating the Hub into y
 
 ## `hf_hub_url`
 
-Use `hf_hub_url` to download a specific file from a repository by providing a `filename`. This function takes the URL of the file, and downloads it. For example, if you want to download a `config.json` file from a repository:
+Use `hf_hub_url` to retrieve the URL of a specific file to download by providing a `filename`.
 
 ![/docs/assets/hub/repo.png](/docs/assets/hub/repo.png)
 
@@ -18,7 +18,7 @@ Use `hf_hub_url` to download a specific file from a repository by providing a `f
 'https://huggingface.co/lysandre/arxiv-nlp/resolve/main/config.json'
 ```
 
-Download a specific file version by providing the file revision. The file revision can be a branch, a tag, or a commit hash. The following example shows how to download a specific version of the `config.json` file using the commit hash:
+Specify a particular file version by providing the file revision. The file revision can be a branch, a tag, or a commit hash:
 
 ```python
 >>> hf_hub_url(repo_id="lysandre/arxiv-nlp", filename="config.json", revision="877b84a8f93f2d619faa2a6e514a32beef88ab0a")
@@ -27,7 +27,7 @@ Download a specific file version by providing the file revision. The file revisi
 
 ## `cached_download`
 
-The `cached_download` function is useful for caching a file on your local disk. Once it is stored in your cache, you don't have to redownload the file the next time you use it. This is a hands-free solution for staying up to date with new file versions. When one of your downloaded files is updated in the repository, it is automatically downloaded and stored for you.
+The `cached_download` function is useful for downloading and caching a file on your local disk. Once it is stored in your cache, you don't have to redownload the file the next time you use it. This is a hands-free solution for staying up to date with new file versions. When one of your downloaded files is updated in the repository, it is automatically downloaded and stored for you.
 
 Begin by downloading your file with `hf_hub_url`, and then pass the specified URL to `cached_download`:
 
@@ -37,6 +37,8 @@ Begin by downloading your file with `hf_hub_url`, and then pass the specified UR
 >>> cached_download(config_file_url)
 '/home/lysandre/.cache/huggingface/hub/bc0e8cc2f8271b322304e8bb84b3b7580701d53a335ab2d75da19c249e2eeebb.066dae6fdb1e2b8cce60c35cc0f78ed1451d9b341c78de19f3ad469d10a8cbb1'
 ```
+
+The `hf_hub_url` and `cached_download` functions work hand in hand to download a file. In fact, this is exactly how the `hf_hub_download` function from the tutorial works! `hf_hub_download` is simply a wrapper that calls both `hf_hub_url` and `cached_download`.
 
 ## `snapshot_download`
 

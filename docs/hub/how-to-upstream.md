@@ -7,7 +7,7 @@ Now that you've seen more downstream methods for downloading files, it is time t
 
 ## `HfApi`
 
-The `HfApi` class is a low level class that wraps around HTTP requests. There are many useful tasks you can accomplish with the `HfApi` class including: 
+The `HfApi` class is a high level class that wraps around HTTP requests. There are many useful tasks you can accomplish with the `HfApi` class including: 
 
 - List and filter models.
 - Inspect model or dataset metadata.
@@ -16,7 +16,7 @@ The `HfApi` class is a low level class that wraps around HTTP requests. There ar
 
 ### List and filter
 
-It can be helpful for users to see a list of available models, and filter those models according to a specific language or framework. Use the `list_models` function with the `filter` parameter to search for a model of interest:
+It can be helpful for users to see a list of available models, and filter those models according to a specific language or framework. This can be especially useful for library and organization owners who want to view all the models they own. Use the `list_models` function with the `filter` parameter to search for a model of interest:
 
 ```python
 >>> from huggingface_hub import HfApi
@@ -87,7 +87,7 @@ Delete a repository with `delete_repo`. Make sure you are certain you want to de
 Delete a dataset repository by adding the `type` parameter:
 
 ```python
->>> api.create_repo(token=YOUR_HF_API_TOKEN, name=REPO_NAME, type="dataset")
+>>> api.delete_repo(token=YOUR_HF_API_TOKEN, name=REPO_NAME, type="dataset")
 ```
 
 ### Change repository visibility
@@ -102,26 +102,30 @@ A repository can be public or private. A private repository is only visible to y
 
 The `Repository` class allows you to push models or other repositories to the Hub. `Repository` is a wrapper over Git and Git-LFS methods, so make sure you have Git-LFS installed (see [here](https://git-lfs.github.com/) for more instructions) and set up before you begin. If you are already familiar with common Git commands, then the `Repository` class should feel familiar. 
 
-Start by instantiating a `Repository` object with a path to a local Git clone or repository:
+### Clone a repository
+
+The `clone_from` parameter clones a repository from a Hugging Face model ID:
+
+```python
+>>> repo = Repository(local_dir="w2v2", clone_from="facebook/wav2vec2-large-960h-lv60")
+```
+
+This parameter can also clone a repository from a specified directory using a URL (if you are working offline, this parameter should be `None`):
+
+```python
+>>> repo = Repository(local_dir="huggingface-hub", clone_from="https://github.com/huggingface/huggingface_hub")
+```
+
+### Using a local clone
+
+Instantiate a `Repository` object with a path to a local Git clone or repository:
 
 ```python
 >>> from huggingface_hub import Repository
 >>> repo = Repository(local_dir="<path>/<to>/<folder>")
 ```
 
-### Clone a repository
-
-The `clone_from` parameter clones a repository from a specified directory using a URL (if you are working offline, this parameter should be `None`):
-
-```python
->>> repo = Repository(local_dir="huggingface-hub", clone_from="https://github.com/huggingface/huggingface_hub")
-```
-
-This parameter can also clone a repository from a Hugging Face model ID:
-
-```python
->>> repo = Repository(local_dir="w2v2", clone_from="facebook/wav2vec2-large-960h-lv60")
-```
+### Commit and push to cloned repository
 
 If you want to commit or push to a cloned repository that belongs to you or your organizations:
 
