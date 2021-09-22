@@ -157,6 +157,7 @@ Creative Commons license family	| `cc`
 Creative Commons Zero v1.0 Universal	| `cc0-1.0`
 Creative Commons Attribution 4.0	| `cc-by-4.0`
 Creative Commons Attribution Share Alike 4.0	| `cc-by-sa-4.0`
+Creative Commons Attribution Non Commercial 4.0	|`cc-by-nc-4.0`
 Creative Commons Attribution Non Commercial Share Alike  4.0| `cc-by-nc-sa-4.0`
 Do What The F*ck You Want To Public License	| `wtfpl`
 Educational Community License v2.0	| `ecl-2.0`
