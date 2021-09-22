@@ -1223,7 +1223,7 @@ class RepositoryDatasetTest(RepositoryCommonTest):
 
     def setUp(self):
         self.REPO_NAME = repo_name()
-        self._api.create_repo(token=self._token, name=self.REPO_NAME)
+        self._api.create_repo(token=self._token, name=self.REPO_NAME, repo_type="dataset")
 
     def tearDown(self):
         try:
