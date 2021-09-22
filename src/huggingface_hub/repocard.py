@@ -1,9 +1,15 @@
+import io
 import os
 import re
 from pathlib import Path
 from typing import Dict, Optional, Union
 
-import yaml
+from ruamel.yaml import YAML
+
+
+# the default loader/dumper type is 'rt' round-trip, preserving existing yaml formatting
+# 'rt' derivates from safe loader/dumper
+yaml = YAML()
 
 # exact same regex as in the Hub server. Please keep in sync.
 REGEX_YAML_BLOCK = re.compile(r"---[\n\r]+([\S\s]*?)[\n\r]+---[\n\r]")
@@ -14,7 +20,7 @@ def metadata_load(local_path: Union[str, Path]) -> Optional[Dict]:
     match = REGEX_YAML_BLOCK.search(content)
     if match:
         yaml_block = match.group(1)
-        data = yaml.safe_load(yaml_block)
+        data = yaml.load(yaml_block)
         if isinstance(data, dict):
             return data
         else:
@@ -44,7 +50,9 @@ def metadata_save(local_path: Union[str, Path], data: Dict) -> None:
 
     # creates a new file if it not
     with open(local_path, "w", newline="") as readme:
-        data_yaml = yaml.dump(data, sort_keys=False, line_break=linebrk)
+        stream = io.StringIO()
+        yaml.dump(data, stream)
+        data_yaml = stream.getvalue()
         # sort_keys: keep dict order
         match = REGEX_YAML_BLOCK.search(content)
         if match:
@@ -58,3 +66,4 @@ def metadata_save(local_path: Union[str, Path], data: Dict) -> None:
 
         readme.write(output)
         readme.close()
+        stream.close()
