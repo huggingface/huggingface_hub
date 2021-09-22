@@ -318,13 +318,17 @@ class HfApi:
         write_to_credential_store(username, password)
         return d["token"]
 
-    def whoami(self, token: str) -> Dict:
+    def whoami(self, token: Optional[str] = None) -> Dict:
         """
         Call HF API to know "whoami".
 
         Args:
-            token (``str``): Hugging Face token.
+            token (``str``, `optional`):
+                Hugging Face token. Will default to the locally saved token if not provided.
         """
+        if token is None:
+            token = HfFolder.get_token()
+
         path = "{}/api/whoami-v2".format(self.endpoint)
         r = requests.get(path, headers={"authorization": "Bearer {}".format(token)})
         try:
@@ -796,6 +800,35 @@ class HfApi:
 
         d = r.json()
         return d["url"]
+
+    def get_full_repo_name(
+        self,
+        model_id: str,
+        organization: Optional[str] = None,
+        token: Optional[str] = None,
+    ):
+        """
+        Returns the repository name for a given model ID and optional organization.
+
+        Args:
+            model_id (``str``):
+                The name of the model.
+            organization (``str``, `optional`):
+                If passed, the repository name will be in the organization namespace instead of the
+                user namespace.
+            token (``str``, `optional`):
+                The Hugging Face authentication token
+
+        Returns:
+            ``str``: The repository name in the user's namespace ({username}/{model_id}) if no
+            organization is passed, and under the organization namespace ({organization}/{model_id})
+            otherwise.
+        """
+        if organization is None:
+            username = self.whoami(token=token)["name"]
+            return f"{username}/{model_id}"
+        else:
+            return f"{organization}/{model_id}"
 
 
 class HfFolder:

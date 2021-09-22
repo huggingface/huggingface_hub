@@ -341,6 +341,15 @@ class HfApiUploadFileTest(HfApiCommonTestWithLogin):
         finally:
             self._api.delete_repo(token=self._token, name=REPO_NAME)
 
+    def test_get_full_repo_name(self):
+        repo_name_with_no_org = self._api.get_full_repo_name("model", token=self._token)
+        self.assertEqual(repo_name_with_no_org, f"{USER}/model")
+
+        repo_name_with_no_org = self._api.get_full_repo_name(
+            "model", organization="org", token=self._token
+        )
+        self.assertEqual(repo_name_with_no_org, "org/model")
+
 
 class HfApiPublicTest(unittest.TestCase):
     def test_staging_list_models(self):
