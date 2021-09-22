@@ -206,9 +206,7 @@ class HfApiUploadFileTest(HfApiCommonTestWithLogin):
 
     def test_upload_file_validation(self):
         REPO_NAME = repo_name()
-        self._api.create_repo(
-            token=self._token, name=REPO_NAME, repo_type=REPO_TYPE_SPACE
-        )
+
         with self.assertRaises(ValueError, msg="Wrong repo type"):
             self._api.upload_file(
                 path_or_fileobj=self.tmp_file,
@@ -250,7 +248,6 @@ class HfApiUploadFileTest(HfApiCommonTestWithLogin):
                         repo_id=f"{USER}/{REPO_NAME}",
                         token=self._token,
                     )
-        self._api.delete_repo(token=self._token, name=REPO_NAME)
 
     def test_upload_file_path(self):
         REPO_NAME = repo_name()
