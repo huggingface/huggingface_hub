@@ -19,6 +19,7 @@ import subprocess
 import tempfile
 import time
 import unittest
+import uuid
 from io import BytesIO
 
 import requests
@@ -54,10 +55,12 @@ from .testing_utils import (
 )
 
 
-REPO_NAME = "my-model-{}".format(int(time.time() * 10e3))
-REPO_NAME_LARGE_FILE = "my-model-largefiles-{}".format(int(time.time() * 10e3))
-DATASET_REPO_NAME = "my-dataset-{}".format(int(time.time() * 10e3))
-SPACE_REPO_NAME = "my-space-{}".format(int(time.time() * 10e3))
+REPO_NAME = "my-model-{0}-{1}".format(int(time.time() * 10e3), uuid.uuid4())
+REPO_NAME_LARGE_FILE = "my-model-largefiles-{0}-{1}".format(
+    int(time.time() * 10e3), uuid.uuid4()
+)
+DATASET_REPO_NAME = "my-dataset-{0}-{1}".format(int(time.time() * 10e3), uuid.uuid4())
+SPACE_REPO_NAME = "my-space-{0}-{1}".format(int(time.time() * 10e3), uuid.uuid4())
 WORKING_REPO_DIR = os.path.join(
     os.path.dirname(os.path.abspath(__file__)), "fixtures/working_repo"
 )
