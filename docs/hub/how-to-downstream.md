@@ -1,8 +1,8 @@
 # How to integrate downstream methods in your library
 
-In the tutorial, you learned some basic functions for integrating the Hub into your library. Functions that allow your library to download files from the Hub are referred to as *downstream* functions. This guide introduces additional downstream methods you can integrate in your library. You will learn how to:
+In the tutorial, you learned some basic methods for integrating the Hub into your library. Methods that allow your library to download files from the Hub are referred to as *downstream* methods. This guide introduces additional downstream methods you can integrate in your library. You will learn how to:
 
-* Download a file without caching it on your disk.
+* Retrieve a URL to download.
 * Download a file and cache it on your disk.
 * Download all the files in a repository.
 
@@ -18,7 +18,7 @@ Use `hf_hub_url` to retrieve the URL of a specific file to download by providing
 'https://huggingface.co/lysandre/arxiv-nlp/resolve/main/config.json'
 ```
 
-Specify a particular file version by providing the file revision. The file revision can be a branch, a tag, or a commit hash:
+Specify a particular file version by providing the file revision. The file revision can be a branch, a tag, or a commit hash. If you choose to use the commit hash, it must be the full-length hash instead of a 7-character commit hash.
 
 ```python
 >>> hf_hub_url(repo_id="lysandre/arxiv-nlp", filename="config.json", revision="877b84a8f93f2d619faa2a6e514a32beef88ab0a")
@@ -27,9 +27,9 @@ Specify a particular file version by providing the file revision. The file revis
 
 ## `cached_download`
 
-The `cached_download` function is useful for downloading and caching a file on your local disk. Once it is stored in your cache, you don't have to redownload the file the next time you use it. This is a hands-free solution for staying up to date with new file versions. When one of your downloaded files is updated in the repository, it is automatically downloaded and stored for you.
+The `cached_download` method is useful for downloading and caching a file on your local disk. Once it is stored in your cache, you don't have to redownload the file the next time you use it. This is a hands-free solution for staying up to date with new file versions. When a downloaded file is updated in the repository, `huggingface_hub` will automatically download and store it for you.
 
-Begin by downloading your file with `hf_hub_url`, and then pass the specified URL to `cached_download`:
+Begin by retrieving your file URL with `hf_hub_url`, and then pass the specified URL to `cached_download` to download the file:
 
 ```python
 >>> from huggingface_hub import hf_hub_url, cached_download
@@ -42,7 +42,7 @@ The `hf_hub_url` and `cached_download` functions work hand in hand to download a
 
 ## `snapshot_download`
 
-The `snapshot_download` function works well for downloading an entire repository. Like the previous functions, all downloaded files are cached on your local disk, and will be automatically updated if a file in the repository is changed.
+The `snapshot_download` method downloads an entire repository at a given revision. Like the `cached_download` function, all downloaded files are cached on your local disk. However, even if only a single file is updated, the entire repository will be redownloaded.
 
 Download a whole repository as shown in the following:
 
@@ -51,3 +51,5 @@ Download a whole repository as shown in the following:
 >>> snapshot_download(repo_id="lysandre/arxiv-nlp")
 '/home/lysandre/.cache/huggingface/hub/lysandre__arxiv-nlp.894a9adde21d9a3e3843e6d5aeaaf01875c7fade'
 ```
+
+In general, it is usually better to manually download files with `hf_hub_download` (if you already know which files you need) to avoid redownloading an entire repository. `snapshot_download` is helpful when your library's downloading utility is a helper, and unaware of which files need to be downloaded.

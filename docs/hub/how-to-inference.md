@@ -1,6 +1,6 @@
 # How to integrate the Inference API in your library
 
-The Inference API provides faster inference for your hosted models. Integration with the Hub allows you to access the Inference API programatically. This guide will show you how to make calls to the Inference API. For more detailed information, refer to the [Inference API documentation](https://api-inference.huggingface.co/docs/python/html/index.html).
+The Inference API provides faster inference for your hosted models. Integration with the Hub allows you to access the Inference API programatically. This guide will show you how to make calls to the Inference API from your library. For more detailed information, refer to the [Inference API documentation](https://api-inference.huggingface.co/docs/python/html/index.html).
 
 Begin by creating an instance of the `InferenceAPI` with a specific model repository ID:
 

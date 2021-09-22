@@ -1,9 +1,9 @@
 # How to integrate upstream methods in your library
 
-Now that you've seen more downstream methods for downloading files, it is time to introduce you to additional *upstream* methods. Upstream methods refers to functions that publish files to the Hub from your library. This guide will show you how to:
+Now that you've seen more downstream methods for downloading files, it is time to introduce you to additional *upstream* methods. Upstream methods refers to methods that publish files to the Hub from your library. This guide will show you how to:
 
 * Use the `HfApi` class to manage a repository.
-* Use the `Repository` class to manage a repository with Git-like commands.
+* Use the `Repository` class to handle files and version control a repository with Git-like commands.
 
 ## `HfApi`
 
@@ -16,7 +16,7 @@ The `HfApi` class is a high level class that wraps around HTTP requests. There a
 
 ### List and filter
 
-It can be helpful for users to see a list of available models, and filter those models according to a specific language or framework. This can be especially useful for library and organization owners who want to view all the models they own. Use the `list_models` function with the `filter` parameter to search for a model of interest:
+It can be helpful for users to see a list of available models, and filter them according to a specific language or framework. This can be especially useful for library and organization owners who want to view all the models they own. Use the `list_models` function with the `filter` parameter to search for a model of interest:
 
 ```python
 >>> from huggingface_hub import HfApi
@@ -72,17 +72,17 @@ Delete a repository with `delete_repo`. Make sure you are certain you want to de
 
 1. Get your Hugging Face API token:
 
-```python
->>> from huggingface_hub import HfFolder
->>> folder = HfFolder()
->>> token = folder.get_token()
-```
+   ```python
+   >>> from huggingface_hub import HfFolder
+   >>> folder = HfFolder()
+   >>> token = folder.get_token()
+   ```
 
-2. Give `delete_repo` your token and the name of the repository to delete:
+2. Pass your token and the name of the repository to `delete_repo`:
 
-```python
->>> api.delete_repo(token=YOUR_HF_API_TOKEN name=REPO_NAME)
-```
+   ```python
+   >>> api.delete_repo(token=YOUR_HF_API_TOKEN, name=REPO_NAME)
+   ```
 
 Delete a dataset repository by adding the `type` parameter:
 
@@ -100,7 +100,7 @@ A repository can be public or private. A private repository is only visible to y
 
 ## `Repository` 
 
-The `Repository` class allows you to push models or other repositories to the Hub. `Repository` is a wrapper over Git and Git-LFS methods, so make sure you have Git-LFS installed (see [here](https://git-lfs.github.com/) for more instructions) and set up before you begin. If you are already familiar with common Git commands, then the `Repository` class should feel familiar. 
+The `Repository` class allows you to push models or other repositories to the Hub. `Repository` is a wrapper over Git and Git-LFS methods, so make sure you have Git-LFS installed (see [here](https://git-lfs.github.com/) for installation instructions) and set up before you begin. If you are already familiar with common Git commands, then the `Repository` class should feel familiar. 
 
 ### Clone a repository
 
@@ -116,6 +116,13 @@ This parameter can also clone a repository from a specified directory using a UR
 >>> repo = Repository(local_dir="huggingface-hub", clone_from="https://github.com/huggingface/huggingface_hub")
 ```
 
+You can easily combine the `clone_from` parameter with `create_repo` to create and clone a repository:
+
+```python
+>>> repo_url = HfApi().create_repo(name="repo_name")
+>>> repo = Repository(local_dir="repo_local_path", clone_from=repo_url)
+```
+
 ### Using a local clone
 
 Instantiate a `Repository` object with a path to a local Git clone or repository:
@@ -125,7 +132,7 @@ Instantiate a `Repository` object with a path to a local Git clone or repository
 >>> repo = Repository(local_dir="<path>/<to>/<folder>")
 ```
 
-### Commit and push to cloned repository
+### Commit and push to a cloned repository
 
 If you want to commit or push to a cloned repository that belongs to you or your organizations:
 
@@ -135,10 +142,10 @@ If you want to commit or push to a cloned repository that belongs to you or your
    huggingface-cli login
    ```
 
-2. Instantiate your `Repository` class with the parameter `use_auth_token=True`:
+2. Instantiate a `Repository` class:
    
    ```python
-   >>> repo = Repository(local_dir="my-model", clone_from="<user>/<model_id>", use_auth_token=True)
+   >>> repo = Repository(local_dir="my-model", clone_from="<user>/<model_id>")
    ```
 
 You can also attribute a Git username and email to a cloned repository by specifiying the `git_user` and `git_email` parameters. When users commit to that repository, Git will be aware of the commit author.
@@ -163,64 +170,51 @@ Switch between branches with `git_checkout`. For example, if you want to switch 
 >>> repo.git_checkout("branch2")
 ```
 
-### Add
-
-Add a file to commit with `git_add`:
-
-```python
->>> repo = Repository(local_dir="huggingface-hub", clone_from="<user>/<dataset_id>")
->>> repo.git_add("my-awesome-file")
-```
-
-This method has an `auto-lfs-track` parameter that can be set to `True` if you want to automatically track large files (>10MB):
-
-```python
->>> repo = Repository(local_dir="huggingface-hub", clone_from="<user>/<dataset_id>")
->>> repo.git_add("my-awesome-file", auto_lfs_track=True)
-```
-
-### Commit
-
-Commit a file with `git_commit`:
-
-```python
->>> repo = Repository(local_dir="huggingface-hub", clone_from="<user>/<dataset_id>")
->>> repo.git_add(commit_message="Commit my-awesome-file to the Hub")
-```
-
 ### Pull
 
 Update a current local branch with `git_pull`:
 
 ```python
->>> repo = Repository(local_dir="huggingface-hub", clone_from="<user>/<dataset_id>")
 >>> repo.git_pull()
 ```
 
 Set `rebase=True` if you want your local commits to occur after your branch is updated with the new commits from the remote:
 
 ```python
->>> repo = Repository(local_dir="huggingface-hub", clone_from="<user>/<dataset_id>")
 >>> repo.git_pull(rebase=True)
 ```
 
-### Push
+### `commit` context manager
 
-Push all your local branch commits to the remote branch with `git_push`:
+The `commit` context manager is a simple utility that handles four of the most common Git commands: pull, add, commit, and push. Any files that are larger than 10MB are automatically tracked with `git-lfs`. In the following example, the `commit` context manager:
 
-```python
->>> repo = Repository(local_dir="huggingface-hub", clone_from="<user>/<dataset_id>")
->>> repo.git_push()
-```
-
-Change the `blocking` parameter to `False` if you would like to push your commits asynchronously. Non-blocking behavior is helpful when you want to continue running your script while you push your commits.
+1. Pulls from the `text-files` repository.
+2. Adds a change made to `file.txt`.
+3. Commits the change.
+4. Pushes the change to the `text-files` repository.
 
 ```python
->>> repo = Repository(local_dir="huggingface-hub", clone_from="<user>/<dataset_id>")
->>> repo.git_push(blocking=False)
+>>> with Repository(local_dir="text-files", clone_from="<user>/text-files").commit(commit_message="My first file :)"):
+...     with open("file.txt", "w+") as f:
+...         f.write(json.dumps({"hey": 8}))
 ```
 
-Check the status of your push with the `command_queue` property:
+Here is another example of how to save and upload a file to a repository:
+
+```python
+>>> import torch
+>>> model = torch.nn.Transformer()
+>>> with Repository("torch-model", clone_from="<user>/torch-model", use_auth_token=True).commit(commit_message="My cool model :)"):
+...     torch.save(model.state_dict(), "model.pt")
+```
+
+Set `blocking=False` if you would like to push your commits asynchronously. Non-blocking behavior is helpful when you want to continue running your script while you push your commits.
+
+```python
+>>> with repo.commit(commit_message="My cool model :)", blocking=False)
+```
+
+You can check the status of your push with the `command_queue` property:
 
 ```python
 >>> last_command = repo.command_queue[-1]
@@ -245,10 +239,10 @@ When `blocking=False`, commands are tracked and your script will only exit when 
 
 ### `push_to_hub`
 
-For convenience, the `Repository` class also has a `push_to_hub` method that will add files to commit, commit the files, and push them to a repository:
+The `Repository` class also has a `push_to_hub` method that will add files to commit, commit the files, and push them to a repository. Unlike the `commit` context manager, `push_to_hub` requires you to pull from a repository first, save the files, and then call `push_to_hub`.
 
 ```python
->>> repo = Repository(local_dir="huggingface-hub", clone_from="<user>/<dataset_id>")
+>>> repo.git_pull()
 >>> repo.push_to_hub(commit_message="Commit my-awesome-file to the Hub")
 ```
 
