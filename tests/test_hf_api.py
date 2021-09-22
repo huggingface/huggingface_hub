@@ -55,12 +55,22 @@ from .testing_utils import (
 )
 
 
-REPO_NAME = "my-model-{0}-{1}".format(int(time.time() * 10e3), uuid.uuid4())
-REPO_NAME_LARGE_FILE = "my-model-largefiles-{0}-{1}".format(
-    int(time.time() * 10e3), uuid.uuid4()
-)
-DATASET_REPO_NAME = "my-dataset-{0}-{1}".format(int(time.time() * 10e3), uuid.uuid4())
-SPACE_REPO_NAME = "my-space-{0}-{1}".format(int(time.time() * 10e3), uuid.uuid4())
+def repo_name():
+    return "my-model-{0}-{1}".format(int(time.time() * 10e3), uuid.uuid4())
+
+
+def repo_name_large_file():
+    return "my-model-largefiles-{0}-{1}".format(int(time.time() * 10e3), uuid.uuid4())
+
+
+def dataset_repo_name():
+    return "my-dataset-{0}-{1}".format(int(time.time() * 10e3), uuid.uuid4())
+
+
+def space_repo_name():
+    return "my-space-{0}-{1}".format(int(time.time() * 10e3), uuid.uuid4())
+
+
 WORKING_REPO_DIR = os.path.join(
     os.path.dirname(os.path.abspath(__file__)), "fixtures/working_repo"
 )
@@ -122,6 +132,7 @@ class HfApiEndpointsTest(HfApiCommonTestWithLogin):
             self.assertIsInstance(o, RepoObj)
 
     def test_create_update_and_delete_repo(self):
+        REPO_NAME = repo_name()
         self._api.create_repo(token=self._token, name=REPO_NAME)
         res = self._api.update_repo_visibility(
             token=self._token, name=REPO_NAME, private=True
@@ -134,6 +145,7 @@ class HfApiEndpointsTest(HfApiCommonTestWithLogin):
         self._api.delete_repo(token=self._token, name=REPO_NAME)
 
     def test_create_update_and_delete_dataset_repo(self):
+        DATASET_REPO_NAME = dataset_repo_name()
         self._api.create_repo(
             token=self._token, name=DATASET_REPO_NAME, repo_type=REPO_TYPE_DATASET
         )
@@ -157,6 +169,7 @@ class HfApiEndpointsTest(HfApiCommonTestWithLogin):
 
     @unittest.skip("skipped while spaces in beta")
     def test_create_update_and_delete_space_repo(self):
+        SPACE_REPO_NAME = space_repo_name()
         self._api.create_repo(
             token=self._token, name=SPACE_REPO_NAME, repo_type=REPO_TYPE_SPACE
         )
@@ -192,6 +205,10 @@ class HfApiUploadFileTest(HfApiCommonTestWithLogin):
         )
 
     def test_upload_file_validation(self):
+        REPO_NAME = repo_name()
+        self._api.create_repo(
+            token=self._token, name=REPO_NAME, repo_type=REPO_TYPE_SPACE
+        )
         with self.assertRaises(ValueError, msg="Wrong repo type"):
             self._api.upload_file(
                 path_or_fileobj=self.tmp_file,
@@ -233,8 +250,10 @@ class HfApiUploadFileTest(HfApiCommonTestWithLogin):
                         repo_id=f"{USER}/{REPO_NAME}",
                         token=self._token,
                     )
+        self._api.delete_repo(token=self._token, name=REPO_NAME)
 
     def test_upload_file_path(self):
+        REPO_NAME = repo_name()
         self._api.create_repo(token=self._token, name=REPO_NAME)
         try:
             self._api.upload_file(
@@ -259,6 +278,7 @@ class HfApiUploadFileTest(HfApiCommonTestWithLogin):
             self._api.delete_repo(token=self._token, name=REPO_NAME)
 
     def test_upload_file_fileobj(self):
+        REPO_NAME = repo_name()
         self._api.create_repo(token=self._token, name=REPO_NAME)
         try:
             with open(self.tmp_file, "rb") as filestream:
@@ -284,6 +304,7 @@ class HfApiUploadFileTest(HfApiCommonTestWithLogin):
             self._api.delete_repo(token=self._token, name=REPO_NAME)
 
     def test_upload_file_bytesio(self):
+        REPO_NAME = repo_name()
         self._api.create_repo(token=self._token, name=REPO_NAME)
         try:
             filecontent = BytesIO(b"File content, but in bytes IO")
@@ -309,6 +330,7 @@ class HfApiUploadFileTest(HfApiCommonTestWithLogin):
             self._api.delete_repo(token=self._token, name=REPO_NAME)
 
     def test_upload_file_conflict(self):
+        REPO_NAME = repo_name()
         self._api.create_repo(token=self._token, name=REPO_NAME)
         try:
             filecontent = BytesIO(b"File content, but in bytes IO")
@@ -450,18 +472,19 @@ class HfApiPublicTest(unittest.TestCase):
 class HfApiPrivateTest(HfApiCommonTestWithLogin):
     def setUp(self) -> None:
         super().setUp()
-        self._api.create_repo(token=self._token, name=REPO_NAME, private=True)
+        self.repo_name = repo_name()
+        self._api.create_repo(token=self._token, name=self.repo_name, private=True)
 
     def tearDown(self) -> None:
-        self._api.delete_repo(token=self._token, name=REPO_NAME)
+        self._api.delete_repo(token=self._token, name=self.repo_name)
 
     def test_model_info(self):
         # Test we cannot access model info without a token
         with self.assertRaisesRegex(requests.exceptions.HTTPError, "404 Client Error"):
-            _ = self._api.model_info(repo_id=f"{USER}/{REPO_NAME}")
+            _ = self._api.model_info(repo_id=f"{USER}/{self.repo_name}")
         # Test we can access model info with a token
         model_info = self._api.model_info(
-            repo_id=f"{USER}/{REPO_NAME}", token=self._token
+            repo_id=f"{USER}/{self.repo_name}", token=self._token
         )
         self.assertIsInstance(model_info, ModelInfo)
 
@@ -497,9 +520,6 @@ class HfLargefilesTest(HfApiCommonTest):
         except FileNotFoundError:
             pass
 
-    def tearDown(self):
-        self._api.delete_repo(token=self._token, name=REPO_NAME_LARGE_FILE)
-
     def setup_local_clone(self, REMOTE_URL):
         REMOTE_URL_AUTH = REMOTE_URL.replace(
             ENDPOINT_STAGING, ENDPOINT_STAGING_BASIC_AUTH
@@ -518,6 +538,7 @@ class HfLargefilesTest(HfApiCommonTest):
         )
 
     def test_end_to_end_thresh_6M(self):
+        REPO_NAME_LARGE_FILE = repo_name_large_file()
         REMOTE_URL = self._api.create_repo(
             token=self._token, name=REPO_NAME_LARGE_FILE, lfsmultipartthresh=6 * 10 ** 6
         )
@@ -566,8 +587,10 @@ class HfLargefilesTest(HfApiCommonTest):
         )
         dest_filesize = os.stat(os.path.join(WORKING_REPO_DIR, DEST_FILENAME)).st_size
         self.assertEqual(dest_filesize, 18685041)
+        self._api.delete_repo(token=self._token, name=REPO_NAME_LARGE_FILE)
 
     def test_end_to_end_thresh_16M(self):
+        REPO_NAME_LARGE_FILE = repo_name_large_file()
         # Here we'll push one multipart and one non-multipart file in the same commit, and see what happens
         REMOTE_URL = self._api.create_repo(
             token=self._token,
@@ -604,6 +627,7 @@ class HfLargefilesTest(HfApiCommonTest):
         start_time = time.time()
         subprocess.run(["git", "push"], check=True, cwd=WORKING_REPO_DIR)
         print("took", time.time() - start_time)
+        self._api.delete_repo(token=self._token, name=REPO_NAME_LARGE_FILE)
 
 
 class HfApiMiscTest(unittest.TestCase):

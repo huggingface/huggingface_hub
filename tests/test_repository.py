@@ -35,7 +35,8 @@ from .testing_constants import ENDPOINT_STAGING, PASS, USER
 from .testing_utils import set_write_permission_and_retry, with_production_testing
 
 
-REPO_NAME = "repo-{0}-{1}".format(int(time.time() * 10e3), uuid.uuid4())
+def repo_name():
+    return "repo-{0}-{1}".format(int(time.time() * 10e3), uuid.uuid4())
 
 
 WORKING_REPO_DIR = os.path.join(
@@ -67,29 +68,29 @@ class RepositoryTest(RepositoryCommonTest):
             shutil.rmtree(WORKING_REPO_DIR, onerror=set_write_permission_and_retry)
         except FileNotFoundError:
             pass
-
-        self._repo_url = self._api.create_repo(token=self._token, name=REPO_NAME)
+        self.REPO_NAME = repo_name()
+        self._repo_url = self._api.create_repo(token=self._token, name=self.REPO_NAME)
         self._api.upload_file(
             token=self._token,
             path_or_fileobj=BytesIO(b"some initial binary data: \x00\x01"),
             path_in_repo="random_file.txt",
-            repo_id=f"{USER}/{REPO_NAME}",
+            repo_id=f"{USER}/{self.REPO_NAME}",
         )
 
     def tearDown(self):
         try:
-            self._api.delete_repo(token=self._token, name=f"{USER}/{REPO_NAME}")
+            self._api.delete_repo(token=self._token, name=f"{USER}/{self.REPO_NAME}")
         except requests.exceptions.HTTPError:
             pass
 
         try:
-            self._api.delete_repo(token=self._token, name=REPO_NAME)
+            self._api.delete_repo(token=self._token, name=self.REPO_NAME)
         except requests.exceptions.HTTPError:
             pass
 
         try:
             self._api.delete_repo(
-                token=self._token, organization="valid_org", name=REPO_NAME
+                token=self._token, organization="valid_org", name=self.REPO_NAME
             )
         except requests.exceptions.HTTPError:
             pass
@@ -157,13 +158,13 @@ class RepositoryTest(RepositoryCommonTest):
     def test_init_clone_in_nonempty_non_linked_git_repo(self):
         # Create a new repository on the HF Hub
         temp_repo_url = self._api.create_repo(
-            token=self._token, name=f"{REPO_NAME}-temp"
+            token=self._token, name=f"{self.REPO_NAME}-temp"
         )
         self._api.upload_file(
             token=self._token,
             path_or_fileobj=BytesIO(b"some initial binary data: \x00\x01"),
             path_in_repo="random_file_2.txt",
-            repo_id=f"{USER}/{REPO_NAME}-temp",
+            repo_id=f"{USER}/{self.REPO_NAME}-temp",
         )
 
         # Clone the new repository
@@ -175,7 +176,7 @@ class RepositoryTest(RepositoryCommonTest):
             EnvironmentError, Repository, WORKING_REPO_DIR, clone_from=temp_repo_url
         )
 
-        self._api.delete_repo(token=self._token, name=f"{REPO_NAME}-temp")
+        self._api.delete_repo(token=self._token, name=f"{self.REPO_NAME}-temp")
 
     def test_init_clone_in_nonempty_linked_git_repo_with_token(self):
         Repository(
@@ -194,7 +195,7 @@ class RepositoryTest(RepositoryCommonTest):
             token=self._token,
             path_or_fileobj=BytesIO(b"some initial binary data: \x00\x01"),
             path_in_repo="random_file_3.txt",
-            repo_id=f"{USER}/{REPO_NAME}",
+            repo_id=f"{USER}/{self.REPO_NAME}",
         )
 
         # Cloning the repository in the same directory should not result in a git pull.
@@ -221,7 +222,7 @@ class RepositoryTest(RepositoryCommonTest):
             token=self._token,
             path_or_fileobj=BytesIO(b"some initial binary data: \x00\x01"),
             path_in_repo="random_file_3.txt",
-            repo_id=f"{USER}/{REPO_NAME}",
+            repo_id=f"{USER}/{self.REPO_NAME}",
         )
 
         # The repo should initialize correctly as the remote is the same, even with unrelated historied
@@ -343,8 +344,8 @@ class RepositoryTest(RepositoryCommonTest):
 
     def test_clone_with_endpoint(self):
         clone = Repository(
-            f"{WORKING_REPO_DIR}/{REPO_NAME}",
-            clone_from=f"{ENDPOINT_STAGING}/valid_org/{REPO_NAME}",
+            f"{WORKING_REPO_DIR}/{self.REPO_NAME}",
+            clone_from=f"{ENDPOINT_STAGING}/valid_org/{self.REPO_NAME}",
             use_auth_token=self._token,
             git_user="ci",
             git_email="ci@dummy.com",
@@ -356,24 +357,24 @@ class RepositoryTest(RepositoryCommonTest):
             with open("model.bin", "w") as f:
                 f.write("hello")
 
-        shutil.rmtree(f"{WORKING_REPO_DIR}/{REPO_NAME}")
+        shutil.rmtree(f"{WORKING_REPO_DIR}/{self.REPO_NAME}")
 
         Repository(
-            f"{WORKING_REPO_DIR}/{REPO_NAME}",
-            clone_from=f"{ENDPOINT_STAGING}/valid_org/{REPO_NAME}",
+            f"{WORKING_REPO_DIR}/{self.REPO_NAME}",
+            clone_from=f"{ENDPOINT_STAGING}/valid_org/{self.REPO_NAME}",
             use_auth_token=self._token,
             git_user="ci",
             git_email="ci@dummy.com",
         )
 
-        files = os.listdir(f"{WORKING_REPO_DIR}/{REPO_NAME}")
+        files = os.listdir(f"{WORKING_REPO_DIR}/{self.REPO_NAME}")
         self.assertTrue("dummy.txt" in files)
         self.assertTrue("model.bin" in files)
 
     def test_clone_with_repo_name_and_org(self):
         clone = Repository(
-            f"{WORKING_REPO_DIR}/{REPO_NAME}",
-            clone_from=f"valid_org/{REPO_NAME}",
+            f"{WORKING_REPO_DIR}/{self.REPO_NAME}",
+            clone_from=f"valid_org/{self.REPO_NAME}",
             use_auth_token=self._token,
             git_user="ci",
             git_email="ci@dummy.com",
@@ -385,24 +386,24 @@ class RepositoryTest(RepositoryCommonTest):
             with open("model.bin", "w") as f:
                 f.write("hello")
 
-        shutil.rmtree(f"{WORKING_REPO_DIR}/{REPO_NAME}")
+        shutil.rmtree(f"{WORKING_REPO_DIR}/{self.REPO_NAME}")
 
         Repository(
-            f"{WORKING_REPO_DIR}/{REPO_NAME}",
-            clone_from=f"valid_org/{REPO_NAME}",
+            f"{WORKING_REPO_DIR}/{self.REPO_NAME}",
+            clone_from=f"valid_org/{self.REPO_NAME}",
             use_auth_token=self._token,
             git_user="ci",
             git_email="ci@dummy.com",
         )
 
-        files = os.listdir(f"{WORKING_REPO_DIR}/{REPO_NAME}")
+        files = os.listdir(f"{WORKING_REPO_DIR}/{self.REPO_NAME}")
         self.assertTrue("dummy.txt" in files)
         self.assertTrue("model.bin" in files)
 
     def test_clone_with_repo_name_and_user_namespace(self):
         clone = Repository(
-            f"{WORKING_REPO_DIR}/{REPO_NAME}",
-            clone_from=f"{USER}/{REPO_NAME}",
+            f"{WORKING_REPO_DIR}/{self.REPO_NAME}",
+            clone_from=f"{USER}/{self.REPO_NAME}",
             use_auth_token=self._token,
             git_user="ci",
             git_email="ci@dummy.com",
@@ -416,17 +417,17 @@ class RepositoryTest(RepositoryCommonTest):
             with open("model.bin", "w") as f:
                 f.write("hello")
 
-        shutil.rmtree(f"{WORKING_REPO_DIR}/{REPO_NAME}")
+        shutil.rmtree(f"{WORKING_REPO_DIR}/{self.REPO_NAME}")
 
         Repository(
-            f"{WORKING_REPO_DIR}/{REPO_NAME}",
-            clone_from=f"{USER}/{REPO_NAME}",
+            f"{WORKING_REPO_DIR}/{self.REPO_NAME}",
+            clone_from=f"{USER}/{self.REPO_NAME}",
             use_auth_token=self._token,
             git_user="ci",
             git_email="ci@dummy.com",
         )
 
-        files = os.listdir(f"{WORKING_REPO_DIR}/{REPO_NAME}")
+        files = os.listdir(f"{WORKING_REPO_DIR}/{self.REPO_NAME}")
         self.assertTrue("dummy.txt" in files)
         self.assertTrue("model.bin" in files)
 
@@ -434,8 +435,8 @@ class RepositoryTest(RepositoryCommonTest):
         self.assertRaises(
             OSError,
             Repository,
-            f"{WORKING_REPO_DIR}/{REPO_NAME}",
-            clone_from=REPO_NAME,
+            f"{WORKING_REPO_DIR}/{self.REPO_NAME}",
+            clone_from=self.REPO_NAME,
             use_auth_token=self._token,
             git_user="ci",
             git_email="ci@dummy.com",
@@ -444,16 +445,16 @@ class RepositoryTest(RepositoryCommonTest):
     def test_clone_with_repo_name_user_and_no_auth_token(self):
         # Create repo
         Repository(
-            f"{WORKING_REPO_DIR}/{REPO_NAME}",
-            clone_from=f"{USER}/{REPO_NAME}",
+            f"{WORKING_REPO_DIR}/{self.REPO_NAME}",
+            clone_from=f"{USER}/{self.REPO_NAME}",
             git_user="ci",
             git_email="ci@dummy.com",
         )
 
         # Instantiate it without token
         Repository(
-            f"{WORKING_REPO_DIR}/{REPO_NAME}",
-            clone_from=f"{USER}/{REPO_NAME}",
+            f"{WORKING_REPO_DIR}/{self.REPO_NAME}",
+            clone_from=f"{USER}/{self.REPO_NAME}",
             git_user="ci",
             git_email="ci@dummy.com",
         )
@@ -461,17 +462,17 @@ class RepositoryTest(RepositoryCommonTest):
     def test_clone_with_repo_name_org_and_no_auth_token(self):
         # Create repo
         Repository(
-            f"{WORKING_REPO_DIR}/{REPO_NAME}",
+            f"{WORKING_REPO_DIR}/{self.REPO_NAME}",
             use_auth_token=self._token,
-            clone_from=f"valid_org/{REPO_NAME}",
+            clone_from=f"valid_org/{self.REPO_NAME}",
             git_user="ci",
             git_email="ci@dummy.com",
         )
 
         # Instantiate it without token
         Repository(
-            f"{WORKING_REPO_DIR}/{REPO_NAME}",
-            clone_from=f"valid_org/{REPO_NAME}",
+            f"{WORKING_REPO_DIR}/{self.REPO_NAME}",
+            clone_from=f"valid_org/{self.REPO_NAME}",
             git_user="ci",
             git_email="ci@dummy.com",
         )
@@ -479,7 +480,7 @@ class RepositoryTest(RepositoryCommonTest):
     def test_clone_not_hf_url(self):
         # Should not error out
         Repository(
-            f"{WORKING_REPO_DIR}/{REPO_NAME}",
+            f"{WORKING_REPO_DIR}/{self.REPO_NAME}",
             clone_from="https://hf.co/hf-internal-testing/huggingface-hub-dummy-repository",
         )
 
@@ -487,21 +488,21 @@ class RepositoryTest(RepositoryCommonTest):
     def test_clone_repo_at_root(self):
         os.environ["GIT_LFS_SKIP_SMUDGE"] = "1"
         Repository(
-            f"{WORKING_REPO_DIR}/{REPO_NAME}",
+            f"{WORKING_REPO_DIR}/{self.REPO_NAME}",
             clone_from="bert-base-cased",
         )
 
-        shutil.rmtree(f"{WORKING_REPO_DIR}/{REPO_NAME}")
+        shutil.rmtree(f"{WORKING_REPO_DIR}/{self.REPO_NAME}")
 
         Repository(
-            f"{WORKING_REPO_DIR}/{REPO_NAME}",
+            f"{WORKING_REPO_DIR}/{self.REPO_NAME}",
             clone_from="https://huggingface.co/bert-base-cased",
         )
 
     def test_is_tracked_upstream(self):
         repo = Repository(
-            REPO_NAME,
-            clone_from=f"{USER}/{REPO_NAME}",
+            self.REPO_NAME,
+            clone_from=f"{USER}/{self.REPO_NAME}",
             use_auth_token=self._token,
             git_user="ci",
             git_email="ci@dummy.com",
@@ -512,7 +513,7 @@ class RepositoryTest(RepositoryCommonTest):
     def test_push_errors_on_wrong_checkout(self):
         repo = Repository(
             WORKING_REPO_DIR,
-            clone_from=f"{USER}/{REPO_NAME}",
+            clone_from=f"{USER}/{self.REPO_NAME}",
             use_auth_token=self._token,
             git_user="ci",
             git_email="ci@dummy.com",
@@ -540,7 +541,7 @@ class RepositoryTest(RepositoryCommonTest):
     def test_commits_on_correct_branch(self):
         repo = Repository(
             WORKING_REPO_DIR,
-            clone_from=f"{USER}/{REPO_NAME}",
+            clone_from=f"{USER}/{self.REPO_NAME}",
             use_auth_token=self._token,
             git_user="ci",
             git_email="ci@dummy.com",
@@ -562,7 +563,7 @@ class RepositoryTest(RepositoryCommonTest):
         with tempfile.TemporaryDirectory() as tmp:
             clone = Repository(
                 tmp,
-                clone_from=f"{USER}/{REPO_NAME}",
+                clone_from=f"{USER}/{self.REPO_NAME}",
                 use_auth_token=self._token,
                 git_user="ci",
                 git_email="ci@dummy.com",
@@ -579,7 +580,7 @@ class RepositoryTest(RepositoryCommonTest):
     def test_repo_checkout_push(self):
         repo = Repository(
             WORKING_REPO_DIR,
-            clone_from=f"{USER}/{REPO_NAME}",
+            clone_from=f"{USER}/{self.REPO_NAME}",
             use_auth_token=self._token,
             git_user="ci",
             git_email="ci@dummy.com",
@@ -602,7 +603,7 @@ class RepositoryTest(RepositoryCommonTest):
         with tempfile.TemporaryDirectory() as tmp:
             clone = Repository(
                 tmp,
-                clone_from=f"{USER}/{REPO_NAME}",
+                clone_from=f"{USER}/{self.REPO_NAME}",
                 use_auth_token=self._token,
                 git_user="ci",
                 git_email="ci@dummy.com",
@@ -619,7 +620,7 @@ class RepositoryTest(RepositoryCommonTest):
     def test_repo_checkout_commit_context_manager(self):
         repo = Repository(
             WORKING_REPO_DIR,
-            clone_from=f"{USER}/{REPO_NAME}",
+            clone_from=f"{USER}/{self.REPO_NAME}",
             use_auth_token=self._token,
             git_user="ci",
             git_email="ci@dummy.com",
@@ -642,7 +643,7 @@ class RepositoryTest(RepositoryCommonTest):
         with tempfile.TemporaryDirectory() as tmp:
             clone = Repository(
                 tmp,
-                clone_from=f"{USER}/{REPO_NAME}",
+                clone_from=f"{USER}/{self.REPO_NAME}",
                 use_auth_token=self._token,
                 git_user="ci",
                 git_email="ci@dummy.com",
@@ -661,7 +662,7 @@ class RepositoryTest(RepositoryCommonTest):
     def test_add_tag(self):
         repo = Repository(
             WORKING_REPO_DIR,
-            clone_from=f"{USER}/{REPO_NAME}",
+            clone_from=f"{USER}/{self.REPO_NAME}",
             use_auth_token=self._token,
             git_user="ci",
             git_email="ci@dummy.com",
@@ -674,7 +675,7 @@ class RepositoryTest(RepositoryCommonTest):
     def test_add_annotated_tag(self):
         repo = Repository(
             WORKING_REPO_DIR,
-            clone_from=f"{USER}/{REPO_NAME}",
+            clone_from=f"{USER}/{self.REPO_NAME}",
             use_auth_token=self._token,
             git_user="ci",
             git_email="ci@dummy.com",
@@ -719,7 +720,7 @@ class RepositoryTest(RepositoryCommonTest):
     def test_delete_tag(self):
         repo = Repository(
             WORKING_REPO_DIR,
-            clone_from=f"{USER}/{REPO_NAME}",
+            clone_from=f"{USER}/{self.REPO_NAME}",
             use_auth_token=self._token,
             git_user="ci",
             git_email="ci@dummy.com",
@@ -1220,30 +1221,35 @@ class RepositoryDatasetTest(RepositoryCommonTest):
         """
         cls._token = cls._api.login(username=USER, password=PASS)
 
+    def setUp(self):
+        self.REPO_NAME = repo_name()
+        self._api.create_repo(token=self._token, name=self.REPO_NAME)
+
     def tearDown(self):
         try:
             self._api.delete_repo(
-                token=self._token, name=REPO_NAME, repo_type="dataset"
+                token=self._token, name=self.REPO_NAME, repo_type="dataset"
             )
         except requests.exceptions.HTTPError:
             try:
                 self._api.delete_repo(
                     token=self._token,
                     organization="valid_org",
-                    name=REPO_NAME,
+                    name=self.REPO_NAME,
                     repo_type="dataset",
                 )
             except requests.exceptions.HTTPError:
                 pass
 
         shutil.rmtree(
-            f"{WORKING_DATASET_DIR}/{REPO_NAME}", onerror=set_write_permission_and_retry
+            f"{WORKING_DATASET_DIR}/{self.REPO_NAME}",
+            onerror=set_write_permission_and_retry,
         )
 
     def test_clone_with_endpoint(self):
         clone = Repository(
-            f"{WORKING_DATASET_DIR}/{REPO_NAME}",
-            clone_from=f"{ENDPOINT_STAGING}/datasets/{USER}/{REPO_NAME}",
+            f"{WORKING_DATASET_DIR}/{self.REPO_NAME}",
+            clone_from=f"{ENDPOINT_STAGING}/datasets/{USER}/{self.REPO_NAME}",
             repo_type="dataset",
             use_auth_token=self._token,
             git_user="ci",
@@ -1254,25 +1260,25 @@ class RepositoryDatasetTest(RepositoryCommonTest):
             for file in os.listdir(DATASET_FIXTURE):
                 shutil.copyfile(pathlib.Path(DATASET_FIXTURE) / file, file)
 
-        shutil.rmtree(f"{WORKING_DATASET_DIR}/{REPO_NAME}")
+        shutil.rmtree(f"{WORKING_DATASET_DIR}/{self.REPO_NAME}")
 
         Repository(
-            f"{WORKING_DATASET_DIR}/{REPO_NAME}",
-            clone_from=f"{ENDPOINT_STAGING}/datasets/{USER}/{REPO_NAME}",
+            f"{WORKING_DATASET_DIR}/{self.REPO_NAME}",
+            clone_from=f"{ENDPOINT_STAGING}/datasets/{USER}/{self.REPO_NAME}",
             use_auth_token=self._token,
             repo_type="dataset",
             git_user="ci",
             git_email="ci@dummy.com",
         )
 
-        files = os.listdir(f"{WORKING_DATASET_DIR}/{REPO_NAME}")
+        files = os.listdir(f"{WORKING_DATASET_DIR}/{self.REPO_NAME}")
         self.assertTrue("some_text.txt" in files)
         self.assertTrue("test.py" in files)
 
     def test_clone_with_repo_name_and_org(self):
         clone = Repository(
-            f"{WORKING_DATASET_DIR}/{REPO_NAME}",
-            clone_from=f"valid_org/{REPO_NAME}",
+            f"{WORKING_DATASET_DIR}/{self.REPO_NAME}",
+            clone_from=f"valid_org/{self.REPO_NAME}",
             repo_type="dataset",
             use_auth_token=self._token,
             git_user="ci",
@@ -1283,25 +1289,25 @@ class RepositoryDatasetTest(RepositoryCommonTest):
             for file in os.listdir(DATASET_FIXTURE):
                 shutil.copyfile(pathlib.Path(DATASET_FIXTURE) / file, file)
 
-        shutil.rmtree(f"{WORKING_DATASET_DIR}/{REPO_NAME}")
+        shutil.rmtree(f"{WORKING_DATASET_DIR}/{self.REPO_NAME}")
 
         Repository(
-            f"{WORKING_DATASET_DIR}/{REPO_NAME}",
-            clone_from=f"valid_org/{REPO_NAME}",
+            f"{WORKING_DATASET_DIR}/{self.REPO_NAME}",
+            clone_from=f"valid_org/{self.REPO_NAME}",
             use_auth_token=self._token,
             repo_type="dataset",
             git_user="ci",
             git_email="ci@dummy.com",
         )
 
-        files = os.listdir(f"{WORKING_DATASET_DIR}/{REPO_NAME}")
+        files = os.listdir(f"{WORKING_DATASET_DIR}/{self.REPO_NAME}")
         self.assertTrue("some_text.txt" in files)
         self.assertTrue("test.py" in files)
 
     def test_clone_with_repo_name_and_user_namespace(self):
         clone = Repository(
-            f"{WORKING_DATASET_DIR}/{REPO_NAME}",
-            clone_from=f"{USER}/{REPO_NAME}",
+            f"{WORKING_DATASET_DIR}/{self.REPO_NAME}",
+            clone_from=f"{USER}/{self.REPO_NAME}",
             repo_type="dataset",
             use_auth_token=self._token,
             git_user="ci",
@@ -1312,18 +1318,18 @@ class RepositoryDatasetTest(RepositoryCommonTest):
             for file in os.listdir(DATASET_FIXTURE):
                 shutil.copyfile(pathlib.Path(DATASET_FIXTURE) / file, file)
 
-        shutil.rmtree(f"{WORKING_DATASET_DIR}/{REPO_NAME}")
+        shutil.rmtree(f"{WORKING_DATASET_DIR}/{self.REPO_NAME}")
 
         Repository(
-            f"{WORKING_DATASET_DIR}/{REPO_NAME}",
-            clone_from=f"{USER}/{REPO_NAME}",
+            f"{WORKING_DATASET_DIR}/{self.REPO_NAME}",
+            clone_from=f"{USER}/{self.REPO_NAME}",
             use_auth_token=self._token,
             repo_type="dataset",
             git_user="ci",
             git_email="ci@dummy.com",
         )
 
-        files = os.listdir(f"{WORKING_DATASET_DIR}/{REPO_NAME}")
+        files = os.listdir(f"{WORKING_DATASET_DIR}/{self.REPO_NAME}")
         self.assertTrue("some_text.txt" in files)
         self.assertTrue("test.py" in files)
 
@@ -1331,8 +1337,8 @@ class RepositoryDatasetTest(RepositoryCommonTest):
         self.assertRaises(
             OSError,
             Repository,
-            f"{WORKING_DATASET_DIR}/{REPO_NAME}",
-            clone_from=REPO_NAME,
+            f"{WORKING_DATASET_DIR}/{self.REPO_NAME}",
+            clone_from=self.REPO_NAME,
             repo_type="dataset",
             use_auth_token=self._token,
             git_user="ci",
@@ -1342,8 +1348,8 @@ class RepositoryDatasetTest(RepositoryCommonTest):
     def test_clone_with_repo_name_user_and_no_auth_token(self):
         # Create repo
         Repository(
-            f"{WORKING_DATASET_DIR}/{REPO_NAME}",
-            clone_from=f"{USER}/{REPO_NAME}",
+            f"{WORKING_DATASET_DIR}/{self.REPO_NAME}",
+            clone_from=f"{USER}/{self.REPO_NAME}",
             repo_type="dataset",
             use_auth_token=self._token,
             git_user="ci",
@@ -1352,8 +1358,8 @@ class RepositoryDatasetTest(RepositoryCommonTest):
 
         # Instantiate it without token
         Repository(
-            f"{WORKING_DATASET_DIR}/{REPO_NAME}",
-            clone_from=f"{USER}/{REPO_NAME}",
+            f"{WORKING_DATASET_DIR}/{self.REPO_NAME}",
+            clone_from=f"{USER}/{self.REPO_NAME}",
             repo_type="dataset",
             git_user="ci",
             git_email="ci@dummy.com",
@@ -1362,8 +1368,8 @@ class RepositoryDatasetTest(RepositoryCommonTest):
     def test_clone_with_repo_name_org_and_no_auth_token(self):
         # Create repo
         Repository(
-            f"{WORKING_DATASET_DIR}/{REPO_NAME}",
-            clone_from=f"valid_org/{REPO_NAME}",
+            f"{WORKING_DATASET_DIR}/{self.REPO_NAME}",
+            clone_from=f"valid_org/{self.REPO_NAME}",
             repo_type="dataset",
             use_auth_token=self._token,
             git_user="ci",
@@ -1372,8 +1378,8 @@ class RepositoryDatasetTest(RepositoryCommonTest):
 
         # Instantiate it without token
         Repository(
-            f"{WORKING_DATASET_DIR}/{REPO_NAME}",
-            clone_from=f"valid_org/{REPO_NAME}",
+            f"{WORKING_DATASET_DIR}/{self.REPO_NAME}",
+            clone_from=f"valid_org/{self.REPO_NAME}",
             repo_type="dataset",
             git_user="ci",
             git_email="ci@dummy.com",
