@@ -129,17 +129,23 @@ class RepocardTest(unittest.TestCase):
         filepath = Path(REPOCARD_DIR) / filename
         filepath.write_text(ROUND_TRIP_MODELCARD_CASE)
         metadata = metadata_load(filepath)
-        self.assertDictEqual({
-            "language": "no",
-            "datasets": "CLUECorpusSmall",
-            "widget": [{ "text": "北京是[MASK]国的首都。" }],
-        }, metadata)
+        self.assertDictEqual(
+            {
+                "language": "no",
+                "datasets": "CLUECorpusSmall",
+                "widget": [{"text": "北京是[MASK]国的首都。"}],
+            },
+            metadata,
+        )
         metadata_save(filepath, metadata)
         content = filepath.read_text()
         self.assertEqual(content, ROUND_TRIP_MODELCARD_CASE)
         metadata = metadata_load(filepath)
-        self.assertDictEqual({
-            "language": "no",
-            "datasets": "CLUECorpusSmall",
-            "widget": [{ "text": "北京是[MASK]国的首都。" }],
-        }, metadata)
+        self.assertDictEqual(
+            {
+                "language": "no",
+                "datasets": "CLUECorpusSmall",
+                "widget": [{"text": "北京是[MASK]国的首都。"}],
+            },
+            metadata,
+        )
