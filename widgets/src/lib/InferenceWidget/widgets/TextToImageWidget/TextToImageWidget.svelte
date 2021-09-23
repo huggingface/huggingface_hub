@@ -122,7 +122,7 @@
 	</svelte:fragment>
 	<svelte:fragment slot="bottom">
 		{#if output.length}
-			<div class="flex justify-center mt-4">
+			<div class="flex justify-center mt-4 bg-gray-50">
 				<img class="max-w-sm object-contain" src={output} alt="" />
 			</div>
 		{/if}
