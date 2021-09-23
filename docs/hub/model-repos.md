@@ -180,3 +180,23 @@ SIL Open Font License 1.1	| `ofl-1.1`
 University of Illinois/NCSA Open Source License	| `ncsa`
 The Unlicense	| `unlicense`
 zLib License	| `zlib`
+
+### How can I fork a repository with LFS pointers ?
+
+With "repoA" as the original repository forked in "repoB" as your repository, follow this procedure in order not to break LFS files while rebasing your fork "repoB" with "repoA". If you don't need to rebase, ignore the `git checkout -b temp repoA/main` and `rebase` part, just use the `git lfs *` parts.
+```
+git lfs clone https://huggingface.co/me/repoB.git
+cd repoB
+git lfs install --skip-smudge --local # affects only this clone
+git remote add repoA https://huggingface.co/friend/repoA.git
+git fetch repoA
+git checkout -b temp repoA/main
+git rebase main
+
+git lfs fetch --all repoA
+git lfs checkout
+git push origin temp
+
+git lfs push --all origin temp
+git lfs install --force --local
+```
