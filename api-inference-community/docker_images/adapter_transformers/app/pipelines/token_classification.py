@@ -1,7 +1,7 @@
 from typing import Any, Dict, List
+import numpy as np
 
 from app.pipelines import Pipeline
-from transformers import AutoModelWithHeads, AutoTokenizer, get_adapter_info
 from transformers import TokenClassificationPipeline as TransformersTokenClassificationPipeline
 
 
@@ -10,14 +10,7 @@ class TokenClassificationPipeline(Pipeline):
         self,
         adapter_id: str,
     ):
-        adapter_info = get_adapter_info(adapter_id, source="hf")
-        if adapter_info is None:
-            raise ValueError(f"Adapter with id '{adapter_id}' not available.")
-
-        tokenizer = AutoTokenizer.from_pretrained(adapter_info.model_name)
-        model = AutoModelWithHeads.from_pretrained(adapter_info.model_name)
-        model.load_adapter(adapter_id, source="hf", set_active=True)
-        self.pipeline = TransformersTokenClassificationPipeline(model, tokenizer)
+        self.pipeline = self._load_pipeline_instance(TransformersTokenClassificationPipeline, adapter_id)
 
     def __call__(self, inputs: str) -> List[Dict[str, Any]]:
         """
@@ -32,4 +25,14 @@ class TokenClassificationPipeline(Pipeline):
                 - "end": the ending offset within `input` leading to `answer`. context[start:stop] === word
                 - "score": A score between 0 and 1 describing how confident the model is for this entity.
         """
-        self.pipeline(inputs)
+        outputs = self.pipeline(inputs)
+        # convert all numpy types to plain Python floats
+        for output in outputs:
+            # remove & rename keys
+            output.pop("index")
+            entity = output.pop("entity")
+            for k, v in output.items():
+                if isinstance(v, np.generic):
+                    output[k] = v.item()
+            output["entity_group"] = entity
+        return outputs
