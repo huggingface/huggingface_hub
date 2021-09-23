@@ -1,4 +1,4 @@
-import type { ModelData } from '$lib/interfaces/Types';
+import type { ModelData } from '../../interfaces/Types';
 import { randomItem, parseJSON, } from './ViewUtils';
 import type { LoadingStatus } from './types';
 
@@ -12,7 +12,7 @@ export function getSearchParams(keys: string[]): string[] {
 
 export function getDemoInputs(model: ModelData, keys: (number | string)[]): any[] {
 	const widgetData = Array.isArray(model.widgetData) ? model.widgetData : [];
-	const randomEntry = randomItem(widgetData) ?? {};
+	const randomEntry = (randomItem(widgetData) ?? {}) as any;
 	return keys.map((key) => {
 		const value = (randomEntry[key])
 			? randomEntry[key]
