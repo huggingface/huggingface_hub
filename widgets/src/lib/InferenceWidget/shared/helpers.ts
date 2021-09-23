@@ -12,7 +12,7 @@ export function getSearchParams(keys: string[]): string[] {
 
 export function getDemoInputs(model: ModelData, keys: (number | string)[]): any[] {
 	const widgetData = Array.isArray(model.widgetData) ? model.widgetData : [];
-	const randomEntry = randomItem(widgetData) ?? {};
+	const randomEntry = (randomItem(widgetData) ?? {}) as any;
 	return keys.map((key) => {
 		const value = (randomEntry[key])
 			? randomEntry[key]
