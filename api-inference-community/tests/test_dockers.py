@@ -194,6 +194,48 @@ class DockerImageTests(unittest.TestCase):
     def test_generic(self):
         self.framework_docker_test(
             "generic",
+            "audio-to-audio",
+            "osanseviero/ConvTasNet_Libri1Mix_enhsingle_16k",
+        )
+
+        self.framework_docker_test(
+            "generic",
+            "automatic-speech-recognition",
+            "osanseviero/pyctcdecode_asr",
+        )
+
+        self.framework_docker_test(
+            "generic",
+            "feature-extraction",
+            "osanseviero/fasttext_english",
+        )
+
+        self.framework_docker_test(
+            "generic",
+            "image-classification",
+            "osanseviero/fastai_cat_vs_dog",
+        )
+
+        self.framework_docker_test(
+            "generic",
+            "structured-data-classification",
+            "osanseviero/wine-quality",
+        )
+
+        self.framework_docker_test(
+            "generic",
+            "text-classification",
+            "osanseviero/fasttext_nearest",
+        )
+
+        self.framework_docker_test(
+            "generic",
+            "text-classification",
+            "osanseviero/fasttext_nearest",
+        )
+
+        self.framework_docker_test(
+            "generic",
             "token-classification",
             "osanseviero/en_core_web_sm",
         )
