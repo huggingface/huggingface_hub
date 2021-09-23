@@ -1,7 +1,9 @@
 from typing import Dict, List
 
 from app.pipelines import Pipeline
-from transformers import TextClassificationPipeline as TransformersClassificationPipeline
+from transformers import (
+    TextClassificationPipeline as TransformersClassificationPipeline,
+)
 
 
 class TextClassificationPipeline(Pipeline):
@@ -9,7 +11,9 @@ class TextClassificationPipeline(Pipeline):
         self,
         adapter_id: str,
     ):
-        self.pipeline = self._load_pipeline_instance(TransformersClassificationPipeline, adapter_id)
+        self.pipeline = self._load_pipeline_instance(
+            TransformersClassificationPipeline, adapter_id
+        )
 
     def __call__(self, inputs: str) -> List[Dict[str, float]]:
         """

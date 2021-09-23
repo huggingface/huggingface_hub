@@ -1,8 +1,10 @@
 from typing import Any, Dict, List
-import numpy as np
 
+import numpy as np
 from app.pipelines import Pipeline
-from transformers import TokenClassificationPipeline as TransformersTokenClassificationPipeline
+from transformers import (
+    TokenClassificationPipeline as TransformersTokenClassificationPipeline,
+)
 
 
 class TokenClassificationPipeline(Pipeline):
@@ -10,7 +12,9 @@ class TokenClassificationPipeline(Pipeline):
         self,
         adapter_id: str,
     ):
-        self.pipeline = self._load_pipeline_instance(TransformersTokenClassificationPipeline, adapter_id)
+        self.pipeline = self._load_pipeline_instance(
+            TransformersTokenClassificationPipeline, adapter_id
+        )
 
     def __call__(self, inputs: str) -> List[Dict[str, Any]]:
         """
