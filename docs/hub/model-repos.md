@@ -183,7 +183,9 @@ zLib License	| `zlib`
 
 ### How can I fork a repository with LFS pointers ?
 
-With "repoA" as the original repository forked in "repoB" as your repository, follow this procedure in order not to break LFS files while rebasing your fork "repoB" with "repoA". If you don't need to rebase, ignore the `git checkout -b temp repoA/main` and `rebase` part, just use the `git lfs *` parts.
+When you want to fork a repository with LFS pointers, you need to be careful you don’t break the LFS files when you rebase your fork.
+
+For example, say you have an original repository, **repoA**, and it’s fork, **repoB**. Here is how you can safely fork and rebase **repoB** with **repoA** without breaking anything:
 ```
 git lfs clone https://huggingface.co/me/repoB.git
 cd repoB
