@@ -190,7 +190,8 @@ cd repoB
 git lfs install --skip-smudge --local # affects only this clone
 git remote add repoA https://huggingface.co/friend/repoA.git
 git fetch repoA
-git checkout -b temp repoA/main
+git checkout -b temp repoA/main # ignore if you don't need to rebase
+git rebase main # ignore if you don't need to rebase
 git rebase main
 
 git lfs fetch --all repoA
