@@ -142,6 +142,29 @@ $$
 
 $$ E=mc^2 $$
 
+
+### How can I fork a repository with LFS pointers ?
+
+When you want to fork a repository with LFS pointers, you need to be careful you don’t break the LFS files when you rebase your fork.
+
+For example, say you have an original repository, **repoA**, and it’s fork, **repoB**. Here is how you can safely fork and rebase **repoB** with **repoA** without breaking anything:
+```
+git lfs clone https://huggingface.co/me/repoB.git
+cd repoB
+git lfs install --skip-smudge --local # affects only this clone
+git remote add repoA https://huggingface.co/friend/repoA.git
+git fetch repoA
+git checkout -b temp repoA/main # ignore if you don't need to rebase
+git rebase main # ignore if you don't need to rebase
+
+git lfs fetch --all repoA
+git lfs checkout
+git push origin temp
+
+git lfs push --all origin temp
+git lfs install --force --local
+```
+
 ## List of license identifiers
 
 Fullname | License identifier (to use in model card)
@@ -181,25 +204,3 @@ University of Illinois/NCSA Open Source License	| `ncsa`
 The Unlicense	| `unlicense`
 zLib License	| `zlib`
 
-### How can I fork a repository with LFS pointers ?
-
-When you want to fork a repository with LFS pointers, you need to be careful you don’t break the LFS files when you rebase your fork.
-
-For example, say you have an original repository, **repoA**, and it’s fork, **repoB**. Here is how you can safely fork and rebase **repoB** with **repoA** without breaking anything:
-```
-git lfs clone https://huggingface.co/me/repoB.git
-cd repoB
-git lfs install --skip-smudge --local # affects only this clone
-git remote add repoA https://huggingface.co/friend/repoA.git
-git fetch repoA
-git checkout -b temp repoA/main # ignore if you don't need to rebase
-git rebase main # ignore if you don't need to rebase
-git rebase main
-
-git lfs fetch --all repoA
-git lfs checkout
-git push origin temp
-
-git lfs push --all origin temp
-git lfs install --force --local
-```
