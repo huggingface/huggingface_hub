@@ -118,6 +118,11 @@ class DockerImageTests(unittest.TestCase):
             "text-classification",
             "explosion/en_textcat_goemotions",
         )
+        self.framework_docker_test(
+            "spacy",
+            "sentence-similarity",
+            "spacy/en_core_web_lg",
+        )
         self.framework_invalid_test("spacy")
 
     def test_speechbrain(self):

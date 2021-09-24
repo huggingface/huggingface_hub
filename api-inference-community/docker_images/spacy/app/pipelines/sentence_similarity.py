@@ -39,7 +39,12 @@ class SentenceSimilarityPipeline(Pipeline):
         Return:
             A :obj:`list` of floats: Some similarity measure between `source_sentence` and each sentence from `sentences`.
         """
-        # IMPLEMENT_THIS
-        raise NotImplementedError(
-            "Please implement SentenceSimilarityPipeline __call__ function"
-        )
+        source_sentence = inputs['source_sentence']
+        source_doc = self.model(source_sentence)
+
+        similarities = []
+        for sentence in inputs['sentences']:
+            search_doc = self.model(sentence)
+            similarities.append(source_doc.similarity(search_doc))
+
+        return similarities    

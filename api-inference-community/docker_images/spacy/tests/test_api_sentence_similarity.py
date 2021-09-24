@@ -22,6 +22,12 @@ class SentenceSimilarityTestCase(TestCase):
 
         self.app = app
 
+    @classmethod
+    def setUpClass(cls):
+        from app.main import get_pipeline
+
+        get_pipeline.cache_clear()
+
     def tearDown(self):
         if self.old_model_id is not None:
             os.environ["MODEL_ID"] = self.old_model_id
@@ -44,7 +50,6 @@ class SentenceSimilarityTestCase(TestCase):
 
         with TestClient(self.app) as client:
             response = client.post("/", json={"inputs": inputs})
-
         self.assertEqual(
             response.status_code,
             200,

@@ -8,6 +8,7 @@ from app.pipelines import (
     Pipeline,
     TextClassificationPipeline,
     TokenClassificationPipeline,
+    SentenceSimilarityPipeline,
 )
 from starlette.applications import Starlette
 from starlette.middleware import Middleware
@@ -30,6 +31,7 @@ logger = logging.getLogger(__name__)
 # - translation
 # - summarization
 # - automatic-speech-recognition
+# - sentence-similarity
 # - ...
 # For instance
 # from app.pipelines import AutomaticSpeechRecognitionPipeline
@@ -39,6 +41,7 @@ logger = logging.getLogger(__name__)
 ALLOWED_TASKS: Dict[str, Type[Pipeline]] = {
     "token-classification": TokenClassificationPipeline,
     "text-classification": TextClassificationPipeline,
+    "sentence-similarity": SentenceSimilarityPipeline
 }
 
 
