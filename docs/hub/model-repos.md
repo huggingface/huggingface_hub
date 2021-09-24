@@ -145,9 +145,11 @@ $$ E=mc^2 $$
 
 ### How can I fork a repository with LFS pointers ?
 
-When you want to fork a repository with LFS pointers, you need to be careful you don’t break the LFS files when you rebase your fork.
+When you want to fork a repository with LFS files, you need to be careful to not break the LFS pointers.
+Forking can take time depending on your bandwidth, because you will have to fetch an re-upload all the LFS files.
 
-For example, say you have an original repository, **repoA**, and it’s fork, **repoB**. Here is how you can safely fork and rebase **repoB** with **repoA** without breaking anything:
+For example, say you have an upstreal repository, **repoA**, and your own fork, **repoB**. 
+Here is how you can safely fork (and rebase when necessary) **repoB** with **repoA** without breaking anything:
 ```
 git lfs clone https://huggingface.co/me/repoB.git
 cd repoB
@@ -157,12 +159,12 @@ git fetch repoA
 git checkout -b temp repoA/main # ignore if you don't need to rebase
 git rebase main # ignore if you don't need to rebase
 
-git lfs fetch --all repoA
+git lfs fetch --all repoA # this can take time depending on your download bandwidth
 git lfs checkout
 git push origin temp
 
-git lfs push --all origin temp
-git lfs install --force --local
+git lfs push --all origin temp # this can take time depending on your upload bandwidth
+git lfs install --force --local # this reinstalls the LFS hooks
 ```
 
 ## List of license identifiers
