@@ -5,13 +5,13 @@ The Hugging Face Hub aims to facilitate the sharing of machine learning models, 
 Integrating the Hub with your library provides many benefits, including:
 
 - Free model hosting for you and your users.
-- Built-in file versioning - even for very large files - made possible by [Git-LFS](https://git-lfs.github.com/).
-- All public models are powered by our lightning fast [Inference API](https://api-inference.huggingface.co/docs/python/html/index.html).
-- In-browser widgets allow users to directly interact with your hosted models.
+- Built-in file versioning - even for huge files - made possible by [Git-LFS](https://git-lfs.github.com/).
+- All public models are powered by our lightning-fast [Inference API](https://api-inference.huggingface.co/docs/python/html/index.html).
+- In-browser widgets allow users to interact with your hosted models directly.
 
-This tutorial will help you integrate the Hub into your own library, so your users can benefit from all the features offered by the Hub.
+This tutorial will help you integrate the Hub into your library, so your users can benefit from all the features offered by the Hub.
 
-Before you begin, we recommend you create a [Hugging Face account](https://huggingface.co/join). This will create a namespace from which you can manage your repositories and files. 
+Before you begin, we recommend you create a [Hugging Face account](https://huggingface.co/join) from which you can manage your repositories and files. 
 
 ## Installation
 
@@ -43,7 +43,7 @@ Before you begin, we recommend you create a [Hugging Face account](https://huggi
 
 Integration allows users to download your hosted files directly from the Hub using your library. 
 
-Use the `hf_hub_download` function to retrieve a URL and download files from your repository. The downloaded files are stored in your cache: `~/.cache/huggingface/hub`. You don't have to redownload the file the next time you use it, and for larger files, this can save a lot of time. Furthermore, if the repository is updated with a new version of the file, `huggingface_hub` will automatically download the new version and store it in the cache for you. Users don't have to worry about updating their files.
+Use the `hf_hub_download` function to retrieve a URL and download files from your repository. Downloaded files are stored in your cache: `~/.cache/huggingface/hub`. You don't have to redownload the file the next time you use it, and for larger files, this can save a lot of time. Furthermore, if the repository is updated with a new version of the file, `huggingface_hub` will automatically download the latest version and store it in the cache for you. Users don't have to worry about updating their files.
 
 For example, download the `config.json` file from the [lysandre/arxiv-nlp](https://huggingface.co/lysandre/arxiv-nlp) repository:
 
@@ -52,14 +52,16 @@ For example, download the `config.json` file from the [lysandre/arxiv-nlp](https
 >>> hf_hub_download(repo_id="lysandre/arxiv-nlp", filename="config.json")
 ```
 
-Download a specific version of the file by specifying the `revision` parameter, which can be a branch name, tag or commit hash. The commit hash must be a full-length hash instead of the shorter 7-character commit hash.
+Download a specific version of the file by specifying the `revision` parameter. The `revision` parameter can be a branch name, tag, or commit hash. 
+
+The commit hash must be a full-length hash instead of the shorter 7-character commit hash:
 
 ```python
 >>> from huggingface_hub import hf_hub_download
 >>> hf_hub_download(repo_id="lysandre/arxiv-nlp", filename="config.json", revision="877b84a8f93f2d619faa2a6e514a32beef88ab0a")
 ```
 
-Change where a file is cached with the `cache_dir` parameter:
+Use the `cache_dir` parameter to change where a file is stored:
 
 ```python
 >>> from huggingface_hub import hf_hub_download
@@ -85,7 +87,7 @@ import ${nameWithoutNamespace(model.modelId)}
 nlp = ${nameWithoutNamespace(model.modelId)}.load()`;
 ```
 
-This will also add a tag to your model so users can easily identify models from your library.
+This will also add a tag to your model so users can quickly identify models from your library.
 
 ![/docs/assets/hub/libraries-tags.png](/docs/assets/hub/libraries-tags.png)
 
@@ -103,12 +105,11 @@ Begin by instantiating the `HfApi` class:
 >>> api = HfApi()
 ```
 
-You will also need to retrieve your Hugging Face API token in order to create a repository and upload files to it. Retrieve your token with the `HfFolder` method:
+You will also need to retrieve your Hugging Face API token to create a repository and upload files to it. Retrieve your token with the `HfFolder` method:
 
 ```python
 >>> from huggingface_hub import HfFolder
->>> folder = HfFolder()
->>> token = folder.get_token()
+>>> token = HfFolder().get_token()
 ```
 
 ### `create_repo`
@@ -145,20 +146,20 @@ For example:
 'https://huggingface.co/lysandre/test-model/blob/main/README.md'
 ```
 
-Once again, if you check your Hugging Face account, you should now see the file inside your repository.
+Once again, if you check your Hugging Face account, you should see the file inside your repository.
 
-Lastly, it is important to add a model card so users understand how to use your model. See [here](/docs/hub/model-repos#what-are-model-cards-and-why-are-they-useful) for more details about how to create a model card.
+Lastly, it is important to add a model card, so users understand how to use your model. See [here](/docs/hub/model-repos#what-are-model-cards-and-why-are-they-useful) for more details about how to create a model card.
 
 ## Set up the Inference API
 
-Models uploaded to the Hub through your library are powered by our Inference API. The Inference API enables faster inference speeds compared to other out-of-the-box solutions.
+Our Inference API powers models uploaded to the Hub through your library. The Inference API enables faster inference speeds compared to other out-of-the-box solutions.
 
-All third-party libraries are Dockerized so you can install the dependencies you'll need for your library to work correctly. Add your library to the existing Docker images by navigating to the [Docker images folder](https://github.com/huggingface/huggingface_hub/tree/main/api-inference-community/docker_images).
+All third-party libraries are Dockerized, so you can install the dependencies you'll need for your library to work correctly. Add your library to the existing Docker images by navigating to the [Docker images folder](https://github.com/huggingface/huggingface_hub/tree/main/api-inference-community/docker_images).
 
 1. Copy the `common` folder and rename it with the name of your library (e.g. `docker/common` to `docker/your-awesome-library`).
 2. There are four files you need to edit:
     * List the packages required for your library to work in `requirements.txt`.
-    * Update `app/main.py` with the tasks supported by your model (see [here](https://github.com/huggingface/huggingface_hub/tree/main/api-inference-community) for a full list of available tasks). Look out for the `IMPLEMENT_THIS` flag to add your supported task.
+    * Update `app/main.py` with the tasks supported by your model (see [here](https://github.com/huggingface/huggingface_hub/tree/main/api-inference-community) for a complete list of available tasks). Look out for the `IMPLEMENT_THIS` flag to add your supported task.
 
        ```python
        ALLOWED_TASKS: Dict[str, Type[Pipeline]] = {

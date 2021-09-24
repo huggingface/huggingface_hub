@@ -1,22 +1,26 @@
 # How to integrate upstream methods in your library
 
-Now that you've seen more downstream methods for downloading files, it is time to introduce you to additional *upstream* methods. Upstream methods refers to methods that publish files to the Hub from your library. This guide will show you how to:
+Now that you've seen more downstream methods for downloading files, it is time to introduce you to additional *upstream* methods. Upstream methods refer to methods that publish files to the Hub from your library. This guide will show you how to:
 
 * Use the `HfApi` class to manage a repository.
 * Use the `Repository` class to handle files and version control a repository with Git-like commands.
 
 ## `HfApi`
 
-The `HfApi` class is a high level class that wraps around HTTP requests. There are many useful tasks you can accomplish with the `HfApi` class including: 
+The `HfApi` class is a high-level class that wraps around HTTP requests. There are many valuable tasks you can accomplish with the `HfApi` class, including: 
 
-- List and filter models.
+- List and filter models and datasets.
 - Inspect model or dataset metadata.
 - Delete a repository.
 - Change the visibility of a repository.
 
 ### List and filter
 
-It can be helpful for users to see a list of available models, and filter them according to a specific language or framework. This can be especially useful for library and organization owners who want to view all the models they own. Use the `list_models` function with the `filter` parameter to search for a model of interest:
+It can be helpful for users to see a list of available models and filter them according to a specific language or framework. This can be especially useful for library and organization owners who want to view all their models. Use the `list_models` function with the `filter` parameter to search for specific models.
+
+You can view all the available filters on the Hugging Face Hub website.
+
+![/docs/assets/hub/hub_filters.png](/docs/assets/hub/hub_filters.png)
 
 ```python
 >>> from huggingface_hub import HfApi
@@ -66,28 +70,41 @@ Get important information about a model or dataset as shown in the following:
 >>> api.dataset_info("glue")
 ```
 
-### Delete a repository
+### Create a repository
 
-Delete a repository with `delete_repo`. Make sure you are certain you want to delete a repository because this is an irreversible process!
+Create a repository with `create_repo` and give it a name with the `name` parameter:
 
 1. Get your Hugging Face API token:
 
    ```python
    >>> from huggingface_hub import HfFolder
-   >>> folder = HfFolder()
-   >>> token = folder.get_token()
+   >>> token = HfFolder().get_token()
    ```
-
-2. Pass your token and the name of the repository to `delete_repo`:
+2. Use `create_repo` to create your repository:
 
    ```python
-   >>> api.delete_repo(token=YOUR_HF_API_TOKEN, name=REPO_NAME)
+   >>> from huggingface_hub import HfApi
+   >>> api = HfApi()
+   >>> api.create_repo(token=token, name="test-model")
+   'https://huggingface.co/lysandre/test-model'
    ```
 
-Delete a dataset repository by adding the `type` parameter:
+### Delete a repository
+
+Delete a repository with `delete_repo`. Make sure you are certain you want to delete a repository because this is an irreversible process!
+
+Pass your token and the name of the repository to `delete_repo`:
 
 ```python
->>> api.delete_repo(token=YOUR_HF_API_TOKEN, name=REPO_NAME, type="dataset")
+>>> from huggingface_hub import HfApi
+>>> api = HfApi()
+>>> api.delete_repo(token=token, name=REPO_NAME)
+```
+
+Delete a dataset repository by adding the `repo_type` parameter:
+
+```python
+>>> api.delete_repo(token=token, name=REPO_NAME, repo_type="dataset")
 ```
 
 ### Change repository visibility
@@ -95,16 +112,18 @@ Delete a dataset repository by adding the `type` parameter:
 A repository can be public or private. A private repository is only visible to you or members of your organization. Change a repository to private as shown in the following:
 
 ```python
->>> api.update_repo_visibility(token=YOUR_HF_API_TOKEN, name=REPO_NAME, private=True)
+>>> from huggingface_hub import HfApi
+>>> api = HfApi()
+>>> api.update_repo_visibility(token=token, name=REPO_NAME, private=True)
 ```
 
 ## `Repository` 
 
-The `Repository` class allows you to push models or other repositories to the Hub. `Repository` is a wrapper over Git and Git-LFS methods, so make sure you have Git-LFS installed (see [here](https://git-lfs.github.com/) for installation instructions) and set up before you begin. If you are already familiar with common Git commands, then the `Repository` class should feel familiar. 
+The `Repository` class allows you to push models or other repositories to the Hub. `Repository` is a wrapper over Git and Git-LFS methods, so make sure you have Git-LFS installed (see [here](https://git-lfs.github.com/) for installation instructions) and set up before you begin. The `Repository` class should feel familiar if you are already familiar with common Git commands. 
 
 ### Clone a repository
 
-The `clone_from` parameter clones a repository from a Hugging Face model ID:
+The `clone_from` parameter clones a repository from a Hugging Face model ID to a directory specified by the `local_dir` argument:
 
 ```python
 >>> repo = Repository(local_dir="w2v2", clone_from="facebook/wav2vec2-large-960h-lv60")
@@ -148,7 +167,7 @@ If you want to commit or push to a cloned repository that belongs to you or your
    >>> repo = Repository(local_dir="my-model", clone_from="<user>/<model_id>")
    ```
 
-You can also attribute a Git username and email to a cloned repository by specifiying the `git_user` and `git_email` parameters. When users commit to that repository, Git will be aware of the commit author.
+You can also attribute a Git username and email to a cloned repository by specifying the `git_user` and `git_email` parameters. When users commit to that repository, Git will be aware of the commit author.
 
 ```python
 >>> repo = Repository(
@@ -224,7 +243,7 @@ You can check the status of your push with the `command_queue` property:
 # -> Non-zero code indicates the error code if there was an error.
 ```
 
-When `blocking=False`, commands are tracked and your script will only exit when all pushes are completed, even if other errors occur in your script. Some additional useful commands for checking the status of a push include:
+When `blocking=False`, commands are tracked, and your script will only exit when all pushes are completed, even if other errors occur in your script. Some additional useful commands for checking the status of a push include:
 
 ```python
 # Inspect an error.
@@ -239,7 +258,7 @@ When `blocking=False`, commands are tracked and your script will only exit when 
 
 ### `push_to_hub`
 
-The `Repository` class also has a `push_to_hub` method that will add files to commit, commit the files, and push them to a repository. Unlike the `commit` context manager, `push_to_hub` requires you to pull from a repository first, save the files, and then call `push_to_hub`.
+The `Repository` class also has a `push_to_hub` method to add files to commit, commit the files, and push them to a repository. Unlike the `commit` context manager, `push_to_hub` requires you to pull from a repository first, save the files, and then call `push_to_hub`.
 
 ```python
 >>> repo.git_pull()
@@ -248,10 +267,10 @@ The `Repository` class also has a `push_to_hub` method that will add files to co
 
 ## Upload very large files
 
-For very large files (>5GB), you need to install a custom transfer agent for Git-LFS:
+For huge files (>5GB), you need to install a custom transfer agent for Git-LFS:
 
 ```bash
 huggingface-cli lfs-enable-largefiles
 ```
 
-This should be installed for each model repository that contains a model file. Once installed, you are now able to push files larger than 5GB.
+You should install this for each model repository that contains a model file. Once installed, you are now able to push files larger than 5GB.

@@ -1,6 +1,6 @@
 # How to integrate the Inference API in your library
 
-The Inference API provides faster inference for your hosted models. Integration with the Hub allows you to access the Inference API programatically. This guide will show you how to make calls to the Inference API from your library. For more detailed information, refer to the [Inference API documentation](https://api-inference.huggingface.co/docs/python/html/index.html).
+The Inference API provides fast inference for your hosted models. Integration with the Hub allows you to access the Inference API programmatically. This guide will show you how to make calls to the Inference API from your library. For more detailed information, refer to the [Inference API documentation](https://api-inference.huggingface.co/docs/python/html/index.html).
 
 Begin by creating an instance of the `InferenceAPI` with a specific model repository ID:
 
@@ -9,7 +9,7 @@ Begin by creating an instance of the `InferenceAPI` with a specific model reposi
 >>> inference = InferenceApi(repo_id="bert-base-uncased", token=API_TOKEN)
 ```
 
-The pipeline is determined from the metadata in the model card and configuration files. For example, when you use the [bert-base-uncased](https://huggingface.co/bert-base-uncased) model, the Inference API is able to automatically infer this model should be used for a `fill-mask` task.
+The pipeline is determined from the metadata in the model card and configuration files. For example, when using the [bert-base-uncased](https://huggingface.co/bert-base-uncased) model, the Inference API can automatically infer that this model should be used for a `fill-mask` task.
 
 ```python
 >>> from huggingface_hub.inference_api import InferenceApi
@@ -27,7 +27,7 @@ Each task requires a different type of input. A `question-answering` task expect
 >>> {'score': 0.94622403383255, 'start': 25, 'end': 43, 'answer': 'Brooklyn, New York'}
 ```
 
-Some tasks may require additional parameters (see [here](https://api-inference.huggingface.co/docs/python/html/detailed_parameters.html) for a detailed list of all parameters for each task). As an example, for `zero-shot-classification` tasks, the model needs candidate labels which can be supplied with `params`:
+Some tasks may require additional parameters (see [here](https://api-inference.huggingface.co/docs/python/html/detailed_parameters.html) for a detailed list of all parameters for each task). As an example, for `zero-shot-classification` tasks, the model needs candidate labels that can be supplied to `params`:
 
 ```python
 >>> inference = InferenceApi(repo_id="typeform/distilbert-base-uncased-mnli", token=API_TOKEN)
