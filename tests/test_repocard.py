@@ -22,6 +22,17 @@ from huggingface_hub.repocard import metadata_load, metadata_save
 from .testing_utils import set_write_permission_and_retry
 
 
+ROUND_TRIP_MODELCARD_CASE = """
+---
+language: no
+datasets: CLUECorpusSmall
+widget:
+- text: 北京是[MASK]国的首都。
+---
+
+# Title
+"""
+
 DUMMY_MODELCARD = """
 
 Hi
@@ -51,6 +62,11 @@ DUMMY_MODELCARD_TARGET_NO_YAML = """---
 meaning_of_life: 42
 ---
 Hello
+"""
+
+DUMMY_NEW_MODELCARD_TARGET = """---
+meaning_of_life: 42
+---
 """
 
 DUMMY_MODELCARD_TARGET_NO_TAGS = """
@@ -94,9 +110,42 @@ class RepocardTest(unittest.TestCase):
         content = filepath.read_text()
         self.assertEqual(content, DUMMY_MODELCARD_TARGET_NO_YAML)
 
+    def test_metadata_save_new_file(self):
+        filename = "new_dummy_target.md"
+        filepath = Path(REPOCARD_DIR) / filename
+        metadata_save(filepath, {"meaning_of_life": 42})
+        content = filepath.read_text()
+        self.assertEqual(content, DUMMY_NEW_MODELCARD_TARGET)
+
     def test_no_metadata_returns_none(self):
         filename = "dummy_target_3.md"
         filepath = Path(REPOCARD_DIR) / filename
         filepath.write_text(DUMMY_MODELCARD_TARGET_NO_TAGS)
         data = metadata_load(filepath)
         self.assertEqual(data, None)
+
+    def test_metadata_roundtrip(self):
+        filename = "dummy_target.md"
+        filepath = Path(REPOCARD_DIR) / filename
+        filepath.write_text(ROUND_TRIP_MODELCARD_CASE)
+        metadata = metadata_load(filepath)
+        self.assertDictEqual(
+            {
+                "language": "no",
+                "datasets": "CLUECorpusSmall",
+                "widget": [{"text": "北京是[MASK]国的首都。"}],
+            },
+            metadata,
+        )
+        metadata_save(filepath, metadata)
+        content = filepath.read_text()
+        self.assertEqual(content, ROUND_TRIP_MODELCARD_CASE)
+        metadata = metadata_load(filepath)
+        self.assertDictEqual(
+            {
+                "language": "no",
+                "datasets": "CLUECorpusSmall",
+                "widget": [{"text": "北京是[MASK]国的首都。"}],
+            },
+            metadata,
+        )
