@@ -2,14 +2,13 @@ import json
 import os
 from unittest import TestCase, skipIf
 
-from app.main import ALLOWED_TASKS
 from starlette.testclient import TestClient
 from tests.test_api import TESTABLE_MODELS
 
 
 @skipIf(
-    "speech-segmentation" not in ALLOWED_TASKS,
-    "speech-segmentation not implemented",
+    "text-to-speech" not in TESTABLE_MODELS,
+    "text-to-speech not implemented",
 )
 class SpeechSegmentationTestCase(TestCase):
     def setUp(self):

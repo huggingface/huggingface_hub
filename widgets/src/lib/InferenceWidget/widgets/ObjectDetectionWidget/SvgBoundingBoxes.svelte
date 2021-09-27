@@ -1,10 +1,22 @@
+<!-- 
+for Tailwind:
+text-red-400
+text-green-400
+text-yellow-400
+text-blue-400
+text-orange-400
+text-purple-400
+text-cyan-400
+text-lime-400
+ -->
 <script>
 	import type { Box } from "../../shared/types";
-	// include .js ext so that `svelte-kit build` can find the module
-	import * as colors from "tailwindcss/colors.js";
+
+	import { afterUpdate } from "svelte";
 
 	type Rect = { x: number; y: number; width: number; height: number };
 
+	let containerEl: HTMLElement;
 	let imgEl: HTMLImageElement;
 	let wrapperHeight = 0;
 	let wrapperWidth = 0;
@@ -43,12 +55,16 @@
 	function getArea(rect: Rect): number {
 		return rect.width * rect.height;
 	}
+
+	afterUpdate(() => {
+		wrapperWidth = containerEl.clientWidth;
+		wrapperHeight = containerEl.clientHeight;
+	});
 </script>
 
 <div
 	class="relative top-0 left-0 inline-flex {classNames}"
-	bind:clientWidth={wrapperWidth}
-	bind:clientHeight={wrapperHeight}
+	bind:this={containerEl}
 >
 	<div class="flex justify-center max-w-sm">
 		<img
@@ -66,8 +82,7 @@
 	>
 		{#each boxes as { rect, color, index }}
 			<rect
-				class="transition duration-200 ease-in-out"
-				fill={colors[color][400]}
+				class="transition duration-200 ease-in-out text-{color}-400 stroke-current fill-current"
 				fill-opacity={highlightIndex === -1 || highlightIndex === index
 					? "0.1"
 					: "0.0"}
@@ -75,7 +90,6 @@
 					? "1"
 					: "0.0"}
 				{...rect}
-				stroke={colors[color][400]}
 				stroke-width="2"
 				on:mouseover={() => mouseover(index)}
 				on:mouseout={mouseout}

@@ -2,14 +2,13 @@ import json
 import os
 from unittest import TestCase, skipIf
 
-from app.main import ALLOWED_TASKS
 from parameterized import parameterized_class
 from starlette.testclient import TestClient
 from tests.test_api import TESTABLE_MODELS
 
 
 @skipIf(
-    "feature-extraction" not in ALLOWED_TASKS,
+    "feature-extraction" not in TESTABLE_MODELS,
     "feature-extraction not implemented",
 )
 @parameterized_class(

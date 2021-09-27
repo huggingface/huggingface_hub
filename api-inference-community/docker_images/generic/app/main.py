@@ -1,7 +1,6 @@
 import functools
 import logging
 import os
-from typing import Dict, Type
 
 from api_inference_community.routes import pipeline_route, status_ok
 from app.pipelines import Pipeline
@@ -18,24 +17,10 @@ MODEL_ID = os.getenv("MODEL_ID")
 logger = logging.getLogger(__name__)
 
 
-ALLOWED_TASKS: Dict[str, Type[Pipeline]] = {
-    "audio-to-audio": Pipeline,
-    "automatic-speech-recognition": Pipeline,
-    "feature-extraction": Pipeline,
-    "image-classification": Pipeline,
-    "structured-data-classification": Pipeline,
-    "text-to-image": Pipeline,
-    "token-classification": Pipeline,
-}
-
-
 @functools.lru_cache()
 def get_pipeline() -> Pipeline:
-    task = os.environ["TASK"]
     model_id = os.environ["MODEL_ID"]
-    if task not in ALLOWED_TASKS:
-        raise EnvironmentError(f"{task} is not a valid pipeline for model : {model_id}")
-    return ALLOWED_TASKS[task](model_id)
+    return Pipeline(model_id)
 
 
 routes = [
