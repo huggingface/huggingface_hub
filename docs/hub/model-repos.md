@@ -145,45 +145,43 @@ $$ E=mc^2 $$
 
 ### How can I fork a repository with LFS pointers ?
 
-When you want to fork a repository with LFS files, you need to be careful to not break the LFS pointers.
-Forking can take time depending on your bandwidth, because you will have to fetch an re-upload all the LFS files.
+When you want to fork a repository with LFS files, you cannot use the usual git way, and you need to be careful to not break the LFS pointers.
+Forking can take time depending on your bandwidth, because you will have to fetch an re-upload all the LFS files in your fork.
 
-For example, say you have an upstream repository, **repoA**, and you created your own fork on the hub which is **myfork** in this example. 
+For example, say you have an upstream repository, **upstream**, and you just created your own fork on the hub which is **myfork** in this example. Let's assume you want to fork **upstream** overriding totally **myfork**. 
 
-- Here'ss how you can safely fork  **myfork** with **repoA** without breaking anything:
+- Here's how you can safely fork the `main` branch of **upstream**:
 
 ```
 git lfs clone https://huggingface.co/me/myfork.git # a new repository made for your fork
 cd myfork
 git lfs install --skip-smudge --local # affects only this clone
-git remote add repoA https://huggingface.co/friend/repoA.git
-git fetch repoA
-git lfs fetch --all repoA # this can take time depending on your download bandwidth
-git lfs checkout
-git push origin main
-git lfs push --all origin main # this can take time depending on your upload bandwidth
+git remote add upstream https://huggingface.co/friend/upstream.git
+git fetch --all upstream
+git lfs fetch --all upstream # this can take time depending on your download bandwidth
+git reset --hard upstream/main
 git lfs install --force --local # this reinstalls the LFS hooks
 huggingface-cli lfs-enable-largefiles . # needed if some files are bigger than 5Gb
+git push --force origin main # this can take time depending on your upload bandwidth
 ```
 
-- Here's how you can safely rebase an exsiting **myfork** with **repoA** without breaking anything:
+Now you have your own fork !
+
+- Here's how you can safely rebase an existing **myfork** with **upstream** without breaking anything:
+
 ```
-git lfs clone https://huggingface.co/me/myfork.git
+git lfs clone https://huggingface.co/me/myfork.git # a new repository made for your fork
 cd myfork
 git lfs install --skip-smudge --local # affects only this clone
-git remote add repoA https://huggingface.co/friend/repoA.git
-git fetch repoA
-git checkout -b temp # ignore if you don't need to keep a copy of main
-git checkout main
-git rebase repoA/main # eventually create rebasing conflicts you will have to fix manually, follow git instructions
-
-git lfs fetch --all repoA # this can take time depending on your download bandwidth
-git lfs checkout
-git push origin main
-git lfs push --all origin main # this can take time depending on your upload bandwidth
+git remote add upstream https://huggingface.co/friend/upstream.git
+git fetch --all upstream
+git lfs fetch --all upstream # this can take time depending on your download bandwidth
+git rebase upstream/main # this could trigger some conflicts
 git lfs install --force --local # this reinstalls the LFS hooks
 huggingface-cli lfs-enable-largefiles . # needed if some files are bigger than 5Gb
+git push --force origin main # this can take time depending on your upload bandwidth
 ```
+
 
 ## List of license identifiers
 
