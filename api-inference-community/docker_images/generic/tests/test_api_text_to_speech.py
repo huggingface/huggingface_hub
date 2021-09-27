@@ -2,13 +2,12 @@ import os
 from unittest import TestCase, skipIf
 
 from api_inference_community.validation import ffmpeg_read
-from app.main import ALLOWED_TASKS
 from starlette.testclient import TestClient
 from tests.test_api import TESTABLE_MODELS
 
 
 @skipIf(
-    "text-to-speech" not in ALLOWED_TASKS,
+    "text-to-speech" not in TESTABLE_MODELS,
     "text-to-speech not implemented",
 )
 class TextToSpeechTestCase(TestCase):
