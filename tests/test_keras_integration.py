@@ -48,7 +48,6 @@ if is_tf_available():
     class DummyModel(tf.keras.Model, KerasModelHubMixin):
         def __init__(self, **kwargs):
             super().__init__()
-            self.config = kwargs.pop("config", None)
             self.l1 = tf.keras.layers.Dense(2, activation="relu")
             dummy_batch_size = input_dim = 2
             self.dummy_inputs = tf.ones([dummy_batch_size, input_dim])
@@ -126,7 +125,7 @@ class HubMixingTestKeras(unittest.TestCase):
         model = DummyModel.from_pretrained(
             f"tests/{WORKING_REPO_SUBDIR}/FROM_PRETRAINED"
         )
-        self.assertTrue(model.hf_config == {"num": 10, "act": "gelu_fast"})
+        self.assertTrue(model.config == {"num": 10, "act": "gelu_fast"})
 
     def test_abs_path_from_pretrained(self):
         model = DummyModel()
@@ -139,7 +138,7 @@ class HubMixingTestKeras(unittest.TestCase):
         model = DummyModel.from_pretrained(
             f"{WORKING_REPO_DIR}/{REPO_NAME}-FROM_PRETRAINED"
         )
-        self.assertDictEqual(model.hf_config, {"num": 10, "act": "gelu_fast"})
+        self.assertDictEqual(model.config, {"num": 10, "act": "gelu_fast"})
 
     def test_push_to_hub(self):
         model = DummyModel()
@@ -220,7 +219,7 @@ class HubKerasSequentialTest(HubMixingTestKeras):
         self.assertTrue(tf.reduce_all(tf.equal(new_model.weights[0], model.weights[0])))
 
         # Check saved configuration is what we expect
-        self.assertTrue(new_model.hf_config == {"num": 10, "act": "gelu_fast"})
+        self.assertTrue(new_model.config == {"num": 10, "act": "gelu_fast"})
 
     def test_abs_path_from_pretrained(self):
         model = self.model_init()
@@ -235,7 +234,7 @@ class HubKerasSequentialTest(HubMixingTestKeras):
             f"{WORKING_REPO_DIR}/{REPO_NAME}-FROM_PRETRAINED"
         )
         assert tf.reduce_all(tf.equal(new_model.weights[0], model.weights[0]))
-        self.assertTrue(new_model.hf_config == {"num": 10, "act": "gelu_fast"})
+        self.assertTrue(new_model.config == {"num": 10, "act": "gelu_fast"})
 
     def test_push_to_hub(self):
         model = self.model_init()

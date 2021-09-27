@@ -216,7 +216,7 @@ class KerasModelHubMixin(ModelHubMixin):
 
         model = tf.keras.models.load_model(storage_folder, **model_kwargs)
 
-        # For now, we add a new attribute, hf_config, to store the config loaded from the hub/a local dir.
-        model.hf_config = cfg
+        # For now, we add a new attribute, config, to store the config loaded from the hub/a local dir.
+        model.config = cfg
 
         return model
