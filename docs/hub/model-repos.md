@@ -163,6 +163,7 @@ git lfs checkout
 git push origin main
 git lfs push --all origin main # this can take time depending on your upload bandwidth
 git lfs install --force --local # this reinstalls the LFS hooks
+huggingface-cli lfs-enable-largefiles . # needed if some files are bigger than 5Gb
 ```
 
 - Here's how you can safely rebase an exsiting **myfork** with **repoA** without breaking anything:
@@ -181,6 +182,7 @@ git lfs checkout
 git push origin main
 git lfs push --all origin main # this can take time depending on your upload bandwidth
 git lfs install --force --local # this reinstalls the LFS hooks
+huggingface-cli lfs-enable-largefiles . # needed if some files are bigger than 5Gb
 ```
 
 ## List of license identifiers
