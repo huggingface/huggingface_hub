@@ -15,7 +15,7 @@ install_requires = [
     "filelock",
     "requests",
     "tqdm",
-    "pyyaml",
+    "ruamel.yaml==0.17.16",
     "typing-extensions",
     "importlib_metadata;python_version<'3.8'",
     "packaging>=20.9",
