@@ -4,14 +4,13 @@ import os
 from unittest import TestCase, skipIf
 
 from api_inference_community.validation import ffmpeg_read
-from app.main import ALLOWED_TASKS
 from parameterized import parameterized_class
 from starlette.testclient import TestClient
 from tests.test_api import TESTABLE_MODELS
 
 
 @skipIf(
-    "audio-to-audio" not in ALLOWED_TASKS,
+    "audio-to-audio" not in TESTABLE_MODELS,
     "audio-to-audio not implemented",
 )
 @parameterized_class(
