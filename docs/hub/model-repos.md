@@ -157,7 +157,7 @@ git lfs clone https://huggingface.co/me/myfork.git # a new repository made for y
 cd myfork
 git lfs install --skip-smudge --local # affects only this clone
 git remote add upstream https://huggingface.co/friend/upstream.git
-git fetch --all upstream
+git fetch upstream
 git lfs fetch --all upstream # this can take time depending on your download bandwidth
 git reset --hard upstream/main
 git lfs install --force --local # this reinstalls the LFS hooks
@@ -174,7 +174,7 @@ git lfs clone https://huggingface.co/me/myfork.git # a new repository made for y
 cd myfork
 git lfs install --skip-smudge --local # affects only this clone
 git remote add upstream https://huggingface.co/friend/upstream.git
-git fetch --all upstream
+git fetch upstream
 git lfs fetch --all upstream # this can take time depending on your download bandwidth
 git rebase upstream/main # this could trigger some conflicts
 git lfs install --force --local # this reinstalls the LFS hooks
