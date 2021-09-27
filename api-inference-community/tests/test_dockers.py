@@ -93,6 +93,27 @@ class DockerImageTests(unittest.TestCase):
         )
         self.framework_invalid_test("sentence_transformers")
 
+    def test_adapter_transformers(self):
+        self.framework_docker_test(
+            "adapter_transformers",
+            "question-answering",
+            "calpt/adapter-bert-base-squad1",
+        )
+
+        self.framework_docker_test(
+            "adapter_transformers",
+            "text-classification",
+            "AdapterHub/roberta-base-pf-sick",
+        )
+
+        self.framework_docker_test(
+            "adapter_transformers",
+            "token-classification",
+            "AdapterHub/roberta-base-pf-conll2003",
+        )
+
+        self.framework_invalid_test("adapter_transformers")
+
     def test_flair(self):
         self.framework_docker_test(
             "flair", "token-classification", "flair/chunk-english-fast"
