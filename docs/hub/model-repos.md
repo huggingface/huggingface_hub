@@ -148,11 +148,27 @@ $$ E=mc^2 $$
 When you want to fork a repository with LFS files, you need to be careful to not break the LFS pointers.
 Forking can take time depending on your bandwidth, because you will have to fetch an re-upload all the LFS files.
 
-For example, say you have an upstreal repository, **repoA**, and your own fork, **repoB**. 
-Here is how you can safely fork (and rebase when necessary) **repoB** with **repoA** without breaking anything:
+For example, say you have an upstream repository, **repoA**, and you created your own fork on the hub which is **myfork** in this example. 
+
+- Here'ss how you can safely fork  **myfork** with **repoA** without breaking anything:
+
 ```
-git lfs clone https://huggingface.co/me/repoB.git
-cd repoB
+git lfs clone https://huggingface.co/me/myfork.git
+cd myfork
+git lfs install --skip-smudge --local # affects only this clone
+git remote add repoA https://huggingface.co/friend/repoA.git
+git fetch repoA
+git lfs fetch --all repoA # this can take time depending on your download bandwidth
+git lfs checkout
+git push origin main
+git lfs push --all origin main # this can take time depending on your upload bandwidth
+git lfs install --force --local # this reinstalls the LFS hooks
+```
+
+- Here's how you can safely rebase an exsiting **myfork** with **repoA** without breaking anything:
+```
+git lfs clone https://huggingface.co/me/myfork.git
+cd myfork
 git lfs install --skip-smudge --local # affects only this clone
 git remote add repoA https://huggingface.co/friend/repoA.git
 git fetch repoA
@@ -161,9 +177,12 @@ git rebase main # ignore if you don't need to rebase
 
 git lfs fetch --all repoA # this can take time depending on your download bandwidth
 git lfs checkout
-git push origin temp
 
-git lfs push --all origin temp # this can take time depending on your upload bandwidth
+git checkout main 
+git merge temp
+git br -D temp
+git push origin main
+git lfs push --all origin main # this can take time depending on your upload bandwidth
 git lfs install --force --local # this reinstalls the LFS hooks
 ```
 
