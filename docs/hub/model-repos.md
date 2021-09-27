@@ -153,7 +153,7 @@ For example, say you have an upstream repository, **repoA**, and you created you
 - Here'ss how you can safely fork  **myfork** with **repoA** without breaking anything:
 
 ```
-git lfs clone https://huggingface.co/me/myfork.git
+git lfs clone https://huggingface.co/me/myfork.git # a new repository made for your fork
 cd myfork
 git lfs install --skip-smudge --local # affects only this clone
 git remote add repoA https://huggingface.co/friend/repoA.git
@@ -172,15 +172,12 @@ cd myfork
 git lfs install --skip-smudge --local # affects only this clone
 git remote add repoA https://huggingface.co/friend/repoA.git
 git fetch repoA
-git checkout -b temp repoA/main # ignore if you don't need to rebase
-git rebase main # ignore if you don't need to rebase
+git checkout -b temp # ignore if you don't need to keep a copy of main
+git checkout main
+git rebase repoA/main # eventually create rebasing conflicts you will have to fix manually, follow git instructions
 
 git lfs fetch --all repoA # this can take time depending on your download bandwidth
 git lfs checkout
-
-git checkout main 
-git merge temp
-git br -D temp
 git push origin main
 git lfs push --all origin main # this can take time depending on your upload bandwidth
 git lfs install --force --local # this reinstalls the LFS hooks
