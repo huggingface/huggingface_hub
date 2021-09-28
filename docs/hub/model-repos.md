@@ -16,15 +16,18 @@ The model card should describe:
 - the training params and experimental info (you can embed or link to an experiment tracking platform for reference)
 - which datasets did you train on and your eval results
 
-If needed you can find the specification [here](https://raw.githubusercontent.com/huggingface/huggingface_hub/main/modelcard.md).
 
-## How are model tags determined?
+## Model card metadata
+<!-- Try not to change this header as we use the corresponding anchor link -->
 
 The model cards have a YAML section that specify metadata. These are the fields
 
 ```yaml
 ---
-language: "ISO 639-1 code for your language, or `multilingual`"
+language: 
+  - "List of ISO 639-1 code for your language"
+  - lang1
+  - lang2
 thumbnail: "url to a thumbnail used in social sharing"
 tags:
 - tag1
@@ -39,9 +42,12 @@ metrics:
 ---
 ```
 
+You can find the detailed specification [here](https://github.com/huggingface/huggingface_hub/blame/main/modelcard.md).
+
+
 Some useful information on them:
 * All the tags can be used to filter the list of models on https://huggingface.co/models.
-* License identifiers are those standardized by GitHub in the right column (keywords) [here](https://docs.github.com/en/github/creating-cloning-and-archiving-repositories/creating-a-repository-on-github/licensing-a-repository#searching-github-by-license-type).
+* License identifiers are the keywords listed in the right column of [this table](#list-of-license-identifiers).
 * Dataset, metric, and language identifiers are those listed on the [Datasets](https://huggingface.co/datasets), [Metrics](https://huggingface.co/metrics) and [Languages](https://huggingface.co/languages) pages and in the [`datasets`](https://github.com/huggingface/datasets) repository.
 
 
@@ -62,6 +68,12 @@ metrics:
 ---
 ```
 
+## How are model tags determined?
+
+Each model page lists all the model's tags in the page header, below the model name.
+
+Those are primarily computed from the model card metadata, except that we also add some of them automatically, as described in [How is a model's type of inference API and widget determined?](/docs/hub/main#how-is-a-models-type-of-inference-api-and-widget-determined).
+
 ## How can I control my model's widget's example inputs?
 
 You can specify the widget input in the model card metadata section:
@@ -71,7 +83,7 @@ widget:
 - text: "Jens Peter Hansen kommer fra Danmark"
 ```
 
-We try to provide example inputs for some languages and most widget types in [this DefaultWidget.ts file](https://github.com/huggingface/huggingface_hub/blob/master/interfaces/DefaultWidget.ts). If we lack some examples, please open a PR updating this file to add them. Thanks!
+We try to provide example inputs for some languages and most widget types in [this DefaultWidget.ts file](https://github.com/huggingface/huggingface_hub/blob/master/widgets/src/lib/interfaces/DefaultWidget.ts). If we lack some examples, please open a PR updating this file to add them. Thanks!
 
 ## Can I specify which framework supports my model?
 
@@ -129,3 +141,42 @@ $$
 $$
 
 $$ E=mc^2 $$
+
+## List of license identifiers
+
+Fullname | License identifier (to use in model card)
+--- | ---
+Academic Free License v3.0	| `afl-3.0`
+Apache license 2.0	| `apache-2.0`
+Artistic license 2.0	| `artistic-2.0`
+Boost Software License 1.0	| `bsl-1.0`
+BSD 2-clause "Simplified" license	| `bsd-2-clause`
+BSD 3-clause "New" or "Revised" license	| `bsd-3-clause`
+BSD 3-clause Clear license	| `bsd-3-clause-clear`
+Creative Commons license family	| `cc`
+Creative Commons Zero v1.0 Universal	| `cc0-1.0`
+Creative Commons Attribution 4.0	| `cc-by-4.0`
+Creative Commons Attribution Share Alike 4.0	| `cc-by-sa-4.0`
+Do What The F*ck You Want To Public License	| `wtfpl`
+Educational Community License v2.0	| `ecl-2.0`
+Eclipse Public License 1.0	| `epl-1.0`
+Eclipse Public License 2.0	| `epl-2.0`
+European Union Public License 1.1	| `eupl-1.1`
+GNU Affero General Public License v3.0	| `agpl-3.0`
+GNU General Public License family	| `gpl`
+GNU General Public License v2.0	| `gpl-2.0`
+GNU General Public License v3.0	| `gpl-3.0`
+GNU Lesser General Public License family	| `lgpl`
+GNU Lesser General Public License v2.1	| `lgpl-2.1`
+GNU Lesser General Public License v3.0	| `lgpl-3.0`
+ISC	| `isc`
+LaTeX Project Public License v1.3c	| `lppl-1.3c`
+Microsoft Public License	| `ms-pl`
+MIT	| `mit`
+Mozilla Public License 2.0	| `mpl-2.0`
+Open Software License 3.0	| `osl-3.0`
+PostgreSQL License	| `postgresql`
+SIL Open Font License 1.1	| `ofl-1.1`
+University of Illinois/NCSA Open Source License	| `ncsa`
+The Unlicense	| `unlicense`
+zLib License	| `zlib`

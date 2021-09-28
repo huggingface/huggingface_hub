@@ -6,6 +6,7 @@
 	export let classNames = "";
 	export let onRecordStart: () => void = () => null;
 	export let onRecordStop: (blob: Blob) => void = () => null;
+	export let onError: (err: string) => void = () => null;
 
 	let isRecording = false;
 	let recorder: Recorder;
@@ -21,13 +22,31 @@
 	});
 
 	async function onClick() {
-		isRecording = !isRecording;
-		if (isRecording) {
-			recorder.start();
-			onRecordStart();
-		} else {
-			const blob = await recorder.stopRecording();
-			onRecordStop(blob);
+		try {
+			isRecording = !isRecording;
+			if (isRecording) {
+				await recorder.start();
+				onRecordStart();
+			} else {
+				const blob = await recorder.stopRecording();
+				onRecordStop(blob);
+			}
+		} catch (e) {
+			isRecording = false;
+			switch (e.name) {
+				case "NotAllowedError": {
+					onError("Please allow access to your microphone");
+					break;
+				}
+				case "NotFoundError": {
+					onError("No microphone found on your device");
+					break;
+				}
+				default: {
+					onError(`Encountered error "${e.name}: ${e.message}"`);
+					break;
+				}
+			}
 		}
 	}
 </script>

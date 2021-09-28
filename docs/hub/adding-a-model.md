@@ -10,7 +10,7 @@ Uploading models to the Hugging Face Hub has many [benefits](https://huggingface
 
 ## Accounts and organizations
 
-The first step is to create an account at [Hugging Face](https://huggingface.co/login). The models are shared in the form of git-based repositories. You have control over your repository, so you can have checkpoints, configs and any files you might want to upload.
+The first step is to create an account at [Hugging Face](https://huggingface.co/login). The models are shared in the form of Git-based repositories. You have control over your repository, so you can have checkpoints, configs and any files you might want to upload.
 
 The repository can be either linked with an individual, such as [osanseviero/fashion_brands_patterns](https://huggingface.co/osanseviero/fashion_brands_patterns) or with an organization, such as [facebook/bart-large-xsum](https://huggingface.co/facebook/bart-large-xsum). Organizations can be used if you want to upload models that are related to a company, community or library! If you choose an organization, the model will be featured on the organization’s page and every member of the organization will have the ability to contribute to the repository. You can create a new organization [here](https://huggingface.co/organizations/new).
 
@@ -55,6 +55,10 @@ There is only one key difference if you have large files (over 10MB). These file
 
 2. Run `git lfs install` to initialize **git-lfs**:
 
+Do you have files larger than 10MB? Those files are tracked with `git-lfs`. We already provide a list of common file extensions for these files in `.gitattributes`, but you might need to add new extensions if they are not already handled. You can do so with `git lfs track "*.your_extension"`.
+
+Once ready, just run:
+
 ```
 git lfs install
 ```
@@ -74,7 +78,7 @@ Now's the time 🔥. You can add any files you want to the repository.
 
 5. Commit and push your files
 
-You can do this with the usual Git workflow
+You can do this with the usual Git workflow:
 
 ```
 git add .
@@ -104,3 +108,11 @@ You can add metadata to your model card. You can specify:
 * a lot more!
 
 Read more about model tags [here](https://huggingface.co/docs/hub/model-repos#how-are-model-tags-determined).
+
+8. Add TensorBoard traces
+
+Models trained with 🤗 Transformers will generate [TensorBoard traces](https://huggingface.co/transformers/main_classes/callback.html?highlight=tensorboard#transformers.integrations.TensorBoardCallback) by default if [`tensorboard`](https://pypi.org/project/tensorboard/) is installed.
+
+Beyond 🤗 Transformers, any repository that contains TensorBoard traces (filenames that contain `tfevents`) is categorized with the [`TensorBoard` tag](https://huggingface.co/models?filter=tensorboard). As a convention we suggest that you save traces under the `runs/` subfolder. The "Training metrics" tab then makes it easy to review charts of the logged variables, like the loss or the accuracy.
+
+![Training metrics tab on a model's page, with TensorBoard](/docs/assets/hub/tensorboard.png)

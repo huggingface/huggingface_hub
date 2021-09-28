@@ -5,13 +5,15 @@ on:
     paths:
       - "api-inference-community/docker_images/allennlp/**"
 jobs:
-  docker:
+  build:
     runs-on: ubuntu-latest
     steps:
       - name: Set up Python ${{ matrix.python-version }}
         uses: actions/setup-python@v2
         with:
           python-version: "3.8"
+      - name: Checkout
+        uses: actions/checkout@v2
       - name: Set up QEMU
         uses: docker/setup-qemu-action@v1
       - name: Set up Docker Buildx
@@ -22,5 +24,5 @@ jobs:
           pip install --upgrade pip
           pip install pytest pillow httpx
           pip install -e .
-      - run: RUN_DOCKER=1 pytest -sv tests/test_dockers.py::DockerImageTests::test_allennlp
+      - run: RUN_DOCKER_TESTS=1 pytest -sv tests/test_dockers.py::DockerImageTests::test_allennlp
         working-directory: api-inference-community

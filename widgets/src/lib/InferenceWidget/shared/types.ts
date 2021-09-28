@@ -1,4 +1,4 @@
-import type { ModelData } from '../../../../../interfaces/Types';
+import type { ModelData } from '$lib/interfaces/Types';
 
 export interface WidgetProps {
 	apiToken?: string;
@@ -11,3 +11,14 @@ export interface WidgetProps {
 
 
 export type LoadingStatus = "error" | "loaded" | "unknown";
+
+export type TableData = Record<string, (string | number)[]>;
+
+export type HighlightCoordinates = Record<string, string>;
+
+export type Box = {
+	xmin: number;
+	ymin: number;
+	xmax: number;
+	ymax: number;
+};

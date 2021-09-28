@@ -12,6 +12,7 @@ jobs:
 
     steps:
       - run: |
+          sudo apt-get update
           sudo apt-get install ffmpeg
 
       - uses: actions/checkout@v2
@@ -25,7 +26,8 @@ jobs:
         working-directory: api-inference-community
         run: |
           pip install --upgrade pip
-          pip install pytest pillow httpx huggingface_hub
-          pip install -e .
+          pip install -e .[test]
       - run: make test
+        env: # Or as an environment variable
+          API_TOKEN: ${{ secrets.USER_API_TOKEN }}
         working-directory: api-inference-community

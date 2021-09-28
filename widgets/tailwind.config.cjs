@@ -20,6 +20,8 @@ module.exports = {
 				violet: colors.violet,
 				fuchsia: colors.fuchsia,
 				pink: colors.pink,
+				lime: colors.lime,
+				cyan: colors.cyan,
 				gray: {
 					350: '#b3bcc9',
 					// Dark blue

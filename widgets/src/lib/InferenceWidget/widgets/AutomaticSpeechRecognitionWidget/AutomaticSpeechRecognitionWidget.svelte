@@ -8,7 +8,7 @@
 	import WidgetRecorder from "../../shared/WidgetRecorder/WidgetRecorder.svelte";
 	import WidgetSubmitBtn from "../../shared/WidgetSubmitBtn/WidgetSubmitBtn.svelte";
 	import WidgetWrapper from "../../shared/WidgetWrapper/WidgetWrapper.svelte";
-	import { getResponse } from "../../shared/helpers";
+	import { getResponse, proxify } from "../../shared/helpers";
 
 	export let apiToken: WidgetProps["apiToken"];
 	export let apiUrl: WidgetProps["apiUrl"];
@@ -45,6 +45,10 @@
 		isRecording = true;
 	}
 
+	function onRecordError(err: string) {
+		error = err;
+	}
+
 	function onSelectFile(updatedFile: Blob | File) {
 		areSamplesVisible = false;
 		isRecording = false;
@@ -70,7 +74,13 @@
 			return;
 		}
 
-		const requestBody = file ? { file } : { url: selectedSampleUrl };
+		if (!file && selectedSampleUrl) {
+			const proxiedUrl = proxify(selectedSampleUrl);
+			const res = await fetch(proxiedUrl);
+			file = await res.blob();
+		}
+
+		const requestBody = { file };
 
 		isLoading = true;
 
@@ -107,9 +117,10 @@
 	}
 
 	function parseOutput(body: unknown): string {
-		return body && typeof body === "object" && typeof body["text"] === "string"
-			? body["text"]
-			: "";
+		if (body && typeof body === "object" && typeof body["text"] === "string") {
+			return body["text"];
+		}
+		throw new TypeError("Invalid output: output must be of type <text:string>");
 	}
 </script>
 
@@ -135,6 +146,7 @@
 					classNames="mt-1.5"
 					{onRecordStart}
 					onRecordStop={onSelectFile}
+					onError={onRecordError}
 				/>
 			</div>
 			{#if fileUrl}

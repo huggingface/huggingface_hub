@@ -1,6 +1,6 @@
 <script>
 	import type { WidgetProps } from "../../shared/types";
-	import type { PipelineType } from "../../../../../../interfaces/Types";
+	import type { PipelineType } from "$lib/interfaces/Types";
 
 	import { onMount } from "svelte";
 	import WidgetOutputText from "../../shared/WidgetOutputText/WidgetOutputText.svelte";
@@ -37,7 +37,7 @@
 		["text-generation", "text2text-generation"] as Array<
 			keyof typeof PipelineType
 		>
-	).includes(model.pipeline_tag as PipelineType);
+	).includes(model.pipeline_tag);
 
 	onMount(() => {
 		const [textParam] = getSearchParams(["text"]);
@@ -113,7 +113,9 @@
 				""
 			);
 		}
-		return "";
+		throw new TypeError(
+			"Invalid output: output must be of type Array & non-empty"
+		);
 	}
 </script>
 

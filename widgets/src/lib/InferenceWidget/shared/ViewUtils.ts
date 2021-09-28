@@ -1,3 +1,5 @@
+import type { TableData } from "./types";
+
 const ESCAPED = {
 	'"': "&quot;",
 	"'": "&#39;",
@@ -104,3 +106,48 @@ export function scrollToMax(elt: HTMLElement, axis: "x" | "y" = "y") {
 		top: axis === "y" ? elt.scrollHeight : undefined,
 	});
 }
+
+/*
+* Converts table from [[Header0, Header1, Header2], [Column0Val0, Column1Val0, Column2Val0], ...]
+* to {Header0: [ColumnVal0, ...], Header1: [Column1Val0, ...], Header2: [Column2Val0, ...]}
+*/
+export function convertTableToData(table: (string | number)[][]): TableData {
+	return Object.fromEntries(
+		table[0].map((cell, x) => {
+			return [
+				cell,
+				table
+					.slice(1)
+					.flat()
+					.filter((_, i) => i % table[0].length === x)
+					.map((x) => String(x)), // some models can only handle strings (no numbers)
+			];
+		})
+	);
+}
+
+/*
+	* Converts data from {Header0: [ColumnVal0, ...], Header1: [Column1Val0, ...], Header2: [Column2Val0, ...]}
+	* to [[Header0, Header1, Header2], [Column0Val0, Column1Val0, Column2Val0], ...]
+	*/
+export function convertDataToTable(data: TableData): (string | number)[][] {
+	const dataArray = Object.entries(data); // [header, cell[]][]
+	const nbCols = dataArray.length;
+	const nbRows = (dataArray[0]?.[1]?.length ?? 0) + 1;
+	return Array(nbRows)
+		.fill("")
+		.map((_, y) =>
+			Array(nbCols)
+				.fill("")
+				.map((_, x) => (y === 0 ? dataArray[x][0] : dataArray[x][1][y - 1]))
+		);
+}
+
+/*
+* For Tailwind:
+bg-blue-100 border-blue-100 dark:bg-blue-800 dark:border-blue-800
+bg-green-100 border-green-100 dark:bg-green-800 dark:border-green-800
+bg-yellow-100 border-yellow-100 dark:bg-yellow-800 dark:border-yellow-800
+bg-purple-100 border-purple-100 dark:bg-purple-800 dark:border-purple-800
+bg-red-100 border-red-100 dark:bg-red-800 dark:border-red-800
+*/

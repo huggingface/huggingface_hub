@@ -7,7 +7,7 @@
 	import WidgetRecorder from "../../shared/WidgetRecorder/WidgetRecorder.svelte";
 	import WidgetSubmitBtn from "../../shared/WidgetSubmitBtn/WidgetSubmitBtn.svelte";
 	import WidgetWrapper from "../../shared/WidgetWrapper/WidgetWrapper.svelte";
-	import { getResponse } from "../../shared/helpers";
+	import { getResponse, proxify } from "../../shared/helpers";
 
 	export let apiToken: WidgetProps["apiToken"];
 	export let apiUrl: WidgetProps["apiUrl"];
@@ -33,7 +33,8 @@
 	interface AudioItem {
 		blob: string;
 		label: string;
-		src: string;
+		src?: string;
+		"content-type": string;
 	}
 
 	function onChangeRadio() {
@@ -48,6 +49,10 @@
 		filename = "";
 		fileUrl = "";
 		isRecording = true;
+	}
+
+	function onRecordError(err: string) {
+		error = err;
 	}
 
 	function onSelectFile(updatedFile: Blob | File) {
@@ -71,8 +76,16 @@
 			error = "You must select or record an audio file";
 			return;
 		}
-		const requestBody = file ? { file } : { url: selectedSampleUrl };
+
+		if (!file && selectedSampleUrl) {
+			const proxiedUrl = proxify(selectedSampleUrl);
+			const res = await fetch(proxiedUrl);
+			file = await res.blob();
+		}
+		const requestBody = { file };
+
 		isLoading = true;
+
 		const res = await getResponse(
 			apiUrl,
 			model.modelId,
@@ -110,7 +123,7 @@
 				(x) =>
 					typeof x.blob === "string" &&
 					typeof x.label === "string" &&
-					typeof x.src === "string"
+					typeof x["content-type"] === "string"
 			)
 		);
 	}
@@ -122,7 +135,9 @@
 			}
 			return body;
 		}
-		return [];
+		throw new TypeError(
+			"Invalid output: output must be of type Array<blob:string, label:string, content-type:string>"
+		);
 	}
 </script>
 
@@ -148,6 +163,7 @@
 					classNames="mt-1.5"
 					{onRecordStart}
 					onRecordStop={onSelectFile}
+					onError={onRecordError}
 				/>
 			</div>
 			{#if fileUrl}

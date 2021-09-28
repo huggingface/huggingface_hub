@@ -21,19 +21,31 @@ import time
 import unittest
 from io import BytesIO
 
+import requests
 from huggingface_hub.constants import REPO_TYPE_DATASET, REPO_TYPE_SPACE
 from huggingface_hub.file_download import cached_download
 from huggingface_hub.hf_api import (
+    DatasetInfo,
     HfApi,
     HfFolder,
     ModelInfo,
     RepoObj,
+    erase_from_credential_store,
+    read_from_credential_store,
     repo_type_and_id_from_hf_id,
 )
 from requests.exceptions import HTTPError
 
-from .testing_constants import ENDPOINT_STAGING, ENDPOINT_STAGING_BASIC_AUTH, PASS, USER
+from .testing_constants import (
+    ENDPOINT_STAGING,
+    ENDPOINT_STAGING_BASIC_AUTH,
+    FULL_NAME,
+    PASS,
+    USER,
+)
 from .testing_utils import (
+    DUMMY_DATASET_ID,
+    DUMMY_DATASET_ID_REVISION_ONE_SPECIFIC_COMMIT,
     DUMMY_MODEL_ID,
     DUMMY_MODEL_ID_REVISION_ONE_SPECIFIC_COMMIT,
     require_git_lfs,
@@ -58,6 +70,13 @@ class HfApiCommonTest(unittest.TestCase):
 
 
 class HfApiLoginTest(HfApiCommonTest):
+    def setUp(self) -> None:
+        erase_from_credential_store(USER)
+
+    @classmethod
+    def tearDownClass(cls) -> None:
+        cls._api.login(username=USER, password=PASS)
+
     def test_login_invalid(self):
         with self.assertRaises(HTTPError):
             self._api.login(username=USER, password="fake")
@@ -65,6 +84,13 @@ class HfApiLoginTest(HfApiCommonTest):
     def test_login_valid(self):
         token = self._api.login(username=USER, password=PASS)
         self.assertIsInstance(token, str)
+
+    def test_login_git_credentials(self):
+        self.assertTupleEqual(read_from_credential_store(USER), (None, None))
+        self._api.login(username=USER, password=PASS)
+        self.assertTupleEqual(read_from_credential_store(USER), (USER.lower(), PASS))
+        erase_from_credential_store(username=USER)
+        self.assertTupleEqual(read_from_credential_store(USER), (None, None))
 
 
 class HfApiCommonTestWithLogin(HfApiCommonTest):
@@ -78,9 +104,12 @@ class HfApiCommonTestWithLogin(HfApiCommonTest):
 
 class HfApiEndpointsTest(HfApiCommonTestWithLogin):
     def test_whoami(self):
-        user, orgs = self._api.whoami(token=self._token)
-        self.assertEqual(user, USER)
-        self.assertIsInstance(orgs, list)
+        info = self._api.whoami(token=self._token)
+        self.assertEqual(info["name"], USER)
+        self.assertEqual(info["fullname"], FULL_NAME)
+        self.assertIsInstance(info["apiToken"], str)
+        self.assertIsInstance(info["orgs"], list)
+        self.assertIsInstance(info["orgs"][0]["apiToken"], str)
 
     def test_list_repos_objs(self):
         objs = self._api.list_repos_objs(token=self._token)
@@ -312,6 +341,15 @@ class HfApiUploadFileTest(HfApiCommonTestWithLogin):
         finally:
             self._api.delete_repo(token=self._token, name=REPO_NAME)
 
+    def test_get_full_repo_name(self):
+        repo_name_with_no_org = self._api.get_full_repo_name("model", token=self._token)
+        self.assertEqual(repo_name_with_no_org, f"{USER}/model")
+
+        repo_name_with_no_org = self._api.get_full_repo_name(
+            "model", organization="org", token=self._token
+        )
+        self.assertEqual(repo_name_with_no_org, "org/model")
+
 
 class HfApiPublicTest(unittest.TestCase):
     def test_staging_list_models(self):
@@ -365,6 +403,64 @@ class HfApiPublicTest(unittest.TestCase):
         )
         self.assertIsInstance(model, ModelInfo)
         self.assertEqual(model.sha, DUMMY_MODEL_ID_REVISION_ONE_SPECIFIC_COMMIT)
+
+    def test_staging_list_datasets(self):
+        _api = HfApi(endpoint=ENDPOINT_STAGING)
+        _ = _api.list_datasets()
+
+    @with_production_testing
+    def test_list_datasets(self):
+        _api = HfApi()
+        datasets = _api.list_datasets()
+        self.assertGreater(len(datasets), 100)
+        self.assertIsInstance(datasets[0], DatasetInfo)
+
+    @with_production_testing
+    def test_list_datasets_full(self):
+        _api = HfApi()
+        datasets = _api.list_datasets(full=True)
+        self.assertGreater(len(datasets), 100)
+        dataset = datasets[0]
+        self.assertIsInstance(dataset, DatasetInfo)
+        self.assertTrue(any(dataset.card_data for dataset in datasets))
+
+    @with_production_testing
+    def test_dataset_info(self):
+        _api = HfApi()
+        dataset = _api.dataset_info(repo_id=DUMMY_DATASET_ID)
+        self.assertTrue(
+            isinstance(dataset.card_data, dict) and len(dataset.card_data) > 0
+        )
+        self.assertTrue(
+            isinstance(dataset.siblings, list) and len(dataset.siblings) > 0
+        )
+        self.assertIsInstance(dataset, DatasetInfo)
+        self.assertNotEqual(dataset.sha, DUMMY_DATASET_ID_REVISION_ONE_SPECIFIC_COMMIT)
+        dataset = _api.dataset_info(
+            repo_id=DUMMY_DATASET_ID,
+            revision=DUMMY_DATASET_ID_REVISION_ONE_SPECIFIC_COMMIT,
+        )
+        self.assertIsInstance(dataset, DatasetInfo)
+        self.assertEqual(dataset.sha, DUMMY_DATASET_ID_REVISION_ONE_SPECIFIC_COMMIT)
+
+
+class HfApiPrivateTest(HfApiCommonTestWithLogin):
+    def setUp(self) -> None:
+        super().setUp()
+        self._api.create_repo(token=self._token, name=REPO_NAME, private=True)
+
+    def tearDown(self) -> None:
+        self._api.delete_repo(token=self._token, name=REPO_NAME)
+
+    def test_model_info(self):
+        # Test we cannot access model info without a token
+        with self.assertRaisesRegex(requests.exceptions.HTTPError, "404 Client Error"):
+            _ = self._api.model_info(repo_id=f"{USER}/{REPO_NAME}")
+        # Test we can access model info with a token
+        model_info = self._api.model_info(
+            repo_id=f"{USER}/{REPO_NAME}", token=self._token
+        )
+        self.assertIsInstance(model_info, ModelInfo)
 
 
 class HfFolderTest(unittest.TestCase):
@@ -510,6 +606,7 @@ class HfLargefilesTest(HfApiCommonTest):
 class HfApiMiscTest(unittest.TestCase):
     def test_repo_type_and_id_from_hf_id(self):
         possible_values = {
+            "https://huggingface.co/id": [None, None, "id"],
             "https://huggingface.co/user/id": [None, "user", "id"],
             "https://huggingface.co/datasets/user/id": ["dataset", "user", "id"],
             "https://huggingface.co/spaces/user/id": ["space", "user", "id"],

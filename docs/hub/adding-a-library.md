@@ -15,7 +15,7 @@ We believe the Hub is a step in the correct direction for several reasons. It of
 - Free model hosting for libraries and their users.
 - Built-in file versioning, even with very large files, thanks to a git-based approach.
 - Hosted inference API for all models publicly available.
-- In-browser widgets to play with the uploaded models (you can read more about the widgets [here](/docs#whats-a-widget)).
+- In-browser widgets to play with the uploaded models (you can read more about the widgets [here](/docs/hub/main#whats-a-widget)).
 
 Thanks to these, we hope to achieve true shareability across the machine learning ecosystem, reproducibility, 
 and the ability to offer simple solutions directly from the browser. To that end, we're looking to make it very 
@@ -140,14 +140,14 @@ explaining how that should be done.
 
 
 In order to do this, please take a look and update the following file with 
-mentions of your library: [interfaces/Libraries.ts](https://github.com/huggingface/huggingface_hub/blob/main/interfaces/Libraries.ts). 
+mentions of your library: [interfaces/Libraries.ts](https://github.com/huggingface/huggingface_hub/blob/main/widgets/src/lib/interfaces/Libraries.ts). 
 This file is in Typescript as this is the ground truth that we're using on the Hugging Face website. A good 
 understanding of Typescript isn't necessary to edit the file.
 
 Additionally, this will add a tag with which users may filter models. All models from your library will 
 be easily identifiable!
 
-![assets/libraries-tags.png](assets/libraries-tags.png)
+![/docs/assets/hub/libraries-tags.png](/docs/assets/hub/libraries-tags.png)
 
 ## Upstream: creating repositories and uploading files to the hub
 
@@ -215,8 +215,8 @@ The Repository class is the main way to programmatically push models or other re
 
 Therefore, handling repositories with this class requires you and your users to have git and git-lfs correctly set up.
 
-We recommend taking a look at the 
-[class definition directly](https://github.com/huggingface/huggingface_hub/blob/main/src/huggingface_hub/repository.py) 
+We recommend taking a look at the [Hugging Face's hub README](https://github.com/huggingface/huggingface_hub), or at
+[class definition directly](https://github.com/huggingface/huggingface_hub/blob/main/src/huggingface_hub/repository.py)
 to see what is possible, as it offers a lot of very useful wrappers.
 
 It offers several methods that can be used directly from a Python runtime, namely:
@@ -246,42 +246,47 @@ The metadata held in model cards is the best way to supercharge your model. It i
 define tags for your library or framework, the type of model uploaded, the language, license, evaluation results,
 and more.
 
-The full model card specification can be seen below:
+The full model card specification is  [here](https://github.com/huggingface/huggingface_hub/blame/main/modelcard.md), it's also repeated below for convenience:
+
 ```yaml
 ---
 language:
 - {lang_0}  # Example: fr
 - {lang_1}  # Example: en
-license: {license}  # Example: apache-2.0
+license: {license}  # Example: apache-2.0 or any license from https://hf.co/docs/hub/model-repos#list-of-license-identifiers
 tags:
 - {tag_0}  # Example: audio
 - {tag_1}  # Example: automatic-speech-recognition
 - {tag_2}  # Example: speech
 - {tag_3}  # Example to specify a library: allennlp
 datasets:
-- {dataset_0}  # Example: common_voice
+- {dataset_0}  # Example: common_voice. Use dataset id from https://hf.co/datasets
 metrics:
-- {metric_0}  # Example: wer
+- {metric_0}  # Example: wer. Use metric id from https://hf.co/metrics
 
-model-index:  
+# Optional. Add this if you want to encode your eval results in a structured way.
+model-index:
 - name: {model_id}
   results:
   - task: 
-      name: {task_name}  # Example: Speech Recognition
-      type: {task_type}  # Example: automatic-speech-recognition
+      type: {task_type}  # Required. Example: automatic-speech-recognition
+      name: {task_name}  # Optional. Example: Speech Recognition
     dataset:
-      name: {dataset_name}  # Example: Common Voice zh-CN
-      type: {dataset_type}  # Example: common_voice
-      args: {arg_0}  # Example: zh-CN
+      type: {dataset_type}  # Required. Example: common_voice. Use dataset id from https://hf.co/datasets
+      name: {dataset_name}  # Required. Example: Common Voice zh-CN
+      args: {arg_0}         # Optional. Example: zh-CN
     metrics:
-      - name: {metric_name}  # Example: Test WER
-        type: {metric_type}  # Example: wer
-        value: {metric_value}  # Example: 20.90
-        args: {arg_0}  # Example for BLEU: max_order
+      - type: {metric_type}    # Required. Example: wer
+        value: {metric_value}  # Required. Example: 20.90
+        name: {metric_name}    # Optional. Example: Test WER
+        args: {arg_0}          # Optional. Example for BLEU: max_order
 ---
 ```
 
-None of the fields are required - but any added field will improve the discoverability of your model and open it to features such as the inference API. You can find more information on repos and model cards [here](/docs/hub/model-repos).
+None of the fields are required - but any added field will improve the discoverability of your model and open it to features such as the inference API. You can find more information on repos and model cards [here](/docs/hub/model-repos#model-card-metadata).
+
+When present, and only then, 'model-index', 'datasets' and 'license' contents will be verified when git pushing changes to your README.me file.
+Valid license identifiers can be found in [our docs](/docs/hub/model-repos#list-of-license-identifiers)
 
 ## Setting up the Inference API
 
@@ -316,7 +321,7 @@ All our widgets are [open sourced](https://github.com/huggingface/huggingface_hu
 ### New pipelines
 
 If you're adding a new pipeline type, you might also want to take a look at adding it to the 
-[Types.ts](https://github.com/huggingface/huggingface_hub/blob/main/interfaces/Types.ts) for it to be identifiable as a possible pipeline.
+[Types.ts](https://github.com/huggingface/huggingface_hub/blob/main/widgets/src/lib/interfaces/Types.ts) for it to be identifiable as a possible pipeline.
 
 Secondly, you should set the 
-[widget default for that new pipeline](https://github.com/huggingface/huggingface_hub/blob/main/interfaces/DefaultWidget.ts) if you can.
+[widget default for that new pipeline](https://github.com/huggingface/huggingface_hub/blob/main/widgets/src/lib/interfaces/DefaultWidget.ts) if you can.

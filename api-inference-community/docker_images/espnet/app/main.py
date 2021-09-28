@@ -1,3 +1,4 @@
+import functools
 import logging
 import os
 from typing import Dict, Type
@@ -9,7 +10,13 @@ from app.pipelines import (  # AutomaticSpeechRecognitionPipeline,
     TextToSpeechPipeline,
 )
 from starlette.applications import Starlette
+from starlette.middleware import Middleware
+from starlette.middleware.gzip import GZipMiddleware
 from starlette.routing import Route
+
+
+TASK = os.getenv("TASK")
+MODEL_ID = os.getenv("MODEL_ID")
 
 
 logger = logging.getLogger(__name__)
@@ -31,12 +38,14 @@ logger = logging.getLogger(__name__)
 # directories. Implement directly within the directories.
 ALLOWED_TASKS: Dict[str, Type[Pipeline]] = {
     "text-to-speech": TextToSpeechPipeline,
-    # Disabling this it's waaayy too slow.
     "automatic-speech-recognition": AutomaticSpeechRecognitionPipeline,
 }
 
 
-def get_pipeline(task: str, model_id: str) -> Pipeline:
+@functools.lru_cache()
+def get_pipeline() -> Pipeline:
+    task = os.environ["TASK"]
+    model_id = os.environ["MODEL_ID"]
     if task not in ALLOWED_TASKS:
         raise EnvironmentError(f"{task} is not a valid pipeline for model : {model_id}")
     return ALLOWED_TASKS[task](model_id)
@@ -47,13 +56,20 @@ routes = [
     Route("/{whatever:path}", pipeline_route, methods=["POST"]),
 ]
 
-app = Starlette(routes=routes)
+middleware = [Middleware(GZipMiddleware, minimum_size=1000)]
 if os.environ.get("DEBUG", "") == "1":
     from starlette.middleware.cors import CORSMiddleware
 
-    app.add_middleware(
-        CORSMiddleware, allow_origins=["*"], allow_headers=["*"], allow_methods=["*"]
+    middleware.append(
+        Middleware(
+            CORSMiddleware,
+            allow_origins=["*"],
+            allow_headers=["*"],
+            allow_methods=["*"],
+        )
     )
+
+app = Starlette(routes=routes, middleware=middleware)
 
 
 @app.on_event("startup")
@@ -63,13 +79,18 @@ async def startup_event():
     handler.setFormatter(logging.Formatter("%(asctime)s - %(levelname)s - %(message)s"))
     logger.handlers = [handler]
 
-    task = os.environ["TASK"]
-    model_id = os.environ["MODEL_ID"]
-
-    app.pipeline = get_pipeline(task, model_id)
+    # Link between `api-inference-community` and framework code.
+    app.get_pipeline = get_pipeline
+    try:
+        get_pipeline()
+    except Exception:
+        # We can fail so we can show exception later.
+        pass
 
 
 if __name__ == "__main__":
-    task = os.environ["TASK"]
-    model_id = os.environ["MODEL_ID"]
-    get_pipeline(task, model_id)
+    try:
+        get_pipeline()
+    except Exception:
+        # We can fail so we can show exception later.
+        pass

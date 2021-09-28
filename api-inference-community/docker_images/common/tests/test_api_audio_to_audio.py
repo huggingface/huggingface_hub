@@ -24,6 +24,12 @@ class AudioToAudioTestCase(TestCase):
 
         self.app = app
 
+    @classmethod
+    def setUpClass(cls):
+        from app.main import get_pipeline
+
+        get_pipeline.cache_clear()
+
     def tearDown(self):
         if self.old_model_id is not None:
             os.environ["MODEL_ID"] = self.old_model_id
@@ -58,7 +64,7 @@ class AudioToAudioTestCase(TestCase):
         self.assertEqual(set(audio[0].keys()), {"blob", "content-type", "label"})
 
         data = base64.b64decode(audio[0]["blob"])
-        wavform = ffmpeg_read(data)
+        wavform = ffmpeg_read(data, 16000)
         self.assertGreater(wavform.shape[0], 1000)
         self.assertTrue(isinstance(audio[0]["content-type"], str))
         self.assertTrue(isinstance(audio[0]["label"], str))
@@ -91,7 +97,7 @@ class AudioToAudioTestCase(TestCase):
         self.assertEqual(set(audio[0].keys()), {"blob", "content-type", "label"})
 
         data = base64.b64decode(audio[0]["blob"])
-        wavform = ffmpeg_read(data)
+        wavform = ffmpeg_read(data, 16000)
         self.assertGreater(wavform.shape[0], 1000)
         self.assertTrue(isinstance(audio[0]["content-type"], str))
         self.assertTrue(isinstance(audio[0]["label"], str))
@@ -112,7 +118,7 @@ class AudioToAudioTestCase(TestCase):
         self.assertEqual(set(audio[0].keys()), {"blob", "content-type", "label"})
 
         data = base64.b64decode(audio[0]["blob"])
-        wavform = ffmpeg_read(data)
+        wavform = ffmpeg_read(data, 16000)
         self.assertGreater(wavform.shape[0], 1000)
         self.assertTrue(isinstance(audio[0]["content-type"], str))
         self.assertTrue(isinstance(audio[0]["label"], str))

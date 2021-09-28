@@ -12,7 +12,7 @@ import httpx
 class DockerPopen(subprocess.Popen):
     def __exit__(self, exc_type, exc_val, traceback):
         self.terminate()
-        self.wait(5)
+        self.wait(20)
         return super().__exit__(exc_type, exc_val, traceback)
 
 
@@ -56,12 +56,12 @@ class DockerImageTests(unittest.TestCase):
     def test_asteroid(self):
         self.framework_docker_test(
             "asteroid",
-            "audio-source-separation",
+            "audio-to-audio",
             "mhu-coder/ConvTasNet_Libri1Mix_enhsingle",
         )
         self.framework_docker_test(
             "asteroid",
-            "audio-source-separation",
+            "audio-to-audio",
             "julien-c/DPRNNTasNet-ks16_WHAM_sepclean",
         )
         self.framework_invalid_test("asteroid")
@@ -70,15 +70,14 @@ class DockerImageTests(unittest.TestCase):
         self.framework_docker_test(
             "espnet",
             "text-to-speech",
-            "julien-c/ljspeech_tts_train_tacotron2_raw_phn_tacotron_g2p_en_no_space_train",
+            "espnet/kan-bayashi_ljspeech_fastspeech2",
         )
         self.framework_invalid_test("espnet")
-        # TOO SLOW
-        # (
-        #     "espnet",
-        #     "automatic-speech-recognition",
-        #     "julien-c/mini_an4_asr_train_raw_bpe_valid",
-        # ),
+        self.framework_docker_test(
+            "espnet",
+            "automatic-speech-recognition",
+            "espnet/kamo-naoyuki_mini_an4_asr_train_raw_bpe_valid.acc.best",
+        )
 
     def test_sentence_transformers(self):
         self.framework_docker_test(
@@ -100,11 +99,23 @@ class DockerImageTests(unittest.TestCase):
         )
         self.framework_invalid_test("flair")
 
+    def test_sklearn(self):
+        self.framework_docker_test(
+            "sklearn",
+            "structured-data-classification",
+            "julien-c/wine-quality",
+        )
+
     def test_spacy(self):
         self.framework_docker_test(
             "spacy",
             "token-classification",
             "spacy/en_core_web_sm",
+        )
+        self.framework_docker_test(
+            "spacy",
+            "text-classification",
+            "explosion/en_textcat_goemotions",
         )
         self.framework_invalid_test("spacy")
 
@@ -114,11 +125,78 @@ class DockerImageTests(unittest.TestCase):
             "automatic-speech-recognition",
             "speechbrain/asr-crdnn-commonvoice-it",
         )
+
+        # Enable when latest release of speechbrain is fixed
+        # self.framework_docker_test(
+        #    "speechbrain",
+        #    "automatic-speech-recognition",
+        #    "speechbrain/asr-wav2vec2-commonvoice-fr",
+        # )
+
         self.framework_invalid_test("speechbrain")
+
+        # source-separation
+        self.framework_docker_test(
+            "speechbrain",
+            "audio-to-audio",
+            "speechbrain/sepformer-wham",
+        )
+
+        # speech-enchancement
+        self.framework_docker_test(
+            "speechbrain",
+            "audio-to-audio",
+            "speechbrain/mtl-mimic-voicebank",
+        )
+
+        self.framework_docker_test(
+            "speechbrain",
+            "audio-classification",
+            "speechbrain/urbansound8k_ecapa",
+        )
 
     def test_timm(self):
         self.framework_docker_test("timm", "image-classification", "sgugger/resnet50d")
         self.framework_invalid_test("timm")
+
+    def test_keras(self):
+        self.framework_docker_test(
+            "keras", "image-classification", "osanseviero/keras-dog-or-cat"
+        )
+
+    def test_superb(self):
+        # Very basic repo just using transformers.
+        self.framework_docker_test(
+            "superb",
+            "automatic-speech-recognition",
+            "osanseviero/asr-with-transformers-wav2vec2",
+        )
+        self.framework_docker_test(
+            "superb",
+            "speech-segmentation",
+            "osanseviero/hubert-sd",
+        )
+        # # Too slow, requires downloading the upstream model from PyTorch Hub which is quite heavy
+        # # self.framework_docker_test(
+        # #    "superb", "automatic-speech-recognition", "osanseviero/hubert_s3prl_req"
+        # # )
+        self.framework_invalid_test("superb")
+        self.framework_docker_batch(
+            "superb",
+            "automatic-speech-recognition",
+            "osanseviero/asr-with-transformers-wav2vec2",
+            dataset_name="Narsil/asr_dummy",
+            dataset_config="asr",
+            dataset_split="test",
+            dataset_column="file",
+        )
+
+    def test_generic(self):
+        self.framework_docker_test(
+            "generic",
+            "token-classification",
+            "osanseviero/en_core_web_sm",
+        )
 
     def framework_invalid_test(self, framework: str):
         task = "invalid"
@@ -155,7 +233,48 @@ class DockerImageTests(unittest.TestCase):
             self.assertEqual(response.headers["content-type"], "application/json")
 
             proc.terminate()
-            proc.wait(5)
+            proc.wait(20)
+
+    def framework_docker_batch(
+        self,
+        framework: str,
+        task: str,
+        model_id: str,
+        dataset_name: str,
+        dataset_config: str,
+        dataset_split: str,
+        dataset_column: str,
+    ):
+        tag = self.create_docker(framework)
+        run_docker_command = [
+            "docker",
+            "run",
+            "-p",
+            "8000:80",
+            "-it",
+            "-e",
+            f"TASK={task}",
+            "-e",
+            f"MODEL_ID={model_id}",
+            "-e",
+            f"DATASET_NAME={dataset_name}",
+            "-e",
+            f"DATASET_CONFIG={dataset_config}",
+            "-e",
+            f"DATASET_SPLIT={dataset_split}",
+            "-e",
+            f"DATASET_COLUMN={dataset_column}",
+            "-v",
+            "/tmp:/data",
+            "-t",
+            tag,
+            "python",
+            "app/batch.py",
+        ]
+
+        with DockerPopen(run_docker_command) as proc:
+            proc.wait()
+        self.assertTrue(True)
 
     def framework_docker_test(self, framework: str, task: str, model_id: str):
         tag = self.create_docker(framework)
@@ -221,6 +340,30 @@ class DockerImageTests(unittest.TestCase):
             self.assertIn(response.status_code, {200, 400})
             counter[response.status_code] += 1
 
+            response = httpx.post(
+                url,
+                json={
+                    "inputs": {
+                        "data": {
+                            "1": [7.4],
+                            "2": [7.5],
+                            "3": [7.7],
+                            "4": [7.7],
+                            "5": [7.7],
+                            "6": [7.7],
+                            "7": [7.7],
+                            "8": [7.7],
+                            "9": [7.7],
+                            "10": [7.7],
+                            "11": [7.7],
+                        }
+                    }
+                },
+                timeout=timeout,
+            )
+            self.assertIn(response.status_code, {200, 400})
+            counter[response.status_code] += 1
+
             with open(
                 os.path.join(os.path.dirname(__file__), "samples", "sample1.flac"), "rb"
             ) as f:
@@ -231,7 +374,29 @@ class DockerImageTests(unittest.TestCase):
             if response.status_code == 200:
                 if response.headers["content-type"] == "application/json":
                     data = json.loads(response.content)
-                    self.assertEqual(set(data.keys()), {"text"})
+                    if isinstance(data, dict):
+                        # ASR
+                        self.assertEqual(set(data.keys()), {"text"})
+                    elif isinstance(data, list):
+                        if len(data) > 0:
+                            keys = set(data[0].keys())
+                            if keys == {"blob", "content-type", "label"}:
+                                # audio-to-audio
+                                self.assertEqual(
+                                    keys, {"blob", "content-type", "label"}
+                                )
+                            else:
+                                speech_segmentation_keys = {"class", "start", "end"}
+                                audio_classification_keys = {"label", "score"}
+                                self.assertIn(
+                                    keys,
+                                    [
+                                        audio_classification_keys,
+                                        speech_segmentation_keys,
+                                    ],
+                                )
+                    else:
+                        raise Exception("Invalid result")
                 elif response.headers["content-type"] == "audio/flac":
                     pass
                 else:
@@ -272,7 +437,7 @@ class DockerImageTests(unittest.TestCase):
             counter[response.status_code] += 1
 
             proc.terminate()
-            proc.wait(5)
+            proc.wait(20)
 
         self.assertEqual(proc.returncode, 0)
         self.assertGreater(
@@ -285,11 +450,11 @@ class DockerImageTests(unittest.TestCase):
         with DockerPopen(run_docker_command) as proc2:
             for i in range(20):
                 try:
-                    response = httpx.get(url, timeout=10)
+                    response2 = httpx.get(url, timeout=10)
                     break
                 except Exception:
                     time.sleep(1)
-            self.assertEqual(response.content, b'{"ok":"ok"}')
+            self.assertEqual(response2.content, b'{"ok":"ok"}')
             proc2.terminate()
-            proc2.wait(5)
+            proc2.wait(20)
         self.assertEqual(proc2.returncode, 0)

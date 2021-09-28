@@ -1,4 +1,5 @@
 import json
+import os
 import subprocess
 from io import BytesIO
 from typing import Any, Dict, List, Optional, Tuple, Union
@@ -186,6 +187,7 @@ INPUTS_MAPPING = {
     "translation": StringInput,
     "zero-shot-classification": StringInput,
     "text-to-speech": StringInput,
+    "text-to-image": StringInput,
 }
 
 BATCH_ENABLED_PIPELINES = ["feature-extraction"]
@@ -211,12 +213,15 @@ def normalize_payload(
     if task in {
         "automatic-speech-recognition",
         "audio-to-audio",
+        "speech-segmentation",
+        "audio-classification",
     }:
         if sampling_rate is None:
             raise EnvironmentError(
                 "We cannot normalize audio file if we don't know the sampling rate"
             )
-        return normalize_payload_audio(bpayload, sampling_rate)
+        outputs = normalize_payload_audio(bpayload, sampling_rate)
+        return outputs
     elif task in {
         "image-classification",
         "image-to-text",
@@ -306,7 +311,25 @@ def normalize_payload_image(bpayload: bytes) -> Tuple[Any, Dict]:
     return img, {}
 
 
+AUDIO_EXTENSIONS = {".mp3", ".wav", ".flac", ".mp4", ".webm", ".aac"}
+
+
+DATA_PREFIX = os.getenv("HF_TRANSFORMERS_CACHE", "")
+
+
 def normalize_payload_audio(bpayload: bytes, sampling_rate: int) -> Tuple[Any, Dict]:
+    if os.path.isfile(bpayload) and bpayload.startswith(DATA_PREFIX.encode("utf-8")):
+        # XXX:
+        # This is necessary for batch jobs where the datasets can contain
+        # filenames instead of the raw data.
+        # We attempt to sanitize this roughly, by checking it lives on the data
+        # path (harcoded in the deployment and in all the dockerfiles)
+        # We also attempt to prevent opening files that are not obviously
+        # audio files, to prevent opening stuff like model weights.
+        filename, ext = os.path.splitext(bpayload)
+        if ext.decode("utf-8") in AUDIO_EXTENSIONS:
+            with open(bpayload, "rb") as f:
+                bpayload = f.read()
     inputs = ffmpeg_read(bpayload, sampling_rate)
     if len(inputs.shape) > 1:
         # ogg can take dual channel input -> take only first input channel in this case
