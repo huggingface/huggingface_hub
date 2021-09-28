@@ -68,25 +68,25 @@
 	}
 
 	function mousemove(e): void {
-		if (canvas && output.length) {
-			let { layerX, layerY } = e;
-			layerX = clip(layerX, 0, width);
-			layerY = clip(layerY, 0, height);
-			const row = Math.floor((layerX / width) * maskH);
-			const col = Math.floor((layerY / height) * maskW);
-			let index = -1;
-			for (let [i, val] of output.entries()) {
-				const { mask } = val;
-				if (mask[col][row]) {
-					index = i;
-					break;
-				}
-			}
-			if ($highlightIndex !== index) {
-				$highlightIndex = index;
-				mouseover(index);
-			}
-		}
+		// if (canvas && output.length) {
+		// 	let { layerX, layerY } = e;
+		// 	layerX = clip(layerX, 0, width);
+		// 	layerY = clip(layerY, 0, height);
+		// 	const row = Math.floor((layerX / width) * maskH);
+		// 	const col = Math.floor((layerY / height) * maskW);
+		// 	let index = -1;
+		// 	for (let [i, val] of output.entries()) {
+		// 		const { mask } = val;
+		// 		if (mask[col][row]) {
+		// 			index = i;
+		// 			break;
+		// 		}
+		// 	}
+		// 	if ($highlightIndex !== index) {
+		// 		$highlightIndex = index;
+		// 		mouseover(index);
+		// 	}
+		// }
 	}
 </script>
 
