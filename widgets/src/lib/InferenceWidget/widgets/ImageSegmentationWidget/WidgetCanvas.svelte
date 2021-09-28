@@ -1,16 +1,19 @@
 <script>
 	import { clip } from "../../shared/ViewUtils";
 	import * as tailwindColors from "tailwindcss/colors";
-	import { highlightIndex, updateCounter } from "./stores";
+	// import { highlightIndex, updateCounter } from "./stores";
+
+	export let classNames = "";
+	export let highlightIndex = -1;
+	export let imgSrc: string;
 	export let output: any;
-	export let src = "";
 	export let mouseover: (index: number) => void = () => {};
 	export let mouseout: () => void = () => {};
 
 	let canvas: HTMLCanvasElement;
 	let canvasInterval: ReturnType<typeof setInterval>;
 	let ctx: CanvasRenderingContext2D;
-	let img: HTMLImageElement;
+	let imgEl: HTMLImageElement;
 	let width = 0;
 	let height = 0;
 	let maskW = 0;
@@ -32,7 +35,7 @@
 		canvasInterval = setInterval(() => {
 			alpha += 0.05;
 			ctx.globalAlpha = alpha;
-			ctx.drawImage(img, 0, 0, width, height);
+			ctx.drawImage(imgEl, 0, 0, width, height);
 			maskImages.map(async (maskImage, i) => {
 				if ($highlightIndex !== -1 && $highlightIndex !== i) return;
 				const maskBitMap = await createImageBitmap(maskImage);
@@ -88,11 +91,18 @@
 </script>
 
 <div
-	class="relative top-0 left-0"
+	class="relative top-0 left-0 inline-flex {classNames}"
 	bind:clientWidth={width}
 	bind:clientHeight={height}
 >
-	<img alt="" class="relative top-0 left-0" {src} bind:this={img} />
+	<div class="flex justify-center max-w-sm">
+		<img
+			alt=""
+			class="relative top-0 left-0 object-contain"
+			src={imgSrc}
+			bind:this={imgEl}
+		/>
+	</div>
 	<canvas
 		class="absolute top-0 left-0"
 		{width}
