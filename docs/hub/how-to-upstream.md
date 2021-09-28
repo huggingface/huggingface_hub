@@ -1,6 +1,6 @@
 # How to integrate upstream methods in your library
 
-Now that you've seen more downstream methods for downloading files, it is time to introduce you to additional *upstream* methods. Upstream methods refer to methods that publish files to the Hub from your library. This guide will show you how to:
+Now that you've seen more downstream utilities for downloading files, it is time to introduce you to additional *upstream* utilities. These are utilities that publish files to the Hub from your library. This guide will show you how to:
 
 * Use the `HfApi` class to manage a repository.
 * Use the `Repository` class to handle files and version control a repository with Git-like commands.
@@ -129,13 +129,13 @@ The `clone_from` parameter clones a repository from a Hugging Face model ID to a
 >>> repo = Repository(local_dir="w2v2", clone_from="facebook/wav2vec2-large-960h-lv60")
 ```
 
-This parameter can also clone a repository from a specified directory using a URL (if you are working offline, this parameter should be `None`):
+`clone_from` can also clone a repository from a specified directory using a URL (if you are working offline, this parameter should be `None`):
 
 ```python
 >>> repo = Repository(local_dir="huggingface-hub", clone_from="https://github.com/huggingface/huggingface_hub")
 ```
 
-You can easily combine the `clone_from` parameter with `create_repo` to create and clone a repository:
+Easily combine the `clone_from` parameter with `create_repo` to create and clone a repository:
 
 ```python
 >>> repo_url = HfApi().create_repo(name="repo_name")
@@ -205,7 +205,7 @@ Set `rebase=True` if you want your local commits to occur after your branch is u
 
 ### `commit` context manager
 
-The `commit` context manager is a simple utility that handles four of the most common Git commands: pull, add, commit, and push. Any files that are larger than 10MB are automatically tracked with `git-lfs`. In the following example, the `commit` context manager:
+The `commit` context manager is a simple utility that handles four of the most common Git commands: pull, add, commit, and push. `git-lfs` automatically tracks any file larger than 10MB. In the following example, the `commit` context manager:
 
 1. Pulls from the `text-files` repository.
 2. Adds a change made to `file.txt`.
@@ -258,7 +258,7 @@ When `blocking=False`, commands are tracked, and your script will only exit when
 
 ### `push_to_hub`
 
-The `Repository` class also has a `push_to_hub` method to add files to commit, commit the files, and push them to a repository. Unlike the `commit` context manager, `push_to_hub` requires you to pull from a repository first, save the files, and then call `push_to_hub`.
+The `Repository` class also has a `push_to_hub` utility to add files, make a commit, and push them to a repository. Unlike the `commit` context manager, `push_to_hub` requires you to pull from a repository first, save the files, and then call `push_to_hub`.
 
 ```python
 >>> repo.git_pull()

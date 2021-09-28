@@ -1,6 +1,6 @@
 # How to integrate downstream methods in your library
 
-In the tutorial, you learned some basic methods for integrating the Hub into your library. Methods that allow your library to download files from the Hub are referred to as *downstream* methods. This guide introduces additional downstream methods you can integrate with your library. You will learn how to:
+In the tutorial, you learned some basic methods for integrating the Hub into your library. Utilities that allow your library to download files from the Hub are referred to as *downstream* utilities. This guide introduces additional downstream utilities you can integrate with your library. You will learn how to:
 
 * Retrieve a URL to download.
 * Download a file and cache it on your disk.
@@ -41,7 +41,7 @@ hf_hub_url(repo_id="lysandre/arxiv-nlp", filename="config.json", revision="v1.0"
 
 ## `cached_download`
 
-The `cached_download` method is useful for downloading and caching a file on your local disk. Once stored in your cache, you don't have to redownload the file the next time you use it. `cached_download` is a hands-free solution for staying up to date with new file versions. When a downloaded file is updated in the repository, `huggingface_hub` will automatically download and store it for you.
+`cached_download` is useful for downloading and caching a file on your local disk. Once stored in your cache, you don't have to redownload the file the next time you use it. `cached_download` is a hands-free solution for staying up to date with new file versions. When a downloaded file is updated in the repository, `huggingface_hub` will automatically download and store it for you.
 
 Begin by retrieving your file URL with `hf_hub_url`, and then pass the specified URL to `cached_download` to download the file:
 
@@ -52,11 +52,11 @@ Begin by retrieving your file URL with `hf_hub_url`, and then pass the specified
 '/home/lysandre/.cache/huggingface/hub/bc0e8cc2f8271b322304e8bb84b3b7580701d53a335ab2d75da19c249e2eeebb.066dae6fdb1e2b8cce60c35cc0f78ed1451d9b341c78de19f3ad469d10a8cbb1'
 ```
 
-The `hf_hub_url` and `cached_download` methods work hand in hand to download a file. This is precisely how the `hf_hub_download` method from the tutorial works! `hf_hub_download` is simply a wrapper that calls both `hf_hub_url` and `cached_download`.
+`hf_hub_url` and `cached_download` work hand in hand to download a file. This is precisely how `hf_hub_download` from the tutorial works! `hf_hub_download` is simply a wrapper that calls both `hf_hub_url` and `cached_download`.
 
 ## `snapshot_download`
 
-The `snapshot_download` method downloads an entire repository at a given revision. Like the `cached_download` function, all downloaded files are cached on your local disk. However, even if only a single file is updated, the entire repository will be redownloaded.
+`snapshot_download` downloads an entire repository at a given revision. Like `cached_download`, all downloaded files are cached on your local disk. However, even if only a single file is updated, the entire repository will be redownloaded.
 
 Download a whole repository as shown in the following:
 
@@ -66,7 +66,7 @@ Download a whole repository as shown in the following:
 '/home/lysandre/.cache/huggingface/hub/lysandre__arxiv-nlp.894a9adde21d9a3e3843e6d5aeaaf01875c7fade'
 ```
 
-`snapshot_download` downloads the latest revision by default. If you want a specific repository revision, use the `revision` parameter as shown in the `hf_hub_url` method.
+`snapshot_download` downloads the latest revision by default. If you want a specific repository revision, use the `revision` parameter as shown with `hf_hub_url`.
 
 ```python
 >>> from huggingface_hub import snapshot_download

@@ -9,7 +9,7 @@ Begin by creating an instance of the `InferenceAPI` with a specific model reposi
 >>> inference = InferenceApi(repo_id="bert-base-uncased", token=API_TOKEN)
 ```
 
-The pipeline is determined from the metadata in the model card and configuration files. For example, when using the [bert-base-uncased](https://huggingface.co/bert-base-uncased) model, the Inference API can automatically infer that this model should be used for a `fill-mask` task.
+The pipeline is determined from the metadata in the model card and configuration files (see [here](https://huggingface.co/bert-base-uncased/blob/main/config.json) for an example configuration file). For example, when using the [bert-base-uncased](https://huggingface.co/bert-base-uncased) model, the Inference API can automatically infer that this model should be used for a `fill-mask` task.
 
 ```python
 >>> from huggingface_hub.inference_api import InferenceApi
