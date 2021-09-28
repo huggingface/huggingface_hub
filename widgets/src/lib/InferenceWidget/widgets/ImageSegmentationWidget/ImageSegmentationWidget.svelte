@@ -3,20 +3,30 @@
 	import { mod } from "../../shared/ViewUtils";
 
 	import WidgetCanvas from "./WidgetCanvas.svelte";
+	import WidgetFileInput from "../../shared/WidgetFileInput/WidgetFileInput.svelte";
 	import WidgetDropzone from "../../shared/WidgetDropzone/WidgetDropzone.svelte";
 	import WidgetOutputChart from "../../shared/WidgetOutputChart/WidgetOutputChart.svelte";
 	import WidgetWrapper from "../../shared/WidgetWrapper/WidgetWrapper.svelte";
 	import { getResponse } from "../../shared/helpers";
 	import { onMount } from "svelte";
-	import {
-		highlightIndex as highlightIndexCanvas,
-		updateCounter,
-	} from "./stores";
+	// import {
+	// 	highlightIndex as highlightIndexCanvas,
+	// 	updateCounter,
+	// } from "./stores";
 
 	export let apiToken: WidgetProps["apiToken"];
 	export let apiUrl: WidgetProps["apiUrl"];
 	export let model: WidgetProps["model"];
 	export let noTitle: WidgetProps["noTitle"];
+
+	interface ImageSegments {
+		png_string?: string;
+		segments_info?: Array<{
+			label: string;
+			score: number;
+			id: number;
+		}>;
+	}
 
 	let computeTime = "";
 	let error: string = "";
@@ -27,11 +37,7 @@
 		isLoading: false,
 		estimatedTime: 0,
 	};
-	let output: Array<{
-		label: string;
-		score: number;
-		mask: any;
-	}> = []; //TODO: define mask type
+	let output: ImageSegments;
 	let outputJson: string;
 	let highlightIndex = -1;
 
@@ -46,25 +52,28 @@
 		"lime",
 	] as const;
 
-	$: mouseover($highlightIndexCanvas);
-	$: outputWithColor = output.map((val, index) => {
+	// $: mouseover($highlightIndexCanvas);
+	$: outputWithColor = output?.segments_info.map((val, index) => {
 		const hash = mod(index, COLORS.length);
 		const color = COLORS[hash];
 		return { ...val, color };
 	});
 
-	function onSelectFile() {
-		const file = fileInput.files?.[0];
-		if (file) {
-			imgSrc = URL.createObjectURL(file);
-			getOutput(file);
-		}
+	function onSelectFile(file: File | Blob) {
+		imgSrc = URL.createObjectURL(file);
+		getOutput(file);
 	}
 
-	async function getOutput(file: File, withModelLoading = false) {
+	async function getOutput(file: File | Blob, withModelLoading = false) {
 		if (!file) {
 			return;
 		}
+
+		// Reset values
+		computeTime = "";
+		error = "";
+		output = {};
+		outputJson = "";
 
 		const requestBody = { file };
 
@@ -80,12 +89,7 @@
 		);
 
 		isLoading = false;
-		// Reset values
-		computeTime = "";
-		error = "";
 		modelLoading = { isLoading: false, estimatedTime: 0 };
-		output = [];
-		outputJson = "";
 
 		if (res.status === "success") {
 			computeTime = res.computeTime;
@@ -102,34 +106,41 @@
 		}
 	}
 
-	function isValidOutput(
-		arg: any
-	): arg is { label: string; score: number; mask: any }[] {
+	function isValidOutput(arg: any): arg is {
+		png_string: string;
+		segments_info: { label: string; score: number; id: number }[];
+	} {
 		return (
-			Array.isArray(arg) &&
-			arg.every(
-				(x) => typeof x.label === "string" && typeof x.score === "number"
-				// TODO: check mask type
+			typeof arg.png_string === "string" &&
+			Array.isArray(arg.segments_info) &&
+			arg.segments_info.every(
+				(x) =>
+					typeof x.label === "string" &&
+					typeof x.score === "number" &&
+					typeof x.score === "number"
 			)
 		);
 	}
 
-	function parseOutput(
-		body: unknown
-	): Array<{ label: string; score: number; mask: any }> {
-		return isValidOutput(body) ? body : [];
+	function parseOutput(body: unknown): ImageSegments {
+		if (isValidOutput(body)) {
+			return body;
+		}
+		throw new TypeError(
+			"Invalid output: output must be of type Array<{label:string; score:number; box:{xmin:number; ymin:number; xmax:number; ymax:number}}>"
+		);
 	}
 
 	function mouseout(): void {
 		highlightIndex = -1;
-		$highlightIndexCanvas = -1;
-		$updateCounter++;
+		// $highlightIndexCanvas = -1;
+		// $updateCounter++;
 	}
 
 	function mouseover(index: number): void {
 		highlightIndex = index;
-		$highlightIndexCanvas = index;
-		$updateCounter++;
+		// $highlightIndexCanvas = index;
+		// $updateCounter++;
 	}
 </script>
 
@@ -145,17 +156,39 @@
 	<svelte:fragment slot="top">
 		<form>
 			<WidgetDropzone
+				classNames="no-hover:hidden"
 				{isLoading}
-				bind:fileInput
-				onChange={onSelectFile}
 				{imgSrc}
-				innerWidget={WidgetCanvas}
-				innerWidgetProps={{
-					src: imgSrc,
-					mouseover,
-					mouseout,
-					output: outputWithColor,
-				}}
+				{onSelectFile}
+				onError={(e) => (error = e)}
+			>
+				{#if imgSrc}
+					<WidgetCanvas
+						{imgSrc}
+						{mouseover}
+						{mouseout}
+						output={outputWithColor}
+						{highlightIndex}
+					/>
+				{/if}
+			</WidgetDropzone>
+			<!-- Better UX for mobile/table through CSS breakpoints -->
+			{#if imgSrc}
+				<WidgetCanvas
+					classNames="mb-2 with-hover:hidden"
+					{imgSrc}
+					{mouseover}
+					{mouseout}
+					output={outputWithColor}
+					{highlightIndex}
+				/>
+			{/if}
+			<WidgetFileInput
+				accept="image/*"
+				classNames="mr-2 with-hover:hidden"
+				{isLoading}
+				label="Browse for image"
+				{onSelectFile}
 			/>
 		</form>
 	</svelte:fragment>
