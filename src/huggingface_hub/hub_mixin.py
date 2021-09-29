@@ -58,12 +58,12 @@ class ModelHubMixin:
                 json.dump(config, f)
 
         # saving model weights/files
-        self._save_pretrained(save_directory, **kwargs)
+        self._save_pretrained(save_directory)
 
         if push_to_hub:
             return self.push_to_hub(save_directory, **kwargs)
 
-    def _save_pretrained(self, save_directory, **kwargs):
+    def _save_pretrained(self, save_directory):
         """
         Overwrite this method in subclass to define how to save your model.
         """
@@ -144,10 +144,10 @@ class ModelHubMixin:
                     local_files_only=local_files_only,
                 )
             except requests.exceptions.RequestException:
-                logger.warning("config.json NOT FOUND in HuggingFace Hub")
+                logger.warning(f"{CONFIG_NAME} not found in HuggingFace Hub")
                 config_file = None
 
-        if config_file is not None:
+        if config_file is not None and config_file.endswith(".json"):
             with open(config_file, "r", encoding="utf-8") as f:
                 config = json.load(f)
             model_kwargs.update({"config": config})
