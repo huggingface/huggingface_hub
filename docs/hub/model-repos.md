@@ -148,7 +148,7 @@ When you want to fork or [rebase](https://git-scm.com/docs/git-rebase) a reposit
 
 For example, say you have an upstream repository, **upstream**, and you just created your own repository on the Hub which is **myfork** in this example.
 
-1. Create a destination repo (e.g. **myfork**) in https://huggingface.co/. 
+1. Create a destination repository (e.g. **myfork**) in https://huggingface.co 
 
 2. Clone your fork repository
 
