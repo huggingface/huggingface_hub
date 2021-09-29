@@ -1,70 +1,66 @@
 <script>
 	import type { WidgetProps } from "../../shared/types";
-	import { mod } from "../../shared/ViewUtils";
+	import { clip, mod, COLORS } from "../../shared/ViewUtils";
 
 	import WidgetCanvas from "./WidgetCanvas.svelte";
+	import WidgetFileInput from "../../shared/WidgetFileInput/WidgetFileInput.svelte";
 	import WidgetDropzone from "../../shared/WidgetDropzone/WidgetDropzone.svelte";
 	import WidgetOutputChart from "../../shared/WidgetOutputChart/WidgetOutputChart.svelte";
 	import WidgetWrapper from "../../shared/WidgetWrapper/WidgetWrapper.svelte";
 	import { getResponse } from "../../shared/helpers";
 	import { onMount } from "svelte";
-	import {
-		highlightIndex as highlightIndexCanvas,
-		updateCounter,
-	} from "./stores";
 
 	export let apiToken: WidgetProps["apiToken"];
 	export let apiUrl: WidgetProps["apiUrl"];
 	export let model: WidgetProps["model"];
 	export let noTitle: WidgetProps["noTitle"];
 
+	interface ImageSegments {
+		png_string?: string;
+		segments_info?: Array<{
+			label: string;
+			score: number;
+			id: number;
+		}>;
+	}
+
+	const maskOpacity = Math.floor(255 * 0.6);
+	const idAll = -1;
+
 	let computeTime = "";
 	let error: string = "";
-	let fileInput: HTMLInputElement;
+	let warning: string = "";
 	let isLoading = false;
 	let imgSrc = "";
 	let modelLoading = {
 		isLoading: false,
 		estimatedTime: 0,
 	};
-	let output: Array<{
-		label: string;
-		score: number;
-		mask: any;
-	}> = []; //TODO: define mask type
+	let output: ImageSegments;
+	let bitmaps: ImageBitmap[];
+	let outputWithColor = [];
+	let idsFlat: number[] = [];
 	let outputJson: string;
-	let highlightIndex = -1;
+	let highlightIndex = idAll;
+	let imgW = 0;
+	let imgH = 0;
 
-	const COLORS = [
-		"red",
-		"green",
-		"yellow",
-		"blue",
-		"orange",
-		"purple",
-		"cyan",
-		"lime",
-	] as const;
-
-	$: mouseover($highlightIndexCanvas);
-	$: outputWithColor = output.map((val, index) => {
-		const hash = mod(index, COLORS.length);
-		const color = COLORS[hash];
-		return { ...val, color };
-	});
-
-	function onSelectFile() {
-		const file = fileInput.files?.[0];
-		if (file) {
-			imgSrc = URL.createObjectURL(file);
-			getOutput(file);
-		}
+	function onSelectFile(file: File | Blob) {
+		imgSrc = URL.createObjectURL(file);
+		getOutput(file);
 	}
 
-	async function getOutput(file: File, withModelLoading = false) {
+	async function getOutput(file: File | Blob, withModelLoading = false) {
 		if (!file) {
 			return;
 		}
+
+		// Reset values
+		computeTime = "";
+		error = "";
+		warning = "";
+		output = null;
+		outputJson = "";
 
 		const requestBody = { file };
 
@@ -80,16 +76,16 @@
 		);
 
 		isLoading = false;
-		// Reset values
-		computeTime = "";
-		error = "";
 		modelLoading = { isLoading: false, estimatedTime: 0 };
-		output = [];
-		outputJson = "";
 
 		if (res.status === "success") {
 			computeTime = res.computeTime;
 			output = res.output;
+			if (output.segments_info.length === 0) {
+				warning = "No object was detected";
+			} else {
+				outputWithColor = getOutputWithColor(output.segments_info);
+			}
 			// outputJson = res.outputJson;
 		} else if (res.status === "loading-model") {
 			modelLoading = {
@@ -102,35 +98,159 @@
 		}
 	}
 
-	function isValidOutput(
-		arg: any
-	): arg is { label: string; score: number; mask: any }[] {
+	function isValidOutput(arg: any): arg is {
+		png_string: string;
+		segments_info: { label: string; score: number; id: number }[];
+	} {
 		return (
-			Array.isArray(arg) &&
-			arg.every(
-				(x) => typeof x.label === "string" && typeof x.score === "number"
-				// TODO: check mask type
+			typeof arg.png_string === "string" &&
+			Array.isArray(arg.segments_info) &&
+			arg.segments_info.every(
+				(x) =>
+					typeof x.label === "string" &&
+					typeof x.score === "number" &&
+					typeof x.id === "number"
 			)
 		);
 	}
-
-	function parseOutput(
-		body: unknown
-	): Array<{ label: string; score: number; mask: any }> {
-		return isValidOutput(body) ? body : [];
+	function parseOutput(body: unknown): ImageSegments {
+		if (isValidOutput(body)) {
+			return body;
+		}
+		throw new TypeError(
+			"Invalid output: output must be of type <png_string: string; segments_info: Array<{label:string; score:number; id:number}>>"
+		);
 	}
 
-	function mouseout(): void {
-		highlightIndex = -1;
-		$highlightIndexCanvas = -1;
-		$updateCounter++;
+	function mouseout() {
+		highlightIndex = idAll;
 	}
 
-	function mouseover(index: number): void {
+	function mouseover(index: number) {
 		highlightIndex = index;
-		$highlightIndexCanvas = index;
-		$updateCounter++;
 	}
+
+	function mousemove(e: any, canvasW: number, canvasH: number) {
+		let { layerX, layerY } = e;
+		layerX = clip(layerX, 0, canvasW);
+		layerY = clip(layerY, 0, canvasH);
+		const row = Math.floor((layerX / canvasH) * imgH);
+		const col = Math.floor((layerY / canvasW) * imgW);
+		highlightIndex = idsFlat[imgW * col + row];
+	}
+
+	function getOutputWithColor(
+		segments_info: Array<{
+			label: string;
+			score: number;
+			id: number;
+		}>
+	): Array<{
+		label: string;
+		score: number;
+		id: number;
+		color: string;
+	}> {
+		return segments_info.map((val, index) => {
+			const hash = mod(index, COLORS.length);
+			const { color } = COLORS[hash];
+			return { ...val, color };
+		});
+	}
+
+	async function getBitmaps(png_string: string): Promise<ImageBitmap[]> {
+		const idToColor = outputWithColor.reduce(
+			(acc, cur) => ({ ...acc, [cur.id]: cur.color }),
+			{}
+		);
+		const colorToRgb = COLORS.reduce(
+			(acc, cur) => ({ ...acc, [cur.color]: cur }),
+			{}
+		);
+		const segmentImg = new Image();
+		segmentImg.src = `data:image/png;base64, ${png_string}`;
+		// await image.onload
+		await new Promise((resolve, _) => {
+			segmentImg.onload = () => resolve(segmentImg);
+		});
+		imgW = segmentImg.naturalWidth;
+		imgH = segmentImg.naturalHeight;
+
+		idsFlat = [];
+		const { segmentData, imagesData } = getImagesData(segmentImg, imgW, imgH);
+
+		for (let i = 0; i < segmentData.data.length; i += 4) {
+			const [r, g, b] = segmentData.data.slice(i, i + 3);
+			const id = r + 256 * g + 256 * 256 * b;
+			idsFlat.push(id);
+			const color = idToColor[id];
+			if (color) {
+				const { r, g, b } = colorToRgb[color];
+				const rgba = [r, g, b, maskOpacity];
+				setSlice(imagesData[idAll].data, i, i + 4, rgba);
+				setSlice(imagesData[id].data, i, i + 4, rgba);
+			}
+		}
+
+		const bitmaps: ImageBitmap[] = [];
+		for (const key in imagesData) {
+			bitmaps[key] = await createImageBitmap(imagesData[key]);
+		}
+
+		return bitmaps;
+	}
+
+	function getImagesData(
+		segmentImg: CanvasImageSource,
+		imgW: number,
+		imgH: number
+	): {
+		segmentData: ImageData;
+		imagesData: {
+			[key: number]: ImageData;
+		};
+	} {
+		const tmpCanvas = document.createElement("canvas");
+		tmpCanvas.width = imgW;
+		tmpCanvas.height = imgH;
+		const tmpCtx = tmpCanvas.getContext("2d");
+		tmpCtx.drawImage(segmentImg, 0, 0, imgW, imgH);
+		const segmentData = tmpCtx.getImageData(0, 0, imgW, imgH);
+		const imagesData = {};
+		imagesData[idAll] = tmpCtx.createImageData(imgW, imgH);
+		for (const val of outputWithColor) {
+			imagesData[val.id] = tmpCtx.createImageData(imgW, imgH);
+		}
+		return { segmentData, imagesData };
+	}
+
+	function setSlice(
+		arr: Uint8ClampedArray,
+		index_start: number,
+		index_end: number,
+		slice: Array<any>
+	) {
+		if (index_end - index_start !== slice.length) {
+			throw new Error(
+				`setSlice Error: lengths don't match ${index_end - index_start}!=${
+					slice.length
+				}`
+			);
+		}
+		for (const [i, val] of slice.entries()) {
+			arr[index_start + i] = val;
+		}
+	}
+
+	onMount(async () => {
+		isLoading = true;
+		imgSrc = "http://images.cocodataset.org/val2017/000000039769.jpg";
+		const response = await fetch("./output.json");
+		output = await response.json();
+		outputWithColor = getOutputWithColor(output.segments_info);
+		bitmaps = await getBitmaps(output.png_string);
+		isLoading = false;
+	});
 </script>
 
 <WidgetWrapper
@@ -145,18 +265,43 @@
 	<svelte:fragment slot="top">
 		<form>
 			<WidgetDropzone
+				classNames="no-hover:hidden"
 				{isLoading}
-				bind:fileInput
-				onChange={onSelectFile}
 				{imgSrc}
-				innerWidget={WidgetCanvas}
-				innerWidgetProps={{
-					src: imgSrc,
-					mouseover,
-					mouseout,
-					output: outputWithColor,
-				}}
+				{onSelectFile}
+				onError={(e) => (error = e)}
+			>
+				{#if imgSrc}
+					<WidgetCanvas
+						{imgSrc}
+						{bitmaps}
+						{highlightIndex}
+						{mousemove}
+						{mouseout}
+					/>
+				{/if}
+			</WidgetDropzone>
+			<!-- Better UX for mobile/table through CSS breakpoints -->
+			{#if imgSrc}
+				<WidgetCanvas
+					classNames="mr-2 with-hover:hidden"
+					{imgSrc}
+					{bitmaps}
+					{highlightIndex}
+					{mousemove}
+					{mouseout}
+				/>
+			{/if}
+			<WidgetFileInput
+				accept="image/*"
+				classNames="mr-2 with-hover:hidden"
+				{isLoading}
+				label="Browse for image"
+				{onSelectFile}
 			/>
+			{#if warning}
+				<div class="alert alert-warning mt-2">{warning}</div>
+			{/if}
 		</form>
 	</svelte:fragment>
 	<svelte:fragment slot="bottom">

@@ -1,10 +1,12 @@
 <script>
+	import IconSpin from "../../../Icons/IconSpin.svelte";
 	import IconFile from "../../../Icons/IconFile.svelte";
 
 	export let accept: string | undefined;
 	export let classNames = "";
+	export let isLoading = false;
 	export let label = "Browse for file";
-	export let onSelectFile: (file: File) => void;
+	export let onSelectFile: (file: File | Blob) => void;
 
 	let fileInput: HTMLInputElement;
 	let isDragging = false;
@@ -32,12 +34,21 @@
 		onChange();
 	}}
 >
-	<label class="btn-widget {isDragging ? 'ring' : ''}">
-		<IconFile classNames="-ml-1 mr-1.5" />
+	<label
+		class="btn-widget {isDragging ? 'ring' : ''} {isLoading
+			? 'text-gray-600'
+			: ''}"
+	>
+		{#if isLoading}
+			<IconSpin classNames="-ml-1 mr-1.5 text-gray-600 animate-spin" />
+		{:else}
+			<IconFile classNames="-ml-1 mr-1.5" />
+		{/if}
 		<input
 			{accept}
 			bind:this={fileInput}
 			on:change={onChange}
+			disabled={isLoading}
 			style="display: none;"
 			type="file"
 		/>
