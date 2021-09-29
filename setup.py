@@ -27,6 +27,10 @@ extras["torch"] = [
     "torch",
 ]
 
+extras["tensorflow"] = [
+    "tensorflow",
+]
+
 extras["testing"] = [
     "pytest",
     "datasets",
