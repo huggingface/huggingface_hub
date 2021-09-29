@@ -38,7 +38,11 @@ def save_pretrained_keras(
     os.makedirs(save_directory, exist_ok=True)
 
     # saving config
-    if isinstance(config, dict):
+    if config:
+        if not isinstance(config, dict):
+            raise RuntimeError(
+                f"Provided config to save_pretrained_keras should be a dict. Got: '{type(config)}'"
+            )
         path = os.path.join(save_directory, CONFIG_NAME)
         with open(path, "w") as f:
             json.dump(config, f)
@@ -107,16 +111,17 @@ def push_to_hub_keras(
 
     if isinstance(use_auth_token, bool) and use_auth_token:
         token = HfFolder.get_token()
-        if token is None:
-            raise ValueError(
-                "You must login to the Hugging Face hub on this computer by typing `transformers-cli login` and "
-                "entering your credentials to use `use_auth_token=True`. Alternatively, you can pass your own "
-                "token as the `use_auth_token` argument."
-            )
     elif isinstance(use_auth_token, str):
         token = use_auth_token
     else:
         token = None
+
+    if token is None:
+        raise ValueError(
+            "You must login to the Hugging Face hub on this computer by typing `huggingface-cli login` and "
+            "entering your credentials to use `use_auth_token=True`. Alternatively, you can pass your own "
+            "token as the `use_auth_token` argument."
+        )
 
     if repo_path_or_name is None:
         repo_path_or_name = repo_url.split("/")[-1]

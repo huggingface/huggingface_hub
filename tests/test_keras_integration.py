@@ -177,9 +177,9 @@ class HubKerasSequentialTest(HubMixingTestKeras):
         save_pretrained_keras(model, f"{WORKING_REPO_DIR}/{REPO_NAME}")
         files = os.listdir(f"{WORKING_REPO_DIR}/{REPO_NAME}")
 
-        assert "saved_model.pb" in files
-        assert "keras_metadata.pb" in files
-        assert len(files) == 4
+        self.assertIn("saved_model.pb", files)
+        self.assertIn("keras_metadata.pb", files)
+        self.assertEqual(len(files), 4)
 
     def test_from_pretrained_weights(self):
         model = self.model_init()
@@ -189,12 +189,12 @@ class HubKerasSequentialTest(HubMixingTestKeras):
         new_model = from_pretrained_keras(f"{WORKING_REPO_DIR}/{REPO_NAME}")
 
         # Check the reloaded model's weights match the original model's weights
-        assert tf.reduce_all(tf.equal(new_model.weights[0], model.weights[0]))
+        self.assertTrue(tf.reduce_all(tf.equal(new_model.weights[0], model.weights[0])))
 
         # Check a new model's weights are not the same as the reloaded model's weights
         another_model = DummyModel()
         another_model(tf.ones([2, 2]))
-        assert not (
+        self.assertFalse(
             tf.reduce_all(tf.equal(new_model.weights[0], another_model.weights[0]))
             .numpy()
             .item()
@@ -231,7 +231,7 @@ class HubKerasSequentialTest(HubMixingTestKeras):
         new_model = from_pretrained_keras(
             f"{WORKING_REPO_DIR}/{REPO_NAME}-FROM_PRETRAINED"
         )
-        assert tf.reduce_all(tf.equal(new_model.weights[0], model.weights[0]))
+        self.assertTrue(tf.reduce_all(tf.equal(new_model.weights[0], model.weights[0])))
         self.assertTrue(new_model.config == {"num": 10, "act": "gelu_fast"})
 
     def test_push_to_hub(self):
@@ -250,7 +250,7 @@ class HubKerasSequentialTest(HubMixingTestKeras):
         model_info = HfApi(endpoint=ENDPOINT_STAGING).model_info(
             f"{USER}/{REPO_NAME}-PUSH_TO_HUB",
         )
-        assert model_info.modelId == f"{USER}/{REPO_NAME}-PUSH_TO_HUB"
+        self.assertEqual(model_info.modelId, f"{USER}/{REPO_NAME}-PUSH_TO_HUB")
 
         self._api.delete_repo(token=self._token, name=f"{REPO_NAME}-PUSH_TO_HUB")
 
