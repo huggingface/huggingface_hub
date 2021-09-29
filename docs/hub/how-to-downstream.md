@@ -1,6 +1,6 @@
-# How to integrate downstream methods in your library
+# How to integrate downstream utilities in your library
 
-In the tutorial, you learned some basic methods for integrating the Hub into your library. Utilities that allow your library to download files from the Hub are referred to as *downstream* utilities. This guide introduces additional downstream utilities you can integrate with your library. You will learn how to:
+Utilities that allow your library to download files from the Hub are referred to as *downstream* utilities. This guide introduces additional downstream utilities you can integrate with your library, or use separately on their own. You will learn how to:
 
 * Retrieve a URL to download.
 * Download a file and cache it on your disk.
@@ -41,7 +41,7 @@ hf_hub_url(repo_id="lysandre/arxiv-nlp", filename="config.json", revision="v1.0"
 
 ## `cached_download`
 
-`cached_download` is useful for downloading and caching a file on your local disk. Once stored in your cache, you don't have to redownload the file the next time you use it. `cached_download` is a hands-free solution for staying up to date with new file versions. When a downloaded file is updated in the repository, `huggingface_hub` will automatically download and store it for you.
+`cached_download` is useful for downloading and caching a file on your local disk. Once stored in your cache, you don't have to redownload the file the next time you use it. `cached_download` is a hands-free solution for staying up to date with new file versions. When a downloaded file is updated in the remote repository, `cached_download` will automatically download and store it for you.
 
 Begin by retrieving your file URL with `hf_hub_url`, and then pass the specified URL to `cached_download` to download the file:
 
@@ -53,6 +53,11 @@ Begin by retrieving your file URL with `hf_hub_url`, and then pass the specified
 ```
 
 `hf_hub_url` and `cached_download` work hand in hand to download a file. This is precisely how `hf_hub_download` from the tutorial works! `hf_hub_download` is simply a wrapper that calls both `hf_hub_url` and `cached_download`.
+
+```python
+>>> from huggingface_hub import hf_hub_download
+>>> hf_hub_download(repo_id="lysandre/arxiv-nlp", filename="config.json")
+```
 
 ## `snapshot_download`
 

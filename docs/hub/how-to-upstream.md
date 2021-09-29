@@ -1,6 +1,6 @@
-# How to integrate upstream methods in your library
+# How to integrate upstream utilities in your library
 
-Now that you've seen more downstream utilities for downloading files, it is time to introduce you to additional *upstream* utilities. These are utilities that publish files to the Hub from your library. This guide will show you how to:
+*Upstream* utilities allow you to publish files to the Hub from your library. This guide will show you how to:
 
 * Use the `HfApi` class to manage a repository.
 * Use the `Repository` class to handle files and version control a repository with Git-like commands.
@@ -16,9 +16,9 @@ The `HfApi` class is a high-level class that wraps around HTTP requests. There a
 
 ### List and filter
 
-It can be helpful for users to see a list of available models and filter them according to a specific language or framework. This can be especially useful for library and organization owners who want to view all their models. Use the `list_models` function with the `filter` parameter to search for specific models.
+It can be helpful for users to see a list of available models and filter them according to a specific language or library. This can be especially useful for library and organization owners who want to view all their models. Use the `list_models` function with the `filter` parameter to search for specific models.
 
-You can view all the available filters on the Hugging Face Hub website.
+You can view all the available filters on the left of the [model Hub](http://hf.co/models).
 
 ![/docs/assets/hub/hub_filters.png](/docs/assets/hub/hub_filters.png)
 
@@ -33,7 +33,7 @@ You can view all the available filters on the Hugging Face Hub website.
 >>> api.list_models(filter="text-classification")
 
 # List only Russian models compatible with PyTorch.
->>> api.list_models(filter=("ru", "pytorch"))
+>>> api.list_models(filter=("languages:ru", "pytorch"))
 
 # List only the models trained on the "common_voice" dataset.
 >>> api.list_models(filter="dataset:common_voice")
@@ -57,7 +57,7 @@ Explore available public datasets with `list_datasets`:
 
 ### Inspect model or dataset metadata
 
-Get important information about a model or dataset as shown in the following:
+Get important information about a model or dataset as shown below:
 
 ```python
 >>> from huggingface_hub import HfApi
@@ -72,7 +72,7 @@ Get important information about a model or dataset as shown in the following:
 
 ### Create a repository
 
-Create a repository with `create_repo` and give it a name with the `name` parameter:
+Create a repository with `create_repo` and give it a name with the `name` parameter.
 
 1. Get your Hugging Face API token:
 
@@ -93,12 +93,13 @@ Create a repository with `create_repo` and give it a name with the `name` parame
 
 Delete a repository with `delete_repo`. Make sure you are certain you want to delete a repository because this is an irreversible process!
 
-Pass your token and the name of the repository to `delete_repo`:
+Pass your token and the full repository ID to `delete_repo`. The full repository ID looks like `{username_or_org}/{repo_name}`, and you can retrieve it with `HfAPI().get_full_repo_name()` as shown below:
 
 ```python
 >>> from huggingface_hub import HfApi
+>>> name = HfAPI().get_full_repo_name(repo_name)
 >>> api = HfApi()
->>> api.delete_repo(token=token, name=REPO_NAME)
+>>> api.delete_repo(token=token, name=name)
 ```
 
 Delete a dataset repository by adding the `repo_type` parameter:
@@ -109,7 +110,7 @@ Delete a dataset repository by adding the `repo_type` parameter:
 
 ### Change repository visibility
 
-A repository can be public or private. A private repository is only visible to you or members of your organization. Change a repository to private as shown in the following:
+A repository can be public or private. A private repository is only visible to you or members of the organization in which the repository is located. Change a repository to private as shown in the following:
 
 ```python
 >>> from huggingface_hub import HfApi
@@ -161,7 +162,16 @@ If you want to commit or push to a cloned repository that belongs to you or your
    huggingface-cli login
    ```
 
-2. Instantiate a `Repository` class:
+2. Alternatively, if you prefer working from a Jupyter or Colaboratory notebook, login with `notebook_login`:
+
+   ```python
+   >>> from huggingface_hub import notebook_login
+   >>> notebook_login()
+   ```
+
+   `notebook_login` will launch a widget in your notebook from which you can enter your Hugging Face credentials.
+
+3. Instantiate a `Repository` class:
    
    ```python
    >>> repo = Repository(local_dir="my-model", clone_from="<user>/<model_id>")

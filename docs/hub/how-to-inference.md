@@ -1,15 +1,15 @@
 # How to integrate the Inference API in your library
 
-The Inference API provides fast inference for your hosted models. Integration with the Hub allows you to access the Inference API programmatically. This guide will show you how to make calls to the Inference API from your library. For more detailed information, refer to the [Inference API documentation](https://api-inference.huggingface.co/docs/python/html/index.html).
+The Inference API provides fast inference for your hosted models. The Inference API can be accessed via usual HTTP requests with your favorite programming languages, but the `huggingface_hub` library has a client wrapper to access the Inference API programmatically. This guide will show you how to make calls to the Inference API from your library. For more detailed information, refer to the [Inference API documentation](https://api-inference.huggingface.co/docs/python/html/index.html).
 
-Begin by creating an instance of the `InferenceAPI` with a specific model repository ID:
+Begin by creating an instance of the `InferenceApi` with a specific model repository ID. You can find your `API_TOKEN` under Settings from your Hugging Face account. The `API_TOKEN` will allow you to send requests to the Inference API.
 
 ```python
 >>> from huggingface_hub.inference_api import InferenceApi
 >>> inference = InferenceApi(repo_id="bert-base-uncased", token=API_TOKEN)
 ```
 
-The pipeline is determined from the metadata in the model card and configuration files (see [here](https://huggingface.co/bert-base-uncased/blob/main/config.json) for an example configuration file). For example, when using the [bert-base-uncased](https://huggingface.co/bert-base-uncased) model, the Inference API can automatically infer that this model should be used for a `fill-mask` task.
+The pipeline is determined from the metadata in the model card and configuration files (see [here](https://huggingface.co/docs/hub/main#how-is-a-models-type-of-inference-api-and-widget-determined) for more details). For example, when using the [bert-base-uncased](https://huggingface.co/bert-base-uncased) model, the Inference API can automatically infer that this model should be used for a `fill-mask` task.
 
 ```python
 >>> from huggingface_hub.inference_api import InferenceApi
