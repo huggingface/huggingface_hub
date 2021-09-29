@@ -144,7 +144,7 @@ $$ E=mc^2 $$
 
 ### How can I fork or rebase a repository with LFS pointers?
 
-When you want to fork or [rebase](https://git-scm.com/docs/git-rebase) a repository with [LFS](https://git-lfs.github.com/) files (all files over 20MB are stored as such), you cannot use the usual Git approach, and you need to be careful to not break the LFS pointers. Forking can take time depending on your bandwidth, because you will have to fetch an re-upload all the LFS files in your fork.
+When you want to fork or [rebase](https://git-scm.com/docs/git-rebase) a repository with [LFS](https://git-lfs.github.com/) files (all files over 20MB are stored as such), you cannot use the usual Git approach since you need to be careful to not break the LFS pointers. Forking can take time depending on your bandwidth, because you will have to fetch an re-upload all the LFS files in your fork.
 
 For example, say you have an upstream repository, **upstream**, and you just created your own repository on the Hub which is **myfork** in this example.
 
