@@ -62,53 +62,52 @@
 		bitmaps = await getBitmaps(output.png_string);
 		warning = "Inferece API WIP: demo image is loaded";
 		isLoading = false;
-		return;
 
-		if (!file) {
-			return;
-		}
+		// if (!file) {
+		// 	return;
+		// }
 
-		// Reset values
-		computeTime = "";
-		error = "";
-		warning = "";
-		output = null;
-		outputJson = "";
+		// // Reset values
+		// computeTime = "";
+		// error = "";
+		// warning = "";
+		// output = null;
+		// outputJson = "";
 
-		const requestBody = { file };
+		// const requestBody = { file };
 
-		isLoading = true;
+		// isLoading = true;
 
-		const res = await getResponse(
-			apiUrl,
-			model.modelId,
-			requestBody,
-			apiToken,
-			parseOutput,
-			withModelLoading
-		);
+		// const res = await getResponse(
+		// 	apiUrl,
+		// 	model.modelId,
+		// 	requestBody,
+		// 	apiToken,
+		// 	parseOutput,
+		// 	withModelLoading
+		// );
 
-		isLoading = false;
-		modelLoading = { isLoading: false, estimatedTime: 0 };
+		// isLoading = false;
+		// modelLoading = { isLoading: false, estimatedTime: 0 };
 
-		if (res.status === "success") {
-			computeTime = res.computeTime;
-			output = res.output;
-			if (output.segments_info.length === 0) {
-				warning = "No object was detected";
-			} else {
-				outputWithColor = getOutputWithColor(output.segments_info);
-			}
-			// outputJson = res.outputJson;
-		} else if (res.status === "loading-model") {
-			modelLoading = {
-				isLoading: true,
-				estimatedTime: res.estimatedTime,
-			};
-			getOutput(file, true);
-		} else if (res.status === "error") {
-			error = res.error;
-		}
+		// if (res.status === "success") {
+		// 	computeTime = res.computeTime;
+		// 	output = res.output;
+		// 	if (output.segments_info.length === 0) {
+		// 		warning = "No object was detected";
+		// 	} else {
+		// 		outputWithColor = getOutputWithColor(output.segments_info);
+		// 	}
+		// 	// outputJson = res.outputJson;
+		// } else if (res.status === "loading-model") {
+		// 	modelLoading = {
+		// 		isLoading: true,
+		// 		estimatedTime: res.estimatedTime,
+		// 	};
+		// 	getOutput(file, true);
+		// } else if (res.status === "error") {
+		// 	error = res.error;
+		// }
 	}
 
 	function isValidOutput(arg: any): arg is {
