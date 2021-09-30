@@ -55,7 +55,7 @@
 	async function getOutput(file: File | Blob, withModelLoading = false) {
 		// TODO: remove demo api simlation
 		isLoading = true;
-		imgSrc = "http://images.cocodataset.org/val2017/000000039769.jpg";
+		imgSrc = "./cats.jpg";
 		const response = await fetch("./output.json");
 		output = await response.json();
 		outputWithColor = getOutputWithColor(output.segments_info);
