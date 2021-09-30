@@ -59,7 +59,7 @@ def main():
             path_in_repo=filename,
             repo_id=repo_id,
             token=TOKEN,
-            repo_type="dataset"
+            repo_type="dataset",
         )
     except Exception:
         pass

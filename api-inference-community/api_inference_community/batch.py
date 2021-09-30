@@ -64,7 +64,7 @@ def batch(
             path_in_repo=filename,
             repo_id=repo_id,
             token=token,
-            repo_type="dataset"
+            repo_type="dataset",
         )
     except KeyError:
         print("Unchanged ? ")
