@@ -59,6 +59,6 @@ def batch(
     api = HfApi()
     repo_id = repo_id
     try:
-        api.upload_file(token, f, filename, repo_id, repo_type="dataset")
+        api.upload_file(f, filename, repo_id, token=token, repo_type="dataset")
     except KeyError:
         print("Unchanged ? ")

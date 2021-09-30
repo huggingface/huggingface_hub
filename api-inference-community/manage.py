@@ -91,7 +91,7 @@ def do_batch(args):
     repo_name = get_repo_name(model_id, dataset_name)
     api = HfApi()
     full_repo_id = api.create_repo(
-        args.token, repo_name, private=True, repo_type="dataset", exist_ok=True
+        repo_name, args.token, private=True, repo_type="dataset", exist_ok=True
     )
     repo_id = "/".join(full_repo_id.split("/")[-2:])
     print(f"Created dataset for results {repo_id}")

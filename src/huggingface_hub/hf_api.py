@@ -588,10 +588,17 @@ class HfApi:
         d = r.json()
         return DatasetInfo(**d)
 
+    def _is_valid_token(self, token: str):
+        try:
+            self.whoami(token=token)
+            return True
+        except HTTPError:
+            return False
+
     def create_repo(
         self,
-        token: str,
         name: str,
+        token: Optional[str] = None,
         organization: Optional[str] = None,
         private: Optional[bool] = None,
         repo_type: Optional[str] = None,
@@ -616,6 +623,23 @@ class HfApi:
             URL to the newly created repo.
         """
         path = "{}/api/repos/create".format(self.endpoint)
+        if token is None:
+            token = HfFolder.get_token()
+            if token is None:
+                raise EnvironmentError(
+                    "You need to provide a `token` or be logged in to Hugging Face with "
+                    "`huggingface-cli login`."
+                )
+        elif not self._is_valid_token(token):
+            if self._is_valid_token(name):
+                warnings.warn(
+                    "`create_repo` now takes `token` as an optional positional argument. "
+                    "Be sure to adapt your code!",
+                    FutureWarning,
+                )
+                token, name = name, token
+            else:
+                raise ValueError("Invalid token passed!")
 
         if repo_type not in REPO_TYPES:
             raise ValueError("Invalid repo type")
@@ -650,8 +674,8 @@ class HfApi:
 
     def delete_repo(
         self,
-        token: str,
         name: str,
+        token: Optional[str] = None,
         organization: Optional[str] = None,
         repo_type: Optional[str] = None,
     ):
@@ -663,6 +687,23 @@ class HfApi:
         CAUTION(this is irreversible).
         """
         path = "{}/api/repos/delete".format(self.endpoint)
+        if token is None:
+            token = HfFolder.get_token()
+            if token is None:
+                raise EnvironmentError(
+                    "You need to provide a `token` or be logged in to Hugging Face with "
+                    "`huggingface-cli login`."
+                )
+        elif not self._is_valid_token(token):
+            if self._is_valid_token(name):
+                warnings.warn(
+                    "`delete_repo` now takes `token` as an optional positional argument. "
+                    "Be sure to adapt your code!",
+                    FutureWarning,
+                )
+                token, name = name, token
+            else:
+                raise ValueError("Invalid token passed!")
 
         if repo_type not in REPO_TYPES:
             raise ValueError("Invalid repo type")
@@ -680,9 +721,9 @@ class HfApi:
 
     def update_repo_visibility(
         self,
-        token: str,
         name: str,
         private: bool,
+        token: Optional[str] = None,
         organization: Optional[str] = None,
         repo_type: Optional[str] = None,
     ) -> Dict[str, bool]:
@@ -691,6 +732,24 @@ class HfApi:
         """
         if repo_type not in REPO_TYPES:
             raise ValueError("Invalid repo type")
+
+        if token is None:
+            token = HfFolder.get_token()
+            if token is None:
+                raise EnvironmentError(
+                    "You need to provide a `token` or be logged in to Hugging Face with "
+                    "`huggingface-cli login`."
+                )
+        elif not self._is_valid_token(token):
+            if self._is_valid_token(name):
+                warnings.warn(
+                    "`update_repo_visibility` now takes `token` as an optional positional argument. "
+                    "Be sure to adapt your code!",
+                    FutureWarning,
+                )
+                token, name, private = name, private, token
+            else:
+                raise ValueError("Invalid token passed!")
 
         if organization is None:
             namespace = self.whoami(token)["name"]
@@ -780,6 +839,29 @@ class HfApi:
         """
         if repo_type not in REPO_TYPES:
             raise ValueError("Invalid repo type, must be one of {}".format(REPO_TYPES))
+
+        if token is None:
+            token = HfFolder.get_token()
+            if token is None:
+                raise EnvironmentError(
+                    "You need to provide a `token` or be logged in to Hugging Face with "
+                    "`huggingface-cli login`."
+                )
+        elif not self._is_valid_token(token):
+            if self._is_valid_token(path_or_fileobj):
+                warnings.warn(
+                    "`upload_file` now takes `token` as an optional positional argument. "
+                    "Be sure to adapt your code!",
+                    FutureWarning,
+                )
+                token, path_or_fileobj, path_in_repo, repo_id = (
+                    path_or_fileobj,
+                    path_in_repo,
+                    repo_id,
+                    token,
+                )
+            else:
+                raise ValueError("Invalid token passed!")
 
         # Validate path_or_fileobj
         if isinstance(path_or_fileobj, str):

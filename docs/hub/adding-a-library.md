@@ -171,24 +171,14 @@ as file uploads.
 
 This class contains a few methods we're interested in: `create_repo` and `upload_file`.
 
-While up to now we didn't need any authorization token to download files from public repositories, we will 
-need one to create a repository and upload files to it. You can retrieve your token using the `HfFolder`:
-
-```python
->>> from huggingface_hub import HfFolder
->>> folder = HfFolder()
->>> token = folder.get_token()
-```
-
 #### `create_repo`
 
-The `create_repo` method may be used to create a repository directly on the model hub. Once you have your 
-token in hand
+The `create_repo` method may be used to create a repository directly on the model hub.
 
 ```python
 >>> from huggingface_hub import HfApi
 >>> api = HfApi()
->>> api.create_repo(token, "test-model")
+>>> api.create_repo("test-model")
 'https://huggingface.co/lysandre/test-model'
 ```
 
@@ -196,12 +186,10 @@ You can choose to create repository privately, and to upload it to an organizati
 
 #### `upload_file`
 
-The `upload_file` method may be used to upload files to a repository directly on the model hub (bypassing git and git-lfs). It needs a 
-token, a path to a file, the final path in the repo, as well as the ID of the repo we're pushing to.
+The `upload_file` method may be used to upload files to a repository directly on the model hub (bypassing git and git-lfs). It needs a path to a file, the final path in the repo, as well as the ID of the repo we're pushing to.
 
 ```python
 >>> api.upload_file(
-...	token, 
 ...	path_or_fileobj="/home/lysandre/dummy-test/README.md", 
 ...	path_in_repo="README.md", 
 ...	repo_id="lysandre/test-model"

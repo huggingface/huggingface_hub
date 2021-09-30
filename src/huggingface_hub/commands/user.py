@@ -259,8 +259,8 @@ class RepoCreateCommand(BaseUserCommand):
                 exit()
         try:
             url = self._api.create_repo(
-                token,
-                name=self.args.name,
+                self.args.name,
+                token=token,
                 organization=self.args.organization,
                 repo_type=self.args.type,
             )

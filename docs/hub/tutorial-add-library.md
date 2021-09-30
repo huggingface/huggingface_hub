@@ -112,13 +112,6 @@ Begin by instantiating the `HfApi` class:
 >>> api = HfApi()
 ```
 
-You will also need to retrieve your Hugging Face API token to create a repository and upload files to it. Retrieve your token with the `HfFolder` method:
-
-```python
->>> from huggingface_hub import HfFolder
->>> token = HfFolder().get_token()
-```
-
 ### `create_repo`
 
 The `create_repo` method creates a repository on the Hub. Use the `name` parameter to provide a name for your repository:
@@ -126,7 +119,7 @@ The `create_repo` method creates a repository on the Hub. Use the `name` paramet
 ```python
 >>> from huggingface_hub import HfApi
 >>> api = HfApi()
->>> api.create_repo(token=token, name="test-model")
+>>> api.create_repo("test-model")
 'https://huggingface.co/lysandre/test-model'
 ```
 
@@ -136,7 +129,6 @@ When you check your Hugging Face account, you should now see a `test-model` repo
 
 The `upload_file` method uploads files to the Hub. This method requires the following:
 
-- Your Hugging Face API token.
 - A path to the file to upload.
 - The final path in the repository.
 - The repository you wish to push the files to.
@@ -145,7 +137,6 @@ For example:
 
 ```python
 >>> api.upload_file(
-...    token, 
 ...    path_or_fileobj="/home/lysandre/dummy-test/README.md", 
 ...    path_in_repo="README.md", 
 ...    repo_id="lysandre/test-model"
