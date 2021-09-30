@@ -10,7 +10,6 @@
 	export let mouseout: () => void = () => {};
 
 	let canvas: HTMLCanvasElement;
-	let canvasInterval: ReturnType<typeof setInterval>;
 	let imgEl: HTMLImageElement;
 	let width = 0;
 	let height = 0;
@@ -22,19 +21,9 @@
 	function draw() {
 		const bitmap = bitmaps?.[highlightIndex];
 		const ctx = canvas?.getContext("2d");
-		imgEl; // fixes Chrome initial render bug
 		if (bitmap && ctx) {
-			let alpha = 0.05;
-			clearInterval(canvasInterval);
-			canvasInterval = setInterval(() => {
-				alpha += 0.05;
-				ctx.globalAlpha = alpha;
-				ctx.drawImage(imgEl, 0, 0, width, height);
-				ctx.drawImage(bitmap, 0, 0, width, height);
-				if (alpha >= 1.0) {
-					clearInterval(canvasInterval);
-				}
-			}, 10);
+			ctx.drawImage(imgEl, 0, 0, width, height);
+			ctx.drawImage(bitmap, 0, 0, width, height);
 		}
 	}
 </script>
