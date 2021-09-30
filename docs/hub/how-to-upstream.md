@@ -106,7 +106,7 @@ A repository can be public or private. A private repository is only visible to y
 ```python
 >>> from huggingface_hub import HfApi
 >>> api = HfApi()
->>> api.update_repo_visibility(token=token, name=REPO_NAME, private=True)
+>>> api.update_repo_visibility(name=REPO_NAME, private=True)
 ```
 
 ## `Repository` 

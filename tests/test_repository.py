@@ -174,7 +174,7 @@ class RepositoryTest(RepositoryCommonTest):
             EnvironmentError, Repository, WORKING_REPO_DIR, clone_from=temp_repo_url
         )
 
-        self._api.delete_repo(token=self._token, name=f"{REPO_NAME}-temp")
+        self._api.delete_repo(name=f"{REPO_NAME}-temp", token=self._token)
 
     def test_init_clone_in_nonempty_linked_git_repo_with_token(self):
         Repository(
@@ -1222,14 +1222,14 @@ class RepositoryDatasetTest(RepositoryCommonTest):
     def tearDown(self):
         try:
             self._api.delete_repo(
-                token=self._token, name=REPO_NAME, repo_type="dataset"
+                name=REPO_NAME, token=self._token, repo_type="dataset"
             )
         except requests.exceptions.HTTPError:
             try:
                 self._api.delete_repo(
+                    name=REPO_NAME,
                     token=self._token,
                     organization="valid_org",
-                    name=REPO_NAME,
                     repo_type="dataset",
                 )
             except requests.exceptions.HTTPError:

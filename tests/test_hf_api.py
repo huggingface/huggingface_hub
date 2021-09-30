@@ -253,7 +253,7 @@ class HfApiUploadFileTest(HfApiCommonTestWithLogin):
         except Exception as err:
             self.fail(err)
         finally:
-            self._api.delete_repo(token=self._token, name=REPO_NAME)
+            self._api.delete_repo(name=REPO_NAME, token=self._token)
 
     def test_upload_file_fileobj(self):
         self._api.create_repo(name=REPO_NAME, token=self._token)
@@ -339,7 +339,7 @@ class HfApiUploadFileTest(HfApiCommonTestWithLogin):
         except Exception as err:
             self.fail(err)
         finally:
-            self._api.delete_repo(token=self._token, name=REPO_NAME)
+            self._api.delete_repo(name=REPO_NAME, token=self._token)
 
     def test_get_full_repo_name(self):
         repo_name_with_no_org = self._api.get_full_repo_name("model", token=self._token)
@@ -495,7 +495,7 @@ class HfLargefilesTest(HfApiCommonTest):
             pass
 
     def tearDown(self):
-        self._api.delete_repo(token=self._token, name=REPO_NAME_LARGE_FILE)
+        self._api.delete_repo(name=REPO_NAME_LARGE_FILE, token=self._token)
 
     def setup_local_clone(self, REMOTE_URL):
         REMOTE_URL_AUTH = REMOTE_URL.replace(
