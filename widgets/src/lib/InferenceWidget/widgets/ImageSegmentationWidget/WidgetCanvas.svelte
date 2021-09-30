@@ -1,13 +1,13 @@
 <script>
 	import { afterUpdate } from "svelte";
 
+	export let bitmaps: ImageBitmap[] = [];
 	export let classNames = "";
+	export let highlightIndex = -1;
 	export let imgSrc = "";
 	export let mousemove: (e: Event, canvasW: number, canvasH: number) => void =
 		() => {};
 	export let mouseout: () => void = () => {};
-	export let highlightIndex = -1;
-	export let bitmaps: ImageBitmap[] = [];
 
 	let canvas: HTMLCanvasElement;
 	let canvasInterval: ReturnType<typeof setInterval>;
@@ -22,6 +22,7 @@
 	function draw() {
 		const bitmap = bitmaps?.[highlightIndex];
 		const ctx = canvas?.getContext("2d");
+		imgEl; // fixes Chrome initial render bug
 		if (bitmap && ctx) {
 			let alpha = 0.05;
 			clearInterval(canvasInterval);

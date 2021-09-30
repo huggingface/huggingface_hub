@@ -7,7 +7,7 @@
 		{
 			modelId: "sgugger/resnet50d",
 			pipeline_tag: "image-segmentation",
-		}
+		},
 	];
 </script>
 

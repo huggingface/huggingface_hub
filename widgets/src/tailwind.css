@@ -215,3 +215,18 @@
 		min-height: calc(100vh - theme(spacing.16) - 1px);
 	}
 }
+.alert {
+	@apply border rounded-md py-2 px-3 border-blue-100 bg-blue-50 text-blue-900 dark:border-blue-700 dark:bg-blue-800 dark:text-blue-200;
+}
+.alert a {
+	@apply underline;
+}
+.alert-error {
+	@apply border-red-100 bg-red-50 text-red-900 dark:border-red-700 dark:bg-red-800 dark:text-red-200;
+}
+.alert-success {
+	@apply border-green-100 bg-green-50 text-green-900;
+}
+.alert-warning {
+	@apply border-yellow-100 bg-yellow-50 text-yellow-900;
+}

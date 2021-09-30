@@ -25,25 +25,25 @@
 	}
 
 	const maskOpacity = Math.floor(255 * 0.6);
-	const idAll = -1;
+	const idxAll = -1;
 
+	let bitmaps: ImageBitmap[];
 	let computeTime = "";
 	let error: string = "";
-	let warning: string = "";
+	let highlightIndex = idxAll;
+	let idsFlat: number[] = [];
 	let isLoading = false;
 	let imgSrc = "";
+	let imgW = 0;
+	let imgH = 0;
 	let modelLoading = {
 		isLoading: false,
 		estimatedTime: 0,
 	};
 	let output: ImageSegments;
-	let bitmaps: ImageBitmap[];
 	let outputWithColor = [];
-	let idsFlat: number[] = [];
 	let outputJson: string;
-	let highlightIndex = idAll;
-	let imgW = 0;
-	let imgH = 0;
+	let warning: string = "";
 
 	function onSelectFile(file: File | Blob) {
 		imgSrc = URL.createObjectURL(file);
@@ -51,6 +51,17 @@
 	}
 
 	async function getOutput(file: File | Blob, withModelLoading = false) {
+		// TODO: remove demo api simlation
+		isLoading = true;
+		imgSrc = "http://images.cocodataset.org/val2017/000000039769.jpg";
+		const response = await fetch("./output.json");
+		output = await response.json();
+		outputWithColor = getOutputWithColor(output.segments_info);
+		bitmaps = await getBitmaps(output.png_string);
+		warning = "Inferece API WIP: demo image is loaded";
+		isLoading = false;
+		return;
+
 		if (!file) {
 			return;
 		}
@@ -123,7 +134,7 @@
 	}
 
 	function mouseout() {
-		highlightIndex = idAll;
+		highlightIndex = idxAll;
 	}
 
 	function mouseover(index: number) {
@@ -187,7 +198,7 @@
 			if (color) {
 				const { r, g, b } = colorToRgb[color];
 				const rgba = [r, g, b, maskOpacity];
-				setSlice(imagesData[idAll].data, i, i + 4, rgba);
+				setSlice(imagesData[idxAll].data, i, i + 4, rgba);
 				setSlice(imagesData[id].data, i, i + 4, rgba);
 			}
 		}
@@ -217,7 +228,7 @@
 		tmpCtx.drawImage(segmentImg, 0, 0, imgW, imgH);
 		const segmentData = tmpCtx.getImageData(0, 0, imgW, imgH);
 		const imagesData = {};
-		imagesData[idAll] = tmpCtx.createImageData(imgW, imgH);
+		imagesData[idxAll] = tmpCtx.createImageData(imgW, imgH);
 		for (const val of outputWithColor) {
 			imagesData[val.id] = tmpCtx.createImageData(imgW, imgH);
 		}
@@ -243,13 +254,7 @@
 	}
 
 	onMount(async () => {
-		isLoading = true;
-		imgSrc = "http://images.cocodataset.org/val2017/000000039769.jpg";
-		const response = await fetch("./output.json");
-		output = await response.json();
-		outputWithColor = getOutputWithColor(output.segments_info);
-		bitmaps = await getBitmaps(output.png_string);
-		isLoading = false;
+		getOutput(new Blob());
 	});
 </script>
 

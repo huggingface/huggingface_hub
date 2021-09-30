@@ -3,7 +3,6 @@
 
 	import WidgetFileInput from "../../shared/WidgetFileInput/WidgetFileInput.svelte";
 	import WidgetDropzone from "../../shared/WidgetDropzone/WidgetDropzone.svelte";
-	import WidgetImage from "../../shared/WidgetImage/WidgetImage.svelte";
 	import WidgetOutputChart from "../../shared/WidgetOutputChart/WidgetOutputChart.svelte";
 	import WidgetWrapper from "../../shared/WidgetWrapper/WidgetWrapper.svelte";
 	import { getResponse } from "../../shared/helpers";
@@ -15,7 +14,6 @@
 
 	let computeTime = "";
 	let error: string = "";
-	let fileInput: HTMLInputElement;
 	let isLoading = false;
 	let imgSrc = "";
 	let modelLoading = {
