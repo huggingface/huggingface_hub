@@ -1,6 +1,8 @@
 <script>
 	import type { WidgetProps } from "../../shared/types";
+	import { onMount } from "svelte";
 	import { clip, mod, COLORS } from "../../shared/ViewUtils";
+	import { getResponse } from "../../shared/helpers";
 
 	import WidgetCanvas from "./WidgetCanvas.svelte";
 	import WidgetFileInput from "../../shared/WidgetFileInput/WidgetFileInput.svelte";
@@ -8,8 +10,6 @@
 	import WidgetOutputChart from "../../shared/WidgetOutputChart/WidgetOutputChart.svelte";
 	import WidgetWrapper from "../../shared/WidgetWrapper/WidgetWrapper.svelte";
 	import WidgetHeader from "../../shared/WidgetHeader/WidgetHeader.svelte";
-	import { getResponse } from "../../shared/helpers";
-	import { onMount } from "svelte";
 
 	export let apiToken: WidgetProps["apiToken"];
 	export let apiUrl: WidgetProps["apiUrl"];
