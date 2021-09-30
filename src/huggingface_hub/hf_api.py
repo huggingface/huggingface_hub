@@ -492,7 +492,11 @@ class HfApi:
         return [DatasetInfo(**x) for x in d]
 
     def model_info(
-        self, repo_id: str, revision: Optional[str] = None, token: Optional[str] = None
+        self,
+        repo_id: str,
+        revision: Optional[str] = None,
+        token: Optional[str] = None,
+        timeout: Optional[float] = None,
     ) -> ModelInfo:
         """
         Get info on one specific model on huggingface.co
@@ -509,7 +513,7 @@ class HfApi:
         headers = (
             {"authorization": "Bearer {}".format(token)} if token is not None else None
         )
-        r = requests.get(path, headers=headers)
+        r = requests.get(path, headers=headers, timeout=timeout)
         r.raise_for_status()
         d = r.json()
         return ModelInfo(**d)
@@ -532,7 +536,11 @@ class HfApi:
         return [RepoObj(**x) for x in d]
 
     def dataset_info(
-        self, repo_id: str, revision: Optional[str] = None, token: Optional[str] = None
+        self,
+        repo_id: str,
+        revision: Optional[str] = None,
+        token: Optional[str] = None,
+        timeout: Optional[float] = None,
     ) -> DatasetInfo:
         """
         Get info on one specific dataset on huggingface.co
@@ -550,7 +558,7 @@ class HfApi:
             {"authorization": "Bearer {}".format(token)} if token is not None else None
         )
         params = {"full": "true"}
-        r = requests.get(path, headers=headers, params=params)
+        r = requests.get(path, headers=headers, params=params, timeout=timeout)
         r.raise_for_status()
         d = r.json()
         return DatasetInfo(**d)
