@@ -328,6 +328,10 @@ class HfApi:
         """
         if token is None:
             token = HfFolder.get_token()
+        if token is None:
+            raise ValueError(
+                "You need to pass a valid `token` or login by using `huggingface-cli login`"
+            )
 
         path = "{}/api/whoami-v2".format(self.endpoint)
         r = requests.get(path, headers={"authorization": "Bearer {}".format(token)})
@@ -340,10 +344,21 @@ class HfApi:
             ) from e
         return r.json()
 
-    def logout(self, token: str) -> None:
+    def logout(self, token: Optional[str] = None) -> None:
         """
         Call HF API to log out.
+
+        Args:
+            token (``str``, `optional`):
+                Hugging Face token. Will default to the locally saved token if not provided.
         """
+        if token is None:
+            token = HfFolder.get_token()
+        if token is None:
+            raise ValueError(
+                "You need to pass a valid `token` or login by using `huggingface-cli login`"
+            )
+
         username = self.whoami(token)["name"]
         erase_from_credential_store(username)
 
@@ -501,8 +516,11 @@ class HfApi:
         """
         Get info on one specific model on huggingface.co
 
-        Model can be private if you pass an acceptable token.
+        Model can be private if you pass an acceptable token or are logged in.
         """
+        if token is None:
+            token = HfFolder.get_token()
+
         path = (
             "{}/api/models/{repo_id}".format(self.endpoint, repo_id=repo_id)
             if revision is None
@@ -519,13 +537,20 @@ class HfApi:
         return ModelInfo(**d)
 
     def list_repos_objs(
-        self, token: str, organization: Optional[str] = None
+        self, token: Optional[str] = None, organization: Optional[str] = None
     ) -> List[RepoObj]:
         """
         HuggingFace git-based system, used for models, datasets, and spaces.
 
         Call HF API to list all stored files for user (or one of their organizations).
         """
+        if token is None:
+            token = HfFolder.get_token()
+        if token is None:
+            raise ValueError(
+                "You need to pass a valid `token` or login by using `huggingface-cli login`"
+            )
+
         path = "{}/api/repos/ls".format(self.endpoint)
         params = {"organization": organization} if organization is not None else None
         r = requests.get(
@@ -689,10 +714,10 @@ class HfApi:
 
     def upload_file(
         self,
-        token: str,
         path_or_fileobj: Union[str, BinaryIO],
         path_in_repo: str,
         repo_id: str,
+        token: Optional[str] = None,
         repo_type: Optional[str] = None,
         revision: Optional[str] = None,
         identical_ok: bool = True,
@@ -702,9 +727,6 @@ class HfApi:
         doesn't require git or git-lfs to be installed.
 
         Params:
-            token (``str``):
-                Authentication token, obtained with :function:`HfApi.login` method
-
             path_or_fileobj (``str`` or ``BinaryIO``):
                 Path to a file on the local machine or binary data stream / fileobj.
 
@@ -713,6 +735,9 @@ class HfApi:
 
             repo_id (``str``):
                 The repository to which the file will be uploaded, for example: :obj:`"username/custom_transformers"`
+
+            token (``str``):
+                Authentication token, obtained with :function:`HfApi.login` method. Will default to the stored token.
 
             repo_type (``str``, Optional):
                 Set to :obj:`"dataset"` or :obj:`"space"` if uploading to a dataset or space, :obj:`None` if uploading to a model. Default is :obj:`None`.
