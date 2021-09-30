@@ -1,7 +1,8 @@
+import base64
+import io
 import logging
 import os
 import time
-import base64
 from typing import Any, Dict
 
 from api_inference_community.validation import ffmpeg_convert, normalize_payload
@@ -100,8 +101,25 @@ def call_pipe(pipe: Any, inputs, params: Dict, start: float) -> Response:
             headers["content-type"] = "application/json"
             for waveform, label in zip(waveforms, labels):
                 data = ffmpeg_convert(waveform, sampling_rate)
-                items.append({"label": label, "blob": base64.b64encode(data).decode("utf-8"), "content-type": "audio/flac"})
+                items.append(
+                    {
+                        "label": label,
+                        "blob": base64.b64encode(data).decode("utf-8"),
+                        "content-type": "audio/flac",
+                    }
+                )
             return JSONResponse(items, headers=headers, status_code=status_code)
+        elif task == "text-to-image":
+            buf = io.BytesIO()
+            outputs.save(buf, format="JPEG")
+            buf.seek(0)
+            img_bytes = buf.read()
+            return Response(
+                img_bytes,
+                headers=headers,
+                status_code=200,
+                media_type="image/jpeg",
+            )
 
     return JSONResponse(
         outputs,

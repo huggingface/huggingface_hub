@@ -5,7 +5,7 @@ import unittest
 
 from huggingface_hub import HfApi
 from huggingface_hub.file_download import is_torch_available
-from huggingface_hub.hub_mixin import ModelHubMixin
+from huggingface_hub.hub_mixin import PyTorchModelHubMixin
 
 from .testing_constants import ENDPOINT_STAGING, PASS, USER
 from .testing_utils import set_write_permission_and_retry
@@ -37,7 +37,7 @@ def require_torch(test_case):
 
 if is_torch_available():
 
-    class DummyModel(nn.Module, ModelHubMixin):
+    class DummyModel(nn.Module, PyTorchModelHubMixin):
         def __init__(self, **kwargs):
             super().__init__()
             self.config = kwargs.pop("config", None)
@@ -113,18 +113,13 @@ class HubMixingTest(HubMixingCommonTest):
 
     def test_push_to_hub(self):
         model = DummyModel()
-        model.save_pretrained(
-            f"{WORKING_REPO_DIR}/{REPO_NAME}-PUSH_TO_HUB",
-            config={"num": 7, "act": "gelu_fast"},
-        )
-
         model.push_to_hub(
-            f"{WORKING_REPO_DIR}/{REPO_NAME}-PUSH_TO_HUB",
-            f"{REPO_NAME}-PUSH_TO_HUB",
+            repo_path_or_name=f"{WORKING_REPO_DIR}/{REPO_NAME}-PUSH_TO_HUB",
             api_endpoint=ENDPOINT_STAGING,
             use_auth_token=self._token,
             git_user="ci",
             git_email="ci@dummy.com",
+            config={"num": 7, "act": "gelu_fast"},
         )
 
         model_info = self._api.model_info(

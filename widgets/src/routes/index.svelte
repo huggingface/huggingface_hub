@@ -1,13 +1,13 @@
 <script>
-	import InferenceWidget from "$lib/InferenceWidget/InferenceWidget.svelte";
-	import ModeSwitcher from "$lib/_demo/ModeSwitcher.svelte";
-	import type { ModelData } from "../../../interfaces/Types";
+	import InferenceWidget from "../lib/InferenceWidget/InferenceWidget.svelte";
+	import ModeSwitcher from "../lib/_demo/ModeSwitcher.svelte";
+	import type { ModelData } from "../lib/interfaces/Types";
 
 	const models: ModelData[] = [
 		{
 			modelId: "sgugger/resnet50d",
 			pipeline_tag: "image-segmentation",
-		},
+		}
 	];
 </script>
 

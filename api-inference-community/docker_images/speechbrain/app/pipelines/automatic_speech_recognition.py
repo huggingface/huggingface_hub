@@ -2,18 +2,30 @@ from typing import Dict
 
 import numpy as np
 import torch
+from app.common import ModelType, get_type
 from app.pipelines import Pipeline
 from speechbrain.pretrained import EncoderDecoderASR
 
 
 class AutomaticSpeechRecognitionPipeline(Pipeline):
     def __init__(self, model_id: str):
-        self.model = EncoderDecoderASR.from_hparams(source=model_id)
-        # Reduce latency
-        self.model.modules.decoder.beam_size = 1
+        model_type = get_type(model_id)
+        if model_type is ModelType.ENCODERASR:
+            # self.model = EncoderASR.from_hparams(source=model_id)
+            raise ValueError("EncoderASR is not a supported interface at the moment")
+        elif model_type is ModelType.ENCODERDECODERASR:
+            self.model = EncoderDecoderASR.from_hparams(source=model_id)
+
+            # Reduce latency
+            self.model.modules.decoder.beam_size = 1
+        else:
+            raise ValueError(
+                f"{model_type.value} is invalid for automatic-speech-recognition"
+            )
+
         # Please define a `self.sampling_rate` for this pipeline
         # to automatically read the input correctly
-        self.sampling_rate = 16000
+        self.sampling_rate = self.model.hparams.sample_rate
 
     def __call__(self, inputs: np.array) -> Dict[str, str]:
         """

@@ -1,6 +1,7 @@
 <script>
 	import type { WidgetProps } from "../../shared/types";
 
+	import WidgetFileInput from "../../shared/WidgetFileInput/WidgetFileInput.svelte";
 	import WidgetDropzone from "../../shared/WidgetDropzone/WidgetDropzone.svelte";
 	import WidgetImage from "../../shared/WidgetImage/WidgetImage.svelte";
 	import WidgetOutputChart from "../../shared/WidgetOutputChart/WidgetOutputChart.svelte";
@@ -24,15 +25,12 @@
 	let output: Array<{ label: string; score: number }> = [];
 	let outputJson: string;
 
-	function onSelectFile() {
-		const file = fileInput.files?.[0];
-		if (file) {
-			imgSrc = URL.createObjectURL(file);
-			getOutput(file);
-		}
+	function onSelectFile(file: File | Blob) {
+		imgSrc = URL.createObjectURL(file);
+		getOutput(file);
 	}
 
-	async function getOutput(file: File, withModelLoading = false) {
+	async function getOutput(file: File | Blob, withModelLoading = false) {
 		if (!file) {
 			return;
 		}
@@ -83,7 +81,12 @@
 	}
 
 	function parseOutput(body: unknown): Array<{ label: string; score: number }> {
-		return isValidOutput(body) ? body : [];
+		if (isValidOutput(body)) {
+			return body;
+		}
+		throw new TypeError(
+			"Invalid output: output must be of type Array<label: string, score:number>"
+		);
 	}
 </script>
 
@@ -99,15 +102,34 @@
 	<svelte:fragment slot="top">
 		<form>
 			<WidgetDropzone
+				classNames="no-hover:hidden"
 				{isLoading}
-				bind:fileInput
-				onChange={onSelectFile}
 				{imgSrc}
-				innerWidget={WidgetImage}
-				innerWidgetProps={{
-					classNames: "pointer-events-none shadow mx-auto max-h-44",
-					src: imgSrc,
-				}}
+				{onSelectFile}
+				onError={(e) => (error = e)}
+			>
+				{#if imgSrc}
+					<img
+						src={imgSrc}
+						class="pointer-events-none shadow mx-auto max-h-44"
+						alt=""
+					/>
+				{/if}
+			</WidgetDropzone>
+			<!-- Better UX for mobile/table through CSS breakpoints -->
+			{#if imgSrc}
+				{#if imgSrc}
+					<div class="mb-2 flex justify-center bg-gray-50 with-hover:hidden">
+						<img src={imgSrc} class="pointer-events-none max-h-44" alt="" />
+					</div>
+				{/if}
+			{/if}
+			<WidgetFileInput
+				accept="image/*"
+				classNames="mr-2 with-hover:hidden"
+				{isLoading}
+				label="Browse for image"
+				{onSelectFile}
 			/>
 		</form>
 	</svelte:fragment>

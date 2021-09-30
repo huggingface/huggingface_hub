@@ -21,9 +21,7 @@ class AutomaticSpeechRecognitionPipeline(Pipeline):
         """
         Args:
             inputs (:obj:`np.array`):
-                The raw waveform of audio received. By default at 16KHz.
-                Check `app.validation` if a different sample rate is required
-                or if it depends on the model
+                The raw waveform of audio received. By default at self.sampling_rate, otherwise 16KHz.
         Return:
             A :obj:`dict`:. The object return should be liked {"text": "XXX"} containing
             the detected langage from the input audio

@@ -22,6 +22,12 @@ class TextToSpeechTestCase(TestCase):
 
         self.app = app
 
+    @classmethod
+    def setUpClass(cls):
+        from app.main import get_pipeline
+
+        get_pipeline.cache_clear()
+
     def tearDown(self):
         if self.old_model_id is not None:
             os.environ["MODEL_ID"] = self.old_model_id
@@ -41,7 +47,7 @@ class TextToSpeechTestCase(TestCase):
             200,
         )
         self.assertEqual(response.headers["content-type"], "audio/flac")
-        audio = ffmpeg_read(response.content)
+        audio = ffmpeg_read(response.content, 16000)
         self.assertEqual(len(audio.shape), 1)
         self.assertGreater(audio.shape[0], 1000)
 

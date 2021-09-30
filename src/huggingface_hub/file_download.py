@@ -2,7 +2,6 @@ import copy
 import fnmatch
 import io
 import json
-import logging
 import os
 import sys
 import tempfile
@@ -13,6 +12,7 @@ from hashlib import sha256
 from pathlib import Path
 from typing import BinaryIO, Dict, Optional, Tuple, Union
 
+import packaging.version
 from tqdm.auto import tqdm
 
 import requests
@@ -27,13 +27,14 @@ from .constants import (
     REPO_TYPES_URL_PREFIXES,
 )
 from .hf_api import HfFolder
+from .utils import logging
 
 
-logger = logging.getLogger(__name__)
+logger = logging.get_logger(__name__)
 
-_PY_VERSION: str = sys.version.split()[0]
+_PY_VERSION: str = sys.version.split()[0].rstrip("+")
 
-if tuple(int(i) for i in _PY_VERSION.split(".")) < (3, 8, 0):
+if packaging.version.Version(_PY_VERSION) < packaging.version.Version("3.8.0"):
     import importlib_metadata
 else:
     import importlib.metadata as importlib_metadata
@@ -48,11 +49,25 @@ except importlib_metadata.PackageNotFoundError:
 
 _tf_version = "N/A"
 _tf_available = False
-try:
-    _tf_version = importlib_metadata.version("tensorflow")
-    _tf_available = True
-except importlib_metadata.PackageNotFoundError:
-    pass
+_tf_candidates = (
+    "tensorflow",
+    "tensorflow-cpu",
+    "tensorflow-gpu",
+    "tf-nightly",
+    "tf-nightly-cpu",
+    "tf-nightly-gpu",
+    "intel-tensorflow",
+    "intel-tensorflow-avx512",
+    "tensorflow-rocm",
+    "tensorflow-macos",
+)
+for package_name in _tf_candidates:
+    try:
+        _tf_version = importlib_metadata.version(package_name)
+        _tf_available = True
+        break
+    except importlib_metadata.PackageNotFoundError:
+        pass
 
 
 def is_torch_available():
@@ -467,3 +482,64 @@ def cached_download(
                 json.dump(meta, meta_file)
 
     return cache_path
+
+
+def hf_hub_download(
+    repo_id: str,
+    filename: str,
+    subfolder: Optional[str] = None,
+    repo_type: Optional[str] = None,
+    revision: Optional[str] = None,
+    library_name: Optional[str] = None,
+    library_version: Optional[str] = None,
+    cache_dir: Union[str, Path, None] = None,
+    user_agent: Union[Dict, str, None] = None,
+    force_download=False,
+    force_filename: Optional[str] = None,
+    proxies=None,
+    etag_timeout=10,
+    resume_download=False,
+    use_auth_token: Union[bool, str, None] = None,
+    local_files_only=False,
+):
+    """
+    Resolve a model identifier, a file name, and an optional revision id, to a huggingface.co file distributed through
+    Cloudfront (a Content Delivery Network, or CDN) for large files (more than a few MBs).
+
+    The file is cached locally: look for the corresponding file in the local cache. If it's not there,
+    download it. Then return the path to the cached file.
+
+    Cloudfront is replicated over the globe so downloads are way faster for the end user.
+
+    Cloudfront aggressively caches files by default (default TTL is 24 hours), however this is not an issue here
+    because we implement a git-based versioning system on huggingface.co, which means that we store the files on S3/Cloudfront
+    in a content-addressable way (i.e., the file name is its hash). Using content-addressable filenames means cache
+    can't ever be stale.
+
+    In terms of client-side caching from this library, we base our caching on the objects' ETag. An object's ETag is:
+    its git-sha1 if stored in git, or its sha256 if stored in git-lfs.
+
+    Return:
+        Local path (string) of file or if networking is off, last version of file cached on disk.
+
+    Raises:
+        In case of non-recoverable file (non-existent or inaccessible url + no cache on disk).
+    """
+    url = hf_hub_url(
+        repo_id, filename, subfolder=subfolder, repo_type=repo_type, revision=revision
+    )
+
+    return cached_download(
+        url,
+        library_name=library_name,
+        library_version=library_version,
+        cache_dir=cache_dir,
+        user_agent=user_agent,
+        force_download=force_download,
+        force_filename=force_filename,
+        proxies=proxies,
+        etag_timeout=etag_timeout,
+        resume_download=resume_download,
+        use_auth_token=use_auth_token,
+        local_files_only=local_files_only,
+    )

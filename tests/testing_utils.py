@@ -6,6 +6,8 @@ from distutils.util import strtobool
 from enum import Enum
 from unittest.mock import patch
 
+from tests.testing_constants import ENDPOINT_PRODUCTION, ENDPOINT_PRODUCTION_URL_SCHEME
+
 
 SMALL_MODEL_IDENTIFIER = "julien-c/bert-xsmall-dummy"
 DUMMY_DIFF_TOKENIZER_IDENTIFIER = "julien-c/dummy-diff-tokenizer"
@@ -28,6 +30,10 @@ DUMMY_MODEL_ID_PINNED_SHA256 = (
 
 SAMPLE_DATASET_IDENTIFIER = "lhoestq/custom_squad"
 # Example dataset ids
+DUMMY_DATASET_ID = "lhoestq/test"
+DUMMY_DATASET_ID_REVISION_ONE_SPECIFIC_COMMIT = (
+    "81d06f998585f8ee10e6e3a2ea47203dc75f2a16"  # on branch "test-branch"
+)
 
 
 def parse_flag_from_env(key, default=False):
@@ -145,3 +151,22 @@ def offline(mode=OfflineSimulationMode.CONNECTION_FAILS, timeout=1e-16):
 def set_write_permission_and_retry(func, path, excinfo):
     os.chmod(path, stat.S_IWRITE)
     func(path)
+
+
+def with_production_testing(func):
+    file_download = patch(
+        "huggingface_hub.file_download.HUGGINGFACE_CO_URL_TEMPLATE",
+        ENDPOINT_PRODUCTION_URL_SCHEME,
+    )
+
+    hf_api = patch(
+        "huggingface_hub.hf_api.ENDPOINT",
+        ENDPOINT_PRODUCTION,
+    )
+
+    repository = patch(
+        "huggingface_hub.repository.ENDPOINT",
+        ENDPOINT_PRODUCTION,
+    )
+
+    return repository(hf_api(file_download(func)))

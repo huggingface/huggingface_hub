@@ -1,6 +1,6 @@
 name: Inference API Python-tests
 on:
-  push:
+  pull_request:
     paths:
       - "api-inference-community/**"
 jobs:
@@ -12,6 +12,7 @@ jobs:
 
     steps:
       - run: |
+          sudo apt-get update
           sudo apt-get install ffmpeg
 
       - uses: actions/checkout@v2
@@ -22,10 +23,11 @@ jobs:
           python-version: ${{ matrix.python-version }}
 
       - name: Install dependencies
-        workdir: api-inference-community
+        working-directory: api-inference-community
         run: |
           pip install --upgrade pip
-          pip install pytest pillow httpx
-          pip install -e .
+          pip install -e .[test]
       - run: make test
-        workdir: api-inference-community
+        env: # Or as an environment variable
+          API_TOKEN: ${{ secrets.USER_API_TOKEN }}
+        working-directory: api-inference-community

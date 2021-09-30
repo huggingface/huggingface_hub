@@ -117,6 +117,27 @@ def tabulate(rows: List[List[Union[str, int]]], headers: List[str]) -> str:
     return "\n".join(lines)
 
 
+def currently_setup_credential_helpers(directory=None) -> List[str]:
+    try:
+        output = subprocess.run(
+            "git config --list".split(),
+            stderr=subprocess.PIPE,
+            stdout=subprocess.PIPE,
+            encoding="utf-8",
+            check=True,
+            cwd=directory,
+        ).stdout.split("\n")
+
+        current_credential_helpers = []
+        for line in output:
+            if "credential.helper" in line:
+                current_credential_helpers.append(line.split("=")[-1])
+    except subprocess.CalledProcessError as exc:
+        raise EnvironmentError(exc.stderr)
+
+    return current_credential_helpers
+
+
 class BaseUserCommand:
     def __init__(self, args):
         self.args = args
@@ -137,17 +158,7 @@ class LoginCommand(BaseUserCommand):
         )
         username = input("Username: ")
         password = getpass()
-        try:
-            token = self._api.login(username, password)
-        except HTTPError as e:
-            # probably invalid credentials, display error message.
-            print(e)
-            print(ANSI.red(e.response.text))
-            exit(1)
-        HfFolder.save_token(token)
-        print("Login successful")
-        print("Your token:", token, "\n")
-        print("Your token has been saved to", HfFolder.path_token)
+        _login(self._api, username, password)
 
 
 class WhoamiCommand(BaseUserCommand):
@@ -157,8 +168,9 @@ class WhoamiCommand(BaseUserCommand):
             print("Not logged in")
             exit()
         try:
-            user, orgs = self._api.whoami(token)
-            print(user)
+            info = self._api.whoami(token)
+            print(info["name"])
+            orgs = [org["name"] for org in info["orgs"]]
             if orgs:
                 print(ANSI.bold("orgs: "), ",".join(orgs))
         except HTTPError as e:
@@ -224,7 +236,7 @@ class RepoCreateCommand(BaseUserCommand):
             )
         print("")
 
-        user, _ = self._api.whoami(token)
+        user = self._api.whoami(token)["name"]
         namespace = (
             self.args.organization if self.args.organization is not None else user
         )
@@ -264,3 +276,76 @@ class RepoCreateCommand(BaseUserCommand):
         )
         print(f"\n  git clone {url}")
         print("")
+
+
+LOGIN_NOTEBOOK_HTML = """<center>
+<img src=https://huggingface.co/front/assets/huggingface_logo-noborder.svg alt='Hugging Face'>
+<br>
+<b>The AI community building the future</b>
+<br>
+Immediately click login after typing your password or it might be stored in plain text in this notebook file.
+</center>"""
+
+
+def notebook_login():
+    """
+    Displays a widget to login to the HF website and store the token.
+    """
+    try:
+        import ipywidgets.widgets as widgets
+        from IPython.display import clear_output, display
+    except ImportError:
+        raise ImportError(
+            "The `notebook_login` function can only be used in a notebook (Jupyter or Colab) and you need the "
+            "`ipywdidgets` module: `pip install ipywidgets`."
+        )
+
+    input_widget = widgets.Text(description="Username:")
+    password_widget = widgets.Password(description="Password:")
+    finish_button = widgets.Button(description="Login")
+    box_layout = widgets.Layout(
+        display="flex", flex_flow="column", align_items="center", width="50%"
+    )
+    main_widget = widgets.VBox(
+        [
+            widgets.HTML(value=LOGIN_NOTEBOOK_HTML),
+            widgets.HBox([input_widget, password_widget]),
+            finish_button,
+        ],
+        layout=box_layout,
+    )
+
+    display(main_widget)
+
+    def login_event(t):
+        username = input_widget.value
+        password = password_widget.value
+        # Erase password and clear value to make sure it's not saved in the notebook.
+        password_widget.value = ""
+        clear_output()
+        _login(HfApi(), username, password)
+
+    finish_button.on_click(login_event)
+
+
+def _login(hf_api, username, password):
+    try:
+        token = hf_api.login(username, password)
+    except HTTPError as e:
+        # probably invalid credentials, display error message.
+        print(e)
+        print(ANSI.red(e.response.text))
+        exit(1)
+    HfFolder.save_token(token)
+    print("Login successful")
+    print("Your token has been saved to", HfFolder.path_token)
+    helpers = currently_setup_credential_helpers()
+
+    if "store" not in helpers:
+        print(
+            ANSI.red(
+                "Authenticated through git-crendential store but this isn't the helper defined on your machine.\nYou "
+                "will have to re-authenticate when pushing to the Hugging Face Hub. Run the following command in your "
+                "terminal to set it as the default\n\ngit config --global credential.helper store"
+            )
+        )

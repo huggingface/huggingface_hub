@@ -1,8 +1,8 @@
 <script context="module">
 	import type { Load } from "@sveltejs/kit";
-	import type { ModelData } from "../../../interfaces/Types";
+	import type { ModelData } from "../lib/interfaces/Types";
 
-	import InferenceWidget from "$lib/InferenceWidget/InferenceWidget.svelte";
+	import InferenceWidget from "../lib/InferenceWidget/InferenceWidget.svelte";
 
 	/**
 	 * This page is capable of loading any model
@@ -31,7 +31,7 @@
 </script>
 
 <script>
-	import ModeSwitcher from "$lib/_demo/ModeSwitcher.svelte";
+	import ModeSwitcher from "../lib/_demo/ModeSwitcher.svelte";
 
 	export let model: ModelData | undefined;
 	export let message: string | undefined;

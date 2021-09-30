@@ -142,7 +142,9 @@
 					score: body["scores"][i] ?? 0,
 				}));
 		}
-		return [];
+		throw new TypeError(
+			"Invalid output: output must be of type <labels:Array; scores:Array>"
+		);
 	}
 </script>
 

@@ -1,13 +1,17 @@
 <script>
+	import type { HighlightCoordinates } from "../types";
+
 	import { onMount, tick } from "svelte";
 	import { scrollToMax } from "../ViewUtils";
 	import IconRow from "../../../Icons/IconRow.svelte";
 
-	export let onChange: (table: string[][]) => void;
-	export let highlighted: [y: number, x: number][] = [];
-	export let table: string[][] = [[]];
+	export let onChange: (table: (string | number)[][]) => void;
+	export let highlighted: HighlightCoordinates;
+	export let table: (string | number)[][] = [[]];
+	export let canAddRow = true;
+	export let canAddCol = true;
 
-	let initialTable: string[][] = [[]];
+	let initialTable: (string | number)[][] = [[]];
 	let tableContainerEl: HTMLElement;
 
 	onMount(() => {
@@ -20,6 +24,10 @@
 			colIndex === 0 ? `Header ${table[0].length + 1}` : "",
 		]);
 		onChange(updatedTable);
+		await scrollTableToRight();
+	}
+
+	export async function scrollTableToRight() {
 		await tick();
 		scrollToMax(tableContainerEl, "x");
 	}
@@ -40,6 +48,12 @@
 		onChange(updatedTable);
 	}
 
+	function onKeyDown(e: KeyboardEvent) {
+		if (e.code == "Enter") {
+			(e.target as HTMLElement)?.blur();
+		}
+	}
+
 	function resetTable() {
 		const updatedTable = initialTable;
 		onChange(updatedTable);
@@ -51,7 +65,12 @@
 		<thead>
 			<tr>
 				{#each table[0] as header, x}
-					<th contenteditable on:input={(e) => editCell(e, [x, 0])}>
+					<th
+						contenteditable={canAddCol}
+						class="border-2 border-gray-100 h-6"
+						on:keydown={onKeyDown}
+						on:input={(e) => editCell(e, [x, 0])}
+					>
 						{header}
 					</th>
 				{/each}
@@ -59,19 +78,13 @@
 		</thead>
 		<tbody>
 			{#each table.slice(1) as row, y}
-				<tr
-					class={highlighted.some(([yCor]) => yCor === y)
-						? "bg-green-50"
-						: "bg-white"}
-				>
+				<tr class={highlighted[`${y}`] ?? "bg-white"}>
 					{#each row as cell, x}
 						<td
-							class={highlighted.some(
-								([yCor, xCor]) => yCor === y && xCor === x
-							)
-								? "bg-green-100 border-green-100"
-								: "border-gray-100"}
+							class={(highlighted[`${y}-${x}`] ?? "border-gray-100") +
+								" border-2 h-6"}
 							contenteditable
+							on:keydown={onKeyDown}
 							on:input={(e) => editCell(e, [x, y + 1])}>{cell}</td
 						>
 					{/each}
@@ -82,22 +95,26 @@
 </div>
 
 <div class="flex mb-1 flex-wrap">
-	<button
-		class="btn-widget flex-1 lg:flex-none mt-2  mr-1.5"
-		on:click={addRow}
-		type="button"
-	>
-		<IconRow classNames="mr-2" />
-		Add row
-	</button>
-	<button
-		class="btn-widget flex-1 lg:flex-none mt-2 lg:mr-1.5"
-		on:click={addCol}
-		type="button"
-	>
-		<IconRow classNames="transform rotate-90 mr-1" />
-		Add col
-	</button>
+	{#if canAddRow}
+		<button
+			class="btn-widget flex-1 lg:flex-none mt-2  mr-1.5"
+			on:click={addRow}
+			type="button"
+		>
+			<IconRow classNames="mr-2" />
+			Add row
+		</button>
+	{/if}
+	{#if canAddCol}
+		<button
+			class="btn-widget flex-1 lg:flex-none mt-2 lg:mr-1.5"
+			on:click={addCol}
+			type="button"
+		>
+			<IconRow classNames="transform rotate-90 mr-1" />
+			Add col
+		</button>
+	{/if}
 	<button
 		class="btn-widget flex-1 mt-2 lg:flex-none lg:ml-auto"
 		on:click={resetTable}
