@@ -255,10 +255,10 @@
 	}
 
 	onMount(() => {
-		if (typeof createImageBitmap === "undefined") {
-			isCanvasAvailable = false;
-		}
-		// getOutput(new Blob());
+		// if (typeof createImageBitmap === "undefined") {
+		// 	isCanvasAvailable = false;
+		// }
+		getOutput(new Blob());
 	});
 </script>
 
