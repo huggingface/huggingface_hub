@@ -1,9 +1,17 @@
+import dataclasses
 import io
 import os
 import re
 from pathlib import Path
-from typing import Dict, Optional, Union
+from typing import Any, Dict, Optional, Union
 
+from huggingface_hub.repocard_types import (
+    ModelIndex,
+    SingleMetric,
+    SingleResult,
+    SingleResultDataset,
+    SingleResultTask,
+)
 from ruamel.yaml import YAML
 
 
@@ -67,3 +75,36 @@ def metadata_save(local_path: Union[str, Path], data: Dict) -> None:
         readme.write(output)
         readme.close()
         stream.close()
+
+
+def metadata_eval_result(
+    model_pretty_name: str,
+    task_pretty_name: str,
+    task_id: str,
+    metrics_pretty_name: str,
+    metrics_id: str,
+    metrics_value: Any,
+    dataset_pretty_name: str,
+    dataset_id: str,
+) -> Dict:
+    model_index = ModelIndex(
+        name=model_pretty_name,
+        results=[
+            SingleResult(
+                metrics=[
+                    SingleMetric(
+                        type=metrics_id,
+                        name=metrics_pretty_name,
+                        value=metrics_value,
+                    ),
+                ],
+                task=SingleResultTask(type=task_id, name=task_pretty_name),
+                dataset=SingleResultDataset(name=dataset_pretty_name, type=dataset_id),
+            )
+        ],
+    )
+    # use `dict_factory` to recursively ignore None values
+    data = dataclasses.asdict(
+        model_index, dict_factory=lambda x: {k: v for (k, v) in x if v is not None}
+    )
+    return {"model-index": [data]}

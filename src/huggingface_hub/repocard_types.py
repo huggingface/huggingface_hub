@@ -3,10 +3,10 @@
 from dataclasses import dataclass, field
 from typing import Any, List, Optional
 
+from typing_extensions import TypeAlias
 
-@dataclass
-class ModelIndexSet:
-    value: "List[ModelIndex]"
+
+ModelIndexSet: TypeAlias = "List[ModelIndex]"
 
 
 @dataclass
@@ -66,7 +66,7 @@ class SingleResultDataset:
     Use dataset id from https://hf.co/datasets
     """
 
-    args: Any
+    args: Any = None
     """
     Example: zh-CN
     """
