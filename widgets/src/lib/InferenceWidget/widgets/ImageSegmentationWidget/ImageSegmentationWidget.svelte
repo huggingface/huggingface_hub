@@ -29,7 +29,7 @@
 	const idxAll = -1;
 
 	let bitmaps: ImageBitmap[];
-	let isCanvasAvailable = true;
+	let isSafari = true;
 	let computeTime = "";
 	let error: string = "";
 	let highlightIndex = idxAll;
@@ -255,14 +255,17 @@
 	}
 
 	onMount(() => {
-		// if (typeof createImageBitmap === "undefined") {
-		// 	isCanvasAvailable = false;
-		// }
+		isSafari =
+			navigator.vendor &&
+			navigator.vendor.indexOf("Apple") > -1 &&
+			navigator.userAgent &&
+			navigator.userAgent.indexOf("CriOS") == -1 &&
+			navigator.userAgent.indexOf("FxiOS") == -1;
 		getOutput(new Blob());
 	});
 </script>
 
-{#if isCanvasAvailable}
+{#if isSafari}
 	<WidgetWrapper
 		{apiUrl}
 		{computeTime}
