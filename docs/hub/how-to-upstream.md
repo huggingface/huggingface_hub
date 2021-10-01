@@ -1,3 +1,7 @@
+---
+title: How to create repositories and upload files to the Hub
+---
+
 # How to integrate upstream utilities in your library
 
 *Upstream* utilities allow you to publish files to the Hub from your library. This guide will show you how to:

@@ -1,43 +1,39 @@
 ---
-title: Adding your Library
+title: Integrate a library with the Hub
 ---
 
-# Integrating your library to the Hub
+# Integrate your library with the Hub
 
-## Introduction
+The Hugging Face Hub aims to facilitate the sharing of machine learning models, checkpoints, and artifacts. This endeavor includes integrating the Hub into many of the amazing third-party libraries in the community. Some of the ones already integrated include [spaCy](https://spacy.io/usage/projects#huggingface_hub), [AllenNLP](https://allennlp.org/), and [timm](https://rwightman.github.io/pytorch-image-models/), among many others. Integration means users can download and upload files to the Hub directly from your library. We hope you will integrate your library and join us in democratizing artificial intelligence for everyone!
 
-The Hugging Face Hub aims to facilitate the sharing of machine learning models, checkpoints, and artifacts.  This endeavor starts with the integration of its tool stack within downstream libraries, and we're happy to announce  the fruitful collaboration between Hugging Face and spaCy, AllenNLP, and Timm, among many other incredible libraries.
+Integrating the Hub with your library provides many benefits, including:
 
-**For a full list of supported libraries, see [the following table](/docs/hub/libraries).**
+- Free model hosting for you and your users.
+- Built-in file versioning - even for huge files - made possible by [Git-LFS](https://git-lfs.github.com/).
+- All public models are powered by the [Inference API](https://api-inference.huggingface.co/docs/python/html/index.html).
+- In-browser widgets allow users to interact with your hosted models directly.
 
-We believe the Hub is a step in the correct direction for several reasons. It offers:
+This tutorial will help you integrate the Hub into your library so your users can benefit from all the features offered by the Hub.
 
-- Free model hosting for libraries and their users.
-- Built-in file versioning, even with very large files, thanks to a git-based approach.
-- Hosted inference API for all models publicly available.
-- In-browser widgets to play with the uploaded models (you can read more about the widgets [here](/docs/hub/main#whats-a-widget)).
+Before you begin, we recommend you create a [Hugging Face account](https://huggingface.co/join) from which you can manage your repositories and files. 
 
-Thanks to these, we hope to achieve true shareability across the machine learning ecosystem, reproducibility, 
-and the ability to offer simple solutions directly from the browser. To that end, we're looking to make it very 
-simple to integrate the Hub within downstream libraries or standalone machine learning models.
+If you need help with the integration at any point, feel free to open an [issue](https://github.com/huggingface/huggingface_hub/issues/new/choose), and we would be more than happy to help you!
 
-In order to provide help in the integration, feel free to open an issue in the Hub [repository](https://github.com/huggingface/huggingface_hub) so we can track and discuss about the process.
+## Installation
 
-The approach can be split in three different steps:
+1. Install the `huggingface_hub` library with pip in your environment:
 
-1. The "downstream" approach: downloading files from the Hub so that they may be used easily locally from your library.
-2. The "upstream" approach: creating repositories and uploading files to the Hub directly from your library.
-3. Setting up the inference API for uploaded models, allowing users to try out the models directly in the browser.
+   ```bash
+   python -m pip install huggingface_hub
+   ```
 
-Before getting started, we recommend you first [create a Hugging Face account](/join). This will create a namespace on which you can create repositories and to which you can upload files to. If your library already has a set of pretrained models, you can create an organization where users would find the canonical models.
+2. Once you have successfully installed the `huggingface_hub` library, log in to your Hugging Face account:
 
-Once your account is created, jump to your environment with the `huggingface_hub` library installed and log in:
+   ```bash
+   huggingface-cli login
+   ```
 
-```bash
-huggingface-cli login
-```
-
-```bash
+   ```bash
         _|    _|  _|    _|    _|_|_|    _|_|_|  _|_|_|  _|      _|    _|_|_|      _|_|_|_|    _|_|      _|_|_|  _|_|_|_|
         _|    _|  _|    _|  _|        _|          _|    _|_|    _|  _|            _|        _|    _|  _|        _|
         _|_|_|_|  _|    _|  _|  _|_|  _|  _|_|    _|    _|  _|  _|  _|  _|_|      _|_|_|    _|_|_|_|  _|        _|_|_|
@@ -45,283 +41,157 @@ huggingface-cli login
         _|    _|    _|_|      _|_|_|    _|_|_|  _|_|_|  _|      _|    _|_|_|      _|        _|    _|    _|_|_|  _|_|_|_|
 
         
-Username: 
-Password:
-```
+   Username: 
+   Password:
+   ```
 
-You're now ready to go!
+3. Alternatively, if you prefer working from a Jupyter or Colaboratory notebook, login with `notebook_login`:
 
-## Downstream: fetching files from the hub
+   ```python
+   >>> from huggingface_hub import notebook_login
+   >>> notebook_login()
+   ```
 
-The downstream approach is managed by the [`huggingface_hub`](https://github.com/huggingface/huggingface_hub/tree/main/src/huggingface_hub) library. Three methods may prove helpful when trying to 
-retrieve files from the hub:
+   `notebook_login` will launch a widget in your notebook from which you can enter your Hugging Face credentials.
 
-### `hf_hub_url`
+## Download files from the Hub
 
-This method can be used to construct the URL of a file from a given repository. For example, the 
-repository [`lysandre/arxiv-nlp`](https://huggingface.co/lysandre/arxiv-nlp) has a few model, configuration and tokenizer files:
+Integration allows users to download your hosted files directly from the Hub using your library. 
 
-![/docs/assets/hub/repo.png](/docs/assets/hub/repo.png)
+Use the `hf_hub_download` function to retrieve a URL and download files from your repository. Downloaded files are stored in your cache: `~/.cache/huggingface/hub`. You don't have to redownload the file the next time you use it, and for larger files, this can save a lot of time. Furthermore, if the repository is updated with a new version of the file, `huggingface_hub` will automatically download the latest version and store it in the cache for you. Users don't have to worry about updating their files.
 
-
-We would like to specifically fetch the configuration file of that model. The `hf_hub_url` method is tailored for 
-that use-case especially:
-
-```python
->>> from huggingface_hub import hf_hub_url
->>> hf_hub_url("lysandre/arxiv-nlp", filename="config.json")
-'https://huggingface.co/lysandre/arxiv-nlp/resolve/main/config.json'
-```
-
-
-This method is powerful: it can take a revision and return the URL of a file given a revision, which is the same 
-as clicking on the "Download" button on the web interface. This revision can be a branch, a tag or a commit hash:
+For example, download the `config.json` file from the [lysandre/arxiv-nlp](https://huggingface.co/lysandre/arxiv-nlp) repository:
 
 ```python
->>> hf_hub_url("lysandre/arxiv-nlp", filename="config.json", revision="877b84a8f93f2d619faa2a6e514a32beef88ab0a")
-'https://huggingface.co/lysandre/arxiv-nlp/resolve/877b84a8f93f2d619faa2a6e514a32beef88ab0a/config.json'
+>>> from huggingface_hub import hf_hub_download
+>>> hf_hub_download(repo_id="lysandre/arxiv-nlp", filename="config.json")
 ```
 
-### `cached_download`
+Download a specific version of the file by specifying the `revision` parameter. The `revision` parameter can be a branch name, tag, or commit hash. 
 
-This method works hand in hand with the `hf_hub_url` method. Pass it a URL, and it will retrieve and *cache* the 
-file! Let's try it with the configuration file we just retrieved thanks to the `hf_hub_url` method:
+The commit hash must be a full-length hash instead of the shorter 7-character commit hash:
 
 ```python
->>> from huggingface_hub import hf_hub_url, cached_download
->>> config_file_url = hf_hub_url("lysandre/arxiv-nlp", filename="config.json")
->>> cached_download(config_file_url)
-'/home/lysandre/.cache/huggingface/hub/bc0e8cc2f8271b322304e8bb84b3b7580701d53a335ab2d75da19c249e2eeebb.066dae6fdb1e2b8cce60c35cc0f78ed1451d9b341c78de19f3ad469d10a8cbb1'
+>>> from huggingface_hub import hf_hub_download
+>>> hf_hub_download(repo_id="lysandre/arxiv-nlp", filename="config.json", revision="877b84a8f93f2d619faa2a6e514a32beef88ab0a")
 ```
 
-The file is now downloaded and stored in my cache: `~/.cache/huggingface/hub`. It isn't necessarily noticeable for 
-small files such as a configuration file - but larger files, such as model files, would be hard to work with if they 
-had to be re-downloaded every time. Additionally, these large files will always be downloaded with a blazing fast
-download speed: we use Cloudfront (a CDN) to geo-replicate downloads across the globe. ⚡⚡
-
-If the repository is updated with a new version of the file we just downloaded, then the `huggingface_hub` will 
-download the new version and store it in the cache next time, without any action needed from your part to specify 
-it should fetch an updated version.
-
-### `snapshot_download`
-
-The `hf_hub_url` and `cached_download` combo works wonders when you have a fixed repository structure; for example 
-a model file alongside a configuration file, both with static names.
-
-However, this is not always the case. You may choose to have a more flexible approach without sticking to a specific 
-file schema. This is what the authors of `AllenNLP` and `Sentence Transformers` chose to do for instance. In that case `snapshot_download` comes 
-in handy: it downloads a whole snapshot of a repo's files at the specified revision, without having to have git or git-lfs installed. All files are nested inside a 
-folder in order to keep their actual filename relative to that folder.
-
-This is similar to what you would obtain if you were to clone the repository yourself - however, this does not 
-need either git or git-lfs to work, and none of your users will need it either.
+Use the `cache_dir` parameter to change where a file is stored:
 
 ```python
->>> from huggingface_hub import snapshot_download
->>> snapshot_download("lysandre/arxiv-nlp")
-'/home/lysandre/.cache/huggingface/hub/lysandre__arxiv-nlp.894a9adde21d9a3e3843e6d5aeaaf01875c7fade'
+>>> from huggingface_hub import hf_hub_download
+>>> hf_hub_download(repo_id="lysandre/arxiv-nlp", filename="config.json", cache_dir="/home/lysandre/test")
 ```
-
-The downloaded files are, once again, cached on your system. The code above will only need to fetch the files the 
-first time it is run; and if you update a file on your repository, then that method will automatically fetch the 
-updated repository next time it is run.
-
-### Finalizing the downstream approach
-
-With the help of these three methods, implementing a download mechanism from the hub should be super simple! Please, 
-feel free to open an issue if you're lost as to how apply it to your library - we'll be happy to help.
 
 ### Code sample
 
-For users to understand how the model should be used in your downstream library, we recommend adding a code snippet 
-explaining how that should be done. 
+We recommend adding a code snippet to explain how a model should be used in your downstream library. 
 
 ![/docs/assets/hub/code_snippet.png](/docs/assets/hub/code_snippet.png)
 
+Add a code snippet by updating the [Libraries Typescript file](https://github.com/huggingface/huggingface_hub/blob/main/widgets/src/lib/interfaces/Libraries.ts) with instructions for your model. For example, the [Asteroid](https://huggingface.co/asteroid-team) integration includes a brief code snippet for how to load and use an Asteroid model:
 
-In order to do this, please take a look and update the following file with 
-mentions of your library: [interfaces/Libraries.ts](https://github.com/huggingface/huggingface_hub/blob/main/widgets/src/lib/interfaces/Libraries.ts). 
-This file is in Typescript as this is the ground truth that we're using on the Hugging Face website. A good 
-understanding of Typescript isn't necessary to edit the file.
+```typescript
+const asteroid = (model: ModelData) =>
+`from asteroid.models import BaseModel
+  
+model = BaseModel.from_pretrained("${model.modelId}")`;
+```
 
-Additionally, this will add a tag with which users may filter models. All models from your library will 
-be easily identifiable!
+This will also add a tag to your model so users can quickly identify models from your library.
 
 ![/docs/assets/hub/libraries-tags.png](/docs/assets/hub/libraries-tags.png)
 
-## Upstream: creating repositories and uploading files to the hub
+## Upload files to the Hub
 
-The `huggingface_hub` library offers a few tools to make it super simple to create a repository on the hub 
-programmatically, and upload files to that repository. 
+You might also want to provide a method for creating model repositories and uploading files to the Hub directly from your library. The `HfApi` class has two methods to assist you with creating repositories and uploading files:
 
-We'll see two approaches, that work slightly differently.
-- The `HfApi` class
-- The `Repository` class.
+- `create_repo` creates a repository on the Hub.
+- `upload_file` directly uploads files to a repository on the Hub.
 
-### `HfApi`
-
-The `HfApi` class is a low level class that acts as a thin wrapper around HTTP requests. It has no dependency
-other than `requests`, and can handle repository creation and deletion, repository visibility, model search, as well
-as file uploads.
+Begin by instantiating the `HfApi` class:
 
 ```python
 >>> from huggingface_hub import HfApi
 >>> api = HfApi()
 ```
 
-This class contains a few methods we're interested in: `create_repo` and `upload_file`.
-
-While up to now we didn't need any authorization token to download files from public repositories, we will 
-need one to create a repository and upload files to it. You can retrieve your token using the `HfFolder`:
+You will also need to retrieve your Hugging Face API token to create a repository and upload files to it. Retrieve your token with the `HfFolder` method:
 
 ```python
 >>> from huggingface_hub import HfFolder
->>> folder = HfFolder()
->>> token = folder.get_token()
+>>> token = HfFolder().get_token()
 ```
 
-#### `create_repo`
+### `create_repo`
 
-The `create_repo` method may be used to create a repository directly on the model hub. Once you have your 
-token in hand
+The `create_repo` method creates a repository on the Hub. Use the `name` parameter to provide a name for your repository:
 
 ```python
 >>> from huggingface_hub import HfApi
 >>> api = HfApi()
->>> api.create_repo(token, "test-model")
+>>> api.create_repo(token=token, name="test-model")
 'https://huggingface.co/lysandre/test-model'
 ```
 
-You can choose to create repository privately, and to upload it to an organization you are part of.
+When you check your Hugging Face account, you should now see a `test-model` repository under your namespace.
 
-#### `upload_file`
+### `upload_file`
 
-The `upload_file` method may be used to upload files to a repository directly on the model hub (bypassing git and git-lfs). It needs a 
-token, a path to a file, the final path in the repo, as well as the ID of the repo we're pushing to.
+The `upload_file` method uploads files to the Hub. This method requires the following:
+
+- Your Hugging Face API token.
+- A path to the file to upload.
+- The final path in the repository.
+- The repository you wish to push the files to.
+
+For example:
 
 ```python
 >>> api.upload_file(
-...	token, 
-...	path_or_fileobj="/home/lysandre/dummy-test/README.md", 
-...	path_in_repo="README.md", 
-...	repo_id="lysandre/test-model"
+...    token, 
+...    path_or_fileobj="/home/lysandre/dummy-test/README.md", 
+...    path_in_repo="README.md", 
+...    repo_id="lysandre/test-model"
 ... )
 'https://huggingface.co/lysandre/test-model/blob/main/README.md'
 ```
 
-### `Repository`
+If you need to upload more than one file, take a look at the utilities offered by the `Repository` class [here](/docs/hub/how-to-upstream#`Repository`).
 
-The Repository class is the main way to programmatically push models or other repos to huggingface.co, and it is simply a wrapper over git & git-lfs methods.
+Once again, if you check your Hugging Face account, you should see the file inside your repository.
 
-Therefore, handling repositories with this class requires you and your users to have git and git-lfs correctly set up.
+Lastly, it is important to add a model card, so users understand how to use your model. See [here](/docs/hub/model-repos#what-are-model-cards-and-why-are-they-useful) for more details about how to create a model card.
 
-We recommend taking a look at the [Hugging Face's hub README](https://github.com/huggingface/huggingface_hub), or at
-[class definition directly](https://github.com/huggingface/huggingface_hub/blob/main/src/huggingface_hub/repository.py)
-to see what is possible, as it offers a lot of very useful wrappers.
+## Set up the Inference API
 
-It offers several methods that can be used directly from a Python runtime, namely:
-- `git_add`
-- `git_pull`
-- `git_commit`
-- `git_push`
-- A `push_to_hub` which takes care of adding all files to the staging area, commit them and push them to the repo.
+Our Inference API powers models uploaded to the Hub through your library.
 
-### Finalizing the upstream approach
+All third-party libraries are Dockerized, so you can install the dependencies you'll need for your library to work correctly. Add your library to the existing Docker images by navigating to the [Docker images folder](https://github.com/huggingface/huggingface_hub/tree/main/api-inference-community/docker_images).
 
-With these two methods, creating and managing repositories is done very simply! When offering uploading possibilities
-through your library, we recommend you also set up a workflow to automatically create model cards for your users.
+1. Copy the `common` folder and rename it with the name of your library (e.g. `docker/common` to `docker/your-awesome-library`).
+2. There are four files you need to edit:
+    * List the packages required for your library to work in `requirements.txt`.
+    * Update `app/main.py` with the tasks supported by your model (see [here](https://github.com/huggingface/huggingface_hub/tree/main/api-inference-community) for a complete list of available tasks). Look out for the `IMPLEMENT_THIS` flag to add your supported task.
 
-#### Model cards
+       ```python
+       ALLOWED_TASKS: Dict[str, Type[Pipeline]] = {
+           "token-classification": TokenClassificationPipeline
+       }
+       ```
 
-Model cards are arguably as important as the model and tokenizer files in a model repository. They are the central 
-definition of the model, ensuring reusability by fellow community members and reproducibility of results, 
-while providing a platform on which other members may build their artifacts.
+    * For each task your library supports, modify the `app/pipelines/task_name.py` files accordingly. We have also added an `IMPLEMENT_THIS` flag in the pipeline files to guide you. If there isn't a pipeline that supports your task, feel free to add one. Open an [issue](https://github.com/huggingface/huggingface_hub/issues/new) here, and we will be happy to help you.
+    * Add your model and task to the `tests/test_api.py` file. For example, if you have a text generation model:
 
-Without model cards, then the Hugging Face Hub is nothing more than a storage tool; in order to exploit the full
-potential of widgets, inference API as well as usability of models, the model cards should be defined.
+       ```python
+       TESTABLE_MODELS: Dict[str,str] = {
+           "text-generation": "my-gpt2-model"
+       }
+       ```
+3. Finally, run the following test to ensure everything works as expected:
 
-#### Model card metadata
+    ```bash
+    pytest -sv --rootdir docker_images/your-awesome-library/docker_images/your-awesome-library/
+    ```
 
-The metadata held in model cards is the best way to supercharge your model. It is through the metadata that you can
-define tags for your library or framework, the type of model uploaded, the language, license, evaluation results,
-and more.
-
-The full model card specification is  [here](https://github.com/huggingface/huggingface_hub/blame/main/modelcard.md), it's also repeated below for convenience:
-
-```yaml
----
-language:
-- {lang_0}  # Example: fr
-- {lang_1}  # Example: en
-license: {license}  # Example: apache-2.0 or any license from https://hf.co/docs/hub/model-repos#list-of-license-identifiers
-tags:
-- {tag_0}  # Example: audio
-- {tag_1}  # Example: automatic-speech-recognition
-- {tag_2}  # Example: speech
-- {tag_3}  # Example to specify a library: allennlp
-datasets:
-- {dataset_0}  # Example: common_voice. Use dataset id from https://hf.co/datasets
-metrics:
-- {metric_0}  # Example: wer. Use metric id from https://hf.co/metrics
-
-# Optional. Add this if you want to encode your eval results in a structured way.
-model-index:
-- name: {model_id}
-  results:
-  - task: 
-      type: {task_type}  # Required. Example: automatic-speech-recognition
-      name: {task_name}  # Optional. Example: Speech Recognition
-    dataset:
-      type: {dataset_type}  # Required. Example: common_voice. Use dataset id from https://hf.co/datasets
-      name: {dataset_name}  # Required. Example: Common Voice zh-CN
-      args: {arg_0}         # Optional. Example: zh-CN
-    metrics:
-      - type: {metric_type}    # Required. Example: wer
-        value: {metric_value}  # Required. Example: 20.90
-        name: {metric_name}    # Optional. Example: Test WER
-        args: {arg_0}          # Optional. Example for BLEU: max_order
----
-```
-
-None of the fields are required - but any added field will improve the discoverability of your model and open it to features such as the inference API. You can find more information on repos and model cards [here](/docs/hub/model-repos#model-card-metadata).
-
-When present, and only then, 'model-index', 'datasets' and 'license' contents will be verified when git pushing changes to your README.me file.
-Valid license identifiers can be found in [our docs](/docs/hub/model-repos#list-of-license-identifiers)
-
-## Setting up the Inference API
-
-### Docker image
-
-All third-party libraries are dockerized: in this environment, you can install the dependencies you'll need for your 
-library to work correctly. In order to add your library to the existing docker images, head over to 
-the [`inference-api-community` docker images folder](https://github.com/huggingface/huggingface_hub/tree/main/api-inference-community).
-
-Here, you'll be facing a folder for each library already implemented - as well as a `common` folder. Copy this 
-folder and paste it with the name of your library. You'll need to edit three files to make this docker image yours:
-
-- The `requirements.txt` should be defined according to your library's needs.
-- The `app/main.py` needs to mention which tasks are implemented. Look for the `IMPLEMENT_THIS` sample and update 
-  it accordingly. See [AllenNLP](https://github.com/huggingface/huggingface_hub/blob/59ea9998ee2331acf1c50a9fe2f93e5606c5fefb/api-inference-community/docker_images/allennlp/app/main.py#L29) 
-  or [sentence-transformers](https://github.com/huggingface/huggingface_hub/blob/59ea9998ee2331acf1c50a9fe2f93e5606c5fefb/api-inference-community/docker_images/sentence_transformers/app/main.py#L32-L33) 
-  for examples.
-- Finally, the meat of the changes is to be applied to each pipeline you would like to see enabled for your model. 
-  Modify the files `app/pipelines/{task_name}.py` accordingly. Here too, look for the `IMPLEMENT_THIS` sample and 
-  edit to fit your needs. While keeping in mind that we aim for our pipelines to be as generic as possible, feel 
-  free to add any pipeline you need if it isn't among the others. If you run into any issues, please 
-  [open an issue](https://github.com/huggingface/huggingface_hub/issues/new) so that we may take a  look and help 
-  you out.
-
-For additional information, please take a look at the README available in the `api-inference-community` [folder](https://github.com/huggingface/huggingface_hub/tree/main/api-inference-community). 
-This README contains information about the tests necessary to ensure that your library's docker image will continue working.
-
-### Implementing a widget
-
-All our widgets are [open sourced](https://github.com/huggingface/huggingface_hub/tree/main/widgets)!. You can try them out [here](https://huggingface-widgets.netlify.app/). If you would like to contribute or propose a new widget, please open an issue in the repo.
-
-### New pipelines
-
-If you're adding a new pipeline type, you might also want to take a look at adding it to the 
-[Types.ts](https://github.com/huggingface/huggingface_hub/blob/main/widgets/src/lib/interfaces/Types.ts) for it to be identifiable as a possible pipeline.
-
-Secondly, you should set the 
-[widget default for that new pipeline](https://github.com/huggingface/huggingface_hub/blob/main/widgets/src/lib/interfaces/DefaultWidget.ts) if you can.
+With these simple but powerful methods, you brought the full functionality of the Hub into your library. Users can download files stored on the Hub from your library with `hf_hub_download`, create repositories with `create_repo`, and upload files with `upload_file`. You also set up Inference API with your library, allowing users to interact with your models on the Hub from inside a browser.

@@ -1,3 +1,7 @@
+---
+title: How to download files from the Hub
+---
+
 # How to integrate downstream utilities in your library
 
 Utilities that allow your library to download files from the Hub are referred to as *downstream* utilities. This guide introduces additional downstream utilities you can integrate with your library, or use separately on their own. You will learn how to:
