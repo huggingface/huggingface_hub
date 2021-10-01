@@ -19,7 +19,7 @@
 - local: spaces
   title: Spaces documentation (beta)
 
-- local: tutorial-add-library
+- local: adding-a-library
   title: Integrate a library with the Hub
 
 - local: how-to-downstream
