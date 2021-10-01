@@ -4,7 +4,7 @@
 	import { clip, mod, COLORS } from "../../shared/ViewUtils";
 	import { getResponse } from "../../shared/helpers";
 
-	import WidgetCanvas from "./WidgetCanvas.svelte";
+	import Canvas from "./Canvas.svelte";
 	import WidgetFileInput from "../../shared/WidgetFileInput/WidgetFileInput.svelte";
 	import WidgetDropzone from "../../shared/WidgetDropzone/WidgetDropzone.svelte";
 	import WidgetOutputChart from "../../shared/WidgetOutputChart/WidgetOutputChart.svelte";
@@ -282,7 +282,7 @@
 					onError={(e) => (error = e)}
 				>
 					{#if imgSrc}
-						<WidgetCanvas
+						<Canvas
 							{imgSrc}
 							{bitmaps}
 							{highlightIndex}
@@ -293,7 +293,7 @@
 				</WidgetDropzone>
 				<!-- Better UX for mobile/table through CSS breakpoints -->
 				{#if imgSrc}
-					<WidgetCanvas
+					<Canvas
 						classNames="mr-2 with-hover:hidden"
 						{imgSrc}
 						{bitmaps}
