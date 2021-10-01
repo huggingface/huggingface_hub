@@ -453,7 +453,7 @@ class DockerImageTests(unittest.TestCase):
 
         # Follow up loading are much faster, 20s should be ok.
         with DockerPopen(run_docker_command) as proc2:
-            for i in range(30):
+            for i in range(20):
                 try:
                     response2 = httpx.get(url, timeout=10)
                     break

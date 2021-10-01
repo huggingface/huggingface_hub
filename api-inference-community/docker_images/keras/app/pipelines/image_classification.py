@@ -4,8 +4,6 @@ from typing import Any, Dict, List
 import tensorflow as tf
 from app.pipelines import Pipeline
 from huggingface_hub import cached_download, from_pretrained_keras, hf_hub_url
-
-# if TYPE_CHECKING:
 from PIL import Image
 
 
@@ -32,6 +30,7 @@ class ImageClassificationPipeline(Pipeline):
 
         # Handle binary classification with a single output unit.
         self.single_output_unit = self.model.output_shape[1] == 1
+        self.num_labels = 2 if self.single_output_unit else self.model.output_shape[1]
 
         # Config is required to know the mapping to label.
         config_file = cached_download(hf_hub_url(model_id, filename=CONFIG_FILENAME))
@@ -39,11 +38,7 @@ class ImageClassificationPipeline(Pipeline):
             config = json.load(config)
 
         self.labels = config.get("labels", None)
-
         if not self.labels:
-            self.num_labels = (
-                2 if self.single_output_unit else self.model.output_shape[1]
-            )
             self.labels = [f"LABEL_{i}" for i in range(self.num_labels)]
 
         self.id2label = {str(i): l for i, l in enumerate(self.labels)}
