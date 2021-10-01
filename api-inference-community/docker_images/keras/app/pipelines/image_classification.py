@@ -3,7 +3,7 @@ from typing import Any, Dict, List
 
 import tensorflow as tf
 from app.pipelines import Pipeline
-from huggingface_hub import cached_download, from_pretrained_keras, hf_hub_url
+from huggingface_hub import from_pretrained_keras, hf_hub_download
 from PIL import Image
 
 
@@ -33,15 +33,14 @@ class ImageClassificationPipeline(Pipeline):
         self.num_labels = 2 if self.single_output_unit else self.model.output_shape[1]
 
         # Config is required to know the mapping to label.
-        config_file = cached_download(hf_hub_url(model_id, filename=CONFIG_FILENAME))
+        config_file = hf_hub_download(model_id, filename=CONFIG_FILENAME)
         with open(config_file) as config:
             config = json.load(config)
 
-        self.labels = config.get("labels", None)
-        if not self.labels:
-            self.labels = [f"LABEL_{i}" for i in range(self.num_labels)]
+        self.id2label = config.get(
+            "id2label", {str(i): f"LABEL_{i}" for i in range(self.num_labels)}
+        )
 
-        self.id2label = {str(i): l for i, l in enumerate(self.labels)}
         self.interpolation = _PIL_INTERPOLATION_METHODS.get(
             config.get("interpolation", "nearest"), None
         )
