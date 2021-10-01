@@ -10,30 +10,30 @@
 	export let mouseout: () => void = () => {};
 
 	let canvas: HTMLCanvasElement;
-	let canvasInterval: ReturnType<typeof setInterval>;
 	let imgEl: HTMLImageElement;
 	let width = 0;
 	let height = 0;
+	let startTs: DOMHighResTimeStamp;
 
 	afterUpdate(() => {
+		startTs = performance.now();
 		draw();
 	});
 
 	function draw() {
+		const animDuration = 200;
 		const bitmap = bitmaps?.[highlightIndex];
 		const ctx = canvas?.getContext("2d");
 		if (bitmap && ctx) {
-			let alpha = 0.05;
-			clearInterval(canvasInterval);
-			canvasInterval = setInterval(() => {
-				alpha += 0.05;
-				ctx.globalAlpha = alpha;
-				ctx.drawImage(imgEl, 0, 0, width, height);
-				ctx.drawImage(bitmap, 0, 0, width, height);
-				if (alpha >= 1.0) {
-					clearInterval(canvasInterval);
-				}
-			}, 10);
+			const duration = performance.now() - startTs;
+			ctx.globalAlpha = Math.min(duration, animDuration) / animDuration;
+			ctx.drawImage(imgEl, 0, 0, width, height);
+			ctx.drawImage(bitmap, 0, 0, width, height);
+			if (duration < animDuration) {
+				// when using canvas, prefer to use requestAnimationFrame over setTimeout & setInterval
+				// https://developer.mozilla.org/en-US/docs/Web/API/window/requestAnimationFrame
+				window.requestAnimationFrame(draw);
+			}
 		}
 	}
 </script>
