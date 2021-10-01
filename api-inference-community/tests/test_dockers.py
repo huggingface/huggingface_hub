@@ -160,8 +160,13 @@ class DockerImageTests(unittest.TestCase):
         self.framework_invalid_test("timm")
 
     def test_keras(self):
+        # Single Output Unit
         self.framework_docker_test(
-            "keras", "image-classification", "osanseviero/keras-dog-or-cat"
+            "keras", "image-classification", "nateraw/keras-cats-vs-dogs"
+        )
+        # Multiple Output Units
+        self.framework_docker_test(
+            "keras", "image-classification", "nateraw/keras-mnist-convnet"
         )
 
     def test_superb(self):
@@ -448,7 +453,7 @@ class DockerImageTests(unittest.TestCase):
 
         # Follow up loading are much faster, 20s should be ok.
         with DockerPopen(run_docker_command) as proc2:
-            for i in range(20):
+            for i in range(30):
                 try:
                     response2 = httpx.get(url, timeout=10)
                     break
