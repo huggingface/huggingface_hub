@@ -22,7 +22,6 @@
 	function draw() {
 		const bitmap = bitmaps?.[highlightIndex];
 		const ctx = canvas?.getContext("2d");
-		// imgEl; // fixes Chrome initial render bug
 		if (bitmap && ctx) {
 			let alpha = 0.05;
 			clearInterval(canvasInterval);
