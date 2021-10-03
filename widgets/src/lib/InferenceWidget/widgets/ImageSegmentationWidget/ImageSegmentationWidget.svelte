@@ -254,12 +254,41 @@
 		}
 	}
 
+	// src: https://gist.github.com/MonsieurV/fb640c29084c171b4444184858a91bc7
+	function polyfillCreateImageBitmap() {
+		window.createImageBitmap = async function (
+			data: ImageBitmapSource
+		): Promise<ImageBitmap> {
+			return new Promise((resolve, reject) => {
+				let dataURL: string;
+				if (data instanceof Blob) {
+					dataURL = URL.createObjectURL(data);
+				} else if (data instanceof ImageData) {
+					const canvas = document.createElement("canvas");
+					const ctx = canvas.getContext("2d");
+					canvas.width = data.width;
+					canvas.height = data.height;
+					ctx.putImageData(data, 0, 0);
+					dataURL = canvas.toDataURL();
+				} else {
+					reject(
+						"createImageBitmap does not handle the provided image source type"
+					);
+				}
+				const img = document.createElement("img");
+				img.addEventListener("load", () => {
+					resolve(img as any as ImageBitmap);
+				});
+				img.src = dataURL;
+			});
+		};
+	}
+
 	onMount(() => {
 		if (typeof createImageBitmap === "undefined") {
-			isCanvasAvailable = false;
-		} else {
-			getOutput(new Blob());
+			polyfillCreateImageBitmap();
 		}
+		getOutput(new Blob());
 	});
 </script>
 
