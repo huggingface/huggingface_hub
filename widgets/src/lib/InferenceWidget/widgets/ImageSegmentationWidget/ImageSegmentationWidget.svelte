@@ -9,7 +9,6 @@
 	import WidgetDropzone from "../../shared/WidgetDropzone/WidgetDropzone.svelte";
 	import WidgetOutputChart from "../../shared/WidgetOutputChart/WidgetOutputChart.svelte";
 	import WidgetWrapper from "../../shared/WidgetWrapper/WidgetWrapper.svelte";
-	import WidgetHeader from "../../shared/WidgetHeader/WidgetHeader.svelte";
 
 	export let apiToken: WidgetProps["apiToken"];
 	export let apiUrl: WidgetProps["apiUrl"];
@@ -29,7 +28,6 @@
 	const idxAll = -1;
 
 	let bitmaps: ImageBitmap[];
-	let isCanvasAvailable = true;
 	let computeTime = "";
 	let error: string = "";
 	let highlightIndex = idxAll;
@@ -292,71 +290,58 @@
 	});
 </script>
 
-{#if isCanvasAvailable}
-	<WidgetWrapper
-		{apiUrl}
-		{computeTime}
-		{error}
-		{model}
-		{modelLoading}
-		{noTitle}
-		{outputJson}
-	>
-		<svelte:fragment slot="top">
-			<form>
-				<WidgetDropzone
-					classNames="no-hover:hidden"
-					{isLoading}
-					{imgSrc}
-					{onSelectFile}
-					onError={(e) => (error = e)}
-				>
-					{#if imgSrc}
-						<Canvas
-							{imgSrc}
-							{bitmaps}
-							{highlightIndex}
-							{mousemove}
-							{mouseout}
-						/>
-					{/if}
-				</WidgetDropzone>
-				<!-- Better UX for mobile/table through CSS breakpoints -->
+<WidgetWrapper
+	{apiUrl}
+	{computeTime}
+	{error}
+	{model}
+	{modelLoading}
+	{noTitle}
+	{outputJson}
+>
+	<svelte:fragment slot="top">
+		<form>
+			<WidgetDropzone
+				classNames="no-hover:hidden"
+				{isLoading}
+				{imgSrc}
+				{onSelectFile}
+				onError={(e) => (error = e)}
+			>
 				{#if imgSrc}
-					<Canvas
-						classNames="mr-2 with-hover:hidden"
-						{imgSrc}
-						{bitmaps}
-						{highlightIndex}
-						{mousemove}
-						{mouseout}
-					/>
+					<Canvas {imgSrc} {bitmaps} {highlightIndex} {mousemove} {mouseout} />
 				{/if}
-				<WidgetFileInput
-					accept="image/*"
+			</WidgetDropzone>
+			<!-- Better UX for mobile/table through CSS breakpoints -->
+			{#if imgSrc}
+				<Canvas
 					classNames="mr-2 with-hover:hidden"
-					{isLoading}
-					label="Browse for image"
-					{onSelectFile}
+					{imgSrc}
+					{bitmaps}
+					{highlightIndex}
+					{mousemove}
+					{mouseout}
 				/>
-				{#if warning}
-					<div class="alert alert-warning mt-2">{warning}</div>
-				{/if}
-			</form>
-		</svelte:fragment>
-		<svelte:fragment slot="bottom">
-			<WidgetOutputChart
-				classNames="mt-4"
-				output={outputWithColor}
-				{highlightIndex}
-				{mouseover}
-				{mouseout}
+			{/if}
+			<WidgetFileInput
+				accept="image/*"
+				classNames="mr-2 with-hover:hidden"
+				{isLoading}
+				label="Browse for image"
+				{onSelectFile}
 			/>
-		</svelte:fragment>
-	</WidgetWrapper>
-{:else}
-	<WidgetHeader noTitle={false} pipeline={model.pipeline_tag} />
-	<p class="text-gray-500 text-sm">
-		This widget is supported on Chrome, FireFox, & Edge
-	</p>
-{/if}
+			{#if warning}
+				<div class="alert alert-warning mt-2">{warning}</div>
+			{/if}
+		</form>
+	</svelte:fragment>
+	<svelte:fragment slot="bottom">
+		<WidgetOutputChart
+			classNames="mt-4"
+			output={outputWithColor}
+			{highlightIndex}
+			{mouseover}
+			{mouseout}
+		/>
+	</svelte:fragment>
+</WidgetWrapper>
