@@ -19,7 +19,7 @@ The Pro Git book is, as usual, a good resource about commit signing: [Pro Git: S
 
 The reasons we implemented GPG signing was:
 - to provide finer-grained security, especially as more and more Enterprise users rely on the Hub (in the future you'll be able to disallow non-signed commits)
-- coupled with our model [eval results metadata](https://github.com/huggingface/huggingface_hub/blame/main/modelcard.md), this enables a crypto-secure trustable source of ML benchmarks 🤯 
+- coupled with our model [eval results metadata](https://github.com/huggingface/huggingface_hub/blame/main/modelcard.md), this enables a cryptographically-secure trustable source of ML benchmarks 🤯 
 
 ### Setting up signed commits verification
 
