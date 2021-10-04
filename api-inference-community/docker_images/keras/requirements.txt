@@ -1,8 +1,5 @@
 starlette==0.14.2
 api-inference-community==0.0.8
 numpy>=1.17
-tensorflow==2.6.0
-# huggingface_hub===0.0.13
-# HACK - Keras Integration in huggigngface_hub has been updated
-# Switch back to using pypi install once the release includes the changes.
-git+https://github.com/huggingface/huggingface_hub.git@main
+tensorflow>=2.3
+huggingface_hub>=0.0.18
