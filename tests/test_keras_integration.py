@@ -155,7 +155,7 @@ class HubMixingTestKeras(unittest.TestCase):
         )
         self.assertEqual(model_info.modelId, f"{USER}/{REPO_NAME}-PUSH_TO_HUB")
 
-        self._api.delete_repo(name=f"{REPO_NAME}-PUSH_TO_HUB", token=self._token)
+        self._api.delete_repo(token=self._token, name=f"{REPO_NAME}-PUSH_TO_HUB")
 
 
 @require_tf
@@ -252,7 +252,7 @@ class HubKerasSequentialTest(HubMixingTestKeras):
         )
         self.assertEqual(model_info.modelId, f"{USER}/{REPO_NAME}-PUSH_TO_HUB")
 
-        self._api.delete_repo(name=f"{REPO_NAME}-PUSH_TO_HUB", token=self._token)
+        self._api.delete_repo(token=self._token, name=f"{REPO_NAME}-PUSH_TO_HUB")
 
 
 @require_tf

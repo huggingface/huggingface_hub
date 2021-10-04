@@ -589,6 +589,9 @@ class HfApi:
         return DatasetInfo(**d)
 
     def _is_valid_token(self, token: str):
+        """
+        Determines whether `token` is a valid token or not.
+        """
         try:
             self.whoami(token=token)
             return True
