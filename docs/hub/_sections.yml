@@ -20,7 +20,16 @@
   title: Spaces documentation (beta)
 
 - local: adding-a-library
-  title: Integrating a library to the Hub
+  title: Integrate a library with the Hub
+
+- local: how-to-downstream
+  title: How to download files from the Hub
+
+- local: how-to-upstream
+  title: How to create repositories and upload files to the Hub
+
+- local: how-to-inference
+  title: How to set up Inference API with your library
 
 - local: adding-a-task
   title: Adding a new task to the Hub

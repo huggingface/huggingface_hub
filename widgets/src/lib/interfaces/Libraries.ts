@@ -9,6 +9,7 @@ export enum ModelLibrary {
 	'asteroid'               = 'Asteroid',
 	'espnet'                 = 'ESPnet',
 	'flair'                  = 'Flair',
+	'keras'                  = 'Keras',
 	'pyannote'               = 'Pyannote',
 	'sentence-transformers'  = 'Sentence Transformers',
 	'sklearn'                = 'Scikit-learn',
@@ -117,6 +118,12 @@ const flair = (model: ModelData) =>
 `from flair.models import SequenceTagger
   
 tagger = SequenceTagger.load("${model.modelId}")`;
+
+const keras = (model: ModelData) =>
+`from huggingface_hub import from_pretrained_keras
+
+model = from_pretrained_keras("${model.modelId}")
+`;
 
 const pyannote = (model: ModelData) =>
 `from pyannote.audio.core.inference import Inference
@@ -271,6 +278,12 @@ export const MODEL_LIBRARIES_UI_ELEMENTS: { [key in keyof typeof ModelLibrary]: 
 		repoName: "Flair",
 		repoUrl: "https://github.com/flairNLP/flair",
 		snippet: flair,
+	},
+	keras: {
+		btnLabel: "Keras",
+		repoName: "Keras",
+		repoUrl: "https://github.com/keras-team/keras",
+		snippet: keras,
 	},
 	pyannote: {
 		btnLabel: "pyannote",
