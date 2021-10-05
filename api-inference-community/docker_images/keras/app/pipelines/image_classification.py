@@ -41,9 +41,11 @@ class ImageClassificationPipeline(Pipeline):
             "id2label", {str(i): f"LABEL_{i}" for i in range(self.num_labels)}
         )
 
+        # Define PIL Interpolation method. Uses Image.NEAREST by default.
         self.interpolation = _PIL_INTERPOLATION_METHODS.get(
             config.get("interpolation", "nearest"), None
         )
+        # Return at most the top 5 predicted classes
         self.top_k = 5
 
     def __call__(self, inputs: "Image.Image") -> List[Dict[str, Any]]:
