@@ -92,7 +92,9 @@ class SnapshotDownloadTests(unittest.TestCase):
             self.assertTrue(self.first_commit_hash in storage_folder)
 
     def test_download_private_model(self):
-        self._api.update_repo_visibility(token=self._token, name=REPO_NAME, private=True)
+        self._api.update_repo_visibility(
+            token=self._token, name=REPO_NAME, private=True
+        )
 
         # Test download fails without token
         with tempfile.TemporaryDirectory() as tmpdirname:
