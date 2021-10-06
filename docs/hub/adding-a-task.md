@@ -6,7 +6,7 @@ title: Adding a task
 
 ## What's a task?
 
-Tasks, or pipeline types, describe the "shape" of each model's API (inputs and outputs) and is used to determine which Inference API and widget we want to display for any given model. 
+Tasks, or pipeline types, describe the "shape" of each model's API (inputs and outputs) and are used to determine which Inference API and widget we want to display for any given model. 
 
 ![/docs/assets/hub/tasks.png](/docs/assets/hub/tasks.png)
 
