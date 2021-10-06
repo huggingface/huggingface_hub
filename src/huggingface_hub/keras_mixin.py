@@ -130,8 +130,8 @@ def push_to_hub_keras(
     if repo_url is None and not os.path.exists(repo_path_or_name):
         repo_name = Path(repo_path_or_name).name
         repo_url = HfApi(endpoint=api_endpoint).create_repo(
-            token,
             repo_name,
+            token=token,
             organization=organization,
             private=private,
             repo_type=None,

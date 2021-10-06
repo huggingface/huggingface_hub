@@ -78,38 +78,29 @@ Get important information about a model or dataset as shown below:
 
 Create a repository with `create_repo` and give it a name with the `name` parameter.
 
-1. Get your Hugging Face API token:
-
-   ```python
-   >>> from huggingface_hub import HfFolder
-   >>> token = HfFolder().get_token()
-   ```
-2. Use `create_repo` to create your repository:
-
-   ```python
-   >>> from huggingface_hub import HfApi
-   >>> api = HfApi()
-   >>> api.create_repo(token=token, name="test-model")
-   'https://huggingface.co/lysandre/test-model'
-   ```
-
+```python
+>>> from huggingface_hub import HfApi
+>>> api = HfApi()
+>>> api.create_repo("test-model")
+'https://huggingface.co/lysandre/test-model'
+```
 ### Delete a repository
 
 Delete a repository with `delete_repo`. Make sure you are certain you want to delete a repository because this is an irreversible process!
 
-Pass your token and the full repository ID to `delete_repo`. The full repository ID looks like `{username_or_org}/{repo_name}`, and you can retrieve it with `HfAPI().get_full_repo_name()` as shown below:
+Pass the full repository ID to `delete_repo`. The full repository ID looks like `{username_or_org}/{repo_name}`, and you can retrieve it with `HfAPI().get_full_repo_name()` as shown below:
 
 ```python
 >>> from huggingface_hub import HfApi
 >>> name = HfAPI().get_full_repo_name(repo_name)
 >>> api = HfApi()
->>> api.delete_repo(token=token, name=name)
+>>> api.delete_repo(name=name)
 ```
 
 Delete a dataset repository by adding the `repo_type` parameter:
 
 ```python
->>> api.delete_repo(token=token, name=REPO_NAME, repo_type="dataset")
+>>> api.delete_repo(name=REPO_NAME, repo_type="dataset")
 ```
 
 ### Change repository visibility
@@ -119,7 +110,7 @@ A repository can be public or private. A private repository is only visible to y
 ```python
 >>> from huggingface_hub import HfApi
 >>> api = HfApi()
->>> api.update_repo_visibility(token=token, name=REPO_NAME, private=True)
+>>> api.update_repo_visibility(name=REPO_NAME, private=True)
 ```
 
 ## `Repository` 
