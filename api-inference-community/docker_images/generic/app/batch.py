@@ -54,7 +54,13 @@ def main():
     api = HfApi()
     repo_id = REPO_ID
     try:
-        api.upload_file(TOKEN, f, filename, repo_id, repo_type="dataset")
+        api.upload_file(
+            path_or_fileobj=f,
+            path_in_repo=filename,
+            repo_id=repo_id,
+            token=TOKEN,
+            repo_type="dataset",
+        )
     except Exception:
         pass
 

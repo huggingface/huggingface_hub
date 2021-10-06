@@ -75,36 +75,27 @@ Get important information about a model or dataset as shown below:
 
 Create a repository with `create_repo` and give it a name with the `name` parameter.
 
-1. Get your Hugging Face API token:
-
-   ```python
-   >>> from huggingface_hub import HfFolder
-   >>> token = HfFolder().get_token()
-   ```
-2. Use `create_repo` to create your repository:
-
-   ```python
-   >>> from huggingface_hub import create_repo
-   >>> create_repo(token=token, name="test-model")
-   'https://huggingface.co/lysandre/test-model'
-   ```
-
+```python
+>>> from huggingface_hub import create_repo
+>>> create_repo("test-model")
+'https://huggingface.co/lysandre/test-model'
+```
 ### Delete a repository
 
 Delete a repository with `delete_repo`. Make sure you are certain you want to delete a repository because this is an irreversible process!
 
-Pass your token and the full repository ID to `delete_repo`. The full repository ID looks like `{username_or_org}/{repo_name}`, and you can retrieve it with `get_full_repo_name()` as shown below:
+Pass the full repository ID to `delete_repo`. The full repository ID looks like `{username_or_org}/{repo_name}`, and you can retrieve it with `get_full_repo_name()` as shown below:
 
 ```python
 >>> from huggingface_hub import get_full_repo_name, delete_repo
 >>> name = get_full_repo_name(repo_name)
->>> delete_repo(token=token, name=name)
+>>> delete_repo(name=name)
 ```
 
 Delete a dataset repository by adding the `repo_type` parameter:
 
 ```python
->>> delete_repo(token=token, name=REPO_NAME, repo_type="dataset")
+>>> delete_repo(name=REPO_NAME, repo_type="dataset")
 ```
 
 ### Change repository visibility
@@ -113,7 +104,7 @@ A repository can be public or private. A private repository is only visible to y
 
 ```python
 >>> from huggingface_hub import update_repo_visibility
->>> update_repo_visibility(token=token, name=REPO_NAME, private=True)
+>>> update_repo_visibility(name=REPO_NAME, private=True)
 ```
 
 ## `Repository` 

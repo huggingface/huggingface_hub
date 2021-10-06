@@ -364,7 +364,7 @@ class Repository:
 
         If specifying a `clone_from`:
         will clone an existing remote repository, for instance one
-        that was previously created using ``HfApi().create_repo(token=huggingface_token, name=repo_name)``.
+        that was previously created using ``HfApi().create_repo(name=repo_name)``.
         ``Repository`` uses the local git credentials by default, but if required, the ``huggingface_token``
         as well as the git ``user`` and the ``email`` can be explicitly specified.
         If `clone_from` is used, and the repository is being instantiated into a non-empty directory,

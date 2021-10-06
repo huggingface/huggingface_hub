@@ -147,7 +147,7 @@ class ModelHubMixin:
                 logger.warning(f"{CONFIG_NAME} not found in HuggingFace Hub")
                 config_file = None
 
-        if config_file is not None and config_file.endswith(".json"):
+        if config_file is not None:
             with open(config_file, "r", encoding="utf-8") as f:
                 config = json.load(f)
             model_kwargs.update({"config": config})
@@ -257,8 +257,8 @@ class ModelHubMixin:
         if repo_url is None and not os.path.exists(repo_path_or_name):
             repo_name = Path(repo_path_or_name).name
             repo_url = HfApi(endpoint=api_endpoint).create_repo(
-                token,
                 repo_name,
+                token=token,
                 organization=organization,
                 private=private,
                 repo_type=None,
