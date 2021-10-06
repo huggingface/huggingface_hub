@@ -58,7 +58,7 @@ export enum FinerGrainedTaskType {
 	"speech-enhancement"                                      = "Speech Enhancement",
 }
 
-export type PipelineModality = "audio" | "computer-vision" | "nlp" | "other";
+export type PipelineModality = "audio" | "cv" | "nlp" | "other";
 
 export const PIPELINE_TAG_MODALITIES: Record<keyof typeof PipelineType, PipelineModality> = {
 	"text-classification": "nlp",
@@ -79,10 +79,10 @@ export const PIPELINE_TAG_MODALITIES: Record<keyof typeof PipelineType, Pipeline
 	"audio-to-audio": "audio",
 	"audio-classification": "audio",
 	"voice-activity-detection": "audio",
-	"image-classification": "computer-vision",
-	"object-detection": "computer-vision",
-	"image-segmentation": "computer-vision",
-	"text-to-image": "computer-vision",
+	"image-classification": "cv",
+	"object-detection": "cv",
+	"image-segmentation": "cv",
+	"text-to-image": "cv",
 	"structured-data-classification": "other",
 };
 
