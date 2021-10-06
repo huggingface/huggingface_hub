@@ -39,6 +39,7 @@ export enum PipelineType {
 	"structured-data-classification"                          = "Structured Data Classification",
 }
 
+export const ALL_PIPELINE_TYPES = Object.keys(PipelineType) as (keyof typeof PipelineType)[];
 
 /// Finer-grained task classification
 ///
@@ -57,8 +58,33 @@ export enum FinerGrainedTaskType {
 	"speech-enhancement"                                      = "Speech Enhancement",
 }
 
+export type PipelineModality = "audio" | "cv" | "nlp" | "other";
 
-export const ALL_PIPELINE_TYPES = Object.keys(PipelineType) as (keyof typeof PipelineType)[];
+export const PIPELINE_TAG_MODALITIES: Record<keyof typeof PipelineType, PipelineModality> = {
+	"text-classification": "nlp",
+	"token-classification": "nlp",
+	"table-question-answering": "nlp",
+	"question-answering": "nlp",
+	"zero-shot-classification": "nlp",
+	"translation": "nlp",
+	"summarization": "nlp",
+	"conversational": "nlp",
+	"feature-extraction": "nlp",
+	"text-generation": "nlp",
+	"text2text-generation": "nlp",
+	"fill-mask": "nlp",
+	"sentence-similarity": "nlp",
+	"text-to-speech": "audio",
+	"automatic-speech-recognition": "audio",
+	"audio-to-audio": "audio",
+	"audio-classification": "audio",
+	"voice-activity-detection": "audio",
+	"image-classification": "cv",
+	"object-detection": "cv",
+	"image-segmentation": "cv",
+	"text-to-image": "cv",
+	"structured-data-classification": "other",
+};
 
 /*
  * Specification of tag icon color.
