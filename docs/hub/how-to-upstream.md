@@ -93,7 +93,7 @@ Create a repository with `create_repo` and give it a name with the `name` parame
 
 Delete a repository with `delete_repo`. Make sure you are certain you want to delete a repository because this is an irreversible process!
 
-Pass your token and the full repository ID to `delete_repo`. The full repository ID looks like `{username_or_org}/{repo_name}`, and you can retrieve it with `.get_full_repo_name()` as shown below:
+Pass your token and the full repository ID to `delete_repo`. The full repository ID looks like `{username_or_org}/{repo_name}`, and you can retrieve it with `get_full_repo_name()` as shown below:
 
 ```python
 >>> from huggingface_hub import get_full_repo_name, delete_repo
