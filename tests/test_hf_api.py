@@ -156,7 +156,10 @@ class HfApiEndpointsTest(HfApiCommonTestWithLogin):
     @unittest.skip("skipped while spaces in beta")
     def test_create_update_and_delete_space_repo(self):
         self._api.create_repo(
-            name=SPACE_REPO_NAME, token=self._token, repo_type=REPO_TYPE_SPACE
+            token=self._token,
+            name=SPACE_REPO_NAME,
+            repo_type=REPO_TYPE_SPACE,
+            spaces_sdk="streamlit",
         )
         res = self._api.update_repo_visibility(
             name=SPACE_REPO_NAME,

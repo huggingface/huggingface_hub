@@ -664,6 +664,7 @@ class HfApi:
         repo_type: Optional[str] = None,
         exist_ok=False,
         lfsmultipartthresh: Optional[int] = None,
+        spaces_sdk: Optional[str] = None,
     ) -> str:
         """
         HuggingFace git-based system, used for models, datasets, and spaces.
@@ -678,6 +679,8 @@ class HfApi:
             exist_ok: Do not raise an error if repo already exists
 
             lfsmultipartthresh: Optional: internal param for testing purposes.
+
+            spaces_sdk: Choice of SDK to use if repo_type is "space". Can be "streamlit" or "gradio".
 
         Returns:
             URL to the newly created repo.
@@ -707,6 +710,17 @@ class HfApi:
         json = {"name": name, "organization": organization, "private": private}
         if repo_type is not None:
             json["type"] = repo_type
+            if repo_type == "space":
+                if spaces_sdk is None:
+                    raise ValueError(
+                        "No spaces_sdk provided. `create_repo` expects either 'streamlit' or 'gradio' to be provided "
+                        "for `spaces_sdk` kwarg when `repo_type` is 'space'."
+                    )
+                if spaces_sdk not in ["streamlit", "gradio"]:
+                    raise ValueError(
+                        "Invalid spaces_sdk. Please choose either 'streamlit' or 'gradio'."
+                    )
+                json["spaces_sdk"] = spaces_sdk
         if lfsmultipartthresh is not None:
             json["lfsmultipartthresh"] = lfsmultipartthresh
         r = requests.post(
