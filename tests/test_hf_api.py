@@ -21,6 +21,8 @@ import time
 import unittest
 from io import BytesIO
 
+import pytest
+
 import requests
 from huggingface_hub.constants import REPO_TYPE_DATASET, REPO_TYPE_SPACE
 from huggingface_hub.file_download import cached_download, hf_hub_download
@@ -155,6 +157,21 @@ class HfApiEndpointsTest(HfApiCommonTestWithLogin):
 
     @unittest.skip("skipped while spaces in beta")
     def test_create_update_and_delete_space_repo(self):
+        with pytest.raises(ValueError, match=r"No spaces_sdk provided.*"):
+            self._api.create_repo(
+                token=self._token,
+                name=SPACE_REPO_NAME,
+                repo_type=REPO_TYPE_SPACE,
+                spaces_sdk=None,
+            )
+        with pytest.raises(ValueError, match=r"Invalid spaces_sdk.*"):
+            self._api.create_repo(
+                token=self._token,
+                name=SPACE_REPO_NAME,
+                repo_type=REPO_TYPE_SPACE,
+                spaces_sdk="asdfasdf",
+            )
+
         self._api.create_repo(
             token=self._token,
             name=SPACE_REPO_NAME,

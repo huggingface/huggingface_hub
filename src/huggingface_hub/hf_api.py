@@ -720,7 +720,7 @@ class HfApi:
                     raise ValueError(
                         "Invalid spaces_sdk. Please choose either 'streamlit' or 'gradio'."
                     )
-                json["spaces_sdk"] = spaces_sdk
+                json["sdk"] = spaces_sdk
         if lfsmultipartthresh is not None:
             json["lfsmultipartthresh"] = lfsmultipartthresh
         r = requests.post(
