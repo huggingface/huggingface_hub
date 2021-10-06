@@ -116,3 +116,4 @@ Models trained with 🤗 Transformers will generate [TensorBoard traces](https:/
 Beyond 🤗 Transformers, any repository that contains TensorBoard traces (filenames that contain `tfevents`) is categorized with the [`TensorBoard` tag](https://huggingface.co/models?filter=tensorboard). As a convention we suggest that you save traces under the `runs/` subfolder. The "Training metrics" tab then makes it easy to review charts of the logged variables, like the loss or the accuracy.
 
 ![Training metrics tab on a model's page, with TensorBoard](/docs/assets/hub/tensorboard.png)
+
