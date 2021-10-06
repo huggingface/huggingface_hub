@@ -147,7 +147,7 @@ class ModelHubMixin:
                 logger.warning(f"{CONFIG_NAME} not found in HuggingFace Hub")
                 config_file = None
 
-        if config_file is not None and config_file.endswith(".json"):
+        if config_file is not None:
             with open(config_file, "r", encoding="utf-8") as f:
                 config = json.load(f)
             model_kwargs.update({"config": config})
