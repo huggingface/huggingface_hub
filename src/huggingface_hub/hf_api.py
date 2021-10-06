@@ -26,7 +26,13 @@ from typing import IO, Dict, Iterable, List, Optional, Tuple, Union
 import requests
 from requests.exceptions import HTTPError
 
-from .constants import ENDPOINT, REPO_TYPES, REPO_TYPES_MAPPING, REPO_TYPES_URL_PREFIXES
+from .constants import (
+    ENDPOINT,
+    REPO_TYPES,
+    REPO_TYPES_MAPPING,
+    REPO_TYPES_URL_PREFIXES,
+    SPACES_SDK_TYPES,
+)
 
 
 if sys.version_info >= (3, 8):
@@ -713,12 +719,12 @@ class HfApi:
             if repo_type == "space":
                 if spaces_sdk is None:
                     raise ValueError(
-                        "No spaces_sdk provided. `create_repo` expects either 'streamlit' or 'gradio' to be provided "
-                        "for `spaces_sdk` kwarg when `repo_type` is 'space'."
+                        "No spaces_sdk provided. `create_repo` expects spaces_sdk to be one of "
+                        f"{SPACES_SDK_TYPES} when repo_type is 'space'`"
                     )
-                if spaces_sdk not in ["streamlit", "gradio"]:
+                if spaces_sdk not in SPACES_SDK_TYPES:
                     raise ValueError(
-                        "Invalid spaces_sdk. Please choose either 'streamlit' or 'gradio'."
+                        f"Invalid spaces_sdk. Please choose one of {SPACES_SDK_TYPES}."
                     )
                 json["sdk"] = spaces_sdk
         if lfsmultipartthresh is not None:

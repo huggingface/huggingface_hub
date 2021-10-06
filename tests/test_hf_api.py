@@ -24,8 +24,17 @@ from io import BytesIO
 import pytest
 
 import requests
+<<<<<<< HEAD
 from huggingface_hub.constants import REPO_TYPE_DATASET, REPO_TYPE_SPACE
 from huggingface_hub.file_download import cached_download, hf_hub_download
+=======
+from huggingface_hub.constants import (
+    REPO_TYPE_DATASET,
+    REPO_TYPE_SPACE,
+    SPACES_SDK_TYPES,
+)
+from huggingface_hub.file_download import cached_download
+>>>>>>> 788b099 (:sparkles: add spaces sdk types as constant)
 from huggingface_hub.hf_api import (
     DatasetInfo,
     HfApi,
@@ -172,29 +181,30 @@ class HfApiEndpointsTest(HfApiCommonTestWithLogin):
                 spaces_sdk="asdfasdf",
             )
 
-        self._api.create_repo(
-            token=self._token,
-            name=SPACE_REPO_NAME,
-            repo_type=REPO_TYPE_SPACE,
-            spaces_sdk="streamlit",
-        )
-        res = self._api.update_repo_visibility(
-            name=SPACE_REPO_NAME,
-            token=self._token,
-            private=True,
-            repo_type=REPO_TYPE_SPACE,
-        )
-        self.assertTrue(res["private"])
-        res = self._api.update_repo_visibility(
-            name=SPACE_REPO_NAME,
-            token=self._token,
-            private=False,
-            repo_type=REPO_TYPE_SPACE,
-        )
-        self.assertFalse(res["private"])
-        self._api.delete_repo(
-            name=SPACE_REPO_NAME, token=self._token, repo_type=REPO_TYPE_SPACE
-        )
+        for sdk in SPACES_SDK_TYPES:
+            self._api.create_repo(
+                name=SPACE_REPO_NAME,
+                token=self._token,
+                repo_type=REPO_TYPE_SPACE,
+                spaces_sdk=sdk,
+            )
+            res = self._api.update_repo_visibility(
+                name=SPACE_REPO_NAME,
+                token=self._token,
+                private=True,
+                repo_type=REPO_TYPE_SPACE,
+            )
+            self.assertTrue(res["private"])
+            res = self._api.update_repo_visibility(
+                name=SPACE_REPO_NAME,
+                token=self._token,
+                private=False,
+                repo_type=REPO_TYPE_SPACE,
+            )
+            self.assertFalse(res["private"])
+            self._api.delete_repo(
+                name=SPACE_REPO_NAME, token=self._token, repo_type=REPO_TYPE_SPACE
+            )
 
 
 class HfApiUploadFileTest(HfApiCommonTestWithLogin):
