@@ -11,7 +11,7 @@ title: How to create repositories and upload files to the Hub
 
 ## `huggingface_hub` repository-management methods
 
-The `huggingface_hub` package offers high-level methods that wraps around HTTP requests. There are many valuable tasks you can accomplish with the it, including: 
+The `huggingface_hub` package offers high-level methods that wraps around HTTP requests. There are many valuable tasks you can accomplish with it, including: 
 
 - List and filter models and datasets.
 - Inspect model or dataset metadata.
