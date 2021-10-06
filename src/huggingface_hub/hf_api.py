@@ -981,3 +981,23 @@ class HfFolder:
             os.remove(cls.path_token)
         except FileNotFoundError:
             pass
+
+
+api = HfApi()
+
+login = api.login
+logout = api.logout
+whoami = api.whoami
+
+list_models = api.list_models
+model_info = api.model_info
+list_repos_objs = api.list_repos_objs
+
+list_datasets = api.list_datasets
+dataset_info = api.dataset_info
+
+create_repo = api.create_repo
+delete_repo = api.delete_repo
+update_repo_visibility = api.update_repo_visibility
+upload_file = api.upload_file
+get_full_repo_name = api.get_full_repo_name

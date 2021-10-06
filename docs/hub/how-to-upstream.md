@@ -6,12 +6,12 @@ title: How to create repositories and upload files to the Hub
 
 *Upstream* utilities allow you to publish files to the Hub from your library. This guide will show you how to:
 
-* Use the `HfApi` class to manage a repository.
+* Use the repository-management methods available in the `huggingface_hub` package.
 * Use the `Repository` class to handle files and version control a repository with Git-like commands.
 
-## `HfApi`
+## `huggingface_hub` repository-management methods
 
-The `HfApi` class is a high-level class that wraps around HTTP requests. There are many valuable tasks you can accomplish with the `HfApi` class, including: 
+The `huggingface_hub` package offers high-level methods that wraps around HTTP requests. There are many valuable tasks you can accomplish with it, including: 
 
 - List and filter models and datasets.
 - Inspect model or dataset metadata.
@@ -27,36 +27,34 @@ You can view all the available filters on the left of the [model Hub](http://hf.
 ![/docs/assets/hub/hub_filters.png](/docs/assets/hub/hub_filters.png)
 
 ```python
->>> from huggingface_hub import HfApi
->>> api = HfApi()
+>>> from huggingface_hub import list_models
 
 # List all models.
->>> api.list_models()
+>>> list_models()
 
 # List only text classification models.
->>> api.list_models(filter="text-classification")
+>>> list_models(filter="text-classification")
 
 # List only Russian models compatible with PyTorch.
->>> api.list_models(filter=("languages:ru", "pytorch"))
+>>> list_models(filter=("languages:ru", "pytorch"))
 
 # List only the models trained on the "common_voice" dataset.
->>> api.list_models(filter="dataset:common_voice")
+>>> list_models(filter="dataset:common_voice")
 
 # List only the models from the spaCy library.
->>> api.list_models(filter="spacy")
+>>> list_models(filter="spacy")
 ```
 
 Explore available public datasets with `list_datasets`:
 
 ```python
->>> from huggingface_hub import HfApi
->>> api = HfApi()
+>>> from huggingface_hub import list_datasets
 
 # List only text classification datasets.
->>> api.list_datasets(filter="task_categories:text-classification")
+>>> list_datasets(filter="task_categories:text-classification")
 
 # List only datasets in Russian for language modeling.
->>> api.list_datasets(filter=("languages:ru", "task_ids:language-modeling"))
+>>> list_datasets(filter=("languages:ru", "task_ids:language-modeling"))
 ```
 
 ### Inspect model or dataset metadata
@@ -64,14 +62,13 @@ Explore available public datasets with `list_datasets`:
 Get important information about a model or dataset as shown below:
 
 ```python
->>> from huggingface_hub import HfApi
->>> api = HfApi()
+>>> from huggingface_hub import model_info, dataset_info
 
 # Get metadata of a single model.
->>> api.model_info("distilbert-base-uncased")
+>>> model_info("distilbert-base-uncased")
 
 # Get metadata of a single dataset.
->>> api.dataset_info("glue")
+>>> dataset_info("glue")
 ```
 
 ### Create a repository
@@ -79,28 +76,26 @@ Get important information about a model or dataset as shown below:
 Create a repository with `create_repo` and give it a name with the `name` parameter.
 
 ```python
->>> from huggingface_hub import HfApi
->>> api = HfApi()
->>> api.create_repo("test-model")
+>>> from huggingface_hub import create_repo
+>>> create_repo("test-model")
 'https://huggingface.co/lysandre/test-model'
 ```
 ### Delete a repository
 
 Delete a repository with `delete_repo`. Make sure you are certain you want to delete a repository because this is an irreversible process!
 
-Pass the full repository ID to `delete_repo`. The full repository ID looks like `{username_or_org}/{repo_name}`, and you can retrieve it with `HfAPI().get_full_repo_name()` as shown below:
+Pass the full repository ID to `delete_repo`. The full repository ID looks like `{username_or_org}/{repo_name}`, and you can retrieve it with `get_full_repo_name()` as shown below:
 
 ```python
->>> from huggingface_hub import HfApi
->>> name = HfAPI().get_full_repo_name(repo_name)
->>> api = HfApi()
->>> api.delete_repo(name=name)
+>>> from huggingface_hub import get_full_repo_name, delete_repo
+>>> name = get_full_repo_name(repo_name)
+>>> delete_repo(name=name)
 ```
 
 Delete a dataset repository by adding the `repo_type` parameter:
 
 ```python
->>> api.delete_repo(name=REPO_NAME, repo_type="dataset")
+>>> delete_repo(name=REPO_NAME, repo_type="dataset")
 ```
 
 ### Change repository visibility
@@ -108,9 +103,8 @@ Delete a dataset repository by adding the `repo_type` parameter:
 A repository can be public or private. A private repository is only visible to you or members of the organization in which the repository is located. Change a repository to private as shown in the following:
 
 ```python
->>> from huggingface_hub import HfApi
->>> api = HfApi()
->>> api.update_repo_visibility(name=REPO_NAME, private=True)
+>>> from huggingface_hub import update_repo_visibility
+>>> update_repo_visibility(name=REPO_NAME, private=True)
 ```
 
 ## `Repository` 
@@ -134,7 +128,7 @@ The `clone_from` parameter clones a repository from a Hugging Face model ID to a
 Easily combine the `clone_from` parameter with `create_repo` to create and clone a repository:
 
 ```python
->>> repo_url = HfApi().create_repo(name="repo_name")
+>>> repo_url = create_repo(name="repo_name")
 >>> repo = Repository(local_dir="repo_local_path", clone_from=repo_url)
 ```
 
