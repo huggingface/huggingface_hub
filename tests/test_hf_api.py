@@ -164,7 +164,7 @@ class HfApiEndpointsTest(HfApiCommonTestWithLogin):
             name=DATASET_REPO_NAME, token=self._token, repo_type=REPO_TYPE_DATASET
         )
 
-    # @unittest.skip("skipped while spaces in beta")
+    @unittest.skip("skipped while spaces in beta")
     def test_create_update_and_delete_space_repo(self):
         with pytest.raises(ValueError, match=r"No spaces_sdk provided.*"):
             self._api.create_repo(
