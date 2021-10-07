@@ -40,6 +40,7 @@ from .hf_api import (
     get_full_repo_name,
     list_datasets,
     list_models,
+    list_repo_files,
     list_repos_objs,
     login,
     logout,
