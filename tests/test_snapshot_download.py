@@ -47,7 +47,7 @@ class SnapshotDownloadTests(unittest.TestCase):
         self.second_commit_hash = repo.git_head_hash()
 
     def tearDown(self) -> None:
-        self._api.delete_repo(token=self._token, name=REPO_NAME)
+        self._api.delete_repo(name=REPO_NAME, token=self._token)
 
     def test_download_model(self):
         # Test `main` branch
