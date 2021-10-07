@@ -536,6 +536,19 @@ class HfApi:
         d = r.json()
         return ModelInfo(**d)
 
+    def list_repo_files(
+        self,
+        repo_id: str,
+        revision: Optional[str] = None,
+        token: Optional[str] = None,
+        timeout: Optional[float] = None,
+    ) -> ModelInfo:
+        """
+        Get the list of files in a given repo.
+        """
+        info = self.model_info(repo_id, revision=revision, token=token, timeout=timeout)
+        return [f.rfilename for f in info.siblings]
+
     def list_repos_objs(
         self, token: Optional[str] = None, organization: Optional[str] = None
     ) -> List[RepoObj]:
@@ -991,6 +1004,7 @@ whoami = api.whoami
 
 list_models = api.list_models
 model_info = api.model_info
+list_repo_files = api.list_repo_files
 list_repos_objs = api.list_repos_objs
 
 list_datasets = api.list_datasets

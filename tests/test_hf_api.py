@@ -404,6 +404,22 @@ class HfApiPublicTest(unittest.TestCase):
         self.assertIsInstance(model, ModelInfo)
         self.assertEqual(model.sha, DUMMY_MODEL_ID_REVISION_ONE_SPECIFIC_COMMIT)
 
+    @with_production_testing
+    def test_list_repo_files(self):
+        _api = HfApi()
+        files = _api.list_repo_files(repo_id=DUMMY_MODEL_ID)
+        expected_files = [
+            ".gitattributes",
+            "README.md",
+            "config.json",
+            "flax_model.msgpack",
+            "merges.txt",
+            "pytorch_model.bin",
+            "tf_model.h5",
+            "vocab.json",
+        ]
+        self.assertListEqual(files, expected_files)
+
     def test_staging_list_datasets(self):
         _api = HfApi(endpoint=ENDPOINT_STAGING)
         _ = _api.list_datasets()
