@@ -9,7 +9,7 @@ title: How to create repositories and upload files to the Hub
 * Use the repository-management methods available in the `huggingface_hub` package.
 * Use the `Repository` class to handle files and version control a repository with Git-like commands.
 
-## `huggingface_hub` repository-management methods
+## huggingface_hub repository-management methods
 
 The `huggingface_hub` package offers high-level methods that wraps around HTTP requests. There are many valuable tasks you can accomplish with it, including: 
 
@@ -107,7 +107,7 @@ A repository can be public or private. A private repository is only visible to y
 >>> update_repo_visibility(name=REPO_NAME, private=True)
 ```
 
-## `Repository` 
+## Repository 
 
 The `Repository` class allows you to push models or other repositories to the Hub. `Repository` is a wrapper over Git and Git-LFS methods, so make sure you have Git-LFS installed (see [here](https://git-lfs.github.com/) for installation instructions) and set up before you begin. The `Repository` class should feel familiar if you are already familiar with common Git commands. 
 

@@ -49,7 +49,7 @@ Finally, we've been thinking of providing a way to run **custom apps**, for inst
 
 In addition to the Streamlit or Gradio SDK, the environment we run your app in includes the following Python libraries out-of-the-box:
 
-- [`huggingface_hub`](https://github.com/huggingface/huggingface_hub), so you can list models, query the hf.co API, etc. **You can also use this to call our Accelerated Inference API from your Space**. If your app instantiates a model to run inference on, consider calling the Inference API instead, because you'll then leverage the acceleration optimizations we already built, and it's also consuming less computing resources, which is always nice 🌎.
+- [`huggingface_hub`](https://github.com/huggingface/huggingface_hub), so you can list models, query the hf.co API, etc. **You can also use this to call our Accelerated Inference API from your Space**. If your app instantiates a model to run inference on, consider calling the Inference API instead, because you'll then leverage the acceleration optimizations we already built, and it's also consuming less computing resources, which is always nice 🌎. See this [page](/docs/hub/how-to-inference) for more information on how to programmatically access the Inference API.
 - [`requests`](https://docs.python-requests.org/en/master/) the famous HTTP request library, useful if you want to call a third-party API from your app.
 - [`datasets`](https://github.com/huggingface/datasets) so that you can easily fetch or display data from inside your app.
 
