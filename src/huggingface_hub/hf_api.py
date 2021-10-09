@@ -21,12 +21,11 @@ import sys
 import warnings
 from io import BufferedIOBase, RawIOBase
 from os.path import expanduser
-from typing import Dict, Iterable, List, Optional, Tuple, Union, IO
+from typing import IO, Dict, Iterable, List, Optional, Tuple, Union
 
 import requests
 from requests.exceptions import HTTPError
 
-from .file_download import hf_hub_url
 from .constants import ENDPOINT, REPO_TYPES, REPO_TYPES_MAPPING, REPO_TYPES_URL_PREFIXES
 
 
@@ -928,12 +927,88 @@ class HfApi:
             r.raise_for_status()
         except HTTPError as err:
             if identical_ok and err.response.status_code == 409:
-                return hf_hub_url(repo_id, path_in_repo, revision=revision, repo_type=repo_type)
+                from .file_download import hf_hub_url
+
+                return hf_hub_url(
+                    repo_id, path_in_repo, revision=revision, repo_type=repo_type
+                )
             else:
                 raise err
 
         d = r.json()
         return d["url"]
+
+    def delete_file(
+        self,
+        path_in_repo: str,
+        repo_id: str,
+        token: Optional[str] = None,
+        repo_type: Optional[str] = None,
+        revision: Optional[str] = None,
+        identical_ok: bool = True,
+    ):
+        """
+        Deletes a file in the given repo.
+
+        Params:
+            path_in_repo (``str``):
+                Relative filepath in the repo, for example: :obj:`"checkpoints/1fec34a/weights.bin"`
+
+            repo_id (``str``):
+                The repository to which the file will be uploaded, for example: :obj:`"username/custom_transformers"`
+
+            token (``str``):
+                Authentication token, obtained with :function:`HfApi.login` method. Will default to the stored token.
+
+            repo_type (``str``, Optional):
+                Set to :obj:`"dataset"` or :obj:`"space"` if the fils is in a dataset or space, :obj:`None` if in a model. Default is :obj:`None`.
+
+            revision (``str``, Optional):
+                The git revision to commit from. Defaults to the :obj:`"main"` branch.
+
+        Raises:
+            :class:`ValueError`: if some parameter value is invalid
+
+            :class:`requests.HTTPError`: if the HuggingFace API returned an error
+
+        """
+        if repo_type not in REPO_TYPES:
+            raise ValueError("Invalid repo type, must be one of {}".format(REPO_TYPES))
+
+        if token is None:
+            token = HfFolder.get_token()
+            if token is None:
+                raise EnvironmentError(
+                    "You need to provide a `token` or be logged in to Hugging Face with "
+                    "`huggingface-cli login`."
+                )
+
+        # Normalize path separators and strip leading slashes
+        if not REMOTE_FILEPATH_REGEX.match(path_in_repo):
+            raise ValueError(
+                "Invalid path_in_repo '{}', path_in_repo must match regex {}".format(
+                    path_in_repo, REMOTE_FILEPATH_REGEX.pattern
+                )
+            )
+
+        if repo_type in REPO_TYPES_URL_PREFIXES:
+            repo_id = REPO_TYPES_URL_PREFIXES[repo_type] + repo_id
+
+        revision = revision if revision is not None else "main"
+
+        path = "{}/api/{repo_id}/delete/{revision}/{path_in_repo}".format(
+            self.endpoint,
+            repo_id=repo_id,
+            revision=revision,
+            path_in_repo=path_in_repo,
+        )
+
+        headers = (
+            {"authorization": "Bearer {}".format(token)} if token is not None else None
+        )
+        r = requests.get(path, headers=headers)
+
+        r.raise_for_status()
 
     def get_full_repo_name(
         self,
