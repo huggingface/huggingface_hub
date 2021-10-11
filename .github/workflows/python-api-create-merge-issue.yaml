@@ -1,7 +1,8 @@
 # .github/workflows/issue-on-push.yml
-on: push
-  branches:
-    - automatic_issue_creation
+on:
+  push:
+    branches:
+      - automatic_issue_creation
 name: Create an issue for API on push
 jobs:
   stuff:
