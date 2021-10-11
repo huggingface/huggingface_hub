@@ -189,4 +189,19 @@ export interface ModelData {
 	 * or by default in `DefaultWidget.ts`
 	 */
 	widgetData?: Record<string, any>[] | undefined;
+	/**
+	 * Parameters that will be used by the widget when calling Inference API
+	 * https://api-inference.huggingface.co/docs/python/html/detailed_parameters.html
+	 *
+	 * can be set in the model card metadata (under `inference/parameters`)
+	 * Example:
+	 * inference:
+	 *     parameters:
+	 *         key: val
+	 */
+	cardData?: {
+		inference?: boolean | {
+			parameters?: Record<string, any>,
+		}
+	}
 }
