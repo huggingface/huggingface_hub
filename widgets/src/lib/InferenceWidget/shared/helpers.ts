@@ -169,12 +169,15 @@ export async function getModelStatus(url: string, modelId: string): Promise<Load
 
 // Extend Inference API requestBody with user supplied Inference API parameters
 export function addInferenceParameters(requestBody: Record<string, any>, model: ModelData) {
-	const inferenceParameters = (model?.cardData?.inference as Record<string, any>)?.parameters;
-	if(inferenceParameters){
-		if(requestBody.parameters){
-			requestBody.parameters = {...requestBody.parameters, ...inferenceParameters};
-		} else {
-			requestBody.parameters = inferenceParameters;
+	const inference = model?.cardData?.inference;
+	if (typeof inference === "object") {
+		const inferenceParameters = inference?.parameters;
+		if (inferenceParameters) {
+			if (requestBody.parameters) {
+				requestBody.parameters = { ...requestBody.parameters, ...inferenceParameters };
+			} else {
+				requestBody.parameters = inferenceParameters;
+			}
 		}
 	}
 }
