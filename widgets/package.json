@@ -17,6 +17,8 @@
 		"@tailwindcss/line-clamp": "^0.2.1",
 		"@types/dom-mediacapture-record": "^1.0.7",
 		"@types/tailwindcss": "^2.2.1",
+		"@typescript-eslint/eslint-plugin": "^4.25.0",
+		"@typescript-eslint/parser": "^4.25.0",
 		"autoprefixer": "^10.2.6",
 		"eslint": "^7.27.0",
 		"eslint-config-prettier": "^8.3.0",
