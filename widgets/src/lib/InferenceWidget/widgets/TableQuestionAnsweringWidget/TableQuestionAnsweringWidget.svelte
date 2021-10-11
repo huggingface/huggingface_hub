@@ -16,6 +16,7 @@
 		convertDataToTable,
 	} from "../../shared/ViewUtils";
 	import {
+		addInferenceParameters,
 		getDemoInputs,
 		getResponse,
 		getSearchParams,
@@ -99,6 +100,7 @@
 				table: convertTableToData(table),
 			},
 		};
+		addInferenceParameters(requestBody, model);
 
 		isLoading = true;
 
