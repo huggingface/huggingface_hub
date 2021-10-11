@@ -14,4 +14,4 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GITHUB_REPOSITORY: huggingface/api-inference
         with:
-        filename: .github/create-api-issue.md
+          filename: .github/create-api-issue.md
