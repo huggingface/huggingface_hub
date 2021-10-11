@@ -39,12 +39,12 @@ class SentenceSimilarityPipeline(Pipeline):
         Return:
             A :obj:`list` of floats: Some similarity measure between `source_sentence` and each sentence from `sentences`.
         """
-        source_sentence = inputs['source_sentence']
+        source_sentence = inputs["source_sentence"]
         source_doc = self.model(source_sentence)
 
         similarities = []
-        for sentence in inputs['sentences']:
+        for sentence in inputs["sentences"]:
             search_doc = self.model(sentence)
             similarities.append(source_doc.similarity(search_doc))
 
-        return similarities    
+        return similarities

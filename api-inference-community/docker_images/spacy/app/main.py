@@ -41,7 +41,7 @@ logger = logging.getLogger(__name__)
 ALLOWED_TASKS: Dict[str, Type[Pipeline]] = {
     "token-classification": TokenClassificationPipeline,
     "text-classification": TextClassificationPipeline,
-    "sentence-similarity": SentenceSimilarityPipeline
+    "sentence-similarity": SentenceSimilarityPipeline,
 }
 
 
