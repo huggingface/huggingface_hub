@@ -6,6 +6,7 @@
 	import WidgetAudioTrack from "../../shared/WidgetAudioTrack/WidgetAudioTrack.svelte";
 	import WidgetWrapper from "../../shared/WidgetWrapper/WidgetWrapper.svelte";
 	import {
+		addInferenceParameters,
 		getDemoInputs,
 		getResponse,
 		getSearchParams,
@@ -58,6 +59,7 @@
 		}
 
 		const requestBody = { inputs: trimmedText };
+		addInferenceParameters(requestBody, model);
 
 		isLoading = true;
 
