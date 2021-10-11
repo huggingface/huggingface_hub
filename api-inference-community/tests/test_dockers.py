@@ -160,8 +160,13 @@ class DockerImageTests(unittest.TestCase):
         self.framework_invalid_test("timm")
 
     def test_keras(self):
+        # Single Output Unit, RGB
         self.framework_docker_test(
-            "keras", "image-classification", "osanseviero/keras-dog-or-cat"
+            "keras", "image-classification", "nateraw/keras-cats-vs-dogs"
+        )
+        # Multiple Output Units, Grayscale
+        self.framework_docker_test(
+            "keras", "image-classification", "nateraw/keras-mnist-convnet"
         )
 
     def test_superb(self):

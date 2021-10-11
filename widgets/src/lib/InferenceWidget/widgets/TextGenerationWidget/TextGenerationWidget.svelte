@@ -7,6 +7,7 @@
 	import WidgetQuickInput from "../../shared/WidgetQuickInput/WidgetQuickInput.svelte";
 	import WidgetWrapper from "../../shared/WidgetWrapper/WidgetWrapper.svelte";
 	import {
+		addInferenceParameters,
 		getDemoInputs,
 		getResponse,
 		getSearchParams,
@@ -68,6 +69,7 @@
 		}
 
 		const requestBody = { inputs: trimmedValue };
+		addInferenceParameters(requestBody, model);
 
 		isLoading = true;
 

@@ -9,7 +9,7 @@ title: Hugging Face Hub docs
 
 We are helping the community work together towards the goal of advancing Artificial Intelligence 🔥.
 
-Not one company, even the Tech Titans, will be able to “solve AI” by itself – the only way we'll achieve this is by sharing knowledge and resources. On the Hugging Face Hub we are building the largest collection of models, datasets and metrics in order to democratize and advance AI for everyone 🚀. The Hugging Face Hub works as a central place where anyone can share and explore models and datasets.
+Not one company, even the Tech Titans, will be able to “solve AI” by themselves – the only way we'll achieve this is by sharing knowledge and resources. On the Hugging Face Hub we are building the largest collection of models, datasets and metrics in order to democratize and advance AI for everyone 🚀. The Hugging Face Hub works as a central place where anyone can share and explore models and datasets.
 
 
 ## What's a repository?

@@ -155,6 +155,8 @@ There are two ways to deploy your Hugging Face model trained in SageMaker. You c
 
 If you deploy your model directly after training, you need to ensure that all required files are saved in your training script, including the Tokenizer and the Model.
 
+If you use the `Trainer API` you can pass your `Tokenizer` as argument to the `Trainer`, it will be then automatically saved when calling `Trainer.save_model()`.
+
 ```python
 from sagemaker.huggingface import HuggingFace
 

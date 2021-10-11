@@ -7,7 +7,11 @@
 	import WidgetAddSentenceBtn from "../../shared/WidgetAddSentenceBtn/WidgetAddSentenceBtn.svelte";
 	import WidgetTextInput from "../../shared/WidgetTextInput/WidgetTextInput.svelte";
 	import WidgetWrapper from "../../shared/WidgetWrapper/WidgetWrapper.svelte";
-	import { getDemoInputs, getResponse } from "../../shared/helpers";
+	import {
+		addInferenceParameters,
+		getDemoInputs,
+		getResponse,
+	} from "../../shared/helpers";
 
 	export let apiToken: WidgetProps["apiToken"];
 	export let apiUrl: WidgetProps["apiUrl"];
@@ -75,6 +79,7 @@
 				sentences: trimmedComparisonSentences,
 			},
 		};
+		addInferenceParameters(requestBody, model);
 
 		isLoading = true;
 

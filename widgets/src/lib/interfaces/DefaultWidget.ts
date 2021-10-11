@@ -114,6 +114,9 @@ const MAPPING_EN: PerLanguageMapping = new Map([
 		`My name is Thomas and my main`,
 		`My name is Mariama, my favorite`,
 		`My name is Clara and I am`,
+		`My name is Lewis and I like to`,
+		`My name is Merve and my favorite`,
+		`My name is Teven and I am`,
 		`Once upon a time,`,
 	] ],
 	[ "fill-mask", [
