@@ -173,7 +173,7 @@ export function addInferenceParameters(requestBody: Record<string, any>, model: 
 	if(inferenceParameters){
 		if(requestBody.parameters){
 			requestBody.parameters = {...requestBody.parameters, ...inferenceParameters};
-		}else{
+		} else {
 			requestBody.parameters = inferenceParameters;
 		}
 	}
