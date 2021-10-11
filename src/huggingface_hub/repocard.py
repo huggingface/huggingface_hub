@@ -4,6 +4,7 @@ import re
 from pathlib import Path
 from typing import Any, Dict, Optional, Union
 
+import yaml
 from huggingface_hub.repocard_types import (
     ModelIndex,
     SingleMetric,
@@ -11,7 +12,6 @@ from huggingface_hub.repocard_types import (
     SingleResultDataset,
     SingleResultTask,
 )
-import yaml
 
 
 # exact same regex as in the Hub server. Please keep in sync.
@@ -100,4 +100,3 @@ def metadata_eval_result(
         model_index, dict_factory=lambda x: {k: v for (k, v) in x if v is not None}
     )
     return {"model-index": [data]}
-
