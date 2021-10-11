@@ -27,10 +27,16 @@ jobs:
       - working-directory: widgets
         run: |
           npm ci
-      - name: Check style
-        working-directory: widgets
+      - name: Check style (when on master)
+        if: ${{ endsWith(github.ref, '/master') }}
+        working-directory: server
         run: |
-          npm run lint
+          npx eslint --quiet $(git diff --relative --name-only --diff-filter=ACMRTUXB HEAD^ | grep -E "(.js$|.ts$|.svelte$)")
+      - name: Check style (when in a branch)
+        if: ${{ !endsWith(github.ref, '/master') }}
+        working-directory: server
+        run: |
+          npx eslint --quiet $(git diff --relative --name-only --diff-filter=ACMRTUXB $(git merge-base origin/master HEAD) | grep -E "(.js$|.ts$|.svelte$)")
       - name: Check svelte
         working-directory: widgets
         run: |
