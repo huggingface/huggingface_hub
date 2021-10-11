@@ -7,8 +7,21 @@
 		"preview": "svelte-kit preview",
 		"check": "svelte-check --tsconfig ./tsconfig.json",
 		"check:watch": "svelte-check --tsconfig ./tsconfig.json --watch",
-		"lint": "prettier --check --plugin-search-dir=. .",
-		"format": "prettier --write --plugin-search-dir=. ."
+		"prettier": "prettier --write --plugin-search-dir=. .",
+		"lint": "eslint --fix $(git diff --relative --name-only --diff-filter=ACMRTUXB HEAD | grep -E \"(.js$|.ts$|.svelte$)\")",
+		"lint:check": "eslint $(git diff --relative --name-only --diff-filter=ACMRTUXB HEAD | grep -E \"(.js$|.ts$|.svelte$)\")"
+	},
+	"husky": {
+		"hooks": {
+		  "pre-commit": "lint-staged"
+		}
+	},
+	  "lint-staged": {
+		"*.{js,ts}": "eslint --fix",
+		"*.svelte": [
+		  "eslint --fix",
+		  "prettier --write"
+		]
 	},
 	"devDependencies": {
 		"@sveltejs/adapter-static": "^1.0.0-next.13",
