@@ -5,7 +5,7 @@ on:
       - automatic_issue_creation
 name: Create an issue for API on push
 jobs:
-  stuff:
+  create_issue:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2
