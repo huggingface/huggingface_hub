@@ -1,0 +1,16 @@
+# .github/workflows/issue-on-push.yml
+on: push
+  branches:
+    - automatic_issue_creation
+name: Create an issue for API on push
+jobs:
+  stuff:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - uses: JasonEtco/create-an-issue@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_REPOSITORY: huggingface/api-inference
+        with:
+        filename: .github/create-api-issue.md
