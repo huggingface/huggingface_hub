@@ -4,9 +4,11 @@
 
 	import { onMount } from "svelte";
 	import WidgetOutputText from "../../shared/WidgetOutputText/WidgetOutputText.svelte";
-	import WidgetQuickInput from "../../shared/WidgetQuickInput/WidgetQuickInput.svelte";
+	import WidgetSubmitBtn from "../../shared/WidgetSubmitBtn/WidgetSubmitBtn.svelte";
+	import WidgetTextarea from "../../shared/WidgetTextarea/WidgetTextarea.svelte";
 	import WidgetWrapper from "../../shared/WidgetWrapper/WidgetWrapper.svelte";
 	import {
+		addInferenceParameters,
 		getDemoInputs,
 		getResponse,
 		getSearchParams,
@@ -68,6 +70,7 @@
 		}
 
 		const requestBody = { inputs: trimmedValue };
+		addInferenceParameters(requestBody, model);
 
 		isLoading = true;
 
@@ -129,11 +132,11 @@
 	{outputJson}
 >
 	<svelte:fragment slot="top">
-		<form>
-			<WidgetQuickInput
-				bind:value={text}
+		<form class="space-y-2">
+			<WidgetTextarea bind:value={text} />
+			<WidgetSubmitBtn
 				{isLoading}
-				onClickSubmitBtn={() => {
+				onClick={() => {
 					getOutput();
 				}}
 			/>

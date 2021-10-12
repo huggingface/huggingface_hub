@@ -7,6 +7,7 @@
 	import WidgetTextarea from "../../shared/WidgetTextarea/WidgetTextarea.svelte";
 	import WidgetWrapper from "../../shared/WidgetWrapper/WidgetWrapper.svelte";
 	import {
+		addInferenceParameters,
 		getDemoInputs,
 		getResponse,
 		getSearchParams,
@@ -60,6 +61,7 @@
 		}
 
 		const requestBody = { inputs: trimmedValue };
+		addInferenceParameters(requestBody, model);
 
 		isLoading = true;
 

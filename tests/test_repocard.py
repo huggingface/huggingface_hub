@@ -17,7 +17,7 @@ import unittest
 from pathlib import Path
 
 from huggingface_hub.constants import REPOCARD_NAME
-from huggingface_hub.repocard import metadata_load, metadata_save
+from huggingface_hub.repocard import metadata_eval_result, metadata_load, metadata_save
 
 from .testing_utils import set_write_permission_and_retry
 
@@ -73,6 +73,24 @@ DUMMY_MODELCARD_TARGET_NO_TAGS = """
 Hello
 """
 
+DUMMY_MODELCARD_EVAL_RESULT = """---
+model-index:
+- name: RoBERTa fine-tuned on ReactionGIF
+  results:
+  - metrics:
+    - type: accuracy
+      value: 0.2662102282047272
+      name: Accuracy
+    task:
+      type: text-classification
+      name: Text Classification
+    dataset:
+      name: ReactionGIF
+      type: julien-c/reactiongif
+---
+"""
+
+
 REPOCARD_DIR = os.path.join(
     os.path.dirname(os.path.abspath(__file__)), "fixtures/repocard"
 )
@@ -123,3 +141,20 @@ class RepocardTest(unittest.TestCase):
         filepath.write_text(DUMMY_MODELCARD_TARGET_NO_TAGS)
         data = metadata_load(filepath)
         self.assertEqual(data, None)
+
+    def test_metadata_eval_result(self):
+        data = metadata_eval_result(
+            model_pretty_name="RoBERTa fine-tuned on ReactionGIF",
+            task_pretty_name="Text Classification",
+            task_id="text-classification",
+            metrics_pretty_name="Accuracy",
+            metrics_id="accuracy",
+            metrics_value=0.2662102282047272,
+            dataset_pretty_name="ReactionGIF",
+            dataset_id="julien-c/reactiongif",
+        )
+        filename = "eval_results.md"
+        filepath = Path(REPOCARD_DIR) / filename
+        metadata_save(filepath, data)
+        content = filepath.read_text().splitlines()
+        self.assertEqual(content, DUMMY_MODELCARD_EVAL_RESULT.splitlines())

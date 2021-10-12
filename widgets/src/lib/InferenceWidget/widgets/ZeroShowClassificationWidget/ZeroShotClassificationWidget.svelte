@@ -9,6 +9,7 @@
 	import WidgetTextInput from "../../shared/WidgetTextInput/WidgetTextInput.svelte";
 	import WidgetWrapper from "../../shared/WidgetWrapper/WidgetWrapper.svelte";
 	import {
+		addInferenceParameters,
 		getDemoInputs,
 		getResponse,
 		getSearchParams,
@@ -93,6 +94,7 @@
 				multi_class: multiClass,
 			},
 		};
+		addInferenceParameters(requestBody, model);
 
 		isLoading = true;
 

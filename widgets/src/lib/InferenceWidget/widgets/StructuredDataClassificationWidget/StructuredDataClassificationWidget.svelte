@@ -16,6 +16,7 @@
 		parseJSON,
 	} from "../../shared/ViewUtils";
 	import {
+		addInferenceParameters,
 		getDemoInputs,
 		getResponse,
 		getSearchParams,
@@ -112,6 +113,7 @@
 				data: convertTableToData(table),
 			},
 		};
+		addInferenceParameters(requestBody, model);
 
 		isLoading = true;
 
