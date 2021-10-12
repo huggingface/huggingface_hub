@@ -1,5 +1,5 @@
 <script>
-	import type { WidgetProps } from "../../shared/types";
+	import type { WidgetProps, ImageSegment } from "../../shared/types";
 	import { onMount } from "svelte";
 	import { clip, mod, COLORS } from "../../shared/ViewUtils";
 	import { getResponse } from "../../shared/helpers";
@@ -15,23 +15,11 @@
 	export let model: WidgetProps["model"];
 	export let noTitle: WidgetProps["noTitle"];
 
-	interface ImageSegments {
-		png_string?: string;
-		segments_info?: Array<{
-			label: string;
-			score: number;
-			id: number;
-		}>;
-	}
-
 	const maskOpacity = Math.floor(255 * 0.6);
-	const idxAll = -1;
 
-	let bitmaps: ImageBitmap[];
 	let computeTime = "";
 	let error: string = "";
-	let highlightIndex = idxAll;
-	let idsFlat: number[] = [];
+	let highlightIndex = -1;
 	let isLoading = false;
 	let imgSrc = "";
 	let imgW = 0;
@@ -40,8 +28,7 @@
 		isLoading: false,
 		estimatedTime: 0,
 	};
-	let output: ImageSegments;
-	let outputWithColor = [];
+	let output: ImageSegment[];
 	let outputJson: string;
 	let warning: string = "";
 
@@ -56,8 +43,8 @@
 		imgSrc = "./cats.jpg";
 		const response = await fetch("./output.json");
 		output = await response.json();
-		outputWithColor = getOutputWithColor(output.segments_info);
-		bitmaps = await getBitmaps(output.png_string);
+		addOutputColor(output);
+		await Promise.all(output.map((o) => addOutputCanvasData(o)));
 		warning = "Inferece API WIP: demo image is loaded";
 		isLoading = false;
 
@@ -94,7 +81,7 @@
 		// 	if (output.segments_info.length === 0) {
 		// 		warning = "No object was detected";
 		// 	} else {
-		// 		outputWithColor = getOutputWithColor(output.segments_info);
+		// 		output = addOutputColor(output.segments_info);
 		// 	}
 		// 	// outputJson = res.outputJson;
 		// } else if (res.status === "loading-model") {
@@ -108,32 +95,28 @@
 		// }
 	}
 
-	function isValidOutput(arg: any): arg is {
-		png_string: string;
-		segments_info: { label: string; score: number; id: number }[];
-	} {
+	function isValidOutput(arg: any): arg is ImageSegment[] {
 		return (
-			typeof arg.png_string === "string" &&
-			Array.isArray(arg.segments_info) &&
-			arg.segments_info.every(
+			Array.isArray(arg) &&
+			arg.every(
 				(x) =>
 					typeof x.label === "string" &&
 					typeof x.score === "number" &&
-					typeof x.id === "number"
+					typeof x.mask === "string"
 			)
 		);
 	}
-	function parseOutput(body: unknown): ImageSegments {
+	function parseOutput(body: unknown): ImageSegment[] {
 		if (isValidOutput(body)) {
 			return body;
 		}
 		throw new TypeError(
-			"Invalid output: output must be of type <png_string: string; segments_info: Array<{label:string; score:number; id:number}>>"
+			"Invalid output: output must be of type Array<{label:string; score:number; mask: string}>"
 		);
 	}
 
 	function mouseout() {
-		highlightIndex = idxAll;
+		highlightIndex = -1;
 	}
 
 	function mouseover(index: number) {
@@ -146,39 +129,33 @@
 		layerY = clip(layerY, 0, canvasH);
 		const row = Math.floor((layerX / canvasH) * imgH);
 		const col = Math.floor((layerY / canvasW) * imgW);
-		highlightIndex = idsFlat[imgW * col + row];
+		highlightIndex = -1;
+		const index = (imgW * col + row) * 4;
+		for (const [i, o] of output.entries()) {
+			const pixel = o.imgData.data[index];
+			if (pixel > 0) {
+				highlightIndex = i;
+			}
+		}
 	}
 
-	function getOutputWithColor(
-		segments_info: Array<{
-			label: string;
-			score: number;
-			id: number;
-		}>
-	): Array<{
-		label: string;
-		score: number;
-		id: number;
-		color: string;
-	}> {
-		return segments_info.map((val, index) => {
+	function addOutputColor(output: ImageSegment[]) {
+		output.forEach((val, index) => {
 			const hash = mod(index, COLORS.length);
 			const { color } = COLORS[hash];
-			return { ...val, color };
+			val.color = color;
 		});
 	}
 
-	async function getBitmaps(png_string: string): Promise<ImageBitmap[]> {
-		const idToColor = outputWithColor.reduce(
-			(acc, cur) => ({ ...acc, [cur.id]: cur.color }),
-			{}
-		);
+	async function addOutputCanvasData(o_: ImageSegment): Promise<void> {
+		const { mask, color } = o_;
+
 		const colorToRgb = COLORS.reduce(
 			(acc, cur) => ({ ...acc, [cur.color]: cur }),
 			{}
 		);
 		const segmentImg = new Image();
-		segmentImg.src = `data:image/png;base64, ${png_string}`;
+		segmentImg.src = `data:image/png;base64, ${mask}`;
 		// await image.onload
 		await new Promise((resolve, _) => {
 			segmentImg.onload = () => resolve(segmentImg);
@@ -186,52 +163,38 @@
 		imgW = segmentImg.naturalWidth;
 		imgH = segmentImg.naturalHeight;
 
-		idsFlat = [];
-		const { segmentData, imagesData } = getImagesData(segmentImg, imgW, imgH);
+		const imgData = getImageData(segmentImg, imgW, imgH);
+		const { r, g, b } = colorToRgb[color];
+		const rgba = [r, g, b, maskOpacity];
+		const background = Array(4).fill(0);
 
-		for (let i = 0; i < segmentData.data.length; i += 4) {
-			const [r, g, b] = segmentData.data.slice(i, i + 3);
-			const id = r + 256 * g + 256 * 256 * b;
-			idsFlat.push(id);
-			const color = idToColor[id];
-			if (color) {
-				const { r, g, b } = colorToRgb[color];
-				const rgba = [r, g, b, maskOpacity];
-				setSlice(imagesData[idxAll].data, i, i + 4, rgba);
-				setSlice(imagesData[id].data, i, i + 4, rgba);
-			}
+		for (let i = 0; i < imgData.data.length; i += 4) {
+			setSlice(
+				imgData.data,
+				i,
+				i + 4,
+				imgData.data[i] === 255 ? rgba : background
+			);
 		}
 
-		const bitmaps: ImageBitmap[] = [];
-		for (const key in imagesData) {
-			bitmaps[key] = await createImageBitmap(imagesData[key]);
-		}
+		const bitmap = await createImageBitmap(imgData);
 
-		return bitmaps;
+		o_.imgData = imgData;
+		o_.bitmap = bitmap;
 	}
 
-	function getImagesData(
+	function getImageData(
 		segmentImg: CanvasImageSource,
 		imgW: number,
 		imgH: number
-	): {
-		segmentData: ImageData;
-		imagesData: {
-			[key: number]: ImageData;
-		};
-	} {
+	): ImageData {
 		const tmpCanvas = document.createElement("canvas");
 		tmpCanvas.width = imgW;
 		tmpCanvas.height = imgH;
 		const tmpCtx = tmpCanvas.getContext("2d");
 		tmpCtx.drawImage(segmentImg, 0, 0, imgW, imgH);
 		const segmentData = tmpCtx.getImageData(0, 0, imgW, imgH);
-		const imagesData = {};
-		imagesData[idxAll] = tmpCtx.createImageData(imgW, imgH);
-		for (const val of outputWithColor) {
-			imagesData[val.id] = tmpCtx.createImageData(imgW, imgH);
-		}
-		return { segmentData, imagesData };
+		return segmentData;
 	}
 
 	function setSlice(
@@ -252,7 +215,7 @@
 		}
 	}
 
-	// src: https://gist.github.com/MonsieurV/fb640c29084c171b4444184858a91bc7
+	// original: https://gist.github.com/MonsieurV/fb640c29084c171b4444184858a91bc7
 	function polyfillCreateImageBitmap() {
 		window.createImageBitmap = async function (
 			data: ImageBitmapSource
@@ -309,7 +272,7 @@
 				onError={(e) => (error = e)}
 			>
 				{#if imgSrc}
-					<Canvas {imgSrc} {bitmaps} {highlightIndex} {mousemove} {mouseout} />
+					<Canvas {imgSrc} {highlightIndex} {mousemove} {mouseout} {output} />
 				{/if}
 			</WidgetDropzone>
 			<!-- Better UX for mobile/table through CSS breakpoints -->
@@ -317,10 +280,10 @@
 				<Canvas
 					classNames="mr-2 with-hover:hidden"
 					{imgSrc}
-					{bitmaps}
 					{highlightIndex}
 					{mousemove}
 					{mouseout}
+					{output}
 				/>
 			{/if}
 			<WidgetFileInput
@@ -338,7 +301,7 @@
 	<svelte:fragment slot="bottom">
 		<WidgetOutputChart
 			classNames="mt-4"
-			output={outputWithColor}
+			{output}
 			{highlightIndex}
 			{mouseover}
 			{mouseout}

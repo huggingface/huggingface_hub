@@ -22,3 +22,12 @@ export type Box = {
 	xmax: number;
 	ymax: number;
 };
+
+export interface ImageSegment {
+	label: string;
+	score: number;
+	mask: string;
+	color?: string;
+	imgData?: ImageData;
+	bitmap?: ImageBitmap;
+};

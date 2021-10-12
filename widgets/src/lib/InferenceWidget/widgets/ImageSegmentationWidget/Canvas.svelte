@@ -1,13 +1,14 @@
 <script>
+	import type { ImageSegment } from "../../shared/types";
 	import { afterUpdate } from "svelte";
 
-	export let bitmaps: ImageBitmap[] = [];
 	export let classNames = "";
-	export let highlightIndex = -1;
+	export let highlightIndex: number;
 	export let imgSrc = "";
 	export let mousemove: (e: Event, canvasW: number, canvasH: number) => void =
 		() => {};
 	export let mouseout: () => void = () => {};
+	export let output: ImageSegment[];
 
 	let canvas: HTMLCanvasElement;
 	let imgEl: HTMLImageElement;
@@ -21,14 +22,32 @@
 	});
 
 	function draw() {
+		if (!output) {
+			return;
+		}
 		const animDuration = 200;
-		const bitmap = bitmaps?.[highlightIndex];
+		const masks = [];
+		if (highlightIndex === -1) {
+			for (const o of output) {
+				const mask = o?.bitmap;
+				if (mask) {
+					masks.push(mask);
+				}
+			}
+		} else {
+			const mask = output?.[highlightIndex]?.bitmap;
+			if (mask) {
+				masks.push(mask);
+			}
+		}
 		const ctx = canvas?.getContext("2d");
-		if (bitmap && ctx) {
+		if (ctx && masks.length) {
 			const duration = performance.now() - startTs;
 			ctx.globalAlpha = Math.min(duration, animDuration) / animDuration;
 			ctx.drawImage(imgEl, 0, 0, width, height);
-			ctx.drawImage(bitmap, 0, 0, width, height);
+			for (const mask of masks) {
+				ctx.drawImage(mask, 0, 0, width, height);
+			}
 			if (duration < animDuration) {
 				// when using canvas, prefer to use requestAnimationFrame over setTimeout & setInterval
 				// https://developer.mozilla.org/en-US/docs/Web/API/window/requestAnimationFrame
