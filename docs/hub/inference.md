@@ -31,3 +31,7 @@ If you are interested in accelerated inference and/or higher volumes of requests
 ## How can I see my usage?
 
 You can head to the [Inference API dashboard](https://api-inference.huggingface.co/dashboard/). Learn more about it in the [Inference API documentation](https://api-inference.huggingface.co/docs/python/html/usage.html#api-usage-dashboard).
+
+## Is there programmatic access to the Inference API?
+
+Yes, the `huggingface_hub` library has a client wrapper documented [here](/docs/hub/how-to-inference).
