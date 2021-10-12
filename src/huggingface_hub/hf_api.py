@@ -539,6 +539,7 @@ class HfApi:
     def list_repo_files(
         self,
         repo_id: str,
+        repo_type: Optional[str] = None,
         revision: Optional[str] = None,
         token: Optional[str] = None,
         timeout: Optional[float] = None,
@@ -546,7 +547,13 @@ class HfApi:
         """
         Get the list of files in a given repo.
         """
-        info = self.model_info(repo_id, revision=revision, token=token, timeout=timeout)
+        if repo_type is None:
+            info = self.model_info(repo_id, revision=revision, token=token, timeout=timeout)
+        elif repo_type == "dataset":
+            info = self.dataset_info(repo_id, revision=revision, token=token, timeout=timeout)
+        else:
+            raise ValueError("Spaces not supported yet")
+
         return [f.rfilename for f in info.siblings]
 
     def list_repos_objs(
@@ -945,7 +952,6 @@ class HfApi:
         token: Optional[str] = None,
         repo_type: Optional[str] = None,
         revision: Optional[str] = None,
-        identical_ok: bool = True,
     ):
         """
         Deletes a file in the given repo.
@@ -1006,7 +1012,7 @@ class HfApi:
         headers = (
             {"authorization": "Bearer {}".format(token)} if token is not None else None
         )
-        r = requests.get(path, headers=headers)
+        r = requests.delete(path, headers=headers)
 
         r.raise_for_status()
 
@@ -1092,4 +1098,5 @@ create_repo = api.create_repo
 delete_repo = api.delete_repo
 update_repo_visibility = api.update_repo_visibility
 upload_file = api.upload_file
+delete_file = api.delete_file
 get_full_repo_name = api.get_full_repo_name

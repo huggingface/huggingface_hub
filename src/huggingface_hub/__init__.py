@@ -36,6 +36,7 @@ from .hf_api import (
     HfFolder,
     create_repo,
     dataset_info,
+    delete_file,
     delete_repo,
     get_full_repo_name,
     list_datasets,
