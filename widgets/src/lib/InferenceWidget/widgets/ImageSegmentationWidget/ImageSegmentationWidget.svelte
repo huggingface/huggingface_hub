@@ -1,7 +1,7 @@
 <script>
 	import type { WidgetProps, ImageSegment } from "../../shared/types";
 	import { onMount } from "svelte";
-	import { clip, mod, COLORS } from "../../shared/ViewUtils";
+	import { clip, mod, COLORS, setSlice } from "../../shared/ViewUtils";
 	import { getResponse } from "../../shared/helpers";
 
 	import Canvas from "./Canvas.svelte";
@@ -16,12 +16,17 @@
 	export let noTitle: WidgetProps["noTitle"];
 
 	const maskOpacity = Math.floor(255 * 0.6);
+	const colorToRgb = COLORS.reduce(
+		(acc, cur) => ({ ...acc, [cur.color]: cur }),
+		{}
+	);
 
 	let computeTime = "";
 	let error: string = "";
 	let highlightIndex = -1;
 	let isLoading = false;
 	let imgSrc = "";
+	let imgEl: HTMLImageElement;
 	let imgW = 0;
 	let imgH = 0;
 	let modelLoading = {
@@ -41,6 +46,13 @@
 		// TODO: remove demo api simlation
 		isLoading = true;
 		imgSrc = "./cats.jpg";
+		// await image.onload
+		await new Promise((resolve, _) => {
+			imgEl.onload = () => resolve(imgEl);
+		});
+		imgW = imgEl.naturalWidth;
+		imgH = imgEl.naturalHeight;
+
 		const response = await fetch("./output.json");
 		output = await response.json();
 		addOutputColor(output);
@@ -147,25 +159,20 @@
 		});
 	}
 
-	async function addOutputCanvasData(o_: ImageSegment): Promise<void> {
-		const { mask, color } = o_;
+	async function addOutputCanvasData(
+		outputSegment: ImageSegment
+	): Promise<void> {
+		const { mask, color } = outputSegment;
 
-		const colorToRgb = COLORS.reduce(
-			(acc, cur) => ({ ...acc, [cur.color]: cur }),
-			{}
-		);
-		const segmentImg = new Image();
-		segmentImg.src = `data:image/png;base64, ${mask}`;
+		const maskImg = new Image();
+		maskImg.src = `data:image/png;base64, ${mask}`;
 		// await image.onload
 		await new Promise((resolve, _) => {
-			segmentImg.onload = () => resolve(segmentImg);
+			maskImg.onload = () => resolve(maskImg);
 		});
-		imgW = segmentImg.naturalWidth;
-		imgH = segmentImg.naturalHeight;
-
-		const imgData = getImageData(segmentImg, imgW, imgH);
+		const imgData = getImageData(maskImg);
 		const { r, g, b } = colorToRgb[color];
-		const rgba = [r, g, b, maskOpacity];
+		const maskColored = [r, g, b, maskOpacity];
 		const background = Array(4).fill(0);
 
 		for (let i = 0; i < imgData.data.length; i += 4) {
@@ -173,46 +180,22 @@
 				imgData.data,
 				i,
 				i + 4,
-				imgData.data[i] === 255 ? rgba : background
+				imgData.data[i] === 255 ? maskColored : background
 			);
 		}
 
-		const bitmap = await createImageBitmap(imgData);
-
-		o_.imgData = imgData;
-		o_.bitmap = bitmap;
+		outputSegment.imgData = imgData;
+		outputSegment.bitmap = await createImageBitmap(imgData);
 	}
 
-	function getImageData(
-		segmentImg: CanvasImageSource,
-		imgW: number,
-		imgH: number
-	): ImageData {
+	function getImageData(maskImg: CanvasImageSource): ImageData {
 		const tmpCanvas = document.createElement("canvas");
 		tmpCanvas.width = imgW;
 		tmpCanvas.height = imgH;
 		const tmpCtx = tmpCanvas.getContext("2d");
-		tmpCtx.drawImage(segmentImg, 0, 0, imgW, imgH);
+		tmpCtx.drawImage(maskImg, 0, 0, imgW, imgH);
 		const segmentData = tmpCtx.getImageData(0, 0, imgW, imgH);
 		return segmentData;
-	}
-
-	function setSlice(
-		arr: Uint8ClampedArray,
-		index_start: number,
-		index_end: number,
-		slice: Array<any>
-	) {
-		if (index_end - index_start !== slice.length) {
-			throw new Error(
-				`setSlice Error: lengths don't match ${index_end - index_start}!=${
-					slice.length
-				}`
-			);
-		}
-		for (const [i, val] of slice.entries()) {
-			arr[index_start + i] = val;
-		}
 	}
 
 	// original: https://gist.github.com/MonsieurV/fb640c29084c171b4444184858a91bc7
@@ -296,6 +279,7 @@
 			{#if warning}
 				<div class="alert alert-warning mt-2">{warning}</div>
 			{/if}
+			<img alt="" bind:this={imgEl} class="hidden" src={imgSrc} />
 		</form>
 	</svelte:fragment>
 	<svelte:fragment slot="bottom">

@@ -8,7 +8,7 @@
 	export let mousemove: (e: Event, canvasW: number, canvasH: number) => void =
 		() => {};
 	export let mouseout: () => void = () => {};
-	export let output: ImageSegment[];
+	export let output: ImageSegment[] = [];
 
 	let canvas: HTMLCanvasElement;
 	let imgEl: HTMLImageElement;
@@ -16,36 +16,29 @@
 	let height = 0;
 	let startTs: DOMHighResTimeStamp;
 
+	const animDuration = 200;
+
 	afterUpdate(() => {
 		startTs = performance.now();
 		draw();
 	});
 
 	function draw() {
-		if (!output) {
-			return;
-		}
-		const animDuration = 200;
-		const masks = [];
-		if (highlightIndex === -1) {
-			for (const o of output) {
-				const mask = o?.bitmap;
-				if (mask) {
-					masks.push(mask);
-				}
+		const maskToDraw = output.reduce((arr, o, i) => {
+			const mask = o?.bitmap;
+			if (mask && (i === highlightIndex || highlightIndex === -1)) {
+				arr.push(mask);
 			}
-		} else {
-			const mask = output?.[highlightIndex]?.bitmap;
-			if (mask) {
-				masks.push(mask);
-			}
-		}
+			return arr;
+		}, []);
+
 		const ctx = canvas?.getContext("2d");
-		if (ctx && masks.length) {
+
+		if (ctx && maskToDraw.length) {
 			const duration = performance.now() - startTs;
 			ctx.globalAlpha = Math.min(duration, animDuration) / animDuration;
 			ctx.drawImage(imgEl, 0, 0, width, height);
-			for (const mask of masks) {
+			for (const mask of maskToDraw) {
 				ctx.drawImage(mask, 0, 0, width, height);
 			}
 			if (duration < animDuration) {

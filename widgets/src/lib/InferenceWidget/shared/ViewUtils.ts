@@ -170,6 +170,27 @@ export const COLORS = [
 ];
 
 /*
+ * Set a slice of an array with another array (i.e. arr[index_start:index_end] = slice)
+ */
+export function setSlice(
+	arr: Iterable<any>,
+	index_start: number,
+	index_end: number,
+	slice: Array<any>
+) {
+	if (index_end - index_start !== slice.length) {
+		throw new Error(
+			`setSlice Error: lengths don't match ${index_end - index_start}!=${
+				slice.length
+			}`
+		);
+	}
+	for (const [i, val] of slice.entries()) {
+		arr[index_start + i] = val;
+	}
+}
+
+/*
 * Converts table from [[Header0, Header1, Header2], [Column0Val0, Column1Val0, Column2Val0], ...]
 * to {Header0: [ColumnVal0, ...], Header1: [Column1Val0, ...], Header2: [Column2Val0, ...]}
 */
