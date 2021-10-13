@@ -85,6 +85,26 @@ widget:
 
 We try to provide example inputs for some languages and most widget types in [this DefaultWidget.ts file](https://github.com/huggingface/huggingface_hub/blob/master/widgets/src/lib/interfaces/DefaultWidget.ts). If we lack some examples, please open a PR updating this file to add them. Thanks!
 
+## How can I control my model's widget parameters?
+
+Generally, a model hosted with the Inference API accepts a string as an input. But if you'd like to specify additional inference parameters that are not available in the widget, you can configure the parameters directly through the model card metadata. Refer [here](https://api-inference.huggingface.co/docs/python/html/detailed_parameters.html#) for a detailed list of parameters associated with each task.
+
+For example, if you want to specify an aggregation strategy for a NER task in the widget:
+
+```yaml
+inference:
+  parameters:
+    aggregation_strategy: "none"
+```
+
+Or if you'd like to specify the temperature for a summarization task in the widget:
+
+```yaml
+inference:
+  parameters:
+    temperature: 0.7
+```
+
 ## Can I specify which framework supports my model?
 
 Yes!🔥 You can specify the framework in the model card metadata section:
