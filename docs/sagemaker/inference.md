@@ -72,7 +72,9 @@ There are two ways to deploy your Hugging Face model trained in SageMaker:
 - Deploy it after your training has finished. 
 - Deploy your saved model at a later time from S3 with the `model_data`.
 
-**Deploy after training**
+📓 Open the [notebook](https://github.com/huggingface/notebooks/blob/master/sagemaker/10_deploy_model_from_s3/deploy_transformer_model_from_s3.ipynb) for an example of how to deploy a model from S3 to SageMaker for inference.
+
+### Deploy after training
 
 To deploy your model directly after training, ensure all required files are saved in your training script, including the tokenizer and the model.
 
@@ -110,7 +112,7 @@ After you run your request you can delete the endpoint as shown:
 predictor.delete_endpoint()
 ```
 
-**Deploy with `model_data`**
+### Deploy with `model_data`
 
 If you've already trained your model and want to deploy it at a later time, use the `model_data` argument to specify the location of your tokenizer and model weights.
 
@@ -148,7 +150,7 @@ After you run our request, you can delete the endpoint again with:
 predictor.delete_endpoint()
 ```
 
-**Create a model artifact for deployment**
+### Create a model artifact for deployment
 
 For later deployment, you can create a `model.tar.gz` file that contains all the required files, such as:
 
@@ -244,6 +246,8 @@ After you run our request, you can delete the endpoint again with:
 predictor.delete_endpoint()
 ```
 
+📓 Open the [notebook](https://github.com/huggingface/notebooks/blob/master/sagemaker/11_deploy_model_from_hf_hub/deploy_transformer_model_from_hf_hub.ipynb) for an example of how to deploy a model from the 🤗 Hub to SageMaker for inference.
+
 ## Run batch transform with 🤗 Transformers and SageMaker
 
 <iframe width="700" height="394" src="https://www.youtube.com/embed/lnTixz0tUBg" title="YouTube video player" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>
@@ -315,9 +319,11 @@ The `input.jsonl` looks like this:
 {"inputs":"this movie is amazing"}
 ```
 
+📓 Open the [notebook](https://github.com/huggingface/notebooks/blob/master/sagemaker/12_batch_transform_inference/sagemaker-notebook.ipynb) for an example of how to run a batch transform job for inference.
+
 ## User defined code and modules
 
-The Hugging Face Inference Toolkit allows the user to override the default methods of the `HuggingFaceHandlerService`. You will need to create a folder named `code/` with an `inference.py` file in it. For example:  
+The Hugging Face Inference Toolkit allows the user to override the default methods of the `HuggingFaceHandlerService`. You will need to create a folder named `code/` with an `inference.py` file in it. See [here](#create-a-model-artifact-for-deployment) for more details on how to archive your model artifacts. For example:  
 
 ```bash
 model.tar.gz/

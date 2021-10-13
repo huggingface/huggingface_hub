@@ -175,7 +175,7 @@ S3Downloader.download(
 
 SageMaker provides two strategies for distributed training: data parallelism and model parallelism. Data parallelism splits a training set across several GPUs, while model parallelism splits a model across several GPUs.
 
-**Data parallelism**
+### Data parallelism
 
 The Hugging Face [Trainer](https://huggingface.co/transformers/main_classes/trainer.html) supports SageMaker's data parallelism library. If your training script uses the Trainer API, you only need to define the distribution parameter in the Hugging Face Estimator:
 
@@ -198,7 +198,9 @@ huggingface_estimator = HuggingFace(
 )
 ```
 
-**Model parallelism**
+📓 Open the [notebook](https://github.com/huggingface/notebooks/blob/master/sagemaker/07_tensorflow_distributed_training_data_parallelism/sagemaker-notebook.ipynb) for an example of how to run the data parallelism library with TensorFlow.
+
+### Model parallelism
 
 The Hugging Face [Trainer] also supports SageMaker's model parallelism library. If your training script uses the Trainer API, you only need to define the distribution parameter in the Hugging Face Estimator (see [here](https://sagemaker.readthedocs.io/en/stable/api/training/smd_model_parallel_general.html?highlight=modelparallel#required-sagemaker-python-sdk-parameters) for more detailed information about using model parallelism):
 
@@ -241,6 +243,8 @@ huggingface_estimator = HuggingFace(
 )
 ```
 
+📓 Open the [notebook](https://github.com/huggingface/notebooks/blob/master/sagemaker/04_distributed_training_model_parallelism/sagemaker-notebook.ipynb) for an example of how to run the model parallelism library.
+
 ## Spot instances
 
 The Hugging Face extension for the SageMaker Python SDK means we can benefit from [fully-managed EC2 spot instances](https://docs.aws.amazon.com/sagemaker/latest/dg/model-managed-spot-training.html). This can help you save up to 90% of training costs!
@@ -279,6 +283,8 @@ huggingface_estimator = HuggingFace(
 # Billable seconds: 262
 # Managed Spot Training savings: 70.0%
 ```
+
+📓 Open the [notebook](https://github.com/huggingface/notebooks/blob/master/sagemaker/05_spot_instances/sagemaker-notebook.ipynb) for an example of how to use spot instances.
 
 ## Git repository
 
@@ -332,3 +338,5 @@ huggingface_estimator = HuggingFace(
         metric_definitions=metric_definitions,
         hyperparameters = hyperparameters)
 ```
+
+📓 Open the [notebook](https://github.com/huggingface/notebooks/blob/master/sagemaker/06_sagemaker_metrics/sagemaker-notebook.ipynb) for an example of how to capture metrics in SageMaker.
