@@ -932,6 +932,77 @@ class HfApi:
         d = r.json()
         return d["url"]
 
+    def delete_file(
+        self,
+        path_in_repo: str,
+        repo_id: str,
+        token: Optional[str] = None,
+        repo_type: Optional[str] = None,
+        revision: Optional[str] = None,
+    ):
+        """
+        Deletes a file in the given repo.
+
+        Params:
+            path_in_repo (``str``):
+                Relative filepath in the repo, for example: :obj:`"checkpoints/1fec34a/weights.bin"`
+
+            repo_id (``str``):
+                The repository from which the file will be deleted, for example: :obj:`"username/custom_transformers"`
+
+            token (``str``):
+                Authentication token, obtained with :function:`HfApi.login` method. Will default to the stored token.
+
+            repo_type (``str``, Optional):
+                Set to :obj:`"dataset"` or :obj:`"space"` if the fils is in a dataset or space, :obj:`None` if in a model. Default is :obj:`None`.
+
+            revision (``str``, Optional):
+                The git revision to commit from. Defaults to the :obj:`"main"` branch.
+
+        Raises:
+            :class:`ValueError`: if some parameter value is invalid
+
+            :class:`requests.HTTPError`: if the HuggingFace API returned an error
+
+        """
+        if repo_type not in REPO_TYPES:
+            raise ValueError("Invalid repo type, must be one of {}".format(REPO_TYPES))
+
+        if token is None:
+            token = HfFolder.get_token()
+            if token is None:
+                raise EnvironmentError(
+                    "You need to provide a `token` or be logged in to Hugging Face with "
+                    "`huggingface-cli login`."
+                )
+
+        # Normalize path separators and strip leading slashes
+        if not REMOTE_FILEPATH_REGEX.match(path_in_repo):
+            raise ValueError(
+                "Invalid path_in_repo '{}', path_in_repo must match regex {}".format(
+                    path_in_repo, REMOTE_FILEPATH_REGEX.pattern
+                )
+            )
+
+        if repo_type in REPO_TYPES_URL_PREFIXES:
+            repo_id = REPO_TYPES_URL_PREFIXES[repo_type] + repo_id
+
+        revision = revision if revision is not None else "main"
+
+        path = "{}/api/{repo_id}/delete/{revision}/{path_in_repo}".format(
+            self.endpoint,
+            repo_id=repo_id,
+            revision=revision,
+            path_in_repo=path_in_repo,
+        )
+
+        headers = (
+            {"authorization": "Bearer {}".format(token)} if token is not None else None
+        )
+        r = requests.delete(path, headers=headers)
+
+        r.raise_for_status()
+
     def get_full_repo_name(
         self,
         model_id: str,
@@ -1014,4 +1085,5 @@ create_repo = api.create_repo
 delete_repo = api.delete_repo
 update_repo_visibility = api.update_repo_visibility
 upload_file = api.upload_file
+delete_file = api.delete_file
 get_full_repo_name = api.get_full_repo_name
