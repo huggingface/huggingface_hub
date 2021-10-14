@@ -93,7 +93,7 @@ widget:
   src: https://cdn-media.huggingface.co/speech_samples/sample2.flac
 ```
 
-We try to provide example inputs for some languages and most widget types in [this DefaultWidget.ts file](https://github.com/huggingface/huggingface_hub/blob/master/widgets/src/lib/interfaces/DefaultWidget.ts). If we lack some examples, please feel free to open a PR to add them! 
+We provide example inputs for some languages and most widget types in [the DefaultWidget.ts file](https://github.com/huggingface/huggingface_hub/blob/master/widgets/src/lib/interfaces/DefaultWidget.ts). If some examples are missing, we welcome PRs from the community to add them!
 
 ## How can I control my model's widget Inference API parameters?
 
