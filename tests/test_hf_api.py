@@ -341,6 +341,32 @@ class HfApiUploadFileTest(HfApiCommonTestWithLogin):
         finally:
             self._api.delete_repo(name=REPO_NAME, token=self._token)
 
+    def test_upload_buffer(self):
+        self._api.create_repo(name=REPO_NAME, token=self._token)
+        try:
+            buffer = BytesIO()
+            buffer.write(self.tmp_file_content.encode())
+            self._api.upload_file(
+                path_or_fileobj=buffer.getvalue(),
+                path_in_repo="temp/new_file.md",
+                repo_id=f"{USER}/{REPO_NAME}",
+                token=self._token,
+            )
+            url = "{}/{user}/{repo}/resolve/main/temp/new_file.md".format(
+                ENDPOINT_STAGING,
+                user=USER,
+                repo=REPO_NAME,
+            )
+            filepath = cached_download(url, force_download=True)
+            with open(filepath) as downloaded_file:
+                content = downloaded_file.read()
+            self.assertEqual(content, self.tmp_file_content)
+
+        except Exception as err:
+            self.fail(err)
+        finally:
+            self._api.delete_repo(name=REPO_NAME, token=self._token)
+
     def test_delete_file(self):
         self._api.create_repo(token=self._token, name=REPO_NAME)
         try:
