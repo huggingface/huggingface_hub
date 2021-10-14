@@ -9,15 +9,15 @@ title: Run training on Amazon SageMaker
 
 This guide will show you how to train a 🤗 Transformers model with the `HuggingFace` SageMaker Python SDK. Learn how to:
 
-- Install and setup your training environment.
-- Prepare a training script.
-- Create a Hugging Face Estimator.
-- Run training with the `fit` method.
-- Access your trained model.
-- Perform distributed training.
-- Create a spot instance.
-- Load a training script from a GitHub repository.
-- Collect training metrics.
+- [Install and setup your training environment](#installation-and-setup).
+- [Prepare a training script](#prepare-a-transformers-fine-tuning-script).
+- [Create a Hugging Face Estimator](#create-a-hugging-face-estimator).
+- [Run training with the `fit` method](#execute-training).
+- [Access your trained model](#access-trained-model).
+- [Perform distributed training](#distributed-training).
+- [Create a spot instance](#spot-instances).
+- [Load a training script from a GitHub repository](#git-repository).
+- [Collect training metrics](#sagemaker-metrics).
 
 ## Installation and setup
 
