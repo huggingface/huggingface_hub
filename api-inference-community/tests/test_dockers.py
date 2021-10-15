@@ -116,7 +116,7 @@ class DockerImageTests(unittest.TestCase):
         self.framework_docker_test(
             "spacy",
             "text-classification",
-            "explosion/en_textcat_goemotions",
+            "cverluise/xx_cat_pateexx_md",
         )
         self.framework_docker_test(
             "spacy",
