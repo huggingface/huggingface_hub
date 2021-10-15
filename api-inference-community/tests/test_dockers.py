@@ -121,7 +121,7 @@ class DockerImageTests(unittest.TestCase):
         self.framework_docker_test(
             "spacy",
             "sentence-similarity",
-            "spacy/en_core_web_lg",
+            "spacy/en_core_web_sm",
         )
         self.framework_invalid_test("spacy")
 
