@@ -74,7 +74,7 @@ Each model page lists all the model's tags in the page header, below the model n
 
 Those are primarily computed from the model card metadata, except that we also add some of them automatically, as described in [How is a model's type of inference API and widget determined?](/docs/hub/main#how-is-a-models-type-of-inference-api-and-widget-determined).
 
-## How can I control my model's widget's example inputs?
+## How can I control my model's widget example input?
 
 You can specify the widget input in the model card metadata section:
 
@@ -83,7 +83,37 @@ widget:
 - text: "Jens Peter Hansen kommer fra Danmark"
 ```
 
-We try to provide example inputs for some languages and most widget types in [this DefaultWidget.ts file](https://github.com/huggingface/huggingface_hub/blob/master/widgets/src/lib/interfaces/DefaultWidget.ts). If we lack some examples, please open a PR updating this file to add them. Thanks!
+It is also possible to specify non-text example inputs in the model card metadata. For example, allow users to choose from two sample audio files for automatic speech recognition tasks by:
+
+```yaml
+widget:
+- label: Librispeech sample 1
+  src: https://cdn-media.huggingface.co/speech_samples/sample1.flac
+- label: Librispeech sample 2
+  src: https://cdn-media.huggingface.co/speech_samples/sample2.flac
+```
+
+We provide example inputs for some languages and most widget types in [the DefaultWidget.ts file](https://github.com/huggingface/huggingface_hub/blob/master/widgets/src/lib/interfaces/DefaultWidget.ts). If some examples are missing, we welcome PRs from the community to add them!
+
+## How can I control my model's widget Inference API parameters?
+
+Generally, the Inference API for a model uses the default pipeline settings associated with each task. But if you'd like to change the pipeline's default settings and specify additional inference parameters, you can configure the parameters directly through the model card metadata. Refer [here](https://api-inference.huggingface.co/docs/python/html/detailed_parameters.html#) for some of the most commonly used parameters associated with each task.
+
+For example, if you want to specify an aggregation strategy for a NER task in the widget:
+
+```yaml
+inference:
+  parameters:
+    aggregation_strategy: "none"
+```
+
+Or if you'd like to change the temperature for a summarization task in the widget:
+
+```yaml
+inference:
+  parameters:
+    temperature: 0.7
+```
 
 ## Can I specify which framework supports my model?
 
