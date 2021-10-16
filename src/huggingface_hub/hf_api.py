@@ -21,7 +21,7 @@ import sys
 import warnings
 from io import BufferedIOBase, RawIOBase
 from os.path import expanduser
-from typing import BinaryIO, Dict, Iterable, List, Optional, Tuple, Union
+from typing import IO, Dict, Iterable, List, Optional, Tuple, Union
 
 import requests
 from requests.exceptions import HTTPError
@@ -789,7 +789,7 @@ class HfApi:
 
     def upload_file(
         self,
-        path_or_fileobj: Union[str, BinaryIO],
+        path_or_fileobj: Union[str, bytes, IO],
         path_in_repo: str,
         repo_id: str,
         token: Optional[str] = None,
@@ -802,8 +802,8 @@ class HfApi:
         doesn't require git or git-lfs to be installed.
 
         Params:
-            path_or_fileobj (``str`` or ``BinaryIO``):
-                Path to a file on the local machine or binary data stream / fileobj.
+            path_or_fileobj (``str``, ``bytes``, or ``IO``):
+                Path to a file on the local machine or binary data stream / fileobj / buffer.
 
             path_in_repo (``str``):
                 Relative filepath in the repo, for example: :obj:`"checkpoints/1fec34a/weights.bin"`
@@ -886,7 +886,7 @@ class HfApi:
                 raise ValueError(
                     "Provided path: '{}' is not a file".format(path_or_fileobj)
                 )
-        elif not isinstance(path_or_fileobj, (RawIOBase, BufferedIOBase)):
+        elif not isinstance(path_or_fileobj, (RawIOBase, BufferedIOBase, bytes)):
             # ^^ Test from: https://stackoverflow.com/questions/44584829/how-to-determine-if-file-is-opened-in-binary-or-text-mode
             raise ValueError(
                 "path_or_fileobj must be either an instance of str or BinaryIO. "
@@ -926,7 +926,13 @@ class HfApi:
         try:
             r.raise_for_status()
         except HTTPError as err:
-            if not (identical_ok and err.response.status_code == 409):
+            if identical_ok and err.response.status_code == 409:
+                from .file_download import hf_hub_url
+
+                return hf_hub_url(
+                    repo_id, path_in_repo, revision=revision, repo_type=repo_type
+                )
+            else:
                 raise err
 
         d = r.json()
