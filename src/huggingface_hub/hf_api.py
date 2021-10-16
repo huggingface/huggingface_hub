@@ -802,8 +802,8 @@ class HfApi:
         doesn't require git or git-lfs to be installed.
 
         Params:
-            path_or_fileobj (``str`` or ``BinaryIO``):
-                Path to a file on the local machine or binary data stream / fileobj.
+            path_or_fileobj (``str``, ``bytes``, or ``IO``):
+                Path to a file on the local machine or binary data stream / fileobj / buffer.
 
             path_in_repo (``str``):
                 Relative filepath in the repo, for example: :obj:`"checkpoints/1fec34a/weights.bin"`
