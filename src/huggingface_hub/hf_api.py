@@ -996,9 +996,7 @@ class HfApi:
             path_in_repo=path_in_repo,
         )
 
-        headers = (
-            {"authorization": "Bearer {}".format(token)} if token is not None else None
-        )
+        headers = {"authorization": "Bearer {}".format(token)}
         r = requests.delete(path, headers=headers)
 
         r.raise_for_status()
