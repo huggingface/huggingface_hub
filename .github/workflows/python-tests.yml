@@ -35,7 +35,8 @@ jobs:
       - name: Install dependencies
         run: |
           pip install --upgrade pip
-          pip install .[testing]
+          sudo apt-get -y update && sudo apt-get install -y libsndfile1-dev
+          pip install .[testing] librosa
 
       - run: pytest -sv ./tests/
 
@@ -53,7 +54,8 @@ jobs:
     - name: Install dependencies
       run: |
         pip install --upgrade pip
-        pip install .[testing,torch]
+        sudo apt-get -y update && sudo apt-get install -y libsndfile1-dev
+        pip install .[testing,torch] librosa
 
     - run: pytest -sv ./tests/
 
@@ -71,7 +73,8 @@ jobs:
     - name: Install dependencies
       run: |
         pip install --upgrade pip
-        pip install .[testing,tensorflow]
+        sudo apt-get -y update && sudo apt-get install -y libsndfile1-dev
+        pip install .[testing,tensorflow] librosa
 
     - run: pytest -sv ./tests/
 

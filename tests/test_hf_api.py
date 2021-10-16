@@ -23,7 +23,7 @@ from io import BytesIO
 
 import requests
 from huggingface_hub.constants import REPO_TYPE_DATASET, REPO_TYPE_SPACE
-from huggingface_hub.file_download import cached_download
+from huggingface_hub.file_download import cached_download, hf_hub_download
 from huggingface_hub.hf_api import (
     DatasetInfo,
     HfApi,
@@ -335,6 +335,30 @@ class HfApiUploadFileTest(HfApiCommonTestWithLogin):
                     identical_ok=False,
                 )
                 self.assertEqual(err_ctx.exception.response.status_code, 409)
+
+        except Exception as err:
+            self.fail(err)
+        finally:
+            self._api.delete_repo(name=REPO_NAME, token=self._token)
+
+    def test_delete_file(self):
+        self._api.create_repo(token=self._token, name=REPO_NAME)
+        try:
+            self._api.upload_file(
+                path_or_fileobj=self.tmp_file,
+                path_in_repo="temp/new_file.md",
+                repo_id=f"{USER}/{REPO_NAME}",
+                token=self._token,
+            )
+            self._api.delete_file(
+                path_in_repo="temp/new_file.md",
+                repo_id=f"{USER}/{REPO_NAME}",
+                token=self._token,
+            )
+
+            with self.assertRaises(HTTPError):
+                # Should raise a 404
+                hf_hub_download(f"{USER}/{REPO_NAME}", "temp/new_file.md")
 
         except Exception as err:
             self.fail(err)
