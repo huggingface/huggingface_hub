@@ -1,26 +1,44 @@
 import json
 import logging
 import os
+import sys
+import packaging.version
 from pathlib import Path
 from typing import Any, Dict, Optional, Union
 
+# TODO - The following code to verify fastai version would be better in huggingface_hub/file_download.py.
+_PY_VERSION: str = sys.version.split()[0].rstrip("+")
+if packaging.version.Version(_PY_VERSION) < packaging.version.Version("3.8.0"):
+    import importlib_metadata
+else:
+    import importlib.metadata as importlib_metadata
+
+# Verify if we are using the right fastai version.
+_FASTAI_VERSION: str = importlib_metadata.version("fastai")
+if packaging.version.Version(_FASTAI_VERSION) < packaging.version.Version("2.5.0"):
+    raise ImportError(
+        f"You are using fastai version {_FASTAI_VERSION} which is below ^2.5.0. Run, for example, `pip install fastai==2.5.1`."
+    )
+
 logger = logging.getLogger(__name__)
 
+# TODO - evaluate relevance of the following check.
+# Second check to verify we are using the right fastai version.
 try:
-  from fastai.learner import load_learner
+    from fastai.learner import load_learner
 except ImportError as error:
-        logger.error(error.__class__.__name__ + ": fastai version above or equal to 2.5.1 required. Run, for example, `pip install fastai==2.5.1`.")
-
+    logger.error(
+        error.__class__.__name__
+        + ": fastai version above or equal to 2.5.1 required. Run, for example, `pip install fastai==2.5.1`."
+    )
 
 from huggingface_hub import ModelHubMixin
 from huggingface_hub.constants import CONFIG_NAME
+
 # TODO - add to huggingface_hub.constants the constant FASTAI_LEARNER_NAME: same name to all the .pkl models pushed to the hub.
 from huggingface_hub.hf_api import HfFolder, HfApi
 from huggingface_hub.repository import Repository
 from huggingface_hub.snapshot_download import snapshot_download
-
-
-logger = logging.getLogger(__name__)
 
 
 def save_fastai_learner(
@@ -34,7 +52,7 @@ def save_fastai_learner(
         Specify directory in which you want to save the fastai learner.
     config (:obj:`dict`, `optional`):
         Configuration object with the labels of the model. Will be uploaded as a .json file. Example: 'https://huggingface.co/espejelomar/fastai-pet-breeds-classification/blob/main/config.json'.
-    
+
     TODO - Save weights and model structure instead of the built learner.
     """
 
@@ -50,9 +68,9 @@ def save_fastai_learner(
         path = os.path.join(save_directory, CONFIG_NAME)
         with open(path, "w") as f:
             json.dump(config, f)
-    
+
     # saving learner
-    learner.export(os.path.join(save_directory, 'model.pkl'))
+    learner.export(os.path.join(save_directory, "model.pkl"))
 
 
 def from_pretrained_fastai(*args, **kwargs):
@@ -78,7 +96,7 @@ def push_to_hub_fastai(
 
     Parameters:
         model:
-            The `fastai.learner' you'd like to push to the hub. 
+            The `fastai.learner' you'd like to push to the hub.
         repo_path_or_name (:obj:`str`, `optional`):
             Can either be a repository name for your model or tokenizer in the Hub or a path to a local folder (in
             which case the repository will have the name of that local folder). If not specified, will default to
@@ -160,13 +178,11 @@ def push_to_hub_fastai(
     return repo.git_push()
 
 
-
-
 class FastaiModelHubMixin(ModelHubMixin):
     def __init__(self, *args, **kwargs):
         """
         Mixin class to implement model download and upload from fastai learners.
-        
+
         # Downloading Learner from hf-hub:
         Example::
 
@@ -213,13 +229,15 @@ class FastaiModelHubMixin(ModelHubMixin):
         # Using the pickle document in the downloaded list
         docs = os.listdir(storage_folder)
         for doc in docs:
-          if (doc.endswith('.pkl')): 
-            pickle = doc
-            break
-        
-        logger.info(f'Using `fastai.learner` stored in {os.path.join(model_id, pickle)}.')
+            if doc.endswith(".pkl"):
+                pickle = doc
+                break
 
-        model = load_learner(os.path.join(storage_folder, pickle))        
+        logger.info(
+            f"Using `fastai.learner` stored in {os.path.join(model_id, pickle)}."
+        )
+
+        model = load_learner(os.path.join(storage_folder, pickle))
 
         # For now, we add a new attribute, config, to store the config loaded from the hub/a local dir.
         model.config = cfg
