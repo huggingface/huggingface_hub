@@ -1,3 +1,14 @@
+###########################################################################################################
+# Easily store and download fastai working models into the HF Hub.
+#
+# Goal:
+# (1) Add upstream support: push a fastai learner to the HF Hub. See `save_fastai_learner` and `push_to_hub_fastai`.
+# (2) Add downstream support: download a fastai learner from the hub. See `from_pretrained_fastai`.
+#
+# Limitations and next steps:
+# - Go from storing/downloading a `fastai.learner` to saving the weights directly into de hub.
+###########################################################################################################
+
 import json
 import logging
 import os
