@@ -93,13 +93,13 @@ The Streamlit version is not configured in the `requirements.txt` file, but in t
 
 ## How can I contact you?
 
-Feel free to ask question in the [Forum](https://discuss.huggingface.co/) if its suitable for the community.
+Feel free to ask question in the [Forum](https://discuss.huggingface.co/) if it's suitable for the community.
 
 If you're interested in infra challenges, custom demos, GPU or something else, please reach out to us by sending an email to website at huggingface.co.
 
 ## How should I link my Spaces demo in my GitHub repo?
 
-We have a badge that you can use:
+We have a badge that you can use, just replace the linked url with the correct one:
 
 [![Hugging Face Spaces](https://img.shields.io/badge/%F0%9F%A4%97%20Hugging%20Face-Spaces-blue)](https://huggingface.co/spaces/your_user/your_space)
 
