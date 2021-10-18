@@ -67,7 +67,7 @@ class InferenceApiTest(unittest.TestCase):
         dataset = datasets.load_dataset(
             "patrickvonplaten/librispeech_asr_dummy", "clean", split="validation"
         )
-        data = self.read(dataset[0]["file"])
+        data = self.read(dataset["file"][0])
         result = api(data=data)
         self.assertIsInstance(result, dict)
         self.assertTrue("text" in result)
@@ -76,7 +76,7 @@ class InferenceApiTest(unittest.TestCase):
     def test_inference_with_image(self):
         api = InferenceApi("google/vit-base-patch16-224")
         dataset = datasets.load_dataset("Narsil/image_dummy", "image", split="test")
-        data = self.read(dataset[0]["file"])
+        data = self.read(dataset["file"][0])
         result = api(data=data)
         self.assertIsInstance(result, list)
         for classification in result:
