@@ -87,6 +87,10 @@ We support those Streamlit features transparently:
 - `st.experimental_get_query_params()` and `st.experimental_set_query_params(**parameter)` to manage app state in the url
 - if something doesn't work, please [reach out](#how-can-i-contact-you).
 
+## I am having issues with Streamlit versions!
+
+The Streamlit version is not configured in the `requirements.txt` file, but in the README metadata config through the `sdk_version` setting. Note that we do not support all Streamlit versions, please refer to the [reference section](#reference) for more info on this.
+
 ## How can I contact you?
 
 Feel free to ask question in the [Forum](https://discuss.huggingface.co/) if its suitable for the community.
