@@ -97,6 +97,8 @@ Feel free to ask question in the [Forum](https://discuss.huggingface.co/) if it'
 
 If you're interested in infra challenges, custom demos, GPU or something else, please reach out to us by sending an email to website at huggingface.co.
 
+You can also tag us [on Twitter](https://twitter.com/huggingface)!
+
 ## How should I link my Spaces demo in my GitHub repo?
 
 We have a badge that you can use, just replace the linked url with the correct one:
