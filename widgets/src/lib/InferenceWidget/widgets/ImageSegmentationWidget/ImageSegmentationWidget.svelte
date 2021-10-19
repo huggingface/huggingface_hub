@@ -43,24 +43,6 @@
 	}
 
 	async function getOutput(file: File | Blob, withModelLoading = false) {
-		// // TODO: remove demo api simlation
-		// isLoading = true;
-		// imgSrc = "./cats.jpg";
-		// // await image.onload
-		// await new Promise((resolve, _) => {
-		// 	imgEl.onload = () => resolve(imgEl);
-		// });
-		// imgW = imgEl.naturalWidth;
-		// imgH = imgEl.naturalHeight;
-
-		// const response = await fetch("./output.json");
-		// output = await response.json();
-		// addOutputColor(output);
-		// await Promise.all(output.map((o) => addOutputCanvasData(o)));
-		// warning = "Inferece API WIP: demo image is loaded";
-		// isLoading = false;
-		// return;
-
 		if (!file) {
 			return;
 		}
@@ -239,7 +221,6 @@
 		if (typeof createImageBitmap === "undefined") {
 			polyfillCreateImageBitmap();
 		}
-		// getOutput(new Blob());
 	});
 </script>
 
