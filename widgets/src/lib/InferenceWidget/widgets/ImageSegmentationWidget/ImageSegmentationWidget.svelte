@@ -33,7 +33,7 @@
 		isLoading: false,
 		estimatedTime: 0,
 	};
-	let output: ImageSegment[];
+	let output: ImageSegment[] = [];
 	let outputJson: string;
 	let warning: string = "";
 
@@ -43,68 +43,75 @@
 	}
 
 	async function getOutput(file: File | Blob, withModelLoading = false) {
-		// TODO: remove demo api simlation
-		isLoading = true;
-		imgSrc = "./cats.jpg";
-		// await image.onload
-		await new Promise((resolve, _) => {
-			imgEl.onload = () => resolve(imgEl);
-		});
-		imgW = imgEl.naturalWidth;
-		imgH = imgEl.naturalHeight;
-
-		const response = await fetch("./output.json");
-		output = await response.json();
-		addOutputColor(output);
-		await Promise.all(output.map((o) => addOutputCanvasData(o)));
-		warning = "Inferece API WIP: demo image is loaded";
-		isLoading = false;
-
-		// if (!file) {
-		// 	return;
-		// }
-
-		// // Reset values
-		// computeTime = "";
-		// error = "";
-		// warning = "";
-		// output = null;
-		// outputJson = "";
-
-		// const requestBody = { file };
-
+		// // TODO: remove demo api simlation
 		// isLoading = true;
+		// imgSrc = "./cats.jpg";
+		// // await image.onload
+		// await new Promise((resolve, _) => {
+		// 	imgEl.onload = () => resolve(imgEl);
+		// });
+		// imgW = imgEl.naturalWidth;
+		// imgH = imgEl.naturalHeight;
 
-		// const res = await getResponse(
-		// 	apiUrl,
-		// 	model.modelId,
-		// 	requestBody,
-		// 	apiToken,
-		// 	parseOutput,
-		// 	withModelLoading
-		// );
-
+		// const response = await fetch("./output.json");
+		// output = await response.json();
+		// addOutputColor(output);
+		// await Promise.all(output.map((o) => addOutputCanvasData(o)));
+		// warning = "Inferece API WIP: demo image is loaded";
 		// isLoading = false;
-		// modelLoading = { isLoading: false, estimatedTime: 0 };
+		// return;
 
-		// if (res.status === "success") {
-		// 	computeTime = res.computeTime;
-		// 	output = res.output;
-		// 	if (output.segments_info.length === 0) {
-		// 		warning = "No object was detected";
-		// 	} else {
-		// 		output = addOutputColor(output.segments_info);
-		// 	}
-		// 	// outputJson = res.outputJson;
-		// } else if (res.status === "loading-model") {
-		// 	modelLoading = {
-		// 		isLoading: true,
-		// 		estimatedTime: res.estimatedTime,
-		// 	};
-		// 	getOutput(file, true);
-		// } else if (res.status === "error") {
-		// 	error = res.error;
-		// }
+		if (!file) {
+			return;
+		}
+
+		// Reset values
+		computeTime = "";
+		error = "";
+		warning = "";
+		output = [];
+		outputJson = "";
+
+		const requestBody = { file };
+
+		isLoading = true;
+
+		const res = await getResponse(
+			apiUrl,
+			model.modelId,
+			requestBody,
+			apiToken,
+			parseOutput,
+			withModelLoading
+		);
+
+		isLoading = false;
+		modelLoading = { isLoading: false, estimatedTime: 0 };
+
+		if (res.status === "success") {
+			computeTime = res.computeTime;
+			output = res.output;
+			if (output.length === 0) {
+				warning = "No object was detected";
+			} else {
+				imgW = imgEl.naturalWidth;
+				imgH = imgEl.naturalHeight;
+				addOutputColor(output);
+				isLoading = true;
+				await Promise.all(output.map((o) => addOutputCanvasData(o)));
+				isLoading = false;
+				output = output; // hack to call svelte update
+			}
+			// outputJson = res.outputJson;
+		} else if (res.status === "loading-model") {
+			modelLoading = {
+				isLoading: true,
+				estimatedTime: res.estimatedTime,
+			};
+			getOutput(file, true);
+		} else if (res.status === "error") {
+			error = res.error;
+		}
 	}
 
 	function isValidOutput(arg: any): arg is ImageSegment[] {
@@ -232,7 +239,7 @@
 		if (typeof createImageBitmap === "undefined") {
 			polyfillCreateImageBitmap();
 		}
-		getOutput(new Blob());
+		// getOutput(new Blob());
 	});
 </script>
 
