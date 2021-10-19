@@ -58,6 +58,7 @@
 	{accept}
 	bind:this={fileInput}
 	on:change={onChange}
+	disabled={isLoading}
 	style="display: none;"
 	type="file"
 />
