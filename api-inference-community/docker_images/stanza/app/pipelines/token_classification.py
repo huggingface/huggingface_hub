@@ -13,25 +13,17 @@ class TokenClassificationPipeline(Pipeline):
 
         full_model_path = model_id.split("/")
 
-        if len(full_model_path) != 5:
+        if len(full_model_path) != 2:
             raise ValueError(
                 f"Invalid model_id: {model_id}. It should have a namespace (:namespace:/:model_name:)"
             )
-        model_name = full_model_path[-1]  # conll03.pt
-        model_type = full_model_path[-2]  # ner
+        model_name = full_model_path[1]  # conll03.pt
         namespace = full_model_path[0]  # stanfordnlp
-        repo_id = full_model_path[1]  # stanza-en
 
-        model_dir = f"https://huggingface.co/{namespace}/{repo_id}/resolve/main/{model_type}/{model_name}"
-
-        stanza.download(model_dir=model_dir)
-        model = pipeline(model_dir=model_dir)
-        self.model = model
-
-        # IMPLEMENT_THIS
-        # Preload all the elements you are going to need at inference.
-        # For instance your model, processors, tokenizer that might be needed.
-        # This function is only called once, so do all the heavy processing I/O here
+        stanza.download(model_dir=f"https://huggingface.co/{namespace}/{model_name}")
+        self.model = pipeline(
+            model_dir=f"https://huggingface.co/{namespace}/{model_name}"
+        )
 
     def __call__(self, inputs: str) -> List[Dict[str, Any]]:
         """

@@ -160,6 +160,14 @@ class DockerImageTests(unittest.TestCase):
             "speechbrain/urbansound8k_ecapa",
         )
 
+    def test_stanza(self):
+        self.framework_docker_test(
+            "stanza",
+            "token-classification",
+            "stanfordnlp/stanza-en",
+        )
+        self.framework_invalid_test("stanza")
+
     def test_timm(self):
         self.framework_docker_test("timm", "image-classification", "sgugger/resnet50d")
         self.framework_invalid_test("timm")
