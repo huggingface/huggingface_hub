@@ -43,7 +43,6 @@ class TokenClassificationTestCase(TestCase):
 
         with TestClient(self.app) as client:
             response = client.post("/", json={"inputs": inputs})
-        
 
         self.assertEqual(
             response.status_code,
@@ -51,7 +50,7 @@ class TokenClassificationTestCase(TestCase):
         )
         content = json.loads(response.content)
         self.assertEqual(type(content), list)
-        
+
         self.assertEqual(
             set(k for el in content for k in el.keys()),
             {"entity_group", "word", "start", "end", "score"},
@@ -59,7 +58,6 @@ class TokenClassificationTestCase(TestCase):
 
         with TestClient(self.app) as client:
             response = client.post("/", json=inputs)
-        
 
         self.assertEqual(
             response.status_code,
@@ -75,9 +73,6 @@ class TokenClassificationTestCase(TestCase):
     def test_malformed_question(self):
         with TestClient(self.app) as client:
             response = client.post("/", data=b"\xc3\x28")
-        
-
-
 
         self.assertEqual(
             response.status_code,

@@ -1,7 +1,5 @@
 from typing import Any, Dict, List
-import os
-import subprocess
-import sys
+
 from app.pipelines import Pipeline
 
 
@@ -19,23 +17,21 @@ class TokenClassificationPipeline(Pipeline):
             raise ValueError(
                 f"Invalid model_id: {model_id}. It should have a namespace (:namespace:/:model_name:)"
             )
-        model_name = full_model_path[-1] # conll03.pt
-        model_type = full_model_path[-2] # ner
-        namespace = full_model_path[0] # stanfordnlp
-        repo_id = full_model_path[1] # stanza-en
+        model_name = full_model_path[-1]  # conll03.pt
+        model_type = full_model_path[-2]  # ner
+        namespace = full_model_path[0]  # stanfordnlp
+        repo_id = full_model_path[1]  # stanza-en
 
         model_dir = f"https://huggingface.co/{namespace}/{repo_id}/resolve/main/{model_type}/{model_name}"
 
-        stanza.download(model_dir = model_dir)
-        model = pipeline(model_dir = model_dir)
+        stanza.download(model_dir=model_dir)
+        model = pipeline(model_dir=model_dir)
         self.model = model
-
 
         # IMPLEMENT_THIS
         # Preload all the elements you are going to need at inference.
         # For instance your model, processors, tokenizer that might be needed.
         # This function is only called once, so do all the heavy processing I/O here
-
 
     def __call__(self, inputs: str) -> List[Dict[str, Any]]:
         """
@@ -55,15 +51,13 @@ class TokenClassificationPipeline(Pipeline):
         entity_list = []
 
         for entity in doc.entities:
-            
+
             entity_dict = {
                 "entity_group": entity.type,
                 "word": entity.text,
                 "start": entity.start_char,
                 "end": entity.end_char,
-                "score": 1.0
-
+                "score": 1.0,
             }
             entity_list.append(entity_dict)
         return entity_list
-
