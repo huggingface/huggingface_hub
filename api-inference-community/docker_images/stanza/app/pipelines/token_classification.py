@@ -40,10 +40,8 @@ class TokenClassificationPipeline(Pipeline):
         """
         doc = self.model(inputs)
 
-        entity_list = []
-
+        entities = []
         for entity in doc.entities:
-
             entity_dict = {
                 "entity_group": entity.type,
                 "word": entity.text,
@@ -51,5 +49,5 @@ class TokenClassificationPipeline(Pipeline):
                 "end": entity.end_char,
                 "score": 1.0,
             }
-            entity_list.append(entity_dict)
-        return entity_list
+            entities.append(entity_dict)
+        return entities
