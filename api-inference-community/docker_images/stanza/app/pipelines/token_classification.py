@@ -11,14 +11,7 @@ class TokenClassificationPipeline(Pipeline):
         import stanza
         from stanza import Pipeline as pipeline
 
-        full_model_path = model_id.split("/")
-
-        if len(full_model_path) != 2:
-            raise ValueError(
-                f"Invalid model_id: {model_id}. It should have a namespace (:namespace:/:model_name:)"
-            )
-        model_name = full_model_path[1]  # conll03.pt
-        namespace = full_model_path[0]  # stanfordnlp
+        namespace, model_name = model_id.split("/")
 
         stanza.download(model_dir=f"https://huggingface.co/{namespace}/{model_name}")
         self.model = pipeline(
