@@ -190,7 +190,7 @@ Can be either `gradio` or `streamlit`
 
 **`sdk_version`** : _string_  
 Only applicable for `streamlit` SDK. Currently available versions are :  
-`0.79.0, 0.80.0, 0.81.1, 0.82.0, 0.83.0, 0.84.2`
+`0.79.0, 0.80.0, 0.81.1, 0.82.0, 0.83.0, 0.84.2, 0.85.0, 0.86.0, 0.87.0, 0.88.0, 0.89.0, 1.0.0`
 
 **`app_file`** : _string_  
 Path to your main application file (which contains either `gradio` or `streamlit` Python code).  
@@ -200,6 +200,9 @@ Path is relative to the root of the repository.
 Whether the Space stays on top of your list.
 
 ## Changelog
+
+#### [2021-10-20] - Add support for Streamlit 1.0
+- We now support all versions between 0.79.0 and 1.0.0
 
 #### [2021-09-07] - Streamlit version pinning
 - You can now choose which version of Streamlit will be installed within your Space
