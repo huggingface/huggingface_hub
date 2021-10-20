@@ -1,8 +1,10 @@
+import os
 from typing import Any, Dict, List
 
-from app.pipelines import Pipeline
 import stanza
+from app.pipelines import Pipeline
 from stanza import Pipeline as pipeline
+
 
 class TokenClassificationPipeline(Pipeline):
     def __init__(
@@ -11,10 +13,16 @@ class TokenClassificationPipeline(Pipeline):
     ):
         namespace, model_name = model_id.split("/")
 
-        stanza.download(model_dir=f"https://huggingface.co/{namespace}/{model_name}")
-        self.model = pipeline(
-            model_dir=f"https://huggingface.co/{namespace}/{model_name}"
+        path = os.path.join(
+            os.environ.get("HUGGINGFACE_HUB_CACHE", "."), namespace, model_name
         )
+
+        if model_id == "stanza-zh-hans":
+            lang = "zh"
+        else:
+            lang = model_id.split("-", 1)[-1]
+        stanza.download(model_dir=path, lang=lang)
+        self.model = pipeline(model_dir=path)
 
     def __call__(self, inputs: str) -> List[Dict[str, Any]]:
         """
