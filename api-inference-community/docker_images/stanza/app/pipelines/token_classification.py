@@ -17,10 +17,7 @@ class TokenClassificationPipeline(Pipeline):
             os.environ.get("HUGGINGFACE_HUB_CACHE", "."), namespace, model_name
         )
 
-        if model_id == "stanza-zh-hans":
-            lang = "zh"
-        else:
-            lang = model_id.split("-", 1)[-1]
+        lang = model_name.replace("stanza-", "")
         stanza.download(model_dir=path, lang=lang)
         self.model = pipeline(model_dir=path)
 
