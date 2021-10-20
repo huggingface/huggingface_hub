@@ -2,7 +2,7 @@
 on:
   push:
     branches:
-      - master
+      - main
     paths:
       - "api-inference-community/docker_images/**"
 name: Create an issue for API on push
