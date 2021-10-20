@@ -11,7 +11,7 @@ class TokenClassificationPipeline(Pipeline):
         self,
         model_id: str,
     ):
-        _, model_name = model_id.split("/")
+        namespace, model_name = model_id.split("/")
 
         path = os.path.join(
             os.environ.get("HUGGINGFACE_HUB_CACHE", "."), namespace, model_name
