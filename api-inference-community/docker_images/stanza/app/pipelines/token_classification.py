@@ -13,7 +13,9 @@ class TokenClassificationPipeline(Pipeline):
     ):
         _, model_name = model_id.split("/")
 
-        path = os.path.join(os.environ.get("HUGGINGFACE_HUB_CACHE", "."), model_id)
+        path = os.path.join(
+            os.environ.get("HUGGINGFACE_HUB_CACHE", "."), namespace, model_name
+        )
 
         lang = model_name.replace("stanza-", "")
         stanza.download(model_dir=path, lang=lang)
