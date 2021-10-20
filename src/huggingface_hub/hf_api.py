@@ -541,7 +541,7 @@ class HfApi:
 
     def list_metrics(self) -> List[MetricInfo]:
         """
-        Get the public list of all the datasets on huggingface.co
+        Get the public list of all the metrics on huggingface.co
         """
         path = "{}/api/metrics".format(self.endpoint)
         params = {}
