@@ -11,17 +11,13 @@ class TokenClassificationPipeline(Pipeline):
         self,
         model_id: str,
     ):
-        namespace, model_name = model_id.split("/")
+        _, model_name = model_id.split("/")
 
-        path = os.path.join(
-            os.environ.get("HUGGINGFACE_HUB_CACHE", "."), namespace, model_name
-        )
+        path = os.path.join(os.environ.get("HUGGINGFACE_HUB_CACHE", "."), model_id)
 
-        if model_id == "stanza-zh-hans":
-            lang = "zh"
-        else:
-            lang = model_id.split("-", 1)[-1]
+        lang = model_name.replace("stanza-", "")
         stanza.download(model_dir=path, lang=lang)
+
         self.model = pipeline(model_dir=path)
 
     def __call__(self, inputs: str) -> List[Dict[str, Any]]:
