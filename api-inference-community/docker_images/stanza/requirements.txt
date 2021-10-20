@@ -1,2 +1,3 @@
+starlette==0.14.2
+api-inference-community==0.0.19
 stanza==1.3.0
-
