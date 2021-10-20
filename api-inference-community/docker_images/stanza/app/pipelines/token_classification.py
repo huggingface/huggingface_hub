@@ -1,16 +1,14 @@
 from typing import Any, Dict, List
 
 from app.pipelines import Pipeline
-
+import stanza
+from stanza import Pipeline as pipeline
 
 class TokenClassificationPipeline(Pipeline):
     def __init__(
         self,
         model_id: str,
     ):
-        import stanza
-        from stanza import Pipeline as pipeline
-
         namespace, model_name = model_id.split("/")
 
         stanza.download(model_dir=f"https://huggingface.co/{namespace}/{model_name}")
