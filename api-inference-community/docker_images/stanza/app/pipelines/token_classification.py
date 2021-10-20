@@ -1,7 +1,7 @@
 from typing import Any, Dict, List
 
-from app.pipelines import Pipeline
 import stanza
+from app.pipelines import Pipeline
 from stanza import Pipeline as pipeline
 
 
