@@ -4,6 +4,7 @@ from app.pipelines import Pipeline
 import stanza
 from stanza import Pipeline as pipeline
 
+
 class TokenClassificationPipeline(Pipeline):
     def __init__(
         self,
@@ -11,10 +12,8 @@ class TokenClassificationPipeline(Pipeline):
     ):
         namespace, model_name = model_id.split("/")
 
-        stanza.download(model_dir=f"https://huggingface.co/{namespace}/{model_name}")
-        self.model = pipeline(
-            model_dir=f"https://huggingface.co/{namespace}/{model_name}"
-        )
+        stanza.download(model_dir=f"/data/{namespace}/{model_name}")
+        self.model = pipeline(model_dir=f"/data/{namespace}/{model_name}")
 
     def __call__(self, inputs: str) -> List[Dict[str, Any]]:
         """
