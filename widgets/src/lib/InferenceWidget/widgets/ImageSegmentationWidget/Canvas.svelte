@@ -10,6 +10,7 @@
 	export let mouseout: () => void = () => {};
 	export let output: ImageSegment[] = [];
 
+	let containerEl: HTMLElement;
 	let canvas: HTMLCanvasElement;
 	let imgEl: HTMLImageElement;
 	let width = 0;
@@ -18,12 +19,15 @@
 
 	const animDuration = 200;
 
-	afterUpdate(() => {
-		startTs = performance.now();
-		draw();
-	});
-
 	function draw() {
+		width = containerEl.clientWidth;
+		height = containerEl.clientHeight;
+		console.log("Update called", { width, height });
+		startTs = performance.now();
+		darwHelper();
+	}
+
+	function darwHelper() {
 		const maskToDraw = output.reduce((arr, o, i) => {
 			const mask = o?.bitmap;
 			if (mask && (i === highlightIndex || highlightIndex === -1)) {
@@ -44,16 +48,19 @@
 			if (duration < animDuration) {
 				// when using canvas, prefer to use requestAnimationFrame over setTimeout & setInterval
 				// https://developer.mozilla.org/en-US/docs/Web/API/window/requestAnimationFrame
-				window.requestAnimationFrame(draw);
+				window.requestAnimationFrame(darwHelper);
 			}
 		}
 	}
+
+	afterUpdate(draw);
 </script>
+
+<svelte:window on:resize={draw} />
 
 <div
 	class="relative top-0 left-0 inline-flex {classNames}"
-	bind:clientWidth={width}
-	bind:clientHeight={height}
+	bind:this={containerEl}
 >
 	<div class="flex justify-center max-w-sm">
 		<img
