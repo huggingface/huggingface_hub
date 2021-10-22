@@ -72,17 +72,19 @@
 
 		if (res.status === "success") {
 			computeTime = res.computeTime;
-			output = res.output;
-			if (output.length === 0) {
+			const output_ = res.output;
+			if (output_.length === 0) {
 				warning = "No object was detected";
 			} else {
 				imgW = imgEl.naturalWidth;
 				imgH = imgEl.naturalHeight;
-				addOutputColor(output);
 				isLoading = true;
-				await Promise.all(output.map((o) => addOutputCanvasData(o)));
+				output = await Promise.all(
+					output_
+						.map((o, idx) => addOutputColor(o, idx))
+						.map((o) => addOutputCanvasData(o))
+				);
 				isLoading = false;
-				output = output; // hack to call svelte update
 			}
 			// outputJson = res.outputJson;
 		} else if (res.status === "loading-model") {
@@ -140,18 +142,16 @@
 		}
 	}
 
-	function addOutputColor(output: ImageSegment[]) {
-		output.forEach((val, index) => {
-			const hash = mod(index, COLORS.length);
-			const { color } = COLORS[hash];
-			val.color = color;
-		});
+	function addOutputColor(imgSegment: ImageSegment, idx: number) {
+		const hash = mod(idx, COLORS.length);
+		const { color } = COLORS[hash];
+		return { ...imgSegment, color };
 	}
 
 	async function addOutputCanvasData(
-		outputSegment: ImageSegment
-	): Promise<void> {
-		const { mask, color } = outputSegment;
+		imgSegment: ImageSegment
+	): Promise<ImageSegment> {
+		const { mask, color } = imgSegment;
 
 		const maskImg = new Image();
 		maskImg.src = `data:image/png;base64, ${mask}`;
@@ -167,13 +167,13 @@
 		for (let i = 0; i < imgData.data.length; i += 4) {
 			const [r, g, b, a] = imgData.data[i] === 255 ? maskColored : background;
 			imgData.data[i] = r;
-			imgData.data[i+1] = g;
-			imgData.data[i+2] = b;
-			imgData.data[i+3] = a;
+			imgData.data[i + 1] = g;
+			imgData.data[i + 2] = b;
+			imgData.data[i + 3] = a;
 		}
 
-		outputSegment.imgData = imgData;
-		outputSegment.bitmap = await createImageBitmap(imgData);
+		const bitmap = await createImageBitmap(imgData);
+		return { ...imgSegment, imgData, bitmap };
 	}
 
 	function getImageData(maskImg: CanvasImageSource): ImageData {
