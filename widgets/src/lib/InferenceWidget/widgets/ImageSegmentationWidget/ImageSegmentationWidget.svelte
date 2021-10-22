@@ -1,7 +1,7 @@
 <script>
 	import type { WidgetProps, ImageSegment } from "../../shared/types";
 	import { onMount } from "svelte";
-	import { clamp, mod, COLORS, setSlice } from "../../shared/ViewUtils";
+	import { clamp, mod, COLORS } from "../../shared/ViewUtils";
 	import { getResponse } from "../../shared/helpers";
 
 	import Canvas from "./Canvas.svelte";
@@ -165,12 +165,11 @@
 		const background = Array(4).fill(0);
 
 		for (let i = 0; i < imgData.data.length; i += 4) {
-			setSlice(
-				imgData.data,
-				i,
-				i + 4,
-				imgData.data[i] === 255 ? maskColored : background
-			);
+			const [r, g, b, a] = imgData.data[i] === 255 ? maskColored : background;
+			imgData.data[i] = r;
+			imgData.data[i+1] = g;
+			imgData.data[i+2] = b;
+			imgData.data[i+3] = a;
 		}
 
 		outputSegment.imgData = imgData;
