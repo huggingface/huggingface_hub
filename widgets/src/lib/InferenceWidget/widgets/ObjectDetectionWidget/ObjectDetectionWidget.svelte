@@ -1,5 +1,6 @@
 <script>
 	import type { WidgetProps, Box } from "../../shared/types";
+	import { COLORS } from "../../shared/consts";
 	import { mod } from "../../shared/ViewUtils";
 
 	import BoundingBoxes from "./SvgBoundingBoxes.svelte";
@@ -31,20 +32,9 @@
 	let outputJson: string;
 	let highlightIndex = -1;
 
-	const COLORS = [
-		"red",
-		"green",
-		"yellow",
-		"blue",
-		"orange",
-		"purple",
-		"cyan",
-		"lime",
-	] as const;
-
 	$: outputWithColor = output.map((val, index) => {
 		const hash = mod(index, COLORS.length);
-		const color = COLORS[hash];
+		const { color } = COLORS[hash];
 		return { ...val, color };
 	});
 
