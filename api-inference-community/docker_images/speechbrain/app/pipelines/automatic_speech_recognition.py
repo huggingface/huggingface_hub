@@ -16,7 +16,7 @@ class AutomaticSpeechRecognitionPipeline(Pipeline):
             self.model = EncoderDecoderASR.from_hparams(source=model_id)
 
             # Reduce latency
-            self.model.modules.decoder.beam_size = 1
+            self.model.mods.decoder.beam_size = 1
         else:
             raise ValueError(
                 f"{model_type.value} is invalid for automatic-speech-recognition"
