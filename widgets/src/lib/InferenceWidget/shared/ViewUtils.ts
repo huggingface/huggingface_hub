@@ -170,23 +170,23 @@ export const COLORS = [
 ];
 
 /*
- * Set a slice of an array with another array (i.e. arr[index_start:index_end] = slice)
+ * Set a slice of an array with another array (i.e. arr[indexStart:indexEnd] = slice)
  */
 export function setSlice(
 	arr: Iterable<any>,
-	index_start: number,
-	index_end: number,
+	indexStart: number,
+	indexEnd: number,
 	slice: Array<any>
 ) {
-	if (index_end - index_start !== slice.length) {
+	if (indexEnd - indexStart !== slice.length) {
 		throw new Error(
-			`setSlice Error: lengths don't match ${index_end - index_start}!=${
+			`setSlice Error: lengths don't match ${indexEnd - indexStart}!=${
 				slice.length
 			}`
 		);
 	}
 	for (const [i, val] of slice.entries()) {
-		arr[index_start + i] = val;
+		arr[indexStart + i] = val;
 	}
 }
 
