@@ -150,7 +150,8 @@ export async function getResponse<T>(
 			return { error: body["error"], estimatedTime: body["estimated_time"], status: 'loading-model' };
 		} else {
 			// Other errors
-			return { error: body["error"] ?? body["traceback"] ?? body, status: 'error' };
+			const { status, statusText } = response;
+			return { error: body["error"] ?? body["traceback"] ?? `${status} ${statusText}`, status: 'error' };
 		}
 	}
 }
