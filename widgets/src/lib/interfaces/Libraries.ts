@@ -17,7 +17,7 @@ export enum ModelLibrary {
 	'speechbrain'            = 'speechbrain',
 	'tensorflowtts'          = 'TensorFlowTTS',
 	'timm'                   = 'Timm',
-	'fastai'           	     = 'fastai',
+	'fastai'                 = 'fastai',
 	'transformers'           = 'Transformers',
 	'stanza'                 = 'Stanza',
 };
