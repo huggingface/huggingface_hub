@@ -58,4 +58,4 @@ export const COLORS = [
 		"g": 230,
 		"b": 53
 	}
-];
+] as const;
