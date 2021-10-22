@@ -1,7 +1,7 @@
 <script>
 	import type { WidgetProps, ImageSegment } from "../../shared/types";
 	import { onMount } from "svelte";
-	import { clip, mod, COLORS, setSlice } from "../../shared/ViewUtils";
+	import { clamp, mod, COLORS, setSlice } from "../../shared/ViewUtils";
 	import { getResponse } from "../../shared/helpers";
 
 	import Canvas from "./Canvas.svelte";
@@ -126,8 +126,8 @@
 
 	function mousemove(e: any, canvasW: number, canvasH: number) {
 		let { layerX, layerY } = e;
-		layerX = clip(layerX, 0, canvasW);
-		layerY = clip(layerY, 0, canvasH);
+		layerX = clamp(layerX, 0, canvasW);
+		layerY = clamp(layerY, 0, canvasH);
 		const row = Math.floor((layerX / canvasH) * imgH);
 		const col = Math.floor((layerY / canvasW) * imgW);
 		highlightIndex = -1;

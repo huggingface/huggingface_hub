@@ -11,7 +11,7 @@ const ESCAPED = {
 /**
  *  Returns a function that clamps input value to range [min <= x <= max].
  */
- export function clip(x: number, min: number, max: number): number {
+ export function clamp(x: number, min: number, max: number): number {
 	return Math.max(min, Math.min(x, max));
 }
 
