@@ -39,7 +39,7 @@ class TokenClassificationTestCase(TestCase):
             del os.environ["TASK"]
 
     def test_simple(self):
-        inputs = "Hello, my name is John and I live in New York"
+        inputs = "Hallo, mein Name ist Omar und ich wohne in Zürich"
 
         with TestClient(self.app) as client:
             response = client.post("/", json={"inputs": inputs})
