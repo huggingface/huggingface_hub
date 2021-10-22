@@ -17,8 +17,9 @@ export enum ModelLibrary {
 	'speechbrain'            = 'speechbrain',
 	'tensorflowtts'          = 'TensorFlowTTS',
 	'timm'                   = 'Timm',
-	'fastai'           	 = 'fastai',
+	'fastai'           	     = 'fastai',
 	'transformers'           = 'Transformers',
+	'stanza'                 = 'Stanza',
 };
 
 export const ALL_MODEL_LIBRARY_KEYS = Object.keys(ModelLibrary) as (keyof typeof ModelLibrary)[];
@@ -257,7 +258,8 @@ model = ${model.autoArchitecture}.from_pretrained("${model.modelId}"${model.priv
 
 
 
-export const MODEL_LIBRARIES_UI_ELEMENTS: { [key in keyof typeof ModelLibrary]: LibraryUiElement } = {
+export const MODEL_LIBRARIES_UI_ELEMENTS: { [key in keyof typeof ModelLibrary]?: LibraryUiElement } = {
+	// ^^ TODO(remove the optional ? marker when Stanza snippet is available)
 	"adapter-transformers": {
 		btnLabel: "Adapter Transformers",
 		repoName: "adapter-transformers",
