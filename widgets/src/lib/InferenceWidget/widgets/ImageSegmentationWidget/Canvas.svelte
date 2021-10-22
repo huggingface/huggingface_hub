@@ -22,7 +22,6 @@
 	function draw() {
 		width = containerEl.clientWidth;
 		height = containerEl.clientHeight;
-		console.log("Update called", { width, height });
 		startTs = performance.now();
 		darwHelper();
 	}
