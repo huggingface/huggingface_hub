@@ -19,7 +19,7 @@ class TokenClassificationPipeline(Pipeline):
 
         lang = model_name.replace("stanza-", "")
         stanza.download(model_dir=path, lang=lang)
-        self.model = pipeline(model_dir=path,lang=lang)
+        self.model = pipeline(model_dir=path, lang=lang)
 
     def __call__(self, inputs: str) -> List[Dict[str, Any]]:
         """
