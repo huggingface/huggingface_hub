@@ -1,7 +1,8 @@
 <script>
 	import type { WidgetProps, ImageSegment } from "../../shared/types";
 	import { onMount } from "svelte";
-	import { clamp, mod, COLORS } from "../../shared/ViewUtils";
+	import { COLORS } from "../../shared/consts";
+	import { clamp, mod } from "../../shared/ViewUtils";
 	import { getResponse } from "../../shared/helpers";
 
 	import Canvas from "./Canvas.svelte";
