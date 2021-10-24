@@ -5,7 +5,7 @@ title: Documentation for Spaces
 <h1>How to get started with Spaces</h1>
 
 <div class="p-4 border border-gray-200 rounded-lg">
-	⚠️ This feature is currently in private beta, <a style="font-weight: bold !important" href="/spaces">sign up to the waiting list</a> [or reach out to us](#how-can-i-contact-you) if you'd like to try it out ⚠️
+	⚠️ This feature is currently in private beta, <a style="font-weight: bold !important" href="/spaces">sign up to the waiting list</a> or <a href="#how-can-i-contact-you">reach out to us</a> if you'd like to try it out ⚠️
 </div>
 
 ## What are Spaces?
@@ -91,7 +91,7 @@ We support those Streamlit features transparently:
 
 The Streamlit version is not configured in the `requirements.txt` file, but in the README metadata config through the `sdk_version` setting. Note that we do not support all Streamlit versions, please refer to the [reference section](#reference) for more info on this.
 
-## How can I contact you?
+## How can I contact you?
 
 Feel free to ask question in the [Forum](https://discuss.huggingface.co/) if it's suitable for the community.
 
