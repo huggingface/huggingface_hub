@@ -9,7 +9,7 @@
 	}
 </script>
 
-<select class="border-none text-sm w-28 truncate" on:change={onChange}>
+<select class="border-none text-sm w-28 truncate dark:bg-gray-950" on:change={onChange}>
 	<option selected disabled>Examples</option>
 	{#each inputSamples as { label }, i}
 		<option value={i}>{label}</option>
