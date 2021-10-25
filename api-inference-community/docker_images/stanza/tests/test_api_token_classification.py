@@ -3,6 +3,7 @@ import os
 from unittest import TestCase, skipIf
 
 from app.main import ALLOWED_TASKS
+from parameterized import parameterized_class
 from starlette.testclient import TestClient
 from tests.test_api import TESTABLE_MODELS
 
@@ -11,9 +12,16 @@ from tests.test_api import TESTABLE_MODELS
     "token-classification" not in ALLOWED_TASKS,
     "token-classification not implemented",
 )
+@parameterized_class(
+    ("model_id", "inputs"),
+    [
+        [[model_id, lang[model_id]] for model_id in lang]
+        for lang in TESTABLE_MODELS["token-classification"]
+    ],
+)
 class TokenClassificationTestCase(TestCase):
     def setUp(self):
-        model_id = TESTABLE_MODELS["token-classification"]
+        model_id = self.model_id[0]  # changed
         self.old_model_id = os.getenv("MODEL_ID")
         self.old_task = os.getenv("TASK")
         os.environ["MODEL_ID"] = model_id
@@ -39,7 +47,7 @@ class TokenClassificationTestCase(TestCase):
             del os.environ["TASK"]
 
     def test_simple(self):
-        inputs = "Hello, my name is John and I live in New York"
+        inputs = self.model_id[1]  # changed
 
         with TestClient(self.app) as client:
             response = client.post("/", json={"inputs": inputs})
