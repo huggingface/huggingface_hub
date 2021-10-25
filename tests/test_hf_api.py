@@ -364,6 +364,7 @@ class HfApiUploadFileTest(HfApiCommonTestWithLogin):
             self._api.delete_repo(name=REPO_NAME, token=self._token)
 
     def test_upload_buffer(self):
+        REPO_NAME = repo_name()
         self._api.create_repo(name=REPO_NAME, token=self._token)
         try:
             buffer = BytesIO()
@@ -390,6 +391,7 @@ class HfApiUploadFileTest(HfApiCommonTestWithLogin):
             self._api.delete_repo(name=REPO_NAME, token=self._token)
 
     def test_delete_file(self):
+        REPO_NAME = repo_name()
         self._api.create_repo(token=self._token, name=REPO_NAME)
         try:
             self._api.upload_file(
@@ -534,12 +536,12 @@ class HfApiPublicTest(unittest.TestCase):
 
 class HfApiPrivateTest(HfApiCommonTestWithLogin):
     def setUp(self) -> None:
+        self.REPO_NAME = repo_name()
         super().setUp()
-        self.repo_name = repo_name()
-        self._api.create_repo(name=REPO_NAME, token=self._token, private=True)
+        self._api.create_repo(name=self.REPO_NAME, token=self._token, private=True)
 
     def tearDown(self) -> None:
-        self._api.delete_repo(name=REPO_NAME, token=self._token)
+        self._api.delete_repo(name=self.REPO_NAME, token=self._token)
 
     def test_model_info(self):
         # Test we cannot access model info without a token

@@ -69,7 +69,7 @@ class RepositoryTest(RepositoryCommonTest):
         except FileNotFoundError:
             pass
         self.REPO_NAME = repo_name()
-        self._repo_url = self._api.create_repo(name=REPO_NAME, token=self._token)
+        self._repo_url = self._api.create_repo(name=self.REPO_NAME, token=self._token)
         self._api.upload_file(
             path_or_fileobj=BytesIO(b"some initial binary data: \x00\x01"),
             path_in_repo="random_file.txt",
