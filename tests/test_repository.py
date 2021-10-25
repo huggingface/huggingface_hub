@@ -1238,7 +1238,6 @@ class RepositoryDatasetTest(RepositoryCommonTest):
                     name=self.REPO_NAME,
                     token=self._token,
                     organization="valid_org",
-                    name=self.REPO_NAME,
                     repo_type="dataset",
                 )
             except requests.exceptions.HTTPError:
