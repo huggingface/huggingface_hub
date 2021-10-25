@@ -104,33 +104,18 @@ This will also add a tag to your model so users can quickly identify models from
 
 ## Upload files to the Hub
 
-You might also want to provide a method for creating model repositories and uploading files to the Hub directly from your library. The `HfApi` class has two methods to assist you with creating repositories and uploading files:
+You might also want to provide a method for creating model repositories and uploading files to the Hub directly from your library. The `huggingface_hub` library offers two methods to assist you with creating repositories and uploading files:
 
 - `create_repo` creates a repository on the Hub.
 - `upload_file` directly uploads files to a repository on the Hub.
-
-Begin by instantiating the `HfApi` class:
-
-```python
->>> from huggingface_hub import HfApi
->>> api = HfApi()
-```
-
-You will also need to retrieve your Hugging Face API token to create a repository and upload files to it. Retrieve your token with the `HfFolder` method:
-
-```python
->>> from huggingface_hub import HfFolder
->>> token = HfFolder().get_token()
-```
 
 ### `create_repo`
 
 The `create_repo` method creates a repository on the Hub. Use the `name` parameter to provide a name for your repository:
 
 ```python
->>> from huggingface_hub import HfApi
->>> api = HfApi()
->>> api.create_repo(token=token, name="test-model")
+>>> from huggingface_hub import create_repo
+>>> create_repo(name="test-model")
 'https://huggingface.co/lysandre/test-model'
 ```
 
@@ -140,7 +125,6 @@ When you check your Hugging Face account, you should now see a `test-model` repo
 
 The `upload_file` method uploads files to the Hub. This method requires the following:
 
-- Your Hugging Face API token.
 - A path to the file to upload.
 - The final path in the repository.
 - The repository you wish to push the files to.
@@ -148,8 +132,8 @@ The `upload_file` method uploads files to the Hub. This method requires the foll
 For example:
 
 ```python
->>> api.upload_file(
-...    token, 
+>>> from huggingface_hub import upload_file
+>>> upload_file(
 ...    path_or_fileobj="/home/lysandre/dummy-test/README.md", 
 ...    path_in_repo="README.md", 
 ...    repo_id="lysandre/test-model"

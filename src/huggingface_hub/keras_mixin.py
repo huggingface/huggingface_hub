@@ -15,9 +15,6 @@ from .repository import Repository
 
 logger = logging.getLogger(__name__)
 
-if is_tf_available():
-    import tensorflow as tf
-
 
 def save_pretrained_keras(
     model, save_directory: str, config: Optional[Dict[str, Any]] = None
@@ -31,6 +28,12 @@ def save_pretrained_keras(
     config (:obj:`dict`, `optional`):
         Configuration object to be saved alongside the model weights.
     """
+    if is_tf_available():
+        import tensorflow as tf
+    else:
+        raise ImportError(
+            "Called a Tensorflow-specific function but could not import it."
+        )
 
     if not model.built:
         raise ValueError("Model should be built before trying to save")
@@ -130,8 +133,8 @@ def push_to_hub_keras(
     if repo_url is None and not os.path.exists(repo_path_or_name):
         repo_name = Path(repo_path_or_name).name
         repo_url = HfApi(endpoint=api_endpoint).create_repo(
-            token,
             repo_name,
+            token=token,
             organization=organization,
             private=private,
             repo_type=None,
@@ -207,6 +210,12 @@ class KerasModelHubMixin(ModelHubMixin):
 
         TODO - Some args above aren't used since we are calling snapshot_download instead of hf_hub_download.
         """
+        if is_tf_available():
+            import tensorflow as tf
+        else:
+            raise ImportError(
+                "Called a Tensorflow-specific function but could not import it."
+            )
 
         # TODO - Figure out what to do about these config values. Config is not going to be needed to load model
         cfg = model_kwargs.pop("config", None)

@@ -69,28 +69,28 @@ class RepositoryTest(RepositoryCommonTest):
         except FileNotFoundError:
             pass
         self.REPO_NAME = repo_name()
-        self._repo_url = self._api.create_repo(token=self._token, name=self.REPO_NAME)
+        self._repo_url = self._api.create_repo(name=REPO_NAME, token=self._token)
         self._api.upload_file(
-            token=self._token,
             path_or_fileobj=BytesIO(b"some initial binary data: \x00\x01"),
             path_in_repo="random_file.txt",
             repo_id=f"{USER}/{self.REPO_NAME}",
+            token=self._token,
         )
 
     def tearDown(self):
         try:
-            self._api.delete_repo(token=self._token, name=f"{USER}/{self.REPO_NAME}")
+            self._api.delete_repo(name=f"{USER}/{self.REPO_NAME}", token=self._token)
         except requests.exceptions.HTTPError:
             pass
 
         try:
-            self._api.delete_repo(token=self._token, name=self.REPO_NAME)
+            self._api.delete_repo(name=self.REPO_NAME, token=self._token)
         except requests.exceptions.HTTPError:
             pass
 
         try:
             self._api.delete_repo(
-                token=self._token, organization="valid_org", name=self.REPO_NAME
+                name=self.REPO_NAME, token=self._token, organization="valid_org"
             )
         except requests.exceptions.HTTPError:
             pass
@@ -158,13 +158,13 @@ class RepositoryTest(RepositoryCommonTest):
     def test_init_clone_in_nonempty_non_linked_git_repo(self):
         # Create a new repository on the HF Hub
         temp_repo_url = self._api.create_repo(
-            token=self._token, name=f"{self.REPO_NAME}-temp"
+            name=f"{self.REPO_NAME}-temp", token=self._token
         )
         self._api.upload_file(
-            token=self._token,
             path_or_fileobj=BytesIO(b"some initial binary data: \x00\x01"),
             path_in_repo="random_file_2.txt",
             repo_id=f"{USER}/{self.REPO_NAME}-temp",
+            token=self._token,
         )
 
         # Clone the new repository
@@ -176,7 +176,7 @@ class RepositoryTest(RepositoryCommonTest):
             EnvironmentError, Repository, WORKING_REPO_DIR, clone_from=temp_repo_url
         )
 
-        self._api.delete_repo(token=self._token, name=f"{self.REPO_NAME}-temp")
+        self._api.delete_repo(name=f"{self.REPO_NAME}-temp", token=self._token)
 
     def test_init_clone_in_nonempty_linked_git_repo_with_token(self):
         Repository(
@@ -192,10 +192,10 @@ class RepositoryTest(RepositoryCommonTest):
 
         # Add to the remote repository without doing anything to the local repository.
         self._api.upload_file(
-            token=self._token,
             path_or_fileobj=BytesIO(b"some initial binary data: \x00\x01"),
             path_in_repo="random_file_3.txt",
             repo_id=f"{USER}/{self.REPO_NAME}",
+            token=self._token,
         )
 
         # Cloning the repository in the same directory should not result in a git pull.
@@ -219,10 +219,10 @@ class RepositoryTest(RepositoryCommonTest):
 
         # Add to the remote repository without doing anything to the local repository.
         self._api.upload_file(
-            token=self._token,
             path_or_fileobj=BytesIO(b"some initial binary data: \x00\x01"),
             path_in_repo="random_file_3.txt",
             repo_id=f"{USER}/{self.REPO_NAME}",
+            token=self._token,
         )
 
         # The repo should initialize correctly as the remote is the same, even with unrelated historied
@@ -1230,11 +1230,12 @@ class RepositoryDatasetTest(RepositoryCommonTest):
     def tearDown(self):
         try:
             self._api.delete_repo(
-                token=self._token, name=self.REPO_NAME, repo_type="dataset"
+                name=self.REPO_NAME, token=self._token, repo_type="dataset"
             )
         except requests.exceptions.HTTPError:
             try:
                 self._api.delete_repo(
+                    name=self.REPO_NAME,
                     token=self._token,
                     organization="valid_org",
                     name=self.REPO_NAME,

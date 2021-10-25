@@ -6,6 +6,7 @@ from typing import Dict, Type
 from api_inference_community.routes import pipeline_route, status_ok
 from app.pipelines import (
     Pipeline,
+    SentenceSimilarityPipeline,
     TextClassificationPipeline,
     TokenClassificationPipeline,
 )
@@ -30,6 +31,7 @@ logger = logging.getLogger(__name__)
 # - translation
 # - summarization
 # - automatic-speech-recognition
+# - sentence-similarity
 # - ...
 # For instance
 # from app.pipelines import AutomaticSpeechRecognitionPipeline
@@ -39,6 +41,7 @@ logger = logging.getLogger(__name__)
 ALLOWED_TASKS: Dict[str, Type[Pipeline]] = {
     "token-classification": TokenClassificationPipeline,
     "text-classification": TextClassificationPipeline,
+    "sentence-similarity": SentenceSimilarityPipeline,
 }
 
 

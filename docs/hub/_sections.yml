@@ -33,3 +33,6 @@
 
 - local: adding-a-task
   title: Adding a new task to the Hub
+
+- local: security
+  title: Security tips

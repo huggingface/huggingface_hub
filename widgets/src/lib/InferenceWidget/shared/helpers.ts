@@ -150,7 +150,8 @@ export async function getResponse<T>(
 			return { error: body["error"], estimatedTime: body["estimated_time"], status: 'loading-model' };
 		} else {
 			// Other errors
-			return { error: body["error"] ?? body["traceback"] ?? body, status: 'error' };
+			const { status, statusText } = response;
+			return { error: body["error"] ?? body["traceback"] ?? `${status} ${statusText}`, status: 'error' };
 		}
 	}
 }
@@ -164,5 +165,20 @@ export async function getModelStatus(url: string, modelId: string): Promise<Load
 	} else {
 		console.warn(response.status, output.error);
 		return 'error';
+	}
+}
+
+// Extend Inference API requestBody with user supplied Inference API parameters
+export function addInferenceParameters(requestBody: Record<string, any>, model: ModelData) {
+	const inference = model?.cardData?.inference;
+	if (typeof inference === "object") {
+		const inferenceParameters = inference?.parameters;
+		if (inferenceParameters) {
+			if (requestBody.parameters) {
+				requestBody.parameters = { ...requestBody.parameters, ...inferenceParameters };
+			} else {
+				requestBody.parameters = inferenceParameters;
+			}
+		}
 	}
 }

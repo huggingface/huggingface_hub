@@ -17,7 +17,9 @@ export enum ModelLibrary {
 	'speechbrain'            = 'speechbrain',
 	'tensorflowtts'          = 'TensorFlowTTS',
 	'timm'                   = 'Timm',
+	'fastai'                 = 'fastai',
 	'transformers'           = 'Transformers',
+	'stanza'                 = 'Stanza',
 };
 
 export const ALL_MODEL_LIBRARY_KEYS = Object.keys(ModelLibrary) as (keyof typeof ModelLibrary)[];
@@ -180,6 +182,14 @@ model = joblib.load(
 	hf_hub_download("${model.modelId}", "sklearn_model.joblib")
 )`;
 
+const fastai = (model: ModelData) => 
+`from huggingface_hub import hf_hub_download
+from fastai.learner import load_learner
+
+model = load_learner(
+    hf_hub_download("${model.modelId}", "model.pkl")
+)`;
+
 const sentenceTransformers = (model: ModelData) =>
 `from sentence_transformers import SentenceTransformer
 
@@ -248,7 +258,8 @@ model = ${model.autoArchitecture}.from_pretrained("${model.modelId}"${model.priv
 
 
 
-export const MODEL_LIBRARIES_UI_ELEMENTS: { [key in keyof typeof ModelLibrary]: LibraryUiElement } = {
+export const MODEL_LIBRARIES_UI_ELEMENTS: { [key in keyof typeof ModelLibrary]?: LibraryUiElement } = {
+	// ^^ TODO(remove the optional ? marker when Stanza snippet is available)
 	"adapter-transformers": {
 		btnLabel: "Adapter Transformers",
 		repoName: "adapter-transformers",
@@ -302,6 +313,12 @@ export const MODEL_LIBRARIES_UI_ELEMENTS: { [key in keyof typeof ModelLibrary]: 
 		repoName: "Scikit-learn",
 		repoUrl: "https://github.com/scikit-learn/scikit-learn",
 		snippet: sklearn,
+	},
+	fastai: {
+		btnLabel: "fastai",
+		repoName: "fastai",
+		repoUrl: "https://github.com/fastai/fastai",
+		snippet: fastai,
 	},
 	spacy: {
 		btnLabel: "spaCy",

@@ -10,7 +10,7 @@ Utilities that allow your library to download files from the Hub are referred to
 * Download a file and cache it on your disk.
 * Download all the files in a repository.
 
-## `hf_hub_url`
+## hf_hub_url
 
 Use `hf_hub_url` to retrieve the URL of a specific file to download by providing a `filename`.
 
@@ -43,7 +43,7 @@ Specify a file revision with a tag identifier. For example, if you want `v1.0` o
 hf_hub_url(repo_id="lysandre/arxiv-nlp", filename="config.json", revision="v1.0")
 ```
 
-## `cached_download`
+## cached_download
 
 `cached_download` is useful for downloading and caching a file on your local disk. Once stored in your cache, you don't have to redownload the file the next time you use it. `cached_download` is a hands-free solution for staying up to date with new file versions. When a downloaded file is updated in the remote repository, `cached_download` will automatically download and store it for you.
 
@@ -63,7 +63,7 @@ Begin by retrieving your file URL with `hf_hub_url`, and then pass the specified
 >>> hf_hub_download(repo_id="lysandre/arxiv-nlp", filename="config.json")
 ```
 
-## `snapshot_download`
+## snapshot_download
 
 `snapshot_download` downloads an entire repository at a given revision. Like `cached_download`, all downloaded files are cached on your local disk. However, even if only a single file is updated, the entire repository will be redownloaded.
 

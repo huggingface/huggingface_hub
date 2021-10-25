@@ -1,0 +1,20 @@
+# .github/workflows/issue-on-push.yml
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - "api-inference-community/docker_images/**"
+name: Create an issue for API on push
+jobs:
+  create_issue:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - uses: JasonEtco/create-an-issue@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_REPOSITORY: huggingface/api-inference
+        with:
+          filename: .github/create-api-issue.md
+          update_existing: true

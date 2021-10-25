@@ -115,7 +115,12 @@ class DockerImageTests(unittest.TestCase):
         self.framework_docker_test(
             "spacy",
             "text-classification",
-            "explosion/en_textcat_goemotions",
+            "cverluise/xx_cat_pateexx_md",
+        )
+        self.framework_docker_test(
+            "spacy",
+            "sentence-similarity",
+            "spacy/en_core_web_sm",
         )
         self.framework_invalid_test("spacy")
 
@@ -154,6 +159,20 @@ class DockerImageTests(unittest.TestCase):
             "audio-classification",
             "speechbrain/urbansound8k_ecapa",
         )
+
+    def test_stanza(self):
+        self.framework_docker_test(
+            "stanza",
+            "token-classification",
+            "stanfordnlp/stanza-en",
+        )
+
+        self.framework_docker_test(
+            "stanza",
+            "token-classification",
+            "stanfordnlp/stanza-de",
+        )
+        self.framework_invalid_test("stanza")
 
     def test_timm(self):
         self.framework_docker_test("timm", "image-classification", "sgugger/resnet50d")
