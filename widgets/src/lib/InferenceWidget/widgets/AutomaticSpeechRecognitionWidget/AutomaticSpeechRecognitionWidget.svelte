@@ -122,10 +122,15 @@
 		}
 		throw new TypeError("Invalid output: output must be of type <text:string>");
 	}
+
+	function applyInputSample(sample: Record<string, any>) {
+		fileUrl = sample.src;
+	}
 </script>
 
 <WidgetWrapper
 	{apiUrl}
+	{applyInputSample}
 	{computeTime}
 	{error}
 	{model}

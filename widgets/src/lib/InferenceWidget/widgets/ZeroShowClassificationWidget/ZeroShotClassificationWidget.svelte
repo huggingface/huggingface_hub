@@ -148,10 +148,17 @@
 			"Invalid output: output must be of type <labels:Array; scores:Array>"
 		);
 	}
+
+	function applyInputSample(sample: Record<string, any>) {
+		candidateLabels = sample.candidate_labels;
+		multiClass = sample.multi_class;
+		text = sample.text;
+	}
 </script>
 
 <WidgetWrapper
 	{apiUrl}
+	{applyInputSample}
 	{computeTime}
 	{error}
 	{model}

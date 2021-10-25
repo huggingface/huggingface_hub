@@ -152,10 +152,15 @@
 			"Invalid output: output must be of type <conversation: <generated_responses:Array; past_user_inputs:Array>>"
 		);
 	}
+
+	function applyInputSample(sample: Record<string, any>) {
+		text = sample.text;
+	}
 </script>
 
 <WidgetWrapper
 	{apiUrl}
+	{applyInputSample}
 	{computeTime}
 	{error}
 	{model}

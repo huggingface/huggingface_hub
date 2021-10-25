@@ -120,10 +120,15 @@
 	const numOfRows = (total_elems: number) => {
 		return Math.ceil(total_elems / SINGLE_DIM_COLS);
 	};
+
+	function applyInputSample(sample: Record<string, any>) {
+		text = sample.text;
+	}
 </script>
 
 <WidgetWrapper
 	{apiUrl}
+	{applyInputSample}
 	{computeTime}
 	{error}
 	{model}
