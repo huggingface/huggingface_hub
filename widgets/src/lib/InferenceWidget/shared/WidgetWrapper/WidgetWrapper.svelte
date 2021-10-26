@@ -3,7 +3,7 @@
 
 	import { onMount } from "svelte";
 	import IconCross from "../../../Icons/IconCross.svelte";
-	import ModelInputSamples from "../../../ModelInputSamples/ModelInputSamples.svelte";
+	import WidgetInputSamples from "../WidgetInputSamples/WidgetInputSamples.svelte";
 	import WidgetFooter from "../WidgetFooter/WidgetFooter.svelte";
 	import WidgetHeader from "../WidgetHeader/WidgetHeader.svelte";
 	import WidgetInfo from "../WidgetInfo/WidgetInfo.svelte";
@@ -60,7 +60,7 @@
 		{/if}
 		{#if inputSamples.length > 1}
 			<!-- Show samples selector when there are more than one sample -->
-			<ModelInputSamples {inputSamples} {applyInputSample} />
+			<WidgetInputSamples {inputSamples} {applyInputSample} />
 		{/if}
 	</WidgetHeader>
 	<slot name="top" />
