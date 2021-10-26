@@ -9,6 +9,7 @@
 	}
 </script>
 
+<!-- svelte-ignore a11y-no-onchange -->
 <select
 	class="border-none text-sm w-28 truncate dark:bg-gray-950"
 	on:change={onChange}
