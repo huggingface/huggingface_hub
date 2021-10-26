@@ -4,6 +4,17 @@ title: Security and trust on the Hugging Face Hub
 
 # Security and trust on the Hugging Face Hub
 
+## Access Control in Organizations
+
+Members of organizations can have three different roles: `read`, `write` or `admin`.
+
+Members with `read` role have a read-only access to the Organization's repos and metadata (eg, the Organizations' members list, API token, etc).
+
+Members with `write` role additionaly have a write access to the Organization's repos. They can create, delete or rename any repo in the Organization namespace. They can also edit and delete files with the browser editor and push content with `git`.
+
+Members with `admin` role have all privileges on the Organization. They can update the Organization's profile, refresh the Organization's API token, and manage the Organization members' and their roles.
+
+
 ## Signing your commits with GPG
 
 `git` has an authentication layer to control who can push commits to a repo, but it does not authentify the actual commit authors.
