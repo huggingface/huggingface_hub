@@ -28,9 +28,10 @@
 
 	const inputSamples: Record<string, any>[] = (model?.widgetData ?? [])
 		.sort(
-			(sample1, sample2) => (sample2.label ? 1 : 0) - (sample1.label ? 1 : 0)
+			(sample1, sample2) =>
+				(sample2.example_title ? 1 : 0) - (sample1.example_title ? 1 : 0)
 		)
-		.map((sample, idx) => ({ label: `Example ${++idx}`, ...sample }))
+		.map((sample, idx) => ({ example_title: `Example ${++idx}`, ...sample }))
 		.slice(0, 5);
 
 	onMount(() => {
