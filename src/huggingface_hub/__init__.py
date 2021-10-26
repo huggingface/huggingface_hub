@@ -40,6 +40,7 @@ from .hf_api import (
     delete_repo,
     get_full_repo_name,
     list_datasets,
+    list_metrics,
     list_models,
     list_repo_files,
     list_repos_objs,

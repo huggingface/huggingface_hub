@@ -225,6 +225,39 @@ class DatasetInfo:
         return r
 
 
+class MetricInfo:
+    """
+    Info about a public metric accessible from huggingface.co
+    """
+
+    def __init__(
+        self,
+        id: Optional[str] = None,  # id of metric
+        description: Optional[str] = None,
+        citation: Optional[str] = None,
+        **kwargs,
+    ):
+        self.id = id
+        self.description = description
+        self.citation = citation
+        # Legacy stuff, "key" is always returned with an empty string
+        # because of old versions of the datasets lib that need this field
+        kwargs.pop("key", None)
+        # Store all the other fields returned by the API
+        for k, v in kwargs.items():
+            setattr(self, k, v)
+
+    def __repr__(self):
+        s = f"{self.__class__.__name__}:" + " {"
+        for key, val in self.__dict__.items():
+            s += f"\n\t{key}: {val}"
+        return s + "\n}"
+
+    def __str__(self):
+        r = f"Metric Name: {self.id}"
+        return r
+
+
 def write_to_credential_store(username: str, password: str):
     with subprocess.Popen(
         "git credential-store store".split(),
@@ -505,6 +538,17 @@ class HfApi:
         r.raise_for_status()
         d = r.json()
         return [DatasetInfo(**x) for x in d]
+
+    def list_metrics(self) -> List[MetricInfo]:
+        """
+        Get the public list of all the metrics on huggingface.co
+        """
+        path = "{}/api/metrics".format(self.endpoint)
+        params = {}
+        r = requests.get(path, params=params)
+        r.raise_for_status()
+        d = r.json()
+        return [MetricInfo(**x) for x in d]
 
     def model_info(
         self,
@@ -1084,6 +1128,8 @@ list_repos_objs = api.list_repos_objs
 
 list_datasets = api.list_datasets
 dataset_info = api.dataset_info
+
+list_metrics = api.list_metrics
 
 create_repo = api.create_repo
 delete_repo = api.delete_repo

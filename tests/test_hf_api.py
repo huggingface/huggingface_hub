@@ -28,6 +28,7 @@ from huggingface_hub.hf_api import (
     DatasetInfo,
     HfApi,
     HfFolder,
+    MetricInfo,
     ModelInfo,
     RepoObj,
     erase_from_credential_store,
@@ -508,6 +509,18 @@ class HfApiPublicTest(unittest.TestCase):
         )
         self.assertIsInstance(dataset, DatasetInfo)
         self.assertEqual(dataset.sha, DUMMY_DATASET_ID_REVISION_ONE_SPECIFIC_COMMIT)
+
+    def test_staging_list_metrics(self):
+        _api = HfApi(endpoint=ENDPOINT_STAGING)
+        _ = _api.list_metrics()
+
+    @with_production_testing
+    def test_list_metrics(self):
+        _api = HfApi()
+        metrics = _api.list_metrics()
+        self.assertGreater(len(metrics), 10)
+        self.assertIsInstance(metrics[0], MetricInfo)
+        self.assertTrue(any(metric.description for metric in metrics))
 
 
 class HfApiPrivateTest(HfApiCommonTestWithLogin):
