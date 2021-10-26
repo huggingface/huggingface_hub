@@ -8,12 +8,15 @@ title: Security and trust on the Hugging Face Hub
 
 Members of organizations can have three different roles: `read`, `write` or `admin`.
 
-Members with `read` role have a read-only access to the Organization's repos and metadata (eg, the Organizations' members list, API token, etc).
+Members with `read` role have a read-only access to the Organization's repos and metadata / settings (eg, the Organizations' profile, members list, API token, etc).
 
-Members with `write` role additionaly have a write access to the Organization's repos. They can create, delete or rename any repo in the Organization namespace. They can also edit and delete files with the browser editor and push content with `git`.
+Members with `write` role have additional write rights to the Organization's repos. They can create, delete or rename any repo in the Organization namespace. They can also edit and delete files with the browser editor and push content with `git`.
 
-Members with `admin` role have all privileges on the Organization. They can update the Organization's profile, refresh the Organization's API token, and manage the Organization members' and their roles.
+Members with `admin` role have all privileges on the Organization. In addition to write rights on repos, adin members can update the Organization's profile, refresh the Organization's API token, and manage the Organization members.
 
+As an organization `admin`, go to the "Members" setcion of the org settings to manage roles for users.
+
+![/docs/assets/hub/org-members-page.png](/docs/assets/hub/org-members-page.png)
 
 ## Signing your commits with GPG
 
