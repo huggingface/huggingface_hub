@@ -14,7 +14,7 @@
 	on:change={onChange}
 >
 	<option selected disabled>Examples</option>
-	{#each inputSamples as { label }, i}
-		<option value={i}>{label}</option>
+	{#each inputSamples as { example_title }, i}
+		<option value={i}>{example_title}</option>
 	{/each}
 </select>
