@@ -113,10 +113,15 @@
 		}
 		throw new TypeError("Invalid output: output must be of type Array");
 	}
+
+	function applyInputSample(sample: Record<string, any>) {
+		text = sample.text;
+	}
 </script>
 
 <WidgetWrapper
 	{apiUrl}
+	{applyInputSample}
 	{computeTime}
 	{error}
 	{model}

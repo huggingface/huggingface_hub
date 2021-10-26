@@ -105,10 +105,15 @@
 			"Invalid output: output must be of type Array & non-empty"
 		);
 	}
+
+	function applyInputSample(sample: Record<string, any>) {
+		text = sample.text;
+	}
 </script>
 
 <WidgetWrapper
 	{apiUrl}
+	{applyInputSample}
 	{computeTime}
 	{error}
 	{model}

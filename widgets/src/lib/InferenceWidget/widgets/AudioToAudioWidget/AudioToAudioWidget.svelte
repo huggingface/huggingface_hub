@@ -139,10 +139,15 @@
 			"Invalid output: output must be of type Array<blob:string, label:string, content-type:string>"
 		);
 	}
+
+	function applyInputSample(sample: Record<string, any>) {
+		fileUrl = sample.src;
+	}
 </script>
 
 <WidgetWrapper
 	{apiUrl}
+	{applyInputSample}
 	{computeTime}
 	{error}
 	{model}

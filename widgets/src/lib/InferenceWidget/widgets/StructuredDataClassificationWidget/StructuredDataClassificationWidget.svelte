@@ -183,10 +183,15 @@
 			return acc;
 		}, {});
 	}
+
+	function applyInputSample(sample: Record<string, any>) {
+		table = sample.structuredData;
+	}
 </script>
 
 <WidgetWrapper
 	{apiUrl}
+	{applyInputSample}
 	{computeTime}
 	{error}
 	{model}

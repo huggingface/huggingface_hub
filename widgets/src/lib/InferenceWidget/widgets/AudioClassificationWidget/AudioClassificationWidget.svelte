@@ -133,10 +133,15 @@
 			"Invalid output: output must be of type Array<label: string, score:number>"
 		);
 	}
+
+	function applyInputSample(sample: Record<string, any>) {
+		fileUrl = sample.src;
+	}
 </script>
 
 <WidgetWrapper
 	{apiUrl}
+	{applyInputSample}
 	{computeTime}
 	{error}
 	{model}

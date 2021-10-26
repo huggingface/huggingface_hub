@@ -125,10 +125,17 @@
 		}
 		throw new TypeError("Invalid output: output must be of type Array");
 	}
+
+	function applyInputSample(sample: Record<string, any>) {
+		sourceSentence = sample.source_sentence;
+		comparisonSentences = sample.sentences;
+		nComparisonSentences = comparisonSentences.length;
+	}
 </script>
 
 <WidgetWrapper
 	{apiUrl}
+	{applyInputSample}
 	{computeTime}
 	{error}
 	{model}

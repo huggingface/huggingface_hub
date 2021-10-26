@@ -154,10 +154,16 @@
 			"Invalid output: output must be of type <answer:string; coordinates:Array; cells:Array>"
 		);
 	}
+
+	function applyInputSample(sample: Record<string, any>) {
+		query = sample.text;
+		table = sample.table;
+	}
 </script>
 
 <WidgetWrapper
 	{apiUrl}
+	{applyInputSample}
 	{computeTime}
 	{error}
 	{model}

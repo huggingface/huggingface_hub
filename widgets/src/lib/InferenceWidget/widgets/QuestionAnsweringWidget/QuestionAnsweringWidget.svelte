@@ -127,10 +127,16 @@
 			"Invalid output: output must be of type <answer:string; score:number>"
 		);
 	}
+
+	function applyInputSample(sample: Record<string, any>) {
+		question = sample.text;
+		context = sample.context;
+	}
 </script>
 
 <WidgetWrapper
 	{apiUrl}
+	{applyInputSample}
 	{computeTime}
 	{error}
 	{model}
