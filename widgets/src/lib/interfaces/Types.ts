@@ -157,7 +157,11 @@ export interface ModelData {
 	/**
 	 * id of model (e.g. 'user/repo_name')
 	 */
-	modelId: string;
+	id: string;
+	/**
+	 * Kept for backward compatibility
+	 */
+	modelId?: string;
 	/**
 	 * is this model private?
 	 */
