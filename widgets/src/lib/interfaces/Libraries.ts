@@ -200,9 +200,8 @@ const speechBrainMethod = (speechbrainInterface: string) => {
 			return "enhance_file";
 		case "SepformerSeparation":
 			return "separate_file";
-		default: {
+		default:
 			return undefined;
-		}
 	}
 }
 
