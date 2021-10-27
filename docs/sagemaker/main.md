@@ -65,7 +65,7 @@ Take a look at our published blog posts, videos, documentation, sample notebooks
 
 - [Run training on Amazon SageMaker](/docs/sagemaker/train)
 - [Deploy models to Amazon SageMaker](/docs/sagemaker/inference)
-- [Frequently Asked Questions](/docs/sagemaker/faq)
+- [Reference](/docs/sagemaker/reference)
 - [Amazon SageMaker documentation for Hugging Face](https://docs.aws.amazon.com/sagemaker/latest/dg/hugging-face.html)
 - [Python SDK SageMaker documentation for Hugging Face](https://sagemaker.readthedocs.io/en/stable/frameworks/huggingface/index.html)
 - [Deep Learning Container](https://github.com/aws/deep-learning-containers/blob/master/available_images.md#huggingface-training-containers)
@@ -74,9 +74,9 @@ Take a look at our published blog posts, videos, documentation, sample notebooks
 
 ### Sample notebooks
 
-- [all Notebooks](https://github.com/huggingface/notebooks/tree/master/sagemaker)
-- [Getting Started Pytorch](https://github.com/huggingface/notebooks/blob/master/sagemaker/01_getting_started_pytorch/sagemaker-notebook.ipynb)
-- [Getting Started Tensorflow](https://github.com/huggingface/notebooks/blob/master/sagemaker/02_getting_started_tensorflow/sagemaker-notebook.ipynb)
+- [All notebooks](https://github.com/huggingface/notebooks/tree/master/sagemaker)
+- [Getting Started with Pytorch](https://github.com/huggingface/notebooks/blob/master/sagemaker/01_getting_started_pytorch/sagemaker-notebook.ipynb)
+- [Getting Started with Tensorflow](https://github.com/huggingface/notebooks/blob/master/sagemaker/02_getting_started_tensorflow/sagemaker-notebook.ipynb)
 - [Distributed Training Data Parallelism](https://github.com/huggingface/notebooks/blob/master/sagemaker/03_distributed_training_data_parallelism/sagemaker-notebook.ipynb)
 - [Distributed Training Model Parallelism](https://github.com/huggingface/notebooks/blob/master/sagemaker/04_distributed_training_model_parallelism/sagemaker-notebook.ipynb)
 - [Spot Instances and continue training](https://github.com/huggingface/notebooks/blob/master/sagemaker/05_spot_instances/sagemaker-notebook.ipynb)

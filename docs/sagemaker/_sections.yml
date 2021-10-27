@@ -1,3 +1,6 @@
+- local: getting-started
+  title: Get started
+
 - local: main
   title: Hugging Face on Amazon SageMaker
 
@@ -6,10 +9,6 @@
 
 - local: inference
   title: Deploy models to Amazon SageMaker
-
-# TODO not sure if needed
-# - local: getting-started
-#   title: End-to-End Example with training and deployment
 
 - local: reference
   title: Reference
