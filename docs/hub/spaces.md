@@ -4,25 +4,17 @@ title: Documentation for Spaces
 
 <h1>How to get started with Spaces</h1>
 
-<div class="p-4 border border-gray-200 rounded-lg">
-	⚠️ This feature is currently in private beta, <a style="font-weight: bold !important" href="/spaces">sign up to the waiting list</a> or <a href="#how-can-i-contact-you">reach out to us</a> if you'd like to try it out ⚠️
-</div>
-
 ## What are Spaces?
 
-Spaces are a simple way to host ML demo apps directly on your profile or your organization’s  profile.
+Spaces are a simple way to host ML demo apps directly on your profile or your organization’s  profile. This allows you to create your ML portfolio, showcase your projects at conferences or to stakeholders, and work collaboratively with the rest of the ecosystem.
 
 We support two awesome SDKs that let you build cool apps in Python in a matter of minutes: **[Streamlit](https://streamlit.io/)** and **[Gradio](https://gradio.app/)**.
 
-**To get started**, simply click on [New Space](https://huggingface.co/new-space) in the top navigation menu, create a new repo of type `Space`, and pick your SDK:
+<iframe width="560" height="315" src="https://www.youtube-nocookie.com/embed/3bSVKNKb_PY" title="Spaces intro" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>
 
-![/docs/assets/hub/new-space.gif](/docs/assets/hub/new-space.gif)
+**To get started**, simply click on [New Space](https://huggingface.co/new-space) in the top navigation menu, create a new repo of type `Space`, and pick your SDK.
 
 Under the hood, we store your code inside a git repository just as done for model and dataset repositories. Thanks to this, the same tools you're already used to (`git` and `git-lfs`) will also work for Spaces.
-
-Each time you commit, we deploy a containerized version of your code on our Infra. More details below!
-
-<!-- TODO(have someone record a Youtube demo of Spaces showcasing some cool apps already running, etc) -->
 
 ## Should I use Streamlit or Gradio?
 
@@ -80,24 +72,31 @@ If your app needs any secret keys or tokens to run, you do not want to hardcode 
 
 Those secrets will be exposed to your app using the [Streamlit Secrets](https://blog.streamlit.io/secrets-in-sharing-apps/) feature if it's a Streamlit app, or as env variables in other cases.
 
-## Streamlit advanced features
-
-We support those Streamlit features transparently:
-
-- `st.experimental_get_query_params()` and `st.experimental_set_query_params(**parameter)` to manage app state in the url
-- if something doesn't work, please [reach out](#how-can-i-contact-you).
 
 ## I am having issues with Streamlit versions!
 
 The Streamlit version is not configured in the `requirements.txt` file, but in the README metadata config through the `sdk_version` setting. Note that we do not support all Streamlit versions, please refer to the [reference section](#reference) for more info on this.
 
-## How can I contact you?
+## Can I use my own HTML instead of Streamlit or Gradio?
 
-Feel free to ask question in the [Forum](https://discuss.huggingface.co/) if it's suitable for the community.
+Although we strongly encourage you to use Streamlit and Gradio, you can also use your own HTML
+code by defining `sdk: static` and having the HTML within the `README.md` file. Here are some examples:
 
-If you're interested in infra challenges, custom demos, GPU or something else, please reach out to us by sending an email to website at huggingface.co.
+* [Smarter NPC](https://huggingface.co/spaces/mishig/smarter_npc): Using an iframe to show code in PlayCanvas
+* [Huggingfab](https://huggingface.co/spaces/pierreant-p/huggingfab): Using Sketchfab.
 
-You can also tag us [on Twitter](https://twitter.com/huggingface)!
+
+## Building an organization card
+
+Would you like to have an organization card? This is now supported by creating a static README space with the HTML. Here are two examples:
+
+* https://huggingface.co/spaces/spacy/README/blob/main/README.md
+* https://huggingface.co/spaces/amazon/README/blob/main/README.md
+
+
+## Can I use Bokeh?
+
+Streamlit has built-in support for Bokeh with the `st.bokeh_chart` component.
 
 ## How should I link my Spaces demo in my GitHub repo?
 
@@ -157,7 +156,7 @@ Color for Thumbnail gradient (red, yellow, green, blue, indigo, purple, pink, gr
 Color for Thumbnail gradient (red, yellow, green, blue, indigo, purple, pink, gray)
 
 **`sdk`** : _string_  
-Can be either `gradio` or `streamlit`
+Can be either `gradio`, `streamlit` or `static`
 
 **`sdk_version`** : _string_  
 Only applicable for `streamlit` SDK. Currently available versions are :  
@@ -169,7 +168,6 @@ Path is relative to the root of the repository.
 
 **`pinned`** : _boolean_  
 Whether the Space stays on top of your list.
-
 
 ## How can I manage my app through Github
 
@@ -224,6 +222,14 @@ jobs:
           filesizelimit: 10485760 # = 10MB, so we can sync to HF spaces
 
 ```
+
+## How can I contact you?
+
+Feel free to ask question in the [Forum](https://discuss.huggingface.co/) if it's suitable for the community.
+
+If you're interested in infra challenges, custom demos, GPU or something else, please reach out to us by sending an email to website at huggingface.co.
+
+You can also tag us [on Twitter](https://twitter.com/huggingface)!
 
 ## Changelog
 
