@@ -95,7 +95,7 @@ Add a code snippet by updating the [Libraries Typescript file](https://github.co
 const asteroid = (model: ModelData) =>
 `from asteroid.models import BaseModel
   
-model = BaseModel.from_pretrained("${model.modelId}")`;
+model = BaseModel.from_pretrained("${model.id}")`;
 ```
 
 This will also add a tag to your model so users can quickly identify models from your library.

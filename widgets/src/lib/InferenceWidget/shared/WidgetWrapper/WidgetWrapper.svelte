@@ -35,7 +35,7 @@
 		.slice(0, 5);
 
 	onMount(() => {
-		getModelStatus(apiUrl, model.modelId).then((status) => {
+		getModelStatus(apiUrl, model.id).then((status) => {
 			modelStatus = status;
 		});
 	});
