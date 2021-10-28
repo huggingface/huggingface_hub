@@ -840,6 +840,27 @@ class Repository:
 
         return files_to_be_tracked_with_lfs
 
+    def lfs_prune(self, recent=False):
+        """
+        git lfs prune
+        """
+        args = "git lfs prune".split()
+        if recent:
+            args.append("--recent")
+        try:
+            with lfs_log_progress():
+                result = subprocess.run(
+                    args,
+                    stderr=subprocess.PIPE,
+                    stdout=subprocess.PIPE,
+                    check=True,
+                    encoding="utf-8",
+                    cwd=self.local_dir,
+                )
+                logger.info(result.stdout)
+        except subprocess.CalledProcessError as exc:
+            raise EnvironmentError(exc.stderr)
+
     def git_pull(self, rebase: Optional[bool] = False):
         """
         git pull
