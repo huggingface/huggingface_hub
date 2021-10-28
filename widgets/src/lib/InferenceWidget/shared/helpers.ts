@@ -49,7 +49,7 @@ export function proxify(url: string): string {
 
 async function callApi(
 	url: string, 
-	modelId: string, 
+	repoId: string, 
 	requestBody: Record<string, any>, 
 	apiToken = '',
 	waitForModel = false, // If true, the server will only respond once the model has been loaded on the inference API,
@@ -76,7 +76,7 @@ async function callApi(
 		: JSON.stringify(requestBody);
 	
 	return await fetch(
-		`${url}/models/${modelId}`,
+		`${url}/models/${repoId}`,
 		{
 			method: "POST",
 			body,
@@ -87,7 +87,7 @@ async function callApi(
 
 export async function getResponse<T>(
 	url: string, 
-	modelId: string, 
+	repoId: string, 
 	requestBody: Record<string, any>, 
 	apiToken = '',
 	outputParsingFn: (x: unknown) =>  T,
@@ -109,7 +109,7 @@ export async function getResponse<T>(
 }>  {
 	const response = await callApi(
 		url,
-		modelId,
+		repoId,
 		requestBody,
 		apiToken,
 		waitForModel,
@@ -157,8 +157,8 @@ export async function getResponse<T>(
 }
 
 
-export async function getModelStatus(url: string, modelId: string): Promise<LoadingStatus> {
-	const response = await fetch(`${url}/status/${modelId}`);
+export async function getModelStatus(url: string, repoId: string): Promise<LoadingStatus> {
+	const response = await fetch(`${url}/status/${repoId}`);
 	const output = await response.json();
 	if (response.ok && typeof output === 'object' && output.loaded !== undefined) {
 		return output.loaded ? 'loaded' : 'unknown';

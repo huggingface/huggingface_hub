@@ -90,7 +90,7 @@
 
 		const res = await getResponse(
 			apiUrl,
-			model.modelId,
+			model.id,
 			requestBody,
 			apiToken,
 			parseOutput,
@@ -169,7 +169,7 @@
 	{outputJson}
 >
 	<svelte:fragment slot="top">
-		<WidgetOutputConvo modelId={model.modelId} {output} />
+		<WidgetOutputConvo modelId={model.id} {output} />
 		<form>
 			<WidgetQuickInput
 				bind:value={text}

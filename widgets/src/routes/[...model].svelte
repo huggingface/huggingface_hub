@@ -43,8 +43,8 @@
 <div class="container py-24">
 	{#if model}
 		<div>
-			<a class="text-xs block mb-3 text-gray-300" href="/{model.modelId}">
-				<code>{model.modelId}</code>
+			<a class="text-xs block mb-3 text-gray-300" href="/{model.id}">
+				<code>{model.id}</code>
 			</a>
 			<div class="p-5 shadow-sm rounded-xl bg-white max-w-3xl">
 				<InferenceWidget {model} />
