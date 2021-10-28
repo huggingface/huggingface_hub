@@ -161,19 +161,19 @@ class HfApiEndpointsTest(HfApiCommonTestWithLogin):
 
     @unittest.skip("skipped while spaces in beta")
     def test_create_update_and_delete_space_repo(self):
-        with pytest.raises(ValueError, match=r"No spaces_sdk provided.*"):
+        with pytest.raises(ValueError, match=r"No space_sdk provided.*"):
             self._api.create_repo(
                 token=self._token,
                 name=SPACE_REPO_NAME,
                 repo_type=REPO_TYPE_SPACE,
-                spaces_sdk=None,
+                space_sdk=None,
             )
-        with pytest.raises(ValueError, match=r"Invalid spaces_sdk.*"):
+        with pytest.raises(ValueError, match=r"Invalid space_sdk.*"):
             self._api.create_repo(
                 token=self._token,
                 name=SPACE_REPO_NAME,
                 repo_type=REPO_TYPE_SPACE,
-                spaces_sdk="asdfasdf",
+                space_sdk="asdfasdf",
             )
 
         for sdk in SPACES_SDK_TYPES:
@@ -181,7 +181,7 @@ class HfApiEndpointsTest(HfApiCommonTestWithLogin):
                 name=SPACE_REPO_NAME,
                 token=self._token,
                 repo_type=REPO_TYPE_SPACE,
-                spaces_sdk=sdk,
+                space_sdk=sdk,
             )
             res = self._api.update_repo_visibility(
                 name=SPACE_REPO_NAME,

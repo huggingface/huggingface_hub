@@ -670,7 +670,7 @@ class HfApi:
         repo_type: Optional[str] = None,
         exist_ok=False,
         lfsmultipartthresh: Optional[int] = None,
-        spaces_sdk: Optional[str] = None,
+        space_sdk: Optional[str] = None,
     ) -> str:
         """
         HuggingFace git-based system, used for models, datasets, and spaces.
@@ -686,7 +686,7 @@ class HfApi:
 
             lfsmultipartthresh: Optional: internal param for testing purposes.
 
-            spaces_sdk: Choice of SDK to use if repo_type is "space". Can be "streamlit" or "gradio".
+            space_sdk: Choice of SDK to use if repo_type is "space". Can be "streamlit", "gradio", or "static".
 
         Returns:
             URL to the newly created repo.
@@ -717,16 +717,21 @@ class HfApi:
         if repo_type is not None:
             json["type"] = repo_type
             if repo_type == "space":
-                if spaces_sdk is None:
+                if space_sdk is None:
                     raise ValueError(
-                        "No spaces_sdk provided. `create_repo` expects spaces_sdk to be one of "
+                        "No space_sdk provided. `create_repo` expects space_sdk to be one of "
                         f"{SPACES_SDK_TYPES} when repo_type is 'space'`"
                     )
-                if spaces_sdk not in SPACES_SDK_TYPES:
+                if space_sdk not in SPACES_SDK_TYPES:
                     raise ValueError(
-                        f"Invalid spaces_sdk. Please choose one of {SPACES_SDK_TYPES}."
+                        f"Invalid space_sdk. Please choose one of {SPACES_SDK_TYPES}."
                     )
-                json["sdk"] = spaces_sdk
+                json["sdk"] = space_sdk
+        if space_sdk is not None and repo_type != "space":
+            warnings.warn(
+                "Ignoring provided space_sdk because repo_type is not 'space'."
+            )
+
         if lfsmultipartthresh is not None:
             json["lfsmultipartthresh"] = lfsmultipartthresh
         r = requests.post(
@@ -841,7 +846,8 @@ class HfApi:
             path_prefix += REPO_TYPES_URL_PREFIXES[repo_type]
 
         path = "{}{}/{}/settings".format(path_prefix, namespace, name)
-        json = {"private": private}
+        # HACK - hard coded recently added 'gated' param for now. Decide how to deal with this in the future.
+        json = {"private": private, "gated": False}
 
         r = requests.put(
             path,
