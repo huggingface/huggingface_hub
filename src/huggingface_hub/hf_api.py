@@ -847,11 +847,7 @@ class HfApi:
 
         path = "{}{}/{}/settings".format(path_prefix, namespace, name)
 
-        # HACK - spaces repo updates break without recently added 'gated' param. Hardcoding here for now.
-        if repo_type == "space":
-            json = {"private": private, "gated": False}
-        else:
-            json = {"private": private}
+        json = {"private": private}
 
         r = requests.put(
             path,
