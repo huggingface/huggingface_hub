@@ -846,8 +846,12 @@ class HfApi:
             path_prefix += REPO_TYPES_URL_PREFIXES[repo_type]
 
         path = "{}{}/{}/settings".format(path_prefix, namespace, name)
-        # HACK - hard coded recently added 'gated' param for now. Decide how to deal with this in the future.
-        json = {"private": private, "gated": False}
+
+        # HACK - spaces repo updates break without recently added 'gated' param. Hardcoding here for now.
+        if repo_type == "space":
+            json = {"private": private, "gated": False}
+        else:
+            json = {"private": private}
 
         r = requests.put(
             path,
