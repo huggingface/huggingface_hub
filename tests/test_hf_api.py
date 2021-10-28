@@ -159,48 +159,45 @@ class HfApiEndpointsTest(HfApiCommonTestWithLogin):
             name=DATASET_REPO_NAME, token=self._token, repo_type=REPO_TYPE_DATASET
         )
 
-    @with_production_testing
     def test_create_update_and_delete_space_repo(self):
-        _api = HfApi()
-        _token = os.environ.get("API_TOKEN", None)
         with pytest.raises(ValueError, match=r"No space_sdk provided.*"):
-            _api.create_repo(
-                token=_token,
+            self._api.create_repo(
+                token=self._token,
                 name=SPACE_REPO_NAME,
                 repo_type=REPO_TYPE_SPACE,
                 space_sdk=None,
             )
         with pytest.raises(ValueError, match=r"Invalid space_sdk.*"):
-            _api.create_repo(
-                token=_token,
+            self._api.create_repo(
+                token=self._token,
                 name=SPACE_REPO_NAME,
                 repo_type=REPO_TYPE_SPACE,
                 space_sdk="asdfasdf",
             )
 
         for sdk in SPACES_SDK_TYPES:
-            _api.create_repo(
+            self._api.create_repo(
                 name=SPACE_REPO_NAME,
-                token=_token,
+                token=self._token,
                 repo_type=REPO_TYPE_SPACE,
                 space_sdk=sdk,
             )
-            res = _api.update_repo_visibility(
+            res = self._api.update_repo_visibility(
                 name=SPACE_REPO_NAME,
-                token=_token,
+                token=self._token,
                 private=True,
                 repo_type=REPO_TYPE_SPACE,
             )
             self.assertTrue(res["private"])
-            res = _api.update_repo_visibility(
+            res = self._api.update_repo_visibility(
                 name=SPACE_REPO_NAME,
-                token=_token,
+                token=self._token,
                 private=False,
                 repo_type=REPO_TYPE_SPACE,
             )
             self.assertFalse(res["private"])
-            _api.delete_repo(
-                name=SPACE_REPO_NAME, token=_token, repo_type=REPO_TYPE_SPACE
+            self._api.delete_repo(
+                name=SPACE_REPO_NAME, token=self._token, repo_type=REPO_TYPE_SPACE
             )
 
 
