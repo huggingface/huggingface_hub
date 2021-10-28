@@ -20,7 +20,7 @@ Get started by installing the necessary Hugging Face libraries and SageMaker. Yo
 pip install "sagemaker>=2.48.0" "transformers==4.6.1" "datasets[s3]==1.6.2" --upgrade
 ```
 
-If you want to run this example in a notebook, upgrade [ipywidgets](https://ipywidgets.readthedocs.io/en/latest/) for the 🤗 Datasets library and restart the kernel:
+If you want to run this example in [SageMaker Studio](https://docs.aws.amazon.com/sagemaker/latest/dg/studio.html), upgrade [ipywidgets](https://ipywidgets.readthedocs.io/en/latest/) for the 🤗 Datasets library and restart the kernel:
 
 ```python
 %%capture
@@ -29,7 +29,11 @@ import IPython
 IPython.Application.instance().kernel.do_shutdown(True)
 ```
 
-If you are planning on using SageMaker in a local environment, setup your SageMaker session and bucket. The bucket stores data, models, and logs. You will need access to an [IAM execution role](https://docs.aws.amazon.com/sagemaker/latest/dg/sagemaker-roles.html) with the required permissions.
+Next, you should set up your environment: a SageMaker session and an S3 bucket. The S3 bucket will store data, models, and logs. You will need access to an [IAM execution role](https://docs.aws.amazon.com/sagemaker/latest/dg/sagemaker-roles.html) with the required permissions.
+
+If you are planning on using SageMaker in a local environment, you need to provide the `role` yourself. Learn more about how to set this up [here](https://huggingface.co/docs/sagemaker/train#installation-and-setup).
+
+⚠️ The execution role is only available when you run a notebook within SageMaker. If you try to run `get_execution_role` in a notebook not on SageMaker, you will get a region error.
 
 ```python
 import sagemaker
@@ -54,12 +58,12 @@ from transformers import AutoTokenizer
 # load dataset
 train_dataset, test_dataset = load_dataset("imdb", split=["train", "test"])
 
+# load tokenizer
+tokenizer = AutoTokenizer.from_pretrained("distilbert-base-uncased")
+
 # create tokenization function
 def tokenize(batch):
     return tokenizer(batch["text"], padding="max_length", truncation=True)
-
-# use a smaller sized test dataset
-test_dataset = test_dataset.shuffle().select(range(10000))
 
 # tokenize train and test datasets
 train_dataset = train_dataset.map(tokenize, batched=True)
@@ -96,7 +100,7 @@ test_dataset.save_to_disk(test_input_path,fs=s3)
 
 Create a Hugging Face Estimator to handle end-to-end SageMaker training and deployment. The most important parameters to pay attention to are:
 
-* `entry_point` refers to the fine-tuning script you want to use.
+* `entry_point` refers to the fine-tuning script which you can find [here](https://github.com/huggingface/notebooks/blob/master/sagemaker/01_getting_started_pytorch/scripts/train.py).
 * `instance_type` refers to the SageMaker instance that will be launched. Take a look [here](https://aws.amazon.com/sagemaker/pricing/) for a complete list of instance types.
 * `hyperparameters` refers to the training hyperparameters the model will be fine-tuned with.
 
