@@ -24,17 +24,12 @@ from io import BytesIO
 import pytest
 
 import requests
-<<<<<<< HEAD
-from huggingface_hub.constants import REPO_TYPE_DATASET, REPO_TYPE_SPACE
-from huggingface_hub.file_download import cached_download, hf_hub_download
-=======
 from huggingface_hub.constants import (
     REPO_TYPE_DATASET,
     REPO_TYPE_SPACE,
     SPACES_SDK_TYPES,
 )
 from huggingface_hub.file_download import cached_download
->>>>>>> 788b099 (:sparkles: add spaces sdk types as constant)
 from huggingface_hub.hf_api import (
     DatasetInfo,
     HfApi,
