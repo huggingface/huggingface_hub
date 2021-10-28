@@ -206,46 +206,39 @@ nlp = spacy.load("${nameWithoutNamespace(model.id)}")
 import ${nameWithoutNamespace(model.id)}
 nlp = ${nameWithoutNamespace(model.id)}.load()`;
 
-const speechbrainAudioClassification = (model: ModelData) =>
-`from speechbrain.pretrained import EncoderClassifier
-
-model = EncoderClassifier.from_hparams(
-  "${model.id}"
-)
-model.classify_file("file.wav")`;
-
-const speechbrainASR = (model: ModelData) =>
-`from speechbrain.pretrained import EncoderDecoderASR
-
-asr_model = EncoderDecoderASR.from_hparams(source="${model.id}")
-asr_model.transcribe_file("file.wav")`;
-
-const speechbrainEnhancement = (model: ModelData) =>
-`from speechbrain.pretrained import SpectralMaskEnhancement
-
-enhance_model = SpectralMaskEnhancement.from_hparams(source="${model.id}")
-enhanced = enhance_model.enhance_file("file.wav")`;
-
-const speechbrainSeparator = (model: ModelData) =>
-`from speechbrain.pretrained import SepformerSeparation
-
-separator_model = SepformerSeparation.from_hparams(source="${model.id}")
-est_sources = separator_model.separate_file("file.wav")`;
+const speechBrainMethod = (speechbrainInterface: string) => {
+	switch(speechbrainInterface) {
+		case "EncoderClassifier":
+		   return "classify_file";
+		case "EncoderDecoderASR":
+		case "EncoderASR":
+			return "transcribe_file";
+		case "SpectralMaskEnhancement":
+			return "enhance_file";
+		case "SepformerSeparation":
+			return "separate_file";
+		default:
+			return undefined;
+	}
+}
 
 const speechbrain = (model: ModelData) => {
-	if (model.tags?.includes("automatic-speech-recognition")){
-		return speechbrainASR(model);
-	} else if (model.tags?.includes("audio-to-audio")) {
-		if (model.tags?.includes("speech-enhancement")) {
-			return speechbrainEnhancement(model);
-		} else if (model.tags?.includes("audio-source-separation")) {
-			return speechbrainSeparator(model);
-		} 
-	} else if (model.tags?.includes("audio-classification")) {
-		return speechbrainAudioClassification(model);
+	const speechbrainInterface = model.config?.speechbrain?.interface;
+	if(speechbrainInterface === undefined) {
+		return `# interface not specified in config.json`
 	}
-	return "# Unable to determine model type";
-};
+
+	const speechbrainMethod = speechBrainMethod(speechbrainInterface);
+	if(speechbrainMethod === undefined) {
+		return `# interface in config.json invalid`
+	}
+
+	return `from speechbrain.pretrained import ${speechbrainInterface}
+model = ${speechbrainInterface}.from_hparams(
+  "${model.id}"
+)
+model.${speechbrainMethod}("file.wav")`;
+}
 
 const transformers = (model: ModelData) =>
 `from transformers import AutoTokenizer, ${model.autoArchitecture}
