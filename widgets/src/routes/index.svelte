@@ -132,7 +132,7 @@
 			],
 		},
 		{
-			id: "google/t5-small-ssm-nq",
+			id: "bigscience/T0pp",
 			pipeline_tag: "text2text-generation",
 		},
 		{

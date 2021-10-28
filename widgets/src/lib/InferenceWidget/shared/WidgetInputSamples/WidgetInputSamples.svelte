@@ -11,7 +11,7 @@
 
 <!-- svelte-ignore a11y-no-onchange -->
 <select
-	class="border-none text-sm w-28 truncate dark:bg-gray-950"
+	class="border-none text-sm w-32 truncate dark:bg-gray-950 rounded"
 	on:change={onChange}
 >
 	<option selected disabled>Examples</option>
