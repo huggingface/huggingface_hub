@@ -26,7 +26,13 @@ from typing import IO, Dict, Iterable, List, Optional, Tuple, Union
 import requests
 from requests.exceptions import HTTPError
 
-from .constants import ENDPOINT, REPO_TYPES, REPO_TYPES_MAPPING, REPO_TYPES_URL_PREFIXES
+from .constants import (
+    ENDPOINT,
+    REPO_TYPES,
+    REPO_TYPES_MAPPING,
+    REPO_TYPES_URL_PREFIXES,
+    SPACES_SDK_TYPES,
+)
 
 
 if sys.version_info >= (3, 8):
@@ -664,6 +670,7 @@ class HfApi:
         repo_type: Optional[str] = None,
         exist_ok=False,
         lfsmultipartthresh: Optional[int] = None,
+        space_sdk: Optional[str] = None,
     ) -> str:
         """
         HuggingFace git-based system, used for models, datasets, and spaces.
@@ -678,6 +685,8 @@ class HfApi:
             exist_ok: Do not raise an error if repo already exists
 
             lfsmultipartthresh: Optional: internal param for testing purposes.
+
+            space_sdk: Choice of SDK to use if repo_type is "space". Can be "streamlit", "gradio", or "static".
 
         Returns:
             URL to the newly created repo.
@@ -707,6 +716,22 @@ class HfApi:
         json = {"name": name, "organization": organization, "private": private}
         if repo_type is not None:
             json["type"] = repo_type
+            if repo_type == "space":
+                if space_sdk is None:
+                    raise ValueError(
+                        "No space_sdk provided. `create_repo` expects space_sdk to be one of "
+                        f"{SPACES_SDK_TYPES} when repo_type is 'space'`"
+                    )
+                if space_sdk not in SPACES_SDK_TYPES:
+                    raise ValueError(
+                        f"Invalid space_sdk. Please choose one of {SPACES_SDK_TYPES}."
+                    )
+                json["sdk"] = space_sdk
+        if space_sdk is not None and repo_type != "space":
+            warnings.warn(
+                "Ignoring provided space_sdk because repo_type is not 'space'."
+            )
+
         if lfsmultipartthresh is not None:
             json["lfsmultipartthresh"] = lfsmultipartthresh
         r = requests.post(
@@ -821,6 +846,7 @@ class HfApi:
             path_prefix += REPO_TYPES_URL_PREFIXES[repo_type]
 
         path = "{}{}/{}/settings".format(path_prefix, namespace, name)
+
         json = {"private": private}
 
         r = requests.put(

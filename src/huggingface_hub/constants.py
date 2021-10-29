@@ -32,6 +32,7 @@ HUGGINGFACE_CO_URL_TEMPLATE = ENDPOINT + "/{repo_id}/resolve/{revision}/{filenam
 REPO_TYPE_DATASET = "dataset"
 REPO_TYPE_SPACE = "space"
 REPO_TYPES = [None, REPO_TYPE_DATASET, REPO_TYPE_SPACE]
+SPACES_SDK_TYPES = ["gradio", "streamlit", "static"]
 
 REPO_TYPES_URL_PREFIXES = {
     REPO_TYPE_DATASET: "datasets/",

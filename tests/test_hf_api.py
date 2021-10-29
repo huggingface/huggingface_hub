@@ -21,8 +21,14 @@ import time
 import unittest
 from io import BytesIO
 
+import pytest
+
 import requests
-from huggingface_hub.constants import REPO_TYPE_DATASET, REPO_TYPE_SPACE
+from huggingface_hub.constants import (
+    REPO_TYPE_DATASET,
+    REPO_TYPE_SPACE,
+    SPACES_SDK_TYPES,
+)
 from huggingface_hub.file_download import cached_download, hf_hub_download
 from huggingface_hub.hf_api import (
     DatasetInfo,
@@ -153,28 +159,46 @@ class HfApiEndpointsTest(HfApiCommonTestWithLogin):
             name=DATASET_REPO_NAME, token=self._token, repo_type=REPO_TYPE_DATASET
         )
 
-    @unittest.skip("skipped while spaces in beta")
     def test_create_update_and_delete_space_repo(self):
-        self._api.create_repo(
-            name=SPACE_REPO_NAME, token=self._token, repo_type=REPO_TYPE_SPACE
-        )
-        res = self._api.update_repo_visibility(
-            name=SPACE_REPO_NAME,
-            token=self._token,
-            private=True,
-            repo_type=REPO_TYPE_SPACE,
-        )
-        self.assertTrue(res["private"])
-        res = self._api.update_repo_visibility(
-            name=SPACE_REPO_NAME,
-            token=self._token,
-            private=False,
-            repo_type=REPO_TYPE_SPACE,
-        )
-        self.assertFalse(res["private"])
-        self._api.delete_repo(
-            name=SPACE_REPO_NAME, token=self._token, repo_type=REPO_TYPE_SPACE
-        )
+        with pytest.raises(ValueError, match=r"No space_sdk provided.*"):
+            self._api.create_repo(
+                token=self._token,
+                name=SPACE_REPO_NAME,
+                repo_type=REPO_TYPE_SPACE,
+                space_sdk=None,
+            )
+        with pytest.raises(ValueError, match=r"Invalid space_sdk.*"):
+            self._api.create_repo(
+                token=self._token,
+                name=SPACE_REPO_NAME,
+                repo_type=REPO_TYPE_SPACE,
+                space_sdk="asdfasdf",
+            )
+
+        for sdk in SPACES_SDK_TYPES:
+            self._api.create_repo(
+                name=SPACE_REPO_NAME,
+                token=self._token,
+                repo_type=REPO_TYPE_SPACE,
+                space_sdk=sdk,
+            )
+            res = self._api.update_repo_visibility(
+                name=SPACE_REPO_NAME,
+                token=self._token,
+                private=True,
+                repo_type=REPO_TYPE_SPACE,
+            )
+            self.assertTrue(res["private"])
+            res = self._api.update_repo_visibility(
+                name=SPACE_REPO_NAME,
+                token=self._token,
+                private=False,
+                repo_type=REPO_TYPE_SPACE,
+            )
+            self.assertFalse(res["private"])
+            self._api.delete_repo(
+                name=SPACE_REPO_NAME, token=self._token, repo_type=REPO_TYPE_SPACE
+            )
 
 
 class HfApiUploadFileTest(HfApiCommonTestWithLogin):

@@ -18,7 +18,11 @@ from getpass import getpass
 from typing import List, Union
 
 from huggingface_hub.commands import BaseHuggingfaceCLICommand
-from huggingface_hub.constants import REPO_TYPES, REPO_TYPES_URL_PREFIXES
+from huggingface_hub.constants import (
+    REPO_TYPES,
+    REPO_TYPES_URL_PREFIXES,
+    SPACES_SDK_TYPES,
+)
 from huggingface_hub.hf_api import HfApi, HfFolder
 from requests.exceptions import HTTPError
 
@@ -67,6 +71,12 @@ class UserCommands(BaseHuggingfaceCLICommand):
         )
         repo_create_parser.add_argument(
             "--organization", type=str, help="Optional: organization namespace."
+        )
+        repo_create_parser.add_argument(
+            "--space_sdk",
+            type=str,
+            help='Optional: Hugging Face Spaces SDK type. Required when --type is set to "space".',
+            choices=SPACES_SDK_TYPES,
         )
         repo_create_parser.add_argument(
             "-y",
@@ -263,6 +273,7 @@ class RepoCreateCommand(BaseUserCommand):
                 token=token,
                 organization=self.args.organization,
                 repo_type=self.args.type,
+                space_sdk=self.args.space_sdk,
             )
         except HTTPError as e:
             print(e)
