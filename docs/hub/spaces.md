@@ -4,29 +4,21 @@ title: Documentation for Spaces
 
 <h1>How to get started with Spaces</h1>
 
-<div class="p-4 border border-gray-200 rounded-lg">
-	⚠️ This feature is currently in private beta, <a style="font-weight: bold !important" href="/spaces">sign up to the waiting list</a> or <a href="#how-can-i-contact-you">reach out to us</a> if you'd like to try it out ⚠️
-</div>
-
 ## What are Spaces?
 
-Spaces are a simple way to host ML demo apps directly on your profile or your organization’s  profile.
+Spaces are a simple way to host ML demo apps directly on your profile or your organization’s  profile. This allows you to create your ML portfolio, showcase your projects at conferences or to stakeholders, and work collaboratively with other people in the ML ecosystem.
 
 We support two awesome SDKs that let you build cool apps in Python in a matter of minutes: **[Streamlit](https://streamlit.io/)** and **[Gradio](https://gradio.app/)**.
 
-**To get started**, simply click on [New Space](https://huggingface.co/new-space) in the top navigation menu, create a new repo of type `Space`, and pick your SDK:
+<iframe width="560" height="315" src="https://www.youtube-nocookie.com/embed/3bSVKNKb_PY" title="Spaces intro" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>
 
-![/docs/assets/hub/new-space.gif](/docs/assets/hub/new-space.gif)
+**To get started**, simply click on [New Space](https://huggingface.co/new-space) in the top navigation menu, create a new repo of type `Space`, and pick your SDK.
 
-Under the hood, we store your code inside a git repository just as done for model and dataset repositories. Thanks to this, the same tools you're already used to (`git` and `git-lfs`) will also work for Spaces.
-
-Each time you commit, we deploy a containerized version of your code on our Infra. More details below!
-
-<!-- TODO(have someone record a Youtube demo of Spaces showcasing some cool apps already running, etc) -->
+Under the hood, Spaces stores your code inside a git repository, just like the model and dataset repositories. Thanks to this, the same tools you're already used to (`git` and `git-lfs`) also work for Spaces.
 
 ## Should I use Streamlit or Gradio?
 
-We recommend you try both as they're both really awesome! 😎
+We recommend you try both because they're really awesome! 😎
 
 Streamlit's documentation is at https://docs.streamlit.io/ and Gradio's doc is at https://gradio.app/getting_started.
 
@@ -78,26 +70,35 @@ We deploy a containerized version of your code on our Infra, each time you commi
 
 If your app needs any secret keys or tokens to run, you do not want to hardcode them inside your code! Instead, head over to the settings page of your Space repo, and you'll be able to input key/secret pairs.
 
-Those secrets will be exposed to your app using the [Streamlit Secrets](https://blog.streamlit.io/secrets-in-sharing-apps/) feature if it's a Streamlit app, or as env variables in other cases.
+Secrets will be exposed to your app using the [Streamlit Secrets](https://blog.streamlit.io/secrets-in-sharing-apps/) feature if it's a Streamlit app, or as environment variables in other cases.
 
-## Streamlit advanced features
-
-We support those Streamlit features transparently:
-
-- `st.experimental_get_query_params()` and `st.experimental_set_query_params(**parameter)` to manage app state in the url
-- if something doesn't work, please [reach out](#how-can-i-contact-you).
 
 ## I am having issues with Streamlit versions!
 
-The Streamlit version is not configured in the `requirements.txt` file, but in the README metadata config through the `sdk_version` setting. Note that we do not support all Streamlit versions, please refer to the [reference section](#reference) for more info on this.
+The Streamlit version is not configured in the `requirements.txt` file, but rather in the README metadata config through the `sdk_version` setting. Not all Streamlit versions are supported. Refer to the [reference section](#reference) for more information about which versions are supported.
 
-## How can I contact you?
+## Can I use my own HTML instead of Streamlit or Gradio?
 
-Feel free to ask question in the [Forum](https://discuss.huggingface.co/) if it's suitable for the community.
+Although we strongly encourage you to use Streamlit and Gradio, you can also use your own HTML
+code by defining `sdk: static` and having the HTML within an `index.html` file. Here are some examples:
 
-If you're interested in infra challenges, custom demos, GPU or something else, please reach out to us by sending an email to website at huggingface.co.
+* [Smarter NPC](https://huggingface.co/spaces/mishig/smarter_npc): Display a PlayCanvas project with an iframe.
+* [Huggingfab](https://huggingface.co/spaces/pierreant-p/huggingfab): Display a Sketchfab model in Spaces.
 
-You can also tag us [on Twitter](https://twitter.com/huggingface)!
+Please [get in touch](#how-can-i-contact-you) if you have an idea for cool static Spaces.
+
+
+## Building an organization card
+
+Create an organization card to help users learn more about what your organization is working on and how users can use your libraries, models, datasets, and Spaces. Build an organization card by creating a static README Space with HTML. As an example, take a look at the [Amazon](https://huggingface.co/spaces/amazon/README/blob/main/README.md) and [spaCy](https://huggingface.co/spaces/spacy/README/blob/main/README.md) organization cards.
+
+* https://huggingface.co/spaces/spacy/README/blob/main/README.md
+* https://huggingface.co/spaces/amazon/README/blob/main/README.md
+
+
+## Can I use Bokeh?
+
+Streamlit has built-in support for Bokeh with the `st.bokeh_chart` component.
 
 ## How should I link my Spaces demo in my GitHub repo?
 
@@ -157,7 +158,7 @@ Color for Thumbnail gradient (red, yellow, green, blue, indigo, purple, pink, gr
 Color for Thumbnail gradient (red, yellow, green, blue, indigo, purple, pink, gray)
 
 **`sdk`** : _string_  
-Can be either `gradio` or `streamlit`
+Can be either `gradio`, `streamlit` or `static`
 
 **`sdk_version`** : _string_  
 Only applicable for `streamlit` SDK. Currently available versions are :  
@@ -170,10 +171,9 @@ Path is relative to the root of the repository.
 **`pinned`** : _boolean_  
 Whether the Space stays on top of your list.
 
-
 ## How can I manage my app through Github
 
-You can keep your app in sync with your GitHub repository by leveraging GitHub Actions:
+Keep your app in sync with your GitHub repository with GitHub Actions:
 
 - We require Git LFS for files above 10MB so you may need to review your files if you don't want to use Git LFS. This includes your history. You can use handy tools such as [BFG Repo-Cleaner](https://rtyley.github.io/bfg-repo-cleaner/) to remove the large files from your history (keep a local copy of your repository for backup).
 - Set your GitHub repository and your Spaces app initially in sync: to add your Spaces app as an additional remote to your existing git repository, you can use the command `git remote add space https://huggingface.co/spaces/FULL_SPACE_NAME`. You can then force-push to sync everything for the first time: `git push --force space main`
@@ -224,6 +224,14 @@ jobs:
           filesizelimit: 10485760 # = 10MB, so we can sync to HF spaces
 
 ```
+
+## How can I contact you?
+
+Feel free to ask questions on the [forum](https://discuss.huggingface.co/) if it's suitable for the community.
+
+If you're interested in infra challenges, custom demos, GPUs, or something else, please reach out to us by sending an email to **website at huggingface.co**.
+
+You can also tag us [on Twitter](https://twitter.com/huggingface)!
 
 ## Changelog
 
