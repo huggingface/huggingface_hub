@@ -41,7 +41,7 @@ else:
     from typing_extensions import Literal
 
 
-REMOTE_FILEPATH_REGEX = re.compile(r"^\w[\w\/]*(\.\w+)?$")
+REMOTE_FILEPATH_REGEX = re.compile(r"^\w[\w\/\-]*(\.\w+)?$")
 # ^^ No trailing slash, no backslash, no spaces, no relative parts ("." or "..")
 #    Only word characters and an optional extension
 
@@ -590,13 +590,24 @@ class HfApi:
         self,
         repo_id: str,
         revision: Optional[str] = None,
+        repo_type: Optional[str] = None,
         token: Optional[str] = None,
         timeout: Optional[float] = None,
-    ) -> ModelInfo:
+    ) -> List[str]:
         """
         Get the list of files in a given repo.
         """
-        info = self.model_info(repo_id, revision=revision, token=token, timeout=timeout)
+        if repo_type is None:
+            info = self.model_info(
+                repo_id, revision=revision, token=token, timeout=timeout
+            )
+        elif repo_type == "dataset":
+            info = self.dataset_info(
+                repo_id, revision=revision, token=token, timeout=timeout
+            )
+        else:
+            raise ValueError("Spaces are not available yet.")
+
         return [f.rfilename for f in info.siblings]
 
     def list_repos_objs(
