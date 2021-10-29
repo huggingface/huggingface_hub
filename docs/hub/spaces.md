@@ -6,7 +6,7 @@ title: Documentation for Spaces
 
 ## What are Spaces?
 
-Spaces are a simple way to host ML demo apps directly on your profile or your organization’s  profile. This allows you to create your ML portfolio, showcase your projects at conferences or to stakeholders, and work collaboratively with the rest of the ecosystem.
+Spaces are a simple way to host ML demo apps directly on your profile or your organization’s  profile. This allows you to create your ML portfolio, showcase your projects at conferences or to stakeholders, and work collaboratively with other people in the ML ecosystem.
 
 We support two awesome SDKs that let you build cool apps in Python in a matter of minutes: **[Streamlit](https://streamlit.io/)** and **[Gradio](https://gradio.app/)**.
 
@@ -80,10 +80,12 @@ The Streamlit version is not configured in the `requirements.txt` file, but rath
 ## Can I use my own HTML instead of Streamlit or Gradio?
 
 Although we strongly encourage you to use Streamlit and Gradio, you can also use your own HTML
-code by defining `sdk: static` and having the HTML within the `README.md` file. Here are some examples:
+code by defining `sdk: static` and having the HTML within an `index.html` file. Here are some examples:
 
 * [Smarter NPC](https://huggingface.co/spaces/mishig/smarter_npc): Display a PlayCanvas project with an iframe.
 * [Huggingfab](https://huggingface.co/spaces/pierreant-p/huggingfab): Display a Sketchfab model in Spaces.
+
+Please [get in touch](#how-can-i-contact-you) if you have an idea for cool static Spaces.
 
 
 ## Building an organization card
