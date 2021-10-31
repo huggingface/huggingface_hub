@@ -735,6 +735,36 @@ class RepositoryTest(RepositoryCommonTest):
         repo.delete_tag("v4.6.0", remote="origin")
         self.assertFalse(repo.tag_exists("v4.6.0", remote="origin"))
 
+    def test_lfs_prune(self):
+        repo = Repository(
+            WORKING_REPO_DIR,
+            clone_from=f"{USER}/{REPO_NAME}",
+            use_auth_token=self._token,
+            git_user="ci",
+            git_email="ci@dummy.com",
+            revision="main",
+        )
+
+        with repo.commit("Committing LFS file"):
+            with open("file.bin", "w+") as f:
+                f.write("Random string 1")
+
+        with repo.commit("Committing LFS file"):
+            with open("file.bin", "w+") as f:
+                f.write("Random string 2")
+
+        root_directory = pathlib.Path(repo.local_dir) / ".git" / "lfs"
+        git_lfs_files_size = sum(
+            f.stat().st_size for f in root_directory.glob("**/*") if f.is_file()
+        )
+        repo.lfs_prune()
+        post_prune_git_lfs_files_size = sum(
+            f.stat().st_size for f in root_directory.glob("**/*") if f.is_file()
+        )
+
+        # Size of the directory holding LFS files was reduced
+        self.assertLess(post_prune_git_lfs_files_size, git_lfs_files_size)
+
 
 class RepositoryOfflineTest(RepositoryCommonTest):
     @classmethod
