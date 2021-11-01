@@ -7,7 +7,7 @@
 	import WidgetDropzone from "../../shared/WidgetDropzone/WidgetDropzone.svelte";
 	import WidgetOutputChart from "../../shared/WidgetOutputChart/WidgetOutputChart.svelte";
 	import WidgetWrapper from "../../shared/WidgetWrapper/WidgetWrapper.svelte";
-	import { getResponse } from "../../shared/helpers";
+	import { getResponse, getBlobFromUrl } from "../../shared/helpers";
 
 	export let apiToken: WidgetProps["apiToken"];
 	export let apiUrl: WidgetProps["apiUrl"];
@@ -135,8 +135,10 @@
 		highlightIndex = index;
 	}
 
-	function applyInputSample(sample: Record<string, any>) {
-		imgSrc = sample.src;
+	async function applyInputSample(sample: Record<string, any>) {
+		imgSrc = sample.image;
+		const blob = await getBlobFromUrl(imgSrc);
+		getOutput(blob);
 	}
 </script>
 
