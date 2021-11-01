@@ -40,11 +40,19 @@ export function updateUrl(obj: Record<string, string>) {
 }
 
 // Run through our own proxy to bypass CORS:
-export function proxify(url: string): string {
+function proxify(url: string): string {
 	return url.startsWith(`http://localhost`)
 		|| new URL(url).host === window.location.host
 		? url
 		: `https://widgets-cors-proxy.huggingface.co/proxy?url=${url}`;
+}
+
+// Get BLOB from a given URL after proxifying the URL
+export async function getBlobFromUrl(url: string): Promise<Blob>{
+	const proxiedUrl = proxify(url);
+	const res = await fetch(proxiedUrl);
+	const blob = await res.blob();
+	return blob;
 }
 
 async function callApi(

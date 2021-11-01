@@ -7,7 +7,7 @@
 	import WidgetRecorder from "../../shared/WidgetRecorder/WidgetRecorder.svelte";
 	import WidgetSubmitBtn from "../../shared/WidgetSubmitBtn/WidgetSubmitBtn.svelte";
 	import WidgetWrapper from "../../shared/WidgetWrapper/WidgetWrapper.svelte";
-	import { getResponse, proxify } from "../../shared/helpers";
+	import { getResponse, getBlobFromUrl } from "../../shared/helpers";
 
 	export let apiToken: WidgetProps["apiToken"];
 	export let apiUrl: WidgetProps["apiUrl"];
@@ -78,9 +78,7 @@
 		}
 
 		if (!file && selectedSampleUrl) {
-			const proxiedUrl = proxify(selectedSampleUrl);
-			const res = await fetch(proxiedUrl);
-			file = await res.blob();
+			file = await getBlobFromUrl(selectedSampleUrl);
 		}
 		const requestBody = { file };
 
@@ -141,7 +139,7 @@
 	}
 
 	function applyInputSample(sample: Record<string, any>) {
-		fileUrl = sample.src;
+		selectedSampleUrl = sample.src;
 	}
 </script>
 
