@@ -88,7 +88,7 @@
 	}
 
 	async function applyInputSample(sample: Record<string, any>) {
-		imgSrc = sample.image;
+		imgSrc = sample.src;
 		const blob = await getBlobFromUrl(imgSrc);
 		getOutput(blob);
 	}
