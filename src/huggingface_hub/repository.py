@@ -960,7 +960,7 @@ class Repository:
                 Setting this to `False` will return an `CommandInProgress` object
                 which has an `is_done` property. This property will be set to
                 `True` when the push is finished.
-            auto_lfs_prune (`bool`, defaults to `True`):
+            auto_lfs_prune (`bool`, defaults to `False`):
                 Whether to automatically prune files once they have been pushed to the remote.
         """
         command = "git push"
@@ -1221,7 +1221,7 @@ class Repository:
             clean_ok (`bool`, `optional`, defaults to `False`):
                 If True, this function will return None if the repo is untouched.
                 Default behavior is to fail because the git command fails.
-            auto_lfs_prune (`bool`, defaults to `True`):
+            auto_lfs_prune (`bool`, defaults to `False`):
                 Whether to automatically prune files once they have been pushed to the remote.
         """
         if clean_ok and self.is_repo_clean():
