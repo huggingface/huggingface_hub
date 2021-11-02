@@ -2,7 +2,7 @@
 	import type { WidgetProps, ImageSegment } from "../../shared/types";
 	import { onMount } from "svelte";
 	import { COLORS } from "../../shared/consts";
-	import { clamp, mod } from "../../shared/ViewUtils";
+	import { clamp, mod, hexToRgb } from "../../shared/ViewUtils";
 	import { getResponse } from "../../shared/helpers";
 
 	import Canvas from "./Canvas.svelte";
@@ -17,10 +17,11 @@
 	export let noTitle: WidgetProps["noTitle"];
 
 	const maskOpacity = Math.floor(255 * 0.6);
-	const colorToRgb = COLORS.reduce(
-		(acc, cur) => ({ ...acc, [cur.color]: cur }),
-		{}
-	);
+	const colorToRgb = COLORS.reduce((acc, clr) => {
+		const [r, g, b]: number[] = hexToRgb(clr.hex);
+		const clrWithRgb = { ...clr, r, g, b };
+		return { ...acc, [clr.color]: clrWithRgb };
+	}, {});
 
 	let computeTime = "";
 	let error: string = "";
@@ -192,7 +193,7 @@
 		window.createImageBitmap = async function (
 			data: ImageData
 		): Promise<ImageBitmap> {
-			return new Promise((resolve, reject) => {
+			return new Promise((resolve, _) => {
 				const canvas = document.createElement("canvas");
 				const ctx = canvas.getContext("2d");
 				canvas.width = data.width;
