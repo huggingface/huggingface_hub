@@ -108,21 +108,21 @@ Create a Hugging Face Estimator to handle end-to-end SageMaker training and depl
 from sagemaker.huggingface import HuggingFace
 
 hyperparameters={
-    "epochs": 1,
-    "train_batch_size": 32,
-    "model_name":"distilbert-base-uncased"
+    "epochs": 1,                            # number of training epochs
+    "train_batch_size": 32,                 # training batch size
+    "model_name":"distilbert-base-uncased"  # name of pretrained model
 }
 
 huggingface_estimator = HuggingFace(
-    entry_point="train.py",
-    source_dir="./scripts",
-    instance_type="ml.p3.2xlarge",
-    instance_count=1,
-    role=role,
-    transformers_version="4.6",
-    pytorch_version="1.7",
-    py_version="py36",
-    hyperparameters=hyperparameters
+    entry_point="train.py",                 # fine-tuning script to use in training job
+    source_dir="./scripts",                 # directory where fine-tuning script is stored
+    instance_type="ml.p3.2xlarge",          # instance type
+    instance_count=1,                       # number of instances
+    role=role,                              # IAM role used in training job to acccess AWS resources (S3)
+    transformers_version="4.6",             # Transformers version
+    pytorch_version="1.7",                  # PyTorch version
+    py_version="py36",                      # Python version
+    hyperparameters=hyperparameters         # hyperparameters to use in training job
 )
 ```
 
