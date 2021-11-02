@@ -5,7 +5,7 @@
 	export let applyInputSample: (sample: Record<string, any>) => void;
 	export let previewInputSample: (sample: Record<string, any>) => void;
 
-	let isOptionsVisible = true;
+	let isOptionsVisible = false;
 	let title = "Examples";
 
 	function _applyInputSample(idx: number) {
