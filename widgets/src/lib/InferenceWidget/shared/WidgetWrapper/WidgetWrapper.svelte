@@ -20,8 +20,10 @@
 	};
 	export let noTitle = false;
 	export let outputJson: string;
-	export let applyInputSample: (sample: Record<string, any>[]) => void =
-		([]) => {};
+	export let applyInputSample: (sample: Record<string, any>) => void =
+		({}) => {};
+	export let previewInputSample: (sample: Record<string, any>) => void =
+		({}) => {};
 
 	let isMaximized = false;
 	let modelStatus: LoadingStatus = "unknown";
@@ -60,7 +62,11 @@
 		{/if}
 		{#if inputSamples.length > 1}
 			<!-- Show samples selector when there are more than one sample -->
-			<WidgetInputSamples {inputSamples} {applyInputSample} />
+			<WidgetInputSamples
+				{inputSamples}
+				{applyInputSample}
+				{previewInputSample}
+			/>
 		{/if}
 	</WidgetHeader>
 	<slot name="top" />

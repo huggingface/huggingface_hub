@@ -10,7 +10,7 @@ text-cyan-400
 text-lime-400
  -->
 <script>
-	import type { Box } from "../../shared/types";
+	import type { DetectedObject } from "../../shared/types";
 
 	import { afterUpdate } from "svelte";
 
@@ -29,7 +29,7 @@ text-lime-400
 	export let classNames = "";
 	export let highlightIndex = -1;
 	export let imgSrc: string;
-	export let output: Array<{ box: Box; color: string }> = [];
+	export let output: DetectedObject[] = [];
 	export let mouseover: (index: number) => void = () => {};
 	export let mouseout: () => void = () => {};
 

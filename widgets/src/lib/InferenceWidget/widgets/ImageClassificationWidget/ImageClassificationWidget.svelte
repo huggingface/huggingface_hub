@@ -92,6 +92,12 @@
 		const blob = await getBlobFromUrl(imgSrc);
 		getOutput(blob);
 	}
+
+	function previewInputSample(sample: Record<string, any>) {
+		imgSrc = sample.src;
+		output = [];
+		outputJson = "";
+	}
 </script>
 
 <WidgetWrapper
@@ -103,6 +109,7 @@
 	{modelLoading}
 	{noTitle}
 	{outputJson}
+	{previewInputSample}
 >
 	<svelte:fragment slot="top">
 		<form>

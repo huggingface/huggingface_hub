@@ -1,5 +1,5 @@
 <script>
-	import type { WidgetProps, Box } from "../../shared/types";
+	import type { WidgetProps, DetectedObject } from "../../shared/types";
 	import { mod } from "../../shared/ViewUtils";
 
 	import BoundingBoxes from "./SvgBoundingBoxes.svelte";
@@ -23,11 +23,7 @@
 		isLoading: false,
 		estimatedTime: 0,
 	};
-	let output: Array<{
-		label: string;
-		score: number;
-		box: Box;
-	}> = [];
+	let output: DetectedObject[] = [];
 	let outputJson: string;
 	let highlightIndex = -1;
 
@@ -41,12 +37,6 @@
 		"cyan",
 		"lime",
 	] as const;
-
-	$: outputWithColor = output.map((val, index) => {
-		const hash = mod(index, COLORS.length);
-		const color = COLORS[hash];
-		return { ...val, color };
-	});
 
 	function onSelectFile(file: File | Blob) {
 		imgSrc = URL.createObjectURL(file);
@@ -84,6 +74,7 @@
 		if (res.status === "success") {
 			computeTime = res.computeTime;
 			output = res.output;
+			output = output.map((o, idx) => addOutputColor(o, idx));
 			outputJson = res.outputJson;
 			if (output.length === 0) {
 				warning = "No object was detected";
@@ -99,9 +90,13 @@
 		}
 	}
 
-	function isValidOutput(
-		arg: any
-	): arg is { label: string; score: number; box: Box }[] {
+	function addOutputColor(detObj: DetectedObject, idx: number) {
+		const hash = mod(idx, COLORS.length);
+		const color = COLORS[hash];
+		return { ...detObj, color };
+	}
+
+	function isValidOutput(arg: any): arg is DetectedObject[] {
 		return (
 			Array.isArray(arg) &&
 			arg.every(
@@ -116,9 +111,7 @@
 		);
 	}
 
-	function parseOutput(
-		body: unknown
-	): Array<{ label: string; score: number; box: Box }> {
+	function parseOutput(body: unknown): DetectedObject[] {
 		if (isValidOutput(body)) {
 			return body;
 		}
@@ -140,6 +133,12 @@
 		const blob = await getBlobFromUrl(imgSrc);
 		getOutput(blob);
 	}
+
+	function previewInputSample(sample: Record<string, any>) {
+		imgSrc = sample.src;
+		output = [];
+		outputJson = "";
+	}
 </script>
 
 <WidgetWrapper
@@ -151,6 +150,7 @@
 	{modelLoading}
 	{noTitle}
 	{outputJson}
+	{previewInputSample}
 >
 	<svelte:fragment slot="top">
 		<form>
@@ -166,7 +166,7 @@
 						{imgSrc}
 						{mouseover}
 						{mouseout}
-						output={outputWithColor}
+						{output}
 						{highlightIndex}
 					/>
 				{/if}
@@ -178,7 +178,7 @@
 					{imgSrc}
 					{mouseover}
 					{mouseout}
-					output={outputWithColor}
+					{output}
 					{highlightIndex}
 				/>
 			{/if}
@@ -197,7 +197,7 @@
 	<svelte:fragment slot="bottom">
 		<WidgetOutputChart
 			classNames="mt-4"
-			output={outputWithColor}
+			{output}
 			{highlightIndex}
 			{mouseover}
 			{mouseout}
