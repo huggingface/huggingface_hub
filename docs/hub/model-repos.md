@@ -83,14 +83,24 @@ widget:
 - text: "Jens Peter Hansen kommer fra Danmark"
 ```
 
-It is also possible to specify non-text example inputs in the model card metadata. For example, allow users to choose from two sample audio files for automatic speech recognition tasks by:
+It is also possible to specify multiple example inputs & their titles that will be used in the examples picker drop-down of the widget.
 
 ```yaml
 widget:
-- label: Librispeech sample 1
-  src: https://cdn-media.huggingface.co/speech_samples/sample1.flac
-- label: Librispeech sample 2
-  src: https://cdn-media.huggingface.co/speech_samples/sample2.flac
+- text: "Paris is the <mask> of France."
+  example_title: "Geography"
+- text: "The goal of life is <mask>."
+  example_title: "Philosophy"
+```
+
+Moreover, you can specify non-text example inputs in the model card metadata. Find [here](https://github.com/huggingface/huggingface_hub/blob/main/docs/hub/input-examples.md) an exhaustive list of input examples formats for all widget types. For vision & audio widget types, you can provide example inputs under key `src` rather than `text`. For example, allow users to choose from two sample audio files for automatic speech recognition tasks by:
+
+```yaml
+widget:
+- src: https://cdn-media.huggingface.co/speech_samples/sample1.flac
+  example_title: Librispeech sample 1
+- src: https://cdn-media.huggingface.co/speech_samples/sample2.flac
+  example_title: Librispeech sample 2
 ```
 
 We provide example inputs for some languages and most widget types in [the DefaultWidget.ts file](https://github.com/huggingface/huggingface_hub/blob/master/widgets/src/lib/interfaces/DefaultWidget.ts). If some examples are missing, we welcome PRs from the community to add them!
