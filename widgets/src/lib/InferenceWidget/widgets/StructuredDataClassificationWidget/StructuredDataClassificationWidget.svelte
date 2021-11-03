@@ -184,8 +184,13 @@
 		}, {});
 	}
 
+	function previewInputSample(sample: Record<string, any>) {
+		table = sample.structuredData;
+	}
+
 	function applyInputSample(sample: Record<string, any>) {
 		table = sample.structuredData;
+		getOutput();
 	}
 </script>
 
@@ -198,6 +203,7 @@
 	{modelLoading}
 	{noTitle}
 	{outputJson}
+	{previewInputSample}
 >
 	<svelte:fragment slot="top">
 		<form>

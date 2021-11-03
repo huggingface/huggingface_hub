@@ -3,18 +3,16 @@
 
 	import WidgetAudioTrack from "../../shared/WidgetAudioTrack/WidgetAudioTrack.svelte";
 	import WidgetFileInput from "../../shared/WidgetFileInput/WidgetFileInput.svelte";
-	import WidgetRadio from "../../shared/WidgetRadio/WidgetRadio.svelte";
 	import WidgetRecorder from "../../shared/WidgetRecorder/WidgetRecorder.svelte";
 	import WidgetSubmitBtn from "../../shared/WidgetSubmitBtn/WidgetSubmitBtn.svelte";
 	import WidgetWrapper from "../../shared/WidgetWrapper/WidgetWrapper.svelte";
-	import { getResponse, proxify } from "../../shared/helpers";
+	import { getResponse, getBlobFromUrl } from "../../shared/helpers";
 
 	export let apiToken: WidgetProps["apiToken"];
 	export let apiUrl: WidgetProps["apiUrl"];
 	export let model: WidgetProps["model"];
 	export let noTitle: WidgetProps["noTitle"];
 
-	let areSamplesVisible = true;
 	let computeTime = "";
 	let error: string = "";
 	let file: Blob | File | null = null;
@@ -29,6 +27,7 @@
 	let output: AudioItem[] = [];
 	let outputJson: string;
 	let selectedSampleUrl = "";
+	let shouldAudioAutoplay = true;
 
 	interface AudioItem {
 		blob: string;
@@ -37,14 +36,7 @@
 		"content-type": string;
 	}
 
-	function onChangeRadio() {
-		file = null;
-		filename = "";
-		fileUrl = "";
-	}
-
 	function onRecordStart() {
-		areSamplesVisible = false;
 		file = null;
 		filename = "";
 		fileUrl = "";
@@ -56,7 +48,7 @@
 	}
 
 	function onSelectFile(updatedFile: Blob | File) {
-		areSamplesVisible = false;
+		shouldAudioAutoplay = false;
 		isRecording = false;
 		selectedSampleUrl = "";
 		if (updatedFile.size !== 0) {
@@ -78,9 +70,7 @@
 		}
 
 		if (!file && selectedSampleUrl) {
-			const proxiedUrl = proxify(selectedSampleUrl);
-			const res = await fetch(proxiedUrl);
-			file = await res.blob();
+			file = await getBlobFromUrl(selectedSampleUrl);
 		}
 		const requestBody = { file };
 
@@ -141,7 +131,19 @@
 	}
 
 	function applyInputSample(sample: Record<string, any>) {
+		shouldAudioAutoplay = false;
+		filename = sample.example_title;
 		fileUrl = sample.src;
+		selectedSampleUrl = sample.src;
+		getOutput();
+	}
+
+	function previewInputSample(sample: Record<string, any>) {
+		shouldAudioAutoplay = true;
+		filename = sample.example_title;
+		fileUrl = sample.src;
+		output = [];
+		outputJson = "";
 	}
 </script>
 
@@ -154,6 +156,7 @@
 	{modelLoading}
 	{noTitle}
 	{outputJson}
+	{previewInputSample}
 >
 	<svelte:fragment slot="top">
 		<form>
@@ -172,28 +175,12 @@
 				/>
 			</div>
 			{#if fileUrl}
-				<WidgetAudioTrack classNames="mt-3" label={filename} src={fileUrl} />
-			{/if}
-			{#if model.widgetData}
-				<details
-					open={areSamplesVisible}
-					class="text-gray-500 text-sm mt-4 mb-2"
-				>
-					<summary class="mb-2">Or pick a sample audio file</summary>
-					<div class="mt-4 space-y-5">
-						{#each model.widgetData as widgetData}
-							<WidgetAudioTrack classNames="mt-3" src={String(widgetData.src)}>
-								<WidgetRadio
-									bind:group={selectedSampleUrl}
-									classNames="mb-1.5"
-									label={String(widgetData.label)}
-									onChange={onChangeRadio}
-									value={String(widgetData.src)}
-								/>
-							</WidgetAudioTrack>
-						{/each}
-					</div>
-				</details>
+				<WidgetAudioTrack
+					classNames="mt-3"
+					autoplay={shouldAudioAutoplay}
+					label={filename}
+					src={fileUrl}
+				/>
 			{/if}
 			<WidgetSubmitBtn
 				classNames="mt-2"

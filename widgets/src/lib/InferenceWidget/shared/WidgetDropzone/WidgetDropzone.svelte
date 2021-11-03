@@ -1,6 +1,6 @@
 <script>
 	import IconSpin from "../../../Icons/IconSpin.svelte";
-	import { proxify } from "../../shared/helpers";
+	import { getBlobFromUrl } from "../../shared/helpers";
 
 	export let accept = "image/*";
 	export let classNames = "";
@@ -38,9 +38,7 @@
 			const url = await new Promise<string>((resolve) =>
 				uriItem.getAsString((s) => resolve(s))
 			);
-			const proxiedUrl = proxify(url);
-			const res = await fetch(proxiedUrl);
-			const file = await res.blob();
+			const file = await getBlobFromUrl(url);
 
 			onSelectFile(file);
 		} else if (fileItem) {

@@ -228,8 +228,13 @@
 		return a.type === b.type && a.start === b.start && a.end === b.end;
 	}
 
+	function previewInputSample(sample: Record<string, any>) {
+		text = sample.text;
+	}
+
 	function applyInputSample(sample: Record<string, any>) {
 		text = sample.text;
+		getOutput();
 	}
 </script>
 
@@ -242,6 +247,7 @@
 	{modelLoading}
 	{noTitle}
 	{outputJson}
+	{previewInputSample}
 >
 	<svelte:fragment slot="top">
 		<form>

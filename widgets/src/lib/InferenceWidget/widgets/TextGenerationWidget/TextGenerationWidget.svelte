@@ -121,8 +121,13 @@
 		);
 	}
 
+	function previewInputSample(sample: Record<string, any>) {
+		text = sample.text;
+	}
+
 	function applyInputSample(sample: Record<string, any>) {
 		text = sample.text;
+		getOutput();
 	}
 </script>
 
@@ -135,6 +140,7 @@
 	{modelLoading}
 	{noTitle}
 	{outputJson}
+	{previewInputSample}
 >
 	<svelte:fragment slot="top">
 		<form class="space-y-2">

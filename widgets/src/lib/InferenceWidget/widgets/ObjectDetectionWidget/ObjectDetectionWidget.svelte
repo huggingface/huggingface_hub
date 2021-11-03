@@ -8,7 +8,7 @@
 	import WidgetDropzone from "../../shared/WidgetDropzone/WidgetDropzone.svelte";
 	import WidgetOutputChart from "../../shared/WidgetOutputChart/WidgetOutputChart.svelte";
 	import WidgetWrapper from "../../shared/WidgetWrapper/WidgetWrapper.svelte";
-	import { getResponse } from "../../shared/helpers";
+	import { getResponse, getBlobFromUrl } from "../../shared/helpers";
 
 	export let apiToken: WidgetProps["apiToken"];
 	export let apiUrl: WidgetProps["apiUrl"];
@@ -118,8 +118,16 @@
 		highlightIndex = index;
 	}
 
-	function applyInputSample(sample: Record<string, any>) {
+	async function applyInputSample(sample: Record<string, any>) {
 		imgSrc = sample.src;
+		const blob = await getBlobFromUrl(imgSrc);
+		getOutput(blob);
+	}
+
+	function previewInputSample(sample: Record<string, any>) {
+		imgSrc = sample.src;
+		output = [];
+		outputJson = "";
 	}
 </script>
 
@@ -132,6 +140,7 @@
 	{modelLoading}
 	{noTitle}
 	{outputJson}
+	{previewInputSample}
 >
 	<svelte:fragment slot="top">
 		<form>
