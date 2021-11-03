@@ -37,7 +37,7 @@
 
 		const ctx = canvas?.getContext("2d");
 
-		if (ctx && maskToDraw.length) {
+		if (ctx) {
 			const duration = performance.now() - startTs;
 			ctx.globalAlpha = Math.min(duration, animDuration) / animDuration;
 			ctx.drawImage(imgEl, 0, 0, width, height);
