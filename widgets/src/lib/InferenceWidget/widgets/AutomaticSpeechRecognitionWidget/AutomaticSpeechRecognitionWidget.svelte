@@ -118,6 +118,7 @@
 		filename = sample.example_title;
 		fileUrl = sample.src;
 		selectedSampleUrl = sample.src;
+		getOutput();
 	}
 
 	function previewInputSample(sample: Record<string, any>) {
