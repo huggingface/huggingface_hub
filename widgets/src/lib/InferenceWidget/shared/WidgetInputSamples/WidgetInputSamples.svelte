@@ -52,7 +52,7 @@
 
 <svelte:window on:click={onClick} />
 
-<div class="relative z-10" bind:this={containerEl}>
+<div class="relative z-10 ml-2" bind:this={containerEl}>
 	<div
 		class="no-hover:hidden inline-flex justify-between w-32 lg:w-44 rounded-md border border-gray-100 px-4 py-1"
 		on:click={toggleOptionsVisibility}
