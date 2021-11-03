@@ -155,9 +155,15 @@
 		);
 	}
 
+	function previewInputSample(sample: Record<string, any>) {
+		query = sample.text;
+		table = sample.table;
+	}
+
 	function applyInputSample(sample: Record<string, any>) {
 		query = sample.text;
 		table = sample.table;
+		getOutput();
 	}
 </script>
 
@@ -170,6 +176,7 @@
 	{modelLoading}
 	{noTitle}
 	{outputJson}
+	{previewInputSample}
 >
 	<svelte:fragment slot="top">
 		<form>

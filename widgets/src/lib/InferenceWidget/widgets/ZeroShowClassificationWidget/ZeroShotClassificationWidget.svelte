@@ -149,10 +149,17 @@
 		);
 	}
 
+	function previewInputSample(sample: Record<string, any>) {
+		candidateLabels = sample.candidate_labels;
+		multiClass = sample.multi_class;
+		text = sample.text;
+	}
+
 	function applyInputSample(sample: Record<string, any>) {
 		candidateLabels = sample.candidate_labels;
 		multiClass = sample.multi_class;
 		text = sample.text;
+		getOutput();
 	}
 </script>
 
@@ -165,6 +172,7 @@
 	{modelLoading}
 	{noTitle}
 	{outputJson}
+	{previewInputSample}
 >
 	<svelte:fragment slot="top">
 		<form class="flex flex-col space-y-2">

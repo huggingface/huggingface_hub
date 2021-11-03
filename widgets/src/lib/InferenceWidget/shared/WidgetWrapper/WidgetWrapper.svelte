@@ -20,8 +20,10 @@
 	};
 	export let noTitle = false;
 	export let outputJson: string;
-	export let applyInputSample: (sample: Record<string, any>[]) => void =
-		([]) => {};
+	export let applyInputSample: (sample: Record<string, any>) => void =
+		({}) => {};
+	export let previewInputSample: (sample: Record<string, any>) => void =
+		({}) => {};
 
 	let isMaximized = false;
 	let modelStatus: LoadingStatus = "unknown";
@@ -55,13 +57,19 @@
 		</button>
 	{/if}
 	<WidgetHeader {noTitle} pipeline={model.pipeline_tag}>
-		{#if model.pipeline_tag === "fill-mask"}
-			Mask token: <code>{model.mask_token}</code>
-		{/if}
-		{#if inputSamples.length > 1}
-			<!-- Show samples selector when there are more than one sample -->
-			<WidgetInputSamples {inputSamples} {applyInputSample} />
-		{/if}
+		<div class="flex items-center">
+			{#if model.pipeline_tag === "fill-mask"}
+				Mask token: <code>{model.mask_token}</code>
+			{/if}
+			{#if inputSamples.length > 1}
+				<!-- Show samples selector when there are more than one sample -->
+				<WidgetInputSamples
+					{inputSamples}
+					{applyInputSample}
+					{previewInputSample}
+				/>
+			{/if}
+		</div>
 	</WidgetHeader>
 	<slot name="top" />
 	<WidgetInfo {computeTime} {error} {modelStatus} />

@@ -5,7 +5,7 @@
 	import WidgetDropzone from "../../shared/WidgetDropzone/WidgetDropzone.svelte";
 	import WidgetOutputChart from "../../shared/WidgetOutputChart/WidgetOutputChart.svelte";
 	import WidgetWrapper from "../../shared/WidgetWrapper/WidgetWrapper.svelte";
-	import { getResponse } from "../../shared/helpers";
+	import { getResponse, getBlobFromUrl } from "../../shared/helpers";
 
 	export let apiToken: WidgetProps["apiToken"];
 	export let apiUrl: WidgetProps["apiUrl"];
@@ -87,8 +87,16 @@
 		);
 	}
 
-	function applyInputSample(sample: Record<string, any>) {
+	async function applyInputSample(sample: Record<string, any>) {
 		imgSrc = sample.src;
+		const blob = await getBlobFromUrl(imgSrc);
+		getOutput(blob);
+	}
+
+	function previewInputSample(sample: Record<string, any>) {
+		imgSrc = sample.src;
+		output = [];
+		outputJson = "";
 	}
 </script>
 
@@ -101,6 +109,7 @@
 	{modelLoading}
 	{noTitle}
 	{outputJson}
+	{previewInputSample}
 >
 	<svelte:fragment slot="top">
 		<form>
@@ -122,7 +131,9 @@
 			<!-- Better UX for mobile/table through CSS breakpoints -->
 			{#if imgSrc}
 				{#if imgSrc}
-					<div class="mb-2 flex justify-center bg-gray-50 with-hover:hidden">
+					<div
+						class="mb-2 flex justify-center bg-gray-50 dark:bg-gray-900 with-hover:hidden"
+					>
 						<img src={imgSrc} class="pointer-events-none max-h-44" alt="" />
 					</div>
 				{/if}
