@@ -3,7 +3,7 @@
 	import { onMount } from "svelte";
 	import { COLORS } from "../../shared/consts";
 	import { clamp, mod, hexToRgb } from "../../shared/ViewUtils";
-	import { getResponse } from "../../shared/helpers";
+	import { getResponse, getBlobFromUrl } from "../../shared/helpers";
 
 	import Canvas from "./Canvas.svelte";
 	import WidgetFileInput from "../../shared/WidgetFileInput/WidgetFileInput.svelte";
@@ -209,6 +209,18 @@
 		};
 	}
 
+	async function applyInputSample(sample: Record<string, any>) {
+		imgSrc = sample.src;
+		const blob = await getBlobFromUrl(imgSrc);
+		getOutput(blob);
+	}
+
+	function previewInputSample(sample: Record<string, any>) {
+		imgSrc = sample.src;
+		output = [];
+		outputJson = "";
+	}
+
 	onMount(() => {
 		if (typeof createImageBitmap === "undefined") {
 			polyfillCreateImageBitmap();
@@ -218,12 +230,14 @@
 
 <WidgetWrapper
 	{apiUrl}
+	{applyInputSample}
 	{computeTime}
 	{error}
 	{model}
 	{modelLoading}
 	{noTitle}
 	{outputJson}
+	{previewInputSample}
 >
 	<svelte:fragment slot="top">
 		<form>
