@@ -6,44 +6,51 @@ title: Hugging Face on Amazon SageMaker
 
 ![cover](/docs/assets/sagemaker/cover.png)
 
+## Deep Learning Containers
 
-Earlier this year [we announced a strategic collaboration with Amazon](https://huggingface.co/blog/the-partnership-amazon-sagemaker-and-hugging-face) to make it easier for companies to use Hugging Face in SageMaker, and ship cutting-edge Machine Learning features faster. We introduced new Hugging Face Deep Learning Containers (DLCs) to[ train Hugging Face Transformer models in Amazon SageMaker](https://huggingface.co/transformers/sagemaker.html#getting-started-train-a-transformers-model).
+Deep Learning Containers (DLCs) are Docker images pre-installed with deep learning frameworks and libraries such as 🤗 Transformers, 🤗 Datasets, and 🤗 Tokenizers. The DLCs allow you to start training models immediately, skipping the complicated process of building and optimizing your training environments from scratch. Our DLCs are thoroughly tested and optimized for deep learning environments, requiring no configuration or maintenance on your part. In particular, the Hugging Face Inference DLC comes with a pre-written serving stack which drastically lowers the technical bar of deep learning serving.
 
+Our DLCs are available everywhere [Amazon SageMaker](https://aws.amazon.com/sagemaker/) is [available](https://aws.amazon.com/about-aws/global-infrastructure/regional-product-services/). While it is possible to use the DLCs without the SageMaker Python SDK, there are many advantages to using SageMaker to train your model:
 
-## Features & Benefits 🔥
+- Cost-effective: Training instances are only live for the duration of your job. Once your job is complete, the training cluster stops, and you won't be billed anymore. SageMaker also supports [Spot instances]((https://docs.aws.amazon.com/sagemaker/latest/dg/model-managed-spot-training.html)), which can reduce costs up to 90%.
+- Built-in automation: SageMaker automatically stores training metadata and logs in a serverless managed metastore and fully manages I/O operations with S3 for your datasets, checkpoints, and model artifacts.
+- Multiple security mechanisms: SageMaker offers [encryption at rest](https://docs.aws.amazon.com/sagemaker/latest/dg/encryption-at-rest-nbi.html), [in transit](https://docs.aws.amazon.com/sagemaker/latest/dg/encryption-in-transit.html), [Virtual Private Cloud](https://docs.aws.amazon.com/sagemaker/latest/dg/interface-vpc-endpoint.html) connectivity, and [Identity and Access Management](https://docs.aws.amazon.com/sagemaker/latest/dg/security_iam_service-with-iam.html) to secure your data and code.
 
-### One Command is All you Need
+Hugging Face DLCs are open source and licensed under Apache 2.0. Feel free to reach out on our [community forum](https://discuss.huggingface.co/c/sagemaker/17) if you have any questions. For premium support, our [Expert Acceleration Program](https://huggingface.co/support) gives you direct dedicated support from our team.
 
-With the new Hugging Face Deep Learning Containers available in Amazon SageMaker, training <!-- and deploying -->
-cutting-edge Transformers-based NLP models has never been simpler. There are variants specially optimized for TensorFlow and PyTorch, for single-GPU, single-node multi-GPU and multi-node clusters.
+## Features & benefits 🔥
 
-### Accelerating Machine Learning from Science to Production
+Hugging Face Deep DLCs make it easier than ever to train Transformer models in SageMaker. Here is why you should consider using Hugging Face DLCs to train and deploy your next machine learning models:
 
-In addition to Hugging Face DLCs, we created a first-class Hugging Face extension to the SageMaker Python-sdk to accelerate data science teams, reducing the time required to set up and run experiments from days to minutes.
+**One command is all you need**
 
-You can use the Hugging Face DLCs with the Automatic Model Tuning capability of Amazon SageMaker, in order to automatically optimize your training hyperparameters and quickly increase the accuracy of your models.
+With the new Hugging Face DLCs, train cutting-edge Transformers-based NLP models in a single line of code. Choose from multiple DLC variants, each one optimized for TensorFlow and PyTorch, single-GPU, single-node multi-GPU, and multi-node clusters.
 
-You can deploy your trained models for inference with just one more line of code, or select any of the 10,000+ publicly available models from the Model Hub, and deploy them with Amazon SageMaker.
+**Accelerate machine learning from science to production**
 
+In addition to Hugging Face DLCs, we created a first-class Hugging Face extension for the SageMaker Python SDK to accelerate data science teams, reducing the time required to set up and run experiments from days to minutes.
 
-Thanks to the SageMaker Studio web-based Integrated Development Environment (IDE), you can easily track and compare your experiments and your training artifacts.
+You can use the Hugging Face DLCs with SageMaker's automatic model tuning to optimize your training hyperparameters and increase the accuracy of your models.
 
-### Built-in Performance
+Deploy your trained models for inference with just one more line of code or select any of the 10,000+ publicly available models from the [model Hub](https://huggingface.co/models) and deploy them with SageMaker.
 
-With the Hugging Face DLCs, SageMaker customers will benefit from built-in performance optimizations for PyTorch or TensorFlow, to train NLP models faster, and with the flexibility to choose the training<!-- inference --> infrastructure with the best price/performance ratio for your workload.
+Easily track and compare your experiments and training artifacts in SageMaker Studio's web-based integrated development environment (IDE).
 
-The Hugging Face Training DLCs are fully integrated with the SageMaker distributed training libraries, to train models faster than was ever possible before, using the latest generation of instances available on Amazon EC2.
+**Built-in performance**
 
-The Hugging Face Inference DLCs provide you with production-ready endpoints that scale easily within your AWS environment, with built-in monitoring and a ton of enterprise features. 
+Hugging Face DLCs feature built-in performance optimizations for PyTorch and TensorFlow to train NLP models faster. The DLCs also give you the flexibility to choose a training infrastructure that best aligns with the price/performance ratio for your workload.
 
+The Hugging Face Training DLCs are fully integrated with SageMaker distributed training libraries to train models faster than ever, using the latest generation of instances available on Amazon Elastic Compute Cloud.
+
+Hugging Face Inference DLCs provide you with production-ready endpoints that scale quickly with your AWS environment, built-in monitoring, and a ton of enterprise features. 
 
 ---
 
 ## Resources, Documentation & Samples 📄
 
-Below you can find all the important resources to all published blog posts, videos, documentation, and sample Notebooks/scripts.
+Take a look at our published blog posts, videos, documentation, sample notebooks and scripts for additional help and more context about Hugging Face DLCs on SageMaker.
 
-### Blog/Video
+### Blogs and videos
 
 - [AWS: Embracing natural language processing with Hugging Face](https://aws.amazon.com/de/blogs/opensource/embracing-natural-language-processing-with-hugging-face/)
 - [Deploy Hugging Face models easily with Amazon SageMaker](https://huggingface.co/blog/deploy-hugging-face-models-easily-with-amazon-sagemaker)
@@ -65,7 +72,7 @@ Below you can find all the important resources to all published blog posts, vide
 - [SageMaker's Distributed Data Parallel Library](https://docs.aws.amazon.com/sagemaker/latest/dg/data-parallel.html)
 - [SageMaker's Distributed Model Parallel Library](https://docs.aws.amazon.com/sagemaker/latest/dg/model-parallel.html)
 
-### Sample Notebooks
+### Sample notebooks
 
 - [all Notebooks](https://github.com/huggingface/notebooks/tree/master/sagemaker)
 - [Getting Started Pytorch](https://github.com/huggingface/notebooks/blob/master/sagemaker/01_getting_started_pytorch/sagemaker-notebook.ipynb)
@@ -79,25 +86,3 @@ Below you can find all the important resources to all published blog posts, vide
 - [Image Classification with Vision Transformer](https://github.com/huggingface/notebooks/blob/master/sagemaker/09_image_classification_vision_transformer/sagemaker-notebook.ipynb)
 - [Deploy one of the 10 000+ Hugging Face Transformers to Amazon SageMaker for Inference](https://github.com/huggingface/notebooks/blob/master/sagemaker/11_deploy_model_from_hf_hub/deploy_transformer_model_from_hf_hub.ipynb)
 - [Deploy a Hugging Face Transformer model from S3 to SageMaker for inference](https://github.com/huggingface/notebooks/blob/master/sagemaker/10_deploy_model_from_s3/deploy_transformer_model_from_s3.ipynb)
-
----
-
-## Deep Learning Container (DLC) overview
-
-The Deep Learning Container are available everywhere Amazon SageMaker is available. You can see the [AWS region table](https://aws.amazon.com/about-aws/global-infrastructure/regional-product-services/) for all AWS global infrastructure. To get an detailed overview of all included packages look [here in the release notes](https://docs.aws.amazon.com/deep-learning-containers/latest/devguide/deep-learning-containers-images.html).
-
-| 🤗 Transformers version | 🤗 Datasets version | PyTorch/TensorFlow version | type     | device | Python Version | Example `image_uri`                                                                                                               |
-| ----------------------- | ------------------- | -------------------------- | -------- | ------ | -------------- | --------------------------------------------------------------------------------------------------------------------------------- |
-| 4.4.2                   | 1.5.0               | PyTorch 1.6.0              | training | GPU    | 3.6            | `763104351884.dkr.ecr.us-west-2.amazonaws.com/huggingface-pytorch-training:1.6.0-transformers4.4.2-gpu-py36-cu110-ubuntu18.04`    |
-| 4.4.2                   | 1.5.0               | TensorFlow 2.4.1           | training | GPU    | 3.7            | `763104351884.dkr.ecr.us-west-2.amazonaws.com/huggingface-tensorflow-training:2.4.1-transformers4.4.2-gpu-py37-cu110-ubuntu18.04` |
-| 4.5.0                   | 1.5.0               | PyTorch 1.6.0              | training | GPU    | 3.6            | `763104351884.dkr.ecr.us-west-2.amazonaws.com/huggingface-pytorch-training:1.6.0-transformers4.4.2-gpu-py36-cu110-ubuntu18.04`    |
-| 4.5.0                   | 1.5.0               | TensorFlow 2.4.1           | training | GPU    | 3.7            | `763104351884.dkr.ecr.us-west-2.amazonaws.com/huggingface-tensorflow-training:2.4.1-transformers4.5.0-gpu-py37-cu110-ubuntu18.04` |
-| 4.6.1                   | 1.6.2               | PyTorch 1.6.0              | training | GPU    | 3.6            | `763104351884.dkr.ecr.us-west-2.amazonaws.com/huggingface-pytorch-training:1.6.0-transformers4.5.0-gpu-py36-cu110-ubuntu18.04`    |
-| 4.6.1                   | 1.6.2               | PyTorch 1.7.1               | training | GPU    | 3.6            | `763104351884.dkr.ecr.us-west-2.amazonaws.com/huggingface-pytorch-training:1.7.1-transformers4.6.1-gpu-py36-cu110-ubuntu18.04` |
-| 4.6.1                   | 1.6.2               | TensorFlow 2.4.1           | training | GPU    | 3.7            | `763104351884.dkr.ecr.us-west-2.amazonaws.com/huggingface-tensorflow-training:2.4.1-transformers4.6.1-gpu-py37-cu110-ubuntu18.04` |
-| 4.6.1                   | 1.6.2               | PyTorch 1.7.1               | inference | CPU    | 3.6            | `763104351884.dkr.ecr.us-east-1.amazonaws.com/huggingface-pytorch-inference:1.7.1-transformers4.6.1-cpu-py36-ubuntu18.04` |
-| 4.6.1                   | 1.6.2               | PyTorch 1.7.1               | inference | GPU    | 3.6            | `763104351884.dkr.ecr.us-east-1.amazonaws.com/huggingface-pytorch-inference:1.7.1-transformers4.6.1-gpu-py36-cu110-ubuntu18.04` |
-| 4.6.1                   | 1.6.2               | TensorFlow 2.4.1           | inference | CPU    | 3.7            | `763104351884.dkr.ecr.us-east-1.amazonaws.com/huggingface-tensorflow-inference:2.4.1-transformers4.6.1-cpu-py37-ubuntu18.04` |
-| 4.6.1                   | 1.6.2               | TensorFlow 2.4.1           | inference | GPU    | 3.7            | `763104351884.dkr.ecr.us-east-1.amazonaws.com/huggingface-tensorflow-inference:2.4.1-transformers4.6.1-gpu-py37-cu110-ubuntu18.04` |
-
----

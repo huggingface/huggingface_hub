@@ -7,7 +7,11 @@
 	import WidgetAddSentenceBtn from "../../shared/WidgetAddSentenceBtn/WidgetAddSentenceBtn.svelte";
 	import WidgetTextInput from "../../shared/WidgetTextInput/WidgetTextInput.svelte";
 	import WidgetWrapper from "../../shared/WidgetWrapper/WidgetWrapper.svelte";
-	import { getDemoInputs, getResponse } from "../../shared/helpers";
+	import {
+		addInferenceParameters,
+		getDemoInputs,
+		getResponse,
+	} from "../../shared/helpers";
 
 	export let apiToken: WidgetProps["apiToken"];
 	export let apiUrl: WidgetProps["apiUrl"];
@@ -75,12 +79,13 @@
 				sentences: trimmedComparisonSentences,
 			},
 		};
+		addInferenceParameters(requestBody, model);
 
 		isLoading = true;
 
 		const res = await getResponse(
 			apiUrl,
-			model.modelId,
+			model.id,
 			requestBody,
 			apiToken,
 			parseOutput,
@@ -120,10 +125,17 @@
 		}
 		throw new TypeError("Invalid output: output must be of type Array");
 	}
+
+	function applyInputSample(sample: Record<string, any>) {
+		sourceSentence = sample.source_sentence;
+		comparisonSentences = sample.sentences;
+		nComparisonSentences = comparisonSentences.length;
+	}
 </script>
 
 <WidgetWrapper
 	{apiUrl}
+	{applyInputSample}
 	{computeTime}
 	{error}
 	{model}

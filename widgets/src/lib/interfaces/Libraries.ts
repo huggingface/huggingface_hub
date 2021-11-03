@@ -9,6 +9,7 @@ export enum ModelLibrary {
 	'asteroid'               = 'Asteroid',
 	'espnet'                 = 'ESPnet',
 	'flair'                  = 'Flair',
+	'keras'                  = 'Keras',
 	'pyannote'               = 'Pyannote',
 	'sentence-transformers'  = 'Sentence Transformers',
 	'sklearn'                = 'Scikit-learn',
@@ -16,7 +17,9 @@ export enum ModelLibrary {
 	'speechbrain'            = 'speechbrain',
 	'tensorflowtts'          = 'TensorFlowTTS',
 	'timm'                   = 'Timm',
+	'fastai'                 = 'fastai',
 	'transformers'           = 'Transformers',
+	'stanza'                 = 'Stanza',
 };
 
 export const ALL_MODEL_LIBRARY_KEYS = Object.keys(ModelLibrary) as (keyof typeof ModelLibrary)[];
@@ -56,19 +59,19 @@ const adapter_transformers = (model: ModelData) =>
 `from transformers import ${model.config?.adapter_transformers?.model_class}
 
 model = ${model.config?.adapter_transformers?.model_class}.from_pretrained("${model.config?.adapter_transformers?.model_name}")
-model.load_adapter("${model.modelId}", source="hf")`;
+model.load_adapter("${model.id}", source="hf")`;
 
 const allennlpUnknown = (model: ModelData) =>
 `import allennlp_models
 from allennlp.predictors.predictor import Predictor
 
-predictor = Predictor.from_path("hf://${model.modelId}")`
+predictor = Predictor.from_path("hf://${model.id}")`
 
 const allennlpQuestionAnswering = (model: ModelData) =>
 `import allennlp_models
 from allennlp.predictors.predictor import Predictor
 
-predictor = Predictor.from_path("hf://${model.modelId}")
+predictor = Predictor.from_path("hf://${model.id}")
 predictor_input = {"passage": "My name is Wolfgang and I live in Berlin", "question": "Where do I live?"}
 predictions = predictor.predict_json(predictor_input)`;
 
@@ -82,12 +85,12 @@ const allennlp = (model: ModelData) => {
 const asteroid = (model: ModelData) =>
 `from asteroid.models import BaseModel
   
-model = BaseModel.from_pretrained("${model.modelId}")`;
+model = BaseModel.from_pretrained("${model.id}")`;
 
 const espnetTTS = (model: ModelData) =>
 `from espnet2.bin.tts_inference import Text2Speech
     
-model = Text2Speech.from_pretrained("${model.modelId}")
+model = Text2Speech.from_pretrained("${model.id}")
 
 speech, *_ = model("text to generate speech from")`;
 
@@ -95,7 +98,7 @@ const espnetASR = (model: ModelData) =>
 `from espnet2.bin.asr_inference import Speech2Text
     
 model = Speech2Text.from_pretrained(
-  "${model.modelId}"
+  "${model.id}"
 )
 
 speech, rate = soundfile.read("speech.wav")
@@ -116,12 +119,18 @@ const espnet = (model: ModelData) => {
 const flair = (model: ModelData) =>
 `from flair.models import SequenceTagger
   
-tagger = SequenceTagger.load("${model.modelId}")`;
+tagger = SequenceTagger.load("${model.id}")`;
+
+const keras = (model: ModelData) =>
+`from huggingface_hub import from_pretrained_keras
+
+model = from_pretrained_keras("${model.id}")
+`;
 
 const pyannote = (model: ModelData) =>
 `from pyannote.audio.core.inference import Inference
   
-model = Inference("${model.modelId}")
+model = Inference("${model.id}")
 
 # inference on the whole file
 model("file.wav")
@@ -134,21 +143,21 @@ model.crop("file.wav", excerpt)`;
 const tensorflowttsTextToMel = (model: ModelData) =>
 `from tensorflow_tts.inference import AutoProcessor, TFAutoModel
 
-processor = AutoProcessor.from_pretrained("${model.modelId}")
-model = TFAutoModel.from_pretrained("${model.modelId}")
+processor = AutoProcessor.from_pretrained("${model.id}")
+model = TFAutoModel.from_pretrained("${model.id}")
 `;
 
 const tensorflowttsMelToWav = (model: ModelData) =>
 `from tensorflow_tts.inference import TFAutoModel
 
-model = TFAutoModel.from_pretrained("${model.modelId}")
+model = TFAutoModel.from_pretrained("${model.id}")
 audios = model.inference(mels)
 `;
 
 const tensorflowttsUnknown = (model: ModelData) =>
 `from tensorflow_tts.inference import TFAutoModel
 
-model = TFAutoModel.from_pretrained("${model.modelId}")
+model = TFAutoModel.from_pretrained("${model.id}")
 `;
 
 const tensorflowtts = (model: ModelData) => {
@@ -163,85 +172,87 @@ const tensorflowtts = (model: ModelData) => {
 const timm = (model: ModelData) =>
 `import timm
 
-model = timm.create_model("hf_hub:${model.modelId}", pretrained=True)`;
+model = timm.create_model("hf_hub:${model.id}", pretrained=True)`;
 
 const sklearn = (model: ModelData) => 
 `from huggingface_hub import hf_hub_download
 import joblib
 
 model = joblib.load(
-	hf_hub_download("${model.modelId}", "sklearn_model.joblib")
+	hf_hub_download("${model.id}", "sklearn_model.joblib")
+)`;
+
+const fastai = (model: ModelData) => 
+`from huggingface_hub import hf_hub_download
+from fastai.learner import load_learner
+
+model = load_learner(
+    hf_hub_download("${model.id}", "model.pkl")
 )`;
 
 const sentenceTransformers = (model: ModelData) =>
 `from sentence_transformers import SentenceTransformer
 
-model = SentenceTransformer("${model.modelId}")`;
+model = SentenceTransformer("${model.id}")`;
 
 const spacy = (model: ModelData) =>
-`!pip install https://huggingface.co/${model.modelId}/resolve/main/${nameWithoutNamespace(model.modelId)}-any-py3-none-any.whl
+`!pip install https://huggingface.co/${model.id}/resolve/main/${nameWithoutNamespace(model.id)}-any-py3-none-any.whl
 
 # Using spacy.load().
 import spacy
-nlp = spacy.load("${nameWithoutNamespace(model.modelId)}")
+nlp = spacy.load("${nameWithoutNamespace(model.id)}")
 
 # Importing as module.
-import ${nameWithoutNamespace(model.modelId)}
-nlp = ${nameWithoutNamespace(model.modelId)}.load()`;
+import ${nameWithoutNamespace(model.id)}
+nlp = ${nameWithoutNamespace(model.id)}.load()`;
 
-const speechbrainAudioClassification = (model: ModelData) =>
-`from speechbrain.pretrained import EncoderClassifier
-
-model = EncoderClassifier.from_hparams(
-  "${model.modelId}"
-)
-model.classify_file("file.wav")`;
-
-const speechbrainASR = (model: ModelData) =>
-`from speechbrain.pretrained import EncoderDecoderASR
-
-asr_model = EncoderDecoderASR.from_hparams(source="${model.modelId}")
-asr_model.transcribe_file("file.wav")`;
-
-const speechbrainEnhancement = (model: ModelData) =>
-`from speechbrain.pretrained import SpectralMaskEnhancement
-
-enhance_model = SpectralMaskEnhancement.from_hparams(source="${model.modelId}")
-enhanced = enhance_model.enhance_file("file.wav")`;
-
-const speechbrainSeparator = (model: ModelData) =>
-`from speechbrain.pretrained import SepformerSeparation
-
-separator_model = SepformerSeparation.from_hparams(source="${model.modelId}")
-est_sources = separator_model.separate_file("file.wav")`;
+const speechBrainMethod = (speechbrainInterface: string) => {
+	switch(speechbrainInterface) {
+		case "EncoderClassifier":
+		   return "classify_file";
+		case "EncoderDecoderASR":
+		case "EncoderASR":
+			return "transcribe_file";
+		case "SpectralMaskEnhancement":
+			return "enhance_file";
+		case "SepformerSeparation":
+			return "separate_file";
+		default:
+			return undefined;
+	}
+}
 
 const speechbrain = (model: ModelData) => {
-	if (model.tags?.includes("automatic-speech-recognition")){
-		return speechbrainASR(model);
-	} else if (model.tags?.includes("audio-to-audio")) {
-		if (model.tags?.includes("speech-enhancement")) {
-			return speechbrainEnhancement(model);
-		} else if (model.tags?.includes("audio-source-separation")) {
-			return speechbrainSeparator(model);
-		} 
-	} else if (model.tags?.includes("audio-classification")) {
-		return speechbrainAudioClassification(model);
+	const speechbrainInterface = model.config?.speechbrain?.interface;
+	if(speechbrainInterface === undefined) {
+		return `# interface not specified in config.json`
 	}
-	return "# Unable to determine model type";
-};
+
+	const speechbrainMethod = speechBrainMethod(speechbrainInterface);
+	if(speechbrainMethod === undefined) {
+		return `# interface in config.json invalid`
+	}
+
+	return `from speechbrain.pretrained import ${speechbrainInterface}
+model = ${speechbrainInterface}.from_hparams(
+  "${model.id}"
+)
+model.${speechbrainMethod}("file.wav")`;
+}
 
 const transformers = (model: ModelData) =>
 `from transformers import AutoTokenizer, ${model.autoArchitecture}
   
-tokenizer = AutoTokenizer.from_pretrained("${model.modelId}"${model.private ? `, use_auth_token=True` : ``})
+tokenizer = AutoTokenizer.from_pretrained("${model.id}"${model.private ? `, use_auth_token=True` : ``})
 
-model = ${model.autoArchitecture}.from_pretrained("${model.modelId}"${model.private ? `, use_auth_token=True` : ``})`;
+model = ${model.autoArchitecture}.from_pretrained("${model.id}"${model.private ? `, use_auth_token=True` : ``})`;
 
 //#endregion
 
 
 
-export const MODEL_LIBRARIES_UI_ELEMENTS: { [key in keyof typeof ModelLibrary]: LibraryUiElement } = {
+export const MODEL_LIBRARIES_UI_ELEMENTS: { [key in keyof typeof ModelLibrary]?: LibraryUiElement } = {
+	// ^^ TODO(remove the optional ? marker when Stanza snippet is available)
 	"adapter-transformers": {
 		btnLabel: "Adapter Transformers",
 		repoName: "adapter-transformers",
@@ -272,6 +283,12 @@ export const MODEL_LIBRARIES_UI_ELEMENTS: { [key in keyof typeof ModelLibrary]: 
 		repoUrl: "https://github.com/flairNLP/flair",
 		snippet: flair,
 	},
+	keras: {
+		btnLabel: "Keras",
+		repoName: "Keras",
+		repoUrl: "https://github.com/keras-team/keras",
+		snippet: keras,
+	},
 	pyannote: {
 		btnLabel: "pyannote",
 		repoName: "pyannote-audio",
@@ -289,6 +306,12 @@ export const MODEL_LIBRARIES_UI_ELEMENTS: { [key in keyof typeof ModelLibrary]: 
 		repoName: "Scikit-learn",
 		repoUrl: "https://github.com/scikit-learn/scikit-learn",
 		snippet: sklearn,
+	},
+	fastai: {
+		btnLabel: "fastai",
+		repoName: "fastai",
+		repoUrl: "https://github.com/fastai/fastai",
+		snippet: fastai,
 	},
 	spacy: {
 		btnLabel: "spaCy",

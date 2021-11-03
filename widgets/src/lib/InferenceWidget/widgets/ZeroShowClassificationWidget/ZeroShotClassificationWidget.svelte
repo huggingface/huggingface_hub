@@ -9,6 +9,7 @@
 	import WidgetTextInput from "../../shared/WidgetTextInput/WidgetTextInput.svelte";
 	import WidgetWrapper from "../../shared/WidgetWrapper/WidgetWrapper.svelte";
 	import {
+		addInferenceParameters,
 		getDemoInputs,
 		getResponse,
 		getSearchParams,
@@ -93,12 +94,13 @@
 				multi_class: multiClass,
 			},
 		};
+		addInferenceParameters(requestBody, model);
 
 		isLoading = true;
 
 		const res = await getResponse(
 			apiUrl,
-			model.modelId,
+			model.id,
 			requestBody,
 			apiToken,
 			parseOutput,
@@ -146,10 +148,17 @@
 			"Invalid output: output must be of type <labels:Array; scores:Array>"
 		);
 	}
+
+	function applyInputSample(sample: Record<string, any>) {
+		candidateLabels = sample.candidate_labels;
+		multiClass = sample.multi_class;
+		text = sample.text;
+	}
 </script>
 
 <WidgetWrapper
 	{apiUrl}
+	{applyInputSample}
 	{computeTime}
 	{error}
 	{model}

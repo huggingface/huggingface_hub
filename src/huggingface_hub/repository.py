@@ -29,6 +29,7 @@ class CommandInProgress:
         is_done_method: Callable,
         status_method: Callable,
         process: subprocess.Popen,
+        post_method: Optional[Callable] = None,
     ):
         self.title = title
         self._is_done = is_done_method
@@ -36,13 +37,19 @@ class CommandInProgress:
         self._process = process
         self._stderr = ""
         self._stdout = ""
+        self._post_method = post_method
 
     @property
     def is_done(self) -> bool:
         """
         Whether the process is done.
         """
-        return self._is_done()
+        result = self._is_done()
+
+        if result and self._post_method is not None:
+            self._post_method()
+
+        return result
 
     @property
     def status(self) -> int:
@@ -364,7 +371,7 @@ class Repository:
 
         If specifying a `clone_from`:
         will clone an existing remote repository, for instance one
-        that was previously created using ``HfApi().create_repo(token=huggingface_token, name=repo_name)``.
+        that was previously created using ``HfApi().create_repo(name=repo_name)``.
         ``Repository`` uses the local git credentials by default, but if required, the ``huggingface_token``
         as well as the git ``user`` and the ``email`` can be explicitly specified.
         If `clone_from` is used, and the repository is being instantiated into a non-empty directory,
@@ -840,6 +847,27 @@ class Repository:
 
         return files_to_be_tracked_with_lfs
 
+    def lfs_prune(self, recent=False):
+        """
+        git lfs prune
+        """
+        args = "git lfs prune".split()
+        if recent:
+            args.append("--recent")
+        try:
+            with lfs_log_progress():
+                result = subprocess.run(
+                    args,
+                    stderr=subprocess.PIPE,
+                    stdout=subprocess.PIPE,
+                    check=True,
+                    encoding="utf-8",
+                    cwd=self.local_dir,
+                )
+                logger.info(result.stdout)
+        except subprocess.CalledProcessError as exc:
+            raise EnvironmentError(exc.stderr)
+
     def git_pull(self, rebase: Optional[bool] = False):
         """
         git pull
@@ -914,6 +942,7 @@ class Repository:
         self,
         upstream: Optional[str] = None,
         blocking: Optional[bool] = True,
+        auto_lfs_prune: Optional[bool] = False,
     ) -> Union[str, Tuple[str, CommandInProgress]]:
         """
         git push
@@ -931,6 +960,8 @@ class Repository:
                 Setting this to `False` will return an `CommandInProgress` object
                 which has an `is_done` property. This property will be set to
                 `True` when the push is finished.
+            auto_lfs_prune (`bool`, defaults to `False`):
+                Whether to automatically prune files once they have been pushed to the remote.
         """
         command = "git push"
 
@@ -986,11 +1017,15 @@ class Repository:
                 is_done_method=lambda: process.poll() is not None,
                 status_method=status_method,
                 process=process,
+                post_method=self.lfs_prune if auto_lfs_prune else None,
             )
 
             self.command_queue.append(command)
 
             return self.git_head_commit_url(), command
+
+        if auto_lfs_prune:
+            self.lfs_prune()
 
         return self.git_head_commit_url()
 
@@ -1172,6 +1207,7 @@ class Repository:
         commit_message: Optional[str] = "commit files to HF hub",
         blocking: Optional[bool] = True,
         clean_ok: Optional[bool] = False,
+        auto_lfs_prune: Optional[bool] = False,
     ) -> Optional[str]:
         """
         Helper to add, commit, and push files to remote repository on the HuggingFace Hub.
@@ -1185,6 +1221,8 @@ class Repository:
             clean_ok (`bool`, `optional`, defaults to `False`):
                 If True, this function will return None if the repo is untouched.
                 Default behavior is to fail because the git command fails.
+            auto_lfs_prune (`bool`, defaults to `False`):
+                Whether to automatically prune files once they have been pushed to the remote.
         """
         if clean_ok and self.is_repo_clean():
             logger.info("Repo currently clean.  Ignoring push_to_hub")
@@ -1192,7 +1230,9 @@ class Repository:
         self.git_add(auto_lfs_track=True)
         self.git_commit(commit_message)
         return self.git_push(
-            upstream=f"origin {self.current_branch}", blocking=blocking
+            upstream=f"origin {self.current_branch}",
+            blocking=blocking,
+            auto_lfs_prune=auto_lfs_prune,
         )
 
     @contextmanager
@@ -1202,6 +1242,7 @@ class Repository:
         branch: Optional[str] = None,
         track_large_files: Optional[bool] = True,
         blocking: Optional[bool] = True,
+        auto_lfs_prune: Optional[bool] = False,
     ):
         """
         Context manager utility to handle committing to a repository. This automatically tracks large files (>10Mb)
@@ -1216,6 +1257,8 @@ class Repository:
                 Whether to automatically track large files or not. Will do so by default.
             blocking (`bool`, `optional`, defaults to `True`):
                 Whether the function should return only when the `git push` has finished.
+            auto_lfs_prune (`bool`, defaults to `True`):
+                Whether to automatically prune files once they have been pushed to the remote.
 
         Examples:
 
@@ -1270,7 +1313,9 @@ class Repository:
 
             try:
                 self.git_push(
-                    upstream=f"origin {self.current_branch}", blocking=blocking
+                    upstream=f"origin {self.current_branch}",
+                    blocking=blocking,
+                    auto_lfs_prune=auto_lfs_prune,
                 )
             except OSError as e:
                 # If no changes are detected, there is nothing to commit.

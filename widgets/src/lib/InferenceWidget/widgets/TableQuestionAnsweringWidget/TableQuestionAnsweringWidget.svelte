@@ -16,6 +16,7 @@
 		convertDataToTable,
 	} from "../../shared/ViewUtils";
 	import {
+		addInferenceParameters,
 		getDemoInputs,
 		getResponse,
 		getSearchParams,
@@ -99,12 +100,13 @@
 				table: convertTableToData(table),
 			},
 		};
+		addInferenceParameters(requestBody, model);
 
 		isLoading = true;
 
 		const res = await getResponse(
 			apiUrl,
-			model.modelId,
+			model.id,
 			requestBody,
 			apiToken,
 			parseOutput,
@@ -152,10 +154,16 @@
 			"Invalid output: output must be of type <answer:string; coordinates:Array; cells:Array>"
 		);
 	}
+
+	function applyInputSample(sample: Record<string, any>) {
+		query = sample.text;
+		table = sample.table;
+	}
 </script>
 
 <WidgetWrapper
 	{apiUrl}
+	{applyInputSample}
 	{computeTime}
 	{error}
 	{model}

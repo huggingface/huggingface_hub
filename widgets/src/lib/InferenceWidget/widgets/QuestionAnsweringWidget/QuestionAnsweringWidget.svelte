@@ -6,6 +6,7 @@
 	import WidgetTextarea from "../../shared/WidgetTextarea/WidgetTextarea.svelte";
 	import WidgetWrapper from "../../shared/WidgetWrapper/WidgetWrapper.svelte";
 	import {
+		addInferenceParameters,
 		getDemoInputs,
 		getResponse,
 		getSearchParams,
@@ -77,12 +78,13 @@
 		const requestBody = {
 			inputs: { question: trimmedQuestion, context: trimmedContext },
 		};
+		addInferenceParameters(requestBody, model);
 
 		isLoading = true;
 
 		const res = await getResponse(
 			apiUrl,
-			model.modelId,
+			model.id,
 			requestBody,
 			apiToken,
 			parseOutput,
@@ -125,10 +127,16 @@
 			"Invalid output: output must be of type <answer:string; score:number>"
 		);
 	}
+
+	function applyInputSample(sample: Record<string, any>) {
+		question = sample.text;
+		context = sample.context;
+	}
 </script>
 
 <WidgetWrapper
 	{apiUrl}
+	{applyInputSample}
 	{computeTime}
 	{error}
 	{model}

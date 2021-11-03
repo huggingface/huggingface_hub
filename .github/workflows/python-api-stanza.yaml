@@ -1,0 +1,28 @@
+name: stanza-docker
+
+on:
+  pull_request:
+    paths:
+      - "api-inference-community/docker_images/stanza/**"
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v2
+        with:
+          python-version: "3.8"
+      - name: Checkout
+        uses: actions/checkout@v2
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v1
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v1
+      - name: Install dependencies
+        working-directory: api-inference-community
+        run: |
+          pip install --upgrade pip
+          pip install pytest pillow httpx
+          pip install -e .
+      - run: RUN_DOCKER_TESTS=1 pytest -sv tests/test_dockers.py::DockerImageTests::test_stanza
+        working-directory: api-inference-community

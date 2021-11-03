@@ -115,7 +115,12 @@ class DockerImageTests(unittest.TestCase):
         self.framework_docker_test(
             "spacy",
             "text-classification",
-            "explosion/en_textcat_goemotions",
+            "cverluise/xx_cat_pateexx_md",
+        )
+        self.framework_docker_test(
+            "spacy",
+            "sentence-similarity",
+            "spacy/en_core_web_sm",
         )
         self.framework_invalid_test("spacy")
 
@@ -155,13 +160,32 @@ class DockerImageTests(unittest.TestCase):
             "speechbrain/urbansound8k_ecapa",
         )
 
+    def test_stanza(self):
+        self.framework_docker_test(
+            "stanza",
+            "token-classification",
+            "stanfordnlp/stanza-en",
+        )
+
+        self.framework_docker_test(
+            "stanza",
+            "token-classification",
+            "stanfordnlp/stanza-de",
+        )
+        self.framework_invalid_test("stanza")
+
     def test_timm(self):
         self.framework_docker_test("timm", "image-classification", "sgugger/resnet50d")
         self.framework_invalid_test("timm")
 
     def test_keras(self):
+        # Single Output Unit, RGB
         self.framework_docker_test(
-            "keras", "image-classification", "osanseviero/keras-dog-or-cat"
+            "keras", "image-classification", "nateraw/keras-cats-vs-dogs"
+        )
+        # Multiple Output Units, Grayscale
+        self.framework_docker_test(
+            "keras", "image-classification", "nateraw/keras-mnist-convnet"
         )
 
     def test_superb(self):

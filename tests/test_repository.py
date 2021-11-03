@@ -67,28 +67,28 @@ class RepositoryTest(RepositoryCommonTest):
         except FileNotFoundError:
             pass
 
-        self._repo_url = self._api.create_repo(token=self._token, name=REPO_NAME)
+        self._repo_url = self._api.create_repo(name=REPO_NAME, token=self._token)
         self._api.upload_file(
-            token=self._token,
             path_or_fileobj=BytesIO(b"some initial binary data: \x00\x01"),
             path_in_repo="random_file.txt",
             repo_id=f"{USER}/{REPO_NAME}",
+            token=self._token,
         )
 
     def tearDown(self):
         try:
-            self._api.delete_repo(token=self._token, name=f"{USER}/{REPO_NAME}")
+            self._api.delete_repo(name=f"{USER}/{REPO_NAME}", token=self._token)
         except requests.exceptions.HTTPError:
             pass
 
         try:
-            self._api.delete_repo(token=self._token, name=REPO_NAME)
+            self._api.delete_repo(name=REPO_NAME, token=self._token)
         except requests.exceptions.HTTPError:
             pass
 
         try:
             self._api.delete_repo(
-                token=self._token, organization="valid_org", name=REPO_NAME
+                name=REPO_NAME, token=self._token, organization="valid_org"
             )
         except requests.exceptions.HTTPError:
             pass
@@ -156,13 +156,13 @@ class RepositoryTest(RepositoryCommonTest):
     def test_init_clone_in_nonempty_non_linked_git_repo(self):
         # Create a new repository on the HF Hub
         temp_repo_url = self._api.create_repo(
-            token=self._token, name=f"{REPO_NAME}-temp"
+            name=f"{REPO_NAME}-temp", token=self._token
         )
         self._api.upload_file(
-            token=self._token,
             path_or_fileobj=BytesIO(b"some initial binary data: \x00\x01"),
             path_in_repo="random_file_2.txt",
             repo_id=f"{USER}/{REPO_NAME}-temp",
+            token=self._token,
         )
 
         # Clone the new repository
@@ -174,7 +174,7 @@ class RepositoryTest(RepositoryCommonTest):
             EnvironmentError, Repository, WORKING_REPO_DIR, clone_from=temp_repo_url
         )
 
-        self._api.delete_repo(token=self._token, name=f"{REPO_NAME}-temp")
+        self._api.delete_repo(name=f"{REPO_NAME}-temp", token=self._token)
 
     def test_init_clone_in_nonempty_linked_git_repo_with_token(self):
         Repository(
@@ -190,10 +190,10 @@ class RepositoryTest(RepositoryCommonTest):
 
         # Add to the remote repository without doing anything to the local repository.
         self._api.upload_file(
-            token=self._token,
             path_or_fileobj=BytesIO(b"some initial binary data: \x00\x01"),
             path_in_repo="random_file_3.txt",
             repo_id=f"{USER}/{REPO_NAME}",
+            token=self._token,
         )
 
         # Cloning the repository in the same directory should not result in a git pull.
@@ -217,10 +217,10 @@ class RepositoryTest(RepositoryCommonTest):
 
         # Add to the remote repository without doing anything to the local repository.
         self._api.upload_file(
-            token=self._token,
             path_or_fileobj=BytesIO(b"some initial binary data: \x00\x01"),
             path_in_repo="random_file_3.txt",
             repo_id=f"{USER}/{REPO_NAME}",
+            token=self._token,
         )
 
         # The repo should initialize correctly as the remote is the same, even with unrelated historied
@@ -735,6 +735,168 @@ class RepositoryTest(RepositoryCommonTest):
         repo.delete_tag("v4.6.0", remote="origin")
         self.assertFalse(repo.tag_exists("v4.6.0", remote="origin"))
 
+    def test_lfs_prune(self):
+        repo = Repository(
+            WORKING_REPO_DIR,
+            clone_from=f"{USER}/{REPO_NAME}",
+            use_auth_token=self._token,
+            git_user="ci",
+            git_email="ci@dummy.com",
+            revision="main",
+        )
+
+        with repo.commit("Committing LFS file"):
+            with open("file.bin", "w+") as f:
+                f.write("Random string 1")
+
+        with repo.commit("Committing LFS file"):
+            with open("file.bin", "w+") as f:
+                f.write("Random string 2")
+
+        root_directory = pathlib.Path(repo.local_dir) / ".git" / "lfs"
+        git_lfs_files_size = sum(
+            f.stat().st_size for f in root_directory.glob("**/*") if f.is_file()
+        )
+        repo.lfs_prune()
+        post_prune_git_lfs_files_size = sum(
+            f.stat().st_size for f in root_directory.glob("**/*") if f.is_file()
+        )
+
+        # Size of the directory holding LFS files was reduced
+        self.assertLess(post_prune_git_lfs_files_size, git_lfs_files_size)
+
+    def test_lfs_prune_git_push(self):
+        repo = Repository(
+            WORKING_REPO_DIR,
+            clone_from=f"{USER}/{REPO_NAME}",
+            use_auth_token=self._token,
+            git_user="ci",
+            git_email="ci@dummy.com",
+            revision="main",
+        )
+
+        with repo.commit("Committing LFS file"):
+            with open("file.bin", "w+") as f:
+                f.write("Random string 1")
+
+        root_directory = pathlib.Path(repo.local_dir) / ".git" / "lfs"
+        git_lfs_files_size = sum(
+            f.stat().st_size for f in root_directory.glob("**/*") if f.is_file()
+        )
+
+        with open(os.path.join(repo.local_dir, "file.bin"), "w+") as f:
+            f.write("Random string 2")
+
+        repo.git_add()
+        repo.git_commit("New commit")
+        repo.git_push(auto_lfs_prune=True)
+
+        post_prune_git_lfs_files_size = sum(
+            f.stat().st_size for f in root_directory.glob("**/*") if f.is_file()
+        )
+
+        # Size of the directory holding LFS files is the exact same
+        self.assertEqual(post_prune_git_lfs_files_size, git_lfs_files_size)
+
+    def test_lfs_prune_git_push_non_blocking(self):
+        repo = Repository(
+            WORKING_REPO_DIR,
+            clone_from=f"{USER}/{REPO_NAME}",
+            use_auth_token=self._token,
+            git_user="ci",
+            git_email="ci@dummy.com",
+            revision="main",
+        )
+
+        with repo.commit("Committing LFS file"):
+            with open("file.bin", "w+") as f:
+                f.write("Random string 1")
+
+        root_directory = pathlib.Path(repo.local_dir) / ".git" / "lfs"
+        git_lfs_files_size = sum(
+            f.stat().st_size for f in root_directory.glob("**/*") if f.is_file()
+        )
+
+        with open(os.path.join(repo.local_dir, "file.bin"), "w+") as f:
+            f.write("Random string 2")
+
+        repo.git_add()
+        repo.git_commit("New commit")
+        repo.git_push(blocking=False, auto_lfs_prune=True)
+
+        while len(repo.commands_in_progress):
+            time.sleep(0.2)
+
+        post_prune_git_lfs_files_size = sum(
+            f.stat().st_size for f in root_directory.glob("**/*") if f.is_file()
+        )
+
+        # Size of the directory holding LFS files is the exact same
+        self.assertEqual(post_prune_git_lfs_files_size, git_lfs_files_size)
+
+    def test_lfs_prune_context_manager(self):
+        repo = Repository(
+            WORKING_REPO_DIR,
+            clone_from=f"{USER}/{REPO_NAME}",
+            use_auth_token=self._token,
+            git_user="ci",
+            git_email="ci@dummy.com",
+            revision="main",
+        )
+
+        with repo.commit("Committing LFS file"):
+            with open("file.bin", "w+") as f:
+                f.write("Random string 1")
+
+        root_directory = pathlib.Path(repo.local_dir) / ".git" / "lfs"
+        git_lfs_files_size = sum(
+            f.stat().st_size for f in root_directory.glob("**/*") if f.is_file()
+        )
+
+        with repo.commit("Committing LFS file", auto_lfs_prune=True):
+            with open("file.bin", "w+") as f:
+                f.write("Random string 2")
+
+        post_prune_git_lfs_files_size = sum(
+            f.stat().st_size for f in root_directory.glob("**/*") if f.is_file()
+        )
+
+        # Size of the directory holding LFS files is the exact same
+        self.assertEqual(post_prune_git_lfs_files_size, git_lfs_files_size)
+
+    def test_lfs_prune_context_manager_non_blocking(self):
+        repo = Repository(
+            WORKING_REPO_DIR,
+            clone_from=f"{USER}/{REPO_NAME}",
+            use_auth_token=self._token,
+            git_user="ci",
+            git_email="ci@dummy.com",
+            revision="main",
+        )
+
+        with repo.commit("Committing LFS file"):
+            with open("file.bin", "w+") as f:
+                f.write("Random string 1")
+
+        root_directory = pathlib.Path(repo.local_dir) / ".git" / "lfs"
+        git_lfs_files_size = sum(
+            f.stat().st_size for f in root_directory.glob("**/*") if f.is_file()
+        )
+
+        with repo.commit("Committing LFS file", auto_lfs_prune=True, blocking=False):
+            with open("file.bin", "w+") as f:
+                f.write("Random string 2")
+
+        while len(repo.commands_in_progress):
+            time.sleep(0.2)
+
+        post_prune_git_lfs_files_size = sum(
+            f.stat().st_size for f in root_directory.glob("**/*") if f.is_file()
+        )
+
+        # Size of the directory holding LFS files is the exact same
+        self.assertEqual(post_prune_git_lfs_files_size, git_lfs_files_size)
+
 
 class RepositoryOfflineTest(RepositoryCommonTest):
     @classmethod
@@ -1222,14 +1384,14 @@ class RepositoryDatasetTest(RepositoryCommonTest):
     def tearDown(self):
         try:
             self._api.delete_repo(
-                token=self._token, name=REPO_NAME, repo_type="dataset"
+                name=REPO_NAME, token=self._token, repo_type="dataset"
             )
         except requests.exceptions.HTTPError:
             try:
                 self._api.delete_repo(
+                    name=REPO_NAME,
                     token=self._token,
                     organization="valid_org",
-                    name=REPO_NAME,
                     repo_type="dataset",
                 )
             except requests.exceptions.HTTPError:

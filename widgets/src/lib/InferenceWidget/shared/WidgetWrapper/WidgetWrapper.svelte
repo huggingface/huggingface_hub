@@ -3,6 +3,7 @@
 
 	import { onMount } from "svelte";
 	import IconCross from "../../../Icons/IconCross.svelte";
+	import WidgetInputSamples from "../WidgetInputSamples/WidgetInputSamples.svelte";
 	import WidgetFooter from "../WidgetFooter/WidgetFooter.svelte";
 	import WidgetHeader from "../WidgetHeader/WidgetHeader.svelte";
 	import WidgetInfo from "../WidgetInfo/WidgetInfo.svelte";
@@ -19,12 +20,22 @@
 	};
 	export let noTitle = false;
 	export let outputJson: string;
+	export let applyInputSample: (sample: Record<string, any>[]) => void =
+		([]) => {};
 
 	let isMaximized = false;
 	let modelStatus: LoadingStatus = "unknown";
 
+	const inputSamples: Record<string, any>[] = (model?.widgetData ?? [])
+		.sort(
+			(sample1, sample2) =>
+				(sample2.example_title ? 1 : 0) - (sample1.example_title ? 1 : 0)
+		)
+		.map((sample, idx) => ({ example_title: `Example ${++idx}`, ...sample }))
+		.slice(0, 5);
+
 	onMount(() => {
-		getModelStatus(apiUrl, model.modelId).then((status) => {
+		getModelStatus(apiUrl, model.id).then((status) => {
 			modelStatus = status;
 		});
 	});
@@ -46,6 +57,10 @@
 	<WidgetHeader {noTitle} pipeline={model.pipeline_tag}>
 		{#if model.pipeline_tag === "fill-mask"}
 			Mask token: <code>{model.mask_token}</code>
+		{/if}
+		{#if inputSamples.length > 1}
+			<!-- Show samples selector when there are more than one sample -->
+			<WidgetInputSamples {inputSamples} {applyInputSample} />
 		{/if}
 	</WidgetHeader>
 	<slot name="top" />

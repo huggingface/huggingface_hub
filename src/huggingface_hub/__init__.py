@@ -16,7 +16,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-__version__ = "0.0.17"
+__version__ = "0.1.0.dev0"
 
 from .commands.user import notebook_login
 from .constants import (
@@ -31,9 +31,35 @@ from .constants import (
     TF_WEIGHTS_NAME,
 )
 from .file_download import cached_download, hf_hub_download, hf_hub_url
-from .hf_api import HfApi, HfFolder, repo_type_and_id_from_hf_id
+from .hf_api import (
+    HfApi,
+    HfFolder,
+    create_repo,
+    dataset_info,
+    delete_file,
+    delete_repo,
+    get_full_repo_name,
+    list_datasets,
+    list_metrics,
+    list_models,
+    list_repo_files,
+    list_repos_objs,
+    login,
+    logout,
+    model_info,
+    repo_type_and_id_from_hf_id,
+    update_repo_visibility,
+    upload_file,
+    whoami,
+)
 from .hub_mixin import ModelHubMixin, PyTorchModelHubMixin
 from .inference_api import InferenceApi
+from .keras_mixin import (
+    KerasModelHubMixin,
+    from_pretrained_keras,
+    push_to_hub_keras,
+    save_pretrained_keras,
+)
 from .repository import Repository
 from .snapshot_download import snapshot_download
 from .utils import logging

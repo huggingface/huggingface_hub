@@ -47,7 +47,7 @@ class SnapshotDownloadTests(unittest.TestCase):
         self.second_commit_hash = repo.git_head_hash()
 
     def tearDown(self) -> None:
-        self._api.delete_repo(token=self._token, name=REPO_NAME)
+        self._api.delete_repo(name=REPO_NAME, token=self._token)
 
     def test_download_model(self):
         # Test `main` branch
@@ -92,7 +92,9 @@ class SnapshotDownloadTests(unittest.TestCase):
             self.assertTrue(self.first_commit_hash in storage_folder)
 
     def test_download_private_model(self):
-        self._api.update_repo_visibility(self._token, REPO_NAME, private=True)
+        self._api.update_repo_visibility(
+            token=self._token, name=REPO_NAME, private=True
+        )
 
         # Test download fails without token
         with tempfile.TemporaryDirectory() as tmpdirname:
@@ -150,4 +152,6 @@ class SnapshotDownloadTests(unittest.TestCase):
             # folder name contains the revision's commit sha.
             self.assertTrue(self.second_commit_hash in storage_folder)
 
-        self._api.update_repo_visibility(self._token, REPO_NAME, private=False)
+        self._api.update_repo_visibility(
+            token=self._token, name=REPO_NAME, private=False
+        )

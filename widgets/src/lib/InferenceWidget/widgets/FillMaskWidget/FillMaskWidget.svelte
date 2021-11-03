@@ -6,6 +6,7 @@
 	import WidgetQuickInput from "../../shared/WidgetQuickInput/WidgetQuickInput.svelte";
 	import WidgetWrapper from "../../shared/WidgetWrapper/WidgetWrapper.svelte";
 	import {
+		addInferenceParameters,
 		getDemoInputs,
 		getResponse,
 		getSearchParams,
@@ -59,12 +60,13 @@
 		}
 
 		const requestBody = { inputs: trimmedText };
+		addInferenceParameters(requestBody, model);
 
 		isLoading = true;
 
 		const res = await getResponse(
 			apiUrl,
-			model.modelId,
+			model.id,
 			requestBody,
 			apiToken,
 			parseOutput,
@@ -111,10 +113,15 @@
 		}
 		throw new TypeError("Invalid output: output must be of type Array");
 	}
+
+	function applyInputSample(sample: Record<string, any>) {
+		text = sample.text;
+	}
 </script>
 
 <WidgetWrapper
 	{apiUrl}
+	{applyInputSample}
 	{computeTime}
 	{error}
 	{model}

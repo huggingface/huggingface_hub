@@ -5,34 +5,34 @@
 
 	const models: ModelData[] = [
 		{
-			modelId: "sgugger/resnet50d",
+			id: "sgugger/resnet50d",
 			pipeline_tag: "image-classification",
 		},
 		{
-			modelId: "facebook/detr-resnet-50",
+			id: "facebook/detr-resnet-50",
 			pipeline_tag: "object-detection",
 		},
 		{
-			modelId: "facebook/detr-resnet-50-panoptic",
+			id: "facebook/detr-resnet-50-panoptic",
 			pipeline_tag: "image-segmentation",
 		},
 		{
-			modelId: "julien-c/distilbert-feature-extraction",
+			id: "julien-c/distilbert-feature-extraction",
 			pipeline_tag: "feature-extraction",
 			widgetData: [{ text: "Hello world" }],
 		},
 		{
-			modelId: "sentence-transformers/distilbert-base-nli-stsb-mean-tokens",
+			id: "sentence-transformers/distilbert-base-nli-stsb-mean-tokens",
 			pipeline_tag: "feature-extraction",
 			widgetData: [{ text: "Hello, world" }],
 		},
 		{
-			modelId: "roberta-large-mnli",
+			id: "roberta-large-mnli",
 			pipeline_tag: "text-classification",
 			widgetData: [{ text: "I like you. </s></s> I love you." }],
 		},
 		{
-			modelId: "dbmdz/bert-large-cased-finetuned-conll03-english",
+			id: "dbmdz/bert-large-cased-finetuned-conll03-english",
 			pipeline_tag: "token-classification",
 			widgetData: [
 				{ text: "My name is Wolfgang and I live in Berlin" },
@@ -41,7 +41,7 @@
 			],
 		},
 		{
-			modelId: "distilbert-base-uncased-distilled-squad",
+			id: "distilbert-base-uncased-distilled-squad",
 			pipeline_tag: "question-answering",
 			widgetData: [
 				{
@@ -51,12 +51,12 @@
 			],
 		},
 		{
-			modelId: "t5-base",
+			id: "t5-base",
 			pipeline_tag: "translation",
 			widgetData: [{ text: "My name is Wolfgang and I live in Berlin" }],
 		},
 		{
-			modelId: "facebook/bart-large-cnn",
+			id: "facebook/bart-large-cnn",
 			pipeline_tag: "summarization",
 			widgetData: [
 				{
@@ -65,7 +65,7 @@
 			],
 		},
 		{
-			modelId: "gpt2",
+			id: "gpt2",
 			pipeline_tag: "text-generation",
 			widgetData: [
 				{ text: "My name is Julien and I like to" },
@@ -76,7 +76,7 @@
 			],
 		},
 		{
-			modelId: "distilroberta-base",
+			id: "distilroberta-base",
 			pipeline_tag: "fill-mask",
 			mask_token: "<mask>",
 			widgetData: [
@@ -85,7 +85,7 @@
 			],
 		},
 		{
-			modelId: "facebook/bart-large-mnli",
+			id: "facebook/bart-large-mnli",
 			pipeline_tag: "zero-shot-classification",
 			widgetData: [
 				{
@@ -96,7 +96,7 @@
 			],
 		},
 		{
-			modelId: "google/tapas-base-finetuned-wtq",
+			id: "google/tapas-base-finetuned-wtq",
 			pipeline_tag: "table-question-answering",
 			widgetData: [
 				{
@@ -115,7 +115,7 @@
 			],
 		},
 		{
-			modelId: "julien-c/wine-quality",
+			id: "julien-c/wine-quality",
 			pipeline_tag: "structured-data-classification",
 			widgetData: [
 				{
@@ -136,25 +136,25 @@
 			],
 		},
 		{
-			modelId: "google/t5-small-ssm-nq",
+			id: "bigscience/T0pp",
 			pipeline_tag: "text2text-generation",
 		},
 		{
-			modelId: "facebook/blenderbot-400M-distill",
+			id: "facebook/blenderbot-400M-distill",
 			pipeline_tag: "conversational",
 			widgetData: [{ text: "Hey my name is Julien! How are you?" }],
 		},
 		{
-			modelId: "osanseviero/BigGAN-deep-128",
+			id: "osanseviero/BigGAN-deep-128",
 			pipeline_tag: "text-to-image",
 		},
 		{
-			modelId: "julien-c/kan-bayashi_csmsc_tacotron2",
+			id: "julien-c/kan-bayashi_csmsc_tacotron2",
 			pipeline_tag: "text-to-speech",
 			widgetData: [{ text: "请您说得慢些好吗" }],
 		},
 		{
-			modelId: "superb/wav2vec2-base-superb-sid",
+			id: "superb/wav2vec2-base-superb-sid",
 			pipeline_tag: "audio-classification",
 			widgetData: [
 				{
@@ -164,11 +164,11 @@
 			],
 		},
 		{
-			modelId: "julien-c/mini_an4_asr_train_raw_bpe_valid",
+			id: "julien-c/mini_an4_asr_train_raw_bpe_valid",
 			pipeline_tag: "automatic-speech-recognition",
 		},
 		{
-			modelId: "facebook/wav2vec2-base-960h",
+			id: "facebook/wav2vec2-base-960h",
 			pipeline_tag: "automatic-speech-recognition",
 			widgetData: [
 				{
@@ -178,7 +178,7 @@
 			],
 		},
 		{
-			modelId: "osanseviero/full-sentence-distillroberta2",
+			id: "osanseviero/full-sentence-distillroberta2",
 			pipeline_tag: "sentence-similarity",
 			widgetData: [
 				{
@@ -192,21 +192,21 @@
 			],
 		},
 		{
-			modelId: "speechbrain/mtl-mimic-voicebank",
+			id: "speechbrain/mtl-mimic-voicebank",
 			private: false,
 			pipeline_tag: "audio-to-audio",
 			tags: ["speech-enhancement"],
 			widgetData: [],
 		},
 		{
-			modelId: "speechbrain/sepformer-wham",
+			id: "speechbrain/sepformer-wham",
 			private: false,
 			pipeline_tag: "audio-to-audio",
 			tags: ["audio-source-separation"],
 			widgetData: [],
 		},
 		{
-			modelId: "julien-c/DPRNNTasNet-ks16_WHAM_sepclean",
+			id: "julien-c/DPRNNTasNet-ks16_WHAM_sepclean",
 			private: false,
 			pipeline_tag: "audio-to-audio",
 			tags: ["audio-source-separation"],
@@ -223,8 +223,8 @@
 	>
 		{#each models as model}
 			<div>
-				<a class="text-xs block mb-3 text-gray-300" href="/{model.modelId}">
-					<code>{model.modelId}</code>
+				<a class="text-xs block mb-3 text-gray-300" href="/{model.id}">
+					<code>{model.id}</code>
 				</a>
 				<div class="p-5 shadow-sm rounded-xl bg-white max-w-md">
 					<InferenceWidget {model} />

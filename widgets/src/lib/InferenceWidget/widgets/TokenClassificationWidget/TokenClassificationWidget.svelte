@@ -6,6 +6,7 @@
 	import WidgetOuputTokens from "../../shared/WidgetOutputTokens/WidgetOutputTokens.svelte";
 	import WidgetWrapper from "../../shared/WidgetWrapper/WidgetWrapper.svelte";
 	import {
+		addInferenceParameters,
 		getDemoInputs,
 		getResponse,
 		getSearchParams,
@@ -75,12 +76,13 @@
 		}
 
 		const requestBody = { inputs: trimmedText };
+		addInferenceParameters(requestBody, model);
 
 		isLoading = true;
 
 		const res = await getResponse(
 			apiUrl,
-			model.modelId,
+			model.id,
 			requestBody,
 			apiToken,
 			parseOutput,
@@ -225,10 +227,15 @@
 	function equals(a: Span, b: Span): boolean {
 		return a.type === b.type && a.start === b.start && a.end === b.end;
 	}
+
+	function applyInputSample(sample: Record<string, any>) {
+		text = sample.text;
+	}
 </script>
 
 <WidgetWrapper
 	{apiUrl}
+	{applyInputSample}
 	{computeTime}
 	{error}
 	{model}

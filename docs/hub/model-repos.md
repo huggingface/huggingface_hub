@@ -74,7 +74,7 @@ Each model page lists all the model's tags in the page header, below the model n
 
 Those are primarily computed from the model card metadata, except that we also add some of them automatically, as described in [How is a model's type of inference API and widget determined?](/docs/hub/main#how-is-a-models-type-of-inference-api-and-widget-determined).
 
-## How can I control my model's widget's example inputs?
+## How can I control my model's widget example input?
 
 You can specify the widget input in the model card metadata section:
 
@@ -83,7 +83,37 @@ widget:
 - text: "Jens Peter Hansen kommer fra Danmark"
 ```
 
-We try to provide example inputs for some languages and most widget types in [this DefaultWidget.ts file](https://github.com/huggingface/huggingface_hub/blob/master/widgets/src/lib/interfaces/DefaultWidget.ts). If we lack some examples, please open a PR updating this file to add them. Thanks!
+It is also possible to specify non-text example inputs in the model card metadata. For example, allow users to choose from two sample audio files for automatic speech recognition tasks by:
+
+```yaml
+widget:
+- label: Librispeech sample 1
+  src: https://cdn-media.huggingface.co/speech_samples/sample1.flac
+- label: Librispeech sample 2
+  src: https://cdn-media.huggingface.co/speech_samples/sample2.flac
+```
+
+We provide example inputs for some languages and most widget types in [the DefaultWidget.ts file](https://github.com/huggingface/huggingface_hub/blob/master/widgets/src/lib/interfaces/DefaultWidget.ts). If some examples are missing, we welcome PRs from the community to add them!
+
+## How can I control my model's widget Inference API parameters?
+
+Generally, the Inference API for a model uses the default pipeline settings associated with each task. But if you'd like to change the pipeline's default settings and specify additional inference parameters, you can configure the parameters directly through the model card metadata. Refer [here](https://api-inference.huggingface.co/docs/python/html/detailed_parameters.html#) for some of the most commonly used parameters associated with each task.
+
+For example, if you want to specify an aggregation strategy for a NER task in the widget:
+
+```yaml
+inference:
+  parameters:
+    aggregation_strategy: "none"
+```
+
+Or if you'd like to change the temperature for a summarization task in the widget:
+
+```yaml
+inference:
+  parameters:
+    temperature: 0.7
+```
 
 ## Can I specify which framework supports my model?
 
@@ -141,6 +171,62 @@ $$
 $$
 
 $$ E=mc^2 $$
+
+## How can I fork or rebase a repository with LFS pointers?
+
+When you want to fork or [rebase](https://git-scm.com/docs/git-rebase) a repository with [LFS](https://git-lfs.github.com/) files (all files over 20MB are stored as such), you cannot use the usual Git approach since you need to be careful to not break the LFS pointers. Forking can take time depending on your bandwidth, because you will have to fetch an re-upload all the LFS files in your fork.
+
+For example, say you have an upstream repository, **upstream**, and you just created your own repository on the Hub which is **myfork** in this example.
+
+1. Create a destination repository (e.g. **myfork**) in https://huggingface.co 
+
+2. Clone your fork repository
+
+```
+git lfs clone https://huggingface.co/me/myfork.git
+```
+
+3. Fetch non LFS files
+
+```
+cd myfork
+git lfs install --skip-smudge --local # affects only this clone
+git remote add upstream https://huggingface.co/friend/upstream.git
+git fetch upstream
+```
+
+4. Fetch large files. This can take some time depending on your download bandwidth
+
+```
+git lfs fetch --all upstream # this can take time depending on your download bandwidth
+```
+
+4.a. If you want to override completely the fork history (which should only have an initial commit), run:
+
+```
+git reset --hard upstream/main
+```
+
+4.b. If you want to rebase instead of overriding, run the following command and solve any conflicts
+
+```
+git rebase upstream/main
+```
+
+5. Prepare your LFS files to push
+
+```
+git lfs install --force --local # this reinstalls the LFS hooks
+huggingface-cli lfs-enable-largefiles . # needed if some files are bigger than 5Gb
+```
+
+6. And finally push
+
+```
+git push --force origin main # this can take time depending on your upload bandwidth
+```
+
+Now you have your own fork or rebased repo in the Hub!
 
 ## List of license identifiers
 

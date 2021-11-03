@@ -61,7 +61,7 @@
 
 		const res = await getResponse(
 			apiUrl,
-			model.modelId,
+			model.id,
 			requestBody,
 			apiToken,
 			parseOutput,
@@ -124,10 +124,15 @@
 	function mouseover(index: number) {
 		highlightIndex = index;
 	}
+
+	function applyInputSample(sample: Record<string, any>) {
+		imgSrc = sample.src;
+	}
 </script>
 
 <WidgetWrapper
 	{apiUrl}
+	{applyInputSample}
 	{computeTime}
 	{error}
 	{model}

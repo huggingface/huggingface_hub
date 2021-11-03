@@ -49,7 +49,7 @@ export function proxify(url: string): string {
 
 async function callApi(
 	url: string, 
-	modelId: string, 
+	repoId: string, 
 	requestBody: Record<string, any>, 
 	apiToken = '',
 	waitForModel = false, // If true, the server will only respond once the model has been loaded on the inference API,
@@ -76,7 +76,7 @@ async function callApi(
 		: JSON.stringify(requestBody);
 	
 	return await fetch(
-		`${url}/models/${modelId}`,
+		`${url}/models/${repoId}`,
 		{
 			method: "POST",
 			body,
@@ -87,7 +87,7 @@ async function callApi(
 
 export async function getResponse<T>(
 	url: string, 
-	modelId: string, 
+	repoId: string, 
 	requestBody: Record<string, any>, 
 	apiToken = '',
 	outputParsingFn: (x: unknown) =>  T,
@@ -109,7 +109,7 @@ export async function getResponse<T>(
 }>  {
 	const response = await callApi(
 		url,
-		modelId,
+		repoId,
 		requestBody,
 		apiToken,
 		waitForModel,
@@ -150,19 +150,35 @@ export async function getResponse<T>(
 			return { error: body["error"], estimatedTime: body["estimated_time"], status: 'loading-model' };
 		} else {
 			// Other errors
-			return { error: body["error"] ?? body["traceback"] ?? body, status: 'error' };
+			const { status, statusText } = response;
+			return { error: body["error"] ?? body["traceback"] ?? `${status} ${statusText}`, status: 'error' };
 		}
 	}
 }
 
 
-export async function getModelStatus(url: string, modelId: string): Promise<LoadingStatus> {
-	const response = await fetch(`${url}/status/${modelId}`);
+export async function getModelStatus(url: string, repoId: string): Promise<LoadingStatus> {
+	const response = await fetch(`${url}/status/${repoId}`);
 	const output = await response.json();
 	if (response.ok && typeof output === 'object' && output.loaded !== undefined) {
 		return output.loaded ? 'loaded' : 'unknown';
 	} else {
 		console.warn(response.status, output.error);
 		return 'error';
+	}
+}
+
+// Extend Inference API requestBody with user supplied Inference API parameters
+export function addInferenceParameters(requestBody: Record<string, any>, model: ModelData) {
+	const inference = model?.cardData?.inference;
+	if (typeof inference === "object") {
+		const inferenceParameters = inference?.parameters;
+		if (inferenceParameters) {
+			if (requestBody.parameters) {
+				requestBody.parameters = { ...requestBody.parameters, ...inferenceParameters };
+			} else {
+				requestBody.parameters = inferenceParameters;
+			}
+		}
 	}
 }

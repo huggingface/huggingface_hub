@@ -16,6 +16,7 @@
 		parseJSON,
 	} from "../../shared/ViewUtils";
 	import {
+		addInferenceParameters,
 		getDemoInputs,
 		getResponse,
 		getSearchParams,
@@ -112,12 +113,13 @@
 				data: convertTableToData(table),
 			},
 		};
+		addInferenceParameters(requestBody, model);
 
 		isLoading = true;
 
 		const res = await getResponse(
 			apiUrl,
-			model.modelId,
+			model.id,
 			requestBody,
 			apiToken,
 			parseOutput,
@@ -181,10 +183,15 @@
 			return acc;
 		}, {});
 	}
+
+	function applyInputSample(sample: Record<string, any>) {
+		table = sample.structuredData;
+	}
 </script>
 
 <WidgetWrapper
 	{apiUrl}
+	{applyInputSample}
 	{computeTime}
 	{error}
 	{model}
