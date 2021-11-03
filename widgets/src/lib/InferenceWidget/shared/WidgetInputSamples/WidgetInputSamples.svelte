@@ -21,7 +21,7 @@
 	function _previewInputSample(idx: number, isTocuh = false) {
 		const sample = inputSamples[idx];
 		previewInputSample(sample);
-		if(isTocuh){
+		if (isTocuh) {
 			isTouchOptionClicked = true;
 			selectedIdx = idx;
 		}
@@ -53,11 +53,11 @@
 			/>
 		</svg>
 	</div>
-		{#if !isTouchOptionClicked}
+	{#if !isTouchOptionClicked}
 		<div
-		class="with-hover:hidden inline-flex justify-between w-32 lg:w-44 rounded-md border border-gray-100 px-4 py-1"
-		on:click={toggleOptionsVisibility}
-	>
+			class="with-hover:hidden inline-flex justify-between w-32 lg:w-44 rounded-md border border-gray-100 px-4 py-1"
+			on:click={toggleOptionsVisibility}
+		>
 			<p class="text-sm truncate">{title}</p>
 			<svg
 				class="-mr-1 ml-2 h-5 w-5 transition ease-in-out transform"
@@ -73,14 +73,14 @@
 				/>
 			</svg>
 		</div>
-		{:else}
+	{:else}
 		<div
-		class="with-hover:hidden inline-flex justify-center w-32 lg:w-44 rounded-md border border-green-500 px-4 py-1"
-		on:click={() => _applyInputSample(selectedIdx)}
-	>
-			 <p class="text-green-500">Confirm</p>
-			</div>
-		{/if}
+			class="with-hover:hidden inline-flex justify-center w-32 lg:w-44 rounded-md border border-green-500 px-4 py-1"
+			on:click={() => _applyInputSample(selectedIdx)}
+		>
+			<p class="text-green-500">Confirm</p>
+		</div>
+	{/if}
 
 	{#if isOptionsVisible}
 		<div
