@@ -95,6 +95,7 @@
 			</svg>
 		</div>
 	{:else}
+		<!-- Better UX for mobile/table through CSS breakpoints -->
 		<div
 			class="with-hover:hidden inline-flex justify-center w-32 lg:w-44 rounded-md border border-green-500 px-4 py-1"
 			on:click={() => _applyInputSample(touchSelectedIdx)}
@@ -117,6 +118,7 @@
 					>
 						{example_title}
 					</p>
+					<!-- Better UX for mobile/table through CSS breakpoints -->
 					<p
 						class="with-hover:hidden px-4 py-2 text-sm hover:bg-gray-100 hover:text-gray-900 dark:hover:bg-gray-800 dark:hover:text-gray-200"
 						on:click={() => _previewInputSample(i, true)}
