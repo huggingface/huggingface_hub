@@ -20,11 +20,11 @@
 
 	function _previewInputSample(idx: number, isTocuh = false) {
 		const sample = inputSamples[idx];
-		previewInputSample(sample);
 		if (isTocuh) {
 			isTouchOptionClicked = true;
 			touchSelectedIdx = idx;
 		}
+		previewInputSample(sample);
 	}
 
 	function toggleOptionsVisibility() {
