@@ -131,7 +131,7 @@
 			<!-- Better UX for mobile/table through CSS breakpoints -->
 			{#if imgSrc}
 				{#if imgSrc}
-					<div class="mb-2 flex justify-center bg-gray-50 with-hover:hidden">
+					<div class="mb-2 flex justify-center bg-gray-50 dark:bg-gray-900 with-hover:hidden">
 						<img src={imgSrc} class="pointer-events-none max-h-44" alt="" />
 					</div>
 				{/if}
