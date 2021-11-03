@@ -186,7 +186,7 @@
 	</svelte:fragment>
 	<svelte:fragment slot="bottom">
 		<WidgetOutputChart
-			classNames="mt-4"
+			classNames="pt-4"
 			{output}
 			{highlightIndex}
 			{mouseover}

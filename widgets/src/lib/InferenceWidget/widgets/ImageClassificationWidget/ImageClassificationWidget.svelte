@@ -149,6 +149,6 @@
 		</form>
 	</svelte:fragment>
 	<svelte:fragment slot="bottom">
-		<WidgetOutputChart classNames="mt-4" {output} />
+		<WidgetOutputChart classNames="pt-4" {output} />
 	</svelte:fragment>
 </WidgetWrapper>
