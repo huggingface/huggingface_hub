@@ -81,7 +81,9 @@
 	{#if !imgSrc}
 		<span class="pointer-events-none text-sm">{label}</span>
 	{:else}
-		<slot />
+		<div class="pointer-events-none">
+			<slot />
+		</div>
 	{/if}
 	{#if isLoading}
 		<div
