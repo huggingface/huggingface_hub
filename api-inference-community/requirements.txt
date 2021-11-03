@@ -5,3 +5,4 @@ parameterized==0.8.1
 pillow==8.2.0
 huggingface_hub>=0.0.12
 datasets==1.10
+pytorchvideo==0.1.3

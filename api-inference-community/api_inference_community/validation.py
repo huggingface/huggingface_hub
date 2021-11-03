@@ -227,6 +227,10 @@ def normalize_payload(
         "image-to-text",
     }:
         return normalize_payload_image(bpayload)
+    elif task in {
+        "video-classification",
+    }:
+        return normalize_payload_video(bpayload)
     else:
         return normalize_payload_nlp(bpayload, task)
 
@@ -355,3 +359,11 @@ def normalize_payload_nlp(bpayload: bytes, task: str) -> Tuple[Any, Dict]:
     check_params(parameters, task)
     check_inputs(inputs, task)
     return inputs, parameters
+
+
+def normalize_payload_video(bpayload: bytes) -> Tuple[Any, Dict]:
+
+    from pytorchvideo.data.encoded_video_pyav import EncodedVideoPyAV
+
+    clip = EncodedVideoPyAV(BytesIO(bpayload))
+    return clip, {}
