@@ -33,6 +33,12 @@
 			return;
 		}
 
+		// Reset values
+		computeTime = "";
+		error = "";
+		output = [];
+		outputJson = "";
+
 		const requestBody = { file };
 
 		isLoading = true;
@@ -47,12 +53,7 @@
 		);
 
 		isLoading = false;
-		// Reset values
-		computeTime = "";
-		error = "";
 		modelLoading = { isLoading: false, estimatedTime: 0 };
-		output = [];
-		outputJson = "";
 
 		if (res.status === "success") {
 			computeTime = res.computeTime;
