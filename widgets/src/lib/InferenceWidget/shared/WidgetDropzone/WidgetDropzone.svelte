@@ -79,7 +79,7 @@
 	{#if !imgSrc}
 		<span class="pointer-events-none text-sm">{label}</span>
 	{:else}
-		<div class="pointer-events-none">
+		<div class={isDragging && "pointer-events-none"}>
 			<slot />
 		</div>
 	{/if}
