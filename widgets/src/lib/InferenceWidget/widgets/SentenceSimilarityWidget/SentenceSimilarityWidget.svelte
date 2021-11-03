@@ -126,10 +126,17 @@
 		throw new TypeError("Invalid output: output must be of type Array");
 	}
 
+	function previewInputSample(sample: Record<string, any>) {
+		sourceSentence = sample.source_sentence;
+		comparisonSentences = sample.sentences;
+		nComparisonSentences = comparisonSentences.length;
+	}
+
 	function applyInputSample(sample: Record<string, any>) {
 		sourceSentence = sample.source_sentence;
 		comparisonSentences = sample.sentences;
 		nComparisonSentences = comparisonSentences.length;
+		getOutput();
 	}
 </script>
 
@@ -142,6 +149,7 @@
 	{modelLoading}
 	{noTitle}
 	{outputJson}
+	{previewInputSample}
 >
 	<svelte:fragment slot="top">
 		<form class="flex flex-col space-y-2">
