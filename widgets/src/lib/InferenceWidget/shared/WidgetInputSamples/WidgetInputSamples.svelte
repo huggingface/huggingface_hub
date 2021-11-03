@@ -5,14 +5,14 @@
 	export let applyInputSample: (sample: Record<string, any>) => void;
 	export let previewInputSample: (sample: Record<string, any>) => void;
 
+	let containerEl: HTMLElement;
 	let isOptionsVisible = false;
 	let isTouchOptionClicked = false;
-	let selectedIdx: number;
+	let touchSelectedIdx: number;
 	let title = "Examples";
 
 	function _applyInputSample(idx: number) {
-		isOptionsVisible = false;
-		isTouchOptionClicked = false;
+		hideOptions();
 		const sample = inputSamples[idx];
 		title = sample.example_title;
 		applyInputSample(sample);
@@ -23,16 +23,36 @@
 		previewInputSample(sample);
 		if (isTocuh) {
 			isTouchOptionClicked = true;
-			selectedIdx = idx;
+			touchSelectedIdx = idx;
 		}
 	}
 
 	function toggleOptionsVisibility() {
 		isOptionsVisible = !isOptionsVisible;
 	}
+
+	function onClick(e: MouseEvent | TouchEvent) {
+		let targetElement = e.target;
+		do {
+			if (targetElement == containerEl) {
+				// This is a click inside. Do nothing, just return.
+				return;
+			}
+			targetElement = (targetElement as HTMLElement).parentElement;
+		} while (targetElement);
+		// This is a click outside
+		hideOptions();
+	}
+
+	function hideOptions() {
+		isOptionsVisible = false;
+		isTouchOptionClicked = false;
+	}
 </script>
 
-<div class="relative z-10">
+<svelte:window on:click={onClick} />
+
+<div class="relative z-10" bind:this={containerEl}>
 	<div
 		class="no-hover:hidden inline-flex justify-between w-32 lg:w-44 rounded-md border border-gray-100 px-4 py-1"
 		on:click={toggleOptionsVisibility}
@@ -60,7 +80,8 @@
 		>
 			<p class="text-sm truncate">{title}</p>
 			<svg
-				class="-mr-1 ml-2 h-5 w-5 transition ease-in-out transform"
+				class="-mr-1 ml-2 h-5 w-5 transition ease-in-out transform {isOptionsVisible &&
+					'-rotate-180'}"
 				xmlns="http://www.w3.org/2000/svg"
 				viewBox="0 0 20 20"
 				fill="currentColor"
@@ -76,7 +97,7 @@
 	{:else}
 		<div
 			class="with-hover:hidden inline-flex justify-center w-32 lg:w-44 rounded-md border border-green-500 px-4 py-1"
-			on:click={() => _applyInputSample(selectedIdx)}
+			on:click={() => _applyInputSample(touchSelectedIdx)}
 		>
 			<p class="text-green-500">Confirm</p>
 		</div>
