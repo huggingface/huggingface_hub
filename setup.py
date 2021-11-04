@@ -16,7 +16,7 @@ install_requires = [
     "requests",
     "tqdm",
     "pyyaml",
-    "typing-extensions",
+    "typing-extensions>=3.7.4.3",  # to be able to import TypeAlias
     "importlib_metadata;python_version<'3.8'",
     "packaging>=20.9",
 ]
