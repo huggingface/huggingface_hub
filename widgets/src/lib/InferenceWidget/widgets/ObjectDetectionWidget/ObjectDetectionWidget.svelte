@@ -1,5 +1,6 @@
 <script>
 	import type { WidgetProps, DetectedObject } from "../../shared/types";
+	import { COLORS } from "../../shared/consts";
 	import { mod } from "../../shared/ViewUtils";
 
 	import BoundingBoxes from "./SvgBoundingBoxes.svelte";
@@ -26,17 +27,6 @@
 	let output: DetectedObject[] = [];
 	let outputJson: string;
 	let highlightIndex = -1;
-
-	const COLORS = [
-		"red",
-		"green",
-		"yellow",
-		"blue",
-		"orange",
-		"purple",
-		"cyan",
-		"lime",
-	] as const;
 
 	function onSelectFile(file: File | Blob) {
 		imgSrc = URL.createObjectURL(file);
@@ -92,7 +82,7 @@
 
 	function addOutputColor(detObj: DetectedObject, idx: number) {
 		const hash = mod(idx, COLORS.length);
-		const color = COLORS[hash];
+		const { color } = COLORS[hash];
 		return { ...detObj, color };
 	}
 
@@ -146,6 +136,7 @@
 	{applyInputSample}
 	{computeTime}
 	{error}
+	{isLoading}
 	{model}
 	{modelLoading}
 	{noTitle}
@@ -196,7 +187,7 @@
 	</svelte:fragment>
 	<svelte:fragment slot="bottom">
 		<WidgetOutputChart
-			classNames="mt-4"
+			classNames="pt-4"
 			{output}
 			{highlightIndex}
 			{mouseover}

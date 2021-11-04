@@ -6,7 +6,7 @@
 	export let classNames = "";
 	export let isLoading = false;
 	export let label = "Browse for file";
-	export let onSelectFile: (file: File) => void;
+	export let onSelectFile: (file: File | Blob) => void;
 
 	let fileInput: HTMLInputElement;
 	let isDragging = false;

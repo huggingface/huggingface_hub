@@ -9,6 +9,13 @@ const ESCAPED = {
 };
 
 /**
+ *  Returns a function that clamps input value to range [min <= x <= max].
+ */
+ export function clamp(x: number, min: number, max: number): number {
+	return Math.max(min, Math.min(x, max));
+}
+
+/**
  * HTML escapes the passed string
  */
 export function escape(html: string) {
@@ -120,9 +127,9 @@ export function convertTableToData(table: (string | number)[][]): TableData {
 }
 
 /*
-	* Converts data from {Header0: [ColumnVal0, ...], Header1: [Column1Val0, ...], Header2: [Column2Val0, ...]}
-	* to [[Header0, Header1, Header2], [Column0Val0, Column1Val0, Column2Val0], ...]
-	*/
+* Converts data from {Header0: [ColumnVal0, ...], Header1: [Column1Val0, ...], Header2: [Column2Val0, ...]}
+* to [[Header0, Header1, Header2], [Column0Val0, Column1Val0, Column2Val0], ...]
+*/
 export function convertDataToTable(data: TableData): (string | number)[][] {
 	const dataArray = Object.entries(data); // [header, cell[]][]
 	const nbCols = dataArray.length;
@@ -134,6 +141,17 @@ export function convertDataToTable(data: TableData): (string | number)[][] {
 				.fill("")
 				.map((_, x) => (y === 0 ? dataArray[x][0] : dataArray[x][1][y - 1]))
 		);
+}
+
+/*
+* Converts hex string to rgb array (i.e. [r,g,b])
+* original from https://stackoverflow.com/a/39077686/6558628
+*/
+export function hexToRgb(hex: string): number[]{
+	return hex.replace(/^#?([a-f\d])([a-f\d])([a-f\d])$/i
+			   ,(_, r, g, b) => '#' + r + r + g + g + b + b)
+	  .substring(1).match(/.{2}/g)
+	  .map(x => parseInt(x, 16))
 }
 
 /*

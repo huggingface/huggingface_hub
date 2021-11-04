@@ -23,7 +23,7 @@
 	async function onDrop(e: DragEvent) {
 		isDragging = false;
 		const itemList = e.dataTransfer?.items;
-		if (!itemList) {
+		if (!itemList || isLoading) {
 			return;
 		}
 		const items: DataTransferItem[] = [];
@@ -56,6 +56,7 @@
 	{accept}
 	bind:this={fileInput}
 	on:change={onChange}
+	disabled={isLoading}
 	style="display: none;"
 	type="file"
 />
@@ -78,7 +79,9 @@
 	{#if !imgSrc}
 		<span class="pointer-events-none text-sm">{label}</span>
 	{:else}
-		<slot />
+		<div class={isDragging && "pointer-events-none"}>
+			<slot />
+		</div>
 	{/if}
 	{#if isLoading}
 		<div

@@ -168,6 +168,7 @@
 	{applyInputSample}
 	{computeTime}
 	{error}
+	{isLoading}
 	{model}
 	{modelLoading}
 	{noTitle}
@@ -196,7 +197,7 @@
 	</svelte:fragment>
 	<svelte:fragment slot="bottom">
 		{#if output.length}
-			<WidgetOutputChart classNames="mt-4" {output} />
+			<WidgetOutputChart classNames="pt-4" {output} />
 		{/if}
 	</svelte:fragment>
 </WidgetWrapper>

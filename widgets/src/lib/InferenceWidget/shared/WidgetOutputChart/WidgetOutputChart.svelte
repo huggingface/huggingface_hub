@@ -24,11 +24,11 @@ from-lime-400 to-lime-200 dark:from-lime-400 dark:to-lime-600
 </script>
 
 {#if output.length}
-	<div class="space-y-4 {classNames}">
+	<div>
 		{#each output as { label, score, color="purple" }, index}
 			<div
 				class="flex items-start justify-between font-mono text-xs animate__animated animate__fadeIn leading-none 
-					transition duration-200 ease-in-out
+					transition duration-200 ease-in-out {classNames}
 					{highlightIndex !== -1 &&
 					highlightIndex !== index &&
 					'opacity-30 filter grayscale'}

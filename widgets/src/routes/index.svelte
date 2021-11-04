@@ -13,6 +13,10 @@
 			pipeline_tag: "object-detection",
 		},
 		{
+			id: "facebook/detr-resnet-50-panoptic",
+			pipeline_tag: "image-segmentation",
+		},
+		{
 			id: "julien-c/distilbert-feature-extraction",
 			pipeline_tag: "feature-extraction",
 			widgetData: [{ text: "Hello world" }],

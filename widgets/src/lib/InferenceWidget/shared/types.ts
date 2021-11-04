@@ -29,3 +29,11 @@ export type DetectedObject = {
 	score: number;
 	color?: string;
 }
+export interface ImageSegment {
+	label: string;
+	score: number;
+	mask: string;
+	color?: string;
+	imgData?: ImageData;
+	bitmap?: ImageBitmap;
+};

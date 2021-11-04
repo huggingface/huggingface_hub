@@ -172,6 +172,7 @@
 	{applyInputSample}
 	{computeTime}
 	{error}
+	{isLoading}
 	{model}
 	{modelLoading}
 	{noTitle}
