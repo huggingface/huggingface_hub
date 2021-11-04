@@ -23,7 +23,7 @@
 	async function onDrop(e: DragEvent) {
 		isDragging = false;
 		const itemList = e.dataTransfer?.items;
-		if (!itemList) {
+		if (!itemList || isLoading) {
 			return;
 		}
 		const items: DataTransferItem[] = [];
