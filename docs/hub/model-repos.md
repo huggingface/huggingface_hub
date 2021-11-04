@@ -85,12 +85,18 @@ widget:
 
 If you have more than one example input, you can name each example input with `example_title`. Users can now select a specific example using the `example_title` from the dropdown menu of the widget.
 
+![/docs/assets/hub/widget_input_examples.gif](/docs/assets/hub/widget_input_examples.gif)
+
 ```yaml
 widget:
-- text: "Paris is the <mask> of France."
-  example_title: "Geography"
-- text: "The goal of life is <mask>."
-  example_title: "Philosophy"
+- text: "Is this review positive or negative? Review: Best cast iron skillet you will every buy."
+  example_title: "Sentiment analysis"
+- text: "Barack Obama nominated Hilary Clinton as his secretary of state on Monday. He chose her because she had ..."
+  example_title: "Coreference resolution"
+- text: "On a shelf, there are five books: a gray book, a red book, a purple book, a blue book, and a black book ..."
+  example_title: "Logic puzzles"
+- text: "The two men running to become New York City's next mayor will face off in their first debate Wednesday night ..."
+  example_title: "Reading comprehension"
 ```
 
 Moreover, you can specify non-text example inputs in the model card metadata. Refer [here](https://github.com/huggingface/huggingface_hub/blob/main/docs/hub/input-examples.md) for a complete list of example input formats for all widget types. For vision & audio widget types, provide example inputs with `src` rather than `text`. 
