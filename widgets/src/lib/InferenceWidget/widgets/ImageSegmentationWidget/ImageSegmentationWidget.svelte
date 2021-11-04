@@ -88,7 +88,7 @@
 				);
 				isLoading = false;
 			}
-			// outputJson = res.outputJson;
+			outputJson = res.outputJson;
 		} else if (res.status === "loading-model") {
 			modelLoading = {
 				isLoading: true,
