@@ -93,7 +93,9 @@ widget:
   example_title: "Philosophy"
 ```
 
-Moreover, you can specify non-text example inputs in the model card metadata. Find [here](https://github.com/huggingface/huggingface_hub/blob/main/docs/hub/input-examples.md) an exhaustive list of input examples formats for all widget types. For vision & audio widget types, you can provide example inputs under key `src` rather than `text`. For example, allow users to choose from two sample audio files for automatic speech recognition tasks by:
+Moreover, you can specify non-text example inputs in the model card metadata. Refer [here](https://github.com/huggingface/huggingface_hub/blob/main/docs/hub/input-examples.md) for a complete list of example input formats for all widget types. For vision & audio widget types, provide example inputs with `src` rather than `text`. 
+
+For example, allow users to choose from two sample audio files for automatic speech recognition tasks by:
 
 ```yaml
 widget:
