@@ -22,7 +22,7 @@ We recommend you try both because they're really awesome! 😎
 
 Streamlit's documentation is at https://docs.streamlit.io/ and Gradio's doc is at https://gradio.app/getting_started.
 
-In the default environment, we're currently running version `"0.84.2"` of Streamlit and the latest version of Gradio.
+In the default environment, we're currently running version `"1.0.0"` of Streamlit and the latest version of Gradio.
 
 See [Configuration](#configuration) section for more infos on SDK versions.
 
