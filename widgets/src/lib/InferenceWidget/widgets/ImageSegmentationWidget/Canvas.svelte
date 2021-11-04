@@ -69,12 +69,14 @@
 			bind:this={imgEl}
 		/>
 	</div>
-	<canvas
-		class="absolute top-0 left-0"
-		{width}
-		{height}
-		bind:this={canvas}
-		on:mousemove={(e) => mousemove(e, width, height)}
-		on:mouseout={mouseout}
-	/>
+	{#if output.length}
+		<canvas
+			class="absolute top-0 left-0"
+			{width}
+			{height}
+			bind:this={canvas}
+			on:mousemove={(e) => mousemove(e, width, height)}
+			on:mouseout={mouseout}
+		/>
+	{/if}
 </div>
