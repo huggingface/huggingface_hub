@@ -61,7 +61,7 @@
 			{#if model.pipeline_tag === "fill-mask"}
 				Mask token: <code>{model.mask_token}</code>
 			{/if}
-			{#if inputSamples.length > 1}
+			{#if inputSamples.length}
 				<!-- Show samples selector when there are more than one sample -->
 				<WidgetInputSamples
 					{inputSamples}
