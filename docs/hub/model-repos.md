@@ -83,14 +83,32 @@ widget:
 - text: "Jens Peter Hansen kommer fra Danmark"
 ```
 
-It is also possible to specify non-text example inputs in the model card metadata. For example, allow users to choose from two sample audio files for automatic speech recognition tasks by:
+You can provide more than one example input. In the examples dropdown menu of the widget, they will appear as `Example 1`, `Example 2`, etc. Optionally, you can supply `example_title` as well.
+
+![/docs/assets/hub/widget_input_examples.gif](/docs/assets/hub/widget_input_examples.gif)
 
 ```yaml
 widget:
-- label: Librispeech sample 1
-  src: https://cdn-media.huggingface.co/speech_samples/sample1.flac
-- label: Librispeech sample 2
-  src: https://cdn-media.huggingface.co/speech_samples/sample2.flac
+- text: "Is this review positive or negative? Review: Best cast iron skillet you will every buy."
+  example_title: "Sentiment analysis"
+- text: "Barack Obama nominated Hilary Clinton as his secretary of state on Monday. He chose her because she had ..."
+  example_title: "Coreference resolution"
+- text: "On a shelf, there are five books: a gray book, a red book, a purple book, a blue book, and a black book ..."
+  example_title: "Logic puzzles"
+- text: "The two men running to become New York City's next mayor will face off in their first debate Wednesday night ..."
+  example_title: "Reading comprehension"
+```
+
+Moreover, you can specify non-text example inputs in the model card metadata. Refer [here](https://github.com/huggingface/huggingface_hub/blob/main/docs/hub/input-examples.md) for a complete list of example input formats for all widget types. For vision & audio widget types, provide example inputs with `src` rather than `text`. 
+
+For example, allow users to choose from two sample audio files for automatic speech recognition tasks by:
+
+```yaml
+widget:
+- src: https://cdn-media.huggingface.co/speech_samples/sample1.flac
+  example_title: Librispeech sample 1
+- src: https://cdn-media.huggingface.co/speech_samples/sample2.flac
+  example_title: Librispeech sample 2
 ```
 
 We provide example inputs for some languages and most widget types in [the DefaultWidget.ts file](https://github.com/huggingface/huggingface_hub/blob/master/widgets/src/lib/interfaces/DefaultWidget.ts). If some examples are missing, we welcome PRs from the community to add them!
