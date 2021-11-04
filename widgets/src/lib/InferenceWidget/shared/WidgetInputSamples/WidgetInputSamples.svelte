@@ -1,6 +1,7 @@
 <script>
 	import { slide } from "svelte/transition";
 
+	export let isLoading = false;
 	export let inputSamples: Record<string, any>[];
 	export let applyInputSample: (sample: Record<string, any>) => void;
 	export let previewInputSample: (sample: Record<string, any>) => void;
@@ -52,7 +53,10 @@
 
 <svelte:window on:click={onClick} />
 
-<div class="relative z-10 ml-2" bind:this={containerEl}>
+<div
+	class="relative z-10 ml-2 {isLoading && 'pointer-events-none opacity-50'}"
+	bind:this={containerEl}
+>
 	<div
 		class="no-hover:hidden inline-flex justify-between w-32 lg:w-44 rounded-md border border-gray-100 px-4 py-1"
 		on:click={toggleOptionsVisibility}

@@ -13,6 +13,7 @@
 	export let apiUrl: string;
 	export let computeTime: string;
 	export let error: string;
+	export let isLoading = false;
 	export let model: WidgetProps["model"];
 	export let modelLoading = {
 		isLoading: false,
@@ -64,6 +65,7 @@
 			{#if inputSamples.length}
 				<!-- Show samples selector when there are more than one sample -->
 				<WidgetInputSamples
+					{isLoading}
 					{inputSamples}
 					{applyInputSample}
 					{previewInputSample}
