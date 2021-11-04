@@ -83,7 +83,7 @@ widget:
 - text: "Jens Peter Hansen kommer fra Danmark"
 ```
 
-If you have more than one example input, you can name each example input with `example_title`. Users can now select a specific example using the `example_title` from the dropdown menu of the widget.
+You can provide more than one example input. In the examples dropdown menu of the widget, they will appear as `Example 1`, `Example 2`, etc. Optionally, you can supply `example_title` as well.
 
 ![/docs/assets/hub/widget_input_examples.gif](/docs/assets/hub/widget_input_examples.gif)
 
