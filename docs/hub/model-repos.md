@@ -83,7 +83,7 @@ widget:
 - text: "Jens Peter Hansen kommer fra Danmark"
 ```
 
-It is also possible to specify multiple example inputs & their titles that will be used in the examples picker drop-down of the widget.
+If you have more than one example input, you can name each example input with `example_title`. Users can now select a specific example using the `example_title` from the dropdown menu of the widget.
 
 ```yaml
 widget:
