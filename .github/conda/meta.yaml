@@ -20,6 +20,7 @@ requirements:
     - typing-extensions
     - packaging
     - pyyaml
+    - urllib3
   run:
     - python
     - pip
