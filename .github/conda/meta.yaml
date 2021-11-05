@@ -19,6 +19,7 @@ requirements:
     - tqdm
     - typing-extensions
     - packaging
+    - pyyaml
   run:
     - python
     - pip
@@ -27,6 +28,7 @@ requirements:
     - tqdm
     - typing-extensions
     - packaging
+    - pyyaml
 
 test:
   imports:
