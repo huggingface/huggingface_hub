@@ -20,7 +20,7 @@ The default Spaces environment comes with several pre-installed dependencies:
 
 * [`requests`](https://docs.python-requests.org/en/master/) is useful for calling third-party APIs from your app.
 
-* [🤗 Datasets](https://github.com/huggingface/datasets) allows you to fetch or display datasets from inside your app easily.
+* [`datasets`](https://github.com/huggingface/datasets) allows you to fetch or display datasets from inside your app easily.
 
 Each Spaces environment is limited to 16GB RAM and 8 CPU cores. Organization [subscribers](https://huggingface.co/pricing) (Lab, Startup, and Enterprise) can access Spaces with one T4 GPU on a case-by-case basis. Please email us at **website at huggingface.co** or let us know on [Twitter](https://twitter.com/huggingface) if you need one.
 
