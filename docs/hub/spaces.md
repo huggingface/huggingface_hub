@@ -89,7 +89,7 @@ For additional settings, refer to the [Reference](#reference) section.
 
 ### Organization card
 
-Create an organization card to help users learn more about what your organization is working on and how users can use your libraries, models, datasets, and Spaces. Build an organization card by setting `sdk:static` to create a static **README** Space with HTML. As an example, take a look at:
+Create an organization card to help users learn more about what your organization is working on and how users can use your libraries, models, datasets, and Spaces. Build an organization card by setting `sdk: static` to create a static **README** Space with HTML. As an example, take a look at:
 
 * [Amazon's](https://huggingface.co/spaces/amazon/README/blob/main/README.md) organization card
 * [spaCy's](https://huggingface.co/spaces/spacy/README/blob/main/README.md) organization card.
@@ -170,6 +170,8 @@ Feel free to ask questions on the [forum](https://discuss.huggingface.co/) if it
 If you're interested in infra challenges, custom demos, GPUs, or something else, please reach out to us by sending an email to **website at huggingface.co**.
 
 You can also tag us [on Twitter](https://twitter.com/huggingface)! 🤗
+
+---
 
 ## Reference
 
