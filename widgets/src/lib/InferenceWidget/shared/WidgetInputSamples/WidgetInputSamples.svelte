@@ -54,7 +54,8 @@
 <svelte:window on:click={onClick} />
 
 <div
-	class="relative z-10 ml-2 {isLoading && 'pointer-events-none opacity-50'}"
+	class="relative ml-2 {isLoading &&
+		'pointer-events-none opacity-50'} {isOptionsVisible && 'z-10'}"
 	bind:this={containerEl}
 >
 	<div
