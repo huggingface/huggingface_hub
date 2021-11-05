@@ -2,15 +2,17 @@
 title: Documentation for Spaces
 ---
 
-<h1>Spaces</h1>
+<h1>How to get started with Spaces</h1>
 
-<center><img style="width: 280px;" src="/docs/assets/hub/icon-space.svg"></center>
+## What are Spaces?
 
-Over the past few years, Hugging Face has built several demo apps in collaboration with other research groups. These demo apps highlight new models and methods such as the Uber AI [Plug and Play Language Model](https://transformer.huggingface.co/model/pplm), Facebook AI's [Retrieval Augmented Generation](https://huggingface.co/rag/), [zero-shot classification](https://huggingface.co/zero-shot/), and [ExBERT](https://huggingface.co/exbert/?model=bert-base-cased&modelKind=bidirectional&sentence=The%20girl%20ran%20to%20a%20local%20pub%20to%20escape%20the%20din%20of%20her%20city.&layer=0&heads=..0,1,2,3,4,5,6,7,8,9,10,11&threshold=0.7&tokenInd=null&tokenSide=null&maskInds=..&hideClsSep=true). While the 🤗 Hub supports [widgets](https://huggingface-widgets.netlify.app/) for each model, there are use cases where widgets simply aren't enough. Sometimes you need the flexibility of a web app.
+Spaces are a simple way to host ML demo apps directly on your profile or your organization’s  profile. This allows you to create your ML portfolio, showcase your projects at conferences or to stakeholders, and work collaboratively with other people in the ML ecosystem.
 
-Spaces are a simple solution for freely hosting machine learning (ML) demo apps on a user or organization's Hugging Face profile. It allows users to create an ML portfolio, showcase projects at conferences or to stakeholders. Spaces also encourage users to work collaboratively with other ML community members.
+We support two awesome SDKs that let you build cool apps in Python in a matter of minutes: **[Streamlit](https://streamlit.io/)** and **[Gradio](https://gradio.app/)**.
 
-Spaces stores your code inside a git repository, just like the model and dataset repositories. Thanks to this, the same tools you're already familiar with (`git` and `git-lfs`) will also work in Spaces.
+**To get started**, simply click on [New Space](https://huggingface.co/new-space) in the top navigation menu, create a new repo of type `Space`, and pick your SDK.
+
+Under the hood, Spaces stores your code inside a git repository, just like the model and dataset repositories. Thanks to this, the same tools you're already used to (`git` and `git-lfs`) also work for Spaces.
 
 The default Spaces environment comes with several pre-installed dependencies:
 
