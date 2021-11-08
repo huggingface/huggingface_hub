@@ -17,7 +17,7 @@
   title: Hub API Endpoints
 
 - local: spaces
-  title: Spaces documentation (beta)
+  title: Spaces documentation
 
 - local: adding-a-library
   title: Integrate a library with the Hub
