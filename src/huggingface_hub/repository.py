@@ -1206,7 +1206,7 @@ class Repository:
         self,
         commit_message: Optional[str] = "commit files to HF hub",
         blocking: Optional[bool] = True,
-        clean_ok: Optional[bool] = False,
+        clean_ok: Optional[bool] = True,
         auto_lfs_prune: Optional[bool] = False,
     ) -> Optional[str]:
         """
@@ -1218,7 +1218,7 @@ class Repository:
                 Message to use for the commit.
             blocking (`bool`, `optional`, defaults to `True`):
                 Whether the function should return only when the `git push` has finished.
-            clean_ok (`bool`, `optional`, defaults to `False`):
+            clean_ok (`bool`, `optional`, defaults to `True`):
                 If True, this function will return None if the repo is untouched.
                 Default behavior is to fail because the git command fails.
             auto_lfs_prune (`bool`, defaults to `False`):
