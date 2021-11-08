@@ -15,17 +15,16 @@ requirements:
     - python
     - pip
     - filelock
-    - requests
+    - requests <=2.23
     - tqdm
     - typing-extensions
     - packaging
     - pyyaml
-    - urllib3
   run:
     - python
     - pip
     - filelock
-    - requests
+    - requests <=2.23
     - tqdm
     - typing-extensions
     - packaging
