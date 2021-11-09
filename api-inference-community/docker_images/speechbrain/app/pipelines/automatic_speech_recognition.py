@@ -4,20 +4,19 @@ import numpy as np
 import torch
 from app.common import ModelType, get_type
 from app.pipelines import Pipeline
-from speechbrain.pretrained import EncoderDecoderASR
+from speechbrain.pretrained import EncoderASR, EncoderDecoderASR
 
 
 class AutomaticSpeechRecognitionPipeline(Pipeline):
     def __init__(self, model_id: str):
         model_type = get_type(model_id)
         if model_type is ModelType.ENCODERASR:
-            # self.model = EncoderASR.from_hparams(source=model_id)
-            raise ValueError("EncoderASR is not a supported interface at the moment")
+            self.model = EncoderASR.from_hparams(source=model_id)
         elif model_type is ModelType.ENCODERDECODERASR:
             self.model = EncoderDecoderASR.from_hparams(source=model_id)
 
             # Reduce latency
-            self.model.modules.decoder.beam_size = 1
+            self.model.mods.decoder.beam_size = 1
         else:
             raise ValueError(
                 f"{model_type.value} is invalid for automatic-speech-recognition"
