@@ -67,7 +67,7 @@ def tokenize(batch):
 
 # tokenize train and test datasets
 train_dataset = train_dataset.map(tokenize, batched=True)
-test_dataset = test.dataset.map(tokenize, batched=True)
+test_dataset = test_dataset.map(tokenize, batched=True)
 
 # set dataset format for PyTorch
 train_dataset =  train_dataset.rename_column("label", "labels")
