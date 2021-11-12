@@ -26,6 +26,6 @@ class TextClassificationPipeline(Pipeline):
                 - "score": A score between 0 and 1 describing how confident the model is for this label/class.
         """
         try:
-          return self.pipeline(inputs)
+            return self.pipeline(inputs)
         except Exception as e:
-          raise ValueError(e)
+            raise ValueError(e)
