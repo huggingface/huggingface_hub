@@ -25,4 +25,7 @@ class TextClassificationPipeline(Pipeline):
                 - "label": A string representing what the label/class is. There can be multiple labels.
                 - "score": A score between 0 and 1 describing how confident the model is for this label/class.
         """
-        return self.pipeline(inputs)
+        try:
+          return self.pipeline(inputs)
+        except Exception as e:
+          raise ValueError(e)
