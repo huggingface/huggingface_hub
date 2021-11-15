@@ -291,4 +291,4 @@ University of Illinois/NCSA Open Source License	| `ncsa`
 The Unlicense	| `unlicense`
 zLib License	| `zlib`
 Open Data Commons Public Domain Dedication and License | `pddl`
-Lesser General Public License For Linguistic Resources | `lgpllr`
+Lesser General Public License For Linguistic Resources | `lgpl-lr`
