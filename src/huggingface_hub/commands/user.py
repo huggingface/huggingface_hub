@@ -355,7 +355,7 @@ def _login(hf_api, username, password):
     if "store" not in helpers:
         print(
             ANSI.red(
-                "Authenticated through git-crendential store but this isn't the helper defined on your machine.\nYou "
+                "Authenticated through git-credential store but this isn't the helper defined on your machine.\nYou "
                 "will have to re-authenticate when pushing to the Hugging Face Hub. Run the following command in your "
                 "terminal to set it as the default\n\ngit config --global credential.helper store"
             )
