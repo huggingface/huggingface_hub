@@ -49,8 +49,10 @@ class TextClassificationTestCase(TestCase):
         )
         content = json.loads(response.content)
         self.assertEqual(type(content), list)
+        self.assertEqual(len(content), 1)
+        self.assertEqual(type(content[0]), list)
         self.assertEqual(
-            set(k for el in content for k in el.keys()),
+            set(k for el in content[0] for k in el.keys()),
             {"label", "score"},
         )
 
@@ -63,8 +65,10 @@ class TextClassificationTestCase(TestCase):
         )
         content = json.loads(response.content)
         self.assertEqual(type(content), list)
+        self.assertEqual(len(content), 1)
+        self.assertEqual(type(content[0]), list)
         self.assertEqual(
-            set(k for el in content for k in el.keys()),
+            set(k for el in content[0] for k in el.keys()),
             {"label", "score"},
         )
 
