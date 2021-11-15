@@ -365,7 +365,7 @@ class Repository:
         git_email: Optional[str] = None,
         revision: Optional[str] = None,
         private: bool = False,
-        skip_lfs: bool = False,
+        skip_lfs_files: bool = False,
     ):
         """
         Instantiate a local clone of a git repo.
@@ -397,7 +397,7 @@ class Repository:
                 branch will be created with that revision name from the default branch's current HEAD.
             private (``bool``, `optional`, defaults to ``False``):
                 whether the repository is private or not.
-            skip_lfs (``bool``, `optional`, defaults to ``False``):
+            skip_lfs_files (``bool``, `optional`, defaults to ``False``):
                 whether to skip git-LFS files or not.
         """
 
@@ -406,7 +406,7 @@ class Repository:
         self.repo_type = repo_type
         self.command_queue = []
         self.private = private
-        self.skip_lfs = skip_lfs
+        self.skip_lfs_files = skip_lfs_files
 
         self.check_git_versions()
 
@@ -570,17 +570,18 @@ class Repository:
             # checks if repository is initialized in a empty repository or in one with files
             if len(os.listdir(self.local_dir)) == 0:
                 logger.warning(f"Cloning {clean_repo_url} into local empty directory.")
-                prefix = ""
-                if self.skip_lfs:
-                    prefix = "GIT_LFS_SKIP_SMUDGE=1 "
+                env = os.environ.copy()
+                if self.skip_lfs_files:
+                    env["GIT_LFS_SKIP_SMUDGE"] = 1
                 with lfs_log_progress():
                     subprocess.run(
-                        f"{prefix}git lfs clone {repo_url} .".split(),
+                        f"git lfs clone {repo_url} .".split(),
                         stderr=subprocess.PIPE,
                         stdout=subprocess.PIPE,
                         check=True,
                         encoding="utf-8",
                         cwd=self.local_dir,
+                        env=env,
                     )
             else:
                 # Check if the folder is the root of a git repository
