@@ -141,6 +141,7 @@
 		<form>
 			<WidgetTextarea bind:value={text} />
 			<WidgetSubmitBtn
+				classNames="mt-2"
 				{isLoading}
 				onClick={() => {
 					getOutput();
