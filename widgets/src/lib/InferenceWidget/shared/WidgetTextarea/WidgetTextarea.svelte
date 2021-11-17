@@ -12,7 +12,7 @@
 			bind:textContent={value}
 			class="{label
 				? 'mt-1.5'
-				: ''} block overflow-auto resize-y py-1 px-2 w-full max-h-[500px] border border-gray-200 rounded-lg shadow-inner outline-none focus:ring-1 focus:ring-inset focus:ring-indigo-200 focus:shadow-inner dark:bg-gray-925"
+				: ''} block overflow-auto resize-y py-2 px-3 w-full max-h-[500px] border border-gray-200 rounded-lg shadow-inner outline-none focus:ring-1 focus:ring-inset focus:ring-indigo-200 focus:shadow-inner dark:bg-gray-925"
 			role="textbox"
 			contenteditable
 			style="--placeholder: '{placeholder}'"
