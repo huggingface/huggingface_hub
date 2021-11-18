@@ -37,6 +37,7 @@ There are plenty of ways to use a User Access Token to access the Hugging Face h
 - User Access Tokens can be used **in place of a password** to access the Hugging Face hub with git or with Basic authentication
 - User Access Tokens can be passed as a **bearer token** when calling the Hugging Face APIs
 - User Access Tokens can be used in the Hugging Face Python library:
+
 ```python
 from transformers import AutoModel
 
@@ -50,7 +51,6 @@ model = AutoModel.from_pretrained("private/model", use_auth_token=access_token)
 We recommand to create one access token per app or usage. For instance, one would have one token to use on their local machine, one token to use on Colab notebooks, and one token to be used by an awesome custom inference server. This way, you can invalidate one token without impacting your other usages.
 
 We also recommand giving the minimal rights to each token you create. If you only need read access (ie, loading a dataset with the `datasets` library or retrieving the weights of a model), give your access token the `read` role.
-
 
 ## Access Control in Organizations
 
