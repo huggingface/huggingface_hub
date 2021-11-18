@@ -8,15 +8,15 @@ title: Security and trust on the Hugging Face Hub
 
 ### What are User Access Tokens?
 
-User Access Tokens are the preferred way to authenticate an application or a notebook to the HuggingFace services. You can manage your access tokens in your [settings](https://huggingface.co/settings/tokens).
+User Access Tokens are the preferred way to authenticate an application or a notebook to the HuggingFace services. You can manage your access tokens in your [settings](https://huggingface.co/settings/token).
 
 ![/docs/assets/hub/access-tokens.png](/docs/assets/hub/access-tokens.png)
 
-Access tokens allow applications and notebooks to impersonate you, with restricted permissions. Each token is given a role, among the following:
+Access tokens allow applications and notebooks to impersonate you with restricted permissions. Each token is given a role, among the following:
 
-- `read`: tokens with this role can only be used to provide read access to repositories you could read. That includes public repositories and private repositories that you or an org you're a member of own. Use this role if you only need to read content from the HuggingFace hub (eg, when doing inference).
+- `read`: tokens with this role can only be used to provide read access to repositories you could read. That includes public repositories and private repositories that you or an org you're a member of own. Use this role if you only need to read content from the Hugging Face Hub (e.g. when downloading private models or doing inference).
 
-- `write`: tokens with this role additionally grant write access to the repositories you have write access to. Use this token if you need to create or push content to a repository (eg, when training a model).
+- `write`: tokens with this role additionally grant write access to the repositories you have write access to. Use this token if you need to create or push content to a repository (e.g., when training a model or modifying a model card).
 
 ### How to manage User Access Tokens?
 
@@ -32,10 +32,10 @@ You can delete an refresh User Access Tokens by clicking on the "Manage" button.
 
 ### How to use User Access Tokens?
 
-There are plenty of ways to use a User Access Token to access the Hugging Face hub, granting you the flexibility you need to build awesome apps on top of it.
+There are plenty of ways to use a User Access Token to access the Hugging Face Hub, granting you the flexibility you need to build awesome apps on top of it.
 
-- User Access Tokens can be used **in place of a password** to access the Hugging Face hub with git or with Basic authentication
-- User Access Tokens can be passed as a **bearer token** when calling the Hugging Face APIs
+- User Access Tokens can be used **in place of a password** to access the Hugging Face Hub with git or with basic authentication
+- User Access Tokens can be passed as a **bearer token** when calling the [Inference API](https://huggingface.co/inference-api).
 - User Access Tokens can be used in the Hugging Face Python library:
 
 ```python
