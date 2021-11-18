@@ -62,7 +62,7 @@
 		class="no-hover:hidden inline-flex justify-between w-32 lg:w-44 rounded-md border border-gray-100 px-4 py-1"
 		on:click={toggleOptionsVisibility}
 	>
-		<p class="text-sm truncate">{title}</p>
+		<div class="text-sm truncate">{title}</div>
 		<svg
 			class="-mr-1 ml-2 h-5 w-5 transition ease-in-out transform {isOptionsVisible &&
 				'-rotate-180'}"
@@ -83,7 +83,7 @@
 			class="with-hover:hidden inline-flex justify-between w-32 lg:w-44 rounded-md border border-gray-100 px-4 py-1"
 			on:click={toggleOptionsVisibility}
 		>
-			<p class="text-sm truncate">{title}</p>
+			<div class="text-sm truncate">{title}</div>
 			<svg
 				class="-mr-1 ml-2 h-5 w-5 transition ease-in-out transform {isOptionsVisible &&
 					'-rotate-180'}"
@@ -105,7 +105,7 @@
 			class="with-hover:hidden inline-flex justify-center w-32 lg:w-44 rounded-md border border-green-500 px-4 py-1"
 			on:click={() => _applyInputSample(touchSelectedIdx)}
 		>
-			<p class="text-green-500">Confirm</p>
+			<div class="text-green-500">Compute</div>
 		</div>
 	{/if}
 
@@ -116,20 +116,20 @@
 		>
 			<div class="py-1 bg-white rounded-md" role="none">
 				{#each inputSamples as { example_title }, i}
-					<p
+					<div
 						class="no-hover:hidden px-4 py-2 text-sm hover:bg-gray-100 hover:text-gray-900 dark:hover:bg-gray-800 dark:hover:text-gray-200"
 						on:mouseover={() => _previewInputSample(i)}
 						on:click={() => _applyInputSample(i)}
 					>
 						{example_title}
-					</p>
+					</div>
 					<!-- Better UX for mobile/table through CSS breakpoints -->
-					<p
+					<div
 						class="with-hover:hidden px-4 py-2 text-sm hover:bg-gray-100 hover:text-gray-900 dark:hover:bg-gray-800 dark:hover:text-gray-200"
 						on:click={() => _previewInputSample(i, true)}
 					>
 						{example_title}
-					</p>
+					</div>
 				{/each}
 			</div>
 		</div>
