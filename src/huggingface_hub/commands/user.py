@@ -289,12 +289,30 @@ class RepoCreateCommand(BaseUserCommand):
         print("")
 
 
-LOGIN_NOTEBOOK_HTML = """<center>
+NOTEBOOK_LOGIN_PASSWORD_HTML = """<center>
 <img src=https://huggingface.co/front/assets/huggingface_logo-noborder.svg alt='Hugging Face'>
 <br>
 <b>The AI community building the future</b>
 <br>
 Immediately click login after typing your password or it might be stored in plain text in this notebook file.
+</center>"""
+
+
+NOTEBOOK_LOGIN_TOKEN_HTML_START = """<center>
+<img src=https://huggingface.co/front/assets/huggingface_logo-noborder.svg alt='Hugging Face'>
+<br>
+<b>The AI community building the future</b>
+<br>
+Copy a token from <a href="https://huggingface.co/settings/token" target="_blank">you Hugging Face account</a> and paste it below.
+<br>
+Immediately click login after copying your token or it might be stored in plain text in this notebook file.
+</center>"""
+
+
+NOTEBOOK_LOGIN_TOKEN_HTML_END = """
+<b>Pro Tip:</b> If you don't already have one, you can create a dedicated 'notebooks' token with 'write' access, that you can then easily reuse for all notebooks.
+<br>
+<i>Logging in with your username and password is deprecated and won't be possible anymore in the near future. You can still use them for now by clicking below.</i>
 </center>"""
 
 
@@ -311,42 +329,76 @@ def notebook_login():
             "`ipywdidgets` module: `pip install ipywidgets`."
         )
 
-    input_widget = widgets.Text(description="Username:")
-    password_widget = widgets.Password(description="Password:")
-    finish_button = widgets.Button(description="Login")
     box_layout = widgets.Layout(
         display="flex", flex_flow="column", align_items="center", width="50%"
     )
-    main_widget = widgets.VBox(
+
+    token_widget = widgets.Password(description="Token:")
+    token_finish_button = widgets.Button(description="Login")
+    switch_button = widgets.Button(description="Use password")
+
+    login_token_widget = widgets.VBox(
         [
-            widgets.HTML(value=LOGIN_NOTEBOOK_HTML),
+            widgets.HTML(NOTEBOOK_LOGIN_TOKEN_HTML_START),
+            token_widget,
+            token_finish_button,
+            widgets.HTML(NOTEBOOK_LOGIN_TOKEN_HTML_END),
+            switch_button,
+        ],
+        layout=box_layout,
+    )
+    display(login_token_widget)
+
+    # Deprecated page for login
+    input_widget = widgets.Text(description="Username:")
+    password_widget = widgets.Password(description="Password:")
+    password_finish_button = widgets.Button(description="Login")
+
+    login_password_widget = widgets.VBox(
+        [
+            widgets.HTML(value=NOTEBOOK_LOGIN_PASSWORD_HTML),
             widgets.HBox([input_widget, password_widget]),
-            finish_button,
+            password_finish_button,
         ],
         layout=box_layout,
     )
 
-    display(main_widget)
+    # On click events
+    def login_token_event(t):
+        token = token_widget.value
+        # Erase token and clear value to make sure it's not saved in the notebook.
+        token_widget.value = ""
+        clear_output()
+        _login(token=token)
 
-    def login_event(t):
+    token_finish_button.on_click(login_token_event)
+
+    def login_password_event(t):
         username = input_widget.value
         password = password_widget.value
         # Erase password and clear value to make sure it's not saved in the notebook.
         password_widget.value = ""
         clear_output()
-        _login(HfApi(), username, password)
+        _login(HfApi(), username=username, password=password)
 
-    finish_button.on_click(login_event)
+    password_finish_button.on_click(login_password_event)
+
+    def switch_event(t):
+        clear_output()
+        display(login_password_widget)
+
+    switch_button.on_click(switch_event)
 
 
-def _login(hf_api, username, password):
-    try:
-        token = hf_api.login(username, password)
-    except HTTPError as e:
-        # probably invalid credentials, display error message.
-        print(e)
-        print(ANSI.red(e.response.text))
-        exit(1)
+def _login(hf_api, username=None, password=None, token=None):
+    if token is None:
+        try:
+            token = hf_api.login(username, password)
+        except HTTPError as e:
+            # probably invalid credentials, display error message.
+            print(e)
+            print(ANSI.red(e.response.text))
+            exit(1)
     HfFolder.save_token(token)
     print("Login successful")
     print("Your token has been saved to", HfFolder.path_token)
