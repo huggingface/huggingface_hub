@@ -46,6 +46,7 @@ access_token = "hf_..."
 model = AutoModel.from_pretrained("private/model", use_auth_token=access_token)
 ```
 
+⚠️ Try not to leak your token! Though you can always rotate it, anyone will be able to read or write your private repos in the meantime which is 💩 
 ### Best practices
 
 We recommand to create one access token per app or usage. For instance, one would have one token to use on their local machine, one token to use on Colab notebooks, and one token to be used by an awesome custom inference server. This way, you can invalidate one token without impacting your other usages.
