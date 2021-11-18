@@ -3,7 +3,8 @@
 
 	import { onMount } from "svelte";
 	import WidgetOutputChart from "../../shared/WidgetOutputChart/WidgetOutputChart.svelte";
-	import WidgetQuickInput from "../../shared/WidgetQuickInput/WidgetQuickInput.svelte";
+	import WidgetTextarea from "../../shared/WidgetTextarea/WidgetTextarea.svelte";
+	import WidgetSubmitBtn from "../../shared/WidgetSubmitBtn/WidgetSubmitBtn.svelte";
 	import WidgetWrapper from "../../shared/WidgetWrapper/WidgetWrapper.svelte";
 	import {
 		addInferenceParameters,
@@ -138,10 +139,11 @@
 >
 	<svelte:fragment slot="top">
 		<form>
-			<WidgetQuickInput
-				bind:value={text}
+			<WidgetTextarea bind:value={text} />
+			<WidgetSubmitBtn
+				classNames="mt-2"
 				{isLoading}
-				onClickSubmitBtn={() => {
+				onClick={() => {
 					getOutput();
 				}}
 			/>
