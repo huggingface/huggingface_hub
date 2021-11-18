@@ -16,7 +16,7 @@ Access tokens allow applications and notebooks to impersonate you, with restrict
 
 - `read`: tokens with this role can only be used to provide read access to repositories you could read. That includes public repositories and private repositories that you or an org you're a member of own. Use this role if you only need to read content from the HuggingFace hub (eg, when doing inference).
 
-- `write`: tokens with this role additionally grant write access to the repositories you have write access to. Use this token if you need to push content to a repository (eg, when training a model).
+- `write`: tokens with this role additionally grant write access to the repositories you have write access to. Use this token if you need to create or push content to a repository (eg, when training a model).
 
 ### How to manage User Access Tokens?
 
@@ -50,7 +50,7 @@ model = AutoModel.from_pretrained("private/model", use_auth_token=access_token)
 
 We recommand to create one access token per app or usage. For instance, one would have one token to use on their local machine, one token to use on Colab notebooks, and one token to be used by an awesome custom inference server. This way, you can invalidate one token without impacting your other usages.
 
-We also recommand giving the minimal rights to each token you create. If you only need read access (ie, loading a dataset with the `datasets` library or retrieving the weights of a model), give your access token the `read` role.
+We also recommand giving the minimal rights to each token you create. If you only need read access (i.e., loading a dataset with the `datasets` library or retrieving the weights of a model), give your access token the `read` role.
 
 ## Access Control in Organizations
 
