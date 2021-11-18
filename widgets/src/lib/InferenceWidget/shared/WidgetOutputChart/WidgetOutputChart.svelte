@@ -44,7 +44,7 @@ from-lime-400 to-lime-200 dark:from-lime-400 dark:to-lime-600
 					/>
 					<span>{label}</span>
 				</div>
-				<p class="pl-2">{score.toFixed(3)}</p>
+				<span class="pl-2">{score.toFixed(3)}</span>
 			</div>
 		{/each}
 	</div>
