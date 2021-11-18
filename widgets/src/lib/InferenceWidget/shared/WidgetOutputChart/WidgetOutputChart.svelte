@@ -42,7 +42,7 @@ from-lime-400 to-lime-200 dark:from-lime-400 dark:to-lime-600
 						class="h-1 mb-1 rounded bg-gradient-to-r from-{color}-400 to-{color}-200 dark:from-{color}-400 dark:to-{color}-600"
 						style={`width: ${Math.ceil((score / scoreMax) * 100 * 0.8)}%;`}
 					/>
-					<p>{label}</p>
+					<span>{label}</span>
 				</div>
 				<p class="pl-2">{score.toFixed(3)}</p>
 			</div>
