@@ -301,9 +301,7 @@ Immediately click login after typing your password or it might be stored in plai
 NOTEBOOK_LOGIN_TOKEN_HTML_START = """<center>
 <img src=https://huggingface.co/front/assets/huggingface_logo-noborder.svg alt='Hugging Face'>
 <br>
-<b>The AI community building the future</b>
-<br>
-Copy a token from <a href="https://huggingface.co/settings/token" target="_blank">you Hugging Face account</a> and paste it below.
+Copy a token from <a href="https://huggingface.co/settings/token" target="_blank">your Hugging Face tokens page</a> and paste it below.
 <br>
 Immediately click login after copying your token or it might be stored in plain text in this notebook file.
 </center>"""
