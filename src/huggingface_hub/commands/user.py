@@ -292,8 +292,6 @@ class RepoCreateCommand(BaseUserCommand):
 NOTEBOOK_LOGIN_PASSWORD_HTML = """<center>
 <img src=https://huggingface.co/front/assets/huggingface_logo-noborder.svg alt='Hugging Face'>
 <br>
-<b>The AI community building the future</b>
-<br>
 Immediately click login after typing your password or it might be stored in plain text in this notebook file.
 </center>"""
 
