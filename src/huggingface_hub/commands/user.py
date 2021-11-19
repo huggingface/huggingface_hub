@@ -399,6 +399,9 @@ def _login(hf_api, username=None, password=None, token=None):
             print(e)
             print(ANSI.red(e.response.text))
             exit(1)
+    elif not hf_api._is_valid_token(token):
+        raise ValueError("Invalid token passed.")
+
     HfFolder.save_token(token)
     print("Login successful")
     print("Your token has been saved to", HfFolder.path_token)
