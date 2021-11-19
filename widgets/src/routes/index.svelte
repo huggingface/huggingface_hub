@@ -76,6 +76,11 @@
 			],
 		},
 		{
+			id: "huggingface-course/codeparrot-ds",
+			pipeline_tag: "text-generation",
+			widgetData: [{ text: "plt.imshow(" }],
+		},
+		{
 			id: "distilroberta-base",
 			pipeline_tag: "fill-mask",
 			mask_token: "<mask>",
