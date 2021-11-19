@@ -5,13 +5,15 @@
 	export let placeholder: string = "Your sentence here...";
 	export let value: string;
 
-	let spanEl: HTMLSpanElement;
-	let textContent: string;
-
 	// hack to handle FireFox contenteditable bug
+	let innterHTML: string;
+	let spanEl: HTMLSpanElement;
+	const REGEX_SPAN = /<span .+>(.*)<\/span>/gms;
 	$: {
-		if (spanEl && value.includes("contenteditable")) {
-			value = textContent;
+		if (spanEl && innterHTML && REGEX_SPAN.test(innterHTML)) {
+			innterHTML = innterHTML.replace(REGEX_SPAN, (_, txt) => {
+				return txt;
+			});
 			spanEl.blur();
 		}
 	}
@@ -20,8 +22,8 @@
 <WidgetLabel {label}>
 	<svelte:fragment slot="after">
 		<span
-			bind:innerHTML={value}
-			bind:textContent
+			bind:textContent={value}
+			bind:innerHTML={innterHTML}
 			bind:this={spanEl}
 			class="{label
 				? 'mt-1.5'
