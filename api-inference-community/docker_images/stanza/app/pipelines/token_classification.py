@@ -48,12 +48,12 @@ class TokenClassificationPipeline(Pipeline):
                     "score": 1.0,
                 }
                 entities.append(entity_dict)
-            
+
         else:
 
             for sent in doc.sentences:
                 for entity in sent.words:
-                    
+
                     entity_dict = {
                         "entity_group": entity.upos,
                         "word": entity.text,
