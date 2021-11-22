@@ -39,7 +39,7 @@ class TextClassificationTestCase(TestCase):
             del os.environ["TASK"]
 
     def test_simple(self):
-        inputs = "It is a beautiful day outside"
+        inputs = "beautiful"
 
         with TestClient(self.app) as client:
             response = client.post("/", json={"inputs": inputs})
@@ -83,4 +83,14 @@ class TextClassificationTestCase(TestCase):
         self.assertEqual(
             response.content,
             b'{"error":"\'utf-8\' codec can\'t decode byte 0xc3 in position 0: invalid continuation byte"}',
+        )
+
+    def test_multiple_words(self):
+        inputs = "this is great"
+
+        with TestClient(self.app) as client:
+            response = client.post("/", json={"inputs": inputs})
+        self.assertEqual(
+            response.status_code,
+            400,
         )

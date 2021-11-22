@@ -20,7 +20,9 @@ class TextClassificationPipeline(Pipeline):
                 - "label": A string representing what the label/class is. There can be multiple labels.
                 - "score": A score between 0 and 1 describing how confident the model is for this label/class.
         """
-        preds = self.model.get_nearest_neighbors("dog", k=10)
+        if len(inputs.split()) > 1:
+            raise ValueError("Expected input is a single word")
+        preds = self.model.get_nearest_neighbors(inputs, k=10)
         result = []
         for distance, word in preds:
             result.append({"label": word, "score": distance})
