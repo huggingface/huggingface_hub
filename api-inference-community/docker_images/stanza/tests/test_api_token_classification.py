@@ -59,16 +59,10 @@ class TokenClassificationTestCase(TestCase):
         content = json.loads(response.content)
         self.assertEqual(type(content), list)
 
-        if "entity_group" in (el.keys() for el in content):
-            self.assertEqual(
-                set(k for el in content for k in el.keys()),
-                {"entity_group", "word", "start", "end", "score"},
-            )
-        elif "pos_group" in (el.keys() for el in content):
-            self.assertEqual(
-                set(k for el in content for k in el.keys()),
-                {"pos_group", "word", "start", "end", "score"},
-            )
+        self.assertEqual(
+            set(k for el in content for k in el.keys()),
+            {"entity_group", "word", "start", "end", "score"},
+        )
 
         with TestClient(self.app) as client:
             response = client.post("/", json=inputs)
@@ -80,16 +74,10 @@ class TokenClassificationTestCase(TestCase):
         content = json.loads(response.content)
 
         self.assertEqual(type(content), list)
-        if "entity_group" in (el.keys() for el in content):
-            self.assertEqual(
-                set(k for el in content for k in el.keys()),
-                {"entity_group", "word", "start", "end", "score"},
-            )
-        elif "pos_group" in (el.keys() for el in content):
-            self.assertEqual(
-                set(k for el in content for k in el.keys()),
-                {"pos_group", "word", "start", "end", "score"},
-            )
+        self.assertEqual(
+            set(k for el in content for k in el.keys()),
+            {"entity_group", "word", "start", "end", "score"},
+        )
 
     def test_malformed_question(self):
         with TestClient(self.app) as client:
