@@ -36,14 +36,32 @@ class TokenClassificationPipeline(Pipeline):
         """
         doc = self.model(inputs)
 
-        entities = []
-        for entity in doc.entities:
-            entity_dict = {
-                "entity_group": entity.type,
-                "word": entity.text,
-                "start": entity.start_char,
-                "end": entity.end_char,
-                "score": 1.0,
-            }
-            entities.append(entity_dict)
-        return entities
+        if "ner_model_path" in self.model.config.keys():
+
+            entities = []
+            for entity in doc.entities:
+                entity_dict = {
+                    "entity_group": entity.type,
+                    "word": entity.text,
+                    "start": entity.start_char,
+                    "end": entity.end_char,
+                    "score": 1.0,
+                }
+                entities.append(entity_dict)
+            return entities
+
+        else:
+            pos_tags = []
+
+            for sent in doc.sentences:
+                for word in sent.words:
+                    pos_dict = {
+                        "pos_group": word.upos,
+                        "word": word.text,
+                        "start": word.start_char,
+                        "end": word.end_char,
+                        "score": 1.0,
+                    }
+            pos_tags.append(pos_dict)
+
+            return pos_tags
