@@ -1,4 +1,4 @@
-USER = "__DUMMY_TRANSFORMERS_USER__"
+USER = "julien"
 FULL_NAME = "Dummy User"
 PASS = "__DUMMY_TRANSFORMERS_PASS__"
 
