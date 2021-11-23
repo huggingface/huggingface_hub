@@ -50,7 +50,7 @@ Create a Space by clicking on [New Space](https://huggingface.co/new-space) unde
 
 If you need other Python packages to run your app, add it to a **requirements.txt** file at the root of your repository. Spaces runtime engine will create a custom environment on-the-fly. 
 
-Debian dependencies are also supported. Add a **package.txt** file at the root of your repository, and list all your dependencies in it. Each dependency should be on a separate line, and each line will be read and installed by `apt-get install`.
+Debian dependencies are also supported. Add a **packages.txt** file at the root of your repository, and list all your dependencies in it. Each dependency should be on a separate line, and each line will be read and installed by `apt-get install`.
 
 ### Manage secrets
 
