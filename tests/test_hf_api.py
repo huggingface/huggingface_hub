@@ -114,7 +114,6 @@ class HfApiEndpointsTest(HfApiCommonTestWithLogin):
         info = self._api.whoami(token=self._token)
         self.assertEqual(info["name"], USER)
         self.assertEqual(info["fullname"], FULL_NAME)
-        self.assertIsInstance(info["apiToken"], str)
         self.assertIsInstance(info["orgs"], list)
         self.assertIsInstance(info["orgs"][0]["apiToken"], str)
 
