@@ -88,7 +88,7 @@ class DockerImageTests(unittest.TestCase):
         self.framework_docker_test(
             "fasttext",
             "feature-extraction",
-            "osanseviero/fasttext_nearest",
+            "osanseviero/fasttext_embedding",
         )
         self.framework_invalid_test("fasttext")
 

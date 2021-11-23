@@ -10,7 +10,7 @@ from app.main import ALLOWED_TASKS, get_pipeline
 # models are recommended for faster tests.
 TESTABLE_MODELS: Dict[str, str] = {
     "text-classification": "osanseviero/fasttext_nearest",
-    "feature-extraction": "osanseviero/fasttext_nearest",
+    "feature-extraction": "osanseviero/fasttext_embedding",
 }
 
 
