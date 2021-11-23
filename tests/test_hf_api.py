@@ -43,7 +43,6 @@ from huggingface_hub.hf_api import (
     repo_type_and_id_from_hf_id,
 )
 from requests.exceptions import HTTPError
-from tests.test_hubmixin import REPO_NAME
 
 from .testing_constants import (
     ENDPOINT_STAGING,
@@ -574,18 +573,19 @@ class HfApiPublicTest(unittest.TestCase):
 class HfApiPrivateTest(HfApiCommonTestWithLogin):
     def setUp(self) -> None:
         super().setUp()
-        self._api.create_repo(name=REPO_NAME, token=self._token, private=True)
+        self.REPO_NAME = repo_name("private")
+        self._api.create_repo(name=self.REPO_NAME, token=self._token, private=True)
 
     def tearDown(self) -> None:
-        self._api.delete_repo(name=REPO_NAME, token=self._token)
+        self._api.delete_repo(name=self.REPO_NAME, token=self._token)
 
     def test_model_info(self):
         # Test we cannot access model info without a token
         with self.assertRaisesRegex(requests.exceptions.HTTPError, "404 Client Error"):
-            _ = self._api.model_info(repo_id=f"{USER}/{REPO_NAME}")
+            _ = self._api.model_info(repo_id=f"{USER}/{self.REPO_NAME}")
         # Test we can access model info with a token
         model_info = self._api.model_info(
-            repo_id=f"{USER}/{REPO_NAME}", token=self._token
+            repo_id=f"{USER}/{self.REPO_NAME}", token=self._token
         )
         self.assertIsInstance(model_info, ModelInfo)
 
