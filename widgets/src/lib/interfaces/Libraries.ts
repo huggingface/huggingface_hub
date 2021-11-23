@@ -254,7 +254,6 @@ import fasttext
 
 model = fasttext.load_model(hf_hub_download("${model.id}", "model.bin"))`;
 
-
 //#endregion
 
 
