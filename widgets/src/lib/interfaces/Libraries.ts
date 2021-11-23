@@ -351,8 +351,8 @@ export const MODEL_LIBRARIES_UI_ELEMENTS: { [key in keyof typeof ModelLibrary]?:
 		snippet: transformers,
 	},
 	fasttext: {
-		btnLabel: "fasttext",
-		repoName: "fasttext",
+		btnLabel: "fastText",
+		repoName: "fastText",
 		repoUrl: "https://fasttext.cc/",
 		snippet: fasttext,
 	},
