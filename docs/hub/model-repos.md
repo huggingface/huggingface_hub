@@ -299,17 +299,17 @@ By taking into account the computing hardware, location, usage and training time
 
 The math is actually pretty simple! ➕
 
-First, you take the *carbon intensity* of the electric grid that is being used for the training -- this is how much CO<sub>2</sub> is produced by KwH of electricity used. This depends on the location where the hardware is located and the [energy mix](https://electricitymap.org/) used at that location -- whethere it's renewable energy like solar 🌞, wind 🌬️ and hydro 💧, or non-renewable energy like coal ⚫ and natural gas 💨. The more renewable energy is used, the less carbon intensive it is!
+First, you take the *carbon intensity* of the electric grid that is being used for the training -- this is how much CO<sub>2</sub> is produced by KwH of electricity used. This depends on the location where the hardware is located and the [energy mix](https://electricitymap.org/) used at that location -- whether it's renewable energy like solar 🌞, wind 🌬️ and hydro 💧, or non-renewable energy like coal ⚫ and natural gas 💨. The more renewable energy is used, the less carbon intensive it is!
  
-Then, you take the power consumption of the GPU  during training -- this is done using the `pynvml` library.
+Then, you take the power consumption of the GPU during training -- this is done using the `pynvml` library.
 
 Finally, you multiply the power consumption and carbon intensity by the training time of the model, and you have an estimate of how much CO<sub>2</sub> was emitted.
 
-Keep in mind that this isn't an exact number, because there are other factors that come into play -- like the energy that's used for datacenter heating and cooling -- which will increase that number. But this will already give you a good idea of the scale of CO<sub>2</sub> emissions that your model is producing!
+Keep in mind that this isn't an exact number, because there are other factors that come into play -- like the energy that's used for data center heating and cooling -- which will increase carbon emissions. But this will already give you a good idea of the scale of CO<sub>2</sub> emissions that your model is producing!
 
 To add **Carbon Emissions** metadata to your models:
 
-1. If you are ussing **AutoNLP**, this is tracked for you 🔥
+1. If you are using **AutoNLP**, this is tracked for you 🔥
 2. Otherwise, use a tracker like  [`codecarbon`](https://github.com/mlco2/codecarbon/) in your training code, then specify `co2_eq_emissions: 1.2345` in your model card metadata, where `1.2345` is the emissions value in **grams**.
 
 To learn more about the carbon footprint of Transformers, check out the [video](https://www.youtube.com/watch?v=ftWlj4FBHTg), part of the Hugging Face Course! 
