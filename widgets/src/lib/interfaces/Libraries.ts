@@ -20,6 +20,7 @@ export enum ModelLibrary {
 	'fastai'                 = 'fastai',
 	'transformers'           = 'Transformers',
 	'stanza'                 = 'Stanza',
+	'fasttext'               = "fastText"
 };
 
 export const ALL_MODEL_LIBRARY_KEYS = Object.keys(ModelLibrary) as (keyof typeof ModelLibrary)[];
@@ -247,6 +248,13 @@ tokenizer = AutoTokenizer.from_pretrained("${model.id}"${model.private ? `, use_
 
 model = ${model.autoArchitecture}.from_pretrained("${model.id}"${model.private ? `, use_auth_token=True` : ``})`;
 
+const fasttext = (model: ModelData) =>
+`from huggingface_hub import hf_hub_download
+import fasttext
+
+model = fasttext.load_model(hf_hub_download("${model.id}", "model.bin"))`;
+
+
 //#endregion
 
 
@@ -342,6 +350,12 @@ export const MODEL_LIBRARIES_UI_ELEMENTS: { [key in keyof typeof ModelLibrary]?:
 		repoName: "🤗/transformers",
 		repoUrl: "https://github.com/huggingface/transformers",
 		snippet: transformers,
+	},
+	fasttext: {
+		btnLabel: "fasttext",
+		repoName: "fasttext",
+		repoUrl: "https://fasttext.cc/",
+		snippet: fasttext,
 	},
 } as const;
 
