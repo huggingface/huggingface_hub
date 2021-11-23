@@ -25,6 +25,8 @@ ALL_TASKS = {
     "sentence-similarity",
     "speech-segmentation",
     "structure-data-classification",
+    "text-classification",
+    "text-to-image",
     "text-to-speech",
     "token-classification",
 }
