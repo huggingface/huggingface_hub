@@ -79,6 +79,19 @@ class DockerImageTests(unittest.TestCase):
             "espnet/kamo-naoyuki_mini_an4_asr_train_raw_bpe_valid.acc.best",
         )
 
+    def test_fasttext(self):
+        self.framework_docker_test(
+            "fasttext",
+            "text-classification",
+            "osanseviero/fasttext_nearest",
+        )
+        self.framework_docker_test(
+            "fasttext",
+            "feature-extraction",
+            "osanseviero/fasttext_embedding",
+        )
+        self.framework_invalid_test("fasttext")
+
     def test_sentence_transformers(self):
         self.framework_docker_test(
             "sentence_transformers",
