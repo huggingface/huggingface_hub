@@ -72,6 +72,7 @@ class TokenClassificationTestCase(TestCase):
             200,
         )
         content = json.loads(response.content)
+
         self.assertEqual(type(content), list)
         self.assertEqual(
             set(k for el in content for k in el.keys()),

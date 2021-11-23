@@ -195,15 +195,13 @@ class DockerImageTests(unittest.TestCase):
 
     def test_stanza(self):
         self.framework_docker_test(
-            "stanza",
-            "token-classification",
-            "stanfordnlp/stanza-en",
+            "stanza", "token-classification", "stanfordnlp/stanza-en"
         )
 
         self.framework_docker_test(
             "stanza",
             "token-classification",
-            "stanfordnlp/stanza-de",
+            "stanfordnlp/stanza-tr",
         )
         self.framework_invalid_test("stanza")
 

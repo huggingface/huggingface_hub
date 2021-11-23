@@ -11,7 +11,7 @@ from app.main import ALLOWED_TASKS, get_pipeline
 TESTABLE_MODELS: Dict[str, List[Dict]] = {
     "token-classification": [
         {"stanfordnlp/stanza-en": "Hello, my name is John and I live in New York"},
-        {"stanfordnlp/stanza-de": "Hallo, mein Name ist Omar und ich wohne in Zürich."},
+        {"stanfordnlp/stanza-tr": "Merhaba, adım Merve ve İstanbul'da yaşıyorum."},
     ]
 }
 
