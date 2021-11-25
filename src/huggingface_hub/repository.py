@@ -365,6 +365,7 @@ class Repository:
         git_email: Optional[str] = None,
         revision: Optional[str] = None,
         private: bool = False,
+        skip_lfs_files: bool = False,
     ):
         """
         Instantiate a local clone of a git repo.
@@ -384,7 +385,7 @@ class Repository:
                 repository url (e.g. ``'https://huggingface.co/philschmid/playground-tests'``).
             repo_type (``str``, `optional`):
                 To set when creating a repo: et to "dataset" or "space" if creating a dataset or space, default is model.
-            use_auth_token (``str`` or ``bool``, `optional`, defaults ``None``):
+            use_auth_token (``str`` or ``bool``, `optional`, defaults to ``True``):
                 huggingface_token can be extract from ``HfApi().login(username, password)`` and is used to authenticate against the hub
                 (useful from Google Colab for instance).
             git_user (``str``, `optional`):
@@ -394,8 +395,10 @@ class Repository:
             revision (``str``, `optional`):
                 Revision to checkout after initializing the repository. If the revision doesn't exist, a
                 branch will be created with that revision name from the default branch's current HEAD.
-            private (``bool``, `optional`):
+            private (``bool``, `optional`, defaults to ``False``):
                 whether the repository is private or not.
+            skip_lfs_files (``bool``, `optional`, defaults to ``False``):
+                whether to skip git-LFS files or not.
         """
 
         os.makedirs(local_dir, exist_ok=True)
@@ -403,6 +406,7 @@ class Repository:
         self.repo_type = repo_type
         self.command_queue = []
         self.private = private
+        self.skip_lfs_files = skip_lfs_files
 
         self.check_git_versions()
 
@@ -566,6 +570,9 @@ class Repository:
             # checks if repository is initialized in a empty repository or in one with files
             if len(os.listdir(self.local_dir)) == 0:
                 logger.warning(f"Cloning {clean_repo_url} into local empty directory.")
+                env = os.environ.copy()
+                if self.skip_lfs_files:
+                    env["GIT_LFS_SKIP_SMUDGE"] = 1
                 with lfs_log_progress():
                     subprocess.run(
                         f"git lfs clone {repo_url} .".split(),
@@ -574,6 +581,7 @@ class Repository:
                         check=True,
                         encoding="utf-8",
                         cwd=self.local_dir,
+                        env=env,
                     )
             else:
                 # Check if the folder is the root of a git repository
