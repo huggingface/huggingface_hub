@@ -571,11 +571,16 @@ class Repository:
             if len(os.listdir(self.local_dir)) == 0:
                 logger.warning(f"Cloning {clean_repo_url} into local empty directory.")
                 env = os.environ.copy()
+
                 if self.skip_lfs_files:
-                    env["GIT_LFS_SKIP_SMUDGE"] = 1
+                    env["GIT_LFS_SKIP_SMUDGE"] = "1"
+                    clone = "git clone"
+                else:
+                    clone = "git lfs clone"
+
                 with lfs_log_progress():
                     subprocess.run(
-                        f"git lfs clone {repo_url} .".split(),
+                        f"{clone} {repo_url} .".split(),
                         stderr=subprocess.PIPE,
                         stdout=subprocess.PIPE,
                         check=True,
@@ -876,11 +881,19 @@ class Repository:
         except subprocess.CalledProcessError as exc:
             raise EnvironmentError(exc.stderr)
 
-    def git_pull(self, rebase: Optional[bool] = False):
+    def git_pull(self, rebase: Optional[bool] = False, lfs: Optional[bool] = False):
         """
         git pull
+
+        Args:
+            rebase (`bool`, defaults to `False`):
+                Whether to rebase the current branch on top of the upstream branch after fetching.
+            lfs (`bool`, defaults to `False`):
+                Whether to fetch the LFS files too. This option only changes the behavior when a repository
+                was cloned without fetching the LFS files; calling `repo.git_pull(lfs=True)` will then fetch
+                the LFS file from the remote repository.
         """
-        args = "git pull".split()
+        args = ("git pull" if not lfs else "git lfs pull").split()
         if rebase:
             args.append("--rebase")
         try:
