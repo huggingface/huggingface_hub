@@ -487,10 +487,10 @@ class RepositoryTest(RepositoryCommonTest):
 
     @with_production_testing
     def test_clone_repo_at_root(self):
-        os.environ["GIT_LFS_SKIP_SMUDGE"] = "1"
         Repository(
             f"{WORKING_REPO_DIR}/{self.REPO_NAME}",
             clone_from="bert-base-cased",
+            skip_lfs_files=True,
         )
 
         shutil.rmtree(f"{WORKING_REPO_DIR}/{self.REPO_NAME}")
@@ -498,7 +498,40 @@ class RepositoryTest(RepositoryCommonTest):
         Repository(
             f"{WORKING_REPO_DIR}/{self.REPO_NAME}",
             clone_from="https://huggingface.co/bert-base-cased",
+            skip_lfs_files=True,
         )
+
+    def test_skip_lfs_files(self):
+        repo = Repository(
+            self.REPO_NAME,
+            clone_from=f"{USER}/{self.REPO_NAME}",
+            use_auth_token=self._token,
+            git_user="ci",
+            git_email="ci@dummy.com",
+        )
+
+        with repo.commit("Add LFS file"):
+            with open("file.bin", "w+") as f:
+                f.write("Bin file")
+
+        shutil.rmtree(repo.local_dir)
+
+        repo = Repository(
+            self.REPO_NAME,
+            clone_from=f"{USER}/{self.REPO_NAME}",
+            use_auth_token=self._token,
+            skip_lfs_files=True,
+        )
+
+        with open(pathlib.Path(repo.local_dir) / "file.bin", "r") as f:
+            content = f.read()
+            self.assertTrue(content.startswith("version"))
+
+        repo.git_pull(lfs=True)
+
+        with open(pathlib.Path(repo.local_dir) / "file.bin", "r") as f:
+            content = f.read()
+            self.assertEquals(content, "Bin file")
 
     def test_is_tracked_upstream(self):
         repo = Repository(
