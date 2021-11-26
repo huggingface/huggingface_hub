@@ -14,7 +14,7 @@ type TaskDemoEntry = {
 	filename: string;
 	type: "img";
 } | {
-	path: string;
+	filename: string;
 	type: "audio";
 };
 
