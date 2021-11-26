@@ -1,22 +1,29 @@
-import type { ModelLibrary } from "../widgets/src/lib/interfaces/Libraries";
-import { PipelineType } from "../widgets/src/lib/interfaces/Types";
+import type { ModelLibrary } from "../../widgets/src/lib/interfaces/Libraries";
+import { PipelineType } from "../../widgets/src/lib/interfaces/Types";
 
 export interface ExampleRepo {
 	description: string;
 	id: string;
 }
 
-interface TaskDemoEntry {
+type TaskDemoEntry = {
 	content: string;
 	label: string;
-}
-interface TaskDemo {
+	type: "text";
+} | {
+	filename: string;
+	type: "img";
+} | {
+	path: string;
+	type: "audio";
+};
+
+export interface TaskDemo {
 	inputs: TaskDemoEntry[];
 	outputs: TaskDemoEntry[];
 }
 
 export interface TaskData {
-	about: string;
 	datasets: ExampleRepo[];
 	demo: TaskDemo;
 	id: keyof typeof PipelineType;

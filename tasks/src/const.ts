@@ -1,5 +1,5 @@
-import type { ModelLibrary } from "../widgets/src/lib/interfaces/Libraries";
-import { PipelineType } from "../widgets/src/lib/interfaces/Types";
+import type { ModelLibrary } from "../../widgets/src/lib/interfaces/Libraries";
+import { PipelineType } from "../../widgets/src/lib/interfaces/Types";
 
 /*
  * Model libraries compatible with each ML task
