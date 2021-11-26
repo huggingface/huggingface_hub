@@ -208,28 +208,34 @@ def check_inputs(inputs, tag):
 
 
 AUDIO_INPUTS = {
-        "automatic-speech-recognition",
-        "audio-to-audio",
-        "speech-segmentation",
-        "audio-classification",
-    }
+    "automatic-speech-recognition",
+    "audio-to-audio",
+    "speech-segmentation",
+    "audio-classification",
+}
 
 IMAGE_INPUTS = {
-        "image-classification",
-        "image-segmentation",
-        "image-captionning",
-        "image-to-text",
-    }
+    "image-classification",
+    "image-segmentation",
+    "image-to-text",
+}
 TEXT_INPUTS = {
+    "conversational",
     "feature-extraction",
     "question-answering",
     "sentence-similarity",
-    "structure-data-classification",
+    "fill-mask",
+    "table-question-answering",
+    "structured-data-classification",
+    "summarization",
+    "text2text-generation",
     "text-classification",
     "text-to-image",
     "text-to-speech",
     "token-classification",
+    "zero-shot-classification",
 }
+
 
 def normalize_payload(
     bpayload: bytes, task: str, sampling_rate: Optional[int] = None
@@ -246,7 +252,9 @@ def normalize_payload(
     elif task in TEXT_INPUTS:
         return normalize_payload_nlp(bpayload, task)
     else:
-        raise EnvironmentError("The task {task} is not recognized by api-inference-community").
+        raise EnvironmentError(
+            f"The task `{task}` is not recognized by api-inference-community"
+        )
 
 
 def ffmpeg_convert(array: np.array, sampling_rate: int) -> bytes:
