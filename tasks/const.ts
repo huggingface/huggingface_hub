@@ -1,7 +1,9 @@
 import type { ModelLibrary } from "../widgets/src/lib/interfaces/Libraries";
 import { PipelineType } from "../widgets/src/lib/interfaces/Types";
 
-// TODO should be moved to huggingface_hub ?
+/*
+ * Model libraries compatible with each ML task
+ */
 export const TASKS_MODEL_LIBRARIES: Record<keyof typeof PipelineType, Array<keyof typeof ModelLibrary>> = {
 	/// nlp
 	"text-classification":            ["adapter-transformers", "spacy", "transformers"],
