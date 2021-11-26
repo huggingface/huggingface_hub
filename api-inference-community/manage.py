@@ -7,7 +7,6 @@ import subprocess
 import sys
 import uuid
 
-from api_inference_community.batch import batch
 from huggingface_hub import HfApi
 
 

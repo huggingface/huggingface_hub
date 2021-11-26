@@ -1,24 +1,106 @@
+import base64
 import functools
+import io
 import logging
 import os
 from typing import Dict, Type
 
+import numpy as np
+import tensorflow as tf
 from api_inference_community.routes import pipeline_route, status_ok
 from app.pipelines import ImageClassificationPipeline, Pipeline
+from huggingface_hub import cached_download, hf_hub_url
+from PIL import Image
 from starlette.applications import Starlette
 from starlette.middleware import Middleware
 from starlette.middleware.gzip import GZipMiddleware
 from starlette.routing import Route
+from tensorflow import keras
 
 
 TASK = os.getenv("TASK")
 MODEL_ID = os.getenv("MODEL_ID")
 
 
+class MyPipeline(Pipeline):
+    def __init__(self, model_id):
+        filename = cached_download(hf_hub_url(model_id, "tf_model.h5"))
+        self.model = keras.models.load_model(filename)
+
+    def __call__(self, inputs):
+        img = np.array(inputs)
+        im = tf.image.resize(img, (128, 128))
+        im = tf.cast(im, tf.float32) / 255.0
+
+        import datetime
+
+        start = datetime.datetime.now()
+
+        pred_mask = self.model.predict(im[tf.newaxis, ...])
+
+        pred_mask_arg = tf.argmax(pred_mask, axis=-1)
+        print("Inference", datetime.datetime.now() - start)
+
+        labels = []
+
+        binary_masks = {}
+
+        mask_codes = {}
+
+        for cls in range(pred_mask.shape[-1]):
+
+            binary_masks[f"mask_{cls}"] = np.zeros(
+                shape=(pred_mask.shape[1], pred_mask.shape[2])
+            )
+
+            for row in range(pred_mask_arg[0][1].get_shape().as_list()[0]):
+
+                for col in range(pred_mask_arg[0][2].get_shape().as_list()[0]):
+
+                    if pred_mask_arg[0][row][col] == cls:
+
+                        binary_masks[f"mask_{cls}"][row][col] = 1
+
+                    else:
+
+                        binary_masks[f"mask_{cls}"][row][col] = 0
+
+            mask = binary_masks[f"mask_{cls}"]
+
+            mask *= 255
+
+            img = Image.fromarray(mask.astype(np.int8), mode="L")
+
+            with io.BytesIO() as out:
+
+                img.save(out, format="PNG")
+
+                png_string = out.getvalue()
+
+                mask = base64.b64encode(png_string).decode("utf-8")
+
+            mask_codes[f"mask_{cls}"] = mask
+
+            labels.append(
+                {
+                    "label": f"LABEL_{cls}",
+                    "mask": mask_codes[f"mask_{cls}"],
+                    "score": 1.0,
+                }
+            )
+        print("Postprocess", datetime.datetime.now() - start)
+
+        return labels
+        import ipdb
+
+        ipdb.set_trace()
+
+
 logger = logging.getLogger(__name__)
 
 ALLOWED_TASKS: Dict[str, Type[Pipeline]] = {
-    "image-classification": ImageClassificationPipeline
+    "image-classification": ImageClassificationPipeline,
+    "image-segmentation": MyPipeline,
 }
 
 

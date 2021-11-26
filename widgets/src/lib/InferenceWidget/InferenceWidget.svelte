@@ -25,7 +25,7 @@
 
 	export let apiToken: WidgetProps["apiToken"] = undefined;
 	export let callApiOnMount = false;
-	export let apiUrl = "https://api-inference.huggingface.co";
+	export let apiUrl = "http://localhost:8000";
 	export let model: WidgetProps["model"];
 	export let noTitle = false;
 	export let shouldUpdateUrl = false;
