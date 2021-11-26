@@ -207,28 +207,46 @@ def check_inputs(inputs, tag):
         raise ValueError(f"{tag} is not a valid pipeline.")
 
 
-def normalize_payload(
-    bpayload: bytes, task: str, sampling_rate: Optional[int] = None
-) -> Tuple[Any, Dict]:
-    if task in {
+AUDIO_INPUTS = {
         "automatic-speech-recognition",
         "audio-to-audio",
         "speech-segmentation",
         "audio-classification",
-    }:
+    }
+
+IMAGE_INPUTS = {
+        "image-classification",
+        "image-segmentation",
+        "image-captionning",
+        "image-to-text",
+    }
+TEXT_INPUTS = {
+    "feature-extraction",
+    "question-answering",
+    "sentence-similarity",
+    "structure-data-classification",
+    "text-classification",
+    "text-to-image",
+    "text-to-speech",
+    "token-classification",
+}
+
+def normalize_payload(
+    bpayload: bytes, task: str, sampling_rate: Optional[int] = None
+) -> Tuple[Any, Dict]:
+    if task in AUDIO_INPUTS:
         if sampling_rate is None:
             raise EnvironmentError(
                 "We cannot normalize audio file if we don't know the sampling rate"
             )
         outputs = normalize_payload_audio(bpayload, sampling_rate)
         return outputs
-    elif task in {
-        "image-classification",
-        "image-to-text",
-    }:
+    elif task in IMAGE_INPUTS:
         return normalize_payload_image(bpayload)
-    else:
+    elif task in TEXT_INPUTS:
         return normalize_payload_nlp(bpayload, task)
+    else:
+        raise EnvironmentError("The task {task} is not recognized by api-inference-community").
 
 
 def ffmpeg_convert(array: np.array, sampling_rate: int) -> bytes:
