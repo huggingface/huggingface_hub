@@ -12,8 +12,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-
-
+import logging
 import os
 import re
 import subprocess
@@ -333,7 +332,6 @@ def erase_from_credential_store(username=None):
         standard_input += "\n"
 
         process.stdin.write(standard_input.encode("utf-8"))
-        print(standard_input)
         process.stdin.flush()
 
 
@@ -349,6 +347,7 @@ class HfApi:
 
         Throws: requests.exceptions.HTTPError if credentials are invalid
         """
+        logging.error("This method is deprecated in favor of `set_access_token`.")
         path = "{}/api/login".format(self.endpoint)
         r = requests.post(path, json={"username": username, "password": password})
         r.raise_for_status()
@@ -391,6 +390,7 @@ class HfApi:
             token (``str``, `optional`):
                 Hugging Face token. Will default to the locally saved token if not provided.
         """
+        logging.error("This method is deprecated in favor of `unset_access_token`.")
         if token is None:
             token = HfFolder.get_token()
         if token is None:
@@ -404,6 +404,14 @@ class HfApi:
         path = "{}/api/logout".format(self.endpoint)
         r = requests.post(path, headers={"authorization": "Bearer {}".format(token)})
         r.raise_for_status()
+
+    @staticmethod
+    def set_access_token(access_token: str):
+        write_to_credential_store("username", access_token)
+
+    @staticmethod
+    def unset_access_token():
+        erase_from_credential_store("username")
 
     def list_models(
         self,

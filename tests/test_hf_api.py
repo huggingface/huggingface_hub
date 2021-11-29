@@ -25,6 +25,7 @@ from io import BytesIO
 import pytest
 
 import requests
+from huggingface_hub.commands.user import _login
 from huggingface_hub.constants import (
     REPO_TYPE_DATASET,
     REPO_TYPE_SPACE,
@@ -48,6 +49,7 @@ from .testing_constants import (
     ENDPOINT_STAGING_BASIC_AUTH,
     FULL_NAME,
     PASS,
+    TOKEN,
     USER,
 )
 from .testing_utils import (
@@ -110,6 +112,19 @@ class HfApiLoginTest(HfApiCommonTest):
         self.assertTupleEqual(read_from_credential_store(USER), (USER.lower(), PASS))
         erase_from_credential_store(username=USER)
         self.assertTupleEqual(read_from_credential_store(USER), (None, None))
+
+    def test_login_cli(self):
+        _login(self._api, username=USER, password=PASS)
+        self.assertTupleEqual(read_from_credential_store(USER), (USER.lower(), PASS))
+        erase_from_credential_store(username=USER)
+        self.assertTupleEqual(read_from_credential_store(USER), (None, None))
+
+        _login(self._api, token=TOKEN)
+        self.assertTupleEqual(
+            read_from_credential_store("username"), ("username", TOKEN)
+        )
+        erase_from_credential_store(username="username")
+        self.assertTupleEqual(read_from_credential_store("username"), (None, None))
 
 
 class HfApiCommonTestWithLogin(HfApiCommonTest):

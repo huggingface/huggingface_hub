@@ -1,6 +1,7 @@
 USER = "__DUMMY_TRANSFORMERS_USER__"
 FULL_NAME = "Dummy User"
 PASS = "__DUMMY_TRANSFORMERS_PASS__"
+TOKEN = "hf_94wBhPGp6KrrTH3KDchhKpRxZwd6dmHWLL"
 
 ENDPOINT_PRODUCTION = "https://huggingface.co"
 ENDPOINT_STAGING = "https://moon-staging.huggingface.co"
