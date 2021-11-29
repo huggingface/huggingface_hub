@@ -166,7 +166,10 @@ class SnapshotDownloadTests(unittest.TestCase):
 
             # now load from cache
             storage_folder = snapshot_download(
-                f"{USER}/{REPO_NAME}", revision="main", cache_dir=tmpdirname, local_files_only=True
+                f"{USER}/{REPO_NAME}",
+                revision="main",
+                cache_dir=tmpdirname,
+                local_files_only=True,
             )
 
             # folder contains the two files contributed and the .gitattributes
