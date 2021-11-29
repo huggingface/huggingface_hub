@@ -3,7 +3,7 @@ import os
 from pathlib import Path
 from typing import Dict, Optional, Union
 
-from .constants import HUGGINGFACE_HUB_CACHE
+from .constants import DEFAULT_REVISION, HUGGINGFACE_HUB_CACHE
 from .file_download import cached_download, hf_hub_url
 from .hf_api import HfApi, HfFolder
 
@@ -44,6 +44,8 @@ def snapshot_download(
     """
     if cache_dir is None:
         cache_dir = HUGGINGFACE_HUB_CACHE
+    if revision is None:
+        revision = DEFAULT_REVISION
     if isinstance(cache_dir, Path):
         cache_dir = str(cache_dir)
 
@@ -58,23 +60,38 @@ def snapshot_download(
     else:
         token = None
 
-    local_repo_id_prefix = repo_id.replace("/", REPO_ID_SEPARATOR)
+    # remove all `/` occurances to correctly convert repo to directory name
+    repo_id_flattened = repo_id.replace("/", REPO_ID_SEPARATOR)
 
-    # retrieve cached repo
+    # if we have no internet connection we will look for the
+    # last modified folder in the cache
     if local_files_only:
+        # list all possible folders that correspond to the repo_id
+        repo_id_folders = glob.glob(
+            os.path.join(cache_dir, repo_id_flattened + "." + revision + ".*")
+        )
+
+        if len(repo_id_folders) == 0:
+            raise ValueError(
+                "Cannot find the requested files in the cached path and outgoing traffic has been"
+                " disabled. To enable model look-ups and downloads online, set 'local_files_only'"
+                " to False."
+            )
+
         # find last modified folder
         storage_folder = max(
-            glob.glob(os.path.join(cache_dir, local_repo_id_prefix + ".*")),
+            repo_id_folders,
             key=os.path.getmtime,
         )
 
         repo_id_sha = storage_folder.split(".")[-1]
         model_files = os.listdir(storage_folder)
     else:
+        # if we have internet connection we retrieve the correct folder name from the huggingface api
         _api = HfApi()
         model_info = _api.model_info(repo_id=repo_id, revision=revision, token=token)
         storage_folder = os.path.join(
-            cache_dir, local_repo_id_prefix + "." + model_info.sha
+            cache_dir, repo_id_flattened + "." + revision + "." + model_info.sha
         )
 
         repo_id_sha = model_info.sha

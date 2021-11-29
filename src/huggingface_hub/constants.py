@@ -15,6 +15,8 @@ FLAX_WEIGHTS_NAME = "flax_model.msgpack"
 CONFIG_NAME = "config.json"
 REPOCARD_NAME = "README.md"
 
+DEFAULT_REVISION = "main"
+
 HUGGINGFACE_CO_URL_HOME = "https://huggingface.co/"
 
 ENV_VARS_TRUE_VALUES = {"1", "ON", "YES", "TRUE"}
