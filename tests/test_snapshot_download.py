@@ -155,3 +155,59 @@ class SnapshotDownloadTests(unittest.TestCase):
         self._api.update_repo_visibility(
             token=self._token, name=REPO_NAME, private=False
         )
+
+    def test_download_model_local_only(self):
+        # Test `main` branch
+        with tempfile.TemporaryDirectory() as tmpdirname:
+            # first download folder to cache it
+            snapshot_download(
+                f"{USER}/{REPO_NAME}", revision="main", cache_dir=tmpdirname
+            )
+
+            # now load from cache
+            storage_folder = snapshot_download(
+                f"{USER}/{REPO_NAME}", revision="main", cache_dir=tmpdirname, local_files_only=True
+            )
+
+            # folder contains the two files contributed and the .gitattributes
+            folder_contents = os.listdir(storage_folder)
+            self.assertEqual(len(folder_contents), 3)
+            self.assertTrue("dummy_file.txt" in folder_contents)
+            self.assertTrue("dummy_file_2.txt" in folder_contents)
+            self.assertTrue(".gitattributes" in folder_contents)
+
+            with open(os.path.join(storage_folder, "dummy_file.txt"), "r") as f:
+                contents = f.read()
+                self.assertEqual(contents, "v2")
+
+            # folder name contains the revision's commit sha.
+            self.assertTrue(self.second_commit_hash in storage_folder)
+
+        # Test with specific revision
+        with tempfile.TemporaryDirectory() as tmpdirname:
+            # first download folder to cache it
+            snapshot_download(
+                f"{USER}/{REPO_NAME}",
+                revision=self.first_commit_hash,
+                cache_dir=tmpdirname,
+            )
+
+            # now load from cache
+            storage_folder = snapshot_download(
+                f"{USER}/{REPO_NAME}",
+                revision=self.first_commit_hash,
+                cache_dir=tmpdirname,
+            )
+
+            # folder contains the two files contributed and the .gitattributes
+            folder_contents = os.listdir(storage_folder)
+            self.assertEqual(len(folder_contents), 2)
+            self.assertTrue("dummy_file.txt" in folder_contents)
+            self.assertTrue(".gitattributes" in folder_contents)
+
+            with open(os.path.join(storage_folder, "dummy_file.txt"), "r") as f:
+                contents = f.read()
+                self.assertEqual(contents, "v1")
+
+            # folder name contains the revision's commit sha.
+            self.assertTrue(self.first_commit_hash in storage_folder)
