@@ -209,7 +209,7 @@ class LogoutCommand(BaseUserCommand):
         except HTTPError as e:
             if e.response.status_code == 400:
                 # Logging out with an access token will return a client error.
-                pass
+                HfApi.unset_access_token()
             else:
                 raise e
         print("Successfully logged out.")
