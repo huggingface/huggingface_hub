@@ -1,4 +1,5 @@
 import os
+import glob
 from pathlib import Path
 from typing import Dict, Optional, Union
 
@@ -57,18 +58,30 @@ def snapshot_download(
     else:
         token = None
 
-    _api = HfApi()
-    model_info = _api.model_info(repo_id=repo_id, revision=revision, token=token)
+    local_repo_id_prefix = repo_id.replace("/", REPO_ID_SEPARATOR)
 
-    storage_folder = os.path.join(
-        cache_dir, repo_id.replace("/", REPO_ID_SEPARATOR) + "." + model_info.sha
-    )
+    # retrieve cached repo
+    if local_files_only:
+        # find last modified folder
+        storage_folder = max(glob.glob(os.path.join(cache_dir, local_repo_id_prefix + ".*")), key=os.path.getmtime)
 
-    for model_file in model_info.siblings:
-        url = hf_hub_url(
-            repo_id, filename=model_file.rfilename, revision=model_info.sha
+        repo_id_sha = storage_folder.split(".")[-1]
+        model_files = os.listdir(storage_folder)
+    else:
+        _api = HfApi()
+        model_info = _api.model_info(repo_id=repo_id, revision=revision, token=token)
+        storage_folder = os.path.join(
+            cache_dir, local_repo_id_prefix + "." + model_info.sha
         )
-        relative_filepath = os.path.join(*model_file.rfilename.split("/"))
+
+        repo_id_sha = model_info.sha
+        model_files = [f.rfilename for f in model_info.siblings]
+
+    for model_file in model_files:
+        url = hf_hub_url(
+            repo_id, filename=model_file, revision=repo_id_sha
+        )
+        relative_filepath = os.path.join(*model_file.split("/"))
 
         # Create potential nested dir
         nested_dirname = os.path.dirname(
