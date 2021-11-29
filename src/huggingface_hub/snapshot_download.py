@@ -1,5 +1,5 @@
-import os
 import glob
+import os
 from pathlib import Path
 from typing import Dict, Optional, Union
 
@@ -63,7 +63,10 @@ def snapshot_download(
     # retrieve cached repo
     if local_files_only:
         # find last modified folder
-        storage_folder = max(glob.glob(os.path.join(cache_dir, local_repo_id_prefix + ".*")), key=os.path.getmtime)
+        storage_folder = max(
+            glob.glob(os.path.join(cache_dir, local_repo_id_prefix + ".*")),
+            key=os.path.getmtime,
+        )
 
         repo_id_sha = storage_folder.split(".")[-1]
         model_files = os.listdir(storage_folder)
@@ -78,9 +81,7 @@ def snapshot_download(
         model_files = [f.rfilename for f in model_info.siblings]
 
     for model_file in model_files:
-        url = hf_hub_url(
-            repo_id, filename=model_file, revision=repo_id_sha
-        )
+        url = hf_hub_url(repo_id, filename=model_file, revision=repo_id_sha)
         relative_filepath = os.path.join(*model_file.split("/"))
 
         # Create potential nested dir
