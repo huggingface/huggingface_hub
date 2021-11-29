@@ -18,7 +18,11 @@ def snapshot_download(
     library_name: Optional[str] = None,
     library_version: Optional[str] = None,
     user_agent: Union[Dict, str, None] = None,
+    proxies=None,
+    etag_timeout=10,
+    resume_download=False,
     use_auth_token: Union[bool, str, None] = None,
+    local_files_only=False,
 ) -> str:
     """
     Downloads a whole snapshot of a repo's files at the specified revision.
@@ -79,7 +83,11 @@ def snapshot_download(
             library_name=library_name,
             library_version=library_version,
             user_agent=user_agent,
+            proxies=proxies,
+            etag_timeout=etag_timeout,
+            resume_download=resume_download,
             use_auth_token=use_auth_token,
+            local_files_only=local_files_only,
         )
 
         if os.path.exists(path + ".lock"):
