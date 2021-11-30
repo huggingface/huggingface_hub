@@ -477,17 +477,6 @@ class HfApi:
         d = r.json()
         return [ModelInfo(**x) for x in d]
 
-    def model_list(self) -> List[ModelInfo]:
-        """
-        Deprecated method name, renamed to `list_models`.
-
-        Get the public list of all the models on huggingface.co
-        """
-        warnings.warn(
-            "This method has been renamed to `list_models` for consistency and will be removed in a future version."
-        )
-        return self.list_models()
-
     def list_datasets(
         self,
         filter: Union[str, Iterable[str], None] = None,
