@@ -4,7 +4,6 @@ import { PipelineType } from "../../../widgets/src/lib/interfaces/Types";
 import { TASKS_MODEL_LIBRARIES } from "../const";
 
 const taskData: TaskData = {
-	about:    "Lorem, ipsum dolor sit amet consectetur adipisicing elit. Illum, alias voluptas omnis sapiente aliquid aut laudantium dolorum ducimus quae, id nihil earum repellendus nemo magni natus itaque, veritatis quod placeat officiis quis inventore vero tempore non! Laboriosam incidunt dolorum dicta, ducimus ut nobis eligendi maxime amet tenetur vitae eos dolores? Laborum molestias neque obcaecati culpa alias quia quam temporibus esse inventore. Facere vitae totam praesentium distinctio nam sint voluptatum? Quasi dolorem, exercitationem neque id nihil nemo iusto, quos provident nobis rerum, impedit ex perferendis eius ipsa harum at explicabo minima deserunt doloremque placeat eligendi similique aliquid amet! Vitae voluptatum repellat natus, id eum quo. Quibusdam itaque iusto dolorum ipsum, iste, aut sequi, mollitia harum culpa assumenda ipsam nihil facere! Amet expedita tempora libero, sunt quaerat et. Nulla consequatur perspiciatis debitis repudiandae aperiam doloribus.",
 	datasets: [
 		{
 			// TODO write proper description
