@@ -1,4 +1,5 @@
 import os
+import shutil
 import tempfile
 import time
 import unittest
@@ -54,6 +55,7 @@ class SnapshotDownloadTests(unittest.TestCase):
 
     def tearDown(self) -> None:
         self._api.delete_repo(name=REPO_NAME, token=self._token)
+        shutil.rmtree(REPO_NAME)
 
     def test_download_model(self):
         # Test `main` branch
