@@ -37,7 +37,6 @@ from huggingface_hub.hf_api import (
     HfFolder,
     MetricInfo,
     ModelInfo,
-    RepoObj,
     erase_from_credential_store,
     read_from_credential_store,
     repo_type_and_id_from_hf_id,
@@ -129,13 +128,6 @@ class HfApiEndpointsTest(HfApiCommonTestWithLogin):
         self.assertEqual(info["fullname"], FULL_NAME)
         self.assertIsInstance(info["orgs"], list)
         self.assertIsInstance(info["orgs"][0]["apiToken"], str)
-
-    def test_list_repos_objs(self):
-        objs = self._api.list_repos_objs(token=self._token)
-        self.assertIsInstance(objs, list)
-        if len(objs) > 0:
-            o = objs[-1]
-            self.assertIsInstance(o, RepoObj)
 
     def test_create_update_and_delete_repo(self):
         REPO_NAME = repo_name("crud")

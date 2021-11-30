@@ -614,10 +614,17 @@ class HfApi:
         self, token: Optional[str] = None, organization: Optional[str] = None
     ) -> List[RepoObj]:
         """
+        Deprecated
+
         HuggingFace git-based system, used for models, datasets, and spaces.
 
         Call HF API to list all stored files for user (or one of their organizations).
         """
+        warnings.warn(
+            "This method has been deprecated and will be removed in a future version."
+            "You can achieve the same result by listing your repos then listing their respective files."
+        )
+
         if token is None:
             token = HfFolder.get_token()
         if token is None:
