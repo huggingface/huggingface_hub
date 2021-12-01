@@ -155,11 +155,7 @@
 				/>
 			</div>
 			{#if fileUrl}
-				<WidgetAudioTrack
-					classNames="mt-3"
-					label={filename}
-					src={fileUrl}
-				/>
+				<WidgetAudioTrack classNames="mt-3" label={filename} src={fileUrl} />
 			{/if}
 			<WidgetSubmitBtn
 				classNames="mt-2"
