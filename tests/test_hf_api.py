@@ -591,6 +591,7 @@ class HfApiPrivateTest(HfApiCommonTestWithLogin):
         self._api.delete_repo(name=self.REPO_NAME, token=self._token)
 
     def test_model_info(self):
+        shutil.rmtree(os.path.dirname(HfFolder.path_token))
         # Test we cannot access model info without a token
         with self.assertRaisesRegex(requests.exceptions.HTTPError, "404 Client Error"):
             _ = self._api.model_info(repo_id=f"{USER}/{self.REPO_NAME}")
