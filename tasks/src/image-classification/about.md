@@ -3,7 +3,8 @@ Image classification is used for wide range of problems, from medical imaging to
 ## Inference
 Inference
 
-You can use "image-classification" pipeline to infer image classification models. You can initialize the pipeline with a model id from the hub. If you don't provide a model id, it will initialize with google/vit-base-patch16-224 by default. When calling the pipeline, you just need to pass a path, http link or an image loaded in PIL to this pipeline. You can also provide a "top_k" parameter which determines how many results it should return.
+
+With the `transformers` library, you can use the `image-classification` pipeline to infer with image classification models. You can initialize the pipeline with a model id from the Hub. If you don't provide a model id, it will initialize with [google/vit-base-patch16-224](https://huggingface.co/google/vit-base-patch16-224) by default. When calling the pipeline, you just need to specify a path, http link or an image loaded in PIL to this pipeline. You can also provide a `top_k` parameter which determines how many results it should return.
 ```python
 !pip install transformers
 
