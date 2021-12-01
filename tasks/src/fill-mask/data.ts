@@ -18,8 +18,7 @@ const taskData: TaskData = {
         inputs: [
 			{
 				label:   "Input",
-				content:
-						"The goal of life is [MASK].",
+				content: "The goal of life is [MASK].",
 				type: "text",
 			},
 			
