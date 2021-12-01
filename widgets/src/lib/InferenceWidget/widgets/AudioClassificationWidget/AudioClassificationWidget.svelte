@@ -28,7 +28,6 @@
 	let output: Array<{ label: string; score: number }> = [];
 	let outputJson: string;
 	let selectedSampleUrl = "";
-	let shouldAudioAutoplay = true;
 
 	function onRecordStart() {
 		file = null;
@@ -42,7 +41,6 @@
 	}
 
 	function onSelectFile(updatedFile: Blob | File) {
-		shouldAudioAutoplay = false;
 		isRecording = false;
 		selectedSampleUrl = "";
 
@@ -125,7 +123,7 @@
 	}
 
 	function applyInputSample(sample: Record<string, any>) {
-		shouldAudioAutoplay = false;
+		file = null;
 		filename = sample.example_title;
 		fileUrl = sample.src;
 		selectedSampleUrl = sample.src;
@@ -133,7 +131,6 @@
 	}
 
 	function previewInputSample(sample: Record<string, any>) {
-		shouldAudioAutoplay = true;
 		filename = sample.example_title;
 		fileUrl = sample.src;
 		output = [];
@@ -170,12 +167,7 @@
 				/>
 			</div>
 			{#if fileUrl}
-				<WidgetAudioTrack
-					classNames="mt-3"
-					autoplay={shouldAudioAutoplay}
-					label={filename}
-					src={fileUrl}
-				/>
+				<WidgetAudioTrack classNames="mt-3" label={filename} src={fileUrl} />
 			{/if}
 			<WidgetSubmitBtn
 				classNames="mt-2"
