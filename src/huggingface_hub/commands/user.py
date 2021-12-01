@@ -165,7 +165,7 @@ class LoginCommand(BaseUserCommand):
         _|    _|    _|_|      _|_|_|    _|_|_|  _|_|_|  _|      _|    _|_|_|      _|        _|    _|    _|_|_|  _|_|_|_|
 
         To login, `huggingface_hub` now requires a token generated from https://huggingface.co/settings/token.
-        To login with username and password instead, interrupt with Ctrl+C.
+        (Deprecated, will be removed in v0.3.0) To login with username and password instead, interrupt with Ctrl+C.
         """
         )
 
@@ -204,13 +204,12 @@ class LogoutCommand(BaseUserCommand):
             print("Not logged in")
             exit()
         HfFolder.delete_token()
+        HfApi.unset_access_token()
         try:
             self._api.logout(token)
         except HTTPError as e:
-            if e.response.status_code == 400:
-                # Logging out with an access token will return a client error.
-                HfApi.unset_access_token()
-            else:
+            # Logging out with an access token will return a client error.
+            if not e.response.status_code == 400:
                 raise e
         print("Successfully logged out.")
 

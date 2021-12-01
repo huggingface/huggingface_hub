@@ -33,6 +33,7 @@ from huggingface_hub.constants import (
 )
 from huggingface_hub.file_download import cached_download, hf_hub_download
 from huggingface_hub.hf_api import (
+    USERNAME_PLACEHOLDER,
     DatasetInfo,
     HfApi,
     HfFolder,
@@ -121,10 +122,13 @@ class HfApiLoginTest(HfApiCommonTest):
 
         _login(self._api, token=TOKEN)
         self.assertTupleEqual(
-            read_from_credential_store("username"), ("username", TOKEN)
+            read_from_credential_store(USERNAME_PLACEHOLDER),
+            (USERNAME_PLACEHOLDER, TOKEN),
         )
-        erase_from_credential_store(username="username")
-        self.assertTupleEqual(read_from_credential_store("username"), (None, None))
+        erase_from_credential_store(username=USERNAME_PLACEHOLDER)
+        self.assertTupleEqual(
+            read_from_credential_store(USERNAME_PLACEHOLDER), (None, None)
+        )
 
 
 class HfApiCommonTestWithLogin(HfApiCommonTest):

@@ -40,6 +40,8 @@ else:
     from typing_extensions import Literal
 
 
+USERNAME_PLACEHOLDER = "hf_user"
+
 REMOTE_FILEPATH_REGEX = re.compile(r"^\w[\w\/\-]*(\.\w+)?$")
 # ^^ No trailing slash, no backslash, no spaces, no relative parts ("." or "..")
 #    Only word characters and an optional extension
@@ -407,11 +409,11 @@ class HfApi:
 
     @staticmethod
     def set_access_token(access_token: str):
-        write_to_credential_store("username", access_token)
+        write_to_credential_store(USERNAME_PLACEHOLDER, access_token)
 
     @staticmethod
     def unset_access_token():
-        erase_from_credential_store("username")
+        erase_from_credential_store(USERNAME_PLACEHOLDER)
 
     def list_models(
         self,
