@@ -21,6 +21,7 @@ from huggingface_hub import constants
 
 from . import __version__
 from .constants import (
+    DEFAULT_REVISION,
     HUGGINGFACE_CO_URL_TEMPLATE,
     HUGGINGFACE_HUB_CACHE,
     REPO_TYPES,
@@ -110,7 +111,7 @@ def hf_hub_url(
         repo_id = REPO_TYPES_URL_PREFIXES[repo_type] + repo_id
 
     if revision is None:
-        revision = "main"
+        revision = DEFAULT_REVISION
     return HUGGINGFACE_CO_URL_TEMPLATE.format(
         repo_id=repo_id, revision=revision, filename=filename
     )
