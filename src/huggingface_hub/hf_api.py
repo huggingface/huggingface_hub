@@ -347,7 +347,7 @@ class HfApi:
 
         Throws: requests.exceptions.HTTPError if credentials are invalid
         """
-        logging.error("This method is deprecated in favor of `set_access_token`.")
+        logging.error("HfApi.login: This method is deprecated in favor of `set_access_token`.")
         path = "{}/api/login".format(self.endpoint)
         r = requests.post(path, json={"username": username, "password": password})
         r.raise_for_status()
