@@ -38,7 +38,7 @@ const taskData: TaskData = {
 	metrics:   [
 		{
 			description: "Cross Entropy is a loss metric built on entropy. It calculates the difference between two probability distributions, with probability distributions being the distributions of predicted words here.",
-			id:          "Cross Entropy",
+			id:          "cross_entropy",
 		},
         {
 			description: "Perplexity is the exponential of the cross-entropy loss. Perplexity evaluates the probabilities assigned to the next word by the model, and lower perplexity indicates good performance. ",
