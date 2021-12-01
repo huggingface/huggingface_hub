@@ -123,6 +123,7 @@
 	}
 
 	function applyInputSample(sample: Record<string, any>) {
+		file = null;
 		filename = sample.example_title;
 		fileUrl = sample.src;
 		selectedSampleUrl = sample.src;
