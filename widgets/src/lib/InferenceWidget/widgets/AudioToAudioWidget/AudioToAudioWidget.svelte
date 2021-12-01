@@ -195,9 +195,10 @@
 	</svelte:fragment>
 	<svelte:fragment slot="bottom">
 		{#each output as item}
-			<div>{item.label}</div>
-			:
-			<WidgetAudioTrack classNames="mt-4" src={item.src} />
+			<div class="flex items-center mt-2">
+				<span class="mr-2">{item.label}:</span>
+				<WidgetAudioTrack classNames="" src={item.src} />
+			</div>
 		{/each}
 	</svelte:fragment>
 </WidgetWrapper>
