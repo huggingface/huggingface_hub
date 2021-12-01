@@ -6,7 +6,7 @@ import { TASKS_MODEL_LIBRARIES } from "../const";
 const taskData: TaskData = {
 	datasets: [
 		{
-			description: "A common dataset used for pretraining models like BERT..",
+			description: "A common dataset used for pretraining models like BERT.",
 			id:          "wikipedia",
 		},
         {
