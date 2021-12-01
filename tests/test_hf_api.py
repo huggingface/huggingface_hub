@@ -25,6 +25,7 @@ from io import BytesIO
 import pytest
 
 import requests
+from huggingface_hub.commands.user import _login
 from huggingface_hub.constants import (
     REPO_TYPE_DATASET,
     REPO_TYPE_SPACE,
@@ -32,6 +33,7 @@ from huggingface_hub.constants import (
 )
 from huggingface_hub.file_download import cached_download, hf_hub_download
 from huggingface_hub.hf_api import (
+    USERNAME_PLACEHOLDER,
     DatasetInfo,
     HfApi,
     HfFolder,
@@ -48,6 +50,7 @@ from .testing_constants import (
     ENDPOINT_STAGING_BASIC_AUTH,
     FULL_NAME,
     PASS,
+    TOKEN,
     USER,
 )
 from .testing_utils import (
@@ -110,6 +113,22 @@ class HfApiLoginTest(HfApiCommonTest):
         self.assertTupleEqual(read_from_credential_store(USER), (USER.lower(), PASS))
         erase_from_credential_store(username=USER)
         self.assertTupleEqual(read_from_credential_store(USER), (None, None))
+
+    def test_login_cli(self):
+        _login(self._api, username=USER, password=PASS)
+        self.assertTupleEqual(read_from_credential_store(USER), (USER.lower(), PASS))
+        erase_from_credential_store(username=USER)
+        self.assertTupleEqual(read_from_credential_store(USER), (None, None))
+
+        _login(self._api, token=TOKEN)
+        self.assertTupleEqual(
+            read_from_credential_store(USERNAME_PLACEHOLDER),
+            (USERNAME_PLACEHOLDER, TOKEN),
+        )
+        erase_from_credential_store(username=USERNAME_PLACEHOLDER)
+        self.assertTupleEqual(
+            read_from_credential_store(USERNAME_PLACEHOLDER), (None, None)
+        )
 
 
 class HfApiCommonTestWithLogin(HfApiCommonTest):
@@ -572,6 +591,7 @@ class HfApiPrivateTest(HfApiCommonTestWithLogin):
         self._api.delete_repo(name=self.REPO_NAME, token=self._token)
 
     def test_model_info(self):
+        shutil.rmtree(os.path.dirname(HfFolder.path_token))
         # Test we cannot access model info without a token
         with self.assertRaisesRegex(requests.exceptions.HTTPError, "404 Client Error"):
             _ = self._api.model_info(repo_id=f"{USER}/{self.REPO_NAME}")

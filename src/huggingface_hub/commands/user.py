@@ -164,11 +164,19 @@ class LoginCommand(BaseUserCommand):
         _|    _|  _|    _|  _|    _|  _|    _|    _|    _|    _|_|  _|    _|      _|        _|    _|  _|        _|
         _|    _|    _|_|      _|_|_|    _|_|_|  _|_|_|  _|      _|    _|_|_|      _|        _|    _|    _|_|_|  _|_|_|_|
 
+        To login, `huggingface_hub` now requires a token generated from https://huggingface.co/settings/token.
+        (Deprecated, will be removed in v0.3.0) To login with username and password instead, interrupt with Ctrl+C.
         """
         )
-        username = input("Username: ")
-        password = getpass()
-        _login(self._api, username, password)
+
+        try:
+            token = getpass("Token: ")
+            _login(self._api, token=token)
+
+        except KeyboardInterrupt:
+            username = input("\rUsername: ")
+            password = getpass()
+            _login(self._api, username, password)
 
 
 class WhoamiCommand(BaseUserCommand):
@@ -196,7 +204,13 @@ class LogoutCommand(BaseUserCommand):
             print("Not logged in")
             exit()
         HfFolder.delete_token()
-        self._api.logout(token)
+        HfApi.unset_access_token()
+        try:
+            self._api.logout(token)
+        except HTTPError as e:
+            # Logging out with an access token will return a client error.
+            if not e.response.status_code == 400:
+                raise e
         print("Successfully logged out.")
 
 
@@ -398,6 +412,7 @@ def _login(hf_api, username=None, password=None, token=None):
     elif not hf_api._is_valid_token(token):
         raise ValueError("Invalid token passed.")
 
+    hf_api.set_access_token(token)
     HfFolder.save_token(token)
     print("Login successful")
     print("Your token has been saved to", HfFolder.path_token)
