@@ -6,19 +6,71 @@ title: Reference
 
 ## Deep Learning Container
 
-| 🤗 Transformers version | 🤗 Datasets version | PyTorch/TensorFlow version | type     | device | Python Version | Example `image_uri`                                                                                                               |
-| ----------------------- | ------------------- | -------------------------- | -------- | ------ | -------------- | --------------------------------------------------------------------------------------------------------------------------------- |
-| 4.4.2                   | 1.5.0               | PyTorch 1.6.0              | training | GPU    | 3.6            | `763104351884.dkr.ecr.us-west-2.amazonaws.com/huggingface-pytorch-training:1.6.0-transformers4.4.2-gpu-py36-cu110-ubuntu18.04`    |
-| 4.4.2                   | 1.5.0               | TensorFlow 2.4.1           | training | GPU    | 3.7            | `763104351884.dkr.ecr.us-west-2.amazonaws.com/huggingface-tensorflow-training:2.4.1-transformers4.4.2-gpu-py37-cu110-ubuntu18.04` |
-| 4.5.0                   | 1.5.0               | PyTorch 1.6.0              | training | GPU    | 3.6            | `763104351884.dkr.ecr.us-west-2.amazonaws.com/huggingface-pytorch-training:1.6.0-transformers4.4.2-gpu-py36-cu110-ubuntu18.04`    |
-| 4.5.0                   | 1.5.0               | TensorFlow 2.4.1           | training | GPU    | 3.7            | `763104351884.dkr.ecr.us-west-2.amazonaws.com/huggingface-tensorflow-training:2.4.1-transformers4.5.0-gpu-py37-cu110-ubuntu18.04` |
-| 4.6.1                   | 1.6.2               | PyTorch 1.6.0              | training | GPU    | 3.6            | `763104351884.dkr.ecr.us-west-2.amazonaws.com/huggingface-pytorch-training:1.6.0-transformers4.5.0-gpu-py36-cu110-ubuntu18.04`    |
-| 4.6.1                   | 1.6.2               | PyTorch 1.7.1               | training | GPU    | 3.6            | `763104351884.dkr.ecr.us-west-2.amazonaws.com/huggingface-pytorch-training:1.7.1-transformers4.6.1-gpu-py36-cu110-ubuntu18.04` |
-| 4.6.1                   | 1.6.2               | TensorFlow 2.4.1           | training | GPU    | 3.7            | `763104351884.dkr.ecr.us-west-2.amazonaws.com/huggingface-tensorflow-training:2.4.1-transformers4.6.1-gpu-py37-cu110-ubuntu18.04` |
-| 4.6.1                   | 1.6.2               | PyTorch 1.7.1               | inference | CPU    | 3.6            | `763104351884.dkr.ecr.us-east-1.amazonaws.com/huggingface-pytorch-inference:1.7.1-transformers4.6.1-cpu-py36-ubuntu18.04` |
-| 4.6.1                   | 1.6.2               | PyTorch 1.7.1               | inference | GPU    | 3.6            | `763104351884.dkr.ecr.us-east-1.amazonaws.com/huggingface-pytorch-inference:1.7.1-transformers4.6.1-gpu-py36-cu110-ubuntu18.04` |
-| 4.6.1                   | 1.6.2               | TensorFlow 2.4.1           | inference | CPU    | 3.7            | `763104351884.dkr.ecr.us-east-1.amazonaws.com/huggingface-tensorflow-inference:2.4.1-transformers4.6.1-cpu-py37-ubuntu18.04` |
-| 4.6.1                   | 1.6.2               | TensorFlow 2.4.1           | inference | GPU    | 3.7            | `763104351884.dkr.ecr.us-east-1.amazonaws.com/huggingface-tensorflow-inference:2.4.1-transformers4.6.1-gpu-py37-cu110-ubuntu18.04` |
+Below you can find a version table of currently available Hugging Face DLCs. The table doesn't include the full `image_uri` here are two examples on how to construct those if needed.
+
+**Manually construction the `image_uri`**
+
+`{dlc-aws-account-id}.dkr.ecr.{region}.amazonaws.com/huggingface-{framework}-{(training | inference)}:{framework-version}-transformers{transformers-version}-{device}-{python-version}-{device-tag}`
+
+- `dlc-aws-account-id`: The AWS account ID of the account that owns the ECR repository. You can find them in the [here](https://github.com/aws/sagemaker-python-sdk/blob/e0b9d38e1e3b48647a02af23c4be54980e53dc61/src/sagemaker/image_uri_config/huggingface.json#L21)
+- `region`: The AWS region where you want to use it.
+- `framework`: The framework you want to use, either `pytorch` or `tensorflow`.
+- `(training | inference)`: The training or inference mode.
+- `framework-version`: The version of the framework you want to use.
+- `transformers-version`: The version of the transformers library you want to use.
+- `device`: The device you want to use, either `cpu` or `gpu`.
+- `python-version`: The version of the python of the DLC.
+- `device-tag`: The device tag you want to use. The device tag can include os version and cuda version
+
+**Example 1: PyTorch Training:**
+`763104351884.dkr.ecr.us-west-2.amazonaws.com/huggingface-pytorch-training:1.6.0-transformers4.4.2-gpu-py36-cu110-ubuntu18.04`
+**Example 2: Tensorflow Inference:**
+`763104351884.dkr.ecr.us-east-1.amazonaws.com/huggingface-tensorflow-inference:2.4.1-transformers4.6.1-cpu-py37-ubuntu18.04`
+
+## Training DLC Overview
+
+| 🤗 Transformers version | 🤗 Datasets version | PyTorch/TensorFlow version | type     | device | Python Version |
+| ----------------------- | ------------------- | -------------------------- | -------- | ------ | -------------- |
+| 4.4.2                   | 1.5.0               | PyTorch 1.6.0              | training | GPU    | 3.6            |
+| 4.4.2                   | 1.5.0               | TensorFlow 2.4.1           | training | GPU    | 3.7            |
+| 4.5.0                   | 1.5.0               | PyTorch 1.6.0              | training | GPU    | 3.6            |
+| 4.5.0                   | 1.5.0               | TensorFlow 2.4.1           | training | GPU    | 3.7            |
+| 4.6.1                   | 1.6.2               | PyTorch 1.6.0              | training | GPU    | 3.6            |
+| 4.6.1                   | 1.6.2               | PyTorch 1.7.1              | training | GPU    | 3.6            |
+| 4.6.1                   | 1.6.2               | TensorFlow 2.4.1           | training | GPU    | 3.7            |
+| 4.10.2                  | 1.11.0              | PyTorch 1.8.1              | training | GPU    | 3.6            |
+| 4.10.2                  | 1.11.0              | PyTorch 1.9.0              | training | GPU    | 3.8            |
+| 4.10.2                  | 1.11.0              | TensorFlow 2.4.1           | training | GPU    | 3.7            |
+| 4.10.2                  | 1.11.0              | TensorFlow 2.5.1           | training | GPU    | 3.7            |
+| 4.11.0                  | 1.12.1              | PyTorch 1.9.0              | training | GPU    | 3.8            |
+| 4.11.0                  | 1.12.1              | TensorFlow 2.5.1           | training | GPU    | 3.7            |
+| 4.12.3                  | 1.15.1              | PyTorch 1.9.1              | training | GPU    | 3.8            |
+| 4.12.3                  | 1.15.1              | TensorFlow 2.5.1           | training | GPU    | 3.7            |
+
+## Inference DLC Overview
+
+| 🤗 Transformers version | PyTorch/TensorFlow version | type      | device | Python Version |
+| ----------------------- | -------------------------- | --------- | ------ | -------------- |
+| 4.6.1                   | PyTorch 1.7.1              | inference | CPU    | 3.6            |
+| 4.6.1                   | PyTorch 1.7.1              | inference | GPU    | 3.6            |
+| 4.6.1                   | TensorFlow 2.4.1           | inference | CPU    | 3.7            |
+| 4.6.1                   | TensorFlow 2.4.1           | inference | GPU    | 3.7            |
+| 4.10.2                  | PyTorch 1.8.1              | inference | GPU    | 3.6            |
+| 4.10.2                  | PyTorch 1.9.0              | inference | GPU    | 3.8            |
+| 4.10.2                  | TensorFlow 2.4.1           | inference | GPU    | 3.7            |
+| 4.10.2                  | TensorFlow 2.5.1           | inference | GPU    | 3.7            |
+| 4.10.2                  | PyTorch 1.8.1              | inference | CPU    | 3.6            |
+| 4.10.2                  | PyTorch 1.9.0              | inference | CPU    | 3.8            |
+| 4.10.2                  | TensorFlow 2.4.1           | inference | CPU    | 3.7            |
+| 4.10.2                  | TensorFlow 2.5.1           | inference | CPU    | 3.7            |
+| 4.11.0                  | PyTorch 1.9.0              | inference | GPU    | 3.8            |
+| 4.11.0                  | TensorFlow 2.5.1           | inference | GPU    | 3.7            |
+| 4.11.0                  | PyTorch 1.9.0              | inference | CPU    | 3.8            |
+| 4.11.0                  | TensorFlow 2.5.1           | inference | CPU    | 3.7            |
+| 4.12.3                  | PyTorch 1.9.1              | inference | GPU    | 3.8            |
+| 4.12.3                  | TensorFlow 2.5.1           | inference | GPU    | 3.7            |
+| 4.12.3                  | PyTorch 1.9.1              | inference | CPU    | 3.8            |
+| 4.12.3                  | TensorFlow 2.5.1           | inference | CPU    | 3.7            |
 
 ## Inference Toolkit API
 
@@ -106,11 +158,11 @@ a deck (one of them the OWNER).  Both times, we never heard from them.  Not a ca
 
 ```json
 {
-	"inputs": "Hugging Face, the winner of VentureBeat’s Innovation in Natural Language Process/Understanding Award for 2021, is looking to level the playing field. The team, launched by Clément Delangue and Julien Chaumond in 2016, was recognized for its work in democratizing NLP, the global market value for which is expected to hit $35.1 billion by 2026. This week, Google’s former head of Ethical AI Margaret Mitchell joined the team.",
-	"paramters": {
-		"repetition_penalty": 4.0,
-		"length_penalty": 1.5
-	}
+  "inputs": "Hugging Face, the winner of VentureBeat’s Innovation in Natural Language Process/Understanding Award for 2021, is looking to level the playing field. The team, launched by Clément Delangue and Julien Chaumond in 2016, was recognized for its work in democratizing NLP, the global market value for which is expected to hit $35.1 billion by 2026. This week, Google’s former head of Ethical AI Margaret Mitchell joined the team.",
+  "paramters": {
+    "repetition_penalty": 4.0,
+    "length_penalty": 1.5
+  }
 }
 ```
 
@@ -125,6 +177,7 @@ The Inference Toolkit implements various additional environment variables to sim
 ```bash
 HF_TASK="question-answering"
 ```
+
 **`HF_MODEL_ID`**
 
 `HF_MODEL_ID` defines the model ID which is automatically loaded from [hf.co/models](https://huggingface.co/models) when creating a SageMaker endpoint. All of the 🤗 Hub's 10,000+ models are available through this environment variable.
