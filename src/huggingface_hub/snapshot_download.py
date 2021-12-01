@@ -75,8 +75,11 @@ def snapshot_download(
 
         # list all possible folders that can correspond to the repo_id
         # and are of the format <flattened-repo-id>.<revision>.<commit-sha>
-        # now let's list all cached repos that have to be included in the revision
+        # now let's list all cached repos that have to be included in the revision.
+        # There are 3 cases that we have to consider.
+
         # 1) cached repos of format <repo_id>.{revision}.<any-hash>
+        # -> in this case {revision} has to be a branch
         repo_folders_branch = glob(repo_folders_prefix + "." + revision + ".*")
 
         # 2) cached repos of format <repo_id>.{revision}
@@ -103,16 +106,23 @@ def snapshot_download(
         # and passed {revision} is not a commit sha
         # in this case snapshotting repos locally might lead to unexpected
         # behavior the user should be warned about
-        repo_folders_commit_any = set(glob(repo_folders_prefix + ".*")) - set(
+
+        # get all folders that were cached with just a sha commit revision
+        all_repo_folders_from_sha = set(glob(repo_folders_prefix + ".*")) - set(
             glob(repo_folders_prefix + ".*.*")
         )
-        if (
-            len(repo_folders_commit_any) > 0
-            and len(repo_folders_commit_only + repo_folders_branch_commit) == 0
-        ):
+        # 1) is there any repo id that was previously cached from a commit sha?
+        has_a_sha_revision_been_cached = len(all_repo_folders_from_sha) > 0
+        # 2) is the passed {revision} is a branch
+        is_revision_a_branch = (
+            len(repo_folders_commit_only + repo_folders_branch_commit) == 0
+        )
+
+        if has_a_sha_revision_been_cached and is_revision_a_branch:
+            # -> in this case let's warn the user
             logger.warn(
                 f"The repo {repo_id} was previously downloaded from a commit hash revision "
-                f"and has created the following cached directories {repo_folders_commit_any}."
+                f"and has created the following cached directories {all_repo_folders_from_sha}."
                 f" In this case, trying to load a repo from the branch {revision} in offline "
                 "mode might lead to unexpected behavior by not taking into account the latest "
                 "commits."
