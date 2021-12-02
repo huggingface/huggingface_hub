@@ -329,7 +329,8 @@ def lfs_log_progress():
     current_lfs_progress_value = os.environ.get("GIT_LFS_PROGRESS", "")
 
     with tempfile.TemporaryDirectory() as tmpdir:
-        os.environ["GIT_LFS_PROGRESS"] = os.path.join(tmpdir, "lfs_progress")
+        path = os.path.join(tmpdir, "lfs_progress")
+        os.environ["GIT_LFS_PROGRESS"] = path
         logger.debug(f"Following progress in {os.environ['GIT_LFS_PROGRESS']}")
 
         exit_event = threading.Event()
@@ -337,7 +338,7 @@ def lfs_log_progress():
         x.start()
 
         try:
-            yield
+            yield path
         finally:
             exit_event.set()
             x.join()
@@ -578,7 +579,8 @@ class Repository:
                 else:
                     clone = "git lfs clone"
 
-                with lfs_log_progress():
+                with lfs_log_progress() as lfs_progress_path:
+                    env["GIT_LFS_PROGRESS"] = lfs_progress_path
                     subprocess.run(
                         f"{clone} {repo_url} .".split(),
                         stderr=subprocess.PIPE,
