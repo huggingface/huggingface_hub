@@ -12,10 +12,10 @@ You can infer with Question Answering models with the “question-answering” p
 ```python
 from transformers import pipeline
 
-QA_model = pipeline("question-answering")
+qa_model = pipeline("question-answering")
 question = "Where do I live?"
 context = "My name is Merve and I live in İstanbul."
-QA_model(question = question, context = context)
+qa_model(question = question, context = context)
 ## {'answer': 'İstanbul', 'end': 39, 'score': 0.9538118243217468, 'start': 31}
 ```
 
