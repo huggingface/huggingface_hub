@@ -1,5 +1,12 @@
 ## Use Cases
-The most important use of image segmentation is in computer vision for robotics, such as autonomous driving. Segmentation models are used to identify pedestrians, lanes and other necessary information. Image segmentation models are also used in cameras to erase background of portraits in images.
+### Autonomous Driving
+Segmentation models are used to identify road patterns such as lanes and obstacles for safer drive. 
+
+### Background Removal 
+Image segmentation models are used in cameras to erase background of certain objects, apply filters on them. 
+
+### Medical Imaging
+Image segmentation models are used to distinguish organs or tissues, which improves the workflows in medical imaging. The models are used to segment the dental instances, analyze X-Ray scans or even segment cells for pathological diagnosis. This [dataset]([https://github.com/v7labs/covid-19-xray-dataset](https://github.com/v7labs/covid-19-xray-dataset)) contains images of lungs of healthy patients and patients with COVID-19 segmented with masks. Another [segmentation dataset]([https://ivdm3seg.weebly.com/data.html](https://ivdm3seg.weebly.com/data.html)) contains segmented MRI data of lower spine to analyze the effect of spaceflight simulation.
 
 ## Task Variants
 ### Semantic Segmentation 
