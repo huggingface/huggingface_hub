@@ -3,7 +3,7 @@ Object detection is a computer vision task which allows to detect instances of o
 ## Use Cases
 
 ### Autonomous Driving
-Perhaps one of the most significant use cases of object detection is autonomous driving. Self-driving cars use object detection to detect pedestrians, bicycles traffic lights and road signs to decide on which step it should take. 
+Object detection is widely used for computer vision in autonomous driving. Self-driving cars use object detection to detect pedestrians, bicycles, traffic lights and road signs to decide on which step it should take. 
 
 ### Object Tracking in Matches
 Object detection systems are widely used in sports, where the ball, or a player is tracked for monitoring and refereeing during matches. 
