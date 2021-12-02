@@ -329,8 +329,7 @@ def lfs_log_progress():
     current_lfs_progress_value = os.environ.get("GIT_LFS_PROGRESS", "")
 
     with tempfile.TemporaryDirectory() as tmpdir:
-        path = os.path.join(tmpdir, "lfs_progress")
-        os.environ["GIT_LFS_PROGRESS"] = path
+        os.environ["GIT_LFS_PROGRESS"] = os.path.join(tmpdir, "lfs_progress")
         logger.debug(f"Following progress in {os.environ['GIT_LFS_PROGRESS']}")
 
         exit_event = threading.Event()
@@ -338,7 +337,7 @@ def lfs_log_progress():
         x.start()
 
         try:
-            yield path
+            yield
         finally:
             exit_event.set()
             x.join()
@@ -571,24 +570,18 @@ class Repository:
             # checks if repository is initialized in a empty repository or in one with files
             if len(os.listdir(self.local_dir)) == 0:
                 logger.warning(f"Cloning {clean_repo_url} into local empty directory.")
-                env = os.environ.copy()
 
-                if self.skip_lfs_files:
-                    env["GIT_LFS_SKIP_SMUDGE"] = "1"
-                    clone = "git clone"
-                else:
-                    clone = "git lfs clone"
-
-                with lfs_log_progress() as lfs_progress_path:
-                    env["GIT_LFS_PROGRESS"] = lfs_progress_path
+                with lfs_log_progress():
                     subprocess.run(
-                        f"{clone} {repo_url} .".split(),
+                        f"{'git clone' if self.skip_lfs_files else 'git lfs clone'} {repo_url} .".split(),
                         stderr=subprocess.PIPE,
                         stdout=subprocess.PIPE,
                         check=True,
                         encoding="utf-8",
                         cwd=self.local_dir,
-                        env=env,
+                        env=os.environ.copy().update(
+                            {"GIT_LFS_SKIP_SMUDGE": "1"} if self.skip_lfs_files else {}
+                        ),
                     )
             else:
                 # Check if the folder is the root of a git repository
