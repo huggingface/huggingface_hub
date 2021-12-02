@@ -5,9 +5,9 @@ Training a causal language model on code from scratch will help the programmers 
 Another interesting use cases for text generation models are generating legal documents and generating stories.
 
 ## Inference
-
 Text generation models can be inferred with “text-generation” pipeline.
 “text-generation” pipeline takes an incomplete text and returns multiple outputs of which the text can be completed with. If the pipeline is called with no model name, it will be initialized with GPT-2 by default.
+
 ```python
 from transformers import pipeline, set_seed
 generator = pipeline('text-generation', model='gpt2')
@@ -46,12 +46,12 @@ text2text_generator(“Reorder the words in this sentence: justin and name biebe
 
 
 ## Useful Resources
-[Course Chapter on Training a causal language model from scratch](https://huggingface.co/course/chapter7/6?fw=pt)
+- [Course Chapter on Training a causal language model from scratch](https://huggingface.co/course/chapter7/6?fw=pt)
 ### Notebooks
-[Training a CLM in Flax](https://github.com/huggingface/notebooks/blob/master/examples/causal_language_modeling_flax.ipynb)
-[Training a CLM in TensorFlow](https://github.com/huggingface/notebooks/blob/master/examples/language_modeling_from_scratch-tf.ipynb)
-[Training a CLM in PyTorch](https://github.com/huggingface/notebooks/blob/master/examples/language_modeling_from_scratch.ipynb)
+- [Training a CLM in Flax](https://github.com/huggingface/notebooks/blob/master/examples/causal_language_modeling_flax.ipynb)
+- [Training a CLM in TensorFlow](https://github.com/huggingface/notebooks/blob/master/examples/language_modeling_from_scratch-tf.ipynb)
+- [Training a CLM in PyTorch](https://github.com/huggingface/notebooks/blob/master/examples/language_modeling_from_scratch.ipynb)
 ### Scripts
-[Training a CLM in PyTorch](https://github.com/huggingface/transformers/tree/master/examples/pytorch/language-modeling)
-[Training a CLM in TensorFlow](https://github.com/huggingface/transformers/tree/master/examples/tensorflow/language-modeling)
-[Text Generation in PyTorch](https://github.com/huggingface/transformers/tree/master/examples/pytorch/text-generation)
+- [Training a CLM in PyTorch](https://github.com/huggingface/transformers/tree/master/examples/pytorch/language-modeling)
+- [Training a CLM in TensorFlow](https://github.com/huggingface/transformers/tree/master/examples/tensorflow/language-modeling)
+- [Text Generation in PyTorch](https://github.com/huggingface/transformers/tree/master/examples/pytorch/text-generation)

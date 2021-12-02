@@ -1,19 +1,17 @@
 ## Use Cases
 You can query through documents to extract information using sentence similarity models. First you can rank the documents themselves with Passage Ranking models, get the best performing document and search in it with sentence similarity models, pick the sentence with best cosine similarity. 
 
-
-
-
-## Passage Ranking
+## Task Variants
+### Passage Ranking
 Passage ranking is the task of ranking documents based on their relevance to a given query. The task is evaluated on Mean Reciprocal Rank. Passage Ranking models take one query and multiple documents and return ranked documents according to the relevancy to the query.
 
 You can infer with passage ranking models using the Inference API. The inputs to the passage ranking model is a source sentence for which we are looking for the relevant documents and the documents we want to search in. The model will return scores according to relevancy of those documents to the source sentence. 
+
 ```python
 import json
 import requests
 
-API_URL = "https://api-inference.huggingface.co/models/sentence-transformers/msmarco-distilbert-base-tas-b" # msmarco models is used for passage ranking
-
+API_URL = "https://api-inference.huggingface.co/models/sentence-transformers/msmarco-distilbert-base-tas-b" # msmarco models are used for passage ranking
 headers = {"Authorization": f"Bearer {api_token}"}
 
 def query(payload):
@@ -31,11 +29,10 @@ data = query(
             ]
         }
     }
-
 ## [0.853405773639679, 0.9814600944519043, 0.6550564765930176]
 ```
-## Semantic Textual Similarity
 
+### Semantic Textual Similarity
 Semantic textual similarity is the task of assessing how similar two texts are. The task is evaluated on Pearson’s Rank Correlation. Semantic textual similarity models take one source sentence and a list of sentences that we will look for similarity in and return a list of similarity scores. The benchmark dataset is The Semantic Textual Similarity Benchmark.
 
 ```python
@@ -52,9 +49,7 @@ def query(payload):
 data = query(
     {
         "inputs": {
-            "source_sentence": 
-                "I'm very happy"
-            ,
+            "source_sentence": "I'm very happy",
             "sentences":["I'm filled with happiness", "I'm happy"]
         }
     })
@@ -81,5 +76,5 @@ print(cosine_score)
 
 
 ## Useful Resources
-[Sentence Transformers Documentation](https://www.sbert.net/)
-[Sentence Transformers in the 🤗Hub](https://huggingface.co/blog/sentence-transformers-in-the-hub)
+- [Sentence Transformers Documentation](https://www.sbert.net/)
+- [Sentence Transformers in the 🤗Hub](https://huggingface.co/blog/sentence-transformers-in-the-hub)
