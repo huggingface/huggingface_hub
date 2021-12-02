@@ -77,4 +77,4 @@ print(cosine_score)
 
 ## Useful Resources
 - [Sentence Transformers Documentation](https://www.sbert.net/)
-- [Sentence Transformers in the 🤗Hub](https://huggingface.co/blog/sentence-transformers-in-the-hub)
+- [Sentence Transformers in the Hub](https://huggingface.co/blog/sentence-transformers-in-the-hub)
