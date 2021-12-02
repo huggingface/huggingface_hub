@@ -42,7 +42,7 @@ const taskData: TaskData = {
 		},
         {
 			description: "Perplexity is the exponential of the cross-entropy loss. Perplexity evaluates the probabilities assigned to the next word by the model, and lower perplexity indicates good performance. ",
-			id:          "Perplexity",
+			id:          "perplexity",
 		},
 	],
 	models: [
@@ -55,7 +55,7 @@ const taskData: TaskData = {
 			id:          "xlm-roberta-base",
 		}
 	],
-	summary:      "Masked language modeling is the task of predicting which words should fill in the blanks of a sentence. The task doesn’t require labelled data: it’s trained by masking words in the sentences, and the model is expected to predict the masked word.",
+	summary:      "Masked language modeling is the task of predicting which words should fill in the blanks of a sentence. The task doesn’t require labelled data, it’s trained by masking a couple of words in the sentences and model is expected to guess the masked word.",
 	widgetModels: ["bert-base-uncased"],
 };
 

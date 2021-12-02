@@ -47,10 +47,12 @@ text2text_generator(“Reorder the words in this sentence: justin and name biebe
 
 ## Useful Resources
 - [Course Chapter on Training a causal language model from scratch](https://huggingface.co/course/chapter7/6?fw=pt)
+
 ### Notebooks
 - [Training a CLM in Flax](https://github.com/huggingface/notebooks/blob/master/examples/causal_language_modeling_flax.ipynb)
 - [Training a CLM in TensorFlow](https://github.com/huggingface/notebooks/blob/master/examples/language_modeling_from_scratch-tf.ipynb)
 - [Training a CLM in PyTorch](https://github.com/huggingface/notebooks/blob/master/examples/language_modeling_from_scratch.ipynb)
+
 ### Scripts
 - [Training a CLM in PyTorch](https://github.com/huggingface/transformers/tree/master/examples/pytorch/language-modeling)
 - [Training a CLM in TensorFlow](https://github.com/huggingface/transformers/tree/master/examples/tensorflow/language-modeling)

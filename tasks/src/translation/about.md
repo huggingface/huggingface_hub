@@ -26,9 +26,11 @@ translator("How are you?")
 ## Useful Resources
 
 - [Course Chapter on Translation](https://huggingface.co/course/chapter7/4?fw=pt)
+
 ### Translation Notebooks
 - [PyTorch](https://github.com/huggingface/notebooks/blob/master/examples/translation.ipynb)
 - [TensorFlow](https://github.com/huggingface/notebooks/blob/master/examples/translation-tf.ipynb)
+
 ### Translation Scripts
 - [PyTorch](https://github.com/huggingface/transformers/tree/master/examples/pytorch/translation)
 - [TensorFlow](https://github.com/huggingface/transformers/tree/master/examples/tensorflow/translation)

@@ -13,12 +13,15 @@ classifier("Paris is the capital and most populous city of France, with an estim
 
 ## Useful Resources
 - [Course Chapter on Summarization](https://huggingface.co/course/chapter7/5?fw=pt)
+
 ### Notebooks on Summarization
 - [PyTorch](https://github.com/huggingface/notebooks/blob/master/examples/summarization.ipynb)
 - [TensorFlow](https://github.com/huggingface/notebooks/blob/master/examples/summarization-tf.ipynb)
+
 ### Scripts for Summarization
 - [PyTorch](https://github.com/huggingface/notebooks/blob/master/examples/summarization.ipynb)
 - [TensorFlow](https://github.com/huggingface/notebooks/blob/master/examples/summarization-tf.ipynb)
 - [Flax](https://github.com/huggingface/transformers/tree/master/examples/flax/summarization)
+
 ### Blog Posts on Summarization
 -[Distributed Training: Train BART/T5 for Summarization using 🤗 Transformers and Amazon SageMaker](https://huggingface.co/blog/sagemaker-distributed-training-seq2seq)

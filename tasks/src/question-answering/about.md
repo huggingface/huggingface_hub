@@ -1,5 +1,4 @@
 ## Use Cases
-
 You can use question answering models to automate answering frequently asked questions by using a knowledge base as contexts. The answers to the questions from customers can be extracted from those documents. If you’d like to save inference time, you can first use passage ranking models to see which document might contain the answer to the question and iterate over that document with the question answering model instead.
 
 ## Task Variants
@@ -7,7 +6,6 @@ There are two question answering types, one is open-domain question answering, a
 The below schema illustrates extractive, open book question answering. The model takes a context and the question and extract the answer from the given context.
 
 ## Inference
-
 You can infer with Question Answering models with the “question-answering” pipeline. If no model checkpoint is given, the pipeline will be initialized with “distilbert-base-cased-distilled-squad”. Question answering pipeline takes a context to be searched in and a question to be searched for an answer and returns an answer.
 ```python
 from transformers import pipeline
@@ -22,9 +20,11 @@ qa_model(question = question, context = context)
 
 ## Useful Resources
 - [Course Chapter on Question Answering](https://huggingface.co/course/chapter7/7?fw=pt)
+
 ### Notebooks on Question Answering
 - [PyTorch](https://github.com/huggingface/notebooks/blob/master/examples/question_answering.ipynb)
 - [TensorFlow](https://github.com/huggingface/notebooks/blob/master/examples/token_classification-tf.ipynb)
+
 ### Scripts on Question Answering
 - [PyTorch](https://github.com/huggingface/transformers/tree/master/examples/pytorch/question-answering)
 - [TensorFlow](https://github.com/huggingface/transformers/tree/master/examples/tensorflow/question-answering)

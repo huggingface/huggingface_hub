@@ -1,4 +1,5 @@
 ## Use Cases
+
 ### Autonomous Driving
 Segmentation models are used to identify road patterns such as lanes and obstacles for safer drive. 
 
@@ -9,6 +10,7 @@ Image segmentation models are used in cameras to erase background of certain obj
 Image segmentation models are used to distinguish organs or tissues, which improves the workflows in medical imaging. The models are used to segment the dental instances, analyze X-Ray scans or even segment cells for pathological diagnosis. This [dataset]([https://github.com/v7labs/covid-19-xray-dataset](https://github.com/v7labs/covid-19-xray-dataset)) contains images of lungs of healthy patients and patients with COVID-19 segmented with masks. Another [segmentation dataset]([https://ivdm3seg.weebly.com/data.html](https://ivdm3seg.weebly.com/data.html)) contains segmented MRI data of lower spine to analyze the effect of spaceflight simulation.
 
 ## Task Variants
+
 ### Semantic Segmentation 
 Semantic segmentation is the task of segmenting parts of an image together which belong to the same class. Semantic segmentation models make predictions for each pixel and return the probabilities of classes for each pixel. These models are evaluated on Mean Intersection Over Union (Mean IoU).
 

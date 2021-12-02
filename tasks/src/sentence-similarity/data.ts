@@ -18,26 +18,22 @@ const taskData: TaskData = {
         inputs: [
 			{
 				label:   "Source Sentence",
-				content:
-						"That is a happy person",
+				content: "That is a happy person",
 				type: "text",
 			},
             {
 				label:   "Sentences to compare to",
-				content:
-						"That is a happy dog",
+				content: "That is a happy dog",
 				type: "text",
 			},
             {
 				label:   "Sentences to compare to",
-				content:
-						"That is a very happy person",
+				content: "That is a very happy person",
 				type: "text",
 			},
             {
 				label:   "Sentences to compare to",
-				content:
-						"Today is a sunny day",
+				content: "Today is a sunny day",
 				type: "text",
 			},
 			
@@ -45,8 +41,7 @@ const taskData: TaskData = {
 		outputs: [
 			{
 				label:   "Output",
-				content:
-						"A JSON response",
+				content: "A JSON response",
 				type: "text",
 			},
 		],

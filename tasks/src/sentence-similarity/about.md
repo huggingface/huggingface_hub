@@ -1,7 +1,8 @@
 ## Use Cases
-You can query through documents to extract information using sentence similarity models. First you can rank the documents themselves with Passage Ranking models, get the best performing document and search in it with sentence similarity models, pick the sentence with best cosine similarity. 
+You can extract information from documents using sentence similarity models. First you can rank the documents themselves with Passage Ranking models, get the best performing document and search in it with sentence similarity models, pick the sentence with best cosine similarity. 
 
 ## Task Variants
+
 ### Passage Ranking
 Passage ranking is the task of ranking documents based on their relevance to a given query. The task is evaluated on Mean Reciprocal Rank. Passage Ranking models take one query and multiple documents and return ranked documents according to the relevancy to the query.
 

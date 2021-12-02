@@ -14,10 +14,12 @@ classifier("Paris is the <mask> of France.")```
 
 ## Useful Resources
 - [Course Chapter on Fine-tuning a Masked Language Model](https://huggingface.co/course/chapter7/3?fw=pt)
+
 ### Notebooks
 - [Pre-training an MLM for JAX/Flax](https://github.com/huggingface/notebooks/blob/master/examples/masked_language_modeling_flax.ipynb)
 - [Masked language modeling in TensorFlow](https://github.com/huggingface/notebooks/blob/master/examples/language_modeling-tf.ipynb)
 - [Masked language modeling in PyTorch](https://github.com/huggingface/notebooks/blob/master/examples/language_modeling.ipynb)
+
 ### Scripts
 - [PyTorch](https://github.com/huggingface/transformers/tree/master/examples/pytorch/language-modeling)
 - [Flax](https://github.com/huggingface/transformers/tree/master/examples/flax/language-modeling)

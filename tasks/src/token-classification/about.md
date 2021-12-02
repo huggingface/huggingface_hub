@@ -2,6 +2,7 @@
 You can extract important entities from invoices automatically, using Named Entity Recognition models. Invoices can be read with Optical Character Recognition models, and the output of this can be inferred with Named Entity Recognition models. This way, important information, such as date, company name and other named entities can be extracted.
 
 ## Task Variants
+
 ### Named Entity Recognition
 Named entity recognition is the task of recognizing named entities in a text. These entities can be person, location or organization names. The task is formulated as labelling each token with one class for each named entity and a class called “O” for tokens that contain no entity. The input of this task is a text and output is the annotated text with named entities.
 
@@ -30,9 +31,11 @@ classifier("Hello I'm Omar and I live in Zürich.")
 
 ## Useful Resources
 - [Course Chapter on Token Classification](https://huggingface.co/course/chapter7/2?fw=pt)
+
 ### Token Classification Notebooks
 - [PyTorch](https://github.com/huggingface/notebooks/blob/master/examples/token_classification.ipynb)
 - [TensorFlow](https://github.com/huggingface/notebooks/blob/master/examples/token_classification-tf.ipynb)
+
 ### Token Classification Scripts
 - [PyTorch](https://github.com/huggingface/transformers/tree/master/examples/pytorch/token-classification)
 - [TensorFlow](https://github.com/huggingface/transformers/tree/master/examples/tensorflow)

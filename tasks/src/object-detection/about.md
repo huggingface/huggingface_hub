@@ -1,6 +1,7 @@
 Object detection is a computer vision task which allows to detect instances of objects in different parts of a given image. Object detection models receive an image as an input and output the images including bounding boxes and labels on the detected objects.
 
 ## Use Cases
+
 ### Autonomous Driving
 Perhaps one of the most significant use cases of object detection is autonomous driving. Self-driving cars use object detection to detect pedestrians, bicycles traffic lights and road signs to decide on which step it should take. 
 
