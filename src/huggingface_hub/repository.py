@@ -572,6 +572,11 @@ class Repository:
                 logger.warning(f"Cloning {clean_repo_url} into local empty directory.")
 
                 with lfs_log_progress():
+                    env = os.environ.copy()
+
+                    if self.skip_lfs_files:
+                        env.update({"GIT_LFS_SKIP_SMUDGE": "1"})
+
                     subprocess.run(
                         f"{'git clone' if self.skip_lfs_files else 'git lfs clone'} {repo_url} .".split(),
                         stderr=subprocess.PIPE,
@@ -579,9 +584,7 @@ class Repository:
                         check=True,
                         encoding="utf-8",
                         cwd=self.local_dir,
-                        env=os.environ.copy().update(
-                            {"GIT_LFS_SKIP_SMUDGE": "1"} if self.skip_lfs_files else {}
-                        ),
+                        env=env,
                     )
             else:
                 # Check if the folder is the root of a git repository
