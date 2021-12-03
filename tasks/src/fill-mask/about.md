@@ -1,5 +1,5 @@
 ## Use Case: Domain Adaptation
-Masked language modeling is used to solve domain-specific problems.
+Masked language modeling is used to train large models for domain-specific problems.
 If you have to work on a domain-specific task such information retrieval from medical papers, you can train a masked language model from medical papers and then fine-tune on a downstream task, such as [Question Answering](/tasks/question-answering), to build a medical information extraction system. Pre-training on domain-specific data yields better results (see [this paper](https://arxiv.org/abs/2007.15779) for an example). You can also use a [domain-specific BERT model](https://huggingface.co/microsoft/BiomedNLP-PubMedBERT-base-uncased-abstract-fulltext) from the Hub and fine-tune on task-specific dataset as well.
 
 ## Inference with Fill-Mask Pipeline
