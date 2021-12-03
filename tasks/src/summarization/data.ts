@@ -39,7 +39,7 @@ const taskData: TaskData = {
 	metrics:   [
 		{
 			description: "Recall-Oriented Understudy for Gisting Evaluation is the metric used for summarization. The generated sequence is compared against the summary, and the overlap of tokens are counted. ROUGE-N refers to overlap of N subsequent tokens, ROUGE-1 refers to overlap of single tokens and ROUGE-2 is the overlap of two subsequent tokens. The score is based on precision and recall. Precision is the ratio of number of overlapping words against number of total words in the generated sequence. Recall is calculated as number of overlapping words against the number of total words in the original text. For more information about ROUGE metric, check out the datasets documentation or the Hugging Face course.",
-			id:          "ROUGE Score",
+			id:          "rouge",
 		},
 	],
 	models: [
