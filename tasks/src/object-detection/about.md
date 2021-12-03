@@ -9,7 +9,7 @@ Object detection is widely used for computer vision in autonomous driving. Self-
 Object detection systems are widely used in sports, where the ball, or a player is tracked for monitoring and refereeing during matches. 
 
 ### Image Search
-Object detection is used for image search. Smart phones use object detection models to detect entities (such as places, or objects) and let the user search for the entity on the internet.
+Object detection is used for image search. Smart phones use object detection models to detect entities (such as places or specific objects) and let the user search for the entity on the internet.
 
 ### Object Counting 
 Object detection models are used to count instances of objects in a given picture, this can include counting the objects in warehouses or stores, or counting the number of visitors in a store. This is also used to manage crowds in events to prevent disasters.
