@@ -22,7 +22,7 @@ import warnings
 from io import BufferedIOBase, RawIOBase
 from os.path import expanduser
 from typing import IO, Dict, Iterable, List, Optional, Tuple, Union
-
+from pathlib import Path
 import requests
 from requests.exceptions import HTTPError
 
@@ -1127,15 +1127,22 @@ class HfFolder:
             f.write(token)
 
     @classmethod
-    def get_token(cls):
+    def get_token(cls) -> Optional[str]:
         """
-        Get token or None if not existent.
+        Get token or None if not existent. A token can be also provided using env variables
+
+        >>> export HUGGING_FACE_HUB_TOKEN=<YOUR_TOKEN>
         """
-        try:
-            with open(cls.path_token, "r") as f:
-                return f.read()
-        except FileNotFoundError:
-            pass
+
+        path_token: Path = Path(cls.path_token)
+        token: Optional[str] = os.environ.get("HUGGING_FACE_HUB_TOKEN")
+
+        if token is None:
+            # fall back to disk
+            if path_token.exists():
+                with path_token.open("r") as f:
+                    token = f.read()
+        return token
 
     @classmethod
     def delete_token(cls):
