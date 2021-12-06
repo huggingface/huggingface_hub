@@ -87,35 +87,44 @@ export const PIPELINE_TAG_MODALITIES: Record<keyof typeof PipelineType, Pipeline
 };
 
 /*
+ * Specification of tag color.
+ */
+export const PIPELINE_COLOR: {
+	[key in keyof typeof PipelineType]?: "blue" | "green" | "indigo" | "orange" | "red" | "yellow";
+} = {
+	"audio-classification":           "green",
+	"audio-to-audio":                 "blue",
+	"automatic-speech-recognition":   "yellow",
+	"conversational":                 "green",
+	"fill-mask":                      "red",
+	"feature-extraction":             "red",
+	"image-classification":           "blue",
+	"image-segmentation":             "green",
+	"object-detection":               "orange",
+	"question-answering":             "blue",
+	"sentence-similarity":            "orange",
+	"structured-data-classification": "indigo",
+	"summarization":                  "indigo",
+	"table-question-answering":       "green",
+	"token-classification":           "blue",
+	"text2text-generation":           "indigo",
+	"text-classification":            "orange",
+	"text-generation":                "indigo",
+	"text-to-image":                  "orange",
+	"text-to-speech":                 "yellow",
+	"translation":                    "green",
+	"voice-activity-detection":       "red",
+	"zero-shot-classification":       "yellow",
+};
+
+
+/*
  * Specification of tag icon color.
  */
 export const PIPELINE_TAG_ICO_CLASS: {
-	[key in keyof typeof PipelineType]?: string;
-} = {
-	"audio-classification":           "tag-ico-green",
-	"audio-to-audio":                 "tag-ico-blue",
-	"automatic-speech-recognition":   "tag-ico-yellow",
-	"conversational":                 "tag-ico-green",
-	"fill-mask":                      "tag-ico-red",
-	"feature-extraction":             "tag-ico-red",
-	"image-classification":           "tag-ico-blue",
-	"image-segmentation":             "tag-ico-green",
-	"object-detection":               "tag-ico-orange",
-	"question-answering":             "tag-ico-blue",
-	"sentence-similarity":            "tag-ico-orange",
-	"structured-data-classification": "tag-ico-indigo",
-	"summarization":                  "tag-ico-indigo",
-	"table-question-answering":       "tag-ico-green",
-	"token-classification":           "tag-ico-blue",
-	"text2text-generation":           "tag-ico-indigo",
-	"text-classification":            "tag-ico-orange",
-	"text-generation":                "tag-ico-indigo",
-	"text-to-image":                  "tag-ico-orange",
-	"text-to-speech":                 "tag-ico-yellow",
-	"translation":                    "tag-ico-green",
-	"voice-activity-detection":       "tag-ico-red",
-	"zero-shot-classification":       "tag-ico-yellow",
-};
+	// note: tag-ico-x typing acts as hints for tailwind !
+	[key in keyof typeof PipelineType]?: "tag-ico-blue" | "tag-ico-green" | "tag-ico-indigo" | "tag-ico-orange" | "tag-ico-red" | "tag-ico-yellow";
+} = Object.entries(PIPELINE_COLOR).reduce((acc, [type, color]) => ({ ...acc, [type]: `tag-ico-${color}` }), {});
 
 /*
  * Specification of pipeline tag display order.
