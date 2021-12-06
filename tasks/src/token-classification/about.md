@@ -8,6 +8,7 @@ Named entity recognition is the task of recognizing named entities in a text. Th
 
 #### Inference 
 You can use “ner” pipeline to infer with Named Entity Recognition models. If you don’t provide any model name, the pipeline will be initialized with the BERT fine-tuned on ConLL03, “dbmdz/bert-large-cased-finetuned-conll03-english”
+
 ```python
 from transformers import pipeline
 
@@ -26,11 +27,28 @@ from transformers import pipeline
 classifier = pipeline("token-classification", model = "vblagoje/bert-english-uncased-finetuned-pos")
 classifier("Hello I'm Omar and I live in Zürich.")
 ```
+You can also use spaCy models on the Hub.
 
+```python
+!pip install https://huggingface.co/spacy/en_core_web_sm/resolve/main/en_core_web_sm-any-py3-none-any.whl
+
+import en_core_web_sm
+
+nlp = en_core_web_sm.load()
+doc = nlp("I'm Omar and I live in Zürich.")
+for token in doc:
+    print(token.text, token.pos_, token.dep_, token.ent_type_)
+
+## I PRON nsubj 
+## 'm AUX ROOT 
+## Omar PROPN attr PERSON
+### ...
+```
 
 
 ## Useful Resources
 - [Course Chapter on Token Classification](https://huggingface.co/course/chapter7/2?fw=pt)
+- [Blog post: Welcome spaCy to the Hugging Face Hub](https://huggingface.co/blog/spacy)
 
 ### Token Classification Notebooks
 - [PyTorch](https://github.com/huggingface/notebooks/blob/master/examples/token_classification.ipynb)

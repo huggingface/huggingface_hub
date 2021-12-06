@@ -56,7 +56,7 @@ const taskData: TaskData = {
 			id:          "bigscience/T0pp"
 		}
 	],
-	summary:      "Text generation is the task of generating text for a given task. These models can be either asked to complete incomplete text or asked to perform a task (e.g. paraphrasing), this depends on the model’s training objective (but don’t worry, we will cover both of them). First variant of generative models is the one that is trained to predict the next word, given a sequence of words (e.g. incomplete sentence). The most popular model for this variant is GPT-2. This models are trained on data that has no labels, you just need a plain text to train your own. You can train GPT-2 to generate a wide range of documents, from code to story. Second variant of generative models is called “text-to-text” generative model. This is trained to learn mapping between a pair of text (e.g. translation from one language to another). The most popular variants of this model are T5, T0 and BART. These models are trained with multi-tasking capabilities, they can accomplish a wide range of tasks, including summarization, translation, and text classification. ",
+	summary:      "Text generation is the task of generating text for a given task. These models can be either asked to complete incomplete text or asked to perform a task (e.g. paraphrasing), this depends on the model’s training objective (but don’t worry, we will cover both of them).  ",
 	widgetModels: ["gpt2"],
 };
 

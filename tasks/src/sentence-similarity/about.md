@@ -6,7 +6,7 @@ You can extract information from documents using sentence similarity models. Fir
 ### Passage Ranking
 Passage ranking is the task of ranking documents based on their relevance to a given query. The task is evaluated on Mean Reciprocal Rank. Passage Ranking models take one query and multiple documents and return ranked documents according to the relevancy to the query.
 
-You can infer with passage ranking models using the Inference API. The inputs to the passage ranking model is a source sentence for which we are looking for the relevant documents and the documents we want to search in. The model will return scores according to relevancy of those documents to the source sentence. 
+You can infer with passage ranking models using the [Inference API](https://huggingface.co/inference-api). The inputs to the passage ranking model is a source sentence for which we are looking for the relevant documents and the documents we want to search in. The model will return scores according to relevancy of those documents to the source sentence. 
 
 ```python
 import json
@@ -34,7 +34,7 @@ data = query(
 ```
 
 ### Semantic Textual Similarity
-Semantic textual similarity is the task of assessing how similar two texts are. The task is evaluated on Pearson’s Rank Correlation. Semantic textual similarity models take one source sentence and a list of sentences that we will look for similarity in and return a list of similarity scores. The benchmark dataset is The Semantic Textual Similarity Benchmark.
+Semantic textual similarity is the task of assessing how similar two texts are. The task is evaluated on Pearson’s Rank Correlation. Semantic textual similarity models take one source sentence and a list of sentences that we will look for similarity in and return a list of similarity scores. The benchmark dataset is the [Semantic Textual Similarity Benchmark](http://ixa2.si.ehu.eus/stswiki/index.php/STSbenchmark).
 
 ```python
 import json

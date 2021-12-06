@@ -4,15 +4,17 @@ One option is to translate the training data of intent classification algorithm 
 Another way is to put one translation model from the target language to the language the chatbot is trained on, this will translate the user inputs. The output of this will be input to intent classification algorithm in the source language. After predicting the user intent, we take the classified intent and the response to that intent in the source language. We take the output and translate it to user’s language. This approach might be less reliable since chatbot will output responses that are not defined before.
 
 ## Inference
-Translation models are loaded with “translation_xx_to_yy” pattern where xx is the source language code and yy is the target language code. Default model for the pipeline is “t5-base”.  If you’re directly inferring with the T5 model, the model will expect a task prefix indicating the task itself, e.g. “translate: English to French”.
+Translation models are loaded with “translation_xx_to_yy” pattern where xx is the source language code and yy is the target language code. Default model for the pipeline is “t5-base”.  T5-like sequence-to-sequence models will expect a task prefix indicating the task itself, e.g. “translate: English to French”.
 
 ```python
 from transformers import pipeline
 en_fr_translator = pipeline("translation_en_to_fr")
 en_fr_translator("How old are you?")
+```
 
 If you’d like to use a specific model checkpoint that is from one specific language to another, you can also directly use the “translation” pipeline. 
 
+```python
 from transformers import pipeline
 
 model_checkpoint = "Helsinki-NLP/opus-mt-en-fr"

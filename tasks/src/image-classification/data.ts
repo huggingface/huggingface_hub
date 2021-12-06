@@ -36,19 +36,19 @@ const taskData: TaskData = {
 	metrics:   [
 		{
 			description: "",
-			id:          "Accuracy",
+			id:          "accuracy",
 		},
         {
 			description: "",
-			id:          "Recall",
+			id:          "recall",
 		},
         {
 			description: "",
-			id:          "Precision",
+			id:          "precision",
 		},
         {
 			description: "",
-			id:          "F1-Score",
+			id:          "f1-Score",
 		},
 
 	],

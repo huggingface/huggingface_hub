@@ -9,6 +9,7 @@ The below schema illustrates extractive, open book question answering. The model
 
 ## Inference
 You can infer with Question Answering models with the “question-answering” pipeline. If no model checkpoint is given, the pipeline will be initialized with “distilbert-base-cased-distilled-squad”. Question answering pipeline takes a context to be searched in and a question to be searched for an answer and returns an answer.
+
 ```python
 from transformers import pipeline
 
@@ -18,7 +19,6 @@ context = "My name is Merve and I live in İstanbul."
 qa_model(question = question, context = context)
 ## {'answer': 'İstanbul', 'end': 39, 'score': 0.9538118243217468, 'start': 31}
 ```
-
 
 ## Useful Resources
 - [Course Chapter on Question Answering](https://huggingface.co/course/chapter7/7?fw=pt)

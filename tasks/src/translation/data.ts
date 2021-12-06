@@ -39,7 +39,7 @@ const taskData: TaskData = {
 	metrics:   [
 		{
 			description: "Translation is evaluated on BLEU Score. BLEU score is calculated by counting the number of shared single or subsequent tokens between the generated sequence and the reference. Subsequent n tokens are called “n-grams”. Unigram refers to a single token while bi-gram refers to token pairs and n-grams refer to n subsequent tokens. The score ranges from 0 to 1, in which 1 means the translation perfectly matched and 0 did not match at all. Read More",
-			id:          "BLEU Score",
+			id:          "bleu",
 		},
 	],
 	models: [
