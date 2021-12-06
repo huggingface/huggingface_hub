@@ -7,27 +7,27 @@ const taskData: TaskData = {
 	datasets: [
 		{
 			// TODO write proper description
-			description: "Benchmark dataset used for object detection",
+			description: "Benchmark dataset used for the task",
 			id:          "merve/coco2017",
 		}
 	],
 	demo: {
 		inputs: [
 			{
-				filename: "object-detection-input.jpg",
+				filename: "image-segmentation-input.jpg",
 				type:     "img",
 			},
 		],
 		outputs: [
 			{
-				filename: "object-detection-output.jpg",
+				filename: "image-segmentation-output.jpg",
 				type:     "img",
 			},
 		],
 	},
-	id:        "object-detection",
-	label:     PipelineType["object-detection"],
-	libraries: TASKS_MODEL_LIBRARIES["object-detection"],
+	id:        "image-segmentation",
+	label:     PipelineType["image-segmentation"],
+	libraries: TASKS_MODEL_LIBRARIES["image-segmentation"],
 	metrics:   [
 		{
 			description: "Average Precision (AP) is the Area Under the PR Curve (AUC-PR). It is calculated for each class separately.",
@@ -45,16 +45,16 @@ const taskData: TaskData = {
 	models: [
 		{
 			// TO DO: write description
-			description: "Strong object detection model trained on benchmark dataset COCO 2017.",
-			id:          "facebook/detr-resnet-50",
+			description: "Strong panoptic segmentation model trained on COCO 2017 benchmark dataset.",
+			id:          "facebook/detr-resnet50-panoptic",
 		},
 		{
 			// TO DO: write description
-			description: "Strong object detection model trained on benchmark dataset COCO 2017.",
-			id:          "facebook/detr-resnet-101",
-		},
+			description: "Strong panoptic segmentation model trained on COCO 2017 benchmark dataset.",
+			id:          "facebook/detr-resnet-50-dc5-panoptic",
+		}
 	],
-	summary:      "Object detection is a computer vision task. Models trained on object detection task allows users to detect instances of objects of classes given an image. Object detection models receive an image as an input and output the images including bounding boxes and labels on the detected objects.",
+	summary:      "Image segmentation task is to divide an image to segments, where every pixel in the image is assigned to an object. This task has multiple variants, instance segmentation, panoptic segmentation and semantic segmentation.",
 	widgetModels: ["facebook/detr-resnet-50"],
 };
 

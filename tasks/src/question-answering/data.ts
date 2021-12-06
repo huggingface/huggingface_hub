@@ -7,13 +7,13 @@ const taskData: TaskData = {
 	datasets: [
 		{
 			// TODO write proper description
-			description: "Benchmark dataset used for the task",
-			id:          "squad",
+			description: "A famous question answering dataset based on English articles from Wikipedia.",
+			id:          "squad_v2",
 		},
 		{
 			// TODO write proper description
-			description: "Benchmark dataset used for the task",
-			id:          "adversarial_qa",
+			description: "A dataset of real anonymized, aggregated queries issued to the Google search engine.",
+			id:          "natural_questions",
 		},
 	],
 	demo: {
@@ -48,22 +48,18 @@ const taskData: TaskData = {
 			id:          "exact-match",
 		},
 		{
-			description: "",
-			id:          "f1",
+			description: " F1-Score is a useful metric if we value both false positives and false negatives equally. F1-Score is calculated over each word in the predicted sequence against the answer in the ground truth.",
+			id:          "f1-score",
 		},
 	],
 	models: [
 		{
-			description: "Extractive QA model based on roberta",
+			description: "A BERT-like model that has been trained on SQuAD. A strong baseline model for most question answering domains.",
 			id:          "deepset/roberta-base-squad2",
 		},
 		{
-			description: "DistilBERT-base-cased fine-tuned on SQUAD v1.1",
-			id:          "distilbert-base-cased-distilled-squad",
-		},
-		{
-			description: "BERT with whole word masking fine-tuned on SQuAD",
-			id:          "bert-large-uncased-whole-word-masking-finetuned-squad",
+			description: "A special Transformer model designed to answer questions over tabular data.",
+			id:          "google/tapas-base-finetuned-wtq",
 		},
 	],
 	summary:      "Question answering is a natural language understanding task. Question answering models allow users to search for an answer in a document. Question answering models take a context and a question and output the answer.",
