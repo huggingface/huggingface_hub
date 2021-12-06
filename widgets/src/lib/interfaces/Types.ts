@@ -117,15 +117,6 @@ export const PIPELINE_COLOR: {
 	"zero-shot-classification":       "yellow",
 };
 
-
-/*
- * Specification of tag icon color.
- */
-export const PIPELINE_TAG_ICO_CLASS: {
-	// note: tag-ico-x typing acts as hints for tailwind !
-	[key in keyof typeof PipelineType]?: "tag-ico-blue" | "tag-ico-green" | "tag-ico-indigo" | "tag-ico-orange" | "tag-ico-red" | "tag-ico-yellow";
-} = Object.entries(PIPELINE_COLOR).reduce((acc, [type, color]) => ({ ...acc, [type]: `tag-ico-${color}` }), {});
-
 /*
  * Specification of pipeline tag display order.
  */
