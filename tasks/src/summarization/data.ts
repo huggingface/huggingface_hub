@@ -9,13 +9,13 @@ const taskData: TaskData = {
 			description: "A dataset of news articles in five different languages along with their summaries. Widely used for benchmarking multilingual summarization models.",
 			id:          "mlsum",
 		},
-        {
+		{
 			description: "A dataset of English conversations and their summaries. Useful for benchmarking conversational agents.",
 			id:          "samsum",
 		},
 	],
 	demo: {
-        inputs: [
+		inputs: [
 			{
 				label:   "Input",
 				content:
@@ -50,10 +50,11 @@ const taskData: TaskData = {
 		{
 			description: "A summarization model trained on medical articles. ",
 			id:          "google/bigbird-pegasus-large-pubmed",
-		}
+		},
 	],
 	summary:      "Summarization is the task of producing a shorter version of a document while preserving the relevant and important information in the document. Summarization models have variants, being, extractive text summarization and abstractive text summarization. In extractive text summarization, we take the original text and extract important sentences instead, meanwhile, abstractive text summarization generates new text based on the original text.",
 	widgetModels: ["sshleifer/distilbart-cnn-12-6"],
+	youtubeId:    "",
 };
 
 export default taskData;

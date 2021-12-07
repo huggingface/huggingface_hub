@@ -35,7 +35,7 @@ const taskData: TaskData = {
 			{
 				label:   "Answer",
 				content: "Amazonia",
-				type: "text",
+				type:    "text",
 			},
 		],
 	},
@@ -64,6 +64,7 @@ const taskData: TaskData = {
 	],
 	summary:      "Question answering is a natural language understanding task. Question answering models allow users to search for an answer in a document. Question answering models take a context and a question and output the answer.",
 	widgetModels: ["deepset/roberta-base-squad2"],
+	youtubeId:    "",
 };
 
 export default taskData;

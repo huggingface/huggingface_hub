@@ -9,13 +9,13 @@ const taskData: TaskData = {
 			description: "A dataset of copyright free books translated into 16 different languages .",
 			id:          "opus_books",
 		},
-        {
+		{
 			description: "An example of machine translation between programming languages, this dataset consists of functions in Java and C#.",
 			id:          "code_x_glue_cc_code_to_code_trans",
 		},
 	],
 	demo: {
-        inputs: [
+		inputs: [
 			{
 				label:   "Input",
 				content:
@@ -50,10 +50,11 @@ const taskData: TaskData = {
 		{
 			description: "A general-purpose Transformer that can be used to translate from English to German, French, or Romanian.",
 			id:          "t5-base",
-		}
+		},
 	],
 	summary:      "Translation (also called machine translation) is the task of translating text from one language to another. You can directly use a translation model, or if you can’t find the language pair you want to work with, you can fine-tune an existing multilingual translation model (like mBART or mT5) with your own training data with the source and target languages of your own use case.",
 	widgetModels: ["t5-small"],
+	youtubeId:    "",
 };
 
 export default taskData;

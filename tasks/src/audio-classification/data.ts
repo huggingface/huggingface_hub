@@ -14,19 +14,19 @@ const taskData: TaskData = {
 		inputs: [
 			{
 				filename: "audio.wav",
-				type: "audio"
-			}
+				type:     "audio",
+			},
 		],
 		outputs: [
 			{
 				label:   "Up",
 				content: "0.8",
-				type: "text",
+				type:    "text",
 			},
 			{
 				label:   "Down",
 				content: "0.2",
-				type: "text",
+				type:    "text",
 			},
 		],
 	},
@@ -51,10 +51,11 @@ const taskData: TaskData = {
 		{
 			description: "An end-to-end model that performs ASR and Speech Translation.",
 			id:          "superb/hubert-large-superb-er",
-		}
+		},
 	],
 	summary:      "Audio classification is the task of assigning a label to a given audio. It can be used for recognizing which command the user is giving, the emotion of an utterance or identifying a speaker!",
 	widgetModels: ["speechbrain/google_speech_command_xvector"],
+	youtubeId:    "",
 };
 
 export default taskData;

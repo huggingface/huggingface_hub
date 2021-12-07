@@ -9,17 +9,17 @@ const taskData: TaskData = {
 			description: "A common dataset used for pretraining models like BERT.",
 			id:          "wikipedia",
 		},
-        {
+		{
 			description: "A large English dataset of web text. Used to pretrain models like T5.",
 			id:          "c4",
 		},
 	],
 	demo: {
-        inputs: [
+		inputs: [
 			{
 				label:   "Input",
 				content: "The goal of life is [MASK].",
-				type: "text",
+				type:    "text",
 			},
 			
 		],
@@ -40,7 +40,7 @@ const taskData: TaskData = {
 			description: "Cross Entropy is a loss metric built on entropy. It calculates the difference between two probability distributions, with probability distributions being the distributions of predicted words here.",
 			id:          "cross_entropy",
 		},
-        {
+		{
 			description: "Perplexity is the exponential of the cross-entropy loss. Perplexity evaluates the probabilities assigned to the next word by the model, and lower perplexity indicates good performance. ",
 			id:          "perplexity",
 		},
@@ -53,10 +53,11 @@ const taskData: TaskData = {
 		{
 			description: "A multilingual model trained on 100 languages.",
 			id:          "xlm-roberta-base",
-		}
+		},
 	],
 	summary:      "Masked language modeling is the task of predicting which words should fill in the blanks of a sentence. The task doesn’t require labelled data, it’s trained by masking a couple of words in the sentences and model is expected to guess the masked word.",
 	widgetModels: ["bert-base-uncased"],
+	youtubeId:    "",
 };
 
 export default taskData;

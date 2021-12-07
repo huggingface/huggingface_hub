@@ -9,13 +9,13 @@ const taskData: TaskData = {
 			description: "A widely used dataset used to benchmark named entity recognition models.",
 			id:          "conll2003",
 		},
-        {
+		{
 			description: "A multilingual dataset of Wikipedia articles annotated for named entity recognition in over 150 different languages.",
 			id:          "wikiann",
 		},
 	],
 	demo: {
-        inputs: [
+		inputs: [
 			{
 				label:   "Input",
 				content:
@@ -41,16 +41,16 @@ const taskData: TaskData = {
 			description: "",
 			id:          "accuracy",
 		},
-        {
+		{
 			description: "",
 			id:          "f1-Score",
 		},
-        {
+		{
 			description: "",
 			id:          "recall",
             
 		},
-        {
+		{
 			description: "",
 			id:          "precision",
 		},
@@ -63,10 +63,11 @@ const taskData: TaskData = {
 		{
 			description: "Flair models are typically the state of the art in named entity recognition tasks.",
 			id:          "flair/ner-english",
-		}
+		},
 	],
 	summary:      "Token classification is a natural language understanding task. Token classification is the task of assigning a label to each token in a sentence. Most popular token classification tasks are named entity recognition and part-of-speech tagging.",
 	widgetModels: ["stanfordnlp/stanza-en"],
+	youtubeId:    "",
 };
 
 export default taskData;
