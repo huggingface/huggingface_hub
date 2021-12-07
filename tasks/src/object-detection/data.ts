@@ -9,7 +9,7 @@ const taskData: TaskData = {
 			// TODO write proper description
 			description: "Benchmark dataset used for object detection",
 			id:          "merve/coco2017",
-		}
+		},
 	],
 	demo: {
 		inputs: [
@@ -56,6 +56,7 @@ const taskData: TaskData = {
 	],
 	summary:      "Object detection is a computer vision task. Models trained on object detection task allows users to detect instances of objects of classes given an image. Object detection models receive an image as an input and output the images including bounding boxes and labels on the detected objects.",
 	widgetModels: ["facebook/detr-resnet-50"],
+	youtubeId:    "",
 };
 
 export default taskData;

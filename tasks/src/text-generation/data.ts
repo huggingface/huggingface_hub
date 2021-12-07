@@ -9,13 +9,13 @@ const taskData: TaskData = {
 			description: "A large multilingual dataset of web text. Used to pretrain GPT-like models in various languages.",
 			id:          "mc4",
 		},
-        {
+		{
 			description: "A dataset of Reddit submissions. Used to pretrain models like GPT-Neo.",
 			id:          "the_pile_openwebtext2",
 		},
 	],
 	demo: {
-        inputs: [
+		inputs: [
 			{
 				label:   "Input",
 				content:
@@ -41,7 +41,7 @@ const taskData: TaskData = {
 			description: "Cross Entropy is a loss metric built on entropy. It calculates the difference between two probability distributions, with probability distributions being the distributions of predicted words here.",
 			id:          "Cross Entropy",
 		},
-        {
+		{
 			description: "Perplexity is the exponential of the cross-entropy loss. Perplexity evaluates the probabilities assigned to the next word by the model, and lower perplexity indicates good performance.",
 			id:          "Perplexity",
 		},
@@ -53,11 +53,12 @@ const taskData: TaskData = {
 		},
 		{
 			description: "A special Transformer model that can generate high-quality text for various tasks.",
-			id:          "bigscience/T0pp"
-		}
+			id:          "bigscience/T0pp",
+		},
 	],
 	summary:      "Text generation is the task of generating text for a given task. These models can be either asked to complete incomplete text or asked to perform a task (e.g. paraphrasing), this depends on the model’s training objective (but don’t worry, we will cover both of them).  ",
 	widgetModels: ["gpt2"],
+	youtubeId:    "",
 };
 
 export default taskData;

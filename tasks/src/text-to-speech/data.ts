@@ -27,8 +27,8 @@ const taskData: TaskData = {
 		outputs: [
 			{
 				filename: "audio.wav",
-				type: "audio"
-			}
+				type:     "audio",
+			},
 		],
 	},
 	id:        "text-to-speech",
@@ -40,10 +40,11 @@ const taskData: TaskData = {
 		{
 			description: "",
 			id:          "espnet/kan-bayashi_ljspeech_vits",
-		}
+		},
 	],
 	summary:      "Text to Speech (TTS), is the task of generating natural sounding speech given a text input. Text to Speech can be extended to having a single model that generates speech for multiple speakers and multiple languages.",
 	widgetModels: ["espnet/kan-bayashi_ljspeech_vits"],
+	youtubeId:    "",
 };
 
 export default taskData;

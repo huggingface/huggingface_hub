@@ -9,7 +9,7 @@ const taskData: TaskData = {
 			// TODO write proper description
 			description: "Benchmark dataset used for the task",
 			id:          "merve/coco2017",
-		}
+		},
 	],
 	demo: {
 		inputs: [
@@ -52,10 +52,11 @@ const taskData: TaskData = {
 			// TO DO: write description
 			description: "Strong panoptic segmentation model trained on COCO 2017 benchmark dataset.",
 			id:          "facebook/detr-resnet-50-dc5-panoptic",
-		}
+		},
 	],
 	summary:      "Image segmentation task is to divide an image to segments, where every pixel in the image is assigned to an object. This task has multiple variants, instance segmentation, panoptic segmentation and semantic segmentation.",
 	widgetModels: ["facebook/detr-resnet-50"],
+	youtubeId:    "",
 };
 
 export default taskData;

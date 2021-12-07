@@ -18,14 +18,14 @@ const taskData: TaskData = {
 		inputs: [
 			{
 				filename: "audio.wav",
-				type: "audio"
-			}
+				type:     "audio",
+			},
 		],
 		outputs: [
 			{
 				label:   "Transcript",
 				content: "Today is a nice day...",
-				type: "text",
+				type:    "text",
 			},
 		],
 	},
@@ -50,10 +50,11 @@ const taskData: TaskData = {
 		{
 			description: "An end-to-end model that performs ASR and Speech Translation.",
 			id:          "facebook/s2t-small-mustc-en-fr-st",
-		}
+		},
 	],
 	summary:      "Automatic Speech Recognition (ASR), also known as Speech to Text (STT), is the task of transcribing a given audio into text. It has many applications such as voice user interfaces.",
 	widgetModels: ["facebook/wav2vec2-base-960h"],
+	youtubeId:    "",
 };
 
 export default taskData;

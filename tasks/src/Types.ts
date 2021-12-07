@@ -33,4 +33,5 @@ export interface TaskData {
 	models: ExampleRepo[];
 	summary: string;
 	widgetModels: string[];
+	youtubeId: string;
 }
