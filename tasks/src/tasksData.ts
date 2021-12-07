@@ -7,8 +7,7 @@ import objectDetection from "./object-detection/data";
 import questionAnswering from "./question-answering/data";
 import textToSpeech from "./text-to-speech/data";
 
-// Partial<Record<keyof typeof PipelineType, TaskData>>
-export const TASKS_DATA: { [key in keyof typeof PipelineType]?: TaskData }  = {
+export const TASKS_DATA: Partial<Record<keyof typeof PipelineType, TaskData>> = {
 	"audio-classification":         audioClassification,
 	"audio-to-audio":               audioToAudio,
 	"automatic-speech-recognition": automaticSpeechRecognition,
