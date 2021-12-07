@@ -6,7 +6,7 @@ export interface ExampleRepo {
 	id: string;
 }
 
-type TaskDemoEntry = {
+export type TaskDemoEntry = {
 	content: string;
 	label: string;
 	type: "text";
