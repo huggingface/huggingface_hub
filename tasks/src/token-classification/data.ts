@@ -67,7 +67,7 @@ const taskData: TaskData = {
 	],
 	summary:      "Token classification is a natural language understanding task. Token classification is the task of assigning a label to each token in a sentence. Most popular token classification tasks are named entity recognition and part-of-speech tagging.",
 	widgetModels: ["stanfordnlp/stanza-en"],
-	youtubeId:    "",
+	youtubeId:    "wVHdVlPScxA",
 };
 
 export default taskData;
