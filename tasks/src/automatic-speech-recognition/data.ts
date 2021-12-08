@@ -10,21 +10,22 @@ const taskData: TaskData = {
 			id:          "librispeech_asr",
 		},
 		{
-			description: "Good dataset in 60 languages with demographic information",
+			description: "Dataset in 60 languages including demographic information",
 			id:          "common_voice",
 		},
 	],
 	demo: {
 		inputs: [
 			{
-				filename: "audio.wav",
+				filename: "input.flac",
 				type:     "audio",
 			},
 		],
 		outputs: [
 			{
+				/// GOING ALONG SLUSHY COUNTRY ROADS AND SPEAKING TO DAMP AUDIENCES I
 				label:   "Transcript",
-				content: "Today is a nice day...",
+				content: "Going along slushy country roads and speaking to damp audiences in...",
 				type:    "text",
 			},
 		],
@@ -48,11 +49,11 @@ const taskData: TaskData = {
 			id:          "facebook/wav2vec2-base-960h",
 		},
 		{
-			description: "An end-to-end model that performs ASR and Speech Translation.",
+			description: "An end-to-end model that performs ASR and Speech Translation",
 			id:          "facebook/s2t-small-mustc-en-fr-st",
 		},
 	],
-	summary:      "Automatic Speech Recognition (ASR), also known as Speech to Text (STT), is the task of transcribing a given audio into text. It has many applications such as voice user interfaces.",
+	summary:      "Automatic Speech Recognition (ASR), also known as Speech to Text (STT), is the task of transcribing a given audio into text. It has many applications such as voice user interfaces",
 	widgetModels: ["facebook/wav2vec2-base-960h"],
 	youtubeId:    "",
 };

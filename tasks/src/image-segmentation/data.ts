@@ -14,13 +14,13 @@ const taskData: TaskData = {
 	demo: {
 		inputs: [
 			{
-				filename: "image-segmentation-input.jpg",
+				filename: "image-segmentation-input.jpeg",
 				type:     "img",
 			},
 		],
 		outputs: [
 			{
-				filename: "image-segmentation-output.jpg",
+				filename: "image-segmentation-output.png",
 				type:     "img",
 			},
 		],
@@ -46,7 +46,7 @@ const taskData: TaskData = {
 		{
 			// TO DO: write description
 			description: "Strong panoptic segmentation model trained on COCO 2017 benchmark dataset.",
-			id:          "facebook/detr-resnet50-panoptic",
+			id:          "facebook/detr-resnet-50-panoptic",
 		},
 		{
 			// TO DO: write description

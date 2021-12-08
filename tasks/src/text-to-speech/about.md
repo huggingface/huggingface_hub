@@ -14,7 +14,7 @@ def query(payload):
 output = query({"inputs": "This is a test"})
 ```
 
-You can also use libraries such as `[espnet](https://huggingface.co/models?library=espnet&pipeline_tag=automatic-speech-recognition&sort=downloads)` if you want to handle the Inference directly.
+You can also use libraries such as [espnet](https://huggingface.co/models?library=espnet&pipeline_tag=automatic-speech-recognition&sort=downloads) if you want to handle the Inference directly.
 
 ```python
 from espnet2.bin.tts_inference import Text2Speech

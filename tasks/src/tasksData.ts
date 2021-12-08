@@ -2,7 +2,7 @@ import { PipelineType } from "../../widgets/src/lib/interfaces/Types";
 import type { TaskData } from "./Types";
 import audioClassification from "./audio-classification/data";
 import audioToAudio from "./audio-to-audio/data";
-import automaticSpeechRecognition from "./text-to-speech/data";
+import automaticSpeechRecognition from "./automatic-speech-recognition/data";
 import fillMask from "./fill-mask/data";
 import imageClassification from "./image-classification/data";
 import imageSegmentation from "./image-segmentation/data";

@@ -16,7 +16,7 @@ def query(filename):
 data = query("sample1.flac")
 ```
 
-You can also use libraries such as `[transformers](https://huggingface.co/models?library=transformers&pipeline_tag=automatic-speech-recognition&sort=downloads)`, `[speechbrain](https://huggingface.co/models?library=speechbrain&pipeline_tag=automatic-speech-recognition&sort=downloads)` and `[espnet](https://huggingface.co/models?library=espnet&pipeline_tag=automatic-speech-recognition&sort=downloads)` if you want to handle the Inference directly.
+You can also use libraries such as [transformers](https://huggingface.co/models?library=transformers&pipeline_tag=automatic-speech-recognition&sort=downloads), [speechbrain](https://huggingface.co/models?library=speechbrain&pipeline_tag=automatic-speech-recognition&sort=downloads) and [espnet](https://huggingface.co/models?library=espnet&pipeline_tag=automatic-speech-recognition&sort=downloads) if you want to handle the Inference directly.
 
 ```python
 from transformers import pipeline
@@ -39,7 +39,7 @@ The following detailed [blog post](https://huggingface.co/blog/fine-tune-xlsr-wa
 
 On March 2020, over 300 participants collaborated, trained and shared 236 ASR models in dozens of different languages. You can compare these models thanks to the [PapersWithCode](https://paperswithcode.com/dataset/common-voice) integration (see [Portuguese models](https://paperswithcode.com/sota/speech-recognition-on-common-voice-portuguese) for example). 
 
-![Untitled](https://s3-us-west-2.amazonaws.com/secure.notion-static.com/4070aec4-3ff6-4af6-b423-4c9cd5b94eac/Untitled.png)
+![Leaderboard of ASR Models](/tasks/assets/automatic-speech-recognition/wav2vec2.png)
 
 These events help democratize ASR for all languages, including low-resource languages. On top of the trained models, the event helps build practical collaborative knowledge.
 

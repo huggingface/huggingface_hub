@@ -39,7 +39,7 @@ const taskData: TaskData = {
 	],
 	models: [
 		{
-			description: "A good audio source separation model.",
+			description: "A good audio source separation model",
 			id:          "speechbrain/sepformer-wham",
 		},
 		{

@@ -45,11 +45,11 @@ const taskData: TaskData = {
 	],
 	models: [
 		{
-			description: "A good generic ASR model.",
-			id:          "speechbrain/google_speech_command_xvector ",
+			description: "A simple to use model for Command Recognition",
+			id:          "speechbrain/google_speech_command_xvector",
 		},
 		{
-			description: "An end-to-end model that performs ASR and Speech Translation.",
+			description: "A Emotion Recognition model",
 			id:          "superb/hubert-large-superb-er",
 		},
 	],
