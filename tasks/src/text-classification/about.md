@@ -1,10 +1,11 @@
-## Use Case: Sentiment Analysis
+Natural Language Inference (NLI) is the task of inferring between a premise and a hypothesis. NLI models take a premise and a hypothesis and return a label with possible values of contraction, neutral, and entailment. If the hypothesis is true, NLI model returns “entailment”, if the hypothesis is false, it returns “contradiction” or there’s no relation, it returns “neutral”. The benchmark dataset for this task is GLUE (General Language Understanding Evaluation).
+
+## Use Cases 
+
+### Sentiment Analysis on Customer Reviews
 You can track your customers’ sentiments over time from the product reviews using sentiment analysis models and understand the churn and retention by grouping your reviews according to sentiments, analyze text and build a strategy accordingly.
 
-
 ## Task Variants 
-
-Natural Language Inference (NLI) is the task of inferring between a premise and a hypothesis. NLI models take a premise and a hypothesis and return a label with possible values of contraction, neutral, and entailment. If the hypothesis is true, NLI model returns “entailment”, if the hypothesis is false, it returns “contradiction” or there’s no relation, it returns “neutral”. The benchmark dataset for this task is GLUE (General Language Understanding Evaluation).
 There are three variants of Natural Language Inference, Multi Genre Natural Language Inference (MNLI),  Winograd Natural Language Inference and Question Natural Language Inference (QNLI).
 
 ### MultiNLI

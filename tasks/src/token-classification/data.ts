@@ -26,10 +26,20 @@ const taskData: TaskData = {
 		],
 		outputs: [
 			{
-				label:   "Output",
-				content:
-						"My name is Omar and I live in Zürich.",
-				type: "text",
+				text:   "My name is Omar and I live in Zürich.",
+				tokens: [
+					{
+						type:  "PERSON",
+						start: 11,
+						end:   15,
+					},
+					{
+						type:  "GPE",
+						start: 30,
+						end:   36,
+					},
+				],
+				type: "text-with-tokens",
 			},
 		],
 	},
@@ -43,7 +53,7 @@ const taskData: TaskData = {
 		},
 		{
 			description: "",
-			id:          "f1-Score",
+			id:          "f1",
 		},
 		{
 			description: "",

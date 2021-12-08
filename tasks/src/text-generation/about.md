@@ -1,9 +1,10 @@
-First variant of generative models is the one that is trained to predict the next word, given a sequence of words (e.g. incomplete sentence). The most popular model for this variant is GPT-2. This models are trained on data that has no labels, you just need a plain text to train your own. You can train GPT-2 to generate a wide range of documents, from code to story. Second variant of generative models is called “text-to-text” generative model. This is trained to learn mapping between a pair of text (e.g. translation from one language to another). The most popular variants of this model are T5, T0 and BART. These models are trained with multi-tasking capabilities, they can accomplish a wide range of tasks, including summarization, translation, and text classification.
-
 ## Use Cases
 Training a causal language model on code from scratch will help the programmers in their repetitive coding tasks. 
 Another interesting use cases for text generation models are generating legal documents and generating stories.
 If the generative model’s training data is different than your use case, you can train a causal language model from scratch. This is taught in the chapter 7 of the Hugging Face Course. 
+
+## Task Variants
+First variant of generative models is the one that is trained to predict the next word, given a sequence of words (e.g. incomplete sentence). The most popular model for this variant is GPT-2. This models are trained on data that has no labels, you just need a plain text to train your own. You can train GPT-2 to generate a wide range of documents, from code to story. Second variant of generative models is called “text-to-text” generative model. This is trained to learn mapping between a pair of text (e.g. translation from one language to another). The most popular variants of this model are T5, T0 and BART. These models are trained with multi-tasking capabilities, they can accomplish a wide range of tasks, including summarization, translation, and text classification.
 
 ## Inference
 Text generation models can be inferred with “text-generation” pipeline.

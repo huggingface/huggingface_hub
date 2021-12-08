@@ -1,6 +1,6 @@
-## Use cases
+## Use Cases
 
-1. Command Recognition
+### Command Recognition
 
 Command recognition or keyword spotting classifies utterances into a predefined set of predefined commands. This is very often done on-device for very fast response time 
 
@@ -20,7 +20,7 @@ model = EncoderClassifier.from_hparams(
 model.classify_file("file.wav")
 ```
 
-2. Language Identification
+### Language Identification
 
 Datasets such as VoxLingua107 allow anyone to train language identification models for up to 107 languages! This can be extremely useful as a preprocessing step for other systems.
 
@@ -28,7 +28,7 @@ Datasets such as VoxLingua107 allow anyone to train language identification mode
 
 [https://huggingface.co/TalTechNLP/voxlingua107-epaca-tdnn](https://huggingface.co/TalTechNLP/voxlingua107-epaca-tdnn) 
 
-3. Emotion recognition
+### Emotion recognition
 
 Emotion recognition is self explanatory. Apart from trying in the widgets, you can use the Inference API to do audio classification. Here is a simple example that uses a [HuBERT](https://huggingface.co/superb/hubert-large-superb-er) model fine-tuned for this task.
 

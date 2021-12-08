@@ -1,4 +1,6 @@
-## Use Case: Research Paper Summarization
+## Use Cases 
+
+### Research Paper Summarization
 Research papers can be summarized to enable researchers spend less time on selecting papers to be read among a list of papers. You can directly infer with an already existing extractive summarization model on the Hugging Face Hub and this way you can get the summaries of each paper. You can also take a BERT-like (encoder-only) model from the Hugging Face Hub and fine-tune on biomedical text and then fine-tune on summarization task. You can also use sequence-to-sequence models like T5 for abstractive text summarization.
 
 ## Inference

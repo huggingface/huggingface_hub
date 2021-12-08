@@ -43,7 +43,7 @@ const taskData: TaskData = {
 		},
 		{
 			description: "",
-			id:          "f1-Score",
+			id:          "f1",
 		},
 		{
 			description: "",
