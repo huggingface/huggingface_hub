@@ -10,6 +10,7 @@
 	import IconFillMask from "../Icons/IconFillMask.svelte";
 	import IconImageClassification from "../Icons/IconImageClassification.svelte";
 	import IconImageSegmentation from "../Icons/IconImageSegmentation.svelte";
+	import IconImageToText from "../Icons/IconImageToText.svelte";
 	import IconObjectDetection from "../Icons/IconObjectDetection.svelte";
 	import IconQuestionAnswering from "../Icons/IconQuestionAnswering.svelte";
 	import IconSentenceSimilarity from "../Icons/IconSentenceSimilarity.svelte";
@@ -39,6 +40,7 @@
 		"table-question-answering": IconTableQuestionAnswering,
 		"question-answering": IconQuestionAnswering,
 		"zero-shot-classification": IconZeroShotClassification,
+		"image-to-text": IconImageToText,
 		translation: IconTranslation,
 		summarization: IconSummarization,
 		conversational: IconConversational,
