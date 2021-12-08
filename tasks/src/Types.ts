@@ -16,6 +16,15 @@ export type TaskDemoEntry = {
 } | {
 	filename: string;
 	type: "audio";
+} | {
+	text: string;
+	tokens: Array<{
+		end: number;
+		index?: string;
+		start: number;
+		type: string;
+	}>;
+	type: "text-with-tokens";
 };
 
 export interface TaskDemo {
