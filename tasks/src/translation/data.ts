@@ -45,7 +45,7 @@ const taskData: TaskData = {
 	models: [
 		{
 			description: "A good performing model to identify persons, locations, organizations and names of miscellaneous entities.",
-			id:          "https://huggingface.co/models?search=helsinki-nlp/opus-mt-",
+			id:          "Helsinki-NLP/opus-mt-en-fr",
 		},
 		{
 			description: "A general-purpose Transformer that can be used to translate from English to German, French, or Romanian.",

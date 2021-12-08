@@ -18,22 +18,22 @@ const taskData: TaskData = {
 		inputs: [
 			{
 				label:   "Source Sentence",
-				content: "That is a happy person",
+				content: "Deep learning is so effortless.",
 				type:    "text",
 			},
 			{
 				label:   "Sentences to compare to",
-				content: "That is a happy dog",
+				content: "Deep learning is so effortless.",
 				type:    "text",
 			},
 			{
 				label:   "Sentences to compare to",
-				content: "That is a very happy person",
+				content: "This so hard, just like rocket science.",
 				type:    "text",
 			},
 			{
 				label:   "Sentences to compare to",
-				content: "Today is a sunny day",
+				content: "I can't believe how I struggled at this.",
 				type:    "text",
 			},
 			
