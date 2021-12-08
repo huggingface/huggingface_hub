@@ -25,10 +25,29 @@ const taskData: TaskData = {
 		],
 		outputs: [
 			{
-				label:   "Output",
-				content:
-						"A JSON output containing possible mask values.",
-				type: "text",
+				"type": "chart",
+				data: [
+					{
+						"label": "life",
+						"score": 0.10933306068181992
+					},
+					{
+						"label": "survival",
+						"score": 0.039418820291757584
+					},
+					{
+						"label": "love",
+						"score": 0.032930586487054825
+					},
+					{
+						"label": "freedom",
+						"score": 0.03009609691798687
+					},
+					{
+						"label": "simplicity",
+						"score": 0.02496715635061264
+					}
+				]
 			},
 		],
 	},

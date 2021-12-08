@@ -1,6 +1,6 @@
 ## Use Case: Domain Adaptation
 Masked language modeling is used to train large models for domain-specific problems.
-If you have to work on a domain-specific task such information retrieval from medical papers, you can train a masked language model from medical papers and then fine-tune on a downstream task, such as [Question Answering](/tasks/question-answering), to build a medical information extraction system. Pre-training on domain-specific data yields better results (see [this paper](https://arxiv.org/abs/2007.15779) for an example). You can also use a [domain-specific BERT model](https://huggingface.co/microsoft/BiomedNLP-PubMedBERT-base-uncased-abstract-fulltext) from the Hub and fine-tune on task-specific dataset as well.
+If you have to work on a domain-specific task such information retrieval from medical papers, you can train a masked language model from medical papers and then fine-tune on a downstream task, such as [Question Answering](/tasks/question-answering), to build a medical information extraction system. Pre-training on domain-specific data yields better results (see [this paper](https://arxiv.org/abs/2007.15779) for an example). You can also use a [domain-specific masked language model](https://huggingface.co/microsoft/BiomedNLP-PubMedBERT-base-uncased-abstract-fulltext) from the Hub and fine-tune on task-specific dataset as well.
 
 ## Inference with Fill-Mask Pipeline
 You can use “fill-mask” pipeline to infer with masked language models. If model name is not provided, the pipeline will be initialized with “distilroberta-base”. You can provide masked text and it will return list of possible mask values, ranked according to the score.
@@ -9,7 +9,7 @@ You can use “fill-mask” pipeline to infer with masked language models. If mo
 from transformers import pipeline
 
 classifier = pipeline("fill-mask")
-classifier("Paris is the <mask> of France.")```
+classifier("Paris is the <mask> of France.")
 ```
 
 ## Useful Resources

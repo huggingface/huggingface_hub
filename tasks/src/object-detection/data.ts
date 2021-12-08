@@ -47,12 +47,7 @@ const taskData: TaskData = {
 			// TO DO: write description
 			description: "Strong object detection model trained on benchmark dataset COCO 2017.",
 			id:          "facebook/detr-resnet-50",
-		},
-		{
-			// TO DO: write description
-			description: "Strong object detection model trained on benchmark dataset COCO 2017.",
-			id:          "facebook/detr-resnet-101",
-		},
+		}
 	],
 	summary:      "Object detection is a computer vision task. Models trained on object detection task allows users to detect instances of objects of classes given an image. Object detection models receive an image as an input and output the images including bounding boxes and labels on the detected objects.",
 	widgetModels: ["facebook/detr-resnet-50"],

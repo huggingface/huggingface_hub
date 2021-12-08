@@ -16,33 +16,47 @@ const taskData: TaskData = {
 	],
 	demo: {
 		inputs: [
+
+			
 			{
 				label:   "Source Sentence",
-				content: "That is a happy person",
+				content: "Machine learning is so easy.",
 				type:    "text",
 			},
 			{
 				label:   "Sentences to compare to",
-				content: "That is a happy dog",
+				content: "Deep learning is so effortless.",
 				type:    "text",
 			},
 			{
-				label:   "Sentences to compare to",
-				content: "That is a very happy person",
+				label:   "",
+				content: "This so hard, just like rocket science.",
 				type:    "text",
 			},
 			{
-				label:   "Sentences to compare to",
-				content: "Today is a sunny day",
+				label:   "",
+				content: "I can't believe how I struggled at this.",
 				type:    "text",
 			},
 			
 		],
 		outputs: [
 			{
-				label:   "Output",
-				content: "A JSON response",
-				type:    "text",
+				"type": "chart",
+				data: [
+					{
+						"label": "Deep learning is so effortless.",
+						"score": 0.623
+					},
+					{
+						"label": "This used to be hard, just like rocket science.",
+						"score": 0.413
+					},
+					{
+						"label": "I can't believe how I struggled at this.",
+						"score": 0.256
+					},
+				]
 			},
 		],
 	},

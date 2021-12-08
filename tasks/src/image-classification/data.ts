@@ -25,8 +25,21 @@ const taskData: TaskData = {
 		],
 		outputs: [
 			{
-				filename: "A JSON response including class labels",
-				type:     "img",
+				"type": "chart",
+				data: [
+					{
+						"label": "Egyptian cat",
+						"score": 0.514
+					},
+					{
+						"label": "Tabby cat",
+						"score": 0.193
+					},
+					{
+						"label": "Tiger cat",
+						"score": 0.068
+					},
+				]
 			},
 		],
 	},
