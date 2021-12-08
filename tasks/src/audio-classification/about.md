@@ -28,7 +28,7 @@ Datasets such as VoxLingua107 allow anyone to train language identification mode
 
 [https://huggingface.co/TalTechNLP/voxlingua107-epaca-tdnn](https://huggingface.co/TalTechNLP/voxlingua107-epaca-tdnn) 
 
-1. Emotion recognition
+2. Emotion recognition
 
 Emotion recognition is self explanatory. Apart from trying in the widgets, you can use the Inference API to do audio classification. Here is a simple example that uses a [HuBERT](https://huggingface.co/superb/hubert-large-superb-er) model fine-tuned for this task.
 
@@ -52,7 +52,7 @@ data = query("sample1.flac")
 # {'label': 'sad', 'score': 0.07}]
 ```
 
-1. Speaker indentification
+3. Speaker indentification
 
 Speaker Identification is classifying the audio for the person that is speaking in it. The speakers are usually predefined. You can try out this task at [https://huggingface.co/superb/wav2vec2-base-superb-sid](https://huggingface.co/superb/wav2vec2-base-superb-sid) . A useful dataset for this task is VoxCeleb1 
 

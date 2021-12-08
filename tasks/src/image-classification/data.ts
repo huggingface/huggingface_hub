@@ -19,7 +19,7 @@ const taskData: TaskData = {
 	demo: {
 		inputs: [
 			{
-				filename: "image-classification-input.jpg",
+				filename: "image-classification-input.jpeg",
 				type:     "img",
 			},
 		],

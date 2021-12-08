@@ -19,12 +19,12 @@ const taskData: TaskData = {
 		],
 		outputs: [
 			{
-				label:   "Up",
+				label:   "Down",
 				content: "0.8",
 				type:    "text",
 			},
 			{
-				label:   "Down",
+				label:   "Up",
 				content: "0.2",
 				type:    "text",
 			},
