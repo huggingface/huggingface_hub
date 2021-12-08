@@ -17,16 +17,20 @@ const taskData: TaskData = {
 				type:     "audio",
 			},
 		],
-		outputs: [
+		outputs: 
+		[
 			{
-				label:   "Down",
-				content: "0.8",
-				type:    "text",
-			},
-			{
-				label:   "Up",
-				content: "0.2",
-				type:    "text",
+				data: [
+					{
+						"label": "Up",
+						"score": 0.8
+					},
+					{
+						"label": "Down",
+						"score": 0.2
+					},
+				],
+				"type": "chart",
 			},
 		],
 	},

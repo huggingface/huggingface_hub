@@ -16,9 +16,11 @@ const taskData: TaskData = {
 	],
 	demo: {
 		inputs: [
+
+			
 			{
 				label:   "Source Sentence",
-				content: "Deep learning is so effortless.",
+				content: "Machine learning is so easy.",
 				type:    "text",
 			},
 			{
@@ -27,12 +29,12 @@ const taskData: TaskData = {
 				type:    "text",
 			},
 			{
-				label:   "Sentences to compare to",
+				label:   "",
 				content: "This so hard, just like rocket science.",
 				type:    "text",
 			},
 			{
-				label:   "Sentences to compare to",
+				label:   "",
 				content: "I can't believe how I struggled at this.",
 				type:    "text",
 			},
@@ -40,9 +42,21 @@ const taskData: TaskData = {
 		],
 		outputs: [
 			{
-				label:   "Output",
-				content: "A JSON response",
-				type:    "text",
+				"type": "chart",
+				data: [
+					{
+						"label": "Deep learning is so effortless.",
+						"score": 0.623
+					},
+					{
+						"label": "This used to be hard, just like rocket science.",
+						"score": 0.413
+					},
+					{
+						"label": "I can't believe how I struggled at this.",
+						"score": 0.256
+					},
+				]
 			},
 		],
 	},
