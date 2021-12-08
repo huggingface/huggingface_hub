@@ -13,6 +13,7 @@ import summarization from "./summarization/data";
 import textToSpeech from "./text-to-speech/data";
 import tokenClassification from "./token-classification/data";
 import translation from "./translation/data";
+import textClassification from "./text-classification/data";
 
 export const TASKS_DATA: Partial<Record<keyof typeof PipelineType, TaskData>> = {
 	"audio-classification":         audioClassification,
@@ -26,6 +27,7 @@ export const TASKS_DATA: Partial<Record<keyof typeof PipelineType, TaskData>> = 
 	"sentence-similarity":          sentenceSimilarity,
 	"summarization":                summarization,
 	"text-to-speech":               textToSpeech,
+	"text-classification":			textClassification,
 	"token-classification":         tokenClassification,
 	"translation":                  translation,
 } as const;
