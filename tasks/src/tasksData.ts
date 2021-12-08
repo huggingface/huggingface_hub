@@ -1,5 +1,7 @@
 import { PipelineType } from "../../widgets/src/lib/interfaces/Types";
 import type { TaskData } from "./Types";
+
+
 import audioClassification from "./audio-classification/data";
 import audioToAudio from "./audio-to-audio/data";
 import automaticSpeechRecognition from "./automatic-speech-recognition/data";
@@ -26,8 +28,8 @@ export const TASKS_DATA: Partial<Record<keyof typeof PipelineType, TaskData>> = 
 	"question-answering":           questionAnswering,
 	"sentence-similarity":          sentenceSimilarity,
 	"summarization":                summarization,
-	"text-to-speech":               textToSpeech,
 	"text-classification":			textClassification,
+	"text-to-speech":               textToSpeech,
 	"token-classification":         tokenClassification,
 	"translation":                  translation,
 } as const;
