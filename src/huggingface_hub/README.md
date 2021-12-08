@@ -47,7 +47,7 @@ config_file_url = hf_hub_url("lysandre/arxiv-nlp", filename="config.json")
 cached_download(config_file_url)
 ```
 
-Check out the [source code](https://github.com/muellerzr/huggingface_hub/blob/main/src/huggingface_hub/file_download.py#L292) for all possible params (we'll create a real doc page
+Check out the [source code](https://github.com/huggingface/huggingface_hub/blob/main/src/huggingface_hub/file_download.py#L292) for all possible params (we'll create a real doc page
 in the future).
 
 ### `hf_hub_download`

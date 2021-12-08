@@ -11,6 +11,7 @@ We are helping the community work together towards the goal of advancing Artific
 
 Not one company, even the Tech Titans, will be able to “solve AI” by themselves – the only way we'll achieve this is by sharing knowledge and resources. On the Hugging Face Hub we are building the largest collection of models, datasets and metrics in order to democratize and advance AI for everyone 🚀. The Hugging Face Hub works as a central place where anyone can share and explore models and datasets.
 
+> For more detailed API documentation, you can find it [here](https://github.com/huggingface/huggingface_hub/tree/main/src/huggingface_hub) on the GitHub
 
 ## What's a repository?
 
