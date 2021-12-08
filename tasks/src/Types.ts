@@ -7,16 +7,30 @@ export interface ExampleRepo {
 }
 
 export type TaskDemoEntry = {
-	content: string;
-	label: string;
-	type: "text";
+	filename: string;
+	type: "audio";
+} | {
+	data: Array<{
+		label: string;
+		score: number;
+	}>;
+	type: "chart";
 } | {
 	filename: string;
 	type: "img";
 } | {
-	filename: string;
-	type: "audio";
-};
+	content: string;
+	label: string;
+	type: "text";
+} | {
+	text: string;
+	tokens: Array<{
+		end: number;
+		start: number;
+		type: string;
+	}>;
+	type: "text-with-tokens";
+} ;
 
 export interface TaskDemo {
 	inputs: TaskDemoEntry[];
