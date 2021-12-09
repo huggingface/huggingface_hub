@@ -19,7 +19,7 @@ const taskData: TaskData = {
 			{
 				label:   "Input",
 				content:
-						"The tower is 324 metres (1,063 ft) tall, about the same height as an 81-storey building, and the tallest structure in Paris. Its base is square, measuring 125 metres (410 ft) on each side. During its construction, the Eiffel Tower surpassed the Washington Monument to become the tallest man-made structure in the world, a title it held for 41 years until the Chrysler Building in New York City was finished in 1930. It was the first structure to reach a height of 300 metres. Due to the addition of a broadcasting aerial at the top of the tower in 1957, it is now taller than the Chrysler Building by 5.2 metres (17 ft). Excluding transmitters, the Eiffel Tower is the second tallest free-standing structure in France after the Millau Viaduct.",
+						"The tower is 324 metres (1,063 ft) tall, about the same height as an 81-storey building, and the tallest structure in Paris. Its base is square, measuring 125 metres (410 ft) on each side. It was the first structure to reach a height of 300 metres. Excluding transmitters, the Eiffel Tower is the second tallest free-standing structure in France after the Millau Viaduct.",
 				type: "text",
 			},
 			
@@ -28,7 +28,7 @@ const taskData: TaskData = {
 			{
 				label:   "Output",
 				content:
-						"The tower is 324 metres (1,063 ft) tall, about the same height as an 81-storey building . It was the first structure to reach a height of 300 metres . It is now taller than the Chrysler Building in New York City by 5.2 metres (17 ft) Excluding transmitters, the Eiffel Tower is the second tallest free-standing structure in France .",
+						"The tower is 324 metres (1,063 ft) tall, about the same height as an 81-storey building. It was the first structure to reach a height of 300 metres.",
 				type: "text",
 			},
 		],
@@ -54,7 +54,7 @@ const taskData: TaskData = {
 	],
 	summary:      "Summarization is the task of producing a shorter version of a document while preserving the relevant and important information in the document. Summarization models have variants, being, extractive text summarization and abstractive text summarization. In extractive text summarization, we take the original text and extract important sentences instead, meanwhile, abstractive text summarization generates new text based on the original text.",
 	widgetModels: ["sshleifer/distilbart-cnn-12-6"],
-	youtubeId:    "",
+	youtubeId:    "yHnr5Dk2zCI",
 };
 
 export default taskData;

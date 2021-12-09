@@ -137,11 +137,11 @@ classifier("I will walk to home when I went through the bus.")
 ## Useful Resources
 
 ### Notebooks on Text Classification
-[PyTorch](https://github.com/huggingface/notebooks/blob/master/examples/text_classification.ipynb)
-[TensorFlow](https://github.com/huggingface/notebooks/blob/master/examples/text_classification-tf.ipynb)
-[Flax](https://github.com/huggingface/notebooks/blob/master/examples/text_classification_flax.ipynb)
+- [PyTorch](https://github.com/huggingface/notebooks/blob/master/examples/text_classification.ipynb)
+- [TensorFlow](https://github.com/huggingface/notebooks/blob/master/examples/text_classification-tf.ipynb)
+- [Flax](https://github.com/huggingface/notebooks/blob/master/examples/text_classification_flax.ipynb)
 
 ### Scripts for Text Classification
-[PyTorch](https://github.com/huggingface/transformers/tree/master/examples/pytorch/text-classification)
-[TensorFlow](https://github.com/huggingface/transformers/tree/master/examples/tensorflow/text-classification)
-[Flax](https://github.com/huggingface/transformers/tree/master/examples/flax/text-classification)
+- [PyTorch](https://github.com/huggingface/transformers/tree/master/examples/pytorch/text-classification)
+- [TensorFlow](https://github.com/huggingface/transformers/tree/master/examples/tensorflow/text-classification)
+- [Flax](https://github.com/huggingface/transformers/tree/master/examples/flax/text-classification)

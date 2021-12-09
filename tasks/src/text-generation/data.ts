@@ -58,7 +58,7 @@ const taskData: TaskData = {
 	],
 	summary:      "Text generation is the task of generating text for a given task. These models can be either asked to complete incomplete text or asked to perform a task (e.g. paraphrasing), this depends on the model’s training objective (but don’t worry, we will cover both of them).  ",
 	widgetModels: ["gpt2"],
-	youtubeId:    "",
+	youtubeId:    "Vpjb1lu0MDk",
 };
 
 export default taskData;

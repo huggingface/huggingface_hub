@@ -19,7 +19,7 @@ const taskData: TaskData = {
 			{
 				label:   "Input",
 				content:
-						"Which name is also used to describe the Amazon rainforest in English?",
+						"I love audio models on the Hub!",
 				type: "text",
 			},
 			
@@ -28,7 +28,7 @@ const taskData: TaskData = {
 			{
 				filename: "audio.wav",
 				type:     "audio",
-			},
+			}
 		],
 	},
 	id:        "text-to-speech",
@@ -38,7 +38,7 @@ const taskData: TaskData = {
 	],
 	models: [
 		{
-			description: "",
+			description: "An end-to-end TTS model trained for a single speaker.",
 			id:          "espnet/kan-bayashi_ljspeech_vits",
 		},
 	],

@@ -9,17 +9,17 @@ const taskData: TaskData = {
 	demo: {
 		inputs: [
 			{
-				filename: "audio.wav",
+				filename: "input.wav",
 				type:     "audio",
 			},
 		],
 		outputs: [
 			{
-				filename: "audio1.wav",
+				filename: "label-0.wav",
 				type:     "audio",
 			},
 			{
-				filename: "audio2.wav",
+				filename: "label-1.wav",
 				type:     "audio",
 			},
 		],
@@ -29,12 +29,12 @@ const taskData: TaskData = {
 	libraries: TASKS_MODEL_LIBRARIES["audio-to-audio"],
 	metrics:   [
 		{
-			description: "",
-			id:          "SNRI",
+			description: "Signal-to-Noise ratio is the ratio of level of target signal to level of background noise.  It is calculated as the logarithm of target signal divided by background noise, in decibels.",
+			id:          "snri",
 		},
 		{
-			description: "",
-			id:          "SDRI",
+			description: "Signal-to-Distortion ratio is the ratio of target signal to the sum of noise, interference and artifact errors",
+			id:          "sdri",
 		},
 	],
 	models: [
