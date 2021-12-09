@@ -58,9 +58,23 @@ export enum FinerGrainedTaskType {
 	"speech-enhancement"                                      = "Speech Enhancement",
 }
 
-export type PipelineModality = "audio" | "cv" | "nlp" | "other";
+export const MODALITIES = [
+	"nlp",
+	"audio",
+	"cv",
+	"other",
+] as const;
 
-export const PIPELINE_TAG_MODALITIES: Record<keyof typeof PipelineType, PipelineModality> = {
+export type Modality = typeof MODALITIES[number];
+
+export const MODALITY_LABELS: Record<Modality, string> = {
+	nlp:   "Natural Language Processing",
+	audio: "Audio",
+	cv:    "Computer Vision",
+	other: "Other",
+};
+
+export const PIPELINE_TAG_MODALITIES: Record<keyof typeof PipelineType, Modality> = {
 	"text-classification":            "nlp",
 	"token-classification":           "nlp",
 	"table-question-answering":       "nlp",
