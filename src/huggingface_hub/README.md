@@ -130,7 +130,7 @@ With the `HfApi` class there are methods to query models, datasets, and metrics 
   - `list_metrics()`
   - `metric_info()`
   
-These lightly wrap around the API Endpoints. Documentation for valid parameters and descriptions can be found [here](https://huggingface.co/docs/hub/endpoints)
+These lightly wrap around the API Endpoints. Documentation for valid parameters and descriptions can be found [here](https://huggingface.co/docs/hub/endpoints).
   
 
 ### Advanced programmatic repository management 
