@@ -49,7 +49,7 @@ const taskData: TaskData = {
 		},
 		{
 			description: " F1-Score is a useful metric if we value both false positives and false negatives equally. F1-Score is calculated over each word in the predicted sequence against the answer in the ground truth.",
-			id:          "f1-score",
+			id:          "f1",
 		},
 	],
 	models: [
@@ -64,7 +64,7 @@ const taskData: TaskData = {
 	],
 	summary:      "Question answering is a natural language understanding task. Question answering models allow users to search for an answer in a document. Question answering models take a context and a question and output the answer.",
 	widgetModels: ["deepset/roberta-base-squad2"],
-	youtubeId:    "",
+	youtubeId:    "ajPx5LwJD-I",
 };
 
 export default taskData;
