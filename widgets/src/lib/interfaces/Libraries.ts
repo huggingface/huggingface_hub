@@ -260,7 +260,7 @@ const transformers = (model: ModelData) => {
 		].join("\n");
 	} else {
 		return [
-			`from transformers import ${info.processor}, ${info.auto_model}`,
+			`from transformers import ${info.auto_model}`,
 			"",
 			`model = ${info.auto_model}.from_pretrained("${model.id}"${model.private ? ", use_auth_token=True" : ""})`,
 		].join("\n");
