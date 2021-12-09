@@ -26,7 +26,7 @@ from-yellow-400 to-yellow-200 dark:from-yellow-400 dark:to-yellow-600
 </script>
 
 {#if output.length}
-	<div class="space-y-4 {classNames}" >
+	<div class="space-y-3.5 {classNames}" >
 		<!-- NB: We sadly can't do color = defaultBarColor as the Svelte compiler will throw an unused-export-let warning (bug  on their side) ... -->
 		{#each output as { label, score, color }, index}
 			<div
@@ -42,14 +42,14 @@ from-yellow-400 to-yellow-200 dark:from-yellow-400 dark:to-yellow-600
 			>
 				<div class="flex-1">
 					<div
-						class="h-1 mb-1.5 rounded bg-gradient-to-r 
+						class="h-1 mb-1 rounded bg-gradient-to-r 
 							from-{color ?? defaultBarColor}-400 
 							to-{color ?? defaultBarColor}-200 
 							dark:from-{color ?? defaultBarColor}-400 
 							dark:to-{color ?? defaultBarColor}-600"
 						style={`width: ${Math.ceil((score / scoreMax) * 100 * 0.8)}%;`}
 					/>
-					<span>{label}</span>
+					<span class="leading-snug">{label}</span>
 				</div>
 				<span class="pl-2">{score.toFixed(3)}</span>
 			</div>
