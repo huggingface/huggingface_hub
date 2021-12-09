@@ -175,9 +175,9 @@ export interface ModelData {
 	 */
 	tags?: string[];
 	/**
-	 * this is transformers-specific
+	 * transformers-specific info to display in the code sample.
 	 */
-	autoArchitecture?: string;
+	transformersInfo?: TransformersInfo;
 	/**
 	 * Pipeline type
 	 */
@@ -208,4 +208,23 @@ export interface ModelData {
 			parameters?: Record<string, any>;
 		};
 	};
+}
+
+
+/**
+ * transformers-specific info to display in the code sample.
+ */
+export interface TransformersInfo {
+	/**
+	 * e.g. AutoModelForSequenceClassification
+	 */
+	auto_model: string;
+	/**
+	 * e.g. text-classification
+	 */
+	pipeline_tag?: keyof typeof PipelineType;
+	/**
+	 * e.g. "AutoTokenizer" | "AutoFeatureExtractor" | "AutoProcessor"
+	 */
+	processor?: string;
 }
