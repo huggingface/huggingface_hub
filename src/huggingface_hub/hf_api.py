@@ -200,7 +200,7 @@ class DatasetInfo:
         author: Optional[str] = None,  # community datasets only
         description: Optional[str] = None,
         citation: Optional[str] = None,
-        card_data: Optional[dict] = None,
+        cardData: Optional[dict] = None,
         **kwargs,
     ):
         self.id = id
@@ -210,7 +210,7 @@ class DatasetInfo:
         self.author = author
         self.description = description
         self.citation = citation
-        self.card_data = card_data
+        self.cardData = cardData
         self.siblings = (
             [DatasetFile(**x) for x in siblings] if siblings is not None else None
         )
@@ -525,7 +525,7 @@ class HfApi:
             limit (:obj:`int`, `optional`):
                 The limit on the number of datasets fetched. Leaving this option to `None` fetches all datasets.
             full (:obj:`bool`, `optional`):
-                Whether to fetch all dataset data, including the `lastModified` and the `card_data`.
+                Whether to fetch all dataset data, including the `lastModified` and the `cardData`.
 
         """
         path = "{}/api/datasets".format(self.endpoint)
