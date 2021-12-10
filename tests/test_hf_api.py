@@ -547,14 +547,14 @@ class HfApiPublicTest(unittest.TestCase):
         self.assertGreater(len(datasets), 100)
         dataset = datasets[0]
         self.assertIsInstance(dataset, DatasetInfo)
-        self.assertTrue(any(dataset.card_data for dataset in datasets))
+        self.assertTrue(any(dataset.cardData for dataset in datasets))
 
     @with_production_testing
     def test_dataset_info(self):
         _api = HfApi()
         dataset = _api.dataset_info(repo_id=DUMMY_DATASET_ID)
         self.assertTrue(
-            isinstance(dataset.card_data, dict) and len(dataset.card_data) > 0
+            isinstance(dataset.cardData, dict) and len(dataset.cardData) > 0
         )
         self.assertTrue(
             isinstance(dataset.siblings, list) and len(dataset.siblings) > 0
