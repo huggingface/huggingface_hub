@@ -566,10 +566,16 @@ class HfApi:
 
     def list_models(
         self,
+<<<<<<< HEAD
         filter: Union[ModelFilter, str, Iterable[str], None] = None,
         author: Optional[str] = None,
         search: Optional[str] = None,
         emissions_thresholds: Optional[Tuple[float, float]] = None,
+=======
+        filter: Union[str, Iterable[str], None] = None,
+        author: Optional[str] = None,
+        search: Optional[str] = None,
+>>>>>>> 5c9dad6 (done)
         sort: Union[Literal["lastModified"], str, None] = None,
         direction: Optional[Literal[-1]] = None,
         limit: Optional[int] = None,
@@ -609,11 +615,16 @@ class HfApi:
 
                     >>> # List only models from the AllenNLP library
                     >>> api.list_models(filter="allennlp")
+<<<<<<< HEAD
                     >>> # Using `ModelFilter` and `ModelSearchArguments`
                     >>> filt = ModelFilter(library=args.library.allennlp)
 
             author (:obj:`str`, `optional`):
                 A string which identify the author (user or organization) of the returned models
+=======
+            author (:obj:`str`, `optional`):
+                A string which identify the author of the returned models
+>>>>>>> 5c9dad6 (done)
                 Example usage:
 
                     >>> from huggingface_hub import HfApi
@@ -624,7 +635,10 @@ class HfApi:
 
                     >>> # List only the text classification models from google
                     >>> api.list_models(filter="text-classification", author="google")
+<<<<<<< HEAD
 
+=======
+>>>>>>> 5c9dad6 (done)
             search (:obj:`str`, `optional`):
                 A string that will be contained in the returned models
                 Example usage:
@@ -637,6 +651,7 @@ class HfApi:
 
                     >>> #List all models with "bert" in their name made by google
                     >>> api.list_models(search="bert", author="google")
+<<<<<<< HEAD
 
             emissions_thresholds (:obj:`Tuple`, `optional`):
                 A tuple of two ints or floats representing a minimum and maximum carbon footprint
@@ -648,6 +663,8 @@ class HfApi:
 
                     >>> # List all models that emitted between 100 to 200 grams of co2
                     >>> api.list_models(emissions_thresholds=(100,200), cardData=True)
+=======
+>>>>>>> 5c9dad6 (done)
             sort (:obj:`Literal["lastModified"]` or :obj:`str`, `optional`):
                 The key with which to sort the resulting models. Possible values are the properties of the `ModelInfo`
                 class.

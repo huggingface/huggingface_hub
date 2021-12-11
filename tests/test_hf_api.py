@@ -666,7 +666,10 @@ class HfApiPublicTest(unittest.TestCase):
         models = _api.list_models(author="google")
         self.assertGreater(len(models), 10)
         self.assertIsInstance(models[0], ModelInfo)
+<<<<<<< HEAD
         [self.assertTrue("google" in model.author for model in models)]
+=======
+>>>>>>> 5c9dad6 (done)
 
     @with_production_testing
     def test_list_models_search(self):
@@ -674,7 +677,10 @@ class HfApiPublicTest(unittest.TestCase):
         models = _api.list_models(search="bert")
         self.assertGreater(len(models), 10)
         self.assertIsInstance(models[0], ModelInfo)
+<<<<<<< HEAD
         [self.assertTrue("bert" in model.modelId.lower()) for model in models]
+=======
+>>>>>>> 5c9dad6 (done)
 
     @with_production_testing
     def test_list_models_complex_query(self):
