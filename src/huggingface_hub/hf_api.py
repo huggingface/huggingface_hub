@@ -1169,22 +1169,25 @@ class HfFolder:
             f.write(token)
 
     @classmethod
-    def get_token(cls) -> Optional[str]:
+    def get_token(cls):
         """
-        Get token or None if not existent. A token can be also provided using env variables
-
-        >>> export HUGGING_FACE_HUB_TOKEN=<YOUR_TOKEN>
+        Get token or None if not existent.
         """
+        try:
+            with open(cls.path_token, "r") as f:
+                return f.read()
+        except FileNotFoundError:
+            pass
 
-        path_token: Path = Path(cls.path_token)
-        token: Optional[str] = os.environ.get("HUGGING_FACE_HUB_TOKEN")
-
-        if token is None:
-            # fall back to disk
-            if path_token.exists():
-                with path_token.open("r") as f:
-                    token = f.read()
-        return token
+    @classmethod
+    def delete_token(cls):
+        """
+        Delete token. Do not fail if token does not exist.
+        """
+        try:
+            os.remove(cls.path_token)
+        except FileNotFoundError:
+            pass
 
     @classmethod
     def delete_token(cls):
