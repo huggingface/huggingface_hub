@@ -473,6 +473,20 @@ class HfApiPublicTest(unittest.TestCase):
         self.assertIsInstance(models[0], ModelInfo)
 
     @with_production_testing
+    def test_list_models_author(self):
+        _api = HfApi()
+        models = _api.list_models(author="google")
+        self.assertGreater(len(models), 10)
+        self.assertIsInstance(models[0], ModelInfo)
+
+    @with_production_testing
+    def test_list_models_search(self):
+        _api = HfApi()
+        models = _api.list_models(search="bert")
+        self.assertGreater(len(models), 10)
+        self.assertIsInstance(models[0], ModelInfo)
+
+    @with_production_testing
     def test_list_models_complex_query(self):
         # Let's list the 10 most recent models
         # with tags "bert" and "jax",
