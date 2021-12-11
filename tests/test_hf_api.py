@@ -1104,11 +1104,6 @@ class HfFolderTest(unittest.TestCase):
         HfFolder.delete_token()
         # ^^ not an error, we test that the
         # second call does not fail.
-        self.assertEqual(HfFolder.get_token(), None)
-        with mock.patch.dict(os.environ, {"HUGGING_FACE_HUB_TOKEN": token}):
-            self.assertEqual(HfFolder.get_token(), token)
-        with mock.patch.dict(os.environ, {"HUGGING_FACE_HUB_TOKEN": None}):
-            self.assertEqual(HfFolder.get_token(), None)
 
 
 @require_git_lfs
