@@ -454,7 +454,7 @@ class HfApi:
                     >>> # List only the models from the AllenNLP library
                     >>> api.list_models(filter="allennlp")
             author (:obj:`str`, `optional`):
-                A string which identify the author of the returned models
+                A string which identify the author (user or organization) of the returned models
                 Example usage:
 
                     >>> from huggingface_hub import HfApi
