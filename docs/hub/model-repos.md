@@ -293,6 +293,34 @@ zLib License	| `zlib`
 Open Data Commons Public Domain Dedication and License | `pddl`
 Lesser General Public License For Linguistic Resources | `lgpl-lr`
 
+## Why is it useful to calculate the carbon emissions of my model?
+
+Training ML models is often energy intensive and can produce a substantial carbon footprint, as described by [Strubell et al.](https://arxiv.org/abs/1906.02243). It's therefore important to *track* and *report* the emissions of models to get a better idea of the environmental impacts of our field.
+
+
+## What information should I include about the carbon footprint of my model?
+
+If you can, include information about:
+- where the model was trained (in terms of location)
+- the hardware that was used -- e.g. GPU, TPU or CPU, and how many
+- training type: pre-training or fine-tuning
+- the estimated carbon footprint of the model, calculated in real-time with the [Code Carbon](https://github.com/mlco2/codecarbon) package or after the fact using the [ML CO2 Calculator](https://mlco2.github.io/impact/).
+
+## Carbon footprint metadata
+
+The data can be added to the model card metadata (README.md file). The structure of the metadata should be:
+
+```yaml
+---
+co2_eq_emissions:
+  - emissions: "in grams of CO2"
+  - source: "source of the information, either directly from autonlp, code carbon or from a scientific article documenting the model"
+  - training_type: "pretraining or fine-tuning"
+  - geographical location: "as granular as possible, for instance Quebec, Canada or Brooklyn, NY, USA"
+  - hardware used: "how much compute and what kind, e.g. 8 v100 GPUs"
+---
+```
+
 ## How is the carbon footprint of my model calculated? 🌎
 
 By taking into account the computing hardware, location, usage and training time, it's possible to provide an estimate of how much CO<sub>2</sub> was produced by the model.
@@ -310,6 +338,6 @@ Keep in mind that this isn't an exact number, because there are other factors th
 To add **Carbon Emissions** metadata to your models:
 
 1. If you are using **AutoNLP**, this is tracked for you 🔥
-2. Otherwise, use a tracker like  [`codecarbon`](https://github.com/mlco2/codecarbon/) in your training code, then specify `co2_eq_emissions: 1.2345` in your model card metadata, where `1.2345` is the emissions value in **grams**.
+2. Otherwise, use a tracker like  Code Carbon in your training code, then specify `co2_eq_emissions.emissions: 1.2345` in your model card metadata, where `1.2345` is the emissions value in **grams**. 
 
-To learn more about the carbon footprint of Transformers, check out the [video](https://www.youtube.com/watch?v=ftWlj4FBHTg), part of the Hugging Face Course! 
+To learn more about the carbon footprint of Transformers, check out the [video](https://www.youtube.com/watch?v=ftWlj4FBHTg), part of the Hugging Face Course!
