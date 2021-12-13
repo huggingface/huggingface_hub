@@ -295,7 +295,7 @@ Lesser General Public License For Linguistic Resources | `lgpl-lr`
 
 ## Why is it useful to calculate the carbon emissions of my model?
 
-Training ML models is often energy intensive can produce a substantial carbon footprint, as described by [Strubell et al.](https://arxiv.org/abs/1906.02243). It's therefore important to *track* and *report* the emissions of models to get a better idea of the environmental impacts of our field.
+Training ML models is often energy intensive and can produce a substantial carbon footprint, as described by [Strubell et al.](https://arxiv.org/abs/1906.02243). It's therefore important to *track* and *report* the emissions of models to get a better idea of the environmental impacts of our field.
 
 
 ## What information should I include about the carbon footprint of my model?
