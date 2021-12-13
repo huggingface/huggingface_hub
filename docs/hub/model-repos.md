@@ -308,7 +308,7 @@ If you can, include information about:
 
 ## Carbon footprint metadata
 
-The structure of the metadata should be:
+The data can be added to the model card metadata (README.md file). The structure of the metadata should be:
 
 ```yaml
 ---
