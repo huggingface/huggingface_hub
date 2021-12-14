@@ -13,9 +13,10 @@ files will be automatically downloaded again.
 `https://huggingface.co/julien-c/EsperBERTo-small/resolve/main/pytorch_model.bin`
 
 Parameters:
-- a repo id (e.g. a model id like `julien-c/EsperBERTo-small` i.e. a user or
-  organization name and a repo name, separated by `/`)
-- a filename (like `pytorch_model.bin`)
+- a `repo_id` (a user or organization name and a repo name seperated by a `/`, like `julien-c/EsperBERTo-small`)
+- a `filename` (like `pytorch_model.bin`)
+- an optional `subfolder`, corresponding to a folder inside the model repo
+- an optional `repo_type`, such as `dataset` or `space`
 - an optional Git revision id (can be a branch name, a tag, or a commit hash)
 
 If you check out this URL's headers with a `HEAD` http request (which you can do
@@ -45,7 +46,7 @@ config_file_url = hf_hub_url("lysandre/arxiv-nlp", filename="config.json")
 cached_download(config_file_url)
 ```
 
-Check out the source code for all possible params (we'll create a real doc page
+Check out the [source code](https://github.com/huggingface/huggingface_hub/blob/main/src/huggingface_hub/file_download.py) and search for `cached_download` for all possible params (we'll create a real doc page
 in the future).
 
 ### `hf_hub_download`
@@ -54,9 +55,8 @@ Since the use case of combining `hf_hub_url()` and `cached_download()` is very
 common, we also provide a wrapper that calls both functions.
 
 Parameters:
-- a repo id (e.g. a model id like `julien-c/EsperBERTo-small` i.e. a user or
-  organization name and a repo name, separated by `/`)
-- a filename (like `pytorch_model.bin`)
+- a `repo_id` (a user or organization name and a repo name, separated by `/`, like `julien-c/EsperBERTo-small`)
+- a `filename` (like `pytorch_model.bin`)
 - an optional Git revision id (can be a branch name, a tag, or a commit hash)
 - a `cache_dir` which you can specify if you want to control where on disk the
   files are cached.
@@ -95,14 +95,18 @@ to the Hub: https://huggingface.co/docs/hub/adding-a-model.
 You don't need them for the standard publishing workflow, however, if you need a
 programmatic way of creating a repo, deleting it (`⚠️ caution`), pushing a
 single file to a repo or listing models from the Hub, you'll find helpers in
-`hf_api.py`. Some examples:
+`hf_api.py`. Some example functionality available with the `HfApi` class:
 
 * `login()`
 * `whoami()`
+* `logout()`
 * `create_repo()`
+* `list_repo_files()`
+* `list_repo_objects()`
 * `delete_repo()`
 * `update_repo_visibility()`
 * `upload_file()`
+* `delete_file()`
 
 Those API utilities are also exposed through the `huggingface-cli` CLI:
 
@@ -113,9 +117,16 @@ huggingface-cli whoami
 huggingface-cli repo create
 ```
 
-We also have an API to query models and datasets by specific tags (e.g. if you
-want to list models compatible to your library). Look at `list_models()`,
-`model_info()`, `list_datasets()`, and `dataset_info()`. 
+With the `HfApi` class there are methods to query models, datasets, and metrics by specific tags (e.g. if you want to list models compatible with your library):
+- **Models**:
+  - `list_models()`
+  - `model_info()`
+- **Datasets**:
+  - `list_datasets()`
+  - `dataset_info()`
+  
+These lightly wrap around the API Endpoints. Documentation for valid parameters and descriptions can be found [here](https://huggingface.co/docs/hub/endpoints).
+  
 
 ### Advanced programmatic repository management 
 
