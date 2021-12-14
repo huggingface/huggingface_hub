@@ -95,7 +95,7 @@ class InferenceApi:
 
         self.headers = {}
         if isinstance(token, str):
-            self.headers["Authorization"] = "Bearer {}".format(token)
+            self.headers["Authorization"] = f"Bearer {token}"
 
         # Configure task
         model_info = HfApi().model_info(repo_id=repo_id, token=token)

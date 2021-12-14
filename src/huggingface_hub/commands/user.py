@@ -99,15 +99,15 @@ class ANSI:
 
     @classmethod
     def bold(cls, s):
-        return "{}{}{}".format(cls._bold, s, cls._reset)
+        return f"{cls._bold}{s}{cls._reset}"
 
     @classmethod
     def red(cls, s):
-        return "{}{}{}".format(cls._bold + cls._red, s, cls._reset)
+        return f"{cls._bold + cls._red}{s}{cls._reset}"
 
     @classmethod
     def gray(cls, s):
-        return "{}{}{}".format(cls._gray, s, cls._reset)
+        return f"{cls._gray}{s}{cls._reset}"
 
 
 def tabulate(rows: List[List[Union[str, int]]], headers: List[str]) -> str:
@@ -274,7 +274,7 @@ class RepoCreateCommand(BaseUserCommand):
         if self.args.type in REPO_TYPES_URL_PREFIXES:
             repo_id = REPO_TYPES_URL_PREFIXES[self.args.type] + repo_id
 
-        print("You are about to create {}".format(ANSI.bold(repo_id)))
+        print(f"You are about to create {ANSI.bold(repo_id)}")
 
         if not self.args.yes:
             choice = input("Proceed? [Y/n] ").lower()
@@ -294,7 +294,7 @@ class RepoCreateCommand(BaseUserCommand):
             print(ANSI.red(e.response.text))
             exit(1)
         print("\nYour repo now lives at:")
-        print("  {}".format(ANSI.bold(url)))
+        print(f"  {ANSI.bold(url)}")
         print(
             "\nYou can clone it locally with the command below,"
             " and commit/push as usual."
