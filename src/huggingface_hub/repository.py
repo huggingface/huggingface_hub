@@ -570,17 +570,15 @@ class Repository:
             # checks if repository is initialized in a empty repository or in one with files
             if len(os.listdir(self.local_dir)) == 0:
                 logger.warning(f"Cloning {clean_repo_url} into local empty directory.")
-                env = os.environ.copy()
-
-                if self.skip_lfs_files:
-                    env["GIT_LFS_SKIP_SMUDGE"] = "1"
-                    clone = "git clone"
-                else:
-                    clone = "git lfs clone"
 
                 with lfs_log_progress():
+                    env = os.environ.copy()
+
+                    if self.skip_lfs_files:
+                        env.update({"GIT_LFS_SKIP_SMUDGE": "1"})
+
                     subprocess.run(
-                        f"{clone} {repo_url} .".split(),
+                        f"{'git clone' if self.skip_lfs_files else 'git lfs clone'} {repo_url} .".split(),
                         stderr=subprocess.PIPE,
                         stdout=subprocess.PIPE,
                         check=True,

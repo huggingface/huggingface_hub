@@ -25,6 +25,7 @@ from io import BytesIO
 import pytest
 
 import requests
+from huggingface_hub.commands.user import _login
 from huggingface_hub.constants import (
     REPO_TYPE_DATASET,
     REPO_TYPE_SPACE,
@@ -32,12 +33,12 @@ from huggingface_hub.constants import (
 )
 from huggingface_hub.file_download import cached_download, hf_hub_download
 from huggingface_hub.hf_api import (
+    USERNAME_PLACEHOLDER,
     DatasetInfo,
     HfApi,
     HfFolder,
     MetricInfo,
     ModelInfo,
-    RepoObj,
     erase_from_credential_store,
     read_from_credential_store,
     repo_type_and_id_from_hf_id,
@@ -49,6 +50,7 @@ from .testing_constants import (
     ENDPOINT_STAGING_BASIC_AUTH,
     FULL_NAME,
     PASS,
+    TOKEN,
     USER,
 )
 from .testing_utils import (
@@ -112,6 +114,22 @@ class HfApiLoginTest(HfApiCommonTest):
         erase_from_credential_store(username=USER)
         self.assertTupleEqual(read_from_credential_store(USER), (None, None))
 
+    def test_login_cli(self):
+        _login(self._api, username=USER, password=PASS)
+        self.assertTupleEqual(read_from_credential_store(USER), (USER.lower(), PASS))
+        erase_from_credential_store(username=USER)
+        self.assertTupleEqual(read_from_credential_store(USER), (None, None))
+
+        _login(self._api, token=TOKEN)
+        self.assertTupleEqual(
+            read_from_credential_store(USERNAME_PLACEHOLDER),
+            (USERNAME_PLACEHOLDER, TOKEN),
+        )
+        erase_from_credential_store(username=USERNAME_PLACEHOLDER)
+        self.assertTupleEqual(
+            read_from_credential_store(USERNAME_PLACEHOLDER), (None, None)
+        )
+
 
 class HfApiCommonTestWithLogin(HfApiCommonTest):
     @classmethod
@@ -129,13 +147,6 @@ class HfApiEndpointsTest(HfApiCommonTestWithLogin):
         self.assertEqual(info["fullname"], FULL_NAME)
         self.assertIsInstance(info["orgs"], list)
         self.assertIsInstance(info["orgs"][0]["apiToken"], str)
-
-    def test_list_repos_objs(self):
-        objs = self._api.list_repos_objs(token=self._token)
-        self.assertIsInstance(objs, list)
-        if len(objs) > 0:
-            o = objs[-1]
-            self.assertIsInstance(o, RepoObj)
 
     def test_create_update_and_delete_repo(self):
         REPO_NAME = repo_name("crud")
@@ -536,14 +547,14 @@ class HfApiPublicTest(unittest.TestCase):
         self.assertGreater(len(datasets), 100)
         dataset = datasets[0]
         self.assertIsInstance(dataset, DatasetInfo)
-        self.assertTrue(any(dataset.card_data for dataset in datasets))
+        self.assertTrue(any(dataset.cardData for dataset in datasets))
 
     @with_production_testing
     def test_dataset_info(self):
         _api = HfApi()
         dataset = _api.dataset_info(repo_id=DUMMY_DATASET_ID)
         self.assertTrue(
-            isinstance(dataset.card_data, dict) and len(dataset.card_data) > 0
+            isinstance(dataset.cardData, dict) and len(dataset.cardData) > 0
         )
         self.assertTrue(
             isinstance(dataset.siblings, list) and len(dataset.siblings) > 0
@@ -580,6 +591,7 @@ class HfApiPrivateTest(HfApiCommonTestWithLogin):
         self._api.delete_repo(name=self.REPO_NAME, token=self._token)
 
     def test_model_info(self):
+        shutil.rmtree(os.path.dirname(HfFolder.path_token))
         # Test we cannot access model info without a token
         with self.assertRaisesRegex(requests.exceptions.HTTPError, "404 Client Error"):
             _ = self._api.model_info(repo_id=f"{USER}/{self.REPO_NAME}")

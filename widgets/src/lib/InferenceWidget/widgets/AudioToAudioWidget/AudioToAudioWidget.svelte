@@ -27,7 +27,6 @@
 	let output: AudioItem[] = [];
 	let outputJson: string;
 	let selectedSampleUrl = "";
-	let shouldAudioAutoplay = true;
 
 	interface AudioItem {
 		blob: string;
@@ -48,7 +47,6 @@
 	}
 
 	function onSelectFile(updatedFile: Blob | File) {
-		shouldAudioAutoplay = false;
 		isRecording = false;
 		selectedSampleUrl = "";
 		if (updatedFile.size !== 0) {
@@ -131,7 +129,7 @@
 	}
 
 	function applyInputSample(sample: Record<string, any>) {
-		shouldAudioAutoplay = false;
+		file = null;
 		filename = sample.example_title;
 		fileUrl = sample.src;
 		selectedSampleUrl = sample.src;
@@ -139,7 +137,6 @@
 	}
 
 	function previewInputSample(sample: Record<string, any>) {
-		shouldAudioAutoplay = true;
 		filename = sample.example_title;
 		fileUrl = sample.src;
 		output = [];
@@ -176,12 +173,7 @@
 				/>
 			</div>
 			{#if fileUrl}
-				<WidgetAudioTrack
-					classNames="mt-3"
-					autoplay={shouldAudioAutoplay}
-					label={filename}
-					src={fileUrl}
-				/>
+				<WidgetAudioTrack classNames="mt-3" label={filename} src={fileUrl} />
 			{/if}
 			<WidgetSubmitBtn
 				classNames="mt-2"
@@ -195,9 +187,10 @@
 	</svelte:fragment>
 	<svelte:fragment slot="bottom">
 		{#each output as item}
-			<div>{item.label}</div>
-			:
-			<WidgetAudioTrack classNames="mt-4" src={item.src} />
+			<div class="flex items-center mt-2">
+				<span class="mr-2">{item.label}:</span>
+				<WidgetAudioTrack classNames="" src={item.src} />
+			</div>
 		{/each}
 	</svelte:fragment>
 </WidgetWrapper>

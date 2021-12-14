@@ -12,8 +12,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-
-
+import logging
 import os
 import re
 import subprocess
@@ -40,6 +39,8 @@ if sys.version_info >= (3, 8):
 else:
     from typing_extensions import Literal
 
+
+USERNAME_PLACEHOLDER = "hf_user"
 
 REMOTE_FILEPATH_REGEX = re.compile(r"^\w[\w\/\-]*(\.\w+)?$")
 # ^^ No trailing slash, no backslash, no spaces, no relative parts ("." or "..")
@@ -199,7 +200,7 @@ class DatasetInfo:
         author: Optional[str] = None,  # community datasets only
         description: Optional[str] = None,
         citation: Optional[str] = None,
-        card_data: Optional[dict] = None,
+        cardData: Optional[dict] = None,
         **kwargs,
     ):
         self.id = id
@@ -209,7 +210,7 @@ class DatasetInfo:
         self.author = author
         self.description = description
         self.citation = citation
-        self.card_data = card_data
+        self.cardData = cardData
         self.siblings = (
             [DatasetFile(**x) for x in siblings] if siblings is not None else None
         )
@@ -333,7 +334,6 @@ def erase_from_credential_store(username=None):
         standard_input += "\n"
 
         process.stdin.write(standard_input.encode("utf-8"))
-        print(standard_input)
         process.stdin.flush()
 
 
@@ -349,6 +349,9 @@ class HfApi:
 
         Throws: requests.exceptions.HTTPError if credentials are invalid
         """
+        logging.error(
+            "HfApi.login: This method is deprecated in favor of `set_access_token`."
+        )
         path = "{}/api/login".format(self.endpoint)
         r = requests.post(path, json={"username": username, "password": password})
         r.raise_for_status()
@@ -391,6 +394,7 @@ class HfApi:
             token (``str``, `optional`):
                 Hugging Face token. Will default to the locally saved token if not provided.
         """
+        logging.error("This method is deprecated in favor of `unset_access_token`.")
         if token is None:
             token = HfFolder.get_token()
         if token is None:
@@ -404,6 +408,14 @@ class HfApi:
         path = "{}/api/logout".format(self.endpoint)
         r = requests.post(path, headers={"authorization": "Bearer {}".format(token)})
         r.raise_for_status()
+
+    @staticmethod
+    def set_access_token(access_token: str):
+        write_to_credential_store(USERNAME_PLACEHOLDER, access_token)
+
+    @staticmethod
+    def unset_access_token():
+        erase_from_credential_store(USERNAME_PLACEHOLDER)
 
     def list_models(
         self,
@@ -477,17 +489,6 @@ class HfApi:
         d = r.json()
         return [ModelInfo(**x) for x in d]
 
-    def model_list(self) -> List[ModelInfo]:
-        """
-        Deprecated method name, renamed to `list_models`.
-
-        Get the public list of all the models on huggingface.co
-        """
-        warnings.warn(
-            "This method has been renamed to `list_models` for consistency and will be removed in a future version."
-        )
-        return self.list_models()
-
     def list_datasets(
         self,
         filter: Union[str, Iterable[str], None] = None,
@@ -524,7 +525,7 @@ class HfApi:
             limit (:obj:`int`, `optional`):
                 The limit on the number of datasets fetched. Leaving this option to `None` fetches all datasets.
             full (:obj:`bool`, `optional`):
-                Whether to fetch all dataset data, including the `lastModified` and the `card_data`.
+                Whether to fetch all dataset data, including the `lastModified` and the `cardData`.
 
         """
         path = "{}/api/datasets".format(self.endpoint)
@@ -614,10 +615,17 @@ class HfApi:
         self, token: Optional[str] = None, organization: Optional[str] = None
     ) -> List[RepoObj]:
         """
+        Deprecated
+
         HuggingFace git-based system, used for models, datasets, and spaces.
 
         Call HF API to list all stored files for user (or one of their organizations).
         """
+        warnings.warn(
+            "This method has been deprecated and will be removed in a future version."
+            "You can achieve the same result by listing your repos then listing their respective files."
+        )
+
         if token is None:
             token = HfFolder.get_token()
         if token is None:
