@@ -352,7 +352,7 @@ class HfApi:
         logging.error(
             "HfApi.login: This method is deprecated in favor of `set_access_token`."
         )
-        path = "{}/api/login".format(self.endpoint)
+        path = f"{self.endpoint}/api/login"
         r = requests.post(path, json={"username": username, "password": password})
         r.raise_for_status()
         d = r.json()
@@ -375,8 +375,8 @@ class HfApi:
                 "You need to pass a valid `token` or login by using `huggingface-cli login`"
             )
 
-        path = "{}/api/whoami-v2".format(self.endpoint)
-        r = requests.get(path, headers={"authorization": "Bearer {}".format(token)})
+        path = f"{self.endpoint}/api/whoami-v2"
+        r = requests.get(path, headers={"authorization": f"Bearer {token}"})
         try:
             r.raise_for_status()
         except HTTPError as e:
@@ -405,8 +405,8 @@ class HfApi:
         username = self.whoami(token)["name"]
         erase_from_credential_store(username)
 
-        path = "{}/api/logout".format(self.endpoint)
-        r = requests.post(path, headers={"authorization": "Bearer {}".format(token)})
+        path = f"{self.endpoint}/api/logout"
+        r = requests.post(path, headers={"authorization": f"Bearer {token}"})
         r.raise_for_status()
 
     @staticmethod
@@ -466,7 +466,7 @@ class HfApi:
                 Whether to fetch the model configs as well. This is not included in `full` due to its size.
 
         """
-        path = "{}/api/models".format(self.endpoint)
+        path = f"{self.endpoint}/api/models"
         params = {}
         if filter is not None:
             params.update({"filter": filter})
@@ -528,7 +528,7 @@ class HfApi:
                 Whether to fetch all dataset data, including the `lastModified` and the `cardData`.
 
         """
-        path = "{}/api/datasets".format(self.endpoint)
+        path = f"{self.endpoint}/api/datasets"
         params = {}
         if filter is not None:
             params.update({"filter": filter})
@@ -550,7 +550,7 @@ class HfApi:
         """
         Get the public list of all the metrics on huggingface.co
         """
-        path = "{}/api/metrics".format(self.endpoint)
+        path = f"{self.endpoint}/api/metrics"
         params = {}
         r = requests.get(path, params=params)
         r.raise_for_status()
@@ -573,14 +573,12 @@ class HfApi:
             token = HfFolder.get_token()
 
         path = (
-            "{}/api/models/{repo_id}".format(self.endpoint, repo_id=repo_id)
+            f"{self.endpoint}/api/models/{repo_id}"
             if revision is None
-            else "{}/api/models/{repo_id}/revision/{revision}".format(
-                self.endpoint, repo_id=repo_id, revision=revision
-            )
+            else f"{self.endpoint}/api/models/{repo_id}/revision/{revision}"
         )
         headers = (
-            {"authorization": "Bearer {}".format(token)} if token is not None else None
+            {"authorization": f"Bearer {token}"} if token is not None else None
         )
         r = requests.get(path, headers=headers, timeout=timeout)
         r.raise_for_status()
@@ -633,10 +631,10 @@ class HfApi:
                 "You need to pass a valid `token` or login by using `huggingface-cli login`"
             )
 
-        path = "{}/api/repos/ls".format(self.endpoint)
+        path = f"{self.endpoint}/api/repos/ls"
         params = {"organization": organization} if organization is not None else None
         r = requests.get(
-            path, params=params, headers={"authorization": "Bearer {}".format(token)}
+            path, params=params, headers={"authorization": f"Bearer {token}"}
         )
         r.raise_for_status()
         d = r.json()
@@ -655,14 +653,12 @@ class HfApi:
         Dataset can be private if you pass an acceptable token.
         """
         path = (
-            "{}/api/datasets/{repo_id}".format(self.endpoint, repo_id=repo_id)
+            f"{self.endpoint}/api/datasets/{repo_id}"
             if revision is None
-            else "{}/api/datasets/{repo_id}/revision/{revision}".format(
-                self.endpoint, repo_id=repo_id, revision=revision
-            )
+            else f"{self.endpoint}/api/datasets/{repo_id}/revision/{revision}"
         )
         headers = (
-            {"authorization": "Bearer {}".format(token)} if token is not None else None
+            {"authorization": f"Bearer {token}"} if token is not None else None
         )
         params = {"full": "true"}
         r = requests.get(path, headers=headers, params=params, timeout=timeout)
@@ -710,7 +706,7 @@ class HfApi:
         Returns:
             URL to the newly created repo.
         """
-        path = "{}/api/repos/create".format(self.endpoint)
+        path = f"{self.endpoint}/api/repos/create"
         if token is None:
             token = HfFolder.get_token()
             if token is None:
@@ -755,7 +751,7 @@ class HfApi:
             json["lfsmultipartthresh"] = lfsmultipartthresh
         r = requests.post(
             path,
-            headers={"authorization": "Bearer {}".format(token)},
+            headers={"authorization": f"Bearer {token}"},
             json=json,
         )
 
@@ -790,7 +786,7 @@ class HfApi:
 
         CAUTION(this is irreversible).
         """
-        path = "{}/api/repos/delete".format(self.endpoint)
+        path = f"{self.endpoint}/api/repos/delete"
         if token is None:
             token = HfFolder.get_token()
             if token is None:
@@ -818,7 +814,7 @@ class HfApi:
 
         r = requests.delete(
             path,
-            headers={"authorization": "Bearer {}".format(token)},
+            headers={"authorization": f"Bearer {token}"},
             json=json,
         )
         r.raise_for_status()
@@ -860,17 +856,17 @@ class HfApi:
         else:
             namespace = organization
 
-        path_prefix = "{}/api/".format(self.endpoint)
+        path_prefix = f"{self.endpoint}/api/"
         if repo_type in REPO_TYPES_URL_PREFIXES:
             path_prefix += REPO_TYPES_URL_PREFIXES[repo_type]
 
-        path = "{}{}/{}/settings".format(path_prefix, namespace, name)
+        path = f"{path_prefix}{namespace}/{name}/settings"
 
         json = {"private": private}
 
         r = requests.put(
             path,
-            headers={"authorization": "Bearer {}".format(token)},
+            headers={"authorization": f"Bearer {token}"},
             json=json,
         )
         r.raise_for_status()
@@ -943,7 +939,7 @@ class HfApi:
 
         """
         if repo_type not in REPO_TYPES:
-            raise ValueError("Invalid repo type, must be one of {}".format(REPO_TYPES))
+            raise ValueError(f"Invalid repo type, must be one of {REPO_TYPES}")
 
         if token is None:
             token = HfFolder.get_token()
@@ -973,7 +969,7 @@ class HfApi:
             path_or_fileobj = os.path.normpath(os.path.expanduser(path_or_fileobj))
             if not os.path.isfile(path_or_fileobj):
                 raise ValueError(
-                    "Provided path: '{}' is not a file".format(path_or_fileobj)
+                    f"Provided path: '{path_or_fileobj}' is not a file"
                 )
         elif not isinstance(path_or_fileobj, (RawIOBase, BufferedIOBase, bytes)):
             # ^^ Test from: https://stackoverflow.com/questions/44584829/how-to-determine-if-file-is-opened-in-binary-or-text-mode
@@ -995,15 +991,10 @@ class HfApi:
 
         revision = revision if revision is not None else "main"
 
-        path = "{}/api/{repo_id}/upload/{revision}/{path_in_repo}".format(
-            self.endpoint,
-            repo_id=repo_id,
-            revision=revision,
-            path_in_repo=path_in_repo,
-        )
+        path = f"{self.endpoint}/api/{repo_id}/upload/{revision}/{path_in_repo}"
 
         headers = (
-            {"authorization": "Bearer {}".format(token)} if token is not None else None
+            {"authorization": f"Bearer {token}"} if token is not None else None
         )
 
         if isinstance(path_or_fileobj, str):
@@ -1061,7 +1052,7 @@ class HfApi:
 
         """
         if repo_type not in REPO_TYPES:
-            raise ValueError("Invalid repo type, must be one of {}".format(REPO_TYPES))
+            raise ValueError(f"Invalid repo type, must be one of {REPO_TYPES}")
 
         if token is None:
             token = HfFolder.get_token()
@@ -1084,14 +1075,9 @@ class HfApi:
 
         revision = revision if revision is not None else "main"
 
-        path = "{}/api/{repo_id}/delete/{revision}/{path_in_repo}".format(
-            self.endpoint,
-            repo_id=repo_id,
-            revision=revision,
-            path_in_repo=path_in_repo,
-        )
+        path = f"{self.endpoint}/api/{repo_id}/delete/{revision}/{path_in_repo}"
 
-        headers = {"authorization": "Bearer {}".format(token)}
+        headers = {"authorization": f"Bearer {token}"}
         r = requests.delete(path, headers=headers)
 
         r.raise_for_status()
