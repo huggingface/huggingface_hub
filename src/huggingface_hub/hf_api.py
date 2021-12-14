@@ -32,11 +32,7 @@ from .constants import (
     REPO_TYPES_URL_PREFIXES,
     SPACES_SDK_TYPES,
 )
-
-from .utils.tags import (
-    ModelTags,
-    DatasetTags
-)
+from .utils.tags import DatasetTags, ModelTags
 
 
 if sys.version_info >= (3, 8):
@@ -421,18 +417,18 @@ class HfApi:
     @staticmethod
     def unset_access_token():
         erase_from_credential_store(USERNAME_PLACEHOLDER)
-        
+
     def get_model_tags(self) -> ModelTags:
         "Gets all valid model tags as a nested namespace object"
-        path = f'{api.endpoint}/api/models-tags-by-type'
+        path = f"{api.endpoint}/api/models-tags-by-type"
         r = requests.get(path)
         r.raise_for_status()
         d = r.json()
         return ModelTags(d)
-    
+
     def get_dataset_tags(self) -> DatasetTags:
-    "Gets all valid dataset tags as a nested namespace object"
-        path = f'{api.endpoint}/api/datasets-tags-by-type'
+        "Gets all valid dataset tags as a nested namespace object"
+        path = f"{api.endpoint}/api/datasets-tags-by-type"
         r = requests.get(path)
         r.raise_for_status()
         d = r.json()
