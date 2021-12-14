@@ -577,9 +577,7 @@ class HfApi:
             if revision is None
             else f"{self.endpoint}/api/models/{repo_id}/revision/{revision}"
         )
-        headers = (
-            {"authorization": f"Bearer {token}"} if token is not None else None
-        )
+        headers = {"authorization": f"Bearer {token}"} if token is not None else None
         r = requests.get(path, headers=headers, timeout=timeout)
         r.raise_for_status()
         d = r.json()
@@ -657,9 +655,7 @@ class HfApi:
             if revision is None
             else f"{self.endpoint}/api/datasets/{repo_id}/revision/{revision}"
         )
-        headers = (
-            {"authorization": f"Bearer {token}"} if token is not None else None
-        )
+        headers = {"authorization": f"Bearer {token}"} if token is not None else None
         params = {"full": "true"}
         r = requests.get(path, headers=headers, params=params, timeout=timeout)
         r.raise_for_status()
@@ -968,9 +964,7 @@ class HfApi:
         if isinstance(path_or_fileobj, str):
             path_or_fileobj = os.path.normpath(os.path.expanduser(path_or_fileobj))
             if not os.path.isfile(path_or_fileobj):
-                raise ValueError(
-                    f"Provided path: '{path_or_fileobj}' is not a file"
-                )
+                raise ValueError(f"Provided path: '{path_or_fileobj}' is not a file")
         elif not isinstance(path_or_fileobj, (RawIOBase, BufferedIOBase, bytes)):
             # ^^ Test from: https://stackoverflow.com/questions/44584829/how-to-determine-if-file-is-opened-in-binary-or-text-mode
             raise ValueError(
@@ -993,9 +987,7 @@ class HfApi:
 
         path = f"{self.endpoint}/api/{repo_id}/upload/{revision}/{path_in_repo}"
 
-        headers = (
-            {"authorization": f"Bearer {token}"} if token is not None else None
-        )
+        headers = {"authorization": f"Bearer {token}"} if token is not None else None
 
         if isinstance(path_or_fileobj, str):
             with open(path_or_fileobj, "rb") as bytestream:
