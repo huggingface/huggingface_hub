@@ -14,13 +14,13 @@
 
 class AttributeDictionary(dict):
     """`dict` subclass that also provides access to keys as attributes
-    
+
     Example usage:
-    
+
         >>> d = AttributeDictionary()
         >>> d["test"] = "a"
         >>> print(d.test) # prints "a"
-    
+
     """
 
     def __getattr__(self, k):

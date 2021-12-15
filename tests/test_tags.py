@@ -91,21 +91,24 @@ class GeneralTagsCommonTest(unittest.TestCase):
 class GeneralTagsTest(GeneralTagsCommonTest):
     def test_init(self):
         _tags = GeneralTags(self._tag_dictionary)
-        self.assertTrue(all(hasattr(_tags, kind) for kind in ["models", "datasets"]))
-        models = getattr(_tags, "models")
-        datasets = getattr(_tags, "datasets")
+        self.assertTrue(all(hasattr(_tags, kind) for kind in ["languages", "license"]))
+        languages = getattr(_tags, "languages")
+        licenses = getattr(_tags, "license")
         # Ensure they have the right bits
-        self.assertEquals(
-            models,
-            AttributeDictionary(
-                {"id": "itemA", "label": "Item A"}, {"id": "itemB", "label": "Item B"}
-            ),
+
+        self.assertEqual(
+            languages,
+            AttributeDictionary({"ItemA": "itemA", "ItemB": "itemB"}),
         )
-        self.assertEquals(
-            datasets, AttributeDictionary({"id": "itemD", "label": "Item D"})
+        self.assertEqual(
+            licenses, AttributeDictionary({"ItemC": "itemC", "ItemD": "itemD"})
         )
 
     def test_filter(self):
-        _tags = GeneralTags(self._tag_dictionary, keys=["models"])
-        self.assertTrue(hasattr(_tags, "models"))
-        self.assertFalse(hasattr(_tags, "datasets"))
+        _tags = GeneralTags(self._tag_dictionary, keys=["license"])
+        self.assertTrue(hasattr(_tags, "license"))
+        with self.assertRaises(AttributeError):
+            _ = getattr(_tags, "languages")
+        self.assertEqual(
+            _tags.license, AttributeDictionary({"ItemC": "itemC", "ItemD": "itemD"})
+        )
