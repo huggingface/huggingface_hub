@@ -51,7 +51,15 @@ class AttributeDictionary(dict):
 
 
 class GeneralTags(AttributeDictionary):
-    "A namespace object holding all model tags, filtered by `keys`"
+    """
+    A namespace object holding all model tags, filtered by `keys`
+
+    Args:
+        tag_dictionary (``dict``):
+            A dictionary of tags returned from the /api/***-tags-by-type api endpoint
+        keys (``list``):
+            A list of keys to unpack the `tag_dictionary` with, such as `["library","language"]`
+    """
 
     def __init__(self, tag_dictionary: dict, keys: list = None):
         self._tag_dictionary = tag_dictionary
@@ -70,7 +78,13 @@ class GeneralTags(AttributeDictionary):
 
 
 class ModelTags(GeneralTags):
-    "A namespace object holding all available model tags"
+    """
+    A namespace object holding all available model tags
+
+    Args:
+        model_tag_dictionary (``dict``):
+            A dictionary of valid model tags, returned from the /api/models-tags-by-type api endpoint
+    """
 
     def __init__(self, model_tag_dictionary: dict):
         keys = ["library", "language", "license", "dataset", "pipeline_tag"]
@@ -78,7 +92,13 @@ class ModelTags(GeneralTags):
 
 
 class DatasetTags(GeneralTags):
-    "A namespace object holding all available dataset tags"
+    """
+    A namespace object holding all available dataset tags
+
+    Args:
+        dataset_tag_dictionary (``dict``):
+            A dictionary of valid dataset tags, returned from the /api/datasets-tags-by-type api endpoint
+    """
 
     def __init__(self, dataset_tag_dictionary: dict):
         keys = [

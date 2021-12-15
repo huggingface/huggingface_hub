@@ -23,15 +23,6 @@ from huggingface_hub.utils.tags import (
     ModelTags,
 )
 
-from .testing_constants import (
-    ENDPOINT_STAGING,
-    ENDPOINT_STAGING_BASIC_AUTH,
-    FULL_NAME,
-    PASS,
-    TOKEN,
-    USER,
-)
-
 
 class AttributeDictionaryCommonTest(unittest.TestCase):
     _attrdict = AttributeDictionary()
