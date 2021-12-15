@@ -12,7 +12,7 @@
 """ Tagging utilities. """
 
 
-class AttrDict(dict):
+class AttributeDictionary(dict):
     "`dict` subclass that also provides access to keys as attrs"
 
     def __getattr__(self, k):
@@ -23,12 +23,18 @@ class AttrDict(dict):
 
     def __setattr__(self, k, v):
         (self.__setitem__, super().__setattr__)[k[0] == "_"](k, v)
+        
+    def __delattr__(self, k):
+        if k in self:
+            del self[k]
+        else:
+            raise AttributeError(k)
 
     def __dir__(self):
         return super().__dir__() + list(self.keys())
 
     def __repr__(self):
-        _ignore = [str(o) for o in dir(AttrDict())]
+        _ignore = [str(o) for o in dir(AttributeDictionary())]
         repr_str = "Available Attributes:\n"
         for o in dir(self):
             if (o not in _ignore) and not (o.startswith("_")):
@@ -36,7 +42,7 @@ class AttrDict(dict):
         return repr_str
 
 
-class GeneralTags(AttrDict):
+class GeneralTags(AttributeDictionary):
     "A namespace object holding all model tags, filtered by `keys`"
 
     def __init__(self, tag_dictionary: dict, keys: list = None):
@@ -48,7 +54,7 @@ class GeneralTags(AttrDict):
 
     def _unpack_and_assign_dictionary(self, key: str):
         "Assignes nested attr to `self.key` containing information as an `AttrDict`"
-        setattr(self, key, AttrDict())
+        setattr(self, key, AttributeDictionary())
         for item in self._tag_dictionary[key]:
             ref = getattr(self, key)
             item["label"] = item["label"].replace(" ", "").replace("-", "_")
