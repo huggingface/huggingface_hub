@@ -73,7 +73,7 @@ class ModelTags(GeneralTags):
     "A namespace object holding all available model tags"
 
     def __init__(self, model_tag_dictionary: dict):
-        keys = ["library", "language", "licence", "dataset", "pipeline_tag"]
+        keys = ["library", "language", "license", "dataset", "pipeline_tag"]
         super().__init__(model_tag_dictionary, keys)
 
 

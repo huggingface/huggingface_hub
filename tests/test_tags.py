@@ -14,12 +14,23 @@
 
 import unittest
 
-# import requests
-from huggingface_hub.utils.tags import AttributeDictionary, GeneralTags
+import requests
+from huggingface_hub.hf_api import HfApi
+from huggingface_hub.utils.tags import (
+    AttributeDictionary,
+    DatasetTags,
+    GeneralTags,
+    ModelTags,
+)
 
-
-# DatasetTags,
-# ModelTags,
+from .testing_constants import (
+    ENDPOINT_STAGING,
+    ENDPOINT_STAGING_BASIC_AUTH,
+    FULL_NAME,
+    PASS,
+    TOKEN,
+    USER,
+)
 
 
 class AttributeDictionaryCommonTest(unittest.TestCase):
@@ -79,11 +90,11 @@ class GeneralTagsCommonTest(unittest.TestCase):
     _tag_dictionary = {
         "languages": [
             {"id": "itemA", "label": "Item A"},
-            {"id": "itemB", "label": "Item B"},
+            {"id": "itemB", "label": "Item-B"},
         ],
         "license": [
             {"id": "itemC", "label": "Item C"},
-            {"id": "itemD", "label": "Item D"},
+            {"id": "itemD", "label": "Item-D"},
         ],
     }
 
@@ -98,10 +109,10 @@ class GeneralTagsTest(GeneralTagsCommonTest):
 
         self.assertEqual(
             languages,
-            AttributeDictionary({"ItemA": "itemA", "ItemB": "itemB"}),
+            AttributeDictionary({"ItemA": "itemA", "Item_B": "itemB"}),
         )
         self.assertEqual(
-            licenses, AttributeDictionary({"ItemC": "itemC", "ItemD": "itemD"})
+            licenses, AttributeDictionary({"ItemC": "itemC", "Item_D": "itemD"})
         )
 
     def test_filter(self):
@@ -110,5 +121,38 @@ class GeneralTagsTest(GeneralTagsCommonTest):
         with self.assertRaises(AttributeError):
             _ = getattr(_tags, "languages")
         self.assertEqual(
-            _tags.license, AttributeDictionary({"ItemC": "itemC", "ItemD": "itemD"})
+            _tags.license, AttributeDictionary({"ItemC": "itemC", "Item_D": "itemD"})
         )
+
+
+class ModelTagsTest(unittest.TestCase):
+    def test_tags(self):
+        _api = HfApi()
+        path = f"{_api.endpoint}/api/models-tags-by-type"
+        r = requests.get(path)
+        r.raise_for_status()
+        d = r.json()
+        o = ModelTags(d)
+        for kind in ["library", "language", "license", "dataset", "pipeline_tag"]:
+            self.assertTrue(len(getattr(o, kind).keys()) > 0)
+
+
+class DatasetTagsTest(unittest.TestCase):
+    def test_tags(self):
+        _api = HfApi()
+        path = f"{_api.endpoint}/api/datasets-tags-by-type"
+        r = requests.get(path)
+        r.raise_for_status()
+        d = r.json()
+        o = DatasetTags(d)
+        for kind in [
+            "languages",
+            "multilinguality",
+            "language_creators",
+            "task_categories",
+            "size_categories",
+            "benchmark",
+            "task_ids",
+            "licenses",
+        ]:
+            self.assertTrue(len(getattr(o, kind).keys()) > 0)
