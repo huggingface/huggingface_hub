@@ -65,7 +65,42 @@ class AttributeDictionaryTest(AttributeDictionaryCommonTest):
         self._attrdict.itemB = 3
         repr_string = "Available Attributes:\n * itemA\n * itemB\n"
         self.assertEqual(repr_string, repr(self._attrdict))
+
         
+class GeneralTagsCommonTest(unittest.TestCase):
+    # Similar to the output from /api/***-tags-by-type
+    _tag_dictionary = {
+        "models":[
+                {
+                    "id":"itemA", "label":"Item A"
+                },
+                {
+                    "id":"itemB", "label":"Item B"
+                },
+        ],
+        "datasets":[
+                {
+                    "id":"itemC", "label":"Item C"
+                },
+                {
+                    "id":"itemD", "label":"Item D"
+                },
+        ]
+    }
+
+class GeneralTagsTest(GeneralTagsCommonTest):
+    def test_init(self):
+        _tags = GeneralTags(self._tag_dictionary)
+        self.assertTrue(all(hasattr(_tags, kind) for kind in ["models","datasets"]))
+        models = getattr(_tags, 'models')
+        datasets = getattr(_tags, 'datasets')
+        # Ensure they have the right bits
+        self.assertEquals(models, AttributeDictionary({"id":"itemA", "label":"Item A"},{"id":"itemB", "label":"Item B"}))
+        self.assertEquals(datasets, AttributeDictionary({"id":"itemD","label":"Item D"}))
         
-        
+    def test_filter(self):
+        _tags = GeneralTags(self._tag_dictionary, keys=["models"])
+        self.assertTrue(hasattr(_tags, "models"))
+        self.assertFalse(hasattr(_tags, "datasets"))
+
         
