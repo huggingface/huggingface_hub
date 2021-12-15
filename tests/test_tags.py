@@ -69,8 +69,10 @@ class AttributeDictionaryTest(AttributeDictionaryCommonTest):
         
 class GeneralTagsCommonTest(unittest.TestCase):
     # Similar to the output from /api/***-tags-by-type
+    # id = how we can search hfapi, such as `'id': 'languages:en'`
+    # label = A human readable version assigned to everything, such as `"label":"en"`
     _tag_dictionary = {
-        "models":[
+        "languages":[
                 {
                     "id":"itemA", "label":"Item A"
                 },
@@ -78,7 +80,7 @@ class GeneralTagsCommonTest(unittest.TestCase):
                     "id":"itemB", "label":"Item B"
                 },
         ],
-        "datasets":[
+        "license":[
                 {
                     "id":"itemC", "label":"Item C"
                 },
