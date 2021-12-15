@@ -23,7 +23,7 @@ class AttributeDictionary(dict):
 
     def __setattr__(self, k, v):
         (self.__setitem__, super().__setattr__)[k[0] == "_"](k, v)
-        
+
     def __delattr__(self, k):
         if k in self:
             del self[k]
