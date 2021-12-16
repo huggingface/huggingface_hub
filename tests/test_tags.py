@@ -23,6 +23,8 @@ from huggingface_hub.utils.tags import (
     ModelTags,
 )
 
+from .testing_utils import with_production_testing
+
 
 class AttributeDictionaryCommonTest(unittest.TestCase):
     _attrdict = AttributeDictionary()
@@ -117,6 +119,7 @@ class GeneralTagsTest(GeneralTagsCommonTest):
 
 
 class ModelTagsTest(unittest.TestCase):
+    @with_production_testing
     def test_tags(self):
         _api = HfApi()
         path = f"{_api.endpoint}/api/models-tags-by-type"
@@ -129,6 +132,7 @@ class ModelTagsTest(unittest.TestCase):
 
 
 class DatasetTagsTest(unittest.TestCase):
+    @with_production_testing
     def test_tags(self):
         _api = HfApi()
         path = f"{_api.endpoint}/api/datasets-tags-by-type"
