@@ -9,8 +9,8 @@ from .hf_api import HfApi, HfFolder
 from .utils import logging
 
 
-REPO_ID_SEPARATOR = "__"
-# ^ make sure this substring is not allowed in repo_ids on hf.co
+REPO_ID_SEPARATOR = "--"
+# ^ this substring is not allowed in repo_ids on hf.co
 
 
 logger = logging.get_logger(__name__)
