@@ -1,9 +1,14 @@
-## Use Case: Domain Adaptation
-Masked language modeling is used to train large models for domain-specific problems.
-If you have to work on a domain-specific task such information retrieval from medical papers, you can train a masked language model from medical papers and then fine-tune on a downstream task, such as [Question Answering](/tasks/question-answering), to build a medical information extraction system. Pre-training on domain-specific data yields better results (see [this paper](https://arxiv.org/abs/2007.15779) for an example). You can also use a [domain-specific masked language model](https://huggingface.co/microsoft/BiomedNLP-PubMedBERT-base-uncased-abstract-fulltext) from the Hub and fine-tune on task-specific dataset as well.
+## Use Case: Domain Adaptation 👩‍⚕️
+Masked language models don't require labelled data, they're trained by masking a couple of words in the sentences and the model is expected to guess the masked word. This makes it very practical!
+
+For example, masked language modeling is used to train large models for domain-specific problems. If you have to work on a domain-specific task such as information retrieval from medical papers, you can train a masked language model using those papers. 📄
+
+The resulting model has a statistical understanding of the language used in medical papers, and it can be trained further in a process called fine-tuning to solve different tasks, such as [Text Classification](/tasks/text-classification) or [Question Answering](/tasks/question-answering) to build a medical papers information extraction system. 👩‍⚕️ Pre-training on domain-specific data yields better results (see [this paper](https://arxiv.org/abs/2007.15779) for an example).
+
+If you don't have the data to train a masked language model, you can also use an existing [domain-specific masked language model](https://huggingface.co/microsoft/BiomedNLP-PubMedBERT-base-uncased-abstract-fulltext) from the Hub and fine-tune with your smaller task dataset. That's the magic of Open Source and sharing your work! 🎉
 
 ## Inference with Fill-Mask Pipeline
-You can use “fill-mask” pipeline to infer with masked language models. If model name is not provided, the pipeline will be initialized with “distilroberta-base”. You can provide masked text and it will return list of possible mask values, ranked according to the score.
+You can use the `transformers` library `fill-mask` pipeline to do inference with masked language models. If a model name is not provided, the pipeline will be initialized with [distilroberta-base](/distilroberta-base). You can provide masked text, and it will return list of possible mask values, ranked according to the score.
 
 ```python
 from transformers import pipeline
@@ -13,6 +18,9 @@ classifier("Paris is the <mask> of France.")
 ```
 
 ## Useful Resources
+
+Would you like to learn more about the topic? Awesome! Here you can find some curated resources that can be helpful to you!
+
 - [Course Chapter on Fine-tuning a Masked Language Model](https://huggingface.co/course/chapter7/3?fw=pt)
 
 ### Notebooks
