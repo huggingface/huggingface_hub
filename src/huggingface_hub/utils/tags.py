@@ -9,7 +9,10 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-""" Tagging utilities. """
+""" 
+Helpful utility functions and classes in relation to exploring API endpoints
+with the aim for a user-friendly interface 
+"""
 
 
 class AttributeDictionary(dict):
@@ -43,16 +46,17 @@ class AttributeDictionary(dict):
             raise AttributeError(k)
 
     def __dir__(self):
-        keys = list(self.keys())
+        keys = sorted(self.keys())
         keys = [key for key in keys if not key[0].isdigit()]
         return super().__dir__() + keys
 
     def __repr__(self):
-        _ignore = [str(o) for o in dir(AttributeDictionary())]
-        repr_str = "Available Attributes:\n"
-        for o in dir(self):
-            if (o not in _ignore) and not (o.startswith("_")):
-                repr_str += f" * {o}\n"
+        repr_str = "Available Attributes or Keys:\n"
+        for key in sorted(self.keys()):
+            repr_str += f" * {key}"
+            if key[0].isdigit():
+                repr_str += " (Key only)"
+            repr_str += f"\n"
         return repr_str
 
 

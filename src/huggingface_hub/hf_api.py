@@ -420,7 +420,7 @@ class HfApi:
 
     def get_model_tags(self) -> ModelTags:
         "Gets all valid model tags as a nested namespace object"
-        path = f"{api.endpoint}/api/models-tags-by-type"
+        path = f"{self.endpoint}/api/models-tags-by-type"
         r = requests.get(path)
         r.raise_for_status()
         d = r.json()
@@ -428,7 +428,7 @@ class HfApi:
 
     def get_dataset_tags(self) -> DatasetTags:
         "Gets all valid dataset tags as a nested namespace object"
-        path = f"{api.endpoint}/api/datasets-tags-by-type"
+        path = f"{self.endpoint}/api/datasets-tags-by-type"
         r = requests.get(path)
         r.raise_for_status()
         d = r.json()
