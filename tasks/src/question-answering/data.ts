@@ -2,6 +2,7 @@ import type { TaskData } from "../Types";
 
 import { PipelineType } from "../../../widgets/src/lib/interfaces/Types";
 import { TASKS_MODEL_LIBRARIES } from "../const";
+import { answers } from "../../../../views/components/Question/stores";
 
 const taskData: TaskData = {
 	datasets: [
@@ -20,14 +21,12 @@ const taskData: TaskData = {
 		inputs: [
 			{
 				label:   "Question",
-				content:
-						"Which name is also used to describe the Amazon rainforest in English?",
+				content: "Which name is also used to describe the Amazon rainforest in English?",
 				type: "text",
 			},
 			{
 				label:   "Context",
-				content:
-						"The Amazon rainforest, also known in English as Amazonia or the Amazon Jungle",
+				content: "The Amazon rainforest, also known in English as Amazonia or the Amazon Jungle",
 				type: "text",
 			},
 		],
@@ -54,17 +53,18 @@ const taskData: TaskData = {
 	],
 	models: [
 		{
-			description: "A BERT-like model that has been trained on SQuAD. A strong baseline model for most question answering domains.",
+			description: "A strong baseline model for most question answering domains.",
 			id:          "deepset/roberta-base-squad2",
 		},
 		{
-			description: "A special Transformer model designed to answer questions over tabular data.",
+			description: "A special model that can answer questions from tables!",
 			id:          "google/tapas-base-finetuned-wtq",
 		},
 	],
-	summary:      "Question answering is a natural language understanding task. Question answering models allow users to search for an answer in a document. Question answering models take a context and a question and output the answer.",
+	summary:      "Question Answering models are able to retrieve the answer of question from a given text, which is useful to search for an answer in a document. Some question answering models can event generate answers without a context!",
 	widgetModels: ["deepset/roberta-base-squad2"],
 	youtubeId:    "ajPx5LwJD-I",
 };
+
 
 export default taskData;
