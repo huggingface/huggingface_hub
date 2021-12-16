@@ -69,6 +69,11 @@ class AttributeDictionaryTest(AttributeDictionaryCommonTest):
         full_dir.sort()
         self.assertEqual(full_dir, _dict_keys)
 
+    def test_dir_with_numbers(self):
+        self._attrdict["1a"] = 4
+        self.assertFalse("1a" in dir(self._attrdict))
+        self.assertTrue("1a" in list(self._attrdict.keys()))
+
     def test_repr(self):
         self._attrdict["itemA"] = 2
         self._attrdict.itemB = 3
@@ -83,11 +88,11 @@ class GeneralTagsCommonTest(unittest.TestCase):
     _tag_dictionary = {
         "languages": [
             {"id": "itemA", "label": "Item A"},
-            {"id": "itemB", "label": "Item-B"},
+            {"id": "itemB", "label": "1Item-B"},
         ],
         "license": [
             {"id": "itemC", "label": "Item C"},
-            {"id": "itemD", "label": "Item-D"},
+            {"id": "itemD", "label": "Item.D"},
         ],
     }
 
@@ -102,8 +107,11 @@ class GeneralTagsTest(GeneralTagsCommonTest):
 
         self.assertEqual(
             languages,
-            AttributeDictionary({"ItemA": "itemA", "Item_B": "itemB"}),
+            AttributeDictionary({"ItemA": "itemA", "1Item_B": "itemB"}),
         )
+
+        self.assertTrue("1Item_B" not in dir(languages))
+
         self.assertEqual(
             licenses, AttributeDictionary({"ItemC": "itemC", "Item_D": "itemD"})
         )
