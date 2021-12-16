@@ -9,9 +9,9 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-""" 
+"""
 Helpful utility functions and classes in relation to exploring API endpoints
-with the aim for a user-friendly interface 
+with the aim for a user-friendly interface
 """
 
 
@@ -56,7 +56,7 @@ class AttributeDictionary(dict):
             repr_str += f" * {key}"
             if key[0].isdigit():
                 repr_str += " (Key only)"
-            repr_str += f"\n"
+            repr_str += "\n"
         return repr_str
 
 
