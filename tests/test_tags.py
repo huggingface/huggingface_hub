@@ -77,7 +77,10 @@ class AttributeDictionaryTest(AttributeDictionaryCommonTest):
     def test_repr(self):
         self._attrdict["itemA"] = 2
         self._attrdict.itemB = 3
-        repr_string = "Available Attributes:\n * itemA\n * itemB\n"
+        self._attrdict["1a"] = 2
+        repr_string = (
+            "Available Attributes or Keys:\n * 1a (Key only)\n * itemA\n * itemB\n"
+        )
         self.assertEqual(repr_string, repr(self._attrdict))
 
 
