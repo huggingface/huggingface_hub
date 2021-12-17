@@ -45,11 +45,11 @@ class AttributeDictionaryTest(AttributeDictionaryCommonTest):
 
     def test_removing_item(self):
         self._attrdict["itemA"] = 2
-        self._attrdict.itemB = 3
         delattr(self._attrdict, "itemA")
         with self.assertRaises(KeyError):
             _ = self._attrdict["itemA"]
 
+        self._attrdict.itemB = 3
         del self._attrdict["itemB"]
         with self.assertRaises(AttributeError):
             _ = self._attrdict.itemB
@@ -79,10 +79,11 @@ class AttributeDictionaryTest(AttributeDictionaryCommonTest):
 
     def test_dir_with_special_characters(self):
         self._attrdict["1<2"] = 3
-        self._attrdict["?abc"] = 4
         self.assertFalse("1<2" in dir(self._attrdict))
-        self.assertFalse("?abc" in dir(self._attrdict))
         self.assertTrue("1<2" in list(self._attrdict.keys()))
+
+        self._attrdict["?abc"] = 4
+        self.assertFalse("?abc" in dir(self._attrdict))
         self.assertTrue("?abc" in list(self._attrdict.keys()))
 
     def test_repr(self):
