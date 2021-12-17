@@ -18,7 +18,7 @@ const taskData: TaskData = {
 		inputs: [
 			{
 				label:   "Input",
-				content: "The goal of life is [MASK].",
+				content: "The <mask> barked at me",
 				type:    "text",
 			},
 			
@@ -28,24 +28,24 @@ const taskData: TaskData = {
 				"type": "chart",
 				data: [
 					{
-						"label": "life",
-						"score": 0.10933306068181992
+						"label": "wolf",
+						"score": 0.487
 					},
 					{
-						"label": "survival",
-						"score": 0.039418820291757584
+						"label": "dog",
+						"score": 0.061
 					},
 					{
-						"label": "love",
-						"score": 0.032930586487054825
+						"label": "cat",
+						"score": 0.058
 					},
 					{
-						"label": "freedom",
-						"score": 0.03009609691798687
+						"label": "fox",
+						"score": 0.047
 					},
 					{
-						"label": "simplicity",
-						"score": 0.02496715635061264
+						"label": "squirrel",
+						"score": 0.025
 					}
 				]
 			},
@@ -74,8 +74,8 @@ const taskData: TaskData = {
 			id:          "xlm-roberta-base",
 		},
 	],
-	summary:      "Masked language modeling is the task of predicting which words should fill in the blanks of a sentence. The task doesn’t require labelled data, it’s trained by masking a couple of words in the sentences and model is expected to guess the masked word.",
-	widgetModels: ["bert-base-uncased"],
+	summary:      "Masked language modeling is the task of predicting which words should fill in the blanks of a sentence. These models are useful as they get a statistical understanding of the language in which they were trained.",
+	widgetModels: ["distilroberta-base"],
 	youtubeId:    "mqElG5QJWUg",
 };
 
