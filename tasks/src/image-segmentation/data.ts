@@ -49,7 +49,7 @@ const taskData: TaskData = {
 			id:          "facebook/detr-resnet-50-panoptic",
 		}
 	],
-	summary:      "Image segmentation task is to divide an image to segments, where every pixel in the image is assigned to an object. This task has multiple variants, instance segmentation, panoptic segmentation and semantic segmentation.",
+	summary:      "Image segmentation is to divide an image to segments, where every pixel in the image is assigned to an object. This task has multiple variants, instance segmentation, panoptic segmentation and semantic segmentation.",
 	widgetModels: ["facebook/detr-resnet-50"],
 	youtubeId:    "",
 };

@@ -34,7 +34,7 @@ data = query(
 ```
 
 ### Semantic Textual Similarity
-Semantic textual similarity is the task of assessing how similar two texts are. The task is evaluated on Pearson’s Rank Correlation. Semantic textual similarity models take one source sentence and a list of sentences that we will look for similarity in and return a list of similarity scores. The benchmark dataset is the [Semantic Textual Similarity Benchmark](http://ixa2.si.ehu.eus/stswiki/index.php/STSbenchmark).
+Semantic textual similarity is the task of assessing how similar two texts are by means of meaning. The task is evaluated on Pearson’s Rank Correlation. These models take one source sentence and a list of sentences that we will look for similarity in and return a list of similarity scores. The benchmark dataset is the [Semantic Textual Similarity Benchmark](http://ixa2.si.ehu.eus/stswiki/index.php/STSbenchmark).
 
 ```python
 import json

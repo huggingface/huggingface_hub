@@ -12,6 +12,7 @@ Translation models are loaded with “translation_xx_to_yy” pattern where xx i
 from transformers import pipeline
 en_fr_translator = pipeline("translation_en_to_fr")
 en_fr_translator("How old are you?")
+## [{'translation_text': ' quel âge êtes-vous?'}]
 ```
 
 If you’d like to use a specific model checkpoint that is from one specific language to another, you can also directly use the “translation” pipeline. 
@@ -22,9 +23,8 @@ from transformers import pipeline
 model_checkpoint = "Helsinki-NLP/opus-mt-en-fr"
 translator = pipeline("translation", model=model_checkpoint)
 translator("How are you?")
-
+# [{'translation_text': 'Comment allez-vous ?'}]
 ```
-
 
 
 ## Useful Resources
