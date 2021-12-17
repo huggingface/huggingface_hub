@@ -47,14 +47,14 @@ class AttributeDictionary(dict):
 
     def __dir__(self):
         keys = sorted(self.keys())
-        keys = [key for key in keys if not key[0].isdigit()]
+        keys = [key for key in keys if key.replace("_", "").isalpha()]
         return super().__dir__() + keys
 
     def __repr__(self):
         repr_str = "Available Attributes or Keys:\n"
         for key in sorted(self.keys()):
             repr_str += f" * {key}"
-            if key[0].isdigit():
+            if not key.replace("_", "").isalpha():
                 repr_str += " (Key only)"
             repr_str += "\n"
         return repr_str

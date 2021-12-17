@@ -31,6 +31,9 @@ class AttributeDictionaryCommonTest(unittest.TestCase):
 
 
 class AttributeDictionaryTest(AttributeDictionaryCommonTest):
+    def setUp(self):
+        self._attrdict.clear()
+
     def test_adding_item(self):
         self._attrdict["itemA"] = 2
         self.assertEqual(self._attrdict.itemA, 2)
@@ -74,13 +77,20 @@ class AttributeDictionaryTest(AttributeDictionaryCommonTest):
         self.assertFalse("1a" in dir(self._attrdict))
         self.assertTrue("1a" in list(self._attrdict.keys()))
 
+    def test_dir_with_special_characters(self):
+        self._attrdict["1<2"] = 3
+        self._attrdict["?abc"] = 4
+        self.assertFalse("1<2" in dir(self._attrdict))
+        self.assertFalse("?abc" in dir(self._attrdict))
+        self.assertTrue("1<2" in list(self._attrdict.keys()))
+        self.assertTrue("?abc" in list(self._attrdict.keys()))
+
     def test_repr(self):
         self._attrdict["itemA"] = 2
         self._attrdict.itemB = 3
         self._attrdict["1a"] = 2
-        repr_string = (
-            "Available Attributes or Keys:\n * 1a (Key only)\n * itemA\n * itemB\n"
-        )
+        self._attrdict["itemA?"] = 4
+        repr_string = "Available Attributes or Keys:\n * 1a (Key only)\n * itemA\n * itemA? (Key only)\n * itemB\n"
         self.assertEqual(repr_string, repr(self._attrdict))
 
 
