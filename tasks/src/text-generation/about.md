@@ -42,7 +42,7 @@ text2text_generator(“Is this review positive or negative? Review: this is the 
 ## [{"generated_text": "positive"}]
 
 text2text_generator(“Reorder the words in this sentence: justin and name bieber years is my am I 27 old.”)
-##  [{"generated_text": "justin bieber is my name and i am 27 years old"}]
+##  [{"generated_text": "Justin Bieber is my name and I am 27 years old"}]
 ```
 
 

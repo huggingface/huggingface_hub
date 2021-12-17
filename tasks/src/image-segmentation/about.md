@@ -52,7 +52,7 @@ model = pipeline("image-segmentation")
 model("cat.png")
 #[{'label': 'cat',
 #  'mask': mask_code,
-#  'score': 0.9991301894187927}
+#  'score': 0.999}
 # ...]
 ```
 

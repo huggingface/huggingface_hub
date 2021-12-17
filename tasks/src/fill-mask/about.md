@@ -1,9 +1,9 @@
 ## Use Case: Domain Adaptation 👩‍⚕️
 Masked language models don't require labelled data, they're trained by masking a couple of words in the sentences and the model is expected to guess the masked word. This makes it very practical!
 
-For example, masked language modeling is used to train large models for domain-specific problems. If you have to work on a domain-specific task such as information retrieval from medical papers, you can train a masked language model using those papers. 📄
+For example, masked language modeling is used to train large models for domain-specific problems. If you have to work on a domain-specific task such as information retrieval from medical research papers, you can train a masked language model using those papers. 📄
 
-The resulting model has a statistical understanding of the language used in medical papers, and it can be trained further in a process called fine-tuning to solve different tasks, such as [Text Classification](/tasks/text-classification) or [Question Answering](/tasks/question-answering) to build a medical papers information extraction system. 👩‍⚕️ Pre-training on domain-specific data yields better results (see [this paper](https://arxiv.org/abs/2007.15779) for an example).
+The resulting model has a statistical understanding of the language used in medical research papers, and it can be trained further in a process called fine-tuning to solve different tasks, such as [Text Classification](/tasks/text-classification) or [Question Answering](/tasks/question-answering) to build a medical research papers information extraction system. 👩‍⚕️ Pre-training on domain-specific data yields better results (see [this paper](https://arxiv.org/abs/2007.15779) for an example).
 
 If you don't have the data to train a masked language model, you can also use an existing [domain-specific masked language model](https://huggingface.co/microsoft/BiomedNLP-PubMedBERT-base-uncased-abstract-fulltext) from the Hub and fine-tune with your smaller task dataset. That's the magic of Open Source and sharing your work! 🎉
 

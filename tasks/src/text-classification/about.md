@@ -27,7 +27,7 @@ from transformers import pipeline
 
 classifier = pipeline("text-classification", model = "roberta-large-mnli")
 classifier("A soccer game with multiple males playing. Some men are playing a sport.")
-## [{'label': 'ENTAILMENT', 'score': 0.9883741140365601}]
+## [{'label': 'ENTAILMENT', 'score': 0.98}]
 ```
 
 ### Question Natural Language Inference
@@ -49,7 +49,7 @@ from transformers import pipeline
 
 classifier = pipeline("text-classification", model = "cross-encoder/qnli-electra-base")
 classifier("Where is the capital of France?, Paris is the capital of France.")
-# [{'label': 'LABEL_0', 'score': 0.9978110194206238}] 
+# [{'label': 'entailment', 'score': 0.997}] 
 ```
 
 ### Winograd Natural Language Inference
@@ -72,11 +72,11 @@ from transformers import pipeline
 
 classifier = pipeline("text-classification", model = "textattack/bert-base-uncased-WNLI")
 classifier("I put the cake away in the refrigerator. It has a lot of butter in it., The refrigerator has a lot of butter in it.")
-## [{'label': 'LABEL_0', 'score': 0.5290462970733643}]
+## [{'label': 'entailment', 'score': 0.529}]
 ```
 
 ### Sentiment Analysis
-Sentiment Analysis is the task of determining the sentiment of a text. The classes can be positive, negative, neutral or sentiments. The task is evaluated on Stanford Sentiment Treebank.
+Sentiment Analysis is determining the sentiment of a given text. The classes can be polarities like positive, negative, neutral, or sentiments like happiness, anger. The task is evaluated on Stanford Sentiment Treebank.
 There are variants of the sentiment analysis task. Aspect based sentiment analysis is the task of evaluating the aspect of an attribute of an entity, this can be a product review, where different aspects can be included in the same text. 
 ```
 I would recommend the product, it is good quality but the price is high. 
@@ -91,7 +91,7 @@ from transformers import pipeline
 
 classifier = pipeline("sentiment-analysis")
 classifier("I loved Star Wars so much!") 
-##  [{'label': 'POSITIVE', 'score': 0.999840259552002}
+##  [{'label': 'POSITIVE', 'score': 0.99}
 ```
 
 ### Quora Question Pairs
@@ -111,7 +111,7 @@ from transformers import pipeline
 
 classifier = pipeline("text-classification", model = "textattack/bert-base-uncased-QQP")
 classifier("Which city is the capital of France?, Where is the capital of France?")
-## [{'label': 'LABEL_0', 'score': 0.9988721013069153}]
+## [{'label': 'entailment', 'score': 0.998}]
 ```
 
 ### Linguistic Acceptibility
@@ -130,7 +130,7 @@ from transformers import pipeline
 
 classifier = pipeline("text-classification", model = "textattack/distilbert-base-uncased-CoLA")
 classifier("I will walk to home when I went through the bus.")
-##  [{'label': 'LABEL_1', 'score': 0.9576480388641357}]
+##  [{'label': 'unacceptable', 'score': 0.95}]
 ```
 
 

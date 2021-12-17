@@ -30,7 +30,7 @@ data = query(
             ]
         }
     }
-## [0.853405773639679, 0.9814600944519043, 0.6550564765930176]
+## [0.853, 0.981, 0.655]
 ```
 
 ### Semantic Textual Similarity
@@ -55,7 +55,7 @@ data = query(
         }
     })
 
-## [0.6058085560798645, 0.8944037556648254]
+## [0.605, 0.894]
 ```
 You can also infer with the models in the Hub through sentence-transformers.
 

@@ -52,7 +52,7 @@ const taskData: TaskData = {
 			id:          "google/bigbird-pegasus-large-pubmed",
 		},
 	],
-	summary:      "Summarization is the task of producing a shorter version of a document while preserving the relevant and important information in the document. Summarization models have variants, being, extractive text summarization and abstractive text summarization. In extractive text summarization, we take the original text and extract important sentences instead, meanwhile, abstractive text summarization generates new text based on the original text.",
+	summary:      "Summarization is producing a shorter version of a document while preserving the relevant and important information in the document. Summarization models have two variants, one is extractive text summarization, where the model takes the original text and extracts important sentences, and abstractive text summarization, where the model generates new text based on the original text.",
 	widgetModels: ["sshleifer/distilbart-cnn-12-6"],
 	youtubeId:    "yHnr5Dk2zCI",
 };
