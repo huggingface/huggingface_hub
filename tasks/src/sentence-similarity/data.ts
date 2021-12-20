@@ -83,7 +83,7 @@ const taskData: TaskData = {
 			id:          "clips/mfaq",
 		},
 	],
-	summary:      "Sentence similarity is to determine the similarity between two texts. Sentence similarity models take two text and turn them into embeddings and calculate the similarity between two embeddings, this similarity is in cosine similarity. This task is particularly useful for semantic search and clustering. Sentence similarity has various subtasks, such as passage ranking or semantic textual similarity. ",
+	summary:      "Sentence similarity is the task of determining how similar two texts are. Sentence similarity models take two text and turn them into embeddings and calculate the similarity between two embeddings, this similarity is in cosine similarity. This task is particularly useful for semantic search and clustering. Sentence similarity has various subtasks, such as passage ranking or semantic textual similarity.",
 	widgetModels: ["sentence-transformers/all-MiniLM-L6-v2"],
 	youtubeId:    "",
 };
