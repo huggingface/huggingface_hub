@@ -53,7 +53,7 @@ from .hf_api import (
     repo_type_and_id_from_hf_id,
     update_repo_visibility,
     upload_file,
-    whoami
+    whoami,
 )
 from .hub_mixin import ModelHubMixin, PyTorchModelHubMixin
 from .inference_api import InferenceApi
