@@ -612,6 +612,7 @@ class HfApiPublicTest(unittest.TestCase):
         models = _api.list_models_from_filter(f)
         self.assertGreater(1, len(models))
         f = ModelFilter("microsoft", model_name="wavlm-base-sd", framework="pytorch")
+        models = _api.list_models_from_filter(f)
         self.assertGreater(len(models), 0)
 
     @with_production_testing
