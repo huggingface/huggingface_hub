@@ -20,6 +20,7 @@
 	import IconTextClassification from "../Icons/IconTextClassification.svelte";
 	import IconTextGeneration from "../Icons/IconTextGeneration.svelte";
 	import IconTextToImage from "../Icons/IconTextToImage.svelte";
+	import IconImageToText from "../Icons/IconImageToText.svelte";
 	import IconTextToSpeech from "../Icons/IconTextToSpeech.svelte";
 	import IconTokenClassification from "../Icons/IconTokenClassification.svelte";
 	import IconTranslation from "../Icons/IconTranslation.svelte";
@@ -39,6 +40,7 @@
 		"table-question-answering": IconTableQuestionAnswering,
 		"question-answering": IconQuestionAnswering,
 		"zero-shot-classification": IconZeroShotClassification,
+		"image-to-text": IconImageToText,
 		translation: IconTranslation,
 		summarization: IconSummarization,
 		conversational: IconConversational,
