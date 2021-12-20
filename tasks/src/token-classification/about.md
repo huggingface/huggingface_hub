@@ -1,4 +1,5 @@
 ## Use Cases 
+
 ### Information Extraction from Invoices
 You can extract important entities from invoices automatically using Named Entity Recognition models. Invoices can be read with Optical Character Recognition models, and the output of this can be used to do inference with Named Entity Recognition models. This way, important information, such as date, company name and other named entities can be extracted.
 

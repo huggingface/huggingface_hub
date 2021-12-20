@@ -21,30 +21,7 @@ Instance segmentation is the variant of image segmentation where every distinct 
 Panoptic Segmentation is the image segmentation task that segments the image both instance-wise and class-wise, it has assigns every pixel a distinct instance of the class.
 
 ## Inference
-You can infer with the image segmentation models using [The Inference API](https://huggingface.co/inference-api) or image-segmentation pipeline.
-
-```python
-import json
-import requests
-
-headers = {"Authorization": f"Bearer {API_TOKEN}"}
-API_URL = f"https://api-inference.huggingface.co/models/{model_id}"
-
-def query(*filename*):
-    with open(filename, "rb") as f:
-        data = f.read()
-
-    response = requests.request("POST", API_URL, headers=headers, data=data)
-    return json.loads(response.content.decode("utf-8"))
-
-data = query(path_to_image)
-
-## [{'label': 'Cat',
-## 'mask': mask_code,
-## 'score': 1.0},
-## ...]
-```
-To use the image-segmentation pipeline, you need to install [timm](https://github.com/rwightman/pytorch-image-models) first. 
+You can infer with the image segmentation models using image-segmentation pipeline, to use the  pipeline, you need to install [timm](https://github.com/rwightman/pytorch-image-models) first. 
 
 ```python
 !pip install timm
@@ -52,7 +29,7 @@ model = pipeline("image-segmentation")
 model("cat.png")
 #[{'label': 'cat',
 #  'mask': mask_code,
-#  'score': 0.9991301894187927}
+#  'score': 0.999}
 # ...]
 ```
 

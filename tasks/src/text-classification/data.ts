@@ -65,7 +65,7 @@ const taskData: TaskData = {
 			id:          "roberta-large-mnli",
 		},
 	],
-	summary:      "Text Classification is the task of classifying a text. There are various text classification tasks, such as Natural Language Inference, Sentiment Analysis and Linguistic Acceptibility. ",
+	summary:      "Text Classification is the task of classifying a text. There are various text classification tasks, such as Natural Language Inference, Sentiment Analysis and Linguistic Acceptibility.",
 	widgetModels: ["distilbert-base-uncased-finetuned-sst-2-english"],
 	youtubeId:    "",
 };

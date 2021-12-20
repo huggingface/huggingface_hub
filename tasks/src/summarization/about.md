@@ -1,7 +1,7 @@
 ## Use Cases 
 
 ### Research Paper Summarization
-Research papers can be summarized to enable researchers spend less time on selecting papers to be read among a list of papers. You can directly infer with an already existing extractive summarization model on the Hugging Face Hub and this way you can get the summaries of each paper. You can also take a BERT-like (encoder-only) model from the Hugging Face Hub and fine-tune on biomedical text and then fine-tune on summarization task. You can also use sequence-to-sequence models like T5 for abstractive text summarization.
+Research papers can be summarized to enable researchers spend less time on selecting papers to be read among a list of papers. You can directly infer with an already existing extractive summarization model on the Hugging Face Hub and get the summaries of each paper. You can also take a model like BERT from the Hugging Face Hub and fine-tune on biomedical text and then further fine-tune on summarization task. You can also use sequence-to-sequence models like T5 for abstractive text summarization.
 
 ## Inference
 You can use “summarization” pipeline to infer with the summarization models. Summarization pipeline returns a json with the summarized text. If no model name is provided, pipeline will be initialized with [sshleifer/distilbart-cnn-12-6](https://huggingface.co/sshleifer/distilbart-cnn-12-6).
