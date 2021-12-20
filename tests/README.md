@@ -11,4 +11,4 @@ To run the test suite, please perform the following from the root directory of t
     
 3. `HUGGINGFACE_CO_STAGING=1 pytest -sv ./tests/`
     
-    We need to set an environmental variable to make sure the private API tests can run. 
+      We need to set an environmental variable to make sure the private API tests can run. 
