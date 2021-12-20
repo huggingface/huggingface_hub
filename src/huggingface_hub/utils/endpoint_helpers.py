@@ -14,6 +14,82 @@ Helpful utility functions and classes in relation to exploring API endpoints
 with the aim for a user-friendly interface
 """
 
+from dataclasses import dataclass
+from typing import List, Union
+
+
+@dataclass
+class ModelFilter:
+    """A class that converts human-readable model search parameters into ones compatible with
+    the REST API. For all parameters capitalization does not matter.
+
+    Args:
+        author_or_organization (:obj:`str` or :class:`List`, `optional`):
+            A string or list of strings that can be used to identify models on the hub
+            by the original uploader, such as `facebook` or `huggingface`
+            Example usage:
+
+                >>> from huggingface_hub import Filter
+                >>> new_filter = Filter(author_or_organization="facebook")
+
+         framework (:obj:`str` or :class:`List`, `optional`):
+            A string or list of strings of foundational library frameworks models were originally trained from,
+            such as pytorch, tensorflow, or allennlp
+            Example usage:
+
+                >>> new_filter = Filter(framework="pytorch")
+
+         language (:obj:`str` or :class:`List`, `optional`):
+            A string or list of strings of languages, both by name
+            and country code, such as "en" or "English"
+            Example usage:
+
+                >>> new_filter = Filter(language="french")
+
+         model_name (:obj:`str` or :class:`List`, `optional`):
+            A string or list of strings that contain complete or partial names for models on the hub,
+            such as "bert" or "bert-base-cased"
+            Example usage:
+
+                >>> new_filter = Filter(model_name="bert")
+
+
+         task (:obj:`str` or :class:`List`, `optional`):
+            A string or list of strings of tasks models were designed for,
+            such as: "fill-mask" or "automatic-speech-recognition"
+            Example usage:
+
+                >>> new_filter = Filter(task="text-classification")
+
+         tags (:obj:`str` or :class:`List`, `optional`):
+            A string tag or a list of tags to filter models on the hub by,
+            such as `text-generation` or `spacy`. For a full list of tags do:
+                >>> from huggingface_hub import HfApi
+                >>> api = HfApi()
+                # To list model tags
+                >>> api.get_model_tags()
+                # To list dataset tags
+                >>> api.get_dataset_tags()
+
+            Example usage:
+                >>> new_filter = Filter(tags="benchmark:raft")
+
+        trained_dataset (:obj:`str`, `optional`):
+            A string tag of the trained dataset for a model.
+            Example usage:
+                >>> new_filter = Filter(trained_dataset="common_voice")
+
+    """
+
+    author_or_organization: str = None
+    carbon_emissions_threshold: str = None
+    framework: str = None
+    language: str = None
+    model_name: str = None
+    task: str = None
+    trained_dataset: str = None
+    tags: Union[str, List[str]] = None
+
 
 class AttributeDictionary(dict):
     """

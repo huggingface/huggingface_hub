@@ -44,6 +44,7 @@ from .hf_api import (
     list_datasets,
     list_metrics,
     list_models,
+    list_models_from_filter,
     list_repo_files,
     list_repos_objs,
     login,
@@ -65,3 +66,4 @@ from .keras_mixin import (
 from .repository import Repository
 from .snapshot_download import snapshot_download
 from .utils import logging
+from .utils.enpoint_helpers import ModelFilter

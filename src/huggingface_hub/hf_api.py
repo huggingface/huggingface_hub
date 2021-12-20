@@ -32,7 +32,7 @@ from .constants import (
     REPO_TYPES_URL_PREFIXES,
     SPACES_SDK_TYPES,
 )
-from .utils.tags import DatasetTags, ModelTags
+from .utils.endpoint_helpers import DatasetTags, ModelFilter, ModelTags
 
 
 if sys.version_info >= (3, 8):
@@ -502,6 +502,85 @@ class HfApi:
         if fetch_config is not None:
             params.update({"config": fetch_config})
         r = requests.get(path, params=params)
+        r.raise_for_status()
+        d = r.json()
+        return [ModelInfo(**x) for x in d]
+
+    def list_models_from_filter(self, model_filter: ModelFilter):
+        """
+        Get the public list of all the models on huggingface.co based on a `ModelFilter`
+        Args:
+            model_filter (:obj: `ModelFilter`):
+                An Enum class which handles storing of query information
+                Example usage:
+
+                    >>> from huggingface_hub import HfApi, ModelFilter
+                    >>> api = HfApi()
+
+                    >>> # List only the text classification models
+                    >>> f = ModelFilter(task="text-classification")
+                    >>> api.list_models_from_filter(filter=f)
+
+                    >>> # List only the russian models compatible with pytorch
+                    >>> f = ModelFilter(language="ru", framework="pytorch")
+                    >>> api.list_models_from_filter(filter=f)
+
+                    >>> # List only the models trained on the "common_voice" dataset
+                    >>> f = ModelFilter(trained_dataset="common_voice")
+                    >>> api.list_models_from_filter(filter=f)
+
+                    >>> # List only the models from the AllenNLP library
+                    >>> f = ModelFilter(framework="allennlp")
+                    >>> api.list_models_from_filter(f)
+        """
+        path = f"{self.api.endpoint}/api/models"
+        query_str, model_str = "", ""
+        tags = []
+
+        # Handling author or organization
+        if model_filter.author_or_organization is not None:
+            model_str = model_filter.author_or_organization
+            if not query_str.endswith("/"):
+                model_str += "/"
+
+        # Handling model_name
+        if model_filter.model_name is not None:
+            model_str += model_filter.model_name
+
+        filter_tuple = []
+
+        # Handling tasks
+        if model_filter.task is not None:
+            filter_tuple.append(model_filter.task)
+
+        # Handling dataset
+        if model_filter.trained_dataset is not None:
+            filter_tuple.append(model_filter.trained_dataset)
+
+        # Handling framework
+        if model_filter.framework:
+            filter_tuple.append(model_filter.framework)
+
+        # Handling tags
+        if model_filter.tags:
+            if not isinstance(model_filter.tags, list):
+                tags.append(model_filter.tags)
+            else:
+                tags += model_filter.tags
+
+        query_dict = {}
+        if model_str is not None:
+            query_dict["search"] = model_str
+        if model_filter.carbon_emissions_threshold is not None:
+            filter_tuple.append("co2_eq_emissions")
+            # We need to post process for carbon emissions checking
+        if len(tags) > 0:
+            query_dict["tags"] = tags
+        if model_filter.language is not None:
+            filter_tuple.append(model_filter.language)
+        query_dict["filter"] = tuple(filter_tuple)
+
+        r = requests.get(path, params=query_dict)
         r.raise_for_status()
         d = r.json()
         return [ModelInfo(**x) for x in d]
@@ -1162,6 +1241,7 @@ logout = api.logout
 whoami = api.whoami
 
 list_models = api.list_models
+list_models_from_filter = api.list_models_from_filter
 model_info = api.model_info
 list_repo_files = api.list_repo_files
 list_repos_objs = api.list_repos_objs
