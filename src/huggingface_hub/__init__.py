@@ -53,7 +53,7 @@ from .hf_api import (
     repo_type_and_id_from_hf_id,
     update_repo_visibility,
     upload_file,
-    whoami,
+    whoami
 )
 from .hub_mixin import ModelHubMixin, PyTorchModelHubMixin
 from .inference_api import InferenceApi
@@ -66,4 +66,4 @@ from .keras_mixin import (
 from .repository import Repository
 from .snapshot_download import snapshot_download
 from .utils import logging
-from .utils.enpoint_helpers import ModelFilter
+from .utils.endpoint_helpers import ModelFilter
