@@ -77,7 +77,7 @@ const taskData: TaskData = {
 			id:          "facebook/deit-base-distilled-patch16-224",
 		},
 	],
-	summary:      "Image classification is the task of classifying an entire image. The images are expected to have only one class instance in one image. Image classification models take an image as input and return class labels.",
+	summary:      "Image classification is the task of assigning a class to an entire image. The images are expected to have only one class instance in one image. Image classification models take an image as input and return class labels.",
 	widgetModels: ["google/vit-base-patch16-224"],
 	youtubeId:    "",
 };
