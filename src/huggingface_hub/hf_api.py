@@ -533,7 +533,7 @@ class HfApi:
                     >>> f = ModelFilter(framework="allennlp")
                     >>> api.list_models_from_filter(f)
         """
-        path = f"{self.api.endpoint}/api/models"
+        path = f"{self.endpoint}/api/models"
         query_str, model_str = "", ""
         tags = []
 
