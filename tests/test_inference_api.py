@@ -107,5 +107,3 @@ class InferenceApiTest(unittest.TestCase):
         result = api({"question": "What's my name?"})
         self.assertIsInstance(result, dict)
         self.assertTrue("error" in result)
-        self.assertTrue("warnings" in result)
-        self.assertTrue(len(result["warnings"]) > 0)
