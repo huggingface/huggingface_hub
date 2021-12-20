@@ -8,7 +8,7 @@ To run the test suite, please perform the following from the root directory of t
 2. `sudo apt-get update; sudo apt-get install git-lfs -y`
 
       We need git-lfs on our system to run some of the tests
-3. `export HUGGINGFACE_CO_STAGING=1`
-
-      This is an environmental variable to make sure the private API tests can run
-4. `pytest -sv ./tests/`
+    
+3. `HUGGINGFACE_CO_STAGING=1 pytest -sv ./tests/`
+    
+    We need to set an environmental variable to make sure the private API tests can run. 
