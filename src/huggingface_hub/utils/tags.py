@@ -14,7 +14,8 @@ Helpful utility functions and classes in relation to exploring API endpoints
 with the aim for a user-friendly interface
 """
 
-from typing import Union, List
+from typing import List, Union
+
 
 class AttributeDictionary(dict):
     """
@@ -59,8 +60,8 @@ class AttributeDictionary(dict):
                 repr_str += " (Key only)"
             repr_str += "\n"
         return repr_str
-    
-    def search(self, terms:Union[str, List[str]]):
+
+    def search(self, terms: Union[str, List[str]]):
         """
         Searches through `self.keys()` for partial matches to `terms`
         and returns those values as an `AttributeDictionary`
@@ -68,12 +69,7 @@ class AttributeDictionary(dict):
         if not isinstance(terms, list):
             terms = list(terms)
         return AttributeDictionary(
-            filter(
-                lambda x: any(
-                    t in x[0].lower() for t in terms
-                ),
-                self.items()
-            )
+            filter(lambda x: any(t in x[0].lower() for t in terms), self.items())
         )
 
 
