@@ -67,7 +67,7 @@ class AttributeDictionary(dict):
         and returns those values as an `AttributeDictionary`
         """
         if not isinstance(terms, list):
-            terms = list(terms)
+            terms = [terms]
         return AttributeDictionary(
             filter(lambda x: any(t in x[0].lower() for t in terms), self.items())
         )
