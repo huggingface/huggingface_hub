@@ -1,5 +1,6 @@
-<script>
-	import IconSpin from "../../../Icons/IconSpin.svelte";
+<script lang="ts">
+	import Icon from "../../../Icon/Icon.svelte";
+	import IconSpin from "../../../Icon/data/IconSpin";
 	import { getBlobFromUrl } from "../../shared/helpers";
 
 	export let accept = "image/*";
@@ -87,7 +88,7 @@
 		<div
 			class="absolute flex items-center justify-center top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 h-12 w-12 bg-white border border-gray-100 rounded-full shadow"
 		>
-			<IconSpin classNames="text-purple-500 animate-spin h-6 w-6" />
+			<Icon data={IconSpin} classNames="text-purple-500 animate-spin h-6 w-6" />
 		</div>
 	{/if}
 </div>

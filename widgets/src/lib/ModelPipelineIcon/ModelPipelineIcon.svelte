@@ -1,37 +1,38 @@
-<script>
-	import type { SvelteComponent } from "svelte";
+<script lang="ts">
+	import type { IconData } from "../Icon/Types";
 	import type { PipelineType } from "../interfaces/Types";
 
-	import IconAudioClassification from "../Icons/IconAudioClassification.svelte";
-	import IconAudioToAudio from "../Icons/IconAudioToAudio.svelte";
-	import IconAutomaticSpeechRecognition from "../Icons/IconAutomaticSpeechRecognition.svelte";
-	import IconConversational from "../Icons/IconConversational.svelte";
-	import IconFeatureExtraction from "../Icons/IconFeatureExtraction.svelte";
-	import IconFillMask from "../Icons/IconFillMask.svelte";
-	import IconImageClassification from "../Icons/IconImageClassification.svelte";
-	import IconImageSegmentation from "../Icons/IconImageSegmentation.svelte";
-	import IconObjectDetection from "../Icons/IconObjectDetection.svelte";
-	import IconQuestionAnswering from "../Icons/IconQuestionAnswering.svelte";
-	import IconSentenceSimilarity from "../Icons/IconSentenceSimilarity.svelte";
-	import IconStructuredDataClassification from "../Icons/IconStructuredDataClassification.svelte";
-	import IconSummarization from "../Icons/IconSummarization.svelte";
-	import IconTableQuestionAnswering from "../Icons/IconTableQuestionAnswering.svelte";
-	import IconText2textGeneration from "../Icons/IconText2textGeneration.svelte";
-	import IconTextClassification from "../Icons/IconTextClassification.svelte";
-	import IconTextGeneration from "../Icons/IconTextGeneration.svelte";
-	import IconTextToImage from "../Icons/IconTextToImage.svelte";
-	import IconImageToText from "../Icons/IconImageToText.svelte";
-	import IconTextToSpeech from "../Icons/IconTextToSpeech.svelte";
-	import IconTokenClassification from "../Icons/IconTokenClassification.svelte";
-	import IconTranslation from "../Icons/IconTranslation.svelte";
-	import IconVoiceActivityDetection from "../Icons/IconVoiceActivityDetection.svelte";
-	import IconZeroShotClassification from "../Icons/IconZeroShotClassification.svelte";
+	import Icon from "../Icon/Icon.svelte";
+	import IconAudioClassification from "../Icon/data/IconAudioClassification";
+	import IconAudioToAudio from "../Icon/data/IconAudioToAudio";
+	import IconAutomaticSpeechRecognition from "../Icon/data/IconAutomaticSpeechRecognition";
+	import IconConversational from "../Icon/data/IconConversational";
+	import IconFeatureExtraction from "../Icon/data/IconFeatureExtraction";
+	import IconFillMask from "../Icon/data/IconFillMask";
+	import IconImageClassification from "../Icon/data/IconImageClassification";
+	import IconImageSegmentation from "../Icon/data/IconImageSegmentation";
+	import IconObjectDetection from "../Icon/data/IconObjectDetection";
+	import IconQuestionAnswering from "../Icon/data/IconQuestionAnswering";
+	import IconSentenceSimilarity from "../Icon/data/IconSentenceSimilarity";
+	import IconStructuredDataClassification from "../Icon/data/IconStructuredDataClassification";
+	import IconSummarization from "../Icon/data/IconSummarization";
+	import IconTableQuestionAnswering from "../Icon/data/IconTableQuestionAnswering";
+	import IconText2textGeneration from "../Icon/data/IconText2textGeneration";
+	import IconTextClassification from "../Icon/data/IconTextClassification";
+	import IconTextGeneration from "../Icon/data/IconTextGeneration";
+	import IconTextToImage from "../Icon/data/IconTextToImage";
+	import IconImageToText from "../Icon/data/IconImageToText";
+	import IconTextToSpeech from "../Icon/data/IconTextToSpeech";
+	import IconTokenClassification from "../Icon/data/IconTokenClassification";
+	import IconTranslation from "../Icon/data/IconTranslation";
+	import IconVoiceActivityDetection from "../Icon/data/IconVoiceActivityDetection";
+	import IconZeroShotClassification from "../Icon/data/IconZeroShotClassification";
 
 	export let classNames = "";
 	export let pipeline = "";
 
-	const ICON_COMPONENTS: {
-		[key in keyof typeof PipelineType]?: typeof SvelteComponent;
+	const ICON_DATA: {
+		[key in keyof typeof PipelineType]?: IconData;
 	} = {
 		/// Keep same order as in huggingface_hub/Types.ts
 		/// for easy mapping.
@@ -62,7 +63,7 @@
 	};
 </script>
 
-<svelte:component
-	this={ICON_COMPONENTS[pipeline] ?? IconFillMask}
+<Icon
+	data={ICON_DATA[pipeline] ?? IconFillMask}
 	{classNames}
 />

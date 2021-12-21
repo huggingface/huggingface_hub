@@ -1,9 +1,10 @@
-<script>
+<script lang="ts">
 	import type { HighlightCoordinates } from "../types";
 
 	import { onMount, tick } from "svelte";
 	import { scrollToMax } from "../ViewUtils";
-	import IconRow from "../../../Icons/IconRow.svelte";
+	import Icon from "../../../Icon/Icon.svelte";
+	import IconRow from "../../../Icon/data/IconRow";
 
 	export let onChange: (table: (string | number)[][]) => void;
 	export let highlighted: HighlightCoordinates;
@@ -101,7 +102,7 @@
 			on:click={addRow}
 			type="button"
 		>
-			<IconRow classNames="mr-2" />
+			<Icon data={IconRow} classNames="mr-2" />
 			Add row
 		</button>
 	{/if}
@@ -111,7 +112,7 @@
 			on:click={addCol}
 			type="button"
 		>
-			<IconRow classNames="transform rotate-90 mr-1" />
+			<Icon data={IconRow} classNames="transform rotate-90 mr-1" />
 			Add col
 		</button>
 	{/if}

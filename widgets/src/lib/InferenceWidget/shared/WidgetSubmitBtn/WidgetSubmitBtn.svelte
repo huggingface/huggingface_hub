@@ -1,5 +1,6 @@
-<script>
-	import IconSpin from "../../../Icons/IconSpin.svelte";
+<script lang="ts">
+	import Icon from "../../../Icon/Icon.svelte";
+	import IconSpin from "../../../Icon/data/IconSpin";
 
 	export let classNames = "";
 	export let isDisabled = false;
@@ -15,7 +16,7 @@
 	type="submit"
 >
 	{#if isLoading}
-		<IconSpin classNames="text-gray-600 animate-spin" />
+		<Icon data={IconSpin} classNames="text-gray-600 animate-spin" />
 	{:else}
 		{label}
 	{/if}

@@ -1,6 +1,7 @@
-<script>
+<script lang="ts">
 	import { onDestroy, onMount } from "svelte";
-	import IconMicrophone from "../../../Icons/IconMicrophone.svelte";
+	import Icon from "../../../Icon/Icon.svelte";
+	import IconMicrophone from "../../../Icon/data/IconMicrophone";
 	import Recorder from "./Recorder";
 
 	export let classNames = "";
@@ -55,7 +56,7 @@
 	<div
 		class="flex items-center {isRecording ? 'text-red-500 animate-pulse' : ''}"
 	>
-		<IconMicrophone classNames="-ml-1 mr-1.5" />
+		<Icon data={IconMicrophone} classNames="-ml-1 mr-1.5" />
 		<span>
 			{isRecording ? "Click to stop recording" : "Record from browser"}
 		</span>

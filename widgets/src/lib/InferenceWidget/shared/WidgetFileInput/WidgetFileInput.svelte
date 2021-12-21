@@ -1,6 +1,7 @@
-<script>
-	import IconSpin from "../../../Icons/IconSpin.svelte";
-	import IconFile from "../../../Icons/IconFile.svelte";
+<script lang="ts">
+	import Icon from "../../../Icon/Icon.svelte";
+	import IconSpin from "../../../Icon/data/IconSpin";
+	import IconFile from "../../../Icon/data/IconFile";
 
 	export let accept: string | undefined;
 	export let classNames = "";
@@ -40,9 +41,12 @@
 			: ''}"
 	>
 		{#if isLoading}
-			<IconSpin classNames="-ml-1 mr-1.5 text-gray-600 animate-spin" />
+			<Icon
+				data={IconSpin}
+				classNames="-ml-1 mr-1.5 text-gray-600 animate-spin"
+			/>
 		{:else}
-			<IconFile classNames="-ml-1 mr-1.5" />
+			<Icon data={IconFile} classNames="-ml-1 mr-1.5" />
 		{/if}
 		<input
 			{accept}

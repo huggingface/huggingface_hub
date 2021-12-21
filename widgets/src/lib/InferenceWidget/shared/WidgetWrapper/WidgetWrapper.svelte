@@ -1,8 +1,9 @@
-<script>
+<script lang="ts">
 	import type { WidgetProps, LoadingStatus } from "../types";
 
 	import { onMount } from "svelte";
-	import IconCross from "../../../Icons/IconCross.svelte";
+	import Icon from "../../../Icon/Icon.svelte";
+	import IconCross from "../../../Icon/data/IconCross";
 	import WidgetInputSamples from "../WidgetInputSamples/WidgetInputSamples.svelte";
 	import WidgetFooter from "../WidgetFooter/WidgetFooter.svelte";
 	import WidgetHeader from "../WidgetHeader/WidgetHeader.svelte";
@@ -54,7 +55,10 @@
 >
 	{#if isMaximized}
 		<button class="absolute top-6 right-12" on:click={onClickMaximizeBtn}>
-			<IconCross classNames="text-xl text-gray-500 hover:text-black" />
+			<Icon
+				data={IconCross}
+				classNames="text-xl text-gray-500 hover:text-black"
+			/>
 		</button>
 	{/if}
 	<WidgetHeader {noTitle} pipeline={model.pipeline_tag}>

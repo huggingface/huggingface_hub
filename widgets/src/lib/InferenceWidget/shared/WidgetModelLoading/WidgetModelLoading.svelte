@@ -1,6 +1,7 @@
-<script>
+<script lang="ts">
 	import { onDestroy, onMount } from "svelte";
-	import IconSpin from "../../../Icons/IconSpin.svelte";
+	import Icon from "../../../Icon/Icon.svelte";
+	import IconSpin from "../../../Icon/data/IconSpin";
 
 	export let estimatedTime: number;
 
@@ -31,7 +32,8 @@
 			class="transition-all absolute inset-y-0 left-0 bg-gradient-to-r from-purple-200 to-purple-100 rounded-lg dark:from-purple-800 dark:to-purple-900"
 			style="width: {progressRatio * 100}%;"
 		/>
-		<IconSpin
+		<Icon
+			data={IconSpin}
 			classNames="text-purple-400 dark:text-purple-200 animate-spin mr-2 z-10"
 		/>
 		<span class="z-10">Model is loading</span>

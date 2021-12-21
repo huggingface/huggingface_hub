@@ -1,6 +1,7 @@
-<script>
-	import IconCode from "../../../Icons/IconCode.svelte";
-	import IconMaximize from "../../../Icons/IconMaximize.svelte";
+<script lang="ts">
+	import Icon from "../../../Icon/Icon.svelte";
+	import IconCode from "../../../Icon/data/IconCode";
+	import IconMaximize from "../../../Icon/data/IconMaximize";
 
 	export let onClickMaximizeBtn: () => void;
 	export let outputJson: string;
@@ -18,14 +19,14 @@
 			isOutputJsonVisible = !isOutputJsonVisible;
 		}}
 	>
-		<IconCode classNames="mr-1" />
+		<Icon data={IconCode} classNames="mr-1" />
 		JSON Output
 	</button>
 	<button
 		class="flex items-center ml-auto"
 		on:click|preventDefault={onClickMaximizeBtn}
 	>
-		<IconMaximize classNames="mr-1" />
+		<Icon data={IconMaximize} classNames="mr-1" />
 		Maximize
 	</button>
 </div>
