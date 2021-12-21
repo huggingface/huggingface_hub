@@ -35,6 +35,7 @@ export enum PipelineType {
 	"object-detection"                                        = "Object Detection",
 	"image-segmentation"                                      = "Image Segmentation",
 	"text-to-image"                                           = "Text-to-Image",
+	"image-to-text"                                           = "Image-to-Text",
 	/// others
 	"structured-data-classification"                          = "Structured Data Classification",
 }
@@ -83,6 +84,7 @@ export const PIPELINE_TAG_MODALITIES: Record<keyof typeof PipelineType, Pipeline
 	"object-detection":               "cv",
 	"image-segmentation":             "cv",
 	"text-to-image":                  "cv",
+	"image-to-text":                  "cv",
 	"structured-data-classification": "other",
 };
 
@@ -100,6 +102,7 @@ export const PIPELINE_TAG_ICO_CLASS: {
 	"feature-extraction":             "tag-ico-red",
 	"image-classification":           "tag-ico-blue",
 	"image-segmentation":             "tag-ico-green",
+	"image-to-text":                  "tag-ico-red",
 	"object-detection":               "tag-ico-orange",
 	"question-answering":             "tag-ico-blue",
 	"sentence-similarity":            "tag-ico-orange",
@@ -146,6 +149,7 @@ export const PIPELINE_TAGS_DISPLAY_ORDER: Array<keyof typeof PipelineType> = [
 	"object-detection",
 	"image-segmentation",
 	"text-to-image",
+	"image-to-text",
 	/// others
 	"structured-data-classification",
 ];
