@@ -16,8 +16,6 @@ with the aim for a user-friendly interface
 
 from typing import List, Union
 
-from huggingface_hub.hf_api import HfApi
-
 
 class AttributeDictionary(dict):
     """
