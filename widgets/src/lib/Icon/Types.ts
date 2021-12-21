@@ -1,5 +1,5 @@
 export interface IconData {
-    content: string;
+    body: string;
     fill?: string;
     height?: string;
     style?: string;
