@@ -62,7 +62,6 @@ class AttributeDictionaryTest(AttributeDictionaryCommonTest):
             "__getattr__",
             "__module__",
             "__weakref__",
-            "search",
         ]
         self._attrdict["itemA"] = 2
         self._attrdict.itemB = 3
