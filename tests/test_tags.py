@@ -95,23 +95,6 @@ class AttributeDictionaryTest(AttributeDictionaryCommonTest):
         repr_string = "Available Attributes or Keys:\n * 1a (Key only)\n * itemA\n * itemA? (Key only)\n * itemB\n"
         self.assertEqual(repr_string, repr(self._attrdict))
 
-    def test_single_search(self):
-        self._attrdict["a"] = 1
-        self._attrdict["b"] = "test"
-        self._attrdict["c"] = 20
-        res = self._attrdict.search("a")
-        self.assertEqual(len(res.keys()), 1)
-        self.assertEqual(res.a, 1)
-
-    def test_multiple_search(self):
-        self._attrdict["a"] = 1
-        self._attrdict["b"] = "test"
-        self._attrdict["c"] = 20
-        res = self._attrdict.search(["a", "c"])
-        self.assertEqual(len(res.keys()), 2)
-        self.assertEqual(res.a, 1)
-        self.assertEqual(res.c, 20)
-
 
 class GeneralTagsCommonTest(unittest.TestCase):
     # Similar to the output from /api/***-tags-by-type
