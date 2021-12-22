@@ -1,19 +1,24 @@
 from typing import Tuple
 
-import numpy as np
-from app.pipelines import Pipeline
-from fairseq.checkpoint_utils import load_model_ensemble_and_task_from_hf
-import torch
 import g2p_en
+import numpy as np
+import torch
+from app.pipelines import Pipeline
+from fairseq.checkpoint_utils import load_model_ensemble_and_task_from_hf_hub
 
 
 class TextToSpeechPipeline(Pipeline):
     def __init__(self, model_id: str):
         # hardcoded stuff can later be moved to a config
-        model, cfg, task = load_model_ensemble_and_task_from_hf(model_id, arg_overrides={"vocoder": "griffin_lim", "fp16": False}, device="cpu")
+        model, cfg, task = load_model_ensemble_and_task_from_hf_hub(
+            model_id, arg_overrides={"vocoder": "griffin_lim", "fp16": False}
+        )
+        model[0] = model[0].cpu()
+        cfg["task"].cpu = True
+        generator = task.build_generator(model, cfg)
 
         self.task = task
-        self.generator = task.build_generator(model, cfg)
+        self.generator = generator
         self.model = model[0]
 
         # 16000 by default if not specified
@@ -36,9 +41,11 @@ class TextToSpeechPipeline(Pipeline):
 
         sample = {
             "net_input": {
-                "src_tokens": self.task.src_dict.encode_line(tokenized_inputs).view(1, -1),
+                "src_tokens": self.task.src_dict.encode_line(tokenized_inputs).view(
+                    1, -1
+                ),
                 "src_lengths": torch.Tensor([len(tokenized_inputs.split())]).long(),
-                "prev_output_tokens": None
+                "prev_output_tokens": None,
             },
             "target_lengths": None,
             "speaker": None,
