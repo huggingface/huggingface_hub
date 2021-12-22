@@ -1,0 +1,3 @@
+api-inference-community==0.0.19
+g2p_en
+git+git://github.com/pytorch/fairseq.git
