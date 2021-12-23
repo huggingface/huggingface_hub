@@ -43,7 +43,7 @@ const taskData: TaskData = {
 	libraries: TASKS_MODEL_LIBRARIES["question-answering"],
 	metrics:   [
 		{
-			description: "Exact Match is a metric that is based on the strict character match of the predicted answer and the ground truth, for true answers, EM is 1, even if one character is different, EM will be 0.",
+			description: "Exact Match is a metric that is based on the strict character match of the predicted answer and the ground truth. For correct answers, EM is 1. Even if one character is different, EM will be 0.",
 			id:          "exact-match",
 		},
 		{
