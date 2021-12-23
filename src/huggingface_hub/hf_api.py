@@ -665,7 +665,7 @@ class HfApi:
 
         Args:
             filter (:class:`DatasetFilter` or :obj:`str` or :class:`Iterable`, `optional`):
-                A string or `ModelFilter` which can be used to identify datasets on the hub.
+                A string or `DatasetFilter` which can be used to identify datasets on the hub.
                 Example usage:
 
                     >>> from huggingface_hub import HfApi
