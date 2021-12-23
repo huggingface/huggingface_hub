@@ -1,5 +1,12 @@
+import sys
 from base64 import b64encode
-from typing import Optional, TypedDict
+from typing import Optional
+
+
+if sys.version_info >= (3, 8):
+    from typing import TypedDict
+else:
+    from typing_extensions import TypedDict
 
 
 class AuthHeaders(TypedDict):
