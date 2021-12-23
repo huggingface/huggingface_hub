@@ -6,11 +6,11 @@ import { TASKS_MODEL_LIBRARIES } from "../const";
 const taskData: TaskData = {
 	datasets: [
 		{
-			description: "A dataset of news articles in five different languages along with their summaries. Widely used for benchmarking multilingual summarization models.",
+			description: "News articles in five different languages along with their summaries. Widely used for benchmarking multilingual summarization models.",
 			id:          "mlsum",
 		},
 		{
-			description: "A dataset of English conversations and their summaries. Useful for benchmarking conversational agents.",
+			description: "English conversations and their summaries. Useful for benchmarking conversational agents.",
 			id:          "samsum",
 		},
 	],
@@ -38,13 +38,13 @@ const taskData: TaskData = {
 	libraries: TASKS_MODEL_LIBRARIES["summarization"],
 	metrics:   [
 		{
-			description: "Recall-Oriented Understudy for Gisting Evaluation is the metric used for summarization. The generated sequence is compared against the summary, and the overlap of tokens are counted. ROUGE-N refers to overlap of N subsequent tokens, ROUGE-1 refers to overlap of single tokens and ROUGE-2 is the overlap of two subsequent tokens. The score is based on precision and recall. Precision is the ratio of number of overlapping words against number of total words in the generated sequence. Recall is calculated as number of overlapping words against the number of total words in the original text. For more information about ROUGE metric, check out the datasets documentation or the Hugging Face course.",
+			description: "The generated sequence is compared against its summary, and the overlap of tokens are counted. ROUGE-N refers to overlap of N subsequent tokens, ROUGE-1 refers to overlap of single tokens and ROUGE-2 is the overlap of two subsequent tokens. For more information about ROUGE metric, check out the datasets documentation or the Hugging Face course.",
 			id:          "rouge",
 		},
 	],
 	models: [
 		{
-			description: "A strong summarization model trained on English news articles. Excels at generating generating factual summaries.",
+			description: "A strong summarization model trained on English news articles. Excels at generating factual summaries.",
 			id:          "facebook/bart-large-cnn",
 		},
 		{
@@ -52,7 +52,7 @@ const taskData: TaskData = {
 			id:          "google/bigbird-pegasus-large-pubmed",
 		},
 	],
-	summary:      "Summarization is the task of producing a shorter version of a document while preserving the relevant and important information in the document. Summarization models have variants, being, extractive text summarization and abstractive text summarization. In extractive text summarization, we take the original text and extract important sentences instead, meanwhile, abstractive text summarization generates new text based on the original text.",
+	summary:      "Summarization is the task of producing a shorter version of a document while preserving the important information in the document. Some models can extract text from the original input while other models can generate entirely new text.",
 	widgetModels: ["sshleifer/distilbart-cnn-12-6"],
 	youtubeId:    "yHnr5Dk2zCI",
 };
