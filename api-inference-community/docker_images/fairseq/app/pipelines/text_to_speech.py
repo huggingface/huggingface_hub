@@ -1,7 +1,7 @@
+import os
 from typing import Tuple
 
 import g2p_en
-import os
 import numpy as np
 import torch
 from app.pipelines import Pipeline
