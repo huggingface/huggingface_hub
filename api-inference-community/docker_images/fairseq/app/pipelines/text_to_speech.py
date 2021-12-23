@@ -1,6 +1,7 @@
 from typing import Tuple
 
 import g2p_en
+import os
 import numpy as np
 import torch
 from app.pipelines import Pipeline
@@ -11,7 +12,9 @@ class TextToSpeechPipeline(Pipeline):
     def __init__(self, model_id: str):
         # hardcoded stuff can later be moved to a config
         model, cfg, task = load_model_ensemble_and_task_from_hf_hub(
-            model_id, arg_overrides={"vocoder": "griffin_lim", "fp16": False}
+            model_id,
+            arg_overrides={"vocoder": "griffin_lim", "fp16": False},
+            cache_dir=os.getenv("HUGGINGFACE_HUB_CACHE"),
         )
         model[0] = model[0].cpu()
         cfg["task"].cpu = True
@@ -39,6 +42,8 @@ class TextToSpeechPipeline(Pipeline):
         """
         tokenized_inputs = self._tokenize(inputs)
 
+        if not tokenized_inputs:
+            return np.zeros((0,)), self.sampling_rate
         sample = {
             "net_input": {
                 "src_tokens": self.task.src_dict.encode_line(tokenized_inputs).view(
