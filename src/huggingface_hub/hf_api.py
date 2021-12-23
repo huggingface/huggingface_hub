@@ -436,7 +436,7 @@ class HfApi:
 
     def list_models(
         self,
-        filter: Union[str, Iterable[str], None] = None,
+        filter: Union[ModelFilter, str, Iterable[str], None] = None,
         sort: Union[Literal["lastModified"], str, None] = None,
         direction: Optional[Literal[-1]] = None,
         limit: Optional[int] = None,
@@ -447,8 +447,8 @@ class HfApi:
         Get the public list of all the models on huggingface.co
 
         Args:
-            filter (:obj:`str` or :class:`Iterable`, `optional`):
-                A string which can be used to identify models on the hub by their tags.
+            filter (:obj:`ModelFilter` or :obj:`str` or :class:`Iterable`, `optional`):
+                A string or `ModelFilter` which can be used to identify models on the hub by their tags.
                 Example usage:
 
                     >>> from huggingface_hub import HfApi
@@ -459,15 +459,27 @@ class HfApi:
 
                     >>> # List only the text classification models
                     >>> api.list_models(filter="text-classification")
+                    >>> # OR:
+                    >>> filt = ModelFilter(task="text-classification")
+                    >>> api.list_models(filter=filt)
 
                     >>> # List only the russian models compatible with pytorch
                     >>> api.list_models(filter=("ru", "pytorch"))
+                    >>> # OR:
+                    >>> filt = ModelFilter(language="ru", framework="pytorch")
+                    >>> api.list_models(filter=filt)
 
                     >>> # List only the models trained on the "common_voice" dataset
                     >>> api.list_models(filter="dataset:common_voice")
+                    >>> # OR:
+                    >>> filt = ModelFilter(trained_dataset="common_voice")
+                    >>> api.list_models(filter=filt)
 
                     >>> # List only the models from the AllenNLP library
                     >>> api.list_models(filter="allennlp")
+                    >>> # OR:
+                    >>> filt = ModelFilter(framework="allennlp")
+                    >>> api.list_models(filter=filt)
             sort (:obj:`Literal["lastModified"]` or :obj:`str`, `optional`):
                 The key with which to sort the resulting models. Possible values are the properties of the `ModelInfo`
                 class.
@@ -486,7 +498,10 @@ class HfApi:
         path = f"{self.endpoint}/api/models"
         params = {}
         if filter is not None:
-            params.update({"filter": filter})
+            if isinstance(filter, ModelFilter):
+                params = self._unpack_filter(filter)
+            else:
+                params.update({"filter": filter})
             params.update({"full": True})
         if sort is not None:
             params.update({"sort": sort})
@@ -506,34 +521,10 @@ class HfApi:
         d = r.json()
         return [ModelInfo(**x) for x in d]
 
-    def list_models_from_filter(self, model_filter: ModelFilter):
+    def _unpack_filter(self, model_filter: ModelFilter):
         """
-        Get the public list of all the models on huggingface.co based on a `ModelFilter`
-        Args:
-            model_filter (:obj: `ModelFilter`):
-                An Enum class which handles storing of query information
-                Example usage:
-
-                    >>> from huggingface_hub import HfApi, ModelFilter
-                    >>> api = HfApi()
-
-                    >>> # List only the text classification models
-                    >>> f = ModelFilter(task="text-classification")
-                    >>> api.list_models_from_filter(filter=f)
-
-                    >>> # List only the russian models compatible with pytorch
-                    >>> f = ModelFilter(language="ru", framework="pytorch")
-                    >>> api.list_models_from_filter(filter=f)
-
-                    >>> # List only the models trained on the "common_voice" dataset
-                    >>> f = ModelFilter(trained_dataset="common_voice")
-                    >>> api.list_models_from_filter(filter=f)
-
-                    >>> # List only the models from the AllenNLP library
-                    >>> f = ModelFilter(framework="allennlp")
-                    >>> api.list_models_from_filter(f)
+        Unpacks a `ModelFilter` into something readable for `list_models`
         """
-        path = f"{self.endpoint}/api/models"
         query_str, model_str = "", ""
         tags = []
 
@@ -555,6 +546,8 @@ class HfApi:
 
         # Handling dataset
         if model_filter.trained_dataset is not None:
+            if "dataset:" not in model_filter.trained_dataset:
+                model_filter.trained_dataset = f"dataset:{model_filter.trained_dataset}"
             filter_tuple.append(model_filter.trained_dataset)
 
         # Handling framework
@@ -579,11 +572,7 @@ class HfApi:
         if model_filter.language is not None:
             filter_tuple.append(model_filter.language)
         query_dict["filter"] = tuple(filter_tuple)
-
-        r = requests.get(path, params=query_dict)
-        r.raise_for_status()
-        d = r.json()
-        return [ModelInfo(**x) for x in d]
+        return query_dict
 
     def list_datasets(
         self,
