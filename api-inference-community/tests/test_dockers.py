@@ -79,6 +79,14 @@ class DockerImageTests(unittest.TestCase):
             "espnet/kamo-naoyuki_mini_an4_asr_train_raw_bpe_valid.acc.best",
         )
 
+    def test_fairseq(self):
+        self.framework_docker_test(
+            "fairseq",
+            "text-to-speech",
+            "facebook/fastspeech2-en-ljspeech",
+        )
+        self.framework_invalid_test("fairseq")
+
     def test_fasttext(self):
         self.framework_docker_test(
             "fasttext",
