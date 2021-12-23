@@ -81,7 +81,9 @@ class DockerImageTests(unittest.TestCase):
 
     def test_fairseq(self):
         self.framework_docker_test(
-            "fairseq", "text-to-speech", "facebook/fastspeech2-en-ljspeech"
+            "fairseq",
+            "text-to-speech",
+            "facebook/fastspeech2-en-ljspeech",
         )
         self.framework_invalid_test("fairseq")
 
