@@ -30,28 +30,28 @@ class ModelFilter:
             Example usage:
 
                 >>> from huggingface_hub import Filter
-                >>> new_filter = Filter(author_or_organization="facebook")
+                >>> new_filter = ModelFilter(author_or_organization="facebook")
 
          framework (:obj:`str` or :class:`List`, `optional`):
             A string or list of strings of foundational library frameworks models were originally trained from,
             such as pytorch, tensorflow, or allennlp
             Example usage:
 
-                >>> new_filter = Filter(framework="pytorch")
+                >>> new_filter = ModelFilter(framework="pytorch")
 
          language (:obj:`str` or :class:`List`, `optional`):
             A string or list of strings of languages, both by name
             and country code, such as "en" or "English"
             Example usage:
 
-                >>> new_filter = Filter(language="french")
+                >>> new_filter = ModelFilter(language="french")
 
          model_name (:obj:`str` or :class:`List`, `optional`):
             A string or list of strings that contain complete or partial names for models on the hub,
             such as "bert" or "bert-base-cased"
             Example usage:
 
-                >>> new_filter = Filter(model_name="bert")
+                >>> new_filter = ModelFilter(model_name="bert")
 
 
          task (:obj:`str` or :class:`List`, `optional`):
@@ -59,7 +59,7 @@ class ModelFilter:
             such as: "fill-mask" or "automatic-speech-recognition"
             Example usage:
 
-                >>> new_filter = Filter(task="text-classification")
+                >>> new_filter = ModelFilter(task="text-classification")
 
          tags (:obj:`str` or :class:`List`, `optional`):
             A string tag or a list of tags to filter models on the hub by,
@@ -72,12 +72,12 @@ class ModelFilter:
                 >>> api.get_dataset_tags()
 
             Example usage:
-                >>> new_filter = Filter(tags="benchmark:raft")
+                >>> new_filter = ModelFilter(tags="benchmark:raft")
 
         trained_dataset (:obj:`str`, `optional`):
             A string tag of the trained dataset for a model.
             Example usage:
-                >>> new_filter = Filter(trained_dataset="common_voice")
+                >>> new_filter = ModelFilter(trained_dataset="common_voice")
 
     """
 
