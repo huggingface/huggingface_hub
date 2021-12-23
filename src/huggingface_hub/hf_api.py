@@ -266,76 +266,6 @@ class MetricInfo:
         return r
 
 
-class ModelSearchArguments(AttributeDictionary):
-    """
-    A nested namespace object holding all possible values for properties of
-    models currently hosted in the Hub with tab-completion.
-    If a value starts with a number, it will only exist in the dictionary
-
-    Example:
-        >>> args = ModelSearchArgs()
-        >>> args.author_or_organization.huggingface
-        >>> args.language.en
-    """
-
-    def __init__(self):
-        self._api = HfApi()
-        tags = self._api.get_model_tags()
-        super().__init__(tags)
-        self._process_models()
-
-    def _process_models(self):
-        def clean(s: str):
-            return s.replace(" ", "").replace("-", "_").replace(".", "_")
-
-        models = self._api.list_models()
-        author_dict, model_name_dict = AttributeDictionary(), AttributeDictionary()
-        for model in models:
-            if "/" in model.modelId:
-                author, name = model.modelId.split("/")
-                author_dict[author] = clean(author)
-            else:
-                name = model.modelId
-            model_name_dict[name] = clean(name)
-        self["model_name"] = model_name_dict
-        self["author_or_organization"] = author_dict
-
-
-class DatasetSearchArguments(AttributeDictionary):
-    """
-    A nested namespace object holding all possible values for properties of
-    datasets currently hosted in the Hub with tab-completion.
-    If a value starts with a number, it will only exist in the dictionary
-
-    Example:
-        >>> args = DatasetSearchArguments()
-        >>> args.author_or_organization.huggingface
-        >>> args.language.en
-    """
-
-    def __init__(self):
-        self._api = HfApi()
-        tags = self._api.get_dataset_tags()
-        super().__init__(tags)
-        self._process_models()
-
-    def _process_models(self):
-        def clean(s: str):
-            return s.replace(" ", "").replace("-", "_").replace(".", "_")
-
-        datasets = self._api.list_datasets()
-        author_dict, dataset_name_dict = AttributeDictionary(), AttributeDictionary()
-        for dataset in datasets:
-            if "/" in dataset.id:
-                author, name = dataset.id.split("/")
-                author_dict[author] = clean(author)
-            else:
-                name = dataset.id
-            dataset_name_dict[name] = clean(name)
-        self["dataset_name"] = dataset_name_dict
-        self["author_or_organization"] = author_dict
-
-
 def write_to_credential_store(username: str, password: str):
     with subprocess.Popen(
         "git credential-store store".split(),
@@ -598,9 +528,9 @@ class HfApi:
         query_str, model_str = "", ""
         tags = []
 
-        # Handling author or organization
-        if model_filter.author_or_organization is not None:
-            model_str = model_filter.author_or_organization
+        # Handling author
+        if model_filter.author is not None:
+            model_str = model_filter.author
             if not query_str.endswith("/"):
                 model_str += "/"
 
@@ -1297,7 +1227,6 @@ logout = api.logout
 whoami = api.whoami
 
 list_models = api.list_models
-list_models_from_filter = api.list_models_from_filter
 model_info = api.model_info
 list_repo_files = api.list_repo_files
 list_repos_objs = api.list_repos_objs

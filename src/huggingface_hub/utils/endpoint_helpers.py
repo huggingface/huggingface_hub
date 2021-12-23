@@ -24,9 +24,9 @@ class ModelFilter:
     the REST API. For all parameters capitalization does not matter.
 
     Args:
-        author_or_organization (:obj:`str` or :class:`List`, `optional`):
+        author (:obj:`str` or :class:`List`, `optional`):
             A string or list of strings that can be used to identify models on the hub
-            by the original uploader, such as `facebook` or `huggingface`
+            by the original uploader (author or organization), such as `facebook` or `huggingface`
             Example usage:
 
                 >>> from huggingface_hub import Filter
@@ -81,7 +81,7 @@ class ModelFilter:
 
     """
 
-    author_or_organization: str = None
+    author: str = None
     carbon_emissions_threshold: str = None
     framework: str = None
     language: str = None

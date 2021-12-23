@@ -44,7 +44,6 @@ from .hf_api import (
     list_datasets,
     list_metrics,
     list_models,
-    list_models_from_filter,
     list_repo_files,
     list_repos_objs,
     login,
