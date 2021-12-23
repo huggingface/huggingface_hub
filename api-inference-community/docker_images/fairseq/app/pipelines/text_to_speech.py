@@ -25,7 +25,10 @@ class TextToSpeechPipeline(Pipeline):
         self.model = model[0]
 
         # 16000 by default if not specified
-        self.sampling_rate = 16000
+        if hasattr(task, "sr") and task.sr is not None:
+            self.sampling_rate = task.sr
+        else:
+            self.sampling_rate = 16_000
 
     def _tokenize(self, text):
         tokenized = g2p_en.G2p()(text)
