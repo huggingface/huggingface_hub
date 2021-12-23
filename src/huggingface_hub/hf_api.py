@@ -564,9 +564,6 @@ class HfApi:
         query_dict = {}
         if model_str is not None:
             query_dict["search"] = model_str
-        if model_filter.carbon_emissions_threshold is not None:
-            filter_tuple.append("co2_eq_emissions")
-            # We need to post process for carbon emissions checking
         if len(tags) > 0:
             query_dict["tags"] = tags
         if model_filter.language is not None:
