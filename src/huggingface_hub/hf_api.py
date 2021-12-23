@@ -34,6 +34,7 @@ from .constants import (
 )
 from .utils.endpoint_helpers import (
     AttributeDictionary,
+    DatasetFilter,
     DatasetTags,
     ModelFilter,
     ModelTags,
@@ -520,8 +521,8 @@ class HfApi:
         Get the public list of all the models on huggingface.co
 
         Args:
-            filter (:obj:`ModelFilter` or :obj:`str` or :class:`Iterable`, `optional`):
-                A string or `ModelFilter` which can be used to identify models on the hub by their tags.
+            filter (:class:`ModelFilter` or :obj:`str` or :class:`Iterable`, `optional`):
+                A string or `ModelFilter` which can be used to identify models on the hub.
                 Example usage:
 
                     >>> from huggingface_hub import HfApi
@@ -572,7 +573,7 @@ class HfApi:
         params = {}
         if filter is not None:
             if isinstance(filter, ModelFilter):
-                params = self._unpack_filter(filter)
+                params = self._unpack_model_filter(filter)
             else:
                 params.update({"filter": filter})
             params.update({"full": True})
@@ -653,7 +654,7 @@ class HfApi:
 
     def list_datasets(
         self,
-        filter: Union[str, Iterable[str], None] = None,
+        filter: Union[DatasetFilter, str, Iterable[str], None] = None,
         sort: Union[Literal["lastModified"], str, None] = None,
         direction: Optional[Literal[-1]] = None,
         limit: Optional[int] = None,
@@ -663,8 +664,8 @@ class HfApi:
         Get the public list of all the datasets on huggingface.co
 
         Args:
-            filter (:obj:`str` or :class:`Iterable`, `optional`):
-                A string which can be used to identify datasets on the hub by their tags.
+            filter (:class:`DatasetFilter` or :obj:`str` or :class:`Iterable`, `optional`):
+                A string or `ModelFilter` which can be used to identify datasets on the hub.
                 Example usage:
 
                     >>> from huggingface_hub import HfApi
@@ -675,9 +676,16 @@ class HfApi:
 
                     >>> # List only the text classification datasets
                     >>> api.list_datasets(filter="task_categories:text-classification")
+                    >>> # OR:
+                    >>> filt = DatasetFilter(task_categories="text-classification")
+                    >>> api.list_datasets(filter=filt)
 
                     >>> # List only the datasets in russian for language modeling
                     >>> api.list_datasets(filter=("languages:ru", "task_ids:language-modeling"))
+                    >>> # OR:
+                    >>> filt = DatasetFilter(languages="ru", task_ids="language-modeling")
+                    >>> api.list_datasets(filter=filt)
+
             sort (:obj:`Literal["lastModified"]` or :obj:`str`, `optional`):
                 The key with which to sort the resulting datasets. Possible values are the properties of the `DatasetInfo`
                 class.
@@ -693,7 +701,10 @@ class HfApi:
         path = f"{self.endpoint}/api/datasets"
         params = {}
         if filter is not None:
-            params.update({"filter": filter})
+            if isinstance(filter, DatasetFilter):
+                params = self._unpack_dataset_filter(filter)
+            else:
+                params.update({"filter": filter})
         if sort is not None:
             params.update({"sort": sort})
         if direction is not None:
@@ -707,6 +718,47 @@ class HfApi:
         r.raise_for_status()
         d = r.json()
         return [DatasetInfo(**x) for x in d]
+
+    def _unpack_dataset_filter(self, dataset_filter: DatasetFilter):
+        """
+        Unpacks a `DatasetFilter` into something readable for `list_datasets`
+        """
+        dataset_str = ""
+
+        # Handling author
+        if dataset_filter.author is not None:
+            dataset_str = f"{dataset_filter.author}/"
+
+        # Handling dataset_name
+        if dataset_filter.model_name is not None:
+            dataset_str += dataset_filter.model_name
+
+        filter_tuple = []
+        data_attributes = [
+            "benchmark",
+            "language_creator",
+            "language",
+            "multilinguality",
+            "size_categories",
+            "task_categories",
+            "task_ids",
+        ]
+
+        for attr in data_attributes:
+            curr_attr = getattr(dataset_filter, attr)
+            if curr_attr is not None:
+                if not isinstance(curr_attr, list):
+                    curr_attr = [curr_attr]
+                for data in curr_attr:
+                    if f"{attr}:" not in data:
+                        data = f"{attr}:{data}"
+                    filter_tuple.append(data)
+
+        query_dict = {}
+        if dataset_str is not None:
+            query_dict["search"] = dataset_str
+        query_dict["filter"] = tuple(filter_tuple)
+        return query_dict
 
     def list_metrics(self) -> List[MetricInfo]:
         """
