@@ -594,18 +594,16 @@ class HfApi:
         d = r.json()
         return [ModelInfo(**x) for x in d]
 
-    def _unpack_filter(self, model_filter: ModelFilter):
+    def _unpack_model_filter(self, model_filter: ModelFilter):
         """
         Unpacks a `ModelFilter` into something readable for `list_models`
         """
-        query_str, model_str = "", ""
+        model_str = ""
         tags = []
 
         # Handling author
         if model_filter.author is not None:
-            model_str = model_filter.author
-            if not query_str.endswith("/"):
-                model_str += "/"
+            model_str = f"{model_filter.author}/"
 
         # Handling model_name
         if model_filter.model_name is not None:
@@ -615,17 +613,26 @@ class HfApi:
 
         # Handling tasks
         if model_filter.task is not None:
-            filter_tuple.append(model_filter.task)
+            if not isinstance(model_filter.task, list):
+                model_filter.task = [model_filter.task]
+            for task in model_filter.task:
+                filter_tuple.append(task)
 
         # Handling dataset
         if model_filter.trained_dataset is not None:
-            if "dataset:" not in model_filter.trained_dataset:
-                model_filter.trained_dataset = f"dataset:{model_filter.trained_dataset}"
-            filter_tuple.append(model_filter.trained_dataset)
+            if not isinstance(model_filter.trained_dataset, list):
+                model_filter.trained_dataset = [model_filter.trained_dataset]
+            for dataset in model_filter.trained_dataset:
+                if "dataset:" not in dataset:
+                    dataset = f"dataset:{dataset}"
+                filter_tuple.append(dataset)
 
         # Handling framework
         if model_filter.framework:
-            filter_tuple.append(model_filter.framework)
+            if not isinstance(model_filter.framework, list):
+                model_filter.framework = [model_filter.framework]
+            for framework in model_filter.framework:
+                filter_tuple.append(framework)
 
         # Handling tags
         if model_filter.tags:

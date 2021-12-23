@@ -19,13 +19,100 @@ from typing import List, Union
 
 
 @dataclass
+class DatasetFilter:
+    """A class that converts human-readable dataset search parameters into ones compatible with
+    the REST API. For all parameters capitalization does not matter.
+
+    Args:
+        author (:obj:`str`, `optional`):
+            A string or list of strings that can be used to identify datasets on the hub
+            by the original uploader (author or organization), such as `facebook` or `huggingface`
+            Example usage:
+
+                >>> from huggingface_hub import DatasetFilter
+                >>> new_filter = DatasetFilter(author="facebook")
+
+       benchmark (:obj:`str` or :class:`List`, `optional`):
+            A string or list of strings that can be used to identify datasets on the hub by their official benchmark
+            Example usage:
+
+                >>> from huggingface_hub import DatasetFilter
+                >>> new_filter = DatasetFilter(benchmark="raft")
+
+        dataset_name (:obj:`str`, `optional`):
+            A string or list of strings that can be used to identify datasets on the hub by its name,
+            such as `SQAC` or `wikineural`
+            Example usage:
+
+                >>> from huggingface_hub import DatasetFilter
+                >>> new_filter = DatasetFilter(dataset_name="wikineural")
+
+        language_creator (:obj:`str` or :class:`List`, `optional`):
+            A string or list of strings that can be used to identify datasets on the hub
+            with how the data was curated, such as `crowdsourced` or `machine_generated`
+            Example usage:
+
+                >>> from huggingface_hub import DatasetFilter
+                >>> new_filter = DatasetFilter(language_creator="crowdsourced")
+
+        language (:obj:`str` or :class:`List`, `optional`):
+            A string representing a two-character language to filter datasets by on the hub
+            Example usage:
+
+                >>> from huggingface_hub import DatasetFilter
+                >>> new_filter = DatasetFilter(language="en")
+
+        multilinguality (:obj:`str` or :class:`List`, `optional`):
+            A string representing a filter for datasets that contain multiple languages
+            Example usage:
+
+                >>> from huggingface_hub import DatasetFilter
+                >>> new_filter = DatasetFilter(multilinguality="yes")
+
+        size_categories (:obj:`str` or :class:`List`, `optional`):
+            A string or list of strings that can be used to identify datasets on the hub
+            by the size of the dataset such as `100K<n<1M` or `1M<n<10M`
+            Example usage:
+
+                >>> from huggingface_hub import DatasetFilter
+                >>> new_filter = DatasetFilter(size_categories="100K<n<1M")
+
+        task_categories (:obj:`str` or :class:`List`, `optional`):
+            A string or list of strings that can be used to identify datasets on the hub
+            by the designed task, such as `audio_classification` or `named_entity_recognition`
+            Example usage:
+
+                >>> from huggingface_hub import DatasetFilter
+                >>> new_filter = DatasetFilter(author="facebook")
+
+        task_ids (:obj:`str` or :class:`List`, `optional`):
+            A string or list of strings that can be used to identify datasets on the hub
+            by the specific task such as `speech_emotion_recognition` or `paraphrase`
+            Example usage:
+
+                >>> from huggingface_hub import DatasetFilter
+                >>> new_filter = DatasetFilter(task_ids="paraphrase")
+    """
+
+    author: str = None
+    benchmark: Union[str, List[str]] = None
+    dataset_name: str = None
+    language_creator: Union[str, List[str]] = None
+    language: Union[str, List[str]] = None
+    multilinguality: Union[str, List[str]] = None
+    size_categories: Union[str, List[str]] = None
+    task_categories: Union[str, List[str]] = None
+    task_ids: Union[str, List[str]] = None
+
+
+@dataclass
 class ModelFilter:
     """A class that converts human-readable model search parameters into ones compatible with
     the REST API. For all parameters capitalization does not matter.
 
     Args:
-        author (:obj:`str` or :class:`List`, `optional`):
-            A string or list of strings that can be used to identify models on the hub
+        author (:obj:`str`, `optional`):
+            A string that can be used to identify models on the hub
             by the original uploader (author or organization), such as `facebook` or `huggingface`
             Example usage:
 
@@ -46,8 +133,8 @@ class ModelFilter:
 
                 >>> new_filter = ModelFilter(language="french")
 
-         model_name (:obj:`str` or :class:`List`, `optional`):
-            A string or list of strings that contain complete or partial names for models on the hub,
+         model_name (:obj:`str`, `optional`):
+            A string that contain complete or partial names for models on the hub,
             such as "bert" or "bert-base-cased"
             Example usage:
 
@@ -74,7 +161,7 @@ class ModelFilter:
             Example usage:
                 >>> new_filter = ModelFilter(tags="benchmark:raft")
 
-        trained_dataset (:obj:`str`, `optional`):
+        trained_dataset (:obj:`str` or :class:`List`, `optional`):
             A string tag of the trained dataset for a model.
             Example usage:
                 >>> new_filter = ModelFilter(trained_dataset="common_voice")
@@ -82,12 +169,11 @@ class ModelFilter:
     """
 
     author: str = None
-    carbon_emissions_threshold: str = None
-    framework: str = None
-    language: str = None
+    framework: Union[str, List[str]] = None
+    language: Union[str, List[str]] = None
     model_name: str = None
-    task: str = None
-    trained_dataset: str = None
+    task: Union[str, List[str]] = None
+    trained_dataset: Union[str, List[str]] = None
     tags: Union[str, List[str]] = None
 
 
