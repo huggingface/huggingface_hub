@@ -614,14 +614,14 @@ class HfApi:
 
         # Handling tasks
         if model_filter.task is not None:
-            if not isinstance(model_filter.task, list):
+            if not isinstance(model_filter.task, (list, tuple)):
                 model_filter.task = [model_filter.task]
             for task in model_filter.task:
                 filter_tuple.append(task)
 
         # Handling dataset
         if model_filter.trained_dataset is not None:
-            if not isinstance(model_filter.trained_dataset, list):
+            if not isinstance(model_filter.trained_dataset, (list, tuple)):
                 model_filter.trained_dataset = [model_filter.trained_dataset]
             for dataset in model_filter.trained_dataset:
                 if "dataset:" not in dataset:
@@ -630,14 +630,14 @@ class HfApi:
 
         # Handling framework
         if model_filter.framework:
-            if not isinstance(model_filter.framework, list):
+            if not isinstance(model_filter.framework, (list, tuple)):
                 model_filter.framework = [model_filter.framework]
             for framework in model_filter.framework:
                 filter_tuple.append(framework)
 
         # Handling tags
         if model_filter.tags:
-            if not isinstance(model_filter.tags, list):
+            if not isinstance(model_filter.tags, (list, tuple)):
                 tags.append(model_filter.tags)
             else:
                 tags += model_filter.tags
@@ -730,14 +730,14 @@ class HfApi:
             dataset_str = f"{dataset_filter.author}/"
 
         # Handling dataset_name
-        if dataset_filter.model_name is not None:
-            dataset_str += dataset_filter.model_name
+        if dataset_filter.dataset_name is not None:
+            dataset_str += dataset_filter.dataset_name
 
         filter_tuple = []
         data_attributes = [
             "benchmark",
-            "language_creator",
-            "language",
+            "language_creators",
+            "languages",
             "multilinguality",
             "size_categories",
             "task_categories",
@@ -747,7 +747,7 @@ class HfApi:
         for attr in data_attributes:
             curr_attr = getattr(dataset_filter, attr)
             if curr_attr is not None:
-                if not isinstance(curr_attr, list):
+                if not isinstance(curr_attr, (list, tuple)):
                     curr_attr = [curr_attr]
                 for data in curr_attr:
                     if f"{attr}:" not in data:

@@ -47,7 +47,7 @@ class DatasetFilter:
                 >>> from huggingface_hub import DatasetFilter
                 >>> new_filter = DatasetFilter(dataset_name="wikineural")
 
-        language_creator (:obj:`str` or :class:`List`, `optional`):
+        language_creators (:obj:`str` or :class:`List`, `optional`):
             A string or list of strings that can be used to identify datasets on the hub
             with how the data was curated, such as `crowdsourced` or `machine_generated`
             Example usage:
@@ -55,7 +55,7 @@ class DatasetFilter:
                 >>> from huggingface_hub import DatasetFilter
                 >>> new_filter = DatasetFilter(language_creator="crowdsourced")
 
-        language (:obj:`str` or :class:`List`, `optional`):
+        languages (:obj:`str` or :class:`List`, `optional`):
             A string representing a two-character language to filter datasets by on the hub
             Example usage:
 
@@ -97,8 +97,8 @@ class DatasetFilter:
     author: str = None
     benchmark: Union[str, List[str]] = None
     dataset_name: str = None
-    language_creator: Union[str, List[str]] = None
-    language: Union[str, List[str]] = None
+    language_creators: Union[str, List[str]] = None
+    languages: Union[str, List[str]] = None
     multilinguality: Union[str, List[str]] = None
     size_categories: Union[str, List[str]] = None
     task_categories: Union[str, List[str]] = None
