@@ -33,7 +33,7 @@ from .constants import (
     SPACES_SDK_TYPES,
 )
 from .utils.tags import AttributeDictionary, DatasetTags, ModelTags
-
+from .utils.auth import auth_headers, basic_auth_header
 
 if sys.version_info >= (3, 8):
     from typing import Literal
@@ -650,6 +650,7 @@ class HfApi:
         revision: Optional[str] = None,
         token: Optional[str] = None,
         timeout: Optional[float] = None,
+        use_basic: Optional[bool] = False,
     ) -> ModelInfo:
         """
         Get info on one specific model on huggingface.co
@@ -664,8 +665,11 @@ class HfApi:
             if revision is None
             else f"{self.endpoint}/api/models/{repo_id}/revision/{revision}"
         )
-        headers = {"authorization": f"Bearer {token}"} if token is not None else None
-        r = requests.get(path, headers=headers, timeout=timeout)
+        r = requests.get(
+            path,
+            headers=auth_headers(token=token, use_basic=use_basic),
+            timeout=timeout,
+        )
         r.raise_for_status()
         d = r.json()
         return ModelInfo(**d)
@@ -677,17 +681,26 @@ class HfApi:
         repo_type: Optional[str] = None,
         token: Optional[str] = None,
         timeout: Optional[float] = None,
+        use_basic: Optional[bool] = False,
     ) -> List[str]:
         """
         Get the list of files in a given repo.
         """
         if repo_type is None:
             info = self.model_info(
-                repo_id, revision=revision, token=token, timeout=timeout
+                repo_id,
+                revision=revision,
+                token=token,
+                timeout=timeout,
+                use_basic=use_basic,
             )
         elif repo_type == "dataset":
             info = self.dataset_info(
-                repo_id, revision=revision, token=token, timeout=timeout
+                repo_id,
+                revision=revision,
+                token=token,
+                timeout=timeout,
+                use_basic=use_basic,
             )
         else:
             raise ValueError("Spaces are not available yet.")
@@ -695,7 +708,10 @@ class HfApi:
         return [f.rfilename for f in info.siblings]
 
     def list_repos_objs(
-        self, token: Optional[str] = None, organization: Optional[str] = None
+        self,
+        token: Optional[str] = None,
+        organization: Optional[str] = None,
+        use_basic: Optional[bool] = False,
     ) -> List[RepoObj]:
         """
         Deprecated
@@ -719,7 +735,7 @@ class HfApi:
         path = f"{self.endpoint}/api/repos/ls"
         params = {"organization": organization} if organization is not None else None
         r = requests.get(
-            path, params=params, headers={"authorization": f"Bearer {token}"}
+            path, params=params, headers=auth_headers(token=token, use_basic=use_basic)
         )
         r.raise_for_status()
         d = r.json()
@@ -731,6 +747,7 @@ class HfApi:
         revision: Optional[str] = None,
         token: Optional[str] = None,
         timeout: Optional[float] = None,
+        use_basic: Optional[bool] = False,
     ) -> DatasetInfo:
         """
         Get info on one specific dataset on huggingface.co
@@ -742,9 +759,13 @@ class HfApi:
             if revision is None
             else f"{self.endpoint}/api/datasets/{repo_id}/revision/{revision}"
         )
-        headers = {"authorization": f"Bearer {token}"} if token is not None else None
         params = {"full": "true"}
-        r = requests.get(path, headers=headers, params=params, timeout=timeout)
+        r = requests.get(
+            path,
+            headers=auth_headers(token=token, use_basic=use_basic),
+            params=params,
+            timeout=timeout,
+        )
         r.raise_for_status()
         d = r.json()
         return DatasetInfo(**d)
@@ -769,6 +790,7 @@ class HfApi:
         exist_ok=False,
         lfsmultipartthresh: Optional[int] = None,
         space_sdk: Optional[str] = None,
+        use_basic: Optional[bool] = False,
     ) -> str:
         """
         HuggingFace git-based system, used for models, datasets, and spaces.
@@ -834,7 +856,7 @@ class HfApi:
             json["lfsmultipartthresh"] = lfsmultipartthresh
         r = requests.post(
             path,
-            headers={"authorization": f"Bearer {token}"},
+            headers=auth_headers(token=token, use_basic=use_basic),
             json=json,
         )
 
@@ -861,6 +883,7 @@ class HfApi:
         token: Optional[str] = None,
         organization: Optional[str] = None,
         repo_type: Optional[str] = None,
+        use_basic: Optional[bool] = False,
     ):
         """
         HuggingFace git-based system, used for models, datasets, and spaces.
@@ -897,7 +920,7 @@ class HfApi:
 
         r = requests.delete(
             path,
-            headers={"authorization": f"Bearer {token}"},
+            headers=auth_headers(token=token, use_basic=use_basic),
             json=json,
         )
         r.raise_for_status()
@@ -909,6 +932,7 @@ class HfApi:
         token: Optional[str] = None,
         organization: Optional[str] = None,
         repo_type: Optional[str] = None,
+        use_basic: Optional[bool] = False,
     ) -> Dict[str, bool]:
         """
         Update the visibility setting of a repository.
@@ -949,7 +973,7 @@ class HfApi:
 
         r = requests.put(
             path,
-            headers={"authorization": f"Bearer {token}"},
+            headers=auth_headers(token=token, use_basic=use_basic),
             json=json,
         )
         r.raise_for_status()
@@ -964,6 +988,7 @@ class HfApi:
         repo_type: Optional[str] = None,
         revision: Optional[str] = None,
         identical_ok: bool = True,
+        use_basic: Optional[bool] = False,
     ) -> str:
         """
         Upload a local file (up to 5GB) to the given repo. The upload is done through a HTTP post request, and
@@ -1074,7 +1099,7 @@ class HfApi:
 
         path = f"{self.endpoint}/api/{repo_id}/upload/{revision}/{path_in_repo}"
 
-        headers = {"authorization": f"Bearer {token}"} if token is not None else None
+        headers = auth_headers(token=token, use_basic=use_basic)
 
         if isinstance(path_or_fileobj, str):
             with open(path_or_fileobj, "rb") as bytestream:
@@ -1104,6 +1129,7 @@ class HfApi:
         token: Optional[str] = None,
         repo_type: Optional[str] = None,
         revision: Optional[str] = None,
+        use_basic: Optional[bool] = False,
     ):
         """
         Deletes a file in the given repo.
@@ -1156,7 +1182,7 @@ class HfApi:
 
         path = f"{self.endpoint}/api/{repo_id}/delete/{revision}/{path_in_repo}"
 
-        headers = {"authorization": f"Bearer {token}"}
+        headers = auth_headers(token=token, use_basic=use_basic)
         r = requests.delete(path, headers=headers)
 
         r.raise_for_status()

@@ -69,6 +69,7 @@ def push_to_hub_keras(
     git_user: Optional[str] = None,
     git_email: Optional[str] = None,
     config: Optional[dict] = None,
+    use_basic: Optional[bool] = False,
 ):
     """
     Upload model checkpoint or tokenizer files to the 🤗 Model Hub while synchronizing a local clone of the repo in
@@ -139,6 +140,7 @@ def push_to_hub_keras(
             private=private,
             repo_type=None,
             exist_ok=True,
+            use_basic=True,
         )
 
     repo = Repository(
@@ -204,6 +206,7 @@ class KerasModelHubMixin(ModelHubMixin):
         resume_download,
         local_files_only,
         use_auth_token,
+        use_basic=False,
         **model_kwargs,
     ):
         """Here we just call from_pretrained_keras function so both the mixin and functional APIs stay in sync.

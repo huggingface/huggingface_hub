@@ -504,7 +504,7 @@ class Repository:
             )
         logger.info(git_version + "\n" + lfs_version)
 
-    def clone_from(self, repo_url: str, use_auth_token: Union[bool, str, None] = None):
+    def clone_from(self, repo_url: str, use_auth_token: Union[bool, str, None] = None, use_basic: Optional[bool] = False):
         """
         Clone from a remote. If the folder already exists, will try to clone the repository within it.
 
@@ -550,6 +550,7 @@ class Repository:
                         organization=namespace,
                         exist_ok=True,
                         private=self.private,
+                        use_basic=use_basic,
                     )
             else:
                 if namespace is not None:

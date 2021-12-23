@@ -55,6 +55,11 @@ class UserCommands(BaseHuggingfaceCLICommand):
         ls_parser.add_argument(
             "--organization", type=str, help="Optional: organization namespace."
         )
+        ls_parser.add_argument(
+            "--use-basic",
+            action="store_true",
+            help="Optional: use Basic authentication",
+        )
         ls_parser.set_defaults(func=lambda args: ListReposObjsCommand(args))
         repo_create_parser = repo_subparsers.add_parser(
             "create", help="Create a new repo on huggingface.co"
@@ -83,6 +88,11 @@ class UserCommands(BaseHuggingfaceCLICommand):
             "--yes",
             action="store_true",
             help="Optional: answer Yes to the prompt",
+        )
+        repo_create_parser.add_argument(
+            "--use-basic",
+            action="store_true",
+            help="Optional: use Basic authentication",
         )
         repo_create_parser.set_defaults(func=lambda args: RepoCreateCommand(args))
 
@@ -221,7 +231,11 @@ class ListReposObjsCommand(BaseUserCommand):
             print("Not logged in")
             exit(1)
         try:
-            objs = self._api.list_repos_objs(token, organization=self.args.organization)
+            objs = self._api.list_repos_objs(
+                token,
+                organization=self.args.organization,
+                use_basic=self.args.use_basic,
+            )
         except HTTPError as e:
             print(e)
             print(ANSI.red(e.response.text))
@@ -288,6 +302,7 @@ class RepoCreateCommand(BaseUserCommand):
                 organization=self.args.organization,
                 repo_type=self.args.type,
                 space_sdk=self.args.space_sdk,
+                use_basic=self.args.use_basic,
             )
         except HTTPError as e:
             print(e)

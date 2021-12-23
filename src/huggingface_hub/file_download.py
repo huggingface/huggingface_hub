@@ -10,7 +10,7 @@ from contextlib import contextmanager
 from functools import partial
 from hashlib import sha256
 from pathlib import Path
-from typing import BinaryIO, Dict, Optional, Tuple, Union
+from typing import BinaryIO, Dict, Optional, Tuple, Union, cast
 
 import packaging.version
 from tqdm.auto import tqdm
@@ -29,6 +29,7 @@ from .constants import (
 )
 from .hf_api import HfFolder
 from .utils import logging
+from .utils.auth import AuthHeaders, auth_headers
 
 
 logger = logging.get_logger(__name__)
@@ -302,6 +303,7 @@ def cached_download(
     resume_download=False,
     use_auth_token: Union[bool, str, None] = None,
     local_files_only=False,
+    use_basic: Optional[bool] = False,
 ) -> Optional[str]:  # pragma: no cover
     """
     Given a URL, look for the corresponding file in the local cache. If it's not there, download it. Then return the
@@ -328,14 +330,18 @@ def cached_download(
         )
     }
     if isinstance(use_auth_token, str):
-        headers["authorization"] = f"Bearer {use_auth_token}"
+        auth = cast(
+            AuthHeaders, auth_headers(token=use_auth_token, use_basic=use_basic)
+        )
+        headers["authorization"] = auth["authorization"]
     elif use_auth_token:
         token = HfFolder.get_token()
         if token is None:
             raise EnvironmentError(
                 "You specified use_auth_token=True, but a huggingface token was not found."
             )
-        headers["authorization"] = f"Bearer {token}"
+        auth = cast(AuthHeaders, auth_headers(token=token, use_basic=use_basic))
+        headers["authorization"] = auth["authorization"]
 
     url_to_download = url
     etag = None
@@ -502,6 +508,7 @@ def hf_hub_download(
     resume_download=False,
     use_auth_token: Union[bool, str, None] = None,
     local_files_only=False,
+    use_basic: Optional[bool] = False,
 ):
     """
     Resolve a model identifier, a file name, and an optional revision id, to a huggingface.co file distributed through
@@ -543,4 +550,5 @@ def hf_hub_download(
         resume_download=resume_download,
         use_auth_token=use_auth_token,
         local_files_only=local_files_only,
+        use_basic=use_basic,
     )
