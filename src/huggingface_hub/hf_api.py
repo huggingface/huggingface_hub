@@ -32,8 +32,9 @@ from .constants import (
     REPO_TYPES_URL_PREFIXES,
     SPACES_SDK_TYPES,
 )
+from .utils.auth import auth_headers
 from .utils.tags import AttributeDictionary, DatasetTags, ModelTags
-from .utils.auth import auth_headers, basic_auth_header
+
 
 if sys.version_info >= (3, 8):
     from typing import Literal

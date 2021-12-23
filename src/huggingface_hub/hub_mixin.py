@@ -331,7 +331,7 @@ class PyTorchModelHubMixin(ModelHubMixin):
         resume_download,
         local_files_only,
         use_auth_token,
-        use_basic: Optional[bool]=False,
+        use_basic: Optional[bool] = False,
         map_location="cpu",
         strict=False,
         **model_kwargs,
