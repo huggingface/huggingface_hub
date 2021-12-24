@@ -19,11 +19,48 @@ want to be integrated.
 3. Feel free to customize anything required by your lib everywhere you want. The only real requirements, are to honor the HTTP endpoints, in the same fashion as the `common` folder for all your supported tasks.
 4. Edit `example/tests/test_api.py` to add TESTABLE_MODELS.
 5. Pass the test suite `pytest -sv --rootdir docker_images/example/ docker_images/example/`
-6. Enjoy !
+6. Submit your PR and enjoy !
 
-### Developping while updating `api-inference-community`.
+### Going the full way
 
-If you ever come across a bug within `api-inference-community` or want to update it
+Doing the first 6 steps is good enough to get started, however in the process 
+you can anticipate some problems corrections early on. Maintainers will help you
+along the way if you don't feel confident to follow those steps yourself
+
+1. Test your creation within a docker
+
+```python
+./manage.py docker --model-id MY_MODEL
+```
+
+should work and responds on port 8000. `curl -X POST -d "test" http://localhost:8000` for instance if 
+the pipeline deals with simple text.
+
+If it doesn't work out of the box and/or docker is slow for some reason you
+can test locally (using your local python environment) with :
+
+`./manage.py start --model-id MY_MODEL`
+
+
+2. Test your docker uses cache properly.
+
+When doing subsequent docker launch with the same model_id, the docker should start up very fast and not redownload the whole model file. If you see the model/repo being downloaded over and over, it means the cache is not being used correctly.
+You can edit the `docker_images/{framework}/Dockerfile` and add an environement variable (by default it assumes `HUGGINGFACE_HUB_CACHE`), or your code directly to put
+the model files in the `/data` folder.
+
+3. Add a docker test.
+
+Edit the `tests/test_dockers.py` file to add a new test with your new framework
+in it (`def test_{framework}(self):` for instance). As a basic you should have 1 line per task in this test function with a real working model on the hub. Those tests are relatively slow but will check automatically that correct errors are replied by your API and that the cache works properly. To run those tests your can simply do:
+
+```bash
+
+RUN_DOCKER_TESTS=1 pytest -sv tests/test_dockers.py::DockerImageTests::test_{framework}
+```
+
+### Modifying files within `api-inference-community/{routes,validation,..}.py`.
+
+If you ever come across a bug within `api-inference-community/` package or want to update it
 the developpement process is slightly more involved.
 
 - First, make sure you need to change this package, each framework is very autonomous

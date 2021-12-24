@@ -109,9 +109,24 @@ def show(args):
 
 
 def resolve(model_id: str) -> [str, str]:
-    info = HfApi().model_info(model_id)
-    task = info.pipeline_tag
-    framework = info.library_name
+    try:
+        info = HfApi().model_info(model_id)
+    except Exception as e:
+        raise ValueError(
+            f"The hub has no information on {model_id}, does it exist: {e}"
+        )
+    try:
+        task = info.pipeline_tag
+    except Exception:
+        raise ValueError(
+            f"The hub has no `pipeline_tag` on {model_id}, you can set it in the `README.md` yaml header"
+        )
+    try:
+        framework = info.library_name
+    except Exception:
+        raise ValueError(
+            f"The hub has no `library_name` on {model_id}, you can set it in the `README.md` yaml header"
+        )
     return task, framework.replace("-", "_")
 
 
