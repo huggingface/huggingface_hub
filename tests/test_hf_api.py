@@ -21,7 +21,6 @@ import time
 import unittest
 import uuid
 from io import BytesIO
-from unittest import mock
 import pytest
 
 import requests
