@@ -567,7 +567,7 @@ class HfApiPublicTest(unittest.TestCase):
     def test_list_datasets_author(self):
         _api = HfApi()
         datasets = _api.list_datasets(author="huggingface")
-        self.assertGreater(len(datasets), 4)
+        self.assertGreater(len(datasets), 1)
         self.assertIsInstance(datasets[0], DatasetInfo)
 
     @with_production_testing
