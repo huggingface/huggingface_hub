@@ -522,6 +522,8 @@ class HfApi:
     def list_datasets(
         self,
         filter: Union[str, Iterable[str], None] = None,
+        author: Optional[str] = None,
+        search: Optional[str] = None,
         sort: Union[Literal["lastModified"], str, None] = None,
         direction: Optional[Literal[-1]] = None,
         limit: Optional[int] = None,
@@ -546,6 +548,30 @@ class HfApi:
 
                     >>> # List only the datasets in russian for language modeling
                     >>> api.list_datasets(filter=("languages:ru", "task_ids:language-modeling"))
+            author (:obj:`str`, `optional`):
+                A string which identify the author of the returned models
+                Example usage:
+
+                    >>> from huggingface_hub import HfApi
+                    >>> api = HfApi()
+
+                    >>> # List all datasets from google
+                    >>> api.list_datasets(author="google")
+
+                    >>> # List only the text classification datasets from google
+                    >>> api.list_datasets(filter="text-classification", author="google")
+            search (:obj:`str`, `optional`):
+                A string that will be contained in the returned models
+                Example usage:
+
+                    >>> from huggingface_hub import HfApi
+                    >>> api = HfApi()
+
+                    >>> # List all datasets with "text" in their name
+                    >>> api.list_datasets(search="text")
+
+                    >>> #List all datasets with "text" in their name made by google
+                    >>> api.list_datasets(search="text", author="google")
             sort (:obj:`Literal["lastModified"]` or :obj:`str`, `optional`):
                 The key with which to sort the resulting datasets. Possible values are the properties of the `DatasetInfo`
                 class.
@@ -562,6 +588,10 @@ class HfApi:
         params = {}
         if filter is not None:
             params.update({"filter": filter})
+        if author is not None:
+            params.update({"author": author})
+        if search is not None:
+            params.update({"search": search})
         if sort is not None:
             params.update({"sort": sort})
         if direction is not None:

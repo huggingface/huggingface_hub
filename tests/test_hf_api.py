@@ -564,6 +564,20 @@ class HfApiPublicTest(unittest.TestCase):
         self.assertTrue(any(dataset.cardData for dataset in datasets))
 
     @with_production_testing
+    def test_list_datasets_author(self):
+        _api = HfApi()
+        datasets = _api.list_datasets(author="huggingface")
+        self.assertGreater(len(datasets), 4)
+        self.assertIsInstance(datasets[0], DatasetInfo)
+
+    @with_production_testing
+    def test_list_datasets_search(self):
+        _api = HfApi()
+        datasets = _api.list_datasets(search="wikipedia")
+        self.assertGreater(len(datasets), 10)
+        self.assertIsInstance(datasets[0], DatasetInfo)
+
+    @with_production_testing
     def test_dataset_info(self):
         _api = HfApi()
         dataset = _api.dataset_info(repo_id=DUMMY_DATASET_ID)
