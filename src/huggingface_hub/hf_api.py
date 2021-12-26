@@ -21,7 +21,6 @@ import warnings
 from io import BufferedIOBase, RawIOBase
 from os.path import expanduser
 from typing import IO, Dict, Iterable, List, Optional, Tuple, Union
-from pathlib import Path
 import requests
 from requests.exceptions import HTTPError
 
