@@ -29,7 +29,7 @@ from .constants import (
 )
 from .hf_api import HfFolder
 from .utils import logging
-from .utils.auth import AuthHeaders, auth_headers
+from .utils.auth import AuthHeaders, auth_header
 
 
 logger = logging.get_logger(__name__)
@@ -303,7 +303,7 @@ def cached_download(
     resume_download=False,
     use_auth_token: Union[bool, str, None] = None,
     local_files_only=False,
-    use_basic: Optional[bool] = False,
+    override_auth_header: Optional[str] = None,
 ) -> Optional[str]:  # pragma: no cover
     """
     Given a URL, look for the corresponding file in the local cache. If it's not there, download it. Then return the
@@ -331,7 +331,8 @@ def cached_download(
     }
     if isinstance(use_auth_token, str):
         auth = cast(
-            AuthHeaders, auth_headers(token=use_auth_token, use_basic=use_basic)
+            AuthHeaders,
+            auth_header(token=use_auth_token, override=override_auth_header),
         )
         headers["authorization"] = auth["authorization"]
     elif use_auth_token:
@@ -340,7 +341,9 @@ def cached_download(
             raise EnvironmentError(
                 "You specified use_auth_token=True, but a huggingface token was not found."
             )
-        auth = cast(AuthHeaders, auth_headers(token=token, use_basic=use_basic))
+        auth = cast(
+            AuthHeaders, auth_header(token=token, override=override_auth_header)
+        )
         headers["authorization"] = auth["authorization"]
 
     url_to_download = url
@@ -508,7 +511,7 @@ def hf_hub_download(
     resume_download=False,
     use_auth_token: Union[bool, str, None] = None,
     local_files_only=False,
-    use_basic: Optional[bool] = False,
+    override_auth_header: Optional[str] = None,
 ):
     """
     Resolve a model identifier, a file name, and an optional revision id, to a huggingface.co file distributed through
@@ -550,5 +553,5 @@ def hf_hub_download(
         resume_download=resume_download,
         use_auth_token=use_auth_token,
         local_files_only=local_files_only,
-        use_basic=use_basic,
+        override_auth_header=override_auth_header,
     )

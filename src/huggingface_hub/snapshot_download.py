@@ -29,7 +29,7 @@ def snapshot_download(
     resume_download=False,
     use_auth_token: Union[bool, str, None] = None,
     local_files_only=False,
-    use_basic: Optional[bool] = False,
+    override_auth_header: Optional[str] = None,
 ) -> str:
     """
     Downloads a whole snapshot of a repo's files at the specified revision.
@@ -140,7 +140,10 @@ def snapshot_download(
         # if we have internet connection we retrieve the correct folder name from the huggingface api
         _api = HfApi()
         model_info = _api.model_info(
-            repo_id=repo_id, revision=revision, token=token, use_basic=use_basic
+            repo_id=repo_id,
+            revision=revision,
+            token=token,
+            override_auth_header=override_auth_header,
         )
 
         storage_folder = os.path.join(cache_dir, repo_id_flattened + "." + revision)
@@ -177,7 +180,7 @@ def snapshot_download(
             resume_download=resume_download,
             use_auth_token=use_auth_token,
             local_files_only=local_files_only,
-            use_basic=use_basic,
+            override_auth_header=override_auth_header,
         )
 
         if os.path.exists(path + ".lock"):

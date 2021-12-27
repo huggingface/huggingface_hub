@@ -79,7 +79,7 @@ class ModelHubMixin:
         use_auth_token: Optional[str] = None,
         cache_dir: Optional[str] = None,
         local_files_only: bool = False,
-        use_basic: Optional[bool] = False,
+        override_auth_header: Optional[str] = None,
         **model_kwargs,
     ):
         r"""
@@ -143,7 +143,7 @@ class ModelHubMixin:
                     resume_download=resume_download,
                     use_auth_token=use_auth_token,
                     local_files_only=local_files_only,
-                    use_basic=use_basic,
+                    override_auth_header=override_auth_header,
                 )
             except requests.exceptions.RequestException:
                 logger.warning(f"{CONFIG_NAME} not found in HuggingFace Hub")
@@ -163,7 +163,7 @@ class ModelHubMixin:
             resume_download,
             local_files_only,
             use_auth_token,
-            use_basic,
+            override_auth_header,
             **model_kwargs,
         )
 
@@ -178,7 +178,7 @@ class ModelHubMixin:
         resume_download,
         local_files_only,
         use_auth_token,
-        use_basic: Optional[bool] = False,
+        override_auth_header: Optional[str] = None,
         **model_kwargs,
     ):
         """Overwrite this method in subclass to define how to load your model from pretrained"""
@@ -331,7 +331,7 @@ class PyTorchModelHubMixin(ModelHubMixin):
         resume_download,
         local_files_only,
         use_auth_token,
-        use_basic: Optional[bool] = False,
+        override_auth_header: Optional[str] = None,
         map_location="cpu",
         strict=False,
         **model_kwargs,
@@ -355,7 +355,7 @@ class PyTorchModelHubMixin(ModelHubMixin):
                 resume_download=resume_download,
                 use_auth_token=use_auth_token,
                 local_files_only=local_files_only,
-                use_basic=use_basic,
+                override_auth_header=override_auth_header,
             )
         model = cls(**model_kwargs)
 

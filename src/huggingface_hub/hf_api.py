@@ -32,7 +32,7 @@ from .constants import (
     REPO_TYPES_URL_PREFIXES,
     SPACES_SDK_TYPES,
 )
-from .utils.auth import auth_headers
+from .utils.auth import auth_header
 from .utils.tags import AttributeDictionary, DatasetTags, ModelTags
 
 
@@ -651,7 +651,7 @@ class HfApi:
         revision: Optional[str] = None,
         token: Optional[str] = None,
         timeout: Optional[float] = None,
-        use_basic: Optional[bool] = False,
+        override_auth_header: Optional[str] = None,
     ) -> ModelInfo:
         """
         Get info on one specific model on huggingface.co
@@ -668,7 +668,7 @@ class HfApi:
         )
         r = requests.get(
             path,
-            headers=auth_headers(token=token, use_basic=use_basic),
+            headers=auth_header(token=token, override=override_auth_header),
             timeout=timeout,
         )
         r.raise_for_status()
@@ -682,7 +682,7 @@ class HfApi:
         repo_type: Optional[str] = None,
         token: Optional[str] = None,
         timeout: Optional[float] = None,
-        use_basic: Optional[bool] = False,
+        override_auth_header: Optional[str] = None,
     ) -> List[str]:
         """
         Get the list of files in a given repo.
@@ -693,7 +693,7 @@ class HfApi:
                 revision=revision,
                 token=token,
                 timeout=timeout,
-                use_basic=use_basic,
+                override_auth_header=override_auth_header,
             )
         elif repo_type == "dataset":
             info = self.dataset_info(
@@ -701,7 +701,7 @@ class HfApi:
                 revision=revision,
                 token=token,
                 timeout=timeout,
-                use_basic=use_basic,
+                override_auth_header=override_auth_header,
             )
         else:
             raise ValueError("Spaces are not available yet.")
@@ -712,7 +712,7 @@ class HfApi:
         self,
         token: Optional[str] = None,
         organization: Optional[str] = None,
-        use_basic: Optional[bool] = False,
+        override_auth_header: Optional[str] = None,
     ) -> List[RepoObj]:
         """
         Deprecated
@@ -736,7 +736,9 @@ class HfApi:
         path = f"{self.endpoint}/api/repos/ls"
         params = {"organization": organization} if organization is not None else None
         r = requests.get(
-            path, params=params, headers=auth_headers(token=token, use_basic=use_basic)
+            path,
+            params=params,
+            headers=auth_header(token=token, override=override_auth_header),
         )
         r.raise_for_status()
         d = r.json()
@@ -748,7 +750,7 @@ class HfApi:
         revision: Optional[str] = None,
         token: Optional[str] = None,
         timeout: Optional[float] = None,
-        use_basic: Optional[bool] = False,
+        override_auth_header: Optional[str] = None,
     ) -> DatasetInfo:
         """
         Get info on one specific dataset on huggingface.co
@@ -763,7 +765,7 @@ class HfApi:
         params = {"full": "true"}
         r = requests.get(
             path,
-            headers=auth_headers(token=token, use_basic=use_basic),
+            headers=auth_header(token, override=override_auth_header),
             params=params,
             timeout=timeout,
         )
@@ -791,7 +793,7 @@ class HfApi:
         exist_ok=False,
         lfsmultipartthresh: Optional[int] = None,
         space_sdk: Optional[str] = None,
-        use_basic: Optional[bool] = False,
+        override_auth_header: Optional[str] = None,
     ) -> str:
         """
         HuggingFace git-based system, used for models, datasets, and spaces.
@@ -857,7 +859,7 @@ class HfApi:
             json["lfsmultipartthresh"] = lfsmultipartthresh
         r = requests.post(
             path,
-            headers=auth_headers(token=token, use_basic=use_basic),
+            headers=auth_header(token=token, override=override_auth_header),
             json=json,
         )
 
@@ -884,7 +886,7 @@ class HfApi:
         token: Optional[str] = None,
         organization: Optional[str] = None,
         repo_type: Optional[str] = None,
-        use_basic: Optional[bool] = False,
+        override_auth_header: Optional[str] = None,
     ):
         """
         HuggingFace git-based system, used for models, datasets, and spaces.
@@ -921,7 +923,7 @@ class HfApi:
 
         r = requests.delete(
             path,
-            headers=auth_headers(token=token, use_basic=use_basic),
+            headers=auth_header(token=token, override=override_auth_header),
             json=json,
         )
         r.raise_for_status()
@@ -933,7 +935,7 @@ class HfApi:
         token: Optional[str] = None,
         organization: Optional[str] = None,
         repo_type: Optional[str] = None,
-        use_basic: Optional[bool] = False,
+        override_auth_header: Optional[str] = None,
     ) -> Dict[str, bool]:
         """
         Update the visibility setting of a repository.
@@ -974,7 +976,7 @@ class HfApi:
 
         r = requests.put(
             path,
-            headers=auth_headers(token=token, use_basic=use_basic),
+            headers=auth_header(token=token, override=override_auth_header),
             json=json,
         )
         r.raise_for_status()
@@ -989,7 +991,7 @@ class HfApi:
         repo_type: Optional[str] = None,
         revision: Optional[str] = None,
         identical_ok: bool = True,
-        use_basic: Optional[bool] = False,
+        override_auth_header: Optional[str] = None,
     ) -> str:
         """
         Upload a local file (up to 5GB) to the given repo. The upload is done through a HTTP post request, and
@@ -1100,7 +1102,7 @@ class HfApi:
 
         path = f"{self.endpoint}/api/{repo_id}/upload/{revision}/{path_in_repo}"
 
-        headers = auth_headers(token=token, use_basic=use_basic)
+        headers = auth_header(token=token, override=override_auth_header)
 
         if isinstance(path_or_fileobj, str):
             with open(path_or_fileobj, "rb") as bytestream:
@@ -1130,7 +1132,7 @@ class HfApi:
         token: Optional[str] = None,
         repo_type: Optional[str] = None,
         revision: Optional[str] = None,
-        use_basic: Optional[bool] = False,
+        override_auth_header: Optional[str] = None,
     ):
         """
         Deletes a file in the given repo.
@@ -1183,7 +1185,7 @@ class HfApi:
 
         path = f"{self.endpoint}/api/{repo_id}/delete/{revision}/{path_in_repo}"
 
-        headers = auth_headers(token=token, use_basic=use_basic)
+        headers = auth_header(token=token, override=override_auth_header)
         r = requests.delete(path, headers=headers)
 
         r.raise_for_status()

@@ -13,18 +13,12 @@ class AuthHeaders(TypedDict):
     authorization: str
 
 
-def auth_headers(
-    token: Optional[str] = None, use_basic: Optional[bool] = False
+def auth_header(
+    token: Optional[str] = None, override: Optional[str] = None
 ) -> Optional[AuthHeaders]:
-    return (
-        {
-            "authorization": basic_auth_header("user", token)
-            if use_basic
-            else f"Bearer {token}"
-        }
-        if token
-        else None
-    )
+    if override is not None:
+        return {"authorization": override}
+    return {"authorization": f"Bearer {token}"} if token is not None else None
 
 
 def basic_auth_header(username: str, password: str) -> str:

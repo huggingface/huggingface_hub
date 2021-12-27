@@ -508,7 +508,7 @@ class Repository:
         self,
         repo_url: str,
         use_auth_token: Union[bool, str, None] = None,
-        use_basic: Optional[bool] = False,
+        override_auth_header: Optional[str] = None,
     ):
         """
         Clone from a remote. If the folder already exists, will try to clone the repository within it.
@@ -555,7 +555,7 @@ class Repository:
                         organization=namespace,
                         exist_ok=True,
                         private=self.private,
-                        use_basic=use_basic,
+                        override_auth_header=override_auth_header,
                     )
             else:
                 if namespace is not None:
