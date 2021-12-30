@@ -316,15 +316,15 @@ class SnapshotDownloadTests(unittest.TestCase):
                 f"{USER}/{REPO_NAME}",
                 revision="main",
                 cache_dir=tmpdirname,
-                ignore_file_names=["dummy_file_2.txt"],
+                allowed_file_regex="dummy*",
             )
 
             # folder contains the two files contributed and the .gitattributes
             folder_contents = os.listdir(storage_folder)
             self.assertEqual(len(folder_contents), 2)
             self.assertTrue("dummy_file.txt" in folder_contents)
-            self.assertTrue("dummy_file_2.txt" not in folder_contents)
-            self.assertTrue(".gitattributes" in folder_contents)
+            self.assertTrue("dummy_file_2.txt" in folder_contents)
+            self.assertTrue(".gitattributes" not in folder_contents)
 
             with open(os.path.join(storage_folder, "dummy_file.txt"), "r") as f:
                 contents = f.read()

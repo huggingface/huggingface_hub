@@ -154,20 +154,15 @@ def snapshot_download(
         repo_id_sha = model_info.sha
         model_files = [f.rfilename for f in model_info.siblings]
 
+    import ipdb; ipdb.set_trace()
     # compile allowed file regexes
     if allowed_file_regex is not None:
-        allowed_file_regex = (
-            [allowed_file_regex]
-            if isinstance(allowed_file_regex, str)
-            else allowed_file_regex
-        )
+        allowed_file_regex = [allowed_file_regex] if isinstance(allowed_file_regex, str) else allowed_file_regex
         allowed_patterns = [re.compile(n) for n in allowed_file_regex]
 
     for model_file in model_files:
         # potentially ignore passed filename
-        if allowed_patterns is not None and not any(
-            r.match(model_file) for r in allowed_patterns
-        ):
+        if allowed_patterns is not None and not any(r.match(model_file) for r in allowed_patterns):
             continue
 
         url = hf_hub_url(repo_id, filename=model_file, revision=repo_id_sha)

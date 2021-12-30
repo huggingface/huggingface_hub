@@ -30,7 +30,7 @@ def snapshot_download(
     resume_download=False,
     use_auth_token: Optional[Union[bool, str]] = None,
     local_files_only=False,
-    allowed_file_regex: Optional[Union[List[str], str]] = None,
+    allowed_files_regex: Optional[List[str]] = None,
 ) -> str:
     """
     Downloads a whole snapshot of a repo's files at the specified revision.
@@ -156,18 +156,11 @@ def snapshot_download(
 
     # compile allowed file regexes
     if allowed_file_regex is not None:
-        allowed_file_regex = (
-            [allowed_file_regex]
-            if isinstance(allowed_file_regex, str)
-            else allowed_file_regex
-        )
-        allowed_patterns = [re.compile(n) for n in allowed_file_regex]
+        allowed_files_pattern = [re.compile(n) for n in allowed_files_regex]
 
     for model_file in model_files:
         # potentially ignore passed filename
-        if allowed_patterns is not None and not any(
-            r.match(model_file) for r in allowed_patterns
-        ):
+        if allowed_files_regex is not None and not any(model_file.match(r) for r in allowed_files_pattern):
             continue
 
         url = hf_hub_url(repo_id, filename=model_file, revision=repo_id_sha)
