@@ -308,3 +308,27 @@ class SnapshotDownloadTests(unittest.TestCase):
 
             # folder name contains the 2nd commit sha and not the 3rd
             self.assertTrue(self.second_commit_hash in storage_folder)
+
+    def test_download_model_ignore_files(self):
+        # Test `main` branch
+        with tempfile.TemporaryDirectory() as tmpdirname:
+            storage_folder = snapshot_download(
+                f"{USER}/{REPO_NAME}",
+                revision="main",
+                cache_dir=tmpdirname,
+                ignore_file_names=["dummy_file_2.txt"],
+            )
+
+            # folder contains the two files contributed and the .gitattributes
+            folder_contents = os.listdir(storage_folder)
+            self.assertEqual(len(folder_contents), 3)
+            self.assertTrue("dummy_file.txt" in folder_contents)
+            self.assertTrue("dummy_file_2.txt" not in folder_contents)
+            self.assertTrue(".gitattributes" in folder_contents)
+
+            with open(os.path.join(storage_folder, "dummy_file.txt"), "r") as f:
+                contents = f.read()
+                self.assertEqual(contents, "v2")
+
+            # folder name contains the revision's commit sha.
+            self.assertTrue(self.second_commit_hash in storage_folder)
