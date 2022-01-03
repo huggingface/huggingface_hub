@@ -86,6 +86,7 @@ util.pytorch_cos_sim(embedding_1, embedding_2)
 
 
 ## Useful Resources
+Would you like to learn more about Sentence Transformers and Sentence Similarity? Awesome! Here you can find some curated resources that can be helpful to you!
 
 - [Sentence Transformers Documentation](https://www.sbert.net/)
 - [Sentence Transformers in the Hub](https://huggingface.co/blog/sentence-transformers-in-the-hub)
