@@ -52,6 +52,8 @@ for token in doc:
 
 
 ## Useful Resources
+Would you like to learn more about token classification? Great! Here you can find some curated resources that can be helpful to you!
+
 - [Course Chapter on Token Classification](https://huggingface.co/course/chapter7/2?fw=pt)
 - [Blog post: Welcome spaCy to the Hugging Face Hub](https://huggingface.co/blog/spacy)
 

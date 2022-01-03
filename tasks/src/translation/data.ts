@@ -52,7 +52,7 @@ const taskData: TaskData = {
 			id:          "t5-base",
 		},
 	],
-	summary:      "Translation (also called machine translation) is the task of translating text from one language to another. You can directly use a translation model, or if you can’t find the language pair you want to work with, you can fine-tune an existing multilingual translation model (like mBART or mT5) with your own training data with the source and target languages of your own use case.",
+	summary:      "Machine translation is the task of translating text from one language to another.",
 	widgetModels: ["t5-small"],
 	youtubeId:    "1JvfrvZgi6c",
 };
