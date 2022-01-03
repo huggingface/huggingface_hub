@@ -309,14 +309,18 @@ class SnapshotDownloadTests(unittest.TestCase):
             # folder name contains the 2nd commit sha and not the 3rd
             self.assertTrue(self.second_commit_hash in storage_folder)
 
-    def test_download_model_ignore_files(self):
+    def check_download_model_with_regex(self, regex, allow=True):
         # Test `main` branch
+        allow_regex = regex if allow else None
+        ignore_regex = regex if not allow else None
+
         with tempfile.TemporaryDirectory() as tmpdirname:
             storage_folder = snapshot_download(
                 f"{USER}/{REPO_NAME}",
                 revision="main",
                 cache_dir=tmpdirname,
-                allowed_file_regex="dummy*",
+                allow_regex=allow_regex,
+                ignore_regex=ignore_regex,
             )
 
             # folder contains the two files contributed and the .gitattributes
@@ -332,3 +336,15 @@ class SnapshotDownloadTests(unittest.TestCase):
 
             # folder name contains the revision's commit sha.
             self.assertTrue(self.second_commit_hash in storage_folder)
+
+    def test_download_model_with_allow_regex(self):
+        self.check_download_model_with_regex("*.txt")
+
+    def test_download_model_with_allow_regex_list(self):
+        self.check_download_model_with_regex(["dummy_file.txt", "dummy_file_2.txt"])
+
+    def test_download_model_with_ignore_regex(self):
+        self.check_download_model_with_regex(".gitattributes", allow=False)
+
+    def test_download_model_with_ignore_regex_list(self):
+        self.check_download_model_with_regex(["*.git*", "*.pt"], allow=False)

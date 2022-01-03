@@ -1,5 +1,5 @@
 import os
-import re
+from fnmatch import fnmatch
 from glob import glob
 from pathlib import Path
 from typing import Dict, List, Optional, Union
@@ -30,7 +30,8 @@ def snapshot_download(
     resume_download=False,
     use_auth_token: Optional[Union[bool, str]] = None,
     local_files_only=False,
-    allowed_file_regex: Optional[Union[List[str], str]] = None,
+    allow_regex: Optional[Union[List[str], str]] = None,
+    ignore_regex: Optional[Union[List[str], str]] = None,
 ) -> str:
     """
     Downloads a whole snapshot of a repo's files at the specified revision.
@@ -154,19 +155,19 @@ def snapshot_download(
         repo_id_sha = model_info.sha
         model_files = [f.rfilename for f in model_info.siblings]
 
-    # compile allowed file regexes
-    if allowed_file_regex is not None:
-        allowed_file_regex = (
-            [allowed_file_regex]
-            if isinstance(allowed_file_regex, str)
-            else allowed_file_regex
-        )
-        allowed_patterns = [re.compile(n) for n in allowed_file_regex]
+    allow_regex = [allow_regex] if isinstance(allow_regex, str) else allow_regex
+    ignore_regex = [ignore_regex] if isinstance(ignore_regex, str) else ignore_regex
 
     for model_file in model_files:
-        # potentially ignore passed filename
-        if allowed_patterns is not None and not any(
-            r.match(model_file) for r in allowed_patterns
+        # verify that regex is allowed, if not any `allow_regex` is true then no download
+        if allow_regex is not None and not any(
+            fnmatch(model_file, r) for r in allow_regex
+        ):
+            continue
+
+        # verify that regex is not forbidden, if any `ignore_regex` is true then no download
+        if ignore_regex is not None and any(
+            fnmatch(model_file, r) for r in ignore_regex
         ):
             continue
 
