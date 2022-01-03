@@ -10,8 +10,8 @@ const taskData: TaskData = {
 			id:          "mc4",
 		},
 		{
-			description: "A dataset of Reddit submissions. Used to pretrain models like GPT-Neo.",
-			id:          "the_pile_openwebtext2",
+			description: "Diverse, open source data consisting in 22 smaller, combined high-quality datasets. It was used to train GPT-Neo.",
+			id:          "the_pile",
 		},
 	],
 	demo: {
@@ -38,11 +38,11 @@ const taskData: TaskData = {
 	libraries: TASKS_MODEL_LIBRARIES["text-generation"],
 	metrics:   [
 		{
-			description: "Cross Entropy is a loss metric built on entropy. It calculates the difference between two probability distributions, with probability distributions being the distributions of predicted words here.",
+			description: "Cross Entropy is a metric that calculates the difference between two probability distributions. Each probability distributions is the distribution of predicted words.",
 			id:          "Cross Entropy",
 		},
 		{
-			description: "Perplexity is the exponential of the cross-entropy loss. Perplexity evaluates the probabilities assigned to the next word by the model, and lower perplexity indicates good performance.",
+			description: "Perplexity is the exponential of the cross-entropy loss. It evaluates the probabilities assigned to the next word by the model. Lower perplexity indicates good performance.",
 			id:          "Perplexity",
 		},
 	],
@@ -56,7 +56,7 @@ const taskData: TaskData = {
 			id:          "bigscience/T0pp",
 		},
 	],
-	summary:      "Text generation is the task of generating text for a given task. These models can be either asked to complete incomplete text or asked to perform a task (e.g. paraphrasing), this depends on the model’s training objective (but don’t worry, we will cover both of them).  ",
+	summary:      "Text generation is the task of...well generating text! These models can complete incomplete text or asked to perform a task such as paraphrasing. This depends on the model’s training objective (but don’t worry, we will cover both of them!).  ",
 	widgetModels: ["gpt2"],
 	youtubeId:    "Vpjb1lu0MDk",
 };

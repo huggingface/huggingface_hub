@@ -6,11 +6,11 @@ import { TASKS_MODEL_LIBRARIES } from "../const";
 const taskData: TaskData = {
 	datasets: [
 		{
-			description: "A common dataset used for pretraining models like BERT.",
+			description: "A common dataset used for pretraining models with data for many languages.",
 			id:          "wikipedia",
 		},
 		{
-			description: "A large English dataset of web text. Used to pretrain models like T5.",
+			description: "A large English dataset of text obtained from the web.",
 			id:          "c4",
 		},
 	],
@@ -56,17 +56,17 @@ const taskData: TaskData = {
 	libraries: TASKS_MODEL_LIBRARIES["fill-mask"],
 	metrics:   [
 		{
-			description: "Cross Entropy is a loss metric built on entropy. It calculates the difference between two probability distributions, with probability distributions being the distributions of predicted words here.",
+			description: "Cross Entropy is a metric that calculates the difference between two probability distributions. Each probability distributions is the distribution of predicted words.",
 			id:          "cross_entropy",
 		},
 		{
-			description: "Perplexity is the exponential of the cross-entropy loss. Perplexity evaluates the probabilities assigned to the next word by the model, and lower perplexity indicates good performance. ",
+			description: "Perplexity is the exponential of the cross-entropy loss. It evaluates the probabilities assigned to the next word by the model. Lower perplexity indicates good performance. ",
 			id:          "perplexity",
 		},
 	],
 	models: [
 		{
-			description: "A smaller, faster version of BERT.",
+			description: "A faster and smaller model than the famous BERT model.",
 			id:          "distilbert-base-uncased",
 		},
 		{

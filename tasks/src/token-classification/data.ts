@@ -68,15 +68,15 @@ const taskData: TaskData = {
 	models: [
 		{
 			description: "A good performing model to identify persons, locations, organizations and names of miscellaneous entities.",
-			id:          "dbmdz/bert-large-cased-finetuned-conll03-english",
+			id:          "dslim/bert-base-NER",
 		},
 		{
 			description: "Flair models are typically the state of the art in named entity recognition tasks.",
 			id:          "flair/ner-english",
 		},
 	],
-	summary:      "Token classification is a natural language understanding task. Token classification is the task of assigning a label to each token in a sentence. Most popular token classification tasks are named entity recognition and part-of-speech tagging.",
-	widgetModels: ["stanfordnlp/stanza-en"],
+	summary:      "Token classification is a natural language understanding task in which a label is assigned to some tokens in a text. Some popular token classification subtasks are named entity recognition and part-of-speech tagging.",
+	widgetModels: ["dslim/bert-base-NER"],
 	youtubeId:    "wVHdVlPScxA",
 };
 
