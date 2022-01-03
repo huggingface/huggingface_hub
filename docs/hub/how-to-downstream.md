@@ -83,3 +83,31 @@ Download a whole repository as shown in the following:
 ```
 
 In general, it is usually better to manually download files with `hf_hub_download` (if you already know which files you need) to avoid redownloading an entire repository. `snapshot_download` is helpful when your library's downloading utility is a helper, and unaware of which files need to be downloaded.
+
+To only download some files of a repository with `snapshot_download`, you can make 
+make use of the `allow_regex` and `ignore_regex` arguments to specific 
+which files shall be downloaded.
+Both a single regex or a list of regex are accepted for `allow_regex` and `ignore_regex`. 
+The regex matching is based on [`fnmatch`](https://docs.python.org/3/library/fnmatch.html) which means that it provides support for Unix shell-style wildcards.
+
+To download, *e.g.*, only the JSON configuration files, you could make use of `allow_regex`:
+
+```python
+>>> from huggingface_hub import snapshot_download
+>>> snapshot_download(repo_id="lysandre/arxiv-nlp", allow_regex="*.json")
+```
+
+If, on the other hand, you might want to always exclude any files of `.msgpack` 
+or `.h5` extensions, you could make use of `ignore_regex`:
+
+```python
+>>> from huggingface_hub import snapshot_download
+>>> snapshot_download(repo_id="lysandre/arxiv-nlp", ignore_regex=["*.msgpack", "*.h5"])
+```
+
+Passing a regex can be especially useful when repositories contain files that 
+are are never expected to be downloaded by `snapshot_download`.
+
+Note that passing `allow_regex` or `ignore_regex` does **not** prevent 
+`snapshot_download` from re-downloading the entire model repository if an ignored
+file is changed.
