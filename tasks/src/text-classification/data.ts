@@ -18,18 +18,28 @@ const taskData: TaskData = {
 		inputs: [
 			{
 				label:   "Input",
-				content:
-						"I love Hugging Face!",
+				content: "I love Hugging Face!",
 				type: "text",
 			},
 			
 		],
 		outputs: [
 			{
-				label:   "Output",
-				content:
-						"A JSON input of bars.",
-				type: "text",
+				"type": "chart",
+				data: [
+					{
+						"label": "POSITIVE",
+						"score": 0.90
+					},
+					{
+						"label": "NEUTRAL",
+						"score": 0.10
+					},
+					{
+						"label": "NEGATIVE",
+						"score": 0.00
+					}
+				]
 			},
 		],
 	},
@@ -57,15 +67,15 @@ const taskData: TaskData = {
 	],
 	models: [
 		{
-			description: "A good performing model on trained on sentiment analysis.",
+			description: "A good performing model trained on sentiment analysis.",
 			id:          "distilbert-base-uncased-finetuned-sst-2-english",
 		},
 		{
-			description: "Strong Multi-Genre Natural Language Inference model.",
+			description: "Strong multi-genre natural language inference model.",
 			id:          "roberta-large-mnli",
 		},
 	],
-	summary:      "Text Classification is the task of classifying a text. There are various text classification tasks, such as Natural Language Inference, Sentiment Analysis and Linguistic Acceptibility.",
+	summary:      "Text Classification is the task of assigning a label or class to a given text. Some example tasks are sentiment analysis, natural language inference, and grammatical correctness.",
 	widgetModels: ["distilbert-base-uncased-finetuned-sst-2-english"],
 	youtubeId:    "",
 };
