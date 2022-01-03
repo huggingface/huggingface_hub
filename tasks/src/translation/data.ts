@@ -10,7 +10,7 @@ const taskData: TaskData = {
 			id:          "opus_books",
 		},
 		{
-			description: "An example of machine translation between programming languages, this dataset consists of functions in Java and C#.",
+			description: "An example of translation between programming languages. This dataset consists of functions in Java and C#.",
 			id:          "code_x_glue_cc_code_to_code_trans",
 		},
 	],
@@ -38,13 +38,13 @@ const taskData: TaskData = {
 	libraries: TASKS_MODEL_LIBRARIES["translation"],
 	metrics:   [
 		{
-			description: "Translation is evaluated on BLEU Score. BLEU score is calculated by counting the number of shared single or subsequent tokens between the generated sequence and the reference. Subsequent n tokens are called “n-grams”. Unigram refers to a single token while bi-gram refers to token pairs and n-grams refer to n subsequent tokens. The score ranges from 0 to 1, in which 1 means the translation perfectly matched and 0 did not match at all. Read More",
+			description: "Translation is evaluated on BLEU Score. BLEU score is calculated by counting the number of shared single or subsequent tokens between the generated sequence and the reference. Subsequent n tokens are called “n-grams”. Unigram refers to a single token while bi-gram refers to token pairs and n-grams refer to n subsequent tokens. The score ranges from 0 to 1, in which 1 means the translation perfectly matched and 0 did not match at all.",
 			id:          "bleu",
 		},
 	],
 	models: [
 		{
-			description: "A good performing model to identify persons, locations, organizations and names of miscellaneous entities.",
+			description: "A model that translates from English to French.",
 			id:          "Helsinki-NLP/opus-mt-en-fr",
 		},
 		{
