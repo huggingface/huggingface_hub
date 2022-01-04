@@ -3,7 +3,7 @@
 You can extract information from documents using sentence similarity models. The first step is to rank documents using Passage Ranking models. You can then get the top-ranked document and search in it with sentence similarity models by picking the sentence that has the highest similarity to the input query.
 
 ## Sentence Transformers
-The [Sentence Transformers](https://www.sbert.net/) library is very powerful to compute embeddings of sentences, paragraphs and whole documents. An embedding is just a vector representation of a text, which makes embeddings very useful to find how similar two texts are. 
+The [Sentence Transformers](https://www.sbert.net/) library is very powerful to compute embeddings of sentences, paragraphs and whole documents. An embedding is just a vector representation of a text and are useful to find how similar two texts are. 
 
 You can find and use [hundreds of Sentence Transformers](https://huggingface.co/models?library=sentence-transformers&sort=downloads) models from the Hub
 by directly using the library, playing with the widgets in the browser, or using the Inference API.
@@ -13,13 +13,12 @@ by directly using the library, playing with the widgets in the browser, or using
 ### Passage Ranking
 Passage ranking is the task of ranking documents based on their relevance to a given query. The task is evaluated on Mean Reciprocal Rank. These models take one query and multiple documents and return ranked documents according to the relevancy to the query. 📄
 
-You can infer with passage ranking models using the [Inference API](https://huggingface.co/inference-api). The inputs to the passage ranking model is a source sentence for which we are looking and the documents we want to search in. The model will return scores according to relevancy of those documents to the source sentence. 
+You can infer with passage ranking models using the [Inference API](https://huggingface.co/inference-api). The inputs to the passage ranking model is a query for which we are looking for relevancy in documents and the documents we want to search in. The model will return scores according to relevancy of those documents to the query.
 
 ```python
 import json
 import requests
 
-# msmarco models are used for passage ranking
 API_URL = "https://api-inference.huggingface.co/models/sentence-transformers/msmarco-distilbert-base-tas-b" 
 headers = {"Authorization": f"Bearer {api_token}"}
 
@@ -42,13 +41,13 @@ data = query(
 ```
 
 ### Semantic Textual Similarity
-Semantic textual similarity is the task of assessing how similar two texts are in terms of meaning. The task is evaluated on Pearson’s Rank Correlation. These models take one source sentence and a list of sentences that we will look for similarity in and return a list of similarity scores. The benchmark dataset is the [Semantic Textual Similarity Benchmark](http://ixa2.si.ehu.eus/stswiki/index.php/STSbenchmark).
+Semantic textual similarity is the task of assessing how similar two texts are in terms of meaning. These models take one source sentence and a list of sentences that we will look for similarity in and return a list of similarity scores. The benchmark dataset is the [Semantic Textual Similarity Benchmark](http://ixa2.si.ehu.eus/stswiki/index.php/STSbenchmark). The task is evaluated on Pearson’s Rank Correlation.
 
 ```python
 import json
 import requests
 
-API_URL = "https://api-inference.huggingface.co/models/sentence-transformers/all-MiniLM-L6-v2" # sentence similarity model
+API_URL = "https://api-inference.huggingface.co/models/sentence-transformers/all-MiniLM-L6-v2" 
 headers = {"Authorization": f"Bearer {api_token}"}
 
 def query(payload):

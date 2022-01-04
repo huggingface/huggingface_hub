@@ -30,7 +30,7 @@ def query(filename):
 data = query("sample1.flac")
 ```
 
-2. Audio Source Separation
+### Audio Source Separation
 
 Audio Source Separation allows you to isolate the different sounds from the individual sources. For example, if you have an audio file with multiple people speaking, you can get an audio file for each of them. You can then use an Automatic Speech Recognition system to extract the text from each of these sources as an initial step for your system!
 
@@ -40,5 +40,5 @@ Audio to audio can also be used to remove noise from audio files: you get one au
 
 If you want to learn how to train models for audio to audio, we recommend the following tutorials:
 
-- [https://speechbrain.github.io/tutorial_enhancement.html](https://speechbrain.github.io/tutorial_enhancement.html)
-- [https://speechbrain.github.io/tutorial_separation.html](https://speechbrain.github.io/tutorial_separation.html)
+- [Speech Enhancement](https://speechbrain.github.io/tutorial_enhancement.html)
+- [Source Separation](https://speechbrain.github.io/tutorial_separation.html)

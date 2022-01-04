@@ -23,11 +23,11 @@ const taskData: TaskData = {
 				data: [
 					{
 						"label": "Up",
-						"score": 0.8
+						"score": 0.2
 					},
 					{
 						"label": "Down",
-						"score": 0.2
+						"score": 0.8
 					},
 				],
 				"type": "chart",

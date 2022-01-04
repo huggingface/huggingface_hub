@@ -30,12 +30,16 @@ const taskData: TaskData = {
 	libraries: TASKS_MODEL_LIBRARIES["image-segmentation"],
 	metrics:   [
 		{
-			description: "Average Precision (AP) is the Area Under the PR Curve (AUC-PR). It is calculated for each class separately.",
+			description: "Average Precision (AP) is the Area Under the PR Curve (AUC-PR). It is calculated for each semantic class separately.",
 			id:          "Average Precision",
 		},
 		{
 			description: "Mean Average Precision is the overall average of the Average Precision values.",
 			id:          "Mean Average Precision",
+		},
+		{
+			description: "Intersection over Union is the overlap of segmentation masks. Mean Intersection over Union is the average of Intersection over Union of all semantic classes.",
+			id:          "Mean Intersection over Union",
 		},
 		{
 			description: "APα is the Average Precision at IoU threshold of α, AP50 and AP75 are widely used.",
