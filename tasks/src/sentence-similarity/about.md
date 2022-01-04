@@ -3,7 +3,7 @@
 You can extract information from documents using sentence similarity models. The first step is to rank documents using Passage Ranking models. You can then get the top-ranked document and search in it with sentence similarity models by picking the sentence that has the highest similarity to the input query.
 
 ## Sentence Transformers
-The [Sentence Transformers](https://www.sbert.net/) library is very powerful to compute embeddings of sentences, paragraphs and whole documents. An embedding is just a vector representation of a text, and embeddings are useful to find how similar two texts are. 
+The [Sentence Transformers](https://www.sbert.net/) library is very powerful to compute embeddings of sentences, paragraphs and whole documents. An embedding is just a vector representation of a text and are useful to find how similar two texts are. 
 
 You can find and use [hundreds of Sentence Transformers](https://huggingface.co/models?library=sentence-transformers&sort=downloads) models from the Hub
 by directly using the library, playing with the widgets in the browser, or using the Inference API.
