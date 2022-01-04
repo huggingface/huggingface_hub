@@ -1,18 +1,6 @@
 name: Python tests
 
 on:
-  push:
-    branches:
-      - main
-      - ci_*
-    paths-ignore:
-      - "widgets/**"
-      - "api-inference-community/**"
-  pull_request:
-    types: [assigned, opened, synchronize, reopened]
-    paths-ignore:
-      - "widgets/**"
-      - "api-inference-community/**"
   workflow_dispatch:
 
 env:
@@ -20,7 +8,7 @@ env:
 
 jobs:
   build:
-    runs-on: ubuntu-latest
+    runs-on: windows-latest
     strategy:
       matrix:
         python-version: ["3.6", "3.9"]
