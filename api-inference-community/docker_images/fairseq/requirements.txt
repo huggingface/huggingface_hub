@@ -5,4 +5,4 @@ phonemizer==2.2.1
 librosa==0.8.1
 hanziconv==0.3.2
 
-git+git://github.com/pytorch/fairseq.git@ca36b437e463c9f202efacd67ce80ae201361dc8
+git+git://github.com/pytorch/fairseq.git@43defa1bcb9cc3d5c532d12cba5e01f37dad0350
