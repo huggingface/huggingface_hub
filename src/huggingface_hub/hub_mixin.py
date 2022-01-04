@@ -253,9 +253,6 @@ class ModelHubMixin:
         if repo_path_or_name is None:
             repo_path_or_name = repo_url.split("/")[-1]
 
-        elif "/" in repo_path_or_name and organization is None:
-            organization = repo_path_or_name.split("/")
-
         # If no URL is passed and there's no path to a directory containing files, create a repo
         if repo_url is None and not os.path.exists(repo_path_or_name):
             repo_name = Path(repo_path_or_name).name
