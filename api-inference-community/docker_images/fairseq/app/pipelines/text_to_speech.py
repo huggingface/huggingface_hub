@@ -34,7 +34,5 @@ class TextToSpeechPipeline(Pipeline):
             return np.zeros((0,)), self.sampling_rate
 
         sample = TTSHubInterface.get_model_input(self.task, inputs)
-        wav, sr = self.get_prediction(
-            self.task, self.model, self.generator, sample
-        )
+        wav, sr = self.get_prediction(self.task, self.model, self.generator, sample)
         return wav.numpy(), sr
