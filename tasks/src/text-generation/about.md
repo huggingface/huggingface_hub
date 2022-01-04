@@ -61,6 +61,9 @@ text2text_generator(“Reorder the words in this sentence: justin and name biebe
 Would you like to learn more about the topic? Awesome! Here you can find some curated resources that can be helpful to you!
 - [Course Chapter on Training a causal language model from scratch](https://huggingface.co/course/chapter7/6?fw=pt)
 - [TO Discussion with Victor Sanh](https://www.youtube.com/watch?v=Oy49SCW_Xpw&ab_channel=HuggingFace)
+- [Hugging Face Course Workshops: Pretraining Language Models & CodeParrot](https://www.youtube.com/watch?v=ExUR7w6xe94&ab_channel=HuggingFace)
+- [Training CodeParrot 🦜 from Scratch](https://huggingface.co/blog/codeparrot)
+- [How to generate text: using different decoding methods for language generation with Transformers](https://huggingface.co/blog/how-to-generate)
 
 ### Notebooks
 - [Training a CLM in Flax](https://github.com/huggingface/notebooks/blob/master/examples/causal_language_modeling_flax.ipynb)

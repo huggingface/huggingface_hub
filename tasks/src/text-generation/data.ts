@@ -6,7 +6,7 @@ import { TASKS_MODEL_LIBRARIES } from "../const";
 const taskData: TaskData = {
 	datasets: [
 		{
-			description: "A large multilingual dataset of web text. Used to pretrain GPT-like models in various languages.",
+			description: "A large multilingual dataset of web text. Used to pretrain generative models in various languages.",
 			id:          "mc4",
 		},
 		{

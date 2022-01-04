@@ -23,7 +23,7 @@ classifier("Paris is the <mask> of France.")
 
 ## Useful Resources
 
-Would you like to learn more about the topic? Awesome! Here you can find some curated resources that can be helpful to you!
+Would you like to learn more about masked language? Awesome! Here you can find some curated resources that can be helpful to you!
 
 - [Course Chapter on Fine-tuning a Masked Language Model](https://huggingface.co/course/chapter7/3?fw=pt)
 - [Workshop on Pretraining Language Models and CodeParrot](https://www.youtube.com/watch?v=ExUR7w6xe94)

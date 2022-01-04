@@ -34,6 +34,7 @@ Would you like to learn more about QA? Awesome! Here you can find some curated r
 - [Question Answering Workshop](https://www.youtube.com/watch?v=Ihgk8kGLpIE&ab_channel=HuggingFace)
 - [How to Build an Open-Domain Question Answering System?](https://lilianweng.github.io/lil-log/2020/10/29/open-domain-question-answering.html) 
 - [Blog Post: ELI5 A Model for Open Domain Long Form Question Answering](https://yjernite.github.io/lfqa.html)
+- [Hugging Face Course Workshops: Question Answering](https://www.youtube.com/watch?v=Ihgk8kGLpIE&ab_channel=HuggingFace)
 
 ### Notebooks
 - [PyTorch](https://github.com/huggingface/notebooks/blob/master/examples/question_answering.ipynb)

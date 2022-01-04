@@ -2,15 +2,15 @@
 
 ### Command Recognition
 
-Command recognition or keyword spotting classifies utterances into a predefined set of predefined commands. This is very often done on-device for very fast response time 
+Command recognition or keyword spotting classifies utterances into a predefined set of predefined commands. This is very often done on-device for very fast response time.
 
-As an example, using the Google Speech Commands dataset, given an input, a model can classify which of the following commands the user is writing
+As an example, using the Google Speech Commands dataset, given an input, a model can classify which of the following commands the user is writing:
 
 ```
 'yes', 'no', 'up', 'down', 'left', 'right', 'on', 'off', 'stop', 'go', 'unknown', 'silence'
 ```
 
-Speechbrain models can easily perform this task with just a couple of lines of code
+Speechbrain models can easily perform this task with just a couple of lines of code!
 
 ```python
 from speechbrain.pretrained import EncoderClassifier
@@ -22,11 +22,7 @@ model.classify_file("file.wav")
 
 ### Language Identification
 
-Datasets such as VoxLingua107 allow anyone to train language identification models for up to 107 languages! This can be extremely useful as a preprocessing step for other systems.
-
-[add some image]
-
-[https://huggingface.co/TalTechNLP/voxlingua107-epaca-tdnn](https://huggingface.co/TalTechNLP/voxlingua107-epaca-tdnn) 
+Datasets such as VoxLingua107 allow anyone to train language identification models for up to 107 languages! This can be extremely useful as a preprocessing step for other systems. Here's an example [model](https://huggingface.co/TalTechNLP/voxlingua107-epaca-tdnn)trained on VoxLingua107.
 
 ### Emotion recognition
 
@@ -54,7 +50,7 @@ data = query("sample1.flac")
 
 4. Speaker indentification
 
-Speaker Identification is classifying the audio for the person that is speaking in it. The speakers are usually predefined. You can try out this task at [https://huggingface.co/superb/wav2vec2-base-superb-sid](https://huggingface.co/superb/wav2vec2-base-superb-sid) . A useful dataset for this task is VoxCeleb1 
+Speaker Identification is classifying the audio for the person that is speaking in it. The speakers are usually predefined. You can try out this task with [this model](https://huggingface.co/superb/wav2vec2-base-superb-sid). A useful dataset for this task is VoxCeleb1.
 
 ## Solving audio classification for your own data
 
