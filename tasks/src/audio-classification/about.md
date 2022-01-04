@@ -48,7 +48,7 @@ data = query("sample1.flac")
 # {'label': 'sad', 'score': 0.07}]
 ```
 
-4. Speaker indentification
+### Speaker Identification
 
 Speaker Identification is classifying the audio for the person that is speaking in it. The speakers are usually predefined. You can try out this task with [this model](https://huggingface.co/superb/wav2vec2-base-superb-sid). A useful dataset for this task is VoxCeleb1.
 
