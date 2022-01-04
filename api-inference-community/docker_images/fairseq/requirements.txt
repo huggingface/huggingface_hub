@@ -1,4 +1,4 @@
 api-inference-community==0.0.20
 g2p_en==2.1.0
 librosa==0.8.1
-git+git://github.com/pytorch/fairseq.git@43defa1bcb9cc3d5c532d12cba5e01f37dad0350
+git+git://github.com/pytorch/fairseq.git@1d5da6d5b954ba01fc3df12d25d63df27437e20e
