@@ -811,6 +811,15 @@ class HfApi:
         if repo_type not in REPO_TYPES:
             raise ValueError("Invalid repo type")
 
+        if "/" in name:
+            if organization is not None:
+                if organization != name.split("/")[1]:
+                    raise ValueError(
+                        f"Both a `name` with an organization and an `organization` were passed in that do not align ({name}, {organization}). Please ensure these align to the same organization"
+                    )
+                else:
+                    name, organization = name.split("/")
+
         json = {"name": name, "organization": organization, "private": private}
         if repo_type is not None:
             json["type"] = repo_type
@@ -890,6 +899,15 @@ class HfApi:
 
         if repo_type not in REPO_TYPES:
             raise ValueError("Invalid repo type")
+
+        if "/" in name:
+            if organization is not None:
+                if organization != name.split("/")[1]:
+                    raise ValueError(
+                        f"Both a `name` with an organization and an `organization` were passed in that do not align ({name}, {organization}). Please ensure these align to the same organization"
+                    )
+                else:
+                    name, organization = name.split("/")
 
         json = {"name": name, "organization": organization}
         if repo_type is not None:
@@ -1185,7 +1203,10 @@ class HfApi:
             otherwise.
         """
         if organization is None:
-            username = self.whoami(token=token)["name"]
+            if "/" in model_id:
+                username = model_id.split("/")[0]
+            else:
+                username = self.whoami(token=token)["name"]
             return f"{username}/{model_id}"
         else:
             return f"{organization}/{model_id}"
