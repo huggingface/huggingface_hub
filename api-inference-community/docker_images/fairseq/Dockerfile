@@ -3,7 +3,7 @@ LABEL maintainer="me <me@example.com>"
 
 # Add any system dependency here
 # RUN apt-get update -y && apt-get install libXXX -y
-RUN apt-get update -y && apt-get install ffmpeg -y
+RUN apt-get update -y && apt-get install ffmpeg espeak-ng -y
 
 COPY ./requirements.txt /app
 RUN pip install --no-cache-dir -r requirements.txt
