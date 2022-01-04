@@ -21,20 +21,20 @@ class TextToSpeechPipeline(Pipeline):
         TTSHubInterface.update_cfg_with_data_cfg(cfg, self.task.data_cfg)
         self.generator = self.task.build_generator(self.model, cfg)
 
-        # 22,050Hz by default if not specified
-        self.sampling_rate = getattr(task, "sr", None) or 22_050
-
     def __call__(self, inputs: str) -> Tuple[np.array, int]:
         """
         Args:
             inputs (:obj:`str`):
                 The text to generate audio from
         Return:
-            A :obj:`np.array` and a :obj:`int`: The raw waveform as a numpy array, and the sampling rate as an int.
+            A :obj:`np.array` and a :obj:`int`: The raw waveform as a numpy
+            array, and the sampling rate as an int.
         """
         if len(inputs) == 0:
             return np.zeros((0,)), self.sampling_rate
 
         sample = TTSHubInterface.get_model_input(self.task, inputs)
-        waveform_pred = self.get_prediction(self.model, self.generator, sample)
-        return waveform_pred.numpy(), self.sampling_rate
+        wav, sr = self.get_prediction(
+            self.task, self.model, self.generator, sample
+        )
+        return wav.numpy(), sr
