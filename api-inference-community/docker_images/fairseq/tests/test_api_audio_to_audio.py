@@ -1,3 +1,5 @@
+import base64
+import json
 import os
 from unittest import TestCase, skipIf
 
@@ -39,27 +41,36 @@ class AudioToAudioTestCase(TestCase):
             del os.environ["TASK"]
 
     def test_simple(self):
-        with TestClient(self.app) as client:
-            response = client.post("/", json={"inputs": "This is some text"})
+        bpayload = self.read("sample1.flac")
 
+        with TestClient(self.app) as client:
+            response = client.post("/", data=bpayload)
         self.assertEqual(
             response.status_code,
             200,
         )
-        self.assertEqual(response.headers["content-type"], "audio/flac")
-        audio = ffmpeg_read(response.content, 16000)
-        self.assertEqual(len(audio.shape), 1)
-        self.assertGreater(audio.shape[0], 1000)
+        self.assertEqual(response.headers["content-type"], "application/json")
+        audio = json.loads(response.content)
 
-    def test_malformed_input(self):
+        self.assertTrue(isinstance(audio, list))
+        self.assertEqual(set(audio[0].keys()),
+                         {"blob", "content-type", "label"})
+
+        data = base64.b64decode(audio[0]["blob"])
+        wavform = ffmpeg_read(data, 16000)
+        self.assertGreater(wavform.shape[0], 1000)
+        self.assertTrue(isinstance(audio[0]["content-type"], str))
+        self.assertTrue(isinstance(audio[0]["label"], str))
+
+    def test_malformed_audio(self):
+        bpayload = self.read("malformed.flac")
+
         with TestClient(self.app) as client:
-            response = client.post("/", data=b"\xc3\x28")
+            response = client.post("/", data=bpayload)
 
         self.assertEqual(
             response.status_code,
             400,
         )
-        self.assertEqual(
-            response.content,
-            b'{"error":"\'utf-8\' codec can\'t decode byte 0xc3 in position 0: invalid continuation byte"}',
-        )
+        self.assertEqual(response.content, b'{"error":"Malformed soundfile"}')
+

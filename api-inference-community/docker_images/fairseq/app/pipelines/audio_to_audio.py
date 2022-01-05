@@ -38,7 +38,7 @@ class SpeechToSpeechPipeline(Pipeline):
                     This can be the name of the instruments for audio source separation
                     or some annotation for speech enhancement. The length must be `C'`.
         """
-        _inputs = torch.from_numpy(inputs)
+        _inputs = torch.from_numpy(inputs).unsqueeze(0)
         sample = S2THubInterface.get_model_input(self.task, _inputs)
         (text, (wav, sr)) = S2THubInterface.get_prediction(
             self.task, self.model, self.generator, sample, synthesize_speech=True
