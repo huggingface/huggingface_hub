@@ -564,7 +564,7 @@ class HfApiPublicTest(unittest.TestCase):
         f = DatasetFilter(language_creators="crowdsourced")
         datasets = _api.list_datasets(f)
         self.assertGreater(len(datasets), 0)
-        self.assertTrue("annotations_creators:crowdsourced" in datasets[0].tags)
+        self.assertTrue("language_creators:crowdsourced" in datasets[0].tags)
 
     @with_production_testing
     def test_filter_datasets_by_language(self):
