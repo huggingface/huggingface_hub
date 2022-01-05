@@ -814,7 +814,7 @@ class HfApi:
         if organization is None:
             organization = checked_name[1]
         else:
-            if organization != checked_name[1]:
+            if organization != checked_name[1] and checked_name[1] is not None:
                 raise ValueError(
                     f"""Passed `organization` and `name` organization are not the same ({organization}, {checked_name[1]}).
                 Please either include the organization in only `name` or the `organization` parameter, such as `api.create_repo({checked_name[0]}, organization={organization})` or `api.create_repo({checked_name[1]}/{checked_name[2]})`"""
@@ -906,7 +906,7 @@ class HfApi:
         if organization is None:
             organization = checked_name[1]
         else:
-            if organization != checked_name[1]:
+            if organization != checked_name[1] and checked_name[1] is not None:
                 raise ValueError(
                     f"""Passed `organization` and `name` organization are not the same ({organization}, {checked_name[1]}).
                 Please either include the organization in only `name` or the `organization` parameter, such as `api.create_repo({checked_name[0]}, organization={organization})` or `api.create_repo({checked_name[1]}/{checked_name[2]})`"""
