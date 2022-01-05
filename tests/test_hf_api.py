@@ -719,7 +719,7 @@ class HfApiPublicTest(unittest.TestCase):
             framework=[args.library.PyTorch, args.library.TensorFlow],
         )
         models = _api.list_models(f)
-        self.assertGreater(1, len(models))
+        self.assertGreater(len(models), 1)
         self.assertTrue(
             [
                 "text-classification" in model.pipeline_tag
