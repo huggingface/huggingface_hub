@@ -53,8 +53,7 @@ class AudioToAudioTestCase(TestCase):
         audio = json.loads(response.content)
 
         self.assertTrue(isinstance(audio, list))
-        self.assertEqual(set(audio[0].keys()),
-                         {"blob", "content-type", "label"})
+        self.assertEqual(set(audio[0].keys()), {"blob", "content-type", "label"})
 
         data = base64.b64decode(audio[0]["blob"])
         wavform = ffmpeg_read(data, 16000)
@@ -73,4 +72,3 @@ class AudioToAudioTestCase(TestCase):
             400,
         )
         self.assertEqual(response.content, b'{"error":"Malformed soundfile"}')
-
