@@ -917,7 +917,7 @@ class HfApi:
                 if organization != name.split("/")[0]:
                     raise ValueError(
                         f"""Both a `name` with an organization and an `organization` were passed in that do not align ({name}, {organization}).
-                        Pass in only one valid organization to use, such as: `api.create_repo({name})` or `api.create_repo({name.split("/")[1]}, organization={organization})
+                        Pass in only one valid organization to use, such as: `api.delete_repo({name})` or `api.delete_repo({name.split("/")[1]}, organization={organization})
                         """
                     )
                 else:
