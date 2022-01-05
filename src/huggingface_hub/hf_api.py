@@ -530,17 +530,25 @@ class HfApi:
 
                     >>> # List all models
                     >>> api.list_models()
+                    
+                    >>> # Get all valid search arguments
+                    >>> args = ModelSearchArguments()
 
                     >>> # List only the text classification models
                     >>> api.list_models(filter="text-classification")
-                    >>> # OR:
+                    >>> # Using the `ModelFilter`
                     >>> filt = ModelFilter(task="text-classification")
+                    >>> # With `ModelSearchArguments`
+                    >>> filt = ModelFilter(task=args.pipeline_tags.TextClassification)
                     >>> api.list_models(filter=filt)
 
                     >>> # List only the russian models compatible with pytorch
                     >>> api.list_models(filter=("ru", "pytorch"))
-                    >>> # OR:
-                    >>> filt = ModelFilter(language="ru", framework="pytorch")
+                    >>> # Using the `ModelFilter`
+                    >>> filt = ModelFilter(language=params.language.ru, framework="pytorch")
+                    >>> api.list_models(filter=filt)
+                    >>> params = ModelSearchArguments()
+                    >>> filt = ModelFilter(language=params.language.ru, framework="pytorch")
                     >>> api.list_models(filter=filt)
 
                     >>> # List only the models trained on the "common_voice" dataset
