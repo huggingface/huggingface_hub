@@ -439,7 +439,7 @@ class DockerImageTests(unittest.TestCase):
             response = httpx.post(url, data=data, timeout=timeout)
             self.assertIn(response.status_code, {200, 400})
             counter[response.status_code] += 1
-            if response.status_code in {200, 400}:
+            if response.status_code == 200:
                 if response.headers["content-type"] == "application/json":
                     data = json.loads(response.content)
                     if isinstance(data, dict):
