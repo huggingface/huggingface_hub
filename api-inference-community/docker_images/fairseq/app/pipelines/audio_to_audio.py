@@ -2,6 +2,7 @@ import os
 from typing import List, Tuple
 
 import numpy as np
+import torch
 from app.pipelines import Pipeline
 from fairseq.checkpoint_utils import load_model_ensemble_and_task_from_hf_hub
 from fairseq.models.speech_to_text.hub_interface import S2THubInterface
@@ -37,7 +38,8 @@ class SpeechToSpeechPipeline(Pipeline):
                     This can be the name of the instruments for audio source separation
                     or some annotation for speech enhancement. The length must be `C'`.
         """
-        sample = S2THubInterface.get_model_input(self.task, inputs)
+        _inputs = torch.from_numpy(inputs)
+        sample = S2THubInterface.get_model_input(self.task, _inputs)
         (text, (wav, sr)) = S2THubInterface.get_prediction(
             self.task, self.model, self.generator, sample, synthesize_speech=True
         )
