@@ -9,16 +9,16 @@ from fairseq.models.speech_to_text.hub_interface import S2THubInterface
 
 class SpeechToSpeechPipeline(Pipeline):
     def __init__(self, model_id: str):
-        model, cfg, task = load_model_ensemble_and_task_from_hf_hub(
+        models, cfg, task = load_model_ensemble_and_task_from_hf_hub(
             model_id,
             arg_overrides={"config_yaml": "config.yaml"},
             cache_dir=os.getenv("HUGGINGFACE_HUB_CACHE"),
         )
-        self.model = model[0].cpu()
+        self.model = models[0].cpu()
         self.model.eval()
         cfg["task"].cpu = True
         self.task = task
-        self.generator = task.build_generator(self.model, cfg)
+        self.generator = task.build_generator([self.model], cfg)
 
     def __call__(self, inputs: np.array) -> Tuple[np.array, int, List[str]]:
         """
