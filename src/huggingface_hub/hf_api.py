@@ -530,7 +530,7 @@ class HfApi:
 
                     >>> # List all models
                     >>> api.list_models()
-                    
+
                     >>> # Get all valid search arguments
                     >>> args = ModelSearchArguments()
 
@@ -542,26 +542,10 @@ class HfApi:
                     >>> filt = ModelFilter(task=args.pipeline_tags.TextClassification)
                     >>> api.list_models(filter=filt)
 
-                    >>> # List only the russian models compatible with pytorch
-                    >>> api.list_models(filter=("ru", "pytorch"))
-                    >>> # Using the `ModelFilter`
-                    >>> filt = ModelFilter(language=params.language.ru, framework="pytorch")
-                    >>> api.list_models(filter=filt)
-                    >>> params = ModelSearchArguments()
-                    >>> filt = ModelFilter(language=params.language.ru, framework="pytorch")
-                    >>> api.list_models(filter=filt)
+                    >>> # Using ModelFilter and SearchArguments to find text classification in both PyTorch and TensorFlow
+                    >>> filt = ModelFilter(task=args.pipeline_tags.TextClassification, framework=[args.library.PyTorch, args.library.TensorFlow])
 
-                    >>> # List only the models trained on the "common_voice" dataset
-                    >>> api.list_models(filter="dataset:common_voice")
-                    >>> # OR:
-                    >>> filt = ModelFilter(trained_dataset="common_voice")
-                    >>> api.list_models(filter=filt)
 
-                    >>> # List only the models from the AllenNLP library
-                    >>> api.list_models(filter="allennlp")
-                    >>> # OR:
-                    >>> filt = ModelFilter(framework="allennlp")
-                    >>> api.list_models(filter=filt)
             sort (:obj:`Literal["lastModified"]` or :obj:`str`, `optional`):
                 The key with which to sort the resulting models. Possible values are the properties of the `ModelInfo`
                 class.
@@ -676,22 +660,30 @@ class HfApi:
                 A string or `DatasetFilter` which can be used to identify datasets on the hub.
                 Example usage:
 
+
                     >>> from huggingface_hub import HfApi
                     >>> api = HfApi()
 
                     >>> # List all datasets
                     >>> api.list_datasets()
 
+                    >>> # Get all valid search arguments
+                    >>> args = DatasetSearchArguments()
+
                     >>> # List only the text classification datasets
                     >>> api.list_datasets(filter="task_categories:text-classification")
-                    >>> # OR:
+                    >>> # Using the `DatasetFilter`
                     >>> filt = DatasetFilter(task_categories="text-classification")
-                    >>> api.list_datasets(filter=filt)
+                    >>> # With `DatasetSearchArguments`
+                    >>> filt = DatasetFilter(task=args.task_categories.text_classification)
+                    >>> api.list_models(filter=filt)
 
                     >>> # List only the datasets in russian for language modeling
                     >>> api.list_datasets(filter=("languages:ru", "task_ids:language-modeling"))
-                    >>> # OR:
+                    >>> # Using the `DatasetFilter`
                     >>> filt = DatasetFilter(languages="ru", task_ids="language-modeling")
+                    >>> # With `DatasetSearchArguments`
+                    >>> filt = DatasetFilter(languages=args.languages.ru, task_ids=args.task_ids.language_modeling)
                     >>> api.list_datasets(filter=filt)
 
             sort (:obj:`Literal["lastModified"]` or :obj:`str`, `optional`):
