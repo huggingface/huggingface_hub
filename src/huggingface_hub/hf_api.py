@@ -808,6 +808,32 @@ class HfApi:
             else:
                 raise ValueError("Invalid token passed!")
 
+        checked_name = repo_type_and_id_from_hf_id(name)
+
+        if (
+            repo_type is not None
+            and checked_name[0] is not None
+            and repo_type != checked_name[0]
+        ):
+            raise ValueError(
+                f"""Passed `repo_type` and found `repo_type` are not the same ({repo_type}, {checked_name[0]}).
+            Please make sure you are expecting the right type of repository to exist."""
+            )
+
+        if (
+            organization is not None
+            and checked_name[1] is not None
+            and organization != checked_name[1]
+        ):
+            raise ValueError(
+                f"""Passed `organization` and `name` organization are not the same ({organization}, {checked_name[1]}).
+            Please either include the organization in only `name` or the `organization` parameter, such as `api.create_repo({checked_name[0]}, organization={organization})` or `api.create_repo({checked_name[1]}/{checked_name[2]})`"""
+            )
+
+        repo_type = repo_type or checked_name[0]
+        organization = organization or checked_name[1]
+        name = checked_name[2]
+
         if repo_type not in REPO_TYPES:
             raise ValueError("Invalid repo type")
 
@@ -887,6 +913,32 @@ class HfApi:
                 token, name = name, token
             else:
                 raise ValueError("Invalid token passed!")
+
+        checked_name = repo_type_and_id_from_hf_id(name)
+
+        if (
+            repo_type is not None
+            and checked_name[0] is not None
+            and repo_type != checked_name[0]
+        ):
+            raise ValueError(
+                f"""Passed `repo_type` and found `repo_type` are not the same ({repo_type}, {checked_name[0]}).
+            Please make sure you are expecting the right type of repository to exist."""
+            )
+
+        if (
+            organization is not None
+            and checked_name[1] is not None
+            and organization != checked_name[1]
+        ):
+            raise ValueError(
+                f"""Passed `organization` and `name` organization are not the same ({organization}, {checked_name[1]}).
+            Please either include the organization in only `name` or the `organization` parameter, such as `api.create_repo({checked_name[0]}, organization={organization})` or `api.create_repo({checked_name[1]}/{checked_name[2]})`"""
+            )
+
+        repo_type = repo_type or checked_name[0]
+        organization = organization or checked_name[1]
+        name = checked_name[2]
 
         if repo_type not in REPO_TYPES:
             raise ValueError("Invalid repo type")
@@ -1185,7 +1237,10 @@ class HfApi:
             otherwise.
         """
         if organization is None:
-            username = self.whoami(token=token)["name"]
+            if "/" in model_id:
+                username = model_id.split("/")[0]
+            else:
+                username = self.whoami(token=token)["name"]
             return f"{username}/{model_id}"
         else:
             return f"{organization}/{model_id}"
