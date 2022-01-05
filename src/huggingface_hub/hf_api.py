@@ -812,13 +812,21 @@ class HfApi:
             raise ValueError("Invalid repo type")
 
         if "/" in name:
-            if organization is not None:
-                if organization != name.split("/")[1]:
+            if len(name.split("/")) != 2:
+                raise ValueError(
+                    f"Invalid `name` ({name}), the format should be organization/name or name with at most one slash."
+                )
+            elif organization is not None:
+                if organization != name.split("/")[0]:
                     raise ValueError(
-                        f"Both a `name` with an organization and an `organization` were passed in that do not align ({name}, {organization}). Please ensure these align to the same organization"
+                        f"""Both a `name` with an organization and an `organization` were passed in that do not align ({name}, {organization}).
+                        Pass in only one valid organization to use, such as: `api.create_repo({name})` or `api.create_repo({name.split("/")[1]}, organization={organization})
+                        """
                     )
                 else:
-                    name, organization = name.split("/")
+                    name = name.split("/")[1]
+            else:
+                name, organization = name.split("/")
 
         json = {"name": name, "organization": organization, "private": private}
         if repo_type is not None:
@@ -901,13 +909,21 @@ class HfApi:
             raise ValueError("Invalid repo type")
 
         if "/" in name:
-            if organization is not None:
-                if organization != name.split("/")[1]:
+            if len(name.split("/")) != 2:
+                raise ValueError(
+                    f"Invalid `name` ({name}), the format should be organization/name or name with at most one slash."
+                )
+            elif organization is not None:
+                if organization != name.split("/")[0]:
                     raise ValueError(
-                        f"Both a `name` with an organization and an `organization` were passed in that do not align ({name}, {organization}). Please ensure these align to the same organization"
+                        f"""Both a `name` with an organization and an `organization` were passed in that do not align ({name}, {organization}).
+                        Pass in only one valid organization to use, such as: `api.create_repo({name})` or `api.create_repo({name.split("/")[1]}, organization={organization})
+                        """
                     )
                 else:
-                    name, organization = name.split("/")
+                    name = name.split("/")[1]
+            else:
+                name, organization = name.split("/")
 
         json = {"name": name, "organization": organization}
         if repo_type is not None:
