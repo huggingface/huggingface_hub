@@ -511,6 +511,8 @@ class HfApi:
     def list_models(
         self,
         filter: Union[ModelFilter, str, Iterable[str], None] = None,
+        author: Optional[str] = None,
+        search: Optional[str] = None,
         sort: Union[Literal["lastModified"], str, None] = None,
         direction: Optional[Literal[-1]] = None,
         limit: Optional[int] = None,
@@ -545,7 +547,32 @@ class HfApi:
                     >>> # Using ModelFilter and SearchArguments to find text classification in both PyTorch and TensorFlow
                     >>> filt = ModelFilter(task=args.pipeline_tags.TextClassification, framework=[args.library.PyTorch, args.library.TensorFlow])
 
+            author (:obj:`str`, `optional`):
+                A string which identify the author (user or organization) of the returned models
+                Example usage:
 
+                    >>> from huggingface_hub import HfApi
+                    >>> api = HfApi()
+
+                    >>> # List all models from google
+                    >>> api.list_models(author="google")
+
+                    >>> # List only the text classification models from google
+                    >>> api.list_models(filter="text-classification", author="google")
+                    
+            search (:obj:`str`, `optional`):
+                A string that will be contained in the returned models
+                Example usage:
+
+                    >>> from huggingface_hub import HfApi
+                    >>> api = HfApi()
+
+                    >>> # List all models with "bert" in their name
+                    >>> api.list_models(search="bert")
+
+                    >>> #List all models with "bert" in their name made by google
+                    >>> api.list_models(search="bert", author="google")
+                    
             sort (:obj:`Literal["lastModified"]` or :obj:`str`, `optional`):
                 The key with which to sort the resulting models. Possible values are the properties of the `ModelInfo`
                 class.
@@ -569,6 +596,10 @@ class HfApi:
             else:
                 params.update({"filter": filter})
             params.update({"full": True})
+        if author is not None:
+            params.update({"author": author})
+        if search is not None:
+            params.update({"search": search})
         if sort is not None:
             params.update({"sort": sort})
         if direction is not None:
@@ -647,6 +678,8 @@ class HfApi:
     def list_datasets(
         self,
         filter: Union[DatasetFilter, str, Iterable[str], None] = None,
+        author: Optional[str] = None,
+        search: Optional[str] = None,
         sort: Union[Literal["lastModified"], str, None] = None,
         direction: Optional[Literal[-1]] = None,
         limit: Optional[int] = None,
@@ -686,6 +719,32 @@ class HfApi:
                     >>> filt = DatasetFilter(languages=args.languages.ru, task_ids=args.task_ids.language_modeling)
                     >>> api.list_datasets(filter=filt)
 
+            author (:obj:`str`, `optional`):
+                A string which identify the author of the returned models
+                Example usage:
+
+                    >>> from huggingface_hub import HfApi
+                    >>> api = HfApi()
+
+                    >>> # List all datasets from google
+                    >>> api.list_datasets(author="google")
+
+                    >>> # List only the text classification datasets from google
+                    >>> api.list_datasets(filter="text-classification", author="google")
+                    
+            search (:obj:`str`, `optional`):
+                A string that will be contained in the returned models
+                Example usage:
+
+                    >>> from huggingface_hub import HfApi
+                    >>> api = HfApi()
+
+                    >>> # List all datasets with "text" in their name
+                    >>> api.list_datasets(search="text")
+
+                    >>> #List all datasets with "text" in their name made by google
+                    >>> api.list_datasets(search="text", author="google")
+
             sort (:obj:`Literal["lastModified"]` or :obj:`str`, `optional`):
                 The key with which to sort the resulting datasets. Possible values are the properties of the `DatasetInfo`
                 class.
@@ -705,6 +764,10 @@ class HfApi:
                 params = self._unpack_dataset_filter(filter)
             else:
                 params.update({"filter": filter})
+        if author is not None:
+            params.update({"author": author})
+        if search is not None:
+            params.update({"search": search})
         if sort is not None:
             params.update({"sort": sort})
         if direction is not None:
@@ -935,6 +998,32 @@ class HfApi:
             else:
                 raise ValueError("Invalid token passed!")
 
+        checked_name = repo_type_and_id_from_hf_id(name)
+
+        if (
+            repo_type is not None
+            and checked_name[0] is not None
+            and repo_type != checked_name[0]
+        ):
+            raise ValueError(
+                f"""Passed `repo_type` and found `repo_type` are not the same ({repo_type}, {checked_name[0]}).
+            Please make sure you are expecting the right type of repository to exist."""
+            )
+
+        if (
+            organization is not None
+            and checked_name[1] is not None
+            and organization != checked_name[1]
+        ):
+            raise ValueError(
+                f"""Passed `organization` and `name` organization are not the same ({organization}, {checked_name[1]}).
+            Please either include the organization in only `name` or the `organization` parameter, such as `api.create_repo({checked_name[0]}, organization={organization})` or `api.create_repo({checked_name[1]}/{checked_name[2]})`"""
+            )
+
+        repo_type = repo_type or checked_name[0]
+        organization = organization or checked_name[1]
+        name = checked_name[2]
+
         if repo_type not in REPO_TYPES:
             raise ValueError("Invalid repo type")
 
@@ -1014,6 +1103,32 @@ class HfApi:
                 token, name = name, token
             else:
                 raise ValueError("Invalid token passed!")
+
+        checked_name = repo_type_and_id_from_hf_id(name)
+
+        if (
+            repo_type is not None
+            and checked_name[0] is not None
+            and repo_type != checked_name[0]
+        ):
+            raise ValueError(
+                f"""Passed `repo_type` and found `repo_type` are not the same ({repo_type}, {checked_name[0]}).
+            Please make sure you are expecting the right type of repository to exist."""
+            )
+
+        if (
+            organization is not None
+            and checked_name[1] is not None
+            and organization != checked_name[1]
+        ):
+            raise ValueError(
+                f"""Passed `organization` and `name` organization are not the same ({organization}, {checked_name[1]}).
+            Please either include the organization in only `name` or the `organization` parameter, such as `api.create_repo({checked_name[0]}, organization={organization})` or `api.create_repo({checked_name[1]}/{checked_name[2]})`"""
+            )
+
+        repo_type = repo_type or checked_name[0]
+        organization = organization or checked_name[1]
+        name = checked_name[2]
 
         if repo_type not in REPO_TYPES:
             raise ValueError("Invalid repo type")
@@ -1312,7 +1427,10 @@ class HfApi:
             otherwise.
         """
         if organization is None:
-            username = self.whoami(token=token)["name"]
+            if "/" in model_id:
+                username = model_id.split("/")[0]
+            else:
+                username = self.whoami(token=token)["name"]
             return f"{username}/{model_id}"
         else:
             return f"{organization}/{model_id}"

@@ -82,4 +82,32 @@ Download a whole repository as shown in the following:
 >>> snapshot_download(repo_id="lysandre/arxiv-nlp", revision="main")
 ```
 
-In general, it is usually better to manually download files with `hf_hub_download` (if you already know which files you need) to avoid redownloading an entire repository. `snapshot_download` is helpful when your library's downloading utility is a helper, and unaware of which files need to be downloaded.
+In general, it is usually better to manually download files with `hf_hub_download` (if you already know the file name) to avoid re-downloading an entire repository. `snapshot_download` is helpful when your library's downloading utility is a helper, and unaware of which files need to be downloaded.
+
+However, you don't want to always download the contents of an entire repository with `snapshot_download`. Even if you don't know the file name and only know the file type, you can download specific files with `allow_regex` and `ignore_regex`.
+use of the `allow_regex` and `ignore_regex` arguments to specify 
+which files shall be downloaded.
+`allow_regex` and `ignore_regex` accept either a single regex or a list of regexes. 
+The regex matching is based on [`fnmatch`](https://docs.python.org/3/library/fnmatch.html) which means it provides support for Unix shell-style wildcards.
+
+For example, you can use `allow_regex` to only download JSON configuration files:
+
+```python
+>>> from huggingface_hub import snapshot_download
+>>> snapshot_download(repo_id="lysandre/arxiv-nlp", allow_regex="*.json")
+```
+
+On the other hand, `ignore_regex` can be used to exclude certain files from being downloaded. The following example ignores the `.msgpack` and `.h5` file extensions:
+or `.h5` extensions, you could make use of `ignore_regex`:
+
+```python
+>>> from huggingface_hub import snapshot_download
+>>> snapshot_download(repo_id="lysandre/arxiv-nlp", ignore_regex=["*.msgpack", "*.h5"])
+```
+
+Passing a regex can be especially useful when repositories contain files that 
+are never expected to be downloaded by `snapshot_download`.
+
+Note that passing `allow_regex` or `ignore_regex` does **not** prevent 
+`snapshot_download` from re-downloading the entire model repository if an ignored
+file is changed.
