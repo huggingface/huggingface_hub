@@ -715,7 +715,7 @@ class HfApiPublicTest(unittest.TestCase):
         _api = HfApi()
         args = ModelSearchArguments()
         f = ModelFilter(
-            task=args.pipeline_tags.TextClassification,
+            task=args.pipeline_tag.TextClassification,
             framework=[args.library.PyTorch, args.library.TensorFlow],
         )
         models = _api.list_models(f)
