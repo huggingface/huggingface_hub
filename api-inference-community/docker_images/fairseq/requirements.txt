@@ -4,5 +4,4 @@ g2pc==0.9.9.3
 phonemizer==2.2.1
 librosa==0.8.1
 hanziconv==0.3.2
-
 git+git://github.com/pytorch/fairseq.git@43defa1bcb9cc3d5c532d12cba5e01f37dad0350

@@ -19,7 +19,7 @@ class TextToSpeechPipeline(Pipeline):
         cfg["task"].cpu = True
         self.task = task
         TTSHubInterface.update_cfg_with_data_cfg(cfg, self.task.data_cfg)
-        self.generator = self.task.build_generator(self.model, cfg)
+        self.generator = self.task.build_generator(model, cfg)
 
     def __call__(self, inputs: str) -> Tuple[np.array, int]:
         """
@@ -30,8 +30,9 @@ class TextToSpeechPipeline(Pipeline):
             A :obj:`np.array` and a :obj:`int`: The raw waveform as a numpy
             array, and the sampling rate as an int.
         """
+        inputs = inputs.strip("\x00")
         if len(inputs) == 0:
-            return np.zeros((0,)), self.sampling_rate
+            return np.zeros((0,)), self.task.sr
 
         sample = TTSHubInterface.get_model_input(self.task, inputs)
         wav, sr = TTSHubInterface.get_prediction(
