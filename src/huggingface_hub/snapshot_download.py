@@ -159,13 +159,13 @@ def snapshot_download(
     ignore_regex = [ignore_regex] if isinstance(ignore_regex, str) else ignore_regex
 
     for model_file in model_files:
-        # verify that regex is allowed, if not any `allow_regex` is true then no download
+        # if there's an allowlist, skip download if file does not match any regex
         if allow_regex is not None and not any(
             fnmatch(model_file, r) for r in allow_regex
         ):
             continue
 
-        # verify that regex is not forbidden, if any `ignore_regex` is true then no download
+        # if there's a denylist, skip download if file does matches any regex
         if ignore_regex is not None and any(
             fnmatch(model_file, r) for r in ignore_regex
         ):
