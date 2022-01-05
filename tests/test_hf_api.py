@@ -35,10 +35,12 @@ from huggingface_hub.file_download import cached_download, hf_hub_download
 from huggingface_hub.hf_api import (
     USERNAME_PLACEHOLDER,
     DatasetInfo,
+    DatasetSearchArguments,
     HfApi,
     HfFolder,
     MetricInfo,
     ModelInfo,
+    ModelSearchArguments,
     erase_from_credential_store,
     read_from_credential_store,
     repo_type_and_id_from_hf_id,
@@ -573,7 +575,8 @@ class HfApiPublicTest(unittest.TestCase):
         datasets = _api.list_datasets(f)
         self.assertGreater(len(datasets), 0)
         self.assertTrue("languages:en" in datasets[0].tags)
-        f = DatasetFilter(languages=("en", "fr"))
+        args = DatasetSearchArguments()
+        f = DatasetFilter(languages=(args.languages.en, args.languages.fr))
         datasets = _api.list_datasets(f)
         self.assertGreater(len(datasets), 0)
         self.assertTrue("languages:en" in datasets[0].tags)
@@ -706,6 +709,27 @@ class HfApiPublicTest(unittest.TestCase):
         res_en = _api.list_models(f_en)
 
         assert len(res_fr) != len(res_en)
+
+    @with_production_testing
+    def test_filter_models_with_complex_query(self):
+        _api = HfApi()
+        args = ModelSearchArguments()
+        f = ModelFilter(
+            task=args.pipeline_tags.TextClassification,
+            framework=[args.library.PyTorch, args.library.TensorFlow],
+        )
+        models = _api.list_models(f)
+        self.assertGreater(1, len(models))
+        self.assertTrue(
+            [
+                "text-classification" in model.pipeline_tag
+                or "text-classification" in model.tags
+                for model in models
+            ]
+        )
+        self.assertTrue(
+            ["pytorch" in model.tags and "tf" in model.tags for model in models]
+        )
 
 
 class HfApiPrivateTest(HfApiCommonTestWithLogin):
