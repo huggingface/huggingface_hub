@@ -808,13 +808,16 @@ class HfApi:
             else:
                 raise ValueError("Invalid token passed!")
 
-        if organization is not None and organization != name.split("/")[0]:
-            name = f"{organization}/{name}"
+        checked_name = repo_type_and_id_from_hf_id(name)
+        name = checked_name[2]
 
-        if repo_type is None:
-            repo_type, organization, name = repo_type_and_id_from_hf_id(name)
-        else:
-            _, organization, name = repo_type_and_id_from_hf_id(name)
+        if organization is None:
+            organization = checked_name[1]
+        elif organization != checked_name[1]:
+            raise ValueError(
+                f"""Passed `organization` and `name` organization are not the same ({organization}, {checked_name[1]}).
+            Please either include the organization in only `name` or the `organization` parameter, such as `api.create_repo({checked_name[0]}, organization={organization})` or `api.create_repo({checked_name[1]}/{checked_name[2]})`"""
+            )
 
         if repo_type not in REPO_TYPES:
             raise ValueError("Invalid repo type")
@@ -896,13 +899,16 @@ class HfApi:
             else:
                 raise ValueError("Invalid token passed!")
 
-        if organization is not None and organization != name.split("/")[0]:
-            name = f"{organization}/{name}"
+        checked_name = repo_type_and_id_from_hf_id(name)
+        name = checked_name[2]
 
-        if repo_type is None:
-            repo_type, organization, name = repo_type_and_id_from_hf_id(name)
-        else:
-            _, organization, name = repo_type_and_id_from_hf_id(name)
+        if organization is None:
+            organization = checked_name[1]
+        elif organization != checked_name[1]:
+            raise ValueError(
+                f"""Passed `organization` and `name` organization are not the same ({organization}, {checked_name[1]}).
+            Please either include the organization in only `name` or the `organization` parameter, such as `api.create_repo({checked_name[0]}, organization={organization})` or `api.create_repo({checked_name[1]}/{checked_name[2]})`"""
+            )
 
         if repo_type not in REPO_TYPES:
             raise ValueError("Invalid repo type")
