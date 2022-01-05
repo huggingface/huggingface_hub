@@ -559,7 +559,7 @@ class HfApi:
 
                     >>> # List only the text classification models from google
                     >>> api.list_models(filter="text-classification", author="google")
-                    
+
             search (:obj:`str`, `optional`):
                 A string that will be contained in the returned models
                 Example usage:
@@ -572,7 +572,7 @@ class HfApi:
 
                     >>> #List all models with "bert" in their name made by google
                     >>> api.list_models(search="bert", author="google")
-                    
+
             sort (:obj:`Literal["lastModified"]` or :obj:`str`, `optional`):
                 The key with which to sort the resulting models. Possible values are the properties of the `ModelInfo`
                 class.
@@ -731,7 +731,7 @@ class HfApi:
 
                     >>> # List only the text classification datasets from google
                     >>> api.list_datasets(filter="text-classification", author="google")
-                    
+
             search (:obj:`str`, `optional`):
                 A string that will be contained in the returned models
                 Example usage:
