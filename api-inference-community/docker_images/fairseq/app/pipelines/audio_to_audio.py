@@ -20,6 +20,8 @@ class SpeechToSpeechPipeline(Pipeline):
         self.task = task
         self.generator = task.build_generator([self.model], cfg)
 
+        self.sampling_rate = getattr(self.task, "sr", None) or 16_000
+
     def __call__(self, inputs: np.array) -> Tuple[np.array, int, List[str]]:
         """
         Args:
