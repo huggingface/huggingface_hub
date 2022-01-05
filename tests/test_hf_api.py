@@ -473,6 +473,22 @@ class HfApiPublicTest(unittest.TestCase):
         self.assertIsInstance(models[0], ModelInfo)
 
     @with_production_testing
+    def test_list_models_author(self):
+        _api = HfApi()
+        models = _api.list_models(author="google")
+        self.assertGreater(len(models), 10)
+        self.assertIsInstance(models[0], ModelInfo)
+        [self.assertTrue("google" in model.author for model in models)]
+
+    @with_production_testing
+    def test_list_models_search(self):
+        _api = HfApi()
+        models = _api.list_models(search="bert")
+        self.assertGreater(len(models), 10)
+        self.assertIsInstance(models[0], ModelInfo)
+        [self.assertTrue("bert" in model.modelId.lower()) for model in models]
+
+    @with_production_testing
     def test_list_models_complex_query(self):
         # Let's list the 10 most recent models
         # with tags "bert" and "jax",
@@ -548,6 +564,20 @@ class HfApiPublicTest(unittest.TestCase):
         dataset = datasets[0]
         self.assertIsInstance(dataset, DatasetInfo)
         self.assertTrue(any(dataset.cardData for dataset in datasets))
+
+    @with_production_testing
+    def test_list_datasets_author(self):
+        _api = HfApi()
+        datasets = _api.list_datasets(author="huggingface")
+        self.assertGreater(len(datasets), 1)
+        self.assertIsInstance(datasets[0], DatasetInfo)
+
+    @with_production_testing
+    def test_list_datasets_search(self):
+        _api = HfApi()
+        datasets = _api.list_datasets(search="wikipedia")
+        self.assertGreater(len(datasets), 10)
+        self.assertIsInstance(datasets[0], DatasetInfo)
 
     @with_production_testing
     def test_dataset_info(self):
