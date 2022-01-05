@@ -2,7 +2,6 @@ import os
 from typing import List, Tuple
 
 import numpy as np
-
 from app.pipelines import Pipeline
 from fairseq.checkpoint_utils import load_model_ensemble_and_task_from_hf_hub
 from fairseq.models.speech_to_text.hub_interface import S2THubInterface
