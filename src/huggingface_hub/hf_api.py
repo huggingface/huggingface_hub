@@ -808,25 +808,16 @@ class HfApi:
             else:
                 raise ValueError("Invalid token passed!")
 
+        if organization is not None and organization != name.split("/")[0]:
+            name = f"{organization}/{name}"
+
+        if repo_type is None:
+            repo_type, organization, name = repo_type_and_id_from_hf_id(name)
+        else:
+            _, organization, name = repo_type_and_id_from_hf_id(name)
+
         if repo_type not in REPO_TYPES:
             raise ValueError("Invalid repo type")
-
-        if "/" in name:
-            if len(name.split("/")) != 2:
-                raise ValueError(
-                    f"Invalid `name` ({name}), the format should be organization/name or name with at most one slash."
-                )
-            elif organization is not None:
-                if organization != name.split("/")[0]:
-                    raise ValueError(
-                        f"""Both a `name` with an organization and an `organization` were passed in that do not align ({name}, {organization}).
-                        Pass in only one valid organization to use, such as: `api.create_repo({name})` or `api.create_repo({name.split("/")[1]}, organization={organization})
-                        """
-                    )
-                else:
-                    name = name.split("/")[1]
-            else:
-                name, organization = name.split("/")
 
         json = {"name": name, "organization": organization, "private": private}
         if repo_type is not None:
@@ -905,25 +896,16 @@ class HfApi:
             else:
                 raise ValueError("Invalid token passed!")
 
+        if organization is not None and organization != name.split("/")[0]:
+            name = f"{organization}/{name}"
+
+        if repo_type is None:
+            repo_type, organization, name = repo_type_and_id_from_hf_id(name)
+        else:
+            _, organization, name = repo_type_and_id_from_hf_id(name)
+
         if repo_type not in REPO_TYPES:
             raise ValueError("Invalid repo type")
-
-        if "/" in name:
-            if len(name.split("/")) != 2:
-                raise ValueError(
-                    f"Invalid `name` ({name}), the format should be organization/name or name with at most one slash."
-                )
-            elif organization is not None:
-                if organization != name.split("/")[0]:
-                    raise ValueError(
-                        f"""Both a `name` with an organization and an `organization` were passed in that do not align ({name}, {organization}).
-                        Pass in only one valid organization to use, such as: `api.delete_repo({name})` or `api.delete_repo({name.split("/")[1]}, organization={organization})
-                        """
-                    )
-                else:
-                    name = name.split("/")[1]
-            else:
-                name, organization = name.split("/")
 
         json = {"name": name, "organization": organization}
         if repo_type is not None:
