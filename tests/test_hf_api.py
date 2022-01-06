@@ -709,12 +709,12 @@ class HfApiPublicTest(unittest.TestCase):
         self.assertEqual(len(models), 0)
 
     @with_production_testing
-    def test_filter_models_with_framework(self):
+    def test_filter_models_with_library(self):
         _api = HfApi()
-        f = ModelFilter("microsoft", model_name="wavlm-base-sd", framework="tensorflow")
+        f = ModelFilter("microsoft", model_name="wavlm-base-sd", library="tensorflow")
         models = _api.list_models(f)
         self.assertGreater(1, len(models))
-        f = ModelFilter("microsoft", model_name="wavlm-base-sd", framework="pytorch")
+        f = ModelFilter("microsoft", model_name="wavlm-base-sd", library="pytorch")
         models = _api.list_models(f)
         self.assertGreater(len(models), 0)
 
@@ -746,7 +746,7 @@ class HfApiPublicTest(unittest.TestCase):
         args = ModelSearchArguments()
         f = ModelFilter(
             task=args.pipeline_tag.TextClassification,
-            framework=[args.library.PyTorch, args.library.TensorFlow],
+            library=[args.library.PyTorch, args.library.TensorFlow],
         )
         models = _api.list_models(f)
         self.assertGreater(len(models), 1)
