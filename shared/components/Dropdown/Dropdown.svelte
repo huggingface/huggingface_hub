@@ -1,4 +1,4 @@
-<script>
+<script lang="ts">
 	import { SvelteComponent } from "svelte";
 	import DropdownMenu from "../DropdownMenu/DropdownMenu.svelte";
 	import IconCaretDown from "../Icons/IconCaretDown.svelte";

@@ -1,8 +1,8 @@
-<script>
+<script lang="ts">
 	import type { WidgetProps, LoadingStatus } from "../types";
 
 	import { onMount } from "svelte";
-	import IconCross from "../../../Icons/IconCross.svelte";
+	import IconCross from "../../../../../../shared/components/Icons/IconCross.svelte";
 	import WidgetInputSamples from "../WidgetInputSamples/WidgetInputSamples.svelte";
 	import WidgetFooter from "../WidgetFooter/WidgetFooter.svelte";
 	import WidgetHeader from "../WidgetHeader/WidgetHeader.svelte";

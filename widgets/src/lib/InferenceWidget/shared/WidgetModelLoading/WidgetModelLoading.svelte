@@ -1,6 +1,6 @@
-<script>
+<script lang="ts">
 	import { onDestroy, onMount } from "svelte";
-	import IconSpin from "../../../Icons/IconSpin.svelte";
+	import IconSpin from "../../../../../../shared/components/Icons/IconSpin.svelte";
 
 	export let estimatedTime: number;
 

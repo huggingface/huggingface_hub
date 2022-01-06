@@ -1,5 +1,5 @@
-<script>
-	import { PipelineType } from "../interfaces/Types";
+<script lang="ts">
+	import { PipelineType } from "../../../widgets/src/lib/interfaces/Types";
 	import ModelPipelineIcon from "../ModelPipelineIcon/ModelPipelineIcon.svelte";
 
 	export let pipeline = "";
