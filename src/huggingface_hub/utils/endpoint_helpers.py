@@ -56,14 +56,14 @@ class DatasetFilter:
                 >>> new_filter = DatasetFilter(language_creator="crowdsourced")
 
         languages (:obj:`str` or :class:`List`, `optional`):
-            A string representing a two-character language to filter datasets by on the Hub
+            A string or list of strings representing a two-character language to filter datasets by on the Hub
             Example usage:
 
                 >>> from huggingface_hub import DatasetFilter
                 >>> new_filter = DatasetFilter(language="en")
 
         multilinguality (:obj:`str` or :class:`List`, `optional`):
-            A string representing a filter for datasets that contain multiple languages
+            A string or list of strings representing a filter for datasets that contain multiple languages
             Example usage:
 
                 >>> from huggingface_hub import DatasetFilter
@@ -162,7 +162,7 @@ class ModelFilter:
                 >>> new_filter = ModelFilter(tags="benchmark:raft")
 
         trained_dataset (:obj:`str` or :class:`List`, `optional`):
-            A string tag of the trained dataset for a model.
+            A string tag or a list of string tags of the trained dataset for a model on the Hub.
             Example usage:
                 >>> new_filter = ModelFilter(trained_dataset="common_voice")
 
