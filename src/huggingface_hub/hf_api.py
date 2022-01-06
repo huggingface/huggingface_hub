@@ -544,8 +544,14 @@ class HfApi:
                     >>> filt = ModelFilter(task=args.pipeline_tags.TextClassification)
                     >>> api.list_models(filter=filt)
 
-                    >>> # Using ModelFilter and SearchArguments to find text classification in both PyTorch and TensorFlow
+                    >>> # Using `ModelFilter` and `ModelSearchArguments` to find text classification in both PyTorch and TensorFlow
                     >>> filt = ModelFilter(task=args.pipeline_tags.TextClassification, framework=[args.library.PyTorch, args.library.TensorFlow])
+                    >>> api.list_models(filter=filt)
+
+                    >>> # List only models from the AllenNLP library
+                    >>> api.list_models(filter="allennlp")
+                    >>> # Using `ModelFilter` and `ModelSearchArguments`
+                    >>> filt = ModelFilter(library=args.library.allennlp)
 
             author (:obj:`str`, `optional`):
                 A string which identify the author (user or organization) of the returned models
