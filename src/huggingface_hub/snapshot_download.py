@@ -1,7 +1,8 @@
 import os
+from fnmatch import fnmatch
 from glob import glob
 from pathlib import Path
-from typing import Dict, Optional, Union
+from typing import Dict, List, Optional, Union
 
 from .constants import DEFAULT_REVISION, HUGGINGFACE_HUB_CACHE
 from .file_download import cached_download, hf_hub_url
@@ -23,12 +24,14 @@ def snapshot_download(
     cache_dir: Union[str, Path, None] = None,
     library_name: Optional[str] = None,
     library_version: Optional[str] = None,
-    user_agent: Union[Dict, str, None] = None,
+    user_agent: Optional[Union[Dict, str]] = None,
     proxies=None,
     etag_timeout=10,
     resume_download=False,
-    use_auth_token: Union[bool, str, None] = None,
+    use_auth_token: Optional[Union[bool, str]] = None,
     local_files_only=False,
+    allow_regex: Optional[Union[List[str], str]] = None,
+    ignore_regex: Optional[Union[List[str], str]] = None,
 ) -> str:
     """
     Downloads a whole snapshot of a repo's files at the specified revision.
@@ -152,7 +155,22 @@ def snapshot_download(
         repo_id_sha = model_info.sha
         model_files = [f.rfilename for f in model_info.siblings]
 
+    allow_regex = [allow_regex] if isinstance(allow_regex, str) else allow_regex
+    ignore_regex = [ignore_regex] if isinstance(ignore_regex, str) else ignore_regex
+
     for model_file in model_files:
+        # if there's an allowlist, skip download if file does not match any regex
+        if allow_regex is not None and not any(
+            fnmatch(model_file, r) for r in allow_regex
+        ):
+            continue
+
+        # if there's a denylist, skip download if file does matches any regex
+        if ignore_regex is not None and any(
+            fnmatch(model_file, r) for r in ignore_regex
+        ):
+            continue
+
         url = hf_hub_url(repo_id, filename=model_file, revision=repo_id_sha)
         relative_filepath = os.path.join(*model_file.split("/"))
 
