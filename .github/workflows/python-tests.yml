@@ -1,7 +1,18 @@
 name: Python tests
 
 on:
-  workflow_dispatch:
+  push:
+    branches:
+      - main
+      - ci_*
+    paths-ignore:
+      - "widgets/**"
+      - "api-inference-community/**"
+  pull_request:
+    types: [assigned, opened, synchronize, reopened]
+    paths-ignore:
+      - "widgets/**"
+      - "api-inference-community/**"
 
 env:
   HUGGINGFACE_CO_STAGING: yes
