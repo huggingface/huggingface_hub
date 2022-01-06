@@ -30,17 +30,22 @@ class SpeechToSpeechPipeline(Pipeline):
         self.tts_model, self.tts_task, self.tts_generator = None, None, None
         if tts_model_id is not None:
             _repo, _id = tts_model_id.split(":")
-            tts_models, tts_cfg, self.tts_task = \
-                load_model_ensemble_and_task_from_hf_hub(
-                    f"facebook/{_id}",
-                    arg_overrides={"vocoder": "griffin_lim", "fp16": False},
-                    cache_dir=os.getenv("HUGGINGFACE_HUB_CACHE"),
-                )
+            (
+                tts_models,
+                tts_cfg,
+                self.tts_task,
+            ) = load_model_ensemble_and_task_from_hf_hub(
+                f"facebook/{_id}",
+                arg_overrides={"vocoder": "griffin_lim", "fp16": False},
+                cache_dir=os.getenv("HUGGINGFACE_HUB_CACHE"),
+            )
             self.tts_model = tts_models[0].cpu()
             self.tts_model.eval()
             tts_cfg["task"].cpu = True
             TTSHubInterface.update_cfg_with_data_cfg(tts_cfg, self.tts_task.data_cfg)
-            self.tts_generator = self.tts_task.build_generator([self.tts_model], tts_cfg)
+            self.tts_generator = self.tts_task.build_generator(
+                [self.tts_model], tts_cfg
+            )
 
     def __call__(self, inputs: np.array) -> Tuple[np.array, int, List[str]]:
         """
