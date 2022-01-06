@@ -643,10 +643,7 @@ class HfApi:
 
         # Handling tasks
         if model_filter.task is not None:
-            if not isinstance(model_filter.task, (list, tuple)):
-                model_filter.task = [model_filter.task]
-            for task in model_filter.task:
-                filter_tuple.append(task)
+            filter_tuple.extend(model_filter.task)
 
         # Handling dataset
         if model_filter.trained_dataset is not None:
@@ -659,17 +656,11 @@ class HfApi:
 
         # Handling library
         if model_filter.library:
-            if not isinstance(model_filter.library, (list, tuple)):
-                model_filter.library = [model_filter.library]
-            for library in model_filter.library:
-                filter_tuple.append(library)
+            filter_tuple.extend(model_filter.library)
 
         # Handling tags
         if model_filter.tags:
-            if not isinstance(model_filter.tags, (list, tuple)):
-                tags.append(model_filter.tags)
-            else:
-                tags += model_filter.tags
+            tags.extend(model_filter.tags)
 
         query_dict = {}
         if model_str is not None:
