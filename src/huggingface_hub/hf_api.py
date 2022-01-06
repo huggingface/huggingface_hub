@@ -545,7 +545,7 @@ class HfApi:
                     >>> api.list_models(filter=filt)
 
                     >>> # Using `ModelFilter` and `ModelSearchArguments` to find text classification in both PyTorch and TensorFlow
-                    >>> filt = ModelFilter(task=args.pipeline_tags.TextClassification, framework=[args.library.PyTorch, args.library.TensorFlow])
+                    >>> filt = ModelFilter(task=args.pipeline_tags.TextClassification, library=[args.library.PyTorch, args.library.TensorFlow])
                     >>> api.list_models(filter=filt)
 
                     >>> # List only models from the AllenNLP library
@@ -657,12 +657,12 @@ class HfApi:
                     dataset = f"dataset:{dataset}"
                 filter_tuple.append(dataset)
 
-        # Handling framework
-        if model_filter.framework:
-            if not isinstance(model_filter.framework, (list, tuple)):
-                model_filter.framework = [model_filter.framework]
-            for framework in model_filter.framework:
-                filter_tuple.append(framework)
+        # Handling library
+        if model_filter.library:
+            if not isinstance(model_filter.library, (list, tuple)):
+                model_filter.library = [model_filter.library]
+            for library in model_filter.library:
+                filter_tuple.append(library)
 
         # Handling tags
         if model_filter.tags:

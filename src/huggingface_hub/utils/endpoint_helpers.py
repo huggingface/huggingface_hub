@@ -119,12 +119,12 @@ class ModelFilter:
                 >>> from huggingface_hub import Filter
                 >>> new_filter = ModelFilter(author_or_organization="facebook")
 
-         framework (:obj:`str` or :class:`List`, `optional`):
-            A string or list of strings of foundational library frameworks models were originally trained from,
+         library (:obj:`str` or :class:`List`, `optional`):
+            A string or list of strings of foundational libraries models were originally trained from,
             such as pytorch, tensorflow, or allennlp
             Example usage:
 
-                >>> new_filter = ModelFilter(framework="pytorch")
+                >>> new_filter = ModelFilter(library="pytorch")
 
          language (:obj:`str` or :class:`List`, `optional`):
             A string or list of strings of languages, both by name
@@ -169,7 +169,7 @@ class ModelFilter:
     """
 
     author: str = None
-    framework: Union[str, List[str]] = None
+    library: Union[str, List[str]] = None
     language: Union[str, List[str]] = None
     model_name: str = None
     task: Union[str, List[str]] = None
