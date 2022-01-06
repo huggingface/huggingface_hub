@@ -1,7 +1,7 @@
 <script lang="ts">
 	import IconInfo from "../../../../../../shared/components/Icons/IconInfo.svelte";
 	import IconLightning from "../../../../../../shared/components/Icons/IconLightning.svelte";
-	import ModelPipelineTag from "../../../ModelPipelineTag/ModelPipelineTag.svelte";
+	import ModelPipelineTag from "../../../../../../shared/components/ModelPipelineTag/ModelPipelineTag.svelte";
 
 	export let noTitle = false;
 	export let pipeline: string | undefined;
