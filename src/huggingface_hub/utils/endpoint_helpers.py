@@ -25,7 +25,7 @@ class DatasetFilter:
 
     Args:
         author (:obj:`str`, `optional`):
-            A string or list of strings that can be used to identify datasets on the hub
+            A string or list of strings that can be used to identify datasets on the Hub
             by the original uploader (author or organization), such as `facebook` or `huggingface`
             Example usage:
 
@@ -33,14 +33,14 @@ class DatasetFilter:
                 >>> new_filter = DatasetFilter(author="facebook")
 
        benchmark (:obj:`str` or :class:`List`, `optional`):
-            A string or list of strings that can be used to identify datasets on the hub by their official benchmark
+            A string or list of strings that can be used to identify datasets on the Hub by their official benchmark
             Example usage:
 
                 >>> from huggingface_hub import DatasetFilter
                 >>> new_filter = DatasetFilter(benchmark="raft")
 
         dataset_name (:obj:`str`, `optional`):
-            A string or list of strings that can be used to identify datasets on the hub by its name,
+            A string or list of strings that can be used to identify datasets on the Hub by its name,
             such as `SQAC` or `wikineural`
             Example usage:
 
@@ -48,7 +48,7 @@ class DatasetFilter:
                 >>> new_filter = DatasetFilter(dataset_name="wikineural")
 
         language_creators (:obj:`str` or :class:`List`, `optional`):
-            A string or list of strings that can be used to identify datasets on the hub
+            A string or list of strings that can be used to identify datasets on the Hub
             with how the data was curated, such as `crowdsourced` or `machine_generated`
             Example usage:
 
@@ -56,7 +56,7 @@ class DatasetFilter:
                 >>> new_filter = DatasetFilter(language_creator="crowdsourced")
 
         languages (:obj:`str` or :class:`List`, `optional`):
-            A string representing a two-character language to filter datasets by on the hub
+            A string representing a two-character language to filter datasets by on the Hub
             Example usage:
 
                 >>> from huggingface_hub import DatasetFilter
@@ -70,7 +70,7 @@ class DatasetFilter:
                 >>> new_filter = DatasetFilter(multilinguality="yes")
 
         size_categories (:obj:`str` or :class:`List`, `optional`):
-            A string or list of strings that can be used to identify datasets on the hub
+            A string or list of strings that can be used to identify datasets on the Hub
             by the size of the dataset such as `100K<n<1M` or `1M<n<10M`
             Example usage:
 
@@ -78,7 +78,7 @@ class DatasetFilter:
                 >>> new_filter = DatasetFilter(size_categories="100K<n<1M")
 
         task_categories (:obj:`str` or :class:`List`, `optional`):
-            A string or list of strings that can be used to identify datasets on the hub
+            A string or list of strings that can be used to identify datasets on the Hub
             by the designed task, such as `audio_classification` or `named_entity_recognition`
             Example usage:
 
@@ -86,7 +86,7 @@ class DatasetFilter:
                 >>> new_filter = DatasetFilter(author="facebook")
 
         task_ids (:obj:`str` or :class:`List`, `optional`):
-            A string or list of strings that can be used to identify datasets on the hub
+            A string or list of strings that can be used to identify datasets on the Hub
             by the specific task such as `speech_emotion_recognition` or `paraphrase`
             Example usage:
 
@@ -112,7 +112,7 @@ class ModelFilter:
 
     Args:
         author (:obj:`str`, `optional`):
-            A string that can be used to identify models on the hub
+            A string that can be used to identify models on the Hub
             by the original uploader (author or organization), such as `facebook` or `huggingface`
             Example usage:
 
@@ -134,7 +134,7 @@ class ModelFilter:
                 >>> new_filter = ModelFilter(language="french")
 
          model_name (:obj:`str`, `optional`):
-            A string that contain complete or partial names for models on the hub,
+            A string that contain complete or partial names for models on the Hub,
             such as "bert" or "bert-base-cased"
             Example usage:
 
@@ -149,7 +149,7 @@ class ModelFilter:
                 >>> new_filter = ModelFilter(task="text-classification")
 
          tags (:obj:`str` or :class:`List`, `optional`):
-            A string tag or a list of tags to filter models on the hub by,
+            A string tag or a list of tags to filter models on the Hub by,
             such as `text-generation` or `spacy`. For a full list of tags do:
                 >>> from huggingface_hub import HfApi
                 >>> api = HfApi()
