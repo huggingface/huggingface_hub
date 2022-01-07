@@ -4,7 +4,12 @@ In this tutorial, we will explore how to interact and explore the Hugging Face H
 
 ## The Basics
 
-The `huggingface_hub` comes packaged with an interface that can interact with the Hub in the `HfApi` class:
+`huggingface_hub` is a Python library that allows anyone to freely extract useful information from the Hub, as well as downloading and publishing models. You can install it with:
+```bash
+pip install huggingface_hub
+```
+
+It comes packaged with an interface that can interact with the Hub in the `HfApi` class:
 
 
 ```python
