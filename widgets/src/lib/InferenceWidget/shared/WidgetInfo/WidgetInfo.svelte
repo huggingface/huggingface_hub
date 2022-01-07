@@ -1,4 +1,4 @@
-<script>
+<script lang="ts">
 	import type { LoadingStatus } from "../types";
 
 	export let computeTime: string;
@@ -12,7 +12,7 @@
 	} as const;
 </script>
 
-<div class="mt-1.5">
+<div class="mt-2">
 	<div class="text-gray-400 text-xs">
 		{#if computeTime}
 			Computation time on cpu: {computeTime}
