@@ -44,15 +44,15 @@ const taskData: TaskData = {
 	],
 	models: [
 		{
-			description: "A strong summarization model trained on English news articles. Excels at generating factual summaries.",
+			description: "A solid summarization model trained on English news articles. Excels at generating factual summaries.",
 			id:          "facebook/bart-large-cnn",
 		},
 		{
-			description: "A summarization model trained on medical articles. ",
+			description: "A summarization model trained on medical articles.",
 			id:          "google/bigbird-pegasus-large-pubmed",
 		},
 	],
-	summary:      "Summarization is the task of producing a shorter version of a document while preserving the important information in the document. Some models can extract text from the original input while other models can generate entirely new text.",
+	summary:      "Summarization is the task of producing a shorter version of a document while preserving its important information. Some models can extract text from the original input, while other models can generate entirely new text.",
 	widgetModels: ["sshleifer/distilbart-cnn-12-6"],
 	youtubeId:    "yHnr5Dk2zCI",
 };

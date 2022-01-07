@@ -6,11 +6,11 @@ import { TASKS_MODEL_LIBRARIES } from "../const";
 const taskData: TaskData = {
 	datasets: [
 		{
-			description: "A common dataset used for pretraining models with data for many languages.",
+			description: "A common dataset that is used to train models for many languages.",
 			id:          "wikipedia",
 		},
 		{
-			description: "A large English dataset of text obtained from the web.",
+			description: "A large English dataset with text crawled from the web.",
 			id:          "c4",
 		},
 	],
@@ -56,11 +56,11 @@ const taskData: TaskData = {
 	libraries: TASKS_MODEL_LIBRARIES["fill-mask"],
 	metrics:   [
 		{
-			description: "Cross Entropy is a metric that calculates the difference between two probability distributions. Each probability distributions is the distribution of predicted words.",
+			description: "The Cross Entropy metric calculates the difference between two probability distributions. Each probability distribution is the distribution of predicted words.",
 			id:          "cross_entropy",
 		},
 		{
-			description: "Perplexity is the exponential of the cross-entropy loss. It evaluates the probabilities assigned to the next word by the model. Lower perplexity indicates good performance. ",
+			description: "The Perplexity metric is the exponential of the cross-entropy loss. It evaluates the probabilities assigned to the next word by the model. Lower perplexity indicates better performance.",
 			id:          "perplexity",
 		},
 	],
@@ -74,7 +74,7 @@ const taskData: TaskData = {
 			id:          "xlm-roberta-base",
 		},
 	],
-	summary:      "Masked language modeling is the task of masking some of the words in a sentence and predicting which words should replace those masks. These models are useful when we want to get a statistical understanding of the language in which the model is trained in.",
+	summary:      "Masked language modeling is the task of masking some of the words in a sentence and predicting which words should replace those masks. These models are useful when we want to obtain a statistical understanding of the language in which the model is trained.",
 	widgetModels: ["distilroberta-base"],
 	youtubeId:    "mqElG5QJWUg",
 };

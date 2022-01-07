@@ -6,11 +6,11 @@ import { TASKS_MODEL_LIBRARIES } from "../const";
 const taskData: TaskData = {
 	datasets: [
 		{
-			description: "A large multilingual dataset of web text. Used to pretrain generative models in various languages.",
+			description: "A large multilingual dataset of crawled text from the web. It is used to train generative models in various languages.",
 			id:          "mc4",
 		},
 		{
-			description: "Diverse, open source data consisting in 22 smaller, combined high-quality datasets. It was used to train GPT-Neo.",
+			description: "Diverse open-source data consisting of 22 smaller high-quality datasets. It was used to train GPT-Neo.",
 			id:          "the_pile",
 		},
 	],
@@ -38,17 +38,17 @@ const taskData: TaskData = {
 	libraries: TASKS_MODEL_LIBRARIES["text-generation"],
 	metrics:   [
 		{
-			description: "Cross Entropy is a metric that calculates the difference between two probability distributions. Each probability distributions is the distribution of predicted words.",
+			description: "The Cross Entropy metric calculates the difference between two probability distributions. Each probability distribution is the distribution of predicted words.",
 			id:          "Cross Entropy",
 		},
 		{
-			description: "Perplexity is the exponential of the cross-entropy loss. It evaluates the probabilities assigned to the next word by the model. Lower perplexity indicates good performance.",
+			description: "The Perplexity metric is the exponential of the cross-entropy loss. It evaluates the probabilities assigned to the next word by the model. Lower perplexity indicates better performance.",
 			id:          "Perplexity",
 		},
 	],
 	models: [
 		{
-			description: "The model from OpenAI that helped usher in the Transformer revolution.",
+			description: "The OpenAI model that helped usher in the Transformer revolution.",
 			id:          "gpt2",
 		},
 		{
@@ -56,7 +56,7 @@ const taskData: TaskData = {
 			id:          "bigscience/T0pp",
 		},
 	],
-	summary:      "Text generation is the task of...well generating text! These models can complete incomplete text or asked to perform a task such as paraphrasing. This depends on the model’s training objective (but don’t worry, we will cover both of them!).  ",
+	summary:      "Generating text is the task of producing new text. These models can, for example, fill in incomplete text or paraphrase.",
 	widgetModels: ["gpt2"],
 	youtubeId:    "Vpjb1lu0MDk",
 };

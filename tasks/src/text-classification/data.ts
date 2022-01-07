@@ -48,34 +48,34 @@ const taskData: TaskData = {
 	libraries: TASKS_MODEL_LIBRARIES["text-classification"],
 	metrics:   [
 		{
-			description: "",
+			description: "The Accuracy metric is the ratio of correct predictions to the total number of cases processed. It can be calculated as: Accuracy = (TP + TN) / (TP + TN + FP + FN). Where TP is True Positive; TN is True Negative; FP is False Positive; and FN is False Negative.",
 			id:          "accuracy",
 		},
 		{
-			description: "",
-			id:          "f1",
-		},
-		{
-			description: "",
+			description: "The Recall metric is the fraction of the total amount of relevant examples that were actually retrieved. It can be calculated as: Recall = TP / (TP + FN). Where TP is True Positive; and FN is False Negative.",
 			id:          "recall",
             
 		},
 		{
-			description: "",
+			description: "The Precision metric is the fraction of true examples among the predicted examples. It can be calculated as: Precision = TP / (TP + FP). Where TP is True Positive; and FP is False Positive.",
 			id:          "precision",
+		},
+		{
+			description: "The F1 metric is the harmonic mean of the precision and recall. It can be calculated as: F1 = 2 * (precision * recall) / (precision + recall).",
+			id: "f1",
 		},
 	],
 	models: [
 		{
-			description: "A good performing model trained on sentiment analysis.",
+			description: "A model trained for sentiment analysis.",
 			id:          "distilbert-base-uncased-finetuned-sst-2-english",
 		},
 		{
-			description: "Strong multi-genre natural language inference model.",
+			description: "Multi-genre natural language inference model.",
 			id:          "roberta-large-mnli",
 		},
 	],
-	summary:      "Text Classification is the task of assigning a label or class to a given text. Some example tasks are sentiment analysis, natural language inference, and grammatical correctness.",
+	summary:      "Text Classification is the task of assigning a label or class to a given text. Some use cases are sentiment analysis, natural language inference, and grammatical correction.",
 	widgetModels: ["distilbert-base-uncased-finetuned-sst-2-english"],
 	youtubeId:    "",
 };

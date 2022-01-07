@@ -7,7 +7,7 @@ const taskData: TaskData = {
 	datasets: [
 		{
 			// TODO write proper description
-			description: "Benchmark dataset used for object detection",
+			description: "The COCO dataset is widely used as a benchmark for models employed for image segmentation, object detection, and captioning",
 			id:          "merve/coco2017",
 		},
 	],
@@ -30,26 +30,26 @@ const taskData: TaskData = {
 	libraries: TASKS_MODEL_LIBRARIES["object-detection"],
 	metrics:   [
 		{
-			description: "Average Precision (AP) is the Area Under the PR Curve (AUC-PR). It is calculated for each class separately.",
+			description: "The Average Precision (AP) metric is the Area Under the PR Curve (AUC-PR). It is calculated for each class separately",
 			id:          "Average Precision",
 		},
 		{
-			description: "Mean Average Precision is the overall average of the Average Precision values.",
+			description: "The Mean Average Precision (mAP) metric is the overall average of the AP values",
 			id:          "Mean Average Precision",
 		},
 		{
-			description: "APα is the Average Precision at IoU threshold of α, AP50 and AP75 are widely used.",
+			description: "The APα metric is the Average Precision at the IoU threshold of a α value, for example, AP50 and AP75",
 			id:          "APα",
 		},
 	],
 	models: [
 		{
 			// TO DO: write description
-			description: "Strong object detection model trained on benchmark dataset COCO 2017.",
+			description: "Solid object detection model trained on the benchmark dataset COCO 2017",
 			id:          "facebook/detr-resnet-50",
 		}
 	],
-	summary:      "Object detection is a computer vision task. Models trained on object detection task allows users to detect instances of objects of classes given an image. Object detection models receive an image as an input and output the images including bounding boxes and labels on the detected objects.",
+	summary:      "Object Detection models allow users to identify objects of certain defined classes. Object detection models receive an image as input and output the images with, for example, bounding boxes and labels for the detected objects",
 	widgetModels: ["facebook/detr-resnet-50"],
 	youtubeId:    "",
 };

@@ -7,7 +7,7 @@ const taskData: TaskData = {
 	datasets: [
 		{
 			// TODO write proper description
-			description: "Benchmark dataset used for image classification, with images that belong to 100 classes",
+			description: "Benchmark dataset used for image classification with images that belong to 100 classes",
 			id:          "cifar100",
 		},
 		{
@@ -68,16 +68,16 @@ const taskData: TaskData = {
 	models: [
 		{
 			// TO DO: write description
-			description: "Strong image classification model trained on ImageNet dataset",
+			description: "Solid Image Classification model trained on the ImageNet dataset",
 			id:          "google/vit-base-patch16-224",
 		},
 		{
 			// TO DO: write description
-			description: "Strong image classification model trained on ImageNet dataset",
+			description: "Solid Image Classification model trained on the ImageNet dataset",
 			id:          "facebook/deit-base-distilled-patch16-224",
 		},
 	],
-	summary:      "Image classification is the task of assigning a class to an entire image. The images are expected to have only one class instance in one image. Image classification models take an image as input and return class labels.",
+	summary:      "Image classification is the task of assigning a label or class to an entire image. Images are expected to have only one class for each image.Image classification models take an image as input and return a prediction about which class the image belongs to",
 	widgetModels: ["google/vit-base-patch16-224"],
 	youtubeId:    "",
 };
