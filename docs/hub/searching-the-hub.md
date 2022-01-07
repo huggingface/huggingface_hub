@@ -123,7 +123,7 @@ Below is an animation repeating the process for finding both the `Text Classific
 
 ![](../assets/hub/search_glue.gif)
 
-Now that we have the pieces, we just need to combine them all together for something the api can use, through the `ModelFilter` and `DatasetFilter` classes. These take those outputs we just had, and transform them into something the API can use conviently:
+Now that all the pieces are there, the last step is to combine them all for something the API can use through the `ModelFilter` and `DatasetFilter` classes. The classes transform the outputs of the previous step into something the API can use conveniently:
 
 
 ```python
