@@ -62,7 +62,7 @@ If you check what is available in `model_args` by checking it's output, you will
 
 
 
-It has a variety of attributes or keys available to us. This is because it is both an object and a dictionary, so we can either do `model_args["author"]` or `model_args.author`. For this tutorial we will follow the latter format.
+It has a variety of attributes or keys available to you. This is because it is both an object and a dictionary, so you can either do `model_args["author"]` or `model_args.author`. For this tutorial, let's follow the latter format.
 
 Our first criteria is we want all PyTorch models. This would be found under the `library` attribute, so let's see if it is there:
 
