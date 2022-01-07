@@ -156,7 +156,7 @@ Now that all the pieces are there, the last step is to combine them all for some
 
 
 
-As we can see, it found the models we wanted that fit all of our criteria. We can even take it further by passing in an array for each of the parameters we had before. For example, now we'll look for the same configuration, but also include `TensorFlow` in the filter:
+As you can see, it found the models that fit all the criteria. You can even take it further by passing in an array for each of the parameters from before. For example, let's take a look for the same configuration, but also include `TensorFlow` in the filter:
 
 
 ```python
