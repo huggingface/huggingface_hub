@@ -117,7 +117,7 @@ We can see that it is under `PyTorch`. So what we want to use is `model_args.lib
 
 
 
-Below is a graphic repeating the process for finding both our `Text Classification` requirement, as well as our `glue` requirement:
+Below is an animation repeating the process for finding both the `Text Classification` and `glue` requirements:
 
 ![](../assets/hub/search_text_classification.gif)
 
