@@ -12,7 +12,7 @@ The `huggingface_hub` comes packaged with an interface that can interact with th
 >>> api = HfApi()
 ```
 
-This class let's you perform a variety of operations that interact with the raw HuggingFace Hub API. We'll be focusing on two specific funtions:
+This class let's you perform a variety of operations that interact with the raw Hub API. We'll be focusing on two specific funtions:
 - `list_models`
 - `list_datasets`
 
