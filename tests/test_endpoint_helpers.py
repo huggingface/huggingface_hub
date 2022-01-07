@@ -16,7 +16,7 @@ import unittest
 
 import requests
 from huggingface_hub.hf_api import HfApi
-from huggingface_hub.utils.tags import (
+from huggingface_hub.utils.endpoint_helpers import (
     AttributeDictionary,
     DatasetTags,
     GeneralTags,

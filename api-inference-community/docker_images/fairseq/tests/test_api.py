@@ -15,6 +15,7 @@ TESTABLE_MODELS: Dict[str, str] = {
 
 ALL_TASKS = {
     "text-to-speech",
+    "audio-to-audio",
 }
 
 

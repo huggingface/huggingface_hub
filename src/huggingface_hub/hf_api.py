@@ -32,7 +32,13 @@ from .constants import (
     REPO_TYPES_URL_PREFIXES,
     SPACES_SDK_TYPES,
 )
-from .utils.tags import AttributeDictionary, DatasetTags, ModelTags
+from .utils.endpoint_helpers import (
+    AttributeDictionary,
+    DatasetFilter,
+    DatasetTags,
+    ModelFilter,
+    ModelTags,
+)
 
 
 if sys.version_info >= (3, 8):
@@ -271,9 +277,8 @@ class ModelSearchArguments(AttributeDictionary):
     A nested namespace object holding all possible values for properties of
     models currently hosted in the Hub with tab-completion.
     If a value starts with a number, it will only exist in the dictionary
-
     Example:
-        >>> args = ModelSearchArgs()
+        >>> args = ModelSearchArguments()
         >>> args.author_or_organization.huggingface
         >>> args.language.en
     """
@@ -298,7 +303,7 @@ class ModelSearchArguments(AttributeDictionary):
                 name = model.modelId
             model_name_dict[name] = clean(name)
         self["model_name"] = model_name_dict
-        self["author_or_organization"] = author_dict
+        self["author"] = author_dict
 
 
 class DatasetSearchArguments(AttributeDictionary):
@@ -306,7 +311,6 @@ class DatasetSearchArguments(AttributeDictionary):
     A nested namespace object holding all possible values for properties of
     datasets currently hosted in the Hub with tab-completion.
     If a value starts with a number, it will only exist in the dictionary
-
     Example:
         >>> args = DatasetSearchArguments()
         >>> args.author_or_organization.huggingface
@@ -333,7 +337,7 @@ class DatasetSearchArguments(AttributeDictionary):
                 name = dataset.id
             dataset_name_dict[name] = clean(name)
         self["dataset_name"] = dataset_name_dict
-        self["author_or_organization"] = author_dict
+        self["author"] = author_dict
 
 
 def write_to_credential_store(username: str, password: str):
@@ -506,7 +510,9 @@ class HfApi:
 
     def list_models(
         self,
-        filter: Union[str, Iterable[str], None] = None,
+        filter: Union[ModelFilter, str, Iterable[str], None] = None,
+        author: Optional[str] = None,
+        search: Optional[str] = None,
         sort: Union[Literal["lastModified"], str, None] = None,
         direction: Optional[Literal[-1]] = None,
         limit: Optional[int] = None,
@@ -517,8 +523,8 @@ class HfApi:
         Get the public list of all the models on huggingface.co
 
         Args:
-            filter (:obj:`str` or :class:`Iterable`, `optional`):
-                A string which can be used to identify models on the hub by their tags.
+            filter (:class:`ModelFilter` or :obj:`str` or :class:`Iterable`, `optional`):
+                A string or `ModelFilter` which can be used to identify models on the hub.
                 Example usage:
 
                     >>> from huggingface_hub import HfApi
@@ -527,17 +533,52 @@ class HfApi:
                     >>> # List all models
                     >>> api.list_models()
 
+                    >>> # Get all valid search arguments
+                    >>> args = ModelSearchArguments()
+
                     >>> # List only the text classification models
                     >>> api.list_models(filter="text-classification")
+                    >>> # Using the `ModelFilter`
+                    >>> filt = ModelFilter(task="text-classification")
+                    >>> # With `ModelSearchArguments`
+                    >>> filt = ModelFilter(task=args.pipeline_tags.TextClassification)
+                    >>> api.list_models(filter=filt)
 
-                    >>> # List only the russian models compatible with pytorch
-                    >>> api.list_models(filter=("ru", "pytorch"))
+                    >>> # Using `ModelFilter` and `ModelSearchArguments` to find text classification in both PyTorch and TensorFlow
+                    >>> filt = ModelFilter(task=args.pipeline_tags.TextClassification, library=[args.library.PyTorch, args.library.TensorFlow])
+                    >>> api.list_models(filter=filt)
 
-                    >>> # List only the models trained on the "common_voice" dataset
-                    >>> api.list_models(filter="dataset:common_voice")
-
-                    >>> # List only the models from the AllenNLP library
+                    >>> # List only models from the AllenNLP library
                     >>> api.list_models(filter="allennlp")
+                    >>> # Using `ModelFilter` and `ModelSearchArguments`
+                    >>> filt = ModelFilter(library=args.library.allennlp)
+
+            author (:obj:`str`, `optional`):
+                A string which identify the author (user or organization) of the returned models
+                Example usage:
+
+                    >>> from huggingface_hub import HfApi
+                    >>> api = HfApi()
+
+                    >>> # List all models from google
+                    >>> api.list_models(author="google")
+
+                    >>> # List only the text classification models from google
+                    >>> api.list_models(filter="text-classification", author="google")
+
+            search (:obj:`str`, `optional`):
+                A string that will be contained in the returned models
+                Example usage:
+
+                    >>> from huggingface_hub import HfApi
+                    >>> api = HfApi()
+
+                    >>> # List all models with "bert" in their name
+                    >>> api.list_models(search="bert")
+
+                    >>> #List all models with "bert" in their name made by google
+                    >>> api.list_models(search="bert", author="google")
+
             sort (:obj:`Literal["lastModified"]` or :obj:`str`, `optional`):
                 The key with which to sort the resulting models. Possible values are the properties of the `ModelInfo`
                 class.
@@ -556,8 +597,15 @@ class HfApi:
         path = f"{self.endpoint}/api/models"
         params = {}
         if filter is not None:
-            params.update({"filter": filter})
+            if isinstance(filter, ModelFilter):
+                params = self._unpack_model_filter(filter)
+            else:
+                params.update({"filter": filter})
             params.update({"full": True})
+        if author is not None:
+            params.update({"author": author})
+        if search is not None:
+            params.update({"search": search})
         if sort is not None:
             params.update({"sort": sort})
         if direction is not None:
@@ -576,9 +624,71 @@ class HfApi:
         d = r.json()
         return [ModelInfo(**x) for x in d]
 
+    def _unpack_model_filter(self, model_filter: ModelFilter):
+        """
+        Unpacks a `ModelFilter` into something readable for `list_models`
+        """
+        model_str = ""
+        tags = []
+
+        # Handling author
+        if model_filter.author is not None:
+            model_str = f"{model_filter.author}/"
+
+        # Handling model_name
+        if model_filter.model_name is not None:
+            model_str += model_filter.model_name
+
+        filter_tuple = []
+
+        # Handling tasks
+        if model_filter.task is not None:
+            filter_tuple.extend(
+                [model_filter.task]
+                if isinstance(model_filter.task, str)
+                else model_filter.task
+            )
+
+        # Handling dataset
+        if model_filter.trained_dataset is not None:
+            if not isinstance(model_filter.trained_dataset, (list, tuple)):
+                model_filter.trained_dataset = [model_filter.trained_dataset]
+            for dataset in model_filter.trained_dataset:
+                if "dataset:" not in dataset:
+                    dataset = f"dataset:{dataset}"
+                filter_tuple.append(dataset)
+
+        # Handling library
+        if model_filter.library:
+            filter_tuple.extend(
+                [model_filter.library]
+                if isinstance(model_filter.library, str)
+                else model_filter.library
+            )
+
+        # Handling tags
+        if model_filter.tags:
+            tags.extend(
+                [model_filter.tags]
+                if isinstance(model_filter.tags, str)
+                else model_filter.tags
+            )
+
+        query_dict = {}
+        if model_str is not None:
+            query_dict["search"] = model_str
+        if len(tags) > 0:
+            query_dict["tags"] = tags
+        if model_filter.language is not None:
+            filter_tuple.append(model_filter.language)
+        query_dict["filter"] = tuple(filter_tuple)
+        return query_dict
+
     def list_datasets(
         self,
-        filter: Union[str, Iterable[str], None] = None,
+        filter: Union[DatasetFilter, str, Iterable[str], None] = None,
+        author: Optional[str] = None,
+        search: Optional[str] = None,
         sort: Union[Literal["lastModified"], str, None] = None,
         direction: Optional[Literal[-1]] = None,
         limit: Optional[int] = None,
@@ -588,9 +698,10 @@ class HfApi:
         Get the public list of all the datasets on huggingface.co
 
         Args:
-            filter (:obj:`str` or :class:`Iterable`, `optional`):
-                A string which can be used to identify datasets on the hub by their tags.
+            filter (:class:`DatasetFilter` or :obj:`str` or :class:`Iterable`, `optional`):
+                A string or `DatasetFilter` which can be used to identify datasets on the hub.
                 Example usage:
+
 
                     >>> from huggingface_hub import HfApi
                     >>> api = HfApi()
@@ -598,11 +709,51 @@ class HfApi:
                     >>> # List all datasets
                     >>> api.list_datasets()
 
+                    >>> # Get all valid search arguments
+                    >>> args = DatasetSearchArguments()
+
                     >>> # List only the text classification datasets
                     >>> api.list_datasets(filter="task_categories:text-classification")
+                    >>> # Using the `DatasetFilter`
+                    >>> filt = DatasetFilter(task_categories="text-classification")
+                    >>> # With `DatasetSearchArguments`
+                    >>> filt = DatasetFilter(task=args.task_categories.text_classification)
+                    >>> api.list_models(filter=filt)
 
                     >>> # List only the datasets in russian for language modeling
                     >>> api.list_datasets(filter=("languages:ru", "task_ids:language-modeling"))
+                    >>> # Using the `DatasetFilter`
+                    >>> filt = DatasetFilter(languages="ru", task_ids="language-modeling")
+                    >>> # With `DatasetSearchArguments`
+                    >>> filt = DatasetFilter(languages=args.languages.ru, task_ids=args.task_ids.language_modeling)
+                    >>> api.list_datasets(filter=filt)
+
+            author (:obj:`str`, `optional`):
+                A string which identify the author of the returned models
+                Example usage:
+
+                    >>> from huggingface_hub import HfApi
+                    >>> api = HfApi()
+
+                    >>> # List all datasets from google
+                    >>> api.list_datasets(author="google")
+
+                    >>> # List only the text classification datasets from google
+                    >>> api.list_datasets(filter="text-classification", author="google")
+
+            search (:obj:`str`, `optional`):
+                A string that will be contained in the returned models
+                Example usage:
+
+                    >>> from huggingface_hub import HfApi
+                    >>> api = HfApi()
+
+                    >>> # List all datasets with "text" in their name
+                    >>> api.list_datasets(search="text")
+
+                    >>> #List all datasets with "text" in their name made by google
+                    >>> api.list_datasets(search="text", author="google")
+
             sort (:obj:`Literal["lastModified"]` or :obj:`str`, `optional`):
                 The key with which to sort the resulting datasets. Possible values are the properties of the `DatasetInfo`
                 class.
@@ -618,7 +769,14 @@ class HfApi:
         path = f"{self.endpoint}/api/datasets"
         params = {}
         if filter is not None:
-            params.update({"filter": filter})
+            if isinstance(filter, DatasetFilter):
+                params = self._unpack_dataset_filter(filter)
+            else:
+                params.update({"filter": filter})
+        if author is not None:
+            params.update({"author": author})
+        if search is not None:
+            params.update({"search": search})
         if sort is not None:
             params.update({"sort": sort})
         if direction is not None:
@@ -632,6 +790,47 @@ class HfApi:
         r.raise_for_status()
         d = r.json()
         return [DatasetInfo(**x) for x in d]
+
+    def _unpack_dataset_filter(self, dataset_filter: DatasetFilter):
+        """
+        Unpacks a `DatasetFilter` into something readable for `list_datasets`
+        """
+        dataset_str = ""
+
+        # Handling author
+        if dataset_filter.author is not None:
+            dataset_str = f"{dataset_filter.author}/"
+
+        # Handling dataset_name
+        if dataset_filter.dataset_name is not None:
+            dataset_str += dataset_filter.dataset_name
+
+        filter_tuple = []
+        data_attributes = [
+            "benchmark",
+            "language_creators",
+            "languages",
+            "multilinguality",
+            "size_categories",
+            "task_categories",
+            "task_ids",
+        ]
+
+        for attr in data_attributes:
+            curr_attr = getattr(dataset_filter, attr)
+            if curr_attr is not None:
+                if not isinstance(curr_attr, (list, tuple)):
+                    curr_attr = [curr_attr]
+                for data in curr_attr:
+                    if f"{attr}:" not in data:
+                        data = f"{attr}:{data}"
+                    filter_tuple.append(data)
+
+        query_dict = {}
+        if dataset_str is not None:
+            query_dict["search"] = dataset_str
+        query_dict["filter"] = tuple(filter_tuple)
+        return query_dict
 
     def list_metrics(self) -> List[MetricInfo]:
         """
@@ -808,6 +1007,32 @@ class HfApi:
             else:
                 raise ValueError("Invalid token passed!")
 
+        checked_name = repo_type_and_id_from_hf_id(name)
+
+        if (
+            repo_type is not None
+            and checked_name[0] is not None
+            and repo_type != checked_name[0]
+        ):
+            raise ValueError(
+                f"""Passed `repo_type` and found `repo_type` are not the same ({repo_type}, {checked_name[0]}).
+            Please make sure you are expecting the right type of repository to exist."""
+            )
+
+        if (
+            organization is not None
+            and checked_name[1] is not None
+            and organization != checked_name[1]
+        ):
+            raise ValueError(
+                f"""Passed `organization` and `name` organization are not the same ({organization}, {checked_name[1]}).
+            Please either include the organization in only `name` or the `organization` parameter, such as `api.create_repo({checked_name[0]}, organization={organization})` or `api.create_repo({checked_name[1]}/{checked_name[2]})`"""
+            )
+
+        repo_type = repo_type or checked_name[0]
+        organization = organization or checked_name[1]
+        name = checked_name[2]
+
         if repo_type not in REPO_TYPES:
             raise ValueError("Invalid repo type")
 
@@ -887,6 +1112,32 @@ class HfApi:
                 token, name = name, token
             else:
                 raise ValueError("Invalid token passed!")
+
+        checked_name = repo_type_and_id_from_hf_id(name)
+
+        if (
+            repo_type is not None
+            and checked_name[0] is not None
+            and repo_type != checked_name[0]
+        ):
+            raise ValueError(
+                f"""Passed `repo_type` and found `repo_type` are not the same ({repo_type}, {checked_name[0]}).
+            Please make sure you are expecting the right type of repository to exist."""
+            )
+
+        if (
+            organization is not None
+            and checked_name[1] is not None
+            and organization != checked_name[1]
+        ):
+            raise ValueError(
+                f"""Passed `organization` and `name` organization are not the same ({organization}, {checked_name[1]}).
+            Please either include the organization in only `name` or the `organization` parameter, such as `api.create_repo({checked_name[0]}, organization={organization})` or `api.create_repo({checked_name[1]}/{checked_name[2]})`"""
+            )
+
+        repo_type = repo_type or checked_name[0]
+        organization = organization or checked_name[1]
+        name = checked_name[2]
 
         if repo_type not in REPO_TYPES:
             raise ValueError("Invalid repo type")
@@ -1185,7 +1436,10 @@ class HfApi:
             otherwise.
         """
         if organization is None:
-            username = self.whoami(token=token)["name"]
+            if "/" in model_id:
+                username = model_id.split("/")[0]
+            else:
+                username = self.whoami(token=token)["name"]
             return f"{username}/{model_id}"
         else:
             return f"{organization}/{model_id}"
