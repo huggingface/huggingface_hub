@@ -5,6 +5,8 @@ In this tutorial, we will explore how to interact and explore the Hugging Face H
 ## The Basics
 
 `huggingface_hub` is a Python library that allows anyone to freely extract useful information from the Hub, as well as downloading and publishing models. You can install it with:
+
+
 ```bash
 pip install huggingface_hub
 ```
@@ -42,6 +44,8 @@ The `huggingface_hub` provides a user-friendly interface to know what exactly ca
 ```
 
 These are nested namespace objects that have **every single option** available on the Hub and that will return what should be passed to `filter`. The best of all is: it has tab completion 🎊 .
+
+## Searching for a Model
 
 Let's pose a problem that would be complicated to solve without access to this information:
 > I want to search the Hub for all PyTorch models trained on the `glue` dataset that can do Text Classification.
@@ -191,4 +195,133 @@ As you can see, it found the models that fit all the criteria. You can even take
 
 
 
-With these two functionalities combined, you can search for all available parameters and tags within the Hub to search for with ease for both Datasets and Models
+## Searching for a Dataset
+
+Similarly to finding a model, you can find a dataset easily by following the same steps.
+
+The new scenario will be:
+> I want to search the Hub for all datasets that can be used for `text_classification` and are in English.
+
+First, you should look at what is available in the `DatasetSearchArguments`, similar to the `ModelSearchArguments`:
+
+
+```python
+>>> dataset_args = DatasetSearchArguments()
+>>> dataset_args
+```
+
+
+
+
+    Available Attributes or Keys:
+     * author
+     * benchmark
+     * dataset_name
+     * language_creators
+     * languages
+     * licenses
+     * multilinguality
+     * size_categories
+     * task_categories
+     * task_ids
+
+
+
+`text_classification` is a *task*, so first you should check `task_categories`:
+
+
+```python
+dataset_args.task_categories
+```
+
+
+
+
+    Available Attributes or Keys:
+     * Summarization
+     * audio_classification
+     * automatic_speech_recognition
+     * code_generation
+     * conditional_text_generation
+     * cross_language_transcription
+     * dialogue_system
+     * grammaticalerrorcorrection
+     * machine_translation
+     * named_entity_disambiguation
+     * named_entity_recognition
+     * natural_language_inference
+     * news_classification
+     * other
+     * other_test
+     * other_text_search
+     * paraphrase
+     * paraphrasedetection
+     * query_paraphrasing
+     * question_answering
+     * question_generation
+     * sentiment_analysis
+     * sequence_modeling
+     * speech_processing
+     * structure_prediction
+     * summarization
+     * text_classification
+     * text_generation
+     * text_retrieval
+     * text_scoring
+     * textual_entailment
+     * translation
+
+
+
+There you will find `text_classification`, so you should use `dataset_args.task_categories.text_classification`.
+
+Next we need to find the proper language. There is a `languages` property we can check. These are two-letter language codes, so you should check if it has `en`:
+
+
+```python
+>>> "en" in dataset_args.languages
+```
+
+
+
+
+    True
+
+
+
+Now that the pieces are found, you can write a filter:
+
+
+```python
+>>> filt = DatasetFilter(
+>>>    languages=dataset_args.languages.en,
+>>>    task_categories=dataset_args.task_categories.text_classification
+>>> )
+```
+
+And search the API!
+
+
+```python
+>>> api.list_datasets(filter=filt)[0]
+```
+
+
+
+
+    DatasetInfo: {
+    	id: Abirate/english_quotes
+    	lastModified: None
+    	tags: ['annotations_creators:expert-generated', 'language_creators:expert-generated', 'language_creators:crowdsourced', 'languages:en', 'multilinguality:monolingual', 'source_datasets:original', 'task_categories:text-classification', 'task_ids:multi-label-classification']
+    	private: False
+    	author: Abirate
+    	description: None
+    	citation: None
+    	cardData: None
+    	siblings: None
+    	gated: False
+    }
+
+
+
+With these two functionalities combined, you can search for all available parameters and tags within the Hub to search for with ease for both Datasets and Models!
