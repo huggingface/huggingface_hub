@@ -103,7 +103,7 @@ The first criteria is getting all PyTorch models. This would be found under the 
 
 
 
-We can see that it is under `PyTorch`. So what we want to use is `model_args.library.PyTorch`:
+It is! The `PyTorch` name is there, so you'll need to use `model_args.library.PyTorch`:
 
 
 ```python
