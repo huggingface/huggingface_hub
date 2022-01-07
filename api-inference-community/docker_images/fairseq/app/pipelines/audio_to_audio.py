@@ -75,4 +75,4 @@ class SpeechToSpeechPipeline(Pipeline):
             wav, sr = TTSHubInterface.get_prediction(
                 self.tts_task, self.tts_model, self.tts_generator, tts_sample
             )
-            return wav.numpy(), sr, [text]
+            return wav.unsqueeze(0).numpy(), sr, [text]
