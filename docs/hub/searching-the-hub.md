@@ -39,7 +39,7 @@ The `huggingface_hub` provides a user-friendly interface to know what exactly ca
 These are nested namespace objects that have **every single option** available on the Hub and that will return what should be passed to `filter`. The best of all is: it has tab completion 🎊 .
 
 Let's pose a problem that would be complicated to solve without access to this information:
-> I want to search the Hub for all PyTorch models that can do Text Classification, and trained on the `glue` dataset
+> I want to search the Hub for all PyTorch models trained on the `glue` dataset that can do Text Classification.
 
 If we check what is available in our `model_args` by checking it's output in a Jupyter cell, we will find:
 
