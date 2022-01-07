@@ -22,7 +22,7 @@ If you look at what can be passed into each function, you will find the paramete
 - `search`
 - ...
 
-Two of these parameters make some sense (`author` and `search`), but what about `filter`? Let's dive into a few helpers quickly and revisit that question.
+Two of these parameters are intuitive (`author` and `search`), but what about that `filter`? 🤔 Let's dive into a few helpers quickly and revisit that question.
 
 ## Search Parameters
 
