@@ -16,7 +16,7 @@ This class let's you perform a variety of operations that interact with the raw 
 - `list_models`
 - `list_datasets`
 
-If we look at what can be passed into each function, you will find the parameter list looks something like:
+If you look at what can be passed into each function, you will find the parameter list looks something like:
 - `filter`
 - `author`
 - `search`
