@@ -1,6 +1,6 @@
 # Searching the Hub Efficiently with Python
 
-In this tutorial we will explore how to interact and search the Hub with the `HfApi` class to help find available models and datasets quickly.
+In this tutorial, we will explore how to interact and explore the Hugging Face Hub with the `huggingface_hub` library to help find available models and datasets quickly.
 
 ## The Basics
 
