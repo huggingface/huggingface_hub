@@ -62,9 +62,7 @@
 />
 <div
 	class="relative border-2 border-dashed rounded px-3 py-7 text-center cursor-pointer 
-		{isDragging
-			? 'border-green-300 bg-green-50 text-green-500'
-			: 'text-gray-500'} 
+		{isDragging ? 'border-green-300 bg-green-50 text-green-500' : 'text-gray-500'} 
 		{classNames}"
 	on:click={() => {
 		fileInput.click();
