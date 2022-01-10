@@ -44,7 +44,7 @@ const taskData: TaskData = {
 	],
 	models: [
 		{
-			description: "A solid summarization model trained on English news articles. Excels at generating factual summaries.",
+			description: "A strong summarization model trained on English news articles. Excels at generating factual summaries.",
 			id:          "facebook/bart-large-cnn",
 		},
 		{

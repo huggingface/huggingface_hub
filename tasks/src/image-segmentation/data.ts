@@ -6,7 +6,7 @@ import { TASKS_MODEL_LIBRARIES } from "../const";
 const taskData: TaskData = {
 	datasets: [
 		{
-			description: "The COCO dataset is widely used as a benchmark for models used for image segmentation, object detection, and captioning",
+			description: "Widely used benchmark dataset for multiple Vision tasks",
 			id:          "merve/coco2017",
 		},
 	],
@@ -29,19 +29,19 @@ const taskData: TaskData = {
 	libraries: TASKS_MODEL_LIBRARIES["image-segmentation"],
 	metrics:   [
 		{
-			description: "The Average Precision (AP) metric is the Area Under the PR Curve (AUC-PR). It is calculated for each class separately",
+			description: "Average Precision (AP) is the Area Under the PR Curve (AUC-PR). It is calculated for each semantic class separately",
 			id:          "Average Precision",
 		},
 		{
-			description: "The Mean Average Precision (mAP) metric is the overall average of the AP values",
+			description: "Mean Average Precision (mAP) is the overall average of the AP values",
 			id:          "Mean Average Precision",
 		},
 		{
-			description: "The Intersection over Union (IoU) metric is the overlap of segmentation masks. Mean IoU is the average of the IoU of all semantic classes",
+			description: "Intersection over Union (IoU) is the overlap of segmentation masks. Mean IoU is the average of the IoU of all semantic classes",
 			id:          "Mean Intersection over Union",
 		},
 		{
-			description: "The APα metric is the Average Precision at the IoU threshold of a α value, for example, AP50 and AP75",
+			description: "APα is the Average Precision at the IoU threshold of a α value, for example, AP50 and AP75",
 			id:          "APα",
 		},
 	],

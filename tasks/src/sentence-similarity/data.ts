@@ -6,11 +6,11 @@ import { TASKS_MODEL_LIBRARIES } from "../const";
 const taskData: TaskData = {
 	datasets: [
 		{
-			description: "Questions created by crowdworkers about Wikipedia articles.",
+			description: "Questions created by crowdworkers about Wikipedia articles",
 			id:          "squad",
 		},
 		{
-			description: "Bing queries with relevant passages from various web sources.",
+			description: "Bing queries with relevant passages from various web sources",
 			id:          "ms_marco",
 		},
 		
@@ -20,7 +20,7 @@ const taskData: TaskData = {
 
 			
 			{
-				label:   "Main sentence",
+				label:   "Source sentence",
 				content: "Machine learning is so easy.",
 				type:    "text",
 			},
@@ -66,25 +66,25 @@ const taskData: TaskData = {
 	libraries: TASKS_MODEL_LIBRARIES["sentence-similarity"],
 	metrics:   [
 		{
-			description: "Reciprocal ranking is a measure used to rank the relevance of documents given a set of documents. The Reciprocal Rank is the reciprocal of the retrieved document rank, that is, if the rank is 3, the Reciprocal Rank is 0.33. If the rank is 1, the Reciprocal Rank is 1.",
+			description: "Reciprocal Rank is a measure used to rank the relevancy of documents given a set of documents. Reciprocal Rank is the reciprocal of the rank of the document retrieved, meaning, if the rank is 3, the Reciprocal Rank is 0.33. If the rank is 1, the Reciprocal Rank is 1",
 			id:          "Mean Reciprocal Rank",
 		},
 		{
-			description: "The similarity of the embeddings is evaluated mainly based on the similarity of the cosine. It is calculated as the cosine of the angle between two vectors. It is particularly useful when your texts are not the same length.",
+			description: "The similarity of the embeddings is evaluated mainly on Cosine Similarity. It is calculated as the cosine of the angle between two vectors. It is particularly useful when your texts are not the same length",
 			id:          "Cosine Similarity",
 		},
 	],
 	models: [
 		{
-			description: "This is a model that works well for sentences and paragraphs and can be used for grouping and semantic searches.",
+			description: "This model works well for sentences and paragraphs and can be used for clustering/grouping and semantic searches",
 			id:          "sentence-transformers/all-mpnet-base-v2",
 		},
 		{
-			description: "A multilingual model trained for FAQ retrieval.",
+			description: "A multilingual model trained for FAQ retrieval",
 			id:          "clips/mfaq",
 		},
 	],
-	summary:      "Sentence similarity is the task of determining how similar two texts are. Sentence similarity models convert input texts into vectors (embeddings) that capture semantic information and calculate how close they are between them. This way we can identify the sentences or texts that are most similar (closer in the vector space) in between them. This task is particularly useful for information retrieval and clustering. Sentence similarity has various subtasks, such as passage ranking or semantic textual similarity.",
+	summary:      "Sentence Similarity is the task of determining how similar two texts are. Sentence similarity models convert input texts into vectors (embeddings) that capture semantic information and calculate how close (similar) they are between them. This task is particularly useful for information retrieval and clustering/grouping",
 	widgetModels: ["sentence-transformers/all-MiniLM-L6-v2"],
 	youtubeId:    "",
 };

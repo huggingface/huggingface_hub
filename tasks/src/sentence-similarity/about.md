@@ -1,25 +1,28 @@
 ## Use Cases 🔍
 
-You can extract information from documents using sentence similarity models. The first step is to rank documents using Passage Ranking models. You can then get the top-ranked document and search in it with sentence similarity models by picking the sentence that has the highest similarity to the input query.
+### Information Retrieval
 
-## Sentence Transformers
-The [Sentence Transformers](https://www.sbert.net/) library is very powerful to compute embeddings of sentences, paragraphs and whole documents. An embedding is just a vector representation of a text and are useful to find how similar two texts are. 
+You can extract information from documents using Sentence Similarity models. The first step is to rank documents using Passage Ranking models. You can then get to the top ranked document and search it with Sentence Similarity models by selecting the sentence that has the most similarity to the input query.
 
-You can find and use [hundreds of Sentence Transformers](https://huggingface.co/models?library=sentence-transformers&sort=downloads) models from the Hub
-by directly using the library, playing with the widgets in the browser, or using the Inference API.
+## The Sentence Transformers library
+
+The [Sentence Transformers](https://www.sbert.net/) library is very powerful for calculating embeddings of sentences, paragraphs, and entire documents. An embedding is just a vector representation of a text and is useful for finding how similar two texts are.
+
+You can find and use [hundreds of Sentence Transformers](https://huggingface.co/models?library=sentence-transformers&sort=downloads) models from the Hub by directly using the library, playing with the widgets in the browser or using the Inference API.
 
 ## Task Variants
 
 ### Passage Ranking
-Passage ranking is the task of ranking documents based on their relevance to a given query. The task is evaluated on Mean Reciprocal Rank. These models take one query and multiple documents and return ranked documents according to the relevancy to the query. 📄
 
-You can infer with passage ranking models using the [Inference API](https://huggingface.co/inference-api). The inputs to the passage ranking model is a query for which we are looking for relevancy in documents and the documents we want to search in. The model will return scores according to relevancy of those documents to the query.
+Passage Ranking is the task of ranking documents based on their relevance to a given query. The task is evaluated on Mean Reciprocal Rank. These models take one query and multiple documents and return ranked documents according to the relevancy to the query. 📄
+
+You can infer with Passage Ranking models using the [Inference API](https://huggingface.co/inference-api). The Passage Ranking model inputs are a query for which we look for relevancy in the documents and the documents we want to search. The model will return scores according to the relevancy of these documents for the query.
 
 ```python
 import json
 import requests
 
-API_URL = "https://api-inference.huggingface.co/models/sentence-transformers/msmarco-distilbert-base-tas-b" 
+API_URL = "https://api-inference.huggingface.co/models/sentence-transformers/msmarco-distilbert-base-tas-b"
 headers = {"Authorization": f"Bearer {api_token}"}
 
 def query(payload):
@@ -41,13 +44,14 @@ data = query(
 ```
 
 ### Semantic Textual Similarity
-Semantic textual similarity is the task of assessing how similar two texts are in terms of meaning. These models take one source sentence and a list of sentences that we will look for similarity in and return a list of similarity scores. The benchmark dataset is the [Semantic Textual Similarity Benchmark](http://ixa2.si.ehu.eus/stswiki/index.php/STSbenchmark). The task is evaluated on Pearson’s Rank Correlation.
+
+Semantic Textual Similarity is the task of evaluating how similar two texts are in terms of meaning. These models take a source sentence and a list of sentences in which we will look for similarities and will return a list of similarity scores. The benchmark dataset is the [Semantic Textual Similarity Benchmark](http://ixa2.si.ehu.eus/stswiki/index.php/STSbenchmark). The task is evaluated on Pearson’s Rank Correlation.
 
 ```python
 import json
 import requests
 
-API_URL = "https://api-inference.huggingface.co/models/sentence-transformers/all-MiniLM-L6-v2" 
+API_URL = "https://api-inference.huggingface.co/models/sentence-transformers/all-MiniLM-L6-v2"
 headers = {"Authorization": f"Bearer {api_token}"}
 
 def query(payload):
@@ -83,9 +87,9 @@ util.pytorch_cos_sim(embedding_1, embedding_2)
 ## tensor([[0.6003]])
 ```
 
-
 ## Useful Resources
-Would you like to learn more about Sentence Transformers and Sentence Similarity? Awesome! Here you can find some curated resources that can be helpful to you!
+
+Would you like to learn more about Sentence Transformers and Sentence Similarity? Awesome! Here you can find some curated resources that you may find helpful!
 
 - [Sentence Transformers Documentation](https://www.sbert.net/)
 - [Sentence Transformers in the Hub](https://huggingface.co/blog/sentence-transformers-in-the-hub)

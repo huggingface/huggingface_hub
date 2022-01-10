@@ -68,12 +68,12 @@ const taskData: TaskData = {
 	models: [
 		{
 			// TO DO: write description
-			description: "Solid Image Classification model trained on the ImageNet dataset",
+			description: "Strong Image Classification model trained on the ImageNet dataset",
 			id:          "google/vit-base-patch16-224",
 		},
 		{
 			// TO DO: write description
-			description: "Solid Image Classification model trained on the ImageNet dataset",
+			description: "Strong Image Classification model trained on the ImageNet dataset",
 			id:          "facebook/deit-base-distilled-patch16-224",
 		},
 	],

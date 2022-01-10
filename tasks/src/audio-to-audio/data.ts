@@ -29,11 +29,11 @@ const taskData: TaskData = {
 	libraries: TASKS_MODEL_LIBRARIES["audio-to-audio"],
 	metrics:   [
 		{
-			description: "The Signal-to-Noise metric is the ratio of the target signal level to the background noise level. It is calculated as the logarithm of the target signal divided by the background noise, in decibels",
+			description: "The Signal-to-Noise ratio is the relationship between the target signal level and the background noise level. It is calculated as the logarithm of the target signal divided by the background noise, in decibels",
 			id:          "snri",
 		},
 		{
-			description: "The Signal-to-Distortion metric is the ratio of the target signal to the sum of noise, interference, and artifact errors",
+			description: "The Signal-to-Distortion ratio is the relationship between the target signal and the sum of noise, interference, and artifact errors",
 			id:          "sdri",
 		},
 	],
@@ -47,7 +47,7 @@ const taskData: TaskData = {
 			id:          "speechbrain/metricgan-plus-voicebank",
 		},
 	],
-	summary:      "Audio-to-Audio is a family of tasks in which the input is an audio and the output is one or more generated audios. Some example tasks are speech enhancement and source separation.",
+	summary:      "Audio-to-Audio is a family of tasks in which the input is an audio and the output is one or multiple generated audios. Some example tasks are speech enhancement and source separation.",
 	widgetModels: ["speechbrain/sepformer-wham"],
 	youtubeId:    "",
 };

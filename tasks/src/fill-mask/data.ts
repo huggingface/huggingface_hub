@@ -56,25 +56,25 @@ const taskData: TaskData = {
 	libraries: TASKS_MODEL_LIBRARIES["fill-mask"],
 	metrics:   [
 		{
-			description: "The Cross Entropy metric calculates the difference between two probability distributions. Each probability distribution is the distribution of predicted words.",
+			description: "Cross Entropy is a metric that calculates the difference between two probability distributions. Each probability distribution is the distribution of predicted words",
 			id:          "cross_entropy",
 		},
 		{
-			description: "The Perplexity metric is the exponential of the cross-entropy loss. It evaluates the probabilities assigned to the next word by the model. Lower perplexity indicates better performance.",
+			description: "Perplexity is the exponential of the cross-entropy loss. It evaluates the probabilities assigned to the next word by the model. Lower perplexity indicates better performance",
 			id:          "perplexity",
 		},
 	],
 	models: [
 		{
-			description: "A faster and smaller model than the famous BERT model.",
+			description: "A faster and smaller model than the famous BERT model",
 			id:          "distilbert-base-uncased",
 		},
 		{
-			description: "A multilingual model trained on 100 languages.",
+			description: "A multilingual model trained on 100 languages",
 			id:          "xlm-roberta-base",
 		},
 	],
-	summary:      "Masked language modeling is the task of masking some of the words in a sentence and predicting which words should replace those masks. These models are useful when we want to obtain a statistical understanding of the language in which the model is trained.",
+	summary:      "Masked language modeling is the task of masking some of the words in a sentence and predicting which words should replace those masks. These models are useful when we want to get a statistical understanding of the language in which the model is trained in",
 	widgetModels: ["distilroberta-base"],
 	youtubeId:    "mqElG5QJWUg",
 };

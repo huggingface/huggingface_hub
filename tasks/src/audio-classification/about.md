@@ -2,9 +2,9 @@
 
 ### Command Recognition
 
-Command recognition or keyword spotting classifies utterances into a predefined set of predefined commands. This is very often done on-device for very fast response time.
+Command recognition or keyword spotting classifies utterances into a predefined set of commands. This is often done on-device for fast response time.
 
-As an example, using the Google Speech Commands dataset, given an input, a model can classify which of the following commands the user is writing:
+As an example, using the Google Speech Commands dataset, given an input, a model can classify which of the following commands the user is typing:
 
 ```
 'yes', 'no', 'up', 'down', 'left', 'right', 'on', 'off', 'stop', 'go', 'unknown', 'silence'
@@ -26,7 +26,7 @@ Datasets such as VoxLingua107 allow anyone to train language identification mode
 
 ### Emotion recognition
 
-Emotion recognition is self explanatory. Apart from trying in the widgets, you can use the Inference API to do audio classification. Here is a simple example that uses a [HuBERT](https://huggingface.co/superb/hubert-large-superb-er) model fine-tuned for this task.
+Emotion recognition is self explanatory. In addition to trying the widgets, you can use the Inference API to perform audio classification. Here is a simple example that uses a [HuBERT](https://huggingface.co/superb/hubert-large-superb-er) model fine-tuned for this task.
 
 ```python
 import json
@@ -50,10 +50,10 @@ data = query("sample1.flac")
 
 ### Speaker Identification
 
-Speaker Identification is classifying the audio for the person that is speaking in it. The speakers are usually predefined. You can try out this task with [this model](https://huggingface.co/superb/wav2vec2-base-superb-sid). A useful dataset for this task is VoxCeleb1.
+Speaker Identification consists of classifying the audio of the person speaking in it. Speakers are usually predefined. You can try out this task with [this model](https://huggingface.co/superb/wav2vec2-base-superb-sid). A useful dataset for this task is VoxCeleb1.
 
 ## Solving audio classification for your own data
 
-We have some great news! You can do fine-tuning (transfer learning) to train a good performant model without requiring that much data. There are existing pretrained models such as Wav2Vec2 and HuBERT. [Facebook's Wav2Vec2 XLS-R model](https://ai.facebook.com/blog/wav2vec-20-learning-the-structure-of-speech-from-raw-audio/) is a large multilingual model trained on 128 languages and with 436K hours of speech. 
+We have some great news! You can do fine-tuning (transfer learning) to train a well-performing model without requiring as much data. Pretrained models such as Wav2Vec2 and HuBERT exist. [Facebook's Wav2Vec2 XLS-R model](https://ai.facebook.com/blog/wav2vec-20-learning-the-structure-of-speech-from-raw-audio/) is a large multilingual model trained on 128 languages and with 436K hours of speech.
 
-We suggest to check the following [example](https://github.com/huggingface/transformers/tree/master/examples/pytorch/audio-classification) ([Colab Notebook](https://colab.research.google.com/github/huggingface/notebooks/blob/master/examples/audio_classification.ipynb)) to learn how to fine-tune a model for audio classification with a single or multiple GPUs and share it on the Hub.
+We suggest reviewing the following [example](https://github.com/huggingface/transformers/tree/master/examples/pytorch/audio-classification) ([Colab Notebook](https://colab.research.google.com/github/huggingface/notebooks/blob/master/examples/audio_classification.ipynb)) to learn how to fine-tune a model for audio classification with a single or multiple GPUs and share it on the Hub.

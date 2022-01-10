@@ -7,7 +7,7 @@ const taskData: TaskData = {
 	datasets: [
 		{
 			// TODO write proper description
-			description: "The COCO dataset is widely used as a benchmark for models employed for image segmentation, object detection, and captioning",
+			description: "Widely used benchmark dataset for multiple Vision tasks",
 			id:          "merve/coco2017",
 		},
 	],
@@ -49,7 +49,7 @@ const taskData: TaskData = {
 			id:          "facebook/detr-resnet-50",
 		}
 	],
-	summary:      "Object Detection models allow users to identify objects of certain defined classes. Object detection models receive an image as input and output the images with, for example, bounding boxes and labels for the detected objects",
+	summary:      "Object Detection models allow users to identify objects of certain defined classes. Object detection models receive an image as input and output the images with bounding boxes and labels on detected objects",
 	widgetModels: ["facebook/detr-resnet-50"],
 	youtubeId:    "",
 };

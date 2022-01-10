@@ -1,15 +1,18 @@
 ## Use Cases
 
-Text-to-Speech models can be used in any speech-enabled application that requires converting text to speech. 
+Text-to-Speech (TTS) models can be used in any speech-enabled application that requires converting text to speech.
 
 ### Voice Assistants
-Text-to-Speech models are used to build voice assistants in smart devices. These models are a better alternative compared to concatenative methods where the assistant is built through recording sounds and mapping them, since the outputs in TTS models contain elements in natural speech, such as emphasis.
+
+TTS models are used to create voice assistants on smart devices. These models are a better alternative compared to concatenative methods where the assistant is built by recording sounds and mapping them, since the outputs in TTS models contain elements in natural speech such as emphasis.
 
 ### Announcement Systems
-Text-to-Speech models are widely used in announcement systems of public transportation and airports to convert the announcement text to speech.
+
+TTS models are widely used in airport and public transportation announcement systems to convert the announcement of a given text into speech.
 
 ## Inference
-The Hub contains over [100 TTS models](https://huggingface.co/models?pipeline_tag=text-to-speech&sort=downloads) that you can use right away by trying out the widgets directly in the browser or calling the models as a service using the Accelerated Inference API. Here is a simple code snippet to do exactly this
+
+The Hub contains over [100 TTS models](https://huggingface.co/models?pipeline_tag=text-to-speech&sort=downloads) that you can use right away by trying out the widgets directly in the browser or calling the models as a service using the Accelerated Inference API. Here is a simple code snippet to do exactly this:
 
 ```python
 import json
@@ -29,7 +32,7 @@ You can also use libraries such as [espnet](https://huggingface.co/models?librar
 
 ```python
 from espnet2.bin.tts_inference import Text2Speech
-    
+
 model = Text2Speech.from_pretrained("espnet/kan-bayashi_ljspeech_vits")
 
 speech, *_ = model("text to generate speech from")
