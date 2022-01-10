@@ -57,7 +57,7 @@ const taskData: TaskData = {
 
 		},
 		{
-			description: "The Precision metric is the fraction of true examples among the predicted examples. It can be calculated as: Precision = TP / (TP + FP). Where TP is True Positive; and FP is False Positive",
+			description: "",
 			id: "precision",
 		},
 		{
