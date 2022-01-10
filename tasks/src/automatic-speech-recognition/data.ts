@@ -39,7 +39,7 @@ const taskData: TaskData = {
 			id:          "wer",
 		},
 		{
-			description: "Character Error Rate (CER) is similar to Word Error Rate (WER), but operates on characters instead of words. CER compares the predicted result and the target transcript, character by character, to determine the amount of differences between them. The lower the value, the better the performance of the ASR system with a CER of 0 being a perfect score",
+			description: "",
 			id:          "cer",
 		},
 	],
