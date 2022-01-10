@@ -35,7 +35,7 @@ const taskData: TaskData = {
 	libraries: TASKS_MODEL_LIBRARIES["automatic-speech-recognition"],
 	metrics:   [
 		{
-			description: "The Word Error Rate (WER) metric is based on the Levenshtein distance at the word level. WER compares the predicted result and the target transcript, word for word, to determine the amount of differences between them. The lower the value, the better the performance of the ASR system with a WER of 0 being a perfect score",
+			description: "",
 			id:          "wer",
 		},
 		{
