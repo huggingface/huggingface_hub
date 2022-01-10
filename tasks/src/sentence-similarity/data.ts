@@ -70,7 +70,7 @@ const taskData: TaskData = {
 			id:          "Mean Reciprocal Rank",
 		},
 		{
-			description: "The similarity of the embeddings is evaluated mainly on Cosine Similarity. It is calculated as the cosine of the angle between two vectors. It is particularly useful when your texts are not the same length",
+			description: "The similarity of the embeddings is evaluated mainly on cosine similarity. It is calculated as the cosine of the angle between two vectors. It is particularly useful when your texts are not the same length",
 			id:          "Cosine Similarity",
 		},
 	],
