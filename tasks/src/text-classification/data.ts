@@ -52,7 +52,7 @@ const taskData: TaskData = {
 			id:          "accuracy",
 		},
 		{
-			description: "The Recall metric is the fraction of the total amount of relevant examples that were actually retrieved. It can be calculated as: Recall = TP / (TP + FN). Where TP is True Positive; and FN is False Negative",
+			description: "",
 			id:          "recall",
             
 		},
