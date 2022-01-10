@@ -39,7 +39,7 @@ const taskData: TaskData = {
 	libraries: TASKS_MODEL_LIBRARIES["audio-classification"],
 	metrics:   [
 		{
-			description: "The Accuracy metric is the ratio of correct predictions to the total number of cases processed. It can be calculated as: Accuracy = (TP + TN) / (TP + TN + FP + FN). Where TP is True Positive; TN is True Negative; FP is False Positive; and FN is False Negative.",
+			description: "",
 			id: "accuracy",
 		},
 		{
