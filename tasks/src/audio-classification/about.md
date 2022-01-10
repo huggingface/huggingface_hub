@@ -50,7 +50,7 @@ data = query("sample1.flac")
 
 ### Speaker Identification
 
-Speaker Identification consists of classifying the audio of the person speaking in it. Speakers are usually predefined. You can try out this task with [this model](https://huggingface.co/superb/wav2vec2-base-superb-sid). A useful dataset for this task is VoxCeleb1.
+Speaker Identification is classifying the audio of the person speaking. Speakers are usually predefined. You can try out this task with [this model](https://huggingface.co/superb/wav2vec2-base-superb-sid). A useful dataset for this task is VoxCeleb1.
 
 ## Solving audio classification for your own data
 
