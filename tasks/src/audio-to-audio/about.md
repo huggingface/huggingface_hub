@@ -2,7 +2,7 @@
 
 ### Speech Enhancement (Noise removal)
 
-Speech Enhancement is self explanatory. It improves (or enhances) the quality of an audio by removing noise. There are multiple libraries to solve this task, such as Speechbrain, Asteroid and ESPNet. Here is a simple example using Speechbrain
+Speech Enhancement is a bit self explanatory. It improves (or enhances) the quality of an audio by removing noise. There are multiple libraries to solve this task, such as Speechbrain, Asteroid and ESPNet. Here is a simple example using Speechbrain
 
 ```python
 from speechbrain.pretrained import SpectralMaskEnhancement
