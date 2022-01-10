@@ -52,7 +52,7 @@ const taskData: TaskData = {
 			id: "precision",
 		},
 		{
-			description: "The F1 metric is the harmonic mean of the precision and recall. It can be calculated as: F1 = 2 * (precision * recall) / (precision + recall).",
+			description: "",
 			id: "f1",
 		},
 	],
