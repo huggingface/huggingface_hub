@@ -172,7 +172,7 @@ We run every file of your repositories through a [malware scanner](https://www.c
 
 Scanning is triggered at each commit or when you visit a repository page.
 
-Here is an example view of an infected file :
+Here is an [example view](https://huggingface.co/mcpotato/42-eicar-street/tree/main) of an infected file :
 
 ![/docs/assets/hub/eicar-hub-tree-view.png](/docs/assets/hub/eicar-hub-tree-view.png)
 
