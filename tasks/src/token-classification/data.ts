@@ -6,7 +6,7 @@ import { TASKS_MODEL_LIBRARIES } from "../const";
 const taskData: TaskData = {
 	datasets: [
 		{
-			description: "A widely used dataset used to benchmark named entity recognition models.",
+			description: "A widely used dataset useful to benchmark named entity recognition models.",
 			id:          "conll2003",
 		},
 		{
@@ -49,33 +49,33 @@ const taskData: TaskData = {
 	metrics:   [
 		{
 			description: "",
-			id:          "accuracy",
+			id: "accuracy",
 		},
 		{
 			description: "",
-			id:          "f1",
+			id: "recall",
+
 		},
 		{
 			description: "",
-			id:          "recall",
-            
+			id: "precision",
 		},
 		{
 			description: "",
-			id:          "precision",
+			id: "f1",
 		},
 	],
 	models: [
 		{
-			description: "A good performing model to identify persons, locations, organizations and names of miscellaneous entities.",
+			description: "A robust performance model to identify people, locations, organizations and names of miscellaneous entities",
 			id:          "dslim/bert-base-NER",
 		},
 		{
-			description: "Flair models are typically the state of the art in named entity recognition tasks.",
+			description: "Flair models are typically the state of the art in named entity recognition tasks",
 			id:          "flair/ner-english",
 		},
 	],
-	summary:      "Token classification is a natural language understanding task in which a label is assigned to some tokens in a text. Some popular token classification subtasks are named entity recognition and part-of-speech tagging.",
+	summary:      "Token classification is a natural language understanding task in which a label is assigned to some tokens in a text. Some popular token classification subtasks are Named Entity Recognition (NER) and Part-of-Speech (PoS) tagging. NER models could be trained to identify specific entities in a text, such as dates, individuals and places; and PoS tagging would identify, for example, which words in a text are verbs, nouns, and punctuation marks",
 	widgetModels: ["dslim/bert-base-NER"],
 	youtubeId:    "wVHdVlPScxA",
 };

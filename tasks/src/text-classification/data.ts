@@ -6,11 +6,11 @@ import { TASKS_MODEL_LIBRARIES } from "../const";
 const taskData: TaskData = {
 	datasets: [
 		{
-			description: "A widely used dataset used to benchmark multiple variants of text classification.",
+			description: "A widely used dataset used to benchmark multiple variants of text classification",
 			id:          "glue",
 		},
 		{
-			description: "A text classification dataset used to benchmark natural language inference models.",
+			description: "A text classification dataset used to benchmark natural language inference models",
 			id:          "snli",
 		},
 	],
@@ -53,10 +53,6 @@ const taskData: TaskData = {
 		},
 		{
 			description: "",
-			id:          "f1",
-		},
-		{
-			description: "",
 			id:          "recall",
             
 		},
@@ -64,18 +60,22 @@ const taskData: TaskData = {
 			description: "",
 			id:          "precision",
 		},
+		{
+			description: "The F1 metric is the harmonic mean of the precision and recall. It can be calculated as: F1 = 2 * (precision * recall) / (precision + recall)",
+			id: "f1",
+		},
 	],
 	models: [
 		{
-			description: "A good performing model trained on sentiment analysis.",
+			description: "A robust model trained for sentiment analysis",
 			id:          "distilbert-base-uncased-finetuned-sst-2-english",
 		},
 		{
-			description: "Strong multi-genre natural language inference model.",
+			description: "Multi-genre natural language inference model",
 			id:          "roberta-large-mnli",
 		},
 	],
-	summary:      "Text Classification is the task of assigning a label or class to a given text. Some example tasks are sentiment analysis, natural language inference, and grammatical correctness.",
+	summary:      "Text Classification is the task of assigning a label or class to a given text. Some use cases are sentiment analysis, natural language inference, and assessing grammatical correctness",
 	widgetModels: ["distilbert-base-uncased-finetuned-sst-2-english"],
 	youtubeId:    "",
 };

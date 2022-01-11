@@ -34,7 +34,11 @@ const taskData: TaskData = {
 	id:        "text-to-speech",
 	label:     PipelineType["text-to-speech"],
 	libraries: TASKS_MODEL_LIBRARIES["text-to-speech"],
-	metrics:   [
+	metrics: [
+		{
+			description: "The Mel Cepstral Distortion (MCD) metric is used to calculate the quality of generated speech.",
+			id: "mel cepstral distortion",
+		},
 	],
 	models: [
 		{
@@ -42,7 +46,7 @@ const taskData: TaskData = {
 			id:          "espnet/kan-bayashi_ljspeech_vits",
 		},
 	],
-	summary:      "Text to Speech (TTS), is the task of generating natural sounding speech given a text input. Text to Speech can be extended to having a single model that generates speech for multiple speakers and multiple languages.",
+	summary:      "Text-to-Speech (TTS) is the task of generating natural sounding speech given text input. TTS models can be extended to have a single model that generates speech for multiple speakers and multiple languages.",
 	widgetModels: ["espnet/kan-bayashi_ljspeech_vits"],
 	youtubeId:    "",
 };

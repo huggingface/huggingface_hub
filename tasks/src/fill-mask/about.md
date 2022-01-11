@@ -1,14 +1,18 @@
-## Use Case: Domain Adaptation 👩‍⚕️
-Masked language models don't require labelled data! They're trained by masking a couple of words in the sentences, and the model is expected to guess the masked word. This makes it very practical!
+## Use Cases
 
-For example, masked language modeling is used to train large models for domain-specific problems. If you have to work on a domain-specific task such as information retrieval from medical research papers, you can train a masked language model using those papers. 📄
+### Domain Adaptation 👩‍⚕️
 
-The resulting model has a statistical understanding of the language used in medical research papers, and it can be trained further in a process called fine-tuning to solve different tasks, such as [Text Classification](/tasks/text-classification) or [Question Answering](/tasks/question-answering) to build a medical research papers information extraction system. 👩‍⚕️ Pre-training on domain-specific data tends to yield better results (see [this paper](https://arxiv.org/abs/2007.15779) for an example).
+Masked language models do not require labelled data! They are trained by masking a couple of words in sentences and the model is expected to guess the masked word. This makes it very practical!
 
-If you don't have the data to train a masked language model, you can also use an existing [domain-specific masked language model](https://huggingface.co/microsoft/BiomedNLP-PubMedBERT-base-uncased-abstract-fulltext) from the Hub and fine-tune with your smaller task dataset. That's the magic of Open Source and sharing your work! 🎉
+For example, masked language modeling is used to train large models for domain-specific problems. If you have to work on a domain-specific task, such as retrieving information from medical research papers, you can train a masked language model using those papers. 📄
+
+The resulting model has a statistical understanding of the language used in medical research papers, and can be further trained in a process called fine-tuning to solve different tasks, such as [Text Classification](/tasks/text-classification) or [Question Answering](/tasks/question-answering) to build a medical research papers information extraction system. 👩‍⚕️ Pre-training on domain-specific data tends to yield better results (see [this paper](https://arxiv.org/abs/2007.15779) for an example).
+
+If you don't have the data to train a masked language model, you can also use an existing [domain-specific masked language model](https://huggingface.co/microsoft/BiomedNLP-PubMedBERT-base-uncased-abstract-fulltext) from the Hub and fine-tune it with your smaller task dataset. That's the magic of Open Source and sharing your work! 🎉
 
 ## Inference with Fill-Mask Pipeline
-You can use the 🤗 Transformers library `fill-mask` pipeline to do inference with masked language models. If a model name is not provided, the pipeline will be initialized with [distilroberta-base](/distilroberta-base). You can provide masked text, and it will return list of possible mask values, ranked according to the score.
+
+You can use the 🤗 Transformers library `fill-mask` pipeline to do inference with masked language models. If a model name is not provided, the pipeline will be initialized with [distilroberta-base](/distilroberta-base). You can provide masked text and it will return a list of possible mask values ​​ranked according to the score.
 
 ```python
 from transformers import pipeline
@@ -29,11 +33,13 @@ Would you like to learn more about the topic? Awesome! Here you can find some cu
 - [Workshop on Pretraining Language Models and CodeParrot](https://www.youtube.com/watch?v=ExUR7w6xe94)
 
 ### Notebooks
+
 - [Pre-training an MLM for JAX/Flax](https://github.com/huggingface/notebooks/blob/master/examples/masked_language_modeling_flax.ipynb)
 - [Masked language modeling in TensorFlow](https://github.com/huggingface/notebooks/blob/master/examples/language_modeling-tf.ipynb)
 - [Masked language modeling in PyTorch](https://github.com/huggingface/notebooks/blob/master/examples/language_modeling.ipynb)
 
 ### Scripts for training
+
 - [PyTorch](https://github.com/huggingface/transformers/tree/master/examples/pytorch/language-modeling)
 - [Flax](https://github.com/huggingface/transformers/tree/master/examples/flax/language-modeling)
 - [TensorFlow](https://github.com/huggingface/transformers/tree/master/examples/tensorflow/language-modeling)

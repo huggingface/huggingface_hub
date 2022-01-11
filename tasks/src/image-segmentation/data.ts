@@ -6,8 +6,7 @@ import { TASKS_MODEL_LIBRARIES } from "../const";
 const taskData: TaskData = {
 	datasets: [
 		{
-			// TODO write proper description
-			description: "Benchmark dataset used for the task",
+			description: "Widely used benchmark dataset for multiple Vision tasks",
 			id:          "merve/coco2017",
 		},
 	],
@@ -30,30 +29,30 @@ const taskData: TaskData = {
 	libraries: TASKS_MODEL_LIBRARIES["image-segmentation"],
 	metrics:   [
 		{
-			description: "Average Precision (AP) is the Area Under the PR Curve (AUC-PR). It is calculated for each semantic class separately.",
+			description: "Average Precision (AP) is the Area Under the PR Curve (AUC-PR). It is calculated for each semantic class separately",
 			id:          "Average Precision",
 		},
 		{
-			description: "Mean Average Precision is the overall average of the Average Precision values.",
+			description: "Mean Average Precision (mAP) is the overall average of the AP values",
 			id:          "Mean Average Precision",
 		},
 		{
-			description: "Intersection over Union is the overlap of segmentation masks. Mean Intersection over Union is the average of Intersection over Union of all semantic classes.",
+			description: "Intersection over Union (IoU) is the overlap of segmentation masks. Mean IoU is the average of the IoU of all semantic classes",
 			id:          "Mean Intersection over Union",
 		},
 		{
-			description: "APα is the Average Precision at IoU threshold of α, AP50 and AP75 are widely used.",
+			description: "APα is the Average Precision at the IoU threshold of a α value, for example, AP50 and AP75",
 			id:          "APα",
 		},
 	],
 	models: [
 		{
 			// TO DO: write description
-			description: "Strong panoptic segmentation model trained on COCO 2017 benchmark dataset.",
+			description: "Solid panoptic segmentation model trained on the COCO 2017 benchmark dataset.",
 			id:          "facebook/detr-resnet-50-panoptic",
 		}
 	],
-	summary:      "Image segmentation divides an image to segments, where every pixel in the image is assigned to an object. This task has multiple variants, instance segmentation, panoptic segmentation and semantic segmentation.",
+	summary:      "Image Segmentation divides an image into segments where each pixel in the image is mapped to an object. This task has multiple variants such as instance segmentation, panoptic segmentation and semantic segmentation",
 	widgetModels: ["facebook/detr-resnet-50"],
 	youtubeId:    "",
 };
