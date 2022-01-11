@@ -49,7 +49,7 @@ const taskData: TaskData = {
 	],
 	summary:      "Audio-to-Audio is a family of tasks in which the input is an audio and the output is one or multiple generated audios. Some example tasks are speech enhancement and source separation.",
 	widgetModels: ["speechbrain/sepformer-wham"],
-	youtubeId:    "",
+	youtubeId:    "iohj7nCCYoM",
 };
 
 export default taskData;
