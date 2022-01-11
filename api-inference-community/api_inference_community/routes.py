@@ -65,6 +65,8 @@ def call_pipe(pipe: Any, inputs, params: Dict, start: float) -> Response:
 
     status_code = 200
     n_characters = 0
+    if os.getenv("DEBUG", "0") in {"1", "true"}:
+        outputs = pipe(inputs)
     try:
         outputs = pipe(inputs)
         n_characters = get_input_characters(inputs)
