@@ -51,7 +51,7 @@ const taskData: TaskData = {
 	],
 	summary:      "Object Detection models allow users to identify objects of certain defined classes. Object detection models receive an image as input and output the images with bounding boxes and labels on detected objects",
 	widgetModels: ["facebook/detr-resnet-50"],
-	youtubeId:    "",
+	youtubeId:    "WdAeKSOpxhw",
 };
 
 export default taskData;

@@ -55,7 +55,7 @@ const taskData: TaskData = {
 	],
 	summary:      "Automatic Speech Recognition (ASR), also known as Speech to Text (STT), is the task of transcribing a given audio to text. It has many applications, such as voice user interfaces",
 	widgetModels: ["facebook/wav2vec2-base-960h"],
-	youtubeId:    "",
+	youtubeId:    "TksaY_FDgnk",
 };
 
 export default taskData;
