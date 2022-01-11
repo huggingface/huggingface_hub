@@ -35,14 +35,17 @@ from huggingface_hub.file_download import cached_download, hf_hub_download
 from huggingface_hub.hf_api import (
     USERNAME_PLACEHOLDER,
     DatasetInfo,
+    DatasetSearchArguments,
     HfApi,
     HfFolder,
     MetricInfo,
     ModelInfo,
+    ModelSearchArguments,
     erase_from_credential_store,
     read_from_credential_store,
     repo_type_and_id_from_hf_id,
 )
+from huggingface_hub.utils.endpoint_helpers import DatasetFilter, ModelFilter
 from requests.exceptions import HTTPError
 
 from .testing_constants import (
@@ -473,6 +476,22 @@ class HfApiPublicTest(unittest.TestCase):
         self.assertIsInstance(models[0], ModelInfo)
 
     @with_production_testing
+    def test_list_models_author(self):
+        _api = HfApi()
+        models = _api.list_models(author="google")
+        self.assertGreater(len(models), 10)
+        self.assertIsInstance(models[0], ModelInfo)
+        [self.assertTrue("google" in model.author for model in models)]
+
+    @with_production_testing
+    def test_list_models_search(self):
+        _api = HfApi()
+        models = _api.list_models(search="bert")
+        self.assertGreater(len(models), 10)
+        self.assertIsInstance(models[0], ModelInfo)
+        [self.assertTrue("bert" in model.modelId.lower()) for model in models]
+
+    @with_production_testing
     def test_list_models_complex_query(self):
         # Let's list the 10 most recent models
         # with tags "bert" and "jax",
@@ -541,6 +560,77 @@ class HfApiPublicTest(unittest.TestCase):
         self.assertIsInstance(datasets[0], DatasetInfo)
 
     @with_production_testing
+    def test_filter_datasets_by_author_and_name(self):
+        _api = HfApi()
+        f = DatasetFilter(author="huggingface", dataset_name="DataMeasurementsFiles")
+        datasets = _api.list_datasets(f)
+        self.assertEqual(len(datasets), 1)
+        self.assertTrue("huggingface" in datasets[0].author)
+        self.assertTrue("DataMeasurementsFiles" in datasets[0].id)
+
+    @with_production_testing
+    def test_filter_datasets_by_benchmark(self):
+        _api = HfApi()
+        f = DatasetFilter(benchmark="raft")
+        datasets = _api.list_datasets(f)
+        self.assertGreater(len(datasets), 0)
+        self.assertTrue("benchmark:raft" in datasets[0].tags)
+
+    @with_production_testing
+    def test_filter_datasets_by_language_creator(self):
+        _api = HfApi()
+        f = DatasetFilter(language_creators="crowdsourced")
+        datasets = _api.list_datasets(f)
+        self.assertGreater(len(datasets), 0)
+        self.assertTrue("language_creators:crowdsourced" in datasets[0].tags)
+
+    @with_production_testing
+    def test_filter_datasets_by_language(self):
+        _api = HfApi()
+        f = DatasetFilter(languages="en")
+        datasets = _api.list_datasets(f)
+        self.assertGreater(len(datasets), 0)
+        self.assertTrue("languages:en" in datasets[0].tags)
+        args = DatasetSearchArguments()
+        f = DatasetFilter(languages=(args.languages.en, args.languages.fr))
+        datasets = _api.list_datasets(f)
+        self.assertGreater(len(datasets), 0)
+        self.assertTrue("languages:en" in datasets[0].tags)
+        self.assertTrue("languages:fr" in datasets[0].tags)
+
+    @with_production_testing
+    def test_filter_datasets_by_multilinguality(self):
+        _api = HfApi()
+        f = DatasetFilter(multilinguality="yes")
+        datasets = _api.list_datasets(f)
+        self.assertGreater(len(datasets), 0)
+        self.assertTrue("multilinguality:yes" in datasets[0].tags)
+
+    @with_production_testing
+    def test_filter_datasets_by_size_categories(self):
+        _api = HfApi()
+        f = DatasetFilter(size_categories="100K<n<1M")
+        datasets = _api.list_datasets(f)
+        self.assertGreater(len(datasets), 0)
+        self.assertTrue("size_categories:100K<n<1M" in datasets[0].tags)
+
+    @with_production_testing
+    def test_filter_datasets_by_task_categories(self):
+        _api = HfApi()
+        f = DatasetFilter(task_categories="audio-classification")
+        datasets = _api.list_datasets(f)
+        self.assertGreater(len(datasets), 0)
+        self.assertTrue("task_categories:audio-classification" in datasets[0].tags)
+
+    @with_production_testing
+    def test_filter_datasets_by_task_ids(self):
+        _api = HfApi()
+        f = DatasetFilter(task_ids="automatic-speech-recognition")
+        datasets = _api.list_datasets(f)
+        self.assertGreater(len(datasets), 0)
+        self.assertTrue("task_ids:automatic-speech-recognition" in datasets[0].tags)
+
+    @with_production_testing
     def test_list_datasets_full(self):
         _api = HfApi()
         datasets = _api.list_datasets(full=True)
@@ -548,6 +638,20 @@ class HfApiPublicTest(unittest.TestCase):
         dataset = datasets[0]
         self.assertIsInstance(dataset, DatasetInfo)
         self.assertTrue(any(dataset.cardData for dataset in datasets))
+
+    @with_production_testing
+    def test_list_datasets_author(self):
+        _api = HfApi()
+        datasets = _api.list_datasets(author="huggingface")
+        self.assertGreater(len(datasets), 1)
+        self.assertIsInstance(datasets[0], DatasetInfo)
+
+    @with_production_testing
+    def test_list_datasets_search(self):
+        _api = HfApi()
+        datasets = _api.list_datasets(search="wikipedia")
+        self.assertGreater(len(datasets), 10)
+        self.assertIsInstance(datasets[0], DatasetInfo)
 
     @with_production_testing
     def test_dataset_info(self):
@@ -579,6 +683,83 @@ class HfApiPublicTest(unittest.TestCase):
         self.assertGreater(len(metrics), 10)
         self.assertIsInstance(metrics[0], MetricInfo)
         self.assertTrue(any(metric.description for metric in metrics))
+
+    @with_production_testing
+    def test_filter_models_by_author(self):
+        _api = HfApi()
+        f = ModelFilter(author="muellerzr")
+        models = _api.list_models(f)
+        self.assertGreater(len(models), 0)
+        self.assertTrue("muellerzr" in models[0].modelId)
+
+    @with_production_testing
+    def test_filter_models_by_author_and_name(self):
+        # Test we can search by an author and a name, but the model is not found
+        _api = HfApi()
+        f = ModelFilter("facebook", model_name="bart-base")
+        models = _api.list_models(f)
+        self.assertTrue("facebook/bart-base" in models[0].modelId)
+
+    @with_production_testing
+    def test_failing_filter_models_by_author_and_model_name(self):
+        # Test we can search by an author and a name, but the model is not found
+        _api = HfApi()
+        f = ModelFilter(author="muellerzr", model_name="testme")
+        models = _api.list_models(f)
+        self.assertEqual(len(models), 0)
+
+    @with_production_testing
+    def test_filter_models_with_library(self):
+        _api = HfApi()
+        f = ModelFilter("microsoft", model_name="wavlm-base-sd", library="tensorflow")
+        models = _api.list_models(f)
+        self.assertGreater(1, len(models))
+        f = ModelFilter("microsoft", model_name="wavlm-base-sd", library="pytorch")
+        models = _api.list_models(f)
+        self.assertGreater(len(models), 0)
+
+    @with_production_testing
+    def test_filter_models_with_task(self):
+        _api = HfApi()
+        f = ModelFilter(task="fill-mask", model_name="albert-base-v2")
+        models = _api.list_models(f)
+        self.assertTrue("fill-mask" == models[0].pipeline_tag)
+        self.assertTrue("albert-base-v2" in models[0].modelId)
+        f = ModelFilter(task="dummytask")
+        models = _api.list_models(f)
+        self.assertGreater(1, len(models))
+
+    @with_production_testing
+    def test_filter_models_by_language(self):
+        _api = HfApi()
+        f_fr = ModelFilter(language="fr")
+        res_fr = _api.list_models(f_fr)
+
+        f_en = ModelFilter(language="en")
+        res_en = _api.list_models(f_en)
+
+        assert len(res_fr) != len(res_en)
+
+    @with_production_testing
+    def test_filter_models_with_complex_query(self):
+        _api = HfApi()
+        args = ModelSearchArguments()
+        f = ModelFilter(
+            task=args.pipeline_tag.TextClassification,
+            library=[args.library.PyTorch, args.library.TensorFlow],
+        )
+        models = _api.list_models(f)
+        self.assertGreater(len(models), 1)
+        self.assertTrue(
+            [
+                "text-classification" in model.pipeline_tag
+                or "text-classification" in model.tags
+                for model in models
+            ]
+        )
+        self.assertTrue(
+            ["pytorch" in model.tags and "tf" in model.tags for model in models]
+        )
 
 
 class HfApiPrivateTest(HfApiCommonTestWithLogin):

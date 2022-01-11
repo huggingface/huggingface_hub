@@ -175,30 +175,30 @@ You can also tag us [on Twitter](https://twitter.com/huggingface)! 🤗
 
 ## Reference
 
-**`title`** : _string_  
+**`title`** : _string_
 Display title for the Space.
 
-**`emoji`** : _string_  
+**`emoji`** : _string_
 Space emoji (emoji-only character allowed).
 
-**`colorFrom`** : _string_  
+**`colorFrom`** : _string_
 Color for Thumbnail gradient (red, yellow, green, blue, indigo, purple, pink, gray).
 
-**`colorTo`** : _string_  
+**`colorTo`** : _string_
 Color for Thumbnail gradient (red, yellow, green, blue, indigo, purple, pink, gray).
 
-**`sdk`** : _string_  
+**`sdk`** : _string_
 Can be either `gradio`, `streamlit` or `static`.
 
-**`sdk_version`** : _string_  
+**`sdk_version`** : _string_
 Only applicable for `streamlit` SDK. Currently available versions are :  
 `0.79.0, 0.80.0, 0.81.1, 0.82.0, 0.83.0, 0.84.2, 0.85.0, 0.86.0, 0.87.0, 0.88.0, 0.89.0, 1.0.0`.
 
-**`app_file`** : _string_  
-Path to your main application file (which contains either `gradio` or `streamlit` Python code).  
+**`app_file`** : _string_
+Path to your main application file (which contains either `gradio` or `streamlit` Python code, or `static` html code).
 Path is relative to the root of the repository.
 
-**`pinned`** : _boolean_  
+**`pinned`** : _boolean_
 Whether the Space stays on top of your list.
 
 ---

@@ -79,6 +79,19 @@ class DockerImageTests(unittest.TestCase):
             "espnet/kamo-naoyuki_mini_an4_asr_train_raw_bpe_valid.acc.best",
         )
 
+    def test_fairseq(self):
+        self.framework_docker_test(
+            "fairseq",
+            "text-to-speech",
+            "facebook/fastspeech2-en-ljspeech",
+        )
+        self.framework_docker_test(
+            "fairseq",
+            "audio-to-audio",
+            "facebook/xm_transformer_600m-es_en-multi_domain",
+        )
+        self.framework_invalid_test("fairseq")
+
     def test_fasttext(self):
         self.framework_docker_test(
             "fasttext",
@@ -361,7 +374,7 @@ class DockerImageTests(unittest.TestCase):
             self.assertEqual(response.content, b'{"ok":"ok"}')
 
             response = httpx.post(url, data=b"This is a test", timeout=timeout)
-            self.assertIn(response.status_code, {200, 400})
+            self.assertIn(response.status_code, {200, 400}, response.content)
             counter[response.status_code] += 1
 
             response = httpx.post(
@@ -463,7 +476,7 @@ class DockerImageTests(unittest.TestCase):
             ) as f:
                 data = f.read()
             response = httpx.post(url, data=data, timeout=timeout)
-            self.assertIn(response.status_code, {200, 400})
+            self.assertIn(response.status_code, {200, 400}, response.content)
             counter[response.status_code] += 1
 
             with open(
