@@ -165,3 +165,18 @@ git commit -S -m "My first signed commit"
 ```
 
 Once pushed on the Hub, you should see the commit with a "Verified" badge.
+
+## Malware Scanning
+
+We run every file of your repositories through a [malware scanner](https://www.clamav.net/).
+
+Scanning is triggered at each commit or when you visit a repository page.
+
+Here is an [example view](https://huggingface.co/mcpotato/42-eicar-street/tree/main) of an infected file :
+
+![/docs/assets/hub/eicar-hub-tree-view.png](/docs/assets/hub/eicar-hub-tree-view.png)
+
+![/docs/assets/hub/eicar-hub-file-view.png](/docs/assets/hub/eicar-hub-file-view.png)
+
+_Note_: if your file has neither an ok or infected badge, it could mean that it is either currently being scanned / waiting to be scanned or that there was an error during the scan. It can take up to a few minutes to be scanned.
+
