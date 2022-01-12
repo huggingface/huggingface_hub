@@ -3,11 +3,11 @@ name: JS Widgets
 on:
   push:
     paths:
-      - "widgets/**"
+      - "js/**"
       - "!js/src/lib/interfaces/**"
   pull_request:
     paths:
-      - "widgets/**"
+      - "js/**"
       - "!js/src/lib/interfaces/**"
 
 
