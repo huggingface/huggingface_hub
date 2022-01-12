@@ -31,7 +31,7 @@
 </script>
 
 <script>
-	import ModeSwitcher from "../lib/_demo/ModeSwitcher.svelte";
+	import ModeSwitcher from "../lib/components/DemoThemeSwitcher/DemoThemeSwitcher.svelte";
 
 	export let model: ModelData | undefined;
 	export let message: string | undefined;
