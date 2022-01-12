@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { onDestroy, onMount } from "svelte";
-	import IconMicrophone from "../../../../../../shared/components/Icons/IconMicrophone.svelte";
+	import IconMicrophone from "../../../Icons/IconMicrophone.svelte";
 	import Recorder from "./Recorder";
 
 	export let classNames = "";

@@ -83,4 +83,4 @@ You can add an icon in the [lib/Icons](https://github.com/huggingface/huggingfac
 
 Once the task is in production, what could be more exciting that implementing some way for users to play directly with the models in their browser? 🤩 You can find all the widgets [here](https://huggingface-widgets.netlify.app/). 
 
-In case you would be interested in contributing with a widget, you can look at the [implementation](https://github.com/huggingface/huggingface_hub/tree/main/widgets/src/lib/InferenceWidget/widgets) of all the widgets. You can also find WIP documentation on how to implement a widget in https://github.com/huggingface/huggingface_hub/tree/main/widgets. 
+In case you would be interested in contributing with a widget, you can look at the [implementation](https://github.com/huggingface/huggingface_hub/tree/main/widgets/src/lib/components/InferenceWidget/widgets) of all the widgets. You can also find WIP documentation on how to implement a widget in https://github.com/huggingface/huggingface_hub/tree/main/widgets. 

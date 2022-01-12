@@ -2,7 +2,7 @@
 	import type { Load } from "@sveltejs/kit";
 	import type { ModelData } from "../lib/interfaces/Types";
 
-	import InferenceWidget from "../lib/InferenceWidget/InferenceWidget.svelte";
+	import InferenceWidget from "../lib/components/InferenceWidget/InferenceWidget.svelte";
 
 	/**
 	 * This page is capable of loading any model

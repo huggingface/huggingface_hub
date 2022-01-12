@@ -3,7 +3,7 @@
 
 	import { onMount, tick } from "svelte";
 	import { scrollToMax } from "../ViewUtils";
-	import IconRow from "../../../../../../shared/components/Icons/IconRow.svelte";
+	import IconRow from "../../../Icons/IconRow.svelte";
 
 	export let onChange: (table: (string | number)[][]) => void;
 	export let highlighted: HighlightCoordinates;

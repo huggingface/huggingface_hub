@@ -1,6 +1,6 @@
 <script lang="ts">
-	import IconCode from "../../../../../../shared/components/Icons/IconCode.svelte";
-	import IconMaximize from "../../../../../../shared/components/Icons/IconMaximize.svelte";
+	import IconCode from "../../../Icons/IconCode.svelte";
+	import IconMaximize from "../../../Icons/IconMaximize.svelte";
 
 	export let onClickMaximizeBtn: () => void;
 	export let outputJson: string;

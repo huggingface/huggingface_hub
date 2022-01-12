@@ -1,6 +1,6 @@
 <script lang="ts">
 	import type { SvelteComponent } from "svelte";
-	import type { PipelineType } from "../../../widgets/src/lib/interfaces/Types";
+	import type { PipelineType } from "../../interfaces/Types";
 
 	import IconAudioClassification from "../Icons/IconAudioClassification.svelte";
 	import IconAudioToAudio from "../Icons/IconAudioToAudio.svelte";
