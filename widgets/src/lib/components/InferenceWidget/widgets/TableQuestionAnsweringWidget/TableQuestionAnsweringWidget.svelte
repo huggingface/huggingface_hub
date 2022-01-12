@@ -14,7 +14,7 @@
 		parseJSON,
 		convertTableToData,
 		convertDataToTable,
-	} from "../../shared/ViewUtils";
+	} from "../../../../utils/ViewUtils";
 	import {
 		addInferenceParameters,
 		getDemoInputs,

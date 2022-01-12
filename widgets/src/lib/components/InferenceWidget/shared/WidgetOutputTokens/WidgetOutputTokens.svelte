@@ -1,5 +1,5 @@
 <script>
-	import { escape, mod, sum } from "../ViewUtils";
+	import { escape, mod, sum } from "../../../../utils/ViewUtils";
 
 	interface Span {
 		end: number;

@@ -2,7 +2,7 @@
 	import type { HighlightCoordinates } from "../types";
 
 	import { onMount, tick } from "svelte";
-	import { scrollToMax } from "../ViewUtils";
+	import { scrollToMax } from "../../../../utils/ViewUtils";
 	import IconRow from "../../../Icons/IconRow.svelte";
 
 	export let onChange: (table: (string | number)[][]) => void;

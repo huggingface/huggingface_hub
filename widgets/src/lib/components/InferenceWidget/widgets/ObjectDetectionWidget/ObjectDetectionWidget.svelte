@@ -1,7 +1,7 @@
 <script>
 	import type { WidgetProps, DetectedObject } from "../../shared/types";
 	import { COLORS } from "../../shared/consts";
-	import { mod } from "../../shared/ViewUtils";
+	import { mod } from "../../../../utils/ViewUtils";
 
 	import BoundingBoxes from "./SvgBoundingBoxes.svelte";
 	import WidgetFileInput from "../../shared/WidgetFileInput/WidgetFileInput.svelte";

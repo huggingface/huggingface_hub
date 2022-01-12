@@ -2,7 +2,7 @@
 	import type { WidgetProps, ImageSegment } from "../../shared/types";
 	import { onMount } from "svelte";
 	import { COLORS } from "../../shared/consts";
-	import { clamp, mod, hexToRgb } from "../../shared/ViewUtils";
+	import { clamp, mod, hexToRgb } from "../../../../utils/ViewUtils";
 	import { getResponse, getBlobFromUrl } from "../../shared/helpers";
 
 	import Canvas from "./Canvas.svelte";
