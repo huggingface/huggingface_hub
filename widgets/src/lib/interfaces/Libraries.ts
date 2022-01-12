@@ -8,6 +8,7 @@ export enum ModelLibrary {
 	'allennlp'               = 'allennlp',
 	'asteroid'               = 'Asteroid',
 	'espnet'                 = 'ESPnet',
+	'fairseq'                = 'Fairseq',
 	'flair'                  = 'Flair',
 	'keras'                  = 'Keras',
 	'pyannote'               = 'Pyannote',
@@ -116,6 +117,14 @@ const espnet = (model: ModelData) => {
 	}
 	return espnetUnknown();
 };
+
+const fairseq = (model: ModelData) =>
+`from fairseq.checkpoint_utils import load_model_ensemble_and_task_from_hf_hub
+
+models, cfg, task = load_model_ensemble_and_task_from_hf_hub(
+    "${model.id}"
+)`;
+
 
 const flair = (model: ModelData) =>
 `from flair.models import SequenceTagger
@@ -302,6 +311,12 @@ export const MODEL_LIBRARIES_UI_ELEMENTS: { [key in keyof typeof ModelLibrary]?:
 		repoName: "ESPnet",
 		repoUrl: "https://github.com/espnet/espnet",
 		snippet: espnet,
+	},
+	fairseq: {
+		btnLabel: "Fairseq",
+		repoName: "fairseq",
+		repoUrl: "https://github.com/pytorch/fairseq",
+		snippet: fairseq,
 	},
 	flair: {
 		btnLabel: "Flair",
