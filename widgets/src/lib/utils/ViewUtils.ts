@@ -1,4 +1,4 @@
-import type { TableData } from "./types";
+import type { TableData } from "../components/InferenceWidget/shared/types";
 
 const ESCAPED = {
 	'"': "&quot;",
