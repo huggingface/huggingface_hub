@@ -1,4 +1,4 @@
-import type { ModelData } from '../../interfaces/Types';
+import type { ModelData } from '../../../interfaces/Types';
 
 export interface WidgetProps {
 	apiToken?: string;
