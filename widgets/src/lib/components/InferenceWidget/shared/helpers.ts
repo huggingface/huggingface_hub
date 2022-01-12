@@ -1,6 +1,6 @@
 import type { ModelData } from '../../../interfaces/Types';
-import { randomItem, parseJSON, } from '../../../utils/ViewUtils';
-import type { LoadingStatus } from './types';
+import { randomItem, parseJSON } from '../../../utils/ViewUtils';
+import type { LoadingStatus, TableData } from './types';
 
 export function getSearchParams(keys: string[]): string[] {
 	const searchParams = new URL(window.location.href).searchParams;
@@ -189,4 +189,40 @@ export function addInferenceParameters(requestBody: Record<string, any>, model: 
 			}
 		}
 	}
+}
+
+/*
+* Converts table from [[Header0, Header1, Header2], [Column0Val0, Column1Val0, Column2Val0], ...]
+* to {Header0: [ColumnVal0, ...], Header1: [Column1Val0, ...], Header2: [Column2Val0, ...]}
+*/
+export function convertTableToData(table: (string | number)[][]): TableData {
+	return Object.fromEntries(
+		table[0].map((cell, x) => {
+			return [
+				cell,
+				table
+					.slice(1)
+					.flat()
+					.filter((_, i) => i % table[0].length === x)
+					.map((x) => String(x)), // some models can only handle strings (no numbers)
+			];
+		})
+	);
+}
+
+/*
+* Converts data from {Header0: [ColumnVal0, ...], Header1: [Column1Val0, ...], Header2: [Column2Val0, ...]}
+* to [[Header0, Header1, Header2], [Column0Val0, Column1Val0, Column2Val0], ...]
+*/
+export function convertDataToTable(data: TableData): (string | number)[][] {
+	const dataArray = Object.entries(data); // [header, cell[]][]
+	const nbCols = dataArray.length;
+	const nbRows = (dataArray[0]?.[1]?.length ?? 0) + 1;
+	return Array(nbRows)
+		.fill("")
+		.map((_, y) =>
+			Array(nbCols)
+				.fill("")
+				.map((_, x) => (y === 0 ? dataArray[x][0] : dataArray[x][1][y - 1]))
+		);
 }

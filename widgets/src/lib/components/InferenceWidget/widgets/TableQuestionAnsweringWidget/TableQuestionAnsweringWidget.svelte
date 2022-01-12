@@ -12,11 +12,11 @@
 	import WidgetWrapper from "../../shared/WidgetWrapper/WidgetWrapper.svelte";
 	import {
 		parseJSON,
-		convertTableToData,
-		convertDataToTable,
 	} from "../../../../utils/ViewUtils";
 	import {
 		addInferenceParameters,
+		convertDataToTable,
+		convertTableToData,
 		getDemoInputs,
 		getResponse,
 		getSearchParams,
