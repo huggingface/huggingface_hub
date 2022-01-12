@@ -9,10 +9,7 @@
 	import WidgetTableInput from "../../shared/WidgetTableInput/WidgetTableInput.svelte";
 	import WidgetSubmitBtn from "../../shared/WidgetSubmitBtn/WidgetSubmitBtn.svelte";
 	import WidgetWrapper from "../../shared/WidgetWrapper/WidgetWrapper.svelte";
-	import {
-		mod,
-		parseJSON,
-	} from "../../../../utils/ViewUtils";
+	import { mod, parseJSON } from "../../../../utils/ViewUtils";
 	import {
 		addInferenceParameters,
 		convertDataToTable,

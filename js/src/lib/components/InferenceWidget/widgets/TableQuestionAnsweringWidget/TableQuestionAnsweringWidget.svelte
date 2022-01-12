@@ -10,9 +10,7 @@
 	import WidgetOutputTableQA from "../../shared/WidgetOutputTableQA/WidgetOutputTableQA.svelte";
 	import WidgetTableInput from "../../shared/WidgetTableInput/WidgetTableInput.svelte";
 	import WidgetWrapper from "../../shared/WidgetWrapper/WidgetWrapper.svelte";
-	import {
-		parseJSON,
-	} from "../../../../utils/ViewUtils";
+	import { parseJSON } from "../../../../utils/ViewUtils";
 	import {
 		addInferenceParameters,
 		convertDataToTable,
