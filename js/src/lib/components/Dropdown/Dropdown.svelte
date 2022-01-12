@@ -1,11 +1,11 @@
 <script lang="ts">
-	import { SvelteComponent } from "svelte";
+	import type { SvelteComponent } from "svelte";
 	import DropdownMenu from "../DropdownMenu/DropdownMenu.svelte";
 	import IconCaretDown from "../Icons/IconCaretDown.svelte";
 
 	export let classNames = "";
 	export let btnClassNames = "";
-	export let btnIcon: typeof SvelteComponent | undefined = undefined;
+	export let btnIcon: SvelteComponent | undefined = undefined;
 	export let btnIconClassNames = "";
 	export let btnLabel = "";
 	export let forceMenuAlignement: "left" | "right" | undefined = undefined;
