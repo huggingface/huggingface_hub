@@ -18,8 +18,8 @@ const ESCAPED = {
 /**
  * HTML escapes the passed string
  */
-export function escape(html: string) {
-	return String(html).replace(/["'&<>]/g, (match) => ESCAPED[match]);
+export function escape(html: unknown): string {
+	return String(html).replace(/["'&<>]/g, match => ESCAPED[match]);
 }
 
 /**
@@ -30,16 +30,6 @@ export function delay(ms: number): Promise<void> {
 	return new Promise((resolve) => {
 		setTimeout(() => resolve(), ms);
 	});
-}
-
-/**
- * Return a unique-ish random id string
- */
-export function randomId(prefix = "_"): string {
-	// Math.random should be unique because of its seeding algorithm.
-	// Convert it to base 36 (numbers + letters), and grab the first 9 characters
-	// after the decimal.
-	return `${prefix}${Math.random().toString(36).substr(2, 9)}`;
 }
 
 /**
@@ -80,13 +70,6 @@ export function parseJSON<T>(x: unknown): T | undefined {
 		}
 		return undefined;
 	}
-}
-
-/*
- * Check if a value is a dictionary-like object
- */
-export function isObject(arg: any): arg is object {
-	return arg !== null && typeof arg === "object" && !Array.isArray(arg);
 }
 
 /*
