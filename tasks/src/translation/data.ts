@@ -6,11 +6,11 @@ import { TASKS_MODEL_LIBRARIES } from "../const";
 const taskData: TaskData = {
 	datasets: [
 		{
-			description: "A dataset of copyright-free books translated into 16 different languages",
+			description: "A dataset of copyright-free books translated into 16 different languages.",
 			id:          "opus_books",
 		},
 		{
-			description: "An example of translation between programming languages. This dataset consists of functions in Java and C#",
+			description: "An example of translation between programming languages. This dataset consists of functions in Java and C#.",
 			id:          "code_x_glue_cc_code_to_code_trans",
 		},
 	],
@@ -44,15 +44,15 @@ const taskData: TaskData = {
 	],
 	models: [
 		{
-			description: "A model that translates from English to French",
+			description: "A model that translates from English to French.",
 			id:          "Helsinki-NLP/opus-mt-en-fr",
 		},
 		{
-			description: "A general-purpose Transformer that can be used to translate from English to German, French, or Romanian",
+			description: "A general-purpose Transformer that can be used to translate from English to German, French, or Romanian.",
 			id:          "t5-base",
 		},
 	],
-	summary:      "Translation is the task of converting text from one language to another",
+	summary:      "Translation is the task of converting text from one language to another.",
 	widgetModels: ["t5-small"],
 	youtubeId:    "1JvfrvZgi6c",
 };

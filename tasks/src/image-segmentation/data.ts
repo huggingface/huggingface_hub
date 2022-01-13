@@ -6,7 +6,7 @@ import { TASKS_MODEL_LIBRARIES } from "../const";
 const taskData: TaskData = {
 	datasets: [
 		{
-			description: "Widely used benchmark dataset for multiple Vision tasks",
+			description: "Widely used benchmark dataset for multiple Vision tasks.",
 			id:          "merve/coco2017",
 		},
 	],
@@ -52,8 +52,8 @@ const taskData: TaskData = {
 			id:          "facebook/detr-resnet-50-panoptic",
 		}
 	],
-	summary:      "Image Segmentation divides an image into segments where each pixel in the image is mapped to an object. This task has multiple variants such as instance segmentation, panoptic segmentation and semantic segmentation",
-	widgetModels: ["facebook/detr-resnet-50"],
+	summary:      "Image Segmentation divides an image into segments where each pixel in the image is mapped to an object. This task has multiple variants such as instance segmentation, panoptic segmentation and semantic segmentation.",
+	widgetModels: ["facebook/detr-resnet-50-panoptic"],
 	youtubeId:    "dKE8SIt9C-w",
 };
 

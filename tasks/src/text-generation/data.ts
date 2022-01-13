@@ -6,11 +6,11 @@ import { TASKS_MODEL_LIBRARIES } from "../const";
 const taskData: TaskData = {
 	datasets: [
 		{
-			description: "A large multilingual dataset of text crawled from the web",
+			description: "A large multilingual dataset of text crawled from the web.",
 			id:          "mc4",
 		},
 		{
-			description: "Diverse open-source data consisting of 22 smaller high-quality datasets. It was used to train GPT-Neo",
+			description: "Diverse open-source data consisting of 22 smaller high-quality datasets. It was used to train GPT-Neo.",
 			id:          "the_pile",
 		},
 	],
@@ -48,11 +48,11 @@ const taskData: TaskData = {
 	],
 	models: [
 		{
-			description: "The model from OpenAI that helped usher in the Transformer revolution",
+			description: "The model from OpenAI that helped usher in the Transformer revolution.",
 			id:          "gpt2",
 		},
 		{
-			description: "A special Transformer model that can generate high-quality text for various tasks",
+			description: "A special Transformer model that can generate high-quality text for various tasks.",
 			id:          "bigscience/T0pp",
 		},
 	],

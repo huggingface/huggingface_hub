@@ -66,15 +66,15 @@ const taskData: TaskData = {
 	],
 	models: [
 		{
-			description: "A faster and smaller model than the famous BERT model",
+			description: "A faster and smaller model than the famous BERT model.",
 			id:          "distilbert-base-uncased",
 		},
 		{
-			description: "A multilingual model trained on 100 languages",
+			description: "A multilingual model trained on 100 languages.",
 			id:          "xlm-roberta-base",
 		},
 	],
-	summary:      "Masked language modeling is the task of masking some of the words in a sentence and predicting which words should replace those masks. These models are useful when we want to get a statistical understanding of the language in which the model is trained in",
+	summary:      "Masked language modeling is the task of masking some of the words in a sentence and predicting which words should replace those masks. These models are useful when we want to get a statistical understanding of the language in which the model is trained in.",
 	widgetModels: ["distilroberta-base"],
 	youtubeId:    "mqElG5QJWUg",
 };

@@ -8,12 +8,12 @@ const taskData: TaskData = {
 	datasets: [
 		{
 			// TODO write proper description
-			description: "A famous question answering dataset based on English articles from Wikipedia",
+			description: "A famous question answering dataset based on English articles from Wikipedia.",
 			id:          "squad_v2",
 		},
 		{
 			// TODO write proper description
-			description: "A dataset of aggregated anonymized actual queries issued to the Google search engine",
+			description: "A dataset of aggregated anonymized actual queries issued to the Google search engine.",
 			id:          "natural_questions",
 		},
 	],
@@ -53,7 +53,7 @@ const taskData: TaskData = {
 	],
 	models: [
 		{
-			description: "A robust baseline model for most question answering domains",
+			description: "A robust baseline model for most question answering domains.",
 			id:          "deepset/roberta-base-squad2",
 		},
 		{

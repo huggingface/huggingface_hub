@@ -6,7 +6,7 @@ import { TASKS_MODEL_LIBRARIES } from "../const";
 const taskData: TaskData = {
 	datasets: [
 		{
-			description: "A widely used dataset used to benchmark multiple variants of text classification",
+			description: "A widely used dataset used to benchmark multiple variants of text classification.",
 			id:          "glue",
 		},
 		{
@@ -67,11 +67,11 @@ const taskData: TaskData = {
 	],
 	models: [
 		{
-			description: "A robust model trained for sentiment analysis",
+			description: "A robust model trained for sentiment analysis.",
 			id:          "distilbert-base-uncased-finetuned-sst-2-english",
 		},
 		{
-			description: "Multi-genre natural language inference model",
+			description: "Multi-genre natural language inference model.",
 			id:          "roberta-large-mnli",
 		},
 	],

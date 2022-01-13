@@ -67,11 +67,11 @@ const taskData: TaskData = {
 	],
 	models: [
 		{
-			description: "A robust performance model to identify people, locations, organizations and names of miscellaneous entities",
+			description: "A robust performance model to identify people, locations, organizations and names of miscellaneous entities.",
 			id:          "dslim/bert-base-NER",
 		},
 		{
-			description: "Flair models are typically the state of the art in named entity recognition tasks",
+			description: "Flair models are typically the state of the art in named entity recognition tasks.",
 			id:          "flair/ner-english",
 		},
 	],

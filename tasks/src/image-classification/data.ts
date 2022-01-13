@@ -7,12 +7,12 @@ const taskData: TaskData = {
 	datasets: [
 		{
 			// TODO write proper description
-			description: "Benchmark dataset used for image classification with images that belong to 100 classes",
+			description: "Benchmark dataset used for image classification with images that belong to 100 classes.",
 			id:          "cifar100",
 		},
 		{
 			// TODO write proper description
-			description: "Dataset consisting of images of garments",
+			description: "Dataset consisting of images of garments.",
 			id:          "fashion-mnist",
 		},
 	],
@@ -68,12 +68,12 @@ const taskData: TaskData = {
 	models: [
 		{
 			// TO DO: write description
-			description: "Strong Image Classification model trained on the ImageNet dataset",
+			description: "Strong Image Classification model trained on the ImageNet dataset.",
 			id:          "google/vit-base-patch16-224",
 		},
 		{
 			// TO DO: write description
-			description: "Strong Image Classification model trained on the ImageNet dataset",
+			description: "Strong Image Classification model trained on the ImageNet dataset.",
 			id:          "facebook/deit-base-distilled-patch16-224",
 		},
 	],

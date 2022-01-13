@@ -7,7 +7,7 @@ const taskData: TaskData = {
 	datasets: [
 		{
 			// TODO write proper description
-			description: "Widely used benchmark dataset for multiple Vision tasks",
+			description: "Widely used benchmark dataset for multiple Vision tasks.",
 			id:          "merve/coco2017",
 		},
 	],
@@ -45,7 +45,7 @@ const taskData: TaskData = {
 	models: [
 		{
 			// TO DO: write description
-			description: "Solid object detection model trained on the benchmark dataset COCO 2017",
+			description: "Solid object detection model trained on the benchmark dataset COCO 2017.",
 			id:          "facebook/detr-resnet-50",
 		}
 	],
