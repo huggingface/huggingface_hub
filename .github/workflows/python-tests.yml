@@ -6,12 +6,12 @@ on:
       - main
       - ci_*
     paths-ignore:
-      - "widgets/**"
+      - "js/**"
       - "api-inference-community/**"
   pull_request:
     types: [assigned, opened, synchronize, reopened]
     paths-ignore:
-      - "widgets/**"
+      - "js/**"
       - "api-inference-community/**"
 
 env:
