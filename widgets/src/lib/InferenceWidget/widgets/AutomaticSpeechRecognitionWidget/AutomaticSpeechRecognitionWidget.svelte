@@ -5,6 +5,7 @@
 	import WidgetFileInput from "../../shared/WidgetFileInput/WidgetFileInput.svelte";
 	import WidgetOutputText from "../../shared/WidgetOutputText/WidgetOutputText.svelte";
 	import WidgetRecorder from "../../shared/WidgetRecorder/WidgetRecorder.svelte";
+	import WidgetRealtimeRecorder from "../../shared/WidgetRealtimeRecorder/WidgetRealtimeRecorder.svelte";
 	import WidgetSubmitBtn from "../../shared/WidgetSubmitBtn/WidgetSubmitBtn.svelte";
 	import WidgetWrapper from "../../shared/WidgetWrapper/WidgetWrapper.svelte";
 	import { getResponse, getBlobFromUrl } from "../../shared/helpers";
@@ -144,11 +145,18 @@
 			<div class="flex items-center flex-wrap">
 				<WidgetFileInput
 					accept="audio/*"
-					classNames="mt-1.5 mr-2"
+					classNames="mt-1.5"
 					{onSelectFile}
 				/>
-				<span class="mt-1.5 mr-2">or</span>
+				<span class="mt-1.5 mx-2">or</span>
 				<WidgetRecorder
+					classNames="mt-1.5"
+					{onRecordStart}
+					onRecordStop={onSelectFile}
+					onError={onRecordError}
+				/>
+				<span class="mt-1.5 mx-2">or</span>
+				<WidgetRealtimeRecorder
 					classNames="mt-1.5"
 					{onRecordStart}
 					onRecordStop={onSelectFile}
