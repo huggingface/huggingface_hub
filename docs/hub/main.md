@@ -64,7 +64,7 @@ You can always manually override your pipeline type with pipeline_tag: xxx in yo
 
 ## What are all the possible task/widget types?
 
-You can find all the supported tasks [here](https://github.com/huggingface/huggingface_hub/blob/main/widgets/src/lib/interfaces/Types.ts).
+You can find all the supported tasks [here](https://github.com/huggingface/huggingface_hub/blob/main/js/src/lib/interfaces/Types.ts).
 
 Here are some with links to examples:
 

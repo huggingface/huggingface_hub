@@ -89,7 +89,7 @@ We recommend adding a code snippet to explain how a model should be used in your
 
 ![/docs/assets/hub/code_snippet.png](/docs/assets/hub/code_snippet.png)
 
-Add a code snippet by updating the [Libraries Typescript file](https://github.com/huggingface/huggingface_hub/blob/main/widgets/src/lib/interfaces/Libraries.ts) with instructions for your model. For example, the [Asteroid](https://huggingface.co/asteroid-team) integration includes a brief code snippet for how to load and use an Asteroid model:
+Add a code snippet by updating the [Libraries Typescript file](https://github.com/huggingface/huggingface_hub/blob/main/js/src/lib/interfaces/Libraries.ts) with instructions for your model. For example, the [Asteroid](https://huggingface.co/asteroid-team) integration includes a brief code snippet for how to load and use an Asteroid model:
 
 ```typescript
 const asteroid = (model: ModelData) =>
