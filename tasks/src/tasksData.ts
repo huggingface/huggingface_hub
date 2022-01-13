@@ -1,4 +1,4 @@
-import { PipelineType } from "../../widgets/src/lib/interfaces/Types";
+import { PipelineType } from "../../js/src/lib/interfaces/Types";
 import type { TaskData } from "./Types";
 
 
