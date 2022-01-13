@@ -187,8 +187,6 @@
 				}}
 			/>
 		</form>
-	</svelte:fragment>
-	<svelte:fragment slot="bottom">
 		<div class="mt-4">
 			{#if output}
 				<WidgetOutputTableQA {output} />

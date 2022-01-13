@@ -58,20 +58,15 @@
 		</button>
 	{/if}
 	<WidgetHeader {noTitle} pipeline={model.pipeline_tag}>
-		<div class="flex items-center">
-			{#if model.pipeline_tag === "fill-mask"}
-				Mask token: <code>{model.mask_token}</code>
-			{/if}
-			{#if inputSamples.length}
-				<!-- Show samples selector when there are more than one sample -->
-				<WidgetInputSamples
-					{isLoading}
-					{inputSamples}
-					{applyInputSample}
-					{previewInputSample}
-				/>
-			{/if}
-		</div>
+		{#if inputSamples.length}
+			<!-- Show samples selector when there are more than one sample -->
+			<WidgetInputSamples
+				{isLoading}
+				{inputSamples}
+				{applyInputSample}
+				{previewInputSample}
+			/>
+		{/if}
 	</WidgetHeader>
 	<slot name="top" />
 	<WidgetInfo {computeTime} {error} {modelStatus} />

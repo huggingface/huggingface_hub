@@ -18,11 +18,11 @@
 		</a>
 	{/if}
 </div>
-<div class="flex items-center text-sm text-gray-500 mb-1.5">
+<div
+	class="flex items-center justify-between flex-wrap w-full max-w-full text-sm text-gray-500 mb-0.5"
+>
 	{#if pipeline}
-		<ModelPipelineTag {pipeline} />
+		<ModelPipelineTag classNames="mr-2 mb-1.5" {pipeline} />
 	{/if}
-	<div class="ml-auto">
-		<slot />
-	</div>
+	<slot />
 </div>

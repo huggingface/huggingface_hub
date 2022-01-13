@@ -1,4 +1,4 @@
-<script>
+<script lang="ts">
 	import { slide } from "svelte/transition";
 
 	export let isLoading = false;
@@ -54,8 +54,9 @@
 <svelte:window on:click={onClick} />
 
 <div
-	class="relative ml-2 {isLoading &&
-		'pointer-events-none opacity-50'} {isOptionsVisible && 'z-10'}"
+	class="relative mb-1.5
+		{isLoading && 'pointer-events-none opacity-50'} 
+		{isOptionsVisible && 'z-10'}"
 	bind:this={containerEl}
 >
 	<div

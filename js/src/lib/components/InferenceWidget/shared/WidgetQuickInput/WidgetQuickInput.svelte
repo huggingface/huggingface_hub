@@ -12,7 +12,7 @@
 <div class="flex h-10">
 	<input
 		bind:value
-		class="form-input-alt flex-1 rounded-r-none {flatTop
+		class="form-input-alt flex-1 rounded-r-none min-w-0 {flatTop
 			? 'rounded-t-none'
 			: ''}"
 		{placeholder}
