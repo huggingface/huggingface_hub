@@ -58,11 +58,11 @@ const taskData: TaskData = {
 	],
 	models: [
 		{
-			description: "An easy-to-use model for Command Recognition",
+			description: "An easy-to-use model for Command Recognition.",
 			id:          "speechbrain/google_speech_command_xvector",
 		},
 		{
-			description: "An Emotion Recognition model",
+			description: "An Emotion Recognition model.",
 			id:          "superb/hubert-large-superb-er",
 		},
 	],

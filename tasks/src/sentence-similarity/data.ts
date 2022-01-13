@@ -6,11 +6,11 @@ import { TASKS_MODEL_LIBRARIES } from "../const";
 const taskData: TaskData = {
 	datasets: [
 		{
-			description: "Questions created by crowdworkers about Wikipedia articles",
+			description: "Questions created by crowdworkers about Wikipedia articles.",
 			id:          "squad",
 		},
 		{
-			description: "Bing queries with relevant passages from various web sources",
+			description: "Bing queries with relevant passages from various web sources.",
 			id:          "ms_marco",
 		},
 		
@@ -76,11 +76,11 @@ const taskData: TaskData = {
 	],
 	models: [
 		{
-			description: "This model works well for sentences and paragraphs and can be used for clustering/grouping and semantic searches",
+			description: "This model works well for sentences and paragraphs and can be used for clustering/grouping and semantic searches.",
 			id:          "sentence-transformers/all-mpnet-base-v2",
 		},
 		{
-			description: "A multilingual model trained for FAQ retrieval",
+			description: "A multilingual model trained for FAQ retrieval.",
 			id:          "clips/mfaq",
 		},
 	],

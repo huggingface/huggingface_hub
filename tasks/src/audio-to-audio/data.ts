@@ -29,7 +29,7 @@ const taskData: TaskData = {
 	libraries: TASKS_MODEL_LIBRARIES["audio-to-audio"],
 	metrics:   [
 		{
-			description: "The Signal-to-Noise ratio is the relationship between the target signal level and the background noise level. It is calculated as the logarithm of the target signal divided by the background noise, in decibels",
+			description: "The Signal-to-Noise ratio is the relationship between the target signal level and the background noise level. It is calculated as the logarithm of the target signal divided by the background noise, in decibels.",
 			id:          "snri",
 		},
 		{
@@ -39,11 +39,11 @@ const taskData: TaskData = {
 	],
 	models: [
 		{
-			description: "A solid model of audio source separation",
+			description: "A solid model of audio source separation.",
 			id:          "speechbrain/sepformer-wham",
 		},
 		{
-			description: "A speech enhancement model",
+			description: "A speech enhancement model.",
 			id:          "speechbrain/metricgan-plus-voicebank",
 		},
 	],
