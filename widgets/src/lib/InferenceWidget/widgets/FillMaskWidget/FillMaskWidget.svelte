@@ -139,6 +139,9 @@
 >
 	<svelte:fragment slot="top">
 		<form>
+			<div class="text-sm text-gray-500 mb-1.5">
+				Mask token: <code>{model.mask_token}</code>
+			</div>
 			<WidgetTextarea bind:value={text} />
 			<WidgetSubmitBtn
 				classNames="mt-2"
