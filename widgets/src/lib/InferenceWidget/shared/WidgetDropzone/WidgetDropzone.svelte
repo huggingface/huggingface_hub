@@ -1,4 +1,4 @@
-<script>
+<script lang="ts">
 	import IconSpin from "../../../Icons/IconSpin.svelte";
 	import { getBlobFromUrl } from "../../shared/helpers";
 
@@ -61,9 +61,9 @@
 	type="file"
 />
 <div
-	class="relative border-2 border-dashed rounded mb-2 px-3 py-7 text-center cursor-pointer {isDragging
-		? 'border-green-300 bg-green-50 text-green-500'
-		: 'text-gray-500'} {classNames}"
+	class="relative border-2 border-dashed rounded px-3 py-7 text-center cursor-pointer 
+		{isDragging ? 'border-green-300 bg-green-50 text-green-500' : 'text-gray-500'} 
+		{classNames}"
 	on:click={() => {
 		fileInput.click();
 	}}
