@@ -17,4 +17,4 @@ jobs:
           GITHUB_REPOSITORY: huggingface/api-inference
         with:
           filename: .github/create-api-issue.md
-          update_existing: true
+          update_existing: false
