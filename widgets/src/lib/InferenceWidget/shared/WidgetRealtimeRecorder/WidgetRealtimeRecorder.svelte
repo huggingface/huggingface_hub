@@ -7,43 +7,28 @@
 	// export let onRecordStart: () => void = () => null;
 	export let onError: (err: string) => void = () => null;
 
-	let canvasEl: HTMLCanvasElement;
-	let analyzer: any;
-	let bufferLength;
-	let dataArray;
-
-	let width = 0;
-	let height = 0;
-
+	// vars for handling Recorder
 	let txt = ""
-
-	let containerEl: HTMLElement;
-
-
 	let isRecording = false;
 	let recorder: Recorder;
 
-	onMount(() => {
-		recorder = new Recorder(updateTxt);
-		analyzer = recorder.getAnalyzer();
-		bufferLength = analyzer.frequencyBinCount;
-  		dataArray = new Uint8Array(bufferLength);
-	});
-
-	onDestroy(() => {
-		if (recorder) {
-			recorder.stopRecording();
-		}
-	});
+	// vars for visualizing audio
+	let containerEl: HTMLElement;
+	let canvasEl: HTMLCanvasElement;
+	let width = 0;
+	let height = 0;
+	let analyzer: AnalyserNode;
+	let bufferLength: number;
+	let dataArray: Uint8Array;
 
 	async function onClick() {
 		try {
 			isRecording = !isRecording;
 			if (isRecording) {
 				await recorder.start();
-				draw();
+				drawCanvas();
 			} else {
-				await recorder.stopRecording();
+				await recorder.stop();
 			}
 		} catch (e) {
 			isRecording = false;
@@ -64,20 +49,20 @@
 		}
 	}
 
-	function draw() {
+	function drawCanvas() {
 		width = containerEl.clientWidth;
 		height = containerEl.clientHeight;
-		darwHelper();
+		darwCanvasHelper();
 	}
 
-	function darwHelper() {
+	function darwCanvasHelper() {
 		if(!canvasEl){
 			return;
 		}
 		const WIDTH = canvasEl.width
 		const HEIGHT = canvasEl.height;
 
-		requestAnimationFrame(darwHelper);
+		requestAnimationFrame(darwCanvasHelper);
 
 		analyzer.getByteTimeDomainData(dataArray);
 
@@ -85,15 +70,12 @@
 
 		canvasCtx.fillStyle = 'rgb(200, 200, 200)';
 		canvasCtx.fillRect(0, 0, WIDTH, HEIGHT);
-
 		canvasCtx.lineWidth = 2;
 		canvasCtx.strokeStyle = 'rgb(0, 0, 0)';
-
 		canvasCtx.beginPath();
 
 		let sliceWidth = WIDTH * 1.0 / bufferLength;
 		let x = 0;
-
 
 		for(let i = 0; i < bufferLength; i++) {
 
@@ -114,11 +96,26 @@
 
 	}
 
-	function updateTxt(_txt){
+	function renderTextCallback(_txt){
 		txt = _txt;
 	}
 
-	afterUpdate(draw);
+	// svelte lifecycle functions
+
+	onMount(() => {
+		recorder = new Recorder(renderTextCallback);
+		analyzer = recorder.getAnalyzer();
+		bufferLength = analyzer.frequencyBinCount;
+  		dataArray = new Uint8Array(bufferLength);
+	});
+
+	afterUpdate(drawCanvas);
+
+	onDestroy(() => {
+		if (recorder) {
+			recorder.stop();
+		}
+	});
 </script>
 
 <button class="btn-widget {classNames}" on:click={onClick} type="button">

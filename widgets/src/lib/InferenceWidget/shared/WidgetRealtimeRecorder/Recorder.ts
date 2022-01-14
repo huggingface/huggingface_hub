@@ -8,12 +8,12 @@ export default class Recorder {
 	private analyzer: AnalyserNode;
 	private renderText: any;
 
-	constructor(_renderText){
+	constructor(renderTextCallback){
 		this.audioContext = new AudioContext();
 		this.audioContext.audioWorklet.addModule("/capture.js");
 		this.analyzer = this.audioContext.createAnalyser();
 		this.analyzer.fftSize = 2048;
-		this.renderText = _renderText;
+		this.renderText = renderTextCallback;
 	}
 
 	async start() {
@@ -48,11 +48,13 @@ export default class Recorder {
 		};
 		this.microphone.connect(node).connect(this.audioContext.destination);
 	}
-	async stopRecording() {
+
+	stop() {
 		this.microphone?.disconnect();
 		this.socket?.close();
 		this.stream?.getTracks().forEach((t) => t.stop()); // Stop stream.
 	}
+
 	getAnalyzer(){
 		return this.analyzer;
 	}
