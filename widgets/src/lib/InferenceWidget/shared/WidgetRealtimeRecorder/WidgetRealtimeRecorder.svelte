@@ -8,7 +8,7 @@
 	export let onError: (err: string) => void = () => null;
 
 	// vars for handling Recorder
-	let txt = ""
+	let txt = "";
 	let isRecording = false;
 	let recorder: Recorder;
 
@@ -56,10 +56,10 @@
 	}
 
 	function darwCanvasHelper() {
-		if(!canvasEl){
+		if (!canvasEl) {
 			return;
 		}
-		const WIDTH = canvasEl.width
+		const WIDTH = canvasEl.width;
 		const HEIGHT = canvasEl.height;
 
 		requestAnimationFrame(darwCanvasHelper);
@@ -68,35 +68,33 @@
 
 		const canvasCtx = canvasEl.getContext("2d");
 
-		canvasCtx.fillStyle = 'rgb(200, 200, 200)';
+		canvasCtx.fillStyle = "rgb(200, 200, 200)";
 		canvasCtx.fillRect(0, 0, WIDTH, HEIGHT);
 		canvasCtx.lineWidth = 2;
-		canvasCtx.strokeStyle = 'rgb(0, 0, 0)';
+		canvasCtx.strokeStyle = "rgb(0, 0, 0)";
 		canvasCtx.beginPath();
 
-		let sliceWidth = WIDTH * 1.0 / bufferLength;
+		let sliceWidth = (WIDTH * 1.0) / bufferLength;
 		let x = 0;
 
-		for(let i = 0; i < bufferLength; i++) {
+		for (let i = 0; i < bufferLength; i++) {
+			let v = dataArray[i] / 128.0;
+			let y = (v * HEIGHT) / 2;
 
-		let v = dataArray[i] / 128.0;
-		let y = v * HEIGHT/2;
+			if (i === 0) {
+				canvasCtx.moveTo(x, y);
+			} else {
+				canvasCtx.lineTo(x, y);
+			}
 
-		if(i === 0) {
-			canvasCtx.moveTo(x, y);
-		} else {
-			canvasCtx.lineTo(x, y);
+			x += sliceWidth;
 		}
 
-		x += sliceWidth;
-		}
-
-		canvasCtx.lineTo(canvasEl.width, canvasEl.height/2);
+		canvasCtx.lineTo(canvasEl.width, canvasEl.height / 2);
 		canvasCtx.stroke();
-
 	}
 
-	function renderTextCallback(_txt){
+	function renderTextCallback(_txt) {
 		txt = _txt;
 	}
 
@@ -106,7 +104,7 @@
 		recorder = new Recorder(renderTextCallback);
 		analyzer = recorder.getAnalyzer();
 		bufferLength = analyzer.frequencyBinCount;
-  		dataArray = new Uint8Array(bufferLength);
+		dataArray = new Uint8Array(bufferLength);
 	});
 
 	afterUpdate(drawCanvas);

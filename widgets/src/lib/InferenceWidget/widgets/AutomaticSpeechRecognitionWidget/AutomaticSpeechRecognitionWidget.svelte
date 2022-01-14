@@ -143,11 +143,7 @@
 	<svelte:fragment slot="top">
 		<form>
 			<div class="flex items-center flex-wrap">
-				<WidgetFileInput
-					accept="audio/*"
-					classNames="mt-1.5"
-					{onSelectFile}
-				/>
+				<WidgetFileInput accept="audio/*" classNames="mt-1.5" {onSelectFile} />
 				<span class="mt-1.5 mx-2">or</span>
 				<WidgetRecorder
 					classNames="mt-1.5"
