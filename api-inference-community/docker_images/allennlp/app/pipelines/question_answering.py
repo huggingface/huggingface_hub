@@ -1,8 +1,8 @@
-# Even though it is not imported, it is actually required, it downlaods some stuff.
 import os
 import shutil
 from typing import Any, Dict
 
+# Even though it is not imported, it is actually required, it downlaods some stuff.
 import allennlp_models  # noqa: F401
 from allennlp.predictors.predictor import Predictor
 from app.pipelines import Pipeline
