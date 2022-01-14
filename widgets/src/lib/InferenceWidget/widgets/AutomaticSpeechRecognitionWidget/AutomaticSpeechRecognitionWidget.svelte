@@ -154,7 +154,6 @@
 				<span class="mt-1.5 mx-2">or</span>
 				<WidgetRealtimeRecorder
 					classNames="mt-1.5"
-					{onRecordStart}
 					onRecordStop={onSelectFile}
 					onError={onRecordError}
 				/>
