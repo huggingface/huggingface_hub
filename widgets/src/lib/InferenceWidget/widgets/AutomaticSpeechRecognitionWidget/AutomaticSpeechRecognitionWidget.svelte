@@ -152,10 +152,7 @@
 					onError={onRecordError}
 				/>
 				<span class="mt-1.5 mx-2">or</span>
-				<WidgetRealtimeRecorder
-					classNames="mt-1.5"
-					onError={onRecordError}
-				/>
+				<WidgetRealtimeRecorder classNames="mt-1.5" onError={onRecordError} />
 			</div>
 			{#if fileUrl}
 				<WidgetAudioTrack classNames="mt-3" label={filename} src={fileUrl} />
