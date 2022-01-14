@@ -52,7 +52,7 @@
 	function drawCanvas() {
 		width = containerEl.clientWidth;
 		height = containerEl.clientHeight;
-		darwCanvasHelper();
+		// darwCanvasHelper();
 	}
 
 	function darwCanvasHelper() {
@@ -102,9 +102,9 @@
 
 	onMount(() => {
 		recorder = new Recorder(renderTextCallback);
-		analyzer = recorder.getAnalyzer();
-		bufferLength = analyzer.frequencyBinCount;
-		dataArray = new Uint8Array(bufferLength);
+		// analyzer = recorder.getAnalyzer();
+		// bufferLength = analyzer.frequencyBinCount;
+		// dataArray = new Uint8Array(bufferLength);
 	});
 
 	afterUpdate(drawCanvas);

@@ -9,10 +9,6 @@ export default class Recorder {
 	private renderText: any;
 
 	constructor(renderTextCallback){
-		this.audioContext = new AudioContext();
-		this.audioContext.audioWorklet.addModule("/capture.js");
-		this.analyzer = this.audioContext.createAnalyser();
-		this.analyzer.fftSize = 2048;
 		this.renderText = renderTextCallback;
 	}
 
@@ -26,6 +22,11 @@ export default class Recorder {
 			"wss://api-inference.huggingface.co/wav"
 		);
 		console.log("start recording called")
+
+		this.audioContext = new AudioContext();
+		await this.audioContext.audioWorklet.addModule("/capture.js");
+		this.analyzer = this.audioContext.createAnalyser();
+		this.analyzer.fftSize = 2048;
 	
 		this.socket.onmessage = (e) => {
 			// console.log(`Received ${e.data}`);
