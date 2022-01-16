@@ -43,7 +43,7 @@
 					break;
 				}
 				default: {
-					onError(`Encountered error "${e.name}: ${e.message}"`);
+					onError(`${e.name}: ${e.message}`);
 					break;
 				}
 			}

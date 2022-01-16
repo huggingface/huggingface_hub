@@ -1,62 +1,89 @@
 export default class Recorder {
 	// see developers.google.com/web/updates/2016/01/mediarecorder
 	type: "audio" | "video" = "audio";
-	private stream: MediaStream;
+	private apiToken: string | undefined;
 	private audioContext: AudioContext;
+	private isLoggedIn = false;
+	private modelId: string;
+	private onError: (err: string) => void;
+	private renderText: (txt: string) => void;
+	private renderWarning: (warning: string) => void;
 	private socket: WebSocket;
-	private microphone: MediaStreamAudioSourceNode;
-	private analyzer: AnalyserNode;
-	private renderText: any;
+	private stream: MediaStream;
 
-	constructor(renderTextCallback){
-		this.renderText = renderTextCallback;
+	constructor(modelId: string, apiToken: string, renderText: (txt: string) => void, renderWarning: (warning: string) => void, onError: (err: string) => void){
+		this.modelId = modelId;
+		this.apiToken = apiToken;
+		this.renderText = renderText;
+		this.renderWarning = renderWarning;
+		this.onError = onError;
 	}
 
 	async start() {
+		if(!this.apiToken){
+			throw new Error("You need to be loggedn in and have API token enabled. Find more at: hf.co/settings/token");
+		}
+
 		const constraints: MediaStreamConstraints =
 			this.type === "video"
 				? { audio: true, video: true }
 				: { audio: true };
 		this.stream = await navigator.mediaDevices.getUserMedia(constraints);
-		this.socket = new WebSocket(
-			"wss://api-inference.huggingface.co/wav"
-		);
-		console.log("start recording called")
 
+		this.socket = new WebSocket(`wss://api-inference.huggingface.co/asr/live/gpu/${this.modelId}`);
+
+		this.socket.onerror = (_) => {
+			this.onError("Webscoket connection error");
+		}
+
+		this.socket.onopen = (_) => {
+			this.socket.send(`Bearer ${this.apiToken}`);
+		}
+	
+		this.socket.onmessage = (e: MessageEvent) => {
+			const data = JSON.parse(e.data);
+			if(data.type === "status" && data.message === "Successful login"){
+				this.isLoggedIn = true;
+			}else{
+				if(!!data.text){
+					this.renderText(data.text)
+				}else{
+					this.renderWarning("result was empty");
+				}
+			}
+		};
+	
 		this.audioContext = new AudioContext();
 		await this.audioContext.audioWorklet.addModule("/capture.js");
-		this.analyzer = this.audioContext.createAnalyser();
-		this.analyzer.fftSize = 2048;
-	
-		this.socket.onmessage = (e) => {
-			// console.log(`Received ${e.data}`);
-			const data = JSON.parse(e.data);
-			this.renderText(data.text)
-		};
-	
-		this.microphone = this.audioContext.createMediaStreamSource(this.stream);
+		const microphone = this.audioContext.createMediaStreamSource(this.stream);
+		const dataExtractor = new AudioWorkletNode(this.audioContext, "AudioDataExtractor");
+		microphone.connect(dataExtractor).connect(this.audioContext.destination);
 
-		this.microphone.connect(this.analyzer);
-	
-		const node = new AudioWorkletNode(this.audioContext, "vumeter");
-		node.port.onmessage = (event) => {
-			const base64String = btoa(String.fromCharCode(...new Uint8Array(event.data.buffer.buffer)));
-			const message = {
-				raw: base64String,
-				sampling_rate: event.data.sampling_rate,
-			};
-			this.socket.send(JSON.stringify(message));
+		dataExtractor.port.onmessage = (event) => {
+			const {buffer, sampling_rate} = event.data;
+			if(buffer.reduce((sum, x) => sum + x) === 0){
+				this.renderWarning("🎤 input is empty: try speaking louder 🗣️ & make sure correct mic source is selected");
+			}else{
+				const base64: string = btoa(String.fromCharCode(...new Uint8Array(buffer.buffer)));
+				const message = {
+					raw: base64,
+					sampling_rate,
+				};
+				if(this.isLoggedIn){
+					try{
+						this.socket.send(JSON.stringify(message));
+					}catch(e){
+						this.onError(`Error sending data to websocket: ${e}`);
+					}
+				}
+			}
 		};
-		this.microphone.connect(node).connect(this.audioContext.destination);
 	}
 
 	stop() {
-		this.microphone?.disconnect();
+		this.isLoggedIn = false;
+		this.audioContext?.close();
 		this.socket?.close();
-		this.stream?.getTracks().forEach((t) => t.stop()); // Stop stream.
-	}
-
-	getAnalyzer(){
-		return this.analyzer;
+		this.stream?.getTracks().forEach((t) => t.stop());
 	}
 }

@@ -1,32 +1,25 @@
 <script>
-	import { onDestroy, onMount, afterUpdate } from "svelte";
+	import type { WidgetProps } from "../../shared/types";
+
+	import { onDestroy, onMount } from "svelte";
 	import IconMagicWand from "../../../Icons/IconMagicWand.svelte";
 	import Recorder from "./Recorder";
 
+	export let apiToken: WidgetProps["apiUrl"];
 	export let classNames = "";
-	// export let onRecordStart: () => void = () => null;
+	export let model: WidgetProps["model"];
 	export let onError: (err: string) => void = () => null;
 
-	// vars for handling Recorder
-	let txt = "";
 	let isRecording = false;
 	let recorder: Recorder;
-
-	// vars for visualizing audio
-	let containerEl: HTMLElement;
-	let canvasEl: HTMLCanvasElement;
-	let width = 0;
-	let height = 0;
-	let analyzer: AnalyserNode;
-	let bufferLength: number;
-	let dataArray: Uint8Array;
+	let txt = "";
+	let warning = "";
 
 	async function onClick() {
 		try {
 			isRecording = !isRecording;
 			if (isRecording) {
 				await recorder.start();
-				drawCanvas();
 			} else {
 				await recorder.stop();
 			}
@@ -42,72 +35,32 @@
 					break;
 				}
 				default: {
-					onError(`Encountered error "${e.name}: ${e.message}"`);
+					onError(`${e.name}: ${e.message}`);
 					break;
 				}
 			}
 		}
 	}
 
-	function drawCanvas() {
-		width = containerEl.clientWidth;
-		height = containerEl.clientHeight;
-		// darwCanvasHelper();
-	}
-
-	function darwCanvasHelper() {
-		if (!canvasEl) {
-			return;
-		}
-		const WIDTH = canvasEl.width;
-		const HEIGHT = canvasEl.height;
-
-		requestAnimationFrame(darwCanvasHelper);
-
-		analyzer.getByteTimeDomainData(dataArray);
-
-		const canvasCtx = canvasEl.getContext("2d");
-
-		canvasCtx.fillStyle = "rgb(200, 200, 200)";
-		canvasCtx.fillRect(0, 0, WIDTH, HEIGHT);
-		canvasCtx.lineWidth = 2;
-		canvasCtx.strokeStyle = "rgb(0, 0, 0)";
-		canvasCtx.beginPath();
-
-		let sliceWidth = (WIDTH * 1.0) / bufferLength;
-		let x = 0;
-
-		for (let i = 0; i < bufferLength; i++) {
-			let v = dataArray[i] / 128.0;
-			let y = (v * HEIGHT) / 2;
-
-			if (i === 0) {
-				canvasCtx.moveTo(x, y);
-			} else {
-				canvasCtx.lineTo(x, y);
-			}
-
-			x += sliceWidth;
-		}
-
-		canvasCtx.lineTo(canvasEl.width, canvasEl.height / 2);
-		canvasCtx.stroke();
-	}
-
-	function renderTextCallback(_txt) {
+	function renderText(_txt) {
+		warning = "";
 		txt = _txt;
+		onError("");
 	}
 
-	// svelte lifecycle functions
+	function renderWarning(_warning) {
+		warning = _warning;
+	}
 
 	onMount(() => {
-		recorder = new Recorder(renderTextCallback);
-		// analyzer = recorder.getAnalyzer();
-		// bufferLength = analyzer.frequencyBinCount;
-		// dataArray = new Uint8Array(bufferLength);
+		recorder = new Recorder(
+			model.id,
+			apiToken,
+			renderText,
+			renderWarning,
+			onError
+		);
 	});
-
-	afterUpdate(drawCanvas);
 
 	onDestroy(() => {
 		if (recorder) {
@@ -127,12 +80,15 @@
 	</div>
 </button>
 
-<div
-	class="relative top-0 left-0 inline-flex w-full h-28 mb-2 mt-4"
-	bind:this={containerEl}
->
-	<canvas class="absolute top-0 left-0" bind:this={canvasEl} {width} {height} />
-	<div class="relative top-0 left-0 flex items-center justify-center w-full">
-		<p>{txt}</p>
+{#if isRecording}
+	<div
+		class="relative top-0 left-0 inline-flex w-full mb-2 mt-4 items-center justify-center {!!warning &&
+			'animate-pulse'}"
+	>
+		{#if warning}
+			<p class="opacity-50">{warning}</p>
+		{:else}
+			<p class="lowercase font-mono">{txt}</p>
+		{/if}
 	</div>
-</div>
+{/if}
