@@ -151,13 +151,16 @@
 					onRecordStop={onSelectFile}
 					onError={onRecordError}
 				/>
-				<span class="mt-1.5 mx-2">or</span>
-				<WidgetRealtimeRecorder
-					classNames="mt-1.5"
-					{apiToken}
-					{model}
-					onError={onRecordError}
-				/>
+				<!-- TODO: rm `true` from line below (for debug reasons it was added) -->
+				{#if model?.cardData?.widget_realtime_asr || true}
+					<span class="mt-1.5 mx-2">or</span>
+					<WidgetRealtimeRecorder
+						classNames="mt-1.5"
+						{apiToken}
+						{model}
+						onError={onRecordError}
+					/>
+				{/if}
 			</div>
 			{#if fileUrl}
 				<WidgetAudioTrack classNames="mt-3" label={filename} src={fileUrl} />
