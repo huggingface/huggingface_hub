@@ -54,7 +54,7 @@ export default class Recorder {
 		};
 	
 		this.audioContext = new AudioContext();
-		await this.audioContext.audioWorklet.addModule("/capture.js");
+		await this.audioContext.audioWorklet.addModule("/audioProcessor.js");
 		const microphone = this.audioContext.createMediaStreamSource(this.stream);
 		const dataExtractor = new AudioWorkletNode(this.audioContext, "AudioDataExtractor");
 		microphone.connect(dataExtractor).connect(this.audioContext.destination);
