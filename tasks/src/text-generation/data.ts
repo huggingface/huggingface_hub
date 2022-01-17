@@ -56,7 +56,7 @@ const taskData: TaskData = {
 			id:          "bigscience/T0pp",
 		},
 	],
-	summary:      "Generating text is the task of producing new text. These models can, for example, fill in incomplete text or paraphrase",
+	summary:      "Generating text is the task of producing new text. These models can, for example, fill in incomplete text or paraphrase.",
 	widgetModels: ["gpt2"],
 	youtubeId:    "Vpjb1lu0MDk",
 };
