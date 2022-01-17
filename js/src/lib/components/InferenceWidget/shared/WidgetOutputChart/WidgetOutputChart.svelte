@@ -26,7 +26,7 @@ from-yellow-400 to-yellow-200 dark:from-yellow-400 dark:to-yellow-600
 </script>
 
 {#if output.length}
-	<div class="space-y-3.5 {classNames}" >
+	<div class="space-y-3.5 {classNames}">
 		<!-- NB: We sadly can't do color = defaultBarColor as the Svelte compiler will throw an unused-export-let warning (bug  on their side) ... -->
 		{#each output as { label, score, color }, index}
 			<div
