@@ -38,7 +38,7 @@ const taskData: TaskData = {
 	libraries: TASKS_MODEL_LIBRARIES["summarization"],
 	metrics:   [
 		{
-			description: "The generated sequence is compared against its summary, and the overlap of tokens are counted. ROUGE-N refers to overlap of N subsequent tokens, ROUGE-1 refers to overlap of single tokens and ROUGE-2 is the overlap of two subsequent tokens. For more information about ROUGE metric, check out the datasets documentation or the Hugging Face course.",
+			description: "The generated sequence is compared against its summary, and the overlap of tokens are counted. ROUGE-N refers to overlap of N subsequent tokens, ROUGE-1 refers to overlap of single tokens and ROUGE-2 is the overlap of two subsequent tokens.",
 			id:          "rouge",
 		},
 	],
