@@ -59,9 +59,23 @@ export enum FinerGrainedTaskType {
 	"speech-enhancement"                                      = "Speech Enhancement",
 }
 
-export type PipelineModality = "audio" | "cv" | "nlp" | "other";
+export const MODALITIES = [
+	"nlp",
+	"audio",
+	"cv",
+	"other",
+] as const;
 
-export const PIPELINE_TAG_MODALITIES: Record<keyof typeof PipelineType, PipelineModality> = {
+export type Modality = typeof MODALITIES[number];
+
+export const MODALITY_LABELS: Record<Modality, string> = {
+	nlp:   "Natural Language Processing",
+	audio: "Audio",
+	cv:    "Computer Vision",
+	other: "Other",
+};
+
+export const PIPELINE_TAG_MODALITIES: Record<keyof typeof PipelineType, Modality> = {
 	"text-classification":            "nlp",
 	"token-classification":           "nlp",
 	"table-question-answering":       "nlp",
@@ -89,35 +103,35 @@ export const PIPELINE_TAG_MODALITIES: Record<keyof typeof PipelineType, Pipeline
 };
 
 /*
- * Specification of tag icon color.
+ * Specification of tag color.
  */
-export const PIPELINE_TAG_ICO_CLASS: {
-	[key in keyof typeof PipelineType]?: string;
+export const PIPELINE_COLOR: {
+	[key in keyof typeof PipelineType]?: "blue" | "green" | "indigo" | "orange" | "red" | "yellow";
 } = {
-	"audio-classification":           "tag-ico-green",
-	"audio-to-audio":                 "tag-ico-blue",
-	"automatic-speech-recognition":   "tag-ico-yellow",
-	"conversational":                 "tag-ico-green",
-	"fill-mask":                      "tag-ico-red",
-	"feature-extraction":             "tag-ico-red",
-	"image-classification":           "tag-ico-blue",
-	"image-segmentation":             "tag-ico-green",
-	"image-to-text":                  "tag-ico-red",
-	"object-detection":               "tag-ico-orange",
-	"question-answering":             "tag-ico-blue",
-	"sentence-similarity":            "tag-ico-orange",
-	"structured-data-classification": "tag-ico-indigo",
-	"summarization":                  "tag-ico-indigo",
-	"table-question-answering":       "tag-ico-green",
-	"token-classification":           "tag-ico-blue",
-	"text2text-generation":           "tag-ico-indigo",
-	"text-classification":            "tag-ico-orange",
-	"text-generation":                "tag-ico-indigo",
-	"text-to-image":                  "tag-ico-orange",
-	"text-to-speech":                 "tag-ico-yellow",
-	"translation":                    "tag-ico-green",
-	"voice-activity-detection":       "tag-ico-red",
-	"zero-shot-classification":       "tag-ico-yellow",
+	"audio-classification":           "green",
+	"audio-to-audio":                 "blue",
+	"automatic-speech-recognition":   "yellow",
+	"conversational":                 "green",
+	"fill-mask":                      "red",
+	"feature-extraction":             "red",
+	"image-classification":           "blue",
+	"image-segmentation":             "green",
+	"image-to-text":                  "red",
+	"object-detection":               "orange",
+	"question-answering":             "blue",
+	"sentence-similarity":            "orange",
+	"structured-data-classification": "indigo",
+	"summarization":                  "indigo",
+	"table-question-answering":       "green",
+	"token-classification":           "blue",
+	"text2text-generation":           "indigo",
+	"text-classification":            "orange",
+	"text-generation":                "indigo",
+	"text-to-image":                  "orange",
+	"text-to-speech":                 "yellow",
+	"translation":                    "green",
+	"voice-activity-detection":       "red",
+	"zero-shot-classification":       "yellow",
 };
 
 /*

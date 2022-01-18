@@ -36,6 +36,7 @@
 	 */
 	function render(text: string, spans: Span[]): string {
 		const tags: { [index: number]: SpanTag[] } = {};
+
 		const __addTag = (i: number, s: Span, tag: "start" | "end") => {
 			if (Array.isArray(tags[i])) {
 				tags[i].push({ span: s, tag: tag });
@@ -43,6 +44,7 @@
 				tags[i] = [{ span: s, tag: tag }];
 			}
 		};
+
 		for (const s of spans) {
 			__addTag(s.start, s, "start");
 			__addTag(s.end, s, "end");

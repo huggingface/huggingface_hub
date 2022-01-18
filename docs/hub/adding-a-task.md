@@ -71,7 +71,7 @@ The Hub allows users to filter models by a given task. In order to do this, you 
 In [interfaces/Types.ts](https://github.com/huggingface/huggingface_hub/blob/main/js/src/lib/interfaces/Types.ts), you need to do a couple of things
 
 * Add the type to `PipelineType`. Note that they are sorted in different categories (NLP, Audio, Computer Vision and others).
-* Specify the icon color in `PIPELINE_TAG_ICO_CLASS`. 
+* Specify the task color in `PIPELINE_COLOR`. 
 * Specify the display order in `PIPELINE_TAGS_DISPLAY_ORDER`.
 
 2. Choose an icon

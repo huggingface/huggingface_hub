@@ -4,25 +4,25 @@ import type { ModelData } from "./Types";
  * Add your new library here.
  */
 export enum ModelLibrary {
-	'adapter-transformers'   = 'Adapter Transformers',
-	'allennlp'               = 'allennlp',
-	'asteroid'               = 'Asteroid',
-	'espnet'                 = 'ESPnet',
-	'fairseq'                = 'Fairseq',
-	'flair'                  = 'Flair',
-	'keras'                  = 'Keras',
-	'pyannote'               = 'Pyannote',
-	'sentence-transformers'  = 'Sentence Transformers',
-	'sklearn'                = 'Scikit-learn',
-	'spacy'                  = 'spaCy',
-	'speechbrain'            = 'speechbrain',
-	'tensorflowtts'          = 'TensorFlowTTS',
-	'timm'                   = 'Timm',
-	'fastai'                 = 'fastai',
-	'transformers'           = 'Transformers',
-	'stanza'                 = 'Stanza',
-	'fasttext'               = "fastText"
-};
+	"adapter-transformers"   = "Adapter Transformers",
+	"allennlp"               = "allenNLP",
+	"asteroid"               = "Asteroid",
+	"espnet"                 = "ESPnet",
+	"fairseq"                = "Fairseq",
+	"flair"                  = "Flair",
+	"keras"                  = "Keras",
+	"pyannote"               = "Pyannote",
+	"sentence-transformers"  = "Sentence Transformers",
+	"sklearn"                = "Scikit-learn",
+	"spacy"                  = "spaCy",
+	"speechbrain"            = "speechbrain",
+	"tensorflowtts"          = "TensorFlowTTS",
+	"timm"                   = "Timm",
+	"fastai"                 = "fastai",
+	"transformers"           = "Transformers",
+	"stanza"                 = "Stanza",
+	"fasttext"               = "fastText",
+}
 
 export const ALL_MODEL_LIBRARY_KEYS = Object.keys(ModelLibrary) as (keyof typeof ModelLibrary)[];
 
@@ -51,26 +51,26 @@ export interface LibraryUiElement {
 }
 
 function nameWithoutNamespace(modelId: string): string {
-	const splitted = modelId.split('/');
+	const splitted = modelId.split("/");
 	return splitted.length === 1 ? splitted[0] : splitted[1];
 }
 
 //#region snippets
 
 const adapter_transformers = (model: ModelData) =>
-`from transformers import ${model.config?.adapter_transformers?.model_class}
+	`from transformers import ${model.config?.adapter_transformers?.model_class}
 
 model = ${model.config?.adapter_transformers?.model_class}.from_pretrained("${model.config?.adapter_transformers?.model_name}")
 model.load_adapter("${model.id}", source="hf")`;
 
 const allennlpUnknown = (model: ModelData) =>
-`import allennlp_models
+	`import allennlp_models
 from allennlp.predictors.predictor import Predictor
 
-predictor = Predictor.from_path("hf://${model.id}")`
+predictor = Predictor.from_path("hf://${model.id}")`;
 
 const allennlpQuestionAnswering = (model: ModelData) =>
-`import allennlp_models
+	`import allennlp_models
 from allennlp.predictors.predictor import Predictor
 
 predictor = Predictor.from_path("hf://${model.id}")
@@ -78,26 +78,26 @@ predictor_input = {"passage": "My name is Wolfgang and I live in Berlin", "quest
 predictions = predictor.predict_json(predictor_input)`;
 
 const allennlp = (model: ModelData) => {
-	if (model.tags?.includes("question-answering")){
+	if (model.tags?.includes("question-answering")) {
 		return allennlpQuestionAnswering(model);
 	}
 	return allennlpUnknown(model);
 };
 
 const asteroid = (model: ModelData) =>
-`from asteroid.models import BaseModel
+	`from asteroid.models import BaseModel
   
 model = BaseModel.from_pretrained("${model.id}")`;
 
 const espnetTTS = (model: ModelData) =>
-`from espnet2.bin.tts_inference import Text2Speech
+	`from espnet2.bin.tts_inference import Text2Speech
     
 model = Text2Speech.from_pretrained("${model.id}")
 
 speech, *_ = model("text to generate speech from")`;
 
 const espnetASR = (model: ModelData) =>
-`from espnet2.bin.asr_inference import Speech2Text
+	`from espnet2.bin.asr_inference import Speech2Text
     
 model = Speech2Text.from_pretrained(
   "${model.id}"
@@ -107,10 +107,10 @@ speech, rate = soundfile.read("speech.wav")
 text, *_ = model(speech)`;
 
 const espnetUnknown = () =>
-`unknown model type (must be text-to-speech or automatic-speech-recognition)`;
+	`unknown model type (must be text-to-speech or automatic-speech-recognition)`;
 
 const espnet = (model: ModelData) => {
-	if (model.tags?.includes("text-to-speech")){
+	if (model.tags?.includes("text-to-speech")) {
 		return espnetTTS(model);
 	} else if (model.tags?.includes("automatic-speech-recognition")) {
 		return espnetASR(model);
@@ -119,7 +119,7 @@ const espnet = (model: ModelData) => {
 };
 
 const fairseq = (model: ModelData) =>
-`from fairseq.checkpoint_utils import load_model_ensemble_and_task_from_hf_hub
+	`from fairseq.checkpoint_utils import load_model_ensemble_and_task_from_hf_hub
 
 models, cfg, task = load_model_ensemble_and_task_from_hf_hub(
     "${model.id}"
@@ -127,18 +127,18 @@ models, cfg, task = load_model_ensemble_and_task_from_hf_hub(
 
 
 const flair = (model: ModelData) =>
-`from flair.models import SequenceTagger
+	`from flair.models import SequenceTagger
   
 tagger = SequenceTagger.load("${model.id}")`;
 
 const keras = (model: ModelData) =>
-`from huggingface_hub import from_pretrained_keras
+	`from huggingface_hub import from_pretrained_keras
 
 model = from_pretrained_keras("${model.id}")
 `;
 
 const pyannote = (model: ModelData) =>
-`from pyannote.audio.core.inference import Inference
+	`from pyannote.audio.core.inference import Inference
   
 model = Inference("${model.id}")
 
@@ -151,27 +151,27 @@ excerpt = Segment(start=2.0, end=5.0)
 model.crop("file.wav", excerpt)`;
 
 const tensorflowttsTextToMel = (model: ModelData) =>
-`from tensorflow_tts.inference import AutoProcessor, TFAutoModel
+	`from tensorflow_tts.inference import AutoProcessor, TFAutoModel
 
 processor = AutoProcessor.from_pretrained("${model.id}")
 model = TFAutoModel.from_pretrained("${model.id}")
 `;
 
 const tensorflowttsMelToWav = (model: ModelData) =>
-`from tensorflow_tts.inference import TFAutoModel
+	`from tensorflow_tts.inference import TFAutoModel
 
 model = TFAutoModel.from_pretrained("${model.id}")
 audios = model.inference(mels)
 `;
 
 const tensorflowttsUnknown = (model: ModelData) =>
-`from tensorflow_tts.inference import TFAutoModel
+	`from tensorflow_tts.inference import TFAutoModel
 
 model = TFAutoModel.from_pretrained("${model.id}")
 `;
 
 const tensorflowtts = (model: ModelData) => {
-	if (model.tags?.includes("text-to-mel")){
+	if (model.tags?.includes("text-to-mel")) {
 		return tensorflowttsTextToMel(model);
 	} else if (model.tags?.includes("mel-to-wav")) {
 		return tensorflowttsMelToWav(model);
@@ -180,20 +180,20 @@ const tensorflowtts = (model: ModelData) => {
 };
 
 const timm = (model: ModelData) =>
-`import timm
+	`import timm
 
 model = timm.create_model("hf_hub:${model.id}", pretrained=True)`;
 
-const sklearn = (model: ModelData) => 
-`from huggingface_hub import hf_hub_download
+const sklearn = (model: ModelData) =>
+	`from huggingface_hub import hf_hub_download
 import joblib
 
 model = joblib.load(
 	hf_hub_download("${model.id}", "sklearn_model.joblib")
 )`;
 
-const fastai = (model: ModelData) => 
-`from huggingface_hub import hf_hub_download
+const fastai = (model: ModelData) =>
+	`from huggingface_hub import hf_hub_download
 from fastai.learner import load_learner
 
 model = load_learner(
@@ -201,12 +201,12 @@ model = load_learner(
 )`;
 
 const sentenceTransformers = (model: ModelData) =>
-`from sentence_transformers import SentenceTransformer
+	`from sentence_transformers import SentenceTransformer
 
 model = SentenceTransformer("${model.id}")`;
 
 const spacy = (model: ModelData) =>
-`!pip install https://huggingface.co/${model.id}/resolve/main/${nameWithoutNamespace(model.id)}-any-py3-none-any.whl
+	`!pip install https://huggingface.co/${model.id}/resolve/main/${nameWithoutNamespace(model.id)}-any-py3-none-any.whl
 
 # Using spacy.load().
 import spacy
@@ -217,7 +217,7 @@ import ${nameWithoutNamespace(model.id)}
 nlp = ${nameWithoutNamespace(model.id)}.load()`;
 
 const speechBrainMethod = (speechbrainInterface: string) => {
-	switch(speechbrainInterface) {
+	switch (speechbrainInterface) {
 		case "EncoderClassifier":
 		   return "classify_file";
 		case "EncoderDecoderASR":
@@ -230,17 +230,17 @@ const speechBrainMethod = (speechbrainInterface: string) => {
 		default:
 			return undefined;
 	}
-}
+};
 
 const speechbrain = (model: ModelData) => {
 	const speechbrainInterface = model.config?.speechbrain?.interface;
-	if(speechbrainInterface === undefined) {
-		return `# interface not specified in config.json`
+	if (speechbrainInterface === undefined) {
+		return `# interface not specified in config.json`;
 	}
 
 	const speechbrainMethod = speechBrainMethod(speechbrainInterface);
-	if(speechbrainMethod === undefined) {
-		return `# interface in config.json invalid`
+	if (speechbrainMethod === undefined) {
+		return `# interface in config.json invalid`;
 	}
 
 	return `from speechbrain.pretrained import ${speechbrainInterface}
@@ -277,7 +277,7 @@ const transformers = (model: ModelData) => {
 };
 
 const fasttext = (model: ModelData) =>
-`from huggingface_hub import hf_hub_download
+	`from huggingface_hub import hf_hub_download
 import fasttext
 
 model = fasttext.load_model(hf_hub_download("${model.id}", "model.bin"))`;
@@ -291,104 +291,104 @@ export const MODEL_LIBRARIES_UI_ELEMENTS: { [key in keyof typeof ModelLibrary]?:
 	"adapter-transformers": {
 		btnLabel: "Adapter Transformers",
 		repoName: "adapter-transformers",
-		repoUrl: "https://github.com/Adapter-Hub/adapter-transformers",
-		snippet: adapter_transformers,
+		repoUrl:  "https://github.com/Adapter-Hub/adapter-transformers",
+		snippet:  adapter_transformers,
 	},
-	allennlp: {
+	"allennlp": {
 		btnLabel: "AllenNLP",
 		repoName: "AllenNLP",
-		repoUrl: "https://github.com/allenai/allennlp",
-		snippet: allennlp,
+		repoUrl:  "https://github.com/allenai/allennlp",
+		snippet:  allennlp,
 	},
-	asteroid: {
+	"asteroid": {
 		btnLabel: "Asteroid",
 		repoName: "Asteroid",
-		repoUrl: "https://github.com/asteroid-team/asteroid",
-		snippet: asteroid,
+		repoUrl:  "https://github.com/asteroid-team/asteroid",
+		snippet:  asteroid,
 	},
-	espnet: {
+	"espnet": {
 		btnLabel: "ESPnet",
 		repoName: "ESPnet",
-		repoUrl: "https://github.com/espnet/espnet",
-		snippet: espnet,
+		repoUrl:  "https://github.com/espnet/espnet",
+		snippet:  espnet,
 	},
-	fairseq: {
+	"fairseq": {
 		btnLabel: "Fairseq",
 		repoName: "fairseq",
-		repoUrl: "https://github.com/pytorch/fairseq",
-		snippet: fairseq,
+		repoUrl:  "https://github.com/pytorch/fairseq",
+		snippet:  fairseq,
 	},
-	flair: {
+	"flair": {
 		btnLabel: "Flair",
 		repoName: "Flair",
-		repoUrl: "https://github.com/flairNLP/flair",
-		snippet: flair,
+		repoUrl:  "https://github.com/flairNLP/flair",
+		snippet:  flair,
 	},
-	keras: {
+	"keras": {
 		btnLabel: "Keras",
 		repoName: "Keras",
-		repoUrl: "https://github.com/keras-team/keras",
-		snippet: keras,
+		repoUrl:  "https://github.com/keras-team/keras",
+		snippet:  keras,
 	},
-	pyannote: {
+	"pyannote": {
 		btnLabel: "pyannote",
 		repoName: "pyannote-audio",
-		repoUrl: "https://github.com/pyannote/pyannote-audio",
-		snippet: pyannote,
+		repoUrl:  "https://github.com/pyannote/pyannote-audio",
+		snippet:  pyannote,
 	},
 	"sentence-transformers": {
 		btnLabel: "sentence-transformers",
 		repoName: "sentence-transformers",
-		repoUrl: "https://github.com/UKPLab/sentence-transformers",
-		snippet: sentenceTransformers,
+		repoUrl:  "https://github.com/UKPLab/sentence-transformers",
+		snippet:  sentenceTransformers,
 	},
-	sklearn: {
+	"sklearn": {
 		btnLabel: "Scikit-learn",
 		repoName: "Scikit-learn",
-		repoUrl: "https://github.com/scikit-learn/scikit-learn",
-		snippet: sklearn,
+		repoUrl:  "https://github.com/scikit-learn/scikit-learn",
+		snippet:  sklearn,
 	},
-	fastai: {
+	"fastai": {
 		btnLabel: "fastai",
 		repoName: "fastai",
-		repoUrl: "https://github.com/fastai/fastai",
-		snippet: fastai,
+		repoUrl:  "https://github.com/fastai/fastai",
+		snippet:  fastai,
 	},
-	spacy: {
+	"spacy": {
 		btnLabel: "spaCy",
 		repoName: "spaCy",
-		repoUrl: "https://github.com/explosion/spaCy",
-		snippet: spacy,
+		repoUrl:  "https://github.com/explosion/spaCy",
+		snippet:  spacy,
 	},
-	speechbrain: {
+	"speechbrain": {
 		btnLabel: "speechbrain",
 		repoName: "speechbrain",
-		repoUrl: "https://github.com/speechbrain/speechbrain",
-		snippet: speechbrain,
+		repoUrl:  "https://github.com/speechbrain/speechbrain",
+		snippet:  speechbrain,
 	},
-	tensorflowtts : {
+	"tensorflowtts": {
 		btnLabel: "TensorFlowTTS",
 		repoName: "TensorFlowTTS",
-		repoUrl: "https://github.com/TensorSpeech/TensorFlowTTS",
-		snippet: tensorflowtts
+		repoUrl:  "https://github.com/TensorSpeech/TensorFlowTTS",
+		snippet:  tensorflowtts,
 	},
-	timm: {
+	"timm": {
 		btnLabel: "timm",
 		repoName: "pytorch-image-models",
-		repoUrl: "https://github.com/rwightman/pytorch-image-models",
-		snippet: timm,
+		repoUrl:  "https://github.com/rwightman/pytorch-image-models",
+		snippet:  timm,
 	},
-	transformers: {
+	"transformers": {
 		btnLabel: "Transformers",
 		repoName: "🤗/transformers",
-		repoUrl: "https://github.com/huggingface/transformers",
-		snippet: transformers,
+		repoUrl:  "https://github.com/huggingface/transformers",
+		snippet:  transformers,
 	},
-	fasttext: {
+	"fasttext": {
 		btnLabel: "fastText",
 		repoName: "fastText",
-		repoUrl: "https://fasttext.cc/",
-		snippet: fasttext,
+		repoUrl:  "https://fasttext.cc/",
+		snippet:  fasttext,
 	},
 } as const;
 
