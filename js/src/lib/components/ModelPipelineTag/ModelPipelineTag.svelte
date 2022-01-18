@@ -6,9 +6,14 @@
 	export let pipeline = "";
 </script>
 
-<div class="inline-flex items-center {classNames}">
+<a
+	class="inline-flex items-center hover:underline {classNames}"
+	href="/tasks/{pipeline}"
+	target="_blank"
+	title="Learn more about {PipelineType[pipeline]}"
+>
 	<ModelPipelineIcon classNames="mr-1" {pipeline} />
 	<span>
 		{PipelineType[pipeline] ?? pipeline}
 	</span>
-</div>
+</a>
