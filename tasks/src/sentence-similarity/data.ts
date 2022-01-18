@@ -6,10 +6,6 @@ import { TASKS_MODEL_LIBRARIES } from "../const";
 const taskData: TaskData = {
 	datasets: [
 		{
-			description: "Questions created by crowdworkers about Wikipedia articles.",
-			id:          "squad",
-		},
-		{
 			description: "Bing queries with relevant passages from various web sources.",
 			id:          "ms_marco",
 		},
