@@ -21,7 +21,7 @@
 		"teal",
 		"indigo",
 		"orange",
-		"lightBlue",
+		"sky",
 		"violet",
 		"purple",
 		"fuchsia",
@@ -96,7 +96,7 @@
 		bg-teal-100 text-teal-800 bg-teal-500 text-teal-100
 		bg-indigo-100 text-indigo-800 bg-indigo-500 text-indigo-100
 		bg-orange-100 text-orange-800 bg-orange-500 text-orange-100
-		bg-lightBlue-100 text-lightBlue-800 bg-lightBlue-500 text-lightBlue-100
+		bg-sky-100 text-sky-800 bg-sky-500 text-sky-100
 		bg-violet-100 text-violet-800 bg-violet-500 text-violet-100
 		bg-purple-100 text-purple-800 bg-purple-500 text-purple-100
 		bg-fuchsia-100 text-fuchsia-800 bg-fuchsia-500 text-fuchsia-100
