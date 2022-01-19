@@ -17,6 +17,8 @@ with the aim for a user-friendly interface
 from dataclasses import dataclass
 from typing import List, Union
 
+from ..constants import VALID_PIPELINE_TAGS
+
 
 @dataclass
 class DatasetFilter:
@@ -275,6 +277,10 @@ class ModelTags(GeneralTags):
     def __init__(self, model_tag_dictionary: dict):
         keys = ["library", "language", "license", "dataset", "pipeline_tag"]
         super().__init__(model_tag_dictionary, keys)
+        for tag in VALID_PIPELINE_TAGS:
+            self["pipeline_tag"][
+                tag.replace(" ", "").replace("-", "_").replace(".", "_")
+            ] = tag
 
 
 class DatasetTags(GeneralTags):
@@ -304,3 +310,7 @@ class DatasetTags(GeneralTags):
             "licenses",
         ]
         super().__init__(dataset_tag_dictionary, keys)
+        for tag in VALID_PIPELINE_TAGS:
+            self["task_categories"][
+                tag.replace(" ", "").replace("-", "_").replace(".", "_")
+            ] = f"task_categories:{tag}"

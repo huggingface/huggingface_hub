@@ -58,3 +58,35 @@ if HF_HUB_OFFLINE in ENV_VARS_TRUE_VALUES:
     HF_HUB_OFFLINE = True
 else:
     HF_HUB_OFFLINE = False
+
+# Only valid pipeline_tags for hosted models and datasets. Taken from interfaces/Types.ts
+VALID_PIPELINE_TAGS = [
+    "text-classification",
+    "token-classification",
+    "table-question-answering",
+    "question-answering",
+    "zero-shot-classification",
+    "translation",
+    "summarization",
+    "conversational",
+    "feature-extraction",
+    "text-generation",
+    "text2text-generation",
+    "fill-mask",
+    "sentence-similarity",
+    "text-to-speech",
+    "automatic-speech-recognition",
+    "audio-to-audio",
+    "audio-classification",
+    "voice-activity-detection",
+    "image-classification",
+    "object-detection",
+    "image-segmentation",
+    "text-to-image",
+    "image-to-text",
+    "structured-data-classification",
+    "named-entity-recognition",
+    "part-of-speech-tagging",
+    "audio-source-separation",
+    "speech-enhancement",
+]
