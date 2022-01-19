@@ -3,10 +3,10 @@ name: JS Interfaces
 on:
   push:
     paths:
-      - "widgets/src/lib/interfaces/**"
+      - "js/src/lib/interfaces/**"
   pull_request:
     paths:
-      - "widgets/src/lib/interfaces/**"
+      - "js/src/lib/interfaces/**"
 
 
 jobs:
@@ -28,6 +28,6 @@ jobs:
       - name: Install deps
         run: npm i @types/node
       - name: Compile
-        working-directory: ./widgets/src/lib/interfaces
+        working-directory: ./js/src/lib/interfaces
         run: |
           time tsc *.ts --lib es6,es2016,es2017,es2018,esnext --target es2018 --module commonjs --outDir dist

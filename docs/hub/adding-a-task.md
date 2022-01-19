@@ -68,19 +68,19 @@ The Hub allows users to filter models by a given task. In order to do this, you 
 
 1. Add the task type to `Types.ts`
 
-In [interfaces/Types.ts](https://github.com/huggingface/huggingface_hub/blob/main/widgets/src/lib/interfaces/Types.ts), you need to do a couple of things
+In [interfaces/Types.ts](https://github.com/huggingface/huggingface_hub/blob/main/js/src/lib/interfaces/Types.ts), you need to do a couple of things
 
 * Add the type to `PipelineType`. Note that they are sorted in different categories (NLP, Audio, Computer Vision and others).
-* Specify the icon color in `PIPELINE_TAG_ICO_CLASS`. 
+* Specify the task color in `PIPELINE_COLOR`. 
 * Specify the display order in `PIPELINE_TAGS_DISPLAY_ORDER`.
 
 2. Choose an icon
 
-You can add an icon in the [lib/Icons](https://github.com/huggingface/huggingface_hub/tree/main/widgets/src/lib/Icons) directory. We usually choose carbon icons from https://icones.js.org/collection/carbon. 
+You can add an icon in the [lib/Icons](https://github.com/huggingface/huggingface_hub/tree/main/js/src/lib/Icons) directory. We usually choose carbon icons from https://icones.js.org/collection/carbon. 
 
 
 ## Widget
 
 Once the task is in production, what could be more exciting that implementing some way for users to play directly with the models in their browser? 🤩 You can find all the widgets [here](https://huggingface-widgets.netlify.app/). 
 
-In case you would be interested in contributing with a widget, you can look at the [implementation](https://github.com/huggingface/huggingface_hub/tree/main/widgets/src/lib/InferenceWidget/widgets) of all the widgets. You can also find WIP documentation on how to implement a widget in https://github.com/huggingface/huggingface_hub/tree/main/widgets. 
+In case you would be interested in contributing with a widget, you can look at the [implementation](https://github.com/huggingface/huggingface_hub/tree/main/js/src/lib/components/InferenceWidget/widgets) of all the widgets. You can also find WIP documentation on how to implement a widget in https://github.com/huggingface/huggingface_hub/tree/main/js. 

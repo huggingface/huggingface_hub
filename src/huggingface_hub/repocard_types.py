@@ -37,7 +37,7 @@ class SingleResultTask:
     """
     Example: automatic-speech-recognition
     Use task id from
-    https://github.com/huggingface/huggingface_hub/blob/main/widgets/src/lib/int
+    https://github.com/huggingface/huggingface_hub/blob/main/js/src/lib/int
     erfaces/Types.ts
     """
 

@@ -278,7 +278,7 @@ class ModelSearchArguments(AttributeDictionary):
     models currently hosted in the Hub with tab-completion.
     If a value starts with a number, it will only exist in the dictionary
     Example:
-        >>> args = ModelSearchArgs()
+        >>> args = ModelSearchArguments()
         >>> args.author_or_organization.huggingface
         >>> args.language.en
     """
