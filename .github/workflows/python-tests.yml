@@ -1,14 +1,25 @@
 name: Python tests
 
 on:
-  workflow_dispatch:
+  push:
+    branches:
+      - main
+      - ci_*
+    paths-ignore:
+      - "js/**"
+      - "api-inference-community/**"
+  pull_request:
+    types: [assigned, opened, synchronize, reopened]
+    paths-ignore:
+      - "js/**"
+      - "api-inference-community/**"
 
 env:
   HUGGINGFACE_CO_STAGING: yes
 
 jobs:
   build:
-    runs-on: windows-latest
+    runs-on: ubuntu-latest
     strategy:
       matrix:
         python-version: ["3.6", "3.9"]
