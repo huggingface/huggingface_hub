@@ -24,7 +24,7 @@ The most popular models for this task are GPT-based models (such as [GPT-2](http
 
 ### Text-to-Text Generation Models
 
-These models are trained to learn the mapping between a pair of texts (e.g. translation from one language to another). The most popular variants of these models are [T5](https://huggingface.co/docs/transformers/model_doc/t5), [T0](https://huggingface.co/bigscience/T0pp) and [BART](https://huggingface.co/docs/transformers/model_doc/bart). Text-to-Text models are trained with multi-tasking capabilities, they can accomplish a wide range of tasks, including ummarization, translation, and text classification.
+These models are trained to learn the mapping between a pair of texts (e.g. translation from one language to another). The most popular variants of these models are [T5](https://huggingface.co/docs/transformers/model_doc/t5), [T0](https://huggingface.co/bigscience/T0pp) and [BART](https://huggingface.co/docs/transformers/model_doc/bart). Text-to-Text models are trained with multi-tasking capabilities, they can accomplish a wide range of tasks, including summarization, translation, and text classification.
 
 ## Inference
 
