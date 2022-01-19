@@ -5,10 +5,7 @@
   title: Everything you wanted to know about repos
 
 - local: adding-a-model
-  title: Adding a model to the Hub 
-  
-- local: searching-the-hub
-  title: How to search the Hub efficiently
+  title: Adding a model to the Hub
 
 - local: libraries
   title: Libraries
@@ -24,7 +21,10 @@
 
 - local: adding-a-library
   title: Integrate a library with the Hub
-  
+
+- local: searching-the-hub
+  title: How to search the Hub efficiently
+
 - local: how-to-downstream
   title: How to download files from the Hub
 
