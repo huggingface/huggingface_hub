@@ -1,14 +1,14 @@
 import json
 import os
+import tempfile
 from pathlib import Path
-from typing import Dict, Optional, Union
+from typing import Dict, List, Optional, Union
 
 import requests
 
 from .constants import CONFIG_NAME, PYTORCH_WEIGHTS_NAME
 from .file_download import hf_hub_download, is_torch_available
 from .hf_api import HfApi, HfFolder
-from .repository import Repository
 from .utils import logging
 
 
@@ -58,12 +58,12 @@ class ModelHubMixin:
                 json.dump(config, f)
 
         # saving model weights/files
-        self._save_pretrained(save_directory)
+        files = self._save_pretrained(save_directory, **kwargs)
 
         if push_to_hub:
             return self.push_to_hub(save_directory, **kwargs)
 
-    def _save_pretrained(self, save_directory):
+    def _save_pretrained(self, save_directory, **kwargs) -> List[str]:
         """
         Overwrite this method in subclass to define how to save your model.
         """
@@ -254,9 +254,10 @@ class ModelHubMixin:
             repo_path_or_name = repo_url.split("/")[-1]
 
         # If no URL is passed and there's no path to a directory containing files, create a repo
-        if repo_url is None and not os.path.exists(repo_path_or_name):
+        if repo_url is None:
             repo_name = Path(repo_path_or_name).name
             repo_url = HfApi(endpoint=api_endpoint).create_repo(
+                token,
                 repo_name,
                 token=token,
                 organization=organization,
@@ -265,22 +266,25 @@ class ModelHubMixin:
                 exist_ok=True,
             )
 
-        repo = Repository(
-            repo_path_or_name,
-            clone_from=repo_url,
-            use_auth_token=use_auth_token,
-            git_user=git_user,
-            git_email=git_email,
-        )
-        repo.git_pull(rebase=True)
+        name = Path(repo_path_or_name).name
 
         # Save the files in the cloned repo
-        self.save_pretrained(repo_path_or_name, config=config)
+        with tempfile.TemporaryDirectory() as tmp:
+            saved_path = Path(tmp) / name
+            files = self.save_pretrained(saved_path, config=config)
+            api = HfApi(endpoint=api_endpoint)
 
-        # Commit and push!
-        repo.git_add()
-        repo.git_commit(commit_message)
-        return repo.git_push()
+            if organization is not None:
+                name = "/".join([organization, name])
+            else:
+                whoami_info = api.whoami(token)
+                user = whoami_info["name"]
+                name = "/".join([user, name])
+
+            for file in files:
+                common_prefix = os.path.commonprefix([saved_path, file])
+                relative_path = os.path.relpath(file, common_prefix)
+                api.upload_file(token, file, path_in_repo=relative_path, repo_id=name)
 
 
 class PyTorchModelHubMixin(ModelHubMixin):
@@ -308,13 +312,15 @@ class PyTorchModelHubMixin(ModelHubMixin):
             >>> model = MyModel.from_pretrained("username/mymodel@main")
         """
 
-    def _save_pretrained(self, save_directory):
+    def _save_pretrained(self, save_directory) -> List[str]:
         """
         Overwrite this method in case you don't want to save complete model, rather some specific layers
         """
         path = os.path.join(save_directory, PYTORCH_WEIGHTS_NAME)
         model_to_save = self.module if hasattr(self, "module") else self
         torch.save(model_to_save.state_dict(), path)
+
+        return [path]
 
     @classmethod
     def _from_pretrained(
