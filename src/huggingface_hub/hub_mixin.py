@@ -63,8 +63,6 @@ class ModelHubMixin:
         if push_to_hub:
             return self.push_to_hub(save_directory, **kwargs)
 
-        return files
-
     def _save_pretrained(self, save_directory, **kwargs) -> List[str]:
         """
         Overwrite this method in subclass to define how to save your model.
@@ -146,7 +144,7 @@ class ModelHubMixin:
                     local_files_only=local_files_only,
                 )
             except requests.exceptions.RequestException:
-                logger.warning("config.json NOT FOUND in HuggingFace Hub")
+                logger.warning(f"{CONFIG_NAME} not found in HuggingFace Hub")
                 config_file = None
 
         if config_file is not None:
@@ -258,9 +256,10 @@ class ModelHubMixin:
         # If no URL is passed and there's no path to a directory containing files, create a repo
         if repo_url is None:
             repo_name = Path(repo_path_or_name).name
-            HfApi(endpoint=api_endpoint).create_repo(
+            repo_url = HfApi(endpoint=api_endpoint).create_repo(
                 token,
                 repo_name,
+                token=token,
                 organization=organization,
                 private=private,
                 repo_type=None,

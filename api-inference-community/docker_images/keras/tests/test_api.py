@@ -14,9 +14,9 @@ TESTABLE_MODELS: Dict[str, List[str]] = {
     # "text-generation": "mysample-gpt2",
     "image-classification": [
         # Binary classifier, rgb images.
-        "osanseviero/keras-dog-or-cat",
+        "nateraw/keras-cats-vs-dogs",
         # Multilabel classifier, grayscale images.
-        "osanseviero/keras-conv-mnist",
+        "nateraw/keras-mnist-convnet",
     ]
 }
 

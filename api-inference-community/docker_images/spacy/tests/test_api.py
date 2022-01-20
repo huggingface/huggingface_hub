@@ -14,6 +14,7 @@ TESTABLE_MODELS: Dict[str, str] = {
     # "text-generation": "mysample-gpt2",
     "token-classification": "spacy/en_core_web_sm",
     "text-classification": "explosion/en_textcat_goemotions",
+    "sentence-similarity": "spacy/en_core_web_sm",
 }
 
 

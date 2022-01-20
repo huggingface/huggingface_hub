@@ -2,13 +2,12 @@ import json
 import os
 from unittest import TestCase, skipIf
 
-from app.main import ALLOWED_TASKS
 from starlette.testclient import TestClient
 from tests.test_api import TESTABLE_MODELS
 
 
 @skipIf(
-    "sentence-similarity" not in ALLOWED_TASKS,
+    "sentence-similarity" not in TESTABLE_MODELS,
     "sentence-similarity not implemented",
 )
 class SentenceSimilarityTestCase(TestCase):

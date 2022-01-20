@@ -13,6 +13,9 @@ TF2_WEIGHTS_NAME = "tf_model.h5"
 TF_WEIGHTS_NAME = "model.ckpt"
 FLAX_WEIGHTS_NAME = "flax_model.msgpack"
 CONFIG_NAME = "config.json"
+REPOCARD_NAME = "README.md"
+
+DEFAULT_REVISION = "main"
 
 HUGGINGFACE_CO_URL_HOME = "https://huggingface.co/"
 
@@ -31,6 +34,7 @@ HUGGINGFACE_CO_URL_TEMPLATE = ENDPOINT + "/{repo_id}/resolve/{revision}/{filenam
 REPO_TYPE_DATASET = "dataset"
 REPO_TYPE_SPACE = "space"
 REPO_TYPES = [None, REPO_TYPE_DATASET, REPO_TYPE_SPACE]
+SPACES_SDK_TYPES = ["gradio", "streamlit", "static"]
 
 REPO_TYPES_URL_PREFIXES = {
     REPO_TYPE_DATASET: "datasets/",

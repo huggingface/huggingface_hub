@@ -2,14 +2,13 @@ import json
 import os
 from unittest import TestCase, skipIf
 
-from app.main import ALLOWED_TASKS
 from parameterized import parameterized_class
 from starlette.testclient import TestClient
 from tests.test_api import TESTABLE_MODELS
 
 
 @skipIf(
-    "automatic-speech-recognition" not in ALLOWED_TASKS,
+    "automatic-speech-recognition" not in TESTABLE_MODELS,
     "automatic-speech-recognition not implemented",
 )
 @parameterized_class(

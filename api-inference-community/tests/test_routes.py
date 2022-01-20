@@ -63,6 +63,50 @@ class ValidationTestCase(TestCase):
     def test_invalid_pipeline(self):
         os.environ["TASK"] = "invalid"
 
+        class Pipeline:
+            def __init__(self):
+                pass
+
+            def __call__(self, input_: str):
+                return {"some": "json serializable"}
+
+        def get_pipeline():
+            return Pipeline()
+
+        routes = [
+            Route("/{whatever:path}", status_ok),
+            Route("/{whatever:path}", pipeline_route, methods=["POST"]),
+        ]
+
+        app = Starlette(routes=routes)
+
+        @app.on_event("startup")
+        async def startup_event():
+            logger = logging.getLogger("uvicorn.access")
+            handler = logging.StreamHandler()
+            handler.setFormatter(
+                logging.Formatter("%(asctime)s - %(levelname)s - %(message)s")
+            )
+            logger.handlers = [handler]
+
+            # Link between `api-inference-community` and framework code.
+            app.get_pipeline = get_pipeline
+
+        with TestClient(app) as client:
+            response = client.post("/", data=b"")
+
+        self.assertEqual(
+            response.status_code,
+            400,
+        )
+        self.assertEqual(
+            response.content,
+            b'{"error":"The task `invalid` is not recognized by api-inference-community"}',
+        )
+
+    def test_invalid_task(self):
+        os.environ["TASK"] = "invalid"
+
         def get_pipeline():
             raise Exception("We cannot load the pipeline")
 

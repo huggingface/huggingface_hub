@@ -6,12 +6,12 @@ on:
       - main
       - ci_*
     paths-ignore:
-      - "widgets/**"
+      - "js/**"
       - "api-inference-community/**"
   pull_request:
     types: [assigned, opened, synchronize, reopened]
     paths-ignore:
-      - "widgets/**"
+      - "js/**"
       - "api-inference-community/**"
 
 env:
@@ -55,8 +55,25 @@ jobs:
         pip install --upgrade pip
         pip install .[testing,torch]
 
-    - run: pytest -sv ./tests/
+    - run: pytest -sv ./tests/test_hubmixin*
 
+  build_tensorflow:
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v2
+
+    - name: Set up Python ${{ matrix.python-version }}
+      uses: actions/setup-python@v2
+      with:
+        python-version: ${{ matrix.python-version }}
+
+    - name: Install dependencies
+      run: |
+        pip install --upgrade pip
+        pip install .[testing,tensorflow]
+
+    - run: pytest -sv ./tests/test_keras*
 
   tests_lfs:
     runs-on: ubuntu-latest

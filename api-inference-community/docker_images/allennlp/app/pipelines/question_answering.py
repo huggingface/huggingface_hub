@@ -1,3 +1,5 @@
+import os
+import shutil
 from typing import Any, Dict
 
 # Even though it is not imported, it is actually required, it downlaods some stuff.
@@ -11,7 +13,15 @@ class QuestionAnsweringPipeline(Pipeline):
         self,
         model_id: str,
     ):
-        self.predictor = Predictor.from_path("hf://" + model_id)
+        try:
+            self.predictor = Predictor.from_path("hf://" + model_id)
+        except (IOError, OSError):
+            nltk = os.getenv("NLTK_DATA")
+            if nltk is None:
+                raise
+            directory = os.path.join(nltk, "corpora")
+            shutil.rmtree(directory)
+            self.predictor = Predictor.from_path("hf://" + model_id)
 
     def __call__(self, inputs: Dict[str, str]) -> Dict[str, Any]:
         """

@@ -4,95 +4,119 @@ title: Documentation for Spaces
 
 <h1>How to get started with Spaces</h1>
 
-<div class="p-4 border border-gray-200 rounded-lg">
-	⚠️ This feature is currently in private beta, <a style="font-weight: bold !important" href="/spaces">sign up to the waiting list</a> or reach out to <a href="https://twitter.com/huggingface">us</a> if you'd like to try it out ⚠️
-</div>
-
 ## What are Spaces?
 
-Spaces are a simple way to host a ML demo app, directly on your user profile or your organization’s hf.co profile.
+Spaces are a simple way to host ML demo apps directly on your profile or your organization’s  profile. This allows you to create your ML portfolio, showcase your projects at conferences or to stakeholders, and work collaboratively with other people in the ML ecosystem.
 
-We support two awesome SDKs that let you build cool apps in Python: **[Streamlit](https://streamlit.io/)** and **[Gradio](https://gradio.app/)**.
+We support two awesome SDKs that let you build cool apps in Python in a matter of minutes: **[Streamlit](https://streamlit.io/)** and **[Gradio](https://gradio.app/)**.
 
-**To get started**, simply click on [New Space](https://huggingface.co/new-space) in the top navigation menu, create a new repo of type `Space`, and pick your SDK:
+**To get started**, simply click on [New Space](https://huggingface.co/new-space) in the top navigation menu, create a new repo of type `Space`, and pick your SDK.
 
-![/docs/assets/hub/new-space.gif](/docs/assets/hub/new-space.gif)
+Under the hood, Spaces stores your code inside a git repository, just like the model and dataset repositories. Thanks to this, the same tools you're already used to (`git` and `git-lfs`) also work for Spaces.
 
-Under the hood, we are storing your code inside a hf.co-hosted git repository, similar to what we're doing for models and datasets. So the same tools you're already used to (`git` and `git-lfs`) will also work for Spaces.
+The default Spaces environment comes with several pre-installed dependencies:
 
-We then deploy a containerized version of your code on our Infra, each time you commit. More details below!
+* [`huggingface_hub`](https://github.com/huggingface/huggingface_hub) allows you to download models from the Hub and programmatically access the Inference API from your Space. If you choose to instantiate the model in your app with our Inference API, you can benefit from the built-in acceleration optimizations. This option also consumes less computing resources, which is always nice for the environment! 🌎 
 
-<!-- TODO(have someone record a Youtube demo of Spaces showcasing some cool apps already running, etc) -->
+  Refer to this [page](https://huggingface.co/docs/hub/how-to-inference) for more information on how to programmatically access the Inference API.
 
-## Should I use Streamlit or Gradio?
+* [`requests`](https://docs.python-requests.org/en/master/) is useful for calling third-party APIs from your app.
 
-We recommend you try both as they're both really awesome! 😎
+* [`datasets`](https://github.com/huggingface/datasets) allows you to fetch or display datasets from inside your app easily.
 
-Streamlit's documentation is at https://docs.streamlit.io/, and Gradio's doc is https://gradio.app/getting_started.
+Each Spaces environment is limited to 16GB RAM and 8 CPU cores. Organization [subscribers](https://huggingface.co/pricing) (Lab, Startup, and Enterprise) can access Spaces with one T4 GPU on a case-by-case basis. Please email us at **website at huggingface.co** or let us know on [Twitter](https://twitter.com/huggingface) if you need one.
 
-In the default environment, we're currently running version `"0.84.2"` of Streamlit and version `"2.2.6"` of Gradio.
+## Streamlit and Gradio
 
-Our 2 cents:
+Spaces support [Streamlit](https://streamlit.io/) and [Gradio](https://gradio.app/) for quickly building apps in Python. The default environment runs version `"1.0.0"` of Streamlit and the latest version of Gradio. We recommend you try both because they're really awesome! Here are some of our thoughts on Streamlit and Gradio:
 
-- **Gradio** is great if you want to build a super-easy-to-use interface to run a model from just the list of its inputs and its outputs. The Gradio team wrote a great [tutorial on our blog about building GUIs for Hugging Face models](https://huggingface.co/blog/gradio).
-- **Streamlit** gives you more freedom to build a full-featured Web app from Python, in a _reactive_ way (meaning that code gets re-run when the state of the app changes).
+* **Gradio** provides an easy and intuitive interface for running a model from a list of inputs, and displaying the outputs. For more details, take a look at this [tutorial](https://huggingface.co/blog/gradio) from the Gradio team about building GUIs for Hugging Face models.
 
-You can also take a look at some sample apps on the [Spaces directory](https://huggingface.co/spaces) (⚠️ Note: spaces themselves are still in private beta) to make up your mind.
+* **Streamlit** gives users more freedom to build a full-featured web app with Python in a *reactive* way. Your code is rerun each time the state of the app changes. Streamlit is also great for data visualization and supports several charting libraries such as Bokeh, Plotly, and Altair. Read our [blog post](https://huggingface.co/blog/streamlit-spaces) about building and hosting Streamlit apps in Spaces.
+
+💡 If you need want to learn more about Streamlit and Gradio, refer to the [Streamlit documentation](https://docs.streamlit.io/) and [Gradio documentation](https://gradio.app/getting_started).
+
+For more inspiration, take a look at some of the sample apps in the [Spaces directory](https://huggingface.co/spaces) to get a better idea of what Streamlit and Gradio can do.
 
 [![screenshot of listing directory and landing page](/docs/assets/hub/spaces-landing.png)](https://huggingface.co/spaces)
 
-Finally, we've been thinking of providing a way to run **custom apps**, for instance Python server code for the backend + a unified set of widgets/frontend JS code, or even custom Docker image serving. Do get in touch if you would like to build something more custom.
+## Using Spaces
 
-## What are the pre-installed dependencies in the default environment?
+Create a Space by clicking on [New Space](https://huggingface.co/new-space) under your profile picture in the top navigation bar. Next, create a repository of type `Space`, and then you can select whether you want to use Streamlit or Gradio.
 
-In addition to the Streamlit or Gradio SDK, the environment we run your app in includes the following Python libraries out-of-the-box:
+<iframe width="560" height="315" src="https://www.youtube-nocookie.com/embed/3bSVKNKb_PY" title="Spaces intro" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>
 
-- [`huggingface_hub`](https://github.com/huggingface/huggingface_hub), so you can list models, query the hf.co API, etc. **You can also use this to call our Accelerated Inference API from your Space**. If your app instantiates a model to run inference on, consider calling the Inference API instead, because you'll then leverage the acceleration optimizations we already built, and it's also consuming less computing resources, which is always nice 🌎.
-- [`requests`](https://docs.python-requests.org/en/master/) the famous HTTP request library, useful if you want to call a third-party API from your app.
-- [`datasets`](https://github.com/huggingface/datasets) so that you can easily fetch or display data from inside your app.
+### Install other dependencies
 
-## How can I install other dependencies?
+If you need other Python packages to run your app, add it to a **requirements.txt** file at the root of your repository. Spaces runtime engine will create a custom environment on-the-fly. 
 
-If you need any other Python package, you can simply add a `requirements.txt` at the root of your repo.
+Debian dependencies are also supported. Add a **packages.txt** file at the root of your repository, and list all your dependencies in it. Each dependency should be on a separate line, and each line will be read and installed by `apt-get install`.
 
-A custom environment will be created on the fly by the Spaces runtime engine.
+### Manage secrets
 
-We also support Debian dependencies : add a `packages.txt` file at the root of your repo and list all your dependencies, one per line (each line will go through `apt-get install`)
+If your app requires secret keys or tokens, don't hard-code them inside your app! Instead, go to the **Settings** page of your Space repository and enter your secrets there. The secrets will be exposed to your app with [Streamlit Secrets Management](https://blog.streamlit.io/secrets-in-sharing-apps/) if you use Streamlit, and as environment variables in other cases. 
 
-## What are the RAM and CPU or GPU limitations?
+![screenshot of secrets settings](/docs/assets/hub/secrets.png)
 
-Each environment is currently limited to 16GB RAM and 8 CPU cores.
+### Custom HTML
 
-For hf.co Pro or Organization (Lab or Startup plan) subscribers, Spaces can have one T4 GPU on a case-by-case basis, contact us if you need one.
+Spaces also accommodate custom HTML for your app instead of using Streamlit or Gradio. Set `sdk: static` inside the `YAML` block at the top of your Spaces **README.md** file. Then you can place your HTML code within an **index.html** file.
 
-## How does it work?
+Here are some examples of Spaces using custom HTML:
 
-We deploy a containerized version of your code on our Infra, each time you commit. As a sidenote, we have many cool infra challenges to solve, if you'd like to help us, please consider reaching out 🙂.
+* [Smarter NPC](https://huggingface.co/spaces/mishig/smarter_npc): Display a PlayCanvas project with an iframe in Spaces.
+* [Huggingfab](https://huggingface.co/spaces/pierreant-p/huggingfab): Display a Sketchfab model in Spaces.
 
-## Secret management
+💌 Feel free to [contact us](#contact) if you are interested in building custom apps without Streamlit or Gradio. Our team is working on creating mechanisms for running custom apps with Python server code with a unified set of frontend JS code and serving Docker images.
 
-If your app needs any secret keys or tokens to run, you do not want to hardcode them inside your code. Instead, head over to the settings page for your Space repo and you'll be able to input key/secret pairs.
+### Configure Spaces settings
 
-Those secrets will be exposed to your app using the [Streamlit Secrets](https://blog.streamlit.io/secrets-in-sharing-apps/) feature if it's a Streamlit app, or as env variables in other cases.
+Configure your Space's appearance and other settings inside the `YAML` block at the top of the **README.md** file at the root of the repository. For example, if you want to create a Space with Gradio named `Demo Space` with a yellow to orange gradient thumbnail:
 
-## Streamlit advanced features
+```yaml
+---
+title: Demo Space
+emoji: 🤗
+colorFrom: yellow
+colorTo: orange
+sdk: gradio
+app_file: app.py
+pinned: false
+---
+```
 
-We support those Streamlit features transparently:
+For additional settings, refer to the [Reference](#reference) section.
 
-- `st.experimental_get_query_params()` and `st.experimental_set_query_params(**parameter)` to manage app state in the url
-- if something doesn't work, please reach out.
+### Organization card
 
-## How can I manage my app through Github
+Create an organization card to help users learn more about what your organization is working on and how users can use your libraries, models, datasets, and Spaces. Build an organization card by setting `sdk: static` to create a static **README** Space with HTML. As an example, take a look at:
 
-Github is great for collaboration. You can keep your app in sync with your Github repository by leveraging Github Actions:
+* [Amazon's](https://huggingface.co/spaces/amazon/README/blob/main/README.md) organization card
+* [spaCy's](https://huggingface.co/spaces/spacy/README/blob/main/README.md) organization card.
 
-- We require Git LFS for files above 10MB so you may need to review your files if you don't want to use Git LFS. This includes your history. You can use handy tools such as [BFG Repo-Cleaner](https://rtyley.github.io/bfg-repo-cleaner/) to remove the large files from your history (keep a local copy of your repository for backup).
-- Set your Github repository and your Spaces app initially in sync: to add your Spaces app as an additional remote to your existing git repository, you can use the command `git remote add space https://huggingface.co/spaces/FULL_SPACE_NAME`. You can then force-push to sync everything for the first time: `git push --force space main`
-- Set up a Github Action to push your Github main branch automatically to Spaces: replace `HF_USERNAME` with your Hugging Face username, `FULL_SPACE_NAME` with your Spaces name, and [create a Github secret](https://docs.github.com/en/actions/reference/encrypted-secrets#creating-encrypted-secrets-for-an-environment) `HF_TOKEN` containing your Hugging Face API token.
+### Manage app with Github Actions
+
+Keep your app in sync with your Github repository with Github Actions. For files larger than 10MB, Spaces requires Git-LFS. If you don't want to use Git-LFS, you may need to review your files and check your history. Use a tool like [BFG Repo-Cleaner](https://rtyley.github.io/bfg-repo-cleaner/) to remove any large files from your history. BFG Repo-Cleaner will keep a local copy of your repository as a backup.
+
+First, you should setup your GitHub repository and Spaces app together. Add your Spaces app as an additional remote to your existing Git repository.
+
+```bash
+git remote add space https://huggingface.co/spaces/FULL_SPACE_NAME
+```
+
+Then force push to sync everything for the first time:
+
+```bash
+git push --force space main
+```
+
+Next, setup a GitHub Action to push your main branch to Spaces. In the example below:
+
+* Replace `HF_USERNAME` with your username and `FULL_SPACE_NAME` with your Space name. 
+* Create a [Github secret](https://docs.github.com/en/actions/security-guides/encrypted-secrets#creating-encrypted-secrets-for-an-environment) with your `HF_TOKEN`. You can find your Hugging Face API token under **API Tokens** on your Hugging Face profile.
 
 ```yaml
 name: Sync to Hugging Face hub
-
 on:
   push:
     branches: [main]
@@ -113,11 +137,11 @@ jobs:
         run: git push https://HF_USERNAME:$HF_TOKEN@huggingface.co/spaces/FULL_SPACE_NAME main
 ```
 
-- Create an action so file sizes are automatically checked on any new PR
+Finally, create an Action that automatically checks the file size of any new pull request:
+
 
 ```yaml
 name: Check file size
-
 on:               # or directly `on: [push]` to run the action on every push on any branch
   pull_request:
     branches: [main]
@@ -132,25 +156,60 @@ jobs:
       - name: Check large files
         uses: ActionsDesk/lfs-warning@v2.0
         with:
-          filesizelimit: 10485760 # = 10MB, so we can sync to HF spaces
-
+          filesizelimit: 10485760 # this is 10MB so we can sync to HF Spaces
 ```
 
-## Can I use the Spaces logo to link to my app from my website?
+## Troubleshoot
 
-Yes that would be great, here's the logo in SVG:
+Issues may occur when you use an unsupported Streamlit version. The Streamlit version is not configured in the **requirements.txt** file but rather in the `YAML` settings through the `sdk_version` setting. Not all Streamlit versions are supported. Check that you are using a supported version of Streamlit. Refer to the [reference section](#reference) for more information about supported versions.
 
-<img style="width: 280px;" src="/docs/assets/hub/icon-space.svg">
+## Contact
 
-## Why did you build this?
+Feel free to ask questions on the [forum](https://discuss.huggingface.co/) if it's suitable for the community.
 
-In the past few years, our team, in collaboration with other research groups, has built a number of demo apps for some cool new models or methods (PPLM, RAG, zero-shot, ExBERT, etc.).
+If you're interested in infra challenges, custom demos, GPUs, or something else, please reach out to us by sending an email to **website at huggingface.co**.
 
-We host [widgets](https://huggingface-widgets.netlify.app/) for every model on the Hub, but in some cases (for instance if you want to compare two models) there is a need for a demo app that can't simply be implemented in a widget, so we needed something more flexible.
+You can also tag us [on Twitter](https://twitter.com/huggingface)! 🤗
 
-This project's goal is to experiment with an extensible way for users and organizations to host demos/apps on huggingface.co, in a more productized/scalable way than we’ve done in the past.
+---
+
+## Reference
+
+**`title`** : _string_
+Display title for the Space.
+
+**`emoji`** : _string_
+Space emoji (emoji-only character allowed).
+
+**`colorFrom`** : _string_
+Color for Thumbnail gradient (red, yellow, green, blue, indigo, purple, pink, gray).
+
+**`colorTo`** : _string_
+Color for Thumbnail gradient (red, yellow, green, blue, indigo, purple, pink, gray).
+
+**`sdk`** : _string_
+Can be either `gradio`, `streamlit` or `static`.
+
+**`sdk_version`** : _string_
+Only applicable for `streamlit` SDK. Currently available versions are :  
+`0.79.0, 0.80.0, 0.81.1, 0.82.0, 0.83.0, 0.84.2, 0.85.0, 0.86.0, 0.87.0, 0.88.0, 0.89.0, 1.0.0`.
+
+**`app_file`** : _string_
+Path to your main application file (which contains either `gradio` or `streamlit` Python code, or `static` html code).
+Path is relative to the root of the repository.
+
+**`pinned`** : _boolean_
+Whether the Space stays on top of your list.
+
+---
 
 ## Changelog
+
+#### [2021-10-20] - Add support for Streamlit 1.0
+- We now support all versions between 0.79.0 and 1.0.0
+
+#### [2021-09-07] - Streamlit version pinning
+- You can now choose which version of Streamlit will be installed within your Space
 
 #### [2021-09-06] - Upgrade Streamlit to `0.84.2`
 - Supporting Session State API

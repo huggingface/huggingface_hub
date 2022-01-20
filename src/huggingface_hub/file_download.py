@@ -21,6 +21,7 @@ from huggingface_hub import constants
 
 from . import __version__
 from .constants import (
+    DEFAULT_REVISION,
     HUGGINGFACE_CO_URL_TEMPLATE,
     HUGGINGFACE_HUB_CACHE,
     REPO_TYPES,
@@ -110,7 +111,7 @@ def hf_hub_url(
         repo_id = REPO_TYPES_URL_PREFIXES[repo_type] + repo_id
 
     if revision is None:
-        revision = "main"
+        revision = DEFAULT_REVISION
     return HUGGINGFACE_CO_URL_TEMPLATE.format(
         repo_id=repo_id, revision=revision, filename=filename
     )
@@ -148,11 +149,11 @@ def filename_to_url(filename, cache_dir=None) -> Tuple[str, str]:
 
     cache_path = os.path.join(cache_dir, filename)
     if not os.path.exists(cache_path):
-        raise EnvironmentError("file {} not found".format(cache_path))
+        raise EnvironmentError(f"file {cache_path} not found")
 
     meta_path = cache_path + ".json"
     if not os.path.exists(meta_path):
-        raise EnvironmentError("file {} not found".format(meta_path))
+        raise EnvironmentError(f"file {meta_path} not found")
 
     with open(meta_path, encoding="utf-8") as meta_file:
         metadata = json.load(meta_file)
@@ -171,17 +172,17 @@ def http_user_agent(
     Formats a user-agent string with basic info about a request.
     """
     if library_name is not None:
-        ua = "{}/{}".format(library_name, library_version)
+        ua = f"{library_name}/{library_version}"
     else:
         ua = "unknown/None"
-    ua += "; hf_hub/{}".format(__version__)
-    ua += "; python/{}".format(_PY_VERSION)
+    ua += f"; hf_hub/{__version__}"
+    ua += f"; python/{_PY_VERSION}"
     if is_torch_available():
-        ua += "; torch/{}".format(_torch_version)
+        ua += f"; torch/{_torch_version}"
     if is_tf_available():
-        ua += "; tensorflow/{}".format(_tf_version)
+        ua += f"; tensorflow/{_tf_version}"
     if isinstance(user_agent, dict):
-        ua += "; " + "; ".join("{}/{}".format(k, v) for k, v in user_agent.items())
+        ua += "; " + "; ".join(f"{k}/{v}" for k, v in user_agent.items())
     elif isinstance(user_agent, str):
         ua += "; " + user_agent
     return ua
@@ -327,14 +328,14 @@ def cached_download(
         )
     }
     if isinstance(use_auth_token, str):
-        headers["authorization"] = "Bearer {}".format(use_auth_token)
+        headers["authorization"] = f"Bearer {use_auth_token}"
     elif use_auth_token:
         token = HfFolder.get_token()
         if token is None:
             raise EnvironmentError(
                 "You specified use_auth_token=True, but a huggingface token was not found."
             )
-        headers["authorization"] = "Bearer {}".format(token)
+        headers["authorization"] = f"Bearer {token}"
 
     url_to_download = url
     etag = None

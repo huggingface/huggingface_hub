@@ -3,14 +3,13 @@ from io import BytesIO
 from unittest import TestCase, skipIf
 
 import PIL
-from app.main import ALLOWED_TASKS
 from parameterized import parameterized_class
 from starlette.testclient import TestClient
 from tests.test_api import TESTABLE_MODELS
 
 
 @skipIf(
-    "text-to-image" not in ALLOWED_TASKS,
+    "text-to-image" not in TESTABLE_MODELS,
     "text-to-image not implemented",
 )
 @parameterized_class(

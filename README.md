@@ -16,8 +16,8 @@ What can you find in this repo?
 
 * [`huggingface_hub`](https://github.com/huggingface/huggingface_hub/tree/main/src/huggingface_hub), a client library to download and publish on the Hugging Face Hub as well as extracting useful information from there.
 * [`api-inference-community`](https://github.com/huggingface/huggingface_hub/tree/main/api-inference-community), the Inference API for open source machine learning libraries.
-* [`widgets`](https://github.com/huggingface/huggingface_hub/tree/main/widgets), the open sourced widgets that allow people to try out the models in the browser.
-  * [`interfaces`](https://github.com/huggingface/huggingface_hub/tree/main/widgets/src/lib/interfaces), Typescript definition files for the Hugging Face Hub.
+* [`js`](https://github.com/huggingface/huggingface_hub/tree/main/js), the open sourced widgets that allow people to try out the models in the browser.
+  * [`interfaces`](https://github.com/huggingface/huggingface_hub/tree/main/js/src/lib/interfaces), Typescript definition files for the Hugging Face Hub.
 * [`docs`](https://github.com/huggingface/huggingface_hub/tree/main/docs), containing the official [Hugging Face Hub documentation](https://hf.co/docs).
 
 ## The `huggingface_hub` client library
