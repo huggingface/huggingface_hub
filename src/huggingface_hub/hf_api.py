@@ -611,7 +611,7 @@ class HfApi:
         """
         Get the list of files in a given repo.
         """
-        if repo_type is None:
+        if repo_type is None or repo_type == "model":
             info = self.model_info(
                 repo_id, revision=revision, token=token, timeout=timeout
             )
@@ -708,7 +708,7 @@ class HfApi:
         Params:
             private: Whether the model repo should be private (requires a paid huggingface.co account)
 
-            repo_type: Set to "dataset" or "space" if creating a dataset or space, default is model
+            repo_type: Set to :obj:`"dataset"` or :obj:`"space"` if uploading to a dataset or space, :obj:`None` or :obj:`"model"` if uploading to a model. Default is :obj:`None`.
 
             exist_ok: Do not raise an error if repo already exists
 
@@ -743,7 +743,8 @@ class HfApi:
 
         json = {"name": name, "organization": organization, "private": private}
         if repo_type is not None:
-            json["type"] = repo_type
+            if repo_type != "model":
+                json["type"] = repo_type
             if repo_type == "space":
                 if space_sdk is None:
                     raise ValueError(
@@ -822,7 +823,7 @@ class HfApi:
             raise ValueError("Invalid repo type")
 
         json = {"name": name, "organization": organization}
-        if repo_type is not None:
+        if repo_type is not None and repo_type != "model":
             json["type"] = repo_type
 
         r = requests.delete(
@@ -913,7 +914,7 @@ class HfApi:
                 Authentication token, obtained with :function:`HfApi.login` method. Will default to the stored token.
 
             repo_type (``str``, Optional):
-                Set to :obj:`"dataset"` or :obj:`"space"` if uploading to a dataset or space, :obj:`None` if uploading to a model. Default is :obj:`None`.
+                Set to :obj:`"dataset"` or :obj:`"space"` if uploading to a dataset or space, :obj:`None` or :obj:`"model"` if uploading to a model. Default is :obj:`None`.
 
             revision (``str``, Optional):
                 The git revision to commit from. Defaults to the :obj:`"main"` branch.
@@ -1049,7 +1050,7 @@ class HfApi:
                 Authentication token, obtained with :function:`HfApi.login` method. Will default to the stored token.
 
             repo_type (``str``, Optional):
-                Set to :obj:`"dataset"` or :obj:`"space"` if the file is in a dataset or space repository, :obj:`None` if in a model. Default is :obj:`None`.
+                Set to :obj:`"dataset"` or :obj:`"space"` if uploading to a dataset or space, :obj:`None` or :obj:`"model"` if uploading to a model. Default is :obj:`None`.
 
             revision (``str``, Optional):
                 The git revision to commit from. Defaults to the :obj:`"main"` branch.
