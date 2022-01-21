@@ -1870,9 +1870,8 @@ class HfApi:
 
         if "error" in d:
             logger.error(d["error"])
-            
-        return d.get("url", None)
 
+        return d.get("url", None)
 
     @_deprecate_positional_args
     def delete_file(
