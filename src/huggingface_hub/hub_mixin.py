@@ -261,7 +261,6 @@ class ModelHubMixin:
             repo_url = HfApi(endpoint=api_endpoint).create_repo(
                 token,
                 repo_name,
-                token=token,
                 organization=organization,
                 private=private,
                 repo_type=None,
@@ -287,9 +286,9 @@ class ModelHubMixin:
                 common_prefix = os.path.commonprefix([saved_path, file])
                 relative_path = os.path.relpath(file, common_prefix)
                 api.upload_file(
-                    token,
                     file,
                     path_in_repo=relative_path,
+                    token=token,
                     repo_id=name,
                     commit_message=commit_message,
                 )

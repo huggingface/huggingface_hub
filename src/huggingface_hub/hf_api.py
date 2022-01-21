@@ -12,6 +12,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+import logging
 import os
 import re
 import subprocess
@@ -31,7 +32,6 @@ from .constants import (
     REPO_TYPES_URL_PREFIXES,
     SPACES_SDK_TYPES,
 )
-from .utils import logging
 from .utils.endpoint_helpers import (
     AttributeDictionary,
     DatasetFilter,
@@ -52,8 +52,6 @@ USERNAME_PLACEHOLDER = "hf_user"
 REMOTE_FILEPATH_REGEX = re.compile(r"^\w[\w\/\-]*(\.\w+)?$")
 # ^^ No trailing slash, no backslash, no spaces, no relative parts ("." or "..")
 #    Only word characters and an optional extension
-
-logger = logging.get_logger(__name__)
 
 
 def repo_type_and_id_from_hf_id(hf_id: str):
@@ -1365,7 +1363,7 @@ class HfApi:
         d = r.json()
 
         if "error" in d:
-            logger.error(d["error"])
+            logging.error(d["error"])
 
         return d.get("url", None)
 
