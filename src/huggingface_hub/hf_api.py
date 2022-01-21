@@ -1050,7 +1050,7 @@ class HfApi:
                 Authentication token, obtained with :function:`HfApi.login` method. Will default to the stored token.
 
             repo_type (``str``, Optional):
-                Set to :obj:`"dataset"` or :obj:`"space"` if uploading to a dataset or space, :obj:`None` or :obj:`"model"` if uploading to a model. Default is :obj:`None`.
+                Set to :obj:`"dataset"` or :obj:`"space"` if the file is in a dataset or space, :obj:`None` or :obj:`"model"` if in a model. Default is :obj:`None`.
 
             revision (``str``, Optional):
                 The git revision to commit from. Defaults to the :obj:`"main"` branch.
