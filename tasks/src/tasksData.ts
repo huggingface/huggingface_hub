@@ -1,7 +1,6 @@
 import { PipelineType } from "../../js/src/lib/interfaces/Types";
 import type { TaskData } from "./Types";
 
-
 import audioClassification from "./audio-classification/data";
 import audioToAudio from "./audio-to-audio/data";
 import automaticSpeechRecognition from "./automatic-speech-recognition/data";
@@ -18,20 +17,39 @@ import translation from "./translation/data";
 import textClassification from "./text-classification/data";
 import textGeneration from "./text-generation/data";
 
-export const TASKS_DATA: Partial<Record<keyof typeof PipelineType, TaskData>> = {
-	"audio-classification":         audioClassification,
-	"audio-to-audio":               audioToAudio,
-	"automatic-speech-recognition": automaticSpeechRecognition,
-	"fill-mask":                    fillMask,
-	"image-classification":         imageClassification,
-	"image-segmentation":           imageSegmentation,
-	"object-detection":             objectDetection,
-	"question-answering":           questionAnswering,
-	"sentence-similarity":          sentenceSimilarity,
-	"summarization":                summarization,
-	"text-classification":          textClassification,
-	"text-generation":              textGeneration,
-	"text-to-speech":               textToSpeech,
-	"token-classification":         tokenClassification,
-	"translation":                  translation,
+
+// To make comparisons easier, task order is the same as in /lib/interfaces/Types.ts
+export const TASKS_DATA: Record<
+	keyof typeof PipelineType,
+	TaskData | undefined
+> = {
+	/// nlp
+	"text-classification":            textClassification,
+	"token-classification":           tokenClassification,
+	"table-question-answering":       undefined,
+	"question-answering":             questionAnswering,
+	"zero-shot-classification":       undefined,
+	"translation":                    translation,
+	"summarization":                  summarization,
+	"conversational":                 undefined,
+	"feature-extraction":             undefined,
+	// note: text-generation and text2text-generation share the same task page data
+	"text-generation":                textGeneration,
+	"text2text-generation":           textGeneration,
+	"fill-mask":                      fillMask,
+	"sentence-similarity":            sentenceSimilarity,
+	/// audio
+	"text-to-speech":                 textToSpeech,
+	"automatic-speech-recognition":   automaticSpeechRecognition,
+	"audio-to-audio":                 audioToAudio,
+	"audio-classification":           audioClassification,
+	"voice-activity-detection":       undefined,
+	/// computer vision
+	"image-classification":           imageClassification,
+	"object-detection":               objectDetection,
+	"image-segmentation":             imageSegmentation,
+	"text-to-image":                  undefined,
+	"image-to-text":                  undefined,
+	/// others
+	"structured-data-classification": undefined,
 } as const;
