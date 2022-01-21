@@ -149,7 +149,8 @@ class HfApiEndpointsTest(HfApiCommonTestWithLogin):
         self.assertEqual(info["name"], USER)
         self.assertEqual(info["fullname"], FULL_NAME)
         self.assertIsInstance(info["orgs"], list)
-        self.assertIsInstance(info["orgs"][0]["apiToken"], str)
+        valid_org = [org for org in info["orgs"] if org["name"] == "valid_org"][0]
+        self.assertIsInstance(valid_org["apiToken"], str)
 
     def test_create_update_and_delete_repo(self):
         REPO_NAME = repo_name("crud")
