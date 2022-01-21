@@ -1,4 +1,4 @@
-import { PipelineType } from "../../js/src/lib/interfaces/Types";
+import type { PipelineType } from "../../js/src/lib/interfaces/Types";
 import type { TaskData } from "./Types";
 
 import audioClassification from "./audio-classification/data";
