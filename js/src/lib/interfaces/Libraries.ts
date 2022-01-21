@@ -283,7 +283,7 @@ import fasttext
 
 model = fasttext.load_model(hf_hub_download("${model.id}", "model.bin"))`;
 
-const stable-baselines3 = (model: ModelData) =>
+const stableBaselines3 = (model: ModelData) =>
 	`from huggingface_sb3 import load_from_hub
 	checkpoint = load_from_hub(
     		repo_id="${model.id}",
@@ -402,7 +402,7 @@ export const MODEL_LIBRARIES_UI_ELEMENTS: { [key in keyof typeof ModelLibrary]?:
 		btnLabel: "stable-baselines3",
 		repoName: "stable-baselines3",
 		repoUrl:  "https://github.com/huggingface/huggingface_sb3",
-		snippet:  stable-baselines3,
+		snippet:  stableBaselines3,
 	},
 } as const;
 
