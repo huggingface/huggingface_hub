@@ -1,4 +1,6 @@
 <script lang="ts">
+	import { TASKS_DATA } from "../../../../../../../tasks/src/tasksData";
+
 	import IconInfo from "../../../Icons/IconInfo.svelte";
 	import IconLightning from "../../../Icons/IconLightning.svelte";
 	import ModelPipelineTag from "../../../ModelPipelineTag/ModelPipelineTag.svelte";
@@ -22,7 +24,16 @@
 	class="flex items-center justify-between flex-wrap w-full max-w-full text-sm text-gray-500 mb-0.5"
 >
 	{#if pipeline}
-		<ModelPipelineTag classNames="mr-2 mb-1.5" {pipeline} />
+		<a
+			class={TASKS_DATA[pipeline] ? "hover:underline" : undefined}
+			href={TASKS_DATA[pipeline] ? `/tasks/${pipeline}` : undefined}
+			target="_blank"
+			title={TASKS_DATA[pipeline]
+				? "Learn more about {PipelineType[pipeline]}"
+				: undefined}
+		>
+			<ModelPipelineTag classNames="mr-2 mb-1.5" {pipeline} />
+		</a>
 	{/if}
 	<slot />
 </div>
