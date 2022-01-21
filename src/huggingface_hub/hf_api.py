@@ -12,7 +12,6 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-import logging
 import os
 import re
 import subprocess
@@ -32,6 +31,7 @@ from .constants import (
     REPO_TYPES_URL_PREFIXES,
     SPACES_SDK_TYPES,
 )
+from .utils import logging
 from .utils.endpoint_helpers import (
     AttributeDictionary,
     DatasetFilter,
@@ -426,7 +426,7 @@ class HfApi:
 
         Throws: requests.exceptions.HTTPError if credentials are invalid
         """
-        logging.error(
+        logger.error(
             "HfApi.login: This method is deprecated in favor of `set_access_token`."
         )
         path = f"{self.endpoint}/api/login"
@@ -471,7 +471,7 @@ class HfApi:
             token (``str``, `optional`):
                 Hugging Face token. Will default to the locally saved token if not provided.
         """
-        logging.error("This method is deprecated in favor of `unset_access_token`.")
+        logger.error("This method is deprecated in favor of `unset_access_token`.")
         if token is None:
             token = HfFolder.get_token()
         if token is None:
@@ -1356,9 +1356,8 @@ class HfApi:
 
         if "error" in d:
             logger.error(d["error"])
-            
-        return d.get("url", None)
 
+        return d.get("url", None)
 
     def delete_file(
         self,
