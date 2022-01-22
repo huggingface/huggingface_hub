@@ -742,20 +742,19 @@ class HfApi:
             raise ValueError("Invalid repo type")
 
         json = {"name": name, "organization": organization, "private": private}
-        if repo_type is not None:
-            if repo_type != "model":
-                json["type"] = repo_type
-            if repo_type == "space":
-                if space_sdk is None:
-                    raise ValueError(
-                        "No space_sdk provided. `create_repo` expects space_sdk to be one of "
-                        f"{SPACES_SDK_TYPES} when repo_type is 'space'`"
-                    )
-                if space_sdk not in SPACES_SDK_TYPES:
-                    raise ValueError(
-                        f"Invalid space_sdk. Please choose one of {SPACES_SDK_TYPES}."
-                    )
-                json["sdk"] = space_sdk
+        if repo_type is not None and repo_type != "model":
+            json["type"] = repo_type
+        elif repo_type == "space":
+            if space_sdk is None:
+                raise ValueError(
+                    "No space_sdk provided. `create_repo` expects space_sdk to be one of "
+                    f"{SPACES_SDK_TYPES} when repo_type is 'space'`"
+                )
+            if space_sdk not in SPACES_SDK_TYPES:
+                raise ValueError(
+                    f"Invalid space_sdk. Please choose one of {SPACES_SDK_TYPES}."
+                )
+            json["sdk"] = space_sdk
         if space_sdk is not None and repo_type != "space":
             warnings.warn(
                 "Ignoring provided space_sdk because repo_type is not 'space'."
