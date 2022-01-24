@@ -427,7 +427,7 @@ class HfApi:
         logging.error(
             "HfApi.login: This method is deprecated in favor of `set_access_token`."
         )
-        path = f"{self.endpoint}/login"
+        path = f"{self.endpoint}/api/login"
         r = requests.post(path, json={"username": username, "password": password})
         r.raise_for_status()
         d = r.json()
@@ -480,7 +480,7 @@ class HfApi:
         username = self.whoami(token)["name"]
         erase_from_credential_store(username)
 
-        path = f"{self.endpoint}/logout"
+        path = f"{self.endpoint}/api/logout"
         r = requests.post(path, headers={"authorization": f"Bearer {token}"})
         r.raise_for_status()
 
