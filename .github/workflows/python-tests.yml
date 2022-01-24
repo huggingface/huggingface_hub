@@ -37,6 +37,9 @@ jobs:
           pip install --upgrade pip
           pip install .[testing]
 
+          apt install -y libsndfile1-dev
+          pip install datasets[audio]
+
       - run: pytest -sv ./tests/
 
   build_pytorch:
