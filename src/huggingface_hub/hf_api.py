@@ -1039,7 +1039,7 @@ class HfApi:
         json = {"name": name, "organization": organization, "private": private}
         if repo_type is not None:
             json["type"] = repo_type
-        elif repo_type == "space":
+        if repo_type == "space":
             if space_sdk is None:
                 raise ValueError(
                     "No space_sdk provided. `create_repo` expects space_sdk to be one of "
