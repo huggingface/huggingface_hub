@@ -28,6 +28,7 @@ import requests
 from huggingface_hub.commands.user import _login
 from huggingface_hub.constants import (
     REPO_TYPE_DATASET,
+    REPO_TYPE_MODEL,
     REPO_TYPE_SPACE,
     SPACES_SDK_TYPES,
 )
@@ -164,6 +165,23 @@ class HfApiEndpointsTest(HfApiCommonTestWithLogin):
         )
         self.assertFalse(res["private"])
         self._api.delete_repo(name=REPO_NAME, token=self._token)
+
+    def test_create_update_and_delete_model_repo(self):
+        REPO_NAME = repo_name("crud")
+        self._api.create_repo(
+            name=REPO_NAME, token=self._token, repo_type=REPO_TYPE_MODEL
+        )
+        res = self._api.update_repo_visibility(
+            name=REPO_NAME, token=self._token, private=True, repo_type=REPO_TYPE_MODEL
+        )
+        self.assertTrue(res["private"])
+        res = self._api.update_repo_visibility(
+            name=REPO_NAME, token=self._token, private=False, repo_type=REPO_TYPE_MODEL
+        )
+        self.assertFalse(res["private"])
+        self._api.delete_repo(
+            name=REPO_NAME, token=self._token, repo_type=REPO_TYPE_MODEL
+        )
 
     def test_create_update_and_delete_dataset_repo(self):
         DATASET_REPO_NAME = dataset_repo_name("crud")
