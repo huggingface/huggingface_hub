@@ -1213,6 +1213,7 @@ class HfApi:
         path_or_fileobj: Union[str, bytes, IO],
         path_in_repo: str,
         repo_id: str,
+        commit_message: Optional[str] = None,
         token: Optional[str] = None,
         repo_type: Optional[str] = None,
         revision: Optional[str] = None,
@@ -1232,7 +1233,10 @@ class HfApi:
             repo_id (``str``):
                 The repository to which the file will be uploaded, for example: :obj:`"username/custom_transformers"`
 
-            token (``str``):
+            commit_message (``str``, Optional):
+                A commit message to be logged in the revision history when pushing this file. Defaults to "Upload" or "Update"
+
+            token (``str``, Optional):
                 Authentication token, obtained with :function:`HfApi.login` method. Will default to the stored token.
 
             repo_type (``str``, Optional):
@@ -1332,7 +1336,11 @@ class HfApi:
 
         path = f"{self.endpoint}/api/{repo_id}/upload/{revision}/{path_in_repo}"
 
-        headers = {"authorization": f"Bearer {token}"} if token is not None else None
+        headers = {}
+        if token is not None:
+            headers["authorization"] = f"Bearer {token}"
+        if commit_message is not None:
+            headers["Commit-Summary"] = commit_message
 
         if isinstance(path_or_fileobj, str):
             with open(path_or_fileobj, "rb") as bytestream:
