@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { PipelineType } from "src/lib/interfaces/Types";
+	import { PipelineType } from "../../../../interfaces/Types";
 	import { TASKS_DATA } from "../../../../../../../tasks/src/tasksData";
 
 	import IconInfo from "../../../Icons/IconInfo.svelte";
