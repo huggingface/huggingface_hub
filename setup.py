@@ -34,6 +34,7 @@ extras["tensorflow"] = [
 extras["testing"] = [
     "pytest",
     "datasets",
+    "soundfile",
 ]
 
 extras["quality"] = [
