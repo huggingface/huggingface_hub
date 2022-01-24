@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { PipelineType } from "src/lib/interfaces/Types";
 	import { TASKS_DATA } from "../../../../../../../tasks/src/tasksData";
 
 	import IconInfo from "../../../Icons/IconInfo.svelte";
@@ -29,7 +30,7 @@
 			href={TASKS_DATA[pipeline] ? `/tasks/${pipeline}` : undefined}
 			target="_blank"
 			title={TASKS_DATA[pipeline]
-				? "Learn more about {PipelineType[pipeline]}"
+				? `Learn more about ${PipelineType[pipeline]}`
 				: undefined}
 		>
 			<ModelPipelineTag classNames="mr-2 mb-1.5" {pipeline} />
