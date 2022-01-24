@@ -1037,7 +1037,7 @@ class HfApi:
             raise ValueError("Invalid repo type")
 
         json = {"name": name, "organization": organization, "private": private}
-        if repo_type is not None and repo_type != "model":
+        if repo_type is not None:
             json["type"] = repo_type
         elif repo_type == "space":
             if space_sdk is None:
@@ -1143,7 +1143,7 @@ class HfApi:
             raise ValueError("Invalid repo type")
 
         json = {"name": name, "organization": organization}
-        if repo_type is not None and repo_type != "model":
+        if repo_type is not None:
             json["type"] = repo_type
 
         r = requests.delete(
