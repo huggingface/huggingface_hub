@@ -1727,6 +1727,7 @@ class HfApi:
         path_or_fileobj: Union[str, bytes, IO],
         path_in_repo: str,
         repo_id: str,
+        commit_message: Optional[str] = None,
         token: Optional[str] = None,
         repo_type: Optional[str] = None,
         revision: Optional[str] = None,
@@ -1846,7 +1847,11 @@ class HfApi:
 
         path = f"{self.endpoint}/api/{repo_id}/upload/{revision}/{path_in_repo}"
 
-        headers = {"authorization": f"Bearer {token}"} if token is not None else None
+        headers = {}
+        if token is not None:
+            headers["authorization"] = f"Bearer {token}"
+        if commit_message is not None:
+            headers["Commit-Summary"] = commit_message
 
         if isinstance(path_or_fileobj, str):
             with open(path_or_fileobj, "rb") as bytestream:

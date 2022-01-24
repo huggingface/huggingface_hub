@@ -59,7 +59,7 @@ class ModelHubMixin:
                 json.dump(config, f)
 
         # saving model weights/files
-        files = self._save_pretrained(save_directory, **kwargs)
+        files = self._save_pretrained(save_directory)
 
         if push_to_hub:
             return self.push_to_hub(save_directory, **kwargs)
@@ -321,7 +321,13 @@ class ModelHubMixin:
             for file in files:
                 common_prefix = os.path.commonprefix([saved_path, file])
                 relative_path = os.path.relpath(file, common_prefix)
-                api.upload_file(token, file, path_in_repo=relative_path, repo_id=name)
+                api.upload_file(
+                    file,
+                    path_in_repo=relative_path,
+                    token=token,
+                    repo_id=name,
+                    commit_message=commit_message,
+                )
 
 
 class PyTorchModelHubMixin(ModelHubMixin):
