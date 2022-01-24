@@ -22,6 +22,7 @@ export enum ModelLibrary {
 	"transformers"           = "Transformers",
 	"stanza"                 = "Stanza",
 	"fasttext"               = "fastText",
+	"stable-baselines3"      = "Stable-Baselines3",
 }
 
 export const ALL_MODEL_LIBRARY_KEYS = Object.keys(ModelLibrary) as (keyof typeof ModelLibrary)[];
@@ -282,6 +283,13 @@ import fasttext
 
 model = fasttext.load_model(hf_hub_download("${model.id}", "model.bin"))`;
 
+const stableBaselines3 = (model: ModelData) =>
+	`from huggingface_sb3 import load_from_hub
+	checkpoint = load_from_hub(
+    		repo_id="${model.id}",
+    		filename="{MODEL FILENAME}",
+	)`;
+
 //#endregion
 
 
@@ -389,6 +397,12 @@ export const MODEL_LIBRARIES_UI_ELEMENTS: { [key in keyof typeof ModelLibrary]?:
 		repoName: "fastText",
 		repoUrl:  "https://fasttext.cc/",
 		snippet:  fasttext,
+	},
+	"stable-baselines3": {
+		btnLabel: "stable-baselines3",
+		repoName: "stable-baselines3",
+		repoUrl:  "https://github.com/huggingface/huggingface_sb3",
+		snippet:  stableBaselines3,
 	},
 } as const;
 

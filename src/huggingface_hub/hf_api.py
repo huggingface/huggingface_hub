@@ -12,7 +12,6 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-import logging
 import os
 import re
 import subprocess
@@ -32,6 +31,7 @@ from .constants import (
     REPO_TYPES_URL_PREFIXES,
     SPACES_SDK_TYPES,
 )
+from .utils import logging
 from .utils.endpoint_helpers import (
     AttributeDictionary,
     DatasetFilter,
@@ -52,6 +52,8 @@ USERNAME_PLACEHOLDER = "hf_user"
 REMOTE_FILEPATH_REGEX = re.compile(r"^\w[\w\/\-]*(\.\w+)?$")
 # ^^ No trailing slash, no backslash, no spaces, no relative parts ("." or "..")
 #    Only word characters and an optional extension
+
+logger = logging.get_logger(__name__)
 
 
 def repo_type_and_id_from_hf_id(hf_id: str):
@@ -424,7 +426,7 @@ class HfApi:
 
         Throws: requests.exceptions.HTTPError if credentials are invalid
         """
-        logging.error(
+        logger.error(
             "HfApi.login: This method is deprecated in favor of `set_access_token`."
         )
         path = f"{self.endpoint}/api/login"
@@ -469,7 +471,7 @@ class HfApi:
             token (``str``, `optional`):
                 Hugging Face token. Will default to the locally saved token if not provided.
         """
-        logging.error("This method is deprecated in favor of `unset_access_token`.")
+        logger.error("This method is deprecated in favor of `unset_access_token`.")
         if token is None:
             token = HfFolder.get_token()
         if token is None:
@@ -1306,15 +1308,13 @@ class HfApi:
         if isinstance(path_or_fileobj, str):
             path_or_fileobj = os.path.normpath(os.path.expanduser(path_or_fileobj))
             if not os.path.isfile(path_or_fileobj):
-                raise ValueError(
-                    "Provided path: '{}' is not a file".format(path_or_fileobj)
-                )
+                raise ValueError(f"Provided path: '{path_or_fileobj}' is not a file")
             if os.stat(path_or_fileobj).st_size // 1_000_000_000 >= 5:
                 raise ValueError(
                     f"The file {path_or_fileobj} is larger than 5GB and cannot be uploaded "
                     "with `upload_file`. Please use the `Repository` object instead."
                 )
-        elif not isinstance(path_or_fileobj, (RawIOBase, BufferedIOBase)):
+        elif not isinstance(path_or_fileobj, (RawIOBase, BufferedIOBase, bytes)):
             # ^^ Test from: https://stackoverflow.com/questions/44584829/how-to-determine-if-file-is-opened-in-binary-or-text-mode
             raise ValueError(
                 "path_or_fileobj must be either an instance of str or BinaryIO. "
@@ -1363,7 +1363,7 @@ class HfApi:
         d = r.json()
 
         if "error" in d:
-            logging.error(d["error"])
+            logger.error(d["error"])
 
         return d.get("url", None)
 
@@ -1377,6 +1377,7 @@ class HfApi:
     ):
         """
         Deletes a file in the given repo.
+
 
         Params:
             path_in_repo (``str``):
