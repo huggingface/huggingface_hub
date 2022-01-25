@@ -292,6 +292,9 @@ The Unlicense	| `unlicense`
 zLib License	| `zlib`
 Open Data Commons Public Domain Dedication and License | `pddl`
 Lesser General Public License For Linguistic Resources | `lgpl-lr`
+Other	| `other`
+
+In case of `license: other` please add the license's text to a `LICENSE` file inside your repo (or contact us to add the license you use to this list).
 
 ## Why is it useful to calculate the carbon emissions of my model?
 
