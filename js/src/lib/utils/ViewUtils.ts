@@ -1,3 +1,5 @@
+import type { PipelineType } from "../interfaces/Types";
+
 const ESCAPED = {
 	'"': "&quot;",
 	"'": "&#39;",
@@ -97,6 +99,13 @@ export function hexToRgb(hex: string): number[]{
 			   ,(_, r, g, b) => '#' + r + r + g + g + b + b)
 	  .substring(1).match(/.{2}/g)
 	  ?.map(x => parseInt(x, 16)) || [0, 0, 0];
+}
+
+// Get the Task id corresponding to the modelPipeline (should be === in 99% cases)
+export function getPipelineTask(modelPipeline: keyof typeof PipelineType): string {
+	return modelPipeline === "text2text-generation"
+		? "text-generation"
+		: modelPipeline;
 }
 
 /*
