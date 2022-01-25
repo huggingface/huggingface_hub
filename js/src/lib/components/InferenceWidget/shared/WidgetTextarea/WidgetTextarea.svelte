@@ -9,7 +9,7 @@
 
 	let spanEl: HTMLSpanElement;
 
-	function insertTextAtCaret(text) {
+	function insertTextAtCaret(text: string) {
 		const sel = window.getSelection();
 		const range = sel.getRangeAt(0);
 		range.insertNode(document.createTextNode(text));
