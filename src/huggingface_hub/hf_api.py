@@ -31,6 +31,7 @@ from .constants import (
     REPO_TYPES_URL_PREFIXES,
     SPACES_SDK_TYPES,
 )
+from .file_upload import get_file_size, shard_file
 from .utils import logging
 from .utils.endpoint_helpers import (
     AttributeDictionary,
@@ -1341,31 +1342,35 @@ class HfApi:
             headers["authorization"] = f"Bearer {token}"
         if commit_message is not None:
             headers["Commit-Summary"] = commit_message
-
-        if isinstance(path_or_fileobj, str):
-            with open(path_or_fileobj, "rb") as bytestream:
-                r = requests.post(path, headers=headers, data=bytestream)
+        if get_file_size(path_or_fileobj) > 1024 * 1024:
+            return shard_file(
+                path_or_fileobj,
+                save_location=path,
+                headers=headers,
+                identical_ok=identical_ok,
+                repo_id=repo_id,
+            )
         else:
-            r = requests.post(path, headers=headers, data=path_or_fileobj)
-
-        try:
-            r.raise_for_status()
-        except HTTPError as err:
-            if identical_ok and err.response.status_code == 409:
-                from .file_download import hf_hub_url
-
-                return hf_hub_url(
-                    repo_id, path_in_repo, revision=revision, repo_type=repo_type
-                )
+            if isinstance(path_or_fileobj, str):
+                with open(path_or_fileobj, "rb") as bytestream:
+                    r = requests.post(path, headers=headers, data=bytestream)
             else:
-                raise err
+                r = requests.post(path, headers=headers, data=path_or_fileobj)
 
-        d = r.json()
+            try:
+                r.raise_for_status()
+            except HTTPError as err:
+                if identical_ok and err.response.status_code == 409:
+                    from .file_download import hf_hub_url
 
-        if "error" in d:
-            logger.error(d["error"])
+                    return hf_hub_url(
+                        repo_id, path_in_repo, revision=revision, repo_type=repo_type
+                    )
+                else:
+                    raise err
 
-        return d.get("url", None)
+            d = r.json()
+            return d["url"]
 
     def delete_file(
         self,
