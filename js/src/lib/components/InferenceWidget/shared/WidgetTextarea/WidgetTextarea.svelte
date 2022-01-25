@@ -1,29 +1,34 @@
 <script>
+	import { onMount } from "svelte";
+
 	import WidgetLabel from "../WidgetLabel/WidgetLabel.svelte";
 
 	export let label: string = "";
 	export let placeholder: string = "Your sentence here...";
 	export let value: string;
 
-	// hack to handle FireFox contenteditable bug
-	let innterHTML: string;
 	let spanEl: HTMLSpanElement;
-	const REGEX_SPAN = /<span .+>(.*)<\/span>/gms;
-	$: {
-		if (spanEl && innterHTML && REGEX_SPAN.test(innterHTML)) {
-			innterHTML = innterHTML.replace(REGEX_SPAN, (_, txt) => {
-				return txt;
-			});
-			spanEl.blur();
-		}
+
+	function insertTextAtCaret(text) {
+		const sel = window.getSelection();
+		const range = sel.getRangeAt(0);
+		range.insertNode(document.createTextNode(text));
+		range.collapse(false);
 	}
+
+	onMount(() => {
+		spanEl.addEventListener("paste", (e) => {
+			e.preventDefault();
+			const text = e.clipboardData.getData("text/plain");
+			insertTextAtCaret(text);
+		});
+	});
 </script>
 
 <WidgetLabel {label}>
 	<svelte:fragment slot="after">
 		<span
 			bind:textContent={value}
-			bind:innerHTML={innterHTML}
 			bind:this={spanEl}
 			class="{label
 				? 'mt-1.5'
