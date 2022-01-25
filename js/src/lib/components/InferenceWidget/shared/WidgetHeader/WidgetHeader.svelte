@@ -1,10 +1,16 @@
 <script lang="ts">
+	import type { PipelineType } from "../../../../interfaces/Types";
+
+	import { getPipelineTask } from "../../../../utils/ViewUtils";
+	import { TASKS_DATA } from "../../../../../../../tasks/src/tasksData";
 	import IconInfo from "../../../Icons/IconInfo.svelte";
 	import IconLightning from "../../../Icons/IconLightning.svelte";
 	import ModelPipelineTag from "../../../ModelPipelineTag/ModelPipelineTag.svelte";
 
 	export let noTitle = false;
-	export let pipeline: string | undefined;
+	export let pipeline: keyof typeof PipelineType | undefined;
+
+	$: task = pipeline ? getPipelineTask(pipeline) : undefined;
 </script>
 
 <div class="font-semibold flex items-center mb-2">
@@ -22,7 +28,14 @@
 	class="flex items-center justify-between flex-wrap w-full max-w-full text-sm text-gray-500 mb-0.5"
 >
 	{#if pipeline}
-		<ModelPipelineTag classNames="mr-2 mb-1.5" {pipeline} />
+		<a
+			class={TASKS_DATA[task] ? "hover:underline" : undefined}
+			href={TASKS_DATA[task] ? `/tasks/${task}` : undefined}
+			target="_blank"
+			title={TASKS_DATA[task] ? `Learn more about ${task}` : undefined}
+		>
+			<ModelPipelineTag classNames="mr-2 mb-1.5" {pipeline} />
+		</a>
 	{/if}
 	<slot />
 </div>

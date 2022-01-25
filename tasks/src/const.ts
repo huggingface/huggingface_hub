@@ -1,5 +1,5 @@
 import type { ModelLibrary } from "../../js/src/lib/interfaces/Libraries";
-import { PipelineType } from "../../js/src/lib/interfaces/Types";
+import type { PipelineType } from "../../js/src/lib/interfaces/Types";
 
 /*
  * Model libraries compatible with each ML task

@@ -2,7 +2,6 @@ import type { TaskData } from "../Types";
 
 import { PipelineType } from "../../../js/src/lib/interfaces/Types";
 import { TASKS_MODEL_LIBRARIES } from "../const";
-import { answers } from "../../../../views/components/Question/stores";
 
 const taskData: TaskData = {
 	datasets: [
@@ -22,12 +21,12 @@ const taskData: TaskData = {
 			{
 				label:   "Question",
 				content: "Which name is also used to describe the Amazon rainforest in English?",
-				type: "text",
+				type:    "text",
 			},
 			{
 				label:   "Context",
 				content: "The Amazon rainforest, also known in English as Amazonia or the Amazon Jungle",
-				type: "text",
+				type:    "text",
 			},
 		],
 		outputs: [
