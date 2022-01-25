@@ -33,9 +33,9 @@ export const TASKS_DATA: Record<
 	"summarization":                  summarization,
 	"conversational":                 undefined,
 	"feature-extraction":             undefined,
-	// note: text-generation and text2text-generation share the same task page data
 	"text-generation":                textGeneration,
-	"text2text-generation":           textGeneration,
+	// note: we don't have a text2text-generation task, we use text-generation instead
+	"text2text-generation":           undefined,
 	"fill-mask":                      fillMask,
 	"sentence-similarity":            sentenceSimilarity,
 	/// audio
