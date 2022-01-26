@@ -13,7 +13,7 @@
 
 	async function resize() {
 		if (!!textAreaEl) {
-			textAreaEl.style.height = "";
+			textAreaEl.style.height = "0px";
 			await tick();
 			textAreaEl.style.height =
 				Math.min(textAreaEl.scrollHeight, HEIGHT_LIMIT) + "px";
