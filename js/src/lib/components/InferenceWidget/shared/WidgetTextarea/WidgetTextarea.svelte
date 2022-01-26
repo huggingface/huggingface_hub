@@ -5,7 +5,7 @@
 	export let placeholder: string = "Your sentence here...";
 	export let value: string;
 
-	function handlePaste(e: ClipboardEvent){
+	function handlePaste(e: ClipboardEvent) {
 		e.preventDefault();
 
 		const text = e.clipboardData.getData("text/plain");
