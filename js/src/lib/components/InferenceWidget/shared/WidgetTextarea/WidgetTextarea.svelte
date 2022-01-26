@@ -1,5 +1,5 @@
 <script>
-	import { onMount, tick } from "svelte";
+	import { tick } from "svelte";
 
 	import WidgetLabel from "../WidgetLabel/WidgetLabel.svelte";
 
