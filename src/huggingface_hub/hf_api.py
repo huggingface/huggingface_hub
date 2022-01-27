@@ -31,7 +31,7 @@ from .constants import (
     REPO_TYPES_URL_PREFIXES,
     SPACES_SDK_TYPES,
 )
-from .file_upload import get_file_size, shard_file
+from .file_upload import shard_file
 from .utils import logging
 from .utils.endpoint_helpers import (
     AttributeDictionary,
@@ -1310,11 +1310,6 @@ class HfApi:
             path_or_fileobj = os.path.normpath(os.path.expanduser(path_or_fileobj))
             if not os.path.isfile(path_or_fileobj):
                 raise ValueError(f"Provided path: '{path_or_fileobj}' is not a file")
-            if os.stat(path_or_fileobj).st_size // 1_000_000_000 >= 5:
-                raise ValueError(
-                    f"The file {path_or_fileobj} is larger than 5GB and cannot be uploaded "
-                    "with `upload_file`. Please use the `Repository` object instead."
-                )
         elif not isinstance(path_or_fileobj, (RawIOBase, BufferedIOBase, bytes)):
             # ^^ Test from: https://stackoverflow.com/questions/44584829/how-to-determine-if-file-is-opened-in-binary-or-text-mode
             raise ValueError(
@@ -1342,35 +1337,8 @@ class HfApi:
             headers["authorization"] = f"Bearer {token}"
         if commit_message is not None:
             headers["Commit-Summary"] = commit_message
-        if get_file_size(path_or_fileobj) > 1024 * 1024:
-            return shard_file(
-                path_or_fileobj,
-                save_location=path,
-                headers=headers,
-                identical_ok=identical_ok,
-                repo_id=repo_id,
-            )
-        else:
-            if isinstance(path_or_fileobj, str):
-                with open(path_or_fileobj, "rb") as bytestream:
-                    r = requests.post(path, headers=headers, data=bytestream)
-            else:
-                r = requests.post(path, headers=headers, data=path_or_fileobj)
-
-            try:
-                r.raise_for_status()
-            except HTTPError as err:
-                if identical_ok and err.response.status_code == 409:
-                    from .file_download import hf_hub_url
-
-                    return hf_hub_url(
-                        repo_id, path_in_repo, revision=revision, repo_type=repo_type
-                    )
-                else:
-                    raise err
-
-            d = r.json()
-            return d["url"]
+        urls = shard_file(path, headers=headers, data=path_or_fileobj)
+        return urls
 
     def delete_file(
         self,
