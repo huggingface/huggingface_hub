@@ -1337,7 +1337,15 @@ class HfApi:
             headers["authorization"] = f"Bearer {token}"
         if commit_message is not None:
             headers["Commit-Summary"] = commit_message
-        urls = shard_file(path, headers=headers, data=path_or_fileobj)
+        urls = shard_file(
+            path,
+            headers=headers,
+            data=path_or_fileobj,
+            repo_id=repo_id,
+            repo_type=repo_type,
+            identical_ok=identical_ok,
+            revision=revision,
+        )
         return urls
 
     def delete_file(

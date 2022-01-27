@@ -1,6 +1,6 @@
 import os
 from pathlib import Path
-from typing import Union
+from typing import Optional, Union
 from urllib.error import HTTPError
 
 import requests
@@ -22,8 +22,10 @@ def shard_file(
     filename: Union[Path, str],
     shard_size: int = 1024 * 1024 * 20,
     headers: dict = {},
-    identical_ok: bool = True,
     repo_id: str = None,
+    repo_type: Optional[str] = None,
+    revision: Optional[str] = None,
+    identical_ok: bool = True,
 ):
     """
     Splits `filename` into shards of size `shard_size`.
@@ -41,16 +43,26 @@ def shard_file(
     with open(filename, "rb") as infile:
         for shard_idx in range(num_shards):
             file_bytes = infile.read(shard_size)
-            r = requests.post(
-                f"{filename}.{str(shard_idx).zfill(5)}-of-{str(num_shards).zfill(5)}",
-                headers=headers,
-                data=file_bytes,
+            path_in_repo = (
+                f"{filename}.{str(shard_idx).zfill(5)}-of-{str(num_shards).zfill(5)}"
             )
-            # Eventually make this more explicit
+            r = requests.post(path_in_repo, headers=headers, data=file_bytes)
             try:
                 r.raise_for_status()
             except HTTPError as err:
-                raise err
+                if identical_ok and err.response.status_code == 409:
+                    from .file_download import hf_hub_url
+
+                    urls.append(
+                        hf_hub_url(
+                            repo_id,
+                            path_in_repo,
+                            revision=revision,
+                            repo_type=repo_type,
+                        )
+                    )
+                else:
+                    raise err
             d = r.json()
             if "error" in d:
                 logger.error(d["error"])
