@@ -17,8 +17,12 @@ logger = logging.getLogger(__name__)
 
 
 def save_pretrained_keras(
-    model, save_directory: str, config: Optional[Dict[str, Any]] = None, include_optimizer: Optional[Bool] = False, 
-    **model_save_kwargs: Optional[Dict] = None):
+    model,
+    save_directory: str,
+    config: Optional[Dict[str, Any]] = None,
+    include_optimizer: Optional[Bool] = False,
+    **model_save_kwargs,
+):
     """Saves a Keras model to save_directory in SavedModel format. Use this if you're using the Functional or Sequential APIs.
 
     model:
@@ -54,7 +58,9 @@ def save_pretrained_keras(
         with open(path, "w") as f:
             json.dump(config, f)
 
-    tf.keras.models.save_model(model, save_directory, include_optimizer=include_optimizer, **model_save_kwargs)
+    tf.keras.models.save_model(
+        model, save_directory, include_optimizer=include_optimizer, **model_save_kwargs
+    )
 
 
 def from_pretrained_keras(*args, **kwargs):
@@ -74,7 +80,7 @@ def push_to_hub_keras(
     git_email: Optional[str] = None,
     config: Optional[dict] = None,
     include_optimizer: Optional[bool] = False,
-    **model_save_kwargs: Optional[dict] = None
+    **model_save_kwargs,
 ):
     """
     Upload model checkpoint or tokenizer files to the 🤗 Model Hub while synchronizing a local clone of the repo in
@@ -160,7 +166,9 @@ def push_to_hub_keras(
     )
     repo.git_pull(rebase=True)
 
-    save_pretrained_keras(model, repo_path_or_name, config=config, include_optimizer=include_optimizer)
+    save_pretrained_keras(
+        model, repo_path_or_name, config=config, include_optimizer=include_optimizer
+    )
 
     # Commit and push!
     repo.git_add(auto_lfs_track=True)
