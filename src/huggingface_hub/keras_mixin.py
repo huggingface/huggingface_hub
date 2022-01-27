@@ -17,8 +17,8 @@ logger = logging.getLogger(__name__)
 
 
 def save_pretrained_keras(
-    model, save_directory: str, include_optimizer: Optional[Bool], config: Optional[Dict[str, Any]] = None
-):
+    model, save_directory: str, config: Optional[Dict[str, Any]] = None, include_optimizer: Optional[Bool] = False, 
+    **model_save_kwargs: Optional[Dict] = None):
     """Saves a Keras model to save_directory in SavedModel format. Use this if you're using the Functional or Sequential APIs.
 
     model:
@@ -29,6 +29,8 @@ def save_pretrained_keras(
         Configuration object to be saved alongside the model weights.
     include_optimizer(:obj:`bool`, `optional`):
         Whether or not to include optimizer in serialization.
+    **model_save_kwargs(:obj:`dict`, `optional`):
+        Arguments other than default arguments that can be passed to tf.keras.models.save_model().
     """
     if is_tf_available():
         import tensorflow as tf
@@ -52,7 +54,7 @@ def save_pretrained_keras(
         with open(path, "w") as f:
             json.dump(config, f)
 
-    tf.keras.models.save_model(model, save_directory, include_optimizer)
+    tf.keras.models.save_model(model, save_directory, include_optimizer=include_optimizer, **model_save_kwargs)
 
 
 def from_pretrained_keras(*args, **kwargs):
@@ -72,6 +74,7 @@ def push_to_hub_keras(
     git_email: Optional[str] = None,
     config: Optional[dict] = None,
     include_optimizer: Optional[bool] = False,
+    **model_save_kwargs: Optional[dict] = None
 ):
     """
     Upload model checkpoint or tokenizer files to the 🤗 Model Hub while synchronizing a local clone of the repo in
@@ -109,6 +112,8 @@ def push_to_hub_keras(
             Configuration object to be saved alongside the model weights.
         include_optimizer (:obj:`bool`, `optional`):
             Whether or not to include optimizer during serialization.
+        **model_save_kwargs(:obj:`dict`, `optional`):
+            Arguments other than default arguments that can be passed to tf.keras.models.save_model().
 
     Returns:
         The url of the commit of your model in the given repository.
