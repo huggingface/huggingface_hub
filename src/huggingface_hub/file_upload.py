@@ -1,6 +1,6 @@
 import os
 from pathlib import Path
-from typing import Optional, Union
+from typing import Union
 from urllib.error import HTTPError
 
 import requests
@@ -76,7 +76,7 @@ def deshard_file(filename: Union[Path, str]):
     filenames = [o for o in parent.iterdir() if "-of-" in o.suffix]
     filenames.sort()
     if filename.exists() and len(filenames) > 0:
-        print(
+        logger.warn(
             f"Warning: {filename} exists. Assuming it is put together and ignoring shards"
         )
         return str(filename)
