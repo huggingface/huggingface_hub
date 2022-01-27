@@ -167,7 +167,11 @@ def push_to_hub_keras(
     repo.git_pull(rebase=True)
 
     save_pretrained_keras(
-        model, repo_path_or_name, config=config, include_optimizer=include_optimizer, **model_save_kwargs
+        model,
+        repo_path_or_name,
+        config=config,
+        include_optimizer=include_optimizer,
+        **model_save_kwargs,
     )
 
     # Commit and push!
