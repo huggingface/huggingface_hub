@@ -118,7 +118,7 @@ def push_to_hub_keras(
             Configuration object to be saved alongside the model weights.
         include_optimizer (:obj:`bool`, `optional`):
             Whether or not to include optimizer during serialization.
-        **model_save_kwargs(:obj:`dict`, `optional`):
+        model_save_kwargs(:obj:`dict`, `optional`):
             Arguments other than default arguments that can be passed to tf.keras.models.save_model().
 
     Returns:
