@@ -20,7 +20,7 @@ def save_pretrained_keras(
     model,
     save_directory: str,
     config: Optional[Dict[str, Any]] = None,
-    include_optimizer: Optional[Bool] = False,
+    include_optimizer: Optional[bool] = False,
     **model_save_kwargs,
 ):
     """Saves a Keras model to save_directory in SavedModel format. Use this if you're using the Functional or Sequential APIs.
@@ -167,7 +167,7 @@ def push_to_hub_keras(
     repo.git_pull(rebase=True)
 
     save_pretrained_keras(
-        model, repo_path_or_name, config=config, include_optimizer=include_optimizer
+        model, repo_path_or_name, config=config, include_optimizer=include_optimizer, **model_save_kwargs
     )
 
     # Commit and push!
