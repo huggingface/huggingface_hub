@@ -99,6 +99,12 @@ _Note that SageMaker doesn’t support argparse actions. For example, if you wan
 
 Look [here](https://github.com/huggingface/notebooks/blob/master/sagemaker/01_getting_started_pytorch/scripts/train.py) for a complete example of a 🤗 Transformers training script.
 
+## Training Output Management
+
+`output_dir` defaults to '/opt/ml/model' which saves both checkpoints and models to '/opt/ml/model', and results in a large output `tar.gz` containing all checkpoint files and model. A large artifacts most of them possibly useless for deployment.
+
+If you want to persist checkpoints to Amazon S3 while saving only the final model in the `model.tar.gz` final training artifact, you can point Hugging Face Trainer’s `output_dir` to `/opt/ml/checkpoints` and at the end of your script save a specific model to the model location with `trainer.save_model(/opt/ml/model)`
+
 ## Create a Hugging Face Estimator
 
 Run 🤗 Transformers training scripts on SageMaker by creating a [Hugging Face Estimator](https://sagemaker.readthedocs.io/en/stable/frameworks/huggingface/sagemaker.huggingface.html#huggingface-estimator). The Estimator handles end-to-end SageMaker training. There are several parameters you should define in the Estimator:
