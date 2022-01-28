@@ -50,7 +50,7 @@ Some useful information on them:
 * License identifiers are the keywords listed in the right column of [this table](#list-of-license-identifiers).
 * Dataset, metric, and language identifiers are those listed on the [Datasets](https://huggingface.co/datasets), [Metrics](https://huggingface.co/metrics) and [Languages](https://huggingface.co/languages) pages and in the [`datasets`](https://github.com/huggingface/datasets) repository.
 
-You can even specify your **model's eval results** in a structured way, which will allow the Hub to parse them, display them, and even link to Papers With Code leaderboards. Again the specification for this is [here](https://github.com/huggingface/huggingface_hub/blame/main/modelcard.md).
+You can even specify your **model's eval results** in a structured way, which will allow the Hub to parse, display, and even link them to Papers With Code leaderboards. Specify this information [here](https://github.com/huggingface/huggingface_hub/blame/main/modelcard.md).
 
 
 Here is a partial example (omitting the eval results part):
