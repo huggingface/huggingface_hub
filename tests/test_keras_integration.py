@@ -192,11 +192,6 @@ class HubKerasSequentialTest(HubMixingTestKeras):
         REPO_NAME = repo_name("save")
         model = self.model_init()
 
-        with pytest.raises(ValueError, match="Model should be built*"):
-            save_pretrained_keras(
-                model, f"{WORKING_REPO_DIR}/{REPO_NAME}", include_optimizer=True
-            )
-
         model.build((None, 2))
 
         save_pretrained_keras(
@@ -211,14 +206,6 @@ class HubKerasSequentialTest(HubMixingTestKeras):
     def test_save_pretrained_kwargs(self):
         REPO_NAME = repo_name("save")
         model = self.model_init()
-
-        with pytest.raises(ValueError, match="Model should be built*"):
-            save_pretrained_keras(
-                model,
-                f"{WORKING_REPO_DIR}/{REPO_NAME}",
-                include_optimizer=False,
-                save_traces=False,
-            )
 
         model.build((None, 2))
 
