@@ -58,7 +58,6 @@ if is_tf_available():
         def call(self, x):
             return self.l1(x)
 
-
 else:
     DummyModel = None
 
@@ -179,23 +178,30 @@ class HubKerasSequentialTest(HubMixingTestKeras):
 
         model.build((None, 2))
 
-        save_pretrained_keras(model, f"{WORKING_REPO_DIR}/{REPO_NAME}",)
+        save_pretrained_keras(
+            model,
+            f"{WORKING_REPO_DIR}/{REPO_NAME}",
+        )
         files = os.listdir(f"{WORKING_REPO_DIR}/{REPO_NAME}")
 
         self.assertIn("saved_model.pb", files)
         self.assertIn("keras_metadata.pb", files)
         self.assertEqual(len(files), 4)
-    
+
     def test_save_pretrained_optimizer_weights(self):
         REPO_NAME = repo_name("save")
         model = self.model_init()
 
         with pytest.raises(ValueError, match="Model should be built*"):
-            save_pretrained_keras(model, f"{WORKING_REPO_DIR}/{REPO_NAME}", include_optimizer=True)
+            save_pretrained_keras(
+                model, f"{WORKING_REPO_DIR}/{REPO_NAME}", include_optimizer=True
+            )
 
         model.build((None, 2))
 
-        save_pretrained_keras(model, f"{WORKING_REPO_DIR}/{REPO_NAME}", include_optimizer=True)
+        save_pretrained_keras(
+            model, f"{WORKING_REPO_DIR}/{REPO_NAME}", include_optimizer=True
+        )
         files = os.listdir(f"{WORKING_REPO_DIR}/{REPO_NAME}")
 
         self.assertIn("saved_model.pb", files)
@@ -207,17 +213,26 @@ class HubKerasSequentialTest(HubMixingTestKeras):
         model = self.model_init()
 
         with pytest.raises(ValueError, match="Model should be built*"):
-            save_pretrained_keras(model, f"{WORKING_REPO_DIR}/{REPO_NAME}", include_optimizer=False, save_traces=False)
+            save_pretrained_keras(
+                model,
+                f"{WORKING_REPO_DIR}/{REPO_NAME}",
+                include_optimizer=False,
+                save_traces=False,
+            )
 
         model.build((None, 2))
 
-        save_pretrained_keras(model, f"{WORKING_REPO_DIR}/{REPO_NAME}", include_optimizer=False, save_traces=False)
+        save_pretrained_keras(
+            model,
+            f"{WORKING_REPO_DIR}/{REPO_NAME}",
+            include_optimizer=False,
+            save_traces=False,
+        )
         files = os.listdir(f"{WORKING_REPO_DIR}/{REPO_NAME}")
 
         self.assertIn("saved_model.pb", files)
         self.assertIn("keras_metadata.pb", files)
         self.assertEqual(len(files), 4)
-
 
     def test_from_pretrained_weights(self):
         REPO_NAME = repo_name("from_pretrained_weights")
@@ -284,7 +299,7 @@ class HubKerasSequentialTest(HubMixingTestKeras):
             git_user="ci",
             git_email="ci@dummy.com",
             config={"num": 7, "act": "gelu_fast"},
-            include_optimizer=False
+            include_optimizer=False,
         )
 
         model_info = HfApi(endpoint=ENDPOINT_STAGING).model_info(
@@ -293,7 +308,7 @@ class HubKerasSequentialTest(HubMixingTestKeras):
         self.assertEqual(model_info.modelId, f"{USER}/{REPO_NAME}")
 
         self._api.delete_repo(name=f"{REPO_NAME}", token=self._token)
-    
+
     def test_push_to_hub_model_kwargs(self):
         REPO_NAME = repo_name("PUSH_TO_HUB")
         model = self.model_init()
@@ -307,7 +322,7 @@ class HubKerasSequentialTest(HubMixingTestKeras):
             git_email="ci@dummy.com",
             config={"num": 7, "act": "gelu_fast"},
             include_optimizer=True,
-            save_traces=False
+            save_traces=False,
         )
 
         model_info = HfApi(endpoint=ENDPOINT_STAGING).model_info(
