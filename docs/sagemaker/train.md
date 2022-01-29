@@ -101,7 +101,7 @@ Look [here](https://github.com/huggingface/notebooks/blob/master/sagemaker/01_ge
 
 ## Training Output Management
 
-`output_dir` defaults to '/opt/ml/model' which saves both checkpoints and models to '/opt/ml/model', and results in a large output `tar.gz` containing all checkpoint files and model. A large artifacts most of them possibly useless for deployment.
+If `output_dir` in the `TrainingArguments` is set to '/opt/ml/model' the Trainer saves all training artifacts, including logs, checkpoints, and models. Amazon SageMaker archives the whole '/opt/ml/model' directory as `model.tar.gz` and uploads it at the end of the training job to Amazon S3. Depending on your Hyperparameters and `TrainingArguments` this could lead to a large artifact (> 5GB), which can slow down deployment for Amazon SageMaker Inference. 
 
 If you want to persist checkpoints to Amazon S3 while saving only the final model in the `model.tar.gz` final training artifact, you can point Hugging Face Trainer’s `output_dir` to `/opt/ml/checkpoints` and at the end of your script save a specific model to the model location with `trainer.save_model(/opt/ml/model)`
 
