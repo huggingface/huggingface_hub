@@ -104,8 +104,7 @@ Look [here](https://github.com/huggingface/notebooks/blob/master/sagemaker/01_ge
 If `output_dir` in the `TrainingArguments` is set to '/opt/ml/model' the Trainer saves all training artifacts, including logs, checkpoints, and models. Amazon SageMaker archives the whole '/opt/ml/model' directory as `model.tar.gz` and uploads it at the end of the training job to Amazon S3. Depending on your Hyperparameters and `TrainingArguments` this could lead to a large artifact (> 5GB), which can slow down deployment for Amazon SageMaker Inference. 
 You can control how checkpoints, logs, and artifacts are saved by customization the [TrainingArguments](https://huggingface.co/docs/transformers/master/en/main_classes/trainer#transformers.TrainingArguments). For example by providing `save_total_limit` as `TrainingArgument` you can control the limit of the total amount of checkpoints. Deletes the older checkpoints in `output_dir` if new ones are saved and the maximum limit is reached.
 
-
-If you want to persist checkpoints to Amazon S3 while saving only the final model in the `model.tar.gz` final training artifact, you can point Hugging Face Trainer’s `output_dir` to `/opt/ml/checkpoints` and at the end of your script save a specific model to the model location with `trainer.save_model(/opt/ml/model)`
+If you are using the HuggingFace framework estimator, you need to specify a checkpoint output path through hyperparameters. To enable checkpointing, set `output_dir` to `/opt/ml/checkpoints` in hyperparameters, and point `checkpoint_s3_uri` to an S3 location in your estimator ([see Use Checkpoints on Amazon SageMaker Documentation](https://docs.aws.amazon.com/sagemaker/latest/dg/model-checkpoints.html)).
 
 ## Create a Hugging Face Estimator
 
