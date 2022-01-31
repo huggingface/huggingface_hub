@@ -189,7 +189,6 @@ class HubKerasSequentialTest(HubMixingTestKeras):
         self.assertEqual(len(files), 4)
         model = from_pretrained_keras(f"{WORKING_REPO_DIR}/{REPO_NAME}")
         self.assertIsNone(model.optimizer)
-        
 
     def test_save_pretrained_optimizer_weights(self):
         REPO_NAME = repo_name("save")
@@ -226,11 +225,9 @@ class HubKerasSequentialTest(HubMixingTestKeras):
         self.assertIn("saved_model.pb", files)
         self.assertIn("keras_metadata.pb", files)
         self.assertEqual(len(files), 4)
-        
+
         model = from_pretrained_keras(f"{WORKING_REPO_DIR}/{REPO_NAME}")
         self.assertRaises(ValueError, msg="Exception encountered when calling layer*")
-        
-
 
     def test_from_pretrained_weights(self):
         REPO_NAME = repo_name("from_pretrained_weights")
