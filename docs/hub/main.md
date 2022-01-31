@@ -18,7 +18,7 @@ The Hugging Face Hub hosts Git-based repositories which are storage spaces that 
 The Hub currently hosts three different repo types:
 * models
 * datasets
-* Spaces *which are ML demo apps*
+* Spaces, *which are ML demo apps*
 
 These repositories have multiple advantages over other hosting solutions:
 
