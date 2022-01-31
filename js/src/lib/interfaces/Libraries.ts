@@ -287,7 +287,7 @@ const stableBaselines3 = (model: ModelData) =>
 	`from huggingface_sb3 import load_from_hub
 	checkpoint = load_from_hub(
     		repo_id="${model.id}",
-    		filename="{MODEL FILENAME}",
+    		filename="{MODEL FILENAME}.zip",
 	)`;
 
 //#endregion
