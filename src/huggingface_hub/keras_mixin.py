@@ -34,7 +34,7 @@ def save_pretrained_keras(
     include_optimizer(:obj:`bool`, `optional`):
         Whether or not to include optimizer in serialization.
     model_save_kwargs(:obj:`dict`, `optional`):
-        Arguments other than default arguments that can be passed to tf.keras.models.save_model().
+        model_save_kwargs will be passed to tf.keras.models.save_model().
     """
     if is_tf_available():
         import tensorflow as tf
@@ -119,7 +119,7 @@ def push_to_hub_keras(
         include_optimizer (:obj:`bool`, `optional`):
             Whether or not to include optimizer during serialization.
         model_save_kwargs(:obj:`dict`, `optional`):
-            Arguments other than default arguments that can be passed to tf.keras.models.save_model().
+            model_save_kwargs will be passed to tf.keras.models.save_model().
 
     Returns:
         The url of the commit of your model in the given repository.
