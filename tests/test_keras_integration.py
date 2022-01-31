@@ -58,6 +58,7 @@ if is_tf_available():
         def call(self, x):
             return self.l1(x)
 
+
 else:
     DummyModel = None
 
