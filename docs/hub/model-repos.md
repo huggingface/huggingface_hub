@@ -50,8 +50,10 @@ Some useful information on them:
 * License identifiers are the keywords listed in the right column of [this table](#list-of-license-identifiers).
 * Dataset, metric, and language identifiers are those listed on the [Datasets](https://huggingface.co/datasets), [Metrics](https://huggingface.co/metrics) and [Languages](https://huggingface.co/languages) pages and in the [`datasets`](https://github.com/huggingface/datasets) repository.
 
+You can even specify your **model's eval results** in a structured way, which will allow the Hub to parse, display, and even link them to Papers With Code leaderboards. See how to format this data [in the metadata spec](https://github.com/huggingface/huggingface_hub/blame/main/modelcard.md).
 
-Here is an example: 
+
+Here is a partial example (omitting the eval results part):
 ```yaml
 ---
 language:
@@ -67,6 +69,10 @@ metrics:
 - sacrebleu
 ---
 ```
+
+If a model includes valid eval results, they will be displayed like this:
+
+![/docs/assets/hub/eval-results.jpg](/docs/assets/hub/eval-results.jpg)
 
 ## How are model tags determined?
 

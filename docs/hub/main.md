@@ -15,15 +15,20 @@ Not one company, even the Tech Titans, will be able to “solve AI” by themsel
 
 The Hugging Face Hub hosts Git-based repositories which are storage spaces that can contain all your files 💾.
 
+The Hub currently hosts three different repo types:
+* models
+* datasets
+* Spaces, *which are ML demo apps*
+
 These repositories have multiple advantages over other hosting solutions:
 
 * versioning
 * commit history and diffs
 * branches
 
-On top of that, Hugging Face Hub repositories have many other advantages:
+On top of that, Hugging Face Hub repositories have many other advantages, for instance for models:
 
-* Repos provide useful [metadata](/docs/hub/model-repos#model-card-metadata) about their tasks, languages, metrics, etc.
+* Model repos provide useful [metadata](/docs/hub/model-repos#model-card-metadata) about their tasks, languages, metrics, etc.
 * Anyone can play with the model directly in the browser!
 * Training metrics charts are displayed if the repository contains [TensorBoard traces](https://huggingface.co/models?filter=tensorboard).
 * An API is provided to use the models in production settings.
@@ -32,7 +37,7 @@ On top of that, Hugging Face Hub repositories have many other advantages:
 
 ## What's a widget?
 
-Many repos have a widget that allows anyone to do inference directly on the browser!
+Many model repos have a widget that allows anyone to do inference directly in the browser!
 
 Here are some examples:
 * [Named Entity Recognition](https://huggingface.co/spacy/en_core_web_sm?text=My+name+is+Sarah+and+I+live+in+London) using [spaCy](https://spacy.io/).
