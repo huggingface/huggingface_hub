@@ -213,6 +213,10 @@ Whether the Space stays on top of your list.
 
 ## Changelog
 
+#### [2022-01-24] - Automatic model and dataset linking from Spaces
+- We attempt to automatically extract model and dataset repo ids used in your code
+- You can always manually define them with `models` and `datasets` in your YAML.
+
 #### [2021-10-20] - Add support for Streamlit 1.0
 - We now support all versions between 0.79.0 and 1.0.0
 
