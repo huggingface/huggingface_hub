@@ -605,6 +605,11 @@ class HfApi:
                 token = use_auth_token
             else:
                 token = HfFolder.get_token()
+                if token is None:
+                    raise EnvironmentError(
+                        "You need to provide a `token` to `use_auth_token` or be logged in to Hugging Face with "
+                        "`huggingface-cli login`."
+                    )
         headers = {"authorization": f"Bearer {token}"} if use_auth_token else None
         params = {}
         if filter is not None:
@@ -788,6 +793,11 @@ class HfApi:
                 token = use_auth_token
             else:
                 token = HfFolder.get_token()
+                if token is None:
+                    raise EnvironmentError(
+                        "You need to provide a `token` to `use_auth_token` or be logged in to Hugging Face with "
+                        "`huggingface-cli login`."
+                    )
         headers = {"authorization": f"Bearer {token}"} if use_auth_token else None
         params = {}
         if filter is not None:
