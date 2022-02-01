@@ -83,11 +83,13 @@ const modelInputSnippets: {
 	"zero-shot-classification": inputsZeroShotClassification,
 };
 
-export function getModelInputSnippet(model: ModelData): string {
+export function getModelInputSnippet(model: ModelData, noWrap = false): string {
 	if (model.pipeline_tag) {
 		const inputs = modelInputSnippets[model.pipeline_tag];
 		if (inputs) {
-			return inputs(model);
+			return noWrap
+				? inputs(model).replace(/\r?\n|\r/g, " ")
+				: inputs(model);
 		}
 	}
 	return "No input example has been defined for this model task.";
