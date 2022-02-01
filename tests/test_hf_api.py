@@ -673,6 +673,14 @@ class HfApiPublicTest(unittest.TestCase):
         self.assertIsInstance(datasets[0], DatasetInfo)
 
     @with_production_testing
+    def test_filter_datasets_with_cardData(self):
+        _api = HfApi()
+        datasets = _api.list_datasets(cardData=True)
+        self.assertTrue(["cardData" in dataset for dataset in datasets])
+        datasets = _api.list_datasets(cardData=False)
+        self.assertTrue(["cardData" not in dataset for dataset in datasets])
+
+    @with_production_testing
     def test_dataset_info(self):
         _api = HfApi()
         dataset = _api.dataset_info(repo_id=DUMMY_DATASET_ID)
@@ -780,6 +788,14 @@ class HfApiPublicTest(unittest.TestCase):
             ["pytorch" in model.tags and "tf" in model.tags for model in models]
         )
 
+    @with_production_testing
+    def test_filter_models_with_cardData(self):
+        _api = HfApi()
+        models = _api.list_models(search="albert", cardData=True)
+        self.assertTrue(["cardData" in model for model in models])
+        models = _api.list_models(search="albert", cardData=False)
+        self.assertTrue(["cardData" not in model for model in models])
+
 
 class HfApiPrivateTest(HfApiCommonTestWithLogin):
     def setUp(self) -> None:
@@ -858,7 +874,7 @@ class HfLargefilesTest(HfApiCommonTest):
         REMOTE_URL = self._api.create_repo(
             name=self.REPO_NAME_LARGE_FILE,
             token=self._token,
-            lfsmultipartthresh=6 * 10 ** 6,
+            lfsmultipartthresh=6 * 10**6,
         )
         self.setup_local_clone(REMOTE_URL)
 
@@ -911,7 +927,7 @@ class HfLargefilesTest(HfApiCommonTest):
         REMOTE_URL = self._api.create_repo(
             name=self.REPO_NAME_LARGE_FILE,
             token=self._token,
-            lfsmultipartthresh=16 * 10 ** 6,
+            lfsmultipartthresh=16 * 10**6,
         )
         self.setup_local_clone(REMOTE_URL)
 
