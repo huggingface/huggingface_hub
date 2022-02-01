@@ -801,6 +801,18 @@ class HfApiPrivateTest(HfApiCommonTestWithLogin):
         )
         self.assertIsInstance(model_info, ModelInfo)
 
+    @with_production_testing
+    def test_list_private_models(self):
+        orig = len(self._api.list_datasets())
+        new = len(self._api.list_datasets(use_auth_token=self._token))
+        self.assertGreater(new, orig)
+
+    @with_production_testing
+    def test_list_private_datasets(self):
+        orig = len(self._api.list_models())
+        new = len(self._api.list_models(use_auth_token=self._token))
+        self.assertGreater(new, orig)
+
 
 class HfFolderTest(unittest.TestCase):
     def test_token_workflow(self):
@@ -858,7 +870,7 @@ class HfLargefilesTest(HfApiCommonTest):
         REMOTE_URL = self._api.create_repo(
             name=self.REPO_NAME_LARGE_FILE,
             token=self._token,
-            lfsmultipartthresh=6 * 10 ** 6,
+            lfsmultipartthresh=6 * 10**6,
         )
         self.setup_local_clone(REMOTE_URL)
 
@@ -911,7 +923,7 @@ class HfLargefilesTest(HfApiCommonTest):
         REMOTE_URL = self._api.create_repo(
             name=self.REPO_NAME_LARGE_FILE,
             token=self._token,
-            lfsmultipartthresh=16 * 10 ** 6,
+            lfsmultipartthresh=16 * 10**6,
         )
         self.setup_local_clone(REMOTE_URL)
 
