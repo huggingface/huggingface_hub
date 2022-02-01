@@ -676,9 +676,9 @@ class HfApiPublicTest(unittest.TestCase):
     def test_filter_datasets_with_cardData(self):
         _api = HfApi()
         datasets = _api.list_datasets(cardData=True)
-        self.assertTrue(["cardData" in dataset for dataset in datasets])
+        self.assertTrue([hasattr(dataset, "cardData") for dataset in datasets])
         datasets = _api.list_datasets(cardData=False)
-        self.assertTrue(["cardData" not in dataset for dataset in datasets])
+        self.assertTrue([not hasattr(dataset, "cardData") for dataset in datasets])
 
     @with_production_testing
     def test_dataset_info(self):
@@ -791,10 +791,10 @@ class HfApiPublicTest(unittest.TestCase):
     @with_production_testing
     def test_filter_models_with_cardData(self):
         _api = HfApi()
-        models = _api.list_models(search="albert", cardData=True)
-        self.assertTrue(["cardData" in model for model in models])
-        models = _api.list_models(search="albert", cardData=False)
-        self.assertTrue(["cardData" not in model for model in models])
+        models = _api.list_models("co2_eq_emissions", cardData=True)
+        self.assertTrue([hasattr(model, "cardData") for model in models])
+        models = _api.list_models("co2_eq_emissions", cardData=False)
+        self.assertTrue([not hasattr(model, "cardData") for model in models])
 
 
 class HfApiPrivateTest(HfApiCommonTestWithLogin):
