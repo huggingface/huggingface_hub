@@ -188,8 +188,8 @@ class HubKerasSequentialTest(HubMixingTestKeras):
         self.assertIn("saved_model.pb", files)
         self.assertIn("keras_metadata.pb", files)
         self.assertEqual(len(files), 4)
-        model = from_pretrained_keras(f"{WORKING_REPO_DIR}/{REPO_NAME}")
-        self.assertIsNone(model.optimizer)
+        loaded_model = from_pretrained_keras(f"{WORKING_REPO_DIR}/{REPO_NAME}")
+        self.assertIsNone(loaded_model.optimizer)
 
     def test_save_pretrained_optimizer_state(self):
         REPO_NAME = repo_name("save")
@@ -206,8 +206,8 @@ class HubKerasSequentialTest(HubMixingTestKeras):
         self.assertIn("keras_metadata.pb", files)
 
         self.assertEqual(len(files), 4)
-        model = from_pretrained_keras(f"{WORKING_REPO_DIR}/{REPO_NAME}")
-        self.assertIsNotNone(model.optimizer)
+        loaded_model = from_pretrained_keras(f"{WORKING_REPO_DIR}/{REPO_NAME}")
+        self.assertIsNotNone(loaded_model.optimizer)
 
     def test_save_pretrained_kwargs_load_fails_without_traces(self):
         REPO_NAME = repo_name("save")
@@ -227,7 +227,7 @@ class HubKerasSequentialTest(HubMixingTestKeras):
         self.assertIn("keras_metadata.pb", files)
         self.assertEqual(len(files), 4)
 
-        model = from_pretrained_keras(f"{WORKING_REPO_DIR}/{REPO_NAME}")
+        loaded_model = from_pretrained_keras(f"{WORKING_REPO_DIR}/{REPO_NAME}")
         self.assertRaises(ValueError, msg="Exception encountered when calling layer*")
 
     def test_from_pretrained_weights(self):
@@ -326,7 +326,7 @@ class HubKerasSequentialTest(HubMixingTestKeras):
         )
         self.assertEqual(model_info.modelId, f"{USER}/{REPO_NAME}")
 
-        model = from_pretrained_keras(f"{WORKING_REPO_DIR}/{REPO_NAME}")
+        loaded_model = from_pretrained_keras(f"{WORKING_REPO_DIR}/{REPO_NAME}")
         self.assertRaises(ValueError, msg="Exception encountered when calling layer*")
 
         self._api.delete_repo(name=f"{REPO_NAME}", token=self._token)
