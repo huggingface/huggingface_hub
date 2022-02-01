@@ -518,7 +518,7 @@ class HfApi:
         limit: Optional[int] = None,
         full: Optional[bool] = None,
         fetch_config: Optional[bool] = None,
-        use_auth_token: Optional[Union[bool,str]] = None
+        use_auth_token: Optional[Union[bool, str]] = None,
     ) -> List[ModelInfo]:
         """
         Get the public list of all the models on huggingface.co
@@ -594,8 +594,8 @@ class HfApi:
             fetch_config (:obj:`bool`, `optional`):
                 Whether to fetch the model configs as well. This is not included in `full` due to its size.
             use_auth_token (:obj:`bool` or :obj:`str`, `optional`):
-                Whether to use the `auth_token` provided from the `huggingface_hub` cli. If not logged in, 
-                a valid `auth_token` can be passed in as a string. 
+                Whether to use the `auth_token` provided from the `huggingface_hub` cli. If not logged in,
+                a valid `auth_token` can be passed in as a string.
         """
         path = f"{self.endpoint}/api/models"
         if use_auth_token:
@@ -777,8 +777,8 @@ class HfApi:
             full (:obj:`bool`, `optional`):
                 Whether to fetch all dataset data, including the `lastModified` and the `cardData`.
             use_auth_token (:obj:`bool` or :obj:`str`, `optional`):
-                Whether to use the `auth_token` provided from the `huggingface_hub` cli. If not logged in, 
-                a valid `auth_token` can be passed in as a string. 
+                Whether to use the `auth_token` provided from the `huggingface_hub` cli. If not logged in,
+                a valid `auth_token` can be passed in as a string.
         """
         path = f"{self.endpoint}/api/datasets"
         if use_auth_token:
