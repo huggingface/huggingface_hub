@@ -191,7 +191,7 @@ class HubKerasSequentialTest(HubMixingTestKeras):
         model = from_pretrained_keras(f"{WORKING_REPO_DIR}/{REPO_NAME}")
         self.assertIsNone(model.optimizer)
 
-    def test_save_pretrained_optimizer_weights(self):
+    def test_save_pretrained_optimizer_state(self):
         REPO_NAME = repo_name("save")
         model = self.model_init()
 
