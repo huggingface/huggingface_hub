@@ -47,6 +47,7 @@
 	let outputJson: string;
 	let text = "";
 	let outputText = "";
+	let warning: string = "";
 
 	onMount(() => {
 		const [textParam] = getSearchParams(["text"]);
@@ -103,6 +104,9 @@
 			output = res.output;
 			outputJson = res.outputJson;
 			outputText = text;
+			if (output.length === 0) {
+				warning = "No token was detected";
+			}
 		} else if (res.status === "loading-model") {
 			modelLoading = {
 				isLoading: true,
@@ -261,6 +265,9 @@
 					getOutput();
 				}}
 			/>
+			{#if warning}
+				<div class="alert alert-warning mt-2">{warning}</div>
+			{/if}
 		</form>
 	</svelte:fragment>
 	<svelte:fragment slot="bottom">

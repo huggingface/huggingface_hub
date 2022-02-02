@@ -28,6 +28,7 @@
 	let output: Array<{ label: string; score: number }> = [];
 	let outputJson: string;
 	let selectedSampleUrl = "";
+	let warning: string = "";
 
 	function onRecordStart() {
 		file = null;
@@ -93,6 +94,9 @@
 			computeTime = res.computeTime;
 			output = res.output;
 			outputJson = res.outputJson;
+			if (output.length === 0) {
+				warning = "No classes were detected";
+			}
 		} else if (res.status === "loading-model") {
 			modelLoading = {
 				isLoading: true,
@@ -177,6 +181,9 @@
 					getOutput();
 				}}
 			/>
+			{#if warning}
+				<div class="alert alert-warning mt-2">{warning}</div>
+			{/if}
 		</form>
 	</svelte:fragment>
 	<svelte:fragment slot="bottom">

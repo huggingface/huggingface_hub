@@ -32,6 +32,7 @@
 	let output = "";
 	let outputJson: string;
 	let text = "";
+	let warning: string = "";
 
 	// Deactivate server caching for these two pipeline types
 	// (translation uses this widget too and still needs caching)
@@ -96,6 +97,9 @@
 			computeTime = res.computeTime;
 			output = res.output;
 			outputJson = res.outputJson;
+			if (output.length === 0) {
+				warning = "No text was generated";
+			}
 		} else if (res.status === "loading-model") {
 			modelLoading = {
 				isLoading: true,
@@ -152,6 +156,9 @@
 					getOutput();
 				}}
 			/>
+			{#if warning}
+				<div class="alert alert-warning mt-2">{warning}</div>
+			{/if}
 		</form>
 	</svelte:fragment>
 	<svelte:fragment slot="bottom">
