@@ -2,6 +2,7 @@ import json
 import logging
 import os
 from pathlib import Path
+from shutil import copy
 from typing import Any, Dict, Optional, Union
 
 from huggingface_hub import ModelHubMixin
@@ -71,6 +72,7 @@ def push_to_hub_keras(
     model,
     repo_path_or_name: Optional[str] = None,
     repo_url: Optional[str] = None,
+    tensorboard_dir: Optional[str] = None,
     commit_message: Optional[str] = "Add model",
     organization: Optional[str] = None,
     private: Optional[bool] = None,
@@ -97,6 +99,9 @@ def push_to_hub_keras(
             Specify this in case you want to push to an existing repository in the hub. If unspecified, a new
             repository will be created in your namespace (unless you specify an :obj:`organization`) with
             :obj:`repo_name`.
+        tensorboard_dir (:obj:`str`, `optional`):
+            TensorBoard logging directory. Specify this in case you have used TensorBoard callback and would like
+            to host TensorBoard on your model repository.
         commit_message (:obj:`str`, `optional`):
             Message to commit while pushing. Will default to :obj:`"add model"`.
         organization (:obj:`str`, `optional`):
@@ -174,6 +179,7 @@ def push_to_hub_keras(
         **model_save_kwargs,
     )
 
+    copy(tensorboard_dir, repo_path_or_name)
     # Commit and push!
     repo.git_add(auto_lfs_track=True)
     repo.git_commit(commit_message)
