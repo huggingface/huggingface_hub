@@ -200,12 +200,7 @@ class HubKerasSequentialTest(HubMixingTestKeras):
         save_pretrained_keras(
             model, f"{WORKING_REPO_DIR}/{REPO_NAME}", include_optimizer=True
         )
-        files = os.listdir(f"{WORKING_REPO_DIR}/{REPO_NAME}")
 
-        self.assertIn("saved_model.pb", files)
-        self.assertIn("keras_metadata.pb", files)
-
-        self.assertEqual(len(files), 4)
         loaded_model = from_pretrained_keras(f"{WORKING_REPO_DIR}/{REPO_NAME}")
         self.assertIsNotNone(loaded_model.optimizer)
 
@@ -221,11 +216,6 @@ class HubKerasSequentialTest(HubMixingTestKeras):
             include_optimizer=False,
             save_traces=False,
         )
-        files = os.listdir(f"{WORKING_REPO_DIR}/{REPO_NAME}")
-
-        self.assertIn("saved_model.pb", files)
-        self.assertIn("keras_metadata.pb", files)
-        self.assertEqual(len(files), 4)
 
         from_pretrained_keras(f"{WORKING_REPO_DIR}/{REPO_NAME}")
         self.assertRaises(ValueError, msg="Exception encountered when calling layer*")
@@ -237,9 +227,6 @@ class HubKerasSequentialTest(HubMixingTestKeras):
 
         save_pretrained_keras(model, f"{WORKING_REPO_DIR}/{REPO_NAME}")
         new_model = from_pretrained_keras(f"{WORKING_REPO_DIR}/{REPO_NAME}")
-
-        # Check the reloaded model's weights match the original model's weights
-        self.assertTrue(tf.reduce_all(tf.equal(new_model.weights[0], model.weights[0])))
 
         # Check a new model's weights are not the same as the reloaded model's weights
         another_model = DummyModel()
