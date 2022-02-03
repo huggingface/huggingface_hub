@@ -13,15 +13,12 @@
 	export let underline = false;
 	export let onClick: (e: MouseEvent) => void = () => {};
 	export let targetBlank = false;
-	export let useDeprecatedJS = true;
 </script>
 
 <li>
 	<a
 		class="flex items-center hover:bg-gray-50 dark:hover:bg-gray-800 cursor-pointer px-3 py-1.5 whitespace-nowrap 
-			{classNames}
-			{underline ? 'hover:underline' : ''}
-			{useDeprecatedJS ? 'v2-dropdown-entry' : ''}"
+			{classNames} {underline ? 'hover:underline' : ''}"
 		data-label={dataLabel}
 		data-url={dataUrl}
 		data-value={dataValue}

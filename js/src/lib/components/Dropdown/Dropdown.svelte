@@ -12,7 +12,6 @@
 	export let menuClassNames = "";
 	export let noBtnClass: boolean | undefined = undefined;
 	export let selectedValue: string | undefined = undefined;
-	export let useDeprecatedJS = true;
 	export let withBtnCaret = false;
 
 	let element: HTMLElement | undefined = undefined;
@@ -20,16 +19,14 @@
 </script>
 
 <div
-	class="relative {classNames} {useDeprecatedJS ? 'v2-dropdown' : ''}"
+	class="relative {classNames}"
 	bind:this={element}
 	selected-value={selectedValue || undefined}
 >
 	<!-- Button -->
 	<button
-		class="
-			{btnClassNames}
-			{!noBtnClass ? 'cursor-pointer w-full btn text-sm' : ''}
-			{useDeprecatedJS ? 'v2-dropdown-button' : ''}"
+		class="{btnClassNames}
+			{!noBtnClass ? 'cursor-pointer w-full btn text-sm' : ''}"
 		on:click={() => (isOpen = !isOpen)}
 		type="button"
 	>
@@ -51,11 +48,9 @@
 	</button>
 	<!-- /Button -->
 	<!-- Menu -->
-	{#if isOpen || useDeprecatedJS}
+	{#if isOpen}
 		<DropdownMenu
-			classNames="{menuClassNames} {useDeprecatedJS
-				? 'v2-dropdown-menu hidden'
-				: ''}"
+			classNames={menuClassNames}
 			dropdownElement={element}
 			forceAlignement={forceMenuAlignement}
 			onClose={() => (isOpen = false)}
