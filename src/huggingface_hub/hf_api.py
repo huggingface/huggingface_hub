@@ -518,6 +518,7 @@ class HfApi:
         limit: Optional[int] = None,
         full: Optional[bool] = None,
         fetch_config: Optional[bool] = None,
+        use_auth_token: Optional[Union[bool, str]] = None,
     ) -> List[ModelInfo]:
         """
         Get the public list of all the models on huggingface.co
@@ -592,9 +593,24 @@ class HfApi:
                 This is set to `True` by default when using a filter.
             fetch_config (:obj:`bool`, `optional`):
                 Whether to fetch the model configs as well. This is not included in `full` due to its size.
-
+            use_auth_token (:obj:`bool` or :obj:`str`, `optional`):
+                Whether to use the `auth_token` provided from the `huggingface_hub` cli. If not logged in,
+                a valid `auth_token` can be passed in as a string.
         """
         path = f"{self.endpoint}/api/models"
+        if use_auth_token:
+            if isinstance(use_auth_token, str):
+                if not self._is_valid_token(use_auth_token):
+                    raise ValueError("Invalid token passed!")
+                token = use_auth_token
+            else:
+                token = HfFolder.get_token()
+                if token is None:
+                    raise EnvironmentError(
+                        "You need to provide a `token` to `use_auth_token` or be logged in to Hugging Face with "
+                        "`huggingface-cli login`."
+                    )
+        headers = {"authorization": f"Bearer {token}"} if use_auth_token else None
         params = {}
         if filter is not None:
             if isinstance(filter, ModelFilter):
@@ -619,7 +635,7 @@ class HfApi:
                 del params["full"]
         if fetch_config is not None:
             params.update({"config": fetch_config})
-        r = requests.get(path, params=params)
+        r = requests.get(path, headers=headers, params=params)
         r.raise_for_status()
         d = r.json()
         return [ModelInfo(**x) for x in d]
@@ -693,6 +709,7 @@ class HfApi:
         direction: Optional[Literal[-1]] = None,
         limit: Optional[int] = None,
         full: Optional[bool] = None,
+        use_auth_token: Optional[str] = None,
     ) -> List[DatasetInfo]:
         """
         Get the public list of all the datasets on huggingface.co
@@ -764,9 +781,24 @@ class HfApi:
                 The limit on the number of datasets fetched. Leaving this option to `None` fetches all datasets.
             full (:obj:`bool`, `optional`):
                 Whether to fetch all dataset data, including the `lastModified` and the `cardData`.
-
+            use_auth_token (:obj:`bool` or :obj:`str`, `optional`):
+                Whether to use the `auth_token` provided from the `huggingface_hub` cli. If not logged in,
+                a valid `auth_token` can be passed in as a string.
         """
         path = f"{self.endpoint}/api/datasets"
+        if use_auth_token:
+            if isinstance(use_auth_token, str):
+                if not self._is_valid_token(use_auth_token):
+                    raise ValueError("Invalid token passed!")
+                token = use_auth_token
+            else:
+                token = HfFolder.get_token()
+                if token is None:
+                    raise EnvironmentError(
+                        "You need to provide a `token` to `use_auth_token` or be logged in to Hugging Face with "
+                        "`huggingface-cli login`."
+                    )
+        headers = {"authorization": f"Bearer {token}"} if use_auth_token else None
         params = {}
         if filter is not None:
             if isinstance(filter, DatasetFilter):
@@ -786,7 +818,7 @@ class HfApi:
         if full is not None:
             if full:
                 params.update({"full": True})
-        r = requests.get(path, params=params)
+        r = requests.get(path, headers=headers, params=params)
         r.raise_for_status()
         d = r.json()
         return [DatasetInfo(**x) for x in d]

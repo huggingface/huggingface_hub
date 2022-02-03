@@ -801,6 +801,18 @@ class HfApiPrivateTest(HfApiCommonTestWithLogin):
         )
         self.assertIsInstance(model_info, ModelInfo)
 
+    @with_production_testing
+    def test_list_private_models(self):
+        orig = len(self._api.list_datasets())
+        new = len(self._api.list_datasets(use_auth_token=self._token))
+        self.assertGreater(new, orig)
+
+    @with_production_testing
+    def test_list_private_datasets(self):
+        orig = len(self._api.list_models())
+        new = len(self._api.list_models(use_auth_token=self._token))
+        self.assertGreater(new, orig)
+
 
 class HfFolderTest(unittest.TestCase):
     def test_token_workflow(self):
