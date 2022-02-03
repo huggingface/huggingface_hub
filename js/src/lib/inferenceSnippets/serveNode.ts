@@ -1,61 +1,28 @@
 import type { PipelineType, ModelData } from "../interfaces/Types";
 import { getModelInputSnippet } from "./inputs";
 
+export const bodyBasic = (model: ModelData): string =>
+	`{"inputs": ${getModelInputSnippet(model)}}`;
+
 export const bodyZeroShotClassification = (model: ModelData): string =>
 	`{"inputs": ${getModelInputSnippet(model)}, "parameters": {"candidate_labels": ["refund", "legal", "faq"]}}`;
-
-export const bodyTranslation = (model: ModelData): string =>
-	`{"inputs": ${getModelInputSnippet(model)}}`;
-
-export const bodySummarization = (model: ModelData): string =>
-	`{"inputs": ${getModelInputSnippet(model)}}`;
-
-export const bodyConversational = (model: ModelData): string =>
-	`{"inputs": ${getModelInputSnippet(model)}}`;
-
-export const bodyTableQuestionAnswering = (model: ModelData): string =>
-	`{"inputs": ${getModelInputSnippet(model)}}`;
-
-export const bodyQuestionAnswering = (model: ModelData): string =>
-	`{"inputs": ${getModelInputSnippet(model)}}`;
-
-export const bodyTextClassification = (model: ModelData): string =>
-	`{"inputs": ${getModelInputSnippet(model)}}`;
-
-export const bodyTokenClassification = (model: ModelData): string =>
-	`{"inputs": ${getModelInputSnippet(model)}}`;
-
-export const bodyTextGeneration = (model: ModelData): string =>
-	`{"inputs": ${getModelInputSnippet(model)}}`;
-
-export const bodyText2TextGeneration = (model: ModelData): string =>
-	`{"inputs": ${getModelInputSnippet(model)}}`;
-
-export const bodyFillMask = (model: ModelData): string =>
-	`{"inputs": ${getModelInputSnippet(model)}}`;
-
-export const bodySentenceSimilarity = (model: ModelData): string =>
-	`{"inputs": ${getModelInputSnippet(model)}`;
-
-export const bodyFeatureExtraction = (model: ModelData): string =>
-	`{"inputs": ${getModelInputSnippet(model)}`;
 
 export const nodeSnippetBodies:
 	Partial<Record<keyof typeof PipelineType, (model: ModelData) => string>> =
 {
 	"zero-shot-classification": bodyZeroShotClassification,
-	"translation":              bodyTranslation,
-	"summarization":            bodySummarization,
-	"conversational":           bodyConversational,
-	"table-question-answering": bodyTableQuestionAnswering,
-	"question-answering":       bodyQuestionAnswering,
-	"text-classification":      bodyTextClassification,
-	"token-classification":     bodyTokenClassification,
-	"text-generation":          bodyTextGeneration,
-	"text2text-generation":     bodyText2TextGeneration,
-	"fill-mask":                bodyFillMask,
-	"sentence-similarity":      bodySentenceSimilarity,
-	"feature-extraction":       bodyFeatureExtraction,
+	"translation":              bodyBasic,
+	"summarization":            bodyBasic,
+	"conversational":           bodyBasic,
+	"table-question-answering": bodyBasic,
+	"question-answering":       bodyBasic,
+	"text-classification":      bodyBasic,
+	"token-classification":     bodyBasic,
+	"text-generation":          bodyBasic,
+	"text2text-generation":     bodyBasic,
+	"fill-mask":                bodyBasic,
+	"sentence-similarity":      bodyBasic,
+	"feature-extraction":       bodyBasic,
 };
 
 export function getNodeInferenceSnippet(model: ModelData, accessToken: string): string {
