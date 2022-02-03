@@ -88,7 +88,7 @@ def push_to_hub_keras(
 
     Parameters:
         model:
-            The Keras model you'd like to push to the hub. It model must be compiled and built.
+            The Keras model you'd like to push to the hub. The model must be compiled and built.
         repo_path_or_name (:obj:`str`, `optional`):
             Can either be a repository name for your model or tokenizer in the Hub or a path to a local folder (in
             which case the repository will have the name of that local folder). If not specified, will default to
