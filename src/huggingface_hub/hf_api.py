@@ -517,7 +517,7 @@ class HfApi:
         direction: Optional[Literal[-1]] = None,
         limit: Optional[int] = None,
         full: Optional[bool] = None,
-        cardData: Optional[bool] = True,
+        cardData: Optional[bool] = None,
         fetch_config: Optional[bool] = None,
     ) -> List[ModelInfo]:
         """
