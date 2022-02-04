@@ -2,7 +2,7 @@ import json
 import logging
 import os
 from pathlib import Path
-from shutil import copy
+from shutil import copytree
 from typing import Any, Dict, Optional, Union
 
 from huggingface_hub import ModelHubMixin
@@ -179,7 +179,7 @@ def push_to_hub_keras(
         **model_save_kwargs,
     )
 
-    copy(tensorboard_dir, repo_path_or_name)
+    copytree(tensorboard_dir, repo_path_or_name/logs)
     # Commit and push!
     repo.git_add(auto_lfs_track=True)
     repo.git_commit(commit_message)
