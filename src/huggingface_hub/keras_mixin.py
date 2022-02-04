@@ -100,8 +100,8 @@ def push_to_hub_keras(
             repository will be created in your namespace (unless you specify an :obj:`organization`) with
             :obj:`repo_name`.
         tensorboard_dir (:obj:`str`, `optional`):
-            TensorBoard logging directory. Specify this in case you have used TensorBoard callback and would like
-            to host TensorBoard on your model repository.
+            TensorBoard logging directory to be pushed. The Hub automatically hosts 
+            and displays a TensorBoard instance if log files are included in the repository.
         commit_message (:obj:`str`, `optional`):
             Message to commit while pushing. Will default to :obj:`"add model"`.
         organization (:obj:`str`, `optional`):
