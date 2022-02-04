@@ -519,6 +519,7 @@ class HfApi:
         full: Optional[bool] = None,
         fetch_config: Optional[bool] = None,
         use_auth_token: Optional[Union[bool, str]] = None,
+        security_status: Optional[bool] = None,
     ) -> List[ModelInfo]:
         """
         Get the public list of all the models on huggingface.co
@@ -635,6 +636,8 @@ class HfApi:
                 del params["full"]
         if fetch_config is not None:
             params.update({"config": fetch_config})
+        if security_status is not None:
+            params.update({"securityStatus": security_status})
         r = requests.get(path, headers=headers, params=params)
         r.raise_for_status()
         d = r.json()
