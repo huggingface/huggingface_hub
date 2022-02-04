@@ -553,7 +553,7 @@ class HfApiPublicTest(unittest.TestCase):
         model = _api.model_info(
             repo_id=DUMMY_MODEL_ID,
             revision=DUMMY_MODEL_ID_REVISION_ONE_SPECIFIC_COMMIT,
-            security_status=True,
+            securityStatus=True,
         )
         self.assertEqual(
             model["securityStatus"], {"containsInfected": False, "infectionTypes": []}

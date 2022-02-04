@@ -881,7 +881,7 @@ class HfApi:
         revision: Optional[str] = None,
         token: Optional[str] = None,
         timeout: Optional[float] = None,
-        security_status: Optional[bool] = None,
+        securityStatus: Optional[bool] = None,
     ) -> ModelInfo:
         """
         Get info on one specific model on huggingface.co
@@ -897,7 +897,7 @@ class HfApi:
             else f"{self.endpoint}/api/models/{repo_id}/revision/{revision}"
         )
         headers = {"authorization": f"Bearer {token}"} if token is not None else None
-        status_query_param = "?securityStatus=True" if security_status else ""
+        status_query_param = "?securityStatus=True" if securityStatus else ""
         path += status_query_param
         r = requests.get(path, headers=headers, timeout=timeout)
         r.raise_for_status()
