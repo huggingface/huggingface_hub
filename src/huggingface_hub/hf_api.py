@@ -796,7 +796,8 @@ class HfApi:
             if full:
                 params.update({"full": True})
         if cardData is not None:
-            params.update({"cardData": True})
+            if cardData:
+                params.update({"cardData": True})
         r = requests.get(path, params=params)
         r.raise_for_status()
         d = r.json()
