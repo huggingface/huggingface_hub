@@ -72,7 +72,7 @@ def push_to_hub_keras(
     model,
     repo_path_or_name: Optional[str] = None,
     repo_url: Optional[str] = None,
-    tensorboard_dir: Optional[str] = None,
+    log_dir: Optional[str] = None,
     commit_message: Optional[str] = "Add model",
     organization: Optional[str] = None,
     private: Optional[bool] = None,
@@ -99,8 +99,8 @@ def push_to_hub_keras(
             Specify this in case you want to push to an existing repository in the hub. If unspecified, a new
             repository will be created in your namespace (unless you specify an :obj:`organization`) with
             :obj:`repo_name`.
-        tensorboard_dir (:obj:`str`, `optional`):
-            TensorBoard logging directory to be pushed. The Hub automatically hosts 
+        log_dir (:obj:`str`, `optional`):
+            TensorBoard logging directory to be pushed. The Hub automatically hosts
             and displays a TensorBoard instance if log files are included in the repository.
         commit_message (:obj:`str`, `optional`):
             Message to commit while pushing. Will default to :obj:`"add model"`.
@@ -178,8 +178,8 @@ def push_to_hub_keras(
         include_optimizer=include_optimizer,
         **model_save_kwargs,
     )
-
-    copytree(tensorboard_dir, f"{repo_path_or_name}/logs")
+    if log_dir is not None:
+        copytree(log_dir, f"{repo_path_or_name}/logs")
     # Commit and push!
     repo.git_add(auto_lfs_track=True)
     repo.git_commit(commit_message)
