@@ -293,7 +293,7 @@ class HubKerasSequentialTest(HubMixingTestKeras):
         self._api.delete_repo(name=f"{REPO_NAME}", token=self._token)
 
     def test_push_to_hub_tensorboard(self):
-        os.mkdirs(f"{WORKING_REPO_DIR}/tb_log_dir")
+        os.makedirs(f"{WORKING_REPO_DIR}/tb_log_dir")
         with open(f"{WORKING_REPO_DIR}/tb_log_dir/tensorboard.txt", "w") as fp:
             fp.write("Keras FTW")
         REPO_NAME = repo_name("PUSH_TO_HUB")
