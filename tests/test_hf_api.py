@@ -676,9 +676,16 @@ class HfApiPublicTest(unittest.TestCase):
     def test_filter_datasets_with_cardData(self):
         _api = HfApi()
         datasets = _api.list_datasets(cardData=True)
-        self.assertTrue([hasattr(dataset, "cardData") for dataset in datasets])
+        self.assertGreater(
+            sum(
+                [getattr(dataset, "cardData", None) is not None for dataset in datasets]
+            ),
+            0,
+        )
         datasets = _api.list_datasets()
-        self.assertTrue(all([not hasattr(dataset, "cardData") for dataset in datasets]))
+        self.assertTrue(
+            all([getattr(dataset, "cardData", None) is None for dataset in datasets])
+        )
 
     @with_production_testing
     def test_dataset_info(self):

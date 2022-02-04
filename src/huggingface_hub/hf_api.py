@@ -714,7 +714,7 @@ class HfApi:
         sort: Union[Literal["lastModified"], str, None] = None,
         direction: Optional[Literal[-1]] = None,
         limit: Optional[int] = None,
-        cardData: Optional[bool] = True,
+        cardData: Optional[bool] = None,
         full: Optional[bool] = None,
         use_auth_token: Optional[str] = None,
     ) -> List[DatasetInfo]:
@@ -829,7 +829,7 @@ class HfApi:
                 params.update({"full": True})
         if cardData is not None:
             if cardData:
-                params.update({"cardData": True})
+                params.update({"full": True})
         r = requests.get(path, params=params, headers=headers)
         r.raise_for_status()
         d = r.json()
