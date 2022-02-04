@@ -641,7 +641,7 @@ class HfApi:
             params.update({"config": fetch_config})
         if cardData is not None:
             params.update({"cardData": cardData})
-        r = requests.get(path, params=params)
+        r = requests.get(path, params=params, headers=headers)
         r.raise_for_status()
         d = r.json()
         return [ModelInfo(**x) for x in d]
@@ -830,7 +830,7 @@ class HfApi:
         if cardData is not None:
             if cardData:
                 params.update({"cardData": True})
-        r = requests.get(path, params=params)
+        r = requests.get(path, params=params, headers=headers)
         r.raise_for_status()
         d = r.json()
         return [DatasetInfo(**x) for x in d]
