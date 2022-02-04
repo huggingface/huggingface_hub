@@ -7,7 +7,7 @@ export const bodyBasic = (model: ModelData): string =>
 export const bodyZeroShotClassification = (model: ModelData): string =>
 	`{"inputs": ${getModelInputSnippet(model)}, "parameters": {"candidate_labels": ["refund", "legal", "faq"]}}`;
 
-export const nodeSnippetBodies:
+export const jsSnippetBodies:
 	Partial<Record<keyof typeof PipelineType, (model: ModelData) => string>> =
 {
 	"zero-shot-classification": bodyZeroShotClassification,
@@ -25,14 +25,12 @@ export const nodeSnippetBodies:
 	"feature-extraction":       bodyBasic,
 };
 
-export function getNodeInferenceSnippet(model: ModelData, accessToken: string): string {
-	const body = model.pipeline_tag && model.pipeline_tag in nodeSnippetBodies
-		? nodeSnippetBodies[model.pipeline_tag]?.(model) ?? ""
+export function getJsInferenceSnippet(model: ModelData, accessToken: string): string {
+	const body = model.pipeline_tag && model.pipeline_tag in jsSnippetBodies
+		? jsSnippetBodies[model.pipeline_tag]?.(model) ?? ""
 		: "";
 	
-	return `import fetch from "node-fetch";
-
-async function query(data) {
+	return `async function query(data) {
 	const response = await fetch(
 		"https://api-inference.huggingface.co/models/${model.id}",
 		{
@@ -50,6 +48,6 @@ query(${body}).then((response) => {
 });`;
 }
 
-export function hasNodeInferenceSnippet(model: ModelData): boolean {
-	return !!model.pipeline_tag && model.pipeline_tag in nodeSnippetBodies;
+export function hasJsInferenceSnippet(model: ModelData): boolean {
+	return !!model.pipeline_tag && model.pipeline_tag in jsSnippetBodies;
 }
