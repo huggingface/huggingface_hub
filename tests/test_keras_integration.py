@@ -308,9 +308,11 @@ class HubKerasSequentialTest(HubMixingTestKeras):
             git_user="ci",
             git_email="ci@dummy.com",
         )
-        self.assertTrue(
-            os.path.exists(f"{WORKING_REPO_DIR}/{REPO_NAME}/logs/tensorboard.txt")
+        model_info = HfApi(endpoint=ENDPOINT_STAGING).model_info(
+            f"{USER}/{REPO_NAME}",
         )
+        model_files = [f.rfilename for f in model_info.siblings]
+        self.assertTrue("tensorboard.txt" in model_files)
 
         self._api.delete_repo(name=f"{REPO_NAME}", token=self._token)
 
