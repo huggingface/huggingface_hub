@@ -292,6 +292,36 @@ class HubKerasSequentialTest(HubMixingTestKeras):
 
         self._api.delete_repo(name=f"{REPO_NAME}", token=self._token)
 
+    def test_push_to_hub_tensorboard(self):
+        os.mkdir("./log_dir")
+        with open("./log_dir/tensorboard.txt", "w") as fp:
+            fp.write("Keras FTW")
+        REPO_NAME = repo_name("PUSH_TO_HUB")
+        model = self.model_init()
+        model.build((None, 2))
+        push_to_hub_keras(
+            model,
+            repo_path_or_name=f"{WORKING_REPO_DIR}/{REPO_NAME}",
+            tensorboard_dir="./log_dir",
+            api_endpoint=ENDPOINT_STAGING,
+            use_auth_token=self._token,
+            git_user="ci",
+            git_email="ci@dummy.com",
+            config={"num": 7, "act": "gelu_fast"},
+            include_optimizer=False,
+        )
+        self.assertEqual(
+            os.path.exists(f"{WORKING_REPO_DIR}/{REPO_NAME}/logs/tensorboard.txt"), True
+        )
+
+        model_info = HfApi(endpoint=ENDPOINT_STAGING).model_info(
+            f"{USER}/{REPO_NAME}",
+        )
+
+        self.assertEqual(model_info.modelId, f"{USER}/{REPO_NAME}")
+
+        self._api.delete_repo(name=f"{REPO_NAME}", token=self._token)
+
     def test_push_to_hub_model_kwargs(self):
         REPO_NAME = repo_name("PUSH_TO_HUB")
         model = self.model_init()
