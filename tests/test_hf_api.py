@@ -780,6 +780,19 @@ class HfApiPublicTest(unittest.TestCase):
             ["pytorch" in model.tags and "tf" in model.tags for model in models]
         )
 
+    @with_production_testing
+    def test_list_models_with_security_status(self):
+        _api = HfApi()
+        model = _api.list_models(
+            ModelFilter(model_name="bert-base-uncased"), limit=1, security_status=True
+        )
+        self.assertEqual(len(model), 1)
+        self.assertEqual(model[0].modelId, "bert-base-uncased")
+        self.assertEqual(
+            model[0]["securityStatus"],
+            {"containsInfected": False, "infectionTypes": []},
+        )
+
 
 class HfApiPrivateTest(HfApiCommonTestWithLogin):
     def setUp(self) -> None:
@@ -870,7 +883,7 @@ class HfLargefilesTest(HfApiCommonTest):
         REMOTE_URL = self._api.create_repo(
             name=self.REPO_NAME_LARGE_FILE,
             token=self._token,
-            lfsmultipartthresh=6 * 10 ** 6,
+            lfsmultipartthresh=6 * 10**6,
         )
         self.setup_local_clone(REMOTE_URL)
 
@@ -923,7 +936,7 @@ class HfLargefilesTest(HfApiCommonTest):
         REMOTE_URL = self._api.create_repo(
             name=self.REPO_NAME_LARGE_FILE,
             token=self._token,
-            lfsmultipartthresh=16 * 10 ** 6,
+            lfsmultipartthresh=16 * 10**6,
         )
         self.setup_local_clone(REMOTE_URL)
 
