@@ -311,7 +311,10 @@ class HubKerasSequentialTest(HubMixingTestKeras):
         model_info = HfApi(endpoint=ENDPOINT_STAGING).model_info(
             f"{USER}/{REPO_NAME}",
         )
-        self.assertTrue("logs/tensorboard.txt" in model_info.siblings)
+
+        self.assertTrue(
+            "logs/tensorboard.txt" in [f.rfilename for f in model_info.siblings]
+        )
 
         self._api.delete_repo(name=f"{REPO_NAME}", token=self._token)
 
