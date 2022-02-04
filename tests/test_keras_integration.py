@@ -313,7 +313,6 @@ class HubKerasSequentialTest(HubMixingTestKeras):
         )
         model_files = [f.rfilename for f in model_info.siblings]
         self.assertTrue("logs/tensorboard.txt" in model_files)
-        
 
         self._api.delete_repo(name=f"{REPO_NAME}", token=self._token)
 
