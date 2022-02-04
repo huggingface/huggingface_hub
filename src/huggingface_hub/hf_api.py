@@ -519,6 +519,7 @@ class HfApi:
         full: Optional[bool] = None,
         cardData: Optional[bool] = None,
         fetch_config: Optional[bool] = None,
+        use_auth_token: Optional[Union[bool, str]] = None,
     ) -> List[ModelInfo]:
         """
         Get the public list of all the models on huggingface.co
@@ -596,9 +597,24 @@ class HfApi:
                 metrics, and datasets trained on.
             fetch_config (:obj:`bool`, `optional`):
                 Whether to fetch the model configs as well. This is not included in `full` due to its size.
-
+            use_auth_token (:obj:`bool` or :obj:`str`, `optional`):
+                Whether to use the `auth_token` provided from the `huggingface_hub` cli. If not logged in,
+                a valid `auth_token` can be passed in as a string.
         """
         path = f"{self.endpoint}/api/models"
+        if use_auth_token:
+            if isinstance(use_auth_token, str):
+                if not self._is_valid_token(use_auth_token):
+                    raise ValueError("Invalid token passed!")
+                token = use_auth_token
+            else:
+                token = HfFolder.get_token()
+                if token is None:
+                    raise EnvironmentError(
+                        "You need to provide a `token` to `use_auth_token` or be logged in to Hugging Face with "
+                        "`huggingface-cli login`."
+                    )
+        headers = {"authorization": f"Bearer {token}"} if use_auth_token else None
         params = {}
         if filter is not None:
             if isinstance(filter, ModelFilter):
@@ -700,6 +716,7 @@ class HfApi:
         limit: Optional[int] = None,
         cardData: Optional[bool] = True,
         full: Optional[bool] = None,
+        use_auth_token: Optional[str] = None,
     ) -> List[DatasetInfo]:
         """
         Get the public list of all the datasets on huggingface.co
@@ -773,9 +790,24 @@ class HfApi:
                 Whether to grab the metadata for the dataset as well. Can contain useful information such as the PapersWithCode ID.
             full (:obj:`bool`, `optional`):
                 Whether to fetch all dataset data, including the `lastModified` and the `cardData`.
-
+            use_auth_token (:obj:`bool` or :obj:`str`, `optional`):
+                Whether to use the `auth_token` provided from the `huggingface_hub` cli. If not logged in,
+                a valid `auth_token` can be passed in as a string.
         """
         path = f"{self.endpoint}/api/datasets"
+        if use_auth_token:
+            if isinstance(use_auth_token, str):
+                if not self._is_valid_token(use_auth_token):
+                    raise ValueError("Invalid token passed!")
+                token = use_auth_token
+            else:
+                token = HfFolder.get_token()
+                if token is None:
+                    raise EnvironmentError(
+                        "You need to provide a `token` to `use_auth_token` or be logged in to Hugging Face with "
+                        "`huggingface-cli login`."
+                    )
+        headers = {"authorization": f"Bearer {token}"} if use_auth_token else None
         params = {}
         if filter is not None:
             if isinstance(filter, DatasetFilter):

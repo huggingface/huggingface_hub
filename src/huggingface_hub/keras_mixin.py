@@ -17,7 +17,11 @@ logger = logging.getLogger(__name__)
 
 
 def save_pretrained_keras(
-    model, save_directory: str, config: Optional[Dict[str, Any]] = None
+    model,
+    save_directory: str,
+    config: Optional[Dict[str, Any]] = None,
+    include_optimizer: Optional[bool] = False,
+    **model_save_kwargs,
 ):
     """Saves a Keras model to save_directory in SavedModel format. Use this if you're using the Functional or Sequential APIs.
 
@@ -27,6 +31,10 @@ def save_pretrained_keras(
         Specify directory in which you want to save the Keras model.
     config (:obj:`dict`, `optional`):
         Configuration object to be saved alongside the model weights.
+    include_optimizer(:obj:`bool`, `optional`):
+        Whether or not to include optimizer in serialization.
+    model_save_kwargs(:obj:`dict`, `optional`):
+        model_save_kwargs will be passed to tf.keras.models.save_model().
     """
     if is_tf_available():
         import tensorflow as tf
@@ -50,7 +58,9 @@ def save_pretrained_keras(
         with open(path, "w") as f:
             json.dump(config, f)
 
-    tf.keras.models.save_model(model, save_directory)
+    tf.keras.models.save_model(
+        model, save_directory, include_optimizer=include_optimizer, **model_save_kwargs
+    )
 
 
 def from_pretrained_keras(*args, **kwargs):
@@ -69,6 +79,8 @@ def push_to_hub_keras(
     git_user: Optional[str] = None,
     git_email: Optional[str] = None,
     config: Optional[dict] = None,
+    include_optimizer: Optional[bool] = False,
+    **model_save_kwargs,
 ):
     """
     Upload model checkpoint or tokenizer files to the 🤗 Model Hub while synchronizing a local clone of the repo in
@@ -76,7 +88,7 @@ def push_to_hub_keras(
 
     Parameters:
         model:
-            The Keras model you'd like to push to the hub. It model must be compiled and built.
+            The Keras model you'd like to push to the hub. The model must be compiled and built.
         repo_path_or_name (:obj:`str`, `optional`):
             Can either be a repository name for your model or tokenizer in the Hub or a path to a local folder (in
             which case the repository will have the name of that local folder). If not specified, will default to
@@ -104,6 +116,10 @@ def push_to_hub_keras(
             will override the ``git config user.email`` for committing and pushing files to the hub.
         config (:obj:`dict`, `optional`):
             Configuration object to be saved alongside the model weights.
+        include_optimizer (:obj:`bool`, `optional`):
+            Whether or not to include optimizer during serialization.
+        model_save_kwargs(:obj:`dict`, `optional`):
+            model_save_kwargs will be passed to tf.keras.models.save_model().
 
     Returns:
         The url of the commit of your model in the given repository.
@@ -150,7 +166,13 @@ def push_to_hub_keras(
     )
     repo.git_pull(rebase=True)
 
-    save_pretrained_keras(model, repo_path_or_name, config=config)
+    save_pretrained_keras(
+        model,
+        repo_path_or_name,
+        config=config,
+        include_optimizer=include_optimizer,
+        **model_save_kwargs,
+    )
 
     # Commit and push!
     repo.git_add(auto_lfs_track=True)
