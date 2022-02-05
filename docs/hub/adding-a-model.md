@@ -46,7 +46,7 @@ If you look at the “Files and versions” tab, you’ll see that there aren’
 
 If you've used Git before, this will be very easy since Git is used to manage files in the Hub.
 
-There is only one key difference if you have large files (over 10MB). These files are usually tracked with **git-lfs** (which stands for Git Large File Storage). 
+There is only one key difference if you have large files (over 10MB, or 1MB for binary files). These files are usually tracked with **git-lfs** (which stands for Git Large File Storage). 
 
 1. Please make sure you have both **git** and **git-lfs** installed on your system.
 
