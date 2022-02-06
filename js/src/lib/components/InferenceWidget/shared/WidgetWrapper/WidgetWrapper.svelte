@@ -20,6 +20,7 @@
 		estimatedTime: 0,
 	};
 	export let noTitle = false;
+	export let noModelInfo = false;
 	export let outputJson: string;
 	export let applyInputSample: (sample: Record<string, any>) => void =
 		({}) => {};
@@ -69,7 +70,9 @@
 		{/if}
 	</WidgetHeader>
 	<slot name="top" />
-	<WidgetInfo {computeTime} {error} {modelStatus} />
+	{#if !noModelInfo}
+		<WidgetInfo {computeTime} {error} {modelStatus} />
+	{/if}
 	{#if modelLoading.isLoading}
 		<WidgetModelLoading estimatedTime={modelLoading.estimatedTime} />
 	{/if}

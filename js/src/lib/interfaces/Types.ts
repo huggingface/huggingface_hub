@@ -38,6 +38,7 @@ export enum PipelineType {
 	"image-to-text"                                           = "Image-to-Text",
 	/// others
 	"structured-data-classification"                          = "Structured Data Classification",
+	"reinforcement-learning"                                  = "Reinforcement Learning",
 }
 
 export const ALL_PIPELINE_TYPES = Object.keys(PipelineType) as (keyof typeof PipelineType)[];
@@ -100,6 +101,7 @@ export const PIPELINE_TAG_MODALITIES: Record<keyof typeof PipelineType, Modality
 	"text-to-image":                  "cv",
 	"image-to-text":                  "cv",
 	"structured-data-classification": "other",
+	"reinforcement-learning":         "other",
 };
 
 /*
@@ -119,6 +121,7 @@ export const PIPELINE_COLOR: {
 	"image-to-text":                  "red",
 	"object-detection":               "orange",
 	"question-answering":             "blue",
+	"reinforcement-learning":         "indigo",
 	"sentence-similarity":            "orange",
 	"structured-data-classification": "indigo",
 	"summarization":                  "indigo",
@@ -166,6 +169,7 @@ export const PIPELINE_TAGS_DISPLAY_ORDER: Array<keyof typeof PipelineType> = [
 	"image-to-text",
 	/// others
 	"structured-data-classification",
+	"reinforcement-learning",
 ];
 
 /**
