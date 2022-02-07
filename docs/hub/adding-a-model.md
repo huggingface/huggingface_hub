@@ -16,9 +16,169 @@ The repository can be either linked with an individual, such as [osanseviero/fas
 
 ## How is this tutorial written?
 
-This tutorial is split into two parts, the first showing how to add a model using the `huggingface_hub` Python library, and the second using the web interace.
+This tutorial is split into three parts:
+- Using the web-interface to create a model repository and upload your model (Beginner)
+- Using the web-interface to create a model repository and use the `huggingface-cli` to upload your model (Intermediate)
+- Using the `huggingface_hub` library to do so entirely from your Python interface (Advanced)
 
-Generally if you are using Python in your workflow it is better to use the `huggingface_hub` as it wraps around most of the command-line usage, achieving the same result with just a few lines of code. However, for those who are not working in Python and wish to host their files on the Hub, directions for doing so without any wrappers are shown in the second part. 
+Each will cover uploading the same model to the same repository, with the same steps shown using the different method.
+
+# Using the Web Interface
+
+## Creating a repository
+
+Using the web interface, you can easily create repositories, add files (even large ones!), explore models, visualize diffs, and much more. Let's begin by creating a repository.
+
+1. To create a new repository, visit [huggingface.co/new](http://huggingface.co/new):
+
+![/docs/assets/hub/new_repo.png](/docs/assets/hub/new_repo.png)
+
+2. First, specify the owner of the repository: this can be either you or any of the organizations you’re affiliated with. 
+
+3. Next, enter your model’s name. This will also be the name of the repository. Finally, you can specify whether you want your model to be public or private.
+
+After creating your model repository, you should see a page like this:
+
+![/docs/assets/hub/empty_repo.png](/docs/assets/hub/empty_repo.png)
+
+4. This is where your model will be hosted. To start populating it, you can add a README file directly from the web interface.
+
+![/docs/assets/hub/repo_readme.png](/docs/assets/hub/repo_readme.png)
+
+5. The README file is in Markdown — feel free to go wild with it! You can read more about writing good model cards [in our free course!](https://huggingface.co/course/chapter4/4?fw=pt)
+
+If you look at the “Files and versions” tab, you’ll see that there aren’t many files there yet — just the README.md you just created and the .gitattributes file that keeps track of large files.
+
+
+![/docs/assets/hub/files.png](/docs/assets/hub/files.png)
+
+## Uploading your Model
+
+1. In the "Files and versions" tab, select "Add File" and specify "Upload File":
+
+![../assets/hub/add-file.png](/docs/assets/hub/add-file.png)
+
+2. From there, select a file from your computer to upload and leave a helpful commit message to know what you are uploading:
+
+![../assets/hub/commit-file.png](/docs/assets/hub/commit-file.png)
+
+3. Afterwards hit "Commit changes" and your model will be uploaded to the Hub!
+
+4. Inspect files and history
+
+You can check your repository with all the recently added files!
+
+![/docs/assets/hub/repo_with_files.png](/docs/assets/hub/repo_with_files.png)
+
+The UI allows you to explore the model files and commits and to see the diff introduced by each commit:
+
+![/docs/assets/hub/explore_history.gif](/docs/assets/hub/explore_history.gif)
+
+5. Add metadata
+
+You can add metadata to your model card. You can specify:
+* the type of task this model is for, enabling widgets and the Inference API.
+* the used library (`transformers`, `spaCy`, etc)
+* the language
+* the dataset
+* metrics
+* license
+* a lot more!
+
+Read more about model tags [here](https://huggingface.co/docs/hub/model-repos#how-are-model-tags-determined).
+
+6. Add TensorBoard traces
+
+Models trained with 🤗 Transformers will generate [TensorBoard traces](https://huggingface.co/transformers/main_classes/callback.html?highlight=tensorboard#transformers.integrations.TensorBoardCallback) by default if [`tensorboard`](https://pypi.org/project/tensorboard/) is installed.
+
+Beyond 🤗 Transformers, any repository that contains TensorBoard traces (filenames that contain `tfevents`) is categorized with the [`TensorBoard` tag](https://huggingface.co/models?filter=tensorboard). As a convention we suggest that you save traces under the `runs/` subfolder. The "Training metrics" tab then makes it easy to review charts of the logged variables, like the loss or the accuracy.
+
+![Training metrics tab on a model's page, with TensorBoard](/docs/assets/hub/tensorboard.png)
+
+
+# Using the Web Interface and Command Line
+
+## Creating a repository
+
+Using the web interface, you can easily create repositories, add files (even large ones!), explore models, visualize diffs, and much more. Let's begin by creating a repository.
+
+1. To create a new repository, visit [huggingface.co/new](http://huggingface.co/new):
+
+![/docs/assets/hub/new_repo.png](/docs/assets/hub/new_repo.png)
+
+2. First, specify the owner of the repository: this can be either you or any of the organizations you’re affiliated with. 
+
+3. Next, enter your model’s name. This will also be the name of the repository. Finally, you can specify whether you want your model to be public or private.
+
+After creating your model repository, you should see a page like this:
+
+![/docs/assets/hub/empty_repo.png](/docs/assets/hub/empty_repo.png)
+
+4. This is where your model will be hosted. To start populating it, you can add a README file directly from the web interface.
+
+![/docs/assets/hub/repo_readme.png](/docs/assets/hub/repo_readme.png)
+
+5. The README file is in Markdown — feel free to go wild with it! You can read more about writing good model cards [in our free course!](https://huggingface.co/course/chapter4/4?fw=pt)
+
+If you look at the “Files and versions” tab, you’ll see that there aren’t many files there yet — just the README.md you just created and the .gitattributes file that keeps track of large files.
+
+
+![/docs/assets/hub/files.png](/docs/assets/hub/files.png)
+
+
+## Uploading your files
+
+If you've used Git before, this will be very easy since Git is used to manage files in the Hub.
+
+There is only one key difference if you have large files (over 10MB, or 1MB for binary files). These files are usually tracked with **git-lfs** (which stands for Git Large File Storage). 
+
+1. Please make sure you have both **git** and **git-lfs** installed on your system.
+
+* [Install Git](https://git-scm.com/book/en/v2/Getting-Started-Installing-Git)
+* [Install Git LFS](https://git-lfs.github.com/)
+
+2. Run `git lfs install` to initialize **git-lfs**:
+
+Do you have files larger than 10MB? Those files are tracked with `git-lfs`. We already provide a list of common file extensions for these files in `.gitattributes`, but you might need to add new extensions if they are not already handled. You can do so with `git lfs track "*.your_extension"`.
+
+Once ready, just run:
+
+```
+git lfs install
+```
+
+3. Clone your model repository created in the previous section:
+
+```
+git clone https://huggingface.co/<your-username>/<your-model-id>
+```
+
+The directory should contain the `README.md` file created in the previous section.
+
+
+4. Add your files to the repository
+
+Now's the time 🔥. You can add any files you want to the repository. 
+
+5. Commit and push your files
+
+You can do this with the usual Git workflow:
+
+```
+git add .
+git commit -m "First model version"
+git push
+```
+And we're done!
+
+You can check your repository with all the recently added files!
+
+![/docs/assets/hub/repo_with_files.png](/docs/assets/hub/repo_with_files.png)
+
+The UI allows you to explore the model files and commits and to see the diff introduced by each commit:
+
+![/docs/assets/hub/explore_history.gif](/docs/assets/hub/explore_history.gif)
+
 
 # Using the `huggingface_hub`
 
@@ -120,85 +280,7 @@ Then we can write to our `dummy` folder any large file we may want to store, bef
 
 And that's it! You can now push your models and files to your newly created Repository without ever having to leave your Python interpreter.
 
-If you are interested in doing the same without using Python, below are directions for doing so from the CLI.
-
-# Using the Web Interface and Command Line
-
-## Creating a repository
-
-Using the web interface, you can easily create repositories, add files (even large ones!), explore models, visualize diffs, and much more. Let's begin by creating a repository.
-
-1. To create a new repository, visit [huggingface.co/new](http://huggingface.co/new):
-
-![/docs/assets/hub/new_repo.png](/docs/assets/hub/new_repo.png)
-
-2. First, specify the owner of the repository: this can be either you or any of the organizations you’re affiliated with. 
-
-3. Next, enter your model’s name. This will also be the name of the repository. Finally, you can specify whether you want your model to be public or private.
-
-After creating your model repository, you should see a page like this:
-
-![/docs/assets/hub/empty_repo.png](/docs/assets/hub/empty_repo.png)
-
-4. This is where your model will be hosted. To start populating it, you can add a README file directly from the web interface.
-
-![/docs/assets/hub/repo_readme.png](/docs/assets/hub/repo_readme.png)
-
-5. The README file is in Markdown — feel free to go wild with it! You can read more about writing good model cards [in our free course!](https://huggingface.co/course/chapter4/4?fw=pt)
-
-If you look at the “Files and versions” tab, you’ll see that there aren’t many files there yet — just the README.md you just created and the .gitattributes file that keeps track of large files.
-
-
-![/docs/assets/hub/files.png](/docs/assets/hub/files.png)
-
-
-## Uploading your files
-
-If you've used Git before, this will be very easy since Git is used to manage files in the Hub.
-
-There is only one key difference if you have large files (over 10MB, or 1MB for binary files). These files are usually tracked with **git-lfs** (which stands for Git Large File Storage). 
-
-1. Please make sure you have both **git** and **git-lfs** installed on your system.
-
-* [Install Git](https://git-scm.com/book/en/v2/Getting-Started-Installing-Git)
-* [Install Git LFS](https://git-lfs.github.com/)
-
-2. Run `git lfs install` to initialize **git-lfs**:
-
-Do you have files larger than 10MB? Those files are tracked with `git-lfs`. We already provide a list of common file extensions for these files in `.gitattributes`, but you might need to add new extensions if they are not already handled. You can do so with `git lfs track "*.your_extension"`.
-
-Once ready, just run:
-
-```
-git lfs install
-```
-
-3. Clone your model repository created in the previous section:
-
-```
-git clone https://huggingface.co/<your-username>/<your-model-id>
-```
-
-The directory should contain the `README.md` file created in the previous section.
-
-
-4. Add your files to the repository
-
-Now's the time 🔥. You can add any files you want to the repository. 
-
-5. Commit and push your files
-
-You can do this with the usual Git workflow:
-
-```
-git add .
-git commit -m "First model version"
-git push
-```
-
-6. Inspect files and history
-
-And we're done! You can check your repository with all the recently added files!
+You can check now check your repository with all the recently added files:
 
 ![/docs/assets/hub/repo_with_files.png](/docs/assets/hub/repo_with_files.png)
 
@@ -206,24 +288,4 @@ The UI allows you to explore the model files and commits and to see the diff int
 
 ![/docs/assets/hub/explore_history.gif](/docs/assets/hub/explore_history.gif)
 
-7. Add metadata
-
-You can add metadata to your model card. You can specify:
-* the type of task this model is for, enabling widgets and the Inference API.
-* the used library (`transformers`, `spaCy`, etc)
-* the language
-* the dataset
-* metrics
-* license
-* a lot more!
-
-Read more about model tags [here](https://huggingface.co/docs/hub/model-repos#how-are-model-tags-determined).
-
-8. Add TensorBoard traces
-
-Models trained with 🤗 Transformers will generate [TensorBoard traces](https://huggingface.co/transformers/main_classes/callback.html?highlight=tensorboard#transformers.integrations.TensorBoardCallback) by default if [`tensorboard`](https://pypi.org/project/tensorboard/) is installed.
-
-Beyond 🤗 Transformers, any repository that contains TensorBoard traces (filenames that contain `tfevents`) is categorized with the [`TensorBoard` tag](https://huggingface.co/models?filter=tensorboard). As a convention we suggest that you save traces under the `runs/` subfolder. The "Training metrics" tab then makes it easy to review charts of the logged variables, like the loss or the accuracy.
-
-![Training metrics tab on a model's page, with TensorBoard](/docs/assets/hub/tensorboard.png)
 
