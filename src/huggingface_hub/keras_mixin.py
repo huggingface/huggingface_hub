@@ -16,6 +16,29 @@ from .repository import Repository
 
 logger = logging.getLogger(__name__)
 
+README_TEMPLATE = """---
+tags:
+- Keras
+---
+# TODO: Fill this model card
+"""
+
+
+def _create_model_card(repo_dir: Path):
+    """
+    Creates a model card for the repository.
+    :param repo_dir:
+    """
+    readme_path = repo_dir / "README.md"
+    readme = ""
+    if readme_path.exists():
+        with readme_path.open("r", encoding="utf8") as f:
+            readme = f.read()
+    else:
+        readme = README_TEMPLATE
+    with readme_path.open("w", encoding="utf-8") as f:
+        f.write(readme)
+
 
 def save_pretrained_keras(
     model,
@@ -178,6 +201,7 @@ def push_to_hub_keras(
         include_optimizer=include_optimizer,
         **model_save_kwargs,
     )
+    _create_model_card(repo_path_or_name)
     if log_dir is not None:
         copytree(log_dir, f"{repo_path_or_name}/logs")
     # Commit and push!
