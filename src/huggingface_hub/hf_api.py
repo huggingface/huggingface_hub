@@ -517,6 +517,7 @@ class HfApi:
         direction: Optional[Literal[-1]] = None,
         limit: Optional[int] = None,
         full: Optional[bool] = None,
+        cardData: Optional[bool] = None,
         fetch_config: Optional[bool] = None,
         use_auth_token: Optional[Union[bool, str]] = None,
     ) -> List[ModelInfo]:
@@ -591,6 +592,9 @@ class HfApi:
             full (:obj:`bool`, `optional`):
                 Whether to fetch all model data, including the `lastModified`, the `sha`, the files and the `tags`.
                 This is set to `True` by default when using a filter.
+            cardData (:obj:`bool`, `optional`):
+                Whether to grab the metadata for the model as well. Can contain useful information such as carbon emissions,
+                metrics, and datasets trained on.
             fetch_config (:obj:`bool`, `optional`):
                 Whether to fetch the model configs as well. This is not included in `full` due to its size.
             use_auth_token (:obj:`bool` or :obj:`str`, `optional`):
@@ -635,7 +639,9 @@ class HfApi:
                 del params["full"]
         if fetch_config is not None:
             params.update({"config": fetch_config})
-        r = requests.get(path, headers=headers, params=params)
+        if cardData is not None:
+            params.update({"cardData": cardData})
+        r = requests.get(path, params=params, headers=headers)
         r.raise_for_status()
         d = r.json()
         return [ModelInfo(**x) for x in d]
@@ -708,6 +714,7 @@ class HfApi:
         sort: Union[Literal["lastModified"], str, None] = None,
         direction: Optional[Literal[-1]] = None,
         limit: Optional[int] = None,
+        cardData: Optional[bool] = None,
         full: Optional[bool] = None,
         use_auth_token: Optional[str] = None,
     ) -> List[DatasetInfo]:
@@ -779,6 +786,8 @@ class HfApi:
                 sort by ascending order.
             limit (:obj:`int`, `optional`):
                 The limit on the number of datasets fetched. Leaving this option to `None` fetches all datasets.
+            cardData (:obj:`bool`, `optional`):
+                Whether to grab the metadata for the dataset as well. Can contain useful information such as the PapersWithCode ID.
             full (:obj:`bool`, `optional`):
                 Whether to fetch all dataset data, including the `lastModified` and the `cardData`.
             use_auth_token (:obj:`bool` or :obj:`str`, `optional`):
@@ -818,7 +827,10 @@ class HfApi:
         if full is not None:
             if full:
                 params.update({"full": True})
-        r = requests.get(path, headers=headers, params=params)
+        if cardData is not None:
+            if cardData:
+                params.update({"full": True})
+        r = requests.get(path, params=params, headers=headers)
         r.raise_for_status()
         d = r.json()
         return [DatasetInfo(**x) for x in d]
