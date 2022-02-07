@@ -673,6 +673,21 @@ class HfApiPublicTest(unittest.TestCase):
         self.assertIsInstance(datasets[0], DatasetInfo)
 
     @with_production_testing
+    def test_filter_datasets_with_cardData(self):
+        _api = HfApi()
+        datasets = _api.list_datasets(cardData=True)
+        self.assertGreater(
+            sum(
+                [getattr(dataset, "cardData", None) is not None for dataset in datasets]
+            ),
+            0,
+        )
+        datasets = _api.list_datasets()
+        self.assertTrue(
+            all([getattr(dataset, "cardData", None) is None for dataset in datasets])
+        )
+
+    @with_production_testing
     def test_dataset_info(self):
         _api = HfApi()
         dataset = _api.dataset_info(repo_id=DUMMY_DATASET_ID)
@@ -779,6 +794,14 @@ class HfApiPublicTest(unittest.TestCase):
         self.assertTrue(
             ["pytorch" in model.tags and "tf" in model.tags for model in models]
         )
+
+    @with_production_testing
+    def test_filter_models_with_cardData(self):
+        _api = HfApi()
+        models = _api.list_models("co2_eq_emissions", cardData=True)
+        self.assertTrue([hasattr(model, "cardData") for model in models])
+        models = _api.list_models("co2_eq_emissions")
+        self.assertTrue(all([not hasattr(model, "cardData") for model in models]))
 
 
 class HfApiPrivateTest(HfApiCommonTestWithLogin):
