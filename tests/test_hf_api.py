@@ -556,7 +556,7 @@ class HfApiPublicTest(unittest.TestCase):
             securityStatus=True,
         )
         self.assertEqual(
-            model["securityStatus"], {"containsInfected": False, "infectionTypes": []}
+            getattr(model, "securityStatus"), {"containsInfected": False, "infectionTypes": []}
         )
 
     @with_production_testing
