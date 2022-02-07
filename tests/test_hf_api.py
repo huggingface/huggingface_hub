@@ -803,6 +803,33 @@ class HfApiPublicTest(unittest.TestCase):
         models = _api.list_models("co2_eq_emissions")
         self.assertTrue(all([not hasattr(model, "cardData") for model in models]))
 
+    @with_production_testing
+    def test_filter_emissions_with_max(self):
+        _api = HfApi()
+        models = _api.list_models(emissions_threshold=(None, 100))
+        self.assertTrue(
+            all([model.cardData["co2_eq_emissions"] <= 100 for model in models])
+        )
+
+    @with_production_testing
+    def test_filter_emissions_with_min(self):
+        _api = HfApi()
+        models = _api.list_models(emissions_threshold=(5, None))
+        self.assertTrue(
+            all([model.cardData["co2_eq_emissions"] >= 5 for model in models])
+        )
+
+    @with_production_testing
+    def test_filter_emissions_with_min_and_max(self):
+        _api = HfApi()
+        models = _api.list_models(emissions_threshold=(5, 100))
+        self.assertTrue(
+            all([model.cardData["co2_eq_emissions"] >= 5 for model in models])
+        )
+        self.assertTrue(
+            all([model.cardData["co2_eq_emissions"] <= 100 for model in models])
+        )
+
 
 class HfApiPrivateTest(HfApiCommonTestWithLogin):
     def setUp(self) -> None:

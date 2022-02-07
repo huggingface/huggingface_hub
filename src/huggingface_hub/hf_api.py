@@ -38,6 +38,7 @@ from .utils.endpoint_helpers import (
     DatasetTags,
     ModelFilter,
     ModelTags,
+    _filter_emissions,
 )
 
 
@@ -513,6 +514,7 @@ class HfApi:
         filter: Union[ModelFilter, str, Iterable[str], None] = None,
         author: Optional[str] = None,
         search: Optional[str] = None,
+        emissions_threshold: Optional[Tuple[float, float]] = None,
         sort: Union[Literal["lastModified"], str, None] = None,
         direction: Optional[Literal[-1]] = None,
         limit: Optional[int] = None,
@@ -581,6 +583,9 @@ class HfApi:
                     >>> #List all models with "bert" in their name made by google
                     >>> api.list_models(search="bert", author="google")
 
+            emissions_threshold (:obj:`Tuple`, `optional`):
+                A tuple of two ints or floats representing a minimum and maximum carbon footprint
+                to filter the resulting models with
             sort (:obj:`Literal["lastModified"]` or :obj:`str`, `optional`):
                 The key with which to sort the resulting models. Possible values are the properties of the `ModelInfo`
                 class.
@@ -644,7 +649,10 @@ class HfApi:
         r = requests.get(path, params=params, headers=headers)
         r.raise_for_status()
         d = r.json()
-        return [ModelInfo(**x) for x in d]
+        res = [ModelInfo(**x) for x in d]
+        if emissions_threshold is not None:
+            return _filter_emissions(res, *emissions_threshold)
+        return res
 
     def _unpack_model_filter(self, model_filter: ModelFilter):
         """
