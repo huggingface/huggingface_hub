@@ -23,18 +23,16 @@ def extract_hyperparameters_from_keras(model):
         hyperparameters["optimizer"] = model.optimizer.get_config()
     else:
         hyperparameters["optimizer"] = None
-    hyperparameters["training_precision"] = tf.keras.mixed_precision.global_policy().name
+    hyperparameters[
+        "training_precision"
+    ] = tf.keras.mixed_precision.global_policy().name
 
     return hyperparameters
 
 
-def _create_model_card(repo_dir: Path, hyperparameters: Dict):
+def _create_model_card(repo_dir: Path, hyperparameters: Dict = None):
     """
     Creates a model card for the repository.
-    repo_dir:
-
-    hyperparameters:
-        Training hyperparameters.
     """
     readme_path = f"{repo_dir}/README.md"
     model_card = "---\ntags:\n- Keras\n---"
@@ -46,18 +44,20 @@ def _create_model_card(repo_dir: Path, hyperparameters: Dict):
     model_card += "\n### Training hyperparameters\n"
     if hyperparameters is not None:
         model_card += "\nThe following hyperparameters were used during training:\n"
-        model_card += "\n".join([f"- {name}: {value}" for name, value in hyperparameters.items()])
+        model_card += "\n".join(
+            [f"- {name}: {value}" for name, value in hyperparameters.items()]
+        )
         model_card += "\n"
     else:
         model_card += "\nMore information needed\n"
-    
+
     if os.path.exists(readme_path):
-        with open(readme_path,"r", encoding="utf8") as f:
+        with open(readme_path, "r", encoding="utf8") as f:
             readme = f.read()
     else:
         readme = model_card
-    with open(readme_path,"w", encoding="utf-8") as f:
-        f.write(model_card)
+    with open(readme_path, "w", encoding="utf-8") as f:
+        f.write(readme)
 
 
 def save_pretrained_keras(
@@ -222,7 +222,7 @@ def push_to_hub_keras(
         include_optimizer=include_optimizer,
         **model_save_kwargs,
     )
-    
+
     _create_model_card(repo_path_or_name, hyperparameters)
     if log_dir is not None:
         copytree(log_dir, f"{repo_path_or_name}/logs")
