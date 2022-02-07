@@ -11,7 +11,7 @@
 	export let btnLabel = "";
 	export let entries: Array<{
 		classNames?: string;
-		href: string;
+		href?: string;
 		icon?: typeof SvelteComponent;
 		iconClassNames?: string;
 		onClick?: (e: MouseEvent) => void;
