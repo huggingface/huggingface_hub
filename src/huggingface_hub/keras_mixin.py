@@ -32,11 +32,11 @@ def _create_model_card(repo_dir: Path):
     readme_path = f"{repo_dir}/README.md"
     readme = ""
     if os.path.exists(readme_path):
-        with open(readme_path, encoding="utf8") as f:
+        with open(readme_path,"r", encoding="utf8") as f:
             readme = f.read()
     else:
         readme = README_TEMPLATE
-    with open(readme_path, encoding="utf-8") as f:
+    with open(readme_path,"w", encoding="utf-8") as f:
         f.write(readme)
 
 
