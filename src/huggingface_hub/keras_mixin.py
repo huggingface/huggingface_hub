@@ -2,6 +2,7 @@ import json
 import logging
 import os
 from pathlib import Path
+from shutil import copytree
 from typing import Any, Dict, Optional, Union
 
 from huggingface_hub import ModelHubMixin
@@ -71,6 +72,7 @@ def push_to_hub_keras(
     model,
     repo_path_or_name: Optional[str] = None,
     repo_url: Optional[str] = None,
+    log_dir: Optional[str] = None,
     commit_message: Optional[str] = "Add model",
     organization: Optional[str] = None,
     private: Optional[bool] = None,
@@ -88,7 +90,7 @@ def push_to_hub_keras(
 
     Parameters:
         model:
-            The Keras model you'd like to push to the hub. It model must be compiled and built.
+            The Keras model you'd like to push to the hub. The model must be compiled and built.
         repo_path_or_name (:obj:`str`, `optional`):
             Can either be a repository name for your model or tokenizer in the Hub or a path to a local folder (in
             which case the repository will have the name of that local folder). If not specified, will default to
@@ -97,6 +99,9 @@ def push_to_hub_keras(
             Specify this in case you want to push to an existing repository in the hub. If unspecified, a new
             repository will be created in your namespace (unless you specify an :obj:`organization`) with
             :obj:`repo_name`.
+        log_dir (:obj:`str`, `optional`):
+            TensorBoard logging directory to be pushed. The Hub automatically hosts
+            and displays a TensorBoard instance if log files are included in the repository.
         commit_message (:obj:`str`, `optional`):
             Message to commit while pushing. Will default to :obj:`"add model"`.
         organization (:obj:`str`, `optional`):
@@ -173,7 +178,8 @@ def push_to_hub_keras(
         include_optimizer=include_optimizer,
         **model_save_kwargs,
     )
-
+    if log_dir is not None:
+        copytree(log_dir, f"{repo_path_or_name}/logs")
     # Commit and push!
     repo.git_add(auto_lfs_track=True)
     repo.git_commit(commit_message)
