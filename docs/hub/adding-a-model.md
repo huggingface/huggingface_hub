@@ -95,6 +95,17 @@ Beyond 🤗 Transformers, any repository that contains TensorBoard traces (filen
 
 ![Training metrics tab on a model's page, with TensorBoard](/docs/assets/hub/tensorboard.png)
 
+7. Add metadata
+
+You can add metadata to your model card. You can specify:
+* the type of task this model is for, enabling widgets and the Inference API.
+* the used library (`transformers`, `spaCy`, etc)
+* the language
+* the dataset
+* metrics
+* license
+* a lot more!
+
 
 # Using the Web Interface and Command Line
 
