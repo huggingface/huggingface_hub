@@ -55,6 +55,8 @@ After either login method is chosen, you will be asked to run:
 
 This ensures that git is looking at our newly-stored credentials any time we wish to push to the Hub
 
+> Note: You may find that `HfApi` has a `set_access_token` function. This does not set all the permissions needed at each location, and is more for internal use. You should use one of the two methods mentioned above.
+
 ## Creating a repository
 
 When using the `huggingface_hub`, we can create a new repository from just a few lines of code!
