@@ -16,28 +16,48 @@ from .repository import Repository
 
 logger = logging.getLogger(__name__)
 
-README_TEMPLATE = """---
-tags:
-- Keras
----
-# TODO: Fill this model card
-"""
+
+def extract_hyperparameters_from_keras(model):
+    hyperparameters = dict()
+    if hasattr(model, "optimizer") and model.optimizer is not None:
+        hyperparameters["optimizer"] = model.optimizer.get_config()
+    else:
+        hyperparameters["optimizer"] = None
+    hyperparameters["training_precision"] = tf.keras.mixed_precision.global_policy().name
+
+    return hyperparameters
 
 
-def _create_model_card(repo_dir: Path):
+def _create_model_card(repo_dir: Path, hyperparameters: Dict):
     """
     Creates a model card for the repository.
-    :param repo_dir:
+    repo_dir:
+
+    hyperparameters:
+        Training hyperparameters.
     """
     readme_path = f"{repo_dir}/README.md"
-    readme = ""
+    model_card = "---\ntags:\n- Keras\n---"
+    model_card += "\n## Model description\n\nMore information needed\n"
+    model_card += "\n## Intended uses & limitations\n\nMore information needed\n"
+    model_card += "\n## Training and evaluation data\n\nMore information needed\n"
+
+    model_card += "\n## Training procedure\n"
+    model_card += "\n### Training hyperparameters\n"
+    if hyperparameters is not None:
+        model_card += "\nThe following hyperparameters were used during training:\n"
+        model_card += "\n".join([f"- {name}: {value}" for name, value in hyperparameters.items()])
+        model_card += "\n"
+    else:
+        model_card += "\nMore information needed\n"
+    
     if os.path.exists(readme_path):
         with open(readme_path,"r", encoding="utf8") as f:
             readme = f.read()
     else:
-        readme = README_TEMPLATE
+        readme = model_card
     with open(readme_path,"w", encoding="utf-8") as f:
-        f.write(readme)
+        f.write(model_card)
 
 
 def save_pretrained_keras(
@@ -81,10 +101,11 @@ def save_pretrained_keras(
         path = os.path.join(save_directory, CONFIG_NAME)
         with open(path, "w") as f:
             json.dump(config, f)
-
+    hyperparameters = extract_hyperparameters_from_keras(model)
     tf.keras.models.save_model(
         model, save_directory, include_optimizer=include_optimizer, **model_save_kwargs
     )
+    return hyperparameters
 
 
 def from_pretrained_keras(*args, **kwargs):
@@ -194,14 +215,15 @@ def push_to_hub_keras(
     )
     repo.git_pull(rebase=True)
 
-    save_pretrained_keras(
+    hyperparameters = save_pretrained_keras(
         model,
         repo_path_or_name,
         config=config,
         include_optimizer=include_optimizer,
         **model_save_kwargs,
     )
-    _create_model_card(repo_path_or_name)
+    
+    _create_model_card(repo_path_or_name, hyperparameters)
     if log_dir is not None:
         copytree(log_dir, f"{repo_path_or_name}/logs")
     # Commit and push!
