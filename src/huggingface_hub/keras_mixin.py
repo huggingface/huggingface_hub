@@ -29,7 +29,7 @@ def _create_model_card(repo_dir: Path):
     Creates a model card for the repository.
     :param repo_dir:
     """
-    readme_path = repo_dir / "README.md"
+    readme_path = f"{repo_dir}/README.md"
     readme = ""
     if readme_path.exists():
         with readme_path.open("r", encoding="utf8") as f:
