@@ -235,11 +235,6 @@ You can find your file live on the Hub at the url returned from `upload_file`
 
 If you are trying to upload larger files to the hub (over 10MB), you should ensure that **git-lfs** is installed on your system. Git is used to manage your files on the Hub, and tracking of large file storages needs to utilize this. 
 
-* [Install Git](https://git-scm.com/book/en/v2/Getting-Started-Installing-Git)
-* [Install Git LFS](https://git-lfs.github.com/)
-
-You do not need to initialize `git-lfs` however, as `huggingface_hub` will automatically do this for you. 
-
 First we need to clone our repository from the Hub by doing:
 >>> from huggingface_hub import Repository
 >>> repo = Repository(
