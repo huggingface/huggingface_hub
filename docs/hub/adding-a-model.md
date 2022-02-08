@@ -99,17 +99,6 @@ Any repository that contains TensorBoard traces (filenames that contain `tfevent
 
 Models trained with 🤗 Transformers will generate [TensorBoard traces](https://huggingface.co/transformers/main_classes/callback.html?highlight=tensorboard#transformers.integrations.TensorBoardCallback) by default if [`tensorboard`](https://pypi.org/project/tensorboard/) is installed.
 
-7. Add metadata
-
-You can add metadata to your model card. You can specify:
-* the type of task this model is for, enabling widgets and the Inference API.
-* the used library (`transformers`, `spaCy`, etc)
-* the language
-* the dataset
-* metrics
-* license
-* a lot more!
-
 
 ## Using the Web Interface and Command Line
 
