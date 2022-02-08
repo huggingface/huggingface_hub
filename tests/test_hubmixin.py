@@ -49,7 +49,6 @@ if is_torch_available():
         def forward(self, x):
             return self.l1(x)
 
-
 else:
     DummyModel = None
 
