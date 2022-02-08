@@ -50,6 +50,10 @@ WORKING_DATASET_DIR = os.path.join(
     os.path.dirname(os.path.abspath(__file__)), "fixtures/working_dataset"
 )
 
+WORKING_SPACE_DIR = os.path.join(
+    os.path.dirname(os.path.abspath(__file__)), "fixtures/working_space"
+)
+
 
 class RepositoryCommonTest(unittest.TestCase):
     _api = HfApi(endpoint=ENDPOINT_STAGING)
@@ -1579,6 +1583,55 @@ class RepositoryDatasetTest(RepositoryCommonTest):
             f"{WORKING_DATASET_DIR}/{self.REPO_NAME}",
             clone_from=f"valid_org/{self.REPO_NAME}",
             repo_type="dataset",
+            git_user="ci",
+            git_email="ci@dummy.com",
+        )
+
+
+class RepositorySpacesTest(RepositoryCommonTest):
+    @classmethod
+    def setUpClass(cls):
+        """
+        Share this valid token in all tests below.
+        """
+        cls._token = cls._api.login(username=USER, password=PASS)
+
+    def setUp(self):
+        self.REPO_NAME = repo_name()
+        self._api.create_repo(
+            token=self._token,
+            name=self.REPO_NAME,
+            repo_type="space",
+            space_sdk="gradio",
+        )
+
+    def tearDown(self):
+        try:
+            self._api.delete_repo(
+                name=self.REPO_NAME, token=self._token, repo_type="space"
+            )
+        except requests.exceptions.HTTPError:
+            try:
+                self._api.delete_repo(
+                    name=self.REPO_NAME,
+                    token=self._token,
+                    organization="valid_org",
+                    repo_type="space",
+                )
+            except requests.exceptions.HTTPError:
+                pass
+
+        shutil.rmtree(
+            f"{WORKING_SPACE_DIR}/{self.REPO_NAME}",
+            onerror=set_write_permission_and_retry,
+        )
+
+    def test_clone_without_repo_type(self):
+        Repository(
+            f"{WORKING_SPACE_DIR}/{self.REPO_NAME}",
+            clone_from=f"{USER}/{self.REPO_NAME}",
+            repo_type="space",
+            use_auth_token=self._token,
             git_user="ci",
             git_email="ci@dummy.com",
         )

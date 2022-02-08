@@ -8,6 +8,7 @@ import time
 from contextlib import contextmanager
 from pathlib import Path
 from typing import Callable, Dict, Iterator, List, Optional, Tuple, Union
+from urllib.error import HTTPError
 
 from tqdm.auto import tqdm
 
@@ -366,6 +367,7 @@ class Repository:
         revision: Optional[str] = None,
         private: bool = False,
         skip_lfs_files: bool = False,
+        space_sdk: Optional[str] = None,
     ):
         """
         Instantiate a local clone of a git repo.
@@ -399,6 +401,8 @@ class Repository:
                 whether the repository is private or not.
             skip_lfs_files (``bool``, `optional`, defaults to ``False``):
                 whether to skip git-LFS files or not.
+            space_sdk (``str``, `optional`, defaults to ``None``):
+                choice of SDK to use if repo_type is "space". Can be "streamlit", "gradio", or "static".
         """
 
         os.makedirs(local_dir, exist_ok=True)
@@ -418,7 +422,11 @@ class Repository:
             self.huggingface_token = None
 
         if clone_from is not None:
-            self.clone_from(repo_url=clone_from)
+            self.clone_from(
+                repo_url=clone_from,
+                space_sdk=space_sdk,
+                use_auth_token=self.huggingface_token,
+            )
         else:
             if is_git_repo(self.local_dir):
                 logger.debug("[Repository] is a valid git repo")
@@ -504,7 +512,12 @@ class Repository:
             )
         logger.info(git_version + "\n" + lfs_version)
 
-    def clone_from(self, repo_url: str, use_auth_token: Union[bool, str, None] = None):
+    def clone_from(
+        self,
+        repo_url: str,
+        use_auth_token: Union[bool, str, None] = None,
+        space_sdk: str = None,
+    ):
         """
         Clone from a remote. If the folder already exists, will try to clone the repository within it.
 
@@ -543,14 +556,21 @@ class Repository:
                 repo_url = repo_url.replace("https://", f"https://user:{token}@")
 
                 if namespace == user or namespace in valid_organisations:
-                    api.create_repo(
-                        repo_id,
-                        token=token,
-                        repo_type=self.repo_type,
-                        organization=namespace,
-                        exist_ok=True,
-                        private=self.private,
-                    )
+                    try:
+                        _ = api.model_info(f"{namespace}/{repo_id}")
+                    except HTTPError:
+                        logger.log(
+                            f"Repo {namespace}/{repo_id} does not exist, creating a new repo"
+                        )
+                        api.create_repo(
+                            repo_id,
+                            token=token,
+                            repo_type=self.repo_type,
+                            organization=namespace,
+                            exist_ok=True,
+                            private=self.private,
+                            space_sdk=space_sdk,
+                        )
             else:
                 if namespace is not None:
                     repo_url += f"{namespace}/"
