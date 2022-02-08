@@ -292,20 +292,6 @@ class HfApiUploadFileTest(HfApiCommonTestWithLogin):
                 token=self._token,
             )
 
-        for (invalid_path, msg) in [
-            ("Remote\\README.md", "Has a backslash"),
-            ("/Remote/README.md", "Starts with a slash"),
-            ("Remote/../subtree/./README.md", "Has relative parts"),
-        ]:
-            with self.subTest(msg=msg):
-                with self.assertRaises(ValueError, msg="path_in_repo is invalid"):
-                    self._api.upload_file(
-                        path_or_fileobj=self.tmp_file,
-                        path_in_repo=invalid_path,
-                        repo_id=f"{USER}/{REPO_NAME}",
-                        token=self._token,
-                    )
-
     def test_upload_file_path(self):
         REPO_NAME = repo_name("path")
         self._api.create_repo(token=self._token, name=REPO_NAME)
