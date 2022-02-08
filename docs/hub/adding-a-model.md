@@ -41,9 +41,9 @@ Using the web interface, you can easily create repositories, add files (even lar
 
 After creating your model repository, you should see a page like this:
 
-![/docs/assets/hub/empty_repo.png](/docs/assets/hub/empty_repo.png)
+![docs/assets/hub/empty_repo.png](/docs/assets/hub/empty_repo.png)
 
-5. This is where your model will be hosted. To start populating it, you can add a README file directly from the web interface.
+5. This is where your model will be hosted. To start with, we have a README.md file that has our licence information in it (insert picture)
 
 ![/docs/assets/hub/repo_readme.png](/docs/assets/hub/repo_readme.png)
 
@@ -58,11 +58,11 @@ If you look at the “Files and versions” tab, you’ll see that there aren’
 
 1. In the "Files and versions" tab, select "Add File" and specify "Upload File":
 
-![../assets/hub/add-file.png](/docs/assets/hub/add-file.png)
+![/docs/assets/hub/add-file.png](docs/assets/hub/add-file.png)
 
 2. From there, select a file from your computer to upload and leave a helpful commit message to know what you are uploading:
 
-![../assets/hub/commit-file.png](/docs/assets/hub/commit-file.png)
+![docs/assets/hub/commit-file.png](/docs/assets/hub/commit-file.png)
 
 3. Afterwards hit "Commit changes" and your model will be uploaded to the Hub!
 
@@ -127,11 +127,7 @@ After creating your model repository, you should see a page like this:
 
 ![/docs/assets/hub/empty_repo.png](/docs/assets/hub/empty_repo.png)
 
-4. This is where your model will be hosted. To start populating it, you can add a README file directly from the web interface.
-
-![/docs/assets/hub/repo_readme.png](/docs/assets/hub/repo_readme.png)
-
-5. The README file is in Markdown — feel free to go wild with it! You can read more about writing good model cards [in our free course!](https://huggingface.co/course/chapter4/4?fw=pt)
+4. This is where your model will be hosted. For now, only the README.md file will be in there. It's in Markdown — feel free to go wild with it! You can read more about writing good model cards [in our free course!](https://huggingface.co/course/chapter4/4?fw=pt)
 
 If you look at the “Files and versions” tab, you’ll see that there aren’t many files there yet — just the README.md you just created and the .gitattributes file that keeps track of large files.
 
