@@ -42,8 +42,34 @@ def return_model_summary(model):
     return model_summary
 
 
+def parse_model_history(history):
+
+    logs = history.history
+    lines = []
+    for key in logs.keys():
+        for value in range(len(logs[key])):
+            epoch_dict = {
+                log_key: log_value_list[value]
+                for log_key, log_value_list in logs.items()
+            }
+            values = dict()
+            for k, v in epoch_dict.items():
+                if k.startswith("val_"):
+                    k = "validation_" + k[4:]
+                elif k != "epoch":
+                    k = "train_" + k
+                splits = k.split("_")
+                name = " ".join([part.capitalize() for part in splits])
+                values[name] = v
+            lines.append(values)
+    return lines
+
+
 def _create_model_card(
-    repo_dir: Path, hyperparameters: Dict = None, summary: str = None
+    repo_dir: Path,
+    hyperparameters: Dict = None,
+    summary: str = None,
+    lines: list = None,
 ):
     """
     Creates a model card for the repository.
@@ -64,13 +90,31 @@ def _create_model_card(
         model_card += "\n"
     else:
         model_card += "\nMore information needed\n"
-    model_card += "\nModel Summary\n"
+    model_card += "\n## Model Summary\n"
     model_card += "\n<details>\n<summary>View Model Summary</summary>"
     if summary is not None:
         model_card += f"\n{summary}\n"
     else:
         model_card += "\nThis model has no summary\n"
     model_card += "\n<\details>\n"
+
+    model_card += "## Training Metrics"
+    if lines is not None:
+        model_card = "Epochs "
+
+        for i in lines[0].keys():
+            model_card += f"| {i} "
+        model_card += "\n ---"
+        for i in lines[0].keys():
+            model_card += "|---"
+        for line in lines:
+            model_card += f"\n{lines.index(line)}"
+            for key in line:
+                value = line[key]
+                model_card += f"| {value}"
+    else:
+        model_card += "Model history needed"
+
     if os.path.exists(readme_path):
         with open(readme_path, "r", encoding="utf8") as f:
             readme = f.read()
@@ -126,7 +170,8 @@ def save_pretrained_keras(
         model, save_directory, include_optimizer=include_optimizer, **model_save_kwargs
     )
     summary = return_model_summary(model)
-    return summary, hyperparameters
+    lines = parse_model_history(model)
+    return summary, hyperparameters, lines
 
 
 def from_pretrained_keras(*args, **kwargs):
@@ -236,7 +281,7 @@ def push_to_hub_keras(
     )
     repo.git_pull(rebase=True)
 
-    summary, hyperparameters = save_pretrained_keras(
+    summary, hyperparameters, lines = save_pretrained_keras(
         model,
         repo_path_or_name,
         config=config,
@@ -244,7 +289,7 @@ def push_to_hub_keras(
         **model_save_kwargs,
     )
 
-    _create_model_card(repo_path_or_name, hyperparameters, summary)
+    _create_model_card(repo_path_or_name, hyperparameters, summary, lines)
     if log_dir is not None:
         copytree(log_dir, f"{repo_path_or_name}/logs")
     # Commit and push!
