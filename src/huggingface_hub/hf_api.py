@@ -49,10 +49,6 @@ else:
 
 USERNAME_PLACEHOLDER = "hf_user"
 
-REMOTE_FILEPATH_REGEX = re.compile(r"^\w[\w\/\-]*(\.\w+)?$")
-# ^^ No trailing slash, no backslash, no spaces, no relative parts ("." or "..")
-#    Only word characters and an optional extension
-
 
 def repo_type_and_id_from_hf_id(hf_id: str):
     """
@@ -1354,14 +1350,6 @@ class HfApi:
                 "If you passed a fileobj, make sure you've opened the file in binary mode."
             )
 
-        # Normalize path separators and strip leading slashes
-        if not REMOTE_FILEPATH_REGEX.match(path_in_repo):
-            raise ValueError(
-                "Invalid path_in_repo '{}', path_in_repo must match regex {}".format(
-                    path_in_repo, REMOTE_FILEPATH_REGEX.pattern
-                )
-            )
-
         if repo_type in REPO_TYPES_URL_PREFIXES:
             repo_id = REPO_TYPES_URL_PREFIXES[repo_type] + repo_id
 
@@ -1435,14 +1423,6 @@ class HfApi:
                     "You need to provide a `token` or be logged in to Hugging Face with "
                     "`huggingface-cli login`."
                 )
-
-        # Normalize path separators and strip leading slashes
-        if not REMOTE_FILEPATH_REGEX.match(path_in_repo):
-            raise ValueError(
-                "Invalid path_in_repo '{}', path_in_repo must match regex {}".format(
-                    path_in_repo, REMOTE_FILEPATH_REGEX.pattern
-                )
-            )
 
         if repo_type in REPO_TYPES_URL_PREFIXES:
             repo_id = REPO_TYPES_URL_PREFIXES[repo_type] + repo_id
