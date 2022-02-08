@@ -202,7 +202,7 @@ First we need to instantiate the `HfApi` class, which holds all of the magic:
 Afterwards we can run the `create_repo` function, specifying a number of settings and options for our new repository:
 >>> api.create_repo(
 >>>   name = "dummy", # The name of our repository
->>>   organization = None, # The username of the expected repository. Automatically grabs your logged-in profile name
+>>>   organization = None, # The namespace of the expected repository. Automatically grabs your logged-in profile name
 >>>   private = False, # Whether the repo should be public or private
 >>>   repo_type = "model" # The type of repository, such as "model", "space", "dataset"
 >>> )
