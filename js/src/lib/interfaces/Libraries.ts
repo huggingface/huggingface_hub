@@ -285,10 +285,10 @@ model = fasttext.load_model(hf_hub_download("${model.id}", "model.bin"))`;
 
 const stableBaselines3 = (model: ModelData) =>
 	`from huggingface_sb3 import load_from_hub
-	checkpoint = load_from_hub(
-    		repo_id="${model.id}",
-    		filename="{MODEL FILENAME}.zip",
-	)`;
+checkpoint = load_from_hub(
+	repo_id="${model.id}",
+	filename="{MODEL FILENAME}.zip",
+)`;
 
 //#endregion
 
