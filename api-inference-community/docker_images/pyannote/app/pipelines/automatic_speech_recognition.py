@@ -1,10 +1,10 @@
+import datetime
 from typing import Dict
 
-import torch
 import numpy as np
+import torch
 from app.pipelines import Pipeline
 from pyannote.audio import Pipeline as Pypeline
-import datetime
 
 
 class AutomaticSpeechRecognitionPipeline(Pipeline):

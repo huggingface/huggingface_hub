@@ -13,6 +13,6 @@ from app.pipelines.speech_segmentation import SpeechSegmentationPipeline
 from app.pipelines.structured_data_classification import (
     StructuredDataClassificationPipeline,
 )
+from app.pipelines.text_classification import TextClassificationPipeline
 from app.pipelines.text_to_speech import TextToSpeechPipeline
 from app.pipelines.token_classification import TokenClassificationPipeline
-from app.pipelines.text_classification import TextClassificationPipeline
