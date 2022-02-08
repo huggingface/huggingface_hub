@@ -236,7 +236,7 @@ def push_to_hub_keras(
     )
     repo.git_pull(rebase=True)
 
-    hyperparameters = save_pretrained_keras(
+    summary, hyperparameters = save_pretrained_keras(
         model,
         repo_path_or_name,
         config=config,
@@ -244,7 +244,7 @@ def push_to_hub_keras(
         **model_save_kwargs,
     )
 
-    _create_model_card(repo_path_or_name, hyperparameters)
+    _create_model_card(repo_path_or_name, hyperparameters, summary)
     if log_dir is not None:
         copytree(log_dir, f"{repo_path_or_name}/logs")
     # Commit and push!
