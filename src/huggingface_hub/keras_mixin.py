@@ -1,3 +1,4 @@
+import io
 import json
 import logging
 import os
@@ -33,7 +34,17 @@ def extract_hyperparameters_from_keras(model):
     return hyperparameters
 
 
-def _create_model_card(repo_dir: Path, hyperparameters: Dict = None):
+def return_model_summary(model):
+    s = io.StringIO()
+    model.summary(print_fn=lambda x: s.write(x + "\n"))
+    model_summary = s.getvalue()
+    s.close()
+    return model_summary
+
+
+def _create_model_card(
+    repo_dir: Path, hyperparameters: Dict = None, summary: str = None
+):
     """
     Creates a model card for the repository.
     """
@@ -53,7 +64,13 @@ def _create_model_card(repo_dir: Path, hyperparameters: Dict = None):
         model_card += "\n"
     else:
         model_card += "\nMore information needed\n"
-
+    model_card += "\nModel Summary\n"
+    model_card += "\n<details>\n<summary>View Model Summary</summary>"
+    if summary is not None:
+        model_card += f"\n{summary}\n"
+    else:
+        model_card += "\nThis model has no summary\n"
+    model_card += "\n<\details>\n"
     if os.path.exists(readme_path):
         with open(readme_path, "r", encoding="utf8") as f:
             readme = f.read()
@@ -108,7 +125,8 @@ def save_pretrained_keras(
     tf.keras.models.save_model(
         model, save_directory, include_optimizer=include_optimizer, **model_save_kwargs
     )
-    return hyperparameters
+    summary = model.summary(model)
+    return summary, hyperparameters
 
 
 def from_pretrained_keras(*args, **kwargs):
