@@ -23,9 +23,9 @@ This tutorial is split into three parts:
 
 Each section will cover uploading the same model to the same repository with a different method. Each method has different advantages and disadvantages depending on your use case.
 
-# Using the Web Interface
+## Using the Web Interface
 
-## Creating a repository
+### Creating a repository
 
 Using the web interface, you can easily create repositories, add files (even large ones!), explore models, visualize diffs, and much more. Let's begin by creating a repository.
 
@@ -52,7 +52,7 @@ If you look at the “Files and versions” tab, you’ll see that there aren’
 
 ![/docs/assets/hub/files.png](/docs/assets/hub/files.png)
 
-## Uploading your Model
+### Uploading your Model
 
 1. In the "Files and versions" tab, select "Add File" and specify "Upload File":
 
@@ -107,9 +107,9 @@ You can add metadata to your model card. You can specify:
 * a lot more!
 
 
-# Using the Web Interface and Command Line
+## Using the Web Interface and Command Line
 
-## Creating a repository
+### Creating a repository
 
 Using the web interface, you can easily create repositories, add files (even large ones!), explore models, visualize diffs, and much more. Let's begin by creating a repository.
 
@@ -137,7 +137,7 @@ If you look at the “Files and versions” tab, you’ll see that there aren’
 ![/docs/assets/hub/files.png](/docs/assets/hub/files.png)
 
 
-## Uploading your files
+### Uploading your files
 
 If you've used Git before, this will be very easy since Git is used to manage files in the Hub.
 
@@ -191,9 +191,9 @@ The UI allows you to explore the model files and commits and to see the diff int
 ![/docs/assets/hub/explore_history.gif](/docs/assets/hub/explore_history.gif)
 
 
-# Using the `huggingface_hub` client library
+## Using the `huggingface_hub` client library
 
-## Installing the library and logging in
+### Installing the library and logging in
 
 Before we begin, you should make sure the `huggingface_hub` library is installed on your system by running the following `bash` command:
 
@@ -228,7 +228,7 @@ This ensures that git is looking at our newly-stored credentials any time we wis
 
 > Note: You may find that `HfApi` has a `set_access_token` function. This does not set all the permissions needed at each location, and is more for internal use. You should use one of the two methods mentioned above.
 
-## Creating a repository
+### Creating a repository
 
 When using the `huggingface_hub`, we can create a new repository from just a few lines of code!
 First we need to instantiate the `HfApi` class, which holds all of the magic:
@@ -245,7 +245,7 @@ Afterwards we can run the `create_repo` function, specifying a number of setting
 
 > To read more about what you can pass in, check out its documentation by doing api.create_repo?
 
-## Uploading your files
+### Uploading your files
 
 There are two methods for uploading a file to the Hub:
 - `HfApi.upload_file`
