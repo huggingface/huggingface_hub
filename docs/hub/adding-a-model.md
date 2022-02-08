@@ -35,17 +35,19 @@ Using the web interface, you can easily create repositories, add files (even lar
 
 2. First, specify the owner of the repository: this can be either you or any of the organizations you’re affiliated with. 
 
-3. Next, enter your model’s name. This will also be the name of the repository. Finally, you can specify whether you want your model to be public or private.
+3. Next, enter your model’s name. This will also be the name of the repository. You can also, you can specify whether you want your model to be public or private.
+
+4. Finally, specify a licence for your repository. 
 
 After creating your model repository, you should see a page like this:
 
 ![/docs/assets/hub/empty_repo.png](/docs/assets/hub/empty_repo.png)
 
-4. This is where your model will be hosted. To start populating it, you can add a README file directly from the web interface.
+5. This is where your model will be hosted. To start populating it, you can add a README file directly from the web interface.
 
 ![/docs/assets/hub/repo_readme.png](/docs/assets/hub/repo_readme.png)
 
-5. The README file is in Markdown — feel free to go wild with it! You can read more about writing good model cards [in our free course!](https://huggingface.co/course/chapter4/4?fw=pt)
+6. The README file is in Markdown — feel free to go wild with it! You can read more about writing good model cards [in our free course!](https://huggingface.co/course/chapter4/4?fw=pt)
 
 If you look at the “Files and versions” tab, you’ll see that there aren’t many files there yet — just the README.md you just created and the .gitattributes file that keeps track of large files.
 
