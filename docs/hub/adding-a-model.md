@@ -17,11 +17,11 @@ The repository can be either linked with an individual, such as [osanseviero/fas
 ## How is this tutorial written?
 
 This tutorial is split into three parts:
-- Using the web-interface to create a model repository and upload your model (Beginner)
-- Using the web-interface to create a model repository and use the `huggingface-cli` to upload your model (Intermediate)
+- Using the web interface to create a model repository and upload your model (Beginner)
+- Using the web interface to create a model repository and using the `huggingface-cli` to upload your model (Intermediate)
 - Using the `huggingface_hub` library to do so entirely from your Python interface (Advanced)
 
-Each will cover uploading the same model to the same repository, with the same steps shown using the different method.
+Each section will cover uploading the same model to the same repository with a different method. Each method has different advantages and disadvantages depending on your use case.
 
 # Using the Web Interface
 
@@ -85,13 +85,13 @@ You can add metadata to your model card. You can specify:
 * license
 * a lot more!
 
-Read more about model tags [here](https://huggingface.co/docs/hub/model-repos#how-are-model-tags-determined).
+Read more about model tags [here](/docs/hub/model-repos#model-card-metadata).
 
 6. Add TensorBoard traces
 
 Models trained with 🤗 Transformers will generate [TensorBoard traces](https://huggingface.co/transformers/main_classes/callback.html?highlight=tensorboard#transformers.integrations.TensorBoardCallback) by default if [`tensorboard`](https://pypi.org/project/tensorboard/) is installed.
 
-Beyond 🤗 Transformers, any repository that contains TensorBoard traces (filenames that contain `tfevents`) is categorized with the [`TensorBoard` tag](https://huggingface.co/models?filter=tensorboard). As a convention we suggest that you save traces under the `runs/` subfolder. The "Training metrics" tab then makes it easy to review charts of the logged variables, like the loss or the accuracy.
+Beyond 🤗 Transformers, any repository that contains TensorBoard traces (filenames that contain `tfevents`) is categorized with the [`TensorBoard` tag](https://huggingface.co/models?filter=tensorboard). As a convention, we suggest that you save traces under the `runs/` subfolder. The "Training metrics" tab then makes it easy to review charts of the logged variables, like the loss or the accuracy.
 
 ![Training metrics tab on a model's page, with TensorBoard](/docs/assets/hub/tensorboard.png)
 
@@ -191,7 +191,7 @@ The UI allows you to explore the model files and commits and to see the diff int
 ![/docs/assets/hub/explore_history.gif](/docs/assets/hub/explore_history.gif)
 
 
-# Using the `huggingface_hub`
+# Using the `huggingface_hub` client library
 
 ## Installing the library and logging in
 
