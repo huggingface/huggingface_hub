@@ -6,6 +6,7 @@ from app.pipelines import Pipeline
 from pyannote.audio import Pipeline as Pypeline
 import datetime
 
+
 class AutomaticSpeechRecognitionPipeline(Pipeline):
     def __init__(self, model_id: str):
         # IMPLEMENT_THIS
@@ -27,7 +28,7 @@ class AutomaticSpeechRecognitionPipeline(Pipeline):
             the detected langage from the input audio
         """
         wav = torch.from_numpy(inputs).unsqueeze(0)
-        output = self.model({"waveform": wav, "sample_rate":self.sampling_rate})
+        output = self.model({"waveform": wav, "sample_rate": self.sampling_rate})
         regions = "".join(
             [
                 f"|{str(datetime.timedelta(seconds=segment.start))[:-3]} - {str(datetime.timedelta(seconds=segment.end))[:-3]} : {label} |"
