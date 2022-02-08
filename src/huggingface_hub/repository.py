@@ -8,12 +8,12 @@ import time
 from contextlib import contextmanager
 from pathlib import Path
 from typing import Callable, Dict, Iterator, List, Optional, Tuple, Union
-from urllib.error import HTTPError
 
 from tqdm.auto import tqdm
 
 from huggingface_hub.constants import REPO_TYPES_URL_PREFIXES, REPOCARD_NAME
 from huggingface_hub.repocard import metadata_load, metadata_save
+from requests.exceptions import HTTPError
 
 from .hf_api import ENDPOINT, HfApi, HfFolder, repo_type_and_id_from_hf_id
 from .lfs import LFS_MULTIPART_UPLOAD_COMMAND
@@ -559,7 +559,7 @@ class Repository:
                     try:
                         _ = api.model_info(f"{namespace}/{repo_id}")
                     except HTTPError:
-                        logger.log(
+                        logger.warning(
                             f"Repo {namespace}/{repo_id} does not exist, creating a new repo"
                         )
                         api.create_repo(
