@@ -17,9 +17,9 @@ The repository can be either linked with an individual, such as [osanseviero/fas
 ## How is this tutorial written?
 
 This tutorial is split into three parts:
-- Using the web interface to create a model repository and upload your model (Beginner)
-- Using the web interface to create a model repository and using the `huggingface-cli` to upload your model (Intermediate)
-- Using the `huggingface_hub` library to do so entirely from your Python interface (Advanced)
+- [Using the web interface to create a model repository and upload your model (Beginner)](##using-the-web-interface)
+- [Using the web interface to create a model repository and using the `huggingface-cli` to upload your model (Intermediate)](##using-the-web-interface-and-command-line)
+- [Using the `huggingface_hub` library to do so entirely from your Python interface (Advanced)](##using-the-huggingface_hub-client-library)
 
 Each section will cover uploading the same model to the same repository with a different method. Each method has different advantages and disadvantages depending on your use case.
 
