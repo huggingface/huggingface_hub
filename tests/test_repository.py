@@ -1626,7 +1626,7 @@ class RepositorySpacesTest(RepositoryCommonTest):
             onerror=set_write_permission_and_retry,
         )
 
-    def test_clone_without_repo_type(self):
+    def test_clone_with_repo_type(self):
         Repository(
             f"{WORKING_SPACE_DIR}/{self.REPO_NAME}",
             clone_from=f"{USER}/{self.REPO_NAME}",
@@ -1634,4 +1634,5 @@ class RepositorySpacesTest(RepositoryCommonTest):
             use_auth_token=self._token,
             git_user="ci",
             git_email="ci@dummy.com",
+            space_sdk="gradio",
         )
