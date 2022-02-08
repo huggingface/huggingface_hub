@@ -125,7 +125,7 @@ def save_pretrained_keras(
     tf.keras.models.save_model(
         model, save_directory, include_optimizer=include_optimizer, **model_save_kwargs
     )
-    summary = model.summary(model)
+    summary = return_model_summary(model)
     return summary, hyperparameters
 
 
