@@ -30,7 +30,7 @@ def _filter_emissions(
 
     Args:
         models (:obj:`ModelInfo` or :class:`List`):
-            A list of `ModelInfo`'s to filter by
+            A list of `ModelInfo`'s to filter by.
         minimum_threshold (:obj:`int` or :obj:`float`):
             A minimum carbon threshold to filter by, such as 1.
         maximum_threshold (:obj:`int` or :obj:`float):

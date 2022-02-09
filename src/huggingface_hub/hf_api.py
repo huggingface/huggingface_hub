@@ -585,7 +585,7 @@ class HfApi:
 
             emissions_thresholds (:obj:`Tuple`, `optional`):
                 A tuple of two ints or floats representing a minimum and maximum carbon footprint
-                to filter the resulting models with in grams
+                to filter the resulting models with in grams.
                 Example usage:
 
                     >>> from huggingface_hub import HfApi
