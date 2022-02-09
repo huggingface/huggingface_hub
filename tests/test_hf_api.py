@@ -808,7 +808,13 @@ class HfApiPublicTest(unittest.TestCase):
         _api = HfApi()
         models = _api.list_models(emissions_thresholds=(None, 100), cardData=True)
         self.assertTrue(
-            all([model.cardData["co2_eq_emissions"] <= 100 for model in models])
+            all(
+                [
+                    model.cardData["co2_eq_emissions"] <= 100
+                    for model in models
+                    if not isinstance(model.cardData["co2_eq_emissions"], dict)
+                ]
+            )
         )
 
     @with_production_testing
@@ -816,7 +822,13 @@ class HfApiPublicTest(unittest.TestCase):
         _api = HfApi()
         models = _api.list_models(emissions_thresholds=(5, None), cardData=True)
         self.assertTrue(
-            all([model.cardData["co2_eq_emissions"] >= 5 for model in models])
+            all(
+                [
+                    model.cardData["co2_eq_emissions"] >= 5
+                    for model in models
+                    if not isinstance(model.cardData["co2_eq_emissions"], dict)
+                ]
+            )
         )
 
     @with_production_testing
@@ -824,10 +836,22 @@ class HfApiPublicTest(unittest.TestCase):
         _api = HfApi()
         models = _api.list_models(emissions_thresholds=(5, 100), cardData=True)
         self.assertTrue(
-            all([model.cardData["co2_eq_emissions"] >= 5 for model in models])
+            all(
+                [
+                    model.cardData["co2_eq_emissions"] >= 5
+                    for model in models
+                    if not isinstance(model.cardData["co2_eq_emissions"], dict)
+                ]
+            )
         )
         self.assertTrue(
-            all([model.cardData["co2_eq_emissions"] <= 100 for model in models])
+            all(
+                [
+                    model.cardData["co2_eq_emissions"] <= 100
+                    for model in models
+                    if not isinstance(model.cardData["co2_eq_emissions"], dict)
+                ]
+            )
         )
 
 
