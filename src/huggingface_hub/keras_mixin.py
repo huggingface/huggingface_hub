@@ -102,12 +102,12 @@ def _create_model_card(
         model_card += "\n| Epochs |"
 
         for i in lines[0].keys():
-            model_card += f" {i+1} |"
+            model_card += f" {i} |"
         model_card += "\n |"
         for i in range(len(lines[0].keys()) + 1):
             model_card += "--- |"  # add header of table
         for line in lines:
-            model_card += f"\n| {lines.index(line) }|"  # add values
+            model_card += f"\n| {lines.index(line) + 1}|"  # add values
             for key in line:
                 value = line[key]
                 model_card += f" {value}| "
