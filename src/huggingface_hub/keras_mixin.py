@@ -74,14 +74,16 @@ def _create_model_card(
     repo_dir: Path,
     hyperparameters: Dict = None,
     lines: list = None,
-    save_directory: str = None,
+    task_name: str = None,
 ):
     """
     Creates a model card for the repository.
     """
     readme_path = f"{repo_dir}/README.md"
-    model_card = ""
-    model_card += "---\nlibrary_name: keras\n---\n"
+    model_card = "---\n"
+    if task_name is not None:
+        model_card += f"tags:\n- {task_name}\n"
+    model_card += "library_name: keras\n---\n"
     model_card += "\n## Model description\n\nMore information needed\n"
     model_card += "\n## Intended uses & limitations\n\nMore information needed\n"
     model_card += "\n## Training and evaluation data\n\nMore information needed\n"
@@ -198,6 +200,7 @@ def push_to_hub_keras(
     git_email: Optional[str] = None,
     config: Optional[dict] = None,
     include_optimizer: Optional[bool] = False,
+    task_name: Optional[str] = None,
     **model_save_kwargs,
 ):
     """
@@ -295,7 +298,7 @@ def push_to_hub_keras(
         **model_save_kwargs,
     )
 
-    _create_model_card(repo_path_or_name, hyperparameters, lines, save_directory)
+    _create_model_card(repo_path_or_name, hyperparameters, lines, task_name)
     if log_dir is not None:
         copytree(log_dir, f"{repo_path_or_name}/logs")
     # Commit and push!
