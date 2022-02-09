@@ -90,7 +90,7 @@ def _create_model_card(
     Creates a model card for the repository.
     """
     readme_path = f"{repo_dir}/README.md"
-    model_card = "---\ntags:\n- Keras\n---"
+    model_card = "---\nlibrary_name:\n- Keras \n---"
     model_card += "\n## Model description\n\nMore information needed\n"
     model_card += "\n## Intended uses & limitations\n\nMore information needed\n"
     model_card += "\n## Training and evaluation data\n\nMore information needed\n"
