@@ -43,25 +43,24 @@ def return_model_summary(model):
 
 
 def parse_model_history(history):
-
     logs = history.history
+    num_epochs = len(logs[list(logs.keys())[0]])
     lines = []
-    for key in logs.keys():
-        for value in range(len(logs[key])):
-            epoch_dict = {
-                log_key: log_value_list[value]
-                for log_key, log_value_list in logs.items()
-            }
-            values = dict()
-            for k, v in epoch_dict.items():
-                if k.startswith("val_"):
-                    k = "validation_" + k[4:]
-                elif k != "epoch":
-                    k = "train_" + k
-                splits = k.split("_")
-                name = " ".join([part.capitalize() for part in splits])
-                values[name] = v
-            lines.append(values)
+
+    for value in range(num_epochs):
+        epoch_dict = {
+            log_key: log_value_list[value] for log_key, log_value_list in logs.items()
+        }
+        values = dict()
+        for k, v in epoch_dict.items():
+            if k.startswith("val_"):
+                k = "validation_" + k[4:]
+            elif k != "epoch":
+                k = "train_" + k
+            splits = k.split("_")
+            name = " ".join([part.capitalize() for part in splits])
+            values[name] = v
+        lines.append(values)
     return lines
 
 
@@ -100,18 +99,18 @@ def _create_model_card(
 
     model_card += "## Training Metrics"
     if lines is not None:
-        model_card = "Epochs "
+        model_card = "| Epochs |"
 
         for i in lines[0].keys():
-            model_card += f"| {i} "
-        model_card += "\n ---"
-        for i in lines[0].keys():
-            model_card += "|---"
+            model_card += f" {i} |"
+        model_card += "\n |"
+        for i in range(len(lines[0].keys()) + 1):
+            model_card += "--- |"  # add header of table
         for line in lines:
-            model_card += f"\n{lines.index(line)}"
+            model_card += f"\n| {lines.index(line) }|"
             for key in line:
                 value = line[key]
-                model_card += f"| {value}"
+                model_card += f" {value}| "
     else:
         model_card += "Model history needed"
 
