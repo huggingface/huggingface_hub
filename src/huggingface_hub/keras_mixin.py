@@ -81,7 +81,7 @@ def _create_model_card(
     """
     readme_path = f"{repo_dir}/README.md"
     model_card = ""
-    model_card += "---\nlibrary_name:\n- keras\n---\n"
+    model_card += "---\nlibrary_name: keras\n---\n"
     model_card += "\n## Model description\n\nMore information needed\n"
     model_card += "\n## Intended uses & limitations\n\nMore information needed\n"
     model_card += "\n## Training and evaluation data\n\nMore information needed\n"
@@ -114,14 +114,14 @@ def _create_model_card(
     else:
         model_card += "Model history needed"
     model_card += "\n ## Model Plot\n"
-    model_card += "<details>"
+    model_card += "\n<details>"
     model_card += "\n<summary>View Model Plot</summary>\n"
     path_to_plot = "model.png"
     if os.path.exists(f"{path_to_plot}"):
         model_card += f"\n![Model Image]({path_to_plot})\n"
     else:
         model_card += "\nPlot is not available for this model.\n"
-    model_card += "</details>"
+    model_card += "\n</details>"
 
     if os.path.exists(readme_path):
         with open(readme_path, "r", encoding="utf8") as f:
