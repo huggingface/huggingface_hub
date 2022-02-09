@@ -42,8 +42,8 @@ def return_model_summary(model):
     return model_summary
 
 
-def parse_model_history(history):
-    logs = history.history
+def parse_model_history(model):
+    logs = model.history.history
     num_epochs = len(logs[list(logs.keys())[0]])
     lines = []
 
