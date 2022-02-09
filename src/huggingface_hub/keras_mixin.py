@@ -1,4 +1,3 @@
-import io
 import json
 import logging
 import os
@@ -32,14 +31,6 @@ def extract_hyperparameters_from_keras(model):
     ] = tf.keras.mixed_precision.global_policy().name
 
     return hyperparameters
-
-
-def return_model_summary(model):
-    s = io.StringIO()
-    model.summary(print_fn=lambda x: s.write(x + "\n"))
-    model_summary = s.getvalue()
-    s.close()
-    return model_summary
 
 
 def parse_model_history(model):
@@ -82,7 +73,6 @@ def plot_network(model, save_directory):
 def _create_model_card(
     repo_dir: Path,
     hyperparameters: Dict = None,
-    summary: str = None,
     lines: list = None,
     save_directory: str = None,
 ):
@@ -106,20 +96,13 @@ def _create_model_card(
         model_card += "\n"
     else:
         model_card += "\nMore information needed\n"
-    model_card += "\n## Model Summary\n"
-    model_card += "\n<details>\n<summary>View Model Summary</summary>"
-    if summary is not None:
-        model_card += f"\n{summary}\n"
-    else:
-        model_card += "\nThis model has no summary\n"
-    model_card += "<\details>"
 
     model_card += "\n ## Training Metrics"
     if lines is not None:
         model_card += "\n| Epochs |"
 
         for i in lines[0].keys():
-            model_card += f" {i} |"
+            model_card += f" {i+1} |"
         model_card += "\n |"
         for i in range(len(lines[0].keys()) + 1):
             model_card += "--- |"  # add header of table
@@ -190,9 +173,8 @@ def save_pretrained_keras(
     tf.keras.models.save_model(
         model, save_directory, include_optimizer=include_optimizer, **model_save_kwargs
     )
-    summary = return_model_summary(model)
     lines = parse_model_history(model)
-    return summary, hyperparameters, lines, save_directory
+    return hyperparameters, lines, save_directory
 
 
 def from_pretrained_keras(*args, **kwargs):
@@ -302,7 +284,7 @@ def push_to_hub_keras(
     )
     repo.git_pull(rebase=True)
 
-    summary, hyperparameters, lines, save_directory = save_pretrained_keras(
+    hyperparameters, lines, save_directory = save_pretrained_keras(
         model,
         repo_path_or_name,
         config=config,
@@ -310,9 +292,7 @@ def push_to_hub_keras(
         **model_save_kwargs,
     )
 
-    _create_model_card(
-        repo_path_or_name, hyperparameters, summary, lines, save_directory
-    )
+    _create_model_card(repo_path_or_name, hyperparameters, lines, save_directory)
     if log_dir is not None:
         copytree(log_dir, f"{repo_path_or_name}/logs")
     # Commit and push!
