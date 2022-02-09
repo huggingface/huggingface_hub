@@ -112,9 +112,9 @@ def _create_model_card(
         model_card += f"\n{summary}\n"
     else:
         model_card += "\nThis model has no summary\n"
-    model_card += "\n<\details>\n"
+    model_card += "<\details>"
 
-    model_card += "## Training Metrics"
+    model_card += "\n ## Training Metrics"
     if lines is not None:
         model_card += "\n| Epochs |"
 
@@ -131,9 +131,9 @@ def _create_model_card(
     else:
         model_card += "Model history needed"
     model_card += "\n ## Model Plot\n"
-    path_to_image = f"{save_directory}/model.png"
+    path_to_image = "model.png"
     model_card += f"![Model Image]({path_to_image})"
-    
+
     if os.path.exists(readme_path):
         with open(readme_path, "r", encoding="utf8") as f:
             readme = f.read()
