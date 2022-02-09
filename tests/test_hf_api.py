@@ -806,7 +806,7 @@ class HfApiPublicTest(unittest.TestCase):
     @with_production_testing
     def test_filter_emissions_with_max(self):
         _api = HfApi()
-        models = _api.list_models(emissions_threshold=(None, 100))
+        models = _api.list_models(emissions_thresholds=(None, 100))
         self.assertTrue(
             all([model.cardData["co2_eq_emissions"] <= 100 for model in models])
         )
@@ -814,7 +814,7 @@ class HfApiPublicTest(unittest.TestCase):
     @with_production_testing
     def test_filter_emissions_with_min(self):
         _api = HfApi()
-        models = _api.list_models(emissions_threshold=(5, None))
+        models = _api.list_models(emissions_thresholds=(5, None))
         self.assertTrue(
             all([model.cardData["co2_eq_emissions"] >= 5 for model in models])
         )
@@ -822,7 +822,7 @@ class HfApiPublicTest(unittest.TestCase):
     @with_production_testing
     def test_filter_emissions_with_min_and_max(self):
         _api = HfApi()
-        models = _api.list_models(emissions_threshold=(5, 100))
+        models = _api.list_models(emissions_thresholds=(5, 100))
         self.assertTrue(
             all([model.cardData["co2_eq_emissions"] >= 5 for model in models])
         )
@@ -920,7 +920,7 @@ class HfLargefilesTest(HfApiCommonTest):
         REMOTE_URL = self._api.create_repo(
             name=self.REPO_NAME_LARGE_FILE,
             token=self._token,
-            lfsmultipartthresh=6 * 10 ** 6,
+            lfsmultipartthresh=6 * 10**6,
         )
         self.setup_local_clone(REMOTE_URL)
 
@@ -973,7 +973,7 @@ class HfLargefilesTest(HfApiCommonTest):
         REMOTE_URL = self._api.create_repo(
             name=self.REPO_NAME_LARGE_FILE,
             token=self._token,
-            lfsmultipartthresh=16 * 10 ** 6,
+            lfsmultipartthresh=16 * 10**6,
         )
         self.setup_local_clone(REMOTE_URL)
 
