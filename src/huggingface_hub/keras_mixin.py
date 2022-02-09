@@ -117,10 +117,7 @@ def _create_model_card(
     model_card += "\n<details>"
     model_card += "\n<summary>View Model Plot</summary>\n"
     path_to_plot = "./model.png"
-    if os.path.exists(f"{path_to_plot}"):
-        model_card += f"\n![Model Image]({path_to_plot})\n"
-    else:
-        model_card += "\nPlot is not available for this model.\n"
+    model_card += f"\n![Model Image]({path_to_plot})\n"
     model_card += "\n</details>"
 
     if os.path.exists(readme_path):
