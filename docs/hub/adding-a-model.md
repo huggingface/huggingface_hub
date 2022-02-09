@@ -242,7 +242,7 @@ First we need to clone our repository from the Hub by doing:
 >>>    clone_from='my_username/dummy'
 >>> )
 
-Then you can write to the `dummy` folder any large file we may want to store, before finally pushing to the Hub with `Repository.push_to_hub` and attaching a helpeful commit message to it:
+Then you can write to the `dummy` folder any large file you may want to store, before finally pushing to the Hub with `Repository.push_to_hub` and attaching a helpful commit message to it:
 
 >>> repo.push_to_hub(
 >>>   commit_message = "Our first big model!"
