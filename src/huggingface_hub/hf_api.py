@@ -659,10 +659,9 @@ class HfApi:
         res = [ModelInfo(**x) for x in d]
         if emissions_thresholds is not None:
             if cardData is None:
-                logging.error(
-                    "Warning! `emissions_threshold` passed without setting `cardData=True`. No filtering can be performed"
+                raise ValueError(
+                    "`emissions_thresholds` were passed without setting `cardData=True`."
                 )
-                return res
             else:
                 return _filter_emissions(res, *emissions_thresholds)
         return res
