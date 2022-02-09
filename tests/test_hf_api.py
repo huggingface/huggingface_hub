@@ -812,7 +812,7 @@ class HfApiPublicTest(unittest.TestCase):
                 [
                     model.cardData["co2_eq_emissions"] <= 100
                     for model in models
-                    if not isinstance(model.cardData["co2_eq_emissions"], dict)
+                    if isinstance(model.cardData["co2_eq_emissions"], (float, int))
                 ]
             )
         )
@@ -826,7 +826,7 @@ class HfApiPublicTest(unittest.TestCase):
                 [
                     model.cardData["co2_eq_emissions"] >= 5
                     for model in models
-                    if not isinstance(model.cardData["co2_eq_emissions"], dict)
+                    if isinstance(model.cardData["co2_eq_emissions"], (float, int))
                 ]
             )
         )
@@ -840,7 +840,7 @@ class HfApiPublicTest(unittest.TestCase):
                 [
                     model.cardData["co2_eq_emissions"] >= 5
                     for model in models
-                    if not isinstance(model.cardData["co2_eq_emissions"], dict)
+                    if isinstance(model.cardData["co2_eq_emissions"], (float, int))
                 ]
             )
         )
@@ -849,7 +849,7 @@ class HfApiPublicTest(unittest.TestCase):
                 [
                     model.cardData["co2_eq_emissions"] <= 100
                     for model in models
-                    if not isinstance(model.cardData["co2_eq_emissions"], dict)
+                    if isinstance(model.cardData["co2_eq_emissions"], (float, int))
                 ]
             )
         )
