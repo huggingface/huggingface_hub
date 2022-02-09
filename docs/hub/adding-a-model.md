@@ -17,17 +17,36 @@ The repository can be either linked with an individual, such as [osanseviero/fas
 ## How is this tutorial written?
 
 This tutorial is split into three parts:
-- [Using the web interface to create a model repository and upload your model (Beginner)](##using-the-web-interface)
-- [Using the web interface to create a model repository and using the `huggingface-cli` to upload your model (Intermediate)](##using-the-web-interface-and-command-line)
-- [Using the `huggingface_hub` library to do so entirely from your Python interface (Advanced)](##using-the-huggingface_hub-client-library)
+- [Using the web interface to create a model repository and upload your model (Beginner)](#using-the-web-interface)
+- [Using the web interface to create a model repository and using the `huggingface-cli` to upload your model (Intermediate)](#using-the-web-interface-and-command-line)
+- [Using the `huggingface_hub` library to do so entirely from your Python interface (Advanced)](#using-the-huggingface_hub-client-library)
 
 Each section will cover uploading the same model to the same repository with a different method. Each method has different advantages and disadvantages depending on your use case.
 
 ## Using the Web Interface
 
-### Creating a Repository
+### Creating a repository
 
-First, follow the previous [Creating a Repository](##using-the-web-interface) directions to create one from the web interface.
+Using the web interface, you can easily create repositories, add files (even large ones!), explore models, visualize diffs, and much more. Let's begin by creating a repository.
+
+1. To create a new repository, visit [huggingface.co/new](http://huggingface.co/new):
+
+![/docs/assets/hub/new_repo.png](/docs/assets/hub/new_repo.png)
+
+2. First, specify the owner of the repository: this can be either you or any of the organizations you’re affiliated with. 
+
+3. Next, enter your model’s name. This will also be the name of the repository. Finally, you can specify whether you want your model to be public or private.
+
+After creating your model repository, you should see a page like this:
+
+![/docs/assets/hub/empty_repo.png](/docs/assets/hub/empty_repo.png)
+
+4. This is where your model will be hosted. For now, only the README.md file will be in there. It's in Markdown — feel free to go wild with it! You can read more about writing good model cards [in our free course!](https://huggingface.co/course/chapter4/4?fw=pt)
+
+If you look at the “Files and versions” tab, you’ll see that there aren’t many files there yet — just the README.md you just created and the .gitattributes file that keeps track of large files.
+
+
+![/docs/assets/hub/files.png](/docs/assets/hub/files.png)
 
 ### Uploading your Model
 
@@ -39,7 +58,7 @@ First, follow the previous [Creating a Repository](##using-the-web-interface) di
 
 ![docs/assets/hub/commit-file.png](/docs/assets/hub/commit-file.png)
 
-3. Afterwards hit "Commit changes" and your model will be uploaded to the Hub!
+3. Afterwards click "Commit changes" and your model will be uploaded to the Hub!
 
 4. Inspect files and history
 
@@ -77,29 +96,10 @@ Models trained with 🤗 Transformers will generate [TensorBoard traces](https:/
 
 ## Using the Web Interface and Command Line
 
-### Creating a repository
 
-Using the web interface, you can easily create repositories, add files (even large ones!), explore models, visualize diffs, and much more. Let's begin by creating a repository.
+### Creating a Repository
 
-1. To create a new repository, visit [huggingface.co/new](http://huggingface.co/new):
-
-![/docs/assets/hub/new_repo.png](/docs/assets/hub/new_repo.png)
-
-2. First, specify the owner of the repository: this can be either you or any of the organizations you’re affiliated with. 
-
-3. Next, enter your model’s name. This will also be the name of the repository. Finally, you can specify whether you want your model to be public or private.
-
-After creating your model repository, you should see a page like this:
-
-![/docs/assets/hub/empty_repo.png](/docs/assets/hub/empty_repo.png)
-
-4. This is where your model will be hosted. For now, only the README.md file will be in there. It's in Markdown — feel free to go wild with it! You can read more about writing good model cards [in our free course!](https://huggingface.co/course/chapter4/4?fw=pt)
-
-If you look at the “Files and versions” tab, you’ll see that there aren’t many files there yet — just the README.md you just created and the .gitattributes file that keeps track of large files.
-
-
-![/docs/assets/hub/files.png](/docs/assets/hub/files.png)
-
+First, follow the previous [Creating a Repository](#using-the-web-interface) directions to create one from the web interface.
 
 ### Uploading your files
 
@@ -242,7 +242,7 @@ First we need to clone our repository from the Hub by doing:
 >>>    clone_from='my_username/dummy'
 >>> )
 
-Then we can write to our `dummy` folder any large file we may want to store, before finally pushing to the hub with `Repository.push_to_hub`, attaching a helpeful commit message to it:
+Then you can write to the `dummy` folder any large file you may want to store, before finally pushing to the Hub with `Repository.push_to_hub` and attaching a helpful commit message to it:
 
 >>> repo.push_to_hub(
 >>>   commit_message = "Our first big model!"
