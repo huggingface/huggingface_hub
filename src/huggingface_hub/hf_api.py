@@ -37,6 +37,7 @@ from .utils.endpoint_helpers import (
     DatasetTags,
     ModelFilter,
     ModelTags,
+    _filter_emissions,
 )
 
 
@@ -508,6 +509,7 @@ class HfApi:
         filter: Union[ModelFilter, str, Iterable[str], None] = None,
         author: Optional[str] = None,
         search: Optional[str] = None,
+        emissions_thresholds: Optional[Tuple[float, float]] = None,
         sort: Union[Literal["lastModified"], str, None] = None,
         direction: Optional[Literal[-1]] = None,
         limit: Optional[int] = None,
@@ -576,6 +578,16 @@ class HfApi:
                     >>> #List all models with "bert" in their name made by google
                     >>> api.list_models(search="bert", author="google")
 
+            emissions_thresholds (:obj:`Tuple`, `optional`):
+                A tuple of two ints or floats representing a minimum and maximum carbon footprint
+                to filter the resulting models with in grams.
+                Example usage:
+
+                    >>> from huggingface_hub import HfApi
+                    >>> api = HfApi()
+
+                    >>> # List all models that emitted between 100 to 200 grams of co2
+                    >>> api.list_models(emissions_thresholds=(100,200), cardData=True)
             sort (:obj:`Literal["lastModified"]` or :obj:`str`, `optional`):
                 The key with which to sort the resulting models. Possible values are the properties of the `ModelInfo`
                 class.
@@ -639,7 +651,15 @@ class HfApi:
         r = requests.get(path, params=params, headers=headers)
         r.raise_for_status()
         d = r.json()
-        return [ModelInfo(**x) for x in d]
+        res = [ModelInfo(**x) for x in d]
+        if emissions_thresholds is not None:
+            if cardData is None:
+                raise ValueError(
+                    "`emissions_thresholds` were passed without setting `cardData=True`."
+                )
+            else:
+                return _filter_emissions(res, *emissions_thresholds)
+        return res
 
     def _unpack_model_filter(self, model_filter: ModelFilter):
         """
