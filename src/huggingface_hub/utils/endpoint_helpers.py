@@ -22,8 +22,8 @@ from typing import List, Union
 
 def _filter_emissions(
     models,
-    minimum_threshold: Union[int, float] = None,
-    maximum_threshold: Union[int, float] = None,
+    minimum_threshold: float = None,
+    maximum_threshold: float = None,
 ):
     """Filters a list of models for those that include an emission tag
     and limit them to between two thresholds
@@ -31,9 +31,9 @@ def _filter_emissions(
     Args:
         models (:obj:`ModelInfo` or :class:`List`):
             A list of `ModelInfo`'s to filter by.
-        minimum_threshold (:obj:`int` or :obj:`float`):
+        minimum_threshold :obj:`float`:
             A minimum carbon threshold to filter by, such as 1.
-        maximum_threshold (:obj:`int` or :obj:`float):
+        maximum_threshold :obj:`float`:
             A maximum carbon threshold to filter by, such as 10.
     """
     if minimum_threshold is None and maximum_threshold is None:
