@@ -48,6 +48,7 @@ class CommandInProgress:
 
         if result and self._post_method is not None:
             self._post_method()
+            self._post_method = None
 
         return result
 
