@@ -40,9 +40,9 @@ def _filter_emissions(
         raise ValueError(
             "Both `minimum_threshold` and `maximum_threshold` cannot both be `None`"
         )
-    if not minimum_threshold:
+    if minimum_threshold is None:
         minimum_threshold = -1
-    if not maximum_threshold:
+    if maximum_threshold is None:
         maximum_threshold = math.inf
     emissions = []
     for i, model in enumerate(models):
