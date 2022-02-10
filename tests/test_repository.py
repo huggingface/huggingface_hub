@@ -21,6 +21,7 @@ import time
 import unittest
 import uuid
 from io import BytesIO
+import time
 
 import requests
 from huggingface_hub.commands.user import currently_setup_credential_helpers
@@ -95,6 +96,7 @@ class RepositoryTest(RepositoryCommonTest):
             )
         except requests.exceptions.HTTPError:
             pass
+        time.sleep(0.2)
 
     def test_init_from_existing_local_clone(self):
         subprocess.run(
