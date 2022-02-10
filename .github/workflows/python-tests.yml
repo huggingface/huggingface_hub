@@ -39,7 +39,7 @@ jobs:
           pip install --upgrade pip
           pip install .[testing]
 
-      - run: pytest -sv ./tests/${{test_repository}}
+      - run: pytest -sv ./tests/${{ matrix.test_repository }}
 
   build_pytorch:
     runs-on: ubuntu-latest
