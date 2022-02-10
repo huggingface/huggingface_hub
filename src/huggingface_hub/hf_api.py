@@ -897,9 +897,9 @@ class HfApi:
             else f"{self.endpoint}/api/models/{repo_id}/revision/{revision}"
         )
         headers = {"authorization": f"Bearer {token}"} if token is not None else None
-        status_query_param = "?securityStatus=True" if securityStatus else ""
+        status_query_param = {"securityStatus":True} if securityStatus else None
         path += status_query_param
-        r = requests.get(path, headers=headers, timeout=timeout)
+        r = requests.get(path, headers=headers, timeout=timeout, params=status_query_param)
         r.raise_for_status()
         d = r.json()
         return ModelInfo(**d)
