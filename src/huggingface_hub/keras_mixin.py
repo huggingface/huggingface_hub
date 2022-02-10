@@ -35,7 +35,7 @@ def extract_hyperparameters_from_keras(model):
 
 def parse_model_history(model):
     logs = model.history.history
-    num_epochs = len(logs[list(logs.keys())[0]])
+    num_epochs = len(logs["loss"])
     lines = []
 
     for value in range(num_epochs):
