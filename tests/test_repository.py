@@ -80,10 +80,6 @@ class RepositoryTest(RepositoryCommonTest):
             token=self._token,
         )
 
-    @classmethod
-    def tearDownClass(cls) -> None:
-        shutil.rmtree(WORKING_REPO_DIR, onerror=set_write_permission_and_retry)
-
     def tearDown(self):
         try:
             self._api.delete_repo(name=f"{USER}/{self.REPO_NAME}", token=self._token)
