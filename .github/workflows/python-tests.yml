@@ -22,8 +22,8 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        python-version: ["3.9"]
-        test_repository: [" --ignore tests/test_repository.py", "test_repository.py"]
+        python-version: ["3.6", "3.9"]
+        test_repository: [" --ignore tests/test_repository.py::RepositoryTest", "test_repository.py::RepositoryTest"]
 
     steps:
       - uses: actions/checkout@v2
