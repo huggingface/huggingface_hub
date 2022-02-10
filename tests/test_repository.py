@@ -95,7 +95,6 @@ class RepositoryTest(RepositoryCommonTest):
             )
         except requests.exceptions.HTTPError:
             pass
-        time.sleep(1)
 
     def test_init_from_existing_local_clone(self):
         subprocess.run(
