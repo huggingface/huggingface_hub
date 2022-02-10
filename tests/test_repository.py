@@ -21,7 +21,6 @@ import time
 import unittest
 import uuid
 from io import BytesIO
-import time
 
 import requests
 from huggingface_hub.commands.user import currently_setup_credential_helpers
