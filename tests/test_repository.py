@@ -68,11 +68,8 @@ class RepositoryTest(RepositoryCommonTest):
         cls._token = cls._api.login(username=USER, password=PASS)
 
     def setUp(self):
-        if os.path.exists(WORKING_REPO_DIR) and os.path.isdir(WORKING_REPO_DIR):
-            try:
-                shutil.rmtree(WORKING_REPO_DIR, onerror=set_write_permission_and_retry)
-            except FileNotFoundError:
-                pass
+        if os.path.exists(WORKING_REPO_DIR):
+            shutil.rmtree(WORKING_REPO_DIR, onerror=set_write_permission_and_retry)
 
         self.REPO_NAME = repo_name()
         self._repo_url = self._api.create_repo(name=self.REPO_NAME, token=self._token)
@@ -82,6 +79,10 @@ class RepositoryTest(RepositoryCommonTest):
             repo_id=f"{USER}/{self.REPO_NAME}",
             token=self._token,
         )
+
+    @classmethod
+    def tearDownClass(cls) -> None:
+        shutil.rmtree(WORKING_REPO_DIR, onerror=set_write_permission_and_retry)
 
     def tearDown(self):
         try:
@@ -285,8 +286,6 @@ class RepositoryTest(RepositoryCommonTest):
         r = requests.head(url)
         r.raise_for_status()
 
-        shutil.rmtree(WORKING_REPO_DIR)
-
     def test_add_commit_push_non_blocking(self):
         logger.info(
             f"Does {WORKING_REPO_DIR} exist: {os.path.exists(WORKING_REPO_DIR)}"
@@ -324,8 +323,6 @@ class RepositoryTest(RepositoryCommonTest):
         r = requests.head(url)
         r.raise_for_status()
 
-        shutil.rmtree(WORKING_REPO_DIR)
-
     def test_context_manager_non_blocking(self):
         logger.info(
             f"Does {WORKING_REPO_DIR} exist: {os.path.exists(WORKING_REPO_DIR)}"
@@ -350,8 +347,6 @@ class RepositoryTest(RepositoryCommonTest):
         self.assertEqual(repo.command_queue[-1].status, 0)
         self.assertEqual(repo.command_queue[-1].is_done, True)
         self.assertEqual(repo.command_queue[-1].title, "push")
-
-        shutil.rmtree(WORKING_REPO_DIR)
 
     def test_add_commit_push_non_blocking_process_killed(self):
         repo = Repository(
@@ -378,8 +373,6 @@ class RepositoryTest(RepositoryCommonTest):
 
         self.assertTrue(result.is_done)
         self.assertEqual(result.status, -9)
-
-        shutil.rmtree(WORKING_REPO_DIR)
 
     def test_clone_with_endpoint(self):
         clone = Repository(
@@ -732,6 +725,9 @@ class RepositoryTest(RepositoryCommonTest):
             self.assertFalse("new_file-2.txt" in files)
 
     def test_add_tag(self):
+        logger.info(
+            f"Does {WORKING_REPO_DIR} exist: {os.path.exists(WORKING_REPO_DIR)}"
+        )
         repo = Repository(
             WORKING_REPO_DIR,
             clone_from=f"{USER}/{self.REPO_NAME}",
