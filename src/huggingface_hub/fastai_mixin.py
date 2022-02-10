@@ -1,55 +1,101 @@
 ###########################################################################################################
-# Easily store and download fastai working models into the HF Hub.
+# Easily store and download `fastai>=2.4` models into the HF Hub.
 #
 # Goal:
 # (1) Add upstream support: push a fastai learner to the HF Hub. See `save_fastai_learner` and `push_to_hub_fastai`.
 # (2) Add downstream support: download a fastai learner from the hub. See `from_pretrained_fastai`.
 #
 # Limitations and next steps:
-# - Go from storing/downloading a `fastai.learner` to saving the weights directly into de hub.
+# - Possibly go from storing/downloading a `fastai.learner` to saving the weights directly into de hub.
+# - Examine whether it is worth implementing `fastai <2.4` versions.
 ###########################################################################################################
 
 import json
 import logging
 import os
-import sys
 import packaging.version
 from pathlib import Path
 from typing import Any, Dict, Optional, Union
 
-# TODO - The following code to verify fastai version would be better in huggingface_hub/file_download.py.
-_PY_VERSION: str = sys.version.split()[0].rstrip("+")
-if packaging.version.Version(_PY_VERSION) < packaging.version.Version("3.8.0"):
-    import importlib_metadata
-else:
-    import importlib.metadata as importlib_metadata
+# TODO - add to huggingface_hub.constants the constant FASTAI_LEARNER_NAME: same name to all the .pkl models pushed to the hub.
+from huggingface_hub import ModelHubMixin
+from huggingface_hub.constants import CONFIG_NAME
+
+from huggingface_hub.file_download import (
+    get_fastai_version,
+    get_fastcore_version,
+)
+from huggingface_hub.hf_api import HfFolder, HfApi
+from huggingface_hub.repository import Repository
+from huggingface_hub.snapshot_download import snapshot_download
 
 # Verify if we are using the right fastai version.
-_FASTAI_VERSION: str = importlib_metadata.version("fastai")
-if packaging.version.Version(_FASTAI_VERSION) < packaging.version.Version("2.5.0"):
+if packaging.version.Version(get_fastai_version()) < packaging.version.Version("2.4"):
     raise ImportError(
-        f"You are using fastai version {_FASTAI_VERSION} which is below ^2.5.0. Run, for example, `pip install fastai==2.5.1`."
+        f"`push_to_hub_fastai` and `from_pretrained_fastai` require a fastai>=2.4 version, but you are using fastai version {get_fastai_version()} which is incompatible. Run, for example, `pip install fastai==2.5.1`."
+    )
+
+# Verify if we are using the right fastcore version.
+if packaging.version.Version(get_fastcore_version()) < packaging.version.Version(
+    "1.3.27"
+):
+    raise ImportError(
+        f"`push_to_hub_fastai` and `from_pretrained_fastai` require a fastcore>=1.3.27 version, but you are using fastcore version {get_fastcore_version()} which is incompatible. Run, for example, `pip install fastcore==1.3.27`."
     )
 
 logger = logging.getLogger(__name__)
 
-# TODO - evaluate relevance of the following check.
-# Second check to verify we are using the right fastai version.
+# Verify availability of `load_learner`.
 try:
     from fastai.learner import load_learner
 except ImportError as error:
     logger.error(
         error.__class__.__name__
-        + ": fastai version above or equal to 2.5.1 required. Run, for example, `pip install fastai==2.5.1`."
+        + f": `push_to_hub_fastai` and `from_pretrained_fastai` require a fastai>=2.4 version, but you are using fastai version {get_fastai_version()} which is incompatible. Run, for example, `pip install fastai==2.5.1`."
     )
 
-from huggingface_hub import ModelHubMixin
-from huggingface_hub.constants import CONFIG_NAME
+# Define template for a auto-generated README.md
+README_TEMPLATE = """---
+tags:
+- fastai
+---
 
-# TODO - add to huggingface_hub.constants the constant FASTAI_LEARNER_NAME: same name to all the .pkl models pushed to the hub.
-from huggingface_hub.hf_api import HfFolder, HfApi
-from huggingface_hub.repository import Repository
-from huggingface_hub.snapshot_download import snapshot_download
+# Amazing! 
+
+Congratulations on hosting your fastai model on the 🤗Hub!
+
+# Some next steps
+1. Fill out this model card with more information ([documentation here](https://huggingface.co/docs/hub/model-repos))!
+
+2. Create a demo in Gradio or Streamlit using the 🤗Spaces ([documentation here](https://huggingface.co/docs/hub/spaces)).
+
+3. Join our fastai community on the Hugging Face Discord!
+
+Greetings fellow fastlearner 🤝!
+
+"""
+
+# Define template for a auto-generated config with fastai and fastcore versions
+CONFIG_TEMPLATE = dict(
+    fastai_version=get_fastai_version(), fastcore_version=get_fastcore_version()
+)
+
+
+def _create_model_card(repo_dir: Path):
+    """Creates a model card for the repository.
+
+    repo_dir:
+        Specify directory in which you want to create a model card.
+    """
+    readme_path = repo_dir / "README.md"
+    readme = ""
+    if readme_path.exists():
+        with readme_path.open("r", encoding="utf8") as f:
+            readme = f.read()
+    else:
+        readme = README_TEMPLATE
+    with readme_path.open("w", encoding="utf-8") as f:
+        f.write(readme)
 
 
 def save_fastai_learner(
@@ -62,7 +108,7 @@ def save_fastai_learner(
     save_directory (:obj:`str`):
         Specify directory in which you want to save the fastai learner.
     config (:obj:`dict`, `optional`):
-        Configuration object with the labels of the model. Will be uploaded as a .json file. Example: 'https://huggingface.co/espejelomar/fastai-pet-breeds-classification/blob/main/config.json'.
+        Configuration object. Will be uploaded as a .json file. Example: 'https://huggingface.co/espejelomar/fastai-pet-breeds-classification/blob/main/config.json'.
 
     TODO - Save weights and model structure instead of the built learner.
     """
@@ -71,6 +117,7 @@ def save_fastai_learner(
     os.makedirs(save_directory, exist_ok=True)
 
     # saving config
+    # if user provides config then we update it with the fastai and fastcore versions in CONFIG_TEMPLATE.
     if config:
         if not isinstance(config, dict):
             raise RuntimeError(
@@ -78,7 +125,14 @@ def save_fastai_learner(
             )
         path = os.path.join(save_directory, CONFIG_NAME)
         with open(path, "w") as f:
-            json.dump(config, f)
+            json.dump({**config, **CONFIG_TEMPLATE}, f)
+    else:
+        path = os.path.join(save_directory, CONFIG_NAME)
+        with open(path, "w") as f:
+            json.dump(CONFIG_TEMPLATE, f)
+
+    # creating README.md if none exist
+    _create_model_card(Path(save_directory))
 
     # saving learner
     learner.export(os.path.join(save_directory, "model.pkl"))
@@ -181,7 +235,10 @@ def push_to_hub_fastai(
     )
     repo.git_pull(rebase=True)
 
-    save_fastai_learner(learner, repo_path_or_name, config=config)
+    if config:
+        save_fastai_learner(learner, repo_path_or_name, config=config)
+    else:
+        save_fastai_learner(learner, repo_path_or_name)
 
     # Commit and push!
     repo.git_add(auto_lfs_track=True)
@@ -247,6 +304,7 @@ class FastaiModelHubMixin(ModelHubMixin):
         logger.info(
             f"Using `fastai.learner` stored in {os.path.join(model_id, pickle)}."
         )
+        print(f"Using `fastai.learner` stored in {os.path.join(model_id, pickle)}.")
 
         model = load_learner(os.path.join(storage_folder, pickle))
 
