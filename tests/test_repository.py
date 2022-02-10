@@ -721,9 +721,9 @@ class RepositoryTest(RepositoryCommonTest):
             self.assertFalse("new_file-2.txt" in files)
 
     def test_add_tag(self):
-        logger.info(
-            f"Does {WORKING_REPO_DIR} exist: {os.path.exists(WORKING_REPO_DIR)}"
-        )
+        # Eventually see why this is needed
+        if os.path.exists(WORKING_REPO_DIR):
+            shutil.rmtree(WORKING_REPO_DIR, onerror=set_write_permission_and_retry)
         repo = Repository(
             WORKING_REPO_DIR,
             clone_from=f"{USER}/{self.REPO_NAME}",
