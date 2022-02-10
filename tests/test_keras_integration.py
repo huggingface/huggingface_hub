@@ -2,6 +2,7 @@ import os
 import shutil
 import time
 import unittest
+import uuid
 
 import pytest
 
@@ -18,7 +19,9 @@ from .testing_constants import ENDPOINT_STAGING, PASS, USER
 from .testing_utils import set_write_permission_and_retry
 
 
-REPO_NAME = "mixin-repo-{}".format(int(time.time() * 10e3))
+def repo_name(id=uuid.uuid4().hex[:6]):
+    return "keras-repo-{0}-{1}".format(id, int(time.time() * 10e3))
+
 
 WORKING_REPO_SUBDIR = f"fixtures/working_repo_{__name__.split('.')[-1]}"
 WORKING_REPO_DIR = os.path.join(
@@ -55,7 +58,6 @@ if is_tf_available():
         def call(self, x):
             return self.l1(x)
 
-
 else:
     DummyModel = None
 
@@ -77,6 +79,7 @@ class HubMixingTestKeras(unittest.TestCase):
         cls._token = cls._api.login(username=USER, password=PASS)
 
     def test_save_pretrained(self):
+        REPO_NAME = repo_name("save")
         model = DummyModel()
         model(model.dummy_inputs)
         model.save_pretrained(f"{WORKING_REPO_DIR}/{REPO_NAME}")
@@ -97,8 +100,8 @@ class HubMixingTestKeras(unittest.TestCase):
         model = DummyModel()
         model(model.dummy_inputs)
 
-        model.save_pretrained(f"{WORKING_REPO_DIR}/{REPO_NAME}")
-        new_model = DummyModel.from_pretrained(f"{WORKING_REPO_DIR}/{REPO_NAME}")
+        model.save_pretrained(f"{WORKING_REPO_DIR}/FROM_PRETRAINED")
+        new_model = DummyModel.from_pretrained(f"{WORKING_REPO_DIR}/FROM_PRETRAINED")
 
         # Check the reloaded model's weights match the original model's weights
         self.assertTrue(tf.reduce_all(tf.equal(new_model.weights[0], model.weights[0])))
@@ -126,23 +129,23 @@ class HubMixingTestKeras(unittest.TestCase):
         self.assertTrue(model.config == {"num": 10, "act": "gelu_fast"})
 
     def test_abs_path_from_pretrained(self):
+        REPO_NAME = repo_name("FROM_PRETRAINED")
         model = DummyModel()
         model(model.dummy_inputs)
         model.save_pretrained(
-            f"{WORKING_REPO_DIR}/{REPO_NAME}-FROM_PRETRAINED",
+            f"{WORKING_REPO_DIR}/{REPO_NAME}",
             config={"num": 10, "act": "gelu_fast"},
         )
 
-        model = DummyModel.from_pretrained(
-            f"{WORKING_REPO_DIR}/{REPO_NAME}-FROM_PRETRAINED"
-        )
+        model = DummyModel.from_pretrained(f"{WORKING_REPO_DIR}/{REPO_NAME}")
         self.assertDictEqual(model.config, {"num": 10, "act": "gelu_fast"})
 
     def test_push_to_hub(self):
+        REPO_NAME = repo_name("PUSH_TO_HUB")
         model = DummyModel()
         model(model.dummy_inputs)
         model.push_to_hub(
-            repo_path_or_name=f"{WORKING_REPO_DIR}/{REPO_NAME}-PUSH_TO_HUB",
+            repo_path_or_name=f"{WORKING_REPO_DIR}/{REPO_NAME}",
             api_endpoint=ENDPOINT_STAGING,
             use_auth_token=self._token,
             git_user="ci",
@@ -151,11 +154,11 @@ class HubMixingTestKeras(unittest.TestCase):
         )
 
         model_info = self._api.model_info(
-            f"{USER}/{REPO_NAME}-PUSH_TO_HUB",
+            f"{USER}/{REPO_NAME}",
         )
-        self.assertEqual(model_info.modelId, f"{USER}/{REPO_NAME}-PUSH_TO_HUB")
+        self.assertEqual(model_info.modelId, f"{USER}/{REPO_NAME}")
 
-        self._api.delete_repo(name=f"{REPO_NAME}-PUSH_TO_HUB", token=self._token)
+        self._api.delete_repo(name=f"{REPO_NAME}", token=self._token)
 
 
 @require_tf
@@ -167,6 +170,7 @@ class HubKerasSequentialTest(HubMixingTestKeras):
         return model
 
     def test_save_pretrained(self):
+        REPO_NAME = repo_name("save")
         model = self.model_init()
 
         with pytest.raises(ValueError, match="Model should be built*"):
@@ -174,22 +178,54 @@ class HubKerasSequentialTest(HubMixingTestKeras):
 
         model.build((None, 2))
 
-        save_pretrained_keras(model, f"{WORKING_REPO_DIR}/{REPO_NAME}")
+        save_pretrained_keras(
+            model,
+            f"{WORKING_REPO_DIR}/{REPO_NAME}",
+        )
         files = os.listdir(f"{WORKING_REPO_DIR}/{REPO_NAME}")
 
         self.assertIn("saved_model.pb", files)
         self.assertIn("keras_metadata.pb", files)
         self.assertEqual(len(files), 4)
+        loaded_model = from_pretrained_keras(f"{WORKING_REPO_DIR}/{REPO_NAME}")
+        self.assertIsNone(loaded_model.optimizer)
+
+    def test_save_pretrained_optimizer_state(self):
+        REPO_NAME = repo_name("save")
+        model = self.model_init()
+
+        model.build((None, 2))
+
+        save_pretrained_keras(
+            model, f"{WORKING_REPO_DIR}/{REPO_NAME}", include_optimizer=True
+        )
+
+        loaded_model = from_pretrained_keras(f"{WORKING_REPO_DIR}/{REPO_NAME}")
+        self.assertIsNotNone(loaded_model.optimizer)
+
+    def test_save_pretrained_kwargs_load_fails_without_traces(self):
+        REPO_NAME = repo_name("save")
+        model = self.model_init()
+
+        model.build((None, 2))
+
+        save_pretrained_keras(
+            model,
+            f"{WORKING_REPO_DIR}/{REPO_NAME}",
+            include_optimizer=False,
+            save_traces=False,
+        )
+
+        from_pretrained_keras(f"{WORKING_REPO_DIR}/{REPO_NAME}")
+        self.assertRaises(ValueError, msg="Exception encountered when calling layer*")
 
     def test_from_pretrained_weights(self):
+        REPO_NAME = repo_name("from_pretrained_weights")
         model = self.model_init()
         model.build((None, 2))
 
         save_pretrained_keras(model, f"{WORKING_REPO_DIR}/{REPO_NAME}")
         new_model = from_pretrained_keras(f"{WORKING_REPO_DIR}/{REPO_NAME}")
-
-        # Check the reloaded model's weights match the original model's weights
-        self.assertTrue(tf.reduce_all(tf.equal(new_model.weights[0], model.weights[0])))
 
         # Check a new model's weights are not the same as the reloaded model's weights
         another_model = DummyModel()
@@ -220,39 +256,92 @@ class HubKerasSequentialTest(HubMixingTestKeras):
         self.assertTrue(new_model.config == {"num": 10, "act": "gelu_fast"})
 
     def test_abs_path_from_pretrained(self):
+        REPO_NAME = repo_name("FROM_PRETRAINED")
         model = self.model_init()
         model.build((None, 2))
         save_pretrained_keras(
             model,
-            f"{WORKING_REPO_DIR}/{REPO_NAME}-FROM_PRETRAINED",
+            f"{WORKING_REPO_DIR}/{REPO_NAME}",
             config={"num": 10, "act": "gelu_fast"},
         )
 
-        new_model = from_pretrained_keras(
-            f"{WORKING_REPO_DIR}/{REPO_NAME}-FROM_PRETRAINED"
-        )
+        new_model = from_pretrained_keras(f"{WORKING_REPO_DIR}/{REPO_NAME}")
         self.assertTrue(tf.reduce_all(tf.equal(new_model.weights[0], model.weights[0])))
         self.assertTrue(new_model.config == {"num": 10, "act": "gelu_fast"})
 
     def test_push_to_hub(self):
+        REPO_NAME = repo_name("PUSH_TO_HUB")
         model = self.model_init()
         model.build((None, 2))
         push_to_hub_keras(
             model,
-            repo_path_or_name=f"{WORKING_REPO_DIR}/{REPO_NAME}-PUSH_TO_HUB",
+            repo_path_or_name=f"{WORKING_REPO_DIR}/{REPO_NAME}",
             api_endpoint=ENDPOINT_STAGING,
             use_auth_token=self._token,
             git_user="ci",
             git_email="ci@dummy.com",
             config={"num": 7, "act": "gelu_fast"},
+            include_optimizer=False,
         )
 
         model_info = HfApi(endpoint=ENDPOINT_STAGING).model_info(
-            f"{USER}/{REPO_NAME}-PUSH_TO_HUB",
+            f"{USER}/{REPO_NAME}",
         )
-        self.assertEqual(model_info.modelId, f"{USER}/{REPO_NAME}-PUSH_TO_HUB")
+        self.assertEqual(model_info.modelId, f"{USER}/{REPO_NAME}")
 
-        self._api.delete_repo(name=f"{REPO_NAME}-PUSH_TO_HUB", token=self._token)
+        self._api.delete_repo(name=f"{REPO_NAME}", token=self._token)
+
+    def test_push_to_hub_tensorboard(self):
+        os.makedirs(f"{WORKING_REPO_DIR}/tb_log_dir")
+        with open(f"{WORKING_REPO_DIR}/tb_log_dir/tensorboard.txt", "w") as fp:
+            fp.write("Keras FTW")
+        REPO_NAME = repo_name("PUSH_TO_HUB")
+        model = self.model_init()
+        model.build((None, 2))
+        push_to_hub_keras(
+            model,
+            repo_path_or_name=f"{WORKING_REPO_DIR}/{REPO_NAME}",
+            log_dir=f"{WORKING_REPO_DIR}/tb_log_dir",
+            api_endpoint=ENDPOINT_STAGING,
+            use_auth_token=self._token,
+            git_user="ci",
+            git_email="ci@dummy.com",
+        )
+        model_info = HfApi(endpoint=ENDPOINT_STAGING).model_info(
+            f"{USER}/{REPO_NAME}",
+        )
+
+        self.assertTrue(
+            "logs/tensorboard.txt" in [f.rfilename for f in model_info.siblings]
+        )
+
+        self._api.delete_repo(name=f"{REPO_NAME}", token=self._token)
+
+    def test_push_to_hub_model_kwargs(self):
+        REPO_NAME = repo_name("PUSH_TO_HUB")
+        model = self.model_init()
+        model.build((None, 2))
+        push_to_hub_keras(
+            model,
+            repo_path_or_name=f"{WORKING_REPO_DIR}/{REPO_NAME}",
+            api_endpoint=ENDPOINT_STAGING,
+            use_auth_token=self._token,
+            git_user="ci",
+            git_email="ci@dummy.com",
+            config={"num": 7, "act": "gelu_fast"},
+            include_optimizer=True,
+            save_traces=False,
+        )
+
+        model_info = HfApi(endpoint=ENDPOINT_STAGING).model_info(
+            f"{USER}/{REPO_NAME}",
+        )
+        self.assertEqual(model_info.modelId, f"{USER}/{REPO_NAME}")
+
+        from_pretrained_keras(f"{WORKING_REPO_DIR}/{REPO_NAME}")
+        self.assertRaises(ValueError, msg="Exception encountered when calling layer*")
+
+        self._api.delete_repo(name=f"{REPO_NAME}", token=self._token)
 
 
 @require_tf
@@ -265,6 +354,7 @@ class HubKerasFunctionalTest(HubKerasSequentialTest):
         return model
 
     def test_save_pretrained(self):
+        REPO_NAME = repo_name("functional")
         model = self.model_init()
 
         self.assertTrue(model.built)

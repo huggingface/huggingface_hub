@@ -15,18 +15,20 @@ requirements:
     - python
     - pip
     - filelock
-    - requests
+    - requests <=2.23
     - tqdm
     - typing-extensions
     - packaging
+    - pyyaml
   run:
     - python
     - pip
     - filelock
-    - requests
+    - requests <=2.23
     - tqdm
     - typing-extensions
     - packaging
+    - pyyaml
 
 test:
   imports:

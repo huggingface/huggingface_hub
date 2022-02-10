@@ -1,0 +1,8 @@
+api-inference-community==0.0.20
+g2p_en==2.1.0
+g2pc==0.9.9.3
+phonemizer==2.2.1
+librosa==0.8.1
+hanziconv==0.3.2
+sentencepiece==0.1.91
+git+git://github.com/pytorch/fairseq.git@1d5da6d5b954ba01fc3df12d25d63df27437e20e

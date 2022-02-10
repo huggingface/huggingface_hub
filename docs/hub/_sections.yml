@@ -17,10 +17,13 @@
   title: Hub API Endpoints
 
 - local: spaces
-  title: Spaces documentation (beta)
+  title: Spaces documentation
 
 - local: adding-a-library
   title: Integrate a library with the Hub
+
+- local: searching-the-hub
+  title: How to search the Hub efficiently
 
 - local: how-to-downstream
   title: How to download files from the Hub

@@ -6,12 +6,12 @@ on:
       - main
       - ci_*
     paths-ignore:
-      - "widgets/**"
+      - "js/**"
       - "api-inference-community/**"
   pull_request:
     types: [assigned, opened, synchronize, reopened]
     paths-ignore:
-      - "widgets/**"
+      - "js/**"
       - "api-inference-community/**"
 
 env:
@@ -34,9 +34,9 @@ jobs:
 
       - name: Install dependencies
         run: |
+          sudo apt install -y libsndfile1-dev
           pip install --upgrade pip
-          sudo apt-get -y update && sudo apt-get install -y libsndfile1-dev
-          pip install .[testing] librosa
+          pip install .[testing]
 
       - run: pytest -sv ./tests/
 
@@ -54,10 +54,9 @@ jobs:
     - name: Install dependencies
       run: |
         pip install --upgrade pip
-        sudo apt-get -y update && sudo apt-get install -y libsndfile1-dev
-        pip install .[testing,torch] librosa
+        pip install .[testing,torch]
 
-    - run: pytest -sv ./tests/
+    - run: pytest -sv ./tests/test_hubmixin*
 
   build_tensorflow:
     runs-on: ubuntu-latest
@@ -73,10 +72,9 @@ jobs:
     - name: Install dependencies
       run: |
         pip install --upgrade pip
-        sudo apt-get -y update && sudo apt-get install -y libsndfile1-dev
-        pip install .[testing,tensorflow] librosa
+        pip install .[testing,tensorflow]
 
-    - run: pytest -sv ./tests/
+    - run: pytest -sv ./tests/test_keras*
 
   tests_lfs:
     runs-on: ubuntu-latest

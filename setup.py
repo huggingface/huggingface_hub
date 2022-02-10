@@ -16,7 +16,7 @@ install_requires = [
     "requests",
     "tqdm",
     "pyyaml",
-    "typing-extensions",
+    "typing-extensions>=3.7.4.3",  # to be able to import TypeAlias
     "importlib_metadata;python_version<'3.8'",
     "packaging>=20.9",
 ]
@@ -34,10 +34,11 @@ extras["tensorflow"] = [
 extras["testing"] = [
     "pytest",
     "datasets",
+    "soundfile",
 ]
 
 extras["quality"] = [
-    "black>=20.8b1",
+    "black~=22.0",
     "isort>=5.5.4",
     "flake8>=3.8.3",
 ]

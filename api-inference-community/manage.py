@@ -7,7 +7,6 @@ import subprocess
 import sys
 import uuid
 
-from api_inference_community.batch import batch
 from huggingface_hub import HfApi
 
 
@@ -83,43 +82,6 @@ def get_repo_name(model_id: str, dataset_name: str) -> str:
     return f"bulk-{model_name[:10]}-{dataset_name[:10]}-{hash_[:5]}"
 
 
-def do_batch(args):
-    model_id, task, framework = resolve_task_framework(args)
-    dataset_name, dataset_config, dataset_split, dataset_column = resolve_dataset(
-        args, task
-    )
-    repo_name = get_repo_name(model_id, dataset_name)
-    api = HfApi()
-    full_repo_id = api.create_repo(
-        repo_name, args.token, private=True, repo_type="dataset", exist_ok=True
-    )
-    repo_id = "/".join(full_repo_id.split("/")[-2:])
-    print(f"Created dataset for results {repo_id}")
-
-    local_path = os.path.join(
-        os.path.dirname(os.path.dirname(__file__)), "docker_images", framework
-    )
-    sys.path.append(local_path)
-    os.environ["MODEL_ID"] = model_id
-    os.environ["TASK"] = task
-
-    from app.main import get_pipeline
-
-    pipeline = get_pipeline()
-
-    batch(
-        dataset_name=dataset_name,
-        dataset_config=dataset_config,
-        dataset_split=dataset_split,
-        dataset_column=dataset_column,
-        token=args.token,
-        repo_id=repo_id,
-        use_gpu=False,
-        pipeline=pipeline,
-        task=task,
-    )
-
-
 def show(args):
     directory = os.path.join(
         os.path.dirname(os.path.dirname(__file__)), "docker_images"
@@ -147,9 +109,24 @@ def show(args):
 
 
 def resolve(model_id: str) -> [str, str]:
-    info = HfApi().model_info(model_id)
-    task = info.pipeline_tag
-    framework = info.library_name
+    try:
+        info = HfApi().model_info(model_id)
+    except Exception as e:
+        raise ValueError(
+            f"The hub has no information on {model_id}, does it exist: {e}"
+        )
+    try:
+        task = info.pipeline_tag
+    except Exception:
+        raise ValueError(
+            f"The hub has no `pipeline_tag` on {model_id}, you can set it in the `README.md` yaml header"
+        )
+    try:
+        framework = info.library_name
+    except Exception:
+        raise ValueError(
+            f"The hub has no `library_name` on {model_id}, you can set it in the `README.md` yaml header"
+        )
     return task, framework.replace("-", "_")
 
 
@@ -255,51 +232,6 @@ def main():
         "show", help="Show dockers and the various pipelines they implement"
     )
     parser_show.set_defaults(func=show)
-    parser_batch = subparsers.add_parser("batch", help="Run a batch job")
-    parser_batch.add_argument(
-        "--model-id",
-        type=str,
-        required=True,
-        help="Which model_id to batch.",
-    )
-    parser_batch.add_argument(
-        "--task",
-        type=str,
-        help="Which task to load",
-    )
-    parser_batch.add_argument(
-        "--framework",
-        type=str,
-        help="Which framework to load",
-    )
-    parser_batch.add_argument(
-        "--dataset-name",
-        type=str,
-        required=True,
-        help="Which dataset_name to batch.",
-    )
-    parser_batch.add_argument(
-        "--dataset-config",
-        type=str,
-        help="Which dataset_config to batch.",
-    )
-    parser_batch.add_argument(
-        "--dataset-split",
-        type=str,
-        required=True,
-        help="Which dataset_split to batch.",
-    )
-    parser_batch.add_argument(
-        "--dataset-column",
-        type=str,
-        help="Which column to batch.",
-    )
-    parser_batch.add_argument(
-        "--token",
-        type=str,
-        help="Your API token",
-    )
-    parser_batch.set_defaults(func=do_batch)
     args = parser.parse_args()
     args.func(args)
 

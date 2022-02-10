@@ -1,0 +1,33 @@
+{
+	"name": "huggingface-widgets",
+	"version": "0.0.1",
+	"scripts": {
+		"dev": "svelte-kit dev",
+		"build": "svelte-kit build",
+		"preview": "svelte-kit preview",
+		"check": "svelte-check --tsconfig ./tsconfig.json",
+		"check:watch": "svelte-check --tsconfig ./tsconfig.json --watch",
+		"lint": "prettier --check --plugin-search-dir=. .",
+		"format": "prettier --write --plugin-search-dir=. ."
+	},
+	"devDependencies": {
+		"@sveltejs/adapter-static": "^1.0.0-next.13",
+		"@sveltejs/kit": "next",
+		"@tailwindcss/forms": "^0.3.3",
+		"@tailwindcss/line-clamp": "^0.2.1",
+		"@types/dom-mediacapture-record": "^1.0.7",
+		"@types/tailwindcss": "^2.2.1",
+		"autoprefixer": "^10.2.6",
+		"postcss": "^8.3.1",
+		"postcss-load-config": "^3.0.1",
+		"prettier": "2.3.0",
+		"prettier-plugin-svelte": "2.3.0",
+		"svelte": "^3.34.0",
+		"svelte-check": "^2.0.0",
+		"svelte-preprocess": "^4.0.0",
+		"tailwindcss": "^2.2.19",
+		"tslib": "^2.0.0",
+		"typescript": "^4.0.0"
+	},
+	"type": "module"
+}
