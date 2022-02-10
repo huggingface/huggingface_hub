@@ -292,6 +292,26 @@ class HubKerasSequentialTest(HubMixingTestKeras):
 
         self._api.delete_repo(name=f"{REPO_NAME}", token=self._token)
 
+    def test_push_to_hub_model_card(self):
+        REPO_NAME = repo_name("PUSH_TO_HUB")
+        model = self.model_init()
+        model.build((None, 2))
+        push_to_hub_keras(
+            model,
+            repo_path_or_name=f"{WORKING_REPO_DIR}/{REPO_NAME}",
+            api_endpoint=ENDPOINT_STAGING,
+            use_auth_token=self._token,
+            git_user="ci",
+            git_email="ci@dummy.com",
+            config={"num": 7, "act": "gelu_fast"},
+            include_optimizer=False,
+            task_name="object-detection",
+        )
+
+        self.assertTrue(os.path.exists(f"{USER}/{REPO_NAME}/README.md"))
+        self.assertTrue(os.path.exists(f"{USER}/{REPO_NAME}/model.png"))
+        self._api.delete_repo(name=f"{REPO_NAME}", token=self._token)
+
     def test_push_to_hub_tensorboard(self):
         os.makedirs(f"{WORKING_REPO_DIR}/tb_log_dir")
         with open(f"{WORKING_REPO_DIR}/tb_log_dir/tensorboard.txt", "w") as fp:
