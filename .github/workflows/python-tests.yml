@@ -22,7 +22,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        python-version: ["3.6", "3.9"]
+        python-version: ["3.9"]
         test_repository: [" --ignore tests/test_repository.py", "test_repository.py"]
 
     steps:
