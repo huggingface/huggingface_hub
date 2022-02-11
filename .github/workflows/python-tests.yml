@@ -39,7 +39,7 @@ jobs:
           pip install --upgrade pip
           pip install .[testing]
 
-      - run: pytest -o log_cli=1 -sv ./tests/${{ matrix.test_repository }}
+      - run: pytest -o log-cli-level=info -sv ./tests/${{ matrix.test_repository }}
 
   build_pytorch:
     runs-on: ubuntu-latest
