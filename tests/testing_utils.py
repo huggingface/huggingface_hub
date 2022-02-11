@@ -193,7 +193,7 @@ def retry_endpoint(function, number_of_tries: int = 3, wait_time: int = 5):
             try:
                 return function(*args, **kwargs)
             except Exception:
-                logger.log(
+                logger.info(
                     f"Attempt {retry_count} failed with a 504 error. Retrying new execution in {wait_time} second..."
                 )
                 time.sleep(5)
