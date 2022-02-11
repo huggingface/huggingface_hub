@@ -9,8 +9,6 @@ from functools import wraps
 from unittest.mock import patch
 
 from huggingface_hub.utils import logging
-
-# from requests import HTTPError
 from tests.testing_constants import ENDPOINT_PRODUCTION, ENDPOINT_PRODUCTION_URL_SCHEME
 
 
