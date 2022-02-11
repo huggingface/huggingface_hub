@@ -6,7 +6,11 @@ from shutil import copytree
 from typing import Any, Dict, Optional, Union
 
 from huggingface_hub import ModelHubMixin
-from huggingface_hub.file_download import is_tf_available
+from huggingface_hub.file_download import (
+    is_graphviz_available,
+    is_pydot_available,
+    is_tf_available,
+)
 from huggingface_hub.snapshot_download import snapshot_download
 
 from .constants import CONFIG_NAME
@@ -173,13 +177,9 @@ def save_pretrained_keras(
         with open(path, "w") as f:
             json.dump(config, f)
 
-    hyperparameters = _extract_hyperparameters_from_keras(model)
-    _plot_network(model, save_directory)
     tf.keras.models.save_model(
         model, save_directory, include_optimizer=include_optimizer, **model_save_kwargs
     )
-    lines = _parse_model_history(model)
-    return hyperparameters, lines, save_directory
 
 
 def from_pretrained_keras(*args, **kwargs):
@@ -292,7 +292,7 @@ def push_to_hub_keras(
     )
     repo.git_pull(rebase=True)
 
-    hyperparameters, lines, save_directory = save_pretrained_keras(
+    save_pretrained_keras(
         model,
         repo_path_or_name,
         config=config,
@@ -300,6 +300,10 @@ def push_to_hub_keras(
         **model_save_kwargs,
     )
 
+    hyperparameters = _extract_hyperparameters_from_keras(model)
+    if is_graphviz_available and is_pydot_available:
+        _plot_network(model, repo_path_or_name)
+    lines = _parse_model_history(model)
     _create_model_card(repo_path_or_name, hyperparameters, lines, task_name)
     if log_dir is not None:
         copytree(log_dir, f"{repo_path_or_name}/logs")
