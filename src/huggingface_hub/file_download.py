@@ -48,6 +48,34 @@ try:
 except importlib_metadata.PackageNotFoundError:
     pass
 
+_pydot_version = "N/A"
+_pydot_available = False
+
+try:
+    _pydot_version = importlib_metadata.version("pydot")
+    _pydot_available = True
+except importlib_metadata.PackageNotFoundError:
+    pass
+
+
+def is_pydot_available():
+    return _pydot_available
+
+
+_graphviz_version = "N/A"
+_graphviz_available = False
+
+try:
+    _graphviz_version = importlib_metadata.version("graphviz")
+    _graphviz_available = True
+except importlib_metadata.PackageNotFoundError:
+    pass
+
+
+def is_graphviz_available():
+    return _graphviz_available
+
+
 _tf_version = "N/A"
 _tf_available = False
 _tf_candidates = (

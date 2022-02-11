@@ -20,7 +20,7 @@ if is_tf_available():
     import tensorflow as tf
 
 
-def extract_hyperparameters_from_keras(model):
+def _extract_hyperparameters_from_keras(model):
     hyperparameters = dict()
     if hasattr(model, "optimizer") and model.optimizer is not None:
         hyperparameters["optimizer"] = model.optimizer.get_config()
@@ -33,7 +33,7 @@ def extract_hyperparameters_from_keras(model):
     return hyperparameters
 
 
-def parse_model_history(model):
+def _parse_model_history(model):
     logs = model.history.history
     num_epochs = len(logs["loss"])
     lines = []
@@ -55,7 +55,7 @@ def parse_model_history(model):
     return lines
 
 
-def plot_network(model, save_directory):
+def _plot_network(model, save_directory):
     tf.keras.utils.plot_model(
         model,
         to_file=f"{save_directory}/model.png",
@@ -111,7 +111,7 @@ def _create_model_card(
         for line in lines:
             model_card += f"\n| {lines.index(line) + 1}|"  # add values
             for key in line:
-                value = line[key]
+                value = round(line[key], 3)
                 model_card += f" {value}| "
     else:
         model_card += "Model history needed"
@@ -173,12 +173,12 @@ def save_pretrained_keras(
         with open(path, "w") as f:
             json.dump(config, f)
 
-    hyperparameters = extract_hyperparameters_from_keras(model)
-    plot_network(model, save_directory)
+    hyperparameters = _extract_hyperparameters_from_keras(model)
+    _plot_network(model, save_directory)
     tf.keras.models.save_model(
         model, save_directory, include_optimizer=include_optimizer, **model_save_kwargs
     )
-    lines = parse_model_history(model)
+    lines = _parse_model_history(model)
     return hyperparameters, lines, save_directory
 
 
@@ -242,6 +242,8 @@ def push_to_hub_keras(
             Configuration object to be saved alongside the model weights.
         include_optimizer (:obj:`bool`, `optional`):
             Whether or not to include optimizer during serialization.
+        task_name (:obj:`str`, `optional`):
+            Name of the task the model was trained on.
         model_save_kwargs(:obj:`dict`, `optional`):
             model_save_kwargs will be passed to tf.keras.models.save_model().
 
