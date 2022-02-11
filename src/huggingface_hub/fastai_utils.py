@@ -45,7 +45,7 @@ tags:
 - fastai
 ---
 
-# Amazing! 
+# Amazing!
 
 Congratulations on hosting your fastai model on the Hugging Face Hub!
 
