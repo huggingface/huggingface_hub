@@ -23,7 +23,7 @@ jobs:
     strategy:
       matrix:
         python-version: ["3.6", "3.9"]
-        test_repository: [" -k 'not RepositoryTest' log_cli=1", "test_repository.py -k RepositoryTest log_cli=1"]
+        test_repository: [" -k 'not RepositoryTest'", "test_repository.py -k RepositoryTest"]
 
     steps:
       - uses: actions/checkout@v2
@@ -39,7 +39,7 @@ jobs:
           pip install --upgrade pip
           pip install .[testing]
 
-      - run: pytest -sv ./tests/${{ matrix.test_repository }}
+      - run: pytest -o log_cli=1 -sv ./tests/${{ matrix.test_repository }}
 
   build_pytorch:
     runs-on: ubuntu-latest
