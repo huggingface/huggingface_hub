@@ -721,7 +721,7 @@ class RepositoryTest(RepositoryCommonTest):
 
     @retry_endpoint
     def test_add_tag(self):
-        # Eventually see why this is needed
+        # Eventually see why this is neededd
         if os.path.exists(WORKING_REPO_DIR):
             shutil.rmtree(WORKING_REPO_DIR, onerror=set_write_permission_and_retry)
         repo = Repository(
