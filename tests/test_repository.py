@@ -70,7 +70,7 @@ class RepositoryTest(RepositoryCommonTest):
     def setUp(self):
         if os.path.exists(WORKING_REPO_DIR):
             shutil.rmtree(WORKING_REPO_DIR, onerror=set_write_permission_and_retry)
-        logger.debug(
+        logger.info(
             f"Does {WORKING_REPO_DIR} exist: {os.path.exists(WORKING_REPO_DIR)}"
         )
 
