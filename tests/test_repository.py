@@ -1426,6 +1426,7 @@ class RepositoryDatasetTest(RepositoryCommonTest):
         cls._token = cls._api.login(username=USER, password=PASS)
 
     def setUp(self):
+        self.REPO_NAME = repo_name()
         if os.path.exists(f"{WORKING_DATASET_DIR}/{self.REPO_NAME}"):
             shutil.rmtree(
                 f"{WORKING_DATASET_DIR}/{self.REPO_NAME}",
@@ -1434,7 +1435,6 @@ class RepositoryDatasetTest(RepositoryCommonTest):
         logger.info(
             f"Does {WORKING_DATASET_DIR}/{self.REPO_NAME} exist: {os.path.exists(f'{WORKING_DATASET_DIR}/{self.REPO_NAME}')}"
         )
-        self.REPO_NAME = repo_name()
         self._api.create_repo(
             token=self._token, name=self.REPO_NAME, repo_type="dataset"
         )
