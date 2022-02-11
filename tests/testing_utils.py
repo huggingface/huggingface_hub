@@ -9,7 +9,8 @@ from functools import wraps
 from unittest.mock import patch
 
 from huggingface_hub.utils import logging
-from requests import HTTPError
+
+# from requests import HTTPError
 from tests.testing_constants import ENDPOINT_PRODUCTION, ENDPOINT_PRODUCTION_URL_SCHEME
 
 
@@ -196,13 +197,12 @@ def retry_endpoint(number_of_tries: int = 3, wait_time: int = 5):
             while retry_count < number_of_tries:
                 try:
                     return test_func_ref(*args, **kwargs)
-                except HTTPError as err:
-                    if "504" in str(err):
-                        logger.log(
-                            f"Attempt {retry_count} failed with a 504 error. Retrying new execution in {wait_time} second..."
-                        )
-                        time.sleep(5)
-                        retry_count += 1
+                except Exception:
+                    logger.log(
+                        f"Attempt {retry_count} failed with a 504 error. Retrying new execution in {wait_time} second..."
+                    )
+                    time.sleep(5)
+                    retry_count += 1
                 # Preserve original traceback
                 return test_func_ref(*args, **kwargs)
 
