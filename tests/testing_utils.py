@@ -5,7 +5,6 @@ import unittest
 from contextlib import contextmanager
 from distutils.util import strtobool
 from enum import Enum
-from functools import wraps
 from unittest.mock import patch
 
 from huggingface_hub.utils import logging
@@ -177,7 +176,7 @@ def with_production_testing(func):
     return repository(hf_api(file_download(func)))
 
 
-def retry_endpoint(number_of_tries: int = 3, wait_time: int = 5):
+def retry_endpoint(function, number_of_tries: int = 3, wait_time: int = 5):
     """
     Retries test if failure, waiting `wait_time`.
     Should be added to any test hitting the `moon-staging` endpoint that is
@@ -188,22 +187,18 @@ def retry_endpoint(number_of_tries: int = 3, wait_time: int = 5):
         wait_time: Time to wait in-between attempts in seconds
     """
 
-    def decorator(test_func_ref):
-        @wraps(test_func_ref)
-        def wrapper(*args, **kwargs):
-            retry_count = 1
-            while retry_count < number_of_tries:
-                try:
-                    return test_func_ref(*args, **kwargs)
-                except Exception:
-                    logger.log(
-                        f"Attempt {retry_count} failed with a 504 error. Retrying new execution in {wait_time} second..."
-                    )
-                    time.sleep(5)
-                    retry_count += 1
-                # Preserve original traceback
-                return test_func_ref(*args, **kwargs)
-
-        return wrapper
+    def decorator(*args, **kwargs):
+        retry_count = 1
+        while retry_count < number_of_tries:
+            try:
+                return function(*args, **kwargs)
+            except Exception:
+                logger.log(
+                    f"Attempt {retry_count} failed with a 504 error. Retrying new execution in {wait_time} second..."
+                )
+                time.sleep(5)
+                retry_count += 1
+            # Preserve original traceback
+            return function(*args, **kwargs)
 
     return decorator
