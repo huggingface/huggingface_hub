@@ -23,7 +23,7 @@ jobs:
     strategy:
       matrix:
         python-version: ["3.6", "3.9"]
-        test_repository: [" -k 'not RepositoryTest'", "test_repository.py -k RepositoryTest"]
+        test_repository: [" -k 'not RepositoryTest' log_cli=1", "test_repository.py -k RepositoryTest log_cli=1"]
 
     steps:
       - uses: actions/checkout@v2
