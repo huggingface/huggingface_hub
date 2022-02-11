@@ -73,7 +73,6 @@ class RepositoryTest(RepositoryCommonTest):
         logger.info(
             f"Does {WORKING_REPO_DIR} exist: {os.path.exists(WORKING_REPO_DIR)}"
         )
-
         self.REPO_NAME = repo_name()
         self._repo_url = self._api.create_repo(name=self.REPO_NAME, token=self._token)
         self._api.upload_file(
@@ -942,7 +941,9 @@ class RepositoryOfflineTest(RepositoryCommonTest):
     def setUpClass(cls) -> None:
         if os.path.exists(WORKING_REPO_DIR):
             shutil.rmtree(WORKING_REPO_DIR, onerror=set_write_permission_and_retry)
-
+        logger.info(
+            f"Does {WORKING_REPO_DIR} exist: {os.path.exists(WORKING_REPO_DIR)}"
+        )
         os.makedirs(WORKING_REPO_DIR, exist_ok=True)
         subprocess.run(
             ["git", "init"],
@@ -995,7 +996,11 @@ class RepositoryOfflineTest(RepositoryCommonTest):
 
     @classmethod
     def tearDownClass(cls) -> None:
-        shutil.rmtree(WORKING_REPO_DIR, onerror=set_write_permission_and_retry)
+        if os.path.exists(WORKING_REPO_DIR):
+            shutil.rmtree(WORKING_REPO_DIR, onerror=set_write_permission_and_retry)
+        logger.info(
+            f"Does {WORKING_REPO_DIR} exist: {os.path.exists(WORKING_REPO_DIR)}"
+        )
 
     def test_is_tracked_with_lfs(self):
         repo = Repository(WORKING_REPO_DIR)
@@ -1421,6 +1426,14 @@ class RepositoryDatasetTest(RepositoryCommonTest):
         cls._token = cls._api.login(username=USER, password=PASS)
 
     def setUp(self):
+        if os.path.exists(f"{WORKING_DATASET_DIR}/{self.REPO_NAME}"):
+            shutil.rmtree(
+                f"{WORKING_DATASET_DIR}/{self.REPO_NAME}",
+                onerror=set_write_permission_and_retry,
+            )
+        logger.info(
+            f"Does {WORKING_DATASET_DIR}/{self.REPO_NAME} exist: {os.path.exists(f'{WORKING_DATASET_DIR}/{self.REPO_NAME}')}"
+        )
         self.REPO_NAME = repo_name()
         self._api.create_repo(
             token=self._token, name=self.REPO_NAME, repo_type="dataset"
@@ -1441,11 +1454,6 @@ class RepositoryDatasetTest(RepositoryCommonTest):
                 )
             except requests.exceptions.HTTPError:
                 pass
-
-        shutil.rmtree(
-            f"{WORKING_DATASET_DIR}/{self.REPO_NAME}",
-            onerror=set_write_permission_and_retry,
-        )
 
     def test_clone_with_endpoint(self):
         clone = Repository(
