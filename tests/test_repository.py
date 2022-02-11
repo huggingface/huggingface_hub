@@ -70,6 +70,9 @@ class RepositoryTest(RepositoryCommonTest):
     def setUp(self):
         if os.path.exists(WORKING_REPO_DIR):
             shutil.rmtree(WORKING_REPO_DIR, onerror=set_write_permission_and_retry)
+        logger.info(
+            f"Does {WORKING_REPO_DIR} exist: {os.path.exists(WORKING_REPO_DIR)}"
+        )
 
         self.REPO_NAME = repo_name()
         self._repo_url = self._api.create_repo(name=self.REPO_NAME, token=self._token)
@@ -99,9 +102,6 @@ class RepositoryTest(RepositoryCommonTest):
             pass
 
     def test_init_from_existing_local_clone(self):
-        logger.info(
-            f"Does {WORKING_REPO_DIR} exist: {os.path.exists(WORKING_REPO_DIR)}"
-        )
         subprocess.run(
             ["git", "clone", self._repo_url, WORKING_REPO_DIR],
             check=True,
@@ -118,9 +118,6 @@ class RepositoryTest(RepositoryCommonTest):
                 _ = Repository(tmpdirname)
 
     def test_init_clone_in_empty_folder(self):
-        logger.info(
-            f"Does {WORKING_REPO_DIR} exist: {os.path.exists(WORKING_REPO_DIR)}"
-        )
         repo = Repository(WORKING_REPO_DIR, clone_from=self._repo_url)
         repo.lfs_track(["*.pdf"])
         repo.lfs_enable_largefiles()
@@ -129,9 +126,6 @@ class RepositoryTest(RepositoryCommonTest):
         self.assertIn("random_file.txt", os.listdir(WORKING_REPO_DIR))
 
     def test_git_lfs_filename(self):
-        logger.info(
-            f"Does {WORKING_REPO_DIR} exist: {os.path.exists(WORKING_REPO_DIR)}"
-        )
         os.mkdir(WORKING_REPO_DIR)
         subprocess.run(
             ["git", "init"],
@@ -158,9 +152,6 @@ class RepositoryTest(RepositoryCommonTest):
     def test_init_clone_in_nonempty_folder(self):
         # Create dummy files
         # one is lfs-tracked, the other is not.
-        logger.info(
-            f"Does {WORKING_REPO_DIR} exist: {os.path.exists(WORKING_REPO_DIR)}"
-        )
         os.makedirs(WORKING_REPO_DIR, exist_ok=True)
         with open(os.path.join(WORKING_REPO_DIR, "dummy.txt"), "w") as f:
             f.write("hello")
@@ -172,9 +163,6 @@ class RepositoryTest(RepositoryCommonTest):
 
     def test_init_clone_in_nonempty_non_linked_git_repo(self):
         # Create a new repository on the HF Hub
-        logger.info(
-            f"Does {WORKING_REPO_DIR} exist: {os.path.exists(WORKING_REPO_DIR)}"
-        )
         temp_repo_url = self._api.create_repo(
             name=f"{self.REPO_NAME}-temp", token=self._token
         )
@@ -209,9 +197,6 @@ class RepositoryTest(RepositoryCommonTest):
 
     def test_init_clone_in_nonempty_linked_git_repo(self):
         # Clone the repository to disk
-        logger.info(
-            f"Does {WORKING_REPO_DIR} exist: {os.path.exists(WORKING_REPO_DIR)}"
-        )
         Repository(WORKING_REPO_DIR, clone_from=self._repo_url)
 
         # Add to the remote repository without doing anything to the local repository.
@@ -228,9 +213,6 @@ class RepositoryTest(RepositoryCommonTest):
 
     def test_init_clone_in_nonempty_linked_git_repo_unrelated_histories(self):
         # Clone the repository to disk
-        logger.info(
-            f"Does {WORKING_REPO_DIR} exist: {os.path.exists(WORKING_REPO_DIR)}"
-        )
         repo = Repository(
             WORKING_REPO_DIR,
             clone_from=self._repo_url,
@@ -256,9 +238,6 @@ class RepositoryTest(RepositoryCommonTest):
         Repository(WORKING_REPO_DIR, clone_from=self._repo_url)
 
     def test_add_commit_push(self):
-        logger.info(
-            f"Does {WORKING_REPO_DIR} exist: {os.path.exists(WORKING_REPO_DIR)}"
-        )
         repo = Repository(
             WORKING_REPO_DIR,
             clone_from=self._repo_url,
@@ -283,9 +262,6 @@ class RepositoryTest(RepositoryCommonTest):
         r.raise_for_status()
 
     def test_add_commit_push_non_blocking(self):
-        logger.info(
-            f"Does {WORKING_REPO_DIR} exist: {os.path.exists(WORKING_REPO_DIR)}"
-        )
         repo = Repository(
             WORKING_REPO_DIR,
             clone_from=self._repo_url,
@@ -320,9 +296,6 @@ class RepositoryTest(RepositoryCommonTest):
         r.raise_for_status()
 
     def test_context_manager_non_blocking(self):
-        logger.info(
-            f"Does {WORKING_REPO_DIR} exist: {os.path.exists(WORKING_REPO_DIR)}"
-        )
         repo = Repository(
             WORKING_REPO_DIR,
             clone_from=self._repo_url,
