@@ -2,6 +2,7 @@ import os
 import shutil
 import time
 import unittest
+import uuid
 
 from huggingface_hub import HfApi
 from huggingface_hub.file_download import is_torch_available
@@ -11,7 +12,9 @@ from .testing_constants import ENDPOINT_STAGING, PASS, USER
 from .testing_utils import set_write_permission_and_retry
 
 
-REPO_NAME = "mixin-repo-{}".format(int(time.time() * 10e3))
+def repo_name(id=uuid.uuid4().hex[:6]):
+    return "mixin-repo-{0}-{1}".format(id, int(time.time() * 10e3))
+
 
 WORKING_REPO_SUBDIR = "fixtures/working_repo_2"
 WORKING_REPO_DIR = os.path.join(
@@ -46,7 +49,6 @@ if is_torch_available():
         def forward(self, x):
             return self.l1(x)
 
-
 else:
     DummyModel = None
 
@@ -72,6 +74,7 @@ class HubMixingTest(HubMixingCommonTest):
         cls._token = cls._api.login(username=USER, password=PASS)
 
     def test_save_pretrained(self):
+        REPO_NAME = repo_name("save")
         model = DummyModel()
 
         model.save_pretrained(f"{WORKING_REPO_DIR}/{REPO_NAME}")
@@ -100,21 +103,21 @@ class HubMixingTest(HubMixingCommonTest):
         self.assertTrue(model.config == {"num": 10, "act": "gelu_fast"})
 
     def test_abs_path_from_pretrained(self):
+        REPO_NAME = repo_name("FROM_PRETRAINED")
         model = DummyModel()
         model.save_pretrained(
-            f"{WORKING_REPO_DIR}/{REPO_NAME}-FROM_PRETRAINED",
+            f"{WORKING_REPO_DIR}/{REPO_NAME}",
             config={"num": 10, "act": "gelu_fast"},
         )
 
-        model = DummyModel.from_pretrained(
-            f"{WORKING_REPO_DIR}/{REPO_NAME}-FROM_PRETRAINED"
-        )
+        model = DummyModel.from_pretrained(f"{WORKING_REPO_DIR}/{REPO_NAME}")
         self.assertDictEqual(model.config, {"num": 10, "act": "gelu_fast"})
 
     def test_push_to_hub(self):
+        REPO_NAME = repo_name("PUSH_TO_HUB")
         model = DummyModel()
         model.push_to_hub(
-            repo_path_or_name=f"{WORKING_REPO_DIR}/{REPO_NAME}-PUSH_TO_HUB",
+            repo_path_or_name=f"{WORKING_REPO_DIR}/{REPO_NAME}",
             api_endpoint=ENDPOINT_STAGING,
             use_auth_token=self._token,
             git_user="ci",
@@ -123,8 +126,8 @@ class HubMixingTest(HubMixingCommonTest):
         )
 
         model_info = self._api.model_info(
-            f"{USER}/{REPO_NAME}-PUSH_TO_HUB",
+            f"{USER}/{REPO_NAME}",
         )
-        self.assertEqual(model_info.modelId, f"{USER}/{REPO_NAME}-PUSH_TO_HUB")
+        self.assertEqual(model_info.modelId, f"{USER}/{REPO_NAME}")
 
-        self._api.delete_repo(name=f"{REPO_NAME}-PUSH_TO_HUB", token=self._token)
+        self._api.delete_repo(name=f"{REPO_NAME}", token=self._token)

@@ -20,7 +20,7 @@ The model card should describe:
 ## Model card metadata
 <!-- Try not to change this header as we use the corresponding anchor link -->
 
-The model cards have a YAML section that specify metadata. These are the fields
+You can add a YAML section to the model cards (that `README.md` file) by adding three `---` to the top of your model card, including all of the metadata, and enclosing it with another group of `---` such as the example below:
 
 ```yaml
 ---
@@ -50,8 +50,10 @@ Some useful information on them:
 * License identifiers are the keywords listed in the right column of [this table](#list-of-license-identifiers).
 * Dataset, metric, and language identifiers are those listed on the [Datasets](https://huggingface.co/datasets), [Metrics](https://huggingface.co/metrics) and [Languages](https://huggingface.co/languages) pages and in the [`datasets`](https://github.com/huggingface/datasets) repository.
 
+You can even specify your **model's eval results** in a structured way, which will allow the Hub to parse, display, and even link them to Papers With Code leaderboards. See how to format this data [in the metadata spec](https://github.com/huggingface/huggingface_hub/blame/main/modelcard.md).
 
-Here is an example: 
+
+Here is a partial example (omitting the eval results part):
 ```yaml
 ---
 language:
@@ -68,6 +70,10 @@ metrics:
 ---
 ```
 
+If a model includes valid eval results, they will be displayed like this:
+
+![/docs/assets/hub/eval-results.jpg](/docs/assets/hub/eval-results.jpg)
+
 ## How are model tags determined?
 
 Each model page lists all the model's tags in the page header, below the model name.
@@ -83,17 +89,44 @@ widget:
 - text: "Jens Peter Hansen kommer fra Danmark"
 ```
 
-It is also possible to specify non-text example inputs in the model card metadata. For example, allow users to choose from two sample audio files for automatic speech recognition tasks by:
+You can provide more than one example input. In the examples dropdown menu of the widget, they will appear as `Example 1`, `Example 2`, etc. Optionally, you can supply `example_title` as well.
+
+![/docs/assets/hub/widget_input_examples.gif](/docs/assets/hub/widget_input_examples.gif)
 
 ```yaml
 widget:
-- label: Librispeech sample 1
-  src: https://cdn-media.huggingface.co/speech_samples/sample1.flac
-- label: Librispeech sample 2
-  src: https://cdn-media.huggingface.co/speech_samples/sample2.flac
+- text: "Is this review positive or negative? Review: Best cast iron skillet you will every buy."
+  example_title: "Sentiment analysis"
+- text: "Barack Obama nominated Hilary Clinton as his secretary of state on Monday. He chose her because she had ..."
+  example_title: "Coreference resolution"
+- text: "On a shelf, there are five books: a gray book, a red book, a purple book, a blue book, and a black book ..."
+  example_title: "Logic puzzles"
+- text: "The two men running to become New York City's next mayor will face off in their first debate Wednesday night ..."
+  example_title: "Reading comprehension"
 ```
 
-We provide example inputs for some languages and most widget types in [the DefaultWidget.ts file](https://github.com/huggingface/huggingface_hub/blob/master/widgets/src/lib/interfaces/DefaultWidget.ts). If some examples are missing, we welcome PRs from the community to add them!
+Moreover, you can specify non-text example inputs in the model card metadata. Refer [here](https://github.com/huggingface/huggingface_hub/blob/main/docs/hub/input-examples.md) for a complete list of example input formats for all widget types. For vision & audio widget types, provide example inputs with `src` rather than `text`. 
+
+For example, allow users to choose from two sample audio files for automatic speech recognition tasks by:
+
+```yaml
+widget:
+- src: https://example.org/somewhere/speech_samples/sample1.flac
+  example_title: Speech sample 1
+- src: https://example.org/somewhere/speech_samples/sample2.flac
+  example_title: Speech sample 2
+```
+
+Note that you can also include example files in your model repository and use
+them as:
+
+```yaml
+widget:
+- src: https://huggingface.co/username/model_repo/resolve/main/sample1.flac
+  example_title: Custom Speech Sample 1
+```
+
+We provide example inputs for some languages and most widget types in [the DefaultWidget.ts file](https://github.com/huggingface/huggingface_hub/blob/master/js/src/lib/interfaces/DefaultWidget.ts). If some examples are missing, we welcome PRs from the community to add them!
 
 ## How can I control my model's widget Inference API parameters?
 
@@ -241,9 +274,13 @@ BSD 3-clause "New" or "Revised" license	| `bsd-3-clause`
 BSD 3-clause Clear license	| `bsd-3-clause-clear`
 Creative Commons license family	| `cc`
 Creative Commons Zero v1.0 Universal	| `cc0-1.0`
+Creative Commons Attribution 3.0	| `cc-by-3.0`
 Creative Commons Attribution 4.0	| `cc-by-4.0`
+Creative Commons Attribution Share Alike 3.0	| `cc-by-sa-3.0`
 Creative Commons Attribution Share Alike 4.0	| `cc-by-sa-4.0`
+Creative Commons Attribution Non Commercial 3.0	|`cc-by-nc-3.0`
 Creative Commons Attribution Non Commercial 4.0	|`cc-by-nc-4.0`
+Creative Commons Attribution Non Commercial Share Alike  3.0| `cc-by-nc-sa-3.0`
 Creative Commons Attribution Non Commercial Share Alike  4.0| `cc-by-nc-sa-4.0`
 Do What The F*ck You Want To Public License	| `wtfpl`
 Educational Community License v2.0	| `ecl-2.0`
@@ -269,4 +306,56 @@ University of Illinois/NCSA Open Source License	| `ncsa`
 The Unlicense	| `unlicense`
 zLib License	| `zlib`
 Open Data Commons Public Domain Dedication and License | `pddl`
-Lesser General Public License For Linguistic Resources | `lgpllr`
+Lesser General Public License For Linguistic Resources | `lgpl-lr`
+Other	| `other`
+
+In case of `license: other` please add the license's text to a `LICENSE` file inside your repo (or contact us to add the license you use to this list).
+
+## Why is it useful to calculate the carbon emissions of my model?
+
+Training ML models is often energy intensive and can produce a substantial carbon footprint, as described by [Strubell et al.](https://arxiv.org/abs/1906.02243). It's therefore important to *track* and *report* the emissions of models to get a better idea of the environmental impacts of our field.
+
+
+## What information should I include about the carbon footprint of my model?
+
+If you can, include information about:
+- where the model was trained (in terms of location)
+- the hardware that was used -- e.g. GPU, TPU or CPU, and how many
+- training type: pre-training or fine-tuning
+- the estimated carbon footprint of the model, calculated in real-time with the [Code Carbon](https://github.com/mlco2/codecarbon) package or after the fact using the [ML CO2 Calculator](https://mlco2.github.io/impact/).
+
+## Carbon footprint metadata
+
+The data can be added to the model card metadata (README.md file). The structure of the metadata should be:
+
+```yaml
+---
+co2_eq_emissions:
+	  emissions: "in grams of CO2"
+	  source: "source of the information, either directly from autonlp, code carbon or from a scientific article documenting the model"
+	  training_type: "pretraining or fine-tuning"
+	  geographical_location: "as granular as possible, for instance Quebec, Canada or Brooklyn, NY, USA"
+	  hardware_used: "how much compute and what kind, e.g. 8 v100 GPUs"
+---
+```
+
+## How is the carbon footprint of my model calculated? 🌎
+
+By taking into account the computing hardware, location, usage and training time, it's possible to provide an estimate of how much CO<sub>2</sub> was produced by the model.
+
+The math is actually pretty simple! ➕
+
+First, you take the *carbon intensity* of the electric grid that is being used for the training -- this is how much CO<sub>2</sub> is produced by KwH of electricity used. This depends on the location where the hardware is located and the [energy mix](https://electricitymap.org/) used at that location -- whether it's renewable energy like solar 🌞, wind 🌬️ and hydro 💧, or non-renewable energy like coal ⚫ and natural gas 💨. The more renewable energy is used, the less carbon intensive it is!
+ 
+Then, you take the power consumption of the GPU during training -- this is done using the `pynvml` library.
+
+Finally, you multiply the power consumption and carbon intensity by the training time of the model, and you have an estimate of how much CO<sub>2</sub> was emitted.
+
+Keep in mind that this isn't an exact number, because there are other factors that come into play -- like the energy that's used for data center heating and cooling -- which will increase carbon emissions. But this will already give you a good idea of the scale of CO<sub>2</sub> emissions that your model is producing!
+
+To add **Carbon Emissions** metadata to your models:
+
+1. If you are using **AutoNLP**, this is tracked for you 🔥
+2. Otherwise, use a tracker like  Code Carbon in your training code, then specify `co2_eq_emissions.emissions: 1.2345` in your model card metadata, where `1.2345` is the emissions value in **grams**. 
+
+To learn more about the carbon footprint of Transformers, check out the [video](https://www.youtube.com/watch?v=ftWlj4FBHTg), part of the Hugging Face Course!

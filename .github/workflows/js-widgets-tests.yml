@@ -3,12 +3,12 @@ name: JS Widgets
 on:
   push:
     paths:
-      - "widgets/**"
-      - "!widgets/src/lib/interfaces/**"
+      - "js/**"
+      - "!js/src/lib/interfaces/**"
   pull_request:
     paths:
-      - "widgets/**"
-      - "!widgets/src/lib/interfaces/**"
+      - "js/**"
+      - "!js/src/lib/interfaces/**"
 
 
 jobs:
@@ -24,25 +24,25 @@ jobs:
         uses: actions/setup-node@v1
         with:
           node-version: 14
-      - working-directory: widgets
+      - working-directory: js
         run: |
           npm ci
       - name: Check style
-        working-directory: widgets
+        working-directory: js
         run: |
           npm run lint
       - name: Check svelte
-        working-directory: widgets
+        working-directory: js
         run: |
           npm run check
       - name: Build front
-        working-directory: widgets
+        working-directory: js
         run: |
           npm run build
 
       # CD of static site
       - name: Netlify install
-        working-directory: widgets
+        working-directory: js
         run: |
           npm i netlify-cli
 
@@ -52,7 +52,7 @@ jobs:
           echo "::set-env name=NETLIFY_EXTRA_FLAG::--prod"
 
       - name: Netlify deploy
-        working-directory: widgets
+        working-directory: js
         env:
           NETLIFY_AUTH_TOKEN: ${{ secrets.NETLIFY_AUTH_TOKEN }}
           NETLIFY_SITE_ID: 69b9df00-bfdd-4499-bd7f-6add4d703d99

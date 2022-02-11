@@ -79,6 +79,32 @@ class DockerImageTests(unittest.TestCase):
             "espnet/kamo-naoyuki_mini_an4_asr_train_raw_bpe_valid.acc.best",
         )
 
+    def test_fairseq(self):
+        self.framework_docker_test(
+            "fairseq",
+            "text-to-speech",
+            "facebook/fastspeech2-en-ljspeech",
+        )
+        self.framework_docker_test(
+            "fairseq",
+            "audio-to-audio",
+            "facebook/xm_transformer_600m-es_en-multi_domain",
+        )
+        self.framework_invalid_test("fairseq")
+
+    def test_fasttext(self):
+        self.framework_docker_test(
+            "fasttext",
+            "text-classification",
+            "osanseviero/fasttext_nearest",
+        )
+        self.framework_docker_test(
+            "fasttext",
+            "feature-extraction",
+            "osanseviero/fasttext_embedding",
+        )
+        self.framework_invalid_test("fasttext")
+
     def test_sentence_transformers(self):
         self.framework_docker_test(
             "sentence_transformers",
@@ -92,6 +118,27 @@ class DockerImageTests(unittest.TestCase):
             "sentence-transformers/paraphrase-distilroberta-base-v1",
         )
         self.framework_invalid_test("sentence_transformers")
+
+    def test_adapter_transformers(self):
+        self.framework_docker_test(
+            "adapter_transformers",
+            "question-answering",
+            "calpt/adapter-bert-base-squad1",
+        )
+
+        self.framework_docker_test(
+            "adapter_transformers",
+            "text-classification",
+            "AdapterHub/roberta-base-pf-sick",
+        )
+
+        self.framework_docker_test(
+            "adapter_transformers",
+            "token-classification",
+            "AdapterHub/roberta-base-pf-conll2003",
+        )
+
+        self.framework_invalid_test("adapter_transformers")
 
     def test_flair(self):
         self.framework_docker_test(
@@ -131,12 +178,11 @@ class DockerImageTests(unittest.TestCase):
             "speechbrain/asr-crdnn-commonvoice-it",
         )
 
-        # Enable when latest release of speechbrain is fixed
-        # self.framework_docker_test(
-        #    "speechbrain",
-        #    "automatic-speech-recognition",
-        #    "speechbrain/asr-wav2vec2-commonvoice-fr",
-        # )
+        self.framework_docker_test(
+            "speechbrain",
+            "automatic-speech-recognition",
+            "speechbrain/asr-wav2vec2-commonvoice-fr",
+        )
 
         self.framework_invalid_test("speechbrain")
 
@@ -159,6 +205,18 @@ class DockerImageTests(unittest.TestCase):
             "audio-classification",
             "speechbrain/urbansound8k_ecapa",
         )
+
+    def test_stanza(self):
+        self.framework_docker_test(
+            "stanza", "token-classification", "stanfordnlp/stanza-en"
+        )
+
+        self.framework_docker_test(
+            "stanza",
+            "token-classification",
+            "stanfordnlp/stanza-tr",
+        )
+        self.framework_invalid_test("stanza")
 
     def test_timm(self):
         self.framework_docker_test("timm", "image-classification", "sgugger/resnet50d")
@@ -316,7 +374,7 @@ class DockerImageTests(unittest.TestCase):
             self.assertEqual(response.content, b'{"ok":"ok"}')
 
             response = httpx.post(url, data=b"This is a test", timeout=timeout)
-            self.assertIn(response.status_code, {200, 400})
+            self.assertIn(response.status_code, {200, 400}, response.content)
             counter[response.status_code] += 1
 
             response = httpx.post(
@@ -418,7 +476,7 @@ class DockerImageTests(unittest.TestCase):
             ) as f:
                 data = f.read()
             response = httpx.post(url, data=data, timeout=timeout)
-            self.assertIn(response.status_code, {200, 400})
+            self.assertIn(response.status_code, {200, 400}, response.content)
             counter[response.status_code] += 1
 
             with open(

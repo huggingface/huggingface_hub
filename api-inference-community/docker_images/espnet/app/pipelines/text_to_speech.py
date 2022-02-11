@@ -9,7 +9,7 @@ class TextToSpeechPipeline(Pipeline):
     def __init__(self, model_id: str):
         self.model = Text2Speech.from_pretrained(model_id, device="cpu")
 
-        if hasattr(self.model.fs, "sampling_rate"):
+        if hasattr(self.model, "fs"):
             self.sampling_rate = self.model.fs
         else:
             # 16000 by default if not specified

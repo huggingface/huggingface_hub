@@ -18,7 +18,11 @@ from getpass import getpass
 from typing import List, Union
 
 from huggingface_hub.commands import BaseHuggingfaceCLICommand
-from huggingface_hub.constants import REPO_TYPES, REPO_TYPES_URL_PREFIXES
+from huggingface_hub.constants import (
+    REPO_TYPES,
+    REPO_TYPES_URL_PREFIXES,
+    SPACES_SDK_TYPES,
+)
 from huggingface_hub.hf_api import HfApi, HfFolder
 from requests.exceptions import HTTPError
 
@@ -69,6 +73,12 @@ class UserCommands(BaseHuggingfaceCLICommand):
             "--organization", type=str, help="Optional: organization namespace."
         )
         repo_create_parser.add_argument(
+            "--space_sdk",
+            type=str,
+            help='Optional: Hugging Face Spaces SDK type. Required when --type is set to "space".',
+            choices=SPACES_SDK_TYPES,
+        )
+        repo_create_parser.add_argument(
             "-y",
             "--yes",
             action="store_true",
@@ -89,15 +99,15 @@ class ANSI:
 
     @classmethod
     def bold(cls, s):
-        return "{}{}{}".format(cls._bold, s, cls._reset)
+        return f"{cls._bold}{s}{cls._reset}"
 
     @classmethod
     def red(cls, s):
-        return "{}{}{}".format(cls._bold + cls._red, s, cls._reset)
+        return f"{cls._bold + cls._red}{s}{cls._reset}"
 
     @classmethod
     def gray(cls, s):
-        return "{}{}{}".format(cls._gray, s, cls._reset)
+        return f"{cls._gray}{s}{cls._reset}"
 
 
 def tabulate(rows: List[List[Union[str, int]]], headers: List[str]) -> str:
@@ -154,11 +164,19 @@ class LoginCommand(BaseUserCommand):
         _|    _|  _|    _|  _|    _|  _|    _|    _|    _|    _|_|  _|    _|      _|        _|    _|  _|        _|
         _|    _|    _|_|      _|_|_|    _|_|_|  _|_|_|  _|      _|    _|_|_|      _|        _|    _|    _|_|_|  _|_|_|_|
 
+        To login, `huggingface_hub` now requires a token generated from https://huggingface.co/settings/token.
+        (Deprecated, will be removed in v0.3.0) To login with username and password instead, interrupt with Ctrl+C.
         """
         )
-        username = input("Username: ")
-        password = getpass()
-        _login(self._api, username, password)
+
+        try:
+            token = getpass("Token: ")
+            _login(self._api, token=token)
+
+        except KeyboardInterrupt:
+            username = input("\rUsername: ")
+            password = getpass()
+            _login(self._api, username, password)
 
 
 class WhoamiCommand(BaseUserCommand):
@@ -186,7 +204,13 @@ class LogoutCommand(BaseUserCommand):
             print("Not logged in")
             exit()
         HfFolder.delete_token()
-        self._api.logout(token)
+        HfApi.unset_access_token()
+        try:
+            self._api.logout(token)
+        except HTTPError as e:
+            # Logging out with an access token will return a client error.
+            if not e.response.status_code == 400:
+                raise e
         print("Successfully logged out.")
 
 
@@ -250,7 +274,7 @@ class RepoCreateCommand(BaseUserCommand):
         if self.args.type in REPO_TYPES_URL_PREFIXES:
             repo_id = REPO_TYPES_URL_PREFIXES[self.args.type] + repo_id
 
-        print("You are about to create {}".format(ANSI.bold(repo_id)))
+        print(f"You are about to create {ANSI.bold(repo_id)}")
 
         if not self.args.yes:
             choice = input("Proceed? [Y/n] ").lower()
@@ -263,13 +287,14 @@ class RepoCreateCommand(BaseUserCommand):
                 token=token,
                 organization=self.args.organization,
                 repo_type=self.args.type,
+                space_sdk=self.args.space_sdk,
             )
         except HTTPError as e:
             print(e)
             print(ANSI.red(e.response.text))
             exit(1)
         print("\nYour repo now lives at:")
-        print("  {}".format(ANSI.bold(url)))
+        print(f"  {ANSI.bold(url)}")
         print(
             "\nYou can clone it locally with the command below,"
             " and commit/push as usual."
@@ -278,12 +303,26 @@ class RepoCreateCommand(BaseUserCommand):
         print("")
 
 
-LOGIN_NOTEBOOK_HTML = """<center>
+NOTEBOOK_LOGIN_PASSWORD_HTML = """<center>
 <img src=https://huggingface.co/front/assets/huggingface_logo-noborder.svg alt='Hugging Face'>
 <br>
-<b>The AI community building the future</b>
-<br>
 Immediately click login after typing your password or it might be stored in plain text in this notebook file.
+</center>"""
+
+
+NOTEBOOK_LOGIN_TOKEN_HTML_START = """<center>
+<img src=https://huggingface.co/front/assets/huggingface_logo-noborder.svg alt='Hugging Face'>
+<br>
+Copy a token from <a href="https://huggingface.co/settings/token" target="_blank">your Hugging Face tokens page</a> and paste it below.
+<br>
+Immediately click login after copying your token or it might be stored in plain text in this notebook file.
+</center>"""
+
+
+NOTEBOOK_LOGIN_TOKEN_HTML_END = """
+<b>Pro Tip:</b> If you don't already have one, you can create a dedicated 'notebooks' token with 'write' access, that you can then easily reuse for all notebooks.
+<br>
+<i>Logging in with your username and password is deprecated and won't be possible anymore in the near future. You can still use them for now by clicking below.</i>
 </center>"""
 
 
@@ -300,42 +339,80 @@ def notebook_login():
             "`ipywdidgets` module: `pip install ipywidgets`."
         )
 
-    input_widget = widgets.Text(description="Username:")
-    password_widget = widgets.Password(description="Password:")
-    finish_button = widgets.Button(description="Login")
     box_layout = widgets.Layout(
         display="flex", flex_flow="column", align_items="center", width="50%"
     )
-    main_widget = widgets.VBox(
+
+    token_widget = widgets.Password(description="Token:")
+    token_finish_button = widgets.Button(description="Login")
+    switch_button = widgets.Button(description="Use password")
+
+    login_token_widget = widgets.VBox(
         [
-            widgets.HTML(value=LOGIN_NOTEBOOK_HTML),
+            widgets.HTML(NOTEBOOK_LOGIN_TOKEN_HTML_START),
+            token_widget,
+            token_finish_button,
+            widgets.HTML(NOTEBOOK_LOGIN_TOKEN_HTML_END),
+            switch_button,
+        ],
+        layout=box_layout,
+    )
+    display(login_token_widget)
+
+    # Deprecated page for login
+    input_widget = widgets.Text(description="Username:")
+    password_widget = widgets.Password(description="Password:")
+    password_finish_button = widgets.Button(description="Login")
+
+    login_password_widget = widgets.VBox(
+        [
+            widgets.HTML(value=NOTEBOOK_LOGIN_PASSWORD_HTML),
             widgets.HBox([input_widget, password_widget]),
-            finish_button,
+            password_finish_button,
         ],
         layout=box_layout,
     )
 
-    display(main_widget)
+    # On click events
+    def login_token_event(t):
+        token = token_widget.value
+        # Erase token and clear value to make sure it's not saved in the notebook.
+        token_widget.value = ""
+        clear_output()
+        _login(HfApi(), token=token)
 
-    def login_event(t):
+    token_finish_button.on_click(login_token_event)
+
+    def login_password_event(t):
         username = input_widget.value
         password = password_widget.value
         # Erase password and clear value to make sure it's not saved in the notebook.
         password_widget.value = ""
         clear_output()
-        _login(HfApi(), username, password)
+        _login(HfApi(), username=username, password=password)
 
-    finish_button.on_click(login_event)
+    password_finish_button.on_click(login_password_event)
+
+    def switch_event(t):
+        clear_output()
+        display(login_password_widget)
+
+    switch_button.on_click(switch_event)
 
 
-def _login(hf_api, username, password):
-    try:
-        token = hf_api.login(username, password)
-    except HTTPError as e:
-        # probably invalid credentials, display error message.
-        print(e)
-        print(ANSI.red(e.response.text))
-        exit(1)
+def _login(hf_api, username=None, password=None, token=None):
+    if token is None:
+        try:
+            token = hf_api.login(username, password)
+        except HTTPError as e:
+            # probably invalid credentials, display error message.
+            print(e)
+            print(ANSI.red(e.response.text))
+            exit(1)
+    elif not hf_api._is_valid_token(token):
+        raise ValueError("Invalid token passed.")
+
+    hf_api.set_access_token(token)
     HfFolder.save_token(token)
     print("Login successful")
     print("Your token has been saved to", HfFolder.path_token)
@@ -344,8 +421,8 @@ def _login(hf_api, username, password):
     if "store" not in helpers:
         print(
             ANSI.red(
-                "Authenticated through git-crendential store but this isn't the helper defined on your machine.\nYou "
-                "will have to re-authenticate when pushing to the Hugging Face Hub. Run the following command in your "
-                "terminal to set it as the default\n\ngit config --global credential.helper store"
+                "Authenticated through git-credential store but this isn't the helper defined on your machine.\nYou "
+                "might have to re-authenticate when pushing to the Hugging Face Hub. Run the following command in your "
+                "terminal in case you want to set this credential helper as the default\n\ngit config --global credential.helper store"
             )
         )
