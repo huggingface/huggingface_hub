@@ -71,7 +71,7 @@ class RepositoryTest(RepositoryCommonTest):
         if os.path.exists(WORKING_REPO_DIR):
             shutil.rmtree(WORKING_REPO_DIR, onerror=set_write_permission_and_retry)
         logger.info(
-            f"Does {WORKING_REPO_DIR} exist: {os.path.exists(WORKING_REPO_DIR)}"
+            f"Doesf {WORKING_REPO_DIR} exist: {os.path.exists(WORKING_REPO_DIR)}"
         )
         self.REPO_NAME = repo_name()
         self._repo_url = self._api.create_repo(name=self.REPO_NAME, token=self._token)
