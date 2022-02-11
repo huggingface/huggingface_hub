@@ -46,6 +46,7 @@ from huggingface_hub.hf_api import (
     read_from_credential_store,
     repo_type_and_id_from_hf_id,
 )
+from huggingface_hub.utils import logging
 from huggingface_hub.utils.endpoint_helpers import DatasetFilter, ModelFilter
 from requests.exceptions import HTTPError
 
@@ -66,6 +67,9 @@ from .testing_utils import (
     set_write_permission_and_retry,
     with_production_testing,
 )
+
+
+logger = logging.get_logger(__name__)
 
 
 def repo_name(id=uuid.uuid4().hex[:6]):
@@ -901,10 +905,11 @@ class HfLargefilesTest(HfApiCommonTest):
 
     def setUp(self):
         self.REPO_NAME_LARGE_FILE = repo_name_large_file()
-        try:
+        if os.path.exists(WORKING_REPO_DIR):
             shutil.rmtree(WORKING_REPO_DIR, onerror=set_write_permission_and_retry)
-        except FileNotFoundError:
-            pass
+        logger.info(
+            f"Does {WORKING_REPO_DIR} exist: {os.path.exists(WORKING_REPO_DIR)}"
+        )
 
     def tearDown(self):
         self._api.delete_repo(name=self.REPO_NAME_LARGE_FILE, token=self._token)
