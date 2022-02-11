@@ -7,7 +7,11 @@ import uuid
 import pytest
 
 from huggingface_hub import HfApi
-from huggingface_hub.file_download import is_tf_available
+from huggingface_hub.file_download import (
+    is_graphviz_available,
+    is_pydot_available,
+    is_tf_available,
+)
 from huggingface_hub.keras_mixin import (
     KerasModelHubMixin,
     from_pretrained_keras,
@@ -34,13 +38,17 @@ if is_tf_available():
 
 def require_tf(test_case):
     """
-    Decorator marking a test that requires TensorFlow.
+    Decorator marking a test that requires TensorFlow, graphviz and pydot.
 
-    These tests are skipped when TensorFlow isn't installed.
+    These tests are skipped when TensorFlow, graphviz and pydot are installed.
 
     """
-    if not is_tf_available():
-        return unittest.skip("test requires Tensorflow")(test_case)
+    if (
+        not is_tf_available()
+        and not is_pydot_available()
+        and not is_graphviz_available()
+    ):
+        return unittest.skip("test requires Tensorflow, graphviz and pydot.")(test_case)
     else:
         return test_case
 
