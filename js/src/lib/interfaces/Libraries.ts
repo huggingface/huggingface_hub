@@ -11,6 +11,7 @@ export enum ModelLibrary {
 	"fairseq"                = "Fairseq",
 	"flair"                  = "Flair",
 	"keras"                  = "Keras",
+        "mindspore"              = "MindSpore",
 	"pyannote"               = "Pyannote",
 	"sentence-transformers"  = "Sentence Transformers",
 	"sklearn"                = "Scikit-learn",
@@ -136,6 +137,12 @@ const keras = (model: ModelData) =>
 	`from huggingface_hub import from_pretrained_keras
 
 model = from_pretrained_keras("${model.id}")
+`;
+
+const mindspore = (model: ModelData) =>
+        `from huggingface_hub import from_pretrained_mindspore
+
+model = from_pretrained_mindspore("${model.id}")
 `;
 
 const pyannote = (model: ModelData) =>
@@ -338,6 +345,12 @@ export const MODEL_LIBRARIES_UI_ELEMENTS: { [key in keyof typeof ModelLibrary]?:
 		repoUrl:  "https://github.com/keras-team/keras",
 		snippet:  keras,
 	},
+        "mindspore": {
+                btnLabel: "MindSpore",
+                repoName: "MindSpore",
+                repoUrl:  "https://github.com/mindspore-ai/mindspore",
+                snippet:  mindspore,
+        },
 	"pyannote": {
 		btnLabel: "pyannote",
 		repoName: "pyannote-audio",
