@@ -7,11 +7,11 @@ from typing import Any, Dict, Optional, Union
 import packaging.version
 
 from huggingface_hub.constants import CONFIG_NAME
-
 from huggingface_hub.file_download import get_fastai_version, get_fastcore_version
 from huggingface_hub.hf_api import HfApi, HfFolder
 from huggingface_hub.repository import Repository
 from huggingface_hub.snapshot_download import snapshot_download
+
 
 logger = logging.getLogger(__name__)
 
@@ -35,7 +35,7 @@ def check_fastai_fastcore_versions(
     """
 
     # Check that `fastai` and `fastcore` versions are supported/
-    if (get_fastcore_version() or get_fastai_version()) == 'N/A':
+    if (get_fastcore_version() or get_fastai_version()) == "N/A":
         raise ImportError(
             f"fastai>={fastai_min_version} and fastcore>={fastcore_min_version} are required. Currently using fastai=={get_fastai_version()} and fastcore=={get_fastcore_version()}."
         )
