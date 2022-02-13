@@ -14,30 +14,46 @@ from huggingface_hub.repository import Repository
 from huggingface_hub.snapshot_download import snapshot_download
 
 
-# Verify if we are using the right fastai version.
-if packaging.version.Version(get_fastai_version()) < packaging.version.Version("2.4"):
-    raise ImportError(
-        f"`push_to_hub_fastai` and `from_pretrained_fastai` require a fastai>=2.4 version, but you are using fastai version {get_fastai_version()} which is incompatible. Upgrade with `pip install fastai==2.5.3`."
-    )
-
-# Verify if we are using the right fastcore version.
-if packaging.version.Version(get_fastcore_version()) < packaging.version.Version(
-    "1.3.27"
-):
-    raise ImportError(
-        f"`push_to_hub_fastai` and `from_pretrained_fastai` require a fastcore>=1.3.27 version, but you are using fastcore version {get_fastcore_version()} which is incompatible. Upgrade with `pip install fastcore==1.3.27`."
-    )
-
 logger = logging.getLogger(__name__)
 
-# Verify availability of `load_learner`.
-try:
-    from fastai.learner import Learner, load_learner
-except ImportError as error:
-    logger.error(
-        error.__class__.__name__
-        + f": `push_to_hub_fastai` and `from_pretrained_fastai` require a fastai>=2.4 version, but you are using fastai version {get_fastai_version()} which is incompatible. Run, for example, `pip install fastai==2.5.1`."
-    )
+
+def check_fastai_fastcore_versions(
+    fastai_min_version: Optional[str] = "2.4",
+    fastcore_min_version: Optional[str] = "1.3.27",
+):
+    """
+    Checks that the installed fastai and fastcore versions are compatible with `save_fastai_learner`, `from_pretrained_fastai` and `push_to_hub_fastai`.
+
+    Parameters:
+        fastai_min_version (:obj:`str`, `optional`):
+            The minimum fastai version supported.
+        fastcore_min_version (:obj:`str`, `optional`):
+            The minimum fastcore version supported.
+
+    Raises:
+        ImportError
+
+    """
+
+    # Check that `fastai` and `fastcore` versions are supported/
+    if (get_fastcore_version() or get_fastai_version()) == "N/A":
+        raise ImportError(
+            f"fastai>={fastai_min_version} and fastcore>={fastcore_min_version} are required. Currently using fastai=={get_fastai_version()} and fastcore=={get_fastcore_version()}."
+        )
+
+    current_fastai_version = packaging.version.Version(get_fastai_version())
+    current_fastcore_version = packaging.version.Version(get_fastcore_version())
+
+    if current_fastai_version < packaging.version.Version(fastai_min_version):
+        raise ImportError(
+            f"`push_to_hub_fastai` and `from_pretrained_fastai` require a fastai>={fastai_min_version} version, but you are using fastai version {get_fastai_version()} which is incompatible. Upgrade with `pip install fastai==2.5.3`."
+        )
+
+    if current_fastcore_version < packaging.version.Version(fastcore_min_version):
+        raise ImportError(
+            f"`push_to_hub_fastai` and `from_pretrained_fastai` require a fastcore>={fastcore_min_version} version, but you are using fastcore version {get_fastcore_version()} which is incompatible. Upgrade with `pip install fastcore==1.3.27`."
+        )
+
 
 # Define template for a auto-generated README.md
 README_TEMPLATE = """---
@@ -103,7 +119,7 @@ def _create_model_card(repo_dir: Path):
 
 
 def save_fastai_learner(
-    learner: Learner,
+    learner,
     save_directory: str,
     config: Optional[Dict[str, Any]] = None,
     **kwargs,
@@ -113,7 +129,7 @@ def save_fastai_learner(
 
     Parameters:
         learner (:obj:`Learner`):
-            The `fastai.learner` you'd like to save.
+            The `fastai.Learner` you'd like to save.
         save_directory (:obj:`str`):
             Specify directory in which you want to save the fastai learner.
         config (:obj:`dict`, `optional`):
@@ -124,7 +140,13 @@ def save_fastai_learner(
             Pickle protocol passed to torch.save. Refer to pickle documentation.
 
     """
-    # Unpacking **model_save_kwargs
+    # Check that fastai and fastcore versions are supported.
+    check_fastai_fastcore_versions()
+
+    # Import `load_learner` from `fastai.learner`.
+    from fastai.learner import load_learner
+
+    # Unpacking **kwargs
     pickle_protocol: int = kwargs.get("pickle_protocol", 2)
 
     os.makedirs(save_directory, exist_ok=True)
@@ -153,18 +175,68 @@ def save_fastai_learner(
     )
 
 
-def from_pretrained_fastai(*args, **kwargs):
-    return FastaiModelHubMixin.from_pretrained(*args, **kwargs)
+def from_pretrained_fastai(
+    model_id,
+    **kwargs,
+):
+    """
+    Load `model_id` files from the Hub.
+
+    Parameters:
+        model_id (:obj:`str`):
+            The model id where the pickled fastai.Learner is. Example: 'espejelomar/fastai-pet-breeds-classification'.
+
+    Keyword Parameters:
+        config (:obj:`dict`, `optional`):
+            Configuration object.
+        revision (:obj:`str`, `optional`):
+            Revision at which the repo's files are downloaded. See documentation of `snapshot_download`.
+        cache_dir (:obj:`str`, `Path`, `optional`):
+            Path to cache directory.
+
+    Returns:
+        The `fastai.Learner` model in the `model_id` repo.
+    """
+    # Check that fastai and fastcore versions are supported.
+    check_fastai_fastcore_versions()
+
+    # Import `load_learner` from `fastai.learner`.
+    from fastai.learner import load_learner
+
+    # Unpack **kwargs
+    revision: str = kwargs.get("revision", None)
+    cache_dir: str = kwargs.get("cache_dir", None)
+    config: Dict = kwargs.get("config", None)
+
+    # Root is either a local filepath matching model_id or a cached snapshot
+    if not os.path.isdir(model_id):
+        storage_folder = snapshot_download(
+            repo_id=model_id, revision=revision, cache_dir=cache_dir
+        )
+    else:
+        storage_folder = model_id
+
+    # Using the pickle document in the downloaded list
+    docs = os.listdir(storage_folder)
+    for doc in docs:
+        if doc.endswith(".pkl"):
+            pickle = doc
+            break
+    logger.info(f"Using `fastai.Learner` stored in {os.path.join(model_id, pickle)}.")
+    print(f"Using `fastai.Learner` stored in {os.path.join(model_id, pickle)}.")
+    model = load_learner(os.path.join(storage_folder, pickle))
+    model.config = config
+    return model
 
 
 def push_to_hub_fastai(
-    learner: Learner,
+    learner,
     repo_path_or_name: Optional[str] = None,
     commit_message: Optional[str] = "Add model",
     private: Optional[bool] = None,
     use_auth_token: Optional[Union[bool, str]] = True,
     config: Optional[dict] = None,
-    **model_save_kwargs,
+    **kwargs,
 ):
     """
     Upload learner checkpoint files to the Hub while synchronizing a local clone of the repo in
@@ -208,13 +280,20 @@ def push_to_hub_fastai(
     Returns:
         The url of the commit of your model in the given repository.
     """
-    # Unpacking **model_save_kwargs
-    repo_url: str = model_save_kwargs.get("repo_url", None)
-    organization: str = model_save_kwargs.get("organization", None)
-    api_endpoint: str = model_save_kwargs.get("api_endpoint", None)
-    git_user: str = model_save_kwargs.get("git_user", None)
-    git_email: str = model_save_kwargs.get("git_email", None)
-    pickle_protocol: int = model_save_kwargs.get("pickle_protocol", 2)
+
+    # Check that fastai and fastcore versions are supported.
+    check_fastai_fastcore_versions()
+
+    # Import `Learner` from `fastai.learner`.
+    from fastai.learner import Learner
+
+    # Unpacking **kwargs
+    repo_url: str = kwargs.get("repo_url", None)
+    organization: str = kwargs.get("organization", None)
+    api_endpoint: str = kwargs.get("api_endpoint", None)
+    git_user: str = kwargs.get("git_user", None)
+    git_email: str = kwargs.get("git_email", None)
+    pickle_protocol: int = kwargs.get("pickle_protocol", 2)
 
     if repo_path_or_name is None and repo_url is None:
         raise ValueError("You need to specify a `repo_path_or_name` or a `repo_url`.")
@@ -261,66 +340,5 @@ def push_to_hub_fastai(
         learner, repo_path_or_name, config=config, pickle_protocol=pickle_protocol
     )
 
-    # Commit and push!
-    # repo.git_add(auto_lfs_track=True)
+    # Commit and push
     return repo.push_to_hub(commit_message=commit_message)
-
-
-class FastaiModelHubMixin(ModelHubMixin):
-    def __init__(self, *args, **kwargs):
-        """
-        Mixin class to implement model download and upload from fastai learners.
-
-        # Downloading Learner from the Hugging Face Hub:
-        Example::
-
-            >>> from huggingface_hub import from_pretrained_fastai
-            >>> model = from_pretrained_fastai("username/mymodel@main")
-        """
-
-    def _save_pretrained(self, save_directory):
-        save_fastai_learner(self, save_directory)
-
-    @classmethod
-    def _from_pretrained(
-        cls,
-        model_id,
-        revision,
-        cache_dir,
-        force_download,
-        proxies,
-        resume_download,
-        local_files_only,
-        use_auth_token,
-        **model_kwargs,
-    ):
-        """
-        Call save_fastai_learner function so both the mixin and functional APIs stay in sync.
-        """
-
-        cfg = model_kwargs.pop("config", None)
-
-        # Root is either a local filepath matching model_id or a cached snapshot
-        if not os.path.isdir(model_id):
-            storage_folder = snapshot_download(
-                repo_id=model_id, revision=revision, cache_dir=cache_dir
-            )
-        else:
-            storage_folder = model_id
-
-        # Using the pickle document in the downloaded list
-        docs = os.listdir(storage_folder)
-        for doc in docs:
-            if doc.endswith(".pkl"):
-                pickle = doc
-                break
-
-        logger.info(
-            f"Using `fastai.learner` stored in {os.path.join(model_id, pickle)}."
-        )
-        print(f"Using `fastai.learner` stored in {os.path.join(model_id, pickle)}.")
-
-        model = load_learner(os.path.join(storage_folder, pickle))
-        model.config = cfg
-
-        return model

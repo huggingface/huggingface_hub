@@ -30,6 +30,11 @@ from .constants import (
     TF2_WEIGHTS_NAME,
     TF_WEIGHTS_NAME,
 )
+from .fastai_utils import (
+    from_pretrained_fastai,
+    push_to_hub_fastai,
+    save_fastai_learner,
+)
 from .file_download import cached_download, hf_hub_download, hf_hub_url
 from .hf_api import (
     DatasetSearchArguments,
@@ -63,11 +68,6 @@ from .keras_mixin import (
     from_pretrained_keras,
     push_to_hub_keras,
     save_pretrained_keras,
-)
-from .fastai_utils import (
-    from_pretrained_fastai,
-    push_to_hub_fastai,
-    save_fastai_learner,
 )
 from .repository import Repository
 from .snapshot_download import snapshot_download
