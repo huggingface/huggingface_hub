@@ -64,6 +64,11 @@ from .keras_mixin import (
     push_to_hub_keras,
     save_pretrained_keras,
 )
+from .fastai_utils import (
+    from_pretrained_fastai,
+    push_to_hub_fastai,
+    save_fastai_learner,
+)
 from .repository import Repository
 from .snapshot_download import snapshot_download
 from .utils import logging
