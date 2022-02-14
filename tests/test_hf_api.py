@@ -172,6 +172,7 @@ class HfApiEndpointsTest(HfApiCommonTestWithLogin):
         self.assertFalse(res["private"])
         self._api.delete_repo(name=REPO_NAME, token=self._token)
 
+    @retry_endpoint
     def test_create_update_and_delete_model_repo(self):
         REPO_NAME = repo_name("crud")
         self._api.create_repo(
@@ -189,6 +190,7 @@ class HfApiEndpointsTest(HfApiCommonTestWithLogin):
             name=REPO_NAME, token=self._token, repo_type=REPO_TYPE_MODEL
         )
 
+    @retry_endpoint
     def test_create_update_and_delete_dataset_repo(self):
         DATASET_REPO_NAME = dataset_repo_name("crud")
         self._api.create_repo(
@@ -212,6 +214,7 @@ class HfApiEndpointsTest(HfApiCommonTestWithLogin):
             name=DATASET_REPO_NAME, token=self._token, repo_type=REPO_TYPE_DATASET
         )
 
+    @retry_endpoint
     def test_create_update_and_delete_space_repo(self):
         SPACE_REPO_NAME = space_repo_name("failing")
         with pytest.raises(ValueError, match=r"No space_sdk provided.*"):
@@ -848,6 +851,7 @@ class HfApiPublicTest(unittest.TestCase):
 
 
 class HfApiPrivateTest(HfApiCommonTestWithLogin):
+    @retry_endpoint
     def setUp(self) -> None:
         super().setUp()
         self.REPO_NAME = repo_name("private")
@@ -933,6 +937,7 @@ class HfLargefilesTest(HfApiCommonTest):
             ["git", "lfs", "track", "*.epub"], check=True, cwd=WORKING_REPO_DIR
         )
 
+    @retry_endpoint
     def test_end_to_end_thresh_6M(self):
         REMOTE_URL = self._api.create_repo(
             name=self.REPO_NAME_LARGE_FILE,
@@ -985,6 +990,7 @@ class HfLargefilesTest(HfApiCommonTest):
         dest_filesize = os.stat(os.path.join(WORKING_REPO_DIR, DEST_FILENAME)).st_size
         self.assertEqual(dest_filesize, 18685041)
 
+    @retry_endpoint
     def test_end_to_end_thresh_16M(self):
         # Here we'll push one multipart and one non-multipart file in the same commit, and see what happens
         REMOTE_URL = self._api.create_repo(
