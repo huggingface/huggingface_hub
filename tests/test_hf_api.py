@@ -378,6 +378,7 @@ class HfApiUploadFileTest(HfApiCommonTestWithLogin):
         finally:
             self._api.delete_repo(name=REPO_NAME, token=self._token)
 
+    @retry_endpoint
     def test_upload_file_conflict(self):
         REPO_NAME = repo_name("conflict")
         self._api.create_repo(name=REPO_NAME, token=self._token)
