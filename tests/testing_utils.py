@@ -206,7 +206,6 @@ def retry_endpoint(function, number_of_tries: int = 3, wait_time: int = 5):
                     )
                     time.sleep(5)
                     retry_count += 1
-                logger.info(f"Printing caught error:{e}")
             # Preserve original traceback
             return function(*args, **kwargs)
 
