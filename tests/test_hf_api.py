@@ -64,6 +64,7 @@ from .testing_utils import (
     DUMMY_MODEL_ID,
     DUMMY_MODEL_ID_REVISION_ONE_SPECIFIC_COMMIT,
     require_git_lfs,
+    retry_endpoint,
     set_write_permission_and_retry,
     with_production_testing,
 )
@@ -157,6 +158,7 @@ class HfApiEndpointsTest(HfApiCommonTestWithLogin):
         valid_org = [org for org in info["orgs"] if org["name"] == "valid_org"][0]
         self.assertIsInstance(valid_org["apiToken"], str)
 
+    @retry_endpoint
     def test_create_update_and_delete_repo(self):
         REPO_NAME = repo_name("crud")
         self._api.create_repo(name=REPO_NAME, token=self._token)
