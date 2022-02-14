@@ -271,6 +271,7 @@ class HfApiUploadFileTest(HfApiCommonTestWithLogin):
             lambda: shutil.rmtree(self.tmp_dir, onerror=set_write_permission_and_retry)
         )
 
+    @retry_endpoint
     def test_upload_file_validation(self):
         REPO_NAME = repo_name("upload")
         with self.assertRaises(ValueError, msg="Wrong repo type"):
@@ -301,6 +302,7 @@ class HfApiUploadFileTest(HfApiCommonTestWithLogin):
                 token=self._token,
             )
 
+    @retry_endpoint
     def test_upload_file_path(self):
         REPO_NAME = repo_name("path")
         self._api.create_repo(token=self._token, name=REPO_NAME)
@@ -326,6 +328,7 @@ class HfApiUploadFileTest(HfApiCommonTestWithLogin):
         finally:
             self._api.delete_repo(name=REPO_NAME, token=self._token)
 
+    @retry_endpoint
     def test_upload_file_fileobj(self):
         REPO_NAME = repo_name("fileobj")
         self._api.create_repo(name=REPO_NAME, token=self._token)
@@ -352,6 +355,7 @@ class HfApiUploadFileTest(HfApiCommonTestWithLogin):
         finally:
             self._api.delete_repo(name=REPO_NAME, token=self._token)
 
+    @retry_endpoint
     def test_upload_file_bytesio(self):
         REPO_NAME = repo_name("bytesio")
         self._api.create_repo(name=REPO_NAME, token=self._token)
@@ -416,6 +420,7 @@ class HfApiUploadFileTest(HfApiCommonTestWithLogin):
         finally:
             self._api.delete_repo(name=REPO_NAME, token=self._token)
 
+    @retry_endpoint
     def test_upload_buffer(self):
         REPO_NAME = repo_name("buffer")
         self._api.create_repo(name=REPO_NAME, token=self._token)
@@ -443,6 +448,7 @@ class HfApiUploadFileTest(HfApiCommonTestWithLogin):
         finally:
             self._api.delete_repo(name=REPO_NAME, token=self._token)
 
+    @retry_endpoint
     def test_delete_file(self):
         REPO_NAME = repo_name("delete")
         self._api.create_repo(token=self._token, name=REPO_NAME)
