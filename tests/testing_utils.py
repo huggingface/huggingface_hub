@@ -8,6 +8,7 @@ from enum import Enum
 from unittest.mock import patch
 
 from huggingface_hub.utils import logging
+from requests.exceptions import HTTPError
 from tests.testing_constants import ENDPOINT_PRODUCTION, ENDPOINT_PRODUCTION_URL_SCHEME
 
 
@@ -192,12 +193,19 @@ def retry_endpoint(function, number_of_tries: int = 3, wait_time: int = 5):
         while retry_count < number_of_tries:
             try:
                 return function(*args, **kwargs)
-            except Exception as e:
-                logger.info(
-                    f"Attempt {retry_count} failed with a 504 error. Retrying new execution in {wait_time} second(s)..."
-                )
-                time.sleep(5)
-                retry_count += 1
+            except HTTPError as e:
+                if e.response.status_code == 504:
+                    logger.info(
+                        f"Attempt {retry_count} failed with a 504 error. Retrying new execution in {wait_time} second(s)..."
+                    )
+                    time.sleep(5)
+                    retry_count += 1
+                elif e.response.status_code == "504":
+                    logger.info(
+                        "Attempted with a STRING 504 error. Retrying new execution"
+                    )
+                    time.sleep(5)
+                    retry_count += 1
                 logger.info(f"Printing caught error:{e}")
             # Preserve original traceback
             return function(*args, **kwargs)
