@@ -200,12 +200,6 @@ def retry_endpoint(function, number_of_tries: int = 3, wait_time: int = 5):
                     )
                     time.sleep(5)
                     retry_count += 1
-                elif e.response.status_code == "504":
-                    logger.info(
-                        "Attempted with a STRING 504 error. Retrying new execution"
-                    )
-                    time.sleep(5)
-                    retry_count += 1
             # Preserve original traceback
             return function(*args, **kwargs)
 
