@@ -34,7 +34,7 @@ export function getJsInferenceSnippet(model: ModelData, accessToken: string): st
 	const response = await fetch(
 		"https://api-inference.huggingface.co/models/${model.id}",
 		{
-			headers: { Authorization: \`Bearer ${accessToken}\` },
+			headers: { Authorization: "Bearer ${accessToken || `{API_TOKEN}`}" },
 			method: "POST",
 			body: JSON.stringify(data),
 		}

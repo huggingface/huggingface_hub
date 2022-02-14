@@ -33,7 +33,7 @@ export function getCurlInferenceSnippet(model: ModelData, accessToken: string): 
 	return `curl https://api-inference.huggingface.co/models/${model.id} \\
 	-X POST \\
 	${body} \\
-	-H "Authorization: Bearer ${accessToken}"
+	-H "Authorization: Bearer ${accessToken || `{API_TOKEN}`}"
 `;
 }
 
