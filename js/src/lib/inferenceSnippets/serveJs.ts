@@ -10,19 +10,20 @@ export const bodyZeroShotClassification = (model: ModelData): string =>
 export const jsSnippetBodies:
 	Partial<Record<keyof typeof PipelineType, (model: ModelData) => string>> =
 {
+	// Same order as in js/src/lib/interfaces/Types.ts
+	"text-classification":      bodyBasic,
+	"token-classification":     bodyBasic,
+	"table-question-answering": bodyBasic,
+	"question-answering":       bodyBasic,
 	"zero-shot-classification": bodyZeroShotClassification,
 	"translation":              bodyBasic,
 	"summarization":            bodyBasic,
 	"conversational":           bodyBasic,
-	"table-question-answering": bodyBasic,
-	"question-answering":       bodyBasic,
-	"text-classification":      bodyBasic,
-	"token-classification":     bodyBasic,
+	"feature-extraction":       bodyBasic,
 	"text-generation":          bodyBasic,
 	"text2text-generation":     bodyBasic,
 	"fill-mask":                bodyBasic,
 	"sentence-similarity":      bodyBasic,
-	"feature-extraction":       bodyBasic,
 };
 
 export function getJsInferenceSnippet(model: ModelData, accessToken: string): string {
