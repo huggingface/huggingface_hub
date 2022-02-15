@@ -166,8 +166,10 @@ def save_fastai_learner(
 
 
 def from_pretrained_fastai(
-    model_id,
-    **kwargs,
+    model_id: str,
+    config: Optional[Dict],
+    revision: Optional[str],
+    cache_dir: Optional[Union[str, Path]],
 ):
     """
     Load `model_id` files from the Hub.
@@ -175,8 +177,6 @@ def from_pretrained_fastai(
     Parameters:
         model_id (:obj:`str`):
             The model id where the pickled fastai.Learner is. Example: 'espejelomar/fastai-pet-breeds-classification'.
-
-    Keyword Parameters:
         config (:obj:`dict`, `optional`):
             Configuration object.
         revision (:obj:`str`, `optional`):
@@ -192,11 +192,6 @@ def from_pretrained_fastai(
 
     # Import `load_learner` from `fastai.learner`.
     from fastai.learner import load_learner
-
-    # Unpack **kwargs
-    revision: str = kwargs.get("revision", None)
-    cache_dir: str = kwargs.get("cache_dir", None)
-    config: Dict = kwargs.get("config", None)
 
     # Root is either a local filepath matching model_id or a cached snapshot
     if not os.path.isdir(model_id):
