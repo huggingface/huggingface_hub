@@ -121,7 +121,7 @@ def save_fastai_learner(
     learner,
     save_directory: str,
     config: Optional[Dict[str, Any]] = None,
-    **kwargs,
+    pickle_protocol: Optional[int] = 2,
 ):
     """
     Saves a fastai learner to save_directory in pickle format. Use this if you're using Learners.
@@ -130,20 +130,14 @@ def save_fastai_learner(
         learner (:obj:`Learner`):
             The `fastai.Learner` you'd like to save.
         save_directory (:obj:`str`):
-            Specify directory in which you want to save the fastai learner.
+            Specific directory in which you want to save the fastai learner.
         config (:obj:`dict`, `optional`):
             Configuration object. Will be uploaded as a .json file. Example: 'https://huggingface.co/espejelomar/fastai-pet-breeds-classification/blob/main/config.json'.
-
-    Keyword Parameters:
         pickle_protocol (:obj:`int`, `optional`):
             Pickle protocol passed to torch.save. Refer to pickle documentation.
-
     """
     # Check that fastai and fastcore versions are supported.
     check_fastai_fastcore_versions()
-
-    # Unpacking **kwargs
-    pickle_protocol: int = kwargs.get("pickle_protocol", 2)
 
     os.makedirs(save_directory, exist_ok=True)
 
