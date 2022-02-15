@@ -208,7 +208,6 @@ def from_pretrained_fastai(
             pickle = doc
             break
     logger.info(f"Using `fastai.Learner` stored in {os.path.join(model_id, pickle)}.")
-    print(f"Using `fastai.Learner` stored in {os.path.join(model_id, pickle)}.")
     model = load_learner(os.path.join(storage_folder, pickle))
     model.config = config
     return model
@@ -216,7 +215,7 @@ def from_pretrained_fastai(
 
 def push_to_hub_fastai(
     learner,
-    repo_path_or_name: Optional[str] = None,
+    repo_id: str,
     commit_message: Optional[str] = "Add model",
     private: Optional[bool] = None,
     use_auth_token: Optional[Union[bool, str]] = True,
@@ -225,15 +224,14 @@ def push_to_hub_fastai(
 ):
     """
     Upload learner checkpoint files to the Hub while synchronizing a local clone of the repo in
-    :obj:`repo_path_or_name`.
+    :obj:`repo_id`.
 
     Parameters:
         learner (:obj:`Learner`):
             The `fastai.Learner' you'd like to push to the Hub.
-        repo_path_or_name (:obj:`str`, `optional`):
+        repo_id (:obj:`str`):
             Can either be a repository name for your model in the Hub or a path to a local folder (in
-            which case the repository will have the name of that local folder). If not specified, will default to
-            the name given by :obj:`repo_url` and a local directory with that name will be created.
+            which case the repository will have the name of that local folder). The user can be either your individual account (e.g. 'espejelomar/sentece-embeddings-BETO') or an organization you have write access to (e.g. 'stanfordnlp/stanza-de').
         commit_message (:obj:`str`, `optional`):
             Message to commit while pushing. Will default to :obj:`"add model"`.
         private (:obj:`bool`, `optional`):
@@ -246,13 +244,6 @@ def push_to_hub_fastai(
             Configuration object to be saved alongside the model weights.
 
     Keyword Parameters:
-        repo_url (:obj:`str`, `optional`):
-            Specify this in case you want to push to an existing repository in the hub. If unspecified, a new
-            repository will be created in your namespace (unless you specify an :obj:`organization`) with
-            :obj:`repo_name`.
-        organization (:obj:`str`, `optional`):
-            Organization in which you want to push your model or tokenizer (you must be a member of this
-            organization).
         api_endpoint (:obj:`str`, `optional`):
             The API endpoint to use when pushing the model to the hub.
         git_user (:obj:`str`, `optional`):
@@ -270,15 +261,14 @@ def push_to_hub_fastai(
     check_fastai_fastcore_versions()
 
     # Unpacking **kwargs
-    repo_url: str = kwargs.get("repo_url", None)
     organization: str = kwargs.get("organization", None)
     api_endpoint: str = kwargs.get("api_endpoint", None)
     git_user: str = kwargs.get("git_user", None)
     git_email: str = kwargs.get("git_email", None)
     pickle_protocol: int = kwargs.get("pickle_protocol", 2)
 
-    if repo_path_or_name is None and repo_url is None:
-        raise ValueError("You need to specify a `repo_path_or_name` or a `repo_url`.")
+    if repo_id is None:
+        raise ValueError("You need to specify a `repo_id`.")
 
     if isinstance(use_auth_token, bool) and use_auth_token:
         token = HfFolder.get_token()
@@ -294,12 +284,11 @@ def push_to_hub_fastai(
             "token as the `use_auth_token` argument."
         )
 
-    if repo_path_or_name is None:
-        repo_path_or_name = repo_url.split("/")[-1]
 
     # If no URL is passed and there's no path to a directory containing files, create a repo
-    if repo_url is None and not os.path.exists(repo_path_or_name):
-        repo_name = Path(repo_path_or_name).name
+    repo_url = None
+    if not os.path.exists(repo_id):
+        repo_name = Path(repo_id).name
         repo_url = HfApi(endpoint=api_endpoint).create_repo(
             token,
             repo_name,
@@ -310,7 +299,7 @@ def push_to_hub_fastai(
         )
 
     repo = Repository(
-        repo_path_or_name,
+        repo_id,
         clone_from=repo_url,
         use_auth_token=use_auth_token,
         git_user=git_user,
@@ -319,7 +308,7 @@ def push_to_hub_fastai(
     repo.git_pull(rebase=True)
 
     save_fastai_learner(
-        learner, repo_path_or_name, config=config, pickle_protocol=pickle_protocol
+        learner, repo_id, config=config, pickle_protocol=pickle_protocol
     )
 
     # Commit and push
