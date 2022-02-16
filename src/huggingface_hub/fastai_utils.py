@@ -160,16 +160,26 @@ def save_fastai_learner(
     _create_model_card(Path(save_directory))
 
     # saving learner
+    # learner.export saves the model in `self.path/save_directory` and this folder should exist.
+    # We create this folder and call it `fastai_path`
+    fastai_path = os.path.join(learner.path, save_directory)
+    os.makedirs(fastai_path, exist_ok=True)
     learner.export(
         fname=os.path.join(save_directory, "model.pkl"), pickle_protocol=pickle_protocol
+    )
+
+    # We move the model from `self.path/save_directory/model.pkl` to `save_directory/model.pkl`.
+    os.rename(
+        os.path.join(fastai_path, "model.pkl"),
+        os.path.join(save_directory, "model.pkl"),
     )
 
 
 def from_pretrained_fastai(
     model_id: str,
-    config: Optional[Dict],
-    revision: Optional[str],
-    cache_dir: Optional[Union[str, Path]],
+    config: Optional[Dict] = None,
+    revision: Optional[str] = None,
+    cache_dir: Optional[Union[str, Path]] = None,
 ):
     """
     Load `model_id` files from the Hub.
@@ -201,9 +211,11 @@ def from_pretrained_fastai(
     else:
         storage_folder = model_id
 
-    # Using the pickle document in the downloaded list
-    logger.info(f"Using `fastai.Learner` stored in {os.path.join(model_id, 'model.pkl')}.")
-    model = load_learner(os.path.join(storage_folder, 'model.pkl'))
+    # Loading `model.pkl`.
+    logger.info(
+        f"Using `fastai.Learner` stored in {os.path.join(model_id, 'model.pkl')}."
+    )
+    model = load_learner(os.path.join(storage_folder, "model.pkl"))
     model.config = config
     return model
 
@@ -262,8 +274,10 @@ def push_to_hub_fastai(
     git_email: str = kwargs.get("git_email", None)
     pickle_protocol: int = kwargs.get("pickle_protocol", 2)
 
-    if repo_id is None:
-        raise ValueError("You need to specify a `repo_id`.")
+    # Split `repo_id` into organization/user and repo
+    temp = repo_id.split("/")
+    organization = temp[0]
+    repo_name = temp[1]
 
     if isinstance(use_auth_token, bool) and use_auth_token:
         token = HfFolder.get_token()
@@ -274,25 +288,25 @@ def push_to_hub_fastai(
 
     if token is None:
         raise ValueError(
-            "You must login to the Hugging Face Hub on this computer by typing `huggingface-cli login` and "
-            "entering your credentials to use `use_auth_token=True`. Alternatively, you can pass your own "
-            "token as the `use_auth_token` argument."
+            "You must login to the Hugging Face Hub. There are two options:"
+            "(1) Type `huggingface-cli login` in your terminal and enter your token."
+            "(2) Enter your token in the `use_auth_token` argument."
+            "Your token is available in the Settings of your Hugging Face account."
         )
 
-
-    # If no URL is passed and there's no path to a directory containing files, create a repo
+    # If the repo does not exist then create it using `HfApi()`.
     repo_url = None
     if not os.path.exists(repo_id):
-        repo_name = Path(repo_id).name
         repo_url = HfApi(endpoint=api_endpoint).create_repo(
-            token,
             repo_name,
+            token=token,
             organization=organization,
             private=private,
             repo_type=None,
             exist_ok=True,
         )
 
+    # If repository exists in the Hugging Face Hub then clone it locally in `repo_id`
     repo = Repository(
         repo_id,
         clone_from=repo_url,
