@@ -1,4 +1,3 @@
-import datetime
 from typing import Dict
 
 import numpy as np
@@ -29,10 +28,10 @@ class AutomaticSpeechRecognitionPipeline(Pipeline):
         """
         wav = torch.from_numpy(inputs).unsqueeze(0)
         output = self.model({"waveform": wav, "sample_rate": self.sampling_rate})
-        regions = "".join(
-            [
-                f"|{str(datetime.timedelta(seconds=segment.start))[:-3]} - {str(datetime.timedelta(seconds=segment.end))[:-3]} : {label} |"
-                for segment, _, label in output.itertracks(yield_label=True)
-            ]
-        )
+        regions = [
+            {"label": label, "start": segment.start, "stop": segment.end}
+            for segment, _, label in output.itertracks(yield_label=True)
+        ]
+        regions = str(regions)
+
         return {"text": regions}
