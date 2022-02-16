@@ -411,6 +411,7 @@ class Repository:
         self.command_queue = []
         self.private = private
         self.skip_lfs_files = skip_lfs_files
+        self.space_sdk = space_sdk
 
         self.check_git_versions()
 
@@ -424,7 +425,6 @@ class Repository:
         if clone_from is not None:
             self.clone_from(
                 repo_url=clone_from,
-                space_sdk=space_sdk,
                 use_auth_token=self.huggingface_token,
             )
         else:
@@ -516,7 +516,6 @@ class Repository:
         self,
         repo_url: str,
         use_auth_token: Union[bool, str, None] = None,
-        space_sdk: str = None,
     ):
         """
         Clone from a remote. If the folder already exists, will try to clone the repository within it.
@@ -567,9 +566,8 @@ class Repository:
                             token=token,
                             repo_type=self.repo_type,
                             organization=namespace,
-                            exist_ok=True,
                             private=self.private,
-                            space_sdk=space_sdk,
+                            space_sdk=self.space_sdk,
                         )
             else:
                 if namespace is not None:
