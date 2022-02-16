@@ -4,25 +4,26 @@ import type { ModelData } from "./Types";
  * Add your new library here.
  */
 export enum ModelLibrary {
-	"adapter-transformers"   = "Adapter Transformers",
-	"allennlp"               = "allenNLP",
-	"asteroid"               = "Asteroid",
-	"espnet"                 = "ESPnet",
-	"fairseq"                = "Fairseq",
-	"flair"                  = "Flair",
-	"keras"                  = "Keras",
-	"pyannote"               = "Pyannote",
-	"sentence-transformers"  = "Sentence Transformers",
-	"sklearn"                = "Scikit-learn",
-	"spacy"                  = "spaCy",
-	"speechbrain"            = "speechbrain",
-	"tensorflowtts"          = "TensorFlowTTS",
-	"timm"                   = "Timm",
-	"fastai"                 = "fastai",
-	"transformers"           = "Transformers",
-	"stanza"                 = "Stanza",
-	"fasttext"               = "fastText",
-	"stable-baselines3"      = "Stable-Baselines3",
+	"adapter-transformers"    = "Adapter Transformers",
+	"allennlp"                = "allenNLP",
+	"asteroid"                = "Asteroid",
+	"espnet"                  = "ESPnet",
+	"fairseq"                 = "Fairseq",
+	"flair"                   = "Flair",
+	"keras"                   = "Keras",
+	"pyannote-audio-model"    = "pyannote.audio",
+	"pyannote-audio-pipeline" = "pyannote.audio",
+	"sentence-transformers"   = "Sentence Transformers",
+	"sklearn"                 = "Scikit-learn",
+	"spacy"                   = "spaCy",
+	"speechbrain"             = "speechbrain",
+	"tensorflowtts"           = "TensorFlowTTS",
+	"timm"                    = "Timm",
+	"fastai"                  = "fastai",
+	"transformers"            = "Transformers",
+	"stanza"                  = "Stanza",
+	"fasttext"                = "fastText",
+	"stable-baselines3"       = "Stable-Baselines3",
 }
 
 export const ALL_MODEL_LIBRARY_KEYS = Object.keys(ModelLibrary) as (keyof typeof ModelLibrary)[];
@@ -138,18 +139,36 @@ const keras = (model: ModelData) =>
 model = from_pretrained_keras("${model.id}")
 `;
 
-const pyannote = (model: ModelData) =>
-	`from pyannote.audio.core.inference import Inference
+const pyannote_audio_pipeline = (model: ModelData) =>
+	`from pyannote.audio import Pipeline
   
-model = Inference("${model.id}")
+pipeline = Pipeline.from_pretrained("${model.id}")
 
 # inference on the whole file
-model("file.wav")
+pipeline("file.wav")
 
 # inference on an excerpt
 from pyannote.core import Segment
 excerpt = Segment(start=2.0, end=5.0)
-model.crop("file.wav", excerpt)`;
+
+from pyannote.audio import Audio
+waveform, sample_rate = Audio().crop("file.wav", excerpt)
+pipeline({"waveform": waveform, "sample_rate": sample_rate})`;
+
+const pyannote_audio_model = (model: ModelData) =>
+	`from pyannote.audio import Model, Inference
+
+model = Model.from_pretrained("${model.id}")
+inference = Inference(model)
+
+# inference on the whole file
+inference("file.wav")
+
+# inference on an excerpt
+from pyannote.core import Segment
+excerpt = Segment(start=2.0, end=5.0)
+inference.crop("file.wav", excerpt)`;
+
 
 const tensorflowttsTextToMel = (model: ModelData) =>
 	`from tensorflow_tts.inference import AutoProcessor, TFAutoModel
@@ -338,11 +357,17 @@ export const MODEL_LIBRARIES_UI_ELEMENTS: { [key in keyof typeof ModelLibrary]?:
 		repoUrl:  "https://github.com/keras-team/keras",
 		snippet:  keras,
 	},
-	"pyannote": {
-		btnLabel: "pyannote",
+	"pyannote-audio-model": {
+		btnLabel: "pyannote.audio",
 		repoName: "pyannote-audio",
 		repoUrl:  "https://github.com/pyannote/pyannote-audio",
-		snippet:  pyannote,
+		snippet:  pyannote_audio_model,
+	},
+	"pyannote-audio-pipeline": {
+		btnLabel: "pyannote.audio",
+		repoName: "pyannote-audio",
+		repoUrl:  "https://github.com/pyannote/pyannote-audio",
+		snippet:  pyannote_audio_pipeline,
 	},
 	"sentence-transformers": {
 		btnLabel: "sentence-transformers",
