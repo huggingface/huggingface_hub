@@ -301,7 +301,7 @@ def push_to_hub_keras(
     )
 
     hyperparameters = _extract_hyperparameters_from_keras(model)
-    if is_graphviz_available and is_pydot_available:
+    if is_graphviz_available() and is_pydot_available():
         _plot_network(model, repo_path_or_name)
     lines = _parse_model_history(model)
     _create_model_card(repo_path_or_name, hyperparameters, lines, task_name)
