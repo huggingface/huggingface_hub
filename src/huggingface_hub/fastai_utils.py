@@ -202,13 +202,8 @@ def from_pretrained_fastai(
         storage_folder = model_id
 
     # Using the pickle document in the downloaded list
-    docs = os.listdir(storage_folder)
-    for doc in docs:
-        if doc.endswith(".pkl"):
-            pickle = doc
-            break
-    logger.info(f"Using `fastai.Learner` stored in {os.path.join(model_id, pickle)}.")
-    model = load_learner(os.path.join(storage_folder, pickle))
+    logger.info(f"Using `fastai.Learner` stored in {os.path.join(model_id, 'model.pkl')}.")
+    model = load_learner(os.path.join(storage_folder, 'model.pkl'))
     model.config = config
     return model
 
