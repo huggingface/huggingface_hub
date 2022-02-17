@@ -178,7 +178,6 @@ def save_fastai_learner(
 
 def from_pretrained_fastai(
     model_id: str,
-    config: Optional[Dict] = None,
     revision: Optional[str] = None,
 ):
     """
@@ -187,8 +186,6 @@ def from_pretrained_fastai(
     Parameters:
         model_id (:obj:`str`):
             The model id where the pickled fastai.Learner is. Example: 'espejelomar/fastai-pet-breeds-classification'.
-        config (:obj:`dict`, `optional`):
-            Configuration object.
         revision (:obj:`str`, `optional`):
             Revision at which the repo's files are downloaded. See documentation of `snapshot_download`.
 
@@ -211,7 +208,6 @@ def from_pretrained_fastai(
         f"Using `fastai.Learner` stored in {os.path.join(model_id, 'model.pkl')}."
     )
     model = load_learner(os.path.join(storage_folder, "model.pkl"))
-    model.config = config
     return model
 
 
