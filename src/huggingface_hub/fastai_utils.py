@@ -180,7 +180,6 @@ def from_pretrained_fastai(
     model_id: str,
     config: Optional[Dict] = None,
     revision: Optional[str] = None,
-    cache_dir: Optional[Union[str, Path]] = None,
 ):
     """
     Load `model_id` files from the Hub.
@@ -192,8 +191,6 @@ def from_pretrained_fastai(
             Configuration object.
         revision (:obj:`str`, `optional`):
             Revision at which the repo's files are downloaded. See documentation of `snapshot_download`.
-        cache_dir (:obj:`str`, `Path`, `optional`):
-            Path to cache directory.
 
     Returns:
         The `fastai.Learner` model in the `model_id` repo.
@@ -206,9 +203,8 @@ def from_pretrained_fastai(
 
     # Load the `repo_id` repo.
     # `snapshot_download` returns the folder where the `model_id` repo was stored.
-    storage_folder = snapshot_download(
-        repo_id=model_id, revision=revision, cache_dir=cache_dir
-    )
+    # `cache_dir` will be the default '/root/.cache/huggingface/hub'
+    storage_folder = snapshot_download(repo_id=model_id, revision=revision)
 
     # Loading `model.pkl`.
     logger.info(
