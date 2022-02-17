@@ -3,11 +3,12 @@ import logging
 import os
 from pathlib import Path
 from typing import Any, Dict, Optional, Union
+from pickle import DEFAULT_PROTOCOL
 
 import packaging.version
 
 from huggingface_hub.constants import CONFIG_NAME
-from huggingface_hub.file_download import get_fastai_version, get_fastcore_version
+# from huggingface_hub.file_download import get_fastai_version, get_fastcore_version
 from huggingface_hub.hf_api import HfApi, HfFolder
 from huggingface_hub.repository import Repository
 from huggingface_hub.snapshot_download import snapshot_download
@@ -121,10 +122,10 @@ def save_fastai_learner(
     learner,
     save_directory: str,
     config: Optional[Dict[str, Any]] = None,
-    pickle_protocol: Optional[int] = 2,
 ):
     """
-    Saves a fastai learner to save_directory in pickle format. Use this if you're using Learners.
+    Saves a fastai learner to `save_directory` in pickle format using the default pickle protocol for the version of python used.
+    Apply this if you're using Learners.
 
     Parameters:
         learner (:obj:`Learner`):
@@ -133,8 +134,6 @@ def save_fastai_learner(
             Specific directory in which you want to save the fastai learner.
         config (:obj:`dict`, `optional`):
             Configuration object. Will be uploaded as a .json file. Example: 'https://huggingface.co/espejelomar/fastai-pet-breeds-classification/blob/main/config.json'.
-        pickle_protocol (:obj:`int`, `optional`):
-            Pickle protocol passed to torch.save. Refer to pickle documentation.
     """
     # Check that fastai and fastcore versions are supported.
     check_fastai_fastcore_versions()
@@ -165,7 +164,7 @@ def save_fastai_learner(
     fastai_path = os.path.join(learner.path, save_directory)
     os.makedirs(fastai_path, exist_ok=True)
     learner.export(
-        fname=os.path.join(save_directory, "model.pkl"), pickle_protocol=pickle_protocol
+        fname=os.path.join(save_directory, "model.pkl"), pickle_protocol=DEFAULT_PROTOCOL
     )
 
     # We move the model from `self.path/save_directory/model.pkl` to `save_directory/model.pkl`.
@@ -257,8 +256,6 @@ def push_to_hub_fastai(
             Will override the ``git config user.name`` for committing and pushing files to the hub.
         git_email (:obj:`str`, `optional`):
             Will override the ``git config user.email`` for committing and pushing files to the hub.
-        pickle_protocol (:obj:`int`, `optional`):
-            Pickle protocol passed to torch.save. Refer to pickle documentation.
 
     Returns:
         The url of the commit of your model in the given repository.
@@ -272,7 +269,6 @@ def push_to_hub_fastai(
     api_endpoint: str = kwargs.get("api_endpoint", None)
     git_user: str = kwargs.get("git_user", None)
     git_email: str = kwargs.get("git_email", None)
-    pickle_protocol: int = kwargs.get("pickle_protocol", 2)
 
     # Split `repo_id` into organization/user and repo
     temp = repo_id.split("/")
@@ -317,7 +313,7 @@ def push_to_hub_fastai(
     repo.git_pull(rebase=True)
 
     save_fastai_learner(
-        learner, repo_id, config=config, pickle_protocol=pickle_protocol
+        learner, repo_id, config=config, pickle_protocol=DEFAULT_PROTOCOL
     )
 
     # Commit and push
