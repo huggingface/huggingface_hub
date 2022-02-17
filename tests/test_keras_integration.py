@@ -204,7 +204,6 @@ class HubKerasSequentialTest(HubMixingTestKeras):
         model = self.model_init()
 
         model.build((None, 2))
-
         save_pretrained_keras(
             model, f"{WORKING_REPO_DIR}/{REPO_NAME}", include_optimizer=True
         )
@@ -282,6 +281,9 @@ class HubKerasSequentialTest(HubMixingTestKeras):
         REPO_NAME = repo_name("PUSH_TO_HUB")
         model = self.model_init()
         model.build((None, 2))
+        x = tf.constant([[0.44, 0.90], [0.65, 0.39]])
+        y = tf.constant([[1, 1], [0, 0]])
+        model.fit(x, y)
         push_to_hub_keras(
             model,
             repo_path_or_name=f"{WORKING_REPO_DIR}/{REPO_NAME}",
@@ -304,6 +306,9 @@ class HubKerasSequentialTest(HubMixingTestKeras):
         REPO_NAME = repo_name("PUSH_TO_HUB")
         model = self.model_init()
         model.build((None, 2))
+        x = tf.constant([[0.44, 0.90], [0.65, 0.39]])
+        y = tf.constant([[1, 1], [0, 0]])
+        model.fit(x, y)
         push_to_hub_keras(
             model,
             repo_path_or_name=f"{WORKING_REPO_DIR}/{REPO_NAME}",
@@ -327,6 +332,9 @@ class HubKerasSequentialTest(HubMixingTestKeras):
         REPO_NAME = repo_name("PUSH_TO_HUB")
         model = self.model_init()
         model.build((None, 2))
+        x = tf.constant([[0.44, 0.90], [0.65, 0.39]])
+        y = tf.constant([[1, 1], [0, 0]])
+        model.fit(x, y)
         push_to_hub_keras(
             model,
             repo_path_or_name=f"{WORKING_REPO_DIR}/{REPO_NAME}",
@@ -350,6 +358,9 @@ class HubKerasSequentialTest(HubMixingTestKeras):
         REPO_NAME = repo_name("PUSH_TO_HUB")
         model = self.model_init()
         model.build((None, 2))
+        x = tf.constant([[0.44, 0.90], [0.65, 0.39]])
+        y = tf.constant([[1, 1], [0, 0]])
+        model.fit(x, y)
         push_to_hub_keras(
             model,
             repo_path_or_name=f"{WORKING_REPO_DIR}/{REPO_NAME}",
@@ -377,16 +388,18 @@ class HubKerasSequentialTest(HubMixingTestKeras):
 class HubKerasFunctionalTest(HubKerasSequentialTest):
     def model_init(self):
         inputs = tf.keras.layers.Input(shape=(2,))
-        x = tf.keras.layers.Dense(2, activation="relu")(inputs)
-        model = tf.keras.models.Model(inputs=inputs, outputs=x)
+        outputs = tf.keras.layers.Dense(2, activation="relu")(inputs)
+        model = tf.keras.models.Model(inputs=inputs, outputs=outputs)
         model.compile(optimizer="adam", loss="mse")
         return model
 
     def test_save_pretrained(self):
         REPO_NAME = repo_name("functional")
         model = self.model_init()
-
         self.assertTrue(model.built)
+        x = tf.constant([[0.44, 0.90], [0.65, 0.39]])
+        y = tf.constant([[1, 1], [0, 0]])
+        model.fit(x, y)
 
         save_pretrained_keras(model, f"{WORKING_REPO_DIR}/{REPO_NAME}")
         files = os.listdir(f"{WORKING_REPO_DIR}/{REPO_NAME}")
