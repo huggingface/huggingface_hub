@@ -12,13 +12,12 @@ from huggingface_hub.file_download import (
     is_tf_available,
 )
 from huggingface_hub.snapshot_download import snapshot_download
-
+from huggingface_hub.utils import logging
 from .constants import CONFIG_NAME
 from .hf_api import HfApi, HfFolder
 from .repository import Repository
 
-
-logger = logging.getLogger(__name__)
+logger = logging.get_logger(__name__)
 
 if is_tf_available():
     import tensorflow as tf
@@ -201,6 +200,7 @@ def push_to_hub_keras(
     config: Optional[dict] = None,
     include_optimizer: Optional[bool] = False,
     task_name: Optional[str] = None,
+    model_plot: Optional[bool] = True,
     **model_save_kwargs,
 ):
     """
@@ -244,6 +244,8 @@ def push_to_hub_keras(
             Whether or not to include optimizer during serialization.
         task_name (:obj:`str`, `optional`):
             Name of the task the model was trained on.
+        model_plot (:obj::obj:`bool`):
+            Setting this to `True` will plot the model and put it in the model card. Requires graphviz and pydot to be installed.
         model_save_kwargs(:obj:`dict`, `optional`):
             model_save_kwargs will be passed to tf.keras.models.save_model().
 
@@ -301,7 +303,7 @@ def push_to_hub_keras(
     )
 
     hyperparameters = _extract_hyperparameters_from_keras(model)
-    if is_graphviz_available() and is_pydot_available():
+    if model_plot and is_graphviz_available() and is_pydot_available():
         _plot_network(model, repo_path_or_name)
     lines = _parse_model_history(model)
     _create_model_card(repo_path_or_name, hyperparameters, lines, task_name)

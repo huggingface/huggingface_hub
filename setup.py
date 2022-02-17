@@ -29,7 +29,8 @@ extras["torch"] = [
 
 extras["tensorflow"] = [
     "tensorflow",
-    "pydot"
+    "pydot",
+    "graphviz"
 ]
 
 extras["testing"] = [
