@@ -20,7 +20,7 @@ The model card should describe:
 ## Model card metadata
 <!-- Try not to change this header as we use the corresponding anchor link -->
 
-The model cards have a YAML section that specify metadata. These are the fields
+You can add a YAML section to the model cards (that `README.md` file) by adding three `---` to the top of your model card, including all of the metadata, and enclosing it with another group of `---` such as the example below:
 
 ```yaml
 ---
@@ -111,10 +111,19 @@ For example, allow users to choose from two sample audio files for automatic spe
 
 ```yaml
 widget:
-- src: https://cdn-media.huggingface.co/speech_samples/sample1.flac
-  example_title: Librispeech sample 1
-- src: https://cdn-media.huggingface.co/speech_samples/sample2.flac
-  example_title: Librispeech sample 2
+- src: https://example.org/somewhere/speech_samples/sample1.flac
+  example_title: Speech sample 1
+- src: https://example.org/somewhere/speech_samples/sample2.flac
+  example_title: Speech sample 2
+```
+
+Note that you can also include example files in your model repository and use
+them as:
+
+```yaml
+widget:
+- src: https://huggingface.co/username/model_repo/resolve/main/sample1.flac
+  example_title: Custom Speech Sample 1
 ```
 
 We provide example inputs for some languages and most widget types in [the DefaultWidget.ts file](https://github.com/huggingface/huggingface_hub/blob/master/js/src/lib/interfaces/DefaultWidget.ts). If some examples are missing, we welcome PRs from the community to add them!

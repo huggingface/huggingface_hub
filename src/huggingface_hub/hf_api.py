@@ -14,7 +14,6 @@
 # limitations under the License.
 import logging
 import os
-import re
 import subprocess
 import sys
 import warnings
@@ -38,6 +37,7 @@ from .utils.endpoint_helpers import (
     DatasetTags,
     ModelFilter,
     ModelTags,
+    _filter_emissions,
 )
 
 
@@ -48,10 +48,6 @@ else:
 
 
 USERNAME_PLACEHOLDER = "hf_user"
-
-REMOTE_FILEPATH_REGEX = re.compile(r"^\w[\w\/\-]*(\.\w+)?$")
-# ^^ No trailing slash, no backslash, no spaces, no relative parts ("." or "..")
-#    Only word characters and an optional extension
 
 
 def repo_type_and_id_from_hf_id(hf_id: str):
@@ -513,10 +509,12 @@ class HfApi:
         filter: Union[ModelFilter, str, Iterable[str], None] = None,
         author: Optional[str] = None,
         search: Optional[str] = None,
+        emissions_thresholds: Optional[Tuple[float, float]] = None,
         sort: Union[Literal["lastModified"], str, None] = None,
         direction: Optional[Literal[-1]] = None,
         limit: Optional[int] = None,
         full: Optional[bool] = None,
+        cardData: Optional[bool] = None,
         fetch_config: Optional[bool] = None,
         use_auth_token: Optional[Union[bool, str]] = None,
     ) -> List[ModelInfo]:
@@ -580,6 +578,16 @@ class HfApi:
                     >>> #List all models with "bert" in their name made by google
                     >>> api.list_models(search="bert", author="google")
 
+            emissions_thresholds (:obj:`Tuple`, `optional`):
+                A tuple of two ints or floats representing a minimum and maximum carbon footprint
+                to filter the resulting models with in grams.
+                Example usage:
+
+                    >>> from huggingface_hub import HfApi
+                    >>> api = HfApi()
+
+                    >>> # List all models that emitted between 100 to 200 grams of co2
+                    >>> api.list_models(emissions_thresholds=(100,200), cardData=True)
             sort (:obj:`Literal["lastModified"]` or :obj:`str`, `optional`):
                 The key with which to sort the resulting models. Possible values are the properties of the `ModelInfo`
                 class.
@@ -591,6 +599,9 @@ class HfApi:
             full (:obj:`bool`, `optional`):
                 Whether to fetch all model data, including the `lastModified`, the `sha`, the files and the `tags`.
                 This is set to `True` by default when using a filter.
+            cardData (:obj:`bool`, `optional`):
+                Whether to grab the metadata for the model as well. Can contain useful information such as carbon emissions,
+                metrics, and datasets trained on.
             fetch_config (:obj:`bool`, `optional`):
                 Whether to fetch the model configs as well. This is not included in `full` due to its size.
             use_auth_token (:obj:`bool` or :obj:`str`, `optional`):
@@ -635,10 +646,20 @@ class HfApi:
                 del params["full"]
         if fetch_config is not None:
             params.update({"config": fetch_config})
-        r = requests.get(path, headers=headers, params=params)
+        if cardData is not None:
+            params.update({"cardData": cardData})
+        r = requests.get(path, params=params, headers=headers)
         r.raise_for_status()
         d = r.json()
-        return [ModelInfo(**x) for x in d]
+        res = [ModelInfo(**x) for x in d]
+        if emissions_thresholds is not None:
+            if cardData is None:
+                raise ValueError(
+                    "`emissions_thresholds` were passed without setting `cardData=True`."
+                )
+            else:
+                return _filter_emissions(res, *emissions_thresholds)
+        return res
 
     def _unpack_model_filter(self, model_filter: ModelFilter):
         """
@@ -708,6 +729,7 @@ class HfApi:
         sort: Union[Literal["lastModified"], str, None] = None,
         direction: Optional[Literal[-1]] = None,
         limit: Optional[int] = None,
+        cardData: Optional[bool] = None,
         full: Optional[bool] = None,
         use_auth_token: Optional[str] = None,
     ) -> List[DatasetInfo]:
@@ -779,6 +801,8 @@ class HfApi:
                 sort by ascending order.
             limit (:obj:`int`, `optional`):
                 The limit on the number of datasets fetched. Leaving this option to `None` fetches all datasets.
+            cardData (:obj:`bool`, `optional`):
+                Whether to grab the metadata for the dataset as well. Can contain useful information such as the PapersWithCode ID.
             full (:obj:`bool`, `optional`):
                 Whether to fetch all dataset data, including the `lastModified` and the `cardData`.
             use_auth_token (:obj:`bool` or :obj:`str`, `optional`):
@@ -818,7 +842,10 @@ class HfApi:
         if full is not None:
             if full:
                 params.update({"full": True})
-        r = requests.get(path, headers=headers, params=params)
+        if cardData is not None:
+            if cardData:
+                params.update({"full": True})
+        r = requests.get(path, params=params, headers=headers)
         r.raise_for_status()
         d = r.json()
         return [DatasetInfo(**x) for x in d]
@@ -881,6 +908,7 @@ class HfApi:
         revision: Optional[str] = None,
         token: Optional[str] = None,
         timeout: Optional[float] = None,
+        securityStatus: Optional[bool] = None,
     ) -> ModelInfo:
         """
         Get info on one specific model on huggingface.co
@@ -896,7 +924,10 @@ class HfApi:
             else f"{self.endpoint}/api/models/{repo_id}/revision/{revision}"
         )
         headers = {"authorization": f"Bearer {token}"} if token is not None else None
-        r = requests.get(path, headers=headers, timeout=timeout)
+        status_query_param = {"securityStatus": True} if securityStatus else None
+        r = requests.get(
+            path, headers=headers, timeout=timeout, params=status_query_param
+        )
         r.raise_for_status()
         d = r.json()
         return ModelInfo(**d)
@@ -1342,14 +1373,6 @@ class HfApi:
                 "If you passed a fileobj, make sure you've opened the file in binary mode."
             )
 
-        # Normalize path separators and strip leading slashes
-        if not REMOTE_FILEPATH_REGEX.match(path_in_repo):
-            raise ValueError(
-                "Invalid path_in_repo '{}', path_in_repo must match regex {}".format(
-                    path_in_repo, REMOTE_FILEPATH_REGEX.pattern
-                )
-            )
-
         if repo_type in REPO_TYPES_URL_PREFIXES:
             repo_id = REPO_TYPES_URL_PREFIXES[repo_type] + repo_id
 
@@ -1423,14 +1446,6 @@ class HfApi:
                     "You need to provide a `token` or be logged in to Hugging Face with "
                     "`huggingface-cli login`."
                 )
-
-        # Normalize path separators and strip leading slashes
-        if not REMOTE_FILEPATH_REGEX.match(path_in_repo):
-            raise ValueError(
-                "Invalid path_in_repo '{}', path_in_repo must match regex {}".format(
-                    path_in_repo, REMOTE_FILEPATH_REGEX.pattern
-                )
-            )
 
         if repo_type in REPO_TYPES_URL_PREFIXES:
             repo_id = REPO_TYPES_URL_PREFIXES[repo_type] + repo_id

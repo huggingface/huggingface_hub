@@ -292,20 +292,6 @@ class HfApiUploadFileTest(HfApiCommonTestWithLogin):
                 token=self._token,
             )
 
-        for (invalid_path, msg) in [
-            ("Remote\\README.md", "Has a backslash"),
-            ("/Remote/README.md", "Starts with a slash"),
-            ("Remote/../subtree/./README.md", "Has relative parts"),
-        ]:
-            with self.subTest(msg=msg):
-                with self.assertRaises(ValueError, msg="path_in_repo is invalid"):
-                    self._api.upload_file(
-                        path_or_fileobj=self.tmp_file,
-                        path_in_repo=invalid_path,
-                        repo_id=f"{USER}/{REPO_NAME}",
-                        token=self._token,
-                    )
-
     def test_upload_file_path(self):
         REPO_NAME = repo_name("path")
         self._api.create_repo(token=self._token, name=REPO_NAME)
@@ -550,6 +536,15 @@ class HfApiPublicTest(unittest.TestCase):
         )
         self.assertIsInstance(model, ModelInfo)
         self.assertEqual(model.sha, DUMMY_MODEL_ID_REVISION_ONE_SPECIFIC_COMMIT)
+        model = _api.model_info(
+            repo_id=DUMMY_MODEL_ID,
+            revision=DUMMY_MODEL_ID_REVISION_ONE_SPECIFIC_COMMIT,
+            securityStatus=True,
+        )
+        self.assertEqual(
+            getattr(model, "securityStatus"),
+            {"containsInfected": False, "infectionTypes": []},
+        )
 
     @with_production_testing
     def test_list_repo_files(self):
@@ -673,6 +668,21 @@ class HfApiPublicTest(unittest.TestCase):
         self.assertIsInstance(datasets[0], DatasetInfo)
 
     @with_production_testing
+    def test_filter_datasets_with_cardData(self):
+        _api = HfApi()
+        datasets = _api.list_datasets(cardData=True)
+        self.assertGreater(
+            sum(
+                [getattr(dataset, "cardData", None) is not None for dataset in datasets]
+            ),
+            0,
+        )
+        datasets = _api.list_datasets()
+        self.assertTrue(
+            all([getattr(dataset, "cardData", None) is None for dataset in datasets])
+        )
+
+    @with_production_testing
     def test_dataset_info(self):
         _api = HfApi()
         dataset = _api.dataset_info(repo_id=DUMMY_DATASET_ID)
@@ -780,6 +790,65 @@ class HfApiPublicTest(unittest.TestCase):
             ["pytorch" in model.tags and "tf" in model.tags for model in models]
         )
 
+    @with_production_testing
+    def test_filter_models_with_cardData(self):
+        _api = HfApi()
+        models = _api.list_models("co2_eq_emissions", cardData=True)
+        self.assertTrue([hasattr(model, "cardData") for model in models])
+        models = _api.list_models("co2_eq_emissions")
+        self.assertTrue(all([not hasattr(model, "cardData") for model in models]))
+
+    @with_production_testing
+    def test_filter_emissions_with_max(self):
+        _api = HfApi()
+        models = _api.list_models(emissions_thresholds=(None, 100), cardData=True)
+        self.assertTrue(
+            all(
+                [
+                    model.cardData["co2_eq_emissions"] <= 100
+                    for model in models
+                    if isinstance(model.cardData["co2_eq_emissions"], (float, int))
+                ]
+            )
+        )
+
+    @with_production_testing
+    def test_filter_emissions_with_min(self):
+        _api = HfApi()
+        models = _api.list_models(emissions_thresholds=(5, None), cardData=True)
+        self.assertTrue(
+            all(
+                [
+                    model.cardData["co2_eq_emissions"] >= 5
+                    for model in models
+                    if isinstance(model.cardData["co2_eq_emissions"], (float, int))
+                ]
+            )
+        )
+
+    @with_production_testing
+    def test_filter_emissions_with_min_and_max(self):
+        _api = HfApi()
+        models = _api.list_models(emissions_thresholds=(5, 100), cardData=True)
+        self.assertTrue(
+            all(
+                [
+                    model.cardData["co2_eq_emissions"] >= 5
+                    for model in models
+                    if isinstance(model.cardData["co2_eq_emissions"], (float, int))
+                ]
+            )
+        )
+        self.assertTrue(
+            all(
+                [
+                    model.cardData["co2_eq_emissions"] <= 100
+                    for model in models
+                    if isinstance(model.cardData["co2_eq_emissions"], (float, int))
+                ]
+            )
+        )
+
 
 class HfApiPrivateTest(HfApiCommonTestWithLogin):
     def setUp(self) -> None:
@@ -870,7 +939,7 @@ class HfLargefilesTest(HfApiCommonTest):
         REMOTE_URL = self._api.create_repo(
             name=self.REPO_NAME_LARGE_FILE,
             token=self._token,
-            lfsmultipartthresh=6 * 10 ** 6,
+            lfsmultipartthresh=6 * 10**6,
         )
         self.setup_local_clone(REMOTE_URL)
 
@@ -923,7 +992,7 @@ class HfLargefilesTest(HfApiCommonTest):
         REMOTE_URL = self._api.create_repo(
             name=self.REPO_NAME_LARGE_FILE,
             token=self._token,
-            lfsmultipartthresh=16 * 10 ** 6,
+            lfsmultipartthresh=16 * 10**6,
         )
         self.setup_local_clone(REMOTE_URL)
 
