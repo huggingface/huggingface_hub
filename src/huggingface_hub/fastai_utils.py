@@ -8,8 +8,7 @@ from typing import Any, Dict, Optional, Union
 import packaging.version
 
 from huggingface_hub.constants import CONFIG_NAME
-
-# from huggingface_hub.file_download import get_fastai_version, get_fastcore_version
+from huggingface_hub.file_download import get_fastai_version, get_fastcore_version
 from huggingface_hub.hf_api import HfApi, HfFolder
 from huggingface_hub.repository import Repository
 from huggingface_hub.snapshot_download import snapshot_download
