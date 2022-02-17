@@ -232,8 +232,7 @@ def push_to_hub_fastai(
         learner (:obj:`Learner`):
             The `fastai.Learner' you'd like to push to the Hub.
         repo_id (:obj:`str`):
-            Can either be a repository name for your model in the Hub or a path to a local folder (in
-            which case the repository will have the name of that local folder). The user can be either your individual account (e.g. 'espejelomar/sentece-embeddings-BETO') or an organization you have write access to (e.g. 'stanfordnlp/stanza-de').
+            The name of the repository for your model in the Hub. The user can be your individual account (e.g. 'espejelomar/sentece-embeddings-BETO') or an organization to which you have write access (e.g. 'stanfordnlp/stanza-de').
         commit_message (:obj:`str`, `optional`):
             Message to commit while pushing. Will default to :obj:`"add model"`.
         private (:obj:`bool`, `optional`):
@@ -260,17 +259,15 @@ def push_to_hub_fastai(
     # Check that fastai and fastcore versions are supported.
     check_fastai_fastcore_versions()
 
-    # Unpacking **kwargs
-    organization: str = kwargs.get("organization", None)
+    # Unpacking **kwargs.
     api_endpoint: str = kwargs.get("api_endpoint", None)
     git_user: str = kwargs.get("git_user", None)
     git_email: str = kwargs.get("git_email", None)
 
-    # Split `repo_id` into organization/user and repo
-    temp = repo_id.split("/")
-    organization = temp[0]
-    repo_name = temp[1]
+    # Split `repo_id` into organization/user and repo.
+    organization, repo_name = repo_id.split("/")
 
+    # Defining token value.
     if isinstance(use_auth_token, bool) and use_auth_token:
         token = HfFolder.get_token()
     elif isinstance(use_auth_token, str):
@@ -286,17 +283,15 @@ def push_to_hub_fastai(
             "Your token is available in the Settings of your Hugging Face account."
         )
 
-    # If the repo does not exist then create it using `HfApi()`.
-    repo_url = None
-    if not os.path.exists(repo_id):
-        repo_url = HfApi(endpoint=api_endpoint).create_repo(
-            repo_name,
-            token=token,
-            organization=organization,
-            private=private,
-            repo_type=None,
-            exist_ok=True,
-        )
+    # Create repo using `HfApi()`.
+    repo_url = HfApi(endpoint=api_endpoint).create_repo(
+        repo_name,
+        token=token,
+        organization=organization,
+        private=private,
+        repo_type=None,
+        exist_ok=True,
+    )
 
     # If repository exists in the Hugging Face Hub then clone it locally in `repo_id`
     repo = Repository(
