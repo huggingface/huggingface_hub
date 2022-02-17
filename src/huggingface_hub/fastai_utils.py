@@ -2,12 +2,13 @@ import json
 import logging
 import os
 from pathlib import Path
-from typing import Any, Dict, Optional, Union
 from pickle import DEFAULT_PROTOCOL
+from typing import Any, Dict, Optional, Union
 
 import packaging.version
 
 from huggingface_hub.constants import CONFIG_NAME
+
 # from huggingface_hub.file_download import get_fastai_version, get_fastcore_version
 from huggingface_hub.hf_api import HfApi, HfFolder
 from huggingface_hub.repository import Repository
@@ -164,7 +165,8 @@ def save_fastai_learner(
     fastai_path = os.path.join(learner.path, save_directory)
     os.makedirs(fastai_path, exist_ok=True)
     learner.export(
-        fname=os.path.join(save_directory, "model.pkl"), pickle_protocol=DEFAULT_PROTOCOL
+        fname=os.path.join(save_directory, "model.pkl"),
+        pickle_protocol=DEFAULT_PROTOCOL,
     )
 
     # We move the model from `self.path/save_directory/model.pkl` to `save_directory/model.pkl`.
@@ -202,13 +204,11 @@ def from_pretrained_fastai(
     # Import `load_learner` from `fastai.learner`.
     from fastai.learner import load_learner
 
-    # Root is either a local filepath matching model_id or a cached snapshot
-    if not os.path.isdir(model_id):
-        storage_folder = snapshot_download(
-            repo_id=model_id, revision=revision, cache_dir=cache_dir
-        )
-    else:
-        storage_folder = model_id
+    # Load the `repo_id` repo.
+    # `snapshot_download` returns the folder where the `model_id` repo was stored.
+    storage_folder = snapshot_download(
+        repo_id=model_id, revision=revision, cache_dir=cache_dir
+    )
 
     # Loading `model.pkl`.
     logger.info(
