@@ -45,8 +45,8 @@ def require_tf(test_case):
     """
     if (
         not is_tf_available()
-        and not is_pydot_available()
-        and not is_graphviz_available()
+        or not is_pydot_available()
+        or not is_graphviz_available()
     ):
         return unittest.skip("test requires Tensorflow, graphviz and pydot.")(test_case)
     else:
