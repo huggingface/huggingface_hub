@@ -320,9 +320,11 @@ class HubKerasSequentialTest(HubMixingTestKeras):
             include_optimizer=False,
             task_name="object-detection",
         )
-
-        self.assertTrue(os.path.exists(f"{USER}/{REPO_NAME}/README.md"))
-        self.assertTrue(os.path.exists(f"{USER}/{REPO_NAME}/model.png"))
+        model_info = HfApi(endpoint=ENDPOINT_STAGING).model_info(
+            f"{USER}/{REPO_NAME}",
+        )
+        self.assertTrue("README.md" in [f.rfilename for f in model_info.siblings])
+        self.assertTrue("model.png" in [f.rfilename for f in model_info.siblings])
         self._api.delete_repo(name=f"{REPO_NAME}", token=self._token)
 
     def test_push_to_hub_tensorboard(self):
