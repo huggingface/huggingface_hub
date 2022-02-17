@@ -43,10 +43,7 @@ def require_tf(test_case):
     These tests are skipped when TensorFlow, graphviz and pydot are installed.
 
     """
-    if (
-        not is_tf_available()
-        or not is_pydot_available()
-    ):
+    if not is_tf_available() or not is_pydot_available() or not is_graphviz_available():
         return unittest.skip("test requires Tensorflow, graphviz and pydot.")(test_case)
     else:
         return test_case
