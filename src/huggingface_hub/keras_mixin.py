@@ -12,13 +12,13 @@ from huggingface_hub.file_download import (
     is_tf_available,
 )
 from huggingface_hub.snapshot_download import snapshot_download
-from huggingface_hub.utils import logging
+
 from .constants import CONFIG_NAME
 from .hf_api import HfApi, HfFolder
 from .repository import Repository
 
-logger = logging.get_logger(__name__)
 
+logger = logging.getLogger(__name__)
 if is_tf_available():
     import tensorflow as tf
 
