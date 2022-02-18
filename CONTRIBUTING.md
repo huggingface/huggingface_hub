@@ -30,12 +30,12 @@ Whichever way you choose to contribute, please be mindful to respect our
 
 ## You can contribute in so many ways!
 
-The library is split in different parts, where we welcome contributions.
+The repository is split into different parts, where we welcome contributions.
 
 ### The client library, `huggingface_hub`
 
-This repository hosts the client library `huggingface_hub` which serves as a frontend to the Hugging Face Hub.
-this part lives in `src/huggingface_hub`.
+This repository hosts the client library `huggingface_hub`, which is a frontend to the Hugging Face Hub.
+this part lives in `src/huggingface_hub` and `tests`.
 
 There are many ways you can contribute to this client library:
 * Fixing outstanding issues with the existing code;
@@ -53,17 +53,20 @@ Additionally, here are the owners of specific parts of the library:
 
 ### The community inference API
 
-In the `api-inference-community` lives a tool to enable third-party libraries support integrated with the Hugging
+The `api-inference-community` folder contains a tool to enable third-party library support integrated with the Hugging
 Face Hub.
 
-We welcome contributions to add new containers for new libraries, to update the existing ones, and to provide help
+We welcome contributions to [add new containers](https://huggingface.co/docs/hub/adding-a-library#set-up-the-inference-api) for new libraries, to update the existing ones, and to provide help
 fixing bugs and adding features.
 
 When opening a PR on this part of the repository, please add @Narsil as a reviewer.
 
 ## JavaScript content
 
-In the `js` folder live the JavaScript code required to run the inference API widgets on the Hugging Face Hub.
+In the `js` folder live the JavaScript code of the Hub. It includes:
+* The widgets ([code](https://github.com/huggingface/huggingface_hub/tree/main/js/src/lib/components/InferenceWidget)
+* Code snippets to make inference calls ([code](https://github.com/huggingface/huggingface_hub/tree/main/js/src/lib/inferenceSnippets)
+* Code snippets to load models ([code](https://github.com/huggingface/huggingface_hub/blob/main/js/src/lib/interfaces/Libraries.ts))
 
 Here too, we welcome any logic and documentation contributions.
 
@@ -93,13 +96,13 @@ Did not find it? :( So we can act quickly on it, please follow these steps:
   less than 30s;
 * Provide the *full* traceback if an exception is raised.
 
-### Do you want a new feature (that is not a model)?
+### Do you want a new feature?
 
 A world-class feature request addresses the following points:
 
 1. Motivation first:
 * Is it related to a problem/frustration with the library? If so, please explain
-  why. Providing a code snippet that demonstrates the problem is best.
+  why and provide a code snippet that demonstrates the problem best.
 * Is it related to something you would need for a project? We'd love to hear
   about it!
 * Is it something you worked on and think could benefit the community?
@@ -245,7 +248,7 @@ Follow these steps to start contributing:
 ### Tests
 
 An extensive test suite is included to test the library behavior and several examples. Library tests can be found in
-the [tests folder](https://github.com/huggingface/huggingface_hub/tree/master/tests).
+the [tests folder](https://github.com/huggingface/huggingface_hub/tree/main/tests).
 
 The `huggingface_hub` library's normal behavior is to work with the production Hugging Face Hub. However,
 for tests, we prefer to run on a staging version. In order to do this, it's important to set the 
