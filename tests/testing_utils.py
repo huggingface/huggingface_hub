@@ -179,7 +179,7 @@ def with_production_testing(func):
 
 def retry_endpoint(function, number_of_tries: int = 3, wait_time: int = 5):
     """
-    Retrides test if failure, waiting `wait_time`.
+    Retries test if failure, waiting `wait_time`.
     Should be added to any test hitting the `moon-staging` endpoint that is
     downloading Repositories or uploading data
 
