@@ -23,7 +23,7 @@ jobs:
     strategy:
       matrix:
         python-version: ["3.6", "3.9"]
-        test_repository: [" -k 'not RepositoryTest'", "test_repository.py -k RepositoryTest"]
+        test_repository: ["Repository only", "Everything else"]
 
     steps:
       - uses: actions/checkout@v2
@@ -39,7 +39,14 @@ jobs:
           pip install --upgrade pip
           pip install .[testing]
 
-      - run: pytest --log-cli-level=INFO -sv ./tests/${{ matrix.test_repository }}
+      - run: |
+          if [[ ${{ matrix.test_repository }} == "Repository only" ]]
+          then
+            pytest --log-cli-level=INFO -sv ./tests/test_repository.py -k RepositoryTest
+          
+          else
+            pytest --log-cli-level=INFO -sv ./tests/ -k 'not RepositoryTest'
+          fi
 
   build_pytorch:
     runs-on: ubuntu-latest
