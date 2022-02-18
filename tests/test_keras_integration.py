@@ -174,6 +174,12 @@ class HubKerasSequentialTest(HubMixingTestKeras):
         model.compile(optimizer="adam", loss="mse")
         return model
 
+    def model_fit(self, model):
+        x = tf.constant([[0.44, 0.90], [0.65, 0.39]])
+        y = tf.constant([[1, 1], [0, 0]])
+        model.fit(x, y)
+        return model
+
     def test_save_pretrained(self):
         REPO_NAME = repo_name("save")
         model = self.model_init()
@@ -277,9 +283,7 @@ class HubKerasSequentialTest(HubMixingTestKeras):
         REPO_NAME = repo_name("PUSH_TO_HUB")
         model = self.model_init()
         model.build((None, 2))
-        x = tf.constant([[0.44, 0.90], [0.65, 0.39]])
-        y = tf.constant([[1, 1], [0, 0]])
-        model.fit(x, y)
+        self.model_fit()
         push_to_hub_keras(
             model,
             repo_path_or_name=f"{WORKING_REPO_DIR}/{REPO_NAME}",
@@ -302,9 +306,7 @@ class HubKerasSequentialTest(HubMixingTestKeras):
         REPO_NAME = repo_name("PUSH_TO_HUB")
         model = self.model_init()
         model.build((None, 2))
-        x = tf.constant([[0.44, 0.90], [0.65, 0.39]])
-        y = tf.constant([[1, 1], [0, 0]])
-        model.fit(x, y)
+        model = self.model_fit(model)
         push_to_hub_keras(
             model,
             repo_path_or_name=f"{WORKING_REPO_DIR}/{REPO_NAME}",
@@ -323,6 +325,29 @@ class HubKerasSequentialTest(HubMixingTestKeras):
         self.assertTrue("model.png" in [f.rfilename for f in model_info.siblings])
         self._api.delete_repo(name=f"{REPO_NAME}", token=self._token)
 
+    def test_push_to_hub_model_card_plot_false(self):
+        REPO_NAME = repo_name("PUSH_TO_HUB")
+        model = self.model_init()
+        model.build((None, 2))
+        model = self.model_fit(model)
+        push_to_hub_keras(
+            model,
+            repo_path_or_name=f"{WORKING_REPO_DIR}/{REPO_NAME}",
+            api_endpoint=ENDPOINT_STAGING,
+            use_auth_token=self._token,
+            git_user="ci",
+            git_email="ci@dummy.com",
+            config={"num": 7, "act": "gelu_fast"},
+            include_optimizer=False,
+            task_name="object-detection",
+            model_plot=False,
+        )
+        model_info = HfApi(endpoint=ENDPOINT_STAGING).model_info(
+            f"{USER}/{REPO_NAME}",
+        )
+        self.assertFalse("model.png" in [f.rfilename for f in model_info.siblings])
+        self._api.delete_repo(name=f"{REPO_NAME}", token=self._token)
+
     def test_push_to_hub_tensorboard(self):
         os.makedirs(f"{WORKING_REPO_DIR}/tb_log_dir")
         with open(f"{WORKING_REPO_DIR}/tb_log_dir/tensorboard.txt", "w") as fp:
@@ -330,9 +355,7 @@ class HubKerasSequentialTest(HubMixingTestKeras):
         REPO_NAME = repo_name("PUSH_TO_HUB")
         model = self.model_init()
         model.build((None, 2))
-        x = tf.constant([[0.44, 0.90], [0.65, 0.39]])
-        y = tf.constant([[1, 1], [0, 0]])
-        model.fit(x, y)
+        model = self.model_fit(model)
         push_to_hub_keras(
             model,
             repo_path_or_name=f"{WORKING_REPO_DIR}/{REPO_NAME}",
@@ -356,9 +379,7 @@ class HubKerasSequentialTest(HubMixingTestKeras):
         REPO_NAME = repo_name("PUSH_TO_HUB")
         model = self.model_init()
         model.build((None, 2))
-        x = tf.constant([[0.44, 0.90], [0.65, 0.39]])
-        y = tf.constant([[1, 1], [0, 0]])
-        model.fit(x, y)
+        model = self.model_fit(model)
         push_to_hub_keras(
             model,
             repo_path_or_name=f"{WORKING_REPO_DIR}/{REPO_NAME}",
@@ -395,9 +416,7 @@ class HubKerasFunctionalTest(HubKerasSequentialTest):
         REPO_NAME = repo_name("functional")
         model = self.model_init()
         self.assertTrue(model.built)
-        x = tf.constant([[0.44, 0.90], [0.65, 0.39]])
-        y = tf.constant([[1, 1], [0, 0]])
-        model.fit(x, y)
+        model = self.model_fit(model)
 
         save_pretrained_keras(model, f"{WORKING_REPO_DIR}/{REPO_NAME}")
         files = os.listdir(f"{WORKING_REPO_DIR}/{REPO_NAME}")

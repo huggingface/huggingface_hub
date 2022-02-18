@@ -48,7 +48,6 @@ try:
 except importlib_metadata.PackageNotFoundError:
     pass
 
-_pydot_version = "N/A"
 _pydot_available = False
 
 try:
@@ -62,7 +61,6 @@ def is_pydot_available():
     return _pydot_available
 
 
-_graphviz_version = "N/A"
 _graphviz_available = False
 
 try:

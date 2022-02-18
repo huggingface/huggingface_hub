@@ -73,36 +73,7 @@ def _plot_network(model, save_directory):
     )
 
 
-def _create_model_card(
-    repo_dir: Path,
-    hyperparameters: Dict = None,
-    lines: list = None,
-    task_name: str = None,
-):
-    """
-    Creates a model card for the repository.
-    """
-    readme_path = f"{repo_dir}/README.md"
-    model_card = "---\n"
-    if task_name is not None:
-        model_card += f"tags:\n- {task_name}\n"
-    model_card += "library_name: keras\n---\n"
-    model_card += "\n## Model description\n\nMore information needed\n"
-    model_card += "\n## Intended uses & limitations\n\nMore information needed\n"
-    model_card += "\n## Training and evaluation data\n\nMore information needed\n"
-
-    model_card += "\n## Training procedure\n"
-    model_card += "\n### Training hyperparameters\n"
-    if hyperparameters is not None:
-        model_card += "\nThe following hyperparameters were used during training:\n"
-        model_card += "\n".join(
-            [f"- {name}: {value}" for name, value in hyperparameters.items()]
-        )
-        model_card += "\n"
-    else:
-        model_card += "\nMore information needed\n"
-
-    model_card += "\n ## Training Metrics"
+def _write_metrics(lines, model_card):
     if lines is not None:
         model_card += "\n| Epochs |"
 
@@ -118,11 +89,49 @@ def _create_model_card(
                 model_card += f" {value}| "
     else:
         model_card += "Model history needed"
+    return model_card
+
+
+def _create_model_card(
+    model,
+    repo_dir: Path,
+    model_plot: Optional[bool] = True,
+    task_name: Optional[str] = None,
+):
+    """
+    Creates a model card for the repository.
+    """
+    hyperparameters = _extract_hyperparameters_from_keras(model)
+    if model_plot and is_graphviz_available() and is_pydot_available():
+        _plot_network(model, repo_dir)
+    lines = _parse_model_history(model)
+    readme_path = f"{repo_dir}/README.md"
+    model_card = "---\n"
+    if task_name is not None:
+        model_card += f"tags:\n- {task_name}\n"
+    model_card += "library_name: keras\n---\n"
+    model_card += "\n## Model description\n\nMore information needed\n"
+    model_card += "\n## Intended uses & limitations\n\nMore information needed\n"
+    model_card += "\n## Training and evaluation data\n\nMore information needed\n"
+    model_card += "\n## Training procedure\n"
+    model_card += "\n### Training hyperparameters\n"
+    if hyperparameters is not None:
+        model_card += "\nThe following hyperparameters were used during training:\n"
+        model_card += "\n".join(
+            [f"- {name}: {value}" for name, value in hyperparameters.items()]
+        )
+        model_card += "\n"
+    else:
+        model_card += "\nMore information needed\n"
+
+    model_card += "\n ## Training Metrics"
+    model_card = _write_metrics(lines, model_card)
     model_card += "\n ## Model Plot\n"
     model_card += "\n<details>"
-    model_card += "\n<summary>View Model Plot</summary>\n"
-    path_to_plot = "./model.png"
-    model_card += f"\n![Model Image]({path_to_plot})\n"
+    if model_plot:
+        model_card += "\n<summary>View Model Plot</summary>\n"
+        path_to_plot = "./model.png"
+        model_card += f"\n![Model Image]({path_to_plot})\n"
     model_card += "\n</details>"
 
     if os.path.exists(readme_path):
@@ -243,7 +252,7 @@ def push_to_hub_keras(
         include_optimizer (:obj:`bool`, `optional`):
             Whether or not to include optimizer during serialization.
         task_name (:obj:`str`, `optional`):
-            Name of the task the model was trained on.
+            Name of the task the model was trained on. See the available tasks at https://github.com/huggingface/huggingface_hub/blob/main/js/src/lib/interfaces/Types.ts.
         model_plot (:obj:`bool`):
             Setting this to `True` will plot the model and put it in the model card. Requires graphviz and pydot to be installed.
         model_save_kwargs(:obj:`dict`, `optional`):
@@ -302,11 +311,7 @@ def push_to_hub_keras(
         **model_save_kwargs,
     )
 
-    hyperparameters = _extract_hyperparameters_from_keras(model)
-    if model_plot and is_graphviz_available() and is_pydot_available():
-        _plot_network(model, repo_path_or_name)
-    lines = _parse_model_history(model)
-    _create_model_card(repo_path_or_name, hyperparameters, lines, task_name)
+    _create_model_card(model, repo_path_or_name, model_plot, task_name)
     if log_dir is not None:
         copytree(log_dir, f"{repo_path_or_name}/logs")
     # Commit and push!
