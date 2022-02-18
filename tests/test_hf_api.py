@@ -554,6 +554,19 @@ class HfApiPublicTest(unittest.TestCase):
         self.assertEqual(model.sha, DUMMY_MODEL_ID_REVISION_ONE_SPECIFIC_COMMIT)
 
     @with_production_testing
+    def test_model_info_with_security(self):
+        _api = HfApi()
+        model = _api.model_info(
+            repo_id=DUMMY_MODEL_ID,
+            revision=DUMMY_MODEL_ID_REVISION_ONE_SPECIFIC_COMMIT,
+            securityStatus=True,
+        )
+        self.assertEqual(
+            getattr(model, "securityStatus"),
+            {"containsInfected": False, "infectionTypes": []},
+        )
+
+    @with_production_testing
     def test_list_repo_files(self):
         _api = HfApi()
         files = _api.list_repo_files(repo_id=DUMMY_MODEL_ID)
