@@ -11,7 +11,7 @@ from huggingface_hub.snapshot_download import snapshot_download
 from huggingface_hub.utils import logging
 
 from .testing_constants import ENDPOINT_STAGING, PASS, USER
-from .testing_utils import set_write_permission_and_retry
+from .testing_utils import retry_endpoint, set_write_permission_and_retry
 
 
 logger = logging.get_logger(__name__)
@@ -29,6 +29,7 @@ class SnapshotDownloadTests(unittest.TestCase):
         """
         cls._token = cls._api.login(username=USER, password=PASS)
 
+    @retry_endpoint
     def setUp(self) -> None:
         if os.path.exists(REPO_NAME):
             shutil.rmtree(REPO_NAME, onerror=set_write_permission_and_retry)
