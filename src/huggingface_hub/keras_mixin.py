@@ -19,6 +19,7 @@ from .repository import Repository
 
 
 logger = logging.getLogger(__name__)
+
 if is_tf_available():
     import tensorflow as tf
 
