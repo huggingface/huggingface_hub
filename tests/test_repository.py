@@ -1491,6 +1491,7 @@ class RepositoryDatasetTest(RepositoryCommonTest):
             except requests.exceptions.HTTPError:
                 pass
 
+    @retry_endpoint
     def test_clone_with_endpoint(self):
         clone = Repository(
             f"{WORKING_DATASET_DIR}/{self.REPO_NAME}",
@@ -1520,6 +1521,7 @@ class RepositoryDatasetTest(RepositoryCommonTest):
         self.assertTrue("some_text.txt" in files)
         self.assertTrue("test.py" in files)
 
+    @retry_endpoint
     def test_clone_with_repo_name_and_org(self):
         clone = Repository(
             f"{WORKING_DATASET_DIR}/{self.REPO_NAME}",
@@ -1549,6 +1551,7 @@ class RepositoryDatasetTest(RepositoryCommonTest):
         self.assertTrue("some_text.txt" in files)
         self.assertTrue("test.py" in files)
 
+    @retry_endpoint
     def test_clone_with_repo_name_and_user_namespace(self):
         clone = Repository(
             f"{WORKING_DATASET_DIR}/{self.REPO_NAME}",
@@ -1578,6 +1581,7 @@ class RepositoryDatasetTest(RepositoryCommonTest):
         self.assertTrue("some_text.txt" in files)
         self.assertTrue("test.py" in files)
 
+    @retry_endpoint
     def test_clone_with_repo_name_and_no_namespace(self):
         self.assertRaises(
             OSError,
@@ -1590,6 +1594,7 @@ class RepositoryDatasetTest(RepositoryCommonTest):
             git_email="ci@dummy.com",
         )
 
+    @retry_endpoint
     def test_clone_with_repo_name_user_and_no_auth_token(self):
         # Create repo
         Repository(
