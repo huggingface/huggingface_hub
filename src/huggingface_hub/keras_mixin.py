@@ -244,7 +244,7 @@ def push_to_hub_keras(
             Whether or not to include optimizer during serialization.
         task_name (:obj:`str`, `optional`):
             Name of the task the model was trained on.
-        model_plot (:obj::obj:`bool`):
+        model_plot (:obj:`bool`):
             Setting this to `True` will plot the model and put it in the model card. Requires graphviz and pydot to be installed.
         model_save_kwargs(:obj:`dict`, `optional`):
             model_save_kwargs will be passed to tf.keras.models.save_model().
