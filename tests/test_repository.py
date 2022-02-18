@@ -1615,6 +1615,7 @@ class RepositoryDatasetTest(RepositoryCommonTest):
             git_email="ci@dummy.com",
         )
 
+    @retry_endpoint
     def test_clone_with_repo_name_org_and_no_auth_token(self):
         # Create repo
         Repository(
