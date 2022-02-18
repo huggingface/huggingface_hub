@@ -546,7 +546,7 @@ class HfApiPublicTest(unittest.TestCase):
         model = _api.model_info(repo_id=DUMMY_MODEL_ID)
         self.assertIsInstance(model, ModelInfo)
         self.assertNotEqual(model.sha, DUMMY_MODEL_ID_REVISION_ONE_SPECIFIC_COMMIT)
-        # One particular commit (not the top of `main`)
+        # One particular commit (not the top of `main`)d
         model = _api.model_info(
             repo_id=DUMMY_MODEL_ID, revision=DUMMY_MODEL_ID_REVISION_ONE_SPECIFIC_COMMIT
         )
