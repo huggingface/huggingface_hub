@@ -283,7 +283,7 @@ class HubKerasSequentialTest(HubMixingTestKeras):
         REPO_NAME = repo_name("PUSH_TO_HUB")
         model = self.model_init()
         model.build((None, 2))
-        self.model_fit()
+        self.model_fit(model)
         push_to_hub_keras(
             model,
             repo_path_or_name=f"{WORKING_REPO_DIR}/{REPO_NAME}",
