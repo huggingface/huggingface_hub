@@ -200,6 +200,11 @@ def retry_endpoint(function, number_of_tries: int = 3, wait_time: int = 5):
                     )
                     time.sleep(5)
                     retry_count += 1
+            except OSError:
+                logger.info(
+                    f"Race condition met where we tried to `clone` before fully deleting a repository. Retrying new execution in {wait_time} second(s)..."
+                )
+                retry_count += 1
             # Preserve original traceback
             return function(*args, **kwargs)
 

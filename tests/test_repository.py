@@ -71,6 +71,7 @@ class RepositoryTest(RepositoryCommonTest):
         """
         cls._token = cls._api.login(username=USER, password=PASS)
 
+    @retry_endpoint
     def setUp(self):
         if os.path.exists(WORKING_REPO_DIR):
             shutil.rmtree(WORKING_REPO_DIR, onerror=set_write_permission_and_retry)
