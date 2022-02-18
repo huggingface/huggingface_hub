@@ -40,7 +40,7 @@ jobs:
           pip install .[testing]
 
       - run: |
-          if [[ ${{ matrix.test_repository }} == "Repository only" ]]
+          if [[ "${{ matrix.test_repository }}" == "Repository only" ]]
           then
             pytest --log-cli-level=INFO -sv ./tests/test_repository.py -k RepositoryTest
           
