@@ -74,7 +74,8 @@ def _plot_network(model, save_directory):
     )
 
 
-def _write_metrics(lines, model_card):
+def _write_metrics(model, model_card):
+    lines = _parse_model_history(model)
     if lines is not None:
         model_card += "\n| Epochs |"
 
@@ -105,7 +106,6 @@ def _create_model_card(
     hyperparameters = _extract_hyperparameters_from_keras(model)
     if model_plot and is_graphviz_available() and is_pydot_available():
         _plot_network(model, repo_dir)
-    lines = _parse_model_history(model)
     readme_path = f"{repo_dir}/README.md"
     model_card = "---\n"
     if task_name is not None:
@@ -126,7 +126,7 @@ def _create_model_card(
         model_card += "\nMore information needed\n"
 
     model_card += "\n ## Training Metrics"
-    model_card = _write_metrics(lines, model_card)
+    model_card = _write_metrics(model, model_card)
     model_card += "\n ## Model Plot\n"
     model_card += "\n<details>"
     if model_plot:

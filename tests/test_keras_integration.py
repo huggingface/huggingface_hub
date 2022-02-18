@@ -314,8 +314,6 @@ class HubKerasSequentialTest(HubMixingTestKeras):
             use_auth_token=self._token,
             git_user="ci",
             git_email="ci@dummy.com",
-            config={"num": 7, "act": "gelu_fast"},
-            include_optimizer=False,
             task_name="object-detection",
         )
         model_info = HfApi(endpoint=ENDPOINT_STAGING).model_info(
@@ -337,8 +335,6 @@ class HubKerasSequentialTest(HubMixingTestKeras):
             use_auth_token=self._token,
             git_user="ci",
             git_email="ci@dummy.com",
-            config={"num": 7, "act": "gelu_fast"},
-            include_optimizer=False,
             task_name="object-detection",
             model_plot=False,
         )
