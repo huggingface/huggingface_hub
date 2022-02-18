@@ -25,7 +25,7 @@ if is_tf_available():
 
 def _extract_hyperparameters_from_keras(model):
     hyperparameters = dict()
-    if hasattr(model, "optimizer") and model.optimizer is not None:
+    if hasattr(model, "optimizer"):
         hyperparameters["optimizer"] = model.optimizer.get_config()
     else:
         hyperparameters["optimizer"] = None
