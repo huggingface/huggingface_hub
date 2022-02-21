@@ -23,9 +23,12 @@
 			<label
 				on:click={onClick}
 				class="flex items-center hover:bg-gray-50 dark:hover:bg-gray-800 cursor-pointer px-3 py-1.5 whitespace-nowrap 
-			{classNames}
-			{underline ? 'hover:underline' : ''}
-			{useDeprecatedJS ? 'v2-dropdown-entry' : ''}"
+				{classNames}
+				{underline ? 'hover:underline' : ''}
+				{useDeprecatedJS ? 'v2-dropdown-entry' : ''}"
+				data-label={dataLabel}
+				data-url={dataUrl}
+				data-value={dataValue}
 			>
 				{#if $$slots.default}
 					<slot />
