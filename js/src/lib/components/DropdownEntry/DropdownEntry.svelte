@@ -41,7 +41,7 @@
 					{/if}
 					{label}
 				{/if}
-				<input type="submit" style="width: 1; height: 1; opacity: 0;" />
+				<input type="submit" style="width: 1px; height: 1px; opacity: 0;" />
 			</label>
 		</form>
 	{:else}
