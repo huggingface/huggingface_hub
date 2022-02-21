@@ -8,6 +8,7 @@ from typing import Any, Dict, Optional, Union
 import packaging.version
 
 from huggingface_hub.constants import CONFIG_NAME
+
 from huggingface_hub.file_download import get_fastai_version, get_fastcore_version
 from huggingface_hub.hf_api import HfApi, HfFolder
 from huggingface_hub.repository import Repository
@@ -55,7 +56,7 @@ def check_fastai_fastcore_versions(
         )
 
 
-# Define template for a auto-generated README.md
+# Define template for auto-generated README.md
 README_TEMPLATE = """---
 tags:
 - fastai
@@ -88,15 +89,13 @@ More information needed
 
 ## Training and evaluation data
 More information needed
-
-
-
 """
 
-# Define template for a auto-generated config with fastai and fastcore versions
-CONFIG_TEMPLATE = dict(
-    fastai_version=get_fastai_version(), fastcore_version=get_fastcore_version()
-)
+# Define template for auto-generated pyproject.toml
+PYPROJECT_TEMPLATE = """[build-system]
+requires = ["setuptools>=40.8.0", "wheel", "python>=3.7", "fastai>=2.4", "fastcore>=1.3.27"]
+build-backend = "setuptools.build_meta:__legacy__"
+"""
 
 
 def _create_model_card(repo_dir: Path):
@@ -116,6 +115,25 @@ def _create_model_card(repo_dir: Path):
         readme = README_TEMPLATE
     with readme_path.open("w", encoding="utf-8") as f:
         f.write(readme)
+
+
+def _create_model_pyproject(repo_dir: Path):
+    """
+    Creates a `pyproject.toml` for the repository.
+
+    Parameters:
+        repo_dir (:obj:`Path`):
+            Directory where `pyproject.toml` is created.
+    """
+    pyproject_path = repo_dir / "pyproject.toml"
+    pyproject = ""
+    if pyproject_path.exists():
+        with pyproject_path.open("r", encoding="utf8") as f:
+            pyproject = f.read()
+    else:
+        pyproject = PYPROJECT_TEMPLATE
+    with pyproject_path.open("w", encoding="utf-8") as f:
+        f.write(pyproject)
 
 
 def save_fastai_learner(
@@ -149,14 +167,13 @@ def save_fastai_learner(
             )
         path = os.path.join(save_directory, CONFIG_NAME)
         with open(path, "w") as f:
-            json.dump({**config, **CONFIG_TEMPLATE}, f)
-    else:
-        path = os.path.join(save_directory, CONFIG_NAME)
-        with open(path, "w") as f:
-            json.dump(CONFIG_TEMPLATE, f)
+            json.dump(config, f)
 
     # creating README.md if none exist
     _create_model_card(Path(save_directory))
+
+    # creating pyproject.toml if none exist
+    _create_model_pyproject(Path(save_directory))
 
     # saving learner
     # learner.export saves the model in `self.path/save_directory` and this folder should exist.
@@ -298,9 +315,7 @@ def push_to_hub_fastai(
     )
     repo.git_pull(rebase=True)
 
-    save_fastai_learner(
-        learner, repo_id, config=config, pickle_protocol=DEFAULT_PROTOCOL
-    )
+    save_fastai_learner(learner, repo_id, config=config)
 
     # Commit and push
     return repo.push_to_hub(commit_message=commit_message)
