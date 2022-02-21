@@ -218,8 +218,8 @@ Whether the Space stays on top of your list.
 ## Changelog
 
 #### [2022-02-21] - Python versions
-- You can specify the version of Python that you want your Space to run on
-- Only Python 3 versions are supported
+- You can specify the version of Python that you want your Space to run on.
+- Only Python 3 versions are supported.
 
 #### [2022-01-24] - Automatic model and dataset linking from Spaces
 - We attempt to automatically extract model and dataset repo ids used in your code
