@@ -1252,7 +1252,7 @@ class HfApi:
         r.raise_for_status()
         return r.json()
 
-    def rename_repo(
+    def move_repo(
         self,
         from_id: str,
         to_id: str,
@@ -1260,16 +1260,16 @@ class HfApi:
         token: Optional[str] = None,
     ):
         """
-        Rename a repository from namespace1/repo_name1 to namespace2/repo_name2
+        Moving a repository from namespace1/repo_name1 to namespace2/repo_name2
 
-        Renaming can be used for three use cases
+        Moving can be used for three use cases
         - Renaming a repository within same user.
         - Renaming a repository within same organization.
-        - Move repository from user to an organization.
+        - Transfering repository from user to an organization.
 
-        Renaming does not work for:
-        - Moving a repository from an organization to another user or organization.
-        - Moving a repository from user A to user B.
+        Moving does not work for:
+        - Transfering a repository from an organization to another user or organization.
+        - Transfering a repository from user A to user B.
         """
         token = self._validate_or_retrieve_token(token)
 
@@ -1295,48 +1295,6 @@ class HfApi:
         logging.info(
             "Accepted transfer request. You will get an email once this is successfully completed."
         )
-
-    def transfer_repo(
-        self,
-        name: str,
-        new_name: str,
-        organization: Optional[str] = None,
-        new_organization: Optional[str] = None,
-        repo_type: Optional[str] = None,
-        token: Optional[str] = None,
-    ):
-        """
-        Transfer a repository.
-
-        Transfering can be used for three use cases
-        - Renaming a repository within same user.
-        - Renaming a repository within same organization.
-        - Move repository from user to an organization.
-
-        Transfering does not work for:
-        - Moving a repository from an organization to another user or organization.
-        - Moving a repository from user A to user B.
-
-        """
-        if repo_type not in REPO_TYPES:
-            raise ValueError("Invalid repo type")
-
-        token = self._validate_or_retrieve_token(token)
-
-        if organization is None:
-            namespace = self.whoami(token)["name"]
-        else:
-            namespace = organization
-
-        if new_organization is None:
-            new_namespace = self.whoami(token)["name"]
-        else:
-            new_namespace = new_organization
-
-        from_repo = f"{namespace}/{name}"
-        to_repo = f"{new_namespace}/{new_name}"
-
-        self.rename_repo(from_repo, to_repo, repo_type, token)
 
     def upload_file(
         self,
@@ -1605,8 +1563,7 @@ get_dataset_tags = api.get_dataset_tags
 create_repo = api.create_repo
 delete_repo = api.delete_repo
 update_repo_visibility = api.update_repo_visibility
-rename_repo = api.rename_repo
-transfer_repo = api.transfer_repo
+move_repo = api.move_repo
 upload_file = api.upload_file
 delete_file = api.delete_file
 get_full_repo_name = api.get_full_repo_name
