@@ -5,7 +5,7 @@ title: Hugging Face Hub Endpoints
 # Hugging Face Hub API Endpoints
 
 
-We have open endpoints that you can use to retrieve information from the Hub as well as perform certain actions such as creating model, dataset or Spaces repos. We offer a wrapper Python library, [`huggingface_hub`](https://github.com/huggingface/huggingface_hub), that allows easy access to these endpoints. We also provide a [webhook](#webhook) to receive real-time incremental info about repos. Enjoy!
+We have open endpoints that you can use to retrieve information from the Hub as well as perform certain actions such as creating model, dataset or Space repos. We offer a wrapper Python library, [`huggingface_hub`](https://github.com/huggingface/huggingface_hub), that allows easy access to these endpoints. We also provide a [webhook](#webhook) to receive real-time incremental info about repos. Enjoy!
 
 
 ## Endpoints table
@@ -27,14 +27,16 @@ We have open endpoints that you can use to retrieve information from the Hub as 
 
 ## Webhook
 
-If you ever need to programmatically get notified about all the changes/additions to model repositories on the Hugging Face Hub, you can subscribe to the Hugging Face Hub webhook.
+If you ever need to programmatically get notified about all the changes/additions to model/dataset/Space repositories on the Hugging Face Hub, you can subscribe to the Hugging Face Hub webhook.
 
 When you're subscribed – meaning you sent us a URL on your side that you want us to ping – we will call it over HTTP with the following payload:
 
 ```python
 { "add": "user/model_id" }
 # or
-{ "update": "organization/model_id" }
+{ "add": "datasets/user/dataset_id" }
+# or
+{ "update": "spaces/organization/space_id" }
 # or
 { "remove": "user/model_id" }
 ```
