@@ -410,7 +410,9 @@ def erase_from_credential_store(username=None):
 
 class HfApi:
     def __init__(self, endpoint=None):
-        self.endpoint = endpoint if endpoint is not None else ENDPOINT
+        self.endpoint = (
+            endpoint if endpoint is not None else os.getenv("HF_ENDPOINT", ENDPOINT)
+        )
 
     def login(self, username: str, password: str) -> str:
         """
@@ -960,37 +962,6 @@ class HfApi:
             raise ValueError("Spaces are not available yet.")
 
         return [f.rfilename for f in info.siblings]
-
-    def list_repos_objs(
-        self, token: Optional[str] = None, organization: Optional[str] = None
-    ) -> List[RepoObj]:
-        """
-        Deprecated
-
-        HuggingFace git-based system, used for models, datasets, and spaces.
-
-        Call HF API to list all stored files for user (or one of their organizations).
-        """
-        warnings.warn(
-            "This method has been deprecated and will be removed in a future version."
-            "You can achieve the same result by listing your repos then listing their respective files."
-        )
-
-        if token is None:
-            token = HfFolder.get_token()
-        if token is None:
-            raise ValueError(
-                "You need to pass a valid `token` or login by using `huggingface-cli login`"
-            )
-
-        path = f"{self.endpoint}/api/repos/ls"
-        params = {"organization": organization} if organization is not None else None
-        r = requests.get(
-            path, params=params, headers={"authorization": f"Bearer {token}"}
-        )
-        r.raise_for_status()
-        d = r.json()
-        return [RepoObj(**x) for x in d]
 
     def dataset_info(
         self,
@@ -1556,7 +1527,6 @@ whoami = api.whoami
 list_models = api.list_models
 model_info = api.model_info
 list_repo_files = api.list_repo_files
-list_repos_objs = api.list_repos_objs
 
 list_datasets = api.list_datasets
 dataset_info = api.dataset_info

@@ -108,7 +108,7 @@ def push_to_hub_keras(
             Organization in which you want to push your model or tokenizer (you must be a member of this
             organization).
         private (:obj:`bool`, `optional`):
-            Whether or not the repository created should be private (requires a paying subscription).
+            Whether or not the repository created should be private.
         api_endpoint (:obj:`str`, `optional`):
             The API endpoint to use when pushing the model to the hub.
         use_auth_token (:obj:`bool` or :obj:`str`, `optional`):
