@@ -30,7 +30,6 @@ from huggingface_hub.constants import (
     REPO_TYPE_DATASET,
     REPO_TYPE_MODEL,
     REPO_TYPE_SPACE,
-    REPO_TYPES,
     SPACES_SDK_TYPES,
 )
 from huggingface_hub.file_download import cached_download, hf_hub_download
