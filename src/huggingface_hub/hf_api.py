@@ -1504,7 +1504,6 @@ whoami = api.whoami
 list_models = api.list_models
 model_info = api.model_info
 list_repo_files = api.list_repo_files
-list_repos_objs = api.list_repos_objs
 
 list_datasets = api.list_datasets
 dataset_info = api.dataset_info
