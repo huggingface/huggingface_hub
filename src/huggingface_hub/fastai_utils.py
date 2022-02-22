@@ -8,7 +8,11 @@ from typing import Any, Dict, Optional, Union
 import packaging.version
 
 from huggingface_hub.constants import CONFIG_NAME
-from huggingface_hub.file_download import get_fastai_version, get_fastcore_version
+from huggingface_hub.file_download import (
+    _PY_VERSION,
+    get_fastai_version,
+    get_fastcore_version,
+)
 from huggingface_hub.hf_api import HfApi, HfFolder
 from huggingface_hub.repository import Repository
 from huggingface_hub.snapshot_download import snapshot_download
@@ -91,8 +95,8 @@ More information needed
 """
 
 # Define template for auto-generated pyproject.toml
-PYPROJECT_TEMPLATE = """[build-system]
-requires = ["setuptools>=40.8.0", "wheel", "python>=3.7", "fastai>=2.4", "fastcore>=1.3.27"]
+PYPROJECT_TEMPLATE = f"""[build-system]
+requires = ["setuptools>=40.8.0", "wheel", "python={_PY_VERSION}", "fastai={get_fastai_version()}", "fastcore={get_fastcore_version()}"]
 build-backend = "setuptools.build_meta:__legacy__"
 """
 
