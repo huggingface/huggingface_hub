@@ -956,37 +956,6 @@ class HfApi:
 
         return [f.rfilename for f in info.siblings]
 
-    def list_repos_objs(
-        self, token: Optional[str] = None, organization: Optional[str] = None
-    ) -> List[RepoObj]:
-        """
-        Deprecated
-
-        HuggingFace git-based system, used for models, datasets, and spaces.
-
-        Call HF API to list all stored files for user (or one of their organizations).
-        """
-        warnings.warn(
-            "This method has been deprecated and will be removed in a future version."
-            "You can achieve the same result by listing your repos then listing their respective files."
-        )
-
-        if token is None:
-            token = HfFolder.get_token()
-        if token is None:
-            raise ValueError(
-                "You need to pass a valid `token` or login by using `huggingface-cli login`"
-            )
-
-        path = f"{self.endpoint}/api/repos/ls"
-        params = {"organization": organization} if organization is not None else None
-        r = requests.get(
-            path, params=params, headers={"authorization": f"Bearer {token}"}
-        )
-        r.raise_for_status()
-        d = r.json()
-        return [RepoObj(**x) for x in d]
-
     def dataset_info(
         self,
         repo_id: str,
