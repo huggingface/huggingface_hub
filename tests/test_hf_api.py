@@ -253,7 +253,7 @@ class HfApiEndpointsTest(HfApiCommonTestWithLogin):
     def test_transfer_repo(self):
         REPO_NAME = repo_name("crud")
         NEW_REPO_NAME = repo_name("crud2")
-        for repo_type in REPO_TYPES:
+        for repo_type in [REPO_TYPE_MODEL, REPO_TYPE_DATASET, REPO_TYPE_SPACE]:
             self._api.create_repo(
                 name=REPO_NAME,
                 token=self._token,
@@ -277,7 +277,7 @@ class HfApiEndpointsTest(HfApiCommonTestWithLogin):
         NEW_REPO_NAME = repo_name("crud2")
         new_repo_id = f"__DUMMY_TRANSFORMERS_USER__/{NEW_REPO_NAME}"
 
-        for repo_type in REPO_TYPES:
+        for repo_type in [REPO_TYPE_MODEL, REPO_TYPE_DATASET, REPO_TYPE_SPACE]:
             self._api.create_repo(
                 name=REPO_NAME,
                 token=self._token,
