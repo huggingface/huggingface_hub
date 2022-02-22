@@ -1291,7 +1291,13 @@ class HfApi:
             headers={"authorization": f"Bearer {token}"},
             json=json,
         )
-        r.raise_for_status()
+        try:
+            r.raise_for_status()
+        except HTTPError as e:
+            if r.text:
+                raise HTTPError(f"{r.status_code} Error Message: {r.text}")
+            else:
+                raise e
         logging.info(
             "Accepted transfer request. You will get an email once this is successfully completed."
         )
