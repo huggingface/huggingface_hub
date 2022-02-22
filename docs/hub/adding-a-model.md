@@ -163,7 +163,7 @@ Before we begin, you should make sure the `huggingface_hub` library is installed
 
 >>> pip install huggingface_hub
 
-Afterwards, you should login with your credentials. To find your credentials you can go to your [settings](https://huggingface.co/settings/token) from the Hugging Face website and copy the current token there.
+Afterwards, you should login with your credentials. To find your credentials you can go to your [settings](https://huggingface.co/settings/tokens) from the Hugging Face website and copy the current token there.
 
 To login to your profile, there are two options:
 - Logging in from a Jupyter Notebook that has ipywidgets enabled
