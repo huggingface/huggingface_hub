@@ -23,18 +23,13 @@
 	export let forceMenuAlignement: "left" | "right" | undefined = undefined;
 	export let menuClassNames = "";
 	export let noBtnClass: boolean | undefined = undefined;
-	export let selectedValue: string | undefined = undefined;
 	export let withBtnCaret = false;
 
 	let element: HTMLElement | undefined = undefined;
 	let isOpen = false;
 </script>
 
-<div
-	class="relative {classNames}"
-	bind:this={element}
-	selected-value={selectedValue || undefined}
->
+<div class="relative {classNames}" bind:this={element}>
 	<!-- Button -->
 	<button
 		class="{btnClassNames}
