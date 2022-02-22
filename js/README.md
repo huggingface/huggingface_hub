@@ -14,7 +14,9 @@ TODO: write more documentation
 
 ## How to develop
 
-Once you've created a project and installed dependencies with `npm install` (or `pnpm install` or `yarn`), start a development server:
+Once you've created a project and installed dependencies with `npm ci` (or
+`pnpm install --frozen-lockfile` or `yarn install --frozen-lockfile`), start a
+development server:
 
 ```bash
 npm run dev
@@ -28,4 +30,3 @@ npm run dev -- --open
 ```bash
 npm run build
 ```
-
