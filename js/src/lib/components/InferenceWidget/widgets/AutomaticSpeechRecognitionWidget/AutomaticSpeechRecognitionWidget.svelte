@@ -5,6 +5,7 @@
 	import WidgetFileInput from "../../shared/WidgetFileInput/WidgetFileInput.svelte";
 	import WidgetOutputText from "../../shared/WidgetOutputText/WidgetOutputText.svelte";
 	import WidgetRecorder from "../../shared/WidgetRecorder/WidgetRecorder.svelte";
+	import WidgetRealtimeRecorder from "../../shared/WidgetRealtimeRecorder/WidgetRealtimeRecorder.svelte";
 	import WidgetSubmitBtn from "../../shared/WidgetSubmitBtn/WidgetSubmitBtn.svelte";
 	import WidgetWrapper from "../../shared/WidgetWrapper/WidgetWrapper.svelte";
 	import { getResponse, getBlobFromUrl } from "../../shared/helpers";
@@ -142,18 +143,24 @@
 	<svelte:fragment slot="top">
 		<form>
 			<div class="flex items-center flex-wrap">
-				<WidgetFileInput
-					accept="audio/*"
-					classNames="mt-1.5 mr-2"
-					{onSelectFile}
-				/>
-				<span class="mt-1.5 mr-2">or</span>
+				<WidgetFileInput accept="audio/*" classNames="mt-1.5" {onSelectFile} />
+				<span class="mt-1.5 mx-2">or</span>
 				<WidgetRecorder
 					classNames="mt-1.5"
 					{onRecordStart}
 					onRecordStop={onSelectFile}
 					onError={onRecordError}
 				/>
+				<!-- TODO: rm `true` from line below (for debug reasons it was added) -->
+				{#if model?.cardData?.widget_realtime_asr || true}
+					<span class="mt-1.5 mx-2">or</span>
+					<WidgetRealtimeRecorder
+						classNames="mt-1.5"
+						{apiToken}
+						{model}
+						onError={onRecordError}
+					/>
+				{/if}
 			</div>
 			{#if fileUrl}
 				<WidgetAudioTrack classNames="mt-3" label={filename} src={fileUrl} />
