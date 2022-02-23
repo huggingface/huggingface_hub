@@ -61,6 +61,7 @@ if is_tf_available():
         def call(self, x):
             return self.l1(x)
 
+
 else:
     DummyModel = None
 
@@ -319,6 +320,53 @@ class HubKerasSequentialTest(HubMixingTestKeras):
         )
 
         self.assertTrue(
+            "logs/tensorboard.txt" in [f.rfilename for f in model_info.siblings]
+        )
+
+        self._api.delete_repo(name=f"{REPO_NAME}", token=self._token)
+
+    @retry_endpoint
+    def test_override_tensorboard(self):
+        os.makedirs(f"{WORKING_REPO_DIR}/tb_log_dir")
+        with open(f"{WORKING_REPO_DIR}/tb_log_dir/tensorboard.txt", "w") as fp:
+            fp.write("Keras FTW")
+        REPO_NAME = repo_name("PUSH_TO_HUB")
+        model = self.model_init()
+        model.build((None, 2))
+        push_to_hub_keras(
+            model,
+            repo_path_or_name=f"{WORKING_REPO_DIR}/{REPO_NAME}",
+            log_dir=f"{WORKING_REPO_DIR}/tb_log_dir",
+            api_endpoint=ENDPOINT_STAGING,
+            use_auth_token=self._token,
+            git_user="ci",
+            git_email="ci@dummy.com",
+        )
+
+        os.remove(f"{WORKING_REPO_DIR}/tb_log_dir/tensorboard.txt")
+        with open(f"{WORKING_REPO_DIR}/tb_log_dir/override.txt", "w") as fp:
+            fp.write("Keras FTW")
+
+        REPO_NAME = repo_name("PUSH_TO_HUB")
+        model = self.model_init()
+        model.build((None, 2))
+        push_to_hub_keras(
+            model,
+            repo_path_or_name=f"{WORKING_REPO_DIR}/{REPO_NAME}",
+            log_dir=f"{WORKING_REPO_DIR}/tb_log_dir",
+            api_endpoint=ENDPOINT_STAGING,
+            use_auth_token=self._token,
+            git_user="ci",
+            git_email="ci@dummy.com",
+        )
+
+        model_info = HfApi(endpoint=ENDPOINT_STAGING).model_info(
+            f"{USER}/{REPO_NAME}",
+        )
+        self.assertTrue(
+            "logs/override.txt" in [f.rfilename for f in model_info.siblings]
+        )
+        self.assertFalse(
             "logs/tensorboard.txt" in [f.rfilename for f in model_info.siblings]
         )
 
