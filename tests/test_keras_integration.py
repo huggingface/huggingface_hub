@@ -341,14 +341,13 @@ class HubKerasSequentialTest(HubMixingTestKeras):
             git_user="ci",
             git_email="ci@dummy.com",
         )
-
-        os.remove(f"{WORKING_REPO_DIR}/tb_log_dir/tensorboard.txt")
-        with open(f"{WORKING_REPO_DIR}/tb_log_dir/override.txt", "w") as fp:
+        os.makedirs(f"{WORKING_REPO_DIR}/tb_log_dir2")
+        with open(f"{WORKING_REPO_DIR}/tb_log_dir2/override.txt", "w") as fp:
             fp.write("Keras FTW")
         push_to_hub_keras(
             model,
             repo_path_or_name=f"{WORKING_REPO_DIR}/{REPO_NAME}",
-            log_dir=f"{WORKING_REPO_DIR}/tb_log_dir",
+            log_dir=f"{WORKING_REPO_DIR}/tb_log_dir2",
             api_endpoint=ENDPOINT_STAGING,
             use_auth_token=self._token,
             git_user="ci",
