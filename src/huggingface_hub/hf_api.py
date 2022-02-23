@@ -1233,14 +1233,8 @@ class HfApi:
         """
         Moving a repository from namespace1/repo_name1 to namespace2/repo_name2
 
-        Moving can be used for three use cases
-        - Renaming a repository within same user.
-        - Renaming a repository within same organization.
-        - Transfering repository from user to an organization.
-
-        Moving does not work for:
-        - Transfering a repository from an organization to another user or organization.
-        - Transfering a repository from user A to user B.
+        Note there are certain limitations. For more information about moving repositories, please
+        see https://hf.co/docs/hub/main#how-can-i-rename-or-transfer-a-repo.
         """
         token = self._validate_or_retrieve_token(token)
 
@@ -1266,7 +1260,9 @@ class HfApi:
             r.raise_for_status()
         except HTTPError as e:
             if r.text:
-                raise HTTPError(f"{r.status_code} Error Message: {r.text}")
+                raise HTTPError(
+                    f"{r.status_code} Error Message: {r.text}. For additional documentation please see https://hf.co/docs/hub/main#how-can-i-rename-or-transfer-a-repo."
+                )
             else:
                 raise e
         logging.info(

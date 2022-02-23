@@ -94,6 +94,21 @@ Here is a video to learn more about it from our [course](http://hf.co/course)!
 
 <iframe width="560" height="315" src="https://www.youtube-nocookie.com/embed/rkCly_cbMBk" title="Managing a repo" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>
 
+## How can I rename or transfer a repo?
+
+You can go to the settings page in any repo to achieve this. Note that there are certain limitations in terms of use cases.
+
+Moving can be used for three use cases ✅ 
+- Renaming a repository within same user.
+- Renaming a repository within same organization.
+- Transfering repository from user to an organization.
+
+Moving does not work for ❌
+- Transfering a repository from an organization to another user or organization.
+- Transfering a repository from user A to user B.
+
+If these are use cases you need help with, please send us an email at **website at huggingface.co**.
+
 ## What's the origin of 🤗 name? 
 
 🤗
