@@ -345,10 +345,6 @@ class HubKerasSequentialTest(HubMixingTestKeras):
         os.remove(f"{WORKING_REPO_DIR}/tb_log_dir/tensorboard.txt")
         with open(f"{WORKING_REPO_DIR}/tb_log_dir/override.txt", "w") as fp:
             fp.write("Keras FTW")
-
-        REPO_NAME = repo_name("PUSH_TO_HUB")
-        model = self.model_init()
-        model.build((None, 2))
         push_to_hub_keras(
             model,
             repo_path_or_name=f"{WORKING_REPO_DIR}/{REPO_NAME}",
