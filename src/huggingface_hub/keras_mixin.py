@@ -25,37 +25,40 @@ if is_tf_available():
 
 
 def _extract_hyperparameters_from_keras(model):
-    hyperparameters = dict()
-    if hasattr(model, "optimizer"):
+    if model.optimizer is not None:
+        hyperparameters = dict()
         hyperparameters["optimizer"] = model.optimizer.get_config()
+        hyperparameters[
+            "training_precision"
+        ] = tf.keras.mixed_precision.global_policy().name
     else:
-        hyperparameters["optimizer"] = None
-    hyperparameters[
-        "training_precision"
-    ] = tf.keras.mixed_precision.global_policy().name
-
+        hyperparameters = None
     return hyperparameters
 
 
 def _parse_model_history(model):
-    logs = model.history.history
-    num_epochs = len(logs["loss"])
-    lines = []
+    lines = None
+    if model.history is not None:
+        if model.history.history is not None:
+            lines = []
+            logs = model.history.history
+            num_epochs = len(logs["loss"])
 
-    for value in range(num_epochs):
-        epoch_dict = {
-            log_key: log_value_list[value] for log_key, log_value_list in logs.items()
-        }
-        values = dict()
-        for k, v in epoch_dict.items():
-            if k.startswith("val_"):
-                k = "validation_" + k[4:]
-            elif k != "epoch":
-                k = "train_" + k
-            splits = k.split("_")
-            name = " ".join([part.capitalize() for part in splits])
-            values[name] = v
-        lines.append(values)
+            for value in range(num_epochs):
+                epoch_dict = {
+                    log_key: log_value_list[value]
+                    for log_key, log_value_list in logs.items()
+                }
+                values = dict()
+                for k, v in epoch_dict.items():
+                    if k.startswith("val_"):
+                        k = "validation_" + k[4:]
+                    elif k != "epoch":
+                        k = "train_" + k
+                    splits = k.split("_")
+                    name = " ".join([part.capitalize() for part in splits])
+                    values[name] = v
+                lines.append(values)
     return lines
 
 
@@ -114,26 +117,23 @@ def _create_model_card(
     model_card += "\n## Model description\n\nMore information needed\n"
     model_card += "\n## Intended uses & limitations\n\nMore information needed\n"
     model_card += "\n## Training and evaluation data\n\nMore information needed\n"
-    model_card += "\n## Training procedure\n"
-    model_card += "\n### Training hyperparameters\n"
     if hyperparameters is not None:
+        model_card += "\n## Training procedure\n"
+        model_card += "\n### Training hyperparameters\n"
         model_card += "\nThe following hyperparameters were used during training:\n"
         model_card += "\n".join(
             [f"- {name}: {value}" for name, value in hyperparameters.items()]
         )
         model_card += "\n"
-    else:
-        model_card += "\nMore information needed\n"
-
-    model_card += "\n ## Training Metrics"
+    model_card += "\n ## Training Metrics\n"
     model_card = _write_metrics(model, model_card)
-    model_card += "\n ## Model Plot\n"
-    model_card += "\n<details>"
-    if model_plot:
+    if model_plot and os.path.exists(f"{repo_dir}/model.png"):
+        model_card += "\n ## Model Plot\n"
+        model_card += "\n<details>"
         model_card += "\n<summary>View Model Plot</summary>\n"
         path_to_plot = "./model.png"
         model_card += f"\n![Model Image]({path_to_plot})\n"
-    model_card += "\n</details>"
+        model_card += "\n</details>"
 
     if os.path.exists(readme_path):
         with open(readme_path, "r", encoding="utf8") as f:
@@ -311,7 +311,6 @@ def push_to_hub_keras(
         include_optimizer=include_optimizer,
         **model_save_kwargs,
     )
-
     _create_model_card(model, repo_path_or_name, model_plot, task_name)
     if log_dir is not None:
         copytree(log_dir, f"{repo_path_or_name}/logs")

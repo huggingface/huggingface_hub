@@ -62,7 +62,6 @@ if is_tf_available():
         def call(self, x):
             return self.l1(x)
 
-
 else:
     DummyModel = None
 
@@ -283,7 +282,6 @@ class HubKerasSequentialTest(HubMixingTestKeras):
         REPO_NAME = repo_name("PUSH_TO_HUB")
         model = self.model_init()
         model.build((None, 2))
-        self.model_fit(model)
         push_to_hub_keras(
             model,
             repo_path_or_name=f"{WORKING_REPO_DIR}/{REPO_NAME}",
@@ -302,7 +300,7 @@ class HubKerasSequentialTest(HubMixingTestKeras):
 
         self._api.delete_repo(name=f"{REPO_NAME}", token=self._token)
 
-    def test_push_to_hub_model_card(self):
+    def test_push_to_hub_model_card_fit(self):
         REPO_NAME = repo_name("PUSH_TO_HUB")
         model = self.model_init()
         model.build((None, 2))
@@ -323,6 +321,25 @@ class HubKerasSequentialTest(HubMixingTestKeras):
         self.assertTrue("model.png" in [f.rfilename for f in model_info.siblings])
         self._api.delete_repo(name=f"{REPO_NAME}", token=self._token)
 
+    def test_push_to_hub_model_card_build(self):
+        REPO_NAME = repo_name("PUSH_TO_HUB")
+        model = self.model_init()
+        model.build((None, 2))
+        push_to_hub_keras(
+            model,
+            repo_path_or_name=f"{WORKING_REPO_DIR}/{REPO_NAME}",
+            api_endpoint=ENDPOINT_STAGING,
+            use_auth_token=self._token,
+            git_user="ci",
+            git_email="ci@dummy.com",
+        )
+        model_info = HfApi(endpoint=ENDPOINT_STAGING).model_info(
+            f"{USER}/{REPO_NAME}",
+        )
+        self.assertTrue("README.md" in [f.rfilename for f in model_info.siblings])
+        self.assertTrue("model.png" in [f.rfilename for f in model_info.siblings])
+        self._api.delete_repo(name=f"{REPO_NAME}", token=self._token)
+
     def test_push_to_hub_model_card_plot_false(self):
         REPO_NAME = repo_name("PUSH_TO_HUB")
         model = self.model_init()
@@ -335,7 +352,6 @@ class HubKerasSequentialTest(HubMixingTestKeras):
             use_auth_token=self._token,
             git_user="ci",
             git_email="ci@dummy.com",
-            task_name="object-detection",
             model_plot=False,
         )
         model_info = HfApi(endpoint=ENDPOINT_STAGING).model_info(
@@ -350,7 +366,6 @@ class HubKerasSequentialTest(HubMixingTestKeras):
             fp.write("Keras FTW")
         REPO_NAME = repo_name("PUSH_TO_HUB")
         model = self.model_init()
-        model.build((None, 2))
         model = self.model_fit(model)
         push_to_hub_keras(
             model,
@@ -374,7 +389,6 @@ class HubKerasSequentialTest(HubMixingTestKeras):
     def test_push_to_hub_model_kwargs(self):
         REPO_NAME = repo_name("PUSH_TO_HUB")
         model = self.model_init()
-        model.build((None, 2))
         model = self.model_fit(model)
         push_to_hub_keras(
             model,
@@ -411,7 +425,19 @@ class HubKerasFunctionalTest(HubKerasSequentialTest):
     def test_save_pretrained(self):
         REPO_NAME = repo_name("functional")
         model = self.model_init()
+        model.build((None, 2))
         self.assertTrue(model.built)
+
+        save_pretrained_keras(model, f"{WORKING_REPO_DIR}/{REPO_NAME}")
+        files = os.listdir(f"{WORKING_REPO_DIR}/{REPO_NAME}")
+
+        self.assertIn("saved_model.pb", files)
+        self.assertIn("keras_metadata.pb", files)
+        self.assertEqual(len(files), 4)
+
+    def test_save_pretrained_fit(self):
+        REPO_NAME = repo_name("functional")
+        model = self.model_init()
         model = self.model_fit(model)
 
         save_pretrained_keras(model, f"{WORKING_REPO_DIR}/{REPO_NAME}")

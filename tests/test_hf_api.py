@@ -893,7 +893,7 @@ class HfLargefilesTest(HfApiCommonTest):
         REMOTE_URL = self._api.create_repo(
             name=self.REPO_NAME_LARGE_FILE,
             token=self._token,
-            lfsmultipartthresh=6 * 10 ** 6,
+            lfsmultipartthresh=6 * 10**6,
         )
         self.setup_local_clone(REMOTE_URL)
 
@@ -946,7 +946,7 @@ class HfLargefilesTest(HfApiCommonTest):
         REMOTE_URL = self._api.create_repo(
             name=self.REPO_NAME_LARGE_FILE,
             token=self._token,
-            lfsmultipartthresh=16 * 10 ** 6,
+            lfsmultipartthresh=16 * 10**6,
         )
         self.setup_local_clone(REMOTE_URL)
 
