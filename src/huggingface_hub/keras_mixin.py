@@ -2,7 +2,7 @@ import json
 import logging
 import os
 from pathlib import Path
-from shutil import copytree
+from shutil import copytree, rmtree
 from typing import Any, Dict, Optional, Union
 
 from huggingface_hub import ModelHubMixin
@@ -179,7 +179,10 @@ def push_to_hub_keras(
         **model_save_kwargs,
     )
     if log_dir is not None:
+        if os.path.exists(f"{repo_path_or_name}/logs"):
+            rmtree(f"{repo_path_or_name}/logs")
         copytree(log_dir, f"{repo_path_or_name}/logs")
+
     # Commit and push!
     repo.git_add(auto_lfs_track=True)
     repo.git_commit(commit_message)
