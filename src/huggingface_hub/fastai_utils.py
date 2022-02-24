@@ -7,7 +7,7 @@ from typing import Any, Dict, Optional, Union
 
 import packaging.version
 
-import tomlkit
+import toml
 from huggingface_hub.constants import CONFIG_NAME
 from huggingface_hub.file_download import (
     _PY_VERSION,
@@ -81,17 +81,16 @@ def check_fastai_fastcore_pyproject_versions(
         FileNotFoundError, ImportError
 
     """
-    # Review that a `pyproject.toml` exist in the repository
+    # Check that a `pyproject.toml` exists in the repository, and if so, get a list of required packages
     try:
-        with open(f"{storage_folder}/pyproject.toml") as pyproject:
-            file_contents = pyproject.read()
-    except:
+        package_versions = toml.load(f"{storage_folder}/pyproject.toml")[
+            "build-system"
+        ]["requires"]
+    except FileNotFoundError:
         raise FileNotFoundError(
-            f"There is no `pyproject.toml` in the repository that contains the fastai Learner. This is necessary to check that the `from_pretrained_fatai` function is compatible with the fastai and fastcore versions used in the model you want to load."
+            "There is no `pyproject.toml` in the repository that contains the fastai Learner. This is necessary to check that the `from_pretrained_fatai` function is compatible with the fastai and fastcore versions used in the model you want to load."
         )
 
-    # Get list with packages required in `pyproject.toml`
-    package_versions = tomlkit.parse(file_contents)["build-system"]["requires"]
     # Check that `pyproject.toml` contains versions for fastai and fastcore. If there is no version available, it throws an error
     try:
         fastai_version = str(
