@@ -150,22 +150,18 @@ def _create_model_card(
         f.write(readme)
 
 
+
 class PushToHubCallback(Callback):
     """
     Callback that will save and push Keras models to the Hub regularly. By default, it pushes once per epoch, but this can
-    be changed with the `save_strategy` argument.
+    be changed with the `save_strategy` argument. 
     ```py
-    from transformers.keras_callbacks import PushToHubCallback
     push_to_hub_callback = PushToHubCallbackKeras(
-        output_dir="./model_save",
-        hub_model_id="gpt5-7xlarge",
+        repo_path_or_name="gpt5-7xlarge",
     )
     model.fit(train_dataset, callbacks=[push_to_hub_callback])
     ```
     Args:
-        output_dir (`str`):
-            The output directory where the model predictions and checkpoints will be written and synced with the
-            repository on the Hub.
         save_strategy (`str`, *optional*, defaults to `"epoch"`):
             The checkpoint save strategy to adopt during training. Possible values are:
                 - `"no"`: Save is done at the end of training run.
@@ -173,23 +169,34 @@ class PushToHubCallback(Callback):
                 - `"steps"`: Save is done every `save_steps`
         save_steps (`int`, *optional*):
             The number of steps between saves when using the "steps" `save_strategy`.
-        hub_model_id (`str`, *optional*):
-            The name of the repository to keep in sync with the local `output_dir`. It can be a simple model ID in
-            which case the model will be pushed in your namespace. Otherwise it should be the whole repository name,
-            for instance `"user_name/model"`, which allows you to push to an organization you are a member of with
-            `"organization_name/model"`.
-            Will default to to the name of `output_dir`.
         hub_token (`str`, *optional*):
             The token to use to push the model to the Hub. Will default to the token in the cache folder obtained with
             `huggingface-cli login`.
+                api_endpoint (:obj:`str`, `optional`):
+            The API endpoint to use when pushing the model to the hub.
+        organization (:obj:`str`, `optional`):
+            Organization in which you want to push your model or tokenizer (you must be a member of this
+            organization).
+        api_endpoint (:obj:`str`, `optional`):
+            The API endpoint to use when pushing the model to the hub.
+        git_user (``str``, `optional`):
+            will override the ``git config user.name`` for committing and pushing files to the hub.
+        git_email (``str``, `optional`):
+            will override the ``git config user.email`` for committing and pushing files to the hub.
+        task_name (:obj:`str`, `optional`):
+            Name of the task the model was trained on. See the available tasks at https://github.com/huggingface/huggingface_hub/blob/main/js/src/lib/interfaces/Types.ts.
+        model_plot (:obj:`bool`):
+            Setting this to `True` will plot the model and put it in the model card. Requires graphviz and pydot to be installed.
+        include_optimizer (:obj:`bool`, `optional`):
+            Whether or not to include optimizer during serialization.
+        model_save_kwargs(:obj:`dict`, `optional`):
+            model_save_kwargs will be passed to tf.keras.models.save_model(). 
     """
 
     def __init__(
         self,
-        output_dir: str,
         save_strategy: Optional[str] = "epoch",
         save_steps: Optional[int] = None,
-        checkpoint: Optional[bool] = False,
         repo_path_or_name: Optional[str] = None,
         repo_url: Optional[str] = None,
         hub_token: Optional[str] = None,
@@ -198,28 +205,27 @@ class PushToHubCallback(Callback):
         git_user: Optional[str] = None,
         git_email: Optional[str] = None,
         model_plot: Optional[bool] = True,
-        task_name: Optional[str] = None,
+        include_optimizer: Optional[bool] = True,
+        task_name: Optional[str] = None
     ):
         super().__init__()
         self.save_strategy = save_strategy
         self.save_steps = save_steps
-        self.output_dir = output_dir
         self.repo_path_or_name = repo_path_or_name
         self.repo_url = repo_url
         self.organization = organization
         self.hub_token = hub_token
         self.api_endpoint = api_endpoint
-        self.checkpoint = checkpoint
         self.model_plot = model_plot
         self.task_name = task_name
         self.last_job = None
         self.git_user = git_user
         self.git_email = git_email
+        self.include_optimizer = include_optimizer
+        self.task_name = task_name
 
         if self.repo_path_or_name is None and self.repo_url is None:
-            raise ValueError(
-                "You need to specify a `repo_path_or_name` or a `repo_url`."
-            )
+            raise ValueError("You need to specify a `repo_path_or_name` or a `repo_url`.")
 
         if isinstance(hub_token, bool) and hub_token:
             self.token = HfFolder.get_token()
@@ -238,7 +244,6 @@ class PushToHubCallback(Callback):
         if self.repo_path_or_name is None:
             self.repo_path_or_name = self.repo_url.split("/")[-1]
 
-        # If no URL is passed and there's no path to a directory containing files, create a repo
         if self.repo_url is None and not os.path.exists(self.repo_path_or_name):
             self.repo_name = Path(self.repo_path_or_name).name
             self.repo_url = HfApi(endpoint=self.api_endpoint).create_repo(
@@ -258,44 +263,37 @@ class PushToHubCallback(Callback):
         )
         self.repo.git_pull(rebase=True)
 
+
     def on_train_batch_end(self, batch, logs=None):
         if self.save_strategy == "steps" and batch + 1 % self.save_steps == 0:
-            if self.last_job is not None and not self.last_job.is_done:
-                return  # The last upload is still running, don't start another
-            save_pretrained_keras(self.model, self.output_dir)
+            #if self.last_job is not None and not self.last_job.is_done:
+            #    return
+            save_pretrained_keras(self.model, self.repo_path_or_name)
             self.repo.git_add(auto_lfs_track=True)
-            self.repo.git_commit()
-            _, self.last_job = self.repo.git_push(blocking=False)
+            _, self.last_job = self.repo.push_to_hub(
+                commit_message=f"Training in progress epoch {batch}", blocking=False
+            )
 
     def on_epoch_end(self, epoch, logs=None):
         if self.save_strategy == "epoch":
             if self.last_job is not None and not self.last_job.is_done:
-                return  # The last upload is still running, don't start another
-            save_pretrained_keras(self.model, self.repo_path_or_name)
-            _create_model_card(
-                self.model, self.repo_path_or_name, self.model_plot, self.task_name
-            )
+                return
+            save_pretrained_keras(self.model, self.repo_path_or_name, include_optimizer = self.include_optimizer)
+            _create_model_card(self.model, self.repo_path_or_name, self.model_plot, self.task_name)
             self.repo.git_add(auto_lfs_track=True)
-            self.repo.git_commit()
-            _, self.last_job = self.repo.git_push(blocking=False)
+            _, self.last_job = self.repo.push_to_hub(
+                commit_message=f"Training in progress epoch {epoch}", blocking=False
+            )
 
     def on_train_end(self, logs=None):
         if self.last_job is not None and not self.last_job.is_done:
             logger.info("Waiting for existing upload to finish...")
             while not self.last_job.is_done:
                 time.sleep(1)
-        save_pretrained_keras(self.model, self.repo_path_or_name)
-        _create_model_card(
-            self.model, self.repo_path_or_name, self.model_plot, self.task_name
-        )
-        # with open(f"{self.output_dir}/README.md", "w",  encoding="utf-8") as f:
-        #    if model_card is None:
-        #        model_card = ""
-        #    f.write(model_card)
+        save_pretrained_keras(self.model, self.repo_path_or_name, include_optimizer = self.include_optimizer)
+        _create_model_card(self.model, self.repo_path_or_name, self.model_plot, self.task_name)
         self.repo.git_add(auto_lfs_track=True)
-        self.repo.git_commit()
-        self.repo.git_push(blocking=True)
-
+        self.repo.push_to_hub(commit_message="End of training", blocking=True)
 
 def save_pretrained_keras(
     model,

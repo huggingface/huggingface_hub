@@ -14,6 +14,7 @@ from huggingface_hub.file_download import (
 )
 from huggingface_hub.keras_mixin import (
     KerasModelHubMixin,
+    PushToHubCallback,
     from_pretrained_keras,
     push_to_hub_keras,
     save_pretrained_keras,
@@ -179,6 +180,19 @@ class HubKerasSequentialTest(HubMixingTestKeras):
         y = tf.constant([[1, 1], [0, 0]])
         model.fit(x, y)
         return model
+
+    def model_fit_callback(self):
+        model = self.model_init()
+        push_to_hub_callback = PushToHubCallback(
+            save_strategy="epoch",
+            save_steps=3,
+            repo_path_or_name=f"{WORKING_REPO_DIR}/{REPO_NAME}",
+            api_endpoint=ENDPOINT_STAGING,
+            hub_token=self._token,
+            git_user="ci",
+            git_email="ci@dummy.com",
+        )
+        model.fit(x, y, callbacks=[push_to_hub_callback])
 
     def test_save_pretrained(self):
         REPO_NAME = repo_name("save")
