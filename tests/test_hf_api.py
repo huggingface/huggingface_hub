@@ -258,6 +258,39 @@ class HfApiEndpointsTest(HfApiCommonTestWithLogin):
                 name=SPACE_REPO_NAME, token=self._token, repo_type=REPO_TYPE_SPACE
             )
 
+    def test_move_repo(self):
+        REPO_NAME = repo_name("crud")
+        repo_id = f"__DUMMY_TRANSFORMERS_USER__/{REPO_NAME}"
+        NEW_REPO_NAME = repo_name("crud2")
+        new_repo_id = f"__DUMMY_TRANSFORMERS_USER__/{NEW_REPO_NAME}"
+
+        for repo_type in [REPO_TYPE_MODEL, REPO_TYPE_DATASET, REPO_TYPE_SPACE]:
+            self._api.create_repo(
+                name=REPO_NAME,
+                token=self._token,
+                repo_type=repo_type,
+                space_sdk="static",
+            )
+
+            with pytest.raises(ValueError, match=r"Invalid repo_id*"):
+                self._api.move_repo(
+                    from_id=repo_id,
+                    to_id="invalid_repo_id",
+                    token=self._token,
+                    repo_type=repo_type,
+                )
+
+            # Should raise an error if it fails
+            self._api.move_repo(
+                from_id=repo_id,
+                to_id=new_repo_id,
+                token=self._token,
+                repo_type=repo_type,
+            )
+            self._api.delete_repo(
+                name=NEW_REPO_NAME, token=self._token, repo_type=repo_type
+            )
+
 
 class HfApiUploadFileTest(HfApiCommonTestWithLogin):
     def setUp(self) -> None:
