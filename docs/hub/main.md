@@ -101,7 +101,7 @@ You can go to the settings page in any repo to achieve this. Note that there are
 Moving can be used for three use cases ✅ 
 - Renaming a repository within same user.
 - Renaming a repository within same organization.
-- Transfering repository from user to an organization.
+- Transfering repository from user to an organization. The user must be part of the organization and have "write" or "admin" rights in the organization.
 
 Moving does not work for ❌
 - Transfering a repository from an organization to another user or organization.
