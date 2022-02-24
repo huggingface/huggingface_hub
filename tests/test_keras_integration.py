@@ -347,7 +347,7 @@ class HubKerasSequentialTest(HubMixingTestKeras):
         self.assertTrue("README.md" in [f.rfilename for f in model_info.siblings])
         self.assertTrue("model.png" in [f.rfilename for f in model_info.siblings])
         self._api.delete_repo(name=f"{REPO_NAME}", token=self._token)
-    
+
     @retry_endpoint
     def test_push_to_hub_model_card_plot_false(self):
         REPO_NAME = repo_name("PUSH_TO_HUB")
