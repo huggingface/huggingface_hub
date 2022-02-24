@@ -100,14 +100,14 @@ def _write_metrics(model, model_card):
 def _create_model_card(
     model,
     repo_dir: Path,
-    model_plot: Optional[bool] = True,
+    plot_model: Optional[bool] = True,
     task_name: Optional[str] = None,
 ):
     """
     Creates a model card for the repository.
     """
     hyperparameters = _extract_hyperparameters_from_keras(model)
-    if model_plot and is_graphviz_available() and is_pydot_available():
+    if plot_model and is_graphviz_available() and is_pydot_available():
         _plot_network(model, repo_dir)
     readme_path = f"{repo_dir}/README.md"
     model_card = "---\n"
@@ -127,7 +127,7 @@ def _create_model_card(
         model_card += "\n"
     model_card += "\n ## Training Metrics\n"
     model_card = _write_metrics(model, model_card)
-    if model_plot and os.path.exists(f"{repo_dir}/model.png"):
+    if plot_model and os.path.exists(f"{repo_dir}/model.png"):
         model_card += "\n ## Model Plot\n"
         model_card += "\n<details>"
         model_card += "\n<summary>View Model Plot</summary>\n"
@@ -210,7 +210,7 @@ def push_to_hub_keras(
     config: Optional[dict] = None,
     include_optimizer: Optional[bool] = False,
     task_name: Optional[str] = None,
-    model_plot: Optional[bool] = True,
+    plot_model: Optional[bool] = True,
     **model_save_kwargs,
 ):
     """
@@ -254,7 +254,7 @@ def push_to_hub_keras(
             Whether or not to include optimizer during serialization.
         task_name (:obj:`str`, `optional`):
             Name of the task the model was trained on. See the available tasks at https://github.com/huggingface/huggingface_hub/blob/main/js/src/lib/interfaces/Types.ts.
-        model_plot (:obj:`bool`):
+        plot_model (:obj:`bool`):
             Setting this to `True` will plot the model and put it in the model card. Requires graphviz and pydot to be installed.
         model_save_kwargs(:obj:`dict`, `optional`):
             model_save_kwargs will be passed to tf.keras.models.save_model().
@@ -311,7 +311,7 @@ def push_to_hub_keras(
         include_optimizer=include_optimizer,
         **model_save_kwargs,
     )
-    _create_model_card(model, repo_path_or_name, model_plot, task_name)
+    _create_model_card(model, repo_path_or_name, plot_model, task_name)
     if log_dir is not None:
         if os.path.exists(f"{repo_path_or_name}/logs"):
             rmtree(f"{repo_path_or_name}/logs")

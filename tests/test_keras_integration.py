@@ -361,7 +361,7 @@ class HubKerasSequentialTest(HubMixingTestKeras):
             use_auth_token=self._token,
             git_user="ci",
             git_email="ci@dummy.com",
-            model_plot=False,
+            plot_model=False,
         )
         model_info = HfApi(endpoint=ENDPOINT_STAGING).model_info(
             f"{USER}/{REPO_NAME}",
