@@ -38,7 +38,7 @@ export function getPythonInferenceSnippet(model: ModelData, accessToken: string)
 
 	return `import requests
 
-API_URL = "https://api-inference.huggingface.co/models/${model.id, accessToken}"
+API_URL = "https://api-inference.huggingface.co/models/${model.id}"
 headers = {"Authorization": ${accessToken ? `"Bearer ${accessToken}"` : `f"Bearer {API_TOKEN}"`}}
 
 def query(payload):

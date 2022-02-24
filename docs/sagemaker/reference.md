@@ -196,7 +196,7 @@ HF_MODEL_REVISION="03b4d196c19d0a73c7e0322684e97db1ec397613"
 
 **`HF_API_TOKEN`**
 
-`HF_API_TOKEN` defines your Hugging Face authorization token. The `HF_API_TOKEN` is used as a HTTP bearer authorization for remote files like private models. You can find your token under [Settings](https://huggingface.co/settings/token) of your Hugging Face account.
+`HF_API_TOKEN` defines your Hugging Face authorization token. The `HF_API_TOKEN` is used as a HTTP bearer authorization for remote files like private models. You can find your token under [Settings](https://huggingface.co/settings/tokens) of your Hugging Face account.
 
 ```bash
 HF_API_TOKEN="api_XXXXXXXXXXXXXXXXXXXXXXXXXXXXX"

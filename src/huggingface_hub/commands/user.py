@@ -49,13 +49,6 @@ class UserCommands(BaseHuggingfaceCLICommand):
         repo_subparsers = repo_parser.add_subparsers(
             help="huggingface.co repos related commands"
         )
-        ls_parser = repo_subparsers.add_parser(
-            "ls-files", help="List all your files on huggingface.co"
-        )
-        ls_parser.add_argument(
-            "--organization", type=str, help="Optional: organization namespace."
-        )
-        ls_parser.set_defaults(func=lambda args: ListReposObjsCommand(args))
         repo_create_parser = repo_subparsers.add_parser(
             "create", help="Create a new repo on huggingface.co"
         )
@@ -164,7 +157,7 @@ class LoginCommand(BaseUserCommand):
         _|    _|  _|    _|  _|    _|  _|    _|    _|    _|    _|_|  _|    _|      _|        _|    _|  _|        _|
         _|    _|    _|_|      _|_|_|    _|_|_|  _|_|_|  _|      _|    _|_|_|      _|        _|    _|    _|_|_|  _|_|_|_|
 
-        To login, `huggingface_hub` now requires a token generated from https://huggingface.co/settings/token.
+        To login, `huggingface_hub` now requires a token generated from https://huggingface.co/settings/tokens.
         (Deprecated, will be removed in v0.3.0) To login with username and password instead, interrupt with Ctrl+C.
         """
         )
@@ -212,27 +205,6 @@ class LogoutCommand(BaseUserCommand):
             if not e.response.status_code == 400:
                 raise e
         print("Successfully logged out.")
-
-
-class ListReposObjsCommand(BaseUserCommand):
-    def run(self):
-        token = HfFolder.get_token()
-        if token is None:
-            print("Not logged in")
-            exit(1)
-        try:
-            objs = self._api.list_repos_objs(token, organization=self.args.organization)
-        except HTTPError as e:
-            print(e)
-            print(ANSI.red(e.response.text))
-            exit(1)
-        if len(objs) == 0:
-            print("No shared file yet")
-            exit()
-        rows = [[obj.filename, obj.lastModified, obj.commit, obj.size] for obj in objs]
-        print(
-            tabulate(rows, headers=["Filename", "LastModified", "Commit-Sha", "Size"])
-        )
 
 
 class RepoCreateCommand(BaseUserCommand):
@@ -313,7 +285,7 @@ Immediately click login after typing your password or it might be stored in plai
 NOTEBOOK_LOGIN_TOKEN_HTML_START = """<center>
 <img src=https://huggingface.co/front/assets/huggingface_logo-noborder.svg alt='Hugging Face'>
 <br>
-Copy a token from <a href="https://huggingface.co/settings/token" target="_blank">your Hugging Face tokens page</a> and paste it below.
+Copy a token from <a href="https://huggingface.co/settings/tokens" target="_blank">your Hugging Face tokens page</a> and paste it below.
 <br>
 Immediately click login after copying your token or it might be stored in plain text in this notebook file.
 </center>"""
