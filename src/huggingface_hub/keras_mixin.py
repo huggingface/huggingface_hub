@@ -1,6 +1,7 @@
 import json
 import logging
 import os
+import time
 from pathlib import Path
 from shutil import copytree
 from typing import Any, Dict, Optional, Union
@@ -22,6 +23,7 @@ logger = logging.getLogger(__name__)
 
 if is_tf_available():
     import tensorflow as tf
+    from tensorflow.keras.callbacks import Callback
 
 
 def _extract_hyperparameters_from_keras(model):
@@ -38,24 +40,28 @@ def _extract_hyperparameters_from_keras(model):
 
 
 def _parse_model_history(model):
-    logs = model.history.history
-    num_epochs = len(logs["loss"])
-    lines = []
+    lines = None
+    if model.history is not None:
+        if model.history.history != {}:
+            lines = []
+            logs = model.history.history
+            num_epochs = len(logs["loss"])
 
-    for value in range(num_epochs):
-        epoch_dict = {
-            log_key: log_value_list[value] for log_key, log_value_list in logs.items()
-        }
-        values = dict()
-        for k, v in epoch_dict.items():
-            if k.startswith("val_"):
-                k = "validation_" + k[4:]
-            elif k != "epoch":
-                k = "train_" + k
-            splits = k.split("_")
-            name = " ".join([part.capitalize() for part in splits])
-            values[name] = v
-        lines.append(values)
+            for value in range(num_epochs):
+                epoch_dict = {
+                    log_key: log_value_list[value]
+                    for log_key, log_value_list in logs.items()
+                }
+                values = dict()
+                for k, v in epoch_dict.items():
+                    if k.startswith("val_"):
+                        k = "validation_" + k[4:]
+                    elif k != "epoch":
+                        k = "train_" + k
+                    splits = k.split("_")
+                    name = " ".join([part.capitalize() for part in splits])
+                    values[name] = v
+                lines.append(values)
     return lines
 
 
@@ -127,9 +133,9 @@ def _create_model_card(
 
     model_card += "\n ## Training Metrics"
     model_card = _write_metrics(model, model_card)
-    model_card += "\n ## Model Plot\n"
-    model_card += "\n<details>"
-    if model_plot:
+    if model_plot and os.path.exists(f"{repo_dir}/model.png"):
+        model_card += "\n ## Model Plot\n"
+        model_card += "\n<details>"
         model_card += "\n<summary>View Model Plot</summary>\n"
         path_to_plot = "./model.png"
         model_card += f"\n![Model Image]({path_to_plot})\n"
@@ -142,6 +148,153 @@ def _create_model_card(
         readme = model_card
     with open(readme_path, "w", encoding="utf-8") as f:
         f.write(readme)
+
+
+class PushToHubCallback(Callback):
+    """
+    Callback that will save and push Keras models to the Hub regularly. By default, it pushes once per epoch, but this can
+    be changed with the `save_strategy` argument.
+    ```py
+    from transformers.keras_callbacks import PushToHubCallback
+    push_to_hub_callback = PushToHubCallbackKeras(
+        output_dir="./model_save",
+        hub_model_id="gpt5-7xlarge",
+    )
+    model.fit(train_dataset, callbacks=[push_to_hub_callback])
+    ```
+    Args:
+        output_dir (`str`):
+            The output directory where the model predictions and checkpoints will be written and synced with the
+            repository on the Hub.
+        save_strategy (`str`, *optional*, defaults to `"epoch"`):
+            The checkpoint save strategy to adopt during training. Possible values are:
+                - `"no"`: Save is done at the end of training run.
+                - `"epoch"`: Save is done at the end of each epoch.
+                - `"steps"`: Save is done every `save_steps`
+        save_steps (`int`, *optional*):
+            The number of steps between saves when using the "steps" `save_strategy`.
+        hub_model_id (`str`, *optional*):
+            The name of the repository to keep in sync with the local `output_dir`. It can be a simple model ID in
+            which case the model will be pushed in your namespace. Otherwise it should be the whole repository name,
+            for instance `"user_name/model"`, which allows you to push to an organization you are a member of with
+            `"organization_name/model"`.
+            Will default to to the name of `output_dir`.
+        hub_token (`str`, *optional*):
+            The token to use to push the model to the Hub. Will default to the token in the cache folder obtained with
+            `huggingface-cli login`.
+    """
+
+    def __init__(
+        self,
+        output_dir: str,
+        save_strategy: Optional[str] = "epoch",
+        save_steps: Optional[int] = None,
+        checkpoint: Optional[bool] = False,
+        repo_path_or_name: Optional[str] = None,
+        repo_url: Optional[str] = None,
+        hub_token: Optional[str] = None,
+        organization: Optional[str] = None,
+        api_endpoint: Optional[str] = None,
+        git_user: Optional[str] = None,
+        git_email: Optional[str] = None,
+        model_plot: Optional[bool] = True,
+        task_name: Optional[str] = None,
+    ):
+        super().__init__()
+        self.save_strategy = save_strategy
+        self.save_steps = save_steps
+        self.output_dir = output_dir
+        self.repo_path_or_name = repo_path_or_name
+        self.repo_url = repo_url
+        self.organization = organization
+        self.hub_token = hub_token
+        self.api_endpoint = api_endpoint
+        self.checkpoint = checkpoint
+        self.model_plot = model_plot
+        self.task_name = task_name
+        self.last_job = None
+        self.git_user = git_user
+        self.git_email = git_email
+
+        if self.repo_path_or_name is None and self.repo_url is None:
+            raise ValueError(
+                "You need to specify a `repo_path_or_name` or a `repo_url`."
+            )
+
+        if isinstance(hub_token, bool) and hub_token:
+            self.token = HfFolder.get_token()
+        elif isinstance(hub_token, str):
+            self.token = hub_token
+        else:
+            self.token = None
+
+        if self.token is None:
+            raise ValueError(
+                "You must login to the Hugging Face hub on this computer by typing `huggingface-cli login` and "
+                "entering your credentials to use `use_auth_token=True`. Alternatively, you can pass your own "
+                "token as the `use_auth_token` argument."
+            )
+
+        if self.repo_path_or_name is None:
+            self.repo_path_or_name = self.repo_url.split("/")[-1]
+
+        # If no URL is passed and there's no path to a directory containing files, create a repo
+        if self.repo_url is None and not os.path.exists(self.repo_path_or_name):
+            self.repo_name = Path(self.repo_path_or_name).name
+            self.repo_url = HfApi(endpoint=self.api_endpoint).create_repo(
+                self.repo_name,
+                token=self.hub_token,
+                organization=self.organization,
+                repo_type=None,
+                exist_ok=True,
+            )
+
+        self.repo = Repository(
+            self.repo_path_or_name,
+            clone_from=self.repo_url,
+            use_auth_token=self.token,
+            git_user=self.git_user,
+            git_email=self.git_email,
+        )
+        self.repo.git_pull(rebase=True)
+
+    def on_train_batch_end(self, batch, logs=None):
+        if self.save_strategy == "steps" and batch + 1 % self.save_steps == 0:
+            if self.last_job is not None and not self.last_job.is_done:
+                return  # The last upload is still running, don't start another
+            save_pretrained_keras(self.model, self.output_dir)
+            self.repo.git_add(auto_lfs_track=True)
+            self.repo.git_commit()
+            _, self.last_job = self.repo.git_push(blocking=False)
+
+    def on_epoch_end(self, epoch, logs=None):
+        if self.save_strategy == "epoch":
+            if self.last_job is not None and not self.last_job.is_done:
+                return  # The last upload is still running, don't start another
+            save_pretrained_keras(self.model, self.repo_path_or_name)
+            _create_model_card(
+                self.model, self.repo_path_or_name, self.model_plot, self.task_name
+            )
+            self.repo.git_add(auto_lfs_track=True)
+            self.repo.git_commit()
+            _, self.last_job = self.repo.git_push(blocking=False)
+
+    def on_train_end(self, logs=None):
+        if self.last_job is not None and not self.last_job.is_done:
+            logger.info("Waiting for existing upload to finish...")
+            while not self.last_job.is_done:
+                time.sleep(1)
+        save_pretrained_keras(self.model, self.repo_path_or_name)
+        _create_model_card(
+            self.model, self.repo_path_or_name, self.model_plot, self.task_name
+        )
+        # with open(f"{self.output_dir}/README.md", "w",  encoding="utf-8") as f:
+        #    if model_card is None:
+        #        model_card = ""
+        #    f.write(model_card)
+        self.repo.git_add(auto_lfs_track=True)
+        self.repo.git_commit()
+        self.repo.git_push(blocking=True)
 
 
 def save_pretrained_keras(
