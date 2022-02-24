@@ -39,7 +39,7 @@ def _extract_hyperparameters_from_keras(model):
 def _parse_model_history(model):
     lines = None
     if model.history is not None:
-        if model.history.history is not None:
+        if model.history.history != {}:
             lines = []
             logs = model.history.history
             num_epochs = len(logs["loss"])
