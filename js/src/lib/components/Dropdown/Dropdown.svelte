@@ -1,5 +1,6 @@
 <script lang="ts">
 	import type { SvelteComponent } from "svelte";
+	import DropdownEntry from "../DropdownEntry/DropdownEntry.svelte";
 	import DropdownMenu from "../DropdownMenu/DropdownMenu.svelte";
 	import IconCaretDown from "../Icons/IconCaretDown.svelte";
 
@@ -8,6 +9,17 @@
 	export let btnIcon: typeof SvelteComponent | undefined = undefined;
 	export let btnIconClassNames = "";
 	export let btnLabel = "";
+	export let entries: Array<{
+		classNames?: string;
+		href: string;
+		icon?: typeof SvelteComponent;
+		iconClassNames?: string;
+		onClick?: (e: MouseEvent) => void;
+		label?: string;
+		noFollow?: boolean;
+		underline?: boolean;
+		targetBlank?: boolean;
+	}> = [];
 	export let forceMenuAlignement: "left" | "right" | undefined = undefined;
 	export let menuClassNames = "";
 	export let noBtnClass: boolean | undefined = undefined;
@@ -60,7 +72,14 @@
 			forceAlignement={forceMenuAlignement}
 			onClose={() => (isOpen = false)}
 		>
-			<slot name="menu" />
+			<!-- The "menu" slot can overwrite the defaut menu content -->
+			{#if $$slots.menu}
+				<slot name="menu" />
+			{:else}
+				{#each entries as entry}
+					<DropdownEntry {...entry} />
+				{/each}
+			{/if}
 		</DropdownMenu>
 	{/if}
 	<!-- Menu -->
