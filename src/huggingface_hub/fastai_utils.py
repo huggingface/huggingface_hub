@@ -7,6 +7,7 @@ from typing import Any, Dict, Optional, Union
 
 import packaging.version
 
+import tomlkit
 from huggingface_hub.constants import CONFIG_NAME
 from huggingface_hub.file_download import (
     _PY_VERSION,
@@ -39,7 +40,7 @@ def check_fastai_fastcore_versions(
 
     """
 
-    # Check that `fastai` and `fastcore` versions are supported/
+    # Check that `fastai` and `fastcore` versions are supported
     if (get_fastcore_version() or get_fastai_version()) == "N/A":
         raise ImportError(
             f"fastai>={fastai_min_version} and fastcore>={fastcore_min_version} are required. Currently using fastai=={get_fastai_version()} and fastcore=={get_fastcore_version()}."
@@ -56,6 +57,82 @@ def check_fastai_fastcore_versions(
     if current_fastcore_version < packaging.version.Version(fastcore_min_version):
         raise ImportError(
             f"`push_to_hub_fastai` and `from_pretrained_fastai` require a fastcore>={fastcore_min_version} version, but you are using fastcore version {get_fastcore_version()} which is incompatible. Upgrade with `pip install fastcore==1.3.27`."
+        )
+
+
+def check_fastai_fastcore_pyproject_versions(
+    storage_folder: str,
+    fastai_min_version: Optional[str] = "2.4",
+    fastcore_min_version: Optional[str] = "1.3.27",
+):
+    """
+    Checks that the `pyproject.toml` file in the directory `storage_folder` has fastai and fastcore versions
+    that are compatible with `save_fastai_learner`, `from_pretrained_fastai` and `push_to_hub_fastai`.
+
+    Parameters:
+        storage_folder (:obj:`str`):
+            Folder to look for the `pyproject.toml` file.
+        fastai_min_version (:obj:`str`, `optional`):
+            The minimum fastai version supported.
+        fastcore_min_version (:obj:`str`, `optional`):
+            The minimum fastcore version supported.
+
+    Raises:
+        FileNotFoundError, ImportError
+
+    """
+    # Review that a `pyproject.toml` exist in the repository
+    try:
+        with open(f"{storage_folder}/pyproject.toml") as pyproject:
+            file_contents = pyproject.read()
+    except:
+        raise FileNotFoundError(
+            f"There is no `pyproject.toml` in the repository that contains the fastai Learner. This is necessary to check that the `from_pretrained_fatai` function is compatible with the fastai and fastcore versions used in the model you want to load."
+        )
+
+    # Get list with packages required in `pyproject.toml`
+    package_versions = tomlkit.parse(file_contents)["build-system"]["requires"]
+    # Check that `pyproject.toml` contains versions for fastai and fastcore. If there is no version available, it throws an error
+    try:
+        fastai_version = str(
+            [package for package in package_versions if package.startswith("fastai")][0]
+        )
+    except IndexError:
+        raise ImportError(
+            "The repository does not have a fastai version specified in `pyproject.toml`."
+        )
+    try:
+        fastcore_version = str(
+            [package for package in package_versions if package.startswith("fastcore")][
+                0
+            ]
+        )
+    except IndexError:
+        raise ImportError(
+            "The repository does not have a fastcore version specified in `pyproject.toml`."
+        )
+
+    # Get the fastai and fastcore versions in `pyproject.toml`. If there is none, it means that it defaults to the highest version.
+    fastai_version = fastai_version.partition("=")[2]
+    fastcore_version = fastcore_version.partition("=")[2]
+
+    # Versions in `pyproject.toml` must be higher or equal to `fastai_min_version` and `fastcore_min_version`
+    if not (
+        fastai_version == ""
+        or packaging.version.Version(fastai_version)
+        >= packaging.version.Version(fastai_min_version)
+    ):
+        raise ImportError(
+            f"`from_pretrained_fastai` requires fastai>={fastai_min_version} version but the model to load uses {fastai_version} which is incompatible."
+        )
+
+    if not (
+        fastcore_version == ""
+        or packaging.version.Version(fastcore_version)
+        >= packaging.version.Version(fastcore_min_version)
+    ):
+        raise ImportError(
+            f"`from_pretrained_fastai` requires fastcore>={fastcore_min_version} version, but you are using fastcore version {fastcore_version} which is incompatible."
         )
 
 
@@ -214,18 +291,21 @@ def from_pretrained_fastai(
     # Check that fastai and fastcore versions are supported.
     check_fastai_fastcore_versions()
 
-    # Import `load_learner` from `fastai.learner`.
-    from fastai.learner import load_learner
-
     # Load the `repo_id` repo.
     # `snapshot_download` returns the folder where the `model_id` repo was stored.
     # `cache_dir` will be the default '/root/.cache/huggingface/hub'
     storage_folder = snapshot_download(repo_id=model_id, revision=revision)
 
+    # Check that fastai and fastcore versions in the `model_id` repository are supported.
+    check_fastai_fastcore_pyproject_versions(storage_folder)
+
     # Loading `model.pkl`.
     logger.info(
         f"Using `fastai.Learner` stored in {os.path.join(model_id, 'model.pkl')}."
     )
+    # Import `load_learner` from `fastai.learner`.
+    from fastai.learner import load_learner
+
     model = load_learner(os.path.join(storage_folder, "model.pkl"))
     return model
 
