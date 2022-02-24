@@ -150,14 +150,13 @@ def _create_model_card(
         f.write(readme)
 
 
-
 class PushToHubCallback(Callback):
     """
     Callback that will save and push Keras models to the Hub regularly. By default, it pushes once per epoch, but this can
-    be changed with the `save_strategy` argument. 
+    be changed with the `save_strategy` argument.
     ```py
     push_to_hub_callback = PushToHubCallbackKeras(
-        repo_path_or_name="gpt5-7xlarge",
+        repo_path_or_name="gpt5-7xlarge"
     )
     model.fit(train_dataset, callbacks=[push_to_hub_callback])
     ```
@@ -190,7 +189,7 @@ class PushToHubCallback(Callback):
         include_optimizer (:obj:`bool`, `optional`):
             Whether or not to include optimizer during serialization.
         model_save_kwargs(:obj:`dict`, `optional`):
-            model_save_kwargs will be passed to tf.keras.models.save_model(). 
+            model_save_kwargs will be passed to tf.keras.models.save_model().
     """
 
     def __init__(
@@ -206,7 +205,7 @@ class PushToHubCallback(Callback):
         git_email: Optional[str] = None,
         model_plot: Optional[bool] = True,
         include_optimizer: Optional[bool] = True,
-        task_name: Optional[str] = None
+        task_name: Optional[str] = None,
     ):
         super().__init__()
         self.save_strategy = save_strategy
@@ -225,7 +224,9 @@ class PushToHubCallback(Callback):
         self.task_name = task_name
 
         if self.repo_path_or_name is None and self.repo_url is None:
-            raise ValueError("You need to specify a `repo_path_or_name` or a `repo_url`.")
+            raise ValueError(
+                "You need to specify a `repo_path_or_name` or a `repo_url`."
+            )
 
         if isinstance(hub_token, bool) and hub_token:
             self.token = HfFolder.get_token()
@@ -263,12 +264,14 @@ class PushToHubCallback(Callback):
         )
         self.repo.git_pull(rebase=True)
 
-
     def on_train_batch_end(self, batch, logs=None):
         if self.save_strategy == "steps" and batch + 1 % self.save_steps == 0:
-            #if self.last_job is not None and not self.last_job.is_done:
-            #    return
+            if self.last_job is not None and not self.last_job.is_done:
+                return
             save_pretrained_keras(self.model, self.repo_path_or_name)
+            _create_model_card(
+                self.model, self.repo_path_or_name, self.model_plot, self.task_name
+            )
             self.repo.git_add(auto_lfs_track=True)
             _, self.last_job = self.repo.push_to_hub(
                 commit_message=f"Training in progress epoch {batch}", blocking=False
@@ -278,8 +281,20 @@ class PushToHubCallback(Callback):
         if self.save_strategy == "epoch":
             if self.last_job is not None and not self.last_job.is_done:
                 return
-            save_pretrained_keras(self.model, self.repo_path_or_name, include_optimizer = self.include_optimizer)
-            _create_model_card(self.model, self.repo_path_or_name, self.model_plot, self.task_name)
+            save_pretrained_keras(
+                self.model,
+                self.repo_path_or_name,
+                include_optimizer=self.include_optimizer,
+            )
+            # disabled model card writing because there's no history
+            # because if there's a model card we read only and not overwrite
+            # which causes card with empty history section
+            # if there's one epoch only the cards get written at the end of training
+
+            if epoch != 0:
+                _create_model_card(
+                    self.model, self.repo_path_or_name, self.model_plot, self.task_name
+                )
             self.repo.git_add(auto_lfs_track=True)
             _, self.last_job = self.repo.push_to_hub(
                 commit_message=f"Training in progress epoch {epoch}", blocking=False
@@ -290,10 +305,15 @@ class PushToHubCallback(Callback):
             logger.info("Waiting for existing upload to finish...")
             while not self.last_job.is_done:
                 time.sleep(1)
-        save_pretrained_keras(self.model, self.repo_path_or_name, include_optimizer = self.include_optimizer)
-        _create_model_card(self.model, self.repo_path_or_name, self.model_plot, self.task_name)
+        save_pretrained_keras(
+            self.model, self.repo_path_or_name, include_optimizer=self.include_optimizer
+        )
+        _create_model_card(
+            self.model, self.repo_path_or_name, self.model_plot, self.task_name
+        )
         self.repo.git_add(auto_lfs_track=True)
         self.repo.push_to_hub(commit_message="End of training", blocking=True)
+
 
 def save_pretrained_keras(
     model,
