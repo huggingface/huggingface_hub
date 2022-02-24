@@ -258,6 +258,7 @@ class HfApiEndpointsTest(HfApiCommonTestWithLogin):
                 name=SPACE_REPO_NAME, token=self._token, repo_type=REPO_TYPE_SPACE
             )
 
+    @retry_endpoint
     def test_move_repo(self):
         REPO_NAME = repo_name("crud")
         repo_id = f"__DUMMY_TRANSFORMERS_USER__/{REPO_NAME}"
