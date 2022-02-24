@@ -30,9 +30,17 @@ from huggingface_hub.repository import (
     is_tracked_upstream,
     is_tracked_with_lfs,
 )
+from huggingface_hub.utils import logging
 
 from .testing_constants import ENDPOINT_STAGING, PASS, USER
-from .testing_utils import set_write_permission_and_retry, with_production_testing
+from .testing_utils import (
+    retry_endpoint,
+    set_write_permission_and_retry,
+    with_production_testing,
+)
+
+
+logger = logging.get_logger(__name__)
 
 
 def repo_name(id=uuid.uuid4().hex[:6]):
@@ -63,12 +71,13 @@ class RepositoryTest(RepositoryCommonTest):
         """
         cls._token = cls._api.login(username=USER, password=PASS)
 
+    @retry_endpoint
     def setUp(self):
-        try:
+        if os.path.exists(WORKING_REPO_DIR):
             shutil.rmtree(WORKING_REPO_DIR, onerror=set_write_permission_and_retry)
-        except FileNotFoundError:
-            pass
-
+        logger.info(
+            f"Does {WORKING_REPO_DIR} exist: {os.path.exists(WORKING_REPO_DIR)}"
+        )
         self.REPO_NAME = repo_name()
         self._repo_url = self._api.create_repo(name=self.REPO_NAME, token=self._token)
         self._api.upload_file(
@@ -112,6 +121,7 @@ class RepositoryTest(RepositoryCommonTest):
             with self.assertRaises(ValueError):
                 _ = Repository(tmpdirname)
 
+    @retry_endpoint
     def test_init_clone_in_empty_folder(self):
         repo = Repository(WORKING_REPO_DIR, clone_from=self._repo_url)
         repo.lfs_track(["*.pdf"])
@@ -156,6 +166,7 @@ class RepositoryTest(RepositoryCommonTest):
             OSError, Repository, WORKING_REPO_DIR, clone_from=self._repo_url
         )
 
+    @retry_endpoint
     def test_init_clone_in_nonempty_non_linked_git_repo(self):
         # Create a new repository on the HF Hub
         temp_repo_url = self._api.create_repo(
@@ -179,7 +190,11 @@ class RepositoryTest(RepositoryCommonTest):
 
         self._api.delete_repo(name=f"{self.REPO_NAME}-temp", token=self._token)
 
+    @retry_endpoint
     def test_init_clone_in_nonempty_linked_git_repo_with_token(self):
+        logger.info(
+            f"Does {WORKING_REPO_DIR} exist: {os.path.exists(WORKING_REPO_DIR)}"
+        )
         Repository(
             WORKING_REPO_DIR, clone_from=self._repo_url, use_auth_token=self._token
         )
@@ -187,6 +202,7 @@ class RepositoryTest(RepositoryCommonTest):
             WORKING_REPO_DIR, clone_from=self._repo_url, use_auth_token=self._token
         )
 
+    @retry_endpoint
     def test_init_clone_in_nonempty_linked_git_repo(self):
         # Clone the repository to disk
         Repository(WORKING_REPO_DIR, clone_from=self._repo_url)
@@ -203,6 +219,7 @@ class RepositoryTest(RepositoryCommonTest):
         Repository(WORKING_REPO_DIR, clone_from=self._repo_url)
         self.assertNotIn("random_file_3.txt", os.listdir(WORKING_REPO_DIR))
 
+    @retry_endpoint
     def test_init_clone_in_nonempty_linked_git_repo_unrelated_histories(self):
         # Clone the repository to disk
         repo = Repository(
@@ -229,6 +246,7 @@ class RepositoryTest(RepositoryCommonTest):
         # The repo should initialize correctly as the remote is the same, even with unrelated historied
         Repository(WORKING_REPO_DIR, clone_from=self._repo_url)
 
+    @retry_endpoint
     def test_add_commit_push(self):
         repo = Repository(
             WORKING_REPO_DIR,
@@ -253,8 +271,7 @@ class RepositoryTest(RepositoryCommonTest):
         r = requests.head(url)
         r.raise_for_status()
 
-        shutil.rmtree(WORKING_REPO_DIR)
-
+    @retry_endpoint
     def test_add_commit_push_non_blocking(self):
         repo = Repository(
             WORKING_REPO_DIR,
@@ -289,8 +306,7 @@ class RepositoryTest(RepositoryCommonTest):
         r = requests.head(url)
         r.raise_for_status()
 
-        shutil.rmtree(WORKING_REPO_DIR)
-
+    @retry_endpoint
     def test_context_manager_non_blocking(self):
         repo = Repository(
             WORKING_REPO_DIR,
@@ -313,8 +329,7 @@ class RepositoryTest(RepositoryCommonTest):
         self.assertEqual(repo.command_queue[-1].is_done, True)
         self.assertEqual(repo.command_queue[-1].title, "push")
 
-        shutil.rmtree(WORKING_REPO_DIR)
-
+    @retry_endpoint
     def test_add_commit_push_non_blocking_process_killed(self):
         repo = Repository(
             WORKING_REPO_DIR,
@@ -341,8 +356,7 @@ class RepositoryTest(RepositoryCommonTest):
         self.assertTrue(result.is_done)
         self.assertEqual(result.status, -9)
 
-        shutil.rmtree(WORKING_REPO_DIR)
-
+    @retry_endpoint
     def test_clone_with_endpoint(self):
         clone = Repository(
             f"{WORKING_REPO_DIR}/{self.REPO_NAME}",
@@ -372,6 +386,7 @@ class RepositoryTest(RepositoryCommonTest):
         self.assertTrue("dummy.txt" in files)
         self.assertTrue("model.bin" in files)
 
+    @retry_endpoint
     def test_clone_with_repo_name_and_org(self):
         clone = Repository(
             f"{WORKING_REPO_DIR}/{self.REPO_NAME}",
@@ -401,6 +416,7 @@ class RepositoryTest(RepositoryCommonTest):
         self.assertTrue("dummy.txt" in files)
         self.assertTrue("model.bin" in files)
 
+    @retry_endpoint
     def test_clone_with_repo_name_and_user_namespace(self):
         clone = Repository(
             f"{WORKING_REPO_DIR}/{self.REPO_NAME}",
@@ -432,6 +448,7 @@ class RepositoryTest(RepositoryCommonTest):
         self.assertTrue("dummy.txt" in files)
         self.assertTrue("model.bin" in files)
 
+    @retry_endpoint
     def test_clone_with_repo_name_and_no_namespace(self):
         self.assertRaises(
             OSError,
@@ -443,6 +460,7 @@ class RepositoryTest(RepositoryCommonTest):
             git_email="ci@dummy.com",
         )
 
+    @retry_endpoint
     def test_clone_with_repo_name_user_and_no_auth_token(self):
         # Create repo
         Repository(
@@ -460,6 +478,7 @@ class RepositoryTest(RepositoryCommonTest):
             git_email="ci@dummy.com",
         )
 
+    @retry_endpoint
     def test_clone_with_repo_name_org_and_no_auth_token(self):
         # Create repo
         Repository(
@@ -478,6 +497,7 @@ class RepositoryTest(RepositoryCommonTest):
             git_email="ci@dummy.com",
         )
 
+    @retry_endpoint
     def test_clone_not_hf_url(self):
         # Should not error out
         Repository(
@@ -486,6 +506,7 @@ class RepositoryTest(RepositoryCommonTest):
         )
 
     @with_production_testing
+    @retry_endpoint
     def test_clone_repo_at_root(self):
         Repository(
             f"{WORKING_REPO_DIR}/{self.REPO_NAME}",
@@ -501,6 +522,7 @@ class RepositoryTest(RepositoryCommonTest):
             skip_lfs_files=True,
         )
 
+    @retry_endpoint
     def test_skip_lfs_files(self):
         repo = Repository(
             self.REPO_NAME,
@@ -533,6 +555,7 @@ class RepositoryTest(RepositoryCommonTest):
             content = f.read()
             self.assertEquals(content, "Bin file")
 
+    @retry_endpoint
     def test_is_tracked_upstream(self):
         repo = Repository(
             self.REPO_NAME,
@@ -544,6 +567,7 @@ class RepositoryTest(RepositoryCommonTest):
 
         self.assertTrue(is_tracked_upstream(repo.local_dir))
 
+    @retry_endpoint
     def test_push_errors_on_wrong_checkout(self):
         repo = Repository(
             WORKING_REPO_DIR,
@@ -572,6 +596,7 @@ class RepositoryTest(RepositoryCommonTest):
                 with open("new_file", "w+") as f:
                     f.write("Ok")
 
+    @retry_endpoint
     def test_commits_on_correct_branch(self):
         repo = Repository(
             WORKING_REPO_DIR,
@@ -611,6 +636,7 @@ class RepositoryTest(RepositoryCommonTest):
             self.assertFalse("file.txt" in files)
             self.assertTrue("new_file.txt" in files)
 
+    @retry_endpoint
     def test_repo_checkout_push(self):
         repo = Repository(
             WORKING_REPO_DIR,
@@ -651,6 +677,7 @@ class RepositoryTest(RepositoryCommonTest):
             self.assertFalse("file.txt" in files)
             self.assertTrue("new_file.txt" in files)
 
+    @retry_endpoint
     def test_repo_checkout_commit_context_manager(self):
         repo = Repository(
             WORKING_REPO_DIR,
@@ -693,7 +720,11 @@ class RepositoryTest(RepositoryCommonTest):
             self.assertFalse("new_file.txt" in files)
             self.assertFalse("new_file-2.txt" in files)
 
+    @retry_endpoint
     def test_add_tag(self):
+        # Eventually see why this is needed
+        if os.path.exists(WORKING_REPO_DIR):
+            shutil.rmtree(WORKING_REPO_DIR, onerror=set_write_permission_and_retry)
         repo = Repository(
             WORKING_REPO_DIR,
             clone_from=f"{USER}/{self.REPO_NAME}",
@@ -706,6 +737,7 @@ class RepositoryTest(RepositoryCommonTest):
         repo.add_tag("v4.6.0", remote="origin")
         self.assertTrue(repo.tag_exists("v4.6.0", remote="origin"))
 
+    @retry_endpoint
     def test_add_annotated_tag(self):
         repo = Repository(
             WORKING_REPO_DIR,
@@ -751,6 +783,7 @@ class RepositoryTest(RepositoryCommonTest):
 
         self.assertIn("This is an annotated tag", result)
 
+    @retry_endpoint
     def test_delete_tag(self):
         repo = Repository(
             WORKING_REPO_DIR,
@@ -771,6 +804,7 @@ class RepositoryTest(RepositoryCommonTest):
         repo.delete_tag("v4.6.0", remote="origin")
         self.assertFalse(repo.tag_exists("v4.6.0", remote="origin"))
 
+    @retry_endpoint
     def test_lfs_prune(self):
         repo = Repository(
             WORKING_REPO_DIR,
@@ -801,6 +835,7 @@ class RepositoryTest(RepositoryCommonTest):
         # Size of the directory holding LFS files was reduced
         self.assertLess(post_prune_git_lfs_files_size, git_lfs_files_size)
 
+    @retry_endpoint
     def test_lfs_prune_git_push(self):
         repo = Repository(
             WORKING_REPO_DIR,
@@ -834,6 +869,7 @@ class RepositoryTest(RepositoryCommonTest):
         # Size of the directory holding LFS files is the exact same
         self.assertEqual(post_prune_git_lfs_files_size, git_lfs_files_size)
 
+    @retry_endpoint
     def test_lfs_prune_git_push_non_blocking(self):
         repo = Repository(
             WORKING_REPO_DIR,
@@ -870,6 +906,7 @@ class RepositoryTest(RepositoryCommonTest):
         # Size of the directory holding LFS files is the exact same
         self.assertEqual(post_prune_git_lfs_files_size, git_lfs_files_size)
 
+    @retry_endpoint
     def test_lfs_prune_context_manager(self):
         repo = Repository(
             WORKING_REPO_DIR,
@@ -900,6 +937,7 @@ class RepositoryTest(RepositoryCommonTest):
         # Size of the directory holding LFS files is the exact same
         self.assertEqual(post_prune_git_lfs_files_size, git_lfs_files_size)
 
+    @retry_endpoint
     def test_lfs_prune_context_manager_non_blocking(self):
         repo = Repository(
             WORKING_REPO_DIR,
@@ -939,7 +977,9 @@ class RepositoryOfflineTest(RepositoryCommonTest):
     def setUpClass(cls) -> None:
         if os.path.exists(WORKING_REPO_DIR):
             shutil.rmtree(WORKING_REPO_DIR, onerror=set_write_permission_and_retry)
-
+        logger.info(
+            f"Does {WORKING_REPO_DIR} exist: {os.path.exists(WORKING_REPO_DIR)}"
+        )
         os.makedirs(WORKING_REPO_DIR, exist_ok=True)
         subprocess.run(
             ["git", "init"],
@@ -992,7 +1032,11 @@ class RepositoryOfflineTest(RepositoryCommonTest):
 
     @classmethod
     def tearDownClass(cls) -> None:
-        shutil.rmtree(WORKING_REPO_DIR, onerror=set_write_permission_and_retry)
+        if os.path.exists(WORKING_REPO_DIR):
+            shutil.rmtree(WORKING_REPO_DIR, onerror=set_write_permission_and_retry)
+        logger.info(
+            f"Does {WORKING_REPO_DIR} exist: {os.path.exists(WORKING_REPO_DIR)}"
+        )
 
     def test_is_tracked_with_lfs(self):
         repo = Repository(WORKING_REPO_DIR)
@@ -1419,6 +1463,14 @@ class RepositoryDatasetTest(RepositoryCommonTest):
 
     def setUp(self):
         self.REPO_NAME = repo_name()
+        if os.path.exists(f"{WORKING_DATASET_DIR}/{self.REPO_NAME}"):
+            shutil.rmtree(
+                f"{WORKING_DATASET_DIR}/{self.REPO_NAME}",
+                onerror=set_write_permission_and_retry,
+            )
+        logger.info(
+            f"Does {WORKING_DATASET_DIR}/{self.REPO_NAME} exist: {os.path.exists(f'{WORKING_DATASET_DIR}/{self.REPO_NAME}')}"
+        )
         self._api.create_repo(
             token=self._token, name=self.REPO_NAME, repo_type="dataset"
         )
@@ -1439,11 +1491,7 @@ class RepositoryDatasetTest(RepositoryCommonTest):
             except requests.exceptions.HTTPError:
                 pass
 
-        shutil.rmtree(
-            f"{WORKING_DATASET_DIR}/{self.REPO_NAME}",
-            onerror=set_write_permission_and_retry,
-        )
-
+    @retry_endpoint
     def test_clone_with_endpoint(self):
         clone = Repository(
             f"{WORKING_DATASET_DIR}/{self.REPO_NAME}",
@@ -1473,6 +1521,7 @@ class RepositoryDatasetTest(RepositoryCommonTest):
         self.assertTrue("some_text.txt" in files)
         self.assertTrue("test.py" in files)
 
+    @retry_endpoint
     def test_clone_with_repo_name_and_org(self):
         clone = Repository(
             f"{WORKING_DATASET_DIR}/{self.REPO_NAME}",
@@ -1502,6 +1551,7 @@ class RepositoryDatasetTest(RepositoryCommonTest):
         self.assertTrue("some_text.txt" in files)
         self.assertTrue("test.py" in files)
 
+    @retry_endpoint
     def test_clone_with_repo_name_and_user_namespace(self):
         clone = Repository(
             f"{WORKING_DATASET_DIR}/{self.REPO_NAME}",
@@ -1531,6 +1581,7 @@ class RepositoryDatasetTest(RepositoryCommonTest):
         self.assertTrue("some_text.txt" in files)
         self.assertTrue("test.py" in files)
 
+    @retry_endpoint
     def test_clone_with_repo_name_and_no_namespace(self):
         self.assertRaises(
             OSError,
@@ -1543,6 +1594,7 @@ class RepositoryDatasetTest(RepositoryCommonTest):
             git_email="ci@dummy.com",
         )
 
+    @retry_endpoint
     def test_clone_with_repo_name_user_and_no_auth_token(self):
         # Create repo
         Repository(
@@ -1563,6 +1615,7 @@ class RepositoryDatasetTest(RepositoryCommonTest):
             git_email="ci@dummy.com",
         )
 
+    @retry_endpoint
     def test_clone_with_repo_name_org_and_no_auth_token(self):
         # Create repo
         Repository(

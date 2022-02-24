@@ -14,7 +14,6 @@
 # limitations under the License.
 import logging
 import os
-import re
 import subprocess
 import sys
 import warnings
@@ -38,6 +37,7 @@ from .utils.endpoint_helpers import (
     DatasetTags,
     ModelFilter,
     ModelTags,
+    _filter_emissions,
 )
 
 
@@ -48,10 +48,6 @@ else:
 
 
 USERNAME_PLACEHOLDER = "hf_user"
-
-REMOTE_FILEPATH_REGEX = re.compile(r"^\w[\w\/\-]*(\.\w+)?$")
-# ^^ No trailing slash, no backslash, no spaces, no relative parts ("." or "..")
-#    Only word characters and an optional extension
 
 
 def repo_type_and_id_from_hf_id(hf_id: str):
@@ -414,7 +410,9 @@ def erase_from_credential_store(username=None):
 
 class HfApi:
     def __init__(self, endpoint=None):
-        self.endpoint = endpoint if endpoint is not None else ENDPOINT
+        self.endpoint = (
+            endpoint if endpoint is not None else os.getenv("HF_ENDPOINT", ENDPOINT)
+        )
 
     def login(self, username: str, password: str) -> str:
         """
@@ -513,6 +511,7 @@ class HfApi:
         filter: Union[ModelFilter, str, Iterable[str], None] = None,
         author: Optional[str] = None,
         search: Optional[str] = None,
+        emissions_thresholds: Optional[Tuple[float, float]] = None,
         sort: Union[Literal["lastModified"], str, None] = None,
         direction: Optional[Literal[-1]] = None,
         limit: Optional[int] = None,
@@ -581,6 +580,16 @@ class HfApi:
                     >>> #List all models with "bert" in their name made by google
                     >>> api.list_models(search="bert", author="google")
 
+            emissions_thresholds (:obj:`Tuple`, `optional`):
+                A tuple of two ints or floats representing a minimum and maximum carbon footprint
+                to filter the resulting models with in grams.
+                Example usage:
+
+                    >>> from huggingface_hub import HfApi
+                    >>> api = HfApi()
+
+                    >>> # List all models that emitted between 100 to 200 grams of co2
+                    >>> api.list_models(emissions_thresholds=(100,200), cardData=True)
             sort (:obj:`Literal["lastModified"]` or :obj:`str`, `optional`):
                 The key with which to sort the resulting models. Possible values are the properties of the `ModelInfo`
                 class.
@@ -644,7 +653,15 @@ class HfApi:
         r = requests.get(path, params=params, headers=headers)
         r.raise_for_status()
         d = r.json()
-        return [ModelInfo(**x) for x in d]
+        res = [ModelInfo(**x) for x in d]
+        if emissions_thresholds is not None:
+            if cardData is None:
+                raise ValueError(
+                    "`emissions_thresholds` were passed without setting `cardData=True`."
+                )
+            else:
+                return _filter_emissions(res, *emissions_thresholds)
+        return res
 
     def _unpack_model_filter(self, model_filter: ModelFilter):
         """
@@ -893,6 +910,7 @@ class HfApi:
         revision: Optional[str] = None,
         token: Optional[str] = None,
         timeout: Optional[float] = None,
+        securityStatus: Optional[bool] = None,
     ) -> ModelInfo:
         """
         Get info on one specific model on huggingface.co
@@ -908,7 +926,10 @@ class HfApi:
             else f"{self.endpoint}/api/models/{repo_id}/revision/{revision}"
         )
         headers = {"authorization": f"Bearer {token}"} if token is not None else None
-        r = requests.get(path, headers=headers, timeout=timeout)
+        status_query_param = {"securityStatus": True} if securityStatus else None
+        r = requests.get(
+            path, headers=headers, timeout=timeout, params=status_query_param
+        )
         r.raise_for_status()
         d = r.json()
         return ModelInfo(**d)
@@ -936,37 +957,6 @@ class HfApi:
             raise ValueError("Spaces are not available yet.")
 
         return [f.rfilename for f in info.siblings]
-
-    def list_repos_objs(
-        self, token: Optional[str] = None, organization: Optional[str] = None
-    ) -> List[RepoObj]:
-        """
-        Deprecated
-
-        HuggingFace git-based system, used for models, datasets, and spaces.
-
-        Call HF API to list all stored files for user (or one of their organizations).
-        """
-        warnings.warn(
-            "This method has been deprecated and will be removed in a future version."
-            "You can achieve the same result by listing your repos then listing their respective files."
-        )
-
-        if token is None:
-            token = HfFolder.get_token()
-        if token is None:
-            raise ValueError(
-                "You need to pass a valid `token` or login by using `huggingface-cli login`"
-            )
-
-        path = f"{self.endpoint}/api/repos/ls"
-        params = {"organization": organization} if organization is not None else None
-        r = requests.get(
-            path, params=params, headers={"authorization": f"Bearer {token}"}
-        )
-        r.raise_for_status()
-        d = r.json()
-        return [RepoObj(**x) for x in d]
 
     def dataset_info(
         self,
@@ -1354,14 +1344,6 @@ class HfApi:
                 "If you passed a fileobj, make sure you've opened the file in binary mode."
             )
 
-        # Normalize path separators and strip leading slashes
-        if not REMOTE_FILEPATH_REGEX.match(path_in_repo):
-            raise ValueError(
-                "Invalid path_in_repo '{}', path_in_repo must match regex {}".format(
-                    path_in_repo, REMOTE_FILEPATH_REGEX.pattern
-                )
-            )
-
         if repo_type in REPO_TYPES_URL_PREFIXES:
             repo_id = REPO_TYPES_URL_PREFIXES[repo_type] + repo_id
 
@@ -1435,14 +1417,6 @@ class HfApi:
                     "You need to provide a `token` or be logged in to Hugging Face with "
                     "`huggingface-cli login`."
                 )
-
-        # Normalize path separators and strip leading slashes
-        if not REMOTE_FILEPATH_REGEX.match(path_in_repo):
-            raise ValueError(
-                "Invalid path_in_repo '{}', path_in_repo must match regex {}".format(
-                    path_in_repo, REMOTE_FILEPATH_REGEX.pattern
-                )
-            )
 
         if repo_type in REPO_TYPES_URL_PREFIXES:
             repo_id = REPO_TYPES_URL_PREFIXES[repo_type] + repo_id
@@ -1532,7 +1506,6 @@ whoami = api.whoami
 list_models = api.list_models
 model_info = api.model_info
 list_repo_files = api.list_repo_files
-list_repos_objs = api.list_repos_objs
 
 list_datasets = api.list_datasets
 dataset_info = api.dataset_info
