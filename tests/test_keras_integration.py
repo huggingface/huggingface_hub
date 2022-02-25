@@ -63,7 +63,6 @@ if is_tf_available():
         def call(self, x):
             return self.l1(x)
 
-
 else:
     DummyModel = None
 
@@ -181,18 +180,34 @@ class HubKerasSequentialTest(HubMixingTestKeras):
         model.fit(x, y)
         return model
 
-    def model_fit_callback(self):
+    def model_fit_callback(self, model, callback):
+        x = tf.constant([[0.44, 0.90], [0.65, 0.39]])
+        y = tf.constant([[1, 1], [0, 0]])
+        model.fit(x, y, callbacks=[callback])
+        return model
+
+    def test_callback(self):
+        REPO_NAME = repo_name("PUSH_TO_HUB")
         model = self.model_init()
+
         push_to_hub_callback = PushToHubCallback(
             save_strategy="epoch",
-            save_steps=3,
             repo_path_or_name=f"{WORKING_REPO_DIR}/{REPO_NAME}",
             api_endpoint=ENDPOINT_STAGING,
             hub_token=self._token,
             git_user="ci",
             git_email="ci@dummy.com",
         )
-        model.fit(x, y, callbacks=[push_to_hub_callback])
+        model = self.model_fit_callback(model, callback=push_to_hub_callback)
+
+        model_info = HfApi(endpoint=ENDPOINT_STAGING).model_info(
+            f"{USER}/{REPO_NAME}",
+        )
+        self.assertIn("saved_model.pb", [f.rfilename for f in model_info.siblings])
+        self.assertIn("keras_metadata.pb", [f.rfilename for f in model_info.siblings])
+        self.assertIn("README.md", [f.rfilename for f in model_info.siblings])
+        self.assertIn("model.png", [f.rfilename for f in model_info.siblings])
+        self._api.delete_repo(name=f"{REPO_NAME}", token=self._token)
 
     def test_save_pretrained(self):
         REPO_NAME = repo_name("save")

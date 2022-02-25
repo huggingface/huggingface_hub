@@ -142,7 +142,7 @@ def _create_model_card(
         model_card += f"\n![Model Image]({path_to_plot})\n"
     model_card += "\n</details>"
 
-    if os.path.exists(readme_path) and from_callback == False:
+    if os.path.exists(readme_path) and from_callback is False:
         with open(readme_path, "r", encoding="utf8") as f:
             readme = f.read()
     else:
