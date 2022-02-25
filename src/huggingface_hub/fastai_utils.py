@@ -378,7 +378,7 @@ def push_to_hub_fastai(
     repo = Repository(
         repo_id,
         clone_from=repo_url,
-        use_auth_token=use_auth_token,
+        use_auth_token=token,
         git_user=git_user,
         git_email=git_email,
     )
