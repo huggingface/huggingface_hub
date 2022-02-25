@@ -19,9 +19,6 @@ from huggingface_hub.repository import Repository
 from huggingface_hub.snapshot_download import snapshot_download
 
 
-logger = logging.getLogger(__name__)
-
-
 def check_fastai_fastcore_versions(
     fastai_min_version: Optional[str] = "2.4",
     fastcore_min_version: Optional[str] = "1.3.27",
@@ -276,7 +273,7 @@ def from_pretrained_fastai(
     revision: Optional[str] = None,
 ):
     """
-    Load `model_id` files from the Hub.
+    Load pretrained fastai model from the Hub.
 
     Parameters:
         model_id (:obj:`str`):
@@ -298,10 +295,6 @@ def from_pretrained_fastai(
     # Check that fastai and fastcore versions in the `model_id` repository are supported.
     check_fastai_fastcore_pyproject_versions(storage_folder)
 
-    # Loading `model.pkl`.
-    logger.info(
-        f"Using `fastai.Learner` stored in {os.path.join(model_id, 'model.pkl')}."
-    )
     # Import `load_learner` from `fastai.learner`.
     from fastai.learner import load_learner
 
@@ -314,7 +307,7 @@ def push_to_hub_fastai(
     repo_id: str,
     commit_message: Optional[str] = "Add model",
     private: Optional[bool] = None,
-    use_auth_token: Optional[Union[bool, str]] = True,
+    token: Optional[str] = None,
     config: Optional[dict] = None,
     **kwargs,
 ):
@@ -331,10 +324,8 @@ def push_to_hub_fastai(
             Message to commit while pushing. Will default to :obj:`"add model"`.
         private (:obj:`bool`, `optional`):
             Whether or not the repository created should be private (requires a paying subscription).
-        use_auth_token (:obj:`bool` or :obj:`str`, `optional`):
-            The token to use as HTTP bearer authorization for remote files. If :obj:`True`, will use the token
-            generated when running :obj:`transformers-cli login` (stored in :obj:`~/.huggingface`). Will default to
-            :obj:`True`.
+        token (:obj:`str`, `optional`):
+            The Hugging Face account token to use as HTTP bearer authorization for remote files. If :obj:`None`, the token will be asked by a prompt.
         config (:obj:`dict`, `optional`):
             Configuration object to be saved alongside the model weights.
 
@@ -362,12 +353,8 @@ def push_to_hub_fastai(
     organization, repo_name = repo_id.split("/")
 
     # Defining token value.
-    if isinstance(use_auth_token, bool) and use_auth_token:
+    if token is None:
         token = HfFolder.get_token()
-    elif isinstance(use_auth_token, str):
-        token = use_auth_token
-    else:
-        token = None
 
     if token is None:
         raise ValueError(

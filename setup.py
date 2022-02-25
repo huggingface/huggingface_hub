@@ -31,6 +31,10 @@ extras["torch"] = [
     "torch",
 ]
 
+extras["fastai"] = [
+    "toml",
+]
+
 extras["tensorflow"] = [
     "tensorflow",
 ]
