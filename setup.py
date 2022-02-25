@@ -23,6 +23,10 @@ install_requires = [
 
 extras = {}
 
+extras["fastai"] = [
+    "toml",
+]
+
 extras["torch"] = [
     "torch",
 ]
