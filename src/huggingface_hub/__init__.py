@@ -50,6 +50,7 @@ from .hf_api import (
     login,
     logout,
     model_info,
+    move_repo,
     repo_type_and_id_from_hf_id,
     update_repo_visibility,
     upload_file,
