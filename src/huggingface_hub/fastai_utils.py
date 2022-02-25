@@ -2,7 +2,7 @@ import json
 import os
 from pathlib import Path
 from pickle import DEFAULT_PROTOCOL
-from typing import Any, Dict, Optional, Union
+from typing import Any, Dict, Optional
 
 import packaging.version
 
