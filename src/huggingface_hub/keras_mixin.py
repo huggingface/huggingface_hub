@@ -277,7 +277,7 @@ class PushToHubCallback(Callback):
             )
             self.repo.git_add(auto_lfs_track=True)
             _, self.last_job = self.repo.push_to_hub(
-                commit_message=f"Training in progress epoch {batch}", blocking=False
+                commit_message=f"Training in progress batch {batch}", blocking=False
             )
 
     def on_epoch_end(self, epoch, logs=None):
