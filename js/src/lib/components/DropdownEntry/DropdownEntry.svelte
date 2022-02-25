@@ -2,9 +2,6 @@
 	import type { SvelteComponent } from "svelte";
 
 	export let classNames = "";
-	export let dataLabel: string | undefined = undefined;
-	export let dataUrl: string | undefined = undefined;
-	export let dataValue: string | undefined = undefined;
 	export let href: string | undefined = undefined;
 	export let icon: typeof SvelteComponent | undefined = undefined;
 	export let iconClassNames = "";
@@ -19,9 +16,6 @@
 	<a
 		class="flex items-center hover:bg-gray-50 dark:hover:bg-gray-800 cursor-pointer px-3 py-1.5 whitespace-nowrap 
 			{classNames} {underline ? 'hover:underline' : ''}"
-		data-label={dataLabel}
-		data-url={dataUrl}
-		data-value={dataValue}
 		{href}
 		on:click={onClick}
 		rel={noFollow ? "nofollow" : undefined}
