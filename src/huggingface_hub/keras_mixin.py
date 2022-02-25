@@ -105,6 +105,7 @@ def _create_model_card(
     repo_dir: Path,
     model_plot: Optional[bool] = True,
     task_name: Optional[str] = None,
+    from_callback: Optional[bool] = False,
 ):
     """
     Creates a model card for the repository.
@@ -141,7 +142,7 @@ def _create_model_card(
         model_card += f"\n![Model Image]({path_to_plot})\n"
     model_card += "\n</details>"
 
-    if os.path.exists(readme_path):
+    if os.path.exists(readme_path) and from_callback == False:
         with open(readme_path, "r", encoding="utf8") as f:
             readme = f.read()
     else:
@@ -267,7 +268,9 @@ class PushToHubCallback(Callback):
     def on_train_batch_end(self, batch, logs=None):
         if self.save_strategy == "steps" and batch + 1 % self.save_steps == 0:
             if self.last_job is not None and not self.last_job.is_done:
-                return
+                logger.info("Waiting for existing upload to finish...")
+                while not self.last_job.is_done:
+                    time.sleep(1)
             save_pretrained_keras(self.model, self.repo_path_or_name)
             _create_model_card(
                 self.model, self.repo_path_or_name, self.model_plot, self.task_name
@@ -280,21 +283,21 @@ class PushToHubCallback(Callback):
     def on_epoch_end(self, epoch, logs=None):
         if self.save_strategy == "epoch":
             if self.last_job is not None and not self.last_job.is_done:
-                return
+                while not self.last_job.is_done:
+                    time.sleep(1)
             save_pretrained_keras(
                 self.model,
                 self.repo_path_or_name,
                 include_optimizer=self.include_optimizer,
             )
-            # disabled model card writing because there's no history
-            # because if there's a model card we read only and not overwrite
-            # which causes card with empty history section
-            # if there's one epoch only the cards get written at the end of training
 
-            if epoch != 0:
-                _create_model_card(
-                    self.model, self.repo_path_or_name, self.model_plot, self.task_name
-                )
+            _create_model_card(
+                self.model,
+                self.repo_path_or_name,
+                self.model_plot,
+                self.task_name,
+                from_callback=True,
+            )
             self.repo.git_add(auto_lfs_track=True)
             _, self.last_job = self.repo.push_to_hub(
                 commit_message=f"Training in progress epoch {epoch}", blocking=False
@@ -302,7 +305,6 @@ class PushToHubCallback(Callback):
 
     def on_train_end(self, logs=None):
         if self.last_job is not None and not self.last_job.is_done:
-            logger.info("Waiting for existing upload to finish...")
             while not self.last_job.is_done:
                 time.sleep(1)
         save_pretrained_keras(
