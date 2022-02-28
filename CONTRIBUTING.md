@@ -283,14 +283,13 @@ the [tests folder](https://github.com/huggingface/huggingface_hub/tree/main/test
 
 The `huggingface_hub` library's normal behavior is to work with the production Hugging Face Hub. However,
 for tests, we prefer to run on a staging version. In order to do this, it's important to set the 
-`HUGGINGFACE_CO_STAGING` environment variable to `1`.
+`HUGGINGFACE_CO_STAGING` environment variable to `1` when running tests. It is preferred to pass this in when running the tests, than setting a permanent environmental variable, as shown below.
 
-We use `pytest` in order to run the tests. From the root of the
-repository, here's how to run tests with `pytest` for the library:
+We use `pytest` in order to run the tests for the library . From the root of the
+repository they can be run with the following:
 
 ```bash
 $ HUGGINGFACE_CO_STAGING=1 python -m pytest -sv ./tests
-```
 
 In fact, that's how `make test` is implemented (sans the `pip install` line)!
 
