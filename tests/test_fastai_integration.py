@@ -1,0 +1,107 @@
+import os
+import shutil
+import time
+import uuid
+from unittest import TestCase
+
+from huggingface_hub import HfApi
+from huggingface_hub.fastai_utils import (
+    from_pretrained_fastai,
+    push_to_hub_fastai,
+    save_fastai_learner,
+)
+from huggingface_hub.file_download import is_fastai_available, is_torch_available
+
+from .testing_constants import ENDPOINT_STAGING, PASS, USER
+from .testing_utils import set_write_permission_and_retry
+
+
+def repo_name(id=uuid.uuid4().hex[:6]):
+    return "fastai-repo-{0}-{1}".format(id, int(time.time() * 10e3))
+
+
+WORKING_REPO_SUBDIR = f"fixtures/working_repo_{__name__.split('.')[-1]}"
+WORKING_REPO_DIR = os.path.join(
+    os.path.dirname(os.path.abspath(__file__)), WORKING_REPO_SUBDIR
+)
+
+if is_fastai_available():
+    from fastai.data.block import DataBlock
+    from fastai.test_utils import synth_learner
+
+if is_torch_available():
+    import torch
+
+
+def fake_dataloaders(a=2, b=3, bs=16, n=10):
+    def get_data(n):
+        x = torch.randn(bs * n, 1)
+        return torch.cat((x, a * x + b + 0.1 * torch.randn(bs * n, 1)), 1)
+
+    ds = get_data(n)
+    dblock = DataBlock()
+    return dblock.dataloaders(ds)
+
+
+if is_fastai_available():
+    DummyModel = synth_learner(data=fake_dataloaders())
+    dummy_config = dict(test="test_0")
+else:
+    DummyModel = None
+    dummy_config = None
+
+
+class TestFastaiUtils(TestCase):
+    @classmethod
+    def setUpClass(cls):
+        """
+        Share this valid token in all tests below.
+        """
+        cls._api = HfApi(endpoint=ENDPOINT_STAGING)
+        cls._token = cls._api.login(username=USER, password=PASS)
+
+    def tearDown(self) -> None:
+        try:
+            shutil.rmtree(WORKING_REPO_DIR, onerror=set_write_permission_and_retry)
+        except FileNotFoundError:
+            pass
+
+    def test_save_pretrained_without_config(self):
+        REPO_NAME = repo_name("save")
+        save_fastai_learner(DummyModel, f"{WORKING_REPO_DIR}/{REPO_NAME}")
+        files = os.listdir(f"{WORKING_REPO_DIR}/{REPO_NAME}")
+        self.assertTrue("model.pkl" in files)
+        self.assertTrue("pyproject.toml" in files)
+        self.assertTrue("README.md" in files)
+        self.assertEqual(len(files), 3)
+
+    def test_save_pretrained_with_config(self):
+        REPO_NAME = repo_name("save")
+        save_fastai_learner(
+            DummyModel, f"{WORKING_REPO_DIR}/{REPO_NAME}", config=dummy_config
+        )
+        files = os.listdir(f"{WORKING_REPO_DIR}/{REPO_NAME}")
+        self.assertTrue("config.json" in files)
+        self.assertTrue("model.pkl" in files)
+        self.assertTrue("pyproject.toml" in files)
+        self.assertTrue("README.md" in files)
+        self.assertEqual(len(files), 4)
+
+    def test_push_to_hub_and_from_pretrained_fastai(self):
+        REPO_NAME = repo_name("push_to_hub")
+        push_to_hub_fastai(
+            learner=DummyModel,
+            repo_id=f"{USER}/{REPO_NAME}",
+            token=self._token,
+            config=dummy_config,
+        )
+        model_info = self._api.model_info(
+            f"{USER}/{REPO_NAME}",
+        )
+        self.assertEqual(model_info.modelId, f"{USER}/{REPO_NAME}")
+
+        loaded_model = from_pretrained_fastai(f"{USER}/{REPO_NAME}")
+        self.assertEqual(
+            DummyModel.show_training_loop(), loaded_model.show_training_loop()
+        )
+        self._api.delete_repo(name=f"{REPO_NAME}", token=self._token)
