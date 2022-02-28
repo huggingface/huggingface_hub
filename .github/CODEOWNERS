@@ -10,7 +10,7 @@ tests @muellerzr
 # Documentation reviewers
 docs @stevhliu
 # Community integration reviewers
-api-inference-community @Narsil @nateraw
+api-inference-community @Narsil
 tasks @merveenoyan
 # Widget reviewers
 js/src/lib/components/InferenceWidget @mishig25
