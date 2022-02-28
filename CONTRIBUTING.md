@@ -32,6 +32,15 @@ Whichever way you choose to contribute, please be mindful to respect our
 
 The repository is split into different parts, where we welcome contributions.
 
+What can you find in this repo?
+
+* [`huggingface_hub`](https://github.com/huggingface/huggingface_hub/tree/main/src/huggingface_hub), a client library to download and publish on the Hugging Face Hub as well as extracting useful information from there.
+* [`api-inference-community`](https://github.com/huggingface/huggingface_hub/tree/main/api-inference-community), the Inference API for open source machine learning libraries.
+* [`js`](https://github.com/huggingface/huggingface_hub/tree/main/js), the open sourced widgets that allow people to try out the models in the browser.
+  * [`interfaces`](https://github.com/huggingface/huggingface_hub/tree/main/js/src/lib/interfaces), Typescript definition files for the Hugging Face Hub.
+* [`docs`](https://github.com/huggingface/huggingface_hub/tree/main/docs), containing the official [Hugging Face Hub documentation](https://hf.co/docs).
+
+
 ### The client library, `huggingface_hub`
 
 This repository hosts the client library `huggingface_hub`, which is a frontend to the Hugging Face Hub.
@@ -57,20 +66,30 @@ The `api-inference-community` folder contains a tool to enable third-party libra
 Face Hub.
 
 We welcome contributions to [add new containers](https://huggingface.co/docs/hub/adding-a-library#set-up-the-inference-api) for new libraries, to update the existing ones, and to provide help
-fixing bugs and adding features.
+fixing bugs and adding features. This folder contains an additional README
+file explaining how you may test your code.
 
 When opening a PR on this part of the repository, please add @Narsil as a reviewer.
 
 ## JavaScript content
 
-In the `js` folder live the JavaScript code of the Hub. It includes:
+The `js` folder contains the JavaScript code of the Hub. It includes:
 * The widgets ([code](https://github.com/huggingface/huggingface_hub/tree/main/js/src/lib/components/InferenceWidget)
 * Code snippets to make inference calls ([code](https://github.com/huggingface/huggingface_hub/tree/main/js/src/lib/inferenceSnippets)
 * Code snippets to load models ([code](https://github.com/huggingface/huggingface_hub/blob/main/js/src/lib/interfaces/Libraries.ts))
 
-Here too, we welcome any logic and documentation contributions.
+Here too, we welcome any logic and documentation contributions. This folder contains an additional README
+file explaining how you may test your code.
 
 When opening a PR on this part of the repository, please add @mishig25 and @osanseviero as a reviewer.
+
+## Documentation
+
+The content in the `docs` folder is the official [Hugging Face Hub documentation]. It is not limited to the 
+Python package `huggingface_hub`, as it includes guides on using the frontend, ho to build Spaces, how to search
+efficiently, and others.
+
+Here too, we welcome contribution, may it be for syntactic changes or typos.
 
 *All contributions are equally valuable to the community.*
 
@@ -94,11 +113,12 @@ Did not find it? :( So we can act quickly on it, please follow these steps:
   **Tensorflow** when applicable;
 * A short, self-contained, code snippet that allows us to reproduce the bug in
   less than 30s;
-* Provide the *full* traceback if an exception is raised.
+* Provide the *full* traceback if an exception is raised by copying the text from your terminal 
+  in the issue description.
 
 ### Do you want a new feature?
 
-A world-class feature request addresses the following points:
+A good feature request addresses the following points:
 
 1. Motivation first:
 * Is it related to a problem/frustration with the library? If so, please explain
@@ -115,7 +135,7 @@ A world-class feature request addresses the following points:
 If your issue is well written we're already 80% of the way there by the time you
 post it.
 
-## Start contributing! (Pull Requests)
+## Submitting a pull request (PR)
 
 Before writing code, we strongly advise you to search through the existing PRs or
 issues to make sure that nobody is already working on the same thing. If you are
@@ -132,7 +152,9 @@ Follow these steps to start contributing:
    clicking on the 'Fork' button on the repository's page. This creates a copy of the code
    under your GitHub user account.
 
-2. Clone your fork to your local disk, and add the base repository as a remote:
+2. Clone your fork to your local disk, and add the base repository as a remote. The following command
+   assumes you have your public SSH key uploaded to GitHub. See the following guide for more
+   [information](https://docs.github.com/en/repositories/creating-and-managing-repositories/cloning-a-repository).
 
    ```bash
    $ git clone git@github.com:<your Github handle>/huggingface_hub.git
@@ -140,7 +162,17 @@ Follow these steps to start contributing:
    $ git remote add upstream https://github.com/huggingface/huggingface_hub.git
    ```
 
-3. Create a new branch to hold your development changes:
+3. Create a new branch to hold your development changes, and do this for every new PR you work on.
+
+   Start by synchronizing your `main` branch with the `upstream/main` branch (ore details in the [GitHub Docs](https://docs.github.com/en/github/collaborating-with-issues-and-pull-requests/syncing-a-fork)):
+
+   ```bash
+   $ git checkout main
+   $ git fetch upstream
+   $ git merge upstream/main
+   ```
+
+   Once your `main` branch is synchronized, create a new branch from it:
 
    ```bash
    $ git checkout -b a-descriptive-name-for-my-changes
@@ -148,7 +180,8 @@ Follow these steps to start contributing:
 
    **Do not** work on the `master` branch.
 
-4. Set up a development environment by running the following command in a virtual environment:
+4. Set up a development environment by running the following command in a virtual environment a conda or a 
+   virtual environment you've created for working on this library:
 
    ```bash
    $ pip install -e ".[dev]"
@@ -167,6 +200,9 @@ Follow these steps to start contributing:
    ```bash
    $ HUGGINGFACE_CO_STAGING=1 pytest tests/<TEST_TO_RUN>.py
    ```
+   
+   > For the following commands leveraging the `make` utility, we recommend using the WSL system when running on
+   > Windows. More information [here](https://docs.microsoft.com/en-us/windows/wsl/about).
 
    You can also run the full suite with the following command.
 
@@ -176,12 +212,7 @@ Follow these steps to start contributing:
 
    `hugginface_hub` relies on `black` and `isort` to format its source code
    consistently. After you make changes, apply automatic style corrections and code verifications
-   that can't be automated in one go with:
-
-   This target is also optimized to only work with files modified by the PR you're working on.
-
-   If you prefer to run the checks one after the other, the following command apply the
-   style corrections:
+   that can't be automated:
 
    ```bash
    $ make style
@@ -234,12 +265,12 @@ Follow these steps to start contributing:
 2. If your pull request addresses an issue, please mention the issue number in
    the pull request description to make sure they are linked (and people
    consulting the issue know you are working on it);
-3. To indicate a work in progress please prefix the title with `[WIP]`. These
-   are useful to avoid duplicated work, and to differentiate it from PRs ready
-   to be merged;
+3. To indicate a work in progress please prefix the title with `[WIP]`, or mark 
+   the PR as a draft PR. These are useful to avoid duplicated work, and to differentiate 
+   it from PRs ready to be merged;
 4. Make sure existing tests pass;
 5. Add high-coverage tests. No quality testing = no merge.
-7. Due to the rapidly growing repository, it is important to make sure that no files that would significantly weigh down the repository are added. This includes images, videos and other non-text files. We prefer to leverage a hf.co hosted `dataset` like
+6. Due to the rapidly growing repository, it is important to make sure that no files that would significantly weigh down the repository are added. This includes images, videos and other non-text files. We prefer to leverage a hf.co hosted `dataset` like
    the ones hosted on [`hf-internal-testing`](https://huggingface.co/hf-internal-testing) in which to place these files and reference
    them by URL. We recommend putting them in the following dataset: [huggingface/documentation-images](https://huggingface.co/datasets/huggingface/documentation-images).
    If an external contribution, feel free to add the images to your PR and ask a Hugging Face member to migrate your images
@@ -265,3 +296,15 @@ In fact, that's how `make test` is implemented (sans the `pip install` line)!
 
 You can specify a smaller set of tests in order to test only the feature
 you're working on.
+
+For example, the following will only run the tests hel in the `test_repository.py` file:
+
+```bash
+$ HUGGINGFACE_CO_STAGING=1 python -m pytest -sv ./tests/test_repository.py
+```
+
+And the following will only run the tests that include `tag` in their name:
+
+```bash
+$ HUGGINGFACE_CO_STAGING=1 python -m pytest -sv ./tests -k tag
+```
