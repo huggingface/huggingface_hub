@@ -11,7 +11,7 @@
 	export let btnLabel = "";
 	export let entries: Array<{
 		classNames?: string;
-		href: string;
+		href?: string;
 		icon?: typeof SvelteComponent;
 		iconClassNames?: string;
 		onClick?: (e: MouseEvent) => void;
@@ -23,25 +23,17 @@
 	export let forceMenuAlignement: "left" | "right" | undefined = undefined;
 	export let menuClassNames = "";
 	export let noBtnClass: boolean | undefined = undefined;
-	export let selectedValue: string | undefined = undefined;
-	export let useDeprecatedJS = true;
 	export let withBtnCaret = false;
 
 	let element: HTMLElement | undefined = undefined;
 	let isOpen = false;
 </script>
 
-<div
-	class="relative {classNames} {useDeprecatedJS ? 'v2-dropdown' : ''}"
-	bind:this={element}
-	selected-value={selectedValue || undefined}
->
+<div class="relative {classNames}" bind:this={element}>
 	<!-- Button -->
 	<button
-		class="
-			{btnClassNames}
-			{!noBtnClass ? 'cursor-pointer w-full btn text-sm' : ''}
-			{useDeprecatedJS ? 'v2-dropdown-button' : ''}"
+		class="{btnClassNames}
+			{!noBtnClass ? 'cursor-pointer w-full btn text-sm' : ''}"
 		on:click={() => (isOpen = !isOpen)}
 		type="button"
 	>
@@ -63,11 +55,9 @@
 	</button>
 	<!-- /Button -->
 	<!-- Menu -->
-	{#if isOpen || useDeprecatedJS}
+	{#if isOpen}
 		<DropdownMenu
-			classNames="{menuClassNames} {useDeprecatedJS
-				? 'v2-dropdown-menu hidden'
-				: ''}"
+			classNames={menuClassNames}
 			dropdownElement={element}
 			forceAlignement={forceMenuAlignement}
 			onClose={() => (isOpen = false)}
