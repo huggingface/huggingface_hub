@@ -52,7 +52,7 @@ If you look at the “Files and versions” tab, you’ll see that there aren’
 
 1. In the "Files and versions" tab, select "Add File" and specify "Upload File":
 
-![/docs/assets/hub/add-file.png](docs/assets/hub/add-file.png)
+![/docs/assets/hub/add-file.png](/docs/assets/hub/add-file.png)
 
 2. From there, select a file from your computer to upload and leave a helpful commit message to know what you are uploading:
 
@@ -118,13 +118,13 @@ Do you have files larger than 10MB? Those files are tracked with `git-lfs`. We a
 
 Once ready, just run:
 
-```
+```bash
 git lfs install
 ```
 
 3. Clone your model repository created in the previous section:
 
-```
+```bash
 git clone https://huggingface.co/<your-username>/<your-model-id>
 ```
 
@@ -133,13 +133,13 @@ The directory should contain the `README.md` file created in the previous sectio
 
 4. Add your files to the repository
 
-Now's the time 🔥. You can add any files you want to the repository. 
+Now's the time 🔥. You can add any files you want to the repository.
 
 5. Commit and push your files
 
 You can do this with the usual Git workflow:
 
-```
+```bash
 git add .
 git commit -m "First model version"
 git push
@@ -161,7 +161,9 @@ The UI allows you to explore the model files and commits and to see the diff int
 
 Before we begin, you should make sure the `huggingface_hub` library is installed on your system by running the following `bash` command:
 
->>> pip install huggingface_hub
+```bash
+pip install huggingface_hub
+```
 
 Afterwards, you should login with your credentials. To find your credentials you can go to your [settings](https://huggingface.co/settings/tokens) from the Hugging Face website and copy the current token there.
 
@@ -171,8 +173,10 @@ To login to your profile, there are two options:
 
 To login through Jupyter, run the following inside of a Notebook cell:
 
+```python
 >>> from huggingface_hub import notebook_login
 >>> notebook_login()
+```
 
 You will be presented with a prompt similar to the following, where it will ask you to paste in that login token from earlier
 
@@ -180,34 +184,45 @@ You will be presented with a prompt similar to the following, where it will ask 
 
 To login through the command line, run the following from a terminal:
 
->>> huggingface-cli login
+```bash
+huggingface-cli login
+```
 
 You will be presented with a prompt asking for you to paste your token
 ![/docs/assets/hub/cli-login.png](/docs/assets/hub/cli-login.png)
 
 After either login method is chosen, you will be asked to run:
->>> git config --global credential.helper store
+
+```bash
+git config --global credential.helper store
+```
 
 This ensures that git is looking at our newly-stored credentials any time we wish to push to the Hub
 
-> Note: You may find that `HfApi` has a `set_access_token` function. This does not set all the permissions needed at each location, and is more for internal use. You should use one of the two methods mentioned above.
+**Note:** You may find that `HfApi` has a `set_access_token` function. This does not set all the permissions needed at each location, and is more for internal use. You should use one of the two methods mentioned above.
 
 ### Creating a repository
 
 When using the `huggingface_hub`, we can create a new repository from just a few lines of code!
 First we need to instantiate the `HfApi` class, which holds all of the magic:
+
+```python
 >>> from huggingface_hub import HfApi
 >>> api = HfApi()
+```
+
 
 Afterwards we can run the `create_repo` function, specifying a number of settings and options for our new repository:
+```python
 >>> api.create_repo(
 >>>   name = "dummy", # The name of our repository
 >>>   organization = None, # The namespace of the expected repository. Automatically grabs your logged-in profile name
 >>>   private = False, # Whether the repo should be public or private
 >>>   repo_type = "model" # The type of repository, such as "model", "space", "dataset"
 >>> )
+```
 
-> To read more about what you can pass in, check out its documentation by doing api.create_repo?
+**Note:** To read more about what you can pass in, check out its documentation by doing `api.create_repo?`
 
 ### Uploading your files
 
@@ -218,17 +233,21 @@ There are two methods for uploading a file to the Hub:
 `upload_file` should be used when the file is quite small (less than 10MB), and is straightforward to use. Simply pass in the filename, the location it should be in the repository, and the name of the repository.
 
 In this example we'll write a quick `README.md` file: 
+
+```python
 >>> with open('README.md', 'w+') as f:
->>>     f.write('''# Dummy model
->>>     
->>> This is a dummy model''')
+>>>     f.write("# Dummy model")
+```
 
 And quickly push it to the Hub:
+
+```python
 >>> url = api.upload_file(
->>>    path_or_fileobj = 'README.md', 
->>>    path_in_repo = 'README.md', 
->>>    repo_id = 'my_username/dummy',
->>>)
+>>>     path_or_fileobj = 'README.md', 
+>>>     path_in_repo = 'README.md', 
+>>>     repo_id = 'my_username/dummy',
+>>> )
+```
 
 You can find your file live on the Hub at the url returned from `upload_file`
 
@@ -236,17 +255,22 @@ You can find your file live on the Hub at the url returned from `upload_file`
 If you are trying to upload larger files to the hub (over 10MB), you should ensure that **git-lfs** is installed on your system. Git is used to manage your files on the Hub, and tracking of large file storages needs to utilize this. 
 
 First we need to clone our repository from the Hub by doing:
+
+```python
 >>> from huggingface_hub import Repository
 >>> repo = Repository(
->>>    local_dir = 'dummy', 
->>>    clone_from='my_username/dummy'
+>>>     local_dir = 'dummy', 
+>>>     clone_from='my_username/dummy'
 >>> )
+```
 
 Then you can write to the `dummy` folder any large file you may want to store, before finally pushing to the Hub with `Repository.push_to_hub` and attaching a helpful commit message to it:
 
+```python
 >>> repo.push_to_hub(
->>>   commit_message = "Our first big model!"
+>>>     commit_message = "Our first big model!"
 >>> )
+```
 
 And that's it! You can now push your models and files to your newly created Repository without ever having to leave your Python interpreter.
 
