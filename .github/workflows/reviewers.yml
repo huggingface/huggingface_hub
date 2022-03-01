@@ -25,11 +25,11 @@ files:
     - core-library
   'docs/**':
     - documentation
-  'api-inference-community/**'
+  'api-inference-community/**':
     - community-inferencce
-  'tasks/**'
+  'tasks/**':
     - community-tasks
-  'js/src/lib/components/InferenceWidget/**'
+  'js/src/lib/components/InferenceWidget/**':
     - widgets
 
 options:
