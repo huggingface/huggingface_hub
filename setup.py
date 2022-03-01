@@ -23,17 +23,11 @@ install_requires = [
 
 extras = {}
 
-extras["fastai"] = [
-    "toml",
-]
-
 extras["torch"] = [
     "torch",
 ]
 
-extras["fastai"] = [
-    "toml",
-]
+extras["fastai"] = ["toml", "fastai>=2.4"]
 
 extras["tensorflow"] = [
     "tensorflow",
