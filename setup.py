@@ -27,7 +27,11 @@ extras["torch"] = [
     "torch",
 ]
 
-extras["fastai"] = ["toml", "fastai>=2.4"]
+extras["fastai"] = [
+    "toml",
+    "fastai==2.5.3",
+    "fastcore==1.3.29",
+]
 
 extras["tensorflow"] = [
     "tensorflow",
