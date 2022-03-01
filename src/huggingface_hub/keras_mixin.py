@@ -153,7 +153,7 @@ def _create_model_card(
 
 class PushToHubCallback(Callback):
     """
-    Callback that will save and push Keras models to the Hub regularly. By default, it pushes once per epoch, but this can
+    Callback that will periodically save and push Keras models to the Hugging Face Hub. By default, it pushes once per epoch, but this can
     be changed with the `save_strategy` argument.
     ```py
     push_to_hub_callback = PushToHubCallbackKeras(
