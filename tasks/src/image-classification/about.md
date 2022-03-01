@@ -1,5 +1,5 @@
 ## Use Cases
-Image classification models can be used when we are not interested in specific instances of objects with location information or their shape.
+Image classification models can be used when we are not interested in specific instances of objects with location information or their shape.d
 
 ### Keyword Classification
 Image classification models are used widely in stock photography to assign each image a keyword.
