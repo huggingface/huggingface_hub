@@ -1,11 +1,10 @@
 reviewers:
-  # The default reviewers
   defaults:
-    - LysandreJik
-    - osanseviero
-  # Reviewers per author.
-  # Keys are reviewees, each of which has an array of reviewers.
-  per_author:
+    - repository-owners
+  groups:
+    repository-owners:
+      - LysandreJik
+      - osanseviero
     core-library:
       - muellerzr
     documentation:
@@ -18,6 +17,8 @@ reviewers:
       - mishig25
 
 files:
+  '**':
+    - repository-owners
   'src/**':
     - core-library
   'tests/**':
