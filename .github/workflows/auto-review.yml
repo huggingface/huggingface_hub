@@ -1,6 +1,7 @@
 name: Auto Request Review
 
 on:
+  push:
   pull_request:
     types: [opened, ready_for_review, reopened]
   
