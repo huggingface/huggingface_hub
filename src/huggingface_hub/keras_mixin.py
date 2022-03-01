@@ -105,7 +105,7 @@ def _create_model_card(
     repo_dir: Path,
     model_plot: Optional[bool] = True,
     task_name: Optional[str] = None,
-    from_callback: Optional[bool] = False,
+    override: Optional[bool] = False,
 ):
     """
     Creates a model card for the repository.
@@ -142,13 +142,12 @@ def _create_model_card(
         model_card += f"\n![Model Image]({path_to_plot})\n"
     model_card += "\n</details>"
 
-    if os.path.exists(readme_path) and from_callback is False:
-        with open(readme_path, "r", encoding="utf8") as f:
-            readme = f.read()
-    else:
+    if (os.path.exists(readme_path) and override is True) or not os.path.exists(
+        readme_path
+    ):
         readme = model_card
-    with open(readme_path, "w", encoding="utf-8") as f:
-        f.write(readme)
+        with open(readme_path, "w", encoding="utf-8") as f:
+            f.write(readme)
 
 
 class PushToHubCallback(Callback):
@@ -164,33 +163,39 @@ class PushToHubCallback(Callback):
     Args:
         save_strategy (`str`, *optional*, defaults to `"epoch"`):
             The checkpoint save strategy to adopt during training. Possible values are:
-                - `"no"`: Save is done at the end of training run.
+                - `"end_of_training"`: Save is done at the end of training run.
                 - `"epoch"`: Save is done at the end of each epoch.
-                - `"steps"`: Save is done every `save_steps`
+                - `"steps"`: Save is done every `save_steps`.
         save_steps (`int`, *optional*):
             The number of steps between saves when using the "steps" `save_strategy`.
-        hub_token (`str`, *optional*):
+        repo_path_or_name (:obj:`str`, `optional`):
+            Can either be a repository name for your model in the Hub or a path to a local folder (in
+            which case the repository will have the name of that local folder). If not specified, will default to
+            the name given by :obj:`repo_url` and a local directory with that name will be created.
+        repo_url (:obj:`str`, `optional`):
+            Specify this in case you want to push to an existing repository in the hub. If unspecified, a new
+            repository will be created in your namespace (unless you specify an :obj:`organization`) with
+            :obj:`repo_name`.
+        token (`str`, *optional*):
             The token to use to push the model to the Hub. Will default to the token in the cache folder obtained with
             `huggingface-cli login`.
-                api_endpoint (:obj:`str`, `optional`):
-            The API endpoint to use when pushing the model to the hub.
-        organization (:obj:`str`, `optional`):
-            Organization in which you want to push your model or tokenizer (you must be a member of this
-            organization).
         api_endpoint (:obj:`str`, `optional`):
             The API endpoint to use when pushing the model to the hub.
+        organization (:obj:`str`, `optional`):
+            Organization in which you want to push your model or tokenizer (you must be a member of the
+            organization).
         git_user (``str``, `optional`):
             will override the ``git config user.name`` for committing and pushing files to the hub.
         git_email (``str``, `optional`):
             will override the ``git config user.email`` for committing and pushing files to the hub.
         task_name (:obj:`str`, `optional`):
             Name of the task the model was trained on. See the available tasks at https://github.com/huggingface/huggingface_hub/blob/main/js/src/lib/interfaces/Types.ts.
-        model_plot (:obj:`bool`):
+        plot_model (:obj:`bool`):
             Setting this to `True` will plot the model and put it in the model card. Requires graphviz and pydot to be installed.
         include_optimizer (:obj:`bool`, `optional`):
             Whether or not to include optimizer during serialization.
         model_save_kwargs(:obj:`dict`, `optional`):
-            model_save_kwargs will be passed to tf.keras.models.save_model().
+            model_save_kwargs will be passed to tf.keras.models.save_model() through save_pretrained_keras().
     """
 
     def __init__(
@@ -199,69 +204,63 @@ class PushToHubCallback(Callback):
         save_steps: Optional[int] = None,
         repo_path_or_name: Optional[str] = None,
         repo_url: Optional[str] = None,
-        hub_token: Optional[str] = None,
-        organization: Optional[str] = None,
+        token: Optional[str] = None,
         api_endpoint: Optional[str] = None,
+        organization: Optional[str] = None,
         git_user: Optional[str] = None,
         git_email: Optional[str] = None,
-        model_plot: Optional[bool] = True,
-        include_optimizer: Optional[bool] = True,
         task_name: Optional[str] = None,
+        plot_model: Optional[bool] = True,
+        include_optimizer: Optional[bool] = True,
+        **model_save_kwargs,
     ):
         super().__init__()
         self.save_strategy = save_strategy
         self.save_steps = save_steps
-        self.repo_path_or_name = repo_path_or_name
-        self.repo_url = repo_url
-        self.organization = organization
-        self.hub_token = hub_token
-        self.api_endpoint = api_endpoint
-        self.model_plot = model_plot
-        self.task_name = task_name
-        self.last_job = None
-        self.git_user = git_user
-        self.git_email = git_email
+        self.plot_model = plot_model
         self.include_optimizer = include_optimizer
         self.task_name = task_name
+        self.last_job = None
+        self.model_save_kwargs = model_save_kwargs
 
-        if self.repo_path_or_name is None and self.repo_url is None:
+        if repo_path_or_name is None and repo_url is None:
             raise ValueError(
                 "You need to specify a `repo_path_or_name` or a `repo_url`."
             )
 
-        if isinstance(hub_token, str):
-            self.token = token
-        else:
-            self.token = HfFolder.get_token()
+        if not isinstance(token, str):
+            token = HfFolder.get_token()
 
-        if self.token is None:
+        if token is None:
             raise ValueError(
-                "You must login to the Hugging Face hub on this computer by typing `huggingface-cli login` and "
-                "entering your credentials to use `use_auth_token=True`. Alternatively, you can pass your own "
-                "token as the `use_auth_token` argument."
+                "You must login to the Hugging Face hub in your CLI by typing `huggingface-cli login` and "
+                "entering your token. Alternatively, you can pass your own token as the"
+                "`token` argument or use notebook_login() if you're logging in from a notebook."
             )
 
-        if self.repo_path_or_name is None:
-            self.repo_path_or_name = self.repo_url.split("/")[-1]
+        if repo_path_or_name is None:
+            self.repo_path_or_name = repo_url.split("/")[-1]
+        else:
+            self.repo_path_or_name = repo_path_or_name
 
-        if self.repo_url is None and not os.path.exists(self.repo_path_or_name):
-            self.repo_name = Path(self.repo_path_or_name).name
-            self.repo_url = HfApi(endpoint=self.api_endpoint).create_repo(
-                self.repo_name,
-                token=self.hub_token,
-                organization=self.organization,
+        if repo_url is None and not os.path.exists(self.repo_path_or_name):
+            repo_name = Path(self.repo_path_or_name).name
+            repo_url = HfApi(endpoint=api_endpoint).create_repo(
+                repo_name,
+                token=token,
+                organization=organization,
                 repo_type=None,
                 exist_ok=True,
             )
 
         self.repo = Repository(
             self.repo_path_or_name,
-            clone_from=self.repo_url,
-            use_auth_token=self.token,
-            git_user=self.git_user,
-            git_email=self.git_email,
+            clone_from=repo_url,
+            use_auth_token=token,
+            git_user=git_user,
+            git_email=git_email,
         )
-        self.repo.git_pull(rebase=True)
+        self.repo.git_pull()
 
     def on_train_batch_end(self, batch, logs=None):
         if self.save_strategy == "steps" and batch + 1 % self.save_steps == 0:
@@ -269,9 +268,15 @@ class PushToHubCallback(Callback):
                 logger.info("Waiting for existing upload to finish...")
                 while not self.last_job.is_done:
                     time.sleep(1)
-            save_pretrained_keras(self.model, self.repo_path_or_name)
+            save_pretrained_keras(
+                self.model, self.repo_path_or_name, **self.model_save_kwargs
+            )
             _create_model_card(
-                self.model, self.repo_path_or_name, self.model_plot, self.task_name
+                self.model,
+                self.repo_path_or_name,
+                self.plot_model,
+                self.task_name,
+                override=True,
             )
             self.repo.git_add(auto_lfs_track=True)
             _, self.last_job = self.repo.push_to_hub(
@@ -287,14 +292,15 @@ class PushToHubCallback(Callback):
                 self.model,
                 self.repo_path_or_name,
                 include_optimizer=self.include_optimizer,
+                **self.model_save_kwargs,
             )
 
             _create_model_card(
                 self.model,
                 self.repo_path_or_name,
-                self.model_plot,
+                self.plot_model,
                 self.task_name,
-                from_callback=True,
+                override=True,
             )
             self.repo.git_add(auto_lfs_track=True)
             _, self.last_job = self.repo.push_to_hub(
@@ -306,10 +312,17 @@ class PushToHubCallback(Callback):
             while not self.last_job.is_done:
                 time.sleep(1)
         save_pretrained_keras(
-            self.model, self.repo_path_or_name, include_optimizer=self.include_optimizer
+            self.model,
+            self.repo_path_or_name,
+            include_optimizer=self.include_optimizer,
+            **self.model_save_kwargs,
         )
         _create_model_card(
-            self.model, self.repo_path_or_name, self.model_plot, self.task_name
+            self.model,
+            self.repo_path_or_name,
+            self.plot_model,
+            self.task_name,
+            override=True,
         )
         self.repo.git_add(auto_lfs_track=True)
         self.repo.push_to_hub(commit_message="End of training", blocking=True)
@@ -385,14 +398,14 @@ def push_to_hub_keras(
     **model_save_kwargs,
 ):
     """
-    Upload model checkpoint or tokenizer files to the 🤗 Model Hub while synchronizing a local clone of the repo in
+    Upload model checkpoint files to the 🤗 Model Hub while synchronizing a local clone of the repo in
     :obj:`repo_path_or_name`.
 
     Parameters:
         model:
             The Keras model you'd like to push to the hub. The model must be compiled and built.
         repo_path_or_name (:obj:`str`, `optional`):
-            Can either be a repository name for your model or tokenizer in the Hub or a path to a local folder (in
+            Can either be a repository name for your model in the Hub or a path to a local folder (in
             which case the repository will have the name of that local folder). If not specified, will default to
             the name given by :obj:`repo_url` and a local directory with that name will be created.
         repo_url (:obj:`str`, `optional`):
@@ -405,7 +418,7 @@ def push_to_hub_keras(
         commit_message (:obj:`str`, `optional`):
             Message to commit while pushing. Will default to :obj:`"add model"`.
         organization (:obj:`str`, `optional`):
-            Organization in which you want to push your model or tokenizer (you must be a member of this
+            Organization in which you want to push your model (you must be a member of this
             organization).
         private (:obj:`bool`, `optional`):
             Whether or not the repository created should be private (requires a paying subscription).
