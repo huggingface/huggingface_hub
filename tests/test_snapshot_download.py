@@ -8,8 +8,13 @@ import requests
 from huggingface_hub import HfApi, Repository
 from huggingface_hub.hf_api import HfFolder
 from huggingface_hub.snapshot_download import snapshot_download
-from tests.testing_constants import ENDPOINT_STAGING, PASS, USER
+from huggingface_hub.utils import logging
 
+from .testing_constants import ENDPOINT_STAGING, PASS, USER
+from .testing_utils import retry_endpoint, set_write_permission_and_retry
+
+
+logger = logging.get_logger(__name__)
 
 REPO_NAME = "dummy-hf-hub-{}".format(int(time.time() * 10e3))
 
@@ -24,7 +29,11 @@ class SnapshotDownloadTests(unittest.TestCase):
         """
         cls._token = cls._api.login(username=USER, password=PASS)
 
+    @retry_endpoint
     def setUp(self) -> None:
+        if os.path.exists(REPO_NAME):
+            shutil.rmtree(REPO_NAME, onerror=set_write_permission_and_retry)
+        logger.info(f"Does {REPO_NAME} exist: {os.path.exists(REPO_NAME)}")
         repo = Repository(
             REPO_NAME,
             clone_from=f"{USER}/{REPO_NAME}",
