@@ -6,7 +6,6 @@ from typing import Any, Dict, Optional
 
 import packaging.version
 
-import toml
 from huggingface_hub.constants import CONFIG_NAME
 from huggingface_hub.file_download import (
     _PY_VERSION,
@@ -77,6 +76,15 @@ def check_fastai_fastcore_pyproject_versions(
         FileNotFoundError, ImportError
 
     """
+
+    try:
+        import toml
+    except IndexError:
+        raise ImportError(
+            "toml module required "
+            f"`push_to_hub_fastai` and `from_pretrained_fastai` require the toml module. Upgrade with `pip install toml`."
+        )
+
     # Check that a `pyproject.toml` exists in the repository, and if so, get a list of required packages
     try:
         package_versions = toml.load(f"{storage_folder}/pyproject.toml")[
