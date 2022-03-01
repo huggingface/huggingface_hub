@@ -111,8 +111,7 @@ class HubMixingTestKeras(unittest.TestCase):
         model(model.dummy_inputs)
 
         model.save_pretrained(
-            f"{WORKING_REPO_DIR}/FROM_PRETRAINED", plot_model=True, task_name=None
-        )
+            f"{WORKING_REPO_DIR}/FROM_PRETRAINED")
         new_model = DummyModel.from_pretrained(f"{WORKING_REPO_DIR}/FROM_PRETRAINED")
 
         # Check the reloaded model's weights match the original model's weights
@@ -132,9 +131,7 @@ class HubMixingTestKeras(unittest.TestCase):
         model(model.dummy_inputs)
         model.save_pretrained(
             f"tests/{WORKING_REPO_SUBDIR}/FROM_PRETRAINED",
-            config={"num": 10, "act": "gelu_fast"},
-            plot_model=False,
-            task_name=None,
+            config={"num": 10, "act": "gelu_fast"}
         )
 
         model = DummyModel.from_pretrained(
@@ -211,6 +208,23 @@ class HubKerasSequentialTest(HubMixingTestKeras):
         self.assertEqual(len(files), 6)
         loaded_model = from_pretrained_keras(f"{WORKING_REPO_DIR}/{REPO_NAME}")
         self.assertIsNone(loaded_model.optimizer)
+
+    def test_save_pretrained_model_card_fit(self):
+        REPO_NAME = repo_name("save")
+        model = self.model_init()
+        model = self.model_fit(model)
+
+        save_pretrained_keras(
+            model,
+            f"{WORKING_REPO_DIR}/{REPO_NAME}",
+        )
+        files = os.listdir(f"{WORKING_REPO_DIR}/{REPO_NAME}")
+
+        self.assertIn("saved_model.pb", files)
+        self.assertIn("keras_metadata.pb", files)
+        self.assertIn("model.png", files)
+        self.assertIn("README.md", files)
+        self.assertEqual(len(files), 6)
 
     def test_save_pretrained_optimizer_state(self):
         REPO_NAME = repo_name("save")
@@ -313,27 +327,6 @@ class HubKerasSequentialTest(HubMixingTestKeras):
         )
         self.assertEqual(model_info.modelId, f"{USER}/{REPO_NAME}")
 
-        self._api.delete_repo(name=f"{REPO_NAME}", token=self._token)
-
-    @retry_endpoint
-    def test_push_to_hub_model_card_fit(self):
-        REPO_NAME = repo_name("PUSH_TO_HUB")
-        model = self.model_init()
-        model = self.model_fit(model)
-        push_to_hub_keras(
-            model,
-            repo_path_or_name=f"{WORKING_REPO_DIR}/{REPO_NAME}",
-            api_endpoint=ENDPOINT_STAGING,
-            use_auth_token=self._token,
-            git_user="ci",
-            git_email="ci@dummy.com",
-            task_name="object-detection",
-        )
-        model_info = HfApi(endpoint=ENDPOINT_STAGING).model_info(
-            f"{USER}/{REPO_NAME}",
-        )
-        self.assertTrue("README.md" in [f.rfilename for f in model_info.siblings])
-        self.assertTrue("model.png" in [f.rfilename for f in model_info.siblings])
         self._api.delete_repo(name=f"{REPO_NAME}", token=self._token)
 
     @retry_endpoint
