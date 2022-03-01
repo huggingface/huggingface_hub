@@ -1,0 +1,39 @@
+reviewers:
+  # The default reviewers
+  defaults:
+    - LysandreJik
+    - osanseviero
+  # Reviewers per author.
+  # Keys are reviewees, each of which has an array of reviewers.
+  per_author:
+    core-library:
+      - muellerzr
+    documentation:
+      - stevhliu
+    community-inference:
+      - Narsil
+    community-tasks:
+      - merveenoyan
+    widgets:
+      - mishig25
+
+files:
+  'src/**':
+    - core-library
+  'tests/**':
+    - core-library
+  'docs/**':
+    - documentation
+  'api-inference-community/**'
+    - community-inferencce
+  'tasks/**'
+    - community-tasks
+  'js/src/lib/components/InferenceWidget/**'
+    - widgets
+
+options:
+  ignore_draft: true
+  ignored_keywords:
+    - DO NOT REVIEW
+    - DRAFT
+  enable_group_assignment: false
