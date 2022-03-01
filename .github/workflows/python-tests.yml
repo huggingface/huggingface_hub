@@ -83,6 +83,24 @@ jobs:
         pip install .[testing,tensorflow]
 
     - run: pytest -sv ./tests/test_keras*
+  
+  build_fastai:
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v2
+
+    - name: Set up Python ${{ matrix.python-version }}
+      uses: actions/setup-python@v2
+      with:
+        python-version: ${{ matrix.python-version }}
+
+    - name: Install dependencies
+      run: |
+        pip install --upgrade pip
+        pip install .[testing,fastai]
+
+    - run: pytest -sv ./tests/test_fastai*
 
   tests_lfs:
     runs-on: ubuntu-latest
