@@ -229,12 +229,10 @@ class PushToHubCallback(Callback):
                 "You need to specify a `repo_path_or_name` or a `repo_url`."
             )
 
-        if isinstance(hub_token, bool) and hub_token:
-            self.token = HfFolder.get_token()
-        elif isinstance(hub_token, str):
-            self.token = hub_token
+        if isinstance(hub_token, str):
+            self.token = token
         else:
-            self.token = None
+            self.token = HfFolder.get_token()
 
         if self.token is None:
             raise ValueError(
