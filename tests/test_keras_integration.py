@@ -94,7 +94,9 @@ class HubMixingTestKeras(unittest.TestCase):
         files = os.listdir(f"{WORKING_REPO_DIR}/{REPO_NAME}")
         self.assertTrue("saved_model.pb" in files)
         self.assertTrue("keras_metadata.pb" in files)
-        self.assertEqual(len(files), 4)
+        self.assertTrue("README.md" in files)
+        self.assertTrue("model.png" in files)
+        self.assertEqual(len(files), 6)
 
         model.save_pretrained(
             f"{WORKING_REPO_DIR}/{REPO_NAME}", config={"num": 12, "act": "gelu"}
@@ -102,13 +104,15 @@ class HubMixingTestKeras(unittest.TestCase):
         files = os.listdir(f"{WORKING_REPO_DIR}/{REPO_NAME}")
         self.assertTrue("config.json" in files)
         self.assertTrue("saved_model.pb" in files)
-        self.assertEqual(len(files), 5)
+        self.assertEqual(len(files), 7)
 
     def test_keras_from_pretrained_weights(self):
         model = DummyModel()
         model(model.dummy_inputs)
 
-        model.save_pretrained(f"{WORKING_REPO_DIR}/FROM_PRETRAINED")
+        model.save_pretrained(
+            f"{WORKING_REPO_DIR}/FROM_PRETRAINED", plot_model=True, task_name=None
+        )
         new_model = DummyModel.from_pretrained(f"{WORKING_REPO_DIR}/FROM_PRETRAINED")
 
         # Check the reloaded model's weights match the original model's weights
@@ -129,6 +133,8 @@ class HubMixingTestKeras(unittest.TestCase):
         model.save_pretrained(
             f"tests/{WORKING_REPO_SUBDIR}/FROM_PRETRAINED",
             config={"num": 10, "act": "gelu_fast"},
+            plot_model=False,
+            task_name=None,
         )
 
         model = DummyModel.from_pretrained(
@@ -141,8 +147,7 @@ class HubMixingTestKeras(unittest.TestCase):
         model = DummyModel()
         model(model.dummy_inputs)
         model.save_pretrained(
-            f"{WORKING_REPO_DIR}/{REPO_NAME}",
-            config={"num": 10, "act": "gelu_fast"},
+            f"{WORKING_REPO_DIR}/{REPO_NAME}", config={"num": 10, "act": "gelu_fast"}
         )
 
         model = DummyModel.from_pretrained(f"{WORKING_REPO_DIR}/{REPO_NAME}")
@@ -201,7 +206,9 @@ class HubKerasSequentialTest(HubMixingTestKeras):
 
         self.assertIn("saved_model.pb", files)
         self.assertIn("keras_metadata.pb", files)
-        self.assertEqual(len(files), 4)
+        self.assertIn("model.png", files)
+        self.assertIn("README.md", files)
+        self.assertEqual(len(files), 6)
         loaded_model = from_pretrained_keras(f"{WORKING_REPO_DIR}/{REPO_NAME}")
         self.assertIsNone(loaded_model.optimizer)
 
@@ -277,6 +284,8 @@ class HubKerasSequentialTest(HubMixingTestKeras):
             model,
             f"{WORKING_REPO_DIR}/{REPO_NAME}",
             config={"num": 10, "act": "gelu_fast"},
+            plot_model=True,
+            task_name=None,
         )
 
         new_model = from_pretrained_keras(f"{WORKING_REPO_DIR}/{REPO_NAME}")
@@ -310,7 +319,6 @@ class HubKerasSequentialTest(HubMixingTestKeras):
     def test_push_to_hub_model_card_fit(self):
         REPO_NAME = repo_name("PUSH_TO_HUB")
         model = self.model_init()
-        model.build((None, 2))
         model = self.model_fit(model)
         push_to_hub_keras(
             model,
@@ -352,7 +360,6 @@ class HubKerasSequentialTest(HubMixingTestKeras):
     def test_push_to_hub_model_card_plot_false(self):
         REPO_NAME = repo_name("PUSH_TO_HUB")
         model = self.model_init()
-        model.build((None, 2))
         model = self.model_fit(model)
         push_to_hub_keras(
             model,
@@ -486,7 +493,7 @@ class HubKerasFunctionalTest(HubKerasSequentialTest):
 
         self.assertIn("saved_model.pb", files)
         self.assertIn("keras_metadata.pb", files)
-        self.assertEqual(len(files), 4)
+        self.assertEqual(len(files), 6)
 
     def test_save_pretrained_fit(self):
         REPO_NAME = repo_name("functional")
@@ -498,4 +505,4 @@ class HubKerasFunctionalTest(HubKerasSequentialTest):
 
         self.assertIn("saved_model.pb", files)
         self.assertIn("keras_metadata.pb", files)
-        self.assertEqual(len(files), 4)
+        self.assertEqual(len(files), 6)
