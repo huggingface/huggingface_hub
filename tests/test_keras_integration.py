@@ -110,8 +110,7 @@ class HubMixingTestKeras(unittest.TestCase):
         model = DummyModel()
         model(model.dummy_inputs)
 
-        model.save_pretrained(
-            f"{WORKING_REPO_DIR}/FROM_PRETRAINED")
+        model.save_pretrained(f"{WORKING_REPO_DIR}/FROM_PRETRAINED")
         new_model = DummyModel.from_pretrained(f"{WORKING_REPO_DIR}/FROM_PRETRAINED")
 
         # Check the reloaded model's weights match the original model's weights
@@ -131,7 +130,7 @@ class HubMixingTestKeras(unittest.TestCase):
         model(model.dummy_inputs)
         model.save_pretrained(
             f"tests/{WORKING_REPO_SUBDIR}/FROM_PRETRAINED",
-            config={"num": 10, "act": "gelu_fast"}
+            config={"num": 10, "act": "gelu_fast"},
         )
 
         model = DummyModel.from_pretrained(
