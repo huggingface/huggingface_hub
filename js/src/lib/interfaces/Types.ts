@@ -191,7 +191,7 @@ export interface ModelData {
 	/**
 	 * git branch
 	 */
-	branch: string;
+	branch?: string;
 	/**
 	 * this dictionary has useful information about the model configuration
 	 */
