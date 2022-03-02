@@ -1177,8 +1177,8 @@ class HfApi:
 
     def update_repo_visibility(
         self,
-        name: str,
-        private: bool,
+        name: str = None,
+        private: bool = False,
         token: Optional[str] = None,
         organization: Optional[str] = None,
         repo_type: Optional[str] = None,
@@ -1221,7 +1221,10 @@ class HfApi:
                 FutureWarning,
             )
         else:
-            name, organization = repo_id.split("/")
+            if "/" in repo_id:
+                name, organization = repo_id.split("/")
+            else:
+                name, organization = repo_id, None
 
         if token is None:
             token = self._validate_or_retrieve_token()

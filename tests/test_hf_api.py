@@ -14,6 +14,7 @@
 
 
 import os
+import re
 import shutil
 import subprocess
 import tempfile
@@ -163,14 +164,31 @@ class HfApiEndpointsTest(HfApiCommonTestWithLogin):
         REPO_NAME = repo_name("crud")
         self._api.create_repo(name=REPO_NAME, token=self._token)
         res = self._api.update_repo_visibility(
-            name=REPO_NAME, token=self._token, private=True
+            repo_id=REPO_NAME, token=self._token, private=True
         )
         self.assertTrue(res["private"])
         res = self._api.update_repo_visibility(
-            name=REPO_NAME, token=self._token, private=False
+            repo_id=REPO_NAME, token=self._token, private=False
         )
         self.assertFalse(res["private"])
         self._api.delete_repo(name=REPO_NAME, token=self._token)
+
+    @retry_endpoint
+    def test_name_org_deprecation(self):
+        REPO_NAME = repo_name("crud")
+        self._api.create_repo(
+            name=REPO_NAME, token=self._token, repo_type=REPO_TYPE_MODEL
+        )
+        with pytest.warns(
+            FutureWarning,
+            match=re.escape("`name` and `organization` input arguments are deprecated"),
+        ):
+            self._api.update_repo_visibility(
+                name=REPO_NAME,
+                token=self._token,
+                private=True,
+                repo_type=REPO_TYPE_MODEL,
+            )
 
     @retry_endpoint
     def test_create_update_and_delete_model_repo(self):
@@ -179,11 +197,17 @@ class HfApiEndpointsTest(HfApiCommonTestWithLogin):
             name=REPO_NAME, token=self._token, repo_type=REPO_TYPE_MODEL
         )
         res = self._api.update_repo_visibility(
-            name=REPO_NAME, token=self._token, private=True, repo_type=REPO_TYPE_MODEL
+            repo_id=REPO_NAME,
+            token=self._token,
+            private=True,
+            repo_type=REPO_TYPE_MODEL,
         )
         self.assertTrue(res["private"])
         res = self._api.update_repo_visibility(
-            name=REPO_NAME, token=self._token, private=False, repo_type=REPO_TYPE_MODEL
+            repo_id=REPO_NAME,
+            token=self._token,
+            private=False,
+            repo_type=REPO_TYPE_MODEL,
         )
         self.assertFalse(res["private"])
         self._api.delete_repo(
@@ -197,14 +221,14 @@ class HfApiEndpointsTest(HfApiCommonTestWithLogin):
             name=DATASET_REPO_NAME, token=self._token, repo_type=REPO_TYPE_DATASET
         )
         res = self._api.update_repo_visibility(
-            name=DATASET_REPO_NAME,
+            repo_id=DATASET_REPO_NAME,
             token=self._token,
             private=True,
             repo_type=REPO_TYPE_DATASET,
         )
         self.assertTrue(res["private"])
         res = self._api.update_repo_visibility(
-            name=DATASET_REPO_NAME,
+            repo_id=DATASET_REPO_NAME,
             token=self._token,
             private=False,
             repo_type=REPO_TYPE_DATASET,
@@ -241,14 +265,14 @@ class HfApiEndpointsTest(HfApiCommonTestWithLogin):
                 space_sdk=sdk,
             )
             res = self._api.update_repo_visibility(
-                name=SPACE_REPO_NAME,
+                repo_id=SPACE_REPO_NAME,
                 token=self._token,
                 private=True,
                 repo_type=REPO_TYPE_SPACE,
             )
             self.assertTrue(res["private"])
             res = self._api.update_repo_visibility(
-                name=SPACE_REPO_NAME,
+                repo_id=SPACE_REPO_NAME,
                 token=self._token,
                 private=False,
                 repo_type=REPO_TYPE_SPACE,
