@@ -150,6 +150,34 @@ def _create_model_card(
             f.write(readme)
 
 
+class ValidationCallback(Callback):
+    # callback that checks the commit history
+    # checks that distinct commits were pushed for given period
+    def __init__(self, model_id, save_strategy, log_path, api_endpoint):
+        super().__init__()
+        self.model_id = model_id
+        self.api = HfApi(endpoint=api_endpoint)
+        self.save_strategy = save_strategy
+        self.log_path = log_path
+
+    def on_epoch_end(self, epoch, logs=None):
+        if self.save_strategy == "epoch":
+            info = self.api.model_info(repo_id=self.model_id)
+            with open(self.log_path, "a+") as f:
+                f.write(f"{info.lastModified}\n")
+
+    def on_train_batch_end(self, batch, logs=None):
+        if self.save_strategy == "steps":
+            info = self.api.model_info(repo_id=self.model_id)
+            with open(self.log_path, "a+") as f:
+                f.write(f"{info.lastModified}\n")
+
+    def on_train_end(self, logs=None):
+        info = self.api.model_info(repo_id=self.model_id)
+        with open(self.log_path, "a+") as f:
+            f.write(f"{info.lastModified}\n")
+
+
 class PushToHubCallback(Callback):
     """
     Callback that will periodically save and push Keras models to the Hugging Face Hub. By default, it pushes once per epoch, but this can

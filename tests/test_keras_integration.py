@@ -15,6 +15,7 @@ from huggingface_hub.file_download import (
 from huggingface_hub.keras_mixin import (
     KerasModelHubMixin,
     PushToHubCallback,
+    ValidationCallback,
     from_pretrained_keras,
     push_to_hub_keras,
     save_pretrained_keras,
@@ -177,16 +178,16 @@ class HubKerasSequentialTest(HubMixingTestKeras):
     def model_fit(self, model):
         x = tf.constant([[0.44, 0.90], [0.65, 0.39]])
         y = tf.constant([[1, 1], [0, 0]])
-        model.fit(x, y)
+        model.fit(x, y, epochs=3)
         return model
 
-    def model_fit_callback(self, model, callback):
+    def model_fit_callback(self, model, callback, num_epochs):
         x = tf.constant([[0.44, 0.90], [0.65, 0.39]])
         y = tf.constant([[1, 1], [0, 0]])
-        model.fit(x, y, callbacks=[callback])
+        model.fit(x, y, callbacks=callback, epochs=num_epochs)
         return model
 
-    def test_callback(self):
+    def test_callback_epoch(self):
         REPO_NAME = repo_name("PUSH_TO_HUB")
         model = self.model_init()
 
@@ -194,20 +195,27 @@ class HubKerasSequentialTest(HubMixingTestKeras):
             save_strategy="epoch",
             repo_path_or_name=f"{WORKING_REPO_DIR}/{REPO_NAME}",
             api_endpoint=ENDPOINT_STAGING,
-            hub_token=self._token,
+            token=self._token,
             git_user="ci",
             git_email="ci@dummy.com",
         )
-        model = self.model_fit_callback(model, callback=push_to_hub_callback)
-
-        model_info = HfApi(endpoint=ENDPOINT_STAGING).model_info(
-            f"{USER}/{REPO_NAME}",
+        val_callback = ValidationCallback(
+            log_path=f"{WORKING_REPO_DIR}/{REPO_NAME}/logs.txt",
+            model_id=f"{WORKING_REPO_DIR}/{REPO_NAME}",
+            save_strategy="epoch",
+            api_endpoint=ENDPOINT_STAGING,
         )
-        self.assertIn("saved_model.pb", [f.rfilename for f in model_info.siblings])
-        self.assertIn("keras_metadata.pb", [f.rfilename for f in model_info.siblings])
-        self.assertIn("README.md", [f.rfilename for f in model_info.siblings])
-        self.assertIn("model.png", [f.rfilename for f in model_info.siblings])
-        self._api.delete_repo(name=f"{REPO_NAME}", token=self._token)
+        num_epochs = 3
+        model = self.model_fit_callback(
+            model, callback=[push_to_hub_callback, val_callback], num_epochs=num_epochs
+        )
+
+        with open(
+            f"{WORKING_REPO_DIR}/{REPO_NAME}/logs.txt", "r", encoding="utf-8"
+        ) as f:
+            logs = f.read()
+            log_list = logs.split("\n")
+            self.assertEqual(len(log_list), num_epochs)
 
     def test_save_pretrained(self):
         REPO_NAME = repo_name("save")
