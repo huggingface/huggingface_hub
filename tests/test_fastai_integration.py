@@ -2,7 +2,7 @@ import os
 import shutil
 import time
 import uuid
-from unittest import TestCase
+from unittest import TestCase, skip
 
 from huggingface_hub import HfApi
 from huggingface_hub.fastai_utils import (
@@ -10,7 +10,11 @@ from huggingface_hub.fastai_utils import (
     push_to_hub_fastai,
     save_fastai_learner,
 )
-from huggingface_hub.file_download import is_fastai_available, is_torch_available
+from huggingface_hub.file_download import (
+    is_fastai_available,
+    is_fastcore_available,
+    is_torch_available,
+)
 
 from .testing_constants import ENDPOINT_STAGING, PASS, USER
 from .testing_utils import set_write_permission_and_retry
@@ -33,6 +37,19 @@ if is_torch_available():
     import torch
 
 
+def require_fastai_fastcore(test_case):
+    """
+    Decorator marking a test that requires fastai and fastcore.
+    These tests are skipped when fastai and fastcore are not installed.
+    """
+    if not is_fastai_available():
+        return skip("Test requires fastai")(test_case)
+    elif not is_fastcore_available():
+        return skip("Test requires fastcore")(test_case)
+    else:
+        return test_case
+
+
 def fake_dataloaders(a=2, b=3, bs=16, n=10):
     def get_data(n):
         x = torch.randn(bs * n, 1)
@@ -51,6 +68,7 @@ else:
     dummy_config = None
 
 
+@require_fastai_fastcore
 class TestFastaiUtils(TestCase):
     @classmethod
     def setUpClass(cls):
