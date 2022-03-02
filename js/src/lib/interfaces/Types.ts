@@ -205,6 +205,10 @@ export interface ModelData {
 	 */
 	pipeline_tag?: (keyof typeof PipelineType) | undefined;
 	/**
+	 * Link to https://paperswithcode.com/ foo ModelEvalResults.svelte
+	 */
+	pwcLink?: ParsedPwcLink;
+	/**
 	 * for relevant models, get mask token
 	 */
 	mask_token?: string | undefined;
@@ -250,3 +254,8 @@ export interface TransformersInfo {
 	 */
 	processor?: string;
 }
+
+/**
+ * Link to https://paperswithcode.com/ foo ModelEvalResults.svelte
+ */
+export type ParsedPwcLink = { url: string; } | { error: string; };
