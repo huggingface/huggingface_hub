@@ -199,13 +199,15 @@ class HubKerasSequentialTest(HubMixingTestKeras):
             git_user="ci",
             git_email="ci@dummy.com",
         )
+        num_epochs = 3
         val_callback = ValidationCallback(
             log_path=f"{WORKING_REPO_DIR}/{REPO_NAME}/logs.txt",
-            model_id=f"{WORKING_REPO_DIR}/{REPO_NAME}",
+            model_id=f"{USER}/{REPO_NAME}",
             save_strategy="epoch",
             api_endpoint=ENDPOINT_STAGING,
+            num_epochs=num_epochs,
         )
-        num_epochs = 3
+
         model = self.model_fit_callback(
             model, callback=[push_to_hub_callback, val_callback], num_epochs=num_epochs
         )
