@@ -1182,12 +1182,46 @@ class HfApi:
         token: Optional[str] = None,
         organization: Optional[str] = None,
         repo_type: Optional[str] = None,
+        repo_id: str = None,
     ) -> Dict[str, bool]:
-        """
-        Update the visibility setting of a repository.
+        """Update the visibility setting of a repository.
+
+        Args:
+            repo_id: A user or an organization name and a repo name seperated by a
+                ``/``.
+
+                .. versionadded: 0.4.0
+
+            private: Whether the model repo should be private (requires a paid
+                huggingface.co account)
+
+            token: A token to be used for the download.
+                - If ``True``, the token is read from the HuggingFace config
+                folder.
+                - If a string, it's used as the authentication token.
+
+            repo_type: Set to :obj:`"dataset"` or :obj:`"space"` if uploading
+                to a dataset or space, :obj:`None` or :obj:`"model"` if
+                uploading to a model. Default is :obj:`None`.
+
+        Returns:
+            The HTTP response in json.
         """
         if repo_type not in REPO_TYPES:
             raise ValueError("Invalid repo type")
+
+        if repo_id and name:
+            raise ValueError(
+                "Only pass `repo_id` and leave deprecated `name` to be None."
+            )
+        elif name:
+            warnings.warn(
+                "`name` and `organization` input arguments are deprecated and "
+                "will be removed in v0.7. Pass `repo_id` instead.",
+                FutureWarning,
+            )
+        else:
+            name, organization = repo_id.split("/")
 
         if token is None:
             token = self._validate_or_retrieve_token()
