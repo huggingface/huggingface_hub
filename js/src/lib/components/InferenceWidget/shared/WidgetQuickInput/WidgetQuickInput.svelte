@@ -1,4 +1,4 @@
-<script>
+<script lang="ts">
 	import WidgetSubmitBtn from "../WidgetSubmitBtn/WidgetSubmitBtn.svelte";
 
 	export let flatTop = false;

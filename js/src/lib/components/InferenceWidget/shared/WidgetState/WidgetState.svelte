@@ -1,4 +1,4 @@
-<script>
+<script lang="ts">
 	export let currentState: "error" | "loaded" | "unknown" | undefined;
 </script>
 

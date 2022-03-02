@@ -1,4 +1,4 @@
-<script>
+<script lang="ts">
 	import type { SvelteComponent } from "svelte";
 	import type { PipelineType } from "../../interfaces/Types";
 	import type { WidgetProps } from "./shared/types";
