@@ -36,6 +36,7 @@ export enum PipelineType {
 	"image-segmentation"                                      = "Image Segmentation",
 	"text-to-image"                                           = "Text-to-Image",
 	"image-to-text"                                           = "Image-to-Text",
+	"zero-shot-image-classification"                          = "Zero-Shot Image Classification",
 	/// others
 	"structured-data-classification"                          = "Structured Data Classification",
 	"reinforcement-learning"                                  = "Reinforcement Learning",
@@ -100,6 +101,7 @@ export const PIPELINE_TAG_MODALITIES: Record<keyof typeof PipelineType, Modality
 	"image-segmentation":             "cv",
 	"text-to-image":                  "cv",
 	"image-to-text":                  "cv",
+	"zero-shot-image-classification": "cv",
 	"structured-data-classification": "other",
 	"reinforcement-learning":         "other",
 };
@@ -134,6 +136,7 @@ export const PIPELINE_COLOR: {
 	"translation":                    "green",
 	"voice-activity-detection":       "red",
 	"zero-shot-classification":       "yellow",
+	"zero-shot-image-classification": "green",
 	"reinforcement-learning":         "red",
 };
 
@@ -167,6 +170,7 @@ export const PIPELINE_TAGS_DISPLAY_ORDER: Array<keyof typeof PipelineType> = [
 	"image-segmentation",
 	"text-to-image",
 	"image-to-text",
+	"zero-shot-image-classification",
 	/// others
 	"structured-data-classification",
 	"reinforcement-learning",

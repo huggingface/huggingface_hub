@@ -22,6 +22,7 @@
 	import TokenClassificationWidget from "./widgets/TokenClassificationWidget/TokenClassificationWidget.svelte";
 	import StructuredDataClassificationWidget from "./widgets/StructuredDataClassificationWidget/StructuredDataClassificationWidget.svelte";
 	import ZeroShotClassificationWidget from "./widgets/ZeroShowClassificationWidget/ZeroShotClassificationWidget.svelte";
+	import ZeroShotImageClassificationWidget from "./widgets/ZeroShotImageClassificationWidget/ZeroShotImageClassificationWidget.svelte";
 
 	export let apiToken: WidgetProps["apiToken"] = undefined;
 	export let callApiOnMount = false;
@@ -60,6 +61,7 @@
 		translation: TextGenerationWidget,
 		"structured-data-classification": StructuredDataClassificationWidget,
 		"zero-shot-classification": ZeroShotClassificationWidget,
+		"zero-shot-image-classification": ZeroShotImageClassificationWidget,
 	};
 
 	$: widgetComponent = WIDGET_COMPONENTS[model.pipeline_tag ?? ""];

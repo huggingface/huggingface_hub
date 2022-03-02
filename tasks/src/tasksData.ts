@@ -50,6 +50,7 @@ export const TASKS_DATA: Record<
 	"image-segmentation":             imageSegmentation,
 	"text-to-image":                  undefined,
 	"image-to-text":                  undefined,
+	"zero-shot-image-classification": undefined,
 	/// others
 	"structured-data-classification": undefined,
 	"reinforcement-learning":         undefined,

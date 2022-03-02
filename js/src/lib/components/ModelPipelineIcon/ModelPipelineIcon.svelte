@@ -27,6 +27,7 @@
 	import IconVoiceActivityDetection from "../Icons/IconVoiceActivityDetection.svelte";
 	import IconZeroShotClassification from "../Icons/IconZeroShotClassification.svelte";
 	import IconReinforcementLearning from "../Icons/IconReinforcementLearning.svelte";
+	import IconZeroShotImageClassification from "../Icons/IconZeroShotImageClassification.svelte";
 
 	export let classNames = "";
 	export let pipeline = "";
@@ -53,13 +54,14 @@
 		"text-to-speech": IconTextToSpeech,
 		"automatic-speech-recognition": IconAutomaticSpeechRecognition,
 		"audio-to-audio": IconAudioToAudio,
+		"audio-classification": IconAudioClassification,
 		"voice-activity-detection": IconVoiceActivityDetection,
 		"image-classification": IconImageClassification,
 		"object-detection": IconObjectDetection,
 		"image-segmentation": IconImageSegmentation,
 		"text-to-image": IconTextToImage,
+		"zero-shot-image-classification": IconZeroShotImageClassification,
 		"structured-data-classification": IconStructuredDataClassification,
-		"audio-classification": IconAudioClassification,
 		"reinforcement-learning": IconReinforcementLearning,
 	};
 </script>

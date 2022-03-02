@@ -31,6 +31,7 @@ export const TASKS_MODEL_LIBRARIES: Record<keyof typeof PipelineType, Array<keyo
 	"image-segmentation":             ["transformers"],
 	"text-to-image":                  [],
 	"image-to-text":                  [],
+	"zero-shot-image-classification": ["transformers"],
 	/// others
 	"structured-data-classification": ["sklearn"],
 	"reinforcement-learning":         ["stable-baselines3"],
