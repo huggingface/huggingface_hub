@@ -9,7 +9,7 @@ text-purple-400
 text-cyan-400
 text-lime-400
  -->
-<script>
+<script lang="ts">
 	import type { DetectedObject } from "../../shared/types";
 
 	import { afterUpdate } from "svelte";
