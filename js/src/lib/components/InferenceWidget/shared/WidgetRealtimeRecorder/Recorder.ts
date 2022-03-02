@@ -20,9 +20,9 @@ export default class Recorder {
 	}
 
 	async start() {
-		if(!this.apiToken){
-			throw new Error("You need to be loggedn in and have API token enabled. Find more at: hf.co/settings/token");
-		}
+		// if(!this.apiToken){
+		// 	throw new Error("You need to be loggedn in and have API token enabled. Find more at: hf.co/settings/token");
+		// }
 
 		const constraints: MediaStreamConstraints =
 			this.type === "video"
@@ -30,14 +30,14 @@ export default class Recorder {
 				: { audio: true };
 		this.stream = await navigator.mediaDevices.getUserMedia(constraints);
 
-		this.socket = new WebSocket(`wss://api-inference.huggingface.co/asr/live/gpu/${this.modelId}`);
+		this.socket = new WebSocket(`wss://api-inference.huggingface.co/asr/live/cpu/${this.modelId}`);
 
 		this.socket.onerror = (_) => {
 			this.onError("Webscoket connection error");
 		}
 
 		this.socket.onopen = (_) => {
-			this.socket.send(`Bearer ${this.apiToken}`);
+			// this.socket.send(`Bearer ${this.apiToken}`);
 		}
 
 		this.socket.onmessage = (e: MessageEvent) => {
