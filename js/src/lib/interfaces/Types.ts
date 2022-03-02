@@ -189,6 +189,10 @@ export interface ModelData {
 	 */
 	private?: boolean;
 	/**
+	 * git branch
+	 */
+	branch: string;
+	/**
 	 * this dictionary has useful information about the model configuration
 	 */
 	config?: Record<string, any>;
