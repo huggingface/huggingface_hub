@@ -93,13 +93,12 @@ def hf_hub_url(
     are more than a few MBs.
 
     Args:
-        repo_id: A user or an organization name and a repo name seperated by a
-            ``/``.
+        repo_id: A namespace (user or an organization) name and a repo name
+            seperated by a ``/``.
 
         filename: The name of the file in the repo.
 
-        subfolder: An optional value corresponding to a folder inside the model
-            repo.
+        subfolder: An optional value corresponding to a folder inside the repo.
 
         repo_type: Set to :obj:`"dataset"` or :obj:`"space"` if uploading
             to a dataset or space, :obj:`None` or :obj:`"model"` if uploading
@@ -127,8 +126,11 @@ def hf_hub_url(
         cache can't ever be stale.
 
         In terms of client-side caching from this library, we base our caching
-        on the objects' ETag. An object's ETag is: its git-sha1 if stored in
-        git, or its sha256 if stored in git-lfs.
+        on the objects' entity tag (`ETag`), which is an identifier of a
+        specific version of a resource [1]_. An object's ETag is: its git-sha1
+        if stored in git, or its sha256 if stored in git-lfs.
+
+        .. [1] https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/ETag
     """
     if subfolder is not None:
         filename = f"{subfolder}/{filename}"
@@ -156,8 +158,8 @@ def url_to_filename(url: str, etag: Optional[str] = None) -> str:
     https://github.com/tensorflow/tensorflow/blob/00fad90125b18b80fe054de1055770cfb8fe4ba3/tensorflow/python/keras/engine/network.py#L1380)
 
     Args:
-        url: The address to the file
-        etag: The ETag of the file
+        url: The address to the file.
+        etag: The ETag of the file.
 
     Returns:
         The generated filename.
@@ -358,7 +360,8 @@ def cached_download(
     use_auth_token: Union[bool, str, None] = None,
     local_files_only=False,
 ) -> Optional[str]:  # pragma: no cover
-    """Download a given file if it's not already present in the local cache.
+    """Download from a given URL and cache it if it's not already present in \
+        the local cache.
 
     Given a URL, this function looks for the corresponding file in the local
     cache. If it's not there, download it. Then return the path to the cached
