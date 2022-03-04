@@ -1,4 +1,4 @@
-<script>
+<script lang="ts">
 	import type { WidgetProps } from "../../shared/types";
 
 	import WidgetAudioTrack from "../../shared/WidgetAudioTrack/WidgetAudioTrack.svelte";

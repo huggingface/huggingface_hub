@@ -30,7 +30,7 @@
 	};
 </script>
 
-<script>
+<script lang="ts">
 	import ModeSwitcher from "../lib/components/DemoThemeSwitcher/DemoThemeSwitcher.svelte";
 
 	export let model: ModelData | undefined;
