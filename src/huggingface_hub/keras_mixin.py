@@ -6,7 +6,11 @@ from shutil import copytree, rmtree
 from typing import Any, Dict, Optional, Union
 
 from huggingface_hub import ModelHubMixin
-from huggingface_hub.file_download import is_tf_available
+from huggingface_hub.file_download import (
+    is_graphviz_available,
+    is_pydot_available,
+    is_tf_available,
+)
 from huggingface_hub.snapshot_download import snapshot_download
 
 from .constants import CONFIG_NAME
@@ -16,12 +20,137 @@ from .repository import Repository
 
 logger = logging.getLogger(__name__)
 
+if is_tf_available():
+    import tensorflow as tf
+
+
+def _extract_hyperparameters_from_keras(model):
+    if model.optimizer is not None:
+        hyperparameters = dict()
+        hyperparameters["optimizer"] = model.optimizer.get_config()
+        hyperparameters[
+            "training_precision"
+        ] = tf.keras.mixed_precision.global_policy().name
+    else:
+        hyperparameters = None
+    return hyperparameters
+
+
+def _parse_model_history(model):
+    lines = None
+    if model.history is not None:
+        if model.history.history != {}:
+            lines = []
+            logs = model.history.history
+            num_epochs = len(logs["loss"])
+
+            for value in range(num_epochs):
+                epoch_dict = {
+                    log_key: log_value_list[value]
+                    for log_key, log_value_list in logs.items()
+                }
+                values = dict()
+                for k, v in epoch_dict.items():
+                    if k.startswith("val_"):
+                        k = "validation_" + k[4:]
+                    elif k != "epoch":
+                        k = "train_" + k
+                    splits = k.split("_")
+                    name = " ".join([part.capitalize() for part in splits])
+                    values[name] = v
+                lines.append(values)
+    return lines
+
+
+def _plot_network(model, save_directory):
+    tf.keras.utils.plot_model(
+        model,
+        to_file=f"{save_directory}/model.png",
+        show_shapes=False,
+        show_dtype=False,
+        show_layer_names=True,
+        rankdir="TB",
+        expand_nested=False,
+        dpi=96,
+        layer_range=None,
+        show_layer_activations=True,
+    )
+
+
+def _write_metrics(model, model_card):
+    lines = _parse_model_history(model)
+    if lines is not None:
+        model_card += "\n| Epochs |"
+
+        for i in lines[0].keys():
+            model_card += f" {i} |"
+        model_card += "\n |"
+        for i in range(len(lines[0].keys()) + 1):
+            model_card += "--- |"  # add header of table
+        for line in lines:
+            model_card += f"\n| {lines.index(line) + 1}|"  # add values
+            for key in line:
+                value = round(line[key], 3)
+                model_card += f" {value}| "
+    else:
+        model_card += "Model history needed"
+    return model_card
+
+
+def _create_model_card(
+    model,
+    repo_dir: Path,
+    plot_model: Optional[bool] = True,
+    task_name: Optional[str] = None,
+):
+    """
+    Creates a model card for the repository.
+    """
+    hyperparameters = _extract_hyperparameters_from_keras(model)
+    if plot_model and is_graphviz_available() and is_pydot_available():
+        _plot_network(model, repo_dir)
+    readme_path = f"{repo_dir}/README.md"
+    model_card = "---\n"
+    if task_name is not None:
+        model_card += f"tags:\n- {task_name}\n"
+    model_card += "library_name: keras\n---\n"
+    model_card += "\n## Model description\n\nMore information needed\n"
+    model_card += "\n## Intended uses & limitations\n\nMore information needed\n"
+    model_card += "\n## Training and evaluation data\n\nMore information needed\n"
+    if hyperparameters is not None:
+        model_card += "\n## Training procedure\n"
+        model_card += "\n### Training hyperparameters\n"
+        model_card += "\nThe following hyperparameters were used during training:\n"
+        model_card += "\n".join(
+            [f"- {name}: {value}" for name, value in hyperparameters.items()]
+        )
+        model_card += "\n"
+    model_card += "\n ## Training Metrics\n"
+    model_card = _write_metrics(model, model_card)
+    if plot_model and os.path.exists(f"{repo_dir}/model.png"):
+        model_card += "\n ## Model Plot\n"
+        model_card += "\n<details>"
+        model_card += "\n<summary>View Model Plot</summary>\n"
+        path_to_plot = "./model.png"
+        model_card += f"\n![Model Image]({path_to_plot})\n"
+        model_card += "\n</details>"
+
+    if os.path.exists(readme_path):
+        with open(readme_path, "r", encoding="utf8") as f:
+            readme = f.read()
+    else:
+        readme = model_card
+    with open(readme_path, "w", encoding="utf-8") as f:
+        f.write(readme)
+
 
 def save_pretrained_keras(
     model,
     save_directory: str,
     config: Optional[Dict[str, Any]] = None,
     include_optimizer: Optional[bool] = False,
+    plot_model: Optional[bool] = True,
+    task_name: Optional[str] = None,
     **model_save_kwargs,
 ):
     """Saves a Keras model to save_directory in SavedModel format. Use this if you're using the Functional or Sequential APIs.
@@ -34,6 +163,10 @@ def save_pretrained_keras(
         Configuration object to be saved alongside the model weights.
     include_optimizer(:obj:`bool`, `optional`):
         Whether or not to include optimizer in serialization.
+    task_name (:obj:`str`, `optional`):
+        Name of the task the model was trained on. See the available tasks at https://github.com/huggingface/huggingface_hub/blob/main/js/src/lib/interfaces/Types.ts.
+    plot_model (:obj:`bool`):
+        Setting this to `True` will plot the model and put it in the model card. Requires graphviz and pydot to be installed.
     model_save_kwargs(:obj:`dict`, `optional`):
         model_save_kwargs will be passed to tf.keras.models.save_model().
     """
@@ -59,6 +192,7 @@ def save_pretrained_keras(
         with open(path, "w") as f:
             json.dump(config, f)
 
+    _create_model_card(model, save_directory, plot_model, task_name)
     tf.keras.models.save_model(
         model, save_directory, include_optimizer=include_optimizer, **model_save_kwargs
     )
@@ -82,6 +216,8 @@ def push_to_hub_keras(
     git_email: Optional[str] = None,
     config: Optional[dict] = None,
     include_optimizer: Optional[bool] = False,
+    task_name: Optional[str] = None,
+    plot_model: Optional[bool] = True,
     **model_save_kwargs,
 ):
     """
@@ -123,6 +259,10 @@ def push_to_hub_keras(
             Configuration object to be saved alongside the model weights.
         include_optimizer (:obj:`bool`, `optional`):
             Whether or not to include optimizer during serialization.
+        task_name (:obj:`str`, `optional`):
+            Name of the task the model was trained on. See the available tasks at https://github.com/huggingface/huggingface_hub/blob/main/js/src/lib/interfaces/Types.ts.
+        plot_model (:obj:`bool`):
+            Setting this to `True` will plot the model and put it in the model card. Requires graphviz and pydot to be installed.
         model_save_kwargs(:obj:`dict`, `optional`):
             model_save_kwargs will be passed to tf.keras.models.save_model().
 
@@ -176,8 +316,11 @@ def push_to_hub_keras(
         repo_path_or_name,
         config=config,
         include_optimizer=include_optimizer,
+        plot_model=plot_model,
+        task_name=task_name,
         **model_save_kwargs,
     )
+
     if log_dir is not None:
         if os.path.exists(f"{repo_path_or_name}/logs"):
             rmtree(f"{repo_path_or_name}/logs")
