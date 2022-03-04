@@ -133,4 +133,4 @@ class HubMixingTest(HubMixingCommonTest):
         )
         self.assertEqual(model_info.modelId, f"{USER}/{REPO_NAME}")
 
-        self._api.delete_repo(name=f"{REPO_NAME}", token=self._token)
+        self._api.delete_repo(repo_id=f"{REPO_NAME}", token=self._token)
