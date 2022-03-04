@@ -172,7 +172,7 @@ class RepositoryTest(RepositoryCommonTest):
     def test_init_clone_in_nonempty_non_linked_git_repo(self):
         # Create a new repository on the HF Hub
         temp_repo_url = self._api.create_repo(
-            name=f"{self.REPO_NAME}-temp", token=self._token
+            repo_id=f"{self.REPO_NAME}-temp", token=self._token
         )
         self._api.upload_file(
             path_or_fileobj=BytesIO(b"some initial binary data: \x00\x01"),
@@ -1474,18 +1474,18 @@ class RepositoryDatasetTest(RepositoryCommonTest):
             f"Does {WORKING_DATASET_DIR}/{self.REPO_NAME} exist: {os.path.exists(f'{WORKING_DATASET_DIR}/{self.REPO_NAME}')}"
         )
         self._api.create_repo(
-            token=self._token, name=self.REPO_NAME, repo_type="dataset"
+            token=self._token, repo_id=self.REPO_NAME, repo_type="dataset"
         )
 
     def tearDown(self):
         try:
             self._api.delete_repo(
-                name=self.REPO_NAME, token=self._token, repo_type="dataset"
+                repo_id=self.REPO_NAME, token=self._token, repo_type="dataset"
             )
         except requests.exceptions.HTTPError:
             try:
                 self._api.delete_repo(
-                    name=self.REPO_NAME,
+                    repo_id=self.REPO_NAME,
                     token=self._token,
                     organization="valid_org",
                     repo_type="dataset",
