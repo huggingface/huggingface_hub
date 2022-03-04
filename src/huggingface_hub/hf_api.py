@@ -1112,7 +1112,7 @@ class HfApi:
             )
 
         if getattr(self, "_lfsmultipartthresh", None):
-            json["lfsmultipartthresh"] = lfsmultipartthresh
+            json["lfsmultipartthresh"] = self._lfsmultipartthresh
         r = requests.post(
             path,
             headers={"authorization": f"Bearer {token}"},
