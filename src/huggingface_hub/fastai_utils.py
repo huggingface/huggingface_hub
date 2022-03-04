@@ -22,20 +22,18 @@ def check_fastai_fastcore_versions(
     fastcore_min_version: Optional[str] = "1.3.27",
 ):
     """
-    Checks that the installed fastai and fastcore versions are compatible with `save_fastai_learner`, `from_pretrained_fastai` and `push_to_hub_fastai`.
+    Checks that the installed fastai and fastcore versions are compatible for pickle serialization.
 
-    Parameters:
+    Params:
         fastai_min_version (:obj:`str`, `optional`):
             The minimum fastai version supported.
         fastcore_min_version (:obj:`str`, `optional`):
             The minimum fastcore version supported.
 
     Raises:
-        ImportError
-
+        :class:`ImportError`: if the fastai or fastcore libraries are not available or are of an invalid version.
     """
 
-    # Check that `fastai` and `fastcore` versions are supported
     if (get_fastcore_version() or get_fastai_version()) == "N/A":
         raise ImportError(
             f"fastai>={fastai_min_version} and fastcore>={fastcore_min_version} are required. Currently using fastai=={get_fastai_version()} and fastcore=={get_fastcore_version()}."
@@ -64,7 +62,7 @@ def check_fastai_fastcore_pyproject_versions(
     Checks that the `pyproject.toml` file in the directory `storage_folder` has fastai and fastcore versions
     that are compatible with `save_fastai_learner`, `from_pretrained_fastai` and `push_to_hub_fastai`.
 
-    Parameters:
+    Params:
         storage_folder (:obj:`str`):
             Folder to look for the `pyproject.toml` file.
         fastai_min_version (:obj:`str`, `optional`):
@@ -73,15 +71,20 @@ def check_fastai_fastcore_pyproject_versions(
             The minimum fastcore version supported.
 
     Raises:
-        FileNotFoundError, ImportError
+        :class: `FileNotFoundError`: if the there is no `pyproject.toml` in the repository that contains the fastai `Learner`.
 
+        :class: `ImportError`: if the `toml` module is not installed.
+
+        :class: `ImportError`: if the `pyproject.toml` does not indicate a version for fastai or fastcore.
+
+        :class: `ImportError`: if the `pyproject.toml` indicates a lower than minimum supported version of fastai or fastcore.
     """
 
     try:
         import toml
-    except IndexError:
+    except ModuleNotFoundError:
         raise ImportError(
-            "`push_to_hub_fastai` and `from_pretrained_fastai` require the toml module. Install with `pip install toml`."
+            "`push_to_hub_fastai` and `from_pretrained_fastai` require the toml module. Install it with `pip install toml`."
         )
 
     # Check that a `pyproject.toml` exists in the repository, and if so, get a list of required packages
@@ -91,14 +94,16 @@ def check_fastai_fastcore_pyproject_versions(
         ]["requires"]
     except FileNotFoundError:
         raise FileNotFoundError(
-            "There is no `pyproject.toml` in the repository that contains the fastai Learner. This is necessary to check that the `from_pretrained_fatai` function is compatible with the fastai and fastcore versions used in the model you want to load."
+            "There is no `pyproject.toml` in the repository that contains the fastai `Learner`. This is necessary to verify that your fastai and fastcore versions are compatible with those of the model you want to load."
         )
 
     # Check that `pyproject.toml` contains versions for fastai and fastcore. If there is no version available, it throws an error
+    # Then get the fastai and fastcore versions in `pyproject.toml`. If there is none, it means that it defaults to the highest version.
     try:
         fastai_version = str(
             [package for package in package_versions if package.startswith("fastai")][0]
         )
+        fastai_version = fastai_version.partition("=")[2]
     except IndexError:
         raise ImportError(
             "The repository does not have a fastai version specified in `pyproject.toml`."
@@ -109,14 +114,12 @@ def check_fastai_fastcore_pyproject_versions(
                 0
             ]
         )
+        fastcore_version = fastcore_version.partition("=")[2]
+
     except IndexError:
         raise ImportError(
             "The repository does not have a fastcore version specified in `pyproject.toml`."
         )
-
-    # Get the fastai and fastcore versions in `pyproject.toml`. If there is none, it means that it defaults to the highest version.
-    fastai_version = fastai_version.partition("=")[2]
-    fastcore_version = fastcore_version.partition("=")[2]
 
     # Versions in `pyproject.toml` must be higher or equal to `fastai_min_version` and `fastcore_min_version`
     if not (
@@ -184,38 +187,30 @@ def _create_model_card(repo_dir: Path):
     """
     Creates a model card for the repository.
 
-    Parameters:
+    Params:
         repo_dir (:obj:`Path`):
             Directory where model card is created.
     """
     readme_path = repo_dir / "README.md"
-    readme = ""
-    if readme_path.exists():
-        with readme_path.open("r", encoding="utf8") as f:
-            readme = f.read()
-    else:
-        readme = README_TEMPLATE
-    with readme_path.open("w", encoding="utf-8") as f:
-        f.write(readme)
+
+    if not readme_path.exists():
+        with readme_path.open("w", encoding="utf-8") as f:
+            f.write(README_TEMPLATE)
 
 
 def _create_model_pyproject(repo_dir: Path):
     """
     Creates a `pyproject.toml` for the repository.
 
-    Parameters:
+    Params:
         repo_dir (:obj:`Path`):
             Directory where `pyproject.toml` is created.
     """
     pyproject_path = repo_dir / "pyproject.toml"
-    pyproject = ""
-    if pyproject_path.exists():
-        with pyproject_path.open("r", encoding="utf8") as f:
-            pyproject = f.read()
-    else:
-        pyproject = PYPROJECT_TEMPLATE
-    with pyproject_path.open("w", encoding="utf-8") as f:
-        f.write(pyproject)
+
+    if not pyproject_path.exists():
+        with pyproject_path.open("w", encoding="utf-8") as f:
+            f.write(PYPROJECT_TEMPLATE)
 
 
 def save_fastai_learner(
@@ -227,20 +222,23 @@ def save_fastai_learner(
     Saves a fastai learner to `save_directory` in pickle format using the default pickle protocol for the version of python used.
     Apply this if you're using Learners.
 
-    Parameters:
+    Params:
         learner (:obj:`Learner`):
             The `fastai.Learner` you'd like to save.
         save_directory (:obj:`str`):
             Specific directory in which you want to save the fastai learner.
         config (:obj:`dict`, `optional`):
             Configuration object. Will be uploaded as a .json file. Example: 'https://huggingface.co/espejelomar/fastai-pet-breeds-classification/blob/main/config.json'.
+
+    Raises:
+        :class:`RuntimeError`: if the config file provided is not a dictionary.
     """
     # Check that fastai and fastcore versions are supported.
     check_fastai_fastcore_versions()
 
     os.makedirs(save_directory, exist_ok=True)
 
-    # saving config
+    # save config
     # if user provides config then we update it with the fastai and fastcore versions in CONFIG_TEMPLATE.
     if config is not None:
         if not isinstance(config, dict):
@@ -281,7 +279,7 @@ def from_pretrained_fastai(
     """
     Load pretrained fastai model from the Hub.
 
-    Parameters:
+    Params:
         model_id (:obj:`str`):
             The model id where the pickled fastai.Learner is. Example: 'espejelomar/fastai-pet-breeds-classification'.
         revision (:obj:`str`, `optional`):
@@ -321,7 +319,7 @@ def push_to_hub_fastai(
     Upload learner checkpoint files to the Hub while synchronizing a local clone of the repo in
     :obj:`repo_id`.
 
-    Parameters:
+    Params:
         learner (:obj:`Learner`):
             The `fastai.Learner' you'd like to push to the Hub.
         repo_id (:obj:`str`):
@@ -335,7 +333,7 @@ def push_to_hub_fastai(
         config (:obj:`dict`, `optional`):
             Configuration object to be saved alongside the model weights.
 
-    Keyword Parameters:
+    Keyword Params:
         api_endpoint (:obj:`str`, `optional`):
             The API endpoint to use when pushing the model to the hub.
         git_user (:obj:`str`, `optional`):
@@ -345,6 +343,9 @@ def push_to_hub_fastai(
 
     Returns:
         The url of the commit of your model in the given repository.
+
+    Raises:
+        :class:`ValueError`: if the user is not log on to the Hugging Face Hub.
     """
 
     # Check that fastai and fastcore versions are supported.
@@ -366,7 +367,7 @@ def push_to_hub_fastai(
         raise ValueError(
             "You must login to the Hugging Face Hub. There are two options:"
             "(1) Type `huggingface-cli login` in your terminal and enter your token."
-            "(2) Enter your token in the `use_auth_token` argument."
+            "(2) Enter your token in the `token` argument."
             "Your token is available in the Settings of your Hugging Face account."
         )
 

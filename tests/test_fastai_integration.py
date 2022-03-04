@@ -100,9 +100,6 @@ class TestFastaiUtils(TestCase):
         )
         files = os.listdir(f"{WORKING_REPO_DIR}/{REPO_NAME}")
         self.assertTrue("config.json" in files)
-        self.assertTrue("model.pkl" in files)
-        self.assertTrue("pyproject.toml" in files)
-        self.assertTrue("README.md" in files)
         self.assertEqual(len(files), 4)
 
     def test_push_to_hub_and_from_pretrained_fastai(self):
