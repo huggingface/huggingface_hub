@@ -49,6 +49,7 @@ else:
 
 USERNAME_PLACEHOLDER = "hf_user"
 
+
 # TODO: remove after deprecation period is over (v0.7)
 def _validate_repo_id_deprecation(repo_id, name, organization):
     """Returns (name, organization) from the input."""
