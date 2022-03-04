@@ -102,7 +102,7 @@ class RepositoryTest(RepositoryCommonTest):
 
         try:
             self._api.delete_repo(
-                repo_id=self.REPO_NAME, token=self._token, organization="valid_org"
+                repo_id=f"valid_org/{self.REPO_NAME}", token=self._token
             )
         except requests.exceptions.HTTPError:
             pass
@@ -555,7 +555,7 @@ class RepositoryTest(RepositoryCommonTest):
 
         with open(pathlib.Path(repo.local_dir) / "file.bin", "r") as f:
             content = f.read()
-            self.assertEquals(content, "Bin file")
+            self.assertEqual(content, "Bin file")
 
     @retry_endpoint
     def test_is_tracked_upstream(self):
@@ -1485,9 +1485,8 @@ class RepositoryDatasetTest(RepositoryCommonTest):
         except requests.exceptions.HTTPError:
             try:
                 self._api.delete_repo(
-                    repo_id=self.REPO_NAME,
+                    repo_id=f"valid_org/{self.REPO_NAME}",
                     token=self._token,
-                    organization="valid_org",
                     repo_type="dataset",
                 )
             except requests.exceptions.HTTPError:
