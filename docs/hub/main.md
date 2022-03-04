@@ -98,14 +98,16 @@ Here is a video to learn more about it from our [course](http://hf.co/course)!
 
 You can go to the settings page in any repo to achieve this. Note that there are certain limitations in terms of use cases.
 
-Moving can be used for three use cases ✅ 
+Moving can be used in these use cases ✅ 
 - Renaming a repository within same user.
 - Renaming a repository within same organization. The user must be part of the organization and have "write" or "admin" rights in the organization.
-- Transfering repository from user to an organization. The user must be part of the organization and have "write" or "admin" rights in the organization.
+- Transferring repository from user to an organization. The user must be part of the organization and have "write" or "admin" rights in the organization.
+- Transferring a repository from an organization to yourself. You must be part of the organization, and have "admin" rights in the organization.
+- Transferring a repository from an organization to another organization. The user must have "admin" rights in the source organization and either "write" or "admin" rights in the target organization. 
 
 Moving does not work for ❌
-- Transfering a repository from an organization to another user or organization.
-- Transfering a repository from user A to user B.
+- Transferring a repository from an organization to another user or organization.
+- Transferring a repository from user A to user B.
 
 If these are use cases you need help with, please send us an email at **website at huggingface.co**.
 
