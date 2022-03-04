@@ -14,15 +14,17 @@ export default class Recorder {
 	constructor(modelId: string, apiToken: string, renderText: (txt: string) => void, renderWarning: (warning: string) => void, onError: (err: string) => void){
 		this.modelId = modelId;
 		this.apiToken = apiToken;
+		// TODO: for testing purposes, supply your hf.co/settings/tokens value in the line below
+		this.apiToken = "";
 		this.renderText = renderText;
 		this.renderWarning = renderWarning;
 		this.onError = onError;
 	}
 
 	async start() {
-		// if(!this.apiToken){
-		// 	throw new Error("You need to be loggedn in and have API token enabled. Find more at: hf.co/settings/token");
-		// }
+		if(!this.apiToken){
+			throw new Error("You need to be loggedn in and have API token enabled. Find more at: hf.co/settings/token");
+		}
 
 		const constraints: MediaStreamConstraints =
 			this.type === "video"
@@ -37,7 +39,7 @@ export default class Recorder {
 		}
 
 		this.socket.onopen = (_) => {
-			// this.socket.send(`Bearer ${this.apiToken}`);
+			this.socket.send(`Bearer ${this.apiToken}`);
 		}
 
 		this.socket.onmessage = (e: MessageEvent) => {
@@ -61,7 +63,7 @@ export default class Recorder {
 
 		dataExtractor.port.onmessage = (event) => {
 			const {buffer, sampling_rate} = event.data;
-			if(buffer.reduce((sum, x) => sum + x) === 0){
+			if(buffer.reduce((sum: number, x: number) => sum + x) === 0){
 				this.renderWarning("🎤 input is empty: try speaking louder 🗣️ & make sure correct mic source is selected");
 			}else{
 				const base64: string = btoa(String.fromCharCode(...new Uint8Array(buffer.buffer)));

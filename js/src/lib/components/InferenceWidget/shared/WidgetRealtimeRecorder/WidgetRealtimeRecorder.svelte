@@ -17,7 +17,7 @@
 			if (isRecording) {
 				await recorder.start();
 			} else {
-				await recorder.stop();
+				recorder.stop();
 			}
 		} catch (e) {
 			isRecording = false;
@@ -37,12 +37,12 @@
 			}
 		}
 	}
-	function renderText(_txt) {
+	function renderText(_txt: string) {
 		warning = "";
 		txt = _txt;
 		onError("");
 	}
-	function renderWarning(_warning) {
+	function renderWarning(_warning: string) {
 		warning = _warning;
 	}
 	onMount(() => {
