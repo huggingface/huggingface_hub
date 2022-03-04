@@ -1231,8 +1231,8 @@ class HfApi:
         """Update the visibility setting of a repository.
 
         Args:
-            repo_id: A user or an organization name and a repo name seperated by a
-                ``/``.
+            repo_id: A namespace (user or an organization) and a repo name
+                seperated by a ``/``.
 
                 .. versionadded: 0.4.0
 
