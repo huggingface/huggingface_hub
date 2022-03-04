@@ -175,17 +175,107 @@ class HubKerasSequentialTest(HubMixingTestKeras):
         model.compile(optimizer="adam", loss="mse")
         return model
 
+    def dummy_training_data(self):
+        x = tf.constant(
+            [
+                [0.44, 0.90],
+                [0.6, 0.9],
+                [0.5, 0.3],
+                [0.65, 0.39],
+                [0.9, 0.7],
+                [0.85, 0.99],
+            ]
+        )
+        y = tf.constant([[1, 3], [2, 5], [4, 9], [2, 3], [9, 7], [6, 7]])
+        return x, y
+
     def model_fit(self, model):
-        x = tf.constant([[0.44, 0.90], [0.65, 0.39]])
-        y = tf.constant([[1, 1], [0, 0]])
+        x, y = self.dummy_training_data()
         model.fit(x, y, epochs=3)
         return model
 
-    def model_fit_callback(self, model, callback, num_epochs):
-        x = tf.constant([[0.44, 0.90], [0.65, 0.39]])
-        y = tf.constant([[1, 1], [0, 0]])
-        model.fit(x, y, callbacks=callback, epochs=num_epochs)
+    def model_fit_callback(self, model, callback, num_epochs, batch_size=None):
+        x, y = self.dummy_training_data()
+        model.fit(x, y, callbacks=callback, epochs=num_epochs, batch_size=batch_size)
         return model
+
+    def test_callback_end_of_training(self):
+        REPO_NAME = repo_name("PUSH_TO_HUB")
+        model = self.model_init()
+
+        push_to_hub_callback = PushToHubCallback(
+            save_strategy="end_of_training",
+            repo_path_or_name=f"{WORKING_REPO_DIR}/{REPO_NAME}",
+            api_endpoint=ENDPOINT_STAGING,
+            token=self._token,
+            git_user="ci",
+            git_email="ci@dummy.com",
+        )
+        val_callback = ValidationCallback(
+            log_path=f"{WORKING_REPO_DIR}/{REPO_NAME}/logs.txt",
+            model_id=f"{USER}/{REPO_NAME}",
+            save_strategy="end_of_training",
+            api_endpoint=ENDPOINT_STAGING,
+            num_epochs=None,
+        )
+
+        model = self.model_fit_callback(
+            model,
+            callback=[push_to_hub_callback, val_callback],
+            num_epochs=3,
+        )
+
+        with open(
+            f"{WORKING_REPO_DIR}/{REPO_NAME}/logs.txt", "r", encoding="utf-8"
+        ) as f:
+            logs = f.read()
+            log_list = logs.split("\n")
+            self.assertEqual(len(log_list), 1)
+
+    def test_callback_batch(self):
+        REPO_NAME = repo_name("PUSH_TO_HUB")
+        model = self.model_init()
+        num_epochs = 3
+        save_steps = 2
+        batch_size = 3
+
+        x, _ = self.dummy_training_data()
+        size_of_data = x.shape[0]
+        push_to_hub_callback = PushToHubCallback(
+            save_strategy="steps",
+            repo_path_or_name=f"{WORKING_REPO_DIR}/{REPO_NAME}",
+            api_endpoint=ENDPOINT_STAGING,
+            token=self._token,
+            git_user="ci",
+            git_email="ci@dummy.com",
+            save_steps=2,
+        )
+
+        val_callback = ValidationCallback(
+            log_path=f"{WORKING_REPO_DIR}/{REPO_NAME}/logs.txt",
+            model_id=f"{USER}/{REPO_NAME}",
+            save_strategy="steps",
+            api_endpoint=ENDPOINT_STAGING,
+            save_steps=2,
+            size_of_data=size_of_data,
+        )
+
+        model = self.model_fit_callback(
+            model,
+            callback=[push_to_hub_callback, val_callback],
+            num_epochs=num_epochs,
+            batch_size=batch_size,
+        )
+
+        with open(
+            f"{WORKING_REPO_DIR}/{REPO_NAME}/logs.txt", "r", encoding="utf-8"
+        ) as f:
+            logs = f.read()
+            log_list = logs.split("\n")
+            print(log_list)
+            self.assertEqual(
+                len(log_list), num_epochs * size_of_data / batch_size / save_steps + 1
+            )
 
     def test_callback_epoch(self):
         REPO_NAME = repo_name("PUSH_TO_HUB")

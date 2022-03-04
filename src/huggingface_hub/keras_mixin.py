@@ -153,13 +153,24 @@ def _create_model_card(
 class ValidationCallback(Callback):
     # callback that checks the commit history
     # checks that distinct commits were pushed for given period
-    def __init__(self, model_id, save_strategy, log_path, api_endpoint, num_epochs):
+    def __init__(
+        self,
+        model_id,
+        save_strategy,
+        log_path,
+        api_endpoint,
+        num_epochs=None,
+        save_steps=None,
+        size_of_data=None,
+    ):
         super().__init__()
         self.model_id = model_id
         self.api = HfApi(endpoint=api_endpoint)
         self.save_strategy = save_strategy
         self.log_path = log_path
         self.num_epochs = num_epochs
+        self.save_steps = save_steps
+        self.size_of_data = size_of_data
 
     def on_epoch_end(self, epoch, logs=None):
         if self.save_strategy == "epoch":
@@ -171,7 +182,7 @@ class ValidationCallback(Callback):
                     f.write(f"{info.lastModified}\n")
 
     def on_train_batch_end(self, batch, logs=None):
-        if self.save_strategy == "steps":
+        if self.save_strategy == "steps" and (batch + 1) % self.save_steps == 0:
             info = self.api.model_info(repo_id=self.model_id)
             with open(self.log_path, "a+") as f:
                 f.write(f"{info.lastModified}\n")
