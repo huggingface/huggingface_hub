@@ -1031,7 +1031,7 @@ class HfApi:
 
                 .. versionadded: 0.4.0
 
-            token: An authentication token.
+            token: An authentication token [1]_.
 
             private: Whether the model repo should be private.
 
@@ -1047,6 +1047,11 @@ class HfApi:
 
         Returns:
             URL to the newly created repo.
+
+        References:
+            .. [1] https://huggingface.co/settings/tokens
+
+        Reference
         """
         name, organization = _validate_repo_id_deprecation(repo_id, name, organization)
 
@@ -1155,7 +1160,7 @@ class HfApi:
 
                 .. versionadded: 0.4.0
 
-            token: An authentication token.
+            token: An authentication token [1]_.
 
             repo_type: Set to :obj:`"dataset"` or :obj:`"space"` if uploading
                 to a dataset or space, :obj:`None` or :obj:`"model"` if
@@ -1163,6 +1168,9 @@ class HfApi:
 
         Returns:
             None
+
+        References:
+            .. [1] https://huggingface.co/settings/tokens
         """
         name, organization = _validate_repo_id_deprecation(repo_id, name, organization)
 
@@ -1239,7 +1247,7 @@ class HfApi:
 
             private: Whether the model repo should be private.
 
-            token: An authentication token.
+            token: An authentication token [1]_.
 
             repo_type: Set to :obj:`"dataset"` or :obj:`"space"` if uploading
                 to a dataset or space, :obj:`None` or :obj:`"model"` if
@@ -1247,6 +1255,9 @@ class HfApi:
 
         Returns:
             The HTTP response in json.
+
+        References:
+            .. [1] https://huggingface.co/settings/tokens
         """
         if repo_type not in REPO_TYPES:
             raise ValueError("Invalid repo type")
