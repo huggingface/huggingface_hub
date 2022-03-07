@@ -1,4 +1,4 @@
-<script>
+<script lang="ts">
 	export let classNames: string;
 	export let output: string;
 </script>

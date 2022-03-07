@@ -32,7 +32,7 @@
   title: How to create repositories and upload files to the Hub
 
 - local: how-to-inference
-  title: How to set up Inference API with your library
+  title: How to use the Inference API from the Hub library
 
 - local: adding-a-task
   title: Adding a new task to the Hub

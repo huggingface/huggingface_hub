@@ -18,6 +18,7 @@ from pathlib import Path
 
 from huggingface_hub.constants import REPOCARD_NAME
 from huggingface_hub.repocard import metadata_eval_result, metadata_load, metadata_save
+from huggingface_hub.utils import logging
 
 from .testing_utils import set_write_permission_and_retry
 
@@ -90,6 +91,7 @@ model-index:
 ---
 """
 
+logger = logging.get_logger(__name__)
 
 REPOCARD_DIR = os.path.join(
     os.path.dirname(os.path.abspath(__file__)), "fixtures/repocard"
@@ -101,10 +103,9 @@ class RepocardTest(unittest.TestCase):
         os.makedirs(REPOCARD_DIR, exist_ok=True)
 
     def tearDown(self) -> None:
-        try:
+        if os.path.exists(REPOCARD_DIR):
             shutil.rmtree(REPOCARD_DIR, onerror=set_write_permission_and_retry)
-        except FileNotFoundError:
-            pass
+        logger.info(f"Does {REPOCARD_DIR} exist: {os.path.exists(REPOCARD_DIR)}")
 
     def test_metadata_load(self):
         filepath = Path(REPOCARD_DIR) / REPOCARD_NAME

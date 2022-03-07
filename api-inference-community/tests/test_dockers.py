@@ -222,6 +222,14 @@ class DockerImageTests(unittest.TestCase):
         self.framework_docker_test("timm", "image-classification", "sgugger/resnet50d")
         self.framework_invalid_test("timm")
 
+    def test_pyannote(self):
+        self.framework_docker_test(
+            "pyannote",
+            "automatic-speech-recognition",
+            "pyannote/voice-activity-detection",
+        )
+        self.framework_invalid_test("pyannote")
+
     def test_keras(self):
         # Single Output Unit, RGB
         self.framework_docker_test(

@@ -14,8 +14,53 @@ Helpful utility functions and classes in relation to exploring API endpoints
 with the aim for a user-friendly interface
 """
 
+import math
+import re
 from dataclasses import dataclass
 from typing import List, Union
+
+
+def _filter_emissions(
+    models,
+    minimum_threshold: float = None,
+    maximum_threshold: float = None,
+):
+    """Filters a list of models for those that include an emission tag
+    and limit them to between two thresholds
+
+    Args:
+        models (:obj:`ModelInfo` or :class:`List`):
+            A list of `ModelInfo`'s to filter by.
+        minimum_threshold :obj:`float`:
+            A minimum carbon threshold to filter by, such as 1.
+        maximum_threshold :obj:`float`:
+            A maximum carbon threshold to filter by, such as 10.
+    """
+    if minimum_threshold is None and maximum_threshold is None:
+        raise ValueError(
+            "Both `minimum_threshold` and `maximum_threshold` cannot both be `None`"
+        )
+    if minimum_threshold is None:
+        minimum_threshold = -1
+    if maximum_threshold is None:
+        maximum_threshold = math.inf
+    emissions = []
+    for i, model in enumerate(models):
+        if hasattr(model, "cardData"):
+            if isinstance(model.cardData, dict):
+                emission = model.cardData.get("co2_eq_emissions", None)
+                if isinstance(emissions, dict):
+                    emission = emissions["emissions"]
+                if emission:
+                    emission = str(emission)
+                    if any(char.isdigit() for char in emission):
+                        emission = re.search("\d+\.\d+", str(emission)).group(0)
+                        emissions.append((i, float(emission)))
+    filtered_results = []
+    for (idx, emission) in emissions:
+        if emission >= minimum_threshold and emission <= maximum_threshold:
+            filtered_results.append(models[idx])
+    return filtered_results
 
 
 @dataclass

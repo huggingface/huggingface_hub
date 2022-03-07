@@ -20,7 +20,7 @@ The model card should describe:
 ## Model card metadata
 <!-- Try not to change this header as we use the corresponding anchor link -->
 
-The model cards have a YAML section that specify metadata. These are the fields
+You can add a YAML section to the model cards (that `README.md` file) by adding three `---` to the top of your model card, including all of the metadata, and enclosing it with another group of `---` such as the example below:
 
 ```yaml
 ---
