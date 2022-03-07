@@ -3,7 +3,7 @@ import logging
 import os
 import time
 from pathlib import Path
-from shutil import copytree
+from shutil import copytree, rmtree
 from typing import Any, Dict, Optional, Union
 
 from huggingface_hub import ModelHubMixin
@@ -27,15 +27,14 @@ if is_tf_available():
 
 
 def _extract_hyperparameters_from_keras(model):
-    hyperparameters = dict()
-    if hasattr(model, "optimizer"):
+    if model.optimizer is not None:
+        hyperparameters = dict()
         hyperparameters["optimizer"] = model.optimizer.get_config()
+        hyperparameters[
+            "training_precision"
+        ] = tf.keras.mixed_precision.global_policy().name
     else:
-        hyperparameters["optimizer"] = None
-    hyperparameters[
-        "training_precision"
-    ] = tf.keras.mixed_precision.global_policy().name
-
+        hyperparameters = None
     return hyperparameters
 
 
@@ -103,15 +102,15 @@ def _write_metrics(model, model_card):
 def _create_model_card(
     model,
     repo_dir: Path,
-    model_plot: Optional[bool] = True,
+    plot_model: Optional[bool] = True,
     task_name: Optional[str] = None,
-    override: Optional[bool] = False,
+    override_card: Optional[bool] = False,
 ):
     """
     Creates a model card for the repository.
     """
     hyperparameters = _extract_hyperparameters_from_keras(model)
-    if model_plot and is_graphviz_available() and is_pydot_available():
+    if plot_model and is_graphviz_available() and is_pydot_available():
         _plot_network(model, repo_dir)
     readme_path = f"{repo_dir}/README.md"
     model_card = "---\n"
@@ -134,7 +133,7 @@ def _create_model_card(
 
     model_card += "\n ## Training Metrics"
     model_card = _write_metrics(model, model_card)
-    if model_plot and os.path.exists(f"{repo_dir}/model.png"):
+    if plot_model and os.path.exists(f"{repo_dir}/model.png"):
         model_card += "\n ## Model Plot\n"
         model_card += "\n<details>"
         model_card += "\n<summary>View Model Plot</summary>\n"
@@ -142,7 +141,7 @@ def _create_model_card(
         model_card += f"\n![Model Image]({path_to_plot})\n"
     model_card += "\n</details>"
 
-    if (os.path.exists(readme_path) and override is True) or not os.path.exists(
+    if (os.path.exists(readme_path) and override_card is True) or not os.path.exists(
         readme_path
     ):
         readme = model_card
@@ -151,17 +150,25 @@ def _create_model_card(
 
 
 class ValidationCallback(Callback):
-    # callback that checks the commit history
-    # checks that distinct commits were pushed for given period
+    """Callback to test PushtoHubCallback.
+
+    Args:
+        model_id: Hub model ID where logs and model are pushed.
+        save_strategy: `save_strategy` used in PushtoHubCallback.
+        log_path: Path to file where training logs will be written.
+        api_endpoint: The API endpoint used in PushtoHubCallback.
+        num_epochs: If "epoch" `save_strategy` is used, the number of epochs model is trained.
+        save_steps: The number of steps between saves when using the "steps" `save_strategy`.
+    """
+
     def __init__(
         self,
-        model_id,
-        save_strategy,
-        log_path,
-        api_endpoint,
-        num_epochs=None,
-        save_steps=None,
-        size_of_data=None,
+        model_id: str,
+        save_strategy: str,
+        log_path: str,
+        api_endpoint: str,
+        num_epochs: Optional[int] = None,
+        save_steps: Optional[int] = None,
     ):
         super().__init__()
         self.model_id = model_id
@@ -170,7 +177,6 @@ class ValidationCallback(Callback):
         self.log_path = log_path
         self.num_epochs = num_epochs
         self.save_steps = save_steps
-        self.size_of_data = size_of_data
 
     def on_epoch_end(self, epoch, logs=None):
         if self.save_strategy == "epoch":
@@ -205,12 +211,12 @@ class PushToHubCallback(Callback):
     model.fit(train_dataset, callbacks=[push_to_hub_callback])
     ```
     Args:
-        save_strategy (`str`, *optional*, defaults to `"epoch"`):
+        save_strategy (:obj:`str`, `optional`, defaults to `"epoch"`):
             The checkpoint save strategy to adopt during training. Possible values are:
                 - `"end_of_training"`: Save is done at the end of training run.
                 - `"epoch"`: Save is done at the end of each epoch.
                 - `"steps"`: Save is done every `save_steps`.
-        save_steps (`int`, *optional*):
+        save_steps (:obj:`int`, `optional`):
             The number of steps between saves when using the "steps" `save_strategy`.
         repo_path_or_name (:obj:`str`, `optional`):
             Can either be a repository name for your model in the Hub or a path to a local folder (in
@@ -220,17 +226,16 @@ class PushToHubCallback(Callback):
             Specify this in case you want to push to an existing repository in the hub. If unspecified, a new
             repository will be created in your namespace (unless you specify an :obj:`organization`) with
             :obj:`repo_name`.
-        token (`str`, *optional*):
+        token (:obj:`str`, `optional`):
             The token to use to push the model to the Hub. Will default to the token in the cache folder obtained with
             `huggingface-cli login`.
         api_endpoint (:obj:`str`, `optional`):
             The API endpoint to use when pushing the model to the hub.
         organization (:obj:`str`, `optional`):
-            Organization in which you want to push your model or tokenizer (you must be a member of the
-            organization).
-        git_user (``str``, `optional`):
+            Organization in which you want to push your model (you must be a member of the organization).
+        git_user (:obj:`str`, `optional`):
             will override the ``git config user.name`` for committing and pushing files to the hub.
-        git_email (``str``, `optional`):
+        git_email (:obj:`str`, `optional`):
             will override the ``git config user.email`` for committing and pushing files to the hub.
         task_name (:obj:`str`, `optional`):
             Name of the task the model was trained on. See the available tasks at https://github.com/huggingface/huggingface_hub/blob/main/js/src/lib/interfaces/Types.ts.
@@ -313,14 +318,13 @@ class PushToHubCallback(Callback):
                 while not self.last_job.is_done:
                     time.sleep(1)
             save_pretrained_keras(
-                self.model, self.repo_path_or_name, **self.model_save_kwargs
-            )
-            _create_model_card(
                 self.model,
                 self.repo_path_or_name,
-                self.plot_model,
-                self.task_name,
-                override=True,
+                include_optimizer=self.include_optimizer,
+                plot_model=self.plot_model,
+                task_name=self.task_name,
+                override_card=True,
+                **self.model_save_kwargs,
             )
             self.repo.git_add(auto_lfs_track=True)
             _, self.last_job = self.repo.push_to_hub(
@@ -336,16 +340,12 @@ class PushToHubCallback(Callback):
                 self.model,
                 self.repo_path_or_name,
                 include_optimizer=self.include_optimizer,
+                plot_model=self.plot_model,
+                task_name=self.task_name,
+                override_card=True,
                 **self.model_save_kwargs,
             )
 
-            _create_model_card(
-                self.model,
-                self.repo_path_or_name,
-                self.plot_model,
-                self.task_name,
-                override=True,
-            )
             self.repo.git_add(auto_lfs_track=True)
             _, self.last_job = self.repo.push_to_hub(
                 commit_message=f"Training in progress epoch {epoch}", blocking=False
@@ -359,14 +359,10 @@ class PushToHubCallback(Callback):
             self.model,
             self.repo_path_or_name,
             include_optimizer=self.include_optimizer,
+            plot_model=self.plot_model,
+            task_name=self.task_name,
+            override_card=True,
             **self.model_save_kwargs,
-        )
-        _create_model_card(
-            self.model,
-            self.repo_path_or_name,
-            self.plot_model,
-            self.task_name,
-            override=True,
         )
         self.repo.git_add(auto_lfs_track=True)
         self.repo.push_to_hub(commit_message="End of training", blocking=True)
@@ -377,6 +373,9 @@ def save_pretrained_keras(
     save_directory: str,
     config: Optional[Dict[str, Any]] = None,
     include_optimizer: Optional[bool] = False,
+    plot_model: Optional[bool] = True,
+    task_name: Optional[str] = None,
+    override_card: Optional[bool] = False,
     **model_save_kwargs,
 ):
     """Saves a Keras model to save_directory in SavedModel format. Use this if you're using the Functional or Sequential APIs.
@@ -389,6 +388,12 @@ def save_pretrained_keras(
         Configuration object to be saved alongside the model weights.
     include_optimizer(:obj:`bool`, `optional`):
         Whether or not to include optimizer in serialization.
+    task_name (:obj:`str`, `optional`):
+        Name of the task the model was trained on. See the available tasks at https://github.com/huggingface/huggingface_hub/blob/main/js/src/lib/interfaces/Types.ts.
+    plot_model (:obj:`bool`):
+        Setting this to `True` will plot the model and put it in the model card. Requires graphviz and pydot to be installed.
+    override_card:
+        Whether or not to override the model card. Is set to True when called from callback.
     model_save_kwargs(:obj:`dict`, `optional`):
         model_save_kwargs will be passed to tf.keras.models.save_model().
     """
@@ -414,6 +419,7 @@ def save_pretrained_keras(
         with open(path, "w") as f:
             json.dump(config, f)
 
+    _create_model_card(model, save_directory, plot_model, task_name)
     tf.keras.models.save_model(
         model, save_directory, include_optimizer=include_optimizer, **model_save_kwargs
     )
@@ -438,11 +444,11 @@ def push_to_hub_keras(
     config: Optional[dict] = None,
     include_optimizer: Optional[bool] = False,
     task_name: Optional[str] = None,
-    model_plot: Optional[bool] = True,
+    plot_model: Optional[bool] = True,
     **model_save_kwargs,
 ):
     """
-    Upload model checkpoint files to the 🤗 Model Hub while synchronizing a local clone of the repo in
+    Upload model checkpoint files to the Hugging Face Hub while synchronizing a local clone of the repo in
     :obj:`repo_path_or_name`.
 
     Parameters:
@@ -482,7 +488,7 @@ def push_to_hub_keras(
             Whether or not to include optimizer during serialization.
         task_name (:obj:`str`, `optional`):
             Name of the task the model was trained on. See the available tasks at https://github.com/huggingface/huggingface_hub/blob/main/js/src/lib/interfaces/Types.ts.
-        model_plot (:obj:`bool`):
+        plot_model (:obj:`bool`):
             Setting this to `True` will plot the model and put it in the model card. Requires graphviz and pydot to be installed.
         model_save_kwargs(:obj:`dict`, `optional`):
             model_save_kwargs will be passed to tf.keras.models.save_model().
@@ -537,12 +543,16 @@ def push_to_hub_keras(
         repo_path_or_name,
         config=config,
         include_optimizer=include_optimizer,
+        plot_model=plot_model,
+        task_name=task_name,
         **model_save_kwargs,
     )
 
-    _create_model_card(model, repo_path_or_name, model_plot, task_name)
     if log_dir is not None:
+        if os.path.exists(f"{repo_path_or_name}/logs"):
+            rmtree(f"{repo_path_or_name}/logs")
         copytree(log_dir, f"{repo_path_or_name}/logs")
+
     # Commit and push!
     repo.git_add(auto_lfs_track=True)
     repo.git_commit(commit_message)
