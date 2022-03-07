@@ -1,4 +1,4 @@
-<script>
+<script lang="ts">
 	import WidgetLabel from "../WidgetLabel/WidgetLabel.svelte";
 
 	export let classNames = "";

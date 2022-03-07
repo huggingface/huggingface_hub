@@ -20,14 +20,17 @@ from huggingface_hub.keras_mixin import (
     push_to_hub_keras,
     save_pretrained_keras,
 )
+from huggingface_hub.utils import logging
 
 from .testing_constants import ENDPOINT_STAGING, PASS, USER
-from .testing_utils import set_write_permission_and_retry
+from .testing_utils import retry_endpoint, set_write_permission_and_retry
 
 
 def repo_name(id=uuid.uuid4().hex[:6]):
     return "keras-repo-{0}-{1}".format(id, int(time.time() * 10e3))
 
+
+logger = logging.get_logger(__name__)
 
 WORKING_REPO_SUBDIR = f"fixtures/working_repo_{__name__.split('.')[-1]}"
 WORKING_REPO_DIR = os.path.join(
@@ -71,10 +74,11 @@ else:
 @require_tf
 class HubMixingTestKeras(unittest.TestCase):
     def tearDown(self) -> None:
-        try:
+        if os.path.exists(WORKING_REPO_DIR):
             shutil.rmtree(WORKING_REPO_DIR, onerror=set_write_permission_and_retry)
-        except FileNotFoundError:
-            pass
+        logger.info(
+            f"Does {WORKING_REPO_DIR} exist: {os.path.exists(WORKING_REPO_DIR)}"
+        )
 
     @classmethod
     def setUpClass(cls):
@@ -141,13 +145,13 @@ class HubMixingTestKeras(unittest.TestCase):
         model = DummyModel()
         model(model.dummy_inputs)
         model.save_pretrained(
-            f"{WORKING_REPO_DIR}/{REPO_NAME}",
-            config={"num": 10, "act": "gelu_fast"},
+            f"{WORKING_REPO_DIR}/{REPO_NAME}", config={"num": 10, "act": "gelu_fast"}
         )
 
         model = DummyModel.from_pretrained(f"{WORKING_REPO_DIR}/{REPO_NAME}")
         self.assertDictEqual(model.config, {"num": 10, "act": "gelu_fast"})
 
+    @retry_endpoint
     def test_push_to_hub(self):
         REPO_NAME = repo_name("PUSH_TO_HUB")
         model = DummyModel()
@@ -308,6 +312,12 @@ class HubKerasSequentialTest(HubMixingTestKeras):
             log_list = logs.split("\n")
             self.assertEqual(len(log_list), num_epochs)
 
+    def model_fit(self, model):
+        x = tf.constant([[0.44, 0.90], [0.65, 0.39]])
+        y = tf.constant([[1, 1], [0, 0]])
+        model.fit(x, y)
+        return model
+
     def test_save_pretrained(self):
         REPO_NAME = repo_name("save")
         model = self.model_init()
@@ -324,9 +334,10 @@ class HubKerasSequentialTest(HubMixingTestKeras):
         files = os.listdir(f"{WORKING_REPO_DIR}/{REPO_NAME}")
 
         self.assertIn("saved_model.pb", files)
-        self.assertTrue("keras_metadata.pb" in files)
-        self.assertTrue("README.md" in files)
-        self.assertTrue("model.png" in files)
+        self.assertIn("keras_metadata.pb", files)
+        self.assertIn("model.png", files)
+        self.assertIn("README.md", files)
+
         self.assertEqual(len(files), 6)
         loaded_model = from_pretrained_keras(f"{WORKING_REPO_DIR}/{REPO_NAME}")
         self.assertIsNone(loaded_model.optimizer)
@@ -420,12 +431,15 @@ class HubKerasSequentialTest(HubMixingTestKeras):
             model,
             f"{WORKING_REPO_DIR}/{REPO_NAME}",
             config={"num": 10, "act": "gelu_fast"},
+            plot_model=True,
+            task_name=None,
         )
 
         new_model = from_pretrained_keras(f"{WORKING_REPO_DIR}/{REPO_NAME}")
         self.assertTrue(tf.reduce_all(tf.equal(new_model.weights[0], model.weights[0])))
         self.assertTrue(new_model.config == {"num": 10, "act": "gelu_fast"})
 
+    @retry_endpoint
     def test_push_to_hub(self):
         REPO_NAME = repo_name("PUSH_TO_HUB")
         model = self.model_init()
@@ -448,6 +462,8 @@ class HubKerasSequentialTest(HubMixingTestKeras):
 
         self._api.delete_repo(name=f"{REPO_NAME}", token=self._token)
 
+
+    @retry_endpoint
     def test_push_to_hub_model_card_build(self):
         REPO_NAME = repo_name("PUSH_TO_HUB")
         model = self.model_init()
@@ -466,6 +482,7 @@ class HubKerasSequentialTest(HubMixingTestKeras):
         self.assertTrue("README.md" in [f.rfilename for f in model_info.siblings])
         self.assertTrue("model.png" in [f.rfilename for f in model_info.siblings])
         self._api.delete_repo(name=f"{REPO_NAME}", token=self._token)
+
 
     def test_push_to_hub_model_card(self):
         REPO_NAME = repo_name("PUSH_TO_HUB")
@@ -487,6 +504,7 @@ class HubKerasSequentialTest(HubMixingTestKeras):
         self.assertTrue("model.png" in [f.rfilename for f in model_info.siblings])
         self._api.delete_repo(name=f"{REPO_NAME}", token=self._token)
 
+    @retry_endpoint
     def test_push_to_hub_model_card_plot_false(self):
         REPO_NAME = repo_name("PUSH_TO_HUB")
         model = self.model_init()
@@ -507,6 +525,8 @@ class HubKerasSequentialTest(HubMixingTestKeras):
         self.assertFalse("model.png" in [f.rfilename for f in model_info.siblings])
         self._api.delete_repo(name=f"{REPO_NAME}", token=self._token)
 
+
+    @retry_endpoint
     def test_push_to_hub_tensorboard(self):
         os.makedirs(f"{WORKING_REPO_DIR}/tb_log_dir")
         with open(f"{WORKING_REPO_DIR}/tb_log_dir/tensorboard.txt", "w") as fp:
@@ -533,6 +553,8 @@ class HubKerasSequentialTest(HubMixingTestKeras):
 
         self._api.delete_repo(name=f"{REPO_NAME}", token=self._token)
 
+
+    @retry_endpoint
     def test_override_tensorboard(self):
         os.makedirs(f"{WORKING_REPO_DIR}/tb_log_dir")
         with open(f"{WORKING_REPO_DIR}/tb_log_dir/tensorboard.txt", "w") as fp:
@@ -574,6 +596,8 @@ class HubKerasSequentialTest(HubMixingTestKeras):
 
         self._api.delete_repo(name=f"{REPO_NAME}", token=self._token)
 
+
+    @retry_endpoint
     def test_push_to_hub_model_kwargs(self):
         REPO_NAME = repo_name("PUSH_TO_HUB")
         model = self.model_init()

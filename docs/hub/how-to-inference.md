@@ -4,7 +4,11 @@ title: How to programmatically access the Inference API
 
 # How to programmatically access the Inference API
 
-The Inference API provides fast inference for your hosted models. The Inference API can be accessed via usual HTTP requests with your favorite programming languages, but the `huggingface_hub` library has a client wrapper to access the Inference API programmatically. This guide will show you how to make calls to the Inference API from your library. For more detailed information, refer to the [Inference API documentation](https://api-inference.huggingface.co/docs/python/html/index.html).
+The Inference API provides fast inference for your hosted models. The Inference API can be accessed via usual HTTP requests with your favorite programming languages, but the `huggingface_hub` library has a client wrapper to access the Inference API programmatically. This guide will show you how to make calls to the Inference API with the `huggingface_hub` library.
+
+**If you want to make the HTTP calls directly, please refer to [Accelerated Inference API Documentation](https://api-inference.huggingface.co/docs/python/html/index.html) or to the sample snippets visible on every supported model page.**
+
+![Snippet of code to make calls to the Inference API](/docs/assets/hub/inference_api_snippet.png)
 
 Begin by creating an instance of the `InferenceApi` with a specific model repository ID. You can find your `API_TOKEN` under Settings from your Hugging Face account. The `API_TOKEN` will allow you to send requests to the Inference API.
 

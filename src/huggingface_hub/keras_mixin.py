@@ -120,18 +120,15 @@ def _create_model_card(
     model_card += "\n## Model description\n\nMore information needed\n"
     model_card += "\n## Intended uses & limitations\n\nMore information needed\n"
     model_card += "\n## Training and evaluation data\n\nMore information needed\n"
-    model_card += "\n## Training procedure\n"
-    model_card += "\n### Training hyperparameters\n"
     if hyperparameters is not None:
+        model_card += "\n## Training procedure\n"
+        model_card += "\n### Training hyperparameters\n"
         model_card += "\nThe following hyperparameters were used during training:\n"
         model_card += "\n".join(
             [f"- {name}: {value}" for name, value in hyperparameters.items()]
         )
         model_card += "\n"
-    else:
-        model_card += "\nMore information needed\n"
-
-    model_card += "\n ## Training Metrics"
+    model_card += "\n ## Training Metrics\n"
     model_card = _write_metrics(model, model_card)
     if plot_model and os.path.exists(f"{repo_dir}/model.png"):
         model_card += "\n ## Model Plot\n"
@@ -139,7 +136,7 @@ def _create_model_card(
         model_card += "\n<summary>View Model Plot</summary>\n"
         path_to_plot = "./model.png"
         model_card += f"\n![Model Image]({path_to_plot})\n"
-    model_card += "\n</details>"
+        model_card += "\n</details>"
 
     if (os.path.exists(readme_path) and override_card is True) or not os.path.exists(
         readme_path
@@ -471,7 +468,7 @@ def push_to_hub_keras(
             Organization in which you want to push your model (you must be a member of this
             organization).
         private (:obj:`bool`, `optional`):
-            Whether or not the repository created should be private (requires a paying subscription).
+            Whether or not the repository created should be private.
         api_endpoint (:obj:`str`, `optional`):
             The API endpoint to use when pushing the model to the hub.
         use_auth_token (:obj:`bool` or :obj:`str`, `optional`):

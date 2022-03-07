@@ -7,6 +7,7 @@ import uuid
 from huggingface_hub import HfApi
 from huggingface_hub.file_download import is_torch_available
 from huggingface_hub.hub_mixin import PyTorchModelHubMixin
+from huggingface_hub.utils import logging
 
 from .testing_constants import ENDPOINT_STAGING, PASS, USER
 from .testing_utils import set_write_permission_and_retry
@@ -16,6 +17,7 @@ def repo_name(id=uuid.uuid4().hex[:6]):
     return "mixin-repo-{0}-{1}".format(id, int(time.time() * 10e3))
 
 
+logger = logging.get_logger(__name__)
 WORKING_REPO_SUBDIR = "fixtures/working_repo_2"
 WORKING_REPO_DIR = os.path.join(
     os.path.dirname(os.path.abspath(__file__)), WORKING_REPO_SUBDIR
@@ -49,7 +51,6 @@ if is_torch_available():
         def forward(self, x):
             return self.l1(x)
 
-
 else:
     DummyModel = None
 
@@ -62,10 +63,11 @@ class HubMixingCommonTest(unittest.TestCase):
 @require_torch
 class HubMixingTest(HubMixingCommonTest):
     def tearDown(self) -> None:
-        try:
+        if os.path.exists(WORKING_REPO_DIR):
             shutil.rmtree(WORKING_REPO_DIR, onerror=set_write_permission_and_retry)
-        except FileNotFoundError:
-            pass
+        logger.info(
+            f"Does {WORKING_REPO_DIR} exist: {os.path.exists(WORKING_REPO_DIR)}"
+        )
 
     @classmethod
     def setUpClass(cls):

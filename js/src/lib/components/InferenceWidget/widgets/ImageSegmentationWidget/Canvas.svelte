@@ -1,4 +1,4 @@
-<script>
+<script lang="ts">
 	import type { ImageSegment } from "../../shared/types";
 	import { afterUpdate } from "svelte";
 

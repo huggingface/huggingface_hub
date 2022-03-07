@@ -1,4 +1,4 @@
-<script>
+<script lang="ts">
 	import { escape, mod, sum } from "../../../../utils/ViewUtils";
 
 	interface Span {

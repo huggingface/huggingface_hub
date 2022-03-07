@@ -8,7 +8,7 @@ title: Security and trust on the Hugging Face Hub
 
 ### What are User Access Tokens?
 
-User Access Tokens are the preferred way to authenticate an application or notebook to Hugging Face services. You can manage your access tokens in your [settings](https://huggingface.co/settings/token).
+User Access Tokens are the preferred way to authenticate an application or notebook to Hugging Face services. You can manage your access tokens in your [settings](https://huggingface.co/settings/tokens).
 
 ![/docs/assets/hub/access-tokens.png](/docs/assets/hub/access-tokens.png)
 
@@ -20,7 +20,7 @@ Access tokens allow applications and notebooks to perform specific actions speci
 
 ### How to manage User Access Tokens?
 
-To create an access token, go to your settings, then click on the ["Access Tokens" tab](https://huggingface.co/settings/token). Click on the "New token" button to create a new User Access Token.
+To create an access token, go to your settings, then click on the ["Access Tokens" tab](https://huggingface.co/settings/tokens). Click on the "New token" button to create a new User Access Token.
 
 ![/docs/assets/hub/new-token.png](/docs/assets/hub/new-token.png)
 
