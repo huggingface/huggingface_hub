@@ -108,9 +108,9 @@ def is_tf_available():
 
 @_deprecate_positional_args
 def hf_hub_url(
-    *,
     repo_id: str,
     filename: str,
+    *,
     subfolder: Optional[str] = None,
     repo_type: Optional[str] = None,
     revision: Optional[str] = None,
@@ -327,8 +327,8 @@ def http_get(
 
 @_deprecate_positional_args
 def cached_download(
-    *,
     url: str,
+    *,
     library_name: Optional[str] = None,
     library_version: Optional[str] = None,
     cache_dir: Union[str, Path, None] = None,
@@ -525,9 +525,9 @@ def cached_download(
 
 @_deprecate_positional_args
 def hf_hub_download(
-    *,
     repo_id: str,
     filename: str,
+    *,
     subfolder: Optional[str] = None,
     repo_type: Optional[str] = None,
     revision: Optional[str] = None,

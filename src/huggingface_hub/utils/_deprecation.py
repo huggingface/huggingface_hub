@@ -7,12 +7,12 @@ def _deprecate_positional_args(func=None, *, version="0.7"):
     """Decorator for methods that issues warnings for positional arguments.
     Using the keyword-only argument syntax in pep 3102, arguments after the
     * will issue a warning when passed as a positional argument.
-    Parameters
-    ----------
-    func : callable, default=None
-        Function to check arguments on.
-    version : callable, default="0.7"
-        The version when positional arguments will result in error.
+
+    Args:
+        func (``Callable``, `optional`):
+            Function to check arguments on.
+        version (``Callable``, `optional`, defaults to ``"0.7"``):
+            The version when positional arguments will result in error.
     """
 
     def _inner_deprecate_positional_args(f):
