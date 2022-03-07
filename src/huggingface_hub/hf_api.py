@@ -430,7 +430,7 @@ class HfApi:
         Throws: requests.exceptions.HTTPError if credentials are invalid
         """
         logging.error(
-            "HfApi.login: This method is deprecated in favor of `set_access_token`."
+            "HfApi.login: This method is deprecated in favor of ``set_access_token``."
         )
         path = f"{self.endpoint}/api/login"
         r = requests.post(path, json={"username": username, "password": password})
@@ -967,11 +967,11 @@ class HfApi:
         """
         if repo_type is None or repo_type == "model":
             info = self.model_info(
-                repo_id, revision=revision, token=token, timeout=timeout
+                repo_id=repo_id, revision=revision, token=token, timeout=timeout
             )
         elif repo_type == "dataset":
             info = self.dataset_info(
-                repo_id, revision=revision, token=token, timeout=timeout
+                repo_id=repo_id, revision=revision, token=token, timeout=timeout
             )
         else:
             raise ValueError("Spaces are not available yet.")

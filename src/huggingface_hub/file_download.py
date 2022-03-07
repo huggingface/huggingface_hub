@@ -146,8 +146,7 @@ def hf_hub_url(
     )
 
 
-@_deprecate_positional_args
-def url_to_filename(*, url: str, etag: Optional[str] = None) -> str:
+def url_to_filename(url: str, etag: Optional[str] = None) -> str:
     """
     Convert `url` into a hashed filename in a repeatable way. If `etag` is specified, append its hash to the url's,
     delimited by a period. If the url ends with .h5 (Keras HDF5 weights) adds '.h5' to the name so that TF 2.0 can
@@ -167,8 +166,7 @@ def url_to_filename(*, url: str, etag: Optional[str] = None) -> str:
     return filename
 
 
-@_deprecate_positional_args
-def filename_to_url(*, filename, cache_dir=None) -> Tuple[str, str]:
+def filename_to_url(filename, cache_dir=None) -> Tuple[str, str]:
     """
     Return the url and etag (which may be ``None``) stored for `filename`. Raise ``EnvironmentError`` if `filename` or
     its stored metadata do not exist.
