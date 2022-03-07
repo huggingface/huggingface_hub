@@ -130,6 +130,7 @@ def hf_hub_url(
         specific version of a resource [1]_. An object's ETag is: its git-sha1
         if stored in git, or its sha256 if stored in git-lfs.
 
+    References:
         .. [1] https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/ETag
     """
     if subfolder is not None:
