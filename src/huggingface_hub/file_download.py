@@ -86,7 +86,7 @@ def hf_hub_url(
     repo_type: Optional[str] = None,
     revision: Optional[str] = None,
 ) -> str:
-    """Resolve a url of a file from the given information.
+    """Construct the URL of a file from the given information.
 
     The resolved address can either be a huggingface.co-hosted url, or a link
     to Cloudfront (a Content Delivery Network, or CDN) for large files which
