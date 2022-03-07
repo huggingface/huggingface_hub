@@ -1,6 +1,6 @@
+import warnings
 from functools import wraps
 from inspect import Parameter, signature
-import warnings
 
 
 def _deprecate_positional_args(func=None, *, version="0.7"):
