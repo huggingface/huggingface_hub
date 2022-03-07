@@ -545,7 +545,7 @@ class Repository:
 
                 if namespace == user or namespace in valid_organisations:
                     api.create_repo(
-                        repo_id,
+                        name=repo_id,
                         token=token,
                         repo_type=self.repo_type,
                         organization=namespace,

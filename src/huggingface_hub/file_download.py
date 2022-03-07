@@ -283,9 +283,9 @@ def _request_with_retry(
 
 @_deprecate_positional_args
 def http_get(
-    *,
     url: str,
     temp_file: BinaryIO,
+    *,
     proxies=None,
     resume_size=0,
     headers: Optional[Dict[str, str]] = None,
