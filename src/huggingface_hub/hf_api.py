@@ -541,8 +541,8 @@ class HfApi:
     @_deprecate_positional_args
     def list_models(
         self,
-        *,
         filter: Union[ModelFilter, str, Iterable[str], None] = None,
+        *,
         author: Optional[str] = None,
         search: Optional[str] = None,
         emissions_thresholds: Optional[Tuple[float, float]] = None,
@@ -750,8 +750,8 @@ class HfApi:
     @_deprecate_positional_args
     def list_datasets(
         self,
-        *,
         filter: Union[DatasetFilter, str, Iterable[str], None] = None,
+        *,
         author: Optional[str] = None,
         search: Optional[str] = None,
         sort: Union[Literal["lastModified"], str, None] = None,
