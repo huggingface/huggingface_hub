@@ -31,6 +31,7 @@ from .constants import (
     REPO_TYPES_URL_PREFIXES,
     SPACES_SDK_TYPES,
 )
+from .utils._deprecation import _deprecate_positional_args
 from .utils.endpoint_helpers import (
     AttributeDictionary,
     DatasetFilter,
@@ -148,8 +149,10 @@ class ModelInfo:
     Info about a public model accessible from huggingface.co
     """
 
+    @_deprecate_positional_args
     def __init__(
         self,
+        *,
         modelId: Optional[str] = None,  # id of model
         sha: Optional[str] = None,  # commit sha at the specified revision
         lastModified: Optional[str] = None,  # date of last commit to repo
@@ -191,8 +194,10 @@ class DatasetInfo:
     Info about a public dataset accessible from huggingface.co
     """
 
+    @_deprecate_positional_args
     def __init__(
         self,
+        *,
         id: Optional[str] = None,  # id of dataset
         lastModified: Optional[str] = None,  # date of last commit to repo
         tags: List[str] = [],  # tags of the dataset
@@ -240,8 +245,10 @@ class MetricInfo:
     Info about a public metric accessible from huggingface.co
     """
 
+    @_deprecate_positional_args
     def __init__(
         self,
+        *,
         id: Optional[str] = None,  # id of metric
         description: Optional[str] = None,
         citation: Optional[str] = None,
@@ -531,8 +538,10 @@ class HfApi:
         d = r.json()
         return DatasetTags(d)
 
+    @_deprecate_positional_args
     def list_models(
         self,
+        *,
         filter: Union[ModelFilter, str, Iterable[str], None] = None,
         author: Optional[str] = None,
         search: Optional[str] = None,
@@ -738,8 +747,10 @@ class HfApi:
         query_dict["filter"] = tuple(filter_tuple)
         return query_dict
 
+    @_deprecate_positional_args
     def list_datasets(
         self,
+        *,
         filter: Union[DatasetFilter, str, Iterable[str], None] = None,
         author: Optional[str] = None,
         search: Optional[str] = None,
@@ -909,8 +920,10 @@ class HfApi:
         d = r.json()
         return [MetricInfo(**x) for x in d]
 
+    @_deprecate_positional_args
     def model_info(
         self,
+        *,
         repo_id: str,
         revision: Optional[str] = None,
         token: Optional[str] = None,
@@ -939,8 +952,10 @@ class HfApi:
         d = r.json()
         return ModelInfo(**d)
 
+    @_deprecate_positional_args
     def list_repo_files(
         self,
+        *,
         repo_id: str,
         revision: Optional[str] = None,
         repo_type: Optional[str] = None,
@@ -963,8 +978,10 @@ class HfApi:
 
         return [f.rfilename for f in info.siblings]
 
+    @_deprecate_positional_args
     def dataset_info(
         self,
+        *,
         repo_id: str,
         revision: Optional[str] = None,
         token: Optional[str] = None,
@@ -990,8 +1007,10 @@ class HfApi:
         d = r.json()
         return DatasetInfo(**d)
 
+    @_deprecate_positional_args
     def create_repo(
         self,
+        *,
         name: str,
         token: Optional[str] = None,
         organization: Optional[str] = None,
@@ -1107,8 +1126,10 @@ class HfApi:
         d = r.json()
         return d["url"]
 
+    @_deprecate_positional_args
     def delete_repo(
         self,
+        *,
         name: str,
         token: Optional[str] = None,
         organization: Optional[str] = None,
@@ -1175,8 +1196,10 @@ class HfApi:
         )
         r.raise_for_status()
 
+    @_deprecate_positional_args
     def update_repo_visibility(
         self,
+        *,
         name: str,
         private: bool,
         token: Optional[str] = None,
@@ -1223,8 +1246,10 @@ class HfApi:
         r.raise_for_status()
         return r.json()
 
+    @_deprecate_positional_args
     def move_repo(
         self,
+        *,
         from_id: str,
         to_id: str,
         repo_type: Optional[str] = None,
@@ -1269,8 +1294,10 @@ class HfApi:
             "Accepted transfer request. You will get an email once this is successfully completed."
         )
 
+    @_deprecate_positional_args
     def upload_file(
         self,
+        *,
         path_or_fileobj: Union[str, bytes, IO],
         path_in_repo: str,
         repo_id: str,
@@ -1396,8 +1423,10 @@ class HfApi:
         d = r.json()
         return d["url"]
 
+    @_deprecate_positional_args
     def delete_file(
         self,
+        *,
         path_in_repo: str,
         repo_id: str,
         token: Optional[str] = None,
@@ -1447,8 +1476,10 @@ class HfApi:
 
         r.raise_for_status()
 
+    @_deprecate_positional_args
     def get_full_repo_name(
         self,
+        *,
         model_id: str,
         organization: Optional[str] = None,
         token: Optional[str] = None,

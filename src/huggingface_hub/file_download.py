@@ -29,6 +29,7 @@ from .constants import (
 )
 from .hf_api import HfFolder
 from .utils import logging
+from .utils._deprecation import _deprecate_positional_args
 
 
 logger = logging.get_logger(__name__)
@@ -105,7 +106,9 @@ def is_tf_available():
     return _tf_available
 
 
+@_deprecate_positional_args
 def hf_hub_url(
+    *,
     repo_id: str,
     filename: str,
     subfolder: Optional[str] = None,
@@ -143,7 +146,8 @@ def hf_hub_url(
     )
 
 
-def url_to_filename(url: str, etag: Optional[str] = None) -> str:
+@_deprecate_positional_args
+def url_to_filename(*, url: str, etag: Optional[str] = None) -> str:
     """
     Convert `url` into a hashed filename in a repeatable way. If `etag` is specified, append its hash to the url's,
     delimited by a period. If the url ends with .h5 (Keras HDF5 weights) adds '.h5' to the name so that TF 2.0 can
@@ -163,7 +167,8 @@ def url_to_filename(url: str, etag: Optional[str] = None) -> str:
     return filename
 
 
-def filename_to_url(filename, cache_dir=None) -> Tuple[str, str]:
+@_deprecate_positional_args
+def filename_to_url(*, filename, cache_dir=None) -> Tuple[str, str]:
     """
     Return the url and etag (which may be ``None``) stored for `filename`. Raise ``EnvironmentError`` if `filename` or
     its stored metadata do not exist.
@@ -189,7 +194,9 @@ def filename_to_url(filename, cache_dir=None) -> Tuple[str, str]:
     return url, etag
 
 
+@_deprecate_positional_args
 def http_user_agent(
+    *,
     library_name: Optional[str] = None,
     library_version: Optional[str] = None,
     user_agent: Union[Dict, str, None] = None,
@@ -229,6 +236,7 @@ def _raise_if_offline_mode_is_enabled(msg: Optional[str] = None):
 
 
 def _request_with_retry(
+    *,
     method: str,
     url: str,
     max_retries: int = 0,
@@ -273,7 +281,9 @@ def _request_with_retry(
     return response
 
 
+@_deprecate_positional_args
 def http_get(
+    *,
     url: str,
     temp_file: BinaryIO,
     proxies=None,
@@ -315,7 +325,9 @@ def http_get(
     progress.close()
 
 
+@_deprecate_positional_args
 def cached_download(
+    *,
     url: str,
     library_name: Optional[str] = None,
     library_version: Optional[str] = None,
@@ -511,7 +523,9 @@ def cached_download(
     return cache_path
 
 
+@_deprecate_positional_args
 def hf_hub_download(
+    *,
     repo_id: str,
     filename: str,
     subfolder: Optional[str] = None,
