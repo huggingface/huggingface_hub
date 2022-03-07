@@ -63,6 +63,8 @@ from .keras_mixin import (
     from_pretrained_keras,
     push_to_hub_keras,
     save_pretrained_keras,
+    ValidationCallback,
+    PushToHubCallback
 )
 from .repository import Repository
 from .snapshot_download import snapshot_download
