@@ -51,15 +51,6 @@ There are many ways you can contribute to this client library:
 * Contributing to the examples or to the documentation;
 * Submitting issues related to bugs or desired new features.
 
-When opening a PR on this part of the repository, please add as reviewer:
-- @LysandreJik
-- @osanseviero
-
-Additionally, here are the owners of specific parts of the library:
-- Core of the library: @muellerzr
-- Documentation: @stevhliu
-- Mixins: @nateraw
-
 ### The community inference API
 
 The `api-inference-community` folder contains a tool to enable third-party library support integrated with the Hugging
@@ -68,8 +59,6 @@ Face Hub.
 We welcome contributions to [add new containers](https://huggingface.co/docs/hub/adding-a-library#set-up-the-inference-api) for new libraries, to update the existing ones, and to provide help
 fixing bugs and adding features. This folder contains an additional README
 file explaining how you may test your code.
-
-When opening a PR on this part of the repository, please add @Narsil as a reviewer.
 
 ## JavaScript content
 
@@ -80,8 +69,6 @@ The `js` folder contains the JavaScript code of the Hub. It includes:
 
 Here too, we welcome any logic and documentation contributions. This folder contains an additional README
 file explaining how you may test your code.
-
-When opening a PR on this part of the repository, please add @mishig25 and @osanseviero as a reviewer.
 
 ## Documentation
 
