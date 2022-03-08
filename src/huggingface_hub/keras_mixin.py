@@ -23,7 +23,13 @@ logger = logging.getLogger(__name__)
 
 if is_tf_available():
     import tensorflow as tf
-    from tensorflow.keras.callbacks import Callback
+    callback = tf.keras.callbacks.Callback
+else:
+    class Dummy(object):
+        def __call__(self, *args, **kwargs):
+            return None
+
+    callback = Dummy
 
 
 def _extract_hyperparameters_from_keras(model):
@@ -146,7 +152,7 @@ def _create_model_card(
             f.write(readme)
 
 
-class ValidationCallback(Callback):
+class ValidationCallback(callback):
     """Callback to test PushtoHubCallback.
 
     Args:
@@ -197,7 +203,7 @@ class ValidationCallback(Callback):
                 f.write(f"{info.lastModified}")
 
 
-class PushToHubCallback(Callback):
+class PushToHubCallback(callback):
     """
     Callback that will periodically save and push Keras models to the Hugging Face Hub. By default, it pushes once per epoch, but this can
     be changed with the `save_strategy` argument.
