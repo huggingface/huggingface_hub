@@ -23,8 +23,10 @@ logger = logging.getLogger(__name__)
 
 if is_tf_available():
     import tensorflow as tf
+
     callback = tf.keras.callbacks.Callback
 else:
+
     class Dummy(object):
         def __call__(self, *args, **kwargs):
             return None

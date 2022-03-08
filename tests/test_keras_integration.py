@@ -312,12 +312,6 @@ class HubKerasSequentialTest(HubMixingTestKeras):
             log_list = logs.split("\n")
             self.assertEqual(len(log_list), num_epochs)
 
-    def model_fit(self, model):
-        x = tf.constant([[0.44, 0.90], [0.65, 0.39]])
-        y = tf.constant([[1, 1], [0, 0]])
-        model.fit(x, y)
-        return model
-
     def test_save_pretrained(self):
         REPO_NAME = repo_name("save")
         model = self.model_init()
@@ -462,7 +456,6 @@ class HubKerasSequentialTest(HubMixingTestKeras):
 
         self._api.delete_repo(name=f"{REPO_NAME}", token=self._token)
 
-
     @retry_endpoint
     def test_push_to_hub_model_card_build(self):
         REPO_NAME = repo_name("PUSH_TO_HUB")
@@ -482,7 +475,6 @@ class HubKerasSequentialTest(HubMixingTestKeras):
         self.assertTrue("README.md" in [f.rfilename for f in model_info.siblings])
         self.assertTrue("model.png" in [f.rfilename for f in model_info.siblings])
         self._api.delete_repo(name=f"{REPO_NAME}", token=self._token)
-
 
     def test_push_to_hub_model_card(self):
         REPO_NAME = repo_name("PUSH_TO_HUB")
@@ -525,7 +517,6 @@ class HubKerasSequentialTest(HubMixingTestKeras):
         self.assertFalse("model.png" in [f.rfilename for f in model_info.siblings])
         self._api.delete_repo(name=f"{REPO_NAME}", token=self._token)
 
-
     @retry_endpoint
     def test_push_to_hub_tensorboard(self):
         os.makedirs(f"{WORKING_REPO_DIR}/tb_log_dir")
@@ -552,7 +543,6 @@ class HubKerasSequentialTest(HubMixingTestKeras):
         )
 
         self._api.delete_repo(name=f"{REPO_NAME}", token=self._token)
-
 
     @retry_endpoint
     def test_override_tensorboard(self):
@@ -595,7 +585,6 @@ class HubKerasSequentialTest(HubMixingTestKeras):
         )
 
         self._api.delete_repo(name=f"{REPO_NAME}", token=self._token)
-
 
     @retry_endpoint
     def test_push_to_hub_model_kwargs(self):
