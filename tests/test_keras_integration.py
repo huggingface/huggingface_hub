@@ -3,6 +3,7 @@ import shutil
 import time
 import unittest
 import uuid
+from subprocess import check_output
 
 import pytest
 
@@ -15,7 +16,6 @@ from huggingface_hub.file_download import (
 from huggingface_hub.keras_mixin import (
     KerasModelHubMixin,
     PushToHubCallback,
-    ValidationCallback,
     from_pretrained_keras,
     push_to_hub_keras,
     save_pretrained_keras,
@@ -177,32 +177,65 @@ class HubMixingTestKeras(unittest.TestCase):
 class HubKerasSequentialTest(HubMixingTestKeras):
     def model_init(self):
         model = tf.keras.models.Sequential()
+        model.add(tf.keras.layers.Input(shape=(None, 2)))
         model.add(tf.keras.layers.Dense(2, activation="relu"))
         model.compile(optimizer="adam", loss="mse")
         return model
 
-    def dummy_training_data(self):
-        x = tf.constant(
-            [
-                [0.44, 0.90],
-                [0.6, 0.9],
-                [0.5, 0.3],
-                [0.65, 0.39],
-                [0.9, 0.7],
-                [0.85, 0.99],
-            ]
-        )
-        y = tf.constant([[1, 3], [2, 5], [4, 9], [2, 3], [9, 7], [6, 7]])
-        return x, y
+    def dummy_training_data(self, batch_size=None):
+        def batch_data(data, batch_size):
+            batched_features = []
+            for element in range(0, len(data), batch_size):
+                batched_features.append(
+                    data[element : min(element + batch_size, len(data))]
+                )
+            return batched_features
 
-    def model_fit(self, model):
-        x, y = self.dummy_training_data()
-        model.fit(x, y, epochs=3)
-        return model
+        features = [
+            [0.44, 0.90],
+            [0.6, 0.9],
+            [0.5, 0.3],
+            [0.65, 0.39],
+            [0.9, 0.7],
+            [0.85, 0.99],
+            [0.45, 0.59],
+            [0.99, 0.27],
+            [0.35, 0.49],
+        ]
+        labels = [
+            [1, 3],
+            [2, 5],
+            [4, 9],
+            [2, 3],
+            [9, 7],
+            [6, 7],
+            [1, 2],
+            [3, 9],
+            [9, 3],
+        ]
 
-    def model_fit_callback(self, model, callback, num_epochs, batch_size=None):
-        x, y = self.dummy_training_data()
-        model.fit(x, y, callbacks=callback, epochs=num_epochs, batch_size=batch_size)
+        if batch_size is not None:
+            features = tf.constant(batch_data(features, batch_size))
+            labels = tf.constant(batch_data(labels, batch_size))
+        else:
+            features = tf.constant(features)
+            labels = tf.constant(labels)
+
+        return features, labels
+
+    def model_fit(self, model, num_epochs, batch_size=None, callback=None):
+        x, y = self.dummy_training_data(batch_size)
+        if batch_size is not None:
+            model.fit(
+                tf.data.Dataset.from_tensor_slices((x, y)),
+                callbacks=callback,
+                epochs=num_epochs,
+                batch_size=batch_size,
+            )
+        else:
+            model.fit(
+                x, y, callbacks=callback, epochs=num_epochs, batch_size=batch_size
+            )
         return model
 
     def test_callback_end_of_training(self):
@@ -217,35 +250,33 @@ class HubKerasSequentialTest(HubMixingTestKeras):
             git_user="ci",
             git_email="ci@dummy.com",
         )
-        val_callback = ValidationCallback(
-            log_path=f"{WORKING_REPO_DIR}/{REPO_NAME}/logs.txt",
-            model_id=f"{USER}/{REPO_NAME}",
-            save_strategy="end_of_training",
-            api_endpoint=ENDPOINT_STAGING,
-        )
 
-        model = self.model_fit_callback(
+        model = self.model_fit(
             model,
-            callback=[push_to_hub_callback, val_callback],
+            callback=[push_to_hub_callback],
             num_epochs=3,
         )
 
-        with open(
-            f"{WORKING_REPO_DIR}/{REPO_NAME}/logs.txt", "r", encoding="utf-8"
-        ) as f:
-            logs = f.read()
-            log_list = logs.split("\n")
-            self.assertEqual(len(log_list), 1)
+        self.assertEqual(
+            len(
+                check_output(
+                    f"git --git-dir {WORKING_REPO_DIR}/{REPO_NAME}/.git log --pretty=oneline".split()
+                )
+                .decode()
+                .split("\n")
+            ),
+            3,
+        )
 
     def test_callback_batch(self):
         REPO_NAME = repo_name("PUSH_TO_HUB")
         model = self.model_init()
         num_epochs = 3
-        save_steps = 2
+        save_steps = 1
         batch_size = 3
 
-        x, _ = self.dummy_training_data()
-        size_of_data = x.shape[0]
+        x, _ = self.dummy_training_data(batch_size=3)
+        num_batches = x.shape[0]
         push_to_hub_callback = PushToHubCallback(
             save_strategy="steps",
             repo_path_or_name=f"{WORKING_REPO_DIR}/{REPO_NAME}",
@@ -253,32 +284,26 @@ class HubKerasSequentialTest(HubMixingTestKeras):
             token=self._token,
             git_user="ci",
             git_email="ci@dummy.com",
-            save_steps=2,
+            save_steps=save_steps,
         )
 
-        val_callback = ValidationCallback(
-            log_path=f"{WORKING_REPO_DIR}/{REPO_NAME}/logs.txt",
-            model_id=f"{USER}/{REPO_NAME}",
-            save_strategy="steps",
-            api_endpoint=ENDPOINT_STAGING,
-            save_steps=2,
-        )
-
-        model = self.model_fit_callback(
+        model = self.model_fit(
             model,
-            callback=[push_to_hub_callback, val_callback],
+            callback=[push_to_hub_callback],
             num_epochs=num_epochs,
             batch_size=batch_size,
         )
 
-        with open(
-            f"{WORKING_REPO_DIR}/{REPO_NAME}/logs.txt", "r", encoding="utf-8"
-        ) as f:
-            logs = f.read()
-            log_list = logs.split("\n")
-            self.assertEqual(
-                len(log_list), num_epochs * size_of_data / batch_size / save_steps + 1
-            )
+        self.assertEqual(
+            len(
+                check_output(
+                    f"git --git-dir {WORKING_REPO_DIR}/{REPO_NAME}/.git log --pretty=oneline".split()
+                )
+                .decode()
+                .split("\n")
+            ),
+            num_epochs * num_batches / save_steps + 2,
+        )
 
     def test_callback_epoch(self):
         REPO_NAME = repo_name("PUSH_TO_HUB")
@@ -293,24 +318,21 @@ class HubKerasSequentialTest(HubMixingTestKeras):
             git_email="ci@dummy.com",
         )
         num_epochs = 3
-        val_callback = ValidationCallback(
-            log_path=f"{WORKING_REPO_DIR}/{REPO_NAME}/logs.txt",
-            model_id=f"{USER}/{REPO_NAME}",
-            save_strategy="epoch",
-            api_endpoint=ENDPOINT_STAGING,
-            num_epochs=num_epochs,
-        )
 
-        model = self.model_fit_callback(
-            model, callback=[push_to_hub_callback, val_callback], num_epochs=num_epochs
+        model = self.model_fit(
+            model, callback=[push_to_hub_callback], num_epochs=num_epochs
         )
-
-        with open(
-            f"{WORKING_REPO_DIR}/{REPO_NAME}/logs.txt", "r", encoding="utf-8"
-        ) as f:
-            logs = f.read()
-            log_list = logs.split("\n")
-            self.assertEqual(len(log_list), num_epochs)
+        self.assertEqual(
+            len(
+                check_output(
+                    f"git --git-dir {WORKING_REPO_DIR}/{REPO_NAME}/.git log --pretty=oneline".split()
+                )
+                .decode()
+                .split("\n")
+            ),
+            num_epochs + 3,
+        )
+        # epochs, initial commit, end of training commit, one more line
 
     def test_save_pretrained(self):
         REPO_NAME = repo_name("save")
@@ -617,7 +639,7 @@ class HubKerasSequentialTest(HubMixingTestKeras):
 @require_tf
 class HubKerasFunctionalTest(HubKerasSequentialTest):
     def model_init(self):
-        inputs = tf.keras.layers.Input(shape=(2,))
+        inputs = tf.keras.layers.Input(shape=(None, 2))
         outputs = tf.keras.layers.Dense(2, activation="relu")(inputs)
         model = tf.keras.models.Model(inputs=inputs, outputs=outputs)
         model.compile(optimizer="adam", loss="mse")

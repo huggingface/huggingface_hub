@@ -154,104 +154,7 @@ def _create_model_card(
             f.write(readme)
 
 
-class ValidationCallback(callback):
-    """Callback to test PushtoHubCallback.
-
-    Args:
-        model_id: Hub model ID where logs and model are pushed.
-        save_strategy: `save_strategy` used in PushtoHubCallback.
-        log_path: Path to file where training logs will be written.
-        api_endpoint: The API endpoint used in PushtoHubCallback.
-        num_epochs: If "epoch" `save_strategy` is used, the number of epochs model is trained.
-        save_steps: The number of steps between saves when using the "steps" `save_strategy`.
-    """
-
-    def __init__(
-        self,
-        model_id: str,
-        save_strategy: str,
-        log_path: str,
-        api_endpoint: str,
-        num_epochs: Optional[int] = None,
-        save_steps: Optional[int] = None,
-    ):
-        super().__init__()
-        self.model_id = model_id
-        self.api = HfApi(endpoint=api_endpoint)
-        self.save_strategy = save_strategy
-        self.log_path = log_path
-        self.num_epochs = num_epochs
-        self.save_steps = save_steps
-
-    def on_epoch_end(self, epoch, logs=None):
-        if self.save_strategy == "epoch":
-            info = self.api.model_info(repo_id=self.model_id)
-            with open(self.log_path, "a+") as f:
-                if epoch == self.num_epochs - 1:
-                    f.write(f"{info.lastModified}")
-                else:
-                    f.write(f"{info.lastModified}\n")
-
-    def on_train_batch_end(self, batch, logs=None):
-        if self.save_strategy == "steps" and (batch + 1) % self.save_steps == 0:
-            info = self.api.model_info(repo_id=self.model_id)
-            with open(self.log_path, "a+") as f:
-                f.write(f"{info.lastModified}\n")
-
-    def on_train_end(self, logs=None):
-        if self.save_strategy == "end_of_training":
-            info = self.api.model_info(repo_id=self.model_id)
-            with open(self.log_path, "a+") as f:
-                f.write(f"{info.lastModified}")
-
-
 class PushToHubCallback(callback):
-    """
-    Callback that will periodically save and push Keras models to the Hugging Face Hub. By default, it pushes once per epoch, but this can
-    be changed with the `save_strategy` argument.
-    ```py
-    push_to_hub_callback = PushToHubCallbackKeras(
-        repo_path_or_name="gpt5-7xlarge"
-    )
-    model.fit(train_dataset, callbacks=[push_to_hub_callback])
-    ```
-    Args:
-        save_strategy (:obj:`str`, `optional`, defaults to `"epoch"`):
-            The checkpoint save strategy to adopt during training. Possible values are:
-                - `"end_of_training"`: Save is done at the end of training run.
-                - `"epoch"`: Save is done at the end of each epoch.
-                - `"steps"`: Save is done every `save_steps`.
-        save_steps (:obj:`int`, `optional`):
-            The number of steps between saves when using the "steps" `save_strategy`.
-        repo_path_or_name (:obj:`str`, `optional`):
-            Can either be a repository name for your model in the Hub or a path to a local folder (in
-            which case the repository will have the name of that local folder). If not specified, will default to
-            the name given by :obj:`repo_url` and a local directory with that name will be created.
-        repo_url (:obj:`str`, `optional`):
-            Specify this in case you want to push to an existing repository in the hub. If unspecified, a new
-            repository will be created in your namespace (unless you specify an :obj:`organization`) with
-            :obj:`repo_name`.
-        token (:obj:`str`, `optional`):
-            The token to use to push the model to the Hub. Will default to the token in the cache folder obtained with
-            `huggingface-cli login`.
-        api_endpoint (:obj:`str`, `optional`):
-            The API endpoint to use when pushing the model to the hub.
-        organization (:obj:`str`, `optional`):
-            Organization in which you want to push your model (you must be a member of the organization).
-        git_user (:obj:`str`, `optional`):
-            will override the ``git config user.name`` for committing and pushing files to the hub.
-        git_email (:obj:`str`, `optional`):
-            will override the ``git config user.email`` for committing and pushing files to the hub.
-        task_name (:obj:`str`, `optional`):
-            Name of the task the model was trained on. See the available tasks at https://github.com/huggingface/huggingface_hub/blob/main/js/src/lib/interfaces/Types.ts.
-        plot_model (:obj:`bool`):
-            Setting this to `True` will plot the model and put it in the model card. Requires graphviz and pydot to be installed.
-        include_optimizer (:obj:`bool`, `optional`):
-            Whether or not to include optimizer during serialization.
-        model_save_kwargs(:obj:`dict`, `optional`):
-            model_save_kwargs will be passed to tf.keras.models.save_model() through save_pretrained_keras().
-    """
-
     def __init__(
         self,
         save_strategy: Optional[str] = "epoch",
@@ -268,6 +171,53 @@ class PushToHubCallback(callback):
         include_optimizer: Optional[bool] = True,
         **model_save_kwargs,
     ):
+        """
+        Callback that will periodically save and push Keras models to the Hugging Face Hub. By default, it pushes once per epoch, but this can
+        be changed with the `save_strategy` argument.
+
+        ```py
+        push_to_hub_callback = PushToHubCallbackKeras(
+            repo_path_or_name="your-awesome-keras-model"
+        )
+        model.fit(train_dataset, callbacks=[push_to_hub_callback])
+        ```
+
+        Args:
+            save_strategy (:obj:`str`, `optional`, defaults to `"epoch"`):
+                The checkpoint save strategy to adopt during training. Possible values are:
+                    - `"end_of_training"`: Save is done at the end of training run.
+                    - `"epoch"`: Save is done at the end of each epoch.
+                    - `"steps"`: Save is done every `save_steps`.
+            save_steps (:obj:`int`, `optional`):
+                The number of steps between saves when using the "steps" `save_strategy`.
+            repo_path_or_name (:obj:`str`, `optional`):
+                Can either be a repository name for your model in the Hub or a path to a local folder (in
+                which case the repository will have the name of that local folder). If not specified, will default to
+                the name given by :obj:`repo_url` and a local directory with that name will be created.
+            repo_url (:obj:`str`, `optional`):
+                Specify this in case you want to push to an existing repository in the hub. If unspecified, a new
+                repository will be created in your namespace (unless you specify an :obj:`organization`) with
+                :obj:`repo_name`.
+            token (:obj:`str`, `optional`):
+                The token to use to push the model to the Hub. Will default to the token in the cache folder obtained with
+                `huggingface-cli login`.
+            api_endpoint (:obj:`str`, `optional`):
+                The API endpoint to use when pushing the model to the hub.
+            organization (:obj:`str`, `optional`):
+                Organization in which you want to push your model (you must be a member of the organization).
+            git_user (:obj:`str`, `optional`):
+                will override the ``git config user.name`` for committing and pushing files to the hub.
+            git_email (:obj:`str`, `optional`):
+                will override the ``git config user.email`` for committing and pushing files to the hub.
+            task_name (:obj:`str`, `optional`):
+                Name of the task the model was trained on. See the available tasks at https://github.com/huggingface/huggingface_hub/blob/main/js/src/lib/interfaces/Types.ts.
+            plot_model (:obj:`bool`):
+                Setting this to `True` will plot the model and put it in the model card. Requires graphviz and pydot to be installed.
+            include_optimizer (:obj:`bool`, `optional`):
+                Whether or not to include optimizer during serialization.
+            model_save_kwargs(:obj:`dict`, `optional`):
+                model_save_kwargs will be passed to tf.keras.models.save_model() through save_pretrained_keras().
+        """
         super().__init__()
         self.save_strategy = save_strategy
         self.save_steps = save_steps
@@ -319,7 +269,6 @@ class PushToHubCallback(callback):
     def on_train_batch_end(self, batch, logs=None):
         if self.save_strategy == "steps" and batch + 1 % self.save_steps == 0:
             if self.last_job is not None and not self.last_job.is_done:
-                logger.info("Waiting for existing upload to finish...")
                 while not self.last_job.is_done:
                     time.sleep(1)
             save_pretrained_keras(
@@ -339,6 +288,7 @@ class PushToHubCallback(callback):
     def on_epoch_end(self, epoch, logs=None):
         if self.save_strategy == "epoch":
             if self.last_job is not None and not self.last_job.is_done:
+                logger.info("Waiting for existing upload to finish...")
                 while not self.last_job.is_done:
                     time.sleep(1)
             save_pretrained_keras(
@@ -398,7 +348,7 @@ def save_pretrained_keras(
     plot_model (:obj:`bool`):
         Setting this to `True` will plot the model and put it in the model card. Requires graphviz and pydot to be installed.
     override_card:
-        Whether or not to override the model card. Is set to True when called from callback.
+        Whether to override the model card.
     model_save_kwargs(:obj:`dict`, `optional`):
         model_save_kwargs will be passed to tf.keras.models.save_model().
     """

@@ -61,7 +61,6 @@ from .inference_api import InferenceApi
 from .keras_mixin import (
     KerasModelHubMixin,
     PushToHubCallback,
-    ValidationCallback,
     from_pretrained_keras,
     push_to_hub_keras,
     save_pretrained_keras,
