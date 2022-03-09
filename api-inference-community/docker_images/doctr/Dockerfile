@@ -2,7 +2,7 @@ FROM tiangolo/uvicorn-gunicorn:python3.8
 LABEL maintainer="me <me@example.com>"
 
 # Add any system dependency here
-# RUN apt-get update -y && apt-get install libXXX -y
+RUN apt-get update -y && apt-get install libgl1-mesa-glx -y
 
 COPY ./requirements.txt /app
 RUN pip install --no-cache-dir -r requirements.txt
@@ -16,6 +16,7 @@ COPY ./prestart.sh /app/
 ARG max_workers=1
 ENV MAX_WORKERS=$max_workers
 ENV HUGGINGFACE_HUB_CACHE=/data
+ENV TORCH_HOME=/data/torch_hub/
 
 # Necessary on GPU environment docker.
 # TIMEOUT env variable is used by nvcr.io/nvidia/pytorch:xx for another purpose
