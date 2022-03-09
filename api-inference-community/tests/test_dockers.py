@@ -241,7 +241,9 @@ class DockerImageTests(unittest.TestCase):
         )
 
     def test_doctr(self):
-        self.framework_docker_test("doctr", "object-detection", "mindee/fasterrcnn_mobilenet_v3_large_fpn")
+        self.framework_docker_test(
+            "doctr", "object-detection", "mindee/fasterrcnn_mobilenet_v3_large_fpn"
+        )
         self.framework_invalid_test("doctr")
 
     def test_superb(self):

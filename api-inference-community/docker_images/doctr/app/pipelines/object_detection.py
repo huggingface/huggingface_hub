@@ -13,10 +13,12 @@ class ObjectDetectionPipeline(Pipeline):
 
         self.model = from_hub(model_id).eval()
 
-        self.transform = Compose([
-            PILToTensor(),
-            ConvertImageDtype(torch.float32),
-        ])
+        self.transform = Compose(
+            [
+                PILToTensor(),
+                ConvertImageDtype(torch.float32),
+            ]
+        )
 
         self.labels = self.model.cfg.get("classes")
         if self.labels is None:
