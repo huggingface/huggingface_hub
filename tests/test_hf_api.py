@@ -47,8 +47,11 @@ from huggingface_hub.hf_api import (
     repo_type_and_id_from_hf_id,
 )
 from huggingface_hub.utils import logging
-from huggingface_hub.utils.endpoint_helpers import DatasetFilter, ModelFilter
-from huggingface_hub.utils.endpoint_helpers import _filter_emissions
+from huggingface_hub.utils.endpoint_helpers import (
+    DatasetFilter,
+    ModelFilter,
+    _filter_emissions,
+)
 from requests.exceptions import HTTPError
 
 from .testing_constants import (
