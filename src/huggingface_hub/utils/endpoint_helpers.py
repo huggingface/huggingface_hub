@@ -49,12 +49,12 @@ def _filter_emissions(
         if hasattr(model, "cardData"):
             if isinstance(model.cardData, dict):
                 emission = model.cardData.get("co2_eq_emissions", None)
-                if isinstance(emissions, dict):
-                    emission = emissions["emissions"]
+                if isinstance(emission, dict):
+                    emission = emission["emissions"]
                 if emission:
                     emission = str(emission)
                     if any(char.isdigit() for char in emission):
-                        emission = re.search("\d+\.\d+", str(emission)).group(0)
+                        emission = re.search("\d+\.\d+|\d+", str(emission)).group(0)
                         emissions.append((i, float(emission)))
     filtered_results = []
     for (idx, emission) in emissions:
