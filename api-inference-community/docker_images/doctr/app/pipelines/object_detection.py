@@ -29,8 +29,7 @@ class ObjectDetectionPipeline(Pipeline):
                 The raw image representation as PIL.
                 No transformation made whatsoever from the input. Make all necessary transformations here.
         Return:
-            A :obj:`list`:. The list contains items that are dicts should be liked {"label": "XXX", "score": 0.82}
-                It is preferred if the returned list is in decreasing `score` order
+            A :obj:`list`:. The list contains items that are dicts with the keys "label", "score" and "box".
         """
         im = inputs.convert("RGB")
         inputs = self.transform(im).unsqueeze(0)
@@ -39,6 +38,15 @@ class ObjectDetectionPipeline(Pipeline):
             out = self.model(inputs)[0]
 
         return [
-            {"label": self.labels[idx], "score": score.item(), "box": tuple(box.numpy().tolist())}
-            for idx, score, box in zip(out['labels'], out['scores'], out['boxes'])
+            {
+                "label": self.labels[idx],
+                "score": score.item(),
+                "box": {
+                    "xmin": int(round(box[0].item())),
+                    "ymin": int(round(box[1].item())),
+                    "xmax": int(round(box[2].item())),
+                    "ymax": int(round(box[3].item())),
+                },
+            }
+            for idx, score, box in zip(out["labels"], out["scores"], out["boxes"])
         ]
