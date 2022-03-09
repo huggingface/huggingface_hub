@@ -1014,14 +1014,14 @@ class HfApi:
 
     def create_repo(
         self,
-        name: str = None,
+        repo_id: str = None,
         token: Optional[str] = None,
         organization: Optional[str] = None,
         private: Optional[bool] = None,
         repo_type: Optional[str] = None,
         exist_ok=False,
         space_sdk: Optional[str] = None,
-        repo_id: str = None,
+        name: str = None,
     ) -> str:
         """Create an empty repo on the HuggingFace Hub.
 
@@ -1144,11 +1144,11 @@ class HfApi:
 
     def delete_repo(
         self,
-        name: str = None,
+        repo_id: str = None,
         token: Optional[str] = None,
         organization: Optional[str] = None,
         repo_type: Optional[str] = None,
-        repo_id: str = None,
+        name: str = None,
     ):
         """Delete a repo from the HuggingFace Hub.
 
@@ -1230,12 +1230,12 @@ class HfApi:
 
     def update_repo_visibility(
         self,
-        name: str = None,
+        repo_id: str = None,
         private: bool = False,
         token: Optional[str] = None,
         organization: Optional[str] = None,
         repo_type: Optional[str] = None,
-        repo_id: str = None,
+        name: str = None,
     ) -> Dict[str, bool]:
         """Update the visibility setting of a repository.
 

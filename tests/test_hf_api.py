@@ -21,6 +21,7 @@ import tempfile
 import time
 import unittest
 import uuid
+import warnings
 from io import BytesIO
 
 import pytest
@@ -151,7 +152,31 @@ class HfApiCommonTestWithLogin(HfApiCommonTest):
 
 
 @retry_endpoint
+def test_repo_id_no_warning():
+    # tests that passing repo_id as positional arg doesn't raise any warnings
+    # for {create, delete}_repo and update_repo_visibility
+    api = HfApi(endpoint=ENDPOINT_STAGING)
+    token = api.login(username=USER, password=PASS)
+    REPO_NAME = repo_name("crud")
+
+    args = [
+        ("create_repo", {}),
+        ("update_repo_visibility", {"private": False}),
+        ("delete_repo", {}),
+    ]
+
+    for method, kwargs in args:
+        with warnings.catch_warnings(record=True) as record:
+            getattr(api, method)(
+                REPO_NAME, token=token, repo_type=REPO_TYPE_MODEL, **kwargs
+            )
+        assert not len(record)
+
+
+@retry_endpoint
 def test_name_org_deprecation_warning():
+    # test that the right warning is raised when passing name to
+    # {create, delete}_repo and update_repo_visibility
     api = HfApi(endpoint=ENDPOINT_STAGING)
     token = api.login(username=USER, password=PASS)
     REPO_NAME = repo_name("crud")
@@ -174,6 +199,8 @@ def test_name_org_deprecation_warning():
 
 @retry_endpoint
 def test_name_org_deprecation_error():
+    # tests that the right error is raised when passing both name and repo_id
+    # to {create, delete}_repo and update_repo_visibility
     api = HfApi(endpoint=ENDPOINT_STAGING)
     token = api.login(username=USER, password=PASS)
     REPO_NAME = repo_name("crud")
