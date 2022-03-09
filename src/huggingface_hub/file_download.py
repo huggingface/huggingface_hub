@@ -234,9 +234,9 @@ def _raise_if_offline_mode_is_enabled(msg: Optional[str] = None):
 
 
 def _request_with_retry(
-    *,
     method: str,
     url: str,
+    *,
     max_retries: int = 0,
     base_wait_time: float = 0.5,
     max_wait_time: float = 2,
