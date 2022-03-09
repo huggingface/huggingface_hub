@@ -1,7 +1,7 @@
 import json
 import os
-from unittest import TestCase, skipIf
 from typing import Dict
+from unittest import TestCase, skipIf
 
 from app.main import ALLOWED_TASKS
 from parameterized import parameterized_class

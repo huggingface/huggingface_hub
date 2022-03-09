@@ -1,11 +1,10 @@
 from typing import Any, Dict, List
 
-from app.pipelines import Pipeline
-
-from PIL import Image
 import torch
-from torchvision.transforms import Compose, ConvertImageDtype, PILToTensor
+from app.pipelines import Pipeline
 from doctr.models.obj_detection.factory import from_hub
+from PIL import Image
+from torchvision.transforms import Compose, ConvertImageDtype, PILToTensor
 
 
 class ObjectDetectionPipeline(Pipeline):
