@@ -259,7 +259,7 @@ class ModelHubMixin:
             repo_url = HfApi(endpoint=api_endpoint).create_repo(
                 repo_id=repo_name
                 if organization is None
-                else f"{repo_name}/{organization}",
+                else f"{organization}/{repo_name}",
                 token=token,
                 private=private,
                 repo_type=None,
