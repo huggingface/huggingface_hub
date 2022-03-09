@@ -1,7 +1,7 @@
 import json
 import os
 from unittest import TestCase, skipIf
-from typing import Tuple
+from typing import Dict
 
 from app.main import ALLOWED_TASKS
 from parameterized import parameterized_class
@@ -66,5 +66,5 @@ class ObjectDetectionTestCase(TestCase):
         self.assertEqual(set(type(el) for el in content), {dict})
         self.assertEqual(
             set((k, type(v)) for el in content for (k, v) in el.items()),
-            {("label", str), ("score", float), ("box", Tuple[float, float, float, float])},
+            {("label", str), ("score", float), ("box", Dict[str, int])},
         )
