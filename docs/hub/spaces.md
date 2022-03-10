@@ -28,7 +28,7 @@ Each Spaces environment is limited to 16GB RAM and 8 CPU cores. Organization [su
 
 ## Streamlit and Gradio
 
-Spaces support [Streamlit](https://streamlit.io/) and [Gradio](https://gradio.app/) for quickly building apps in Python. The default environment runs version `"1.0.0"` of Streamlit and the latest version of Gradio. We recommend you try both because they're really awesome! Here are some of our thoughts on Streamlit and Gradio:
+Spaces support [Streamlit](https://streamlit.io/) and [Gradio](https://gradio.app/) for quickly building apps in Python. The default environment runs whichever latest version of Streamlit and Gradio is the current one at the time you create your Space repo. We recommend you try both because they're really awesome! Here are some of our thoughts on Streamlit and Gradio:
 
 * **Gradio** provides an easy and intuitive interface for running a model from a list of inputs, and displaying the outputs. For more details, take a look at this [tutorial](https://huggingface.co/blog/gradio) from the Gradio team about building GUIs for Hugging Face models.
 
