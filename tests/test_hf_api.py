@@ -49,7 +49,11 @@ from huggingface_hub.hf_api import (
     repo_type_and_id_from_hf_id,
 )
 from huggingface_hub.utils import logging
-from huggingface_hub.utils.endpoint_helpers import DatasetFilter, ModelFilter
+from huggingface_hub.utils.endpoint_helpers import (
+    DatasetFilter,
+    ModelFilter,
+    _filter_emissions,
+)
 from requests.exceptions import HTTPError
 
 from .testing_constants import (
@@ -942,6 +946,14 @@ class HfApiPublicTest(unittest.TestCase):
         self.assertTrue([hasattr(model, "cardData") for model in models])
         models = _api.list_models("co2_eq_emissions")
         self.assertTrue(all([not hasattr(model, "cardData") for model in models]))
+
+    def test_filter_emissions_dict(self):
+        # tests that dictionary is handled correctly as "emissions" and that
+        # 17g is accepted and parsed correctly as a value
+        # regression test for #753
+        model = ModelInfo(cardData={"co2_eq_emissions": {"emissions": "17g"}})
+        res = _filter_emissions([model], -1, 100)
+        assert len(res) == 1
 
     @with_production_testing
     def test_filter_emissions_with_max(self):
