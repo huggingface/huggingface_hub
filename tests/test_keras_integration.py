@@ -370,8 +370,8 @@ class HubKerasSequentialTest(HubMixingTestKeras):
 
     @retry_endpoint
     def test_push_to_hub_tensorboard(self):
-        os.makedirs(f"{WORKING_REPO_DIR}/tb_log_dir")
-        with open(f"{WORKING_REPO_DIR}/tb_log_dir/tensorboard.txt", "w") as fp:
+        os.makedirs(f"{WORKING_REPO_DIR}/log_dir")
+        with open(f"{WORKING_REPO_DIR}/log_dir/tensorboard.txt", "w") as fp:
             fp.write("Keras FTW")
         REPO_NAME = repo_name("PUSH_TO_HUB")
         model = self.model_init()
@@ -379,7 +379,7 @@ class HubKerasSequentialTest(HubMixingTestKeras):
         push_to_hub_keras(
             model,
             repo_path_or_name=f"{WORKING_REPO_DIR}/{REPO_NAME}",
-            log_dir=f"{WORKING_REPO_DIR}/tb_log_dir",
+            log_dir=f"{WORKING_REPO_DIR}/log_dir",
             api_endpoint=ENDPOINT_STAGING,
             use_auth_token=self._token,
             git_user="ci",
