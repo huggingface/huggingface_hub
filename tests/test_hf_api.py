@@ -44,6 +44,7 @@ from huggingface_hub.hf_api import (
     MetricInfo,
     ModelInfo,
     ModelSearchArguments,
+    _validate_repo_id_deprecation,
     erase_from_credential_store,
     read_from_credential_store,
     repo_type_and_id_from_hf_id,
@@ -177,6 +178,26 @@ def test_repo_id_no_warning():
         assert not len(record)
 
 
+def test_validate_repo_id_deprecation():
+    with pytest.warns(FutureWarning, match="input arguments are deprecated"):
+        name, org = _validate_repo_id_deprecation(
+            repo_id=None, name="repo", organization="org"
+        )
+        assert name == "repo" and org == "org"
+
+    with warnings.catch_warnings(record=True) as record:
+        name, org = _validate_repo_id_deprecation(
+            repo_id="org/repo", name=None, organization=None
+        )
+        assert name == "repo" and org == "org"
+    assert not len(record)
+
+    with pytest.raises(ValueError, match="leave deprecated"):
+        _validate_repo_id_deprecation(
+            repo_id="repo_id", name="name", organization="organization"
+        )
+
+
 @retry_endpoint
 def test_name_org_deprecation_warning():
     # test that the right warning is raised when passing name to
@@ -227,6 +248,10 @@ def test_name_org_deprecation_error():
                 repo_type=REPO_TYPE_MODEL,
                 **kwargs,
             )
+
+    for method, kwargs in args:
+        with pytest.raises(ValueError, match="No name provided"):
+            getattr(api, method)(token=token, repo_type=REPO_TYPE_MODEL, **kwargs)
 
 
 class HfApiEndpointsTest(HfApiCommonTestWithLogin):

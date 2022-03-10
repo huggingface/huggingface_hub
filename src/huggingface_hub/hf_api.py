@@ -53,6 +53,11 @@ USERNAME_PLACEHOLDER = "hf_user"
 # TODO: remove after deprecation period is over (v0.7)
 def _validate_repo_id_deprecation(repo_id, name, organization):
     """Returns (name, organization) from the input."""
+    if not (repo_id or name):
+        raise ValueError(
+            "No name provided. Please pass `repo_id` with a valid repository name."
+        )
+
     if repo_id and (name or organization):
         raise ValueError(
             "Only pass `repo_id` and leave deprecated `name` and "
@@ -66,9 +71,9 @@ def _validate_repo_id_deprecation(repo_id, name, organization):
         )
     else:
         if "/" in repo_id:
-            name, organization = repo_id.split("/")
+            organization, name = repo_id.split("/")
         else:
-            name, organization = repo_id, None
+            organization, name = None, repo_id
     return name, organization
 
 

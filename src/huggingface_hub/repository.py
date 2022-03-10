@@ -538,16 +538,14 @@ class Repository:
                 valid_organisations = [org["name"] for org in whoami_info["orgs"]]
 
                 if namespace is not None:
-                    repo_url += f"{namespace}/"
+                    repo_id = f"{namespace}/{repo_id}"
                 repo_url += repo_id
 
                 repo_url = repo_url.replace("https://", f"https://user:{token}@")
 
                 if namespace == user or namespace in valid_organisations:
                     api.create_repo(
-                        repo_id=repo_id
-                        if namespace is None
-                        else f"{namespace}/{repo_id}",
+                        repo_id=repo_id,
                         token=token,
                         repo_type=self.repo_type,
                         exist_ok=True,

@@ -244,9 +244,11 @@ class RepoCreateCommand(BaseUserCommand):
             exit(1)
 
         if self.args.type in REPO_TYPES_URL_PREFIXES:
-            repo_id = REPO_TYPES_URL_PREFIXES[self.args.type] + repo_id
+            prefixed_repo_id = REPO_TYPES_URL_PREFIXES[self.args.type] + repo_id
+        else:
+            prefixed_repo_id = repo_id
 
-        print(f"You are about to create {ANSI.bold(repo_id)}")
+        print(f"You are about to create {ANSI.bold(prefixed_repo_id)}")
 
         if not self.args.yes:
             choice = input("Proceed? [Y/n] ").lower()
@@ -254,10 +256,9 @@ class RepoCreateCommand(BaseUserCommand):
                 print("Abort")
                 exit()
         try:
+
             url = self._api.create_repo(
-                repo_id=self.args.name
-                if self.args.organization is None
-                else f"{self.args.organization}/{self.args.name}",
+                repo_id=repo_id,
                 token=token,
                 repo_type=self.args.type,
                 space_sdk=self.args.space_sdk,
