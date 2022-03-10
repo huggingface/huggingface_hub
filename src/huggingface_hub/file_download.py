@@ -361,13 +361,13 @@ def cached_download(
     library_version: Optional[str] = None,
     cache_dir: Union[str, Path, None] = None,
     user_agent: Union[Dict, str, None] = None,
-    force_download: Optional[bool]=False,
+    force_download: Optional[bool] = False,
     force_filename: Optional[str] = None,
-    proxies: Optional[Dict]=None,
-    etag_timeout: Optional[float]=10,
-    resume_download: Optional[bool]=False,
+    proxies: Optional[Dict] = None,
+    etag_timeout: Optional[float] = 10,
+    resume_download: Optional[bool] = False,
     use_auth_token: Union[bool, str, None] = None,
-    local_files_only: Optional[bool]=False,
+    local_files_only: Optional[bool] = False,
 ) -> Optional[str]:  # pragma: no cover
     """Download from a given URL and cache it if it's not already present in \
         the local cache.
@@ -604,13 +604,13 @@ def hf_hub_download(
     library_version: Optional[str] = None,
     cache_dir: Union[str, Path, None] = None,
     user_agent: Union[Dict, str, None] = None,
-    force_download: Optional[bool]=False,
+    force_download: Optional[bool] = False,
     force_filename: Optional[str] = None,
-    proxies: Optional[Dict]=None,
-    etag_timeout: Optional[float]=10,
-    resume_download: Optional[bool]=False,
+    proxies: Optional[Dict] = None,
+    etag_timeout: Optional[float] = 10,
+    resume_download: Optional[bool] = False,
     use_auth_token: Union[bool, str, None] = None,
-    local_files_only: Optional[bool]=False,
+    local_files_only: Optional[bool] = False,
 ):
     """Download a given file if it's not already present in the local cache.
 
