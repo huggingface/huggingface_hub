@@ -79,6 +79,7 @@ jobs:
 
     - name: Install dependencies
       run: |
+        sudo apt install -y graphviz
         pip install --upgrade pip
         pip install .[testing,tensorflow]
 

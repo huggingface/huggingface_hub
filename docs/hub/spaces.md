@@ -89,10 +89,10 @@ For additional settings, refer to the [Reference](#reference) section.
 
 ### Organization card
 
-Create an organization card to help users learn more about what your organization is working on and how users can use your libraries, models, datasets, and Spaces. Build an organization card by setting `sdk: static` to create a static **README** Space with HTML. As an example, take a look at:
+Organization cards are a way to describe your organization to other users. They take the form of a `README.md` static file, inside a Space repo named `README`.
 
-* [Amazon's](https://huggingface.co/spaces/amazon/README/blob/main/README.md) organization card
-* [spaCy's](https://huggingface.co/spaces/spacy/README/blob/main/README.md) organization card.
+Please read more in the [dedicated doc section](/docs/hub/org-cards).
+
 
 ### Manage app with Github Actions
 
@@ -196,7 +196,7 @@ Defaults to `3.8.9`.
 
 **`sdk_version`** : _string_
 Only applicable for `streamlit` SDK. Currently available versions are :  
-`0.79.0, 0.80.0, 0.81.1, 0.82.0, 0.83.0, 0.84.2, 0.85.0, 0.86.0, 0.87.0, 0.88.0, 0.89.0, 1.0.0`.
+`0.79.0, 0.80.0, 0.81.1, 0.82.0, 0.83.0, 0.84.2, 0.85.0, 0.86.0, 0.87.0, 0.88.0, 0.89.0, 1.0.0, 1.1.0, 1.2.0`.
 
 **`app_file`** : _string_
 Path to your main application file (which contains either `gradio` or `streamlit` Python code, or `static` html code).

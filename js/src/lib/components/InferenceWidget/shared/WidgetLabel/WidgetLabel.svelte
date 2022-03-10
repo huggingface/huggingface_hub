@@ -1,4 +1,4 @@
-<script>
+<script lang="ts">
 	export let classNames = "";
 	export let forInput: string | undefined = undefined;
 	export let label: string | undefined;

@@ -19,6 +19,9 @@
 - local: spaces
   title: Spaces documentation
 
+- local: org-cards
+  title: Organization cards
+
 - local: adding-a-library
   title: Integrate a library with the Hub
 
