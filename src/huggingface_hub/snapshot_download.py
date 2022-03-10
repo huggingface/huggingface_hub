@@ -25,11 +25,11 @@ def snapshot_download(
     library_name: Optional[str] = None,
     library_version: Optional[str] = None,
     user_agent: Optional[Union[Dict, str]] = None,
-    proxies=None,
-    etag_timeout=10,
-    resume_download=False,
+    proxies: Optional[Dict]=None,
+    etag_timeout: Optional[float]=10,
+    resume_download: Optional[bool]=False,
     use_auth_token: Optional[Union[bool, str]] = None,
-    local_files_only=False,
+    local_files_only: Optional[bool]=False,
     allow_regex: Optional[Union[List[str], str]] = None,
     ignore_regex: Optional[Union[List[str], str]] = None,
 ) -> str:
@@ -45,42 +45,40 @@ def snapshot_download(
     the user always has git and git-lfs installed, and properly configured.
 
     Args:
-        repo_id: A user or an organization name and a repo name seperated by a
+        repo_id (``str``):
+            A user or an organization name and a repo name seperated by a
             ``/``.
-
-        revision: An optional Git revision id which can be a branch name, a
-            tag, or a commit hash.
-
-        cache_dir: Path to the folder where cached files are stored.
-
-        library_name: The name of the library to which the object corresponds.
-
-        library_version: The version of the library.
-
-        user_agent: The user-agent info in the form of a dictionary or a
-            string.
-
-        proxies: Dictionary mapping protocol to the URL of the proxy passed to
+        revision (``str``, `optional`):
+            An optional Git revision id which can be a branch name, a tag, or a
+            commit hash.
+        cache_dir (``str``, ``Path``, `optional`):
+            Path to the folder where cached files are stored.
+        library_name (``str``, `optional`):
+            The name of the library to which the object corresponds.
+        library_version (``str``, `optional`):
+            The version of the library.
+        user_agent (``str``, ``dict``, `optional`):
+            The user-agent info in the form of a dictionary or a string.
+        proxies (``dict``, `optional`):
+            Dictionary mapping protocol to the URL of the proxy passed to
             ``requests.request``.
-
-        etag_timeout: When fetching ETag, how many seconds to wait for the
-            server to send data before giving up which is passed to
-            ``requests.request``.
-
-        resume_download: If ``True``, resume a previously interrupted download.
-
-        use_auth_token: A token to be used for the download.
-            - If ``True``, the token is read from the HuggingFace config
-              folder.
-            - If a string, it's used as the authentication token.
-
-        local_files_only: If ``True``, avoid downloading the file and return
-            the path to the local cached file if it exists.
-
-        allow_regex: If provided, only files matching this regex are downladed.
-
-        ignore_regex: If provided, files matching this regex are not
-            downloaded.
+        etag_timeout (``float``, `optional`, defaults to ``10``):
+            When fetching ETag, how many seconds to wait for the server to send
+            data before giving up which is passed to ``requests.request``.
+        resume_download (``bool``, `optional`, defaults to ``False):
+            If ``True``, resume a previously interrupted download.
+        use_auth_token (``str``, ``bool``, `optional`):
+            A token to be used for the download.
+                - If ``True``, the token is read from the HuggingFace config
+                  folder.
+                - If a string, it's used as the authentication token.
+        local_files_only (``bool``, `optional`, defaults to ``False``):
+            If ``True``, avoid downloading the file and return the path to the
+            local cached file if it exists.
+        allow_regex (``list of str``, ``str``, `optional`):
+            If provided, only files matching this regex are downladed.
+        ignore_regex (``list of str``, ``str``, `optional`):
+            If provided, files matching this regex are not downloaded.
 
     Return:
         Local folder path (string) of repo snapshot
