@@ -350,7 +350,7 @@ class HubKerasSequentialTest(HubMixingTestKeras):
 
     @retry_endpoint
     def test_push_to_hub_model_card_plot_false(self):
-        REPO_NAME = repo_name("PUSH_TO_HUB")
+        REPO_NAME = repo_name("PUSH_TO_HUB_PLOT")
         model = self.model_init()
         model = self.model_fit(model)
         push_to_hub_keras(
@@ -370,10 +370,10 @@ class HubKerasSequentialTest(HubMixingTestKeras):
 
     @retry_endpoint
     def test_push_to_hub_tensorboard(self):
+        REPO_NAME = "PUSH_TO_HUB_TB"
         os.makedirs(f"{WORKING_REPO_DIR}/log_dir")
         with open(f"{WORKING_REPO_DIR}/log_dir/tensorboard.txt", "w") as fp:
             fp.write("Keras FTW")
-        REPO_NAME = repo_name("PUSH_TO_HUB")
         model = self.model_init()
         model = self.model_fit(model)
         push_to_hub_keras(
@@ -392,15 +392,15 @@ class HubKerasSequentialTest(HubMixingTestKeras):
         self.assertTrue(
             "logs/tensorboard.txt" in [f.rfilename for f in model_info.siblings]
         )
-
+        shutil.rmtree(f"{WORKING_REPO_DIR}/log_dir")
         self._api.delete_repo(name=f"{REPO_NAME}", token=self._token)
 
     @retry_endpoint
     def test_override_tensorboard(self):
+        REPO_NAME = repo_name("TB_OVERRIDE")
         os.makedirs(f"{WORKING_REPO_DIR}/tb_log_dir")
         with open(f"{WORKING_REPO_DIR}/tb_log_dir/tensorboard.txt", "w") as fp:
             fp.write("Keras FTW")
-        REPO_NAME = repo_name("PUSH_TO_HUB")
         model = self.model_init()
         model.build((None, 2))
         push_to_hub_keras(
@@ -434,6 +434,8 @@ class HubKerasSequentialTest(HubMixingTestKeras):
         self.assertFalse(
             "logs/tensorboard.txt" in [f.rfilename for f in model_info.siblings]
         )
+        shutil.rmtree(f"{WORKING_REPO_DIR}/tb_log_dir")
+        shutil.rmtree(f"{WORKING_REPO_DIR}/tb_log_dir2")
 
         self._api.delete_repo(name=f"{REPO_NAME}", token=self._token)
 
