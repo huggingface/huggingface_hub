@@ -11,7 +11,7 @@ On your profile, an org card looks like this:
 ![/docs/assets/hub/org-card.png](/docs/assets/hub/org-card.png)
 
 
-**By convention, they take the form of a `README.md` static file, inside a Space repo named `README`.**
+**By convention, they take the form of a `README.md` static file, inside a Space repo named `README`.** The org card can be as simple as Markdown text or you can create a more customized appearance with HTML.
 
 As an example, take a look at:
 
