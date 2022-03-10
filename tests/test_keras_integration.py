@@ -1,5 +1,6 @@
 import os
 import shutil
+import tempfile
 import time
 import unittest
 import uuid
@@ -350,7 +351,7 @@ class HubKerasSequentialTest(HubMixingTestKeras):
 
     @retry_endpoint
     def test_push_to_hub_model_card_plot_false(self):
-        REPO_NAME = repo_name("PUSH_TO_HUB")
+        REPO_NAME = repo_name("PUSH_TO_HUB_PLOT")
         model = self.model_init()
         model = self.model_fit(model)
         push_to_hub_keras(
@@ -370,21 +371,22 @@ class HubKerasSequentialTest(HubMixingTestKeras):
 
     @retry_endpoint
     def test_push_to_hub_tensorboard(self):
-        os.makedirs(f"{WORKING_REPO_DIR}/tb_log_dir")
-        with open(f"{WORKING_REPO_DIR}/tb_log_dir/tensorboard.txt", "w") as fp:
-            fp.write("Keras FTW")
-        REPO_NAME = repo_name("PUSH_TO_HUB")
-        model = self.model_init()
-        model = self.model_fit(model)
-        push_to_hub_keras(
-            model,
-            repo_path_or_name=f"{WORKING_REPO_DIR}/{REPO_NAME}",
-            log_dir=f"{WORKING_REPO_DIR}/tb_log_dir",
-            api_endpoint=ENDPOINT_STAGING,
-            use_auth_token=self._token,
-            git_user="ci",
-            git_email="ci@dummy.com",
-        )
+        REPO_NAME = "PUSH_TO_HUB_TB"
+        with tempfile.TemporaryDirectory() as tmpdirname:
+            os.makedirs(f"{tmpdirname}/log_dir")
+            with open(f"{tmpdirname}/log_dir/tensorboard.txt", "w") as fp:
+                fp.write("Keras FTW")
+            model = self.model_init()
+            model = self.model_fit(model)
+            push_to_hub_keras(
+                model,
+                repo_path_or_name=f"{WORKING_REPO_DIR}/{REPO_NAME}",
+                log_dir=f"{tmpdirname}/log_dir",
+                api_endpoint=ENDPOINT_STAGING,
+                use_auth_token=self._token,
+                git_user="ci",
+                git_email="ci@dummy.com",
+            )
         model_info = HfApi(endpoint=ENDPOINT_STAGING).model_info(
             f"{USER}/{REPO_NAME}",
         )
@@ -392,38 +394,38 @@ class HubKerasSequentialTest(HubMixingTestKeras):
         self.assertTrue(
             "logs/tensorboard.txt" in [f.rfilename for f in model_info.siblings]
         )
-
         self._api.delete_repo(name=f"{REPO_NAME}", token=self._token)
 
     @retry_endpoint
     def test_override_tensorboard(self):
-        os.makedirs(f"{WORKING_REPO_DIR}/tb_log_dir")
-        with open(f"{WORKING_REPO_DIR}/tb_log_dir/tensorboard.txt", "w") as fp:
-            fp.write("Keras FTW")
-        REPO_NAME = repo_name("PUSH_TO_HUB")
-        model = self.model_init()
-        model.build((None, 2))
-        push_to_hub_keras(
-            model,
-            repo_path_or_name=f"{WORKING_REPO_DIR}/{REPO_NAME}",
-            log_dir=f"{WORKING_REPO_DIR}/tb_log_dir",
-            api_endpoint=ENDPOINT_STAGING,
-            use_auth_token=self._token,
-            git_user="ci",
-            git_email="ci@dummy.com",
-        )
-        os.makedirs(f"{WORKING_REPO_DIR}/tb_log_dir2")
-        with open(f"{WORKING_REPO_DIR}/tb_log_dir2/override.txt", "w") as fp:
-            fp.write("Keras FTW")
-        push_to_hub_keras(
-            model,
-            repo_path_or_name=f"{WORKING_REPO_DIR}/{REPO_NAME}",
-            log_dir=f"{WORKING_REPO_DIR}/tb_log_dir2",
-            api_endpoint=ENDPOINT_STAGING,
-            use_auth_token=self._token,
-            git_user="ci",
-            git_email="ci@dummy.com",
-        )
+        REPO_NAME = repo_name("TB_OVERRIDE")
+        with tempfile.TemporaryDirectory() as tmpdirname:
+            os.makedirs(f"{tmpdirname}/tb_log_dir")
+            with open(f"{tmpdirname}/tb_log_dir/tensorboard.txt", "w") as fp:
+                fp.write("Keras FTW")
+            model = self.model_init()
+            model.build((None, 2))
+            push_to_hub_keras(
+                model,
+                repo_path_or_name=f"{WORKING_REPO_DIR}/{REPO_NAME}",
+                log_dir=f"{tmpdirname}/tb_log_dir",
+                api_endpoint=ENDPOINT_STAGING,
+                use_auth_token=self._token,
+                git_user="ci",
+                git_email="ci@dummy.com",
+            )
+            os.makedirs(f"{tmpdirname}/tb_log_dir2")
+            with open(f"{tmpdirname}/tb_log_dir2/override.txt", "w") as fp:
+                fp.write("Keras FTW")
+            push_to_hub_keras(
+                model,
+                repo_path_or_name=f"{WORKING_REPO_DIR}/{REPO_NAME}",
+                log_dir=f"{tmpdirname}/tb_log_dir2",
+                api_endpoint=ENDPOINT_STAGING,
+                use_auth_token=self._token,
+                git_user="ci",
+                git_email="ci@dummy.com",
+            )
 
         model_info = HfApi(endpoint=ENDPOINT_STAGING).model_info(
             f"{USER}/{REPO_NAME}",
