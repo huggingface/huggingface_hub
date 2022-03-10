@@ -425,7 +425,7 @@ class HfApi:
         Throws: requests.exceptions.HTTPError if credentials are invalid
         """
         warnings.warn(
-            "HfApi.login: This method is deprecated in favor of `set_access_token`.",
+            "HfApi.login: This method is deprecated in favor of `set_access_token` and will be removed in v0.7.",
             FutureWarning,
         )
         path = f"{self.endpoint}/api/login"
@@ -496,7 +496,8 @@ class HfApi:
                 Hugging Face token. Will default to the locally saved token if not provided.
         """
         warnings.warn(
-            "This method is deprecated in favor of `unset_access_token`.", FutureWarning
+            "HfApi.logout: This method is deprecated in favor of `unset_access_token` and will be removed in v0.7.",
+            FutureWarning,
         )
         if token is None:
             token = HfFolder.get_token()
