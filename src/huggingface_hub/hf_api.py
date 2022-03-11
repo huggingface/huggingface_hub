@@ -30,8 +30,8 @@ from .constants import (
     REPO_TYPES_URL_PREFIXES,
     SPACES_SDK_TYPES,
 )
-from .utils._deprecation import _deprecate_positional_args
 from .utils import logging
+from .utils._deprecation import _deprecate_positional_args
 from .utils.endpoint_helpers import (
     AttributeDictionary,
     DatasetFilter,
@@ -957,8 +957,8 @@ class HfApi:
     @_deprecate_positional_args
     def model_info(
         self,
-        *,
         repo_id: str,
+        *,
         revision: Optional[str] = None,
         token: Optional[str] = None,
         timeout: Optional[float] = None,
@@ -989,8 +989,8 @@ class HfApi:
     @_deprecate_positional_args
     def list_repo_files(
         self,
-        *,
         repo_id: str,
+        *,
         revision: Optional[str] = None,
         repo_type: Optional[str] = None,
         token: Optional[str] = None,
@@ -1015,8 +1015,8 @@ class HfApi:
     @_deprecate_positional_args
     def dataset_info(
         self,
-        *,
         repo_id: str,
+        *,
         revision: Optional[str] = None,
         token: Optional[str] = None,
         timeout: Optional[float] = None,
