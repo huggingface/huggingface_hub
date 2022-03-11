@@ -146,6 +146,25 @@ class HfApiLoginTest(HfApiCommonTest):
             read_from_credential_store(USERNAME_PLACEHOLDER), (None, None)
         )
 
+    def test_login_deprecation_error(self):
+        with pytest.warns(
+            FutureWarning,
+            match=r"HfApi.login: This method is deprecated in favor of "
+            r"`set_access_token` and will be removed in v0.7.",
+        ):
+            self._api.login(username=USER, password=PASS)
+
+    def test_logout_deprecation_error(self):
+        with pytest.warns(
+            FutureWarning,
+            match=r"HfApi.logout: This method is deprecated in favor of "
+            r"`unset_access_token` and will be removed in v0.7.",
+        ):
+            try:
+                self._api.logout()
+            except HTTPError:
+                pass
+
 
 class HfApiCommonTestWithLogin(HfApiCommonTest):
     @classmethod

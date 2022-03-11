@@ -12,7 +12,6 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-import logging
 import os
 import subprocess
 import sys
@@ -31,6 +30,7 @@ from .constants import (
     REPO_TYPES_URL_PREFIXES,
     SPACES_SDK_TYPES,
 )
+from .utils import logging
 from .utils.endpoint_helpers import (
     AttributeDictionary,
     DatasetFilter,
@@ -48,6 +48,8 @@ else:
 
 
 USERNAME_PLACEHOLDER = "hf_user"
+
+logger = logging.get_logger(__name__)
 
 
 # TODO: remove after deprecation period is over (v0.7)
@@ -449,8 +451,9 @@ class HfApi:
 
         Throws: requests.exceptions.HTTPError if credentials are invalid
         """
-        logging.error(
-            "HfApi.login: This method is deprecated in favor of `set_access_token`."
+        warnings.warn(
+            "HfApi.login: This method is deprecated in favor of `set_access_token` and will be removed in v0.7.",
+            FutureWarning,
         )
         path = f"{self.endpoint}/api/login"
         r = requests.post(path, json={"username": username, "password": password})
@@ -519,7 +522,10 @@ class HfApi:
             token (``str``, `optional`):
                 Hugging Face token. Will default to the locally saved token if not provided.
         """
-        logging.error("This method is deprecated in favor of `unset_access_token`.")
+        warnings.warn(
+            "HfApi.logout: This method is deprecated in favor of `unset_access_token` and will be removed in v0.7.",
+            FutureWarning,
+        )
         if token is None:
             token = HfFolder.get_token()
         if token is None:
@@ -1345,7 +1351,7 @@ class HfApi:
                 )
             else:
                 raise e
-        logging.info(
+        logger.info(
             "Accepted transfer request. You will get an email once this is successfully completed."
         )
 

@@ -1,5 +1,4 @@
 import json
-import logging
 import os
 from pathlib import Path
 from shutil import copytree, rmtree
@@ -16,9 +15,10 @@ from huggingface_hub.snapshot_download import snapshot_download
 from .constants import CONFIG_NAME
 from .hf_api import HfApi, HfFolder
 from .repository import Repository
+from .utils import logging
 
 
-logger = logging.getLogger(__name__)
+logger = logging.get_logger(__name__)
 
 if is_tf_available():
     import tensorflow as tf
