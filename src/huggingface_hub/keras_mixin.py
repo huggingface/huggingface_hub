@@ -292,11 +292,12 @@ def push_to_hub_keras(
 
     # If no URL is passed and there's no path to a directory containing files, create a repo
     if repo_url is None and not os.path.exists(repo_path_or_name):
-        repo_name = Path(repo_path_or_name).name
+        repo_id = Path(repo_path_or_name).name
+        if organization:
+            repo_id = f"{organization}/{repo_id}"
         repo_url = HfApi(endpoint=api_endpoint).create_repo(
-            repo_name,
+            repo_id=repo_id,
             token=token,
-            organization=organization,
             private=private,
             repo_type=None,
             exist_ok=True,
