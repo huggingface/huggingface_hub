@@ -33,4 +33,5 @@ export const TASKS_MODEL_LIBRARIES: Record<keyof typeof PipelineType, Array<keyo
 	"image-to-text":                  [],
 	/// others
 	"structured-data-classification": ["sklearn"],
+	"reinforcement-learning":         ["stable-baselines3"],
 };

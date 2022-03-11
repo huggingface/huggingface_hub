@@ -1,4 +1,4 @@
-<script>
+<script lang="ts">
 	export let autoplay = false;
 	export let classNames = "";
 	export let controls = true;

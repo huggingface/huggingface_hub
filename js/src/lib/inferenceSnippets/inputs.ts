@@ -13,7 +13,7 @@ const inputsConversational = () =>
 	`{
 		"past_user_inputs": ["Which movie is the best ?"],
 		"generated_responses": ["It's Die Hard for sure."],
-		"text": "Can you explain why ?",
+		"text": "Can you explain why ?"
 	}`;
 
 const inputsTableQuestionAnswering = () =>
@@ -26,15 +26,15 @@ const inputsTableQuestionAnswering = () =>
 			"Programming language": [
 				"Python",
 				"Python",
-				"Rust, Python and NodeJS",
-			],
+				"Rust, Python and NodeJS"
+			]
 		}
 	}`;
 
 const inputsQuestionAnswering = () =>
 	`{
 		"question": "What's my name?",
-		"context": "My name is Clara and I live in Berkeley.",
+		"context": "My name is Clara and I live in Berkeley."
 	}`;
 
 const inputsTextClassification = () =>
@@ -83,11 +83,14 @@ const modelInputSnippets: {
 	"zero-shot-classification": inputsZeroShotClassification,
 };
 
-export function getModelInputSnippet(model: ModelData): string {
+// Use noWrap to put the whole snippet on a single line (removing new lines and tabulations)
+export function getModelInputSnippet(model: ModelData, noWrap = false): string {
 	if (model.pipeline_tag) {
 		const inputs = modelInputSnippets[model.pipeline_tag];
 		if (inputs) {
-			return inputs(model);
+			return noWrap
+				? inputs(model).replace(/(?:(?:\r?\n|\r)\t*)|\t+/g, " ")
+				: inputs(model);
 		}
 	}
 	return "No input example has been defined for this model task.";

@@ -1,4 +1,4 @@
-<script>
+<script lang="ts">
 	export let isDisabled = false;
 	export let label = "Add Sentence";
 	export let onClick: (e: MouseEvent) => void;

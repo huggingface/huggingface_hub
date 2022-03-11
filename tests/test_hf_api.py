@@ -46,7 +46,12 @@ from huggingface_hub.hf_api import (
     read_from_credential_store,
     repo_type_and_id_from_hf_id,
 )
-from huggingface_hub.utils.endpoint_helpers import DatasetFilter, ModelFilter
+from huggingface_hub.utils import logging
+from huggingface_hub.utils.endpoint_helpers import (
+    DatasetFilter,
+    ModelFilter,
+    _filter_emissions,
+)
 from requests.exceptions import HTTPError
 
 from .testing_constants import (
@@ -63,9 +68,13 @@ from .testing_utils import (
     DUMMY_MODEL_ID,
     DUMMY_MODEL_ID_REVISION_ONE_SPECIFIC_COMMIT,
     require_git_lfs,
+    retry_endpoint,
     set_write_permission_and_retry,
     with_production_testing,
 )
+
+
+logger = logging.get_logger(__name__)
 
 
 def repo_name(id=uuid.uuid4().hex[:6]):
@@ -134,6 +143,25 @@ class HfApiLoginTest(HfApiCommonTest):
             read_from_credential_store(USERNAME_PLACEHOLDER), (None, None)
         )
 
+    def test_login_deprecation_error(self):
+        with pytest.warns(
+            FutureWarning,
+            match=r"HfApi.login: This method is deprecated in favor of "
+            r"`set_access_token` and will be removed in v0.7.",
+        ):
+            self._api.login(username=USER, password=PASS)
+
+    def test_logout_deprecation_error(self):
+        with pytest.warns(
+            FutureWarning,
+            match=r"HfApi.logout: This method is deprecated in favor of "
+            r"`unset_access_token` and will be removed in v0.7.",
+        ):
+            try:
+                self._api.logout()
+            except HTTPError:
+                pass
+
 
 class HfApiCommonTestWithLogin(HfApiCommonTest):
     @classmethod
@@ -153,6 +181,7 @@ class HfApiEndpointsTest(HfApiCommonTestWithLogin):
         valid_org = [org for org in info["orgs"] if org["name"] == "valid_org"][0]
         self.assertIsInstance(valid_org["apiToken"], str)
 
+    @retry_endpoint
     def test_create_update_and_delete_repo(self):
         REPO_NAME = repo_name("crud")
         self._api.create_repo(name=REPO_NAME, token=self._token)
@@ -166,6 +195,7 @@ class HfApiEndpointsTest(HfApiCommonTestWithLogin):
         self.assertFalse(res["private"])
         self._api.delete_repo(name=REPO_NAME, token=self._token)
 
+    @retry_endpoint
     def test_create_update_and_delete_model_repo(self):
         REPO_NAME = repo_name("crud")
         self._api.create_repo(
@@ -183,6 +213,7 @@ class HfApiEndpointsTest(HfApiCommonTestWithLogin):
             name=REPO_NAME, token=self._token, repo_type=REPO_TYPE_MODEL
         )
 
+    @retry_endpoint
     def test_create_update_and_delete_dataset_repo(self):
         DATASET_REPO_NAME = dataset_repo_name("crud")
         self._api.create_repo(
@@ -206,6 +237,7 @@ class HfApiEndpointsTest(HfApiCommonTestWithLogin):
             name=DATASET_REPO_NAME, token=self._token, repo_type=REPO_TYPE_DATASET
         )
 
+    @retry_endpoint
     def test_create_update_and_delete_space_repo(self):
         SPACE_REPO_NAME = space_repo_name("failing")
         with pytest.raises(ValueError, match=r"No space_sdk provided.*"):
@@ -249,6 +281,40 @@ class HfApiEndpointsTest(HfApiCommonTestWithLogin):
                 name=SPACE_REPO_NAME, token=self._token, repo_type=REPO_TYPE_SPACE
             )
 
+    @retry_endpoint
+    def test_move_repo(self):
+        REPO_NAME = repo_name("crud")
+        repo_id = f"__DUMMY_TRANSFORMERS_USER__/{REPO_NAME}"
+        NEW_REPO_NAME = repo_name("crud2")
+        new_repo_id = f"__DUMMY_TRANSFORMERS_USER__/{NEW_REPO_NAME}"
+
+        for repo_type in [REPO_TYPE_MODEL, REPO_TYPE_DATASET, REPO_TYPE_SPACE]:
+            self._api.create_repo(
+                name=REPO_NAME,
+                token=self._token,
+                repo_type=repo_type,
+                space_sdk="static",
+            )
+
+            with pytest.raises(ValueError, match=r"Invalid repo_id*"):
+                self._api.move_repo(
+                    from_id=repo_id,
+                    to_id="invalid_repo_id",
+                    token=self._token,
+                    repo_type=repo_type,
+                )
+
+            # Should raise an error if it fails
+            self._api.move_repo(
+                from_id=repo_id,
+                to_id=new_repo_id,
+                token=self._token,
+                repo_type=repo_type,
+            )
+            self._api.delete_repo(
+                name=NEW_REPO_NAME, token=self._token, repo_type=repo_type
+            )
+
 
 class HfApiUploadFileTest(HfApiCommonTestWithLogin):
     def setUp(self) -> None:
@@ -262,6 +328,7 @@ class HfApiUploadFileTest(HfApiCommonTestWithLogin):
             lambda: shutil.rmtree(self.tmp_dir, onerror=set_write_permission_and_retry)
         )
 
+    @retry_endpoint
     def test_upload_file_validation(self):
         REPO_NAME = repo_name("upload")
         with self.assertRaises(ValueError, msg="Wrong repo type"):
@@ -292,6 +359,7 @@ class HfApiUploadFileTest(HfApiCommonTestWithLogin):
                 token=self._token,
             )
 
+    @retry_endpoint
     def test_upload_file_path(self):
         REPO_NAME = repo_name("path")
         self._api.create_repo(token=self._token, name=REPO_NAME)
@@ -317,6 +385,7 @@ class HfApiUploadFileTest(HfApiCommonTestWithLogin):
         finally:
             self._api.delete_repo(name=REPO_NAME, token=self._token)
 
+    @retry_endpoint
     def test_upload_file_fileobj(self):
         REPO_NAME = repo_name("fileobj")
         self._api.create_repo(name=REPO_NAME, token=self._token)
@@ -343,6 +412,7 @@ class HfApiUploadFileTest(HfApiCommonTestWithLogin):
         finally:
             self._api.delete_repo(name=REPO_NAME, token=self._token)
 
+    @retry_endpoint
     def test_upload_file_bytesio(self):
         REPO_NAME = repo_name("bytesio")
         self._api.create_repo(name=REPO_NAME, token=self._token)
@@ -369,6 +439,7 @@ class HfApiUploadFileTest(HfApiCommonTestWithLogin):
         finally:
             self._api.delete_repo(name=REPO_NAME, token=self._token)
 
+    @retry_endpoint
     def test_upload_file_conflict(self):
         REPO_NAME = repo_name("conflict")
         self._api.create_repo(name=REPO_NAME, token=self._token)
@@ -406,6 +477,7 @@ class HfApiUploadFileTest(HfApiCommonTestWithLogin):
         finally:
             self._api.delete_repo(name=REPO_NAME, token=self._token)
 
+    @retry_endpoint
     def test_upload_buffer(self):
         REPO_NAME = repo_name("buffer")
         self._api.create_repo(name=REPO_NAME, token=self._token)
@@ -433,6 +505,7 @@ class HfApiUploadFileTest(HfApiCommonTestWithLogin):
         finally:
             self._api.delete_repo(name=REPO_NAME, token=self._token)
 
+    @retry_endpoint
     def test_delete_file(self):
         REPO_NAME = repo_name("delete")
         self._api.create_repo(token=self._token, name=REPO_NAME)
@@ -536,6 +609,19 @@ class HfApiPublicTest(unittest.TestCase):
         )
         self.assertIsInstance(model, ModelInfo)
         self.assertEqual(model.sha, DUMMY_MODEL_ID_REVISION_ONE_SPECIFIC_COMMIT)
+        model = _api.model_info(
+            repo_id=DUMMY_MODEL_ID,
+            revision=DUMMY_MODEL_ID_REVISION_ONE_SPECIFIC_COMMIT,
+            securityStatus=True,
+        )
+        self.assertEqual(
+            getattr(model, "securityStatus"),
+            {"containsInfected": False, "infectionTypes": []},
+        )
+
+    @with_production_testing
+    def test_model_info_with_security(self):
+        _api = HfApi()
         model = _api.model_info(
             repo_id=DUMMY_MODEL_ID,
             revision=DUMMY_MODEL_ID_REVISION_ONE_SPECIFIC_COMMIT,
@@ -798,6 +884,14 @@ class HfApiPublicTest(unittest.TestCase):
         models = _api.list_models("co2_eq_emissions")
         self.assertTrue(all([not hasattr(model, "cardData") for model in models]))
 
+    def test_filter_emissions_dict(self):
+        # tests that dictionary is handled correctly as "emissions" and that
+        # 17g is accepted and parsed correctly as a value
+        # regression test for #753
+        model = ModelInfo(cardData={"co2_eq_emissions": {"emissions": "17g"}})
+        res = _filter_emissions([model], -1, 100)
+        assert len(res) == 1
+
     @with_production_testing
     def test_filter_emissions_with_max(self):
         _api = HfApi()
@@ -851,6 +945,7 @@ class HfApiPublicTest(unittest.TestCase):
 
 
 class HfApiPrivateTest(HfApiCommonTestWithLogin):
+    @retry_endpoint
     def setUp(self) -> None:
         super().setUp()
         self.REPO_NAME = repo_name("private")
@@ -910,10 +1005,11 @@ class HfLargefilesTest(HfApiCommonTest):
 
     def setUp(self):
         self.REPO_NAME_LARGE_FILE = repo_name_large_file()
-        try:
+        if os.path.exists(WORKING_REPO_DIR):
             shutil.rmtree(WORKING_REPO_DIR, onerror=set_write_permission_and_retry)
-        except FileNotFoundError:
-            pass
+        logger.info(
+            f"Does {WORKING_REPO_DIR} exist: {os.path.exists(WORKING_REPO_DIR)}"
+        )
 
     def tearDown(self):
         self._api.delete_repo(name=self.REPO_NAME_LARGE_FILE, token=self._token)
@@ -935,6 +1031,7 @@ class HfLargefilesTest(HfApiCommonTest):
             ["git", "lfs", "track", "*.epub"], check=True, cwd=WORKING_REPO_DIR
         )
 
+    @retry_endpoint
     def test_end_to_end_thresh_6M(self):
         REMOTE_URL = self._api.create_repo(
             name=self.REPO_NAME_LARGE_FILE,
@@ -987,6 +1084,7 @@ class HfLargefilesTest(HfApiCommonTest):
         dest_filesize = os.stat(os.path.join(WORKING_REPO_DIR, DEST_FILENAME)).st_size
         self.assertEqual(dest_filesize, 18685041)
 
+    @retry_endpoint
     def test_end_to_end_thresh_16M(self):
         # Here we'll push one multipart and one non-multipart file in the same commit, and see what happens
         REMOTE_URL = self._api.create_repo(
