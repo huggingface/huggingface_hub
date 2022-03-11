@@ -89,10 +89,10 @@ For additional settings, refer to the [Reference](#reference) section.
 
 ### Organization card
 
-Create an organization card to help users learn more about what your organization is working on and how users can use your libraries, models, datasets, and Spaces. Build an organization card by setting `sdk: static` to create a static **README** Space with HTML. As an example, take a look at:
+Organization cards are a way to describe your organization to other users. They take the form of a `README.md` static file, inside a Space repo named `README`.
 
-* [Amazon's](https://huggingface.co/spaces/amazon/README/blob/main/README.md) organization card
-* [spaCy's](https://huggingface.co/spaces/spacy/README/blob/main/README.md) organization card.
+Please read more in the [dedicated doc section](/docs/hub/org-cards).
+
 
 ### Manage app with Github Actions
 

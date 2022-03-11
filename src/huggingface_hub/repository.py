@@ -373,7 +373,7 @@ class Repository:
 
         If specifying a `clone_from`:
         will clone an existing remote repository, for instance one
-        that was previously created using ``HfApi().create_repo(name=repo_name)``.
+        that was previously created using ``HfApi().create_repo(repo_id=repo_name)``.
         ``Repository`` uses the local git credentials by default, but if required, the ``huggingface_token``
         as well as the git ``user`` and the ``email`` can be explicitly specified.
         If `clone_from` is used, and the repository is being instantiated into a non-empty directory,
@@ -538,17 +538,16 @@ class Repository:
                 valid_organisations = [org["name"] for org in whoami_info["orgs"]]
 
                 if namespace is not None:
-                    repo_url += f"{namespace}/"
+                    repo_id = f"{namespace}/{repo_id}"
                 repo_url += repo_id
 
                 repo_url = repo_url.replace("https://", f"https://user:{token}@")
 
                 if namespace == user or namespace in valid_organisations:
                     api.create_repo(
-                        name=repo_id,
+                        repo_id=repo_id,
                         token=token,
                         repo_type=self.repo_type,
-                        organization=namespace,
                         exist_ok=True,
                         private=self.private,
                     )
