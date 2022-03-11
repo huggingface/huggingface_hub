@@ -17,6 +17,7 @@ The table below summarizes the supported libraries and how they are integrated. 
 | [Adapter Transformers](https://github.com/Adapter-Hub/adapter-transformers)  | Extends 🤗Transformers with Adapters.                                          |       ❌       | ❌      |         ✅         |      ✅      |
 | [AllenNLP](https://github.com/allenai/allennlp)              | An open-source NLP research library, built on PyTorch.                        |       ✅       |    ✅   |         ✅         |      ❌      |
 | [Asteroid](https://github.com/asteroid-team/asteroid)              | Pytorch-based audio source separation toolkit                                 |       ✅       | ✅     |         ✅         |      ❌      |
+| [docTR](https://github.com/mindee/doctr) | Models and datasets for OCR-related tasks in PyTorch & TensorFlow | ✅ | ✅ | ✅ | ❌ |
 | [ESPnet](https://github.com/espnet/espnet)                | End-to-end speech processing toolkit (e.g. TTS)                               |       ✅       | ✅      |         ✅         |      ❌      |
 | [Flair](https://github.com/flairNLP/flair)                 | Very simple framework for state-of-the-art NLP. |       ✅       |    ✅   |         ✅         |      ❌      |
 | [Pyannote](https://github.com/pyannote/pyannote-audio)              | Neural building blocks for speaker diarization.                               |       ❌       |    ❌   |         ✅         |      ❌      |
