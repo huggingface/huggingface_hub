@@ -195,8 +195,9 @@ Any valid Python `3.x` or `3.x.x` version.
 Defaults to `3.8.9`.
 
 **`sdk_version`** : _string_
-Only applicable for `streamlit` SDK. Currently available versions are :  
-`0.79.0, 0.80.0, 0.81.1, 0.82.0, 0.83.0, 0.84.2, 0.85.0, 0.86.0, 0.87.0, 0.88.0, 0.89.0, 1.0.0, 1.1.0, 1.2.0`.
+Specify the version of the selected SDK (Streamlit or Gradio).
+All versions of Gradio are supported.
+Streamlit versions are supported from `0.79.0` to `1.2.0`.
 
 **`app_file`** : _string_
 Path to your main application file (which contains either `gradio` or `streamlit` Python code, or `static` html code).
