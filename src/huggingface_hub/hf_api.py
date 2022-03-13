@@ -52,6 +52,33 @@ USERNAME_PLACEHOLDER = "hf_user"
 logger = logging.get_logger(__name__)
 
 
+# TODO: remove after deprecation period is over (v0.7)
+def _validate_repo_id_deprecation(repo_id, name, organization):
+    """Returns (name, organization) from the input."""
+    if not (repo_id or name):
+        raise ValueError(
+            "No name provided. Please pass `repo_id` with a valid repository name."
+        )
+
+    if repo_id and (name or organization):
+        raise ValueError(
+            "Only pass `repo_id` and leave deprecated `name` and "
+            "`organization` to be None."
+        )
+    elif name or organization:
+        warnings.warn(
+            "`name` and `organization` input arguments are deprecated and "
+            "will be removed in v0.7. Pass `repo_id` instead.",
+            FutureWarning,
+        )
+    else:
+        if "/" in repo_id:
+            organization, name = repo_id.split("/")
+        else:
+            organization, name = None, repo_id
+    return name, organization
+
+
 def repo_type_and_id_from_hf_id(hf_id: str):
     """
     Returns the repo type and ID from a huggingface.co URL linking to a repository
@@ -998,34 +1025,47 @@ class HfApi:
 
     def create_repo(
         self,
-        name: str,
+        repo_id: str = None,
         token: Optional[str] = None,
         organization: Optional[str] = None,
         private: Optional[bool] = None,
         repo_type: Optional[str] = None,
         exist_ok=False,
-        lfsmultipartthresh: Optional[int] = None,
         space_sdk: Optional[str] = None,
+        name: str = None,
     ) -> str:
-        """
-        HuggingFace git-based system, used for models, datasets, and spaces.
+        """Create an empty repo on the HuggingFace Hub.
 
-        Call HF API to create a whole repo.
+        Args:
+            repo_id: A namespace (user or an organization) and a repo name
+                seperated by a ``/``.
 
-        Params:
-            private: Whether the model repo should be private (requires a paid huggingface.co account)
+                .. versionadded: 0.4.0
 
-            repo_type: Set to :obj:`"dataset"` or :obj:`"space"` if uploading to a dataset or space, :obj:`None` or :obj:`"model"` if uploading to a model. Default is :obj:`None`.
+            token: An authentication token [1]_.
 
-            exist_ok: Do not raise an error if repo already exists
+            private: Whether the model repo should be private.
 
-            lfsmultipartthresh: Optional: internal param for testing purposes.
+            repo_type: Set to :obj:`"dataset"` or :obj:`"space"` if uploading
+                to a dataset or space, :obj:`None` or :obj:`"model"` if
+                uploading to a model. Default is :obj:`None`.
 
-            space_sdk: Choice of SDK to use if repo_type is "space". Can be "streamlit", "gradio", or "static".
+            exist_ok: If ``True``, do not raise an error if repo already
+                exists.
+
+            space_sdk: Choice of SDK to use if repo_type is "space". Can be
+                "streamlit", "gradio", or "static".
 
         Returns:
             URL to the newly created repo.
+
+        References:
+            .. [1] https://huggingface.co/settings/tokens
+
+        Reference
         """
+        name, organization = _validate_repo_id_deprecation(repo_id, name, organization)
+
         path = f"{self.endpoint}/api/repos/create"
         if token is None:
             token = self._validate_or_retrieve_token()
@@ -1088,8 +1128,8 @@ class HfApi:
                 "Ignoring provided space_sdk because repo_type is not 'space'."
             )
 
-        if lfsmultipartthresh is not None:
-            json["lfsmultipartthresh"] = lfsmultipartthresh
+        if getattr(self, "_lfsmultipartthresh", None):
+            json["lfsmultipartthresh"] = self._lfsmultipartthresh
         r = requests.post(
             path,
             headers={"authorization": f"Bearer {token}"},
@@ -1115,18 +1155,36 @@ class HfApi:
 
     def delete_repo(
         self,
-        name: str,
+        repo_id: str = None,
         token: Optional[str] = None,
         organization: Optional[str] = None,
         repo_type: Optional[str] = None,
+        name: str = None,
     ):
-        """
-        HuggingFace git-based system, used for models, datasets, and spaces.
-
-        Call HF API to delete a whole repo.
+        """Delete a repo from the HuggingFace Hub.
 
         CAUTION(this is irreversible).
+
+        Args:
+            repo_id: A namespace (user or an organization) and a repo name
+                seperated by a ``/``.
+
+                .. versionadded: 0.4.0
+
+            token: An authentication token [1]_.
+
+            repo_type: Set to :obj:`"dataset"` or :obj:`"space"` if uploading
+                to a dataset or space, :obj:`None` or :obj:`"model"` if
+                uploading to a model. Default is :obj:`None`.
+
+        Returns:
+            None
+
+        References:
+            .. [1] https://huggingface.co/settings/tokens
         """
+        name, organization = _validate_repo_id_deprecation(repo_id, name, organization)
+
         path = f"{self.endpoint}/api/repos/delete"
         if token is None:
             token = self._validate_or_retrieve_token()
@@ -1183,17 +1241,39 @@ class HfApi:
 
     def update_repo_visibility(
         self,
-        name: str,
-        private: bool,
+        repo_id: str = None,
+        private: bool = False,
         token: Optional[str] = None,
         organization: Optional[str] = None,
         repo_type: Optional[str] = None,
+        name: str = None,
     ) -> Dict[str, bool]:
-        """
-        Update the visibility setting of a repository.
+        """Update the visibility setting of a repository.
+
+        Args:
+            repo_id: A namespace (user or an organization) and a repo name
+                seperated by a ``/``.
+
+                .. versionadded: 0.4.0
+
+            private: Whether the model repo should be private.
+
+            token: An authentication token [1]_.
+
+            repo_type: Set to :obj:`"dataset"` or :obj:`"space"` if uploading
+                to a dataset or space, :obj:`None` or :obj:`"model"` if
+                uploading to a model. Default is :obj:`None`.
+
+        Returns:
+            The HTTP response in json.
+
+        References:
+            .. [1] https://huggingface.co/settings/tokens
         """
         if repo_type not in REPO_TYPES:
             raise ValueError("Invalid repo type")
+
+        name, organization = _validate_repo_id_deprecation(repo_id, name, organization)
 
         if token is None:
             token = self._validate_or_retrieve_token()

@@ -79,7 +79,9 @@ class RepositoryTest(RepositoryCommonTest):
             f"Does {WORKING_REPO_DIR} exist: {os.path.exists(WORKING_REPO_DIR)}"
         )
         self.REPO_NAME = repo_name()
-        self._repo_url = self._api.create_repo(name=self.REPO_NAME, token=self._token)
+        self._repo_url = self._api.create_repo(
+            repo_id=self.REPO_NAME, token=self._token
+        )
         self._api.upload_file(
             path_or_fileobj=BytesIO(b"some initial binary data: \x00\x01"),
             path_in_repo="random_file.txt",
@@ -89,18 +91,18 @@ class RepositoryTest(RepositoryCommonTest):
 
     def tearDown(self):
         try:
-            self._api.delete_repo(name=f"{USER}/{self.REPO_NAME}", token=self._token)
+            self._api.delete_repo(repo_id=f"{USER}/{self.REPO_NAME}", token=self._token)
         except requests.exceptions.HTTPError:
             pass
 
         try:
-            self._api.delete_repo(name=self.REPO_NAME, token=self._token)
+            self._api.delete_repo(repo_id=self.REPO_NAME, token=self._token)
         except requests.exceptions.HTTPError:
             pass
 
         try:
             self._api.delete_repo(
-                name=self.REPO_NAME, token=self._token, organization="valid_org"
+                repo_id=f"valid_org/{self.REPO_NAME}", token=self._token
             )
         except requests.exceptions.HTTPError:
             pass
@@ -170,7 +172,7 @@ class RepositoryTest(RepositoryCommonTest):
     def test_init_clone_in_nonempty_non_linked_git_repo(self):
         # Create a new repository on the HF Hub
         temp_repo_url = self._api.create_repo(
-            name=f"{self.REPO_NAME}-temp", token=self._token
+            repo_id=f"{self.REPO_NAME}-temp", token=self._token
         )
         self._api.upload_file(
             path_or_fileobj=BytesIO(b"some initial binary data: \x00\x01"),
@@ -188,7 +190,7 @@ class RepositoryTest(RepositoryCommonTest):
             EnvironmentError, Repository, WORKING_REPO_DIR, clone_from=temp_repo_url
         )
 
-        self._api.delete_repo(name=f"{self.REPO_NAME}-temp", token=self._token)
+        self._api.delete_repo(repo_id=f"{self.REPO_NAME}-temp", token=self._token)
 
     @retry_endpoint
     def test_init_clone_in_nonempty_linked_git_repo_with_token(self):
@@ -553,7 +555,7 @@ class RepositoryTest(RepositoryCommonTest):
 
         with open(pathlib.Path(repo.local_dir) / "file.bin", "r") as f:
             content = f.read()
-            self.assertEquals(content, "Bin file")
+            self.assertEqual(content, "Bin file")
 
     @retry_endpoint
     def test_is_tracked_upstream(self):
@@ -1472,20 +1474,19 @@ class RepositoryDatasetTest(RepositoryCommonTest):
             f"Does {WORKING_DATASET_DIR}/{self.REPO_NAME} exist: {os.path.exists(f'{WORKING_DATASET_DIR}/{self.REPO_NAME}')}"
         )
         self._api.create_repo(
-            token=self._token, name=self.REPO_NAME, repo_type="dataset"
+            token=self._token, repo_id=self.REPO_NAME, repo_type="dataset"
         )
 
     def tearDown(self):
         try:
             self._api.delete_repo(
-                name=self.REPO_NAME, token=self._token, repo_type="dataset"
+                repo_id=self.REPO_NAME, token=self._token, repo_type="dataset"
             )
         except requests.exceptions.HTTPError:
             try:
                 self._api.delete_repo(
-                    name=self.REPO_NAME,
+                    repo_id=f"valid_org/{self.REPO_NAME}",
                     token=self._token,
-                    organization="valid_org",
                     repo_type="dataset",
                 )
             except requests.exceptions.HTTPError:
