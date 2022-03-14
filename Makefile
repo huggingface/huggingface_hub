@@ -14,5 +14,5 @@ style:
 	isort $(check_dirs)
 
 test:
-	pytest -sv ./tests/
+	HUGGINGFACE_CO_STAGING=1 pytest -sv ./tests/
 
