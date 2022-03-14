@@ -72,7 +72,7 @@ def _plot_network(model, save_directory):
         rankdir="TB",
         expand_nested=False,
         dpi=96,
-        layer_range=None
+        layer_range=None,
     )
 
 
