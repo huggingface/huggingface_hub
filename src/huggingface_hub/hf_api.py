@@ -21,7 +21,7 @@ from os.path import expanduser
 from typing import IO, Dict, Iterable, List, Optional, Tuple, Union
 
 import requests
-from requests.exceptions import HTTPError
+from requests.exceptions import HTTPError, JSONDecodeError
 
 from .constants import (
     ENDPOINT,
@@ -1244,7 +1244,10 @@ class HfApi:
         try:
             r.raise_for_status()
         except requests.exceptions.RequestException as e:
-            message = e.response.json()["error"]
+            try:
+                message = e.response.json()["error"]
+            except JSONDecodeError:
+                message = e.response.text
             raise type(e)(message) from e
 
     def update_repo_visibility(

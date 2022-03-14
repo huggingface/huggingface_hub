@@ -1251,8 +1251,7 @@ class HfApiMiscTest(unittest.TestCase):
 
 
 def test_delete_repo_error_message():
-    # api = HfApi(endpoint=ENDPOINT_STAGING)
-    # token = api.login(username=USER, password=PASS)
-    # api.delete_repo("repo-that-does-not-exist", token=token)
-    api = HfApi()
-    api.delete_repo("repo-that-does-not-exist")
+    api = HfApi(endpoint=ENDPOINT_STAGING)
+    token = api.login(username=USER, password=PASS)
+    with pytest.raises(HTTPError, match="Conflict"):
+        api.delete_repo("repo-that-does-not-exist", token=token)
