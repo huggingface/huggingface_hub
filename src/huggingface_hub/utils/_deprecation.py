@@ -32,7 +32,7 @@ def _deprecate_positional_args(func=None, *, version="0.7"):
                 return f(*args, **kwargs)
             # extra_args > 0
             args_msg = [
-                f"{name}={arg}"
+                f"{name}='{arg}'" if isinstance(arg, str) else f"{name}={arg}"
                 for name, arg in zip(kwonly_args[:extra_args], args[-extra_args:])
             ]
             args_msg = ", ".join(args_msg)

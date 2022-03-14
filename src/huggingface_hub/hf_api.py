@@ -1336,9 +1336,9 @@ class HfApi:
     @_deprecate_positional_args
     def move_repo(
         self,
-        *,
         from_id: str,
         to_id: str,
+        *,
         repo_type: Optional[str] = None,
         token: Optional[str] = None,
     ):
@@ -1566,8 +1566,8 @@ class HfApi:
     @_deprecate_positional_args
     def get_full_repo_name(
         self,
-        *,
         model_id: str,
+        *,
         organization: Optional[str] = None,
         token: Optional[str] = None,
     ):
