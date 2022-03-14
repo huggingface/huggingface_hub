@@ -83,7 +83,6 @@ def _plot_network(model, save_directory):
         expand_nested=False,
         dpi=96,
         layer_range=None,
-        show_layer_activations=True,
     )
 
 
@@ -267,7 +266,7 @@ class PushToHubCallback(callback):
         self.repo.git_pull()
 
     def on_train_batch_end(self, batch, logs=None):
-        if self.save_strategy == "steps" and batch + 1 % self.save_steps == 0:
+        if self.save_strategy == "steps" and (batch + 1) % self.save_steps == 0:
             if self.last_job is not None and not self.last_job.is_done:
                 while not self.last_job.is_done:
                     time.sleep(1)
