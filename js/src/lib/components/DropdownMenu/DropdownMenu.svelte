@@ -15,6 +15,7 @@
 
 	onMount(() => {
 		document.addEventListener("click", handleClickDocument);
+		window.addEventListener("blur", onClose);
 
 		if (!forceAlignement) {
 			const docWidth = document.documentElement.clientWidth;
@@ -26,10 +27,12 @@
 
 		return () => {
 			document.removeEventListener("click", handleClickDocument);
+			window.removeEventListener("blur", onClose);
 		};
 	});
 
 	function handleClickDocument(e: MouseEvent) {
+		console.log("CLICK");
 		// We ignore clicks that happens inside the Dropdown itself
 		// (prevent race condition  with other click handlers)
 		const targetElement = e.target as HTMLElement;
