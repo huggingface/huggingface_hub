@@ -1248,3 +1248,11 @@ class HfApiMiscTest(unittest.TestCase):
 
         for key, value in possible_values.items():
             self.assertEqual(repo_type_and_id_from_hf_id(key), tuple(value))
+
+
+def test_delete_repo_error_message():
+    # api = HfApi(endpoint=ENDPOINT_STAGING)
+    # token = api.login(username=USER, password=PASS)
+    # api.delete_repo("repo-that-does-not-exist", token=token)
+    api = HfApi()
+    api.delete_repo("repo-that-does-not-exist")
