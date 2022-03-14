@@ -173,7 +173,7 @@ class HubMixingTestKeras(unittest.TestCase):
         )
         self.assertEqual(model_info.modelId, f"{USER}/{REPO_NAME}")
 
-        self._api.delete_repo(name=f"{REPO_NAME}", token=self._token)
+        self._api.delete_repo(repo_id=f"{REPO_NAME}", token=self._token)
 
 
 @require_tf
@@ -461,7 +461,7 @@ class HubKerasSequentialTest(HubMixingTestKeras):
         )
         self.assertEqual(model_info.modelId, f"{USER}/{REPO_NAME}")
 
-        self._api.delete_repo(name=f"{REPO_NAME}", token=self._token)
+        self._api.delete_repo(repo_id=f"{REPO_NAME}", token=self._token)
 
     @retry_endpoint
     def test_push_to_hub_model_card_build(self):
@@ -481,7 +481,7 @@ class HubKerasSequentialTest(HubMixingTestKeras):
         )
         self.assertTrue("README.md" in [f.rfilename for f in model_info.siblings])
         self.assertTrue("model.png" in [f.rfilename for f in model_info.siblings])
-        self._api.delete_repo(name=f"{REPO_NAME}", token=self._token)
+        self._api.delete_repo(repo_id=f"{REPO_NAME}", token=self._token)
 
     def test_push_to_hub_model_card(self):
         REPO_NAME = repo_name("PUSH_TO_HUB")
@@ -592,7 +592,7 @@ class HubKerasSequentialTest(HubMixingTestKeras):
             "logs/tensorboard.txt" in [f.rfilename for f in model_info.siblings]
         )
 
-        self._api.delete_repo(name=f"{REPO_NAME}", token=self._token)
+        self._api.delete_repo(repo_id=f"{REPO_NAME}", token=self._token)
 
     @retry_endpoint
     def test_push_to_hub_model_kwargs(self):
@@ -619,7 +619,7 @@ class HubKerasSequentialTest(HubMixingTestKeras):
         from_pretrained_keras(f"{WORKING_REPO_DIR}/{REPO_NAME}")
         self.assertRaises(ValueError, msg="Exception encountered when calling layer*")
 
-        self._api.delete_repo(name=f"{REPO_NAME}", token=self._token)
+        self._api.delete_repo(repo_id=f"{REPO_NAME}", token=self._token)
 
 
 @require_tf
