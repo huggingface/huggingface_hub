@@ -1,3 +1,4 @@
+import math
 import os
 import shutil
 import tempfile
@@ -284,7 +285,7 @@ class HubKerasSequentialTest(HubMixingTestKeras):
                 .decode()
                 .split("\n")
             ),
-            num_epochs * num_batches / save_steps + 3,
+            num_epochs * math.floor(num_batches / save_steps) + 3,
         )
 
     def test_callback_epoch(self):
