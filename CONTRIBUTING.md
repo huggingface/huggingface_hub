@@ -223,7 +223,10 @@ Follow these steps to start contributing:
    Please write [good commit messages](https://chris.beams.io/posts/git-commit/).
 
    It is a good idea to sync your copy of the code with the original
-   repository regularly. This way you can quickly account for changes:
+   repository regularly. The following document covers it in length: [github documentation](
+   https://docs.github.com/en/pull-requests/collaborating-with-pull-requests/working-with-forks/syncing-a-fork)
+ 
+   And here's how you can do it quickly from your `git` commandline:
 
    ```bash
    $ git fetch upstream
@@ -236,11 +239,11 @@ Follow these steps to start contributing:
    $ git push -u origin a-descriptive-name-for-my-changes
    ```
 
-6. Once you are satisfied (**and the checklist below is happy too**), go to the
+7. Once you are satisfied (**and the checklist below is happy too**), go to the
    webpage of your fork on GitHub. Click on 'Pull request' to send your changes
    to the project maintainers for review.
 
-7. It's ok if maintainers ask you for changes. It happens to core contributors
+8. It's ok if maintainers ask you for changes. It happens to core contributors
    too! So everyone can see the changes in the Pull request, work in your local
    branch and push the changes to your fork. They will automatically appear in
    the pull request.
