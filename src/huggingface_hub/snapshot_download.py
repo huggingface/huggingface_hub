@@ -28,15 +28,16 @@ def snapshot_download(
     library_name: Optional[str] = None,
     library_version: Optional[str] = None,
     user_agent: Optional[Union[Dict, str]] = None,
-    proxies=None,
-    etag_timeout=10,
-    resume_download=False,
+    proxies: Optional[Dict] = None,
+    etag_timeout: Optional[float] = 10,
+    resume_download: Optional[bool] = False,
     use_auth_token: Optional[Union[bool, str]] = None,
-    local_files_only=False,
+    local_files_only: Optional[bool] = False,
     allow_regex: Optional[Union[List[str], str]] = None,
     ignore_regex: Optional[Union[List[str], str]] = None,
 ) -> str:
-    """
+    """Download all files of a repo.
+
     Downloads a whole snapshot of a repo's files at the specified revision.
     This is useful when you want all files from a repo, because you don't know
     which ones you will need a priori.
@@ -46,13 +47,58 @@ def snapshot_download(
     An alternative would be to just clone a repo but this would require that
     the user always has git and git-lfs installed, and properly configured.
 
-    Note: at some point maybe this format of storage should actually replace
-    the flat storage structure we've used so far (initially from allennlp
-    if I remember correctly).
+    Args:
+        repo_id (``str``):
+            A user or an organization name and a repo name seperated by a
+            ``/``.
+        revision (``str``, `optional`):
+            An optional Git revision id which can be a branch name, a tag, or a
+            commit hash.
+        cache_dir (``str``, ``Path``, `optional`):
+            Path to the folder where cached files are stored.
+        library_name (``str``, `optional`):
+            The name of the library to which the object corresponds.
+        library_version (``str``, `optional`):
+            The version of the library.
+        user_agent (``str``, ``dict``, `optional`):
+            The user-agent info in the form of a dictionary or a string.
+        proxies (``dict``, `optional`):
+            Dictionary mapping protocol to the URL of the proxy passed to
+            ``requests.request``.
+        etag_timeout (``float``, `optional`, defaults to ``10``):
+            When fetching ETag, how many seconds to wait for the server to send
+            data before giving up which is passed to ``requests.request``.
+        resume_download (``bool``, `optional`, defaults to ``False):
+            If ``True``, resume a previously interrupted download.
+        use_auth_token (``str``, ``bool``, `optional`):
+            A token to be used for the download.
+                - If ``True``, the token is read from the HuggingFace config
+                  folder.
+                - If a string, it's used as the authentication token.
+        local_files_only (``bool``, `optional`, defaults to ``False``):
+            If ``True``, avoid downloading the file and return the path to the
+            local cached file if it exists.
+        allow_regex (``list of str``, ``str``, `optional`):
+            If provided, only files matching this regex are downladed.
+        ignore_regex (``list of str``, ``str``, `optional`):
+            If provided, files matching this regex are not downloaded.
 
     Return:
         Local folder path (string) of repo snapshot
+
+    Raises:
+        - ``EnvironmentError`` if ``use_auth_token=True`` and the token cannot
+            be found.
+
+        - ``OSError`` if ETag cannot be determined.
+
+        - ``ValueError`` if the file cannot be downloaded and cannot be found
+            locally.
     """
+    # Note: at some point maybe this format of storage should actually replace
+    # the flat storage structure we've used so far (initially from allennlp
+    # if I remember correctly).
+
     if cache_dir is None:
         cache_dir = HUGGINGFACE_HUB_CACHE
     if revision is None:
@@ -71,7 +117,7 @@ def snapshot_download(
     else:
         token = None
 
-    # remove all `/` occurances to correctly convert repo to directory name
+    # remove all `/` occurrences to correctly convert repo to directory name
     repo_id_flattened = repo_id.replace("/", REPO_ID_SEPARATOR)
 
     # if we have no internet connection we will look for the
