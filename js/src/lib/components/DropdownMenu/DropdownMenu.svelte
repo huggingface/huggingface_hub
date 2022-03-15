@@ -32,7 +32,6 @@
 	});
 
 	function handleClickDocument(e: MouseEvent) {
-		console.log("CLICK");
 		// We ignore clicks that happens inside the Dropdown itself
 		// (prevent race condition  with other click handlers)
 		const targetElement = e.target as HTMLElement;
