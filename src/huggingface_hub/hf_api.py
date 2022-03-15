@@ -1514,8 +1514,8 @@ class HfApi:
     def delete_file(
         self,
         path_in_repo: str,
-        *,
         repo_id: str,
+        *,
         token: Optional[str] = None,
         repo_type: Optional[str] = None,
         revision: Optional[str] = None,
