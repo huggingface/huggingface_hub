@@ -185,21 +185,22 @@ class HubKerasSequentialTest(HubMixingTestKeras):
         model.compile(optimizer="adam", loss="mse")
         return model
 
+    def batch_data(self, data, batch_size):
+        batched_features = []
+        for element in range(0, len(data), batch_size):
+            batched_features.append(
+                data[element : min(element + batch_size, len(data))]
+            )
+        return batched_features
+
     def dummy_training_data(self, batch_size=None):
-        def batch_data(data, batch_size):
-            batched_features = []
-            for element in range(0, len(data), batch_size):
-                batched_features.append(
-                    data[element : min(element + batch_size, len(data))]
-                )
-            return batched_features
 
         features = np.ones((9, 2))
         labels = np.ones((9, 2))
 
         if batch_size is not None:
-            features = tf.constant(batch_data(features, batch_size))
-            labels = tf.constant(batch_data(labels, batch_size))
+            features = tf.constant(self.batch_data(features, batch_size))
+            labels = tf.constant(self.batch_data(labels, batch_size))
         else:
             features = tf.constant(features)
             labels = tf.constant(labels)
@@ -237,7 +238,7 @@ class HubKerasSequentialTest(HubMixingTestKeras):
         model = self.model_fit(
             model,
             callback=[push_to_hub_callback],
-            num_epochs=3,
+            num_epochs=1,
         )
 
         self.assertEqual(
@@ -258,7 +259,7 @@ class HubKerasSequentialTest(HubMixingTestKeras):
         save_steps = 2
         batch_size = 3
 
-        x, _ = self.dummy_training_data(batch_size=3)
+        x, _ = self.dummy_training_data(batch_size=batch_size)
         num_batches = x.shape[0]
         push_to_hub_callback = PushToHubCallback(
             save_strategy="steps",
@@ -300,7 +301,7 @@ class HubKerasSequentialTest(HubMixingTestKeras):
             git_user="ci",
             git_email="ci@dummy.com",
         )
-        num_epochs = 3
+        num_epochs = 2
 
         model = self.model_fit(
             model, callback=[push_to_hub_callback], num_epochs=num_epochs
@@ -507,7 +508,7 @@ class HubKerasSequentialTest(HubMixingTestKeras):
     def test_push_to_hub_model_card_plot_false(self):
         REPO_NAME = repo_name("PUSH_TO_HUB")
         model = self.model_init()
-        model = self.model_fit(model, num_epochs=2)
+        model = self.model_fit(model, num_epochs=1)
         push_to_hub_keras(
             model,
             repo_path_or_name=f"{WORKING_REPO_DIR}/{REPO_NAME}",
@@ -598,7 +599,7 @@ class HubKerasSequentialTest(HubMixingTestKeras):
     def test_push_to_hub_model_kwargs(self):
         REPO_NAME = repo_name("PUSH_TO_HUB")
         model = self.model_init()
-        model = self.model_fit(model, num_epochs=2)
+        model = self.model_fit(model, num_epochs=1)
         push_to_hub_keras(
             model,
             repo_path_or_name=f"{WORKING_REPO_DIR}/{REPO_NAME}",
@@ -647,7 +648,7 @@ class HubKerasFunctionalTest(HubKerasSequentialTest):
     def test_save_pretrained_fit(self):
         REPO_NAME = repo_name("functional")
         model = self.model_init()
-        model = self.model_fit(model, num_epochs=2)
+        model = self.model_fit(model, num_epochs=1)
 
         save_pretrained_keras(model, f"{WORKING_REPO_DIR}/{REPO_NAME}")
         files = os.listdir(f"{WORKING_REPO_DIR}/{REPO_NAME}")
