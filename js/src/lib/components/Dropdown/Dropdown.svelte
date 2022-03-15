@@ -48,9 +48,9 @@
 				/>
 			{/if}
 			{btnLabel}
-			{#if withBtnCaret}
-				<IconCaretDown classNames="-mr-1 text-gray-500" />
-			{/if}
+		{/if}
+		{#if withBtnCaret}
+			<IconCaretDown classNames="-mr-1 text-gray-500" />
 		{/if}
 	</button>
 	<!-- /Button -->
