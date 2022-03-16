@@ -4,7 +4,7 @@
 **NOTE**
 
 The `huggingface_hub` repository is currently being split in three repositories as mentioned in the following
-[issue](https://github.com/huggingface/transformers).
+[issue](https://github.com/huggingface/huggingface_hub/issues/744).
 
 As such, the `js`, `docs`, `tasks`, and `api-inference-community` folders are currently frozen and we instead ask
 you to redirect your issues/PRs to the following repositories:
