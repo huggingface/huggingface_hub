@@ -1,5 +1,20 @@
 # `huggingface_hub`
 
+---
+**NOTE**
+
+The `huggingface_hub` repository is currently being split in three repositories as mentioned in the following
+[issue](https://github.com/huggingface/transformers).
+
+As such, the `js`, `docs`, `tasks`, and `api-inference-community` folders are currently frozen and we instead ask
+you to redirect your issues/PRs to the following repositories:
+
+- for `js`, `docs` and `tasks`: [huggingface/hub-docs](https://github.com/huggingface/hub-docs)
+- for `api-inference-community`: [huggingface/api-inference-community](https://github.com/huggingface/api-inference-community)
+
+---
+
+
 ## Welcome to the Hub repo! Here you can find all the open source things related to the Hugging Face Hub.
 
 <p align="center">
