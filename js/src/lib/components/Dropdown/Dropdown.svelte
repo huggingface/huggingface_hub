@@ -9,6 +9,7 @@
 	export let btnIcon: typeof SvelteComponent | undefined = undefined;
 	export let btnIconClassNames = "";
 	export let btnLabel = "";
+	export let disabled = false;
 	export let entries: Array<{
 		classNames?: string;
 		href?: string;
@@ -34,7 +35,7 @@
 	<button
 		class="{btnClassNames}
 			{!noBtnClass ? 'cursor-pointer w-full btn text-sm' : ''}"
-		on:click={() => (isOpen = !isOpen)}
+		on:click={() => (isOpen = !disabled && !isOpen)}
 		type="button"
 	>
 		<!-- The "button" slot can overwrite the defaut button content -->
