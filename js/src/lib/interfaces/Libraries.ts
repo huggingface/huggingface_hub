@@ -23,6 +23,7 @@ export enum ModelLibrary {
 	"stanza"                 = "Stanza",
 	"fasttext"               = "fastText",
 	"stable-baselines3"      = "Stable-Baselines3",
+	"doctr"                  = "docTR",
 }
 
 export const ALL_MODEL_LIBRARY_KEYS = Object.keys(ModelLibrary) as (keyof typeof ModelLibrary)[];
@@ -290,6 +291,11 @@ checkpoint = load_from_hub(
 	filename="{MODEL FILENAME}.zip",
 )`;
 
+const doctr = (model: ModelData) =>
+	`from doctr.models.obj_detection.factory import from_hub
+
+model = from_hub("${model.id}").eval()`;
+
 //#endregion
 
 
@@ -403,6 +409,12 @@ export const MODEL_LIBRARIES_UI_ELEMENTS: { [key in keyof typeof ModelLibrary]?:
 		repoName: "stable-baselines3",
 		repoUrl:  "https://github.com/huggingface/huggingface_sb3",
 		snippet:  stableBaselines3,
+	},
+	"doctr": {
+		btnLabel: "docTR",
+		repoName: "doctr",
+		repoUrl:  "https://github.com/mindee/doctr",
+		snippet:  doctr,
 	},
 } as const;
 
