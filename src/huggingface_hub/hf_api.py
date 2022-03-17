@@ -509,7 +509,7 @@ class HfApi:
                     "You need to provide a `token` or be logged in to Hugging Face with "
                     "`huggingface-cli login`."
                 )
-        elif isinstance(token, str):
+        if isinstance(token, str):
             if token.startswith("api_org"):
                 raise ValueError("You must use your personal account token for login.")
             elif not self._is_valid_token(token):
