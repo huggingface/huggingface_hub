@@ -39,3 +39,9 @@ model("cat.png")
 #  'score': 0.999}
 # ...]
 ```
+
+## Useful Resources
+
+Would you like to learn more about token classification? Great! Here you can find some curated resources that you may find helpful!
+
+- [Fine-Tune a Semantic Segmentation Model with a Custom Dataset](https://huggingface.co/blog/fine-tune-segformer)
