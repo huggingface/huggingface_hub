@@ -286,6 +286,7 @@ class HubKerasSequentialTest(HubMixingTestKeras):
                 .decode()
                 .split("\n")
             ),
+            # steps, initial commit, end of training commit, one more line
             num_epochs * math.floor(num_batches / save_steps) + 3,
         )
 
@@ -314,9 +315,9 @@ class HubKerasSequentialTest(HubMixingTestKeras):
                 .decode()
                 .split("\n")
             ),
+            # epochs, initial commit, end of training commit, one more line
             num_epochs + 3,
         )
-        # epochs, initial commit, end of training commit, one more line
 
     def test_save_pretrained(self):
         REPO_NAME = repo_name("save")

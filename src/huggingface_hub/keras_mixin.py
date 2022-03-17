@@ -1,6 +1,5 @@
 import json
 import os
-import time
 from pathlib import Path
 from shutil import copytree, rmtree
 from typing import Any, Dict, Optional, Union
@@ -268,8 +267,7 @@ class PushToHubCallback(callback):
     def on_train_batch_end(self, batch, logs=None):
         if self.save_strategy == "steps" and (batch + 1) % self.save_steps == 0:
             if self.last_job is not None and not self.last_job.is_done:
-                while not self.last_job.is_done:
-                    time.sleep(1)
+                return
             save_pretrained_keras(
                 self.model,
                 self.repo_path_or_name,
@@ -279,17 +277,12 @@ class PushToHubCallback(callback):
                 override_card=True,
                 **self.model_save_kwargs,
             )
-            self.repo.git_add(auto_lfs_track=True)
-            _, self.last_job = self.repo.push_to_hub(
+            self.repo.push_to_hub(
                 commit_message=f"Training in progress batch {batch}", blocking=False
             )
 
     def on_epoch_end(self, epoch, logs=None):
         if self.save_strategy == "epoch":
-            if self.last_job is not None and not self.last_job.is_done:
-                logger.info("Waiting for existing upload to finish...")
-                while not self.last_job.is_done:
-                    time.sleep(1)
             save_pretrained_keras(
                 self.model,
                 self.repo_path_or_name,
@@ -300,15 +293,11 @@ class PushToHubCallback(callback):
                 **self.model_save_kwargs,
             )
 
-            self.repo.git_add(auto_lfs_track=True)
-            _, self.last_job = self.repo.push_to_hub(
-                commit_message=f"Training in progress epoch {epoch}", blocking=False
+            self.repo.push_to_hub(
+                commit_message=f"Training in progress epoch {epoch}", blocking=True
             )
 
     def on_train_end(self, logs=None):
-        if self.last_job is not None and not self.last_job.is_done:
-            while not self.last_job.is_done:
-                time.sleep(1)
         save_pretrained_keras(
             self.model,
             self.repo_path_or_name,
@@ -318,7 +307,6 @@ class PushToHubCallback(callback):
             override_card=True,
             **self.model_save_kwargs,
         )
-        self.repo.git_add(auto_lfs_track=True)
         self.repo.push_to_hub(commit_message="End of training", blocking=True)
 
 
