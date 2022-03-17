@@ -477,7 +477,6 @@ class HfApi:
             raise ValueError(
                 "You need to pass a valid `token` or login by using `huggingface-cli login`"
             )
-
         path = f"{self.endpoint}/api/whoami-v2"
         r = requests.get(path, headers={"authorization": f"Bearer {token}"})
         try:
@@ -510,8 +509,11 @@ class HfApi:
                     "You need to provide a `token` or be logged in to Hugging Face with "
                     "`huggingface-cli login`."
                 )
-        elif not self._is_valid_token(token):
-            raise ValueError("Invalid token passed!")
+        elif isinstance(token, str):
+            if token.startswith("api_org"):
+                raise ValueError("You must use your personal account token for login.")
+            elif not self._is_valid_token(token):
+                raise ValueError("Invalid token passed!")
         return token
 
     def logout(self, token: Optional[str] = None) -> None:
@@ -1069,16 +1071,19 @@ class HfApi:
         path = f"{self.endpoint}/api/repos/create"
         if token is None:
             token = self._validate_or_retrieve_token()
-        elif not self._is_valid_token(token):
-            if self._is_valid_token(name):
-                warnings.warn(
-                    "`create_repo` now takes `token` as an optional positional argument. "
-                    "Be sure to adapt your code!",
-                    FutureWarning,
-                )
-                token, name = name, token
-            else:
-                raise ValueError("Invalid token passed!")
+        elif isinstance(token, str):
+            if token.startswith("api_org"):
+                raise ValueError("You must use your personal account token for login.")
+            elif not self._is_valid_token(token):
+                if self._is_valid_token(name):
+                    warnings.warn(
+                        "`create_repo` now takes `token` as an optional positional argument. "
+                        "Be sure to adapt your code!",
+                        FutureWarning,
+                    )
+                    token, name = name, token
+                else:
+                    raise ValueError("Invalid token passed!")
 
         checked_name = repo_type_and_id_from_hf_id(name)
 
@@ -1188,16 +1193,19 @@ class HfApi:
         path = f"{self.endpoint}/api/repos/delete"
         if token is None:
             token = self._validate_or_retrieve_token()
-        elif not self._is_valid_token(token):
-            if self._is_valid_token(name):
-                warnings.warn(
-                    "`delete_repo` now takes `token` as an optional positional argument. "
-                    "Be sure to adapt your code!",
-                    FutureWarning,
-                )
-                token, name = name, token
-            else:
-                raise ValueError("Invalid token passed!")
+        elif isinstance(token, str):
+            if token.startswith("api_org"):
+                raise ValueError("You must use your personal account token for login.")
+            elif not self._is_valid_token(token):
+                if self._is_valid_token(name):
+                    warnings.warn(
+                        "`delete_repo` now takes `token` as an optional positional argument. "
+                        "Be sure to adapt your code!",
+                        FutureWarning,
+                    )
+                    token, name = name, token
+                else:
+                    raise ValueError("Invalid token passed!")
 
         checked_name = repo_type_and_id_from_hf_id(name)
 
@@ -1277,16 +1285,19 @@ class HfApi:
 
         if token is None:
             token = self._validate_or_retrieve_token()
-        elif not self._is_valid_token(token):
-            if self._is_valid_token(name):
-                warnings.warn(
-                    "`update_repo_visibility` now takes `token` as an optional positional argument. "
-                    "Be sure to adapt your code!",
-                    FutureWarning,
-                )
-                token, name, private = name, private, token
-            else:
-                raise ValueError("Invalid token passed!")
+        elif isinstance(token, str):
+            if token.startswith("api_org"):
+                raise ValueError("You must use your personal account token for login.")
+            elif not self._is_valid_token(token):
+                if self._is_valid_token(name):
+                    warnings.warn(
+                        "`update_repo_visibility` now takes `token` as an optional positional argument. "
+                        "Be sure to adapt your code!",
+                        FutureWarning,
+                    )
+                    token, name, private = name, private, token
+                else:
+                    raise ValueError("Invalid token passed!")
 
         if organization is None:
             namespace = self.whoami(token)["name"]
@@ -1424,21 +1435,24 @@ class HfApi:
 
         if token is None:
             token = self._validate_or_retrieve_token()
-        elif not self._is_valid_token(token):
-            if self._is_valid_token(path_or_fileobj):
-                warnings.warn(
-                    "`upload_file` now takes `token` as an optional positional argument. "
-                    "Be sure to adapt your code!",
-                    FutureWarning,
-                )
-                token, path_or_fileobj, path_in_repo, repo_id = (
-                    path_or_fileobj,
-                    path_in_repo,
-                    repo_id,
-                    token,
-                )
-            else:
-                raise ValueError("Invalid token passed!")
+        elif isinstance(token, str):
+            if token.startswith("api_org"):
+                raise ValueError("You must use your personal account token for login.")
+            elif not self._is_valid_token(token):
+                if self._is_valid_token(path_or_fileobj):
+                    warnings.warn(
+                        "`upload_file` now takes `token` as an optional positional argument. "
+                        "Be sure to adapt your code!",
+                        FutureWarning,
+                    )
+                    token, path_or_fileobj, path_in_repo, repo_id = (
+                        path_or_fileobj,
+                        path_in_repo,
+                        repo_id,
+                        token,
+                    )
+                else:
+                    raise ValueError("Invalid token passed!")
 
         # Validate path_or_fileobj
         if isinstance(path_or_fileobj, str):
