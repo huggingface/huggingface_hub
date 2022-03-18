@@ -1,0 +1,22 @@
+# Mixins & serialization methods
+
+## Mixins
+
+The `huggingface_hub` library offers a range of mixins that can be used as a parent class for your
+objects, in order to provide simple uploading and downloading functions.
+
+[[autodoc]] ModelHubMixin
+
+[[autodoc]] PyTorchModelHubMixin
+
+[[autodoc]] KerasModelHubMixin
+
+## Serialization methods
+
+Alongside mixins, `huggingface_hub` offers some simple serialization and deserialization methods.
+
+[[autodoc]] from_pretrained_keras
+
+[[autodoc]] push_to_hub_keras
+
+[[autodoc]] save_pretrained_keras

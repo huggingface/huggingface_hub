@@ -1,0 +1,48 @@
+# Controlling the logging of `huggingface_hub`
+
+The `huggingface_hub` package exposes a `logging` utility to control the logging level of the package itself.
+You can import it as such:
+
+```py
+from huggingface_hub import logging
+```
+
+Then, you may define the verbosity in order to update the amount of logs you'll see:
+
+```python
+from huggingface_hub import logging
+
+logging.set_verbosity_error()
+logging.set_verbosity_warning()
+logging.set_verbosity_info()
+logging.set_verbosity_debug()
+
+logging.set_verbosity(...)
+```
+
+The levels should be understood as follows:
+
+- `error`: this will only show critical logs about usage which may result in an error or unexpected behavior.
+- `warning`: this will show logs which aren't critical, about usage which may result in unintended behavior.
+Additionally, important informative logs may be shown.
+- `info`: this will show most logs, including some verbose logging regarding what is happening under the hood.
+If something is behaving in an unexpected manner, we recommend switching the verbosity level to this in order
+to get more information.
+- `debug`: this shows all logs, including some internal logs which may be used to track exactly what's happening
+under the hood.
+
+[[autodoc]] logging.get_verbosity
+[[autodoc]] logging.set_verbosity
+[[autodoc]] logging.set_verbosity_info
+[[autodoc]] logging.set_verbosity_debug
+[[autodoc]] logging.set_verbosity_warning
+[[autodoc]] logging.set_verbosity_error
+[[autodoc]] logging.disable_propagation
+[[autodoc]] logging.enable_propagation
+
+# Repo-specific helper methods
+
+The methods exposed below are relevant when modifying modules from the `huggingface_hub` library itself.
+Using these shouldn't be necessary if you use `huggingface_hub` and you don't modify them.
+
+[[autodoc]] logging.get_logger
