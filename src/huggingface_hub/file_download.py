@@ -119,29 +119,35 @@ def hf_hub_url(
     are more than a few MBs.
 
     Args:
-        repo_id (``str``):
+        repo_id (`str`):
             A namespace (user or an organization) name and a repo name
-            seperated by a ``/``.
-        filename (``str``):
+            seperated by a `/`.
+        filename (`str`):
             The name of the file in the repo.
-        subfolder (``str``, `optional`):
+        subfolder (`str`, *optional*):
             An optional value corresponding to a folder inside the repo.
-        repo_type (``str``, `optional`):
+        repo_type (`str`, *optional*):
             Set to :obj:`"dataset"` or :obj:`"space"` if uploading to a dataset
             or space, :obj:`None` or :obj:`"model"` if uploading to a model.
             Default is :obj:`None`.
-        revision (``str``, `optional`):
+        revision (`str`, *optional*):
             An optional Git revision id which can be a branch name, a tag, or a
             commit hash.
 
     Example:
-        >>> from huggingface_hub import hf_hub_url
-        >>> hf_hub_url(
-        ...    repo_id="julien-c/EsperBERTo-small", filename="pytorch_model.bin"
-        ... )
-        'https://huggingface.co/julien-c/EsperBERTo-small/resolve/main/pytorch_model.bin'
+
+    ```python
+    >>> from huggingface_hub import hf_hub_url
+    >>> hf_hub_url(
+    ...    repo_id="julien-c/EsperBERTo-small", filename="pytorch_model.bin"
+    ... )
+    'https://huggingface.co/julien-c/EsperBERTo-small/resolve/main/pytorch_model.bin'
+    ```
+
+    <Tip>
 
     Notes:
+
         Cloudfront is replicated over the globe so downloads are way faster for
         the end user (and it also lowers our bandwidth costs).
 
@@ -157,8 +163,11 @@ def hf_hub_url(
         specific version of a resource [1]_. An object's ETag is: its git-sha1
         if stored in git, or its sha256 if stored in git-lfs.
 
+    </Tip>
+
     References:
-        .. [1] https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/ETag
+
+    -  [1] https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/ETag
     """
     if subfolder is not None:
         filename = f"{subfolder}/{filename}"
@@ -186,9 +195,9 @@ def url_to_filename(url: str, etag: Optional[str] = None) -> str:
     https://github.com/tensorflow/tensorflow/blob/00fad90125b18b80fe054de1055770cfb8fe4ba3/tensorflow/python/keras/engine/network.py#L1380)
 
     Args:
-        url (``str``):
+        url (`str`):
             The address to the file.
-        etag (``str``, `optional`):
+        etag (`str`, *optional*):
             The ETag of the file.
 
     Returns:
@@ -209,7 +218,7 @@ def url_to_filename(url: str, etag: Optional[str] = None) -> str:
 
 def filename_to_url(filename, cache_dir=None) -> Tuple[str, str]:
     """
-    Return the url and etag (which may be ``None``) stored for `filename`. Raise ``EnvironmentError`` if `filename` or
+    Return the url and etag (which may be `None`) stored for `filename`. Raise `EnvironmentError` if `filename` or
     its stored metadata do not exist.
     """
     if cache_dir is None:
@@ -241,15 +250,15 @@ def http_user_agent(
     """Formats a user-agent string with basic info about a request.
 
     Args:
-        library_name (``str``, `optional`):
+        library_name (`str`, *optional*):
             The name of the library to which the object corresponds.
-        library_version (``str``, `optional`):
+        library_version (`str`, *optional*):
             The version of the library.
-        user_agent (``str``, ``dict``, `optional`):
+        user_agent (`str`, `dict`, *optional*):
             The user agent info in the form of a dictionary or a single string.
 
     Returns:
-        The formated user-agent string.
+        The formatted user-agent string.
     """
     if library_name is not None:
         ua = f"{library_name}/{library_version}"
@@ -291,29 +300,28 @@ def _request_with_retry(
     timeout: float = 10.0,
     **params,
 ) -> requests.Response:
-    """Wrapper around requests to retry in case it fails with a ``ConnectTimeout`` \
-        , with exponential backoff.
+    """Wrapper around requests to retry in case it fails with a `ConnectTimeout`, with exponential backoff.
 
     Note that if the environment variable HF_HUB_OFFLINE is set to 1, then a
-    ``OfflineModeIsEnabled`` error is raised.
+    `OfflineModeIsEnabled` error is raised.
 
     Args:
-        method (``str``):
+        method (`str`):
             HTTP method, such as 'GET' or 'HEAD'.
-        url (``str``):
-            The URL of the ressource to fetch.
-        max_retries (``int``, `optional`, defaults to ``0``):
+        url (`str`):
+            The URL of the resource to fetch.
+        max_retries (`int`, *optional*, defaults to `0`):
             Maximum number of retries, defaults to 0 (no retries).
-        base_wait_time (``float``, `optional`, defaults to ``0.5``):
+        base_wait_time (`float`, *optional*, defaults to `0.5`):
             Duration (in seconds) to wait before retrying the first time. Wait
             time between retries then grows exponentially, capped by
-            ``max_wait_time``.
-        max_wait_time (``float``, `optional`, defaults to ``2``):
+            `max_wait_time`.
+        max_wait_time (`float`, *optional*, defaults to `2`):
             Maximum amount of time between two retries, in seconds.
-        timeout (``float``, `optional`, defaults to ``10``):
+        timeout (`float`, *optional*, defaults to `10`):
             How many seconds to wait for the server to send data before giving
-            up which is passed to ``requests.request``.
-        **params (``dict``, `optional`):
+            up which is passed to `requests.request`.
+        **params (`dict`, *optional*):
             Params to pass to `requests.request`.
     """
     _raise_if_offline_mode_is_enabled(f"Tried to reach {url}")
@@ -395,58 +403,59 @@ def cached_download(
     use_auth_token: Union[bool, str, None] = None,
     local_files_only: Optional[bool] = False,
 ) -> Optional[str]:  # pragma: no cover
-    """Download from a given URL and cache it if it's not already present in \
-        the local cache.
+    """
+    Download from a given URL and cache it if it's not already present in the local cache.
 
     Given a URL, this function looks for the corresponding file in the local
     cache. If it's not there, download it. Then return the path to the cached
     file.
 
     Args:
-        url (``str``):
+        url (`str`):
             The path to the file to be downloaded.
-        library_name (``str``, `optional`):
+        library_name (`str`, *optional*):
             The name of the library to which the object corresponds.
-        library_version (``str``, `optional`):
+        library_version (`str`, *optional*):
             The version of the library.
-        cache_dir (``str``, ``Path``, `optional`):
+        cache_dir (`str`, `Path`, *optional*):
             Path to the folder where cached files are stored.
-        user_agent (``dict``, ``str``, `optional`):
+        user_agent (`dict`, `str`, *optional*):
             The user-agent info in the form of a dictionary or a string.
-        force_download (``bool``, `optional`, defaults to ``False``):
+        force_download (`bool`, *optional*, defaults to `False`):
             Whether the file should be downloaded even if it already exists in
             the local cache.
-        force_filename (``str``, `optional`):
+        force_filename (`str`, *optional*):
             Use this name instead of a generated file name.
-        proxies (``dict``, `optional`):
+        proxies (`dict`, *optional*):
             Dictionary mapping protocol to the URL of the proxy passed to
-            ``requests.request``.
-        etag_timeout (``float``, `optional` defaults to ``10``):
+            `requests.request`.
+        etag_timeout (`float`, *optional* defaults to `10`):
             When fetching ETag, how many seconds to wait for the server to send
-            data before giving up which is passed to ``requests.request``.
-        resume_download (``bool``, `optional`, defaults to ``False``):
-            If ``True``, resume a previously interrupted download.
-        use_auth_token (``bool``, ``str``, `optional`):
+            data before giving up which is passed to `requests.request`.
+        resume_download (`bool`, *optional*, defaults to `False`):
+            If `True`, resume a previously interrupted download.
+        use_auth_token (`bool`, `str`, *optional*):
             A token to be used for the download.
-                - If ``True``, the token is read from the HuggingFace config
+                - If `True`, the token is read from the HuggingFace config
                   folder.
                 - If a string, it's used as the authentication token.
-        local_files_only (``bool``, `optional`, defaults to ``False``):
-            If ``True``, avoid downloading the file and return the path to the
+        local_files_only (`bool`, *optional*, defaults to `False`):
+            If `True`, avoid downloading the file and return the path to the
             local cached file if it exists.
 
-    Return:
+    Returns:
         Local path (string) of file or if networking is off, last version of
         file cached on disk.
 
-    Raises:
-        - ``EnvironmentError`` if ``use_auth_token=True`` and the token cannot
-            be found.
+    <Tip>
 
-        - ``OSError`` if ETag cannot be determined.
+    Raises the following errors:
 
-        - ``ValueError`` if the file cannot be downloaded and cannot be found
-            locally.
+        - `EnvironmentError` if `use_auth_token=True` and the token cannot be found.
+        - `OSError` if ETag cannot be determined.
+        - `ValueError` if the file cannot be downloaded and cannot be found locally.
+
+    </Tip>
     """
     if cache_dir is None:
         cache_dir = HUGGINGFACE_HUB_CACHE
@@ -641,62 +650,62 @@ def hf_hub_download(
     """Download a given file if it's not already present in the local cache.
 
     Args:
-        repo_id (``str``):
-            A user or an organization name and a repo name seperated by a
-            ``/``.
-        filename (``str``):
+        repo_id (`str`):
+            A user or an organization name and a repo name seperated by a `/`.
+        filename (`str`):
             The name of the file in the repo.
-        subfolder (``str``, `optional`):
+        subfolder (`str`, *optional*):
             An optional value corresponding to a folder inside the model repo.
-        repo_type (``str``, `optional`):
+        repo_type (`str`, *optional*):
             Set to :obj:`"dataset"` or :obj:`"space"` if uploading to a dataset
             or space, :obj:`None` or :obj:`"model"` if uploading to a model.
             Default is :obj:`None`.
-        revision (``str``, `optional`):
+        revision (`str`, *optional*):
             An optional Git revision id which can be a branch name, a tag, or a
             commit hash.
-        library_name (``str``, `optional`):
+        library_name (`str`, *optional*):
             The name of the library to which the object corresponds.
-        library_version (``str``, `optional`):
+        library_version (`str`, *optional*):
             The version of the library.
-        cache_dir (``str``, ``Path``, `optional`):
+        cache_dir (`str`, `Path`, *optional*):
             Path to the folder where cached files are stored.
-        user_agent (``dict``, ``str``, `optional`):
+        user_agent (`dict`, `str`, *optional*):
             The user-agent info in the form of a dictionary or a string.
-        force_download (``bool``, `optional`, defaults to ``False``):
+        force_download (`bool`, *optional*, defaults to `False`):
             Whether the file should be downloaded even if it already exists in
             the local cache.
-        force_filename (``str``, `optional`):
+        force_filename (`str`, *optional*):
             Use this name instead of a generated file name.
-        proxies (``dict``, `optional`):
+        proxies (`dict`, *optional*):
             Dictionary mapping protocol to the URL of the proxy passed to
-            ``requests.request``.
-        etag_timeout (``float``, `optional`, defaults to ``10``):
+            `requests.request`.
+        etag_timeout (`float`, *optional*, defaults to `10`):
             When fetching ETag, how many seconds to wait for the server to send
-            data before giving up which is passed to ``requests.request``.
-        resume_download (``bool``, `optional`, defaults to ``False``):
-            If ``True``, resume a previously interrupted download.
-        use_auth_token (``str``, ``bool``, `optional`):
+            data before giving up which is passed to `requests.request`.
+        resume_download (`bool`, *optional*, defaults to `False`):
+            If `True`, resume a previously interrupted download.
+        use_auth_token (`str`, `bool`, *optional*):
             A token to be used for the download.
-                - If ``True``, the token is read from the HuggingFace config
+                - If `True`, the token is read from the HuggingFace config
                   folder.
                 - If a string, it's used as the authentication token.
-        local_files_only (``bool``, `optional`, defaults to ``False``):
-            If ``True``, avoid downloading the file and return the path to the
+        local_files_only (`bool`, *optional*, defaults to `False`):
+            If `True`, avoid downloading the file and return the path to the
             local cached file if it exists.
 
-    Return:
+    Returns:
         Local path (string) of file or if networking is off, last version of
         file cached on disk.
 
-    Raises:
-        - ``EnvironmentError`` if ``use_auth_token=True`` and the token cannot
-            be found.
+    <Tip>
 
-        - ``OSError`` if ETag cannot be determined.
+    Raises the following errors:
 
-        - ``ValueError`` if the file cannot be downloaded and cannot be found
-            locally.
+    - `EnvironmentError` if `use_auth_token=True` and the token cannot be found.
+    - `OSError` if ETag cannot be determined.
+    - `ValueError` if the file cannot be downloaded and cannot be found locally.
+
+    </Tip>
     """
     url = hf_hub_url(
         repo_id, filename, subfolder=subfolder, repo_type=repo_type, revision=revision

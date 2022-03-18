@@ -83,14 +83,15 @@ def snapshot_download(
     Return:
         Local folder path (string) of repo snapshot
 
-    Raises:
-        - ``EnvironmentError`` if ``use_auth_token=True`` and the token cannot
-            be found.
+    <Tip>
 
-        - ``OSError`` if ETag cannot be determined.
+    Raises the following errors:
 
-        - ``ValueError`` if the file cannot be downloaded and cannot be found
-            locally.
+        - `EnvironmentError` if `use_auth_token=True` and the token cannot be found.
+        - `OSError` if ETag cannot be determined.
+        - `ValueError` if the file cannot be downloaded and cannot be found locally.
+
+    </Tip>
     """
     # Note: at some point maybe this format of storage should actually replace
     # the flat storage structure we've used so far (initially from allennlp

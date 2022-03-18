@@ -373,36 +373,3 @@ API.
 inference = InferenceApi("bert-base-uncased", task="feature-extraction", token=API_TOKEN)
 ```
 
-## Controlling the logging of `huggingface_hub`
-
-The `huggingface_hub` package exposes a `logging` utility to control the logging level of the package itself.
-You can import it as such:
-
-```py
-from huggingface_hub import logging
-```
-
-Then, you may define the verbosity in order to update the amount of logs you'll see:
-
-```python
-from huggingface_hub import logging
-
-logging.set_verbosity_error()
-logging.set_verbosity_warning()
-logging.set_verbosity_info()
-logging.set_verbosity_debug()
-
-logging.set_verbosity(...)
-```
-
-The levels should be understood as follows:
-
-- `error`: this will only show critical logs about usage which may result in an error or unexpected behavior.
-- `warning`: this will show logs which aren't critical, about usage which may result in unintended behavior.
-  Additionally, important informative logs may be shown.
-- `info`: this will show most logs, including some verbose logging regarding what is happening under the hood.
-  If something is behaving in an unexpected manner, we recommend switching the verbosity level to this in order
-  to get more information.
-- `debug`: this shows all logs, including some internal logs which may be used to track exactly what's happening
-  under the hood.
-

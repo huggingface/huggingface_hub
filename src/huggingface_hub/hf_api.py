@@ -84,8 +84,9 @@ def repo_type_and_id_from_hf_id(hf_id: str):
     Returns the repo type and ID from a huggingface.co URL linking to a repository
 
     Args:
-        hf_id (``str``):
+        hf_id (`str`):
             An URL or ID of a repository on the HF hub. Accepted values are:
+
             - https://huggingface.co/<repo_type>/<namespace>/<repo_id>
             - https://huggingface.co/<namespace>/<repo_id>
             - <repo_type>/<namespace>/<repo_id>
@@ -302,10 +303,14 @@ class ModelSearchArguments(AttributeDictionary):
     A nested namespace object holding all possible values for properties of
     models currently hosted in the Hub with tab-completion.
     If a value starts with a number, it will only exist in the dictionary
+
     Example:
-        >>> args = ModelSearchArguments()
-        >>> args.author_or_organization.huggingface
-        >>> args.language.en
+
+    ```python
+    >>> args = ModelSearchArguments()
+    >>> args.author_or_organization.huggingface
+    >>> args.language.en
+    ```
     """
 
     def __init__(self):
@@ -336,10 +341,14 @@ class DatasetSearchArguments(AttributeDictionary):
     A nested namespace object holding all possible values for properties of
     datasets currently hosted in the Hub with tab-completion.
     If a value starts with a number, it will only exist in the dictionary
+
     Example:
-        >>> args = DatasetSearchArguments()
-        >>> args.author_or_organization.huggingface
-        >>> args.language.en
+
+    ```python
+    >>> args = DatasetSearchArguments()
+    >>> args.author_or_organization.huggingface
+    >>> args.language.en
+    ```
     """
 
     def __init__(self):
@@ -447,9 +456,22 @@ class HfApi:
         """
         Call HF API to sign in a user and get a token if credentials are valid.
 
-        Outputs: token if credentials are valid
+        Args:
+            username (`str`):
+                The username of the account with which to login.
+            password (`str`):
+                The password of the account with which to login.
 
-        Throws: requests.exceptions.HTTPError if credentials are invalid
+        Returns:
+            `str`:  token if credentials are valid
+
+        <Tip>
+
+        Raises the following errors:
+
+        - `requests.exceptions.HTTPError` if credentials are invalid
+
+        </Tip>
         """
         warnings.warn(
             "HfApi.login: This method is deprecated in favor of `set_access_token` and will be removed in v0.7.",
@@ -468,7 +490,7 @@ class HfApi:
         Call HF API to know "whoami".
 
         Args:
-            token (``str``, `optional`):
+            token (`str`, *optional*):
                 Hugging Face token. Will default to the locally saved token if not provided.
         """
         if token is None:
@@ -492,6 +514,13 @@ class HfApi:
     def _is_valid_token(self, token: str):
         """
         Determines whether `token` is a valid token or not.
+
+        Args:
+            token (`str`):
+                The token to check for validity.
+
+        Returns:
+            `bool`: `True` if valid, `False` otherwise.
         """
         try:
             self.whoami(token=token)
@@ -502,6 +531,16 @@ class HfApi:
     def _validate_or_retrieve_token(self, token: Optional[Union[str, bool]] = None):
         """
         Either retrieves stored token or validates passed token.
+
+        Args:
+            token (`str`, *optional*):
+                The token to check for validity
+
+        Returns:
+            `str`: The valid token
+
+        Raises:
+            `ValueError`: if the token is invalid.
         """
         if token is None or token is True:
             token = HfFolder.get_token()
@@ -519,7 +558,7 @@ class HfApi:
         Call HF API to log out.
 
         Args:
-            token (``str``, `optional`):
+            token (`str`, *optional*):
                 Hugging Face token. Will default to the locally saved token if not provided.
         """
         warnings.warn(
@@ -542,10 +581,20 @@ class HfApi:
 
     @staticmethod
     def set_access_token(access_token: str):
+        """
+        Saves the passed access token so git can correctly authenticate the user.
+
+        Args:
+            access_token (`str`):
+                The access token to save.
+        """
         write_to_credential_store(USERNAME_PLACEHOLDER, access_token)
 
     @staticmethod
     def unset_access_token():
+        """
+        Resets the user's access token.
+        """
         erase_from_credential_store(USERNAME_PLACEHOLDER)
 
     def get_model_tags(self) -> ModelTags:
@@ -557,7 +606,9 @@ class HfApi:
         return ModelTags(d)
 
     def get_dataset_tags(self) -> DatasetTags:
-        "Gets all valid dataset tags as a nested namespace object"
+        """
+        Gets all valid dataset tags as a nested namespace object.
+        """
         path = f"{self.endpoint}/api/datasets-tags-by-type"
         r = requests.get(path)
         r.raise_for_status()
@@ -582,89 +633,97 @@ class HfApi:
         Get the public list of all the models on huggingface.co
 
         Args:
-            filter (:class:`ModelFilter` or :obj:`str` or :class:`Iterable`, `optional`):
+            filter (:class:`ModelFilter` or :obj:`str` or :class:`Iterable`, *optional*):
                 A string or `ModelFilter` which can be used to identify models on the hub.
                 Example usage:
 
-                    >>> from huggingface_hub import HfApi
-                    >>> api = HfApi()
+                ```python
+                >>> from huggingface_hub import HfApi
+                >>> api = HfApi()
 
-                    >>> # List all models
-                    >>> api.list_models()
+                >>> # List all models
+                >>> api.list_models()
 
-                    >>> # Get all valid search arguments
-                    >>> args = ModelSearchArguments()
+                >>> # Get all valid search arguments
+                >>> args = ModelSearchArguments()
 
-                    >>> # List only the text classification models
-                    >>> api.list_models(filter="text-classification")
-                    >>> # Using the `ModelFilter`
-                    >>> filt = ModelFilter(task="text-classification")
-                    >>> # With `ModelSearchArguments`
-                    >>> filt = ModelFilter(task=args.pipeline_tags.TextClassification)
-                    >>> api.list_models(filter=filt)
+                >>> # List only the text classification models
+                >>> api.list_models(filter="text-classification")
+                >>> # Using the `ModelFilter`
+                >>> filt = ModelFilter(task="text-classification")
+                >>> # With `ModelSearchArguments`
+                >>> filt = ModelFilter(task=args.pipeline_tags.TextClassification)
+                >>> api.list_models(filter=filt)
 
-                    >>> # Using `ModelFilter` and `ModelSearchArguments` to find text classification in both PyTorch and TensorFlow
-                    >>> filt = ModelFilter(task=args.pipeline_tags.TextClassification, library=[args.library.PyTorch, args.library.TensorFlow])
-                    >>> api.list_models(filter=filt)
+                >>> # Using `ModelFilter` and `ModelSearchArguments` to find text classification in both PyTorch and TensorFlow
+                >>> filt = ModelFilter(task=args.pipeline_tags.TextClassification, library=[args.library.PyTorch, args.library.TensorFlow])
+                >>> api.list_models(filter=filt)
 
-                    >>> # List only models from the AllenNLP library
-                    >>> api.list_models(filter="allennlp")
-                    >>> # Using `ModelFilter` and `ModelSearchArguments`
-                    >>> filt = ModelFilter(library=args.library.allennlp)
+                >>> # List only models from the AllenNLP library
+                >>> api.list_models(filter="allennlp")
+                >>> # Using `ModelFilter` and `ModelSearchArguments`
+                >>> filt = ModelFilter(library=args.library.allennlp)
+                ```
 
-            author (:obj:`str`, `optional`):
+            author (:obj:`str`, *optional*):
                 A string which identify the author (user or organization) of the returned models
                 Example usage:
 
-                    >>> from huggingface_hub import HfApi
-                    >>> api = HfApi()
+                ```python
+                >>> from huggingface_hub import HfApi
+                >>> api = HfApi()
 
-                    >>> # List all models from google
-                    >>> api.list_models(author="google")
+                >>> # List all models from google
+                >>> api.list_models(author="google")
 
-                    >>> # List only the text classification models from google
-                    >>> api.list_models(filter="text-classification", author="google")
+                >>> # List only the text classification models from google
+                >>> api.list_models(filter="text-classification", author="google")
+                ```
 
-            search (:obj:`str`, `optional`):
+            search (:obj:`str`, *optional*):
                 A string that will be contained in the returned models
                 Example usage:
 
-                    >>> from huggingface_hub import HfApi
-                    >>> api = HfApi()
+                ```python
+                >>> from huggingface_hub import HfApi
+                >>> api = HfApi()
 
-                    >>> # List all models with "bert" in their name
-                    >>> api.list_models(search="bert")
+                >>> # List all models with "bert" in their name
+                >>> api.list_models(search="bert")
 
-                    >>> #List all models with "bert" in their name made by google
-                    >>> api.list_models(search="bert", author="google")
+                >>> #List all models with "bert" in their name made by google
+                >>> api.list_models(search="bert", author="google")
+                ```
 
-            emissions_thresholds (:obj:`Tuple`, `optional`):
+            emissions_thresholds (:obj:`Tuple`, *optional*):
                 A tuple of two ints or floats representing a minimum and maximum carbon footprint
                 to filter the resulting models with in grams.
                 Example usage:
 
-                    >>> from huggingface_hub import HfApi
-                    >>> api = HfApi()
+                ```python
+                >>> from huggingface_hub import HfApi
+                >>> api = HfApi()
 
-                    >>> # List all models that emitted between 100 to 200 grams of co2
-                    >>> api.list_models(emissions_thresholds=(100,200), cardData=True)
-            sort (:obj:`Literal["lastModified"]` or :obj:`str`, `optional`):
+                >>> # List all models that emitted between 100 to 200 grams of co2
+                >>> api.list_models(emissions_thresholds=(100,200), cardData=True)
+                ```
+            sort (:obj:`Literal["lastModified"]` or :obj:`str`, *optional*):
                 The key with which to sort the resulting models. Possible values are the properties of the `ModelInfo`
                 class.
-            direction (:obj:`Literal[-1]` or :obj:`int`, `optional`):
+            direction (:obj:`Literal[-1]` or :obj:`int`, *optional*):
                 Direction in which to sort. The value `-1` sorts by descending order while all other values
                 sort by ascending order.
-            limit (:obj:`int`, `optional`):
+            limit (:obj:`int`, *optional*):
                 The limit on the number of models fetched. Leaving this option to `None` fetches all models.
-            full (:obj:`bool`, `optional`):
+            full (:obj:`bool`, *optional*):
                 Whether to fetch all model data, including the `lastModified`, the `sha`, the files and the `tags`.
                 This is set to `True` by default when using a filter.
-            cardData (:obj:`bool`, `optional`):
+            cardData (:obj:`bool`, *optional*):
                 Whether to grab the metadata for the model as well. Can contain useful information such as carbon emissions,
                 metrics, and datasets trained on.
-            fetch_config (:obj:`bool`, `optional`):
+            fetch_config (:obj:`bool`, *optional*):
                 Whether to fetch the model configs as well. This is not included in `full` due to its size.
-            use_auth_token (:obj:`bool` or :obj:`str`, `optional`):
+            use_auth_token (:obj:`bool` or :obj:`str`, *optional*):
                 Whether to use the `auth_token` provided from the `huggingface_hub` cli. If not logged in,
                 a valid `auth_token` can be passed in as a string.
         """
@@ -787,75 +846,81 @@ class HfApi:
         Get the public list of all the datasets on huggingface.co
 
         Args:
-            filter (:class:`DatasetFilter` or :obj:`str` or :class:`Iterable`, `optional`):
+            filter (:class:`DatasetFilter` or :obj:`str` or :class:`Iterable`, *optional*):
                 A string or `DatasetFilter` which can be used to identify datasets on the hub.
                 Example usage:
 
 
-                    >>> from huggingface_hub import HfApi
-                    >>> api = HfApi()
+                ```python
+                >>> from huggingface_hub import HfApi
+                >>> api = HfApi()
 
-                    >>> # List all datasets
-                    >>> api.list_datasets()
+                >>> # List all datasets
+                >>> api.list_datasets()
 
-                    >>> # Get all valid search arguments
-                    >>> args = DatasetSearchArguments()
+                >>> # Get all valid search arguments
+                >>> args = DatasetSearchArguments()
 
-                    >>> # List only the text classification datasets
-                    >>> api.list_datasets(filter="task_categories:text-classification")
-                    >>> # Using the `DatasetFilter`
-                    >>> filt = DatasetFilter(task_categories="text-classification")
-                    >>> # With `DatasetSearchArguments`
-                    >>> filt = DatasetFilter(task=args.task_categories.text_classification)
-                    >>> api.list_models(filter=filt)
+                >>> # List only the text classification datasets
+                >>> api.list_datasets(filter="task_categories:text-classification")
+                >>> # Using the `DatasetFilter`
+                >>> filt = DatasetFilter(task_categories="text-classification")
+                >>> # With `DatasetSearchArguments`
+                >>> filt = DatasetFilter(task=args.task_categories.text_classification)
+                >>> api.list_models(filter=filt)
 
-                    >>> # List only the datasets in russian for language modeling
-                    >>> api.list_datasets(filter=("languages:ru", "task_ids:language-modeling"))
-                    >>> # Using the `DatasetFilter`
-                    >>> filt = DatasetFilter(languages="ru", task_ids="language-modeling")
-                    >>> # With `DatasetSearchArguments`
-                    >>> filt = DatasetFilter(languages=args.languages.ru, task_ids=args.task_ids.language_modeling)
-                    >>> api.list_datasets(filter=filt)
+                >>> # List only the datasets in russian for language modeling
+                >>> api.list_datasets(filter=("languages:ru", "task_ids:language-modeling"))
+                >>> # Using the `DatasetFilter`
+                >>> filt = DatasetFilter(languages="ru", task_ids="language-modeling")
+                >>> # With `DatasetSearchArguments`
+                >>> filt = DatasetFilter(languages=args.languages.ru, task_ids=args.task_ids.language_modeling)
+                >>> api.list_datasets(filter=filt)
+                ```
 
-            author (:obj:`str`, `optional`):
+            author (:obj:`str`, *optional*):
                 A string which identify the author of the returned models
                 Example usage:
 
-                    >>> from huggingface_hub import HfApi
-                    >>> api = HfApi()
+                ```python
+                >>> from huggingface_hub import HfApi
+                >>> api = HfApi()
 
-                    >>> # List all datasets from google
-                    >>> api.list_datasets(author="google")
+                >>> # List all datasets from google
+                >>> api.list_datasets(author="google")
 
-                    >>> # List only the text classification datasets from google
-                    >>> api.list_datasets(filter="text-classification", author="google")
+                >>> # List only the text classification datasets from google
+                >>> api.list_datasets(filter="text-classification", author="google")
+                ```
 
-            search (:obj:`str`, `optional`):
+            search (:obj:`str`, *optional*):
                 A string that will be contained in the returned models
                 Example usage:
 
-                    >>> from huggingface_hub import HfApi
-                    >>> api = HfApi()
+                ```python
+                >>> from huggingface_hub import HfApi
+                >>> api = HfApi()
 
-                    >>> # List all datasets with "text" in their name
-                    >>> api.list_datasets(search="text")
+                >>> # List all datasets with "text" in their name
+                >>> api.list_datasets(search="text")
 
-                    >>> #List all datasets with "text" in their name made by google
-                    >>> api.list_datasets(search="text", author="google")
+                >>> #List all datasets with "text" in their name made by google
+                >>> api.list_datasets(search="text", author="google")
+                ```
 
-            sort (:obj:`Literal["lastModified"]` or :obj:`str`, `optional`):
+            sort (:obj:`Literal["lastModified"]` or :obj:`str`, *optional*):
                 The key with which to sort the resulting datasets. Possible values are the properties of the `DatasetInfo`
                 class.
-            direction (:obj:`Literal[-1]` or :obj:`int`, `optional`):
+            direction (:obj:`Literal[-1]` or :obj:`int`, *optional*):
                 Direction in which to sort. The value `-1` sorts by descending order while all other values
                 sort by ascending order.
-            limit (:obj:`int`, `optional`):
+            limit (:obj:`int`, *optional*):
                 The limit on the number of datasets fetched. Leaving this option to `None` fetches all datasets.
-            cardData (:obj:`bool`, `optional`):
+            cardData (:obj:`bool`, *optional*):
                 Whether to grab the metadata for the dataset as well. Can contain useful information such as the PapersWithCode ID.
-            full (:obj:`bool`, `optional`):
+            full (:obj:`bool`, *optional*):
                 Whether to fetch all dataset data, including the `lastModified` and the `cardData`.
-            use_auth_token (:obj:`bool` or :obj:`str`, `optional`):
+            use_auth_token (:obj:`bool` or :obj:`str`, *optional*):
                 Whether to use the `auth_token` provided from the `huggingface_hub` cli. If not logged in,
                 a valid `auth_token` can be passed in as a string.
         """
@@ -1030,39 +1095,39 @@ class HfApi:
         organization: Optional[str] = None,
         private: Optional[bool] = None,
         repo_type: Optional[str] = None,
-        exist_ok=False,
+        exist_ok: Optional[bool] = False,
         space_sdk: Optional[str] = None,
-        name: str = None,
+        name: Optional[str] = None,
     ) -> str:
         """Create an empty repo on the HuggingFace Hub.
 
         Args:
-            repo_id: A namespace (user or an organization) and a repo name
-                seperated by a ``/``.
+            repo_id (`str`):
+                A namespace (user or an organization) and a repo name seperated by a `/`.
 
-                .. versionadded: 0.4.0
+                <Tip>
+                Version added: 0.4.0
+                </Tip>
 
-            token: An authentication token [1]_.
-
-            private: Whether the model repo should be private.
-
-            repo_type: Set to :obj:`"dataset"` or :obj:`"space"` if uploading
-                to a dataset or space, :obj:`None` or :obj:`"model"` if
-                uploading to a model. Default is :obj:`None`.
-
-            exist_ok: If ``True``, do not raise an error if repo already
-                exists.
-
-            space_sdk: Choice of SDK to use if repo_type is "space". Can be
-                "streamlit", "gradio", or "static".
+            token (`str`, *optional*):
+                An authentication token [1]_.
+            private (`bool`, *optional*):
+                Whether the model repo should be private.
+            repo_type (`str`, *optional*):
+                Set to `"dataset"` or `"space"` if uploading
+                to a dataset or space, `None` or `"model"` if
+                uploading to a model. Default is `None`.
+            exist_ok (`bool`, *optional*, defaults to `False`):
+                If `True`, do not raise an error if repo already exists.
+            space_sdk (`str`, *optional*):
+                Choice of SDK to use if repo_type is "space". Can be "streamlit", "gradio", or "static".
 
         Returns:
-            URL to the newly created repo.
+            `str`: URL to the newly created repo.
 
         References:
-            .. [1] https://huggingface.co/settings/tokens
 
-        Reference
+        - [1] https://huggingface.co/settings/tokens
         """
         name, organization = _validate_repo_id_deprecation(repo_id, name, organization)
 
@@ -1161,27 +1226,26 @@ class HfApi:
         repo_type: Optional[str] = None,
         name: str = None,
     ):
-        """Delete a repo from the HuggingFace Hub.
-
-        CAUTION(this is irreversible).
+        """
+        Delete a repo from the HuggingFace Hub. CAUTION: this is irreversible.
 
         Args:
-            repo_id: A namespace (user or an organization) and a repo name
-                seperated by a ``/``.
+            repo_id (`str):
+                A namespace (user or an organization) and a repo name seperated by a `/`.
 
-                .. versionadded: 0.4.0
-
-            token: An authentication token [1]_.
-
-            repo_type: Set to :obj:`"dataset"` or :obj:`"space"` if uploading
-                to a dataset or space, :obj:`None` or :obj:`"model"` if
-                uploading to a model. Default is :obj:`None`.
-
-        Returns:
-            None
+                <Tip>
+               Version added: 0.4.0
+                </Tip>
+            token (`str`, *optional*):
+                An authentication token [1]_.
+            repo_type (`str`, *optional*):
+                Set to `"dataset"` or `"space"` if uploading
+                to a dataset or space, `None` or `"model"` if
+                uploading to a model.
 
         References:
-            .. [1] https://huggingface.co/settings/tokens
+
+        - [1] https://huggingface.co/settings/tokens
         """
         name, organization = _validate_repo_id_deprecation(repo_id, name, organization)
 
@@ -1252,9 +1316,11 @@ class HfApi:
 
         Args:
             repo_id: A namespace (user or an organization) and a repo name
-                seperated by a ``/``.
+                seperated by a `/`.
 
-                .. versionadded: 0.4.0
+                <Tip>
+                 Version added: 0.4.0
+                 </Tip>
 
             private: Whether the model repo should be private.
 
@@ -1268,7 +1334,8 @@ class HfApi:
             The HTTP response in json.
 
         References:
-            .. [1] https://huggingface.co/settings/tokens
+
+        - [1] https://huggingface.co/settings/tokens
         """
         if repo_type not in REPO_TYPES:
             raise ValueError("Invalid repo type")
@@ -1366,58 +1433,61 @@ class HfApi:
         identical_ok: bool = True,
     ) -> str:
         """
-                Upload a local file (up to 5GB) to the given repo. The upload is done through a HTTP post request, and
-                doesn't require git or git-lfs to be installed.
-        upload_fileth_or_fileobj (``str``, ``bytes``, or ``IO``):
-                        Path to a file on the local machine or binary data stream / fileobj / buffer.
+        Upload a local file (up to 5GB) to the given repo. The upload is done through a HTTP post request, and
+        doesn't require git or git-lfs to be installed.
 
-                    path_in_repo (``str``):
-                        Relative filepath in the repo, for example: :obj:`"checkpoints/1fec34a/weights.bin"`
+        Args:
+            upload_fileth_or_fileobj (`str`, `bytes`, or `IO`):
+                Path to a file on the local machine or binary data stream / fileobj / buffer.
 
-                    repo_id (``str``):
-                        The repository to which the file will be uploaded, for example: :obj:`"username/custom_transformers"`
+            path_in_repo (`str`):
+                Relative filepath in the repo, for example: :obj:`"checkpoints/1fec34a/weights.bin"`
 
-                    token (``str``):
-                        Authentication token, obtained with :function:`HfApi.login` method. Will default to the stored token.
+            repo_id (`str`):
+                The repository to which the file will be uploaded, for example: :obj:`"username/custom_transformers"`
 
-                    repo_type (``str``, Optional):
-                        Set to :obj:`"dataset"` or :obj:`"space"` if uploading to a dataset or space, :obj:`None` or :obj:`"model"` if uploading to a model. Default is :obj:`None`.
+            token (`str`):
+                Authentication token, obtained with :function:`HfApi.login` method. Will default to the stored token.
 
-                    revision (``str``, Optional):
-                        The git revision to commit from. Defaults to the :obj:`"main"` branch.
+            repo_type (`str`, Optional):
+                Set to :obj:`"dataset"` or :obj:`"space"` if uploading to a dataset or space, :obj:`None` or :obj:`"model"` if uploading to a model. Default is :obj:`None`.
 
-                    identical_ok (``bool``, defaults to ``True``):
-                        When set to false, will raise an HTTPError when the file you're trying to upload already exists on the hub
-                        and its content did not change.
+            revision (`str`, Optional):
+                The git revision to commit from. Defaults to the :obj:`"main"` branch.
 
-                Returns:
-                    ``str``: The URL to visualize the uploaded file on the hub
+            identical_ok (`bool`, defaults to `True`):
+                When set to false, will raise an HTTPError when the file you're trying to upload already exists on the hub
+                and its content did not change.
 
-                Raises:
-                    :class:`ValueError`: if some parameter value is invalid
+        Returns:
+            `str`: The URL to visualize the uploaded file on the hub
 
-                    :class:`requests.HTTPError`: if the HuggingFace API returned an error
+        Raises:
+            :class:`ValueError`: if some parameter value is invalid
 
-                Examples:
-                    >>> with open("./local/filepath", "rb") as fobj:
-                    ...     upload_file(
-                    ...         path_or_fileobj=fileobj,
-                    ...         path_in_repo="remote/file/path.h5",
-                    ...         repo_id="username/my-dataset",
-                    ...         repo_type="datasets",
-                    ...         token="my_token",
-                    ...    )
-                    "https://huggingface.co/datasets/username/my-dataset/blob/main/remote/file/path.h5"
+            :class:`requests.HTTPError`: if the HuggingFace API returned an error
 
-                    >>> upload_file(
-                    ...     path_or_fileobj=".\\\\local\\\\file\\\\path",
-                    ...     path_in_repo="remote/file/path.h5",
-                    ...     repo_id="username/my-model",
-                    ...     token="my_token",
-                    ... )
-                    "https://huggingface.co/username/my-model/blob/main/remote/file/path.h5"
+        Examples:
 
+        ```python
+        >>> with open("./local/filepath", "rb") as fobj:
+        ...     upload_file(
+        ...         path_or_fileobj=fileobj,
+        ...         path_in_repo="remote/file/path.h5",
+        ...         repo_id="username/my-dataset",
+        ...         repo_type="datasets",
+        ...         token="my_token",
+        ...    )
+        "https://huggingface.co/datasets/username/my-dataset/blob/main/remote/file/path.h5"
 
+        >>> upload_file(
+        ...     path_or_fileobj=".\\\\local\\\\file\\\\path",
+        ...     path_in_repo="remote/file/path.h5",
+        ...     repo_id="username/my-model",
+        ...     token="my_token",
+        ... )
+        "https://huggingface.co/username/my-model/blob/main/remote/file/path.h5"
+        ```
         """
         if repo_type not in REPO_TYPES:
             raise ValueError(f"Invalid repo type, must be one of {REPO_TYPES}")
@@ -1493,20 +1563,20 @@ class HfApi:
         """
         Deletes a file in the given repo.
 
-        Params:
-            path_in_repo (``str``):
+        Args:
+            path_in_repo (`str`):
                 Relative filepath in the repo, for example: :obj:`"checkpoints/1fec34a/weights.bin"`
 
-            repo_id (``str``):
+            repo_id (`str`):
                 The repository from which the file will be deleted, for example: :obj:`"username/custom_transformers"`
 
-            token (``str``):
+            token (`str`):
                 Authentication token, obtained with :function:`HfApi.login` method. Will default to the stored token.
 
-            repo_type (``str``, Optional):
+            repo_type (`str`, Optional):
                 Set to :obj:`"dataset"` or :obj:`"space"` if the file is in a dataset or space, :obj:`None` or :obj:`"model"` if in a model. Default is :obj:`None`.
 
-            revision (``str``, Optional):
+            revision (`str`, Optional):
                 The git revision to commit from. Defaults to the :obj:`"main"` branch.
 
         Raises:
@@ -1543,16 +1613,16 @@ class HfApi:
         Returns the repository name for a given model ID and optional organization.
 
         Args:
-            model_id (``str``):
+            model_id (`str`):
                 The name of the model.
-            organization (``str``, `optional`):
+            organization (`str`, *optional*):
                 If passed, the repository name will be in the organization namespace instead of the
                 user namespace.
-            token (``str``, `optional`):
+            token (`str`, *optional*):
                 The Hugging Face authentication token
 
         Returns:
-            ``str``: The repository name in the user's namespace ({username}/{model_id}) if no
+            `str`: The repository name in the user's namespace ({username}/{model_id}) if no
             organization is passed, and under the organization namespace ({organization}/{model_id})
             otherwise.
         """
