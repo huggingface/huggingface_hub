@@ -1251,6 +1251,7 @@ class HfApiMiscTest(unittest.TestCase):
 
 
 def test_delete_repo_error_message():
+    # test for #751
     api = HfApi(endpoint=ENDPOINT_STAGING)
     token = api.login(username=USER, password=PASS)
     with pytest.raises(HTTPError, match="Conflict"):
