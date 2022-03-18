@@ -1217,12 +1217,12 @@ class HfApi:
             and organization != checked_name[1]
         ):
             raise ValueError(
-                f"Passed `organization` and `name` organization are not the same"
-                " ({organization}, {checked_name[1]})."
+                "Passed `organization` and `name` organization are not the same"
+                f" ({organization}, {checked_name[1]})."
                 "\nPlease either include the organization in only `name` or the"
                 " `organization` parameter, such as "
-                "`api.create_repo({checked_name[0]}, organization={organization})` "
-                "or `api.create_repo({checked_name[1]}/{checked_name[2]})`"
+                f"`api.create_repo({checked_name[0]}, organization={organization})` "
+                f"or `api.create_repo({checked_name[1]}/{checked_name[2]})`"
             )
 
         repo_type = repo_type or checked_name[0]
