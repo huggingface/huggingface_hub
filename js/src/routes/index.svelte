@@ -1,4 +1,4 @@
-<script>
+<script lang="ts">
 	import InferenceWidget from "../lib/components/InferenceWidget/InferenceWidget.svelte";
 	import ModeSwitcher from "../lib/components/DemoThemeSwitcher/DemoThemeSwitcher.svelte";
 	import type { ModelData } from "../lib/interfaces/Types";

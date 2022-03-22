@@ -1,5 +1,6 @@
 import os
 import shutil
+import tempfile
 import time
 import unittest
 import uuid
@@ -7,7 +8,11 @@ import uuid
 import pytest
 
 from huggingface_hub import HfApi
-from huggingface_hub.file_download import is_tf_available
+from huggingface_hub.file_download import (
+    is_graphviz_available,
+    is_pydot_available,
+    is_tf_available,
+)
 from huggingface_hub.keras_mixin import (
     KerasModelHubMixin,
     from_pretrained_keras,
@@ -37,13 +42,13 @@ if is_tf_available():
 
 def require_tf(test_case):
     """
-    Decorator marking a test that requires TensorFlow.
+    Decorator marking a test that requires TensorFlow, graphviz and pydot.
 
-    These tests are skipped when TensorFlow isn't installed.
+    These tests are skipped when TensorFlow, graphviz and pydot are installed.
 
     """
-    if not is_tf_available():
-        return unittest.skip("test requires Tensorflow")(test_case)
+    if not is_tf_available() or not is_pydot_available() or not is_graphviz_available():
+        return unittest.skip("test requires Tensorflow, graphviz and pydot.")(test_case)
     else:
         return test_case
 
@@ -90,7 +95,9 @@ class HubMixingTestKeras(unittest.TestCase):
         files = os.listdir(f"{WORKING_REPO_DIR}/{REPO_NAME}")
         self.assertTrue("saved_model.pb" in files)
         self.assertTrue("keras_metadata.pb" in files)
-        self.assertEqual(len(files), 4)
+        self.assertTrue("README.md" in files)
+        self.assertTrue("model.png" in files)
+        self.assertEqual(len(files), 6)
 
         model.save_pretrained(
             f"{WORKING_REPO_DIR}/{REPO_NAME}", config={"num": 12, "act": "gelu"}
@@ -98,7 +105,7 @@ class HubMixingTestKeras(unittest.TestCase):
         files = os.listdir(f"{WORKING_REPO_DIR}/{REPO_NAME}")
         self.assertTrue("config.json" in files)
         self.assertTrue("saved_model.pb" in files)
-        self.assertEqual(len(files), 5)
+        self.assertEqual(len(files), 7)
 
     def test_keras_from_pretrained_weights(self):
         model = DummyModel()
@@ -137,8 +144,7 @@ class HubMixingTestKeras(unittest.TestCase):
         model = DummyModel()
         model(model.dummy_inputs)
         model.save_pretrained(
-            f"{WORKING_REPO_DIR}/{REPO_NAME}",
-            config={"num": 10, "act": "gelu_fast"},
+            f"{WORKING_REPO_DIR}/{REPO_NAME}", config={"num": 10, "act": "gelu_fast"}
         )
 
         model = DummyModel.from_pretrained(f"{WORKING_REPO_DIR}/{REPO_NAME}")
@@ -163,7 +169,7 @@ class HubMixingTestKeras(unittest.TestCase):
         )
         self.assertEqual(model_info.modelId, f"{USER}/{REPO_NAME}")
 
-        self._api.delete_repo(name=f"{REPO_NAME}", token=self._token)
+        self._api.delete_repo(repo_id=f"{REPO_NAME}", token=self._token)
 
 
 @require_tf
@@ -172,6 +178,12 @@ class HubKerasSequentialTest(HubMixingTestKeras):
         model = tf.keras.models.Sequential()
         model.add(tf.keras.layers.Dense(2, activation="relu"))
         model.compile(optimizer="adam", loss="mse")
+        return model
+
+    def model_fit(self, model):
+        x = tf.constant([[0.44, 0.90], [0.65, 0.39]])
+        y = tf.constant([[1, 1], [0, 0]])
+        model.fit(x, y)
         return model
 
     def test_save_pretrained(self):
@@ -191,16 +203,34 @@ class HubKerasSequentialTest(HubMixingTestKeras):
 
         self.assertIn("saved_model.pb", files)
         self.assertIn("keras_metadata.pb", files)
-        self.assertEqual(len(files), 4)
+        self.assertIn("model.png", files)
+        self.assertIn("README.md", files)
+        self.assertEqual(len(files), 6)
         loaded_model = from_pretrained_keras(f"{WORKING_REPO_DIR}/{REPO_NAME}")
         self.assertIsNone(loaded_model.optimizer)
+
+    def test_save_pretrained_model_card_fit(self):
+        REPO_NAME = repo_name("save")
+        model = self.model_init()
+        model = self.model_fit(model)
+
+        save_pretrained_keras(
+            model,
+            f"{WORKING_REPO_DIR}/{REPO_NAME}",
+        )
+        files = os.listdir(f"{WORKING_REPO_DIR}/{REPO_NAME}")
+
+        self.assertIn("saved_model.pb", files)
+        self.assertIn("keras_metadata.pb", files)
+        self.assertIn("model.png", files)
+        self.assertIn("README.md", files)
+        self.assertEqual(len(files), 6)
 
     def test_save_pretrained_optimizer_state(self):
         REPO_NAME = repo_name("save")
         model = self.model_init()
 
         model.build((None, 2))
-
         save_pretrained_keras(
             model, f"{WORKING_REPO_DIR}/{REPO_NAME}", include_optimizer=True
         )
@@ -268,6 +298,8 @@ class HubKerasSequentialTest(HubMixingTestKeras):
             model,
             f"{WORKING_REPO_DIR}/{REPO_NAME}",
             config={"num": 10, "act": "gelu_fast"},
+            plot_model=True,
+            task_name=None,
         )
 
         new_model = from_pretrained_keras(f"{WORKING_REPO_DIR}/{REPO_NAME}")
@@ -295,20 +327,16 @@ class HubKerasSequentialTest(HubMixingTestKeras):
         )
         self.assertEqual(model_info.modelId, f"{USER}/{REPO_NAME}")
 
-        self._api.delete_repo(name=f"{REPO_NAME}", token=self._token)
+        self._api.delete_repo(repo_id=f"{REPO_NAME}", token=self._token)
 
     @retry_endpoint
-    def test_push_to_hub_tensorboard(self):
-        os.makedirs(f"{WORKING_REPO_DIR}/tb_log_dir")
-        with open(f"{WORKING_REPO_DIR}/tb_log_dir/tensorboard.txt", "w") as fp:
-            fp.write("Keras FTW")
+    def test_push_to_hub_model_card_build(self):
         REPO_NAME = repo_name("PUSH_TO_HUB")
         model = self.model_init()
         model.build((None, 2))
         push_to_hub_keras(
             model,
             repo_path_or_name=f"{WORKING_REPO_DIR}/{REPO_NAME}",
-            log_dir=f"{WORKING_REPO_DIR}/tb_log_dir",
             api_endpoint=ENDPOINT_STAGING,
             use_auth_token=self._token,
             git_user="ci",
@@ -317,42 +345,87 @@ class HubKerasSequentialTest(HubMixingTestKeras):
         model_info = HfApi(endpoint=ENDPOINT_STAGING).model_info(
             f"{USER}/{REPO_NAME}",
         )
+        self.assertTrue("README.md" in [f.rfilename for f in model_info.siblings])
+        self.assertTrue("model.png" in [f.rfilename for f in model_info.siblings])
+        self._api.delete_repo(repo_id=f"{REPO_NAME}", token=self._token)
+
+    @retry_endpoint
+    def test_push_to_hub_model_card_plot_false(self):
+        REPO_NAME = repo_name("PUSH_TO_HUB_PLOT")
+        model = self.model_init()
+        model = self.model_fit(model)
+        push_to_hub_keras(
+            model,
+            repo_path_or_name=f"{WORKING_REPO_DIR}/{REPO_NAME}",
+            api_endpoint=ENDPOINT_STAGING,
+            use_auth_token=self._token,
+            git_user="ci",
+            git_email="ci@dummy.com",
+            plot_model=False,
+        )
+        model_info = HfApi(endpoint=ENDPOINT_STAGING).model_info(
+            f"{USER}/{REPO_NAME}",
+        )
+        self.assertFalse("model.png" in [f.rfilename for f in model_info.siblings])
+        self._api.delete_repo(repo_id=f"{REPO_NAME}", token=self._token)
+
+    @retry_endpoint
+    def test_push_to_hub_tensorboard(self):
+        REPO_NAME = "PUSH_TO_HUB_TB"
+        with tempfile.TemporaryDirectory() as tmpdirname:
+            os.makedirs(f"{tmpdirname}/log_dir")
+            with open(f"{tmpdirname}/log_dir/tensorboard.txt", "w") as fp:
+                fp.write("Keras FTW")
+            model = self.model_init()
+            model = self.model_fit(model)
+            push_to_hub_keras(
+                model,
+                repo_path_or_name=f"{WORKING_REPO_DIR}/{REPO_NAME}",
+                log_dir=f"{tmpdirname}/log_dir",
+                api_endpoint=ENDPOINT_STAGING,
+                use_auth_token=self._token,
+                git_user="ci",
+                git_email="ci@dummy.com",
+            )
+        model_info = HfApi(endpoint=ENDPOINT_STAGING).model_info(
+            f"{USER}/{REPO_NAME}",
+        )
 
         self.assertTrue(
             "logs/tensorboard.txt" in [f.rfilename for f in model_info.siblings]
         )
-
-        self._api.delete_repo(name=f"{REPO_NAME}", token=self._token)
+        self._api.delete_repo(repo_id=f"{REPO_NAME}", token=self._token)
 
     @retry_endpoint
     def test_override_tensorboard(self):
-        os.makedirs(f"{WORKING_REPO_DIR}/tb_log_dir")
-        with open(f"{WORKING_REPO_DIR}/tb_log_dir/tensorboard.txt", "w") as fp:
-            fp.write("Keras FTW")
-        REPO_NAME = repo_name("PUSH_TO_HUB")
-        model = self.model_init()
-        model.build((None, 2))
-        push_to_hub_keras(
-            model,
-            repo_path_or_name=f"{WORKING_REPO_DIR}/{REPO_NAME}",
-            log_dir=f"{WORKING_REPO_DIR}/tb_log_dir",
-            api_endpoint=ENDPOINT_STAGING,
-            use_auth_token=self._token,
-            git_user="ci",
-            git_email="ci@dummy.com",
-        )
-        os.makedirs(f"{WORKING_REPO_DIR}/tb_log_dir2")
-        with open(f"{WORKING_REPO_DIR}/tb_log_dir2/override.txt", "w") as fp:
-            fp.write("Keras FTW")
-        push_to_hub_keras(
-            model,
-            repo_path_or_name=f"{WORKING_REPO_DIR}/{REPO_NAME}",
-            log_dir=f"{WORKING_REPO_DIR}/tb_log_dir2",
-            api_endpoint=ENDPOINT_STAGING,
-            use_auth_token=self._token,
-            git_user="ci",
-            git_email="ci@dummy.com",
-        )
+        REPO_NAME = repo_name("TB_OVERRIDE")
+        with tempfile.TemporaryDirectory() as tmpdirname:
+            os.makedirs(f"{tmpdirname}/tb_log_dir")
+            with open(f"{tmpdirname}/tb_log_dir/tensorboard.txt", "w") as fp:
+                fp.write("Keras FTW")
+            model = self.model_init()
+            model.build((None, 2))
+            push_to_hub_keras(
+                model,
+                repo_path_or_name=f"{WORKING_REPO_DIR}/{REPO_NAME}",
+                log_dir=f"{tmpdirname}/tb_log_dir",
+                api_endpoint=ENDPOINT_STAGING,
+                use_auth_token=self._token,
+                git_user="ci",
+                git_email="ci@dummy.com",
+            )
+            os.makedirs(f"{tmpdirname}/tb_log_dir2")
+            with open(f"{tmpdirname}/tb_log_dir2/override.txt", "w") as fp:
+                fp.write("Keras FTW")
+            push_to_hub_keras(
+                model,
+                repo_path_or_name=f"{WORKING_REPO_DIR}/{REPO_NAME}",
+                log_dir=f"{tmpdirname}/tb_log_dir2",
+                api_endpoint=ENDPOINT_STAGING,
+                use_auth_token=self._token,
+                git_user="ci",
+                git_email="ci@dummy.com",
+            )
 
         model_info = HfApi(endpoint=ENDPOINT_STAGING).model_info(
             f"{USER}/{REPO_NAME}",
@@ -364,13 +437,13 @@ class HubKerasSequentialTest(HubMixingTestKeras):
             "logs/tensorboard.txt" in [f.rfilename for f in model_info.siblings]
         )
 
-        self._api.delete_repo(name=f"{REPO_NAME}", token=self._token)
+        self._api.delete_repo(repo_id=f"{REPO_NAME}", token=self._token)
 
     @retry_endpoint
     def test_push_to_hub_model_kwargs(self):
         REPO_NAME = repo_name("PUSH_TO_HUB")
         model = self.model_init()
-        model.build((None, 2))
+        model = self.model_fit(model)
         push_to_hub_keras(
             model,
             repo_path_or_name=f"{WORKING_REPO_DIR}/{REPO_NAME}",
@@ -391,22 +464,22 @@ class HubKerasSequentialTest(HubMixingTestKeras):
         from_pretrained_keras(f"{WORKING_REPO_DIR}/{REPO_NAME}")
         self.assertRaises(ValueError, msg="Exception encountered when calling layer*")
 
-        self._api.delete_repo(name=f"{REPO_NAME}", token=self._token)
+        self._api.delete_repo(repo_id=f"{REPO_NAME}", token=self._token)
 
 
 @require_tf
 class HubKerasFunctionalTest(HubKerasSequentialTest):
     def model_init(self):
         inputs = tf.keras.layers.Input(shape=(2,))
-        x = tf.keras.layers.Dense(2, activation="relu")(inputs)
-        model = tf.keras.models.Model(inputs=inputs, outputs=x)
+        outputs = tf.keras.layers.Dense(2, activation="relu")(inputs)
+        model = tf.keras.models.Model(inputs=inputs, outputs=outputs)
         model.compile(optimizer="adam", loss="mse")
         return model
 
     def test_save_pretrained(self):
         REPO_NAME = repo_name("functional")
         model = self.model_init()
-
+        model.build((None, 2))
         self.assertTrue(model.built)
 
         save_pretrained_keras(model, f"{WORKING_REPO_DIR}/{REPO_NAME}")
@@ -414,4 +487,16 @@ class HubKerasFunctionalTest(HubKerasSequentialTest):
 
         self.assertIn("saved_model.pb", files)
         self.assertIn("keras_metadata.pb", files)
-        self.assertEqual(len(files), 4)
+        self.assertEqual(len(files), 6)
+
+    def test_save_pretrained_fit(self):
+        REPO_NAME = repo_name("functional")
+        model = self.model_init()
+        model = self.model_fit(model)
+
+        save_pretrained_keras(model, f"{WORKING_REPO_DIR}/{REPO_NAME}")
+        files = os.listdir(f"{WORKING_REPO_DIR}/{REPO_NAME}")
+
+        self.assertIn("saved_model.pb", files)
+        self.assertIn("keras_metadata.pb", files)
+        self.assertEqual(len(files), 6)

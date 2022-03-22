@@ -1,4 +1,4 @@
-<script>
+<script lang="ts">
 	import type { WidgetProps, DetectedObject } from "../../shared/types";
 	import { COLORS } from "../../shared/consts";
 	import { mod } from "../../../../utils/ViewUtils";

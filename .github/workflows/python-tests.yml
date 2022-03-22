@@ -50,6 +50,9 @@ jobs:
 
   build_pytorch:
     runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ["3.6", "3.9"]
 
     steps:
     - uses: actions/checkout@v2
@@ -68,6 +71,9 @@ jobs:
 
   build_tensorflow:
     runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ["3.6", "3.9"]
 
     steps:
     - uses: actions/checkout@v2
@@ -79,6 +85,7 @@ jobs:
 
     - name: Install dependencies
       run: |
+        sudo apt install -y graphviz
         pip install --upgrade pip
         pip install .[testing,tensorflow]
 

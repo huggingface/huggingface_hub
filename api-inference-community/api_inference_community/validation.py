@@ -218,7 +218,9 @@ IMAGE_INPUTS = {
     "image-classification",
     "image-segmentation",
     "image-to-text",
+    "object-detection",
 }
+
 TEXT_INPUTS = {
     "conversational",
     "feature-extraction",

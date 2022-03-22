@@ -1,4 +1,4 @@
-<script>
+<script lang="ts">
 	import { afterUpdate } from "svelte";
 	import { isFullyScrolled, scrollToMax } from "../../../../utils/ViewUtils";
 	import WidgetOutputConvoBubble from "../WidgetOuputConvoBubble/WidgetOutputConvoBubble.svelte";
