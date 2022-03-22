@@ -32,7 +32,7 @@ from huggingface_hub.repository import (
 )
 from huggingface_hub.utils import logging
 
-from .testing_constants import ENDPOINT_STAGING, TOKEN
+from .testing_constants import ENDPOINT_STAGING, TOKEN, USER
 from .testing_utils import (
     retry_endpoint,
     set_write_permission_and_retry,
