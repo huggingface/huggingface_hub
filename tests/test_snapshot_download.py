@@ -10,7 +10,7 @@ from huggingface_hub.hf_api import HfFolder
 from huggingface_hub.snapshot_download import snapshot_download
 from huggingface_hub.utils import logging
 
-from .testing_constants import ENDPOINT_STAGING, PASS, USER
+from .testing_constants import ENDPOINT_STAGING, TOKEN, USER
 from .testing_utils import retry_endpoint, set_write_permission_and_retry
 
 
@@ -27,7 +27,7 @@ class SnapshotDownloadTests(unittest.TestCase):
         """
         Share this valid token in all tests below.
         """
-        cls._token = cls._api.login(username=USER, password=PASS)
+        cls._token = cls._api.set_access_token(TOKEN)
 
     @retry_endpoint
     def setUp(self) -> None:

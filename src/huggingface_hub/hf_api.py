@@ -1378,7 +1378,8 @@ class HfApi:
                         The repository to which the file will be uploaded, for example: :obj:`"username/custom_transformers"`
 
                     token (``str``):
-                        Authentication token, obtained with :function:`HfApi.login` method. Will default to the stored token.
+                        Authentication token which can be obtained from
+                        https://huggingface.co/settings/tokens.
 
                     repo_type (``str``, Optional):
                         Set to :obj:`"dataset"` or :obj:`"space"` if uploading to a dataset or space, :obj:`None` or :obj:`"model"` if uploading to a model. Default is :obj:`None`.
@@ -1501,7 +1502,8 @@ class HfApi:
                 The repository from which the file will be deleted, for example: :obj:`"username/custom_transformers"`
 
             token (``str``):
-                Authentication token, obtained with :function:`HfApi.login` method. Will default to the stored token.
+                Authentication token which can be obtained from
+                https://huggingface.co/settings/tokens.
 
             repo_type (``str``, Optional):
                 Set to :obj:`"dataset"` or :obj:`"space"` if the file is in a dataset or space, :obj:`None` or :obj:`"model"` if in a model. Default is :obj:`None`.

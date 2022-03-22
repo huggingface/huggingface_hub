@@ -113,19 +113,20 @@ class HfApiLoginTest(HfApiCommonTest):
 
     @classmethod
     def tearDownClass(cls) -> None:
-        cls._api.login(username=USER, password=PASS)
+        cls._api.set_access_token(TOKEN)
 
     def test_login_invalid(self):
         with self.assertRaises(HTTPError):
-            self._api.login(username=USER, password="fake")
+            self._api.set_access_token(TOKEN)
 
     def test_login_valid(self):
-        token = self._api.login(username=USER, password=PASS)
+        token = self._api.set_access_token(TOKEN)
         self.assertIsInstance(token, str)
 
     def test_login_git_credentials(self):
         self.assertTupleEqual(read_from_credential_store(USER), (None, None))
-        self._api.login(username=USER, password=PASS)
+        with pytest.warns(FutureWarning, match="This method is deprecated"):
+            self._api.login(username=USER, password=PASS)
         self.assertTupleEqual(read_from_credential_store(USER), (USER.lower(), PASS))
         erase_from_credential_store(username=USER)
         self.assertTupleEqual(read_from_credential_store(USER), (None, None))
@@ -172,7 +173,7 @@ class HfApiCommonTestWithLogin(HfApiCommonTest):
         """
         Share this valid token in all tests below.
         """
-        cls._token = cls._api.login(username=USER, password=PASS)
+        cls._token = cls._api.set_access_token(TOKEN)
 
 
 @retry_endpoint
@@ -180,7 +181,7 @@ def test_repo_id_no_warning():
     # tests that passing repo_id as positional arg doesn't raise any warnings
     # for {create, delete}_repo and update_repo_visibility
     api = HfApi(endpoint=ENDPOINT_STAGING)
-    token = api.login(username=USER, password=PASS)
+    token = api.set_access_token(TOKEN)
     REPO_NAME = repo_name("crud")
 
     args = [
@@ -222,7 +223,7 @@ def test_name_org_deprecation_warning():
     # test that the right warning is raised when passing name to
     # {create, delete}_repo and update_repo_visibility
     api = HfApi(endpoint=ENDPOINT_STAGING)
-    token = api.login(username=USER, password=PASS)
+    token = api.set_access_token(TOKEN)
     REPO_NAME = repo_name("crud")
 
     args = [
@@ -246,7 +247,7 @@ def test_name_org_deprecation_error():
     # tests that the right error is raised when passing both name and repo_id
     # to {create, delete}_repo and update_repo_visibility
     api = HfApi(endpoint=ENDPOINT_STAGING)
-    token = api.login(username=USER, password=PASS)
+    token = api.set_access_token(TOKEN)
     REPO_NAME = repo_name("crud")
 
     args = [
@@ -1108,7 +1109,7 @@ class HfLargefilesTest(HfApiCommonTest):
         """
         Share this valid token in all tests below.
         """
-        cls._token = cls._api.login(username=USER, password=PASS)
+        cls._token = cls._api.set_access_token(TOKEN)
 
     def setUp(self):
         self.REPO_NAME_LARGE_FILE = repo_name_large_file()
