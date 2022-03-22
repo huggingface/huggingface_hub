@@ -910,7 +910,7 @@ class HfApiPublicTest(unittest.TestCase):
     def test_filter_models_by_author(self):
         _api = HfApi()
         f = ModelFilter(author="muellerzr")
-        models = _api.list_models(f)
+        models = _api.list_models(filter=f)
         self.assertGreater(len(models), 0)
         self.assertTrue("muellerzr" in models[0].modelId)
 
@@ -919,7 +919,7 @@ class HfApiPublicTest(unittest.TestCase):
         # Test we can search by an author and a name, but the model is not found
         _api = HfApi()
         f = ModelFilter("facebook", model_name="bart-base")
-        models = _api.list_models(f)
+        models = _api.list_models(filter=f)
         self.assertTrue("facebook/bart-base" in models[0].modelId)
 
     @with_production_testing
@@ -927,38 +927,38 @@ class HfApiPublicTest(unittest.TestCase):
         # Test we can search by an author and a name, but the model is not found
         _api = HfApi()
         f = ModelFilter(author="muellerzr", model_name="testme")
-        models = _api.list_models(f)
+        models = _api.list_models(filter=f)
         self.assertEqual(len(models), 0)
 
     @with_production_testing
     def test_filter_models_with_library(self):
         _api = HfApi()
         f = ModelFilter("microsoft", model_name="wavlm-base-sd", library="tensorflow")
-        models = _api.list_models(f)
+        models = _api.list_models(filter=f)
         self.assertGreater(1, len(models))
         f = ModelFilter("microsoft", model_name="wavlm-base-sd", library="pytorch")
-        models = _api.list_models(f)
+        models = _api.list_models(filter=f)
         self.assertGreater(len(models), 0)
 
     @with_production_testing
     def test_filter_models_with_task(self):
         _api = HfApi()
         f = ModelFilter(task="fill-mask", model_name="albert-base-v2")
-        models = _api.list_models(f)
+        models = _api.list_models(filter=f)
         self.assertTrue("fill-mask" == models[0].pipeline_tag)
         self.assertTrue("albert-base-v2" in models[0].modelId)
         f = ModelFilter(task="dummytask")
-        models = _api.list_models(f)
+        models = _api.list_models(filter=f)
         self.assertGreater(1, len(models))
 
     @with_production_testing
     def test_filter_models_by_language(self):
         _api = HfApi()
         f_fr = ModelFilter(language="fr")
-        res_fr = _api.list_models(f_fr)
+        res_fr = _api.list_models(filter=f_fr)
 
         f_en = ModelFilter(language="en")
-        res_en = _api.list_models(f_en)
+        res_en = _api.list_models(filter=f_en)
 
         assert len(res_fr) != len(res_en)
 
@@ -970,7 +970,7 @@ class HfApiPublicTest(unittest.TestCase):
             task=args.pipeline_tag.TextClassification,
             library=[args.library.PyTorch, args.library.TensorFlow],
         )
-        models = _api.list_models(f)
+        models = _api.list_models(filter=f)
         self.assertGreater(len(models), 1)
         self.assertTrue(
             [
