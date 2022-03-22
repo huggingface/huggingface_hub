@@ -283,6 +283,12 @@ class HfApiEndpointsTest(HfApiCommonTestWithLogin):
         self.assertIsInstance(valid_org["apiToken"], str)
 
     @retry_endpoint
+    def test_delete_repo_error_message():
+        # test for #751
+        with pytest.raises(HTTPError, match="Conflict"):
+            api.delete_repo("repo-that-does-not-exist", token=self._token)
+
+    @retry_endpoint
     def test_create_update_and_delete_repo(self):
         REPO_NAME = repo_name("crud")
         self._api.create_repo(repo_id=REPO_NAME, token=self._token)
@@ -1248,11 +1254,3 @@ class HfApiMiscTest(unittest.TestCase):
 
         for key, value in possible_values.items():
             self.assertEqual(repo_type_and_id_from_hf_id(key), tuple(value))
-
-
-def test_delete_repo_error_message():
-    # test for #751
-    api = HfApi(endpoint=ENDPOINT_STAGING)
-    token = api.login(username=USER, password=PASS)
-    with pytest.raises(HTTPError, match="Conflict"):
-        api.delete_repo("repo-that-does-not-exist", token=token)
