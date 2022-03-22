@@ -42,10 +42,10 @@ jobs:
       - run: |
           if [[ "${{ matrix.test_repository }}" == "Repository only" ]]
           then
-            pytest --log-cli-level=INFO -sv ./tests/test_repository.py -k RepositoryTest
+            pytest -Werror::FutureWarning --log-cli-level=INFO -sv ./tests/test_repository.py -k RepositoryTest
           
           else
-            pytest --log-cli-level=INFO -sv ./tests/ -k 'not RepositoryTest'
+            pytest -Werror::FutureWarning --log-cli-level=INFO -sv ./tests/ -k 'not RepositoryTest'
           fi
 
   build_pytorch:
@@ -67,7 +67,7 @@ jobs:
         pip install --upgrade pip
         pip install .[testing,torch]
 
-    - run: pytest -sv ./tests/test_hubmixin*
+    - run: pytest -Werror::FutureWarning -sv ./tests/test_hubmixin*
 
   build_tensorflow:
     runs-on: ubuntu-latest
@@ -89,7 +89,7 @@ jobs:
         pip install --upgrade pip
         pip install .[testing,tensorflow]
 
-    - run: pytest -sv ./tests/test_keras*
+    - run: pytest -Werror::FutureWarning -sv ./tests/test_keras*
 
   tests_lfs:
     runs-on: ubuntu-latest
@@ -111,4 +111,4 @@ jobs:
         pip install --upgrade pip
         pip install .[testing]
 
-    - run: RUN_GIT_LFS_TESTS=1 pytest -sv ./tests/ -k "HfLargefilesTest"
+    - run: RUN_GIT_LFS_TESTS=1 pytest -Werror::FutureWarning -sv ./tests/ -k "HfLargefilesTest"
