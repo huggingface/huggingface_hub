@@ -1,7 +1,7 @@
 name: Build PR Documentation
 
 on:
-  push:
+  pull_request:
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.head_ref || github.run_id }}
@@ -10,15 +10,6 @@ concurrency:
 jobs:
   run:
     runs-on: ubuntu-latest
-
-    steps:
-      - name: Echo
-        run: |
-          echo ${{ env.GITHUB_EVENT_NAME }}
-          echo ${{ toJSON(github.event) }}
-          echo ${{ toJSON(github) }}
-          echo ${{ toJSON(github.event.number) }}
-          echo ${{ toJSON(github.event.pull_request) }}
   build:
     uses: lysandrejik/doc-builder/.github/workflows/build_pr_documentation.yml@lysandrejik-workflow
     with:
