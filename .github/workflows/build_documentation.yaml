@@ -7,6 +7,7 @@ on:
       - doc-builder*
       - v*-release
 
+
 jobs:
    build:
     uses: lysandrejik/doc-builder/.github/workflows/build_main_documentation.yml@lysandrejik-workflow
