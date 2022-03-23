@@ -113,15 +113,16 @@ class HfApiLoginTest(HfApiCommonTest):
 
     @classmethod
     def tearDownClass(cls) -> None:
-        cls._api.set_access_token(TOKEN)
+        with pytest.warns(FutureWarning, match="This method is deprecated"):
+            cls._api.login(username=USER, password=PASS)
 
     def test_login_invalid(self):
-        with pytest.raises(HTTPError):
-            with pytest.warns(FutureWarning, "This method is deprecated"):
+        with pytest.warns(FutureWarning, match="This method is deprecated"):
+            with pytest.raises(HTTPError):
                 self._api.login(username=USER, password="fake")
 
     def test_login_valid(self):
-        with pytest.warns(FutureWarning, "This method is deprecated"):
+        with pytest.warns(FutureWarning, match="This method is deprecated"):
             token = self._api.login(username=USER, password=PASS)
         assert isinstance(token, str)
 
@@ -134,7 +135,8 @@ class HfApiLoginTest(HfApiCommonTest):
         self.assertTupleEqual(read_from_credential_store(USER), (None, None))
 
     def test_login_cli(self):
-        _login(self._api, username=USER, password=PASS)
+        with pytest.warns(FutureWarning, match="This method is deprecated"):
+            _login(self._api, username=USER, password=PASS)
         self.assertTupleEqual(read_from_credential_store(USER), (USER.lower(), PASS))
         erase_from_credential_store(username=USER)
         self.assertTupleEqual(read_from_credential_store(USER), (None, None))

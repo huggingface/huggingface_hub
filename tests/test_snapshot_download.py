@@ -111,7 +111,7 @@ class SnapshotDownloadTests(unittest.TestCase):
 
     def test_download_private_model(self):
         self._api.update_repo_visibility(
-            token=self._token, name=REPO_NAME, private=True
+            token=self._token, repo_id=REPO_NAME, private=True
         )
 
         # Test download fails without token
