@@ -148,7 +148,7 @@ class HfApiLoginTest(HfApiCommonTest):
 
     def test_login_cli_org_fail(self):
         with pytest.raises(
-            ValueError, match="You must use your personal account token for login."
+            ValueError, match="You must use your personal account token."
         ):
             _login(self._api, token="api_org_dummy_token")
 
@@ -556,7 +556,7 @@ class HfApiUploadFileTest(HfApiCommonTestWithLogin):
     def test_create_repo_org_token_fail(self):
         REPO_NAME = repo_name("org")
         with pytest.raises(
-            ValueError, match="You must use your personal account token for login."
+            ValueError, match="You must use your personal account token."
         ):
             self._api.create_repo(repo_id=REPO_NAME, token="api_org_dummy_token")
 
@@ -565,7 +565,7 @@ class HfApiUploadFileTest(HfApiCommonTestWithLogin):
         REPO_NAME = repo_name("org")
         HfFolder.save_token("api_org_dummy_token")
         with pytest.raises(
-            ValueError, match="You must use your personal account token for login."
+            ValueError, match="You must use your personal account token."
         ):
             self._api.create_repo(repo_id=REPO_NAME)
 

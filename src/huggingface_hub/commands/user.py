@@ -385,7 +385,7 @@ def _login(hf_api, username=None, password=None, token=None):
             exit(1)
     elif isinstance(token, str):
         if token.startswith("api_org"):
-            raise ValueError("You must use your personal account token for login.")
+            raise ValueError("You must use your personal account token.")
         elif not hf_api._is_valid_token(token):
             raise ValueError("Invalid token passed.")
 

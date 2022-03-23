@@ -521,13 +521,11 @@ class HfApi:
                 token, name = name, token
         if isinstance(token, str):
             if token.startswith("api_org"):
-                raise ValueError("You must use your personal account token for login.")
+                raise ValueError("You must use your personal account token.")
             if not self._is_valid_token(token):
                 raise ValueError("Invalid token passed!")
-        if name is not None:
-            return token, name
-        else:
-            return token
+
+        return token, name
 
     def logout(self, token: Optional[str] = None) -> None:
         """
@@ -685,7 +683,7 @@ class HfApi:
         """
         path = f"{self.endpoint}/api/models"
         if use_auth_token:
-            token = self._validate_or_retrieve_token(use_auth_token)
+            token, name = self._validate_or_retrieve_token(use_auth_token)
         headers = {"authorization": f"Bearer {token}"} if use_auth_token else None
         params = {}
         if filter is not None:
@@ -876,7 +874,7 @@ class HfApi:
         """
         path = f"{self.endpoint}/api/datasets"
         if use_auth_token:
-            token = self._validate_or_retrieve_token(use_auth_token)
+            token, name = self._validate_or_retrieve_token(use_auth_token)
         headers = {"authorization": f"Bearer {token}"} if use_auth_token else None
         params = {}
         if filter is not None:
@@ -1082,12 +1080,10 @@ class HfApi:
         name, organization = _validate_repo_id_deprecation(repo_id, name, organization)
 
         path = f"{self.endpoint}/api/repos/create"
-        if token is None:
-            token = self._validate_or_retrieve_token(function_name="create_repo")
-        elif isinstance(token, str):
-            token, name = self._validate_or_retrieve_token(
-                token, name, function_name="create_repo"
-            )
+
+        token, name = self._validate_or_retrieve_token(
+            token=token, name=name, function_name="create_repo"
+        )
 
         checked_name = repo_type_and_id_from_hf_id(name)
 
@@ -1195,12 +1191,10 @@ class HfApi:
         name, organization = _validate_repo_id_deprecation(repo_id, name, organization)
 
         path = f"{self.endpoint}/api/repos/delete"
-        if token is None:
-            token = self._validate_or_retrieve_token(function_name="delete_repo")
-        elif isinstance(token, str):
-            token, name = self._validate_or_retrieve_token(
-                token, name, function_name="delete_repo"
-            )
+
+        token, name = self._validate_or_retrieve_token(
+            token, name, function_name="delete_repo"
+        )
 
         checked_name = repo_type_and_id_from_hf_id(name)
 
@@ -1278,14 +1272,9 @@ class HfApi:
 
         name, organization = _validate_repo_id_deprecation(repo_id, name, organization)
 
-        if token is None:
-            token = self._validate_or_retrieve_token(
-                function_name="update_repo_visibility"
-            )
-        elif isinstance(token, str):
-            token, name = self._validate_or_retrieve_token(
-                token, name, function_name="update_repo_visibility"
-            )
+        token, name = self._validate_or_retrieve_token(
+            token, name, function_name="update_repo_visibility"
+        )
 
         if organization is None:
             namespace = self.whoami(token)["name"]
@@ -1321,7 +1310,8 @@ class HfApi:
         Note there are certain limitations. For more information about moving repositories, please
         see https://hf.co/docs/hub/main#how-can-i-rename-or-transfer-a-repo.
         """
-        token = self._validate_or_retrieve_token(token)
+
+        token, name = self._validate_or_retrieve_token(token)
 
         if len(from_id.split("/")) != 2:
             raise ValueError(
@@ -1421,26 +1411,25 @@ class HfApi:
         if repo_type not in REPO_TYPES:
             raise ValueError(f"Invalid repo type, must be one of {REPO_TYPES}")
 
-        if token is None:
-            token = self._validate_or_retrieve_token(function_name="upload_file")
-        elif isinstance(token, str):
-            if token.startswith("api_org"):
-                raise ValueError("You must use your personal account token for login.")
-            elif not self._is_valid_token(token):
-                if self._is_valid_token(path_or_fileobj):
-                    warnings.warn(
-                        "`upload_file` now takes `token` as an optional positional argument. "
-                        "Be sure to adapt your code!",
-                        FutureWarning,
-                    )
-                    token, path_or_fileobj, path_in_repo, repo_id = (
-                        path_or_fileobj,
-                        path_in_repo,
-                        repo_id,
-                        token,
-                    )
-                else:
-                    raise ValueError("Invalid token passed!")
+        token, name = self._validate_or_retrieve_token(
+            token, function_name="upload_file"
+        )
+
+        if not self._is_valid_token(token):
+            if self._is_valid_token(path_or_fileobj):
+                warnings.warn(
+                    "`upload_file` now takes `token` as an optional positional argument. "
+                    "Be sure to adapt your code!",
+                    FutureWarning,
+                )
+                token, path_or_fileobj, path_in_repo, repo_id = (
+                    path_or_fileobj,
+                    path_in_repo,
+                    repo_id,
+                    token,
+                )
+            else:
+                raise ValueError("Invalid token passed!")
 
         # Validate path_or_fileobj
         if isinstance(path_or_fileobj, str):
@@ -1520,10 +1509,7 @@ class HfApi:
         if repo_type not in REPO_TYPES:
             raise ValueError(f"Invalid repo type, must be one of {REPO_TYPES}")
 
-        if token is None:
-            token = self._validate_or_retrieve_token()
-        elif token is not None or token:
-            token = self._validate_or_retrieve_token(token)
+        token, name = self._validate_or_retrieve_token(token)
 
         if repo_type in REPO_TYPES_URL_PREFIXES:
             repo_id = REPO_TYPES_URL_PREFIXES[repo_type] + repo_id
