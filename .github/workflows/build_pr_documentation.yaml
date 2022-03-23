@@ -8,6 +8,13 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  run:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Echo
+        run: |
+          echo ${{ toJSON(github.event) }}
   build:
     uses: lysandrejik/doc-builder/.github/workflows/build_pr_documentation.yml@lysandrejik-workflow
     with:
