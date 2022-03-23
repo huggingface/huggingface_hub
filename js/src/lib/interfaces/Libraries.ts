@@ -4,25 +4,25 @@ import type { ModelData } from "./Types";
  * Add your new library here.
  */
 export enum ModelLibrary {
-	"adapter-transformers" = "Adapter Transformers",
-	"allennlp" = "allenNLP",
-	"asteroid" = "Asteroid",
-	"espnet" = "ESPnet",
-	"fairseq" = "Fairseq",
-	"flair" = "Flair",
-	"keras" = "Keras",
-	"pyannote-audio" = "pyannote.audio",
-	"sentence-transformers" = "Sentence Transformers",
-	"sklearn" = "Scikit-learn",
-	"spacy" = "spaCy",
-	"speechbrain" = "speechbrain",
-	"tensorflowtts" = "TensorFlowTTS",
-	"timm" = "Timm",
-	"fastai" = "fastai",
-	"transformers" = "Transformers",
-	"stanza" = "Stanza",
-	"fasttext" = "fastText",
-	"stable-baselines3" = "Stable-Baselines3",
+	"adapter-transformers"    = "Adapter Transformers",
+	"allennlp"                = "allenNLP",
+	"asteroid"                = "Asteroid",
+	"espnet"                  = "ESPnet",
+	"fairseq"                 = "Fairseq",
+	"flair"                   = "Flair",
+	"keras"                   = "Keras",
+	"pyannote-audio"          = "pyannote.audio",
+	"sentence-transformers"   = "Sentence Transformers",
+	"sklearn"                 = "Scikit-learn",
+	"spacy"                   = "spaCy",
+	"speechbrain"             = "speechbrain",
+	"tensorflowtts"           = "TensorFlowTTS",
+	"timm"                    = "Timm",
+	"fastai"                  = "fastai",
+	"transformers"            = "Transformers",
+	"stanza"                  = "Stanza",
+	"fasttext"                = "fastText",
+	"stable-baselines3"       = "Stable-Baselines3",
 }
 
 export const ALL_MODEL_LIBRARY_KEYS = Object.keys(ModelLibrary) as (keyof typeof ModelLibrary)[];
@@ -36,7 +36,7 @@ export interface LibraryUiElement {
 	 * Name displayed on the main
 	 * call-to-action button on the model page.
 	 */
-	btnLabel: string;
+	btnLabel:  string;
 	/**
 	 * Repo name
 	 */
@@ -44,11 +44,11 @@ export interface LibraryUiElement {
 	/**
 	 * URL to library's repo
 	 */
-	repoUrl: string;
+	repoUrl:   string;
 	/**
 	 * Code snippet displayed on model page
 	 */
-	snippet: (model: ModelData) => string;
+	snippet:   (model: ModelData) => string;
 }
 
 function nameWithoutNamespace(modelId: string): string {
@@ -244,7 +244,7 @@ nlp = ${nameWithoutNamespace(model.id)}.load()`;
 const speechBrainMethod = (speechbrainInterface: string) => {
 	switch (speechbrainInterface) {
 		case "EncoderClassifier":
-			return "classify_file";
+		   return "classify_file";
 		case "EncoderDecoderASR":
 		case "EncoderASR":
 			return "transcribe_file";
@@ -284,7 +284,7 @@ const transformers = (model: ModelData) => {
 		const varName = info.processor === "AutoTokenizer" ? "tokenizer"
 			: info.processor === "AutoFeatureExtractor" ? "extractor"
 				: "processor"
-			;
+		;
 		return [
 			`from transformers import ${info.processor}, ${info.auto_model}`,
 			"",
@@ -323,110 +323,110 @@ export const MODEL_LIBRARIES_UI_ELEMENTS: { [key in keyof typeof ModelLibrary]?:
 	"adapter-transformers": {
 		btnLabel: "Adapter Transformers",
 		repoName: "adapter-transformers",
-		repoUrl: "https://github.com/Adapter-Hub/adapter-transformers",
-		snippet: adapter_transformers,
+		repoUrl:  "https://github.com/Adapter-Hub/adapter-transformers",
+		snippet:  adapter_transformers,
 	},
 	"allennlp": {
 		btnLabel: "AllenNLP",
 		repoName: "AllenNLP",
-		repoUrl: "https://github.com/allenai/allennlp",
-		snippet: allennlp,
+		repoUrl:  "https://github.com/allenai/allennlp",
+		snippet:  allennlp,
 	},
 	"asteroid": {
 		btnLabel: "Asteroid",
 		repoName: "Asteroid",
-		repoUrl: "https://github.com/asteroid-team/asteroid",
-		snippet: asteroid,
+		repoUrl:  "https://github.com/asteroid-team/asteroid",
+		snippet:  asteroid,
 	},
 	"espnet": {
 		btnLabel: "ESPnet",
 		repoName: "ESPnet",
-		repoUrl: "https://github.com/espnet/espnet",
-		snippet: espnet,
+		repoUrl:  "https://github.com/espnet/espnet",
+		snippet:  espnet,
 	},
 	"fairseq": {
 		btnLabel: "Fairseq",
 		repoName: "fairseq",
-		repoUrl: "https://github.com/pytorch/fairseq",
-		snippet: fairseq,
+		repoUrl:  "https://github.com/pytorch/fairseq",
+		snippet:  fairseq,
 	},
 	"flair": {
 		btnLabel: "Flair",
 		repoName: "Flair",
-		repoUrl: "https://github.com/flairNLP/flair",
-		snippet: flair,
+		repoUrl:  "https://github.com/flairNLP/flair",
+		snippet:  flair,
 	},
 	"keras": {
 		btnLabel: "Keras",
 		repoName: "Keras",
-		repoUrl: "https://github.com/keras-team/keras",
-		snippet: keras,
+		repoUrl:  "https://github.com/keras-team/keras",
+		snippet:  keras,
 	},
 	"pyannote-audio": {
 		btnLabel: "pyannote.audio",
 		repoName: "pyannote-audio",
-		repoUrl: "https://github.com/pyannote/pyannote-audio",
-		snippet: pyannote_audio,
+		repoUrl:  "https://github.com/pyannote/pyannote-audio",
+		snippet:  pyannote_audio,
 	},
 	"sentence-transformers": {
 		btnLabel: "sentence-transformers",
 		repoName: "sentence-transformers",
-		repoUrl: "https://github.com/UKPLab/sentence-transformers",
-		snippet: sentenceTransformers,
+		repoUrl:  "https://github.com/UKPLab/sentence-transformers",
+		snippet:  sentenceTransformers,
 	},
 	"sklearn": {
 		btnLabel: "Scikit-learn",
 		repoName: "Scikit-learn",
-		repoUrl: "https://github.com/scikit-learn/scikit-learn",
-		snippet: sklearn,
+		repoUrl:  "https://github.com/scikit-learn/scikit-learn",
+		snippet:  sklearn,
 	},
 	"fastai": {
 		btnLabel: "fastai",
 		repoName: "fastai",
-		repoUrl: "https://github.com/fastai/fastai",
-		snippet: fastai,
+		repoUrl:  "https://github.com/fastai/fastai",
+		snippet:  fastai,
 	},
 	"spacy": {
 		btnLabel: "spaCy",
 		repoName: "spaCy",
-		repoUrl: "https://github.com/explosion/spaCy",
-		snippet: spacy,
+		repoUrl:  "https://github.com/explosion/spaCy",
+		snippet:  spacy,
 	},
 	"speechbrain": {
 		btnLabel: "speechbrain",
 		repoName: "speechbrain",
-		repoUrl: "https://github.com/speechbrain/speechbrain",
-		snippet: speechbrain,
+		repoUrl:  "https://github.com/speechbrain/speechbrain",
+		snippet:  speechbrain,
 	},
 	"tensorflowtts": {
 		btnLabel: "TensorFlowTTS",
 		repoName: "TensorFlowTTS",
-		repoUrl: "https://github.com/TensorSpeech/TensorFlowTTS",
-		snippet: tensorflowtts,
+		repoUrl:  "https://github.com/TensorSpeech/TensorFlowTTS",
+		snippet:  tensorflowtts,
 	},
 	"timm": {
 		btnLabel: "timm",
 		repoName: "pytorch-image-models",
-		repoUrl: "https://github.com/rwightman/pytorch-image-models",
-		snippet: timm,
+		repoUrl:  "https://github.com/rwightman/pytorch-image-models",
+		snippet:  timm,
 	},
 	"transformers": {
 		btnLabel: "Transformers",
 		repoName: "🤗/transformers",
-		repoUrl: "https://github.com/huggingface/transformers",
-		snippet: transformers,
+		repoUrl:  "https://github.com/huggingface/transformers",
+		snippet:  transformers,
 	},
 	"fasttext": {
 		btnLabel: "fastText",
 		repoName: "fastText",
-		repoUrl: "https://fasttext.cc/",
-		snippet: fasttext,
+		repoUrl:  "https://fasttext.cc/",
+		snippet:  fasttext,
 	},
 	"stable-baselines3": {
 		btnLabel: "stable-baselines3",
 		repoName: "stable-baselines3",
-		repoUrl: "https://github.com/huggingface/huggingface_sb3",
-		snippet: stableBaselines3,
+		repoUrl:  "https://github.com/huggingface/huggingface_sb3",
+		snippet:  stableBaselines3,
 	},
 } as const;
 
