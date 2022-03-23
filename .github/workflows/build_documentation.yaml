@@ -9,7 +9,7 @@ on:
 
 jobs:
    build:
-    uses: huggingface/doc-builder/.github/workflows/build_main_documentation.yml@workflow_templates
+    uses: LysandreJik/doc-builder/.github/workflows/build_main_documentation.yml@lysandrejik-workflow
     with:
       commit_sha: ${{ github.sha }}
       package: huggingface_hub
