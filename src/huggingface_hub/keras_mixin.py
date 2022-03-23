@@ -283,6 +283,8 @@ class PushToHubCallback(callback):
 
     def on_epoch_end(self, epoch, logs=None):
         if self.save_strategy == "epoch":
+            if self.last_job is not None and not self.last_job.is_done:
+                return
             save_pretrained_keras(
                 self.model,
                 self.repo_path_or_name,
@@ -294,7 +296,7 @@ class PushToHubCallback(callback):
             )
 
             self.repo.push_to_hub(
-                commit_message=f"Training in progress epoch {epoch}", blocking=True
+                commit_message=f"Training in progress epoch {epoch}", blocking=False
             )
 
     def on_train_end(self, logs=None):
