@@ -69,7 +69,8 @@ class RepositoryTest(RepositoryCommonTest):
         """
         Share this valid token in all tests below.
         """
-        cls._token = cls._api.set_access_token(TOKEN)
+        cls._api.set_access_token(TOKEN)
+        self._token = TOKEN
 
     @retry_endpoint
     def setUp(self):
@@ -1328,7 +1329,8 @@ class RepositoryOfflineTest(RepositoryCommonTest):
 
     def test_repo_user(self):
         api = HfApi(endpoint=ENDPOINT_STAGING)
-        token = api.set_access_token(TOKEN)
+        token = TOKEN
+        api.set_access_token(TOKEN)
 
         repo = Repository(WORKING_REPO_DIR, use_auth_token=token)
         user = api.whoami(token)
@@ -1355,7 +1357,8 @@ class RepositoryOfflineTest(RepositoryCommonTest):
 
     def test_repo_passed_user(self):
         api = HfApi(endpoint=ENDPOINT_STAGING)
-        token = api.set_access_token(TOKEN)
+        token = TOKEN
+        api.set_access_token(TOKEN)
         repo = Repository(
             WORKING_REPO_DIR,
             git_user="RANDOM_USER",
@@ -1461,7 +1464,8 @@ class RepositoryDatasetTest(RepositoryCommonTest):
         """
         Share this valid token in all tests below.
         """
-        cls._token = cls._api.set_access_token(TOKEN)
+        cls._token = TOKEN
+        cls._api.set_access_token(TOKEN)
 
     def setUp(self):
         self.REPO_NAME = repo_name()

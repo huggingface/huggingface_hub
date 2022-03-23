@@ -74,7 +74,8 @@ class HubMixingTest(HubMixingCommonTest):
         """
         Share this valid token in all tests below.
         """
-        cls._token = cls._api.set_access_token(TOKEN)
+        cls._token = TOKEN
+        cls._api.set_access_token(TOKEN)
 
     def test_save_pretrained(self):
         REPO_NAME = repo_name("save")

@@ -27,7 +27,8 @@ class SnapshotDownloadTests(unittest.TestCase):
         """
         Share this valid token in all tests below.
         """
-        cls._token = cls._api.set_access_token(TOKEN)
+        cls._token = TOKEN
+        cls._api.set_access_token(TOKEN)
 
     @retry_endpoint
     def setUp(self) -> None:
