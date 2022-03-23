@@ -1099,6 +1099,12 @@ class HfFolderTest(unittest.TestCase):
         # ^^ not an error, we test that the
         # second call does not fail.
         self.assertEqual(HfFolder.get_token(), None)
+        # test TOKEN in env
+        self.assertEqual(HfFolder.get_token(), None)
+        with unittest.mock.patch.dict(os.environ, {"HUGGING_FACE_HUB_TOKEN": token}):
+            self.assertEqual(HfFolder.get_token(), token)
+        with unittest.mock.patch.dict(os.environ, {"HUGGING_FACE_HUB_TOKEN": None}):
+            self.assertEqual(HfFolder.get_token(), None)
 
 
 @require_git_lfs
