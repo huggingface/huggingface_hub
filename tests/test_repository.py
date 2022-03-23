@@ -70,7 +70,7 @@ class RepositoryTest(RepositoryCommonTest):
         Share this valid token in all tests below.
         """
         cls._api.set_access_token(TOKEN)
-        self._token = TOKEN
+        cls._token = TOKEN
 
     @retry_endpoint
     def setUp(self):

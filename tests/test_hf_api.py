@@ -123,7 +123,7 @@ class HfApiLoginTest(HfApiCommonTest):
     def test_login_valid(self):
         with pytest.warns(FutureWarning, "This method is deprecated"):
             token = self._api.login(username=USER, password=PASS)
-        assert isinstance(TOKEN, str)
+        assert isinstance(token, str)
 
     def test_login_git_credentials(self):
         self.assertTupleEqual(read_from_credential_store(USER), (None, None))
@@ -271,7 +271,7 @@ def test_name_org_deprecation_error():
 
     for method, kwargs in args:
         with pytest.raises(ValueError, match="No name provided"):
-            getattr(api, method)(token=token, repo_type=REPO_TYPE_MODEL, **kwargs)
+            getattr(api, method)(token=TOKEN, repo_type=REPO_TYPE_MODEL, **kwargs)
 
 
 class HfApiEndpointsTest(HfApiCommonTestWithLogin):
