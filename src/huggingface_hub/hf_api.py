@@ -229,6 +229,7 @@ class DatasetInfo:
         self,
         *,
         id: Optional[str] = None,  # id of dataset
+        sha: Optional[str] = None,  # commit sha at the specified revision
         lastModified: Optional[str] = None,  # date of last commit to repo
         tags: List[str] = [],  # tags of the dataset
         siblings: Optional[
@@ -242,6 +243,7 @@ class DatasetInfo:
         **kwargs,
     ):
         self.id = id
+        self.sha = sha
         self.lastModified = lastModified
         self.tags = tags
         self.private = private
@@ -1959,6 +1961,7 @@ dataset_info = api.dataset_info
 
 space_info = api.space_info
 
+repo_info = api.repo_info
 list_repo_files = api.list_repo_files
 
 list_metrics = api.list_metrics
