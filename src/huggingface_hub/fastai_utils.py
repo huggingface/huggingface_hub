@@ -356,9 +356,6 @@ def push_to_hub_fastai(
     git_user: str = kwargs.get("git_user", None)
     git_email: str = kwargs.get("git_email", None)
 
-    # Split `repo_id` into organization/user and repo.
-    organization, repo_name = repo_id.split("/")
-
     # Defining token value.
     if token is None:
         token = HfFolder.get_token()
@@ -373,9 +370,8 @@ def push_to_hub_fastai(
 
     # Create repo using `HfApi()`.
     repo_url = HfApi(endpoint=api_endpoint).create_repo(
-        repo_name,
+        repo_id,
         token=token,
-        organization=organization,
         private=private,
         repo_type=None,
         exist_ok=True,
