@@ -171,7 +171,7 @@ class SnapshotDownloadTests(unittest.TestCase):
             self.assertTrue(self.second_commit_hash in storage_folder)
 
         self._api.update_repo_visibility(
-            token=self._token, name=REPO_NAME, private=False
+            token=self._token, repo_id=REPO_NAME, private=False
         )
 
     def test_download_model_local_only(self):
