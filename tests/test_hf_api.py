@@ -21,6 +21,7 @@ import time
 import unittest
 import uuid
 from io import BytesIO
+from unittest import mock
 
 import pytest
 
@@ -645,7 +646,12 @@ class HfFolderTest(unittest.TestCase):
         HfFolder.delete_token()
         # ^^ not an error, we test that the
         # second call does not fail.
+        # test TOKEN in env
         self.assertEqual(HfFolder.get_token(), None)
+        with mock.patch.dict(os.environ, {"HUGGING_FACE_HUB_TOKEN": token}):
+            self.assertEqual(HfFolder.get_token(), token)
+        with mock.patch.dict(os.environ, {"HUGGING_FACE_HUB_TOKEN": None}):
+            self.assertEqual(HfFolder.get_token(), None)
 
 
 @require_git_lfs
@@ -688,7 +694,7 @@ class HfLargefilesTest(HfApiCommonTest):
         REMOTE_URL = self._api.create_repo(
             name=self.REPO_NAME_LARGE_FILE,
             token=self._token,
-            lfsmultipartthresh=6 * 10 ** 6,
+            lfsmultipartthresh=6 * 10**6,
         )
         self.setup_local_clone(REMOTE_URL)
 
@@ -741,7 +747,7 @@ class HfLargefilesTest(HfApiCommonTest):
         REMOTE_URL = self._api.create_repo(
             name=self.REPO_NAME_LARGE_FILE,
             token=self._token,
-            lfsmultipartthresh=16 * 10 ** 6,
+            lfsmultipartthresh=16 * 10**6,
         )
         self.setup_local_clone(REMOTE_URL)
 
