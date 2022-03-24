@@ -1,0 +1,14 @@
+blank_issues_enabled: true
+contact_links:
+  - name: api-inference-community
+    url: https://github.com/huggingface/api-inference-community/issues
+    about: For all issues related to the inference API
+  - name: Website Related
+    url: https://github.com/huggingface/hub-docs/issues
+    about: Feature requests and bug reports related to the website
+  - name: Forum
+    url: https://discuss.huggingface.co/
+    about: General usage questions and community discussions
+  - name: Blank issue
+    url: https://github.com/huggingface/huggingface_hub/issues/new
+    about: Please note that the Forum is in most places the right place for discussions
