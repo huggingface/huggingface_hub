@@ -1584,12 +1584,12 @@ class HfFolder:
         Get token or None if not existent. A token can be also provided using env variables: `export HUGGING_FACE_HUB_TOKEN=<YOUR_TOKEN>`.
         """
         token: Optional[str] = os.environ.get("HUGGING_FACE_HUB_TOKEN")
-        try:
-            with open(cls.path_token, "r") as f:
-                token = f.read()
-        except FileNotFoundError:
-            pass
-
+        if token is None:
+            try:
+                with open(cls.path_token, "r") as f:
+                    token = f.read()
+            except FileNotFoundError:
+                pass
         return token
 
     @classmethod
