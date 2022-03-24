@@ -1,7 +1,9 @@
 name: Build PR Documentation
 
 on:
-  pull_request
+  pull_request:
+    branches:
+      - doc-frontend
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.head_ref || github.run_id }}
