@@ -21,7 +21,7 @@ from huggingface_hub.keras_mixin import (
 )
 from huggingface_hub.utils import logging
 
-from .testing_constants import ENDPOINT_STAGING, PASS, USER
+from .testing_constants import ENDPOINT_STAGING, TOKEN, USER
 from .testing_utils import retry_endpoint, set_write_permission_and_retry
 
 
@@ -85,7 +85,8 @@ class HubMixingTestKeras(unittest.TestCase):
         Share this valid token in all tests below.
         """
         cls._api = HfApi(endpoint=ENDPOINT_STAGING)
-        cls._token = cls._api.login(username=USER, password=PASS)
+        cls._token = TOKEN
+        cls._api.set_access_token(TOKEN)
 
     def test_save_pretrained(self):
         REPO_NAME = repo_name("save")

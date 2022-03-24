@@ -10,7 +10,7 @@ from huggingface_hub.hf_api import HfFolder
 from huggingface_hub.snapshot_download import snapshot_download
 from huggingface_hub.utils import logging
 
-from .testing_constants import ENDPOINT_STAGING, PASS, USER
+from .testing_constants import ENDPOINT_STAGING, TOKEN, USER
 from .testing_utils import retry_endpoint, set_write_permission_and_retry
 
 
@@ -27,7 +27,8 @@ class SnapshotDownloadTests(unittest.TestCase):
         """
         Share this valid token in all tests below.
         """
-        cls._token = cls._api.login(username=USER, password=PASS)
+        cls._token = TOKEN
+        cls._api.set_access_token(TOKEN)
 
     @retry_endpoint
     def setUp(self) -> None:
@@ -110,7 +111,7 @@ class SnapshotDownloadTests(unittest.TestCase):
 
     def test_download_private_model(self):
         self._api.update_repo_visibility(
-            token=self._token, name=REPO_NAME, private=True
+            token=self._token, repo_id=REPO_NAME, private=True
         )
 
         # Test download fails without token
@@ -170,7 +171,7 @@ class SnapshotDownloadTests(unittest.TestCase):
             self.assertTrue(self.second_commit_hash in storage_folder)
 
         self._api.update_repo_visibility(
-            token=self._token, name=REPO_NAME, private=False
+            token=self._token, repo_id=REPO_NAME, private=False
         )
 
     def test_download_model_local_only(self):
