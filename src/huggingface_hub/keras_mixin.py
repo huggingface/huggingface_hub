@@ -277,7 +277,7 @@ class PushToHubCallback(callback):
                 override_card=True,
                 **self.model_save_kwargs,
             )
-            self.repo.push_to_hub(
+            _, self.last_job = self.repo.push_to_hub(
                 commit_message=f"Training in progress batch {batch}", blocking=False
             )
 
@@ -294,8 +294,7 @@ class PushToHubCallback(callback):
                 override_card=True,
                 **self.model_save_kwargs,
             )
-
-            self.repo.push_to_hub(
+            _, self.last_job = self.repo.push_to_hub(
                 commit_message=f"Training in progress epoch {epoch}", blocking=False
             )
 
