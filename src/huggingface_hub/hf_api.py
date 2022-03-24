@@ -1082,7 +1082,7 @@ class HfApi:
         path = f"{self.endpoint}/api/repos/create"
 
         token, name = self._validate_or_retrieve_token(
-            token=token, name=name, function_name="create_repo"
+            token, name, function_name="create_repo"
         )
 
         checked_name = repo_type_and_id_from_hf_id(name)
@@ -1411,11 +1411,11 @@ class HfApi:
         if repo_type not in REPO_TYPES:
             raise ValueError(f"Invalid repo type, must be one of {REPO_TYPES}")
 
-        token, name = self._validate_or_retrieve_token(
-            token, function_name="upload_file"
-        )
-
-        if not self._is_valid_token(token):
+        try:
+            token, name = self._validate_or_retrieve_token(
+                token, function_name="upload_file"
+            )
+        except ValueError:  # if token is invalid or organization token
             if self._is_valid_token(path_or_fileobj):
                 warnings.warn(
                     "`upload_file` now takes `token` as an optional positional argument. "
