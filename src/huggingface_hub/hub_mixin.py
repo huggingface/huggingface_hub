@@ -103,7 +103,7 @@ class ModelHubMixin:
             resume_download (`bool`, *optional*, defaults to `False`):
                 Whether to delete incompletely received files. Will attempt to resume the download if such a
                 file exists.
-            proxies (`Dict[str, str], *optional*):
+            proxies (`Dict[str, str]`, *optional*):
                 A dictionary of proxy servers to use by protocol or endpoint, e.g., `{'http': 'foo.bar:3128',
                 'http://hostname': 'foo.bar:4012'}`. The proxies are used on each request.
             use_auth_token (`str` or `bool`, *optional*):
@@ -289,24 +289,26 @@ class PyTorchModelHubMixin(ModelHubMixin):
         """
         Mix this class with your torch-model class for ease process of saving & loading from huggingface-hub
 
-        Example::
+        Example:
 
-            >>> from huggingface_hub import PyTorchModelHubMixin
+        ```python
+        >>> from huggingface_hub import PyTorchModelHubMixin
 
-            >>> class MyModel(nn.Module, PyTorchModelHubMixin):
-            ...    def __init__(self, **kwargs):
-            ...        super().__init__()
-            ...        self.config = kwargs.pop("config", None)
-            ...        self.layer = ...
-            ...    def forward(self, ...)
-            ...        return ...
+        >>> class MyModel(nn.Module, PyTorchModelHubMixin):
+        ...    def __init__(self, **kwargs):
+        ...        super().__init__()
+        ...        self.config = kwargs.pop("config", None)
+        ...        self.layer = ...
+        ...    def forward(self, ...)
+        ...        return ...
 
-            >>> model = MyModel()
-            >>> model.save_pretrained("mymodel", push_to_hub=False) # Saving model weights in the directory
-            >>> model.push_to_hub("mymodel", "model-1") # Pushing model-weights to hf-hub
+        >>> model = MyModel()
+        >>> model.save_pretrained("mymodel", push_to_hub=False) # Saving model weights in the directory
+        >>> model.push_to_hub("mymodel", "model-1") # Pushing model-weights to hf-hub
 
-            >>> # Downloading weights from hf-hub & model will be initialized from those weights
-            >>> model = MyModel.from_pretrained("username/mymodel@main")
+        >>> # Downloading weights from hf-hub & model will be initialized from those weights
+        >>> model = MyModel.from_pretrained("username/mymodel@main")
+        ```
         """
 
     def _save_pretrained(self, save_directory):

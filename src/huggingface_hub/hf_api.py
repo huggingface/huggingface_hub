@@ -633,7 +633,7 @@ class HfApi:
         Get the public list of all the models on huggingface.co
 
         Args:
-            filter (:class:`ModelFilter` or :obj:`str` or :class:`Iterable`, *optional*):
+            filter (:class:`ModelFilter` or `str` or :class:`Iterable`, *optional*):
                 A string or `ModelFilter` which can be used to identify models on the hub.
                 Example usage:
 
@@ -665,7 +665,7 @@ class HfApi:
                 >>> filt = ModelFilter(library=args.library.allennlp)
                 ```
 
-            author (:obj:`str`, *optional*):
+            author (`str`, *optional*):
                 A string which identify the author (user or organization) of the returned models
                 Example usage:
 
@@ -680,7 +680,7 @@ class HfApi:
                 >>> api.list_models(filter="text-classification", author="google")
                 ```
 
-            search (:obj:`str`, *optional*):
+            search (`str`, *optional*):
                 A string that will be contained in the returned models
                 Example usage:
 
@@ -695,7 +695,7 @@ class HfApi:
                 >>> api.list_models(search="bert", author="google")
                 ```
 
-            emissions_thresholds (:obj:`Tuple`, *optional*):
+            emissions_thresholds (`Tuple`, *optional*):
                 A tuple of two ints or floats representing a minimum and maximum carbon footprint
                 to filter the resulting models with in grams.
                 Example usage:
@@ -707,23 +707,23 @@ class HfApi:
                 >>> # List all models that emitted between 100 to 200 grams of co2
                 >>> api.list_models(emissions_thresholds=(100,200), cardData=True)
                 ```
-            sort (:obj:`Literal["lastModified"]` or :obj:`str`, *optional*):
+            sort (`Literal["lastModified"]` or `str`, *optional*):
                 The key with which to sort the resulting models. Possible values are the properties of the `ModelInfo`
                 class.
-            direction (:obj:`Literal[-1]` or :obj:`int`, *optional*):
+            direction (`Literal[-1]` or `int`, *optional*):
                 Direction in which to sort. The value `-1` sorts by descending order while all other values
                 sort by ascending order.
-            limit (:obj:`int`, *optional*):
+            limit (`int`, *optional*):
                 The limit on the number of models fetched. Leaving this option to `None` fetches all models.
-            full (:obj:`bool`, *optional*):
+            full (`bool`, *optional*):
                 Whether to fetch all model data, including the `lastModified`, the `sha`, the files and the `tags`.
                 This is set to `True` by default when using a filter.
-            cardData (:obj:`bool`, *optional*):
+            cardData (`bool`, *optional*):
                 Whether to grab the metadata for the model as well. Can contain useful information such as carbon emissions,
                 metrics, and datasets trained on.
-            fetch_config (:obj:`bool`, *optional*):
+            fetch_config (`bool`, *optional*):
                 Whether to fetch the model configs as well. This is not included in `full` due to its size.
-            use_auth_token (:obj:`bool` or :obj:`str`, *optional*):
+            use_auth_token (`bool` or `str`, *optional*):
                 Whether to use the `auth_token` provided from the `huggingface_hub` cli. If not logged in,
                 a valid `auth_token` can be passed in as a string.
         """
@@ -846,7 +846,7 @@ class HfApi:
         Get the public list of all the datasets on huggingface.co
 
         Args:
-            filter (:class:`DatasetFilter` or :obj:`str` or :class:`Iterable`, *optional*):
+            filter (:class:`DatasetFilter` or `str` or :class:`Iterable`, *optional*):
                 A string or `DatasetFilter` which can be used to identify datasets on the hub.
                 Example usage:
 
@@ -878,7 +878,7 @@ class HfApi:
                 >>> api.list_datasets(filter=filt)
                 ```
 
-            author (:obj:`str`, *optional*):
+            author (`str`, *optional*):
                 A string which identify the author of the returned models
                 Example usage:
 
@@ -893,7 +893,7 @@ class HfApi:
                 >>> api.list_datasets(filter="text-classification", author="google")
                 ```
 
-            search (:obj:`str`, *optional*):
+            search (`str`, *optional*):
                 A string that will be contained in the returned models
                 Example usage:
 
@@ -908,19 +908,19 @@ class HfApi:
                 >>> api.list_datasets(search="text", author="google")
                 ```
 
-            sort (:obj:`Literal["lastModified"]` or :obj:`str`, *optional*):
+            sort (`Literal["lastModified"]` or `str`, *optional*):
                 The key with which to sort the resulting datasets. Possible values are the properties of the `DatasetInfo`
                 class.
-            direction (:obj:`Literal[-1]` or :obj:`int`, *optional*):
+            direction (`Literal[-1]` or `int`, *optional*):
                 Direction in which to sort. The value `-1` sorts by descending order while all other values
                 sort by ascending order.
-            limit (:obj:`int`, *optional*):
+            limit (`int`, *optional*):
                 The limit on the number of datasets fetched. Leaving this option to `None` fetches all datasets.
-            cardData (:obj:`bool`, *optional*):
+            cardData (`bool`, *optional*):
                 Whether to grab the metadata for the dataset as well. Can contain useful information such as the PapersWithCode ID.
-            full (:obj:`bool`, *optional*):
+            full (`bool`, *optional*):
                 Whether to fetch all dataset data, including the `lastModified` and the `cardData`.
-            use_auth_token (:obj:`bool` or :obj:`str`, *optional*):
+            use_auth_token (`bool` or `str`, *optional*):
                 Whether to use the `auth_token` provided from the `huggingface_hub` cli. If not logged in,
                 a valid `auth_token` can be passed in as a string.
         """
@@ -999,6 +999,9 @@ class HfApi:
     def list_metrics(self) -> List[MetricInfo]:
         """
         Get the public list of all the metrics on huggingface.co
+
+        Returns:
+            `List[MetricInfo]`: a list of [`MetricInfo`] objects which.
         """
         path = f"{self.endpoint}/api/metrics"
         params = {}
@@ -1019,6 +1022,25 @@ class HfApi:
         Get info on one specific model on huggingface.co
 
         Model can be private if you pass an acceptable token or are logged in.
+
+        Args:
+            repo_id (`str`):
+                A namespace (user or an organization) and a repo name separated by a `/`.
+            revision (`str`, *optional*):
+                The revision of the model repository from which to get the information.
+            token (`str`, *optional*):
+                An authentication token [1]_.
+            timeout (`float`, *optional*):
+                Whether to set a timeout for the request to the hub.
+            securityStatus (`bool`, *optional*):
+                Whether to retrieve the security status from the model repository as well.
+
+        Returns:
+            [`ModelInfo`]: The model repository information.
+
+        References:
+
+        - [1] https://huggingface.co/settings/tokens
         """
         if token is None:
             token = HfFolder.get_token()
@@ -1047,6 +1069,27 @@ class HfApi:
     ) -> List[str]:
         """
         Get the list of files in a given repo.
+
+        Args:
+            repo_id (`str`):
+                A namespace (user or an organization) and a repo name separated by a `/`.
+            revision (`str`, *optional*):
+                The revision of the model repository from which to get the information.
+            repo_type (`str`, *optional*):
+                Set to `"dataset"` or `"space"` if uploading
+                to a dataset or space, `None` or `"model"` if
+                uploading to a model. Default is `None`.
+            token (`str`, *optional*):
+                An authentication token [1]_.
+            timeout (`float`, *optional*):
+                Whether to set a timeout for the request to the hub.
+
+        Returns:
+            `List[str]`: the list of files in a given repository.
+
+        References:
+
+        - [1] https://huggingface.co/settings/tokens
         """
         if repo_type is None or repo_type == "model":
             info = self.model_info(
@@ -1072,6 +1115,23 @@ class HfApi:
         Get info on one specific dataset on huggingface.co
 
         Dataset can be private if you pass an acceptable token.
+
+        Args:
+            repo_id (`str`):
+                A namespace (user or an organization) and a repo name separated by a `/`.
+            revision (`str`, *optional*):
+                The revision of the dataset repository from which to get the information.
+            token (`str`, *optional*):
+                An authentication token [1]_.
+            timeout (`float`, *optional*):
+                Whether to set a timeout for the request to the hub.
+
+        Returns:
+            [`DatasetInfo`]: The dataset repository information.
+
+        References:
+
+        - [1] https://huggingface.co/settings/tokens
         """
         if token is None:
             token = HfFolder.get_token()
@@ -1103,7 +1163,7 @@ class HfApi:
 
         Args:
             repo_id (`str`):
-                A namespace (user or an organization) and a repo name seperated by a `/`.
+                A namespace (user or an organization) and a repo name separated by a `/`.
 
                 <Tip>
                 Version added: 0.4.0
@@ -1230,8 +1290,8 @@ class HfApi:
         Delete a repo from the HuggingFace Hub. CAUTION: this is irreversible.
 
         Args:
-            repo_id (`str):
-                A namespace (user or an organization) and a repo name seperated by a `/`.
+            repo_id (`str`):
+                A namespace (user or an organization) and a repo name separated by a `/`.
 
                 <Tip>
                Version added: 0.4.0
@@ -1310,25 +1370,24 @@ class HfApi:
         token: Optional[str] = None,
         organization: Optional[str] = None,
         repo_type: Optional[str] = None,
-        name: str = None,
     ) -> Dict[str, bool]:
         """Update the visibility setting of a repository.
 
         Args:
-            repo_id: A namespace (user or an organization) and a repo name
-                seperated by a `/`.
+            repo_id (`str`, *optional*):
+                A namespace (user or an organization) and a repo name separated by a `/`.
 
                 <Tip>
                  Version added: 0.4.0
                  </Tip>
-
-            private: Whether the model repo should be private.
-
-            token: An authentication token [1]_.
-
-            repo_type: Set to :obj:`"dataset"` or :obj:`"space"` if uploading
-                to a dataset or space, :obj:`None` or :obj:`"model"` if
-                uploading to a model. Default is :obj:`None`.
+            private (`bool`, *optional*, defaults to `False`):
+                Whether the model repo should be private.
+            token (`str`, *optional*):
+                An authentication token [1]_.
+            repo_type (`str`, *optional*):
+                Set to `"dataset"` or `"space"` if uploading
+                to a dataset or space, `None` or `"model"` if
+                uploading to a model. Default is `None`.
 
         Returns:
             The HTTP response in json.
@@ -1388,6 +1447,24 @@ class HfApi:
 
         Note there are certain limitations. For more information about moving repositories, please
         see https://hf.co/docs/hub/main#how-can-i-rename-or-transfer-a-repo.
+
+        Args:
+            from_id (`str`):
+                A namespace (user or an organization) and a repo name separated by a `/`.
+                Original repository identifier.
+            to_id (`str`):
+                A namespace (user or an organization) and a repo name separated by a `/`.
+                Final repository identifier.
+            repo_type (`str`, *optional*):
+                Set to `"dataset"` or `"space"` if uploading
+                to a dataset or space, `None` or `"model"` if
+                uploading to a model. Default is `None`.
+            token (`str`, *optional*):
+                An authentication token [1]_.
+
+        References:
+
+        - [1] https://huggingface.co/settings/tokens
         """
         token = self._validate_or_retrieve_token(token)
 
@@ -1437,35 +1514,33 @@ class HfApi:
         doesn't require git or git-lfs to be installed.
 
         Args:
-            upload_fileth_or_fileobj (`str`, `bytes`, or `IO`):
+            path_or_fileobj (`str`, `bytes`, or `IO`):
                 Path to a file on the local machine or binary data stream / fileobj / buffer.
-
             path_in_repo (`str`):
-                Relative filepath in the repo, for example: :obj:`"checkpoints/1fec34a/weights.bin"`
-
+                Relative filepath in the repo, for example: `"checkpoints/1fec34a/weights.bin"`
             repo_id (`str`):
-                The repository to which the file will be uploaded, for example: :obj:`"username/custom_transformers"`
-
-            token (`str`):
+                The repository to which the file will be uploaded, for example: `"username/custom_transformers"`
+            token (`str`, *optional*):
                 Authentication token, obtained with :function:`HfApi.login` method. Will default to the stored token.
-
-            repo_type (`str`, Optional):
-                Set to :obj:`"dataset"` or :obj:`"space"` if uploading to a dataset or space, :obj:`None` or :obj:`"model"` if uploading to a model. Default is :obj:`None`.
-
-            revision (`str`, Optional):
-                The git revision to commit from. Defaults to the :obj:`"main"` branch.
-
-            identical_ok (`bool`, defaults to `True`):
+            repo_type (`str`, *optional*):
+                Set to `"dataset"` or `"space"` if uploading to a dataset or space, `None` or `"model"` if uploading to a model. Default is `None`.
+            revision (`str`, *optional*):
+                The git revision to commit from. Defaults to the `"main"` branch.
+            identical_ok (`bool`, *optional*, defaults to `True`):
                 When set to false, will raise an HTTPError when the file you're trying to upload already exists on the hub
                 and its content did not change.
 
         Returns:
             `str`: The URL to visualize the uploaded file on the hub
 
-        Raises:
-            :class:`ValueError`: if some parameter value is invalid
+        <Tip>
 
-            :class:`requests.HTTPError`: if the HuggingFace API returned an error
+        Raises the following errors:
+
+            - `HTTPError` if the HuggingFace API returned an error
+            - `ValueError` if some parameter value is invalid
+
+        </Tip>
 
         Examples:
 
@@ -1565,24 +1640,24 @@ class HfApi:
 
         Args:
             path_in_repo (`str`):
-                Relative filepath in the repo, for example: :obj:`"checkpoints/1fec34a/weights.bin"`
-
+                Relative filepath in the repo, for example: `"checkpoints/1fec34a/weights.bin"`
             repo_id (`str`):
-                The repository from which the file will be deleted, for example: :obj:`"username/custom_transformers"`
-
-            token (`str`):
+                The repository from which the file will be deleted, for example: `"username/custom_transformers"`
+            token (`str`, *optional*):
                 Authentication token, obtained with :function:`HfApi.login` method. Will default to the stored token.
+            repo_type (`str`, *optional*):
+                Set to `"dataset"` or `"space"` if the file is in a dataset or space, `None` or `"model"` if in a model. Default is `None`.
+            revision (`str`, *optional*):
+                The git revision to commit from. Defaults to the `"main"` branch.
 
-            repo_type (`str`, Optional):
-                Set to :obj:`"dataset"` or :obj:`"space"` if the file is in a dataset or space, :obj:`None` or :obj:`"model"` if in a model. Default is :obj:`None`.
+        <Tip>
 
-            revision (`str`, Optional):
-                The git revision to commit from. Defaults to the :obj:`"main"` branch.
+        Raises the following errors:
 
-        Raises:
-            :class:`ValueError`: if some parameter value is invalid
+            - `HTTPError` if the HuggingFace API returned an error
+            - `ValueError` if some parameter value is invalid
 
-            :class:`requests.HTTPError`: if the HuggingFace API returned an error
+        </Tip>
 
         """
         if repo_type not in REPO_TYPES:
@@ -1643,6 +1718,10 @@ class HfFolder:
     def save_token(cls, token):
         """
         Save token, creating folder as needed.
+
+        Args:
+            token (`str`):
+                The token to save to the [`HfFolder`]
         """
         os.makedirs(os.path.dirname(cls.path_token), exist_ok=True)
         with open(cls.path_token, "w+") as f:
@@ -1651,7 +1730,11 @@ class HfFolder:
     @classmethod
     def get_token(cls):
         """
-        Get token or None if not existent.
+        Retrieves the token
+
+        Returns:
+            `str` or `None`: The token, `None` if it doesn't exist.
+
         """
         try:
             with open(cls.path_token, "r") as f:
@@ -1662,7 +1745,7 @@ class HfFolder:
     @classmethod
     def delete_token(cls):
         """
-        Delete token. Do not fail if token does not exist.
+        Deletes the token from storage. Does not fail if token does not exist.
         """
         try:
             os.remove(cls.path_token)

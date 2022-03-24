@@ -50,7 +50,7 @@ def _get_library_root_logger() -> logging.Logger:
 def _get_default_logging_level():
     """
     If HUGGINGFACE_HUB_VERBOSITY env var is set to one of the valid choices return that as the new default level.
-    If it is not - fall back to ``_default_log_level``
+    If it is not - fall back to `_default_log_level`
     """
     env_level_str = os.getenv("HUGGINGFACE_HUB_VERBOSITY", None)
     if env_level_str:
@@ -76,8 +76,22 @@ def _reset_library_root_logger() -> None:
 
 
 def get_logger(name: Optional[str] = None) -> logging.Logger:
-    """Return a logger with the specified name.
+    """
+    Returns a logger with the specified name.
     This function is not supposed to be directly accessed by library users.
+
+    Args:
+        name (`str`, *optional*):
+            The name of the logger to get, usually the filename
+
+    Example:
+
+    ``python
+    from huggingface_hub import get_logger
+
+    logger = get_logger(__file__)
+    logger.set_verbosity_info()
+    ``
     """
 
     if name is None:
@@ -88,53 +102,75 @@ def get_logger(name: Optional[str] = None) -> logging.Logger:
 
 def get_verbosity() -> int:
     """Return the current level for the HuggingFace Hub's root logger.
+
     Returns:
-        Logging level, e.g., ``huggingface_hub.logging.DEBUG`` and ``huggingface_hub.logging.INFO``.
-    .. note::
-        HuggingFace Hub has following logging levels:
-        - ``huggingface_hub.logging.CRITICAL``, ``huggingface_hub.logging.FATAL``
-        - ``huggingface_hub.logging.ERROR``
-        - ``huggingface_hub.logging.WARNING``, ``huggingface_hub.logging.WARN``
-        - ``huggingface_hub.logging.INFO``
-        - ``huggingface_hub.logging.DEBUG``
+        Logging level, e.g., `huggingface_hub.logging.DEBUG` and `huggingface_hub.logging.INFO`.
+
+    <Tip>
+
+    HuggingFace Hub has following logging levels:
+
+    - `huggingface_hub.logging.CRITICAL`, `huggingface_hub.logging.FATAL`
+    - `huggingface_hub.logging.ERROR`
+    - `huggingface_hub.logging.WARNING`, `huggingface_hub.logging.WARN`
+    - `huggingface_hub.logging.INFO`
+    - `huggingface_hub.logging.DEBUG`
+
+    </Tip>
     """
     return _get_library_root_logger().getEffectiveLevel()
 
 
 def set_verbosity(verbosity: int) -> None:
-    """Set the level for the HuggingFace Hub's root logger.
+    """
+    Sets the level for the HuggingFace Hub's root logger.
+
     Args:
-        verbosity:
-            Logging level, e.g., ``huggingface_hub.logging.DEBUG`` and ``huggingface_hub.logging.INFO``.
+        verbosity (`int`):
+            Logging level, e.g., `huggingface_hub.logging.DEBUG` and `huggingface_hub.logging.INFO`.
     """
     _get_library_root_logger().setLevel(verbosity)
 
 
 def set_verbosity_info():
+    """
+    Sets the verbosity to `logging.INFO`.
+    """
     return set_verbosity(INFO)
 
 
 def set_verbosity_warning():
+    """
+    Sets the verbosity to `logging.WARNING`.
+    """
     return set_verbosity(WARNING)
 
 
 def set_verbosity_debug():
+    """
+    Sets the verbosity to `logging.DEBUG`.
+    """
     return set_verbosity(DEBUG)
 
 
 def set_verbosity_error():
+    """
+    Sets the verbosity to `logging.ERROR`.
+    """
     return set_verbosity(ERROR)
 
 
 def disable_propagation() -> None:
-    """Disable propagation of the library log outputs.
+    """
+    Disable propagation of the library log outputs.
     Note that log propagation is disabled by default.
     """
     _get_library_root_logger().propagate = False
 
 
 def enable_propagation() -> None:
-    """Enable propagation of the library log outputs.
+    """
+    Enable propagation of the library log outputs.
     Please disable the HuggingFace Hub's default handler to prevent double logging if the root logger has
     been configured.
     """
