@@ -37,6 +37,7 @@
 		// Reset values
 		computeTime = "";
 		error = "";
+		warning = "";
 		output = [];
 		outputJson = "";
 

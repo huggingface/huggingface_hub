@@ -89,6 +89,7 @@
 		// Reset values
 		computeTime = "";
 		error = "";
+		warning = "";
 		modelLoading = { isLoading: false, estimatedTime: 0 };
 		output = "";
 		outputJson = "";
