@@ -21,7 +21,7 @@ from os.path import expanduser
 from typing import IO, Dict, Iterable, List, Optional, Tuple, Union
 
 import requests
-from requests.exceptions import HTTPError
+from requests.exceptions import HTTPError, JSONDecodeError
 
 from .constants import (
     ENDPOINT,
@@ -1217,8 +1217,12 @@ class HfApi:
             and organization != checked_name[1]
         ):
             raise ValueError(
-                f"""Passed `organization` and `name` organization are not the same ({organization}, {checked_name[1]}).
-            Please either include the organization in only `name` or the `organization` parameter, such as `api.create_repo({checked_name[0]}, organization={organization})` or `api.create_repo({checked_name[1]}/{checked_name[2]})`"""
+                "Passed `organization` and `name` organization are not the same"
+                f" ({organization}, {checked_name[1]})."
+                "\nPlease either include the organization in only `name` or the"
+                " `organization` parameter, such as "
+                f"`api.create_repo({checked_name[0]}, organization={organization})` "
+                f"or `api.create_repo({checked_name[1]}/{checked_name[2]})`"
             )
 
         repo_type = repo_type or checked_name[0]
@@ -1237,7 +1241,14 @@ class HfApi:
             headers={"authorization": f"Bearer {token}"},
             json=json,
         )
-        r.raise_for_status()
+        try:
+            r.raise_for_status()
+        except requests.exceptions.RequestException as e:
+            try:
+                message = e.response.json()["error"]
+            except JSONDecodeError:
+                message = e.response.text
+            raise type(e)(message) from e
 
     def update_repo_visibility(
         self,
@@ -1347,8 +1358,9 @@ class HfApi:
         except HTTPError as e:
             if r.text:
                 raise HTTPError(
-                    f"{r.status_code} Error Message: {r.text}. For additional documentation please see https://hf.co/docs/hub/main#how-can-i-rename-or-transfer-a-repo."
-                )
+                    f"{r.status_code} Error Message: {r.text}. For additional documentation "
+                    "please see https://hf.co/docs/hub/main#how-can-i-rename-or-transfer-a-repo."
+                ) from e
             else:
                 raise e
         logger.info(

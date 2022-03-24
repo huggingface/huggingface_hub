@@ -286,6 +286,18 @@ class HfApiEndpointsTest(HfApiCommonTestWithLogin):
         self.assertIsInstance(valid_org["apiToken"], str)
 
     @retry_endpoint
+    def test_delete_repo_error_message(self):
+        # test for #751
+        with pytest.raises(
+            HTTPError,
+            match=(
+                "No model repo found matching __DUMMY_TRANSFORMERS_USER__/"
+                "repo-that-does-not-exist"
+            ),
+        ):
+            self._api.delete_repo("repo-that-does-not-exist", token=self._token)
+
+    @retry_endpoint
     def test_create_update_and_delete_repo(self):
         REPO_NAME = repo_name("crud")
         self._api.create_repo(repo_id=REPO_NAME, token=self._token)
