@@ -1103,8 +1103,7 @@ class HfFolderTest(unittest.TestCase):
         self.assertEqual(HfFolder.get_token(), None)
         with unittest.mock.patch.dict(os.environ, {"HUGGING_FACE_HUB_TOKEN": token}):
             self.assertEqual(HfFolder.get_token(), token)
-        with unittest.mock.patch.dict(os.environ, {"HUGGING_FACE_HUB_TOKEN": None}):
-            self.assertEqual(HfFolder.get_token(), None)
+        self.assertEqual(HfFolder.get_token(), "None")
 
 
 @require_git_lfs
