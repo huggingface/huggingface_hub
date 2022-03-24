@@ -633,7 +633,7 @@ class HfApi:
         Get the public list of all the models on huggingface.co
 
         Args:
-            filter (:class:`ModelFilter` or `str` or :class:`Iterable`, *optional*):
+            filter (`ModelFilter` or `str` or `Iterable`, *optional*):
                 A string or `ModelFilter` which can be used to identify models on the hub.
                 Example usage:
 
@@ -846,7 +846,7 @@ class HfApi:
         Get the public list of all the datasets on huggingface.co
 
         Args:
-            filter (:class:`DatasetFilter` or `str` or :class:`Iterable`, *optional*):
+            filter (`DatasetFilter` or `str` or `Iterable`, *optional*):
                 A string or `DatasetFilter` which can be used to identify datasets on the hub.
                 Example usage:
 

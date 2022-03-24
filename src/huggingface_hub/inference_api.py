@@ -85,13 +85,13 @@ class InferenceApi:
         Args:
             repo_id (``str``): Id of repository (e.g. `user/bert-base-uncased`).
             task (``str``, `optional`, defaults ``None``): Whether to force a task instead of using task specified in the repository.
-            token (:obj:`str`, `optional`):
+            token (`str`, `optional`):
                 The API token to use as HTTP bearer authorization. This is not the authentication token.
                 You can find the token in https://huggingface.co/settings/token. Alternatively, you can
                 find both your organizations and personal API tokens using `HfApi().whoami(token)`.
             gpu (``bool``, `optional`, defaults ``False``): Whether to use GPU instead of CPU for inference(requires Startup plan at least).
         .. note::
-            Setting :obj:`token` is required when you want to use a private model.
+            Setting `token` is required when you want to use a private model.
         """
         self.options = {"wait_for_model": True, "use_gpu": gpu}
 
