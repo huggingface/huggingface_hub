@@ -22,7 +22,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        python-version: ["3.6", "3.9"]
+        python-version: ["3.7", "3.10"]
         test_repository: ["Repository only", "Everything else"]
 
     steps:
@@ -52,7 +52,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        python-version: ["3.6", "3.9"]
+        python-version: ["3.7", "3.10"]
 
     steps:
     - uses: actions/checkout@v2
@@ -73,7 +73,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        python-version: ["3.6", "3.9"]
+        python-version: ["3.7", "3.10"]
 
     steps:
     - uses: actions/checkout@v2
@@ -100,7 +100,7 @@ jobs:
     - name: Set up Python
       uses: actions/setup-python@v2
       with:
-        python-version: 3.9
+        python-version: "3.10"
 
     - run: |
         git config --global user.email "ci@dummy.com"
