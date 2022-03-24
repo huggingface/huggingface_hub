@@ -1582,7 +1582,7 @@ class HfFolder:
     def get_token(cls) -> Optional[str]:
         """
         Get token or None if not existent.
-        
+
         Note that a token can be also provided using the `HUGGING_FACE_HUB_TOKEN`
         environment variable.
         """
