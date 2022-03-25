@@ -185,22 +185,22 @@ def snapshot_download(
         storage_folder = max(repo_folders, key=os.path.getmtime)
 
         return storage_folder
-    else:
-        # if we have internet connection we retrieve the correct folder name from the huggingface api
-        _api = HfApi()
-        model_info = _api.model_info(repo_id=repo_id, revision=revision, token=token)
 
-        storage_folder = os.path.join(cache_dir, repo_id_flattened + "." + revision)
+    # if we have internet connection we retrieve the correct folder name from the huggingface api
+    _api = HfApi()
+    model_info = _api.model_info(repo_id=repo_id, revision=revision, token=token)
 
-        # if passed revision is not identical to the commit sha
-        # then revision has to be a branch name, e.g. "main"
-        # in this case make sure that the branch name is included
-        # cached storage folder name
-        if revision != model_info.sha:
-            storage_folder += f".{model_info.sha}"
+    storage_folder = os.path.join(cache_dir, repo_id_flattened + "." + revision)
 
-        repo_id_sha = model_info.sha
-        model_files = [f.rfilename for f in model_info.siblings]
+    # if passed revision is not identical to the commit sha
+    # then revision has to be a branch name, e.g. "main"
+    # in this case make sure that the branch name is included
+    # cached storage folder name
+    if revision != model_info.sha:
+        storage_folder += f".{model_info.sha}"
+
+    repo_id_sha = model_info.sha
+    model_files = [f.rfilename for f in model_info.siblings]
 
     allow_regex = [allow_regex] if isinstance(allow_regex, str) else allow_regex
     ignore_regex = [ignore_regex] if isinstance(ignore_regex, str) else ignore_regex
