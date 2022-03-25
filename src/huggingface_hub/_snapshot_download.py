@@ -5,7 +5,7 @@ from pathlib import Path
 from typing import Dict, List, Optional, Union
 
 from .constants import DEFAULT_REVISION, HUGGINGFACE_HUB_CACHE, REPO_TYPES
-from .file_download import cached_download, hf_hub_url
+from .file_download import cached_download, hf_hub_download, hf_hub_url
 from .hf_api import HfApi, HfFolder
 from .utils import logging
 from .utils._deprecation import _deprecate_positional_args
@@ -207,14 +207,14 @@ def snapshot_download(
         repo_id=repo_id, repo_type=repo_type, revision=revision, token=token
     )
 
-    storage_folder = os.path.join(cache_dir, repo_id_flattened + "." + revision)
+    storage_folder = os.path.join(cache_dir, repo_id_flattened)
 
     # if passed revision is not identical to the commit sha
     # then revision has to be a branch name, e.g. "main"
     # in this case make sure that the branch name is included
     # cached storage folder name
-    if revision != repo_info.sha:
-        storage_folder += f".{repo_info.sha}"
+    # if revision != repo_info.sha:
+    #     storage_folder += f".{repo_info.sha}"
 
     repo_id_sha = repo_info.sha
     repo_files = [f.rfilename for f in repo_info.siblings]
@@ -243,12 +243,11 @@ def snapshot_download(
         )
         os.makedirs(nested_dirname, exist_ok=True)
 
-        url = hf_hub_url(
-            repo_id, filename=repo_file, repo_type=repo_type, revision=repo_id_sha
-        )
-
-        path = cached_download(
-            url,
+        path = hf_hub_download(
+            repo_id,
+            filename=repo_file,
+            repo_type=repo_type,
+            revision=repo_id_sha,
             cache_dir=storage_folder,
             force_filename=relative_filepath,
             library_name=library_name,
