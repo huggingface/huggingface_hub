@@ -233,7 +233,6 @@ def snapshot_download(
         ):
             continue
 
-        url = hf_hub_url(repo_id, filename=repo_file, revision=repo_id_sha)
         relative_filepath = os.path.join(*repo_file.split("/"))
 
         # Create potential nested dir
@@ -241,6 +240,10 @@ def snapshot_download(
             os.path.join(storage_folder, relative_filepath)
         )
         os.makedirs(nested_dirname, exist_ok=True)
+
+        url = hf_hub_url(
+            repo_id, filename=repo_file, repo_type=repo_type, revision=repo_id_sha
+        )
 
         path = cached_download(
             url,
