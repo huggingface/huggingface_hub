@@ -4,16 +4,16 @@ from glob import glob
 from pathlib import Path
 from typing import Dict, List, Optional, Union
 
-from .constants import DEFAULT_REVISION, HUGGINGFACE_HUB_CACHE, REPO_TYPES
+from .constants import (
+    DEFAULT_REVISION,
+    HUGGINGFACE_HUB_CACHE,
+    REPO_ID_SEPARATOR,
+    REPO_TYPES,
+)
 from .file_download import cached_download, hf_hub_download, hf_hub_url
 from .hf_api import HfApi, HfFolder
 from .utils import logging
 from .utils._deprecation import _deprecate_positional_args
-
-
-REPO_ID_SEPARATOR = "--"
-# ^ this substring is not allowed in repo_ids on hf.co
-# and is the canonical one we use for serialization of repo ids elsewhere.
 
 
 logger = logging.get_logger(__name__)
@@ -235,21 +235,12 @@ def snapshot_download(
         ):
             continue
 
-        relative_filepath = os.path.join(*repo_file.split("/"))
-
-        # Create potential nested dir
-        nested_dirname = os.path.dirname(
-            os.path.join(storage_folder, relative_filepath)
-        )
-        os.makedirs(nested_dirname, exist_ok=True)
-
-        path = hf_hub_download(
+        _ = hf_hub_download(
             repo_id,
             filename=repo_file,
             repo_type=repo_type,
             revision=repo_id_sha,
             cache_dir=storage_folder,
-            force_filename=relative_filepath,
             library_name=library_name,
             library_version=library_version,
             user_agent=user_agent,
@@ -259,8 +250,5 @@ def snapshot_download(
             use_auth_token=use_auth_token,
             local_files_only=local_files_only,
         )
-
-        if os.path.exists(path + ".lock"):
-            os.remove(path + ".lock")
 
     return storage_folder
