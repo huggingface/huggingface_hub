@@ -131,7 +131,9 @@ def snapshot_download(
         raise ValueError("Invalid repo type")
 
     # remove all `/` occurrences to correctly convert repo to directory name
-    repo_id_flattened = repo_id.replace("/", REPO_ID_SEPARATOR)
+    repo_id_flattened = f"{repo_type}s{REPO_ID_SEPARATOR}" + repo_id.replace(
+        "/", REPO_ID_SEPARATOR
+    )
 
     # if we have no internet connection we will look for the
     # last modified folder in the cache
