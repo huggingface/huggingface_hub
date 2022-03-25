@@ -174,14 +174,6 @@ class DatasetFile(RepoFile):
     pass
 
 
-class SpaceFile(RepoFile):
-    """
-    Data structure that represents a public file inside a Space, accessible from huggingface.co
-    """
-
-    pass
-
-
 class ModelInfo:
     """
     Info about a model accessible from huggingface.co
@@ -208,7 +200,7 @@ class ModelInfo:
         self.tags = tags
         self.pipeline_tag = pipeline_tag
         self.siblings = (
-            [ModelFile(**x) for x in siblings] if siblings is not None else None
+            [RepoFile(**x) for x in siblings] if siblings is not None else None
         )
         self.config = config
         for k, v in kwargs.items():
@@ -260,7 +252,7 @@ class DatasetInfo:
         self.citation = citation
         self.cardData = cardData
         self.siblings = (
-            [DatasetFile(**x) for x in siblings] if siblings is not None else None
+            [RepoFile(**x) for x in siblings] if siblings is not None else None
         )
         # Legacy stuff, "key" is always returned with an empty string
         # because of old versions of the datasets lib that need this field
@@ -301,7 +293,7 @@ class SpaceInfo:
         self.sha = sha
         self.lastModified = lastModified
         self.siblings = (
-            [SpaceFile(**x) for x in siblings] if siblings is not None else None
+            [RepoFile(**x) for x in siblings] if siblings is not None else None
         )
         self.private = private
         self.author = author
