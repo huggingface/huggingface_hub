@@ -24,6 +24,7 @@ def snapshot_download(
     repo_id: str,
     *,
     revision: Optional[str] = None,
+    repo_type: Optional[str] = None,
     cache_dir: Union[str, Path, None] = None,
     library_name: Optional[str] = None,
     library_version: Optional[str] = None,
@@ -188,7 +189,9 @@ def snapshot_download(
 
     # if we have internet connection we retrieve the correct folder name from the huggingface api
     _api = HfApi()
-    model_info = _api.model_info(repo_id=repo_id, revision=revision, token=token)
+    repo_info = _api.repo_info(
+        repo_id=repo_id, repo_type=repo_type, revision=revision, token=token
+    )
 
     storage_folder = os.path.join(cache_dir, repo_id_flattened + "." + revision)
 
@@ -196,30 +199,30 @@ def snapshot_download(
     # then revision has to be a branch name, e.g. "main"
     # in this case make sure that the branch name is included
     # cached storage folder name
-    if revision != model_info.sha:
-        storage_folder += f".{model_info.sha}"
+    if revision != repo_info.sha:
+        storage_folder += f".{repo_info.sha}"
 
-    repo_id_sha = model_info.sha
-    model_files = [f.rfilename for f in model_info.siblings]
+    repo_id_sha = repo_info.sha
+    repo_files = [f.rfilename for f in repo_info.siblings]
 
     allow_regex = [allow_regex] if isinstance(allow_regex, str) else allow_regex
     ignore_regex = [ignore_regex] if isinstance(ignore_regex, str) else ignore_regex
 
-    for model_file in model_files:
+    for repo_file in repo_files:
         # if there's an allowlist, skip download if file does not match any regex
         if allow_regex is not None and not any(
-            fnmatch(model_file, r) for r in allow_regex
+            fnmatch(repo_file, r) for r in allow_regex
         ):
             continue
 
         # if there's a denylist, skip download if file does matches any regex
         if ignore_regex is not None and any(
-            fnmatch(model_file, r) for r in ignore_regex
+            fnmatch(repo_file, r) for r in ignore_regex
         ):
             continue
 
-        url = hf_hub_url(repo_id, filename=model_file, revision=repo_id_sha)
-        relative_filepath = os.path.join(*model_file.split("/"))
+        url = hf_hub_url(repo_id, filename=repo_file, revision=repo_id_sha)
+        relative_filepath = os.path.join(*repo_file.split("/"))
 
         # Create potential nested dir
         nested_dirname = os.path.dirname(
