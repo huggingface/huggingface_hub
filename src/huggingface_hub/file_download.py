@@ -765,17 +765,166 @@ def hf_hub_download(
         repo_id, filename, subfolder=subfolder, repo_type=repo_type, revision=revision
     )
 
-    return cached_download(
-        url,
-        library_name=library_name,
-        library_version=library_version,
-        cache_dir=cache_dir,
-        user_agent=user_agent,
-        force_download=force_download,
-        force_filename=force_filename,
-        proxies=proxies,
-        etag_timeout=etag_timeout,
-        resume_download=resume_download,
-        use_auth_token=use_auth_token,
-        local_files_only=local_files_only,
-    )
+    if cache_dir is None:
+        cache_dir = HUGGINGFACE_HUB_CACHE
+    if isinstance(cache_dir, Path):
+        cache_dir = str(cache_dir)
+
+    os.makedirs(cache_dir, exist_ok=True)
+
+    headers = {
+        "user-agent": http_user_agent(
+            library_name=library_name,
+            library_version=library_version,
+            user_agent=user_agent,
+        )
+    }
+    if isinstance(use_auth_token, str):
+        headers["authorization"] = f"Bearer {use_auth_token}"
+    elif use_auth_token:
+        token = HfFolder.get_token()
+        if token is None:
+            raise EnvironmentError(
+                "You specified use_auth_token=True, but a huggingface token was not found."
+            )
+        headers["authorization"] = f"Bearer {token}"
+
+    url_to_download = url
+    etag = None
+    if not local_files_only:
+        try:
+            r = _request_with_retry(
+                method="HEAD",
+                url=url,
+                headers=headers,
+                allow_redirects=False,
+                proxies=proxies,
+                timeout=etag_timeout,
+            )
+            r.raise_for_status()
+            etag = r.headers.get("X-Linked-Etag") or r.headers.get("ETag")
+            # We favor a custom header indicating the etag of the linked resource, and
+            # we fallback to the regular etag header.
+            # If we don't have any of those, raise an error.
+            if etag is None:
+                raise OSError(
+                    "Distant resource does not have an ETag, we won't be able to reliably ensure reproducibility."
+                )
+            # In case of a redirect,
+            # save an extra redirect on the request.get call,
+            # and ensure we download the exact atomic version even if it changed
+            # between the HEAD and the GET (unlikely, but hey).
+            if 300 <= r.status_code <= 399:
+                url_to_download = r.headers["Location"]
+        except (requests.exceptions.SSLError, requests.exceptions.ProxyError):
+            # Actually raise for those subclasses of ConnectionError
+            raise
+        except (
+            requests.exceptions.ConnectionError,
+            requests.exceptions.Timeout,
+            OfflineModeIsEnabled,
+        ):
+            # Otherwise, our Internet connection is down.
+            # etag is None
+            pass
+
+    filename = url_to_filename(url, etag)
+
+    # get cache path to put the file
+    cache_path = os.path.join(cache_dir, filename)
+
+    # etag is None == we don't have a connection or we passed local_files_only.
+    # try to get the last downloaded one
+    if etag is None:
+        if os.path.exists(cache_path) and not force_download:
+            return cache_path
+        else:
+            matching_files = [
+                file
+                for file in fnmatch.filter(
+                    os.listdir(cache_dir), filename.split(".")[0] + ".*"
+                )
+                if not file.endswith(".json") and not file.endswith(".lock")
+            ]
+            if len(matching_files) > 0 and not force_download:
+                return os.path.join(cache_dir, matching_files[-1])
+            else:
+                # If files cannot be found and local_files_only=True,
+                # the models might've been found if local_files_only=False
+                # Notify the user about that
+                if local_files_only:
+                    raise ValueError(
+                        "Cannot find the requested files in the cached path and outgoing traffic has been"
+                        " disabled. To enable model look-ups and downloads online, set 'local_files_only'"
+                        " to False."
+                    )
+                else:
+                    raise ValueError(
+                        "Connection error, and we cannot find the requested files in the cached path."
+                        " Please try again or make sure your Internet connection is on."
+                    )
+
+    # From now on, etag is not None.
+    if os.path.exists(cache_path) and not force_download:
+        return cache_path
+
+    # Prevent parallel downloads of the same file with a lock.
+    lock_path = cache_path + ".lock"
+
+    # Some Windows versions do not allow for paths longer than 255 characters.
+    # In this case, we must specify it is an extended path by using the "\\?\" prefix.
+    if os.name == "nt" and len(os.path.abspath(lock_path)) > 255:
+        lock_path = "\\\\?\\" + os.path.abspath(lock_path)
+
+    if os.name == "nt" and len(os.path.abspath(cache_path)) > 255:
+        cache_path = "\\\\?\\" + os.path.abspath(cache_path)
+
+    with FileLock(lock_path):
+
+        # If the download just completed while the lock was activated.
+        if os.path.exists(cache_path) and not force_download:
+            # Even if returning early like here, the lock will be released.
+            return cache_path
+
+        if resume_download:
+            incomplete_path = cache_path + ".incomplete"
+
+            @contextmanager
+            def _resumable_file_manager() -> "io.BufferedWriter":
+                with open(incomplete_path, "ab") as f:
+                    yield f
+
+            temp_file_manager = _resumable_file_manager
+            if os.path.exists(incomplete_path):
+                resume_size = os.stat(incomplete_path).st_size
+            else:
+                resume_size = 0
+        else:
+            temp_file_manager = partial(
+                tempfile.NamedTemporaryFile, mode="wb", dir=cache_dir, delete=False
+            )
+            resume_size = 0
+
+        # Download to temporary file, then copy to cache dir once finished.
+        # Otherwise you get corrupt cache entries if the download gets interrupted.
+        with temp_file_manager() as temp_file:
+            logger.info("downloading %s to %s", url, temp_file.name)
+
+            http_get(
+                url_to_download,
+                temp_file,
+                proxies=proxies,
+                resume_size=resume_size,
+                headers=headers,
+            )
+
+        logger.info("storing %s in cache at %s", url, cache_path)
+        os.replace(temp_file.name, cache_path)
+
+        logger.info("creating metadata file for %s", cache_path)
+        meta = {"url": url, "etag": etag}
+        meta_path = cache_path + ".json"
+        with open(meta_path, "w") as meta_file:
+            json.dump(meta, meta_file)
+
+    return cache_path
