@@ -191,6 +191,8 @@ class ModelInfo:
         siblings: Optional[
             List[Dict]
         ] = None,  # list of files that constitute the model
+        private: Optional[bool] = None,
+        author: Optional[str] = None,
         config: Optional[Dict] = None,  # information about model configuration
         **kwargs,
     ):
@@ -202,6 +204,8 @@ class ModelInfo:
         self.siblings = (
             [RepoFile(**x) for x in siblings] if siblings is not None else None
         )
+        self.private = private
+        self.author = author
         self.config = config
         for k, v in kwargs.items():
             setattr(self, k, v)
