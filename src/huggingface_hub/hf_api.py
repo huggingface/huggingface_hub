@@ -146,6 +146,12 @@ def repo_type_and_id_from_hf_id(hf_id: str, hub_url: Optional[str] = None):
 class RepoFile:
     """
     Data structure that represents a public file inside a repo, accessible from huggingface.co
+
+    Args:
+        rfilename (str):
+            file name, relative to the repo root. This is
+            the only attribute that's guaranteed to be here, but under
+            certain conditions there can certain other stuff.
     """
 
     def __init__(self, *, rfilename: str, **kwargs):
@@ -263,6 +269,9 @@ class DatasetInfo:
 class SpaceInfo:
     """
     Info about a Space accessible from huggingface.co
+
+    This is a "dataclass" like container that just sets on itself
+    any attribute passed by the server.
     """
 
     def __init__(
