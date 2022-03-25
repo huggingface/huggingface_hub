@@ -272,6 +272,20 @@ class SpaceInfo:
 
     This is a "dataclass" like container that just sets on itself
     any attribute passed by the server.
+
+        Args:
+            id (Optional[str]):
+                id of space
+            sha (Optional[str]):
+                repo sha at this particular revision
+            lastModified (Optional[str]):
+                date of last commit to repo
+            siblings (Optional[List[Dict]]):
+                list of files that constitute the Space
+            private (Optional[bool]):
+                is the repo private
+            author (Optional[str]):
+                repo author
     """
 
     def __init__(
