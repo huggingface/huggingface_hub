@@ -4,7 +4,7 @@ from glob import glob
 from pathlib import Path
 from typing import Dict, List, Optional, Union
 
-from .constants import DEFAULT_REVISION, HUGGINGFACE_HUB_CACHE
+from .constants import DEFAULT_REVISION, HUGGINGFACE_HUB_CACHE, REPO_TYPES
 from .file_download import cached_download, hf_hub_url
 from .hf_api import HfApi, HfFolder
 from .utils import logging
@@ -39,64 +39,71 @@ def snapshot_download(
 ) -> str:
     """Download all files of a repo.
 
-    Downloads a whole snapshot of a repo's files at the specified revision. This
-    is useful when you want all files from a repo, because you don't know which
-    ones you will need a priori. All files are nested inside a folder in order
-    to keep their actual filename relative to that folder.
+        Downloads a whole snapshot of a repo's files at the specified revision. This
+        is useful when you want all files from a repo, because you don't know which
+        ones you will need a priori. All files are nested inside a folder in order
+        to keep their actual filename relative to that folder.
 
-    An alternative would be to just clone a repo but this would require that the
-    user always has git and git-lfs installed, and properly configured.
+        An alternative would be to just clone a repo but this would require that the
+        user always has git and git-lfs installed, and properly configured.
 
-    Args:
-        repo_id (`str`):
-            A user or an organization name and a repo name separated by a `/`.
-        revision (`str`, *optional*):
-            An optional Git revision id which can be a branch name, a tag, or a
-            commit hash.
-        cache_dir (`str`, `Path`, *optional*):
-            Path to the folder where cached files are stored.
-        library_name (`str`, *optional*):
-            The name of the library to which the object corresponds.
-        library_version (`str`, *optional*):
-            The version of the library.
-        user_agent (`str`, `dict`, *optional*):
-            The user-agent info in the form of a dictionary or a string.
-        proxies (`dict`, *optional*):
-            Dictionary mapping protocol to the URL of the proxy passed to
-            `requests.request`.
-        etag_timeout (`float`, *optional*, defaults to `10`):
-            When fetching ETag, how many seconds to wait for the server to send
-            data before giving up which is passed to `requests.request`.
-        resume_download (`bool`, *optional*, defaults to `False):
-            If `True`, resume a previously interrupted download.
-        use_auth_token (`str`, `bool`, *optional*):
-            A token to be used for the download.
-                - If `True`, the token is read from the HuggingFace config
-                  folder.
-                - If a string, it's used as the authentication token.
-        local_files_only (`bool`, *optional*, defaults to `False`):
-            If `True`, avoid downloading the file and return the path to the
-            local cached file if it exists.
-        allow_regex (`list of str`, `str`, *optional*):
-            If provided, only files matching this regex are downloaded.
-        ignore_regex (`list of str`, `str`, *optional*):
-            If provided, files matching this regex are not downloaded.
+        Args:
+            repo_id (`str`):
+                A user or an organization name and a repo name separated by a `/`.
+            revision (`str`, *optional*):
+                An optional Git revision id which can be a branch name, a tag, or a
+                commit hash.
+    <<<<<<< HEAD
+            cache_dir (`str`, `Path`, *optional*):
+    =======
+            repo_type: Set to :obj:`"dataset"` or :obj:`"space"` if downloading
+                a dataset or space, :obj:`None` or :obj:`"model"` if
+                downloading a model. Default is :obj:`None`.
+            cache_dir (``str``, ``Path``, `optional`):
+    >>>>>>> b748712 (one more)
+                Path to the folder where cached files are stored.
+            library_name (`str`, *optional*):
+                The name of the library to which the object corresponds.
+            library_version (`str`, *optional*):
+                The version of the library.
+            user_agent (`str`, `dict`, *optional*):
+                The user-agent info in the form of a dictionary or a string.
+            proxies (`dict`, *optional*):
+                Dictionary mapping protocol to the URL of the proxy passed to
+                `requests.request`.
+            etag_timeout (`float`, *optional*, defaults to `10`):
+                When fetching ETag, how many seconds to wait for the server to send
+                data before giving up which is passed to `requests.request`.
+            resume_download (`bool`, *optional*, defaults to `False):
+                If `True`, resume a previously interrupted download.
+            use_auth_token (`str`, `bool`, *optional*):
+                A token to be used for the download.
+                    - If `True`, the token is read from the HuggingFace config
+                      folder.
+                    - If a string, it's used as the authentication token.
+            local_files_only (`bool`, *optional*, defaults to `False`):
+                If `True`, avoid downloading the file and return the path to the
+                local cached file if it exists.
+            allow_regex (`list of str`, `str`, *optional*):
+                If provided, only files matching this regex are downloaded.
+            ignore_regex (`list of str`, `str`, *optional*):
+                If provided, files matching this regex are not downloaded.
 
-    Returns:
-        Local folder path (string) of repo snapshot
+        Returns:
+            Local folder path (string) of repo snapshot
 
-    <Tip>
+        <Tip>
 
-    Raises the following errors:
+        Raises the following errors:
 
-    - [`EnvironmentError`](https://docs.python.org/3/library/exceptions.html#EnvironmentError)
-      if `use_auth_token=True` and the token cannot be found.
-    - [`OSError`](https://docs.python.org/3/library/exceptions.html#OSError) if
-      ETag cannot be determined.
-    - [`ValueError`](https://docs.python.org/3/library/exceptions.html#ValueError)
-      if some parameter value is invalid
+        - [`EnvironmentError`](https://docs.python.org/3/library/exceptions.html#EnvironmentError)
+          if `use_auth_token=True` and the token cannot be found.
+        - [`OSError`](https://docs.python.org/3/library/exceptions.html#OSError) if
+          ETag cannot be determined.
+        - [`ValueError`](https://docs.python.org/3/library/exceptions.html#ValueError)
+          if some parameter value is invalid
 
-    </Tip>
+        </Tip>
     """
 
     if cache_dir is None:
@@ -117,6 +124,11 @@ def snapshot_download(
             )
     else:
         token = None
+
+    if repo_type is None:
+        repo_type = "model"
+    if repo_type not in REPO_TYPES:
+        raise ValueError("Invalid repo type")
 
     # remove all `/` occurrences to correctly convert repo to directory name
     repo_id_flattened = repo_id.replace("/", REPO_ID_SEPARATOR)
@@ -152,7 +164,7 @@ def snapshot_download(
         if len(repo_folders) == 0:
             raise ValueError(
                 "Cannot find the requested files in the cached path and outgoing"
-                " traffic has been disabled. To enable model look-ups and downloads"
+                " traffic has been disabled. To enable repo look-ups and downloads"
                 " online, set 'local_files_only' to False."
             )
 
