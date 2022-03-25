@@ -181,12 +181,10 @@ def snapshot_download(
                 " behavior by not taking into account the latest commits."
             )
 
-        # find last modified folder
+        # find last modified folder, and return it
         storage_folder = max(repo_folders, key=os.path.getmtime)
 
-        # get commit sha
-        repo_id_sha = storage_folder.split(".")[-1]
-        model_files = os.listdir(storage_folder)
+        return storage_folder
     else:
         # if we have internet connection we retrieve the correct folder name from the huggingface api
         _api = HfApi()
