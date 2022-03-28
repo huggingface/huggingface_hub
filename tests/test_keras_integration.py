@@ -388,14 +388,14 @@ class HubKerasSequentialTest(HubMixingTestKeras):
                 git_user="ci",
                 git_email="ci@dummy.com",
             )
-        model_info = HfApi(endpoint=ENDPOINT_STAGING).model_info(
-            f"{USER}/{REPO_NAME}",
-        )
+            model_info = HfApi(endpoint=ENDPOINT_STAGING).model_info(
+                f"{USER}/{REPO_NAME}",
+            )
 
-        self.assertTrue(
-            "logs/tensorboard.txt" in [f.rfilename for f in model_info.siblings]
-        )
-        self._api.delete_repo(repo_id=f"{REPO_NAME}", token=self._token)
+            self.assertTrue(
+                "logs/tensorboard.txt" in [f.rfilename for f in model_info.siblings]
+            )
+            self._api.delete_repo(repo_id=f"{REPO_NAME}", token=self._token)
 
     @retry_endpoint
     def test_override_tensorboard(self):
@@ -428,17 +428,17 @@ class HubKerasSequentialTest(HubMixingTestKeras):
                 git_email="ci@dummy.com",
             )
 
-        model_info = HfApi(endpoint=ENDPOINT_STAGING).model_info(
-            f"{USER}/{REPO_NAME}",
-        )
-        self.assertTrue(
-            "logs/override.txt" in [f.rfilename for f in model_info.siblings]
-        )
-        self.assertFalse(
-            "logs/tensorboard.txt" in [f.rfilename for f in model_info.siblings]
-        )
+            model_info = HfApi(endpoint=ENDPOINT_STAGING).model_info(
+                f"{USER}/{REPO_NAME}",
+            )
+            self.assertTrue(
+                "logs/override.txt" in [f.rfilename for f in model_info.siblings]
+            )
+            self.assertFalse(
+                "logs/tensorboard.txt" in [f.rfilename for f in model_info.siblings]
+            )
 
-        self._api.delete_repo(repo_id=f"{REPO_NAME}", token=self._token)
+            self._api.delete_repo(repo_id=f"{REPO_NAME}", token=self._token)
 
     @retry_endpoint
     def test_push_to_hub_model_kwargs(self):
