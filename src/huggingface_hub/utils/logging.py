@@ -12,7 +12,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-""" Logging utilities. """
+""" Logging utilities."""
 
 import logging
 import os
@@ -49,8 +49,9 @@ def _get_library_root_logger() -> logging.Logger:
 
 def _get_default_logging_level():
     """
-    If HUGGINGFACE_HUB_VERBOSITY env var is set to one of the valid choices return that as the new default level.
-    If it is not - fall back to `_default_log_level`
+    If HUGGINGFACE_HUB_VERBOSITY env var is set to one of the valid choices
+    return that as the new default level. If it is not - fall back to
+    `_default_log_level`
     """
     env_level_str = os.getenv("HUGGINGFACE_HUB_VERBOSITY", None)
     if env_level_str:
@@ -77,8 +78,8 @@ def _reset_library_root_logger() -> None:
 
 def get_logger(name: Optional[str] = None) -> logging.Logger:
     """
-    Returns a logger with the specified name.
-    This function is not supposed to be directly accessed by library users.
+    Returns a logger with the specified name. This function is not supposed to
+    be directly accessed by library users.
 
     Args:
         name (`str`, *optional*):
@@ -86,12 +87,9 @@ def get_logger(name: Optional[str] = None) -> logging.Logger:
 
     Example:
 
-    ``python
-    from huggingface_hub import get_logger
+    ``python from huggingface_hub import get_logger
 
-    logger = get_logger(__file__)
-    logger.set_verbosity_info()
-    ``
+    logger = get_logger(__file__) logger.set_verbosity_info() ``
     """
 
     if name is None:
@@ -104,7 +102,8 @@ def get_verbosity() -> int:
     """Return the current level for the HuggingFace Hub's root logger.
 
     Returns:
-        Logging level, e.g., `huggingface_hub.logging.DEBUG` and `huggingface_hub.logging.INFO`.
+        Logging level, e.g., `huggingface_hub.logging.DEBUG` and
+        `huggingface_hub.logging.INFO`.
 
     <Tip>
 
@@ -127,7 +126,8 @@ def set_verbosity(verbosity: int) -> None:
 
     Args:
         verbosity (`int`):
-            Logging level, e.g., `huggingface_hub.logging.DEBUG` and `huggingface_hub.logging.INFO`.
+            Logging level, e.g., `huggingface_hub.logging.DEBUG` and
+            `huggingface_hub.logging.INFO`.
     """
     _get_library_root_logger().setLevel(verbosity)
 
@@ -162,17 +162,17 @@ def set_verbosity_error():
 
 def disable_propagation() -> None:
     """
-    Disable propagation of the library log outputs.
-    Note that log propagation is disabled by default.
+    Disable propagation of the library log outputs. Note that log propagation is
+    disabled by default.
     """
     _get_library_root_logger().propagate = False
 
 
 def enable_propagation() -> None:
     """
-    Enable propagation of the library log outputs.
-    Please disable the HuggingFace Hub's default handler to prevent double logging if the root logger has
-    been configured.
+    Enable propagation of the library log outputs. Please disable the
+    HuggingFace Hub's default handler to prevent double logging if the root
+    logger has been configured.
     """
     _get_library_root_logger().propagate = True
 

@@ -65,96 +65,105 @@ def _filter_emissions(
 
 @dataclass
 class DatasetFilter:
-    """A class that converts human-readable dataset search parameters into ones compatible with
-    the REST API. For all parameters capitalization does not matter.
+    """A class that converts human-readable dataset search parameters into ones
+    compatible with
+        the REST API. For all parameters capitalization does not matter.
 
-    Args:
-        author (`str`, *optional*):
-            A string or list of strings that can be used to identify datasets on the Hub
-            by the original uploader (author or organization), such as `facebook` or `huggingface`
-            Example usage:
+        Args:
+            author (`str`, *optional*):
+                A string or list of strings that can be used to identify datasets on
+                the Hub by the original uploader (author or organization), such as
+                `facebook` or `huggingface` Example usage:
 
-            ```py
-            >>> from huggingface_hub import DatasetFilter
-            >>> new_filter = DatasetFilter(author="facebook")
-            ```
+                ```py
+                >>> from huggingface_hub import DatasetFilter
 
-       benchmark (`str` or `List`, *optional*):
-            A string or list of strings that can be used to identify datasets on the Hub by their official benchmark
-            Example usage:
+                >>> new_filter = DatasetFilter(author="facebook")
+                ```
 
-            ```python
-            >>> from huggingface_hub import DatasetFilter
-            >>> new_filter = DatasetFilter(benchmark="raft")
-            ```
+           benchmark (`str` or `List`, *optional*):
+                A string or list of strings that can be used to identify datasets on
+                the Hub by their official benchmark Example usage:
 
-        dataset_name (`str`, *optional*):
-            A string or list of strings that can be used to identify datasets on the Hub by its name,
-            such as `SQAC` or `wikineural`
-            Example usage:
+                ```python
+                >>> from huggingface_hub import DatasetFilter
 
-            ```python
-            >>> from huggingface_hub import DatasetFilter
-            >>> new_filter = DatasetFilter(dataset_name="wikineural")
-            ```
+                >>> new_filter = DatasetFilter(benchmark="raft")
+                ```
 
-        language_creators (`str` or `List`, *optional*):
-            A string or list of strings that can be used to identify datasets on the Hub
-            with how the data was curated, such as `crowdsourced` or `machine_generated`
-            Example usage:
+            dataset_name (`str`, *optional*):
+                A string or list of strings that can be used to identify datasets on
+                the Hub by its name, such as `SQAC` or `wikineural` Example usage:
 
-            ```python
-            >>> from huggingface_hub import DatasetFilter
-            >>> new_filter = DatasetFilter(language_creator="crowdsourced")
-            ```
+                ```python
+                >>> from huggingface_hub import DatasetFilter
 
-        languages (`str` or `List`, *optional*):
-            A string or list of strings representing a two-character language to filter datasets by on the Hub
-            Example usage:
+                >>> new_filter = DatasetFilter(dataset_name="wikineural")
+                ```
 
-            ```python
-            >>> from huggingface_hub import DatasetFilter
-            >>> new_filter = DatasetFilter(language="en")
-            ```
+            language_creators (`str` or `List`, *optional*):
+                A string or list of strings that can be used to identify datasets on
+                the Hub with how the data was curated, such as `crowdsourced` or
+                `machine_generated` Example usage:
 
-        multilinguality (`str` or `List`, *optional*):
-            A string or list of strings representing a filter for datasets that contain multiple languages
-            Example usage:
+                ```python
+                >>> from huggingface_hub import DatasetFilter
 
-            ```python
-            >>> from huggingface_hub import DatasetFilter
-            >>> new_filter = DatasetFilter(multilinguality="yes")
-            ```
+                >>> new_filter = DatasetFilter(language_creator="crowdsourced")
+                ```
 
-        size_categories (`str` or `List`, *optional*):
-            A string or list of strings that can be used to identify datasets on the Hub
-            by the size of the dataset such as `100K<n<1M` or `1M<n<10M`
-            Example usage:
+            languages (`str` or `List`, *optional*):
+                A string or list of strings representing a two-character language to
+                filter datasets by on the Hub Example usage:
 
-            ```python
-            >>> from huggingface_hub import DatasetFilter
-            >>> new_filter = DatasetFilter(size_categories="100K<n<1M")
-            ```
+                ```python
+                >>> from huggingface_hub import DatasetFilter
 
-        task_categories (`str` or `List`, *optional*):
-            A string or list of strings that can be used to identify datasets on the Hub
-            by the designed task, such as `audio_classification` or `named_entity_recognition`
-            Example usage:
+                >>> new_filter = DatasetFilter(language="en")
+                ```
 
-            ```python
-            >>> from huggingface_hub import DatasetFilter
-            >>> new_filter = DatasetFilter(author="facebook")
-            ```
+            multilinguality (`str` or `List`, *optional*):
+                A string or list of strings representing a filter for datasets that
+                contain multiple languages Example usage:
 
-        task_ids (`str` or `List`, *optional*):
-            A string or list of strings that can be used to identify datasets on the Hub
-            by the specific task such as `speech_emotion_recognition` or `paraphrase`
-            Example usage:
+                ```python
+                >>> from huggingface_hub import DatasetFilter
 
-            ```python
-            >>> from huggingface_hub import DatasetFilter
-            >>> new_filter = DatasetFilter(task_ids="paraphrase")
-            ```
+                >>> new_filter = DatasetFilter(multilinguality="yes")
+                ```
+
+            size_categories (`str` or `List`, *optional*):
+                A string or list of strings that can be used to identify datasets on
+                the Hub by the size of the dataset such as `100K<n<1M` or `1M<n<10M`
+                Example usage:
+
+                ```python
+                >>> from huggingface_hub import DatasetFilter
+
+                >>> new_filter = DatasetFilter(size_categories="100K<n<1M")
+                ```
+
+            task_categories (`str` or `List`, *optional*):
+                A string or list of strings that can be used to identify datasets on
+                the Hub by the designed task, such as `audio_classification` or
+                `named_entity_recognition` Example usage:
+
+                ```python
+                >>> from huggingface_hub import DatasetFilter
+
+                >>> new_filter = DatasetFilter(author="facebook")
+                ```
+
+            task_ids (`str` or `List`, *optional*):
+                A string or list of strings that can be used to identify datasets on
+                the Hub by the specific task such as `speech_emotion_recognition` or
+                `paraphrase` Example usage:
+
+                ```python
+                >>> from huggingface_hub import DatasetFilter
+
+                >>> new_filter = DatasetFilter(task_ids="paraphrase")
+                ```
     """
 
     author: str = None
@@ -170,83 +179,86 @@ class DatasetFilter:
 
 @dataclass
 class ModelFilter:
-    """A class that converts human-readable model search parameters into ones compatible with
-    the REST API. For all parameters capitalization does not matter.
+    """A class that converts human-readable model search parameters into ones
+    compatible with
+        the REST API. For all parameters capitalization does not matter.
 
-    Args:
-        author (`str`, *optional*):
-            A string that can be used to identify models on the Hub
-            by the original uploader (author or organization), such as `facebook` or `huggingface`
-            Example usage:
+        Args:
+            author (`str`, *optional*):
+                A string that can be used to identify models on the Hub by the
+                original uploader (author or organization), such as `facebook` or
+                `huggingface` Example usage:
 
-            ```python
-            >>> from huggingface_hub import Filter
-            >>> new_filter = ModelFilter(author_or_organization="facebook")
-            ```
+                ```python
+                >>> from huggingface_hub import Filter
 
-         library (`str` or `List`, *optional*):
-            A string or list of strings of foundational libraries models were originally trained from,
-            such as pytorch, tensorflow, or allennlp
-            Example usage:
+                >>> new_filter = ModelFilter(author_or_organization="facebook")
+                ```
 
-            ```python
-            >>> new_filter = ModelFilter(library="pytorch")
-            ```
+             library (`str` or `List`, *optional*):
+                A string or list of strings of foundational libraries models were
+                originally trained from, such as pytorch, tensorflow, or allennlp
+                Example usage:
 
-         language (`str` or `List`, *optional*):
-            A string or list of strings of languages, both by name
-            and country code, such as "en" or "English"
-            Example usage:
+                ```python
+                >>> new_filter = ModelFilter(library="pytorch")
+                ```
 
-            ```python
-            >>> new_filter = ModelFilter(language="french")
-            ```
+             language (`str` or `List`, *optional*):
+                A string or list of strings of languages, both by name and country
+                code, such as "en" or "English" Example usage:
 
-         model_name (`str`, *optional*):
-            A string that contain complete or partial names for models on the Hub,
-            such as "bert" or "bert-base-cased"
-            Example usage:
+                ```python
+                >>> new_filter = ModelFilter(language="french")
+                ```
 
-            ```python
-            >>> new_filter = ModelFilter(model_name="bert")
-            ```
+             model_name (`str`, *optional*):
+                A string that contain complete or partial names for models on the
+                Hub, such as "bert" or "bert-base-cased" Example usage:
+
+                ```python
+                >>> new_filter = ModelFilter(model_name="bert")
+                ```
 
 
-         task (`str` or `List`, *optional*):
-            A string or list of strings of tasks models were designed for,
-            such as: "fill-mask" or "automatic-speech-recognition"
-            Example usage:
+             task (`str` or `List`, *optional*):
+                A string or list of strings of tasks models were designed for, such
+                as: "fill-mask" or "automatic-speech-recognition" Example usage:
 
-            ```python
-            >>> new_filter = ModelFilter(task="text-classification")
-            ```
+                ```python
+                >>> new_filter = ModelFilter(task="text-classification")
+                ```
 
-         tags (`str` or `List`, *optional*):
-            A string tag or a list of tags to filter models on the Hub by,
-            such as `text-generation` or `spacy`. For a full list of tags do:
+             tags (`str` or `List`, *optional*):
+                A string tag or a list of tags to filter models on the Hub by, such
+                as `text-generation` or `spacy`. For a full list of tags do:
 
-            ```python
-            >>> from huggingface_hub import HfApi
-            >>> api = HfApi()
-            # To list model tags
-            >>> api.get_model_tags()
-            # To list dataset tags
-            >>> api.get_dataset_tags()
-            ```
+                ```python
+                >>> from huggingface_hub import HfApi
 
-            Example usage:
-            ```python
-            >>> new_filter = ModelFilter(tags="benchmark:raft")
-            ```
+                >>> api = HfApi()
+                # To list model tags
 
-        trained_dataset (`str` or `List`, *optional*):
-            A string tag or a list of string tags of the trained dataset for a model on the Hub.
+                >>> api.get_model_tags()
+                # To list dataset tags
 
-            Example usage:
+                >>> api.get_dataset_tags()
+                ```
 
-            ```python
-            >>> new_filter = ModelFilter(trained_dataset="common_voice")
-            ```
+                Example usage:
+                ```python
+                >>> new_filter = ModelFilter(tags="benchmark:raft")
+                ```
+
+            trained_dataset (`str` or `List`, *optional*):
+                A string tag or a list of string tags of the trained dataset for a
+                model on the Hub.
+
+                Example usage:
+
+                ```python
+                >>> new_filter = ModelFilter(trained_dataset="common_voice")
+                ```
 
     """
 
@@ -263,15 +275,15 @@ class AttributeDictionary(dict):
     """
     `dict` subclass that also provides access to keys as attributes
 
-    If a key starts with a number, it will exist in the dictionary
-    but not as an attribute
+    If a key starts with a number, it will exist in the dictionary but not as an
+    attribute
 
     Example usage:
 
     ```python
     >>> d = AttributeDictionary()
     >>> d["test"] = "a"
-    >>> print(d.test) # prints "a"
+    >>> print(d.test)  # prints "a"
     ```
 
     """
@@ -308,21 +320,23 @@ class AttributeDictionary(dict):
 
 class GeneralTags(AttributeDictionary):
     """
-    A namespace object holding all tags, filtered by `keys`
-    If a tag starts with a number, it will only exist in the dictionary
+    A namespace object holding all tags, filtered by `keys` If a tag starts with
+    a number, it will only exist in the dictionary
 
     Example usage:
     ```python
-    >>> a.b.1a # will not work
-    >>> a.b["1a"] # will work
-    >>> a["b"]["1a"] # will work
+    >>> a.b["1a"]  # will work
+    >>> a["b"]["1a"]  # will work
+    >>> # a.b.1a # will not work
     ```
 
     Args:
         tag_dictionary (`dict`):
-            A dictionary of tags returned from the /api/***-tags-by-type api endpoint
+            A dictionary of tags returned from the /api/***-tags-by-type api
+            endpoint
         keys (`list`):
-            A list of keys to unpack the `tag_dictionary` with, such as `["library","language"]`
+            A list of keys to unpack the `tag_dictionary` with, such as
+            `["library","language"]`
     """
 
     def __init__(self, tag_dictionary: dict, keys: list = None):
@@ -345,20 +359,21 @@ class GeneralTags(AttributeDictionary):
 
 class ModelTags(GeneralTags):
     """
-    A namespace object holding all available model tags
-    If a tag starts with a number, it will only exist in the dictionary
+    A namespace object holding all available model tags If a tag starts with a
+    number, it will only exist in the dictionary
 
     Example usage:
 
     ```python
-    >>> o.dataset.1_5BArabicCorpus # will not work
-    >>> a.dataset["1_5BArabicCorpus"] # will work
-    >>> a["dataset"]["1_5BArabicCorpus"] # will work
+    >>> a.dataset["1_5BArabicCorpus"]  # will work
+    >>> a["dataset"]["1_5BArabicCorpus"]  # will work
+    >>> # o.dataset.1_5BArabicCorpus # will not work
     ```
 
     Args:
         model_tag_dictionary (`dict`):
-            A dictionary of valid model tags, returned from the /api/models-tags-by-type api endpoint
+            A dictionary of valid model tags, returned from the
+            /api/models-tags-by-type api endpoint
     """
 
     def __init__(self, model_tag_dictionary: dict):
@@ -368,20 +383,21 @@ class ModelTags(GeneralTags):
 
 class DatasetTags(GeneralTags):
     """
-    A namespace object holding all available dataset tags
-    If a tag starts with a number, it will only exist in the dictionary
+    A namespace object holding all available dataset tags If a tag starts with a
+    number, it will only exist in the dictionary
 
     Example
 
     ```python
-    >>> o.size_categories.100K<n<1M # will not work
-    >>> a.size_categories["100K<n<1M"] # will work
-    >>> a["size_categories"]["100K<n<1M"] # will work
+    >>> a.size_categories["100K<n<1M"]  # will work
+    >>> a["size_categories"]["100K<n<1M"]  # will work
+    >>> # o.size_categories.100K<n<1M # will not work
     ```
 
     Args:
         dataset_tag_dictionary (`dict`):
-            A dictionary of valid dataset tags, returned from the /api/datasets-tags-by-type api endpoint
+            A dictionary of valid dataset tags, returned from the
+            /api/datasets-tags-by-type api endpoint
     """
 
     def __init__(self, dataset_tag_dictionary: dict):

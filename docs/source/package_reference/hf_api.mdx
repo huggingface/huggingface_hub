@@ -2,52 +2,52 @@
 
 [[autodoc]] login
 
-[[autodoc]] HfApi.logout
+[[autodoc]] logout
 
-[[autodoc]] HfApi.whoami
+[[autodoc]] whoami
 
-[[autodoc]] HfApi.list_models
+[[autodoc]] list_models
 
-[[autodoc]] HfApi.model_info
+[[autodoc]] model_info
 
-[[autodoc]] HfApi.list_repo_files
+[[autodoc]] list_repo_files
 
-[[autodoc]] HfApi.list_datasets
+[[autodoc]] list_datasets
 
-[[autodoc]] HfApi.dataset_info
+[[autodoc]] dataset_info
 
-[[autodoc]] HfApi.list_metrics
+[[autodoc]] list_metrics
 
-[[autodoc]] HfApi.get_model_tags
+[[autodoc]] get_model_tags
 
-[[autodoc]] HfApi.get_dataset_tags
+[[autodoc]] get_dataset_tags
 
-[[autodoc]] HfApi.create_repo
+[[autodoc]] create_repo
 
-[[autodoc]] HfApi.delete_repo
+[[autodoc]] delete_repo
 
-[[autodoc]] HfApi.update_repo_visibility
+[[autodoc]] update_repo_visibility
 
-[[autodoc]] HfApi.move_repo
+[[autodoc]] move_repo
 
-[[autodoc]] HfApi.upload_file
+[[autodoc]] upload_file
 
-[[autodoc]] HfApi.delete_file
+[[autodoc]] delete_file
 
-[[autodoc]] HfApi.get_full_repo_name
+[[autodoc]] get_full_repo_name
 
 ## Hugging Face local storage
 
 `huggingface_hub` stores the authentication information locally so that it may be re-used in subsequent
 methods.
 
-It does this using the `HfFolder` utility, which saves data at the root of the user.
+It does this using the [`HfFolder`] utility, which saves data at the root of the user.
 
 [[autodoc]] HfFolder
 
 ## Filtering helpers
 
-Some helpers to filter repositories on the hub are available in the `huggingface_hub` repository.
+Some helpers to filter repositories on the hub are available in the `huggingface_hub` package.
 
 [[autodoc]] DatasetFilter
 

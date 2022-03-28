@@ -35,14 +35,13 @@ def snapshot_download(
 ) -> str:
     """Download all files of a repo.
 
-    Downloads a whole snapshot of a repo's files at the specified revision.
-    This is useful when you want all files from a repo, because you don't know
-    which ones you will need a priori.
-    All files are nested inside a folder in order to keep their actual filename
-    relative to that folder.
+    Downloads a whole snapshot of a repo's files at the specified revision. This
+    is useful when you want all files from a repo, because you don't know which
+    ones you will need a priori. All files are nested inside a folder in order
+    to keep their actual filename relative to that folder.
 
-    An alternative would be to just clone a repo but this would require that
-    the user always has git and git-lfs installed, and properly configured.
+    An alternative would be to just clone a repo but this would require that the
+    user always has git and git-lfs installed, and properly configured.
 
     Args:
         repo_id (`str`):
@@ -86,9 +85,12 @@ def snapshot_download(
 
     Raises the following errors:
 
-    - `EnvironmentError` if `use_auth_token=True` and the token cannot be found.
-    - `OSError` if ETag cannot be determined.
-    - `ValueError` if the file cannot be downloaded and cannot be found locally.
+    - [`EnvironmentError`](https://docs.python.org/3/library/exceptions.html#EnvironmentError)
+      if `use_auth_token=True` and the token cannot be found.
+    - [`OSError`](https://docs.python.org/3/library/exceptions.html#OSError) if
+      ETag cannot be determined.
+    - [`ValueError`](https://docs.python.org/3/library/exceptions.html#ValueError)
+      if some parameter value is invalid
 
     </Tip>
     """

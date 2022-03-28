@@ -81,7 +81,8 @@ def _validate_repo_id_deprecation(repo_id, name, organization):
 
 def repo_type_and_id_from_hf_id(hf_id: str):
     """
-    Returns the repo type and ID from a huggingface.co URL linking to a repository
+    Returns the repo type and ID from a huggingface.co URL linking to a
+    repository
 
     Args:
         hf_id (`str`):
@@ -131,7 +132,8 @@ def repo_type_and_id_from_hf_id(hf_id: str):
 
 class RepoObj:
     """
-    HuggingFace git-based system, data structure that represents a file belonging to the current user.
+    HuggingFace git-based system, data structure that represents a file
+    belonging to the current user.
     """
 
     def __init__(self, **kwargs):
@@ -145,7 +147,8 @@ class RepoObj:
 
 class ModelFile:
     """
-    Data structure that represents a public file inside a model, accessible from huggingface.co
+    Data structure that represents a public file inside a model, accessible from
+    huggingface.co
     """
 
     def __init__(self, rfilename: str, **kwargs):
@@ -160,7 +163,8 @@ class ModelFile:
 
 class DatasetFile:
     """
-    Data structure that represents a public file inside a dataset, accessible from huggingface.co
+    Data structure that represents a public file inside a dataset, accessible
+    from huggingface.co
     """
 
     def __init__(self, rfilename: str, **kwargs):
@@ -301,8 +305,8 @@ class MetricInfo:
 class ModelSearchArguments(AttributeDictionary):
     """
     A nested namespace object holding all possible values for properties of
-    models currently hosted in the Hub with tab-completion.
-    If a value starts with a number, it will only exist in the dictionary
+    models currently hosted in the Hub with tab-completion. If a value starts
+    with a number, it will only exist in the dictionary
 
     Example:
 
@@ -339,8 +343,8 @@ class ModelSearchArguments(AttributeDictionary):
 class DatasetSearchArguments(AttributeDictionary):
     """
     A nested namespace object holding all possible values for properties of
-    datasets currently hosted in the Hub with tab-completion.
-    If a value starts with a number, it will only exist in the dictionary
+    datasets currently hosted in the Hub with tab-completion. If a value starts
+    with a number, it will only exist in the dictionary
 
     Example:
 
@@ -394,8 +398,9 @@ def read_from_credential_store(
     username=None,
 ) -> Tuple[Union[str, None], Union[str, None]]:
     """
-    Reads the credential store relative to huggingface.co. If no `username` is specified, will read the first
-    entry for huggingface.co, otherwise will read the entry corresponding to the username specified.
+    Reads the credential store relative to huggingface.co. If no `username` is
+    specified, will read the first entry for huggingface.co, otherwise will read
+    the entry corresponding to the username specified.
 
     The username returned will be all lowercase.
     """
@@ -426,8 +431,9 @@ def read_from_credential_store(
 
 def erase_from_credential_store(username=None):
     """
-    Erases the credential store relative to huggingface.co. If no `username` is specified, will erase the first
-    entry for huggingface.co, otherwise will erase the entry corresponding to the username specified.
+    Erases the credential store relative to huggingface.co. If no `username` is
+    specified, will erase the first entry for huggingface.co, otherwise will
+    erase the entry corresponding to the username specified.
     """
     with subprocess.Popen(
         "git credential-store erase".split(),
@@ -463,18 +469,20 @@ class HfApi:
                 The password of the account with which to login.
 
         Returns:
-            `str`:  token if credentials are valid
+            `str`: token if credentials are valid
 
         <Tip>
 
         Raises the following errors:
 
-        - `requests.exceptions.HTTPError` if credentials are invalid
+        - [`HTTPError`](https://2.python-requests.org/en/master/api/#requests.HTTPError)
+          if credentials are invalid
 
         </Tip>
         """
         warnings.warn(
-            "HfApi.login: This method is deprecated in favor of `set_access_token` and will be removed in v0.7.",
+            "HfApi.login: This method is deprecated in favor of `set_access_token` "
+            "and will be removed in v0.7.",
             FutureWarning,
         )
         path = f"{self.endpoint}/api/login"
@@ -491,13 +499,15 @@ class HfApi:
 
         Args:
             token (`str`, *optional*):
-                Hugging Face token. Will default to the locally saved token if not provided.
+                Hugging Face token. Will default to the locally saved token if
+                not provided.
         """
         if token is None:
             token = HfFolder.get_token()
         if token is None:
             raise ValueError(
-                "You need to pass a valid `token` or login by using `huggingface-cli login`"
+                "You need to pass a valid `token` or login by using `huggingface-cli "
+                "login`"
             )
 
         path = f"{self.endpoint}/api/whoami-v2"
@@ -506,8 +516,9 @@ class HfApi:
             r.raise_for_status()
         except HTTPError as e:
             raise HTTPError(
-                "Invalid user token. If you didn't pass a user token, make sure you are properly logged in by "
-                "executing `huggingface-cli login`, and if you did pass a user token, double-check it's correct."
+                "Invalid user token. If you didn't pass a user token, make sure you "
+                "are properly logged in by executing `huggingface-cli login`, and "
+                "if you did pass a user token, double-check it's correct."
             ) from e
         return r.json()
 
@@ -546,8 +557,8 @@ class HfApi:
             token = HfFolder.get_token()
             if token is None:
                 raise EnvironmentError(
-                    "You need to provide a `token` or be logged in to Hugging Face with "
-                    "`huggingface-cli login`."
+                    "You need to provide a `token` or be logged in to Hugging "
+                    "Face with `huggingface-cli login`."
                 )
         elif not self._is_valid_token(token):
             raise ValueError("Invalid token passed!")
@@ -559,17 +570,20 @@ class HfApi:
 
         Args:
             token (`str`, *optional*):
-                Hugging Face token. Will default to the locally saved token if not provided.
+                Hugging Face token. Will default to the locally saved token if
+                not provided.
         """
         warnings.warn(
-            "HfApi.logout: This method is deprecated in favor of `unset_access_token` and will be removed in v0.7.",
+            "HfApi.logout: This method is deprecated in favor of `unset_access_token` "
+            "and will be removed in v0.7.",
             FutureWarning,
         )
         if token is None:
             token = HfFolder.get_token()
         if token is None:
             raise ValueError(
-                "You need to pass a valid `token` or login by using `huggingface-cli login`"
+                "You need to pass a valid `token` or login by using `huggingface-cli "
+                "login`"
             )
 
         username = self.whoami(token)["name"]
@@ -582,7 +596,8 @@ class HfApi:
     @staticmethod
     def set_access_token(access_token: str):
         """
-        Saves the passed access token so git can correctly authenticate the user.
+        Saves the passed access token so git can correctly authenticate the
+        user.
 
         Args:
             access_token (`str`):
@@ -633,12 +648,15 @@ class HfApi:
         Get the public list of all the models on huggingface.co
 
         Args:
-            filter (`ModelFilter` or `str` or `Iterable`, *optional*):
-                A string or `ModelFilter` which can be used to identify models on the hub.
+            filter ([`ModelFilter`] or `str` or `Iterable`, *optional*):
+                A string or [`ModelFilter`] which can be used to identify models
+                on the hub.
+
                 Example usage:
 
                 ```python
                 >>> from huggingface_hub import HfApi
+
                 >>> api = HfApi()
 
                 >>> # List all models
@@ -652,11 +670,16 @@ class HfApi:
                 >>> # Using the `ModelFilter`
                 >>> filt = ModelFilter(task="text-classification")
                 >>> # With `ModelSearchArguments`
-                >>> filt = ModelFilter(task=args.pipeline_tags.TextClassification)
+                >>> filt = ModelFilter(
+                ...     task=args.pipeline_tags.TextClassification
+                ... )
                 >>> api.list_models(filter=filt)
 
                 >>> # Using `ModelFilter` and `ModelSearchArguments` to find text classification in both PyTorch and TensorFlow
-                >>> filt = ModelFilter(task=args.pipeline_tags.TextClassification, library=[args.library.PyTorch, args.library.TensorFlow])
+                >>> filt = ModelFilter(
+                ...     task=args.pipeline_tags.TextClassification,
+                ...     library=[args.library.PyTorch, args.library.TensorFlow],
+                ... )
                 >>> api.list_models(filter=filt)
 
                 >>> # List only models from the AllenNLP library
@@ -666,66 +689,80 @@ class HfApi:
                 ```
 
             author (`str`, *optional*):
-                A string which identify the author (user or organization) of the returned models
+                A string which identify the author (user or organization) of the
+                returned models
+
                 Example usage:
 
                 ```python
                 >>> from huggingface_hub import HfApi
+
                 >>> api = HfApi()
 
                 >>> # List all models from google
                 >>> api.list_models(author="google")
 
                 >>> # List only the text classification models from google
-                >>> api.list_models(filter="text-classification", author="google")
+                >>> api.list_models(
+                ...     filter="text-classification", author="google"
+                ... )
                 ```
 
             search (`str`, *optional*):
-                A string that will be contained in the returned models
-                Example usage:
+                A string that will be contained in the returned models Example
+                usage:
 
                 ```python
                 >>> from huggingface_hub import HfApi
+
                 >>> api = HfApi()
 
                 >>> # List all models with "bert" in their name
                 >>> api.list_models(search="bert")
 
-                >>> #List all models with "bert" in their name made by google
+                >>> # List all models with "bert" in their name made by google
                 >>> api.list_models(search="bert", author="google")
                 ```
 
             emissions_thresholds (`Tuple`, *optional*):
-                A tuple of two ints or floats representing a minimum and maximum carbon footprint
-                to filter the resulting models with in grams.
+                A tuple of two ints or floats representing a minimum and maximum
+                carbon footprint to filter the resulting models with in grams.
                 Example usage:
 
                 ```python
                 >>> from huggingface_hub import HfApi
+
                 >>> api = HfApi()
 
                 >>> # List all models that emitted between 100 to 200 grams of co2
-                >>> api.list_models(emissions_thresholds=(100,200), cardData=True)
+                >>> api.list_models(
+                ...     emissions_thresholds=(100, 200), cardData=True
+                ... )
                 ```
             sort (`Literal["lastModified"]` or `str`, *optional*):
-                The key with which to sort the resulting models. Possible values are the properties of the `ModelInfo`
-                class.
+                The key with which to sort the resulting models. Possible values
+                are the properties of the `ModelInfo` class.
             direction (`Literal[-1]` or `int`, *optional*):
-                Direction in which to sort. The value `-1` sorts by descending order while all other values
-                sort by ascending order.
+                Direction in which to sort. The value `-1` sorts by descending
+                order while all other values sort by ascending order.
             limit (`int`, *optional*):
-                The limit on the number of models fetched. Leaving this option to `None` fetches all models.
+                The limit on the number of models fetched. Leaving this option
+                to `None` fetches all models.
             full (`bool`, *optional*):
-                Whether to fetch all model data, including the `lastModified`, the `sha`, the files and the `tags`.
-                This is set to `True` by default when using a filter.
+                Whether to fetch all model data, including the `lastModified`,
+                the `sha`, the files and the `tags`. This is set to `True` by
+                default when using a filter.
             cardData (`bool`, *optional*):
-                Whether to grab the metadata for the model as well. Can contain useful information such as carbon emissions,
-                metrics, and datasets trained on.
+                Whether to grab the metadata for the model as well. Can contain
+                useful information such as carbon emissions, metrics, and
+                datasets trained on.
             fetch_config (`bool`, *optional*):
-                Whether to fetch the model configs as well. This is not included in `full` due to its size.
+                Whether to fetch the model configs as well. This is not included
+                in `full` due to its size.
             use_auth_token (`bool` or `str`, *optional*):
-                Whether to use the `auth_token` provided from the `huggingface_hub` cli. If not logged in,
-                a valid `auth_token` can be passed in as a string.
+                Whether to use the `auth_token` provided from the
+                `huggingface_hub` cli. If not logged in, a valid `auth_token`
+                can be passed in as a string.
         """
         path = f"{self.endpoint}/api/models"
         if use_auth_token:
@@ -772,7 +809,7 @@ class HfApi:
 
     def _unpack_model_filter(self, model_filter: ModelFilter):
         """
-        Unpacks a `ModelFilter` into something readable for `list_models`
+        Unpacks a [`ModelFilter`] into something readable for `list_models`
         """
         model_str = ""
         tags = []
@@ -846,13 +883,14 @@ class HfApi:
         Get the public list of all the datasets on huggingface.co
 
         Args:
-            filter (`DatasetFilter` or `str` or `Iterable`, *optional*):
-                A string or `DatasetFilter` which can be used to identify datasets on the hub.
-                Example usage:
+            filter ([`DatasetFilter`] or `str` or `Iterable`, *optional*):
+                A string or [`DatasetFilter`] which can be used to identify
+                datasets on the hub. Example usage:
 
 
                 ```python
                 >>> from huggingface_hub import HfApi
+
                 >>> api = HfApi()
 
                 >>> # List all datasets
@@ -862,19 +900,30 @@ class HfApi:
                 >>> args = DatasetSearchArguments()
 
                 >>> # List only the text classification datasets
-                >>> api.list_datasets(filter="task_categories:text-classification")
+                >>> api.list_datasets(
+                ...     filter="task_categories:text-classification"
+                ... )
                 >>> # Using the `DatasetFilter`
                 >>> filt = DatasetFilter(task_categories="text-classification")
                 >>> # With `DatasetSearchArguments`
-                >>> filt = DatasetFilter(task=args.task_categories.text_classification)
+                >>> filt = DatasetFilter(
+                ...     task=args.task_categories.text_classification
+                ... )
                 >>> api.list_models(filter=filt)
 
                 >>> # List only the datasets in russian for language modeling
-                >>> api.list_datasets(filter=("languages:ru", "task_ids:language-modeling"))
+                >>> api.list_datasets(
+                ...     filter=("languages:ru", "task_ids:language-modeling")
+                ... )
                 >>> # Using the `DatasetFilter`
-                >>> filt = DatasetFilter(languages="ru", task_ids="language-modeling")
+                >>> filt = DatasetFilter(
+                ...     languages="ru", task_ids="language-modeling"
+                ... )
                 >>> # With `DatasetSearchArguments`
-                >>> filt = DatasetFilter(languages=args.languages.ru, task_ids=args.task_ids.language_modeling)
+                >>> filt = DatasetFilter(
+                ...     languages=args.languages.ru,
+                ...     task_ids=args.task_ids.language_modeling,
+                ... )
                 >>> api.list_datasets(filter=filt)
                 ```
 
@@ -884,45 +933,53 @@ class HfApi:
 
                 ```python
                 >>> from huggingface_hub import HfApi
+
                 >>> api = HfApi()
 
                 >>> # List all datasets from google
                 >>> api.list_datasets(author="google")
 
                 >>> # List only the text classification datasets from google
-                >>> api.list_datasets(filter="text-classification", author="google")
+                >>> api.list_datasets(
+                ...     filter="text-classification", author="google"
+                ... )
                 ```
 
             search (`str`, *optional*):
-                A string that will be contained in the returned models
-                Example usage:
+                A string that will be contained in the returned models Example
+                usage:
 
                 ```python
                 >>> from huggingface_hub import HfApi
+
                 >>> api = HfApi()
 
                 >>> # List all datasets with "text" in their name
                 >>> api.list_datasets(search="text")
 
-                >>> #List all datasets with "text" in their name made by google
+                >>> # List all datasets with "text" in their name made by google
                 >>> api.list_datasets(search="text", author="google")
                 ```
 
             sort (`Literal["lastModified"]` or `str`, *optional*):
-                The key with which to sort the resulting datasets. Possible values are the properties of the `DatasetInfo`
-                class.
+                The key with which to sort the resulting datasets. Possible
+                values are the properties of the `DatasetInfo` class.
             direction (`Literal[-1]` or `int`, *optional*):
-                Direction in which to sort. The value `-1` sorts by descending order while all other values
-                sort by ascending order.
+                Direction in which to sort. The value `-1` sorts by descending
+                order while all other values sort by ascending order.
             limit (`int`, *optional*):
-                The limit on the number of datasets fetched. Leaving this option to `None` fetches all datasets.
+                The limit on the number of datasets fetched. Leaving this option
+                to `None` fetches all datasets.
             cardData (`bool`, *optional*):
-                Whether to grab the metadata for the dataset as well. Can contain useful information such as the PapersWithCode ID.
+                Whether to grab the metadata for the dataset as well. Can
+                contain useful information such as the PapersWithCode ID.
             full (`bool`, *optional*):
-                Whether to fetch all dataset data, including the `lastModified` and the `cardData`.
+                Whether to fetch all dataset data, including the `lastModified`
+                and the `cardData`.
             use_auth_token (`bool` or `str`, *optional*):
-                Whether to use the `auth_token` provided from the `huggingface_hub` cli. If not logged in,
-                a valid `auth_token` can be passed in as a string.
+                Whether to use the `auth_token` provided from the
+                `huggingface_hub` cli. If not logged in, a valid `auth_token`
+                can be passed in as a string.
         """
         path = f"{self.endpoint}/api/datasets"
         if use_auth_token:
@@ -957,7 +1014,7 @@ class HfApi:
 
     def _unpack_dataset_filter(self, dataset_filter: DatasetFilter):
         """
-        Unpacks a `DatasetFilter` into something readable for `list_datasets`
+        Unpacks a [`DatasetFilter`] into something readable for `list_datasets`
         """
         dataset_str = ""
 
@@ -1025,15 +1082,18 @@ class HfApi:
 
         Args:
             repo_id (`str`):
-                A namespace (user or an organization) and a repo name separated by a `/`.
+                A namespace (user or an organization) and a repo name separated
+                by a `/`.
             revision (`str`, *optional*):
-                The revision of the model repository from which to get the information.
+                The revision of the model repository from which to get the
+                information.
             token (`str`, *optional*):
                 An authentication token [1]_.
             timeout (`float`, *optional*):
                 Whether to set a timeout for the request to the hub.
             securityStatus (`bool`, *optional*):
-                Whether to retrieve the security status from the model repository as well.
+                Whether to retrieve the security status from the model
+                repository as well.
 
         Returns:
             [`ModelInfo`]: The model repository information.
@@ -1072,13 +1132,15 @@ class HfApi:
 
         Args:
             repo_id (`str`):
-                A namespace (user or an organization) and a repo name separated by a `/`.
+                A namespace (user or an organization) and a repo name separated
+                by a `/`.
             revision (`str`, *optional*):
-                The revision of the model repository from which to get the information.
+                The revision of the model repository from which to get the
+                information.
             repo_type (`str`, *optional*):
-                Set to `"dataset"` or `"space"` if uploading
-                to a dataset or space, `None` or `"model"` if
-                uploading to a model. Default is `None`.
+                Set to `"dataset"` or `"space"` if uploading to a dataset or
+                space, `None` or `"model"` if uploading to a model. Default is
+                `None`.
             token (`str`, *optional*):
                 An authentication token [1]_.
             timeout (`float`, *optional*):
@@ -1118,9 +1180,11 @@ class HfApi:
 
         Args:
             repo_id (`str`):
-                A namespace (user or an organization) and a repo name separated by a `/`.
+                A namespace (user or an organization) and a repo name separated
+                by a `/`.
             revision (`str`, *optional*):
-                The revision of the dataset repository from which to get the information.
+                The revision of the dataset repository from which to get the
+                information.
             token (`str`, *optional*):
                 An authentication token [1]_.
             timeout (`float`, *optional*):
@@ -1163,10 +1227,13 @@ class HfApi:
 
         Args:
             repo_id (`str`):
-                A namespace (user or an organization) and a repo name separated by a `/`.
+                A namespace (user or an organization) and a repo name separated
+                by a `/`.
 
                 <Tip>
+
                 Version added: 0.4.0
+
                 </Tip>
 
             token (`str`, *optional*):
@@ -1174,13 +1241,14 @@ class HfApi:
             private (`bool`, *optional*):
                 Whether the model repo should be private.
             repo_type (`str`, *optional*):
-                Set to `"dataset"` or `"space"` if uploading
-                to a dataset or space, `None` or `"model"` if
-                uploading to a model. Default is `None`.
+                Set to `"dataset"` or `"space"` if uploading to a dataset or
+                space, `None` or `"model"` if uploading to a model. Default is
+                `None`.
             exist_ok (`bool`, *optional*, defaults to `False`):
                 If `True`, do not raise an error if repo already exists.
             space_sdk (`str`, *optional*):
-                Choice of SDK to use if repo_type is "space". Can be "streamlit", "gradio", or "static".
+                Choice of SDK to use if repo_type is "space". Can be
+                "streamlit", "gradio", or "static".
 
         Returns:
             `str`: URL to the newly created repo.
@@ -1213,8 +1281,10 @@ class HfApi:
             and repo_type != checked_name[0]
         ):
             raise ValueError(
-                f"""Passed `repo_type` and found `repo_type` are not the same ({repo_type}, {checked_name[0]}).
-            Please make sure you are expecting the right type of repository to exist."""
+                f"""Passed `repo_type` and found `repo_type` are not the same ({repo_type},
+{checked_name[0]}).
+            Please make sure you are expecting the right type of repository to
+            exist."""
             )
 
         if (
@@ -1223,8 +1293,12 @@ class HfApi:
             and organization != checked_name[1]
         ):
             raise ValueError(
-                f"""Passed `organization` and `name` organization are not the same ({organization}, {checked_name[1]}).
-            Please either include the organization in only `name` or the `organization` parameter, such as `api.create_repo({checked_name[0]}, organization={organization})` or `api.create_repo({checked_name[1]}/{checked_name[2]})`"""
+                f"""Passed `organization` and `name` organization are not the same ({organization},
+{checked_name[1]}).
+            Please either include the organization in only `name` or the
+            `organization` parameter, such as
+            `api.create_repo({checked_name[0]}, organization={organization})` or
+            `api.create_repo({checked_name[1]}/{checked_name[2]})`"""
             )
 
         repo_type = repo_type or checked_name[0]
@@ -1291,17 +1365,20 @@ class HfApi:
 
         Args:
             repo_id (`str`):
-                A namespace (user or an organization) and a repo name separated by a `/`.
+                A namespace (user or an organization) and a repo name separated
+                by a `/`.
 
                 <Tip>
+
                Version added: 0.4.0
+
                 </Tip>
+
             token (`str`, *optional*):
                 An authentication token [1]_.
             repo_type (`str`, *optional*):
-                Set to `"dataset"` or `"space"` if uploading
-                to a dataset or space, `None` or `"model"` if
-                uploading to a model.
+                Set to `"dataset"` or `"space"` if uploading to a dataset or
+                space, `None` or `"model"` if uploading to a model.
 
         References:
 
@@ -1331,8 +1408,10 @@ class HfApi:
             and repo_type != checked_name[0]
         ):
             raise ValueError(
-                f"""Passed `repo_type` and found `repo_type` are not the same ({repo_type}, {checked_name[0]}).
-            Please make sure you are expecting the right type of repository to exist."""
+                f"""Passed `repo_type` and found `repo_type` are not the same ({repo_type},
+{checked_name[0]}).
+            Please make sure you are expecting the right type of repository to
+            exist."""
             )
 
         if (
@@ -1341,8 +1420,12 @@ class HfApi:
             and organization != checked_name[1]
         ):
             raise ValueError(
-                f"""Passed `organization` and `name` organization are not the same ({organization}, {checked_name[1]}).
-            Please either include the organization in only `name` or the `organization` parameter, such as `api.create_repo({checked_name[0]}, organization={organization})` or `api.create_repo({checked_name[1]}/{checked_name[2]})`"""
+                f"""Passed `organization` and `name` organization are not the same ({organization},
+{checked_name[1]}).
+            Please either include the organization in only `name` or the
+            `organization` parameter, such as
+            `api.create_repo({checked_name[0]}, organization={organization})` or
+            `api.create_repo({checked_name[1]}/{checked_name[2]})`"""
             )
 
         repo_type = repo_type or checked_name[0]
@@ -1376,19 +1459,23 @@ class HfApi:
 
         Args:
             repo_id (`str`, *optional*):
-                A namespace (user or an organization) and a repo name separated by a `/`.
+                A namespace (user or an organization) and a repo name separated
+                by a `/`.
 
                 <Tip>
+
                  Version added: 0.4.0
+
                  </Tip>
+
             private (`bool`, *optional*, defaults to `False`):
                 Whether the model repo should be private.
             token (`str`, *optional*):
                 An authentication token [1]_.
             repo_type (`str`, *optional*):
-                Set to `"dataset"` or `"space"` if uploading
-                to a dataset or space, `None` or `"model"` if
-                uploading to a model. Default is `None`.
+                Set to `"dataset"` or `"space"` if uploading to a dataset or
+                space, `None` or `"model"` if uploading to a model. Default is
+                `None`.
 
         Returns:
             The HTTP response in json.
@@ -1446,20 +1533,21 @@ class HfApi:
         """
         Moving a repository from namespace1/repo_name1 to namespace2/repo_name2
 
-        Note there are certain limitations. For more information about moving repositories, please
-        see https://hf.co/docs/hub/main#how-can-i-rename-or-transfer-a-repo.
+        Note there are certain limitations. For more information about moving
+        repositories, please see
+        https://hf.co/docs/hub/main#how-can-i-rename-or-transfer-a-repo.
 
         Args:
             from_id (`str`):
-                A namespace (user or an organization) and a repo name separated by a `/`.
-                Original repository identifier.
+                A namespace (user or an organization) and a repo name separated
+                by a `/`. Original repository identifier.
             to_id (`str`):
-                A namespace (user or an organization) and a repo name separated by a `/`.
-                Final repository identifier.
+                A namespace (user or an organization) and a repo name separated
+                by a `/`. Final repository identifier.
             repo_type (`str`, *optional*):
-                Set to `"dataset"` or `"space"` if uploading
-                to a dataset or space, `None` or `"model"` if
-                uploading to a model. Default is `None`.
+                Set to `"dataset"` or `"space"` if uploading to a dataset or
+                space, `None` or `"model"` if uploading to a model. Default is
+                `None`.
             token (`str`, *optional*):
                 An authentication token [1]_.
 
@@ -1511,24 +1599,34 @@ class HfApi:
         identical_ok: bool = True,
     ) -> str:
         """
-        Upload a local file (up to 5GB) to the given repo. The upload is done through a HTTP post request, and
-        doesn't require git or git-lfs to be installed.
+        Upload a local file (up to 5GB) to the given repo. The upload is done
+        through a HTTP post request, and doesn't require git or git-lfs to be
+        installed.
 
         Args:
             path_or_fileobj (`str`, `bytes`, or `IO`):
-                Path to a file on the local machine or binary data stream / fileobj / buffer.
+                Path to a file on the local machine or binary data stream /
+                fileobj / buffer.
             path_in_repo (`str`):
-                Relative filepath in the repo, for example: `"checkpoints/1fec34a/weights.bin"`
+                Relative filepath in the repo, for example:
+                `"checkpoints/1fec34a/weights.bin"`
             repo_id (`str`):
-                The repository to which the file will be uploaded, for example: `"username/custom_transformers"`
+                The repository to which the file will be uploaded, for example:
+                `"username/custom_transformers"`
             token (`str`, *optional*):
-                Authentication token, obtained with :function:`HfApi.login` method. Will default to the stored token.
+                Authentication token, obtained with :function:`HfApi.login`
+                method. Will default to the stored token.
             repo_type (`str`, *optional*):
-                Set to `"dataset"` or `"space"` if uploading to a dataset or space, `None` or `"model"` if uploading to a model. Default is `None`.
+                Set to `"dataset"` or `"space"` if uploading to a dataset or
+                space, `None` or `"model"` if uploading to a model. Default is
+                `None`.
             revision (`str`, *optional*):
-                The git revision to commit from. Defaults to the `"main"` branch.
+                The git revision to commit from. Defaults to the head of the
+                `"main"` branch.
             identical_ok (`bool`, *optional*, defaults to `True`):
-                When set to false, will raise an HTTPError when the file you're trying to upload already exists on the hub
+                When set to false, will raise an [HTTPError](
+                https://2.python-requests.org/en/master/api/#requests.HTTPError)
+                when the file you're trying to upload already exists on the hub
                 and its content did not change.
 
         Returns:
@@ -1538,8 +1636,10 @@ class HfApi:
 
         Raises the following errors:
 
-            - `HTTPError` if the HuggingFace API returned an error
-            - `ValueError` if some parameter value is invalid
+            - [`HTTPError`](https://2.python-requests.org/en/master/api/#requests.HTTPError)
+              if the HuggingFace API returned an error
+            - [`ValueError`](https://docs.python.org/3/library/exceptions.html#ValueError)
+              if some parameter value is invalid
 
         </Tip>
 
@@ -1553,7 +1653,7 @@ class HfApi:
         ...         repo_id="username/my-dataset",
         ...         repo_type="datasets",
         ...         token="my_token",
-        ...    )
+        ...     )
         "https://huggingface.co/datasets/username/my-dataset/blob/main/remote/file/path.h5"
 
         >>> upload_file(
@@ -1641,22 +1741,29 @@ class HfApi:
 
         Args:
             path_in_repo (`str`):
-                Relative filepath in the repo, for example: `"checkpoints/1fec34a/weights.bin"`
+                Relative filepath in the repo, for example:
+                `"checkpoints/1fec34a/weights.bin"`
             repo_id (`str`):
-                The repository from which the file will be deleted, for example: `"username/custom_transformers"`
+                The repository from which the file will be deleted, for example:
+                `"username/custom_transformers"`
             token (`str`, *optional*):
-                Authentication token, obtained with :function:`HfApi.login` method. Will default to the stored token.
+                Authentication token, obtained with :function:`HfApi.login`
+                method. Will default to the stored token.
             repo_type (`str`, *optional*):
-                Set to `"dataset"` or `"space"` if the file is in a dataset or space, `None` or `"model"` if in a model. Default is `None`.
+                Set to `"dataset"` or `"space"` if the file is in a dataset or
+                space, `None` or `"model"` if in a model. Default is `None`.
             revision (`str`, *optional*):
-                The git revision to commit from. Defaults to the `"main"` branch.
+                The git revision to commit from. Defaults to the head of the
+                `"main"` branch.
 
         <Tip>
 
         Raises the following errors:
 
-            - `HTTPError` if the HuggingFace API returned an error
-            - `ValueError` if some parameter value is invalid
+            - [`HTTPError`](https://2.python-requests.org/en/master/api/#requests.HTTPError)
+              if the HuggingFace API returned an error
+            - [`ValueError`](https://docs.python.org/3/library/exceptions.html#ValueError)
+              if some parameter value is invalid
 
         </Tip>
 
@@ -1686,21 +1793,22 @@ class HfApi:
         token: Optional[str] = None,
     ):
         """
-        Returns the repository name for a given model ID and optional organization.
+        Returns the repository name for a given model ID and optional
+        organization.
 
         Args:
             model_id (`str`):
                 The name of the model.
             organization (`str`, *optional*):
-                If passed, the repository name will be in the organization namespace instead of the
-                user namespace.
+                If passed, the repository name will be in the organization
+                namespace instead of the user namespace.
             token (`str`, *optional*):
                 The Hugging Face authentication token
 
         Returns:
-            `str`: The repository name in the user's namespace ({username}/{model_id}) if no
-            organization is passed, and under the organization namespace ({organization}/{model_id})
-            otherwise.
+            `str`: The repository name in the user's namespace
+            ({username}/{model_id}) if no organization is passed, and under the
+            organization namespace ({organization}/{model_id}) otherwise.
         """
         if organization is None:
             if "/" in model_id:

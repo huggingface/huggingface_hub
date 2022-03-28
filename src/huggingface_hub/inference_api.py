@@ -50,25 +50,28 @@ class InferenceApi:
     ```python
     >>> from huggingface_hub.inference_api import InferenceApi
 
-    >>> # Mask-fill example
+    >>> # Mask-fill example
     >>> inference = InferenceApi("bert-base-uncased")
     >>> inference(inputs="The goal of life is [MASK].")
-    >>> >> [{'sequence': 'the goal of life is life.', 'score': 0.10933292657136917, 'token': 2166, 'token_str': 'life'}]
+    [{'sequence': 'the goal of life is life.', 'score': 0.10933292657136917, 'token': 2166, 'token_str': 'life'}]
 
-    >>> # Question Answering example
+    >>> # Question Answering example
     >>> inference = InferenceApi("deepset/roberta-base-squad2")
-    >>> inputs = {"question":"What's my name?", "context":"My name is Clara and I live in Berkeley."}
+    >>> inputs = {
+    ...     "question": "What's my name?",
+    ...     "context": "My name is Clara and I live in Berkeley.",
+    ... }
     >>> inference(inputs)
-    >>> >> {'score': 0.9326569437980652, 'start': 11, 'end': 16, 'answer': 'Clara'}
+    {'score': 0.9326569437980652, 'start': 11, 'end': 16, 'answer': 'Clara'}
 
-    >>> # Zero-shot example
+    >>> # Zero-shot example
     >>> inference = InferenceApi("typeform/distilbert-base-uncased-mnli")
     >>> inputs = "Hi, I recently bought a device from your company but it is not working as advertised and I would like to get reimbursed!"
-    >>> params = {"candidate_labels":["refund", "legal", "faq"]}
+    >>> params = {"candidate_labels": ["refund", "legal", "faq"]}
     >>> inference(inputs, params)
-    >>> >> {'sequence': 'Hi, I recently bought a device from your company but it is not working as advertised and I would like to get reimbursed!', 'labels': ['refund', 'faq', 'legal'], 'scores': [0.9378499388694763, 0.04914155602455139, 0.013008488342165947]}
+    {'sequence': 'Hi, I recently bought a device from your company but it is not working as advertised and I would like to get reimbursed!', 'labels': ['refund', 'faq', 'legal'], 'scores': [0.9378499388694763, 0.04914155602455139, 0.013008488342165947]}
 
-    >>> # Overriding configured task
+    >>> # Overriding configured task
     >>> inference = InferenceApi("bert-base-uncased", task="feature-extraction")
     ```
     """
@@ -83,13 +86,20 @@ class InferenceApi:
         """Inits headers and API call information.
 
         Args:
-            repo_id (``str``): Id of repository (e.g. `user/bert-base-uncased`).
-            task (``str``, `optional`, defaults ``None``): Whether to force a task instead of using task specified in the repository.
+            repo_id (``str``):
+                Id of repository (e.g. `user/bert-base-uncased`).
+            task (``str``, `optional`, defaults ``None``):
+                Whether to force a task instead of using task specified in the
+                repository.
             token (`str`, `optional`):
-                The API token to use as HTTP bearer authorization. This is not the authentication token.
-                You can find the token in https://huggingface.co/settings/token. Alternatively, you can
-                find both your organizations and personal API tokens using `HfApi().whoami(token)`.
-            gpu (``bool``, `optional`, defaults ``False``): Whether to use GPU instead of CPU for inference(requires Startup plan at least).
+                The API token to use as HTTP bearer authorization. This is not
+                the authentication token. You can find the token in
+                https://huggingface.co/settings/token. Alternatively, you can
+                find both your organizations and personal API tokens using
+                `HfApi().whoami(token)`.
+            gpu (``bool``, `optional`, defaults ``False``):
+                Whether to use GPU instead of CPU for inference(requires Startup
+                plan at least).
         .. note::
             Setting `token` is required when you want to use a private model.
         """
