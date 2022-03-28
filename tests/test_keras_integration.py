@@ -371,33 +371,6 @@ class HubKerasSequentialTest(HubMixingTestKeras):
         self._api.delete_repo(repo_id=f"{REPO_NAME}", token=self._token)
 
     @retry_endpoint
-    def test_push_to_hub_tensorboard(self):
-        REPO_NAME = "PUSH_TO_HUB_TB"
-        with tempfile.TemporaryDirectory() as tmpdirname:
-            os.makedirs(f"{tmpdirname}/log_dir")
-            with open(f"{tmpdirname}/log_dir/tensorboard.txt", "w") as fp:
-                fp.write("Keras FTW")
-            model = self.model_init()
-            model = self.model_fit(model)
-            push_to_hub_keras(
-                model,
-                repo_path_or_name=f"{WORKING_REPO_DIR}/{REPO_NAME}",
-                log_dir=f"{tmpdirname}/log_dir",
-                api_endpoint=ENDPOINT_STAGING,
-                use_auth_token=self._token,
-                git_user="ci",
-                git_email="ci@dummy.com",
-            )
-            model_info = HfApi(endpoint=ENDPOINT_STAGING).model_info(
-                f"{USER}/{REPO_NAME}",
-            )
-
-            self.assertTrue(
-                "logs/tensorboard.txt" in [f.rfilename for f in model_info.siblings]
-            )
-            self._api.delete_repo(repo_id=f"{REPO_NAME}", token=self._token)
-
-    @retry_endpoint
     def test_override_tensorboard(self):
         REPO_NAME = repo_name("TB_OVERRIDE")
         with tempfile.TemporaryDirectory() as tmpdirname:
