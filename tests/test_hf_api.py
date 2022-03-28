@@ -731,15 +731,6 @@ class HfApiPublicTest(unittest.TestCase):
         )
         self.assertIsInstance(model, ModelInfo)
         self.assertEqual(model.sha, DUMMY_MODEL_ID_REVISION_ONE_SPECIFIC_COMMIT)
-        model = _api.model_info(
-            repo_id=DUMMY_MODEL_ID,
-            revision=DUMMY_MODEL_ID_REVISION_ONE_SPECIFIC_COMMIT,
-            securityStatus=True,
-        )
-        self.assertEqual(
-            getattr(model, "securityStatus"),
-            {"containsInfected": False, "infectionTypes": []},
-        )
 
     @with_production_testing
     def test_model_info_with_security(self):
