@@ -256,7 +256,7 @@ class HubKerasSequentialTest(HubMixingTestKeras):
         self.assertRaises(ValueError, msg="Exception encountered when calling layer*")
 
     def test_from_pretrained_weights(self):
-        REPO_NAME = repo_name("from_pretrained_weights")
+        REPO_NAME = repo_name("FROM_PRETRAINED")
         model = self.model_init()
         model.build((None, 2))
 
@@ -352,7 +352,7 @@ class HubKerasSequentialTest(HubMixingTestKeras):
 
     @retry_endpoint
     def test_push_to_hub_model_card_plot_false(self):
-        REPO_NAME = repo_name("PUSH_TO_HUB_PLOT")
+        REPO_NAME = repo_name("PUSH_TO_HUB")
         model = self.model_init()
         model = self.model_fit(model)
         push_to_hub_keras(
@@ -372,7 +372,7 @@ class HubKerasSequentialTest(HubMixingTestKeras):
 
     @retry_endpoint
     def test_override_tensorboard(self):
-        REPO_NAME = repo_name("TB_OVERRIDE")
+        REPO_NAME = repo_name("PUSH_TO_HUB")
         with tempfile.TemporaryDirectory() as tmpdirname:
             os.makedirs(f"{tmpdirname}/tb_log_dir")
             with open(f"{tmpdirname}/tb_log_dir/tensorboard.txt", "w") as fp:
