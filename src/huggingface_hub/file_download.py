@@ -29,6 +29,7 @@ from .constants import (
 )
 from .hf_api import HfFolder
 from .utils import logging
+from .utils._deprecation import _deprecate_positional_args
 
 
 logger = logging.get_logger(__name__)
@@ -105,9 +106,11 @@ def is_tf_available():
     return _tf_available
 
 
+@_deprecate_positional_args
 def hf_hub_url(
     repo_id: str,
     filename: str,
+    *,
     subfolder: Optional[str] = None,
     repo_type: Optional[str] = None,
     revision: Optional[str] = None,
@@ -233,7 +236,9 @@ def filename_to_url(filename, cache_dir=None) -> Tuple[str, str]:
     return url, etag
 
 
+@_deprecate_positional_args
 def http_user_agent(
+    *,
     library_name: Optional[str] = None,
     library_version: Optional[str] = None,
     user_agent: Union[Dict, str, None] = None,
@@ -285,6 +290,7 @@ def _raise_if_offline_mode_is_enabled(msg: Optional[str] = None):
 def _request_with_retry(
     method: str,
     url: str,
+    *,
     max_retries: int = 0,
     base_wait_time: float = 0.5,
     max_wait_time: float = 2,
@@ -339,9 +345,11 @@ def _request_with_retry(
     return response
 
 
+@_deprecate_positional_args
 def http_get(
     url: str,
     temp_file: BinaryIO,
+    *,
     proxies=None,
     resume_size=0,
     headers: Optional[Dict[str, str]] = None,
@@ -381,8 +389,10 @@ def http_get(
     progress.close()
 
 
+@_deprecate_positional_args
 def cached_download(
     url: str,
+    *,
     library_name: Optional[str] = None,
     library_version: Optional[str] = None,
     cache_dir: Union[str, Path, None] = None,
@@ -620,9 +630,11 @@ def cached_download(
     return cache_path
 
 
+@_deprecate_positional_args
 def hf_hub_download(
     repo_id: str,
     filename: str,
+    *,
     subfolder: Optional[str] = None,
     repo_type: Optional[str] = None,
     revision: Optional[str] = None,

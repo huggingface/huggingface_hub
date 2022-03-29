@@ -8,6 +8,7 @@ from .constants import DEFAULT_REVISION, HUGGINGFACE_HUB_CACHE
 from .file_download import cached_download, hf_hub_url
 from .hf_api import HfApi, HfFolder
 from .utils import logging
+from .utils._deprecation import _deprecate_positional_args
 
 
 REPO_ID_SEPARATOR = "--"
@@ -18,8 +19,10 @@ REPO_ID_SEPARATOR = "--"
 logger = logging.get_logger(__name__)
 
 
+@_deprecate_positional_args
 def snapshot_download(
     repo_id: str,
+    *,
     revision: Optional[str] = None,
     cache_dir: Union[str, Path, None] = None,
     library_name: Optional[str] = None,
