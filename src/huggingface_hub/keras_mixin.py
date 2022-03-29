@@ -100,7 +100,7 @@ def _create_model_card(
     model,
     repo_dir: Path,
     plot_model: Optional[bool] = True,
-    task_name: Optional[str] = None,
+    tags: Optional[list] = None,
 ):
     """
     Creates a model card for the repository.
@@ -110,8 +110,10 @@ def _create_model_card(
         _plot_network(model, repo_dir)
     readme_path = f"{repo_dir}/README.md"
     model_card = "---\n"
-    if task_name is not None:
-        model_card += f"tags:\n- {task_name}\n"
+    if tags is not None:
+        model_card += "tags:\n"
+        for tag in tags:
+            model_card += f"- {tag}\n"
     model_card += "library_name: keras\n---\n"
     model_card += "\n## Model description\n\nMore information needed\n"
     model_card += "\n## Intended uses & limitations\n\nMore information needed\n"
@@ -149,7 +151,7 @@ def save_pretrained_keras(
     config: Optional[Dict[str, Any]] = None,
     include_optimizer: Optional[bool] = False,
     plot_model: Optional[bool] = True,
-    task_name: Optional[str] = None,
+    tags: Optional[list] = None,
     **model_save_kwargs,
 ):
     """Saves a Keras model to save_directory in SavedModel format. Use this if you're using the Functional or Sequential APIs.
@@ -162,8 +164,8 @@ def save_pretrained_keras(
         Configuration object to be saved alongside the model weights.
     include_optimizer(:obj:`bool`, `optional`):
         Whether or not to include optimizer in serialization.
-    task_name (:obj:`str`, `optional`):
-        Name of the task the model was trained on. See the available tasks at https://github.com/huggingface/huggingface_hub/blob/main/js/src/lib/interfaces/Types.ts.
+    tags (:obj:`list`, `optional`):
+        List of tags that are related to model. See example tags at https://github.com/huggingface/hub-docs/blame/main/modelcard.md.
     plot_model (:obj:`bool`):
         Setting this to `True` will plot the model and put it in the model card. Requires graphviz and pydot to be installed.
     model_save_kwargs(:obj:`dict`, `optional`):
@@ -191,7 +193,7 @@ def save_pretrained_keras(
         with open(path, "w") as f:
             json.dump(config, f)
 
-    _create_model_card(model, save_directory, plot_model, task_name)
+    _create_model_card(model, save_directory, plot_model, tags)
     tf.keras.models.save_model(
         model, save_directory, include_optimizer=include_optimizer, **model_save_kwargs
     )
@@ -215,7 +217,7 @@ def push_to_hub_keras(
     git_email: Optional[str] = None,
     config: Optional[dict] = None,
     include_optimizer: Optional[bool] = False,
-    task_name: Optional[str] = None,
+    tags: Optional[list] = None,
     plot_model: Optional[bool] = True,
     **model_save_kwargs,
 ):
@@ -258,8 +260,8 @@ def push_to_hub_keras(
             Configuration object to be saved alongside the model weights.
         include_optimizer (:obj:`bool`, `optional`):
             Whether or not to include optimizer during serialization.
-        task_name (:obj:`str`, `optional`):
-            Name of the task the model was trained on. See the available tasks at https://github.com/huggingface/huggingface_hub/blob/main/js/src/lib/interfaces/Types.ts.
+        tags (:obj:`dict`, `optional`):
+            List of tags that are related to model. See example tags at https://github.com/huggingface/hub-docs/blame/main/modelcard.md.
         plot_model (:obj:`bool`):
             Setting this to `True` will plot the model and put it in the model card. Requires graphviz and pydot to be installed.
         model_save_kwargs(:obj:`dict`, `optional`):
@@ -317,7 +319,7 @@ def push_to_hub_keras(
         config=config,
         include_optimizer=include_optimizer,
         plot_model=plot_model,
-        task_name=task_name,
+        tags=tags,
         **model_save_kwargs,
     )
 
