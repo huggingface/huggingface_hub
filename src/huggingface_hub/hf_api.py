@@ -464,7 +464,8 @@ class HfApi:
 
         <Tip>
 
-        Warning: Deprecated, will be removed in v0.7
+        Warning: Deprecated, will be removed in v0.7. Please use
+        [`HfApi.set_access_token`] instead.
 
         </Tip>
 
@@ -576,7 +577,8 @@ class HfApi:
 
         <Tip>
 
-        Warning: Deprecated, will be removed in v0.7
+        Warning: Deprecated, will be removed in v0.7. Please use
+        [`HfApi.unset_access_token`] instead.
 
         </Tip>
 
