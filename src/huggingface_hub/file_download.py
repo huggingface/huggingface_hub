@@ -315,14 +315,14 @@ def _request_with_retry(
             max_retries (`int`, *optional*, defaults to `0`):
                 Maximum number of retries, defaults to 0 (no retries).
             base_wait_time (`float`, *optional*, defaults to `0.5`):
-                Duration (in seconds) to wait before retrying the first time. Wait
-                time between retries then grows exponentially, capped by
+                Duration (in seconds) to wait before retrying the first time.
+                Wait time between retries then grows exponentially, capped by
                 `max_wait_time`.
             max_wait_time (`float`, *optional*, defaults to `2`):
                 Maximum amount of time between two retries, in seconds.
             timeout (`float`, *optional*, defaults to `10`):
-                How many seconds to wait for the server to send data before giving
-                up which is passed to `requests.request`.
+                How many seconds to wait for the server to send data before
+                giving up which is passed to `requests.request`.
             **params (`dict`, *optional*):
                 Params to pass to `requests.request`.
     """

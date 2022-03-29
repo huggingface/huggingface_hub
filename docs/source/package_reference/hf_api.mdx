@@ -1,40 +1,31 @@
 # Hugging Face Hub API
 
-[[autodoc]] login
+Below is the documentation for the `HfApi` class, which serves as a Python wrapper for the Hugging Face
+Hub's API.
 
-[[autodoc]] logout
+All methods from the `HfApi` are also accessible from the package's root directly, both approaches are detailed
+below.
 
-[[autodoc]] whoami
+The following approach uses the method from the root of the package:
 
-[[autodoc]] list_models
+```python
+from huggingface_hub import list_models
 
-[[autodoc]] model_info
+models = list_models()
+```
 
-[[autodoc]] list_repo_files
+The following approach uses the `HfApi` class:
 
-[[autodoc]] list_datasets
+```python
+from huggingface_hub import HfApi
 
-[[autodoc]] dataset_info
+hf_api = HfApi()
+models = hf_api.list_models()
+```
 
-[[autodoc]] list_metrics
+Using the `HfApi` class directly enables you to set a different endpoint to that of the Hugging Face's Hub.
 
-[[autodoc]] get_model_tags
-
-[[autodoc]] get_dataset_tags
-
-[[autodoc]] create_repo
-
-[[autodoc]] delete_repo
-
-[[autodoc]] update_repo_visibility
-
-[[autodoc]] move_repo
-
-[[autodoc]] upload_file
-
-[[autodoc]] delete_file
-
-[[autodoc]] get_full_repo_name
+[[autodoc]] HfApi
 
 ## Hugging Face local storage
 

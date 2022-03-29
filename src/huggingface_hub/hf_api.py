@@ -1866,6 +1866,10 @@ api = HfApi()
 
 login = api.login
 logout = api.logout
+
+set_access_token = api.set_access_token
+unset_access_token = api.unset_access_token
+
 whoami = api.whoami
 
 list_models = api.list_models

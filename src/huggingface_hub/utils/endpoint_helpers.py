@@ -71,9 +71,10 @@ class DatasetFilter:
 
         Args:
             author (`str`, *optional*):
-                A string or list of strings that can be used to identify datasets on
-                the Hub by the original uploader (author or organization), such as
-                `facebook` or `huggingface` Example usage:
+                A string or list of strings that can be used to identify
+                datasets on the Hub by the original uploader (author or
+                organization), such as `facebook` or `huggingface` Example
+                usage:
 
                 ```py
                 >>> from huggingface_hub import DatasetFilter
@@ -82,8 +83,8 @@ class DatasetFilter:
                 ```
 
            benchmark (`str` or `List`, *optional*):
-                A string or list of strings that can be used to identify datasets on
-                the Hub by their official benchmark Example usage:
+                A string or list of strings that can be used to identify
+                datasets on the Hub by their official benchmark Example usage:
 
                 ```python
                 >>> from huggingface_hub import DatasetFilter
@@ -92,8 +93,9 @@ class DatasetFilter:
                 ```
 
             dataset_name (`str`, *optional*):
-                A string or list of strings that can be used to identify datasets on
-                the Hub by its name, such as `SQAC` or `wikineural` Example usage:
+                A string or list of strings that can be used to identify
+                datasets on the Hub by its name, such as `SQAC` or `wikineural`
+                Example usage:
 
                 ```python
                 >>> from huggingface_hub import DatasetFilter
@@ -102,9 +104,9 @@ class DatasetFilter:
                 ```
 
             language_creators (`str` or `List`, *optional*):
-                A string or list of strings that can be used to identify datasets on
-                the Hub with how the data was curated, such as `crowdsourced` or
-                `machine_generated` Example usage:
+                A string or list of strings that can be used to identify
+                datasets on the Hub with how the data was curated, such as
+                `crowdsourced` or `machine_generated` Example usage:
 
                 ```python
                 >>> from huggingface_hub import DatasetFilter
@@ -113,8 +115,8 @@ class DatasetFilter:
                 ```
 
             languages (`str` or `List`, *optional*):
-                A string or list of strings representing a two-character language to
-                filter datasets by on the Hub Example usage:
+                A string or list of strings representing a two-character
+                language to filter datasets by on the Hub Example usage:
 
                 ```python
                 >>> from huggingface_hub import DatasetFilter
@@ -123,8 +125,8 @@ class DatasetFilter:
                 ```
 
             multilinguality (`str` or `List`, *optional*):
-                A string or list of strings representing a filter for datasets that
-                contain multiple languages Example usage:
+                A string or list of strings representing a filter for datasets
+                that contain multiple languages Example usage:
 
                 ```python
                 >>> from huggingface_hub import DatasetFilter
@@ -133,9 +135,9 @@ class DatasetFilter:
                 ```
 
             size_categories (`str` or `List`, *optional*):
-                A string or list of strings that can be used to identify datasets on
-                the Hub by the size of the dataset such as `100K<n<1M` or `1M<n<10M`
-                Example usage:
+                A string or list of strings that can be used to identify
+                datasets on the Hub by the size of the dataset such as
+                `100K<n<1M` or `1M<n<10M` Example usage:
 
                 ```python
                 >>> from huggingface_hub import DatasetFilter
@@ -144,9 +146,10 @@ class DatasetFilter:
                 ```
 
             task_categories (`str` or `List`, *optional*):
-                A string or list of strings that can be used to identify datasets on
-                the Hub by the designed task, such as `audio_classification` or
-                `named_entity_recognition` Example usage:
+                A string or list of strings that can be used to identify
+                datasets on the Hub by the designed task, such as
+                `audio_classification` or `named_entity_recognition` Example
+                usage:
 
                 ```python
                 >>> from huggingface_hub import DatasetFilter
@@ -155,9 +158,9 @@ class DatasetFilter:
                 ```
 
             task_ids (`str` or `List`, *optional*):
-                A string or list of strings that can be used to identify datasets on
-                the Hub by the specific task such as `speech_emotion_recognition` or
-                `paraphrase` Example usage:
+                A string or list of strings that can be used to identify
+                datasets on the Hub by the specific task such as
+                `speech_emotion_recognition` or `paraphrase` Example usage:
 
                 ```python
                 >>> from huggingface_hub import DatasetFilter
@@ -186,8 +189,8 @@ class ModelFilter:
         Args:
             author (`str`, *optional*):
                 A string that can be used to identify models on the Hub by the
-                original uploader (author or organization), such as `facebook` or
-                `huggingface` Example usage:
+                original uploader (author or organization), such as `facebook`
+                or `huggingface` Example usage:
 
                 ```python
                 >>> from huggingface_hub import Filter
@@ -196,25 +199,25 @@ class ModelFilter:
                 ```
 
              library (`str` or `List`, *optional*):
-                A string or list of strings of foundational libraries models were
-                originally trained from, such as pytorch, tensorflow, or allennlp
-                Example usage:
+                A string or list of strings of foundational libraries models
+                were originally trained from, such as pytorch, tensorflow, or
+                allennlp Example usage:
 
                 ```python
                 >>> new_filter = ModelFilter(library="pytorch")
                 ```
 
              language (`str` or `List`, *optional*):
-                A string or list of strings of languages, both by name and country
-                code, such as "en" or "English" Example usage:
+                A string or list of strings of languages, both by name and
+                country code, such as "en" or "English" Example usage:
 
                 ```python
                 >>> new_filter = ModelFilter(language="french")
                 ```
 
              model_name (`str`, *optional*):
-                A string that contain complete or partial names for models on the
-                Hub, such as "bert" or "bert-base-cased" Example usage:
+                A string that contain complete or partial names for models on
+                the Hub, such as "bert" or "bert-base-cased" Example usage:
 
                 ```python
                 >>> new_filter = ModelFilter(model_name="bert")
@@ -222,16 +225,18 @@ class ModelFilter:
 
 
              task (`str` or `List`, *optional*):
-                A string or list of strings of tasks models were designed for, such
-                as: "fill-mask" or "automatic-speech-recognition" Example usage:
+                A string or list of strings of tasks models were designed for,
+                such as: "fill-mask" or "automatic-speech-recognition" Example
+                usage:
 
                 ```python
                 >>> new_filter = ModelFilter(task="text-classification")
                 ```
 
              tags (`str` or `List`, *optional*):
-                A string tag or a list of tags to filter models on the Hub by, such
-                as `text-generation` or `spacy`. For a full list of tags do:
+                A string tag or a list of tags to filter models on the Hub by,
+                such as `text-generation` or `spacy`. For a full list of tags
+                do:
 
                 ```python
                 >>> from huggingface_hub import HfApi
@@ -251,8 +256,8 @@ class ModelFilter:
                 ```
 
             trained_dataset (`str` or `List`, *optional*):
-                A string tag or a list of string tags of the trained dataset for a
-                model on the Hub.
+                A string tag or a list of string tags of the trained dataset for
+                a model on the Hub.
 
                 Example usage:
 
