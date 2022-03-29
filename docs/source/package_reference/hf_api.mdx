@@ -1,47 +1,45 @@
 # Hugging Face Hub API
 
-[[autodoc]] login
+Below is the documentation for the `HfApi` class, which serves as a Python wrapper for the Hugging Face
+Hub's API.
 
-[[autodoc]] HfApi.logout
+All methods from the `HfApi` are also accessible from the package's root directly, both approaches are detailed
+below.
 
-[[autodoc]] HfApi.whoami
+The following approach uses the method from the root of the package:
 
-[[autodoc]] HfApi.list_models
+```python
+from huggingface_hub import list_models
 
-[[autodoc]] HfApi.model_info
+models = list_models()
+```
 
-[[autodoc]] HfApi.list_repo_files
+The following approach uses the `HfApi` class:
 
-[[autodoc]] HfApi.list_datasets
+```python
+from huggingface_hub import HfApi
 
-[[autodoc]] HfApi.dataset_info
+hf_api = HfApi()
+models = hf_api.list_models()
+```
 
-[[autodoc]] HfApi.list_metrics
+Using the `HfApi` class directly enables you to set a different endpoint to that of the Hugging Face's Hub.
 
-[[autodoc]] HfApi.get_model_tags
-
-[[autodoc]] HfApi.get_dataset_tags
-
-[[autodoc]] HfApi.create_repo
-
-[[autodoc]] HfApi.delete_repo
-
-[[autodoc]] HfApi.update_repo_visibility
-
-[[autodoc]] HfApi.move_repo
-
-[[autodoc]] HfApi.upload_file
-
-[[autodoc]] HfApi.delete_file
-
-[[autodoc]] HfApi.get_full_repo_name
+[[autodoc]] HfApi
 
 ## Hugging Face local storage
 
 `huggingface_hub` stores the authentication information locally so that it may be re-used in subsequent
 methods.
 
-It does this using the `HfFolder` utility, which saves data at the root of the user.
+It does this using the [`HfFolder`] utility, which saves data at the root of the user.
 
 [[autodoc]] HfFolder
 
+## Filtering helpers
+
+Some helpers to filter repositories on the hub are available in the `huggingface_hub` package.
+
+[[autodoc]] DatasetFilter
+
+[[autodoc]] ModelFilter
