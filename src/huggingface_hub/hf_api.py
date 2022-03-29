@@ -462,6 +462,12 @@ class HfApi:
         """
         Call HF API to sign in a user and get a token if credentials are valid.
 
+        <Tip>
+
+        Warning: Deprecated, will be removed in v0.7
+
+        </Tip>
+
         Args:
             username (`str`):
                 The username of the account with which to login.
@@ -567,6 +573,12 @@ class HfApi:
     def logout(self, token: Optional[str] = None) -> None:
         """
         Call HF API to log out.
+
+        <Tip>
+
+        Warning: Deprecated, will be removed in v0.7
+
+        </Tip>
 
         Args:
             token (`str`, *optional*):
