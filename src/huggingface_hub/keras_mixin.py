@@ -113,9 +113,8 @@ def _create_model_card(
     metadata = {}
     metadata["tags"] = tags
     metadata["library_name"] = "keras"
-    doc = yaml.dump(metadata, default_flow_style=False)
     model_card = "---\n"
-    model_card += doc
+    model_card += yaml.dump(metadata, default_flow_style=False)
     model_card += "---\n"
     model_card += "\n## Model description\n\nMore information needed\n"
     model_card += "\n## Intended uses & limitations\n\nMore information needed\n"
