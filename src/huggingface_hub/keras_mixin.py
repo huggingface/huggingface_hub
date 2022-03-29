@@ -4,6 +4,7 @@ from pathlib import Path
 from shutil import copytree, rmtree
 from typing import Any, Dict, Optional, Union
 
+import yaml
 from huggingface_hub import ModelHubMixin
 from huggingface_hub.file_download import (
     is_graphviz_available,
@@ -109,12 +110,13 @@ def _create_model_card(
     if plot_model and is_graphviz_available() and is_pydot_available():
         _plot_network(model, repo_dir)
     readme_path = f"{repo_dir}/README.md"
+    metadata = {}
+    metadata["tags"] = tags
+    metadata["library_name"] = "keras"
+    doc = yaml.dump(metadata, default_flow_style=False)
     model_card = "---\n"
-    if tags is not None:
-        model_card += "tags:\n"
-        for tag in tags:
-            model_card += f"- {tag}\n"
-    model_card += "library_name: keras\n---\n"
+    model_card += doc
+    model_card += "---\n"
     model_card += "\n## Model description\n\nMore information needed\n"
     model_card += "\n## Intended uses & limitations\n\nMore information needed\n"
     model_card += "\n## Training and evaluation data\n\nMore information needed\n"
