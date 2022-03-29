@@ -773,7 +773,7 @@ class HfApiPublicTest(unittest.TestCase):
     def test_filter_datasets_by_author_and_name(self):
         _api = HfApi()
         f = DatasetFilter(author="huggingface", dataset_name="DataMeasurementsFiles")
-        datasets = _api.list_datasets(f)
+        datasets = _api.list_datasets(filter=f)
         self.assertEqual(len(datasets), 1)
         self.assertTrue("huggingface" in datasets[0].author)
         self.assertTrue("DataMeasurementsFiles" in datasets[0].id)
@@ -782,7 +782,7 @@ class HfApiPublicTest(unittest.TestCase):
     def test_filter_datasets_by_benchmark(self):
         _api = HfApi()
         f = DatasetFilter(benchmark="raft")
-        datasets = _api.list_datasets(f)
+        datasets = _api.list_datasets(filter=f)
         self.assertGreater(len(datasets), 0)
         self.assertTrue("benchmark:raft" in datasets[0].tags)
 
@@ -790,7 +790,7 @@ class HfApiPublicTest(unittest.TestCase):
     def test_filter_datasets_by_language_creator(self):
         _api = HfApi()
         f = DatasetFilter(language_creators="crowdsourced")
-        datasets = _api.list_datasets(f)
+        datasets = _api.list_datasets(filter=f)
         self.assertGreater(len(datasets), 0)
         self.assertTrue("language_creators:crowdsourced" in datasets[0].tags)
 
@@ -798,12 +798,12 @@ class HfApiPublicTest(unittest.TestCase):
     def test_filter_datasets_by_language(self):
         _api = HfApi()
         f = DatasetFilter(languages="en")
-        datasets = _api.list_datasets(f)
+        datasets = _api.list_datasets(filter=f)
         self.assertGreater(len(datasets), 0)
         self.assertTrue("languages:en" in datasets[0].tags)
         args = DatasetSearchArguments()
         f = DatasetFilter(languages=(args.languages.en, args.languages.fr))
-        datasets = _api.list_datasets(f)
+        datasets = _api.list_datasets(filter=f)
         self.assertGreater(len(datasets), 0)
         self.assertTrue("languages:en" in datasets[0].tags)
         self.assertTrue("languages:fr" in datasets[0].tags)
@@ -812,7 +812,7 @@ class HfApiPublicTest(unittest.TestCase):
     def test_filter_datasets_by_multilinguality(self):
         _api = HfApi()
         f = DatasetFilter(multilinguality="yes")
-        datasets = _api.list_datasets(f)
+        datasets = _api.list_datasets(filter=f)
         self.assertGreater(len(datasets), 0)
         self.assertTrue("multilinguality:yes" in datasets[0].tags)
 
@@ -820,7 +820,7 @@ class HfApiPublicTest(unittest.TestCase):
     def test_filter_datasets_by_size_categories(self):
         _api = HfApi()
         f = DatasetFilter(size_categories="100K<n<1M")
-        datasets = _api.list_datasets(f)
+        datasets = _api.list_datasets(filter=f)
         self.assertGreater(len(datasets), 0)
         self.assertTrue("size_categories:100K<n<1M" in datasets[0].tags)
 
@@ -828,7 +828,7 @@ class HfApiPublicTest(unittest.TestCase):
     def test_filter_datasets_by_task_categories(self):
         _api = HfApi()
         f = DatasetFilter(task_categories="audio-classification")
-        datasets = _api.list_datasets(f)
+        datasets = _api.list_datasets(filter=f)
         self.assertGreater(len(datasets), 0)
         self.assertTrue("task_categories:audio-classification" in datasets[0].tags)
 
@@ -836,7 +836,7 @@ class HfApiPublicTest(unittest.TestCase):
     def test_filter_datasets_by_task_ids(self):
         _api = HfApi()
         f = DatasetFilter(task_ids="automatic-speech-recognition")
-        datasets = _api.list_datasets(f)
+        datasets = _api.list_datasets(filter=f)
         self.assertGreater(len(datasets), 0)
         self.assertTrue("task_ids:automatic-speech-recognition" in datasets[0].tags)
 
@@ -989,9 +989,9 @@ class HfApiPublicTest(unittest.TestCase):
     @with_production_testing
     def test_filter_models_with_cardData(self):
         _api = HfApi()
-        models = _api.list_models("co2_eq_emissions", cardData=True)
+        models = _api.list_models(filter="co2_eq_emissions", cardData=True)
         self.assertTrue([hasattr(model, "cardData") for model in models])
-        models = _api.list_models("co2_eq_emissions")
+        models = _api.list_models(filter="co2_eq_emissions")
         self.assertTrue(all([not hasattr(model, "cardData") for model in models]))
 
     def test_filter_emissions_dict(self):
