@@ -128,8 +128,9 @@ class HubMixingTestKeras(unittest.TestCase):
     def test_rel_path_from_pretrained(self):
         model = DummyModel()
         model(model.dummy_inputs)
+
         model.save_pretrained(
-            f"tests/{WORKING_REPO_SUBDIR}/FROM_PRETRAINED",
+            save_directory=f"tests/{WORKING_REPO_SUBDIR}/FROM_PRETRAINED",
             config={"num": 10, "act": "gelu_fast"},
         )
 
@@ -143,7 +144,8 @@ class HubMixingTestKeras(unittest.TestCase):
         model = DummyModel()
         model(model.dummy_inputs)
         model.save_pretrained(
-            f"{WORKING_REPO_DIR}/{REPO_NAME}", config={"num": 10, "act": "gelu_fast"}
+            save_directory=f"{WORKING_REPO_DIR}/{REPO_NAME}",
+            config={"num": 10, "act": "gelu_fast"},
         )
 
         model = DummyModel.from_pretrained(f"{WORKING_REPO_DIR}/{REPO_NAME}")
@@ -173,10 +175,12 @@ class HubMixingTestKeras(unittest.TestCase):
 
 @require_tf
 class HubKerasSequentialTest(HubMixingTestKeras):
-    def model_init(self):
+    def model_init(self, build=False):
         model = tf.keras.models.Sequential()
         model.add(tf.keras.layers.Dense(2, activation="relu"))
         model.compile(optimizer="adam", loss="mse")
+        if build:
+            model.build((None, 2))
         return model
 
     def model_fit(self, model):
@@ -208,6 +212,27 @@ class HubKerasSequentialTest(HubMixingTestKeras):
         loaded_model = from_pretrained_keras(f"{WORKING_REPO_DIR}/{REPO_NAME}")
         self.assertIsNone(loaded_model.optimizer)
 
+    def test_save_pretrained_multiple_models(self):
+        REPO_NAME = repo_name("save")
+        model_1 = self.model_init(build=True)
+        model_2 = self.model_init(build=True)
+
+        save_pretrained_keras(
+            {"model_1": model_1, "model_2": model_2}, f"{WORKING_REPO_DIR}/{REPO_NAME}"
+        )
+
+        files = os.listdir(f"{WORKING_REPO_DIR}/{REPO_NAME}")
+
+        self.assertIn("model_1", files)
+        self.assertIn("model_2", files)
+        self.assertIn("README.md", files)
+        self.assertEqual(len(files), 3)
+        files = os.listdir(f"{WORKING_REPO_DIR}/{REPO_NAME}/model_1")
+        self.assertIn("saved_model.pb", files)
+        self.assertIn("variables", files)
+        self.assertIn("keras_metadata.pb", files)
+        self.assertIn("model.png", files)
+
     def test_save_pretrained_model_card_fit(self):
         REPO_NAME = repo_name("save")
         model = self.model_init()
@@ -227,9 +252,8 @@ class HubKerasSequentialTest(HubMixingTestKeras):
 
     def test_save_pretrained_optimizer_state(self):
         REPO_NAME = repo_name("save")
-        model = self.model_init()
+        model = self.model_init(build=True)
 
-        model.build((None, 2))
         save_pretrained_keras(
             model, f"{WORKING_REPO_DIR}/{REPO_NAME}", include_optimizer=True
         )
@@ -239,9 +263,7 @@ class HubKerasSequentialTest(HubMixingTestKeras):
 
     def test_save_pretrained_kwargs_load_fails_without_traces(self):
         REPO_NAME = repo_name("save")
-        model = self.model_init()
-
-        model.build((None, 2))
+        model = self.model_init(build=True)
 
         save_pretrained_keras(
             model,
@@ -255,8 +277,7 @@ class HubKerasSequentialTest(HubMixingTestKeras):
 
     def test_from_pretrained_weights(self):
         REPO_NAME = repo_name("from_pretrained_weights")
-        model = self.model_init()
-        model.build((None, 2))
+        model = self.model_init(build=True)
 
         save_pretrained_keras(model, f"{WORKING_REPO_DIR}/{REPO_NAME}")
         new_model = from_pretrained_keras(f"{WORKING_REPO_DIR}/{REPO_NAME}")
@@ -270,9 +291,28 @@ class HubKerasSequentialTest(HubMixingTestKeras):
             .item()
         )
 
+    def test_from_pretrained_multiple_models(self):
+        REPO_NAME = repo_name("from_pretrained_weights")
+        model_1 = self.model_init(build=True)
+        model_2 = self.model_init(build=True)
+
+        save_pretrained_keras(
+            {"model_1": model_1, "model_2": model_2}, f"{WORKING_REPO_DIR}/{REPO_NAME}"
+        )
+        models_dict = from_pretrained_keras(f"{WORKING_REPO_DIR}/{REPO_NAME}")
+        self.assertEqual(
+            str(type(models_dict["model_1"])),
+            "<class 'keras.engine.sequential.Sequential'>",
+        )
+        self.assertEqual(
+            str(type(models_dict["model_2"])),
+            "<class 'keras.engine.sequential.Sequential'>",
+        )
+
     def test_rel_path_from_pretrained(self):
-        model = self.model_init()
-        model.build((None, 2))
+        model = self.model_init(build=True)
+        breakpoint()
+
         save_pretrained_keras(
             model,
             f"tests/{WORKING_REPO_SUBDIR}/FROM_PRETRAINED",
@@ -291,8 +331,8 @@ class HubKerasSequentialTest(HubMixingTestKeras):
 
     def test_abs_path_from_pretrained(self):
         REPO_NAME = repo_name("FROM_PRETRAINED")
-        model = self.model_init()
-        model.build((None, 2))
+        model = self.model_init(build=True)
+
         save_pretrained_keras(
             model,
             f"{WORKING_REPO_DIR}/{REPO_NAME}",
@@ -308,8 +348,8 @@ class HubKerasSequentialTest(HubMixingTestKeras):
     @retry_endpoint
     def test_push_to_hub(self):
         REPO_NAME = repo_name("PUSH_TO_HUB")
-        model = self.model_init()
-        model.build((None, 2))
+        model = self.model_init(build=True)
+
         push_to_hub_keras(
             model,
             repo_path_or_name=f"{WORKING_REPO_DIR}/{REPO_NAME}",
@@ -329,10 +369,62 @@ class HubKerasSequentialTest(HubMixingTestKeras):
         self._api.delete_repo(name=f"{REPO_NAME}", token=self._token)
 
     @retry_endpoint
+    def test_push_to_hub_multiple_models(self):
+        REPO_NAME = repo_name("PUSH_TO_HUB")
+        model_1 = self.model_init(build=True)
+        model_2 = self.model_init(build=True)
+        push_to_hub_keras(
+            {"model_1": model_1, "model_2": model_2},
+            repo_path_or_name=f"{WORKING_REPO_DIR}/{REPO_NAME}",
+            api_endpoint=ENDPOINT_STAGING,
+            use_auth_token=self._token,
+            git_user="ci",
+            git_email="ci@dummy.com",
+            config={
+                "model_1": {"num": 7, "act": "gelu_fast"},
+                "model_2": {"num": 7, "act": "gelu_fast"},
+            },
+        )
+
+        model_info = HfApi(endpoint=ENDPOINT_STAGING).model_info(
+            f"{USER}/{REPO_NAME}",
+        )
+        self.assertTrue(
+            "model_1/saved_model.pb" in [f.rfilename for f in model_info.siblings]
+        )
+        self.assertTrue(
+            "model_2/saved_model.pb" in [f.rfilename for f in model_info.siblings]
+        )
+
+        self._api.delete_repo(name=f"{REPO_NAME}", token=self._token)
+
+    @retry_endpoint
+    def test_push_to_hub_multiple_models_args(self):
+        REPO_NAME = repo_name("PUSH_TO_HUB")
+        model_1 = self.model_init(build=True)
+        model_2 = self.model_init(build=True)
+        push_to_hub_keras(
+            {"model_1": model_1, "model_2": model_2},
+            repo_path_or_name=f"{WORKING_REPO_DIR}/{REPO_NAME}",
+            api_endpoint=ENDPOINT_STAGING,
+            use_auth_token=self._token,
+            git_user="ci",
+            git_email="ci@dummy.com",
+            multiple_model_save_args={
+                "model_1": {"save_traces": False},
+                "model_2": {"save_traces": True},
+            },
+        )
+
+        from_pretrained_keras(f"{WORKING_REPO_DIR}/{REPO_NAME}")
+        self.assertRaises(ValueError, msg="Exception encountered when calling layer*")
+        self._api.delete_repo(name=f"{REPO_NAME}", token=self._token)
+
+    @retry_endpoint
     def test_push_to_hub_model_card_build(self):
         REPO_NAME = repo_name("PUSH_TO_HUB")
-        model = self.model_init()
-        model.build((None, 2))
+        model = self.model_init(build=True)
+
         push_to_hub_keras(
             model,
             repo_path_or_name=f"{WORKING_REPO_DIR}/{REPO_NAME}",
@@ -401,8 +493,8 @@ class HubKerasSequentialTest(HubMixingTestKeras):
         with open(f"{WORKING_REPO_DIR}/tb_log_dir/tensorboard.txt", "w") as fp:
             fp.write("Keras FTW")
         REPO_NAME = repo_name("PUSH_TO_HUB")
-        model = self.model_init()
-        model.build((None, 2))
+        model = self.model_init(build=True)
+
         push_to_hub_keras(
             model,
             repo_path_or_name=f"{WORKING_REPO_DIR}/{REPO_NAME}",
@@ -467,17 +559,18 @@ class HubKerasSequentialTest(HubMixingTestKeras):
 
 @require_tf
 class HubKerasFunctionalTest(HubKerasSequentialTest):
-    def model_init(self):
+    def model_init(self, build=False):
         inputs = tf.keras.layers.Input(shape=(2,))
         outputs = tf.keras.layers.Dense(2, activation="relu")(inputs)
         model = tf.keras.models.Model(inputs=inputs, outputs=outputs)
         model.compile(optimizer="adam", loss="mse")
+        if build:
+            model.build((None, 2))
         return model
 
     def test_save_pretrained(self):
         REPO_NAME = repo_name("functional")
-        model = self.model_init()
-        model.build((None, 2))
+        model = self.model_init(build=True)
         self.assertTrue(model.built)
 
         save_pretrained_keras(model, f"{WORKING_REPO_DIR}/{REPO_NAME}")
@@ -498,3 +591,21 @@ class HubKerasFunctionalTest(HubKerasSequentialTest):
         self.assertIn("saved_model.pb", files)
         self.assertIn("keras_metadata.pb", files)
         self.assertEqual(len(files), 6)
+
+    def test_from_pretrained_multiple_models(self):
+        REPO_NAME = repo_name("from_pretrained_weights")
+        model_1 = self.model_init(build=True)
+        model_2 = self.model_init(build=True)
+
+        save_pretrained_keras(
+            {"model_1": model_1, "model_2": model_2}, f"{WORKING_REPO_DIR}/{REPO_NAME}"
+        )
+        models_dict = from_pretrained_keras(f"{WORKING_REPO_DIR}/{REPO_NAME}")
+        self.assertEqual(
+            str(type(models_dict["model_1"])),
+            "<class 'keras.engine.functional.Functional'>",
+        )
+        self.assertEqual(
+            str(type(models_dict["model_2"])),
+            "<class 'keras.engine.functional.Functional'>",
+        )

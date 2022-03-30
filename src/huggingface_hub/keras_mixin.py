@@ -106,9 +106,6 @@ def _create_model_card(
     """
     Creates a model card for the repository.
     """
-    hyperparameters = _extract_hyperparameters_from_keras(model)
-    if plot_model and is_graphviz_available() and is_pydot_available():
-        _plot_network(model, repo_dir)
     readme_path = f"{repo_dir}/README.md"
     model_card = "---\n"
     if task_name is not None:
@@ -117,23 +114,49 @@ def _create_model_card(
     model_card += "\n## Model description\n\nMore information needed\n"
     model_card += "\n## Intended uses & limitations\n\nMore information needed\n"
     model_card += "\n## Training and evaluation data\n\nMore information needed\n"
-    if hyperparameters is not None:
-        model_card += "\n## Training procedure\n"
-        model_card += "\n### Training hyperparameters\n"
-        model_card += "\nThe following hyperparameters were used during training:\n"
-        model_card += "\n".join(
-            [f"- {name}: {value}" for name, value in hyperparameters.items()]
-        )
-        model_card += "\n"
-    model_card += "\n ## Training Metrics\n"
-    model_card = _write_metrics(model, model_card)
-    if plot_model and os.path.exists(f"{repo_dir}/model.png"):
-        model_card += "\n ## Model Plot\n"
-        model_card += "\n<details>"
-        model_card += "\n<summary>View Model Plot</summary>\n"
-        path_to_plot = "./model.png"
-        model_card += f"\n![Model Image]({path_to_plot})\n"
-        model_card += "\n</details>"
+    if isinstance(model, dict):
+        for model_name, tf_model in model.items():
+            hyperparameters = _extract_hyperparameters_from_keras(tf_model)
+            if plot_model and is_graphviz_available() and is_pydot_available():
+                _plot_network(tf_model, f"{repo_dir}/{model_name}")
+            if hyperparameters is not None:
+                model_card += f"\n### Training hyperparameters for {model_name}\n"
+                model_card += (
+                    "\nThe following hyperparameters were used during training:\n"
+                )
+                model_card += "\n".join(
+                    [f"- {name}: {value}" for name, value in hyperparameters.items()]
+                )
+            model_card += "\n"
+            model_card += f"\n ## Training Metrics for {model_name}\n"
+            model_card = _write_metrics(model[model_name], model_card)
+            if plot_model and os.path.exists(f"{repo_dir}/{model_name}/model.png"):
+                model_card += f"\n ## Model Plot for {model_name}\n"
+                model_card += "\n<details>"
+                model_card += "\n<summary>View Model Plot</summary>\n"
+                model_card += f"\n![Model Image](./{model_name}/model.png)\n"
+                model_card += "\n</details>\n\n"
+
+    else:
+        hyperparameters = _extract_hyperparameters_from_keras(model)
+        if plot_model and is_graphviz_available() and is_pydot_available():
+            _plot_network(model, repo_dir)
+        if hyperparameters is not None:
+            model_card += "\n### Training hyperparameters\n"
+            model_card += "\nThe following hyperparameters were used during training:\n"
+            model_card += "\n".join(
+                [f"- {name}: {value}" for name, value in hyperparameters.items()]
+            )
+            model_card += "\n"
+        model_card += "\n ## Training Metrics\n"
+        model_card = _write_metrics(model, model_card)
+        if plot_model and os.path.exists(f"{repo_dir}/model.png"):
+            model_card += "\n ## Model Plot\n"
+            model_card += "\n<details>"
+            model_card += "\n<summary>View Model Plot</summary>\n"
+            path_to_plot = "./model.png"
+            model_card += f"\n![Model Image]({path_to_plot})\n"
+            model_card += "\n</details>\n"
 
     if os.path.exists(readme_path):
         with open(readme_path, "r", encoding="utf8") as f:
@@ -151,24 +174,27 @@ def save_pretrained_keras(
     include_optimizer: Optional[bool] = False,
     plot_model: Optional[bool] = True,
     task_name: Optional[str] = None,
+    multiple_model_save_args: Optional[Dict] = None,
     **model_save_kwargs,
 ):
     """Saves a Keras model to save_directory in SavedModel format. Use this if you're using the Functional or Sequential APIs.
 
     model:
-        The Keras model you'd like to save. The model must be compiled and built.
+        The Keras model or dictionary of multiple models you'd like to push to the hub. The model(s) must be compiled and built. If multiple models are pushed, each key in dictionary should be an identifier of model and value should be model.
     save_directory (:obj:`str`):
         Specify directory in which you want to save the Keras model.
     config (:obj:`dict`, `optional`):
-        Configuration object to be saved alongside the model weights.
+        Configuration object to be saved alongside the model weights. If multiple models are pushed, should be a dictionary of dictionaries with each key being model identifier and values being that model's config.
     include_optimizer(:obj:`bool`, `optional`):
         Whether or not to include optimizer in serialization.
     task_name (:obj:`str`, `optional`):
         Name of the task the model was trained on. See the available tasks at https://github.com/huggingface/huggingface_hub/blob/main/js/src/lib/interfaces/Types.ts.
     plot_model (:obj:`bool`):
         Setting this to `True` will plot the model and put it in the model card. Requires graphviz and pydot to be installed.
+    multiple_model_save_args (:obj:`dict`, `optional`):
+        Model save parameters as dictionary, where keys are model identifiers and values are dictionary of parameters.
     model_save_kwargs(:obj:`dict`, `optional`):
-        model_save_kwargs will be passed to tf.keras.models.save_model().
+        model_save_kwargs will be passed to tf.keras.models.save_model() when saving only one model.
     """
     if is_tf_available():
         import tensorflow as tf
@@ -176,12 +202,7 @@ def save_pretrained_keras(
         raise ImportError(
             "Called a Tensorflow-specific function but could not import it."
         )
-
-    if not model.built:
-        raise ValueError("Model should be built before trying to save")
-
     os.makedirs(save_directory, exist_ok=True)
-
     # saving config
     if config:
         if not isinstance(config, dict):
@@ -192,10 +213,40 @@ def save_pretrained_keras(
         with open(path, "w") as f:
             json.dump(config, f)
 
+    # if multiple models are passed by a dictionary
+    if isinstance(model, dict):
+        for model_name in model.keys():
+
+            if not model[model_name].built:
+                raise ValueError("Model should be built before trying to save")
+
+            os.makedirs(f"{save_directory}/{model_name}", exist_ok=True)
+            if multiple_model_save_args is not None:
+                model_args = multiple_model_save_args[model_name]
+                tf.keras.models.save_model(
+                    model[model_name],
+                    f"{save_directory}/{model_name}",
+                    include_optimizer=include_optimizer,
+                    **model_args,
+                )
+            else:
+                tf.keras.models.save_model(
+                    model[model_name],
+                    f"{save_directory}/{model_name}",
+                    include_optimizer=include_optimizer,
+                )
+    else:
+        if not model.built:
+            raise ValueError("Model should be built before trying to save")
+
+        os.makedirs(save_directory, exist_ok=True)
+        tf.keras.models.save_model(
+            model,
+            save_directory,
+            include_optimizer=include_optimizer,
+            **model_save_kwargs,
+        )
     _create_model_card(model, save_directory, plot_model, task_name)
-    tf.keras.models.save_model(
-        model, save_directory, include_optimizer=include_optimizer, **model_save_kwargs
-    )
 
 
 def from_pretrained_keras(*args, **kwargs):
@@ -218,6 +269,7 @@ def push_to_hub_keras(
     include_optimizer: Optional[bool] = False,
     task_name: Optional[str] = None,
     plot_model: Optional[bool] = True,
+    multiple_model_save_args: Optional[Dict] = None,
     **model_save_kwargs,
 ):
     """
@@ -226,7 +278,7 @@ def push_to_hub_keras(
 
     Parameters:
         model:
-            The Keras model you'd like to push to the hub. The model must be compiled and built.
+            The Keras model or dictionary of multiple models you'd like to push to the hub. The model(s) must be compiled and built. If multiple models are pushed, each key in dictionary should be an identifier of model and value should be model.
         repo_path_or_name (:obj:`str`, `optional`):
             Can either be a repository name for your model or tokenizer in the Hub or a path to a local folder (in
             which case the repository will have the name of that local folder). If not specified, will default to
@@ -256,15 +308,17 @@ def push_to_hub_keras(
         git_email (``str``, `optional`):
             will override the ``git config user.email`` for committing and pushing files to the hub.
         config (:obj:`dict`, `optional`):
-            Configuration object to be saved alongside the model weights.
+            Configuration object to be saved alongside the model weights. If multiple models are pushed, should be a dictionary of dictionaries with each key being model identifier and values being that model's config.
         include_optimizer (:obj:`bool`, `optional`):
             Whether or not to include optimizer during serialization.
         task_name (:obj:`str`, `optional`):
             Name of the task the model was trained on. See the available tasks at https://github.com/huggingface/huggingface_hub/blob/main/js/src/lib/interfaces/Types.ts.
         plot_model (:obj:`bool`):
             Setting this to `True` will plot the model and put it in the model card. Requires graphviz and pydot to be installed.
-        model_save_kwargs(:obj:`dict`, `optional`):
-            model_save_kwargs will be passed to tf.keras.models.save_model().
+        multiple_model_save_args (:obj:`dict`, `optional`):
+            Model save parameters as dictionary, where keys are model identifiers and values are dictionary of parameters.
+        model_save_kwargs (:obj:`dict`, `optional`):
+            model_save_kwargs will be passed to tf.keras.models.save_model() when saving only one model.
 
     Returns:
         The url of the commit of your model in the given repository.
@@ -311,15 +365,26 @@ def push_to_hub_keras(
     )
     repo.git_pull(rebase=True)
 
-    save_pretrained_keras(
-        model,
-        repo_path_or_name,
-        config=config,
-        include_optimizer=include_optimizer,
-        plot_model=plot_model,
-        task_name=task_name,
-        **model_save_kwargs,
-    )
+    if isinstance(model, dict):
+        save_pretrained_keras(
+            model,
+            repo_path_or_name,
+            config=config,
+            include_optimizer=include_optimizer,
+            plot_model=plot_model,
+            task_name=task_name,
+            multiple_model_save_args=multiple_model_save_args,
+        )
+    else:
+        save_pretrained_keras(
+            model,
+            repo_path_or_name,
+            config=config,
+            include_optimizer=include_optimizer,
+            plot_model=plot_model,
+            task_name=task_name,
+            **model_save_kwargs,
+        )
 
     if log_dir is not None:
         if os.path.exists(f"{repo_path_or_name}/logs"):
@@ -402,9 +467,22 @@ class KerasModelHubMixin(ModelHubMixin):
         else:
             storage_folder = model_id
 
-        model = tf.keras.models.load_model(storage_folder, **model_kwargs)
+        # there can be multiple models or single model
+        list_dir = os.listdir(storage_folder)
+        # if there's only one model
+        if "saved_model.pb" in list_dir:
+            model = tf.keras.models.load_model(storage_folder, **model_kwargs)
+            model.config = cfg
+            return model
+        else:
+            models_dict = {}
 
-        # For now, we add a new attribute, config, to store the config loaded from the hub/a local dir.
-        model.config = cfg
+            for folder in list_dir:
+                if os.path.isdir(
+                    f"{storage_folder}/{folder}"
+                ) and not folder.startswith("."):
+                    models_dict[folder] = tf.keras.models.load_model(
+                        f"{storage_folder}/{folder}", **model_kwargs
+                    )
 
-        return model
+            return models_dict
