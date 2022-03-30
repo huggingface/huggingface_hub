@@ -35,7 +35,7 @@ class ModelHubMixin:
         **kwargs,
     ):
         """
-        Saving weights in local directory.
+Save weights in local directory.
 
         Parameters:
             save_directory (`str`):
@@ -82,7 +82,7 @@ class ModelHubMixin:
         **model_kwargs,
     ):
         r"""
-        Instantiate a pretrained pytorch model from a pre-trained model
+Instantiate a pretrained PyTorch model from a pre-trained model
         configuration from huggingface-hub. The model is set in evaluation mode
         by default using `model.eval()` (Dropout modules are deactivated). To
         train the model, you should first set it back in training mode with
@@ -215,7 +215,7 @@ class ModelHubMixin:
         config: Optional[dict] = None,
     ) -> str:
         """
-        Upload model checkpoint or tokenizer files to the 🤗 Model Hub while
+        Upload model checkpoint or tokenizer files to the Hub while
         synchronizing a local clone of the repo in `repo_path_or_name`.
 
         Parameters:
@@ -316,9 +316,9 @@ class PyTorchModelHubMixin(ModelHubMixin):
     def __init__(self, *args, **kwargs):
         """
         Mix this class with your torch-model class for ease process of saving &
-        loading from huggingface-hub
+        loading from huggingface-hub.
 
-        Example:
+        Example usage:
 
         ```python
         >>> from huggingface_hub import PyTorchModelHubMixin

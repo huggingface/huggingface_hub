@@ -664,7 +664,7 @@ class HfApi:
         Args:
             filter ([`ModelFilter`] or `str` or `Iterable`, *optional*):
                 A string or [`ModelFilter`] which can be used to identify models
-                on the hub.
+                on the Hub.
 
                 Example usage:
 
@@ -741,6 +741,7 @@ class HfApi:
             emissions_thresholds (`Tuple`, *optional*):
                 A tuple of two ints or floats representing a minimum and maximum
                 carbon footprint to filter the resulting models with in grams.
+
                 Example usage:
 
                 ```python
@@ -899,7 +900,9 @@ class HfApi:
         Args:
             filter ([`DatasetFilter`] or `str` or `Iterable`, *optional*):
                 A string or [`DatasetFilter`] which can be used to identify
-                datasets on the hub. Example usage:
+                datasets on the hub. 
+                
+                Example usage:
 
 
                 ```python
@@ -943,6 +946,7 @@ class HfApi:
 
             author (`str`, *optional*):
                 A string which identify the author of the returned models
+
                 Example usage:
 
                 ```python
@@ -960,8 +964,9 @@ class HfApi:
                 ```
 
             search (`str`, *optional*):
-                A string that will be contained in the returned models Example
-                usage:
+                A string that will be contained in the returned models.
+                
+                Example usage:
 
                 ```python
                 >>> from huggingface_hub import HfApi
@@ -1104,7 +1109,7 @@ class HfApi:
             token (`str`, *optional*):
                 An authentication token [1]_.
             timeout (`float`, *optional*):
-                Whether to set a timeout for the request to the hub.
+                Whether to set a timeout for the request to the Hub.
             securityStatus (`bool`, *optional*):
                 Whether to retrieve the security status from the model
                 repository as well.
@@ -1158,7 +1163,7 @@ class HfApi:
             token (`str`, *optional*):
                 An authentication token [1]_.
             timeout (`float`, *optional*):
-                Whether to set a timeout for the request to the hub.
+                Whether to set a timeout for the request to the Hub.
 
         Returns:
             `List[str]`: the list of files in a given repository.
@@ -1202,7 +1207,7 @@ class HfApi:
             token (`str`, *optional*):
                 An authentication token [1]_.
             timeout (`float`, *optional*):
-                Whether to set a timeout for the request to the hub.
+                Whether to set a timeout for the request to the Hub.
 
         Returns:
             [`DatasetInfo`]: The dataset repository information.
@@ -1628,7 +1633,7 @@ class HfApi:
                 The repository to which the file will be uploaded, for example:
                 `"username/custom_transformers"`
             token (`str`, *optional*):
-                Authentication token, obtained with :function:`HfApi.login`
+                Authentication token, obtained with `HfApi.login`
                 method. Will default to the stored token.
             repo_type (`str`, *optional*):
                 Set to `"dataset"` or `"space"` if uploading to a dataset or
@@ -1657,7 +1662,7 @@ class HfApi:
 
         </Tip>
 
-        Examples:
+        Example usage:
 
         ```python
         >>> with open("./local/filepath", "rb") as fobj:
@@ -1761,7 +1766,7 @@ class HfApi:
                 The repository from which the file will be deleted, for example:
                 `"username/custom_transformers"`
             token (`str`, *optional*):
-                Authentication token, obtained with :function:`HfApi.login`
+                Authentication token, obtained with `HfApi.login`
                 method. Will default to the stored token.
             repo_type (`str`, *optional*):
                 Set to `"dataset"` or `"space"` if the file is in a dataset or

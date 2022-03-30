@@ -295,7 +295,7 @@ def commits_to_push(folder: Union[str, Path], upstream: Optional[str] = None) ->
         folder (`str` or `Path`):
             The folder in which to run the command.
         upstream (`str`, *optional*):
-        The name of the upstream repository with which the comparison should be made.:
+The name of the upstream repository with which the comparison should be made.
 
     Returns:
         `int`: Number of commits that would be pushed upstream were a `git push`
@@ -1282,7 +1282,7 @@ class Repository:
                 should be the identifier of the remote.
 
         Returns:
-            `bool`: `Whether the tag exists.
+            `bool`: Whether the tag exists.
         """
         if remote:
             try:

@@ -154,7 +154,7 @@ class DatasetFilter:
                 ```python
                 >>> from huggingface_hub import DatasetFilter
 
-                >>> new_filter = DatasetFilter(author="facebook")
+                >>> new_filter = DatasetFilter(task_categories="audio_classification")
                 ```
 
             task_ids (`str` or `List`, *optional*):

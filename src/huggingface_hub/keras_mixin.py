@@ -207,10 +207,8 @@ def save_pretrained_keras(
 
 def from_pretrained_keras(*args, **kwargs):
     r"""
-    Instantiate a pretrained pytorch model from a pre-trained model
-    configuration from huggingface-hub. The model is set in evaluation mode by
-    default using `model.eval()` (Dropout modules are deactivated). To train the
-    model, you should first set it back in training mode with `model.train()`.
+    Instantiate a pretrained Keras model from a pre-trained model
+    from the Hub. The model is expected to be in SavedModel format.```
 
     Parameters:
         pretrained_model_name_or_path (`str` or `os.PathLike`):
@@ -285,14 +283,14 @@ def push_to_hub_keras(
     **model_save_kwargs,
 ):
     """
-    Upload model checkpoint or tokenizer files to the 🤗 Model Hub while
+    Upload model checkpoint or tokenizer files to the Hub while
     synchronizing a local clone of the repo in `repo_path_or_name`.
 
     Parameters:
         model (`Keras.Model`):
             The [Keras
             model](`https://www.tensorflow.org/api_docs/python/tf/keras/Model`)
-            you'd like to push to the hub. The model must be compiled and built.
+            you'd like to push to the Hub. The model must be compiled and built.
         repo_path_or_name (`str`, *optional*):
             Can either be a repository name for your model or tokenizer in the
             Hub or a path to a local folder (in which case the repository will
@@ -301,7 +299,7 @@ def push_to_hub_keras(
             will be created.
         repo_url (`str`, *optional*):
             Specify this in case you want to push to an existing repository in
-            the hub. If unspecified, a new repository will be created in your
+            the Hub. If unspecified, a new repository will be created in your
             namespace (unless you specify an `organization`) with `repo_name`.
         log_dir (`str`, *optional*):
             TensorBoard logging directory to be pushed. The Hub automatically
@@ -322,10 +320,10 @@ def push_to_hub_keras(
             login` (stored in `~/.huggingface`). Will default to `True`.
         git_user (`str`, *optional*):
             will override the `git config user.name` for committing and pushing
-            files to the hub.
+            files to the Hub.
         git_email (`str`, *optional*):
             will override the `git config user.email` for committing and pushing
-            files to the hub.
+            files to the Hub.
         config (`dict`, *optional*):
             Configuration object to be saved alongside the model weights.
         include_optimizer (`bool`, *optional*, defaults to `False`):
@@ -409,13 +407,13 @@ def push_to_hub_keras(
 
 class KerasModelHubMixin(ModelHubMixin):
     """
-    Mixin to provide model hub upload/download capabilities to Keras models.
+    Mixin to provide model Hub upload/download capabilities to Keras models.
     """
 
     def __init__(self, *args, **kwargs):
         """
         Mix this class with your keras-model class for ease process of saving &
-        loading from huggingface-hub
+        loading from huggingface-hub.
 
 
         ```python

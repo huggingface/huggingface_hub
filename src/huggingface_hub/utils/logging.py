@@ -85,11 +85,12 @@ def get_logger(name: Optional[str] = None) -> logging.Logger:
         name (`str`, *optional*):
             The name of the logger to get, usually the filename
 
-    Example:
+    Example Usage:
 
-    ``python from huggingface_hub import get_logger
+```python
+>>> from huggingface_hub import get_logger
 
-    logger = get_logger(__file__) logger.set_verbosity_info() ``
+>>> logger = get_logger(__file__) logger.set_verbosity_info() 
     """
 
     if name is None:

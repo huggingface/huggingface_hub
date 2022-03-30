@@ -22,13 +22,13 @@ logging.set_verbosity(...)
 
 The levels should be understood as follows:
 
-- `error`: this will only show critical logs about usage which may result in an error or unexpected behavior.
-- `warning`: this will show logs which aren't critical, about usage which may result in unintended behavior.
+- `error`: only show critical logs about usage which may result in an error or unexpected behavior.
+- `warning`: show logs that aren't critical but usage may result in unintended behavior.
 Additionally, important informative logs may be shown.
-- `info`: this will show most logs, including some verbose logging regarding what is happening under the hood.
+- `info`: show most logs, including some verbose logging regarding what is happening under the hood.
 If something is behaving in an unexpected manner, we recommend switching the verbosity level to this in order
 to get more information.
-- `debug`: this shows all logs, including some internal logs which may be used to track exactly what's happening
+- `debug`: show all logs, including some internal logs which may be used to track exactly what's happening
 under the hood.
 
 [[autodoc]] logging.get_verbosity
