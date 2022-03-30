@@ -207,8 +207,8 @@ def save_pretrained_keras(
 
 def from_pretrained_keras(*args, **kwargs):
     r"""
-    Instantiate a pretrained Keras model from a pre-trained model
-    from the Hub. The model is expected to be in SavedModel format.```
+    Instantiate a pretrained Keras model from a pre-trained model from the Hub.
+    The model is expected to be in SavedModel format.```
 
     Parameters:
         pretrained_model_name_or_path (`str` or `os.PathLike`):
@@ -283,8 +283,8 @@ def push_to_hub_keras(
     **model_save_kwargs,
 ):
     """
-    Upload model checkpoint or tokenizer files to the Hub while
-    synchronizing a local clone of the repo in `repo_path_or_name`.
+    Upload model checkpoint or tokenizer files to the Hub while synchronizing a
+    local clone of the repo in `repo_path_or_name`.
 
     Parameters:
         model (`Keras.Model`):
@@ -408,6 +408,9 @@ def push_to_hub_keras(
 class KerasModelHubMixin(ModelHubMixin):
     """
     Mixin to provide model Hub upload/download capabilities to Keras models.
+    Override this class to obtain the following internal methods:
+    - `_from_pretrained`, to load a model from the Hub or from local files.
+    - `_save_pretrained`, to save a model in the `SavedModel` format.
     """
 
     def __init__(self, *args, **kwargs):

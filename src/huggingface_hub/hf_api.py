@@ -665,95 +665,15 @@ class HfApi:
             filter ([`ModelFilter`] or `str` or `Iterable`, *optional*):
                 A string or [`ModelFilter`] which can be used to identify models
                 on the Hub.
-
-                Example usage:
-
-                ```python
-                >>> from huggingface_hub import HfApi
-
-                >>> api = HfApi()
-
-                >>> # List all models
-                >>> api.list_models()
-
-                >>> # Get all valid search arguments
-                >>> args = ModelSearchArguments()
-
-                >>> # List only the text classification models
-                >>> api.list_models(filter="text-classification")
-                >>> # Using the `ModelFilter`
-                >>> filt = ModelFilter(task="text-classification")
-                >>> # With `ModelSearchArguments`
-                >>> filt = ModelFilter(
-                ...     task=args.pipeline_tags.TextClassification
-                ... )
-                >>> api.list_models(filter=filt)
-
-                >>> # Using `ModelFilter` and `ModelSearchArguments` to find text classification in both PyTorch and TensorFlow
-                >>> filt = ModelFilter(
-                ...     task=args.pipeline_tags.TextClassification,
-                ...     library=[args.library.PyTorch, args.library.TensorFlow],
-                ... )
-                >>> api.list_models(filter=filt)
-
-                >>> # List only models from the AllenNLP library
-                >>> api.list_models(filter="allennlp")
-                >>> # Using `ModelFilter` and `ModelSearchArguments`
-                >>> filt = ModelFilter(library=args.library.allennlp)
-                ```
-
             author (`str`, *optional*):
                 A string which identify the author (user or organization) of the
                 returned models
-
-                Example usage:
-
-                ```python
-                >>> from huggingface_hub import HfApi
-
-                >>> api = HfApi()
-
-                >>> # List all models from google
-                >>> api.list_models(author="google")
-
-                >>> # List only the text classification models from google
-                >>> api.list_models(
-                ...     filter="text-classification", author="google"
-                ... )
-                ```
-
             search (`str`, *optional*):
                 A string that will be contained in the returned models Example
                 usage:
-
-                ```python
-                >>> from huggingface_hub import HfApi
-
-                >>> api = HfApi()
-
-                >>> # List all models with "bert" in their name
-                >>> api.list_models(search="bert")
-
-                >>> # List all models with "bert" in their name made by google
-                >>> api.list_models(search="bert", author="google")
-                ```
-
             emissions_thresholds (`Tuple`, *optional*):
                 A tuple of two ints or floats representing a minimum and maximum
                 carbon footprint to filter the resulting models with in grams.
-
-                Example usage:
-
-                ```python
-                >>> from huggingface_hub import HfApi
-
-                >>> api = HfApi()
-
-                >>> # List all models that emitted between 100 to 200 grams of co2
-                >>> api.list_models(
-                ...     emissions_thresholds=(100, 200), cardData=True
-                ... )
-                ```
             sort (`Literal["lastModified"]` or `str`, *optional*):
                 The key with which to sort the resulting models. Possible values
                 are the properties of the `ModelInfo` class.
@@ -778,6 +698,54 @@ class HfApi:
                 Whether to use the `auth_token` provided from the
                 `huggingface_hub` cli. If not logged in, a valid `auth_token`
                 can be passed in as a string.
+
+        Example usage with the `filter` argument:
+
+        ```python
+        >>> from huggingface_hub import HfApi
+
+        >>> api = HfApi()
+
+        >>> # List all models
+        >>> api.list_models()
+
+        >>> # Get all valid search arguments
+        >>> args = ModelSearchArguments()
+
+        >>> # List only the text classification models
+        >>> api.list_models(filter="text-classification")
+        >>> # Using the `ModelFilter`
+        >>> filt = ModelFilter(task="text-classification")
+        >>> # With `ModelSearchArguments`
+        >>> filt = ModelFilter(task=args.pipeline_tags.TextClassification)
+        >>> api.list_models(filter=filt)
+
+        >>> # Using `ModelFilter` and `ModelSearchArguments` to find text classification in both PyTorch and TensorFlow
+        >>> filt = ModelFilter(
+        ...     task=args.pipeline_tags.TextClassification,
+        ...     library=[args.library.PyTorch, args.library.TensorFlow],
+        ... )
+        >>> api.list_models(filter=filt)
+
+        >>> # List only models from the AllenNLP library
+        >>> api.list_models(filter="allennlp")
+        >>> # Using `ModelFilter` and `ModelSearchArguments`
+        >>> filt = ModelFilter(library=args.library.allennlp)
+        ```
+
+        Example usage with the `search` argument:
+
+        ```python
+        >>> from huggingface_hub import HfApi
+
+        >>> api = HfApi()
+
+        >>> # List all models with "bert" in their name
+        >>> api.list_models(search="bert")
+
+        >>> # List all models with "bert" in their name made by google
+        >>> api.list_models(search="bert", author="google")
+        ```
         """
         path = f"{self.endpoint}/api/models"
         if use_auth_token:
@@ -900,86 +868,11 @@ class HfApi:
         Args:
             filter ([`DatasetFilter`] or `str` or `Iterable`, *optional*):
                 A string or [`DatasetFilter`] which can be used to identify
-                datasets on the hub. 
-                
-                Example usage:
-
-
-                ```python
-                >>> from huggingface_hub import HfApi
-
-                >>> api = HfApi()
-
-                >>> # List all datasets
-                >>> api.list_datasets()
-
-                >>> # Get all valid search arguments
-                >>> args = DatasetSearchArguments()
-
-                >>> # List only the text classification datasets
-                >>> api.list_datasets(
-                ...     filter="task_categories:text-classification"
-                ... )
-                >>> # Using the `DatasetFilter`
-                >>> filt = DatasetFilter(task_categories="text-classification")
-                >>> # With `DatasetSearchArguments`
-                >>> filt = DatasetFilter(
-                ...     task=args.task_categories.text_classification
-                ... )
-                >>> api.list_models(filter=filt)
-
-                >>> # List only the datasets in russian for language modeling
-                >>> api.list_datasets(
-                ...     filter=("languages:ru", "task_ids:language-modeling")
-                ... )
-                >>> # Using the `DatasetFilter`
-                >>> filt = DatasetFilter(
-                ...     languages="ru", task_ids="language-modeling"
-                ... )
-                >>> # With `DatasetSearchArguments`
-                >>> filt = DatasetFilter(
-                ...     languages=args.languages.ru,
-                ...     task_ids=args.task_ids.language_modeling,
-                ... )
-                >>> api.list_datasets(filter=filt)
-                ```
-
+                datasets on the hub.
             author (`str`, *optional*):
                 A string which identify the author of the returned models
-
-                Example usage:
-
-                ```python
-                >>> from huggingface_hub import HfApi
-
-                >>> api = HfApi()
-
-                >>> # List all datasets from google
-                >>> api.list_datasets(author="google")
-
-                >>> # List only the text classification datasets from google
-                >>> api.list_datasets(
-                ...     filter="text-classification", author="google"
-                ... )
-                ```
-
             search (`str`, *optional*):
                 A string that will be contained in the returned models.
-                
-                Example usage:
-
-                ```python
-                >>> from huggingface_hub import HfApi
-
-                >>> api = HfApi()
-
-                >>> # List all datasets with "text" in their name
-                >>> api.list_datasets(search="text")
-
-                >>> # List all datasets with "text" in their name made by google
-                >>> api.list_datasets(search="text", author="google")
-                ```
-
             sort (`Literal["lastModified"]` or `str`, *optional*):
                 The key with which to sort the resulting datasets. Possible
                 values are the properties of the `DatasetInfo` class.
@@ -999,6 +892,55 @@ class HfApi:
                 Whether to use the `auth_token` provided from the
                 `huggingface_hub` cli. If not logged in, a valid `auth_token`
                 can be passed in as a string.
+
+        Example usage with the `filter` argument:
+
+        ```python
+        >>> from huggingface_hub import HfApi
+
+        >>> api = HfApi()
+
+        >>> # List all datasets
+        >>> api.list_datasets()
+
+        >>> # Get all valid search arguments
+        >>> args = DatasetSearchArguments()
+
+        >>> # List only the text classification datasets
+        >>> api.list_datasets(filter="task_categories:text-classification")
+        >>> # Using the `DatasetFilter`
+        >>> filt = DatasetFilter(task_categories="text-classification")
+        >>> # With `DatasetSearchArguments`
+        >>> filt = DatasetFilter(task=args.task_categories.text_classification)
+        >>> api.list_models(filter=filt)
+
+        >>> # List only the datasets in russian for language modeling
+        >>> api.list_datasets(
+        ...     filter=("languages:ru", "task_ids:language-modeling")
+        ... )
+        >>> # Using the `DatasetFilter`
+        >>> filt = DatasetFilter(languages="ru", task_ids="language-modeling")
+        >>> # With `DatasetSearchArguments`
+        >>> filt = DatasetFilter(
+        ...     languages=args.languages.ru,
+        ...     task_ids=args.task_ids.language_modeling,
+        ... )
+        >>> api.list_datasets(filter=filt)
+        ```
+
+        Example usage with the `search` argument:
+
+        ```python
+        >>> from huggingface_hub import HfApi
+
+        >>> api = HfApi()
+
+        >>> # List all datasets with "text" in their name
+        >>> api.list_datasets(search="text")
+
+        >>> # List all datasets with "text" in their name made by google
+        >>> api.list_datasets(search="text", author="google")
+        ```
         """
         path = f"{self.endpoint}/api/datasets"
         if use_auth_token:
@@ -1633,8 +1575,8 @@ class HfApi:
                 The repository to which the file will be uploaded, for example:
                 `"username/custom_transformers"`
             token (`str`, *optional*):
-                Authentication token, obtained with `HfApi.login`
-                method. Will default to the stored token.
+                Authentication token, obtained with `HfApi.login` method. Will
+                default to the stored token.
             repo_type (`str`, *optional*):
                 Set to `"dataset"` or `"space"` if uploading to a dataset or
                 space, `None` or `"model"` if uploading to a model. Default is
@@ -1766,8 +1708,8 @@ class HfApi:
                 The repository from which the file will be deleted, for example:
                 `"username/custom_transformers"`
             token (`str`, *optional*):
-                Authentication token, obtained with `HfApi.login`
-                method. Will default to the stored token.
+                Authentication token, obtained with `HfApi.login` method. Will
+                default to the stored token.
             repo_type (`str`, *optional*):
                 Set to `"dataset"` or `"space"` if the file is in a dataset or
                 space, `None` or `"model"` if in a model. Default is `None`.

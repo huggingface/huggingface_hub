@@ -78,19 +78,21 @@ def _reset_library_root_logger() -> None:
 
 def get_logger(name: Optional[str] = None) -> logging.Logger:
     """
-    Returns a logger with the specified name. This function is not supposed to
-    be directly accessed by library users.
+        Returns a logger with the specified name. This function is not supposed
+        to be directly accessed by library users.
 
-    Args:
-        name (`str`, *optional*):
-            The name of the logger to get, usually the filename
+        Args:
+            name (`str`, *optional*):
+                The name of the logger to get, usually the filename
 
-    Example Usage:
+        Example Usage:
 
-```python
->>> from huggingface_hub import get_logger
+    ```python
+    >>> from huggingface_hub import get_logger
 
->>> logger = get_logger(__file__) logger.set_verbosity_info() 
+    >>> logger = get_logger(__file__)
+    >>> logger.set_verbosity_info()
+    ```
     """
 
     if name is None:

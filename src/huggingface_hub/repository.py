@@ -289,17 +289,18 @@ def is_tracked_upstream(folder: Union[str, Path]) -> bool:
 
 def commits_to_push(folder: Union[str, Path], upstream: Optional[str] = None) -> int:
     """
-    Check the number of commits that would be pushed upstream
+        Check the number of commits that would be pushed upstream
 
-    Args:
-        folder (`str` or `Path`):
-            The folder in which to run the command.
-        upstream (`str`, *optional*):
-The name of the upstream repository with which the comparison should be made.
+        Args:
+            folder (`str` or `Path`):
+                The folder in which to run the command.
+            upstream (`str`, *optional*):
+    The name of the upstream repository with which the comparison should be
+    made.
 
-    Returns:
-        `int`: Number of commits that would be pushed upstream were a `git push`
-        to proceed.
+        Returns:
+            `int`: Number of commits that would be pushed upstream were a `git
+            push` to proceed.
     """
     try:
         command = f"git cherry -v {upstream or ''}"

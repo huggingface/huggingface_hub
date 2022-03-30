@@ -22,9 +22,9 @@ logger = logging.get_logger(__name__)
 class ModelHubMixin:
     """
     A Generic Base Model Hub Mixin. Define your own mixin for anything by
-    inheriting from this class and overwriting _from_pretrained and
-    _save_pretrained to define custom logic for saving/loading your classes. See
-    `huggingface_hub.PyTorchModelHubMixin` for an example.
+    inheriting from this class and overwriting `_from_pretrained` and
+    `_save_pretrained` to define custom logic for saving/loading your classes.
+    See `huggingface_hub.PyTorchModelHubMixin` for an example.
     """
 
     def save_pretrained(
@@ -35,18 +35,19 @@ class ModelHubMixin:
         **kwargs,
     ):
         """
-Save weights in local directory.
+        Save weights in local directory.
 
-        Parameters:
-            save_directory (`str`):
-                Specify directory in which you want to save weights.
-            config (`dict`, *optional*):
-                specify config (must be dict) in case you want to save it.
-            push_to_hub (`bool`, *optional*, defaults to `False`):
-                Set it to `True` in case you want to push your weights to
-                huggingface_hub
-            kwargs (`Dict`, *optional*):
-                kwargs will be passed to `push_to_hub`
+                Parameters:
+                    save_directory (`str`):
+                        Specify directory in which you want to save weights.
+                    config (`dict`, *optional*):
+                        specify config (must be dict) in case you want to save
+                        it.
+                    push_to_hub (`bool`, *optional*, defaults to `False`):
+                        Set it to `True` in case you want to push your weights
+                        to huggingface_hub
+                    kwargs (`Dict`, *optional*):
+                        kwargs will be passed to `push_to_hub`
         """
 
         os.makedirs(save_directory, exist_ok=True)
@@ -82,64 +83,70 @@ Save weights in local directory.
         **model_kwargs,
     ):
         r"""
-Instantiate a pretrained PyTorch model from a pre-trained model
-        configuration from huggingface-hub. The model is set in evaluation mode
-        by default using `model.eval()` (Dropout modules are deactivated). To
-        train the model, you should first set it back in training mode with
-        `model.train()`.
+        Instantiate a pretrained PyTorch model from a pre-trained model
+                configuration from huggingface-hub. The model is set in
+                evaluation mode by default using `model.eval()` (Dropout modules
+                are deactivated). To train the model, you should first set it
+                back in training mode with `model.train()`.
 
-        Parameters:
-            pretrained_model_name_or_path (`str` or `os.PathLike`):
-                Can be either:
-                    - A string, the `model id` of a pretrained model hosted
-                      inside a model repo on huggingface.co. Valid model ids can
-                      be located at the root-level, like `bert-base-uncased`, or
-                      namespaced under a user or organization name, like
-                      `dbmdz/bert-base-german-cased`.
-                    - You can add `revision` by appending `@` at the end of
-                      model_id simply like this:
-                      `dbmdz/bert-base-german-cased@main` Revision is the
-                      specific model version to use. It can be a branch name, a
-                      tag name, or a commit id, since we use a git-based system
-                      for storing models and other artifacts on huggingface.co,
-                      so `revision` can be any identifier allowed by git.
-                    - A path to a `directory` containing model weights saved
-                      using [`~transformers.PreTrainedModel.save_pretrained`],
-                      e.g., `./my_model_directory/`.
-                    - `None` if you are both providing the configuration and
-                      state dictionary (resp. with keyword arguments `config`
-                      and `state_dict`).
-            force_download (`bool`, *optional*, defaults to `False`):
-                Whether to force the (re-)download of the model weights and
-                configuration files, overriding the cached versions if they
-                exist.
-            resume_download (`bool`, *optional*, defaults to `False`):
-                Whether to delete incompletely received files. Will attempt to
-                resume the download if such a file exists.
-            proxies (`Dict[str, str]`, *optional*):
-                A dictionary of proxy servers to use by protocol or endpoint,
-                e.g., `{'http': 'foo.bar:3128', 'http://hostname':
-                'foo.bar:4012'}`. The proxies are used on each request.
-            use_auth_token (`str` or `bool`, *optional*):
-                The token to use as HTTP bearer authorization for remote files.
-                If `True`, will use the token generated when running
-                `transformers-cli login` (stored in `~/.huggingface`).
-            cache_dir (`Union[str, os.PathLike]`, *optional*):
-                Path to a directory in which a downloaded pretrained model
-                configuration should be cached if the standard cache should not
-                be used.
-            local_files_only(`bool`, *optional*, defaults to `False`):
-                Whether to only look at local files (i.e., do not try to
-                download the model).
-            model_kwargs (`Dict`, *optional*):
-                model_kwargs will be passed to the model during initialization
+                Parameters:
+                    pretrained_model_name_or_path (`str` or `os.PathLike`):
+                        Can be either:
+                            - A string, the `model id` of a pretrained model
+                              hosted inside a model repo on huggingface.co.
+                              Valid model ids can be located at the root-level,
+                              like `bert-base-uncased`, or namespaced under a
+                              user or organization name, like
+                              `dbmdz/bert-base-german-cased`.
+                            - You can add `revision` by appending `@` at the end
+                              of model_id simply like this:
+                              `dbmdz/bert-base-german-cased@main` Revision is
+                              the specific model version to use. It can be a
+                              branch name, a tag name, or a commit id, since we
+                              use a git-based system for storing models and
+                              other artifacts on huggingface.co, so `revision`
+                              can be any identifier allowed by git.
+                            - A path to a `directory` containing model weights
+                              saved using
+                              [`~transformers.PreTrainedModel.save_pretrained`],
+                              e.g., `./my_model_directory/`.
+                            - `None` if you are both providing the configuration
+                              and state dictionary (resp. with keyword arguments
+                              `config` and `state_dict`).
+                    force_download (`bool`, *optional*, defaults to `False`):
+                        Whether to force the (re-)download of the model weights
+                        and configuration files, overriding the cached versions
+                        if they exist.
+                    resume_download (`bool`, *optional*, defaults to `False`):
+                        Whether to delete incompletely received files. Will
+                        attempt to resume the download if such a file exists.
+                    proxies (`Dict[str, str]`, *optional*):
+                        A dictionary of proxy servers to use by protocol or
+                        endpoint, e.g., `{'http': 'foo.bar:3128',
+                        'http://hostname': 'foo.bar:4012'}`. The proxies are
+                        used on each request.
+                    use_auth_token (`str` or `bool`, *optional*):
+                        The token to use as HTTP bearer authorization for remote
+                        files. If `True`, will use the token generated when
+                        running `transformers-cli login` (stored in
+                        `~/.huggingface`).
+                    cache_dir (`Union[str, os.PathLike]`, *optional*):
+                        Path to a directory in which a downloaded pretrained
+                        model configuration should be cached if the standard
+                        cache should not be used.
+                    local_files_only(`bool`, *optional*, defaults to `False`):
+                        Whether to only look at local files (i.e., do not try to
+                        download the model).
+                    model_kwargs (`Dict`, *optional*):
+                        model_kwargs will be passed to the model during
+                        initialization
 
-        <Tip>
+                <Tip>
 
-        Passing `use_auth_token=True` is required when you want to use a private
-        model.
+                Passing `use_auth_token=True` is required when you want to use a
+                private model.
 
-        </Tip>
+                </Tip>
         """
 
         model_id = pretrained_model_name_or_path
