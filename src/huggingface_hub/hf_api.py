@@ -21,7 +21,7 @@ from os.path import expanduser
 from typing import IO, Dict, Iterable, List, Optional, Tuple, Union
 
 import requests
-from requests.exceptions import HTTPError
+from requests.exceptions import HTTPError, JSONDecodeError
 
 from .constants import (
     ENDPOINT,
@@ -31,6 +31,7 @@ from .constants import (
     SPACES_SDK_TYPES,
 )
 from .utils import logging
+from .utils._deprecation import _deprecate_positional_args
 from .utils.endpoint_helpers import (
     AttributeDictionary,
     DatasetFilter,
@@ -182,8 +183,10 @@ class ModelInfo:
     Info about a public model accessible from huggingface.co
     """
 
+    @_deprecate_positional_args
     def __init__(
         self,
+        *,
         modelId: Optional[str] = None,  # id of model
         sha: Optional[str] = None,  # commit sha at the specified revision
         lastModified: Optional[str] = None,  # date of last commit to repo
@@ -225,8 +228,10 @@ class DatasetInfo:
     Info about a public dataset accessible from huggingface.co
     """
 
+    @_deprecate_positional_args
     def __init__(
         self,
+        *,
         id: Optional[str] = None,  # id of dataset
         lastModified: Optional[str] = None,  # date of last commit to repo
         tags: List[str] = [],  # tags of the dataset
@@ -274,8 +279,10 @@ class MetricInfo:
     Info about a public metric accessible from huggingface.co
     """
 
+    @_deprecate_positional_args
     def __init__(
         self,
+        *,
         id: Optional[str] = None,  # id of metric
         description: Optional[str] = None,
         citation: Optional[str] = None,
@@ -488,8 +495,8 @@ class HfApi:
         </Tip>
         """
         warnings.warn(
-            "HfApi.login: This method is deprecated in favor of `set_access_token` "
-            "and will be removed in v0.7.",
+            "HfApi.login: This method is deprecated in favor of `set_access_token`"
+            " and will be removed in v0.7.",
             FutureWarning,
         )
         path = f"{self.endpoint}/api/login"
@@ -644,8 +651,10 @@ class HfApi:
         d = r.json()
         return DatasetTags(d)
 
+    @_deprecate_positional_args
     def list_models(
         self,
+        *,
         filter: Union[ModelFilter, str, Iterable[str], None] = None,
         author: Optional[str] = None,
         search: Optional[str] = None,
@@ -850,8 +859,10 @@ class HfApi:
         query_dict["filter"] = tuple(filter_tuple)
         return query_dict
 
+    @_deprecate_positional_args
     def list_datasets(
         self,
+        *,
         filter: Union[DatasetFilter, str, Iterable[str], None] = None,
         author: Optional[str] = None,
         search: Optional[str] = None,
@@ -1028,9 +1039,11 @@ class HfApi:
         d = r.json()
         return [MetricInfo(**x) for x in d]
 
+    @_deprecate_positional_args
     def model_info(
         self,
         repo_id: str,
+        *,
         revision: Optional[str] = None,
         token: Optional[str] = None,
         timeout: Optional[float] = None,
@@ -1080,9 +1093,11 @@ class HfApi:
         d = r.json()
         return ModelInfo(**d)
 
+    @_deprecate_positional_args
     def list_repo_files(
         self,
         repo_id: str,
+        *,
         revision: Optional[str] = None,
         repo_type: Optional[str] = None,
         token: Optional[str] = None,
@@ -1116,20 +1131,22 @@ class HfApi:
         """
         if repo_type is None or repo_type == "model":
             info = self.model_info(
-                repo_id, revision=revision, token=token, timeout=timeout
+                repo_id=repo_id, revision=revision, token=token, timeout=timeout
             )
         elif repo_type == "dataset":
             info = self.dataset_info(
-                repo_id, revision=revision, token=token, timeout=timeout
+                repo_id=repo_id, revision=revision, token=token, timeout=timeout
             )
         else:
             raise ValueError("Spaces are not available yet.")
 
         return [f.rfilename for f in info.siblings]
 
+    @_deprecate_positional_args
     def dataset_info(
         self,
         repo_id: str,
+        *,
         revision: Optional[str] = None,
         token: Optional[str] = None,
         timeout: Optional[float] = None,
@@ -1173,9 +1190,11 @@ class HfApi:
         d = r.json()
         return DatasetInfo(**d)
 
+    @_deprecate_positional_args
     def create_repo(
         self,
         repo_id: str = None,
+        *,
         token: Optional[str] = None,
         organization: Optional[str] = None,
         private: Optional[bool] = None,
@@ -1313,9 +1332,11 @@ class HfApi:
         d = r.json()
         return d["url"]
 
+    @_deprecate_positional_args
     def delete_repo(
         self,
         repo_id: str = None,
+        *,
         token: Optional[str] = None,
         organization: Optional[str] = None,
         repo_type: Optional[str] = None,
@@ -1381,12 +1402,12 @@ class HfApi:
             and organization != checked_name[1]
         ):
             raise ValueError(
-                f"""Passed `organization` and `name` organization are not the same ({organization},
-{checked_name[1]}).
-            Please either include the organization in only `name` or the
-            `organization` parameter, such as
-            `api.create_repo({checked_name[0]}, organization={organization})` or
-            `api.create_repo({checked_name[1]}/{checked_name[2]})`"""
+                "Passed `organization` and `name` organization are not the same"
+                f" ({organization}, {checked_name[1]})."
+                "\nPlease either include the organization in only `name` or the"
+                " `organization` parameter, such as "
+                f"`api.create_repo({checked_name[0]}, organization={organization})` "
+                f"or `api.create_repo({checked_name[1]}/{checked_name[2]})`"
             )
 
         repo_type = repo_type or checked_name[0]
@@ -1405,12 +1426,21 @@ class HfApi:
             headers={"authorization": f"Bearer {token}"},
             json=json,
         )
-        r.raise_for_status()
+        try:
+            r.raise_for_status()
+        except requests.exceptions.RequestException as e:
+            try:
+                message = e.response.json()["error"]
+            except JSONDecodeError:
+                message = e.response.text
+            raise type(e)(message) from e
 
+    @_deprecate_positional_args
     def update_repo_visibility(
         self,
         repo_id: str = None,
         private: bool = False,
+        *,
         token: Optional[str] = None,
         organization: Optional[str] = None,
         repo_type: Optional[str] = None,
@@ -1484,10 +1514,12 @@ class HfApi:
         r.raise_for_status()
         return r.json()
 
+    @_deprecate_positional_args
     def move_repo(
         self,
         from_id: str,
         to_id: str,
+        *,
         repo_type: Optional[str] = None,
         token: Optional[str] = None,
     ):
@@ -1541,16 +1573,19 @@ class HfApi:
         except HTTPError as e:
             if r.text:
                 raise HTTPError(
-                    f"{r.status_code} Error Message: {r.text}. For additional documentation please see https://hf.co/docs/hub/main#how-can-i-rename-or-transfer-a-repo."
-                )
+                    f"{r.status_code} Error Message: {r.text}. For additional documentation "
+                    "please see https://hf.co/docs/hub/main#how-can-i-rename-or-transfer-a-repo."
+                ) from e
             else:
                 raise e
         logger.info(
             "Accepted transfer request. You will get an email once this is successfully completed."
         )
 
+    @_deprecate_positional_args
     def upload_file(
         self,
+        *,
         path_or_fileobj: Union[str, bytes, IO],
         path_in_repo: str,
         repo_id: str,
@@ -1689,10 +1724,12 @@ class HfApi:
         d = r.json()
         return d["url"]
 
+    @_deprecate_positional_args
     def delete_file(
         self,
         path_in_repo: str,
         repo_id: str,
+        *,
         token: Optional[str] = None,
         repo_type: Optional[str] = None,
         revision: Optional[str] = None,
@@ -1747,9 +1784,11 @@ class HfApi:
 
         r.raise_for_status()
 
+    @_deprecate_positional_args
     def get_full_repo_name(
         self,
         model_id: str,
+        *,
         organization: Optional[str] = None,
         token: Optional[str] = None,
     ):
