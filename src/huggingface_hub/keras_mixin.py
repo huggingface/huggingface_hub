@@ -222,7 +222,8 @@ def save_pretrained_keras(
 
             os.makedirs(f"{save_directory}/{model_name}", exist_ok=True)
             if multiple_model_save_args is not None:
-                model_args = multiple_model_save_args[model_name]
+                if model_name in multiple_model_save_args:
+                    model_args = multiple_model_save_args[model_name]
                 tf.keras.models.save_model(
                     model[model_name],
                     f"{save_directory}/{model_name}",
@@ -456,9 +457,6 @@ class KerasModelHubMixin(ModelHubMixin):
                 "Called a Tensorflow-specific function but could not import it."
             )
 
-        # TODO - Figure out what to do about these config values. Config is not going to be needed to load model
-        cfg = model_kwargs.pop("config", None)
-
         # Root is either a local filepath matching model_id or a cached snapshot
         if not os.path.isdir(model_id):
             storage_folder = snapshot_download(
@@ -471,6 +469,8 @@ class KerasModelHubMixin(ModelHubMixin):
         list_dir = os.listdir(storage_folder)
         # if there's only one model
         if "saved_model.pb" in list_dir:
+            # TODO - Figure out what to do about these config values. Config is not going to be needed to load model
+            cfg = model_kwargs.pop("config", None)
             model = tf.keras.models.load_model(storage_folder, **model_kwargs)
             model.config = cfg
             return model
@@ -481,8 +481,13 @@ class KerasModelHubMixin(ModelHubMixin):
                 if os.path.isdir(
                     f"{storage_folder}/{folder}"
                 ) and not folder.startswith("."):
-                    models_dict[folder] = tf.keras.models.load_model(
+                    model_cfg = model_kwargs.pop("config", None)
+                    if model_cfg:
+                        model_cfg = model_cfg.pop(folder, None)
+                    model = tf.keras.models.load_model(
                         f"{storage_folder}/{folder}", **model_kwargs
                     )
+                    model.config = model_cfg
+                    models_dict[folder] = model
 
             return models_dict
