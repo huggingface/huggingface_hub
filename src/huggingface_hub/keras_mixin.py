@@ -180,7 +180,7 @@ def save_pretrained_keras(
     """Saves a Keras model to save_directory in SavedModel format. Use this if you're using the Functional or Sequential APIs.
 
     model:
-        The Keras model or dictionary of multiple models you'd like to push to the hub. The model(s) must be compiled and built. If multiple models are pushed, each key in dictionary should be an identifier of model and value should be model.
+        The Keras model or dictionary of multiple models you'd like to save. The model(s) must be compiled and built. If multiple models are pushed, each key in dictionary should be an identifier of model and value should be model.
     save_directory (:obj:`str`):
         Specify directory in which you want to save the Keras model.
     config (:obj:`dict`, `optional`):
@@ -221,9 +221,8 @@ def save_pretrained_keras(
                 raise ValueError("Model should be built before trying to save")
 
             os.makedirs(f"{save_directory}/{model_name}", exist_ok=True)
-            if multiple_model_save_args is not None:
-                if model_name in multiple_model_save_args:
-                    model_args = multiple_model_save_args[model_name]
+            if multiple_model_save_args is not None and model_name in multiple_model_save_args:
+                model_args = multiple_model_save_args[model_name]
                 tf.keras.models.save_model(
                     model[model_name],
                     f"{save_directory}/{model_name}",
