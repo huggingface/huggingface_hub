@@ -1,5 +1,4 @@
 import os
-from urllib.parse import urlparse
 
 
 # Possible values for env variables
@@ -28,7 +27,6 @@ _staging_mode = (
 ENDPOINT = os.getenv("HF_HUB_URL") or (
     "https://moon-staging.huggingface.co" if _staging_mode else "https://huggingface.co"
 )
-ENDPOINT_DOMAIN = urlparse(ENDPOINT).hostname or "huggingface.co"
 
 HUGGINGFACE_CO_URL_TEMPLATE = ENDPOINT + "/{repo_id}/resolve/{revision}/{filename}"
 

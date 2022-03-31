@@ -12,14 +12,10 @@ from urllib.parse import urlparse
 
 from tqdm.auto import tqdm
 
-from huggingface_hub.constants import (
-    ENDPOINT_DOMAIN,
-    REPO_TYPES_URL_PREFIXES,
-    REPOCARD_NAME,
-)
+from huggingface_hub.constants import REPO_TYPES_URL_PREFIXES, REPOCARD_NAME
 from huggingface_hub.repocard import metadata_load, metadata_save
 
-from .hf_api import ENDPOINT, HfApi, HfFolder, repo_type_and_id_from_hf_id
+from .hf_api import HfApi, HfFolder, repo_type_and_id_from_hf_id
 from .lfs import LFS_MULTIPART_UPLOAD_COMMAND
 from .utils import logging
 
@@ -446,6 +442,7 @@ class Repository:
         revision: Optional[str] = None,
         private: bool = False,
         skip_lfs_files: bool = False,
+        hf_api: Optional[HfApi] = None,
     ):
         """
         Instantiate a local clone of a git repo.
@@ -487,6 +484,9 @@ class Repository:
                 whether the repository is private or not.
             skip_lfs_files (`bool`, *optional*, defaults to `False`):
                 whether to skip git-LFS files or not.
+            hf_api (`HfApi`, *optional*):
+                Instance of HfApi to use when calling the HF Hub API.
+                A new instance will be created if this is left to `None`.
         """
 
         os.makedirs(local_dir, exist_ok=True)
@@ -495,6 +495,7 @@ class Repository:
         self.command_queue = []
         self.private = private
         self.skip_lfs_files = skip_lfs_files
+        self.hf_api = hf_api if hf_api is not None else HfApi()
 
         self.check_git_versions()
 
@@ -518,7 +519,7 @@ class Repository:
         if self.huggingface_token is not None and (
             git_email is None or git_user is None
         ):
-            user = HfApi().whoami(self.huggingface_token)
+            user = self.hf_api.whoami(self.huggingface_token)
 
             if git_email is None:
                 git_email = user["email"]
@@ -636,23 +637,24 @@ class Repository:
                 "Couldn't load Hugging Face Authorization Token. Credentials are required to work with private repositories."
                 " Please login in using `huggingface-cli login` or provide your token manually with the `use_auth_token` key."
             )
-        api = HfApi()
-
-        if ENDPOINT_DOMAIN in repo_url or (
+        hub_url = self.hf_api.endpoint
+        if hub_url in repo_url or (
             "http" not in repo_url and len(repo_url.split("/")) <= 2
         ):
-            repo_type, namespace, repo_id = repo_type_and_id_from_hf_id(repo_url)
+            repo_type, namespace, repo_id = repo_type_and_id_from_hf_id(
+                repo_url, hub_url=hub_url
+            )
 
             if repo_type is not None:
                 self.repo_type = repo_type
 
-            repo_url = ENDPOINT + "/"
+            repo_url = hub_url + "/"
 
             if self.repo_type in REPO_TYPES_URL_PREFIXES:
                 repo_url += REPO_TYPES_URL_PREFIXES[self.repo_type]
 
             if token is not None:
-                whoami_info = api.whoami(token)
+                whoami_info = self.hf_api.whoami(token)
                 user = whoami_info["name"]
                 valid_organisations = [org["name"] for org in whoami_info["orgs"]]
 
@@ -664,7 +666,7 @@ class Repository:
                 repo_url = repo_url.replace(f"{scheme}://", f"{scheme}://user:{token}@")
 
                 if namespace == user or namespace in valid_organisations:
-                    api.create_repo(
+                    self.hf_api.create_repo(
                         repo_id=repo_id,
                         token=token,
                         repo_type=self.repo_type,
