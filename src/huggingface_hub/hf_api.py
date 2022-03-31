@@ -513,6 +513,7 @@ class HfApi:
                 )
         if name is not None:
             if self._is_valid_token(name):
+                # TODO(0.6) REMOVE
                 warnings.warn(
                     f"`{function_name}` now takes `token` as an optional positional argument. "
                     "Be sure to adapt your code!",
