@@ -105,129 +105,6 @@ def _create_model_card(
     """
     Creates a model card for the repository.
     """
-    hyperparameters = _extract_hyperparameters_from_keras(model)
-    if plot_model and is_graphviz_available() and is_pydot_available():
-        _plot_network(model, repo_dir)
-    readme_path = f"{repo_dir}/README.md"
-    model_card = "---\n"
-    if task_name is not None:
-        model_card += f"tags:\n- {task_name}\n"
-    model_card += "library_name: keras\n---\n"
-    model_card += "\n## Model description\n\nMore information needed\n"
-    model_card += "\n## Intended uses & limitations\n\nMore information needed\n"
-    model_card += "\n## Training and evaluation data\n\nMore information needed\n"
-    if hyperparameters is not None:
-        model_card += "\n## Training procedure\n"
-        model_card += "\n### Training hyperparameters\n"
-        model_card += "\nThe following hyperparameters were used during training:\n"
-        model_card += "\n".join(
-            [f"- {name}: {value}" for name, value in hyperparameters.items()]
-        )
-        model_card += "\n"
-    model_card += "\n ## Training Metrics\n"
-    model_card = _write_metrics(model, model_card)
-    if plot_model and os.path.exists(f"{repo_dir}/model.png"):
-        model_card += "\n ## Model Plot\n"
-        model_card += "\n<details>"
-        model_card += "\n<summary>View Model Plot</summary>\n"
-        path_to_plot = "./model.png"
-        model_card += f"\n![Model Image]({path_to_plot})\n"
-        model_card += "\n</details>"
-
-    if os.path.exists(readme_path):
-        with open(readme_path, "r", encoding="utf8") as f:
-            readme = f.read()
-    else:
-        readme = model_card
-    with open(readme_path, "w", encoding="utf-8") as f:
-        f.write(readme)
-
-if is_tf_available():
-    import tensorflow as tf
-
-
-def _extract_hyperparameters_from_keras(model):
-    if model.optimizer is not None:
-        hyperparameters = dict()
-        hyperparameters["optimizer"] = model.optimizer.get_config()
-        hyperparameters[
-            "training_precision"
-        ] = tf.keras.mixed_precision.global_policy().name
-    else:
-        hyperparameters = None
-    return hyperparameters
-
-
-def _parse_model_history(model):
-    lines = None
-    if model.history is not None:
-        if model.history.history != {}:
-            lines = []
-            logs = model.history.history
-            num_epochs = len(logs["loss"])
-
-            for value in range(num_epochs):
-                epoch_dict = {
-                    log_key: log_value_list[value]
-                    for log_key, log_value_list in logs.items()
-                }
-                values = dict()
-                for k, v in epoch_dict.items():
-                    if k.startswith("val_"):
-                        k = "validation_" + k[4:]
-                    elif k != "epoch":
-                        k = "train_" + k
-                    splits = k.split("_")
-                    name = " ".join([part.capitalize() for part in splits])
-                    values[name] = v
-                lines.append(values)
-    return lines
-
-
-def _plot_network(model, save_directory):
-    tf.keras.utils.plot_model(
-        model,
-        to_file=f"{save_directory}/model.png",
-        show_shapes=False,
-        show_dtype=False,
-        show_layer_names=True,
-        rankdir="TB",
-        expand_nested=False,
-        dpi=96,
-        layer_range=None,
-        show_layer_activations=True,
-    )
-
-
-def _write_metrics(model, model_card):
-    lines = _parse_model_history(model)
-    if lines is not None:
-        model_card += "\n| Epochs |"
-
-        for i in lines[0].keys():
-            model_card += f" {i} |"
-        model_card += "\n |"
-        for i in range(len(lines[0].keys()) + 1):
-            model_card += "--- |"  # add header of table
-        for line in lines:
-            model_card += f"\n| {lines.index(line) + 1}|"  # add values
-            for key in line:
-                value = round(line[key], 3)
-                model_card += f" {value}| "
-    else:
-        model_card += "Model history needed"
-    return model_card
-
-
-def _create_model_card(
-    model,
-    repo_dir: Path,
-    plot_model: Optional[bool] = True,
-    task_name: Optional[str] = None,
-):
-    """
-    Creates a model card for the repository.
-    """
     readme_path = f"{repo_dir}/README.md"
     model_card = "---\n"
     if task_name is not None:
@@ -321,12 +198,12 @@ def save_pretrained_keras(
         plot_model (`bool`, *optional*, defaults to `True`):
             Setting this to `True` will plot the model and put it in the model
             card. Requires graphviz and pydot to be installed.
-        multiple_model_save_args (`dict`, *optional*):
-            Model save parameters as dictionary, where keys are model identifiers
-            and values are dictionary of parameters.
         task_name (`str`, *optional*):
             Name of the task the model was trained on. Available tasks
             [here](https://github.com/huggingface/hub-docs/blob/main/js/src/lib/interfaces/Types.ts).
+        multiple_model_save_args (`dict`, *optional*):
+            Model save parameters as dictionary, where keys are model identifiers
+            and values are dictionary of parameters.
         model_save_kwargs(`dict`, *optional*):
             model_save_kwargs will be passed to
             [`tf.keras.models.save_model()`](https://www.tensorflow.org/api_docs/python/tf/keras/models/save_model).
@@ -356,7 +233,10 @@ def save_pretrained_keras(
                 raise ValueError("Model should be built before trying to save")
 
             os.makedirs(f"{save_directory}/{model_name}", exist_ok=True)
-            if multiple_model_save_args is not None and model_name in multiple_model_save_args:
+            if (
+                multiple_model_save_args is not None
+                and model_name in multiple_model_save_args
+            ):
                 model_args = multiple_model_save_args[model_name]
                 tf.keras.models.save_model(
                     model[model_name],
@@ -470,7 +350,7 @@ def push_to_hub_keras(
         model (`Keras.Model` or `dict`):
             The [Keras
             model](`https://www.tensorflow.org/api_docs/python/tf/keras/Model`)
-            or dictionary of multiple models you'd like to push to the Hub. 
+            or dictionary of multiple models you'd like to push to the Hub.
             The model(s) must be compiled and built.
         repo_path_or_name (`str`, *optional*):
             Can either be a repository name for your model or tokenizer in the
@@ -506,9 +386,9 @@ def push_to_hub_keras(
             will override the `git config user.email` for committing and pushing
             files to the Hub.
         config (`dict`, *optional*):
-            Configuration object to be saved alongside the model weights. If 
-            multiple models are pushed, should be a dictionary of dictionaries 
-            with each key being model identifier and values being that model's 
+            Configuration object to be saved alongside the model weights. If
+            multiple models are pushed, should be a dictionary of dictionaries
+            with each key being model identifier and values being that model's
             config.
         include_optimizer (`bool`, *optional*, defaults to `False`):
             Whether or not to include optimizer during serialization.
