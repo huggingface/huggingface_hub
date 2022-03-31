@@ -53,6 +53,7 @@ from .hf_api import (
     model_info,
     move_repo,
     repo_type_and_id_from_hf_id,
+    space_info,
     set_access_token,
     unset_access_token,
     update_repo_visibility,

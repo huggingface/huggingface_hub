@@ -1183,11 +1183,36 @@ class HfApi:
             else f"{self.endpoint}/api/datasets/{repo_id}/revision/{revision}"
         )
         headers = {"authorization": f"Bearer {token}"} if token is not None else None
-        params = {"full": "true"}
-        r = requests.get(path, headers=headers, params=params, timeout=timeout)
+        r = requests.get(path, headers=headers, timeout=timeout)
         r.raise_for_status()
         d = r.json()
         return DatasetInfo(**d)
+
+    def space_info(
+        self,
+        repo_id: str,
+        revision: Optional[str] = None,
+        token: Optional[str] = None,
+        timeout: Optional[float] = None,
+    ) -> DatasetInfo:
+        """
+        Get info on one specific Space on huggingface.co
+
+        Space can be private if you pass an acceptable token.
+        """
+        if token is None:
+            token = HfFolder.get_token()
+
+        path = (
+            f"{self.endpoint}/api/spaces/{repo_id}"
+            if revision is None
+            else f"{self.endpoint}/api/spaces/{repo_id}/revision/{revision}"
+        )
+        headers = {"authorization": f"Bearer {token}"} if token is not None else None
+        r = requests.get(path, headers=headers, timeout=timeout)
+        r.raise_for_status()
+        d = r.json()
+        return SpaceInfo(**d)
 
     @_deprecate_positional_args
     def list_repo_files(
@@ -1905,10 +1930,13 @@ whoami = api.whoami
 
 list_models = api.list_models
 model_info = api.model_info
-list_repo_files = api.list_repo_files
 
 list_datasets = api.list_datasets
 dataset_info = api.dataset_info
+
+space_info = api.space_info
+
+list_repo_files = api.list_repo_files
 
 list_metrics = api.list_metrics
 
