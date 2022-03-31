@@ -155,7 +155,7 @@ class RepoFile:
             certain other stuff.
     """
 
-    def __init__(self, *, rfilename: str, **kwargs):
+    def __init__(self, rfilename: str, **kwargs):
         self.rfilename = rfilename  # filename relative to the repo root
         for k, v in kwargs.items():
             setattr(self, k, v)
@@ -289,6 +289,7 @@ class SpaceInfo:
             repo author
     """
 
+    @_deprecate_positional_args
     def __init__(
         self,
         *,
@@ -1295,7 +1296,6 @@ class HfApi:
             )
         else:
             raise ValueError("Unsupported repo type.")
-
 
     @_deprecate_positional_args
     def list_repo_files(
