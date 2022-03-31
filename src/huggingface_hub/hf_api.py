@@ -510,9 +510,14 @@ class HfApi:
             token (``str``, `optional`):
                 Hugging Face token. Will default to the locally saved token if not provided.
             name (``str``, `optional`):
-                Name of the repository.
+                Name of the repository. This is deprecated in favor of repo_id and will be removed in v0.7.
             function_name (``str``, `optional`):
-                If called from a function, name of that function for deprecation warning.
+                If _validate_or_retrieve_token is called from a function, name of that function to be passed inside deprecation warning.
+        Returns:
+            Validated token and the name of the repository.
+        Raises:
+            :class:`EnvironmentError`: If the token is not passed and there's no token saved locally.
+            :class:`ValueError`: If organization token or invalid token is passed.
         """
         if token is None or token is True:
             token = HfFolder.get_token()
