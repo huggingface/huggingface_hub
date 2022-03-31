@@ -217,6 +217,61 @@ def save_pretrained_keras(
 
 
 def from_pretrained_keras(*args, **kwargs):
+    r"""
+    Instantiate a pretrained Keras model from a pre-trained model from the Hub.
+    The model is expected to be in SavedModel format.```
+
+    Parameters:
+        pretrained_model_name_or_path (`str` or `os.PathLike`):
+            Can be either:
+                - A string, the `model id` of a pretrained model hosted inside a
+                  model repo on huggingface.co. Valid model ids can be located
+                  at the root-level, like `bert-base-uncased`, or namespaced
+                  under a user or organization name, like
+                  `dbmdz/bert-base-german-cased`.
+                - You can add `revision` by appending `@` at the end of model_id
+                  simply like this: `dbmdz/bert-base-german-cased@main` Revision
+                  is the specific model version to use. It can be a branch name,
+                  a tag name, or a commit id, since we use a git-based system
+                  for storing models and other artifacts on huggingface.co, so
+                  `revision` can be any identifier allowed by git.
+                - A path to a `directory` containing model weights saved using
+                  [`~transformers.PreTrainedModel.save_pretrained`], e.g.,
+                  `./my_model_directory/`.
+                - `None` if you are both providing the configuration and state
+                  dictionary (resp. with keyword arguments `config` and
+                  `state_dict`).
+        force_download (`bool`, *optional*, defaults to `False`):
+            Whether to force the (re-)download of the model weights and
+            configuration files, overriding the cached versions if they exist.
+        resume_download (`bool`, *optional*, defaults to `False`):
+            Whether to delete incompletely received files. Will attempt to
+            resume the download if such a file exists.
+        proxies (`Dict[str, str]`, *optional*):
+            A dictionary of proxy servers to use by protocol or endpoint, e.g.,
+            `{'http': 'foo.bar:3128', 'http://hostname': 'foo.bar:4012'}`. The
+            proxies are used on each request.
+        use_auth_token (`str` or `bool`, *optional*):
+            The token to use as HTTP bearer authorization for remote files. If
+            `True`, will use the token generated when running `transformers-cli
+            login` (stored in `~/.huggingface`).
+        cache_dir (`Union[str, os.PathLike]`, *optional*):
+            Path to a directory in which a downloaded pretrained model
+            configuration should be cached if the standard cache should not be
+            used.
+        local_files_only(`bool`, *optional*, defaults to `False`):
+            Whether to only look at local files (i.e., do not try to download
+            the model).
+        model_kwargs (`Dict`, *optional*):
+            model_kwargs will be passed to the model during initialization
+
+    <Tip>
+
+    Passing `use_auth_token=True` is required when you want to use a private
+    model.
+
+    </Tip>
+    """
     return KerasModelHubMixin.from_pretrained(*args, **kwargs)
 
 
@@ -240,43 +295,50 @@ def push_to_hub_keras(
     **model_save_kwargs,
 ):
     """
-    Upload model checkpoint or tokenizer files to the 🤗 Model Hub while synchronizing a local clone of the repo in
-    :obj:`repo_path_or_name`.
+    Upload model checkpoint or tokenizer files to the Hub while synchronizing a
+    local clone of the repo in `repo_path_or_name`.
 
     Parameters:
-        model:
-            The Keras model you'd like to push to the hub. The model must be compiled and built.
-        repo_path_or_name (:obj:`str`, `optional`):
-            Can either be a repository name for your model or tokenizer in the Hub or a path to a local folder (in
-            which case the repository will have the name of that local folder). If not specified, will default to
-            the name given by :obj:`repo_url` and a local directory with that name will be created.
-        repo_url (:obj:`str`, `optional`):
-            Specify this in case you want to push to an existing repository in the hub. If unspecified, a new
-            repository will be created in your namespace (unless you specify an :obj:`organization`) with
-            :obj:`repo_name`.
-        log_dir (:obj:`str`, `optional`):
-            TensorBoard logging directory to be pushed. The Hub automatically hosts
-            and displays a TensorBoard instance if log files are included in the repository.
-        commit_message (:obj:`str`, `optional`):
-            Message to commit while pushing. Will default to :obj:`"add model"`.
-        organization (:obj:`str`, `optional`):
-            Organization in which you want to push your model or tokenizer (you must be a member of this
-            organization).
-        private (:obj:`bool`, `optional`):
-            Whether or not the repository created should be private.
-        api_endpoint (:obj:`str`, `optional`):
+        model (`Keras.Model`):
+            The [Keras
+            model](`https://www.tensorflow.org/api_docs/python/tf/keras/Model`)
+            you'd like to push to the Hub. The model must be compiled and built.
+        repo_path_or_name (`str`, *optional*):
+            Can either be a repository name for your model or tokenizer in the
+            Hub or a path to a local folder (in which case the repository will
+            have the name of that local folder). If not specified, will default
+            to the name given by `repo_url` and a local directory with that name
+            will be created.
+        repo_url (`str`, *optional*):
+            Specify this in case you want to push to an existing repository in
+            the Hub. If unspecified, a new repository will be created in your
+            namespace (unless you specify an `organization`) with `repo_name`.
+        log_dir (`str`, *optional*):
+            TensorBoard logging directory to be pushed. The Hub automatically
+            hosts and displays a TensorBoard instance if log files are included
+            in the repository.
+        commit_message (`str`, *optional*, defaults to "Add message"):
+            Message to commit while pushing.
+        organization (`str`, *optional*):
+            Organization in which you want to push your model or tokenizer (you
+            must be a member of this organization).
+        private (`bool`, *optional*):
+            Whether the repository created should be private.
+        api_endpoint (`str`, *optional*):
             The API endpoint to use when pushing the model to the hub.
-        use_auth_token (:obj:`bool` or :obj:`str`, `optional`):
-            The token to use as HTTP bearer authorization for remote files. If :obj:`True`, will use the token
-            generated when running :obj:`transformers-cli login` (stored in :obj:`~/.huggingface`). Will default to
-            :obj:`True`.
-        git_user (``str``, `optional`):
-            will override the ``git config user.name`` for committing and pushing files to the hub.
-        git_email (``str``, `optional`):
-            will override the ``git config user.email`` for committing and pushing files to the hub.
-        config (:obj:`dict`, `optional`):
+        use_auth_token (`bool` or `str`, *optional*, defaults to `True`):
+            The token to use as HTTP bearer authorization for remote files. If
+            `True`, will use the token generated when running `transformers-cli
+            login` (stored in `~/.huggingface`). Will default to `True`.
+        git_user (`str`, *optional*):
+            will override the `git config user.name` for committing and pushing
+            files to the Hub.
+        git_email (`str`, *optional*):
+            will override the `git config user.email` for committing and pushing
+            files to the Hub.
+        config (`dict`, *optional*):
             Configuration object to be saved alongside the model weights.
-        include_optimizer (:obj:`bool`, `optional`):
+        include_optimizer (`bool`, *optional*, defaults to `False`):
             Whether or not to include optimizer during serialization.
         tags (:obj:`dict`, `optional`):
             List of tags that are related to model or string of a single tag. See example tags at https://github.com/huggingface/hub-docs/blame/main/modelcard.md.
@@ -356,35 +418,51 @@ def push_to_hub_keras(
 
 
 class KerasModelHubMixin(ModelHubMixin):
+    """
+    Mixin to provide model Hub upload/download capabilities to Keras models.
+    Override this class to obtain the following internal methods:
+    - `_from_pretrained`, to load a model from the Hub or from local files.
+    - `_save_pretrained`, to save a model in the `SavedModel` format.
+    """
+
     def __init__(self, *args, **kwargs):
         """
-        Mix this class with your keras-model class for ease process of saving & loading from huggingface-hub
+        Mix this class with your keras-model class for ease process of saving &
+        loading from huggingface-hub.
 
-        Example::
 
-            >>> from huggingface_hub import KerasModelHubMixin
+        ```python
+        >>> from huggingface_hub import KerasModelHubMixin
 
-            >>> class MyModel(tf.keras.Model, KerasModelHubMixin):
-            ...    def __init__(self, **kwargs):
-            ...        super().__init__()
-            ...        self.config = kwargs.pop("config", None)
-            ...        self.dummy_inputs = ...
-            ...        self.layer = ...
-            ...    def call(self, ...)
-            ...        return ...
 
-            >>> # Init and compile the model as you normally would
-            >>> model = MyModel()
-            >>> model.compile(...)
-            >>> # Build the graph by training it or passing dummy inputs
-            >>> _ = model(model.dummy_inputs)
-            >>> # You can save your model like this
-            >>> model.save_pretrained("local_model_dir/", push_to_hub=False)
-            >>> # Or, you can push to a new public model repo like this
-            >>> model.push_to_hub("super-cool-model", git_user="your-hf-username", git_email="you@somesite.com")
+        >>> class MyModel(tf.keras.Model, KerasModelHubMixin):
+        ...     def __init__(self, **kwargs):
+        ...         super().__init__()
+        ...         self.config = kwargs.pop("config", None)
+        ...         self.dummy_inputs = ...
+        ...         self.layer = ...
 
-            >>> # Downloading weights from hf-hub & model will be initialized from those weights
-            >>> model = MyModel.from_pretrained("username/mymodel@main")
+        ...     def call(self, *args):
+        ...         return ...
+
+
+        >>> # Init and compile the model as you normally would
+        >>> model = MyModel()
+        >>> model.compile(...)
+        >>> # Build the graph by training it or passing dummy inputs
+        >>> _ = model(model.dummy_inputs)
+        >>> # You can save your model like this
+        >>> model.save_pretrained("local_model_dir/", push_to_hub=False)
+        >>> # Or, you can push to a new public model repo like this
+        >>> model.push_to_hub(
+        ...     "super-cool-model",
+        ...     git_user="your-hf-username",
+        ...     git_email="you@somesite.com",
+        ... )
+
+        >>> # Downloading weights from hf-hub & model will be initialized from those weights
+        >>> model = MyModel.from_pretrained("username/mymodel@main")
+        ```
         """
 
     def _save_pretrained(self, save_directory):
@@ -403,9 +481,11 @@ class KerasModelHubMixin(ModelHubMixin):
         use_auth_token,
         **model_kwargs,
     ):
-        """Here we just call from_pretrained_keras function so both the mixin and functional APIs stay in sync.
+        """Here we just call from_pretrained_keras function so both the mixin and
+        functional APIs stay in sync.
 
-        TODO - Some args above aren't used since we are calling snapshot_download instead of hf_hub_download.
+                TODO - Some args above aren't used since we are calling
+                snapshot_download instead of hf_hub_download.
         """
         if is_tf_available():
             import tensorflow as tf
