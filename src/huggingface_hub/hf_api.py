@@ -1212,7 +1212,7 @@ class HfApi:
 
                 <Tip>
 
-                Version added: 0.5.0
+                Version added: 0.5
 
                 </Tip>
 
@@ -1352,7 +1352,7 @@ class HfApi:
 
                 <Tip>
 
-               Version added: 0.5.0
+                Version added: 0.5
 
                 </Tip>
 
@@ -1455,9 +1455,9 @@ class HfApi:
 
                 <Tip>
 
-                 Version added: 0.5.0
+                Version added: 0.5
 
-                 </Tip>
+                </Tip>
 
             private (`bool`, *optional*, defaults to `False`):
                 Whether the model repo should be private.
