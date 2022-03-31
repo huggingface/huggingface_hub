@@ -143,21 +143,6 @@ def repo_type_and_id_from_hf_id(hf_id: str, hub_url: Optional[str] = None):
     return repo_type, namespace, repo_id
 
 
-class RepoObj:
-    """
-    HuggingFace git-based system, data structure that represents a file
-    belonging to the current user.
-    """
-
-    def __init__(self, **kwargs):
-        for k, v in kwargs.items():
-            setattr(self, k, v)
-
-    def __repr__(self):
-        items = (f"{k}='{v}'" for k, v in self.__dict__.items())
-        return f"{self.__class__.__name__}({', '.join(items)})"
-
-
 class ModelFile:
     """
     Data structure that represents a public file inside a model, accessible from
