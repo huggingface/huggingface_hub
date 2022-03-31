@@ -143,14 +143,13 @@ def repo_type_and_id_from_hf_id(hf_id: str, hub_url: Optional[str] = None):
     return repo_type, namespace, repo_id
 
 
-class ModelFile:
+class RepoFile:
     """
-    Data structure that represents a public file inside a model, accessible from
-    huggingface.co
+    Data structure that represents a public file inside a repo, accessible from huggingface.co
     """
 
     def __init__(self, rfilename: str, **kwargs):
-        self.rfilename = rfilename  # filename relative to the model root
+        self.rfilename = rfilename  # filename relative to the repo root
         for k, v in kwargs.items():
             setattr(self, k, v)
 
@@ -159,25 +158,25 @@ class ModelFile:
         return f"{self.__class__.__name__}({', '.join(items)})"
 
 
-class DatasetFile:
+class ModelFile(RepoFile):
     """
-    Data structure that represents a public file inside a dataset, accessible
-    from huggingface.co
+    Data structure that represents a public file inside a repo, accessible from huggingface.co
     """
 
-    def __init__(self, rfilename: str, **kwargs):
-        self.rfilename = rfilename  # filename relative to the dataset root
-        for k, v in kwargs.items():
-            setattr(self, k, v)
+    pass
 
-    def __repr__(self):
-        items = (f"{k}='{v}'" for k, v in self.__dict__.items())
-        return f"{self.__class__.__name__}({', '.join(items)})"
+
+class DatasetFile(RepoFile):
+    """
+    Data structure that represents a public file inside a dataset, accessible from huggingface.co
+    """
+
+    pass
 
 
 class ModelInfo:
     """
-    Info about a public model accessible from huggingface.co
+    Info about a model accessible from huggingface.co
     """
 
     @_deprecate_positional_args
@@ -201,7 +200,7 @@ class ModelInfo:
         self.tags = tags
         self.pipeline_tag = pipeline_tag
         self.siblings = (
-            [ModelFile(**x) for x in siblings] if siblings is not None else None
+            [RepoFile(**x) for x in siblings] if siblings is not None else None
         )
         self.config = config
         for k, v in kwargs.items():
@@ -222,7 +221,7 @@ class ModelInfo:
 
 class DatasetInfo:
     """
-    Info about a public dataset accessible from huggingface.co
+    Info about a dataset accessible from huggingface.co
     """
 
     @_deprecate_positional_args
@@ -251,7 +250,7 @@ class DatasetInfo:
         self.citation = citation
         self.cardData = cardData
         self.siblings = (
-            [DatasetFile(**x) for x in siblings] if siblings is not None else None
+            [RepoFile(**x) for x in siblings] if siblings is not None else None
         )
         # Legacy stuff, "key" is always returned with an empty string
         # because of old versions of the datasets lib that need this field
@@ -269,6 +268,41 @@ class DatasetInfo:
     def __str__(self):
         r = f"Dataset Name: {self.id}, Tags: {self.tags}"
         return r
+
+
+class SpaceInfo:
+    """
+    Info about a Space accessible from huggingface.co
+    """
+
+    def __init__(
+        self,
+        id: Optional[str] = None,  # id of space
+        sha: Optional[str] = None,  # commit sha at the specified revision
+        lastModified: Optional[str] = None,  # date of last commit to repo
+        siblings: Optional[
+            List[Dict]
+        ] = None,  # list of files that constitute the Space
+        private: Optional[bool] = None,
+        author: Optional[str] = None,
+        **kwargs,
+    ):
+        self.id = id
+        self.sha = sha
+        self.lastModified = lastModified
+        self.siblings = (
+            [RepoFile(**x) for x in siblings] if siblings is not None else None
+        )
+        self.private = private
+        self.author = author
+        for k, v in kwargs.items():
+            setattr(self, k, v)
+
+    def __repr__(self):
+        s = f"{self.__class__.__name__}:" + " {"
+        for key, val in self.__dict__.items():
+            s += f"\n\t{key}: {val}"
+        return s + "\n}"
 
 
 class MetricInfo:
