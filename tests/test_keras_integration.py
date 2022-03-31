@@ -273,7 +273,7 @@ class HubKerasSequentialTest(HubMixingTestKeras):
         )
 
     def test_save_pretrained_task_name_deprecation(self):
-        REPO_NAME = repo_name("FROM_PRETRAINED")
+        REPO_NAME = repo_name("save")
         model = self.model_init()
         model.build((None, 2))
 
