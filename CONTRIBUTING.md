@@ -211,6 +211,11 @@ Follow these steps to start contributing:
    pass `-n` to your `git commit` command to temporarily disable pre-commit
    hooks.
 
+   To permanently disable hooks, you can run the following command:
+   ```bash
+   pre-commit uninstall
+   ```
+
    Alternatively, you can apply automatic style corrections and code
    verifications manually with the following command:
 
