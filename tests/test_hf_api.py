@@ -1277,4 +1277,7 @@ class HfApiMiscTest(unittest.TestCase):
         }
 
         for key, value in possible_values.items():
-            self.assertEqual(repo_type_and_id_from_hf_id(key, _hf_co_domain="huggingface.co"), tuple(value))
+            self.assertEqual(
+                repo_type_and_id_from_hf_id(key, _hf_co_domain="huggingface.co"),
+                tuple(value),
+            )
