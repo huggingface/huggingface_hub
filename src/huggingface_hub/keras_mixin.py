@@ -163,24 +163,32 @@ def save_pretrained_keras(
     task_name: Optional[str] = None,
     **model_save_kwargs,
 ):
-    """Saves a Keras model to save_directory in SavedModel format. Use this if you're using the Functional or Sequential APIs.
-
-    model:
-        The Keras model you'd like to save. The model must be compiled and built.
-    save_directory (:obj:`str`):
-        Specify directory in which you want to save the Keras model.
-    config (:obj:`dict`, `optional`):
-        Configuration object to be saved alongside the model weights.
-    include_optimizer(:obj:`bool`, `optional`):
-        Whether or not to include optimizer in serialization.
-    tags (:obj:`dict`, `optional`):
-        List of tags that are related to model or string of a single tag. See example tags at https://github.com/huggingface/hub-docs/blame/main/modelcard.md.
-    task_name (:obj:`str`, `optional`):
-        Name of the task the model was trained on. See the available tasks at https://github.com/huggingface/huggingface_hub/blob/main/js/src/lib/interfaces/Types.ts.
-    plot_model (:obj:`bool`):
-        Setting this to `True` will plot the model and put it in the model card. Requires graphviz and pydot to be installed.
-    model_save_kwargs(:obj:`dict`, `optional`):
-        model_save_kwargs will be passed to tf.keras.models.save_model().
+    """
+    Saves a Keras model to save_directory in SavedModel format. Use this if
+    you're using the Functional or Sequential APIs.
+    Args:
+        model (`Keras.Model`):
+            The [Keras
+            model](https://www.tensorflow.org/api_docs/python/tf/keras/Model)
+            you'd like to save. The model must be compiled and built.
+        save_directory (`str`):
+            Specify directory in which you want to save the Keras model.
+        config (`dict`, *optional*):
+                Configuration object to be saved alongside the model weights.
+        include_optimizer(`bool`, *optional*, defaults to `False`):
+            Whether or not to include optimizer in serialization.
+        tags (`dict`, *optional*):
+            List of tags that are related to model or string of a single tag. See example tags
+            [here](https://github.com/huggingface/hub-docs/blame/main/modelcard.md).
+        task_name (`str`, *optional*):
+            Name of the task the model was trained on. Available tasks
+            [here](https://github.com/huggingface/hub-docs/blob/main/js/src/lib/interfaces/Types.ts).
+        plot_model (`bool`, *optional*, defaults to `True`):
+            Setting this to `True` will plot the model and put it in the model
+            card. Requires graphviz and pydot to be installed.
+        model_save_kwargs(`dict`, *optional*):
+            model_save_kwargs will be passed to
+            [`tf.keras.models.save_model()`](https://www.tensorflow.org/api_docs/python/tf/keras/models/save_model).
     """
     if is_tf_available():
         import tensorflow as tf
@@ -240,52 +248,62 @@ def push_to_hub_keras(
     **model_save_kwargs,
 ):
     """
-    Upload model checkpoint or tokenizer files to the 🤗 Model Hub while synchronizing a local clone of the repo in
-    :obj:`repo_path_or_name`.
-
+    Upload model checkpoint or tokenizer files to the Hub while synchronizing a
+    local clone of the repo in `repo_path_or_name`.
     Parameters:
-        model:
-            The Keras model you'd like to push to the hub. The model must be compiled and built.
-        repo_path_or_name (:obj:`str`, `optional`):
-            Can either be a repository name for your model or tokenizer in the Hub or a path to a local folder (in
-            which case the repository will have the name of that local folder). If not specified, will default to
-            the name given by :obj:`repo_url` and a local directory with that name will be created.
-        repo_url (:obj:`str`, `optional`):
-            Specify this in case you want to push to an existing repository in the hub. If unspecified, a new
-            repository will be created in your namespace (unless you specify an :obj:`organization`) with
-            :obj:`repo_name`.
-        log_dir (:obj:`str`, `optional`):
-            TensorBoard logging directory to be pushed. The Hub automatically hosts
-            and displays a TensorBoard instance if log files are included in the repository.
-        commit_message (:obj:`str`, `optional`):
-            Message to commit while pushing. Will default to :obj:`"add model"`.
-        organization (:obj:`str`, `optional`):
-            Organization in which you want to push your model or tokenizer (you must be a member of this
-            organization).
-        private (:obj:`bool`, `optional`):
-            Whether or not the repository created should be private.
-        api_endpoint (:obj:`str`, `optional`):
+        model (`Keras.Model`):
+            The [Keras
+            model](`https://www.tensorflow.org/api_docs/python/tf/keras/Model`)
+            you'd like to push to the Hub. The model must be compiled and built.
+        repo_path_or_name (`str`, *optional*):
+            Can either be a repository name for your model or tokenizer in the
+            Hub or a path to a local folder (in which case the repository will
+            have the name of that local folder). If not specified, will default
+            to the name given by `repo_url` and a local directory with that name
+            will be created.
+        repo_url (`str`, *optional*):
+            Specify this in case you want to push to an existing repository in
+            the Hub. If unspecified, a new repository will be created in your
+            namespace (unless you specify an `organization`) with `repo_name`.
+        log_dir (`str`, *optional*):
+            TensorBoard logging directory to be pushed. The Hub automatically
+            hosts and displays a TensorBoard instance if log files are included
+            in the repository.
+        commit_message (`str`, *optional*, defaults to "Add message"):
+            Message to commit while pushing.
+        organization (`str`, *optional*):
+            Organization in which you want to push your model or tokenizer (you
+            must be a member of this organization).
+        private (`bool`, *optional*):
+            Whether the repository created should be private.
+        api_endpoint (`str`, *optional*):
             The API endpoint to use when pushing the model to the hub.
-        use_auth_token (:obj:`bool` or :obj:`str`, `optional`):
-            The token to use as HTTP bearer authorization for remote files. If :obj:`True`, will use the token
-            generated when running :obj:`transformers-cli login` (stored in :obj:`~/.huggingface`). Will default to
-            :obj:`True`.
-        git_user (``str``, `optional`):
-            will override the ``git config user.name`` for committing and pushing files to the hub.
-        git_email (``str``, `optional`):
-            will override the ``git config user.email`` for committing and pushing files to the hub.
-        config (:obj:`dict`, `optional`):
+        use_auth_token (`bool` or `str`, *optional*, defaults to `True`):
+            The token to use as HTTP bearer authorization for remote files. If
+            `True`, will use the token generated when running `transformers-cli
+            login` (stored in `~/.huggingface`). Will default to `True`.
+        git_user (`str`, *optional*):
+            will override the `git config user.name` for committing and pushing
+            files to the Hub.
+        git_email (`str`, *optional*):
+            will override the `git config user.email` for committing and pushing
+            files to the Hub.
+        config (`dict`, *optional*):
             Configuration object to be saved alongside the model weights.
-        include_optimizer (:obj:`bool`, `optional`):
+        include_optimizer (`bool`, *optional*, defaults to `False`):
             Whether or not to include optimizer during serialization.
-        tags (:obj:`dict`, `optional`):
-            List of tags that are related to model or string of a single tag. See example tags at https://github.com/huggingface/hub-docs/blame/main/modelcard.md.
-        task_name (:obj:`str`, `optional`):
-            Name of the task the model was trained on. See the available tasks at https://github.com/huggingface/huggingface_hub/blob/main/js/src/lib/interfaces/Types.ts.
-        plot_model (:obj:`bool`):
-            Setting this to `True` will plot the model and put it in the model card. Requires graphviz and pydot to be installed.
-        model_save_kwargs(:obj:`dict`, `optional`):
-            model_save_kwargs will be passed to tf.keras.models.save_model().
+        tags (`dict`, *optional*):
+            List of tags that are related to model or string of a single tag. See example tags
+            [here](https://github.com/huggingface/hub-docs/blame/main/modelcard.md).
+        task_name (`str`, *optional*):
+            Name of the task the model was trained on. Available tasks
+            [here](https://github.com/huggingface/huggingface_hub/blob/main/js/src/lib/interfaces/Types.ts).
+        plot_model (`bool`, *optional*, defaults to `True`):
+            Setting this to `True` will plot the model and put it in the model
+            card. Requires graphviz and pydot to be installed.
+        model_save_kwargs(`dict`, *optional*):
+            model_save_kwargs will be passed to
+            [`tf.keras.models.save_model()`](https://www.tensorflow.org/api_docs/python/tf/keras/models/save_model).
 
     Returns:
         The url of the commit of your model in the given repository.
