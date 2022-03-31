@@ -272,6 +272,18 @@ class HubKerasSequentialTest(HubMixingTestKeras):
             .item()
         )
 
+    def test_save_pretrained_task_name_deprecation(self):
+        REPO_NAME = repo_name("FROM_PRETRAINED")
+        model = self.model_init()
+        model.build((None, 2))
+
+        with pytest.warns(
+            FutureWarning, match="`task_name` input argument is deprecated*"
+        ):
+            save_pretrained_keras(
+                model, f"{WORKING_REPO_DIR}/{REPO_NAME}", task_name="test"
+            )
+
     def test_rel_path_from_pretrained(self):
         model = self.model_init()
         model.build((None, 2))

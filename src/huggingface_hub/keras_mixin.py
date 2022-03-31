@@ -102,8 +102,7 @@ def _create_model_card(
     model,
     repo_dir: Path,
     plot_model: Optional[bool] = True,
-    tags: Optional[Union[list, str]] = None,
-    task_name: Optional[str] = None,
+    metadata: Optional[dict] = None,
 ):
     """
     Creates a model card for the repository.
@@ -112,13 +111,6 @@ def _create_model_card(
     if plot_model and is_graphviz_available() and is_pydot_available():
         _plot_network(model, repo_dir)
     readme_path = f"{repo_dir}/README.md"
-    metadata = {}
-    if isinstance(tags, list):
-        metadata["tags"] = tags
-    elif isinstance(tags, str):
-        metadata["tags"] = [tags]
-    if task_name is not None:
-        metadata["tags"].append(task_name)
     metadata["library_name"] = "keras"
     model_card = "---\n"
     model_card += yaml.dump(metadata, default_flow_style=False)
@@ -166,6 +158,7 @@ def save_pretrained_keras(
     """
     Saves a Keras model to save_directory in SavedModel format. Use this if
     you're using the Functional or Sequential APIs.
+    
     Args:
         model (`Keras.Model`):
             The [Keras
@@ -174,9 +167,12 @@ def save_pretrained_keras(
         save_directory (`str`):
             Specify directory in which you want to save the Keras model.
         config (`dict`, *optional*):
-                Configuration object to be saved alongside the model weights.
+            Configuration object to be saved alongside the model weights.
         include_optimizer(`bool`, *optional*, defaults to `False`):
             Whether or not to include optimizer in serialization.
+        plot_model (`bool`, *optional*, defaults to `True`):
+            Setting this to `True` will plot the model and put it in the model
+            card. Requires graphviz and pydot to be installed.
         tags (`dict`, *optional*):
             List of tags that are related to model or string of a single tag. See example tags
             [here](https://github.com/huggingface/hub-docs/blame/main/modelcard.md).
@@ -184,9 +180,6 @@ def save_pretrained_keras(
             Name of the task the model was trained on. Available tasks
             [here](https://github.com/huggingface/hub-docs/blob/main/js/src/lib/interfaces/Types.ts).
             This is deprecated in favor of `tags` and will be removed in v0.7.
-        plot_model (`bool`, *optional*, defaults to `True`):
-            Setting this to `True` will plot the model and put it in the model
-            card. Requires graphviz and pydot to be installed.
         model_save_kwargs(`dict`, *optional*):
             model_save_kwargs will be passed to
             [`tf.keras.models.save_model()`](https://www.tensorflow.org/api_docs/python/tf/keras/models/save_model).
@@ -219,7 +212,17 @@ def save_pretrained_keras(
         with open(path, "w") as f:
             json.dump(config, f)
 
-    _create_model_card(model, save_directory, plot_model, tags, task_name)
+    metadata = {}
+    if isinstance(tags, list):
+        metadata["tags"] = tags
+    elif isinstance(tags, str):
+        metadata["tags"] = [tags]
+    if task_name is not None and "tags" in metadata:
+        metadata["tags"].append(task_name)
+    elif task_name is not None and metadata == {}:
+        metadata["tags"] = [task_name]
+
+    _create_model_card(model, save_directory, plot_model, metadata)
     tf.keras.models.save_model(
         model, save_directory, include_optimizer=include_optimizer, **model_save_kwargs
     )
