@@ -145,13 +145,14 @@ def repo_type_and_id_from_hf_id(hf_id: str, hub_url: Optional[str] = None):
 
 class RepoFile:
     """
-    Data structure that represents a public file inside a repo, accessible from huggingface.co
+    Data structure that represents a public file inside a repo, accessible from
+    huggingface.co
 
     Args:
         rfilename (str):
-            file name, relative to the repo root. This is
-            the only attribute that's guaranteed to be here, but under
-            certain conditions there can certain other stuff.
+            file name, relative to the repo root. This is the only attribute
+            that's guaranteed to be here, but under certain conditions there can
+            certain other stuff.
     """
 
     def __init__(self, *, rfilename: str, **kwargs):
@@ -270,33 +271,31 @@ class SpaceInfo:
     """
     Info about a Space accessible from huggingface.co
 
-    This is a "dataclass" like container that just sets on itself
-    any attribute passed by the server.
+    This is a "dataclass" like container that just sets on itself any attribute
+    passed by the server.
 
-        Args:
-            id (Optional[str]):
-                id of space
-            sha (Optional[str]):
-                repo sha at this particular revision
-            lastModified (Optional[str]):
-                date of last commit to repo
-            siblings (Optional[List[Dict]]):
-                list of files that constitute the Space
-            private (Optional[bool]):
-                is the repo private
-            author (Optional[str]):
-                repo author
+    Args:
+        id (`str`, *optional*):
+            id of space
+        sha (`str`, *optional*):
+            repo sha at this particular revision
+        lastModified (`str`, *optional*):
+            date of last commit to repo
+        siblings (`List[Dict]`, *optional*):
+            list of files that constitute the Space
+        private (`bool`, *optional*):
+            is the repo private
+        author (`str`, *optional*):
+            repo author
     """
 
     def __init__(
         self,
         *,
-        id: Optional[str] = None,  # id of space
-        sha: Optional[str] = None,  # commit sha at the specified revision
-        lastModified: Optional[str] = None,  # date of last commit to repo
-        siblings: Optional[
-            List[Dict]
-        ] = None,  # list of files that constitute the Space
+        id: Optional[str] = None,
+        sha: Optional[str] = None,
+        lastModified: Optional[str] = None,
+        siblings: Optional[List[Dict]] = None,
         private: Optional[bool] = None,
         author: Optional[str] = None,
         **kwargs,
@@ -1202,9 +1201,11 @@ class HfApi:
         d = r.json()
         return DatasetInfo(**d)
 
+    @_deprecate_positional_args
     def space_info(
         self,
         repo_id: str,
+        *,
         revision: Optional[str] = None,
         token: Optional[str] = None,
         timeout: Optional[float] = None,
@@ -1213,6 +1214,25 @@ class HfApi:
         Get info on one specific Space on huggingface.co
 
         Space can be private if you pass an acceptable token.
+
+        Args:
+            repo_id (`str`):
+                A namespace (user or an organization) and a repo name separated
+                by a `/`.
+            revision (`str`, *optional*):
+                The revision of the space repository from which to get the
+                information.
+            token (`str`, *optional*):
+                An authentication token [1]_.
+            timeout (`float`, *optional*):
+                Whether to set a timeout for the request to the Hub.
+
+        Returns:
+            [`SpaceInfo`]: The space repository information.
+
+        References:
+
+        - [1] https://huggingface.co/settings/tokens
         """
         if token is None:
             token = HfFolder.get_token()
@@ -1227,7 +1247,8 @@ class HfApi:
         r.raise_for_status()
         d = r.json()
         return SpaceInfo(**d)
-    
+
+    @_deprecate_positional_args
     def repo_info(
         self,
         repo_id: str,
@@ -1239,6 +1260,26 @@ class HfApi:
     ) -> Union[ModelInfo, DatasetInfo, SpaceInfo]:
         """
         Get the info object for a given repo of a given type.
+
+        Args:
+            repo_id (`str`):
+                A namespace (user or an organization) and a repo name separated
+                by a `/`.
+            revision (`str`, *optional*):
+                The revision of the repository from which to get the
+                information.
+            token (`str`, *optional*):
+                An authentication token [1]_.
+            timeout (`float`, *optional*):
+                Whether to set a timeout for the request to the Hub.
+
+        Returns:
+            `Union[SpaceInfo, DatasetInfo, ModelInfo]`: The repository
+            information.
+
+        References:
+
+        - [1] https://huggingface.co/settings/tokens
         """
         if repo_type is None or repo_type == "model":
             return self.model_info(
