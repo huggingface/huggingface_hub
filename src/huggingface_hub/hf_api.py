@@ -523,7 +523,6 @@ class HfApi:
                 "You need to pass a valid `token` or login by using `huggingface-cli "
                 "login`"
             )
-
         path = f"{self.endpoint}/api/whoami-v2"
         r = requests.get(path, headers={"authorization": f"Bearer {token}"})
         try:
@@ -553,19 +552,26 @@ class HfApi:
         except HTTPError:
             return False
 
-    def _validate_or_retrieve_token(self, token: Optional[Union[str, bool]] = None):
+    def _validate_or_retrieve_token(
+        self,
+        token: Optional[str] = None,
+        name: Optional[str] = None,
+        function_name: Optional[str] = None,
+    ):
         """
-        Either retrieves stored token or validates passed token.
-
+        Retrieves and validates stored token or validates passed token.
         Args:
-            token (`str`, *optional*):
-                The token to check for validity
-
+            token (``str``, `optional`):
+                Hugging Face token. Will default to the locally saved token if not provided.
+            name (``str``, `optional`):
+                Name of the repository. This is deprecated in favor of repo_id and will be removed in v0.7.
+            function_name (``str``, `optional`):
+                If _validate_or_retrieve_token is called from a function, name of that function to be passed inside deprecation warning.
         Returns:
-            `str`: The valid token
-
+            Validated token and the name of the repository.
         Raises:
-            `ValueError`: if the token is invalid.
+            :class:`EnvironmentError`: If the token is not passed and there's no token saved locally.
+            :class:`ValueError`: If organization token or invalid token is passed.
         """
         if token is None or token is True:
             token = HfFolder.get_token()
@@ -574,9 +580,22 @@ class HfApi:
                     "You need to provide a `token` or be logged in to Hugging "
                     "Face with `huggingface-cli login`."
                 )
-        elif not self._is_valid_token(token):
-            raise ValueError("Invalid token passed!")
-        return token
+        if name is not None:
+            if self._is_valid_token(name):
+                # TODO(0.6) REMOVE
+                warnings.warn(
+                    f"`{function_name}` now takes `token` as an optional positional argument. "
+                    "Be sure to adapt your code!",
+                    FutureWarning,
+                )
+                token, name = name, token
+        if isinstance(token, str):
+            if token.startswith("api_org"):
+                raise ValueError("You must use your personal account token.")
+            if not self._is_valid_token(token):
+                raise ValueError("Invalid token passed!")
+
+        return token, name
 
     def logout(self, token: Optional[str] = None) -> None:
         """
@@ -758,7 +777,7 @@ class HfApi:
         """
         path = f"{self.endpoint}/api/models"
         if use_auth_token:
-            token = self._validate_or_retrieve_token(use_auth_token)
+            token, name = self._validate_or_retrieve_token(use_auth_token)
         headers = {"authorization": f"Bearer {token}"} if use_auth_token else None
         params = {}
         if filter is not None:
@@ -955,7 +974,7 @@ class HfApi:
         """
         path = f"{self.endpoint}/api/datasets"
         if use_auth_token:
-            token = self._validate_or_retrieve_token(use_auth_token)
+            token, name = self._validate_or_retrieve_token(use_auth_token)
         headers = {"authorization": f"Bearer {token}"} if use_auth_token else None
         params = {}
         if filter is not None:
@@ -1240,18 +1259,10 @@ class HfApi:
         name, organization = _validate_repo_id_deprecation(repo_id, name, organization)
 
         path = f"{self.endpoint}/api/repos/create"
-        if token is None:
-            token = self._validate_or_retrieve_token()
-        elif not self._is_valid_token(token):
-            if self._is_valid_token(name):
-                warnings.warn(
-                    "`create_repo` now takes `token` as an optional positional argument. "
-                    "Be sure to adapt your code!",
-                    FutureWarning,
-                )
-                token, name = name, token
-            else:
-                raise ValueError("Invalid token passed!")
+
+        token, name = self._validate_or_retrieve_token(
+            token, name, function_name="create_repo"
+        )
 
         checked_name = repo_type_and_id_from_hf_id(name)
 
@@ -1369,18 +1380,10 @@ class HfApi:
         name, organization = _validate_repo_id_deprecation(repo_id, name, organization)
 
         path = f"{self.endpoint}/api/repos/delete"
-        if token is None:
-            token = self._validate_or_retrieve_token()
-        elif not self._is_valid_token(token):
-            if self._is_valid_token(name):
-                warnings.warn(
-                    "`delete_repo` now takes `token` as an optional positional argument. "
-                    "Be sure to adapt your code!",
-                    FutureWarning,
-                )
-                token, name = name, token
-            else:
-                raise ValueError("Invalid token passed!")
+
+        token, name = self._validate_or_retrieve_token(
+            token, name, function_name="delete_repo"
+        )
 
         checked_name = repo_type_and_id_from_hf_id(name)
 
@@ -1480,18 +1483,9 @@ class HfApi:
 
         name, organization = _validate_repo_id_deprecation(repo_id, name, organization)
 
-        if token is None:
-            token = self._validate_or_retrieve_token()
-        elif not self._is_valid_token(token):
-            if self._is_valid_token(name):
-                warnings.warn(
-                    "`update_repo_visibility` now takes `token` as an optional positional argument. "
-                    "Be sure to adapt your code!",
-                    FutureWarning,
-                )
-                token, name, private = name, private, token
-            else:
-                raise ValueError("Invalid token passed!")
+        token, name = self._validate_or_retrieve_token(
+            token, name, function_name="update_repo_visibility"
+        )
 
         if organization is None:
             namespace = self.whoami(token)["name"]
@@ -1548,7 +1542,8 @@ class HfApi:
 
         - [1] https://huggingface.co/settings/tokens
         """
-        token = self._validate_or_retrieve_token(token)
+
+        token, name = self._validate_or_retrieve_token(token)
 
         if len(from_id.split("/")) != 2:
             raise ValueError(
@@ -1664,9 +1659,11 @@ class HfApi:
         if repo_type not in REPO_TYPES:
             raise ValueError(f"Invalid repo type, must be one of {REPO_TYPES}")
 
-        if token is None:
-            token = self._validate_or_retrieve_token()
-        elif not self._is_valid_token(token):
+        try:
+            token, name = self._validate_or_retrieve_token(
+                token, function_name="upload_file"
+            )
+        except ValueError:  # if token is invalid or organization token
             if self._is_valid_token(path_or_fileobj):
                 warnings.warn(
                     "`upload_file` now takes `token` as an optional positional argument. "
@@ -1769,8 +1766,7 @@ class HfApi:
         if repo_type not in REPO_TYPES:
             raise ValueError(f"Invalid repo type, must be one of {REPO_TYPES}")
 
-        if token is None:
-            token = self._validate_or_retrieve_token()
+        token, name = self._validate_or_retrieve_token(token)
 
         if repo_type in REPO_TYPES_URL_PREFIXES:
             repo_id = REPO_TYPES_URL_PREFIXES[repo_type] + repo_id

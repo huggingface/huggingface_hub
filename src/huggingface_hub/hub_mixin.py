@@ -276,7 +276,7 @@ class ModelHubMixin:
             token = HfFolder.get_token()
             if token is None:
                 raise ValueError(
-                    "You must login to the Hugging Face hub on this computer by typing `transformers-cli login` and "
+                    "You must login to the Hugging Face hub on this computer by typing `huggingface-cli login` and "
                     "entering your credentials to use `use_auth_token=True`. Alternatively, you can pass your own "
                     "token as the `use_auth_token` argument."
                 )

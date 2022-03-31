@@ -151,6 +151,12 @@ class HfApiLoginTest(HfApiCommonTest):
             read_from_credential_store(USERNAME_PLACEHOLDER), (None, None)
         )
 
+    def test_login_cli_org_fail(self):
+        with pytest.raises(
+            ValueError, match="You must use your personal account token."
+        ):
+            _login(self._api, token="api_org_dummy_token")
+
     def test_login_deprecation_error(self):
         with pytest.warns(
             FutureWarning,
@@ -560,6 +566,23 @@ class HfApiUploadFileTest(HfApiCommonTestWithLogin):
             self.fail(err)
         finally:
             self._api.delete_repo(repo_id=REPO_NAME, token=self._token)
+
+    @retry_endpoint
+    def test_create_repo_org_token_fail(self):
+        REPO_NAME = repo_name("org")
+        with pytest.raises(
+            ValueError, match="You must use your personal account token."
+        ):
+            self._api.create_repo(repo_id=REPO_NAME, token="api_org_dummy_token")
+
+    @retry_endpoint
+    def test_create_repo_org_token_none_fail(self):
+        REPO_NAME = repo_name("org")
+        HfFolder.save_token("api_org_dummy_token")
+        with pytest.raises(
+            ValueError, match="You must use your personal account token."
+        ):
+            self._api.create_repo(repo_id=REPO_NAME)
 
     @retry_endpoint
     def test_upload_file_conflict(self):
