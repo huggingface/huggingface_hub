@@ -81,7 +81,7 @@ def _validate_repo_id_deprecation(repo_id, name, organization):
     return name, organization
 
 
-def repo_type_and_id_from_hf_id(hf_id: str):
+def repo_type_and_id_from_hf_id(hf_id: str, _hf_co_domain: Optional[str] = None):
     """
     Returns the repo type and ID from a huggingface.co URL linking to a
     repository
@@ -96,15 +96,16 @@ def repo_type_and_id_from_hf_id(hf_id: str):
             - <namespace>/<repo_id>
             - <repo_id>
     """
-    is_hf_url = ENDPOINT_DOMAIN in hf_id and "@" not in hf_id
+    hf_co_domain = _hf_co_domain if _hf_co_domain is not None else ENDPOINT_DOMAIN
+    is_hf_url = hf_co_domain in hf_id and "@" not in hf_id
     url_segments = hf_id.split("/")
     is_hf_id = len(url_segments) <= 3
 
     if is_hf_url:
         namespace, repo_id = url_segments[-2:]
-        if namespace == ENDPOINT_DOMAIN:
+        if namespace == hf_co_domain:
             namespace = None
-        if len(url_segments) > 2 and ENDPOINT_DOMAIN not in url_segments[-3]:
+        if len(url_segments) > 2 and hf_co_domain not in url_segments[-3]:
             repo_type = url_segments[-3]
         else:
             repo_type = None
