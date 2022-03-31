@@ -1,4 +1,4 @@
-<script>
+<script lang="ts">
 	import type { WidgetProps, ImageSegment } from "../../shared/types";
 	import { onMount } from "svelte";
 	import { COLORS } from "../../shared/consts";

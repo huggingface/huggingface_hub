@@ -9,7 +9,7 @@ from huggingface_hub.file_download import is_torch_available
 from huggingface_hub.hub_mixin import PyTorchModelHubMixin
 from huggingface_hub.utils import logging
 
-from .testing_constants import ENDPOINT_STAGING, PASS, USER
+from .testing_constants import ENDPOINT_STAGING, TOKEN, USER
 from .testing_utils import set_write_permission_and_retry
 
 
@@ -74,7 +74,8 @@ class HubMixingTest(HubMixingCommonTest):
         """
         Share this valid token in all tests below.
         """
-        cls._token = cls._api.login(username=USER, password=PASS)
+        cls._token = TOKEN
+        cls._api.set_access_token(TOKEN)
 
     def test_save_pretrained(self):
         REPO_NAME = repo_name("save")
@@ -133,4 +134,4 @@ class HubMixingTest(HubMixingCommonTest):
         )
         self.assertEqual(model_info.modelId, f"{USER}/{REPO_NAME}")
 
-        self._api.delete_repo(name=f"{REPO_NAME}", token=self._token)
+        self._api.delete_repo(repo_id=f"{REPO_NAME}", token=self._token)

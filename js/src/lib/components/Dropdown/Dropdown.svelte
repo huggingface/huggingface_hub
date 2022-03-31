@@ -1,5 +1,6 @@
 <script lang="ts">
 	import type { SvelteComponent } from "svelte";
+	import DropdownEntry from "../DropdownEntry/DropdownEntry.svelte";
 	import DropdownMenu from "../DropdownMenu/DropdownMenu.svelte";
 	import IconCaretDown from "../Icons/IconCaretDown.svelte";
 
@@ -8,28 +9,31 @@
 	export let btnIcon: typeof SvelteComponent | undefined = undefined;
 	export let btnIconClassNames = "";
 	export let btnLabel = "";
+	export let entries: Array<{
+		classNames?: string;
+		href?: string;
+		icon?: typeof SvelteComponent;
+		iconClassNames?: string;
+		onClick?: (e: MouseEvent) => void;
+		label?: string;
+		noFollow?: boolean;
+		underline?: boolean;
+		targetBlank?: boolean;
+	}> = [];
 	export let forceMenuAlignement: "left" | "right" | undefined = undefined;
 	export let menuClassNames = "";
 	export let noBtnClass: boolean | undefined = undefined;
-	export let selectedValue: string | undefined = undefined;
-	export let useDeprecatedJS = true;
 	export let withBtnCaret = false;
 
 	let element: HTMLElement | undefined = undefined;
 	let isOpen = false;
 </script>
 
-<div
-	class="relative {classNames} {useDeprecatedJS ? 'v2-dropdown' : ''}"
-	bind:this={element}
-	selected-value={selectedValue || undefined}
->
+<div class="relative {classNames}" bind:this={element}>
 	<!-- Button -->
 	<button
-		class="
-			{btnClassNames}
-			{!noBtnClass ? 'cursor-pointer w-full btn text-sm' : ''}
-			{useDeprecatedJS ? 'v2-dropdown-button' : ''}"
+		class="{btnClassNames}
+			{!noBtnClass ? 'cursor-pointer w-full btn text-sm' : ''}"
 		on:click={() => (isOpen = !isOpen)}
 		type="button"
 	>
@@ -44,23 +48,28 @@
 				/>
 			{/if}
 			{btnLabel}
-			{#if withBtnCaret}
-				<IconCaretDown classNames="-mr-1 text-gray-500" />
-			{/if}
+		{/if}
+		{#if withBtnCaret}
+			<IconCaretDown classNames="-mr-1 text-gray-500" />
 		{/if}
 	</button>
 	<!-- /Button -->
 	<!-- Menu -->
-	{#if isOpen || useDeprecatedJS}
+	{#if isOpen}
 		<DropdownMenu
-			classNames="{menuClassNames} {useDeprecatedJS
-				? 'v2-dropdown-menu hidden'
-				: ''}"
+			classNames={menuClassNames}
 			dropdownElement={element}
 			forceAlignement={forceMenuAlignement}
 			onClose={() => (isOpen = false)}
 		>
-			<slot name="menu" />
+			<!-- The "menu" slot can overwrite the defaut menu content -->
+			{#if $$slots.menu}
+				<slot name="menu" />
+			{:else}
+				{#each entries as entry}
+					<DropdownEntry {...entry} />
+				{/each}
+			{/if}
 		</DropdownMenu>
 	{/if}
 	<!-- Menu -->

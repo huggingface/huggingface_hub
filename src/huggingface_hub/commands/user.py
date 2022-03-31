@@ -244,9 +244,11 @@ class RepoCreateCommand(BaseUserCommand):
             exit(1)
 
         if self.args.type in REPO_TYPES_URL_PREFIXES:
-            repo_id = REPO_TYPES_URL_PREFIXES[self.args.type] + repo_id
+            prefixed_repo_id = REPO_TYPES_URL_PREFIXES[self.args.type] + repo_id
+        else:
+            prefixed_repo_id = repo_id
 
-        print(f"You are about to create {ANSI.bold(repo_id)}")
+        print(f"You are about to create {ANSI.bold(prefixed_repo_id)}")
 
         if not self.args.yes:
             choice = input("Proceed? [Y/n] ").lower()
@@ -254,10 +256,10 @@ class RepoCreateCommand(BaseUserCommand):
                 print("Abort")
                 exit()
         try:
+
             url = self._api.create_repo(
-                self.args.name,
+                repo_id=repo_id,
                 token=token,
-                organization=self.args.organization,
                 repo_type=self.args.type,
                 space_sdk=self.args.space_sdk,
             )
@@ -275,27 +277,26 @@ class RepoCreateCommand(BaseUserCommand):
         print("")
 
 
-NOTEBOOK_LOGIN_PASSWORD_HTML = """<center>
-<img src=https://huggingface.co/front/assets/huggingface_logo-noborder.svg alt='Hugging Face'>
-<br>
-Immediately click login after typing your password or it might be stored in plain text in this notebook file.
-</center>"""
+NOTEBOOK_LOGIN_PASSWORD_HTML = """<center> <img
+src=https://huggingface.co/front/assets/huggingface_logo-noborder.svg
+alt='Hugging Face'> <br> Immediately click login after typing your password or
+it might be stored in plain text in this notebook file. </center>"""
 
 
-NOTEBOOK_LOGIN_TOKEN_HTML_START = """<center>
-<img src=https://huggingface.co/front/assets/huggingface_logo-noborder.svg alt='Hugging Face'>
-<br>
-Copy a token from <a href="https://huggingface.co/settings/tokens" target="_blank">your Hugging Face tokens page</a> and paste it below.
-<br>
-Immediately click login after copying your token or it might be stored in plain text in this notebook file.
-</center>"""
+NOTEBOOK_LOGIN_TOKEN_HTML_START = """<center> <img
+src=https://huggingface.co/front/assets/huggingface_logo-noborder.svg
+alt='Hugging Face'> <br> Copy a token from <a
+href="https://huggingface.co/settings/tokens" target="_blank">your Hugging Face
+tokens page</a> and paste it below. <br> Immediately click login after copying
+your token or it might be stored in plain text in this notebook file. </center>"""
 
 
 NOTEBOOK_LOGIN_TOKEN_HTML_END = """
-<b>Pro Tip:</b> If you don't already have one, you can create a dedicated 'notebooks' token with 'write' access, that you can then easily reuse for all notebooks.
-<br>
-<i>Logging in with your username and password is deprecated and won't be possible anymore in the near future. You can still use them for now by clicking below.</i>
-</center>"""
+<b>Pro Tip:</b> If you don't already have one, you can create a dedicated
+'notebooks' token with 'write' access, that you can then easily reuse for all
+notebooks. <br> <i>Logging in with your username and password is deprecated and
+won't be possible anymore in the near future. You can still use them for now by
+clicking below.</i> </center>"""
 
 
 def notebook_login():
@@ -381,8 +382,8 @@ def _login(hf_api, username=None, password=None, token=None):
             print(e)
             print(ANSI.red(e.response.text))
             exit(1)
-    elif not hf_api._is_valid_token(token):
-        raise ValueError("Invalid token passed.")
+    else:
+        token, name = hf_api._validate_or_retrieve_token(token)
 
     hf_api.set_access_token(token)
     HfFolder.save_token(token)

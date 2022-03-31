@@ -115,7 +115,7 @@ The `create_repo` method creates a repository on the Hub. Use the `name` paramet
 
 ```python
 >>> from huggingface_hub import create_repo
->>> create_repo(name="test-model")
+>>> create_repo(repo_id="test-model")
 'https://huggingface.co/lysandre/test-model'
 ```
 

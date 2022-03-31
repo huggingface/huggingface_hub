@@ -10,7 +10,7 @@ from-purple-400 to-purple-200 dark:from-purple-400 dark:to-purple-600
 from-red-400 to-red-200 dark:from-red-400 dark:to-red-600
 from-yellow-400 to-yellow-200 dark:from-yellow-400 dark:to-yellow-600
  -->
-<script>
+<script lang="ts">
 	export let classNames = "";
 	export let defaultBarColor = "purple";
 	export let output: Array<{ label: string; score: number; color?: string }> =

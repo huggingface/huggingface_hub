@@ -372,3 +372,4 @@ API.
 ```python
 inference = InferenceApi("bert-base-uncased", task="feature-extraction", token=API_TOKEN)
 ```
+

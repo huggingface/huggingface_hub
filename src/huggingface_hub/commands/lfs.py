@@ -1,7 +1,9 @@
 """
-Implementation of a custom transfer agent for the transfer type "multipart" for git-lfs.
+Implementation of a custom transfer agent for the transfer type "multipart" for
+git-lfs.
 
-Inspired by: github.com/cbartz/git-lfs-swift-transfer-agent/blob/master/git_lfs_swift_transfer.py
+Inspired by:
+github.com/cbartz/git-lfs-swift-transfer-agent/blob/master/git_lfs_swift_transfer.py
 
 Spec is: github.com/git-lfs/git-lfs/blob/master/docs/custom-transfers.md
 
@@ -9,12 +11,10 @@ Spec is: github.com/git-lfs/git-lfs/blob/master/docs/custom-transfers.md
 To launch debugger while developing:
 
 ``` [lfs "customtransfer.multipart"]
-
-path = /path/to/huggingface_hub/.env/bin/python
-
-args = -m debugpy --listen 5678 --wait-for-client /path/to/huggingface_hub/src/huggingface_hub/commands/huggingface_cli.py
-lfs-multipart-upload ```
-"""
+path = /path/to/huggingface_hub/.env/bin/python args = -m debugpy --listen 5678
+--wait-for-client
+/path/to/huggingface_hub/src/huggingface_hub/commands/huggingface_cli.py
+lfs-multipart-upload ```"""
 
 import json
 import os
@@ -36,20 +36,23 @@ logger = logging.get_logger(__name__)
 
 class LfsCommands(BaseHuggingfaceCLICommand):
     """
-    Implementation of a custom transfer agent for the transfer type "multipart" for git-lfs. This lets users upload
-    large files >5GB 🔥. Spec for LFS custom transfer agent is:
+    Implementation of a custom transfer agent for the transfer type "multipart"
+    for git-lfs. This lets users upload large files >5GB 🔥. Spec for LFS custom
+    transfer agent is:
     https://github.com/git-lfs/git-lfs/blob/master/docs/custom-transfers.md
 
     This introduces two commands to the CLI:
 
     1. $ huggingface-cli lfs-enable-largefiles
 
-    This should be executed once for each model repo that contains a model file >5GB. It's documented in the error
-    message you get if you just try to git push a 5GB file without having enabled it before.
+    This should be executed once for each model repo that contains a model file
+    >5GB. It's documented in the error message you get if you just try to git
+    push a 5GB file without having enabled it before.
 
     2. $ huggingface-cli lfs-multipart-upload
 
-    This command is called by lfs directly and is not meant to be called by the user.
+    This command is called by lfs directly and is not meant to be called by the
+    user.
     """
 
     @staticmethod

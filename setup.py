@@ -69,7 +69,7 @@ setup(
             "huggingface-cli=huggingface_hub.commands.huggingface_cli:main"
         ]
     },
-    python_requires=">=3.6.0",
+    python_requires=">=3.7.0",
     install_requires=install_requires,
     classifiers=[
         "Intended Audience :: Developers",

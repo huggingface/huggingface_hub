@@ -1,4 +1,4 @@
-<script>
+<script lang="ts">
 	export let position: "left" | "right";
 	export let text: string;
 </script>

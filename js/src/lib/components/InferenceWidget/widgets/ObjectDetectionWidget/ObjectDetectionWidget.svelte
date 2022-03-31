@@ -1,4 +1,4 @@
-<script>
+<script lang="ts">
 	import type { WidgetProps, DetectedObject } from "../../shared/types";
 	import { COLORS } from "../../shared/consts";
 	import { mod } from "../../../../utils/ViewUtils";
@@ -17,7 +17,6 @@
 
 	let computeTime = "";
 	let error: string = "";
-	let warning: string = "";
 	let isLoading = false;
 	let imgSrc = "";
 	let modelLoading = {
@@ -27,6 +26,7 @@
 	let output: DetectedObject[] = [];
 	let outputJson: string;
 	let highlightIndex = -1;
+	let warning: string = "";
 
 	function onSelectFile(file: File | Blob) {
 		imgSrc = URL.createObjectURL(file);

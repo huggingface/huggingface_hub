@@ -89,13 +89,13 @@ Pass the full repository ID to `delete_repo`. The full repository ID looks like 
 ```python
 >>> from huggingface_hub import get_full_repo_name, delete_repo
 >>> name = get_full_repo_name(repo_name)
->>> delete_repo(name=name)
+>>> delete_repo(repo_id=name)
 ```
 
 Delete a dataset repository by adding the `repo_type` parameter:
 
 ```python
->>> delete_repo(name=REPO_NAME, repo_type="dataset")
+>>> delete_repo(repo_id=REPO_NAME, repo_type="dataset")
 ```
 
 ### Change repository visibility
@@ -128,7 +128,7 @@ The `clone_from` parameter clones a repository from a Hugging Face model ID to a
 Easily combine the `clone_from` parameter with `create_repo` to create and clone a repository:
 
 ```python
->>> repo_url = create_repo(name="repo_name")
+>>> repo_url = create_repo(repo_id="repo_name")
 >>> repo = Repository(local_dir="repo_local_path", clone_from=repo_url)
 ```
 
