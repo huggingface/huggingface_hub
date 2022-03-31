@@ -23,8 +23,8 @@ LFS_MULTIPART_UPLOAD_COMMAND = "lfs-multipart-upload"
 
 def install_lfs_in_userspace():
     """
-    If in Linux, installs git-lfs in userspace
-    (sometimes useful if you can't `sudo apt install` or equivalent).
+    If in Linux, installs git-lfs in userspace (sometimes useful if you can't
+    `sudo apt install` or equivalent).
     """
     if sys.platform != "linux":
         raise ValueError("Only implemented for Linux right now")

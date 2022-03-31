@@ -183,6 +183,7 @@ def save_pretrained_keras(
         task_name (`str`, *optional*):
             Name of the task the model was trained on. Available tasks
             [here](https://github.com/huggingface/hub-docs/blob/main/js/src/lib/interfaces/Types.ts).
+            This is deprecated in favor of `tags` and will be removed in v0.7.
         plot_model (`bool`, *optional*, defaults to `True`):
             Setting this to `True` will plot the model and put it in the model
             card. Requires graphviz and pydot to be installed.
@@ -225,6 +226,61 @@ def save_pretrained_keras(
 
 
 def from_pretrained_keras(*args, **kwargs):
+    r"""
+    Instantiate a pretrained Keras model from a pre-trained model from the Hub.
+    The model is expected to be in SavedModel format.```
+
+    Parameters:
+        pretrained_model_name_or_path (`str` or `os.PathLike`):
+            Can be either:
+                - A string, the `model id` of a pretrained model hosted inside a
+                  model repo on huggingface.co. Valid model ids can be located
+                  at the root-level, like `bert-base-uncased`, or namespaced
+                  under a user or organization name, like
+                  `dbmdz/bert-base-german-cased`.
+                - You can add `revision` by appending `@` at the end of model_id
+                  simply like this: `dbmdz/bert-base-german-cased@main` Revision
+                  is the specific model version to use. It can be a branch name,
+                  a tag name, or a commit id, since we use a git-based system
+                  for storing models and other artifacts on huggingface.co, so
+                  `revision` can be any identifier allowed by git.
+                - A path to a `directory` containing model weights saved using
+                  [`~transformers.PreTrainedModel.save_pretrained`], e.g.,
+                  `./my_model_directory/`.
+                - `None` if you are both providing the configuration and state
+                  dictionary (resp. with keyword arguments `config` and
+                  `state_dict`).
+        force_download (`bool`, *optional*, defaults to `False`):
+            Whether to force the (re-)download of the model weights and
+            configuration files, overriding the cached versions if they exist.
+        resume_download (`bool`, *optional*, defaults to `False`):
+            Whether to delete incompletely received files. Will attempt to
+            resume the download if such a file exists.
+        proxies (`Dict[str, str]`, *optional*):
+            A dictionary of proxy servers to use by protocol or endpoint, e.g.,
+            `{'http': 'foo.bar:3128', 'http://hostname': 'foo.bar:4012'}`. The
+            proxies are used on each request.
+        use_auth_token (`str` or `bool`, *optional*):
+            The token to use as HTTP bearer authorization for remote files. If
+            `True`, will use the token generated when running `transformers-cli
+            login` (stored in `~/.huggingface`).
+        cache_dir (`Union[str, os.PathLike]`, *optional*):
+            Path to a directory in which a downloaded pretrained model
+            configuration should be cached if the standard cache should not be
+            used.
+        local_files_only(`bool`, *optional*, defaults to `False`):
+            Whether to only look at local files (i.e., do not try to download
+            the model).
+        model_kwargs (`Dict`, *optional*):
+            model_kwargs will be passed to the model during initialization
+
+    <Tip>
+
+    Passing `use_auth_token=True` is required when you want to use a private
+    model.
+
+    </Tip>
+    """
     return KerasModelHubMixin.from_pretrained(*args, **kwargs)
 
 
@@ -250,6 +306,7 @@ def push_to_hub_keras(
     """
     Upload model checkpoint or tokenizer files to the Hub while synchronizing a
     local clone of the repo in `repo_path_or_name`.
+
     Parameters:
         model (`Keras.Model`):
             The [Keras
@@ -374,35 +431,51 @@ def push_to_hub_keras(
 
 
 class KerasModelHubMixin(ModelHubMixin):
+    """
+    Mixin to provide model Hub upload/download capabilities to Keras models.
+    Override this class to obtain the following internal methods:
+    - `_from_pretrained`, to load a model from the Hub or from local files.
+    - `_save_pretrained`, to save a model in the `SavedModel` format.
+    """
+
     def __init__(self, *args, **kwargs):
         """
-        Mix this class with your keras-model class for ease process of saving & loading from huggingface-hub
+        Mix this class with your keras-model class for ease process of saving &
+        loading from huggingface-hub.
 
-        Example::
 
-            >>> from huggingface_hub import KerasModelHubMixin
+        ```python
+        >>> from huggingface_hub import KerasModelHubMixin
 
-            >>> class MyModel(tf.keras.Model, KerasModelHubMixin):
-            ...    def __init__(self, **kwargs):
-            ...        super().__init__()
-            ...        self.config = kwargs.pop("config", None)
-            ...        self.dummy_inputs = ...
-            ...        self.layer = ...
-            ...    def call(self, ...)
-            ...        return ...
 
-            >>> # Init and compile the model as you normally would
-            >>> model = MyModel()
-            >>> model.compile(...)
-            >>> # Build the graph by training it or passing dummy inputs
-            >>> _ = model(model.dummy_inputs)
-            >>> # You can save your model like this
-            >>> model.save_pretrained("local_model_dir/", push_to_hub=False)
-            >>> # Or, you can push to a new public model repo like this
-            >>> model.push_to_hub("super-cool-model", git_user="your-hf-username", git_email="you@somesite.com")
+        >>> class MyModel(tf.keras.Model, KerasModelHubMixin):
+        ...     def __init__(self, **kwargs):
+        ...         super().__init__()
+        ...         self.config = kwargs.pop("config", None)
+        ...         self.dummy_inputs = ...
+        ...         self.layer = ...
 
-            >>> # Downloading weights from hf-hub & model will be initialized from those weights
-            >>> model = MyModel.from_pretrained("username/mymodel@main")
+        ...     def call(self, *args):
+        ...         return ...
+
+
+        >>> # Init and compile the model as you normally would
+        >>> model = MyModel()
+        >>> model.compile(...)
+        >>> # Build the graph by training it or passing dummy inputs
+        >>> _ = model(model.dummy_inputs)
+        >>> # You can save your model like this
+        >>> model.save_pretrained("local_model_dir/", push_to_hub=False)
+        >>> # Or, you can push to a new public model repo like this
+        >>> model.push_to_hub(
+        ...     "super-cool-model",
+        ...     git_user="your-hf-username",
+        ...     git_email="you@somesite.com",
+        ... )
+
+        >>> # Downloading weights from hf-hub & model will be initialized from those weights
+        >>> model = MyModel.from_pretrained("username/mymodel@main")
+        ```
         """
 
     def _save_pretrained(self, save_directory):
@@ -421,9 +494,11 @@ class KerasModelHubMixin(ModelHubMixin):
         use_auth_token,
         **model_kwargs,
     ):
-        """Here we just call from_pretrained_keras function so both the mixin and functional APIs stay in sync.
+        """Here we just call from_pretrained_keras function so both the mixin and
+        functional APIs stay in sync.
 
-        TODO - Some args above aren't used since we are calling snapshot_download instead of hf_hub_download.
+                TODO - Some args above aren't used since we are calling
+                snapshot_download instead of hf_hub_download.
         """
         if is_tf_available():
             import tensorflow as tf
