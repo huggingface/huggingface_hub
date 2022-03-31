@@ -63,14 +63,14 @@ class InferenceApiTest(unittest.TestCase):
 
     @with_production_testing
     def test_inference_with_audio(self):
-        api = InferenceApi("facebook/wav2vec2-large-960h-lv60-self")
+        api = InferenceApi("facebook/wav2vec2-base-960h")
         dataset = datasets.load_dataset(
             "patrickvonplaten/librispeech_asr_dummy", "clean", split="validation"
         )
         data = self.read(dataset["file"][0])
         result = api(data=data)
         self.assertIsInstance(result, dict)
-        self.assertTrue("text" in result)
+        self.assertTrue("text" in result, f"We received {result} instead")
 
     @with_production_testing
     def test_inference_with_image(self):

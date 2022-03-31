@@ -277,27 +277,26 @@ class RepoCreateCommand(BaseUserCommand):
         print("")
 
 
-NOTEBOOK_LOGIN_PASSWORD_HTML = """<center>
-<img src=https://huggingface.co/front/assets/huggingface_logo-noborder.svg alt='Hugging Face'>
-<br>
-Immediately click login after typing your password or it might be stored in plain text in this notebook file.
-</center>"""
+NOTEBOOK_LOGIN_PASSWORD_HTML = """<center> <img
+src=https://huggingface.co/front/assets/huggingface_logo-noborder.svg
+alt='Hugging Face'> <br> Immediately click login after typing your password or
+it might be stored in plain text in this notebook file. </center>"""
 
 
-NOTEBOOK_LOGIN_TOKEN_HTML_START = """<center>
-<img src=https://huggingface.co/front/assets/huggingface_logo-noborder.svg alt='Hugging Face'>
-<br>
-Copy a token from <a href="https://huggingface.co/settings/tokens" target="_blank">your Hugging Face tokens page</a> and paste it below.
-<br>
-Immediately click login after copying your token or it might be stored in plain text in this notebook file.
-</center>"""
+NOTEBOOK_LOGIN_TOKEN_HTML_START = """<center> <img
+src=https://huggingface.co/front/assets/huggingface_logo-noborder.svg
+alt='Hugging Face'> <br> Copy a token from <a
+href="https://huggingface.co/settings/tokens" target="_blank">your Hugging Face
+tokens page</a> and paste it below. <br> Immediately click login after copying
+your token or it might be stored in plain text in this notebook file. </center>"""
 
 
 NOTEBOOK_LOGIN_TOKEN_HTML_END = """
-<b>Pro Tip:</b> If you don't already have one, you can create a dedicated 'notebooks' token with 'write' access, that you can then easily reuse for all notebooks.
-<br>
-<i>Logging in with your username and password is deprecated and won't be possible anymore in the near future. You can still use them for now by clicking below.</i>
-</center>"""
+<b>Pro Tip:</b> If you don't already have one, you can create a dedicated
+'notebooks' token with 'write' access, that you can then easily reuse for all
+notebooks. <br> <i>Logging in with your username and password is deprecated and
+won't be possible anymore in the near future. You can still use them for now by
+clicking below.</i> </center>"""
 
 
 def notebook_login():
