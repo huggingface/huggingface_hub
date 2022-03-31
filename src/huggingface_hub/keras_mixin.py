@@ -158,7 +158,7 @@ def save_pretrained_keras(
     """
     Saves a Keras model to save_directory in SavedModel format. Use this if
     you're using the Functional or Sequential APIs.
-    
+
     Args:
         model (`Keras.Model`):
             The [Keras
