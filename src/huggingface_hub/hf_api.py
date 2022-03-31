@@ -504,6 +504,16 @@ class HfApi:
         name: Optional[str] = None,
         function_name: Optional[str] = None,
     ):
+        """
+        Retrieves and validates stored token or validates passed token.
+        Args:
+            token (``str``, `optional`):
+                Hugging Face token. Will default to the locally saved token if not provided.
+            name (``str``, `optional`):
+                Name of the repository.
+            function_name (``str``, `optional`):
+                If called from a function, name of that function for deprecation warning.
+        """
         if token is None or token is True:
             token = HfFolder.get_token()
             if token is None:
