@@ -25,6 +25,7 @@ from requests.exceptions import HTTPError, JSONDecodeError
 
 from .constants import (
     ENDPOINT,
+    ENDPOINT_DOMAIN,
     REPO_TYPES,
     REPO_TYPES_MAPPING,
     REPO_TYPES_URL_PREFIXES,
@@ -95,15 +96,15 @@ def repo_type_and_id_from_hf_id(hf_id: str):
             - <namespace>/<repo_id>
             - <repo_id>
     """
-    is_hf_url = "huggingface.co" in hf_id and "@" not in hf_id
+    is_hf_url = ENDPOINT_DOMAIN in hf_id and "@" not in hf_id
     url_segments = hf_id.split("/")
     is_hf_id = len(url_segments) <= 3
 
     if is_hf_url:
         namespace, repo_id = url_segments[-2:]
-        if namespace == "huggingface.co":
+        if namespace == ENDPOINT_DOMAIN:
             namespace = None
-        if len(url_segments) > 2 and "huggingface.co" not in url_segments[-3]:
+        if len(url_segments) > 2 and ENDPOINT_DOMAIN not in url_segments[-3]:
             repo_type = url_segments[-3]
         else:
             repo_type = None

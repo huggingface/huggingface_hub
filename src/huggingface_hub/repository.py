@@ -8,10 +8,15 @@ import time
 from contextlib import contextmanager
 from pathlib import Path
 from typing import Callable, Dict, Iterator, List, Optional, Tuple, Union
+from urllib.parse import urlparse
 
 from tqdm.auto import tqdm
 
-from huggingface_hub.constants import REPO_TYPES_URL_PREFIXES, REPOCARD_NAME
+from huggingface_hub.constants import (
+    ENDPOINT_DOMAIN,
+    REPO_TYPES_URL_PREFIXES,
+    REPOCARD_NAME,
+)
 from huggingface_hub.repocard import metadata_load, metadata_save
 
 from .hf_api import ENDPOINT, HfApi, HfFolder, repo_type_and_id_from_hf_id
@@ -633,7 +638,7 @@ class Repository:
             )
         api = HfApi()
 
-        if "huggingface.co" in repo_url or (
+        if ENDPOINT_DOMAIN in repo_url or (
             "http" not in repo_url and len(repo_url.split("/")) <= 2
         ):
             repo_type, namespace, repo_id = repo_type_and_id_from_hf_id(repo_url)
@@ -655,7 +660,8 @@ class Repository:
                     repo_id = f"{namespace}/{repo_id}"
                 repo_url += repo_id
 
-                repo_url = repo_url.replace("https://", f"https://user:{token}@")
+                scheme = urlparse(repo_url).scheme
+                repo_url = repo_url.replace(f"{scheme}://", f"{scheme}://user:{token}@")
 
                 if namespace == user or namespace in valid_organisations:
                     api.create_repo(
@@ -671,7 +677,7 @@ class Repository:
                 repo_url += repo_id
 
         # For error messages, it's cleaner to show the repo url without the token.
-        clean_repo_url = re.sub(r"https://.*@", "https://", repo_url)
+        clean_repo_url = re.sub(r"(https?)://.*@", r"\1://", repo_url)
         try:
             subprocess.run(
                 "git lfs install".split(),
