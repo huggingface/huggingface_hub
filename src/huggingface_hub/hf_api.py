@@ -1194,7 +1194,7 @@ class HfApi:
         revision: Optional[str] = None,
         token: Optional[str] = None,
         timeout: Optional[float] = None,
-    ) -> DatasetInfo:
+    ) -> SpaceInfo:
         """
         Get info on one specific Space on huggingface.co
 
@@ -1213,16 +1213,43 @@ class HfApi:
         r.raise_for_status()
         d = r.json()
         return SpaceInfo(**d)
+    
+    def repo_info(
+        self,
+        repo_id: str,
+        revision: Optional[str] = None,
+        repo_type: Optional[str] = None,
+        token: Optional[str] = None,
+        timeout: Optional[float] = None,
+    ) -> Union[ModelInfo, DatasetInfo, SpaceInfo]:
+        """
+        Get the info object for a given repo of a given type.
+        """
+        if repo_type is None or repo_type == "model":
+            return self.model_info(
+                repo_id, revision=revision, token=token, timeout=timeout
+            )
+        elif repo_type == "dataset":
+            return self.dataset_info(
+                repo_id, revision=revision, token=token, timeout=timeout
+            )
+        elif repo_type == "space":
+            return self.space_info(
+                repo_id, revision=revision, token=token, timeout=timeout
+            )
+        else:
+            raise ValueError("Unsupported repo type.")
+
 
     @_deprecate_positional_args
     def list_repo_files(
-            self,
-            repo_id: str,
-            *,
-            revision: Optional[str] = None,
-            repo_type: Optional[str] = None,
-            token: Optional[str] = None,
-            timeout: Optional[float] = None,
+        self,
+        repo_id: str,
+        *,
+        revision: Optional[str] = None,
+        repo_type: Optional[str] = None,
+        token: Optional[str] = None,
+        timeout: Optional[float] = None,
     ) -> List[str]:
         """
         Get the list of files in a given repo.
@@ -1250,18 +1277,14 @@ class HfApi:
 
         - [1] https://huggingface.co/settings/tokens
         """
-        if repo_type is None or repo_type == "model":
-            info = self.model_info(
-                repo_id=repo_id, revision=revision, token=token, timeout=timeout
-            )
-        elif repo_type == "dataset":
-            info = self.dataset_info(
-                repo_id=repo_id, revision=revision, token=token, timeout=timeout
-            )
-        else:
-            raise ValueError("Spaces are not available yet.")
-
-        return [f.rfilename for f in info.siblings]
+        repo_info = self.repo_info(
+            repo_id,
+            revision=revision,
+            repo_type=repo_type,
+            token=token,
+            timeout=timeout,
+        )
+        return [f.rfilename for f in repo_info.siblings]
 
     @_deprecate_positional_args
     def create_repo(
