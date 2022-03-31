@@ -9,6 +9,7 @@
     title: Searching the Hub
   - local: how-to-inference
     title: How to programmatically access the Inference API
+  title: "Guides"
 - sections:
     - local: package_reference/repository
       title: Managing local and online repositories
