@@ -89,13 +89,13 @@ jobs:
         pip install --upgrade pip
         pip install .[testing,tensorflow]
 
-    - run: pytest -sv ./tests/test_keras*
+    - run: pytest -Werror::FutureWarning -sv ./tests/test_keras*
   
   build_fastai:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        python-version: ["3.7", "3.10"]
+        python-version: ["3.7", "3.9"]
 
     steps:
     - uses: actions/checkout@v2
