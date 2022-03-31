@@ -95,7 +95,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        python-version: ["3.6", "3.9"]
+        python-version: ["3.7", "3.10"]
 
     steps:
     - uses: actions/checkout@v2
@@ -110,7 +110,7 @@ jobs:
         pip install --upgrade pip
         pip install .[testing,fastai]
 
-    - run: pytest -sv ./tests/test_fastai*
+    - run: pytest -Werror::FutureWarning -sv ./tests/test_fastai*
 
   tests_lfs:
     runs-on: ubuntu-latest
