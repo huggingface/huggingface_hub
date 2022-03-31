@@ -1142,55 +1142,6 @@ class HfApi:
         return ModelInfo(**d)
 
     @_deprecate_positional_args
-    def list_repo_files(
-        self,
-        repo_id: str,
-        *,
-        revision: Optional[str] = None,
-        repo_type: Optional[str] = None,
-        token: Optional[str] = None,
-        timeout: Optional[float] = None,
-    ) -> List[str]:
-        """
-        Get the list of files in a given repo.
-
-        Args:
-            repo_id (`str`):
-                A namespace (user or an organization) and a repo name separated
-                by a `/`.
-            revision (`str`, *optional*):
-                The revision of the model repository from which to get the
-                information.
-            repo_type (`str`, *optional*):
-                Set to `"dataset"` or `"space"` if uploading to a dataset or
-                space, `None` or `"model"` if uploading to a model. Default is
-                `None`.
-            token (`str`, *optional*):
-                An authentication token [1]_.
-            timeout (`float`, *optional*):
-                Whether to set a timeout for the request to the Hub.
-
-        Returns:
-            `List[str]`: the list of files in a given repository.
-
-        References:
-
-        - [1] https://huggingface.co/settings/tokens
-        """
-        if repo_type is None or repo_type == "model":
-            info = self.model_info(
-                repo_id=repo_id, revision=revision, token=token, timeout=timeout
-            )
-        elif repo_type == "dataset":
-            info = self.dataset_info(
-                repo_id=repo_id, revision=revision, token=token, timeout=timeout
-            )
-        else:
-            raise ValueError("Spaces are not available yet.")
-
-        return [f.rfilename for f in info.siblings]
-
-    @_deprecate_positional_args
     def dataset_info(
         self,
         repo_id: str,
@@ -1237,6 +1188,55 @@ class HfApi:
         r.raise_for_status()
         d = r.json()
         return DatasetInfo(**d)
+
+    @_deprecate_positional_args
+    def list_repo_files(
+            self,
+            repo_id: str,
+            *,
+            revision: Optional[str] = None,
+            repo_type: Optional[str] = None,
+            token: Optional[str] = None,
+            timeout: Optional[float] = None,
+    ) -> List[str]:
+        """
+        Get the list of files in a given repo.
+
+        Args:
+            repo_id (`str`):
+                A namespace (user or an organization) and a repo name separated
+                by a `/`.
+            revision (`str`, *optional*):
+                The revision of the model repository from which to get the
+                information.
+            repo_type (`str`, *optional*):
+                Set to `"dataset"` or `"space"` if uploading to a dataset or
+                space, `None` or `"model"` if uploading to a model. Default is
+                `None`.
+            token (`str`, *optional*):
+                An authentication token [1]_.
+            timeout (`float`, *optional*):
+                Whether to set a timeout for the request to the Hub.
+
+        Returns:
+            `List[str]`: the list of files in a given repository.
+
+        References:
+
+        - [1] https://huggingface.co/settings/tokens
+        """
+        if repo_type is None or repo_type == "model":
+            info = self.model_info(
+                repo_id=repo_id, revision=revision, token=token, timeout=timeout
+            )
+        elif repo_type == "dataset":
+            info = self.dataset_info(
+                repo_id=repo_id, revision=revision, token=token, timeout=timeout
+            )
+        else:
+            raise ValueError("Spaces are not available yet.")
+
+        return [f.rfilename for f in info.siblings]
 
     @_deprecate_positional_args
     def create_repo(
