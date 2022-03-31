@@ -1060,7 +1060,7 @@ class HfApi:
             repo_id: A namespace (user or an organization) and a repo name
                 seperated by a ``/``.
 
-                .. versionadded: 0.4.0
+                .. versionadded: 0.5
 
             token: An authentication token [1]_.
 
@@ -1191,7 +1191,7 @@ class HfApi:
             repo_id: A namespace (user or an organization) and a repo name
                 seperated by a ``/``.
 
-                .. versionadded: 0.4.0
+                .. versionadded: 0.5
 
             token: An authentication token [1]_.
 
@@ -1289,7 +1289,7 @@ class HfApi:
             repo_id: A namespace (user or an organization) and a repo name
                 seperated by a ``/``.
 
-                .. versionadded: 0.4.0
+                .. versionadded: 0.5
 
             private: Whether the model repo should be private.
 
