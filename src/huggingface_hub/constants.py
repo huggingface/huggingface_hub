@@ -24,10 +24,9 @@ _staging_mode = (
     os.environ.get("HUGGINGFACE_CO_STAGING", "NO").upper() in ENV_VARS_TRUE_VALUES
 )
 
-ENDPOINT = (
+ENDPOINT = os.getenv("HF_HUB_URL") or (
     "https://moon-staging.huggingface.co" if _staging_mode else "https://huggingface.co"
 )
-
 
 HUGGINGFACE_CO_URL_TEMPLATE = ENDPOINT + "/{repo_id}/resolve/{revision}/{filename}"
 

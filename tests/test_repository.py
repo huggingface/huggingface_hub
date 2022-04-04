@@ -32,7 +32,7 @@ from huggingface_hub.repository import (
 )
 from huggingface_hub.utils import logging
 
-from .testing_constants import ENDPOINT_STAGING, PASS, USER
+from .testing_constants import ENDPOINT_STAGING, TOKEN, USER
 from .testing_utils import (
     retry_endpoint,
     set_write_permission_and_retry,
@@ -69,7 +69,8 @@ class RepositoryTest(RepositoryCommonTest):
         """
         Share this valid token in all tests below.
         """
-        cls._token = cls._api.login(username=USER, password=PASS)
+        cls._api.set_access_token(TOKEN)
+        cls._token = TOKEN
 
     @retry_endpoint
     def setUp(self):
@@ -1328,7 +1329,8 @@ class RepositoryOfflineTest(RepositoryCommonTest):
 
     def test_repo_user(self):
         api = HfApi(endpoint=ENDPOINT_STAGING)
-        token = api.login(USER, PASS)
+        token = TOKEN
+        api.set_access_token(TOKEN)
 
         repo = Repository(WORKING_REPO_DIR, use_auth_token=token)
         user = api.whoami(token)
@@ -1355,7 +1357,8 @@ class RepositoryOfflineTest(RepositoryCommonTest):
 
     def test_repo_passed_user(self):
         api = HfApi(endpoint=ENDPOINT_STAGING)
-        token = api.login(USER, PASS)
+        token = TOKEN
+        api.set_access_token(TOKEN)
         repo = Repository(
             WORKING_REPO_DIR,
             git_user="RANDOM_USER",
@@ -1461,7 +1464,8 @@ class RepositoryDatasetTest(RepositoryCommonTest):
         """
         Share this valid token in all tests below.
         """
-        cls._token = cls._api.login(username=USER, password=PASS)
+        cls._token = TOKEN
+        cls._api.set_access_token(TOKEN)
 
     def setUp(self):
         self.REPO_NAME = repo_name()

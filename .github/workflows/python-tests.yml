@@ -22,7 +22,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        python-version: ["3.6", "3.9"]
+        python-version: ["3.7", "3.10"]
         test_repository: ["Repository only", "Everything else"]
 
     steps:
@@ -42,17 +42,17 @@ jobs:
       - run: |
           if [[ "${{ matrix.test_repository }}" == "Repository only" ]]
           then
-            pytest --log-cli-level=INFO -sv ./tests/test_repository.py -k RepositoryTest
+            pytest -Werror::FutureWarning --log-cli-level=INFO -sv ./tests/test_repository.py -k RepositoryTest
           
           else
-            pytest --log-cli-level=INFO -sv ./tests/ -k 'not RepositoryTest'
+            pytest -Werror::FutureWarning --log-cli-level=INFO -sv ./tests/ -k 'not RepositoryTest'
           fi
 
   build_pytorch:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        python-version: ["3.6", "3.9"]
+        python-version: ["3.7", "3.10"]
 
     steps:
     - uses: actions/checkout@v2
@@ -67,13 +67,13 @@ jobs:
         pip install --upgrade pip
         pip install .[testing,torch]
 
-    - run: pytest -sv ./tests/test_hubmixin*
+    - run: pytest -Werror::FutureWarning -sv ./tests/test_hubmixin*
 
   build_tensorflow:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        python-version: ["3.6", "3.9"]
+        python-version: ["3.7", "3.10"]
 
     steps:
     - uses: actions/checkout@v2
@@ -89,7 +89,7 @@ jobs:
         pip install --upgrade pip
         pip install .[testing,tensorflow]
 
-    - run: pytest -sv ./tests/test_keras*
+    - run: pytest -Werror::FutureWarning -sv ./tests/test_keras*
 
   tests_lfs:
     runs-on: ubuntu-latest
@@ -100,7 +100,7 @@ jobs:
     - name: Set up Python
       uses: actions/setup-python@v2
       with:
-        python-version: 3.9
+        python-version: "3.10"
 
     - run: |
         git config --global user.email "ci@dummy.com"
@@ -111,4 +111,4 @@ jobs:
         pip install --upgrade pip
         pip install .[testing]
 
-    - run: RUN_GIT_LFS_TESTS=1 pytest -sv ./tests/ -k "HfLargefilesTest"
+    - run: RUN_GIT_LFS_TESTS=1 pytest -Werror::FutureWarning -sv ./tests/ -k "HfLargefilesTest"

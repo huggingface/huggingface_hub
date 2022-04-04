@@ -13,7 +13,7 @@ def get_version() -> str:
 
 install_requires = [
     "filelock",
-    "requests",
+    "requests>=2.27",
     "tqdm",
     "pyyaml",
     "typing-extensions>=3.7.4.3",  # to be able to import TypeAlias
@@ -27,11 +27,7 @@ extras["torch"] = [
     "torch",
 ]
 
-extras["tensorflow"] = [
-    "tensorflow",
-    "pydot",
-    "graphviz"
-]
+extras["tensorflow"] = ["tensorflow", "pydot", "graphviz"]
 
 extras["testing"] = [
     "pytest",
@@ -69,7 +65,7 @@ setup(
             "huggingface-cli=huggingface_hub.commands.huggingface_cli:main"
         ]
     },
-    python_requires=">=3.6.0",
+    python_requires=">=3.7.0",
     install_requires=install_requires,
     classifiers=[
         "Intended Audience :: Developers",
