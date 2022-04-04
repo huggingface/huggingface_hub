@@ -1,4 +1,4 @@
-{% set name = "huggingface_hub" %}  # noqa
+{% set name = "huggingface_hub" %}
 
 package:
   name: "{{ name|lower }}"
