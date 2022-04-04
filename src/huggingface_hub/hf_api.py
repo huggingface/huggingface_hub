@@ -13,6 +13,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 import os
+import re
 import subprocess
 import sys
 import warnings
@@ -80,7 +81,7 @@ def _validate_repo_id_deprecation(repo_id, name, organization):
     return name, organization
 
 
-def repo_type_and_id_from_hf_id(hf_id: str):
+def repo_type_and_id_from_hf_id(hf_id: str, hub_url: Optional[str] = None):
     """
     Returns the repo type and ID from a huggingface.co URL linking to a
     repository
@@ -94,16 +95,19 @@ def repo_type_and_id_from_hf_id(hf_id: str):
             - <repo_type>/<namespace>/<repo_id>
             - <namespace>/<repo_id>
             - <repo_id>
+        hub_url (`str`, *optional*):
+            The URL of the HuggingFace Hub, defaults to https://huggingface.co
     """
-    is_hf_url = "huggingface.co" in hf_id and "@" not in hf_id
+    hub_url = re.sub(r"https?://", "", hub_url if hub_url is not None else ENDPOINT)
+    is_hf_url = hub_url in hf_id and "@" not in hf_id
     url_segments = hf_id.split("/")
     is_hf_id = len(url_segments) <= 3
 
     if is_hf_url:
         namespace, repo_id = url_segments[-2:]
-        if namespace == "huggingface.co":
+        if namespace == hub_url:
             namespace = None
-        if len(url_segments) > 2 and "huggingface.co" not in url_segments[-3]:
+        if len(url_segments) > 2 and hub_url not in url_segments[-3]:
             repo_type = url_segments[-3]
         else:
             repo_type = None
