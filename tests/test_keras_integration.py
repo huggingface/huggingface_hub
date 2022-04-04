@@ -397,7 +397,7 @@ class HubKerasSequentialTest(HubMixingTestKeras):
             "model_2/saved_model.pb" in [f.rfilename for f in model_info.siblings]
         )
 
-        self._api.delete_repo(name=f"{REPO_NAME}", token=self._token)
+        self._api.delete_repo(repo_id=f"{REPO_NAME}", token=self._token)
 
     @retry_endpoint
     def test_push_to_hub_multiple_models_args(self):
@@ -419,7 +419,7 @@ class HubKerasSequentialTest(HubMixingTestKeras):
 
         from_pretrained_keras(f"{WORKING_REPO_DIR}/{REPO_NAME}")
         self.assertRaises(ValueError, msg="Exception encountered when calling layer*")
-        self._api.delete_repo(name=f"{REPO_NAME}", token=self._token)
+        self._api.delete_repo(repo_id=f"{REPO_NAME}", token=self._token)
 
     @retry_endpoint
     def test_push_to_hub_model_card_build(self):
@@ -439,7 +439,7 @@ class HubKerasSequentialTest(HubMixingTestKeras):
         )
         self.assertTrue("README.md" in [f.rfilename for f in model_info.siblings])
         self.assertTrue("model.png" in [f.rfilename for f in model_info.siblings])
-        self._api.delete_repo(name=f"{REPO_NAME}", token=self._token)
+        self._api.delete_repo(repo_id=f"{REPO_NAME}", token=self._token)
 
     @retry_endpoint
     def test_push_to_hub_model_card_plot_false(self):
@@ -459,50 +459,7 @@ class HubKerasSequentialTest(HubMixingTestKeras):
             f"{USER}/{REPO_NAME}",
         )
         self.assertFalse("model.png" in [f.rfilename for f in model_info.siblings])
-        self._api.delete_repo(name=f"{REPO_NAME}", token=self._token)
-
-    @retry_endpoint
-    def test_override_tensorboard(self):
-        REPO_NAME = repo_name("PUSH_TO_HUB")
-        with tempfile.TemporaryDirectory() as tmpdirname:
-            os.makedirs(f"{tmpdirname}/tb_log_dir")
-            with open(f"{tmpdirname}/tb_log_dir/tensorboard.txt", "w") as fp:
-                fp.write("Keras FTW")
-            model = self.model_init()
-            model.build((None, 2))
-            push_to_hub_keras(
-                model,
-                repo_path_or_name=f"{WORKING_REPO_DIR}/{REPO_NAME}",
-                log_dir=f"{tmpdirname}/tb_log_dir",
-                api_endpoint=ENDPOINT_STAGING,
-                use_auth_token=self._token,
-                git_user="ci",
-                git_email="ci@dummy.com",
-            )
-            os.makedirs(f"{tmpdirname}/tb_log_dir2")
-            with open(f"{tmpdirname}/tb_log_dir2/override.txt", "w") as fp:
-                fp.write("Keras FTW")
-            push_to_hub_keras(
-                model,
-                repo_path_or_name=f"{WORKING_REPO_DIR}/{REPO_NAME}",
-                log_dir=f"{tmpdirname}/tb_log_dir2",
-                api_endpoint=ENDPOINT_STAGING,
-                use_auth_token=self._token,
-                git_user="ci",
-                git_email="ci@dummy.com",
-            )
-
-            model_info = HfApi(endpoint=ENDPOINT_STAGING).model_info(
-                f"{USER}/{REPO_NAME}",
-            )
-            self.assertTrue(
-                "logs/override.txt" in [f.rfilename for f in model_info.siblings]
-            )
-            self.assertFalse(
-                "logs/tensorboard.txt" in [f.rfilename for f in model_info.siblings]
-            )
-
-            self._api.delete_repo(repo_id=f"{REPO_NAME}", token=self._token)
+        self._api.delete_repo(repo_id=f"{REPO_NAME}", token=self._token)
 
     @retry_endpoint
     def test_push_to_hub_model_kwargs(self):
