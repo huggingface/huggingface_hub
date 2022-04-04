@@ -13,7 +13,7 @@ def get_version() -> str:
 
 install_requires = [
     "filelock",
-    "requests>=2.27",
+    "requests",
     "tqdm",
     "pyyaml",
     "typing-extensions>=3.7.4.3",  # to be able to import TypeAlias

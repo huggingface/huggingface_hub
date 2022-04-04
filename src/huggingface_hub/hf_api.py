@@ -22,7 +22,7 @@ from os.path import expanduser
 from typing import IO, Dict, Iterable, List, Optional, Tuple, Union
 
 import requests
-from requests.exceptions import HTTPError, JSONDecodeError
+from requests.exceptions import HTTPError
 
 from .constants import (
     ENDPOINT,
@@ -33,6 +33,7 @@ from .constants import (
 )
 from .utils import logging
 from .utils._deprecation import _deprecate_positional_args
+from .utils._fixes import JSONDecodeError
 from .utils.endpoint_helpers import (
     AttributeDictionary,
     DatasetFilter,

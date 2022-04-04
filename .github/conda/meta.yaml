@@ -1,4 +1,4 @@
-{% set name = "huggingface_hub" %}
+{% set name = "huggingface_hub" %}  # noqa
 
 package:
   name: "{{ name|lower }}"
@@ -15,7 +15,7 @@ requirements:
     - python
     - pip
     - filelock
-    - requests <=2.23
+    - requests
     - tqdm
     - typing-extensions
     - packaging
@@ -24,7 +24,7 @@ requirements:
     - python
     - pip
     - filelock
-    - requests <=2.23
+    - requests
     - tqdm
     - typing-extensions
     - packaging
