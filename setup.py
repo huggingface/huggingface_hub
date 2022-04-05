@@ -8,10 +8,10 @@ Check list to release a new version.
    git pull
    ```
 
-2. Checkout a new branch with the version thar you'd like to release: v<VERSION>-release,
+2. Checkout a new branch with the version that you'd like to release: v<VERSION>-release,
    for example `v0.5.0-release` for a minor version and `v0.5.1-release` for a patch.
 
-3. Update the __version__ variable in the `src/huggingface_hub/__init__.py file to point 
+3. Update the `__version__` variable in the `src/huggingface_hub/__init__.py` file to point 
    to the version you're releasing:
    ```
    __version__ = "<VERSION>"
@@ -38,7 +38,7 @@ Check list to release a new version.
 7. Verify that the docs have been built correctly. You can check that on the following link:
    https://huggingface.co/docs/huggingface_hub/v<VERSION>
    
-8. Checkout main once again to update the version in the __init__.py file:
+8. Checkout main once again to update the version in the `__init__.py` file:
    ```
    git checkout main
    ```
