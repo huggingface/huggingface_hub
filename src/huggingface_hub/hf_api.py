@@ -467,7 +467,7 @@ def erase_from_credential_store(username=None):
 class HfApi:
     def __init__(self, endpoint=None):
         self.endpoint = (
-            endpoint if endpoint is not None else os.getenv("HF_ENDPOINT", ENDPOINT)
+            endpoint if endpoint is not None else ENDPOINT
         )
 
     def login(self, username: str, password: str) -> str:
