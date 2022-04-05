@@ -24,7 +24,7 @@ _staging_mode = (
     os.environ.get("HUGGINGFACE_CO_STAGING", "NO").upper() in ENV_VARS_TRUE_VALUES
 )
 
-ENDPOINT = os.getenv("HF_HUB_URL") or (
+ENDPOINT = os.getenv("HF_ENDPOINT") or (
     "https://moon-staging.huggingface.co" if _staging_mode else "https://huggingface.co"
 )
 
