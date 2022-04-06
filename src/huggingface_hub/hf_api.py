@@ -58,6 +58,13 @@ logger = logging.get_logger(__name__)
 # TODO: remove after deprecation period is over (v0.7)
 def _validate_repo_id_deprecation(repo_id, name, organization):
     """Returns (name, organization) from the input."""
+    if repo_id and not name and organization:
+        # this means the user had passed name as positional, now mapped to
+        # repo_id and is passing organization as well. This wouldn't be an
+        # issue if they pass everything as kwarg. So we switch the parameters
+        # here:
+        repo_id, name = name, repo_id
+
     if not (repo_id or name):
         raise ValueError(
             "No name provided. Please pass `repo_id` with a valid repository name."
