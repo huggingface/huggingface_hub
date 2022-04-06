@@ -1184,14 +1184,7 @@ class HfApi:
         r = requests.get(
             path, headers=headers, timeout=timeout, params=status_query_param
         )
-        try:
-            r.raise_for_status()
-        except requests.exceptions.RequestException as e:
-            try:
-                message = e.response.json()["error"]
-            except JSONDecodeError:
-                message = e.response.text
-            raise type(e)(message) from e
+        r.raise_for_status()
         d = r.json()
         return ModelInfo(**d)
 
