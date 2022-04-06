@@ -227,6 +227,14 @@ def test_validate_repo_id_deprecation():
             repo_id="repo_id", name="name", organization="organization"
         )
 
+    # regression test for
+    # https://github.com/huggingface/huggingface_hub/issues/821
+    with pytest.warns(FutureWarning, match="input arguments are deprecated"):
+        name, org = _validate_repo_id_deprecation(
+            repo_id="repo", name=None, organization="org"
+        )
+        assert name == "repo" and org == "org"
+
 
 @retry_endpoint
 def test_name_org_deprecation_warning():
