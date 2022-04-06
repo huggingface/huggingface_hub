@@ -59,7 +59,7 @@ logger = logging.get_logger(__name__)
 def _validate_repo_id_deprecation(repo_id, name, organization):
     """Returns (name, organization) from the input."""
     if repo_id and not name and organization:
-        # this means the user pad passed name as positional, now mapped to
+        # this means the user had passed name as positional, now mapped to
         # repo_id and is passing organization as well. This wouldn't be an
         # issue if they pass everything as kwarg. So we switch the parameters
         # here:
