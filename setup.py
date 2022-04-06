@@ -8,8 +8,8 @@ Check list to release a new version.
    git pull
    ```
 
-2. Checkout a new branch with the version that you'd like to release: v<VERSION>-release,
-   for example `v0.5.0-release` for a minor version and `v0.5.1-release` for a patch.
+2. Checkout a new branch with the version that you'd like to release: v<MINOR-VERSION>-release,
+   for example `v0.5-release`. All patches will be done to that same branch.
 
 3. Update the `__version__` variable in the `src/huggingface_hub/__init__.py` file to point 
    to the version you're releasing:
@@ -30,9 +30,11 @@ Check list to release a new version.
    pip install dist/huggingface_hub-<VERSION>-py3-none-any.whl
    ```
    
-6. Push the branch:
+6. Commit, tag, and push the branch:
    ```
-   git push -u origin v<VERSION>-release
+   git commit -am "Release: v<VERSION>"
+   git tag v<VERSION> -m "Adds tag v<VERSION> for pypi and conda"
+   git push -u --tags origin v<MINOR-VERSION>-release
    ```
 
 7. Verify that the docs have been built correctly. You can check that on the following link:
