@@ -129,9 +129,7 @@ class HubMixingTest(HubMixingCommonTest):
             config={"num": 7, "act": "gelu_fast"},
         )
 
-        model_info = self._api.model_info(
-            f"{USER}/{REPO_NAME}",
-        )
+        model_info = self._api.model_info(f"{USER}/{REPO_NAME}", token=self._token)
         self.assertEqual(model_info.modelId, f"{USER}/{REPO_NAME}")
 
         self._api.delete_repo(repo_id=f"{REPO_NAME}", token=self._token)
