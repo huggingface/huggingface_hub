@@ -1205,7 +1205,7 @@ class HfApi:
         timeout: Optional[float] = None,
     ) -> DatasetInfo:
         """
-        Get info on one specific dataset on huggingface.co
+        Get info on one specific dataset on huggingface.co.
 
         Dataset can be private if you pass an acceptable token.
 
@@ -1248,7 +1248,7 @@ class HfApi:
         timeout: Optional[float] = None,
     ) -> SpaceInfo:
         """
-        Get info on one specific Space on huggingface.co
+        Get info on one specific Space on huggingface.co.
 
         Space can be private if you pass an acceptable token.
 
