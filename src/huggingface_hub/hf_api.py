@@ -168,23 +168,41 @@ class RepoFile:
 class ModelInfo:
     """
     Info about a model accessible from huggingface.co
+
+    Args:
+        modelId (`str`, *optional*):
+            ID of model repository.
+        sha (`str`, *optional*):
+            repo sha at this particular revision
+        lastModified (`str`, *optional*):
+            date of last commit to repo
+        tags (`Listr[str]`, *optional*):
+            List of tags.
+        pipeline_tag (`str`, *optional*):
+            Pipeline tag to identify the correct widget.
+        siblings (`List[Dict]`, *optional*):
+            list of files that constitute the Space
+        private (`bool`, *optional*):
+            is the repo private
+        author (`str`, *optional*):
+            repo author
+        config (`Dict`, *optional*):
+            Model configuration information
     """
 
     @_deprecate_positional_args
     def __init__(
         self,
         *,
-        modelId: Optional[str] = None,  # id of model
-        sha: Optional[str] = None,  # commit sha at the specified revision
-        lastModified: Optional[str] = None,  # date of last commit to repo
+        modelId: Optional[str] = None,
+        sha: Optional[str] = None,
+        lastModified: Optional[str] = None,
         tags: List[str] = [],
         pipeline_tag: Optional[str] = None,
-        siblings: Optional[
-            List[Dict]
-        ] = None,  # list of files that constitute the model
+        siblings: Optional[List[Dict]] = None,
         private: Optional[bool] = None,
         author: Optional[str] = None,
-        config: Optional[Dict] = None,  # information about model configuration
+        config: Optional[Dict] = None,
         **kwargs,
     ):
         self.modelId = modelId
@@ -217,19 +235,39 @@ class ModelInfo:
 class DatasetInfo:
     """
     Info about a dataset accessible from huggingface.co
+
+    Args:
+        id (`str`, *optional*):
+            ID of dataset repository.
+        sha (`str`, *optional*):
+            repo sha at this particular revision
+        lastModified (`str`, *optional*):
+            date of last commit to repo
+        tags (`Listr[str]`, *optional*):
+            List of tags.
+        siblings (`List[Dict]`, *optional*):
+            list of files that constitute the Space
+        private (`bool`, *optional*):
+            is the repo private
+        author (`str`, *optional*):
+            repo author
+        description (`str`, *optional*):
+            Description of the dataset
+        citation (`str`, *optional*):
+            Dataset citation
+        cardData (`Dict`, *optional*):
+            Metadata of the model card as a dictionary.
     """
 
     @_deprecate_positional_args
     def __init__(
         self,
         *,
-        id: Optional[str] = None,  # id of dataset
-        sha: Optional[str] = None,  # commit sha at the specified revision
-        lastModified: Optional[str] = None,  # date of last commit to repo
-        tags: List[str] = [],  # tags of the dataset
-        siblings: Optional[
-            List[Dict]
-        ] = None,  # list of files that constitute the dataset
+        id: Optional[str] = None,
+        sha: Optional[str] = None,
+        lastModified: Optional[str] = None,
+        tags: List[str] = [],
+        siblings: Optional[List[Dict]] = None,
         private: Optional[bool] = None,
         author: Optional[str] = None,
         description: Optional[str] = None,
@@ -1124,7 +1162,7 @@ class HfApi:
                 The revision of the model repository from which to get the
                 information.
             token (`str`, *optional*):
-                An authentication token [1]_.
+                An authentication token (See https://huggingface.co/settings/token)
             timeout (`float`, *optional*):
                 Whether to set a timeout for the request to the Hub.
             securityStatus (`bool`, *optional*):
@@ -1132,14 +1170,9 @@ class HfApi:
                 repository as well.
 
         Returns:
-            [`ModelInfo`]: The model repository information.
-
-        References:
-
-        - [1] https://huggingface.co/settings/tokens
+            [`huggingface_hub.hf_api.ModelInfo`]: The model repository information.
         """
-        if token is None:
-            token = HfFolder.get_token()
+        token, name = self._validate_or_retrieve_token(token)
 
         path = (
             f"{self.endpoint}/api/models/{repo_id}"
@@ -1151,7 +1184,14 @@ class HfApi:
         r = requests.get(
             path, headers=headers, timeout=timeout, params=status_query_param
         )
-        r.raise_for_status()
+        try:
+            r.raise_for_status()
+        except requests.exceptions.RequestException as e:
+            try:
+                message = e.response.json()["error"]
+            except JSONDecodeError:
+                message = e.response.text
+            raise type(e)(message) from e
         d = r.json()
         return ModelInfo(**d)
 
@@ -1177,16 +1217,12 @@ class HfApi:
                 The revision of the dataset repository from which to get the
                 information.
             token (`str`, *optional*):
-                An authentication token [1]_.
+                An authentication token (See https://huggingface.co/settings/token)
             timeout (`float`, *optional*):
                 Whether to set a timeout for the request to the Hub.
 
         Returns:
             [`DatasetInfo`]: The dataset repository information.
-
-        References:
-
-        - [1] https://huggingface.co/settings/tokens
         """
         if token is None:
             token = HfFolder.get_token()
@@ -1224,16 +1260,12 @@ class HfApi:
                 The revision of the space repository from which to get the
                 information.
             token (`str`, *optional*):
-                An authentication token [1]_.
+                An authentication token (See https://huggingface.co/settings/token)
             timeout (`float`, *optional*):
                 Whether to set a timeout for the request to the Hub.
 
         Returns:
             [`SpaceInfo`]: The space repository information.
-
-        References:
-
-        - [1] https://huggingface.co/settings/tokens
         """
         if token is None:
             token = HfFolder.get_token()
@@ -1270,17 +1302,13 @@ class HfApi:
                 The revision of the repository from which to get the
                 information.
             token (`str`, *optional*):
-                An authentication token [1]_.
+                An authentication token (See https://huggingface.co/settings/token)
             timeout (`float`, *optional*):
                 Whether to set a timeout for the request to the Hub.
 
         Returns:
             `Union[SpaceInfo, DatasetInfo, ModelInfo]`: The repository
             information.
-
-        References:
-
-        - [1] https://huggingface.co/settings/tokens
         """
         if repo_type is None or repo_type == "model":
             return self.model_info(
@@ -1322,16 +1350,12 @@ class HfApi:
                 space, `None` or `"model"` if uploading to a model. Default is
                 `None`.
             token (`str`, *optional*):
-                An authentication token [1]_.
+                An authentication token (See https://huggingface.co/settings/token)
             timeout (`float`, *optional*):
                 Whether to set a timeout for the request to the Hub.
 
         Returns:
             `List[str]`: the list of files in a given repository.
-
-        References:
-
-        - [1] https://huggingface.co/settings/tokens
         """
         repo_info = self.repo_info(
             repo_id,
@@ -1369,7 +1393,7 @@ class HfApi:
                 </Tip>
 
             token (`str`, *optional*):
-                An authentication token [1]_.
+                An authentication token (See https://huggingface.co/settings/token)
             private (`bool`, *optional*):
                 Whether the model repo should be private.
             repo_type (`str`, *optional*):
@@ -1384,10 +1408,6 @@ class HfApi:
 
         Returns:
             `str`: URL to the newly created repo.
-
-        References:
-
-        - [1] https://huggingface.co/settings/tokens
         """
         name, organization = _validate_repo_id_deprecation(repo_id, name, organization)
 
@@ -1501,14 +1521,10 @@ class HfApi:
                 </Tip>
 
             token (`str`, *optional*):
-                An authentication token [1]_.
+                An authentication token (See https://huggingface.co/settings/token)
             repo_type (`str`, *optional*):
                 Set to `"dataset"` or `"space"` if uploading to a dataset or
                 space, `None` or `"model"` if uploading to a model.
-
-        References:
-
-        - [1] https://huggingface.co/settings/tokens
         """
         name, organization = _validate_repo_id_deprecation(repo_id, name, organization)
 
@@ -1598,7 +1614,7 @@ class HfApi:
             private (`bool`, *optional*, defaults to `False`):
                 Whether the model repo should be private.
             token (`str`, *optional*):
-                An authentication token [1]_.
+                An authentication token (See https://huggingface.co/settings/token)
             repo_type (`str`, *optional*):
                 Set to `"dataset"` or `"space"` if uploading to a dataset or
                 space, `None` or `"model"` if uploading to a model. Default is
@@ -1606,10 +1622,6 @@ class HfApi:
 
         Returns:
             The HTTP response in json.
-
-        References:
-
-        - [1] https://huggingface.co/settings/tokens
         """
         if repo_type not in REPO_TYPES:
             raise ValueError("Invalid repo type")
@@ -1669,11 +1681,8 @@ class HfApi:
                 space, `None` or `"model"` if uploading to a model. Default is
                 `None`.
             token (`str`, *optional*):
-                An authentication token [1]_.
+                An authentication token (See https://huggingface.co/settings/token)
 
-        References:
-
-        - [1] https://huggingface.co/settings/tokens
         """
 
         token, name = self._validate_or_retrieve_token(token)
