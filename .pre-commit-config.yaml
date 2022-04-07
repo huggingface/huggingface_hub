@@ -3,6 +3,7 @@ repos:
     rev: v4.1.0
     hooks:
     -   id: check-yaml
+        exclude: .github/conda/meta.yaml
     -   id: end-of-file-fixer
     -   id: trailing-whitespace
     -   id: check-case-conflict
