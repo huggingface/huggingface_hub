@@ -227,6 +227,14 @@ def test_validate_repo_id_deprecation():
             repo_id="repo_id", name="name", organization="organization"
         )
 
+    # regression test for
+    # https://github.com/huggingface/huggingface_hub/issues/821
+    with pytest.warns(FutureWarning, match="input arguments are deprecated"):
+        name, org = _validate_repo_id_deprecation(
+            repo_id="repo", name=None, organization="org"
+        )
+        assert name == "repo" and org == "org"
+
 
 @retry_endpoint
 def test_name_org_deprecation_warning():
@@ -1128,6 +1136,10 @@ class HfFolderTest(unittest.TestCase):
         # ^^ not an error, we test that the
         # second call does not fail.
         self.assertEqual(HfFolder.get_token(), None)
+        # test TOKEN in env
+        self.assertEqual(HfFolder.get_token(), None)
+        with unittest.mock.patch.dict(os.environ, {"HUGGING_FACE_HUB_TOKEN": token}):
+            self.assertEqual(HfFolder.get_token(), token)
 
 
 @require_git_lfs
@@ -1277,4 +1289,7 @@ class HfApiMiscTest(unittest.TestCase):
         }
 
         for key, value in possible_values.items():
-            self.assertEqual(repo_type_and_id_from_hf_id(key), tuple(value))
+            self.assertEqual(
+                repo_type_and_id_from_hf_id(key, hub_url="https://huggingface.co"),
+                tuple(value),
+            )

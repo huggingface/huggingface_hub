@@ -13,6 +13,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 import os
+import re
 import subprocess
 import sys
 import warnings
@@ -21,7 +22,7 @@ from os.path import expanduser
 from typing import IO, Dict, Iterable, List, Optional, Tuple, Union
 
 import requests
-from requests.exceptions import HTTPError, JSONDecodeError
+from requests.exceptions import HTTPError
 
 from .constants import (
     ENDPOINT,
@@ -32,6 +33,7 @@ from .constants import (
 )
 from .utils import logging
 from .utils._deprecation import _deprecate_positional_args
+from .utils._fixes import JSONDecodeError
 from .utils.endpoint_helpers import (
     AttributeDictionary,
     DatasetFilter,
@@ -56,6 +58,13 @@ logger = logging.get_logger(__name__)
 # TODO: remove after deprecation period is over (v0.7)
 def _validate_repo_id_deprecation(repo_id, name, organization):
     """Returns (name, organization) from the input."""
+    if repo_id and not name and organization:
+        # this means the user had passed name as positional, now mapped to
+        # repo_id and is passing organization as well. This wouldn't be an
+        # issue if they pass everything as kwarg. So we switch the parameters
+        # here:
+        repo_id, name = name, repo_id
+
     if not (repo_id or name):
         raise ValueError(
             "No name provided. Please pass `repo_id` with a valid repository name."
@@ -80,7 +89,7 @@ def _validate_repo_id_deprecation(repo_id, name, organization):
     return name, organization
 
 
-def repo_type_and_id_from_hf_id(hf_id: str):
+def repo_type_and_id_from_hf_id(hf_id: str, hub_url: Optional[str] = None):
     """
     Returns the repo type and ID from a huggingface.co URL linking to a
     repository
@@ -94,16 +103,19 @@ def repo_type_and_id_from_hf_id(hf_id: str):
             - <repo_type>/<namespace>/<repo_id>
             - <namespace>/<repo_id>
             - <repo_id>
+        hub_url (`str`, *optional*):
+            The URL of the HuggingFace Hub, defaults to https://huggingface.co
     """
-    is_hf_url = "huggingface.co" in hf_id and "@" not in hf_id
+    hub_url = re.sub(r"https?://", "", hub_url if hub_url is not None else ENDPOINT)
+    is_hf_url = hub_url in hf_id and "@" not in hf_id
     url_segments = hf_id.split("/")
     is_hf_id = len(url_segments) <= 3
 
     if is_hf_url:
         namespace, repo_id = url_segments[-2:]
-        if namespace == "huggingface.co":
+        if namespace == hub_url:
             namespace = None
-        if len(url_segments) > 2 and "huggingface.co" not in url_segments[-3]:
+        if len(url_segments) > 2 and hub_url not in url_segments[-3]:
             repo_type = url_segments[-3]
         else:
             repo_type = None
@@ -461,9 +473,7 @@ def erase_from_credential_store(username=None):
 
 class HfApi:
     def __init__(self, endpoint=None):
-        self.endpoint = (
-            endpoint if endpoint is not None else os.getenv("HF_ENDPOINT", ENDPOINT)
-        )
+        self.endpoint = endpoint if endpoint is not None else ENDPOINT
 
     def login(self, username: str, password: str) -> str:
         """
@@ -1833,19 +1843,25 @@ class HfFolder:
             f.write(token)
 
     @classmethod
-    def get_token(cls):
+    def get_token(cls) -> Optional[str]:
         """
-        Retrieves the token
+        Get token or None if not existent.
+
+        Note that a token can be also provided using the `HUGGING_FACE_HUB_TOKEN`
+        environment variable.
 
         Returns:
             `str` or `None`: The token, `None` if it doesn't exist.
 
         """
-        try:
-            with open(cls.path_token, "r") as f:
-                return f.read()
-        except FileNotFoundError:
-            pass
+        token: Optional[str] = os.environ.get("HUGGING_FACE_HUB_TOKEN")
+        if token is None:
+            try:
+                with open(cls.path_token, "r") as f:
+                    token = f.read()
+            except FileNotFoundError:
+                pass
+        return token
 
     @classmethod
     def delete_token(cls):

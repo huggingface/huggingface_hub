@@ -169,12 +169,7 @@ def with_production_testing(func):
         ENDPOINT_PRODUCTION,
     )
 
-    repository = patch(
-        "huggingface_hub.repository.ENDPOINT",
-        ENDPOINT_PRODUCTION,
-    )
-
-    return repository(hf_api(file_download(func)))
+    return hf_api(file_download(func))
 
 
 def retry_endpoint(function, number_of_tries: int = 3, wait_time: int = 5):

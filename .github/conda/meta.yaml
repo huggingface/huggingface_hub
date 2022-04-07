@@ -15,7 +15,7 @@ requirements:
     - python
     - pip
     - filelock
-    - requests <=2.23
+    - requests
     - tqdm
     - typing-extensions
     - packaging
@@ -24,7 +24,7 @@ requirements:
     - python
     - pip
     - filelock
-    - requests <=2.23
+    - requests
     - tqdm
     - typing-extensions
     - packaging
