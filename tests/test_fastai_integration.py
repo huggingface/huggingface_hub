@@ -16,7 +16,7 @@ from huggingface_hub.file_download import (
     is_torch_available,
 )
 
-from .testing_constants import ENDPOINT_STAGING, USER, TOKEN
+from .testing_constants import ENDPOINT_STAGING, TOKEN, USER
 from .testing_utils import set_write_permission_and_retry
 
 
