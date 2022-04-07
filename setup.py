@@ -33,11 +33,7 @@ extras["fastai"] = [
     "fastcore==1.3.29",
 ]
 
-extras["tensorflow"] = [
-    "tensorflow",
-    "pydot",
-    "graphviz"
-]
+extras["tensorflow"] = ["tensorflow", "pydot", "graphviz"]
 
 extras["testing"] = [
     "pytest",
