@@ -16,7 +16,7 @@ from huggingface_hub.file_download import (
     is_torch_available,
 )
 
-from .testing_constants import ENDPOINT_STAGING, PASS, USER
+from .testing_constants import ENDPOINT_STAGING, USER, TOKEN
 from .testing_utils import set_write_permission_and_retry
 
 
@@ -76,7 +76,8 @@ class TestFastaiUtils(TestCase):
         Share this valid token in all tests below.
         """
         cls._api = HfApi(endpoint=ENDPOINT_STAGING)
-        cls._token = cls._api.login(username=USER, password=PASS)
+        cls._token = TOKEN
+        cls._api.set_access_token(TOKEN)
 
     def tearDown(self) -> None:
         try:
