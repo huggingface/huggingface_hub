@@ -235,15 +235,14 @@ def is_binary_file(filename: Union[str, Path]) -> bool:
             The filename to check.
 
     Returns:
-        `bool`: `True` if the file passed is a binary file, `False`
-        otherwise.
+        `bool`: `True` if the file passed is a binary file, `False` otherwise.
     """
     try:
         with open(filename) as f:
             content = f.read()
 
         # Check for the presence of the null character in the string
-        return '\x00' in content
+        return "\x00" in content
     except UnicodeDecodeError:
         return True
 
@@ -507,8 +506,8 @@ class Repository:
             skip_lfs_files (`bool`, *optional*, defaults to `False`):
                 whether to skip git-LFS files or not.
             client (`HfApi`, *optional*):
-                Instance of HfApi to use when calling the HF Hub API.
-                A new instance will be created if this is left to `None`.
+                Instance of HfApi to use when calling the HF Hub API. A new
+                instance will be created if this is left to `None`.
         """
 
         os.makedirs(local_dir, exist_ok=True)
@@ -1012,7 +1011,8 @@ class Repository:
                 The pattern with which to track files that are above 10MBs.
 
         Returns:
-            `List[str]`: List of filenames that are now tracked due to being binary files
+            `List[str]`: List of filenames that are now tracked due to being
+            binary files
         """
         files_to_be_tracked_with_lfs = []
 
@@ -1026,9 +1026,9 @@ class Repository:
             is_binary = is_binary_file(path_to_file)
 
             if (
-                    is_binary
-                    and not is_tracked_with_lfs(path_to_file)
-                    and not is_git_ignored(path_to_file)
+                is_binary
+                and not is_tracked_with_lfs(path_to_file)
+                and not is_git_ignored(path_to_file)
             ):
                 self.lfs_track(filename)
                 files_to_be_tracked_with_lfs.append(filename)
@@ -1147,13 +1147,14 @@ class Repository:
             pattern (`str`, *optional*, defaults to "."):
                 The pattern with which to add files to staging.
             auto_lfs_track (`bool`, *optional*, defaults to `False`):
-                Whether to automatically track large files with git-lfs. Any
-                file over 10MB in size will be automatically tracked.
+                Whether to automatically track large and binaryfiles with
+                git-lfs. Any file over 10MB in size, or in binary format, will
+                be automatically tracked.
         """
         if auto_lfs_track:
             tracked_files = [
                 *self.auto_track_large_files(pattern),
-                *self.auto_track_binary_files(pattern)
+                *self.auto_track_binary_files(pattern),
             ]
             if tracked_files:
                 logger.warning(
