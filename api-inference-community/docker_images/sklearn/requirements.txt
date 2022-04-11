@@ -1,5 +1,0 @@
-starlette==0.14.2
-api-inference-community==0.0.9
-huggingface_hub==0.0.10
-scikit-learn==0.24.2
-joblib==1.0.1

@@ -1,6 +1,0 @@
-starlette==0.14.2
-numpy==1.20.2
-allennlp>=2.5.0,<3.0.0
-# Even though it is not imported, it is actually required.
-allennlp_models>=2.5.0,<3.0.0
-api-inference-community==0.0.17
