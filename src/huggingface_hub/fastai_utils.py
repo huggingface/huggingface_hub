@@ -291,10 +291,10 @@ def from_pretrained_fastai(
     # Check that fastai and fastcore versions are supported.
     check_fastai_fastcore_versions()
 
-    # Load the `repo_id` repo.
+    # Load the `model_id` repo.
     # `snapshot_download` returns the folder where the `model_id` repo was stored.
     # `cache_dir` will be the default '/root/.cache/huggingface/hub'
-    storage_folder = snapshot_download(repo_id=model_id, revision=revision)
+    storage_folder = snapshot_download(model_id=model_id, revision=revision)
 
     # Check that fastai and fastcore versions in the `model_id` repository are supported.
     check_fastai_fastcore_pyproject_versions(storage_folder)
@@ -308,7 +308,7 @@ def from_pretrained_fastai(
 
 def push_to_hub_fastai(
     learner,
-    repo_id: str,
+    model_id: str,
     commit_message: Optional[str] = "Add model",
     private: Optional[bool] = None,
     token: Optional[str] = None,
@@ -317,12 +317,12 @@ def push_to_hub_fastai(
 ):
     """
     Upload learner checkpoint files to the Hub while synchronizing a local clone of the repo in
-    :obj:`repo_id`.
+    :obj:`model_id`.
 
     Params:
         learner (:obj:`Learner`):
             The `fastai.Learner' you'd like to push to the Hub.
-        repo_id (:obj:`str`):
+        model_id (:obj:`str`):
             The name of the repository for your model in the Hub. The user can be your individual account (e.g. 'espejelomar/sentece-embeddings-BETO') or an organization to which you have write access (e.g. 'stanfordnlp/stanza-de').
         commit_message (:obj:`str`, `optional`):
             Message to commit while pushing. Will default to :obj:`"add model"`.
@@ -370,16 +370,16 @@ def push_to_hub_fastai(
 
     # Create repo using `HfApi()`.
     repo_url = HfApi(endpoint=api_endpoint).create_repo(
-        repo_id,
+        model_id,
         token=token,
         private=private,
         repo_type=None,
         exist_ok=True,
     )
 
-    # If repository exists in the Hugging Face Hub then clone it locally in `repo_id`
+    # If repository exists in the Hugging Face Hub then clone it locally in `model_id`
     repo = Repository(
-        repo_id,
+        model_id,
         clone_from=repo_url,
         use_auth_token=token,
         git_user=git_user,
@@ -387,7 +387,7 @@ def push_to_hub_fastai(
     )
     repo.git_pull(rebase=True)
 
-    save_fastai_learner(learner, repo_id, config=config)
+    save_fastai_learner(learner, model_id, config=config)
 
     # Commit and push
     return repo.push_to_hub(commit_message=commit_message)
