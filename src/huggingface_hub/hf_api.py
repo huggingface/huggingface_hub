@@ -327,7 +327,7 @@ class SpaceInfo:
             repo author
     """
 
-    @_deprecate_positional_args
+    @_deprecate_positional_args(version="0.8")
     def __init__(
         self,
         *,
@@ -1275,7 +1275,7 @@ class HfApi:
         d = r.json()
         return SpaceInfo(**d)
 
-    @_deprecate_positional_args
+    @_deprecate_positional_args(version="0.8")
     def repo_info(
         self,
         repo_id: str,
@@ -1319,7 +1319,7 @@ class HfApi:
         else:
             raise ValueError("Unsupported repo type.")
 
-    @_deprecate_positional_args
+    @_deprecate_positional_args(version="0.8")
     def list_repo_files(
         self,
         repo_id: str,
