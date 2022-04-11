@@ -1178,8 +1178,8 @@ class HfApi:
         Returns:
             [`huggingface_hub.hf_api.ModelInfo`]: The model repository information.
         """
-        if token is None:
-            token = HfFolder.get_token()
+
+        token, _ = self._validate_or_retrieve_token(token, function_name="model_info")
 
         path = (
             f"{self.endpoint}/api/models/{repo_id}"
