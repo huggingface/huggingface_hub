@@ -188,6 +188,8 @@ class ModelInfo:
             repo author
         config (`Dict`, *optional*):
             Model configuration information
+        kwargs (`Dict`, *optional*):
+            Kwargs that will be become attributes of the class.
     """
 
     @_deprecate_positional_args
@@ -257,6 +259,8 @@ class DatasetInfo:
             Dataset citation
         cardData (`Dict`, *optional*):
             Metadata of the model card as a dictionary.
+        kwargs (`Dict`, *optional*):
+            Kwargs that will be become attributes of the class.
     """
 
     @_deprecate_positional_args
@@ -325,6 +329,8 @@ class SpaceInfo:
             is the repo private
         author (`str`, *optional*):
             repo author
+        kwargs (`Dict`, *optional*):
+            Kwargs that will be become attributes of the class.
     """
 
     @_deprecate_positional_args(version="0.8")
