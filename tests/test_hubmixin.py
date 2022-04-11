@@ -1,9 +1,12 @@
 import os
+import re
 import shutil
 import time
 import unittest
 import uuid
 from io import BytesIO
+
+import pytest
 
 from huggingface_hub import HfApi
 from huggingface_hub.file_download import is_torch_available
@@ -125,8 +128,6 @@ class HubMixingTest(HubMixingCommonTest):
             repo_path_or_name=f"{WORKING_REPO_DIR}/{REPO_NAME}",
             api_endpoint=ENDPOINT_STAGING,
             use_auth_token=self._token,
-            git_user="ci",
-            git_email="ci@dummy.com",
             config={"num": 7, "act": "gelu_fast"},
         )
 
@@ -134,6 +135,22 @@ class HubMixingTest(HubMixingCommonTest):
         self.assertEqual(model_info.modelId, f"{USER}/{REPO_NAME}")
 
         self._api.delete_repo(repo_id=f"{REPO_NAME}", token=self._token)
+
+    def test_push_to_hub_depreacted_arguments(self):
+        REPO_NAME = repo_name("PUSH_TO_HUB")
+        model = DummyModel()
+        with pytest.warns(
+            FutureWarning,
+            match=re.escape("The following kwargs were passed but are not used"),
+        ):
+            model.push_to_hub(
+                repo_path_or_name=f"{WORKING_REPO_DIR}/{REPO_NAME}",
+                api_endpoint=ENDPOINT_STAGING,
+                use_auth_token=self._token,
+                git_user="ci",
+                git_email="ci@dummy.com",
+                config={"num": 7, "act": "gelu_fast"},
+            )
 
     def test_push_to_hub_with_other_files(self):
         REPO_A = repo_name("with_files")

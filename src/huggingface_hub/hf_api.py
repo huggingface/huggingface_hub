@@ -88,7 +88,9 @@ def _validate_repo_id_deprecation(repo_id, name, organization):
             organization, name = None, repo_id
     return name, organization
 
+
 logger = logging.get_logger(__name__)
+
 
 def repo_type_and_id_from_hf_id(hf_id: str, hub_url: Optional[str] = None):
     """
@@ -647,19 +649,23 @@ class HfApi:
         function_name: Optional[str] = None,
     ):
         """
-        Retrieves and validates stored token or validates passed token.
         Args:
+        Retrieves and validates stored token or validates passed token.
             token (``str``, `optional`):
-                Hugging Face token. Will default to the locally saved token if not provided.
+                Hugging Face token. Will default to the locally saved token if
+                not provided.
             name (``str``, `optional`):
-                Name of the repository. This is deprecated in favor of repo_id and will be removed in v0.7.
+                Name of the repository. This is deprecated in favor of repo_id
+                and will be removed in v0.7.
             function_name (``str``, `optional`):
-                If _validate_or_retrieve_token is called from a function, name of that function to be passed inside deprecation warning.
+                If _validate_or_retrieve_token is called from a function, name
+                of that function to be passed inside deprecation warning.
         Returns:
             Validated token and the name of the repository.
         Raises:
-            :class:`EnvironmentError`: If the token is not passed and there's no token saved locally.
-            :class:`ValueError`: If organization token or invalid token is passed.
+            :class:`EnvironmentError`: If the token is not passed and there's no
+            token saved locally. :class:`ValueError`: If organization token or
+            invalid token is passed.
         """
         if token is None or token is True:
             token = HfFolder.get_token()
@@ -1828,9 +1834,9 @@ class HfApi:
             path_or_fileobj = os.path.normpath(os.path.expanduser(path_or_fileobj))
             if not os.path.isfile(path_or_fileobj):
                 raise ValueError(f"Provided path: '{path_or_fileobj}' is not a file")
-            if os.stat(path_or_fileobj).st_size // 1_000_000_000 >= 5:
+            if os.stat(path_or_fileobj).st_size // 1_000_000_000 >= 30:
                 raise ValueError(
-                    f"The file {path_or_fileobj} is larger than 5GB and cannot be uploaded "
+                    f"The file {path_or_fileobj} is larger than 30GB and cannot be uploaded "
                     "with `upload_file`. Please use the `Repository` object instead."
                 )
         elif not isinstance(path_or_fileobj, (RawIOBase, BufferedIOBase, bytes)):
@@ -1994,8 +2000,8 @@ class HfFolder:
         """
         Get token or None if not existent.
 
-        Note that a token can be also provided using the `HUGGING_FACE_HUB_TOKEN`
-        environment variable.
+        Note that a token can be also provided using the
+        `HUGGING_FACE_HUB_TOKEN` environment variable.
 
         Returns:
             `str` or `None`: The token, `None` if it doesn't exist.
@@ -2054,3 +2060,5 @@ move_repo = api.move_repo
 upload_file = api.upload_file
 delete_file = api.delete_file
 get_full_repo_name = api.get_full_repo_name
+
+_validate_or_retrieve_token = api._validate_or_retrieve_token

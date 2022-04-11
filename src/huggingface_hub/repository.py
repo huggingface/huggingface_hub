@@ -485,8 +485,8 @@ class Repository:
             skip_lfs_files (`bool`, *optional*, defaults to `False`):
                 whether to skip git-LFS files or not.
             client (`HfApi`, *optional*):
-                Instance of HfApi to use when calling the HF Hub API.
-                A new instance will be created if this is left to `None`.
+                Instance of HfApi to use when calling the HF Hub API. A new
+                instance will be created if this is left to `None`.
         """
 
         os.makedirs(local_dir, exist_ok=True)
