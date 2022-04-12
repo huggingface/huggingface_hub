@@ -4,7 +4,7 @@
 ## Welcome to the huggingface_hub library
 
 
-The `huggingface_hub` is a client library to interact with the Hugging Face Hub. The Hugging Face Hub is a platform with over 30K models, 3K datasets, and 2K demos in which people can easily collaborate in their ML workflows. The Hub works as a central place where anyone can share, explore, discover, and experiment with open-source Machine Learning.
+The `huggingface_hub` is a client library to interact with the Hugging Face Hub. The Hugging Face Hub is a platform with over 35K models, 4K datasets, and 2K demos in which people can easily collaborate in their ML workflows. The Hub works as a central place where anyone can share, explore, discover, and experiment with open-source Machine Learning.
 
 With `huggingface_hub`, you can easily download and upload models, extract useful information from the Hub, and do much more. Some example use cases:
 * Downloading and caching files from a Hub repository.
