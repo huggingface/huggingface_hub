@@ -291,29 +291,35 @@ def from_pretrained_fastai(
     revision: Optional[str] = None,
 ):
     """
-    Load pretrained fastai model from the Hub.
+    Load pretrained fastai model from the Hub or from a local directory.
 
     Args:
         model_id (`str`):
-            The model id where the pickled fastai.Learner is. Example: 'espejelomar/fastai-pet-breeds-classification'.
+            The location where the pickled fastai.Learner is. It can be either of the two:
+                - Hosted on the Hugging Face Hub. E.g.: 'espejelomar/fatai-pet-breeds-classification', 'distilgpt2'.
+                  You can add a `revision` by appending `@` at the end of `model_id`. E.g.: `dbmdz/bert-base-german-cased@main`.
+                  Revision is the specific model version to use. Since we use a git-based system for storing models and other 
+                  artifacts on the Hugging Face Hub, it can be a branch name, a tag name, or a commit id.
+                - Hosted locally. `model_id` would be a directory containing the pickle and a pyproject.toml 
+                  indicating the fastai and fastcore versions used to build the `fastai.Learner`. E.g.: `./my_model_directory/`.  
         revision (`str`, *optional*):
             Revision at which the repo's files are downloaded. See documentation of `snapshot_download`.
 
     Returns:
         The `fastai.Learner` model in the `model_id` repo.
     """
-    # Check that fastai and fastcore versions are supported.
     _check_fastai_fastcore_versions()
 
     # Load the `model_id` repo.
     # `snapshot_download` returns the folder where the `model_id` repo was stored.
     # `cache_dir` will be the default '/root/.cache/huggingface/hub'
-    storage_folder = snapshot_download(repo_id=model_id, revision=revision)
+    if not os.path.isdir(model_id):
+        storage_folder = snapshot_download(repo_id=model_id, revision=revision)
+    else:
+        storage_folder = model_id
 
-    # Check that fastai and fastcore versions in the `model_id` repository are supported.
     _check_fastai_fastcore_pyproject_versions(storage_folder)
 
-    # Import `load_learner` from `fastai.learner`.
     from fastai.learner import load_learner
 
     model = load_learner(os.path.join(storage_folder, "model.pkl"))
