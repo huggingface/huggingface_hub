@@ -1,1 +1,0 @@
-python app/main.py
