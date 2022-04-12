@@ -239,7 +239,7 @@ def is_binary_file(filename: Union[str, Path]) -> bool:
     """
     try:
         with open(filename) as f:
-            content = f.read(512)
+            content = f.read()
 
         # Check for the presence of the null character in the string
         return "\x00" in content
@@ -1023,15 +1023,22 @@ class Repository:
                 continue
 
             path_to_file = os.path.join(os.getcwd(), self.local_dir, filename)
-            is_binary = is_binary_file(path_to_file)
 
-            if (
-                is_binary
-                and not is_tracked_with_lfs(path_to_file)
-                and not is_git_ignored(path_to_file)
-            ):
-                self.lfs_track(filename)
-                files_to_be_tracked_with_lfs.append(filename)
+            if not (is_tracked_with_lfs(path_to_file) or is_git_ignored(path_to_file)):
+                size_in_mb = os.path.getsize(path_to_file) / (1024 * 1024)
+
+                if size_in_mb >= 10:
+                    logger.warning(
+                        "Parsing a large file to check if binary or not. Tracking large "
+                        "files using `repository.auto_track_large_files` is recommended "
+                        "so as to not load the full file in memory."
+                    )
+
+                is_binary = is_binary_file(path_to_file)
+
+                if is_binary:
+                    self.lfs_track(filename)
+                    files_to_be_tracked_with_lfs.append(filename)
 
         # Cleanup the .gitattributes if files were deleted
         self.lfs_untrack(deleted_files)
@@ -1152,10 +1159,12 @@ class Repository:
                 be automatically tracked.
         """
         if auto_lfs_track:
-            tracked_files = [
-                *self.auto_track_large_files(pattern),
-                *self.auto_track_binary_files(pattern),
-            ]
+            # Track files according to their size (>=10MB)
+            tracked_files = self.auto_track_large_files(pattern)
+
+            # Read the remaining files and track them if they're binary
+            tracked_files.extend(self.auto_track_binary_files(pattern))
+
             if tracked_files:
                 logger.warning(
                     f"Adding files tracked by Git LFS: {tracked_files}. This may take a bit of time if the files are large."
