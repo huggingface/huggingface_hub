@@ -17,7 +17,7 @@ from huggingface_hub.repository import Repository
 from huggingface_hub.snapshot_download import snapshot_download
 
 
-def check_fastai_fastcore_versions(
+def _check_fastai_fastcore_versions(
     fastai_min_version: Optional[str] = "2.4",
     fastcore_min_version: Optional[str] = "1.3.27",
 ):
@@ -58,7 +58,7 @@ def check_fastai_fastcore_versions(
         )
 
 
-def check_fastai_fastcore_pyproject_versions(
+def _check_fastai_fastcore_pyproject_versions(
     storage_folder: str,
     fastai_min_version: Optional[str] = "2.4",
     fastcore_min_version: Optional[str] = "1.3.27",
@@ -108,7 +108,7 @@ def check_fastai_fastcore_pyproject_versions(
         )
 
     # Check that `pyproject.toml` contains versions for fastai and fastcore. If there is no version available, it throws an error
-    # Then get the fastai and fastcore versions in `pyproject.toml`. If there is none, it means that it defaults to the highest version.    
+    # Then get the fastai and fastcore versions in `pyproject.toml`. If there is none, it means that it defaults to the highest version.
     try:
         fastai_version = str(
             [package for package in package_versions if package.startswith("fastai")][0]
@@ -223,7 +223,7 @@ def _create_model_pyproject(repo_dir: Path):
             f.write(PYPROJECT_TEMPLATE)
 
 
-def _save_fastai_learner(
+def _save_pretrained_fastai(
     learner,
     save_directory: str,
     config: Optional[Dict[str, Any]] = None,
@@ -250,7 +250,7 @@ def _save_fastai_learner(
     </Tip>
     """
     # Check that fastai and fastcore versions are supported.
-    check_fastai_fastcore_versions()
+    _check_fastai_fastcore_versions()
 
     os.makedirs(save_directory, exist_ok=True)
 
@@ -310,15 +310,15 @@ def from_pretrained_fastai(
         The `fastai.Learner` model in the `model_id` repo.
     """
     # Check that fastai and fastcore versions are supported.
-    check_fastai_fastcore_versions()
+    _check_fastai_fastcore_versions()
 
     # Load the `model_id` repo.
     # `snapshot_download` returns the folder where the `model_id` repo was stored.
     # `cache_dir` will be the default '/root/.cache/huggingface/hub'
-    storage_folder = snapshot_download(model_id=model_id, revision=revision)
+    storage_folder = snapshot_download(repo_id=model_id, revision=revision)
 
     # Check that fastai and fastcore versions in the `model_id` repository are supported.
-    check_fastai_fastcore_pyproject_versions(storage_folder)
+    _check_fastai_fastcore_pyproject_versions(storage_folder)
 
     # Import `load_learner` from `fastai.learner`.
     from fastai.learner import load_learner
@@ -376,7 +376,7 @@ def push_to_hub_fastai(
     """
 
     # Check that fastai and fastcore versions are supported.
-    check_fastai_fastcore_versions()
+    _check_fastai_fastcore_versions()
 
     # Unpacking **kwargs.
     api_endpoint: str = kwargs.get("api_endpoint", None)
@@ -414,7 +414,7 @@ def push_to_hub_fastai(
     )
     repo.git_pull(rebase=True)
 
-    _save_fastai_learner(learner, model_id, config=config)
+    _save_pretrained_fastai(learner, model_id, config=config)
 
     # Commit and push
     return repo.push_to_hub(commit_message=commit_message)
