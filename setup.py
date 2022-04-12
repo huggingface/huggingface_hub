@@ -2,7 +2,7 @@ from setuptools import find_packages, setup
 """
 Check list to release a new version.
 
-1. Checkout the main branch and pull the latest changes:
+1. On a clone of the main repo, not your fork, checkout the main branch and pull the latest changes:
    ```
    git checkout main
    git pull
