@@ -239,7 +239,7 @@ def is_binary_file(filename: Union[str, Path]) -> bool:
     """
     try:
         with open(filename) as f:
-            content = f.read()
+            content = f.read(512)
 
         # Check for the presence of the null character in the string
         return "\x00" in content
