@@ -61,10 +61,10 @@ def fake_dataloaders(a=2, b=3, bs=16, n=10):
 
 
 if is_fastai_available():
-    DummyModel = synth_learner(data=fake_dataloaders())
+    dummy_model = synth_learner(data=fake_dataloaders())
     dummy_config = dict(test="test_0")
 else:
-    DummyModel = None
+    dummy_model = None
     dummy_config = None
 
 
@@ -87,7 +87,7 @@ class TestFastaiUtils(TestCase):
 
     def test_save_pretrained_without_config(self):
         REPO_NAME = repo_name("save")
-        save_fastai_learner(DummyModel, f"{WORKING_REPO_DIR}/{REPO_NAME}")
+        save_fastai_learner(dummy_model, f"{WORKING_REPO_DIR}/{REPO_NAME}")
         files = os.listdir(f"{WORKING_REPO_DIR}/{REPO_NAME}")
         self.assertTrue("model.pkl" in files)
         self.assertTrue("pyproject.toml" in files)
@@ -97,7 +97,7 @@ class TestFastaiUtils(TestCase):
     def test_save_pretrained_with_config(self):
         REPO_NAME = repo_name("save")
         save_fastai_learner(
-            DummyModel, f"{WORKING_REPO_DIR}/{REPO_NAME}", config=dummy_config
+            dummy_model, f"{WORKING_REPO_DIR}/{REPO_NAME}", config=dummy_config
         )
         files = os.listdir(f"{WORKING_REPO_DIR}/{REPO_NAME}")
         self.assertTrue("config.json" in files)
@@ -106,7 +106,7 @@ class TestFastaiUtils(TestCase):
     def test_push_to_hub_and_from_pretrained_fastai(self):
         REPO_NAME = repo_name("push_to_hub")
         push_to_hub_fastai(
-            learner=DummyModel,
+            learner=dummy_model,
             repo_id=f"{USER}/{REPO_NAME}",
             token=self._token,
             config=dummy_config,
@@ -118,6 +118,6 @@ class TestFastaiUtils(TestCase):
 
         loaded_model = from_pretrained_fastai(f"{USER}/{REPO_NAME}")
         self.assertEqual(
-            DummyModel.show_training_loop(), loaded_model.show_training_loop()
+            dummy_model.show_training_loop(), loaded_model.show_training_loop()
         )
         self._api.delete_repo(repo_id=f"{REPO_NAME}", token=self._token)
