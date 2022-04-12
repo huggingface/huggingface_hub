@@ -1008,7 +1008,7 @@ class Repository:
 
         Args:
             pattern (`str`, *optional*, defaults to "."):
-                The pattern with which to track files that are above 10MBs.
+                The pattern with which to track files that are binary.
 
         Returns:
             `List[str]`: List of filenames that are now tracked due to being
@@ -1147,7 +1147,7 @@ class Repository:
             pattern (`str`, *optional*, defaults to "."):
                 The pattern with which to add files to staging.
             auto_lfs_track (`bool`, *optional*, defaults to `False`):
-                Whether to automatically track large and binaryfiles with
+                Whether to automatically track large and binary files with
                 git-lfs. Any file over 10MB in size, or in binary format, will
                 be automatically tracked.
         """
