@@ -35,7 +35,7 @@ def _check_fastai_fastcore_versions(
 
         - [`ImportError`](https://docs.python.org/3/library/exceptions.html#ImportError)
           if the fastai or fastcore libraries are not available or are of an invalid version.
-   
+
     </Tip>
     """
 
@@ -74,7 +74,7 @@ def _check_fastai_fastcore_pyproject_versions(
             The minimum fastai version supported.
         fastcore_min_version (`str`, *optional*):
             The minimum fastcore version supported.
-    
+
     <Tip>
     Raises the following errors:
 
@@ -86,7 +86,7 @@ def _check_fastai_fastcore_pyproject_versions(
           if the `pyproject.toml` does not indicate a version for fastai or fastcore.
         - [`ImportError`](https://docs.python.org/3/library/exceptions.html#ImportError)
           if the `pyproject.toml` indicates a lower than minimum supported version of fastai or fastcore.
-   
+
     </Tip>
     """
 
@@ -134,8 +134,7 @@ def _check_fastai_fastcore_pyproject_versions(
     # Versions in `pyproject.toml` must be higher or equal to `fastai_min_version` and `fastcore_min_version`
     if not (
         fastai_version == ""
-        or version.Version(fastai_version)
-        >= version.Version(fastai_min_version)
+        or version.Version(fastai_version) >= version.Version(fastai_min_version)
     ):
         raise ImportError(
             f"`from_pretrained_fastai` requires fastai>={fastai_min_version} version but the model to load uses {fastai_version} which is incompatible."
@@ -143,8 +142,7 @@ def _check_fastai_fastcore_pyproject_versions(
 
     if not (
         fastcore_version == ""
-        or version.Version(fastcore_version)
-        >= version.Version(fastcore_min_version)
+        or version.Version(fastcore_version) >= version.Version(fastcore_min_version)
     ):
         raise ImportError(
             f"`from_pretrained_fastai` requires fastcore>={fastcore_min_version} version, but you are using fastcore version {fastcore_version} which is incompatible."
