@@ -151,6 +151,12 @@ class HfApiLoginTest(HfApiCommonTest):
             read_from_credential_store(USERNAME_PLACEHOLDER), (None, None)
         )
 
+    def test_login_cli_org_fail(self):
+        with pytest.raises(
+            ValueError, match="You must use your personal account token."
+        ):
+            _login(self._api, token="api_org_dummy_token")
+
     def test_login_deprecation_error(self):
         with pytest.warns(
             FutureWarning,
@@ -220,6 +226,14 @@ def test_validate_repo_id_deprecation():
         _validate_repo_id_deprecation(
             repo_id="repo_id", name="name", organization="organization"
         )
+
+    # regression test for
+    # https://github.com/huggingface/huggingface_hub/issues/821
+    with pytest.warns(FutureWarning, match="input arguments are deprecated"):
+        name, org = _validate_repo_id_deprecation(
+            repo_id="repo", name=None, organization="org"
+        )
+        assert name == "repo" and org == "org"
 
 
 @retry_endpoint
@@ -562,6 +576,23 @@ class HfApiUploadFileTest(HfApiCommonTestWithLogin):
             self._api.delete_repo(repo_id=REPO_NAME, token=self._token)
 
     @retry_endpoint
+    def test_create_repo_org_token_fail(self):
+        REPO_NAME = repo_name("org")
+        with pytest.raises(
+            ValueError, match="You must use your personal account token."
+        ):
+            self._api.create_repo(repo_id=REPO_NAME, token="api_org_dummy_token")
+
+    @retry_endpoint
+    def test_create_repo_org_token_none_fail(self):
+        REPO_NAME = repo_name("org")
+        HfFolder.save_token("api_org_dummy_token")
+        with pytest.raises(
+            ValueError, match="You must use your personal account token."
+        ):
+            self._api.create_repo(repo_id=REPO_NAME)
+
+    @retry_endpoint
     def test_upload_file_conflict(self):
         REPO_NAME = repo_name("conflict")
         self._api.create_repo(repo_id=REPO_NAME, token=self._token)
@@ -731,15 +762,6 @@ class HfApiPublicTest(unittest.TestCase):
         )
         self.assertIsInstance(model, ModelInfo)
         self.assertEqual(model.sha, DUMMY_MODEL_ID_REVISION_ONE_SPECIFIC_COMMIT)
-        model = _api.model_info(
-            repo_id=DUMMY_MODEL_ID,
-            revision=DUMMY_MODEL_ID_REVISION_ONE_SPECIFIC_COMMIT,
-            securityStatus=True,
-        )
-        self.assertEqual(
-            getattr(model, "securityStatus"),
-            {"containsInfected": False, "infectionTypes": []},
-        )
 
     @with_production_testing
     def test_model_info_with_security(self):
@@ -785,7 +807,7 @@ class HfApiPublicTest(unittest.TestCase):
     def test_filter_datasets_by_author_and_name(self):
         _api = HfApi()
         f = DatasetFilter(author="huggingface", dataset_name="DataMeasurementsFiles")
-        datasets = _api.list_datasets(f)
+        datasets = _api.list_datasets(filter=f)
         self.assertEqual(len(datasets), 1)
         self.assertTrue("huggingface" in datasets[0].author)
         self.assertTrue("DataMeasurementsFiles" in datasets[0].id)
@@ -794,7 +816,7 @@ class HfApiPublicTest(unittest.TestCase):
     def test_filter_datasets_by_benchmark(self):
         _api = HfApi()
         f = DatasetFilter(benchmark="raft")
-        datasets = _api.list_datasets(f)
+        datasets = _api.list_datasets(filter=f)
         self.assertGreater(len(datasets), 0)
         self.assertTrue("benchmark:raft" in datasets[0].tags)
 
@@ -802,7 +824,7 @@ class HfApiPublicTest(unittest.TestCase):
     def test_filter_datasets_by_language_creator(self):
         _api = HfApi()
         f = DatasetFilter(language_creators="crowdsourced")
-        datasets = _api.list_datasets(f)
+        datasets = _api.list_datasets(filter=f)
         self.assertGreater(len(datasets), 0)
         self.assertTrue("language_creators:crowdsourced" in datasets[0].tags)
 
@@ -810,12 +832,12 @@ class HfApiPublicTest(unittest.TestCase):
     def test_filter_datasets_by_language(self):
         _api = HfApi()
         f = DatasetFilter(languages="en")
-        datasets = _api.list_datasets(f)
+        datasets = _api.list_datasets(filter=f)
         self.assertGreater(len(datasets), 0)
         self.assertTrue("languages:en" in datasets[0].tags)
         args = DatasetSearchArguments()
         f = DatasetFilter(languages=(args.languages.en, args.languages.fr))
-        datasets = _api.list_datasets(f)
+        datasets = _api.list_datasets(filter=f)
         self.assertGreater(len(datasets), 0)
         self.assertTrue("languages:en" in datasets[0].tags)
         self.assertTrue("languages:fr" in datasets[0].tags)
@@ -824,7 +846,7 @@ class HfApiPublicTest(unittest.TestCase):
     def test_filter_datasets_by_multilinguality(self):
         _api = HfApi()
         f = DatasetFilter(multilinguality="yes")
-        datasets = _api.list_datasets(f)
+        datasets = _api.list_datasets(filter=f)
         self.assertGreater(len(datasets), 0)
         self.assertTrue("multilinguality:yes" in datasets[0].tags)
 
@@ -832,7 +854,7 @@ class HfApiPublicTest(unittest.TestCase):
     def test_filter_datasets_by_size_categories(self):
         _api = HfApi()
         f = DatasetFilter(size_categories="100K<n<1M")
-        datasets = _api.list_datasets(f)
+        datasets = _api.list_datasets(filter=f)
         self.assertGreater(len(datasets), 0)
         self.assertTrue("size_categories:100K<n<1M" in datasets[0].tags)
 
@@ -840,7 +862,7 @@ class HfApiPublicTest(unittest.TestCase):
     def test_filter_datasets_by_task_categories(self):
         _api = HfApi()
         f = DatasetFilter(task_categories="audio-classification")
-        datasets = _api.list_datasets(f)
+        datasets = _api.list_datasets(filter=f)
         self.assertGreater(len(datasets), 0)
         self.assertTrue("task_categories:audio-classification" in datasets[0].tags)
 
@@ -848,7 +870,7 @@ class HfApiPublicTest(unittest.TestCase):
     def test_filter_datasets_by_task_ids(self):
         _api = HfApi()
         f = DatasetFilter(task_ids="automatic-speech-recognition")
-        datasets = _api.list_datasets(f)
+        datasets = _api.list_datasets(filter=f)
         self.assertGreater(len(datasets), 0)
         self.assertTrue("task_ids:automatic-speech-recognition" in datasets[0].tags)
 
@@ -925,7 +947,7 @@ class HfApiPublicTest(unittest.TestCase):
     def test_filter_models_by_author(self):
         _api = HfApi()
         f = ModelFilter(author="muellerzr")
-        models = _api.list_models(f)
+        models = _api.list_models(filter=f)
         self.assertGreater(len(models), 0)
         self.assertTrue("muellerzr" in models[0].modelId)
 
@@ -934,7 +956,7 @@ class HfApiPublicTest(unittest.TestCase):
         # Test we can search by an author and a name, but the model is not found
         _api = HfApi()
         f = ModelFilter("facebook", model_name="bart-base")
-        models = _api.list_models(f)
+        models = _api.list_models(filter=f)
         self.assertTrue("facebook/bart-base" in models[0].modelId)
 
     @with_production_testing
@@ -942,38 +964,38 @@ class HfApiPublicTest(unittest.TestCase):
         # Test we can search by an author and a name, but the model is not found
         _api = HfApi()
         f = ModelFilter(author="muellerzr", model_name="testme")
-        models = _api.list_models(f)
+        models = _api.list_models(filter=f)
         self.assertEqual(len(models), 0)
 
     @with_production_testing
     def test_filter_models_with_library(self):
         _api = HfApi()
         f = ModelFilter("microsoft", model_name="wavlm-base-sd", library="tensorflow")
-        models = _api.list_models(f)
+        models = _api.list_models(filter=f)
         self.assertGreater(1, len(models))
         f = ModelFilter("microsoft", model_name="wavlm-base-sd", library="pytorch")
-        models = _api.list_models(f)
+        models = _api.list_models(filter=f)
         self.assertGreater(len(models), 0)
 
     @with_production_testing
     def test_filter_models_with_task(self):
         _api = HfApi()
         f = ModelFilter(task="fill-mask", model_name="albert-base-v2")
-        models = _api.list_models(f)
+        models = _api.list_models(filter=f)
         self.assertTrue("fill-mask" == models[0].pipeline_tag)
         self.assertTrue("albert-base-v2" in models[0].modelId)
         f = ModelFilter(task="dummytask")
-        models = _api.list_models(f)
+        models = _api.list_models(filter=f)
         self.assertGreater(1, len(models))
 
     @with_production_testing
     def test_filter_models_by_language(self):
         _api = HfApi()
         f_fr = ModelFilter(language="fr")
-        res_fr = _api.list_models(f_fr)
+        res_fr = _api.list_models(filter=f_fr)
 
         f_en = ModelFilter(language="en")
-        res_en = _api.list_models(f_en)
+        res_en = _api.list_models(filter=f_en)
 
         assert len(res_fr) != len(res_en)
 
@@ -985,7 +1007,7 @@ class HfApiPublicTest(unittest.TestCase):
             task=args.pipeline_tag.TextClassification,
             library=[args.library.PyTorch, args.library.TensorFlow],
         )
-        models = _api.list_models(f)
+        models = _api.list_models(filter=f)
         self.assertGreater(len(models), 1)
         self.assertTrue(
             [
@@ -1001,9 +1023,9 @@ class HfApiPublicTest(unittest.TestCase):
     @with_production_testing
     def test_filter_models_with_cardData(self):
         _api = HfApi()
-        models = _api.list_models("co2_eq_emissions", cardData=True)
+        models = _api.list_models(filter="co2_eq_emissions", cardData=True)
         self.assertTrue([hasattr(model, "cardData") for model in models])
-        models = _api.list_models("co2_eq_emissions")
+        models = _api.list_models(filter="co2_eq_emissions")
         self.assertTrue(all([not hasattr(model, "cardData") for model in models]))
 
     def test_filter_emissions_dict(self):
@@ -1114,6 +1136,10 @@ class HfFolderTest(unittest.TestCase):
         # ^^ not an error, we test that the
         # second call does not fail.
         self.assertEqual(HfFolder.get_token(), None)
+        # test TOKEN in env
+        self.assertEqual(HfFolder.get_token(), None)
+        with unittest.mock.patch.dict(os.environ, {"HUGGING_FACE_HUB_TOKEN": token}):
+            self.assertEqual(HfFolder.get_token(), token)
 
 
 @require_git_lfs
@@ -1263,4 +1289,7 @@ class HfApiMiscTest(unittest.TestCase):
         }
 
         for key, value in possible_values.items():
-            self.assertEqual(repo_type_and_id_from_hf_id(key), tuple(value))
+            self.assertEqual(
+                repo_type_and_id_from_hf_id(key, hub_url="https://huggingface.co"),
+                tuple(value),
+            )
