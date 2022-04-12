@@ -1,7 +1,7 @@
 import json
 import os
 from pathlib import Path
-from pickle import DEFAULT_PROTOCOL
+from pickle import DEFAULT_PROTOCOL, PicklingError
 from typing import Any, Dict, Optional
 
 from packaging import version
@@ -276,10 +276,15 @@ def _save_fastai_learner(
     # We create this folder and call it `fastai_path`
     fastai_path = os.path.join(learner.path, save_directory)
     os.makedirs(fastai_path, exist_ok=True)
-    learner.export(
-        fname=os.path.join(save_directory, "model.pkl"),
-        pickle_protocol=DEFAULT_PROTOCOL,
-    )
+    try:
+        learner.export(
+            fname=os.path.join(save_directory, "model.pkl"),
+            pickle_protocol=DEFAULT_PROTOCOL,
+        )
+    except PicklingError:
+        raise PicklingError(
+            "You are using a lambda function, i.e., an anonymous function. `pickle` cannot pickle function objects and requires that all functions have names. One possible solution is to name the function."
+        )
 
     # We move the model from `self.path/save_directory/model.pkl` to `save_directory/model.pkl`.
     os.rename(
