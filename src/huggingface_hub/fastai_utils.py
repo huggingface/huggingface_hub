@@ -149,7 +149,6 @@ def _check_fastai_fastcore_pyproject_versions(
         )
 
 
-# Define template for auto-generated README.md
 README_TEMPLATE = """---
 tags:
 - fastai
@@ -184,7 +183,6 @@ More information needed
 More information needed
 """
 
-# Define template for auto-generated pyproject.toml
 PYPROJECT_TEMPLATE = f"""[build-system]
 requires = ["setuptools>=40.8.0", "wheel", "python={_PY_VERSION}", "fastai={get_fastai_version()}", "fastcore={get_fastcore_version()}"]
 build-backend = "setuptools.build_meta:__legacy__"
@@ -247,7 +245,6 @@ def _save_pretrained_fastai(
 
     </Tip>
     """
-    # Check that fastai and fastcore versions are supported.
     _check_fastai_fastcore_versions()
 
     os.makedirs(save_directory, exist_ok=True)
@@ -263,10 +260,8 @@ def _save_pretrained_fastai(
         with open(path, "w") as f:
             json.dump(config, f)
 
-    # creating README.md if none exist
     _create_model_card(Path(save_directory))
 
-    # creating pyproject.toml if none exist
     _create_model_pyproject(Path(save_directory))
 
     # saving learner
@@ -373,15 +368,12 @@ def push_to_hub_fastai(
     </Tip>
     """
 
-    # Check that fastai and fastcore versions are supported.
     _check_fastai_fastcore_versions()
 
-    # Unpacking **kwargs.
     api_endpoint: str = kwargs.get("api_endpoint", None)
     git_user: str = kwargs.get("git_user", None)
     git_email: str = kwargs.get("git_email", None)
 
-    # Defining token value.
     if token is None:
         token = HfFolder.get_token()
 
@@ -414,5 +406,4 @@ def push_to_hub_fastai(
 
     _save_pretrained_fastai(learner, model_id, config=config)
 
-    # Commit and push
     return repo.push_to_hub(commit_message=commit_message)
