@@ -298,10 +298,10 @@ def from_pretrained_fastai(
             The location where the pickled fastai.Learner is. It can be either of the two:
                 - Hosted on the Hugging Face Hub. E.g.: 'espejelomar/fatai-pet-breeds-classification', 'distilgpt2'.
                   You can add a `revision` by appending `@` at the end of `model_id`. E.g.: `dbmdz/bert-base-german-cased@main`.
-                  Revision is the specific model version to use. Since we use a git-based system for storing models and other 
+                  Revision is the specific model version to use. Since we use a git-based system for storing models and other
                   artifacts on the Hugging Face Hub, it can be a branch name, a tag name, or a commit id.
-                - Hosted locally. `model_id` would be a directory containing the pickle and a pyproject.toml 
-                  indicating the fastai and fastcore versions used to build the `fastai.Learner`. E.g.: `./my_model_directory/`.  
+                - Hosted locally. `model_id` would be a directory containing the pickle and a pyproject.toml
+                  indicating the fastai and fastcore versions used to build the `fastai.Learner`. E.g.: `./my_model_directory/`.
         revision (`str`, *optional*):
             Revision at which the repo's files are downloaded. See documentation of `snapshot_download`.
 
