@@ -107,7 +107,7 @@ class TestFastaiUtils(TestCase):
         REPO_NAME = repo_name("push_to_hub")
         push_to_hub_fastai(
             learner=dummy_model,
-            repo_id=f"{USER}/{REPO_NAME}",
+            model_id=f"{USER}/{REPO_NAME}",
             token=self._token,
             config=dummy_config,
         )
