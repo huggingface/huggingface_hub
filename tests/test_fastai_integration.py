@@ -8,7 +8,7 @@ from huggingface_hub import HfApi
 from huggingface_hub.fastai_utils import (
     from_pretrained_fastai,
     push_to_hub_fastai,
-    save_fastai_learner,
+    _save_pretrained_fastai,
 )
 from huggingface_hub.file_download import (
     is_fastai_available,
@@ -87,7 +87,7 @@ class TestFastaiUtils(TestCase):
 
     def test_save_pretrained_without_config(self):
         REPO_NAME = repo_name("save")
-        save_fastai_learner(dummy_model, f"{WORKING_REPO_DIR}/{REPO_NAME}")
+        _save_pretrained_fastai(dummy_model, f"{WORKING_REPO_DIR}/{REPO_NAME}")
         files = os.listdir(f"{WORKING_REPO_DIR}/{REPO_NAME}")
         self.assertTrue("model.pkl" in files)
         self.assertTrue("pyproject.toml" in files)
@@ -96,7 +96,7 @@ class TestFastaiUtils(TestCase):
 
     def test_save_pretrained_with_config(self):
         REPO_NAME = repo_name("save")
-        save_fastai_learner(
+        _save_pretrained_fastai(
             dummy_model, f"{WORKING_REPO_DIR}/{REPO_NAME}", config=dummy_config
         )
         files = os.listdir(f"{WORKING_REPO_DIR}/{REPO_NAME}")
