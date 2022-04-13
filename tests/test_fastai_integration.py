@@ -6,9 +6,9 @@ from unittest import TestCase, skip
 
 from huggingface_hub import HfApi
 from huggingface_hub.fastai_utils import (
+    _save_pretrained_fastai,
     from_pretrained_fastai,
     push_to_hub_fastai,
-    _save_pretrained_fastai,
 )
 from huggingface_hub.file_download import (
     is_fastai_available,
