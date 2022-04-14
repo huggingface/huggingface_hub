@@ -213,7 +213,10 @@ def save_pretrained_keras(
     elif isinstance(tags, str):
         metadata["tags"] = [tags]
     if "task_name" in locals():
-        metadata["task_name"] = task_name
+        if "tags" in metadata:
+            metadata["tags"].append(task_name)
+        else:
+            metadata["tags"] = [task_name]
 
     _create_model_card(model, save_directory, plot_model, metadata)
     tf.keras.models.save_model(
