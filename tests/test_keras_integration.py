@@ -278,10 +278,15 @@ class HubKerasSequentialTest(HubMixingTestKeras):
         model.build((None, 2))
 
         with pytest.warns(
-            FutureWarning, match="`task_name` input argument is deprecated*"
+            FutureWarning,
+            match="`task_name` input argument is removed. Pass `tags` instead.",
         ):
             save_pretrained_keras(
-                model, f"{WORKING_REPO_DIR}/{REPO_NAME}", task_name="test"
+                model,
+                f"{WORKING_REPO_DIR}/{REPO_NAME}",
+                tags=["test"],
+                task_name="test",
+                save_traces=True,
             )
 
     def test_rel_path_from_pretrained(self):

@@ -152,7 +152,6 @@ def save_pretrained_keras(
     include_optimizer: Optional[bool] = False,
     plot_model: Optional[bool] = True,
     tags: Optional[Union[list, str]] = None,
-    task_name: Optional[str] = None,
     **model_save_kwargs,
 ):
     """
@@ -176,10 +175,6 @@ def save_pretrained_keras(
         tags (`dict`, *optional*):
             List of tags that are related to model or string of a single tag. See example tags
             [here](https://github.com/huggingface/hub-docs/blame/main/modelcard.md).
-        task_name (`str`, *optional*):
-            Name of the task the model was trained on. Available tasks
-            [here](https://github.com/huggingface/hub-docs/blob/main/js/src/lib/interfaces/Types.ts).
-            This is deprecated in favor of `tags` and will be removed in v0.7.
         model_save_kwargs(`dict`, *optional*):
             model_save_kwargs will be passed to
             [`tf.keras.models.save_model()`](https://www.tensorflow.org/api_docs/python/tf/keras/models/save_model).
@@ -196,12 +191,12 @@ def save_pretrained_keras(
 
     os.makedirs(save_directory, exist_ok=True)
 
-    if task_name:
+    if "task_name" in model_save_kwargs:
         warnings.warn(
-            "`task_name` input argument is deprecated and "
-            "will be removed in v0.7. Pass `tags` instead.",
+            "`task_name` input argument is removed. Pass `tags` instead.",
             FutureWarning,
         )
+        task_name = model_save_kwargs.pop("task_name")
     # saving config
     if config:
         if not isinstance(config, dict):
@@ -217,10 +212,8 @@ def save_pretrained_keras(
         metadata["tags"] = tags
     elif isinstance(tags, str):
         metadata["tags"] = [tags]
-    if task_name is not None and "tags" in metadata:
-        metadata["tags"].append(task_name)
-    elif task_name is not None and metadata == {}:
-        metadata["tags"] = [task_name]
+    if "task_name" in locals():
+        metadata["task_name"] = task_name
 
     _create_model_card(model, save_directory, plot_model, metadata)
     tf.keras.models.save_model(
@@ -301,9 +294,8 @@ def push_to_hub_keras(
     git_email: Optional[str] = None,
     config: Optional[dict] = None,
     include_optimizer: Optional[bool] = False,
-    tags: Optional[Union[list, str]] = None,
-    task_name: Optional[str] = None,
     plot_model: Optional[bool] = True,
+    tags: Optional[Union[list, str]] = None,
     **model_save_kwargs,
 ):
     """
@@ -352,15 +344,12 @@ def push_to_hub_keras(
             Configuration object to be saved alongside the model weights.
         include_optimizer (`bool`, *optional*, defaults to `False`):
             Whether or not to include optimizer during serialization.
-        tags (`dict`, *optional*):
-            List of tags that are related to model or string of a single tag. See example tags
-            [here](https://github.com/huggingface/hub-docs/blame/main/modelcard.md).
-        task_name (`str`, *optional*):
-            Name of the task the model was trained on. Available tasks
-            [here](https://github.com/huggingface/huggingface_hub/blob/main/js/src/lib/interfaces/Types.ts).
         plot_model (`bool`, *optional*, defaults to `True`):
             Setting this to `True` will plot the model and put it in the model
             card. Requires graphviz and pydot to be installed.
+        tags (`dict`, *optional*):
+            List of tags that are related to model or string of a single tag. See example tags
+            [here](https://github.com/huggingface/hub-docs/blame/main/modelcard.md).
         model_save_kwargs(`dict`, *optional*):
             model_save_kwargs will be passed to
             [`tf.keras.models.save_model()`](https://www.tensorflow.org/api_docs/python/tf/keras/models/save_model).
@@ -418,7 +407,6 @@ def push_to_hub_keras(
         include_optimizer=include_optimizer,
         plot_model=plot_model,
         tags=tags,
-        task_name=task_name,
         **model_save_kwargs,
     )
 
