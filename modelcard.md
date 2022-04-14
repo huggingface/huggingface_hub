@@ -22,9 +22,12 @@ model-index:
       type: {task_type}  # Required. Example: automatic-speech-recognition
       name: {task_name}  # Optional. Example: Speech Recognition
     dataset:
-      type: {dataset_type}  # Required. Example: common_voice. Use dataset id from https://hf.co/datasets
-      name: {dataset_name}  # Required. Example: Common Voice zh-CN
-      args: {arg_0}         # Optional. Example: zh-CN
+      type: {dataset_type}         # Required. Example: common_voice. Use dataset id from https://hf.co/datasets
+      name: {dataset_name}         # Required. Example: Common Voice zh-CN
+      config: {dataset_config}     # Optional. Example: zh-CN
+      split: {dataset_split}       # Optional. Example: test
+      revision: {dataset_revision} # Optional. Example: main
+      args: {arg_0}                # Optional. Example: zh-CN
     metrics:
       - type: {metric_type}    # Required. Example: wer
         value: {metric_value}  # Required. Example: 20.90
