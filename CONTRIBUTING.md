@@ -28,19 +28,6 @@ helped you, or simply star the repo to say "thank you".
 Whichever way you choose to contribute, please be mindful to respect our
 [code of conduct](https://github.com/huggingface/huggingface_hub/blob/master/CODE_OF_CONDUCT.md).
 
-## You can contribute in so many ways!
-
-The repository is split into different parts, where we welcome contributions.
-
-What can you find in this repo?
-
-* [`huggingface_hub`](https://github.com/huggingface/huggingface_hub/tree/main/src/huggingface_hub), a client library to download and publish on the Hugging Face Hub as well as extracting useful information from there.
-* [`api-inference-community`](https://github.com/huggingface/huggingface_hub/tree/main/api-inference-community), the Inference API for open source machine learning libraries.
-* [`js`](https://github.com/huggingface/huggingface_hub/tree/main/js), the open sourced widgets that allow people to try out the models in the browser.
-  * [`interfaces`](https://github.com/huggingface/huggingface_hub/tree/main/js/src/lib/interfaces), Typescript definition files for the Hugging Face Hub.
-* [`docs`](https://github.com/huggingface/huggingface_hub/tree/main/docs), containing the official [Hugging Face Hub documentation](https://hf.co/docs).
-
-
 ### The client library, `huggingface_hub`
 
 This repository hosts the client library `huggingface_hub`, which is a frontend to the Hugging Face Hub.
@@ -51,35 +38,6 @@ There are many ways you can contribute to this client library:
 * Contributing to the examples or to the documentation;
 * Submitting issues related to bugs or desired new features.
 
-### The community inference API
-
-The `api-inference-community` folder contains a tool to enable third-party library support integrated with the Hugging
-Face Hub.
-
-We welcome contributions to [add new containers](https://huggingface.co/docs/hub/adding-a-library#set-up-the-inference-api) for new libraries, to update the existing ones, and to provide help
-fixing bugs and adding features. This folder contains an additional README
-file explaining how you may test your code.
-
-## JavaScript content
-
-The `js` folder contains the JavaScript code of the Hub. It includes:
-* The widgets ([code](https://github.com/huggingface/huggingface_hub/tree/main/js/src/lib/components/InferenceWidget)
-* Code snippets to make inference calls ([code](https://github.com/huggingface/huggingface_hub/tree/main/js/src/lib/inferenceSnippets)
-* Code snippets to load models ([code](https://github.com/huggingface/huggingface_hub/blob/main/js/src/lib/interfaces/Libraries.ts))
-
-Here too, we welcome any logic and documentation contributions. This folder contains an additional README
-file explaining how you may test your code.
-
-## Documentation
-
-The content in the `docs` folder is the official [Hugging Face Hub documentation]. It is not limited to the 
-Python package `huggingface_hub`, as it includes guides on using the frontend, ho to build Spaces, how to search
-efficiently, and others.
-
-Here too, we welcome contribution, may it be for syntactic changes or typos.
-
-*All contributions are equally valuable to the community.*
-
 ## Submitting a new issue or feature request
 
 Do your best to follow these guidelines when submitting an issue or a feature
@@ -88,7 +46,7 @@ feedback.
 
 ### Did you find a bug?
 
-The 🤗 Hugging Face Hub library is robust and reliable thanks to the users who notify us of
+The `huggingface_hub`library is robust and reliable thanks to the users who notify us of
 the problems they encounter. So thank you for reporting an issue.
 
 First, we would really appreciate it if you could **make sure the bug was not
@@ -100,7 +58,7 @@ Did not find it? :( So we can act quickly on it, please follow these steps:
   **Tensorflow** when applicable;
 * A short, self-contained, code snippet that allows us to reproduce the bug in
   less than 30s;
-* Provide the *full* traceback if an exception is raised by copying the text from your terminal 
+* Provide the *full* traceback if an exception is raised by copying the text from your terminal
   in the issue description.
 
 ### Do you want a new feature?
@@ -167,7 +125,7 @@ Follow these steps to start contributing:
 
    **Do not** work on the `master` branch.
 
-4. Set up a development environment by running the following command in a virtual environment a conda or a 
+4. Set up a development environment by running the following command in a virtual environment a conda or a
    virtual environment you've created for working on this library:
 
    ```bash
@@ -181,13 +139,13 @@ Follow these steps to start contributing:
 5. Develop the features on your branch.
 
    As you work on the features, you should make sure that the test suite
-   passes. You should run the tests impacted by your changes like this (see 
+   passes. You should run the tests impacted by your changes like this (see
    below an explanation regarding the environment variable):
 
    ```bash
    $ HUGGINGFACE_CO_STAGING=1 pytest tests/<TEST_TO_RUN>.py
    ```
-   
+
    > For the following commands leveraging the `make` utility, we recommend using the WSL system when running on
    > Windows. More information [here](https://docs.microsoft.com/en-us/windows/wsl/about).
 
@@ -198,8 +156,26 @@ Follow these steps to start contributing:
    ```
 
    `hugginface_hub` relies on `black` and `isort` to format its source code
-   consistently. After you make changes, apply automatic style corrections and code verifications
-   that can't be automated:
+   consistently. You can install pre-commit hooks so that these styles are
+   applied and checked on files that you have touched in each commit:
+
+   ```bash
+   pip install pre-commit
+   pre-commit install
+   ```
+
+   You only need to do the above once in your repository's environment. If for
+   any reason you would like to disable pre-commit hooks on a commit, you can
+   pass `-n` to your `git commit` command to temporarily disable pre-commit
+   hooks.
+
+   To permanently disable hooks, you can run the following command:
+   ```bash
+   pre-commit uninstall
+   ```
+
+   Alternatively, you can apply automatic style corrections and code
+   verifications manually with the following command:
 
    ```bash
    $ make style
@@ -225,7 +201,7 @@ Follow these steps to start contributing:
    It is a good idea to sync your copy of the code with the original
    repository regularly. The following document covers it in length: [github documentation](
    https://docs.github.com/en/pull-requests/collaborating-with-pull-requests/working-with-forks/syncing-a-fork)
- 
+
    And here's how you can do it quickly from your `git` commandline:
 
    ```bash
@@ -255,8 +231,8 @@ Follow these steps to start contributing:
 2. If your pull request addresses an issue, please mention the issue number in
    the pull request description to make sure they are linked (and people
    consulting the issue know you are working on it);
-3. To indicate a work in progress please prefix the title with `[WIP]`, or mark 
-   the PR as a draft PR. These are useful to avoid duplicated work, and to differentiate 
+3. To indicate a work in progress please prefix the title with `[WIP]`, or mark
+   the PR as a draft PR. These are useful to avoid duplicated work, and to differentiate
    it from PRs ready to be merged;
 4. Make sure existing tests pass;
 5. Add high-coverage tests. No quality testing = no merge.
@@ -272,7 +248,7 @@ An extensive test suite is included to test the library behavior and several exa
 the [tests folder](https://github.com/huggingface/huggingface_hub/tree/main/tests).
 
 The `huggingface_hub` library's normal behavior is to work with the production Hugging Face Hub. However,
-for tests, we prefer to run on a staging version. In order to do this, it's important to set the 
+for tests, we prefer to run on a staging version. In order to do this, it's important to set the
 `HUGGINGFACE_CO_STAGING` environment variable to `1` when running tests. It is preferred to pass this in when running the tests, than setting a permanent environmental variable, as shown below.
 
 We use `pytest` in order to run the tests for the library . From the root of the

@@ -16,7 +16,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-__version__ = "0.4.0.dev0"
+__version__ = "0.6.0.dev0"
 
 from .commands.user import notebook_login
 from .constants import (
@@ -52,6 +52,8 @@ from .hf_api import (
     model_info,
     move_repo,
     repo_type_and_id_from_hf_id,
+    set_access_token,
+    unset_access_token,
     update_repo_visibility,
     upload_file,
     whoami,

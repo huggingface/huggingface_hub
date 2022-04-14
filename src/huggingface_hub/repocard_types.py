@@ -35,8 +35,7 @@ class SingleMetric:
 class SingleResultTask:
     type: str
     """
-    Example: automatic-speech-recognition
-    Use task id from
+    Example: automatic-speech-recognition Use task id from
     https://github.com/huggingface/huggingface_hub/blob/main/js/src/lib/int
     erfaces/Types.ts
     """
@@ -50,20 +49,19 @@ class SingleResultTask:
 @dataclass
 class SingleResultDataset:
     """
-    This will switch to required at some point.
-    in any case, we need them to link to PWC
+    This will switch to required at some point. in any case, we need them to
+    link to PWC
     """
 
     name: str
     """
-    Example: Common Voice zh-CN
-    Also encode config params into the name if relevant.
+    Example: Common Voice zh-CN Also encode config params into the name if
+    relevant.
     """
 
     type: str
     """
-    Example: common_voice.
-    Use dataset id from https://hf.co/datasets
+    Example: common_voice. Use dataset id from https://hf.co/datasets
     """
 
     args: Any = None
@@ -78,6 +76,6 @@ class SingleResult:
     task: "SingleResultTask"
     dataset: "Optional[SingleResultDataset]"
     """
-    This will switch to required at some point.
-    in any case, we need them to link to PWC
+    This will switch to required at some point. in any case, we need them to
+    link to PWC
     """

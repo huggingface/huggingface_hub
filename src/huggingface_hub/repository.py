@@ -8,13 +8,14 @@ import time
 from contextlib import contextmanager
 from pathlib import Path
 from typing import Callable, Dict, Iterator, List, Optional, Tuple, Union
+from urllib.parse import urlparse
 
 from tqdm.auto import tqdm
 
 from huggingface_hub.constants import REPO_TYPES_URL_PREFIXES, REPOCARD_NAME
 from huggingface_hub.repocard import metadata_load, metadata_save
 
-from .hf_api import ENDPOINT, HfApi, HfFolder, repo_type_and_id_from_hf_id
+from .hf_api import HfApi, HfFolder, repo_type_and_id_from_hf_id
 from .lfs import LFS_MULTIPART_UPLOAD_COMMAND
 from .utils import logging
 
@@ -23,6 +24,10 @@ logger = logging.get_logger(__name__)
 
 
 class CommandInProgress:
+    """
+    Utility to follow commands launched asynchronously.
+    """
+
     def __init__(
         self,
         title: str,
@@ -55,8 +60,9 @@ class CommandInProgress:
     @property
     def status(self) -> int:
         """
-        The exit code/status of the current action. Will return `0` if the command has completed
-        successfully, and a number between 1 and 255 if the process errored-out.
+        The exit code/status of the current action. Will return `0` if the
+        command has completed successfully, and a number between 1 and 255 if
+        the process errored-out.
 
         Will return -1 if the command is still ongoing.
         """
@@ -96,7 +102,15 @@ class CommandInProgress:
 
 def is_git_repo(folder: Union[str, Path]) -> bool:
     """
-    Check if the folder is the root of a git repository
+    Check if the folder is the root or part of a git repository
+
+    Args:
+        folder (`str`):
+            The folder in which to run the command.
+
+    Returns:
+        `bool`: `True` if the repository is part of a repository, `False`
+        otherwise.
     """
     folder_exists = os.path.exists(os.path.join(folder, ".git"))
     git_branch = subprocess.run(
@@ -107,7 +121,17 @@ def is_git_repo(folder: Union[str, Path]) -> bool:
 
 def is_local_clone(folder: Union[str, Path], remote_url: str) -> bool:
     """
-    Check if the folder is the a local clone of the remote_url
+    Check if the folder is a local clone of the remote_url
+
+    Args:
+        folder (`str` or `Path`):
+            The folder in which to run the command.
+        remote_url (`str`):
+            The url of a git repository.
+
+    Returns:
+        `bool`: `True` if the repository is a local clone of the remote
+        repository specified, `False` otherwise.
     """
     if not is_git_repo(folder):
         return False
@@ -130,6 +154,14 @@ def is_local_clone(folder: Union[str, Path], remote_url: str) -> bool:
 def is_tracked_with_lfs(filename: Union[str, Path]) -> bool:
     """
     Check if the file passed is tracked with git-lfs.
+
+    Args:
+        filename (`str` or `Path`):
+            The filename to check.
+
+    Returns:
+        `bool`: `True` if the file passed is tracked with git-lfs, `False`
+        otherwise.
     """
     folder = Path(filename).parent
     filename = Path(filename).name
@@ -166,6 +198,14 @@ def is_tracked_with_lfs(filename: Union[str, Path]) -> bool:
 def is_git_ignored(filename: Union[str, Path]) -> bool:
     """
     Check if file is git-ignored. Supports nested .gitignore files.
+
+    Args:
+        filename (`str` or `Path`):
+            The filename to check.
+
+    Returns:
+        `bool`: `True` if the file passed is ignored by `git`, `False`
+        otherwise.
     """
     folder = Path(filename).parent
     filename = Path(filename).name
@@ -187,6 +227,18 @@ def is_git_ignored(filename: Union[str, Path]) -> bool:
 
 
 def files_to_be_staged(pattern: str, folder: Union[str, Path]) -> List[str]:
+    """
+    Returns a list of filenames that are to be staged.
+
+    Args:
+        pattern (`str` or `Path`):
+            The pattern of filenames to check. Put `.` to get all files.
+        folder (`str` or `Path`):
+            The folder in which to run the command.
+
+    Returns:
+        `List[str]`: List of files that are to be staged.
+    """
     try:
         p = subprocess.run(
             ["git", "ls-files", "-mo", pattern],
@@ -209,6 +261,14 @@ def files_to_be_staged(pattern: str, folder: Union[str, Path]) -> List[str]:
 def is_tracked_upstream(folder: Union[str, Path]) -> bool:
     """
     Check if the current checked-out branch is tracked upstream.
+
+    Args:
+        folder (`str` or `Path`):
+            The folder in which to run the command.
+
+    Returns:
+        `bool`: `True` if the current checked-out branch is tracked upstream,
+        `False` otherwise.
     """
     try:
         command = "git rev-parse --symbolic-full-name --abbrev-ref @{u}"
@@ -230,7 +290,18 @@ def is_tracked_upstream(folder: Union[str, Path]) -> bool:
 
 def commits_to_push(folder: Union[str, Path], upstream: Optional[str] = None) -> int:
     """
-    Check the number of commits that would be pushed upstream
+        Check the number of commits that would be pushed upstream
+
+        Args:
+            folder (`str` or `Path`):
+                The folder in which to run the command.
+            upstream (`str`, *optional*):
+    The name of the upstream repository with which the comparison should be
+    made.
+
+        Returns:
+            `int`: Number of commits that would be pushed upstream were a `git
+            push` to proceed.
     """
     try:
         command = f"git cherry -v {upstream or ''}"
@@ -248,9 +319,10 @@ def commits_to_push(folder: Union[str, Path], upstream: Optional[str] = None) ->
 
 
 @contextmanager
-def lfs_log_progress():
+def _lfs_log_progress():
     """
-    This is a context manager that will log the Git LFS progress of cleaning, smudging, pulling and pushing.
+    This is a context manager that will log the Git LFS progress of cleaning,
+    smudging, pulling and pushing.
     """
 
     if logger.getEffectiveLevel() >= logging.ERROR:
@@ -261,7 +333,8 @@ def lfs_log_progress():
 
     def output_progress(stopping_event: threading.Event):
         """
-        To be launched as a separate thread with an event meaning it should stop the tail.
+        To be launched as a separate thread with an event meaning it should stop
+        the tail.
         """
         pbars = {}
 
@@ -273,8 +346,9 @@ def lfs_log_progress():
 
         def tail_file(filename) -> Iterator[str]:
             """
-            Creates a generator to be iterated through, which will return each line one by one.
-            Will stop tailing the file if the stopping_event is set.
+            Creates a generator to be iterated through, which will return each
+            line one by one. Will stop tailing the file if the stopping_event is
+            set.
             """
             with open(filename, "r") as file:
                 current_line = ""
@@ -350,8 +424,9 @@ class Repository:
     """
     Helper class to wrap the git and git-lfs commands.
 
-    The aim is to facilitate interacting with huggingface.co hosted model or dataset repos,
-    though not a lot here (if any) is actually specific to huggingface.co.
+    The aim is to facilitate interacting with huggingface.co hosted model or
+    dataset repos, though not a lot here (if any) is actually specific to
+    huggingface.co.
     """
 
     command_queue: List[CommandInProgress]
@@ -367,39 +442,51 @@ class Repository:
         revision: Optional[str] = None,
         private: bool = False,
         skip_lfs_files: bool = False,
+        client: Optional[HfApi] = None,
     ):
         """
         Instantiate a local clone of a git repo.
 
-        If specifying a `clone_from`:
-        will clone an existing remote repository, for instance one
-        that was previously created using ``HfApi().create_repo(repo_id=repo_name)``.
-        ``Repository`` uses the local git credentials by default, but if required, the ``huggingface_token``
-        as well as the git ``user`` and the ``email`` can be explicitly specified.
-        If `clone_from` is used, and the repository is being instantiated into a non-empty directory,
-        e.g. a directory with your trained model files, it will automatically merge them.
+
+        If specifying a `clone_from`, it will clone an existing remote
+        repository, for instance one that was previously created using
+        `HfApi().create_repo(repo_id=repo_name)`.
+
+        `Repository` uses the local git credentials by default, but if required,
+        the `huggingface_token` as well as the git `user` and the `email` can be
+        explicitly specified.
 
         Args:
-            local_dir (``str``):
-                path (e.g. ``'my_trained_model/'``) to the local directory, where the ``Repository`` will be initalized.
-            clone_from (``str``, `optional`):
-                repository url (e.g. ``'https://huggingface.co/philschmid/playground-tests'``).
-            repo_type (``str``, `optional`):
-                To set when creating a repo: et to "dataset" or "space" if creating a dataset or space, default is model.
-            use_auth_token (``str`` or ``bool``, `optional`, defaults to ``True``):
-                huggingface_token can be extract from ``HfApi().login(username, password)`` and is used to authenticate against the hub
-                (useful from Google Colab for instance).
-            git_user (``str``, `optional`):
-                will override the ``git config user.name`` for committing and pushing files to the hub.
-            git_email (``str``, `optional`):
-                will override the ``git config user.email`` for committing and pushing files to the hub.
-            revision (``str``, `optional`):
-                Revision to checkout after initializing the repository. If the revision doesn't exist, a
-                branch will be created with that revision name from the default branch's current HEAD.
-            private (``bool``, `optional`, defaults to ``False``):
+            local_dir (`str`):
+                path (e.g. `'my_trained_model/'`) to the local directory, where
+                the `Repository` will be initalized.
+            clone_from (`str`, *optional*):
+                repository url (e.g.
+                `'https://huggingface.co/philschmid/playground-tests'`).
+            repo_type (`str`, *optional*):
+                To set when creating a repo: et to "dataset" or "space" if
+                creating a dataset or space, default is model.
+            use_auth_token (`str` or `bool`, *optional*, defaults to `True`):
+                huggingface_token can be extract from `HfApi().login(username,
+                password)` and is used to authenticate against the hub (useful
+                from Google Colab for instance).
+            git_user (`str`, *optional*):
+                will override the `git config user.name` for committing and
+                pushing files to the hub.
+            git_email (`str`, *optional*):
+                will override the `git config user.email` for committing and
+                pushing files to the hub.
+            revision (`str`, *optional*):
+                Revision to checkout after initializing the repository. If the
+                revision doesn't exist, a branch will be created with that
+                revision name from the default branch's current HEAD.
+            private (`bool`, *optional*, defaults to `False`):
                 whether the repository is private or not.
-            skip_lfs_files (``bool``, `optional`, defaults to ``False``):
+            skip_lfs_files (`bool`, *optional*, defaults to `False`):
                 whether to skip git-LFS files or not.
+            client (`HfApi`, *optional*):
+                Instance of HfApi to use when calling the HF Hub API.
+                A new instance will be created if this is left to `None`.
         """
 
         os.makedirs(local_dir, exist_ok=True)
@@ -408,6 +495,7 @@ class Repository:
         self.command_queue = []
         self.private = private
         self.skip_lfs_files = skip_lfs_files
+        self.client = client if client is not None else HfApi()
 
         self.check_git_versions()
 
@@ -431,7 +519,7 @@ class Repository:
         if self.huggingface_token is not None and (
             git_email is None or git_user is None
         ):
-            user = HfApi().whoami(self.huggingface_token)
+            user = self.client.whoami(self.huggingface_token)
 
             if git_email is None:
                 git_email = user["email"]
@@ -453,9 +541,12 @@ class Repository:
         atexit.register(self.wait_for_commands)
 
     @property
-    def current_branch(self):
+    def current_branch(self) -> str:
         """
         Returns the current checked out branch.
+
+        Returns:
+            `str`: Current checked out branch.
         """
         command = "git rev-parse --abbrev-ref HEAD"
         try:
@@ -474,7 +565,10 @@ class Repository:
 
     def check_git_versions(self):
         """
-        print git and git-lfs versions, raises if they aren't installed.
+        Checks that `git` and `git-lfs` can be run.
+
+        Raises:
+            `EnvironmentError`: if `git` or `git-lfs` are not installed.
         """
         try:
             git_version = subprocess.run(
@@ -507,9 +601,35 @@ class Repository:
 
     def clone_from(self, repo_url: str, use_auth_token: Union[bool, str, None] = None):
         """
-        Clone from a remote. If the folder already exists, will try to clone the repository within it.
+        Clone from a remote. If the folder already exists, will try to clone the
+        repository within it.
 
-        If this folder is a git repository with linked history, will try to update the repository.
+        If this folder is a git repository with linked history, will try to
+        update the repository.
+
+        Args:
+            repo_url (`str`):
+                The URL from which to clone the repository
+            use_auth_token (`Union[str, bool]`, *optional*):
+                Whether to use the authentication token. It can be:
+                 - a string which is the token itself
+                 - `False`, which would not use the authentication token
+                 - `True`, which would fetch the authentication token from the
+                   local folder and use it (you should be logged in for this to
+                   work).
+                - `None`, which would retrieve the value of
+                  `self.huggingface_token`.
+
+        Raises:
+            `ValueError`: if the `token` cannot be identified and the `private`
+            keyword is set to `True`. The `token`
+                must be passed in order to handle private repositories.
+
+        Raises:
+            `EnvironmentError`: if you are trying to clone the repository in a
+            non-empty folder, or if the `git`
+                operations raise errors.
+
         """
         token = use_auth_token if use_auth_token is not None else self.huggingface_token
         if token is None and self.private:
@@ -517,23 +637,24 @@ class Repository:
                 "Couldn't load Hugging Face Authorization Token. Credentials are required to work with private repositories."
                 " Please login in using `huggingface-cli login` or provide your token manually with the `use_auth_token` key."
             )
-        api = HfApi()
-
-        if "huggingface.co" in repo_url or (
+        hub_url = self.client.endpoint
+        if hub_url in repo_url or (
             "http" not in repo_url and len(repo_url.split("/")) <= 2
         ):
-            repo_type, namespace, repo_id = repo_type_and_id_from_hf_id(repo_url)
+            repo_type, namespace, repo_id = repo_type_and_id_from_hf_id(
+                repo_url, hub_url=hub_url
+            )
 
             if repo_type is not None:
                 self.repo_type = repo_type
 
-            repo_url = ENDPOINT + "/"
+            repo_url = hub_url + "/"
 
             if self.repo_type in REPO_TYPES_URL_PREFIXES:
                 repo_url += REPO_TYPES_URL_PREFIXES[self.repo_type]
 
             if token is not None:
-                whoami_info = api.whoami(token)
+                whoami_info = self.client.whoami(token)
                 user = whoami_info["name"]
                 valid_organisations = [org["name"] for org in whoami_info["orgs"]]
 
@@ -541,10 +662,11 @@ class Repository:
                     repo_id = f"{namespace}/{repo_id}"
                 repo_url += repo_id
 
-                repo_url = repo_url.replace("https://", f"https://user:{token}@")
+                scheme = urlparse(repo_url).scheme
+                repo_url = repo_url.replace(f"{scheme}://", f"{scheme}://user:{token}@")
 
                 if namespace == user or namespace in valid_organisations:
-                    api.create_repo(
+                    self.client.create_repo(
                         repo_id=repo_id,
                         token=token,
                         repo_type=self.repo_type,
@@ -557,7 +679,7 @@ class Repository:
                 repo_url += repo_id
 
         # For error messages, it's cleaner to show the repo url without the token.
-        clean_repo_url = re.sub(r"https://.*@", "https://", repo_url)
+        clean_repo_url = re.sub(r"(https?)://.*@", r"\1://", repo_url)
         try:
             subprocess.run(
                 "git lfs install".split(),
@@ -571,7 +693,7 @@ class Repository:
             if len(os.listdir(self.local_dir)) == 0:
                 logger.warning(f"Cloning {clean_repo_url} into local empty directory.")
 
-                with lfs_log_progress():
+                with _lfs_log_progress():
                     env = os.environ.copy()
 
                     if self.skip_lfs_files:
@@ -632,7 +754,13 @@ class Repository:
         self, git_user: Optional[str] = None, git_email: Optional[str] = None
     ):
         """
-        sets git user name and email (only in the current repo)
+        Sets git username and email (only in the current repo).
+
+        Args:
+            git_user (`str`, *optional*):
+                The username to register through `git`.
+            git_email (`str`, *optional*):
+                The email to register through `git`.
         """
         try:
             if git_user is not None:
@@ -658,7 +786,7 @@ class Repository:
 
     def git_credential_helper_store(self):
         """
-        sets the git credential helper to `store`
+        Sets the git credential helper to `store`
         """
         try:
             subprocess.run(
@@ -675,6 +803,9 @@ class Repository:
     def git_head_hash(self) -> str:
         """
         Get commit sha on top of HEAD.
+
+        Returns:
+            `str`: The current checked out commit SHA.
         """
         try:
             p = subprocess.run(
@@ -692,6 +823,9 @@ class Repository:
     def git_remote_url(self) -> str:
         """
         Get URL to origin remote.
+
+        Returns:
+            `str`: The URL of the `origin` remote.
         """
         try:
             p = subprocess.run(
@@ -710,9 +844,11 @@ class Repository:
 
     def git_head_commit_url(self) -> str:
         """
-        Get URL to last commit on HEAD
-        We assume it's been pushed, and the url scheme is
-        the same one as for GitHub or HuggingFace.
+        Get URL to last commit on HEAD. We assume it's been pushed, and the url
+        scheme is the same one as for GitHub or HuggingFace.
+
+        Returns:
+            `str`: The URL to the current checked-out commit.
         """
         sha = self.git_head_hash()
         url = self.git_remote_url()
@@ -722,7 +858,12 @@ class Repository:
 
     def list_deleted_files(self) -> List[str]:
         """
-        Returns a list of the files that are deleted in the working directory or index.
+        Returns a list of the files that are deleted in the working directory or
+        index.
+
+        Returns:
+            `List[str]`: A list of files that have been deleted in the working
+            directory or index.
         """
         try:
             git_status = subprocess.run(
@@ -765,11 +906,17 @@ class Repository:
         self, patterns: Union[str, List[str]], filename: Optional[bool] = False
     ):
         """
-        Tell git-lfs to track those files.
+        Tell git-lfs to track files according to a pattern.
 
-        Setting the `filename` argument to `True` will treat the arguments as literal filenames,
-        not as patterns. Any special glob characters in the filename will be escaped when
-        writing to the .gitattributes file.
+        Setting the `filename` argument to `True` will treat the arguments as
+        literal filenames, not as patterns. Any special glob characters in the
+        filename will be escaped when writing to the `.gitattributes` file.
+
+        Args:
+            patterns (`Union[str, List[str]]`):
+                The pattern, or list of patterns, to track with git-lfs.
+            filename (`bool`, *optional*, defaults to `False`):
+                Whether to use the patterns as literal filenames.
         """
         if isinstance(patterns, str):
             patterns = [patterns]
@@ -790,6 +937,10 @@ class Repository:
     def lfs_untrack(self, patterns: Union[str, List[str]]):
         """
         Tell git-lfs to untrack those files.
+
+        Args:
+            patterns (`Union[str, List[str]]`):
+                The pattern, or list of patterns, to untrack with git-lfs.
         """
         if isinstance(patterns, str):
             patterns = [patterns]
@@ -832,7 +983,16 @@ class Repository:
 
     def auto_track_large_files(self, pattern: Optional[str] = ".") -> List[str]:
         """
-        Automatically track large files with git-lfs
+        Automatically track large files (files that weigh more than 10MBs) with
+        git-lfs.
+
+        Args:
+            pattern (`str`, *optional*, defaults to "."):
+                The pattern with which to track files that are above 10MBs.
+
+        Returns:
+            `List[str]`: List of filenames that are now tracked due to their
+            size.
         """
         files_to_be_tracked_with_lfs = []
 
@@ -861,12 +1021,19 @@ class Repository:
     def lfs_prune(self, recent=False):
         """
         git lfs prune
+
+        Args:
+            recent (`bool`, *optional*, defaults to `False`):
+                Whether to prune files even if they were referenced by recent
+                commits. See the following
+                [link](https://github.com/git-lfs/git-lfs/blob/f3d43f0428a84fc4f1e5405b76b5a73ec2437e65/docs/man/git-lfs-prune.1.ronn#recent-files)
+                for more information.
         """
         args = "git lfs prune".split()
         if recent:
             args.append("--recent")
         try:
-            with lfs_log_progress():
+            with _lfs_log_progress():
                 result = subprocess.run(
                     args,
                     stderr=subprocess.PIPE,
@@ -884,18 +1051,20 @@ class Repository:
         git pull
 
         Args:
-            rebase (`bool`, defaults to `False`):
-                Whether to rebase the current branch on top of the upstream branch after fetching.
-            lfs (`bool`, defaults to `False`):
-                Whether to fetch the LFS files too. This option only changes the behavior when a repository
-                was cloned without fetching the LFS files; calling `repo.git_pull(lfs=True)` will then fetch
-                the LFS file from the remote repository.
+            rebase (`bool`, *optional*, defaults to `False`):
+                Whether to rebase the current branch on top of the upstream
+                branch after fetching.
+            lfs (`bool`, *optional*, defaults to `False`):
+                Whether to fetch the LFS files too. This option only changes the
+                behavior when a repository was cloned without fetching the LFS
+                files; calling `repo.git_pull(lfs=True)` will then fetch the LFS
+                file from the remote repository.
         """
         args = ("git pull" if not lfs else "git lfs pull").split()
         if rebase:
             args.append("--rebase")
         try:
-            with lfs_log_progress():
+            with _lfs_log_progress():
                 result = subprocess.run(
                     args,
                     stderr=subprocess.PIPE,
@@ -914,8 +1083,15 @@ class Repository:
         """
         git add
 
-        Setting the `auto_lfs_track` parameter to `True` will automatically track files that are larger
-        than 10MB with `git-lfs`.
+        Setting the `auto_lfs_track` parameter to `True` will automatically
+        track files that are larger than 10MB with `git-lfs`.
+
+        Args:
+            pattern (`str`, *optional*, defaults to "."):
+                The pattern with which to add files to staging.
+            auto_lfs_track (`bool`, *optional*, defaults to `False`):
+                Whether to automatically track large files with git-lfs. Any
+                file over 10MB in size will be automatically tracked.
         """
         if auto_lfs_track:
             tracked_files = self.auto_track_large_files(pattern)
@@ -940,6 +1116,10 @@ class Repository:
     def git_commit(self, commit_message: str = "commit files to HF hub"):
         """
         git commit
+
+        Args:
+            commit_message (`str`, *optional*, defaults to "commit files to HF hub"):
+                The message attributed to the commit.
         """
         try:
             result = subprocess.run(
@@ -966,21 +1146,24 @@ class Repository:
         """
         git push
 
-        If used without setting `blocking`, will return url to commit on remote repo.
-        If used with `blocking=True`, will return a tuple containing the url to commit
-        and the command object to follow for information about the process.
+        If used without setting `blocking`, will return url to commit on remote
+        repo. If used with `blocking=True`, will return a tuple containing the
+        url to commit and the command object to follow for information about the
+        process.
 
         Args:
-            upstream (`str`, `optional`):
+            upstream (`str`, *optional*):
                 Upstream to which this should push. If not specified, will push
-                to the lastly defined upstream or to the default one (`origin main`).
-            blocking (`bool`, defaults to `True`):
-                Whether the function should return only when the push has finished.
-                Setting this to `False` will return an `CommandInProgress` object
-                which has an `is_done` property. This property will be set to
-                `True` when the push is finished.
-            auto_lfs_prune (`bool`, defaults to `False`):
-                Whether to automatically prune files once they have been pushed to the remote.
+                to the lastly defined upstream or to the default one (`origin
+                main`).
+            blocking (`bool`, *optional*, defaults to `True`):
+                Whether the function should return only when the push has
+                finished. Setting this to `False` will return an
+                `CommandInProgress` object which has an `is_done` property. This
+                property will be set to `True` when the push is finished.
+            auto_lfs_prune (`bool`, *optional*, defaults to `False`):
+                Whether to automatically prune files once they have been pushed
+                to the remote.
         """
         command = "git push"
 
@@ -997,7 +1180,7 @@ class Repository:
                 logger.warning("The progress bars may be unreliable.")
 
         try:
-            with lfs_log_progress():
+            with _lfs_log_progress():
                 process = subprocess.Popen(
                     command.split(),
                     stderr=subprocess.PIPE,
@@ -1052,7 +1235,16 @@ class Repository:
         """
         git checkout a given revision
 
-        Specifying `create_branch_ok` to `True` will create the branch to the given revision if that revision doesn't exist.
+        Specifying `create_branch_ok` to `True` will create the branch to the
+        given revision if that revision doesn't exist.
+
+        Args:
+            revision (`str`):
+                The revision to checkout.
+            create_branch_ok (`str`, *optional*, defaults to `False`):
+                Whether creating a branch named with the `revision` passed at
+                the current checked-out reference if `revision` isn't an
+                existing revision is allowed.
         """
         command = f"git checkout {revision}"
         try:
@@ -1089,7 +1281,17 @@ class Repository:
 
     def tag_exists(self, tag_name: str, remote: Optional[str] = None) -> bool:
         """
-        Check if a tag exists or not
+        Check if a tag exists or not.
+
+        Args:
+            tag_name (`str`):
+                The name of the tag to check.
+            remote (`str`, *optional*):
+                Whether to check if the tag exists on a remote. This parameter
+                should be the identifier of the remote.
+
+        Returns:
+            `bool`: Whether the tag exists.
         """
         if remote:
             try:
@@ -1125,8 +1327,15 @@ class Repository:
         """
         Delete a tag, both local and remote, if it exists
 
-        Return True if deleted.  Returns False if the tag didn't exist
-        If remote is None, will just be updated locally
+        Args:
+            tag_name (`str`):
+                The tag name to delete.
+            remote (`str`, *optional*):
+                The remote on which to delete the tag.
+
+        Returns:
+             `bool`: `True` if deleted, `False` if the tag didn't exist.
+                If remote is not passed, will just be updated locally
         """
         delete_locally = True
         delete_remotely = True
@@ -1171,8 +1380,17 @@ class Repository:
 
         If remote is None, will just be updated locally
 
-        If no message is provided, the tag will be lightweight.
-        if a message is provided, the tag will be annotated.
+        If no message is provided, the tag will be lightweight. if a message is
+        provided, the tag will be annotated.
+
+        Args:
+            tag_name (`str`):
+                The name of the tag to be added.
+            message (`str`, *optional*):
+                The message that accompanies the tag. The tag will turn into an
+                annotated tag if a message is passed.
+            remote (`str`, *optional*):
+                The remote on which to add the tag.
         """
         if message:
             tag_args = ["git", "tag", "-a", tag_name, "-m", message]
@@ -1206,6 +1424,9 @@ class Repository:
     def is_repo_clean(self) -> bool:
         """
         Return whether or not the git status is clean or not
+
+        Returns:
+            `bool`: `True` if the git status is clean, `False` otherwise.
         """
         try:
             git_status = subprocess.run(
@@ -1229,19 +1450,22 @@ class Repository:
         auto_lfs_prune: Optional[bool] = False,
     ) -> Optional[str]:
         """
-        Helper to add, commit, and push files to remote repository on the HuggingFace Hub.
-        Will automatically track large files (>10MB).
+        Helper to add, commit, and push files to remote repository on the
+        HuggingFace Hub. Will automatically track large files (>10MB).
 
         Args:
             commit_message (`str`):
                 Message to use for the commit.
-            blocking (`bool`, `optional`, defaults to `True`):
-                Whether the function should return only when the `git push` has finished.
-            clean_ok (`bool`, `optional`, defaults to `True`):
-                If True, this function will return None if the repo is untouched.
-                Default behavior is to fail because the git command fails.
-            auto_lfs_prune (`bool`, defaults to `False`):
-                Whether to automatically prune files once they have been pushed to the remote.
+            blocking (`bool`, *optional*, defaults to `True`):
+                Whether the function should return only when the `git push` has
+                finished.
+            clean_ok (`bool`, *optional*, defaults to `True`):
+                If True, this function will return None if the repo is
+                untouched. Default behavior is to fail because the git command
+                fails.
+            auto_lfs_prune (`bool`, *optional*, defaults to `False`):
+                Whether to automatically prune files once they have been pushed
+                to the remote.
         """
         if clean_ok and self.is_repo_clean():
             logger.info("Repo currently clean.  Ignoring push_to_hub")
@@ -1264,31 +1488,48 @@ class Repository:
         auto_lfs_prune: Optional[bool] = False,
     ):
         """
-        Context manager utility to handle committing to a repository. This automatically tracks large files (>10Mb)
-        with git-lfs. Set the `track_large_files` argument to `False` if you wish to ignore that behavior.
+        Context manager utility to handle committing to a repository. This
+        automatically tracks large files (>10Mb) with git-lfs. Set the
+        `track_large_files` argument to `False` if you wish to ignore that
+        behavior.
 
         Args:
             commit_message (`str`):
                 Message to use for the commit.
-            branch (`str`, `optional`):
-                The branch on which the commit will appear. This branch will be checked-out before any operation.
-            track_large_files (`bool`, `optional`, defaults to `True`):
-                Whether to automatically track large files or not. Will do so by default.
-            blocking (`bool`, `optional`, defaults to `True`):
-                Whether the function should return only when the `git push` has finished.
+            branch (`str`, *optional*):
+                The branch on which the commit will appear. This branch will be
+                checked-out before any operation.
+            track_large_files (`bool`, *optional*, defaults to `True`):
+                Whether to automatically track large files or not. Will do so by
+                default.
+            blocking (`bool`, *optional*, defaults to `True`):
+                Whether the function should return only when the `git push` has
+                finished.
             auto_lfs_prune (`bool`, defaults to `True`):
-                Whether to automatically prune files once they have been pushed to the remote.
+                Whether to automatically prune files once they have been pushed
+                to the remote.
 
         Examples:
 
-            >>> with Repository("text-files", clone_from="<user>/text-files", use_auth_token=True).commit("My first file :)"):
-            ...     with open("file.txt", "w+") as f:
-            ...         f.write(json.dumps({"hey": 8}))
+        ```python
+        >>> with Repository(
+        ...     "text-files",
+        ...     clone_from="<user>/text-files",
+        ...     use_auth_token=True,
+        >>> ).commit("My first file :)"):
+        ...     with open("file.txt", "w+") as f:
+        ...         f.write(json.dumps({"hey": 8}))
 
-            >>> import torch
-            >>> model = torch.nn.Transformer()
-            >>> with Repository("torch-model", clone_from="<user>/torch-model", use_auth_token=True).commit("My cool model :)"):
-            ...     torch.save(model.state_dict(), "model.pt")
+        >>> import torch
+
+        >>> model = torch.nn.Transformer()
+        >>> with Repository(
+        ...     "torch-model",
+        ...     clone_from="<user>/torch-model",
+        ...     use_auth_token=True,
+        >>> ).commit("My cool model :)"):
+        ...     torch.save(model.state_dict(), "model.pt")
+        ```
 
         """
 
@@ -1357,13 +1598,23 @@ class Repository:
 
     @property
     def commands_failed(self):
+        """
+        Returns the asynchronous commands that failed.
+        """
         return [c for c in self.command_queue if c.status > 0]
 
     @property
     def commands_in_progress(self):
+        """
+        Returns the asynchronous commands that are currently in progress.
+        """
         return [c for c in self.command_queue if not c.is_done]
 
     def wait_for_commands(self):
+        """
+        Blocking method: blocks all subsequent execution until all commands have
+        been processed.
+        """
         index = 0
         for command_failed in self.commands_failed:
             logger.error(

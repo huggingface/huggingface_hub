@@ -1,4 +1,0 @@
-starlette==0.14.2
-api-inference-community==0.0.19
-torch==1.9.1
-adapter-transformers==2.2.0
