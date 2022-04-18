@@ -245,7 +245,7 @@ def files_to_be_staged(pattern: str, folder: Union[str, Path]) -> List[str]:
         `List[str]`: List of files that are to be staged.
     """
     try:
-        p = run_subprocess(f"git ls-files -mo {pattern}".split(), folder)
+        p = run_subprocess("git ls-files -mo".split() + [pattern], folder)
         if len(p.stdout.strip()):
             files = p.stdout.strip().split("\n")
         else:
@@ -666,6 +666,7 @@ class Repository:
                     run_subprocess(
                         f"{'git clone' if self.skip_lfs_files else 'git lfs clone'} {repo_url} .".split(),
                         self.local_dir,
+                        env=env,
                     )
             else:
                 # Check if the folder is the root of a git repository
