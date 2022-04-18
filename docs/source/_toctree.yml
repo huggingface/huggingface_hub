@@ -10,7 +10,7 @@
   - local: searching-the-hub
     title: Searching the Hub
   - local: how-to-inference
-    title: How to programmatically access the Inference API
+    title: How to access the Inference API
   title: "Guides"
 - sections:
     - local: package_reference/repository
@@ -21,6 +21,8 @@
       title: Downloading files
     - local: package_reference/mixins
       title: Mixins & serialization methods
+    - local: package_reference/inference_api
+      title: Inference API
     - local: package_reference/logging
       title: Logging
   title: "Reference"
