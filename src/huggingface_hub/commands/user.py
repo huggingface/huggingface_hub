@@ -26,6 +26,8 @@ from huggingface_hub.constants import (
 from huggingface_hub.hf_api import HfApi, HfFolder
 from requests.exceptions import HTTPError
 
+from ..utils import run_subprocess
+
 
 class UserCommands(BaseHuggingfaceCLICommand):
     @staticmethod
@@ -122,13 +124,9 @@ def tabulate(rows: List[List[Union[str, int]]], headers: List[str]) -> str:
 
 def currently_setup_credential_helpers(directory=None) -> List[str]:
     try:
-        output = subprocess.run(
+        output = run_subprocess(
             "git config --list".split(),
-            stderr=subprocess.PIPE,
-            stdout=subprocess.PIPE,
-            encoding="utf-8",
-            check=True,
-            cwd=directory,
+            directory,
         ).stdout.split("\n")
 
         current_credential_helpers = []
