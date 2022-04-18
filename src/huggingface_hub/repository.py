@@ -238,11 +238,15 @@ def is_binary_file(filename: Union[str, Path]) -> bool:
         `bool`: `True` if the file passed is a binary file, `False` otherwise.
     """
     try:
-        with open(filename) as f:
+        with open(filename, "rb") as f:
             content = f.read()
 
-        # Check for the presence of the null character in the string
-        return "\x00" in content
+        # Code sample taken from the following stack overflow thread
+        # https://stackoverflow.com/questions/898669/how-can-i-detect-if-a-file-is-binary-non-text-in-python/7392391#7392391
+        text_chars = bytearray(
+            {7, 8, 9, 10, 12, 13, 27} | set(range(0x20, 0x100)) - {0x7F}
+        )
+        return bool(content.translate(None, text_chars))
     except UnicodeDecodeError:
         return True
 
