@@ -23,7 +23,7 @@ The pipeline is determined from the metadata in the model card and configuration
 >>> from huggingface_hub.inference_api import InferenceApi
 >>> inference = InferenceApi(repo_id="bert-base-uncased", token=API_TOKEN)
 >>> inference(inputs="The goal of life is [MASK].")
->>> [{'sequence': 'the goal of life is life.', 'score': 0.10933292657136917, 'token': 2166, 'token_str': 'life'}]
+[{'sequence': 'the goal of life is life.', 'score': 0.10933292657136917, 'token': 2166, 'token_str': 'life'}]
 ```
 
 Each task requires a different type of input. A `question-answering` task expects a dictionary with the `question` and `context` keys as the input:
@@ -32,7 +32,7 @@ Each task requires a different type of input. A `question-answering` task expect
 >>> inference = InferenceApi(repo_id="deepset/roberta-base-squad2", token=API_TOKEN)
 >>> inputs = {"question":"Where is Hugging Face headquarters?", "context":"Hugging Face is based in Brooklyn, New York. There is also an office in Paris, France."}
 >>> inference(inputs)
->>> {'score': 0.94622403383255, 'start': 25, 'end': 43, 'answer': 'Brooklyn, New York'}
+{'score': 0.94622403383255, 'start': 25, 'end': 43, 'answer': 'Brooklyn, New York'}
 ```
 
 Some tasks may require additional parameters (see [here](https://api-inference.huggingface.co/docs/python/html/detailed_parameters.html) for a detailed list of all parameters for each task). As an example, for `zero-shot-classification` tasks, the model needs candidate labels that can be supplied to `params`:
@@ -42,7 +42,7 @@ Some tasks may require additional parameters (see [here](https://api-inference.h
 >>> inputs = "Hi, I recently bought a device from your company but it is not working as advertised and I would like to get reimbursed!"
 >>> params = {"candidate_labels":["refund", "legal", "faq"]}
 >>> inference(inputs, params)
->>> {'sequence': 'Hi, I recently bought a device from your company but it is not working as advertised and I would like to get reimbursed!', 'labels': ['refund', 'faq', 'legal'], 'scores': [0.9378499388694763, 0.04914155602455139, 0.013008488342165947]}
+{'sequence': 'Hi, I recently bought a device from your company but it is not working as advertised and I would like to get reimbursed!', 'labels': ['refund', 'faq', 'legal'], 'scores': [0.9378499388694763, 0.04914155602455139, 0.013008488342165947]}
 ```
 
 Some models may support multiple tasks. The `sentence-transformers` models can complete both `sentence-similarity` and `feature-extraction` tasks. Specify which task you want to perform with the `task` parameter:

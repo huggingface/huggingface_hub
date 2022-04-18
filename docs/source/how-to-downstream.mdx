@@ -82,6 +82,7 @@ However, you don't want to always download the contents of an entire repository 
 Use the `allow_regex` and `ignore_regex` arguments to specify 
 which files to download.
 These parameters accept either a single regex or a list of regexes. 
+
 The regex matching is based on [`fnmatch`](https://docs.python.org/3/library/fnmatch.html) which means it provides support for Unix shell-style wildcards.
 
 For example, you can use `allow_regex` to only download JSON configuration files:
