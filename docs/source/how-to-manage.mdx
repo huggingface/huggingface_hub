@@ -6,6 +6,23 @@ A repository is a space for you to store your model or dataset files. This guide
 * Adjust repository visibility.
 * Use the [`Repository`] class for common Git operations like clone, branch, push, etc.
 
+If you want to create a repository on the Hub, you need to log in to your Hugging Face account:
+
+1. Log in to your Hugging Face account with the following command:
+
+   ```bash
+   huggingface-cli login
+   ```
+
+2. Alternatively, if you prefer working from a Jupyter or Colaboratory notebook, login with [`notebook_login`]:
+
+   ```python
+   >>> from huggingface_hub import notebook_login
+   >>> notebook_login()
+   ```
+
+   [`notebook_login`] will launch a widget in your notebook from which you can enter your Hugging Face credentials.
+
 ## Create a repository
 
 Create an empty repository with [`create_repo`] and give it a name with the `repo_id` parameter. The `repo_id` is your namespace followed by the repository name: `{username_or_org}/{repo_name}`.
