@@ -18,9 +18,7 @@ Use the `filename` parameter in the [`hf_hub_url`] function to retrieve the URL 
 
 ![/docs/assets/hub/repo.png](/docs/assets/hub/repo.png)
 
-Specify a particular file version by providing the file revision, which can be a branch, a tag, or a commit hash.
-
-When using the commit hash, it must be the full-length hash instead of a 7-character commit hash:
+Specify a particular file version by providing the file revision, which can be a branch, a tag, or a commit hash. When using the commit hash, it must be the full-length hash instead of a 7-character commit hash:
 
 ```python
 >>> hf_hub_url(repo_id="lysandre/arxiv-nlp", filename="config.json", revision="877b84a8f93f2d619faa2a6e514a32beef88ab0a")
@@ -41,7 +39,7 @@ You can also specify a file revision with a tag identifier. For example, if you 
 
 ## Download and store a file
 
-[`cached_download`] is useful for downloading and caching a file on your local disk. Once a file is stored in your cache, you don't have to redownload the file the next time you use it. [`cached_download`] is a hands-free solution for staying up to date with new file versions. When a downloaded file is updated in the remote repository, `cached_download` will automatically download and store it.
+[`cached_download`] is used to download and cache a file on your local disk. Once a file is stored in your cache, you don't have to redownload the file the next time you use it. [`cached_download`] is a hands-free solution for staying up to date with new file versions. When a downloaded file is updated in the remote repository, [`cached_download`] will automatically download and store it.
 
 Begin by retrieving your file URL with [`hf_hub_url`], and then pass the specified URL to [`cached_download`] to download the file:
 
@@ -80,7 +78,7 @@ Download a whole repository as shown in the following:
 
 In general, it is usually better to manually download files with [`hf_hub_download`] - if you already know the file name - to avoid re-downloading an entire repository. [`snapshot_download`] is helpful when you are unaware of which files need to be downloaded.
 
-However, you don't want to always download the contents of an entire repository with `snapshot_download`. Even if you don't know the file name, you can download specific files if you know the file type with `allow_regex` and `ignore_regex`.
+However, you don't want to always download the contents of an entire repository with [`snapshot_download`]. Even if you don't know the file name, you can download specific files if you know the file type with `allow_regex` and `ignore_regex`.
 Use the `allow_regex` and `ignore_regex` arguments to specify 
 which files to download.
 These parameters accept either a single regex or a list of regexes. 

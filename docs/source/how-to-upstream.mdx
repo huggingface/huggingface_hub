@@ -3,8 +3,25 @@
 Sharing your files and work is a very important aspect of the Hub. The `huggingface_hub` uses a Git-based workflow to upload files to the Hub. You can use these functions independently or integrate them into your own library so it is more convenient for your users to interact with the Hub. This guide will show you how to:
 
 * Push files with a `commit` context manager.
-* Push files with the [`push_to_hub`] function.
+* Push files with the [`~Repository.push_to_hub`] function.
 * Upload very large files with [Git LFS](https://git-lfs.github.com/).
+
+Whenever you want to upload files to the Hub, you need to log in to your Hugging Face account:
+
+1. Log in to your Hugging Face account with the following command:
+
+   ```bash
+   huggingface-cli login
+   ```
+
+2. Alternatively, if you prefer working from a Jupyter or Colaboratory notebook, login with [`notebook_login`]:
+
+   ```python
+   >>> from huggingface_hub import notebook_login
+   >>> notebook_login()
+   ```
+
+   [`notebook_login`] will launch a widget in your notebook from which you can enter your Hugging Face credentials.
 
 ## commit context manager
 
@@ -61,7 +78,7 @@ When `blocking=False`, commands are tracked, and your script will only exit when
 
 ## push_to_hub
 
-The [`Repository`] class also has a [`push_to_hub`] function to add files, make a commit, and push them to a repository. Unlike the `commit` context manager, [`push_to_hub`] requires you to pull from a repository first, save the files, and then call [`push_to_hub`].
+The [`Repository`] class also has a [`~Repository.push_to_hub`] function to add files, make a commit, and push them to a repository. Unlike the `commit` context manager, [`~Repository.push_to_hub`] requires you to pull from a repository first, save the files, and then call [`~Repository.push_to_hub`].
 
 ```python
 >>> repo.git_pull()
