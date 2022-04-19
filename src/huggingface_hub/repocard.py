@@ -5,6 +5,8 @@ from pathlib import Path
 from typing import Any, Dict, Optional, Union
 
 import yaml
+from huggingface_hub.file_download import hf_hub_download
+from huggingface_hub.hf_api import HfApi
 from huggingface_hub.repocard_types import (
     ModelIndex,
     SingleMetric,
@@ -99,3 +101,98 @@ def metadata_eval_result(
         model_index, dict_factory=lambda x: {k: v for (k, v) in x if v is not None}
     )
     return {"model-index": [data]}
+
+
+def metadata_update(
+    repo_id: str,
+    metadata: Dict,
+    repo_type: str = None,
+    overwrite: bool = False,
+    token: str = None,
+) -> None:
+    filepath = hf_hub_download(
+        repo_id,
+        filename="README.md",
+        repo_type=repo_type,
+        use_auth_token=token,
+        force_download=True,
+    )
+    existing_metadata = metadata_load(filepath)
+
+    for key in metadata:
+        # update all fields except model index
+        if not key == "model-index":
+            if key in existing_metadata and not overwrite:
+                if existing_metadata[key] != metadata[key]:
+                    raise ValueError(
+                        f"""You passed a new value for the existing meta data field '{key}'. Set `overwrite=True` to overwrite existing metadata."""
+                    )
+            else:
+                existing_metadata[key] = metadata[key]
+        # update model index containing the evaluation results
+        else:
+            if "model-index" not in existing_metadata:
+                existing_metadata["model-index"] = metadata["model-index"]
+            else:
+                existing_metadata["model-index"][0][
+                    "results"
+                ] = _update_metadata_model_index(
+                    existing_metadata["model-index"][0]["results"],
+                    metadata["model-index"][0]["results"],
+                    overwrite=overwrite,
+                )
+
+    # save and push to hub
+    metadata_save(filepath, existing_metadata)
+
+    HfApi().upload_file(
+        path_or_fileobj=filepath,
+        path_in_repo="README.md",
+        repo_id=repo_id,
+        repo_type=repo_type,
+        identical_ok=True,
+        token=token,
+    )
+
+
+def _update_metadata_model_index(existing_results, new_results, overwrite=False):
+    for new_result in new_results:
+        result_found = False
+        for existing_result_index, existing_result in enumerate(existing_results):
+            if (
+                new_result["dataset"] == existing_result["dataset"]
+                and new_result["task"] == existing_result["task"]
+            ):
+                result_found = True
+                for new_metric in new_result["metrics"]:
+                    metric_exists = False
+                    for existing_metric_index, existing_metric in enumerate(
+                        existing_result["metrics"]
+                    ):
+                        if (
+                            new_metric["name"] == existing_metric["name"]
+                            and new_metric["type"] == existing_metric["type"]
+                        ):
+                            if overwrite:
+                                existing_results[existing_result_index]["metrics"][
+                                    existing_metric_index
+                                ]["value"] = new_metric["value"]
+                            else:
+                                # if metric exists and value is not the same throw an error without overwrite flag
+                                if (
+                                    existing_results[existing_result_index]["metrics"][
+                                        existing_metric_index
+                                    ]["value"]
+                                    != new_metric["value"]
+                                ):
+                                    raise ValueError(
+                                        f"""You passed a new value for the existing metric '{new_metric["name"]}'. Set `overwrite=True` to overwrite existing metrics."""
+                                    )
+                            metric_exists = True
+                    if not metric_exists:
+                        existing_results[existing_result_index]["metrics"].append(
+                            new_metric
+                        )
+        if not result_found:
+            existing_results.append(new_result)
+    return existing_results
