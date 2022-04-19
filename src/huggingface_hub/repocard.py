@@ -110,6 +110,25 @@ def metadata_update(
     overwrite: bool = False,
     token: str = None,
 ) -> None:
+    """
+    Updates the metadata in the README.md of a repository on the Hugging Face Hub.
+
+    Args:
+        repo_id (`str`):
+            The name of the repository.
+        metadata (`dict`):
+            A dictionary containing the metadata to be updated.
+        repo_type (`str`, *optional*):
+            Set to `"dataset"` or `"space"` if updating to a dataset or space,
+            `None` or `"model"` if updating to a model. Default is `None`.
+        overwrite (`bool`, *optional*):
+            If set to `True` an existing field can be overwritten, otherwise
+            attempting to overwrite an existing field will cause an error.
+            Default is `False`.
+        token (`str`, *optional*):
+            The Hugging Face authentication token
+    """
+
     filepath = hf_hub_download(
         repo_id,
         filename="README.md",
