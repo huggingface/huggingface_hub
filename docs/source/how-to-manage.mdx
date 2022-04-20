@@ -124,7 +124,7 @@ When you clone a repository, you can also attribute a Git username and email to 
 
 ### Branch
 
-Branches are important for collaboration and experimentation without impacting your current files and code. Switch between branches with [`git_checkout`]. For example, if you want to switch from `branch1` to `branch2`:
+Branches are important for collaboration and experimentation without impacting your current files and code. Switch between branches with [`~Repository.git_checkout`]. For example, if you want to switch from `branch1` to `branch2`:
 
 ```python
 >>> repo = Repository(local_dir="huggingface-hub", clone_from="<user>/<dataset_id>", revision='branch1')

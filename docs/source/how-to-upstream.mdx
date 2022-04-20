@@ -85,14 +85,14 @@ The [`Repository`] class also has a [`~Repository.push_to_hub`] function to add 
 >>> repo.push_to_hub(commit_message="Commit my-awesome-file to the Hub")
 ```
 
-However, if you aren't ready to push a file yet, you can still use [`git_add`] and [`git_commit`] to add and commit your file:
+However, if you aren't ready to push a file yet, you can still use [`~Repository.git_add`] and [`~Repository.git_commit`] to add and commit your file:
 
 ```py
 >>> repo.git_add("path/to/file")
 >>> repo.git_commit(commit_message="add my first model config file :)")
 ```
 
-Once you're ready, you can push your file to your repository with [`git_push`]:
+Once you're ready, you can push your file to your repository with [`~Repository.git_push`]:
 
 ```py
 >>> repo.git_push()
