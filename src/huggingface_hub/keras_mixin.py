@@ -169,12 +169,12 @@ def save_pretrained_keras(
             Configuration object to be saved alongside the model weights.
         include_optimizer(`bool`, *optional*, defaults to `False`):
             Whether or not to include optimizer in serialization.
-        plot_model (`bool`, *optional*, defaults to `True`):
-            Setting this to `True` will plot the model and put it in the model
-            card. Requires graphviz and pydot to be installed.
         tags (Union[`str`,`list`], *optional*):
             List of tags that are related to model or string of a single tag. See example tags
             [here](https://github.com/huggingface/hub-docs/blame/main/modelcard.md).
+        plot_model (`bool`, *optional*, defaults to `True`):
+            Setting this to `True` will plot the model and put it in the model
+            card. Requires graphviz and pydot to be installed.
         model_save_kwargs(`dict`, *optional*):
             model_save_kwargs will be passed to
             [`tf.keras.models.save_model()`](https://www.tensorflow.org/api_docs/python/tf/keras/models/save_model).
@@ -191,12 +191,6 @@ def save_pretrained_keras(
 
     os.makedirs(save_directory, exist_ok=True)
 
-    if "task_name" in model_save_kwargs:
-        warnings.warn(
-            "`task_name` input argument is removed. Pass `tags` instead.",
-            FutureWarning,
-        )
-        task_name = model_save_kwargs.pop("task_name")
     # saving config
     if config:
         if not isinstance(config, dict):
@@ -212,7 +206,13 @@ def save_pretrained_keras(
         metadata["tags"] = tags
     elif isinstance(tags, str):
         metadata["tags"] = [tags]
-    if "task_name" in locals():
+
+    task_name = model_save_kwargs.pop("task_name", None)
+    if task_name is not None:
+        warnings.warn(
+            "`task_name` input argument is removed. Pass `tags` instead.",
+            FutureWarning,
+        )
         if "tags" in metadata:
             metadata["tags"].append(task_name)
         else:
@@ -347,7 +347,7 @@ def push_to_hub_keras(
             Configuration object to be saved alongside the model weights.
         include_optimizer (`bool`, *optional*, defaults to `False`):
             Whether or not to include optimizer during serialization.
-        tags (`dict`, *optional*):
+        tags (Union[`list`, `str`], *optional*):
             List of tags that are related to model or string of a single tag. See example tags
             [here](https://github.com/huggingface/hub-docs/blame/main/modelcard.md).
         plot_model (`bool`, *optional*, defaults to `True`):
