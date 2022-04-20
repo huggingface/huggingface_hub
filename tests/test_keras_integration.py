@@ -316,8 +316,8 @@ class HubKerasSequentialTest(HubMixingTestKeras):
             model,
             f"{WORKING_REPO_DIR}/{REPO_NAME}",
             config={"num": 10, "act": "gelu_fast"},
-            plot_model=True,
             tags=None,
+            plot_model=True,
         )
 
         new_model = from_pretrained_keras(f"{WORKING_REPO_DIR}/{REPO_NAME}")

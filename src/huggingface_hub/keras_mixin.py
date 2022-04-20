@@ -150,8 +150,8 @@ def save_pretrained_keras(
     save_directory: str,
     config: Optional[Dict[str, Any]] = None,
     include_optimizer: Optional[bool] = False,
-    plot_model: Optional[bool] = True,
     tags: Optional[Union[list, str]] = None,
+    plot_model: Optional[bool] = True,
     **model_save_kwargs,
 ):
     """
@@ -172,7 +172,7 @@ def save_pretrained_keras(
         plot_model (`bool`, *optional*, defaults to `True`):
             Setting this to `True` will plot the model and put it in the model
             card. Requires graphviz and pydot to be installed.
-        tags (`dict`, *optional*):
+        tags (`list`, *optional*):
             List of tags that are related to model or string of a single tag. See example tags
             [here](https://github.com/huggingface/hub-docs/blame/main/modelcard.md).
         model_save_kwargs(`dict`, *optional*):
@@ -297,8 +297,8 @@ def push_to_hub_keras(
     git_email: Optional[str] = None,
     config: Optional[dict] = None,
     include_optimizer: Optional[bool] = False,
-    plot_model: Optional[bool] = True,
     tags: Optional[Union[list, str]] = None,
+    plot_model: Optional[bool] = True,
     **model_save_kwargs,
 ):
     """
@@ -347,12 +347,12 @@ def push_to_hub_keras(
             Configuration object to be saved alongside the model weights.
         include_optimizer (`bool`, *optional*, defaults to `False`):
             Whether or not to include optimizer during serialization.
-        plot_model (`bool`, *optional*, defaults to `True`):
-            Setting this to `True` will plot the model and put it in the model
-            card. Requires graphviz and pydot to be installed.
         tags (`dict`, *optional*):
             List of tags that are related to model or string of a single tag. See example tags
             [here](https://github.com/huggingface/hub-docs/blame/main/modelcard.md).
+        plot_model (`bool`, *optional*, defaults to `True`):
+            Setting this to `True` will plot the model and put it in the model
+            card. Requires graphviz and pydot to be installed.
         model_save_kwargs(`dict`, *optional*):
             model_save_kwargs will be passed to
             [`tf.keras.models.save_model()`](https://www.tensorflow.org/api_docs/python/tf/keras/models/save_model).
@@ -408,8 +408,8 @@ def push_to_hub_keras(
         repo_path_or_name,
         config=config,
         include_optimizer=include_optimizer,
-        plot_model=plot_model,
         tags=tags,
+        plot_model=plot_model,
         **model_save_kwargs,
     )
 
