@@ -1,4 +1,4 @@
-# How to create and manage a repository
+# Create and manage a repository
 
 A repository is a space for you to store your model or dataset files. This guide will show you how to:
 
@@ -60,14 +60,6 @@ Specify the `repo_id` of the repository you want to delete:
 >>> delete_repo(repo_id=name)
 ```
 
-If you aren't sure what the `repo_id` is or you want to quickly retrieve it, you can also use the [`get_full_repo_name`] function:
-
-```python
->>> from huggingface_hub import get_full_repo_name, delete_repo
->>> name = get_full_repo_name(repo_name)
->>> delete_repo(repo_id=name)
-```
-
 You can also specify the repository type to delete by adding the `repo_type` parameter:
 
 ```python
@@ -117,7 +109,7 @@ You can combine the `clone_from` parameter with [`create_repo`] to create and cl
 >>> repo = Repository(local_dir="repo_local_path", clone_from=repo_url)
 ```
 
-You can also attribute a Git username and email to a cloned repository by specifying the `git_user` and `git_email` parameters. When users commit to that repository, Git will be aware of the commit author.
+When you clone a repository, you can also attribute a Git username and email to a cloned repository by specifying the `git_user` and `git_email` parameters. When users commit to that repository, Git will be aware of the commit author.
 
 ```python
 >>> repo = Repository(
@@ -152,35 +144,3 @@ Set `rebase=True` if you want your local commits to occur after your branch is u
 ```python
 >>> repo.git_pull(rebase=True)
 ```
-
-### Add
-
-Stage a file to add to your repository with [`git_add]:
-
-```py
->>> repo.git_add("path/to/file")
-```
-
-To automatically track large files (>10MB), set `auto_lfs_track=True`:
-
-```py
->>> repo.git_add("path/to/file", auto_lfs_track=True)
-```
-
-### Commit
-
-After staging a file to add, commit the staged changes with [`git_commit`]. You can also add a commit message to describe the changes:
-
-```py
->>> repo.git_commit(commit_message="add my first model config file :)")
-```
-
-### Push
-
-Finally, push your file to your repository with [`git_push`]:
-
-```py
->>> repo.git_push()
-```
-
-Since this workflow is so common, there is a `commit` context manager to pull, add, commit and push files all in one step (see this [guide](how-to-upstream#commit-context-manager) for more details).

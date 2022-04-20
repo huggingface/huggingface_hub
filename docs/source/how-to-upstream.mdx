@@ -1,4 +1,4 @@
-# How to upload files to the Hub
+# Upload files to the Hub
 
 Sharing your files and work is a very important aspect of the Hub. The `huggingface_hub` uses a Git-based workflow to upload files to the Hub. You can use these functions independently or integrate them into your own library so it is more convenient for your users to interact with the Hub. This guide will show you how to:
 
@@ -83,6 +83,19 @@ The [`Repository`] class also has a [`~Repository.push_to_hub`] function to add 
 ```python
 >>> repo.git_pull()
 >>> repo.push_to_hub(commit_message="Commit my-awesome-file to the Hub")
+```
+
+However, if you aren't ready to push a file yet, you can still use [`git_add`] and [`git_commit`] to add and commit your file:
+
+```py
+>>> repo.git_add("path/to/file")
+>>> repo.git_commit(commit_message="add my first model config file :)")
+```
+
+Once you're ready, you can push your file to your repository with [`git_push`]:
+
+```py
+>>> repo.git_push()
 ```
 
 ## Upload with Git LFS

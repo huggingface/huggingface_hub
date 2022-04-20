@@ -2,15 +2,15 @@
   - local: index
     title: 🤗 Hugging Face Hub Python Wrapper
   - local: how-to-manage
-    title: How to manage and create repositories
+    title: Create and manage repositories
   - local: how-to-downstream
-    title: How to download files
+    title: Download files from the Hub
   - local: how-to-upstream
-    title: How to upload files
+    title: Upload files to the Hub
   - local: searching-the-hub
     title: Searching the Hub
   - local: how-to-inference
-    title: How to access the Inference API
+    title: Access the Inference API
   title: "Guides"
 - sections:
     - local: package_reference/repository

@@ -1,6 +1,6 @@
-# How to download files from the Hub
+# Download files from the Hub
 
-The `huggingface_hub` library provides functions to download files from the model and dataset repositories stored on the Hub. You can use these functions independently or integrate them into your own library so it is more convenient for your users to interact with the Hub. This guide will show you how to:
+The `huggingface_hub` library provides functions to download files from the repositories stored on the Hub. You can use these functions independently or integrate them into your own library so it is more convenient for your users to interact with the Hub. This guide will show you how to:
 
 * Specify a file to download from the Hub.
 * Download and cache a file on your disk.
@@ -76,7 +76,7 @@ Download a whole repository as shown in the following:
 >>> snapshot_download(repo_id="lysandre/arxiv-nlp", revision="main")
 ```
 
-In general, it is usually better to manually download files with [`hf_hub_download`] - if you already know the file name - to avoid re-downloading an entire repository. [`snapshot_download`] is helpful when you are unaware of which files need to be downloaded.
+In general, it is usually better to download files with [`hf_hub_download`] - if you already know the file name - to avoid re-downloading an entire repository. [`snapshot_download`] is helpful when you are unaware of which files need to be downloaded.
 
 However, you don't want to always download the contents of an entire repository with [`snapshot_download`]. Even if you don't know the file name, you can download specific files if you know the file type with `allow_regex` and `ignore_regex`.
 Use the `allow_regex` and `ignore_regex` arguments to specify 
