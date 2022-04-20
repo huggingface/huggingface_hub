@@ -172,7 +172,7 @@ def save_pretrained_keras(
         plot_model (`bool`, *optional*, defaults to `True`):
             Setting this to `True` will plot the model and put it in the model
             card. Requires graphviz and pydot to be installed.
-        tags (`list`, *optional*):
+        tags (Union[`str`,`list`], *optional*):
             List of tags that are related to model or string of a single tag. See example tags
             [here](https://github.com/huggingface/hub-docs/blame/main/modelcard.md).
         model_save_kwargs(`dict`, *optional*):
