@@ -262,7 +262,7 @@ def _save_pretrained_fastai(
     # learner.export saves the model in `self.path`.
     learner.path = Path(save_directory)
     os.makedirs(save_directory, exist_ok=True)
-    try: 
+    try:
         learner.export(
             fname="model.pkl",
             pickle_protocol=DEFAULT_PROTOCOL,
