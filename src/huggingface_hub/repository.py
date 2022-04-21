@@ -226,6 +226,31 @@ def is_git_ignored(filename: Union[str, Path]) -> bool:
     return is_ignored
 
 
+def is_binary_file(filename: Union[str, Path]) -> bool:
+    """
+    Check if file is a binary file.
+
+    Args:
+        filename (`str` or `Path`):
+            The filename to check.
+
+    Returns:
+        `bool`: `True` if the file passed is a binary file, `False` otherwise.
+    """
+    try:
+        with open(filename, "rb") as f:
+            content = f.read(10 * (1024**2))  # Read a maximum of 10MB
+
+        # Code sample taken from the following stack overflow thread
+        # https://stackoverflow.com/questions/898669/how-can-i-detect-if-a-file-is-binary-non-text-in-python/7392391#7392391
+        text_chars = bytearray(
+            {7, 8, 9, 10, 12, 13, 27} | set(range(0x20, 0x100)) - {0x7F}
+        )
+        return bool(content.translate(None, text_chars))
+    except UnicodeDecodeError:
+        return True
+
+
 def files_to_be_staged(pattern: str, folder: Union[str, Path]) -> List[str]:
     """
     Returns a list of filenames that are to be staged.
@@ -485,8 +510,8 @@ class Repository:
             skip_lfs_files (`bool`, *optional*, defaults to `False`):
                 whether to skip git-LFS files or not.
             client (`HfApi`, *optional*):
-                Instance of HfApi to use when calling the HF Hub API.
-                A new instance will be created if this is left to `None`.
+                Instance of HfApi to use when calling the HF Hub API. A new
+                instance will be created if this is left to `None`.
         """
 
         os.makedirs(local_dir, exist_ok=True)
@@ -981,6 +1006,49 @@ class Repository:
         except subprocess.CalledProcessError as exc:
             raise EnvironmentError(exc.stderr)
 
+    def auto_track_binary_files(self, pattern: Optional[str] = ".") -> List[str]:
+        """
+        Automatically track binary files with git-lfs.
+
+        Args:
+            pattern (`str`, *optional*, defaults to "."):
+                The pattern with which to track files that are binary.
+
+        Returns:
+            `List[str]`: List of filenames that are now tracked due to being
+            binary files
+        """
+        files_to_be_tracked_with_lfs = []
+
+        deleted_files = self.list_deleted_files()
+
+        for filename in files_to_be_staged(pattern, folder=self.local_dir):
+            if filename in deleted_files:
+                continue
+
+            path_to_file = os.path.join(os.getcwd(), self.local_dir, filename)
+
+            if not (is_tracked_with_lfs(path_to_file) or is_git_ignored(path_to_file)):
+                size_in_mb = os.path.getsize(path_to_file) / (1024 * 1024)
+
+                if size_in_mb >= 10:
+                    logger.warning(
+                        "Parsing a large file to check if binary or not. Tracking large "
+                        "files using `repository.auto_track_large_files` is recommended "
+                        "so as to not load the full file in memory."
+                    )
+
+                is_binary = is_binary_file(path_to_file)
+
+                if is_binary:
+                    self.lfs_track(filename)
+                    files_to_be_tracked_with_lfs.append(filename)
+
+        # Cleanup the .gitattributes if files were deleted
+        self.lfs_untrack(deleted_files)
+
+        return files_to_be_tracked_with_lfs
+
     def auto_track_large_files(self, pattern: Optional[str] = ".") -> List[str]:
         """
         Automatically track large files (files that weigh more than 10MBs) with
@@ -1090,11 +1158,17 @@ class Repository:
             pattern (`str`, *optional*, defaults to "."):
                 The pattern with which to add files to staging.
             auto_lfs_track (`bool`, *optional*, defaults to `False`):
-                Whether to automatically track large files with git-lfs. Any
-                file over 10MB in size will be automatically tracked.
+                Whether to automatically track large and binary files with
+                git-lfs. Any file over 10MB in size, or in binary format, will
+                be automatically tracked.
         """
         if auto_lfs_track:
+            # Track files according to their size (>=10MB)
             tracked_files = self.auto_track_large_files(pattern)
+
+            # Read the remaining files and track them if they're binary
+            tracked_files.extend(self.auto_track_binary_files(pattern))
+
             if tracked_files:
                 logger.warning(
                     f"Adding files tracked by Git LFS: {tracked_files}. This may take a bit of time if the files are large."

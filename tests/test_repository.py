@@ -1128,6 +1128,30 @@ class RepositoryOfflineTest(RepositoryCommonTest):
             is_tracked_with_lfs(os.path.join(WORKING_REPO_DIR, "small_file.txt"))
         )
 
+    def test_auto_track_binary_files(self):
+        repo = Repository(WORKING_REPO_DIR)
+
+        # This content is non-binary
+        non_binary_file = [100] * int(1e6)
+
+        # This content is binary (contains the null character)
+        binary_file = "\x00\x00\x00\x00"
+
+        with open(f"{WORKING_REPO_DIR}/non_binary_file.txt", "w+") as f:
+            f.write(json.dumps(non_binary_file))
+
+        with open(f"{WORKING_REPO_DIR}/binary_file.txt", "w+") as f:
+            f.write(binary_file)
+
+        repo.auto_track_binary_files()
+
+        self.assertFalse(
+            is_tracked_with_lfs(os.path.join(WORKING_REPO_DIR, "non_binary)file.txt"))
+        )
+        self.assertTrue(
+            is_tracked_with_lfs(os.path.join(WORKING_REPO_DIR, "binary_file.txt"))
+        )
+
     def test_auto_track_large_files_ignored_with_gitignore(self):
         repo = Repository(WORKING_REPO_DIR)
 
@@ -1157,6 +1181,7 @@ class RepositoryOfflineTest(RepositoryCommonTest):
 
         repo.auto_track_large_files()
 
+        # Large files
         self.assertFalse(
             is_tracked_with_lfs(os.path.join(WORKING_REPO_DIR, "large_file.txt"))
         )
@@ -1172,6 +1197,54 @@ class RepositoryOfflineTest(RepositoryCommonTest):
         self.assertTrue(
             is_tracked_with_lfs(
                 os.path.join(WORKING_REPO_DIR, "directory/large_file_4.txt")
+            )
+        )
+
+    def test_auto_track_binary_files_ignored_with_gitignore(self):
+        repo = Repository(WORKING_REPO_DIR)
+
+        # This content is binary (contains the null character)
+        binary_file = "\x00\x00\x00\x00"
+
+        # Test nested gitignores
+        os.makedirs(f"{WORKING_REPO_DIR}/directory")
+
+        with open(f"{WORKING_REPO_DIR}/.gitignore", "w+") as f:
+            f.write("binary_file.txt")
+
+        with open(f"{WORKING_REPO_DIR}/directory/.gitignore", "w+") as f:
+            f.write("binary_file_3.txt")
+
+        with open(f"{WORKING_REPO_DIR}/binary_file.txt", "w+") as f:
+            f.write(binary_file)
+
+        with open(f"{WORKING_REPO_DIR}/binary_file_2.txt", "w+") as f:
+            f.write(binary_file)
+
+        with open(f"{WORKING_REPO_DIR}/directory/binary_file_3.txt", "w+") as f:
+            f.write(binary_file)
+
+        with open(f"{WORKING_REPO_DIR}/directory/binary_file_4.txt", "w+") as f:
+            f.write(binary_file)
+
+        repo.auto_track_binary_files()
+
+        # Binary files
+        self.assertFalse(
+            is_tracked_with_lfs(os.path.join(WORKING_REPO_DIR, "binary_file.txt"))
+        )
+        self.assertTrue(
+            is_tracked_with_lfs(os.path.join(WORKING_REPO_DIR, "binary_file_2.txt"))
+        )
+
+        self.assertFalse(
+            is_tracked_with_lfs(
+                os.path.join(WORKING_REPO_DIR, "directory/binary_file_3.txt")
+            )
+        )
+        self.assertTrue(
+            is_tracked_with_lfs(
+                os.path.join(WORKING_REPO_DIR, "directory/binary_file_4.txt")
             )
         )
 
@@ -1199,6 +1272,30 @@ class RepositoryOfflineTest(RepositoryCommonTest):
             is_tracked_with_lfs(os.path.join(WORKING_REPO_DIR, "small_file.txt"))
         )
 
+    def test_auto_track_binary_files_through_git_add(self):
+        repo = Repository(WORKING_REPO_DIR)
+
+        # This content is non binary
+        non_binary_file = [100] * int(1e6)
+
+        # This content is binary (contains the null character)
+        binary_file = "\x00\x00\x00\x00"
+
+        with open(f"{WORKING_REPO_DIR}/small_file.txt", "w+") as f:
+            f.write(json.dumps(non_binary_file))
+
+        with open(f"{WORKING_REPO_DIR}/binary_file.txt", "w+") as f:
+            f.write(binary_file)
+
+        repo.git_add(auto_lfs_track=True)
+
+        self.assertFalse(
+            is_tracked_with_lfs(os.path.join(WORKING_REPO_DIR, "non_binary_file.txt"))
+        )
+        self.assertTrue(
+            is_tracked_with_lfs(os.path.join(WORKING_REPO_DIR, "binary_file.txt"))
+        )
+
     def test_auto_no_track_large_files_through_git_add(self):
         repo = Repository(WORKING_REPO_DIR)
 
@@ -1221,6 +1318,30 @@ class RepositoryOfflineTest(RepositoryCommonTest):
         )
         self.assertFalse(
             is_tracked_with_lfs(os.path.join(WORKING_REPO_DIR, "small_file.txt"))
+        )
+
+    def test_auto_no_track_binary_files_through_git_add(self):
+        repo = Repository(WORKING_REPO_DIR)
+
+        # This content is non-binary
+        non_binary_file = [100] * int(1e6)
+
+        # This content is binary (contains the null character)
+        binary_file = "\x00\x00\x00\x00"
+
+        with open(f"{WORKING_REPO_DIR}/small_file.txt", "w+") as f:
+            f.write(json.dumps(non_binary_file))
+
+        with open(f"{WORKING_REPO_DIR}/binary_file.txt", "w+") as f:
+            f.write(binary_file)
+
+        repo.git_add(auto_lfs_track=False)
+
+        self.assertFalse(
+            is_tracked_with_lfs(os.path.join(WORKING_REPO_DIR, "non_binary_file.txt"))
+        )
+        self.assertFalse(
+            is_tracked_with_lfs(os.path.join(WORKING_REPO_DIR, "binary_file.txt"))
         )
 
     def test_auto_track_updates_removed_gitattributes(self):
