@@ -19,6 +19,9 @@ from huggingface_hub.repocard_types import (
 # exact same regex as in the Hub server. Please keep in sync.
 REGEX_YAML_BLOCK = re.compile(r"---[\n\r]+([\S\s]*?)[\n\r]+---[\n\r]")
 
+UNIQUE_RESULT_FEATURES = ["dataset", "task"]
+UNIQUE_METRIC_FEATURES = ["name", "type"]
+
 
 def metadata_load(local_path: Union[str, Path]) -> Optional[Dict]:
     content = Path(local_path).read_text()
@@ -152,6 +155,7 @@ def metadata_update(
             if "model-index" not in existing_metadata:
                 existing_metadata["model-index"] = metadata["model-index"]
             else:
+                # the model-index contains a list of results as used by PwC but only has one element thus we take the first one
                 existing_metadata["model-index"][0][
                     "results"
                 ] = _update_metadata_model_index(
@@ -174,43 +178,82 @@ def metadata_update(
 
 
 def _update_metadata_model_index(existing_results, new_results, overwrite=False):
+    """
+    Updates the model-index fields in the metadata. If results with same unique
+    features exist they are updated, else a new result is appended. Updating existing
+    values is only possible if `overwrite=True`.
+
+    Args:
+        new_metrics (`list`):
+            List of new metadata results
+        existing_metrics (`list`):
+            List of existing metadata results
+        overwrite (`bool`, *optional*, defaults to `False`):
+            If set to `True` an existing metric values can be overwritten, otherwise
+            attempting to overwrite an existing field will cause an error.
+
+    Returns:
+        `list`: List of updated metadata results
+    """
     for new_result in new_results:
         result_found = False
         for existing_result_index, existing_result in enumerate(existing_results):
-            if (
-                new_result["dataset"] == existing_result["dataset"]
-                and new_result["task"] == existing_result["task"]
+            if all(
+                new_result[feat] == existing_result[feat]
+                for feat in UNIQUE_RESULT_FEATURES
             ):
                 result_found = True
-                for new_metric in new_result["metrics"]:
-                    metric_exists = False
-                    for existing_metric_index, existing_metric in enumerate(
-                        existing_result["metrics"]
-                    ):
-                        if (
-                            new_metric["name"] == existing_metric["name"]
-                            and new_metric["type"] == existing_metric["type"]
-                        ):
-                            if overwrite:
-                                existing_results[existing_result_index]["metrics"][
-                                    existing_metric_index
-                                ]["value"] = new_metric["value"]
-                            else:
-                                # if metric exists and value is not the same throw an error without overwrite flag
-                                if (
-                                    existing_results[existing_result_index]["metrics"][
-                                        existing_metric_index
-                                    ]["value"]
-                                    != new_metric["value"]
-                                ):
-                                    raise ValueError(
-                                        f"""You passed a new value for the existing metric '{new_metric["name"]}'. Set `overwrite=True` to overwrite existing metrics."""
-                                    )
-                            metric_exists = True
-                    if not metric_exists:
-                        existing_results[existing_result_index]["metrics"].append(
-                            new_metric
-                        )
+                existing_results[existing_result_index][
+                    "metrics"
+                ] = _update_metadata_results_metric(
+                    new_result["metrics"],
+                    existing_result["metrics"],
+                    overwrite=overwrite,
+                )
         if not result_found:
             existing_results.append(new_result)
     return existing_results
+
+
+def _update_metadata_results_metric(new_metrics, existing_metrics, overwrite=False):
+    """
+    Updates the metrics list of a result in the metadata. If metrics with same unique
+    features exist they values are updated, else a new metric is appended. Updating
+    existing values is only possible if `overwrite=True`.
+
+    Args:
+        new_metrics (`list`):
+            List of new metrics
+        existing_metrics (`list`):
+            List of existing metrics
+        overwrite (`bool`, *optional*, defaults to `False`):
+            If set to `True` an existing metric values can be overwritten, otherwise
+            attempting to overwrite an existing field will cause an error.
+
+    Returns:
+        `list`: List of updated metrics
+    """
+    for new_metric in new_metrics:
+        metric_exists = False
+        for existing_metric_index, existing_metric in enumerate(existing_metrics):
+            if all(
+                new_metric[feat] == existing_metric[feat]
+                for feat in UNIQUE_METRIC_FEATURES
+            ):
+                if overwrite:
+                    existing_metrics[existing_metric_index]["value"] = new_metric[
+                        "value"
+                    ]
+                else:
+                    # if metric exists and value is not the same throw an error without overwrite flag
+                    if (
+                        existing_metrics[existing_metric_index]["value"]
+                        != new_metric["value"]
+                    ):
+                        raise ValueError(
+                            f"""You passed a new value for the existing metric '{new_metric["name"]}'. Set `overwrite=True` to overwrite existing metrics."""
+                        )
+                metric_exists = True
+        if not metric_exists:
+            existing_metrics.append(new_metric)
+    return existing_metrics
