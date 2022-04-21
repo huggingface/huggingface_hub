@@ -97,7 +97,11 @@ class CommandInProgress:
         if status == -1:
             status = "running"
 
-        return f"[{self.title} command, status code: {status}, {'in progress.' if not self.is_done else 'finished.'} PID: {self._process.pid}]"
+        return (
+            f"[{self.title} command, status code: {status},"
+            f" {'in progress.' if not self.is_done else 'finished.'} PID:"
+            f" {self._process.pid}]"
+        )
 
 
 def is_git_repo(folder: Union[str, Path]) -> bool:
@@ -538,7 +542,8 @@ class Repository:
                 logger.debug("[Repository] is a valid git repo")
             else:
                 raise ValueError(
-                    "If not specifying `clone_from`, you need to pass Repository a valid git clone."
+                    "If not specifying `clone_from`, you need to pass Repository a"
+                    " valid git clone."
                 )
 
         if self.huggingface_token is not None and (
@@ -659,8 +664,10 @@ class Repository:
         token = use_auth_token if use_auth_token is not None else self.huggingface_token
         if token is None and self.private:
             raise ValueError(
-                "Couldn't load Hugging Face Authorization Token. Credentials are required to work with private repositories."
-                " Please login in using `huggingface-cli login` or provide your token manually with the `use_auth_token` key."
+                "Couldn't load Hugging Face Authorization Token. Credentials are"
+                " required to work with private repositories. Please login in using"
+                " `huggingface-cli login` or provide your token manually with the"
+                " `use_auth_token` key."
             )
         hub_url = self.client.endpoint
         if hub_url in repo_url or (
@@ -725,7 +732,8 @@ class Repository:
                         env.update({"GIT_LFS_SKIP_SMUDGE": "1"})
 
                     subprocess.run(
-                        f"{'git clone' if self.skip_lfs_files else 'git lfs clone'} {repo_url} .".split(),
+                        f"{'git clone' if self.skip_lfs_files else 'git lfs clone'} {repo_url} ."
+                        .split(),
                         stderr=subprocess.PIPE,
                         stdout=subprocess.PIPE,
                         check=True,
@@ -740,8 +748,9 @@ class Repository:
                 if in_repository:
                     if is_local_clone(self.local_dir, repo_url):
                         logger.warning(
-                            f"{self.local_dir} is already a clone of {clean_repo_url}. Make sure you pull the latest "
-                            "changes with `repo.git_pull()`."
+                            f"{self.local_dir} is already a clone of {clean_repo_url}."
+                            " Make sure you pull the latest changes with"
+                            " `repo.git_pull()`."
                         )
                     else:
                         output = subprocess.run(
@@ -753,23 +762,28 @@ class Repository:
                         )
 
                         error_msg = (
-                            f"Tried to clone {clean_repo_url} in an unrelated git repository.\nIf you believe this is "
-                            f"an error, please add a remote with the following URL: {clean_repo_url}."
+                            f"Tried to clone {clean_repo_url} in an unrelated git"
+                            " repository.\nIf you believe this is an error, please add"
+                            f" a remote with the following URL: {clean_repo_url}."
                         )
                         if output.returncode == 0:
                             clean_local_remote_url = re.sub(
                                 r"https://.*@", "https://", output.stdout
                             )
-                            error_msg += f"\nLocal path has its origin defined as: {clean_local_remote_url}"
+                            error_msg += (
+                                "\nLocal path has its origin defined as:"
+                                f" {clean_local_remote_url}"
+                            )
 
                         raise EnvironmentError(error_msg)
 
                 if not in_repository:
                     raise EnvironmentError(
-                        "Tried to clone a repository in a non-empty folder that isn't a git repository. If you really "
-                        "want to do this, do it manually:\n"
-                        "git init && git remote add origin && git pull origin main\n"
-                        " or clone repo to a new folder and move your existing files there afterwards."
+                        "Tried to clone a repository in a non-empty folder that isn't a"
+                        " git repository. If you really want to do this, do it"
+                        " manually:\ngit init && git remote add origin && git pull"
+                        " origin main\n or clone repo to a new folder and move your"
+                        " existing files there afterwards."
                     )
 
         except subprocess.CalledProcessError as exc:
@@ -996,7 +1010,8 @@ class Repository:
                 cwd=self.local_dir,
             )
             subprocess.run(
-                f"git config lfs.customtransfer.multipart.args {LFS_MULTIPART_UPLOAD_COMMAND}".split(),
+                "git config lfs.customtransfer.multipart.args"
+                f" {LFS_MULTIPART_UPLOAD_COMMAND}".split(),
                 stderr=subprocess.PIPE,
                 stdout=subprocess.PIPE,
                 check=True,
@@ -1033,9 +1048,9 @@ class Repository:
 
                 if size_in_mb >= 10:
                     logger.warning(
-                        "Parsing a large file to check if binary or not. Tracking large "
-                        "files using `repository.auto_track_large_files` is recommended "
-                        "so as to not load the full file in memory."
+                        "Parsing a large file to check if binary or not. Tracking large"
+                        " files using `repository.auto_track_large_files` is"
+                        " recommended so as to not load the full file in memory."
                     )
 
                 is_binary = is_binary_file(path_to_file)
@@ -1171,7 +1186,8 @@ class Repository:
 
             if tracked_files:
                 logger.warning(
-                    f"Adding files tracked by Git LFS: {tracked_files}. This may take a bit of time if the files are large."
+                    f"Adding files tracked by Git LFS: {tracked_files}. This may take a"
+                    " bit of time if the files are large."
                 )
 
         try:
@@ -1347,7 +1363,8 @@ class Repository:
                         cwd=self.local_dir,
                     )
                     logger.warning(
-                        f"Revision `{revision}` does not exist. Created and checked out branch `{revision}`."
+                        f"Revision `{revision}` does not exist. Created and checked out"
+                        f" branch `{revision}`."
                     )
                     logger.warning(result.stdout)
                 except subprocess.CalledProcessError as exc:
@@ -1614,9 +1631,10 @@ class Repository:
                 files_to_stage = str(files_to_stage[:5])[:-1] + ", ...]"
 
             logger.error(
-                f"There exists some updated files in the local repository that are not committed: {files_to_stage}. "
-                "This may lead to errors if checking out a branch. "
-                "These files and their modifications will be added to the current commit."
+                "There exists some updated files in the local repository that are not"
+                f" committed: {files_to_stage}. This may lead to errors if checking out"
+                " a branch. These files and their modifications will be added to the"
+                " current commit."
             )
 
         if branch is not None:
@@ -1627,7 +1645,8 @@ class Repository:
             self.git_pull(rebase=True)
         else:
             logger.warning(
-                f"The current branch has no upstream branch. Will push to 'origin {self.current_branch}'"
+                "The current branch has no upstream branch. Will push to 'origin"
+                f" {self.current_branch}'"
             )
 
         current_working_directory = os.getcwd()
@@ -1655,7 +1674,8 @@ class Repository:
                 # If no changes are detected, there is nothing to commit.
                 if "could not read Username" in str(e):
                     raise OSError(
-                        "Couldn't authenticate user for push. Did you set `use_auth_token` to `True`?"
+                        "Couldn't authenticate user for push. Did you set"
+                        " `use_auth_token` to `True`?"
                     ) from e
                 else:
                     raise e
@@ -1692,14 +1712,16 @@ class Repository:
         index = 0
         for command_failed in self.commands_failed:
             logger.error(
-                f"The {command_failed.title} command with PID {command_failed._process.pid} failed."
+                f"The {command_failed.title} command with PID"
+                f" {command_failed._process.pid} failed."
             )
             logger.error(command_failed.stderr)
 
         while self.commands_in_progress:
             if index % 10 == 0:
                 logger.error(
-                    f"Waiting for the following commands to finish before shutting down: {self.commands_in_progress}."
+                    "Waiting for the following commands to finish before shutting"
+                    f" down: {self.commands_in_progress}."
                 )
 
             index += 1

@@ -36,8 +36,8 @@ DUMMY_MODEL_ID_PINNED_SHA256 = (
 SAMPLE_DATASET_IDENTIFIER = "lhoestq/custom_squad"
 # Example dataset ids
 DUMMY_DATASET_ID = "lhoestq/test"
-DUMMY_DATASET_ID_REVISION_ONE_SPECIFIC_COMMIT = (
-    "81d06f998585f8ee10e6e3a2ea47203dc75f2a16"  # on branch "test-branch"
+DUMMY_DATASET_ID_REVISION_ONE_SPECIFIC_COMMIT = (  # on branch "test-branch"
+    "81d06f998585f8ee10e6e3a2ea47203dc75f2a16"
 )
 
 
@@ -120,7 +120,8 @@ def offline(mode=OfflineSimulationMode.CONNECTION_FAILS, timeout=1e-16):
         invalid_url = "https://10.255.255.1"
         if kwargs.get("timeout") is None:
             raise RequestWouldHangIndefinitelyError(
-                f"Tried a call to {url} in offline mode with no timeout set. Please set a timeout."
+                f"Tried a call to {url} in offline mode with no timeout set. Please set"
+                " a timeout."
             )
         kwargs["timeout"] = timeout
         try:
@@ -191,13 +192,16 @@ def retry_endpoint(function, number_of_tries: int = 3, wait_time: int = 5):
             except HTTPError as e:
                 if e.response.status_code == 504:
                     logger.info(
-                        f"Attempt {retry_count} failed with a 504 error. Retrying new execution in {wait_time} second(s)..."
+                        f"Attempt {retry_count} failed with a 504 error. Retrying new"
+                        f" execution in {wait_time} second(s)..."
                     )
                     time.sleep(5)
                     retry_count += 1
             except OSError:
                 logger.info(
-                    f"Race condition met where we tried to `clone` before fully deleting a repository. Retrying new execution in {wait_time} second(s)..."
+                    "Race condition met where we tried to `clone` before fully"
+                    " deleting a repository. Retrying new execution in"
+                    f" {wait_time} second(s)..."
                 )
                 retry_count += 1
             # Preserve original traceback

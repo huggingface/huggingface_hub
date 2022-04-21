@@ -51,10 +51,15 @@ setup(
     version=get_version(),
     author="Hugging Face, Inc.",
     author_email="julien@huggingface.co",
-    description="Client library to download and publish models on the huggingface.co hub",
+    description=(
+        "Client library to download and publish models on the huggingface.co hub"
+    ),
     long_description=open("README.md", "r", encoding="utf-8").read(),
     long_description_content_type="text/markdown",
-    keywords="model-hub machine-learning models natural-language-processing deep-learning pytorch pretrained-models",
+    keywords=(
+        "model-hub machine-learning models natural-language-processing deep-learning"
+        " pytorch pretrained-models"
+    ),
     license="Apache",
     url="https://github.com/huggingface/huggingface_hub",
     package_dir={"": "src"},

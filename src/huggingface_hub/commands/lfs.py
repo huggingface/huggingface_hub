@@ -88,7 +88,8 @@ class LfsEnableCommand:
             cwd=local_path,
         )
         subprocess.run(
-            f"git config lfs.customtransfer.multipart.args {LFS_MULTIPART_UPLOAD_COMMAND}".split(),
+            "git config lfs.customtransfer.multipart.args"
+            f" {LFS_MULTIPART_UPLOAD_COMMAND}".split(),
             check=True,
             cwd=local_path,
         )

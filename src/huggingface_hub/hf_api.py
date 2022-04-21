@@ -671,8 +671,8 @@ class HfApi:
             if self._is_valid_token(name):
                 # TODO(0.6) REMOVE
                 warnings.warn(
-                    f"`{function_name}` now takes `token` as an optional positional argument. "
-                    "Be sure to adapt your code!",
+                    f"`{function_name}` now takes `token` as an optional positional"
+                    " argument. Be sure to adapt your code!",
                     FutureWarning,
                 )
                 token, name = name, token
@@ -899,7 +899,8 @@ class HfApi:
         if emissions_thresholds is not None:
             if cardData is None:
                 raise ValueError(
-                    "`emissions_thresholds` were passed without setting `cardData=True`."
+                    "`emissions_thresholds` were passed without setting"
+                    " `cardData=True`."
                 )
             else:
                 return _filter_emissions(res, *emissions_thresholds)
@@ -1458,8 +1459,8 @@ class HfApi:
         if repo_type == "space":
             if space_sdk is None:
                 raise ValueError(
-                    "No space_sdk provided. `create_repo` expects space_sdk to be one of "
-                    f"{SPACES_SDK_TYPES} when repo_type is 'space'`"
+                    "No space_sdk provided. `create_repo` expects space_sdk to be one"
+                    f" of {SPACES_SDK_TYPES} when repo_type is 'space'`"
                 )
             if space_sdk not in SPACES_SDK_TYPES:
                 raise ValueError(
@@ -1689,12 +1690,14 @@ class HfApi:
 
         if len(from_id.split("/")) != 2:
             raise ValueError(
-                f"Invalid repo_id: {from_id}. It should have a namespace (:namespace:/:repo_name:)"
+                f"Invalid repo_id: {from_id}. It should have a namespace"
+                " (:namespace:/:repo_name:)"
             )
 
         if len(to_id.split("/")) != 2:
             raise ValueError(
-                f"Invalid repo_id: {to_id}. It should have a namespace (:namespace:/:repo_name:)"
+                f"Invalid repo_id: {to_id}. It should have a namespace"
+                " (:namespace:/:repo_name:)"
             )
 
         json = {"fromRepo": from_id, "toRepo": to_id, "type": repo_type}
@@ -1710,13 +1713,15 @@ class HfApi:
         except HTTPError as e:
             if r.text:
                 raise HTTPError(
-                    f"{r.status_code} Error Message: {r.text}. For additional documentation "
-                    "please see https://hf.co/docs/hub/main#how-can-i-rename-or-transfer-a-repo."
+                    f"{r.status_code} Error Message: {r.text}. For additional"
+                    " documentation please see"
+                    " https://hf.co/docs/hub/main#how-can-i-rename-or-transfer-a-repo."
                 ) from e
             else:
                 raise e
         logger.info(
-            "Accepted transfer request. You will get an email once this is successfully completed."
+            "Accepted transfer request. You will get an email once this is successfully"
+            " completed."
         )
 
     @_deprecate_positional_args
@@ -1808,8 +1813,8 @@ class HfApi:
         except ValueError:  # if token is invalid or organization token
             if self._is_valid_token(path_or_fileobj):
                 warnings.warn(
-                    "`upload_file` now takes `token` as an optional positional argument. "
-                    "Be sure to adapt your code!",
+                    "`upload_file` now takes `token` as an optional positional"
+                    " argument. Be sure to adapt your code!",
                     FutureWarning,
                 )
                 token, path_or_fileobj, path_in_repo, repo_id = (
@@ -1829,8 +1834,8 @@ class HfApi:
         elif not isinstance(path_or_fileobj, (RawIOBase, BufferedIOBase, bytes)):
             # ^^ Test from: https://stackoverflow.com/questions/44584829/how-to-determine-if-file-is-opened-in-binary-or-text-mode
             raise ValueError(
-                "path_or_fileobj must be either an instance of str or BinaryIO. "
-                "If you passed a fileobj, make sure you've opened the file in binary mode."
+                "path_or_fileobj must be either an instance of str or BinaryIO. If you"
+                " passed a fileobj, make sure you've opened the file in binary mode."
             )
 
         if repo_type in REPO_TYPES_URL_PREFIXES:
