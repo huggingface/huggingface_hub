@@ -245,8 +245,7 @@ def _save_pretrained_fastai(
 
     os.makedirs(save_directory, exist_ok=True)
 
-    # save config
-    # if user provides config then we update it with the fastai and fastcore versions in CONFIG_TEMPLATE.
+    # if the user provides config then we update it with the fastai and fastcore versions in CONFIG_TEMPLATE.
     if config is not None:
         if not isinstance(config, dict):
             raise RuntimeError(
@@ -260,25 +259,18 @@ def _save_pretrained_fastai(
 
     _create_model_pyproject(Path(save_directory))
 
-    # saving learner
-    # learner.export saves the model in `self.path/save_directory` and this folder should exist.
-    fastai_path = os.path.join(learner.path, save_directory)
-    os.makedirs(fastai_path, exist_ok=True)
-    try:
+    # learner.export saves the model in `self.path`.
+    learner.path = Path(save_directory)
+    os.makedirs(save_directory, exist_ok=True)
+    try: 
         learner.export(
-            fname=os.path.join(save_directory, "model.pkl"),
+            fname="model.pkl",
             pickle_protocol=DEFAULT_PROTOCOL,
         )
     except PicklingError:
         raise PicklingError(
             "You are using a lambda function, i.e., an anonymous function. `pickle` cannot pickle function objects and requires that all functions have names. One possible solution is to name the function."
         )
-
-    # We move the model from `self.path/save_directory/model.pkl` to `save_directory/model.pkl`.
-    os.rename(
-        os.path.join(fastai_path, "model.pkl"),
-        os.path.join(save_directory, "model.pkl"),
-    )
 
 
 def from_pretrained_fastai(
