@@ -121,10 +121,9 @@ def metadata_update(
         repo_type (`str`, *optional*):
             Set to `"dataset"` or `"space"` if updating to a dataset or space,
             `None` or `"model"` if updating to a model. Default is `None`.
-        overwrite (`bool`, *optional*):
+        overwrite (`bool`, *optional*, defaults to `False`):
             If set to `True` an existing field can be overwritten, otherwise
             attempting to overwrite an existing field will cause an error.
-            Default is `False`.
         token (`str`, *optional*):
             The Hugging Face authentication token
     """
@@ -140,7 +139,7 @@ def metadata_update(
 
     for key in metadata:
         # update all fields except model index
-        if not key == "model-index":
+        if key != "model-index":
             if key in existing_metadata and not overwrite:
                 if existing_metadata[key] != metadata[key]:
                     raise ValueError(
