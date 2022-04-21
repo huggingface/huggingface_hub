@@ -49,7 +49,7 @@ def _check_fastai_fastcore_versions(
 
     if current_fastai_version < version.Version(fastai_min_version):
         raise ImportError(
-            f"`push_to_hub_fastai` and `from_pretrained_fastai` require a fastai>={fastai_min_version} version, but you are using fastai version {get_fastai_version()} which is incompatible. Upgrade with `pip install fastai==2.5.3`."
+            f"`push_to_hub_fastai` and `from_pretrained_fastai` require a fastai>={fastai_min_version} version, but you are using fastai version {get_fastai_version()} which is incompatible. Upgrade with `pip install fastai==2.5.6`."
         )
 
     if current_fastcore_version < version.Version(fastcore_min_version):
@@ -108,7 +108,7 @@ def _check_fastai_fastcore_pyproject_versions(
         )
 
     # Check that `pyproject.toml` contains fastai and fastcore. If they are not available, it throws an error
-    # Then get the fastai and fastcore versions in `pyproject.toml`. If there is none, it means that it defaults to the highest version.
+    # Then get the fastai and fastcore versions in `pyproject.toml`.
     try:
         fastai_version = str(
             [pck for pck in package_versions if pck.startswith("fastai")][0]
@@ -128,7 +128,7 @@ def _check_fastai_fastcore_pyproject_versions(
             "The repository does not have a fastcore version specified in `pyproject.toml`."
         )
 
-    # Versions in `pyproject.toml` must be higher or equal to `fastai_min_version` and `fastcore_min_version`
+    # Versions in `pyproject.toml` must be higher or equal to `fastai_min_version` and `fastcore_min_version`. If the package is specified but not the version, the default versions are the highest.
     if not (
         fastai_version == ""
         or version.Version(fastai_version) >= version.Version(fastai_min_version)
@@ -153,16 +153,16 @@ tags:
 
 # Amazing!
 
-Congratulations on hosting your fastai model on the Hugging Face Hub!
+🥳 Congratulations on hosting your fastai model on the Hugging Face Hub!
 
 # Some next steps
-1. Fill out this model card with more information (template below and [documentation here](https://huggingface.co/docs/hub/model-repos))!
+1. Fill out this model card with more information (see the template below and the [documentation here](https://huggingface.co/docs/hub/model-repos))!
 
 2. Create a demo in Gradio or Streamlit using the 🤗Spaces ([documentation here](https://huggingface.co/docs/hub/spaces)).
 
-3. Join our fastai community on the Hugging Face Discord!
+3. Join our fastai community on the [Hugging Face Discord](hf.co/join/discord)!
 
-Greetings fellow fastlearner 🤝!
+Greetings fellow fastlearner 🤝! Don't forget to delete this content from your model card.
 
 
 ---
@@ -223,7 +223,6 @@ def _save_pretrained_fastai(
 ):
     """
     Saves a fastai learner to `save_directory` in pickle format using the default pickle protocol for the version of python used.
-    Apply this if you're using Learners.
 
     Args:
         learner (`Learner`):
@@ -263,7 +262,6 @@ def _save_pretrained_fastai(
 
     # saving learner
     # learner.export saves the model in `self.path/save_directory` and this folder should exist.
-    # We create this folder and call it `fastai_path`
     fastai_path = os.path.join(learner.path, save_directory)
     os.makedirs(fastai_path, exist_ok=True)
     try:
@@ -284,36 +282,36 @@ def _save_pretrained_fastai(
 
 
 def from_pretrained_fastai(
-    model_id: str,
+    repo_id: str,
     revision: Optional[str] = None,
 ):
     """
     Load pretrained fastai model from the Hub or from a local directory.
 
     Args:
-        model_id (`str`):
+        repo_id (`str`):
             The location where the pickled fastai.Learner is. It can be either of the two:
-                - Hosted on the Hugging Face Hub. E.g.: 'espejelomar/fatai-pet-breeds-classification', 'distilgpt2'.
-                  You can add a `revision` by appending `@` at the end of `model_id`. E.g.: `dbmdz/bert-base-german-cased@main`.
+                - Hosted on the Hugging Face Hub. E.g.: 'espejelomar/fatai-pet-breeds-classification' or 'distilgpt2'.
+                  You can add a `revision` by appending `@` at the end of `repo_id`. E.g.: `dbmdz/bert-base-german-cased@main`.
                   Revision is the specific model version to use. Since we use a git-based system for storing models and other
                   artifacts on the Hugging Face Hub, it can be a branch name, a tag name, or a commit id.
-                - Hosted locally. `model_id` would be a directory containing the pickle and a pyproject.toml
+                - Hosted locally. `repo_id` would be a directory containing the pickle and a pyproject.toml
                   indicating the fastai and fastcore versions used to build the `fastai.Learner`. E.g.: `./my_model_directory/`.
         revision (`str`, *optional*):
             Revision at which the repo's files are downloaded. See documentation of `snapshot_download`.
 
     Returns:
-        The `fastai.Learner` model in the `model_id` repo.
+        The `fastai.Learner` model in the `repo_id` repo.
     """
     _check_fastai_fastcore_versions()
 
-    # Load the `model_id` repo.
-    # `snapshot_download` returns the folder where the `model_id` repo was stored.
+    # Load the `repo_id` repo.
+    # `snapshot_download` returns the folder where the model was stored.
     # `cache_dir` will be the default '/root/.cache/huggingface/hub'
-    if not os.path.isdir(model_id):
-        storage_folder = snapshot_download(repo_id=model_id, revision=revision)
+    if not os.path.isdir(repo_id):
+        storage_folder = snapshot_download(repo_id=repo_id, revision=revision)
     else:
-        storage_folder = model_id
+        storage_folder = repo_id
 
     _check_fastai_fastcore_pyproject_versions(storage_folder)
 
@@ -325,7 +323,7 @@ def from_pretrained_fastai(
 
 def push_to_hub_fastai(
     learner,
-    model_id: str,
+    repo_id: str,
     commit_message: Optional[str] = "Add model",
     private: Optional[bool] = None,
     token: Optional[str] = None,
@@ -334,17 +332,17 @@ def push_to_hub_fastai(
 ):
     """
     Upload learner checkpoint files to the Hub while synchronizing a local clone of the repo in
-    :obj:`model_id`.
+    :obj:`repo_id`.
 
     Args:
         learner (`Learner`):
             The `fastai.Learner' you'd like to push to the Hub.
-        model_id (`str`):
-            The name of the repository for your model in the Hub. The user can be your individual account (e.g. 'espejelomar/sentece-embeddings-BETO') or an organization to which you have write access (e.g. 'stanfordnlp/stanza-de').
+        repo_id (`str`):
+            The repository name for your model in Hub in the format of "namespace/repo_name". The namespace can be your individual account or an organization to which you have write access (for example, 'stanfordnlp/stanza-de').
         commit_message (`str`, *optional*):
             Message to commit while pushing. Will default to :obj:`"add model"`.
         private (`bool`, *optional*):
-            Whether or not the repository created should be private (requires a paying subscription).
+            Whether or not the repository created should be private.
         token (`str`, *optional*):
             The Hugging Face account token to use as HTTP bearer authorization for remote files. If :obj:`None`, the token will be asked by a prompt.
         config (`dict`, *optional*):
@@ -390,16 +388,16 @@ def push_to_hub_fastai(
 
     # Create repo using `HfApi()`.
     repo_url = HfApi(endpoint=api_endpoint).create_repo(
-        model_id,
+        repo_id,
         token=token,
         private=private,
         repo_type=None,
         exist_ok=True,
     )
 
-    # If repository exists in the Hugging Face Hub then clone it locally in `model_id`
+    # If repository exists in the Hugging Face Hub then clone it locally in `repo_id`
     repo = Repository(
-        model_id,
+        repo_id,
         clone_from=repo_url,
         use_auth_token=token,
         git_user=git_user,
@@ -407,6 +405,6 @@ def push_to_hub_fastai(
     )
     repo.git_pull(rebase=True)
 
-    _save_pretrained_fastai(learner, model_id, config=config)
+    _save_pretrained_fastai(learner, repo_id, config=config)
 
     return repo.push_to_hub(commit_message=commit_message)
