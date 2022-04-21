@@ -107,11 +107,11 @@ def _check_fastai_fastcore_pyproject_versions(
             "There is no `pyproject.toml` in the repository that contains the fastai `Learner`. This is necessary to verify that your fastai and fastcore versions are compatible with those of the model you want to load."
         )
 
-    # Check that `pyproject.toml` contains versions for fastai and fastcore. If there is no version available, it throws an error
+    # Check that `pyproject.toml` contains fastai and fastcore. If they are not available, it throws an error
     # Then get the fastai and fastcore versions in `pyproject.toml`. If there is none, it means that it defaults to the highest version.
     try:
         fastai_version = str(
-            [package for package in package_versions if package.startswith("fastai")][0]
+            [pck for pck in package_versions if pck.startswith("fastai")][0]
         )
         fastai_version = fastai_version.partition("=")[2]
     except IndexError:
@@ -120,12 +120,9 @@ def _check_fastai_fastcore_pyproject_versions(
         )
     try:
         fastcore_version = str(
-            [package for package in package_versions if package.startswith("fastcore")][
-                0
-            ]
+            [pck for pck in package_versions if pck.startswith("fastcore")][0]
         )
         fastcore_version = fastcore_version.partition("=")[2]
-
     except IndexError:
         raise ImportError(
             "The repository does not have a fastcore version specified in `pyproject.toml`."
