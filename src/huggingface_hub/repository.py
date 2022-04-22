@@ -702,7 +702,7 @@ class Repository:
                         repo_type=self.repo_type,
                         exist_ok=True,
                         private=self.private,
-                        space_sdk=self.space_sdk
+                        space_sdk=self.space_sdk,
                     )
             else:
                 if namespace is not None:
