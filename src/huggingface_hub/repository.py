@@ -468,6 +468,7 @@ class Repository:
         private: bool = False,
         skip_lfs_files: bool = False,
         client: Optional[HfApi] = None,
+        space_sdk: Optional[str] = None,
     ):
         """
         Instantiate a local clone of a git repo.
@@ -512,6 +513,9 @@ class Repository:
             client (`HfApi`, *optional*):
                 Instance of HfApi to use when calling the HF Hub API. A new
                 instance will be created if this is left to `None`.
+            space_sdk (`str`, *optional*):
+                Choice of SDK to use if repo_type is "space". Can be
+                "streamlit", "gradio", or "static".
         """
 
         os.makedirs(local_dir, exist_ok=True)
@@ -521,6 +525,7 @@ class Repository:
         self.private = private
         self.skip_lfs_files = skip_lfs_files
         self.client = client if client is not None else HfApi()
+        self.space_sdk = space_sdk
 
         self.check_git_versions()
 
@@ -697,6 +702,7 @@ class Repository:
                         repo_type=self.repo_type,
                         exist_ok=True,
                         private=self.private,
+                        space_sdk=self.space_sdk
                     )
             else:
                 if namespace is not None:
