@@ -18,16 +18,18 @@ metrics:
 model-index:
 - name: {model_id}
   results:
-  - task: 
+  - task:
       type: {task_type}  # Required. Example: automatic-speech-recognition
       name: {task_name}  # Optional. Example: Speech Recognition
     dataset:
       type: {dataset_type}         # Required. Example: common_voice. Use dataset id from https://hf.co/datasets
-      name: {dataset_name}         # Required. Example: Common Voice zh-CN
-      config: {dataset_config}     # Optional. Example: zh-CN
+      name: {dataset_name}         # Required. Example: Common Voice (French)
+      config: {dataset_config}     # Optional. Example: fr
       split: {dataset_split}       # Optional. Example: test
-      revision: {dataset_revision} # Optional. Example: main
-      args: {arg_0}                # Optional. Example: zh-CN
+      revision: {dataset_revision} # Optional. Example: 5503434ddd753f426f4b38109466949a1217c2bb
+      args: 
+        {arg_0: value_0}           # Optional. Example for wikipedia: language: en
+        {arg_1: value_1}           # Optional. Example for wikipedia: data: 20220301
     metrics:
       - type: {metric_type}    # Required. Example: wer
         value: {metric_value}  # Required. Example: 20.90
