@@ -272,6 +272,23 @@ class HubKerasSequentialTest(HubMixingTestKeras):
             .item()
         )
 
+    def test_save_pretrained_task_name_deprecation(self):
+        REPO_NAME = repo_name("save")
+        model = self.model_init()
+        model.build((None, 2))
+
+        with pytest.warns(
+            FutureWarning,
+            match="`task_name` input argument is removed. Pass `tags` instead.",
+        ):
+            save_pretrained_keras(
+                model,
+                f"{WORKING_REPO_DIR}/{REPO_NAME}",
+                tags=["test"],
+                task_name="test",
+                save_traces=True,
+            )
+
     def test_rel_path_from_pretrained(self):
         model = self.model_init()
         model.build((None, 2))
@@ -300,7 +317,7 @@ class HubKerasSequentialTest(HubMixingTestKeras):
             f"{WORKING_REPO_DIR}/{REPO_NAME}",
             config={"num": 10, "act": "gelu_fast"},
             plot_model=True,
-            task_name=None,
+            tags=None,
         )
 
         new_model = from_pretrained_keras(f"{WORKING_REPO_DIR}/{REPO_NAME}")
