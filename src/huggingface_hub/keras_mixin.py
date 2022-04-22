@@ -210,7 +210,7 @@ def save_pretrained_keras(
     task_name = model_save_kwargs.pop("task_name", None)
     if task_name is not None:
         warnings.warn(
-            "`task_name` input argument is removed. Pass `tags` instead.",
+            "`task_name` input argument is deprecated. Pass `tags` instead.",
             FutureWarning,
         )
         if "tags" in metadata:
