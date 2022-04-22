@@ -29,7 +29,7 @@ model-index:
       revision: {dataset_revision} # Optional. Example: 5503434ddd753f426f4b38109466949a1217c2bb
       args: 
         {arg_0: value_0}           # Optional. Example for wikipedia: language: en
-        {arg_1: value_1}           # Optional. Example for wikipedia: data: 20220301
+        {arg_1: value_1}           # Optional. Example for wikipedia: date: 20220301
     metrics:
       - type: {metric_type}    # Required. Example: wer
         value: {metric_value}  # Required. Example: 20.90
