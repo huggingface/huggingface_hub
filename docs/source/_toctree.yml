@@ -1,6 +1,6 @@
 - sections:
   - local: index
-    title: 🤗 Hugging Face Hub Python Wrapper
+    title: Home
   - local: how-to-downstream
     title: How to download files from the hub
   - local: how-to-upstream
