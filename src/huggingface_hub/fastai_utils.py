@@ -98,16 +98,30 @@ def _check_fastai_fastcore_pyproject_versions(
             "`push_to_hub_fastai` and `from_pretrained_fastai` require the toml module. Install it with `pip install toml`."
         )
 
-    # Check that a `pyproject.toml` exists in the repository, and if so, get a list of required packages
-    try:
-        package_versions = toml.load(f"{storage_folder}/pyproject.toml")[
-            "build-system"
-        ]["requires"]
-    except FileNotFoundError:
+    # Checks that a `pyproject.toml`, with `build-system` and `requires` sections, exists in the repository. If so, get a list of required packages
+    if not os.path.isfile(f"{storage_folder}/pyproject.toml"):
         logger.warning(
             "There is no `pyproject.toml` in the repository that contains the fastai `Learner`. The `pyproject.toml` would allow us to verify that your fastai and fastcore versions are compatible with those of the model you want to load."
         )
         return
+    else:
+        pyproject_toml = toml.load(f"{storage_folder}/pyproject.toml")
+
+    if not "build-system" in pyproject_toml.keys():
+        logger.warning(
+            "There is no `build-system` section in the pyproject.toml of the repository that contains the fastai `Learner`. The `build-system` would allow us to verify that your fastai and fastcore versions are compatible with those of the model you want to load."
+        )
+        return
+    else:
+        build_system_toml = pyproject_toml["build-system"]
+
+    if not "requires" in build_system_toml.keys():
+        logger.warning(
+            "There is no `requires` section in the pyproject.toml of the repository that contains the fastai `Learner`. The `requires` would allow us to verify that your fastai and fastcore versions are compatible with those of the model you want to load."
+        )
+        return
+    else:
+        package_versions = build_system_toml["requires"]
 
     # Check that `pyproject.toml` contains fastai and fastcore. If they are not available, it throws an warning. Then, it gets the fastai and fastcore versions in `pyproject.toml`.
     # Versions in `pyproject.toml` must be higher or equal to `fastai_min_version` and `fastcore_min_version`. If the package is specified but not the version, the default versions are the highest.
