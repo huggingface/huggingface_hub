@@ -107,7 +107,7 @@ def _check_fastai_fastcore_pyproject_versions(
     else:
         pyproject_toml = toml.load(f"{storage_folder}/pyproject.toml")
 
-    if not "build-system" in pyproject_toml.keys():
+    if "build-system" not in pyproject_toml.keys():
         logger.warning(
             "There is no `build-system` section in the pyproject.toml of the repository that contains the fastai `Learner`. The `build-system` would allow us to verify that your fastai and fastcore versions are compatible with those of the model you want to load."
         )
@@ -115,7 +115,7 @@ def _check_fastai_fastcore_pyproject_versions(
     else:
         build_system_toml = pyproject_toml["build-system"]
 
-    if not "requires" in build_system_toml.keys():
+    if "requires" not in build_system_toml.keys():
         logger.warning(
             "There is no `requires` section in the pyproject.toml of the repository that contains the fastai `Learner`. The `requires` would allow us to verify that your fastai and fastcore versions are compatible with those of the model you want to load."
         )
@@ -123,8 +123,8 @@ def _check_fastai_fastcore_pyproject_versions(
     else:
         package_versions = build_system_toml["requires"]
 
-    # Check that `pyproject.toml` contains fastai and fastcore. If they are not available, it throws an warning. Then, it gets the fastai and fastcore versions in `pyproject.toml`.
-    # Versions in `pyproject.toml` must be higher or equal to `fastai_min_version` and `fastcore_min_version`. If the package is specified but not the version, the default versions are the highest.
+    # Check that `pyproject.toml` contains fastai and fastcore. If they are not available it throws a warning. Then, it extracts the fastai and fastcore versions in `pyproject.toml`.
+    # Versions in `pyproject.toml` must be higher or equal to `fastai_min_version` and `fastcore_min_version`. If the package is specified but not the version (e.g. "fastai" instead of "fastai=2.4"), the default versions are the highest.
     if not len([pck for pck in package_versions if pck.startswith("fastai")]) > 0:
         logger.warning(
             "The repository does not have a fastai version specified in the `pyproject.toml`."
@@ -400,10 +400,10 @@ def push_to_hub_fastai(
 
     if token is None:
         raise ValueError(
-            "You must login to the Hugging Face Hub. There are two options:"
-            "(1) Type `huggingface-cli login` in your terminal and enter your token."
-            "(2) Enter your token in the `token` argument."
-            "Your token is available in the Settings of your Hugging Face account."
+            "You must login to the Hugging Face Hub. There are two options: "
+            "(1) Type `huggingface-cli login` in your terminal and enter your token. "
+            "(2) Enter your token in the `token` argument. "
+            "Your token is available in the Settings of your Hugging Face account. "
         )
 
     # Create repo using `HfApi()`.
