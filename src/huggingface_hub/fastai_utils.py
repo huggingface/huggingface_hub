@@ -125,16 +125,28 @@ def _check_fastai_fastcore_pyproject_versions(
 
     # Check that `pyproject.toml` contains fastai and fastcore. If they are not available, it throws an warning. Then, it gets the fastai and fastcore versions in `pyproject.toml`.
     # Versions in `pyproject.toml` must be higher or equal to `fastai_min_version` and `fastcore_min_version`. If the package is specified but not the version, the default versions are the highest.
-    try:
-        fastai_version = str(
-            [pck for pck in package_versions if pck.startswith("fastai")][0]
-        )
-        fastai_version = fastai_version.partition("=")[2]
-    except IndexError:
+    if not len([pck for pck in package_versions if pck.startswith("fastai")]) > 0:
         logger.warning(
             "The repository does not have a fastai version specified in the `pyproject.toml`."
         )
         return
+    else:
+        fastai_version = str(
+            [pck for pck in package_versions if pck.startswith("fastai")][0]
+        )
+        fastai_version = fastai_version.partition("=")[2]
+
+    if not len([pck for pck in package_versions if pck.startswith("fastcore")]) > 0:
+        logger.warning(
+            "The repository does not have a fastcore version specified in the `pyproject.toml`."
+        )
+        return
+    else:
+        fastcore_version = str(
+            [pck for pck in package_versions if pck.startswith("fastcore")][0]
+        )
+        fastcore_version = fastcore_version.partition("=")[2]
+
     if not (
         fastai_version == ""
         or version.Version(fastai_version) >= version.Version(fastai_min_version)
