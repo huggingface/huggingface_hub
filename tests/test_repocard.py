@@ -11,10 +11,11 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+import copy
 import os
 import shutil
-import time
 import unittest
+import uuid
 from pathlib import Path
 
 import pytest
@@ -109,7 +110,7 @@ REPOCARD_DIR = os.path.join(
     os.path.dirname(os.path.abspath(__file__)), "fixtures/repocard"
 )
 
-REPO_NAME = "dummy-hf-hub-{str(uuid.uuid4())}"
+REPO_NAME = f"dummy-hf-hub-{str(uuid.uuid4())}"
 
 
 class RepocardTest(unittest.TestCase):
