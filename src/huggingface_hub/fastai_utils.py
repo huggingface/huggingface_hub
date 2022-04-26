@@ -98,70 +98,59 @@ def _check_fastai_fastcore_pyproject_versions(
             "`push_to_hub_fastai` and `from_pretrained_fastai` require the toml module. Install it with `pip install toml`."
         )
 
-    # Checks that a `pyproject.toml`, with `build-system` and `requires` sections, exists in the repository. If so, get a list of required packages
+    # Checks that a `pyproject.toml`, with `build-system` and `requires` sections, exists in the repository. If so, get a list of required packages.
     if not os.path.isfile(f"{storage_folder}/pyproject.toml"):
         logger.warning(
             "There is no `pyproject.toml` in the repository that contains the fastai `Learner`. The `pyproject.toml` would allow us to verify that your fastai and fastcore versions are compatible with those of the model you want to load."
         )
         return
-    else:
-        pyproject_toml = toml.load(f"{storage_folder}/pyproject.toml")
+    pyproject_toml = toml.load(f"{storage_folder}/pyproject.toml")
 
     if "build-system" not in pyproject_toml.keys():
         logger.warning(
             "There is no `build-system` section in the pyproject.toml of the repository that contains the fastai `Learner`. The `build-system` would allow us to verify that your fastai and fastcore versions are compatible with those of the model you want to load."
         )
         return
-    else:
-        build_system_toml = pyproject_toml["build-system"]
+    build_system_toml = pyproject_toml["build-system"]
 
     if "requires" not in build_system_toml.keys():
         logger.warning(
             "There is no `requires` section in the pyproject.toml of the repository that contains the fastai `Learner`. The `requires` would allow us to verify that your fastai and fastcore versions are compatible with those of the model you want to load."
         )
         return
-    else:
-        package_versions = build_system_toml["requires"]
+    package_versions = build_system_toml["requires"]
 
-    # Check that `pyproject.toml` contains fastai and fastcore. If they are not available it throws a warning. Then, it extracts the fastai and fastcore versions in `pyproject.toml`.
-    # Versions in `pyproject.toml` must be higher or equal to `fastai_min_version` and `fastcore_min_version`. If the package is specified but not the version (e.g. "fastai" instead of "fastai=2.4"), the default versions are the highest.
-    if not len([pck for pck in package_versions if pck.startswith("fastai")]) > 0:
+    # Extracts contains fastai and fastcore versions from `pyproject.toml` if available.
+    # If the package is specified but not the version (e.g. "fastai" instead of "fastai=2.4"), the default versions are the highest.
+    fastai_packages = [pck for pck in package_versions if pck.startswith("fastai")]
+    if len(fastai_packages) == 0:
         logger.warning(
             "The repository does not have a fastai version specified in the `pyproject.toml`."
         )
         return
-    else:
-        fastai_version = str(
-            [pck for pck in package_versions if pck.startswith("fastai")][0]
+    # fastai_version is empty string if not specified
+    fastai_version = str(fastai_packages[0]).partition("=")[2]
+
+    if fastai_version != "" and version.Version(fastai_version) < version.Version(
+        fastai_min_version
+    ):
+        raise ImportError(
+            f"`from_pretrained_fastai` requires fastai>={fastai_min_version} version but the model to load uses {fastai_version} which is incompatible."
         )
-        fastai_version = fastai_version.partition("=")[2]
 
-        if not (
-            fastai_version == ""
-            or version.Version(fastai_version) >= version.Version(fastai_min_version)
-        ):
-            raise ImportError(
-                f"`from_pretrained_fastai` requires fastai>={fastai_min_version} version but the model to load uses {fastai_version} which is incompatible."
-            )
-
-    if not len([pck for pck in package_versions if pck.startswith("fastcore")]) > 0:
+    fastcore_packages = [pck for pck in package_versions if pck.startswith("fastcore")]
+    if len(fastcore_packages) == 0:
         logger.warning(
             "The repository does not have a fastcore version specified in the `pyproject.toml`."
         )
         return
-    else:
-        fastcore_version = str(
-            [pck for pck in package_versions if pck.startswith("fastcore")][0]
+    fastcore_version = str(fastcore_packages[0]).partition("=")[2]
+    if fastcore_version != "" and version.Version(fastcore_version) < version.Version(
+        fastcore_min_version
+    ):
+        raise ImportError(
+            f"`from_pretrained_fastai` requires fastcore>={fastcore_min_version} version, but you are using fastcore version {fastcore_version} which is incompatible."
         )
-        fastcore_version = fastcore_version.partition("=")[2]
-        if not (
-            fastcore_version == ""
-            or version.Version(fastcore_version)
-            >= version.Version(fastcore_min_version)
-        ):
-            raise ImportError(
-                f"`from_pretrained_fastai` requires fastcore>={fastcore_min_version} version, but you are using fastcore version {fastcore_version} which is incompatible."
-            )
 
 
 README_TEMPLATE = """---
@@ -176,9 +165,9 @@ tags:
 # Some next steps
 1. Fill out this model card with more information (see the template below and the [documentation here](https://huggingface.co/docs/hub/model-repos))!
 
-2. Create a demo in Gradio or Streamlit using the 🤗Spaces ([documentation here](https://huggingface.co/docs/hub/spaces)).
+2. Create a demo in Gradio or Streamlit using 🤗 Spaces ([documentation here](https://huggingface.co/docs/hub/spaces)).
 
-3. Join our fastai community on the [Hugging Face Discord](hf.co/join/discord)!
+3. Join the fastai community on the [Fastai Discord](https://discord.com/invite/YKrxeNn)!
 
 Greetings fellow fastlearner 🤝! Don't forget to delete this content from your model card.
 
@@ -274,7 +263,6 @@ def _save_pretrained_fastai(
             json.dump(config, f)
 
     _create_model_card(Path(save_directory))
-
     _create_model_pyproject(Path(save_directory))
 
     # learner.export saves the model in `self.path`.
@@ -319,7 +307,12 @@ def from_pretrained_fastai(
     # `snapshot_download` returns the folder where the model was stored.
     # `cache_dir` will be the default '/root/.cache/huggingface/hub'
     if not os.path.isdir(repo_id):
-        storage_folder = snapshot_download(repo_id=repo_id, revision=revision)
+        storage_folder = snapshot_download(
+            repo_id=repo_id,
+            revision=revision,
+            library_name="fastai",
+            library_version=get_fastai_version(),
+        )
     else:
         storage_folder = repo_id
 
@@ -327,8 +320,7 @@ def from_pretrained_fastai(
 
     from fastai.learner import load_learner
 
-    model = load_learner(os.path.join(storage_folder, "model.pkl"))
-    return model
+    return load_learner(os.path.join(storage_folder, "model.pkl"))
 
 
 def push_to_hub_fastai(
@@ -348,7 +340,7 @@ def push_to_hub_fastai(
         learner (`Learner`):
             The `fastai.Learner' you'd like to push to the Hub.
         repo_id (`str`):
-            The repository name for your model in Hub in the format of "namespace/repo_name". The namespace can be your individual account or an organization to which you have write access (for example, 'stanfordnlp/stanza-de').
+            The repository id for your model in Hub in the format of "namespace/repo_name". The namespace can be your individual account or an organization to which you have write access (for example, 'stanfordnlp/stanza-de').
         commit_message (`str`, *optional*):
             Message to commit while pushing. Will default to :obj:`"add model"`.
         private (`bool`, *optional*):
@@ -405,7 +397,7 @@ def push_to_hub_fastai(
         exist_ok=True,
     )
 
-    # If repository exists in the Hugging Face Hub then clone it locally in `repo_id`
+    # If repository exists in the Hugging Face Hub then clone it locally in `repo_id`.
     repo = Repository(
         repo_id,
         clone_from=repo_url,
