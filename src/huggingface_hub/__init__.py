@@ -31,6 +31,11 @@ from .constants import (
     TF2_WEIGHTS_NAME,
     TF_WEIGHTS_NAME,
 )
+from .fastai_utils import (
+    _save_pretrained_fastai,
+    from_pretrained_fastai,
+    push_to_hub_fastai,
+)
 from .file_download import cached_download, hf_hub_download, hf_hub_url
 from .hf_api import (
     DatasetSearchArguments,
