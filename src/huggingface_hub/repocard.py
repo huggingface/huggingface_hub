@@ -196,21 +196,18 @@ def _update_metadata_model_index(existing_results, new_results, overwrite=False)
         `list`: List of updated metadata results
     """
     for new_result in new_results:
-        result_found = False
-        for existing_result_index, existing_result in enumerate(existing_results):
-            if all(
-                new_result[feat] == existing_result[feat]
-                for feat in UNIQUE_RESULT_FEATURES
-            ):
-                result_found = True
-                existing_results[existing_result_index][
-                    "metrics"
-                ] = _update_metadata_results_metric(
-                    new_result["metrics"],
-                    existing_result["metrics"],
-                    overwrite=overwrite,
-                )
-        if not result_found:
+        try:
+            existing_result = next(
+                x
+                for x in existing_results
+                if all(x[feat] == new_result[feat] for feat in UNIQUE_RESULT_FEATURES)
+            )
+            existing_result["metrics"] = _update_metadata_results_metric(
+                new_result["metrics"],
+                existing_result["metrics"],
+                overwrite=overwrite,
+            )
+        except StopIteration:
             existing_results.append(new_result)
     return existing_results
 
@@ -234,26 +231,26 @@ def _update_metadata_results_metric(new_metrics, existing_metrics, overwrite=Fal
         `list`: List of updated metrics
     """
     for new_metric in new_metrics:
-        metric_exists = False
-        for existing_metric_index, existing_metric in enumerate(existing_metrics):
-            if all(
-                new_metric[feat] == existing_metric[feat]
-                for feat in UNIQUE_METRIC_FEATURES
-            ):
-                if overwrite:
-                    existing_metrics[existing_metric_index]["value"] = new_metric[
-                        "value"
-                    ]
-                else:
-                    # if metric exists and value is not the same throw an error without overwrite flag
-                    if (
-                        existing_metrics[existing_metric_index]["value"]
-                        != new_metric["value"]
-                    ):
-                        raise ValueError(
-                            f"""You passed a new value for the existing metric '{new_metric["name"]}'. Set `overwrite=True` to overwrite existing metrics."""
-                        )
-                metric_exists = True
-        if not metric_exists:
+        try:
+            existing_metric = next(
+                x
+                for x in existing_metrics
+                if all(x[feat] == new_metric[feat] for feat in UNIQUE_METRIC_FEATURES)
+            )
+            if overwrite:
+                existing_metric["value"] = new_metric["value"]
+            else:
+                # if metric exists and value is not the same throw an error
+                # without overwrite flag
+                if existing_metric["value"] != new_metric["value"]:
+                    existing_str = ", ".join(
+                        f"{feat}: {new_metric[feat]}" for feat in UNIQUE_METRIC_FEATURES
+                    )
+                    raise ValueError(
+                        "You passed a new value for the existing metric"
+                        f" '{existing_str}'. Set `overwrite=True` to overwrite existing"
+                        " metrics."
+                    )
+        except StopIteration:
             existing_metrics.append(new_metric)
     return existing_metrics

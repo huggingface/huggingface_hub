@@ -242,7 +242,7 @@ class RepocardUpdateTest(unittest.TestCase):
 
         with pytest.raises(
             ValueError,
-            match="You passed a new value for the existing metric 'Accuracy'. Set `overwrite=True` to overwrite existing metrics.",
+            match="You passed a new value for the existing metric 'name: Accuracy, type: accuracy'. Set `overwrite=True` to overwrite existing metrics.",
         ):
             metadata_update(
                 f"{USER}/{REPO_NAME}", new_metadata, token=self._token, overwrite=False
