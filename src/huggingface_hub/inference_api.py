@@ -113,7 +113,9 @@ class InferenceApi:
         model_info = HfApi().model_info(repo_id=repo_id, token=token)
         if not model_info.pipeline_tag and not task:
             raise ValueError(
-                "Task not specified in the repository. Please add it to the model card using pipeline_tag (https://huggingface.co/docs#how-is-a-models-type-of-inference-api-and-widget-determined)"
+                "Task not specified in the repository. Please add it to the model card"
+                " using pipeline_tag"
+                " (https://huggingface.co/docs#how-is-a-models-type-of-inference-api-and-widget-determined)"
             )
 
         if task and task != model_info.pipeline_tag:
@@ -121,7 +123,8 @@ class InferenceApi:
                 raise ValueError(f"Invalid task {task}. Make sure it's valid.")
 
             logger.warning(
-                "You're using a different task than the one specified in the repository. Be sure to know what you're doing :)"
+                "You're using a different task than the one specified in the"
+                " repository. Be sure to know what you're doing :)"
             )
             self.task = task
         else:
