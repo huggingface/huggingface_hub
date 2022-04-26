@@ -1,6 +1,6 @@
 # Upload files to the Hub
 
-Sharing your files and work is a very important aspect of the Hub. The `huggingface_hub` uses a Git-based workflow to upload files to the Hub. You can use these functions independently or integrate them into your own library so it is more convenient for your users to interact with the Hub. This guide will show you how to:
+Sharing your files and work is a very important aspect of the Hub. The `huggingface_hub` uses a Git-based workflow to upload files to the Hub. You can use these functions independently or integrate them into your own library, making it more convenient for your users to interact with the Hub. This guide will show you how to:
 
 * Push files with a `commit` context manager.
 * Push files with the [`~Repository.push_to_hub`] function.
@@ -33,6 +33,7 @@ The `commit` context manager handles four of the most common Git commands: pull,
 4. Pushes the change to the `text-files` repository.
 
 ```python
+>>> from huggingface_hub import Repository
 >>> with Repository(local_dir="text-files", clone_from="<user>/text-files").commit(commit_message="My first file :)"):
 ...     with open("file.txt", "w+") as f:
 ...         f.write(json.dumps({"hey": 8}))
@@ -58,12 +59,17 @@ You can check the status of your push with the `command_queue` method:
 ```python
 >>> last_command = repo.command_queue[-1]
 >>> last_command.status
-# -> -1 indicates the push is ongoing.
-# -> 0 indicates the push has completed successfully.
-# -> Non-zero code indicates the error code if there was an error.
 ```
 
-When `blocking=False`, commands are tracked, and your script will only exit when all pushes are completed even if other errors occur in your script. Some additional useful commands for checking the status of a push include:
+Refer to the table below for the possible statuses:
+
+| Status   | Description                          |
+|----------|--------------------------------------|
+| -1       | The push is ongoing.                 |
+| 0        | The push has completed successfully. |
+| Non-zero | An error has occurred.               |
+
+When `blocking=False`, commands are tracked, and your script will only exit when all pushes are completed, even if other errors occur in your script. Some additional useful commands for checking the status of a push include:
 
 ```python
 # Inspect an error.
@@ -81,6 +87,7 @@ When `blocking=False`, commands are tracked, and your script will only exit when
 The [`Repository`] class also has a [`~Repository.push_to_hub`] function to add files, make a commit, and push them to a repository. Unlike the `commit` context manager, [`~Repository.push_to_hub`] requires you to pull from a repository first, save the files, and then call [`~Repository.push_to_hub`].
 
 ```python
+>>> from huggingface_hub import Repository
 >>> repo.git_pull()
 >>> repo.push_to_hub(commit_message="Commit my-awesome-file to the Hub")
 ```

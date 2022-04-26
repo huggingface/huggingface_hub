@@ -1,8 +1,12 @@
 # Access the Inference API
 
-The Inference API provides fast inference for your hosted models. The Inference API can be accessed via usual HTTP requests with your favorite programming languages, but the `huggingface_hub` library has a client wrapper to access the Inference API programmatically. This guide will show you how to make calls to the Inference API with the `huggingface_hub` library.
+The Inference API provides fast inference for your hosted models. The Inference API can be accessed via usual HTTP requests with your favorite programming language, but the `huggingface_hub` library has a client wrapper to access the Inference API programmatically. This guide will show you how to make calls to the Inference API with the `huggingface_hub` library.
 
-**If you want to make the HTTP calls directly, please refer to [Accelerated Inference API Documentation](https://api-inference.huggingface.co/docs/python/html/index.html) or to the sample snippets visible on every supported model page.**
+<Tip>
+
+If you want to make the HTTP calls directly, please refer to [Accelerated Inference API Documentation](https://api-inference.huggingface.co/docs/python/html/index.html) or to the sample snippets visible on every supported model page.
+
+</Tip>
 
 ![Snippet of code to make calls to the Inference API](/docs/assets/hub/inference_api_snippet.png)
 
@@ -13,7 +17,7 @@ Begin by creating an instance of the [`InferenceApi`] with the model repository 
 >>> inference = InferenceApi(repo_id="bert-base-uncased", token=API_TOKEN)
 ```
 
-The pipeline is determined from the metadata in the model card and configuration files (see [here](https://huggingface.co/docs/hub/main#how-is-a-models-type-of-inference-api-and-widget-determined) for more details). For example, when using the [bert-base-uncased](https://huggingface.co/bert-base-uncased) model, the Inference API can automatically infer that this model should be used for a `fill-mask` task.
+The metadata in the model card and configuration files (see [here](https://huggingface.co/docs/hub/main#how-is-a-models-type-of-inference-api-and-widget-determined) for more details) determines the pipeline type. For example, when using the [bert-base-uncased](https://huggingface.co/bert-base-uncased) model, the Inference API can automatically infer that this model should be used for a `fill-mask` task.
 
 ```python
 >>> from huggingface_hub.inference_api import InferenceApi
@@ -44,5 +48,8 @@ Some tasks may require additional parameters (see [here](https://api-inference.h
 Some models may support multiple tasks. The `sentence-transformers` models can complete both `sentence-similarity` and `feature-extraction` tasks. Specify which task you want to perform with the `task` parameter:
 
 ```python
->>> inference = InferenceApi(repo_id="paraphrase-xlm-r-multilingual-v1", task="feature-extraction", token=API_TOKEN)
+>>> inference = InferenceApi(repo_id="paraphrase-xlm-r-multilingual-v1", 
+...                          task="feature-extraction", 
+...                          token=API_TOKEN,
+... )
 ```
