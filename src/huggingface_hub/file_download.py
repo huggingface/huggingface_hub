@@ -97,6 +97,22 @@ for package_name in _tf_candidates:
     except importlib_metadata.PackageNotFoundError:
         pass
 
+_fastai_version = "N/A"
+_fastai_available = False
+try:
+    _fastai_version: str = importlib_metadata.version("fastai")
+    _fastai_available = True
+except importlib_metadata.PackageNotFoundError:
+    pass
+
+_fastcore_version = "N/A"
+_fastcore_available = False
+try:
+    _fastcore_version: str = importlib_metadata.version("fastcore")
+    _fastcore_available = True
+except importlib_metadata.PackageNotFoundError:
+    pass
+
 
 def is_torch_available():
     return _torch_available
@@ -104,6 +120,22 @@ def is_torch_available():
 
 def is_tf_available():
     return _tf_available
+
+
+def is_fastai_available():
+    return _fastai_available
+
+
+def get_fastai_version():
+    return _fastai_version
+
+
+def is_fastcore_available():
+    return _fastcore_available
+
+
+def get_fastcore_version():
+    return _fastcore_version
 
 
 @_deprecate_positional_args
@@ -275,6 +307,10 @@ def http_user_agent(
         ua += f"; torch/{_torch_version}"
     if is_tf_available():
         ua += f"; tensorflow/{_tf_version}"
+    if is_fastai_available():
+        ua += f"; fastai/{_fastai_version}"
+    if is_fastcore_available():
+        ua += f"; fastcore/{_fastcore_version}"
     if isinstance(user_agent, dict):
         ua += "; " + "; ".join(f"{k}/{v}" for k, v in user_agent.items())
     elif isinstance(user_agent, str):
