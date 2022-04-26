@@ -279,7 +279,7 @@ class HubKerasSequentialTest(HubMixingTestKeras):
 
         with pytest.warns(
             FutureWarning,
-            match="`task_name` input argument is removed. Pass `tags` instead.",
+            match="`task_name` input argument is deprecated. Pass `tags` instead.",
         ):
             save_pretrained_keras(
                 model,
