@@ -127,30 +127,30 @@ def _check_fastai_fastcore_pyproject_versions(
         logger.warning(
             "The repository does not have a fastai version specified in the `pyproject.toml`."
         )
-        return
-    # fastai_version is empty string if not specified
-    fastai_version = str(fastai_packages[0]).partition("=")[2]
-
-    if fastai_version != "" and version.Version(fastai_version) < version.Version(
-        fastai_min_version
-    ):
-        raise ImportError(
-            f"`from_pretrained_fastai` requires fastai>={fastai_min_version} version but the model to load uses {fastai_version} which is incompatible."
-        )
+    # fastai_version is an empty string if not specified
+    else:
+        fastai_version = str(fastai_packages[0]).partition("=")[2]
+        if fastai_version != "" and version.Version(fastai_version) < version.Version(
+            fastai_min_version
+        ):
+            raise ImportError(
+                f"`from_pretrained_fastai` requires fastai>={fastai_min_version} version but the model to load uses {fastai_version} which is incompatible."
+            )
 
     fastcore_packages = [pck for pck in package_versions if pck.startswith("fastcore")]
     if len(fastcore_packages) == 0:
         logger.warning(
             "The repository does not have a fastcore version specified in the `pyproject.toml`."
         )
-        return
-    fastcore_version = str(fastcore_packages[0]).partition("=")[2]
-    if fastcore_version != "" and version.Version(fastcore_version) < version.Version(
-        fastcore_min_version
-    ):
-        raise ImportError(
-            f"`from_pretrained_fastai` requires fastcore>={fastcore_min_version} version, but you are using fastcore version {fastcore_version} which is incompatible."
-        )
+    # fastcore_version is an empty string if not specified
+    else:
+        fastcore_version = str(fastcore_packages[0]).partition("=")[2]
+        if fastcore_version != "" and version.Version(
+            fastcore_version
+        ) < version.Version(fastcore_min_version):
+            raise ImportError(
+                f"`from_pretrained_fastai` requires fastcore>={fastcore_min_version} version, but you are using fastcore version {fastcore_version} which is incompatible."
+            )
 
 
 README_TEMPLATE = """---
