@@ -1,0 +1,137 @@
+# Quick start
+
+The [Hugging Face Hub](https://hf.co/) is the go-to place for sharing machine learning
+models, demos, datasets, and metrics. `huggingface_hub` library helps you interact with
+the Hub without leaving your development environment. You can create and manage
+repositories easily, download and upload files, and get useful model and dataset
+metadata from the Hub.
+
+## Install the Hub library
+
+To get started, you should install the `huggingface_hub` library. You can install the
+library with `pip` or `conda`.
+
+With `pip`:
+
+```bash
+pip install huggingface_hub
+```
+
+With `conda`:
+
+```bash
+conda install -c conda-forge huggingface_hub
+```
+
+## Download files from the Hub
+
+Repositories on the Hub are git version controlled, and users can download a single file
+or the whole repository. You can use the [`hf_hub_download`] function to download files.
+This function will download and cache a file on your local disk. The next time you need
+that file, it will load from your cache, so you don't need to re-download it.
+
+You will need the repository id and the filename of the file you want to download. For
+example, to download the [Pegasus](https://huggingface.co/google/pegasus-xsum) model
+configuration file: 
+
+```py
+>>> from huggingface_hub import hf_hub_download
+>>> hf_hub_download(repo_id="google/pegasus-xsum", filename="config.json")
+```
+
+To download a specific version of the file, use the `revision` parameter to specify the
+branch name, tag, or commit hash. If you choose to use the commit hash, it must be the
+full-length hash instead of the shorter 7-character commit hash: 
+
+```py
+>>> from huggingface_hub import hf_hub_download
+>>> hf_hub_download(
+...     repo_id="google/pegasus-xsum", 
+...     filename="config.json", 
+...     revision="4d33b01d79672f27f001f6abade33f22d993b151"
+... )
+```
+
+For more details and options, see the API reference for [`hf_hub_download`].
+
+## Create a repository
+
+To create and share files to the Hub, you need to have a Hugging Face account. [Create
+an account](https://hf.co/join) if you don't already have one, and then sign in to find
+your [User Access Token](https://huggingface.co/docs/hub/security#user-access-tokens) in
+your Settings. The User Access Token is used to authenticate your identity to the Hub.
+
+<Tip>
+
+You can also provide your token to our functions and methods. This way you don't need to
+store your token anywhere.
+
+</Tip>
+
+1. Log in to your Hugging Face account with the following command:
+
+```bash
+huggingface-cli login
+```
+
+Or if you prefer to work from a Jupyter or Colaboratory notebook, then login with
+[`notebook_login`]:
+
+```py
+>>> from huggingface_hub import notebook_login
+>>> notebook_login()
+```
+
+2. Enter your User Access Token to authenticate your identity to the Hub.
+
+After you've created an account, create a repository with the [`create_repo`] function:
+
+```py
+>>> from huggingface_hub import HfApi
+>>> api = HfApi()
+>>> api.create_repo(repo_id="super-cool-model")
+```
+
+If you want your repository to be private, then:
+
+```py
+>>> from huggingface_hub import HfApi
+>>> api = HfApi()
+>>> api.create_repo(repo_id="super-cool-model", private=True)
+```
+
+Private repositories will not be visible to anyone except yourself.
+
+## Share files to the Hub
+
+Use the [`upload_file`] function to add a file to your newly created repository. You
+need to specify:
+
+1. The path of the file to upload.
+2. The path of the file in the repository.
+3. The repository id of where you want to add the file.
+
+```py
+>>> from huggingface_hub import HfApi
+>>> api = HfApi()
+>>> api.upload_file(path_or_fileobj="/home/lysandre/dummy-test/README.md", 
+...                 path_in_repo="README.md", 
+...                 repo_id="lysandre/test-model",
+... )
+```
+
+To upload more than one file at a time, take a look at this [guide](how-to-upstream)
+which will introduce you to the [`Repository`] class and other methods for uploading
+files.
+
+## Next steps
+
+The `huggingface_hub` library provides an easy way for users to interact with the Hub
+with Python. To learn more about how you can manage your files and repositories on the
+Hub, we recommend reading our how-to guides for how to:
+
+- [Create and manage repositories](how-to-manage). 
+- [Download](how-to-downstream) files from the Hub.
+- [Upload](how-to-upstream) files to the Hub.
+- [Search the Hub](searching-the-hub) for your desired model or dataset.
+- [Access the Inference API](how-to-inference) for fast inference.

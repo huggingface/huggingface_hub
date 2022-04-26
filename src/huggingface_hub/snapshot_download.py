@@ -114,7 +114,8 @@ def snapshot_download(
         token = HfFolder.get_token()
         if token is None:
             raise EnvironmentError(
-                "You specified use_auth_token=True, but a Hugging Face token was not found."
+                "You specified use_auth_token=True, but a Hugging Face token was not"
+                " found."
             )
     else:
         token = None
@@ -152,9 +153,9 @@ def snapshot_download(
 
         if len(repo_folders) == 0:
             raise ValueError(
-                "Cannot find the requested files in the cached path and outgoing traffic has been"
-                " disabled. To enable model look-ups and downloads online, set 'local_files_only'"
-                " to False."
+                "Cannot find the requested files in the cached path and outgoing"
+                " traffic has been disabled. To enable model look-ups and downloads"
+                " online, set 'local_files_only' to False."
             )
 
         # check if repo id was previously cached from a commit sha revision
@@ -176,11 +177,11 @@ def snapshot_download(
         if has_a_sha_revision_been_cached and is_revision_a_branch:
             # -> in this case let's warn the user
             logger.warn(
-                f"The repo {repo_id} was previously downloaded from a commit hash revision "
-                f"and has created the following cached directories {all_repo_folders_from_sha}."
-                f" In this case, trying to load a repo from the branch {revision} in offline "
-                "mode might lead to unexpected behavior by not taking into account the latest "
-                "commits."
+                f"The repo {repo_id} was previously downloaded from a commit hash"
+                " revision and has created the following cached directories"
+                f" {all_repo_folders_from_sha}. In this case, trying to load a repo"
+                f" from the branch {revision} in offline mode might lead to unexpected"
+                " behavior by not taking into account the latest commits."
             )
 
         # find last modified folder

@@ -57,7 +57,7 @@ def _filter_emissions(
                         emission = re.search("\d+\.\d+|\d+", emission).group(0)
                         emissions.append((i, float(emission)))
     filtered_results = []
-    for (idx, emission) in emissions:
+    for idx, emission in emissions:
         if emission >= minimum_threshold and emission <= maximum_threshold:
             filtered_results.append(models[idx])
     return filtered_results

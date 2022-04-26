@@ -505,7 +505,9 @@ class RepositoryTest(RepositoryCommonTest):
         # Should not error out
         Repository(
             f"{WORKING_REPO_DIR}/{self.REPO_NAME}",
-            clone_from="https://hf.co/hf-internal-testing/huggingface-hub-dummy-repository",
+            clone_from=(
+                "https://hf.co/hf-internal-testing/huggingface-hub-dummy-repository"
+            ),
         )
 
     @with_production_testing
@@ -1596,7 +1598,8 @@ class RepositoryDatasetTest(RepositoryCommonTest):
                 onerror=set_write_permission_and_retry,
             )
         logger.info(
-            f"Does {WORKING_DATASET_DIR}/{self.REPO_NAME} exist: {os.path.exists(f'{WORKING_DATASET_DIR}/{self.REPO_NAME}')}"
+            f"Does {WORKING_DATASET_DIR}/{self.REPO_NAME} exist:"
+            f" {os.path.exists(f'{WORKING_DATASET_DIR}/{self.REPO_NAME}')}"
         )
         self._api.create_repo(
             token=self._token, repo_id=self.REPO_NAME, repo_type="dataset"

@@ -42,7 +42,10 @@ class InferenceApiTest(unittest.TestCase):
     @with_production_testing
     def test_inference_with_params(self):
         api = InferenceApi("typeform/distilbert-base-uncased-mnli")
-        inputs = "I bought a device but it is not working and I would like to get reimbursed!"
+        inputs = (
+            "I bought a device but it is not working and I would like to get"
+            " reimbursed!"
+        )
         params = {"candidate_labels": ["refund", "legal", "faq"]}
         result = api(inputs, params)
         self.assertIsInstance(result, dict)

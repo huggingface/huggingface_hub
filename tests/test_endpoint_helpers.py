@@ -91,7 +91,10 @@ class AttributeDictionaryTest(AttributeDictionaryCommonTest):
         self._attrdict.itemB = 3
         self._attrdict["1a"] = 2
         self._attrdict["itemA?"] = 4
-        repr_string = "Available Attributes or Keys:\n * 1a (Key only)\n * itemA\n * itemA? (Key only)\n * itemB\n"
+        repr_string = (
+            "Available Attributes or Keys:\n * 1a (Key only)\n * itemA\n * itemA? (Key"
+            " only)\n * itemB\n"
+        )
         self.assertEqual(repr_string, repr(self._attrdict))
 
 

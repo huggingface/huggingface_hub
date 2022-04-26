@@ -97,6 +97,22 @@ for package_name in _tf_candidates:
     except importlib_metadata.PackageNotFoundError:
         pass
 
+_fastai_version = "N/A"
+_fastai_available = False
+try:
+    _fastai_version: str = importlib_metadata.version("fastai")
+    _fastai_available = True
+except importlib_metadata.PackageNotFoundError:
+    pass
+
+_fastcore_version = "N/A"
+_fastcore_available = False
+try:
+    _fastcore_version: str = importlib_metadata.version("fastcore")
+    _fastcore_available = True
+except importlib_metadata.PackageNotFoundError:
+    pass
+
 
 def is_torch_available():
     return _torch_available
@@ -104,6 +120,22 @@ def is_torch_available():
 
 def is_tf_available():
     return _tf_available
+
+
+def is_fastai_available():
+    return _fastai_available
+
+
+def get_fastai_version():
+    return _fastai_version
+
+
+def is_fastcore_available():
+    return _fastcore_available
+
+
+def get_fastcore_version():
+    return _fastcore_version
 
 
 @_deprecate_positional_args
@@ -275,6 +307,10 @@ def http_user_agent(
         ua += f"; torch/{_torch_version}"
     if is_tf_available():
         ua += f"; tensorflow/{_tf_version}"
+    if is_fastai_available():
+        ua += f"; fastai/{_fastai_version}"
+    if is_fastcore_available():
+        ua += f"; fastcore/{_fastcore_version}"
     if isinstance(user_agent, dict):
         ua += "; " + "; ".join(f"{k}/{v}" for k, v in user_agent.items())
     elif isinstance(user_agent, str):
@@ -346,7 +382,8 @@ def _request_with_retry(
                 raise err
             else:
                 logger.info(
-                    f"{method} request to {url} timed out, retrying... [{tries/max_retries}]"
+                    f"{method} request to {url} timed out, retrying..."
+                    f" [{tries/max_retries}]"
                 )
                 sleep_time = min(
                     max_wait_time, base_wait_time * 2 ** (tries - 1)
@@ -493,7 +530,8 @@ def cached_download(
         token = HfFolder.get_token()
         if token is None:
             raise EnvironmentError(
-                "You specified use_auth_token=True, but a huggingface token was not found."
+                "You specified use_auth_token=True, but a huggingface token was not"
+                " found."
             )
         headers["authorization"] = f"Bearer {token}"
 
@@ -516,7 +554,8 @@ def cached_download(
             # If we don't have any of those, raise an error.
             if etag is None:
                 raise OSError(
-                    "Distant resource does not have an ETag, we won't be able to reliably ensure reproducibility."
+                    "Distant resource does not have an ETag, we won't be able to"
+                    " reliably ensure reproducibility."
                 )
             # In case of a redirect,
             # save an extra redirect on the request.get call,
@@ -568,14 +607,15 @@ def cached_download(
                 # Notify the user about that
                 if local_files_only:
                     raise ValueError(
-                        "Cannot find the requested files in the cached path and outgoing traffic has been"
-                        " disabled. To enable model look-ups and downloads online, set 'local_files_only'"
-                        " to False."
+                        "Cannot find the requested files in the cached path and"
+                        " outgoing traffic has been disabled. To enable model look-ups"
+                        " and downloads online, set 'local_files_only' to False."
                     )
                 else:
                     raise ValueError(
-                        "Connection error, and we cannot find the requested files in the cached path."
-                        " Please try again or make sure your Internet connection is on."
+                        "Connection error, and we cannot find the requested files in"
+                        " the cached path. Please try again or make sure your Internet"
+                        " connection is on."
                     )
 
     # From now on, etag is not None.
