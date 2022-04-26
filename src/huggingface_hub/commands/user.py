@@ -26,6 +26,8 @@ from huggingface_hub.constants import (
 from huggingface_hub.hf_api import HfApi, HfFolder
 from requests.exceptions import HTTPError
 
+from ..utils import run_subprocess
+
 
 class UserCommands(BaseHuggingfaceCLICommand):
     @staticmethod
@@ -44,7 +46,10 @@ class UserCommands(BaseHuggingfaceCLICommand):
         # new system: git-based repo system
         repo_parser = parser.add_parser(
             "repo",
-            help="{create, ls-files} Commands to interact with your huggingface.co repos.",
+            help=(
+                "{create, ls-files} Commands to interact with your huggingface.co"
+                " repos."
+            ),
         )
         repo_subparsers = repo_parser.add_subparsers(
             help="huggingface.co repos related commands"
@@ -55,12 +60,18 @@ class UserCommands(BaseHuggingfaceCLICommand):
         repo_create_parser.add_argument(
             "name",
             type=str,
-            help="Name for your repo. Will be namespaced under your username to build the repo id.",
+            help=(
+                "Name for your repo. Will be namespaced under your username to build"
+                " the repo id."
+            ),
         )
         repo_create_parser.add_argument(
             "--type",
             type=str,
-            help='Optional: repo_type: set to "dataset" or "space" if creating a dataset or space, default is model.',
+            help=(
+                'Optional: repo_type: set to "dataset" or "space" if creating a dataset'
+                " or space, default is model."
+            ),
         )
         repo_create_parser.add_argument(
             "--organization", type=str, help="Optional: organization namespace."
@@ -68,7 +79,10 @@ class UserCommands(BaseHuggingfaceCLICommand):
         repo_create_parser.add_argument(
             "--space_sdk",
             type=str,
-            help='Optional: Hugging Face Spaces SDK type. Required when --type is set to "space".',
+            help=(
+                "Optional: Hugging Face Spaces SDK type. Required when --type is set to"
+                ' "space".'
+            ),
             choices=SPACES_SDK_TYPES,
         )
         repo_create_parser.add_argument(
@@ -122,13 +136,9 @@ def tabulate(rows: List[List[Union[str, int]]], headers: List[str]) -> str:
 
 def currently_setup_credential_helpers(directory=None) -> List[str]:
     try:
-        output = subprocess.run(
+        output = run_subprocess(
             "git config --list".split(),
-            stderr=subprocess.PIPE,
-            stdout=subprocess.PIPE,
-            encoding="utf-8",
-            check=True,
-            cwd=directory,
+            directory,
         ).stdout.split("\n")
 
         current_credential_helpers = []
@@ -308,8 +318,8 @@ def notebook_login():
         from IPython.display import clear_output, display
     except ImportError:
         raise ImportError(
-            "The `notebook_login` function can only be used in a notebook (Jupyter or Colab) and you need the "
-            "`ipywdidgets` module: `pip install ipywidgets`."
+            "The `notebook_login` function can only be used in a notebook (Jupyter or"
+            " Colab) and you need the `ipywdidgets` module: `pip install ipywidgets`."
         )
 
     box_layout = widgets.Layout(
@@ -394,8 +404,10 @@ def _login(hf_api, username=None, password=None, token=None):
     if "store" not in helpers:
         print(
             ANSI.red(
-                "Authenticated through git-credential store but this isn't the helper defined on your machine.\nYou "
-                "might have to re-authenticate when pushing to the Hugging Face Hub. Run the following command in your "
-                "terminal in case you want to set this credential helper as the default\n\ngit config --global credential.helper store"
+                "Authenticated through git-credential store but this isn't the helper"
+                " defined on your machine.\nYou might have to re-authenticate when"
+                " pushing to the Hugging Face Hub. Run the following command in your"
+                " terminal in case you want to set this credential helper as the"
+                " default\n\ngit config --global credential.helper store"
             )
         )

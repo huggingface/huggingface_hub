@@ -143,45 +143,20 @@ def repo_type_and_id_from_hf_id(hf_id: str, hub_url: Optional[str] = None):
     return repo_type, namespace, repo_id
 
 
-class RepoObj:
+class RepoFile:
     """
-    HuggingFace git-based system, data structure that represents a file
-    belonging to the current user.
-    """
-
-    def __init__(self, **kwargs):
-        for k, v in kwargs.items():
-            setattr(self, k, v)
-
-    def __repr__(self):
-        items = (f"{k}='{v}'" for k, v in self.__dict__.items())
-        return f"{self.__class__.__name__}({', '.join(items)})"
-
-
-class ModelFile:
-    """
-    Data structure that represents a public file inside a model, accessible from
+    Data structure that represents a public file inside a repo, accessible from
     huggingface.co
+
+    Args:
+        rfilename (str):
+            file name, relative to the repo root. This is the only attribute
+            that's guaranteed to be here, but under certain conditions there can
+            certain other stuff.
     """
 
     def __init__(self, rfilename: str, **kwargs):
-        self.rfilename = rfilename  # filename relative to the model root
-        for k, v in kwargs.items():
-            setattr(self, k, v)
-
-    def __repr__(self):
-        items = (f"{k}='{v}'" for k, v in self.__dict__.items())
-        return f"{self.__class__.__name__}({', '.join(items)})"
-
-
-class DatasetFile:
-    """
-    Data structure that represents a public file inside a dataset, accessible
-    from huggingface.co
-    """
-
-    def __init__(self, rfilename: str, **kwargs):
-        self.rfilename = rfilename  # filename relative to the dataset root
+        self.rfilename = rfilename  # filename relative to the repo root
         for k, v in kwargs.items():
             setattr(self, k, v)
 
@@ -192,22 +167,44 @@ class DatasetFile:
 
 class ModelInfo:
     """
-    Info about a public model accessible from huggingface.co
+    Info about a model accessible from huggingface.co
+
+    Args:
+        modelId (`str`, *optional*):
+            ID of model repository.
+        sha (`str`, *optional*):
+            repo sha at this particular revision
+        lastModified (`str`, *optional*):
+            date of last commit to repo
+        tags (`Listr[str]`, *optional*):
+            List of tags.
+        pipeline_tag (`str`, *optional*):
+            Pipeline tag to identify the correct widget.
+        siblings (`List[Dict]`, *optional*):
+            list of files that constitute the Space
+        private (`bool`, *optional*):
+            is the repo private
+        author (`str`, *optional*):
+            repo author
+        config (`Dict`, *optional*):
+            Model configuration information
+        kwargs (`Dict`, *optional*):
+            Kwargs that will be become attributes of the class.
     """
 
     @_deprecate_positional_args
     def __init__(
         self,
         *,
-        modelId: Optional[str] = None,  # id of model
-        sha: Optional[str] = None,  # commit sha at the specified revision
-        lastModified: Optional[str] = None,  # date of last commit to repo
+        modelId: Optional[str] = None,
+        sha: Optional[str] = None,
+        lastModified: Optional[str] = None,
         tags: List[str] = [],
         pipeline_tag: Optional[str] = None,
-        siblings: Optional[
-            List[Dict]
-        ] = None,  # list of files that constitute the model
-        config: Optional[Dict] = None,  # information about model configuration
+        siblings: Optional[List[Dict]] = None,
+        private: Optional[bool] = None,
+        author: Optional[str] = None,
+        config: Optional[Dict] = None,
         **kwargs,
     ):
         self.modelId = modelId
@@ -216,8 +213,10 @@ class ModelInfo:
         self.tags = tags
         self.pipeline_tag = pipeline_tag
         self.siblings = (
-            [ModelFile(**x) for x in siblings] if siblings is not None else None
+            [RepoFile(**x) for x in siblings] if siblings is not None else None
         )
+        self.private = private
+        self.author = author
         self.config = config
         for k, v in kwargs.items():
             setattr(self, k, v)
@@ -237,27 +236,51 @@ class ModelInfo:
 
 class DatasetInfo:
     """
-    Info about a public dataset accessible from huggingface.co
+    Info about a dataset accessible from huggingface.co
+
+    Args:
+        id (`str`, *optional*):
+            ID of dataset repository.
+        sha (`str`, *optional*):
+            repo sha at this particular revision
+        lastModified (`str`, *optional*):
+            date of last commit to repo
+        tags (`Listr[str]`, *optional*):
+            List of tags.
+        siblings (`List[Dict]`, *optional*):
+            list of files that constitute the Space
+        private (`bool`, *optional*):
+            is the repo private
+        author (`str`, *optional*):
+            repo author
+        description (`str`, *optional*):
+            Description of the dataset
+        citation (`str`, *optional*):
+            Dataset citation
+        cardData (`Dict`, *optional*):
+            Metadata of the model card as a dictionary.
+        kwargs (`Dict`, *optional*):
+            Kwargs that will be become attributes of the class.
     """
 
     @_deprecate_positional_args
     def __init__(
         self,
         *,
-        id: Optional[str] = None,  # id of dataset
-        lastModified: Optional[str] = None,  # date of last commit to repo
-        tags: List[str] = [],  # tags of the dataset
-        siblings: Optional[
-            List[Dict]
-        ] = None,  # list of files that constitute the dataset
-        private: Optional[bool] = None,  # community datasets only
-        author: Optional[str] = None,  # community datasets only
+        id: Optional[str] = None,
+        sha: Optional[str] = None,
+        lastModified: Optional[str] = None,
+        tags: List[str] = [],
+        siblings: Optional[List[Dict]] = None,
+        private: Optional[bool] = None,
+        author: Optional[str] = None,
         description: Optional[str] = None,
         citation: Optional[str] = None,
         cardData: Optional[dict] = None,
         **kwargs,
     ):
         self.id = id
+        self.sha = sha
         self.lastModified = lastModified
         self.tags = tags
         self.private = private
@@ -266,7 +289,7 @@ class DatasetInfo:
         self.citation = citation
         self.cardData = cardData
         self.siblings = (
-            [DatasetFile(**x) for x in siblings] if siblings is not None else None
+            [RepoFile(**x) for x in siblings] if siblings is not None else None
         )
         # Legacy stuff, "key" is always returned with an empty string
         # because of old versions of the datasets lib that need this field
@@ -284,6 +307,60 @@ class DatasetInfo:
     def __str__(self):
         r = f"Dataset Name: {self.id}, Tags: {self.tags}"
         return r
+
+
+class SpaceInfo:
+    """
+    Info about a Space accessible from huggingface.co
+
+    This is a "dataclass" like container that just sets on itself any attribute
+    passed by the server.
+
+    Args:
+        id (`str`, *optional*):
+            id of space
+        sha (`str`, *optional*):
+            repo sha at this particular revision
+        lastModified (`str`, *optional*):
+            date of last commit to repo
+        siblings (`List[Dict]`, *optional*):
+            list of files that constitute the Space
+        private (`bool`, *optional*):
+            is the repo private
+        author (`str`, *optional*):
+            repo author
+        kwargs (`Dict`, *optional*):
+            Kwargs that will be become attributes of the class.
+    """
+
+    @_deprecate_positional_args(version="0.8")
+    def __init__(
+        self,
+        *,
+        id: Optional[str] = None,
+        sha: Optional[str] = None,
+        lastModified: Optional[str] = None,
+        siblings: Optional[List[Dict]] = None,
+        private: Optional[bool] = None,
+        author: Optional[str] = None,
+        **kwargs,
+    ):
+        self.id = id
+        self.sha = sha
+        self.lastModified = lastModified
+        self.siblings = (
+            [RepoFile(**x) for x in siblings] if siblings is not None else None
+        )
+        self.private = private
+        self.author = author
+        for k, v in kwargs.items():
+            setattr(self, k, v)
+
+    def __repr__(self):
+        s = f"{self.__class__.__name__}:" + " {"
+        for key, val in self.__dict__.items():
+            s += f"\n\t{key}: {val}"
+        return s + "\n}"
 
 
 class MetricInfo:
@@ -594,8 +671,8 @@ class HfApi:
             if self._is_valid_token(name):
                 # TODO(0.6) REMOVE
                 warnings.warn(
-                    f"`{function_name}` now takes `token` as an optional positional argument. "
-                    "Be sure to adapt your code!",
+                    f"`{function_name}` now takes `token` as an optional positional"
+                    " argument. Be sure to adapt your code!",
                     FutureWarning,
                 )
                 token, name = name, token
@@ -822,7 +899,8 @@ class HfApi:
         if emissions_thresholds is not None:
             if cardData is None:
                 raise ValueError(
-                    "`emissions_thresholds` were passed without setting `cardData=True`."
+                    "`emissions_thresholds` were passed without setting"
+                    " `cardData=True`."
                 )
             else:
                 return _filter_emissions(res, *emissions_thresholds)
@@ -1091,7 +1169,7 @@ class HfApi:
                 The revision of the model repository from which to get the
                 information.
             token (`str`, *optional*):
-                An authentication token [1]_.
+                An authentication token (See https://huggingface.co/settings/token)
             timeout (`float`, *optional*):
                 Whether to set a timeout for the request to the Hub.
             securityStatus (`bool`, *optional*):
@@ -1099,11 +1177,7 @@ class HfApi:
                 repository as well.
 
         Returns:
-            [`ModelInfo`]: The model repository information.
-
-        References:
-
-        - [1] https://huggingface.co/settings/tokens
+            [`huggingface_hub.hf_api.ModelInfo`]: The model repository information.
         """
         if token is None:
             token = HfFolder.get_token()
@@ -1123,6 +1197,136 @@ class HfApi:
         return ModelInfo(**d)
 
     @_deprecate_positional_args
+    def dataset_info(
+        self,
+        repo_id: str,
+        *,
+        revision: Optional[str] = None,
+        token: Optional[str] = None,
+        timeout: Optional[float] = None,
+    ) -> DatasetInfo:
+        """
+        Get info on one specific dataset on huggingface.co.
+
+        Dataset can be private if you pass an acceptable token.
+
+        Args:
+            repo_id (`str`):
+                A namespace (user or an organization) and a repo name separated
+                by a `/`.
+            revision (`str`, *optional*):
+                The revision of the dataset repository from which to get the
+                information.
+            token (`str`, *optional*):
+                An authentication token (See https://huggingface.co/settings/token)
+            timeout (`float`, *optional*):
+                Whether to set a timeout for the request to the Hub.
+
+        Returns:
+            [`DatasetInfo`]: The dataset repository information.
+        """
+        if token is None:
+            token = HfFolder.get_token()
+
+        path = (
+            f"{self.endpoint}/api/datasets/{repo_id}"
+            if revision is None
+            else f"{self.endpoint}/api/datasets/{repo_id}/revision/{revision}"
+        )
+        headers = {"authorization": f"Bearer {token}"} if token is not None else None
+        r = requests.get(path, headers=headers, timeout=timeout)
+        r.raise_for_status()
+        d = r.json()
+        return DatasetInfo(**d)
+
+    @_deprecate_positional_args
+    def space_info(
+        self,
+        repo_id: str,
+        *,
+        revision: Optional[str] = None,
+        token: Optional[str] = None,
+        timeout: Optional[float] = None,
+    ) -> SpaceInfo:
+        """
+        Get info on one specific Space on huggingface.co.
+
+        Space can be private if you pass an acceptable token.
+
+        Args:
+            repo_id (`str`):
+                A namespace (user or an organization) and a repo name separated
+                by a `/`.
+            revision (`str`, *optional*):
+                The revision of the space repository from which to get the
+                information.
+            token (`str`, *optional*):
+                An authentication token (See https://huggingface.co/settings/token)
+            timeout (`float`, *optional*):
+                Whether to set a timeout for the request to the Hub.
+
+        Returns:
+            [`SpaceInfo`]: The space repository information.
+        """
+        if token is None:
+            token = HfFolder.get_token()
+
+        path = (
+            f"{self.endpoint}/api/spaces/{repo_id}"
+            if revision is None
+            else f"{self.endpoint}/api/spaces/{repo_id}/revision/{revision}"
+        )
+        headers = {"authorization": f"Bearer {token}"} if token is not None else None
+        r = requests.get(path, headers=headers, timeout=timeout)
+        r.raise_for_status()
+        d = r.json()
+        return SpaceInfo(**d)
+
+    @_deprecate_positional_args(version="0.8")
+    def repo_info(
+        self,
+        repo_id: str,
+        *,
+        revision: Optional[str] = None,
+        repo_type: Optional[str] = None,
+        token: Optional[str] = None,
+        timeout: Optional[float] = None,
+    ) -> Union[ModelInfo, DatasetInfo, SpaceInfo]:
+        """
+        Get the info object for a given repo of a given type.
+
+        Args:
+            repo_id (`str`):
+                A namespace (user or an organization) and a repo name separated
+                by a `/`.
+            revision (`str`, *optional*):
+                The revision of the repository from which to get the
+                information.
+            token (`str`, *optional*):
+                An authentication token (See https://huggingface.co/settings/token)
+            timeout (`float`, *optional*):
+                Whether to set a timeout for the request to the Hub.
+
+        Returns:
+            `Union[SpaceInfo, DatasetInfo, ModelInfo]`: The repository
+            information.
+        """
+        if repo_type is None or repo_type == "model":
+            return self.model_info(
+                repo_id, revision=revision, token=token, timeout=timeout
+            )
+        elif repo_type == "dataset":
+            return self.dataset_info(
+                repo_id, revision=revision, token=token, timeout=timeout
+            )
+        elif repo_type == "space":
+            return self.space_info(
+                repo_id, revision=revision, token=token, timeout=timeout
+            )
+        else:
+            raise ValueError("Unsupported repo type.")
+
+    @_deprecate_positional_args(version="0.8")
     def list_repo_files(
         self,
         repo_id: str,
@@ -1147,77 +1351,21 @@ class HfApi:
                 space, `None` or `"model"` if uploading to a model. Default is
                 `None`.
             token (`str`, *optional*):
-                An authentication token [1]_.
+                An authentication token (See https://huggingface.co/settings/token)
             timeout (`float`, *optional*):
                 Whether to set a timeout for the request to the Hub.
 
         Returns:
             `List[str]`: the list of files in a given repository.
-
-        References:
-
-        - [1] https://huggingface.co/settings/tokens
         """
-        if repo_type is None or repo_type == "model":
-            info = self.model_info(
-                repo_id=repo_id, revision=revision, token=token, timeout=timeout
-            )
-        elif repo_type == "dataset":
-            info = self.dataset_info(
-                repo_id=repo_id, revision=revision, token=token, timeout=timeout
-            )
-        else:
-            raise ValueError("Spaces are not available yet.")
-
-        return [f.rfilename for f in info.siblings]
-
-    @_deprecate_positional_args
-    def dataset_info(
-        self,
-        repo_id: str,
-        *,
-        revision: Optional[str] = None,
-        token: Optional[str] = None,
-        timeout: Optional[float] = None,
-    ) -> DatasetInfo:
-        """
-        Get info on one specific dataset on huggingface.co
-
-        Dataset can be private if you pass an acceptable token.
-
-        Args:
-            repo_id (`str`):
-                A namespace (user or an organization) and a repo name separated
-                by a `/`.
-            revision (`str`, *optional*):
-                The revision of the dataset repository from which to get the
-                information.
-            token (`str`, *optional*):
-                An authentication token [1]_.
-            timeout (`float`, *optional*):
-                Whether to set a timeout for the request to the Hub.
-
-        Returns:
-            [`DatasetInfo`]: The dataset repository information.
-
-        References:
-
-        - [1] https://huggingface.co/settings/tokens
-        """
-        if token is None:
-            token = HfFolder.get_token()
-
-        path = (
-            f"{self.endpoint}/api/datasets/{repo_id}"
-            if revision is None
-            else f"{self.endpoint}/api/datasets/{repo_id}/revision/{revision}"
+        repo_info = self.repo_info(
+            repo_id,
+            revision=revision,
+            repo_type=repo_type,
+            token=token,
+            timeout=timeout,
         )
-        headers = {"authorization": f"Bearer {token}"} if token is not None else None
-        params = {"full": "true"}
-        r = requests.get(path, headers=headers, params=params, timeout=timeout)
-        r.raise_for_status()
-        d = r.json()
-        return DatasetInfo(**d)
+        return [f.rfilename for f in repo_info.siblings]
 
     @_deprecate_positional_args
     def create_repo(
@@ -1246,7 +1394,7 @@ class HfApi:
                 </Tip>
 
             token (`str`, *optional*):
-                An authentication token [1]_.
+                An authentication token (See https://huggingface.co/settings/token)
             private (`bool`, *optional*):
                 Whether the model repo should be private.
             repo_type (`str`, *optional*):
@@ -1261,10 +1409,6 @@ class HfApi:
 
         Returns:
             `str`: URL to the newly created repo.
-
-        References:
-
-        - [1] https://huggingface.co/settings/tokens
         """
         name, organization = _validate_repo_id_deprecation(repo_id, name, organization)
 
@@ -1315,8 +1459,8 @@ class HfApi:
         if repo_type == "space":
             if space_sdk is None:
                 raise ValueError(
-                    "No space_sdk provided. `create_repo` expects space_sdk to be one of "
-                    f"{SPACES_SDK_TYPES} when repo_type is 'space'`"
+                    "No space_sdk provided. `create_repo` expects space_sdk to be one"
+                    f" of {SPACES_SDK_TYPES} when repo_type is 'space'`"
                 )
             if space_sdk not in SPACES_SDK_TYPES:
                 raise ValueError(
@@ -1378,14 +1522,10 @@ class HfApi:
                 </Tip>
 
             token (`str`, *optional*):
-                An authentication token [1]_.
+                An authentication token (See https://huggingface.co/settings/token)
             repo_type (`str`, *optional*):
                 Set to `"dataset"` or `"space"` if uploading to a dataset or
                 space, `None` or `"model"` if uploading to a model.
-
-        References:
-
-        - [1] https://huggingface.co/settings/tokens
         """
         name, organization = _validate_repo_id_deprecation(repo_id, name, organization)
 
@@ -1475,7 +1615,7 @@ class HfApi:
             private (`bool`, *optional*, defaults to `False`):
                 Whether the model repo should be private.
             token (`str`, *optional*):
-                An authentication token [1]_.
+                An authentication token (See https://huggingface.co/settings/token)
             repo_type (`str`, *optional*):
                 Set to `"dataset"` or `"space"` if uploading to a dataset or
                 space, `None` or `"model"` if uploading to a model. Default is
@@ -1483,10 +1623,6 @@ class HfApi:
 
         Returns:
             The HTTP response in json.
-
-        References:
-
-        - [1] https://huggingface.co/settings/tokens
         """
         if repo_type not in REPO_TYPES:
             raise ValueError("Invalid repo type")
@@ -1546,23 +1682,22 @@ class HfApi:
                 space, `None` or `"model"` if uploading to a model. Default is
                 `None`.
             token (`str`, *optional*):
-                An authentication token [1]_.
+                An authentication token (See https://huggingface.co/settings/token)
 
-        References:
-
-        - [1] https://huggingface.co/settings/tokens
         """
 
         token, name = self._validate_or_retrieve_token(token)
 
         if len(from_id.split("/")) != 2:
             raise ValueError(
-                f"Invalid repo_id: {from_id}. It should have a namespace (:namespace:/:repo_name:)"
+                f"Invalid repo_id: {from_id}. It should have a namespace"
+                " (:namespace:/:repo_name:)"
             )
 
         if len(to_id.split("/")) != 2:
             raise ValueError(
-                f"Invalid repo_id: {to_id}. It should have a namespace (:namespace:/:repo_name:)"
+                f"Invalid repo_id: {to_id}. It should have a namespace"
+                " (:namespace:/:repo_name:)"
             )
 
         json = {"fromRepo": from_id, "toRepo": to_id, "type": repo_type}
@@ -1578,13 +1713,15 @@ class HfApi:
         except HTTPError as e:
             if r.text:
                 raise HTTPError(
-                    f"{r.status_code} Error Message: {r.text}. For additional documentation "
-                    "please see https://hf.co/docs/hub/main#how-can-i-rename-or-transfer-a-repo."
+                    f"{r.status_code} Error Message: {r.text}. For additional"
+                    " documentation please see"
+                    " https://hf.co/docs/hub/main#how-can-i-rename-or-transfer-a-repo."
                 ) from e
             else:
                 raise e
         logger.info(
-            "Accepted transfer request. You will get an email once this is successfully completed."
+            "Accepted transfer request. You will get an email once this is successfully"
+            " completed."
         )
 
     @_deprecate_positional_args
@@ -1676,8 +1813,8 @@ class HfApi:
         except ValueError:  # if token is invalid or organization token
             if self._is_valid_token(path_or_fileobj):
                 warnings.warn(
-                    "`upload_file` now takes `token` as an optional positional argument. "
-                    "Be sure to adapt your code!",
+                    "`upload_file` now takes `token` as an optional positional"
+                    " argument. Be sure to adapt your code!",
                     FutureWarning,
                 )
                 token, path_or_fileobj, path_in_repo, repo_id = (
@@ -1697,8 +1834,8 @@ class HfApi:
         elif not isinstance(path_or_fileobj, (RawIOBase, BufferedIOBase, bytes)):
             # ^^ Test from: https://stackoverflow.com/questions/44584829/how-to-determine-if-file-is-opened-in-binary-or-text-mode
             raise ValueError(
-                "path_or_fileobj must be either an instance of str or BinaryIO. "
-                "If you passed a fileobj, make sure you've opened the file in binary mode."
+                "path_or_fileobj must be either an instance of str or BinaryIO. If you"
+                " passed a fileobj, make sure you've opened the file in binary mode."
             )
 
         if repo_type in REPO_TYPES_URL_PREFIXES:
@@ -1886,10 +2023,14 @@ whoami = api.whoami
 
 list_models = api.list_models
 model_info = api.model_info
-list_repo_files = api.list_repo_files
 
 list_datasets = api.list_datasets
 dataset_info = api.dataset_info
+
+space_info = api.space_info
+
+repo_info = api.repo_info
+list_repo_files = api.list_repo_files
 
 list_metrics = api.list_metrics
 

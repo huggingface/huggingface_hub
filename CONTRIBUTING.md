@@ -28,19 +28,6 @@ helped you, or simply star the repo to say "thank you".
 Whichever way you choose to contribute, please be mindful to respect our
 [code of conduct](https://github.com/huggingface/huggingface_hub/blob/master/CODE_OF_CONDUCT.md).
 
-## You can contribute in so many ways!
-
-The repository is split into different parts, where we welcome contributions.
-
-What can you find in this repo?
-
-* [`huggingface_hub`](https://github.com/huggingface/huggingface_hub/tree/main/src/huggingface_hub), a client library to download and publish on the Hugging Face Hub as well as extracting useful information from there.
-* [`api-inference-community`](https://github.com/huggingface/huggingface_hub/tree/main/api-inference-community), the Inference API for open source machine learning libraries.
-* [`js`](https://github.com/huggingface/huggingface_hub/tree/main/js), the open sourced widgets that allow people to try out the models in the browser.
-  * [`interfaces`](https://github.com/huggingface/huggingface_hub/tree/main/js/src/lib/interfaces), Typescript definition files for the Hugging Face Hub.
-* [`docs`](https://github.com/huggingface/huggingface_hub/tree/main/docs), containing the official [Hugging Face Hub documentation](https://hf.co/docs).
-
-
 ### The client library, `huggingface_hub`
 
 This repository hosts the client library `huggingface_hub`, which is a frontend to the Hugging Face Hub.
@@ -51,35 +38,6 @@ There are many ways you can contribute to this client library:
 * Contributing to the examples or to the documentation;
 * Submitting issues related to bugs or desired new features.
 
-### The community inference API
-
-The `api-inference-community` folder contains a tool to enable third-party library support integrated with the Hugging
-Face Hub.
-
-We welcome contributions to [add new containers](https://huggingface.co/docs/hub/adding-a-library#set-up-the-inference-api) for new libraries, to update the existing ones, and to provide help
-fixing bugs and adding features. This folder contains an additional README
-file explaining how you may test your code.
-
-## JavaScript content
-
-The `js` folder contains the JavaScript code of the Hub. It includes:
-* The widgets ([code](https://github.com/huggingface/huggingface_hub/tree/main/js/src/lib/components/InferenceWidget)
-* Code snippets to make inference calls ([code](https://github.com/huggingface/huggingface_hub/tree/main/js/src/lib/inferenceSnippets)
-* Code snippets to load models ([code](https://github.com/huggingface/huggingface_hub/blob/main/js/src/lib/interfaces/Libraries.ts))
-
-Here too, we welcome any logic and documentation contributions. This folder contains an additional README
-file explaining how you may test your code.
-
-## Documentation
-
-The content in the `docs` folder is the official [Hugging Face Hub documentation]. It is not limited to the
-Python package `huggingface_hub`, as it includes guides on using the frontend, ho to build Spaces, how to search
-efficiently, and others.
-
-Here too, we welcome contribution, may it be for syntactic changes or typos.
-
-*All contributions are equally valuable to the community.*
-
 ## Submitting a new issue or feature request
 
 Do your best to follow these guidelines when submitting an issue or a feature
@@ -88,7 +46,7 @@ feedback.
 
 ### Did you find a bug?
 
-The 🤗 Hugging Face Hub library is robust and reliable thanks to the users who notify us of
+The `huggingface_hub`library is robust and reliable thanks to the users who notify us of
 the problems they encounter. So thank you for reporting an issue.
 
 First, we would really appreciate it if you could **make sure the bug was not
