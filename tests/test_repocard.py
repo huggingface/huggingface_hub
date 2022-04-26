@@ -223,7 +223,7 @@ class RepocardUpdateTest(unittest.TestCase):
         self.assertDictEqual(updated_metadata, expected_metadata)
 
     def test_update_existing_result_with_overwrite(self):
-        new_metadata = self.existing_metadata.copy()
+        new_metadata = copy.deepcopy(self.existing_metadata)
         new_metadata["model-index"][0]["results"][0]["metrics"][0][
             "value"
         ] = 0.2862102282047272
@@ -236,7 +236,7 @@ class RepocardUpdateTest(unittest.TestCase):
         self.assertDictEqual(updated_metadata, new_metadata)
 
     def test_update_existing_result_without_overwrite(self):
-        new_metadata = self.existing_metadata.copy()
+        new_metadata = copy.deepcopy(self.existing_metadata)
         new_metadata["model-index"][0]["results"][0]["metrics"][0][
             "value"
         ] = 0.2862102282047272
@@ -281,7 +281,7 @@ class RepocardUpdateTest(unittest.TestCase):
             f"{USER}/{REPO_NAME}", new_result, token=self._token, overwrite=False
         )
 
-        expected_metadata = self.existing_metadata.copy()
+        expected_metadata = copy.deepcopy(self.existing_metadata)
         expected_metadata["model-index"][0]["results"][0]["metrics"].append(
             new_result["model-index"][0]["results"][0]["metrics"][0]
         )
@@ -306,7 +306,7 @@ class RepocardUpdateTest(unittest.TestCase):
             f"{USER}/{REPO_NAME}", new_result, token=self._token, overwrite=False
         )
 
-        expected_metadata = self.existing_metadata.copy()
+        expected_metadata = copy.deepcopy(self.existing_metadata)
         expected_metadata["model-index"][0]["results"].append(
             new_result["model-index"][0]["results"][0]
         )
