@@ -218,7 +218,7 @@ def _update_metadata_model_index(existing_results, new_results, overwrite=False)
 def _update_metadata_results_metric(new_metrics, existing_metrics, overwrite=False):
     """
     Updates the metrics list of a result in the metadata. If metrics with same unique
-    features exist they values are updated, else a new metric is appended. Updating
+    features exist their values are updated, else a new metric is appended. Updating
     existing values is only possible if `overwrite=True`.
 
     Args:

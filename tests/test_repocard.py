@@ -109,7 +109,7 @@ REPOCARD_DIR = os.path.join(
     os.path.dirname(os.path.abspath(__file__)), "fixtures/repocard"
 )
 
-REPO_NAME = "dummy-hf-hub-{}".format(int(time.time() * 10e3))
+REPO_NAME = "dummy-hf-hub-{str(uuid.uuid4())}"
 
 
 class RepocardTest(unittest.TestCase):
@@ -217,7 +217,7 @@ class RepocardUpdateTest(unittest.TestCase):
 
         self.repo.git_pull()
         updated_metadata = metadata_load(f"{REPO_NAME}/README.md")
-        expected_metadata = self.existing_metadata.copy()
+        expected_metadata = copy.deepcopy(self.existing_metadata)
         expected_metadata.update(new_datasets_data)
         self.assertDictEqual(updated_metadata, expected_metadata)
 
