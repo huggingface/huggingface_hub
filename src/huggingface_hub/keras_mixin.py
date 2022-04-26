@@ -195,7 +195,8 @@ def save_pretrained_keras(
     if config:
         if not isinstance(config, dict):
             raise RuntimeError(
-                f"Provided config to save_pretrained_keras should be a dict. Got: '{type(config)}'"
+                "Provided config to save_pretrained_keras should be a dict. Got:"
+                f" '{type(config)}'"
             )
         path = os.path.join(save_directory, CONFIG_NAME)
         with open(path, "w") as f:
@@ -373,9 +374,10 @@ def push_to_hub_keras(
 
     if token is None:
         raise ValueError(
-            "You must login to the Hugging Face hub on this computer by typing `huggingface-cli login` and "
-            "entering your credentials to use `use_auth_token=True`. Alternatively, you can pass your own "
-            "token as the `use_auth_token` argument."
+            "You must login to the Hugging Face hub on this computer by typing"
+            " `huggingface-cli login` and entering your credentials to use"
+            " `use_auth_token=True`. Alternatively, you can pass your own token as the"
+            " `use_auth_token` argument."
         )
 
     if repo_path_or_name is None:

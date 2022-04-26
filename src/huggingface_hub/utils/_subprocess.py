@@ -55,5 +55,5 @@ def run_subprocess(
         check=check,
         encoding="utf-8",
         cwd=folder,
-        **kwargs
+        **kwargs,
     )
