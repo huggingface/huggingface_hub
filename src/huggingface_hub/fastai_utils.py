@@ -45,7 +45,9 @@ def _check_fastai_fastcore_versions(
 
     if (get_fastcore_version() or get_fastai_version()) == "N/A":
         raise ImportError(
-            f"fastai>={fastai_min_version} and fastcore>={fastcore_min_version} are required. Currently using fastai=={get_fastai_version()} and fastcore=={get_fastcore_version()}."
+            f"fastai>={fastai_min_version} and fastcore>={fastcore_min_version} are"
+            f" required. Currently using fastai=={get_fastai_version()} and"
+            f" fastcore=={get_fastcore_version()}."
         )
 
     current_fastai_version = version.Version(get_fastai_version())
@@ -53,12 +55,18 @@ def _check_fastai_fastcore_versions(
 
     if current_fastai_version < version.Version(fastai_min_version):
         raise ImportError(
-            f"`push_to_hub_fastai` and `from_pretrained_fastai` require a fastai>={fastai_min_version} version, but you are using fastai version {get_fastai_version()} which is incompatible. Upgrade with `pip install fastai==2.5.6`."
+            "`push_to_hub_fastai` and `from_pretrained_fastai` require a"
+            f" fastai>={fastai_min_version} version, but you are using fastai version"
+            f" {get_fastai_version()} which is incompatible. Upgrade with `pip install"
+            " fastai==2.5.6`."
         )
 
     if current_fastcore_version < version.Version(fastcore_min_version):
         raise ImportError(
-            f"`push_to_hub_fastai` and `from_pretrained_fastai` require a fastcore>={fastcore_min_version} version, but you are using fastcore version {get_fastcore_version()} which is incompatible. Upgrade with `pip install fastcore==1.3.27`."
+            "`push_to_hub_fastai` and `from_pretrained_fastai` require a"
+            f" fastcore>={fastcore_min_version} version, but you are using fastcore"
+            f" version {get_fastcore_version()} which is incompatible. Upgrade with"
+            " `pip install fastcore==1.3.27`."
         )
 
 
@@ -95,27 +103,37 @@ def _check_fastai_fastcore_pyproject_versions(
         import toml
     except ModuleNotFoundError:
         raise ImportError(
-            "`push_to_hub_fastai` and `from_pretrained_fastai` require the toml module. Install it with `pip install toml`."
+            "`push_to_hub_fastai` and `from_pretrained_fastai` require the toml module."
+            " Install it with `pip install toml`."
         )
 
     # Checks that a `pyproject.toml`, with `build-system` and `requires` sections, exists in the repository. If so, get a list of required packages.
     if not os.path.isfile(f"{storage_folder}/pyproject.toml"):
         logger.warning(
-            "There is no `pyproject.toml` in the repository that contains the fastai `Learner`. The `pyproject.toml` would allow us to verify that your fastai and fastcore versions are compatible with those of the model you want to load."
+            "There is no `pyproject.toml` in the repository that contains the fastai"
+            " `Learner`. The `pyproject.toml` would allow us to verify that your fastai"
+            " and fastcore versions are compatible with those of the model you want to"
+            " load."
         )
         return
     pyproject_toml = toml.load(f"{storage_folder}/pyproject.toml")
 
     if "build-system" not in pyproject_toml.keys():
         logger.warning(
-            "There is no `build-system` section in the pyproject.toml of the repository that contains the fastai `Learner`. The `build-system` would allow us to verify that your fastai and fastcore versions are compatible with those of the model you want to load."
+            "There is no `build-system` section in the pyproject.toml of the repository"
+            " that contains the fastai `Learner`. The `build-system` would allow us to"
+            " verify that your fastai and fastcore versions are compatible with those"
+            " of the model you want to load."
         )
         return
     build_system_toml = pyproject_toml["build-system"]
 
     if "requires" not in build_system_toml.keys():
         logger.warning(
-            "There is no `requires` section in the pyproject.toml of the repository that contains the fastai `Learner`. The `requires` would allow us to verify that your fastai and fastcore versions are compatible with those of the model you want to load."
+            "There is no `requires` section in the pyproject.toml of the repository"
+            " that contains the fastai `Learner`. The `requires` would allow us to"
+            " verify that your fastai and fastcore versions are compatible with those"
+            " of the model you want to load."
         )
         return
     package_versions = build_system_toml["requires"]
@@ -125,7 +143,8 @@ def _check_fastai_fastcore_pyproject_versions(
     fastai_packages = [pck for pck in package_versions if pck.startswith("fastai")]
     if len(fastai_packages) == 0:
         logger.warning(
-            "The repository does not have a fastai version specified in the `pyproject.toml`."
+            "The repository does not have a fastai version specified in the"
+            " `pyproject.toml`."
         )
     # fastai_version is an empty string if not specified
     else:
@@ -134,13 +153,16 @@ def _check_fastai_fastcore_pyproject_versions(
             fastai_min_version
         ):
             raise ImportError(
-                f"`from_pretrained_fastai` requires fastai>={fastai_min_version} version but the model to load uses {fastai_version} which is incompatible."
+                "`from_pretrained_fastai` requires"
+                f" fastai>={fastai_min_version} version but the model to load uses"
+                f" {fastai_version} which is incompatible."
             )
 
     fastcore_packages = [pck for pck in package_versions if pck.startswith("fastcore")]
     if len(fastcore_packages) == 0:
         logger.warning(
-            "The repository does not have a fastcore version specified in the `pyproject.toml`."
+            "The repository does not have a fastcore version specified in the"
+            " `pyproject.toml`."
         )
     # fastcore_version is an empty string if not specified
     else:
@@ -149,7 +171,9 @@ def _check_fastai_fastcore_pyproject_versions(
             fastcore_version
         ) < version.Version(fastcore_min_version):
             raise ImportError(
-                f"`from_pretrained_fastai` requires fastcore>={fastcore_min_version} version, but you are using fastcore version {fastcore_version} which is incompatible."
+                "`from_pretrained_fastai` requires"
+                f" fastcore>={fastcore_min_version} version, but you are using fastcore"
+                f" version {fastcore_version} which is incompatible."
             )
 
 
@@ -275,7 +299,9 @@ def _save_pretrained_fastai(
         )
     except PicklingError:
         raise PicklingError(
-            "You are using a lambda function, i.e., an anonymous function. `pickle` cannot pickle function objects and requires that all functions have names. One possible solution is to name the function."
+            "You are using a lambda function, i.e., an anonymous function. `pickle`"
+            " cannot pickle function objects and requires that all functions have"
+            " names. One possible solution is to name the function."
         )
 
 
