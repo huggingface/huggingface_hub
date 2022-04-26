@@ -5,6 +5,8 @@
     title: Quick start
   title: "Get started"
 - sections:
+  - local: how-to-manage
+    title: Create and manage repositories
   - local: how-to-downstream
     title: Download files from the Hub
   - local: how-to-upstream
