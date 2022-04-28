@@ -224,7 +224,8 @@ Follow these steps to start contributing:
    branch and push the changes to your fork. They will automatically appear in
    the pull request.
    
-8. Once your changes have been approved, one of the project maintainers will merge your pull request for you.
+8. Once your changes have been approved, one of the project maintainers will
+ merge your pull request for you.
 
 ### Checklist
 
