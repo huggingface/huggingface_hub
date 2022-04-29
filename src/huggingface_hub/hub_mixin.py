@@ -220,6 +220,7 @@ class ModelHubMixin:
         git_user: Optional[str] = None,
         git_email: Optional[str] = None,
         config: Optional[dict] = None,
+        skip_lfs_files: bool = False,
     ) -> str:
         """
         Upload model checkpoint or tokenizer files to the Hub while
@@ -261,6 +262,8 @@ class ModelHubMixin:
                 pushing files to the hub.
             config (`dict`, *optional*):
                 Configuration object to be saved alongside the model weights.
+            skip_lfs_files (`bool`, *optional*, defaults to `False`):
+                Whether to skip git-LFS files or not.
 
 
         Returns:
@@ -308,6 +311,7 @@ class ModelHubMixin:
             use_auth_token=use_auth_token,
             git_user=git_user,
             git_email=git_email,
+            skip_lfs_files=skip_lfs_files,
         )
         repo.git_pull(rebase=True)
 
