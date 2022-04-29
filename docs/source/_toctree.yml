@@ -1,6 +1,6 @@
 - sections:
   - local: index
-    title: 🤗 Hugging Face Hub Python Wrapper
+    title: Home
   - local: quick-start
     title: Quick start
   title: "Get started"
