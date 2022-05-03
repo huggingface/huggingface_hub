@@ -141,17 +141,8 @@ def metadata_update(
     existing_metadata = metadata_load(filepath)
 
     for key in metadata:
-        # update all fields except model index
-        if key != "model-index":
-            if key in existing_metadata and not overwrite:
-                if existing_metadata[key] != metadata[key]:
-                    raise ValueError(
-                        f"""You passed a new value for the existing meta data field '{key}'. Set `overwrite=True` to overwrite existing metadata."""
-                    )
-            else:
-                existing_metadata[key] = metadata[key]
         # update model index containing the evaluation results
-        else:
+        if key == "model-index":
             if "model-index" not in existing_metadata:
                 existing_metadata["model-index"] = metadata["model-index"]
             else:
@@ -163,6 +154,15 @@ def metadata_update(
                     metadata["model-index"][0]["results"],
                     overwrite=overwrite,
                 )
+        # update all fields except model index
+        else:
+            if key in existing_metadata and not overwrite:
+                if existing_metadata[key] != metadata[key]:
+                    raise ValueError(
+                        f"""You passed a new value for the existing meta data field '{key}'. Set `overwrite=True` to overwrite existing metadata."""
+                    )
+            else:
+                existing_metadata[key] = metadata[key]
 
     # save and push to hub
     metadata_save(filepath, existing_metadata)
