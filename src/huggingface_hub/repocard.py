@@ -128,7 +128,7 @@ def metadata_update(
             If set to `True` an existing field can be overwritten, otherwise
             attempting to overwrite an existing field will cause an error.
         token (`str`, *optional*):
-            The Hugging Face authentication token
+            The Hugging Face authentication token.
     """
 
     filepath = hf_hub_download(
@@ -185,11 +185,11 @@ def _update_metadata_model_index(existing_results, new_results, overwrite=False)
 
     Args:
         new_metrics (`list`):
-            List of new metadata results
+            List of new metadata results.
         existing_metrics (`list`):
-            List of existing metadata results
+            List of existing metadata results.
         overwrite (`bool`, *optional*, defaults to `False`):
-            If set to `True` an existing metric values can be overwritten, otherwise
+            If set to `True`, an existing metric values can be overwritten, otherwise
             attempting to overwrite an existing field will cause an error.
 
     Returns:
@@ -220,11 +220,11 @@ def _update_metadata_results_metric(new_metrics, existing_metrics, overwrite=Fal
 
     Args:
         new_metrics (`list`):
-            List of new metrics
+            List of new metrics.
         existing_metrics (`list`):
-            List of existing metrics
+            List of existing metrics.
         overwrite (`bool`, *optional*, defaults to `False`):
-            If set to `True` an existing metric values can be overwritten, otherwise
+            If set to `True`, an existing metric values can be overwritten, otherwise
             attempting to overwrite an existing field will cause an error.
 
     Returns:
