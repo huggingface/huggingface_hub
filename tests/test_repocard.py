@@ -22,14 +22,14 @@ from pathlib import Path
 import pytest
 
 import yaml
-from huggingface_hub.constants import REPOCARD_NAME
-from huggingface_hub.hf_api import HfApi
 from huggingface_hub import (
+    metadata_eval_result,
     metadata_load,
     metadata_save,
     metadata_update,
-    metadata_eval_result,
 )
+from huggingface_hub.constants import REPOCARD_NAME
+from huggingface_hub.hf_api import HfApi
 from huggingface_hub.repository import Repository
 from huggingface_hub.utils import logging
 
