@@ -172,7 +172,7 @@ def metadata_update(
         path_in_repo="README.md",
         repo_id=repo_id,
         repo_type=repo_type,
-        identical_ok=True,
+        identical_ok=False,
         token=token,
     )
 
