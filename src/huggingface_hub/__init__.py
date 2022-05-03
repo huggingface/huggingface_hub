@@ -73,7 +73,7 @@ from .keras_mixin import (
     push_to_hub_keras,
     save_pretrained_keras,
 )
-from .repository import Repository
+from .repository import Repository, metadata_load, metadata_save, metadata_update
 from .snapshot_download import snapshot_download
 from .utils import logging
 from .utils.endpoint_helpers import DatasetFilter, ModelFilter
