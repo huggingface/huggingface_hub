@@ -452,6 +452,7 @@ def cached_download(
     cache_dir: Union[str, Path, None] = None,
     user_agent: Union[Dict, str, None] = None,
     force_download: Optional[bool] = False,
+    force_filename: Optional[str] = None,
     proxies: Optional[Dict] = None,
     etag_timeout: Optional[float] = 10,
     resume_download: Optional[bool] = False,
@@ -480,6 +481,8 @@ def cached_download(
         force_download (`bool`, *optional*, defaults to `False`):
             Whether the file should be downloaded even if it already exists in
             the local cache.
+        force_filename (`str`, *optional*):
+            Use this name instead of a generated file name.
         proxies (`dict`, *optional*):
             Dictionary mapping protocol to the URL of the proxy passed to
             `requests.request`.
@@ -579,7 +582,9 @@ def cached_download(
             # etag is None
             pass
 
-    filename = url_to_filename(url, etag)
+    filename = (
+        force_filename if force_filename is not None else url_to_filename(url, etag)
+    )
 
     # get cache path to put the file
     cache_path = os.path.join(cache_dir, filename)
@@ -597,7 +602,11 @@ def cached_download(
                 )
                 if not file.endswith(".json") and not file.endswith(".lock")
             ]
-            if len(matching_files) > 0 and not force_download:
+            if (
+                len(matching_files) > 0
+                and not force_download
+                and force_filename is None
+            ):
                 return os.path.join(cache_dir, matching_files[-1])
             else:
                 # If files cannot be found and local_files_only=True,
@@ -673,11 +682,12 @@ def cached_download(
         logger.info("storing %s in cache at %s", url, cache_path)
         os.replace(temp_file.name, cache_path)
 
-        logger.info("creating metadata file for %s", cache_path)
-        meta = {"url": url, "etag": etag}
-        meta_path = cache_path + ".json"
-        with open(meta_path, "w") as meta_file:
-            json.dump(meta, meta_file)
+        if force_filename is None:
+            logger.info("creating metadata file for %s", cache_path)
+            meta = {"url": url, "etag": etag}
+            meta_path = cache_path + ".json"
+            with open(meta_path, "w") as meta_file:
+                json.dump(meta, meta_file)
 
     return cache_path
 
