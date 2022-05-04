@@ -16,6 +16,6 @@ weights_file = hf_hub_download(
 )
 
 w = torch.load(weights_file, map_location=torch.device("cpu"))
-### Yay it works!
+# Yay it works! just loaded a torch file from a symlink
 
 print()
