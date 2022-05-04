@@ -11,6 +11,7 @@ from functools import partial
 from hashlib import sha256
 from pathlib import Path
 from typing import BinaryIO, Dict, Optional, Tuple, Union
+import warnings
 
 import packaging.version
 from tqdm.auto import tqdm
@@ -517,6 +518,11 @@ def cached_download(
 
     </Tip>
     """
+    warnings.warn(
+        "`cached_download` is the legacy way to download files from the HF hub, please"
+        " consider upgrading to `hf_hub_download`",
+        FutureWarning,
+    )
     if cache_dir is None:
         cache_dir = HUGGINGFACE_HUB_CACHE
     if isinstance(cache_dir, Path):
