@@ -8,6 +8,7 @@ from typing import Any, Dict, Optional, Union
 import yaml
 from huggingface_hub import ModelHubMixin
 from huggingface_hub.file_download import (
+    get_tf_version,
     is_graphviz_available,
     is_pydot_available,
     is_tf_available,
@@ -509,7 +510,11 @@ class KerasModelHubMixin(ModelHubMixin):
         # Root is either a local filepath matching model_id or a cached snapshot
         if not os.path.isdir(model_id):
             storage_folder = snapshot_download(
-                repo_id=model_id, revision=revision, cache_dir=cache_dir
+                repo_id=model_id,
+                revision=revision,
+                cache_dir=cache_dir,
+                library_name="keras",
+                library_version=get_tf_version(),
             )
         else:
             storage_folder = model_id
