@@ -6,12 +6,12 @@ import os
 import sys
 import tempfile
 import time
+import warnings
 from contextlib import contextmanager
 from functools import partial
 from hashlib import sha256
 from pathlib import Path
 from typing import BinaryIO, Dict, Optional, Tuple, Union
-import warnings
 
 import packaging.version
 from tqdm.auto import tqdm
@@ -720,6 +720,7 @@ def hf_hub_download(
     resume_download: Optional[bool] = False,
     use_auth_token: Union[bool, str, None] = None,
     local_files_only: Optional[bool] = False,
+    legacy_cache_layout: Optional[bool] = False,
 ):
     """Download a given file if it's not already present in the local cache.
 
@@ -763,6 +764,10 @@ def hf_hub_download(
         local_files_only (`bool`, *optional*, defaults to `False`):
             If `True`, avoid downloading the file and return the path to the
             local cached file if it exists.
+        legacy_cache_layout (`bool`, *optional*, defaults to `False`):
+            If `True`, uses the legacy file cache layout i.e. just call `hf_hub_url`
+            then `cached_download`. This is deprecated as the new cache layout is
+            more powerful.
 
     Returns:
         Local path (string) of file or if networking is off, last version of
@@ -781,6 +786,29 @@ def hf_hub_download(
 
     </Tip>
     """
+    if legacy_cache_layout:
+        url = hf_hub_url(
+            repo_id,
+            filename,
+            subfolder=subfolder,
+            repo_type=repo_type,
+            revision=revision,
+        )
+
+        return cached_download(
+            url,
+            library_name=library_name,
+            library_version=library_version,
+            cache_dir=cache_dir,
+            user_agent=user_agent,
+            force_download=force_download,
+            proxies=proxies,
+            etag_timeout=etag_timeout,
+            resume_download=resume_download,
+            use_auth_token=use_auth_token,
+            local_files_only=local_files_only,
+        )
+
     if cache_dir is None:
         cache_dir = HUGGINGFACE_HUB_CACHE
     if revision is None:
