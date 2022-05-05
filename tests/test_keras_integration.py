@@ -225,7 +225,8 @@ class HubKerasSequentialTest(HubMixingTestKeras):
         self.assertIn("keras_metadata.pb", files)
         self.assertIn("model.png", files)
         self.assertIn("README.md", files)
-        self.assertEqual(len(files), 6)
+        self.assertIn("history.json", files)
+        self.assertEqual(len(files), 7)
 
     def test_save_pretrained_optimizer_state(self):
         REPO_NAME = repo_name("save")
@@ -490,4 +491,4 @@ class HubKerasFunctionalTest(HubKerasSequentialTest):
 
         self.assertIn("saved_model.pb", files)
         self.assertIn("keras_metadata.pb", files)
-        self.assertEqual(len(files), 6)
+        self.assertEqual(len(files), 7)
