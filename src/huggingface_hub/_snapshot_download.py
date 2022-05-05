@@ -14,7 +14,8 @@ logger = logging.get_logger(__name__)
 
 
 def _filter_repo_files(
-    *repo_files: List[str],
+    *,
+    repo_files: List[str],
     allow_regex: Optional[Union[List[str], str]] = None,
     ignore_regex: Optional[Union[List[str], str]] = None,
 ) -> List[str]:
