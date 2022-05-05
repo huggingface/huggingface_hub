@@ -264,6 +264,10 @@ def filename_to_url(filename, cache_dir=None) -> Tuple[str, str]:
     Return the url and etag (which may be `None`) stored for `filename`. Raise
     `EnvironmentError` if `filename` or its stored metadata do not exist.
     """
+    warnings.warn(
+        "`filename_to_url` uses the legacy way cache file layout",
+        FutureWarning,
+    )
     if cache_dir is None:
         cache_dir = HUGGINGFACE_HUB_CACHE
     if isinstance(cache_dir, Path):
@@ -698,8 +702,41 @@ def cached_download(
     return cache_path
 
 
-def normalize_etag(etag: str) -> str:
+def _normalize_etag(etag: str) -> str:
+    """Normalize ETag HTTP header, so it can be used to create nice filepaths.
+
+    The HTTP spec allows two forms of ETag:
+      ETag: W/"<etag_value>"
+      ETag: "<etag_value>"
+
+    The hf.co hub guarantees to only send the second form.
+
+    Args:
+        etag (str): HTTP header
+
+    Returns:
+        str: string that can be used as a nice directory name.
+    """
     return etag.strip('"')
+
+
+def _create_relative_symlink(src: str, dst: str) -> None:
+    """Create a symbolic link named dst pointing to src as a relative path to dst.
+
+    The relative part is mostly because it seems more elegant to the author.
+
+    The result layout looks something like
+        └── [ 128]  snapshots
+            ├── [ 128]  2439f60ef33a0d46d85da5001d52aeda5b00ce9f
+            │   ├── [  52]  README.md -> ../../blobs/d7edf6bd2a681fb0175f7735299831ee1b22b812
+            │   └── [  76]  pytorch_model.bin -> ../../blobs/403450e234d65943a7dcf7e05a771ce3c92faa84dd07db4ac20f592037a1e4bd
+    """
+    relative_src = os.path.relpath(src, start=os.path.dirname(dst))
+    try:
+        os.remove(dst)
+    except OSError:
+        pass
+    os.symlink(relative_src, dst)
 
 
 @_deprecate_positional_args
@@ -868,7 +905,7 @@ def hf_hub_download(
             commit_hash = r.headers[HUGGINGFACE_HEADER_X_REPO_COMMIT]
             if commit_hash is None:
                 raise OSError(
-                    "Distant resource does not seem to be the huggingface hub (missing"
+                    "Distant resource does not seem to be on huggingface.co (missing"
                     " commit header)."
                 )
             etag = r.headers.get(HUGGINGFACE_HEADER_X_LINKED_ETAG) or r.headers.get(
@@ -882,7 +919,7 @@ def hf_hub_download(
                     "Distant resource does not have an ETag, we won't be able to"
                     " reliably ensure reproducibility."
                 )
-            etag = normalize_etag(etag)
+            etag = _normalize_etag(etag)
             # In case of a redirect,
             # save an extra redirect on the request.get call,
             # and ensure we download the exact atomic version even if it changed
@@ -954,8 +991,7 @@ def hf_hub_download(
     if os.path.exists(blob_path) and not force_download:
         # we have the blob already, but not the pointer
         logger.info("creating pointer to %s from %s", blob_path, pointer_path)
-        os.symlink(blob_path, pointer_path)
-        # TODO(should we try to do relative instead of absolute?)
+        _create_relative_symlink(blob_path, pointer_path)
         return pointer_path
 
     # Prevent parallel downloads of the same file with a lock.
@@ -1012,8 +1048,7 @@ def hf_hub_download(
         os.replace(temp_file.name, blob_path)
 
         logger.info("creating pointer to %s from %s", blob_path, pointer_path)
-        os.symlink(blob_path, pointer_path)
-        # TODO(should we try to do relative instead of absolute?)
+        _create_relative_symlink(blob_path, pointer_path)
 
     try:
         os.remove(lock_path)
