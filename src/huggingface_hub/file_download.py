@@ -883,8 +883,19 @@ def hf_hub_download(
     storage_folder = os.path.join(
         cache_dir, repo_folder_name(repo_id=repo_id, repo_type=repo_type)
     )
-
     os.makedirs(storage_folder, exist_ok=True)
+
+    # cross platform transcription of filename, to be used a local file path.
+    relative_filename = os.path.join(*filename.split("/"))
+
+    # if user provides a commit_hash and they already have the file on disk,
+    # shortcut everything.
+    if REGEX_COMMIT_HASH.match(revision):
+        pointer_path = os.path.join(
+            storage_folder, "snapshots", revision, relative_filename
+        )
+        if os.path.exists(pointer_path):
+            return pointer_path
 
     url = hf_hub_url(
         repo_id, filename, subfolder=subfolder, repo_type=repo_type, revision=revision
@@ -970,7 +981,9 @@ def hf_hub_download(
                 " force_download is not an accepted option."
             )
         if REGEX_COMMIT_HASH.match(revision):
-            pointer_path = os.path.join(storage_folder, "snapshots", revision, filename)
+            pointer_path = os.path.join(
+                storage_folder, "snapshots", revision, relative_filename
+            )
             if os.path.exists(pointer_path):
                 return pointer_path
         else:
@@ -978,7 +991,7 @@ def hf_hub_download(
             with open(ref_path) as f:
                 commit_hash = f.read()
             pointer_path = os.path.join(
-                storage_folder, "snapshots", commit_hash, filename
+                storage_folder, "snapshots", commit_hash, relative_filename
             )
             if os.path.exists(pointer_path):
                 return pointer_path
@@ -1003,7 +1016,9 @@ def hf_hub_download(
 
     # From now on, etag and commit_hash are not None.
     blob_path = os.path.join(storage_folder, "blobs", etag)
-    pointer_path = os.path.join(storage_folder, "snapshots", commit_hash, filename)
+    pointer_path = os.path.join(
+        storage_folder, "snapshots", commit_hash, relative_filename
+    )
 
     os.makedirs(os.path.dirname(blob_path), exist_ok=True)
     os.makedirs(os.path.dirname(pointer_path), exist_ok=True)
