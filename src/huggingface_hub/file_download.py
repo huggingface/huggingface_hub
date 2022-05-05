@@ -885,7 +885,7 @@ def hf_hub_download(
     )
     os.makedirs(storage_folder, exist_ok=True)
 
-    # cross platform transcription of filename, to be used a local file path.
+    # cross platform transcription of filename, to be used as a local file path.
     relative_filename = os.path.join(*filename.split("/"))
 
     # if user provides a commit_hash and they already have the file on disk,
