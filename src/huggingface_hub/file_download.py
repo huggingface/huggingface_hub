@@ -3,6 +3,7 @@ import fnmatch
 import io
 import json
 import os
+import re
 import sys
 import tempfile
 import time
@@ -144,6 +145,9 @@ def is_fastcore_available():
 
 def get_fastcore_version():
     return _fastcore_version
+
+
+REGEX_COMMIT_HASH = re.compile(r"^[0-9a-f]{5,40}$")
 
 
 @_deprecate_positional_args
@@ -939,36 +943,47 @@ def hf_hub_download(
             pass
 
     # etag is None == we don't have a connection or we passed local_files_only.
-    # try to get the last downloaded one
+    # try to get the last downloaded one from the specified revision.
+    # If the specified revision is a commit hash, look inside "snapshots".
+    # If the specified revision is a branch or tag, look inside "refs".
     if etag is None:
-        if os.path.exists(cache_path) and not force_download:
-            return cache_path
+        # In those cases, we cannot force download.
+        if force_download:
+            raise ValueError(
+                "We have no connection or you passed local_files_only, so"
+                " force_download is not an accepted option."
+            )
+        if REGEX_COMMIT_HASH.match(revision):
+            pointer_path = os.path.join(storage_folder, "snapshots", revision, filename)
+            if os.path.exists(pointer_path):
+                return pointer_path
         else:
-            matching_files = [
-                file
-                for file in fnmatch.filter(
-                    os.listdir(cache_dir), filename.split(".")[0] + ".*"
-                )
-                if not file.endswith(".json") and not file.endswith(".lock")
-            ]
-            if len(matching_files) > 0 and not force_download:
-                return os.path.join(cache_dir, matching_files[-1])
-            else:
-                # If files cannot be found and local_files_only=True,
-                # the models might've been found if local_files_only=False
-                # Notify the user about that
-                if local_files_only:
-                    raise ValueError(
-                        "Cannot find the requested files in the cached path and"
-                        " outgoing traffic has been disabled. To enable model look-ups"
-                        " and downloads online, set 'local_files_only' to False."
-                    )
-                else:
-                    raise ValueError(
-                        "Connection error, and we cannot find the requested files in"
-                        " the cached path. Please try again or make sure your Internet"
-                        " connection is on."
-                    )
+            ref_path = os.path.join(storage_folder, "refs", revision)
+            with open(ref_path) as f:
+                commit_hash = f.read()
+            pointer_path = os.path.join(
+                storage_folder, "snapshots", commit_hash, filename
+            )
+            if os.path.exists(pointer_path):
+                return pointer_path
+
+        # If we couldn't find an appropriate file on disk,
+        # raise an error.
+        # If files cannot be found and local_files_only=True,
+        # the models might've been found if local_files_only=False
+        # Notify the user about that
+        if local_files_only:
+            raise ValueError(
+                "Cannot find the requested files in the disk cache and"
+                " outgoing traffic has been disabled. To enable hf.co look-ups"
+                " and downloads online, set 'local_files_only' to False."
+            )
+        else:
+            raise ValueError(
+                "Connection error, and we cannot find the requested files in"
+                " the disk cache. Please try again or make sure your Internet"
+                " connection is on."
+            )
 
     # From now on, etag and commit_hash are not None.
     blob_path = os.path.join(storage_folder, "blobs", etag)
