@@ -154,12 +154,13 @@ class CachedDownloadTests(unittest.TestCase):
             (url, '"95aa6a52d5d6a735563366753ca50492a658031da74f301ac5238b03966972c9"'),
         )
 
-    def test_hf_hub_download(self):
+    def test_hf_hub_download_legacy(self):
         filepath = hf_hub_download(
             DUMMY_MODEL_ID,
             filename=CONFIG_NAME,
             revision=REVISION_ID_DEFAULT,
             force_download=True,
+            legacy_cache_layout=True,
         )
         metadata = filename_to_url(filepath)
         self.assertEqual(metadata[1], f'"{DUMMY_MODEL_ID_PINNED_SHA1}"')
