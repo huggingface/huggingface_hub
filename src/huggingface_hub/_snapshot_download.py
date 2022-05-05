@@ -75,7 +75,7 @@ def snapshot_download(
         use_auth_token (`str`, `bool`, *optional*):
             A token to be used for the download.
                 - If `True`, the token is read from the HuggingFace config
-                    folder.
+                  folder.
                 - If a string, it's used as the authentication token.
         local_files_only (`bool`, *optional*, defaults to `False`):
             If `True`, avoid downloading the file and return the path to the
@@ -93,11 +93,11 @@ def snapshot_download(
     Raises the following errors:
 
     - [`EnvironmentError`](https://docs.python.org/3/library/exceptions.html#EnvironmentError)
-        if `use_auth_token=True` and the token cannot be found.
+      if `use_auth_token=True` and the token cannot be found.
     - [`OSError`](https://docs.python.org/3/library/exceptions.html#OSError) if
-        ETag cannot be determined.
+      ETag cannot be determined.
     - [`ValueError`](https://docs.python.org/3/library/exceptions.html#ValueError)
-        if some parameter value is invalid
+      if some parameter value is invalid
 
     </Tip>
     """
