@@ -743,6 +743,24 @@ def _create_relative_symlink(src: str, dst: str) -> None:
     os.symlink(relative_src, dst)
 
 
+def repo_folder_name(
+    *,
+    repo_id: str,
+    repo_type: str,
+) -> str:
+    """Return a serialized version of a hf.co repo name and type, safe for disk storage
+    as a single non-nested folder.
+
+    Example: models--julien-c--EsperBERTo-small
+    """
+    # remove all `/` occurrences to correctly convert repo to directory name
+    parts = [
+        f"{repo_type}s",
+        *repo_id.split("/"),
+    ]
+    return REPO_ID_SEPARATOR.join(parts)
+
+
 @_deprecate_positional_args
 def hf_hub_download(
     repo_id: str,
@@ -862,11 +880,9 @@ def hf_hub_download(
     if repo_type not in REPO_TYPES:
         raise ValueError("Invalid repo type")
 
-    # remove all `/` occurrences to correctly convert repo to directory name
-    repo_id_flattened = f"{repo_type}s{REPO_ID_SEPARATOR}" + repo_id.replace(
-        "/", REPO_ID_SEPARATOR
+    storage_folder = os.path.join(
+        cache_dir, repo_folder_name(repo_id=repo_id, repo_type=repo_type)
     )
-    storage_folder = os.path.join(cache_dir, repo_id_flattened)
 
     os.makedirs(storage_folder, exist_ok=True)
 
