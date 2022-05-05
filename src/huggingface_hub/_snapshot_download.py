@@ -196,7 +196,7 @@ def snapshot_download(
             filename=repo_file,
             repo_type=repo_type,
             revision=commit_hash,
-            cache_dir=storage_folder,
+            cache_dir=cache_dir,
             library_name=library_name,
             library_version=library_version,
             user_agent=user_agent,
