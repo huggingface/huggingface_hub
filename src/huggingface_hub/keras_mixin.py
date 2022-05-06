@@ -44,8 +44,8 @@ def _parse_model_history(model, save_directory):
     if model.history is not None:
         if model.history.history != {}:
             path = os.path.join(save_directory, "history.json")
-            with open(path, "w") as f:
-                json.dump(model.history.history, f)
+            with open(path, "w", encoding="utf-8") as f:
+                json.dump(model.history.history, f, indent=2, sort_keys=True)
             lines = []
             logs = model.history.history
             num_epochs = len(logs["loss"])
