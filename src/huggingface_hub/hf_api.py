@@ -17,9 +17,9 @@ import re
 import subprocess
 import sys
 import warnings
-from pathlib import Path
 from io import BufferedIOBase, RawIOBase
 from os.path import expanduser
+from pathlib import Path
 from typing import IO, Dict, Iterable, List, Optional, Tuple, Union
 
 import requests
@@ -1880,7 +1880,7 @@ class HfApi:
         repo_type: Optional[str] = None,
         revision: Optional[str] = None,
         identical_ok: bool = True,
-        glob_pattern: Optional[str] = '**/*',
+        glob_pattern: Optional[str] = "**/*",
     ):
         path = Path(path)
 
@@ -1894,7 +1894,7 @@ class HfApi:
                 continue
 
             filepath_in_repo = Path(path_in_repo) / file.relative_to(path)
-        
+
             upload_file(
                 path_or_fileobj=str(file),
                 path_in_repo=filepath_in_repo.as_posix(),

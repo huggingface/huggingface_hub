@@ -581,14 +581,14 @@ class HfApiUploadFileTest(HfApiCommonTestWithLogin):
         REPO_NAME = repo_name("folder")
         self._api.create_repo(token=self._token, repo_id=REPO_NAME)
         try:
-            upload_dir = Path(self.tmp_dir) / 'data'
+            upload_dir = Path(self.tmp_dir) / "data"
             upload_dir.mkdir()
-            (upload_dir / 'a.txt').touch()
-            (upload_dir / 'b.txt').touch()
-            subdir = upload_dir / 'subdir'
+            (upload_dir / "a.txt").touch()
+            (upload_dir / "b.txt").touch()
+            subdir = upload_dir / "subdir"
             subdir.mkdir()
-            (subdir / 'c.txt').touch()
-            (subdir / 'd.py').touch()
+            (subdir / "c.txt").touch()
+            (subdir / "d.py").touch()
 
             self._api.upload_folder(
                 path=upload_dir,
