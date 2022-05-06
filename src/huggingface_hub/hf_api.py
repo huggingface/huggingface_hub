@@ -17,6 +17,7 @@ import re
 import subprocess
 import sys
 import warnings
+from pathlib import Path
 from io import BufferedIOBase, RawIOBase
 from os.path import expanduser
 from typing import IO, Dict, Iterable, List, Optional, Tuple, Union
@@ -1869,6 +1870,42 @@ class HfApi:
         return d["url"]
 
     @_deprecate_positional_args
+    def upload_folder(
+        self,
+        *,
+        path: str,
+        path_in_repo: str,
+        repo_id: str,
+        token: Optional[str] = None,
+        repo_type: Optional[str] = None,
+        revision: Optional[str] = None,
+        identical_ok: bool = True,
+        glob_pattern: Optional[str] = '**/*',
+    ):
+        path = Path(path)
+
+        if not path.exists():
+            raise ValueError(f"Path '{path}' does not exist")
+        if not path.is_dir():
+            raise ValueError(f"Path '{path}' is not a directory")
+
+        for file in path.glob(glob_pattern):
+            if file.is_dir():
+                continue
+
+            filepath_in_repo = Path(path_in_repo) / file.relative_to(path)
+        
+            upload_file(
+                path_or_fileobj=str(file),
+                path_in_repo=filepath_in_repo.as_posix(),
+                repo_id=repo_id,
+                token=token,
+                repo_type=repo_type,
+                revision=revision,
+                identical_ok=identical_ok,
+            )
+
+    @_deprecate_positional_args
     def delete_file(
         self,
         path_in_repo: str,
@@ -2042,5 +2079,6 @@ delete_repo = api.delete_repo
 update_repo_visibility = api.update_repo_visibility
 move_repo = api.move_repo
 upload_file = api.upload_file
+upload_folder = api.upload_folder
 delete_file = api.delete_file
 get_full_repo_name = api.get_full_repo_name

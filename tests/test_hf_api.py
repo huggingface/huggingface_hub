@@ -23,6 +23,7 @@ import unittest
 import uuid
 import warnings
 from io import BytesIO
+from pathlib import Path
 
 import pytest
 
@@ -569,6 +570,34 @@ class HfApiUploadFileTest(HfApiCommonTestWithLogin):
             with open(filepath) as downloaded_file:
                 content = downloaded_file.read()
             self.assertEqual(content, filecontent.getvalue().decode())
+
+        except Exception as err:
+            self.fail(err)
+        finally:
+            self._api.delete_repo(repo_id=REPO_NAME, token=self._token)
+
+    @retry_endpoint
+    def test_upload_folder(self):
+        REPO_NAME = repo_name("folder")
+        self._api.create_repo(token=self._token, repo_id=REPO_NAME)
+        try:
+            upload_dir = Path(self.tmp_dir) / 'data'
+            upload_dir.mkdir()
+            (upload_dir / 'a.txt').touch()
+            (upload_dir / 'b.txt').touch()
+            subdir = upload_dir / 'subdir'
+            subdir.mkdir()
+            (subdir / 'c.txt').touch()
+            (subdir / 'd.py').touch()
+
+            self._api.upload_folder(
+                path=upload_dir,
+                path_in_repo="data",
+                repo_id=f"{USER}/{REPO_NAME}",
+                token=self._token,
+            )
+            files_in_repo = self._api.model_info(f"{USER}/{REPO_NAME}").siblings
+            self.assertEqual(len(files_in_repo), 5)
 
         except Exception as err:
             self.fail(err)
