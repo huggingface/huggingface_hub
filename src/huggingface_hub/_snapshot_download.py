@@ -144,7 +144,7 @@ def snapshot_download(
     if repo_type is None:
         repo_type = "model"
     if repo_type not in REPO_TYPES:
-        raise ValueError("Invalid repo type")
+        raise ValueError(f"Invalid repo type: {repo_type}. Accepted repo types are: {str(REPO_TYPES)}")
 
     storage_folder = os.path.join(
         cache_dir, repo_folder_name(repo_id=repo_id, repo_type=repo_type)
@@ -168,7 +168,7 @@ def snapshot_download(
                 return snapshot_folder
 
         raise ValueError(
-            "Cannot find an appropriate cached folder for the specified revision on the"
+            "Cannot find an appropriate cached snapshot folder for the specified revision on the"
             " local disk and outgoing traffic has been disabled. To enable repo"
             " look-ups and downloads online, set 'local_files_only' to False."
         )
@@ -185,6 +185,11 @@ def snapshot_download(
     )
     commit_hash = repo_info.sha
     snapshot_folder = os.path.join(storage_folder, "snapshots", commit_hash)
+    if revision != commit_hash:
+        ref_path = os.path.join(storage_folder, "refs", revision)
+        os.makedirs(os.path.dirname(ref_path), exist_ok=True)
+        with open(ref_path, "w") as f:
+            f.write(commit_hash)
 
     # we pass the commit_hash to hf_hub_download
     # so no network call happens if we already
