@@ -716,7 +716,7 @@ def _normalize_etag(etag: str) -> str:
     The hf.co hub guarantees to only send the second form.
 
     Args:
-        etag (str): HTTP header
+        etag (`str`): HTTP header
 
     Returns:
         `str`: string that can be used as a nice directory name.
