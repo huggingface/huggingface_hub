@@ -15,6 +15,8 @@ from huggingface_hub.repocard_types import (
     SingleResultTask,
 )
 
+from .constants import REPOCARD_NAME
+
 
 # exact same regex as in the Hub server. Please keep in sync.
 REGEX_YAML_BLOCK = re.compile(r"---[\n\r]+([\S\s]*?)[\n\r]+---[\n\r]")
@@ -109,7 +111,7 @@ def metadata_eval_result(
 def metadata_update(
     repo_id: str,
     metadata: Dict,
-    *
+    *,
     repo_type: str = None,
     overwrite: bool = False,
     token: str = None,

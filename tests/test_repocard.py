@@ -15,6 +15,7 @@ import copy
 import os
 import shutil
 import tempfile
+import time
 import unittest
 import uuid
 from pathlib import Path
@@ -111,6 +112,7 @@ REPOCARD_DIR = os.path.join(
     os.path.dirname(os.path.abspath(__file__)), "fixtures/repocard"
 )
 
+
 def repo_name(id=uuid.uuid4().hex[:6]):
     return "dummy-hf-hub-{0}-{1}".format(id, int(time.time() * 10e3))
 
@@ -192,9 +194,10 @@ class RepocardUpdateTest(unittest.TestCase):
     @retry_endpoint
     def setUp(self) -> None:
         self.repo_path = Path(tempfile.mkdtemp())
+        self.REPO_NAME = repo_name()
         self.repo = Repository(
-            self.repo_path / REPO_NAME,
-            clone_from=f"{USER}/{REPO_NAME}",
+            self.repo_path / self.REPO_NAME,
+            clone_from=f"{USER}/{self.REPO_NAME}",
             use_auth_token=self._token,
             git_user="ci",
             git_email="ci@dummy.com",
@@ -209,15 +212,17 @@ class RepocardUpdateTest(unittest.TestCase):
         )
 
     def tearDown(self) -> None:
-        self._api.delete_repo(repo_id=f"{REPO_NAME}", token=self._token)
+        self._api.delete_repo(repo_id=f"{self.REPO_NAME}", token=self._token)
         shutil.rmtree(self.repo_path)
 
     def test_update_dataset_name(self):
         new_datasets_data = {"datasets": "['test/test_dataset']"}
-        metadata_update(f"{USER}/{REPO_NAME}", new_datasets_data, token=self._token)
+        metadata_update(
+            f"{USER}/{self.REPO_NAME}", new_datasets_data, token=self._token
+        )
 
         self.repo.git_pull()
-        updated_metadata = metadata_load(self.repo_path / REPO_NAME / "README.md")
+        updated_metadata = metadata_load(self.repo_path / self.REPO_NAME / "README.md")
         expected_metadata = copy.deepcopy(self.existing_metadata)
         expected_metadata.update(new_datasets_data)
         self.assertDictEqual(updated_metadata, expected_metadata)
@@ -228,11 +233,11 @@ class RepocardUpdateTest(unittest.TestCase):
             "value"
         ] = 0.2862102282047272
         metadata_update(
-            f"{USER}/{REPO_NAME}", new_metadata, token=self._token, overwrite=True
+            f"{USER}/{self.REPO_NAME}", new_metadata, token=self._token, overwrite=True
         )
 
         self.repo.git_pull()
-        updated_metadata = metadata_load(self.repo_path / REPO_NAME / "README.md")
+        updated_metadata = metadata_load(self.repo_path / self.REPO_NAME / "README.md")
         self.assertDictEqual(updated_metadata, new_metadata)
 
     def test_update_existing_result_without_overwrite(self):
@@ -249,12 +254,17 @@ class RepocardUpdateTest(unittest.TestCase):
             ),
         ):
             metadata_update(
-                f"{USER}/{REPO_NAME}", new_metadata, token=self._token, overwrite=False
+                f"{USER}/{self.REPO_NAME}",
+                new_metadata,
+                token=self._token,
+                overwrite=False,
             )
 
     def test_update_existing_field_without_overwrite(self):
         new_datasets_data = {"datasets": "['test/test_dataset']"}
-        metadata_update(f"{USER}/{REPO_NAME}", new_datasets_data, token=self._token)
+        metadata_update(
+            f"{USER}/{self.REPO_NAME}", new_datasets_data, token=self._token
+        )
 
         with pytest.raises(
             ValueError,
@@ -265,7 +275,7 @@ class RepocardUpdateTest(unittest.TestCase):
         ):
             new_datasets_data = {"datasets": "['test/test_dataset_2']"}
             metadata_update(
-                f"{USER}/{REPO_NAME}",
+                f"{USER}/{self.REPO_NAME}",
                 new_datasets_data,
                 token=self._token,
                 overwrite=False,
@@ -284,7 +294,7 @@ class RepocardUpdateTest(unittest.TestCase):
         )
 
         metadata_update(
-            f"{USER}/{REPO_NAME}", new_result, token=self._token, overwrite=False
+            f"{USER}/{self.REPO_NAME}", new_result, token=self._token, overwrite=False
         )
 
         expected_metadata = copy.deepcopy(self.existing_metadata)
@@ -293,7 +303,7 @@ class RepocardUpdateTest(unittest.TestCase):
         )
 
         self.repo.git_pull()
-        updated_metadata = metadata_load(self.repo_path / REPO_NAME / "README.md")
+        updated_metadata = metadata_load(self.repo_path / self.REPO_NAME / "README.md")
         self.assertDictEqual(updated_metadata, expected_metadata)
 
     def test_update_new_result_new_dataset(self):
@@ -309,7 +319,7 @@ class RepocardUpdateTest(unittest.TestCase):
         )
 
         metadata_update(
-            f"{USER}/{REPO_NAME}", new_result, token=self._token, overwrite=False
+            f"{USER}/{self.REPO_NAME}", new_result, token=self._token, overwrite=False
         )
 
         expected_metadata = copy.deepcopy(self.existing_metadata)
@@ -317,5 +327,5 @@ class RepocardUpdateTest(unittest.TestCase):
             new_result["model-index"][0]["results"][0]
         )
         self.repo.git_pull()
-        updated_metadata = metadata_load(self.repo_path / REPO_NAME / "README.md")
+        updated_metadata = metadata_load(self.repo_path / self.REPO_NAME / "README.md")
         self.assertDictEqual(updated_metadata, expected_metadata)
