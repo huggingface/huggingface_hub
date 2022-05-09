@@ -119,6 +119,18 @@ def metadata_update(
     """
     Updates the metadata in the README.md of a repository on the Hugging Face Hub.
 
+    Example:
+    >>> from huggingface_hub import metadata_update
+    >>> metadata = {'model-index': [{'name': 'RoBERTa fine-tuned on ReactionGIF',
+    ...             'results': [{'dataset': {'name': 'ReactionGIF',
+    ...                                      'type': 'julien-c/reactiongif'},
+    ...                           'metrics': [{'name': 'Recall',
+    ...                                        'type': 'recall',
+    ...                                        'value': 0.7762102282047272}],
+    ...                          'task': {'name': 'Text Classification',
+    ...                                   'type': 'text-classification'}}]}]}
+    >>> update_metdata("julien-c/reactiongif-roberta", metadata)
+
     Args:
         repo_id (`str`):
             The name of the repository.
