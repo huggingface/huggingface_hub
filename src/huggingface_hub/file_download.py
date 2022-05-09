@@ -719,7 +719,7 @@ def _normalize_etag(etag: str) -> str:
         etag (str): HTTP header
 
     Returns:
-        str: string that can be used as a nice directory name.
+        `str`: string that can be used as a nice directory name.
     """
     return etag.strip('"')
 
