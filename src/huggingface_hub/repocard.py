@@ -202,9 +202,9 @@ def _update_metadata_model_index(existing_results, new_results, overwrite=False)
     values is only possible if `overwrite=True`.
 
     Args:
-        new_metrics (`list`):
+        new_metrics (`List[dict]`):
             List of new metadata results.
-        existing_metrics (`list`):
+        existing_metrics (`List[dict]`):
             List of existing metadata results.
         overwrite (`bool`, *optional*, defaults to `False`):
             If set to `True`, an existing metric values can be overwritten, otherwise
