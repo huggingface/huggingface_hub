@@ -111,7 +111,8 @@ REPOCARD_DIR = os.path.join(
     os.path.dirname(os.path.abspath(__file__)), "fixtures/repocard"
 )
 
-REPO_NAME = f"dummy-hf-hub-{str(uuid.uuid4())}"
+def repo_name(id=uuid.uuid4().hex[:6]):
+    return "dummy-hf-hub-{0}-{1}".format(id, int(time.time() * 10e3))
 
 
 class RepocardTest(unittest.TestCase):

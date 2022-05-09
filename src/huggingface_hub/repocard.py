@@ -109,10 +109,11 @@ def metadata_eval_result(
 def metadata_update(
     repo_id: str,
     metadata: Dict,
+    *
     repo_type: str = None,
     overwrite: bool = False,
     token: str = None,
-) -> None:
+) -> str:
     """
     Updates the metadata in the README.md of a repository on the Hugging Face Hub.
 
@@ -129,11 +130,14 @@ def metadata_update(
             attempting to overwrite an existing field will cause an error.
         token (`str`, *optional*):
             The Hugging Face authentication token.
+
+    Returns:
+        `str`: URL of the commit which updated the card metadata.
     """
 
     filepath = hf_hub_download(
         repo_id,
-        filename="README.md",
+        filename=REPOCARD_NAME,
         repo_type=repo_type,
         use_auth_token=token,
         force_download=True,
@@ -167,9 +171,9 @@ def metadata_update(
     # save and push to hub
     metadata_save(filepath, existing_metadata)
 
-    HfApi().upload_file(
+    return HfApi().upload_file(
         path_or_fileobj=filepath,
-        path_in_repo="README.md",
+        path_in_repo=REPOCARD_NAME,
         repo_id=repo_id,
         repo_type=repo_type,
         identical_ok=False,
