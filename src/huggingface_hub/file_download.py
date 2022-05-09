@@ -147,7 +147,7 @@ def get_fastcore_version():
     return _fastcore_version
 
 
-REGEX_COMMIT_HASH = re.compile(r"^[0-9a-f]{5,40}$")
+REGEX_COMMIT_HASH = re.compile(r"^[0-9a-f]{40}$")
 
 
 @_deprecate_positional_args
