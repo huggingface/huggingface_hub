@@ -144,7 +144,10 @@ def snapshot_download(
     if repo_type is None:
         repo_type = "model"
     if repo_type not in REPO_TYPES:
-        raise ValueError(f"Invalid repo type: {repo_type}. Accepted repo types are: {str(REPO_TYPES)}")
+        raise ValueError(
+            f"Invalid repo type: {repo_type}. Accepted repo types are:"
+            f" {str(REPO_TYPES)}"
+        )
 
     storage_folder = os.path.join(
         cache_dir, repo_folder_name(repo_id=repo_id, repo_type=repo_type)
@@ -168,9 +171,10 @@ def snapshot_download(
                 return snapshot_folder
 
         raise ValueError(
-            "Cannot find an appropriate cached snapshot folder for the specified revision on the"
-            " local disk and outgoing traffic has been disabled. To enable repo"
-            " look-ups and downloads online, set 'local_files_only' to False."
+            "Cannot find an appropriate cached snapshot folder for the specified"
+            " revision on the local disk and outgoing traffic has been disabled. To"
+            " enable repo look-ups and downloads online, set 'local_files_only' to"
+            " False."
         )
 
     # if we have internet connection we retrieve the correct folder name from the huggingface api
@@ -185,6 +189,9 @@ def snapshot_download(
     )
     commit_hash = repo_info.sha
     snapshot_folder = os.path.join(storage_folder, "snapshots", commit_hash)
+    # if passed revision is not identical to commit_hash
+    # then revision has to be a branch name or tag name.
+    # In that case store a ref.
     if revision != commit_hash:
         ref_path = os.path.join(storage_folder, "refs", revision)
         os.makedirs(os.path.dirname(ref_path), exist_ok=True)
