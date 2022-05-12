@@ -29,14 +29,25 @@ if is_tf_available():
 
 def _extract_hyperparameters_from_keras(model):
     if model.optimizer is not None:
-        hyperparameters = dict()
-        hyperparameters["optimizer"] = model.optimizer.get_config()
-        hyperparameters[
+        optimizer_params = model.optimizer.get_config()
+        optimizer_params[
             "training_precision"
         ] = tf.keras.mixed_precision.global_policy().name
+        table = "|"
+        for key in optimizer_params.keys():
+            table += f" {key} |"
+
+        table += "\n|"
+        for key in optimizer_params.keys():
+            table += "-" * len(key)
+            table += "|"
+
+        table += "\n|"
+        for key in optimizer_params.keys():
+            table += f"{optimizer_params[key]}|"
     else:
-        hyperparameters = None
-    return hyperparameters
+        table = None
+    return table
 
 
 def _parse_model_history(model, save_directory):
@@ -82,26 +93,6 @@ def _plot_network(model, save_directory):
     )
 
 
-def _write_metrics(model, model_card, save_directory):
-    lines = _parse_model_history(model, save_directory)
-    if lines is not None:
-        model_card += "\n| Epochs |"
-
-        for i in lines[0].keys():
-            model_card += f" {i} |"
-        model_card += "\n |"
-        for i in range(len(lines[0].keys()) + 1):
-            model_card += "--- |"  # add header of table
-        for line in lines:
-            model_card += f"\n| {lines.index(line) + 1}|"  # add values
-            for key in line:
-                value = round(line[key], 3)
-                model_card += f" {value}| "
-    else:
-        model_card += "Model history needed"
-    return model_card
-
-
 def _create_model_card(
     model,
     repo_dir: Path,
@@ -123,15 +114,11 @@ def _create_model_card(
     model_card += "\n## Intended uses & limitations\n\nMore information needed\n"
     model_card += "\n## Training and evaluation data\n\nMore information needed\n"
     if hyperparameters is not None:
-        model_card += "\n## Training procedure\n"
         model_card += "\n### Training hyperparameters\n"
-        model_card += "\nThe following hyperparameters were used during training:\n"
-        model_card += "\n".join(
-            [f"- {name}: {value}" for name, value in hyperparameters.items()]
-        )
+        model_card += "\nThe following hyperparameters were used during training:\n\n"
+        model_card += hyperparameters
         model_card += "\n"
-    model_card += "\n ## Training Metrics\n"
-    model_card = _write_metrics(model, model_card, repo_dir)
+
     if plot_model and os.path.exists(f"{repo_dir}/model.png"):
         model_card += "\n ## Model Plot\n"
         model_card += "\n<details>"
