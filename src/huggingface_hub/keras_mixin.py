@@ -50,35 +50,6 @@ def _extract_hyperparameters_from_keras(model):
     return table
 
 
-def _parse_model_history(model, save_directory):
-    lines = None
-    if model.history is not None:
-        if model.history.history != {}:
-            path = os.path.join(save_directory, "history.json")
-            with open(path, "w", encoding="utf-8") as f:
-                json.dump(model.history.history, f, indent=2, sort_keys=True)
-            lines = []
-            logs = model.history.history
-            num_epochs = len(logs["loss"])
-
-            for value in range(num_epochs):
-                epoch_dict = {
-                    log_key: log_value_list[value]
-                    for log_key, log_value_list in logs.items()
-                }
-                values = dict()
-                for k, v in epoch_dict.items():
-                    if k.startswith("val_"):
-                        k = "validation_" + k[4:]
-                    elif k != "epoch":
-                        k = "train_" + k
-                    splits = k.split("_")
-                    name = " ".join([part.capitalize() for part in splits])
-                    values[name] = v
-                lines.append(values)
-    return lines
-
-
 def _plot_network(model, save_directory):
     tf.keras.utils.plot_model(
         model,
@@ -209,6 +180,12 @@ def save_pretrained_keras(
             metadata["tags"].append(task_name)
         else:
             metadata["tags"] = [task_name]
+
+    if model.history is not None:
+        if model.history.history != {}:
+            path = os.path.join(save_directory, "history.json")
+            with open(path, "w") as f:
+                json.dump(model.history.history, f)
 
     _create_model_card(model, save_directory, plot_model, metadata)
     tf.keras.models.save_model(
