@@ -158,7 +158,16 @@ def snapshot_download(
     # If the specified revision is a commit hash, look inside "snapshots".
     # If the specified revision is a branch or tag, look inside "refs".
     if local_files_only:
-        if REGEX_COMMIT_HASH.match(revision):
+        commit_hash = revision
+        if not REGEX_COMMIT_HASH.match(commit_hash):
+            # rertieve commit_hash from file
+            ref_path = os.path.join(storage_folder, "refs", revision)
+            with open(ref_path) as f:
+                commit_hash = f.read()
+        
+        snapshot_folder = os.path.join(storage_folder, "snapshots", commit_hash)
+        if os.path.exists(snapshot_folder):
+            return snapshot_folder
             snapshot_folder = os.path.join(storage_folder, "snapshots", revision)
             if os.path.exists(snapshot_folder):
                 return snapshot_folder
