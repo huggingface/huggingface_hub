@@ -27,7 +27,7 @@ if is_tf_available():
     import tensorflow as tf
 
 
-def _extract_hyperparameters_from_keras(model):
+def _create_hyperparameters_table(model):
     if model.optimizer is not None:
         optimizer_params = model.optimizer.get_config()
         optimizer_params[
@@ -73,7 +73,7 @@ def _create_model_card(
     """
     Creates a model card for the repository.
     """
-    hyperparameters = _extract_hyperparameters_from_keras(model)
+    hyperparameters = _create_hyperparameters_table(model)
     if plot_model and is_graphviz_available() and is_pydot_available():
         _plot_network(model, repo_dir)
     readme_path = f"{repo_dir}/README.md"
@@ -185,7 +185,7 @@ def save_pretrained_keras(
         if model.history.history != {}:
             path = os.path.join(save_directory, "history.json")
             with open(path, "w") as f:
-                json.dump(model.history.history, f)
+                json.dump(model.history.history, f, indent=2, sort_keys=True)
 
     _create_model_card(model, save_directory, plot_model, metadata)
     tf.keras.models.save_model(
