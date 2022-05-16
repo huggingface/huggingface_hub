@@ -4,6 +4,8 @@ lazy_loader
 
 Makes it easy to load subpackages and functions on demand.
 """
+# This is vendored from https://github.com/scientific-python/lazy_loader
+
 import importlib
 import importlib.util
 import inspect
