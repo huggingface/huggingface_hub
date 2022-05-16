@@ -18,62 +18,71 @@
 
 __version__ = "0.6.0.dev0"
 
-from .commands.user import notebook_login
-from .constants import (
-    CONFIG_NAME,
-    FLAX_WEIGHTS_NAME,
-    HUGGINGFACE_CO_URL_HOME,
-    HUGGINGFACE_CO_URL_TEMPLATE,
-    PYTORCH_WEIGHTS_NAME,
-    REPO_TYPE_DATASET,
-    REPO_TYPE_MODEL,
-    REPO_TYPE_SPACE,
-    TF2_WEIGHTS_NAME,
-    TF_WEIGHTS_NAME,
+from ._external.lazy_loader import attach
+
+
+__getattr__, __dir__, __all__ = attach(
+    __name__,
+    submodules=[],
+    submod_attrs={
+        "commands.user": ["notebook_login"],
+        "constants": [
+            "CONFIG_NAME",
+            "FLAX_WEIGHTS_NAME",
+            "HUGGINGFACE_CO_URL_HOME",
+            "HUGGINGFACE_CO_URL_TEMPLATE",
+            "PYTORCH_WEIGHTS_NAME",
+            "REPO_TYPE_DATASET",
+            "REPO_TYPE_MODEL",
+            "REPO_TYPE_SPACE",
+            "TF2_WEIGHTS_NAME",
+            "TF_WEIGHTS_NAME",
+        ],
+        "fastai_utils": [
+            "_save_pretrained_fastai",
+            "from_pretrained_fastai",
+            "push_to_hub_fastai",
+        ],
+        "file_download": ["cached_download", "hf_hub_download", "hf_hub_url"],
+        "hf_api": [
+            "DatasetSearchArguments",
+            "HfApi",
+            "HfFolder",
+            "ModelSearchArguments",
+            "create_repo",
+            "dataset_info",
+            "delete_file",
+            "delete_repo",
+            "get_dataset_tags",
+            "get_full_repo_name",
+            "get_model_tags",
+            "list_datasets",
+            "list_metrics",
+            "list_models",
+            "list_repo_files",
+            "login",
+            "logout",
+            "model_info",
+            "move_repo",
+            "repo_type_and_id_from_hf_id",
+            "set_access_token",
+            "space_info",
+            "unset_access_token",
+            "update_repo_visibility",
+            "upload_file",
+            "whoami",
+        ],
+        "hub_mixin": ["ModelHubMixin", "PyTorchModelHubMixin"],
+        "inference_api": ["InferenceApi"],
+        "keras_mixin": [
+            "KerasModelHubMixin",
+            "from_pretrained_keras",
+            "push_to_hub_keras",
+            "save_pretrained_keras",
+        ],
+        "repository": ["Repository"],
+        "snapshot_download": ["snapshot_download"],
+        "utils": ["logging"],
+        "utils.endpoint_helpers": ["DatasetFilter", "ModelFilter"],
+    },
 )
-from .fastai_utils import (
-    _save_pretrained_fastai,
-    from_pretrained_fastai,
-    push_to_hub_fastai,
-)
-from .file_download import cached_download, hf_hub_download, hf_hub_url
-from .hf_api import (
-    DatasetSearchArguments,
-    HfApi,
-    HfFolder,
-    ModelSearchArguments,
-    create_repo,
-    dataset_info,
-    delete_file,
-    delete_repo,
-    get_dataset_tags,
-    get_full_repo_name,
-    get_model_tags,
-    list_datasets,
-    list_metrics,
-    list_models,
-    list_repo_files,
-    login,
-    logout,
-    model_info,
-    move_repo,
-    repo_type_and_id_from_hf_id,
-    set_access_token,
-    space_info,
-    unset_access_token,
-    update_repo_visibility,
-    upload_file,
-    whoami,
-)
-from .hub_mixin import ModelHubMixin, PyTorchModelHubMixin
-from .inference_api import InferenceApi
-from .keras_mixin import (
-    KerasModelHubMixin,
-    from_pretrained_keras,
-    push_to_hub_keras,
-    save_pretrained_keras,
-)
-from .repository import Repository
-from .snapshot_download import snapshot_download
-from .utils import logging
-from .utils.endpoint_helpers import DatasetFilter, ModelFilter
