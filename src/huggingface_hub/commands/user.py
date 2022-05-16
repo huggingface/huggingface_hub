@@ -167,7 +167,7 @@ class LoginCommand(BaseUserCommand):
         _|    _|  _|    _|  _|    _|  _|    _|    _|    _|    _|_|  _|    _|      _|        _|    _|  _|        _|
         _|    _|    _|_|      _|_|_|    _|_|_|  _|_|_|  _|      _|    _|_|_|      _|        _|    _|    _|_|_|  _|_|_|_|
 
-        To login, `huggingface_hub` now requires a token generated from https://huggingface.co/settings/tokens.
+        To login, `huggingface_hub` now requires a token generated from https://huggingface.co/settings/tokens .
         (Deprecated, will be removed in v0.3.0) To login with username and password instead, interrupt with Ctrl+C.
         """
         )

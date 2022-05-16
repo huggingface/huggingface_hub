@@ -16,7 +16,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-__version__ = "0.6.0.dev0"
+__version__ = "0.7.0.dev0"
 
 from ._external.lazy_loader import attach
 
@@ -84,5 +84,11 @@ __getattr__, __dir__, __all__ = attach(
         "snapshot_download": ["snapshot_download"],
         "utils": ["logging"],
         "utils.endpoint_helpers": ["DatasetFilter", "ModelFilter"],
+        "repocard": [
+            "metadata_eval_result",
+            "metadata_load",
+            "metadata_save",
+            "metadata_update",
+        ],
     },
 )

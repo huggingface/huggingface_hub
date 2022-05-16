@@ -8,6 +8,7 @@ from typing import Any, Dict, Optional, Union
 import yaml
 from huggingface_hub import ModelHubMixin
 from huggingface_hub.file_download import (
+    get_tf_version,
     is_graphviz_available,
     is_pydot_available,
     is_tf_available,
@@ -38,10 +39,13 @@ def _extract_hyperparameters_from_keras(model):
     return hyperparameters
 
 
-def _parse_model_history(model):
+def _parse_model_history(model, save_directory):
     lines = None
     if model.history is not None:
         if model.history.history != {}:
+            path = os.path.join(save_directory, "history.json")
+            with open(path, "w", encoding="utf-8") as f:
+                json.dump(model.history.history, f, indent=2, sort_keys=True)
             lines = []
             logs = model.history.history
             num_epochs = len(logs["loss"])
@@ -78,8 +82,8 @@ def _plot_network(model, save_directory):
     )
 
 
-def _write_metrics(model, model_card):
-    lines = _parse_model_history(model)
+def _write_metrics(model, model_card, save_directory):
+    lines = _parse_model_history(model, save_directory)
     if lines is not None:
         model_card += "\n| Epochs |"
 
@@ -127,7 +131,7 @@ def _create_model_card(
         )
         model_card += "\n"
     model_card += "\n ## Training Metrics\n"
-    model_card = _write_metrics(model, model_card)
+    model_card = _write_metrics(model, model_card, repo_dir)
     if plot_model and os.path.exists(f"{repo_dir}/model.png"):
         model_card += "\n ## Model Plot\n"
         model_card += "\n<details>"
@@ -509,7 +513,11 @@ class KerasModelHubMixin(ModelHubMixin):
         # Root is either a local filepath matching model_id or a cached snapshot
         if not os.path.isdir(model_id):
             storage_folder = snapshot_download(
-                repo_id=model_id, revision=revision, cache_dir=cache_dir
+                repo_id=model_id,
+                revision=revision,
+                cache_dir=cache_dir,
+                library_name="keras",
+                library_version=get_tf_version(),
             )
         else:
             storage_folder = model_id

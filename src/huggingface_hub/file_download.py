@@ -122,6 +122,10 @@ def is_tf_available():
     return _tf_available
 
 
+def get_tf_version():
+    return _tf_version
+
+
 def is_fastai_available():
     return _fastai_available
 

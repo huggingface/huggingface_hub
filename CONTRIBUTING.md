@@ -215,15 +215,17 @@ Follow these steps to start contributing:
    $ git push -u origin a-descriptive-name-for-my-changes
    ```
 
-7. Once you are satisfied (**and the checklist below is happy too**), go to the
+6. Once you are satisfied (**and the checklist below is happy too**), go to the
    webpage of your fork on GitHub. Click on 'Pull request' to send your changes
    to the project maintainers for review.
 
-8. It's ok if maintainers ask you for changes. It happens to core contributors
+7. It's ok if maintainers ask you for changes. It happens to core contributors
    too! So everyone can see the changes in the Pull request, work in your local
    branch and push the changes to your fork. They will automatically appear in
    the pull request.
-
+   
+8. Once your changes have been approved, one of the project maintainers will
+ merge your pull request for you.
 
 ### Checklist
 
