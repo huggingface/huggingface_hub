@@ -92,7 +92,7 @@ def attach(package_name, submodules=None, submod_attrs=None):
             if name == attr_to_modules[name]:
                 warnings.warn(
                     LazyImportWarning(
-                        f"Module attribute and module have same "
+                        "Module attribute and module have same "
                         f"name: `{name}`; will likely cause conflicts "
                         "when accessing attribute."
                     )
@@ -176,7 +176,7 @@ __getattr__, __dir__, __all__ = attach(
             "save_pretrained_keras",
         ],
         "repository": ["Repository"],
-        "snapshot_download": ["snapshot_download"],
+        "_snapshot_download": ["snapshot_download"],
         "utils": ["logging"],
         "utils.endpoint_helpers": ["DatasetFilter", "ModelFilter"],
         "repocard": [
