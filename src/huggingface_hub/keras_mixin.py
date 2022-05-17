@@ -28,7 +28,7 @@ if is_tf_available():
 
 
 def _create_hyperparameter_table(model):
-    """This function parses hyperparameter dictionary into a markdown table."""
+    """Parse hyperparameter dictionary into a markdown table."""
     if model.optimizer is not None:
         optimizer_params = model.optimizer.get_config()
         optimizer_params[
