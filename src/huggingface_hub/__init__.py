@@ -24,6 +24,11 @@ import inspect
 import os
 import sys
 import types
+import warnings
+
+
+class LazyImportWarning(Warning):
+    pass
 
 
 def attach(package_name, submodules=None, submod_attrs=None):
@@ -84,6 +89,14 @@ def attach(package_name, submodules=None, submod_attrs=None):
             return importlib.import_module(f"{package_name}.{name}")
         elif name in attr_to_modules:
             submod = importlib.import_module(f"{package_name}.{attr_to_modules[name]}")
+            if name == attr_to_modules[name]:
+                warnings.warn(
+                    LazyImportWarning(
+                        f"Module attribute and module have same "
+                        f"name: `{name}`; will likely cause conflicts "
+                        "when accessing attribute."
+                    )
+                )
             return getattr(submod, name)
         else:
             raise AttributeError(f"No {package_name} attribute {name}")
