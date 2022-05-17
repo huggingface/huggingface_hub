@@ -27,16 +27,28 @@ if is_tf_available():
     import tensorflow as tf
 
 
-def _extract_hyperparameters_from_keras(model):
+def _create_hyperparameter_table(model):
+    """This function parses hyperparameter dictionary into a markdown table."""
     if model.optimizer is not None:
-        hyperparameters = dict()
-        hyperparameters["optimizer"] = model.optimizer.get_config()
-        hyperparameters[
+        optimizer_params = model.optimizer.get_config()
+        optimizer_params[
             "training_precision"
         ] = tf.keras.mixed_precision.global_policy().name
+        table = "|"
+        for key in optimizer_params.keys():
+            table += f" {key} |"
+
+        table += "\n|"
+        for key in optimizer_params.keys():
+            table += "-" * len(key)
+            table += "|"
+
+        table += "\n|"
+        for key in optimizer_params.keys():
+            table += f"{optimizer_params[key]}|"
     else:
-        hyperparameters = None
-    return hyperparameters
+        table = None
+    return table
 
 
 def _parse_model_history(model, save_directory):
@@ -111,7 +123,7 @@ def _create_model_card(
     """
     Creates a model card for the repository.
     """
-    hyperparameters = _extract_hyperparameters_from_keras(model)
+    hyperparameters = _create_hyperparameter_table(model)
     if plot_model and is_graphviz_available() and is_pydot_available():
         _plot_network(model, repo_dir)
     readme_path = f"{repo_dir}/README.md"
@@ -125,10 +137,8 @@ def _create_model_card(
     if hyperparameters is not None:
         model_card += "\n## Training procedure\n"
         model_card += "\n### Training hyperparameters\n"
-        model_card += "\nThe following hyperparameters were used during training:\n"
-        model_card += "\n".join(
-            [f"- {name}: {value}" for name, value in hyperparameters.items()]
-        )
+        model_card += "\nThe following hyperparameters were used during training:\n\n"
+        model_card += hyperparameters
         model_card += "\n"
     model_card += "\n ## Training Metrics\n"
     model_card = _write_metrics(model, model_card, repo_dir)
