@@ -55,19 +55,17 @@ def attach(package_name, submodules=None, submod_attrs=None):
 
     This functionality requires Python 3.7 or higher.
 
-    Parameters
-    ----------
-    package_name : str
-        Typically use ``__name__``.
-    submodules : set
-        List of submodules to attach.
-    submod_attrs : dict
-        Dictionary of submodule -> list of attributes / functions.
-        These attributes are imported as they are used.
+    Args:
+        package_name (`str`):
+            Typically use `__name__`.
+        submodules (`set`):
+            List of submodules to attach.
+        submod_attrs (`dict`):
+            Dictionary of submodule -> list of attributes / functions.
+            These attributes are imported as they are used.
 
-    Returns
-    -------
-    __getattr__, __dir__, __all__
+    Returns:
+        __getattr__, __dir__, __all__
 
     """
     if submod_attrs is None:
