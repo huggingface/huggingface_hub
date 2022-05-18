@@ -45,14 +45,15 @@ def attach(package_name, submodules=None, submod_attrs=None):
     `__all__`, such that all imports work exactly the way they would
     with normal imports, except that the import occurs upon first use.
 
-    The typical way to call this function, replacing the above imports, is::
+    The typical way to call this function, replacing the above imports, is:
 
-      __getattr__, __dir__, __all__ = lazy.attach(
+    ```python
+    __getattr__, __dir__, __all__ = lazy.attach(
         __name__,
         ['mysubmodule', 'anothersubmodule'],
         {'foo': ['someattr']}
-      )
-
+    )
+    ```
     This functionality requires Python 3.7 or higher.
 
     Args:
