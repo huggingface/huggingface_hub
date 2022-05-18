@@ -164,7 +164,7 @@ def snapshot_download(
             ref_path = os.path.join(storage_folder, "refs", revision)
             with open(ref_path) as f:
                 commit_hash = f.read()
-        
+
         snapshot_folder = os.path.join(storage_folder, "snapshots", commit_hash)
         if os.path.exists(snapshot_folder):
             return snapshot_folder
