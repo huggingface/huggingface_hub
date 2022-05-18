@@ -305,8 +305,7 @@ class HfApiEndpointsTest(HfApiCommonTestWithLogin):
         with pytest.raises(
             HTTPError,
             match=(
-                "No model repo found matching __DUMMY_TRANSFORMERS_USER__/"
-                "repo-that-does-not-exist"
+                "404 Client Error: Repository Not Found"
             ),
         ):
             self._api.delete_repo("repo-that-does-not-exist", token=self._token)
@@ -1109,7 +1108,9 @@ class HfApiPrivateTest(HfApiCommonTestWithLogin):
     def test_model_info(self):
         shutil.rmtree(os.path.dirname(HfFolder.path_token))
         # Test we cannot access model info without a token
-        with self.assertRaisesRegex(requests.exceptions.HTTPError, "404 Client Error"):
+        with self.assertRaisesRegex(
+            requests.exceptions.HTTPError, "404 Client Error: Repository Not Found"
+        ):
             _ = self._api.model_info(repo_id=f"{USER}/{self.REPO_NAME}")
         # Test we can access model info with a token
         model_info = self._api.model_info(

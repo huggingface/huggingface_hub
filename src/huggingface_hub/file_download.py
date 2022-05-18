@@ -35,6 +35,7 @@ from .constants import (
 from .hf_api import HfFolder
 from .utils import logging
 from .utils._deprecation import _deprecate_positional_args
+from .utils._errors import _raise_for_status
 
 
 logger = logging.get_logger(__name__)
@@ -450,7 +451,7 @@ def http_get(
         timeout=timeout,
         max_retries=max_retries,
     )
-    r.raise_for_status()
+    _raise_for_status(r)
     content_length = r.headers.get("Content-Length")
     total = resume_size + int(content_length) if content_length is not None else None
     progress = tqdm(
@@ -592,7 +593,7 @@ def cached_download(
                 proxies=proxies,
                 timeout=etag_timeout,
             )
-            r.raise_for_status()
+            _raise_for_status(r)
             etag = r.headers.get("X-Linked-Etag") or r.headers.get("ETag")
             # We favor a custom header indicating the etag of the linked resource, and
             # we fallback to the regular etag header.

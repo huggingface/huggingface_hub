@@ -33,6 +33,7 @@ from .constants import (
 )
 from .utils import logging
 from .utils._deprecation import _deprecate_positional_args
+from .utils._errors import _raise_for_status
 from .utils._fixes import JSONDecodeError
 from .utils.endpoint_helpers import (
     AttributeDictionary,
@@ -1194,7 +1195,7 @@ class HfApi:
         r = requests.get(
             path, headers=headers, timeout=timeout, params=status_query_param
         )
-        r.raise_for_status()
+        _raise_for_status(r)
         d = r.json()
         return ModelInfo(**d)
 
@@ -1237,7 +1238,7 @@ class HfApi:
         )
         headers = {"authorization": f"Bearer {token}"} if token is not None else None
         r = requests.get(path, headers=headers, timeout=timeout)
-        r.raise_for_status()
+        _raise_for_status(r)
         d = r.json()
         return DatasetInfo(**d)
 
@@ -1280,7 +1281,7 @@ class HfApi:
         )
         headers = {"authorization": f"Bearer {token}"} if token is not None else None
         r = requests.get(path, headers=headers, timeout=timeout)
-        r.raise_for_status()
+        _raise_for_status(r)
         d = r.json()
         return SpaceInfo(**d)
 
@@ -1582,12 +1583,14 @@ class HfApi:
             json=json,
         )
         try:
-            r.raise_for_status()
+            _raise_for_status(r)
         except requests.exceptions.RequestException as e:
             try:
                 message = e.response.json()["error"]
             except JSONDecodeError:
                 message = e.response.text
+            except AttributeError:
+                message = e.args[0]
             raise type(e)(message) from e
 
     @_deprecate_positional_args
@@ -1653,7 +1656,7 @@ class HfApi:
             headers={"authorization": f"Bearer {token}"},
             json=json,
         )
-        r.raise_for_status()
+        _raise_for_status(r)
         return r.json()
 
     @_deprecate_positional_args
@@ -1711,7 +1714,7 @@ class HfApi:
             json=json,
         )
         try:
-            r.raise_for_status()
+            _raise_for_status(r)
         except HTTPError as e:
             if r.text:
                 raise HTTPError(
@@ -1856,7 +1859,7 @@ class HfApi:
             r = requests.post(path, headers=headers, data=path_or_fileobj)
 
         try:
-            r.raise_for_status()
+            _raise_for_status(r)
         except HTTPError as err:
             if identical_ok and err.response.status_code == 409:
                 from .file_download import hf_hub_url
@@ -1927,7 +1930,7 @@ class HfApi:
         headers = {"authorization": f"Bearer {token}"}
         r = requests.delete(path, headers=headers)
 
-        r.raise_for_status()
+        _raise_for_status(r)
 
     @_deprecate_positional_args
     def get_full_repo_name(
