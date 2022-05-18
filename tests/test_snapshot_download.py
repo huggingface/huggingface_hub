@@ -5,9 +5,8 @@ import time
 import unittest
 
 import requests
-from huggingface_hub import HfApi, Repository
+from huggingface_hub import HfApi, Repository, snapshot_download
 from huggingface_hub.hf_api import HfFolder
-from huggingface_hub.snapshot_download import snapshot_download
 from huggingface_hub.utils import logging
 
 from .testing_constants import ENDPOINT_STAGING, TOKEN, USER

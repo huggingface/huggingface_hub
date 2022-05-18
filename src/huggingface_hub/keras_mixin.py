@@ -6,14 +6,13 @@ from shutil import copytree, rmtree
 from typing import Any, Dict, Optional, Union
 
 import yaml
-from huggingface_hub import ModelHubMixin
+from huggingface_hub import ModelHubMixin, snapshot_download
 from huggingface_hub.file_download import (
     get_tf_version,
     is_graphviz_available,
     is_pydot_available,
     is_tf_available,
 )
-from huggingface_hub.snapshot_download import snapshot_download
 
 from .constants import CONFIG_NAME
 from .hf_api import HfApi, HfFolder

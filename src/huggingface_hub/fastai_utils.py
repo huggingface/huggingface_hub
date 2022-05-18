@@ -6,6 +6,7 @@ from typing import Any, Dict, Optional
 
 from packaging import version
 
+from huggingface_hub import snapshot_download
 from huggingface_hub.constants import CONFIG_NAME
 from huggingface_hub.file_download import (
     _PY_VERSION,
@@ -14,7 +15,6 @@ from huggingface_hub.file_download import (
 )
 from huggingface_hub.hf_api import HfApi, HfFolder
 from huggingface_hub.repository import Repository
-from huggingface_hub.snapshot_download import snapshot_download
 from huggingface_hub.utils import logging
 
 

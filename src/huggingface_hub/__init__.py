@@ -16,70 +16,175 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+# ***********
+# vendored from https://github.com/scientific-python/lazy_loader
+import importlib
+import importlib.util
+import inspect
+import os
+import sys
+import types
+import warnings
+
+
+class LazyImportWarning(Warning):
+    pass
+
+
+def attach(package_name, submodules=None, submod_attrs=None):
+    """Attach lazily loaded submodules, functions, or other attributes.
+
+    Typically, modules import submodules and attributes as follows:
+
+    ```py
+    import mysubmodule
+    import anothersubmodule
+
+    from .foo import someattr
+    ```
+
+    The idea is to replace a package's `__getattr__`, `__dir__`, and
+    `__all__`, such that all imports work exactly the way they would
+    with normal imports, except that the import occurs upon first use.
+
+    The typical way to call this function, replacing the above imports, is:
+
+    ```python
+    __getattr__, __dir__, __all__ = lazy.attach(
+        __name__,
+        ['mysubmodule', 'anothersubmodule'],
+        {'foo': ['someattr']}
+    )
+    ```
+    This functionality requires Python 3.7 or higher.
+
+    Args:
+        package_name (`str`):
+            Typically use `__name__`.
+        submodules (`set`):
+            List of submodules to attach.
+        submod_attrs (`dict`):
+            Dictionary of submodule -> list of attributes / functions.
+            These attributes are imported as they are used.
+
+    Returns:
+        __getattr__, __dir__, __all__
+
+    """
+    if submod_attrs is None:
+        submod_attrs = {}
+
+    if submodules is None:
+        submodules = set()
+    else:
+        submodules = set(submodules)
+
+    attr_to_modules = {
+        attr: mod for mod, attrs in submod_attrs.items() for attr in attrs
+    }
+
+    __all__ = list(submodules | attr_to_modules.keys())
+
+    def __getattr__(name):
+        if name in submodules:
+            return importlib.import_module(f"{package_name}.{name}")
+        elif name in attr_to_modules:
+            submod = importlib.import_module(f"{package_name}.{attr_to_modules[name]}")
+            if name == attr_to_modules[name]:
+                warnings.warn(
+                    LazyImportWarning(
+                        "Module attribute and module have same "
+                        f"name: `{name}`; will likely cause conflicts "
+                        "when accessing attribute."
+                    )
+                )
+            return getattr(submod, name)
+        else:
+            raise AttributeError(f"No {package_name} attribute {name}")
+
+    def __dir__():
+        return __all__
+
+    if os.environ.get("EAGER_IMPORT", ""):
+        for attr in set(attr_to_modules.keys()) | submodules:
+            __getattr__(attr)
+
+    return __getattr__, __dir__, list(__all__)
+
+
+# ************
+
 __version__ = "0.7.0.dev0"
 
-from .commands.user import notebook_login
-from .constants import (
-    CONFIG_NAME,
-    FLAX_WEIGHTS_NAME,
-    HUGGINGFACE_CO_URL_HOME,
-    HUGGINGFACE_CO_URL_TEMPLATE,
-    PYTORCH_WEIGHTS_NAME,
-    REPO_TYPE_DATASET,
-    REPO_TYPE_MODEL,
-    REPO_TYPE_SPACE,
-    TF2_WEIGHTS_NAME,
-    TF_WEIGHTS_NAME,
+
+__getattr__, __dir__, __all__ = attach(
+    __name__,
+    submodules=[],
+    submod_attrs={
+        "commands.user": ["notebook_login"],
+        "constants": [
+            "CONFIG_NAME",
+            "FLAX_WEIGHTS_NAME",
+            "HUGGINGFACE_CO_URL_HOME",
+            "HUGGINGFACE_CO_URL_TEMPLATE",
+            "PYTORCH_WEIGHTS_NAME",
+            "REPO_TYPE_DATASET",
+            "REPO_TYPE_MODEL",
+            "REPO_TYPE_SPACE",
+            "TF2_WEIGHTS_NAME",
+            "TF_WEIGHTS_NAME",
+        ],
+        "fastai_utils": [
+            "_save_pretrained_fastai",
+            "from_pretrained_fastai",
+            "push_to_hub_fastai",
+        ],
+        "file_download": ["cached_download", "hf_hub_download", "hf_hub_url"],
+        "hf_api": [
+            "DatasetSearchArguments",
+            "HfApi",
+            "HfFolder",
+            "ModelSearchArguments",
+            "create_repo",
+            "dataset_info",
+            "delete_file",
+            "delete_repo",
+            "get_dataset_tags",
+            "get_full_repo_name",
+            "get_model_tags",
+            "list_datasets",
+            "list_metrics",
+            "list_models",
+            "list_repo_files",
+            "login",
+            "logout",
+            "model_info",
+            "move_repo",
+            "repo_type_and_id_from_hf_id",
+            "set_access_token",
+            "space_info",
+            "unset_access_token",
+            "update_repo_visibility",
+            "upload_file",
+            "whoami",
+        ],
+        "hub_mixin": ["ModelHubMixin", "PyTorchModelHubMixin"],
+        "inference_api": ["InferenceApi"],
+        "keras_mixin": [
+            "KerasModelHubMixin",
+            "from_pretrained_keras",
+            "push_to_hub_keras",
+            "save_pretrained_keras",
+        ],
+        "repository": ["Repository"],
+        "_snapshot_download": ["snapshot_download"],
+        "utils": ["logging"],
+        "utils.endpoint_helpers": ["DatasetFilter", "ModelFilter"],
+        "repocard": [
+            "metadata_eval_result",
+            "metadata_load",
+            "metadata_save",
+            "metadata_update",
+        ],
+    },
 )
-from .fastai_utils import (
-    _save_pretrained_fastai,
-    from_pretrained_fastai,
-    push_to_hub_fastai,
-)
-from .file_download import cached_download, hf_hub_download, hf_hub_url
-from .hf_api import (
-    DatasetSearchArguments,
-    HfApi,
-    HfFolder,
-    ModelSearchArguments,
-    create_repo,
-    dataset_info,
-    delete_file,
-    delete_repo,
-    get_dataset_tags,
-    get_full_repo_name,
-    get_model_tags,
-    list_datasets,
-    list_metrics,
-    list_models,
-    list_repo_files,
-    login,
-    logout,
-    model_info,
-    move_repo,
-    repo_type_and_id_from_hf_id,
-    set_access_token,
-    space_info,
-    unset_access_token,
-    update_repo_visibility,
-    upload_file,
-    whoami,
-)
-from .hub_mixin import ModelHubMixin, PyTorchModelHubMixin
-from .inference_api import InferenceApi
-from .keras_mixin import (
-    KerasModelHubMixin,
-    from_pretrained_keras,
-    push_to_hub_keras,
-    save_pretrained_keras,
-)
-from .repocard import (
-    metadata_eval_result,
-    metadata_load,
-    metadata_save,
-    metadata_update,
-)
-from .repository import Repository
-from .snapshot_download import snapshot_download
-from .utils import logging
-from .utils.endpoint_helpers import DatasetFilter, ModelFilter
