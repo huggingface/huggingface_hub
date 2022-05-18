@@ -34,12 +34,14 @@ class LazyImportWarning(Warning):
 def attach(package_name, submodules=None, submod_attrs=None):
     """Attach lazily loaded submodules, functions, or other attributes.
 
-    Typically, modules import submodules and attributes as follows::
+    Typically, modules import submodules and attributes as follows:
 
-      import mysubmodule
-      import anothersubmodule
+    ```py
+    import mysubmodule
+    import anothersubmodule
 
-      from .foo import someattr
+    from .foo import someattr
+    ```
 
     The idea is to replace a package's `__getattr__`, `__dir__`, and
     `__all__`, such that all imports work exactly the way they would
