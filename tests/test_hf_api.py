@@ -304,9 +304,7 @@ class HfApiEndpointsTest(HfApiCommonTestWithLogin):
         # test for #751
         with pytest.raises(
             HTTPError,
-            match=(
-                "404 Client Error: Repository Not Found"
-            ),
+            match="404 Client Error: Repository Not Found",
         ):
             self._api.delete_repo("repo-that-does-not-exist", token=self._token)
 
