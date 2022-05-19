@@ -27,11 +27,11 @@ import types
 import warnings
 
 
-class LazyImportWarning(Warning):
+class _LazyImportWarning(Warning):
     pass
 
 
-def attach(package_name, submodules=None, submod_attrs=None):
+def _attach(package_name, submodules=None, submod_attrs=None):
     """Attach lazily loaded submodules, functions, or other attributes.
 
     Typically, modules import submodules and attributes as follows:
@@ -92,7 +92,7 @@ def attach(package_name, submodules=None, submod_attrs=None):
             submod = importlib.import_module(f"{package_name}.{attr_to_modules[name]}")
             if name == attr_to_modules[name]:
                 warnings.warn(
-                    LazyImportWarning(
+                    _LazyImportWarning(
                         "Module attribute and module have same "
                         f"name: `{name}`; will likely cause conflicts "
                         "when accessing attribute."
@@ -117,7 +117,7 @@ def attach(package_name, submodules=None, submod_attrs=None):
 __version__ = "0.7.0.dev0"
 
 
-__getattr__, __dir__, __all__ = attach(
+__getattr__, __dir__, __all__ = _attach(
     __name__,
     submodules=[],
     submod_attrs={
