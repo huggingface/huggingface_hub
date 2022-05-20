@@ -2,11 +2,19 @@ import os
 import tempfile
 import time
 import unittest
+from io import BytesIO
 
-from huggingface_hub import hf_hub_download
-from huggingface_hub.constants import HUGGINGFACE_HUB_CACHE
+from huggingface_hub import (
+    HfApi,
+    create_repo,
+    delete_repo,
+    hf_hub_download,
+    snapshot_download,
+    upload_file,
+)
 from huggingface_hub.utils import logging
 
+from .testing_constants import ENDPOINT_STAGING, TOKEN, USER
 from .testing_utils import with_production_testing
 
 
@@ -14,14 +22,21 @@ logger = logging.get_logger(__name__)
 MODEL_IDENTIFIER = "hf-internal-testing/hfh-cache-layout"
 
 
+def get_file_contents(path):
+    with open(path) as f:
+        content = f.read()
+
+    return content
+
+
 @with_production_testing
-class CacheFileLayout(unittest.TestCase):
+class CacheFileLayoutHfHubDownload(unittest.TestCase):
     def test_file_downloaded_in_cache(self):
         with tempfile.TemporaryDirectory() as cache:
             hf_hub_download(MODEL_IDENTIFIER, "file_0.txt", cache_dir=cache)
 
             expected_directory_name = f'models--{MODEL_IDENTIFIER.replace("/", "--")}'
-            expected_path = os.path.join(HUGGINGFACE_HUB_CACHE, expected_directory_name)
+            expected_path = os.path.join(cache, expected_directory_name)
 
             refs = os.listdir(os.path.join(expected_path, "refs"))
             snapshots = os.listdir(os.path.join(expected_path, "snapshots"))
@@ -153,12 +168,6 @@ class CacheFileLayout(unittest.TestCase):
             # Directory should contain two revisions
             self.assertListEqual(refs, ["file-2", "main"])
 
-            def get_file_contents(path):
-                with open(path) as f:
-                    content = f.read()
-
-                return content
-
             refs_contents = [
                 get_file_contents(os.path.join(expected_path, "refs", f)) for f in refs
             ]
@@ -167,4 +176,210 @@ class CacheFileLayout(unittest.TestCase):
             # snapshots directory should contain two snapshots
             self.assertListEqual(refs_contents, snapshots)
 
-            # snapshots_paths = [os.path.join(expected_path, s) for s in snapshots]
+            snapshot_links = [
+                os.readlink(
+                    os.path.join(expected_path, "snapshots", filename, "file_0.txt")
+                )
+                for filename in snapshots
+            ]
+
+            # All snapshot links should point to the same file.
+            self.assertEqual(*snapshot_links)
+
+
+@with_production_testing
+class CacheFileLayoutSnapshotDownload(unittest.TestCase):
+    def test_file_downloaded_in_cache(self):
+        with tempfile.TemporaryDirectory() as cache:
+            snapshot_download(MODEL_IDENTIFIER, cache_dir=cache)
+
+            expected_directory_name = f'models--{MODEL_IDENTIFIER.replace("/", "--")}'
+            expected_path = os.path.join(cache, expected_directory_name)
+
+            refs = os.listdir(os.path.join(expected_path, "refs"))
+
+            snapshots = os.listdir(os.path.join(expected_path, "snapshots"))
+            snapshots.sort()
+
+            # Directory should contain two revisions
+            self.assertListEqual(refs, ["main"])
+
+            ref_content = get_file_contents(
+                os.path.join(expected_path, "refs", refs[0])
+            )
+
+            # snapshots directory should contain two snapshots
+            self.assertListEqual([ref_content], snapshots)
+
+            snapshot_path = os.path.join(expected_path, "snapshots", snapshots[0])
+
+            files_in_snapshot = os.listdir(snapshot_path)
+
+            snapshot_links = [
+                os.readlink(os.path.join(snapshot_path, filename))
+                for filename in files_in_snapshot
+            ]
+
+            resolved_snapshot_links = [
+                os.path.normpath(os.path.join(snapshot_path, link))
+                for link in snapshot_links
+            ]
+
+            self.assertTrue(all([os.path.isfile(l) for l in resolved_snapshot_links]))
+
+    def test_file_downloaded_in_cache_several_revisions(self):
+        with tempfile.TemporaryDirectory() as cache:
+            snapshot_download(MODEL_IDENTIFIER, cache_dir=cache, revision="file-3")
+            snapshot_download(MODEL_IDENTIFIER, cache_dir=cache, revision="file-2")
+
+            expected_directory_name = f'models--{MODEL_IDENTIFIER.replace("/", "--")}'
+            expected_path = os.path.join(cache, expected_directory_name)
+
+            refs = os.listdir(os.path.join(expected_path, "refs"))
+            refs.sort()
+
+            snapshots = os.listdir(os.path.join(expected_path, "snapshots"))
+            snapshots.sort()
+
+            # Directory should contain two revisions
+            self.assertListEqual(refs, ["file-2", "file-3"])
+
+            refs_content = [
+                get_file_contents(os.path.join(expected_path, "refs", ref))
+                for ref in refs
+            ]
+            refs_content.sort()
+
+            # snapshots directory should contain two snapshots
+            self.assertListEqual(refs_content, snapshots)
+
+            snapshots_paths = [
+                os.path.join(expected_path, "snapshots", s) for s in snapshots
+            ]
+
+            files_in_snapshots = {s: os.listdir(s) for s in snapshots_paths}
+            links_in_snapshots = {
+                k: [os.readlink(os.path.join(k, _v)) for _v in v]
+                for k, v in files_in_snapshots.items()
+            }
+
+            resolved_snapshots_links = {
+                k: [os.path.normpath(os.path.join(k, link)) for link in v]
+                for k, v in links_in_snapshots.items()
+            }
+
+            all_links = [b for a in resolved_snapshots_links.values() for b in a]
+            all_unique_links = set(all_links)
+
+            # [ 100]  .
+            # ├── [ 140]  blobs
+            # │   ├── [   7]  4475433e279a71203927cbe80125208a3b5db560
+            # │   ├── [   7]  50fcd26d6ce3000f9d5f12904e80eccdc5685dd1
+            # │   ├── [   7]  80146afc836c60e70ba67933fec439ab05b478f6
+            # │   ├── [   7]  8cf9e18f080becb674b31c21642538269fe886a4
+            # │   └── [1.1K]  ac481c8eb05e4d2496fbe076a38a7b4835dd733d
+            # ├── [  80]  refs
+            # │   ├── [  40]  file-2
+            # │   └── [  40]  file-3
+            # └── [  80]  snapshots
+            #     ├── [ 120]  5e23cb3ae7f904919a442e1b27dcddae6c6bc292
+            #     │   ├── [  52]  file_0.txt -> ../../blobs/80146afc836c60e70ba67933fec439ab05b478f6
+            #     │   ├── [  52]  file_1.txt -> ../../blobs/50fcd26d6ce3000f9d5f12904e80eccdc5685dd1
+            #     │   ├── [  52]  file_2.txt -> ../../blobs/4475433e279a71203927cbe80125208a3b5db560
+            #     │   └── [  52]  .gitattributes -> ../../blobs/ac481c8eb05e4d2496fbe076a38a7b4835dd733d
+            #     └── [ 120]  78aa2ebdb60bba086496a8792ba506e58e587b4c
+            #         ├── [  52]  file_0.txt -> ../../blobs/80146afc836c60e70ba67933fec439ab05b478f6
+            #         ├── [  52]  file_1.txt -> ../../blobs/50fcd26d6ce3000f9d5f12904e80eccdc5685dd1
+            #         ├── [  52]  file_3.txt -> ../../blobs/8cf9e18f080becb674b31c21642538269fe886a4
+            #         └── [  52]  .gitattributes -> ../../blobs/ac481c8eb05e4d2496fbe076a38a7b4835dd733d
+
+            # Across the two revisions, there should be 8 total links
+            self.assertEqual(len(all_links), 8)
+
+            # Across the two revisions, there should only be 5 unique files.
+            self.assertEqual(len(all_unique_links), 5)
+
+
+class ReferenceUpdates(unittest.TestCase):
+    _api = HfApi(endpoint=ENDPOINT_STAGING)
+
+    @classmethod
+    def setUpClass(cls):
+        """
+        Share this valid token in all tests below.
+        """
+        cls._token = TOKEN
+        cls._api.set_access_token(TOKEN)
+
+    def test_update_reference(self):
+        repo_id = f"{USER}/hfh-cache-layout"
+        create_repo(repo_id, token=self._token, exist_ok=True)
+
+        try:
+            upload_file(
+                path_or_fileobj=BytesIO(b"Some string"),
+                path_in_repo="file.txt",
+                repo_id=repo_id,
+                token=self._token,
+            )
+
+            with tempfile.TemporaryDirectory() as cache:
+                hf_hub_download(repo_id, "file.txt", cache_dir=cache)
+
+                expected_directory_name = f'models--{repo_id.replace("/", "--")}'
+                expected_path = os.path.join(cache, expected_directory_name)
+
+                refs = os.listdir(os.path.join(expected_path, "refs"))
+
+                # Directory should contain two revisions
+                self.assertListEqual(refs, ["main"])
+
+                initial_ref_content = get_file_contents(
+                    os.path.join(expected_path, "refs", refs[0])
+                )
+
+                # Upload a new file on the same branch
+                upload_file(
+                    path_or_fileobj=BytesIO(b"Some new string"),
+                    path_in_repo="file.txt",
+                    repo_id=repo_id,
+                    token=self._token,
+                )
+
+                hf_hub_download(repo_id, "file.txt", cache_dir=cache)
+
+                final_ref_content = get_file_contents(
+                    os.path.join(expected_path, "refs", refs[0])
+                )
+
+                # The `main` reference should point to two different, but existing snapshots which contain
+                # a 'file.txt'
+                self.assertNotEqual(initial_ref_content, final_ref_content)
+                self.assertTrue(
+                    os.path.isdir(
+                        os.path.join(expected_path, "snapshots", initial_ref_content)
+                    )
+                )
+                self.assertTrue(
+                    os.path.isfile(
+                        os.path.join(
+                            expected_path, "snapshots", initial_ref_content, "file.txt"
+                        )
+                    )
+                )
+                self.assertTrue(
+                    os.path.isdir(
+                        os.path.join(expected_path, "snapshots", final_ref_content)
+                    )
+                )
+                self.assertTrue(
+                    os.path.isfile(
+                        os.path.join(
+                            expected_path, "snapshots", final_ref_content, "file.txt"
+                        )
+                    )
+                )
+        except Exception:
+            raise
+        finally:
+            delete_repo(repo_id, token=self._token)
