@@ -55,7 +55,7 @@ USERNAME_PLACEHOLDER = "hf_user"
 logger = logging.get_logger(__name__)
 
 
-# TODO: remove after deprecation period is over (v0.7)
+# TODO: remove after deprecation period is over (v0.8)
 def _validate_repo_id_deprecation(repo_id, name, organization):
     """Returns (name, organization) from the input."""
     if repo_id and not name and organization:
@@ -78,7 +78,7 @@ def _validate_repo_id_deprecation(repo_id, name, organization):
     elif name or organization:
         warnings.warn(
             "`name` and `organization` input arguments are deprecated and "
-            "will be removed in v0.7. Pass `repo_id` instead.",
+            "will be removed in v0.8. Pass `repo_id` instead.",
             FutureWarning,
         )
     else:
@@ -558,7 +558,7 @@ class HfApi:
 
         <Tip>
 
-        Warning: Deprecated, will be removed in v0.7. Please use
+        Warning: Deprecated, will be removed in v0.8. Please use
         [`HfApi.set_access_token`] instead.
 
         </Tip>
@@ -583,7 +583,7 @@ class HfApi:
         """
         warnings.warn(
             "HfApi.login: This method is deprecated in favor of `set_access_token`"
-            " and will be removed in v0.7.",
+            " and will be removed in v0.8.",
             FutureWarning,
         )
         path = f"{self.endpoint}/api/login"
@@ -651,7 +651,7 @@ class HfApi:
             token (``str``, `optional`):
                 Hugging Face token. Will default to the locally saved token if not provided.
             name (``str``, `optional`):
-                Name of the repository. This is deprecated in favor of repo_id and will be removed in v0.7.
+                Name of the repository. This is deprecated in favor of repo_id and will be removed in v0.8.
             function_name (``str``, `optional`):
                 If _validate_or_retrieve_token is called from a function, name of that function to be passed inside deprecation warning.
         Returns:
@@ -690,7 +690,7 @@ class HfApi:
 
         <Tip>
 
-        Warning: Deprecated, will be removed in v0.7. Please use
+        Warning: Deprecated, will be removed in v0.8. Please use
         [`HfApi.unset_access_token`] instead.
 
         </Tip>
@@ -702,7 +702,7 @@ class HfApi:
         """
         warnings.warn(
             "HfApi.logout: This method is deprecated in favor of `unset_access_token` "
-            "and will be removed in v0.7.",
+            "and will be removed in v0.8.",
             FutureWarning,
         )
         if token is None:
