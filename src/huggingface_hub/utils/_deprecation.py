@@ -3,7 +3,7 @@ from functools import wraps
 from inspect import Parameter, signature
 
 
-def _deprecate_positional_args(func=None, *, version="0.7"):
+def _deprecate_positional_args(func=None, *, version="0.8"):
     """Decorator for methods that issues warnings for positional arguments.
     Using the keyword-only argument syntax in pep 3102, arguments after the
     * will issue a warning when passed as a positional argument.
@@ -11,7 +11,7 @@ def _deprecate_positional_args(func=None, *, version="0.7"):
     Args:
         func (``Callable``, `optional`):
             Function to check arguments on.
-        version (``Callable``, `optional`, defaults to ``"0.7"``):
+        version (``Callable``, `optional`, defaults to ``"0.8"``):
             The version when positional arguments will result in error.
     """
 
