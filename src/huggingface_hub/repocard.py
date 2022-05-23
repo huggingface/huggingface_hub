@@ -115,6 +115,9 @@ def metadata_update(
     repo_type: str = None,
     overwrite: bool = False,
     token: str = None,
+    create_pr: Optional[bool] = False,
+    pr_commit_summary: Optional[str] = "",
+    pr_commit_description: Optional[str] = "",
 ) -> str:
     """
     Updates the metadata in the README.md of a repository on the Hugging Face Hub.
@@ -192,6 +195,9 @@ def metadata_update(
         repo_type=repo_type,
         identical_ok=False,
         token=token,
+        create_pr=create_pr,
+        pr_commit_summary=pr_commit_summary,
+        pr_commit_description=pr_commit_description,
     )
 
 
