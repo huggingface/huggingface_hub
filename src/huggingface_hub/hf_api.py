@@ -1735,6 +1735,9 @@ class HfApi:
         repo_type: Optional[str] = None,
         revision: Optional[str] = None,
         identical_ok: bool = True,
+        create_pr: Optional[bool] = False,
+        pr_commit_summary: Optional[str] = "",
+        pr_commit_description: Optional[str] = "",
     ) -> str:
         """
         Upload a local file (up to 5GB) to the given repo. The upload is done
@@ -1766,6 +1769,12 @@ class HfApi:
                 https://2.python-requests.org/en/master/api/#requests.HTTPError)
                 when the file you're trying to upload already exists on the hub
                 and its content did not change.
+            create_pr (`bool`, *optional*, defaults to `False`):
+                Whether to open a Hub pull request instead of uploading directly to the repo.
+            pr_commit_summary (`str`, *optional*, defaults to ""):
+                The title of the Hub pull request.
+            pr_commit_description (`str`, *optional*, defaults to ""):
+                The description of the Hub pull request.
 
         Returns:
             `str`: The URL to visualize the uploaded file on the hub
@@ -1845,13 +1854,21 @@ class HfApi:
 
         path = f"{self.endpoint}/api/{repo_id}/upload/{revision}/{path_in_repo}"
 
-        headers = {"authorization": f"Bearer {token}"} if token is not None else None
+        headers = {}
+        headers["authorization"] = f"Bearer {token}" if token is not None else None
+
+        if create_pr:
+            params = {"create_pr": create_pr}
+            headers["Commit-Summary"] = pr_commit_summary
+            headers["Commit-Description"] = pr_commit_description
 
         if isinstance(path_or_fileobj, str):
             with open(path_or_fileobj, "rb") as bytestream:
-                r = requests.post(path, headers=headers, data=bytestream)
+                r = requests.post(path, headers=headers, data=bytestream, params=params)
         else:
-            r = requests.post(path, headers=headers, data=path_or_fileobj)
+            r = requests.post(
+                path, headers=headers, data=path_or_fileobj, params=params
+            )
 
         try:
             r.raise_for_status()
