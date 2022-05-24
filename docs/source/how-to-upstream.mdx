@@ -1,12 +1,23 @@
 # Upload files to the Hub
 
-Sharing your files and work is a very important aspect of the Hub. The `huggingface_hub` uses a Git-based workflow to upload files to the Hub. You can use these functions independently or integrate them into your own library, making it more convenient for your users to interact with the Hub. This guide will show you how to:
+Sharing your files and work is a very important aspect of the Hub. The `huggingface_hub`
+uses a Git-based workflow to upload files to the Hub. You can use these functions
+independently or integrate them into your own library, making it more convenient for
+your users to interact with the Hub. This guide will show you how to:
 
+* Push a single file to the Hub with the [`upload_file`] function.
 * Push files with a `commit` context manager.
 * Push files with the [`~Repository.push_to_hub`] function.
-* Upload very large files with [Git LFS](https://git-lfs.github.com/).
+* Push very large files with [Git LFS](https://git-lfs.github.com/).
 
-Whenever you want to upload files to the Hub, you need to log in to your Hugging Face account:
+Refer to the following chart to select a uploading method that works best for you and
+then read more to learn about it.
+
+![Hub upload
+flowchart](https://huggingface.co/datasets/huggingface/documentation-images/resolve/main/hub_upload_flowchart.svg)
+
+Whenever you want to upload files to the Hub, you need to log in to your Hugging Face
+account:
 
 1. Log in to your Hugging Face account with the following command:
 
@@ -14,18 +25,37 @@ Whenever you want to upload files to the Hub, you need to log in to your Hugging
    huggingface-cli login
    ```
 
-2. Alternatively, if you prefer working from a Jupyter or Colaboratory notebook, login with [`notebook_login`]:
+2. Alternatively, if you prefer working from a Jupyter or Colaboratory notebook, login
+   with [`notebook_login`]:
 
    ```python
    >>> from huggingface_hub import notebook_login
    >>> notebook_login()
    ```
 
-   [`notebook_login`] will launch a widget in your notebook from which you can enter your Hugging Face credentials.
+   [`notebook_login`] will launch a widget in your notebook from which you can enter
+   your Hugging Face credentials.
 
-## commit context manager
+## Push without Git commands
 
-The `commit` context manager handles four of the most common Git commands: pull, add, commit, and push. `git-lfs` automatically tracks any file larger than 10MB. In the following example, the `commit` context manager:
+The [`upload_file`] function uploads a local file to a repository without using Git
+commands. You need to provide the path of the local file, the desired path of the file
+in the repository, and the repository you want to upload the file to.
+
+```py
+>>> from huggingface_hub import HfApi
+>>> api = HfApi()
+>>> api.upload_file(path_or_fileobj="/local/path/to/README.md",
+...                 path_in_repo="README.md",
+...                 repo="lysandre/test-model"
+... )
+```
+
+## Push files in a single step
+
+The `commit` context manager handles four of the most common Git commands: pull, add,
+commit, and push. `git-lfs` automatically tracks any file larger than 10MB. In the
+following example, the `commit` context manager:
 
 1. Pulls from the `text-files` repository.
 2. Adds a change made to `file.txt`.
@@ -48,7 +78,9 @@ Here is another example of how to save and upload a file to a repository:
 ...     torch.save(model.state_dict(), "model.pt")
 ```
 
-Set `blocking=False` if you would like to push your commits asynchronously. Non-blocking behavior is helpful when you want to continue running your script while you push your commits.
+Set `blocking=False` if you would like to push your commits asynchronously. Non-blocking
+behavior is helpful when you want to continue running your script while you push your
+commits.
 
 ```python
 >>> with repo.commit(commit_message="My cool model :)", blocking=False)
@@ -69,7 +101,9 @@ Refer to the table below for the possible statuses:
 | 0        | The push has completed successfully. |
 | Non-zero | An error has occurred.               |
 
-When `blocking=False`, commands are tracked, and your script will only exit when all pushes are completed, even if other errors occur in your script. Some additional useful commands for checking the status of a push include:
+When `blocking=False`, commands are tracked, and your script will only exit when all
+pushes are completed, even if other errors occur in your script. Some additional useful
+commands for checking the status of a push include:
 
 ```python
 # Inspect an error.
@@ -82,9 +116,12 @@ When `blocking=False`, commands are tracked, and your script will only exit when
 >>> last_command.failed
 ```
 
-## push_to_hub
+## Pull before pushing to a repository
 
-The [`Repository`] class also has a [`~Repository.push_to_hub`] function to add files, make a commit, and push them to a repository. Unlike the `commit` context manager, [`~Repository.push_to_hub`] requires you to pull from a repository first, save the files, and then call [`~Repository.push_to_hub`].
+The [`Repository`] class also has a [`~Repository.push_to_hub`] function to add files,
+make a commit, and push them to a repository. Unlike the `commit` context manager,
+[`~Repository.push_to_hub`] requires you to pull from a repository first, save the
+files, and then call [`~Repository.push_to_hub`].
 
 ```python
 >>> from huggingface_hub import Repository
@@ -92,20 +129,22 @@ The [`Repository`] class also has a [`~Repository.push_to_hub`] function to add 
 >>> repo.push_to_hub(commit_message="Commit my-awesome-file to the Hub")
 ```
 
-However, if you aren't ready to push a file yet, you can still use [`~Repository.git_add`] and [`~Repository.git_commit`] to add and commit your file:
+However, if you aren't ready to push a file yet, you can still use
+[`~Repository.git_add`] and [`~Repository.git_commit`] to add and commit your file:
 
 ```py
 >>> repo.git_add("path/to/file")
 >>> repo.git_commit(commit_message="add my first model config file :)")
 ```
 
-Once you're ready, you can push your file to your repository with [`~Repository.git_push`]:
+Once you're ready, you can push your file to your repository with
+[`~Repository.git_push`]:
 
 ```py
 >>> repo.git_push()
 ```
 
-## Upload with Git LFS
+## Push large files with Git LFS
 
 For huge files (>5GB), you need to install a custom transfer agent for Git LFS:
 
@@ -113,4 +152,5 @@ For huge files (>5GB), you need to install a custom transfer agent for Git LFS:
 huggingface-cli lfs-enable-largefiles
 ```
 
-You should install this for each model repository that contains a model file. Once installed, you are now able to push files larger than 5GB.
+You should install this for each model repository that contains a model file. Once
+installed, you are now able to push files larger than 5GB.
