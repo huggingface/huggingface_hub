@@ -16,7 +16,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-__version__ = "0.7.0.rc0"
+__version__ = "0.7.0"
 
 from .commands.user import notebook_login
 from .constants import (
