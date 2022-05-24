@@ -2,6 +2,7 @@ import os
 import tempfile
 import time
 import unittest
+import uuid
 from io import BytesIO
 
 from huggingface_hub import (
@@ -20,6 +21,10 @@ from .testing_utils import with_production_testing
 
 logger = logging.get_logger(__name__)
 MODEL_IDENTIFIER = "hf-internal-testing/hfh-cache-layout"
+
+
+def repo_name(id=uuid.uuid4().hex[:6]):
+    return "repo-{0}-{1}".format(id, int(time.time() * 10e3))
 
 
 def get_file_contents(path):
@@ -69,7 +74,7 @@ class CacheFileLayoutHfHubDownload(unittest.TestCase):
             )
 
             with open(resolved_blob_absolute) as f:
-                blob_contents = f.readline().strip()
+                blob_contents = f.read().strip()
 
             # The contents of the file should be 'File 0'.
             self.assertEqual(blob_contents, "File 0")
@@ -92,7 +97,7 @@ class CacheFileLayoutHfHubDownload(unittest.TestCase):
             self.assertListEqual(refs, [expected_reference])
 
             with open(os.path.join(expected_path, "refs", expected_reference)) as f:
-                snapshot_name = f.readline().strip()
+                snapshot_name = f.read().strip()
 
             # The `main` reference should point to the only snapshot we have downloaded
             self.assertListEqual(snapshots, [snapshot_name])
@@ -312,7 +317,7 @@ class ReferenceUpdates(unittest.TestCase):
         cls._api.set_access_token(TOKEN)
 
     def test_update_reference(self):
-        repo_id = f"{USER}/hfh-cache-layout"
+        repo_id = f"{USER}/{repo_name()}"
         create_repo(repo_id, token=self._token, exist_ok=True)
 
         try:

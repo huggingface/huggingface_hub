@@ -33,7 +33,7 @@ from .constants import (
     REPO_TYPES_URL_PREFIXES,
 )
 from .hf_api import HfFolder
-from .utils import logging, run_subprocess
+from .utils import logging
 from .utils._deprecation import _deprecate_positional_args
 
 
@@ -786,6 +786,7 @@ def hf_hub_download(
     cache_dir: Union[str, Path, None] = None,
     user_agent: Union[Dict, str, None] = None,
     force_download: Optional[bool] = False,
+    force_filename: Optional[str] = None,
     proxies: Optional[Dict] = None,
     etag_timeout: Optional[float] = 10,
     resume_download: Optional[bool] = False,
@@ -883,6 +884,14 @@ def hf_hub_download(
 
     </Tip>
     """
+    if force_filename is not None:
+        warnings.warn(
+            "The `force_filename` parameter is deprecated as a new caching system, "
+            "which keeps the filenames as they are on the Hub, is now in place.",
+            FutureWarning,
+        )
+        legacy_cache_layout = True
+
     if legacy_cache_layout:
         url = hf_hub_url(
             repo_id,
@@ -899,6 +908,7 @@ def hf_hub_download(
             cache_dir=cache_dir,
             user_agent=user_agent,
             force_download=force_download,
+            force_filename=force_filename,
             proxies=proxies,
             etag_timeout=etag_timeout,
             resume_download=resume_download,

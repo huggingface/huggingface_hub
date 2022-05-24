@@ -8,3 +8,84 @@
 
 [[autodoc]] huggingface_hub.hf_hub_url
 
+## Caching
+
+The methods displayed above are designed to work with a caching system that prevents re-downloading files.
+The caching system was updated in v0.8.0 to allow directory structure and file sharing across
+libraries that depend on the hub.
+
+The caching system is designed as follows:
+
+```
+<CACHE_DIR>
+├─ <MODELS>
+├─ <DATASETS>
+├─ <SPACES>
+```
+
+Models, datasets and spaces share a common root. Each of these repositories contains the namespace
+(organization, username) if it exists, alongside the repository name:
+
+```
+<CACHE_DIR>
+├─ models--julien-c--EsperBERTo-small
+├─ models--lysandrejik--arxiv-nlp
+├─ models--bert-base-cased
+├─ datasets--glue
+├─ datasets--huggingface--DataMeasurementsFiles
+├─ spaces--dalle-mini--dalle-mini
+```
+
+It is within these folders that all files will now be downloaded from the hub. Caching ensures that
+a file isn't downloaded twice if it already exists and wasn't updated; but if it was updated,
+and you're asking for the latest file, then it will download the latest file (while keeping
+the previous file intact in case you need it again).
+
+In order to achieve this, all folders contain the same skeleton:
+
+```
+<CACHE_DIR>
+├─ datasets--glue
+│  ├─ refs
+│  ├─ blobs
+│  ├─ snapshots
+...
+```
+
+Each folder is designed to contain the following:
+
+### Refs
+
+The `refs` folder contains files which indicates the latest revision of the given reference. For example,
+if we have previously fetched a file from the `main` branch of a repository, the `refs`
+folder will contain a file named `main`, which will itself contain the commit identifier of the current head.
+
+If the latest commit of `main` had `aaaaaa` as identifier, then it would contain `aaaaaa`.
+
+If that same branch gets updated with a new commit, that has `bbbbbb` as an identifier, then
+redownloading a file from that reference will update the `refs/main` file to contain `bbbbbb`.
+
+### Blobs
+
+The `blobs` folder contains the actual files that we have downloaded. The name of each file is their hash.
+
+### Snapshots
+
+The `snapshots` folder contains symlinks to the blobs mentioned above. It is itself made up of several folders:
+one per known revision!
+
+In the explanation above, we had initially fetched a file from the `aaaaaa` revision, before fetching a file from
+the `bbbbbb` revision. In this situation, we would now have two folders in the `snapshots` folder: `aaaaaa`
+and `bbbbbb`.
+
+In each of these folders, live symlinks that have the names of the files that we have downloaded. For example,
+if we had downloaded the `READMD.md` file at revision `aaaaaa`, we would have the following path:
+
+```
+<CACHE_DIR>/<REPO_NAME>/snapshots/aaaaaa/README.md
+```
+
+That `README.md` file is actually a symlink linking to the blob that has the hash of the file.
+
+Creating the skeleton this way means opens up the mechanism to file sharing: if the same file was fetched in
+revision `bbbbbb`, it would have the same hash and the file would not need to be redownloaded.
