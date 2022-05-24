@@ -33,7 +33,7 @@ from .constants import (
     REPO_TYPES_URL_PREFIXES,
 )
 from .hf_api import HfFolder
-from .utils import logging
+from .utils import logging, run_subprocess
 from .utils._deprecation import _deprecate_positional_args
 
 
@@ -740,7 +740,19 @@ def _create_relative_symlink(src: str, dst: str) -> None:
         os.remove(dst)
     except OSError:
         pass
-    os.symlink(relative_src, dst)
+    try:
+        os.symlink(relative_src, dst)
+    except OSError:
+        # Likely running on Windows
+        if os.name == "nt":
+            raise OSError(
+                "Windows requires Developer Mode to be activated, or to run Python as "
+                "an administrator, in order to create symlinks.\nIn order to "
+                "activate Developer Mode, see this article: "
+                "https://docs.microsoft.com/en-us/windows/apps/get-started/enable-your-device-for-development"
+            )
+        else:
+            raise
 
 
 def repo_folder_name(
