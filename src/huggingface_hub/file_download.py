@@ -901,6 +901,9 @@ def hf_hub_download(
     if isinstance(cache_dir, Path):
         cache_dir = str(cache_dir)
 
+    if subfolder is not None:
+        filename = f"{subfolder}/{filename}"
+
     if repo_type is None:
         repo_type = "model"
     if repo_type not in REPO_TYPES:
@@ -926,9 +929,7 @@ def hf_hub_download(
         if os.path.exists(pointer_path):
             return pointer_path
 
-    url = hf_hub_url(
-        repo_id, filename, subfolder=subfolder, repo_type=repo_type, revision=revision
-    )
+    url = hf_hub_url(repo_id, filename, repo_type=repo_type, revision=revision)
 
     headers = {
         "user-agent": http_user_agent(
