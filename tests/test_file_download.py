@@ -168,5 +168,5 @@ class CachedDownloadTests(unittest.TestCase):
             force_download=True,
             legacy_cache_layout=True,
         )
-        metadata = filename_to_url(filepath)
+        metadata = filename_to_url(filepath, legacy_cache_layout=True)
         self.assertEqual(metadata[1], f'"{DUMMY_MODEL_ID_PINNED_SHA1}"')
