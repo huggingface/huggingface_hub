@@ -1854,8 +1854,7 @@ class HfApi:
 
         path = f"{self.endpoint}/api/{repo_id}/upload/{revision}/{path_in_repo}"
 
-        headers = {}
-        headers["authorization"] = f"Bearer {token}" if token is not None else None
+        headers = {"authorization": f"Bearer {token}"} if token is not None else {}
 
         if create_pr:
             params = {"create_pr": create_pr}
