@@ -104,7 +104,7 @@ class CachedDownloadTests(unittest.TestCase):
             DUMMY_MODEL_ID, filename=CONFIG_NAME, revision=REVISION_ID_DEFAULT
         )
         filepath = cached_download(url, force_download=True, legacy_cache_layout=True)
-        metadata = filename_to_url(filepath)
+        metadata = filename_to_url(filepath, legacy_cache_layout=True)
         self.assertEqual(metadata, (url, f'"{DUMMY_MODEL_ID_PINNED_SHA1}"'))
 
     def test_standard_object_rev(self):
@@ -115,7 +115,7 @@ class CachedDownloadTests(unittest.TestCase):
             revision=DUMMY_MODEL_ID_REVISION_ONE_SPECIFIC_COMMIT,
         )
         filepath = cached_download(url, force_download=True, legacy_cache_layout=True)
-        metadata = filename_to_url(filepath)
+        metadata = filename_to_url(filepath, legacy_cache_layout=True)
         self.assertNotEqual(metadata[1], f'"{DUMMY_MODEL_ID_PINNED_SHA1}"')
         # Caution: check that the etag is *not* equal to the one from `test_standard_object`
 
@@ -124,7 +124,7 @@ class CachedDownloadTests(unittest.TestCase):
             DUMMY_MODEL_ID, filename=PYTORCH_WEIGHTS_NAME, revision=REVISION_ID_DEFAULT
         )
         filepath = cached_download(url, force_download=True, legacy_cache_layout=True)
-        metadata = filename_to_url(filepath)
+        metadata = filename_to_url(filepath, legacy_cache_layout=True)
         self.assertEqual(metadata, (url, f'"{DUMMY_MODEL_ID_PINNED_SHA256}"'))
 
     def test_dataset_standard_object_rev(self):
@@ -143,7 +143,7 @@ class CachedDownloadTests(unittest.TestCase):
         self.assertEqual(url, url2)
         # now let's download
         filepath = cached_download(url, force_download=True, legacy_cache_layout=True)
-        metadata = filename_to_url(filepath)
+        metadata = filename_to_url(filepath, legacy_cache_layout=True)
         self.assertNotEqual(metadata[1], f'"{DUMMY_MODEL_ID_PINNED_SHA1}"')
 
     def test_dataset_lfs_object(self):
@@ -154,7 +154,7 @@ class CachedDownloadTests(unittest.TestCase):
             revision=DATASET_REVISION_ID_ONE_SPECIFIC_COMMIT,
         )
         filepath = cached_download(url, force_download=True, legacy_cache_layout=True)
-        metadata = filename_to_url(filepath)
+        metadata = filename_to_url(filepath, legacy_cache_layout=True)
         self.assertEqual(
             metadata,
             (url, '"95aa6a52d5d6a735563366753ca50492a658031da74f301ac5238b03966972c9"'),

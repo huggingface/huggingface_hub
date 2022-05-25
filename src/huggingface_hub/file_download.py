@@ -263,15 +263,31 @@ def url_to_filename(url: str, etag: Optional[str] = None) -> str:
     return filename
 
 
-def filename_to_url(filename, cache_dir=None) -> Tuple[str, str]:
+def filename_to_url(
+    filename,
+    cache_dir: Optional[str] = None,
+    legacy_cache_layout: Optional[bool] = False,
+) -> Tuple[str, str]:
     """
     Return the url and etag (which may be `None`) stored for `filename`. Raise
     `EnvironmentError` if `filename` or its stored metadata do not exist.
+
+    Args:
+        filename (`str`):
+            The name of the file
+        cache_dir (`str`, *optional*):
+            The cache directory to use instead of the default one.
+        legacy_cache_layout (`bool`, *optional*, defaults to `False`):
+            If `True`, uses the legacy file cache layout i.e. just call `hf_hub_url`
+            then `cached_download`. This is deprecated as the new cache layout is
+            more powerful.
     """
-    warnings.warn(
-        "`filename_to_url` uses the legacy way cache file layout",
-        FutureWarning,
-    )
+    if not legacy_cache_layout:
+        warnings.warn(
+            "`filename_to_url` uses the legacy way cache file layout",
+            FutureWarning,
+        )
+
     if cache_dir is None:
         cache_dir = HUGGINGFACE_HUB_CACHE
     if isinstance(cache_dir, Path):
