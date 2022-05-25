@@ -887,7 +887,7 @@ def hf_hub_download(
             If `True`, avoid downloading the file and return the path to the
             local cached file if it exists.
         legacy_cache_layout (`bool`, *optional*, defaults to `False`):
-            If `True`, uses the legacy file cache layout i.e. just call `hf_hub_url`
+            If `True`, uses the legacy file cache layout i.e. just call [`hf_hub_url`]
             then `cached_download`. This is deprecated as the new cache layout is
             more powerful.
 
