@@ -57,7 +57,7 @@ class CachedDownloadTests(unittest.TestCase):
     def test_bogus_url(self):
         url = "https://bogus"
         with self.assertRaisesRegex(ValueError, "Connection error"):
-            _ = cached_download(url)
+            _ = cached_download(url, legacy_cache_layout=True)
 
     def test_no_connection(self):
         invalid_url = hf_hub_url(
@@ -68,20 +68,26 @@ class CachedDownloadTests(unittest.TestCase):
         valid_url = hf_hub_url(
             DUMMY_MODEL_ID, filename=CONFIG_NAME, revision=REVISION_ID_DEFAULT
         )
-        self.assertIsNotNone(cached_download(valid_url, force_download=True))
+        self.assertIsNotNone(
+            cached_download(valid_url, force_download=True, legacy_cache_layout=True)
+        )
         for offline_mode in OfflineSimulationMode:
             with offline(mode=offline_mode):
                 with self.assertRaisesRegex(ValueError, "Connection error"):
-                    _ = cached_download(invalid_url)
+                    _ = cached_download(invalid_url, legacy_cache_layout=True)
                 with self.assertRaisesRegex(ValueError, "Connection error"):
-                    _ = cached_download(valid_url, force_download=True)
-                self.assertIsNotNone(cached_download(valid_url))
+                    _ = cached_download(
+                        valid_url, force_download=True, legacy_cache_layout=True
+                    )
+                self.assertIsNotNone(
+                    cached_download(valid_url, legacy_cache_layout=True)
+                )
 
     def test_file_not_found(self):
         # Valid revision (None) but missing file.
         url = hf_hub_url(DUMMY_MODEL_ID, filename="missing.bin")
         with self.assertRaisesRegex(requests.exceptions.HTTPError, "404 Client Error"):
-            _ = cached_download(url)
+            _ = cached_download(url, legacy_cache_layout=True)
 
     def test_revision_not_found(self):
         # Valid file but missing revision
@@ -91,13 +97,13 @@ class CachedDownloadTests(unittest.TestCase):
             revision=DUMMY_MODEL_ID_REVISION_INVALID,
         )
         with self.assertRaisesRegex(requests.exceptions.HTTPError, "404 Client Error"):
-            _ = cached_download(url)
+            _ = cached_download(url, legacy_cache_layout=True)
 
     def test_standard_object(self):
         url = hf_hub_url(
             DUMMY_MODEL_ID, filename=CONFIG_NAME, revision=REVISION_ID_DEFAULT
         )
-        filepath = cached_download(url, force_download=True)
+        filepath = cached_download(url, force_download=True, legacy_cache_layout=True)
         metadata = filename_to_url(filepath)
         self.assertEqual(metadata, (url, f'"{DUMMY_MODEL_ID_PINNED_SHA1}"'))
 
@@ -108,7 +114,7 @@ class CachedDownloadTests(unittest.TestCase):
             filename=CONFIG_NAME,
             revision=DUMMY_MODEL_ID_REVISION_ONE_SPECIFIC_COMMIT,
         )
-        filepath = cached_download(url, force_download=True)
+        filepath = cached_download(url, force_download=True, legacy_cache_layout=True)
         metadata = filename_to_url(filepath)
         self.assertNotEqual(metadata[1], f'"{DUMMY_MODEL_ID_PINNED_SHA1}"')
         # Caution: check that the etag is *not* equal to the one from `test_standard_object`
@@ -117,7 +123,7 @@ class CachedDownloadTests(unittest.TestCase):
         url = hf_hub_url(
             DUMMY_MODEL_ID, filename=PYTORCH_WEIGHTS_NAME, revision=REVISION_ID_DEFAULT
         )
-        filepath = cached_download(url, force_download=True)
+        filepath = cached_download(url, force_download=True, legacy_cache_layout=True)
         metadata = filename_to_url(filepath)
         self.assertEqual(metadata, (url, f'"{DUMMY_MODEL_ID_PINNED_SHA256}"'))
 
@@ -136,7 +142,7 @@ class CachedDownloadTests(unittest.TestCase):
         )
         self.assertEqual(url, url2)
         # now let's download
-        filepath = cached_download(url, force_download=True)
+        filepath = cached_download(url, force_download=True, legacy_cache_layout=True)
         metadata = filename_to_url(filepath)
         self.assertNotEqual(metadata[1], f'"{DUMMY_MODEL_ID_PINNED_SHA1}"')
 
@@ -147,7 +153,7 @@ class CachedDownloadTests(unittest.TestCase):
             repo_type=REPO_TYPE_DATASET,
             revision=DATASET_REVISION_ID_ONE_SPECIFIC_COMMIT,
         )
-        filepath = cached_download(url, force_download=True)
+        filepath = cached_download(url, force_download=True, legacy_cache_layout=True)
         metadata = filename_to_url(filepath)
         self.assertEqual(
             metadata,

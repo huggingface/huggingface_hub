@@ -467,6 +467,7 @@ def cached_download(
     resume_download: Optional[bool] = False,
     use_auth_token: Union[bool, str, None] = None,
     local_files_only: Optional[bool] = False,
+    legacy_cache_layout: Optional[bool] = False,
 ) -> Optional[str]:  # pragma: no cover
     """
     Download from a given URL and cache it if it's not already present in the
@@ -508,6 +509,11 @@ def cached_download(
         local_files_only (`bool`, *optional*, defaults to `False`):
             If `True`, avoid downloading the file and return the path to the
             local cached file if it exists.
+        legacy_cache_layout (`bool`, *optional*, defaults to `False`):
+            Set this parameter to `True` to mention that you'd like to continue
+            the old cache layout. Putting this to `True` manually will not raise
+            any warning when using `cached_download`. We recommend using
+            `hf_hub_download` to take advantage of the new cache.
 
     Returns:
         Local path (string) of file or if networking is off, last version of
@@ -526,11 +532,13 @@ def cached_download(
 
     </Tip>
     """
-    warnings.warn(
-        "`cached_download` is the legacy way to download files from the HF hub, please"
-        " consider upgrading to `hf_hub_download`",
-        FutureWarning,
-    )
+    if not legacy_cache_layout:
+        warnings.warn(
+            "`cached_download` is the legacy way to download files from the HF hub,"
+            " please consider upgrading to `hf_hub_download`",
+            FutureWarning,
+        )
+
     if cache_dir is None:
         cache_dir = HUGGINGFACE_HUB_CACHE
     if isinstance(cache_dir, Path):
