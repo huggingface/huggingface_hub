@@ -938,6 +938,7 @@ def hf_hub_download(
             resume_download=resume_download,
             use_auth_token=use_auth_token,
             local_files_only=local_files_only,
+            legacy_cache_layout=legacy_cache_layout,
         )
 
     if cache_dir is None:
