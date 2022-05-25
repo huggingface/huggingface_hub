@@ -1,22 +1,42 @@
 import os
 from fnmatch import fnmatch
-from glob import glob
 from pathlib import Path
 from typing import Dict, List, Optional, Union
 
-from .constants import DEFAULT_REVISION, HUGGINGFACE_HUB_CACHE
-from .file_download import cached_download, hf_hub_url
+from .constants import DEFAULT_REVISION, HUGGINGFACE_HUB_CACHE, REPO_TYPES
+from .file_download import REGEX_COMMIT_HASH, hf_hub_download, repo_folder_name
 from .hf_api import HfApi, HfFolder
 from .utils import logging
 from .utils._deprecation import _deprecate_positional_args
 
 
-REPO_ID_SEPARATOR = "--"
-# ^ this substring is not allowed in repo_ids on hf.co
-# and is the canonical one we use for serialization of repo ids elsewhere.
-
-
 logger = logging.get_logger(__name__)
+
+
+def _filter_repo_files(
+    *,
+    repo_files: List[str],
+    allow_regex: Optional[Union[List[str], str]] = None,
+    ignore_regex: Optional[Union[List[str], str]] = None,
+) -> List[str]:
+    allow_regex = [allow_regex] if isinstance(allow_regex, str) else allow_regex
+    ignore_regex = [ignore_regex] if isinstance(ignore_regex, str) else ignore_regex
+    filtered_files = []
+    for repo_file in repo_files:
+        # if there's an allowlist, skip download if file does not match any regex
+        if allow_regex is not None and not any(
+            fnmatch(repo_file, r) for r in allow_regex
+        ):
+            continue
+
+        # if there's a denylist, skip download if file does matches any regex
+        if ignore_regex is not None and any(
+            fnmatch(repo_file, r) for r in ignore_regex
+        ):
+            continue
+
+        filtered_files.append(repo_file)
+    return filtered_files
 
 
 @_deprecate_positional_args
@@ -24,6 +44,7 @@ def snapshot_download(
     repo_id: str,
     *,
     revision: Optional[str] = None,
+    repo_type: Optional[str] = None,
     cache_dir: Union[str, Path, None] = None,
     library_name: Optional[str] = None,
     library_version: Optional[str] = None,
@@ -52,6 +73,9 @@ def snapshot_download(
         revision (`str`, *optional*):
             An optional Git revision id which can be a branch name, a tag, or a
             commit hash.
+        repo_type (`str`, *optional*):
+            Set to `"dataset"` or `"space"` if uploading to a dataset or space,
+            `None` or `"model"` if uploading to a model. Default is `None`.
         cache_dir (`str`, `Path`, *optional*):
             Path to the folder where cached files are stored.
         library_name (`str`, *optional*):
@@ -97,9 +121,6 @@ def snapshot_download(
 
     </Tip>
     """
-    # Note: at some point maybe this format of storage should actually replace
-    # the flat storage structure we've used so far (initially from allennlp
-    # if I remember correctly).
 
     if cache_dir is None:
         cache_dir = HUGGINGFACE_HUB_CACHE
@@ -120,122 +141,76 @@ def snapshot_download(
     else:
         token = None
 
-    # remove all `/` occurrences to correctly convert repo to directory name
-    repo_id_flattened = repo_id.replace("/", REPO_ID_SEPARATOR)
+    if repo_type is None:
+        repo_type = "model"
+    if repo_type not in REPO_TYPES:
+        raise ValueError(
+            f"Invalid repo type: {repo_type}. Accepted repo types are:"
+            f" {str(REPO_TYPES)}"
+        )
 
-    # if we have no internet connection we will look for the
-    # last modified folder in the cache
+    storage_folder = os.path.join(
+        cache_dir, repo_folder_name(repo_id=repo_id, repo_type=repo_type)
+    )
+
+    # if we have no internet connection we will look for an
+    # appropriate folder in the cache
+    # If the specified revision is a commit hash, look inside "snapshots".
+    # If the specified revision is a branch or tag, look inside "refs".
     if local_files_only:
-        # possible repos have <path/to/cache_dir>/<flatten_repo_id> prefix
-        repo_folders_prefix = os.path.join(cache_dir, repo_id_flattened)
 
-        # list all possible folders that can correspond to the repo_id
-        # and are of the format <flattened-repo-id>.<revision>.<commit-sha>
-        # now let's list all cached repos that have to be included in the revision.
-        # There are 3 cases that we have to consider.
+        if REGEX_COMMIT_HASH.match(revision):
+            commit_hash = revision
+        else:
+            # retrieve commit_hash from file
+            ref_path = os.path.join(storage_folder, "refs", revision)
+            with open(ref_path) as f:
+                commit_hash = f.read()
 
-        # 1) cached repos of format <repo_id>.{revision}.<any-hash>
-        # -> in this case {revision} has to be a branch
-        repo_folders_branch = glob(repo_folders_prefix + "." + revision + ".*")
+        snapshot_folder = os.path.join(storage_folder, "snapshots", commit_hash)
 
-        # 2) cached repos of format <repo_id>.{revision}
-        # -> in this case {revision} has to be a commit sha
-        repo_folders_commit_only = glob(repo_folders_prefix + "." + revision)
+        if os.path.exists(snapshot_folder):
+            return snapshot_folder
 
-        # 3) cached repos of format <repo_id>.<any-branch>.{revision}
-        # -> in this case {revision} also has to be a commit sha
-        repo_folders_branch_commit = glob(repo_folders_prefix + ".*." + revision)
-
-        # combine all possible fetched cached repos
-        repo_folders = (
-            repo_folders_branch + repo_folders_commit_only + repo_folders_branch_commit
+        raise ValueError(
+            "Cannot find an appropriate cached snapshot folder for the specified"
+            " revision on the local disk and outgoing traffic has been disabled. To"
+            " enable repo look-ups and downloads online, set 'local_files_only' to"
+            " False."
         )
 
-        if len(repo_folders) == 0:
-            raise ValueError(
-                "Cannot find the requested files in the cached path and outgoing"
-                " traffic has been disabled. To enable model look-ups and downloads"
-                " online, set 'local_files_only' to False."
-            )
+    # if we have internet connection we retrieve the correct folder name from the huggingface api
+    _api = HfApi()
+    repo_info = _api.repo_info(
+        repo_id=repo_id, repo_type=repo_type, revision=revision, token=token
+    )
+    filtered_repo_files = _filter_repo_files(
+        repo_files=[f.rfilename for f in repo_info.siblings],
+        allow_regex=allow_regex,
+        ignore_regex=ignore_regex,
+    )
+    commit_hash = repo_info.sha
+    snapshot_folder = os.path.join(storage_folder, "snapshots", commit_hash)
+    # if passed revision is not identical to commit_hash
+    # then revision has to be a branch name or tag name.
+    # In that case store a ref.
+    if revision != commit_hash:
+        ref_path = os.path.join(storage_folder, "refs", revision)
+        os.makedirs(os.path.dirname(ref_path), exist_ok=True)
+        with open(ref_path, "w") as f:
+            f.write(commit_hash)
 
-        # check if repo id was previously cached from a commit sha revision
-        # and passed {revision} is not a commit sha
-        # in this case snapshotting repos locally might lead to unexpected
-        # behavior the user should be warned about
+    # we pass the commit_hash to hf_hub_download
+    # so no network call happens if we already
+    # have the file locally.
 
-        # get all folders that were cached with just a sha commit revision
-        all_repo_folders_from_sha = set(glob(repo_folders_prefix + ".*")) - set(
-            glob(repo_folders_prefix + ".*.*")
-        )
-        # 1) is there any repo id that was previously cached from a commit sha?
-        has_a_sha_revision_been_cached = len(all_repo_folders_from_sha) > 0
-        # 2) is the passed {revision} is a branch
-        is_revision_a_branch = (
-            len(repo_folders_commit_only + repo_folders_branch_commit) == 0
-        )
-
-        if has_a_sha_revision_been_cached and is_revision_a_branch:
-            # -> in this case let's warn the user
-            logger.warn(
-                f"The repo {repo_id} was previously downloaded from a commit hash"
-                " revision and has created the following cached directories"
-                f" {all_repo_folders_from_sha}. In this case, trying to load a repo"
-                f" from the branch {revision} in offline mode might lead to unexpected"
-                " behavior by not taking into account the latest commits."
-            )
-
-        # find last modified folder
-        storage_folder = max(repo_folders, key=os.path.getmtime)
-
-        # get commit sha
-        repo_id_sha = storage_folder.split(".")[-1]
-        model_files = os.listdir(storage_folder)
-    else:
-        # if we have internet connection we retrieve the correct folder name from the huggingface api
-        _api = HfApi()
-        model_info = _api.model_info(repo_id=repo_id, revision=revision, token=token)
-
-        storage_folder = os.path.join(cache_dir, repo_id_flattened + "." + revision)
-
-        # if passed revision is not identical to the commit sha
-        # then revision has to be a branch name, e.g. "main"
-        # in this case make sure that the branch name is included
-        # cached storage folder name
-        if revision != model_info.sha:
-            storage_folder += f".{model_info.sha}"
-
-        repo_id_sha = model_info.sha
-        model_files = [f.rfilename for f in model_info.siblings]
-
-    allow_regex = [allow_regex] if isinstance(allow_regex, str) else allow_regex
-    ignore_regex = [ignore_regex] if isinstance(ignore_regex, str) else ignore_regex
-
-    for model_file in model_files:
-        # if there's an allowlist, skip download if file does not match any regex
-        if allow_regex is not None and not any(
-            fnmatch(model_file, r) for r in allow_regex
-        ):
-            continue
-
-        # if there's a denylist, skip download if file does matches any regex
-        if ignore_regex is not None and any(
-            fnmatch(model_file, r) for r in ignore_regex
-        ):
-            continue
-
-        url = hf_hub_url(repo_id, filename=model_file, revision=repo_id_sha)
-        relative_filepath = os.path.join(*model_file.split("/"))
-
-        # Create potential nested dir
-        nested_dirname = os.path.dirname(
-            os.path.join(storage_folder, relative_filepath)
-        )
-        os.makedirs(nested_dirname, exist_ok=True)
-
-        path = cached_download(
-            url,
-            cache_dir=storage_folder,
-            force_filename=relative_filepath,
+    for repo_file in filtered_repo_files:
+        _ = hf_hub_download(
+            repo_id,
+            filename=repo_file,
+            repo_type=repo_type,
+            revision=commit_hash,
+            cache_dir=cache_dir,
             library_name=library_name,
             library_version=library_version,
             user_agent=user_agent,
@@ -243,10 +218,6 @@ def snapshot_download(
             etag_timeout=etag_timeout,
             resume_download=resume_download,
             use_auth_token=use_auth_token,
-            local_files_only=local_files_only,
         )
 
-        if os.path.exists(path + ".lock"):
-            os.remove(path + ".lock")
-
-    return storage_folder
+    return snapshot_folder

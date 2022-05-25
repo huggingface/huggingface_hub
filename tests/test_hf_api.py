@@ -511,7 +511,9 @@ class HfApiUploadFileTest(HfApiCommonTestWithLogin):
                 user=USER,
                 repo=REPO_NAME,
             )
-            filepath = cached_download(url, force_download=True)
+            filepath = cached_download(
+                url, force_download=True, legacy_cache_layout=True
+            )
             with open(filepath) as downloaded_file:
                 content = downloaded_file.read()
             self.assertEqual(content, self.tmp_file_content)
@@ -538,7 +540,9 @@ class HfApiUploadFileTest(HfApiCommonTestWithLogin):
                 user=USER,
                 repo=REPO_NAME,
             )
-            filepath = cached_download(url, force_download=True)
+            filepath = cached_download(
+                url, force_download=True, legacy_cache_layout=True
+            )
             with open(filepath) as downloaded_file:
                 content = downloaded_file.read()
             self.assertEqual(content, self.tmp_file_content)
@@ -565,7 +569,9 @@ class HfApiUploadFileTest(HfApiCommonTestWithLogin):
                 user=USER,
                 repo=REPO_NAME,
             )
-            filepath = cached_download(url, force_download=True)
+            filepath = cached_download(
+                url, force_download=True, legacy_cache_layout=True
+            )
             with open(filepath) as downloaded_file:
                 content = downloaded_file.read()
             self.assertEqual(content, filecontent.getvalue().decode())
@@ -648,7 +654,9 @@ class HfApiUploadFileTest(HfApiCommonTestWithLogin):
                 user=USER,
                 repo=REPO_NAME,
             )
-            filepath = cached_download(url, force_download=True)
+            filepath = cached_download(
+                url, force_download=True, legacy_cache_layout=True
+            )
             with open(filepath) as downloaded_file:
                 content = downloaded_file.read()
             self.assertEqual(content, self.tmp_file_content)

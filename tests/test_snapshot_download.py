@@ -275,14 +275,6 @@ class SnapshotDownloadTests(unittest.TestCase):
                 cache_dir=tmpdirname,
             )
 
-            # now load from cache and make sure warning to be raised
-            with self.assertWarns(Warning):
-                snapshot_download(
-                    f"{USER}/{REPO_NAME}",
-                    cache_dir=tmpdirname,
-                    local_files_only=True,
-                )
-
         # cache multiple commits and make sure correct commit is taken
         with tempfile.TemporaryDirectory() as tmpdirname:
             # first download folder to cache it

@@ -3,9 +3,11 @@ import fnmatch
 import io
 import json
 import os
+import re
 import sys
 import tempfile
 import time
+import warnings
 from contextlib import contextmanager
 from functools import partial
 from hashlib import sha256
@@ -23,7 +25,10 @@ from . import __version__
 from .constants import (
     DEFAULT_REVISION,
     HUGGINGFACE_CO_URL_TEMPLATE,
+    HUGGINGFACE_HEADER_X_LINKED_ETAG,
+    HUGGINGFACE_HEADER_X_REPO_COMMIT,
     HUGGINGFACE_HUB_CACHE,
+    REPO_ID_SEPARATOR,
     REPO_TYPES,
     REPO_TYPES_URL_PREFIXES,
 )
@@ -142,6 +147,9 @@ def get_fastcore_version():
     return _fastcore_version
 
 
+REGEX_COMMIT_HASH = re.compile(r"^[0-9a-f]{40}$")
+
+
 @_deprecate_positional_args
 def hf_hub_url(
     repo_id: str,
@@ -255,11 +263,31 @@ def url_to_filename(url: str, etag: Optional[str] = None) -> str:
     return filename
 
 
-def filename_to_url(filename, cache_dir=None) -> Tuple[str, str]:
+def filename_to_url(
+    filename,
+    cache_dir: Optional[str] = None,
+    legacy_cache_layout: Optional[bool] = False,
+) -> Tuple[str, str]:
     """
     Return the url and etag (which may be `None`) stored for `filename`. Raise
     `EnvironmentError` if `filename` or its stored metadata do not exist.
+
+    Args:
+        filename (`str`):
+            The name of the file
+        cache_dir (`str`, *optional*):
+            The cache directory to use instead of the default one.
+        legacy_cache_layout (`bool`, *optional*, defaults to `False`):
+            If `True`, uses the legacy file cache layout i.e. just call `hf_hub_url`
+            then `cached_download`. This is deprecated as the new cache layout is
+            more powerful.
     """
+    if not legacy_cache_layout:
+        warnings.warn(
+            "`filename_to_url` uses the legacy way cache file layout",
+            FutureWarning,
+        )
+
     if cache_dir is None:
         cache_dir = HUGGINGFACE_HUB_CACHE
     if isinstance(cache_dir, Path):
@@ -455,6 +483,7 @@ def cached_download(
     resume_download: Optional[bool] = False,
     use_auth_token: Union[bool, str, None] = None,
     local_files_only: Optional[bool] = False,
+    legacy_cache_layout: Optional[bool] = False,
 ) -> Optional[str]:  # pragma: no cover
     """
     Download from a given URL and cache it if it's not already present in the
@@ -496,6 +525,11 @@ def cached_download(
         local_files_only (`bool`, *optional*, defaults to `False`):
             If `True`, avoid downloading the file and return the path to the
             local cached file if it exists.
+        legacy_cache_layout (`bool`, *optional*, defaults to `False`):
+            Set this parameter to `True` to mention that you'd like to continue
+            the old cache layout. Putting this to `True` manually will not raise
+            any warning when using `cached_download`. We recommend using
+            `hf_hub_download` to take advantage of the new cache.
 
     Returns:
         Local path (string) of file or if networking is off, last version of
@@ -514,6 +548,13 @@ def cached_download(
 
     </Tip>
     """
+    if not legacy_cache_layout:
+        warnings.warn(
+            "`cached_download` is the legacy way to download files from the HF hub,"
+            " please consider upgrading to `hf_hub_download`",
+            FutureWarning,
+        )
+
     if cache_dir is None:
         cache_dir = HUGGINGFACE_HUB_CACHE
     if isinstance(cache_dir, Path):
@@ -689,6 +730,66 @@ def cached_download(
     return cache_path
 
 
+def _normalize_etag(etag: str) -> str:
+    """Normalize ETag HTTP header, so it can be used to create nice filepaths.
+
+    The HTTP spec allows two forms of ETag:
+      ETag: W/"<etag_value>"
+      ETag: "<etag_value>"
+
+    The hf.co hub guarantees to only send the second form.
+
+    Args:
+        etag (`str`): HTTP header
+
+    Returns:
+        `str`: string that can be used as a nice directory name.
+    """
+    return etag.strip('"')
+
+
+def _create_relative_symlink(src: str, dst: str) -> None:
+    """Create a symbolic link named dst pointing to src as a relative path to dst.
+
+    The relative part is mostly because it seems more elegant to the author.
+
+    The result layout looks something like
+        └── [ 128]  snapshots
+            ├── [ 128]  2439f60ef33a0d46d85da5001d52aeda5b00ce9f
+            │   ├── [  52]  README.md -> ../../blobs/d7edf6bd2a681fb0175f7735299831ee1b22b812
+            │   └── [  76]  pytorch_model.bin -> ../../blobs/403450e234d65943a7dcf7e05a771ce3c92faa84dd07db4ac20f592037a1e4bd
+    """
+    relative_src = os.path.relpath(src, start=os.path.dirname(dst))
+    try:
+        os.remove(dst)
+    except OSError:
+        pass
+    try:
+        os.symlink(relative_src, dst)
+    except OSError:
+        # Likely running on Windows
+        if os.name == "nt":
+            raise OSError(
+                "Windows requires Developer Mode to be activated, or to run Python as "
+                "an administrator, in order to create symlinks.\nIn order to "
+                "activate Developer Mode, see this article: "
+                "https://docs.microsoft.com/en-us/windows/apps/get-started/enable-your-device-for-development"
+            )
+        else:
+            raise
+
+
+def repo_folder_name(*, repo_id: str, repo_type: str) -> str:
+    """Return a serialized version of a hf.co repo name and type, safe for disk storage
+    as a single non-nested folder.
+
+    Example: models--julien-c--EsperBERTo-small
+    """
+    # remove all `/` occurrences to correctly convert repo to directory name
+    parts = [f"{repo_type}s", *repo_id.split("/")]
+    return REPO_ID_SEPARATOR.join(parts)
+
+
 @_deprecate_positional_args
 def hf_hub_download(
     repo_id: str,
@@ -708,8 +809,35 @@ def hf_hub_download(
     resume_download: Optional[bool] = False,
     use_auth_token: Union[bool, str, None] = None,
     local_files_only: Optional[bool] = False,
+    legacy_cache_layout: Optional[bool] = False,
 ):
     """Download a given file if it's not already present in the local cache.
+
+    The new cache file layout looks like this:
+    - The cache directory contains one subfolder per repo_id (namespaced by repo type)
+    - inside each repo folder:
+        - refs is a list of the latest known revision => commit_hash pairs
+        - blobs contains the actual file blobs (identified by their git-sha or sha256, depending on
+          whether they're LFS files or not)
+        - snapshots contains one subfolder per commit, each "commit" contains the subset of the files
+          that have been resolved at that particular commit. Each filename is a symlink to the blob
+          at that particular commit.
+
+    [  96]  .
+    └── [ 160]  models--julien-c--EsperBERTo-small
+        ├── [ 160]  blobs
+        │   ├── [321M]  403450e234d65943a7dcf7e05a771ce3c92faa84dd07db4ac20f592037a1e4bd
+        │   ├── [ 398]  7cb18dc9bafbfcf74629a4b760af1b160957a83e
+        │   └── [1.4K]  d7edf6bd2a681fb0175f7735299831ee1b22b812
+        ├── [  96]  refs
+        │   └── [  40]  main
+        └── [ 128]  snapshots
+            ├── [ 128]  2439f60ef33a0d46d85da5001d52aeda5b00ce9f
+            │   ├── [  52]  README.md -> ../../blobs/d7edf6bd2a681fb0175f7735299831ee1b22b812
+            │   └── [  76]  pytorch_model.bin -> ../../blobs/403450e234d65943a7dcf7e05a771ce3c92faa84dd07db4ac20f592037a1e4bd
+            └── [ 128]  bbc77c8132af1cc5cf678da3f1ddf2de43606d48
+                ├── [  52]  README.md -> ../../blobs/7cb18dc9bafbfcf74629a4b760af1b160957a83e
+                └── [  76]  pytorch_model.bin -> ../../blobs/403450e234d65943a7dcf7e05a771ce3c92faa84dd07db4ac20f592037a1e4bd
 
     Args:
         repo_id (`str`):
@@ -735,8 +863,6 @@ def hf_hub_download(
         force_download (`bool`, *optional*, defaults to `False`):
             Whether the file should be downloaded even if it already exists in
             the local cache.
-        force_filename (`str`, *optional*):
-            Use this name instead of a generated file name.
         proxies (`dict`, *optional*):
             Dictionary mapping protocol to the URL of the proxy passed to
             `requests.request`.
@@ -753,6 +879,10 @@ def hf_hub_download(
         local_files_only (`bool`, *optional*, defaults to `False`):
             If `True`, avoid downloading the file and return the path to the
             local cached file if it exists.
+        legacy_cache_layout (`bool`, *optional*, defaults to `False`):
+            If `True`, uses the legacy file cache layout i.e. just call [`hf_hub_url`]
+            then `cached_download`. This is deprecated as the new cache layout is
+            more powerful.
 
     Returns:
         Local path (string) of file or if networking is off, last version of
@@ -771,21 +901,271 @@ def hf_hub_download(
 
     </Tip>
     """
-    url = hf_hub_url(
-        repo_id, filename, subfolder=subfolder, repo_type=repo_type, revision=revision
+    if force_filename is not None:
+        warnings.warn(
+            "The `force_filename` parameter is deprecated as a new caching system, "
+            "which keeps the filenames as they are on the Hub, is now in place.",
+            FutureWarning,
+        )
+        legacy_cache_layout = True
+
+    if legacy_cache_layout:
+        url = hf_hub_url(
+            repo_id,
+            filename,
+            subfolder=subfolder,
+            repo_type=repo_type,
+            revision=revision,
+        )
+
+        return cached_download(
+            url,
+            library_name=library_name,
+            library_version=library_version,
+            cache_dir=cache_dir,
+            user_agent=user_agent,
+            force_download=force_download,
+            force_filename=force_filename,
+            proxies=proxies,
+            etag_timeout=etag_timeout,
+            resume_download=resume_download,
+            use_auth_token=use_auth_token,
+            local_files_only=local_files_only,
+            legacy_cache_layout=legacy_cache_layout,
+        )
+
+    if cache_dir is None:
+        cache_dir = HUGGINGFACE_HUB_CACHE
+    if revision is None:
+        revision = DEFAULT_REVISION
+    if isinstance(cache_dir, Path):
+        cache_dir = str(cache_dir)
+
+    if subfolder is not None:
+        # This is used to create a URL, and not a local path, hence the forward slash.
+        filename = f"{subfolder}/{filename}"
+
+    if repo_type is None:
+        repo_type = "model"
+    if repo_type not in REPO_TYPES:
+        raise ValueError(
+            f"Invalid repo type: {repo_type}. Accepted repo types are:"
+            f" {str(REPO_TYPES)}"
+        )
+
+    storage_folder = os.path.join(
+        cache_dir, repo_folder_name(repo_id=repo_id, repo_type=repo_type)
+    )
+    os.makedirs(storage_folder, exist_ok=True)
+
+    # cross platform transcription of filename, to be used as a local file path.
+    relative_filename = os.path.join(*filename.split("/"))
+
+    # if user provides a commit_hash and they already have the file on disk,
+    # shortcut everything.
+    if REGEX_COMMIT_HASH.match(revision):
+        pointer_path = os.path.join(
+            storage_folder, "snapshots", revision, relative_filename
+        )
+        if os.path.exists(pointer_path):
+            return pointer_path
+
+    url = hf_hub_url(repo_id, filename, repo_type=repo_type, revision=revision)
+
+    headers = {
+        "user-agent": http_user_agent(
+            library_name=library_name,
+            library_version=library_version,
+            user_agent=user_agent,
+        )
+    }
+    if isinstance(use_auth_token, str):
+        headers["authorization"] = f"Bearer {use_auth_token}"
+    elif use_auth_token:
+        token = HfFolder.get_token()
+        if token is None:
+            raise EnvironmentError(
+                "You specified use_auth_token=True, but a huggingface token was not"
+                " found."
+            )
+        headers["authorization"] = f"Bearer {token}"
+
+    url_to_download = url
+    etag = None
+    commit_hash = None
+    if not local_files_only:
+        try:
+            r = _request_with_retry(
+                method="HEAD",
+                url=url,
+                headers=headers,
+                allow_redirects=False,
+                proxies=proxies,
+                timeout=etag_timeout,
+            )
+            r.raise_for_status()
+            commit_hash = r.headers[HUGGINGFACE_HEADER_X_REPO_COMMIT]
+            if commit_hash is None:
+                raise OSError(
+                    "Distant resource does not seem to be on huggingface.co (missing"
+                    " commit header)."
+                )
+            etag = r.headers.get(HUGGINGFACE_HEADER_X_LINKED_ETAG) or r.headers.get(
+                "ETag"
+            )
+            # We favor a custom header indicating the etag of the linked resource, and
+            # we fallback to the regular etag header.
+            # If we don't have any of those, raise an error.
+            if etag is None:
+                raise OSError(
+                    "Distant resource does not have an ETag, we won't be able to"
+                    " reliably ensure reproducibility."
+                )
+            etag = _normalize_etag(etag)
+            # In case of a redirect,
+            # save an extra redirect on the request.get call,
+            # and ensure we download the exact atomic version even if it changed
+            # between the HEAD and the GET (unlikely, but hey).
+            if 300 <= r.status_code <= 399:
+                url_to_download = r.headers["Location"]
+        except (requests.exceptions.SSLError, requests.exceptions.ProxyError):
+            # Actually raise for those subclasses of ConnectionError
+            raise
+        except (
+            requests.exceptions.ConnectionError,
+            requests.exceptions.Timeout,
+            OfflineModeIsEnabled,
+        ):
+            # Otherwise, our Internet connection is down.
+            # etag is None
+            pass
+
+    # etag is None == we don't have a connection or we passed local_files_only.
+    # try to get the last downloaded one from the specified revision.
+    # If the specified revision is a commit hash, look inside "snapshots".
+    # If the specified revision is a branch or tag, look inside "refs".
+    if etag is None:
+        # In those cases, we cannot force download.
+        if force_download:
+            raise ValueError(
+                "We have no connection or you passed local_files_only, so"
+                " force_download is not an accepted option."
+            )
+        commit_hash = revision
+        if not REGEX_COMMIT_HASH.match(revision):
+            ref_path = os.path.join(storage_folder, "refs", revision)
+            with open(ref_path) as f:
+                commit_hash = f.read()
+
+        pointer_path = os.path.join(
+            storage_folder, "snapshots", commit_hash, relative_filename
+        )
+        if os.path.exists(pointer_path):
+            return pointer_path
+
+        # If we couldn't find an appropriate file on disk,
+        # raise an error.
+        # If files cannot be found and local_files_only=True,
+        # the models might've been found if local_files_only=False
+        # Notify the user about that
+        if local_files_only:
+            raise ValueError(
+                "Cannot find the requested files in the disk cache and"
+                " outgoing traffic has been disabled. To enable hf.co look-ups"
+                " and downloads online, set 'local_files_only' to False."
+            )
+        else:
+            raise ValueError(
+                "Connection error, and we cannot find the requested files in"
+                " the disk cache. Please try again or make sure your Internet"
+                " connection is on."
+            )
+
+    # From now on, etag and commit_hash are not None.
+    blob_path = os.path.join(storage_folder, "blobs", etag)
+    pointer_path = os.path.join(
+        storage_folder, "snapshots", commit_hash, relative_filename
     )
 
-    return cached_download(
-        url,
-        library_name=library_name,
-        library_version=library_version,
-        cache_dir=cache_dir,
-        user_agent=user_agent,
-        force_download=force_download,
-        force_filename=force_filename,
-        proxies=proxies,
-        etag_timeout=etag_timeout,
-        resume_download=resume_download,
-        use_auth_token=use_auth_token,
-        local_files_only=local_files_only,
-    )
+    os.makedirs(os.path.dirname(blob_path), exist_ok=True)
+    os.makedirs(os.path.dirname(pointer_path), exist_ok=True)
+    # if passed revision is not identical to commit_hash
+    # then revision has to be a branch name or tag name.
+    # In that case store a ref.
+    if revision != commit_hash:
+        ref_path = os.path.join(storage_folder, "refs", revision)
+        os.makedirs(os.path.dirname(ref_path), exist_ok=True)
+        with open(ref_path, "w") as f:
+            f.write(commit_hash)
+
+    if os.path.exists(pointer_path) and not force_download:
+        return pointer_path
+
+    if os.path.exists(blob_path) and not force_download:
+        # we have the blob already, but not the pointer
+        logger.info("creating pointer to %s from %s", blob_path, pointer_path)
+        _create_relative_symlink(blob_path, pointer_path)
+        return pointer_path
+
+    # Prevent parallel downloads of the same file with a lock.
+    lock_path = blob_path + ".lock"
+
+    # Some Windows versions do not allow for paths longer than 255 characters.
+    # In this case, we must specify it is an extended path by using the "\\?\" prefix.
+    if os.name == "nt" and len(os.path.abspath(lock_path)) > 255:
+        lock_path = "\\\\?\\" + os.path.abspath(lock_path)
+
+    if os.name == "nt" and len(os.path.abspath(blob_path)) > 255:
+        blob_path = "\\\\?\\" + os.path.abspath(blob_path)
+
+    with FileLock(lock_path):
+
+        # If the download just completed while the lock was activated.
+        if os.path.exists(pointer_path) and not force_download:
+            # Even if returning early like here, the lock will be released.
+            return pointer_path
+
+        if resume_download:
+            incomplete_path = blob_path + ".incomplete"
+
+            @contextmanager
+            def _resumable_file_manager() -> "io.BufferedWriter":
+                with open(incomplete_path, "ab") as f:
+                    yield f
+
+            temp_file_manager = _resumable_file_manager
+            if os.path.exists(incomplete_path):
+                resume_size = os.stat(incomplete_path).st_size
+            else:
+                resume_size = 0
+        else:
+            temp_file_manager = partial(
+                tempfile.NamedTemporaryFile, mode="wb", dir=cache_dir, delete=False
+            )
+            resume_size = 0
+
+        # Download to temporary file, then copy to cache dir once finished.
+        # Otherwise you get corrupt cache entries if the download gets interrupted.
+        with temp_file_manager() as temp_file:
+            logger.info("downloading %s to %s", url, temp_file.name)
+
+            http_get(
+                url_to_download,
+                temp_file,
+                proxies=proxies,
+                resume_size=resume_size,
+                headers=headers,
+            )
+
+        logger.info("storing %s in cache at %s", url, blob_path)
+        os.replace(temp_file.name, blob_path)
+
+        logger.info("creating pointer to %s from %s", blob_path, pointer_path)
+        _create_relative_symlink(blob_path, pointer_path)
+
+    try:
+        os.remove(lock_path)
+    except OSError:
+        pass
+
+    return pointer_path
