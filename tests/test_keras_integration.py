@@ -228,6 +228,22 @@ class HubKerasSequentialTest(HubMixingTestKeras):
         self.assertIn("history.json", files)
         self.assertEqual(len(files), 7)
 
+    def test_save_model_card_history_removal(self):
+        REPO_NAME = repo_name("save")
+        model = self.model_init()
+        model = self.model_fit(model)
+
+        save_pretrained_keras(
+            model,
+            f"{WORKING_REPO_DIR}/{REPO_NAME}",
+        )
+
+        files = os.listdir(f"{WORKING_REPO_DIR}/{REPO_NAME}")
+        with open(f"{WORKING_REPO_DIR}/{REPO_NAME}/README.md", "r") as file:
+            data = file.read()
+        self.assertNotIn(data, "Training Metrics")
+        self.assertIn("history.json", files)
+
     def test_save_pretrained_optimizer_state(self):
         REPO_NAME = repo_name("save")
         model = self.model_init()
