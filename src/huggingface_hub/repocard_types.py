@@ -86,9 +86,9 @@ class SingleResultDataset:
 
 @dataclass
 class SingleResult:
-    metrics: "List[SingleMetric]"
     task: "SingleResultTask"
     dataset: "Optional[SingleResultDataset]"
+    metrics: "List[SingleMetric]"
     """
     This will switch to required at some point. in any case, we need them to
     link to PWC
