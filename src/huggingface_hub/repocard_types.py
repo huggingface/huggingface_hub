@@ -55,13 +55,27 @@ class SingleResultDataset:
 
     name: str
     """
-    Example: Common Voice zh-CN Also encode config params into the name if
-    relevant.
+    Example: Common Voice (French). A pretty name for the dataset.
     """
 
     type: str
     """
     Example: common_voice. Use dataset id from https://hf.co/datasets
+    """
+
+    config: Optional[str] = None
+    """
+    Example: fr. The name of the dataset configuration used in `load_dataset()`
+    """
+
+    split: Optional[str] = None
+    """
+    Example: test.
+    """
+
+    revision: Optional[str] = None
+    """
+    Example: 5503434ddd753f426f4b38109466949a1217c2bb.
     """
 
     args: Any = None
