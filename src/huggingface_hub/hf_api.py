@@ -1929,6 +1929,7 @@ class HfApi:
             commit_description=commit_description,
         )
         commit_url = f"{self.endpoint}/api/{repo_type}s/{repo_id}/commit/{revision}"
+
         commit_resp = requests.post(
             url=commit_url,
             headers=headers,

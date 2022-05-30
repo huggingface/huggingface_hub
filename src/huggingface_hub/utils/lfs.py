@@ -3,14 +3,15 @@ import io
 from dataclasses import dataclass
 from functools import partial
 from hashlib import sha256
-from huggingface_hub.utils import logging
 from math import ceil
 from os.path import getsize
 from typing import BinaryIO, Dict, Iterable, List, Literal, Optional, TypedDict
 
 import requests
-from requests.auth import HTTPBasicAuth
 from huggingface_hub.constants import ENDPOINT, REPO_TYPES_URL_PREFIXES
+from huggingface_hub.utils import logging
+from requests.auth import HTTPBasicAuth
+
 
 logger = logging.get_logger(__name__)
 
@@ -182,8 +183,8 @@ def upload_lfs_files(
             if upload_action is None:
                 # The file was already uploaded
                 logger.debug(
-                    f"Content of file {file.remote_path} is already present upstream - skipping"
-                    " upload"
+                    f"Content of file {file.remote_path} is already present upstream -"
+                    " skipping upload"
                 )
                 continue
 
