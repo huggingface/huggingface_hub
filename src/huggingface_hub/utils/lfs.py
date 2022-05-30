@@ -3,6 +3,7 @@ import io
 from dataclasses import dataclass
 from functools import partial
 from hashlib import sha256
+from huggingface_hub.utils import logging
 from math import ceil
 from os.path import getsize
 from typing import BinaryIO, Dict, Iterable, List, Literal, Optional, TypedDict
@@ -10,6 +11,8 @@ from typing import BinaryIO, Dict, Iterable, List, Literal, Optional, TypedDict
 import requests
 from requests.auth import HTTPBasicAuth
 from huggingface_hub.constants import ENDPOINT, REPO_TYPES_URL_PREFIXES
+
+logger = logging.get_logger(__name__)
 
 
 UploadMode = Literal["lfs", "regular"]
@@ -178,10 +181,15 @@ def upload_lfs_files(
             upload_action = obj.get("actions", {}).get("upload", None)
             if upload_action is None:
                 # The file was already uploaded
+                logger.debug(
+                    f"Content of file {file.remote_path} is already present upstream - skipping"
+                    " upload"
+                )
                 continue
 
             chunk_size = upload_action.get("header", {}).get("chunk_size", None)
             if chunk_size is not None:
+                logger.debug(f"Starting multi-part upload for file {file.remote_path}")
                 if isinstance(chunk_size, str):
                     chunk_size = int(chunk_size, 10)
                 else:
@@ -209,6 +217,10 @@ def upload_lfs_files(
                 }
                 with open(file.local_path, "rb") as data:
                     for idx, part_url in enumerate(parts.values()):
+                        logger.debug(
+                            f"{file.remote_path}: Uploadig part {idx} of {len(parts)}"
+                        )
+
                         part_res = requests.put(part_url, data=data.read(chunk_size))
                         part_res.raise_for_status()
                         completion_body["parts"][idx]["etag"] = part_res.headers.get(
@@ -219,9 +231,12 @@ def upload_lfs_files(
                 )
                 completion_res.raise_for_status()
             else:
-                with open(file.local_path) as data:
+                logger.debug(f"Starting single-part upload for file {file.remote_path}")
+
+                with open(file.local_path, "rb") as data:
                     upload_res = requests.put(upload_action["href"], data=data)
                 upload_res.raise_for_status()
+            logger.debug(f"{file.remote_path}: Upload successful")
 
     except KeyError as err:
         raise ValueError("Malformed response from LFS batch endpoint") from err

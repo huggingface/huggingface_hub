@@ -1906,6 +1906,11 @@ class HfApi:
             revision=revision,
             endpoint=self.endpoint,
         )
+        num_lfs_files = len([file for file in files if file.upload_mode == "lfs"])
+        logger.debug(
+            f"{num_lfs_files} out of {len(files)} files will be uploaded with git LFS"
+            " protocol"
+        )
         upload_lfs_files(
             files=files,
             repo_type=repo_type,
@@ -1913,6 +1918,9 @@ class HfApi:
             token=token,
             revision=revision,
             endpoint=self.endpoint,
+        )
+        logger.debug(
+            f"Successfully uploaded {num_lfs_files} files with git LFS protocol"
         )
 
         commit_payload = prepare_commit_payload(
@@ -1958,6 +1966,9 @@ class HfApi:
                         ).replace(os.sep, "/"),
                     )
                 )
+
+        logger.debug(f"About to upload / commit {len(files)} files to the Hub")
+
         return self.commit_files(
             repo_type=repo_type,
             repo_id=repo_id,
