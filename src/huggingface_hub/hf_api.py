@@ -1148,6 +1148,34 @@ class HfApi:
         d = r.json()
         return [MetricInfo(**x) for x in d]
 
+    def list_spaces(self, space_sdk: Optional[str] = None) -> List[SpaceInfo]:
+        """
+        Get the public list of all Spaces on huggingface.co
+
+        If no SDK is specified, will return all Spaces.
+
+        Args:
+            space_sdk (`str`, *optional*): Choice of SDK to filter for. Can be
+                "streamlit", "gradio", or "static".
+
+        Returns:
+            `List[SpaceInfo]`: a list of [`SpaceInfo`] objects
+        """
+        if space_sdk is None:
+            path = f"{self.endpoint}/api/spaces"
+        else:
+            if space_sdk not in SPACES_SDK_TYPES:
+                raise ValueError(
+                    f"Invalid SDK type {space_sdk}. Has to be one of"
+                    f" {SPACES_SDK_TYPES}."
+                )
+            path = f"{self.endpoint}/api/spaces?filter={space_sdk}"
+        params = {}
+        r = requests.get(path, params=params)
+        r.raise_for_status()
+        d = r.json()
+        return [SpaceInfo(**x) for x in d]
+
     @_deprecate_positional_args
     def model_info(
         self,
