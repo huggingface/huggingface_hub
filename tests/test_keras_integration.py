@@ -238,12 +238,15 @@ class HubKerasSequentialTest(HubMixingTestKeras):
             f"{WORKING_REPO_DIR}/{REPO_NAME}",
         )
 
+        # Check the history is saved as a json in the repository.
         files = os.listdir(f"{WORKING_REPO_DIR}/{REPO_NAME}")
+        self.assertIn("history.json", files)
+        
+        # Check that there is no "Training Metrics" section in the model card.
+        # This was done in an older version.
         with open(f"{WORKING_REPO_DIR}/{REPO_NAME}/README.md", "r") as file:
             data = file.read()
         self.assertNotIn(data, "Training Metrics")
-        self.assertIn("history.json", files)
-
     def test_save_pretrained_optimizer_state(self):
         REPO_NAME = repo_name("save")
         model = self.model_init()
