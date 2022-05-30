@@ -1929,6 +1929,45 @@ class HfApi:
         commit_resp.raise_for_status()
         return
 
+    def commit_folder(
+        self,
+        *,
+        repo_id: str,
+        folder_path: str,
+        path_in_repo: str,
+        commit_summary: str,
+        commit_description: Optional[str] = None,
+        token: Optional[str] = None,
+        repo_type: Optional[str] = None,
+        revision: Optional[str] = None,
+    ):
+        folder_path = os.path.normpath(os.path.expanduser(folder_path))
+        if not os.path.isdir(folder_path):
+            raise ValueError(f"Provided path: '{folder_path}' is not a directory")
+
+        files: List[FileUploadInput] = []
+        for dirpath, _, filenames in os.walk(folder_path):
+            for filename in filenames:
+                abs_path = os.path.join(dirpath, filename)
+                rel_path = os.path.relpath(abs_path, folder_path)
+                files.append(
+                    FileUploadInput(
+                        local_path=abs_path,
+                        remote_path=os.path.normpath(
+                            os.path.join(path_in_repo, rel_path)
+                        ).replace(os.sep, "/"),
+                    )
+                )
+        return self.commit_files(
+            repo_type=repo_type,
+            repo_id=repo_id,
+            files=files,
+            commit_summary=commit_summary,
+            commit_description=commit_description,
+            token=token,
+            revision=revision,
+        )
+
     @_deprecate_positional_args
     def delete_file(
         self,
