@@ -22,10 +22,17 @@ from os.path import expanduser
 from typing import IO, Dict, Iterable, List, Optional, Tuple, Union
 
 import requests
+from huggingface_hub.utils.lfs import (
+    FileUploadInput,
+    prepare_commit_payload,
+    prepare_file_upload,
+    upload_lfs_files,
+)
 from requests.exceptions import HTTPError
 
 from .constants import (
     ENDPOINT,
+    REPO_TYPE_MODEL,
     REPO_TYPES,
     REPO_TYPES_MAPPING,
     REPO_TYPES_URL_PREFIXES,
@@ -1840,7 +1847,7 @@ class HfApi:
                 " passed a fileobj, make sure you've opened the file in binary mode."
             )
 
-        if repo_type in REPO_TYPES_URL_PREFIXES:
+        if repo_type is not None and repo_type in REPO_TYPES_URL_PREFIXES:
             repo_id = REPO_TYPES_URL_PREFIXES[repo_type] + repo_id
 
         revision = revision if revision is not None else "main"
@@ -1869,6 +1876,58 @@ class HfApi:
 
         d = r.json()
         return d["url"]
+
+    def commit_files(
+        self,
+        *,
+        repo_id: str,
+        files: Iterable[FileUploadInput],
+        commit_summary: str,
+        commit_description: Optional[str] = None,
+        token: Optional[str] = None,
+        repo_type: Optional[str] = None,
+        revision: Optional[str] = None,
+    ):
+        commit_description = (
+            commit_description if commit_description is not None else ""
+        )
+        repo_type = repo_type if repo_type is not None else REPO_TYPE_MODEL
+        if repo_type not in REPO_TYPES:
+            raise ValueError(f"Invalid repo type, must be one of {REPO_TYPES}")
+        token, name = self._validate_or_retrieve_token(token)
+        revision = revision if revision is not None else "main"
+        headers = {"Authorization": f"Bearer {token}"}
+
+        files = prepare_file_upload(
+            files=files,
+            repo_type=repo_type,
+            repo_id=repo_id,
+            token=token,
+            revision=revision,
+            endpoint=self.endpoint,
+        )
+        upload_lfs_files(
+            files=files,
+            repo_type=repo_type,
+            repo_id=repo_id,
+            token=token,
+            revision=revision,
+            endpoint=self.endpoint,
+        )
+
+        commit_payload = prepare_commit_payload(
+            files=files,
+            commit_summary=commit_summary,
+            commit_description=commit_description,
+        )
+        commit_url = f"{self.endpoint}/api/{repo_type}s/{repo_id}/commit/{revision}"
+        commit_resp = requests.post(
+            url=commit_url,
+            headers=headers,
+            json=commit_payload,
+        )
+        commit_resp.raise_for_status()
+        return
 
     @_deprecate_positional_args
     def delete_file(
