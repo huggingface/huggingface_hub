@@ -2132,10 +2132,12 @@ list_metrics = api.list_metrics
 get_model_tags = api.get_model_tags
 get_dataset_tags = api.get_dataset_tags
 
+create_commit = api.create_commit
 create_repo = api.create_repo
 delete_repo = api.delete_repo
 update_repo_visibility = api.update_repo_visibility
 move_repo = api.move_repo
 upload_file = api.upload_file
+upload_folder=api.upload_folder
 delete_file = api.delete_file
 get_full_repo_name = api.get_full_repo_name
