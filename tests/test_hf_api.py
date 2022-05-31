@@ -655,11 +655,11 @@ class CommitApiTest(HfApiCommonTestWithLogin):
         self.assertEqual(repo_name_with_no_org, "org/model")
 
     @retry_endpoint
-    def test_commit_folder(self):
+    def test_upload_folder(self):
         REPO_NAME = repo_name("commit_folder")
         self._api.create_repo(token=self._token, repo_id=REPO_NAME)
         try:
-            self._api.commit_folder(
+            self._api.upload_folder(
                 folder_path=self.tmp_dir,
                 path_in_repo="temp/dir",
                 repo_id=f"{USER}/{REPO_NAME}",

@@ -1910,7 +1910,7 @@ class HfApi:
             )
         )
 
-    def commit_folder(
+    def upload_folder(
         self,
         *,
         repo_id: str,
