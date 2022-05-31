@@ -2138,6 +2138,6 @@ delete_repo = api.delete_repo
 update_repo_visibility = api.update_repo_visibility
 move_repo = api.move_repo
 upload_file = api.upload_file
-upload_folder=api.upload_folder
+upload_folder = api.upload_folder
 delete_file = api.delete_file
 get_full_repo_name = api.get_full_repo_name

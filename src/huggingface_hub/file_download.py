@@ -22,7 +22,14 @@ from filelock import FileLock
 from huggingface_hub import constants
 
 from . import __version__
-from .constants import HUGGINGFACE_HUB_CACHE
+from .constants import (
+    DEFAULT_REVISION,
+    HUGGINGFACE_HEADER_X_LINKED_ETAG,
+    HUGGINGFACE_HEADER_X_REPO_COMMIT,
+    HUGGINGFACE_HUB_CACHE,
+    REPO_ID_SEPARATOR,
+    REPO_TYPES,
+)
 from .hf_api import HfFolder
 from .utils import logging
 from .utils._deprecation import _deprecate_positional_args
@@ -138,7 +145,9 @@ def is_fastcore_available():
 def get_fastcore_version():
     return _fastcore_version
 
+
 REGEX_COMMIT_HASH = re.compile(r"^[0-9a-f]{40}$")
+
 
 def url_to_filename(url: str, etag: Optional[str] = None) -> str:
     """Generate a local filename from a url.
