@@ -1837,10 +1837,6 @@ class HfApi:
                 `"main"` branch.
             identical_ok (`bool`, *optional*, defaults to `True`):
                 DEPRECATED - does not do anything
-                When set to false, will raise an [HTTPError](
-                https://2.python-requests.org/en/master/api/#requests.HTTPError)
-                when the file you're trying to upload already exists on the hub
-                and its content did not change.
             commmit_summary (`str`, *optional*):
                 The summary or title of the generated commit
             commit_description (`str` *optional*)

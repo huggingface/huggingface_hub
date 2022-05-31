@@ -122,6 +122,7 @@ __getattr__, __dir__, __all__ = _attach(
     submodules=[],
     submod_attrs={
         "commands.user": ["notebook_login"],
+        "commit_api": ["CommitOperationAdd", "CommitOperationDelete"],
         "constants": [
             "CONFIG_NAME",
             "FLAX_WEIGHTS_NAME",
