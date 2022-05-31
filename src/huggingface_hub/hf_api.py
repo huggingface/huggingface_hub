@@ -48,6 +48,7 @@ from .utils.endpoint_helpers import (
     ModelFilter,
     ModelTags,
     _filter_emissions,
+    hf_hub_url,
 )
 
 
