@@ -233,8 +233,8 @@ def save_pretrained_keras(
             metadata["tags"] = [task_name]
 
     _create_model_card(model, save_directory, plot_model, metadata)
-    if model_save_kwargs.get('save_format')=='h5':
-        filepath = model_save_kwargs.pop('filepath', None)
+    if model_save_kwargs.get("save_format") == "h5":
+        filepath = model_save_kwargs.pop("filepath", None)
         if filepath:
             save_directory = os.path.join(save_directory, filepath)
     tf.keras.models.save_model(
