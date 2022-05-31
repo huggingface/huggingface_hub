@@ -22,20 +22,12 @@ from filelock import FileLock
 from huggingface_hub import constants
 
 from . import __version__
-from .constants import (
-    DEFAULT_REVISION,
-    HUGGINGFACE_CO_URL_TEMPLATE,
-    HUGGINGFACE_HEADER_X_LINKED_ETAG,
-    HUGGINGFACE_HEADER_X_REPO_COMMIT,
-    HUGGINGFACE_HUB_CACHE,
-    REPO_ID_SEPARATOR,
-    REPO_TYPES,
-    REPO_TYPES_URL_PREFIXES,
-)
+from .constants import HUGGINGFACE_HUB_CACHE
 from .hf_api import HfFolder
 from .utils import logging
 from .utils._deprecation import _deprecate_positional_args
 from .utils.endpoint_helpers import hf_hub_url
+
 
 logger = logging.get_logger(__name__)
 

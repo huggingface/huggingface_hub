@@ -18,13 +18,14 @@ import math
 import re
 from dataclasses import dataclass
 from typing import List, Optional, Union
-from ._deprecation import _deprecate_positional_args
+
 from ..constants import (
     DEFAULT_REVISION,
     HUGGINGFACE_CO_URL_TEMPLATE,
     REPO_TYPES,
     REPO_TYPES_URL_PREFIXES,
 )
+from ._deprecation import _deprecate_positional_args
 
 
 @_deprecate_positional_args

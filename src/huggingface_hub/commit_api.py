@@ -1,16 +1,18 @@
 import base64
 import io
+import os
 from dataclasses import dataclass
 from functools import partial
 from hashlib import sha256
 from math import ceil
 from os.path import getsize
-from typing import BinaryIO, Dict, Iterable, List, Literal, Optional, TypedDict
+from typing import Dict, Generator, Iterable, List, Literal, Optional, TypedDict, Union
 
 import requests
-from huggingface_hub.constants import ENDPOINT, REPO_TYPES_URL_PREFIXES
-from huggingface_hub.utils import logging
 from requests.auth import HTTPBasicAuth
+
+from .constants import ENDPOINT, REPO_TYPES_URL_PREFIXES
+from .utils import logging
 
 
 logger = logging.get_logger(__name__)
@@ -20,21 +22,64 @@ UploadMode = Literal["lfs", "regular"]
 
 
 @dataclass
-class FileUploadInput:
-    local_path: str
-    remote_path: str
+class CommitOperationDelete:
+    path_in_repo: str
 
 
 @dataclass
-class FileUpload(FileUploadInput):
+class CommitOperationAdd:
+    path_in_repo: str
+    path_or_fileobj: Union[str, bytes, io.BufferedIOBase]
+
+    def __post_init__(self):
+        if isinstance(self.path_or_fileobj, str):
+            path_or_fileobj = os.path.normpath(os.path.expanduser(self.path_or_fileobj))
+            if not os.path.isfile(path_or_fileobj):
+                raise ValueError(f"Provided path: '{path_or_fileobj}' is not a file")
+        elif not isinstance(self.path_or_fileobj, (io.BufferedIOBase, bytes)):
+            # ^^ Test from: https://stackoverflow.com/questions/44584829/how-to-determine-if-file-is-opened-in-binary-or-text-mode
+            raise ValueError(
+                "path_or_fileobj must be either an instance of str, bytes or BinaryIO."
+                " If you passed a file-like object, make sure it is in binary mode."
+            )
+
+    def iter_content(
+        self, chunk_size: Optional[int] = None
+    ) -> Generator[bytes, None, None]:
+        if isinstance(self.path_or_fileobj, bytes):
+            if chunk_size is None:
+                yield self.path_or_fileobj
+            else:
+                idx = 0
+                while chunk := self.path_or_fileobj[idx : idx + chunk_size]:
+                    yield chunk
+        elif isinstance(self.path_or_fileobj, str):
+            with open(self.path_or_fileobj, "rb") as reader:
+                while chunk := reader.read(chunk_size):
+                    yield chunk
+        else:
+            while chunk := self.path_or_fileobj.read(chunk_size or -1):
+                yield chunk
+
+
+CommitOperation = Union[CommitOperationAdd, CommitOperationDelete]
+
+
+@dataclass
+class CommitOperationAddAnnotated(CommitOperationAdd):
     size: int
     sha: str
     upload_mode: UploadMode
 
     @property
     def b64content(self) -> bytes:
-        with open(self.local_path, "rb") as reader:
-            return base64.b64encode(reader.read())
+        if isinstance(self.path_or_fileobj, str):
+            with open(self.path_or_fileobj, "rb") as reader:
+                return base64.b64encode(reader.read())
+        elif isinstance(self.path_or_fileobj, bytes):
+            return base64.b64encode(self.path_or_fileobj)
+        else:
+            return base64.b64encode(self.path_or_fileobj.read())
 
 
 class LfsAction(TypedDict, total=False):
@@ -71,7 +116,14 @@ class LfsResponseObjectError(LfsResponseObjectBase):
 HASH_CHUNK_SIZE = 512
 
 
-def sha_fileobj(fileobj: BinaryIO, chunk_size: Optional[int] = None) -> bytes:
+def sha_iter(iterable: Iterable[bytes]):
+    sha = sha256()
+    for chunk in iterable:
+        sha.update(chunk)
+    return sha.digest()
+
+
+def sha_fileobj(fileobj: io.BufferedIOBase, chunk_size: Optional[int] = None) -> bytes:
     """
     Computes the sha256 hash of the given file object, by chunks of size `chunk_size`.
 
@@ -85,10 +137,7 @@ def sha_fileobj(fileobj: BinaryIO, chunk_size: Optional[int] = None) -> bytes:
         `bytes`: `fileobj`'s sha256 hash as bytes
     """
     chunk_size = chunk_size if chunk_size is not None else HASH_CHUNK_SIZE
-    sha = sha256()
-    for chunk in iter(partial(fileobj.read, chunk_size), b""):
-        sha.update(chunk)
-    return sha.digest()
+    return sha_iter(iter(partial(fileobj.read, chunk_size), b""))
 
 
 def base_url(repo_type: str, repo_id: str, endpoint: Optional[str] = None) -> str:
@@ -100,7 +149,7 @@ def base_url(repo_type: str, repo_id: str, endpoint: Optional[str] = None) -> st
 
 
 def upload_lfs_files(
-    files: Iterable[FileUpload],
+    files: Iterable[CommitOperationAddAnnotated],
     repo_type: str,
     repo_id: str,
     token: str,
@@ -183,14 +232,14 @@ def upload_lfs_files(
             if upload_action is None:
                 # The file was already uploaded
                 logger.debug(
-                    f"Content of file {file.remote_path} is already present upstream -"
+                    f"Content of file {file.path_in_repo} is already present upstream -"
                     " skipping upload"
                 )
                 continue
 
             chunk_size = upload_action.get("header", {}).get("chunk_size", None)
             if chunk_size is not None:
-                logger.debug(f"Starting multi-part upload for file {file.remote_path}")
+                logger.debug(f"Starting multi-part upload for file {file.path_in_repo}")
                 if isinstance(chunk_size, str):
                     chunk_size = int(chunk_size, 10)
                 else:
@@ -216,28 +265,29 @@ def upload_lfs_files(
                         for part_num in parts
                     ],
                 }
-                with open(file.local_path, "rb") as data:
-                    for idx, part_url in enumerate(parts.values()):
-                        logger.debug(
-                            f"{file.remote_path}: Uploadig part {idx} of {len(parts)}"
-                        )
+                content_iter = file.iter_content(chunk_size)
+                for idx, part_url in enumerate(parts.values()):
+                    logger.debug(
+                        f"{file.path_in_repo}: Uploadig part {idx} of {len(parts)}"
+                    )
 
-                        part_res = requests.put(part_url, data=data.read(chunk_size))
-                        part_res.raise_for_status()
-                        completion_body["parts"][idx]["etag"] = part_res.headers.get(
-                            "ETag", ""
-                        )
+                    part_res = requests.put(part_url, data=next(content_iter))
+                    part_res.raise_for_status()
+                    completion_body["parts"][idx]["etag"] = part_res.headers.get(
+                        "ETag", ""
+                    )
                 completion_res = requests.post(
                     completion_url, json=completion_body, headers=common_headers
                 )
                 completion_res.raise_for_status()
             else:
-                logger.debug(f"Starting single-part upload for file {file.remote_path}")
-
-                with open(file.local_path, "rb") as data:
-                    upload_res = requests.put(upload_action["href"], data=data)
+                logger.debug(
+                    f"Starting single-part upload for file {file.path_in_repo}"
+                )
+                data = next(file.iter_content(None))
+                upload_res = requests.put(upload_action["href"], data=data)
                 upload_res.raise_for_status()
-            logger.debug(f"{file.remote_path}: Upload successful")
+            logger.debug(f"{file.path_in_repo}: Upload successful")
 
     except KeyError as err:
         raise ValueError("Malformed response from LFS batch endpoint") from err
@@ -255,28 +305,40 @@ class PreUploadPayload(TypedDict):
     sha: str
 
 
-def preupload_payload(file: FileUploadInput) -> PreUploadPayload:
-    size = getsize(file.local_path)
-    with io.open(file.local_path, "rb") as reader:
-        sample = reader.peek(512)
-        sha = sha_fileobj(reader)
+def preupload_payload(file: CommitOperationAdd) -> PreUploadPayload:
+    if isinstance(file.path_or_fileobj, str):
+        size = getsize(file.path_or_fileobj)
+        with io.open(file.path_or_fileobj, "rb") as reader:
+            sample = reader.peek(512)
+            sha = sha_fileobj(reader)
+    elif isinstance(file.path_or_fileobj, bytes):
+        size = len(file.path_or_fileobj)
+        sample = file.path_or_fileobj[:512]
+        sha = sha256(file.path_or_fileobj).digest()
+    else:
+        sample = file.path_or_fileobj.read(512)
+        file.path_or_fileobj.seek(0, io.SEEK_SET)
+        sha = sha_fileobj(file.path_or_fileobj)
+        size = file.path_or_fileobj.tell()
+        file.path_or_fileobj.seek(0, io.SEEK_SET)
+
     sample = base64.b64encode(sample).decode("ascii")
     return {
         "sample": sample,
         "size": size,
-        "path": file.remote_path,
+        "path": file.path_in_repo,
         "sha": sha.hex(),
     }
 
 
 def prepare_file_upload(
-    files: Iterable[FileUploadInput],
+    files: Iterable[CommitOperationAdd],
     repo_type: str,
     repo_id: str,
     token: str,
     revision: str,
     endpoint: Optional[str] = None,
-) -> List[FileUpload]:
+) -> List[CommitOperationAddAnnotated]:
     """
     Requests the HF Hub to determine wether each input file should be
     uploaded as a regular git blob or as git LFS blob.
@@ -318,42 +380,47 @@ def prepare_file_upload(
     }
 
     return [
-        FileUpload(
-            local_path=file.local_path,
-            remote_path=file.remote_path,
-            size=path2payload[file.remote_path]["size"],
-            sha=path2payload[file.remote_path]["sha"],
-            upload_mode=path2mode[file.remote_path],
+        CommitOperationAddAnnotated(
+            path_or_fileobj=file.path_or_fileobj,
+            path_in_repo=file.path_in_repo,
+            size=path2payload[file.path_in_repo]["size"],
+            sha=path2payload[file.path_in_repo]["sha"],
+            upload_mode=path2mode[file.path_in_repo],
         )
         for file in files
     ]
 
 
-class CommitFilesPayloadFileEntryRegular(TypedDict):
+class CommitFilesPayloadFile(TypedDict):
     path: str
     encoding: Literal["base64"]
     content: str
 
 
-class CommitFilesPayloadFileEntryLFS(TypedDict):
+class CommitFilesPayloadLfsFile(TypedDict):
     path: str
     algo: Literal["sha256"]
     oid: str
 
 
+class CommitFilesPayloadDeletedFile(TypedDict):
+    path: str
+
+
 class CommitFilesPayload(TypedDict):
     summary: str
     description: str
-    files: List[CommitFilesPayloadFileEntryRegular]
-    lfsFiles: List[CommitFilesPayloadFileEntryLFS]
+    files: List[CommitFilesPayloadFile]
+    lfsFiles: List[CommitFilesPayloadLfsFile]
+    deletedFiles: List[CommitFilesPayloadDeletedFile]
 
 
 def prepare_commit_payload(
-    files: Iterable[FileUpload],
+    additions: Iterable[CommitOperationAddAnnotated],
+    deletions: Iterable[CommitOperationDelete],
     commit_summary: str,
     commit_description: Optional[str] = None,
 ) -> CommitFilesPayload:
-    """TODO: find a better name"""
     commit_description = commit_description if commit_description is not None else ""
 
     return {
@@ -361,16 +428,17 @@ def prepare_commit_payload(
         "description": commit_description,
         "files": [
             {
-                "path": file.remote_path,
+                "path": file.path_in_repo,
                 "encoding": "base64",
                 "content": file.b64content.decode(),
             }
-            for file in files
+            for file in additions
             if file.upload_mode == "regular"
         ],
         "lfsFiles": [
-            {"path": file.remote_path, "algo": "sha256", "oid": file.sha}
-            for file in files
+            {"path": file.path_in_repo, "algo": "sha256", "oid": file.sha}
+            for file in additions
             if file.upload_mode == "lfs"
         ],
+        "deletedFiles": [{"path": deletion.path_in_repo} for deletion in deletions],
     }
