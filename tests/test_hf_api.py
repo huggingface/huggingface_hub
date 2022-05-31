@@ -28,6 +28,7 @@ import pytest
 
 import requests
 from huggingface_hub.commands.user import _login
+from huggingface_hub.commit_api import CommitOperationAdd, CommitOperationDelete
 from huggingface_hub.constants import (
     REPO_TYPE_DATASET,
     REPO_TYPE_MODEL,
@@ -452,7 +453,7 @@ class HfApiEndpointsTest(HfApiCommonTestWithLogin):
             )
 
 
-class HfApiUploadFileTest(HfApiCommonTestWithLogin):
+class CommitApiTest(HfApiCommonTestWithLogin):
     def setUp(self) -> None:
         super().setUp()
         self.tmp_dir = tempfile.mkdtemp()
@@ -460,39 +461,29 @@ class HfApiUploadFileTest(HfApiCommonTestWithLogin):
         self.tmp_file_content = "Content of the file"
         with open(self.tmp_file, "w+") as f:
             f.write(self.tmp_file_content)
+        os.makedirs(os.path.join(self.tmp_dir, "nested"))
+        self.nested_tmp_file = os.path.join(self.tmp_dir, "nested", "file")
+        with open(self.nested_tmp_file, "w+") as f:
+            f.write(self.tmp_file_content)
+
         self.addCleanup(
             lambda: shutil.rmtree(self.tmp_dir, onerror=set_write_permission_and_retry)
         )
 
-    @retry_endpoint
-    def test_upload_file_validation(self):
-        REPO_NAME = repo_name("upload")
-        with self.assertRaises(ValueError, msg="Wrong repo type"):
-            self._api.upload_file(
-                path_or_fileobj=self.tmp_file,
-                path_in_repo="README.md",
-                repo_id=f"{USER}/{REPO_NAME}",
-                repo_type="this type does not exist",
-                token=self._token,
-            )
-
+    def test_commit_operation_validation(self):
         with self.assertRaises(ValueError, msg="File opened in text mode"):
             with open(self.tmp_file, "rt") as ftext:
-                self._api.upload_file(
-                    path_or_fileobj=ftext,
+                CommitOperationAdd(
+                    path_or_fileobj=ftext,  # type: ignore
                     path_in_repo="README.md",
-                    repo_id=f"{USER}/{REPO_NAME}",
-                    token=self._token,
                 )
 
         with self.assertRaises(
             ValueError, msg="path_or_fileobj is str but does not point to a file"
         ):
-            self._api.upload_file(
+            CommitOperationAdd(
                 path_or_fileobj=os.path.join(self.tmp_dir, "nofile.pth"),
                 path_in_repo="README.md",
-                repo_id=f"{USER}/{REPO_NAME}",
-                token=self._token,
             )
 
     @retry_endpoint
@@ -599,44 +590,6 @@ class HfApiUploadFileTest(HfApiCommonTestWithLogin):
             self._api.create_repo(repo_id=REPO_NAME)
 
     @retry_endpoint
-    def test_upload_file_conflict(self):
-        REPO_NAME = repo_name("conflict")
-        self._api.create_repo(repo_id=REPO_NAME, token=self._token)
-        try:
-            filecontent = BytesIO(b"File content, but in bytes IO")
-            self._api.upload_file(
-                path_or_fileobj=filecontent,
-                path_in_repo="temp/new_file.md",
-                repo_id=f"{USER}/{REPO_NAME}",
-                token=self._token,
-                identical_ok=True,
-            )
-
-            # No exception raised when identical_ok is True
-            self._api.upload_file(
-                path_or_fileobj=filecontent,
-                path_in_repo="temp/new_file.md",
-                repo_id=f"{USER}/{REPO_NAME}",
-                token=self._token,
-                identical_ok=True,
-            )
-
-            with self.assertRaises(HTTPError) as err_ctx:
-                self._api.upload_file(
-                    path_or_fileobj=filecontent,
-                    path_in_repo="temp/new_file.md",
-                    repo_id=f"{USER}/{REPO_NAME}",
-                    token=self._token,
-                    identical_ok=False,
-                )
-                self.assertEqual(err_ctx.exception.response.status_code, 409)
-
-        except Exception as err:
-            self.fail(err)
-        finally:
-            self._api.delete_repo(repo_id=REPO_NAME, token=self._token)
-
-    @retry_endpoint
     def test_upload_buffer(self):
         REPO_NAME = repo_name("buffer")
         self._api.create_repo(repo_id=REPO_NAME, token=self._token)
@@ -700,6 +653,90 @@ class HfApiUploadFileTest(HfApiCommonTestWithLogin):
             "model", organization="org", token=self._token
         )
         self.assertEqual(repo_name_with_no_org, "org/model")
+
+    @retry_endpoint
+    def test_commit_folder(self):
+        REPO_NAME = repo_name("commit_folder")
+        self._api.create_repo(token=self._token, repo_id=REPO_NAME)
+        try:
+            self._api.commit_folder(
+                folder_path=self.tmp_dir,
+                path_in_repo="temp/dir",
+                repo_id=f"{USER}/{REPO_NAME}",
+                token=self._token,
+            )
+            for rpath in ["temp/dir/temp", "temp/dir/nested/file"]:
+                url = "{}/{user}/{repo}/resolve/main/{rpath}".format(
+                    ENDPOINT_STAGING,
+                    user=USER,
+                    repo=REPO_NAME,
+                    rpath=rpath,
+                )
+                filepath = cached_download(url, force_download=True)
+                with open(filepath) as downloaded_file:
+                    content = downloaded_file.read()
+                self.assertEqual(content, self.tmp_file_content)
+        except Exception as err:
+            self.fail(err)
+        finally:
+            self._api.delete_repo(repo_id=REPO_NAME, token=self._token)
+
+    @retry_endpoint
+    def test_create_commit(self):
+        REPO_NAME = repo_name("create_commit")
+        self._api.create_repo(token=self._token, repo_id=REPO_NAME)
+        try:
+            self._api.upload_file(
+                path_or_fileobj=self.tmp_file,
+                path_in_repo="temp/new_file.md",
+                repo_id=f"{USER}/{REPO_NAME}",
+                token=self._token,
+            )
+            with open(self.tmp_file, "rb") as fileobj:
+                operations = [
+                    CommitOperationDelete(path_in_repo="temp/new_file.md"),
+                    CommitOperationAdd(
+                        path_in_repo="buffer", path_or_fileobj=b"Buffer data"
+                    ),
+                    CommitOperationAdd(
+                        path_in_repo="bytesio", path_or_fileobj=BytesIO(b"BytesIO data")
+                    ),
+                    CommitOperationAdd(path_in_repo="fileobj", path_or_fileobj=fileobj),
+                    CommitOperationAdd(
+                        path_in_repo="nested/path", path_or_fileobj=self.tmp_file
+                    ),
+                ]
+                self._api.create_commit(
+                    operations=operations,
+                    commit_summary="Test create_commit",
+                    repo_id=f"{USER}/{REPO_NAME}",
+                    token=self._token,
+                )
+            with self.assertRaises(HTTPError):
+                # Should raise a 404
+                hf_hub_download(f"{USER}/{REPO_NAME}", "temp/new_file.md")
+
+            for path, expected_content in [
+                ("buffer", b"Buffer data"),
+                ("bytesio", b"BytesIO data"),
+                ("fileobj", self.tmp_file_content.encode()),
+                ("nested/path", self.tmp_file_content.encode()),
+            ]:
+                url = "{}/{user}/{repo}/resolve/main/{path}".format(
+                    ENDPOINT_STAGING,
+                    user=USER,
+                    repo=REPO_NAME,
+                    path=path,
+                )
+                filepath = cached_download(url, force_download=True)
+                with open(filepath, "rb") as downloaded_file:
+                    content = downloaded_file.read()
+                self.assertEqual(content, expected_content)
+
+        except Exception as err:
+            self.fail(err)
+        finally:
+            self._api.delete_repo(repo_id=REPO_NAME, token=self._token)
 
 
 class HfApiPublicTest(unittest.TestCase):
