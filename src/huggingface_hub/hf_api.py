@@ -1856,6 +1856,8 @@ class HfApi:
 
         headers = {"authorization": f"Bearer {token}"} if token is not None else {}
 
+
+        params: Optional[dict] = None
         if create_pr:
             params = {"create_pr": create_pr}
             headers["Commit-Summary"] = pr_commit_summary
