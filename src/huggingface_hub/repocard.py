@@ -2,7 +2,7 @@ import dataclasses
 import os
 import re
 from pathlib import Path
-from typing import Any, Dict, Optional, Union
+from typing import Any, Dict, Literal, Optional, Union
 
 import yaml
 from huggingface_hub.file_download import hf_hub_download
@@ -25,8 +25,16 @@ UNIQUE_RESULT_FEATURES = ["dataset", "task"]
 UNIQUE_METRIC_FEATURES = ["name", "type"]
 
 
-def metadata_load(local_path: Union[str, Path]) -> Optional[Dict]:
-    content = Path(local_path).read_text()
+def metadata_load(
+    local_path: Union[str, Path, None] = None,
+    *,
+    content: Optional[str] = None,
+) -> Optional[Dict]:
+    if (local_path is not None and content is not None) or (
+        local_path is None and content is None
+    ):
+        raise ValueError("you need to pass either `local_path` or `content`")
+    content = content if content is not None else Path(local_path).read_text()
     match = REGEX_YAML_BLOCK.search(content)
     if match:
         yaml_block = match.group(1)
@@ -39,6 +47,41 @@ def metadata_load(local_path: Union[str, Path]) -> Optional[Dict]:
         return None
 
 
+def detect_line_ending(content: str) -> Literal["\r", "\n", "\r\n", None]:
+    """
+    same implem as in Hub server, keep it in sync
+    """
+    cr = content.count("\r")
+    lf = content.count("\n")
+    crlf = content.count("\r\n")
+    if cr + lf == 0:
+        return None
+    if crlf == cr and crlf == lf:
+        return "\r\n"
+    if cr > lf:
+        return "\r"
+    else:
+        return "\n"
+
+
+def metadata_save_in_string(*, content: str, data: Dict) -> str:
+    """
+    Update a string containing a repo card with metadata data
+    """
+    line_break = detect_line_ending(content) or "\n"
+    data_yaml = yaml.dump(data, sort_keys=False, line_break=line_break)
+    # sort_keys: keep dict order
+    match = REGEX_YAML_BLOCK.search(content)
+    if match:
+        return (
+            content[: match.start()]
+            + f"---{line_break}{data_yaml}---{line_break}"
+            + content[match.end() :]
+        )
+    else:
+        return f"---{line_break}{data_yaml}---{line_break}{content}"
+
+
 def metadata_save(local_path: Union[str, Path], data: Dict) -> None:
     """
     Save the metadata dict in the upper YAML part Trying to preserve newlines as
@@ -46,31 +89,16 @@ def metadata_save(local_path: Union[str, Path], data: Dict) -> None:
     https://docs.python.org/3/library/functions.html?highlight=open#open Does
     not work with "^M" linebreaks, which are replaced by \n
     """
-    line_break = "\n"
     content = ""
-    # try to detect existing newline character
+    # we want to keep existing newline characters
     if os.path.exists(local_path):
         with open(local_path, "r", newline="") as readme:
-            if type(readme.newlines) is tuple:
-                line_break = readme.newlines[0]
-            if type(readme.newlines) is str:
-                line_break = readme.newlines
             content = readme.read()
 
-    # creates a new file if it not
-    with open(local_path, "w", newline="") as readme:
-        data_yaml = yaml.dump(data, sort_keys=False, line_break=line_break)
-        # sort_keys: keep dict order
-        match = REGEX_YAML_BLOCK.search(content)
-        if match:
-            output = (
-                content[: match.start()]
-                + f"---{line_break}{data_yaml}---{line_break}"
-                + content[match.end() :]
-            )
-        else:
-            output = f"---{line_break}{data_yaml}---{line_break}{content}"
+    output = metadata_save_in_string(content=content, data=data)
 
+    # creates a new file if it was not there already
+    with open(local_path, "w", newline="") as readme:
         readme.write(output)
         readme.close()
 
