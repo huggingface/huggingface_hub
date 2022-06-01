@@ -115,6 +115,9 @@ def metadata_update(
     repo_type: str = None,
     overwrite: bool = False,
     token: str = None,
+    create_pr: Optional[bool] = None,
+    commit_summary: str = None,
+    commit_description: Optional[str] = None,
 ) -> str:
     """
     Updates the metadata in the README.md of a repository on the Hugging Face Hub.
@@ -144,6 +147,12 @@ def metadata_update(
             attempting to overwrite an existing field will cause an error.
         token (`str`, *optional*):
             The Hugging Face authentication token.
+        create_pr (`bool`, *optional*, defaults to `None`):
+            Whether to open a Hub pull request instead of uploading directly to the repo.
+        commit_summary (`str`, *optional*, defaults to `None`):
+            The title of the Hub pull request.
+        commit_description (`str`, *optional*, defaults to `None`):
+            The description of the Hub pull request.
 
     Returns:
         `str`: URL of the commit which updated the card metadata.
@@ -192,6 +201,9 @@ def metadata_update(
         repo_type=repo_type,
         identical_ok=False,
         token=token,
+        create_pr=create_pr,
+        commit_summary=commit_summary,
+        commit_description=commit_description,
     )
 
 
