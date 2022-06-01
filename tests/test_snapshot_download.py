@@ -363,4 +363,6 @@ class SnapshotDownloadTests(unittest.TestCase):
 
 def test_snapshot_download_import():
     with pytest.warns(FutureWarning, match="has been made private"):
-        from huggingface_hub.snapshot_download import snapshot_download  # noqa
+        from huggingface_hub.snapshot_download import snapshot_download as x  # noqa
+
+    assert x is snapshot_download
