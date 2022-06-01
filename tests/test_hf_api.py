@@ -161,7 +161,7 @@ class HfApiLoginTest(HfApiCommonTest):
         with pytest.warns(
             FutureWarning,
             match=r"HfApi.login: This method is deprecated in favor of "
-            r"`set_access_token` and will be removed in v0.7.",
+            r"`set_access_token` and will be removed in v0.8.",
         ):
             self._api.login(username=USER, password=PASS)
 
@@ -169,7 +169,7 @@ class HfApiLoginTest(HfApiCommonTest):
         with pytest.warns(
             FutureWarning,
             match=r"HfApi.logout: This method is deprecated in favor of "
-            r"`unset_access_token` and will be removed in v0.7.",
+            r"`unset_access_token` and will be removed in v0.8.",
         ):
             try:
                 self._api.logout()
@@ -511,7 +511,9 @@ class HfApiUploadFileTest(HfApiCommonTestWithLogin):
                 user=USER,
                 repo=REPO_NAME,
             )
-            filepath = cached_download(url, force_download=True)
+            filepath = cached_download(
+                url, force_download=True, legacy_cache_layout=True
+            )
             with open(filepath) as downloaded_file:
                 content = downloaded_file.read()
             self.assertEqual(content, self.tmp_file_content)
@@ -538,7 +540,9 @@ class HfApiUploadFileTest(HfApiCommonTestWithLogin):
                 user=USER,
                 repo=REPO_NAME,
             )
-            filepath = cached_download(url, force_download=True)
+            filepath = cached_download(
+                url, force_download=True, legacy_cache_layout=True
+            )
             with open(filepath) as downloaded_file:
                 content = downloaded_file.read()
             self.assertEqual(content, self.tmp_file_content)
@@ -565,7 +569,9 @@ class HfApiUploadFileTest(HfApiCommonTestWithLogin):
                 user=USER,
                 repo=REPO_NAME,
             )
-            filepath = cached_download(url, force_download=True)
+            filepath = cached_download(
+                url, force_download=True, legacy_cache_layout=True
+            )
             with open(filepath) as downloaded_file:
                 content = downloaded_file.read()
             self.assertEqual(content, filecontent.getvalue().decode())
@@ -648,7 +654,9 @@ class HfApiUploadFileTest(HfApiCommonTestWithLogin):
                 user=USER,
                 repo=REPO_NAME,
             )
-            filepath = cached_download(url, force_download=True)
+            filepath = cached_download(
+                url, force_download=True, legacy_cache_layout=True
+            )
             with open(filepath) as downloaded_file:
                 content = downloaded_file.read()
             self.assertEqual(content, self.tmp_file_content)

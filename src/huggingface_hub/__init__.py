@@ -114,7 +114,7 @@ def _attach(package_name, submodules=None, submod_attrs=None):
 
 # ************
 
-__version__ = "0.7.0.dev0"
+__version__ = "0.8.0.dev0"
 
 
 __getattr__, __dir__, __all__ = _attach(

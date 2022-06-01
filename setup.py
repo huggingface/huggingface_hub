@@ -58,7 +58,8 @@ setup(
     author="Hugging Face, Inc.",
     author_email="julien@huggingface.co",
     description=(
-        "Client library to download and publish models on the huggingface.co hub"
+        "Client library to download and publish models, datasets and other repos on the"
+        " huggingface.co hub"
     ),
     long_description=open("README.md", "r", encoding="utf-8").read(),
     long_description_content_type="text/markdown",
