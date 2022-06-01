@@ -98,7 +98,7 @@ def metadata_save(local_path: Union[str, Path], data: Dict) -> None:
     output = metadata_save_in_string(content=content, data=data)
 
     # creates a new file if it was not there already
-    with open(local_path, "w", newline="") as readme:
+    with open(local_path, "w") as readme:
         readme.write(output)
         readme.close()
 
