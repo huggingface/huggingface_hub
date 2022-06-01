@@ -28,8 +28,8 @@ from .commit_api import (
     CommitOperation,
     CommitOperationAdd,
     CommitOperationDelete,
+    fetch_upload_modes,
     prepare_commit_payload,
-    prepare_file_upload,
     upload_lfs_files,
 )
 from .constants import (
@@ -1762,8 +1762,11 @@ class HfApi:
         additions = [op for op in operations if isinstance(op, CommitOperationAdd)]
         deletions = [op for op in operations if isinstance(op, CommitOperationDelete)]
 
-        annotated_additions = prepare_file_upload(
-            files=additions,
+        for addition in additions:
+            addition.validate()
+
+        additions_with_upload_mode = fetch_upload_modes(
+            additions=additions,
             repo_type=repo_type,
             repo_id=repo_id,
             token=token,
@@ -1771,7 +1774,11 @@ class HfApi:
             endpoint=self.endpoint,
         )
         upload_lfs_files(
-            files=annotated_additions,
+            additions=[
+                addition
+                for (addition, upload_mode) in additions_with_upload_mode
+                if upload_mode == "lfs"
+            ],
             repo_type=repo_type,
             repo_id=repo_id,
             token=token,
@@ -1779,7 +1786,7 @@ class HfApi:
             endpoint=self.endpoint,
         )
         commit_payload = prepare_commit_payload(
-            additions=annotated_additions,
+            additions=additions_with_upload_mode,
             deletions=deletions,
             commit_summary=commit_summary,
             commit_description=commit_description,
