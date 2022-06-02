@@ -270,10 +270,10 @@ class SliceFileObj(AbstractContextManager):
         self.fileobj.seek(self.seek_from, io.SEEK_SET)
         return self
 
-    def __exit__(self):
+    def __exit__(self, exc_type, exc_value, traceback):
         self.fileobj.seek(self.previous_position, io.SEEK_SET)
 
-    def read(self, n=-1):
+    def read(self, n: int = -1):
         if self.n_seen >= self.read_limit:
             return b""
         remaining_amount = self.read_limit - self.n_seen
