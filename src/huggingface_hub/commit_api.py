@@ -1,24 +1,29 @@
+"""
+Type definitions and utilities for the `create_commit` API
+"""
+
 import base64
 import io
 import os
+import sys
+from contextlib import contextmanager
 from dataclasses import dataclass, field
-from functools import partial
-from hashlib import sha256
-from math import ceil
-from os.path import getsize
-from typing import (
-    Dict,
-    Generator,
-    Iterable,
-    List,
-    Literal,
-    Optional,
-    Tuple,
-    TypedDict,
-    Union,
-)
+from typing import BinaryIO, Dict, Iterable, List, Optional, Tuple, TypedDict, Union
+
+
+if sys.version_info >= (3, 8):
+    from typing import Literal
+else:
+    from typing_extensions import Literal
 
 import requests
+from huggingface_hub.utils.lfs import (
+    LfsBatchObject,
+    LfsBatchObjectError,
+    LfsBatchResponse,
+    UploadInfo,
+    upload_lfs_file,
+)
 from requests.auth import HTTPBasicAuth
 
 from .constants import ENDPOINT, REPO_TYPES_URL_PREFIXES
@@ -29,38 +34,6 @@ logger = logging.get_logger(__name__)
 
 
 UploadMode = Literal["lfs", "regular"]
-
-
-def iter_readable(
-    readable: io.BufferedIOBase, chunk_size: Optional[int] = None
-) -> Iterable[bytes]:
-    """Returns an iterator over the content of ``readable`` in chunks of ``chunk_size``"""
-    chunk_size = chunk_size or -1
-    return iter(partial(readable.read, chunk_size), b"")
-
-
-def sha_iter(iterable: Iterable[bytes]):
-    sha = sha256()
-    for chunk in iterable:
-        sha.update(chunk)
-    return sha.digest()
-
-
-def sha_fileobj(fileobj: io.BufferedIOBase, chunk_size: Optional[int] = None) -> bytes:
-    """
-    Computes the sha256 hash of the given file object, by chunks of size `chunk_size`.
-
-    Args:
-        fileobj (`io.BufferedIOBase`):
-            The File object to compute sha256 for, typically obtained with `open`
-        chunk_size (`int`, *optional*):
-            The number of bytes to read from `fileobj` at once, defaults to 512
-
-    Returns:
-        `bytes`: `fileobj`'s sha256 hash as bytes
-    """
-    chunk_size = chunk_size if chunk_size is not None else 512
-    return sha_iter(iter_readable(fileobj))
 
 
 @dataclass
@@ -77,43 +50,6 @@ class CommitOperationDelete:
 
 
 @dataclass
-class UploadInfo:
-    """
-    Dataclass holding required information to determine wether a blob
-    should be uploaded to the hub using the LFS protocol or the regular protocol
-    """
-
-    sha256: bytes
-    """SHA256 hash of the blob"""
-    size: int
-    """Size in bytes of the blob"""
-    sample: bytes
-    """First 512 bytes of the blob"""
-
-    @classmethod
-    def from_path(cls, path: str):
-        size = getsize(path)
-        with io.open(path, "rb") as file:
-            sample = file.peek(512)
-            sha = sha_fileobj(file)
-        return cls(size=size, sha256=sha, sample=sample)
-
-    @classmethod
-    def from_bytes(cls, data: bytes):
-        sha = sha256(data).digest()
-        return cls(size=len(data), sample=data[:512], sha256=sha)
-
-    @classmethod
-    def from_readable(cls, readable: io.BufferedIOBase):
-        sample = readable.read(512)
-        readable.seek(0, io.SEEK_SET)
-        sha = sha_fileobj(readable)
-        size = readable.tell()
-        readable.seek(0, io.SEEK_SET)
-        return cls(size=size, sha256=sha, sample=sample)
-
-
-@dataclass
 class CommitOperationAdd:
     """
     Data structire holding necessary info to upload a file
@@ -124,7 +60,7 @@ class CommitOperationAdd:
     """
     Path in the repository where the uploaded file will be saved
     """
-    path_or_fileobj: Union[str, bytes, io.BufferedIOBase]
+    path_or_fileobj: Union[str, bytes, BinaryIO]
     """
     Either:
         - a path to a local file (as str) to upload
@@ -175,30 +111,17 @@ class CommitOperationAdd:
                 self._upload_info = UploadInfo.from_readable(self.path_or_fileobj)
         return self._upload_info
 
-    def iter_content(
-        self, chunk_size: Optional[int] = None
-    ) -> Generator[bytes, None, None]:
-        """
-        Returns a generator that iterates over the content behind ``path_or_fileobj``
-        in chunks of ``chunk_size`` bytes
-
-        Args:
-            chunk_size (``int``, *optional*):
-                The number of bytes to read at each iteration. If omitted or ``None``,
-                returns the whole content in a single iteration.
-        """
-        if isinstance(self.path_or_fileobj, bytes):
-            readable = io.BytesIO(self.path_or_fileobj)
-            # ^^ Not sure about BytesIO's overhead - does it copy the data?
-            for chunk in iter_readable(readable, chunk_size=chunk_size):
-                yield chunk
-        elif isinstance(self.path_or_fileobj, str):
-            with open(self.path_or_fileobj, "rb") as fileobj:
-                for chunk in iter_readable(fileobj, chunk_size=chunk_size):
-                    yield chunk
-        else:
-            for chunk in iter_readable(self.path_or_fileobj, chunk_size=chunk_size):
-                yield chunk
+    @contextmanager
+    def fileobj(self):
+        self.validate()
+        if isinstance(self.path_or_fileobj, str):
+            with open(self.path_in_repo, "rb") as file:
+                yield file
+        elif isinstance(self.path_or_fileobj, bytes):
+            yield io.BytesIO(self.path_or_fileobj)
+        elif isinstance(self.path_or_fileobj, io.BufferedIOBase):
+            yield self.path_or_fileobj
+            self.path_or_fileobj.seek(0, io.SEEK_SET)
 
     def b64content(self) -> bytes:
         """
@@ -217,37 +140,6 @@ class CommitOperationAdd:
 
 
 CommitOperation = Union[CommitOperationAdd, CommitOperationDelete]
-
-
-class LfsAction(TypedDict, total=False):
-    href: str
-    header: Dict[str, str]
-    expires_in: int
-    expires_at: str
-
-
-class LfsResponseActions(TypedDict, total=False):
-    download: LfsAction
-    upload: LfsAction
-    verify: LfsAction
-
-
-class LfsResponseError(TypedDict):
-    code: int
-    message: str
-
-
-class LfsResponseObjectBase(TypedDict):
-    oid: str
-    size: int
-
-
-class LfsResponseObjectSuccess(LfsResponseObjectBase):
-    actions: LfsResponseActions
-
-
-class LfsResponseObjectError(LfsResponseObjectBase):
-    error: LfsResponseError
 
 
 def base_url(repo_type: str, repo_id: str, endpoint: Optional[str] = None) -> str:
@@ -317,9 +209,10 @@ def upload_lfs_files(
     batch_res.raise_for_status()
 
     try:
-        objects = batch_res.json()["objects"]
-        errors: List[LfsResponseObjectError] = [
-            obj for obj in objects if "error" in obj
+        payload: LfsBatchResponse = batch_res.json()
+        objects = payload.get("objects", [])
+        errors: List[LfsBatchObjectError] = [
+            obj for obj in objects if obj.get("error") is not None
         ]
         if errors:
             message = "\n".join(
@@ -331,7 +224,7 @@ def upload_lfs_files(
             )
             raise ValueError(f"LFS batch endpoint returned errors:\n{message}")
 
-        obj: LfsResponseObjectSuccess
+        obj: LfsBatchObject
         for obj in objects:
             add_op = oid2addop.get(obj["oid"])
             if add_op is None:
@@ -346,59 +239,12 @@ def upload_lfs_files(
                 )
                 continue
 
-            chunk_size = upload_action.get("header", {}).get("chunk_size", None)
-            if chunk_size is not None:
-                logger.debug(
-                    f"Starting multi-part upload for file {add_op.path_in_repo}"
+            with add_op.fileobj() as fileobj:
+                upload_lfs_file(
+                    fileobj=fileobj,
+                    upload_action=upload_action,
+                    upload_info=upload_info,
                 )
-                if isinstance(chunk_size, str):
-                    chunk_size = int(chunk_size, 10)
-                else:
-                    raise ValueError(
-                        "Malformed response from LFS batch endpoint: `chunk_size`"
-                        " should be a string"
-                    )
-                parts = {
-                    key: value
-                    for key, value in upload_action["header"].items()
-                    if key.isdigit() and len(key) > 0
-                }
-                if len(parts) != ceil(add_op.upload_info().size / chunk_size):
-                    raise ValueError("Invalid server response to upload large LFS file")
-                completion_url = upload_action["href"]
-                completion_body = {
-                    "oid": upload_info.sha256.hex(),
-                    "parts": [
-                        {
-                            "partNumber": int(part_num),
-                            "etag": "",
-                        }
-                        for part_num in parts
-                    ],
-                }
-                content_iter = add_op.iter_content(chunk_size)
-                for idx, part_url in enumerate(parts.values()):
-                    logger.debug(
-                        f"{add_op.path_in_repo}: Uploadig part {idx + 1} of"
-                        f" {len(parts)}"
-                    )
-
-                    part_res = requests.put(part_url, data=next(content_iter))
-                    part_res.raise_for_status()
-                    completion_body["parts"][idx]["etag"] = part_res.headers.get(
-                        "etag", ""
-                    )
-                completion_res = requests.post(
-                    completion_url, json=completion_body, headers=common_headers
-                )
-                completion_res.raise_for_status()
-            else:
-                logger.debug(
-                    f"Starting single-part upload for file {add_op.path_in_repo}"
-                )
-                data = next(add_op.iter_content(None))
-                upload_res = requests.put(upload_action["href"], data=data)
-                upload_res.raise_for_status()
             logger.debug(f"{add_op.path_in_repo}: Upload successful")
 
     except KeyError as err:

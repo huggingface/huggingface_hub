@@ -17,9 +17,8 @@ import re
 import subprocess
 import sys
 import warnings
-from io import BufferedIOBase
 from os.path import expanduser
-from typing import Dict, Iterable, List, Optional, Tuple, Union
+from typing import BinaryIO, Dict, Iterable, List, Optional, Tuple, Union
 
 import requests
 from requests.exceptions import HTTPError
@@ -1806,7 +1805,7 @@ class HfApi:
     def upload_file(
         self,
         *,
-        path_or_fileobj: Union[str, bytes, BufferedIOBase],
+        path_or_fileobj: Union[str, bytes, BinaryIO],
         path_in_repo: str,
         repo_id: str,
         token: Optional[str] = None,
