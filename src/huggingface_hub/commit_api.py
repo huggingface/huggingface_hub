@@ -17,16 +17,16 @@ else:
     from typing_extensions import Literal, TypedDict
 
 import requests
-from huggingface_hub.utils.lfs import (
+from requests.auth import HTTPBasicAuth
+
+from .constants import ENDPOINT, REPO_TYPES_URL_PREFIXES
+from .lfs import (
     LfsBatchObject,
     LfsBatchObjectError,
     LfsBatchResponse,
     UploadInfo,
     upload_lfs_file,
 )
-from requests.auth import HTTPBasicAuth
-
-from .constants import ENDPOINT, REPO_TYPES_URL_PREFIXES
 from .utils import logging
 
 
