@@ -1,9 +1,9 @@
-from io import BytesIO
 import os
-from huggingface_hub.utils.sha import sha_fileobj
 from hashlib import sha256
-import pytest
+from io import BytesIO
 from tempfile import TemporaryDirectory
+
+from huggingface_hub.utils.sha import sha_fileobj
 
 
 def test_sha_fileobj():

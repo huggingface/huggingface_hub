@@ -21,7 +21,6 @@ import os
 import subprocess
 import sys
 from argparse import ArgumentParser
-from contextlib import contextmanager
 from typing import Dict, List, Optional
 
 import requests

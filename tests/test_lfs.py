@@ -1,6 +1,6 @@
+import os
 from hashlib import sha256
 from io import BytesIO
-import os
 from tempfile import TemporaryDirectory
 
 from huggingface_hub.lfs import SliceFileObj, UploadInfo
