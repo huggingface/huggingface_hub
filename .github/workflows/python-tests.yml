@@ -42,10 +42,10 @@ jobs:
       - run: |
           if [[ "${{ matrix.test_repository }}" == "Repository only" ]]
           then
-            pytest -Werror::FutureWarning --log-cli-level=INFO -sv ./tests/test_repository.py -k RepositoryTest
-          
+            pytest --cov -Werror::FutureWarning --log-cli-level=INFO -sv ./tests/test_repository.py -k RepositoryTest
+
           else
-            pytest -Werror::FutureWarning --log-cli-level=INFO -sv ./tests/ -k 'not RepositoryTest'
+            pytest --cov -Werror::FutureWarning --log-cli-level=INFO -sv ./tests/ -k 'not RepositoryTest'
           fi
 
   build_pytorch:
@@ -67,7 +67,7 @@ jobs:
         pip install --upgrade pip
         pip install .[testing,torch]
 
-    - run: pytest -Werror::FutureWarning -sv ./tests/test_hubmixin*
+    - run: pytest --cov -Werror::FutureWarning -sv ./tests/test_hubmixin*
 
   build_tensorflow:
     runs-on: ubuntu-latest
@@ -89,8 +89,8 @@ jobs:
         pip install --upgrade pip
         pip install .[testing,tensorflow]
 
-    - run: pytest -Werror::FutureWarning -sv ./tests/test_keras*
-  
+    - run: pytest --cov -Werror::FutureWarning -sv ./tests/test_keras*
+
   build_fastai:
     runs-on: ubuntu-latest
     strategy:
@@ -110,7 +110,7 @@ jobs:
         pip install --upgrade pip
         pip install .[testing,fastai]
 
-    - run: pytest -Werror::FutureWarning -sv ./tests/test_fastai*
+    - run: pytest --cov -Werror::FutureWarning -sv ./tests/test_fastai*
 
   tests_lfs:
     runs-on: ubuntu-latest
@@ -132,4 +132,4 @@ jobs:
         pip install --upgrade pip
         pip install .[testing]
 
-    - run: RUN_GIT_LFS_TESTS=1 pytest -Werror::FutureWarning -sv ./tests/ -k "HfLargefilesTest"
+    - run: RUN_GIT_LFS_TESTS=1 pytest --cov -Werror::FutureWarning -sv ./tests/ -k "HfLargefilesTest"
