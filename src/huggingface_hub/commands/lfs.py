@@ -119,13 +119,6 @@ def read_msg() -> Optional[Dict]:
     return msg
 
 
-@contextmanager
-def file_slice(filepath: str, seek_from: int, read_limit: int):
-    with open(filepath, "rb") as file:
-        with SliceFileObj(file, seek_from, read_limit) as file_slice:
-            yield file_slice
-
-
 class LfsUploadCommand:
     def __init__(self, args):
         self.args = args
@@ -178,31 +171,32 @@ class LfsUploadCommand:
             )
 
             parts = []
-            for i, presigned_url in enumerate(presigned_urls):
-                with file_slice(
-                    filepath,
-                    seek_from=i * chunk_size,
-                    read_limit=chunk_size,
-                ) as data:
-                    r = requests.put(presigned_url, data=data)
-                    r.raise_for_status()
-                    parts.append(
-                        {
-                            "etag": r.headers.get("etag"),
-                            "partNumber": i + 1,
-                        }
-                    )
-                    # In order to support progress reporting while data is uploading / downloading,
-                    # the transfer process should post messages to stdout
-                    write_msg(
-                        {
-                            "event": "progress",
-                            "oid": oid,
-                            "bytesSoFar": (i + 1) * chunk_size,
-                            "bytesSinceLast": chunk_size,
-                        }
-                    )
-                    # Not precise but that's ok.
+            with open(filepath, "rb") as file:
+                for i, presigned_url in enumerate(presigned_urls):
+                    with SliceFileObj(
+                        file,
+                        seek_from=i * chunk_size,
+                        read_limit=chunk_size,
+                    ) as data:
+                        r = requests.put(presigned_url, data=data)
+                        r.raise_for_status()
+                        parts.append(
+                            {
+                                "etag": r.headers.get("etag"),
+                                "partNumber": i + 1,
+                            }
+                        )
+                        # In order to support progress reporting while data is uploading / downloading,
+                        # the transfer process should post messages to stdout
+                        write_msg(
+                            {
+                                "event": "progress",
+                                "oid": oid,
+                                "bytesSoFar": (i + 1) * chunk_size,
+                                "bytesSinceLast": chunk_size,
+                            }
+                        )
+                        # Not precise but that's ok.
 
             r = requests.post(
                 completion_url,
