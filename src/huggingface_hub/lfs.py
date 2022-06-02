@@ -80,7 +80,7 @@ class UploadInfo:
     def from_path(cls, path: str):
         size = getsize(path)
         with io.open(path, "rb") as file:
-            sample = file.peek(512)
+            sample = file.peek(512)[:512]
             sha = sha_fileobj(file)
         return cls(size=size, sha256=sha, sample=sample)
 
@@ -90,12 +90,12 @@ class UploadInfo:
         return cls(size=len(data), sample=data[:512], sha256=sha)
 
     @classmethod
-    def from_readable(cls, readable: BinaryIO):
-        sample = readable.read(512)
-        readable.seek(0, io.SEEK_SET)
-        sha = sha_fileobj(readable)
-        size = readable.tell()
-        readable.seek(0, io.SEEK_SET)
+    def from_fileobj(cls, fileobj: BinaryIO):
+        sample = fileobj.read(512)
+        fileobj.seek(0, io.SEEK_SET)
+        sha = sha_fileobj(fileobj)
+        size = fileobj.tell()
+        fileobj.seek(0, io.SEEK_SET)
         return cls(size=size, sha256=sha, sample=sample)
 
 

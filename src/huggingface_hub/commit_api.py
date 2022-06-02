@@ -108,7 +108,7 @@ class CommitOperationAdd:
             elif isinstance(self.path_or_fileobj, bytes):
                 self._upload_info = UploadInfo.from_bytes(self.path_or_fileobj)
             else:
-                self._upload_info = UploadInfo.from_readable(self.path_or_fileobj)
+                self._upload_info = UploadInfo.from_fileobj(self.path_or_fileobj)
         return self._upload_info
 
     @contextmanager
