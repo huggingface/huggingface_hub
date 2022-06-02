@@ -25,8 +25,7 @@ from typing import Dict, List, Optional
 
 import requests
 from huggingface_hub.commands import BaseHuggingfaceCLICommand
-from huggingface_hub.lfs import LFS_MULTIPART_UPLOAD_COMMAND
-from huggingface_hub.utils.lfs import SliceFileObj
+from huggingface_hub.lfs import LFS_MULTIPART_UPLOAD_COMMAND, SliceFileObj
 
 from ..utils import logging
 
