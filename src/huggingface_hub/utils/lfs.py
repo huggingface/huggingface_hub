@@ -4,11 +4,18 @@ via the git LFS protocol
 """
 
 import io
+import sys
 from contextlib import AbstractContextManager
 from dataclasses import dataclass
 from math import ceil
 from os.path import getsize
-from typing import BinaryIO, Dict, List, TypedDict, Union
+from typing import BinaryIO, Dict, List, Union
+
+
+if sys.version_info >= (3, 8):
+    from typing import TypedDict
+else:
+    from typing_extensions import TypedDict
 
 import requests
 from _typeshed import SupportsRead

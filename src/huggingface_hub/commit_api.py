@@ -8,13 +8,13 @@ import os
 import sys
 from contextlib import contextmanager
 from dataclasses import dataclass, field
-from typing import BinaryIO, Dict, Iterable, List, Optional, Tuple, TypedDict, Union
+from typing import BinaryIO, Dict, Iterable, List, Optional, Tuple, Union
 
 
 if sys.version_info >= (3, 8):
-    from typing import Literal
+    from typing import Literal, TypedDict
 else:
-    from typing_extensions import Literal
+    from typing_extensions import Literal, TypedDict
 
 import requests
 from huggingface_hub.utils.lfs import (
