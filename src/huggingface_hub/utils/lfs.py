@@ -18,7 +18,6 @@ else:
     from typing_extensions import TypedDict
 
 import requests
-from _typeshed import SupportsRead
 
 from .sha import sha256, sha_fileobj
 
@@ -217,7 +216,7 @@ def _upload_multi_part(
     return completion_res
 
 
-class SliceFileObj(AbstractContextManager, SupportsRead[bytes]):
+class SliceFileObj(AbstractContextManager):
     """
     Utility context manager to read a slice of a file-like object as a file-like object
 
