@@ -234,9 +234,7 @@ def save_pretrained_keras(
 
     _create_model_card(model, save_directory, plot_model, metadata)
     if model_save_kwargs.get("save_format") == "h5":
-        filepath = model_save_kwargs.pop("filepath", None)
-        if filepath:
-            save_directory = os.path.join(save_directory, filepath)
+        save_directory = os.path.join(save_directory, "saved_model.pb")
     tf.keras.models.save_model(
         model, save_directory, include_optimizer=include_optimizer, **model_save_kwargs
     )
@@ -534,6 +532,8 @@ class KerasModelHubMixin(ModelHubMixin):
             )
         else:
             storage_folder = model_id
+        if model_kwargs.get("custom_objects"):
+            storage_folder = os.path.join(storage_folder, "saved_model.pb")
 
         model = tf.keras.models.load_model(storage_folder, **model_kwargs)
 
