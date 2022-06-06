@@ -89,16 +89,18 @@ def _attach(package_name, submodules=None, submod_attrs=None):
         if name in submodules:
             return importlib.import_module(f"{package_name}.{name}")
         elif name in attr_to_modules:
-            submod = importlib.import_module(f"{package_name}.{attr_to_modules[name]}")
+            submod_path = f"{package_name}.{attr_to_modules[name]}"
+            submod = importlib.import_module(submod_path)
+            attr = getattr(submod, name)
+
+            # If the attribute lives in a file (module) with the same
+            # name as the attribute, ensure that the attribute and *not*
+            # the module is accessible on the package.
             if name == attr_to_modules[name]:
-                warnings.warn(
-                    _LazyImportWarning(
-                        "Module attribute and module have same "
-                        f"name: `{name}`; will likely cause conflicts "
-                        "when accessing attribute."
-                    )
-                )
-            return getattr(submod, name)
+                pkg = sys.modules[package_name]
+                pkg.__dict__[name] = attr
+
+            return attr
         else:
             raise AttributeError(f"No {package_name} attribute {name}")
 
