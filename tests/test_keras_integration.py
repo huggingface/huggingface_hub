@@ -1,3 +1,4 @@
+import json
 import os
 import shutil
 import tempfile
@@ -226,6 +227,10 @@ class HubKerasSequentialTest(HubMixingTestKeras):
         self.assertIn("model.png", files)
         self.assertIn("README.md", files)
         self.assertIn("history.json", files)
+        with open(f"{WORKING_REPO_DIR}/{REPO_NAME}/history.json") as f:
+            history = json.load(f)
+
+        self.assertEqual(history, model.history.history)
         self.assertEqual(len(files), 7)
 
     def test_save_model_card_history_removal(self):
