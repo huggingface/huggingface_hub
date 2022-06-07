@@ -1748,6 +1748,43 @@ class HfApi:
         revision: Optional[str] = None,
         create_pr: Optional[bool] = None,
     ) -> Optional[str]:
+        """
+        Creates a commit in the given repo, deleting & uploading files as needed.
+
+        Args:
+            repo_id (`str`):
+                The repository in which the commit will be created, for example:
+                `"username/custom_transformers"`
+
+            operations (`Iterable` of `CommitOperation`):
+                An iterable of operations to include in the commit, either:
+
+                    - ``CommitOperationAdd`` to upload a file
+                    - ``CommitOperationDelete`` to delete a file
+
+            commit_summary (``str``):
+                The summary of the commit that will be created
+
+            commit_description (``str``, *optional*):
+                The description of the commit that will be created
+
+            token (`str`, *optional*):
+                Authentication token, obtained with `HfApi.login` method. Will
+                default to the stored token.
+
+            repo_type (`str`, *optional*):
+                Set to `"dataset"` or `"space"` if uploading to a dataset or
+                space, `None` or `"model"` if uploading to a model. Default is
+                `None`.
+
+            revision (`str`, *optional*):
+                The git revision to commit from. Defaults to the head of the
+                `"main"` branch.
+
+            create_pr (``boolean``, *optional*):
+                Whether or not to create a Pull Request from ``revision`` with that commit.
+                Defaults to ``False``.
+        """
         commit_description = (
             commit_description if commit_description is not None else ""
         )
