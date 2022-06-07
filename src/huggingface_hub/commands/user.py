@@ -22,7 +22,7 @@ from huggingface_hub.constants import (
     REPO_TYPES,
     REPO_TYPES_URL_PREFIXES,
     SPACES_SDK_TYPES,
-    ENDPOINT
+    ENDPOINT,
 )
 from huggingface_hub.hf_api import HfApi, HfFolder
 from requests.exceptions import HTTPError
