@@ -1747,6 +1747,7 @@ class HfApi:
         repo_type: Optional[str] = None,
         revision: Optional[str] = None,
         create_pr: Optional[bool] = None,
+        num_threads: Optional[int] = 5,
     ) -> Optional[str]:
         """
         Creates a commit in the given repo, deleting & uploading files as needed.
@@ -1820,6 +1821,7 @@ class HfApi:
             token=token,
             revision=revision,
             endpoint=self.endpoint,
+            num_threads=num_threads,
         )
         commit_payload = prepare_commit_payload(
             additions=additions_with_upload_mode,

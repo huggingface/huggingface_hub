@@ -6,8 +6,10 @@ import base64
 import io
 import os
 import sys
+from concurrent.futures import ThreadPoolExecutor, wait
 from contextlib import contextmanager
 from dataclasses import dataclass, field
+from functools import partial
 from typing import BinaryIO, Dict, Iterable, List, Optional, Tuple, Union
 
 
@@ -151,12 +153,14 @@ def base_url(repo_type: str, repo_id: str, endpoint: Optional[str] = None) -> st
 
 
 def upload_lfs_files(
+    *,
     additions: Iterable[CommitOperationAdd],
     repo_type: str,
     repo_id: str,
     token: str,
     revision: str,
     endpoint: Optional[str] = None,
+    num_threads: Optional[int] = 5,
 ):
     """
     Uploads the content of ``additions`` to the HF Hub using the large file storage protocol.
@@ -173,6 +177,9 @@ def upload_lfs_files(
             An authentication token ( See https://huggingface.co/settings/tokens )
         revision (``str``):
             The git revision to upload the files to. Can be any valid git revision.
+        num_threads (``int``, *optional*):
+            The number of concurrent threads to use when uploading. Defaults to 5.
+            If set to `None`, concurrency is disabled.
 
     """
     endpoint = endpoint if endpoint is not None else ENDPOINT
@@ -224,31 +231,37 @@ def upload_lfs_files(
             )
             raise ValueError(f"LFS batch endpoint returned errors:\n{message}")
 
-        obj: LfsBatchObject
-        for obj in objects:
-            add_op = oid2addop.get(obj["oid"])
-            if add_op is None:
-                raise ValueError(f"Unknown OID: {obj['oid']}")
-            upload_info = add_op.upload_info()
-            upload_action = obj.get("actions", {}).get("upload", None)
-            if upload_action is None:
-                # The file was already uploaded
-                logger.debug(
-                    f"Content of file {add_op.path_in_repo} is already present upstream"
-                    " - skipping upload"
-                )
-                continue
-
-            with add_op.fileobj() as fileobj:
-                upload_lfs_file(
-                    fileobj=fileobj,
-                    upload_action=upload_action,
-                    upload_info=upload_info,
-                )
-            logger.debug(f"{add_op.path_in_repo}: Upload successful")
+        upload_func = partial(_upload_lfs_object, oid2addop=oid2addop)
+        if num_threads is None:
+            [upload_func(obj) for obj in objects]
+        else:
+            with ThreadPoolExecutor(num_threads) as pool:
+                wait([pool.submit(upload_func, obj) for obj in objects])
 
     except KeyError as err:
         raise ValueError("Malformed response from LFS batch endpoint") from err
+
+
+def _upload_lfs_object(obj: LfsBatchObject, oid2addop: Dict[str, CommitOperationAdd]):
+    add_op = oid2addop.get(obj["oid"])
+    if add_op is None:
+        raise ValueError(f"Unknown OID: {obj['oid']}")
+    upload_info = add_op.upload_info()
+    upload_action = obj.get("actions", {}).get("upload", None)
+    if upload_action is None:
+        # The file was already uploaded
+        logger.debug(
+            f"Content of file {add_op.path_in_repo} is already present upstream"
+            " - skipping upload"
+        )
+        return
+    with add_op.fileobj() as fileobj:
+        upload_lfs_file(
+            fileobj=fileobj,
+            upload_action=upload_action,
+            upload_info=upload_info,
+        )
+    logger.debug(f"{add_op.path_in_repo}: Upload successful")
 
 
 def _preupload_payload(add_operation: CommitOperationAdd):

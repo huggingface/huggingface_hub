@@ -14,7 +14,6 @@
 # limitations under the License.
 """Git LFS related type definitions and utilities"""
 
-
 import io
 import os
 import subprocess
@@ -253,6 +252,8 @@ def _upload_multi_part(
 class SliceFileObj(AbstractContextManager):
     """
     Utility context manager to read a slice of a file-like object as a file-like object
+
+    This is NOT thread safe
 
     Inspired by stackoverflow.com/a/29838711/593036
 
