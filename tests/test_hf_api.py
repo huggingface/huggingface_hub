@@ -666,13 +666,12 @@ class CommitApiTest(HfApiCommonTestWithLogin):
                 token=self._token,
             )
             for rpath in ["temp/dir/temp", "temp/dir/nested/file"]:
-                url = "{}/{user}/{repo}/resolve/main/{rpath}".format(
-                    ENDPOINT_STAGING,
-                    user=USER,
-                    repo=REPO_NAME,
-                    rpath=rpath,
+                filepath = hf_hub_download(
+                    repo_id=f"{USER}/{REPO_NAME}",
+                    filename=rpath,
+                    revision="main",
                 )
-                filepath = cached_download(url, force_download=True)
+                assert filepath is not None
                 with open(filepath) as downloaded_file:
                     content = downloaded_file.read()
                 self.assertEqual(content, self.tmp_file_content)
@@ -722,13 +721,12 @@ class CommitApiTest(HfApiCommonTestWithLogin):
                 ("fileobj", self.tmp_file_content.encode()),
                 ("nested/path", self.tmp_file_content.encode()),
             ]:
-                url = "{}/{user}/{repo}/resolve/main/{path}".format(
-                    ENDPOINT_STAGING,
-                    user=USER,
-                    repo=REPO_NAME,
-                    path=path,
+                filepath = hf_hub_download(
+                    repo_id=f"{USER}/{REPO_NAME}",
+                    filename=path,
+                    revision="main",
                 )
-                filepath = cached_download(url, force_download=True)
+                assert filepath is not None
                 with open(filepath, "rb") as downloaded_file:
                     content = downloaded_file.read()
                 self.assertEqual(content, expected_content)
