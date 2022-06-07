@@ -22,6 +22,7 @@ from huggingface_hub.constants import (
     REPO_TYPES,
     REPO_TYPES_URL_PREFIXES,
     SPACES_SDK_TYPES,
+    ENDPOINT
 )
 from huggingface_hub.hf_api import HfApi, HfFolder
 from requests.exceptions import HTTPError
@@ -190,6 +191,7 @@ class WhoamiCommand(BaseUserCommand):
             exit()
         try:
             info = self._api.whoami(token)
+            print(ENDPOINT)
             print(info["name"])
             orgs = [org["name"] for org in info["orgs"]]
             if orgs:
