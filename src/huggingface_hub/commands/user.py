@@ -19,10 +19,10 @@ from typing import List, Union
 
 from huggingface_hub.commands import BaseHuggingfaceCLICommand
 from huggingface_hub.constants import (
+    ENDPOINT,
     REPO_TYPES,
     REPO_TYPES_URL_PREFIXES,
     SPACES_SDK_TYPES,
-    ENDPOINT,
 )
 from huggingface_hub.hf_api import HfApi, HfFolder
 from requests.exceptions import HTTPError
