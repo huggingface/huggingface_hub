@@ -361,7 +361,7 @@ def prepare_commit_payload(
             {
                 "path": add_op.path_in_repo,
                 "encoding": "base64",
-                "content": add_op.b64content.decode(),
+                "content": add_op.b64content().decode(),
             }
             for (add_op, upload_mode) in additions
             if upload_mode == "regular"
