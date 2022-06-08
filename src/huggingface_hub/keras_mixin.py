@@ -175,6 +175,12 @@ def save_pretrained_keras(
     if model.history is not None:
         if model.history.history != {}:
             path = os.path.join(save_directory, "history.json")
+            if os.path.exists(path):
+                warnings.warn(
+                    "`history.json` file already exists, it will be overwritten by the"
+                    " history of this version.",
+                    UserWarning,
+                )
             with open(path, "w", encoding="utf-8") as f:
                 json.dump(model.history.history, f, indent=2, sort_keys=True)
 

@@ -237,21 +237,38 @@ class HubKerasSequentialTest(HubMixingTestKeras):
         REPO_NAME = repo_name("save")
         model = self.model_init()
         model = self.model_fit(model)
+        with tempfile.TemporaryDirectory() as tmpdirname:
+            os.makedirs(f"{tmpdirname}/{WORKING_REPO_DIR}/{REPO_NAME}")
+            with open(
+                f"{tmpdirname}/{WORKING_REPO_DIR}/{REPO_NAME}/history.json", "w+"
+            ) as fp:
+                fp.write("Keras FTW")
 
-        save_pretrained_keras(
-            model,
-            f"{WORKING_REPO_DIR}/{REPO_NAME}",
-        )
+            with pytest.warns(
+                UserWarning, match="`history.json` file already exists, *"
+            ):
+                save_pretrained_keras(
+                    model,
+                    f"{tmpdirname}/{WORKING_REPO_DIR}/{REPO_NAME}",
+                )
+                # assert that it's not the same as old history file and it's overridden
+                with open(
+                    f"{tmpdirname}/{WORKING_REPO_DIR}/{REPO_NAME}/history.json", "r"
+                ) as f:
+                    history_content = f.read()
+                    self.assertNotEqual("Keras FTW", history_content)
 
-        # Check the history is saved as a json in the repository.
-        files = os.listdir(f"{WORKING_REPO_DIR}/{REPO_NAME}")
-        self.assertIn("history.json", files)
+            # Check the history is saved as a json in the repository.
+            files = os.listdir(f"{tmpdirname}/{WORKING_REPO_DIR}/{REPO_NAME}")
+            self.assertIn("history.json", files)
 
-        # Check that there is no "Training Metrics" section in the model card.
-        # This was done in an older version.
-        with open(f"{WORKING_REPO_DIR}/{REPO_NAME}/README.md", "r") as file:
-            data = file.read()
-        self.assertNotIn(data, "Training Metrics")
+            # Check that there is no "Training Metrics" section in the model card.
+            # This was done in an older version.
+            with open(
+                f"{tmpdirname}/{WORKING_REPO_DIR}/{REPO_NAME}/README.md", "r"
+            ) as file:
+                data = file.read()
+            self.assertNotIn(data, "Training Metrics")
 
     def test_save_pretrained_optimizer_state(self):
         REPO_NAME = repo_name("save")
