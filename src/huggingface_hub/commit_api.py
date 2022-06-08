@@ -6,7 +6,8 @@ import base64
 import io
 import os
 import sys
-from concurrent.futures import ThreadPoolExecutor, wait
+from concurrent import futures
+from concurrent.futures import ThreadPoolExecutor
 from contextlib import contextmanager
 from dataclasses import dataclass, field
 from functools import partial
@@ -27,7 +28,7 @@ from .lfs import (
     LfsBatchObjectError,
     LfsBatchResponse,
     UploadInfo,
-    upload_lfs_file,
+    lfs_upload,
 )
 from .utils import logging
 
@@ -160,7 +161,7 @@ def upload_lfs_files(
     token: str,
     revision: str,
     endpoint: Optional[str] = None,
-    num_threads: Optional[int] = 5,
+    num_threads: int = 5,
 ):
     """
     Uploads the content of ``additions`` to the HF Hub using the large file storage protocol.
@@ -179,8 +180,6 @@ def upload_lfs_files(
             The git revision to upload the files to. Can be any valid git revision.
         num_threads (``int``, *optional*):
             The number of concurrent threads to use when uploading. Defaults to 5.
-            If set to `None`, concurrency is disabled.
-
     """
     endpoint = endpoint if endpoint is not None else ENDPOINT
 
@@ -232,11 +231,35 @@ def upload_lfs_files(
             raise ValueError(f"LFS batch endpoint returned errors:\n{message}")
 
         upload_func = partial(_upload_lfs_object, oid2addop=oid2addop)
-        if num_threads is None:
-            [upload_func(obj) for obj in objects]
-        else:
-            with ThreadPoolExecutor(num_threads) as pool:
-                wait([pool.submit(upload_func, obj) for obj in objects])
+        with ThreadPoolExecutor(max_workers=num_threads) as pool:
+            logger.debug(
+                f"Uploading {len(objects)} LFS files to the HF Hub using up to"
+                f" {num_threads} threads concurrently"
+            )
+            # Upload the files concurrently, stopping on the first exception
+            futures2operation: Dict[futures.Future, CommitOperationAdd] = {
+                pool.submit(upload_func, obj): oid2addop[obj["oid"]] for obj in objects
+            }
+            completed, pending = futures.wait(
+                futures2operation,
+                return_when=futures.FIRST_EXCEPTION,
+            )
+
+            for pending_future in pending:
+                # Cancel pending futures
+                # Uploads already in progress can't be stopped unfortunately,
+                # as `requests` does not support cancelling / aborting a request
+                pending_future.cancel()
+
+            for future in completed:
+                operation = futures2operation[future]
+                try:
+                    future.result()
+                except Exception as exc:
+                    # Raise the first exception encountered
+                    raise RuntimeError(
+                        f"Error while uploading {operation.path_in_repo} to the HF Hub"
+                    ) from exc
 
     except KeyError as err:
         raise ValueError("Malformed response from LFS batch endpoint") from err
@@ -256,12 +279,12 @@ def _upload_lfs_object(obj: LfsBatchObject, oid2addop: Dict[str, CommitOperation
         )
         return
     with add_op.fileobj() as fileobj:
-        upload_lfs_file(
+        lfs_upload(
             fileobj=fileobj,
             upload_action=upload_action,
             upload_info=upload_info,
         )
-    logger.debug(f"{add_op.path_in_repo}: Upload successful")
+        logger.debug(f"{add_op.path_in_repo}: Upload successful")
 
 
 def _preupload_payload(add_operation: CommitOperationAdd):

@@ -1747,7 +1747,7 @@ class HfApi:
         repo_type: Optional[str] = None,
         revision: Optional[str] = None,
         create_pr: Optional[bool] = None,
-        num_threads: Optional[int] = 5,
+        num_threads: int = 5,
     ) -> Optional[str]:
         """
         Creates a commit in the given repo, deleting & uploading files as needed.
@@ -1785,6 +1785,10 @@ class HfApi:
             create_pr (``boolean``, *optional*):
                 Whether or not to create a Pull Request from ``revision`` with that commit.
                 Defaults to ``False``.
+
+            num_threads (``int``, *optional*):
+                Number of concurrent threads for uploading files. Defaults to 5.
+                Setting it to 2 means at most 2 files will be uploaded concurrently.
         """
         commit_description = (
             commit_description if commit_description is not None else ""

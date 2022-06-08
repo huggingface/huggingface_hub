@@ -136,7 +136,7 @@ class LfsError(TypedDict):
     message: str
 
 
-def upload_lfs_file(
+def lfs_upload(
     fileobj: BinaryIO,
     upload_action: LfsAction,
     upload_info: UploadInfo,
