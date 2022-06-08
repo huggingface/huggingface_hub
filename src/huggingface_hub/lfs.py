@@ -181,12 +181,12 @@ def post_lfs_batch_info(
         `HTTPError`: If the server returned an error
     """
     endpoint = endpoint if endpoint is not None else ENDPOINT
-    if repo_type not in REPO_TYPES_URL_PREFIXES:
+    if repo_type not in ("model", "dataset", "space"):
         raise ValueError(
             "Invalid value for `repo_type`, must be one of"
             f" {tuple(REPO_TYPES_URL_PREFIXES.keys())}"
         )
-    url_prefix = REPO_TYPES_URL_PREFIXES[repo_type]
+    url_prefix = REPO_TYPES_URL_PREFIXES.get(repo_type, "")
     batch_url = f"{endpoint}/{url_prefix}{repo_id}.git/info/lfs/objects/batch"
     resp = requests.post(
         batch_url,

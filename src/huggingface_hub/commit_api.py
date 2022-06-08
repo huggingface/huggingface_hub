@@ -132,7 +132,7 @@ class CommitOperationAdd:
         """
         self.validate()
         if isinstance(self.path_or_fileobj, str):
-            with open(self.path_in_repo, "rb") as file:
+            with open(self.path_or_fileobj, "rb") as file:
                 yield file
         elif isinstance(self.path_or_fileobj, bytes):
             yield io.BytesIO(self.path_or_fileobj)
@@ -296,7 +296,7 @@ def validate_preupload_info(preupload_info: dict):
             isinstance(file_info, dict)
             and isinstance(file_info.get("path"), str)
             and isinstance(file_info.get("uploadMode"), str)
-            and (file_info["uploadMode"] in ("lfs", "regualr"))
+            and (file_info["uploadMode"] in ("lfs", "regular"))
         ):
             raise ValueError("preupload_info is improperly formatted:")
     return preupload_info

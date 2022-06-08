@@ -483,20 +483,26 @@ class CommitApiTest(HfApiCommonTestWithLogin):
             )
 
     def test_commit_operation_validation(self):
-        with self.assertRaises(ValueError, msg="File opened in text mode"):
-            with open(self.tmp_file, "rt") as ftext:
-                CommitOperationAdd(
-                    path_or_fileobj=ftext,  # type: ignore
-                    path_in_repo="README.md",
-                )
+        with open(self.tmp_file, "rt") as ftext:
+            operation = CommitOperationAdd(
+                path_or_fileobj=ftext,  # type: ignore
+                path_in_repo="README.md",
+            )
+            with self.assertRaises(
+                ValueError,
+                msg="If you passed a file-like object, make sure it is in binary mode",
+            ):
+                operation.validate()
 
+        operation = CommitOperationAdd(
+            path_or_fileobj=os.path.join(self.tmp_dir, "nofile.pth"),
+            path_in_repo="README.md",
+        )
         with self.assertRaises(
             ValueError, msg="path_or_fileobj is str but does not point to a file"
         ):
-            CommitOperationAdd(
-                path_or_fileobj=os.path.join(self.tmp_dir, "nofile.pth"),
-                path_in_repo="README.md",
-            )
+
+            operation.validate()
 
     @retry_endpoint
     def test_upload_file_path(self):

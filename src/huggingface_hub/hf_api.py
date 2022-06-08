@@ -1800,16 +1800,15 @@ class HfApi:
         revision = revision if revision is not None else DEFAULT_REVISION
         create_pr = create_pr if create_pr is not None else False
 
+        operations = list(operations)
         additions = [op for op in operations if isinstance(op, CommitOperationAdd)]
         deletions = [op for op in operations if isinstance(op, CommitOperationDelete)]
 
-        unknown_operations = [
-            op
-            for op in operations
-            if op not in set(additions) and op not in set(deletions)
-        ]
-        if unknown_operations:
-            raise ValueError(f"Unknown operations: {unknown_operations}")
+        if len(additions) + len(deletions) != len(operations):
+            raise ValueError(
+                "Unknown operation, must be one of `CommitOperationAdd` or"
+                " `CommitOperationDelete`"
+            )
 
         for addition in additions:
             addition.validate()
