@@ -10,26 +10,18 @@ from concurrent import futures
 from concurrent.futures import ThreadPoolExecutor
 from contextlib import contextmanager
 from dataclasses import dataclass, field
-from functools import partial
 from typing import BinaryIO, Dict, Iterable, List, Optional, Tuple, Union
 
 
 if sys.version_info >= (3, 8):
-    from typing import Literal, TypedDict
+    from typing import Literal
 else:
-    from typing_extensions import Literal, TypedDict
+    from typing_extensions import Literal
 
 import requests
-from requests.auth import HTTPBasicAuth
 
-from .constants import ENDPOINT, REPO_TYPES_URL_PREFIXES
-from .lfs import (
-    LfsBatchObject,
-    LfsBatchObjectError,
-    LfsBatchResponse,
-    UploadInfo,
-    lfs_upload,
-)
+from .constants import ENDPOINT
+from .lfs import UploadInfo, lfs_upload, post_lfs_batch_info, validate_batch_actions
 from .utils import logging
 
 
@@ -44,12 +36,13 @@ class CommitOperationDelete:
     """
     Data strcture holding necessary info to delete
     a file from a repository on the HF Hub
+
+    Args:
+        path_in_repo (`str`):
+            Path of the file to delete in the repo
     """
 
     path_in_repo: str
-    """
-    Path of the file to delete in the repo
-    """
 
 
 @dataclass
@@ -57,29 +50,28 @@ class CommitOperationAdd:
     """
     Data structire holding necessary info to upload a file
     to a repository on the HF Hub
+
+    Args:
+        path_in_repo (`str`):
+            Path in the repository where the uploaded file will be saved
+        path_or_fileobj (`str`, `bytes`, or `BinaryIO`):
+            Either:
+            - a path to a local file (as str) to upload
+            - a buffer of bytes (`bytes`) holding the content of the file to upload
+            - a "file object" (subclass of `io.BufferedIOBase`), typically obtained
+                with `open(path, "rb")`
     """
 
     path_in_repo: str
-    """
-    Path in the repository where the uploaded file will be saved
-    """
     path_or_fileobj: Union[str, bytes, BinaryIO]
-    """
-    Either:
-        - a path to a local file (as str) to upload
-        - a buffer of bytes (``bytes``) holding the content of the file to upload
-        - a "file object" (subclass of ``io.BufferedIOBase``), typically obtained
-            with `open(path, "rb")`
-    """
 
     _upload_info: Optional[UploadInfo] = field(default=None, init=False)
 
     def validate(self):
         """
-        Ensures ``path_or_fileobj`` is valid
+        Ensures `path_or_fileobj` is valid
 
-        Raises:
-            ``ValueError``
+        Raises: `ValueError`
         """
         if isinstance(self.path_or_fileobj, str):
             path_or_fileobj = os.path.normpath(os.path.expanduser(self.path_or_fileobj))
@@ -98,11 +90,10 @@ class CommitOperationAdd:
 
     def upload_info(self) -> UploadInfo:
         """
-        Computes and caches UploadInfo for the underlying data behind ``path_or_fileobj``
-        Triggers ``self.validate``.
+        Computes and caches UploadInfo for the underlying data behind `path_or_fileobj`
+        Triggers `self.validate`.
 
-        Raises:
-            ValueError: if self.validate fails
+        Raises: `ValueError` if self.validate fails
         """
         self.validate()
         if self._upload_info is None:
@@ -116,6 +107,29 @@ class CommitOperationAdd:
 
     @contextmanager
     def fileobj(self):
+        """
+        A context manager that yields a file-like object allowing to read the underlying
+        data behind `path_or_fileobj`.
+
+        Triggers `self.validate`.
+
+        Raises: `ValueError` if self.validate fails
+
+        Example:
+
+        ```python
+        >>> operation = CommitOperationAdd(
+        ...        path_in_repo="remote/dir/weights.h5",
+        ...        path_or_fileobj="./local/weights.h5",
+        ... )
+        CommitOperationAdd(path_in_repo='remote/dir/weights.h5', path_or_fileobj='./local/weights.h5', _upload_info=None)
+
+        >>> with operation.fileobj() as data:
+        ...     content = data.read()
+        ...     # ^ Use data as a file object
+        ```
+
+        """
         self.validate()
         if isinstance(self.path_or_fileobj, str):
             with open(self.path_in_repo, "rb") as file:
@@ -128,29 +142,15 @@ class CommitOperationAdd:
 
     def b64content(self) -> bytes:
         """
-        The base64-encoded content of ``path_or_fileobj``
+        The base64-encoded content of `path_or_fileobj`
 
-        Return:
-            ``bytes``
+        Returns: `bytes`
         """
-        if isinstance(self.path_or_fileobj, str):
-            with open(self.path_or_fileobj, "rb") as reader:
-                return base64.b64encode(reader.read())
-        elif isinstance(self.path_or_fileobj, bytes):
-            return base64.b64encode(self.path_or_fileobj)
-        else:
-            return base64.b64encode(self.path_or_fileobj.read())
+        with self.fileobj() as fileobj:
+            return base64.b64encode(fileobj.read())
 
 
 CommitOperation = Union[CommitOperationAdd, CommitOperationDelete]
-
-
-def base_url(repo_type: str, repo_id: str, endpoint: Optional[str] = None) -> str:
-    endpoint = endpoint if endpoint is not None else ENDPOINT
-    prefix = ""
-    if repo_type in REPO_TYPES_URL_PREFIXES:
-        prefix = REPO_TYPES_URL_PREFIXES[repo_type]
-    return f"{endpoint}/{prefix}{repo_id}"
 
 
 def upload_lfs_files(
@@ -164,142 +164,142 @@ def upload_lfs_files(
     num_threads: int = 5,
 ):
     """
-    Uploads the content of ``additions`` to the HF Hub using the large file storage protocol.
+    Uploads the content of `additions` to the HF Hub using the large file storage protocol.
+
+    Relevant external documentation:
+        - LFS Batch API: https://github.com/git-lfs/git-lfs/blob/main/docs/api/batch.md
 
     Args:
-        additions (``Iterable`` of ``CommitOperationAdd``):
+        additions (`Iterable` of ``CommitOperationAdd`):
             The files to be uploaded
-        repo_type (``str``):
+        repo_type (`str`):
             Type of the repo to upload to: `"model"`, `"dataset"` or `"space"`.
-        repo_id (``str``):
+        repo_id (`str`):
             A namespace (user or an organization) and a repo name separated
             by a `/`.
-        token (``str``):
+        token (`str`):
             An authentication token ( See https://huggingface.co/settings/tokens )
-        revision (``str``):
+        revision (`str`):
             The git revision to upload the files to. Can be any valid git revision.
-        num_threads (``int``, *optional*):
+        num_threads (`int`, *optional*):
             The number of concurrent threads to use when uploading. Defaults to 5.
+
+
+    Raises: `RuntimeError` if an upload failed for any reason
+
+    Raises: `ValueError` if the server returns malformed responses
+
+    Raises: `requests.HTTPError` if the LFS batch endpoint returned an HTTP
+        error
+
     """
-    endpoint = endpoint if endpoint is not None else ENDPOINT
+    # Step 1: retrieve upload instructions from the LFS batch endpoint
+    batch_actions, batch_errors = post_lfs_batch_info(
+        upload_infos=[op.upload_info() for op in additions],
+        token=token,
+        repo_id=repo_id,
+        repo_type=repo_type,
+        revision=revision,
+        endpoint=endpoint,
+    )
+    if batch_errors:
+        message = "\n".join(
+            [
+                f'Encountered error for file with OID {err.get("oid")}:'
+                f' `{err.get("error", {}).get("message")}'
+                for err in batch_errors
+            ]
+        )
+        raise ValueError(f"LFS batch endpoint returned errors:\n{message}")
 
-    common_headers = {
-        "Accept": "application/vnd.git-lfs+json",
-        "Content-Type": "application/vnd.git-lfs+json",
-    }
-
+    # Step 2: upload files according to these instructions
     oid2addop = {add_op.upload_info().sha256.hex(): add_op for add_op in additions}
-    batch_url = (
-        f"{base_url(repo_type, repo_id, endpoint=endpoint)}.git/info/lfs/objects/batch"
-    )
-    batch_res = requests.post(
-        batch_url,
-        headers=common_headers,
-        json={
-            "operation": "upload",
-            "transfers": ["basic", "multipart"],
-            "objects": [
-                {
-                    "oid": add_op.upload_info().sha256.hex(),
-                    "size": add_op.upload_info().size,
-                }
-                for add_op in additions
-            ],
-            "ref": {
-                "name": revision,
-            },
-            "hash_algo": "sha256",
-        },
-        auth=HTTPBasicAuth("access_token", token),
-    )
-    batch_res.raise_for_status()
+    with ThreadPoolExecutor(max_workers=num_threads) as pool:
+        logger.debug(
+            f"Uploading {len(batch_actions)} LFS files to the HF Hub using up to"
+            f" {num_threads} threads concurrently"
+        )
+        # Upload the files concurrently, stopping on the first exception
+        futures2operation: Dict[futures.Future, CommitOperationAdd] = {
+            pool.submit(
+                _upload_lfs_object,
+                operation=oid2addop[batch_action["oid"]],
+                lfs_batch_action=batch_action,
+            ): oid2addop[batch_action["oid"]]
+            for batch_action in batch_actions
+        }
+        completed, pending = futures.wait(
+            futures2operation,
+            return_when=futures.FIRST_EXCEPTION,
+        )
 
-    try:
-        payload: LfsBatchResponse = batch_res.json()
-        objects = payload.get("objects", [])
-        errors: List[LfsBatchObjectError] = [
-            obj for obj in objects if obj.get("error") is not None
-        ]
-        if errors:
-            message = "\n".join(
-                [
-                    f'Encountered error for file with OID {obj["oid"]}:'
-                    f' `{obj["error"]["message"]}'
-                    for obj in errors
-                ]
-            )
-            raise ValueError(f"LFS batch endpoint returned errors:\n{message}")
+        for pending_future in pending:
+            # Cancel pending futures
+            # Uploads already in progress can't be stopped unfortunately,
+            # as `requests` does not support cancelling / aborting a request
+            pending_future.cancel()
 
-        upload_func = partial(_upload_lfs_object, oid2addop=oid2addop)
-        with ThreadPoolExecutor(max_workers=num_threads) as pool:
-            logger.debug(
-                f"Uploading {len(objects)} LFS files to the HF Hub using up to"
-                f" {num_threads} threads concurrently"
-            )
-            # Upload the files concurrently, stopping on the first exception
-            futures2operation: Dict[futures.Future, CommitOperationAdd] = {
-                pool.submit(upload_func, obj): oid2addop[obj["oid"]] for obj in objects
-            }
-            completed, pending = futures.wait(
-                futures2operation,
-                return_when=futures.FIRST_EXCEPTION,
-            )
-
-            for pending_future in pending:
-                # Cancel pending futures
-                # Uploads already in progress can't be stopped unfortunately,
-                # as `requests` does not support cancelling / aborting a request
-                pending_future.cancel()
-
-            for future in completed:
-                operation = futures2operation[future]
-                try:
-                    future.result()
-                except Exception as exc:
-                    # Raise the first exception encountered
-                    raise RuntimeError(
-                        f"Error while uploading {operation.path_in_repo} to the HF Hub"
-                    ) from exc
-
-    except KeyError as err:
-        raise ValueError("Malformed response from LFS batch endpoint") from err
+        for future in completed:
+            operation = futures2operation[future]
+            try:
+                future.result()
+            except Exception as exc:
+                # Raise the first exception encountered
+                raise RuntimeError(
+                    f"Error while uploading {operation.path_in_repo} to the HF Hub"
+                ) from exc
 
 
-def _upload_lfs_object(obj: LfsBatchObject, oid2addop: Dict[str, CommitOperationAdd]):
-    add_op = oid2addop.get(obj["oid"])
-    if add_op is None:
-        raise ValueError(f"Unknown OID: {obj['oid']}")
-    upload_info = add_op.upload_info()
-    upload_action = obj.get("actions", {}).get("upload", None)
+def _upload_lfs_object(operation: CommitOperationAdd, lfs_batch_action: dict):
+    """
+    Handles uploading a given object to the Hub with the LFS protocol.
+
+    Defers to `~.utils.lfs.lfs_upload` for the actual upload logic.
+
+    Can be a No-op if the content of the file is already present on the hub
+    large file storage.
+
+    Args:
+        operation (`CommitOprationAdd`):
+            The add operation triggering this upload
+        lfs_batch_action (`dict`):
+            Upload instructions from the LFS batch endpoint for this object.
+            See `~.utils.lfs.post_lfs_batch_info` for more details.
+
+    Raises: `ValueError` if `lfs_batch_action` is improperly formatted
+    """
+    validate_batch_actions(lfs_batch_action)
+    upload_info = operation.upload_info()
+    upload_action = lfs_batch_action["actions"].get("upload")
     if upload_action is None:
         # The file was already uploaded
         logger.debug(
-            f"Content of file {add_op.path_in_repo} is already present upstream"
+            f"Content of file {operation.path_in_repo} is already present upstream"
             " - skipping upload"
         )
         return
-    with add_op.fileobj() as fileobj:
+    with operation.fileobj() as fileobj:
         lfs_upload(
             fileobj=fileobj,
             upload_action=upload_action,
             upload_info=upload_info,
         )
-        logger.debug(f"{add_op.path_in_repo}: Upload successful")
+        logger.debug(f"{operation.path_in_repo}: Upload successful")
 
 
-def _preupload_payload(add_operation: CommitOperationAdd):
-    upload_info = add_operation.upload_info()
-    return {
-        "path": add_operation.path_in_repo,
-        "sample": base64.b64encode(upload_info.sample).decode("ascii"),
-        "size": upload_info.size,
-        "sha": upload_info.sha256.hex(),
-    }
-
-
-class PreUploadFileResponse(TypedDict):
-    path: str
-    uploadMode: UploadMode
+def validate_preupload_info(preupload_info: dict):
+    files = preupload_info.get("files")
+    if not isinstance(files, list):
+        raise ValueError("preupload_info is improperly formatted")
+    for file_info in files:
+        if not (
+            isinstance(file_info, dict)
+            and isinstance(file_info.get("path"), str)
+            and isinstance(file_info.get("uploadMode"), str)
+            and (file_info["uploadMode"] in ("lfs", "regualr"))
+        ):
+            raise ValueError("preupload_info is improperly formatted:")
+    return preupload_info
 
 
 def fetch_upload_modes(
@@ -338,7 +338,17 @@ def fetch_upload_modes(
     """
     endpoint = endpoint if endpoint is not None else ENDPOINT
     headers = {"authorization": f"Bearer {token}"} if token is not None else None
-    payload = {"files": [_preupload_payload(op) for op in additions]}
+    payload = {
+        "files": [
+            {
+                "path": op.path_in_repo,
+                "sample": base64.b64encode(op.upload_info().sample).decode("ascii"),
+                "size": op.upload_info().size,
+                "sha": op.upload_info().sha256.hex(),
+            }
+            for op in additions
+        ]
+    }
 
     resp = requests.post(
         f"{endpoint}/api/{repo_type}s/{repo_id}/preupload/{revision}",
@@ -347,36 +357,13 @@ def fetch_upload_modes(
     )
     resp.raise_for_status()
 
-    preupload_info: List[PreUploadFileResponse] = resp.json().get("files", [])
+    preupload_info = validate_preupload_info(resp.json())
+
     path2mode: Dict[str, UploadMode] = {
-        file["path"]: file["uploadMode"] for file in preupload_info
+        file["path"]: file["uploadMode"] for file in preupload_info["files"]
     }
 
     return [(op, path2mode[op.path_in_repo]) for op in additions]
-
-
-class CommitFilesPayloadFile(TypedDict):
-    path: str
-    encoding: Literal["base64"]
-    content: str
-
-
-class CommitFilesPayloadLfsFile(TypedDict):
-    path: str
-    algo: Literal["sha256"]
-    oid: str
-
-
-class CommitFilesPayloadDeletedFile(TypedDict):
-    path: str
-
-
-class CommitFilesPayload(TypedDict):
-    summary: str
-    description: str
-    files: List[CommitFilesPayloadFile]
-    lfsFiles: List[CommitFilesPayloadLfsFile]
-    deletedFiles: List[CommitFilesPayloadDeletedFile]
 
 
 def prepare_commit_payload(
@@ -384,9 +371,9 @@ def prepare_commit_payload(
     deletions: Iterable[CommitOperationDelete],
     commit_summary: str,
     commit_description: Optional[str] = None,
-) -> CommitFilesPayload:
+):
     """
-    Builds the payload to pass the the `commit` API of the HF Hub
+    Builds the payload to pass to the `commit` API of the HF Hub
     """
     commit_description = commit_description if commit_description is not None else ""
 

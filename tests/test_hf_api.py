@@ -470,6 +470,18 @@ class CommitApiTest(HfApiCommonTestWithLogin):
             lambda: shutil.rmtree(self.tmp_dir, onerror=set_write_permission_and_retry)
         )
 
+    @retry_endpoint
+    def test_upload_file_validation(self):
+        REPO_NAME = repo_name("upload")
+        with self.assertRaises(ValueError, msg="Wrong repo type"):
+            self._api.upload_file(
+                path_or_fileobj=self.tmp_file,
+                path_in_repo="README.md",
+                repo_id=f"{USER}/{REPO_NAME}",
+                repo_type="this type does not exist",
+                token=self._token,
+            )
+
     def test_commit_operation_validation(self):
         with self.assertRaises(ValueError, msg="File opened in text mode"):
             with open(self.tmp_file, "rt") as ftext:

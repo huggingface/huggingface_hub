@@ -16,24 +16,23 @@
 
 import io
 import os
+import re
 import subprocess
 import sys
 from contextlib import AbstractContextManager
 from dataclasses import dataclass
 from math import ceil
 from os.path import getsize
-from typing import BinaryIO, Dict, List, Union
-
-
-if sys.version_info >= (3, 8):
-    from typing import TypedDict
-else:
-    from typing_extensions import TypedDict
+from typing import BinaryIO, Iterable, List, Optional, Tuple
 
 import requests
+from huggingface_hub.constants import ENDPOINT, REPO_TYPES_URL_PREFIXES
+from requests.auth import HTTPBasicAuth
 
 from .utils.sha import sha256, sha_fileobj
 
+
+OID_REGEX = re.compile(r"^[0-9a-f]{40}$")
 
 LFS_MULTIPART_UPLOAD_COMMAND = "lfs-multipart-upload"
 
@@ -66,14 +65,19 @@ class UploadInfo:
     """
     Dataclass holding required information to determine wether a blob
     should be uploaded to the hub using the LFS protocol or the regular protocol
+
+    Args:
+        sha256 (`bytes`):
+            SHA256 hash of the blob
+        size (`int`):
+            Size in bytes of the blob
+        sample (`bytes`):
+            First 512 bytes of the blob
     """
 
     sha256: bytes
-    """SHA256 hash of the blob"""
     size: int
-    """Size in bytes of the blob"""
     sample: bytes
-    """First 512 bytes of the blob"""
 
     @classmethod
     def from_path(cls, path: str):
@@ -98,47 +102,131 @@ class UploadInfo:
         return cls(size=size, sha256=sha, sample=sample)
 
 
-class LfsBatchResponse(TypedDict):
+def validate_batch_actions(lfs_batch_actions: dict):
+    if not (
+        isinstance(lfs_batch_actions.get("oid"), str)
+        and isinstance(lfs_batch_actions.get("size"), int)
+    ):
+        raise ValueError("lfs_batch_actions is improperly formatted")
+
+    upload_action = lfs_batch_actions.get("actions", {}).get("upload")
+    if upload_action is not None:
+        validate_lfs_upload_action(upload_action)
+    return lfs_batch_actions
+
+
+def validate_batch_error(lfs_batch_error: dict):
+    if not (
+        isinstance(lfs_batch_error.get("oid"), str)
+        and isinstance(lfs_batch_error.get("size"), int)
+    ):
+        raise ValueError("lfs_batch_error is improperly formatted")
+    error_info = lfs_batch_error.get("error")
+    if not (
+        isinstance(error_info, dict)
+        and isinstance(error_info.get("message"), str)
+        and isinstance(error_info.get("code"), int)
+    ):
+        raise ValueError("lfs_batch_error is improperly formatted")
+    return lfs_batch_error
+
+
+def validate_lfs_upload_action(lfs_upload_action: dict):
+    if not (
+        isinstance(lfs_upload_action.get("href"), str)
+        and (
+            lfs_upload_action.get("header") is None
+            or isinstance(lfs_upload_action.get("header"), dict)
+        )
+    ):
+        raise ValueError("lfs_upload_action is improperly formatted")
+    return lfs_upload_action
+
+
+def post_lfs_batch_info(
+    upload_infos: Iterable[UploadInfo],
+    token: str,
+    repo_type: str,
+    repo_id: str,
+    revision: str,
+    endpoint: Optional[str] = None,
+) -> Tuple[List[dict], List[dict]]:
     """
-    Response from the LFS batch endpoint
-    See https://github.com/git-lfs/git-lfs/blob/main/docs/api/batch.md
+    Requests the LFS batch endpoint to retrieve upload instructions
+
+    Learn more: https://github.com/git-lfs/git-lfs/blob/main/docs/api/batch.md
+
+    Args:
+        upload_infos (`Iterable` of `UploadInfo`):
+            `UploadInfo` for the files that are being uploaded, typically obtained
+            from `CommitOperationAdd.upload_info`
+        repo_type (`str`):
+            Type of the repo to upload to: `"model"`, `"dataset"` or `"space"`.
+        repo_id (`str`):
+            A namespace (user or an organization) and a repo name separated
+            by a `/`.
+        token (`str`):
+            An authentication token ( See https://huggingface.co/settings/tokens )
+        revision (`str`):
+            The git revision to upload the files to. Can be any valid git revision.
+
+    Returns:
+        `LfsBatchInfo`: 2-tuple:
+            - First element is the list of upload instructions from the server
+            - Second element is an list of errors, if any
+
+    Raises:
+        `ValueError`: If an argument is invalid or the server response is malformed
+
+        `HTTPError`: If the server returned an error
     """
+    endpoint = endpoint if endpoint is not None else ENDPOINT
+    if repo_type not in REPO_TYPES_URL_PREFIXES:
+        raise ValueError(
+            "Invalid value for `repo_type`, must be one of"
+            f" {tuple(REPO_TYPES_URL_PREFIXES.keys())}"
+        )
+    url_prefix = REPO_TYPES_URL_PREFIXES[repo_type]
+    batch_url = f"{endpoint}/{url_prefix}{repo_id}.git/info/lfs/objects/batch"
+    resp = requests.post(
+        batch_url,
+        headers={
+            "Accept": "application/vnd.git-lfs+json",
+            "Content-Type": "application/vnd.git-lfs+json",
+        },
+        json={
+            "operation": "upload",
+            "transfers": ["basic", "multipart"],
+            "objects": [
+                {
+                    "oid": upload.sha256.hex(),
+                    "size": upload.size,
+                }
+                for upload in upload_infos
+            ],
+            "ref": {
+                "name": revision,
+            },
+            "hash_algo": "sha256",
+        },
+        auth=HTTPBasicAuth("access_token", token),
+    )
+    resp.raise_for_status()
+    batch_info = resp.json()
 
-    objects: List[Union["LfsBatchObject", "LfsBatchObjectError"]]
+    objects = batch_info.get("objects", None)
+    if not isinstance(objects, list):
+        raise ValueError("Malformed response from server")
 
-
-class LfsBatchObjectBase(TypedDict):
-    oid: str
-    size: int
-
-
-class LfsBatchObject(LfsBatchObjectBase):
-    actions: "LfsObjectActions"
-
-
-class LfsBatchObjectError(LfsBatchObjectBase):
-    error: "LfsError"
-
-
-class LfsObjectActions(TypedDict, total=False):
-    download: "LfsAction"
-    upload: "LfsAction"
-    verify: "LfsAction"
-
-
-class LfsAction(TypedDict):
-    href: str
-    header: Dict[str, str]
-
-
-class LfsError(TypedDict):
-    code: int
-    message: str
+    return (
+        [validate_batch_actions(obj) for obj in objects if "error" not in obj],
+        [validate_batch_error(obj) for obj in objects if "error" in obj],
+    )
 
 
 def lfs_upload(
     fileobj: BinaryIO,
-    upload_action: LfsAction,
+    upload_action: dict,
     upload_info: UploadInfo,
 ):
     """
@@ -148,8 +236,9 @@ def lfs_upload(
     Args:
         fileobj (file-like object):
             The content of the file to upload
-        upload_action (`LfsAction`):
-            The `upload` action from the LFS Batch endpoint
+        upload_action (`dict`):
+            The `upload` action from the LFS Batch endpoint. Must contain
+            a `href` field, and optionally a `header` field
         uplod_info (`UploadInfo`):
             Upload info for `fileobj`
 
@@ -163,7 +252,9 @@ def lfs_upload(
 
         `requests.HTTPError`
     """
-    chunk_size = upload_action.get("header", {}).get("chunk_size", None)
+    validate_lfs_upload_action(upload_action)
+    header = upload_action.get("header", {})
+    chunk_size = header.get("chunk_size", None)
     if chunk_size is not None:
         if isinstance(chunk_size, str):
             chunk_size = int(chunk_size, 10)
@@ -173,24 +264,28 @@ def lfs_upload(
                 " should be a string"
             )
         return _upload_multi_part(
+            completion_url=upload_action["href"],
             fileobj=fileobj,
-            upload_action=upload_action,
             chunk_size=chunk_size,
+            header=header,
             upload_info=upload_info,
         )
-    return _upload_single_part(fileobj=fileobj, upload_action=upload_action)
+    return _upload_single_part(
+        upload_url=upload_action["href"],
+        fileobj=fileobj,
+    )
 
 
-def _upload_single_part(fileobj: BinaryIO, upload_action: LfsAction):
-    upload_url = upload_action["href"]
+def _upload_single_part(upload_url: str, fileobj: BinaryIO):
     upload_res = requests.put(upload_url, data=fileobj)
     upload_res.raise_for_status()
     return upload_res
 
 
 def _upload_multi_part(
+    completion_url: str,
     fileobj: BinaryIO,
-    upload_action: LfsAction,
+    header: dict,
     chunk_size: int,
     upload_info: UploadInfo,
 ):
@@ -202,7 +297,7 @@ def _upload_multi_part(
         for _, upload_url in sorted(
             [
                 (int(part_num, 10), upload_url)
-                for part_num, upload_url in upload_action["header"].items()
+                for part_num, upload_url in header.items()
                 if part_num.isdigit() and len(part_num) > 0
             ],
             key=lambda t: t[0],
@@ -212,7 +307,6 @@ def _upload_multi_part(
     if num_parts != ceil(upload_info.size / chunk_size):
         raise ValueError("Invalid server response to upload large LFS file")
 
-    completion_url = upload_action["href"]
     completion_payload = {
         "oid": upload_info.sha256.hex(),
         "parts": [

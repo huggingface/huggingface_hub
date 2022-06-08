@@ -1738,9 +1738,9 @@ class HfApi:
 
     def create_commit(
         self,
-        *,
         repo_id: str,
         operations: Iterable[CommitOperation],
+        *,
         commit_summary: str,
         commit_description: Optional[str] = None,
         token: Optional[str] = None,
@@ -1803,6 +1803,14 @@ class HfApi:
         additions = [op for op in operations if isinstance(op, CommitOperationAdd)]
         deletions = [op for op in operations if isinstance(op, CommitOperationDelete)]
 
+        unknown_operations = [
+            op
+            for op in operations
+            if op not in set(additions) and op not in set(deletions)
+        ]
+        if unknown_operations:
+            raise ValueError(f"Unknown operations: {unknown_operations}")
+
         for addition in additions:
             addition.validate()
 
@@ -1860,7 +1868,7 @@ class HfApi:
         create_pr: Optional[bool] = None,
     ) -> str:
         """
-        Upload a local file (up to 5GB) to the given repo. The upload is done
+        Upload a local file (up to 50 GB) to the given repo. The upload is done
         through a HTTP post request, and doesn't require git or git-lfs to be
         installed.
 
@@ -1890,6 +1898,9 @@ class HfApi:
                 The summary or title of the generated commit
             commit_description (`str` *optional*)
                 The description of the generated commit
+            create_pr (``boolean``, *optional*):
+                Whether or not to create a Pull Request from ``revision`` with that commit.
+                Defaults to ``False``.
 
         Returns:
             `str`: The URL to visualize the uploaded file on the hub
@@ -1968,6 +1979,72 @@ class HfApi:
         revision: Optional[str] = None,
         create_pr: Optional[bool] = None,
     ):
+        """
+        Upload a local folder to the given repo. The upload is done
+        through a HTTP requests, and doesn't require git or git-lfs to be
+        installed.
+
+        The structure of the folder will be preserved. Files with the same name
+        already present in the repository will be overwritten, others will be left untouched.
+
+        Uses `HfApi.create_commit` under the hood.
+
+        Args:
+            repo_id (`str`):
+                The repository to which the file will be uploaded, for example:
+                `"username/custom_transformers"`
+            folder_path (`str`):
+                Path to the folder to upload on the local file system
+            path_in_repo (`str`):
+                Relative path of the directory in the repo, for example:
+                `"checkpoints/1fec34a/results"`
+            token (`str`, *optional*):
+                Authentication token, obtained with `HfApi.login` method. Will
+                default to the stored token.
+            repo_type (`str`, *optional*):
+                Set to `"dataset"` or `"space"` if uploading to a dataset or
+                space, `None` or `"model"` if uploading to a model. Default is
+                `None`.
+            revision (`str`, *optional*):
+                The git revision to commit from. Defaults to the head of the
+                `"main"` branch.
+            commmit_summary (`str`, *optional*):
+                The summary or title of the generated commit. Defaults to:
+                `f"Upload {path_in_repo} with huggingface_hub"`
+            commit_description (`str` *optional*):
+                The description of the generated commit
+            create_pr (`boolean`, *optional*):
+                Whether or not to create a Pull Request from the pushed changes. Defaults
+                to `False`.
+
+        Returns:
+            `str` or None: TODO @SBrandeis
+
+        <Tip>
+
+        Raises the following errors:
+
+            - [`HTTPError`](https://2.python-requests.org/en/master/api/#requests.HTTPError)
+            if the HuggingFace API returned an error
+            - [`ValueError`](https://docs.python.org/3/library/exceptions.html#ValueError)
+            if some parameter value is invalid
+
+        </Tip>
+
+        Example usage:
+
+        ```python
+        >>> upload_file(
+        ...     folder_path="local/checkpoints",
+        ...     path_in_repo="remote/experiment/checkpoints",
+        ...     repo_id="username/my-dataset",
+        ...     repo_type="datasets",
+        ...     token="my_token",
+        ... )
+        # "https://huggingface.co/datasets/username/my-dataset/blob/main/remote/file/path.h5"
+        TODO : return type
+        ```
+        """
         commit_summary = (
             commit_summary
             if commit_summary is not None
@@ -2040,6 +2117,9 @@ class HfApi:
                 The summary or title of the generated commit
             commit_description (`str` *optional*)
                 The description of the generated commit
+            create_pr (``boolean``, *optional*):
+                Whether or not to create a Pull Request from ``revision`` with the changes.
+                Defaults to ``False``.
 
         <Tip>
 
