@@ -224,7 +224,7 @@ def upload_lfs_files(
         )
         raise ValueError(f"LFS batch endpoint returned errors:\n{message}")
 
-    # Step 2: upload files according to these instructions
+    # Step 2: upload files concurrently according to these instructions
     oid2addop = {add_op.upload_info().sha256.hex(): add_op for add_op in additions}
     with ThreadPoolExecutor(max_workers=num_threads) as pool:
         logger.debug(
@@ -325,8 +325,8 @@ def fetch_upload_modes(
     endpoint: Optional[str] = None,
 ) -> List[Tuple[CommitOperationAdd, UploadMode]]:
     """
-    Requests the Hub to determine wether each input file should be
-    uploaded as a regular git blob or as git LFS blob.
+    Requests the Hub "preupload" endpoint to determine wether each input file
+    should be uploaded as a regular git blob or as git LFS blob.
 
     Args:
         additions (`Iterable` of :class:`CommitOperationAdd`):
@@ -387,7 +387,7 @@ def prepare_commit_payload(
     commit_description: Optional[str] = None,
 ):
     """
-    Builds the payload to pass to the `commit` API of the Hub
+    Builds the payload to POST to the `/commit` API of the Hub
     """
     commit_description = commit_description if commit_description is not None else ""
 

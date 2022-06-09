@@ -289,6 +289,19 @@ def lfs_upload(
 
 
 def _upload_single_part(upload_url: str, fileobj: BinaryIO):
+    """
+    Uploads `fileobj` as a single PUT HTTP request (basic LFS transfer protocol)
+
+    Args:
+        upload_url (`str`):
+            The URL to PUT the file to.
+        fileobj:
+            The file-like object holding the data to upload.
+
+    Returns: `requests.Response`
+
+    Raises: `requests.HTTPError` if the upload resulted in an error
+    """
     upload_res = requests.put(upload_url, data=fileobj)
     upload_res.raise_for_status()
     return upload_res
@@ -302,7 +315,28 @@ def _upload_multi_part(
     upload_info: UploadInfo,
 ):
     """
-    TODO @SBrandeis
+    Uploads `fileobj` using HF multipart LFS transfer protocol.
+
+    Args:
+        completion_url (`str`):
+            The URL to GET after completing all parts uploads.
+        fileobj:
+            The file-like object holding the data to upload.
+        header (`dict`):
+            The `header` field from the `upload` action from the LFS
+            Batch endpoint response
+        chunk_size (`int`):
+            The size in bytes of the parts. `fileobj` will be uploaded in parts
+            of `chunk_size` bytes (except for the last part who can be smaller)
+        upload_info (`UploadInfo`):
+            `UploadInfo` for `fileobj`.
+
+    Returns: `requests.Response`: The response from requesting `completion_url`.
+
+    Raises: `requests.HTTPError` if uploading any of the parts resulted in an error.
+
+    Raises: `requests.HTTPError` if requesting `completion_url` resulted in an error.
+
     """
     sorted_part_upload_urls = [
         upload_url
