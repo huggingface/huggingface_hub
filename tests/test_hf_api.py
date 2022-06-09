@@ -464,7 +464,7 @@ class CommitApiTest(HfApiCommonTestWithLogin):
         os.makedirs(os.path.join(self.tmp_dir, "nested"))
         self.nested_tmp_file = os.path.join(self.tmp_dir, "nested", "file.bin")
         with open(self.nested_tmp_file, "wb+") as f:
-            f.truncate(1024*1024)
+            f.truncate(1024 * 1024)
 
         self.addCleanup(
             lambda: shutil.rmtree(self.tmp_dir, onerror=set_write_permission_and_retry)
@@ -674,85 +674,118 @@ class CommitApiTest(HfApiCommonTestWithLogin):
 
     @retry_endpoint
     def test_upload_folder(self):
-        REPO_NAME = repo_name("commit_folder")
-        self._api.create_repo(token=self._token, repo_id=REPO_NAME)
-        try:
-            self._api.upload_folder(
-                folder_path=self.tmp_dir,
-                path_in_repo="temp/dir",
-                repo_id=f"{USER}/{REPO_NAME}",
-                token=self._token,
-            )
-            for rpath in ["temp/dir/temp", "temp/dir/nested/file"]:
-                filepath = hf_hub_download(
-                    repo_id=f"{USER}/{REPO_NAME}",
-                    filename=rpath,
-                    revision="main",
+        for private in (False, True):
+            visibility = "private" if private else "public"
+            with self.subTest(f"{visibility} repo"):
+                REPO_NAME = repo_name(f"upload_folder_{visibility}")
+                self._api.create_repo(
+                    token=self._token,
+                    repo_id=REPO_NAME,
+                    private=private,
+                    exist_ok=False,
                 )
-                assert filepath is not None
-                with open(filepath) as downloaded_file:
-                    content = downloaded_file.read()
-                self.assertEqual(content, self.tmp_file_content)
-        except Exception as err:
-            self.fail(err)
-        finally:
-            self._api.delete_repo(repo_id=REPO_NAME, token=self._token)
+                try:
+                    self._api.upload_folder(
+                        folder_path=self.tmp_dir,
+                        path_in_repo="temp/dir",
+                        repo_id=f"{USER}/{REPO_NAME}",
+                        token=self._token,
+                    )
+                    for rpath in ["temp/dir/temp", "temp/dir/nested/file.bin"]:
+                        filepath = hf_hub_download(
+                            repo_id=f"{USER}/{REPO_NAME}",
+                            filename=rpath,
+                            revision="main",
+                            use_auth_token=self._token,
+                        )
+                        assert filepath is not None
+                        with open(filepath) as downloaded_file:
+                            content = downloaded_file.read()
+                        self.assertEqual(content, self.tmp_file_content)
+
+                    # Re-uploading the same folder twice should be fine
+                    self._api.upload_folder(
+                        folder_path=self.tmp_dir,
+                        path_in_repo="temp/dir",
+                        repo_id=f"{USER}/{REPO_NAME}",
+                        token=self._token,
+                    )
+                except Exception as err:
+                    self.fail(err)
+                finally:
+                    self._api.delete_repo(repo_id=REPO_NAME, token=self._token)
 
     @retry_endpoint
     def test_create_commit(self):
-        REPO_NAME = repo_name("create_commit")
-        self._api.create_repo(token=self._token, repo_id=REPO_NAME)
-        try:
-            self._api.upload_file(
-                path_or_fileobj=self.tmp_file,
-                path_in_repo="temp/new_file.md",
-                repo_id=f"{USER}/{REPO_NAME}",
-                token=self._token,
-            )
-            with open(self.tmp_file, "rb") as fileobj:
-                operations = [
-                    CommitOperationDelete(path_in_repo="temp/new_file.md"),
-                    CommitOperationAdd(
-                        path_in_repo="buffer", path_or_fileobj=b"Buffer data"
-                    ),
-                    CommitOperationAdd(
-                        path_in_repo="bytesio", path_or_fileobj=BytesIO(b"BytesIO data")
-                    ),
-                    CommitOperationAdd(path_in_repo="fileobj", path_or_fileobj=fileobj),
-                    CommitOperationAdd(
-                        path_in_repo="nested/path", path_or_fileobj=self.tmp_file
-                    ),
-                ]
-                self._api.create_commit(
-                    operations=operations,
-                    commit_message="Test create_commit",
-                    repo_id=f"{USER}/{REPO_NAME}",
+        for private in (False, True):
+            visibility = "private" if private else "public"
+            with self.subTest(f"{visibility} repo"):
+                REPO_NAME = repo_name(f"create_commit_{visibility}")
+                self._api.create_repo(
                     token=self._token,
+                    repo_id=REPO_NAME,
+                    private=private,
+                    exist_ok=False,
                 )
-            with self.assertRaises(HTTPError):
-                # Should raise a 404
-                hf_hub_download(f"{USER}/{REPO_NAME}", "temp/new_file.md")
+                try:
+                    self._api.upload_file(
+                        path_or_fileobj=self.tmp_file,
+                        path_in_repo="temp/new_file.md",
+                        repo_id=f"{USER}/{REPO_NAME}",
+                        token=self._token,
+                    )
+                    with open(self.tmp_file, "rb") as fileobj:
+                        operations = [
+                            CommitOperationDelete(path_in_repo="temp/new_file.md"),
+                            CommitOperationAdd(
+                                path_in_repo="buffer", path_or_fileobj=b"Buffer data"
+                            ),
+                            CommitOperationAdd(
+                                path_in_repo="bytesio",
+                                path_or_fileobj=BytesIO(b"BytesIO data"),
+                            ),
+                            CommitOperationAdd(
+                                path_in_repo="fileobj", path_or_fileobj=fileobj
+                            ),
+                            CommitOperationAdd(
+                                path_in_repo="nested/path",
+                                path_or_fileobj=self.tmp_file,
+                            ),
+                        ]
+                        self._api.create_commit(
+                            operations=operations,
+                            commit_message="Test create_commit",
+                            repo_id=f"{USER}/{REPO_NAME}",
+                            token=self._token,
+                        )
+                    with self.assertRaises(HTTPError):
+                        # Should raise a 404
+                        hf_hub_download(
+                            f"{USER}/{REPO_NAME}",
+                            "temp/new_file.md",
+                            use_auth_token=self._token,
+                        )
 
-            for path, expected_content in [
-                ("buffer", b"Buffer data"),
-                ("bytesio", b"BytesIO data"),
-                ("fileobj", self.tmp_file_content.encode()),
-                ("nested/path", self.tmp_file_content.encode()),
-            ]:
-                filepath = hf_hub_download(
-                    repo_id=f"{USER}/{REPO_NAME}",
-                    filename=path,
-                    revision="main",
-                )
-                assert filepath is not None
-                with open(filepath, "rb") as downloaded_file:
-                    content = downloaded_file.read()
-                self.assertEqual(content, expected_content)
-
-        except Exception as err:
-            self.fail(err)
-        finally:
-            self._api.delete_repo(repo_id=REPO_NAME, token=self._token)
+                    for path, expected_content in [
+                        ("buffer", b"Buffer data"),
+                        ("bytesio", b"BytesIO data"),
+                        ("fileobj", self.tmp_file_content.encode()),
+                        ("nested/path", self.tmp_file_content.encode()),
+                    ]:
+                        filepath = hf_hub_download(
+                            repo_id=f"{USER}/{REPO_NAME}",
+                            filename=path,
+                            revision="main",
+                            use_auth_token=self._token,
+                        )
+                        assert filepath is not None
+                        with open(filepath, "rb") as downloaded_file:
+                            content = downloaded_file.read()
+                        self.assertEqual(content, expected_content)
+                except Exception as err:
+                    self.fail(err)
+                finally:
+                    self._api.delete_repo(repo_id=REPO_NAME, token=self._token)
 
 
 class HfApiPublicTest(unittest.TestCase):
