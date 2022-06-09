@@ -148,17 +148,17 @@ def metadata_update(
             attempting to overwrite an existing field will cause an error.
         token (`str`, *optional*):
             The Hugging Face authentication token.
-            commit_message (`str`, *optional*):
-                The summary / title / first line of the generated commit. Defaults to
-                `f"Update metdata with huggingface_hub"`
-            commit_description (`str` *optional*)
-                The description of the generated commit
-            revision (`str`, *optional*):
-                The git revision to commit from. Defaults to the head of the
-                `"main"` branch.
-            create_pr (`boolean`, *optional*):
-                Whether or not to create a Pull Request from `revision` with that commit.
-                Defaults to `False`.
+        commit_message (`str`, *optional*):
+            The summary / title / first line of the generated commit. Defaults to
+            `f"Update metdata with huggingface_hub"`
+        commit_description (`str` *optional*)
+            The description of the generated commit
+        revision (`str`, *optional*):
+            The git revision to commit from. Defaults to the head of the
+            `"main"` branch.
+        create_pr (`boolean`, *optional*):
+            Whether or not to create a Pull Request from `revision` with that commit.
+            Defaults to `False`.
     Returns:
         `str`: URL of the commit which updated the card metadata.
     """
