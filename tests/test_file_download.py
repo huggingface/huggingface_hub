@@ -113,7 +113,7 @@ class CachedDownloadTests(unittest.TestCase):
         with self.assertRaisesRegex(
             RepositoryNotFoundError, "404 Client Error: Repository Not Found"
         ):
-            _ = cached_download(url)
+            _ = cached_download(url, legacy_cache_layout=True)
 
     def test_standard_object(self):
         url = hf_hub_url(
