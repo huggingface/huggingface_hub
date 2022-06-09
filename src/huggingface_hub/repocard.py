@@ -112,9 +112,13 @@ def metadata_update(
     repo_id: str,
     metadata: Dict,
     *,
-    repo_type: str = None,
+    repo_type: Optional[str] = None,
     overwrite: bool = False,
-    token: str = None,
+    token: Optional[str] = None,
+    commit_message: Optional[str] = None,
+    commit_description: Optional[str] = None,
+    revision: Optional[str] = None,
+    create_pr: bool = False,
 ) -> str:
     """
     Updates the metadata in the README.md of a repository on the Hugging Face Hub.
@@ -144,11 +148,25 @@ def metadata_update(
             attempting to overwrite an existing field will cause an error.
         token (`str`, *optional*):
             The Hugging Face authentication token.
-
+            commit_message (`str`, *optional*):
+                The summary / title / first line of the generated commit. Defaults to
+                `f"Update metdata with huggingface_hub"`
+            commit_description (`str` *optional*)
+                The description of the generated commit
+            revision (`str`, *optional*):
+                The git revision to commit from. Defaults to the head of the
+                `"main"` branch.
+            create_pr (`boolean`, *optional*):
+                Whether or not to create a Pull Request from `revision` with that commit.
+                Defaults to `False`.
     Returns:
         `str`: URL of the commit which updated the card metadata.
     """
-
+    commit_message = (
+        commit_message
+        if commit_message is not None
+        else "Update metadata with huggingface_hub"
+    )
     filepath = hf_hub_download(
         repo_id,
         filename=REPOCARD_NAME,
@@ -192,6 +210,10 @@ def metadata_update(
         repo_type=repo_type,
         identical_ok=False,
         token=token,
+        commit_message=commit_message,
+        commit_description=commit_description,
+        create_pr=create_pr,
+        revision=revision,
     )
 
 
