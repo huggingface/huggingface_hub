@@ -102,6 +102,18 @@ class UploadInfo:
         return cls(size=size, sha256=sha, sample=sample)
 
 
+def validate_lfs_action(lfs_action: dict):
+    if not (
+        isinstance(lfs_action.get("href"), str)
+        and (
+            lfs_action.get("header") is None
+            or isinstance(lfs_action.get("header"), dict)
+        )
+    ):
+        raise ValueError("lfs_action is improperly formatted")
+    return lfs_action
+
+
 def validate_batch_actions(lfs_batch_actions: dict):
     if not (
         isinstance(lfs_batch_actions.get("oid"), str)
@@ -110,8 +122,11 @@ def validate_batch_actions(lfs_batch_actions: dict):
         raise ValueError("lfs_batch_actions is improperly formatted")
 
     upload_action = lfs_batch_actions.get("actions", {}).get("upload")
+    verify_action = lfs_batch_actions.get("actions", {}).get("verify")
     if upload_action is not None:
-        validate_lfs_upload_action(upload_action)
+        validate_lfs_action(upload_action)
+    if verify_action is not None:
+        validate_lfs_action(verify_action)
     return lfs_batch_actions
 
 
@@ -129,18 +144,6 @@ def validate_batch_error(lfs_batch_error: dict):
     ):
         raise ValueError("lfs_batch_error is improperly formatted")
     return lfs_batch_error
-
-
-def validate_lfs_upload_action(lfs_upload_action: dict):
-    if not (
-        isinstance(lfs_upload_action.get("href"), str)
-        and (
-            lfs_upload_action.get("header") is None
-            or isinstance(lfs_upload_action.get("header"), dict)
-        )
-    ):
-        raise ValueError("lfs_upload_action is improperly formatted")
-    return lfs_upload_action
 
 
 def post_lfs_batch_info(
@@ -181,12 +184,12 @@ def post_lfs_batch_info(
         `HTTPError`: If the server returned an error
     """
     endpoint = endpoint if endpoint is not None else ENDPOINT
-    if repo_type not in ("model", "dataset", "space"):
+    if repo_type not in REPO_TYPES_URL_PREFIXES:
         raise ValueError(
             "Invalid value for `repo_type`, must be one of"
             f" {tuple(REPO_TYPES_URL_PREFIXES.keys())}"
         )
-    url_prefix = REPO_TYPES_URL_PREFIXES.get(repo_type, "")
+    url_prefix = REPO_TYPES_URL_PREFIXES[repo_type]
     batch_url = f"{endpoint}/{url_prefix}{repo_id}.git/info/lfs/objects/batch"
     resp = requests.post(
         batch_url,
@@ -226,8 +229,9 @@ def post_lfs_batch_info(
 
 def lfs_upload(
     fileobj: BinaryIO,
-    upload_action: dict,
     upload_info: UploadInfo,
+    upload_action: dict,
+    verify_action: Optional[dict],
 ):
     """
     Uploads a file using the git lfs protocol and determines automatically whether or not
@@ -236,11 +240,15 @@ def lfs_upload(
     Args:
         fileobj (file-like object):
             The content of the file to upload
+        upload_info (`UploadInfo`):
+            Upload info for `fileobj`
         upload_action (`dict`):
             The `upload` action from the LFS Batch endpoint. Must contain
-            a `href` field, and optionally a `header` field
-        uplod_info (`UploadInfo`):
-            Upload info for `fileobj`
+            a `href` field, and optionally a `header` field.
+        verify_action (`dict`):
+            The `verify` action from the LFS Batch endpoint. Must contain
+            a `href` field, and optionally a `header` field. The `href` URL will
+            be called after a successful upload.
 
     Returns:
         `requests.Response`:
@@ -252,7 +260,10 @@ def lfs_upload(
 
         `requests.HTTPError`
     """
-    validate_lfs_upload_action(upload_action)
+    validate_lfs_action(upload_action)
+    if verify_action is not None:
+        validate_lfs_action(verify_action)
+
     header = upload_action.get("header", {})
     chunk_size = header.get("chunk_size", None)
     if chunk_size is not None:
@@ -263,17 +274,21 @@ def lfs_upload(
                 "Malformed response from LFS batch endpoint: `chunk_size`"
                 " should be a string"
             )
-        return _upload_multi_part(
+        _upload_multi_part(
             completion_url=upload_action["href"],
             fileobj=fileobj,
             chunk_size=chunk_size,
             header=header,
             upload_info=upload_info,
         )
-    return _upload_single_part(
-        upload_url=upload_action["href"],
-        fileobj=fileobj,
-    )
+    else:
+        _upload_single_part(
+            upload_url=upload_action["href"],
+            fileobj=fileobj,
+        )
+    if verify_action is not None:
+        verify_resp = requests.get(verify_action["href"])
+        verify_resp.raise_for_status()
 
 
 def _upload_single_part(upload_url: str, fileobj: BinaryIO):

@@ -271,6 +271,7 @@ def _upload_lfs_object(operation: CommitOperationAdd, lfs_batch_action: dict):
     validate_batch_actions(lfs_batch_action)
     upload_info = operation.upload_info()
     upload_action = lfs_batch_action["actions"].get("upload")
+    verify_action = lfs_batch_action["actions"].get("verify")
     if upload_action is None:
         # The file was already uploaded
         logger.debug(
@@ -282,6 +283,7 @@ def _upload_lfs_object(operation: CommitOperationAdd, lfs_batch_action: dict):
         lfs_upload(
             fileobj=fileobj,
             upload_action=upload_action,
+            verify_action=verify_action,
             upload_info=upload_info,
         )
         logger.debug(f"{operation.path_in_repo}: Upload successful")
