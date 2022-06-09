@@ -462,9 +462,9 @@ class CommitApiTest(HfApiCommonTestWithLogin):
         with open(self.tmp_file, "w+") as f:
             f.write(self.tmp_file_content)
         os.makedirs(os.path.join(self.tmp_dir, "nested"))
-        self.nested_tmp_file = os.path.join(self.tmp_dir, "nested", "file")
-        with open(self.nested_tmp_file, "w+") as f:
-            f.write(self.tmp_file_content)
+        self.nested_tmp_file = os.path.join(self.tmp_dir, "nested", "file.bin")
+        with open(self.nested_tmp_file, "wb+") as f:
+            f.truncate(1024*1024)
 
         self.addCleanup(
             lambda: shutil.rmtree(self.tmp_dir, onerror=set_write_permission_and_retry)
