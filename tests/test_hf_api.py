@@ -725,7 +725,7 @@ class CommitApiTest(HfApiCommonTestWithLogin):
                 ]
                 self._api.create_commit(
                     operations=operations,
-                    commit_summary="Test create_commit",
+                    commit_message="Test create_commit",
                     repo_id=f"{USER}/{REPO_NAME}",
                     token=self._token,
                 )

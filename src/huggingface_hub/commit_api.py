@@ -34,12 +34,13 @@ UploadMode = Literal["lfs", "regular"]
 @dataclass
 class CommitOperationDelete:
     """
-    Data strcture holding necessary info to delete
-    a file from a repository on the HF Hub
+    Data structure holding necessary info to delete
+    a file from a repository on the Hub
 
     Args:
         path_in_repo (`str`):
-            Path of the file to delete in the repo
+            Relative filepath in the repo, for example:
+            `"checkpoints/1fec34a/weights.bin"`
     """
 
     path_in_repo: str
@@ -48,12 +49,13 @@ class CommitOperationDelete:
 @dataclass
 class CommitOperationAdd:
     """
-    Data structire holding necessary info to upload a file
-    to a repository on the HF Hub
+    Data structure holding necessary info to upload a file
+    to a repository on the Hub
 
     Args:
         path_in_repo (`str`):
-            Path in the repository where the uploaded file will be saved
+            Relative filepath in the repo, for example:
+            `"checkpoints/1fec34a/weights.bin"`
         path_or_fileobj (`str`, `bytes`, or `BinaryIO`):
             Either:
             - a path to a local file (as str) to upload
@@ -69,7 +71,7 @@ class CommitOperationAdd:
 
     def validate(self):
         """
-        Ensures `path_or_fileobj` is valid
+        Ensures `path_or_fileobj` is valid.
 
         Raises: `ValueError`
         """
@@ -174,13 +176,13 @@ def upload_lfs_files(
     num_threads: int = 5,
 ):
     """
-    Uploads the content of `additions` to the HF Hub using the large file storage protocol.
+    Uploads the content of `additions` to the Hub using the large file storage protocol.
 
     Relevant external documentation:
         - LFS Batch API: https://github.com/git-lfs/git-lfs/blob/main/docs/api/batch.md
 
     Args:
-        additions (`Iterable` of ``CommitOperationAdd`):
+        additions (`Iterable` of `CommitOperationAdd`):
             The files to be uploaded
         repo_type (`str`):
             Type of the repo to upload to: `"model"`, `"dataset"` or `"space"`.
@@ -226,7 +228,7 @@ def upload_lfs_files(
     oid2addop = {add_op.upload_info().sha256.hex(): add_op for add_op in additions}
     with ThreadPoolExecutor(max_workers=num_threads) as pool:
         logger.debug(
-            f"Uploading {len(batch_actions)} LFS files to the HF Hub using up to"
+            f"Uploading {len(batch_actions)} LFS files to the Hub using up to"
             f" {num_threads} threads concurrently"
         )
         # Upload the files concurrently, stopping on the first exception
@@ -256,7 +258,7 @@ def upload_lfs_files(
             except Exception as exc:
                 # Raise the first exception encountered
                 raise RuntimeError(
-                    f"Error while uploading {operation.path_in_repo} to the HF Hub"
+                    f"Error while uploading {operation.path_in_repo} to the Hub"
                 ) from exc
 
 
@@ -323,21 +325,21 @@ def fetch_upload_modes(
     endpoint: Optional[str] = None,
 ) -> List[Tuple[CommitOperationAdd, UploadMode]]:
     """
-    Requests the HF Hub to determine wether each input file should be
+    Requests the Hub to determine wether each input file should be
     uploaded as a regular git blob or as git LFS blob.
 
     Args:
-        additions (``Iterable`` of :class:`CommitOperationAdd`):
+        additions (`Iterable` of :class:`CommitOperationAdd`):
             Iterable of :class:`CommitOperationAdd` describing the files to
-            upload to the HF hub.
-        repo_type (``str``):
+            upload to the Hub.
+        repo_type (`str`):
             Type of the repo to upload to: `"model"`, `"dataset"` or `"space"`.
-        repo_id (``str``):
+        repo_id (`str`):
             A namespace (user or an organization) and a repo name separated
             by a `/`.
-        token (``str``):
+        token (`str`):
             An authentication token ( See https://huggingface.co/settings/tokens )
-        revision (``str``):
+        revision (`str`):
             The git revision to upload the files to. Can be any valid git revision.
 
     Returns:
@@ -346,7 +348,7 @@ def fetch_upload_modes(
 
     Raises:
         :class:`requests.HTTPError`:
-            If the HF Hub API returned an error
+            If the Hub API returned an error
     """
     endpoint = endpoint if endpoint is not None else ENDPOINT
     headers = {"authorization": f"Bearer {token}"} if token is not None else None
@@ -381,16 +383,16 @@ def fetch_upload_modes(
 def prepare_commit_payload(
     additions: Iterable[Tuple[CommitOperationAdd, UploadMode]],
     deletions: Iterable[CommitOperationDelete],
-    commit_summary: str,
+    commit_message: str,
     commit_description: Optional[str] = None,
 ):
     """
-    Builds the payload to pass to the `commit` API of the HF Hub
+    Builds the payload to pass to the `commit` API of the Hub
     """
     commit_description = commit_description if commit_description is not None else ""
 
     return {
-        "summary": commit_summary,
+        "summary": commit_message,
         "description": commit_description,
         "files": [
             {

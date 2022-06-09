@@ -1741,7 +1741,7 @@ class HfApi:
         repo_id: str,
         operations: Iterable[CommitOperation],
         *,
-        commit_summary: str,
+        commit_message: str,
         commit_description: Optional[str] = None,
         token: Optional[str] = None,
         repo_type: Optional[str] = None,
@@ -1760,13 +1760,13 @@ class HfApi:
             operations (`Iterable` of `CommitOperation`):
                 An iterable of operations to include in the commit, either:
 
-                    - ``CommitOperationAdd`` to upload a file
-                    - ``CommitOperationDelete`` to delete a file
+                    - `CommitOperationAdd` to upload a file
+                    - `CommitOperationDelete` to delete a file
 
-            commit_summary (``str``):
-                The summary of the commit that will be created
+            commit_message (`str`):
+                The summary (first line) of the commit that will be created.
 
-            commit_description (``str``, *optional*):
+            commit_description (`str`, *optional*):
                 The description of the commit that will be created
 
             token (`str`, *optional*):
@@ -1782,11 +1782,11 @@ class HfApi:
                 The git revision to commit from. Defaults to the head of the
                 `"main"` branch.
 
-            create_pr (``boolean``, *optional*):
-                Whether or not to create a Pull Request from ``revision`` with that commit.
-                Defaults to ``False``.
+            create_pr (`boolean`, *optional*):
+                Whether or not to create a Pull Request from `revision` with that commit.
+                Defaults to `False`.
 
-            num_threads (``int``, *optional*):
+            num_threads (`int`, *optional*):
                 Number of concurrent threads for uploading files. Defaults to 5.
                 Setting it to 2 means at most 2 files will be uploaded concurrently.
         """
@@ -1837,7 +1837,7 @@ class HfApi:
         commit_payload = prepare_commit_payload(
             additions=additions_with_upload_mode,
             deletions=deletions,
-            commit_summary=commit_summary,
+            commit_message=commit_message,
             commit_description=commit_description,
         )
         commit_url = f"{self.endpoint}/api/{repo_type}s/{repo_id}/commit/{revision}"
@@ -1862,7 +1862,7 @@ class HfApi:
         repo_type: Optional[str] = None,
         revision: Optional[str] = None,
         identical_ok: bool = True,
-        commit_summary: Optional[str] = None,
+        commit_message: Optional[str] = None,
         commit_description: Optional[str] = None,
         create_pr: Optional[bool] = None,
     ) -> str:
@@ -1893,13 +1893,13 @@ class HfApi:
                 `"main"` branch.
             identical_ok (`bool`, *optional*, defaults to `True`):
                 DEPRECATED - does not do anything
-            commmit_summary (`str`, *optional*):
-                The summary or title of the generated commit
+            commit_message (`str`, *optional*):
+                The summary / title / first line of the generated commit
             commit_description (`str` *optional*)
                 The description of the generated commit
-            create_pr (``boolean``, *optional*):
-                Whether or not to create a Pull Request from ``revision`` with that commit.
-                Defaults to ``False``.
+            create_pr (`boolean`, *optional*):
+                Whether or not to create a Pull Request from `revision` with that commit.
+                Defaults to `False`.
 
         Returns:
             `str`: The URL to visualize the uploaded file on the hub
@@ -1937,9 +1937,9 @@ class HfApi:
         "https://huggingface.co/username/my-model/blob/main/remote/file/path.h5"
         ```
         """
-        commit_summary = (
-            commit_summary
-            if commit_summary is not None
+        commit_message = (
+            commit_message
+            if commit_message is not None
             else f"Upload {path_in_repo} with huggingface_hub"
         )
         operation = CommitOperationAdd(
@@ -1951,7 +1951,7 @@ class HfApi:
             repo_id=repo_id,
             repo_type=repo_type,
             operations=[operation],
-            commit_summary=commit_summary,
+            commit_message=commit_message,
             commit_description=commit_description,
             token=token,
             revision=revision,
@@ -1971,7 +1971,7 @@ class HfApi:
         repo_id: str,
         folder_path: str,
         path_in_repo: str,
-        commit_summary: Optional[str] = None,
+        commit_message: Optional[str] = None,
         commit_description: Optional[str] = None,
         token: Optional[str] = None,
         repo_type: Optional[str] = None,
@@ -2007,8 +2007,8 @@ class HfApi:
             revision (`str`, *optional*):
                 The git revision to commit from. Defaults to the head of the
                 `"main"` branch.
-            commmit_summary (`str`, *optional*):
-                The summary or title of the generated commit. Defaults to:
+            commit_message (`str`, *optional*):
+                The summary / title / first line of the generated commit. Defaults to:
                 `f"Upload {path_in_repo} with huggingface_hub"`
             commit_description (`str` *optional*):
                 The description of the generated commit
@@ -2044,9 +2044,9 @@ class HfApi:
         TODO : return type
         ```
         """
-        commit_summary = (
-            commit_summary
-            if commit_summary is not None
+        commit_message = (
+            commit_message
+            if commit_message is not None
             else f"Upload {path_in_repo} with huggingface_hub"
         )
         folder_path = os.path.normpath(os.path.expanduser(folder_path))
@@ -2073,7 +2073,7 @@ class HfApi:
             repo_type=repo_type,
             repo_id=repo_id,
             operations=files_to_add,
-            commit_summary=commit_summary,
+            commit_message=commit_message,
             commit_description=commit_description,
             token=token,
             revision=revision,
@@ -2089,7 +2089,7 @@ class HfApi:
         token: Optional[str] = None,
         repo_type: Optional[str] = None,
         revision: Optional[str] = None,
-        commit_summary: Optional[str] = None,
+        commit_message: Optional[str] = None,
         commit_description: Optional[str] = None,
         create_pr: Optional[bool] = None,
     ):
@@ -2112,13 +2112,14 @@ class HfApi:
             revision (`str`, *optional*):
                 The git revision to commit from. Defaults to the head of the
                 `"main"` branch.
-            commmit_summary (`str`, *optional*):
-                The summary or title of the generated commit
+            commit_message (`str`, *optional*):
+                The summary / title / first line of the generated commit. Defaults to
+                `f"Delete {path_in_repo} with huggingface_hub"`.
             commit_description (`str` *optional*)
                 The description of the generated commit
-            create_pr (``boolean``, *optional*):
-                Whether or not to create a Pull Request from ``revision`` with the changes.
-                Defaults to ``False``.
+            create_pr (`boolean`, *optional*):
+                Whether or not to create a Pull Request from `revision` with the changes.
+                Defaults to `False`.
 
         <Tip>
 
@@ -2132,9 +2133,9 @@ class HfApi:
         </Tip>
 
         """
-        commit_summary = (
-            commit_summary
-            if commit_summary is not None
+        commit_message = (
+            commit_message
+            if commit_message is not None
             else f"Delete {path_in_repo} with huggingface_hub"
         )
 
@@ -2145,7 +2146,7 @@ class HfApi:
             token=token,
             operations=operations,
             revision=revision,
-            commit_summary=commit_summary,
+            commit_message=commit_message,
             commit_description=commit_description,
             create_pr=create_pr,
         )
