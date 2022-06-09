@@ -87,6 +87,15 @@ class CommitOperationAdd:
                 " io.BufferedIOBase. If you passed a file-like object, make sure it is"
                 " in binary mode."
             )
+        if isinstance(self.path_or_fileobj, io.BufferedIOBase):
+            try:
+                self.path_or_fileobj.tell()
+                self.path_or_fileobj.seek(0, os.SEEK_CUR)
+            except (OSError, AttributeError) as exc:
+                raise ValueError(
+                    "path_or_fileobj is a file-like object but does not implement"
+                    " seek() and tell()"
+                ) from exc
 
     def upload_info(self) -> UploadInfo:
         """
@@ -137,8 +146,9 @@ class CommitOperationAdd:
         elif isinstance(self.path_or_fileobj, bytes):
             yield io.BytesIO(self.path_or_fileobj)
         elif isinstance(self.path_or_fileobj, io.BufferedIOBase):
+            prev_pos = self.path_or_fileobj.tell()
             yield self.path_or_fileobj
-            self.path_or_fileobj.seek(0, io.SEEK_SET)
+            self.path_or_fileobj.seek(prev_pos, io.SEEK_SET)
 
     def b64content(self) -> bytes:
         """

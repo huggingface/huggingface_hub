@@ -55,17 +55,66 @@ def test_slice_fileobj_BytesIO():
 
     fileobj = BytesIO(content)
     prev_pos = fileobj.tell()
+
+    # Test read
     with SliceFileObj(fileobj, seek_from=24, read_limit=18) as fileobj_slice:
+        assert fileobj_slice.tell() == 0
         assert fileobj_slice.read() == content[24:42]
+        assert fileobj_slice.tell() == 18
         assert fileobj_slice.read() == b""
+        assert fileobj_slice.tell() == 18
+
     assert fileobj.tell() == prev_pos
 
     with SliceFileObj(fileobj, seek_from=0, read_limit=990) as fileobj_slice:
+        assert fileobj_slice.tell() == 0
         assert fileobj_slice.read(200) == content[0:200]
         assert fileobj_slice.read(500) == content[200:700]
         assert fileobj_slice.read(200) == content[700:900]
         assert fileobj_slice.read(200) == content[900:990]
         assert fileobj_slice.read(200) == b""
+
+    # Test seek with whence = os.SEEK_SET
+    with SliceFileObj(fileobj, seek_from=100, read_limit=100) as fileobj_slice:
+        assert fileobj_slice.tell() == 0
+        fileobj_slice.seek(2, os.SEEK_SET)
+        assert fileobj_slice.tell() == 2
+        assert fileobj_slice.fileobj.tell() == 102
+        fileobj_slice.seek(-4, os.SEEK_SET)
+        assert fileobj_slice.tell() == 0
+        assert fileobj_slice.fileobj.tell() == 100
+        fileobj_slice.seek(100 + 4, os.SEEK_SET)
+        assert fileobj_slice.tell() == 100
+        assert fileobj_slice.fileobj.tell() == 200
+
+    # Test seek with whence = os.SEEK_CUR
+    with SliceFileObj(fileobj, seek_from=100, read_limit=100) as fileobj_slice:
+        assert fileobj_slice.tell() == 0
+        fileobj_slice.seek(-5, os.SEEK_CUR)
+        assert fileobj_slice.tell() == 0
+        assert fileobj_slice.fileobj.tell() == 100
+        fileobj_slice.seek(50, os.SEEK_CUR)
+        assert fileobj_slice.tell() == 50
+        assert fileobj_slice.fileobj.tell() == 150
+        fileobj_slice.seek(100, os.SEEK_CUR)
+        assert fileobj_slice.tell() == 100
+        assert fileobj_slice.fileobj.tell() == 200
+        fileobj_slice.seek(-300, os.SEEK_CUR)
+        assert fileobj_slice.tell() == 0
+        assert fileobj_slice.fileobj.tell() == 100
+
+    # Test seek with whence = os.SEEK_END
+    with SliceFileObj(fileobj, seek_from=100, read_limit=100) as fileobj_slice:
+        assert fileobj_slice.tell() == 0
+        fileobj_slice.seek(-5, os.SEEK_END)
+        assert fileobj_slice.tell() == 95
+        assert fileobj_slice.fileobj.tell() == 195
+        fileobj_slice.seek(50, os.SEEK_END)
+        assert fileobj_slice.tell() == 100
+        assert fileobj_slice.fileobj.tell() == 200
+        fileobj_slice.seek(-200, os.SEEK_END)
+        assert fileobj_slice.tell() == 0
+        assert fileobj_slice.fileobj.tell() == 100
 
 
 def test_slice_fileobj_file():
@@ -77,15 +126,62 @@ def test_slice_fileobj_file():
             f.write(content)
         with open(filepath, "rb") as fileobj:
             prev_pos = fileobj.tell()
+            # Test read
             with SliceFileObj(fileobj, seek_from=24, read_limit=18) as fileobj_slice:
+                assert fileobj_slice.tell() == 0
                 assert fileobj_slice.read() == content[24:42]
+                assert fileobj_slice.tell() == 18
                 assert fileobj_slice.read() == b""
+                assert fileobj_slice.tell() == 18
+
             assert fileobj.tell() == prev_pos
 
             with SliceFileObj(fileobj, seek_from=0, read_limit=990) as fileobj_slice:
+                assert fileobj_slice.tell() == 0
                 assert fileobj_slice.read(200) == content[0:200]
                 assert fileobj_slice.read(500) == content[200:700]
                 assert fileobj_slice.read(200) == content[700:900]
                 assert fileobj_slice.read(200) == content[900:990]
                 assert fileobj_slice.read(200) == b""
-            assert fileobj.tell() == 0
+
+            # Test seek with whence = os.SEEK_SET
+            with SliceFileObj(fileobj, seek_from=100, read_limit=100) as fileobj_slice:
+                assert fileobj_slice.tell() == 0
+                fileobj_slice.seek(2, os.SEEK_SET)
+                assert fileobj_slice.tell() == 2
+                assert fileobj_slice.fileobj.tell() == 102
+                fileobj_slice.seek(-4, os.SEEK_SET)
+                assert fileobj_slice.tell() == 0
+                assert fileobj_slice.fileobj.tell() == 100
+                fileobj_slice.seek(100 + 4, os.SEEK_SET)
+                assert fileobj_slice.tell() == 100
+                assert fileobj_slice.fileobj.tell() == 200
+
+            # Test seek with whence = os.SEEK_CUR
+            with SliceFileObj(fileobj, seek_from=100, read_limit=100) as fileobj_slice:
+                assert fileobj_slice.tell() == 0
+                fileobj_slice.seek(-5, os.SEEK_CUR)
+                assert fileobj_slice.tell() == 0
+                assert fileobj_slice.fileobj.tell() == 100
+                fileobj_slice.seek(50, os.SEEK_CUR)
+                assert fileobj_slice.tell() == 50
+                assert fileobj_slice.fileobj.tell() == 150
+                fileobj_slice.seek(100, os.SEEK_CUR)
+                assert fileobj_slice.tell() == 100
+                assert fileobj_slice.fileobj.tell() == 200
+                fileobj_slice.seek(-300, os.SEEK_CUR)
+                assert fileobj_slice.tell() == 0
+                assert fileobj_slice.fileobj.tell() == 100
+
+            # Test seek with whence = os.SEEK_END
+            with SliceFileObj(fileobj, seek_from=100, read_limit=100) as fileobj_slice:
+                assert fileobj_slice.tell() == 0
+                fileobj_slice.seek(-5, os.SEEK_END)
+                assert fileobj_slice.tell() == 95
+                assert fileobj_slice.fileobj.tell() == 195
+                fileobj_slice.seek(50, os.SEEK_END)
+                assert fileobj_slice.tell() == 100
+                assert fileobj_slice.fileobj.tell() == 200
+                fileobj_slice.seek(-200, os.SEEK_END)
+                assert fileobj_slice.tell() == 0
+                assert fileobj_slice.fileobj.tell() == 100
