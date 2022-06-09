@@ -288,8 +288,10 @@ def lfs_upload(
             fileobj=fileobj,
         )
     if verify_action is not None:
-        verify_resp = requests.get(
-            verify_action["href"], headers={"Authorization": f"Bearer {token}"}
+        verify_resp = requests.post(
+            verify_action["href"],
+            auth=HTTPBasicAuth(username="USER", password=token),
+            json={"oid": upload_info.sha256.hex(), "size": upload_info.size},
         )
         verify_resp.raise_for_status()
 
