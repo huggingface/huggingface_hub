@@ -30,6 +30,7 @@ from huggingface_hub import (
     metadata_update,
 )
 from huggingface_hub.constants import REPOCARD_NAME
+from huggingface_hub.file_download import hf_hub_download
 from huggingface_hub.hf_api import HfApi
 from huggingface_hub.repository import Repository
 from huggingface_hub.utils import logging
@@ -239,6 +240,22 @@ class RepocardUpdateTest(unittest.TestCase):
         self.repo.git_pull()
         updated_metadata = metadata_load(self.repo_path / self.REPO_NAME / "README.md")
         self.assertDictEqual(updated_metadata, new_metadata)
+
+    def test_metadata_update_upstream(self):
+        new_metadata = copy.deepcopy(self.existing_metadata)
+        new_metadata["model-index"][0]["results"][0]["metrics"][0]["value"] = 0.1
+
+        path = hf_hub_download(
+            f"{USER}/{self.REPO_NAME}",
+            filename=REPOCARD_NAME,
+            use_auth_token=self._token,
+        )
+
+        metadata_update(
+            f"{USER}/{self.REPO_NAME}", new_metadata, token=self._token, overwrite=True
+        )
+
+        self.assertNotEqual(metadata_load(path), new_metadata)
 
     def test_update_existing_result_without_overwrite(self):
         new_metadata = copy.deepcopy(self.existing_metadata)
