@@ -1011,7 +1011,7 @@ def hf_hub_download(
                 proxies=proxies,
                 timeout=etag_timeout,
             )
-            r.raise_for_status()
+            _raise_for_status(r)
             commit_hash = r.headers[HUGGINGFACE_HEADER_X_REPO_COMMIT]
             if commit_hash is None:
                 raise OSError(
