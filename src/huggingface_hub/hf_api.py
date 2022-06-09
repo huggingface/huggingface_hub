@@ -1181,6 +1181,18 @@ class HfApi:
 
         Returns:
             [`huggingface_hub.hf_api.ModelInfo`]: The model repository information.
+
+        <Tip>
+
+        Raises the following errors:
+
+            - [`~huggingface_hub.utils.RepositoryNotFoundError`]
+              If the repository to download from cannot be found. This may be because it doesn't exist,
+              or because it is set to `private` and you do not have access.
+            - [`~huggingface_hub.utils.RevisionNotFoundError`]
+              If the revision to download from cannot be found.
+
+        </Tip>
         """
         if token is None:
             token = HfFolder.get_token()
@@ -1227,6 +1239,18 @@ class HfApi:
 
         Returns:
             [`DatasetInfo`]: The dataset repository information.
+
+        <Tip>
+
+        Raises the following errors:
+
+            - [`~huggingface_hub.utils.RepositoryNotFoundError`]
+              If the repository to download from cannot be found. This may be because it doesn't exist,
+              or because it is set to `private` and you do not have access.
+            - [`~huggingface_hub.utils.RevisionNotFoundError`]
+              If the revision to download from cannot be found.
+
+        </Tip>
         """
         if token is None:
             token = HfFolder.get_token()
@@ -1270,6 +1294,18 @@ class HfApi:
 
         Returns:
             [`SpaceInfo`]: The space repository information.
+
+        <Tip>
+
+        Raises the following errors:
+
+            - [`~huggingface_hub.utils.RepositoryNotFoundError`]
+              If the repository to download from cannot be found. This may be because it doesn't exist,
+              or because it is set to `private` and you do not have access.
+            - [`~huggingface_hub.utils.RevisionNotFoundError`]
+              If the revision to download from cannot be found.
+
+        </Tip>
         """
         if token is None:
             token = HfFolder.get_token()
@@ -1313,6 +1349,18 @@ class HfApi:
         Returns:
             `Union[SpaceInfo, DatasetInfo, ModelInfo]`: The repository
             information.
+
+        <Tip>
+
+        Raises the following errors:
+
+            - [`~huggingface_hub.utils.RepositoryNotFoundError`]
+              If the repository to download from cannot be found. This may be because it doesn't exist,
+              or because it is set to `private` and you do not have access.
+            - [`~huggingface_hub.utils.RevisionNotFoundError`]
+              If the revision to download from cannot be found.
+
+        </Tip>
         """
         if repo_type is None or repo_type == "model":
             return self.model_info(
@@ -1529,6 +1577,16 @@ class HfApi:
             repo_type (`str`, *optional*):
                 Set to `"dataset"` or `"space"` if uploading to a dataset or
                 space, `None` or `"model"` if uploading to a model.
+
+        <Tip>
+
+        Raises the following errors:
+
+            - [`~huggingface_hub.utils.RepositoryNotFoundError`]
+              If the repository to download from cannot be found. This may be because it doesn't exist,
+              or because it is set to `private` and you do not have access.
+
+        </Tip>
         """
         name, organization = _validate_repo_id_deprecation(repo_id, name, organization)
 
@@ -1628,6 +1686,16 @@ class HfApi:
 
         Returns:
             The HTTP response in json.
+
+        <Tip>
+
+        Raises the following errors:
+
+            - [`~huggingface_hub.utils.RepositoryNotFoundError`]
+              If the repository to download from cannot be found. This may be because it doesn't exist,
+              or because it is set to `private` and you do not have access.
+
+        </Tip>
         """
         if repo_type not in REPO_TYPES:
             raise ValueError("Invalid repo type")
@@ -1689,6 +1757,15 @@ class HfApi:
             token (`str`, *optional*):
                 An authentication token (See https://huggingface.co/settings/token)
 
+        <Tip>
+
+        Raises the following errors:
+
+            - [`~huggingface_hub.utils.RepositoryNotFoundError`]
+              If the repository to download from cannot be found. This may be because it doesn't exist,
+              or because it is set to `private` and you do not have access.
+
+        </Tip>
         """
 
         token, name = self._validate_or_retrieve_token(token)
@@ -1783,6 +1860,11 @@ class HfApi:
               if the HuggingFace API returned an error
             - [`ValueError`](https://docs.python.org/3/library/exceptions.html#ValueError)
               if some parameter value is invalid
+            - [`~huggingface_hub.utils.RepositoryNotFoundError`]
+              If the repository to download from cannot be found. This may be because it doesn't exist,
+              or because it is set to `private` and you do not have access.
+            - [`~huggingface_hub.utils.RevisionNotFoundError`]
+              If the revision to download from cannot be found.
 
         </Tip>
 
@@ -1911,6 +1993,13 @@ class HfApi:
               if the HuggingFace API returned an error
             - [`ValueError`](https://docs.python.org/3/library/exceptions.html#ValueError)
               if some parameter value is invalid
+            - [`~huggingface_hub.utils.RepositoryNotFoundError`]
+              If the repository to download from cannot be found. This may be because it doesn't exist,
+              or because it is set to `private` and you do not have access.
+            - [`~huggingface_hub.utils.RevisionNotFoundError`]
+              If the revision to download from cannot be found.
+            - [`~huggingface_hub.utils.EntryNotFoundError`]
+              If the file to download cannot be found.
 
         </Tip>
 
