@@ -229,6 +229,7 @@ def lfs_upload(
     upload_info: UploadInfo,
     upload_action: dict,
     verify_action: Optional[dict],
+    token: str,
 ):
     """
     Uploads a file using the git lfs protocol and determines automatically whether or not
@@ -246,6 +247,9 @@ def lfs_upload(
             The `verify` action from the LFS Batch endpoint. Must contain
             a `href` field, and optionally a `header` field. The `href` URL will
             be called after a successful upload.
+        token (`str`):
+            A [user access token](https://hf.co/settings/tokens) to authenticate requests
+            against the Hub.
 
     Returns:
         `requests.Response`:
@@ -284,7 +288,9 @@ def lfs_upload(
             fileobj=fileobj,
         )
     if verify_action is not None:
-        verify_resp = requests.get(verify_action["href"])
+        verify_resp = requests.get(
+            verify_action["href"], headers={"Authorization": f"Bearer {token}"}
+        )
         verify_resp.raise_for_status()
 
 

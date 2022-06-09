@@ -237,6 +237,7 @@ def upload_lfs_files(
                 _upload_lfs_object,
                 operation=oid2addop[batch_action["oid"]],
                 lfs_batch_action=batch_action,
+                token=token,
             ): oid2addop[batch_action["oid"]]
             for batch_action in batch_actions
         }
@@ -262,7 +263,9 @@ def upload_lfs_files(
                 ) from exc
 
 
-def _upload_lfs_object(operation: CommitOperationAdd, lfs_batch_action: dict):
+def _upload_lfs_object(
+    operation: CommitOperationAdd, lfs_batch_action: dict, token: str
+):
     """
     Handles uploading a given object to the Hub with the LFS protocol.
 
@@ -277,26 +280,31 @@ def _upload_lfs_object(operation: CommitOperationAdd, lfs_batch_action: dict):
         lfs_batch_action (`dict`):
             Upload instructions from the LFS batch endpoint for this object.
             See `~.utils.lfs.post_lfs_batch_info` for more details.
+        token (`str`):
+            A [user access token](https://hf.co/settings/tokens) to authenticate requests against the Hub
 
     Raises: `ValueError` if `lfs_batch_action` is improperly formatted
     """
     validate_batch_actions(lfs_batch_action)
     upload_info = operation.upload_info()
-    upload_action = lfs_batch_action["actions"].get("upload")
-    verify_action = lfs_batch_action["actions"].get("verify")
-    if upload_action is None:
+    actions = lfs_batch_action.get("actions")
+    if actions is None:
         # The file was already uploaded
         logger.debug(
             f"Content of file {operation.path_in_repo} is already present upstream"
             " - skipping upload"
         )
         return
+    upload_action = lfs_batch_action["actions"].get("upload")
+    verify_action = lfs_batch_action["actions"].get("verify")
+
     with operation.fileobj() as fileobj:
         lfs_upload(
             fileobj=fileobj,
             upload_action=upload_action,
             verify_action=verify_action,
             upload_info=upload_info,
+            token=token,
         )
         logger.debug(f"{operation.path_in_repo}: Upload successful")
 
