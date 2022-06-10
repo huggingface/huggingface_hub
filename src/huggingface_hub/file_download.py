@@ -968,8 +968,9 @@ def hf_hub_download(
                 "We have no connection or you passed local_files_only, so"
                 " force_download is not an accepted option."
             )
-        commit_hash = revision
-        if not REGEX_COMMIT_HASH.match(revision):
+        if REGEX_COMMIT_HASH.match(revision):
+            commit_hash = revision
+        else:
             ref_path = os.path.join(storage_folder, "refs", revision)
             with open(ref_path) as f:
                 commit_hash = f.read()
