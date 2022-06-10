@@ -645,7 +645,7 @@ class Repository:
 
                 if namespace == user or namespace in valid_organisations:
                     try:
-                        _ = HfApi().repository_info(f"{namespace}/{repo_id}")
+                        _ = HfApi().repo_info(f"{namespace}/{repo_id}")
                     except HTTPError:
                         self.client.create_repo(
                             repo_id=repo_id,
