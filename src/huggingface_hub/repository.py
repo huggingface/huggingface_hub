@@ -5,6 +5,7 @@ import subprocess
 import tempfile
 import threading
 import time
+import warnings
 from contextlib import contextmanager
 from pathlib import Path
 from typing import Callable, Dict, Iterator, List, Optional, Tuple, Union
@@ -647,12 +648,10 @@ class Repository:
                     try:
                         _ = HfApi().repo_info(f"{namespace}/{repo_id}")
                     except HTTPError:
-                        self.client.create_repo(
-                            repo_id=repo_id,
-                            token=token,
-                            repo_type=self.repo_type,
-                            exist_ok=True,
-                            private=self.private,
+                        warnings.warn(
+                            "There's no repository in the given link in clone_from."
+                            " Creating a new repository.",
+                            UserWarning,
                         )
 
             else:
