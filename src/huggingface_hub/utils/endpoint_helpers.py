@@ -18,6 +18,7 @@ import math
 import re
 from dataclasses import dataclass
 from typing import List, Optional, Union
+from urllib.parse import quote
 
 from ..constants import (
     DEFAULT_REVISION,
@@ -106,7 +107,9 @@ def hf_hub_url(
     if revision is None:
         revision = DEFAULT_REVISION
     return HUGGINGFACE_CO_URL_TEMPLATE.format(
-        repo_id=repo_id, revision=revision, filename=filename
+        repo_id=repo_id,
+        revision=quote(revision, safe=""),
+        filename=filename,
     )
 
 
