@@ -716,6 +716,63 @@ class CommitApiTest(HfApiCommonTestWithLogin):
                     self._api.delete_repo(repo_id=REPO_NAME, token=self._token)
 
     @retry_endpoint
+    def test_create_commit_create_pr(self):
+        REPO_NAME = repo_name(f"create_commit_create_pr")
+        self._api.create_repo(
+            token=self._token,
+            repo_id=REPO_NAME,
+            exist_ok=False,
+        )
+        try:
+            self._api.upload_file(
+                path_or_fileobj=self.tmp_file,
+                path_in_repo="temp/new_file.md",
+                repo_id=f"{USER}/{REPO_NAME}",
+                token=self._token,
+            )
+            with open(self.tmp_file, "rb") as fileobj:
+                operations = [
+                    CommitOperationDelete(path_in_repo="temp/new_file.md"),
+                    CommitOperationAdd(
+                        path_in_repo="buffer", path_or_fileobj=b"Buffer data"
+                    ),
+                ]
+                resp = self._api.create_commit(
+                    operations=operations,
+                    commit_message="Test create_commit",
+                    repo_id=f"{USER}/{REPO_NAME}",
+                    token=self._token,
+                    create_pr=True,
+                )
+                self.assertEqual(
+                    resp,
+                    f"{self._api.endpoint}/{USER}/{REPO_NAME}/discussions/1",
+                )
+                with self.assertRaises(HTTPError) as ctx:
+                    # Should raise a 404
+                    hf_hub_download(
+                        f"{USER}/{REPO_NAME}",
+                        "buffer",
+                        use_auth_token=self._token,
+                    )
+                self.assertEqual(ctx.exception.response.status_code, 404)
+                filepath = hf_hub_download(
+                    filename="buffer",
+                    repo_id=f"{USER}/{REPO_NAME}",
+                    use_auth_token=self._token,
+                    revision="refs/pr/1",
+                )
+                self.assertTrue(filepath is not None)
+                with open(filepath, "rb") as downloaded_file:
+                    content = downloaded_file.read()
+                self.assertEqual(content, b"Buffer data")
+
+        except Exception as err:
+            self.fail(err)
+        finally:
+            self._api.delete_repo(repo_id=REPO_NAME, token=self._token)
+
+    @retry_endpoint
     def test_create_commit(self):
         for private in (False, True):
             visibility = "private" if private else "public"
@@ -778,7 +835,7 @@ class CommitApiTest(HfApiCommonTestWithLogin):
                             revision="main",
                             use_auth_token=self._token,
                         )
-                        assert filepath is not None
+                        self.assertTrue(filepath is not None)
                         with open(filepath, "rb") as downloaded_file:
                             content = downloaded_file.read()
                         self.assertEqual(content, expected_content)
