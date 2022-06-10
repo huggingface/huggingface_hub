@@ -56,7 +56,8 @@ def _raise_for_status(request):
         error_code = request.headers["X-Error-Code"]
         if error_code == "RepoNotFound":
             raise RepositoryNotFoundError(
-                f"404 Client Error: Repository Not Found for url: {request.url}"
+                f"404 Client Error: Repository Not Found for url: {request.url}. "
+                "If the repo is private, make sure you are authenticated."
             )
         elif error_code == "RevisionNotFound":
             raise RevisionNotFoundError(
@@ -70,7 +71,7 @@ def _raise_for_status(request):
     if request.status_code == 401:
         # The repo was not found and the user is not Authenticated
         raise RepositoryNotFoundError(
-            f"401 Client Error: Repository not found for url: {request.url}. "
+            f"401 Client Error: Repository Not Found for url: {request.url}. "
             "If the repo is private, make sure you are authenticated."
         )
 
