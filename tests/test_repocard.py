@@ -256,6 +256,7 @@ class RepocardUpdateTest(unittest.TestCase):
         )
 
         self.assertNotEqual(metadata_load(path), new_metadata)
+        self.assertEqual(metadata_load(path), self.existing_metadata)
 
     def test_update_existing_result_without_overwrite(self):
         new_metadata = copy.deepcopy(self.existing_metadata)
