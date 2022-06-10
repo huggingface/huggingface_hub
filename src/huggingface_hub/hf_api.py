@@ -1893,7 +1893,7 @@ class HfApi:
                 The git revision to commit from. Defaults to the head of the
                 `"main"` branch.
             identical_ok (`bool`, *optional*, defaults to `True`):
-                (Deprecated, will be removed in v0.3.0) When set to false, will
+                (Deprecated, will be removed in v0.10.0) When set to false, will
                 raise an [HTTPError](https://requests.readthedocs.io/en/latest/api/#requests.HTTPError)
                 when the file you're trying to upload already exists on the hub
                 and its content did not change.
@@ -1944,7 +1944,7 @@ class HfApi:
         if identical_ok is not None:
             warnings.warn(
                 "`identical_ok` input argument is deprecated and "
-                "will be removed in v0.9.0.",
+                "will be removed in v0.10.0.",
                 FutureWarning,
             )
         identical_ok = identical_ok if identical_ok is not None else True
@@ -2004,7 +2004,7 @@ class HfApi:
         create_pr: Optional[bool] = None,
     ) -> str:
         """
-        Deprecated - will be removed in 0.9.0
+        Deprecated - will be removed in 0.10.0
 
         Uploads a file to the hub using the old and deprecated HTTP API
         """
