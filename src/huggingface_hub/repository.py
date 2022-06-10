@@ -14,6 +14,7 @@ from tqdm.auto import tqdm
 
 from huggingface_hub.constants import REPO_TYPES_URL_PREFIXES, REPOCARD_NAME
 from huggingface_hub.repocard import metadata_load, metadata_save
+from requests.exceptions import HTTPError
 
 from .hf_api import HfApi, HfFolder, repo_type_and_id_from_hf_id
 from .lfs import LFS_MULTIPART_UPLOAD_COMMAND
@@ -643,13 +644,17 @@ class Repository:
                 repo_url = repo_url.replace(f"{scheme}://", f"{scheme}://user:{token}@")
 
                 if namespace == user or namespace in valid_organisations:
-                    self.client.create_repo(
-                        repo_id=repo_id,
-                        token=token,
-                        repo_type=self.repo_type,
-                        exist_ok=True,
-                        private=self.private,
-                    )
+                    try:
+                        _ = HfApi().repository_info(f"{namespace}/{repo_id}")
+                    except HTTPError:
+                        self.client.create_repo(
+                            repo_id=repo_id,
+                            token=token,
+                            repo_type=self.repo_type,
+                            exist_ok=True,
+                            private=self.private,
+                        )
+
             else:
                 if namespace is not None:
                     repo_url += f"{namespace}/"
