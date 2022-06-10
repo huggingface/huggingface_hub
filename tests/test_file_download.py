@@ -111,7 +111,7 @@ class CachedDownloadTests(unittest.TestCase):
         # Invalid model file.
         url = hf_hub_url("bert-base", filename="pytorch_model.bin")
         with self.assertRaisesRegex(
-            RepositoryNotFoundError, "404 Client Error: Repository Not Found"
+            RepositoryNotFoundError, "401 Client Error: Repository Not Found"
         ):
             _ = cached_download(url, legacy_cache_layout=True)
 
