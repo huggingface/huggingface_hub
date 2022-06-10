@@ -67,4 +67,11 @@ def _raise_for_status(request):
                 f"404 Client Error: Entry Not Found for url: {request.url}"
             )
 
+    if request.status_code == 401:
+        # The repo was not found and the user is not Authenticated
+        raise RepositoryNotFoundError(
+            f"401 Client Error: Repository not found for url: {request.url}. "
+            "If the repo is private, make sure you are authenticated."
+        )
+
     request.raise_for_status()
