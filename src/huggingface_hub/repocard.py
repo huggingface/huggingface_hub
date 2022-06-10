@@ -1,6 +1,8 @@
 import dataclasses
 import os
 import re
+import shutil
+import tempfile
 from pathlib import Path
 from typing import Any, Dict, Optional, Union
 
@@ -149,50 +151,53 @@ def metadata_update(
         `str`: URL of the commit which updated the card metadata.
     """
 
-    filepath = hf_hub_download(
+    upstream_filepath = hf_hub_download(
         repo_id,
         filename=REPOCARD_NAME,
         repo_type=repo_type,
         use_auth_token=token,
-        force_download=True,
     )
-    existing_metadata = metadata_load(filepath)
+    # work on a copy of the upstream file, to not mess up the cache
+    with tempfile.TemporaryDirectory() as tmpdirname:
+        filepath = shutil.copy(upstream_filepath, tmpdirname)
 
-    for key in metadata:
-        # update model index containing the evaluation results
-        if key == "model-index":
-            if "model-index" not in existing_metadata:
-                existing_metadata["model-index"] = metadata["model-index"]
-            else:
-                # the model-index contains a list of results as used by PwC but only has one element thus we take the first one
-                existing_metadata["model-index"][0][
-                    "results"
-                ] = _update_metadata_model_index(
-                    existing_metadata["model-index"][0]["results"],
-                    metadata["model-index"][0]["results"],
-                    overwrite=overwrite,
-                )
-        # update all fields except model index
-        else:
-            if key in existing_metadata and not overwrite:
-                if existing_metadata[key] != metadata[key]:
-                    raise ValueError(
-                        f"""You passed a new value for the existing meta data field '{key}'. Set `overwrite=True` to overwrite existing metadata."""
+        existing_metadata = metadata_load(filepath)
+
+        for key in metadata:
+            # update model index containing the evaluation results
+            if key == "model-index":
+                if "model-index" not in existing_metadata:
+                    existing_metadata["model-index"] = metadata["model-index"]
+                else:
+                    # the model-index contains a list of results as used by PwC but only has one element thus we take the first one
+                    existing_metadata["model-index"][0][
+                        "results"
+                    ] = _update_metadata_model_index(
+                        existing_metadata["model-index"][0]["results"],
+                        metadata["model-index"][0]["results"],
+                        overwrite=overwrite,
                     )
+            # update all fields except model index
             else:
-                existing_metadata[key] = metadata[key]
+                if key in existing_metadata and not overwrite:
+                    if existing_metadata[key] != metadata[key]:
+                        raise ValueError(
+                            f"""You passed a new value for the existing meta data field '{key}'. Set `overwrite=True` to overwrite existing metadata."""
+                        )
+                else:
+                    existing_metadata[key] = metadata[key]
 
-    # save and push to hub
-    metadata_save(filepath, existing_metadata)
+        # save and push to hub
+        metadata_save(filepath, existing_metadata)
 
-    return HfApi().upload_file(
-        path_or_fileobj=filepath,
-        path_in_repo=REPOCARD_NAME,
-        repo_id=repo_id,
-        repo_type=repo_type,
-        identical_ok=False,
-        token=token,
-    )
+        return HfApi().upload_file(
+            path_or_fileobj=filepath,
+            path_in_repo=REPOCARD_NAME,
+            repo_id=repo_id,
+            repo_type=repo_type,
+            identical_ok=False,
+            token=token,
+        )
 
 
 def _update_metadata_model_index(existing_results, new_results, overwrite=False):
