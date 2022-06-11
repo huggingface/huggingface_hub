@@ -44,6 +44,7 @@ from huggingface_hub.hf_api import (
     MetricInfo,
     ModelInfo,
     ModelSearchArguments,
+    SpaceInfo,
     _validate_repo_id_deprecation,
     erase_from_credential_store,
     read_from_credential_store,
@@ -1095,6 +1096,101 @@ class HfApiPublicTest(unittest.TestCase):
             )
         )
 
+    @with_production_testing
+    def test_list_spaces_full(self):
+        _api = HfApi()
+        spaces = _api.list_spaces(full=True)
+        self.assertGreater(len(spaces), 100)
+        space = spaces[0]
+        self.assertIsInstance(space, SpaceInfo)
+        self.assertTrue(any(space.cardData for space in spaces))
+
+    @with_production_testing
+    def test_list_spaces_author(self):
+        _api = HfApi()
+        spaces = _api.list_spaces(author="evaluate-metric")
+        self.assertGreater(len(spaces), 10)
+        self.assertTrue(
+            set([space.id for space in spaces]).issuperset(
+                set(["evaluate-metric/trec_eval", "evaluate-metric/perplexity"])
+            )
+        )
+
+    @with_production_testing
+    def test_list_spaces_search(self):
+        _api = HfApi()
+        spaces = _api.list_spaces(search="wikipedia")
+        space = spaces[0]
+        self.assertTrue("wikipedia" in space.id.lower())
+
+    @with_production_testing
+    def test_list_spaces_sort_and_direction(self):
+        _api = HfApi()
+        spaces_descending_likes = _api.list_spaces(sort="likes", direction=-1)
+        spaces_ascending_likes = _api.list_spaces(sort="likes")
+        self.assertGreater(
+            spaces_descending_likes[0].likes, spaces_descending_likes[1].likes
+        )
+        self.assertLess(
+            spaces_ascending_likes[-2].likes, spaces_ascending_likes[-1].likes
+        )
+
+    @with_production_testing
+    def test_list_spaces_limit(self):
+        _api = HfApi()
+        spaces = _api.list_spaces(limit=5)
+        self.assertEqual(len(spaces), 5)
+
+    @with_production_testing
+    def test_filter_spaces_with_cardData(self):
+        _api = HfApi()
+        spaces = _api.list_spaces(cardData=True)
+        self.assertGreater(
+            sum([getattr(space, "cardData", None) is not None for space in spaces]),
+            0,
+        )
+        spaces = _api.list_spaces()
+        self.assertTrue(
+            all([getattr(space, "cardData", None) is None for space in spaces])
+        )
+
+    @with_production_testing
+    def test_list_spaces_with_models(self):
+        _api = HfApi()
+        spaces = _api.list_spaces(models="bert-base-uncased")
+        self.assertTrue("bert-base-uncased" in getattr(spaces[0], "models", []))
+
+    @with_production_testing
+    def test_list_spaces_with_datasets(self):
+        _api = HfApi()
+        spaces = _api.list_spaces(datasets="wikipedia")
+        self.assertTrue("wikipedia" in getattr(spaces[0], "datasets", []))
+
+    @with_production_testing
+    def test_list_spaces_linked(self):
+        _api = HfApi()
+        spaces = _api.list_spaces(linked=True)
+        self.assertTrue(
+            any((getattr(space, "models", None) is not None) for space in spaces)
+        )
+        self.assertTrue(
+            any((getattr(space, "datasets", None) is not None) for space in spaces)
+        )
+        self.assertTrue(
+            any(
+                (getattr(space, "models", None) is not None)
+                and getattr(space, "datasets", None) is not None
+            )
+            for space in spaces
+        )
+        self.assertTrue(
+            all(
+                (getattr(space, "models", None) is not None)
+                or getattr(space, "datasets", None) is not None
+            )
+            for space in spaces
+        )
+
 
 class HfApiPrivateTest(HfApiCommonTestWithLogin):
     @retry_endpoint
@@ -1127,6 +1223,12 @@ class HfApiPrivateTest(HfApiCommonTestWithLogin):
     def test_list_private_datasets(self):
         orig = len(self._api.list_models())
         new = len(self._api.list_models(use_auth_token=self._token))
+        self.assertGreater(new, orig)
+
+    @with_production_testing
+    def test_list_private_spaces(self):
+        orig = len(self._api.list_spaces())
+        new = len(self._api.list_spaces(use_auth_token=self._token))
         self.assertGreater(new, orig)
 
 
