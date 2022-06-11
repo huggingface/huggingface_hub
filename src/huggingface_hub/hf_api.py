@@ -13,9 +13,11 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 import os
+import pprint
 import re
 import subprocess
 import sys
+import textwrap
 import warnings
 from io import BufferedIOBase, RawIOBase
 from os.path import expanduser
@@ -224,10 +226,10 @@ class ModelInfo:
             setattr(self, k, v)
 
     def __repr__(self):
-        s = f"{self.__class__.__name__}:" + " {"
-        for key, val in self.__dict__.items():
-            s += f"\n\t{key}: {val}"
-        return s + "\n}"
+        s = f"{self.__class__.__name__}: {{ \n"
+        s += textwrap.indent(pprint.pformat(self.__dict__, width=70), "        ")
+        s += "\n\t}"
+        return s
 
     def __str__(self):
         r = f"Model Name: {self.modelId}, Tags: {self.tags}"
