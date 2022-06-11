@@ -1148,30 +1148,96 @@ class HfApi:
         d = r.json()
         return [MetricInfo(**x) for x in d]
 
-    def list_spaces(self, space_sdk: Optional[str] = None) -> List[SpaceInfo]:
+    @_deprecate_positional_args
+    def list_spaces(
+        self,
+        *,
+        filter: Union[str, Iterable[str], None] = None,
+        author: Optional[str] = None,
+        search: Optional[str] = None,
+        sort: Union[Literal["lastModified"], str, None] = None,
+        direction: Optional[Literal[-1]] = None,
+        limit: Optional[int] = None,
+        cardData: Optional[bool] = None,
+        datasets: Union[bool, str, Iterable[str], None] = None,
+        models: Union[bool, str, Iterable[str], None] = None,
+        linked: Optional[bool] = None,
+        full: Optional[bool] = None,
+        use_auth_token: Optional[str] = None,
+    ) -> List[SpaceInfo]:
         """
         Get the public list of all Spaces on huggingface.co
 
-        If no SDK is specified, will return all Spaces.
-
         Args:
-            space_sdk (`str`, *optional*): Choice of SDK to filter for. Can be
-                "streamlit", "gradio", or "static".
+            filter `str` or `Iterable`, *optional*):
+                A string or which can be used to identify Spaces on the hub.
+            author (`str`, *optional*):
+                A string which identify the author of the returned Spaces
+            search (`str`, *optional*):
+                A string that will be contained in the returned spaces.
+            sort (`Literal["lastModified"]` or `str`, *optional*):
+                The key with which to sort the resulting Spaces. Possible
+                values are the properties of the `SpaceInfo` class.
+            direction (`Literal[-1]` or `int`, *optional*):
+                Direction in which to sort. The value `-1` sorts by descending
+                order while all other values sort by ascending order.
+            limit (`int`, *optional*):
+                The limit on the number of Spaces fetched. Leaving this option
+                to `None` fetches all Spaces.
+            cardData (`bool`, *optional*):
+                Whether to grab the metadata for the Space as well.
+            datasets (`bool` or `str` or `Iterable`, *optional*):
+                Whether to return Spaces that make use of a dataset.
+                The name of a specific dataset can be passed as a string.
+            models (`bool` or `str` or `Iterable`, *optional*):
+                Whether to return Spaces that make use of a model.
+                The name of a specific model can be passed as a string.
+            linked (`bool` or `str` or `Iterable`, *optional*):
+                Whether to return Spaces that make use of either a model or a dataset.
+            full (`bool`, *optional*):
+                Whether to fetch all dataset data, including the `lastModified`
+                and the `cardData`.
+            use_auth_token (`bool` or `str`, *optional*):
+                Whether to use the `auth_token` provided from the
+                `huggingface_hub` cli. If not logged in, a valid `auth_token`
+                can be passed in as a string.
 
         Returns:
             `List[SpaceInfo]`: a list of [`SpaceInfo`] objects
         """
-        if space_sdk is None:
-            path = f"{self.endpoint}/api/spaces"
-        else:
-            if space_sdk not in SPACES_SDK_TYPES:
-                raise ValueError(
-                    f"Invalid SDK type {space_sdk}. Has to be one of"
-                    f" {SPACES_SDK_TYPES}."
-                )
-            path = f"{self.endpoint}/api/spaces?filter={space_sdk}"
+        path = f"{self.endpoint}/api/spaces"
+        if use_auth_token:
+            token, name = self._validate_or_retrieve_token(use_auth_token)
+        headers = {"authorization": f"Bearer {token}"} if use_auth_token else None
         params = {}
-        r = requests.get(path, params=params)
+        if filter is not None:
+            params.update({"filter": filter})
+        if author is not None:
+            params.update({"author": author})
+        if search is not None:
+            params.update({"search": search})
+        if sort is not None:
+            params.update({"sort": sort})
+        if direction is not None:
+            params.update({"direction": direction})
+        if limit is not None:
+            params.update({"limit": limit})
+        if full is not None:
+            if full:
+                params.update({"full": True})
+        if cardData is not None:
+            if cardData:
+                params.update({"full": True})
+        if linked is not None:
+            if linked:
+                params.update({"linked": True})
+        if datasets is not None:
+            if datasets:
+                params.update({"datasets": datasets})
+        if models is not None:
+            if models:
+                params.update({"models": models})
+        r = requests.get(path, params=params, headers=headers)
         r.raise_for_status()
         d = r.json()
         return [SpaceInfo(**x) for x in d]
