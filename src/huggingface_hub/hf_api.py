@@ -228,7 +228,7 @@ class ModelInfo:
     def __repr__(self):
         s = f"{self.__class__.__name__}: {{ \n"
         s += textwrap.indent(
-            pprint.pformat(self.__dict__, width=70, sort_dicts=False), "        "
+            pprint.pformat(self.__dict__, width=88, sort_dicts=False), "        "
         )
         s += "\n\t}"
         return s
