@@ -6,7 +6,7 @@
 # You may obtain a copy of the License at
 #
 #     http://www.apache.org/licenses/LICENSE-2.0
-#
+# §
 # Unless required by applicable law or agreed to in writing, software
 # distributed under the License is distributed on an "AS IS" BASIS,
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -227,7 +227,9 @@ class ModelInfo:
 
     def __repr__(self):
         s = f"{self.__class__.__name__}: {{ \n"
-        s += textwrap.indent(pprint.pformat(self.__dict__, width=70), "        ")
+        s += textwrap.indent(
+            pprint.pformat(self.__dict__, width=70, sort_dicts=False), "        "
+        )
         s += "\n\t}"
         return s
 
