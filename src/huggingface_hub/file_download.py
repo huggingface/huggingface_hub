@@ -437,7 +437,7 @@ def http_get(
     max_retries=0,
 ):
     """
-    Donwload remote file. Do not gobble up errors.
+    Donwload a remote file. Do not gobble up errors, and will return errors tailored to the Hugging Face Hub.
     """
     headers = copy.deepcopy(headers)
     if resume_size > 0:
@@ -493,6 +493,8 @@ def cached_download(
     Given a URL, this function looks for the corresponding file in the local
     cache. If it's not there, download it. Then return the path to the cached
     file.
+
+    Will raise errors tailored to the Hugging Face Hub.
 
     Args:
         url (`str`):
