@@ -191,7 +191,8 @@ class WhoamiCommand(BaseUserCommand):
             exit()
         try:
             info = self._api.whoami(token)
-            print(ENDPOINT)
+            if ENDPOINT != "https://huggingface.co":
+                print(ENDPOINT)
             print(info["name"])
             orgs = [org["name"] for org in info["orgs"]]
             if orgs:
