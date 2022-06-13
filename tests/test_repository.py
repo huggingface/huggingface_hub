@@ -118,7 +118,6 @@ class RepositoryTest(RepositoryCommonTest):
         Repository(
             WORKING_REPO_DIR, clone_from=temp_repo_url, use_auth_token=self._token
         )
-        self._api.delete_repo(repo_id=f"{self.REPO_NAME}-temp", token=self._token)
 
     def test_init_from_existing_local_clone(self):
         subprocess.run(
