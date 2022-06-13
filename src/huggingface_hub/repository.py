@@ -642,10 +642,12 @@ class Repository:
 
                 scheme = urlparse(repo_url).scheme
                 repo_url = repo_url.replace(f"{scheme}://", f"{scheme}://user:{token}@")
-
+                breakpoint()
                 if namespace == user or namespace in valid_organisations:
                     try:
-                        _ = HfApi().repo_info(f"{namespace}/{repo_id}")
+                        _ = HfApi().repo_info(
+                            f"{repo_id}", repo_type=self.repo_type, token=token
+                        )
                     except HTTPError:
                         self.client.create_repo(
                             repo_id=repo_id,

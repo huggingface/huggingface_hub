@@ -108,6 +108,18 @@ class RepositoryTest(RepositoryCommonTest):
         except requests.exceptions.HTTPError:
             pass
 
+    def test_init_clone_from(self):
+        temp_repo_url = self._api.create_repo(
+            repo_id=f"{self.REPO_NAME}-temp",
+            token=self._token,
+            repo_type="space",
+            space_sdk="gradio",
+        )
+        Repository(
+            WORKING_REPO_DIR, clone_from=temp_repo_url, use_auth_token=self._token
+        )
+        self._api.delete_repo(repo_id=f"{self.REPO_NAME}-temp", token=self._token)
+
     def test_init_from_existing_local_clone(self):
         subprocess.run(
             ["git", "clone", self._repo_url, WORKING_REPO_DIR],
