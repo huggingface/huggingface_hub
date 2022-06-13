@@ -1,4 +1,6 @@
-# Controlling the logging of `huggingface_hub`
+# Utilities
+
+## Controlling the logging of `huggingface_hub`
 
 The `huggingface_hub` package exposes a `logging` utility to control the logging level of the package itself.
 You can import it as such:
@@ -40,9 +42,19 @@ under the hood.
 [[autodoc]] logging.disable_propagation
 [[autodoc]] logging.enable_propagation
 
-# Repo-specific helper methods
+### Repo-specific helper methods
 
 The methods exposed below are relevant when modifying modules from the `huggingface_hub` library itself.
 Using these shouldn't be necessary if you use `huggingface_hub` and you don't modify them.
 
 [[autodoc]] logging.get_logger
+
+## Custom errors
+
+See below for all custom errors thrown by different methods across the package.
+
+[[autodoc]] huggingface_hub.utils.RepositoryNotFoundError
+
+[[autodoc]] huggingface_hub.utils.RevisionNotFoundError
+
+[[autodoc]] huggingface_hub.utils.EntryNotFoundError

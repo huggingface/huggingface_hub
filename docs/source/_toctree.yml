@@ -27,6 +27,6 @@
       title: Mixins & serialization methods
     - local: package_reference/inference_api
       title: Inference API
-    - local: package_reference/logging
-      title: Logging
+    - local: package_reference/utilities
+      title: Utilities
   title: "Reference"

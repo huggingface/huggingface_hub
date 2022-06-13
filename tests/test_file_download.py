@@ -14,7 +14,6 @@
 
 import unittest
 
-import requests
 from huggingface_hub.constants import (
     CONFIG_NAME,
     PYTORCH_WEIGHTS_NAME,
@@ -24,6 +23,11 @@ from huggingface_hub.file_download import (
     cached_download,
     filename_to_url,
     hf_hub_download,
+)
+from huggingface_hub.utils import (
+    EntryNotFoundError,
+    RepositoryNotFoundError,
+    RevisionNotFoundError,
 )
 from huggingface_hub.utils.endpoint_helpers import hf_hub_url
 
@@ -86,7 +90,9 @@ class CachedDownloadTests(unittest.TestCase):
     def test_file_not_found(self):
         # Valid revision (None) but missing file.
         url = hf_hub_url(DUMMY_MODEL_ID, filename="missing.bin")
-        with self.assertRaisesRegex(requests.exceptions.HTTPError, "404 Client Error"):
+        with self.assertRaisesRegex(
+            EntryNotFoundError, "404 Client Error: Entry Not Found"
+        ):
             _ = cached_download(url, legacy_cache_layout=True)
 
     def test_revision_not_found(self):
@@ -96,7 +102,17 @@ class CachedDownloadTests(unittest.TestCase):
             filename=CONFIG_NAME,
             revision=DUMMY_MODEL_ID_REVISION_INVALID,
         )
-        with self.assertRaisesRegex(requests.exceptions.HTTPError, "404 Client Error"):
+        with self.assertRaisesRegex(
+            RevisionNotFoundError, "404 Client Error: Revision Not Found"
+        ):
+            _ = cached_download(url, legacy_cache_layout=True)
+
+    def test_repo_not_found(self):
+        # Invalid model file.
+        url = hf_hub_url("bert-base", filename="pytorch_model.bin")
+        with self.assertRaisesRegex(
+            RepositoryNotFoundError, "401 Client Error: Repository Not Found"
+        ):
             _ = cached_download(url, legacy_cache_layout=True)
 
     def test_standard_object(self):
