@@ -319,7 +319,7 @@ def notebook_login():
     except ImportError:
         raise ImportError(
             "The `notebook_login` function can only be used in a notebook (Jupyter or"
-            " Colab) and you need the `ipywdidgets` module: `pip install ipywidgets`."
+            " Colab) and you need the `ipywidgets` module: `pip install ipywidgets`."
         )
 
     box_layout = widgets.Layout(
