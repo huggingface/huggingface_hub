@@ -1844,7 +1844,7 @@ class HfApi:
                 The git revision to commit from. Defaults to the head of the
                 `"main"` branch.
             identical_ok (`bool`, *optional*, defaults to `True`):
-                Deprecated: will be removed in 0.10.0.
+                Deprecated: will be removed in 0.11.0.
                 Changing this value has no effect.
 
         Returns:
