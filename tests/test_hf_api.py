@@ -596,44 +596,6 @@ class HfApiUploadFileTest(HfApiCommonTestWithLogin):
             self._api.create_repo(repo_id=REPO_NAME)
 
     @retry_endpoint
-    def test_upload_file_conflict(self):
-        REPO_NAME = repo_name("conflict")
-        self._api.create_repo(repo_id=REPO_NAME, token=self._token)
-        try:
-            filecontent = BytesIO(b"File content, but in bytes IO")
-            self._api.upload_file(
-                path_or_fileobj=filecontent,
-                path_in_repo="temp/new_file.md",
-                repo_id=f"{USER}/{REPO_NAME}",
-                token=self._token,
-                identical_ok=True,
-            )
-
-            # No exception raised when identical_ok is True
-            self._api.upload_file(
-                path_or_fileobj=filecontent,
-                path_in_repo="temp/new_file.md",
-                repo_id=f"{USER}/{REPO_NAME}",
-                token=self._token,
-                identical_ok=True,
-            )
-
-            with self.assertRaises(HTTPError) as err_ctx:
-                self._api.upload_file(
-                    path_or_fileobj=filecontent,
-                    path_in_repo="temp/new_file.md",
-                    repo_id=f"{USER}/{REPO_NAME}",
-                    token=self._token,
-                    identical_ok=False,
-                )
-                self.assertEqual(err_ctx.exception.response.status_code, 409)
-
-        except Exception as err:
-            self.fail(err)
-        finally:
-            self._api.delete_repo(repo_id=REPO_NAME, token=self._token)
-
-    @retry_endpoint
     def test_upload_buffer(self):
         REPO_NAME = repo_name("buffer")
         self._api.create_repo(repo_id=REPO_NAME, token=self._token)
