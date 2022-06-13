@@ -94,16 +94,17 @@ DUMMY_MODELCARD_EVAL_RESULT = """---
 model-index:
 - name: RoBERTa fine-tuned on ReactionGIF
   results:
-  - metrics:
-    - type: accuracy
-      value: 0.2662102282047272
-      name: Accuracy
-    task:
+  - task:
       type: text-classification
       name: Text Classification
     dataset:
       name: ReactionGIF
       type: julien-c/reactiongif
+    metrics:
+    - type: accuracy
+      value: 0.2662102282047272
+      name: Accuracy
+      verified: false
 ---
 """
 
