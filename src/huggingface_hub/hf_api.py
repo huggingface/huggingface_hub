@@ -1891,7 +1891,7 @@ class HfApi:
         if identical_ok is not None:
             warnings.warn(
                 "`identical_ok` has no effect and is deprecated. It will be removed in"
-                " 0.10.0.",
+                " 0.11.0.",
                 FutureWarning,
             )
         if repo_type not in REPO_TYPES:
