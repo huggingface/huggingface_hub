@@ -6,9 +6,9 @@ from huggingface_hub.file_download import is_tf_available
 
 def require_tf(test_case):
     """
-    Decorator marking a test that requires TensorFlow, graphviz and pydot.
+    Decorator marking a test that requires TensorFlow.
 
-    These tests are skipped when TensorFlow, graphviz and pydot are installed.
+    These tests are skipped when TensorFlow is not installed.
 
     """
     if not is_tf_available():
