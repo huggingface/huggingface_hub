@@ -642,7 +642,6 @@ class Repository:
 
                 scheme = urlparse(repo_url).scheme
                 repo_url = repo_url.replace(f"{scheme}://", f"{scheme}://user:{token}@")
-                breakpoint()
                 if namespace == user or namespace in valid_organisations:
                     try:
                         _ = HfApi().repo_info(
