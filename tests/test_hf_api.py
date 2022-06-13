@@ -1107,7 +1107,7 @@ class HfApiPrivateTest(HfApiCommonTestWithLogin):
         shutil.rmtree(os.path.dirname(HfFolder.path_token))
         # Test we cannot access model info without a token
         with self.assertRaisesRegex(
-            requests.exceptions.HTTPError, "404 Client Error: Repository Not Found"
+            requests.exceptions.HTTPError, "401 Client Error: Repository Not Found"
         ):
             _ = self._api.model_info(repo_id=f"{USER}/{self.REPO_NAME}")
         # Test we can access model info with a token
