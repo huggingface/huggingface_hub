@@ -1061,9 +1061,15 @@ class HfApiPrivateTest(HfApiCommonTestWithLogin):
         super().setUp()
         self.REPO_NAME = repo_name("private")
         self._api.create_repo(repo_id=self.REPO_NAME, token=self._token, private=True)
+        self._api.create_repo(
+            repo_id=self.REPO_NAME, token=self._token, private=True, repo_type="dataset"
+        )
 
     def tearDown(self) -> None:
         self._api.delete_repo(repo_id=self.REPO_NAME, token=self._token)
+        self._api.delete_repo(
+            repo_id=self.REPO_NAME, token=self._token, repo_type="dataset"
+        )
 
     def test_model_info(self):
         shutil.rmtree(os.path.dirname(HfFolder.path_token))
@@ -1078,14 +1084,12 @@ class HfApiPrivateTest(HfApiCommonTestWithLogin):
         )
         self.assertIsInstance(model_info, ModelInfo)
 
-    @with_production_testing
-    def test_list_private_models(self):
+    def test_list_private_datasets(self):
         orig = len(self._api.list_datasets())
         new = len(self._api.list_datasets(use_auth_token=self._token))
         self.assertGreater(new, orig)
 
-    @with_production_testing
-    def test_list_private_datasets(self):
+    def test_list_private_models(self):
         orig = len(self._api.list_models())
         new = len(self._api.list_models(use_auth_token=self._token))
         self.assertGreater(new, orig)
