@@ -39,7 +39,6 @@ class SingleMetric:
     args: Any = field(default=None)
     """
     The arguments passed during `Metric.compute()`. Example for `bleu`: max_order: 4
-    Can also be additional arguments to `load_dataset()`. Example for wikipedia: language: en
     """
 
     verified: Optional[bool] = False
