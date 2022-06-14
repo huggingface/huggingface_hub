@@ -596,44 +596,6 @@ class HfApiUploadFileTest(HfApiCommonTestWithLogin):
             self._api.create_repo(repo_id=REPO_NAME)
 
     @retry_endpoint
-    def test_upload_file_conflict(self):
-        REPO_NAME = repo_name("conflict")
-        self._api.create_repo(repo_id=REPO_NAME, token=self._token)
-        try:
-            filecontent = BytesIO(b"File content, but in bytes IO")
-            self._api.upload_file(
-                path_or_fileobj=filecontent,
-                path_in_repo="temp/new_file.md",
-                repo_id=f"{USER}/{REPO_NAME}",
-                token=self._token,
-                identical_ok=True,
-            )
-
-            # No exception raised when identical_ok is True
-            self._api.upload_file(
-                path_or_fileobj=filecontent,
-                path_in_repo="temp/new_file.md",
-                repo_id=f"{USER}/{REPO_NAME}",
-                token=self._token,
-                identical_ok=True,
-            )
-
-            with self.assertRaises(HTTPError) as err_ctx:
-                self._api.upload_file(
-                    path_or_fileobj=filecontent,
-                    path_in_repo="temp/new_file.md",
-                    repo_id=f"{USER}/{REPO_NAME}",
-                    token=self._token,
-                    identical_ok=False,
-                )
-                self.assertEqual(err_ctx.exception.response.status_code, 409)
-
-        except Exception as err:
-            self.fail(err)
-        finally:
-            self._api.delete_repo(repo_id=REPO_NAME, token=self._token)
-
-    @retry_endpoint
     def test_upload_buffer(self):
         REPO_NAME = repo_name("buffer")
         self._api.create_repo(repo_id=REPO_NAME, token=self._token)
@@ -1099,15 +1061,21 @@ class HfApiPrivateTest(HfApiCommonTestWithLogin):
         super().setUp()
         self.REPO_NAME = repo_name("private")
         self._api.create_repo(repo_id=self.REPO_NAME, token=self._token, private=True)
+        self._api.create_repo(
+            repo_id=self.REPO_NAME, token=self._token, private=True, repo_type="dataset"
+        )
 
     def tearDown(self) -> None:
         self._api.delete_repo(repo_id=self.REPO_NAME, token=self._token)
+        self._api.delete_repo(
+            repo_id=self.REPO_NAME, token=self._token, repo_type="dataset"
+        )
 
     def test_model_info(self):
         shutil.rmtree(os.path.dirname(HfFolder.path_token))
         # Test we cannot access model info without a token
         with self.assertRaisesRegex(
-            requests.exceptions.HTTPError, "404 Client Error: Repository Not Found"
+            requests.exceptions.HTTPError, "401 Client Error: Repository Not Found"
         ):
             _ = self._api.model_info(repo_id=f"{USER}/{self.REPO_NAME}")
         # Test we can access model info with a token
@@ -1116,14 +1084,12 @@ class HfApiPrivateTest(HfApiCommonTestWithLogin):
         )
         self.assertIsInstance(model_info, ModelInfo)
 
-    @with_production_testing
-    def test_list_private_models(self):
+    def test_list_private_datasets(self):
         orig = len(self._api.list_datasets())
         new = len(self._api.list_datasets(use_auth_token=self._token))
         self.assertGreater(new, orig)
 
-    @with_production_testing
-    def test_list_private_datasets(self):
+    def test_list_private_models(self):
         orig = len(self._api.list_models())
         new = len(self._api.list_models(use_auth_token=self._token))
         self.assertGreater(new, orig)

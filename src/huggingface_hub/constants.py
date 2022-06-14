@@ -25,7 +25,7 @@ _staging_mode = (
 )
 
 ENDPOINT = os.getenv("HF_ENDPOINT") or (
-    "https://moon-staging.huggingface.co" if _staging_mode else "https://huggingface.co"
+    "https://hub-ci.huggingface.co" if _staging_mode else "https://huggingface.co"
 )
 
 HUGGINGFACE_CO_URL_TEMPLATE = ENDPOINT + "/{repo_id}/resolve/{revision}/{filename}"

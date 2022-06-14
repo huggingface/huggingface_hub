@@ -1816,7 +1816,7 @@ class HfApi:
         token: Optional[str] = None,
         repo_type: Optional[str] = None,
         revision: Optional[str] = None,
-        identical_ok: bool = True,
+        identical_ok: Optional[bool] = None,
     ) -> str:
         """
         Upload a local file (up to 5GB) to the given repo. The upload is done
@@ -1844,10 +1844,8 @@ class HfApi:
                 The git revision to commit from. Defaults to the head of the
                 `"main"` branch.
             identical_ok (`bool`, *optional*, defaults to `True`):
-                When set to false, will raise an [HTTPError](
-                https://2.python-requests.org/en/master/api/#requests.HTTPError)
-                when the file you're trying to upload already exists on the hub
-                and its content did not change.
+                Deprecated: will be removed in 0.11.0.
+                Changing this value has no effect.
 
         Returns:
             `str`: The URL to visualize the uploaded file on the hub
@@ -1890,6 +1888,12 @@ class HfApi:
         "https://huggingface.co/username/my-model/blob/main/remote/file/path.h5"
         ```
         """
+        if identical_ok is not None:
+            warnings.warn(
+                "`identical_ok` has no effect and is deprecated. It will be removed in"
+                " 0.11.0.",
+                FutureWarning,
+            )
         if repo_type not in REPO_TYPES:
             raise ValueError(f"Invalid repo type, must be one of {REPO_TYPES}")
 
@@ -1940,18 +1944,7 @@ class HfApi:
         else:
             r = requests.post(path, headers=headers, data=path_or_fileobj)
 
-        try:
-            _raise_for_status(r)
-        except HTTPError as err:
-            if identical_ok and err.response.status_code == 409:
-                from .file_download import hf_hub_url
-
-                return hf_hub_url(
-                    repo_id, path_in_repo, revision=revision, repo_type=repo_type
-                )
-            else:
-                raise err
-
+        _raise_for_status(r)
         d = r.json()
         return d["url"]
 
