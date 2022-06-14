@@ -124,7 +124,9 @@ class RepositoryTest(RepositoryCommonTest):
             use_auth_token=self._token,
         )
         self._api.delete_repo(
-            repo_id=f"{USER}/{self.REPO_NAME}-temp", token=self._token
+            repo_id=f"{USER}/{self.REPO_NAME}-temp",
+            token=self._token,
+            repo_type="space",
         )
 
     def test_clone_from_space(self):
@@ -133,7 +135,7 @@ class RepositoryTest(RepositoryCommonTest):
         ):
             Repository(
                 WORKING_REPO_DIR,
-                clone_from=f"https://huggingface.co/spaces/{USER}/{uuid.uuid4()}",
+                clone_from=f"{USER}/{uuid.uuid4()}",
                 repo_type="space",
                 use_auth_token=self._token,
             )
