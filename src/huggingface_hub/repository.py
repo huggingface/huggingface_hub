@@ -648,13 +648,20 @@ class Repository:
                             f"{repo_id}", repo_type=self.repo_type, token=token
                         )
                     except HTTPError:
-                        self.client.create_repo(
-                            repo_id=repo_id,
-                            token=token,
-                            repo_type=self.repo_type,
-                            exist_ok=True,
-                            private=self.private,
-                        )
+                        if self.repo_type is "space":
+                            raise ValueError(
+                                "Creating a Space through passing Space link to"
+                                " clone_from is not allowed. Make sure the Space exists"
+                                " on Hugging Face Hub."
+                            )
+                        else:
+                            self.client.create_repo(
+                                repo_id=repo_id,
+                                token=token,
+                                repo_type=self.repo_type,
+                                exist_ok=True,
+                                private=self.private,
+                            )
 
             else:
                 if namespace is not None:

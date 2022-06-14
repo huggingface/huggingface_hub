@@ -110,13 +110,35 @@ class RepositoryTest(RepositoryCommonTest):
 
     def test_init_clone_from(self):
         temp_repo_url = self._api.create_repo(
-            repo_id=f"{self.REPO_NAME}-temp",
-            token=self._token,
-            repo_type="space",
-            space_sdk="gradio",
+            repo_id=f"{self.REPO_NAME}-temp", token=self._token, repo_type="space"
         )
         Repository(
-            WORKING_REPO_DIR, clone_from=temp_repo_url, use_auth_token=self._token
+            WORKING_REPO_DIR,
+            clone_from=temp_repo_url,
+            repo_type="space",
+            use_auth_token=self._token,
+        )
+
+    def test_clone_from_space(self):
+        non_existing_repo = f"https://huggingface.co/spaces/user/{uuid.uuid4()}"
+        with pytest.raises(
+            ValueError, match="Creating a Space through passing Space link*"
+        ):
+            Repository(
+                WORKING_REPO_DIR,
+                clone_from=non_existing_repo,
+                repo_type="space",
+                use_auth_token=self._token,
+            )
+
+    def test_clone_from_model(self):
+        non_existing_repo = f"https://huggingface.co/models/user/{uuid.uuid4()}"
+
+        Repository(
+            WORKING_REPO_DIR,
+            clone_from=non_existing_repo,
+            repo_type="model",
+            use_auth_token=self._token,
         )
 
     def test_init_from_existing_local_clone(self):
