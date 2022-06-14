@@ -648,7 +648,7 @@ class Repository:
                             f"{repo_id}", repo_type=self.repo_type, token=token
                         )
                     except HTTPError:
-                        if self.repo_type is "space":
+                        if self.repo_type == "space":
                             raise ValueError(
                                 "Creating a Space through passing Space link to"
                                 " clone_from is not allowed. Make sure the Space exists"

@@ -111,7 +111,7 @@ class RepositoryTest(RepositoryCommonTest):
 
     def test_init_clone_from(self):
         temp_repo_url = self._api.create_repo(
-            repo_id=f"{self.REPO_NAME}-temp", token=self._token, repo_type="space"
+            repo_id=f"{self.REPO_NAME}-temp", token=self._token, repo_type="space", space_sdk="gradio"
         )
         Repository(
             WORKING_REPO_DIR,
@@ -122,16 +122,12 @@ class RepositoryTest(RepositoryCommonTest):
         self._api.delete_repo(repo_id=f"{USER}/{self.REPO_NAME}-temp", token=self._token)
 
 
-    def test_clone_from_space(self):
-        temp_repo_url = self._api.create_repo(
-            repo_id=f"{self.REPO_NAME}-temp", token=self._token, repo_type="space",
-            space_sdk="gradio"
-        )        
+    def test_clone_from_space(self):    
         with pytest.raises(
             ValueError, match="Creating a Space through passing Space link*"):
             Repository(
                 WORKING_REPO_DIR,
-                clone_from=temp_repo_url,
+                clone_from=f"https://huggingface.co/spaces/{USER}/{uuid.uuid4()}",
                 repo_type="space",
                 use_auth_token=self._token,
             )
