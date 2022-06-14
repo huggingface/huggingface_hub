@@ -118,7 +118,7 @@ class SnapshotDownloadTests(unittest.TestCase):
         # Test download fails without token
         with tempfile.TemporaryDirectory() as tmpdirname:
             with self.assertRaisesRegex(
-                requests.exceptions.HTTPError, "404 Client Error"
+                requests.exceptions.HTTPError, "401 Client Error"
             ):
                 _ = snapshot_download(
                     f"{USER}/{REPO_NAME}", revision="main", cache_dir=tmpdirname

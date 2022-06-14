@@ -1973,10 +1973,8 @@ class HfApi:
                 The git revision to commit from. Defaults to the head of the
                 `"main"` branch.
             identical_ok (`bool`, *optional*, defaults to `True`):
-                (Deprecated, will be removed in v0.10.0) When set to false, will
-                raise an [HTTPError](https://requests.readthedocs.io/en/latest/api/#requests.HTTPError)
-                when the file you're trying to upload already exists on the hub
-                and its content did not change.
+                Deprecated: will be removed in 0.11.0.
+                Changing this value has no effect.
             commit_message (`str`, *optional*):
                 The summary / title / first line of the generated commit
             commit_description (`str` *optional*)
@@ -2028,8 +2026,8 @@ class HfApi:
         """
         if identical_ok is not None:
             warnings.warn(
-                "`identical_ok` input argument is deprecated and "
-                "will be removed in v0.10.0.",
+                "`identical_ok` has no effect and is deprecated. It will be removed in"
+                " 0.11.0.",
                 FutureWarning,
             )
         identical_ok = identical_ok if identical_ok is not None else True
@@ -2154,18 +2152,7 @@ class HfApi:
                 params=params,
             )
 
-        try:
-            _raise_for_status(r)
-        except HTTPError as err:
-            if identical_ok and err.response.status_code == 409:
-                from .file_download import hf_hub_url
-
-                return hf_hub_url(
-                    repo_id, path_in_repo, revision=revision, repo_type=repo_type
-                )
-            else:
-                raise err
-
+        _raise_for_status(r)
         d = r.json()
         return d["url"]
 
