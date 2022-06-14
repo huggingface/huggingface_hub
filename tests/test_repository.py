@@ -137,9 +137,6 @@ class RepositoryTest(RepositoryCommonTest):
                 repo_type="space",
                 use_auth_token=self._token,
             )
-        self._api.delete_repo(
-            repo_id=f"{USER}/{self.REPO_NAME}-temp", token=self._token
-        )
 
     def test_clone_from_model(self):
         temp_repo_url = self._api.create_repo(
