@@ -115,7 +115,7 @@ class RepositoryTest(RepositoryCommonTest):
             repo_id=f"{self.REPO_NAME}-temp",
             token=self._token,
             repo_type="space",
-            space_sdk="gradio",
+            space_sdk="static",
         )
         Repository(
             WORKING_REPO_DIR,
