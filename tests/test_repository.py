@@ -14,6 +14,7 @@
 import json
 import os
 import pathlib
+import pytest
 import shutil
 import subprocess
 import tempfile
@@ -118,28 +119,36 @@ class RepositoryTest(RepositoryCommonTest):
             repo_type="space",
             use_auth_token=self._token,
         )
+        self._api.delete_repo(repo_id=f"{USER}/{self.REPO_NAME}-temp", token=self._token)
+
 
     def test_clone_from_space(self):
-        non_existing_repo = f"https://huggingface.co/spaces/user/{uuid.uuid4()}"
+        temp_repo_url = self._api.create_repo(
+            repo_id=f"{self.REPO_NAME}-temp", token=self._token, repo_type="space",
+            space_sdk="gradio"
+        )        
         with pytest.raises(
-            ValueError, match="Creating a Space through passing Space link*"
-        ):
+            ValueError, match="Creating a Space through passing Space link*"):
             Repository(
                 WORKING_REPO_DIR,
-                clone_from=non_existing_repo,
+                clone_from=temp_repo_url,
                 repo_type="space",
                 use_auth_token=self._token,
             )
+        self._api.delete_repo(repo_id=f"{USER}/{self.REPO_NAME}-temp", token=self._token)
 
     def test_clone_from_model(self):
-        non_existing_repo = f"https://huggingface.co/models/user/{uuid.uuid4()}"
-
-        Repository(
-            WORKING_REPO_DIR,
-            clone_from=non_existing_repo,
-            repo_type="model",
-            use_auth_token=self._token,
+        temp_repo_url = self._api.create_repo(
+            repo_id=f"{self.REPO_NAME}-temp", token=self._token, repo_type="model"
         )
+        Repository(
+                WORKING_REPO_DIR,
+                clone_from=temp_repo_url,
+                repo_type="model",
+                use_auth_token=self._token,
+            )
+        self._api.delete_repo(repo_id=f"{USER}/{self.REPO_NAME}-temp", token=self._token)
+
 
     def test_init_from_existing_local_clone(self):
         subprocess.run(
