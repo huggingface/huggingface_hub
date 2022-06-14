@@ -224,7 +224,7 @@ def is_binary_file(filename: Union[str, Path]) -> bool:
     """
     try:
         with open(filename, "rb") as f:
-            content = f.read(10 * (1024 ** 2))  # Read a maximum of 10MB
+            content = f.read(10 * (1024**2))  # Read a maximum of 10MB
 
         # Code sample taken from the following stack overflow thread
         # https://stackoverflow.com/questions/898669/how-can-i-detect-if-a-file-is-binary-non-text-in-python/7392391#7392391
@@ -684,7 +684,8 @@ class Repository:
                         env.update({"GIT_LFS_SKIP_SMUDGE": "1"})
 
                     run_subprocess(
-                        f"{'git clone' if self.skip_lfs_files else 'git lfs clone'} {repo_url} .".split(),
+                        f"{'git clone' if self.skip_lfs_files else 'git lfs clone'} {repo_url} ."
+                        .split(),
                         self.local_dir,
                         env=env,
                     )
