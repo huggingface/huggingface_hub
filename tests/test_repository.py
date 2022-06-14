@@ -14,6 +14,7 @@
 import json
 import os
 import pathlib
+import pytest
 import shutil
 import subprocess
 import tempfile
