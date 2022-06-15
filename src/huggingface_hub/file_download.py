@@ -957,6 +957,9 @@ def hf_hub_download(
             # between the HEAD and the GET (unlikely, but hey).
             if 300 <= r.status_code <= 399:
                 url_to_download = r.headers["Location"]
+                if "lfs.huggingface.co" in url_to_download or "lfs-staging.huggingface.co" in url_to_download:
+                    # Remove authorization header when downloading a LFS blob
+                    headers.pop("authorization", None)
         except (requests.exceptions.SSLError, requests.exceptions.ProxyError):
             # Actually raise for those subclasses of ConnectionError
             raise
