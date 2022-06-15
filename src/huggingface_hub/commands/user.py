@@ -168,18 +168,11 @@ class LoginCommand(BaseUserCommand):
         _|    _|    _|_|      _|_|_|    _|_|_|  _|_|_|  _|      _|    _|_|_|      _|        _|    _|    _|_|_|  _|_|_|_|
 
         To login, `huggingface_hub` now requires a token generated from https://huggingface.co/settings/tokens .
-        (Deprecated, will be removed in v0.3.0) To login with username and password instead, interrupt with Ctrl+C.
         """
         )
 
-        try:
-            token = getpass("Token: ")
-            _login(self._api, token=token)
-
-        except KeyboardInterrupt:
-            username = input("\rUsername: ")
-            password = getpass()
-            _login(self._api, username, password)
+        token = getpass("Token: ")
+        _login(self._api, token=token)
 
 
 class WhoamiCommand(BaseUserCommand):
@@ -208,12 +201,6 @@ class LogoutCommand(BaseUserCommand):
             exit()
         HfFolder.delete_token()
         HfApi.unset_access_token()
-        try:
-            self._api.logout(token)
-        except HTTPError as e:
-            # Logging out with an access token will return a client error.
-            if not e.response.status_code == 400:
-                raise e
         print("Successfully logged out.")
 
 
@@ -304,9 +291,7 @@ your token or it might be stored in plain text in this notebook file. </center>"
 NOTEBOOK_LOGIN_TOKEN_HTML_END = """
 <b>Pro Tip:</b> If you don't already have one, you can create a dedicated
 'notebooks' token with 'write' access, that you can then easily reuse for all
-notebooks. <br> <i>Logging in with your username and password is deprecated and
-won't be possible anymore in the near future. You can still use them for now by
-clicking below.</i> </center>"""
+notebooks. </center>"""
 
 
 def notebook_login():
@@ -328,7 +313,6 @@ def notebook_login():
 
     token_widget = widgets.Password(description="Token:")
     token_finish_button = widgets.Button(description="Login")
-    switch_button = widgets.Button(description="Use password")
 
     login_token_widget = widgets.VBox(
         [
@@ -336,25 +320,10 @@ def notebook_login():
             token_widget,
             token_finish_button,
             widgets.HTML(NOTEBOOK_LOGIN_TOKEN_HTML_END),
-            switch_button,
         ],
         layout=box_layout,
     )
     display(login_token_widget)
-
-    # Deprecated page for login
-    input_widget = widgets.Text(description="Username:")
-    password_widget = widgets.Password(description="Password:")
-    password_finish_button = widgets.Button(description="Login")
-
-    login_password_widget = widgets.VBox(
-        [
-            widgets.HTML(value=NOTEBOOK_LOGIN_PASSWORD_HTML),
-            widgets.HBox([input_widget, password_widget]),
-            password_finish_button,
-        ],
-        layout=box_layout,
-    )
 
     # On click events
     def login_token_event(t):
@@ -366,35 +335,9 @@ def notebook_login():
 
     token_finish_button.on_click(login_token_event)
 
-    def login_password_event(t):
-        username = input_widget.value
-        password = password_widget.value
-        # Erase password and clear value to make sure it's not saved in the notebook.
-        password_widget.value = ""
-        clear_output()
-        _login(HfApi(), username=username, password=password)
 
-    password_finish_button.on_click(login_password_event)
-
-    def switch_event(t):
-        clear_output()
-        display(login_password_widget)
-
-    switch_button.on_click(switch_event)
-
-
-def _login(hf_api, username=None, password=None, token=None):
-    if token is None:
-        try:
-            token = hf_api.login(username, password)
-        except HTTPError as e:
-            # probably invalid credentials, display error message.
-            print(e)
-            print(ANSI.red(e.response.text))
-            exit(1)
-    else:
-        token, name = hf_api._validate_or_retrieve_token(token)
-
+def _login(hf_api, token=None):
+    token, name = hf_api._validate_or_retrieve_token(token)
     hf_api.set_access_token(token)
     HfFolder.save_token(token)
     print("Login successful")
