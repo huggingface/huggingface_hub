@@ -17,7 +17,6 @@ import re
 import subprocess
 import sys
 import warnings
-from io import BufferedIOBase, RawIOBase
 from os.path import expanduser
 from typing import BinaryIO, Dict, Iterable, List, Optional, Tuple, Union
 
@@ -1897,20 +1896,6 @@ class HfApi:
                 " 0.11.0.",
                 FutureWarning,
             )
-        identical_ok = identical_ok if identical_ok is not None else True
-        if not identical_ok:
-            return self._legacy_upload_file(
-                path_or_fileobj=path_or_fileobj,
-                path_in_repo=path_in_repo,
-                repo_id=repo_id,
-                token=token,
-                repo_type=repo_type,
-                revision=revision,
-                identical_ok=identical_ok,
-                commit_message=commit_message,
-                commit_description=commit_description,
-                create_pr=create_pr,
-            )
         commit_message = (
             commit_message
             if commit_message is not None
@@ -1938,90 +1923,6 @@ class HfApi:
                 repo_id, path_in_repo, revision=revision, repo_type=repo_type
             )
         )
-
-    def _legacy_upload_file(
-        self,
-        *,
-        path_or_fileobj: Union[str, bytes, BinaryIO],
-        path_in_repo: str,
-        repo_id: str,
-        token: Optional[str] = None,
-        repo_type: Optional[str] = None,
-        revision: Optional[str] = None,
-        identical_ok: bool = True,
-        commit_message: Optional[str] = None,
-        commit_description: Optional[str] = None,
-        create_pr: Optional[bool] = None,
-    ) -> str:
-        """
-        Deprecated - will be removed in 0.11.0
-
-        Uploads a file to the hub using the old and deprecated HTTP API
-        """
-        if repo_type not in REPO_TYPES:
-            raise ValueError(f"Invalid repo type, must be one of {REPO_TYPES}")
-
-        try:
-            token, name = self._validate_or_retrieve_token(
-                token, function_name="upload_file"
-            )
-        except ValueError:  # if token is invalid or organization token
-            if self._is_valid_token(path_or_fileobj):
-                warnings.warn(
-                    "`upload_file` now takes `token` as an optional positional"
-                    " argument. Be sure to adapt your code!",
-                    FutureWarning,
-                )
-                token, path_or_fileobj, path_in_repo, repo_id = (
-                    path_or_fileobj,
-                    path_in_repo,
-                    repo_id,
-                    token,
-                )
-            else:
-                raise ValueError("Invalid token passed!")
-
-        # Validate path_or_fileobj
-        if isinstance(path_or_fileobj, str):
-            path_or_fileobj = os.path.normpath(os.path.expanduser(path_or_fileobj))
-            if not os.path.isfile(path_or_fileobj):
-                raise ValueError(f"Provided path: '{path_or_fileobj}' is not a file")
-        elif not isinstance(path_or_fileobj, (RawIOBase, BufferedIOBase, bytes)):
-            # ^^ Test from: https://stackoverflow.com/questions/44584829/how-to-determine-if-file-is-opened-in-binary-or-text-mode
-            raise ValueError(
-                "path_or_fileobj must be either an instance of str or BinaryIO. If you"
-                " passed a fileobj, make sure you've opened the file in binary mode."
-            )
-
-        if repo_type in REPO_TYPES_URL_PREFIXES:
-            repo_id = REPO_TYPES_URL_PREFIXES[repo_type] + repo_id
-
-        revision = revision if revision is not None else "main"
-
-        path = f"{self.endpoint}/api/{repo_id}/upload/{revision}/{path_in_repo}"
-
-        headers = {"authorization": f"Bearer {token}"} if token is not None else {}
-
-        params = {"create_pr": "1"} if create_pr else {}
-        if commit_message is not None:
-            headers["Commit-Summary"] = commit_message
-        if commit_description is not None:
-            headers["Commit-Description"] = commit_description
-
-        if isinstance(path_or_fileobj, str):
-            with open(path_or_fileobj, "rb") as bytestream:
-                r = requests.post(path, headers=headers, data=bytestream, params=params)
-        else:
-            r = requests.post(
-                path,
-                headers=headers,
-                data=path_or_fileobj,
-                params=params,
-            )
-
-        _raise_for_status(r)
-        d = r.json()
-        return d["url"]
 
     def upload_folder(
         self,
