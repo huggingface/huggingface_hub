@@ -1954,7 +1954,7 @@ class HfApi:
         create_pr: Optional[bool] = None,
     ) -> str:
         """
-        Deprecated - will be removed in 0.10.0
+        Deprecated - will be removed in 0.11.0
 
         Uploads a file to the hub using the old and deprecated HTTP API
         """
