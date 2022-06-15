@@ -60,17 +60,17 @@ def _raise_for_status(request):
             raise RepositoryNotFoundError(
                 f"404 Client Error: Repository Not Found for url: {request.url}. If the"
                 " repo is private, make sure you are authenticated. (Request ID:"
-                f" f{request_id})"
+                f" {request_id})"
             )
         elif error_code == "RevisionNotFound":
             raise RevisionNotFoundError(
                 f"404 Client Error: Revision Not Found for url: {request.url}. (Request"
-                f" ID: f{request_id})"
+                f" ID: {request_id})"
             )
         elif error_code == "EntryNotFound":
             raise EntryNotFoundError(
                 f"404 Client Error: Entry Not Found for url: {request.url}. (Request"
-                f" ID: f{request_id})"
+                f" ID: {request_id})"
             )
 
     if request.status_code == 401:
@@ -78,7 +78,7 @@ def _raise_for_status(request):
         raise RepositoryNotFoundError(
             f"401 Client Error: Repository Not Found for url: {request.url}. If the"
             " repo is private, make sure you are authenticated. (Request ID:"
-            " f{request_id})"
+            f" {request_id})"
         )
 
     _raise_with_request_id(request)
@@ -92,4 +92,4 @@ def _raise_with_request_id(request):
         if request_id is not None and len(e.args) and isinstance(e.args[0], str):
             e.args = (e.args[0] + f" (Request ID: {request_id})",) + e.args[1:]
 
-        raise e.with_traceback(e.__traceback__)
+        raise e
