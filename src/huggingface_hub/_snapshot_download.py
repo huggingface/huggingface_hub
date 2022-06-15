@@ -7,7 +7,6 @@ from .constants import DEFAULT_REVISION, HUGGINGFACE_HUB_CACHE, REPO_TYPES
 from .file_download import REGEX_COMMIT_HASH, hf_hub_download, repo_folder_name
 from .hf_api import HfApi, HfFolder
 from .utils import logging
-from .utils._deprecation import _deprecate_positional_args
 
 
 logger = logging.get_logger(__name__)
@@ -39,7 +38,6 @@ def _filter_repo_files(
     return filtered_files
 
 
-@_deprecate_positional_args
 def snapshot_download(
     repo_id: str,
     *,
