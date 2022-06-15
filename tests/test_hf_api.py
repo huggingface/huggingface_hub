@@ -1076,7 +1076,7 @@ class HfApiPrivateTest(HfApiCommonTestWithLogin):
         )
 
     def test_model_info(self):
-        shutil.rmtree(os.path.dirname(HfFolder.path_token), ignore_errors=True)
+        shutil.rmtree(os.path.dirname(HfFolder.path_token))
         # Test we cannot access model info without a token
         with self.assertRaisesRegex(
             requests.exceptions.HTTPError,
