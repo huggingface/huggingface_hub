@@ -22,6 +22,8 @@ import unittest
 import uuid
 from io import BytesIO
 
+import pytest
+
 import requests
 from huggingface_hub.commands.user import currently_setup_credential_helpers
 from huggingface_hub.hf_api import HfApi
@@ -107,6 +109,50 @@ class RepositoryTest(RepositoryCommonTest):
             )
         except requests.exceptions.HTTPError:
             pass
+
+    def test_init_clone_from(self):
+        temp_repo_url = self._api.create_repo(
+            repo_id=f"{self.REPO_NAME}-temp",
+            token=self._token,
+            repo_type="space",
+            space_sdk="static",
+        )
+        Repository(
+            WORKING_REPO_DIR,
+            clone_from=temp_repo_url,
+            repo_type="space",
+            use_auth_token=self._token,
+        )
+        self._api.delete_repo(
+            repo_id=f"{USER}/{self.REPO_NAME}-temp",
+            token=self._token,
+            repo_type="space",
+        )
+
+    def test_clone_from_space(self):
+        with pytest.raises(
+            ValueError, match="Creating a Space through passing Space link*"
+        ):
+            Repository(
+                WORKING_REPO_DIR,
+                clone_from=f"{USER}/{uuid.uuid4()}",
+                repo_type="space",
+                use_auth_token=self._token,
+            )
+
+    def test_clone_from_model(self):
+        temp_repo_url = self._api.create_repo(
+            repo_id=f"{self.REPO_NAME}-temp", token=self._token, repo_type="model"
+        )
+        Repository(
+            WORKING_REPO_DIR,
+            clone_from=temp_repo_url,
+            repo_type="model",
+            use_auth_token=self._token,
+        )
+        self._api.delete_repo(
+            repo_id=f"{USER}/{self.REPO_NAME}-temp", token=self._token
+        )
 
     def test_init_from_existing_local_clone(self):
         subprocess.run(
