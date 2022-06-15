@@ -14,6 +14,7 @@ from tqdm.auto import tqdm
 
 from huggingface_hub.constants import REPO_TYPES_URL_PREFIXES, REPOCARD_NAME
 from huggingface_hub.repocard import metadata_load, metadata_save
+from requests.exceptions import HTTPError
 
 from .hf_api import HfApi, HfFolder, repo_type_and_id_from_hf_id
 from .lfs import LFS_MULTIPART_UPLOAD_COMMAND
@@ -641,15 +642,27 @@ class Repository:
 
                 scheme = urlparse(repo_url).scheme
                 repo_url = repo_url.replace(f"{scheme}://", f"{scheme}://user:{token}@")
-
                 if namespace == user or namespace in valid_organisations:
-                    self.client.create_repo(
-                        repo_id=repo_id,
-                        token=token,
-                        repo_type=self.repo_type,
-                        exist_ok=True,
-                        private=self.private,
-                    )
+                    try:
+                        _ = HfApi().repo_info(
+                            f"{repo_id}", repo_type=self.repo_type, token=token
+                        )
+                    except HTTPError:
+                        if self.repo_type == "space":
+                            raise ValueError(
+                                "Creating a Space through passing Space link to"
+                                " clone_from is not allowed. Make sure the Space exists"
+                                " on Hugging Face Hub."
+                            )
+                        else:
+                            self.client.create_repo(
+                                repo_id=repo_id,
+                                token=token,
+                                repo_type=self.repo_type,
+                                exist_ok=True,
+                                private=self.private,
+                            )
+
             else:
                 if namespace is not None:
                     repo_url += f"{namespace}/"

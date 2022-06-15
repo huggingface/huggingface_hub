@@ -32,7 +32,6 @@ from .constants import (
 )
 from .hf_api import HfFolder
 from .utils import logging
-from .utils._deprecation import _deprecate_positional_args
 from .utils._errors import _raise_for_status
 from .utils.endpoint_helpers import hf_hub_url
 
@@ -227,7 +226,6 @@ def filename_to_url(
     return url, etag
 
 
-@_deprecate_positional_args
 def http_user_agent(
     *,
     library_name: Optional[str] = None,
@@ -342,7 +340,6 @@ def _request_with_retry(
     return response
 
 
-@_deprecate_positional_args
 def http_get(
     url: str,
     temp_file: BinaryIO,
@@ -386,7 +383,6 @@ def http_get(
     progress.close()
 
 
-@_deprecate_positional_args
 def cached_download(
     url: str,
     *,
@@ -717,7 +713,6 @@ def repo_folder_name(*, repo_id: str, repo_type: str) -> str:
     return REPO_ID_SEPARATOR.join(parts)
 
 
-@_deprecate_positional_args
 def hf_hub_download(
     repo_id: str,
     filename: str,

@@ -26,10 +26,8 @@ from ..constants import (
     REPO_TYPES,
     REPO_TYPES_URL_PREFIXES,
 )
-from ._deprecation import _deprecate_positional_args
 
 
-@_deprecate_positional_args
 def hf_hub_url(
     repo_id: str,
     filename: str,

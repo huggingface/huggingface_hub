@@ -42,7 +42,6 @@ from .constants import (
     SPACES_SDK_TYPES,
 )
 from .utils import logging
-from .utils._deprecation import _deprecate_positional_args
 from .utils._errors import _raise_for_status
 from .utils._fixes import JSONDecodeError
 from .utils.endpoint_helpers import (
@@ -65,40 +64,6 @@ else:
 USERNAME_PLACEHOLDER = "hf_user"
 
 logger = logging.get_logger(__name__)
-
-
-# TODO: remove after deprecation period is over (v0.8)
-def _validate_repo_id_deprecation(repo_id, name, organization):
-    """Returns (name, organization) from the input."""
-    if repo_id and not name and organization:
-        # this means the user had passed name as positional, now mapped to
-        # repo_id and is passing organization as well. This wouldn't be an
-        # issue if they pass everything as kwarg. So we switch the parameters
-        # here:
-        repo_id, name = name, repo_id
-
-    if not (repo_id or name):
-        raise ValueError(
-            "No name provided. Please pass `repo_id` with a valid repository name."
-        )
-
-    if repo_id and (name or organization):
-        raise ValueError(
-            "Only pass `repo_id` and leave deprecated `name` and "
-            "`organization` to be None."
-        )
-    elif name or organization:
-        warnings.warn(
-            "`name` and `organization` input arguments are deprecated and "
-            "will be removed in v0.8. Pass `repo_id` instead.",
-            FutureWarning,
-        )
-    else:
-        if "/" in repo_id:
-            organization, name = repo_id.split("/")
-        else:
-            organization, name = None, repo_id
-    return name, organization
 
 
 def repo_type_and_id_from_hf_id(
@@ -206,7 +171,6 @@ class ModelInfo:
             Kwargs that will be become attributes of the class.
     """
 
-    @_deprecate_positional_args
     def __init__(
         self,
         *,
@@ -277,7 +241,6 @@ class DatasetInfo:
             Kwargs that will be become attributes of the class.
     """
 
-    @_deprecate_positional_args
     def __init__(
         self,
         *,
@@ -347,7 +310,6 @@ class SpaceInfo:
             Kwargs that will be become attributes of the class.
     """
 
-    @_deprecate_positional_args(version="0.8")
     def __init__(
         self,
         *,
@@ -382,7 +344,6 @@ class MetricInfo:
     Info about a public metric accessible from huggingface.co
     """
 
-    @_deprecate_positional_args
     def __init__(
         self,
         *,
@@ -566,48 +527,6 @@ class HfApi:
     def __init__(self, endpoint=None):
         self.endpoint = endpoint if endpoint is not None else ENDPOINT
 
-    def login(self, username: str, password: str) -> str:
-        """
-        Call HF API to sign in a user and get a token if credentials are valid.
-
-        <Tip>
-
-        Warning: Deprecated, will be removed in v0.8. Please use
-        [`HfApi.set_access_token`] instead.
-
-        </Tip>
-
-        Args:
-            username (`str`):
-                The username of the account with which to login.
-            password (`str`):
-                The password of the account with which to login.
-
-        Returns:
-            `str`: token if credentials are valid
-
-        <Tip>
-
-        Raises the following errors:
-
-        - [`HTTPError`](https://2.python-requests.org/en/master/api/#requests.HTTPError)
-          if credentials are invalid
-
-        </Tip>
-        """
-        warnings.warn(
-            "HfApi.login: This method is deprecated in favor of `set_access_token`"
-            " and will be removed in v0.8.",
-            FutureWarning,
-        )
-        path = f"{self.endpoint}/api/login"
-        r = requests.post(path, json={"username": username, "password": password})
-        r.raise_for_status()
-        d = r.json()
-
-        write_to_credential_store(username, password)
-        return d["token"]
-
     def whoami(self, token: Optional[str] = None) -> Dict:
         """
         Call HF API to know "whoami".
@@ -698,42 +617,6 @@ class HfApi:
 
         return token, name
 
-    def logout(self, token: Optional[str] = None) -> None:
-        """
-        Call HF API to log out.
-
-        <Tip>
-
-        Warning: Deprecated, will be removed in v0.8. Please use
-        [`HfApi.unset_access_token`] instead.
-
-        </Tip>
-
-        Args:
-            token (`str`, *optional*):
-                Hugging Face token. Will default to the locally saved token if
-                not provided.
-        """
-        warnings.warn(
-            "HfApi.logout: This method is deprecated in favor of `unset_access_token` "
-            "and will be removed in v0.8.",
-            FutureWarning,
-        )
-        if token is None:
-            token = HfFolder.get_token()
-        if token is None:
-            raise ValueError(
-                "You need to pass a valid `token` or login by using `huggingface-cli "
-                "login`"
-            )
-
-        username = self.whoami(token)["name"]
-        erase_from_credential_store(username)
-
-        path = f"{self.endpoint}/api/logout"
-        r = requests.post(path, headers={"authorization": f"Bearer {token}"})
-        r.raise_for_status()
-
     @staticmethod
     def set_access_token(access_token: str):
         """
@@ -771,7 +654,6 @@ class HfApi:
         d = r.json()
         return DatasetTags(d)
 
-    @_deprecate_positional_args
     def list_models(
         self,
         *,
@@ -980,7 +862,6 @@ class HfApi:
         query_dict["filter"] = tuple(filter_tuple)
         return query_dict
 
-    @_deprecate_positional_args
     def list_datasets(
         self,
         *,
@@ -1160,7 +1041,6 @@ class HfApi:
         d = r.json()
         return [MetricInfo(**x) for x in d]
 
-    @_deprecate_positional_args
     def model_info(
         self,
         repo_id: str,
@@ -1222,7 +1102,6 @@ class HfApi:
         d = r.json()
         return ModelInfo(**d)
 
-    @_deprecate_positional_args
     def dataset_info(
         self,
         repo_id: str,
@@ -1277,7 +1156,6 @@ class HfApi:
         d = r.json()
         return DatasetInfo(**d)
 
-    @_deprecate_positional_args
     def space_info(
         self,
         repo_id: str,
@@ -1332,7 +1210,6 @@ class HfApi:
         d = r.json()
         return SpaceInfo(**d)
 
-    @_deprecate_positional_args(version="0.8")
     def repo_info(
         self,
         repo_id: str,
@@ -1388,7 +1265,6 @@ class HfApi:
         else:
             raise ValueError("Unsupported repo type.")
 
-    @_deprecate_positional_args(version="0.8")
     def list_repo_files(
         self,
         repo_id: str,
@@ -1429,18 +1305,15 @@ class HfApi:
         )
         return [f.rfilename for f in repo_info.siblings]
 
-    @_deprecate_positional_args
     def create_repo(
         self,
         repo_id: str = None,
         *,
         token: Optional[str] = None,
-        organization: Optional[str] = None,
         private: Optional[bool] = None,
         repo_type: Optional[str] = None,
         exist_ok: Optional[bool] = False,
         space_sdk: Optional[str] = None,
-        name: Optional[str] = None,
     ) -> str:
         """Create an empty repo on the HuggingFace Hub.
 
@@ -1472,7 +1345,7 @@ class HfApi:
         Returns:
             `str`: URL to the newly created repo.
         """
-        name, organization = _validate_repo_id_deprecation(repo_id, name, organization)
+        organization, name = repo_id.split("/") if "/" in repo_id else (None, repo_id)
 
         path = f"{self.endpoint}/api/repos/create"
 
@@ -1559,15 +1432,12 @@ class HfApi:
         d = r.json()
         return d["url"]
 
-    @_deprecate_positional_args
     def delete_repo(
         self,
         repo_id: str = None,
         *,
         token: Optional[str] = None,
-        organization: Optional[str] = None,
         repo_type: Optional[str] = None,
-        name: str = None,
     ):
         """
         Delete a repo from the HuggingFace Hub. CAUTION: this is irreversible.
@@ -1599,7 +1469,7 @@ class HfApi:
 
         </Tip>
         """
-        name, organization = _validate_repo_id_deprecation(repo_id, name, organization)
+        organization, name = repo_id.split("/") if "/" in repo_id else (None, repo_id)
 
         path = f"{self.endpoint}/api/repos/delete"
 
@@ -1662,7 +1532,6 @@ class HfApi:
                 message = e.args[0]
             raise type(e)(message) from e
 
-    @_deprecate_positional_args
     def update_repo_visibility(
         self,
         repo_id: str = None,
@@ -1711,7 +1580,7 @@ class HfApi:
         if repo_type not in REPO_TYPES:
             raise ValueError("Invalid repo type")
 
-        name, organization = _validate_repo_id_deprecation(repo_id, name, organization)
+        organization, name = repo_id.split("/") if "/" in repo_id else (None, repo_id)
 
         token, name = self._validate_or_retrieve_token(
             token, name, function_name="update_repo_visibility"
@@ -1738,7 +1607,6 @@ class HfApi:
         _raise_for_status(r)
         return r.json()
 
-    @_deprecate_positional_args
     def move_repo(
         self,
         from_id: str,
@@ -1932,7 +1800,6 @@ class HfApi:
         _raise_for_status(commit_resp)
         return commit_resp.json().get("pullRequestUrl", None)
 
-    @_deprecate_positional_args
     def upload_file(
         self,
         *,
@@ -2271,7 +2138,6 @@ class HfApi:
             create_pr=create_pr,
         )
 
-    @_deprecate_positional_args
     def delete_file(
         self,
         path_in_repo: str,
@@ -2349,7 +2215,6 @@ class HfApi:
             create_pr=create_pr,
         )
 
-    @_deprecate_positional_args
     def get_full_repo_name(
         self,
         model_id: str,
@@ -2434,9 +2299,6 @@ class HfFolder:
 
 
 api = HfApi()
-
-login = api.login
-logout = api.logout
 
 set_access_token = api.set_access_token
 unset_access_token = api.unset_access_token
