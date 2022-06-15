@@ -583,17 +583,21 @@ class CommitApiTest(HfApiCommonTestWithLogin):
                         repo_id=f"{USER}/{REPO_NAME}",
                         token=self._token,
                     )
-                    for rpath in ["temp/dir/temp", "temp/dir/nested/file.bin"]:
+                    for rpath in ["temp", "nested/file.bin"]:
+                        local_path = os.path.join(self.tmp_dir, rpath)
+                        remote_path = f"temp/dir/{rpath}"
                         filepath = hf_hub_download(
                             repo_id=f"{USER}/{REPO_NAME}",
-                            filename=rpath,
+                            filename=remote_path,
                             revision="main",
                             use_auth_token=self._token,
                         )
                         assert filepath is not None
-                        with open(filepath) as downloaded_file:
+                        with open(filepath, "rb") as downloaded_file:
                             content = downloaded_file.read()
-                        self.assertEqual(content, self.tmp_file_content)
+                        with open(local_path, "rb") as local_file:
+                            expected_content = local_file.read()
+                        self.assertEqual(content, expected_content)
 
                     # Re-uploading the same folder twice should be fine
                     self._api.upload_folder(
