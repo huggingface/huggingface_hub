@@ -118,7 +118,11 @@ class HfApiLoginTest(HfApiCommonTest):
 
     def test_login_invalid(self):
         with pytest.warns(FutureWarning, match="This method is deprecated"):
-            with pytest.raises(HTTPError):
+            with self.assertRaisesRegex(
+                requests.exceptions.HTTPError,
+                r"401 Client Error: Unauthorized for url:"
+                r" https://hub-ci.huggingface.co/api/login \(Request ID: .+\)",
+            ):
                 self._api.login(username=USER, password="fake")
 
     def test_login_valid(self):
@@ -302,9 +306,9 @@ class HfApiEndpointsTest(HfApiCommonTestWithLogin):
     @retry_endpoint
     def test_delete_repo_error_message(self):
         # test for #751
-        with pytest.raises(
-            HTTPError,
-            match="404 Client Error: Repository Not Found",
+        with self.assertRaisesRegex(
+            requests.exceptions.HTTPError,
+            r"404 Client Error: Repository Not Found (.+) \(Request ID: .+\)",
         ):
             self._api.delete_repo("repo-that-does-not-exist", token=self._token)
 
@@ -1072,10 +1076,11 @@ class HfApiPrivateTest(HfApiCommonTestWithLogin):
         )
 
     def test_model_info(self):
-        shutil.rmtree(os.path.dirname(HfFolder.path_token))
+        shutil.rmtree(os.path.dirname(HfFolder.path_token), ignore_errors=True)
         # Test we cannot access model info without a token
         with self.assertRaisesRegex(
-            requests.exceptions.HTTPError, "401 Client Error: Repository Not Found"
+            requests.exceptions.HTTPError,
+            r"401 Client Error: Repository Not Found for url: (.+) \(Request ID: .+\)",
         ):
             _ = self._api.model_info(repo_id=f"{USER}/{self.REPO_NAME}")
         # Test we can access model info with a token

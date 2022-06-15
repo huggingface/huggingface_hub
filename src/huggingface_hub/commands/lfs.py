@@ -29,6 +29,7 @@ from huggingface_hub.commands import BaseHuggingfaceCLICommand
 from huggingface_hub.lfs import LFS_MULTIPART_UPLOAD_COMMAND
 
 from ..utils import logging
+from ..utils._errors import _raise_with_request_id
 
 
 logger = logging.get_logger(__name__)
@@ -212,7 +213,7 @@ class LfsUploadCommand:
                     filepath, seek_from=i * chunk_size, read_limit=chunk_size
                 ) as data:
                     r = requests.put(presigned_url, data=data)
-                    r.raise_for_status()
+                    _raise_with_request_id(r)
                     parts.append(
                         {
                             "etag": r.headers.get("etag"),
@@ -238,6 +239,6 @@ class LfsUploadCommand:
                     "parts": parts,
                 },
             )
-            r.raise_for_status()
+            _raise_with_request_id(r)
 
             write_msg({"event": "complete", "oid": oid})
