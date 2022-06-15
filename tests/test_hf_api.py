@@ -374,6 +374,7 @@ class HfApiEndpointsTest(HfApiCommonTestWithLogin):
         )
 
     @retry_endpoint
+    @unittest.skip("hub-ci returning errors with 500 error code when creating a space")
     def test_create_update_and_delete_space_repo(self):
         SPACE_REPO_NAME = space_repo_name("failing")
         with pytest.raises(ValueError, match=r"No space_sdk provided.*"):
