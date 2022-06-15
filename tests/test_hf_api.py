@@ -14,7 +14,6 @@
 
 
 import os
-import re
 import shutil
 import subprocess
 import tempfile
@@ -44,7 +43,6 @@ from huggingface_hub.hf_api import (
     MetricInfo,
     ModelInfo,
     ModelSearchArguments,
-    _validate_repo_id_deprecation,
     erase_from_credential_store,
     read_from_credential_store,
     repo_type_and_id_from_hf_id,
@@ -61,7 +59,6 @@ from .testing_constants import (
     ENDPOINT_STAGING,
     ENDPOINT_STAGING_BASIC_AUTH,
     FULL_NAME,
-    PASS,
     TOKEN,
     USER,
 )
@@ -109,37 +106,36 @@ class HfApiCommonTest(unittest.TestCase):
 
 class HfApiLoginTest(HfApiCommonTest):
     def setUp(self) -> None:
-        erase_from_credential_store(USER)
+        erase_from_credential_store(USERNAME_PLACEHOLDER)
 
     @classmethod
     def tearDownClass(cls) -> None:
-        with pytest.warns(FutureWarning, match="This method is deprecated"):
-            cls._api.login(username=USER, password=PASS)
-
-    def test_login_invalid(self):
-        with pytest.warns(FutureWarning, match="This method is deprecated"):
-            with pytest.raises(HTTPError):
-                self._api.login(username=USER, password="fake")
-
-    def test_login_valid(self):
-        with pytest.warns(FutureWarning, match="This method is deprecated"):
-            token = self._api.login(username=USER, password=PASS)
-        assert isinstance(token, str)
+        cls._api.set_access_token(TOKEN)
 
     def test_login_git_credentials(self):
-        self.assertTupleEqual(read_from_credential_store(USER), (None, None))
-        with pytest.warns(FutureWarning, match="This method is deprecated"):
-            self._api.login(username=USER, password=PASS)
-        self.assertTupleEqual(read_from_credential_store(USER), (USER.lower(), PASS))
-        erase_from_credential_store(username=USER)
-        self.assertTupleEqual(read_from_credential_store(USER), (None, None))
+        self.assertTupleEqual(
+            read_from_credential_store(USERNAME_PLACEHOLDER), (None, None)
+        )
+        self._api.set_access_token(TOKEN)
+        self.assertTupleEqual(
+            read_from_credential_store(USERNAME_PLACEHOLDER),
+            (USERNAME_PLACEHOLDER, TOKEN),
+        )
+        erase_from_credential_store(username=USERNAME_PLACEHOLDER)
+        self.assertTupleEqual(
+            read_from_credential_store(USERNAME_PLACEHOLDER), (None, None)
+        )
 
     def test_login_cli(self):
-        with pytest.warns(FutureWarning, match="This method is deprecated"):
-            _login(self._api, username=USER, password=PASS)
-        self.assertTupleEqual(read_from_credential_store(USER), (USER.lower(), PASS))
-        erase_from_credential_store(username=USER)
-        self.assertTupleEqual(read_from_credential_store(USER), (None, None))
+        self._api.set_access_token(TOKEN)
+        self.assertTupleEqual(
+            read_from_credential_store(USERNAME_PLACEHOLDER),
+            (USERNAME_PLACEHOLDER, TOKEN),
+        )
+        erase_from_credential_store(username=USERNAME_PLACEHOLDER)
+        self.assertTupleEqual(
+            read_from_credential_store(USERNAME_PLACEHOLDER), (None, None)
+        )
 
         _login(self._api, token=TOKEN)
         self.assertTupleEqual(
@@ -156,25 +152,6 @@ class HfApiLoginTest(HfApiCommonTest):
             ValueError, match="You must use your personal account token."
         ):
             _login(self._api, token="api_org_dummy_token")
-
-    def test_login_deprecation_error(self):
-        with pytest.warns(
-            FutureWarning,
-            match=r"HfApi.login: This method is deprecated in favor of "
-            r"`set_access_token` and will be removed in v0.8.",
-        ):
-            self._api.login(username=USER, password=PASS)
-
-    def test_logout_deprecation_error(self):
-        with pytest.warns(
-            FutureWarning,
-            match=r"HfApi.logout: This method is deprecated in favor of "
-            r"`unset_access_token` and will be removed in v0.8.",
-        ):
-            try:
-                self._api.logout()
-            except HTTPError:
-                pass
 
 
 class HfApiCommonTestWithLogin(HfApiCommonTest):
@@ -206,88 +183,6 @@ def test_repo_id_no_warning():
                 REPO_NAME, token=TOKEN, repo_type=REPO_TYPE_MODEL, **kwargs
             )
         assert not len(record)
-
-
-def test_validate_repo_id_deprecation():
-    with pytest.warns(FutureWarning, match="input arguments are deprecated"):
-        name, org = _validate_repo_id_deprecation(
-            repo_id=None, name="repo", organization="org"
-        )
-        assert name == "repo" and org == "org"
-
-    with warnings.catch_warnings(record=True) as record:
-        name, org = _validate_repo_id_deprecation(
-            repo_id="org/repo", name=None, organization=None
-        )
-        assert name == "repo" and org == "org"
-    assert not len(record)
-
-    with pytest.raises(ValueError, match="leave deprecated"):
-        _validate_repo_id_deprecation(
-            repo_id="repo_id", name="name", organization="organization"
-        )
-
-    # regression test for
-    # https://github.com/huggingface/huggingface_hub/issues/821
-    with pytest.warns(FutureWarning, match="input arguments are deprecated"):
-        name, org = _validate_repo_id_deprecation(
-            repo_id="repo", name=None, organization="org"
-        )
-        assert name == "repo" and org == "org"
-
-
-@retry_endpoint
-def test_name_org_deprecation_warning():
-    # test that the right warning is raised when passing name to
-    # {create, delete}_repo and update_repo_visibility
-    api = HfApi(endpoint=ENDPOINT_STAGING)
-    REPO_NAME = repo_name("crud")
-
-    args = [
-        ("create_repo", {}),
-        ("update_repo_visibility", {"private": False}),
-        ("delete_repo", {}),
-    ]
-
-    for method, kwargs in args:
-        with pytest.warns(
-            FutureWarning,
-            match=re.escape("`name` and `organization` input arguments are deprecated"),
-        ):
-            getattr(api, method)(
-                name=REPO_NAME, token=TOKEN, repo_type=REPO_TYPE_MODEL, **kwargs
-            )
-
-
-@retry_endpoint
-def test_name_org_deprecation_error():
-    # tests that the right error is raised when passing both name and repo_id
-    # to {create, delete}_repo and update_repo_visibility
-    api = HfApi(endpoint=ENDPOINT_STAGING)
-    REPO_NAME = repo_name("crud")
-
-    args = [
-        ("create_repo", {}),
-        ("update_repo_visibility", {"private": False}),
-        ("delete_repo", {}),
-    ]
-
-    for method, kwargs in args:
-        with pytest.raises(
-            ValueError,
-            match=re.escape("Only pass `repo_id`"),
-        ):
-            getattr(api, method)(
-                repo_id="test",
-                name=REPO_NAME,
-                token=TOKEN,
-                repo_type=REPO_TYPE_MODEL,
-                **kwargs,
-            )
-
-    for method, kwargs in args:
-        with pytest.raises(ValueError, match="No name provided"):
-            getattr(api, method)(token=TOKEN, repo_type=REPO_TYPE_MODEL, **kwargs)
 
 
 class HfApiEndpointsTest(HfApiCommonTestWithLogin):
