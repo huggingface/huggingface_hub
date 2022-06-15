@@ -646,7 +646,7 @@ class CommitApiTest(HfApiCommonTestWithLogin):
                     "buffer",
                     use_auth_token=self._token,
                 )
-            self.assertEqual(ctx.exception.response.status_code, 404)
+                self.assertEqual(ctx.exception.response.status_code, 404)
             filepath = hf_hub_download(
                 filename="buffer",
                 repo_id=f"{USER}/{REPO_NAME}",
