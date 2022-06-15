@@ -209,17 +209,17 @@ def metadata_update(
         # save and push to hub
         metadata_save(filepath, existing_metadata)
 
-    return HfApi().upload_file(
-        path_or_fileobj=filepath,
-        path_in_repo=REPOCARD_NAME,
-        repo_id=repo_id,
-        repo_type=repo_type,
-        token=token,
-        commit_message=commit_message,
-        commit_description=commit_description,
-        create_pr=create_pr,
-        revision=revision,
-    )
+        return HfApi().upload_file(
+            path_or_fileobj=filepath,
+            path_in_repo=REPOCARD_NAME,
+            repo_id=repo_id,
+            repo_type=repo_type,
+            token=token,
+            commit_message=commit_message,
+            commit_description=commit_description,
+            create_pr=create_pr,
+            revision=revision,
+        )
 
 
 def _update_metadata_model_index(existing_results, new_results, overwrite=False):
