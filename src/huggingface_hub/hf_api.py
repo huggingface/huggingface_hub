@@ -32,7 +32,7 @@ from .constants import (
     SPACES_SDK_TYPES,
 )
 from .utils import logging
-from .utils._errors import _raise_for_status
+from .utils._errors import _raise_for_status, _raise_with_request_id
 from .utils._fixes import JSONDecodeError
 from .utils.endpoint_helpers import (
     AttributeDictionary,
@@ -535,7 +535,7 @@ class HfApi:
         path = f"{self.endpoint}/api/whoami-v2"
         r = requests.get(path, headers={"authorization": f"Bearer {token}"})
         try:
-            r.raise_for_status()
+            _raise_with_request_id(r)
         except HTTPError as e:
             raise HTTPError(
                 "Invalid user token. If you didn't pass a user token, make sure you "
@@ -629,7 +629,7 @@ class HfApi:
         "Gets all valid model tags as a nested namespace object"
         path = f"{self.endpoint}/api/models-tags-by-type"
         r = requests.get(path)
-        r.raise_for_status()
+        _raise_with_request_id(r)
         d = r.json()
         return ModelTags(d)
 
@@ -639,7 +639,7 @@ class HfApi:
         """
         path = f"{self.endpoint}/api/datasets-tags-by-type"
         r = requests.get(path)
-        r.raise_for_status()
+        _raise_with_request_id(r)
         d = r.json()
         return DatasetTags(d)
 
@@ -778,7 +778,7 @@ class HfApi:
         if cardData is not None:
             params.update({"cardData": cardData})
         r = requests.get(path, params=params, headers=headers)
-        r.raise_for_status()
+        _raise_with_request_id(r)
         d = r.json()
         res = [ModelInfo(**x) for x in d]
         if emissions_thresholds is not None:
@@ -971,7 +971,7 @@ class HfApi:
             if cardData:
                 params.update({"full": True})
         r = requests.get(path, params=params, headers=headers)
-        r.raise_for_status()
+        _raise_with_request_id(r)
         d = r.json()
         return [DatasetInfo(**x) for x in d]
 
@@ -1026,7 +1026,7 @@ class HfApi:
         path = f"{self.endpoint}/api/metrics"
         params = {}
         r = requests.get(path, params=params)
-        r.raise_for_status()
+        _raise_with_request_id(r)
         d = r.json()
         return [MetricInfo(**x) for x in d]
 
@@ -1405,7 +1405,7 @@ class HfApi:
         )
 
         try:
-            r.raise_for_status()
+            _raise_with_request_id(r)
         except HTTPError as err:
             if not (exist_ok and err.response.status_code == 409):
                 try:
