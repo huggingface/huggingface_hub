@@ -89,7 +89,7 @@ def _raise_with_request_id(request):
     try:
         request.raise_for_status()
     except Exception as e:
-        if request_id is not None and len(e.args) and isinstance(e.args[0], str):
+        if request_id is not None and len(e.args) > 0 and isinstance(e.args[0], str):
             e.args = (e.args[0] + f" (Request ID: {request_id})",) + e.args[1:]
 
         raise e
