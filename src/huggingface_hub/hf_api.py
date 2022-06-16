@@ -56,7 +56,7 @@ USERNAME_PLACEHOLDER = "hf_user"
 logger = logging.get_logger(__name__)
 
 
-# TODO: remove after deprecation period is over (v0.9)
+# TODO: remove after deprecation period is over (v0.10)
 def _validate_repo_id_deprecation(repo_id, name, organization):
     """Returns (name, organization) from the input."""
     if repo_id and not name and organization:
@@ -79,7 +79,7 @@ def _validate_repo_id_deprecation(repo_id, name, organization):
     elif name or organization:
         warnings.warn(
             "`name` and `organization` input arguments are deprecated and "
-            "will be removed in v0.8. Pass `repo_id` instead.",
+            "will be removed in v0.10. Pass `repo_id` instead.",
             FutureWarning,
         )
     else:
