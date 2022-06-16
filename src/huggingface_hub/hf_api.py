@@ -32,6 +32,7 @@ from .constants import (
     SPACES_SDK_TYPES,
 )
 from .utils import logging
+from .utils._deprecation import _deprecate_positional_args
 from .utils._errors import _raise_for_status, _raise_with_request_id
 from .utils._fixes import JSONDecodeError
 from .utils.endpoint_helpers import (
@@ -53,6 +54,40 @@ else:
 USERNAME_PLACEHOLDER = "hf_user"
 
 logger = logging.get_logger(__name__)
+
+
+# TODO: remove after deprecation period is over (v0.10)
+def _validate_repo_id_deprecation(repo_id, name, organization):
+    """Returns (name, organization) from the input."""
+    if repo_id and not name and organization:
+        # this means the user had passed name as positional, now mapped to
+        # repo_id and is passing organization as well. This wouldn't be an
+        # issue if they pass everything as kwarg. So we switch the parameters
+        # here:
+        repo_id, name = name, repo_id
+
+    if not (repo_id or name):
+        raise ValueError(
+            "No name provided. Please pass `repo_id` with a valid repository name."
+        )
+
+    if repo_id and (name or organization):
+        raise ValueError(
+            "Only pass `repo_id` and leave deprecated `name` and "
+            "`organization` to be None."
+        )
+    elif name or organization:
+        warnings.warn(
+            "`name` and `organization` input arguments are deprecated and "
+            "will be removed in v0.10. Pass `repo_id` instead.",
+            FutureWarning,
+        )
+    else:
+        if "/" in repo_id:
+            organization, name = repo_id.split("/")
+        else:
+            organization, name = None, repo_id
+    return name, organization
 
 
 def repo_type_and_id_from_hf_id(
@@ -1294,15 +1329,18 @@ class HfApi:
         )
         return [f.rfilename for f in repo_info.siblings]
 
+    @_deprecate_positional_args
     def create_repo(
         self,
         repo_id: str = None,
         *,
         token: Optional[str] = None,
+        organization: Optional[str] = None,
         private: Optional[bool] = None,
         repo_type: Optional[str] = None,
         exist_ok: Optional[bool] = False,
         space_sdk: Optional[str] = None,
+        name: Optional[str] = None,
     ) -> str:
         """Create an empty repo on the HuggingFace Hub.
 
@@ -1334,7 +1372,7 @@ class HfApi:
         Returns:
             `str`: URL to the newly created repo.
         """
-        organization, name = repo_id.split("/") if "/" in repo_id else (None, repo_id)
+        name, organization = _validate_repo_id_deprecation(repo_id, name, organization)
 
         path = f"{self.endpoint}/api/repos/create"
 
