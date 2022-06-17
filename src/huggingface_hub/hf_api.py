@@ -23,7 +23,7 @@ from typing import BinaryIO, Dict, Iterable, List, Optional, Tuple, Union
 import requests
 from requests.exceptions import HTTPError
 
-from .commit_api import (
+from ._commit_api import (
     CommitOperation,
     CommitOperationAdd,
     CommitOperationDelete,

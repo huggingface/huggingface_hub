@@ -124,7 +124,6 @@ __getattr__, __dir__, __all__ = _attach(
     submodules=[],
     submod_attrs={
         "commands.user": ["notebook_login"],
-        "commit_api": ["CommitOperationAdd", "CommitOperationDelete"],
         "constants": [
             "CONFIG_NAME",
             "FLAX_WEIGHTS_NAME",
@@ -144,6 +143,9 @@ __getattr__, __dir__, __all__ = _attach(
         ],
         "file_download": ["cached_download", "hf_hub_download"],
         "hf_api": [
+            "CommitOperation",
+            "CommitOperationAdd",
+            "CommitOperationDelete",
             "DatasetSearchArguments",
             "HfApi",
             "HfFolder",
