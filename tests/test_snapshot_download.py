@@ -358,3 +358,7 @@ def test_snapshot_download_import():
         from huggingface_hub.snapshot_download import snapshot_download as x  # noqa
 
     assert x is snapshot_download
+
+
+def test_snapshot_download_import_constant_not_raise():
+    from huggingface_hub.snapshot_download import REPO_ID_SEPARATOR  # noqa
