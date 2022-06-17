@@ -50,7 +50,6 @@ from .utils.endpoint_helpers import (
     ModelFilter,
     ModelTags,
     _filter_emissions,
-    hf_hub_url,
 )
 
 
@@ -1906,6 +1905,9 @@ class HfApi:
         "https://huggingface.co/username/my-model/blob/refs%2Fpr%2F1/remote/file/path.h5"
         ```
         """
+        if repo_type not in REPO_TYPES:
+            raise ValueError("Invalid repo type")
+
         if identical_ok is not None:
             warnings.warn(
                 "`identical_ok` has no effect and is deprecated. It will be removed in"

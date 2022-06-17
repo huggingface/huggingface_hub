@@ -141,7 +141,7 @@ __getattr__, __dir__, __all__ = _attach(
             "from_pretrained_fastai",
             "push_to_hub_fastai",
         ],
-        "file_download": ["cached_download", "hf_hub_download"],
+        "file_download": ["cached_download", "hf_hub_download", "hf_hub_url"],
         "hf_api": [
             "CommitOperation",
             "CommitOperationAdd",
@@ -186,7 +186,7 @@ __getattr__, __dir__, __all__ = _attach(
         "repository": ["Repository"],
         "_snapshot_download": ["snapshot_download"],
         "utils": ["logging"],
-        "utils.endpoint_helpers": ["DatasetFilter", "ModelFilter", "hf_hub_url"],
+        "utils.endpoint_helpers": ["DatasetFilter", "ModelFilter"],
         "repocard": [
             "metadata_eval_result",
             "metadata_load",
