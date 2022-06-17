@@ -271,7 +271,7 @@ def _upload_lfs_object(
     """
     Handles uploading a given object to the Hub with the LFS protocol.
 
-    Defers to `~.utils.lfs.lfs_upload` for the actual upload logic.
+    Defers to [`~huggingface_hub.utils.lfs.lfs_upload`] for the actual upload logic.
 
     Can be a No-op if the content of the file is already present on the hub
     large file storage.
@@ -281,7 +281,7 @@ def _upload_lfs_object(
             The add operation triggering this upload
         lfs_batch_action (`dict`):
             Upload instructions from the LFS batch endpoint for this object.
-            See `~.utils.lfs.post_lfs_batch_info` for more details.
+            See [`~huggingface_hub.utils.lfs..post_lfs_batch_info`] for more details.
         token (`str`):
             A [user access token](https://hf.co/settings/tokens) to authenticate requests against the Hub
 
