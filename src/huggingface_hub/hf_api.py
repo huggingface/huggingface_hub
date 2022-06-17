@@ -19,6 +19,7 @@ import sys
 import warnings
 from os.path import expanduser
 from typing import BinaryIO, Dict, Iterable, List, Optional, Tuple, Union
+from urllib.parse import quote
 
 import requests
 from requests.exceptions import HTTPError
@@ -1937,8 +1938,12 @@ class HfApi:
         )
         if pr_url is not None:
             re_match = re.match(REGEX_DISCUSSION_URL, pr_url)
-            assert re_match is not None
-            revision = f"refs/pr/{re_match[1]}"
+            if re_match is None:
+                raise RuntimeError(
+                    "Unexpected response from the hub, expected a Pull Request URL but"
+                    f" got: '{pr_url}'"
+                )
+            revision = quote(f"refs/pr/{re_match[1]}", safe="")
 
         if repo_type in REPO_TYPES_URL_PREFIXES:
             repo_id = REPO_TYPES_URL_PREFIXES[repo_type] + repo_id
@@ -2076,8 +2081,12 @@ class HfApi:
 
         if pr_url is not None:
             re_match = re.match(REGEX_DISCUSSION_URL, pr_url)
-            assert re_match is not None
-            revision = f"refs/pr/{re_match[1]}"
+            if re_match is None:
+                raise RuntimeError(
+                    "Unexpected response from the hub, expected a Pull Request URL but"
+                    f" got: '{pr_url}'"
+                )
+            revision = quote(f"refs/pr/{re_match[1]}", safe="")
 
         if repo_type in REPO_TYPES_URL_PREFIXES:
             repo_id = REPO_TYPES_URL_PREFIXES[repo_type] + repo_id
