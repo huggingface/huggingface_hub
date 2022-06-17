@@ -1905,15 +1905,16 @@ class HfApi:
         "https://huggingface.co/username/my-model/blob/refs%2Fpr%2F1/remote/file/path.h5"
         ```
         """
-        if repo_type not in REPO_TYPES:
-            raise ValueError("Invalid repo type")
-
         if identical_ok is not None:
             warnings.warn(
                 "`identical_ok` has no effect and is deprecated. It will be removed in"
                 " 0.11.0.",
                 FutureWarning,
             )
+
+        if repo_type not in REPO_TYPES:
+            raise ValueError(f"Invalid repo type, must be one of {REPO_TYPES}")
+
         commit_message = (
             commit_message
             if commit_message is not None
@@ -1938,9 +1939,6 @@ class HfApi:
             re_match = re.match(REGEX_DISCUSSION_URL, pr_url)
             assert re_match is not None
             revision = f"refs/pr/{re_match[1]}"
-
-        if repo_type not in REPO_TYPES:
-            raise ValueError("Invalid repo type")
 
         if repo_type in REPO_TYPES_URL_PREFIXES:
             repo_id = REPO_TYPES_URL_PREFIXES[repo_type] + repo_id
@@ -2038,7 +2036,7 @@ class HfApi:
         ```
         """
         if repo_type not in REPO_TYPES:
-            raise ValueError("Invalid repo type")
+            raise ValueError(f"Invalid repo type, must be one of {REPO_TYPES}")
 
         commit_message = (
             commit_message
@@ -2080,9 +2078,6 @@ class HfApi:
             re_match = re.match(REGEX_DISCUSSION_URL, pr_url)
             assert re_match is not None
             revision = f"refs/pr/{re_match[1]}"
-
-        if repo_type not in REPO_TYPES:
-            raise ValueError("Invalid repo type")
 
         if repo_type in REPO_TYPES_URL_PREFIXES:
             repo_id = REPO_TYPES_URL_PREFIXES[repo_type] + repo_id
@@ -2156,6 +2151,7 @@ class HfApi:
         )
 
         operations = [CommitOperationDelete(path_in_repo=path_in_repo)]
+
         return self.create_commit(
             repo_id=repo_id,
             repo_type=repo_type,

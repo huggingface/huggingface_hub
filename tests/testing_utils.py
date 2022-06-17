@@ -161,7 +161,7 @@ def set_write_permission_and_retry(func, path, excinfo):
 
 def with_production_testing(func):
     file_download = patch(
-        "huggingface_hub.utils.endpoint_helpers.HUGGINGFACE_CO_URL_TEMPLATE",
+        "huggingface_hub.file_download.HUGGINGFACE_CO_URL_TEMPLATE",
         ENDPOINT_PRODUCTION_URL_SCHEME,
     )
 

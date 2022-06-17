@@ -23,13 +23,13 @@ from huggingface_hub.file_download import (
     cached_download,
     filename_to_url,
     hf_hub_download,
+    hf_hub_url,
 )
 from huggingface_hub.utils import (
     EntryNotFoundError,
     RepositoryNotFoundError,
     RevisionNotFoundError,
 )
-from huggingface_hub.utils.endpoint_helpers import hf_hub_url
 
 from .testing_utils import (
     DUMMY_MODEL_ID,
