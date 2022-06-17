@@ -61,19 +61,22 @@ class CommitOperationAdd:
             - a path to a local file (as str) to upload
             - a buffer of bytes (`bytes`) holding the content of the file to upload
             - a "file object" (subclass of `io.BufferedIOBase`), typically obtained
-                with `open(path, "rb")`
+                with `open(path, "rb")`. It must support `seek()` and `tell()` methods.
     """
 
     path_in_repo: str
     path_or_fileobj: Union[str, bytes, BinaryIO]
 
-    _upload_info: Optional[UploadInfo] = field(default=None, init=False)
+    __upload_info: Optional[UploadInfo] = field(default=None, init=False)
 
     def validate(self):
         """
-        Ensures `path_or_fileobj` is valid.
+        Ensures `path_or_fileobj` is valid:
+        - Ensures it is either a `str`, `bytes` or an instance of `io.BufferedIOBase`
+        - If it is a `str`, ensure that it is a file path and that the file exists
+        - If it is an instance of `io.BufferedIOBase`, ensures it supports `seek()` and `tell()`
 
-        Raises: `ValueError`
+        Raises: `ValueError` if `path_or_fileobj` is not valid
         """
         if isinstance(self.path_or_fileobj, str):
             path_or_fileobj = os.path.normpath(os.path.expanduser(self.path_or_fileobj))
@@ -99,7 +102,7 @@ class CommitOperationAdd:
                     " seek() and tell()"
                 ) from exc
 
-    def upload_info(self) -> UploadInfo:
+    def _upload_info(self) -> UploadInfo:
         """
         Computes and caches UploadInfo for the underlying data behind `path_or_fileobj`
         Triggers `self.validate`.
@@ -107,17 +110,17 @@ class CommitOperationAdd:
         Raises: `ValueError` if self.validate fails
         """
         self.validate()
-        if self._upload_info is None:
+        if self.__upload_info is None:
             if isinstance(self.path_or_fileobj, str):
-                self._upload_info = UploadInfo.from_path(self.path_or_fileobj)
+                self.__upload_info = UploadInfo.from_path(self.path_or_fileobj)
             elif isinstance(self.path_or_fileobj, bytes):
-                self._upload_info = UploadInfo.from_bytes(self.path_or_fileobj)
+                self.__upload_info = UploadInfo.from_bytes(self.path_or_fileobj)
             else:
-                self._upload_info = UploadInfo.from_fileobj(self.path_or_fileobj)
-        return self._upload_info
+                self.__upload_info = UploadInfo.from_fileobj(self.path_or_fileobj)
+        return self.__upload_info
 
     @contextmanager
-    def fileobj(self):
+    def as_file(self):
         """
         A context manager that yields a file-like object allowing to read the underlying
         data behind `path_or_fileobj`.
@@ -135,9 +138,8 @@ class CommitOperationAdd:
         ... )
         CommitOperationAdd(path_in_repo='remote/dir/weights.h5', path_or_fileobj='./local/weights.h5', _upload_info=None)
 
-        >>> with operation.fileobj() as data:
-        ...     content = data.read()
-        ...     # ^ Use data as a file object
+        >>> with operation.as_file() as file:
+        ...     content = file.read()
         ```
 
         """
@@ -158,8 +160,8 @@ class CommitOperationAdd:
 
         Returns: `bytes`
         """
-        with self.fileobj() as fileobj:
-            return base64.b64encode(fileobj.read())
+        with self.as_file() as file:
+            return base64.b64encode(file.read())
 
 
 CommitOperation = Union[CommitOperationAdd, CommitOperationDelete]
@@ -207,7 +209,7 @@ def upload_lfs_files(
     """
     # Step 1: retrieve upload instructions from the LFS batch endpoint
     batch_actions, batch_errors = post_lfs_batch_info(
-        upload_infos=[op.upload_info() for op in additions],
+        upload_infos=[op._upload_info() for op in additions],
         token=token,
         repo_id=repo_id,
         repo_type=repo_type,
@@ -225,7 +227,7 @@ def upload_lfs_files(
         raise ValueError(f"LFS batch endpoint returned errors:\n{message}")
 
     # Step 2: upload files concurrently according to these instructions
-    oid2addop = {add_op.upload_info().sha256.hex(): add_op for add_op in additions}
+    oid2addop = {add_op._upload_info().sha256.hex(): add_op for add_op in additions}
     with ThreadPoolExecutor(max_workers=num_threads) as pool:
         logger.debug(
             f"Uploading {len(batch_actions)} LFS files to the Hub using up to"
@@ -286,7 +288,7 @@ def _upload_lfs_object(
     Raises: `ValueError` if `lfs_batch_action` is improperly formatted
     """
     validate_batch_actions(lfs_batch_action)
-    upload_info = operation.upload_info()
+    upload_info = operation._upload_info()
     actions = lfs_batch_action.get("actions")
     if actions is None:
         # The file was already uploaded
@@ -298,7 +300,7 @@ def _upload_lfs_object(
     upload_action = lfs_batch_action["actions"].get("upload")
     verify_action = lfs_batch_action["actions"].get("verify")
 
-    with operation.fileobj() as fileobj:
+    with operation.as_file() as fileobj:
         lfs_upload(
             fileobj=fileobj,
             upload_action=upload_action,
@@ -364,9 +366,9 @@ def fetch_upload_modes(
         "files": [
             {
                 "path": op.path_in_repo,
-                "sample": base64.b64encode(op.upload_info().sample).decode("ascii"),
-                "size": op.upload_info().size,
-                "sha": op.upload_info().sha256.hex(),
+                "sample": base64.b64encode(op._upload_info().sample).decode("ascii"),
+                "size": op._upload_info().size,
+                "sha": op._upload_info().sha256.hex(),
             }
             for op in additions
         ]
@@ -415,7 +417,7 @@ def prepare_commit_payload(
             {
                 "path": add_op.path_in_repo,
                 "algo": "sha256",
-                "oid": add_op.upload_info().sha256.hex(),
+                "oid": add_op._upload_info().sha256.hex(),
             }
             for (add_op, upload_mode) in additions
             if upload_mode == "lfs"
