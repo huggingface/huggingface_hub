@@ -1,6 +1,7 @@
 import json
 import os
 import warnings
+import collections.abc as collections
 from pathlib import Path
 from shutil import copytree, rmtree
 from typing import Any, Dict, Optional, Union
@@ -26,10 +27,27 @@ if is_tf_available():
     import tensorflow as tf
 
 
+def flatten_dict(dictionary, parent_key="", sep="."):
+    """Flattens a nested dictionary.
+
+    Referene: https://stackoverflow.com/a/6027615/10319735
+    """
+    items = []
+    for key, value in dictionary.items():
+        new_key = parent_key + sep + key if parent_key else key
+        if isinstance(value, collections.MutableMapping):
+            items.extend(flatten_dict(value, new_key, sep=sep).items())
+        else:
+            items.append((new_key, value))
+    return dict(items)
+
+
 def _create_hyperparameter_table(model):
     """Parse hyperparameter dictionary into a markdown table."""
     if model.optimizer is not None:
         optimizer_params = model.optimizer.get_config()
+        # flatten the configuration
+        optimizer_params = flatten_dict(optimizer_params)
         optimizer_params[
             "training_precision"
         ] = tf.keras.mixed_precision.global_policy().name
