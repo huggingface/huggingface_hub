@@ -22,6 +22,7 @@ import unittest
 import uuid
 import warnings
 from io import BytesIO
+from urllib.parse import quote
 
 import pytest
 
@@ -401,11 +402,15 @@ class CommitApiTest(HfApiCommonTestWithLogin):
         REPO_NAME = repo_name("path")
         self._api.create_repo(token=self._token, repo_id=REPO_NAME)
         try:
-            self._api.upload_file(
+            return_val = self._api.upload_file(
                 path_or_fileobj=self.tmp_file,
                 path_in_repo="temp/new_file.md",
                 repo_id=f"{USER}/{REPO_NAME}",
                 token=self._token,
+            )
+            self.assertEqual(
+                return_val,
+                f"{self._api.endpoint}/{USER}/{REPO_NAME}/blob/main/temp/new_file.md",
             )
             url = "{}/{user}/{repo}/resolve/main/temp/new_file.md".format(
                 ENDPOINT_STAGING,
@@ -430,12 +435,16 @@ class CommitApiTest(HfApiCommonTestWithLogin):
         self._api.create_repo(repo_id=REPO_NAME, token=self._token)
         try:
             with open(self.tmp_file, "rb") as filestream:
-                self._api.upload_file(
+                return_val = self._api.upload_file(
                     path_or_fileobj=filestream,
                     path_in_repo="temp/new_file.md",
                     repo_id=f"{USER}/{REPO_NAME}",
                     token=self._token,
                 )
+            self.assertEqual(
+                return_val,
+                f"{self._api.endpoint}/{USER}/{REPO_NAME}/blob/main/temp/new_file.md",
+            )
             url = "{}/{user}/{repo}/resolve/main/temp/new_file.md".format(
                 ENDPOINT_STAGING,
                 user=USER,
@@ -459,12 +468,17 @@ class CommitApiTest(HfApiCommonTestWithLogin):
         self._api.create_repo(repo_id=REPO_NAME, token=self._token)
         try:
             filecontent = BytesIO(b"File content, but in bytes IO")
-            self._api.upload_file(
+            return_val = self._api.upload_file(
                 path_or_fileobj=filecontent,
                 path_in_repo="temp/new_file.md",
                 repo_id=f"{USER}/{REPO_NAME}",
                 token=self._token,
             )
+            self.assertEqual(
+                return_val,
+                f"{self._api.endpoint}/{USER}/{REPO_NAME}/blob/main/temp/new_file.md",
+            )
+
             url = "{}/{user}/{repo}/resolve/main/temp/new_file.md".format(
                 ENDPOINT_STAGING,
                 user=USER,
@@ -506,14 +520,57 @@ class CommitApiTest(HfApiCommonTestWithLogin):
         try:
             buffer = BytesIO()
             buffer.write(self.tmp_file_content.encode())
-            self._api.upload_file(
+            return_val = self._api.upload_file(
                 path_or_fileobj=buffer.getvalue(),
                 path_in_repo="temp/new_file.md",
                 repo_id=f"{USER}/{REPO_NAME}",
                 token=self._token,
             )
+            self.assertEqual(
+                return_val,
+                f"{self._api.endpoint}/{USER}/{REPO_NAME}/blob/main/temp/new_file.md",
+            )
+
             url = "{}/{user}/{repo}/resolve/main/temp/new_file.md".format(
                 ENDPOINT_STAGING,
+                user=USER,
+                repo=REPO_NAME,
+            )
+            filepath = cached_download(
+                url, force_download=True, legacy_cache_layout=True
+            )
+            with open(filepath) as downloaded_file:
+                content = downloaded_file.read()
+            self.assertEqual(content, self.tmp_file_content)
+
+        except Exception as err:
+            self.fail(err)
+        finally:
+            self._api.delete_repo(repo_id=REPO_NAME, token=self._token)
+
+    @retry_endpoint
+    def test_upload_file_create_pr(self):
+        REPO_NAME = repo_name("buffer")
+        pr_revision = quote("refs/pr/1", safe="")
+        self._api.create_repo(repo_id=REPO_NAME, token=self._token)
+        try:
+            buffer = BytesIO()
+            buffer.write(self.tmp_file_content.encode())
+            return_val = self._api.upload_file(
+                path_or_fileobj=buffer.getvalue(),
+                path_in_repo="temp/new_file.md",
+                repo_id=f"{USER}/{REPO_NAME}",
+                token=self._token,
+                create_pr=True,
+            )
+            self.assertEqual(
+                return_val,
+                f"{self._api.endpoint}/{USER}/{REPO_NAME}/blob/{pr_revision}/temp/new_file.md",
+            )
+
+            url = "{}/{user}/{repo}/resolve/{revision}/temp/new_file.md".format(
+                ENDPOINT_STAGING,
+                revision=pr_revision,
                 user=USER,
                 repo=REPO_NAME,
             )
@@ -577,11 +634,15 @@ class CommitApiTest(HfApiCommonTestWithLogin):
                     exist_ok=False,
                 )
                 try:
-                    self._api.upload_folder(
+                    url = self._api.upload_folder(
                         folder_path=self.tmp_dir,
                         path_in_repo="temp/dir",
                         repo_id=f"{USER}/{REPO_NAME}",
                         token=self._token,
+                    )
+                    self.assertEqual(
+                        url,
+                        f"{self._api.endpoint}/{USER}/{REPO_NAME}/tree/main/temp/dir",
                     )
                     for rpath in ["temp", "nested/file.bin"]:
                         local_path = os.path.join(self.tmp_dir, rpath)
@@ -606,6 +667,51 @@ class CommitApiTest(HfApiCommonTestWithLogin):
                         repo_id=f"{USER}/{REPO_NAME}",
                         token=self._token,
                     )
+                except Exception as err:
+                    self.fail(err)
+                finally:
+                    self._api.delete_repo(repo_id=REPO_NAME, token=self._token)
+
+    @retry_endpoint
+    def test_upload_folder_create_pr(self):
+        pr_revision = quote("refs/pr/1", safe="")
+        for private in (False, True):
+            visibility = "private" if private else "public"
+            with self.subTest(f"{visibility} repo"):
+                REPO_NAME = repo_name(f"upload_folder_{visibility}")
+                self._api.create_repo(
+                    token=self._token,
+                    repo_id=REPO_NAME,
+                    private=private,
+                    exist_ok=False,
+                )
+                try:
+                    return_val = self._api.upload_folder(
+                        folder_path=self.tmp_dir,
+                        path_in_repo="temp/dir",
+                        repo_id=f"{USER}/{REPO_NAME}",
+                        token=self._token,
+                        create_pr=True,
+                    )
+                    self.assertEqual(
+                        return_val,
+                        f"{self._api.endpoint}/{USER}/{REPO_NAME}/tree/{pr_revision}/temp/dir",
+                    )
+                    for rpath in ["temp", "nested/file.bin"]:
+                        local_path = os.path.join(self.tmp_dir, rpath)
+                        remote_path = f"temp/dir/{rpath}"
+                        filepath = hf_hub_download(
+                            repo_id=f"{USER}/{REPO_NAME}",
+                            filename=remote_path,
+                            revision="refs/pr/1",
+                            use_auth_token=self._token,
+                        )
+                        assert filepath is not None
+                        with open(filepath, "rb") as downloaded_file:
+                            content = downloaded_file.read()
+                        with open(local_path, "rb") as local_file:
+                            expected_content = local_file.read()
+                        self.assertEqual(content, expected_content)
                 except Exception as err:
                     self.fail(err)
                 finally:
@@ -672,12 +778,13 @@ class CommitApiTest(HfApiCommonTestWithLogin):
             visibility = "private" if private else "public"
             with self.subTest(f"{visibility} repo"):
                 REPO_NAME = repo_name(f"create_commit_{visibility}")
-                self._api.create_repo(
+                return_val = self._api.create_repo(
                     token=self._token,
                     repo_id=REPO_NAME,
                     private=private,
                     exist_ok=False,
                 )
+                self.assertIsNone(return_val)
                 try:
                     self._api.upload_file(
                         path_or_fileobj=self.tmp_file,

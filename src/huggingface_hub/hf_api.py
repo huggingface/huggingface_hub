@@ -60,6 +60,7 @@ else:
     from typing_extensions import Literal
 
 
+REGEX_DISCUSSION_URL = re.compile(r".*/discussions/(\d+)$")
 USERNAME_PLACEHOLDER = "hf_user"
 
 logger = logging.get_logger(__name__)
@@ -1732,11 +1733,17 @@ class HfApi:
 
             create_pr (`boolean`, *optional*):
                 Whether or not to create a Pull Request from `revision` with that commit.
-                Defaults to `False`.
+                Defaults to `False`. If set to `True`, this function will return the URL
+                to the newly created Pull Request on the Hub.
 
             num_threads (`int`, *optional*):
                 Number of concurrent threads for uploading files. Defaults to 5.
                 Setting it to 2 means at most 2 files will be uploaded concurrently.
+
+        Returns:
+            `str` or `None`:
+                If `create_pr` is `True`, returns the URL to the newly created Pull Request
+                on the Hub. Otherwise returns `None`.
         """
         commit_description = (
             commit_description if commit_description is not None else ""
@@ -1888,6 +1895,15 @@ class HfApi:
         ...     token="my_token",
         ... )
         "https://huggingface.co/username/my-model/blob/main/remote/file/path.h5"
+
+        >>> upload_file(
+        ...     path_or_fileobj=".\\\\local\\\\file\\\\path",
+        ...     path_in_repo="remote/file/path.h5",
+        ...     repo_id="username/my-model",
+        ...     token="my_token",
+        ...     create_pr=True,
+        ... )
+        "https://huggingface.co/username/my-model/blob/refs%2Fpr%2F1/remote/file/path.h5"
         ```
         """
         if identical_ok is not None:
@@ -1916,13 +1932,19 @@ class HfApi:
             revision=revision,
             create_pr=create_pr,
         )
-        return (
-            pr_url
-            if pr_url is not None
-            else hf_hub_url(
-                repo_id, path_in_repo, revision=revision, repo_type=repo_type
-            )
-        )
+        if pr_url is not None:
+            re_match = re.match(REGEX_DISCUSSION_URL, pr_url)
+            assert re_match is not None
+            revision = f"refs/pr/{re_match[1]}"
+
+        if repo_type not in REPO_TYPES:
+            raise ValueError("Invalid repo type")
+
+        if repo_type in REPO_TYPES_URL_PREFIXES:
+            repo_id = REPO_TYPES_URL_PREFIXES[repo_type] + repo_id
+
+        return f"{self.endpoint}/{repo_id}/blob/{revision}/{path_in_repo}"
+        # ^ Similar to `hf_hub_url` but it's "blob" instead of "resolve"
 
     def upload_folder(
         self,
@@ -1976,7 +1998,7 @@ class HfApi:
                 to `False`.
 
         Returns:
-            `str` or None: TODO @SBrandeis
+            `str`: A URL to visualize the uploaded folder on the hub
 
         <Tip>
 
@@ -1999,10 +2021,23 @@ class HfApi:
         ...     repo_type="datasets",
         ...     token="my_token",
         ... )
-        # "https://huggingface.co/datasets/username/my-dataset/blob/main/remote/file/path.h5"
-        TODO : return type
+        # "https://huggingface.co/datasets/username/my-dataset/tree/main/remote/experiment/checkpoints"
+
+        >>> upload_file(
+        ...     folder_path="local/checkpoints",
+        ...     path_in_repo="remote/experiment/checkpoints",
+        ...     repo_id="username/my-dataset",
+        ...     repo_type="datasets",
+        ...     token="my_token",
+        ...     create_pr=True,
+        ... )
+        # "https://huggingface.co/datasets/username/my-dataset/tree/refs%2Fpr%2F1/remote/experiment/checkpoints"
+
         ```
         """
+        if repo_type not in REPO_TYPES:
+            raise ValueError("Invalid repo type")
+
         commit_message = (
             commit_message
             if commit_message is not None
@@ -2028,7 +2063,7 @@ class HfApi:
 
         logger.debug(f"About to upload / commit {len(files_to_add)} files to the Hub")
 
-        return self.create_commit(
+        pr_url = self.create_commit(
             repo_type=repo_type,
             repo_id=repo_id,
             operations=files_to_add,
@@ -2038,6 +2073,20 @@ class HfApi:
             revision=revision,
             create_pr=create_pr,
         )
+
+        if pr_url is not None:
+            re_match = re.match(REGEX_DISCUSSION_URL, pr_url)
+            assert re_match is not None
+            revision = f"refs/pr/{re_match[1]}"
+
+        if repo_type not in REPO_TYPES:
+            raise ValueError("Invalid repo type")
+
+        if repo_type in REPO_TYPES_URL_PREFIXES:
+            repo_id = REPO_TYPES_URL_PREFIXES[repo_type] + repo_id
+
+        return f"{self.endpoint}/{repo_id}/tree/{revision}/{path_in_repo}"
+        # ^ Similar to `hf_hub_url` but it's "tree" instead of "resolve"
 
     def delete_file(
         self,
