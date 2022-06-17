@@ -778,13 +778,12 @@ class CommitApiTest(HfApiCommonTestWithLogin):
             visibility = "private" if private else "public"
             with self.subTest(f"{visibility} repo"):
                 REPO_NAME = repo_name(f"create_commit_{visibility}")
-                return_val = self._api.create_repo(
+                self._api.create_repo(
                     token=self._token,
                     repo_id=REPO_NAME,
                     private=private,
                     exist_ok=False,
                 )
-                self.assertIsNone(return_val)
                 try:
                     self._api.upload_file(
                         path_or_fileobj=self.tmp_file,
@@ -810,12 +809,13 @@ class CommitApiTest(HfApiCommonTestWithLogin):
                                 path_or_fileobj=self.tmp_file,
                             ),
                         ]
-                        self._api.create_commit(
+                        return_val = self._api.create_commit(
                             operations=operations,
                             commit_message="Test create_commit",
                             repo_id=f"{USER}/{REPO_NAME}",
                             token=self._token,
                         )
+                        self.assertIsNone(return_val)
                     with self.assertRaises(HTTPError):
                         # Should raise a 404
                         hf_hub_download(

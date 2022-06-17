@@ -1947,7 +1947,7 @@ class HfApi:
 
         if repo_type in REPO_TYPES_URL_PREFIXES:
             repo_id = REPO_TYPES_URL_PREFIXES[repo_type] + repo_id
-
+        revision = revision if revision is not None else DEFAULT_REVISION
         return f"{self.endpoint}/{repo_id}/blob/{revision}/{path_in_repo}"
         # ^ Similar to `hf_hub_url` but it's "blob" instead of "resolve"
 
@@ -2091,6 +2091,7 @@ class HfApi:
         if repo_type in REPO_TYPES_URL_PREFIXES:
             repo_id = REPO_TYPES_URL_PREFIXES[repo_type] + repo_id
 
+        revision = revision if revision is not None else DEFAULT_REVISION
         return f"{self.endpoint}/{repo_id}/tree/{revision}/{path_in_repo}"
         # ^ Similar to `hf_hub_url` but it's "tree" instead of "resolve"
 
