@@ -21,12 +21,11 @@ import os
 import subprocess
 import sys
 from argparse import ArgumentParser
-from contextlib import AbstractContextManager
 from typing import Dict, List, Optional
 
 import requests
 from huggingface_hub.commands import BaseHuggingfaceCLICommand
-from huggingface_hub.lfs import LFS_MULTIPART_UPLOAD_COMMAND
+from huggingface_hub.lfs import LFS_MULTIPART_UPLOAD_COMMAND, SliceFileObj
 
 from ..utils import logging
 from ..utils._errors import _raise_with_request_id
@@ -119,43 +118,6 @@ def read_msg() -> Optional[Dict]:
     return msg
 
 
-class FileSlice(AbstractContextManager):
-    """
-    File-like object that only reads a slice of a file
-
-    Inspired by stackoverflow.com/a/29838711/593036
-    """
-
-    def __init__(self, filepath: str, seek_from: int, read_limit: int):
-        self.filepath = filepath
-        self.seek_from = seek_from
-        self.read_limit = read_limit
-        self.n_seen = 0
-
-    def __enter__(self):
-        self.f = open(self.filepath, "rb")
-        self.f.seek(self.seek_from)
-        return self
-
-    def __len__(self):
-        total_length = os.fstat(self.f.fileno()).st_size
-        return min(self.read_limit, total_length - self.seek_from)
-
-    def read(self, n=-1):
-        if self.n_seen >= self.read_limit:
-            return b""
-        remaining_amount = self.read_limit - self.n_seen
-        data = self.f.read(remaining_amount if n < 0 else min(n, remaining_amount))
-        self.n_seen += len(data)
-        return data
-
-    def __iter__(self):
-        yield self.read(n=4 * 1024 * 1024)
-
-    def __exit__(self, *args):
-        self.f.close()
-
-
 class LfsUploadCommand:
     def __init__(self, args):
         self.args = args
@@ -208,29 +170,32 @@ class LfsUploadCommand:
             )
 
             parts = []
-            for i, presigned_url in enumerate(presigned_urls):
-                with FileSlice(
-                    filepath, seek_from=i * chunk_size, read_limit=chunk_size
-                ) as data:
-                    r = requests.put(presigned_url, data=data)
-                    _raise_with_request_id(r)
-                    parts.append(
-                        {
-                            "etag": r.headers.get("etag"),
-                            "partNumber": i + 1,
-                        }
-                    )
-                    # In order to support progress reporting while data is uploading / downloading,
-                    # the transfer process should post messages to stdout
-                    write_msg(
-                        {
-                            "event": "progress",
-                            "oid": oid,
-                            "bytesSoFar": (i + 1) * chunk_size,
-                            "bytesSinceLast": chunk_size,
-                        }
-                    )
-                    # Not precise but that's ok.
+            with open(filepath, "rb") as file:
+                for i, presigned_url in enumerate(presigned_urls):
+                    with SliceFileObj(
+                        file,
+                        seek_from=i * chunk_size,
+                        read_limit=chunk_size,
+                    ) as data:
+                        r = requests.put(presigned_url, data=data)
+                        _raise_with_request_id(r)
+                        parts.append(
+                            {
+                                "etag": r.headers.get("etag"),
+                                "partNumber": i + 1,
+                            }
+                        )
+                        # In order to support progress reporting while data is uploading / downloading,
+                        # the transfer process should post messages to stdout
+                        write_msg(
+                            {
+                                "event": "progress",
+                                "oid": oid,
+                                "bytesSoFar": (i + 1) * chunk_size,
+                                "bytesSinceLast": chunk_size,
+                            }
+                        )
+                        # Not precise but that's ok.
 
             r = requests.post(
                 completion_url,
