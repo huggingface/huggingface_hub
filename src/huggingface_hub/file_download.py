@@ -13,6 +13,7 @@ from functools import partial
 from hashlib import sha256
 from pathlib import Path
 from typing import BinaryIO, Dict, Optional, Tuple, Union
+from urllib.parse import quote
 
 import packaging.version
 from tqdm.auto import tqdm
@@ -227,7 +228,9 @@ def hf_hub_url(
     if revision is None:
         revision = DEFAULT_REVISION
     return HUGGINGFACE_CO_URL_TEMPLATE.format(
-        repo_id=repo_id, revision=revision, filename=filename
+        repo_id=repo_id,
+        revision=quote(revision, safe=""),
+        filename=filename,
     )
 
 
@@ -1039,6 +1042,12 @@ def hf_hub_download(
             # between the HEAD and the GET (unlikely, but hey).
             if 300 <= r.status_code <= 399:
                 url_to_download = r.headers["Location"]
+                if (
+                    "lfs.huggingface.co" in url_to_download
+                    or "lfs-staging.huggingface.co" in url_to_download
+                ):
+                    # Remove authorization header when downloading a LFS blob
+                    headers.pop("authorization", None)
         except (requests.exceptions.SSLError, requests.exceptions.ProxyError):
             # Actually raise for those subclasses of ConnectionError
             raise
