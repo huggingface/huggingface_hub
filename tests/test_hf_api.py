@@ -853,7 +853,7 @@ class CommitApiTest(HfApiCommonTestWithLogin):
             repo_id=REPO_NAME,
             exist_ok=False,
         )
-        parent_commit = self._api.model_info(REPO_NAME).sha
+        parent_commit = self._api.model_info(f"{USER}/{REPO_NAME}").sha
         try:
             self._api.upload_file(
                 path_or_fileobj=self.tmp_file,
