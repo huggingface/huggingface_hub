@@ -847,7 +847,7 @@ class CommitApiTest(HfApiCommonTestWithLogin):
 
     @retry_endpoint
     def test_create_commit_conflict(self):
-        REPO_NAME = repo_name(f"create_commit_conflict")
+        REPO_NAME = repo_name("create_commit_conflict")
         self._api.create_repo(
             token=self._token,
             repo_id=REPO_NAME,
