@@ -395,13 +395,14 @@ def prepare_commit_payload(
     deletions: Iterable[CommitOperationDelete],
     commit_message: str,
     commit_description: Optional[str] = None,
+    parent_commit: Optional[str] = None,
 ):
     """
     Builds the payload to POST to the `/commit` API of the Hub
     """
     commit_description = commit_description if commit_description is not None else ""
 
-    return {
+    payload = {
         "summary": commit_message,
         "description": commit_description,
         "files": [
@@ -424,3 +425,6 @@ def prepare_commit_payload(
         ],
         "deletedFiles": [{"path": del_op.path_in_repo} for del_op in deletions],
     }
+    if parent_commit is not None:
+        payload["parentCommit"] = parent_commit
+    return payload

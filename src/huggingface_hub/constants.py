@@ -1,4 +1,5 @@
 import os
+import re
 
 
 # Possible values for env variables
@@ -15,7 +16,10 @@ FLAX_WEIGHTS_NAME = "flax_model.msgpack"
 CONFIG_NAME = "config.json"
 REPOCARD_NAME = "README.md"
 
+# Git-related constants
+
 DEFAULT_REVISION = "main"
+REGEX_COMMIT_OID = re.compile(r"[A-Fa-f0-9]{5,40}")
 
 HUGGINGFACE_CO_URL_HOME = "https://huggingface.co/"
 
