@@ -44,10 +44,7 @@ from .constants import (
 )
 from .utils import logging
 from .utils._deprecation import _deprecate_positional_args
-from .utils._errors import (
-    _raise_for_status,
-    _raise_with_request_id,
-)
+from .utils._errors import _raise_for_status, _raise_with_request_id
 from .utils._fixes import JSONDecodeError
 from .utils.endpoint_helpers import (
     AttributeDictionary,
