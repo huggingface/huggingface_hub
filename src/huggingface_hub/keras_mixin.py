@@ -1,7 +1,7 @@
+import collections.abc as collections
 import json
 import os
 import warnings
-import collections.abc as collections
 from pathlib import Path
 from shutil import copytree, rmtree
 from typing import Any, Dict, Optional, Union
@@ -30,7 +30,7 @@ if is_tf_available():
 def flatten_dict(dictionary, parent_key="", sep="."):
     """Flattens a nested dictionary.
 
-    Referene: https://stackoverflow.com/a/6027615/10319735
+    Reference: https://stackoverflow.com/a/6027615/10319735
     """
     items = []
     for key, value in dictionary.items():
