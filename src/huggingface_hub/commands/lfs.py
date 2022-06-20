@@ -20,9 +20,7 @@ import json
 import os
 import subprocess
 import sys
-import warnings
 from argparse import ArgumentParser
-from contextlib import AbstractContextManager
 from typing import Dict, List, Optional
 
 import requests
