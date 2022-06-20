@@ -1744,11 +1744,11 @@ class HfApi:
                 The repository in which the commit will be created, for example:
                 `"username/custom_transformers"`
 
-            operations (`Iterable` of `CommitOperation`):
+            operations (`Iterable` of [`~huggingface_hub.hf_api.CommitOperation`]):
                 An iterable of operations to include in the commit, either:
 
-                    - `CommitOperationAdd` to upload a file
-                    - `CommitOperationDelete` to delete a file
+                    - [`~huggingface_hub.hf_api.CommitOperationAdd`] to upload a file
+                    - [`~huggingface_hub.hf_api.CommitOperationDelete`] to delete a file
 
             commit_message (`str`):
                 The summary (first line) of the commit that will be created.
