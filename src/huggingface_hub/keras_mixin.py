@@ -35,7 +35,7 @@ def _create_hyperparameter_table(model):
         ] = tf.keras.mixed_precision.global_policy().name
         table = "| Hyperparameters | Value |\n| :-- | :-- |\n"
         for key, value in optimizer_params.items():
-            table += f" | {key} | {value} |\n"
+            table += f"| {key} | {value} |\n"
     else:
         table = None
     return table
