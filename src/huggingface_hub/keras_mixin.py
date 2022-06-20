@@ -33,18 +33,9 @@ def _create_hyperparameter_table(model):
         optimizer_params[
             "training_precision"
         ] = tf.keras.mixed_precision.global_policy().name
-        table = "|"
-        for key in optimizer_params.keys():
-            table += f" {key} |"
-
-        table += "\n|"
-        for key in optimizer_params.keys():
-            table += "-" * len(key)
-            table += "|"
-
-        table += "\n|"
-        for key in optimizer_params.keys():
-            table += f"{optimizer_params[key]}|"
+        table = "| Hyperparameters | Value |\n| :-- | :-- |\n"
+        for key, value in optimizer_params.items():
+            table += f" | {key} | {value} |\n"
     else:
         table = None
     return table
