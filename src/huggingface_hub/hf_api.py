@@ -1792,7 +1792,7 @@ class HfApi:
                 If `create_pr` is `True`, returns the URL to the newly created Pull Request
                 on the Hub. Otherwise returns `None`.
         """
-        if parent_commit is not None and not REGEX_COMMIT_OID.match(parent_commit):
+        if parent_commit is not None and not REGEX_COMMIT_OID.fullmatch(parent_commit):
             raise ValueError(
                 "`parent_commit` is not a valid commit OID. It must match the following"
                 " regex: {REGEX_COMMIT_OID}"
