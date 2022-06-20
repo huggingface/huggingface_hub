@@ -17,15 +17,25 @@ import re
 import subprocess
 import sys
 import warnings
-from io import BufferedIOBase, RawIOBase
 from os.path import expanduser
-from typing import IO, Dict, Iterable, List, Optional, Tuple, Union
+from typing import BinaryIO, Dict, Iterable, List, Optional, Tuple, Union
+from urllib.parse import quote
 
 import requests
 from requests.exceptions import HTTPError
 
+from ._commit_api import (
+    CommitOperation,
+    CommitOperationAdd,
+    CommitOperationDelete,
+    fetch_upload_modes,
+    prepare_commit_payload,
+    upload_lfs_files,
+)
 from .constants import (
+    DEFAULT_REVISION,
     ENDPOINT,
+    REPO_TYPE_MODEL,
     REPO_TYPES,
     REPO_TYPES_MAPPING,
     REPO_TYPES_URL_PREFIXES,
@@ -51,6 +61,7 @@ else:
     from typing_extensions import Literal
 
 
+REGEX_DISCUSSION_URL = re.compile(r".*/discussions/(\d+)$")
 USERNAME_PLACEHOLDER = "hf_user"
 
 logger = logging.get_logger(__name__)
@@ -1712,19 +1723,143 @@ class HfApi:
             " completed."
         )
 
+    def create_commit(
+        self,
+        repo_id: str,
+        operations: Iterable[CommitOperation],
+        *,
+        commit_message: str,
+        commit_description: Optional[str] = None,
+        token: Optional[str] = None,
+        repo_type: Optional[str] = None,
+        revision: Optional[str] = None,
+        create_pr: Optional[bool] = None,
+        num_threads: int = 5,
+    ) -> Optional[str]:
+        """
+        Creates a commit in the given repo, deleting & uploading files as needed.
+
+        Args:
+            repo_id (`str`):
+                The repository in which the commit will be created, for example:
+                `"username/custom_transformers"`
+
+            operations (`Iterable` of `CommitOperation`):
+                An iterable of operations to include in the commit, either:
+
+                    - `CommitOperationAdd` to upload a file
+                    - `CommitOperationDelete` to delete a file
+
+            commit_message (`str`):
+                The summary (first line) of the commit that will be created.
+
+            commit_description (`str`, *optional*):
+                The description of the commit that will be created
+
+            token (`str`, *optional*):
+                Authentication token, obtained with `HfApi.login` method. Will
+                default to the stored token.
+
+            repo_type (`str`, *optional*):
+                Set to `"dataset"` or `"space"` if uploading to a dataset or
+                space, `None` or `"model"` if uploading to a model. Default is
+                `None`.
+
+            revision (`str`, *optional*):
+                The git revision to commit from. Defaults to the head of the
+                `"main"` branch.
+
+            create_pr (`boolean`, *optional*):
+                Whether or not to create a Pull Request from `revision` with that commit.
+                Defaults to `False`. If set to `True`, this function will return the URL
+                to the newly created Pull Request on the Hub.
+
+            num_threads (`int`, *optional*):
+                Number of concurrent threads for uploading files. Defaults to 5.
+                Setting it to 2 means at most 2 files will be uploaded concurrently.
+
+        Returns:
+            `str` or `None`:
+                If `create_pr` is `True`, returns the URL to the newly created Pull Request
+                on the Hub. Otherwise returns `None`.
+        """
+        commit_description = (
+            commit_description if commit_description is not None else ""
+        )
+        repo_type = repo_type if repo_type is not None else REPO_TYPE_MODEL
+        if repo_type not in REPO_TYPES:
+            raise ValueError(f"Invalid repo type, must be one of {REPO_TYPES}")
+        token, name = self._validate_or_retrieve_token(token)
+        revision = revision if revision is not None else DEFAULT_REVISION
+        create_pr = create_pr if create_pr is not None else False
+
+        operations = list(operations)
+        additions = [op for op in operations if isinstance(op, CommitOperationAdd)]
+        deletions = [op for op in operations if isinstance(op, CommitOperationDelete)]
+
+        if len(additions) + len(deletions) != len(operations):
+            raise ValueError(
+                "Unknown operation, must be one of `CommitOperationAdd` or"
+                " `CommitOperationDelete`"
+            )
+
+        for addition in additions:
+            addition.validate()
+
+        additions_with_upload_mode = fetch_upload_modes(
+            additions=additions,
+            repo_type=repo_type,
+            repo_id=repo_id,
+            token=token,
+            revision=revision,
+            endpoint=self.endpoint,
+        )
+        upload_lfs_files(
+            additions=[
+                addition
+                for (addition, upload_mode) in additions_with_upload_mode
+                if upload_mode == "lfs"
+            ],
+            repo_type=repo_type,
+            repo_id=repo_id,
+            token=token,
+            revision=revision,
+            endpoint=self.endpoint,
+            num_threads=num_threads,
+        )
+        commit_payload = prepare_commit_payload(
+            additions=additions_with_upload_mode,
+            deletions=deletions,
+            commit_message=commit_message,
+            commit_description=commit_description,
+        )
+        commit_url = f"{self.endpoint}/api/{repo_type}s/{repo_id}/commit/{revision}"
+
+        commit_resp = requests.post(
+            url=commit_url,
+            headers={"Authorization": f"Bearer {token}"},
+            json=commit_payload,
+            params={"create_pr": 1} if create_pr else None,
+        )
+        _raise_for_status(commit_resp)
+        return commit_resp.json().get("pullRequestUrl", None)
+
     def upload_file(
         self,
         *,
-        path_or_fileobj: Union[str, bytes, IO],
+        path_or_fileobj: Union[str, bytes, BinaryIO],
         path_in_repo: str,
         repo_id: str,
         token: Optional[str] = None,
         repo_type: Optional[str] = None,
         revision: Optional[str] = None,
         identical_ok: Optional[bool] = None,
+        commit_message: Optional[str] = None,
+        commit_description: Optional[str] = None,
+        create_pr: Optional[bool] = None,
     ) -> str:
         """
-        Upload a local file (up to 5GB) to the given repo. The upload is done
+        Upload a local file (up to 50 GB) to the given repo. The upload is done
         through a HTTP post request, and doesn't require git or git-lfs to be
         installed.
 
@@ -1751,6 +1886,13 @@ class HfApi:
             identical_ok (`bool`, *optional*, defaults to `True`):
                 Deprecated: will be removed in 0.11.0.
                 Changing this value has no effect.
+            commit_message (`str`, *optional*):
+                The summary / title / first line of the generated commit
+            commit_description (`str` *optional*)
+                The description of the generated commit
+            create_pr (`boolean`, *optional*):
+                Whether or not to create a Pull Request from `revision` with that commit.
+                Defaults to `False`.
 
         Returns:
             `str`: The URL to visualize the uploaded file on the hub
@@ -1791,6 +1933,15 @@ class HfApi:
         ...     token="my_token",
         ... )
         "https://huggingface.co/username/my-model/blob/main/remote/file/path.h5"
+
+        >>> upload_file(
+        ...     path_or_fileobj=".\\\\local\\\\file\\\\path",
+        ...     path_in_repo="remote/file/path.h5",
+        ...     repo_id="username/my-model",
+        ...     token="my_token",
+        ...     create_pr=True,
+        ... )
+        "https://huggingface.co/username/my-model/blob/refs%2Fpr%2F1/remote/file/path.h5"
         ```
         """
         if identical_ok is not None:
@@ -1799,59 +1950,188 @@ class HfApi:
                 " 0.11.0.",
                 FutureWarning,
             )
+
         if repo_type not in REPO_TYPES:
             raise ValueError(f"Invalid repo type, must be one of {REPO_TYPES}")
 
-        try:
-            token, name = self._validate_or_retrieve_token(
-                token, function_name="upload_file"
-            )
-        except ValueError:  # if token is invalid or organization token
-            if self._is_valid_token(path_or_fileobj):
-                warnings.warn(
-                    "`upload_file` now takes `token` as an optional positional"
-                    " argument. Be sure to adapt your code!",
-                    FutureWarning,
-                )
-                token, path_or_fileobj, path_in_repo, repo_id = (
-                    path_or_fileobj,
-                    path_in_repo,
-                    repo_id,
-                    token,
-                )
-            else:
-                raise ValueError("Invalid token passed!")
+        commit_message = (
+            commit_message
+            if commit_message is not None
+            else f"Upload {path_in_repo} with huggingface_hub"
+        )
+        operation = CommitOperationAdd(
+            path_or_fileobj=path_or_fileobj,
+            path_in_repo=path_in_repo,
+        )
 
-        # Validate path_or_fileobj
-        if isinstance(path_or_fileobj, str):
-            path_or_fileobj = os.path.normpath(os.path.expanduser(path_or_fileobj))
-            if not os.path.isfile(path_or_fileobj):
-                raise ValueError(f"Provided path: '{path_or_fileobj}' is not a file")
-        elif not isinstance(path_or_fileobj, (RawIOBase, BufferedIOBase, bytes)):
-            # ^^ Test from: https://stackoverflow.com/questions/44584829/how-to-determine-if-file-is-opened-in-binary-or-text-mode
-            raise ValueError(
-                "path_or_fileobj must be either an instance of str or BinaryIO. If you"
-                " passed a fileobj, make sure you've opened the file in binary mode."
-            )
+        pr_url = self.create_commit(
+            repo_id=repo_id,
+            repo_type=repo_type,
+            operations=[operation],
+            commit_message=commit_message,
+            commit_description=commit_description,
+            token=token,
+            revision=revision,
+            create_pr=create_pr,
+        )
+        if pr_url is not None:
+            re_match = re.match(REGEX_DISCUSSION_URL, pr_url)
+            if re_match is None:
+                raise RuntimeError(
+                    "Unexpected response from the hub, expected a Pull Request URL but"
+                    f" got: '{pr_url}'"
+                )
+            revision = quote(f"refs/pr/{re_match[1]}", safe="")
+
+        if repo_type in REPO_TYPES_URL_PREFIXES:
+            repo_id = REPO_TYPES_URL_PREFIXES[repo_type] + repo_id
+        revision = revision if revision is not None else DEFAULT_REVISION
+        return f"{self.endpoint}/{repo_id}/blob/{revision}/{path_in_repo}"
+        # ^ Similar to `hf_hub_url` but it's "blob" instead of "resolve"
+
+    def upload_folder(
+        self,
+        *,
+        repo_id: str,
+        folder_path: str,
+        path_in_repo: str,
+        commit_message: Optional[str] = None,
+        commit_description: Optional[str] = None,
+        token: Optional[str] = None,
+        repo_type: Optional[str] = None,
+        revision: Optional[str] = None,
+        create_pr: Optional[bool] = None,
+    ):
+        """
+        Upload a local folder to the given repo. The upload is done
+        through a HTTP requests, and doesn't require git or git-lfs to be
+        installed.
+
+        The structure of the folder will be preserved. Files with the same name
+        already present in the repository will be overwritten, others will be left untouched.
+
+        Uses `HfApi.create_commit` under the hood.
+
+        Args:
+            repo_id (`str`):
+                The repository to which the file will be uploaded, for example:
+                `"username/custom_transformers"`
+            folder_path (`str`):
+                Path to the folder to upload on the local file system
+            path_in_repo (`str`):
+                Relative path of the directory in the repo, for example:
+                `"checkpoints/1fec34a/results"`
+            token (`str`, *optional*):
+                Authentication token, obtained with `HfApi.login` method. Will
+                default to the stored token.
+            repo_type (`str`, *optional*):
+                Set to `"dataset"` or `"space"` if uploading to a dataset or
+                space, `None` or `"model"` if uploading to a model. Default is
+                `None`.
+            revision (`str`, *optional*):
+                The git revision to commit from. Defaults to the head of the
+                `"main"` branch.
+            commit_message (`str`, *optional*):
+                The summary / title / first line of the generated commit. Defaults to:
+                `f"Upload {path_in_repo} with huggingface_hub"`
+            commit_description (`str` *optional*):
+                The description of the generated commit
+            create_pr (`boolean`, *optional*):
+                Whether or not to create a Pull Request from the pushed changes. Defaults
+                to `False`.
+
+        Returns:
+            `str`: A URL to visualize the uploaded folder on the hub
+
+        <Tip>
+
+        Raises the following errors:
+
+            - [`HTTPError`](https://2.python-requests.org/en/master/api/#requests.HTTPError)
+            if the HuggingFace API returned an error
+            - [`ValueError`](https://docs.python.org/3/library/exceptions.html#ValueError)
+            if some parameter value is invalid
+
+        </Tip>
+
+        Example usage:
+
+        ```python
+        >>> upload_file(
+        ...     folder_path="local/checkpoints",
+        ...     path_in_repo="remote/experiment/checkpoints",
+        ...     repo_id="username/my-dataset",
+        ...     repo_type="datasets",
+        ...     token="my_token",
+        ... )
+        # "https://huggingface.co/datasets/username/my-dataset/tree/main/remote/experiment/checkpoints"
+
+        >>> upload_file(
+        ...     folder_path="local/checkpoints",
+        ...     path_in_repo="remote/experiment/checkpoints",
+        ...     repo_id="username/my-dataset",
+        ...     repo_type="datasets",
+        ...     token="my_token",
+        ...     create_pr=True,
+        ... )
+        # "https://huggingface.co/datasets/username/my-dataset/tree/refs%2Fpr%2F1/remote/experiment/checkpoints"
+
+        ```
+        """
+        if repo_type not in REPO_TYPES:
+            raise ValueError(f"Invalid repo type, must be one of {REPO_TYPES}")
+
+        commit_message = (
+            commit_message
+            if commit_message is not None
+            else f"Upload {path_in_repo} with huggingface_hub"
+        )
+        folder_path = os.path.normpath(os.path.expanduser(folder_path))
+        if not os.path.isdir(folder_path):
+            raise ValueError(f"Provided path: '{folder_path}' is not a directory")
+
+        files_to_add: List[CommitOperationAdd] = []
+        for dirpath, _, filenames in os.walk(folder_path):
+            for filename in filenames:
+                abs_path = os.path.join(dirpath, filename)
+                rel_path = os.path.relpath(abs_path, folder_path)
+                files_to_add.append(
+                    CommitOperationAdd(
+                        path_or_fileobj=abs_path,
+                        path_in_repo=os.path.normpath(
+                            os.path.join(path_in_repo, rel_path)
+                        ).replace(os.sep, "/"),
+                    )
+                )
+
+        logger.debug(f"About to upload / commit {len(files_to_add)} files to the Hub")
+
+        pr_url = self.create_commit(
+            repo_type=repo_type,
+            repo_id=repo_id,
+            operations=files_to_add,
+            commit_message=commit_message,
+            commit_description=commit_description,
+            token=token,
+            revision=revision,
+            create_pr=create_pr,
+        )
+
+        if pr_url is not None:
+            re_match = re.match(REGEX_DISCUSSION_URL, pr_url)
+            if re_match is None:
+                raise RuntimeError(
+                    "Unexpected response from the hub, expected a Pull Request URL but"
+                    f" got: '{pr_url}'"
+                )
+            revision = quote(f"refs/pr/{re_match[1]}", safe="")
 
         if repo_type in REPO_TYPES_URL_PREFIXES:
             repo_id = REPO_TYPES_URL_PREFIXES[repo_type] + repo_id
 
-        revision = revision if revision is not None else "main"
-
-        path = f"{self.endpoint}/api/{repo_id}/upload/{revision}/{path_in_repo}"
-
-        headers = {"authorization": f"Bearer {token}"} if token is not None else None
-
-        if isinstance(path_or_fileobj, str):
-            with open(path_or_fileobj, "rb") as bytestream:
-                r = requests.post(path, headers=headers, data=bytestream)
-        else:
-            r = requests.post(path, headers=headers, data=path_or_fileobj)
-
-        _raise_for_status(r)
-        d = r.json()
-        return d["url"]
+        revision = revision if revision is not None else DEFAULT_REVISION
+        return f"{self.endpoint}/{repo_id}/tree/{revision}/{path_in_repo}"
+        # ^ Similar to `hf_hub_url` but it's "tree" instead of "resolve"
 
     def delete_file(
         self,
@@ -1861,6 +2141,9 @@ class HfApi:
         token: Optional[str] = None,
         repo_type: Optional[str] = None,
         revision: Optional[str] = None,
+        commit_message: Optional[str] = None,
+        commit_description: Optional[str] = None,
+        create_pr: Optional[bool] = None,
     ):
         """
         Deletes a file in the given repo.
@@ -1881,6 +2164,14 @@ class HfApi:
             revision (`str`, *optional*):
                 The git revision to commit from. Defaults to the head of the
                 `"main"` branch.
+            commit_message (`str`, *optional*):
+                The summary / title / first line of the generated commit. Defaults to
+                `f"Delete {path_in_repo} with huggingface_hub"`.
+            commit_description (`str` *optional*)
+                The description of the generated commit
+            create_pr (`boolean`, *optional*):
+                Whether or not to create a Pull Request from `revision` with the changes.
+                Defaults to `False`.
 
         <Tip>
 
@@ -1901,22 +2192,24 @@ class HfApi:
         </Tip>
 
         """
-        if repo_type not in REPO_TYPES:
-            raise ValueError(f"Invalid repo type, must be one of {REPO_TYPES}")
+        commit_message = (
+            commit_message
+            if commit_message is not None
+            else f"Delete {path_in_repo} with huggingface_hub"
+        )
 
-        token, name = self._validate_or_retrieve_token(token)
+        operations = [CommitOperationDelete(path_in_repo=path_in_repo)]
 
-        if repo_type in REPO_TYPES_URL_PREFIXES:
-            repo_id = REPO_TYPES_URL_PREFIXES[repo_type] + repo_id
-
-        revision = revision if revision is not None else "main"
-
-        path = f"{self.endpoint}/api/{repo_id}/delete/{revision}/{path_in_repo}"
-
-        headers = {"authorization": f"Bearer {token}"}
-        r = requests.delete(path, headers=headers)
-
-        _raise_for_status(r)
+        return self.create_commit(
+            repo_id=repo_id,
+            repo_type=repo_type,
+            token=token,
+            operations=operations,
+            revision=revision,
+            commit_message=commit_message,
+            commit_description=commit_description,
+            create_pr=create_pr,
+        )
 
     def get_full_repo_name(
         self,
@@ -2024,10 +2317,12 @@ list_metrics = api.list_metrics
 get_model_tags = api.get_model_tags
 get_dataset_tags = api.get_dataset_tags
 
+create_commit = api.create_commit
 create_repo = api.create_repo
 delete_repo = api.delete_repo
 update_repo_visibility = api.update_repo_visibility
 move_repo = api.move_repo
 upload_file = api.upload_file
+upload_folder = api.upload_folder
 delete_file = api.delete_file
 get_full_repo_name = api.get_full_repo_name
