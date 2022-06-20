@@ -21,7 +21,7 @@ else:
 import requests
 
 from .constants import ENDPOINT
-from .lfs import UploadInfo, lfs_upload, post_lfs_batch_info, validate_batch_actions
+from .lfs import UploadInfo, _validate_batch_actions, lfs_upload, post_lfs_batch_info
 from .utils import logging
 
 
@@ -287,7 +287,7 @@ def _upload_lfs_object(
 
     Raises: `ValueError` if `lfs_batch_action` is improperly formatted
     """
-    validate_batch_actions(lfs_batch_action)
+    _validate_batch_actions(lfs_batch_action)
     upload_info = operation._upload_info()
     actions = lfs_batch_action.get("actions")
     if actions is None:

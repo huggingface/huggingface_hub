@@ -102,7 +102,8 @@ class UploadInfo:
         return cls(size=size, sha256=sha, sample=sample)
 
 
-def validate_lfs_action(lfs_action: dict):
+def _validate_lfs_action(lfs_action: dict):
+    """validates response from the LFS batch endpoint"""
     if not (
         isinstance(lfs_action.get("href"), str)
         and (
@@ -114,7 +115,8 @@ def validate_lfs_action(lfs_action: dict):
     return lfs_action
 
 
-def validate_batch_actions(lfs_batch_actions: dict):
+def _validate_batch_actions(lfs_batch_actions: dict):
+    """validates response from the LFS batch endpoint"""
     if not (
         isinstance(lfs_batch_actions.get("oid"), str)
         and isinstance(lfs_batch_actions.get("size"), int)
@@ -124,13 +126,14 @@ def validate_batch_actions(lfs_batch_actions: dict):
     upload_action = lfs_batch_actions.get("actions", {}).get("upload")
     verify_action = lfs_batch_actions.get("actions", {}).get("verify")
     if upload_action is not None:
-        validate_lfs_action(upload_action)
+        _validate_lfs_action(upload_action)
     if verify_action is not None:
-        validate_lfs_action(verify_action)
+        _validate_lfs_action(verify_action)
     return lfs_batch_actions
 
 
-def validate_batch_error(lfs_batch_error: dict):
+def _validate_batch_error(lfs_batch_error: dict):
+    """validates response from the LFS batch endpoint"""
     if not (
         isinstance(lfs_batch_error.get("oid"), str)
         and isinstance(lfs_batch_error.get("size"), int)
@@ -219,8 +222,8 @@ def post_lfs_batch_info(
         raise ValueError("Malformed response from server")
 
     return (
-        [validate_batch_actions(obj) for obj in objects if "error" not in obj],
-        [validate_batch_error(obj) for obj in objects if "error" in obj],
+        [_validate_batch_actions(obj) for obj in objects if "error" not in obj],
+        [_validate_batch_error(obj) for obj in objects if "error" in obj],
     )
 
 
@@ -261,9 +264,9 @@ def lfs_upload(
 
         `requests.HTTPError`
     """
-    validate_lfs_action(upload_action)
+    _validate_lfs_action(upload_action)
     if verify_action is not None:
-        validate_lfs_action(verify_action)
+        _validate_lfs_action(verify_action)
 
     header = upload_action.get("header", {})
     chunk_size = header.get("chunk_size", None)
