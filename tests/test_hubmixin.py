@@ -140,7 +140,7 @@ class HubMixingTest(HubMixingCommonTest):
         REPO_NAME = repo_name("PUSH_TO_HUB")
         model = DummyModel()
         large_file = [100] * int(4e6)
-
+        model.save_pretrained(f"{WORKING_REPO_DIR}/{REPO_NAME}")
         with open(f"{WORKING_REPO_DIR}/{REPO_NAME}/large_file.txt", "w+") as f:
             f.write(json.dumps(large_file))
 
@@ -152,3 +152,7 @@ class HubMixingTest(HubMixingCommonTest):
             git_email="ci@dummy.com",
             config={"num": 7, "act": "gelu_fast"},
         )
+        model_info = self._api.model_info(f"{USER}/{REPO_NAME}", token=self._token)
+
+        self.assertTrue("large_file.txt" in [f.rfilename for f in model_info.siblings])
+        self._api.delete_repo(repo_id=f"{REPO_NAME}", token=self._token)
