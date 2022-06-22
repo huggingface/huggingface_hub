@@ -1170,11 +1170,11 @@ class HfApi:
 
         Args:
             filter `str` or `Iterable`, *optional*):
-                A string or which can be used to identify Spaces on the hub.
+                A string tag or list of tags that can be used to identify Spaces on the Hub.
             author (`str`, *optional*):
-                A string which identify the author of the returned Spaces
+                A string which identify the author of the returned Spaces.
             search (`str`, *optional*):
-                A string that will be contained in the returned spaces.
+                A string that will be contained in the returned Spaces.
             sort (`Literal["lastModified"]` or `str`, *optional*):
                 The key with which to sort the resulting Spaces. Possible
                 values are the properties of the `SpaceInfo` class.
@@ -1195,7 +1195,7 @@ class HfApi:
             linked (`bool` or `str` or `Iterable`, *optional*):
                 Whether to return Spaces that make use of either a model or a dataset.
             full (`bool`, *optional*):
-                Whether to fetch all dataset data, including the `lastModified`
+                Whether to fetch all Spaces data, including the `lastModified`
                 and the `cardData`.
             use_auth_token (`bool` or `str`, *optional*):
                 Whether to use the `auth_token` provided from the
