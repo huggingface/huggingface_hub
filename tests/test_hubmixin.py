@@ -1,3 +1,4 @@
+import json
 import os
 import shutil
 import time
@@ -133,3 +134,21 @@ class HubMixingTest(HubMixingCommonTest):
         self.assertEqual(model_info.modelId, f"{USER}/{REPO_NAME}")
 
         self._api.delete_repo(repo_id=f"{REPO_NAME}", token=self._token)
+
+    def test_auto_lfs(self):
+
+        REPO_NAME = repo_name("PUSH_TO_HUB")
+        model = DummyModel()
+        large_file = [100] * int(4e6)
+
+        with open(f"{WORKING_REPO_DIR}/{REPO_NAME}/large_file.txt", "w+") as f:
+            f.write(json.dumps(large_file))
+
+        model.push_to_hub(
+            repo_path_or_name=f"{WORKING_REPO_DIR}/{REPO_NAME}",
+            api_endpoint=ENDPOINT_STAGING,
+            use_auth_token=self._token,
+            git_user="ci",
+            git_email="ci@dummy.com",
+            config={"num": 7, "act": "gelu_fast"},
+        )
