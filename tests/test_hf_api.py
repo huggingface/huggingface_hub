@@ -848,7 +848,7 @@ class CommitApiTest(HfApiCommonTestWithLogin):
     @retry_endpoint
     def test_create_commit_lots_of_files(self):
         # Try committing 1024 text files at once
-        REPO_NAME = repo_name(f"create_commit_lots_of_files")
+        REPO_NAME = repo_name("create_commit_lots_of_files")
         self._api.create_repo(
             token=self._token,
             repo_id=REPO_NAME,
