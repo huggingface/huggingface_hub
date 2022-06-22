@@ -94,16 +94,20 @@ DUMMY_MODELCARD_EVAL_RESULT = """---
 model-index:
 - name: RoBERTa fine-tuned on ReactionGIF
   results:
-  - metrics:
-    - type: accuracy
-      value: 0.2662102282047272
-      name: Accuracy
-    task:
+  - task:
       type: text-classification
       name: Text Classification
     dataset:
       name: ReactionGIF
       type: julien-c/reactiongif
+      config: default
+      split: test
+    metrics:
+    - type: accuracy
+      value: 0.2662102282047272
+      name: Accuracy
+      config: default
+      verified: false
 ---
 """
 
@@ -171,8 +175,12 @@ class RepocardTest(unittest.TestCase):
             metrics_pretty_name="Accuracy",
             metrics_id="accuracy",
             metrics_value=0.2662102282047272,
+            metrics_config="default",
+            metrics_verified=False,
             dataset_pretty_name="ReactionGIF",
             dataset_id="julien-c/reactiongif",
+            dataset_config="default",
+            dataset_split="test",
         )
         filename = "eval_results.md"
         filepath = Path(REPOCARD_DIR) / filename
@@ -307,8 +315,12 @@ class RepocardUpdateTest(unittest.TestCase):
             metrics_pretty_name="Recall",
             metrics_id="recall",
             metrics_value=0.7762102282047272,
+            metrics_config="default",
+            metrics_verified=False,
             dataset_pretty_name="ReactionGIF",
             dataset_id="julien-c/reactiongif",
+            dataset_config="default",
+            dataset_split="test",
         )
 
         metadata_update(
@@ -332,8 +344,12 @@ class RepocardUpdateTest(unittest.TestCase):
             metrics_pretty_name="Accuracy",
             metrics_id="accuracy",
             metrics_value=0.2662102282047272,
+            metrics_config="default",
+            metrics_verified=False,
             dataset_pretty_name="ReactionJPEG",
             dataset_id="julien-c/reactionjpeg",
+            dataset_config="default",
+            dataset_split="test",
         )
 
         metadata_update(
