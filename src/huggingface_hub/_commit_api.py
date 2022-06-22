@@ -22,7 +22,7 @@ import requests
 
 from .constants import ENDPOINT
 from .lfs import UploadInfo, _validate_batch_actions, lfs_upload, post_lfs_batch_info
-from .utils import logging
+from .utils import chunk_iterable, logging
 
 
 logger = logging.get_logger(__name__)
@@ -362,30 +362,37 @@ def fetch_upload_modes(
     """
     endpoint = endpoint if endpoint is not None else ENDPOINT
     headers = {"authorization": f"Bearer {token}"} if token is not None else None
-    payload = {
-        "files": [
-            {
-                "path": op.path_in_repo,
-                "sample": base64.b64encode(op._upload_info().sample).decode("ascii"),
-                "size": op._upload_info().size,
-                "sha": op._upload_info().sha256.hex(),
-            }
-            for op in additions
-        ]
-    }
 
-    resp = requests.post(
-        f"{endpoint}/api/{repo_type}s/{repo_id}/preupload/{revision}",
-        json=payload,
-        headers=headers,
-    )
-    resp.raise_for_status()
+    path2mode: Dict[str, UploadMode] = {}
 
-    preupload_info = validate_preupload_info(resp.json())
+    for chunk in chunk_iterable(additions, 128):
+        payload = {
+            "files": [
+                {
+                    "path": op.path_in_repo,
+                    "sample": base64.b64encode(op._upload_info().sample).decode(
+                        "ascii"
+                    ),
+                    "size": op._upload_info().size,
+                    "sha": op._upload_info().sha256.hex(),
+                }
+                for op in chunk
+            ]
+        }
 
-    path2mode: Dict[str, UploadMode] = {
-        file["path"]: file["uploadMode"] for file in preupload_info["files"]
-    }
+        resp = requests.post(
+            f"{endpoint}/api/{repo_type}s/{repo_id}/preupload/{revision}",
+            json=payload,
+            headers=headers,
+        )
+        resp.raise_for_status()
+
+        preupload_info = validate_preupload_info(resp.json())
+
+        path2mode = {
+            **path2mode,
+            **{file["path"]: file["uploadMode"] for file in preupload_info["files"]},
+        }
 
     return [(op, path2mode[op.path_in_repo]) for op in additions]
 
