@@ -1559,16 +1559,7 @@ class HfApi:
             headers={"authorization": f"Bearer {token}"},
             json=json,
         )
-        try:
-            _raise_for_status(r)
-        except requests.exceptions.RequestException as e:
-            try:
-                message = e.response.json()["error"]
-            except JSONDecodeError:
-                message = e.response.text
-            except AttributeError:
-                message = e.args[0]
-            raise type(e)(message) from e
+        _raise_for_status(r)
 
     def update_repo_visibility(
         self,
