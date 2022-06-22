@@ -72,7 +72,6 @@ def _raise_for_status(response):
                     f" url: {response.url}. If the repo is private, make sure you are"
                     f" authenticated. (Request ID: {request_id})"
                 )
-
                 raise RepositoryNotFoundError(message, response)
             elif error_code == "RevisionNotFound":
                 message = (
