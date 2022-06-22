@@ -1813,6 +1813,7 @@ class HfApi:
             token=token,
             revision=revision,
             endpoint=self.endpoint,
+            create_pr=create_pr,
         )
         upload_lfs_files(
             additions=[
@@ -1823,7 +1824,6 @@ class HfApi:
             repo_type=repo_type,
             repo_id=repo_id,
             token=token,
-            revision=revision,
             endpoint=self.endpoint,
             num_threads=num_threads,
         )
@@ -1839,8 +1839,9 @@ class HfApi:
             url=commit_url,
             headers={"Authorization": f"Bearer {token}"},
             json=commit_payload,
-            params={"create_pr": 1} if create_pr else None,
+            params={"create_pr": "1"} if create_pr else None,
         )
+
         _raise_for_status(commit_resp)
         return commit_resp.json().get("pullRequestUrl", None)
 
