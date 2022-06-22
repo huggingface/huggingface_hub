@@ -319,7 +319,7 @@ class ModelHubMixin:
         self.save_pretrained(repo_path_or_name, config=config)
 
         # Commit and push!
-        repo.git_add()
+        repo.git_add(auto_lfs_track=True)
         repo.git_commit(commit_message)
         return repo.git_push()
 
