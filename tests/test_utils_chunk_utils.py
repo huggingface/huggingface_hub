@@ -1,6 +1,6 @@
 import unittest
 
-from huggingface_hub.utils.common import chunk_iterable
+from huggingface_hub.utils._chunk_utils import chunk_iterable
 
 
 class TestUtilsCommon(unittest.TestCase):

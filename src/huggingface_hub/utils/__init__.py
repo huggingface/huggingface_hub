@@ -15,6 +15,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License
 
+from ._chunk_utils import chunk_iterable
 from ._errors import EntryNotFoundError, RepositoryNotFoundError, RevisionNotFoundError
 from ._subprocess import run_subprocess
-from .common import chunk_iterable
