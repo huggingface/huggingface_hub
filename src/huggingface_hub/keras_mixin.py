@@ -27,16 +27,30 @@ if is_tf_available():
     import tensorflow as tf
 
 
-def flatten_dict(dictionary, parent_key="", sep="."):
-    """Flattens a nested dictionary.
-
+def _flatten_dict(dictionary, parent_key=""):
+    """Flatten a nested dictionary.
     Reference: https://stackoverflow.com/a/6027615/10319735
+
+    Args:
+        dictionary (`dict`):
+            The nested dictionary to be flattened.
+        parent_key (`str`):
+            The parent key to be prefixed to the childer keys.
+            Necessary for recursing over the nested dictionary.
+
+    Returns:
+        The flattened dictionary.
     """
     items = []
     for key, value in dictionary.items():
-        new_key = parent_key + sep + key if parent_key else key
+        new_key = f"{parent_key}.{key}" if parent_key else key
         if isinstance(value, collections.MutableMapping):
-            items.extend(flatten_dict(value, new_key, sep=sep).items())
+            items.extend(
+                _flatten_dict(
+                    value,
+                    new_key,
+                ).items()
+            )
         else:
             items.append((new_key, value))
     return dict(items)
@@ -47,7 +61,7 @@ def _create_hyperparameter_table(model):
     if model.optimizer is not None:
         optimizer_params = model.optimizer.get_config()
         # flatten the configuration
-        optimizer_params = flatten_dict(optimizer_params)
+        optimizer_params = _flatten_dict(optimizer_params)
         optimizer_params[
             "training_precision"
         ] = tf.keras.mixed_precision.global_policy().name
