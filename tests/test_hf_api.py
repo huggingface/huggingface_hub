@@ -845,6 +845,33 @@ class CommitApiTest(HfApiCommonTestWithLogin):
                 finally:
                     self._api.delete_repo(repo_id=REPO_NAME, token=self._token)
 
+    @retry_endpoint
+    def test_create_commit_lots_of_files(self):
+        # Try committing 1024 text files at once
+        REPO_NAME = repo_name(f"create_commit_lots_of_files")
+        self._api.create_repo(
+            token=self._token,
+            repo_id=REPO_NAME,
+            exist_ok=False,
+        )
+        try:
+            operations = [
+                CommitOperationAdd(
+                    path_in_repo=f"file-{num}", path_or_fileobj=b"Hello " * 100
+                )
+                for num in range(1024)
+            ]
+            self._api.create_commit(
+                operations=operations,
+                commit_message="Test create_commit with lots of files",
+                repo_id=f"{USER}/{REPO_NAME}",
+                token=self._token,
+            )
+        except Exception as err:
+            self.fail(err)
+        finally:
+            self._api.delete_repo(repo_id=REPO_NAME, token=self._token)
+
 
 class HfApiPublicTest(unittest.TestCase):
     def test_staging_list_models(self):
