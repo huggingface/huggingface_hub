@@ -1778,6 +1778,8 @@ class HfApi:
                 Number of concurrent threads for uploading files. Defaults to 5.
                 Setting it to 2 means at most 2 files will be uploaded concurrently.
 
+        Raises: `ValueError` if `create_pr` is `True` and revision is neither `None` nor `"main"`
+
         Returns:
             `str` or `None`:
                 If `create_pr` is `True`, returns the URL to the newly created Pull Request
@@ -1792,6 +1794,9 @@ class HfApi:
         token, name = self._validate_or_retrieve_token(token)
         revision = revision if revision is not None else DEFAULT_REVISION
         create_pr = create_pr if create_pr is not None else False
+
+        if create_pr and revision != DEFAULT_REVISION:
+            raise ValueError("Can only create pull requests against {DEFAULT_REVISION}")
 
         operations = list(operations)
         additions = [op for op in operations if isinstance(op, CommitOperationAdd)]
