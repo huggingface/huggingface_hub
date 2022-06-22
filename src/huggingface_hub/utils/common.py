@@ -25,16 +25,13 @@ def chunk_iterable(
         ```
     """
 
-    def _chunk_iter(iter: Iterable[Any]) -> Iterator[List[Any]]:
-        chunk = []
-        for elem in iterable:
-            chunk.append(elem)
-            if len(chunk) >= chunk_size:
-                yield chunk
-                chunk = []
-        if len(chunk):
+    def _chunk_iter(itr: Iterable[Any]) -> Iterator[List[Any]]:
+        while True:
+            chunk = [x for _, x in zip(range(chunk_size), itr)]
+            if not chunk:
+                break
             yield chunk
 
     if not chunk_size > 0:
         raise ValueError("chunk_size must be a strictly positive (>0) integer")
-    return _chunk_iter(iterable)
+    return _chunk_iter(iter(iterable))
