@@ -1,1 +1,3 @@
 comment: false
+ignore:
+- "tests/*"
