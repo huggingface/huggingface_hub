@@ -13,6 +13,7 @@ from functools import partial
 from hashlib import sha256
 from pathlib import Path
 from typing import BinaryIO, Dict, Optional, Tuple, Union
+from urllib.parse import quote
 
 import packaging.version
 from tqdm.auto import tqdm
@@ -34,7 +35,7 @@ from .constants import (
 )
 from .hf_api import HfFolder
 from .utils import logging
-from .utils._deprecation import _deprecate_positional_args
+from .utils._errors import _raise_for_status
 
 
 logger = logging.get_logger(__name__)
@@ -150,7 +151,6 @@ def get_fastcore_version():
 REGEX_COMMIT_HASH = re.compile(r"^[0-9a-f]{40}$")
 
 
-@_deprecate_positional_args
 def hf_hub_url(
     repo_id: str,
     filename: str,
@@ -228,7 +228,9 @@ def hf_hub_url(
     if revision is None:
         revision = DEFAULT_REVISION
     return HUGGINGFACE_CO_URL_TEMPLATE.format(
-        repo_id=repo_id, revision=revision, filename=filename
+        repo_id=repo_id,
+        revision=quote(revision, safe=""),
+        filename=filename,
     )
 
 
@@ -309,7 +311,6 @@ def filename_to_url(
     return url, etag
 
 
-@_deprecate_positional_args
 def http_user_agent(
     *,
     library_name: Optional[str] = None,
@@ -424,7 +425,6 @@ def _request_with_retry(
     return response
 
 
-@_deprecate_positional_args
 def http_get(
     url: str,
     temp_file: BinaryIO,
@@ -436,7 +436,7 @@ def http_get(
     max_retries=0,
 ):
     """
-    Donwload remote file. Do not gobble up errors.
+    Donwload a remote file. Do not gobble up errors, and will return errors tailored to the Hugging Face Hub.
     """
     headers = copy.deepcopy(headers)
     if resume_size > 0:
@@ -450,7 +450,7 @@ def http_get(
         timeout=timeout,
         max_retries=max_retries,
     )
-    r.raise_for_status()
+    _raise_for_status(r)
     content_length = r.headers.get("Content-Length")
     total = resume_size + int(content_length) if content_length is not None else None
     progress = tqdm(
@@ -468,7 +468,6 @@ def http_get(
     progress.close()
 
 
-@_deprecate_positional_args
 def cached_download(
     url: str,
     *,
@@ -492,6 +491,8 @@ def cached_download(
     Given a URL, this function looks for the corresponding file in the local
     cache. If it's not there, download it. Then return the path to the cached
     file.
+
+    Will raise errors tailored to the Hugging Face Hub.
 
     Args:
         url (`str`):
@@ -545,6 +546,13 @@ def cached_download(
           if ETag cannot be determined.
         - [`ValueError`](https://docs.python.org/3/library/exceptions.html#ValueError)
           if some parameter value is invalid
+        - [`~huggingface_hub.utils.RepositoryNotFoundError`]
+          If the repository to download from cannot be found. This may be because it doesn't exist,
+          or because it is set to `private` and you do not have access.
+        - [`~huggingface_hub.utils.RevisionNotFoundError`]
+          If the revision to download from cannot be found.
+        - [`~huggingface_hub.utils.EntryNotFoundError`]
+          If the file to download cannot be found.
 
     </Tip>
     """
@@ -592,7 +600,7 @@ def cached_download(
                 proxies=proxies,
                 timeout=etag_timeout,
             )
-            r.raise_for_status()
+            _raise_for_status(r)
             etag = r.headers.get("X-Linked-Etag") or r.headers.get("ETag")
             # We favor a custom header indicating the etag of the linked resource, and
             # we fallback to the regular etag header.
@@ -790,7 +798,6 @@ def repo_folder_name(*, repo_id: str, repo_type: str) -> str:
     return REPO_ID_SEPARATOR.join(parts)
 
 
-@_deprecate_positional_args
 def hf_hub_download(
     repo_id: str,
     filename: str,
@@ -898,6 +905,13 @@ def hf_hub_download(
           if ETag cannot be determined.
         - [`ValueError`](https://docs.python.org/3/library/exceptions.html#ValueError)
           if some parameter value is invalid
+        - [`~huggingface_hub.utils.RepositoryNotFoundError`]
+          If the repository to download from cannot be found. This may be because it doesn't exist,
+          or because it is set to `private` and you do not have access.
+        - [`~huggingface_hub.utils.RevisionNotFoundError`]
+          If the revision to download from cannot be found.
+        - [`~huggingface_hub.utils.EntryNotFoundError`]
+          If the file to download cannot be found.
 
     </Tip>
     """
@@ -1003,7 +1017,7 @@ def hf_hub_download(
                 proxies=proxies,
                 timeout=etag_timeout,
             )
-            r.raise_for_status()
+            _raise_for_status(r)
             commit_hash = r.headers[HUGGINGFACE_HEADER_X_REPO_COMMIT]
             if commit_hash is None:
                 raise OSError(
@@ -1028,6 +1042,12 @@ def hf_hub_download(
             # between the HEAD and the GET (unlikely, but hey).
             if 300 <= r.status_code <= 399:
                 url_to_download = r.headers["Location"]
+                if (
+                    "lfs.huggingface.co" in url_to_download
+                    or "lfs-staging.huggingface.co" in url_to_download
+                ):
+                    # Remove authorization header when downloading a LFS blob
+                    headers.pop("authorization", None)
         except (requests.exceptions.SSLError, requests.exceptions.ProxyError):
             # Actually raise for those subclasses of ConnectionError
             raise
@@ -1051,8 +1071,9 @@ def hf_hub_download(
                 "We have no connection or you passed local_files_only, so"
                 " force_download is not an accepted option."
             )
-        commit_hash = revision
-        if not REGEX_COMMIT_HASH.match(revision):
+        if REGEX_COMMIT_HASH.match(revision):
+            commit_hash = revision
+        else:
             ref_path = os.path.join(storage_folder, "refs", revision)
             with open(ref_path) as f:
                 commit_hash = f.read()

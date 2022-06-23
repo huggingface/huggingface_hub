@@ -42,11 +42,14 @@ jobs:
       - run: |
           if [[ "${{ matrix.test_repository }}" == "Repository only" ]]
           then
-            pytest -Werror::FutureWarning --log-cli-level=INFO -sv ./tests/test_repository.py -k RepositoryTest
-          
+            pytest --cov -Werror::FutureWarning --log-cli-level=INFO -sv ./tests/test_repository.py -k RepositoryTest
+
           else
-            pytest -Werror::FutureWarning --log-cli-level=INFO -sv ./tests/ -k 'not RepositoryTest'
+            pytest --cov -Werror::FutureWarning --log-cli-level=INFO -sv ./tests/ -k 'not RepositoryTest'
           fi
+
+      - name: Upload coverage reports to Codecov with GitHub Action
+        uses: codecov/codecov-action@v3
 
   build_pytorch:
     runs-on: ubuntu-latest
@@ -67,7 +70,10 @@ jobs:
         pip install --upgrade pip
         pip install .[testing,torch]
 
-    - run: pytest -Werror::FutureWarning -sv ./tests/test_hubmixin*
+    - run: pytest --cov -Werror::FutureWarning -sv ./tests/test_hubmixin*
+
+    - name: Upload coverage reports to Codecov with GitHub Action
+      uses: codecov/codecov-action@v3
 
   build_tensorflow:
     runs-on: ubuntu-latest
@@ -89,8 +95,11 @@ jobs:
         pip install --upgrade pip
         pip install .[testing,tensorflow]
 
-    - run: pytest -Werror::FutureWarning -sv ./tests/test_keras*
-  
+    - run: pytest --cov -Werror::FutureWarning -sv ./tests/test_keras*
+
+    - name: Upload coverage reports to Codecov with GitHub Action
+      uses: codecov/codecov-action@v3
+
   build_fastai:
     runs-on: ubuntu-latest
     strategy:
@@ -110,7 +119,10 @@ jobs:
         pip install --upgrade pip
         pip install .[testing,fastai]
 
-    - run: pytest -Werror::FutureWarning -sv ./tests/test_fastai*
+    - run: pytest --cov -Werror::FutureWarning -sv ./tests/test_fastai*
+
+    - name: Upload coverage reports to Codecov with GitHub Action
+      uses: codecov/codecov-action@v3
 
   tests_lfs:
     runs-on: ubuntu-latest
@@ -132,4 +144,7 @@ jobs:
         pip install --upgrade pip
         pip install .[testing]
 
-    - run: RUN_GIT_LFS_TESTS=1 pytest -Werror::FutureWarning -sv ./tests/ -k "HfLargefilesTest"
+    - run: RUN_GIT_LFS_TESTS=1 pytest --cov -Werror::FutureWarning -sv ./tests/ -k "HfLargefilesTest"
+
+    - name: Upload coverage reports to Codecov with GitHub Action
+      uses: codecov/codecov-action@v3

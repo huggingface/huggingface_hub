@@ -1,3 +1,4 @@
+import json
 import os
 import shutil
 import tempfile
@@ -226,7 +227,48 @@ class HubKerasSequentialTest(HubMixingTestKeras):
         self.assertIn("model.png", files)
         self.assertIn("README.md", files)
         self.assertIn("history.json", files)
+        with open(f"{WORKING_REPO_DIR}/{REPO_NAME}/history.json") as f:
+            history = json.load(f)
+
+        self.assertEqual(history, model.history.history)
         self.assertEqual(len(files), 7)
+
+    def test_save_model_card_history_removal(self):
+        REPO_NAME = repo_name("save")
+        model = self.model_init()
+        model = self.model_fit(model)
+        with tempfile.TemporaryDirectory() as tmpdirname:
+            os.makedirs(f"{tmpdirname}/{WORKING_REPO_DIR}/{REPO_NAME}")
+            with open(
+                f"{tmpdirname}/{WORKING_REPO_DIR}/{REPO_NAME}/history.json", "w+"
+            ) as fp:
+                fp.write("Keras FTW")
+
+            with pytest.warns(
+                UserWarning, match="`history.json` file already exists, *"
+            ):
+                save_pretrained_keras(
+                    model,
+                    f"{tmpdirname}/{WORKING_REPO_DIR}/{REPO_NAME}",
+                )
+                # assert that it's not the same as old history file and it's overridden
+                with open(
+                    f"{tmpdirname}/{WORKING_REPO_DIR}/{REPO_NAME}/history.json", "r"
+                ) as f:
+                    history_content = f.read()
+                    self.assertNotEqual("Keras FTW", history_content)
+
+            # Check the history is saved as a json in the repository.
+            files = os.listdir(f"{tmpdirname}/{WORKING_REPO_DIR}/{REPO_NAME}")
+            self.assertIn("history.json", files)
+
+            # Check that there is no "Training Metrics" section in the model card.
+            # This was done in an older version.
+            with open(
+                f"{tmpdirname}/{WORKING_REPO_DIR}/{REPO_NAME}/README.md", "r"
+            ) as file:
+                data = file.read()
+            self.assertNotIn(data, "Training Metrics")
 
     def test_save_pretrained_optimizer_state(self):
         REPO_NAME = repo_name("save")

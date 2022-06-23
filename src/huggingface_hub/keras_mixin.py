@@ -1,3 +1,4 @@
+import collections.abc as collections
 import json
 import os
 import warnings
@@ -26,57 +27,50 @@ if is_tf_available():
     import tensorflow as tf
 
 
+def _flatten_dict(dictionary, parent_key=""):
+    """Flatten a nested dictionary.
+    Reference: https://stackoverflow.com/a/6027615/10319735
+
+    Args:
+        dictionary (`dict`):
+            The nested dictionary to be flattened.
+        parent_key (`str`):
+            The parent key to be prefixed to the childer keys.
+            Necessary for recursing over the nested dictionary.
+
+    Returns:
+        The flattened dictionary.
+    """
+    items = []
+    for key, value in dictionary.items():
+        new_key = f"{parent_key}.{key}" if parent_key else key
+        if isinstance(value, collections.MutableMapping):
+            items.extend(
+                _flatten_dict(
+                    value,
+                    new_key,
+                ).items()
+            )
+        else:
+            items.append((new_key, value))
+    return dict(items)
+
+
 def _create_hyperparameter_table(model):
     """Parse hyperparameter dictionary into a markdown table."""
     if model.optimizer is not None:
         optimizer_params = model.optimizer.get_config()
+        # flatten the configuration
+        optimizer_params = _flatten_dict(optimizer_params)
         optimizer_params[
             "training_precision"
         ] = tf.keras.mixed_precision.global_policy().name
-        table = "|"
-        for key in optimizer_params.keys():
-            table += f" {key} |"
-
-        table += "\n|"
-        for key in optimizer_params.keys():
-            table += "-" * len(key)
-            table += "|"
-
-        table += "\n|"
-        for key in optimizer_params.keys():
-            table += f"{optimizer_params[key]}|"
+        table = "| Hyperparameters | Value |\n| :-- | :-- |\n"
+        for key, value in optimizer_params.items():
+            table += f"| {key} | {value} |\n"
     else:
         table = None
     return table
-
-
-def _parse_model_history(model, save_directory):
-    lines = None
-    if model.history is not None:
-        if model.history.history != {}:
-            path = os.path.join(save_directory, "history.json")
-            with open(path, "w", encoding="utf-8") as f:
-                json.dump(model.history.history, f, indent=2, sort_keys=True)
-            lines = []
-            logs = model.history.history
-            num_epochs = len(logs["loss"])
-
-            for value in range(num_epochs):
-                epoch_dict = {
-                    log_key: log_value_list[value]
-                    for log_key, log_value_list in logs.items()
-                }
-                values = dict()
-                for k, v in epoch_dict.items():
-                    if k.startswith("val_"):
-                        k = "validation_" + k[4:]
-                    elif k != "epoch":
-                        k = "train_" + k
-                    splits = k.split("_")
-                    name = " ".join([part.capitalize() for part in splits])
-                    values[name] = v
-                lines.append(values)
-    return lines
 
 
 def _plot_network(model, save_directory):
@@ -91,26 +85,6 @@ def _plot_network(model, save_directory):
         dpi=96,
         layer_range=None,
     )
-
-
-def _write_metrics(model, model_card, save_directory):
-    lines = _parse_model_history(model, save_directory)
-    if lines is not None:
-        model_card += "\n| Epochs |"
-
-        for i in lines[0].keys():
-            model_card += f" {i} |"
-        model_card += "\n |"
-        for i in range(len(lines[0].keys()) + 1):
-            model_card += "--- |"  # add header of table
-        for line in lines:
-            model_card += f"\n| {lines.index(line) + 1}|"  # add values
-            for key in line:
-                value = round(line[key], 3)
-                model_card += f" {value}| "
-    else:
-        model_card += "Model history needed"
-    return model_card
 
 
 def _create_model_card(
@@ -139,8 +113,6 @@ def _create_model_card(
         model_card += "\nThe following hyperparameters were used during training:\n\n"
         model_card += hyperparameters
         model_card += "\n"
-    model_card += "\n ## Training Metrics\n"
-    model_card = _write_metrics(model, model_card, repo_dir)
     if plot_model and os.path.exists(f"{repo_dir}/model.png"):
         model_card += "\n ## Model Plot\n"
         model_card += "\n<details>"
@@ -231,6 +203,18 @@ def save_pretrained_keras(
             metadata["tags"].append(task_name)
         else:
             metadata["tags"] = [task_name]
+
+    if model.history is not None:
+        if model.history.history != {}:
+            path = os.path.join(save_directory, "history.json")
+            if os.path.exists(path):
+                warnings.warn(
+                    "`history.json` file already exists, it will be overwritten by the"
+                    " history of this version.",
+                    UserWarning,
+                )
+            with open(path, "w", encoding="utf-8") as f:
+                json.dump(model.history.history, f, indent=2, sort_keys=True)
 
     _create_model_card(model, save_directory, plot_model, metadata)
     tf.keras.models.save_model(

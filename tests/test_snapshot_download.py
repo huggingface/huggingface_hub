@@ -4,6 +4,8 @@ import tempfile
 import time
 import unittest
 
+import pytest
+
 import requests
 from huggingface_hub import HfApi, Repository, snapshot_download
 from huggingface_hub.hf_api import HfFolder
@@ -116,7 +118,7 @@ class SnapshotDownloadTests(unittest.TestCase):
         # Test download fails without token
         with tempfile.TemporaryDirectory() as tmpdirname:
             with self.assertRaisesRegex(
-                requests.exceptions.HTTPError, "404 Client Error"
+                requests.exceptions.HTTPError, "401 Client Error"
             ):
                 _ = snapshot_download(
                     f"{USER}/{REPO_NAME}", revision="main", cache_dir=tmpdirname
@@ -349,3 +351,14 @@ class SnapshotDownloadTests(unittest.TestCase):
 
     def test_download_model_with_ignore_regex_list(self):
         self.check_download_model_with_regex(["*.git*", "*.pt"], allow=False)
+
+
+def test_snapshot_download_import():
+    with pytest.warns(FutureWarning, match="has been made private"):
+        from huggingface_hub.snapshot_download import snapshot_download as x  # noqa
+
+    assert x is snapshot_download
+
+
+def test_snapshot_download_import_constant_not_raise():
+    from huggingface_hub.snapshot_download import REPO_ID_SEPARATOR  # noqa

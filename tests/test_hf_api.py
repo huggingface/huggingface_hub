@@ -14,7 +14,6 @@
 
 
 import os
-import re
 import shutil
 import subprocess
 import tempfile
@@ -23,10 +22,12 @@ import unittest
 import uuid
 import warnings
 from io import BytesIO
+from urllib.parse import quote
 
 import pytest
 
 import requests
+from huggingface_hub._commit_api import CommitOperationAdd, CommitOperationDelete
 from huggingface_hub.commands.user import _login
 from huggingface_hub.constants import (
     REPO_TYPE_DATASET,
@@ -45,7 +46,6 @@ from huggingface_hub.hf_api import (
     ModelInfo,
     ModelSearchArguments,
     SpaceInfo,
-    _validate_repo_id_deprecation,
     erase_from_credential_store,
     read_from_credential_store,
     repo_type_and_id_from_hf_id,
@@ -62,7 +62,6 @@ from .testing_constants import (
     ENDPOINT_STAGING,
     ENDPOINT_STAGING_BASIC_AUTH,
     FULL_NAME,
-    PASS,
     TOKEN,
     USER,
 )
@@ -110,37 +109,36 @@ class HfApiCommonTest(unittest.TestCase):
 
 class HfApiLoginTest(HfApiCommonTest):
     def setUp(self) -> None:
-        erase_from_credential_store(USER)
+        erase_from_credential_store(USERNAME_PLACEHOLDER)
 
     @classmethod
     def tearDownClass(cls) -> None:
-        with pytest.warns(FutureWarning, match="This method is deprecated"):
-            cls._api.login(username=USER, password=PASS)
-
-    def test_login_invalid(self):
-        with pytest.warns(FutureWarning, match="This method is deprecated"):
-            with pytest.raises(HTTPError):
-                self._api.login(username=USER, password="fake")
-
-    def test_login_valid(self):
-        with pytest.warns(FutureWarning, match="This method is deprecated"):
-            token = self._api.login(username=USER, password=PASS)
-        assert isinstance(token, str)
+        cls._api.set_access_token(TOKEN)
 
     def test_login_git_credentials(self):
-        self.assertTupleEqual(read_from_credential_store(USER), (None, None))
-        with pytest.warns(FutureWarning, match="This method is deprecated"):
-            self._api.login(username=USER, password=PASS)
-        self.assertTupleEqual(read_from_credential_store(USER), (USER.lower(), PASS))
-        erase_from_credential_store(username=USER)
-        self.assertTupleEqual(read_from_credential_store(USER), (None, None))
+        self.assertTupleEqual(
+            read_from_credential_store(USERNAME_PLACEHOLDER), (None, None)
+        )
+        self._api.set_access_token(TOKEN)
+        self.assertTupleEqual(
+            read_from_credential_store(USERNAME_PLACEHOLDER),
+            (USERNAME_PLACEHOLDER, TOKEN),
+        )
+        erase_from_credential_store(username=USERNAME_PLACEHOLDER)
+        self.assertTupleEqual(
+            read_from_credential_store(USERNAME_PLACEHOLDER), (None, None)
+        )
 
     def test_login_cli(self):
-        with pytest.warns(FutureWarning, match="This method is deprecated"):
-            _login(self._api, username=USER, password=PASS)
-        self.assertTupleEqual(read_from_credential_store(USER), (USER.lower(), PASS))
-        erase_from_credential_store(username=USER)
-        self.assertTupleEqual(read_from_credential_store(USER), (None, None))
+        self._api.set_access_token(TOKEN)
+        self.assertTupleEqual(
+            read_from_credential_store(USERNAME_PLACEHOLDER),
+            (USERNAME_PLACEHOLDER, TOKEN),
+        )
+        erase_from_credential_store(username=USERNAME_PLACEHOLDER)
+        self.assertTupleEqual(
+            read_from_credential_store(USERNAME_PLACEHOLDER), (None, None)
+        )
 
         _login(self._api, token=TOKEN)
         self.assertTupleEqual(
@@ -157,25 +155,6 @@ class HfApiLoginTest(HfApiCommonTest):
             ValueError, match="You must use your personal account token."
         ):
             _login(self._api, token="api_org_dummy_token")
-
-    def test_login_deprecation_error(self):
-        with pytest.warns(
-            FutureWarning,
-            match=r"HfApi.login: This method is deprecated in favor of "
-            r"`set_access_token` and will be removed in v0.8.",
-        ):
-            self._api.login(username=USER, password=PASS)
-
-    def test_logout_deprecation_error(self):
-        with pytest.warns(
-            FutureWarning,
-            match=r"HfApi.logout: This method is deprecated in favor of "
-            r"`unset_access_token` and will be removed in v0.8.",
-        ):
-            try:
-                self._api.logout()
-            except HTTPError:
-                pass
 
 
 class HfApiCommonTestWithLogin(HfApiCommonTest):
@@ -209,88 +188,6 @@ def test_repo_id_no_warning():
         assert not len(record)
 
 
-def test_validate_repo_id_deprecation():
-    with pytest.warns(FutureWarning, match="input arguments are deprecated"):
-        name, org = _validate_repo_id_deprecation(
-            repo_id=None, name="repo", organization="org"
-        )
-        assert name == "repo" and org == "org"
-
-    with warnings.catch_warnings(record=True) as record:
-        name, org = _validate_repo_id_deprecation(
-            repo_id="org/repo", name=None, organization=None
-        )
-        assert name == "repo" and org == "org"
-    assert not len(record)
-
-    with pytest.raises(ValueError, match="leave deprecated"):
-        _validate_repo_id_deprecation(
-            repo_id="repo_id", name="name", organization="organization"
-        )
-
-    # regression test for
-    # https://github.com/huggingface/huggingface_hub/issues/821
-    with pytest.warns(FutureWarning, match="input arguments are deprecated"):
-        name, org = _validate_repo_id_deprecation(
-            repo_id="repo", name=None, organization="org"
-        )
-        assert name == "repo" and org == "org"
-
-
-@retry_endpoint
-def test_name_org_deprecation_warning():
-    # test that the right warning is raised when passing name to
-    # {create, delete}_repo and update_repo_visibility
-    api = HfApi(endpoint=ENDPOINT_STAGING)
-    REPO_NAME = repo_name("crud")
-
-    args = [
-        ("create_repo", {}),
-        ("update_repo_visibility", {"private": False}),
-        ("delete_repo", {}),
-    ]
-
-    for method, kwargs in args:
-        with pytest.warns(
-            FutureWarning,
-            match=re.escape("`name` and `organization` input arguments are deprecated"),
-        ):
-            getattr(api, method)(
-                name=REPO_NAME, token=TOKEN, repo_type=REPO_TYPE_MODEL, **kwargs
-            )
-
-
-@retry_endpoint
-def test_name_org_deprecation_error():
-    # tests that the right error is raised when passing both name and repo_id
-    # to {create, delete}_repo and update_repo_visibility
-    api = HfApi(endpoint=ENDPOINT_STAGING)
-    REPO_NAME = repo_name("crud")
-
-    args = [
-        ("create_repo", {}),
-        ("update_repo_visibility", {"private": False}),
-        ("delete_repo", {}),
-    ]
-
-    for method, kwargs in args:
-        with pytest.raises(
-            ValueError,
-            match=re.escape("Only pass `repo_id`"),
-        ):
-            getattr(api, method)(
-                repo_id="test",
-                name=REPO_NAME,
-                token=TOKEN,
-                repo_type=REPO_TYPE_MODEL,
-                **kwargs,
-            )
-
-    for method, kwargs in args:
-        with pytest.raises(ValueError, match="No name provided"):
-            getattr(api, method)(token=TOKEN, repo_type=REPO_TYPE_MODEL, **kwargs)
-
-
 class HfApiEndpointsTest(HfApiCommonTestWithLogin):
     def test_whoami(self):
         info = self._api.whoami(token=self._token)
@@ -303,12 +200,9 @@ class HfApiEndpointsTest(HfApiCommonTestWithLogin):
     @retry_endpoint
     def test_delete_repo_error_message(self):
         # test for #751
-        with pytest.raises(
-            HTTPError,
-            match=(
-                "No model repo found matching __DUMMY_TRANSFORMERS_USER__/"
-                "repo-that-does-not-exist"
-            ),
+        with self.assertRaisesRegex(
+            requests.exceptions.HTTPError,
+            r"404 Client Error: Repository Not Found (.+) \(Request ID: .+\)",
         ):
             self._api.delete_repo("repo-that-does-not-exist", token=self._token)
 
@@ -453,7 +347,7 @@ class HfApiEndpointsTest(HfApiCommonTestWithLogin):
             )
 
 
-class HfApiUploadFileTest(HfApiCommonTestWithLogin):
+class CommitApiTest(HfApiCommonTestWithLogin):
     def setUp(self) -> None:
         super().setUp()
         self.tmp_dir = tempfile.mkdtemp()
@@ -461,6 +355,11 @@ class HfApiUploadFileTest(HfApiCommonTestWithLogin):
         self.tmp_file_content = "Content of the file"
         with open(self.tmp_file, "w+") as f:
             f.write(self.tmp_file_content)
+        os.makedirs(os.path.join(self.tmp_dir, "nested"))
+        self.nested_tmp_file = os.path.join(self.tmp_dir, "nested", "file.bin")
+        with open(self.nested_tmp_file, "wb+") as f:
+            f.truncate(1024 * 1024)
+
         self.addCleanup(
             lambda: shutil.rmtree(self.tmp_dir, onerror=set_write_permission_and_retry)
         )
@@ -477,35 +376,42 @@ class HfApiUploadFileTest(HfApiCommonTestWithLogin):
                 token=self._token,
             )
 
-        with self.assertRaises(ValueError, msg="File opened in text mode"):
-            with open(self.tmp_file, "rt") as ftext:
-                self._api.upload_file(
-                    path_or_fileobj=ftext,
-                    path_in_repo="README.md",
-                    repo_id=f"{USER}/{REPO_NAME}",
-                    token=self._token,
-                )
+    def test_commit_operation_validation(self):
+        with open(self.tmp_file, "rt") as ftext:
+            operation = CommitOperationAdd(
+                path_or_fileobj=ftext,  # type: ignore
+                path_in_repo="README.md",
+            )
+            with self.assertRaises(
+                ValueError,
+                msg="If you passed a file-like object, make sure it is in binary mode",
+            ):
+                operation.validate()
 
+        operation = CommitOperationAdd(
+            path_or_fileobj=os.path.join(self.tmp_dir, "nofile.pth"),
+            path_in_repo="README.md",
+        )
         with self.assertRaises(
             ValueError, msg="path_or_fileobj is str but does not point to a file"
         ):
-            self._api.upload_file(
-                path_or_fileobj=os.path.join(self.tmp_dir, "nofile.pth"),
-                path_in_repo="README.md",
-                repo_id=f"{USER}/{REPO_NAME}",
-                token=self._token,
-            )
+
+            operation.validate()
 
     @retry_endpoint
     def test_upload_file_path(self):
         REPO_NAME = repo_name("path")
         self._api.create_repo(token=self._token, repo_id=REPO_NAME)
         try:
-            self._api.upload_file(
+            return_val = self._api.upload_file(
                 path_or_fileobj=self.tmp_file,
                 path_in_repo="temp/new_file.md",
                 repo_id=f"{USER}/{REPO_NAME}",
                 token=self._token,
+            )
+            self.assertEqual(
+                return_val,
+                f"{self._api.endpoint}/{USER}/{REPO_NAME}/blob/main/temp/new_file.md",
             )
             url = "{}/{user}/{repo}/resolve/main/temp/new_file.md".format(
                 ENDPOINT_STAGING,
@@ -530,12 +436,16 @@ class HfApiUploadFileTest(HfApiCommonTestWithLogin):
         self._api.create_repo(repo_id=REPO_NAME, token=self._token)
         try:
             with open(self.tmp_file, "rb") as filestream:
-                self._api.upload_file(
+                return_val = self._api.upload_file(
                     path_or_fileobj=filestream,
                     path_in_repo="temp/new_file.md",
                     repo_id=f"{USER}/{REPO_NAME}",
                     token=self._token,
                 )
+            self.assertEqual(
+                return_val,
+                f"{self._api.endpoint}/{USER}/{REPO_NAME}/blob/main/temp/new_file.md",
+            )
             url = "{}/{user}/{repo}/resolve/main/temp/new_file.md".format(
                 ENDPOINT_STAGING,
                 user=USER,
@@ -559,12 +469,17 @@ class HfApiUploadFileTest(HfApiCommonTestWithLogin):
         self._api.create_repo(repo_id=REPO_NAME, token=self._token)
         try:
             filecontent = BytesIO(b"File content, but in bytes IO")
-            self._api.upload_file(
+            return_val = self._api.upload_file(
                 path_or_fileobj=filecontent,
                 path_in_repo="temp/new_file.md",
                 repo_id=f"{USER}/{REPO_NAME}",
                 token=self._token,
             )
+            self.assertEqual(
+                return_val,
+                f"{self._api.endpoint}/{USER}/{REPO_NAME}/blob/main/temp/new_file.md",
+            )
+
             url = "{}/{user}/{repo}/resolve/main/temp/new_file.md".format(
                 ENDPOINT_STAGING,
                 user=USER,
@@ -600,37 +515,34 @@ class HfApiUploadFileTest(HfApiCommonTestWithLogin):
             self._api.create_repo(repo_id=REPO_NAME)
 
     @retry_endpoint
-    def test_upload_file_conflict(self):
-        REPO_NAME = repo_name("conflict")
+    def test_upload_buffer(self):
+        REPO_NAME = repo_name("buffer")
         self._api.create_repo(repo_id=REPO_NAME, token=self._token)
         try:
-            filecontent = BytesIO(b"File content, but in bytes IO")
-            self._api.upload_file(
-                path_or_fileobj=filecontent,
+            buffer = BytesIO()
+            buffer.write(self.tmp_file_content.encode())
+            return_val = self._api.upload_file(
+                path_or_fileobj=buffer.getvalue(),
                 path_in_repo="temp/new_file.md",
                 repo_id=f"{USER}/{REPO_NAME}",
                 token=self._token,
-                identical_ok=True,
+            )
+            self.assertEqual(
+                return_val,
+                f"{self._api.endpoint}/{USER}/{REPO_NAME}/blob/main/temp/new_file.md",
             )
 
-            # No exception raised when identical_ok is True
-            self._api.upload_file(
-                path_or_fileobj=filecontent,
-                path_in_repo="temp/new_file.md",
-                repo_id=f"{USER}/{REPO_NAME}",
-                token=self._token,
-                identical_ok=True,
+            url = "{}/{user}/{repo}/resolve/main/temp/new_file.md".format(
+                ENDPOINT_STAGING,
+                user=USER,
+                repo=REPO_NAME,
             )
-
-            with self.assertRaises(HTTPError) as err_ctx:
-                self._api.upload_file(
-                    path_or_fileobj=filecontent,
-                    path_in_repo="temp/new_file.md",
-                    repo_id=f"{USER}/{REPO_NAME}",
-                    token=self._token,
-                    identical_ok=False,
-                )
-                self.assertEqual(err_ctx.exception.response.status_code, 409)
+            filepath = cached_download(
+                url, force_download=True, legacy_cache_layout=True
+            )
+            with open(filepath) as downloaded_file:
+                content = downloaded_file.read()
+            self.assertEqual(content, self.tmp_file_content)
 
         except Exception as err:
             self.fail(err)
@@ -638,20 +550,28 @@ class HfApiUploadFileTest(HfApiCommonTestWithLogin):
             self._api.delete_repo(repo_id=REPO_NAME, token=self._token)
 
     @retry_endpoint
-    def test_upload_buffer(self):
+    def test_upload_file_create_pr(self):
         REPO_NAME = repo_name("buffer")
+        pr_revision = quote("refs/pr/1", safe="")
         self._api.create_repo(repo_id=REPO_NAME, token=self._token)
         try:
             buffer = BytesIO()
             buffer.write(self.tmp_file_content.encode())
-            self._api.upload_file(
+            return_val = self._api.upload_file(
                 path_or_fileobj=buffer.getvalue(),
                 path_in_repo="temp/new_file.md",
                 repo_id=f"{USER}/{REPO_NAME}",
                 token=self._token,
+                create_pr=True,
             )
-            url = "{}/{user}/{repo}/resolve/main/temp/new_file.md".format(
+            self.assertEqual(
+                return_val,
+                f"{self._api.endpoint}/{USER}/{REPO_NAME}/blob/{pr_revision}/temp/new_file.md",
+            )
+
+            url = "{}/{user}/{repo}/resolve/{revision}/temp/new_file.md".format(
                 ENDPOINT_STAGING,
+                revision=pr_revision,
                 user=USER,
                 repo=REPO_NAME,
             )
@@ -701,6 +621,230 @@ class HfApiUploadFileTest(HfApiCommonTestWithLogin):
             "model", organization="org", token=self._token
         )
         self.assertEqual(repo_name_with_no_org, "org/model")
+
+    @retry_endpoint
+    def test_upload_folder(self):
+        for private in (False, True):
+            visibility = "private" if private else "public"
+            with self.subTest(f"{visibility} repo"):
+                REPO_NAME = repo_name(f"upload_folder_{visibility}")
+                self._api.create_repo(
+                    token=self._token,
+                    repo_id=REPO_NAME,
+                    private=private,
+                    exist_ok=False,
+                )
+                try:
+                    url = self._api.upload_folder(
+                        folder_path=self.tmp_dir,
+                        path_in_repo="temp/dir",
+                        repo_id=f"{USER}/{REPO_NAME}",
+                        token=self._token,
+                    )
+                    self.assertEqual(
+                        url,
+                        f"{self._api.endpoint}/{USER}/{REPO_NAME}/tree/main/temp/dir",
+                    )
+                    for rpath in ["temp", "nested/file.bin"]:
+                        local_path = os.path.join(self.tmp_dir, rpath)
+                        remote_path = f"temp/dir/{rpath}"
+                        filepath = hf_hub_download(
+                            repo_id=f"{USER}/{REPO_NAME}",
+                            filename=remote_path,
+                            revision="main",
+                            use_auth_token=self._token,
+                        )
+                        assert filepath is not None
+                        with open(filepath, "rb") as downloaded_file:
+                            content = downloaded_file.read()
+                        with open(local_path, "rb") as local_file:
+                            expected_content = local_file.read()
+                        self.assertEqual(content, expected_content)
+
+                    # Re-uploading the same folder twice should be fine
+                    self._api.upload_folder(
+                        folder_path=self.tmp_dir,
+                        path_in_repo="temp/dir",
+                        repo_id=f"{USER}/{REPO_NAME}",
+                        token=self._token,
+                    )
+                except Exception as err:
+                    self.fail(err)
+                finally:
+                    self._api.delete_repo(repo_id=REPO_NAME, token=self._token)
+
+    @retry_endpoint
+    def test_upload_folder_create_pr(self):
+        pr_revision = quote("refs/pr/1", safe="")
+        for private in (False, True):
+            visibility = "private" if private else "public"
+            with self.subTest(f"{visibility} repo"):
+                REPO_NAME = repo_name(f"upload_folder_{visibility}")
+                self._api.create_repo(
+                    token=self._token,
+                    repo_id=REPO_NAME,
+                    private=private,
+                    exist_ok=False,
+                )
+                try:
+                    return_val = self._api.upload_folder(
+                        folder_path=self.tmp_dir,
+                        path_in_repo="temp/dir",
+                        repo_id=f"{USER}/{REPO_NAME}",
+                        token=self._token,
+                        create_pr=True,
+                    )
+                    self.assertEqual(
+                        return_val,
+                        f"{self._api.endpoint}/{USER}/{REPO_NAME}/tree/{pr_revision}/temp/dir",
+                    )
+                    for rpath in ["temp", "nested/file.bin"]:
+                        local_path = os.path.join(self.tmp_dir, rpath)
+                        remote_path = f"temp/dir/{rpath}"
+                        filepath = hf_hub_download(
+                            repo_id=f"{USER}/{REPO_NAME}",
+                            filename=remote_path,
+                            revision="refs/pr/1",
+                            use_auth_token=self._token,
+                        )
+                        assert filepath is not None
+                        with open(filepath, "rb") as downloaded_file:
+                            content = downloaded_file.read()
+                        with open(local_path, "rb") as local_file:
+                            expected_content = local_file.read()
+                        self.assertEqual(content, expected_content)
+                except Exception as err:
+                    self.fail(err)
+                finally:
+                    self._api.delete_repo(repo_id=REPO_NAME, token=self._token)
+
+    @retry_endpoint
+    def test_create_commit_create_pr(self):
+        REPO_NAME = repo_name("create_commit_create_pr")
+        self._api.create_repo(
+            token=self._token,
+            repo_id=REPO_NAME,
+            exist_ok=False,
+        )
+        try:
+            self._api.upload_file(
+                path_or_fileobj=self.tmp_file,
+                path_in_repo="temp/new_file.md",
+                repo_id=f"{USER}/{REPO_NAME}",
+                token=self._token,
+            )
+            operations = [
+                CommitOperationDelete(path_in_repo="temp/new_file.md"),
+                CommitOperationAdd(
+                    path_in_repo="buffer", path_or_fileobj=b"Buffer data"
+                ),
+            ]
+            resp = self._api.create_commit(
+                operations=operations,
+                commit_message="Test create_commit",
+                repo_id=f"{USER}/{REPO_NAME}",
+                token=self._token,
+                create_pr=True,
+            )
+            self.assertEqual(
+                resp,
+                f"{self._api.endpoint}/{USER}/{REPO_NAME}/discussions/1",
+            )
+            with self.assertRaises(HTTPError) as ctx:
+                # Should raise a 404
+                hf_hub_download(
+                    f"{USER}/{REPO_NAME}",
+                    "buffer",
+                    use_auth_token=self._token,
+                )
+                self.assertEqual(ctx.exception.response.status_code, 404)
+            filepath = hf_hub_download(
+                filename="buffer",
+                repo_id=f"{USER}/{REPO_NAME}",
+                use_auth_token=self._token,
+                revision="refs/pr/1",
+            )
+            self.assertTrue(filepath is not None)
+            with open(filepath, "rb") as downloaded_file:
+                content = downloaded_file.read()
+            self.assertEqual(content, b"Buffer data")
+        except Exception as err:
+            self.fail(err)
+        finally:
+            self._api.delete_repo(repo_id=REPO_NAME, token=self._token)
+
+    @retry_endpoint
+    def test_create_commit(self):
+        for private in (False, True):
+            visibility = "private" if private else "public"
+            with self.subTest(f"{visibility} repo"):
+                REPO_NAME = repo_name(f"create_commit_{visibility}")
+                self._api.create_repo(
+                    token=self._token,
+                    repo_id=REPO_NAME,
+                    private=private,
+                    exist_ok=False,
+                )
+                try:
+                    self._api.upload_file(
+                        path_or_fileobj=self.tmp_file,
+                        path_in_repo="temp/new_file.md",
+                        repo_id=f"{USER}/{REPO_NAME}",
+                        token=self._token,
+                    )
+                    with open(self.tmp_file, "rb") as fileobj:
+                        operations = [
+                            CommitOperationDelete(path_in_repo="temp/new_file.md"),
+                            CommitOperationAdd(
+                                path_in_repo="buffer", path_or_fileobj=b"Buffer data"
+                            ),
+                            CommitOperationAdd(
+                                path_in_repo="bytesio",
+                                path_or_fileobj=BytesIO(b"BytesIO data"),
+                            ),
+                            CommitOperationAdd(
+                                path_in_repo="fileobj", path_or_fileobj=fileobj
+                            ),
+                            CommitOperationAdd(
+                                path_in_repo="nested/path",
+                                path_or_fileobj=self.tmp_file,
+                            ),
+                        ]
+                        return_val = self._api.create_commit(
+                            operations=operations,
+                            commit_message="Test create_commit",
+                            repo_id=f"{USER}/{REPO_NAME}",
+                            token=self._token,
+                        )
+                        self.assertIsNone(return_val)
+                    with self.assertRaises(HTTPError):
+                        # Should raise a 404
+                        hf_hub_download(
+                            f"{USER}/{REPO_NAME}",
+                            "temp/new_file.md",
+                            use_auth_token=self._token,
+                        )
+
+                    for path, expected_content in [
+                        ("buffer", b"Buffer data"),
+                        ("bytesio", b"BytesIO data"),
+                        ("fileobj", self.tmp_file_content.encode()),
+                        ("nested/path", self.tmp_file_content.encode()),
+                    ]:
+                        filepath = hf_hub_download(
+                            repo_id=f"{USER}/{REPO_NAME}",
+                            filename=path,
+                            revision="main",
+                            use_auth_token=self._token,
+                        )
+                        self.assertTrue(filepath is not None)
+                        with open(filepath, "rb") as downloaded_file:
+                            content = downloaded_file.read()
+                        self.assertEqual(content, expected_content)
+                except Exception as err:
+                    self.fail(err)
+                finally:
+                    self._api.delete_repo(repo_id=REPO_NAME, token=self._token)
 
 
 class HfApiPublicTest(unittest.TestCase):
@@ -1142,19 +1286,6 @@ class HfApiPublicTest(unittest.TestCase):
         self.assertEqual(len(spaces), 5)
 
     @with_production_testing
-    def test_filter_spaces_with_cardData(self):
-        _api = HfApi()
-        spaces = _api.list_spaces(cardData=True)
-        self.assertGreater(
-            sum([getattr(space, "cardData", None) is not None for space in spaces]),
-            0,
-        )
-        spaces = _api.list_spaces()
-        self.assertTrue(
-            all([getattr(space, "cardData", None) is None for space in spaces])
-        )
-
-    @with_production_testing
     def test_list_spaces_with_models(self):
         _api = HfApi()
         spaces = _api.list_spaces(models="bert-base-uncased")
@@ -1198,14 +1329,23 @@ class HfApiPrivateTest(HfApiCommonTestWithLogin):
         super().setUp()
         self.REPO_NAME = repo_name("private")
         self._api.create_repo(repo_id=self.REPO_NAME, token=self._token, private=True)
+        self._api.create_repo(
+            repo_id=self.REPO_NAME, token=self._token, private=True, repo_type="dataset"
+        )
 
     def tearDown(self) -> None:
         self._api.delete_repo(repo_id=self.REPO_NAME, token=self._token)
+        self._api.delete_repo(
+            repo_id=self.REPO_NAME, token=self._token, repo_type="dataset"
+        )
 
     def test_model_info(self):
         shutil.rmtree(os.path.dirname(HfFolder.path_token))
         # Test we cannot access model info without a token
-        with self.assertRaisesRegex(requests.exceptions.HTTPError, "404 Client Error"):
+        with self.assertRaisesRegex(
+            requests.exceptions.HTTPError,
+            r"401 Client Error: Repository Not Found for url: (.+) \(Request ID: .+\)",
+        ):
             _ = self._api.model_info(repo_id=f"{USER}/{self.REPO_NAME}")
         # Test we can access model info with a token
         model_info = self._api.model_info(
@@ -1213,14 +1353,12 @@ class HfApiPrivateTest(HfApiCommonTestWithLogin):
         )
         self.assertIsInstance(model_info, ModelInfo)
 
-    @with_production_testing
-    def test_list_private_models(self):
+    def test_list_private_datasets(self):
         orig = len(self._api.list_datasets())
         new = len(self._api.list_datasets(use_auth_token=self._token))
         self.assertGreater(new, orig)
 
-    @with_production_testing
-    def test_list_private_datasets(self):
+    def test_list_private_models(self):
         orig = len(self._api.list_models())
         new = len(self._api.list_models(use_auth_token=self._token))
         self.assertGreater(new, orig)
