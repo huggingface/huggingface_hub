@@ -42,10 +42,10 @@ jobs:
       - run: |
           if [[ "${{ matrix.test_repository }}" == "Repository only" ]]
           then
-            pytest --cov -Werror::FutureWarning --log-cli-level=INFO -sv ./tests/test_repository.py -k RepositoryTest
+            pytest --cov=src -Werror::FutureWarning --log-cli-level=INFO -sv ./tests/test_repository.py -k RepositoryTest
 
           else
-            pytest --cov -Werror::FutureWarning --log-cli-level=INFO -sv ./tests/ -k 'not RepositoryTest'
+            pytest --cov=src -Werror::FutureWarning --log-cli-level=INFO -sv ./tests/ -k 'not RepositoryTest'
           fi
 
       - name: Upload coverage reports to Codecov with GitHub Action
@@ -70,7 +70,7 @@ jobs:
         pip install --upgrade pip
         pip install .[testing,torch]
 
-    - run: pytest --cov -Werror::FutureWarning -sv ./tests/test_hubmixin*
+    - run: pytest --cov=src -Werror::FutureWarning -sv ./tests/test_hubmixin*
 
     - name: Upload coverage reports to Codecov with GitHub Action
       uses: codecov/codecov-action@v3
@@ -95,7 +95,7 @@ jobs:
         pip install --upgrade pip
         pip install .[testing,tensorflow]
 
-    - run: pytest --cov -Werror::FutureWarning -sv ./tests/test_keras*
+    - run: pytest --cov=src -Werror::FutureWarning -sv ./tests/test_keras*
 
     - name: Upload coverage reports to Codecov with GitHub Action
       uses: codecov/codecov-action@v3
@@ -119,7 +119,7 @@ jobs:
         pip install --upgrade pip
         pip install .[testing,fastai]
 
-    - run: pytest --cov -Werror::FutureWarning -sv ./tests/test_fastai*
+    - run: pytest --cov=src -Werror::FutureWarning -sv ./tests/test_fastai*
 
     - name: Upload coverage reports to Codecov with GitHub Action
       uses: codecov/codecov-action@v3
