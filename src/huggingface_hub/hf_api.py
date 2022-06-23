@@ -906,6 +906,7 @@ class HfApi:
         sort: Union[Literal["lastModified"], str, None] = None,
         direction: Optional[Literal[-1]] = None,
         limit: Optional[int] = None,
+        cardData: Optional[bool] = None,
         full: Optional[bool] = None,
         use_auth_token: Optional[str] = None,
     ) -> List[DatasetInfo]:
@@ -929,6 +930,9 @@ class HfApi:
             limit (`int`, *optional*):
                 The limit on the number of datasets fetched. Leaving this option
                 to `None` fetches all datasets.
+            cardData (`bool`, *optional*):
+                Whether to grab the metadata for the dataset as well. Can
+                contain useful information such as the PapersWithCode ID.                
             full (`bool`, *optional*):
                 Whether to fetch all dataset data, including the `lastModified`
                 and the `cardData`.
@@ -1009,6 +1013,9 @@ class HfApi:
         if full is not None:
             if full:
                 params.update({"full": True})
+        if cardData is not None:
+            if cardData:
+                params.update({"full": True})                
         r = requests.get(path, params=params, headers=headers)
         _raise_with_request_id(r)
         d = r.json()
@@ -1079,7 +1086,6 @@ class HfApi:
         sort: Union[Literal["lastModified"], str, None] = None,
         direction: Optional[Literal[-1]] = None,
         limit: Optional[int] = None,
-        cardData: Optional[bool] = None,
         datasets: Union[str, Iterable[str], None] = None,
         models: Union[str, Iterable[str], None] = None,
         linked: Optional[bool] = None,
@@ -1105,8 +1111,6 @@ class HfApi:
             limit (`int`, *optional*):
                 The limit on the number of Spaces fetched. Leaving this option
                 to `None` fetches all Spaces.
-            cardData (`bool`, *optional*):
-                Whether to grab the metadata for the Space as well.
             datasets (`str` or `Iterable`, *optional*):
                 Whether to return Spaces that make use of a dataset.
                 The name of a specific dataset can be passed as a string.
@@ -1145,9 +1149,6 @@ class HfApi:
             params.update({"limit": limit})
         if full is not None:
             if full:
-                params.update({"full": True})
-        if cardData is not None:
-            if cardData:
                 params.update({"full": True})
         if linked is not None:
             if linked:
