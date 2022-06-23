@@ -932,7 +932,7 @@ class HfApi:
                 to `None` fetches all datasets.
             cardData (`bool`, *optional*):
                 Whether to grab the metadata for the dataset as well. Can
-                contain useful information such as the PapersWithCode ID.                
+                contain useful information such as the PapersWithCode ID.
             full (`bool`, *optional*):
                 Whether to fetch all dataset data, including the `lastModified`
                 and the `cardData`.
@@ -1015,7 +1015,7 @@ class HfApi:
                 params.update({"full": True})
         if cardData is not None:
             if cardData:
-                params.update({"full": True})                
+                params.update({"full": True})
         r = requests.get(path, params=params, headers=headers)
         _raise_with_request_id(r)
         d = r.json()
