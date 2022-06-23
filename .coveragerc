@@ -1,0 +1,2 @@
+[run]
+source_pkgs = huggingface_hub
