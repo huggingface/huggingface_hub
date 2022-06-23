@@ -5,14 +5,8 @@ on:
     branches:
       - main
       - ci_*
-    paths-ignore:
-      - "js/**"
-      - "api-inference-community/**"
   pull_request:
     types: [assigned, opened, synchronize, reopened]
-    paths-ignore:
-      - "js/**"
-      - "api-inference-community/**"
 
 env:
   HUGGINGFACE_CO_STAGING: yes
@@ -42,10 +36,10 @@ jobs:
       - run: |
           if [[ "${{ matrix.test_repository }}" == "Repository only" ]]
           then
-            pytest --cov=src -Werror::FutureWarning --log-cli-level=INFO -sv ./tests/test_repository.py -k RepositoryTest
+            pytest --cov=src --cov-config=.coveragerc -Werror::FutureWarning --log-cli-level=INFO -sv ./tests/test_repository.py -k RepositoryTest
 
           else
-            pytest --cov=src -Werror::FutureWarning --log-cli-level=INFO -sv ./tests/ -k 'not RepositoryTest'
+            pytest --cov=src --cov-config=.coveragerc -Werror::FutureWarning --log-cli-level=INFO -sv ./tests/ -k 'not RepositoryTest'
           fi
 
       - name: Upload coverage reports to Codecov with GitHub Action
@@ -70,7 +64,7 @@ jobs:
         pip install --upgrade pip
         pip install .[testing,torch]
 
-    - run: pytest --cov=src -Werror::FutureWarning -sv ./tests/test_hubmixin*
+    - run: pytest --cov=src --cov-config=.coveragerc -Werror::FutureWarning -sv ./tests/test_hubmixin*
 
     - name: Upload coverage reports to Codecov with GitHub Action
       uses: codecov/codecov-action@v3
@@ -95,7 +89,7 @@ jobs:
         pip install --upgrade pip
         pip install .[testing,tensorflow]
 
-    - run: pytest --cov=src -Werror::FutureWarning -sv ./tests/test_keras*
+    - run: pytest --cov=src --cov-config=.coveragerc -Werror::FutureWarning -sv ./tests/test_keras*
 
     - name: Upload coverage reports to Codecov with GitHub Action
       uses: codecov/codecov-action@v3
@@ -119,7 +113,7 @@ jobs:
         pip install --upgrade pip
         pip install .[testing,fastai]
 
-    - run: pytest --cov=src -Werror::FutureWarning -sv ./tests/test_fastai*
+    - run: pytest --cov=src --cov-config=.coveragerc -Werror::FutureWarning -sv ./tests/test_fastai*
 
     - name: Upload coverage reports to Codecov with GitHub Action
       uses: codecov/codecov-action@v3
@@ -144,7 +138,7 @@ jobs:
         pip install --upgrade pip
         pip install .[testing]
 
-    - run: RUN_GIT_LFS_TESTS=1 pytest --cov -Werror::FutureWarning -sv ./tests/ -k "HfLargefilesTest"
+    - run: RUN_GIT_LFS_TESTS=1 pytest --cov=src --cov-config=.coveragerc -Werror::FutureWarning -sv ./tests/ -k "HfLargefilesTest"
 
     - name: Upload coverage reports to Codecov with GitHub Action
       uses: codecov/codecov-action@v3
