@@ -4,6 +4,7 @@ from hashlib import new
 from typing import List, Optional
 
 from dateutil.parser import parse as parse_datetime
+from pyparsing import Opt
 
 
 @dataclass
@@ -24,6 +25,7 @@ class DiscussionWithDetails(Discussion):
     conflicting_files: Optional[List[str]]
     target_branch: Optional[str]
     merge_commit_oid: Optional[str]
+    diff: Optional[str]
 
 
 @dataclass

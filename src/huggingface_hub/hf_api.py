@@ -57,6 +57,8 @@ from .utils.endpoint_helpers import (
 from .community import (
     Discussion,
     DiscussionComment,
+    DiscussionStatusChange,
+    DiscussionTitleChange,
     DiscussionWithDetails,
     deserialize_event,
 )
@@ -2350,6 +2352,7 @@ class HfApi:
 
         resp = requests.get(
             path,
+            params={"diff": "1"}
             headers={"Authorization": f"Bearer {token}"} if token else None,
         )
         _raise_for_status(resp)
@@ -2376,7 +2379,74 @@ class HfApi:
             merge_commit_oid=discussion_details["changes"].get("mergeCommitId", None)
             if is_pull_request
             else None,
+            diff=discussion_details.get("diff")
         )
+
+    def comment_discussion(
+        self,
+        repo_id: str,
+        discussion_num: int,
+        comment: str,
+        *,
+        token: str,
+        repo_type: Optional[str] = None,
+    ) -> DiscussionComment:
+        return NotImplemented
+
+    def rename_discussion(
+        self,
+        repo_id: str,
+        discussion_num: int,
+        new_title: str,
+        *,
+        token: str,
+        repo_type: Optional[str] = None,
+    ) -> DiscussionTitleChange:
+        return NotImplemented
+
+    def change_discussion_status(
+        self,
+        repo_id: str,
+        discussion_num: int,
+        new_status: str,
+        *,
+        token: str,
+        repo_type: Optional[str] = None,
+    ) -> DiscussionStatusChange:
+        return NotImplemented
+
+    def merge_pull_request(
+        self,
+        repo_id: str,
+        discussion_num: int,
+        *,
+        token: str,
+        repo_type: Optional[str] = None,
+    ):
+        return NotImplemented
+
+    def edit_discussion_comment(
+        self,
+        repo_id: str,
+        discussion_num: int,
+        comment_id: str,
+        content: str,
+        *,
+        token: str,
+        repo_type: Optional[str] = None,
+    ) -> DiscussionComment:
+        return NotImplemented
+
+    def hide_discussion_comment(
+        self,
+        repo_id: str,
+        discussion_num: int,
+        comment_id: str,
+        *,
+        token: str,
+        repo_type: Optional[str] = None,
+    ) -> DiscussionComment:
+        return NotImplemented
 
 
 class HfFolder:
