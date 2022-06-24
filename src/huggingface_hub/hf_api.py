@@ -12,19 +12,20 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-from functools import partial
 import os
 import re
 import subprocess
 import sys
 import warnings
+from functools import partial
 from os.path import expanduser
 from typing import BinaryIO, Dict, Iterable, List, Optional, Tuple, Union
 from urllib.parse import quote
 
 import requests
-from requests.exceptions import HTTPError
 from dateutil.parser import parse as parse_datetime
+from requests.exceptions import HTTPError
+
 from ._commit_api import (
     CommitOperation,
     CommitOperationAdd,
@@ -32,6 +33,14 @@ from ._commit_api import (
     fetch_upload_modes,
     prepare_commit_payload,
     upload_lfs_files,
+)
+from .community import (
+    Discussion,
+    DiscussionComment,
+    DiscussionStatusChange,
+    DiscussionTitleChange,
+    DiscussionWithDetails,
+    deserialize_event,
 )
 from .constants import (
     DEFAULT_REVISION,
@@ -54,15 +63,8 @@ from .utils.endpoint_helpers import (
     ModelTags,
     _filter_emissions,
 )
-from .community import (
-    Discussion,
-    DiscussionComment,
-    DiscussionStatusChange,
-    DiscussionTitleChange,
-    DiscussionWithDetails,
-    deserialize_event,
-)
 from .utils.pagination import Pagination
+
 
 if sys.version_info >= (3, 8):
     from typing import Literal
@@ -2340,7 +2342,7 @@ class HfApi:
         token: Optional[str] = None,
     ) -> DiscussionWithDetails:
         if not isinstance(discussion_num, int) or discussion_num <= 0:
-            raise ValueError(f"Invalid discussion_num, must be a positive integer")
+            raise ValueError("Invalid discussion_num, must be a positive integer")
         if repo_type not in REPO_TYPES:
             raise ValueError(f"Invalid repo type, must be one of {REPO_TYPES}")
         if repo_type in REPO_TYPES_URL_PREFIXES:
@@ -2352,7 +2354,7 @@ class HfApi:
 
         resp = requests.get(
             path,
-            params={"diff": "1"}
+            params={"diff": "1"},
             headers={"Authorization": f"Bearer {token}"} if token else None,
         )
         _raise_for_status(resp)
@@ -2379,7 +2381,7 @@ class HfApi:
             merge_commit_oid=discussion_details["changes"].get("mergeCommitId", None)
             if is_pull_request
             else None,
-            diff=discussion_details.get("diff")
+            diff=discussion_details.get("diff"),
         )
 
     def comment_discussion(

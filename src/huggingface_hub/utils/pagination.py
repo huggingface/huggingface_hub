@@ -1,6 +1,7 @@
 from dataclasses import dataclass
 from typing import Callable, Generic, List, Optional, TypeVar
 
+
 T = TypeVar("T")
 
 
