@@ -92,7 +92,7 @@ def _raise_for_status(response):
                 e = EntryNotFoundError(message, response)
             _add_request_id_to_error_args(e, request_id)
             raise e
-            
+
         if response.status_code == 401:
             # The repo was not found and the user is not Authenticated
             message = (
