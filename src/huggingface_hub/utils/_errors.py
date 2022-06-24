@@ -54,6 +54,9 @@ class EntryNotFoundError(HTTPError):
     def __init__(self, message, response):
         super(EntryNotFoundError, self).__init__(message, response=response)
 
+def _add_request_id_to_error_args(e, request_id):
+    if request_id is not None and len(e.args) > 0 and isinstance(e.args[0], str):
+        e.args = (e.args[0] + f" (Request ID: {request_id})",) + e.args[1:]
 
 def _raise_for_status(response):
     """
@@ -70,43 +73,30 @@ def _raise_for_status(response):
                 message = (
                     f"{response.status_code} Client Error: Repository Not Found for"
                     f" url: {response.url}. If the repo is private, make sure you are"
-                    f" authenticated. (Request ID: {request_id})"
+                    f" authenticated."
                 )
-                raise RepositoryNotFoundError(message, response)
+                e = RepositoryNotFoundError(message, response)
             elif error_code == "RevisionNotFound":
                 message = (
                     f"{response.status_code} Client Error: Revision Not Found for url:"
-                    f" {response.url}. (Request ID: {request_id})"
+                    f" {response.url}."
                 )
-                raise RevisionNotFoundError(message, response)
+                e = RevisionNotFoundError(message, response)
             elif error_code == "EntryNotFound":
                 message = (
                     f"{response.status_code} Client Error: Entry Not Found for url:"
-                    f" {response.url}. (Request ID: {request_id})"
+                    f" {response.url}."
                 )
-                raise EntryNotFoundError(message, response)
-
-        if response.status_code == 401:
+                e = EntryNotFoundError(message, response)
+        elif response.status_code == 401:
             # The repo was not found and the user is not Authenticated
             message = (
                 f"{response.status_code} Client Error: Repository Not Found for url:"
                 f" {response.url}. If the repo is private, make sure you are"
-                f" authenticated. (Request ID: {request_id})"
+                f" authenticated."
             )
-            raise RepositoryNotFoundError(message, response)
+            e = RepositoryNotFoundError(message, response)
 
-        if request_id is not None and len(e.args) > 0 and isinstance(e.args[0], str):
-            e.args = (e.args[0] + f" (Request ID: {request_id})",) + e.args[1:]
-
-        raise e
-
-
-def _raise_with_request_id(response):
-    request_id = response.headers.get("X-Request-Id")
-    try:
-        response.raise_for_status()
-    except Exception as e:
-        if request_id is not None and len(e.args) > 0 and isinstance(e.args[0], str):
-            e.args = (e.args[0] + f" (Request ID: {request_id})",) + e.args[1:]
+        _add_request_id_to_error_args(e, request_id)
 
         raise e
