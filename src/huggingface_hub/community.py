@@ -11,7 +11,7 @@ from typing import List, Optional
 
 from dateutil.parser import parse as parse_datetime
 
-from .constants import ENDPOINT
+
 @dataclass
 class Discussion:
     """
