@@ -16,7 +16,7 @@ class RepositoryNotFoundError(HTTPError):
     """
 
     def __init__(self, message, response):
-        super(RepositoryNotFoundError, self).__init__(message, response=response)
+        super().__init__(message, response=response)
 
 
 class RevisionNotFoundError(HTTPError):
@@ -34,7 +34,7 @@ class RevisionNotFoundError(HTTPError):
     """
 
     def __init__(self, message, response):
-        super(RevisionNotFoundError, self).__init__(message, response=response)
+        super().__init__(message, response=response)
 
 
 class EntryNotFoundError(HTTPError):
