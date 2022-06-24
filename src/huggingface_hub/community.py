@@ -11,7 +11,7 @@ from typing import List, Optional
 
 from dateutil.parser import parse as parse_datetime
 
-
+from .constants import ENDPOINT
 @dataclass
 class Discussion:
     """
@@ -57,7 +57,7 @@ class Discussion:
     def git_reference(self) -> Optional[str]:
         """
         If this is a pull request, returns the git reference to which changes can be pushed.
-        
+        Returns `None` otehrwise.
         """
         if self.is_pull_request:
             return f"refs/pr/{self.num}"
@@ -179,7 +179,29 @@ class DiscussionComment(DiscussionEvent):
     edited: bool
     hidden: bool
 
-    # TODO @SBrandeis: implement methods to navigate comment history
+    @property
+    def rendered(self) -> str:
+        """The rendered comment, as a HTML string"""
+        return self._event["data"]["latest"]["html"]
+
+    @property
+    def last_edited_at(self) -> datetime:
+        """The last edit tiem, as a `datetime` object."""
+        return parse_datetime(self._event["data"]["latest"]["updatedAt"])
+
+    @property
+    def last_edited_by(self) -> str:
+        """The last edit tiem, as a `datetime` object."""
+        return self._event["data"]["latest"].get("author", {}).get("name", "deleted")
+
+    @property
+    def edit_history(self) -> List[dict]:
+        """The edit history of the comment"""
+        return self._event["data"]["history"]
+
+    @property
+    def number_of_edits(self) -> int:
+        return len(self.edit_history)
 
 
 @dataclass
