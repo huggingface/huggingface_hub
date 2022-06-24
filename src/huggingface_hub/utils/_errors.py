@@ -57,13 +57,13 @@ class EntryNotFoundError(HTTPError):
 
 def _raise_for_status(response):
     """
-    Internal version of `request.raise_for_status()` that will refine a
+    Internal version of `response.raise_for_status()` that will refine a
     potential HTTPError.
     """
     request_id = response.headers.get("X-Request-Id")
     try:
         response.raise_for_status()
-    except Exception as e:
+    except HTTPError as e:
         if "X-Error-Code" in response.headers:
             error_code = response.headers["X-Error-Code"]
             if error_code == "RepoNotFound":
