@@ -193,5 +193,15 @@ __getattr__, __dir__, __all__ = _attach(
             "metadata_save",
             "metadata_update",
         ],
+        "community": [
+            "Discussion",
+            "DiscussionWithDetails",
+            "DiscussionEvent",
+            "DiscussionComment",
+            "DiscussionStatusChange",
+            "DiscussionCommit",
+            "DiscussionTitleChange",
+        ],
+        "utils.pagination": ["Pagination"],
     },
 )

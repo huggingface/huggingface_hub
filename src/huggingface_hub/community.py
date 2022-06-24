@@ -1,3 +1,10 @@
+"""
+Data structures to interact with discussions and pull requests on the Hub.
+
+See [the discussions and pull requests guide](https://huggingface.co/docs/hub/repositories-pull-requests-discussions)
+for more information on pull requests, discussions, and the community tab.
+"""
+
 from dataclasses import dataclass
 from datetime import datetime
 from typing import List, Optional
@@ -50,7 +57,33 @@ class Discussion:
 @dataclass
 class DiscussionWithDetails(Discussion):
     """
+    Subclass of [`Discussion`].
+
     Attributes:
+        title (`str`):
+            The title of the discussion / pull request
+        status (`str`):
+            The status of the discussion / pull request.
+            It can be one of:
+                * `"open"`
+                * `"closed"`
+                * `"merged"` (only for pull requests)
+                * `"draft"` (only for pull requests)
+        num (`int`):
+            The number of the discussion / pull request.
+        repo_id (`str`):
+            The id (`"{namespace}/{repo_name}"`) of the repo on which
+            the discussion / pull request was open.
+        repo_type (`str`):
+            The type of the repo on which the discussion / pull request was open.
+            Posiible values are: `"model"`, `"dataset"`, `"space"`.
+        author (`str`):
+            The username of the discussion / pull request author.
+            Can be `"deleted"` if the user has been deleted since.
+        is_pull_request (`bool`):
+            Wether or not this is a pull request.
+        created_at (`datetime`):
+            The `datetime` of creation of the discussion / pull request.
         events (`list` of [`DiscussionEvent`])
             The list of [`DiscussionEvents`] in this discussion or pull request.
         conflicting_files (`list` of `str`, *optional*):
@@ -110,7 +143,20 @@ class DiscussionEvent:
 class DiscussionComment(DiscussionEvent):
     """A comment in a discussion / pull request.
 
+    Subclass of [`DiscussionEvent`].
+
+
     Attributes:
+        id (`str`):
+            The ID of the event. An hexadecimal string.
+        type (`str`):
+            The type of the event.
+        created_at (`datetime`):
+            A [`datetime`](https://docs.python.org/3/library/datetime.html?highlight=datetime#datetime.datetime)
+            object holding the creation timestamp for the event.
+        author (`str`):
+            The username of the discussion / pull request author.
+            Can be `"deleted"` if the user has been deleted since.
         content (`str`):
             The raw markdown content of the comment. Mentions, links and images are not rendered.
         edited (`bool`):
@@ -130,7 +176,19 @@ class DiscussionComment(DiscussionEvent):
 class DiscussionStatusChange(DiscussionEvent):
     """A change of status in a discussion / pull request.
 
+    Subclass of [`DiscussionEvent`].
+
     Attributes:
+        id (`str`):
+            The ID of the event. An hexadecimal string.
+        type (`str`):
+            The type of the event.
+        created_at (`datetime`):
+            A [`datetime`](https://docs.python.org/3/library/datetime.html?highlight=datetime#datetime.datetime)
+            object holding the creation timestamp for the event.
+        author (`str`):
+            The username of the discussion / pull request author.
+            Can be `"deleted"` if the user has been deleted since.
         new_status (`str`):
             The status of the discussion / pull request after the change.
             It can be one of:
@@ -146,7 +204,19 @@ class DiscussionStatusChange(DiscussionEvent):
 class DiscussionCommit(DiscussionEvent):
     """A commit in a pull request.
 
+    Subclass of [`DiscussionEvent`].
+
     Attributes:
+        id (`str`):
+            The ID of the event. An hexadecimal string.
+        type (`str`):
+            The type of the event.
+        created_at (`datetime`):
+            A [`datetime`](https://docs.python.org/3/library/datetime.html?highlight=datetime#datetime.datetime)
+            object holding the creation timestamp for the event.
+        author (`str`):
+            The username of the discussion / pull request author.
+            Can be `"deleted"` if the user has been deleted since.
         summary (`str`):
             The summary of the commit.
         oid (`str`):
@@ -161,7 +231,19 @@ class DiscussionCommit(DiscussionEvent):
 class DiscussionTitleChange(DiscussionEvent):
     """A rename event in a discussion / pull request.
 
+    Subclass of [`DiscussionEvent`].
+
     Attributes:
+        id (`str`):
+            The ID of the event. An hexadecimal string.
+        type (`str`):
+            The type of the event.
+        created_at (`datetime`):
+            A [`datetime`](https://docs.python.org/3/library/datetime.html?highlight=datetime#datetime.datetime)
+            object holding the creation timestamp for the event.
+        author (`str`):
+            The username of the discussion / pull request author.
+            Can be `"deleted"` if the user has been deleted since.
         old_title (`str`):
             The previous title for the discussion / pull request
         new_title (`str`):
