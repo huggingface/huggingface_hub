@@ -53,6 +53,16 @@ class Discussion:
     is_pull_request: bool
     created_at: datetime
 
+    @property
+    def git_reference(self) -> Optional[str]:
+        """
+        If this is a pull request, returns the git reference to which changes can be pushed.
+        
+        """
+        if self.is_pull_request:
+            return f"refs/pr/{self.num}"
+        return None
+
 
 @dataclass
 class DiscussionWithDetails(Discussion):
