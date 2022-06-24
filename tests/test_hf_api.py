@@ -1367,7 +1367,7 @@ class HfApiPrivateTest(HfApiCommonTestWithLogin):
     def test_list_private_spaces(self):
         orig = len(self._api.list_spaces())
         new = len(self._api.list_spaces(use_auth_token=self._token))
-        self.assertGreater(new, orig)
+        self.assertGreaterEqual(new, orig)
 
 
 class HfFolderTest(unittest.TestCase):
