@@ -5,6 +5,7 @@ from huggingface_hub.utils._errors import (
     RepositoryNotFoundError,
     RevisionNotFoundError,
     _raise_for_status,
+    _raise_with_request_id,
 )
 from requests.exceptions import HTTPError
 from requests.models import Response
@@ -66,6 +67,19 @@ class TestErrorUtils(unittest.TestCase):
         response.url = "test_URL"
         with self.assertRaisesRegex(HTTPError, "Request ID: test-id") as context:
             _raise_for_status(response)
+
+        self.assertEqual(context.exception.response.status_code, 404)
+        self.assertEqual(context.exception.response.url, "test_URL")
+
+    def test_raise_with_request_id(self):
+        response = Response()
+        response.status_code = 404
+        response.headers = {
+            "X-Request-Id": "test-id",
+        }
+        response.url = "test_URL"
+        with self.assertRaisesRegex(HTTPError, "Request ID: test-id") as context:
+            _raise_with_request_id(response)
 
         self.assertEqual(context.exception.response.status_code, 404)
         self.assertEqual(context.exception.response.url, "test_URL")

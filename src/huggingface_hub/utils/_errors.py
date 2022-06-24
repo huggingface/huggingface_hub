@@ -105,3 +105,13 @@ def _raise_for_status(response):
         _add_request_id_to_error_args(e, request_id)
 
         raise e
+
+
+def _raise_with_request_id(request):
+    request_id = request.headers.get("X-Request-Id")
+    try:
+        request.raise_for_status()
+    except Exception as e:
+        _add_request_id_to_error_args(e, request_id)
+
+        raise e
