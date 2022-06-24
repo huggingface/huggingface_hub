@@ -29,4 +29,6 @@
       title: Inference API
     - local: package_reference/utilities
       title: Utilities
+    - local: package_reference/community
+      title: Discussions and Pull Requests
   title: "Reference"
