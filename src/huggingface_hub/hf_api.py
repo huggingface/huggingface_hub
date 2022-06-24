@@ -73,6 +73,7 @@ else:
 
 
 REGEX_DISCUSSION_URL = re.compile(r".*/discussions/(\d+)$")
+REGEX_HEXADECIMAL = re.compile(r"[a-fA-F0-9]")
 USERNAME_PLACEHOLDER = "hf_user"
 
 logger = logging.get_logger(__name__)
@@ -2384,16 +2385,58 @@ class HfApi:
             diff=discussion_details.get("diff"),
         )
 
+    def _post_discussion_changes(
+        self,
+        *,
+        repo_id: str,
+        discussion_num: int,
+        resource: str,
+        body: Optional[dict] = None,
+        token: Optional[str] = None,
+        repo_type: Optional[str] = None,
+    ) -> requests.Response:
+        if not isinstance(discussion_num, int) or discussion_num <= 0:
+            raise ValueError("Invalid discussion_num, must be a positive integer")
+        if repo_type not in REPO_TYPES:
+            raise ValueError(f"Invalid repo type, must be one of {REPO_TYPES}")
+        if repo_type in REPO_TYPES_URL_PREFIXES:
+            repo_id = REPO_TYPES_URL_PREFIXES[repo_type] + repo_id
+        if token is None:
+            token = HfFolder.get_token()
+            if token is None:
+                raise EnvironmentError(
+                    "You need to provide a `token` or be logged in to Hugging "
+                    "Face with `huggingface-cli login`."
+                )
+
+        path = f"{self.endpoint}/api/{repo_id}/discussions/{discussion_num}/{resource}"
+
+        resp = requests.post(
+            path,
+            headers={"Authorization": f"Bearer {token}"},
+            json=body,
+        )
+        _raise_for_status(resp)
+        return resp
+
     def comment_discussion(
         self,
         repo_id: str,
         discussion_num: int,
         comment: str,
         *,
-        token: str,
+        token: Optional[str] = None,
         repo_type: Optional[str] = None,
     ) -> DiscussionComment:
-        return NotImplemented
+        resp = self._post_discussion_changes(
+            repo_id=repo_id,
+            repo_type=repo_type,
+            discussion_num=discussion_num,
+            token=token,
+            resource="comment",
+            body={"comment": comment},
+        )
+        return deserialize_event(resp.json()["newMessage"])
 
     def rename_discussion(
         self,
@@ -2401,10 +2444,18 @@ class HfApi:
         discussion_num: int,
         new_title: str,
         *,
-        token: str,
+        token: Optional[str] = None,
         repo_type: Optional[str] = None,
     ) -> DiscussionTitleChange:
-        return NotImplemented
+        resp = self._post_discussion_changes(
+            repo_id=repo_id,
+            repo_type=repo_type,
+            discussion_num=discussion_num,
+            token=token,
+            resource="title",
+            body={"title": new_title},
+        )
+        return deserialize_event(resp.json()["newTitle"])
 
     def change_discussion_status(
         self,
@@ -2412,10 +2463,21 @@ class HfApi:
         discussion_num: int,
         new_status: str,
         *,
-        token: str,
+        token: Optional[str] = None,
+        reason: Optional[str] = None,
         repo_type: Optional[str] = None,
     ) -> DiscussionStatusChange:
-        return NotImplemented
+        if new_status not in ["open", "closed"]:
+            raise ValueError("Invalid status, valid statuses are: 'open' and 'closed'")
+        resp = self._post_discussion_changes(
+            repo_id=repo_id,
+            repo_type=repo_type,
+            discussion_num=discussion_num,
+            token=token,
+            resource="status",
+            body={"status": new_status, "reason": reason},
+        )
+        return deserialize_event(resp.json()["newStatus"])
 
     def merge_pull_request(
         self,
@@ -2425,19 +2487,35 @@ class HfApi:
         token: str,
         repo_type: Optional[str] = None,
     ):
-        return NotImplemented
+        self._post_discussion_changes(
+            repo_id=repo_id,
+            repo_type=repo_type,
+            discussion_num=discussion_num,
+            token=token,
+            resource="merge",
+        )
 
     def edit_discussion_comment(
         self,
         repo_id: str,
         discussion_num: int,
         comment_id: str,
-        content: str,
+        new_content: str,
         *,
-        token: str,
+        token: Optional[str] = None,
         repo_type: Optional[str] = None,
     ) -> DiscussionComment:
-        return NotImplemented
+        if not REGEX_HEXADECIMAL.fullmatch(comment_id):
+            raise ValueError("Invalid comment_id: must be an hexadecimal string")
+        resp = self._post_discussion_changes(
+            repo_id=repo_id,
+            repo_type=repo_type,
+            discussion_num=discussion_num,
+            token=token,
+            resource=f"comment/{comment_id.lower()}/edit",
+            body={"content": new_content},
+        )
+        return deserialize_event(resp.json()["updatedComment"])
 
     def hide_discussion_comment(
         self,
@@ -2448,7 +2526,16 @@ class HfApi:
         token: str,
         repo_type: Optional[str] = None,
     ) -> DiscussionComment:
-        return NotImplemented
+        if not REGEX_HEXADECIMAL.fullmatch(comment_id):
+            raise ValueError("Invalid comment_id: must be an hexadecimal string")
+        resp = self._post_discussion_changes(
+            repo_id=repo_id,
+            repo_type=repo_type,
+            discussion_num=discussion_num,
+            token=token,
+            resource=f"comment/{comment_id.lower()}/hide",
+        )
+        return deserialize_event(resp.json()["updatedComment"])
 
 
 class HfFolder:
