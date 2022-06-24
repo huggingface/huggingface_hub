@@ -12,6 +12,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+from functools import partial
 import os
 import re
 import subprocess
@@ -23,7 +24,7 @@ from urllib.parse import quote
 
 import requests
 from requests.exceptions import HTTPError
-
+from dateutil.parser import parse as parse_datetime
 from ._commit_api import (
     CommitOperation,
     CommitOperationAdd,
@@ -53,7 +54,13 @@ from .utils.endpoint_helpers import (
     ModelTags,
     _filter_emissions,
 )
-
+from .community import (
+    Discussion,
+    DiscussionComment,
+    DiscussionWithDetails,
+    deserialize_event,
+)
+from .utils.pagination import Pagination
 
 if sys.version_info >= (3, 8):
     from typing import Literal
@@ -2244,6 +2251,132 @@ class HfApi:
             return f"{username}/{model_id}"
         else:
             return f"{organization}/{model_id}"
+
+    def get_repo_discussions(
+        self,
+        repo_id: str,
+        *,
+        repo_type: Optional[str] = None,
+        token: Optional[str] = None,
+        _page_index: int = 0,
+    ) -> Pagination[Discussion]:
+        """Fetches discussions and pull requests for the given repo
+
+        Args:
+            repo_id (`str`):
+                A namespace (user or an organization) and a repo name separated
+                by a `/`.
+            repo_type (`str`, *optional*):
+                Set to `"dataset"` or `"space"` if uploading to a dataset or
+                space, `None` or `"model"` if uploading to a model. Default is
+                `None`.
+            token (`str`, *optional*):
+                An authentication token (See https://huggingface.co/settings/token)
+
+        Returns:
+            `Pagination[Discussion]`: A [`Pagination`] of [`Discussion`].
+        """
+        if repo_type not in REPO_TYPES:
+            raise ValueError(f"Invalid repo type, must be one of {REPO_TYPES}")
+        if repo_type in REPO_TYPES_URL_PREFIXES:
+            repo_id = REPO_TYPES_URL_PREFIXES[repo_type] + repo_id
+        if token is None:
+            token = HfFolder.get_token()
+
+        path = f"{self.endpoint}/api/{repo_id}/discussions"
+
+        resp = requests.get(
+            path,
+            headers={"Authorization": f"Bearer {token}"} if token else None,
+        )
+        _raise_for_status(resp)
+
+        paginated_discussions = resp.json()
+        discussions = paginated_discussions["discussions"]
+        total = paginated_discussions["count"]
+        start = paginated_discussions["start"]
+
+        has_next = (start + len(discussions)) < total
+
+        next_page = (
+            partial(
+                self.get_repo_discussions,
+                repo_id=repo_id,
+                repo_type=repo_type,
+                token=token,
+                _page_index=_page_index + 1,
+            )
+            if has_next
+            else None
+        )
+
+        return Pagination(
+            value=[
+                Discussion(
+                    title=discussion["title"],
+                    num=discussion["num"],
+                    author=discussion.get("author", {}).get("name", "deleted"),
+                    created_at=parse_datetime(discussion["createdAt"]),
+                    status=discussion["status"],
+                    repo_id=discussion["repo"]["name"],
+                    repo_type=discussion["repo"]["type"],
+                    is_pull_request=discussion["isPullRequest"],
+                )
+                for discussion in discussions
+            ],
+            page_num=_page_index,
+            total=total,
+            next_page=next_page,
+        )
+
+    def get_discussion_details(
+        self,
+        repo_id: str,
+        discussion_num: int,
+        *,
+        repo_type: Optional[str] = None,
+        token: Optional[str] = None,
+    ) -> DiscussionWithDetails:
+        if not isinstance(discussion_num, int) or discussion_num <= 0:
+            raise ValueError(f"Invalid discussion_num, must be a positive integer")
+        if repo_type not in REPO_TYPES:
+            raise ValueError(f"Invalid repo type, must be one of {REPO_TYPES}")
+        if repo_type in REPO_TYPES_URL_PREFIXES:
+            repo_id = REPO_TYPES_URL_PREFIXES[repo_type] + repo_id
+        if token is None:
+            token = HfFolder.get_token()
+
+        path = f"{self.endpoint}/api/{repo_id}/discussions/{discussion_num}"
+
+        resp = requests.get(
+            path,
+            headers={"Authorization": f"Bearer {token}"} if token else None,
+        )
+        _raise_for_status(resp)
+
+        discussion_details = resp.json()
+        is_pull_request = discussion_details["isPullRequest"]
+
+        return DiscussionWithDetails(
+            title=discussion_details["title"],
+            num=discussion_details["num"],
+            author=discussion_details.get("author", {}).get("name", "deleted"),
+            created_at=parse_datetime(discussion_details["createdAt"]),
+            status=discussion_details["status"],
+            repo_id=discussion_details["repo"]["name"],
+            repo_type=discussion_details["repo"]["type"],
+            is_pull_request=discussion_details["isPullRequest"],
+            events=[deserialize_event(evt) for evt in discussion_details["events"]],
+            conflicting_files=discussion_details["filesWithConflicts"]
+            if is_pull_request
+            else None,
+            target_branch=discussion_details["changes"]["base"]
+            if is_pull_request
+            else None,
+            merge_commit_oid=discussion_details["changes"].get("mergeCommitId", None)
+            if is_pull_request
+            else None,
+        )
 
 
 class HfFolder:
