@@ -1076,7 +1076,6 @@ class HfApi:
         d = r.json()
         return [MetricInfo(**x) for x in d]
 
-    @_deprecate_positional_args
     def list_spaces(
         self,
         *,
