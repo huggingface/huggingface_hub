@@ -54,9 +54,11 @@ class EntryNotFoundError(HTTPError):
     def __init__(self, message, response):
         super(EntryNotFoundError, self).__init__(message, response=response)
 
+
 def _add_request_id_to_error_args(e, request_id):
     if request_id is not None and len(e.args) > 0 and isinstance(e.args[0], str):
         e.args = (e.args[0] + f" (Request ID: {request_id})",) + e.args[1:]
+
 
 def _raise_for_status(response):
     """
@@ -73,7 +75,7 @@ def _raise_for_status(response):
                 message = (
                     f"{response.status_code} Client Error: Repository Not Found for"
                     f" url: {response.url}. If the repo is private, make sure you are"
-                    f" authenticated."
+                    " authenticated."
                 )
                 e = RepositoryNotFoundError(message, response)
             elif error_code == "RevisionNotFound":
@@ -93,7 +95,7 @@ def _raise_for_status(response):
             message = (
                 f"{response.status_code} Client Error: Repository Not Found for url:"
                 f" {response.url}. If the repo is private, make sure you are"
-                f" authenticated."
+                " authenticated."
             )
             e = RepositoryNotFoundError(message, response)
 

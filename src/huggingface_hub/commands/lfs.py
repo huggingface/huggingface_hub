@@ -204,6 +204,6 @@ class LfsUploadCommand:
                     "parts": parts,
                 },
             )
-            _raise_with_request_id(r)
+            _raise_for_status(r)
 
             write_msg({"event": "complete", "oid": oid})
