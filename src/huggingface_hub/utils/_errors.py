@@ -84,13 +84,16 @@ def _raise_for_status(response):
                     f" {response.url}."
                 )
                 e = RevisionNotFoundError(message, response)
-            elif error_code == "EntryNotFound":
+            if error_code == "EntryNotFound":
                 message = (
                     f"{response.status_code} Client Error: Entry Not Found for url:"
                     f" {response.url}."
                 )
                 e = EntryNotFoundError(message, response)
-        elif response.status_code == 401:
+            _add_request_id_to_error_args(e, request_id)
+            raise e
+            
+        if response.status_code == 401:
             # The repo was not found and the user is not Authenticated
             message = (
                 f"{response.status_code} Client Error: Repository Not Found for url:"
