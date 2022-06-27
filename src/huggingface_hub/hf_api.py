@@ -2420,6 +2420,96 @@ class HfApi:
             diff=discussion_details.get("diff"),
         )
 
+    def create_discussion(
+        self,
+        repo_id: str,
+        title: str,
+        *,
+        token: str,
+        description: Optional[str] = None,
+        repo_type: Optional[str] = None,
+        pull_request: bool = False,
+    ) -> DiscussionWithDetails:
+        """Creates a discussion or pull request.
+
+        Pull Requests created programmatically will be in `"draft"` status.
+
+        Args:
+            repo_id (`str`):
+                A namespace (user or an organization) and a repo name separated
+                by a `/`.
+            title (`str`):
+                The title of the discussion. It can be up to 200 characters long,
+                and must be at least 3 characters long. Leading and trailing whitespaces
+                will be stripped.
+            token (`str`):
+                An authentication token (See https://huggingface.co/settings/token)
+            description (`str`, *optional*):
+                An optional description for the pull request.
+                Defaults to `"Discussion opened with the huggingface_hub Python library"`
+            pull_request (`bool`, *optional*):
+                Whether to create a pull request or discussion. If `True`, creates a pull request.
+                If `False`, creates a discussion. Defaults to `False`.
+            repo_type (`str`, *optional*):
+                Set to `"dataset"` or `"space"` if uploading to a dataset or
+                space, `None` or `"model"` if uploading to a model. Default is
+                `None`.
+
+        Returns: [`DiscussionWithDetails`]
+
+        <Tip>
+
+        Raises the following errors:
+
+            - [`HTTPError`](https://2.python-requests.org/en/master/api/#requests.HTTPError)
+              if the HuggingFace API returned an error
+            - [`ValueError`](https://docs.python.org/3/library/exceptions.html#ValueError)
+              if some parameter value is invalid
+            - [`~huggingface_hub.utils.RepositoryNotFoundError`]
+              If the repository to download from cannot be found. This may be because it doesn't exist,
+              or because it is set to `private` and you do not have access.
+
+        </Tip>"""
+        if repo_type not in REPO_TYPES:
+            raise ValueError(f"Invalid repo type, must be one of {REPO_TYPES}")
+        if repo_type is None:
+            repo_type = REPO_TYPE_MODEL
+        full_repo_id = f"{repo_type}s/{repo_id}"
+        if token is None:
+            token = HfFolder.get_token()
+            if token is None:
+                raise EnvironmentError(
+                    "You need to provide a `token` or be logged in to Hugging "
+                    "Face with `huggingface-cli login`."
+                )
+        if description is not None:
+            description = description.strip()
+        description = (
+            description
+            if description
+            else (
+                f"{'Pull Request' if pull_request else 'Discussion'} opened with the"
+                " [huggingface_hub Python library](https://huggingface.co/docs/huggingface_hub)"
+            )
+        )
+
+        resp = requests.post(
+            f"{self.endpoint}/api/{full_repo_id}/discussions",
+            json={
+                "title": title.strip(),
+                "description": description,
+                "pullRequest": pull_request,
+            },
+        )
+        _raise_for_status(resp)
+        num = resp.json()["num"]
+        return self.get_discussion_details(
+            repo_id=repo_id,
+            repo_type=repo_type,
+            discussion_num=num,
+            token=token,
+        )
+
     def _post_discussion_changes(
         self,
         *,
