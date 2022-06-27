@@ -2285,8 +2285,9 @@ class HfApi:
         """
         if repo_type not in REPO_TYPES:
             raise ValueError(f"Invalid repo type, must be one of {REPO_TYPES}")
-        if repo_type in REPO_TYPES_URL_PREFIXES:
-            repo_id = REPO_TYPES_URL_PREFIXES[repo_type] + repo_id
+        if repo_type is None:
+            repo_type = REPO_TYPE_MODEL
+        repo_id = f"{repo_type}s/{repo_id}"
         if token is None:
             token = HfFolder.get_token()
 
@@ -2379,8 +2380,9 @@ class HfApi:
             raise ValueError("Invalid discussion_num, must be a positive integer")
         if repo_type not in REPO_TYPES:
             raise ValueError(f"Invalid repo type, must be one of {REPO_TYPES}")
-        if repo_type in REPO_TYPES_URL_PREFIXES:
-            repo_id = REPO_TYPES_URL_PREFIXES[repo_type] + repo_id
+        if repo_type is None:
+            repo_type = REPO_TYPE_MODEL
+        repo_id = f"{repo_type}s/{repo_id}"
         if token is None:
             token = HfFolder.get_token()
 
