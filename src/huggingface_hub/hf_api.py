@@ -73,7 +73,6 @@ else:
 
 
 REGEX_DISCUSSION_URL = re.compile(r".*/discussions/(\d+)$")
-REGEX_HEXADECIMAL = re.compile(r"[a-fA-F0-9]")
 USERNAME_PLACEHOLDER = "hf_user"
 
 logger = logging.get_logger(__name__)
@@ -1138,7 +1137,9 @@ class HfApi:
         path = (
             f"{self.endpoint}/api/models/{repo_id}"
             if revision is None
-            else f"{self.endpoint}/api/models/{repo_id}/revision/{revision}"
+            else (
+                f"{self.endpoint}/api/models/{repo_id}/revision/{quote(revision, safe='')}"
+            )
         )
         headers = {"authorization": f"Bearer {token}"} if token is not None else None
         status_query_param = {"securityStatus": True} if securityStatus else None
@@ -1195,7 +1196,9 @@ class HfApi:
         path = (
             f"{self.endpoint}/api/datasets/{repo_id}"
             if revision is None
-            else f"{self.endpoint}/api/datasets/{repo_id}/revision/{revision}"
+            else (
+                f"{self.endpoint}/api/datasets/{repo_id}/revision/{quote(revision, safe='')}"
+            )
         )
         headers = {"authorization": f"Bearer {token}"} if token is not None else None
         r = requests.get(path, headers=headers, timeout=timeout)
@@ -1249,7 +1252,9 @@ class HfApi:
         path = (
             f"{self.endpoint}/api/spaces/{repo_id}"
             if revision is None
-            else f"{self.endpoint}/api/spaces/{repo_id}/revision/{revision}"
+            else (
+                f"{self.endpoint}/api/spaces/{repo_id}/revision/{quote(revision, safe='')}"
+            )
         )
         headers = {"authorization": f"Bearer {token}"} if token is not None else None
         r = requests.get(path, headers=headers, timeout=timeout)
@@ -1802,7 +1807,9 @@ class HfApi:
         if repo_type not in REPO_TYPES:
             raise ValueError(f"Invalid repo type, must be one of {REPO_TYPES}")
         token, name = self._validate_or_retrieve_token(token)
-        revision = revision if revision is not None else DEFAULT_REVISION
+        revision = (
+            quote(revision, safe="") if revision is not None else DEFAULT_REVISION
+        )
         create_pr = create_pr if create_pr is not None else False
 
         operations = list(operations)
@@ -2501,6 +2508,7 @@ class HfApi:
                 "description": description,
                 "pullRequest": pull_request,
             },
+            headers={"Authorization": f"Bearer {token}"},
         )
         _raise_for_status(resp)
         num = resp.json()["num"]
@@ -2749,13 +2757,16 @@ class HfApi:
         """
         if new_status not in ["open", "closed"]:
             raise ValueError("Invalid status, valid statuses are: 'open' and 'closed'")
+        body = {"status": new_status}
+        if comment and comment.strip():
+            body["comment"] = comment.strip()
         resp = self._post_discussion_changes(
             repo_id=repo_id,
             repo_type=repo_type,
             discussion_num=discussion_num,
             token=token,
             resource="status",
-            body={"status": new_status, "comment": comment},
+            body=body,
         )
         return deserialize_event(resp.json()["newStatus"])
 
@@ -2808,7 +2819,7 @@ class HfApi:
             discussion_num=discussion_num,
             token=token,
             resource="merge",
-            body={"comment": comment},
+            body={"comment": comment.strip()} if comment and comment.strip() else None,
         )
 
     def edit_discussion_comment(
@@ -2830,7 +2841,7 @@ class HfApi:
             discussion_num (`int`):
                 The number of the discussion or pull request. Must be a strictly positive integer.
             comment_id (`str`):
-                The ID of the comment to edit. ID is an hexadecimal string.
+                The ID of the comment to edit.
             new_content (`str`):
                 The new content of the comment. Comments support markdown formatting.
             repo_type (`str`, *optional*):
@@ -2857,8 +2868,6 @@ class HfApi:
 
         </Tip>
         """
-        if not REGEX_HEXADECIMAL.fullmatch(comment_id):
-            raise ValueError("Invalid comment_id: must be an hexadecimal string")
         resp = self._post_discussion_changes(
             repo_id=repo_id,
             repo_type=repo_type,
@@ -2889,7 +2898,7 @@ class HfApi:
             discussion_num (`int`):
                 The number of the discussion or pull request. Must be a strictly positive integer.
             comment_id (`str`):
-                The ID of the comment to edit. ID is an hexadecimal string.
+                The ID of the comment to edit.
             repo_type (`str`, *optional*):
                 Set to `"dataset"` or `"space"` if uploading to a dataset or
                 space, `None` or `"model"` if uploading to a model. Default is
@@ -2914,8 +2923,6 @@ class HfApi:
 
         </Tip>
         """
-        if not REGEX_HEXADECIMAL.fullmatch(comment_id):
-            raise ValueError("Invalid comment_id: must be an hexadecimal string")
         resp = self._post_discussion_changes(
             repo_id=repo_id,
             repo_type=repo_type,
