@@ -63,11 +63,6 @@ class SingleResultTask:
 
 @dataclass
 class SingleResultDataset:
-    """
-    This will switch to required at some point. in any case, we need them to
-    link to PWC
-    """
-
     name: str
     """
     Example: Common Voice (French). A pretty name for the dataset.
@@ -103,8 +98,8 @@ class SingleResultDataset:
 class SingleResult:
     task: "SingleResultTask"
     dataset: "Optional[SingleResultDataset]"
-    metrics: "List[SingleMetric]"
     """
     This will switch to required at some point. in any case, we need them to
     link to PWC
     """
+    metrics: "List[SingleMetric]"
