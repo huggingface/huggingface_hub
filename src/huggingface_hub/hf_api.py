@@ -2489,7 +2489,8 @@ class HfApi:
             if description
             else (
                 f"{'Pull Request' if pull_request else 'Discussion'} opened with the"
-                " [huggingface_hub Python library](https://huggingface.co/docs/huggingface_hub)"
+                " [huggingface_hub Python"
+                " library](https://huggingface.co/docs/huggingface_hub)"
             )
         )
 
