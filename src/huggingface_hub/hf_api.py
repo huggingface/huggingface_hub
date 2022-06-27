@@ -2344,6 +2344,37 @@ class HfApi:
         repo_type: Optional[str] = None,
         token: Optional[str] = None,
     ) -> DiscussionWithDetails:
+        """Fetches a discussion's / pull request's details from the Hub
+
+        Args:
+            repo_id (`str`):
+                A namespace (user or an organization) and a repo name separated
+                by a `/`.
+            discussion_num (`int`):
+                The number of the discussion or pull request. Must be a strictly positive integer.
+            repo_type (`str`, *optional*):
+                Set to `"dataset"` or `"space"` if uploading to a dataset or
+                space, `None` or `"model"` if uploading to a model. Default is
+                `None`.
+            token (`str`, *optional*):
+                An authentication token (See https://huggingface.co/settings/token)
+
+        Returns: [`DiscussionWithDetails`]
+
+        <Tip>
+
+        Raises the following errors:
+
+            - [`HTTPError`](https://2.python-requests.org/en/master/api/#requests.HTTPError)
+              if the HuggingFace API returned an error
+            - [`ValueError`](https://docs.python.org/3/library/exceptions.html#ValueError)
+              if some parameter value is invalid
+            - [`~huggingface_hub.utils.RepositoryNotFoundError`]
+              If the repository to download from cannot be found. This may be because it doesn't exist,
+              or because it is set to `private` and you do not have access.
+
+        </Tip>
+        """
         if not isinstance(discussion_num, int) or discussion_num <= 0:
             raise ValueError("Invalid discussion_num, must be a positive integer")
         if repo_type not in REPO_TYPES:
@@ -2397,12 +2428,14 @@ class HfApi:
         token: Optional[str] = None,
         repo_type: Optional[str] = None,
     ) -> requests.Response:
+        """Internal utility to POST changes to a discussion or pull request"""
         if not isinstance(discussion_num, int) or discussion_num <= 0:
             raise ValueError("Invalid discussion_num, must be a positive integer")
         if repo_type not in REPO_TYPES:
             raise ValueError(f"Invalid repo type, must be one of {REPO_TYPES}")
-        if repo_type in REPO_TYPES_URL_PREFIXES:
-            repo_id = REPO_TYPES_URL_PREFIXES[repo_type] + repo_id
+        if repo_type is None:
+            repo_type = REPO_TYPE_MODEL
+        repo_id = f"{repo_type}s/{repo_id}"
         if token is None:
             token = HfFolder.get_token()
             if token is None:
@@ -2430,6 +2463,62 @@ class HfApi:
         token: Optional[str] = None,
         repo_type: Optional[str] = None,
     ) -> DiscussionComment:
+        """Creates a new comment on the given discussion
+
+        Args:
+            repo_id (`str`):
+                A namespace (user or an organization) and a repo name separated
+                by a `/`.
+            discussion_num (`int`):
+                The number of the discussion or pull request. Must be a strictly positive integer.
+            comment (`str`):
+                The content of the comment to create. Comments support markdown formatting.
+            repo_type (`str`, *optional*):
+                Set to `"dataset"` or `"space"` if uploading to a dataset or
+                space, `None` or `"model"` if uploading to a model. Default is
+                `None`.
+            token (`str`, *optional*):
+                An authentication token (See https://huggingface.co/settings/token)
+
+        Returns:
+            [`DiscussionComment`]: the newly created comment
+
+
+        Examples:
+            ```python
+
+            >>> comment = \"\"\"
+            ... Hello @otheruser!
+            ...
+            ... # This is a title
+            ...
+            ... **This is bold**, *this is italic* and ~this is strikethrough~
+            ... And [this](http://url) is a link
+            ... \"\"\"
+
+            >>> HfApi().comment_discussion(
+            ...     repo_id="username/repo_name",
+            ...     discussion_num=34
+            ...     comment=comment
+            ... )
+            # DiscussionComment(id='deadbeef0000000', type='comment', ...)
+
+            ```
+
+        <Tip>
+
+        Raises the following errors:
+
+            - [`HTTPError`](https://2.python-requests.org/en/master/api/#requests.HTTPError)
+              if the HuggingFace API returned an error
+            - [`ValueError`](https://docs.python.org/3/library/exceptions.html#ValueError)
+              if some parameter value is invalid
+            - [`~huggingface_hub.utils.RepositoryNotFoundError`]
+              If the repository to download from cannot be found. This may be because it doesn't exist,
+              or because it is set to `private` and you do not have access.
+
+        </Tip>
+        """
         resp = self._post_discussion_changes(
             repo_id=repo_id,
             repo_type=repo_type,
@@ -2449,6 +2538,53 @@ class HfApi:
         token: Optional[str] = None,
         repo_type: Optional[str] = None,
     ) -> DiscussionTitleChange:
+        """Renames a discussion
+
+        Args:
+            repo_id (`str`):
+                A namespace (user or an organization) and a repo name separated
+                by a `/`.
+            discussion_num (`int`):
+                The number of the discussion or pull request. Must be a strictly positive integer.
+            new_title (`str`):
+                The new title for the discussion
+            repo_type (`str`, *optional*):
+                Set to `"dataset"` or `"space"` if uploading to a dataset or
+                space, `None` or `"model"` if uploading to a model. Default is
+                `None`.
+            token (`str`, *optional*):
+                An authentication token (See https://huggingface.co/settings/token)
+
+        Returns:
+            [`DiscussionTitleChange`]: the title change event
+
+
+        Examples:
+            ```python
+            >>> new_title = "New title, fixing a typo"
+            >>> HfApi().rename_discussion(
+            ...     repo_id="username/repo_name",
+            ...     discussion_num=34
+            ...     new_title=new_title
+            ... )
+            # DiscussionTitleChange(id='deadbeef0000000', type='title-change', ...)
+
+            ```
+
+        <Tip>
+
+        Raises the following errors:
+
+            - [`HTTPError`](https://2.python-requests.org/en/master/api/#requests.HTTPError)
+              if the HuggingFace API returned an error
+            - [`ValueError`](https://docs.python.org/3/library/exceptions.html#ValueError)
+              if some parameter value is invalid
+            - [`~huggingface_hub.utils.RepositoryNotFoundError`]
+              If the repository to download from cannot be found. This may be because it doesn't exist,
+              or because it is set to `private` and you do not have access.
+
+        </Tip>
+        """
         resp = self._post_discussion_changes(
             repo_id=repo_id,
             repo_type=repo_type,
@@ -2466,9 +2602,58 @@ class HfApi:
         new_status: str,
         *,
         token: Optional[str] = None,
-        reason: Optional[str] = None,
+        comment: Optional[str] = None,
         repo_type: Optional[str] = None,
     ) -> DiscussionStatusChange:
+        """Closes or re-opens a discussion or pull request.
+
+        Args:
+            repo_id (`str`):
+                A namespace (user or an organization) and a repo name separated
+                by a `/`.
+            discussion_num (`int`):
+                The number of the discussion or pull request. Must be a strictly positive integer.
+            new_status (`str`):
+                The new status for the discussion, either `"open"` or `"closed"`.
+            comment (`str`, *optional*):
+                An optional comment to post with the status change.
+            repo_type (`str`, *optional*):
+                Set to `"dataset"` or `"space"` if uploading to a dataset or
+                space, `None` or `"model"` if uploading to a model. Default is
+                `None`.
+            token (`str`, *optional*):
+                An authentication token (See https://huggingface.co/settings/token)
+
+        Returns:
+            [`DiscussionStatusChange`]: the status change event
+
+
+        Examples:
+            ```python
+            >>> new_title = "New title, fixing a typo"
+            >>> HfApi().rename_discussion(
+            ...     repo_id="username/repo_name",
+            ...     discussion_num=34
+            ...     new_title=new_title
+            ... )
+            # DiscussionStatusChange(id='deadbeef0000000', type='status-change', ...)
+
+            ```
+
+        <Tip>
+
+        Raises the following errors:
+
+            - [`HTTPError`](https://2.python-requests.org/en/master/api/#requests.HTTPError)
+              if the HuggingFace API returned an error
+            - [`ValueError`](https://docs.python.org/3/library/exceptions.html#ValueError)
+              if some parameter value is invalid
+            - [`~huggingface_hub.utils.RepositoryNotFoundError`]
+              If the repository to download from cannot be found. This may be because it doesn't exist,
+              or because it is set to `private` and you do not have access.
+
+        </Tip>
+        """
         if new_status not in ["open", "closed"]:
             raise ValueError("Invalid status, valid statuses are: 'open' and 'closed'")
         resp = self._post_discussion_changes(
@@ -2477,7 +2662,7 @@ class HfApi:
             discussion_num=discussion_num,
             token=token,
             resource="status",
-            body={"status": new_status, "reason": reason},
+            body={"status": new_status, "comment": comment},
         )
         return deserialize_event(resp.json()["newStatus"])
 
@@ -2487,14 +2672,50 @@ class HfApi:
         discussion_num: int,
         *,
         token: str,
+        comment: Optional[str] = None,
         repo_type: Optional[str] = None,
     ):
+        """Merges a pull request.
+
+        Args:
+            repo_id (`str`):
+                A namespace (user or an organization) and a repo name separated
+                by a `/`.
+            discussion_num (`int`):
+                The number of the discussion or pull request. Must be a strictly positive integer.
+            comment (`str`, *optional*):
+                An optional comment to post with the status change.
+            repo_type (`str`, *optional*):
+                Set to `"dataset"` or `"space"` if uploading to a dataset or
+                space, `None` or `"model"` if uploading to a model. Default is
+                `None`.
+            token (`str`, *optional*):
+                An authentication token (See https://huggingface.co/settings/token)
+
+        Returns:
+            [`DiscussionStatusChange`]: the status change event
+
+        <Tip>
+
+        Raises the following errors:
+
+            - [`HTTPError`](https://2.python-requests.org/en/master/api/#requests.HTTPError)
+              if the HuggingFace API returned an error
+            - [`ValueError`](https://docs.python.org/3/library/exceptions.html#ValueError)
+              if some parameter value is invalid
+            - [`~huggingface_hub.utils.RepositoryNotFoundError`]
+              If the repository to download from cannot be found. This may be because it doesn't exist,
+              or because it is set to `private` and you do not have access.
+
+        </Tip>
+        """
         self._post_discussion_changes(
             repo_id=repo_id,
             repo_type=repo_type,
             discussion_num=discussion_num,
             token=token,
             resource="merge",
+            body={"comment": comment},
         )
 
     def edit_discussion_comment(
@@ -2507,6 +2728,42 @@ class HfApi:
         token: Optional[str] = None,
         repo_type: Optional[str] = None,
     ) -> DiscussionComment:
+        """Edits a comment on a discussion / pull request
+
+        Args:
+            repo_id (`str`):
+                A namespace (user or an organization) and a repo name separated
+                by a `/`.
+            discussion_num (`int`):
+                The number of the discussion or pull request. Must be a strictly positive integer.
+            comment_id (`str`):
+                The ID of the comment to edit. ID is an hexadecimal string.
+            new_content (`str`):
+                The new content of the comment. Comments support markdown formatting.
+            repo_type (`str`, *optional*):
+                Set to `"dataset"` or `"space"` if uploading to a dataset or
+                space, `None` or `"model"` if uploading to a model. Default is
+                `None`.
+            token (`str`, *optional*):
+                An authentication token (See https://huggingface.co/settings/token)
+
+        Returns:
+            [`DiscussionComment`]: the edited comment
+
+        <Tip>
+
+        Raises the following errors:
+
+            - [`HTTPError`](https://2.python-requests.org/en/master/api/#requests.HTTPError)
+              if the HuggingFace API returned an error
+            - [`ValueError`](https://docs.python.org/3/library/exceptions.html#ValueError)
+              if some parameter value is invalid
+            - [`~huggingface_hub.utils.RepositoryNotFoundError`]
+              If the repository to download from cannot be found. This may be because it doesn't exist,
+              or because it is set to `private` and you do not have access.
+
+        </Tip>
+        """
         if not REGEX_HEXADECIMAL.fullmatch(comment_id):
             raise ValueError("Invalid comment_id: must be an hexadecimal string")
         resp = self._post_discussion_changes(
@@ -2528,6 +2785,42 @@ class HfApi:
         token: str,
         repo_type: Optional[str] = None,
     ) -> DiscussionComment:
+        """Hides a comment on a discussion / pull request.
+
+        Hidden comments' content cannot be retrieved anymore. Hiding a comment is irreversible.
+
+        Args:
+            repo_id (`str`):
+                A namespace (user or an organization) and a repo name separated
+                by a `/`.
+            discussion_num (`int`):
+                The number of the discussion or pull request. Must be a strictly positive integer.
+            comment_id (`str`):
+                The ID of the comment to edit. ID is an hexadecimal string.
+            repo_type (`str`, *optional*):
+                Set to `"dataset"` or `"space"` if uploading to a dataset or
+                space, `None` or `"model"` if uploading to a model. Default is
+                `None`.
+            token (`str`, *optional*):
+                An authentication token (See https://huggingface.co/settings/token)
+
+        Returns:
+            [`DiscussionComment`]: the hidden comment
+
+        <Tip>
+
+        Raises the following errors:
+
+            - [`HTTPError`](https://2.python-requests.org/en/master/api/#requests.HTTPError)
+              if the HuggingFace API returned an error
+            - [`ValueError`](https://docs.python.org/3/library/exceptions.html#ValueError)
+              if some parameter value is invalid
+            - [`~huggingface_hub.utils.RepositoryNotFoundError`]
+              If the repository to download from cannot be found. This may be because it doesn't exist,
+              or because it is set to `private` and you do not have access.
+
+        </Tip>
+        """
         if not REGEX_HEXADECIMAL.fullmatch(comment_id):
             raise ValueError("Invalid comment_id: must be an hexadecimal string")
         resp = self._post_discussion_changes(
