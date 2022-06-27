@@ -3006,3 +3006,12 @@ upload_file = api.upload_file
 upload_folder = api.upload_folder
 delete_file = api.delete_file
 get_full_repo_name = api.get_full_repo_name
+
+get_discussion_details = api.get_discussion_details
+get_repo_discussions = api.get_repo_discussions
+create_discussion = api.create_discussion
+change_discussion_status = api.change_discussion_status
+comment_discussion = api.comment_discussion
+edit_discussion_comment = api.edit_discussion_comment
+rename_discussion = api.rename_discussion
+merge_pull_request = api.merge_pull_request
