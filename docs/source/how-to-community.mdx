@@ -1,3 +1,126 @@
 # Interact with discussions and pull requests
 
-TODO : @SBrandeis - Write a guide for the community API
+The `huggingface_hub` library provides a Python interface to interact with Pull Requests and Discussions on the Hub.
+Visit [the dedicated documentation page](https://huggingface.co/docs/hub/repositories-pull-requests-discussions)
+for a deeper view of what Discussions and Pull Requests on the Hub are, and how they work under the hood.
+
+## Retrieve Discussions and Pull Requests from the Hub
+
+The `HfApi` class allows you to retrieve Discussions and Pull Requests on a given repo:
+
+```python
+>>> from huggingface_hub import HfApi
+
+>>> HfApi().get_repo_discussions(repo_id="bigscience/bloom-1b3")
+Pagination(
+    page=[
+        Discussion(
+            num=8,
+            author='ybelkada',
+            title='Update tokenizer_config.json',
+            status='merged',
+            is_pull_request=True,
+            ...
+        ),
+        Discussion(
+            num=7,
+            author='malteos',
+            title='Slurm training script',
+            status='closed',
+            is_pull_request=False,
+            ...
+        ),
+        ...
+    ],
+    total=8,
+    page_num=0,
+    next_page=None,
+)
+```
+
+`HfApi.get_repo_discussion` returns a [`Pagination`] object, which is a convenience wrapper to manage pagination
+of the results. To get all the discussions in a single list, run:
+
+```python
+>>> from huggingface_hub import HfApi
+
+>>> pagination = HfApi().get_repo_discussions(repo_id="dalle-mini/dalle-mini")
+>>> all_discussions = pagination.page
+>>> while pagination.has_next:
+...     pagination = pagination.next_page()
+...     all_discussions = all_discussions + pagination.page
+```
+
+The [`Discussion`] object returned by [`HfApi.get_repo_discussion`] contains high-level overview of the
+Discussion or Pull Request. You can also get more detailed information using [`HfApi.get_discussion_details`]:
+
+```python
+>>> from huggingface_hub import HfApi
+
+>>> HfApi().get_discussion_details(
+...     repo_id="bigscience/bloom-1b3",
+...     discussion_num=2
+... )
+DiscussionWithDetails(
+    num=2,
+    author='cakiki',
+    title='Update VRAM memory for the V100s',
+    status='open',
+    is_pull_request=True,
+    events=[
+        DiscussionComment(type='comment', author='cakiki', ...),
+        DiscussionCommit(type='commit', author='cakiki', summary='Update VRAM memory for the V100s', oid='1256f9d9a33fa8887e1c1bf0e09b4713da96773a', ...),
+    ],
+    conflicting_files=[],
+    target_branch='refs/heads/main',
+    merge_commit_oid=None,
+    diff='diff --git a/README.md b/README.md\nindex a6ae3b9294edf8d0eda0d67c7780a10241242a7e..3a1814f212bc3f0d3cc8f74bdbd316de4ae7b9e3 100644\n--- a/README.md\n+++ b/README.md\n@@ -132,7 +132,7 [...]',
+)
+```
+
+[`HfApi.get_discussion_details`] returns a [`DiscussionWithDetails`] object, which is a subclass of [`Discussion`]
+with more detailed information about the Discussion or Pull Request. Information includes all the comments, status changes,
+and renames of the discussion via [`DiscussionWithDetails.events`].
+
+In case of a Pull Request, you can retrieve the raw git diff with [`DiscussionWithDetails.diff`]. All the commits of the
+Pull Request are listed in [`DiscussionWithDetails.events`].
+
+
+## Create and edit a Discussion or Pull Request programatically
+
+The [`HfApi`] class also offers ways to create and edit Discussions and Pull Requests.
+You will need an [access token](https://huggingface.co/docs/hub/security-tokens) to create and edit Discussions
+or Pull Requests. 
+
+Use [`HfApi.create_discussion`] to create a Discussion or Pull Request on a repo:
+
+```python
+>>> from huggingface_hub import HfApi
+
+>>> HfApi().create_discussion(
+...     repo_id="username/repo-name",
+...     title="Hi from the huggingface_hub library!",
+...     token="<insert your access token here>",
+...     pull_request=True
+... )
+DiscussionWithDetails(...)
+```
+
+Managing Pull Requests and Discussions can be done entirely with the [`HfApi`] class. For example:
+
+    * [`HfApi.comment_discussion`] to add comments
+    * [`HfApi.edit_discussion_comment`] to edit comments
+    * [`HfApi.rename_discussion`] to rename a discussion or pull request
+    * [`HfApi.change_discussion_status`] to open or close a discussion / pull request
+    * [`HfApi.merge_pull_request`] to merge a pull request
+
+
+Visit the [`HfApi`] documentation page for an exhaustive reference of all available methods.
+
+## Push changes to a Pull Request
+
+*Coming soon !*
+
+## See also
+
+For a more detailed reference, visit the [`community`] and the [`hf_api`] documentation page.
