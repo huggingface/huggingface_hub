@@ -90,7 +90,7 @@ class SingleResultDataset:
 
     args: Any = None
     """
-    Example: zh-CN
+    Optional. Additional arguments to `load_dataset()`. Example for wikipedia: { language: "en" }
     """
 
 
