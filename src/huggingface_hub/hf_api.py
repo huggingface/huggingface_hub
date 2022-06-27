@@ -2265,7 +2265,9 @@ class HfApi:
         token: Optional[str] = None,
         _page_index: int = 0,
     ) -> Pagination[Discussion]:
-        """Fetches discussions and pull requests for the given repo
+        """
+        Fetches discussions and pull requests for the given repo. The response is
+        paginated with [`Pagination`].
 
         Args:
             repo_id (`str`):
@@ -2316,7 +2318,7 @@ class HfApi:
         )
 
         return Pagination(
-            value=[
+            page=[
                 Discussion(
                     title=discussion["title"],
                     num=discussion["num"],
