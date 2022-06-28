@@ -15,7 +15,7 @@
     title: Searching the Hub
   - local: how-to-inference
     title: Access the Inference API
-  - local: how-to-community
+  - local: how-to-discussions-and-pull-requests
     title: Interact with discussions and pull requests
   title: "Guides"
 - sections:
