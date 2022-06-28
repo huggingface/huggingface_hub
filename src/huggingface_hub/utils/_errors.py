@@ -52,7 +52,7 @@ class EntryNotFoundError(HTTPError):
     """
 
     def __init__(self, message, response):
-        super(EntryNotFoundError, self).__init__(message, response=response)
+        super().__init__(message, response=response)
 
 
 def _add_request_id_to_error_args(e, request_id):
