@@ -2484,13 +2484,7 @@ class HfApi:
         if repo_type is None:
             repo_type = REPO_TYPE_MODEL
         full_repo_id = f"{repo_type}s/{repo_id}"
-        if token is None:
-            token = HfFolder.get_token()
-            if token is None:
-                raise EnvironmentError(
-                    "You need to provide a `token` or be logged in to Hugging "
-                    "Face with `huggingface-cli login`."
-                )
+        token, _ = self._validate_or_retrieve_token(token=token)
         if description is not None:
             description = description.strip()
         description = (
@@ -2596,13 +2590,7 @@ class HfApi:
         if repo_type is None:
             repo_type = REPO_TYPE_MODEL
         repo_id = f"{repo_type}s/{repo_id}"
-        if token is None:
-            token = HfFolder.get_token()
-            if token is None:
-                raise EnvironmentError(
-                    "You need to provide a `token` or be logged in to Hugging "
-                    "Face with `huggingface-cli login`."
-                )
+        token, _ = self._validate_or_retrieve_token(token=token)
 
         path = f"{self.endpoint}/api/{repo_id}/discussions/{discussion_num}/{resource}"
 
