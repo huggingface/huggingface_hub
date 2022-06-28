@@ -90,9 +90,28 @@ Pull Request are listed in [`DiscussionWithDetails.events`].
 
 The [`HfApi`] class also offers ways to create and edit Discussions and Pull Requests.
 You will need an [access token](https://huggingface.co/docs/hub/security-tokens) to create and edit Discussions
-or Pull Requests. 
+or Pull Requests.
 
-Use [`HfApi.create_discussion`] (respectively [`HfApi.create_pull_request`]) to create a Discussion (respectively a Pull Request) on a repo:
+The simplest way to propose changes on a repo on the Hub is via the [`create_commit`] API. [`create_commit`]: just 
+set the `create_pr` parameter to `True`. This parameter is also available on other methods that wrap [`create_commit`]:
+
+    * [`upload_file`]
+    * [`upload_folder`]
+    * [`delete_file`]
+    * [`metadata_update`]
+
+```python
+>>> from huggingface_hub import metadata_update
+
+>>> metadata_update(
+...     repo_id="username/repo_name",
+...     metadata={"tags": ["laguage:en", "awesome-model"]},
+...     create_pr=True,
+... )
+```
+
+You can also use [`HfApi.create_discussion`] (respectively [`HfApi.create_pull_request`]) to create a Discussion (respectively a Pull Request) on a repo.
+Opening a Pull Requests this way can be useful if you need to work on changes locally. Pull Requests opened this way will be in `"draft"` mode.
 
 ```python
 >>> from huggingface_hub import create_discussion, create_pull_request

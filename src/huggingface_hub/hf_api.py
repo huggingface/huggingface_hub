@@ -2441,6 +2441,8 @@ class HfApi:
 
         Pull Requests created programmatically will be in `"draft"` status.
 
+        Creating a Pull Request with changes can also be done at once with [`HfApi.create_commit`].
+
         Args:
             repo_id (`str`):
                 A namespace (user or an organization) and a repo name separated
@@ -2529,6 +2531,8 @@ class HfApi:
         repo_type: Optional[str] = None,
     ) -> DiscussionWithDetails:
         """Creates a pull request. Pull Requests created programmatically will be in `"draft"` status.
+
+        Creating a Pull Request with changes can also be done at once with [`HfApi.create_commit`];
 
         This is a wrapper around [`HfApi.create_discusssion`].
 
