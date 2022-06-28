@@ -1153,10 +1153,9 @@ class HfApi:
             if linked:
                 params.update({"linked": True})
         if datasets is not None:
-          params.update({"datasets": datasets})
+            params.update({"datasets": datasets})
         if models is not None:
-            if models:
-                params.update({"models": models})
+            params.update({"models": models})
         r = requests.get(path, params=params, headers=headers)
         r.raise_for_status()
         d = r.json()
