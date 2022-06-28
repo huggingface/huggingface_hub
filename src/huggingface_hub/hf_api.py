@@ -1153,8 +1153,7 @@ class HfApi:
             if linked:
                 params.update({"linked": True})
         if datasets is not None:
-            if datasets:
-                params.update({"datasets": datasets})
+          params.update({"datasets": datasets})
         if models is not None:
             if models:
                 params.update({"models": models})
