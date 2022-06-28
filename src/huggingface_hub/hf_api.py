@@ -44,7 +44,6 @@ from .constants import (
 from .utils import logging
 from .utils._deprecation import _deprecate_positional_args
 from .utils._errors import _raise_for_status, _raise_with_request_id
-from .utils._fixes import JSONDecodeError
 from .utils.endpoint_helpers import (
     AttributeDictionary,
     DatasetFilter,
@@ -1559,16 +1558,7 @@ class HfApi:
             headers={"authorization": f"Bearer {token}"},
             json=json,
         )
-        try:
-            _raise_for_status(r)
-        except requests.exceptions.RequestException as e:
-            try:
-                message = e.response.json()["error"]
-            except JSONDecodeError:
-                message = e.response.text
-            except AttributeError:
-                message = e.args[0]
-            raise type(e)(message) from e
+        _raise_for_status(r)
 
     def update_repo_visibility(
         self,
