@@ -1161,7 +1161,6 @@ class HfApi:
         d = r.json()
         return [SpaceInfo(**x) for x in d]
 
-    @_deprecate_positional_args
     def model_info(
         self,
         repo_id: str,
