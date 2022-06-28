@@ -2519,6 +2519,61 @@ class HfApi:
             token=token,
         )
 
+    def create_pull_request(
+        self,
+        repo_id: str,
+        title: str,
+        *,
+        token: str,
+        description: Optional[str] = None,
+        repo_type: Optional[str] = None,
+    ) -> DiscussionWithDetails:
+        """Creates a pull request. Pull Requests created programmatically will be in `"draft"` status.
+
+        This is a wrapper around [`HfApi.create_discusssion`].
+
+        Args:
+            repo_id (`str`):
+                A namespace (user or an organization) and a repo name separated
+                by a `/`.
+            title (`str`):
+                The title of the discussion. It can be up to 200 characters long,
+                and must be at least 3 characters long. Leading and trailing whitespaces
+                will be stripped.
+            token (`str`):
+                An authentication token (See https://huggingface.co/settings/token)
+            description (`str`, *optional*):
+                An optional description for the pull request.
+                Defaults to `"Discussion opened with the huggingface_hub Python library"`
+            repo_type (`str`, *optional*):
+                Set to `"dataset"` or `"space"` if uploading to a dataset or
+                space, `None` or `"model"` if uploading to a model. Default is
+                `None`.
+
+        Returns: [`DiscussionWithDetails`]
+
+        <Tip>
+
+        Raises the following errors:
+
+            - [`HTTPError`](https://2.python-requests.org/en/master/api/#requests.HTTPError)
+              if the HuggingFace API returned an error
+            - [`ValueError`](https://docs.python.org/3/library/exceptions.html#ValueError)
+              if some parameter value is invalid
+            - [`~huggingface_hub.utils.RepositoryNotFoundError`]
+              If the repository to download from cannot be found. This may be because it doesn't exist,
+              or because it is set to `private` and you do not have access.
+
+        </Tip>"""
+        return self.create_discussion(
+            repo_id=repo_id,
+            title=title,
+            token=token,
+            description=description,
+            repo_type=repo_type,
+            pull_request=True,
+        )
+
     def _post_discussion_changes(
         self,
         *,
@@ -3017,6 +3072,7 @@ get_full_repo_name = api.get_full_repo_name
 get_discussion_details = api.get_discussion_details
 get_repo_discussions = api.get_repo_discussions
 create_discussion = api.create_discussion
+create_pull_request = api.create_pull_request
 change_discussion_status = api.change_discussion_status
 comment_discussion = api.comment_discussion
 edit_discussion_comment = api.edit_discussion_comment

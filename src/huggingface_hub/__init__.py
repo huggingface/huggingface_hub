@@ -154,6 +154,7 @@ __getattr__, __dir__, __all__ = _attach(
             "comment_discussion",
             "create_commit",
             "create_discussion",
+            "create_pull_request",
             "create_repo",
             "dataset_info",
             "delete_file",

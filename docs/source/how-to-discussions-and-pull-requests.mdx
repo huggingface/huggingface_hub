@@ -92,18 +92,24 @@ The [`HfApi`] class also offers ways to create and edit Discussions and Pull Req
 You will need an [access token](https://huggingface.co/docs/hub/security-tokens) to create and edit Discussions
 or Pull Requests. 
 
-Use [`HfApi.create_discussion`] to create a Discussion or Pull Request on a repo:
+Use [`HfApi.create_discussion`] (respectively [`HfApi.create_pull_request`]) to create a Discussion (respectively a Pull Request) on a repo:
 
 ```python
->>> from huggingface_hub import create_discussion
+>>> from huggingface_hub import create_discussion, create_pull_request
 
 >>> create_discussion(
 ...     repo_id="username/repo-name",
 ...     title="Hi from the huggingface_hub library!",
 ...     token="<insert your access token here>",
-...     pull_request=True
 ... )
 DiscussionWithDetails(...)
+
+>>> create_pull_request(
+...     repo_id="username/repo-name",
+...     title="Hi from the huggingface_hub library!",
+...     token="<insert your access token here>",
+... )
+DiscussionWithDetails(..., is_pull_request=True)
 ```
 
 Managing Pull Requests and Discussions can be done entirely with the [`HfApi`] class. For example:
