@@ -2144,7 +2144,7 @@ class HfApi:
         Example usage:
 
         ```python
-        >>> upload_file(
+        >>> upload_folder(
         ...     folder_path="local/checkpoints",
         ...     path_in_repo="remote/experiment/checkpoints",
         ...     repo_id="username/my-dataset",
@@ -2153,7 +2153,7 @@ class HfApi:
         ... )
         # "https://huggingface.co/datasets/username/my-dataset/tree/main/remote/experiment/checkpoints"
 
-        >>> upload_file(
+        >>> upload_folder(
         ...     folder_path="local/checkpoints",
         ...     path_in_repo="remote/experiment/checkpoints",
         ...     repo_id="username/my-dataset",
