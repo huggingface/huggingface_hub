@@ -1795,7 +1795,7 @@ class HfApi:
         if parent_commit is not None and not REGEX_COMMIT_OID.fullmatch(parent_commit):
             raise ValueError(
                 "`parent_commit` is not a valid commit OID. It must match the following"
-                " regex: {REGEX_COMMIT_OID}"
+                f" regex: {REGEX_COMMIT_OID}"
             )
         commit_description = (
             commit_description if commit_description is not None else ""
