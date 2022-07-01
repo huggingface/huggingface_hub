@@ -8,7 +8,10 @@ If you want to make the HTTP calls directly, please refer to [Accelerated Infere
 
 </Tip>
 
-![Snippet of code to make calls to the Inference API](/docs/assets/hub/inference_api_snippet.png)
+<div class="flex justify-center">
+<img class="block dark:hidden" src="https://huggingface.co/datasets/huggingface/documentation-images/resolve/main/hub/inference_api_snippet.png"/>
+<img class="hidden dark:block" src="https://huggingface.co/datasets/huggingface/documentation-images/resolve/main/hub/inference_api_snippet-dark.png"/>
+</div>
 
 Begin by creating an instance of the [`InferenceApi`] with the model repository ID of the model you want to use. You can find your `API_TOKEN` under Settings from your Hugging Face account. The `API_TOKEN` will allow you to send requests to the Inference API.
 
@@ -17,7 +20,7 @@ Begin by creating an instance of the [`InferenceApi`] with the model repository 
 >>> inference = InferenceApi(repo_id="bert-base-uncased", token=API_TOKEN)
 ```
 
-The metadata in the model card and configuration files (see [here](https://huggingface.co/docs/hub/main#how-is-a-models-type-of-inference-api-and-widget-determined) for more details) determines the pipeline type. For example, when using the [bert-base-uncased](https://huggingface.co/bert-base-uncased) model, the Inference API can automatically infer that this model should be used for a `fill-mask` task.
+The metadata in the model card and configuration files (see [here](https://huggingface.co/docs/hub/models-widgets#enabling-a-widget) for more details) determines the pipeline type. For example, when using the [bert-base-uncased](https://huggingface.co/bert-base-uncased) model, the Inference API can automatically infer that this model should be used for a `fill-mask` task.
 
 ```python
 >>> from huggingface_hub.inference_api import InferenceApi
