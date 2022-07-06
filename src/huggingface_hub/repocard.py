@@ -44,7 +44,7 @@ class RepoCard:
         if match:
             # Metadata found in the YAML block
             yaml_block = match.group(1)
-            self.text = match.group(2)
+            self.text = content[match.end() :]
             data_dict = yaml.safe_load(yaml_block)
 
             # The YAML block's data should be a dictionary
@@ -202,14 +202,18 @@ class RepoCard:
         Returns:
             `str`: URL of the commit which updated the card metadata.
         """
-        repo_name = repo_id.split("/")[-1]
 
-        if self.data.model_name and self.data.model_name != repo_name:
-            logger.warning(
-                f"Set model name {self.data.model_name} in CardData does not match "
-                f"repo name {repo_name}. Updating model name to match repo name."
-            )
-            self.data.model_name = repo_name
+        # TODO - Remove this if we decide updating the name is no bueno.
+        # This breaks unittests on updating metadata that includes name that != repo name
+
+        # repo_name = repo_id.split("/")[-1]
+
+        # if self.data.model_name and self.data.model_name != repo_name:
+        #     logger.warning(
+        #         f"Set model name {self.data.model_name} in CardData does not match "
+        #         f"repo name {repo_name}. Updating model name to match repo name."
+        #     )
+        #     self.data.model_name = repo_name
 
         # Validate card before pushing to hub
         self.validate(repo_type=repo_type)
@@ -571,6 +575,19 @@ def metadata_update(
                                 new_result.metric_type == existing_result.metric_type,
                             ]
                         ):
+                            if (
+                                new_result.metric_value != existing_result.metric_value
+                                and not overwrite
+                            ):
+                                existing_str = (
+                                    f"name: {new_result.metric_name}, type:"
+                                    f" {new_result.metric_type}"
+                                )
+                                raise ValueError(
+                                    "You passed a new value for the existing metric"
+                                    f" '{existing_str}'. Set `overwrite=True` to"
+                                    " overwrite existing metrics."
+                                )
                             result_found = True
                             card.data.eval_results[existing_result_index] = new_result
                     if not result_found:

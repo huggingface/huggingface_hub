@@ -246,6 +246,7 @@ def model_index_to_eval_results(model_index: List[Dict[str, Any]]):
                 metric_value = metric["value"]
                 metric_name = metric.get("name")
                 metric_args = metric.get("args")
+                metric_config = metric.get("config")
                 verified = metric.get("verified")
 
                 eval_result = EvalResult(
@@ -261,6 +262,7 @@ def model_index_to_eval_results(model_index: List[Dict[str, Any]]):
                     dataset_args=dataset_args,
                     metric_name=metric_name,
                     metric_args=metric_args,
+                    metric_config=metric_config,
                     verified=verified,
                 )
                 eval_results.append(eval_result)
