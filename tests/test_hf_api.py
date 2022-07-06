@@ -998,10 +998,10 @@ class HfApiPublicTest(unittest.TestCase):
     @with_production_testing
     def test_filter_datasets_by_multilinguality(self):
         _api = HfApi()
-        f = DatasetFilter(multilinguality="yes")
+        f = DatasetFilter(multilinguality="multilingual")
         datasets = _api.list_datasets(filter=f)
         self.assertGreater(len(datasets), 0)
-        self.assertTrue("multilinguality:yes" in datasets[0].tags)
+        self.assertTrue("multilinguality:multilingual" in datasets[0].tags)
 
     @with_production_testing
     def test_filter_datasets_by_size_categories(self):

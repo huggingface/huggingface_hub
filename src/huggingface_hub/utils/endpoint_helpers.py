@@ -125,7 +125,7 @@ class DatasetFilter:
     >>> new_filter = DatasetFilter(language="en")
 
     >>> # Using multilinguality
-    >>> new_filter = DatasetFilter(multilinguality="yes")
+    >>> new_filter = DatasetFilter(multilinguality="multilingual")
 
     >>> # Using size_categories
     >>> new_filter = DatasetFilter(size_categories="100K<n<1M")
