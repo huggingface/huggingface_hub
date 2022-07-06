@@ -225,7 +225,7 @@ class RepocardUpdateTest(unittest.TestCase):
         shutil.rmtree(self.repo_path)
 
     def test_update_dataset_name(self):
-        new_datasets_data = {"datasets": "['test/test_dataset']"}
+        new_datasets_data = {"datasets": ["test/test_dataset"]}
         metadata_update(
             f"{USER}/{self.REPO_NAME}", new_datasets_data, token=self._token
         )
