@@ -220,7 +220,6 @@ class RepoCard:
                 repo_id=repo_id,
                 token=token,
                 repo_type=repo_type,
-                identical_ok=True,
                 commit_message=commit_message,
                 commit_description=commit_description,
                 create_pr=create_pr,
