@@ -42,7 +42,7 @@ class Discussion:
             the Discussion / Pull Request was open.
         repo_type (`str`):
             The type of the repo on which the Discussion / Pull Request was open.
-            Posiible values are: `"model"`, `"dataset"`, `"space"`.
+            Possible values are: `"model"`, `"dataset"`, `"space"`.
         author (`str`):
             The username of the Discussion / Pull Request author.
             Can be `"deleted"` if the user has been deleted since.
