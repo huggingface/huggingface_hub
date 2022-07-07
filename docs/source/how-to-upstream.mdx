@@ -2,10 +2,11 @@
 
 Sharing your files and work is a very important aspect of the Hub. The `huggingface_hub` uses a Git-based workflow to upload files to the Hub. You can use these functions independently or integrate them into your own library, making it more convenient for your users to interact with the Hub. This guide will show you how to:
 
+* Upload a file with [`upload_file`].
 * Push files with a `commit` context manager.
 * Push files with the [`~Repository.push_to_hub`] function.
 * Upload very large files with [Git LFS](https://git-lfs.github.com/).
-* Push files without Git installed with [`HfApi`]
+* Use [`create_commit`] to push files without Git.
 
 Whenever you want to upload files to the Hub, you need to log in to your Hugging Face account:
 
@@ -23,6 +24,19 @@ Whenever you want to upload files to the Hub, you need to log in to your Hugging
    ```
 
    [`notebook_login`] will launch a widget in your notebook from which you can enter your Hugging Face credentials.
+
+## Upload a file
+
+Use the [`upload_file`] function to upload a file to a repository. Let the function know where the file you want to upload is, where you want to upload the file to in the repository, and the name of the repository you want to add the file to.
+
+```py
+>>> from huggingface_hub import HfApi
+>>> api = HfApi()
+>>> api.upload_file(path_or_fileobj="/home/lysandre/dummy-test/README.md", 
+...                 path_in_repo="README.md", 
+...                 repo_id="lysandre/test-model",
+... )
+```
 
 ## commit context manager
 
@@ -89,6 +103,7 @@ The [`Repository`] class also has a [`~Repository.push_to_hub`] function to add 
 
 ```python
 >>> from huggingface_hub import Repository
+>>> repo = Repository(local_dir="path/to/local/repo")
 >>> repo.git_pull()
 >>> repo.push_to_hub(commit_message="Commit my-awesome-file to the Hub")
 ```
@@ -116,10 +131,22 @@ huggingface-cli lfs-enable-largefiles
 
 You should install this for each model repository that contains a model file. Once installed, you are now able to push files larger than 5GB.
 
-## Managing files in a repo without Git with the `create_commit` API
+## Upload without Git installed
 
-`huggingface_hub` also offers a way to upload files to the Hub without Git installed on your system with the [`create_commit`] method of [`HfApi`].
-For example, if you want to upload two files and delete another file in a Hub repo:
+If you don't have Git installed on your system, use the [`create_commit`] function to upload your file. [`create_commit`] uses the HTTP protocol to upload files to the Hub. Large files and binary files are automatically uploaded with the Git LFS protocol.
+
+There are two kinds of operations supported by the [`create_commit`] function:
+
+- `CommitOperationAdd` uploads a file to the Hub. If the file already exists, the file contents are overwritten. This operation accepts two arguments:
+
+   * `path_in_repo`: the repository path to upload a file to.
+   * `path_or_fileobj`: either a path to a file on your filesystem or a file-like object. This is the content of the file to upload to the Hub.
+
+- `CommitOperationDelete` removes a file from a repository. This operation accepts `path_in_repo` as an argument.
+
+For example, if you want to upload two files and delete a file in a Hub repository:
+
+1. Use the appropriate `CommitOperation` to add and delete a file:
 
 ```py
 >>> from huggingface_hub import HfApi, CommitOperationAdd, CommitOperationDelete
@@ -129,25 +156,23 @@ For example, if you want to upload two files and delete another file in a Hub re
 ...     CommitOperationAdd(path_in_repo="weights.h5", path_or_fileobj="~/repo/weights-final.h5"),
 ...     CommitOperationDelete(path_in_repo="old-weights.h5"),
 ... ]
+```
+
+2. Pass your operations to [`create_commit`]:
+
+```py
 >>> api.create_commit(
 ...     repo_id="lysandre/test-model",
 ...     operations=operations,
+...     commit_message="Upload my model weights and license",
 ... )
 ```
 
-[`create_commit`] uses the HTTP protocol to upload files to the Hub. It automatically takes care of uploading large files and binary files with the Git LFS protocol.
-There are currently two kind of operations supported by the [`create_commit`] method:
+[`create_commit`] is the underlying function behind each of these:
 
-1. [`CommitOperationAdd`] to upload a file to the Hub. If the file already exists, its content will be overwritten. It takes two arguments:
-   * `path_in_repo`: the path in the repository where the file should be uploaded
-   * `path_or_fileobj`: either a path to a file on your filesystem, or a file-like object. The content of the file to upload to the Hub.
-2. [`CommitOperationDelete`] to remove a file from a repository. It takes `path_in_repo` as an argument.
+* [`upload_file`] uploads a single file to a repository on the Hub.
+* [`upload_folder`] uploads a local directory to a repository on the Hub.
+* [`delete_file`] deletes a single file from a repository on the Hub. 
+* [`metadata_update`] updates a repository's metadata.
 
-Instead of [`create_commit`], you can also use the following convenience methods:
-* [`upload_file`] to upload a single file to a repo on the Hub
-* [`upload_folder`] to upload a local directory to a repo on the Hub
-* [`delete_file`] to delete a single file from a repo on the Hub 
-* [`metadata_update`] to update a repo's metadata
-
-All these methods use the `create_commit` API under the hood.
-For a more detailed description, visit the [`hf_api`] documentation page.
+For more detailed information about these functions, take a look at the [`HfApi`] reference.
