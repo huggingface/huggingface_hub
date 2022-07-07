@@ -12,3 +12,4 @@ warnings.warn(
 )
 
 from ._snapshot_download import *  # noqa
+from .constants import REPO_ID_SEPARATOR  # noqa

@@ -118,7 +118,7 @@ class SnapshotDownloadTests(unittest.TestCase):
         # Test download fails without token
         with tempfile.TemporaryDirectory() as tmpdirname:
             with self.assertRaisesRegex(
-                requests.exceptions.HTTPError, "404 Client Error"
+                requests.exceptions.HTTPError, "401 Client Error"
             ):
                 _ = snapshot_download(
                     f"{USER}/{REPO_NAME}", revision="main", cache_dir=tmpdirname
@@ -358,3 +358,7 @@ def test_snapshot_download_import():
         from huggingface_hub.snapshot_download import snapshot_download as x  # noqa
 
     assert x is snapshot_download
+
+
+def test_snapshot_download_import_constant_not_raise():
+    from huggingface_hub.snapshot_download import REPO_ID_SEPARATOR  # noqa

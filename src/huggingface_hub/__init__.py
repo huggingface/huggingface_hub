@@ -116,7 +116,7 @@ def _attach(package_name, submodules=None, submod_attrs=None):
 
 # ************
 
-__version__ = "0.8.0.dev0"
+__version__ = "0.9.0.dev0"
 
 
 __getattr__, __dir__, __all__ = _attach(
@@ -143,10 +143,14 @@ __getattr__, __dir__, __all__ = _attach(
         ],
         "file_download": ["cached_download", "hf_hub_download", "hf_hub_url"],
         "hf_api": [
+            "CommitOperation",
+            "CommitOperationAdd",
+            "CommitOperationDelete",
             "DatasetSearchArguments",
             "HfApi",
             "HfFolder",
             "ModelSearchArguments",
+            "create_commit",
             "create_repo",
             "dataset_info",
             "delete_file",
@@ -168,6 +172,7 @@ __getattr__, __dir__, __all__ = _attach(
             "unset_access_token",
             "update_repo_visibility",
             "upload_file",
+            "upload_folder",
             "whoami",
         ],
         "hub_mixin": ["ModelHubMixin", "PyTorchModelHubMixin"],

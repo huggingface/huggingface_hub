@@ -13,6 +13,7 @@ from functools import partial
 from hashlib import sha256
 from pathlib import Path
 from typing import BinaryIO, Dict, Optional, Tuple, Union
+from urllib.parse import quote
 
 import packaging.version
 from tqdm.auto import tqdm
@@ -34,7 +35,6 @@ from .constants import (
 )
 from .hf_api import HfFolder
 from .utils import logging
-from .utils._deprecation import _deprecate_positional_args
 from .utils._errors import _raise_for_status
 
 
@@ -151,7 +151,6 @@ def get_fastcore_version():
 REGEX_COMMIT_HASH = re.compile(r"^[0-9a-f]{40}$")
 
 
-@_deprecate_positional_args
 def hf_hub_url(
     repo_id: str,
     filename: str,
@@ -229,7 +228,9 @@ def hf_hub_url(
     if revision is None:
         revision = DEFAULT_REVISION
     return HUGGINGFACE_CO_URL_TEMPLATE.format(
-        repo_id=repo_id, revision=revision, filename=filename
+        repo_id=repo_id,
+        revision=quote(revision, safe=""),
+        filename=filename,
     )
 
 
@@ -310,7 +311,6 @@ def filename_to_url(
     return url, etag
 
 
-@_deprecate_positional_args
 def http_user_agent(
     *,
     library_name: Optional[str] = None,
@@ -425,7 +425,6 @@ def _request_with_retry(
     return response
 
 
-@_deprecate_positional_args
 def http_get(
     url: str,
     temp_file: BinaryIO,
@@ -469,7 +468,6 @@ def http_get(
     progress.close()
 
 
-@_deprecate_positional_args
 def cached_download(
     url: str,
     *,
@@ -800,7 +798,6 @@ def repo_folder_name(*, repo_id: str, repo_type: str) -> str:
     return REPO_ID_SEPARATOR.join(parts)
 
 
-@_deprecate_positional_args
 def hf_hub_download(
     repo_id: str,
     filename: str,
@@ -1045,6 +1042,12 @@ def hf_hub_download(
             # between the HEAD and the GET (unlikely, but hey).
             if 300 <= r.status_code <= 399:
                 url_to_download = r.headers["Location"]
+                if (
+                    "lfs.huggingface.co" in url_to_download
+                    or "lfs-staging.huggingface.co" in url_to_download
+                ):
+                    # Remove authorization header when downloading a LFS blob
+                    headers.pop("authorization", None)
         except (requests.exceptions.SSLError, requests.exceptions.ProxyError):
             # Actually raise for those subclasses of ConnectionError
             raise
