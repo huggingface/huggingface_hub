@@ -1,8 +1,8 @@
 """
 Data structures to interact with discussions and pull requests on the Hub.
 
-See [the discussions and pull requests guide](https://huggingface.co/docs/hub/repositories-pull-requests-discussions)
-for more information on pull requests, discussions, and the community tab.
+See [the Discussions and Pull Requests guide](https://huggingface.co/docs/hub/repositories-pull-requests-discussions)
+for more information on Pull Requests, Discussions, and the community tab.
 """
 
 from dataclasses import dataclass
@@ -170,9 +170,9 @@ class DiscussionComment(DiscussionEvent):
         content (`str`):
             The raw markdown content of the comment. Mentions, links and images are not rendered.
         edited (`bool`):
-            Wether or not this comment has been edited
+            Wether or not this comment has been edited.
         hidden (`bool`):
-            Whether or not this comment has been hidden
+            Whether or not this comment has been hidden.
     """
 
     content: str
@@ -186,7 +186,7 @@ class DiscussionComment(DiscussionEvent):
 
     @property
     def last_edited_at(self) -> datetime:
-        """The last edit tiem, as a `datetime` object."""
+        """The last edit time, as a `datetime` object."""
         return parse_datetime(self._event["data"]["latest"]["updatedAt"])
 
     @property
@@ -277,9 +277,9 @@ class DiscussionTitleChange(DiscussionEvent):
             The username of the discussion / pull request author.
             Can be `"deleted"` if the user has been deleted since.
         old_title (`str`):
-            The previous title for the discussion / pull request
+            The previous title for the discussion / pull request.
         new_title (`str`):
-            The new title
+            The new title.
     """
 
     old_title: str

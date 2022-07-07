@@ -2281,11 +2281,11 @@ class HfApi:
                 A namespace (user or an organization) and a repo name separated
                 by a `/`.
             repo_type (`str`, *optional*):
-                Set to `"dataset"` or `"space"` if uploading to a dataset or
-                space, `None` or `"model"` if uploading to a model. Default is
+                Set to `"dataset"` or `"space"` if fetching from a dataset or
+                space, `None` or `"model"` if fetching from a model. Default is
                 `None`.
             token (`str`, *optional*):
-                An authentication token (See https://huggingface.co/settings/token)
+                An authentication token (See https://huggingface.co/settings/token).
 
         Returns:
             `Pagination[Discussion]`: A [`Pagination`] of [`Discussion`].
