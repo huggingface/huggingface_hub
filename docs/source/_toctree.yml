@@ -16,7 +16,7 @@
   - local: how-to-inference
     title: Access the Inference API
   - local: how-to-discussions-and-pull-requests
-    title: Interact with discussions and pull requests
+    title: Interact with Discussions and Pull Requests 
   title: "Guides"
 - sections:
     - local: package_reference/repository

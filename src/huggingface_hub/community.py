@@ -1,5 +1,5 @@
 """
-Data structures to interact with discussions and pull requests on the Hub.
+Data structures to interact with Discussions and Pull Requests on the Hub.
 
 See [the Discussions and Pull Requests guide](https://huggingface.co/docs/hub/repositories-pull-requests-discussions)
 for more information on Pull Requests, Discussions, and the community tab.
@@ -15,33 +15,33 @@ from dateutil.parser import parse as parse_datetime
 @dataclass
 class Discussion:
     """
-    A discussion or pull request on the Hub.
+    A Discussion or Pull Request on the Hub.
 
     Attributes:
         title (`str`):
-            The title of the discussion / pull request
+            The title of the Discussion / Pull Request
         status (`str`):
-            The status of the discussion / pull request.
+            The status of the Discussion / Pull Request.
             It can be one of:
                 * `"open"`
                 * `"closed"`
-                * `"merged"` (only for pull requests)
-                * `"draft"` (only for pull requests)
+                * `"merged"` (only for Pull Requests )
+                * `"draft"` (only for Pull Requests )
         num (`int`):
-            The number of the discussion / pull request.
+            The number of the Discussion / Pull Request.
         repo_id (`str`):
             The id (`"{namespace}/{repo_name}"`) of the repo on which
-            the discussion / pull request was open.
+            the Discussion / Pull Request was open.
         repo_type (`str`):
-            The type of the repo on which the discussion / pull request was open.
+            The type of the repo on which the Discussion / Pull Request was open.
             Posiible values are: `"model"`, `"dataset"`, `"space"`.
         author (`str`):
-            The username of the discussion / pull request author.
+            The username of the Discussion / Pull Request author.
             Can be `"deleted"` if the user has been deleted since.
         is_pull_request (`bool`):
-            Wether or not this is a pull request.
+            Wether or not this is a Pull Request.
         created_at (`datetime`):
-            The `datetime` of creation of the discussion / pull request.
+            The `datetime` of creation of the Discussion / Pull Request.
     """
 
     title: str
@@ -56,7 +56,7 @@ class Discussion:
     @property
     def git_reference(self) -> Optional[str]:
         """
-        If this is a pull request, returns the git reference to which changes can be pushed.
+        If this is a Pull Request , returns the git reference to which changes can be pushed.
         Returns `None` otehrwise.
         """
         if self.is_pull_request:
@@ -71,42 +71,42 @@ class DiscussionWithDetails(Discussion):
 
     Attributes:
         title (`str`):
-            The title of the discussion / pull request
+            The title of the Discussion / Pull Request
         status (`str`):
-            The status of the discussion / pull request.
+            The status of the Discussion / Pull Request.
             It can be one of:
                 * `"open"`
                 * `"closed"`
-                * `"merged"` (only for pull requests)
-                * `"draft"` (only for pull requests)
+                * `"merged"` (only for Pull Requests )
+                * `"draft"` (only for Pull Requests )
         num (`int`):
-            The number of the discussion / pull request.
+            The number of the Discussion / Pull Request.
         repo_id (`str`):
             The id (`"{namespace}/{repo_name}"`) of the repo on which
-            the discussion / pull request was open.
+            the Discussion / Pull Request was open.
         repo_type (`str`):
-            The type of the repo on which the discussion / pull request was open.
+            The type of the repo on which the Discussion / Pull Request was open.
             Posiible values are: `"model"`, `"dataset"`, `"space"`.
         author (`str`):
-            The username of the discussion / pull request author.
+            The username of the Discussion / Pull Request author.
             Can be `"deleted"` if the user has been deleted since.
         is_pull_request (`bool`):
-            Wether or not this is a pull request.
+            Wether or not this is a Pull Request.
         created_at (`datetime`):
-            The `datetime` of creation of the discussion / pull request.
+            The `datetime` of creation of the Discussion / Pull Request.
         events (`list` of [`DiscussionEvent`])
-            The list of [`DiscussionEvents`] in this discussion or pull request.
+            The list of [`DiscussionEvents`] in this Discussion or Pull Request.
         conflicting_files (`list` of `str`, *optional*):
-            A list of conflicting files if this is a pull request.
+            A list of conflicting files if this is a Pull Request.
             `None` if `self.is_pull_request` is `False`.
         target_branch (`str`, *optional*):
             The branch into which changes are to be merged if this is a
-            pull request. `None`  if `self.is_pull_request` is `False`.
+            Pull Request . `None`  if `self.is_pull_request` is `False`.
         merge_commit_oid (`str`, *optional*):
-            If this is a merged pull request, this is set to the OID / SHA of
+            If this is a merged Pull Request , this is set to the OID / SHA of
             the merge commit, `None` otherwise.
         diff (`str`, *optional*):
-            The git diff if this is a pull request, `None` otherwise.
+            The git diff if this is a Pull Request , `None` otherwise.
     """
 
     events: List["DiscussionEvent"]
@@ -119,7 +119,7 @@ class DiscussionWithDetails(Discussion):
 @dataclass
 class DiscussionEvent:
     """
-    An event in a discussion or pull request.
+    An event in a Discussion or Pull Request.
 
     Use concrete classes:
         * [`DiscussionComment`]
@@ -136,7 +136,7 @@ class DiscussionEvent:
             A [`datetime`](https://docs.python.org/3/library/datetime.html?highlight=datetime#datetime.datetime)
             object holding the creation timestamp for the event.
         author (`str`):
-            The username of the discussion / pull request author.
+            The username of the Discussion / Pull Request author.
             Can be `"deleted"` if the user has been deleted since.
     """
 
@@ -151,7 +151,7 @@ class DiscussionEvent:
 
 @dataclass
 class DiscussionComment(DiscussionEvent):
-    """A comment in a discussion / pull request.
+    """A comment in a Discussion / Pull Request.
 
     Subclass of [`DiscussionEvent`].
 
@@ -165,7 +165,7 @@ class DiscussionComment(DiscussionEvent):
             A [`datetime`](https://docs.python.org/3/library/datetime.html?highlight=datetime#datetime.datetime)
             object holding the creation timestamp for the event.
         author (`str`):
-            The username of the discussion / pull request author.
+            The username of the Discussion / Pull Request author.
             Can be `"deleted"` if the user has been deleted since.
         content (`str`):
             The raw markdown content of the comment. Mentions, links and images are not rendered.
@@ -206,7 +206,7 @@ class DiscussionComment(DiscussionEvent):
 
 @dataclass
 class DiscussionStatusChange(DiscussionEvent):
-    """A change of status in a discussion / pull request.
+    """A change of status in a Discussion / Pull Request.
 
     Subclass of [`DiscussionEvent`].
 
@@ -219,14 +219,14 @@ class DiscussionStatusChange(DiscussionEvent):
             A [`datetime`](https://docs.python.org/3/library/datetime.html?highlight=datetime#datetime.datetime)
             object holding the creation timestamp for the event.
         author (`str`):
-            The username of the discussion / pull request author.
+            The username of the Discussion / Pull Request author.
             Can be `"deleted"` if the user has been deleted since.
         new_status (`str`):
-            The status of the discussion / pull request after the change.
+            The status of the Discussion / Pull Request after the change.
             It can be one of:
                 * `"open"`
                 * `"closed"`
-                * `"merged"` (only for pull requests)
+                * `"merged"` (only for Pull Requests )
     """
 
     new_status: str
@@ -234,7 +234,7 @@ class DiscussionStatusChange(DiscussionEvent):
 
 @dataclass
 class DiscussionCommit(DiscussionEvent):
-    """A commit in a pull request.
+    """A commit in a Pull Request.
 
     Subclass of [`DiscussionEvent`].
 
@@ -247,7 +247,7 @@ class DiscussionCommit(DiscussionEvent):
             A [`datetime`](https://docs.python.org/3/library/datetime.html?highlight=datetime#datetime.datetime)
             object holding the creation timestamp for the event.
         author (`str`):
-            The username of the discussion / pull request author.
+            The username of the Discussion / Pull Request author.
             Can be `"deleted"` if the user has been deleted since.
         summary (`str`):
             The summary of the commit.
@@ -261,7 +261,7 @@ class DiscussionCommit(DiscussionEvent):
 
 @dataclass
 class DiscussionTitleChange(DiscussionEvent):
-    """A rename event in a discussion / pull request.
+    """A rename event in a Discussion / Pull Request.
 
     Subclass of [`DiscussionEvent`].
 
@@ -274,10 +274,10 @@ class DiscussionTitleChange(DiscussionEvent):
             A [`datetime`](https://docs.python.org/3/library/datetime.html?highlight=datetime#datetime.datetime)
             object holding the creation timestamp for the event.
         author (`str`):
-            The username of the discussion / pull request author.
+            The username of the Discussion / Pull Request author.
             Can be `"deleted"` if the user has been deleted since.
         old_title (`str`):
-            The previous title for the discussion / pull request.
+            The previous title for the Discussion / Pull Request.
         new_title (`str`):
             The new title.
     """

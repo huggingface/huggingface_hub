@@ -2273,7 +2273,7 @@ class HfApi:
         _page_index: int = 0,
     ) -> Pagination[Discussion]:
         """
-        Fetches discussions and pull requests for the given repo. The response is
+        Fetches Discussions and Pull Requests for the given repo. The response is
         paginated with [`Pagination`].
 
         Args:
@@ -2352,14 +2352,14 @@ class HfApi:
         repo_type: Optional[str] = None,
         token: Optional[str] = None,
     ) -> DiscussionWithDetails:
-        """Fetches a discussion's / pull request's details from the Hub
+        """Fetches a discussion's / Pull Request 's details from the Hub
 
         Args:
             repo_id (`str`):
                 A namespace (user or an organization) and a repo name separated
                 by a `/`.
             discussion_num (`int`):
-                The number of the discussion or pull request. Must be a strictly positive integer.
+                The number of the Discussion or Pull Request . Must be a strictly positive integer.
             repo_type (`str`, *optional*):
                 Set to `"dataset"` or `"space"` if uploading to a dataset or
                 space, `None` or `"model"` if uploading to a model. Default is
@@ -2437,7 +2437,7 @@ class HfApi:
         repo_type: Optional[str] = None,
         pull_request: bool = False,
     ) -> DiscussionWithDetails:
-        """Creates a discussion or pull request.
+        """Creates a Discussion or Pull Request.
 
         Pull Requests created programmatically will be in `"draft"` status.
 
@@ -2454,10 +2454,10 @@ class HfApi:
             token (`str`):
                 An authentication token (See https://huggingface.co/settings/token)
             description (`str`, *optional*):
-                An optional description for the pull request.
+                An optional description for the Pull Request.
                 Defaults to `"Discussion opened with the huggingface_hub Python library"`
             pull_request (`bool`, *optional*):
-                Whether to create a pull request or discussion. If `True`, creates a pull request.
+                Whether to create a Pull Request or discussion. If `True`, creates a Pull Request.
                 If `False`, creates a discussion. Defaults to `False`.
             repo_type (`str`, *optional*):
                 Set to `"dataset"` or `"space"` if uploading to a dataset or
@@ -2524,7 +2524,7 @@ class HfApi:
         description: Optional[str] = None,
         repo_type: Optional[str] = None,
     ) -> DiscussionWithDetails:
-        """Creates a pull request. Pull Requests created programmatically will be in `"draft"` status.
+        """Creates a Pull Request . Pull Requests created programmatically will be in `"draft"` status.
 
         Creating a Pull Request with changes can also be done at once with [`HfApi.create_commit`];
 
@@ -2541,7 +2541,7 @@ class HfApi:
             token (`str`):
                 An authentication token (See https://huggingface.co/settings/token)
             description (`str`, *optional*):
-                An optional description for the pull request.
+                An optional description for the Pull Request.
                 Defaults to `"Discussion opened with the huggingface_hub Python library"`
             repo_type (`str`, *optional*):
                 Set to `"dataset"` or `"space"` if uploading to a dataset or
@@ -2582,7 +2582,7 @@ class HfApi:
         token: Optional[str] = None,
         repo_type: Optional[str] = None,
     ) -> requests.Response:
-        """Internal utility to POST changes to a discussion or pull request"""
+        """Internal utility to POST changes to a Discussion or Pull Request"""
         if not isinstance(discussion_num, int) or discussion_num <= 0:
             raise ValueError("Invalid discussion_num, must be a positive integer")
         if repo_type not in REPO_TYPES:
@@ -2618,7 +2618,7 @@ class HfApi:
                 A namespace (user or an organization) and a repo name separated
                 by a `/`.
             discussion_num (`int`):
-                The number of the discussion or pull request. Must be a strictly positive integer.
+                The number of the Discussion or Pull Request . Must be a strictly positive integer.
             comment (`str`):
                 The content of the comment to create. Comments support markdown formatting.
             repo_type (`str`, *optional*):
@@ -2693,7 +2693,7 @@ class HfApi:
                 A namespace (user or an organization) and a repo name separated
                 by a `/`.
             discussion_num (`int`):
-                The number of the discussion or pull request. Must be a strictly positive integer.
+                The number of the Discussion or Pull Request . Must be a strictly positive integer.
             new_title (`str`):
                 The new title for the discussion
             repo_type (`str`, *optional*):
@@ -2753,14 +2753,14 @@ class HfApi:
         comment: Optional[str] = None,
         repo_type: Optional[str] = None,
     ) -> DiscussionStatusChange:
-        """Closes or re-opens a discussion or pull request.
+        """Closes or re-opens a Discussion or Pull Request.
 
         Args:
             repo_id (`str`):
                 A namespace (user or an organization) and a repo name separated
                 by a `/`.
             discussion_num (`int`):
-                The number of the discussion or pull request. Must be a strictly positive integer.
+                The number of the Discussion or Pull Request . Must be a strictly positive integer.
             new_status (`str`):
                 The new status for the discussion, either `"open"` or `"closed"`.
             comment (`str`, *optional*):
@@ -2826,14 +2826,14 @@ class HfApi:
         comment: Optional[str] = None,
         repo_type: Optional[str] = None,
     ):
-        """Merges a pull request.
+        """Merges a Pull Request.
 
         Args:
             repo_id (`str`):
                 A namespace (user or an organization) and a repo name separated
                 by a `/`.
             discussion_num (`int`):
-                The number of the discussion or pull request. Must be a strictly positive integer.
+                The number of the Discussion or Pull Request . Must be a strictly positive integer.
             comment (`str`, *optional*):
                 An optional comment to post with the status change.
             repo_type (`str`, *optional*):
@@ -2879,14 +2879,14 @@ class HfApi:
         token: Optional[str] = None,
         repo_type: Optional[str] = None,
     ) -> DiscussionComment:
-        """Edits a comment on a discussion / pull request
+        """Edits a comment on a Discussion / Pull Request
 
         Args:
             repo_id (`str`):
                 A namespace (user or an organization) and a repo name separated
                 by a `/`.
             discussion_num (`int`):
-                The number of the discussion or pull request. Must be a strictly positive integer.
+                The number of the Discussion or Pull Request . Must be a strictly positive integer.
             comment_id (`str`):
                 The ID of the comment to edit.
             new_content (`str`):
@@ -2934,7 +2934,7 @@ class HfApi:
         token: str,
         repo_type: Optional[str] = None,
     ) -> DiscussionComment:
-        """Hides a comment on a discussion / pull request.
+        """Hides a comment on a Discussion / Pull Request.
 
         Hidden comments' content cannot be retrieved anymore. Hiding a comment is irreversible.
 
@@ -2943,7 +2943,7 @@ class HfApi:
                 A namespace (user or an organization) and a repo name separated
                 by a `/`.
             discussion_num (`int`):
-                The number of the discussion or pull request. Must be a strictly positive integer.
+                The number of the Discussion or Pull Request . Must be a strictly positive integer.
             comment_id (`str`):
                 The ID of the comment to edit.
             repo_type (`str`, *optional*):

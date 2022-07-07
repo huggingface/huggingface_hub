@@ -1,4 +1,4 @@
-# Interact with discussions and pull requests
+# Interact with Discussions and Pull Requests 
 
 The `huggingface_hub` library provides a Python interface to interact with Pull Requests and Discussions on the Hub.
 Visit [the dedicated documentation page](https://huggingface.co/docs/hub/repositories-pull-requests-discussions)
@@ -39,7 +39,7 @@ Pagination(
 ```
 
 `HfApi.get_repo_discussions` returns a [`Pagination`] object, which is a convenience wrapper to manage pagination
-of the results. To get all the discussions in a single list, run:
+of the results. To get all the Discussions in a single list, run:
 
 ```python
 >>> from huggingface_hub import get_repo_discussions
@@ -80,7 +80,7 @@ DiscussionWithDetails(
 
 [`HfApi.get_discussion_details`] returns a [`DiscussionWithDetails`] object, which is a subclass of [`Discussion`]
 with more detailed information about the Discussion or Pull Request. Information includes all the comments, status changes,
-and renames of the discussion via [`DiscussionWithDetails.events`].
+and renames of the Discussion via [`DiscussionWithDetails.events`].
 
 In case of a Pull Request, you can retrieve the raw git diff with [`DiscussionWithDetails.diff`]. All the commits of the
 Pull Request are listed in [`DiscussionWithDetails.events`].
@@ -135,9 +135,9 @@ Managing Pull Requests and Discussions can be done entirely with the [`HfApi`] c
 
     * [`comment_discussion`] to add comments
     * [`edit_discussion_comment`] to edit comments
-    * [`rename_discussion`] to rename a discussion or pull request
-    * [`change_discussion_status`] to open or close a discussion / pull request
-    * [`merge_pull_request`] to merge a pull request
+    * [`rename_discussion`] to rename a Discussion or Pull Request 
+    * [`change_discussion_status`] to open or close a Discussion / Pull Request 
+    * [`merge_pull_request`] to merge a Pull Request 
 
 
 Visit the [`HfApi`] documentation page for an exhaustive reference of all available methods.
