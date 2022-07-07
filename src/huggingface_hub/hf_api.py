@@ -17,9 +17,8 @@ import re
 import subprocess
 import sys
 import warnings
-from functools import partial
 from os.path import expanduser
-from typing import BinaryIO, Dict, Iterable, List, Optional, Tuple, Union
+from typing import BinaryIO, Dict, Iterable, Iterator, List, Optional, Tuple, Union
 from urllib.parse import quote
 
 import requests
@@ -63,7 +62,6 @@ from .utils.endpoint_helpers import (
     ModelTags,
     _filter_emissions,
 )
-from .utils.pagination import Pagination
 
 
 if sys.version_info >= (3, 8):
@@ -2270,11 +2268,9 @@ class HfApi:
         *,
         repo_type: Optional[str] = None,
         token: Optional[str] = None,
-        _page_index: int = 0,
-    ) -> Pagination[Discussion]:
+    ) -> Iterator[Discussion]:
         """
-        Fetches Discussions and Pull Requests for the given repo. The response is
-        paginated with [`Pagination`].
+        Fetches Discussions and Pull Requests for the given repo.
 
         Args:
             repo_id (`str`):
@@ -2288,7 +2284,23 @@ class HfApi:
                 An authentication token (See https://huggingface.co/settings/token).
 
         Returns:
-            `Pagination[Discussion]`: A [`Pagination`] of [`Discussion`].
+            `Iterator[Discussion]`: An iterator of [`Discussion`] objects.
+
+        Example:
+            Collecting all discussions of a repo in a list:
+
+            ```python
+            >>> from huggingface_hub import get_repo_discussions
+            >>> discussions_list = list(get_repo_discussions(repo_id="bert-base-uncased"))
+            ```
+
+            Iterating over discussions of a repo:
+
+            ```python
+            >>> from huggingface_hub import get_repo_discussions
+            >>> for discussion in get_repo_discussions(repo_id="bert-base-uncased"):
+            ...     print(discussion.num, discussion.title)
+            ```
         """
         if repo_type not in REPO_TYPES:
             raise ValueError(f"Invalid repo type, must be one of {REPO_TYPES}")
@@ -2298,36 +2310,26 @@ class HfApi:
         if token is None:
             token = HfFolder.get_token()
 
-        path = f"{self.endpoint}/api/{repo_id}/discussions"
-
-        resp = requests.get(
-            path,
-            headers={"Authorization": f"Bearer {token}"} if token else None,
-        )
-        _raise_for_status(resp)
-
-        paginated_discussions = resp.json()
-        discussions = paginated_discussions["discussions"]
-        total = paginated_discussions["count"]
-        start = paginated_discussions["start"]
-
-        has_next = (start + len(discussions)) < total
-
-        next_page = (
-            partial(
-                self.get_repo_discussions,
-                repo_id=repo_id,
-                repo_type=repo_type,
-                token=token,
-                _page_index=_page_index + 1,
+        def _fetch_discussion_page(page_index: int):
+            path = f"{self.endpoint}/api/{repo_id}/discussions?p={page_index}"
+            resp = requests.get(
+                path,
+                headers={"Authorization": f"Bearer {token}"} if token else None,
             )
-            if has_next
-            else None
-        )
+            _raise_for_status(resp)
+            paginated_discussions = resp.json()
+            total = paginated_discussions["count"]
+            start = paginated_discussions["start"]
+            discussions = paginated_discussions["discussions"]
+            has_next = (start + len(discussions)) < total
+            return discussions, has_next
 
-        return Pagination(
-            page=[
-                Discussion(
+        has_next, page_index = True, 0
+
+        while has_next:
+            discussions, has_next = _fetch_discussion_page(page_index=page_index)
+            for discussion in discussions:
+                yield Discussion(
                     title=discussion["title"],
                     num=discussion["num"],
                     author=discussion.get("author", {}).get("name", "deleted"),
@@ -2337,12 +2339,7 @@ class HfApi:
                     repo_type=discussion["repo"]["type"],
                     is_pull_request=discussion["isPullRequest"],
                 )
-                for discussion in discussions
-            ],
-            page_num=_page_index,
-            total=total,
-            next_page=next_page,
-        )
+            page_index = page_index + 1
 
     def get_discussion_details(
         self,

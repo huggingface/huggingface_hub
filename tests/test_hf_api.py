@@ -18,6 +18,7 @@ import shutil
 import subprocess
 import tempfile
 import time
+import types
 import unittest
 import uuid
 import warnings
@@ -56,7 +57,6 @@ from huggingface_hub.utils.endpoint_helpers import (
     ModelFilter,
     _filter_emissions,
 )
-from huggingface_hub.utils.pagination import Pagination
 from requests.exceptions import HTTPError
 
 from .testing_constants import (
@@ -1508,16 +1508,12 @@ class HfApiDiscussionsTest(HfApiCommonTestWithLogin):
         self.assertIsInstance(model_info, ModelInfo)
 
     def test_get_repo_discussion(self):
-        paginated = self._api.get_repo_discussions(repo_id=self.repo_name)
-        self.assertIsInstance(paginated, Pagination)
+        discussions_generator = self._api.get_repo_discussions(repo_id=self.repo_name)
+        self.assertIsInstance(discussions_generator, types.GeneratorType)
         self.assertListEqual(
-            [d.num for d in paginated.page],
+            list([d.num for d in discussions_generator]),
             [self.discussion.num, self.pull_request.num],
         )
-        self.assertEqual(paginated.has_next, False)
-        self.assertEqual(paginated.next_page, None)
-        self.assertEqual(paginated.total, 2)
-        self.assertEqual(paginated.page_num, 0)
 
     def test_get_discussion_details(self):
         retrieved = self._api.get_discussion_details(

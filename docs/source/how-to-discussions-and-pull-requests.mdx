@@ -10,45 +10,23 @@ The `HfApi` class allows you to retrieve Discussions and Pull Requests on a give
 
 ```python
 >>> from huggingface_hub import get_repo_discussions
+>>> for discussion in get_repo_discussions(repo_id="bigscience/bloom-1b3"):
+...     print(f"{discussion.num} - {discussion.title}, pr: {discussion.is_pull_request}")
 
->>> get_repo_discussions(repo_id="bigscience/bloom-1b3")
-Pagination(
-    page=[
-        Discussion(
-            num=8,
-            author='ybelkada',
-            title='Update tokenizer_config.json',
-            status='merged',
-            is_pull_request=True,
-            ...
-        ),
-        Discussion(
-            num=7,
-            author='malteos',
-            title='Slurm training script',
-            status='closed',
-            is_pull_request=False,
-            ...
-        ),
-        ...
-    ],
-    total=8,
-    page_num=0,
-    next_page=None,
-)
+# 11 - Add Flax weights, pr: True
+# 10 - Update README.md, pr: True
+# 9 - Training languages in the model card, pr: True
+# 8 - Update tokenizer_config.json, pr: True
+# 7 - Slurm training script, pr: False
+[...]
 ```
 
-`HfApi.get_repo_discussions` returns a [`Pagination`] object, which is a convenience wrapper to manage pagination
-of the results. To get all the Discussions in a single list, run:
+`HfApi.get_repo_discussions` returns a [generator](https://docs.python.org/3.7/howto/functional.html#generators) that yields
+[`Discussion`] objects. To get all the Discussions in a single list, run:
 
 ```python
 >>> from huggingface_hub import get_repo_discussions
-
->>> pagination = get_repo_discussions(repo_id="dalle-mini/dalle-mini")
->>> all_discussions = pagination.page
->>> while pagination.has_next:
-...     pagination = pagination.next_page()
-...     all_discussions = all_discussions + pagination.page
+>>> discussions_list = list(get_repo_discussions(repo_id="bert-base-uncased"))
 ```
 
 The [`Discussion`] object returned by [`HfApi.get_repo_discussion`] contains high-level overview of the

@@ -211,6 +211,5 @@ __getattr__, __dir__, __all__ = _attach(
             "DiscussionCommit",
             "DiscussionTitleChange",
         ],
-        "utils.pagination": ["Pagination"],
     },
 )
