@@ -2970,6 +2970,10 @@ class HfApi:
 
         </Tip>
         """
+        warnings.warn(
+            "Hidden comments' content cannot be retrieved anymore. Hiding a comment is irreversible.",
+            UserWarning
+        )
         resp = self._post_discussion_changes(
             repo_id=repo_id,
             repo_type=repo_type,
