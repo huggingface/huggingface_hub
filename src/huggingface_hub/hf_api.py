@@ -2747,7 +2747,7 @@ class HfApi:
         self,
         repo_id: str,
         discussion_num: int,
-        new_status: str,
+        new_status: Literal["open", "closed"],
         *,
         token: Optional[str] = None,
         comment: Optional[str] = None,
