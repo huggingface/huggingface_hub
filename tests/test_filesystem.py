@@ -84,31 +84,31 @@ class HfFileSystemTests(unittest.TestCase):
 
     def test_glob(self):
         hffs = HfFileSystem(self.repo_id, token=self._token, repo_type="dataset")
-        assert sorted(hffs.glob("*")) == sorted([".gitattributes", "data"])
+        self.assertEqual(sorted(hffs.glob("*")), sorted([".gitattributes", "data"]))
 
     def test_file_type(self):
         hffs = HfFileSystem(self.repo_id, token=self._token, repo_type="dataset")
-        assert hffs.isdir("data") and not hffs.isdir(".gitattributes")
-        assert hffs.isfile("data/text_data.txt") and not hffs.isfile("data")
+        self.assertTrue(hffs.isdir("data") and not hffs.isdir(".gitattributes"))
+        self.assertTrue(hffs.isfile("data/text_data.txt") and not hffs.isfile("data"))
 
     def test_remove_file(self):
         hffs = HfFileSystem(self.repo_id, token=self._token, repo_type="dataset")
         hffs.rm("data/text_data.txt")
-        assert hffs.glob("data/*") == []
+        self.assertEqual(hffs.glob("data/*"), [])
 
     def test_read_file(self):
         hffs = HfFileSystem(self.repo_id, token=self._token, repo_type="dataset")
         with hffs.open("data/text_data.txt", "r") as f:
-            assert f.read() == "dummy text data"
+            self.assertEqual(f.read(), "dummy text data")
 
     def test_write_file(self):
         hffs = HfFileSystem(self.repo_id, token=self._token, repo_type="dataset")
         data = "new text data"
         with hffs.open("data/new_text_data.txt", "w") as f:
             f.write(data)
-        assert "data/new_text_data.txt" in hffs.glob("data/*")
+        self.assertIn("data/new_text_data.txt", hffs.glob("data/*"))
         with hffs.open("data/new_text_data.txt", "r") as f:
-            assert f.read() == data
+            self.assertEqual(f.read(), data)
 
     def test_write_file_multiple_chunks(self):
         hffs = HfFileSystem(self.repo_id, token=self._token, repo_type="dataset")
@@ -117,18 +117,26 @@ class HfFileSystemTests(unittest.TestCase):
             for _ in range(2):
                 f.write(data)
 
-        assert "data/new_text_data_big.txt" in hffs.glob("data/*")
+        self.assertIn("data/new_text_data_big.txt", hffs.glob("data/*"))
         with hffs.open("data/new_text_data_big.txt", "r") as f:
             for _ in range(2):
-                f.read(len(data)) == data
+                self.assertEqual(f.read(len(data)), data)
+
+    def test_append_file(self):
+        hffs = HfFileSystem(self.repo_id, token=self._token, repo_type="dataset")
+        with hffs.open("data/text_data.txt", "a") as f:
+            f.write(" appended text")
+
+        with hffs.open("data/text_data.txt", "r") as f:
+            self.assertEqual(f.read(), "dummy text data appended text")
 
     def test_initialize_from_fsspec(self):
         fs, _, paths = fsspec.get_fs_token_paths(
             f"hf://{self.repo_id}:/data/text_data.txt",
             storage_options={"token": self._token, "repo_type": "dataset"},
         )
-        assert isinstance(fs, HfFileSystem)
-        assert fs.repo_id == self.repo_id
-        assert fs.token == self._token
-        assert fs.repo_type == "dataset"
-        assert paths == ["data/text_data.txt"]
+        self.assertIsInstance(fs, HfFileSystem)
+        self.assertEqual(fs.repo_id, self.repo_id)
+        self.assertEqual(fs.token, self._token)
+        self.assertEqual(fs.repo_type, "dataset")
+        self.assertEqual(paths, ["data/text_data.txt"])

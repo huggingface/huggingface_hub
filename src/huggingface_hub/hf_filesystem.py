@@ -1,4 +1,5 @@
 import tempfile
+from functools import partial
 from pathlib import PurePosixPath
 from typing import Optional
 
@@ -159,10 +160,6 @@ class HfFileSystem(fsspec.AbstractFileSystem):
         mode: str = "rb",
         **kwargs,
     ):
-        # TODO(mariosasko): add support for the "ab" mode
-        if mode == "ab":
-            raise NotImplementedError("Appending to files is not supported")
-
         if mode == "rb":
             self._get_repo_info()
             url = hf_hub_url(
@@ -217,10 +214,15 @@ class HfFileSystem(fsspec.AbstractFileSystem):
 class TempFileUploader(fsspec.spec.AbstractBufferedFile):
     def _initiate_upload(self):
         self.temp_file = tempfile.TemporaryFile(dir=HUGGINGFACE_HUB_CACHE)
+        if self.mode == "ab":
+            with self.fs.open(self.path, "rb") as f:
+                for block in iter(partial(f.read, self.blocksize), b""):
+                    self.temp_file.write(block)
 
     def _upload_chunk(self, final=False):
         self.buffer.seek(0)
-        self.temp_file.write(self.buffer.read())
+        block = self.buffer.read()
+        self.temp_file.write(block)
         if final:
             upload_file(
                 path_or_fileobj=self.temp_file.file,
