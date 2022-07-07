@@ -20,15 +20,8 @@
 # vendored from https://github.com/scientific-python/lazy_loader
 import importlib
 import importlib.util
-import inspect
 import os
 import sys
-import types
-import warnings
-
-
-class _LazyImportWarning(Warning):
-    pass
 
 
 def _attach(package_name, submodules=None, submod_attrs=None):
@@ -175,6 +168,11 @@ __getattr__, __dir__, __all__ = _attach(
             "upload_folder",
             "whoami",
         ],
+        **{
+            "hf_filesystem": ["HfFileSystem"]
+            if importlib.util.find_spec("fsspec")
+            else {}
+        },
         "hub_mixin": ["ModelHubMixin", "PyTorchModelHubMixin"],
         "inference_api": ["InferenceApi"],
         "keras_mixin": [
