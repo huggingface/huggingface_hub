@@ -40,6 +40,7 @@ extras["testing"] = [
     "pytest-cov",
     "datasets",
     "soundfile",
+    "fsspec",
 ]
 
 extras["quality"] = [
