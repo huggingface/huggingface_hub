@@ -5,12 +5,12 @@ See [the Discussions and Pull Requests guide](https://huggingface.co/docs/hub/re
 for more information on Pull Requests, Discussions, and the community tab.
 """
 import sys
-
 from dataclasses import dataclass
 from datetime import datetime
 from typing import List, Optional
 
 from dateutil.parser import parse as parse_datetime
+
 
 if sys.version_info >= (3, 8):
     from typing import Literal
@@ -28,9 +28,9 @@ class Discussion:
     Attributes:
         title (`str`):
             The title of the Discussion / Pull Request
-        status ([`DiscussionStatus`]):
+        status (`str`):
             The status of the Discussion / Pull Request.
-            It can be one of:
+            It must be one of:
                 * `"open"`
                 * `"closed"`
                 * `"merged"` (only for Pull Requests )
