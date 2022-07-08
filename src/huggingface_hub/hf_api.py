@@ -1992,7 +1992,7 @@ class HfApi:
 
         ```python
         >>> from huggingface_hub import upload_file
-        
+
         >>> with open("./local/filepath", "rb") as fobj:
         ...     upload_file(
         ...         path_or_fileobj=fileobj,

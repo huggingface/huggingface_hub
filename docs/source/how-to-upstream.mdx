@@ -38,6 +38,21 @@ Use the [`upload_file`] function to upload a file to a repository. Let the funct
 ... )
 ```
 
+## Upload a folder
+
+Use the [`upload_folder`] function to upload a local folder to a repository. Specify the path of the local folder to upload, where you want to upload the folder to in the repository, and the name of the repository you want to add the folder to.
+
+```py
+>>> from huggingface_hub import HfApi
+>>> api = HfApi()
+>>> api.upload_folder(folder_path="/path/to/local/folder",
+...                   path_in_repo="my-dataset/train",
+...                   repo_id="username/test-dataset"
+...                   repo_type="datasets",
+... )
+# https://huggingface.co/datasets/username/test-dataset/tree/main/my-dataset/train/
+```
+
 ## commit context manager
 
 The `commit` context manager handles four of the most common Git commands: pull, add, commit, and push. `git-lfs` automatically tracks any file larger than 10MB. In the following example, the `commit` context manager:
@@ -133,6 +148,12 @@ You should install this for each model repository that contains a model file. On
 
 ## Upload without Git installed
 
+<Tip>
+
+The [`create_commit`] is really useful for certain use-cases. In general though, it is simpler to use one of the other uploading functions mentioned above.
+
+</Tip>
+
 If you don't have Git installed on your system, use the [`create_commit`] function to upload your file. [`create_commit`] uses the HTTP protocol to upload files to the Hub. Large files and binary files are automatically uploaded with the Git LFS protocol.
 
 There are two kinds of operations supported by the [`create_commit`] function:
@@ -168,7 +189,7 @@ For example, if you want to upload two files and delete a file in a Hub reposito
 ... )
 ```
 
-[`create_commit`] is the underlying function behind each of these:
+[`create_commit`] is the underlying function behind each of these other functions:
 
 * [`upload_file`] uploads a single file to a repository on the Hub.
 * [`upload_folder`] uploads a local directory to a repository on the Hub.
