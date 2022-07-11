@@ -21,7 +21,7 @@ from .utils.logging import get_logger
 
 
 # exact same regex as in the Hub server. Please keep in sync.
-TEMPLATE_MODELCARD_PATH = Path(__file__).parent / "modelcard_template.md"
+TEMPLATE_MODELCARD_PATH = Path(__file__).parent / "templates" / "modelcard_template.md"
 REGEX_YAML_BLOCK = re.compile(r"---[\n\r]+([\S\s]*?)[\n\r]+---[\n\r]")
 
 logger = get_logger(__name__)

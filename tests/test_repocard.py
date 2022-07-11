@@ -124,7 +124,7 @@ REPOCARD_DIR = os.path.join(
 repo_name = partial(repo_name, prefix="dummy-hf-hub")
 
 
-class RepocardTest(unittest.TestCase):
+class RepocardMetadataTest(unittest.TestCase):
     def setUp(self):
         os.makedirs(REPOCARD_DIR, exist_ok=True)
 
@@ -191,7 +191,7 @@ class RepocardTest(unittest.TestCase):
         self.assertEqual(content, DUMMY_MODELCARD_EVAL_RESULT.splitlines())
 
 
-class RepocardUpdateTest(unittest.TestCase):
+class RepocardMetadataUpdateTest(unittest.TestCase):
     _api = HfApi(endpoint=ENDPOINT_STAGING)
 
     @classmethod

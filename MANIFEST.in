@@ -1,0 +1,1 @@
+include src/huggingface_hub/templates/modelcard_template.md
