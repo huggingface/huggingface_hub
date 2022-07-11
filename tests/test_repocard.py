@@ -122,7 +122,7 @@ def repo_name(id=uuid.uuid4().hex[:6]):
     return "dummy-hf-hub-{0}-{1}".format(id, int(time.time() * 10e3))
 
 
-class RepocardTest(unittest.TestCase):
+class RepocardMetadataTest(unittest.TestCase):
     def setUp(self):
         os.makedirs(REPOCARD_DIR, exist_ok=True)
 
@@ -189,7 +189,7 @@ class RepocardTest(unittest.TestCase):
         self.assertEqual(content, DUMMY_MODELCARD_EVAL_RESULT.splitlines())
 
 
-class RepocardUpdateTest(unittest.TestCase):
+class RepocardMetadataUpdateTest(unittest.TestCase):
     _api = HfApi(endpoint=ENDPOINT_STAGING)
 
     @classmethod
