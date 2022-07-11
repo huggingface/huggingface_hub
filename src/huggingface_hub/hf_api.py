@@ -2933,7 +2933,9 @@ class HfApi:
     ) -> DiscussionComment:
         """Hides a comment on a Discussion / Pull Request.
 
+        <Tip warning={true}>
         Hidden comments' content cannot be retrieved anymore. Hiding a comment is irreversible.
+        </Tip>
 
         Args:
             repo_id (`str`):

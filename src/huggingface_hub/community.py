@@ -25,6 +25,8 @@ class Discussion:
     """
     A Discussion or Pull Request on the Hub.
 
+    This dataclass is not intended to be instantiated directly.
+
     Attributes:
         title (`str`):
             The title of the Discussion / Pull Request
