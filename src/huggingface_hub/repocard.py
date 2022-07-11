@@ -27,7 +27,9 @@ REGEX_YAML_BLOCK = re.compile(r"---[\n\r]+([\S\s]*?)[\n\r]+---[\n\r]")
 logger = get_logger(__name__)
 
 
-class RepoCard:
+class ModelCard:
+    repo_type = "model"
+
     def __init__(self, content: str):
         """Initialize a RepoCard from string content. The content should be a
         Markdown file with a YAML block at the beginning and a Markdown body.
@@ -125,28 +127,14 @@ class RepoCard:
 
         return cls(Path(card_path).read_text())
 
-    def validate(self, repo_type="model"):
+    def validate(self):
         """Validates card against Hugging Face Hub's model card validation logic.
         Using this function requires access to the internet, so it is only called
         internally by `huggingface_hub.ModelCard.push_to_hub`.
-
-        Args:
-            repo_type (`str`, *optional*):
-                The type of Hugging Face repo to push to. Defaults to None, which will use
-                use "model". Other options are "dataset" and "space".
         """
-        if repo_type is None:
-            repo_type = "model"
-
-        # TODO - compare against repo types constant in huggingface_hub if we move this object there.
-        if repo_type not in ["model", "space", "dataset"]:
-            raise RuntimeError(
-                "Provided repo_type '{repo_type}' should be one of ['model', 'space',"
-                " 'dataset']."
-            )
 
         body = {
-            "repoType": repo_type,
+            "repoType": self.repo_type,
             "content": str(self),
         }
         headers = {"Accept": "text/plain"}
@@ -166,7 +154,6 @@ class RepoCard:
         self,
         repo_id,
         token=None,
-        repo_type=None,
         commit_message=None,
         commit_description=None,
         revision=None,
@@ -181,9 +168,6 @@ class RepoCard:
             token (`str`, *optional*):
                 Authentication token, obtained with `huggingface_hub.HfApi.login` method. Will default to
                 the stored token.
-            repo_type (`str`, *optional*):
-                The type of Hugging Face repo to push to. Defaults to None, which will use
-                use "model". Other options are "dataset" and "space".
             commit_message (`str`, *optional*):
                 The summary / title / first line of the generated commit
             commit_description (`str`, *optional*)
@@ -203,20 +187,8 @@ class RepoCard:
             `str`: URL of the commit which updated the card metadata.
         """
 
-        # TODO - Remove this if we decide updating the name is no bueno.
-        # This breaks unittests on updating metadata that includes name that != repo name
-
-        # repo_name = repo_id.split("/")[-1]
-
-        # if self.data.model_name and self.data.model_name != repo_name:
-        #     logger.warning(
-        #         f"Set model name {self.data.model_name} in CardData does not match "
-        #         f"repo name {repo_name}. Updating model name to match repo name."
-        #     )
-        #     self.data.model_name = repo_name
-
         # Validate card before pushing to hub
-        self.validate(repo_type=repo_type)
+        self.validate()
 
         with tempfile.TemporaryDirectory() as tmpdir:
             tmp_path = Path(tmpdir) / REPOCARD_NAME
@@ -226,7 +198,7 @@ class RepoCard:
                 path_in_repo=REPOCARD_NAME,
                 repo_id=repo_id,
                 token=token,
-                repo_type=repo_type,
+                repo_type=self.repo_type,
                 commit_message=commit_message,
                 commit_description=commit_description,
                 create_pr=create_pr,
@@ -234,8 +206,6 @@ class RepoCard:
             )
         return url
 
-
-class ModelCard(RepoCard):
     @classmethod
     def from_template(
         cls,
