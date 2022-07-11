@@ -2402,6 +2402,10 @@ class HfApi:
         discussion_details = resp.json()
         is_pull_request = discussion_details["isPullRequest"]
 
+        target_branch = discussion_details["changes"]["base"] if is_pull_request else None
+        conflicting_files=discussion_details["filesWithConflicts"] if is_pull_request else None
+        merge_commit_oid = discussion_details["changes"].get("mergeCommitId", None) if is_pull_request else None
+
         return DiscussionWithDetails(
             title=discussion_details["title"],
             num=discussion_details["num"],
@@ -2412,15 +2416,9 @@ class HfApi:
             repo_type=discussion_details["repo"]["type"],
             is_pull_request=discussion_details["isPullRequest"],
             events=[deserialize_event(evt) for evt in discussion_details["events"]],
-            conflicting_files=discussion_details["filesWithConflicts"]
-            if is_pull_request
-            else None,
-            target_branch=discussion_details["changes"]["base"]
-            if is_pull_request
-            else None,
-            merge_commit_oid=discussion_details["changes"].get("mergeCommitId", None)
-            if is_pull_request
-            else None,
+            conflicting_files=conflicting_files,
+            target_branch=target_branch,
+            merge_commit_oid=merge_commit_oid,
             diff=discussion_details.get("diff"),
         )
 
