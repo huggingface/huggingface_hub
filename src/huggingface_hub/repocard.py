@@ -28,8 +28,6 @@ logger = get_logger(__name__)
 
 
 class ModelCard:
-    repo_type = "model"
-
     def __init__(self, content: str):
         """Initialize a RepoCard from string content. The content should be a
         Markdown file with a YAML block at the beginning and a Markdown body.
@@ -127,14 +125,14 @@ class ModelCard:
 
         return cls(Path(card_path).read_text())
 
-    def validate(self):
+    def validate(self, repo_type="model"):
         """Validates card against Hugging Face Hub's model card validation logic.
         Using this function requires access to the internet, so it is only called
         internally by `huggingface_hub.ModelCard.push_to_hub`.
         """
 
         body = {
-            "repoType": self.repo_type,
+            "repoType": repo_type,
             "content": str(self),
         }
         headers = {"Accept": "text/plain"}
@@ -154,6 +152,7 @@ class ModelCard:
         self,
         repo_id,
         token=None,
+        repo_type="model",
         commit_message=None,
         commit_description=None,
         revision=None,
@@ -168,6 +167,9 @@ class ModelCard:
             token (`str`, *optional*):
                 Authentication token, obtained with `huggingface_hub.HfApi.login` method. Will default to
                 the stored token.
+            repo_type (`str`, *optional*):
+                The type of Hugging Face repo to push to. Defaults to None, which will use
+                use "model". Other options are "dataset" and "space".
             commit_message (`str`, *optional*):
                 The summary / title / first line of the generated commit
             commit_description (`str`, *optional*)
@@ -187,8 +189,17 @@ class ModelCard:
             `str`: URL of the commit which updated the card metadata.
         """
 
+        if repo_type is None:
+            repo_type = "model"
+
+        if repo_type not in ["model", "space", "dataset"]:
+            raise RuntimeError(
+                "Provided repo_type '{repo_type}' should be one of ['model', 'space',"
+                " 'dataset']."
+            )
+
         # Validate card before pushing to hub
-        self.validate()
+        self.validate(repo_type=repo_type)
 
         with tempfile.TemporaryDirectory() as tmpdir:
             tmp_path = Path(tmpdir) / REPOCARD_NAME
@@ -198,7 +209,7 @@ class ModelCard:
                 path_in_repo=REPOCARD_NAME,
                 repo_id=repo_id,
                 token=token,
-                repo_type=self.repo_type,
+                repo_type=repo_type,
                 commit_message=commit_message,
                 commit_description=commit_description,
                 create_pr=create_pr,
