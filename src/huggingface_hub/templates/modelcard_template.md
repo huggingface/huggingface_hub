@@ -34,7 +34,7 @@
 
 - **Developed by:** {{ developers | default("[More Information Needed]", true)}}
 - **Shared by [Optional]:** {{ shared_by | default("[More Information Needed]", true)}}
-- **Model type:** Language model
+- **Model type:** {{ model_type | default("[More Information Needed]", true)}}
 - **Language(s) (NLP):** {{ language | default("[More Information Needed]", true)}}
 - **License:** {{ license | default("[More Information Needed]", true)}}
 - **Related Models:** {{ related_models | default("[More Information Needed]", true)}}
