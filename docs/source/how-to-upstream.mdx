@@ -1,6 +1,6 @@
 # Upload files to the Hub
 
-Sharing your files and work is a very important aspect of the Hub. The `huggingface_hub` uses a Git-based workflow to upload files to the Hub. You can use these functions independently or integrate them into your own library, making it more convenient for your users to interact with the Hub. This guide will show you how to:
+Sharing your files and work is a very important aspect of the Hub. The `huggingface_hub` offers several options for uploading your files to the Hub. You can use these functions independently or integrate them into your library, making it more convenient for your users to interact with the Hub. This guide will show you how to:
 
 * Upload a file with [`upload_file`].
 * Upload a folder with [`upload_folder`].
@@ -11,37 +11,40 @@ Sharing your files and work is a very important aspect of the Hub. The `huggingf
 
 Whenever you want to upload files to the Hub, you need to log in to your Hugging Face account:
 
-1. Log in to your Hugging Face account with the following command:
+- Log in to your Hugging Face account with the following command:
 
    ```bash
    huggingface-cli login
    ```
 
-2. Alternatively, if you prefer working from a Jupyter or Colaboratory notebook, login with [`notebook_login`]:
+- Alternatively, if you prefer working from a Jupyter or Colaboratory notebook, login with [`notebook_login`]:
 
    ```python
    >>> from huggingface_hub import notebook_login
    >>> notebook_login()
    ```
 
-   [`notebook_login`] will launch a widget in your notebook from which you can enter your Hugging Face credentials.
+   [`notebook_login`] launches a widget in your notebook from which you can enter your Hugging Face credentials.
 
 ## Upload a file
 
-Use the [`upload_file`] function to upload a file to a repository. Let the function know where the file you want to upload is, where you want to upload the file to in the repository, and the name of the repository you want to add the file to.
+Once you've created a repository with the [`create_repo`](./how-to-manage#create-a-repository) function, you can upload your files to your repository. Use the [`upload_file`] function to upload a file. 
+
+Specify the path of the file to upload, where you want to upload the file to in the repository, and the name of the repository you want to add the file to. Depending on your repository type, you can optionally set the repository type as a `dataset`, `model` or `space`.
 
 ```py
 >>> from huggingface_hub import HfApi
 >>> api = HfApi()
->>> api.upload_file(path_or_fileobj="/home/lysandre/dummy-test/README.md", 
+>>> api.upload_file(path_or_fileobj="/path/to/local/folder/README.md", 
 ...                 path_in_repo="README.md", 
-...                 repo_id="lysandre/test-model",
+...                 repo_id="username/test-dataset",
+...                 repo_type="dataset",
 ... )
 ```
 
 ## Upload a folder
 
-Use the [`upload_folder`] function to upload a local folder to a repository. Specify the path of the local folder to upload, where you want to upload the folder to in the repository, and the name of the repository you want to add the folder to.
+Use the [`upload_folder`] function to upload a local folder to a repository. Specify the path of the local folder to upload, where you want to upload the folder to in the repository, and the name of the repository you want to add the folder to. Depending on your repository type, you can optionally set the repository type as a `dataset`, `model` or `space`.
 
 ```py
 >>> from huggingface_hub import HfApi
@@ -49,7 +52,7 @@ Use the [`upload_folder`] function to upload a local folder to a repository. Spe
 >>> api.upload_folder(folder_path="/path/to/local/folder",
 ...                   path_in_repo="my-dataset/train",
 ...                   repo_id="username/test-dataset"
-...                   repo_type="datasets",
+...                   repo_type="dataset",
 ... )
 # https://huggingface.co/datasets/username/test-dataset/tree/main/my-dataset/train/
 ```
@@ -79,7 +82,7 @@ Here is another example of how to save and upload a file to a repository:
 ...     torch.save(model.state_dict(), "model.pt")
 ```
 
-Set `blocking=False` if you would like to push your commits asynchronously. Non-blocking behavior is helpful when you want to continue running your script while you push your commits.
+Set `blocking=False` if you would like to push your commits asynchronously. Non-blocking behavior is helpful when you want to continue running your script while your commits are being pushed.
 
 ```python
 >>> with repo.commit(commit_message="My cool model :)", blocking=False)
@@ -100,7 +103,7 @@ Refer to the table below for the possible statuses:
 | 0        | The push has completed successfully. |
 | Non-zero | An error has occurred.               |
 
-When `blocking=False`, commands are tracked, and your script will only exit when all pushes are completed, even if other errors occur in your script. Some additional useful commands for checking the status of a push include:
+When `blocking=False`, commands are tracked, and your script will only exit when all pushes are completed even if other errors occur in your script. Some additional useful commands for checking the status of a push include:
 
 ```python
 # Inspect an error.
@@ -115,11 +118,18 @@ When `blocking=False`, commands are tracked, and your script will only exit when
 
 ## push_to_hub
 
-The [`Repository`] class also has a [`~Repository.push_to_hub`] function to add files, make a commit, and push them to a repository. Unlike the `commit` context manager, [`~Repository.push_to_hub`] requires you to pull from a repository first, save the files, and then call [`~Repository.push_to_hub`].
+The [`Repository`] class has a [`~Repository.push_to_hub`] function to add files, make a commit, and push them to a repository. Unlike the `commit` context manager, requires you'll need to pull from a repository first before calling [`~Repository.push_to_hub`].
+
+For example, if you've already cloned a repository from the Hub, then you can initialize the `repo` from the local directory:
 
 ```python
 >>> from huggingface_hub import Repository
 >>> repo = Repository(local_dir="path/to/local/repo")
+```
+
+Update your local clone with [`~Repository.git_pull`] and then push your file to the Hub:
+
+```py
 >>> repo.git_pull()
 >>> repo.push_to_hub(commit_message="Commit my-awesome-file to the Hub")
 ```
@@ -131,7 +141,7 @@ However, if you aren't ready to push a file yet, you can still use [`~Repository
 >>> repo.git_commit(commit_message="add my first model config file :)")
 ```
 
-Once you're ready, you can push your file to your repository with [`~Repository.git_push`]:
+Once you're ready, push the file to your repository with [`~Repository.git_push`]:
 
 ```py
 >>> repo.git_push()
@@ -151,11 +161,11 @@ You should install this for each model repository that contains a model file. On
 
 <Tip>
 
-The [`create_commit`] is really useful for certain use-cases. In general though, it is simpler to use one of the other uploading functions mentioned above.
+The [`create_commit`] function is a low-level API for working at a commit level. The [`upload_file`] and [`upload_folder`] functions are higher-level APIs that use [`create_commit`] under the hood. We recommend trying these functions first if you don't need to work at a lower level.
 
 </Tip>
 
-If you don't have Git installed on your system, use the [`create_commit`] function to upload your file. [`create_commit`] uses the HTTP protocol to upload files to the Hub. Large files and binary files are automatically uploaded with the Git LFS protocol.
+If you don't have Git installed on your system, use the [`create_commit`] function to upload your file. [`create_commit`] uses the HTTP protocol to upload files to the Hub. Large and binary files are automatically uploaded with the Git LFS protocol.
 
 There are two kinds of operations supported by the [`create_commit`] function:
 
@@ -190,7 +200,7 @@ For example, if you want to upload two files and delete a file in a Hub reposito
 ... )
 ```
 
-[`create_commit`] is the underlying function behind each of these other functions:
+[`create_commit`] enables each of these other functions:
 
 * [`upload_file`] uploads a single file to a repository on the Hub.
 * [`upload_folder`] uploads a local directory to a repository on the Hub.
