@@ -458,6 +458,7 @@ def http_get(
         unit_scale=True,
         total=total,
         initial=resume_size,
+        unit_divisor=1024,
         desc="Downloading",
         disable=bool(logger.getEffectiveLevel() == logging.NOTSET),
     )
