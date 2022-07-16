@@ -141,7 +141,6 @@ class HubMixingTest(HubMixingCommonTest):
     def test_auto_lfs(self):
         REPO_NAME = repo_name("PUSH_TO_HUB_LFS")
         with tempfile.TemporaryDirectory() as tmpdirname:
-            breakpoint()
             os.makedirs(f"{tmpdirname}/{WORKING_REPO_DIR}/{REPO_NAME}")
             self._repo_url = self._api.create_repo(
             repo_id=REPO_NAME, token=self._token
