@@ -45,7 +45,6 @@ class TestSliceFileObj(unittest.TestCase):
         self.content = b"RANDOM self.content uauabciabeubahveb" * 1024
 
     def test_slice_fileobj_BytesIO(self):
-
         fileobj = BytesIO(self.content)
         prev_pos = fileobj.tell()
 

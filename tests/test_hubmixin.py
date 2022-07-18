@@ -1,5 +1,7 @@
+import json
 import os
 import shutil
+import tempfile
 import time
 import unittest
 import uuid
@@ -7,6 +9,7 @@ import uuid
 from huggingface_hub import HfApi
 from huggingface_hub.file_download import is_torch_available
 from huggingface_hub.hub_mixin import PyTorchModelHubMixin
+from huggingface_hub.repository import Repository
 from huggingface_hub.utils import logging
 
 from .testing_constants import ENDPOINT_STAGING, TOKEN, USER
@@ -133,3 +136,35 @@ class HubMixingTest(HubMixingCommonTest):
         self.assertEqual(model_info.modelId, f"{USER}/{REPO_NAME}")
 
         self._api.delete_repo(repo_id=f"{REPO_NAME}", token=self._token)
+
+    def test_auto_lfs(self):
+        REPO_NAME = repo_name("PUSH_TO_HUB_LFS")
+        with tempfile.TemporaryDirectory() as tmpdirname:
+            os.makedirs(f"{tmpdirname}/{WORKING_REPO_DIR}/{REPO_NAME}")
+            self._repo_url = self._api.create_repo(repo_id=REPO_NAME, token=self._token)
+            Repository(
+                local_dir=f"{tmpdirname}/{WORKING_REPO_DIR}/{REPO_NAME}",
+                clone_from=self._repo_url,
+            )
+
+            model = DummyModel()
+            large_file = [100] * int(4e6)
+            with open(
+                f"{tmpdirname}/{WORKING_REPO_DIR}/{REPO_NAME}/large_file.txt", "w+"
+            ) as f:
+                f.write(json.dumps(large_file))
+
+            model.push_to_hub(
+                f"{tmpdirname}/{WORKING_REPO_DIR}/{REPO_NAME}",
+                api_endpoint=ENDPOINT_STAGING,
+                use_auth_token=self._token,
+                git_user="ci",
+                git_email="ci@dummy.com",
+                config={"num": 7, "act": "gelu_fast"},
+            )
+            model_info = self._api.model_info(f"{USER}/{REPO_NAME}", token=self._token)
+
+            self.assertTrue(
+                "large_file.txt" in [f.rfilename for f in model_info.siblings]
+            )
+            self._api.delete_repo(repo_id=f"{REPO_NAME}", token=self._token)
