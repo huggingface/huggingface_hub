@@ -394,7 +394,6 @@ class CommitApiTest(HfApiCommonTestWithLogin):
         with self.assertRaises(
             ValueError, msg="path_or_fileobj is str but does not point to a file"
         ):
-
             operation.validate()
 
     @retry_endpoint

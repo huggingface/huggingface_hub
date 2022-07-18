@@ -55,7 +55,6 @@ def require_tf(test_case):
 
 
 if is_tf_available():
-
     # Define dummy mixin model...
     class DummyModel(tf.keras.Model, KerasModelHubMixin):
         def __init__(self, **kwargs):

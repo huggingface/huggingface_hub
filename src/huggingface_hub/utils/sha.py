@@ -8,7 +8,8 @@ from typing import BinaryIO, Iterable, Optional
 def iter_fileobj(
     fileobj: BinaryIO, chunk_size: Optional[int] = None
 ) -> Iterable[bytes]:
-    """Returns an iterator over the content of ``fileobj`` in chunks of ``chunk_size``"""
+    """Returns an iterator over the content of ``fileobj`` in chunks of ``chunk_size``
+    """
     chunk_size = chunk_size or -1
     return iter(partial(fileobj.read, chunk_size), b"")
 

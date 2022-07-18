@@ -142,15 +142,17 @@ class HubMixingTest(HubMixingCommonTest):
         REPO_NAME = repo_name("PUSH_TO_HUB_LFS")
         with tempfile.TemporaryDirectory() as tmpdirname:
             os.makedirs(f"{tmpdirname}/{WORKING_REPO_DIR}/{REPO_NAME}")
-            self._repo_url = self._api.create_repo(
-            repo_id=REPO_NAME, token=self._token
+            self._repo_url = self._api.create_repo(repo_id=REPO_NAME, token=self._token)
+            repo = Repository(
+                local_dir=f"{tmpdirname}/{WORKING_REPO_DIR}/{REPO_NAME}",
+                clone_from=self._repo_url,
             )
-            repo = Repository(local_dir = f"{tmpdirname}/{WORKING_REPO_DIR}/{REPO_NAME}",
-            clone_from=self._repo_url)
 
             model = DummyModel()
             large_file = [100] * int(4e6)
-            with open(f"{tmpdirname}/{WORKING_REPO_DIR}/{REPO_NAME}/large_file.txt", "w+") as f:
+            with open(
+                f"{tmpdirname}/{WORKING_REPO_DIR}/{REPO_NAME}/large_file.txt", "w+"
+            ) as f:
                 f.write(json.dumps(large_file))
 
             model.push_to_hub(
@@ -163,5 +165,7 @@ class HubMixingTest(HubMixingCommonTest):
             )
             model_info = self._api.model_info(f"{USER}/{REPO_NAME}", token=self._token)
 
-            self.assertTrue("large_file.txt" in [f.rfilename for f in model_info.siblings])
+            self.assertTrue(
+                "large_file.txt" in [f.rfilename for f in model_info.siblings]
+            )
             self._api.delete_repo(repo_id=f"{REPO_NAME}", token=self._token)
