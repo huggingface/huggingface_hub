@@ -9,9 +9,8 @@ import uuid
 from huggingface_hub import HfApi
 from huggingface_hub.file_download import is_torch_available
 from huggingface_hub.hub_mixin import PyTorchModelHubMixin
-from huggingface_hub.utils import logging
 from huggingface_hub.repository import Repository
-
+from huggingface_hub.utils import logging
 
 from .testing_constants import ENDPOINT_STAGING, TOKEN, USER
 from .testing_utils import set_write_permission_and_retry
@@ -143,7 +142,7 @@ class HubMixingTest(HubMixingCommonTest):
         with tempfile.TemporaryDirectory() as tmpdirname:
             os.makedirs(f"{tmpdirname}/{WORKING_REPO_DIR}/{REPO_NAME}")
             self._repo_url = self._api.create_repo(repo_id=REPO_NAME, token=self._token)
-            repo = Repository(
+            Repository(
                 local_dir=f"{tmpdirname}/{WORKING_REPO_DIR}/{REPO_NAME}",
                 clone_from=self._repo_url,
             )
