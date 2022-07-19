@@ -4,7 +4,7 @@ Sharing your files and work is a very important aspect of the Hub. The `huggingf
 
 * Upload a file with [`upload_file`].
 * Upload a folder with [`upload_folder`].
-* Push files with a `commit` context manager.
+* Push files with the `commit` context manager.
 * Push files with the [`~Repository.push_to_hub`] function.
 * Upload very large files with [Git LFS](https://git-lfs.github.com/).
 * Use [`create_commit`] to push files without Git.
@@ -28,7 +28,7 @@ Whenever you want to upload files to the Hub, you need to log in to your Hugging
 
 ## Upload a file
 
-Once you've created a repository with the [`create_repo`](./how-to-manage#create-a-repository) function, you can upload your files to your repository. Use the [`upload_file`] function to upload a file. 
+Once you've created a repository with the [`create_repo`](./how-to-manage#create-a-repository) function, you can upload files to your repository with the [`upload_file`] function. 
 
 Specify the path of the file to upload, where you want to upload the file to in the repository, and the name of the repository you want to add the file to. Depending on your repository type, you can optionally set the repository type as a `dataset`, `model` or `space`.
 
@@ -44,14 +44,14 @@ Specify the path of the file to upload, where you want to upload the file to in 
 
 ## Upload a folder
 
-Use the [`upload_folder`] function to upload a local folder to a repository. Specify the path of the local folder to upload, where you want to upload the folder to in the repository, and the name of the repository you want to add the folder to. Depending on your repository type, you can optionally set the repository type as a `dataset`, `model` or `space`.
+Use the [`upload_folder`] function to upload a local folder to an existing repository. Specify the path of the local folder to upload, where you want to upload the folder to in the repository, and the name of the repository you want to add the folder to. Depending on your repository type, you can optionally set the repository type as a `dataset`, `model` or `space`.
 
 ```py
 >>> from huggingface_hub import HfApi
 >>> api = HfApi()
 >>> api.upload_folder(folder_path="/path/to/local/folder",
 ...                   path_in_repo="my-dataset/train",
-...                   repo_id="username/test-dataset"
+...                   repo_id="username/test-dataset",
 ...                   repo_type="dataset",
 ... )
 # https://huggingface.co/datasets/username/test-dataset/tree/main/my-dataset/train/
@@ -73,7 +73,7 @@ The `commit` context manager handles four of the most common Git commands: pull,
 ...         f.write(json.dumps({"hey": 8}))
 ```
 
-Here is another example of how to save and upload a file to a repository:
+Here is another example of how to use the `commit` context manager to save and upload a file to a repository:
 
 ```python
 >>> import torch
@@ -118,7 +118,7 @@ When `blocking=False`, commands are tracked, and your script will only exit when
 
 ## push_to_hub
 
-The [`Repository`] class has a [`~Repository.push_to_hub`] function to add files, make a commit, and push them to a repository. Unlike the `commit` context manager, requires you'll need to pull from a repository first before calling [`~Repository.push_to_hub`].
+The [`Repository`] class has a [`~Repository.push_to_hub`] function to add files, make a commit, and push them to a repository. Unlike the `commit` context manager, you'll need to pull from a repository first before calling [`~Repository.push_to_hub`].
 
 For example, if you've already cloned a repository from the Hub, then you can initialize the `repo` from the local directory:
 
@@ -134,14 +134,14 @@ Update your local clone with [`~Repository.git_pull`] and then push your file to
 >>> repo.push_to_hub(commit_message="Commit my-awesome-file to the Hub")
 ```
 
-However, if you aren't ready to push a file yet, you can still use [`~Repository.git_add`] and [`~Repository.git_commit`] to add and commit your file:
+However, if you aren't ready to push a file yet, you can use [`~Repository.git_add`] and [`~Repository.git_commit`] to only add and commit your file:
 
 ```py
 >>> repo.git_add("path/to/file")
 >>> repo.git_commit(commit_message="add my first model config file :)")
 ```
 
-Once you're ready, push the file to your repository with [`~Repository.git_push`]:
+When you're ready, push the file to your repository with [`~Repository.git_push`]:
 
 ```py
 >>> repo.git_push()
@@ -149,13 +149,13 @@ Once you're ready, push the file to your repository with [`~Repository.git_push`
 
 ## Upload with Git LFS
 
-For huge files (>5GB), you need to install a custom transfer agent for Git LFS:
+For large files (>5GB), you need to install a custom transfer agent for Git LFS:
 
 ```bash
 huggingface-cli lfs-enable-largefiles
 ```
 
-You should install this for each model repository that contains a model file. Once installed, you are now able to push files larger than 5GB.
+You should install this for each model repository that contains a model file. Once installed, you'll be able to push files larger than 5GB.
 
 ## Upload without Git installed
 
@@ -165,7 +165,7 @@ The [`create_commit`] function is a low-level API for working at a commit level.
 
 </Tip>
 
-If you don't have Git installed on your system, use the [`create_commit`] function to upload your file. [`create_commit`] uses the HTTP protocol to upload files to the Hub. Large and binary files are automatically uploaded with the Git LFS protocol.
+If you don't have Git installed on your system, use the [`create_commit`] function to upload your file. [`create_commit`] uses the HTTP protocol to upload files to the Hub. Large and binary files are automatically uploaded with Git LFS.
 
 There are two kinds of operations supported by the [`create_commit`] function:
 
