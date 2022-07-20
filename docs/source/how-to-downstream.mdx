@@ -5,14 +5,14 @@ stored on the Hub. You can use these functions independently or integrate them i
 own library, making it more convenient for your users to interact with the Hub. This
 guide will show you how to:
 
-* Download and cache a file from the Hub to your disk.
+* Download and store a file from the Hub.
 * Download all the files in a repository.
 
 ## Download and store a file from the Hub
 
-The [`hf_hub_download`] function is the main function to dowload files from the Hub.
+The [`hf_hub_download`] function is the main function for downloading files from the Hub.
 
-It will downloads the remote file, store it to disk (in a versioning-aware way) and return its local file path.
+It downloads the remote file, stores it on disk (in a version-aware way), and returns its local file path.
 
 Use the `repo_id` and `filename` parameters to specify which file to download:
 

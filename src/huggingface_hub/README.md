@@ -2,7 +2,7 @@
 
 ## Download files from the Hub
 
-The `hf_hub_download()` function is the main function to dowload files from the Hub. One
+The `hf_hub_download()` function is the main function to download files from the Hub. One
 advantage of using it is that files are cached locally, so you won't have to
 download the files multiple times. If there are changes in the repository, the
 files will be automatically downloaded again.
@@ -42,7 +42,7 @@ Parameters:
 
 ### `hf_hub_url`
 
-Internally, the library uses `hf_hub_url()` returns the url we'll use to download the actual files:
+Internally, the library uses `hf_hub_url()` to return the URL to download the actual files:
 `https://huggingface.co/julien-c/EsperBERTo-small/resolve/main/pytorch_model.bin`
 
 You're welcome to also use it if you need it.
