@@ -5,19 +5,21 @@ stored on the Hub. You can use these functions independently or integrate them i
 own library, making it more convenient for your users to interact with the Hub. This
 guide will show you how to:
 
-* Specify a file to download from the Hub.
-* Download and cache a file on your disk.
+* Download and cache a file from the Hub to your disk.
 * Download all the files in a repository.
 
-## Choose a file to download
+## Download and store a file from the Hub
 
-Use the `filename` parameter in the [`hf_hub_url`] function to retrieve the URL of a
-specific file to download:
+The [`hf_hub_download`] function is the main function to dowload files from the Hub.
+
+It will downloads the remote file, store it to disk (in a versioning-aware way) and return its local file path.
+
+Use the `repo_id` and `filename` parameters to specify which file to download:
 
 ```python
->>> from huggingface_hub import hf_hub_url
->>> hf_hub_url(repo_id="lysandre/arxiv-nlp", filename="config.json")
-'https://huggingface.co/lysandre/arxiv-nlp/resolve/main/config.json'
+>>> from huggingface_hub import hf_hub_download
+>>> hf_hub_download(repo_id="lysandre/arxiv-nlp", filename="config.json")
+'/home/lysandre/.cache/huggingface/hub/bc0e8cc2f8271b322304e8bb84b3b7580701d53a335ab2d75da19c249e2eeebb.066dae6fdb1e2b8cce60c35cc0f78ed1451d9b341c78de19f3ad469d10a8cbb1'
 ```
 
 <div class="flex justify-center">
@@ -30,52 +32,31 @@ branch name, a tag, or a commit hash. When using the commit hash, it must be the
 full-length hash instead of a 7-character commit hash:
 
 ```python
->>> hf_hub_url(repo_id="lysandre/arxiv-nlp", 
-...            filename="config.json", 
-...            revision="877b84a8f93f2d619faa2a6e514a32beef88ab0a",
+>>> hf_hub_download(
+...    repo_id="lysandre/arxiv-nlp",
+...    filename="config.json",
+...    revision="877b84a8f93f2d619faa2a6e514a32beef88ab0a",
 ... )
-'https://huggingface.co/lysandre/arxiv-nlp/resolve/877b84a8f93f2d619faa2a6e514a32beef88ab0a/config.json'
+'/home/lysandre/.cache/huggingface/hub/bc0e8cc2f8271b322304e8bb84b3b7580701d53a335ab2d75da19c249e2eeebb.066dae6fdb1e2b8cce60c35cc0f78ed1451d9b341c78de19f3ad469d10a8cbb1'
 ```
 
 To specify a file revision with the branch name:
 
 ```python
->>> hf_hub_url(repo_id="lysandre/arxiv-nlp", filename="config.json", revision="main")
+>>> hf_hub_download(repo_id="lysandre/arxiv-nlp", filename="config.json", revision="main")
 ```
 
 To specify a file revision with a tag identifier. For example, if you want `v1.0` of the
 `config.json` file:
 
 ```python
->>> hf_hub_url(repo_id="lysandre/arxiv-nlp", filename="config.json", revision="v1.0")
+>>> hf_hub_download(repo_id="lysandre/arxiv-nlp", filename="config.json", revision="v1.0")
 ```
 
-## Download and store a file
+## Construct a download URL
 
-[`cached_download`] is used to download and cache a file on your local disk. Once a file
-is stored in your cache, you don't have to redownload it the next time you use it.
-[`cached_download`] is a hands-free solution for staying up to date with new file
-versions. When a downloaded file is updated in the remote repository,
-[`cached_download`] will automatically download and store it.
-
-Begin by retrieving the file URL with [`hf_hub_url`], and then pass the specified URL to
-[`cached_download`] to download the file:
-
-```python
->>> from huggingface_hub import hf_hub_url, cached_download
->>> config_file_url = hf_hub_url("lysandre/arxiv-nlp", filename="config.json")
->>> cached_download(config_file_url)
-'/home/lysandre/.cache/huggingface/hub/bc0e8cc2f8271b322304e8bb84b3b7580701d53a335ab2d75da19c249e2eeebb.066dae6fdb1e2b8cce60c35cc0f78ed1451d9b341c78de19f3ad469d10a8cbb1'
-```
-
-[`hf_hub_url`] and [`cached_download`] work hand-in-hand to download a file. This is
-such a standard workflow that [`hf_hub_download`] is a wrapper that calls both of these
-functions.
-
-```python
->>> from huggingface_hub import hf_hub_download
->>> hf_hub_download(repo_id="lysandre/arxiv-nlp", filename="config.json")
-```
+In case you want to construct the URL used to download a file from a repo, you can use [`hf_hub_url`] which returns a URL.
+Note that it is used internally by [`hf_hub_download`].
 
 ## Download an entire repository
 
