@@ -1,11 +1,11 @@
 # Upload files to the Hub
 
-Sharing your files and work is an important aspect of the Hub. The `huggingface_hub` offers several options for uploading your files to the Hub. You can use these functions independently or integrate them into your library, making it more convenient for your users to interact with the Hub. This guide will show you how to:
+Sharing your files and work is an important aspect of the Hub. The `huggingface_hub` offers several options for uploading your files to the Hub. You can use these functions independently or integrate them into your library, making it more convenient for your users to interact with the Hub. This guide will show you how to push files:
 
-* Push files without Git.
-* Push very large files with [Git LFS](https://git-lfs.github.com/).
-* Push files with the `commit` context manager.
-* Push files with the [`~Repository.push_to_hub`] function.
+* without using Git.
+* that are very large with [Git LFS](https://git-lfs.github.com/).
+* with with the `commit` context manager.
+* with the [`~Repository.push_to_hub`] function.
 
 Whenever you want to upload files to the Hub, you need to log in to your Hugging Face account:
 
@@ -26,7 +26,7 @@ Whenever you want to upload files to the Hub, you need to log in to your Hugging
 
 ## Push files without Git
 
-If you don't have Git installed on your system, use [`create_commit`] to push your files to the Hub. [`create_commit`] uses the HTTP protocol to upload files to the Hub. Any large or binary files are automatically uploaded with Git LFS. 
+If you don't have Git installed on your system, use [`create_commit`] to push your files to the Hub. [`create_commit`] uses the HTTP protocol to upload files to the Hub.
 
 However, [`create_commit`] is a low-level API for working at a commit level. The [`upload_file`] and [`upload_folder`] functions are higher-level APIs that use [`create_commit`] under the hood and are generally more convenient. We recommend trying these functions first if you don't need to work at a lower level.
 
@@ -58,7 +58,6 @@ Use the [`upload_folder`] function to upload a local folder to an existing repos
 ...                   repo_id="username/test-dataset",
 ...                   repo_type="dataset",
 ... )
-# https://huggingface.co/datasets/username/test-dataset/tree/main/my-dataset/train/
 ```
 
 ### create_commit
@@ -105,13 +104,13 @@ For more detailed information, take a look at the [`HfApi`] reference.
 
 ## Push files with Git LFS
 
-For large files (>5GB), you need to install a custom transfer agent for Git LFS:
+Files larger than 10MB are automatically handled by Git LFS. But for very large files (>5GB), you need to install a custom transfer agent for Git LFS:
 
 ```bash
 huggingface-cli lfs-enable-largefiles
 ```
 
-You should install this for each model repository that contains a model file. Once installed, you'll be able to push files larger than 5GB.
+You should install this for each repository that has a very large file. Once installed, you'll be able to push files larger than 5GB.
 
 ## commit context manager
 
