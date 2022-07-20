@@ -1,8 +1,14 @@
 import os
 import re
+import sys
 import tempfile
 from pathlib import Path
 from typing import Any, Dict, Optional, Union
+
+if sys.version_info >= (3, 8):
+    from typing import Literal
+else:
+    from typing_extensions import Literal
 
 import jinja2
 import requests
@@ -72,7 +78,8 @@ class ModelCard:
         self.data = CardData(**data_dict)
 
     def __str__(self):
-        return f"---\n{self.data.to_yaml()}\n---\n{self.text}"
+        line_break = _detect_line_ending(self.content) or "\n"
+        return f"---{line_break}{self.data.to_yaml(line_break=line_break)}{line_break}---{line_break}{self.text}"
 
     def save(self, filepath: Union[Path, str]):
         r"""Save a RepoCard to a file.
@@ -123,7 +130,9 @@ class ModelCard:
                 use_auth_token=token,
             )
 
-        return cls(Path(card_path).read_text())
+        # Preserve newlines in the existing file.
+        with Path(card_path).open(mode="r", newline="") as f:
+            return cls(f.read())
 
     def validate(self, repo_type="model"):
         """Validates card against Hugging Face Hub's model card validation logic.
@@ -283,6 +292,23 @@ class ModelCard:
             card_data=card_data.to_yaml(), **template_kwargs
         )
         return cls(content)
+
+
+def _detect_line_ending(content: str) -> Literal["\r", "\n", "\r\n", None]:
+    """
+    same implem as in Hub server, keep it in sync
+    """
+    cr = content.count("\r")
+    lf = content.count("\n")
+    crlf = content.count("\r\n")
+    if cr + lf == 0:
+        return None
+    if crlf == cr and crlf == lf:
+        return "\r\n"
+    if cr > lf:
+        return "\r"
+    else:
+        return "\n"
 
 
 def metadata_load(local_path: Union[str, Path]) -> Optional[Dict]:
