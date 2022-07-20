@@ -99,7 +99,7 @@ repository revision, use the `revision` parameter:
 ```
 
 In general, it is usually better to download files with [`hf_hub_download`] - if you
-already know the file name - to avoid redownloading an entire repository.
+already know the file names you need.
 [`snapshot_download`] is helpful when you are unaware of which files to download.
 
 However, you don't always want to download the contents of an entire repository with
@@ -129,7 +129,3 @@ following example ignores the `.msgpack` and `.h5` file extensions:
 
 Passing a regex can be especially useful when repositories contain files that are never
 expected to be downloaded by [`snapshot_download`].
-
-Note that passing `allow_regex` or `ignore_regex` does **not** prevent
-[`snapshot_download`] from redownloading the entire model repository if an ignored file
-is changed.
