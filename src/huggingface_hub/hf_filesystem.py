@@ -1,3 +1,4 @@
+import os
 import tempfile
 from functools import partial
 from pathlib import PurePosixPath
@@ -5,13 +6,7 @@ from typing import Optional
 
 import fsspec
 
-from .constants import (
-    HUGGINGFACE_HUB_CACHE,
-    REPO_TYPE_DATASET,
-    REPO_TYPE_MODEL,
-    REPO_TYPE_SPACE,
-    REPO_TYPES,
-)
+from .constants import REPO_TYPE_DATASET, REPO_TYPE_MODEL, REPO_TYPE_SPACE, REPO_TYPES
 from .file_download import hf_hub_url
 from .hf_api import (
     HfFolder,
@@ -161,7 +156,6 @@ class HfFileSystem(fsspec.AbstractFileSystem):
         **kwargs,
     ):
         if mode == "rb":
-            self._get_repo_info()
             url = hf_hub_url(
                 self.repo_id,
                 path,
@@ -213,7 +207,7 @@ class HfFileSystem(fsspec.AbstractFileSystem):
 
 class TempFileUploader(fsspec.spec.AbstractBufferedFile):
     def _initiate_upload(self):
-        self.temp_file = tempfile.TemporaryFile(dir=HUGGINGFACE_HUB_CACHE)
+        self.temp_file = tempfile.NamedTemporaryFile(delete=False)
         if self.mode == "ab":
             with self.fs.open(self.path, "rb") as f:
                 for block in iter(partial(f.read, self.blocksize), b""):
@@ -224,13 +218,14 @@ class TempFileUploader(fsspec.spec.AbstractBufferedFile):
         block = self.buffer.read()
         self.temp_file.write(block)
         if final:
+            self.temp_file.close()
             upload_file(
-                path_or_fileobj=self.temp_file.file,
+                path_or_fileobj=self.temp_file.name,
                 path_in_repo=self.path,
                 repo_id=self.fs.repo_id,
                 token=self.fs.token,
                 repo_type=self.fs.repo_type,
                 revision=self.fs.revision,
             )
+            os.remove(self.temp_file.name)
             self.fs._invalidate_repo_cache()
-            self.temp_file.close()
