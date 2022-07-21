@@ -81,16 +81,19 @@ class RepositoryTest(RepositoryCommonTest):
         logger.info(
             f"Does {WORKING_REPO_DIR} exist: {os.path.exists(WORKING_REPO_DIR)}"
         )
+
         self.REPO_NAME = repo_name()
-        self._repo_url = self._api.create_repo(
-            repo_id=self.REPO_NAME, token=self._token
-        )
-        self._api.upload_file(
-            path_or_fileobj=BytesIO(b"some initial binary data: \x00\x01"),
-            path_in_repo="random_file.txt",
-            repo_id=f"{USER}/{self.REPO_NAME}",
-            token=self._token,
-        )
+        # skip creation of repository for clone from test
+        if self.shortDescription() != "SKIP CREATION":
+            self._repo_url = self._api.create_repo(
+                repo_id=self.REPO_NAME, token=self._token
+            )
+            self._api.upload_file(
+                path_or_fileobj=BytesIO(b"some initial binary data: \x00\x01"),
+                path_in_repo="random_file.txt",
+                repo_id=f"{USER}/{self.REPO_NAME}",
+                token=self._token,
+            )
 
     def tearDown(self):
         try:
@@ -141,6 +144,7 @@ class RepositoryTest(RepositoryCommonTest):
             )
 
     def test_clone_from_deprecation_warning(self):
+        """SKIP CREATION"""
         with pytest.raises(
             FutureWarning,
             match="Creating a repository through clone_from is deprecated*",
@@ -149,6 +153,7 @@ class RepositoryTest(RepositoryCommonTest):
                 WORKING_REPO_DIR,
                 clone_from=f"{USER}/{uuid.uuid4()}",
                 use_auth_token=self._token,
+                repo_type="dataset",
             )
 
     def test_clone_from_model(self):
