@@ -4,7 +4,7 @@ Sharing your files and work is an important aspect of the Hub. The `huggingface_
 
 * without using Git.
 * that are very large with [Git LFS](https://git-lfs.github.com/).
-* with with the `commit` context manager.
+* with the `commit` context manager.
 * with the [`~Repository.push_to_hub`] function.
 
 Whenever you want to upload files to the Hub, you need to log in to your Hugging Face account:
@@ -34,7 +34,7 @@ However, [`create_commit`] is a low-level API for working at a commit level. The
 
 Once you've created a repository with the [`create_repo`](./how-to-manage#create-a-repository) function, you can upload a file to your repository with the [`upload_file`] function. 
 
-Specify the path of the file to upload, where you want to upload the file to in the repository, and the name of the repository you want to add the file to. Depending on your repository type, you can optionally set the repository type as a `dataset`, `model` or `space`.
+Specify the path of the file to upload, where you want to upload the file to in the repository, and the name of the repository you want to add the file to. Depending on your repository type, you can optionally set the repository type as a `dataset`, `model`, or `space`.
 
 ```py
 >>> from huggingface_hub import HfApi
@@ -48,7 +48,7 @@ Specify the path of the file to upload, where you want to upload the file to in 
 
 ### Upload a folder
 
-Use the [`upload_folder`] function to upload a local folder to an existing repository. Specify the path of the local folder to upload, where you want to upload the folder to in the repository, and the name of the repository you want to add the folder to. Depending on your repository type, you can optionally set the repository type as a `dataset`, `model` or `space`.
+Use the [`upload_folder`] function to upload a local folder to an existing repository. Specify the path of the local folder to upload, where you want to upload the folder to in the repository, and the name of the repository you want to add the folder to. Depending on your repository type, you can optionally set the repository type as a `dataset`, `model`, or `space`.
 
 ```py
 >>> from huggingface_hub import HfApi
@@ -104,7 +104,7 @@ For more detailed information, take a look at the [`HfApi`] reference.
 
 ## Push files with Git LFS
 
-Files larger than 10MB are automatically handled by Git LFS. But for very large files (>5GB), you need to install a custom transfer agent for Git LFS:
+Git LFS automatically handles files larger than 10MB. But for very large files (>5GB), you need to install a custom transfer agent for Git LFS:
 
 ```bash
 huggingface-cli lfs-enable-largefiles
