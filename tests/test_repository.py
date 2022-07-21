@@ -140,6 +140,17 @@ class RepositoryTest(RepositoryCommonTest):
                 use_auth_token=self._token,
             )
 
+    def test_clone_from_deprecation_warning(self):
+        with pytest.raises(
+            FutureWarning,
+            match="Creating a repository through clone_from is deprecated*",
+        ):
+            Repository(
+                WORKING_REPO_DIR,
+                clone_from=f"{USER}/{uuid.uuid4()}",
+                use_auth_token=self._token,
+            )
+
     def test_clone_from_model(self):
         temp_repo_url = self._api.create_repo(
             repo_id=f"{self.REPO_NAME}-temp", token=self._token, repo_type="model"
