@@ -70,6 +70,7 @@ from .testing_utils import (
     DUMMY_DATASET_ID_REVISION_ONE_SPECIFIC_COMMIT,
     DUMMY_MODEL_ID,
     DUMMY_MODEL_ID_REVISION_ONE_SPECIFIC_COMMIT,
+    SAMPLE_DATASET_IDENTIFIER,
     require_git_lfs,
     retry_endpoint,
     set_write_permission_and_retry,
@@ -929,6 +930,31 @@ class HfApiPublicTest(unittest.TestCase):
         )
 
     @with_production_testing
+    def test_model_info_with_file_metadata(self):
+        _api = HfApi()
+        model = _api.model_info(
+            repo_id=DUMMY_MODEL_ID,
+            revision=DUMMY_MODEL_ID_REVISION_ONE_SPECIFIC_COMMIT,
+            files_metadata=True,
+        )
+        files = model.siblings
+        assert files is not None
+        self.assertListEqual(
+            [isinstance(file.blob_id, str) for file in files], [True] * len(files)
+        )
+        self.assertListEqual(
+            [isinstance(file.size, int) for file in files], [True] * len(files)
+        )
+        self.assertTrue(any([file.lfs is not None for file in files]))
+        self.assertListEqual(
+            [
+                file.lfs is None or isinstance(file.lfs, dict) and "sha256" in file.lfs
+                for file in files
+            ],
+            [True] * len(files),
+        )
+
+    @with_production_testing
     def test_list_repo_files(self):
         _api = HfApi()
         files = _api.list_repo_files(repo_id=DUMMY_MODEL_ID)
@@ -1082,6 +1108,30 @@ class HfApiPublicTest(unittest.TestCase):
         )
         self.assertIsInstance(dataset, DatasetInfo)
         self.assertEqual(dataset.sha, DUMMY_DATASET_ID_REVISION_ONE_SPECIFIC_COMMIT)
+
+    @with_production_testing
+    def test_dataset_info_with_file_metadata(self):
+        _api = HfApi()
+        dataset = _api.dataset_info(
+            repo_id=SAMPLE_DATASET_IDENTIFIER,
+            files_metadata=True,
+        )
+        files = dataset.siblings
+        assert files is not None
+        self.assertListEqual(
+            [isinstance(file.blob_id, str) for file in files], [True] * len(files)
+        )
+        self.assertListEqual(
+            [isinstance(file.size, int) for file in files], [True] * len(files)
+        )
+        self.assertTrue(any([file.lfs is not None for file in files]))
+        self.assertListEqual(
+            [
+                file.lfs is None or isinstance(file.lfs, dict) and "sha256" in file.lfs
+                for file in files
+            ],
+            [True] * len(files),
+        )
 
     def test_staging_list_metrics(self):
         _api = HfApi(endpoint=ENDPOINT_STAGING)

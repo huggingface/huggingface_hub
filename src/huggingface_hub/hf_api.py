@@ -166,10 +166,26 @@ class RepoFile:
             file name, relative to the repo root. This is the only attribute
             that's guaranteed to be here, but under certain conditions there can
             certain other stuff.
+        size (`int`, *optional*):
+            The file's size, in bytes. This attribute is present when `files_metadata` argument
+            of [`repo_info`] is set to `True`. It's `None` otherwise.
+        blob_id (`str`, *optional*):
+            The file's git OID. This attribute is present when `files_metadata` argument
+            of [`repo_info`] is set to `True`. It's `None` otherwise.
+        lfs (`dict`, *optional*):
+            The file's LFS metadata (has two keys: `sha256` and `size`). This attribute is present when
+            `files_metadata` argument of [`repo_info`] is set to `True` and the file is stored
+            with Git LFS. It's `None` otherwise.
     """
 
     def __init__(self, rfilename: str, **kwargs):
         self.rfilename = rfilename  # filename relative to the repo root
+
+        # Optional file metadata
+        self.size: Optional[int] = kwargs.pop("size", None)
+        self.blob_id: Optional[str] = kwargs.pop("blobId", None)
+        self.lfs: Optional[dict] = kwargs.pop("lfs", None)
+
         for k, v in kwargs.items():
             setattr(self, k, v)
 
@@ -1168,6 +1184,7 @@ class HfApi:
         token: Optional[str] = None,
         timeout: Optional[float] = None,
         securityStatus: Optional[bool] = None,
+        files_metadata: bool = False,
     ) -> ModelInfo:
         """
         Get info on one specific model on huggingface.co
@@ -1188,6 +1205,9 @@ class HfApi:
             securityStatus (`bool`, *optional*):
                 Whether to retrieve the security status from the model
                 repository as well.
+            files_metadata: (`bool`, *optional*):
+                Whether or not to retrieve metadata for files in the repository
+                (size, LFS metadata, etc). Defaults to `False`.
 
         Returns:
             [`huggingface_hub.hf_api.ModelInfo`]: The model repository information.
@@ -1213,9 +1233,16 @@ class HfApi:
             else f"{self.endpoint}/api/models/{repo_id}/revision/{revision}"
         )
         headers = {"authorization": f"Bearer {token}"} if token is not None else None
-        status_query_param = {"securityStatus": True} if securityStatus else None
+        params = {}
+        if securityStatus:
+            params["securityStatus"] = True
+        if files_metadata:
+            params["blobs"] = True
         r = requests.get(
-            path, headers=headers, timeout=timeout, params=status_query_param
+            path,
+            headers=headers,
+            timeout=timeout,
+            params=params,
         )
         _raise_for_status(r)
         d = r.json()
@@ -1228,6 +1255,7 @@ class HfApi:
         revision: Optional[str] = None,
         token: Optional[str] = None,
         timeout: Optional[float] = None,
+        files_metadata: bool = False,
     ) -> DatasetInfo:
         """
         Get info on one specific dataset on huggingface.co.
@@ -1245,6 +1273,9 @@ class HfApi:
                 An authentication token (See https://huggingface.co/settings/token)
             timeout (`float`, *optional*):
                 Whether to set a timeout for the request to the Hub.
+            files_metadata: (`bool`, *optional*):
+                Whether or not to retrieve metadata for files in the repository
+                (size, LFS metadata, etc). Defaults to `False`.
 
         Returns:
             [`DatasetInfo`]: The dataset repository information.
@@ -1270,7 +1301,11 @@ class HfApi:
             else f"{self.endpoint}/api/datasets/{repo_id}/revision/{revision}"
         )
         headers = {"authorization": f"Bearer {token}"} if token is not None else None
-        r = requests.get(path, headers=headers, timeout=timeout)
+        params = {}
+        if files_metadata:
+            params["blobs"] = True
+
+        r = requests.get(path, headers=headers, timeout=timeout, params=params)
         _raise_for_status(r)
         d = r.json()
         return DatasetInfo(**d)
@@ -1282,6 +1317,7 @@ class HfApi:
         revision: Optional[str] = None,
         token: Optional[str] = None,
         timeout: Optional[float] = None,
+        files_metadata: bool = False,
     ) -> SpaceInfo:
         """
         Get info on one specific Space on huggingface.co.
@@ -1299,6 +1335,9 @@ class HfApi:
                 An authentication token (See https://huggingface.co/settings/token)
             timeout (`float`, *optional*):
                 Whether to set a timeout for the request to the Hub.
+            files_metadata: (`bool`, *optional*):
+                Whether or not to retrieve metadata for files in the repository
+                (size, LFS metadata, etc). Defaults to `False`.
 
         Returns:
             [`SpaceInfo`]: The space repository information.
@@ -1324,7 +1363,11 @@ class HfApi:
             else f"{self.endpoint}/api/spaces/{repo_id}/revision/{revision}"
         )
         headers = {"authorization": f"Bearer {token}"} if token is not None else None
-        r = requests.get(path, headers=headers, timeout=timeout)
+        params = {}
+        if files_metadata:
+            params["blobs"] = True
+
+        r = requests.get(path, headers=headers, timeout=timeout, params=params)
         _raise_for_status(r)
         d = r.json()
         return SpaceInfo(**d)
@@ -1337,6 +1380,7 @@ class HfApi:
         repo_type: Optional[str] = None,
         token: Optional[str] = None,
         timeout: Optional[float] = None,
+        files_metadata: bool = False,
     ) -> Union[ModelInfo, DatasetInfo, SpaceInfo]:
         """
         Get the info object for a given repo of a given type.
@@ -1352,6 +1396,9 @@ class HfApi:
                 An authentication token (See https://huggingface.co/settings/token)
             timeout (`float`, *optional*):
                 Whether to set a timeout for the request to the Hub.
+            files_metadata: (`bool`, *optional*):
+                Whether or not to retrieve metadata for files in the repository
+                (size, LFS metadata, etc). Defaults to `False`.
 
         Returns:
             `Union[SpaceInfo, DatasetInfo, ModelInfo]`: The repository
@@ -1371,15 +1418,27 @@ class HfApi:
         """
         if repo_type is None or repo_type == "model":
             return self.model_info(
-                repo_id, revision=revision, token=token, timeout=timeout
+                repo_id,
+                revision=revision,
+                token=token,
+                timeout=timeout,
+                files_metadata=files_metadata,
             )
         elif repo_type == "dataset":
             return self.dataset_info(
-                repo_id, revision=revision, token=token, timeout=timeout
+                repo_id,
+                revision=revision,
+                token=token,
+                timeout=timeout,
+                files_metadata=files_metadata,
             )
         elif repo_type == "space":
             return self.space_info(
-                repo_id, revision=revision, token=token, timeout=timeout
+                repo_id,
+                revision=revision,
+                token=token,
+                timeout=timeout,
+                files_metadata=files_metadata,
             )
         else:
             raise ValueError("Unsupported repo type.")
