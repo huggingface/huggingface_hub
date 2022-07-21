@@ -655,6 +655,12 @@ class Repository:
                                 " on Hugging Face Hub."
                             )
                         else:
+                            warnings.warn(
+                                "Creating a repository through clone_from is deprecated"
+                                "will be removed in v0.10.",
+                                FutureWarning,
+                            )
+
                             self.client.create_repo(
                                 repo_id=repo_id,
                                 token=token,
