@@ -5,11 +5,12 @@ import subprocess
 import tempfile
 import threading
 import time
+import warnings
 from contextlib import contextmanager
 from pathlib import Path
 from typing import Callable, Dict, Iterator, List, Optional, Tuple, Union
 from urllib.parse import urlparse
-import warnings
+
 from tqdm.auto import tqdm
 
 from huggingface_hub.constants import REPO_TYPES_URL_PREFIXES, REPOCARD_NAME
