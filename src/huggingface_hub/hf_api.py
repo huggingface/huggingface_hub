@@ -198,7 +198,7 @@ class ModelInfo:
     """
     Info about a model accessible from huggingface.co
 
-    Args:
+    Attributes:
         modelId (`str`, *optional*):
             ID of model repository.
         sha (`str`, *optional*):
@@ -209,8 +209,8 @@ class ModelInfo:
             List of tags.
         pipeline_tag (`str`, *optional*):
             Pipeline tag to identify the correct widget.
-        siblings (`List[Dict]`, *optional*):
-            list of files that constitute the Space
+        siblings (`List[RepoFile]`, *optional*):
+            list of ([`huggingface_hub.hf_api.RepoFile`]) objects that constitute the model
         private (`bool`, *optional*):
             is the repo private
         author (`str`, *optional*):
@@ -266,7 +266,7 @@ class DatasetInfo:
     """
     Info about a dataset accessible from huggingface.co
 
-    Args:
+    Attributes:
         id (`str`, *optional*):
             ID of dataset repository.
         sha (`str`, *optional*):
@@ -275,8 +275,8 @@ class DatasetInfo:
             date of last commit to repo
         tags (`Listr[str]`, *optional*):
             List of tags.
-        siblings (`List[Dict]`, *optional*):
-            list of files that constitute the Space
+        siblings (`List[RepoFile]`, *optional*):
+            list of [`huggingface_hub.hf_api.RepoFile`] objects that constitute the dataset
         private (`bool`, *optional*):
             is the repo private
         author (`str`, *optional*):
@@ -343,15 +343,15 @@ class SpaceInfo:
     This is a "dataclass" like container that just sets on itself any attribute
     passed by the server.
 
-    Args:
+    Attributes:
         id (`str`, *optional*):
             id of space
         sha (`str`, *optional*):
             repo sha at this particular revision
         lastModified (`str`, *optional*):
             date of last commit to repo
-        siblings (`List[Dict]`, *optional*):
-            list of files that constitute the Space
+        siblings (`List[RepoFile]`, *optional*):
+            list of [`huggingface_hub.hf_api.RepoFIle`] objects that constitute the Space
         private (`bool`, *optional*):
             is the repo private
         author (`str`, *optional*):
@@ -737,7 +737,7 @@ class HfApi:
                 carbon footprint to filter the resulting models with in grams.
             sort (`Literal["lastModified"]` or `str`, *optional*):
                 The key with which to sort the resulting models. Possible values
-                are the properties of the `ModelInfo` class.
+                are the properties of the [`huggingface_hub.hf_api.ModelInfo`] class.
             direction (`Literal[-1]` or `int`, *optional*):
                 Direction in which to sort. The value `-1` sorts by descending
                 order while all other values sort by ascending order.
@@ -759,6 +759,8 @@ class HfApi:
                 Whether to use the `auth_token` provided from the
                 `huggingface_hub` cli. If not logged in, a valid `auth_token`
                 can be passed in as a string.
+
+        Returns: List of [`huggingface_hub.hf_api.ModelInfo`] objects
 
         Example usage with the `filter` argument:
 
@@ -938,7 +940,7 @@ class HfApi:
                 A string that will be contained in the returned models.
             sort (`Literal["lastModified"]` or `str`, *optional*):
                 The key with which to sort the resulting datasets. Possible
-                values are the properties of the `DatasetInfo` class.
+                values are the properties of the [`huggingface_hub.hf_api.DatasetInfo`] class.
             direction (`Literal[-1]` or `int`, *optional*):
                 Direction in which to sort. The value `-1` sorts by descending
                 order while all other values sort by ascending order.
@@ -1118,7 +1120,7 @@ class HfApi:
                 A string that will be contained in the returned Spaces.
             sort (`Literal["lastModified"]` or `str`, *optional*):
                 The key with which to sort the resulting Spaces. Possible
-                values are the properties of the `SpaceInfo` class.
+                values are the properties of the [`huggingface_hub.hf_api.SpaceInfo`]` class.
             direction (`Literal[-1]` or `int`, *optional*):
                 Direction in which to sort. The value `-1` sorts by descending
                 order while all other values sort by ascending order.
@@ -1142,7 +1144,7 @@ class HfApi:
                 can be passed in as a string.
 
         Returns:
-            `List[SpaceInfo]`: a list of [`SpaceInfo`] objects
+            `List[SpaceInfo]`: a list of [`huggingface_hub.hf_api.SpaceInfo`] objects
         """
         path = f"{self.endpoint}/api/spaces"
         if use_auth_token:
@@ -1278,7 +1280,7 @@ class HfApi:
                 (size, LFS metadata, etc). Defaults to `False`.
 
         Returns:
-            [`DatasetInfo`]: The dataset repository information.
+            [`huggingface_hub.hf_api.DatasetInfo`]: The dataset repository information.
 
         <Tip>
 
@@ -1340,7 +1342,7 @@ class HfApi:
                 (size, LFS metadata, etc). Defaults to `False`.
 
         Returns:
-            [`SpaceInfo`]: The space repository information.
+            [`huggingface_hub.hf_api.SpaceInfo`]: The space repository information.
 
         <Tip>
 
@@ -1401,8 +1403,9 @@ class HfApi:
                 (size, LFS metadata, etc). Defaults to `False`.
 
         Returns:
-            `Union[SpaceInfo, DatasetInfo, ModelInfo]`: The repository
-            information.
+            `Union[SpaceInfo, DatasetInfo, ModelInfo]`: The repository information, as a
+            [`huggingface_hub.hf_api.DatasetInfo`], [`huggingface_hub.hf_api.ModelInfo`]
+            or [`huggingface_hub.hf_api.SpaceInfo`] object.
 
         <Tip>
 
