@@ -1205,7 +1205,7 @@ class HfApi:
             securityStatus (`bool`, *optional*):
                 Whether to retrieve the security status from the model
                 repository as well.
-            files_metadata: (`bool`, *optional*):
+            files_metadata (`bool`, *optional*):
                 Whether or not to retrieve metadata for files in the repository
                 (size, LFS metadata, etc). Defaults to `False`.
 
@@ -1273,7 +1273,7 @@ class HfApi:
                 An authentication token (See https://huggingface.co/settings/token)
             timeout (`float`, *optional*):
                 Whether to set a timeout for the request to the Hub.
-            files_metadata: (`bool`, *optional*):
+            files_metadata (`bool`, *optional*):
                 Whether or not to retrieve metadata for files in the repository
                 (size, LFS metadata, etc). Defaults to `False`.
 
@@ -1335,7 +1335,7 @@ class HfApi:
                 An authentication token (See https://huggingface.co/settings/token)
             timeout (`float`, *optional*):
                 Whether to set a timeout for the request to the Hub.
-            files_metadata: (`bool`, *optional*):
+            files_metadata (`bool`, *optional*):
                 Whether or not to retrieve metadata for files in the repository
                 (size, LFS metadata, etc). Defaults to `False`.
 
@@ -1396,7 +1396,7 @@ class HfApi:
                 An authentication token (See https://huggingface.co/settings/token)
             timeout (`float`, *optional*):
                 Whether to set a timeout for the request to the Hub.
-            files_metadata: (`bool`, *optional*):
+            files_metadata (`bool`, *optional*):
                 Whether or not to retrieve metadata for files in the repository
                 (size, LFS metadata, etc). Defaults to `False`.
 
