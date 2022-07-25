@@ -70,11 +70,11 @@ class HfFileSystem(fsspec.AbstractFileSystem):
     >>> import fsspec
 
     >>> # Read a remote file
-    >>> with fsspec.open("hf:username/my-dataset:/remote/file/in/repo.bin", repo_type="dataset") as f:
+    >>> with fsspec.open("hf://username/my-dataset:/remote/file/in/repo.bin", repo_type="dataset") as f:
     ...     data = f.read()
 
     >>> # Write a remote file
-    >>> with fsspec.open("hf:username/my-dataset:/remote/file/in/repo.bin", "wb", repo_type="dataset") as f:
+    >>> with fsspec.open("hf://username/my-dataset:/remote/file/in/repo.bin", "wb", repo_type="dataset") as f:
     ...     f.write(data)
     ```
     """
@@ -99,43 +99,34 @@ class HfFileSystem(fsspec.AbstractFileSystem):
         self.token = token if token is not None else HfFolder.get_token()
         self.repo_type = repo_type
         self.revision = revision
-        # Cached attributes
-        self._repo_info = None
-        self._repo_entries_spec = None
 
-    def _get_repo_info(self):
-        if self._repo_info is None:
-            self._repo_info = _repo_type_to_info_func(self.repo_type)(
-                self.repo_id, revision=self.revision, token=self.token
-            )
+    def _dircache_from_repo_info(self):
+        repo_info = _repo_type_to_info_func(self.repo_type)(
+            self.repo_id, revision=self.revision, token=self.token
+        )
+        for sibling in repo_info.siblings:
+            child = {
+                "name": sibling.rfilename,
+                "size": None,  # waiting for #951
+                "type": "file",
+            }
+            for parent in list(PurePosixPath(sibling.rfilename).parents)[:-1] + [
+                self.root_marker
+            ]:
+                self.dircache.setdefault(str(parent), []).append(child)
+                child = {"name": str(parent), "size": None, "type": "directory"}
 
-    def _get_repo_entries_spec(self):
-        if self._repo_entries_spec is None:
-            self._get_repo_info()
-            self._repo_entries_spec = {}
-            for hf_file in self._repo_info.siblings:
-                # TODO(QL): add sizes
-                self._repo_entries_spec[hf_file.rfilename] = {
-                    "name": hf_file.rfilename,
-                    "size": None,
-                    "type": "file",
-                }
-                self._repo_entries_spec.update(
-                    {
-                        str(d): {"name": str(d), "size": None, "type": "directory"}
-                        for d in list(PurePosixPath(hf_file.rfilename).parents)[:-1]
-                    }
-                )
-
-    def _invalidate_repo_cache(self):
-        self._repo_info = None
-        self._repo_entries_spec = None
+    def invalidate_cache(self, path=None):
+        if path is None:
+            self.dircache.clear()
+        else:
+            self.dircache.pop(path, None)
+        super().invalidate_cache(path)
 
     @classmethod
     def _strip_protocol(cls, path):
         path = super()._strip_protocol(path).lstrip("/")
-        if ":/" in path:
-            path = path.split(":", 1)[1]
+        *_, path = path.split(":/", 1)
         return path.lstrip("/")
 
     @staticmethod
@@ -179,30 +170,18 @@ class HfFileSystem(fsspec.AbstractFileSystem):
             repo_type=self.repo_type,
             revision=self.revision,
         )
-        self._invalidate_repo_cache()
+        self.invalidate_cache()
 
-    def info(self, path, **kwargs):
-        self._get_repo_entries_spec()
+    def ls(self, path, detail=True, **kwargs):
         path = self._strip_protocol(path)
-        if path in self._repo_entries_spec:
-            return self._repo_entries_spec[path]
-        else:
+        if not self.dircache:
+            self._dircache_from_repo_info()
+        out = self._ls_from_cache(path)
+        if out is None:
             raise FileNotFoundError(path)
-
-    def ls(self, path, detail=False, **kwargs):
-        self._get_repo_entries_spec()
-        path = PurePosixPath(path.strip("/"))
-        paths = {}
-        for p, f in self._repo_entries_spec.items():
-            p = PurePosixPath(p.strip("/"))
-            root = p.parent
-            if root == path:
-                paths[str(p)] = f
-        out = list(paths.values())
         if detail:
             return out
-        else:
-            return list(sorted(f["name"] for f in out))
+        return [o["name"] for o in out]
 
 
 class TempFileUploader(fsspec.spec.AbstractBufferedFile):
@@ -228,4 +207,4 @@ class TempFileUploader(fsspec.spec.AbstractBufferedFile):
                 revision=self.fs.revision,
             )
             os.remove(self.temp_file.name)
-            self.fs._invalidate_repo_cache()
+            self.fs.invalidate_cache()
