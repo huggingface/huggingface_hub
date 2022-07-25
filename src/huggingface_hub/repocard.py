@@ -35,9 +35,11 @@ REGEX_YAML_BLOCK = re.compile(r"---[\n\r]+([\S\s]*?)[\n\r]+---[\n\r]")
 logger = get_logger(__name__)
 
 
-class ModelCard:
+class RepoCard:
 
-    card_data_class = ModelCardData
+    card_data_class = CardData
+    default_template_path = TEMPLATE_MODELCARD_PATH
+    repo_type = "model"
 
     def __init__(self, content: str):
         """Initialize a RepoCard from string content. The content should be a
@@ -120,7 +122,7 @@ class ModelCard:
             card_path = hf_hub_download(
                 repo_id_or_path,
                 REPOCARD_NAME,
-                repo_type=repo_type,
+                repo_type=repo_type or cls.repo_type,
                 use_auth_token=token,
             )
 
@@ -155,7 +157,7 @@ class ModelCard:
         self,
         repo_id,
         token=None,
-        repo_type="model",
+        repo_type=None,
         commit_message=None,
         commit_description=None,
         revision=None,
@@ -185,14 +187,8 @@ class ModelCard:
             `str`: URL of the commit which updated the card metadata.
         """
 
-        if repo_type is None:
-            repo_type = "model"
-
-        if repo_type not in ["model", "space", "dataset"]:
-            raise RuntimeError(
-                "Provided repo_type '{repo_type}' should be one of ['model', 'space',"
-                " 'dataset']."
-            )
+        # If repo type is provided, otherwise, use the repo type of the card.
+        repo_type = repo_type or self.repo_type
 
         # Validate card before pushing to hub
         self.validate(repo_type=repo_type)
@@ -217,7 +213,7 @@ class ModelCard:
     def from_template(
         cls,
         card_data: CardData,
-        template_path: Optional[str] = TEMPLATE_MODELCARD_PATH,
+        template_path: Optional[str] = None,
         **template_kwargs,
     ):
         """Initialize a ModelCard from a template. By default, it uses the default template.
@@ -282,10 +278,17 @@ class ModelCard:
             ... )
 
         """
+        template_path = template_path or cls.default_template_path
         content = jinja2.Template(Path(template_path).read_text()).render(
             card_data=card_data.to_yaml(), **template_kwargs
         )
         return cls(content)
+
+
+class ModelCard(RepoCard):
+    card_data_class = ModelCardData
+    default_template_path = TEMPLATE_MODELCARD_PATH
+    repo_type = "model"
 
 
 def _detect_line_ending(content: str) -> Literal["\r", "\n", "\r\n", None]:
