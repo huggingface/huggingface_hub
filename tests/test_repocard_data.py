@@ -2,8 +2,8 @@ import pytest
 
 import yaml
 from huggingface_hub.repocard_data import (
-    ModelCardData,
     EvalResult,
+    ModelCardData,
     eval_results_to_model_index,
     model_index_to_eval_results,
 )

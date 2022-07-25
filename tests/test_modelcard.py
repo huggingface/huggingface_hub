@@ -6,7 +6,7 @@ from pathlib import Path
 import pytest
 
 import requests
-from huggingface_hub import ModelCardData, ModelCard, create_repo, delete_repo
+from huggingface_hub import ModelCard, ModelCardData, create_repo, delete_repo
 
 from .testing_constants import ENDPOINT_STAGING_BASIC_AUTH, TOKEN, USER
 

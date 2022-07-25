@@ -19,8 +19,8 @@ from huggingface_hub.hf_api import upload_file
 from huggingface_hub.repocard_data import (
     CardData,
     DatasetCardData,
-    ModelCardData,
     EvalResult,
+    ModelCardData,
     eval_results_to_model_index,
     model_index_to_eval_results,
 )
@@ -31,7 +31,9 @@ from .utils.logging import get_logger
 
 # exact same regex as in the Hub server. Please keep in sync.
 TEMPLATE_MODELCARD_PATH = Path(__file__).parent / "templates" / "modelcard_template.md"
-TEMPLATE_DATASETCARD_PATH = Path(__file__).parent / "templates" / "datasetcard_template.md"
+TEMPLATE_DATASETCARD_PATH = (
+    Path(__file__).parent / "templates" / "datasetcard_template.md"
+)
 
 REGEX_YAML_BLOCK = re.compile(r"---[\n\r]+([\S\s]*?)[\n\r]+---[\n\r]")
 
@@ -292,6 +294,7 @@ class ModelCard(RepoCard):
     card_data_class = ModelCardData
     default_template_path = TEMPLATE_MODELCARD_PATH
     repo_type = "model"
+
 
 class DatasetCard(RepoCard):
     card_data_class = DatasetCardData
