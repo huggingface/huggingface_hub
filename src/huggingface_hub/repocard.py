@@ -135,11 +135,14 @@ class RepoCard:
         with Path(card_path).open(mode="r", newline="") as f:
             return cls(f.read())
 
-    def validate(self, repo_type="model"):
+    def validate(self, repo_type=None):
         """Validates card against Hugging Face Hub's model card validation logic.
         Using this function requires access to the internet, so it is only called
         internally by `huggingface_hub.ModelCard.push_to_hub`.
         """
+
+        # If repo type is provided, otherwise, use the repo type of the card.
+        repo_type = repo_type or self.repo_type
 
         body = {
             "repoType": repo_type,
