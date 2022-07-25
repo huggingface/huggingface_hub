@@ -6,7 +6,7 @@ from pathlib import Path
 import pytest
 
 import requests
-from huggingface_hub import CardData, ModelCard, create_repo, delete_repo
+from huggingface_hub import ModelCardData, ModelCard, create_repo, delete_repo
 
 from .testing_constants import ENDPOINT_STAGING_BASIC_AUTH, TOKEN, USER
 
@@ -54,7 +54,7 @@ def test_change_modelcard_data():
 
 def test_model_card_from_default_template():
     card = ModelCard.from_template(
-        card_data=CardData(
+        card_data=ModelCardData(
             language="en",
             license="mit",
             library_name="pytorch",
@@ -71,7 +71,7 @@ def test_model_card_from_default_template():
 
 def test_model_card_from_default_template_with_model_id():
     card = ModelCard.from_template(
-        card_data=CardData(
+        card_data=ModelCardData(
             language="en",
             license="mit",
             library_name="pytorch",
@@ -89,7 +89,7 @@ def test_model_card_from_default_template_with_model_id():
 def test_model_card_from_custom_template():
     template_path = SAMPLE_CARDS_DIR / "sample_template.md"
     card = ModelCard.from_template(
-        card_data=CardData(
+        card_data=ModelCardData(
             language="en",
             license="mit",
             library_name="pytorch",
@@ -120,7 +120,7 @@ def test_model_card_without_metadata(caplog):
         "Repo card metadata block was not found. Setting CardData to empty."
         in caplog.text
     )
-    assert card.data == CardData()
+    assert card.data == ModelCardData()
 
 
 def test_model_card_with_invalid_model_index(caplog):
@@ -147,7 +147,7 @@ def test_validate_modelcard(caplog):
 def test_push_to_hub(repo_id):
     template_path = SAMPLE_CARDS_DIR / "sample_template.md"
     card = ModelCard.from_template(
-        card_data=CardData(
+        card_data=ModelCardData(
             language="en",
             license="mit",
             library_name="pytorch",
@@ -177,7 +177,7 @@ def test_push_to_hub(repo_id):
 def test_push_and_create_pr(repo_id):
     template_path = SAMPLE_CARDS_DIR / "sample_template.md"
     card = ModelCard.from_template(
-        card_data=CardData(
+        card_data=ModelCardData(
             language="en",
             license="mit",
             library_name="pytorch",

@@ -18,6 +18,7 @@ from huggingface_hub.file_download import hf_hub_download
 from huggingface_hub.hf_api import upload_file
 from huggingface_hub.repocard_data import (
     CardData,
+    ModelCardData,
     EvalResult,
     eval_results_to_model_index,
     model_index_to_eval_results,
@@ -35,6 +36,9 @@ logger = get_logger(__name__)
 
 
 class ModelCard:
+
+    card_data_class = ModelCardData
+
     def __init__(self, content: str):
         """Initialize a RepoCard from string content. The content should be a
         Markdown file with a YAML block at the beginning and a Markdown body.
@@ -65,18 +69,7 @@ class ModelCard:
             data_dict = {}
             self.text = content
 
-        model_index = data_dict.pop("model-index", None)
-        if model_index:
-            try:
-                model_name, eval_results = model_index_to_eval_results(model_index)
-                data_dict["model_name"] = model_name
-                data_dict["eval_results"] = eval_results
-            except KeyError:
-                logger.warning(
-                    "Invalid model-index. Not loading eval results into CardData."
-                )
-
-        self.data = CardData(**data_dict)
+        self.data = self.card_data_class(**data_dict)
 
     def __str__(self):
         line_break = _detect_line_ending(self.content) or "\n"

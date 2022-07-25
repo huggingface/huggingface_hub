@@ -194,6 +194,6 @@ __getattr__, __dir__, __all__ = _attach(
             "metadata_update",
             "ModelCard",
         ],
-        "repocard_data": ["CardData", "EvalResult"],
+        "repocard_data": ["CardData", "ModelCardData", "EvalResult"],
     },
 )
