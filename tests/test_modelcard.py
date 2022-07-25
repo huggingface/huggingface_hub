@@ -197,3 +197,9 @@ def test_push_and_create_pr(repo_id):
     r = requests.get(url)
     data = r.json()
     assert data["count"] == 1
+
+
+def test_preserve_windows_linebreaks():
+    card_path = SAMPLE_CARDS_DIR / "sample_windows_line_breaks.md"
+    card = ModelCard.load(card_path)
+    assert "\r\n" in str(card)
