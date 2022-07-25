@@ -166,9 +166,9 @@ class CardData:
 
         return _remove_none(data_dict)
 
-    def to_yaml(self):
+    def to_yaml(self, line_break=None):
         """Dumps CardData to a YAML block for inclusion in a README.md file."""
-        return yaml.dump(self.to_dict(), sort_keys=False).strip()
+        return yaml.dump(self.to_dict(), sort_keys=False, line_break=line_break).strip()
 
     def __repr__(self):
         return self.to_yaml()
