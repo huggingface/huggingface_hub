@@ -687,7 +687,6 @@ def cached_download(
         cache_path = "\\\\?\\" + os.path.abspath(cache_path)
 
     with FileLock(lock_path):
-
         # If the download just completed while the lock was activated.
         if os.path.exists(cache_path) and not force_download:
             # Even if returning early like here, the lock will be released.
@@ -1140,7 +1139,6 @@ def hf_hub_download(
         blob_path = "\\\\?\\" + os.path.abspath(blob_path)
 
     with FileLock(lock_path):
-
         # If the download just completed while the lock was activated.
         if os.path.exists(pointer_path) and not force_download:
             # Even if returning early like here, the lock will be released.
