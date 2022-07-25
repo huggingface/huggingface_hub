@@ -202,6 +202,45 @@ class ModelCardData(CardData):
             del data_dict["eval_results"], data_dict["model_name"]
 
 
+class DatasetCardData(CardData):
+    def __init__(
+        self,
+        annotations_creators = None,
+        language_creators = None,
+        language = None,
+        license = None,
+        multilinguality = None,
+        size_categories = None,
+        source_datasets = None,
+        task_categories = None,
+        task_ids = None,
+        paperswithcode_id = None,
+        pretty_name = None,
+        train_eval_index = None,
+        configs = None,
+        **kwargs,
+    ):
+        self.annotations_creators = annotations_creators
+        self.language_creators = language_creators
+        self.language = language
+        self.license = license
+        self.multilinguality = multilinguality
+        self.size_categories = size_categories
+        self.source_datasets = source_datasets
+        self.task_categories = task_categories
+        self.task_ids = task_ids
+        self.paperswithcode_id = paperswithcode_id
+        self.pretty_name = pretty_name
+        self.configs = configs
+
+        # TODO - maybe handle this similarly to EvalResult?
+        self.train_eval_index = train_eval_index or kwargs.pop("train-eval-index", None)
+        super().__init__(**kwargs)
+
+    def _to_dict(self, data_dict):
+        data_dict['train-eval-index'] = data_dict.pop('train_eval_index')
+
+
 def model_index_to_eval_results(model_index: List[Dict[str, Any]]):
     """Takes in a model index and returns a list of `huggingface_hub.EvalResult` objects.
 

@@ -18,6 +18,7 @@ from huggingface_hub.file_download import hf_hub_download
 from huggingface_hub.hf_api import upload_file
 from huggingface_hub.repocard_data import (
     CardData,
+    DatasetCardData,
     ModelCardData,
     EvalResult,
     eval_results_to_model_index,
@@ -30,6 +31,8 @@ from .utils.logging import get_logger
 
 # exact same regex as in the Hub server. Please keep in sync.
 TEMPLATE_MODELCARD_PATH = Path(__file__).parent / "templates" / "modelcard_template.md"
+TEMPLATE_DATASETCARD_PATH = Path(__file__).parent / "templates" / "datasetcard_template.md"
+
 REGEX_YAML_BLOCK = re.compile(r"---[\n\r]+([\S\s]*?)[\n\r]+---[\n\r]")
 
 logger = get_logger(__name__)
@@ -289,6 +292,11 @@ class ModelCard(RepoCard):
     card_data_class = ModelCardData
     default_template_path = TEMPLATE_MODELCARD_PATH
     repo_type = "model"
+
+class DatasetCard(RepoCard):
+    card_data_class = DatasetCardData
+    default_template_path = TEMPLATE_DATASETCARD_PATH
+    repo_type = "dataset"
 
 
 def _detect_line_ending(content: str) -> Literal["\r", "\n", "\r\n", None]:
