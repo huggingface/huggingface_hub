@@ -174,7 +174,7 @@ class RepoFile:
             of [`repo_info`] is set to `True`. It's `None` otherwise.
         lfs (`dict`, *optional*):
             The file's LFS metadata (has two keys: `sha256` and `size`). This attribute is present when
-            `files_metadata` argument of [`repo_info`] is set to `True` and the file is stored
+            `files_metadata` argument of [`repo_info`] is set to `True` and the file is stored.
             with Git LFS. It's `None` otherwise.
     """
 
