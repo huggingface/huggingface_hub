@@ -210,7 +210,7 @@ class ModelInfo:
         pipeline_tag (`str`, *optional*):
             Pipeline tag to identify the correct widget.
         siblings (`List[RepoFile]`, *optional*):
-            list of ([`huggingface_hub.hf_api.RepoFile`]) objects that constitute the model
+            list of ([`huggingface_hub.hf_api.RepoFile`]) objects that constitute the model.
         private (`bool`, *optional*):
             is the repo private
         author (`str`, *optional*):
@@ -276,7 +276,7 @@ class DatasetInfo:
         tags (`Listr[str]`, *optional*):
             List of tags.
         siblings (`List[RepoFile]`, *optional*):
-            list of [`huggingface_hub.hf_api.RepoFile`] objects that constitute the dataset
+            list of [`huggingface_hub.hf_api.RepoFile`] objects that constitute the dataset.
         private (`bool`, *optional*):
             is the repo private
         author (`str`, *optional*):
