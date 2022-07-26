@@ -186,7 +186,7 @@ class RepoFile:
         self,
         rfilename: str,
         size: Optional[int] = None,
-        blob_id: Optional[str] = None,
+        blobId: Optional[str] = None,
         lfs: Optional[BlobLfsInfo] = None,
         **kwargs,
     ):
@@ -194,7 +194,7 @@ class RepoFile:
 
         # Optional file metadata
         self.size = size
-        self.blob_id = blob_id
+        self.blob_id = blobId
         self.lfs = lfs
 
         for k, v in kwargs.items():
