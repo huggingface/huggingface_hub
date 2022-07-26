@@ -211,7 +211,7 @@ class ModelInfo:
         modelId: Optional[str] = None,
         sha: Optional[str] = None,
         lastModified: Optional[str] = None,
-        tags: List[str] = [],
+        tags: Optional[List[str]] = None,
         pipeline_tag: Optional[str] = None,
         siblings: Optional[List[Dict]] = None,
         private: Optional[bool] = None,
@@ -222,7 +222,7 @@ class ModelInfo:
         self.modelId = modelId
         self.sha = sha
         self.lastModified = lastModified
-        self.tags = tags
+        self.tags = tags if tags is not None else []
         self.pipeline_tag = pipeline_tag
         self.siblings = (
             [RepoFile(**x) for x in siblings] if siblings is not None else None
@@ -281,7 +281,7 @@ class DatasetInfo:
         id: Optional[str] = None,
         sha: Optional[str] = None,
         lastModified: Optional[str] = None,
-        tags: List[str] = [],
+        tags: Optional[List[str]] = None,
         siblings: Optional[List[Dict]] = None,
         private: Optional[bool] = None,
         author: Optional[str] = None,
@@ -293,7 +293,7 @@ class DatasetInfo:
         self.id = id
         self.sha = sha
         self.lastModified = lastModified
-        self.tags = tags
+        self.tags = tags if tags is not None else []
         self.private = private
         self.author = author
         self.description = description
