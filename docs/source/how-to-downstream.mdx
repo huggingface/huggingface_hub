@@ -19,7 +19,7 @@ Use the `repo_id` and `filename` parameters to specify which file to download:
 ```python
 >>> from huggingface_hub import hf_hub_download
 >>> hf_hub_download(repo_id="lysandre/arxiv-nlp", filename="config.json")
-'/home/lysandre/.cache/huggingface/hub/bc0e8cc2f8271b322304e8bb84b3b7580701d53a335ab2d75da19c249e2eeebb.066dae6fdb1e2b8cce60c35cc0f78ed1451d9b341c78de19f3ad469d10a8cbb1'
+'/root/.cache/huggingface/hub/models--lysandre--arxiv-nlp/snapshots/894a9adde21d9a3e3843e6d5aeaaf01875c7fade/config.json'
 ```
 
 <div class="flex justify-center">
@@ -37,7 +37,7 @@ full-length hash instead of a 7-character commit hash:
 ...    filename="config.json",
 ...    revision="877b84a8f93f2d619faa2a6e514a32beef88ab0a",
 ... )
-'/home/lysandre/.cache/huggingface/hub/bc0e8cc2f8271b322304e8bb84b3b7580701d53a335ab2d75da19c249e2eeebb.066dae6fdb1e2b8cce60c35cc0f78ed1451d9b341c78de19f3ad469d10a8cbb1'
+'/root/.cache/huggingface/hub/models--lysandre--arxiv-nlp/snapshots/877b84a8f93f2d619faa2a6e514a32beef88ab0a/config.json'
 ```
 
 To specify a file revision with the branch name:
