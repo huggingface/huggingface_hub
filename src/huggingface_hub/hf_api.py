@@ -158,33 +158,51 @@ def repo_type_and_id_from_hf_id(
 
 class RepoFile:
     """
-    Data structure that represents a public file inside a repo, accessible from
-    huggingface.co
+        Data structure that represents a public file inside a repo, accessible from
+        huggingface.co
 
-    Args:
-        rfilename (str):
-            file name, relative to the repo root. This is the only attribute
-            that's guaranteed to be here, but under certain conditions there can
-            certain other stuff.
-        size (`int`, *optional*):
-            The file's size, in bytes. This attribute is present when `files_metadata` argument
-            of [`repo_info`] is set to `True`. It's `None` otherwise.
-        blob_id (`str`, *optional*):
-            The file's git OID. This attribute is present when `files_metadata` argument
-            of [`repo_info`] is set to `True`. It's `None` otherwise.
-        lfs (`dict`, *optional*):
-            The file's LFS metadata (has two keys: `sha256` and `size`). This attribute is present when
-            `files_metadata` argument of [`repo_info`] is set to `True` and the file is stored.
-            with Git LFS. It's `None` otherwise.
+        Attributes:
+            rfilename (str):
+                file name, relative to the repo root. This is the only attribute
+                that's guaranteed to be here, but under certain conditions there can
+                certain other stuff.
+            size (`int`, *optional*):
+                The file's size, in bytes. This attribute is present when `files_metadata` argument
+                of [`repo_info`] is set to `True`. It's `None` otherwise.
+            blob_id (`str`, *optional*):
+                The file's git OID. This attribute is present when `files_metadata` argument
+                of [`repo_info`] is set to `True`. It's `None` otherwise.
+            lfs (`dict`, *optional*):
+                The file's LFS metadata, if the file is stored with LFS.
+                This attribute can be set when `files_metadata` argument
+                of [`repo_info`] is set to `True`. It's `None` otherwise.
+            lfs_size (`int`, *optional*):
+                Size of the LFS object, if the file is stored with LFS.
+                This attribute can be set when `files_metadata` argument
+                of [`repo_info`] is set to `True`. It's `None` otherwise.
+            lfs_sha256 (`str`, *optional*):
+                The LFS object SHA256 hash as an hexadecimal string, if
+                the file is stored with LFS. This attribute can be set
+                when `files_metadata` argumentof [`repo_info`] is set to
+                `True`. It's `None` otherwise.
     """
 
-    def __init__(self, rfilename: str, **kwargs):
+    def __init__(
+        self,
+        rfilename: str,
+        size: Optional[int] = None,
+        blob_id: Optional[str] = None,
+        lfs: Optional[dict] = None,
+        **kwargs,
+    ):
         self.rfilename = rfilename  # filename relative to the repo root
 
         # Optional file metadata
-        self.size: Optional[int] = kwargs.pop("size", None)
-        self.blob_id: Optional[str] = kwargs.pop("blobId", None)
-        self.lfs: Optional[dict] = kwargs.pop("lfs", None)
+        self.size = size
+        self.blob_id = blob_id
+        self.lfs = lfs
+        self.lfs_size = self.lfs.get("size", None) if self.lfs is not None else None
+        self.lfs_sha256 = self.lfs.get("sha256", None) if self.lfs is not None else None
 
         for k, v in kwargs.items():
             setattr(self, k, v)
