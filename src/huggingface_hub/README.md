@@ -73,7 +73,7 @@ to the Hub: https://huggingface.co/docs/hub/adding-a-model.
 
 ### API utilities in `hf_api.py`
 
-You don't need them for the standard publishing workflow, however, if you need a
+You don't need them for the standard publishing workflow (ie. using git command line), however, if you need a
 programmatic way of creating a repo, deleting it (`⚠️ caution`), pushing a
 single file to a repo or listing models from the Hub, you'll find helpers in
 `hf_api.py`. Some example functionality available with the `HfApi` class:
@@ -86,6 +86,7 @@ single file to a repo or listing models from the Hub, you'll find helpers in
 * `list_repo_objects()`
 * `delete_repo()`
 * `update_repo_visibility()`
+* `create_commit()`
 * `upload_file()`
 * `delete_file()`
 
@@ -281,7 +282,7 @@ if other errors happen in your script (a failed push counts as done).
 
 ### Need to upload very large (>5GB) files?
 
-To upload large files (>5GB 🔥), you need to install the custom transfer agent
+To upload large files (>5GB 🔥) from git command-line, you need to install the custom transfer agent
 for git-lfs, bundled in this package. 
 
 To install, just run:
