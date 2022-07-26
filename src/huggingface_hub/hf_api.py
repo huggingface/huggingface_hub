@@ -18,7 +18,7 @@ import subprocess
 import sys
 import warnings
 from os.path import expanduser
-from typing import BinaryIO, Dict, Iterable, List, Optional, Tuple, TypedDict, Union
+from typing import BinaryIO, Dict, Iterable, List, Optional, Tuple, Union
 from urllib.parse import quote
 
 import requests
@@ -55,9 +55,9 @@ from .utils.endpoint_helpers import (
 
 
 if sys.version_info >= (3, 8):
-    from typing import Literal
+    from typing import Literal, TypedDict
 else:
-    from typing_extensions import Literal
+    from typing_extensions import Literal, TypedDict
 
 
 REGEX_DISCUSSION_URL = re.compile(r".*/discussions/(\d+)$")
