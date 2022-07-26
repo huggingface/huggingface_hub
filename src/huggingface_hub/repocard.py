@@ -18,7 +18,9 @@ from huggingface_hub.file_download import hf_hub_download
 from huggingface_hub.hf_api import upload_file
 from huggingface_hub.repocard_data import (
     CardData,
+    DatasetCardData,
     EvalResult,
+    ModelCardData,
     eval_results_to_model_index,
     model_index_to_eval_results,
 )
@@ -29,12 +31,21 @@ from .utils.logging import get_logger
 
 # exact same regex as in the Hub server. Please keep in sync.
 TEMPLATE_MODELCARD_PATH = Path(__file__).parent / "templates" / "modelcard_template.md"
+TEMPLATE_DATASETCARD_PATH = (
+    Path(__file__).parent / "templates" / "datasetcard_template.md"
+)
+
 REGEX_YAML_BLOCK = re.compile(r"---[\n\r]+([\S\s]*?)[\n\r]+---[\n\r]")
 
 logger = get_logger(__name__)
 
 
-class ModelCard:
+class RepoCard:
+
+    card_data_class = CardData
+    default_template_path = TEMPLATE_MODELCARD_PATH
+    repo_type = "model"
+
     def __init__(self, content: str):
         """Initialize a RepoCard from string content. The content should be a
         Markdown file with a YAML block at the beginning and a Markdown body.
@@ -65,18 +76,7 @@ class ModelCard:
             data_dict = {}
             self.text = content
 
-        model_index = data_dict.pop("model-index", None)
-        if model_index:
-            try:
-                model_name, eval_results = model_index_to_eval_results(model_index)
-                data_dict["model_name"] = model_name
-                data_dict["eval_results"] = eval_results
-            except KeyError:
-                logger.warning(
-                    "Invalid model-index. Not loading eval results into CardData."
-                )
-
-        self.data = CardData(**data_dict)
+        self.data = self.card_data_class(**data_dict)
 
     def __str__(self):
         line_break = _detect_line_ending(self.content) or "\n"
@@ -127,7 +127,7 @@ class ModelCard:
             card_path = hf_hub_download(
                 repo_id_or_path,
                 REPOCARD_NAME,
-                repo_type=repo_type,
+                repo_type=repo_type or cls.repo_type,
                 use_auth_token=token,
             )
 
@@ -135,11 +135,14 @@ class ModelCard:
         with Path(card_path).open(mode="r", newline="") as f:
             return cls(f.read())
 
-    def validate(self, repo_type="model"):
+    def validate(self, repo_type=None):
         """Validates card against Hugging Face Hub's model card validation logic.
         Using this function requires access to the internet, so it is only called
         internally by `huggingface_hub.ModelCard.push_to_hub`.
         """
+
+        # If repo type is provided, otherwise, use the repo type of the card.
+        repo_type = repo_type or self.repo_type
 
         body = {
             "repoType": repo_type,
@@ -162,7 +165,7 @@ class ModelCard:
         self,
         repo_id,
         token=None,
-        repo_type="model",
+        repo_type=None,
         commit_message=None,
         commit_description=None,
         revision=None,
@@ -199,14 +202,8 @@ class ModelCard:
             `str`: URL of the commit which updated the card metadata.
         """
 
-        if repo_type is None:
-            repo_type = "model"
-
-        if repo_type not in ["model", "space", "dataset"]:
-            raise RuntimeError(
-                "Provided repo_type '{repo_type}' should be one of ['model', 'space',"
-                " 'dataset']."
-            )
+        # If repo type is provided, otherwise, use the repo type of the card.
+        repo_type = repo_type or self.repo_type
 
         # Validate card before pushing to hub
         self.validate(repo_type=repo_type)
@@ -231,7 +228,7 @@ class ModelCard:
     def from_template(
         cls,
         card_data: CardData,
-        template_path: Optional[str] = TEMPLATE_MODELCARD_PATH,
+        template_path: Optional[str] = None,
         **template_kwargs,
     ):
         """Initialize a ModelCard from a template. By default, it uses the default template.
@@ -296,10 +293,23 @@ class ModelCard:
             ... )
 
         """
+        template_path = template_path or cls.default_template_path
         content = jinja2.Template(Path(template_path).read_text()).render(
             card_data=card_data.to_yaml(), **template_kwargs
         )
         return cls(content)
+
+
+class ModelCard(RepoCard):
+    card_data_class = ModelCardData
+    default_template_path = TEMPLATE_MODELCARD_PATH
+    repo_type = "model"
+
+
+class DatasetCard(RepoCard):
+    card_data_class = DatasetCardData
+    default_template_path = TEMPLATE_DATASETCARD_PATH
+    repo_type = "dataset"
 
 
 def _detect_line_ending(content: str) -> Literal["\r", "\n", "\r\n", None]:
