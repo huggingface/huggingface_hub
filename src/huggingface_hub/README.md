@@ -11,7 +11,7 @@ files will be automatically downloaded again.
 ### `hf_hub_download`
 
 The function takes the following parameters, downloads the remote file,
-stores it to disk (in a versioning-aware way) and returns its local file path.
+stores it to disk (in a version-aware way) and returns its local file path.
 
 Parameters:
 - a `repo_id` (a user or organization name and a repo name, separated by `/`, like `julien-c/EsperBERTo-small`)
@@ -45,7 +45,6 @@ Parameters:
 Internally, the library uses `hf_hub_url()` to return the URL to download the actual files:
 `https://huggingface.co/julien-c/EsperBERTo-small/resolve/main/pytorch_model.bin`
 
-You're welcome to also use it if you need it.
 
 Parameters:
 - a `repo_id` (a user or organization name and a repo name seperated by a `/`, like `julien-c/EsperBERTo-small`)
