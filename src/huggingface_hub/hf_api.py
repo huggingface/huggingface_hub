@@ -222,7 +222,7 @@ class ModelInfo:
         self.modelId = modelId
         self.sha = sha
         self.lastModified = lastModified
-        self.tags = tags or []
+        self.tags = tags
         self.pipeline_tag = pipeline_tag
         self.siblings = (
             [RepoFile(**x) for x in siblings] if siblings is not None else None
@@ -293,7 +293,7 @@ class DatasetInfo:
         self.id = id
         self.sha = sha
         self.lastModified = lastModified
-        self.tags = tags or []
+        self.tags = tags
         self.private = private
         self.author = author
         self.description = description
