@@ -191,12 +191,13 @@ class WhoamiCommand(BaseUserCommand):
             exit()
         try:
             info = self._api.whoami(token)
-            if ENDPOINT != "https://huggingface.co":
-                print(ENDPOINT)
             print(info["name"])
             orgs = [org["name"] for org in info["orgs"]]
             if orgs:
                 print(ANSI.bold("orgs: "), ",".join(orgs))
+
+            if ENDPOINT != "https://huggingface.co":
+                print(f"Authenticated through private endpoint: {ENDPOINT}")
         except HTTPError as e:
             print(e)
             print(ANSI.red(e.response.text))
