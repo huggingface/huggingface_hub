@@ -19,6 +19,7 @@ from typing import List, Union
 
 from huggingface_hub.commands import BaseHuggingfaceCLICommand
 from huggingface_hub.constants import (
+    ENDPOINT,
     REPO_TYPES,
     REPO_TYPES_URL_PREFIXES,
     SPACES_SDK_TYPES,
@@ -187,6 +188,9 @@ class WhoamiCommand(BaseUserCommand):
             orgs = [org["name"] for org in info["orgs"]]
             if orgs:
                 print(ANSI.bold("orgs: "), ",".join(orgs))
+
+            if ENDPOINT != "https://huggingface.co":
+                print(f"Authenticated through private endpoint: {ENDPOINT}")
         except HTTPError as e:
             print(e)
             print(ANSI.red(e.response.text))
