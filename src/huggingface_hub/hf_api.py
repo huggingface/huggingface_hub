@@ -1781,11 +1781,12 @@ class HfApi:
                 Setting it to 2 means at most 2 files will be uploaded concurrently.
 
             parent_commit (`str`, *optional*):
-                The OID / SHA of the parent commit, as a hexadecimal string. Shorthands (7 first characters) are also supported.
-                If specified and `create_pr` is `False`, the commit will fail if `revision` does not point to `parent_commit`.
-                If specified and `create_pr` is `True`, the pull request will be created from `parent_commit`.
-                Specifying `parent_commit` ensures the repo has not changed before committing the changes, and can be
-                especially useful if the repo is updated / committed to concurrently.
+                The OID / SHA of the parent commit, as a hexadecimal string.
+                Shorthands (7 first characters) are also supported.If specified and `create_pr` is `False`,
+                the commit will fail if `revision` does not point to `parent_commit`. If specified and `create_pr`
+                is `True`, the pull request will be created from `parent_commit`. Specifying `parent_commit`
+                ensures the repo has not changed before committing the changes, and can be especially useful
+                if the repo is updated / committed to concurrently.
 
         Returns:
             `str` or `None`:
