@@ -403,6 +403,7 @@ def prepare_commit_payload(
     commit_description = commit_description if commit_description is not None else ""
 
     payload = {
+        **({"parentCommit": parent_commit} if parent_commit is not None else {}),
         "summary": commit_message,
         "description": commit_description,
         "files": [
@@ -425,6 +426,4 @@ def prepare_commit_payload(
         ],
         "deletedFiles": [{"path": del_op.path_in_repo} for del_op in deletions],
     }
-    if parent_commit is not None:
-        payload["parentCommit"] = parent_commit
     return payload
