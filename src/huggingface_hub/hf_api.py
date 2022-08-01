@@ -1858,6 +1858,8 @@ class HfApi:
                 If `create_pr` is `True`, returns the URL to the newly created Pull Request
                 on the Hub. Otherwise returns `None`.
         """
+        if commit_message is None or len(commit_message) == 0:
+            raise ValueError("`commit_message` can't be empty, please pass a value.")
         commit_description = (
             commit_description if commit_description is not None else ""
         )
