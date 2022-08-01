@@ -452,11 +452,6 @@ class RepositoryTest(RepositoryCommonTest):
 
     @retry_endpoint
     def test_clone_with_repo_name_and_org(self):
-        self._api.create_repo(
-            token=self._token,
-            repo_id=f"valid_org/{self.REPO_NAME}",
-            repo_type="dataset",
-        )
         clone = Repository(
             f"{WORKING_REPO_DIR}/{self.REPO_NAME}",
             clone_from=f"valid_org/{self.REPO_NAME}",
@@ -1718,11 +1713,6 @@ class RepositoryDatasetTest(RepositoryCommonTest):
 
     @retry_endpoint
     def test_clone_with_repo_name_and_org(self):
-        self._api.create_repo(
-            token=self._token,
-            repo_id=f"valid_org/{self.REPO_NAME}",
-            repo_type="dataset",
-        )
         clone = Repository(
             f"{WORKING_DATASET_DIR}/{self.REPO_NAME}",
             clone_from=f"valid_org/{self.REPO_NAME}",
