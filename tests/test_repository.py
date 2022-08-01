@@ -81,16 +81,19 @@ class RepositoryTest(RepositoryCommonTest):
         logger.info(
             f"Does {WORKING_REPO_DIR} exist: {os.path.exists(WORKING_REPO_DIR)}"
         )
+
         self.REPO_NAME = repo_name()
-        self._repo_url = self._api.create_repo(
-            repo_id=self.REPO_NAME, token=self._token
-        )
-        self._api.upload_file(
-            path_or_fileobj=BytesIO(b"some initial binary data: \x00\x01"),
-            path_in_repo="random_file.txt",
-            repo_id=f"{USER}/{self.REPO_NAME}",
-            token=self._token,
-        )
+        # skip creation of repository for clone from test
+        if self.shortDescription() != "SKIP CREATION":
+            self._repo_url = self._api.create_repo(
+                repo_id=self.REPO_NAME, token=self._token
+            )
+            self._api.upload_file(
+                path_or_fileobj=BytesIO(b"some initial binary data: \x00\x01"),
+                path_in_repo="random_file.txt",
+                repo_id=f"{USER}/{self.REPO_NAME}",
+                token=self._token,
+            )
 
     def tearDown(self):
         try:
@@ -149,6 +152,7 @@ class RepositoryTest(RepositoryCommonTest):
                 WORKING_REPO_DIR,
                 clone_from=f"{USER}/{uuid.uuid4()}",
                 use_auth_token=self._token,
+                repo_type="dataset",
             )
 
     def test_clone_from_model(self):
@@ -448,9 +452,15 @@ class RepositoryTest(RepositoryCommonTest):
 
     @retry_endpoint
     def test_clone_with_repo_name_and_org(self):
+        repo_url = self._api.create_repo(
+            token=self._token,
+            repo_id=f"valid_org/{self.REPO_NAME}",
+            repo_type="dataset",
+        )
+
         clone = Repository(
             f"{WORKING_REPO_DIR}/{self.REPO_NAME}",
-            clone_from=f"valid_org/{self.REPO_NAME}",
+            clone_from=repo_url,
             use_auth_token=self._token,
             git_user="ci",
             git_email="ci@dummy.com",
@@ -466,7 +476,7 @@ class RepositoryTest(RepositoryCommonTest):
 
         Repository(
             f"{WORKING_REPO_DIR}/{self.REPO_NAME}",
-            clone_from=f"valid_org/{self.REPO_NAME}",
+            clone_from=repo_url,
             use_auth_token=self._token,
             git_user="ci",
             git_email="ci@dummy.com",
@@ -1709,6 +1719,11 @@ class RepositoryDatasetTest(RepositoryCommonTest):
 
     @retry_endpoint
     def test_clone_with_repo_name_and_org(self):
+        self._api.create_repo(
+            token=self._token,
+            repo_id=f"valid_org/{self.REPO_NAME}",
+            repo_type="dataset",
+        )
         clone = Repository(
             f"{WORKING_DATASET_DIR}/{self.REPO_NAME}",
             clone_from=f"valid_org/{self.REPO_NAME}",
@@ -1772,7 +1787,7 @@ class RepositoryDatasetTest(RepositoryCommonTest):
         self.assertRaises(
             OSError,
             Repository,
-            f"{WORKING_DATASET_DIR}/{self.REPO_NAME}",
+            f"{WORKING_REPO_DIR}/{self.REPO_NAME}",
             clone_from=self.REPO_NAME,
             repo_type="dataset",
             use_auth_token=self._token,

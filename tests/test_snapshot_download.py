@@ -36,9 +36,10 @@ class SnapshotDownloadTests(unittest.TestCase):
         if os.path.exists(REPO_NAME):
             shutil.rmtree(REPO_NAME, onerror=set_write_permission_and_retry)
         logger.info(f"Does {REPO_NAME} exist: {os.path.exists(REPO_NAME)}")
+        url = self._api.create_repo(repo_id=f"{USER}/{REPO_NAME}", token=self._token)
         repo = Repository(
             REPO_NAME,
-            clone_from=f"{USER}/{REPO_NAME}",
+            clone_from=url,
             use_auth_token=self._token,
             git_user="ci",
             git_email="ci@dummy.com",
