@@ -422,14 +422,9 @@ class RepositoryTest(RepositoryCommonTest):
 
     @retry_endpoint
     def test_clone_with_endpoint(self):
-        repo_url = self._api.create_repo(
-            repo_id=f"{ENDPOINT_STAGING}/valid_org/{self.REPO_NAME}",
-            token=self._token,
-            repo_type="dataset",
-        )
         clone = Repository(
             f"{WORKING_REPO_DIR}/{self.REPO_NAME}",
-            clone_from=repo_url,
+            clone_from=f"{ENDPOINT_STAGING}/valid_org/{self.REPO_NAME}",
             use_auth_token=self._token,
             git_user="ci",
             git_email="ci@dummy.com",
@@ -457,14 +452,14 @@ class RepositoryTest(RepositoryCommonTest):
 
     @retry_endpoint
     def test_clone_with_repo_name_and_org(self):
-        repo_url = self._api.create_repo(
+        self._api.create_repo(
             token=self._token,
             repo_id=f"valid_org/{self.REPO_NAME}",
             repo_type="dataset",
         )
         clone = Repository(
             f"{WORKING_REPO_DIR}/{self.REPO_NAME}",
-            clone_from=repo_url,
+            clone_from=f"valid_org/{self.REPO_NAME}",
             use_auth_token=self._token,
             git_user="ci",
             git_email="ci@dummy.com",
@@ -524,14 +519,11 @@ class RepositoryTest(RepositoryCommonTest):
 
     @retry_endpoint
     def test_clone_with_repo_name_and_no_namespace(self):
-        repo_url = self._api.create_repo(
-            repo_id=self.REPO_NAME, token=self._token, repo_type="dataset"
-        )
         self.assertRaises(
             OSError,
             Repository,
             f"{WORKING_REPO_DIR}/{self.REPO_NAME}",
-            clone_from=repo_url,
+            clone_from=self.REPO_NAME,
             use_auth_token=self._token,
             git_user="ci",
             git_email="ci@dummy.com",
@@ -1791,14 +1783,11 @@ class RepositoryDatasetTest(RepositoryCommonTest):
 
     @retry_endpoint
     def test_clone_with_repo_name_and_no_namespace(self):
-        repo_url = self._api.create_repo(
-            repo_id=self.REPO_NAME, token=self._token, repo_type="dataset"
-        )
         self.assertRaises(
             OSError,
             Repository,
             f"{WORKING_DATASET_DIR}/{self.REPO_NAME}",
-            clone_from=repo_url,
+            clone_from=self.REPO_NAME,
             repo_type="dataset",
             use_auth_token=self._token,
             git_user="ci",
