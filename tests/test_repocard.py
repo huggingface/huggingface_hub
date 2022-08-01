@@ -204,12 +204,9 @@ class RepocardUpdateTest(unittest.TestCase):
     def setUp(self) -> None:
         self.repo_path = Path(tempfile.mkdtemp())
         self.REPO_NAME = repo_name()
-        url = self._api.create_repo(
-            repo_id=f"{USER}/{self.REPO_NAME}", token=self._token
-        )
         self.repo = Repository(
             self.repo_path / self.REPO_NAME,
-            clone_from=url,
+            clone_from=f"{USER}/{self.REPO_NAME}",
             use_auth_token=self._token,
             git_user="ci",
             git_email="ci@dummy.com",
