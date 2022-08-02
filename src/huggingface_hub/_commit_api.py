@@ -360,6 +360,8 @@ def fetch_upload_modes(
     Raises:
         :class:`requests.HTTPError`:
             If the Hub API returned an error
+        :class:`ValueError`:
+            If the Hub API returned an HTTP 400 error (bad request)
     """
     endpoint = endpoint if endpoint is not None else ENDPOINT
     headers = {"authorization": f"Bearer {token}"} if token is not None else None

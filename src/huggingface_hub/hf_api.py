@@ -1861,6 +1861,10 @@ class HfApi:
             `str` or `None`:
                 If `create_pr` is `True`, returns the URL to the newly created Pull Request
                 on the Hub. Otherwise returns `None`.
+
+        Raises:
+            :class:`ValueError`:
+                If the Hub API returns an HTTP 400 error (bad request)
         """
         commit_description = (
             commit_description if commit_description is not None else ""
