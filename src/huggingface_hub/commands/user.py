@@ -34,7 +34,7 @@ class UserCommands(BaseHuggingfaceCLICommand):
     @staticmethod
     def register_subcommand(parser: ArgumentParser):
         login_parser = parser.add_parser(
-            "login", help="Log in using the same credentials as on huggingface.co"
+            "login", help="Log in using a token from huggingface.co/settings/tokens"
         )
         login_parser.set_defaults(func=lambda args: LoginCommand(args))
         whoami_parser = parser.add_parser(
