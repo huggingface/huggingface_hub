@@ -43,7 +43,11 @@ from .constants import (
 )
 from .utils import logging
 from .utils._deprecation import _deprecate_positional_args
-from .utils._errors import _raise_for_status, _raise_with_request_id
+from .utils._errors import (
+    _raise_convert_bad_request,
+    _raise_for_status,
+    _raise_with_request_id,
+)
 from .utils.endpoint_helpers import (
     AttributeDictionary,
     DatasetFilter,
@@ -1916,7 +1920,7 @@ class HfApi:
             json=commit_payload,
             params={"create_pr": 1} if create_pr else None,
         )
-        _raise_for_status(commit_resp)
+        _raise_convert_bad_request(commit_resp)
         return commit_resp.json().get("pullRequestUrl", None)
 
     def upload_file(

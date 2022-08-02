@@ -23,6 +23,7 @@ import requests
 from .constants import ENDPOINT
 from .lfs import UploadInfo, _validate_batch_actions, lfs_upload, post_lfs_batch_info
 from .utils import logging
+from .utils._errors import _raise_convert_bad_request
 
 
 logger = logging.get_logger(__name__)
@@ -379,7 +380,7 @@ def fetch_upload_modes(
         json=payload,
         headers=headers,
     )
-    resp.raise_for_status()
+    _raise_convert_bad_request(resp)
 
     preupload_info = validate_preupload_info(resp.json())
 

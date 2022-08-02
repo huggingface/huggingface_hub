@@ -1,4 +1,4 @@
-from requests import HTTPError
+from requests import HTTPError, JSONDecodeError, Response
 
 
 class RepositoryNotFoundError(HTTPError):
@@ -115,3 +115,23 @@ def _raise_with_request_id(request):
         _add_request_id_to_error_args(e, request_id)
 
         raise e
+
+
+def _raise_convert_bad_request(resp: Response):
+    """
+    Calls _raise_for_status on resp and converts HTTP 400 errors into ValueError.
+    """
+    try:
+        _raise_for_status(resp)
+    except HTTPError as exc:
+        request_id = resp.headers.get("X-Request-Id")
+        try:
+            details = resp.json().get("error", None)
+        except JSONDecodeError:
+            raise exc
+        if resp.status_code == 400 and details:
+            raise ValueError(
+                f"Bad request for commit endpoint: {details} (Request ID: {request_id})"
+            ) from exc
+        _add_request_id_to_error_args(exc, request_id=request_id)
+        raise
