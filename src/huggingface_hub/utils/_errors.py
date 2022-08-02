@@ -55,6 +55,22 @@ class EntryNotFoundError(HTTPError):
         super().__init__(message, response=response)
 
 
+class BadRequestError(ValueError, HTTPError):
+    """
+    Raised by `_raise_convert_bad_request` when the server returns HTTP 400 error
+
+    Example:
+
+    ```py
+    >>> resp = request.post("hf.co/api/check", ...)
+    >>> _raise_convert_bad_request(resp, endpoint_name="check")
+    huggingface_hub.utils._errors.BadRequestError: Bad request for check endpoint: {details} (Request ID: XXX)
+    ```
+    """
+    def __init__(self, message, response):
+        super().__init__(message, response=response)
+
+
 def _add_request_id_to_error_args(e, request_id):
     if request_id is not None and len(e.args) > 0 and isinstance(e.args[0], str):
         e.args = (e.args[0] + f" (Request ID: {request_id})",) + e.args[1:]
@@ -117,7 +133,7 @@ def _raise_with_request_id(request):
         raise e
 
 
-def _raise_convert_bad_request(resp: Response):
+def _raise_convert_bad_request(resp: Response, endpoint_name: str):
     """
     Calls _raise_for_status on resp and converts HTTP 400 errors into ValueError.
     """
@@ -130,8 +146,9 @@ def _raise_convert_bad_request(resp: Response):
         except JSONDecodeError:
             raise exc
         if resp.status_code == 400 and details:
-            raise ValueError(
-                f"Bad request for commit endpoint: {details} (Request ID: {request_id})"
+            raise BadRequestError(
+                f"Bad request for {endpoint_name} endpoint: {details} (Request ID: {request_id})",
+                response=resp,
             ) from exc
         _add_request_id_to_error_args(exc, request_id=request_id)
         raise

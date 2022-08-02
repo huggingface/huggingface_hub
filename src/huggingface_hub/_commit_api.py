@@ -380,7 +380,7 @@ def fetch_upload_modes(
         json=payload,
         headers=headers,
     )
-    _raise_convert_bad_request(resp)
+    _raise_convert_bad_request(resp, endpoint_name="preupload")
 
     preupload_info = validate_preupload_info(resp.json())
 

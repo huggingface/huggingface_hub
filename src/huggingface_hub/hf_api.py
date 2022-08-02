@@ -1920,7 +1920,7 @@ class HfApi:
             json=commit_payload,
             params={"create_pr": 1} if create_pr else None,
         )
-        _raise_convert_bad_request(commit_resp)
+        _raise_convert_bad_request(commit_resp, endpoint_name="commit")
         return commit_resp.json().get("pullRequestUrl", None)
 
     def upload_file(
