@@ -67,6 +67,7 @@ class BadRequestError(ValueError, HTTPError):
     huggingface_hub.utils._errors.BadRequestError: Bad request for check endpoint: {details} (Request ID: XXX)
     ```
     """
+
     def __init__(self, message, response):
         super().__init__(message, response=response)
 
@@ -147,7 +148,8 @@ def _raise_convert_bad_request(resp: Response, endpoint_name: str):
             raise exc
         if resp.status_code == 400 and details:
             raise BadRequestError(
-                f"Bad request for {endpoint_name} endpoint: {details} (Request ID: {request_id})",
+                f"Bad request for {endpoint_name} endpoint: {details} (Request ID:"
+                f" {request_id})",
                 response=resp,
             ) from exc
         _add_request_id_to_error_args(exc, request_id=request_id)
