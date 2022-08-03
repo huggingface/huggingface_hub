@@ -224,6 +224,7 @@ class ModelHubMixin:
         api_endpoint: Optional[str] = None,
         token: Optional[str] = None,
         branch: Optional[str] = None,
+        create_pr: Optional[bool] = None,
         config: Optional[dict] = None,
         skip_lfs_files: bool = False,
     ) -> str:
@@ -243,50 +244,45 @@ class ModelHubMixin:
                 The token to use as HTTP bearer authorization for remote files.
                 If not set, will use the token set when logging in with
                 `transformers-cli login` (stored in `~/.huggingface`).
-            branch (Optional :obj:`str`):
-                The git branch on which to push the dataset. This defaults to
+            branch (`str`, *optional*):
+                The git branch on which to push the model. This defaults to
                 the default branch as specified in your repository, which
                 defaults to `"main"`.
+            create_pr (`boolean`, *optional*):
+                Whether or not to create a Pull Request from `branch` with that commit.
+                Defaults to `False`.
             config (`dict`, *optional*):
                 Configuration object to be saved alongside the model weights.
             skip_lfs_files (`bool`, *optional*, defaults to `False`):
                 Whether to skip git-LFS files or not.
 
-
         Returns:
             The url of the commit of your model in the given repository.
         """
-
         token, _ = hf_api._validate_or_retrieve_token(token)
         api = HfApi(endpoint=api_endpoint)
 
         api.create_repo(
             repo_id=repo_id,
+            repo_type="model",
             token=token,
             private=private,
-            repo_type=None,
             exist_ok=True,
         )
 
-        # Save the files in the cloned repo
+        # Push the files to the repo in a single commit
         with tempfile.TemporaryDirectory() as tmp:
             saved_path = Path(tmp) / repo_id
             self.save_pretrained(saved_path, config=config)
-
-            for path, currentDirectory, files in os.walk(saved_path):
-                for filename in files:
-                    file = os.path.join(path, filename)
-                    common_prefix = os.path.commonprefix([saved_path, file])
-                    relative_path = os.path.relpath(file, common_prefix)
-
-                    api.upload_file(
-                        path_or_fileobj=file,
-                        path_in_repo=relative_path,
-                        token=token,
-                        repo_id=repo_id,
-                        revision=branch,
-                        commit_message=commit_message,
-                    )
+            return api.upload_folder(
+                repo_id=repo_id,
+                repo_type="model",
+                token=token,
+                folder_path=saved_path,
+                commit_message=commit_message,
+                revision=branch,
+                create_pr=create_pr,
+            )
 
 
 class PyTorchModelHubMixin(ModelHubMixin):

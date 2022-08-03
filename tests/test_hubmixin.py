@@ -165,7 +165,7 @@ class HubMixingTest(HubMixingCommonTest):
                 config={"num": 7, "act": "gelu_fast"},
             )
 
-    def test_push_to_hub_depreacted_arguments(self):
+    def test_push_to_hub_deprecated_arguments(self):
         REPO_NAME = repo_name("PUSH_TO_HUB")
         model = DummyModel()
         with pytest.warns(

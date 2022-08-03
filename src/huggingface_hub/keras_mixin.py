@@ -5,7 +5,7 @@ import tempfile
 import warnings
 from pathlib import Path
 from shutil import copytree, rmtree
-from typing import Any, Dict, Optional
+from typing import Any, Dict, Optional, Union
 
 import yaml
 from huggingface_hub import ModelHubMixin, hf_api, snapshot_download
@@ -222,8 +222,6 @@ def save_pretrained_keras(
         model, save_directory, include_optimizer=include_optimizer, **model_save_kwargs
     )
 
-    return
-
 
 def from_pretrained_keras(*args, **kwargs):
     r"""
@@ -289,12 +287,14 @@ def push_to_hub_keras(
     model,
     repo_id: str,
     *,
-    log_dir: Optional[str] = None,
     commit_message: Optional[str] = "Add model",
     private: Optional[bool] = None,
     api_endpoint: Optional[str] = None,
     token: Optional[str] = True,
+    branch: Optional[str] = None,
+    create_pr: Optional[bool] = None,
     config: Optional[dict] = None,
+    log_dir: Optional[str] = None,
     include_optimizer: Optional[bool] = False,
     tags: Optional[Union[list, str]] = None,
     plot_model: Optional[bool] = True,
@@ -311,10 +311,6 @@ def push_to_hub_keras(
             you'd like to push to the Hub. The model must be compiled and built.
         repo_id (`str`, *optional*):
             Repository name to which push
-        log_dir (`str`, *optional*):
-            TensorBoard logging directory to be pushed. The Hub automatically
-            hosts and displays a TensorBoard instance if log files are included
-            in the repository.
         commit_message (`str`, *optional*, defaults to "Add message"):
             Message to commit while pushing.
         private (`bool`, *optional*):
@@ -324,9 +320,20 @@ def push_to_hub_keras(
         token (`str`, *optional*):
             The token to use as HTTP bearer authorization for remote files. If
             not set, will use the token set when logging in with
-            `transformers-cli login` (stored in `~/.huggingface`).
+            `huggingface-cli login` (stored in `~/.huggingface`).
+        branch (`str`, *optional*):
+            The git branch on which to push the model. This defaults to
+            the default branch as specified in your repository, which
+            defaults to `"main"`.
+        create_pr (`boolean`, *optional*):
+            Whether or not to create a Pull Request from `branch` with that commit.
+            Defaults to `False`.
         config (`dict`, *optional*):
             Configuration object to be saved alongside the model weights.
+        log_dir (`str`, *optional*):
+            TensorBoard logging directory to be pushed. The Hub automatically
+            hosts and displays a TensorBoard instance if log files are included
+            in the repository.
         include_optimizer (`bool`, *optional*, defaults to `False`):
             Whether or not to include optimizer during serialization.
         tags (Union[`list`, `str`], *optional*):
@@ -342,15 +349,14 @@ def push_to_hub_keras(
     Returns:
         The url of the commit of your model in the given repository.
     """
-
     token, _ = hf_api._validate_or_retrieve_token(token)
     api = HfApi(endpoint=api_endpoint)
 
     api.create_repo(
         repo_id=repo_id,
+        repo_type="model",
         token=token,
         private=private,
-        repo_type=None,
         exist_ok=True,
     )
 
@@ -361,8 +367,8 @@ def push_to_hub_keras(
             saved_path,
             config=config,
             include_optimizer=include_optimizer,
+            tags=tags,
             plot_model=plot_model,
-            task_name=task_name,
             **model_save_kwargs,
         )
 
@@ -371,19 +377,15 @@ def push_to_hub_keras(
                 rmtree(f"{saved_path}/logs")
             copytree(log_dir, f"{saved_path}/logs")
 
-        for path, currentDirectory, files in os.walk(saved_path):
-            for filename in files:
-                file = os.path.join(path, filename)
-
-                common_prefix = os.path.commonprefix([saved_path, file])
-                relative_path = os.path.relpath(file, common_prefix)
-                api.upload_file(
-                    path_or_fileobj=os.path.join(saved_path, file),
-                    path_in_repo=relative_path,
-                    token=token,
-                    repo_id=repo_id,
-                    commit_message=commit_message,
-                )
+        return api.upload_folder(
+            repo_id=repo_id,
+            repo_type="model",
+            token=token,
+            folder_path=saved_path,
+            commit_message=commit_message,
+            revision=branch,
+            create_pr=create_pr,
+        )
 
 
 class KerasModelHubMixin(ModelHubMixin):
