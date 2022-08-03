@@ -2,7 +2,7 @@ import json
 import os
 import tempfile
 from pathlib import Path
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, Union
 
 import requests
 from huggingface_hub import hf_api
@@ -214,10 +214,17 @@ class ModelHubMixin:
         pretrained"""
         raise NotImplementedError
 
-    @_deprecate_positional_args(version=0.8)
+    @_deprecate_positional_args(version="0.11")
     def push_to_hub(
         self,
         repo_id: str,
+        # TODO: deprecate next arguments (0.11 ?)
+        repo_path_or_name: Optional[str] = None,
+        repo_url: Optional[str] = None,
+        use_auth_token: Optional[Union[bool, str]] = None,
+        git_user: Optional[str] = None,
+        git_email: Optional[str] = None,
+        #
         *,
         commit_message: Optional[str] = "Add model",
         private: Optional[bool] = None,
@@ -259,6 +266,8 @@ class ModelHubMixin:
         Returns:
             The url of the commit of your model in the given repository.
         """
+        token = token or use_auth_token  # TODO: remove in 0.11 ?
+
         token, _ = hf_api._validate_or_retrieve_token(token)
         api = HfApi(endpoint=api_endpoint)
 
