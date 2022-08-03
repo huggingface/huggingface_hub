@@ -100,6 +100,9 @@ def _validate_repo_id_deprecation(repo_id, name, organization):
     return name, organization
 
 
+logger = logging.get_logger(__name__)
+
+
 def repo_type_and_id_from_hf_id(
     hf_id: str, hub_url: Optional[str] = None
 ) -> Tuple[Optional[str], Optional[str], str]:
@@ -613,19 +616,23 @@ class HfApi:
         function_name: Optional[str] = None,
     ):
         """
-        Retrieves and validates stored token or validates passed token.
         Args:
+        Retrieves and validates stored token or validates passed token.
             token (``str``, `optional`):
-                Hugging Face token. Will default to the locally saved token if not provided.
+                Hugging Face token. Will default to the locally saved token if
+                not provided.
             name (``str``, `optional`):
-                Name of the repository. This is deprecated in favor of repo_id and will be removed in v0.8.
+                Name of the repository. This is deprecated in favor of repo_id and
+                will be removed in v0.8.
             function_name (``str``, `optional`):
-                If _validate_or_retrieve_token is called from a function, name of that function to be passed inside deprecation warning.
+                If _validate_or_retrieve_token is called from a function, name
+                of that function to be passed inside deprecation warning.
         Returns:
             Validated token and the name of the repository.
         Raises:
-            :class:`EnvironmentError`: If the token is not passed and there's no token saved locally.
-            :class:`ValueError`: If organization token or invalid token is passed.
+            :class:`EnvironmentError`: If the token is not passed and there's no
+            token saved locally. :class:`ValueError`: If organization token or
+            invalid token is passed.
         """
         if token is None or token is True:
             token = HfFolder.get_token()
@@ -2346,8 +2353,8 @@ class HfFolder:
         """
         Get token or None if not existent.
 
-        Note that a token can be also provided using the `HUGGING_FACE_HUB_TOKEN`
-        environment variable.
+        Note that a token can be also provided using the
+        `HUGGING_FACE_HUB_TOKEN` environment variable.
 
         Returns:
             `str` or `None`: The token, `None` if it doesn't exist.
@@ -2406,3 +2413,5 @@ upload_file = api.upload_file
 upload_folder = api.upload_folder
 delete_file = api.delete_file
 get_full_repo_name = api.get_full_repo_name
+
+_validate_or_retrieve_token = api._validate_or_retrieve_token
