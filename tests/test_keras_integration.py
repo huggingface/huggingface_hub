@@ -334,6 +334,8 @@ class HubKerasSequentialTest(HubMixingTestKeras):
         with self.assertRaises(
             ValueError, msg="Exception encountered when calling layer*"
         ):
+            # TODO: investigate why it doesn't throw an error
+            #       IMHO previous test never worked as intended
             from_pretrained_keras(f"{WORKING_REPO_DIR}/{REPO_NAME}")
 
     def test_from_pretrained_weights(self):
@@ -494,6 +496,8 @@ class HubKerasSequentialTest(HubMixingTestKeras):
             )
 
             model_info = HfApi(endpoint=ENDPOINT_STAGING).model_info(repo_id)
+            # TODO: this test fails. Both tensorboard.txt and override.txt are in the
+            #       repo at the end.
             self.assertTrue(
                 "logs/override.txt" in [f.rfilename for f in model_info.siblings]
             )
@@ -531,6 +535,8 @@ class HubKerasSequentialTest(HubMixingTestKeras):
             with self.assertRaises(
                 ValueError, msg="Exception encountered when calling layer*"
             ):
+                # TODO: investigate why it doesn't throw an error
+                #       IMHO previous test never worked as intended
                 from_pretrained_keras(tmpdirname)
 
         self._api.delete_repo(repo_id=f"{REPO_NAME}", token=self._token)

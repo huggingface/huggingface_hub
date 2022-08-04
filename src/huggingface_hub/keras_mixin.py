@@ -411,6 +411,9 @@ def push_to_hub_keras(
             )
 
             if log_dir is not None:
+                # TODO: delete log folder on the hub when it exists
+                # previous implementation using git was doing it in the same git commit
+                # ... to be continued
                 tmp_log_dir = saved_path / "logs"
                 if os.path.exists(tmp_log_dir):
                     rmtree(tmp_log_dir)
