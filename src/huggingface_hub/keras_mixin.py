@@ -360,6 +360,7 @@ def push_to_hub_keras(
         exist_ok=True,
     )
 
+    # Push the files to the repo in a single commit
     with tempfile.TemporaryDirectory() as tmp:
         saved_path = Path(tmp) / repo_id
         save_pretrained_keras(
@@ -373,9 +374,10 @@ def push_to_hub_keras(
         )
 
         if log_dir is not None:
-            if os.path.exists(f"{saved_path}/logs"):
-                rmtree(f"{saved_path}/logs")
-            copytree(log_dir, f"{saved_path}/logs")
+            tmp_log_dir = saved_path / "logs"
+            if os.path.exists(tmp_log_dir):
+                rmtree(tmp_log_dir)
+            copytree(log_dir, tmp_log_dir)
 
         return api.upload_folder(
             repo_id=repo_id,

@@ -224,6 +224,7 @@ class ModelHubMixin:
         use_auth_token: Optional[Union[bool, str]] = None,
         git_user: Optional[str] = None,
         git_email: Optional[str] = None,
+        skip_lfs_files: bool = False,
         #
         *,
         commit_message: Optional[str] = "Add model",
@@ -233,7 +234,6 @@ class ModelHubMixin:
         branch: Optional[str] = None,
         create_pr: Optional[bool] = None,
         config: Optional[dict] = None,
-        skip_lfs_files: bool = False,
     ) -> str:
         """
         Upload model checkpoint to the Hub.
