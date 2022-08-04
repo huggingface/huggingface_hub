@@ -10,20 +10,13 @@ from huggingface_hub.utils._deprecation import (
 )
 
 
-def dummy(a, b="b", c="c"):
-    pass
-
-
-def dummy_kwonly(a, *, b="b", c="c"):
-    pass
-
-
 class TestDeprecationUtils(unittest.TestCase):
     def test_deprecate_positional_args(self):
         """Test warnings are triggered when using deprecated positional args."""
-        dummy_position_deprecated = _deprecate_positional_args(
-            dummy_kwonly, version="xxx"
-        )
+
+        @_deprecate_positional_args(version="xxx")
+        def dummy_position_deprecated(a, *, b="b", c="c"):
+            pass
 
         with warnings.catch_warnings():
             # Assert no warnings when used correctly.
@@ -40,12 +33,14 @@ class TestDeprecationUtils(unittest.TestCase):
 
     def test_deprecate_arguments(self):
         """Test warnings are triggered when using deprecated arguments."""
-        dummy_c_deprecated = _deprecate_arguments(
-            dummy, version="xxx", deprecated_args={"c"}
-        )
-        dummy_b_c_deprecated = _deprecate_arguments(
-            dummy, version="xxx", deprecated_args={"b", "c"}
-        )
+
+        @_deprecate_arguments(version="xxx", deprecated_args={"c"})
+        def dummy_c_deprecated(a, b="b", c="c"):
+            pass
+
+        @_deprecate_arguments(version="xxx", deprecated_args={"b", "c"})
+        def dummy_b_c_deprecated(a, b="b", c="c"):
+            pass
 
         with warnings.catch_warnings():
             # Assert no warnings when used correctly.
