@@ -52,8 +52,6 @@ def _deprecate_arguments(*, version: str, deprecated_args: Set[str]):
     """Decorator to issue warnings when using deprecated arguments.
 
     Args:
-        func (``Callable``):
-            Function to check arguments on.
         version (``str``):
             The version when deprecated arguments will result in error.
         deprecated_args (``List[str]``):
