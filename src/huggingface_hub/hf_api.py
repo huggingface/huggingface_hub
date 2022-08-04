@@ -1427,7 +1427,7 @@ class HfApi:
         )
         return [f.rfilename for f in repo_info.siblings]
 
-    @_deprecate_positional_args
+    @_deprecate_positional_args(version="0.8")
     def create_repo(
         self,
         repo_id: str = None,

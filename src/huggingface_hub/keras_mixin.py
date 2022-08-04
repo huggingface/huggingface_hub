@@ -282,7 +282,7 @@ def from_pretrained_keras(*args, **kwargs):
     return KerasModelHubMixin.from_pretrained(*args, **kwargs)
 
 
-@_deprecate_positional_args(version=0.8)
+@_deprecate_positional_args(version="0.8")
 def push_to_hub_keras(
     model,
     repo_id: str,

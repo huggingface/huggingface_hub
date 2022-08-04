@@ -124,7 +124,23 @@ class HubMixingTest(HubMixingCommonTest):
         model = DummyModel.from_pretrained(f"{WORKING_REPO_DIR}/{REPO_NAME}")
         self.assertDictEqual(model.config, {"num": 10, "act": "gelu_fast"})
 
-    def test_push_to_hub(self):
+    def test_push_to_hub_via_http(self):
+        REPO_NAME = repo_name("PUSH_TO_HUB")
+        repo_id = f"{USER}/{REPO_NAME}"
+
+        DummyModel().push_to_hub(
+            repo_id=repo_id,
+            api_endpoint=ENDPOINT_STAGING,
+            use_auth_token=self._token,
+            config={"num": 7, "act": "gelu_fast"},
+        )
+
+        model_info = self._api.model_info(repo_id, token=self._token)
+        self.assertEqual(model_info.modelId, repo_id)
+
+        self._api.delete_repo(repo_id=repo_id, token=self._token)
+
+    def test_push_to_hub_via_git_deprecated(self):
         REPO_NAME = repo_name("PUSH_TO_HUB")
         model = DummyModel()
         model.push_to_hub(
