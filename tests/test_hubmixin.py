@@ -205,7 +205,7 @@ class HubMixingTest(HubMixingCommonTest):
         # TODO: remove in 0.12 when git method will be removed
         REPO_A = repo_name("PUSH_TO_HUB_git_with_existing_files")
         REPO_B = repo_name("PUSH_TO_HUB_git_without_existing_files")
-        self._api.create_repo(token=self._token, name=REPO_A)
+        self._api.create_repo(token=self._token, repo_id=REPO_A)
         for i in range(5):
             self._api.upload_file(
                 # Each are .5mb in size

@@ -10,7 +10,7 @@ def _deprecate_positional_args(*, version: str):
     * will issue a warning when passed as a positional argument.
 
     Args:
-        version (``str``):
+        version (`str`):
             The version when positional arguments will result in error.
     """
 
@@ -51,10 +51,12 @@ def _deprecate_positional_args(*, version: str):
 def _deprecate_arguments(*, version: str, deprecated_args: Set[str]):
     """Decorator to issue warnings when using deprecated arguments.
 
+    TODO: could be useful to be able to set a custom error message.
+
     Args:
-        version (``str``):
+        version (`str`):
             The version when deprecated arguments will result in error.
-        deprecated_args (``List[str]``):
+        deprecated_args (`List[str]`):
             List of the arguments to be deprecated.
     """
 

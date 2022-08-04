@@ -34,29 +34,34 @@ class ModelHubMixin:
         self,
         save_directory: str,
         config: Optional[dict] = None,
+        # NOTE: without new arguments this behavior (with push_to_hub=True), will be
+        # deprecated as well. Should we already plan to extend the "save_pretrained"
+        # function or should we let this feature die and then force users to do
+        # `model.save_pretrained(...)` and `model.push_to_hub(...)` separately ?
+        # Main argument that is missing I think is "repo_id". All other are optional but
+        # nice to have.
+        # TODO: To be discussed and to remove before merging PR
         push_to_hub: bool = False,
         **kwargs,
     ):
         """
         Save weights in local directory.
 
-                Parameters:
-                    save_directory (`str`):
-                        Specify directory in which you want to save weights.
-                    config (`dict`, *optional*):
-                        specify config (must be dict) in case you want to save
-                        it.
-                    push_to_hub (`bool`, *optional*, defaults to `False`):
-                        Set it to `True` in case you want to push your weights
-                        to huggingface_hub
-                    kwargs (`Dict`, *optional*):
-                        kwargs will be passed to `push_to_hub`
+        Parameters:
+            save_directory (`str`):
+                Specify directory in which you want to save weights.
+            config (`dict`, *optional*):
+                specify config (must be dict) in case you want to save
+                it.
+            push_to_hub (`bool`, *optional*, defaults to `False`):
+                Set it to `True` in case you want to push your weights to huggingface_hub.
+            kwargs (`Dict`, *optional*):
+                kwargs will be passed to `push_to_hub`
         """
-
         os.makedirs(save_directory, exist_ok=True)
 
         # saving model weights/files
-        files = self._save_pretrained(save_directory)
+        self._save_pretrained(save_directory)
 
         # saving config
         if isinstance(config, dict):
@@ -64,14 +69,10 @@ class ModelHubMixin:
             with open(path, "w") as f:
                 json.dump(config, f)
 
-            files.append(path)
-
         if push_to_hub:
             return self.push_to_hub(save_directory, **kwargs)
 
-        return files
-
-    def _save_pretrained(self, save_directory: str) -> List[str]:
+    def _save_pretrained(self, save_directory: str):
         """
         Overwrite this method in subclass to define how to save your model.
         """
@@ -230,7 +231,7 @@ class ModelHubMixin:
     )
     def push_to_hub(
         self,
-        # NOTE: deprecated signature that will be removed in 0.12
+        # NOTE: deprecated signature that will change in 0.12
         repo_path_or_name: Optional[str] = None,
         repo_url: Optional[str] = None,
         commit_message: Optional[str] = "Add model",
