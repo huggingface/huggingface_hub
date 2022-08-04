@@ -10,20 +10,17 @@ from huggingface_hub.utils._deprecation import (
 )
 
 
-def dummy(a, b="b", c="c") -> str:
-    return f"{a}{b}{c}"
+def dummy(a, b="b", c="c"):
+    pass
 
 
-def dummy_kwonly(a, *, b="b", c="c") -> str:
-    return dummy(a, b, c)
+def dummy_kwonly(a, *, b="b", c="c"):
+    pass
 
 
 class TestDeprecationUtils(unittest.TestCase):
     def test_deprecate_positional_args(self):
-        """Test warnings are triggered when using deprecated positional args.
-
-        Also test that the values are well passed to the decorated function.
-        """
+        """Test warnings are triggered when using deprecated positional args."""
         dummy_position_deprecated = _deprecate_positional_args(
             dummy_kwonly, version="xxx"
         )
@@ -32,20 +29,17 @@ class TestDeprecationUtils(unittest.TestCase):
             # Assert no warnings when used correctly.
             # Taken from https://docs.pytest.org/en/latest/how-to/capture-warnings.html#additional-use-cases-of-warnings-in-tests
             warnings.simplefilter("error")
-            self.assertEqual(dummy_position_deprecated(a="A", b="B", c="C"), "ABC")
-            self.assertEqual(dummy_position_deprecated("A", b="B", c="C"), "ABC")
+            dummy_position_deprecated(a="A", b="B", c="C")
+            dummy_position_deprecated("A", b="B", c="C")
 
         with pytest.warns(FutureWarning):
-            self.assertEqual(dummy_position_deprecated("A", "B", c="C"), "ABC")
+            dummy_position_deprecated("A", "B", c="C")
 
         with pytest.warns(FutureWarning):
-            self.assertEqual(dummy_position_deprecated("A", "B", "C"), "ABC")
+            dummy_position_deprecated("A", "B", "C")
 
     def test_deprecate_arguments(self):
-        """Test warnings are triggered when using deprecated arguments.
-
-        Also test that the values are well passed to the decorated function.
-        """
+        """Test warnings are triggered when using deprecated arguments."""
         dummy_c_deprecated = _deprecate_arguments(
             dummy, version="xxx", deprecated_args={"c"}
         )
@@ -57,26 +51,26 @@ class TestDeprecationUtils(unittest.TestCase):
             # Assert no warnings when used correctly.
             # Taken from https://docs.pytest.org/en/latest/how-to/capture-warnings.html#additional-use-cases-of-warnings-in-tests
             warnings.simplefilter("error")
-            self.assertEqual(dummy_c_deprecated("A"), "Abc")
-            self.assertEqual(dummy_c_deprecated("A", "B"), "ABc")
-            self.assertEqual(dummy_c_deprecated("A", b="B"), "ABc")
+            dummy_c_deprecated("A")
+            dummy_c_deprecated("A", "B")
+            dummy_c_deprecated("A", b="B")
 
-            self.assertEqual(dummy_b_c_deprecated("A"), "Abc")
-
-        with pytest.warns(FutureWarning):
-            self.assertEqual(dummy_c_deprecated("A", "B", "C"), "ABC")
+            dummy_b_c_deprecated("A")
 
         with pytest.warns(FutureWarning):
-            self.assertEqual(dummy_c_deprecated("A", c="C"), "AbC")
+            dummy_c_deprecated("A", "B", "C")
 
         with pytest.warns(FutureWarning):
-            self.assertEqual(dummy_c_deprecated("A", b="B", c="C"), "ABC")
+            dummy_c_deprecated("A", c="C")
 
         with pytest.warns(FutureWarning):
-            self.assertEqual(dummy_b_c_deprecated("A", b="B"), "ABc")
+            dummy_c_deprecated("A", b="B", c="C")
 
         with pytest.warns(FutureWarning):
-            self.assertEqual(dummy_b_c_deprecated("A", c="C"), "AbC")
+            dummy_b_c_deprecated("A", b="B")
 
         with pytest.warns(FutureWarning):
-            self.assertEqual(dummy_b_c_deprecated("A", b="B", c="C"), "ABC")
+            dummy_b_c_deprecated("A", c="C")
+
+        with pytest.warns(FutureWarning):
+            dummy_b_c_deprecated("A", b="B", c="C")
