@@ -127,7 +127,7 @@ class HubMixingTest(HubMixingCommonTest):
         self.assertDictEqual(model.config, {"num": 10, "act": "gelu_fast"})
 
     def test_push_to_hub_via_http_basic(self):
-        REPO_NAME = repo_name("PUSH_TO_HUB")
+        REPO_NAME = repo_name("PUSH_TO_HUB_via_http")
         repo_id = f"{USER}/{REPO_NAME}"
 
         DummyModel().push_to_hub(
@@ -154,7 +154,7 @@ class HubMixingTest(HubMixingCommonTest):
 
     def test_push_to_hub_via_git_deprecated(self):
         # TODO: remove in 0.12 when git method will be removed
-        REPO_NAME = repo_name("PUSH_TO_HUB")
+        REPO_NAME = repo_name("PUSH_TO_HUB_via_git")
         repo_id = f"{USER}/{REPO_NAME}"
 
         with pytest.warns(FutureWarning, match=PUSH_TO_HUB_WARNING_REGEX):
@@ -170,7 +170,7 @@ class HubMixingTest(HubMixingCommonTest):
 
     def test_push_to_hub_via_git_use_lfs_by_default(self):
         # TODO: remove in 0.12 when git method will be removed
-        REPO_NAME = repo_name("PUSH_TO_HUB_LFS")
+        REPO_NAME = repo_name("PUSH_TO_HUB_with_lfs_file")
         with tempfile.TemporaryDirectory() as tmpdirname:
             os.makedirs(f"{tmpdirname}/{WORKING_REPO_DIR}/{REPO_NAME}")
             self._repo_url = self._api.create_repo(repo_id=REPO_NAME, token=self._token)
