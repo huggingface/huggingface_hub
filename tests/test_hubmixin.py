@@ -10,7 +10,7 @@ from io import BytesIO
 
 import pytest
 
-from huggingface_hub import HfApi
+from huggingface_hub import HfApi, hf_hub_download
 from huggingface_hub.file_download import is_torch_available
 from huggingface_hub.hub_mixin import PyTorchModelHubMixin
 from huggingface_hub.repository import Repository
@@ -29,6 +29,8 @@ WORKING_REPO_SUBDIR = "fixtures/working_repo_2"
 WORKING_REPO_DIR = os.path.join(
     os.path.dirname(os.path.abspath(__file__)), WORKING_REPO_SUBDIR
 )
+
+PUSH_TO_HUB_WARNING_REGEX = re.escape("Deprecated argument(s) used in 'push_to_hub':")
 
 if is_torch_available():
     import torch.nn as nn
@@ -124,38 +126,50 @@ class HubMixingTest(HubMixingCommonTest):
         model = DummyModel.from_pretrained(f"{WORKING_REPO_DIR}/{REPO_NAME}")
         self.assertDictEqual(model.config, {"num": 10, "act": "gelu_fast"})
 
-    def test_push_to_hub_via_http(self):
+    def test_push_to_hub_via_http_basic(self):
         REPO_NAME = repo_name("PUSH_TO_HUB")
         repo_id = f"{USER}/{REPO_NAME}"
 
         DummyModel().push_to_hub(
             repo_id=repo_id,
             api_endpoint=ENDPOINT_STAGING,
-            use_auth_token=self._token,
+            token=self._token,
             config={"num": 7, "act": "gelu_fast"},
         )
 
+        # Test model id exists
         model_info = self._api.model_info(repo_id, token=self._token)
         self.assertEqual(model_info.modelId, repo_id)
 
+        # Test config has been pushed to hub
+        tmp_config_path = hf_hub_download(
+            repo_id=repo_id, filename="config.json", use_auth_token=self._token
+        )
+        with open(tmp_config_path) as f:
+            self.assertEqual(json.load(f), {"num": 7, "act": "gelu_fast"})
+
+        # Delete tmp file and repo
+        os.remove(tmp_config_path)
         self._api.delete_repo(repo_id=repo_id, token=self._token)
 
     def test_push_to_hub_via_git_deprecated(self):
+        # TODO: remove in 0.12 when git method will be removed
         REPO_NAME = repo_name("PUSH_TO_HUB")
-        model = DummyModel()
-        model.push_to_hub(
-            repo_path_or_name=f"{WORKING_REPO_DIR}/{REPO_NAME}",
-            api_endpoint=ENDPOINT_STAGING,
-            use_auth_token=self._token,
-            config={"num": 7, "act": "gelu_fast"},
-        )
+        repo_id = f"{USER}/{REPO_NAME}"
 
-        model_info = self._api.model_info(f"{USER}/{REPO_NAME}", token=self._token)
-        self.assertEqual(model_info.modelId, f"{USER}/{REPO_NAME}")
+        with pytest.warns(FutureWarning, match=PUSH_TO_HUB_WARNING_REGEX):
+            DummyModel().push_to_hub(
+                repo_path_or_name=f"{WORKING_REPO_DIR}/{REPO_NAME}",
+                api_endpoint=ENDPOINT_STAGING,
+                use_auth_token=self._token,
+            )
 
-        self._api.delete_repo(repo_id=f"{REPO_NAME}", token=self._token)
+        model_info = self._api.model_info(repo_id, token=self._token)
+        self.assertEqual(model_info.modelId, repo_id)
+        self._api.delete_repo(repo_id=repo_id, token=self._token)
 
-    def test_auto_lfs(self):
+    def test_push_to_hub_via_git_use_lfs_by_default(self):
+        # TODO: remove in 0.12 when git method will be removed
         REPO_NAME = repo_name("PUSH_TO_HUB_LFS")
         with tempfile.TemporaryDirectory() as tmpdirname:
             os.makedirs(f"{tmpdirname}/{WORKING_REPO_DIR}/{REPO_NAME}")
@@ -163,6 +177,7 @@ class HubMixingTest(HubMixingCommonTest):
             Repository(
                 local_dir=f"{tmpdirname}/{WORKING_REPO_DIR}/{REPO_NAME}",
                 clone_from=self._repo_url,
+                use_auth_token=self._token,
             )
 
             model = DummyModel()
@@ -172,42 +187,25 @@ class HubMixingTest(HubMixingCommonTest):
             ) as f:
                 f.write(json.dumps(large_file))
 
-            model.push_to_hub(
-                f"{tmpdirname}/{WORKING_REPO_DIR}/{REPO_NAME}",
-                api_endpoint=ENDPOINT_STAGING,
-                use_auth_token=self._token,
-                git_user="ci",
-                git_email="ci@dummy.com",
-                config={"num": 7, "act": "gelu_fast"},
-            )
+            with pytest.warns(FutureWarning, match=PUSH_TO_HUB_WARNING_REGEX):
+                model.push_to_hub(
+                    f"{tmpdirname}/{WORKING_REPO_DIR}/{REPO_NAME}",
+                    api_endpoint=ENDPOINT_STAGING,
+                    use_auth_token=self._token,
+                    git_user="ci",
+                    git_email="ci@dummy.com",
+                )
 
-    def test_push_to_hub_deprecated_arguments(self):
-        REPO_NAME = repo_name("PUSH_TO_HUB")
-        model = DummyModel()
-        with pytest.warns(
-            FutureWarning,
-            match=re.escape("The following kwargs were passed but are not used"),
-        ):
-            model.push_to_hub(
-                repo_path_or_name=f"{WORKING_REPO_DIR}/{REPO_NAME}",
-                api_endpoint=ENDPOINT_STAGING,
-                use_auth_token=self._token,
-                git_user="ci",
-                git_email="ci@dummy.com",
-                config={"num": 7, "act": "gelu_fast"},
-            )
-            model_info = self._api.model_info(f"{USER}/{REPO_NAME}", token=self._token)
+        model_info = self._api.model_info(f"{USER}/{REPO_NAME}", token=self._token)
 
-            self.assertTrue(
-                "large_file.txt" in [f.rfilename for f in model_info.siblings]
-            )
-            self._api.delete_repo(repo_id=f"{REPO_NAME}", token=self._token)
+        self.assertTrue("large_file.txt" in [f.rfilename for f in model_info.siblings])
+        self._api.delete_repo(repo_id=f"{REPO_NAME}", token=self._token)
 
-    def test_push_to_hub_with_other_files(self):
-        REPO_A = repo_name("with_files")
-        REPO_B = repo_name("without_files")
+    def test_push_to_hub_via_git_with_existing_files(self):
+        # TODO: remove in 0.12 when git method will be removed
+        REPO_A = repo_name("PUSH_TO_HUB_git_with_existing_files")
+        REPO_B = repo_name("PUSH_TO_HUB_git_without_existing_files")
         self._api.create_repo(token=self._token, name=REPO_A)
-        self._api.create_repo(token=self._token, name=REPO_B)
         for i in range(5):
             self._api.upload_file(
                 # Each are .5mb in size
@@ -218,28 +216,30 @@ class HubMixingTest(HubMixingCommonTest):
             )
         model = DummyModel()
         start_time = time.time()
-        model.push_to_hub(
-            repo_path_or_name=f"{WORKING_REPO_SUBDIR}/{REPO_A}",
-            api_endpoint=ENDPOINT_STAGING,
-            use_auth_token=self._token,
-            git_user="ci",
-            git_email="ci@dummy.com",
-            config={"num": 7, "act": "gelu_fast"},
-        )
+        with pytest.warns(FutureWarning, match=PUSH_TO_HUB_WARNING_REGEX):
+            model.push_to_hub(
+                repo_path_or_name=f"{WORKING_REPO_SUBDIR}/{REPO_A}",
+                api_endpoint=ENDPOINT_STAGING,
+                use_auth_token=self._token,
+                git_user="ci",
+                git_email="ci@dummy.com",
+                config={"num": 7, "act": "gelu_fast"},
+            )
         REPO_A_TIME = start_time - time.time()
 
         start_time = time.time()
-        model.push_to_hub(
-            repo_path_or_name=f"{USER}/{REPO_B}",
-            api_endpoint=ENDPOINT_STAGING,
-            use_auth_token=self._token,
-            git_user="ci",
-            git_email="ci@dummy.com",
-            config={"num": 7, "act": "gelu_fast"},
-        )
+        with pytest.warns(FutureWarning, match=PUSH_TO_HUB_WARNING_REGEX):
+            model.push_to_hub(
+                repo_path_or_name=f"{USER}/{REPO_B}",
+                api_endpoint=ENDPOINT_STAGING,
+                use_auth_token=self._token,
+                git_user="ci",
+                git_email="ci@dummy.com",
+                config={"num": 7, "act": "gelu_fast"},
+            )
         REPO_B_TIME = start_time - time.time()
         # Less than half a second from each other
         self.assertLess(REPO_A_TIME - REPO_B_TIME, 0.5)
 
-        self._api.delete_repo(name=REPO_A, token=self._token)
-        self._api.delete_repo(name=REPO_B, token=self._token)
+        self._api.delete_repo(repo_id=REPO_A, token=self._token)
+        self._api.delete_repo(repo_id=REPO_B, token=self._token)
