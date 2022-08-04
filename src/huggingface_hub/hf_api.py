@@ -1645,6 +1645,93 @@ class HfApi:
         )
         _raise_for_status(r)
 
+    def update_repo_settings(
+        self,
+        repo_id: str = None,
+        *,
+        private: Optional[bool] = None,
+        gated: Optional[bool] = None,
+        discussions_disabled: Optional[bool] = None,
+        token: Optional[str] = None,
+        organization: Optional[str] = None,
+        repo_type: Optional[str] = None,
+        name: str = None,
+    ) -> Dict[str, bool]:
+        """Update the settings of a repository.
+
+        Args:
+            repo_id (`str`, *optional*):
+                A namespace (user or an organization) and a repo name separated
+                by a `/`.
+
+                <Tip>
+
+                Version added: 0.5
+
+                </Tip>
+
+            private (`bool`, *optional*, defaults to `None`):
+                Whether the repo should be private.
+            gated (`bool`, *optional*, defaults to `None`):
+                Whether the repo should request user access.
+            discussions_disabled (`bool`, *optional*, defaults to `None`):
+                Whether the discussions should be disabled in the repo.
+            token (`str`, *optional*):
+                An authentication token (See https://huggingface.co/settings/token)
+            repo_type (`str`, *optional*):
+                Set to `"dataset"` or `"space"` if uploading to a dataset or
+                space, `None` or `"model"` if uploading to a model. Default is
+                `None`.
+
+        Returns:
+            The HTTP response in json.
+
+        <Tip>
+
+        Raises the following errors:
+
+            - [`~huggingface_hub.utils.RepositoryNotFoundError`]
+              If the repository to download from cannot be found. This may be because it doesn't exist,
+              or because it is set to `private` and you do not have access.
+
+        </Tip>
+        """
+        if repo_type not in REPO_TYPES:
+            raise ValueError("Invalid repo type")
+
+        organization, name = repo_id.split("/") if "/" in repo_id else (None, repo_id)
+
+        token, name = self._validate_or_retrieve_token(
+            token, name, function_name="update_repo_settings"
+        )
+
+        if organization is None:
+            namespace = self.whoami(token)["name"]
+        else:
+            namespace = organization
+
+        path_prefix = f"{self.endpoint}/api/"
+        if repo_type in REPO_TYPES_URL_PREFIXES:
+            path_prefix += REPO_TYPES_URL_PREFIXES[repo_type]
+
+        path = f"{path_prefix}{namespace}/{name}/settings"
+
+        json = {}
+        if private is not None:
+            json["private"] = private
+        if gated is not None:
+            json["gated"] = gated
+        if discussions_disabled is not None:
+            json["discussionsDisabled"] = discussions_disabled
+
+        r = requests.put(
+            path,
+            headers={"authorization": f"Bearer {token}"},
+            json=json,
+        )
+        _raise_for_status(r)
+        return r.json()
+
     def update_repo_visibility(
         self,
         repo_id: str = None,
@@ -1690,35 +1777,14 @@ class HfApi:
 
         </Tip>
         """
-        if repo_type not in REPO_TYPES:
-            raise ValueError("Invalid repo type")
-
-        organization, name = repo_id.split("/") if "/" in repo_id else (None, repo_id)
-
-        token, name = self._validate_or_retrieve_token(
-            token, name, function_name="update_repo_visibility"
+        return self.update_repo_settings(
+            repo_id,
+            private=private,
+            token=token,
+            organization=organization,
+            repo_type=repo_type,
+            name=name,
         )
-
-        if organization is None:
-            namespace = self.whoami(token)["name"]
-        else:
-            namespace = organization
-
-        path_prefix = f"{self.endpoint}/api/"
-        if repo_type in REPO_TYPES_URL_PREFIXES:
-            path_prefix += REPO_TYPES_URL_PREFIXES[repo_type]
-
-        path = f"{path_prefix}{namespace}/{name}/settings"
-
-        json = {"private": private}
-
-        r = requests.put(
-            path,
-            headers={"authorization": f"Bearer {token}"},
-            json=json,
-        )
-        _raise_for_status(r)
-        return r.json()
 
     def move_repo(
         self,

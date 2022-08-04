@@ -218,6 +218,22 @@ class HfApiEndpointsTest(HfApiCommonTestWithLogin):
             repo_id=REPO_NAME, token=self._token, private=False
         )
         self.assertFalse(res["private"])
+        res = self._api.update_repo_settings(
+            repo_id=REPO_NAME,
+            token=self._token,
+            private=True,
+            gated=True,
+            discussions_disabled=True,
+        )
+        self.assertTrue(res["private"] and res["gated"] and res["discussionsDisabled"])
+        res = self._api.update_repo_settings(
+            repo_id=REPO_NAME,
+            token=self._token,
+            private=False,
+            gated=False,
+            discussions_disabled=False,
+        )
+        self.assertFalse(res["private"] or res["gated"] or res["discussionsDisabled"])
         self._api.delete_repo(repo_id=REPO_NAME, token=self._token)
 
     @retry_endpoint
@@ -240,6 +256,24 @@ class HfApiEndpointsTest(HfApiCommonTestWithLogin):
             repo_type=REPO_TYPE_MODEL,
         )
         self.assertFalse(res["private"])
+        res = self._api.update_repo_settings(
+            repo_id=REPO_NAME,
+            token=self._token,
+            private=True,
+            gated=True,
+            discussions_disabled=True,
+            repo_type=REPO_TYPE_MODEL,
+        )
+        self.assertTrue(res["private"] and res["gated"] and res["discussionsDisabled"])
+        res = self._api.update_repo_settings(
+            repo_id=REPO_NAME,
+            token=self._token,
+            private=False,
+            gated=False,
+            discussions_disabled=False,
+            repo_type=REPO_TYPE_MODEL,
+        )
+        self.assertFalse(res["private"] or res["gated"] or res["discussionsDisabled"])
         self._api.delete_repo(
             repo_id=REPO_NAME, token=self._token, repo_type=REPO_TYPE_MODEL
         )
@@ -264,6 +298,24 @@ class HfApiEndpointsTest(HfApiCommonTestWithLogin):
             repo_type=REPO_TYPE_DATASET,
         )
         self.assertFalse(res["private"])
+        res = self._api.update_repo_settings(
+            repo_id=DATASET_REPO_NAME,
+            token=self._token,
+            private=True,
+            gated=True,
+            discussions_disabled=True,
+            repo_type=REPO_TYPE_DATASET,
+        )
+        self.assertTrue(res["private"] and res["gated"] and res["discussionsDisabled"])
+        res = self._api.update_repo_settings(
+            repo_id=DATASET_REPO_NAME,
+            token=self._token,
+            private=False,
+            gated=False,
+            discussions_disabled=False,
+            repo_type=REPO_TYPE_DATASET,
+        )
+        self.assertFalse(res["private"] or res["gated"] or res["discussionsDisabled"])
         self._api.delete_repo(
             repo_id=DATASET_REPO_NAME, token=self._token, repo_type=REPO_TYPE_DATASET
         )
@@ -308,6 +360,28 @@ class HfApiEndpointsTest(HfApiCommonTestWithLogin):
                 repo_type=REPO_TYPE_SPACE,
             )
             self.assertFalse(res["private"])
+            res = self._api.update_repo_settings(
+                repo_id=SPACE_REPO_NAME,
+                token=self._token,
+                private=True,
+                gated=True,
+                discussions_disabled=True,
+                repo_type=REPO_TYPE_SPACE,
+            )
+            self.assertTrue(
+                res["private"] and res["gated"] and res["discussionsDisabled"]
+            )
+            res = self._api.update_repo_settings(
+                repo_id=SPACE_REPO_NAME,
+                token=self._token,
+                private=False,
+                gated=False,
+                discussions_disabled=False,
+                repo_type=REPO_TYPE_SPACE,
+            )
+            self.assertFalse(
+                res["private"] or res["gated"] or res["discussionsDisabled"]
+            )
             self._api.delete_repo(
                 repo_id=SPACE_REPO_NAME, token=self._token, repo_type=REPO_TYPE_SPACE
             )
