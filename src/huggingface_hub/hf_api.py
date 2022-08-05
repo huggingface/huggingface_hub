@@ -65,6 +65,7 @@ USERNAME_PLACEHOLDER = "hf_user"
 
 logger = logging.get_logger(__name__)
 
+
 # TODO: remove after deprecation period is over (v0.10)
 def _validate_repo_id_deprecation(repo_id, name, organization):
     """Returns (name, organization) from the input."""

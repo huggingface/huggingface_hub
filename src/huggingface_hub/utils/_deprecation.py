@@ -1,7 +1,7 @@
 import warnings
 from functools import wraps
 from inspect import Parameter, signature
-from typing import Callable, Optional, Set
+from typing import Set
 
 
 def _deprecate_positional_args(*, version: str):
