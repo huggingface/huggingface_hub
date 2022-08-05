@@ -318,7 +318,8 @@ def _lfs_log_progress():
         try:
             yield
         except Exception:
-            return
+            pass
+        return
 
     def output_progress(stopping_event: threading.Event):
         """
