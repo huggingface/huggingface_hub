@@ -851,7 +851,7 @@ class HfApiPublicTest(unittest.TestCase):
         self.assertGreater(len(models), 10)
         self.assertIsInstance(models[0], ModelInfo)
         for model in models:
-            self.assertTrue("google" in model.author)
+            self.assertTrue(model.modelId.startswith("google/"))
 
     @with_production_testing
     def test_list_models_search(self):

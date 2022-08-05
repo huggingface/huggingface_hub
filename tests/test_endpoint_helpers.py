@@ -136,7 +136,7 @@ class GeneralTagsTest(GeneralTagsCommonTest):
     def test_filter(self):
         _tags = GeneralTags(self._tag_dictionary, keys=["license"])
         self.assertTrue(hasattr(_tags, "license"))
-        self.assertFalse(hasattr(_tags.languages))
+        self.assertFalse(hasattr(_tags, "languages"))
         self.assertEqual(
             _tags.license, AttributeDictionary({"ItemC": "itemC", "Item_D": "itemD"})
         )
