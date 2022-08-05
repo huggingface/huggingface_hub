@@ -11,16 +11,14 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-
-
 import os
 import shutil
 import subprocess
 import tempfile
 import time
 import unittest
-import uuid
 import warnings
+from functools import partial
 from io import BytesIO
 from urllib.parse import quote
 
@@ -70,6 +68,7 @@ from .testing_utils import (
     DUMMY_DATASET_ID_REVISION_ONE_SPECIFIC_COMMIT,
     DUMMY_MODEL_ID,
     DUMMY_MODEL_ID_REVISION_ONE_SPECIFIC_COMMIT,
+    repo_name,
     require_git_lfs,
     retry_endpoint,
     set_write_permission_and_retry,
@@ -79,22 +78,9 @@ from .testing_utils import (
 
 logger = logging.get_logger(__name__)
 
-
-def repo_name(id=uuid.uuid4().hex[:6]):
-    return "my-model-{0}-{1}".format(id, int(time.time() * 10e3))
-
-
-def repo_name_large_file(id=uuid.uuid4().hex[:6]):
-    return "my-model-largefiles-{0}-{1}".format(id, int(time.time() * 10e3))
-
-
-def dataset_repo_name(id=uuid.uuid4().hex[:6]):
-    return "my-dataset-{0}-{1}".format(id, int(time.time() * 10e3))
-
-
-def space_repo_name(id=uuid.uuid4().hex[:6]):
-    return "my-space-{0}-{1}".format(id, int(time.time() * 10e3))
-
+dataset_repo_name = partial(repo_name, prefix="my-dataset")
+space_repo_name = partial(repo_name, prefix="my-space")
+large_file_repo_name = partial(repo_name, prefix="my-model-largefiles")
 
 WORKING_REPO_DIR = os.path.join(
     os.path.dirname(os.path.abspath(__file__)), "fixtures/working_repo"
@@ -864,7 +850,8 @@ class HfApiPublicTest(unittest.TestCase):
         models = _api.list_models(author="google")
         self.assertGreater(len(models), 10)
         self.assertIsInstance(models[0], ModelInfo)
-        [self.assertTrue("google" in model.author for model in models)]
+        for model in models:
+            self.assertTrue("google" in model.author)
 
     @with_production_testing
     def test_list_models_search(self):
@@ -872,7 +859,8 @@ class HfApiPublicTest(unittest.TestCase):
         models = _api.list_models(search="bert")
         self.assertGreater(len(models), 10)
         self.assertIsInstance(models[0], ModelInfo)
-        [self.assertTrue("bert" in model.modelId.lower()) for model in models]
+        for model in models:
+            self.assertTrue("bert" in model.modelId.lower())
 
     @with_production_testing
     def test_list_models_complex_query(self):
@@ -923,10 +911,7 @@ class HfApiPublicTest(unittest.TestCase):
             revision=DUMMY_MODEL_ID_REVISION_ONE_SPECIFIC_COMMIT,
             securityStatus=True,
         )
-        self.assertEqual(
-            getattr(model, "securityStatus"),
-            {"containsInfected": False},
-        )
+        self.assertEqual(model.securityStatus, {"containsInfected": False})
 
     @with_production_testing
     def test_list_repo_files(self):
@@ -1400,7 +1385,7 @@ class HfLargefilesTest(HfApiCommonTest):
         cls._api.set_access_token(TOKEN)
 
     def setUp(self):
-        self.REPO_NAME_LARGE_FILE = repo_name_large_file()
+        self.REPO_NAME_LARGE_FILE = large_file_repo_name()
         if os.path.exists(WORKING_REPO_DIR):
             shutil.rmtree(WORKING_REPO_DIR, onerror=set_write_permission_and_retry)
         logger.info(

@@ -1,7 +1,5 @@
 import os
 import shutil
-import time
-import uuid
 from unittest import TestCase, skip
 
 from huggingface_hub import HfApi
@@ -17,11 +15,7 @@ from huggingface_hub.file_download import (
 )
 
 from .testing_constants import ENDPOINT_STAGING, TOKEN, USER
-from .testing_utils import set_write_permission_and_retry
-
-
-def repo_name(id=uuid.uuid4().hex[:6]):
-    return "fastai-repo-{0}-{1}".format(id, int(time.time() * 10e3))
+from .testing_utils import repo_name, set_write_permission_and_retry
 
 
 WORKING_REPO_SUBDIR = f"fixtures/working_repo_{__name__.split('.')[-1]}"

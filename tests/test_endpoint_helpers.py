@@ -118,8 +118,8 @@ class GeneralTagsTest(GeneralTagsCommonTest):
     def test_init(self):
         _tags = GeneralTags(self._tag_dictionary)
         self.assertTrue(all(hasattr(_tags, kind) for kind in ["languages", "license"]))
-        languages = getattr(_tags, "languages")
-        licenses = getattr(_tags, "license")
+        languages = _tags.languages
+        licenses = _tags.license
         # Ensure they have the right bits
 
         self.assertEqual(
@@ -136,8 +136,7 @@ class GeneralTagsTest(GeneralTagsCommonTest):
     def test_filter(self):
         _tags = GeneralTags(self._tag_dictionary, keys=["license"])
         self.assertTrue(hasattr(_tags, "license"))
-        with self.assertRaises(AttributeError):
-            _ = getattr(_tags, "languages")
+        self.assertFalse(hasattr(_tags.languages))
         self.assertEqual(
             _tags.license, AttributeDictionary({"ItemC": "itemC", "Item_D": "itemD"})
         )
