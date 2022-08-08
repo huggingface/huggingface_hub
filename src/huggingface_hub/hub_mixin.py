@@ -2,7 +2,7 @@ import json
 import os
 import tempfile
 from pathlib import Path
-from typing import Dict, List, Optional, Union
+from typing import Dict, Optional, Union
 
 import requests
 from huggingface_hub import hf_api
@@ -17,7 +17,6 @@ from .utils._deprecation import _deprecate_arguments, _deprecate_positional_args
 
 if is_torch_available():
     import torch
-
 
 logger = logging.get_logger(__name__)
 

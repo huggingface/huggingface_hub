@@ -325,12 +325,8 @@ class HubKerasSequentialTest(HubMixingTestKeras):
             save_traces=False,
         )
 
-        with self.assertRaises(
-            ValueError, msg="Exception encountered when calling layer*"
-        ):
-            # TODO: investigate why it doesn't throw an error
-            #       IMHO previous test never worked as intended
-            from_pretrained_keras(f"{WORKING_REPO_DIR}/{REPO_NAME}")
+        from_pretrained_keras(f"{WORKING_REPO_DIR}/{REPO_NAME}")
+        self.assertRaises(ValueError, msg="Exception encountered when calling layer*")
 
     def test_from_pretrained_weights(self):
         REPO_NAME = repo_name("FROM_PRETRAINED")
@@ -524,12 +520,10 @@ class HubKerasSequentialTest(HubMixingTestKeras):
                 clone_from=ENDPOINT_STAGING + "/" + repo_id,
                 use_auth_token=self._token,
             )
-            with self.assertRaises(
+            from_pretrained_keras(tmpdirname)
+            self.assertRaises(
                 ValueError, msg="Exception encountered when calling layer*"
-            ):
-                # TODO: investigate why it doesn't throw an error
-                #       IMHO previous test never worked as intended
-                from_pretrained_keras(tmpdirname)
+            )
 
         self._api.delete_repo(repo_id=f"{REPO_NAME}", token=self._token)
 
