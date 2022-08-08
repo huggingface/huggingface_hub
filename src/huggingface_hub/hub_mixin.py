@@ -74,7 +74,7 @@ class ModelHubMixin:
             if (
                 # If a deprecated argument is passed, we have to use the deprecated
                 # version of `push_to_hub`.
-                # TODO: remove this possibility in v0.11
+                # TODO: remove this possibility in v0.12
                 kwargs.get("repo_url") is not None
                 or kwargs.get("repo_path_or_name") is not None
                 or kwargs.get("organization") is not None
