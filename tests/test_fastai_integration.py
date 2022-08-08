@@ -80,7 +80,7 @@ class TestFastaiUtils(TestCase):
             pass
 
     def test_save_pretrained_without_config(self):
-        REPO_NAME = repo_name("save")
+        REPO_NAME = repo_name("fastai-save")
         _save_pretrained_fastai(dummy_model, f"{WORKING_REPO_DIR}/{REPO_NAME}")
         files = os.listdir(f"{WORKING_REPO_DIR}/{REPO_NAME}")
         self.assertTrue("model.pkl" in files)
@@ -89,7 +89,7 @@ class TestFastaiUtils(TestCase):
         self.assertEqual(len(files), 3)
 
     def test_save_pretrained_with_config(self):
-        REPO_NAME = repo_name("save")
+        REPO_NAME = repo_name("fastai-save")
         _save_pretrained_fastai(
             dummy_model, f"{WORKING_REPO_DIR}/{REPO_NAME}", config=dummy_config
         )
@@ -98,7 +98,7 @@ class TestFastaiUtils(TestCase):
         self.assertEqual(len(files), 4)
 
     def test_push_to_hub_and_from_pretrained_fastai(self):
-        REPO_NAME = repo_name("push_to_hub")
+        REPO_NAME = repo_name("fastai-push_to_hub")
         push_to_hub_fastai(
             learner=dummy_model,
             repo_id=f"{USER}/{REPO_NAME}",
