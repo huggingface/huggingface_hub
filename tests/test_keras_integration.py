@@ -23,7 +23,12 @@ from huggingface_hub.repository import Repository
 from huggingface_hub.utils import logging
 
 from .testing_constants import ENDPOINT_STAGING, TOKEN, USER
-from .testing_utils import repo_name, retry_endpoint, set_write_permission_and_retry
+from .testing_utils import (
+    expect_deprecation,
+    repo_name,
+    retry_endpoint,
+    set_write_permission_and_retry,
+)
 
 
 logger = logging.get_logger(__name__)
@@ -33,7 +38,6 @@ WORKING_REPO_DIR = os.path.join(
     os.path.dirname(os.path.abspath(__file__)), WORKING_REPO_SUBDIR
 )
 
-PUSH_TO_HUB_WARNING_REGEX = re.escape("Deprecated argument(s) used in 'push_to_hub':")
 PUSH_TO_HUB_KERAS_WARNING_REGEX = re.escape(
     "Deprecated argument(s) used in 'push_to_hub_keras':"
 )
@@ -183,21 +187,21 @@ class HubMixingTestKeras(unittest.TestCase):
         self._api.delete_repo(repo_id=repo_id, token=self._token)
 
     @retry_endpoint
+    @expect_deprecation("push_to_hub")
     def test_push_to_hub_keras_mixin_via_git_deprecated(self):
         REPO_NAME = repo_name("PUSH_TO_HUB_KERAS_via_git")
         repo_id = f"{USER}/{REPO_NAME}"
         model = DummyModel()
         model(model.dummy_inputs)
 
-        with pytest.warns(FutureWarning, match=PUSH_TO_HUB_WARNING_REGEX):
-            model.push_to_hub(
-                repo_path_or_name=f"{WORKING_REPO_DIR}/{REPO_NAME}",
-                api_endpoint=ENDPOINT_STAGING,
-                use_auth_token=self._token,
-                git_user="ci",
-                git_email="ci@dummy.com",
-                config={"num": 7, "act": "gelu_fast"},
-            )
+        model.push_to_hub(
+            repo_path_or_name=f"{WORKING_REPO_DIR}/{REPO_NAME}",
+            api_endpoint=ENDPOINT_STAGING,
+            use_auth_token=self._token,
+            git_user="ci",
+            git_email="ci@dummy.com",
+            config={"num": 7, "act": "gelu_fast"},
+        )
 
         model_info = self._api.model_info(repo_id)
         self.assertEqual(model_info.modelId, repo_id)

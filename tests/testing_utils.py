@@ -6,8 +6,11 @@ import uuid
 from contextlib import contextmanager
 from distutils.util import strtobool
 from enum import Enum
-from typing import Optional
+from functools import wraps
+from typing import Callable, Optional
 from unittest.mock import patch
+
+import pytest
 
 from huggingface_hub.utils import logging
 from requests.exceptions import HTTPError
@@ -228,3 +231,52 @@ def retry_endpoint(function, number_of_tries: int = 3, wait_time: int = 5):
             return function(*args, **kwargs)
 
     return decorator
+
+
+def expect_deprecation(function_name: str):
+    """Decorator to flag tests that we expect to use deprecated arguments.
+
+    NOTE: if a test is expected to warns FutureWarnings but is not, the test will fail.
+
+    Context: over time, some arguments/methods become deprecated. In order to track
+             deprecation in tests, we run pytest with flag `-Werror::FutureWarning`.
+             In order to keep old tests during the deprecation phase (before removing
+             the feature completely) without changing them internally, we can flag
+             them with this decorator.
+    See full discussion in https://github.com/huggingface/huggingface_hub/pull/952.
+
+    This decorator works hand-in-hand with the `_deprecate_arguments` and
+    `_deprecate_positional_args` decorators.
+
+    Example
+    ```py
+    # in src/hub_mixins.py
+    from .utils._deprecation import _deprecate_arguments
+
+    @_deprecate_arguments(version="0.12", deprecated_args={"repo_url"})
+    def push_to_hub(...):
+        (...)
+
+    # in tests/test_something.py
+    from .testing_utils import expect_deprecation
+
+    class SomethingTest(unittest.TestCase):
+        (...)
+
+        @expect_deprecation("push_to_hub"):
+        def test_push_to_hub_git_version(self):
+            (...)
+            push_to_hub(repo_url="something") <- Should warn with FutureWarnings
+            (...)
+    ```
+    """
+
+    def _inner_decorator(test_function: Callable) -> Callable:
+        @wraps(test_function)
+        def _inner_test_function(*args, **kwargs):
+            with pytest.warns(FutureWarning, match=f"*'{function_name}'*"):
+                return test_function(*args, **kwargs)
+
+        return _inner_test_function
+
+    return _inner_decorator
