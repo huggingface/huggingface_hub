@@ -51,6 +51,7 @@ from .utils.endpoint_helpers import (
     ModelFilter,
     ModelTags,
     _filter_emissions,
+    _generate_url,
 )
 
 
@@ -59,8 +60,6 @@ if sys.version_info >= (3, 8):
 else:
     from typing_extensions import Literal
 
-
-REGEX_DISCUSSION_URL = re.compile(r".*/discussions/(\d+)$")
 USERNAME_PLACEHOLDER = "hf_user"
 
 logger = logging.get_logger(__name__)
@@ -1884,6 +1883,11 @@ class HfApi:
                 " `CommitOperationDelete`"
             )
 
+        logger.debug(
+            f"About to commit to the hub: {len(additions)} addition(s) and"
+            f" {len(additions)} deletion(s)."
+        )
+
         for addition in additions:
             addition.validate()
 
@@ -2057,20 +2061,16 @@ class HfApi:
             revision=revision,
             create_pr=create_pr,
         )
-        if pr_url is not None:
-            re_match = re.match(REGEX_DISCUSSION_URL, pr_url)
-            if re_match is None:
-                raise RuntimeError(
-                    "Unexpected response from the hub, expected a Pull Request URL but"
-                    f" got: '{pr_url}'"
-                )
-            revision = quote(f"refs/pr/{re_match[1]}", safe="")
 
-        if repo_type in REPO_TYPES_URL_PREFIXES:
-            repo_id = REPO_TYPES_URL_PREFIXES[repo_type] + repo_id
-        revision = revision if revision is not None else DEFAULT_REVISION
-        return f"{self.endpoint}/{repo_id}/blob/{revision}/{path_in_repo}"
-        # ^ Similar to `hf_hub_url` but it's "blob" instead of "resolve"
+        return _generate_url(
+            "as_file",
+            endpoint=self.endpoint,
+            repo_id=repo_id,
+            path_in_repo=path_in_repo,
+            repo_type=repo_type,
+            revision=revision,
+            pr_url=pr_url,
+        )
 
     def upload_folder(
         self,
@@ -2169,25 +2169,8 @@ class HfApi:
             if commit_message is not None
             else f"Upload {path_in_repo} with huggingface_hub"
         )
-        folder_path = os.path.normpath(os.path.expanduser(folder_path))
-        if not os.path.isdir(folder_path):
-            raise ValueError(f"Provided path: '{folder_path}' is not a directory")
 
-        files_to_add: List[CommitOperationAdd] = []
-        for dirpath, _, filenames in os.walk(folder_path):
-            for filename in filenames:
-                abs_path = os.path.join(dirpath, filename)
-                rel_path = os.path.relpath(abs_path, folder_path)
-                files_to_add.append(
-                    CommitOperationAdd(
-                        path_or_fileobj=abs_path,
-                        path_in_repo=os.path.normpath(
-                            os.path.join(path_in_repo, rel_path)
-                        ).replace(os.sep, "/"),
-                    )
-                )
-
-        logger.debug(f"About to upload / commit {len(files_to_add)} files to the Hub")
+        files_to_add = _prepare_upload_folder_commit(folder_path, path_in_repo)
 
         pr_url = self.create_commit(
             repo_type=repo_type,
@@ -2200,21 +2183,15 @@ class HfApi:
             create_pr=create_pr,
         )
 
-        if pr_url is not None:
-            re_match = re.match(REGEX_DISCUSSION_URL, pr_url)
-            if re_match is None:
-                raise RuntimeError(
-                    "Unexpected response from the hub, expected a Pull Request URL but"
-                    f" got: '{pr_url}'"
-                )
-            revision = quote(f"refs/pr/{re_match[1]}", safe="")
-
-        if repo_type in REPO_TYPES_URL_PREFIXES:
-            repo_id = REPO_TYPES_URL_PREFIXES[repo_type] + repo_id
-
-        revision = revision if revision is not None else DEFAULT_REVISION
-        return f"{self.endpoint}/{repo_id}/tree/{revision}/{path_in_repo}"
-        # ^ Similar to `hf_hub_url` but it's "tree" instead of "resolve"
+        return _generate_url(
+            "as_folder",
+            endpoint=self.endpoint,
+            repo_id=repo_id,
+            path_in_repo=path_in_repo,
+            repo_type=repo_type,
+            revision=revision,
+            pr_url=pr_url,
+        )
 
     def delete_file(
         self,
@@ -2375,6 +2352,30 @@ class HfFolder:
             os.remove(cls.path_token)
         except FileNotFoundError:
             pass
+
+
+def _prepare_upload_folder_commit(
+    folder_path: str, path_in_repo: str
+) -> List[CommitOperationAdd]:
+    """Generate the list of Add operations for a commit to upload a folder."""
+    folder_path = os.path.normpath(os.path.expanduser(folder_path))
+    if not os.path.isdir(folder_path):
+        raise ValueError(f"Provided path: '{folder_path}' is not a directory")
+
+    files_to_add: List[CommitOperationAdd] = []
+    for dirpath, _, filenames in os.walk(folder_path):
+        for filename in filenames:
+            abs_path = os.path.join(dirpath, filename)
+            rel_path = os.path.relpath(abs_path, folder_path)
+            files_to_add.append(
+                CommitOperationAdd(
+                    path_or_fileobj=abs_path,
+                    path_in_repo=os.path.normpath(
+                        os.path.join(path_in_repo, rel_path)
+                    ).replace(os.sep, "/"),
+                )
+            )
+    return files_to_add
 
 
 api = HfApi()

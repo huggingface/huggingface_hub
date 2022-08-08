@@ -8,7 +8,12 @@ from shutil import copytree, rmtree
 from typing import Any, Dict, Optional, Union
 
 import yaml
-from huggingface_hub import ModelHubMixin, hf_api, snapshot_download
+from huggingface_hub import (
+    CommitOperationDelete,
+    ModelHubMixin,
+    hf_api,
+    snapshot_download,
+)
 from huggingface_hub.file_download import (
     get_tf_version,
     is_graphviz_available,
@@ -17,10 +22,11 @@ from huggingface_hub.file_download import (
 )
 
 from .constants import CONFIG_NAME
-from .hf_api import HfApi, HfFolder
+from .hf_api import HfApi, HfFolder, _prepare_upload_folder_commit
 from .repository import Repository
 from .utils import logging
 from .utils._deprecation import _deprecate_arguments, _deprecate_positional_args
+from .utils.endpoint_helpers import _generate_url
 
 
 logger = logging.get_logger(__name__)
@@ -410,24 +416,41 @@ def push_to_hub_keras(
                 **model_save_kwargs,
             )
 
+            # If log dir is provided, delete old logs + add new ones
+            operations = []
             if log_dir is not None:
-                # TODO: delete log folder on the hub when it exists
-                # previous implementation using git was doing it in the same git commit
-                # ... to be continued
-                tmp_log_dir = saved_path / "logs"
-                if os.path.exists(tmp_log_dir):
-                    rmtree(tmp_log_dir)
-                copytree(log_dir, tmp_log_dir)
+                # Delete previous log files from Hub
+                operations += [
+                    CommitOperationDelete(path_in_repo=file)
+                    for file in api.list_repo_files(repo_id=repo_id, token=token)
+                    if file.startswith("logs/")
+                ]
 
-            return api.upload_folder(
-                repo_id=repo_id,
+                # Copy new log files
+                copytree(log_dir, saved_path / "logs")
+
+            # NOTE: `_prepare_upload_folder_commit`, `create_commit` and `_generate_url`
+            #       calls are duplicate code from `upload_folder`. We are not directly
+            #       using `upload_folder` since we want to add delete operations to the
+            #       commit as well. Can we do better ?
+            operations += _prepare_upload_folder_commit(saved_path, path_in_repo="")
+            pr_url = api.create_commit(
                 repo_type="model",
-                path_in_repo="",
-                token=token,
-                folder_path=saved_path,
+                repo_id=repo_id,
+                operations=operations,
                 commit_message=commit_message,
+                token=token,
                 revision=branch,
                 create_pr=create_pr,
+            )
+            return _generate_url(
+                "as_folder",
+                endpoint=api.endpoint,
+                repo_id=repo_id,
+                path_in_repo="",
+                repo_type="model",
+                revision=branch,
+                pr_url=pr_url,
             )
 
     # Repo id is None means we use the deprecated version using Git
