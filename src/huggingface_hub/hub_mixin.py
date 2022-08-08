@@ -429,7 +429,7 @@ class PyTorchModelHubMixin(ModelHubMixin):
         ```
         """
 
-    def _save_pretrained(self, save_directory) -> List[str]:
+    def _save_pretrained(self, save_directory):
         """
         Overwrite this method in case you don't want to save complete model,
         rather some specific layers
@@ -437,8 +437,6 @@ class PyTorchModelHubMixin(ModelHubMixin):
         path = os.path.join(save_directory, PYTORCH_WEIGHTS_NAME)
         model_to_save = self.module if hasattr(self, "module") else self
         torch.save(model_to_save.state_dict(), path)
-
-        return [path]
 
     @classmethod
     def _from_pretrained(
