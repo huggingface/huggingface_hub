@@ -16,52 +16,7 @@ with the aim for a user-friendly interface.
 import math
 import re
 from dataclasses import dataclass
-from typing import List, Literal, Optional, Union
-from urllib.parse import quote
-
-from huggingface_hub.constants import DEFAULT_REVISION, REPO_TYPES_URL_PREFIXES
-
-
-REGEX_DISCUSSION_URL = re.compile(r".*/discussions/(\d+)$")
-
-
-def _generate_url(
-    content_type: Literal["as_file", "as_folder"],
-    endpoint: str,
-    repo_id: str,
-    path_in_repo: str,
-    repo_type: Optional[str] = None,
-    revision: Optional[str] = None,
-    pr_url: Optional[str] = None,
-):
-    """Safely generate full url to visualize an uploaded file or folder.
-
-    TODO: also use same utility for the `resolve` subpath ?
-          See `HUGGINGFACE_CO_URL_TEMPLATE` from `constants.py`.
-    """
-    if content_type == "as_file":
-        subpath = "blob"
-    elif content_type == "as_folder":
-        subpath = "tree"
-    else:
-        raise ValueError(
-            "Content type must be either 'as_file' or 'as_folder', not"
-            f" '{content_type}',"
-        )
-
-    if pr_url is not None:
-        re_match = re.match(REGEX_DISCUSSION_URL, pr_url)
-        if re_match is None:
-            raise RuntimeError(
-                "Unexpected response from the hub, expected a Pull Request URL but"
-                f" got: '{pr_url}'"
-            )
-        revision = quote(f"refs/pr/{re_match[1]}", safe="")
-
-    if repo_type in REPO_TYPES_URL_PREFIXES:
-        repo_id = REPO_TYPES_URL_PREFIXES[repo_type] + repo_id
-    revision = revision if revision is not None else DEFAULT_REVISION
-    return f"{endpoint}/{repo_id}/{subpath}/{revision}/{path_in_repo}"
+from typing import List, Union
 
 
 def _filter_emissions(

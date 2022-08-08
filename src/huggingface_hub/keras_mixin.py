@@ -6,6 +6,7 @@ import warnings
 from pathlib import Path
 from shutil import copytree, rmtree
 from typing import Any, Dict, Optional, Union
+from urllib.parse import quote
 
 import yaml
 from huggingface_hub import (
@@ -21,12 +22,16 @@ from huggingface_hub.file_download import (
     is_tf_available,
 )
 
-from .constants import CONFIG_NAME
-from .hf_api import HfApi, HfFolder, _prepare_upload_folder_commit
+from .constants import CONFIG_NAME, DEFAULT_REVISION
+from .hf_api import (
+    HfApi,
+    HfFolder,
+    _parse_revision_from_pr_url,
+    _prepare_upload_folder_commit,
+)
 from .repository import Repository
 from .utils import logging
 from .utils._deprecation import _deprecate_arguments, _deprecate_positional_args
-from .utils.endpoint_helpers import _generate_url
 
 
 logger = logging.get_logger(__name__)
@@ -429,10 +434,10 @@ def push_to_hub_keras(
                 # Copy new log files
                 copytree(log_dir, saved_path / "logs")
 
-            # NOTE: `_prepare_upload_folder_commit`, `create_commit` and `_generate_url`
-            #       calls are duplicate code from `upload_folder`. We are not directly
-            #       using `upload_folder` since we want to add delete operations to the
-            #       commit as well. Can we do better ?
+            # NOTE: `_prepare_upload_folder_commit` and `create_commit` calls are
+            #       duplicate code from `upload_folder`. We are not directly using
+            #       `upload_folder` since we want to add delete operations to the
+            #       commit as well.
             operations += _prepare_upload_folder_commit(saved_path, path_in_repo="")
             pr_url = api.create_commit(
                 repo_type="model",
@@ -443,15 +448,14 @@ def push_to_hub_keras(
                 revision=branch,
                 create_pr=create_pr,
             )
-            return _generate_url(
-                "as_folder",
-                endpoint=api.endpoint,
-                repo_id=repo_id,
-                path_in_repo="",
-                repo_type="model",
-                revision=branch,
-                pr_url=pr_url,
-            )
+            revision = branch
+            if revision is None:
+                revision = (
+                    quote(_parse_revision_from_pr_url(pr_url), safe="")
+                    if pr_url is not None
+                    else DEFAULT_REVISION
+                )
+            return f"{api.endpoint}/{repo_id}/tree/{revision}/"
 
     # Repo id is None means we use the deprecated version using Git
     # TODO: remove code between here and `return repo.git_push()` in release 0.12
