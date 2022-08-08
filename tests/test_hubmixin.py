@@ -2,9 +2,7 @@ import json
 import os
 import shutil
 import tempfile
-import time
 import unittest
-import uuid
 
 from huggingface_hub import HfApi
 from huggingface_hub.file_download import is_torch_available
@@ -13,11 +11,7 @@ from huggingface_hub.repository import Repository
 from huggingface_hub.utils import logging
 
 from .testing_constants import ENDPOINT_STAGING, TOKEN, USER
-from .testing_utils import set_write_permission_and_retry
-
-
-def repo_name(id=uuid.uuid4().hex[:6]):
-    return "mixin-repo-{0}-{1}".format(id, int(time.time() * 10e3))
+from .testing_utils import repo_name, set_write_permission_and_retry
 
 
 logger = logging.get_logger(__name__)
