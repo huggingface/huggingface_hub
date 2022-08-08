@@ -49,10 +49,12 @@ def repo_name(id: Optional[str] = None, prefix: str = "repo") -> str:
     
     Example:
     ```py
-    >>> repo_name("my-sace", prefix='space')
+    >>> repo_name()
+    repo-2fe93f-16599646671840
+
+    >>> repo_name("my-space", prefix='space')
     space-my-space-16599481979701
     """
-    ```
     if id is None:
         id = uuid.uuid4().hex[:6]
     ts = int(time.time() * 10e3)
