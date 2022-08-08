@@ -2,9 +2,11 @@ import os
 import stat
 import time
 import unittest
+import uuid
 from contextlib import contextmanager
 from distutils.util import strtobool
 from enum import Enum
+from typing import Optional
 from unittest.mock import patch
 
 from huggingface_hub.utils import logging
@@ -39,6 +41,24 @@ DUMMY_DATASET_ID = "lhoestq/test"
 DUMMY_DATASET_ID_REVISION_ONE_SPECIFIC_COMMIT = (  # on branch "test-branch"
     "81d06f998585f8ee10e6e3a2ea47203dc75f2a16"
 )
+
+
+def repo_name(id: Optional[str] = None, prefix: str = "repo") -> str:
+    """
+    Return a readable pseudo-unique repository name for tests.
+
+    Example:
+    ```py
+    >>> repo_name()
+    repo-2fe93f-16599646671840
+
+    >>> repo_name("my-space", prefix='space')
+    space-my-space-16599481979701
+    """
+    if id is None:
+        id = uuid.uuid4().hex[:6]
+    ts = int(time.time() * 10e3)
+    return f"{prefix}-{id}-{ts}"
 
 
 def parse_flag_from_env(key, default=False):
