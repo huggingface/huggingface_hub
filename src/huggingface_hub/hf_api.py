@@ -19,7 +19,6 @@ import sys
 import warnings
 from os.path import expanduser
 from typing import BinaryIO, Dict, Iterable, List, Optional, Tuple, Union
-from urllib.parse import quote
 
 import requests
 from requests.exceptions import HTTPError

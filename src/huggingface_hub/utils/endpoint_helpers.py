@@ -13,7 +13,6 @@
 Helpful utility functions and classes in relation to exploring API endpoints
 with the aim for a user-friendly interface.
 """
-import enum
 import math
 import re
 from dataclasses import dataclass
@@ -22,13 +21,14 @@ from urllib.parse import quote
 
 from huggingface_hub.constants import DEFAULT_REVISION, REPO_TYPES_URL_PREFIXES
 
+
 REGEX_DISCUSSION_URL = re.compile(r".*/discussions/(\d+)$")
 
 
 def _generate_url(
     content_type: Literal["as_file", "as_folder"],
     endpoint: str,
-    repo_id:str,
+    repo_id: str,
     path_in_repo: str,
     repo_type: Optional[str] = None,
     revision: Optional[str] = None,
