@@ -279,7 +279,7 @@ def expect_deprecation(function_name: str):
     def _inner_decorator(test_function: Callable) -> Callable:
         @wraps(test_function)
         def _inner_test_function(*args, **kwargs):
-            with pytest.warns(FutureWarning, match=f"*'{function_name}'*"):
+            with pytest.warns(FutureWarning, match=f".*'{function_name}'.*"):
                 return test_function(*args, **kwargs)
 
         return _inner_test_function
