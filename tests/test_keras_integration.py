@@ -496,8 +496,6 @@ class HubKerasSequentialTest(HubMixingTestKeras):
             )
 
             model_info = HfApi(endpoint=ENDPOINT_STAGING).model_info(repo_id)
-            # TODO: this test fails. Both tensorboard.txt and override.txt are in the
-            #       repo at the end.
             self.assertTrue(
                 "logs/override.txt" in [f.rfilename for f in model_info.siblings]
             )
