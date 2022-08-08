@@ -59,9 +59,8 @@ if sys.version_info >= (3, 8):
 else:
     from typing_extensions import Literal
 
-
-REGEX_DISCUSSION_URL = re.compile(r".*/discussions/(\d+)$")
 USERNAME_PLACEHOLDER = "hf_user"
+_REGEX_DISCUSSION_URL = re.compile(r".*/discussions/(\d+)$")
 
 logger = logging.get_logger(__name__)
 
@@ -98,9 +97,6 @@ def _validate_repo_id_deprecation(repo_id, name, organization):
         else:
             organization, name = None, repo_id
     return name, organization
-
-
-logger = logging.get_logger(__name__)
 
 
 def repo_type_and_id_from_hf_id(
@@ -1431,7 +1427,7 @@ class HfApi:
         )
         return [f.rfilename for f in repo_info.siblings]
 
-    @_deprecate_positional_args
+    @_deprecate_positional_args(version="0.12")
     def create_repo(
         self,
         repo_id: str = None,
@@ -1887,6 +1883,11 @@ class HfApi:
                 " `CommitOperationDelete`"
             )
 
+        logger.debug(
+            f"About to commit to the hub: {len(additions)} addition(s) and"
+            f" {len(additions)} deletion(s)."
+        )
+
         for addition in additions:
             addition.validate()
 
@@ -2060,20 +2061,13 @@ class HfApi:
             revision=revision,
             create_pr=create_pr,
         )
-        if pr_url is not None:
-            re_match = re.match(REGEX_DISCUSSION_URL, pr_url)
-            if re_match is None:
-                raise RuntimeError(
-                    "Unexpected response from the hub, expected a Pull Request URL but"
-                    f" got: '{pr_url}'"
-                )
-            revision = quote(f"refs/pr/{re_match[1]}", safe="")
 
+        if pr_url is not None:
+            revision = quote(_parse_revision_from_pr_url(pr_url), safe="")
         if repo_type in REPO_TYPES_URL_PREFIXES:
             repo_id = REPO_TYPES_URL_PREFIXES[repo_type] + repo_id
         revision = revision if revision is not None else DEFAULT_REVISION
         return f"{self.endpoint}/{repo_id}/blob/{revision}/{path_in_repo}"
-        # ^ Similar to `hf_hub_url` but it's "blob" instead of "resolve"
 
     def upload_folder(
         self,
@@ -2172,25 +2166,8 @@ class HfApi:
             if commit_message is not None
             else f"Upload {path_in_repo} with huggingface_hub"
         )
-        folder_path = os.path.normpath(os.path.expanduser(folder_path))
-        if not os.path.isdir(folder_path):
-            raise ValueError(f"Provided path: '{folder_path}' is not a directory")
 
-        files_to_add: List[CommitOperationAdd] = []
-        for dirpath, _, filenames in os.walk(folder_path):
-            for filename in filenames:
-                abs_path = os.path.join(dirpath, filename)
-                rel_path = os.path.relpath(abs_path, folder_path)
-                files_to_add.append(
-                    CommitOperationAdd(
-                        path_or_fileobj=abs_path,
-                        path_in_repo=os.path.normpath(
-                            os.path.join(path_in_repo, rel_path)
-                        ).replace(os.sep, "/"),
-                    )
-                )
-
-        logger.debug(f"About to upload / commit {len(files_to_add)} files to the Hub")
+        files_to_add = _prepare_upload_folder_commit(folder_path, path_in_repo)
 
         pr_url = self.create_commit(
             repo_type=repo_type,
@@ -2204,20 +2181,11 @@ class HfApi:
         )
 
         if pr_url is not None:
-            re_match = re.match(REGEX_DISCUSSION_URL, pr_url)
-            if re_match is None:
-                raise RuntimeError(
-                    "Unexpected response from the hub, expected a Pull Request URL but"
-                    f" got: '{pr_url}'"
-                )
-            revision = quote(f"refs/pr/{re_match[1]}", safe="")
-
+            revision = quote(_parse_revision_from_pr_url(pr_url), safe="")
         if repo_type in REPO_TYPES_URL_PREFIXES:
             repo_id = REPO_TYPES_URL_PREFIXES[repo_type] + repo_id
-
         revision = revision if revision is not None else DEFAULT_REVISION
         return f"{self.endpoint}/{repo_id}/tree/{revision}/{path_in_repo}"
-        # ^ Similar to `hf_hub_url` but it's "tree" instead of "resolve"
 
     def delete_file(
         self,
@@ -2378,6 +2346,47 @@ class HfFolder:
             os.remove(cls.path_token)
         except FileNotFoundError:
             pass
+
+
+def _prepare_upload_folder_commit(
+    folder_path: str, path_in_repo: str
+) -> List[CommitOperationAdd]:
+    """Generate the list of Add operations for a commit to upload a folder."""
+    folder_path = os.path.normpath(os.path.expanduser(folder_path))
+    if not os.path.isdir(folder_path):
+        raise ValueError(f"Provided path: '{folder_path}' is not a directory")
+
+    files_to_add: List[CommitOperationAdd] = []
+    for dirpath, _, filenames in os.walk(folder_path):
+        for filename in filenames:
+            abs_path = os.path.join(dirpath, filename)
+            rel_path = os.path.relpath(abs_path, folder_path)
+            files_to_add.append(
+                CommitOperationAdd(
+                    path_or_fileobj=abs_path,
+                    path_in_repo=os.path.normpath(
+                        os.path.join(path_in_repo, rel_path)
+                    ).replace(os.sep, "/"),
+                )
+            )
+    return files_to_add
+
+
+def _parse_revision_from_pr_url(pr_url: str) -> str:
+    """Safely parse revision number from a PR url.
+
+    Example:
+    ```py
+    >>> _parse_revision_from_pr_url("https://huggingface.co/bigscience/bloom/discussions/2")
+    "refs/pr/2"
+    """
+    re_match = re.match(_REGEX_DISCUSSION_URL, pr_url)
+    if re_match is None:
+        raise RuntimeError(
+            "Unexpected response from the hub, expected a Pull Request URL but"
+            f" got: '{pr_url}'"
+        )
+    return f"refs/pr/{re_match[1]}"
 
 
 api = HfApi()

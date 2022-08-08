@@ -11,9 +11,8 @@
 # limitations under the License.
 """
 Helpful utility functions and classes in relation to exploring API endpoints
-with the aim for a user-friendly interface
+with the aim for a user-friendly interface.
 """
-
 import math
 import re
 from dataclasses import dataclass

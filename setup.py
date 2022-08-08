@@ -35,6 +35,8 @@ extras["fastai"] = [
 
 extras["tensorflow"] = ["tensorflow", "pydot", "graphviz"]
 
+extras["ml"] = extras["torch"] + extras["fastai"] + extras["tensorflow"]
+
 extras["testing"] = [
     "pytest",
     "pytest-cov",
