@@ -44,7 +44,15 @@ DUMMY_DATASET_ID_REVISION_ONE_SPECIFIC_COMMIT = (  # on branch "test-branch"
 
 
 def repo_name(id: Optional[str] = None, prefix: str = "repo") -> str:
-    """Return a readable pseudo-unique repository name for tests."""
+    """
+    Return a readable pseudo-unique repository name for tests.
+    
+    Example:
+    ```py
+    >>> repo_name("my-sace", prefix='space')
+    space-my-space-16599481979701
+    """
+    ```
     if id is None:
         id = uuid.uuid4().hex[:6]
     ts = int(time.time() * 10e3)
