@@ -312,8 +312,6 @@ class ModelHubMixin:
                 Defaults to `False`.
             config (`dict`, *optional*):
                 Configuration object to be saved alongside the model weights.
-            skip_lfs_files (`bool`, *optional*, defaults to `False`):
-                Whether to skip git-LFS files or not.
 
         Returns:
             The url of the commit of your model in the given repository.
