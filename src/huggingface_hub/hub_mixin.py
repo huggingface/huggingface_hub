@@ -34,13 +34,6 @@ class ModelHubMixin:
         self,
         save_directory: str,
         config: Optional[dict] = None,
-        # NOTE: without new arguments this behavior (with push_to_hub=True), will be
-        # deprecated as well. Should we already plan to extend the "save_pretrained"
-        # function or should we let this feature die and then force users to do
-        # `model.save_pretrained(...)` and `model.push_to_hub(...)` separately ?
-        # Main argument that is missing I think is "repo_id". All other are optional but
-        # nice to have.
-        # TODO: To be discussed and to remove before merging PR
         push_to_hub: bool = False,
         **kwargs,
     ):
