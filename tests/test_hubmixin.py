@@ -7,6 +7,7 @@ import time
 import unittest
 import uuid
 from io import BytesIO
+from unittest.mock import Mock
 
 import pytest
 
@@ -102,6 +103,57 @@ class HubMixingTest(HubMixingCommonTest):
         self.assertTrue("config.json" in files)
         self.assertTrue("pytorch_model.bin" in files)
         self.assertEqual(len(files), 2)
+
+    def test_save_pretrained_with_push_to_hub(self):
+        REPO_NAME = repo_name("save")
+        save_directory = f"{WORKING_REPO_DIR}/{REPO_NAME}"
+        config = {"hello": "world"}
+        model = DummyModel()
+        model.push_to_hub = Mock()
+        model._save_pretrained = Mock()  # disable _save_pretrained to speed-up
+
+        # Not pushed to hub
+        model.save_pretrained(save_directory)
+        model.push_to_hub.assert_not_called()
+
+        # Push to hub with repo_id
+        model.save_pretrained(
+            save_directory, push_to_hub=True, repo_id="CustomID", config=config
+        )
+        model.push_to_hub.assert_called_with(repo_id="CustomID", config=config)
+
+        # Push to hub with default repo_id (based on dir name)
+        model.save_pretrained(save_directory, push_to_hub=True, config=config)
+        model.push_to_hub.assert_called_with(repo_id=REPO_NAME, config=config)
+
+        # Push to hub with deprecated kwargs (git-based)
+        model.save_pretrained(
+            save_directory,
+            push_to_hub=True,
+            config=config,
+            repo_path_or_name="custom_repo_name",
+            git_email="myemail",
+            git_user="gituser",
+        )
+        model.push_to_hub.assert_called_with(
+            repo_path_or_name="custom_repo_name",
+            config=config,
+            git_email="myemail",
+            git_user="gituser",
+        )
+
+        # Push to hub with deprecated kwargs + use default repo_name + no config
+        model.save_pretrained(
+            save_directory,
+            push_to_hub=True,
+            git_email="myemail",
+            git_user="gituser",
+        )
+        model.push_to_hub.assert_called_with(
+            repo_path_or_name=save_directory,
+            git_email="myemail",
+            git_user="gituser",
+        )
 
     def test_rel_path_from_pretrained(self):
         model = DummyModel()

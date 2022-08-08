@@ -54,9 +54,13 @@ class ModelHubMixin:
                 specify config (must be dict) in case you want to save
                 it.
             push_to_hub (`bool`, *optional*, defaults to `False`):
-                Set it to `True` in case you want to push your weights to huggingface_hub.
-            kwargs (`Dict`, *optional*):
-                kwargs will be passed to `push_to_hub`
+                Whether or not to push your model to the Hugging Face model hub after
+                saving it. You can specify the repository you want to push to with
+                `repo_id` (will default to the name of `save_directory` in your
+                namespace).
+            kwargs:
+                Additional key word arguments passed along to the
+                [`~utils.PushToHubMixin.push_to_hub`] method.
         """
         os.makedirs(save_directory, exist_ok=True)
 
@@ -70,7 +74,30 @@ class ModelHubMixin:
                 json.dump(config, f)
 
         if push_to_hub:
-            return self.push_to_hub(save_directory, **kwargs)
+            kwargs = kwargs.copy()  # soft-copy to avoid mutating input
+            if config is not None:  # kwarg for `push_to_hub`
+                kwargs["config"] = config
+
+            if (
+                # If a deprecated argument is passed, we have to use the deprecated
+                # version of `push_to_hub`.
+                # TODO: remove this possibility in v0.11
+                kwargs.get("repo_url") is not None
+                or kwargs.get("repo_path_or_name") is not None
+                or kwargs.get("organization") is not None
+                or kwargs.get("use_auth_token") is not None
+                or kwargs.get("git_user") is not None
+                or kwargs.get("git_email") is not None
+                or kwargs.get("skip_lfs_files") is not None
+            ):
+                if kwargs.get("repo_path_or_name") is None:
+                    # Repo name defaults to `save_directory` name
+                    kwargs["repo_path_or_name"] = save_directory
+            elif kwargs.get("repo_id") is None:
+                # Repo name defaults to `save_directory` name
+                kwargs["repo_id"] = Path(save_directory).name
+
+            return self.push_to_hub(**kwargs)
 
     def _save_pretrained(self, save_directory: str):
         """
@@ -232,6 +259,7 @@ class ModelHubMixin:
     def push_to_hub(
         self,
         # NOTE: deprecated signature that will change in 0.12
+        *,
         repo_path_or_name: Optional[str] = None,
         repo_url: Optional[str] = None,
         commit_message: Optional[str] = "Add model",
