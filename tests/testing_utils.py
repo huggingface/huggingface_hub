@@ -234,7 +234,12 @@ def retry_endpoint(function, number_of_tries: int = 3, wait_time: int = 5):
 
 
 def expect_deprecation(function_name: str):
-    """Decorator to flag tests that we expect to use deprecated arguments.
+    """
+    Decorator to flag tests that we expect to use deprecated arguments.
+
+    Parameters:
+        function_name (`str`):
+            Name of the function that we expect to use in a deprecated way.
 
     NOTE: if a test is expected to warns FutureWarnings but is not, the test will fail.
 
