@@ -21,6 +21,7 @@ import unittest
 import warnings
 from functools import partial
 from io import BytesIO
+from typing import List
 from urllib.parse import quote
 
 import pytest
@@ -45,6 +46,7 @@ from huggingface_hub.hf_api import (
     MetricInfo,
     ModelInfo,
     ModelSearchArguments,
+    RepoFile,
     SpaceInfo,
     erase_from_credential_store,
     read_from_credential_store,
@@ -70,6 +72,7 @@ from .testing_utils import (
     DUMMY_DATASET_ID_REVISION_ONE_SPECIFIC_COMMIT,
     DUMMY_MODEL_ID,
     DUMMY_MODEL_ID_REVISION_ONE_SPECIFIC_COMMIT,
+    SAMPLE_DATASET_IDENTIFIER,
     repo_name,
     require_git_lfs,
     retry_endpoint,
@@ -916,6 +919,18 @@ class HfApiPublicTest(unittest.TestCase):
         self.assertEqual(model.securityStatus, {"containsInfected": False})
 
     @with_production_testing
+    def test_model_info_with_file_metadata(self):
+        _api = HfApi()
+        model = _api.model_info(
+            repo_id=DUMMY_MODEL_ID,
+            revision=DUMMY_MODEL_ID_REVISION_ONE_SPECIFIC_COMMIT,
+            files_metadata=True,
+        )
+        files = model.siblings
+        assert files is not None
+        self._check_siblings_metadata(files)
+
+    @with_production_testing
     def test_list_repo_files(self):
         _api = HfApi()
         files = _api.list_repo_files(repo_id=DUMMY_MODEL_ID)
@@ -1069,6 +1084,29 @@ class HfApiPublicTest(unittest.TestCase):
         )
         self.assertIsInstance(dataset, DatasetInfo)
         self.assertEqual(dataset.sha, DUMMY_DATASET_ID_REVISION_ONE_SPECIFIC_COMMIT)
+
+    @with_production_testing
+    def test_dataset_info_with_file_metadata(self):
+        _api = HfApi()
+        dataset = _api.dataset_info(
+            repo_id=SAMPLE_DATASET_IDENTIFIER,
+            files_metadata=True,
+        )
+        files = dataset.siblings
+        assert files is not None
+        self._check_siblings_metadata(files)
+
+    def _check_siblings_metadata(self, files: List[RepoFile]):
+        """Check requested metadata has been received from the server."""
+        at_least_one_lfs = False
+        for file in files:
+            self.assertTrue(isinstance(file.blob_id, str))
+            self.assertTrue(isinstance(file.size, int))
+            if file.lfs is not None:
+                at_least_one_lfs = True
+                self.assertTrue(isinstance(file.lfs, dict))
+                self.assertTrue("sha256" in file.lfs)
+        self.assertTrue(at_least_one_lfs)
 
     def test_staging_list_metrics(self):
         _api = HfApi(endpoint=ENDPOINT_STAGING)

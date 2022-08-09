@@ -68,9 +68,9 @@ from .utils.endpoint_helpers import (
 
 
 if sys.version_info >= (3, 8):
-    from typing import Literal
+    from typing import Literal, TypedDict
 else:
-    from typing_extensions import Literal
+    from typing_extensions import Literal, TypedDict
 
 
 REGEX_DISCUSSION_URL = re.compile(r".*/discussions/(\d+)$")
@@ -169,6 +169,11 @@ def repo_type_and_id_from_hf_id(
     return repo_type, namespace, repo_id
 
 
+class BlobLfsInfo(TypedDict, total=False):
+    size: int
+    sha256: str
+
+
 class RepoFile:
     """
     Data structure that represents a public file inside a repo, accessible from
@@ -179,10 +184,34 @@ class RepoFile:
             file name, relative to the repo root. This is the only attribute
             that's guaranteed to be here, but under certain conditions there can
             certain other stuff.
+        size (`int`, *optional*):
+            The file's size, in bytes. This attribute is present when `files_metadata` argument
+            of [`repo_info`] is set to `True`. It's `None` otherwise.
+        blob_id (`str`, *optional*):
+            The file's git OID. This attribute is present when `files_metadata` argument
+            of [`repo_info`] is set to `True`. It's `None` otherwise.
+        lfs (`BlobLfsInfo`, *optional*):
+            The file's LFS metadata. This attribute is present when`files_metadata` argument
+            of [`repo_info`] is set to `True` and the file is stored with Git LFS. It's `None` otherwise.
     """
 
-    def __init__(self, rfilename: str, **kwargs):
+    def __init__(
+        self,
+        rfilename: str,
+        size: Optional[int] = None,
+        blobId: Optional[str] = None,
+        lfs: Optional[BlobLfsInfo] = None,
+        **kwargs,
+    ):
         self.rfilename = rfilename  # filename relative to the repo root
+
+        # Optional file metadata
+        self.size = size
+        self.blob_id = blobId
+        self.lfs = lfs
+
+        # Hack to ensure backward compatibility with future versions of the API.
+        # See discussion in https://github.com/huggingface/huggingface_hub/pull/951#discussion_r926460408
         for k, v in kwargs.items():
             setattr(self, k, v)
 
@@ -195,7 +224,7 @@ class ModelInfo:
     """
     Info about a model accessible from huggingface.co
 
-    Args:
+    Attributes:
         modelId (`str`, *optional*):
             ID of model repository.
         sha (`str`, *optional*):
@@ -206,8 +235,8 @@ class ModelInfo:
             List of tags.
         pipeline_tag (`str`, *optional*):
             Pipeline tag to identify the correct widget.
-        siblings (`List[Dict]`, *optional*):
-            list of files that constitute the Space
+        siblings (`List[RepoFile]`, *optional*):
+            list of ([`huggingface_hub.hf_api.RepoFile`]) objects that constitute the model.
         private (`bool`, *optional*):
             is the repo private
         author (`str`, *optional*):
@@ -263,7 +292,7 @@ class DatasetInfo:
     """
     Info about a dataset accessible from huggingface.co
 
-    Args:
+    Attributes:
         id (`str`, *optional*):
             ID of dataset repository.
         sha (`str`, *optional*):
@@ -272,8 +301,8 @@ class DatasetInfo:
             date of last commit to repo
         tags (`Listr[str]`, *optional*):
             List of tags.
-        siblings (`List[Dict]`, *optional*):
-            list of files that constitute the Space
+        siblings (`List[RepoFile]`, *optional*):
+            list of [`huggingface_hub.hf_api.RepoFile`] objects that constitute the dataset.
         private (`bool`, *optional*):
             is the repo private
         author (`str`, *optional*):
@@ -340,15 +369,15 @@ class SpaceInfo:
     This is a "dataclass" like container that just sets on itself any attribute
     passed by the server.
 
-    Args:
+    Attributes:
         id (`str`, *optional*):
             id of space
         sha (`str`, *optional*):
             repo sha at this particular revision
         lastModified (`str`, *optional*):
             date of last commit to repo
-        siblings (`List[Dict]`, *optional*):
-            list of files that constitute the Space
+        siblings (`List[RepoFile]`, *optional*):
+            list of [`huggingface_hub.hf_api.RepoFIle`] objects that constitute the Space
         private (`bool`, *optional*):
             is the repo private
         author (`str`, *optional*):
@@ -734,7 +763,7 @@ class HfApi:
                 carbon footprint to filter the resulting models with in grams.
             sort (`Literal["lastModified"]` or `str`, *optional*):
                 The key with which to sort the resulting models. Possible values
-                are the properties of the `ModelInfo` class.
+                are the properties of the [`huggingface_hub.hf_api.ModelInfo`] class.
             direction (`Literal[-1]` or `int`, *optional*):
                 Direction in which to sort. The value `-1` sorts by descending
                 order while all other values sort by ascending order.
@@ -756,6 +785,8 @@ class HfApi:
                 Whether to use the `auth_token` provided from the
                 `huggingface_hub` cli. If not logged in, a valid `auth_token`
                 can be passed in as a string.
+
+        Returns: List of [`huggingface_hub.hf_api.ModelInfo`] objects
 
         Example usage with the `filter` argument:
 
@@ -935,7 +966,7 @@ class HfApi:
                 A string that will be contained in the returned models.
             sort (`Literal["lastModified"]` or `str`, *optional*):
                 The key with which to sort the resulting datasets. Possible
-                values are the properties of the `DatasetInfo` class.
+                values are the properties of the [`huggingface_hub.hf_api.DatasetInfo`] class.
             direction (`Literal[-1]` or `int`, *optional*):
                 Direction in which to sort. The value `-1` sorts by descending
                 order while all other values sort by ascending order.
@@ -1115,7 +1146,7 @@ class HfApi:
                 A string that will be contained in the returned Spaces.
             sort (`Literal["lastModified"]` or `str`, *optional*):
                 The key with which to sort the resulting Spaces. Possible
-                values are the properties of the `SpaceInfo` class.
+                values are the properties of the [`huggingface_hub.hf_api.SpaceInfo`]` class.
             direction (`Literal[-1]` or `int`, *optional*):
                 Direction in which to sort. The value `-1` sorts by descending
                 order while all other values sort by ascending order.
@@ -1139,7 +1170,7 @@ class HfApi:
                 can be passed in as a string.
 
         Returns:
-            `List[SpaceInfo]`: a list of [`SpaceInfo`] objects
+            `List[SpaceInfo]`: a list of [`huggingface_hub.hf_api.SpaceInfo`] objects
         """
         path = f"{self.endpoint}/api/spaces"
         if use_auth_token:
@@ -1181,6 +1212,7 @@ class HfApi:
         token: Optional[str] = None,
         timeout: Optional[float] = None,
         securityStatus: Optional[bool] = None,
+        files_metadata: bool = False,
     ) -> ModelInfo:
         """
         Get info on one specific model on huggingface.co
@@ -1201,6 +1233,9 @@ class HfApi:
             securityStatus (`bool`, *optional*):
                 Whether to retrieve the security status from the model
                 repository as well.
+            files_metadata (`bool`, *optional*):
+                Whether or not to retrieve metadata for files in the repository
+                (size, LFS metadata, etc). Defaults to `False`.
 
         Returns:
             [`huggingface_hub.hf_api.ModelInfo`]: The model repository information.
@@ -1228,9 +1263,16 @@ class HfApi:
             )
         )
         headers = {"authorization": f"Bearer {token}"} if token is not None else None
-        status_query_param = {"securityStatus": True} if securityStatus else None
+        params = {}
+        if securityStatus:
+            params["securityStatus"] = True
+        if files_metadata:
+            params["blobs"] = True
         r = requests.get(
-            path, headers=headers, timeout=timeout, params=status_query_param
+            path,
+            headers=headers,
+            timeout=timeout,
+            params=params,
         )
         _raise_for_status(r)
         d = r.json()
@@ -1243,6 +1285,7 @@ class HfApi:
         revision: Optional[str] = None,
         token: Optional[str] = None,
         timeout: Optional[float] = None,
+        files_metadata: bool = False,
     ) -> DatasetInfo:
         """
         Get info on one specific dataset on huggingface.co.
@@ -1260,9 +1303,12 @@ class HfApi:
                 An authentication token (See https://huggingface.co/settings/token)
             timeout (`float`, *optional*):
                 Whether to set a timeout for the request to the Hub.
+            files_metadata (`bool`, *optional*):
+                Whether or not to retrieve metadata for files in the repository
+                (size, LFS metadata, etc). Defaults to `False`.
 
         Returns:
-            [`DatasetInfo`]: The dataset repository information.
+            [`huggingface_hub.hf_api.DatasetInfo`]: The dataset repository information.
 
         <Tip>
 
@@ -1287,7 +1333,11 @@ class HfApi:
             )
         )
         headers = {"authorization": f"Bearer {token}"} if token is not None else None
-        r = requests.get(path, headers=headers, timeout=timeout)
+        params = {}
+        if files_metadata:
+            params["blobs"] = True
+
+        r = requests.get(path, headers=headers, timeout=timeout, params=params)
         _raise_for_status(r)
         d = r.json()
         return DatasetInfo(**d)
@@ -1299,6 +1349,7 @@ class HfApi:
         revision: Optional[str] = None,
         token: Optional[str] = None,
         timeout: Optional[float] = None,
+        files_metadata: bool = False,
     ) -> SpaceInfo:
         """
         Get info on one specific Space on huggingface.co.
@@ -1316,9 +1367,12 @@ class HfApi:
                 An authentication token (See https://huggingface.co/settings/token)
             timeout (`float`, *optional*):
                 Whether to set a timeout for the request to the Hub.
+            files_metadata (`bool`, *optional*):
+                Whether or not to retrieve metadata for files in the repository
+                (size, LFS metadata, etc). Defaults to `False`.
 
         Returns:
-            [`SpaceInfo`]: The space repository information.
+            [`huggingface_hub.hf_api.SpaceInfo`]: The space repository information.
 
         <Tip>
 
@@ -1343,7 +1397,11 @@ class HfApi:
             )
         )
         headers = {"authorization": f"Bearer {token}"} if token is not None else None
-        r = requests.get(path, headers=headers, timeout=timeout)
+        params = {}
+        if files_metadata:
+            params["blobs"] = True
+
+        r = requests.get(path, headers=headers, timeout=timeout, params=params)
         _raise_for_status(r)
         d = r.json()
         return SpaceInfo(**d)
@@ -1356,6 +1414,7 @@ class HfApi:
         repo_type: Optional[str] = None,
         token: Optional[str] = None,
         timeout: Optional[float] = None,
+        files_metadata: bool = False,
     ) -> Union[ModelInfo, DatasetInfo, SpaceInfo]:
         """
         Get the info object for a given repo of a given type.
@@ -1371,10 +1430,14 @@ class HfApi:
                 An authentication token (See https://huggingface.co/settings/token)
             timeout (`float`, *optional*):
                 Whether to set a timeout for the request to the Hub.
+            files_metadata (`bool`, *optional*):
+                Whether or not to retrieve metadata for files in the repository
+                (size, LFS metadata, etc). Defaults to `False`.
 
         Returns:
-            `Union[SpaceInfo, DatasetInfo, ModelInfo]`: The repository
-            information.
+            `Union[SpaceInfo, DatasetInfo, ModelInfo]`: The repository information, as a
+            [`huggingface_hub.hf_api.DatasetInfo`], [`huggingface_hub.hf_api.ModelInfo`]
+            or [`huggingface_hub.hf_api.SpaceInfo`] object.
 
         <Tip>
 
@@ -1390,15 +1453,27 @@ class HfApi:
         """
         if repo_type is None or repo_type == "model":
             return self.model_info(
-                repo_id, revision=revision, token=token, timeout=timeout
+                repo_id,
+                revision=revision,
+                token=token,
+                timeout=timeout,
+                files_metadata=files_metadata,
             )
         elif repo_type == "dataset":
             return self.dataset_info(
-                repo_id, revision=revision, token=token, timeout=timeout
+                repo_id,
+                revision=revision,
+                token=token,
+                timeout=timeout,
+                files_metadata=files_metadata,
             )
         elif repo_type == "space":
             return self.space_info(
-                repo_id, revision=revision, token=token, timeout=timeout
+                repo_id,
+                revision=revision,
+                token=token,
+                timeout=timeout,
+                files_metadata=files_metadata,
             )
         else:
             raise ValueError("Unsupported repo type.")
