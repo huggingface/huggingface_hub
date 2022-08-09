@@ -436,22 +436,22 @@ class HubKerasSequentialTest(HubMixingTestKeras):
         self._api.delete_repo(repo_id=repo_id, token=self._token)
 
     @retry_endpoint
+    @expect_deprecation("push_to_hub_keras")
     def test_push_to_hub_keras_sequential_via_git_deprecated(self):
         REPO_NAME = repo_name("PUSH_TO_HUB_KERAS_sequential_via_git")
         model = self.model_init()
         model.build((None, 2))
 
-        with pytest.warns(FutureWarning, match=PUSH_TO_HUB_KERAS_WARNING_REGEX):
-            push_to_hub_keras(
-                model,
-                repo_path_or_name=f"{WORKING_REPO_DIR}/{REPO_NAME}",
-                api_endpoint=ENDPOINT_STAGING,
-                use_auth_token=self._token,
-                git_user="ci",
-                git_email="ci@dummy.com",
-                config={"num": 7, "act": "gelu_fast"},
-                include_optimizer=False,
-            )
+        push_to_hub_keras(
+            model,
+            repo_path_or_name=f"{WORKING_REPO_DIR}/{REPO_NAME}",
+            api_endpoint=ENDPOINT_STAGING,
+            use_auth_token=self._token,
+            git_user="ci",
+            git_email="ci@dummy.com",
+            config={"num": 7, "act": "gelu_fast"},
+            include_optimizer=False,
+        )
 
         model_info = HfApi(endpoint=ENDPOINT_STAGING).model_info(f"{USER}/{REPO_NAME}")
         self.assertEqual(model_info.modelId, f"{USER}/{REPO_NAME}")
