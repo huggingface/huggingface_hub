@@ -2,9 +2,7 @@ import json
 import os
 import shutil
 import tempfile
-import time
 import unittest
-import uuid
 
 import pytest
 
@@ -23,11 +21,7 @@ from huggingface_hub.keras_mixin import (
 from huggingface_hub.utils import logging
 
 from .testing_constants import ENDPOINT_STAGING, TOKEN, USER
-from .testing_utils import retry_endpoint, set_write_permission_and_retry
-
-
-def repo_name(id=uuid.uuid4().hex[:6]):
-    return "keras-repo-{0}-{1}".format(id, int(time.time() * 10e3))
+from .testing_utils import repo_name, retry_endpoint, set_write_permission_and_retry
 
 
 logger = logging.get_logger(__name__)

@@ -1,4 +1,4 @@
-from requests import HTTPError
+from requests import HTTPError, JSONDecodeError, Response
 
 
 class RepositoryNotFoundError(HTTPError):
@@ -48,6 +48,23 @@ class EntryNotFoundError(HTTPError):
     >>> from huggingface_hub import hf_hub_download
     >>> hf_hub_download('bert-base-cased', '<non-existant-file>')
     huggingface_hub.utils._errors.EntryNotFoundError: 404 Client Error: Entry Not Found for url: <url>
+    ```
+    """
+
+    def __init__(self, message, response):
+        super().__init__(message, response=response)
+
+
+class BadRequestError(ValueError, HTTPError):
+    """
+    Raised by `_raise_convert_bad_request` when the server returns HTTP 400 error
+
+    Example:
+
+    ```py
+    >>> resp = request.post("hf.co/api/check", ...)
+    >>> _raise_convert_bad_request(resp, endpoint_name="check")
+    huggingface_hub.utils._errors.BadRequestError: Bad request for check endpoint: {details} (Request ID: XXX)
     ```
     """
 
@@ -115,3 +132,25 @@ def _raise_with_request_id(request):
         _add_request_id_to_error_args(e, request_id)
 
         raise e
+
+
+def _raise_convert_bad_request(resp: Response, endpoint_name: str):
+    """
+    Calls _raise_for_status on resp and converts HTTP 400 errors into ValueError.
+    """
+    try:
+        _raise_for_status(resp)
+    except HTTPError as exc:
+        request_id = resp.headers.get("X-Request-Id")
+        try:
+            details = resp.json().get("error", None)
+        except JSONDecodeError:
+            raise exc
+        if resp.status_code == 400 and details:
+            raise BadRequestError(
+                f"Bad request for {endpoint_name} endpoint: {details} (Request ID:"
+                f" {request_id})",
+                response=resp,
+            ) from exc
+        _add_request_id_to_error_args(exc, request_id=request_id)
+        raise
