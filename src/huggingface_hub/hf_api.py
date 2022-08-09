@@ -43,7 +43,11 @@ from .constants import (
 )
 from .utils import logging
 from .utils._deprecation import _deprecate_positional_args
-from .utils._errors import _raise_for_status, _raise_with_request_id
+from .utils._errors import (
+    _raise_convert_bad_request,
+    _raise_for_status,
+    _raise_with_request_id,
+)
 from .utils.endpoint_helpers import (
     AttributeDictionary,
     DatasetFilter,
@@ -1857,6 +1861,10 @@ class HfApi:
             `str` or `None`:
                 If `create_pr` is `True`, returns the URL to the newly created Pull Request
                 on the Hub. Otherwise returns `None`.
+
+        Raises:
+            :class:`ValueError`:
+                If the Hub API returns an HTTP 400 error (bad request)
         """
         if commit_message is None or len(commit_message) == 0:
             raise ValueError("`commit_message` can't be empty, please pass a value.")
@@ -1918,7 +1926,7 @@ class HfApi:
             json=commit_payload,
             params={"create_pr": 1} if create_pr else None,
         )
-        _raise_for_status(commit_resp)
+        _raise_convert_bad_request(commit_resp, endpoint_name="commit")
         return commit_resp.json().get("pullRequestUrl", None)
 
     def upload_file(
