@@ -67,7 +67,7 @@ class Discussion:
     def git_reference(self) -> Optional[str]:
         """
         If this is a Pull Request , returns the git reference to which changes can be pushed.
-        Returns `None` otehrwise.
+        Returns `None` otherwise.
         """
         if self.is_pull_request:
             return f"refs/pr/{self.num}"
