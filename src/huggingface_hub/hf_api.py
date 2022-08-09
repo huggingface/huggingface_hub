@@ -2882,7 +2882,7 @@ class HfApi:
         token: Optional[str] = None,
         repo_type: Optional[str] = None,
     ) -> DiscussionComment:
-        """Edits a comment on a Discussion / Pull Request
+        """Edits a comment on a Discussion / Pull Request.
 
         Args:
             repo_id (`str`):
