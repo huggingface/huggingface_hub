@@ -174,7 +174,6 @@ def upload_lfs_files(
     repo_type: str,
     repo_id: str,
     token: str,
-    revision: str,
     endpoint: Optional[str] = None,
     num_threads: int = 5,
 ):
@@ -194,8 +193,6 @@ def upload_lfs_files(
             by a `/`.
         token (`str`):
             An authentication token ( See https://huggingface.co/settings/tokens )
-        revision (`str`):
-            The git revision to upload the files to. Can be any valid git revision.
         num_threads (`int`, *optional*):
             The number of concurrent threads to use when uploading. Defaults to 5.
 
@@ -214,7 +211,6 @@ def upload_lfs_files(
         token=token,
         repo_id=repo_id,
         repo_type=repo_type,
-        revision=revision,
         endpoint=endpoint,
     )
     if batch_errors:
@@ -334,6 +330,7 @@ def fetch_upload_modes(
     token: str,
     revision: str,
     endpoint: Optional[str] = None,
+    create_pr: Optional[bool] = None,
 ) -> List[Tuple[CommitOperationAdd, UploadMode]]:
     """
     Requests the Hub "preupload" endpoint to determine wether each input file
@@ -381,6 +378,7 @@ def fetch_upload_modes(
         f"{endpoint}/api/{repo_type}s/{repo_id}/preupload/{revision}",
         json=payload,
         headers=headers,
+        params={"create_pr": "1"} if create_pr else None,
     )
     _raise_convert_bad_request(resp, endpoint_name="preupload")
 

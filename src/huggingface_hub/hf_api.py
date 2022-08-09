@@ -1947,6 +1947,8 @@ class HfApi:
                 Number of concurrent threads for uploading files. Defaults to 5.
                 Setting it to 2 means at most 2 files will be uploaded concurrently.
 
+        Raises: `ValueError` if `create_pr` is `True` and revision is neither `None` nor `"main"`
+
         Returns:
             `str` or `None`:
                 If `create_pr` is `True`, returns the URL to the newly created Pull Request
@@ -1970,6 +1972,9 @@ class HfApi:
         )
         create_pr = create_pr if create_pr is not None else False
 
+        if create_pr and revision != DEFAULT_REVISION:
+            raise ValueError("Can only create pull requests against {DEFAULT_REVISION}")
+
         operations = list(operations)
         additions = [op for op in operations if isinstance(op, CommitOperationAdd)]
         deletions = [op for op in operations if isinstance(op, CommitOperationDelete)]
@@ -1990,6 +1995,7 @@ class HfApi:
             token=token,
             revision=revision,
             endpoint=self.endpoint,
+            create_pr=create_pr,
         )
         upload_lfs_files(
             additions=[
@@ -2000,7 +2006,6 @@ class HfApi:
             repo_type=repo_type,
             repo_id=repo_id,
             token=token,
-            revision=revision,
             endpoint=self.endpoint,
             num_threads=num_threads,
         )
@@ -2016,7 +2021,7 @@ class HfApi:
             url=commit_url,
             headers={"Authorization": f"Bearer {token}"},
             json=commit_payload,
-            params={"create_pr": 1} if create_pr else None,
+            params={"create_pr": "1"} if create_pr else None,
         )
         _raise_convert_bad_request(commit_resp, endpoint_name="commit")
         return commit_resp.json().get("pullRequestUrl", None)
