@@ -18,10 +18,11 @@ import subprocess
 import sys
 import warnings
 from os.path import expanduser
-from typing import BinaryIO, Dict, Iterable, List, Optional, Tuple, Union
+from typing import BinaryIO, Dict, Iterable, Iterator, List, Optional, Tuple, Union
 from urllib.parse import quote
 
 import requests
+from dateutil.parser import parse as parse_datetime
 from requests.exceptions import HTTPError
 
 from ._commit_api import (
@@ -31,6 +32,14 @@ from ._commit_api import (
     fetch_upload_modes,
     prepare_commit_payload,
     upload_lfs_files,
+)
+from .community import (
+    Discussion,
+    DiscussionComment,
+    DiscussionStatusChange,
+    DiscussionTitleChange,
+    DiscussionWithDetails,
+    deserialize_event,
 )
 from .constants import (
     DEFAULT_REVISION,
@@ -43,7 +52,11 @@ from .constants import (
 )
 from .utils import logging
 from .utils._deprecation import _deprecate_positional_args
-from .utils._errors import _raise_for_status, _raise_with_request_id
+from .utils._errors import (
+    _raise_convert_bad_request,
+    _raise_for_status,
+    _raise_with_request_id,
+)
 from .utils.endpoint_helpers import (
     AttributeDictionary,
     DatasetFilter,
@@ -1213,7 +1226,9 @@ class HfApi:
         path = (
             f"{self.endpoint}/api/models/{repo_id}"
             if revision is None
-            else f"{self.endpoint}/api/models/{repo_id}/revision/{revision}"
+            else (
+                f"{self.endpoint}/api/models/{repo_id}/revision/{quote(revision, safe='')}"
+            )
         )
         headers = {"authorization": f"Bearer {token}"} if token is not None else None
         status_query_param = {"securityStatus": True} if securityStatus else None
@@ -1270,7 +1285,9 @@ class HfApi:
         path = (
             f"{self.endpoint}/api/datasets/{repo_id}"
             if revision is None
-            else f"{self.endpoint}/api/datasets/{repo_id}/revision/{revision}"
+            else (
+                f"{self.endpoint}/api/datasets/{repo_id}/revision/{quote(revision, safe='')}"
+            )
         )
         headers = {"authorization": f"Bearer {token}"} if token is not None else None
         r = requests.get(path, headers=headers, timeout=timeout)
@@ -1324,7 +1341,9 @@ class HfApi:
         path = (
             f"{self.endpoint}/api/spaces/{repo_id}"
             if revision is None
-            else f"{self.endpoint}/api/spaces/{repo_id}/revision/{revision}"
+            else (
+                f"{self.endpoint}/api/spaces/{repo_id}/revision/{quote(revision, safe='')}"
+            )
         )
         headers = {"authorization": f"Bearer {token}"} if token is not None else None
         r = requests.get(path, headers=headers, timeout=timeout)
@@ -1860,6 +1879,10 @@ class HfApi:
             `str` or `None`:
                 If `create_pr` is `True`, returns the URL to the newly created Pull Request
                 on the Hub. Otherwise returns `None`.
+
+        Raises:
+            :class:`ValueError`:
+                If the Hub API returns an HTTP 400 error (bad request)
         """
         if commit_message is None or len(commit_message) == 0:
             raise ValueError("`commit_message` can't be empty, please pass a value.")
@@ -1870,7 +1893,9 @@ class HfApi:
         if repo_type not in REPO_TYPES:
             raise ValueError(f"Invalid repo type, must be one of {REPO_TYPES}")
         token, name = self._validate_or_retrieve_token(token)
-        revision = revision if revision is not None else DEFAULT_REVISION
+        revision = (
+            quote(revision, safe="") if revision is not None else DEFAULT_REVISION
+        )
         create_pr = create_pr if create_pr is not None else False
 
         operations = list(operations)
@@ -1926,7 +1951,7 @@ class HfApi:
             json=commit_payload,
             params={"create_pr": 1} if create_pr else None,
         )
-        _raise_for_status(commit_resp)
+        _raise_convert_bad_request(commit_resp, endpoint_name="commit")
         return commit_resp.json().get("pullRequestUrl", None)
 
     def upload_file(
@@ -2301,6 +2326,733 @@ class HfApi:
         else:
             return f"{organization}/{model_id}"
 
+    def get_repo_discussions(
+        self,
+        repo_id: str,
+        *,
+        repo_type: Optional[str] = None,
+        token: Optional[str] = None,
+    ) -> Iterator[Discussion]:
+        """
+        Fetches Discussions and Pull Requests for the given repo.
+
+        Args:
+            repo_id (`str`):
+                A namespace (user or an organization) and a repo name separated
+                by a `/`.
+            repo_type (`str`, *optional*):
+                Set to `"dataset"` or `"space"` if fetching from a dataset or
+                space, `None` or `"model"` if fetching from a model. Default is
+                `None`.
+            token (`str`, *optional*):
+                An authentication token (See https://huggingface.co/settings/token).
+
+        Returns:
+            `Iterator[Discussion]`: An iterator of [`Discussion`] objects.
+
+        Example:
+            Collecting all discussions of a repo in a list:
+
+            ```python
+            >>> from huggingface_hub import get_repo_discussions
+            >>> discussions_list = list(get_repo_discussions(repo_id="bert-base-uncased"))
+            ```
+
+            Iterating over discussions of a repo:
+
+            ```python
+            >>> from huggingface_hub import get_repo_discussions
+            >>> for discussion in get_repo_discussions(repo_id="bert-base-uncased"):
+            ...     print(discussion.num, discussion.title)
+            ```
+        """
+        if repo_type not in REPO_TYPES:
+            raise ValueError(f"Invalid repo type, must be one of {REPO_TYPES}")
+        if repo_type is None:
+            repo_type = REPO_TYPE_MODEL
+        repo_id = f"{repo_type}s/{repo_id}"
+        if token is None:
+            token = HfFolder.get_token()
+
+        def _fetch_discussion_page(page_index: int):
+            path = f"{self.endpoint}/api/{repo_id}/discussions?p={page_index}"
+            resp = requests.get(
+                path,
+                headers={"Authorization": f"Bearer {token}"} if token else None,
+            )
+            _raise_for_status(resp)
+            paginated_discussions = resp.json()
+            total = paginated_discussions["count"]
+            start = paginated_discussions["start"]
+            discussions = paginated_discussions["discussions"]
+            has_next = (start + len(discussions)) < total
+            return discussions, has_next
+
+        has_next, page_index = True, 0
+
+        while has_next:
+            discussions, has_next = _fetch_discussion_page(page_index=page_index)
+            for discussion in discussions:
+                yield Discussion(
+                    title=discussion["title"],
+                    num=discussion["num"],
+                    author=discussion.get("author", {}).get("name", "deleted"),
+                    created_at=parse_datetime(discussion["createdAt"]),
+                    status=discussion["status"],
+                    repo_id=discussion["repo"]["name"],
+                    repo_type=discussion["repo"]["type"],
+                    is_pull_request=discussion["isPullRequest"],
+                )
+            page_index = page_index + 1
+
+    def get_discussion_details(
+        self,
+        repo_id: str,
+        discussion_num: int,
+        *,
+        repo_type: Optional[str] = None,
+        token: Optional[str] = None,
+    ) -> DiscussionWithDetails:
+        """Fetches a Discussion's / Pull Request 's details from the Hub.
+
+        Args:
+            repo_id (`str`):
+                A namespace (user or an organization) and a repo name separated
+                by a `/`.
+            discussion_num (`int`):
+                The number of the Discussion or Pull Request . Must be a strictly positive integer.
+            repo_type (`str`, *optional*):
+                Set to `"dataset"` or `"space"` if uploading to a dataset or
+                space, `None` or `"model"` if uploading to a model. Default is
+                `None`.
+            token (`str`, *optional*):
+                An authentication token (See https://huggingface.co/settings/token)
+
+        Returns: [`DiscussionWithDetails`]
+
+        <Tip>
+
+        Raises the following errors:
+
+            - [`HTTPError`](https://2.python-requests.org/en/master/api/#requests.HTTPError)
+              if the HuggingFace API returned an error
+            - [`ValueError`](https://docs.python.org/3/library/exceptions.html#ValueError)
+              if some parameter value is invalid
+            - [`~huggingface_hub.utils.RepositoryNotFoundError`]
+              If the repository to download from cannot be found. This may be because it doesn't exist,
+              or because it is set to `private` and you do not have access.
+
+        </Tip>
+        """
+        if not isinstance(discussion_num, int) or discussion_num <= 0:
+            raise ValueError("Invalid discussion_num, must be a positive integer")
+        if repo_type not in REPO_TYPES:
+            raise ValueError(f"Invalid repo type, must be one of {REPO_TYPES}")
+        if repo_type is None:
+            repo_type = REPO_TYPE_MODEL
+        repo_id = f"{repo_type}s/{repo_id}"
+        if token is None:
+            token = HfFolder.get_token()
+
+        path = f"{self.endpoint}/api/{repo_id}/discussions/{discussion_num}"
+
+        resp = requests.get(
+            path,
+            params={"diff": "1"},
+            headers={"Authorization": f"Bearer {token}"} if token else None,
+        )
+        _raise_for_status(resp)
+
+        discussion_details = resp.json()
+        is_pull_request = discussion_details["isPullRequest"]
+
+        target_branch = (
+            discussion_details["changes"]["base"] if is_pull_request else None
+        )
+        conflicting_files = (
+            discussion_details["filesWithConflicts"] if is_pull_request else None
+        )
+        merge_commit_oid = (
+            discussion_details["changes"].get("mergeCommitId", None)
+            if is_pull_request
+            else None
+        )
+
+        return DiscussionWithDetails(
+            title=discussion_details["title"],
+            num=discussion_details["num"],
+            author=discussion_details.get("author", {}).get("name", "deleted"),
+            created_at=parse_datetime(discussion_details["createdAt"]),
+            status=discussion_details["status"],
+            repo_id=discussion_details["repo"]["name"],
+            repo_type=discussion_details["repo"]["type"],
+            is_pull_request=discussion_details["isPullRequest"],
+            events=[deserialize_event(evt) for evt in discussion_details["events"]],
+            conflicting_files=conflicting_files,
+            target_branch=target_branch,
+            merge_commit_oid=merge_commit_oid,
+            diff=discussion_details.get("diff"),
+        )
+
+    def create_discussion(
+        self,
+        repo_id: str,
+        title: str,
+        *,
+        token: str,
+        description: Optional[str] = None,
+        repo_type: Optional[str] = None,
+        pull_request: bool = False,
+    ) -> DiscussionWithDetails:
+        """Creates a Discussion or Pull Request.
+
+        Pull Requests created programmatically will be in `"draft"` status.
+
+        Creating a Pull Request with changes can also be done at once with [`HfApi.create_commit`].
+
+        Args:
+            repo_id (`str`):
+                A namespace (user or an organization) and a repo name separated
+                by a `/`.
+            title (`str`):
+                The title of the discussion. It can be up to 200 characters long,
+                and must be at least 3 characters long. Leading and trailing whitespaces
+                will be stripped.
+            token (`str`):
+                An authentication token (See https://huggingface.co/settings/token)
+            description (`str`, *optional*):
+                An optional description for the Pull Request.
+                Defaults to `"Discussion opened with the huggingface_hub Python library"`
+            pull_request (`bool`, *optional*):
+                Whether to create a Pull Request or discussion. If `True`, creates a Pull Request.
+                If `False`, creates a discussion. Defaults to `False`.
+            repo_type (`str`, *optional*):
+                Set to `"dataset"` or `"space"` if uploading to a dataset or
+                space, `None` or `"model"` if uploading to a model. Default is
+                `None`.
+
+        Returns: [`DiscussionWithDetails`]
+
+        <Tip>
+
+        Raises the following errors:
+
+            - [`HTTPError`](https://2.python-requests.org/en/master/api/#requests.HTTPError)
+              if the HuggingFace API returned an error
+            - [`ValueError`](https://docs.python.org/3/library/exceptions.html#ValueError)
+              if some parameter value is invalid
+            - [`~huggingface_hub.utils.RepositoryNotFoundError`]
+              If the repository to download from cannot be found. This may be because it doesn't exist,
+              or because it is set to `private` and you do not have access.
+
+        </Tip>"""
+        if repo_type not in REPO_TYPES:
+            raise ValueError(f"Invalid repo type, must be one of {REPO_TYPES}")
+        if repo_type is None:
+            repo_type = REPO_TYPE_MODEL
+        full_repo_id = f"{repo_type}s/{repo_id}"
+        token, _ = self._validate_or_retrieve_token(token=token)
+        if description is not None:
+            description = description.strip()
+        description = (
+            description
+            if description
+            else (
+                f"{'Pull Request' if pull_request else 'Discussion'} opened with the"
+                " [huggingface_hub Python"
+                " library](https://huggingface.co/docs/huggingface_hub)"
+            )
+        )
+
+        resp = requests.post(
+            f"{self.endpoint}/api/{full_repo_id}/discussions",
+            json={
+                "title": title.strip(),
+                "description": description,
+                "pullRequest": pull_request,
+            },
+            headers={"Authorization": f"Bearer {token}"},
+        )
+        _raise_for_status(resp)
+        num = resp.json()["num"]
+        return self.get_discussion_details(
+            repo_id=repo_id,
+            repo_type=repo_type,
+            discussion_num=num,
+            token=token,
+        )
+
+    def create_pull_request(
+        self,
+        repo_id: str,
+        title: str,
+        *,
+        token: str,
+        description: Optional[str] = None,
+        repo_type: Optional[str] = None,
+    ) -> DiscussionWithDetails:
+        """Creates a Pull Request . Pull Requests created programmatically will be in `"draft"` status.
+
+        Creating a Pull Request with changes can also be done at once with [`HfApi.create_commit`];
+
+        This is a wrapper around [`HfApi.create_discusssion`].
+
+        Args:
+            repo_id (`str`):
+                A namespace (user or an organization) and a repo name separated
+                by a `/`.
+            title (`str`):
+                The title of the discussion. It can be up to 200 characters long,
+                and must be at least 3 characters long. Leading and trailing whitespaces
+                will be stripped.
+            token (`str`):
+                An authentication token (See https://huggingface.co/settings/token)
+            description (`str`, *optional*):
+                An optional description for the Pull Request.
+                Defaults to `"Discussion opened with the huggingface_hub Python library"`
+            repo_type (`str`, *optional*):
+                Set to `"dataset"` or `"space"` if uploading to a dataset or
+                space, `None` or `"model"` if uploading to a model. Default is
+                `None`.
+
+        Returns: [`DiscussionWithDetails`]
+
+        <Tip>
+
+        Raises the following errors:
+
+            - [`HTTPError`](https://2.python-requests.org/en/master/api/#requests.HTTPError)
+              if the HuggingFace API returned an error
+            - [`ValueError`](https://docs.python.org/3/library/exceptions.html#ValueError)
+              if some parameter value is invalid
+            - [`~huggingface_hub.utils.RepositoryNotFoundError`]
+              If the repository to download from cannot be found. This may be because it doesn't exist,
+              or because it is set to `private` and you do not have access.
+
+        </Tip>"""
+        return self.create_discussion(
+            repo_id=repo_id,
+            title=title,
+            token=token,
+            description=description,
+            repo_type=repo_type,
+            pull_request=True,
+        )
+
+    def _post_discussion_changes(
+        self,
+        *,
+        repo_id: str,
+        discussion_num: int,
+        resource: str,
+        body: Optional[dict] = None,
+        token: Optional[str] = None,
+        repo_type: Optional[str] = None,
+    ) -> requests.Response:
+        """Internal utility to POST changes to a Discussion or Pull Request"""
+        if not isinstance(discussion_num, int) or discussion_num <= 0:
+            raise ValueError("Invalid discussion_num, must be a positive integer")
+        if repo_type not in REPO_TYPES:
+            raise ValueError(f"Invalid repo type, must be one of {REPO_TYPES}")
+        if repo_type is None:
+            repo_type = REPO_TYPE_MODEL
+        repo_id = f"{repo_type}s/{repo_id}"
+        token, _ = self._validate_or_retrieve_token(token=token)
+
+        path = f"{self.endpoint}/api/{repo_id}/discussions/{discussion_num}/{resource}"
+
+        resp = requests.post(
+            path,
+            headers={"Authorization": f"Bearer {token}"},
+            json=body,
+        )
+        _raise_for_status(resp)
+        return resp
+
+    def comment_discussion(
+        self,
+        repo_id: str,
+        discussion_num: int,
+        comment: str,
+        *,
+        token: Optional[str] = None,
+        repo_type: Optional[str] = None,
+    ) -> DiscussionComment:
+        """Creates a new comment on the given Discussion.
+
+        Args:
+            repo_id (`str`):
+                A namespace (user or an organization) and a repo name separated
+                by a `/`.
+            discussion_num (`int`):
+                The number of the Discussion or Pull Request . Must be a strictly positive integer.
+            comment (`str`):
+                The content of the comment to create. Comments support markdown formatting.
+            repo_type (`str`, *optional*):
+                Set to `"dataset"` or `"space"` if uploading to a dataset or
+                space, `None` or `"model"` if uploading to a model. Default is
+                `None`.
+            token (`str`, *optional*):
+                An authentication token (See https://huggingface.co/settings/token)
+
+        Returns:
+            [`DiscussionComment`]: the newly created comment
+
+
+        Examples:
+            ```python
+
+            >>> comment = \"\"\"
+            ... Hello @otheruser!
+            ...
+            ... # This is a title
+            ...
+            ... **This is bold**, *this is italic* and ~this is strikethrough~
+            ... And [this](http://url) is a link
+            ... \"\"\"
+
+            >>> HfApi().comment_discussion(
+            ...     repo_id="username/repo_name",
+            ...     discussion_num=34
+            ...     comment=comment
+            ... )
+            # DiscussionComment(id='deadbeef0000000', type='comment', ...)
+
+            ```
+
+        <Tip>
+
+        Raises the following errors:
+
+            - [`HTTPError`](https://2.python-requests.org/en/master/api/#requests.HTTPError)
+              if the HuggingFace API returned an error
+            - [`ValueError`](https://docs.python.org/3/library/exceptions.html#ValueError)
+              if some parameter value is invalid
+            - [`~huggingface_hub.utils.RepositoryNotFoundError`]
+              If the repository to download from cannot be found. This may be because it doesn't exist,
+              or because it is set to `private` and you do not have access.
+
+        </Tip>
+        """
+        resp = self._post_discussion_changes(
+            repo_id=repo_id,
+            repo_type=repo_type,
+            discussion_num=discussion_num,
+            token=token,
+            resource="comment",
+            body={"comment": comment},
+        )
+        return deserialize_event(resp.json()["newMessage"])
+
+    def rename_discussion(
+        self,
+        repo_id: str,
+        discussion_num: int,
+        new_title: str,
+        *,
+        token: Optional[str] = None,
+        repo_type: Optional[str] = None,
+    ) -> DiscussionTitleChange:
+        """Renames a Discussion.
+
+        Args:
+            repo_id (`str`):
+                A namespace (user or an organization) and a repo name separated
+                by a `/`.
+            discussion_num (`int`):
+                The number of the Discussion or Pull Request . Must be a strictly positive integer.
+            new_title (`str`):
+                The new title for the discussion
+            repo_type (`str`, *optional*):
+                Set to `"dataset"` or `"space"` if uploading to a dataset or
+                space, `None` or `"model"` if uploading to a model. Default is
+                `None`.
+            token (`str`, *optional*):
+                An authentication token (See https://huggingface.co/settings/token)
+
+        Returns:
+            [`DiscussionTitleChange`]: the title change event
+
+
+        Examples:
+            ```python
+            >>> new_title = "New title, fixing a typo"
+            >>> HfApi().rename_discussion(
+            ...     repo_id="username/repo_name",
+            ...     discussion_num=34
+            ...     new_title=new_title
+            ... )
+            # DiscussionTitleChange(id='deadbeef0000000', type='title-change', ...)
+
+            ```
+
+        <Tip>
+
+        Raises the following errors:
+
+            - [`HTTPError`](https://2.python-requests.org/en/master/api/#requests.HTTPError)
+              if the HuggingFace API returned an error
+            - [`ValueError`](https://docs.python.org/3/library/exceptions.html#ValueError)
+              if some parameter value is invalid
+            - [`~huggingface_hub.utils.RepositoryNotFoundError`]
+              If the repository to download from cannot be found. This may be because it doesn't exist,
+              or because it is set to `private` and you do not have access.
+
+        </Tip>
+        """
+        resp = self._post_discussion_changes(
+            repo_id=repo_id,
+            repo_type=repo_type,
+            discussion_num=discussion_num,
+            token=token,
+            resource="title",
+            body={"title": new_title},
+        )
+        return deserialize_event(resp.json()["newTitle"])
+
+    def change_discussion_status(
+        self,
+        repo_id: str,
+        discussion_num: int,
+        new_status: Literal["open", "closed"],
+        *,
+        token: Optional[str] = None,
+        comment: Optional[str] = None,
+        repo_type: Optional[str] = None,
+    ) -> DiscussionStatusChange:
+        """Closes or re-opens a Discussion or Pull Request.
+
+        Args:
+            repo_id (`str`):
+                A namespace (user or an organization) and a repo name separated
+                by a `/`.
+            discussion_num (`int`):
+                The number of the Discussion or Pull Request . Must be a strictly positive integer.
+            new_status (`str`):
+                The new status for the discussion, either `"open"` or `"closed"`.
+            comment (`str`, *optional*):
+                An optional comment to post with the status change.
+            repo_type (`str`, *optional*):
+                Set to `"dataset"` or `"space"` if uploading to a dataset or
+                space, `None` or `"model"` if uploading to a model. Default is
+                `None`.
+            token (`str`, *optional*):
+                An authentication token (See https://huggingface.co/settings/token)
+
+        Returns:
+            [`DiscussionStatusChange`]: the status change event
+
+
+        Examples:
+            ```python
+            >>> new_title = "New title, fixing a typo"
+            >>> HfApi().rename_discussion(
+            ...     repo_id="username/repo_name",
+            ...     discussion_num=34
+            ...     new_title=new_title
+            ... )
+            # DiscussionStatusChange(id='deadbeef0000000', type='status-change', ...)
+
+            ```
+
+        <Tip>
+
+        Raises the following errors:
+
+            - [`HTTPError`](https://2.python-requests.org/en/master/api/#requests.HTTPError)
+              if the HuggingFace API returned an error
+            - [`ValueError`](https://docs.python.org/3/library/exceptions.html#ValueError)
+              if some parameter value is invalid
+            - [`~huggingface_hub.utils.RepositoryNotFoundError`]
+              If the repository to download from cannot be found. This may be because it doesn't exist,
+              or because it is set to `private` and you do not have access.
+
+        </Tip>
+        """
+        if new_status not in ["open", "closed"]:
+            raise ValueError("Invalid status, valid statuses are: 'open' and 'closed'")
+        body = {"status": new_status}
+        if comment and comment.strip():
+            body["comment"] = comment.strip()
+        resp = self._post_discussion_changes(
+            repo_id=repo_id,
+            repo_type=repo_type,
+            discussion_num=discussion_num,
+            token=token,
+            resource="status",
+            body=body,
+        )
+        return deserialize_event(resp.json()["newStatus"])
+
+    def merge_pull_request(
+        self,
+        repo_id: str,
+        discussion_num: int,
+        *,
+        token: str,
+        comment: Optional[str] = None,
+        repo_type: Optional[str] = None,
+    ):
+        """Merges a Pull Request.
+
+        Args:
+            repo_id (`str`):
+                A namespace (user or an organization) and a repo name separated
+                by a `/`.
+            discussion_num (`int`):
+                The number of the Discussion or Pull Request . Must be a strictly positive integer.
+            comment (`str`, *optional*):
+                An optional comment to post with the status change.
+            repo_type (`str`, *optional*):
+                Set to `"dataset"` or `"space"` if uploading to a dataset or
+                space, `None` or `"model"` if uploading to a model. Default is
+                `None`.
+            token (`str`, *optional*):
+                An authentication token (See https://huggingface.co/settings/token)
+
+        Returns:
+            [`DiscussionStatusChange`]: the status change event
+
+        <Tip>
+
+        Raises the following errors:
+
+            - [`HTTPError`](https://2.python-requests.org/en/master/api/#requests.HTTPError)
+              if the HuggingFace API returned an error
+            - [`ValueError`](https://docs.python.org/3/library/exceptions.html#ValueError)
+              if some parameter value is invalid
+            - [`~huggingface_hub.utils.RepositoryNotFoundError`]
+              If the repository to download from cannot be found. This may be because it doesn't exist,
+              or because it is set to `private` and you do not have access.
+
+        </Tip>
+        """
+        self._post_discussion_changes(
+            repo_id=repo_id,
+            repo_type=repo_type,
+            discussion_num=discussion_num,
+            token=token,
+            resource="merge",
+            body={"comment": comment.strip()} if comment and comment.strip() else None,
+        )
+
+    def edit_discussion_comment(
+        self,
+        repo_id: str,
+        discussion_num: int,
+        comment_id: str,
+        new_content: str,
+        *,
+        token: Optional[str] = None,
+        repo_type: Optional[str] = None,
+    ) -> DiscussionComment:
+        """Edits a comment on a Discussion / Pull Request.
+
+        Args:
+            repo_id (`str`):
+                A namespace (user or an organization) and a repo name separated
+                by a `/`.
+            discussion_num (`int`):
+                The number of the Discussion or Pull Request . Must be a strictly positive integer.
+            comment_id (`str`):
+                The ID of the comment to edit.
+            new_content (`str`):
+                The new content of the comment. Comments support markdown formatting.
+            repo_type (`str`, *optional*):
+                Set to `"dataset"` or `"space"` if uploading to a dataset or
+                space, `None` or `"model"` if uploading to a model. Default is
+                `None`.
+            token (`str`, *optional*):
+                An authentication token (See https://huggingface.co/settings/token)
+
+        Returns:
+            [`DiscussionComment`]: the edited comment
+
+        <Tip>
+
+        Raises the following errors:
+
+            - [`HTTPError`](https://2.python-requests.org/en/master/api/#requests.HTTPError)
+              if the HuggingFace API returned an error
+            - [`ValueError`](https://docs.python.org/3/library/exceptions.html#ValueError)
+              if some parameter value is invalid
+            - [`~huggingface_hub.utils.RepositoryNotFoundError`]
+              If the repository to download from cannot be found. This may be because it doesn't exist,
+              or because it is set to `private` and you do not have access.
+
+        </Tip>
+        """
+        resp = self._post_discussion_changes(
+            repo_id=repo_id,
+            repo_type=repo_type,
+            discussion_num=discussion_num,
+            token=token,
+            resource=f"comment/{comment_id.lower()}/edit",
+            body={"content": new_content},
+        )
+        return deserialize_event(resp.json()["updatedComment"])
+
+    def hide_discussion_comment(
+        self,
+        repo_id: str,
+        discussion_num: int,
+        comment_id: str,
+        *,
+        token: str,
+        repo_type: Optional[str] = None,
+    ) -> DiscussionComment:
+        """Hides a comment on a Discussion / Pull Request.
+
+        <Tip warning={true}>
+        Hidden comments' content cannot be retrieved anymore. Hiding a comment is irreversible.
+        </Tip>
+
+        Args:
+            repo_id (`str`):
+                A namespace (user or an organization) and a repo name separated
+                by a `/`.
+            discussion_num (`int`):
+                The number of the Discussion or Pull Request . Must be a strictly positive integer.
+            comment_id (`str`):
+                The ID of the comment to edit.
+            repo_type (`str`, *optional*):
+                Set to `"dataset"` or `"space"` if uploading to a dataset or
+                space, `None` or `"model"` if uploading to a model. Default is
+                `None`.
+            token (`str`, *optional*):
+                An authentication token (See https://huggingface.co/settings/token)
+
+        Returns:
+            [`DiscussionComment`]: the hidden comment
+
+        <Tip>
+
+        Raises the following errors:
+
+            - [`HTTPError`](https://2.python-requests.org/en/master/api/#requests.HTTPError)
+              if the HuggingFace API returned an error
+            - [`ValueError`](https://docs.python.org/3/library/exceptions.html#ValueError)
+              if some parameter value is invalid
+            - [`~huggingface_hub.utils.RepositoryNotFoundError`]
+              If the repository to download from cannot be found. This may be because it doesn't exist,
+              or because it is set to `private` and you do not have access.
+
+        </Tip>
+        """
+        warnings.warn(
+            "Hidden comments' content cannot be retrieved anymore. Hiding a comment is"
+            " irreversible.",
+            UserWarning,
+        )
+        resp = self._post_discussion_changes(
+            repo_id=repo_id,
+            repo_type=repo_type,
+            discussion_num=discussion_num,
+            token=token,
+            resource=f"comment/{comment_id.lower()}/hide",
+        )
+        return deserialize_event(resp.json()["updatedComment"])
+
 
 class HfFolder:
     path_token = expanduser("~/.huggingface/token")
@@ -2424,5 +3176,15 @@ upload_file = api.upload_file
 upload_folder = api.upload_folder
 delete_file = api.delete_file
 get_full_repo_name = api.get_full_repo_name
+
+get_discussion_details = api.get_discussion_details
+get_repo_discussions = api.get_repo_discussions
+create_discussion = api.create_discussion
+create_pull_request = api.create_pull_request
+change_discussion_status = api.change_discussion_status
+comment_discussion = api.comment_discussion
+edit_discussion_comment = api.edit_discussion_comment
+rename_discussion = api.rename_discussion
+merge_pull_request = api.merge_pull_request
 
 _validate_or_retrieve_token = api._validate_or_retrieve_token

@@ -15,6 +15,8 @@
     title: Searching the Hub
   - local: how-to-inference
     title: Access the Inference API
+  - local: how-to-discussions-and-pull-requests
+    title: Interact with Discussions and Pull Requests 
   title: "Guides"
 - sections:
     - local: package_reference/repository
@@ -29,4 +31,6 @@
       title: Inference API
     - local: package_reference/utilities
       title: Utilities
+    - local: package_reference/community
+      title: Discussions and Pull Requests
   title: "Reference"
