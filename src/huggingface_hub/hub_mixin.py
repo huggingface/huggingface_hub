@@ -284,7 +284,7 @@ class ModelHubMixin:
 
         Parameters:
             repo_id (`str`, *optional*):
-                Repository name to which push
+                Repository name to which push.
             commit_message (`str`, *optional*):
                 Message to commit while pushing.
             private (`bool`, *optional*):
@@ -420,7 +420,7 @@ class PyTorchModelHubMixin(ModelHubMixin):
         ...     "mymodel", push_to_hub=False
         >>> )  # Saving model weights in the directory
         >>> model.push_to_hub(
-        ...     "mymodel", "model-1"
+        ...     repo_id="mymodel", commit_message="model-1"
         >>> )  # Pushing model-weights to hf-hub
 
         >>> # Downloading weights from hf-hub & model will be initialized from those weights
