@@ -23,6 +23,7 @@ import requests
 from .constants import ENDPOINT
 from .lfs import UploadInfo, _validate_batch_actions, lfs_upload, post_lfs_batch_info
 from .utils import logging
+from .utils._errors import _raise_convert_bad_request
 
 
 logger = logging.get_logger(__name__)
@@ -356,6 +357,8 @@ def fetch_upload_modes(
     Raises:
         :class:`requests.HTTPError`:
             If the Hub API returned an error
+        :class:`ValueError`:
+            If the Hub API returned an HTTP 400 error (bad request)
     """
     endpoint = endpoint if endpoint is not None else ENDPOINT
     headers = {"authorization": f"Bearer {token}"} if token is not None else None
@@ -377,7 +380,7 @@ def fetch_upload_modes(
         headers=headers,
         params={"create_pr": "1"} if create_pr else None,
     )
-    resp.raise_for_status()
+    _raise_convert_bad_request(resp, endpoint_name="preupload")
 
     preupload_info = validate_preupload_info(resp.json())
 

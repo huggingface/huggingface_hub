@@ -156,7 +156,6 @@ def snapshot_download(
     # If the specified revision is a commit hash, look inside "snapshots".
     # If the specified revision is a branch or tag, look inside "refs".
     if local_files_only:
-
         if REGEX_COMMIT_HASH.match(revision):
             commit_hash = revision
         else:

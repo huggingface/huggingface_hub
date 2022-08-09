@@ -2,7 +2,6 @@ import os
 import tempfile
 import time
 import unittest
-import uuid
 from io import BytesIO
 
 from huggingface_hub import (
@@ -16,15 +15,11 @@ from huggingface_hub import (
 from huggingface_hub.utils import logging
 
 from .testing_constants import ENDPOINT_STAGING, TOKEN, USER
-from .testing_utils import with_production_testing
+from .testing_utils import repo_name, with_production_testing
 
 
 logger = logging.get_logger(__name__)
 MODEL_IDENTIFIER = "hf-internal-testing/hfh-cache-layout"
-
-
-def repo_name(id=uuid.uuid4().hex[:6]):
-    return "repo-{0}-{1}".format(id, int(time.time() * 10e3))
 
 
 def get_file_contents(path):

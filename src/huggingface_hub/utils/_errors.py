@@ -1,4 +1,4 @@
-from requests import HTTPError
+from requests import HTTPError, JSONDecodeError, Response
 
 
 class RepositoryNotFoundError(HTTPError):
@@ -15,6 +15,9 @@ class RepositoryNotFoundError(HTTPError):
     ```
     """
 
+    def __init__(self, message, response):
+        super().__init__(message, response=response)
+
 
 class RevisionNotFoundError(HTTPError):
     """
@@ -28,8 +31,10 @@ class RevisionNotFoundError(HTTPError):
     >>> hf_hub_download('bert-base-cased', 'config.json', revision='<non-existant-revision>')
     huggingface_hub.utils._errors.RevisionNotFoundError: 404 Client Error: Revision Not Found for url: <url>
     ```
-
     """
+
+    def __init__(self, message, response):
+        super().__init__(message, response=response)
 
 
 class EntryNotFoundError(HTTPError):
@@ -46,42 +51,77 @@ class EntryNotFoundError(HTTPError):
     ```
     """
 
+    def __init__(self, message, response):
+        super().__init__(message, response=response)
 
-def _raise_for_status(request):
+
+class BadRequestError(ValueError, HTTPError):
     """
-    Internal version of `request.raise_for_status()` that will refine a
+    Raised by `_raise_convert_bad_request` when the server returns HTTP 400 error
+
+    Example:
+
+    ```py
+    >>> resp = request.post("hf.co/api/check", ...)
+    >>> _raise_convert_bad_request(resp, endpoint_name="check")
+    huggingface_hub.utils._errors.BadRequestError: Bad request for check endpoint: {details} (Request ID: XXX)
+    ```
+    """
+
+    def __init__(self, message, response):
+        super().__init__(message, response=response)
+
+
+def _add_request_id_to_error_args(e, request_id):
+    if request_id is not None and len(e.args) > 0 and isinstance(e.args[0], str):
+        e.args = (e.args[0] + f" (Request ID: {request_id})",) + e.args[1:]
+
+
+def _raise_for_status(response):
+    """
+    Internal version of `response.raise_for_status()` that will refine a
     potential HTTPError.
     """
-    request_id = request.headers.get("X-Request-Id")
+    request_id = response.headers.get("X-Request-Id")
+    try:
+        response.raise_for_status()
+    except HTTPError as e:
+        if "X-Error-Code" in response.headers:
+            error_code = response.headers["X-Error-Code"]
+            if error_code == "RepoNotFound":
+                message = (
+                    f"{response.status_code} Client Error: Repository Not Found for"
+                    f" url: {response.url}. If the repo is private, make sure you are"
+                    " authenticated."
+                )
+                e = RepositoryNotFoundError(message, response)
+            elif error_code == "RevisionNotFound":
+                message = (
+                    f"{response.status_code} Client Error: Revision Not Found for url:"
+                    f" {response.url}."
+                )
+                e = RevisionNotFoundError(message, response)
+            if error_code == "EntryNotFound":
+                message = (
+                    f"{response.status_code} Client Error: Entry Not Found for url:"
+                    f" {response.url}."
+                )
+                e = EntryNotFoundError(message, response)
+            _add_request_id_to_error_args(e, request_id)
+            raise e
 
-    if "X-Error-Code" in request.headers:
-        error_code = request.headers["X-Error-Code"]
-        if error_code == "RepoNotFound":
-            raise RepositoryNotFoundError(
-                f"404 Client Error: Repository Not Found for url: {request.url}. If the"
-                " repo is private, make sure you are authenticated. (Request ID:"
-                f" {request_id})"
+        if response.status_code == 401:
+            # The repo was not found and the user is not Authenticated
+            message = (
+                f"{response.status_code} Client Error: Repository Not Found for url:"
+                f" {response.url}. If the repo is private, make sure you are"
+                " authenticated."
             )
-        elif error_code == "RevisionNotFound":
-            raise RevisionNotFoundError(
-                f"404 Client Error: Revision Not Found for url: {request.url}. (Request"
-                f" ID: {request_id})"
-            )
-        elif error_code == "EntryNotFound":
-            raise EntryNotFoundError(
-                f"404 Client Error: Entry Not Found for url: {request.url}. (Request"
-                f" ID: {request_id})"
-            )
+            e = RepositoryNotFoundError(message, response)
 
-    if request.status_code == 401:
-        # The repo was not found and the user is not Authenticated
-        raise RepositoryNotFoundError(
-            f"401 Client Error: Repository Not Found for url: {request.url}. If the"
-            " repo is private, make sure you are authenticated. (Request ID:"
-            f" {request_id})"
-        )
+        _add_request_id_to_error_args(e, request_id)
 
-    _raise_with_request_id(request)
+        raise e
 
 
 def _raise_with_request_id(request):
@@ -89,7 +129,28 @@ def _raise_with_request_id(request):
     try:
         request.raise_for_status()
     except Exception as e:
-        if request_id is not None and len(e.args) > 0 and isinstance(e.args[0], str):
-            e.args = (e.args[0] + f" (Request ID: {request_id})",) + e.args[1:]
+        _add_request_id_to_error_args(e, request_id)
 
         raise e
+
+
+def _raise_convert_bad_request(resp: Response, endpoint_name: str):
+    """
+    Calls _raise_for_status on resp and converts HTTP 400 errors into ValueError.
+    """
+    try:
+        _raise_for_status(resp)
+    except HTTPError as exc:
+        request_id = resp.headers.get("X-Request-Id")
+        try:
+            details = resp.json().get("error", None)
+        except JSONDecodeError:
+            raise exc
+        if resp.status_code == 400 and details:
+            raise BadRequestError(
+                f"Bad request for {endpoint_name} endpoint: {details} (Request ID:"
+                f" {request_id})",
+                response=resp,
+            ) from exc
+        _add_request_id_to_error_args(exc, request_id=request_id)
+        raise
