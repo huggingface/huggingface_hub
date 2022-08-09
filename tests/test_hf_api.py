@@ -939,20 +939,7 @@ class HfApiPublicTest(unittest.TestCase):
         )
         files = model.siblings
         assert files is not None
-        self.assertListEqual(
-            [isinstance(file.blob_id, str) for file in files], [True] * len(files)
-        )
-        self.assertListEqual(
-            [isinstance(file.size, int) for file in files], [True] * len(files)
-        )
-        self.assertTrue(any([file.lfs is not None for file in files]))
-        self.assertListEqual(
-            [
-                file.lfs is None or isinstance(file.lfs, dict) and "sha256" in file.lfs
-                for file in files
-            ],
-            [True] * len(files),
-        )
+        self._check_siblings_metadata(files)
 
     @with_production_testing
     def test_list_repo_files(self):
@@ -1118,20 +1105,19 @@ class HfApiPublicTest(unittest.TestCase):
         )
         files = dataset.siblings
         assert files is not None
-        self.assertListEqual(
-            [isinstance(file.blob_id, str) for file in files], [True] * len(files)
-        )
-        self.assertListEqual(
-            [isinstance(file.size, int) for file in files], [True] * len(files)
-        )
-        self.assertTrue(any([file.lfs is not None for file in files]))
-        self.assertListEqual(
-            [
-                file.lfs is None or isinstance(file.lfs, dict) and "sha256" in file.lfs
-                for file in files
-            ],
-            [True] * len(files),
-        )
+        self._check_siblings_metadata(files)
+
+    def _check_siblings_metadata(self, files: List[RepoFile]):
+        """Check requested metadata has been received from the server."""
+        at_least_one_lfs = False
+        for file in files:
+            self.assertTrue(isinstance(file.blob_id, str))
+            self.assertTrue(isinstance(file.size, int))
+            if file.lfs is not None:
+                at_least_one_lfs = True
+                self.assertTrue(isinstance(file.lfs, dict))
+                self.assertTrue("sha256" in file.lfs)
+        self.assertTrue(at_least_one_lfs)
 
     def test_staging_list_metrics(self):
         _api = HfApi(endpoint=ENDPOINT_STAGING)

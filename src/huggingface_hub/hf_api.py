@@ -197,6 +197,8 @@ class RepoFile:
         self.blob_id = blobId
         self.lfs = lfs
 
+        # Hack to ensure backward compatibility with future versions of the API.
+        # See discussion in https://github.com/huggingface/huggingface_hub/pull/951#discussion_r926460408
         for k, v in kwargs.items():
             setattr(self, k, v)
 
