@@ -1190,15 +1190,22 @@ def hf_hub_download(
     return pointer_path
 
 
-def try_to_load_from_cache(cache_dir, repo_id, filename, revision=None):
+def try_to_load_from_cache(cache_dir, repo_id, filename, revision=None, repo_type=None):
     """
     Explores the cache to return the latest cached file for a given revision.
     """
     if revision is None:
         revision = "main"
+    if repo_type is None:
+        repo_type = "model"
+    if repo_type not in REPO_TYPES:
+        raise ValueError(
+            f"Invalid repo type: {repo_type}. Accepted repo types are:"
+            f" {str(REPO_TYPES)}"
+        )
 
     model_id = repo_id.replace("/", "--")
-    model_cache = os.path.join(cache_dir, f"models--{model_id}")
+    model_cache = os.path.join(cache_dir, f"{repo_type}--{model_id}")
     if not os.path.isdir(model_cache):
         # No cache for this model
         return None
