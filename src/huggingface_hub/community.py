@@ -156,7 +156,7 @@ class DiscussionEvent:
     author: str
 
     _event: dict
-    """Stores the original event data, in case we need to access it later"""
+    """Stores the original event data, in case we need to access it later."""
 
 
 @dataclass
