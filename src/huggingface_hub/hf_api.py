@@ -163,8 +163,8 @@ class BlobLfsInfo(TypedDict, total=False):
 
 class RepoFile:
     """
-        Data structure that represents a public file inside a repo, accessible from
-        huggingface.co
+    Data structure that represents a public file inside a repo, accessible from
+    huggingface.co
 
     Args:
         rfilename (str):
