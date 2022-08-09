@@ -2689,7 +2689,7 @@ class HfApi:
         token: Optional[str] = None,
         repo_type: Optional[str] = None,
     ) -> DiscussionTitleChange:
-        """Renames a discussion
+        """Renames a Discussion.
 
         Args:
             repo_id (`str`):
