@@ -1,4 +1,6 @@
-from requests import HTTPError, JSONDecodeError, Response
+from requests import HTTPError, Response
+
+from ._fixes import JSONDecodeError
 
 
 class RepositoryNotFoundError(HTTPError):
