@@ -2349,7 +2349,7 @@ class HfApi:
         repo_type: Optional[str] = None,
         token: Optional[str] = None,
     ) -> DiscussionWithDetails:
-        """Fetches a discussion's / Pull Request 's details from the Hub
+        """Fetches a Discussion's / Pull Request 's details from the Hub.
 
         Args:
             repo_id (`str`):
