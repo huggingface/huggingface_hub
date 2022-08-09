@@ -43,7 +43,7 @@ class ModelHubMixin:
             save_directory (`str`):
                 Specify directory in which you want to save weights.
             config (`dict`, *optional*):
-                specify config (must be dict) in case you want to save
+                Specify config (must be dict) in case you want to save
                 it.
             push_to_hub (`bool`, *optional*, defaults to `False`):
                 Whether or not to push your model to the Hugging Face model hub after
@@ -308,8 +308,8 @@ class ModelHubMixin:
         Returns:
             The url of the commit of your model in the given repository.
         """
-        # Repo id is set means we use the new version using HTTP endpoint
-        # (introduced v0.9)
+        # If the repo id is set, it means we use the new version using HTTP endpoint
+        # (introduced in v0.9).
         if repo_id is not None:
             token, _ = hf_api._validate_or_retrieve_token(token)
             api = HfApi(endpoint=api_endpoint)
@@ -337,7 +337,7 @@ class ModelHubMixin:
                     create_pr=create_pr,
                 )
 
-        # Repo id is None means we use the deprecated version using Git
+        # If the repo id is None, it means we use the deprecated version using Git
         # TODO: remove code between here and `return repo.git_push()` in release 0.12
         if repo_path_or_name is None and repo_url is None:
             raise ValueError(
