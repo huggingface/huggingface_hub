@@ -46,7 +46,7 @@ from huggingface_hub.hf_api import (
     MetricInfo,
     ModelInfo,
     ModelSearchArguments,
-    RepoFile,    
+    RepoFile,
     SpaceInfo,
     erase_from_credential_store,
     read_from_credential_store,
