@@ -1188,3 +1188,34 @@ def hf_hub_download(
         pass
 
     return pointer_path
+
+
+def try_to_load_from_cache(cache_dir, repo_id, filename, revision=None):
+    """
+    Explores the cache to return the latest cached file for a given revision.
+    """
+    if revision is None:
+        revision = "main"
+
+    model_id = repo_id.replace("/", "--")
+    model_cache = os.path.join(cache_dir, f"models--{model_id}")
+    if not os.path.isdir(model_cache):
+        # No cache for this model
+        return None
+    for subfolder in ["refs", "snapshots"]:
+        if not os.path.isdir(os.path.join(model_cache, subfolder)):
+            return None
+
+    # Resolve refs (for instance to convert main to the associated commit sha)
+    cached_refs = os.listdir(os.path.join(model_cache, "refs"))
+    if revision in cached_refs:
+        with open(os.path.join(model_cache, "refs", revision)) as f:
+            revision = f.read()
+
+    cached_shas = os.listdir(os.path.join(model_cache, "snapshots"))
+    if revision not in cached_shas:
+        # No cache for this revision and we won't try to return a random revision
+        return None
+
+    cached_file = os.path.join(model_cache, "snapshots", revision, filename)
+    return cached_file if os.path.isfile(cached_file) else None

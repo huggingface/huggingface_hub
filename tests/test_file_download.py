@@ -16,6 +16,7 @@ import unittest
 
 from huggingface_hub.constants import (
     CONFIG_NAME,
+    HUGGINGFACE_HUB_CACHE,
     PYTORCH_WEIGHTS_NAME,
     REPO_TYPE_DATASET,
 )
@@ -24,6 +25,7 @@ from huggingface_hub.file_download import (
     filename_to_url,
     hf_hub_download,
     hf_hub_url,
+    try_to_load_from_cache,
 )
 from huggingface_hub.utils import (
     EntryNotFoundError,
@@ -186,3 +188,34 @@ class CachedDownloadTests(unittest.TestCase):
         )
         metadata = filename_to_url(filepath, legacy_cache_layout=True)
         self.assertEqual(metadata[1], f'"{DUMMY_MODEL_ID_PINNED_SHA1}"')
+
+    def test_try_to_load_from_cache(self):
+        # Make sure the file is cached
+        filepath = hf_hub_download(DUMMY_MODEL_ID, filename=CONFIG_NAME)
+
+        new_file_path = try_to_load_from_cache(
+            HUGGINGFACE_HUB_CACHE, DUMMY_MODEL_ID, filename=CONFIG_NAME
+        )
+        self.assertEqual(filepath, new_file_path)
+
+        # If file is not cached, returns None
+        self.assertIsNone(
+            try_to_load_from_cache(
+                HUGGINGFACE_HUB_CACHE, DUMMY_MODEL_ID, filename="conf.json"
+            )
+        )
+        # Same for uncached revisions
+        self.assertIsNone(
+            try_to_load_from_cache(
+                HUGGINGFACE_HUB_CACHE,
+                DUMMY_MODEL_ID,
+                filename=CONFIG_NAME,
+                revision="aaa",
+            )
+        )
+        # Same for uncached models
+        self.assertIsNone(
+            try_to_load_from_cache(
+                HUGGINGFACE_HUB_CACHE, "bert-base", filename=CONFIG_NAME
+            )
+        )
