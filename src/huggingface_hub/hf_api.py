@@ -2614,7 +2614,7 @@ class HfApi:
         token: Optional[str] = None,
         repo_type: Optional[str] = None,
     ) -> DiscussionComment:
-        """Creates a new comment on the given discussion
+        """Creates a new comment on the given Discussion.
 
         Args:
             repo_id (`str`):
