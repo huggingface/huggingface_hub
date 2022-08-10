@@ -41,6 +41,7 @@ extras["testing"] = [
     "pytest-cov",
     "datasets",
     "soundfile",
+    "Jinja2",
 ]
 
 extras["quality"] = [
