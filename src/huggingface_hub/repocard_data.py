@@ -271,21 +271,21 @@ def model_index_to_eval_results(model_index: List[Dict[str, Any]]):
         ...     {
         ...         "name": "my-cool-model",
         ...         "results": [
-        ...         {
-        ...             "task": {
-        ...             "type": "image-classification"
-        ...             },
-        ...             "dataset": {
-        ...             "type": "beans",
-        ...             "name": "Beans"
-        ...             },
-        ...             "metrics": [
         ...             {
-        ...                 "type": "accuracy",
-        ...                 "value": 0.9
+        ...                 "task": {
+        ...                     "type": "image-classification"
+        ...                 },
+        ...                 "dataset": {
+        ...                     "type": "beans",
+        ...                     "name": "Beans"
+        ...                 },
+        ...                 "metrics": [
+        ...                     {
+        ...                         "type": "accuracy",
+        ...                         "value": 0.9
+        ...                     }
+        ...                 ]
         ...             }
-        ...             ]
-        ...         }
         ...         ]
         ...     }
         ... ]
@@ -386,7 +386,6 @@ def eval_results_to_model_index(model_name: str, eval_results: List[EvalResult])
         ... ]
         >>> eval_results_to_model_index("my-cool-model", eval_results)
         [{'name': 'my-cool-model', 'results': [{'task': {'type': 'image-classification'}, 'dataset': {'name': 'Beans', 'type': 'beans'}, 'metrics': [{'type': 'accuracy', 'value': 0.9}]}]}]
-
     """
 
     # Metrics are reported on a unique task-and-dataset basis.
