@@ -554,7 +554,7 @@ def cached_download(
         - [`~huggingface_hub.utils.EntryNotFoundError`]
           If the file to download cannot be found.
         - [`~huggingface_hub.utils.LocalEntryNotFoundError`]
-          If network is disabled and file is not found is cache.
+          If network is disabled or unavailable and file is not found in cache.
 
     </Tip>
     """
@@ -914,7 +914,7 @@ def hf_hub_download(
         - [`~huggingface_hub.utils.EntryNotFoundError`]
           If the file to download cannot be found.
         - [`~huggingface_hub.utils.LocalEntryNotFoundError`]
-          If network is disabled and file is not found is cache.
+          If network is disabled or unavailable and file is not found in cache.
 
     </Tip>
     """

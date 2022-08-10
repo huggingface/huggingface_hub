@@ -60,11 +60,11 @@ class EntryNotFoundError(HTTPError):
 class LocalEntryNotFoundError(EntryNotFoundError, FileNotFoundError, ValueError):
     """
     Raised when trying to access a file that is not on the disk when network is
-    disabled. The entry may exist on the Hub.
+    disabled or unavailable (connection issue). The entry may exist on the Hub.
 
     Note: `ValueError` type is to ensure backward compatibility.
     Note: `LocalEntryNotFoundError` derives from `HTTPError` because of `EntryNotFoundError`
-          even though it is not network related.
+          even when it is not a network issue.
 
     Example:
 
