@@ -15,5 +15,10 @@
 # See the License for the specific language governing permissions and
 # limitations under the License
 
-from ._errors import EntryNotFoundError, RepositoryNotFoundError, RevisionNotFoundError
+from ._errors import (
+    EntryNotFoundError,
+    LocalEntryNotFoundError,
+    RepositoryNotFoundError,
+    RevisionNotFoundError,
+)
 from ._subprocess import run_subprocess

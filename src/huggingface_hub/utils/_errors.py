@@ -57,6 +57,28 @@ class EntryNotFoundError(HTTPError):
         super().__init__(message, response=response)
 
 
+class LocalEntryNotFoundError(EntryNotFoundError, FileNotFoundError, ValueError):
+    """
+    Raised when trying to access a file that is not on the disk when network is
+    disabled. The entry may exist on the Hub.
+
+    Note: `ValueError` type is to ensure backward compatibility.
+    Note: `LocalEntryNotFoundError` derives from `HTTPError` because of `EntryNotFoundError`
+          even though it is not network related.
+
+    Example:
+
+    ```py
+    >>> from huggingface_hub import hf_hub_download
+    >>> hf_hub_download('bert-base-cased', '<non-cached-file>',  local_files_only=True)
+    huggingface_hub.utils._errors.LocalEntryNotFoundError: Cannot find the requested files in the disk cache and outgoing traffic has been disabled. To enable hf.co look-ups and downloads online, set 'local_files_only' to False.
+    ```
+    """
+
+    def __init__(self, message):
+        super().__init__(message, response=None)
+
+
 class BadRequestError(ValueError, HTTPError):
     """
     Raised by `_raise_convert_bad_request` when the server returns HTTP 400 error
