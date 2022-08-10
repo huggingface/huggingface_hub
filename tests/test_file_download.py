@@ -15,6 +15,8 @@ import os
 import unittest
 from tempfile import TemporaryDirectory
 
+import pytest
+
 from huggingface_hub.constants import (
     CONFIG_NAME,
     PYTORCH_WEIGHTS_NAME,
@@ -196,15 +198,16 @@ class CachedDownloadTests(unittest.TestCase):
         Regression test for #981.
         https://github.com/huggingface/huggingface_hub/issues/981
         """
-        with TemporaryDirectory() as tmpdir:
-            filepath = cached_download(
-                hf_hub_url(
-                    DUMMY_RENAMED_MODEL_ID,
-                    filename="config.json",
-                ),
-                cache_dir=tmpdir,
-            )
-            self.assertTrue(os.path.exists(filepath))
+        with pytest.warns(FutureWarning):
+            with TemporaryDirectory() as tmpdir:
+                filepath = cached_download(
+                    hf_hub_url(
+                        DUMMY_RENAMED_MODEL_ID,
+                        filename="config.json",
+                    ),
+                    cache_dir=tmpdir,
+                )
+                self.assertTrue(os.path.exists(filepath))
 
     def test_hf_hub_download_legacy(self):
         filepath = hf_hub_download(
