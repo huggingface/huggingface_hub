@@ -93,7 +93,7 @@ class CachedDownloadTests(unittest.TestCase):
                 )
 
     def test_file_not_found_on_repo(self):
-        # Valid revision (None) but missing file.
+        # Valid revision (None) but missing file on repo.
         url = hf_hub_url(DUMMY_MODEL_ID, filename="missing.bin")
         with self.assertRaisesRegex(
             EntryNotFoundError, "404 Client Error: Entry Not Found"
@@ -101,7 +101,7 @@ class CachedDownloadTests(unittest.TestCase):
             _ = cached_download(url, legacy_cache_layout=True)
 
     def test_file_not_found_locally_and_network_disabled(self):
-        # Valid revision (None) but missing file.
+        # Valid file but missing locally and network is disabled.
         with TemporaryDirectory() as tmpdir:
             # Download a first time to get the refs ok
             filepath = hf_hub_download(
@@ -124,7 +124,7 @@ class CachedDownloadTests(unittest.TestCase):
                 )
 
     def test_file_not_found_locally_and_network_disabled_legacy(self):
-        # Valid revision (None) but missing file.
+        # Valid file but missing locally and network is disabled.
         url = hf_hub_url(DUMMY_MODEL_ID, filename=CONFIG_NAME)
         with TemporaryDirectory() as tmpdir:
             # Get without network must fail
