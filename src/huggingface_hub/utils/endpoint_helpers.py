@@ -54,7 +54,7 @@ def _filter_emissions(
                 if emission:
                     emission = str(emission)
                     if any(char.isdigit() for char in emission):
-                        emission = re.search("\d+\.\d+|\d+", emission).group(0)
+                        emission = re.search(r"\d+\.\d+|\d+", emission).group(0)
                         emissions.append((i, float(emission)))
     filtered_results = []
     for idx, emission in emissions:
@@ -125,7 +125,7 @@ class DatasetFilter:
     >>> new_filter = DatasetFilter(language="en")
 
     >>> # Using multilinguality
-    >>> new_filter = DatasetFilter(multilinguality="yes")
+    >>> new_filter = DatasetFilter(multilinguality="multilingual")
 
     >>> # Using size_categories
     >>> new_filter = DatasetFilter(size_categories="100K<n<1M")

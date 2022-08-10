@@ -154,7 +154,6 @@ def post_lfs_batch_info(
     token: str,
     repo_type: str,
     repo_id: str,
-    revision: str,
     endpoint: Optional[str] = None,
 ) -> Tuple[List[dict], List[dict]]:
     """
@@ -173,8 +172,6 @@ def post_lfs_batch_info(
             by a `/`.
         token (`str`):
             An authentication token ( See https://huggingface.co/settings/tokens )
-        revision (`str`):
-            The git revision to upload the files to. Can be any valid git revision.
 
     Returns:
         `LfsBatchInfo`: 2-tuple:
@@ -207,9 +204,6 @@ def post_lfs_batch_info(
                 }
                 for upload in upload_infos
             ],
-            "ref": {
-                "name": revision,
-            },
             "hash_algo": "sha256",
         },
         auth=HTTPBasicAuth("access_token", token),

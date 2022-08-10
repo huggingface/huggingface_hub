@@ -1,3 +1,4 @@
+import collections.abc as collections
 import json
 import os
 import warnings
@@ -26,25 +27,47 @@ if is_tf_available():
     import tensorflow as tf
 
 
+def _flatten_dict(dictionary, parent_key=""):
+    """Flatten a nested dictionary.
+    Reference: https://stackoverflow.com/a/6027615/10319735
+
+    Args:
+        dictionary (`dict`):
+            The nested dictionary to be flattened.
+        parent_key (`str`):
+            The parent key to be prefixed to the childer keys.
+            Necessary for recursing over the nested dictionary.
+
+    Returns:
+        The flattened dictionary.
+    """
+    items = []
+    for key, value in dictionary.items():
+        new_key = f"{parent_key}.{key}" if parent_key else key
+        if isinstance(value, collections.MutableMapping):
+            items.extend(
+                _flatten_dict(
+                    value,
+                    new_key,
+                ).items()
+            )
+        else:
+            items.append((new_key, value))
+    return dict(items)
+
+
 def _create_hyperparameter_table(model):
     """Parse hyperparameter dictionary into a markdown table."""
     if model.optimizer is not None:
         optimizer_params = model.optimizer.get_config()
+        # flatten the configuration
+        optimizer_params = _flatten_dict(optimizer_params)
         optimizer_params[
             "training_precision"
         ] = tf.keras.mixed_precision.global_policy().name
-        table = "|"
-        for key in optimizer_params.keys():
-            table += f" {key} |"
-
-        table += "\n|"
-        for key in optimizer_params.keys():
-            table += "-" * len(key)
-            table += "|"
-
-        table += "\n|"
-        for key in optimizer_params.keys():
-            table += f"{optimizer_params[key]}|"
+        table = "| Hyperparameters | Value |\n| :-- | :-- |\n"
+        for key, value in optimizer_params.items():
+            table += f"| {key} | {value} |\n"
     else:
         table = None
     return table

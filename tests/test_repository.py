@@ -36,6 +36,7 @@ from huggingface_hub.utils import logging
 
 from .testing_constants import ENDPOINT_STAGING, TOKEN, USER
 from .testing_utils import (
+    repo_name,
     retry_endpoint,
     set_write_permission_and_retry,
     with_production_testing,
@@ -43,10 +44,6 @@ from .testing_utils import (
 
 
 logger = logging.get_logger(__name__)
-
-
-def repo_name(id=uuid.uuid4().hex[:6]):
-    return "repo-{0}-{1}".format(id, int(time.time() * 10e3))
 
 
 WORKING_REPO_DIR = os.path.join(

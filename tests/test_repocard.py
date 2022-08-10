@@ -15,9 +15,8 @@ import copy
 import os
 import shutil
 import tempfile
-import time
 import unittest
-import uuid
+from functools import partial
 from pathlib import Path
 
 import pytest
@@ -36,7 +35,7 @@ from huggingface_hub.repository import Repository
 from huggingface_hub.utils import logging
 
 from .testing_constants import ENDPOINT_STAGING, TOKEN, USER
-from .testing_utils import retry_endpoint, set_write_permission_and_retry
+from .testing_utils import repo_name, retry_endpoint, set_write_permission_and_retry
 
 
 ROUND_TRIP_MODELCARD_CASE = """
@@ -94,16 +93,20 @@ DUMMY_MODELCARD_EVAL_RESULT = """---
 model-index:
 - name: RoBERTa fine-tuned on ReactionGIF
   results:
-  - metrics:
-    - type: accuracy
-      value: 0.2662102282047272
-      name: Accuracy
-    task:
+  - task:
       type: text-classification
       name: Text Classification
     dataset:
       name: ReactionGIF
       type: julien-c/reactiongif
+      config: default
+      split: test
+    metrics:
+    - type: accuracy
+      value: 0.2662102282047272
+      name: Accuracy
+      config: default
+      verified: false
 ---
 """
 
@@ -113,9 +116,7 @@ REPOCARD_DIR = os.path.join(
     os.path.dirname(os.path.abspath(__file__)), "fixtures/repocard"
 )
 
-
-def repo_name(id=uuid.uuid4().hex[:6]):
-    return "dummy-hf-hub-{0}-{1}".format(id, int(time.time() * 10e3))
+repo_name = partial(repo_name, prefix="dummy-hf-hub")
 
 
 class RepocardTest(unittest.TestCase):
@@ -171,8 +172,12 @@ class RepocardTest(unittest.TestCase):
             metrics_pretty_name="Accuracy",
             metrics_id="accuracy",
             metrics_value=0.2662102282047272,
+            metrics_config="default",
+            metrics_verified=False,
             dataset_pretty_name="ReactionGIF",
             dataset_id="julien-c/reactiongif",
+            dataset_config="default",
+            dataset_split="test",
         )
         filename = "eval_results.md"
         filepath = Path(REPOCARD_DIR) / filename
@@ -209,7 +214,7 @@ class RepocardUpdateTest(unittest.TestCase):
                 f.write(DUMMY_MODELCARD_EVAL_RESULT)
 
         self.existing_metadata = yaml.safe_load(
-            DUMMY_MODELCARD_EVAL_RESULT.strip().strip("---")
+            DUMMY_MODELCARD_EVAL_RESULT.strip().strip("-")
         )
 
     def tearDown(self) -> None:
@@ -307,8 +312,12 @@ class RepocardUpdateTest(unittest.TestCase):
             metrics_pretty_name="Recall",
             metrics_id="recall",
             metrics_value=0.7762102282047272,
+            metrics_config="default",
+            metrics_verified=False,
             dataset_pretty_name="ReactionGIF",
             dataset_id="julien-c/reactiongif",
+            dataset_config="default",
+            dataset_split="test",
         )
 
         metadata_update(
@@ -332,8 +341,12 @@ class RepocardUpdateTest(unittest.TestCase):
             metrics_pretty_name="Accuracy",
             metrics_id="accuracy",
             metrics_value=0.2662102282047272,
+            metrics_config="default",
+            metrics_verified=False,
             dataset_pretty_name="ReactionJPEG",
             dataset_id="julien-c/reactionjpeg",
+            dataset_config="default",
+            dataset_split="test",
         )
 
         metadata_update(

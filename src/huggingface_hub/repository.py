@@ -317,8 +317,9 @@ def _lfs_log_progress():
     if logger.getEffectiveLevel() >= logging.ERROR:
         try:
             yield
-        finally:
-            return
+        except Exception:
+            pass
+        return
 
     def output_progress(stopping_event: threading.Event):
         """
