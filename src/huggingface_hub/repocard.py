@@ -88,7 +88,7 @@ class RepoCard:
             filepath (`Union[Path, str]`): Filepath to the markdown file to save.
 
         Example:
-            >>> from huggingface_hub import RepoCard
+            >>> from huggingface_hub.repocard import RepoCard
             >>> card = RepoCard("---\nlanguage: en\n---\n# This is a test repo card")
             >>> card.save("/tmp/test.md")
         """
@@ -115,7 +115,7 @@ class RepoCard:
                 README.md file or filepath.
 
         Example:
-            >>> from huggingface_hub import RepoCard
+            >>> from huggingface_hub.repocard import RepoCard
             >>> card = RepoCard.load("nateraw/food")
             >>> assert card.data.tags == ["generated_from_trainer", "image-classification", "pytorch"]
         """
@@ -247,10 +247,10 @@ class RepoCard:
             template.
 
         Example:
-            >>> from huggingface_hub import ModelCard, CardData, EvalResult
+            >>> from huggingface_hub import ModelCard, ModelCardData, EvalResult
 
             >>> # Using the Default Template
-            >>> card_data = CardData(
+            >>> card_data = ModelCardData(
             ...     language='en',
             ...     license='mit',
             ...     library_name='timm',
@@ -264,7 +264,7 @@ class RepoCard:
             ... )
 
             >>> # Including Evaluation Results
-            >>> card_data = CardData(
+            >>> card_data = ModelCardData(
             ...     language='en',
             ...     tags=['image-classification', 'resnet'],
             ...     eval_results=[
@@ -281,13 +281,13 @@ class RepoCard:
             >>> card = ModelCard.from_template(card_data)
 
             >>> # Using a Custom Template
-            >>> card_data = CardData(
+            >>> card_data = ModelCardData(
             ...     language='en',
             ...     tags=['image-classification', 'resnet']
             ... )
             >>> card = ModelCard.from_template(
             ...     card_data=card_data,
-            ...     template_path='./src/huggingface_hub/modelcard_template.md',
+            ...     template_path='./src/huggingface_hub/templates/modelcard_template.md',
             ...     custom_template_var='custom value',  # will be replaced in template if it exists
             ... )
 
@@ -297,7 +297,7 @@ class RepoCard:
         else:
             raise ImportError(
                 "Using RepoCard.from_template requires Jinja2 to be installed. Please"
-                " install it with `pip install jinja2`."
+                " install it with `pip install Jinja2`."
             )
 
         template_path = template_path or cls.default_template_path
@@ -441,7 +441,7 @@ def metadata_eval_result(
 
     Example:
     >>> from huggingface_hub import metadata_eval_result
-    >>> metadata_eval_result(
+    >>> results = metadata_eval_result(
     ...         model_pretty_name="RoBERTa fine-tuned on ReactionGIF",
     ...         task_pretty_name="Text Classification",
     ...         task_id="text-classification",
@@ -452,37 +452,39 @@ def metadata_eval_result(
     ...         dataset_id="julien-c/reactionjpeg",
     ...         dataset_config="default",
     ...         dataset_split="test",
-    ...     )
-    {
-        "model-index": [
-            {
-                "name": "RoBERTa fine-tuned on ReactionGIF",
-                "results": [
-                    {
-                        "task": {
-                            "type": "text-classification",
-                            "name": "Text Classification",
-                        },
-                        "dataset": {
-                            "name": "ReactionJPEG",
-                            "type": "julien-c/reactionjpeg",
-                            "config": "default",
-                            "split": "test",
-                        },
-                        "metrics": [
-                            {
-                                "type": "accuracy",
-                                "value": 0.2662102282047272,
-                                "name": "Accuracy",
-                                "verified": False,
-                            }
-                        ],
-                    }
-                ],
-            }
-        ]
-    }
+    ... )
+    >>> results == {
+    ...     'model-index': [
+    ...         {
+    ...             'name': 'RoBERTa fine-tuned on ReactionGIF',
+    ...             'results': [
+    ...                 {
+    ...                     'task': {
+    ...                         'type': 'text-classification',
+    ...                         'name': 'Text Classification'
+    ...                     },
+    ...                     'dataset': {
+    ...                         'name': 'ReactionJPEG',
+    ...                         'type': 'julien-c/reactionjpeg',
+    ...                         'config': 'default',
+    ...                         'split': 'test'
+    ...                     },
+    ...                     'metrics': [
+    ...                         {
+    ...                             'type': 'accuracy',
+    ...                             'value': 0.2662102282047272,
+    ...                             'name': 'Accuracy',
+    ...                             'verified': False
+    ...                         }
+    ...                     ]
+    ...                 }
+    ...             ]
+    ...         }
+    ...     ]
+    ... }
+    True
     """
+
     return {
         "model-index": eval_results_to_model_index(
             model_name=model_pretty_name,
@@ -532,7 +534,7 @@ def metadata_update(
     ...                                        'value': 0.7762102282047272}],
     ...                          'task': {'name': 'Text Classification',
     ...                                   'type': 'text-classification'}}]}]}
-    >>> update_metdata("julien-c/reactiongif-roberta", metadata)
+    >>> url = metadata_update("julien-c/reactiongif-roberta", metadata)
 
     Args:
         repo_id (`str`):
