@@ -470,6 +470,14 @@ def _request_wrapper(
     return response
 
 
+def _request_with_retry(*args, **kwargs) -> requests.Response:
+    """Deprecated method. Please use `_request_wrapper` instead.
+
+    Alias to keep backward compatibility (used in Transformers).
+    """
+    return _request_wrapper(*args, **kwargs)
+
+
 def http_get(
     url: str,
     temp_file: BinaryIO,
