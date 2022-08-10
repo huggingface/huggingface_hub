@@ -11,8 +11,9 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-
+import os
 import unittest
+from tempfile import TemporaryDirectory
 
 from huggingface_hub.constants import (
     CONFIG_NAME,
@@ -37,6 +38,7 @@ from .testing_utils import (
     DUMMY_MODEL_ID_PINNED_SHA256,
     DUMMY_MODEL_ID_REVISION_INVALID,
     DUMMY_MODEL_ID_REVISION_ONE_SPECIFIC_COMMIT,
+    DUMMY_RENAMED_MODEL_ID,
     SAMPLE_DATASET_IDENTIFIER,
     OfflineSimulationMode,
     offline,
@@ -175,6 +177,34 @@ class CachedDownloadTests(unittest.TestCase):
             metadata,
             (url, '"95aa6a52d5d6a735563366753ca50492a658031da74f301ac5238b03966972c9"'),
         )
+
+    def test_download_from_a_renamed_repo_with_hf_hub_download(self):
+        """Checks `hf_hub_download` works also on a renamed repo.
+
+        Regression test for #981.
+        https://github.com/huggingface/huggingface_hub/issues/981
+        """
+        with TemporaryDirectory() as tmpdir:
+            filepath = hf_hub_download(
+                DUMMY_RENAMED_MODEL_ID, "config.json", cache_dir=tmpdir
+            )
+            self.assertTrue(os.path.exists(filepath))
+
+    def test_download_from_a_renamed_repo_with_cached_download(self):
+        """Checks `cached_download` works also on a renamed repo.
+
+        Regression test for #981.
+        https://github.com/huggingface/huggingface_hub/issues/981
+        """
+        with TemporaryDirectory() as tmpdir:
+            filepath = cached_download(
+                hf_hub_url(
+                    DUMMY_RENAMED_MODEL_ID,
+                    filename="config.json",
+                ),
+                cache_dir=tmpdir,
+            )
+            self.assertTrue(os.path.exists(filepath))
 
     def test_hf_hub_download_legacy(self):
         filepath = hf_hub_download(
