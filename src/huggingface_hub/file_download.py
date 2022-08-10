@@ -1190,9 +1190,20 @@ def hf_hub_download(
     return pointer_path
 
 
-def try_to_load_from_cache(cache_dir, repo_id, filename, revision=None, repo_type=None):
+def try_to_load_from_cache(
+    repo_id: str,
+    filename: str,
+    cache_dir: Union[str, Path, None] = None,
+    revision: Optional[str] = None,
+    repo_type: Optional[str] = None,
+) -> Optional[str]:
     """
-    Explores the cache to return the latest cached file for a given revision.
+    Explores the cache to return the latest cached file for a given revision if found.
+    
+    This function will not raise any exception if the file in not cached.
+    
+    Returns:
+        Local path (string) of file or `None` if no cached file is found.
     """
     if revision is None:
         revision = "main"
