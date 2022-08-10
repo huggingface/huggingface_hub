@@ -217,4 +217,9 @@ def snapshot_download(
             use_auth_token=use_auth_token,
         )
 
+    # Mark the repo is complete
+    complete_path = os.path.join(storage_folder, ".complete")
+    os.makedirs(os.path.dirname(complete_path), exist_ok=True)
+    (Path(complete_path) / commit_hash).touch()
+
     return snapshot_folder

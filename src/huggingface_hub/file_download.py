@@ -34,7 +34,8 @@ from .constants import (
 )
 from .hf_api import HfFolder
 from .utils import logging, tqdm
-from .utils._errors import LocalEntryNotFoundError, _raise_for_status
+from .utils._errors import EntryNotFoundError, LocalEntryNotFoundError, _raise_for_status
+
 
 
 logger = logging.get_logger(__name__)
@@ -1019,7 +1020,19 @@ def hf_hub_download(
                 proxies=proxies,
                 timeout=etag_timeout,
             )
-            _raise_for_status(r)
+            try:
+                _raise_for_status(r)
+            except EntryNotFoundError:
+                print("Error intercepted")
+                commit_hash = r.headers.get(HUGGINGFACE_HEADER_X_REPO_COMMIT)
+                if commit_hash is not None and not legacy_cache_layout:
+                    no_exist_path = os.path.join(
+                        storage_folder, ".no_exist", commit_hash
+                    )
+                    os.makedirs(no_exist_path, exist_ok=True)
+                    print(f"Making folder {no_exist_path}")
+                    (Path(no_exist_path) / relative_filename).touch()
+                raise
             commit_hash = r.headers[HUGGINGFACE_HEADER_X_REPO_COMMIT]
             if commit_hash is None:
                 raise OSError(
