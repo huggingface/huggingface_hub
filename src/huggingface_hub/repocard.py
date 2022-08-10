@@ -11,10 +11,9 @@ if sys.version_info >= (3, 8):
 else:
     from typing_extensions import Literal
 
-import jinja2
 import requests
 import yaml
-from huggingface_hub.file_download import hf_hub_download
+from huggingface_hub.file_download import hf_hub_download, is_jinja_available
 from huggingface_hub.hf_api import upload_file
 from huggingface_hub.repocard_data import (
     CardData,
@@ -28,6 +27,9 @@ from huggingface_hub.repocard_data import (
 from .constants import REPOCARD_NAME
 from .utils.logging import get_logger
 
+
+if is_jinja_available():
+    import jinja2
 
 # exact same regex as in the Hub server. Please keep in sync.
 TEMPLATE_MODELCARD_PATH = Path(__file__).parent / "templates" / "modelcard_template.md"
@@ -293,6 +295,14 @@ class RepoCard:
             ... )
 
         """
+        if is_jinja_available():
+            import jinja2
+        else:
+            raise ImportError(
+                "Using RepoCard.from_template requires Jinja2 to be installed. Please"
+                " install it with `pip install jinja2`."
+            )
+
         template_path = template_path or cls.default_template_path
         content = jinja2.Template(Path(template_path).read_text()).render(
             card_data=card_data.to_yaml(), **template_kwargs
