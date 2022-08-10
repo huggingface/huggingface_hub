@@ -28,9 +28,6 @@ from .constants import REPOCARD_NAME
 from .utils.logging import get_logger
 
 
-if is_jinja_available():
-    import jinja2
-
 # exact same regex as in the Hub server. Please keep in sync.
 TEMPLATE_MODELCARD_PATH = Path(__file__).parent / "templates" / "modelcard_template.md"
 TEMPLATE_DATASETCARD_PATH = (
