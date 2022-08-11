@@ -35,7 +35,7 @@ from .constants import (
 )
 from .hf_api import HfFolder
 from .utils import logging
-from .utils._errors import _raise_for_status
+from .utils._errors import LocalEntryNotFoundError, _raise_for_status
 
 
 logger = logging.get_logger(__name__)
@@ -553,6 +553,8 @@ def cached_download(
           If the revision to download from cannot be found.
         - [`~huggingface_hub.utils.EntryNotFoundError`]
           If the file to download cannot be found.
+        - [`~huggingface_hub.utils.LocalEntryNotFoundError`]
+          If network is disabled or unavailable and file is not found in cache.
 
     </Tip>
     """
@@ -659,13 +661,13 @@ def cached_download(
                 # the models might've been found if local_files_only=False
                 # Notify the user about that
                 if local_files_only:
-                    raise ValueError(
+                    raise LocalEntryNotFoundError(
                         "Cannot find the requested files in the cached path and"
                         " outgoing traffic has been disabled. To enable model look-ups"
                         " and downloads online, set 'local_files_only' to False."
                     )
                 else:
-                    raise ValueError(
+                    raise LocalEntryNotFoundError(
                         "Connection error, and we cannot find the requested files in"
                         " the cached path. Please try again or make sure your Internet"
                         " connection is on."
@@ -911,6 +913,8 @@ def hf_hub_download(
           If the revision to download from cannot be found.
         - [`~huggingface_hub.utils.EntryNotFoundError`]
           If the file to download cannot be found.
+        - [`~huggingface_hub.utils.LocalEntryNotFoundError`]
+          If network is disabled or unavailable and file is not found in cache.
 
     </Tip>
     """
@@ -1089,13 +1093,13 @@ def hf_hub_download(
         # the models might've been found if local_files_only=False
         # Notify the user about that
         if local_files_only:
-            raise ValueError(
+            raise LocalEntryNotFoundError(
                 "Cannot find the requested files in the disk cache and"
                 " outgoing traffic has been disabled. To enable hf.co look-ups"
                 " and downloads online, set 'local_files_only' to False."
             )
         else:
-            raise ValueError(
+            raise LocalEntryNotFoundError(
                 "Connection error, and we cannot find the requested files in"
                 " the disk cache. Please try again or make sure your Internet"
                 " connection is on."
