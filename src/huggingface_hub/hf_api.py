@@ -2209,7 +2209,7 @@ class HfApi:
         *,
         repo_id: str,
         folder_path: str,
-        path_in_repo: str,
+        path_in_repo: Optional[str] = None,
         commit_message: Optional[str] = None,
         commit_description: Optional[str] = None,
         token: Optional[str] = None,
@@ -2234,9 +2234,9 @@ class HfApi:
                 `"username/custom_transformers"`
             folder_path (`str`):
                 Path to the folder to upload on the local file system
-            path_in_repo (`str`):
+            path_in_repo (`str`, *optional*):
                 Relative path of the directory in the repo, for example:
-                `"checkpoints/1fec34a/results"`
+                `"checkpoints/1fec34a/results"`. Will default to the root directory.
             token (`str`, *optional*):
                 Authentication token, obtained with `HfApi.login` method. Will
                 default to the stored token.
@@ -2303,6 +2303,10 @@ class HfApi:
         """
         if repo_type not in REPO_TYPES:
             raise ValueError(f"Invalid repo type, must be one of {REPO_TYPES}")
+
+        # By default, upload folder to the root directory in repo.
+        if path_in_repo is None:
+            path_in_repo = ""
 
         commit_message = (
             commit_message
