@@ -52,7 +52,7 @@ Example:
        do_something()
     ```
 """
-from tqdm.auto import tqdm as _tqdm
+from tqdm.auto import tqdm as old_tqdm
 
 from ..constants import HF_HUB_DISABLE_PROGRESS_BARS
 
