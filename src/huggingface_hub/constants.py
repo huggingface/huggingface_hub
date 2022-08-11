@@ -7,6 +7,12 @@ import re
 ENV_VARS_TRUE_VALUES = {"1", "ON", "YES", "TRUE"}
 ENV_VARS_TRUE_AND_AUTO_VALUES = ENV_VARS_TRUE_VALUES.union({"AUTO"})
 
+def _is_true(value:str)->bool:
+    return value.upper() in ENV_VARS_TRUE_VALUES
+
+def _is_true_or_auto(value:str)->bool:
+    return value.upper() in ENV_VARS_TRUE_AND_AUTO_VALUES
+
 # Constants for file downloads
 
 PYTORCH_WEIGHTS_NAME = "pytorch_model.bin"
@@ -23,10 +29,7 @@ REGEX_COMMIT_OID = re.compile(r"[A-Fa-f0-9]{5,40}")
 
 HUGGINGFACE_CO_URL_HOME = "https://huggingface.co/"
 
-ENV_VARS_TRUE_VALUES = {"1", "ON", "YES", "TRUE"}
-_staging_mode = (
-    os.environ.get("HUGGINGFACE_CO_STAGING", "NO").upper() in ENV_VARS_TRUE_VALUES
-)
+_staging_mode = _is_true(os.environ.get("HUGGINGFACE_CO_STAGING"))
 
 ENDPOINT = os.getenv("HF_ENDPOINT") or (
     "https://hub-ci.huggingface.co" if _staging_mode else "https://huggingface.co"
@@ -68,8 +71,6 @@ default_cache_path = os.path.join(hf_cache_home, "hub")
 
 HUGGINGFACE_HUB_CACHE = os.getenv("HUGGINGFACE_HUB_CACHE", default_cache_path)
 
-HF_HUB_OFFLINE = os.environ.get("HF_HUB_OFFLINE", "AUTO").upper()
-if HF_HUB_OFFLINE in ENV_VARS_TRUE_VALUES:
-    HF_HUB_OFFLINE = True
-else:
-    HF_HUB_OFFLINE = False
+HF_HUB_OFFLINE = _is_true(os.environ.get("HF_HUB_OFFLINE"))
+
+HF_HUB_DISABLE_PROGRESS_BARS = _is_true(os.environ.get("HF_HUB_DISABLE_PROGRESS_BARS"))
