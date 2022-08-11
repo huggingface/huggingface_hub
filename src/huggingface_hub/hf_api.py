@@ -44,6 +44,7 @@ from .community import (
 from .constants import (
     DEFAULT_REVISION,
     ENDPOINT,
+    REGEX_COMMIT_OID,
     REPO_TYPE_MODEL,
     REPO_TYPES,
     REPO_TYPES_MAPPING,
@@ -1904,6 +1905,7 @@ class HfApi:
         revision: Optional[str] = None,
         create_pr: Optional[bool] = None,
         num_threads: int = 5,
+        parent_commit: Optional[str] = None,
     ) -> Optional[str]:
         """
         Creates a commit in the given repo, deleting & uploading files as needed.
@@ -1913,11 +1915,11 @@ class HfApi:
                 The repository in which the commit will be created, for example:
                 `"username/custom_transformers"`
 
-            operations (`Iterable` of `CommitOperation`):
+            operations (`Iterable` of [`~huggingface_hub.hf_api.CommitOperation`]):
                 An iterable of operations to include in the commit, either:
 
-                    - `CommitOperationAdd` to upload a file
-                    - `CommitOperationDelete` to delete a file
+                    - [`~huggingface_hub.hf_api.CommitOperationAdd`] to upload a file
+                    - [`~huggingface_hub.hf_api.CommitOperationDelete`] to delete a file
 
             commit_message (`str`):
                 The summary (first line) of the commit that will be created.
@@ -1947,7 +1949,13 @@ class HfApi:
                 Number of concurrent threads for uploading files. Defaults to 5.
                 Setting it to 2 means at most 2 files will be uploaded concurrently.
 
-        Raises: `ValueError` if `create_pr` is `True` and revision is neither `None` nor `"main"`
+            parent_commit (`str`, *optional*):
+                The OID / SHA of the parent commit, as a hexadecimal string.
+                Shorthands (7 first characters) are also supported.If specified and `create_pr` is `False`,
+                the commit will fail if `revision` does not point to `parent_commit`. If specified and `create_pr`
+                is `True`, the pull request will be created from `parent_commit`. Specifying `parent_commit`
+                ensures the repo has not changed before committing the changes, and can be especially useful
+                if the repo is updated / committed to concurrently.
 
         Returns:
             `str` or `None`:
@@ -1956,10 +1964,23 @@ class HfApi:
 
         Raises:
             :class:`ValueError`:
+                If commit message is empty.
+            :class:`ValueError`:
+                If parent commit is not a valid commit OID.
+            :class:`ValueError`:
                 If the Hub API returns an HTTP 400 error (bad request)
+            :class:`ValueError`:
+                If `create_pr` is `True` and revision is neither `None` nor `"main"`.
         """
+        if parent_commit is not None and not REGEX_COMMIT_OID.fullmatch(parent_commit):
+            raise ValueError(
+                "`parent_commit` is not a valid commit OID. It must match the following"
+                f" regex: {REGEX_COMMIT_OID}"
+            )
+
         if commit_message is None or len(commit_message) == 0:
             raise ValueError("`commit_message` can't be empty, please pass a value.")
+
         commit_description = (
             commit_description if commit_description is not None else ""
         )
@@ -2014,6 +2035,7 @@ class HfApi:
             deletions=deletions,
             commit_message=commit_message,
             commit_description=commit_description,
+            parent_commit=parent_commit,
         )
         commit_url = f"{self.endpoint}/api/{repo_type}s/{repo_id}/commit/{revision}"
 
@@ -2039,6 +2061,7 @@ class HfApi:
         commit_message: Optional[str] = None,
         commit_description: Optional[str] = None,
         create_pr: Optional[bool] = None,
+        parent_commit: Optional[str] = None,
     ) -> str:
         """
         Upload a local file (up to 50 GB) to the given repo. The upload is done
@@ -2075,6 +2098,13 @@ class HfApi:
             create_pr (`boolean`, *optional*):
                 Whether or not to create a Pull Request from `revision` with that commit.
                 Defaults to `False`.
+            parent_commit (`str`, *optional*):
+                The OID / SHA of the parent commit, as a hexadecimal string. Shorthands (7 first characters) are also supported.
+                If specified and `create_pr` is `False`, the commit will fail if `revision` does not point to `parent_commit`.
+                If specified and `create_pr` is `True`, the pull request will be created from `parent_commit`.
+                Specifying `parent_commit` ensures the repo has not changed before committing the changes, and can be
+                especially useful if the repo is updated / committed to concurrently.
+
 
         Returns:
             `str`: The URL to visualize the uploaded file on the hub
@@ -2157,6 +2187,7 @@ class HfApi:
             token=token,
             revision=revision,
             create_pr=create_pr,
+            parent_commit=parent_commit,
         )
         if pr_url is not None:
             re_match = re.match(REGEX_DISCUSSION_URL, pr_url)
@@ -2185,6 +2216,7 @@ class HfApi:
         repo_type: Optional[str] = None,
         revision: Optional[str] = None,
         create_pr: Optional[bool] = None,
+        parent_commit: Optional[str] = None,
     ):
         """
         Upload a local folder to the given repo. The upload is done
@@ -2223,6 +2255,13 @@ class HfApi:
             create_pr (`boolean`, *optional*):
                 Whether or not to create a Pull Request from the pushed changes. Defaults
                 to `False`.
+            parent_commit (`str`, *optional*):
+                The OID / SHA of the parent commit, as a hexadecimal string. Shorthands (7 first characters) are also supported.
+                If specified and `create_pr` is `False`, the commit will fail if `revision` does not point to `parent_commit`.
+                If specified and `create_pr` is `True`, the pull request will be created from `parent_commit`.
+                Specifying `parent_commit` ensures the repo has not changed before committing the changes, and can be
+                especially useful if the repo is updated / committed to concurrently.
+
 
         Returns:
             `str`: A URL to visualize the uploaded folder on the hub
@@ -2299,6 +2338,7 @@ class HfApi:
             token=token,
             revision=revision,
             create_pr=create_pr,
+            parent_commit=parent_commit,
         )
 
         if pr_url is not None:
@@ -2328,6 +2368,7 @@ class HfApi:
         commit_message: Optional[str] = None,
         commit_description: Optional[str] = None,
         create_pr: Optional[bool] = None,
+        parent_commit: Optional[str] = None,
     ):
         """
         Deletes a file in the given repo.
@@ -2356,6 +2397,13 @@ class HfApi:
             create_pr (`boolean`, *optional*):
                 Whether or not to create a Pull Request from `revision` with the changes.
                 Defaults to `False`.
+            parent_commit (`str`, *optional*):
+                The OID / SHA of the parent commit, as a hexadecimal string. Shorthands (7 first characters) are also supported.
+                If specified and `create_pr` is `False`, the commit will fail if `revision` does not point to `parent_commit`.
+                If specified and `create_pr` is `True`, the pull request will be created from `parent_commit`.
+                Specifying `parent_commit` ensures the repo has not changed before committing the changes, and can be
+                especially useful if the repo is updated / committed to concurrently.
+
 
         <Tip>
 
@@ -2393,6 +2441,7 @@ class HfApi:
             commit_message=commit_message,
             commit_description=commit_description,
             create_pr=create_pr,
+            parent_commit=parent_commit,
         )
 
     def get_full_repo_name(

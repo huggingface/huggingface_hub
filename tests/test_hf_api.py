@@ -836,6 +836,41 @@ class CommitApiTest(HfApiCommonTestWithLogin):
                 finally:
                     self._api.delete_repo(repo_id=REPO_NAME, token=self._token)
 
+    @retry_endpoint
+    def test_create_commit_conflict(self):
+        REPO_NAME = repo_name("create_commit_conflict")
+        self._api.create_repo(
+            token=self._token,
+            repo_id=REPO_NAME,
+            exist_ok=False,
+        )
+        parent_commit = self._api.model_info(f"{USER}/{REPO_NAME}").sha
+        try:
+            self._api.upload_file(
+                path_or_fileobj=self.tmp_file,
+                path_in_repo="temp/new_file.md",
+                repo_id=f"{USER}/{REPO_NAME}",
+                token=self._token,
+            )
+            operations = [
+                CommitOperationAdd(
+                    path_in_repo="buffer", path_or_fileobj=b"Buffer data"
+                ),
+            ]
+            with self.assertRaises(HTTPError) as exc_ctx:
+                self._api.create_commit(
+                    operations=operations,
+                    commit_message="Test create_commit",
+                    repo_id=f"{USER}/{REPO_NAME}",
+                    token=self._token,
+                    parent_commit=parent_commit,
+                )
+            self.assertEqual(exc_ctx.exception.response.status_code, 412)
+        except Exception as err:
+            self.fail(err)
+        finally:
+            self._api.delete_repo(repo_id=REPO_NAME, token=self._token)
+
 
 class HfApiPublicTest(unittest.TestCase):
     def test_staging_list_models(self):
