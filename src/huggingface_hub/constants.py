@@ -7,11 +7,14 @@ import re
 ENV_VARS_TRUE_VALUES = {"1", "ON", "YES", "TRUE"}
 ENV_VARS_TRUE_AND_AUTO_VALUES = ENV_VARS_TRUE_VALUES.union({"AUTO"})
 
-def _is_true(value:str)->bool:
+
+def _is_true(value: str) -> bool:
     return value.upper() in ENV_VARS_TRUE_VALUES
 
-def _is_true_or_auto(value:str)->bool:
+
+def _is_true_or_auto(value: str) -> bool:
     return value.upper() in ENV_VARS_TRUE_AND_AUTO_VALUES
+
 
 # Constants for file downloads
 
