@@ -34,7 +34,11 @@ from .constants import (
 )
 from .hf_api import HfFolder
 from .utils import logging, tqdm
-from .utils._errors import EntryNotFoundError, LocalEntryNotFoundError, _raise_for_status
+from .utils._errors import (
+    EntryNotFoundError,
+    LocalEntryNotFoundError,
+    _raise_for_status,
+)
 
 
 
