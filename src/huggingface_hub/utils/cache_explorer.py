@@ -8,10 +8,11 @@ from ..constants import HUGGINGFACE_HUB_CACHE
 @dataclass
 class CachedFileInfo:
     """Information about a single file.
-    
+
     The file path is a symlink existing in the `snapshots` folder and referring to a
     blob in the `blobs` folder.
     """
+
     file_name: str
     file_path: Path
     size_on_disk: int
@@ -24,14 +25,15 @@ class CachedFileInfo:
 
 @dataclass
 class CachedRevisionInfo:
-    """Information about a revision (a snapshot).
+    r"""Information about a revision (a snapshot).
 
     A revision can be either referenced by 1 or more `refs` or be "detached" (no refs).
-    
+
     /!\ `size_on_disk` is not necesarily the sum of all file sizes because of possible
         duplicated files. Also only blobs are taken into account, not the (neglectable)
         size of folders and symlinks.
-    """    
+    """
+
     commit_hash: str
     size_on_disk: int
     files: List[CachedFileInfo]  # sorted by name
@@ -48,12 +50,13 @@ class CachedRevisionInfo:
 
 @dataclass
 class CachedRepoInfo:
-    """Information about a cached repository (dataset or model).
+    r"""Information about a cached repository (dataset or model).
 
     /!\ `size_on_disk` is not necesarily the sum of all revisions sizes because of
         duplicated files. Also only blobs are taken into account, not the (neglectable)
         size of folders and symlinks.
     """
+
     repo_id: str
     repo_type: Literal["model", "dataset"]
     repo_path: Path
@@ -69,10 +72,11 @@ class CachedRepoInfo:
 
 @dataclass
 class HFCacheInfo:
-    """Information about the entire cache repository.
-    
+    r"""Information about the entire cache repository.
+
     /!\ Here `size_on_disk` is equal to the sum of all repo sizes (only blobs).
     """
+
     datasets: List[CachedRepoInfo]
     models: List[CachedRepoInfo]
     size_on_disk: int
@@ -117,7 +121,7 @@ def scan_cache_dir(
 
 def _scan_cached_repo(repo_path: Path) -> Optional[CachedRepoInfo]:
     """Scan a single cache repo and return information about it.
-    
+
     Any unexpected behavior will raise a `CorruptedCacheException`.
     """
     if not repo_path.is_dir():
