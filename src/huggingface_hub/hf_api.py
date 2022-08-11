@@ -2236,7 +2236,7 @@ class HfApi:
                 Path to the folder to upload on the local file system
             path_in_repo (`str`, *optional*):
                 Relative path of the directory in the repo, for example:
-                `"checkpoints/1fec34a/results"`. Will default to the root of the repository.
+                `"checkpoints/1fec34a/results"`. Will default to the root folder of the repository.
             token (`str`, *optional*):
                 Authentication token, obtained with `HfApi.login` method. Will
                 default to the stored token.
