@@ -710,7 +710,7 @@ class CommitApiTest(HfApiCommonTestWithLogin):
 
     @retry_endpoint
     def test_upload_folder_default_path_in_repo(self):
-        REPO_NAME = repo_name(f"upload_folder_to_root")
+        REPO_NAME = repo_name("upload_folder_to_root")
         self._api.create_repo(
             token=self._token,
             repo_id=REPO_NAME,
