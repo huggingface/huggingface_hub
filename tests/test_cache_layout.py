@@ -121,84 +121,50 @@ class CacheFileLayoutHfHubDownload(unittest.TestCase):
             self.assertEqual(blob_contents, "File 0")
 
     def test_no_exist_file_is_cached(self):
-        with tempfile.TemporaryDirectory() as cache:
-            filename = "this_does_not_exist.txt"
-            with self.assertRaises(EntryNotFoundError):
-                # The file does not exist, so we get an exception.
-                hf_hub_download(MODEL_IDENTIFIER, filename, cache_dir=cache)
+        revisions = [None, "file-2"]
+        expected_references = ["main", "file-2"]
+        for revision, expected_reference in zip(revisions, expected_references):
+            with self.subTest(revision), tempfile.TemporaryDirectory() as cache:
+                filename = "this_does_not_exist.txt"
+                with self.assertRaises(EntryNotFoundError):
+                    # The file does not exist, so we get an exception.
+                    hf_hub_download(
+                        MODEL_IDENTIFIER, filename, cache_dir=cache, revision=revision
+                    )
 
-            expected_directory_name = f'models--{MODEL_IDENTIFIER.replace("/", "--")}'
-            expected_path = os.path.join(cache, expected_directory_name)
+                expected_directory_name = (
+                    f'models--{MODEL_IDENTIFIER.replace("/", "--")}'
+                )
+                expected_path = os.path.join(cache, expected_directory_name)
 
-            refs = os.listdir(os.path.join(expected_path, "refs"))
-            no_exist_snapshots = os.listdir(os.path.join(expected_path, ".no_exist"))
-
-            expected_reference = "main"
-
-            # Only reference should be `main`.
-            self.assertListEqual(refs, [expected_reference])
-
-            with open(os.path.join(expected_path, "refs", expected_reference)) as f:
-                snapshot_name = f.readline().strip()
-
-            # The `main` reference should point to the only snapshot we have downloaded
-            self.assertListEqual(no_exist_snapshots, [snapshot_name])
-
-            no_exist_path = os.path.join(expected_path, ".no_exist", snapshot_name)
-            no_exist_content = os.listdir(no_exist_path)
-
-            # Only a single file in the no_exist snapshot
-            self.assertEqual(len(no_exist_content), 1)
-
-            # The no_exist content should be our file
-            self.assertEqual(no_exist_content[0], filename)
-
-            with open(os.path.join(no_exist_path, filename)) as f:
-                content = f.read().strip()
-
-            # The contents of the file should be empty.
-            self.assertEqual(content, "")
-
-    def test_no_exist_file_is_cached_with_revision(self):
-        with tempfile.TemporaryDirectory() as cache:
-            filename = "this_does_not_exist.txt"
-            with self.assertRaises(EntryNotFoundError):
-                # The file does not exist, so we get an exception.
-                hf_hub_download(
-                    MODEL_IDENTIFIER, filename, cache_dir=cache, revision="file-2"
+                refs = os.listdir(os.path.join(expected_path, "refs"))
+                no_exist_snapshots = os.listdir(
+                    os.path.join(expected_path, ".no_exist")
                 )
 
-            expected_directory_name = f'models--{MODEL_IDENTIFIER.replace("/", "--")}'
-            expected_path = os.path.join(cache, expected_directory_name)
+                # Only reference should be `main`.
+                self.assertListEqual(refs, [expected_reference])
 
-            refs = os.listdir(os.path.join(expected_path, "refs"))
-            no_exist_snapshots = os.listdir(os.path.join(expected_path, ".no_exist"))
+                with open(os.path.join(expected_path, "refs", expected_reference)) as f:
+                    snapshot_name = f.readline().strip()
 
-            expected_reference = "file-2"
+                # The `main` reference should point to the only snapshot we have downloaded
+                self.assertListEqual(no_exist_snapshots, [snapshot_name])
 
-            # Only reference should be `file-2`.
-            self.assertListEqual(refs, [expected_reference])
+                no_exist_path = os.path.join(expected_path, ".no_exist", snapshot_name)
+                no_exist_content = os.listdir(no_exist_path)
 
-            with open(os.path.join(expected_path, "refs", expected_reference)) as f:
-                snapshot_name = f.readline().strip()
+                # Only a single file in the no_exist snapshot
+                self.assertEqual(len(no_exist_content), 1)
 
-            # The `main` reference should point to the only snapshot we have downloaded
-            self.assertListEqual(no_exist_snapshots, [snapshot_name])
+                # The no_exist content should be our file
+                self.assertEqual(no_exist_content[0], filename)
 
-            no_exist_path = os.path.join(expected_path, ".no_exist", snapshot_name)
-            no_exist_content = os.listdir(no_exist_path)
+                with open(os.path.join(no_exist_path, filename)) as f:
+                    content = f.read().strip()
 
-            # Only a single file in the no_exist snapshot
-            self.assertEqual(len(no_exist_content), 1)
-
-            # The no_exist content should be our file
-            self.assertEqual(no_exist_content[0], filename)
-
-            with open(os.path.join(no_exist_path, filename)) as f:
-                content = f.read().strip()
-
-            # The contents of the file should be empty.
-            self.assertEqual(content, "")
+                # The contents of the file should be empty.
+                self.assertEqual(content, "")
 
     def test_file_download_happens_once(self):
         # Tests that a file is only downloaded once if it's not updated.
