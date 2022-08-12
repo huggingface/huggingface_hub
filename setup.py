@@ -37,6 +37,7 @@ extras["tensorflow"] = ["tensorflow", "pydot", "graphviz"]
 
 extras["testing"] = [
     "pytest",
+    "pytest-xdist",
     "datasets",
     "soundfile",
 ]
