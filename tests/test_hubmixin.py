@@ -73,7 +73,6 @@ class HubMixingTest(HubMixingCommonTest):
         """
         cls._token = TOKEN
         cls._api.set_access_token(TOKEN)
-        raise Exception("that's normal")
 
     def test_save_pretrained(self):
         REPO_NAME = repo_name("save")

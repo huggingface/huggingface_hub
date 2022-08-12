@@ -42,11 +42,12 @@ jobs:
       - run: |
           if [[ "${{ matrix.test_repository }}" == "Repository only" ]]
           then
-            pytest --log-cli-level=INFO -sv ./tests/test_repository.py -k RepositoryTest
-
+            python -m pytest --log-cli-level=INFO -sv ../tests/test_repository.py -k RepositoryTest --cov=./huggingface_hub
           else
-            pytest --log-cli-level=INFO -sv ./tests/ -k 'not RepositoryTest'
+            python -m pytest --log-cli-level=INFO -sv ../tests/ -k 'not RepositoryTest' --cov=./huggingface_hub
           fi
+        working-directory: ./src
+
 
   build_pytorch:
     runs-on: ubuntu-latest
@@ -90,9 +91,11 @@ jobs:
         pip install --upgrade pip
         pip install .[testing,tensorflow]
 
-    - run: pytest -sv ./tests/test_tf*
+    - run: python -m pytest -sv ../tests/test_tf* --cov=./huggingface_hub
+      working-directory: ./src
 
-    - run: pytest -sv ./tests/test_keras*
+    - run: python -m pytest -sv ../tests/test_keras* --cov=./huggingface_hub
+      working-directory: ./src
 
   build_fastai:
     runs-on: ubuntu-latest
@@ -113,7 +116,7 @@ jobs:
         pip install --upgrade pip
         pip install .[testing,fastai]
 
-    - run: pytest -sv ../tests/test_fastai* --cov=./huggingface_hub
+    - run: python -m pytest -sv ../tests/test_fastai* --cov=./huggingface_hub
       working-directory: ./src
 
   tests_lfs:
@@ -136,4 +139,5 @@ jobs:
         pip install --upgrade pip
         pip install .[testing]
 
-    - run: RUN_GIT_LFS_TESTS=1 pytest -sv ./tests/ -k "HfLargefilesTest"
+    - run: RUN_GIT_LFS_TESTS=1 python -m pytest -sv ../tests/ -k "HfLargefilesTest" --cov=./huggingface_hub
+      working-directory: ./src
