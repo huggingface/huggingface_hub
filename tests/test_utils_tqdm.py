@@ -4,13 +4,13 @@ from unittest.mock import patch
 import pytest
 from pytest import CaptureFixture
 
-import huggingface_hub
 from huggingface_hub.utils import (
     are_progress_bars_disabled,
     disable_progress_bars,
     enable_progress_bars,
     tqdm,
 )
+
 
 class TestTqdmUtils(unittest.TestCase):
     @pytest.fixture(autouse=True)
@@ -56,7 +56,7 @@ class TestTqdmUtils(unittest.TestCase):
 
         with self.assertWarns(UserWarning):
             enable_progress_bars()
-        self.assertTrue(are_progress_bars_disabled()) # Still disabled !
+        self.assertTrue(are_progress_bars_disabled())  # Still disabled !
 
     @patch("huggingface_hub.utils._tqdm.HF_HUB_DISABLE_PROGRESS_BARS", False)
     def test_cannot_disable_tqdm_when_env_variable_is_set(self) -> None:
@@ -69,7 +69,7 @@ class TestTqdmUtils(unittest.TestCase):
 
         with self.assertWarns(UserWarning):
             disable_progress_bars()
-        self.assertFalse(are_progress_bars_disabled()) # Still enabled !
+        self.assertFalse(are_progress_bars_disabled())  # Still enabled !
 
     @patch("huggingface_hub.utils._tqdm.HF_HUB_DISABLE_PROGRESS_BARS", None)
     def test_tqdm_disabled(self) -> None:
