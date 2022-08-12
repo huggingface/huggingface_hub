@@ -1,15 +1,16 @@
 import unittest
+from unittest.mock import patch
 
 import pytest
 from pytest import CaptureFixture
 
+import huggingface_hub
 from huggingface_hub.utils import (
     are_progress_bars_disabled,
     disable_progress_bars,
     enable_progress_bars,
     tqdm,
 )
-
 
 class TestTqdmUtils(unittest.TestCase):
     @pytest.fixture(autouse=True)
@@ -35,6 +36,7 @@ class TestTqdmUtils(unittest.TestCase):
         else:
             enable_progress_bars()
 
+    @patch("huggingface_hub.utils._tqdm.HF_HUB_DISABLE_PROGRESS_BARS", None)
     def test_tqdm_helpers(self) -> None:
         """Test helpers to enable/disable progress bars."""
         disable_progress_bars()
@@ -43,6 +45,33 @@ class TestTqdmUtils(unittest.TestCase):
         enable_progress_bars()
         self.assertFalse(are_progress_bars_disabled())
 
+    @patch("huggingface_hub.utils._tqdm.HF_HUB_DISABLE_PROGRESS_BARS", True)
+    def test_cannot_enable_tqdm_when_env_variable_is_set(self) -> None:
+        """
+        Test helpers cannot enable/disable progress bars when
+        `HF_HUB_DISABLE_PROGRESS_BARS` is set.
+        """
+        disable_progress_bars()
+        self.assertTrue(are_progress_bars_disabled())
+
+        with self.assertWarns(UserWarning):
+            enable_progress_bars()
+        self.assertTrue(are_progress_bars_disabled()) # Still disabled !
+
+    @patch("huggingface_hub.utils._tqdm.HF_HUB_DISABLE_PROGRESS_BARS", False)
+    def test_cannot_disable_tqdm_when_env_variable_is_set(self) -> None:
+        """
+        Test helpers cannot enable/disable progress bars when
+        `HF_HUB_DISABLE_PROGRESS_BARS` is set.
+        """
+        enable_progress_bars()
+        self.assertFalse(are_progress_bars_disabled())
+
+        with self.assertWarns(UserWarning):
+            disable_progress_bars()
+        self.assertFalse(are_progress_bars_disabled()) # Still enabled !
+
+    @patch("huggingface_hub.utils._tqdm.HF_HUB_DISABLE_PROGRESS_BARS", None)
     def test_tqdm_disabled(self) -> None:
         """Test TQDM not outputing anything when globally disabled."""
         disable_progress_bars()
@@ -53,6 +82,7 @@ class TestTqdmUtils(unittest.TestCase):
         self.assertEqual(captured.out, "")
         self.assertEqual(captured.err, "")
 
+    @patch("huggingface_hub.utils._tqdm.HF_HUB_DISABLE_PROGRESS_BARS", None)
     def test_tqdm_disabled_cannot_be_forced(self) -> None:
         """Test TQDM cannot be forced when globally disabled."""
         disable_progress_bars()
@@ -63,6 +93,7 @@ class TestTqdmUtils(unittest.TestCase):
         self.assertEqual(captured.out, "")
         self.assertEqual(captured.err, "")
 
+    @patch("huggingface_hub.utils._tqdm.HF_HUB_DISABLE_PROGRESS_BARS", None)
     def test_tqdm_can_be_disabled_when_globally_enabled(self) -> None:
         """Test TQDM can still be locally disabled even when globally enabled."""
         enable_progress_bars()
@@ -73,6 +104,7 @@ class TestTqdmUtils(unittest.TestCase):
         self.assertEqual(captured.out, "")
         self.assertEqual(captured.err, "")
 
+    @patch("huggingface_hub.utils._tqdm.HF_HUB_DISABLE_PROGRESS_BARS", None)
     def test_tqdm_enabled(self) -> None:
         """Test TQDM work normally when globally enabled."""
         enable_progress_bars()

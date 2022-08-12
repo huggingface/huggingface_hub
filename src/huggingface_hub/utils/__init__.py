@@ -15,6 +15,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License
 
+from . import tqdm as _tqdm  # _tqdm is the module
 from ._errors import (
     EntryNotFoundError,
     LocalEntryNotFoundError,
