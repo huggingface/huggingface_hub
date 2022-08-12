@@ -122,8 +122,6 @@ class CacheFileLayoutHfHubDownload(unittest.TestCase):
 
     def test_no_exist_file_is_cached(self):
         with tempfile.TemporaryDirectory() as cache:
-            hf_hub_download(MODEL_IDENTIFIER, "file_0.txt", cache_dir=cache)
-
             filename = "this_does_not_exist.txt"
             with self.assertRaises(EntryNotFoundError):
                 # The file does not exist, so we get an exception.
@@ -163,10 +161,6 @@ class CacheFileLayoutHfHubDownload(unittest.TestCase):
 
     def test_no_exist_file_is_cached_with_revision(self):
         with tempfile.TemporaryDirectory() as cache:
-            hf_hub_download(
-                MODEL_IDENTIFIER, "file_0.txt", cache_dir=cache, revision="file-2"
-            )
-
             filename = "this_does_not_exist.txt"
             with self.assertRaises(EntryNotFoundError):
                 # The file does not exist, so we get an exception.

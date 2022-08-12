@@ -792,6 +792,21 @@ def _create_relative_symlink(src: str, dst: str) -> None:
             raise
 
 
+def _cache_commit_hash_for_specific_revision(
+    storage_folder: str, revision: str, commit_hash: str
+) -> None:
+    """Cache reference between a revision (tag, branch or truncated commit hash) and the corresponding commit hash.
+
+    Does nothing if `revision` is already a proper `commit_hash` or reference is already cached.
+    """
+    if revision != commit_hash:
+        ref_path = os.path.join(storage_folder, "refs", revision)
+        if not os.path.exists(ref_path):
+            os.makedirs(os.path.dirname(ref_path), exist_ok=True)
+            with open(ref_path, "w") as f:
+                f.write(commit_hash)
+
+
 def repo_folder_name(*, repo_id: str, repo_type: str) -> str:
     """Return a serialized version of a hf.co repo name and type, safe for disk storage
     as a single non-nested folder.
@@ -1034,6 +1049,9 @@ def hf_hub_download(
                     )
                     os.makedirs(no_exist_path, exist_ok=True)
                     (Path(no_exist_path) / relative_filename).touch()
+                    _cache_commit_hash_for_specific_revision(
+                        storage_folder, revision, commit_hash
+                    )
                 raise
             commit_hash = r.headers[HUGGINGFACE_HEADER_X_REPO_COMMIT]
             if commit_hash is None:
@@ -1130,11 +1148,7 @@ def hf_hub_download(
     # if passed revision is not identical to commit_hash
     # then revision has to be a branch name or tag name.
     # In that case store a ref.
-    if revision != commit_hash:
-        ref_path = os.path.join(storage_folder, "refs", revision)
-        os.makedirs(os.path.dirname(ref_path), exist_ok=True)
-        with open(ref_path, "w") as f:
-            f.write(commit_hash)
+    _cache_commit_hash_for_specific_revision(storage_folder, revision, commit_hash)
 
     if os.path.exists(pointer_path) and not force_download:
         return pointer_path
