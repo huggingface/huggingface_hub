@@ -67,7 +67,7 @@ jobs:
         pip install --upgrade pip
         pip install .[testing,torch]
 
-    - run: (cd src && pytest -sv ../tests/test_hubmixin* --cov=./huggingface_hub)
+    - run: (cd src && python -m pytest -sv ../tests/test_hubmixin* --cov=./huggingface_hub)
 
   build_tensorflow:
     runs-on: ubuntu-latest
