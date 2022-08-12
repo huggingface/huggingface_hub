@@ -41,7 +41,6 @@ from .utils._errors import (
 )
 
 
-
 logger = logging.get_logger(__name__)
 
 _PY_VERSION: str = sys.version.split()[0].rstrip("+")
