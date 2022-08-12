@@ -16,7 +16,6 @@ from typing import BinaryIO, Dict, Optional, Tuple, Union
 from urllib.parse import quote
 
 import packaging.version
-from tqdm.auto import tqdm
 
 import requests
 from filelock import FileLock
@@ -34,8 +33,8 @@ from .constants import (
     REPO_TYPES_URL_PREFIXES,
 )
 from .hf_api import HfFolder
-from .utils import logging
-from .utils._errors import _raise_for_status
+from .utils import logging, tqdm
+from .utils._errors import LocalEntryNotFoundError, _raise_for_status
 
 
 logger = logging.get_logger(__name__)
@@ -553,6 +552,8 @@ def cached_download(
           If the revision to download from cannot be found.
         - [`~huggingface_hub.utils.EntryNotFoundError`]
           If the file to download cannot be found.
+        - [`~huggingface_hub.utils.LocalEntryNotFoundError`]
+          If network is disabled or unavailable and file is not found in cache.
 
     </Tip>
     """
@@ -659,13 +660,13 @@ def cached_download(
                 # the models might've been found if local_files_only=False
                 # Notify the user about that
                 if local_files_only:
-                    raise ValueError(
+                    raise LocalEntryNotFoundError(
                         "Cannot find the requested files in the cached path and"
                         " outgoing traffic has been disabled. To enable model look-ups"
                         " and downloads online, set 'local_files_only' to False."
                     )
                 else:
-                    raise ValueError(
+                    raise LocalEntryNotFoundError(
                         "Connection error, and we cannot find the requested files in"
                         " the cached path. Please try again or make sure your Internet"
                         " connection is on."
@@ -911,6 +912,8 @@ def hf_hub_download(
           If the revision to download from cannot be found.
         - [`~huggingface_hub.utils.EntryNotFoundError`]
           If the file to download cannot be found.
+        - [`~huggingface_hub.utils.LocalEntryNotFoundError`]
+          If network is disabled or unavailable and file is not found in cache.
 
     </Tip>
     """
@@ -1089,13 +1092,13 @@ def hf_hub_download(
         # the models might've been found if local_files_only=False
         # Notify the user about that
         if local_files_only:
-            raise ValueError(
+            raise LocalEntryNotFoundError(
                 "Cannot find the requested files in the disk cache and"
                 " outgoing traffic has been disabled. To enable hf.co look-ups"
                 " and downloads online, set 'local_files_only' to False."
             )
         else:
-            raise ValueError(
+            raise LocalEntryNotFoundError(
                 "Connection error, and we cannot find the requested files in"
                 " the disk cache. Please try again or make sure your Internet"
                 " connection is on."
@@ -1188,3 +1191,54 @@ def hf_hub_download(
         pass
 
     return pointer_path
+
+
+def try_to_load_from_cache(
+    repo_id: str,
+    filename: str,
+    cache_dir: Union[str, Path, None] = None,
+    revision: Optional[str] = None,
+    repo_type: Optional[str] = None,
+) -> Optional[str]:
+    """
+    Explores the cache to return the latest cached file for a given revision if found.
+
+    This function will not raise any exception if the file in not cached.
+
+    Returns:
+        Local path (string) of file or `None` if no cached file is found.
+    """
+    if revision is None:
+        revision = "main"
+    if repo_type is None:
+        repo_type = "model"
+    if repo_type not in REPO_TYPES:
+        raise ValueError(
+            f"Invalid repo type: {repo_type}. Accepted repo types are:"
+            f" {str(REPO_TYPES)}"
+        )
+    if cache_dir is None:
+        cache_dir = HUGGINGFACE_HUB_CACHE
+
+    object_id = repo_id.replace("/", "--")
+    repo_cache = os.path.join(cache_dir, f"{repo_type}s--{object_id}")
+    if not os.path.isdir(repo_cache):
+        # No cache for this model
+        return None
+    for subfolder in ["refs", "snapshots"]:
+        if not os.path.isdir(os.path.join(repo_cache, subfolder)):
+            return None
+
+    # Resolve refs (for instance to convert main to the associated commit sha)
+    cached_refs = os.listdir(os.path.join(repo_cache, "refs"))
+    if revision in cached_refs:
+        with open(os.path.join(repo_cache, "refs", revision)) as f:
+            revision = f.read()
+
+    cached_shas = os.listdir(os.path.join(repo_cache, "snapshots"))
+    if revision not in cached_shas:
+        # No cache for this revision and we won't try to return a random revision
+        return None
+
+    cached_file = os.path.join(repo_cache, "snapshots", revision, filename)
+    return cached_file if os.path.isfile(cached_file) else None

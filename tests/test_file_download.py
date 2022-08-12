@@ -11,8 +11,11 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-
+import os
 import unittest
+from tempfile import TemporaryDirectory
+
+import pytest
 
 from huggingface_hub.constants import (
     CONFIG_NAME,
@@ -24,9 +27,11 @@ from huggingface_hub.file_download import (
     filename_to_url,
     hf_hub_download,
     hf_hub_url,
+    try_to_load_from_cache,
 )
 from huggingface_hub.utils import (
     EntryNotFoundError,
+    LocalEntryNotFoundError,
     RepositoryNotFoundError,
     RevisionNotFoundError,
 )
@@ -87,13 +92,49 @@ class CachedDownloadTests(unittest.TestCase):
                     cached_download(valid_url, legacy_cache_layout=True)
                 )
 
-    def test_file_not_found(self):
-        # Valid revision (None) but missing file.
+    def test_file_not_found_on_repo(self):
+        # Valid revision (None) but missing file on repo.
         url = hf_hub_url(DUMMY_MODEL_ID, filename="missing.bin")
         with self.assertRaisesRegex(
             EntryNotFoundError, "404 Client Error: Entry Not Found"
         ):
             _ = cached_download(url, legacy_cache_layout=True)
+
+    def test_file_not_found_locally_and_network_disabled(self):
+        # Valid file but missing locally and network is disabled.
+        with TemporaryDirectory() as tmpdir:
+            # Download a first time to get the refs ok
+            filepath = hf_hub_download(
+                DUMMY_MODEL_ID,
+                filename=CONFIG_NAME,
+                cache_dir=tmpdir,
+                local_files_only=False,
+            )
+
+            # Remove local file
+            os.remove(filepath)
+
+            # Get without network must fail
+            with pytest.raises(LocalEntryNotFoundError):
+                hf_hub_download(
+                    DUMMY_MODEL_ID,
+                    filename=CONFIG_NAME,
+                    cache_dir=tmpdir,
+                    local_files_only=True,
+                )
+
+    def test_file_not_found_locally_and_network_disabled_legacy(self):
+        # Valid file but missing locally and network is disabled.
+        url = hf_hub_url(DUMMY_MODEL_ID, filename=CONFIG_NAME)
+        with TemporaryDirectory() as tmpdir:
+            # Get without network must fail
+            with pytest.raises(LocalEntryNotFoundError):
+                cached_download(
+                    url,
+                    legacy_cache_layout=True,
+                    local_files_only=True,
+                    cache_dir=tmpdir,
+                )
 
     def test_revision_not_found(self):
         # Valid file but missing revision
@@ -186,3 +227,28 @@ class CachedDownloadTests(unittest.TestCase):
         )
         metadata = filename_to_url(filepath, legacy_cache_layout=True)
         self.assertEqual(metadata[1], f'"{DUMMY_MODEL_ID_PINNED_SHA1}"')
+
+    def test_try_to_load_from_cache(self):
+        # Make sure the file is cached
+        filepath = hf_hub_download(DUMMY_MODEL_ID, filename=CONFIG_NAME)
+
+        new_file_path = try_to_load_from_cache(DUMMY_MODEL_ID, filename=CONFIG_NAME)
+        self.assertEqual(filepath, new_file_path)
+
+        new_file_path = try_to_load_from_cache(
+            DUMMY_MODEL_ID, filename=CONFIG_NAME, revision="main"
+        )
+        self.assertEqual(filepath, new_file_path)
+
+        # If file is not cached, returns None
+        self.assertIsNone(try_to_load_from_cache(DUMMY_MODEL_ID, filename="conf.json"))
+        # Same for uncached revisions
+        self.assertIsNone(
+            try_to_load_from_cache(
+                DUMMY_MODEL_ID,
+                filename=CONFIG_NAME,
+                revision="aaa",
+            )
+        )
+        # Same for uncached models
+        self.assertIsNone(try_to_load_from_cache("bert-base", filename=CONFIG_NAME))

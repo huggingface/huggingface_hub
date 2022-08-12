@@ -44,6 +44,7 @@ from .community import (
 from .constants import (
     DEFAULT_REVISION,
     ENDPOINT,
+    REGEX_COMMIT_OID,
     REPO_TYPE_MODEL,
     REPO_TYPES,
     REPO_TYPES_MAPPING,
@@ -68,9 +69,9 @@ from .utils.endpoint_helpers import (
 
 
 if sys.version_info >= (3, 8):
-    from typing import Literal
+    from typing import Literal, TypedDict
 else:
-    from typing_extensions import Literal
+    from typing_extensions import Literal, TypedDict
 
 USERNAME_PLACEHOLDER = "hf_user"
 _REGEX_DISCUSSION_URL = re.compile(r".*/discussions/(\d+)$")
@@ -168,6 +169,11 @@ def repo_type_and_id_from_hf_id(
     return repo_type, namespace, repo_id
 
 
+class BlobLfsInfo(TypedDict, total=False):
+    size: int
+    sha256: str
+
+
 class RepoFile:
     """
     Data structure that represents a public file inside a repo, accessible from
@@ -178,10 +184,34 @@ class RepoFile:
             file name, relative to the repo root. This is the only attribute
             that's guaranteed to be here, but under certain conditions there can
             certain other stuff.
+        size (`int`, *optional*):
+            The file's size, in bytes. This attribute is present when `files_metadata` argument
+            of [`repo_info`] is set to `True`. It's `None` otherwise.
+        blob_id (`str`, *optional*):
+            The file's git OID. This attribute is present when `files_metadata` argument
+            of [`repo_info`] is set to `True`. It's `None` otherwise.
+        lfs (`BlobLfsInfo`, *optional*):
+            The file's LFS metadata. This attribute is present when`files_metadata` argument
+            of [`repo_info`] is set to `True` and the file is stored with Git LFS. It's `None` otherwise.
     """
 
-    def __init__(self, rfilename: str, **kwargs):
+    def __init__(
+        self,
+        rfilename: str,
+        size: Optional[int] = None,
+        blobId: Optional[str] = None,
+        lfs: Optional[BlobLfsInfo] = None,
+        **kwargs,
+    ):
         self.rfilename = rfilename  # filename relative to the repo root
+
+        # Optional file metadata
+        self.size = size
+        self.blob_id = blobId
+        self.lfs = lfs
+
+        # Hack to ensure backward compatibility with future versions of the API.
+        # See discussion in https://github.com/huggingface/huggingface_hub/pull/951#discussion_r926460408
         for k, v in kwargs.items():
             setattr(self, k, v)
 
@@ -194,7 +224,7 @@ class ModelInfo:
     """
     Info about a model accessible from huggingface.co
 
-    Args:
+    Attributes:
         modelId (`str`, *optional*):
             ID of model repository.
         sha (`str`, *optional*):
@@ -205,8 +235,8 @@ class ModelInfo:
             List of tags.
         pipeline_tag (`str`, *optional*):
             Pipeline tag to identify the correct widget.
-        siblings (`List[Dict]`, *optional*):
-            list of files that constitute the Space
+        siblings (`List[RepoFile]`, *optional*):
+            list of ([`huggingface_hub.hf_api.RepoFile`]) objects that constitute the model.
         private (`bool`, *optional*):
             is the repo private
         author (`str`, *optional*):
@@ -262,7 +292,7 @@ class DatasetInfo:
     """
     Info about a dataset accessible from huggingface.co
 
-    Args:
+    Attributes:
         id (`str`, *optional*):
             ID of dataset repository.
         sha (`str`, *optional*):
@@ -271,8 +301,8 @@ class DatasetInfo:
             date of last commit to repo
         tags (`Listr[str]`, *optional*):
             List of tags.
-        siblings (`List[Dict]`, *optional*):
-            list of files that constitute the Space
+        siblings (`List[RepoFile]`, *optional*):
+            list of [`huggingface_hub.hf_api.RepoFile`] objects that constitute the dataset.
         private (`bool`, *optional*):
             is the repo private
         author (`str`, *optional*):
@@ -339,15 +369,15 @@ class SpaceInfo:
     This is a "dataclass" like container that just sets on itself any attribute
     passed by the server.
 
-    Args:
+    Attributes:
         id (`str`, *optional*):
             id of space
         sha (`str`, *optional*):
             repo sha at this particular revision
         lastModified (`str`, *optional*):
             date of last commit to repo
-        siblings (`List[Dict]`, *optional*):
-            list of files that constitute the Space
+        siblings (`List[RepoFile]`, *optional*):
+            list of [`huggingface_hub.hf_api.RepoFIle`] objects that constitute the Space
         private (`bool`, *optional*):
             is the repo private
         author (`str`, *optional*):
@@ -737,7 +767,7 @@ class HfApi:
                 carbon footprint to filter the resulting models with in grams.
             sort (`Literal["lastModified"]` or `str`, *optional*):
                 The key with which to sort the resulting models. Possible values
-                are the properties of the `ModelInfo` class.
+                are the properties of the [`huggingface_hub.hf_api.ModelInfo`] class.
             direction (`Literal[-1]` or `int`, *optional*):
                 Direction in which to sort. The value `-1` sorts by descending
                 order while all other values sort by ascending order.
@@ -759,6 +789,8 @@ class HfApi:
                 Whether to use the `auth_token` provided from the
                 `huggingface_hub` cli. If not logged in, a valid `auth_token`
                 can be passed in as a string.
+
+        Returns: List of [`huggingface_hub.hf_api.ModelInfo`] objects
 
         Example usage with the `filter` argument:
 
@@ -938,7 +970,7 @@ class HfApi:
                 A string that will be contained in the returned models.
             sort (`Literal["lastModified"]` or `str`, *optional*):
                 The key with which to sort the resulting datasets. Possible
-                values are the properties of the `DatasetInfo` class.
+                values are the properties of the [`huggingface_hub.hf_api.DatasetInfo`] class.
             direction (`Literal[-1]` or `int`, *optional*):
                 Direction in which to sort. The value `-1` sorts by descending
                 order while all other values sort by ascending order.
@@ -1118,7 +1150,7 @@ class HfApi:
                 A string that will be contained in the returned Spaces.
             sort (`Literal["lastModified"]` or `str`, *optional*):
                 The key with which to sort the resulting Spaces. Possible
-                values are the properties of the `SpaceInfo` class.
+                values are the properties of the [`huggingface_hub.hf_api.SpaceInfo`]` class.
             direction (`Literal[-1]` or `int`, *optional*):
                 Direction in which to sort. The value `-1` sorts by descending
                 order while all other values sort by ascending order.
@@ -1142,7 +1174,7 @@ class HfApi:
                 can be passed in as a string.
 
         Returns:
-            `List[SpaceInfo]`: a list of [`SpaceInfo`] objects
+            `List[SpaceInfo]`: a list of [`huggingface_hub.hf_api.SpaceInfo`] objects
         """
         path = f"{self.endpoint}/api/spaces"
         if use_auth_token:
@@ -1184,6 +1216,7 @@ class HfApi:
         token: Optional[str] = None,
         timeout: Optional[float] = None,
         securityStatus: Optional[bool] = None,
+        files_metadata: bool = False,
     ) -> ModelInfo:
         """
         Get info on one specific model on huggingface.co
@@ -1204,6 +1237,9 @@ class HfApi:
             securityStatus (`bool`, *optional*):
                 Whether to retrieve the security status from the model
                 repository as well.
+            files_metadata (`bool`, *optional*):
+                Whether or not to retrieve metadata for files in the repository
+                (size, LFS metadata, etc). Defaults to `False`.
 
         Returns:
             [`huggingface_hub.hf_api.ModelInfo`]: The model repository information.
@@ -1231,9 +1267,16 @@ class HfApi:
             )
         )
         headers = {"authorization": f"Bearer {token}"} if token is not None else None
-        status_query_param = {"securityStatus": True} if securityStatus else None
+        params = {}
+        if securityStatus:
+            params["securityStatus"] = True
+        if files_metadata:
+            params["blobs"] = True
         r = requests.get(
-            path, headers=headers, timeout=timeout, params=status_query_param
+            path,
+            headers=headers,
+            timeout=timeout,
+            params=params,
         )
         _raise_for_status(r)
         d = r.json()
@@ -1246,6 +1289,7 @@ class HfApi:
         revision: Optional[str] = None,
         token: Optional[str] = None,
         timeout: Optional[float] = None,
+        files_metadata: bool = False,
     ) -> DatasetInfo:
         """
         Get info on one specific dataset on huggingface.co.
@@ -1263,9 +1307,12 @@ class HfApi:
                 An authentication token (See https://huggingface.co/settings/token)
             timeout (`float`, *optional*):
                 Whether to set a timeout for the request to the Hub.
+            files_metadata (`bool`, *optional*):
+                Whether or not to retrieve metadata for files in the repository
+                (size, LFS metadata, etc). Defaults to `False`.
 
         Returns:
-            [`DatasetInfo`]: The dataset repository information.
+            [`huggingface_hub.hf_api.DatasetInfo`]: The dataset repository information.
 
         <Tip>
 
@@ -1290,7 +1337,11 @@ class HfApi:
             )
         )
         headers = {"authorization": f"Bearer {token}"} if token is not None else None
-        r = requests.get(path, headers=headers, timeout=timeout)
+        params = {}
+        if files_metadata:
+            params["blobs"] = True
+
+        r = requests.get(path, headers=headers, timeout=timeout, params=params)
         _raise_for_status(r)
         d = r.json()
         return DatasetInfo(**d)
@@ -1302,6 +1353,7 @@ class HfApi:
         revision: Optional[str] = None,
         token: Optional[str] = None,
         timeout: Optional[float] = None,
+        files_metadata: bool = False,
     ) -> SpaceInfo:
         """
         Get info on one specific Space on huggingface.co.
@@ -1319,9 +1371,12 @@ class HfApi:
                 An authentication token (See https://huggingface.co/settings/token)
             timeout (`float`, *optional*):
                 Whether to set a timeout for the request to the Hub.
+            files_metadata (`bool`, *optional*):
+                Whether or not to retrieve metadata for files in the repository
+                (size, LFS metadata, etc). Defaults to `False`.
 
         Returns:
-            [`SpaceInfo`]: The space repository information.
+            [`huggingface_hub.hf_api.SpaceInfo`]: The space repository information.
 
         <Tip>
 
@@ -1346,7 +1401,11 @@ class HfApi:
             )
         )
         headers = {"authorization": f"Bearer {token}"} if token is not None else None
-        r = requests.get(path, headers=headers, timeout=timeout)
+        params = {}
+        if files_metadata:
+            params["blobs"] = True
+
+        r = requests.get(path, headers=headers, timeout=timeout, params=params)
         _raise_for_status(r)
         d = r.json()
         return SpaceInfo(**d)
@@ -1359,6 +1418,7 @@ class HfApi:
         repo_type: Optional[str] = None,
         token: Optional[str] = None,
         timeout: Optional[float] = None,
+        files_metadata: bool = False,
     ) -> Union[ModelInfo, DatasetInfo, SpaceInfo]:
         """
         Get the info object for a given repo of a given type.
@@ -1374,10 +1434,14 @@ class HfApi:
                 An authentication token (See https://huggingface.co/settings/token)
             timeout (`float`, *optional*):
                 Whether to set a timeout for the request to the Hub.
+            files_metadata (`bool`, *optional*):
+                Whether or not to retrieve metadata for files in the repository
+                (size, LFS metadata, etc). Defaults to `False`.
 
         Returns:
-            `Union[SpaceInfo, DatasetInfo, ModelInfo]`: The repository
-            information.
+            `Union[SpaceInfo, DatasetInfo, ModelInfo]`: The repository information, as a
+            [`huggingface_hub.hf_api.DatasetInfo`], [`huggingface_hub.hf_api.ModelInfo`]
+            or [`huggingface_hub.hf_api.SpaceInfo`] object.
 
         <Tip>
 
@@ -1393,15 +1457,27 @@ class HfApi:
         """
         if repo_type is None or repo_type == "model":
             return self.model_info(
-                repo_id, revision=revision, token=token, timeout=timeout
+                repo_id,
+                revision=revision,
+                token=token,
+                timeout=timeout,
+                files_metadata=files_metadata,
             )
         elif repo_type == "dataset":
             return self.dataset_info(
-                repo_id, revision=revision, token=token, timeout=timeout
+                repo_id,
+                revision=revision,
+                token=token,
+                timeout=timeout,
+                files_metadata=files_metadata,
             )
         elif repo_type == "space":
             return self.space_info(
-                repo_id, revision=revision, token=token, timeout=timeout
+                repo_id,
+                revision=revision,
+                token=token,
+                timeout=timeout,
+                files_metadata=files_metadata,
             )
         else:
             raise ValueError("Unsupported repo type.")
@@ -1832,6 +1908,7 @@ class HfApi:
         revision: Optional[str] = None,
         create_pr: Optional[bool] = None,
         num_threads: int = 5,
+        parent_commit: Optional[str] = None,
     ) -> Optional[str]:
         """
         Creates a commit in the given repo, deleting & uploading files as needed.
@@ -1841,11 +1918,11 @@ class HfApi:
                 The repository in which the commit will be created, for example:
                 `"username/custom_transformers"`
 
-            operations (`Iterable` of `CommitOperation`):
+            operations (`Iterable` of [`~huggingface_hub.hf_api.CommitOperation`]):
                 An iterable of operations to include in the commit, either:
 
-                    - `CommitOperationAdd` to upload a file
-                    - `CommitOperationDelete` to delete a file
+                    - [`~huggingface_hub.hf_api.CommitOperationAdd`] to upload a file
+                    - [`~huggingface_hub.hf_api.CommitOperationDelete`] to delete a file
 
             commit_message (`str`):
                 The summary (first line) of the commit that will be created.
@@ -1875,6 +1952,14 @@ class HfApi:
                 Number of concurrent threads for uploading files. Defaults to 5.
                 Setting it to 2 means at most 2 files will be uploaded concurrently.
 
+            parent_commit (`str`, *optional*):
+                The OID / SHA of the parent commit, as a hexadecimal string.
+                Shorthands (7 first characters) are also supported.If specified and `create_pr` is `False`,
+                the commit will fail if `revision` does not point to `parent_commit`. If specified and `create_pr`
+                is `True`, the pull request will be created from `parent_commit`. Specifying `parent_commit`
+                ensures the repo has not changed before committing the changes, and can be especially useful
+                if the repo is updated / committed to concurrently.
+
         Returns:
             `str` or `None`:
                 If `create_pr` is `True`, returns the URL to the newly created Pull Request
@@ -1882,10 +1967,23 @@ class HfApi:
 
         Raises:
             :class:`ValueError`:
+                If commit message is empty.
+            :class:`ValueError`:
+                If parent commit is not a valid commit OID.
+            :class:`ValueError`:
                 If the Hub API returns an HTTP 400 error (bad request)
+            :class:`ValueError`:
+                If `create_pr` is `True` and revision is neither `None` nor `"main"`.
         """
+        if parent_commit is not None and not REGEX_COMMIT_OID.fullmatch(parent_commit):
+            raise ValueError(
+                "`parent_commit` is not a valid commit OID. It must match the following"
+                f" regex: {REGEX_COMMIT_OID}"
+            )
+
         if commit_message is None or len(commit_message) == 0:
             raise ValueError("`commit_message` can't be empty, please pass a value.")
+
         commit_description = (
             commit_description if commit_description is not None else ""
         )
@@ -1897,6 +1995,9 @@ class HfApi:
             quote(revision, safe="") if revision is not None else DEFAULT_REVISION
         )
         create_pr = create_pr if create_pr is not None else False
+
+        if create_pr and revision != DEFAULT_REVISION:
+            raise ValueError("Can only create pull requests against {DEFAULT_REVISION}")
 
         operations = list(operations)
         additions = [op for op in operations if isinstance(op, CommitOperationAdd)]
@@ -1923,6 +2024,7 @@ class HfApi:
             token=token,
             revision=revision,
             endpoint=self.endpoint,
+            create_pr=create_pr,
         )
         upload_lfs_files(
             additions=[
@@ -1933,7 +2035,6 @@ class HfApi:
             repo_type=repo_type,
             repo_id=repo_id,
             token=token,
-            revision=revision,
             endpoint=self.endpoint,
             num_threads=num_threads,
         )
@@ -1942,6 +2043,7 @@ class HfApi:
             deletions=deletions,
             commit_message=commit_message,
             commit_description=commit_description,
+            parent_commit=parent_commit,
         )
         commit_url = f"{self.endpoint}/api/{repo_type}s/{repo_id}/commit/{revision}"
 
@@ -1949,7 +2051,7 @@ class HfApi:
             url=commit_url,
             headers={"Authorization": f"Bearer {token}"},
             json=commit_payload,
-            params={"create_pr": 1} if create_pr else None,
+            params={"create_pr": "1"} if create_pr else None,
         )
         _raise_convert_bad_request(commit_resp, endpoint_name="commit")
         return commit_resp.json().get("pullRequestUrl", None)
@@ -1967,6 +2069,7 @@ class HfApi:
         commit_message: Optional[str] = None,
         commit_description: Optional[str] = None,
         create_pr: Optional[bool] = None,
+        parent_commit: Optional[str] = None,
     ) -> str:
         """
         Upload a local file (up to 50 GB) to the given repo. The upload is done
@@ -2003,6 +2106,13 @@ class HfApi:
             create_pr (`boolean`, *optional*):
                 Whether or not to create a Pull Request from `revision` with that commit.
                 Defaults to `False`.
+            parent_commit (`str`, *optional*):
+                The OID / SHA of the parent commit, as a hexadecimal string. Shorthands (7 first characters) are also supported.
+                If specified and `create_pr` is `False`, the commit will fail if `revision` does not point to `parent_commit`.
+                If specified and `create_pr` is `True`, the pull request will be created from `parent_commit`.
+                Specifying `parent_commit` ensures the repo has not changed before committing the changes, and can be
+                especially useful if the repo is updated / committed to concurrently.
+
 
         Returns:
             `str`: The URL to visualize the uploaded file on the hub
@@ -2085,6 +2195,7 @@ class HfApi:
             token=token,
             revision=revision,
             create_pr=create_pr,
+            parent_commit=parent_commit,
         )
 
         if pr_url is not None:
@@ -2100,13 +2211,14 @@ class HfApi:
         *,
         repo_id: str,
         folder_path: str,
-        path_in_repo: str,
+        path_in_repo: Optional[str] = None,
         commit_message: Optional[str] = None,
         commit_description: Optional[str] = None,
         token: Optional[str] = None,
         repo_type: Optional[str] = None,
         revision: Optional[str] = None,
         create_pr: Optional[bool] = None,
+        parent_commit: Optional[str] = None,
     ):
         """
         Upload a local folder to the given repo. The upload is done
@@ -2124,9 +2236,9 @@ class HfApi:
                 `"username/custom_transformers"`
             folder_path (`str`):
                 Path to the folder to upload on the local file system
-            path_in_repo (`str`):
+            path_in_repo (`str`, *optional*):
                 Relative path of the directory in the repo, for example:
-                `"checkpoints/1fec34a/results"`
+                `"checkpoints/1fec34a/results"`. Will default to the root folder of the repository.
             token (`str`, *optional*):
                 Authentication token, obtained with `HfApi.login` method. Will
                 default to the stored token.
@@ -2145,6 +2257,13 @@ class HfApi:
             create_pr (`boolean`, *optional*):
                 Whether or not to create a Pull Request from the pushed changes. Defaults
                 to `False`.
+            parent_commit (`str`, *optional*):
+                The OID / SHA of the parent commit, as a hexadecimal string. Shorthands (7 first characters) are also supported.
+                If specified and `create_pr` is `False`, the commit will fail if `revision` does not point to `parent_commit`.
+                If specified and `create_pr` is `True`, the pull request will be created from `parent_commit`.
+                Specifying `parent_commit` ensures the repo has not changed before committing the changes, and can be
+                especially useful if the repo is updated / committed to concurrently.
+
 
         Returns:
             `str`: A URL to visualize the uploaded folder on the hub
@@ -2187,6 +2306,10 @@ class HfApi:
         if repo_type not in REPO_TYPES:
             raise ValueError(f"Invalid repo type, must be one of {REPO_TYPES}")
 
+        # By default, upload folder to the root directory in repo.
+        if path_in_repo is None:
+            path_in_repo = ""
+
         commit_message = (
             commit_message
             if commit_message is not None
@@ -2204,6 +2327,7 @@ class HfApi:
             token=token,
             revision=revision,
             create_pr=create_pr,
+            parent_commit=parent_commit,
         )
 
         if pr_url is not None:
@@ -2225,6 +2349,7 @@ class HfApi:
         commit_message: Optional[str] = None,
         commit_description: Optional[str] = None,
         create_pr: Optional[bool] = None,
+        parent_commit: Optional[str] = None,
     ):
         """
         Deletes a file in the given repo.
@@ -2253,6 +2378,13 @@ class HfApi:
             create_pr (`boolean`, *optional*):
                 Whether or not to create a Pull Request from `revision` with the changes.
                 Defaults to `False`.
+            parent_commit (`str`, *optional*):
+                The OID / SHA of the parent commit, as a hexadecimal string. Shorthands (7 first characters) are also supported.
+                If specified and `create_pr` is `False`, the commit will fail if `revision` does not point to `parent_commit`.
+                If specified and `create_pr` is `True`, the pull request will be created from `parent_commit`.
+                Specifying `parent_commit` ensures the repo has not changed before committing the changes, and can be
+                especially useful if the repo is updated / committed to concurrently.
+
 
         <Tip>
 
@@ -2290,6 +2422,7 @@ class HfApi:
             commit_message=commit_message,
             commit_description=commit_description,
             create_pr=create_pr,
+            parent_commit=parent_commit,
         )
 
     def get_full_repo_name(

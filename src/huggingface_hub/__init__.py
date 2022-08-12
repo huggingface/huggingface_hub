@@ -141,7 +141,12 @@ __getattr__, __dir__, __all__ = _attach(
             "from_pretrained_fastai",
             "push_to_hub_fastai",
         ],
-        "file_download": ["cached_download", "hf_hub_download", "hf_hub_url"],
+        "file_download": [
+            "cached_download",
+            "hf_hub_download",
+            "hf_hub_url",
+            "try_to_load_from_cache",
+        ],
         "hf_api": [
             "CommitOperation",
             "CommitOperationAdd",
