@@ -67,7 +67,8 @@ jobs:
         pip install --upgrade pip
         pip install .[testing,torch]
 
-    - run: (cd src && python -m pytest -sv ../tests/test_hubmixin* --cov=./huggingface_hub)
+    - run: python -m pytest -sv ../tests/test_hubmixin* --cov=./huggingface_hub
+      working-directory: ./src
 
   build_tensorflow:
     runs-on: ubuntu-latest
@@ -112,7 +113,8 @@ jobs:
         pip install --upgrade pip
         pip install .[testing,fastai]
 
-    - run: pytest -sv ./tests/test_fastai* --cov
+    - run: pytest -sv ../tests/test_fastai* --cov=./huggingface_hub
+      working-directory: ./src
 
   tests_lfs:
     runs-on: ubuntu-latest
