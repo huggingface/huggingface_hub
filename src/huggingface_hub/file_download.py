@@ -16,7 +16,6 @@ from typing import BinaryIO, Dict, Optional, Tuple, Union
 from urllib.parse import quote
 
 import packaging.version
-from tqdm.auto import tqdm
 
 import requests
 from filelock import FileLock
@@ -34,7 +33,7 @@ from .constants import (
     REPO_TYPES_URL_PREFIXES,
 )
 from .hf_api import HfFolder
-from .utils import logging
+from .utils import logging, tqdm
 from .utils._errors import LocalEntryNotFoundError, _raise_for_status
 
 

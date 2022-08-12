@@ -15,6 +15,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License
 
+from . import tqdm as _tqdm  # _tqdm is the module
 from ._errors import (
     EntryNotFoundError,
     LocalEntryNotFoundError,
@@ -22,3 +23,9 @@ from ._errors import (
     RevisionNotFoundError,
 )
 from ._subprocess import run_subprocess
+from .tqdm import (
+    are_progress_bars_disabled,
+    disable_progress_bars,
+    enable_progress_bars,
+    tqdm,
+)
