@@ -374,7 +374,7 @@ def _request_wrapper(
     base_wait_time: float = 0.5,
     max_wait_time: float = 2,
     timeout: float = 10.0,
-    force_internal_redirects: bool = False,
+    follow_relative_redirects: bool = False,
     **params,
 ) -> requests.Response:
     """Wrapper around requests methods to add several features.
@@ -382,7 +382,8 @@ def _request_wrapper(
     What it does:
     1. Ensure offline mode is disabled (env variable `HF_HUB_OFFLINE` not set to 1).
        If enabled, a `OfflineModeIsEnabled` exception is raised.
-    2. Handle internal redirection (if `force_internal_redirects=True`).
+    2. Follow relative redirections if `follow_relative_redirects=True` even when
+       `allow_redirection` kwarg is set to False.
     3. Retry in case request fails with a `ConnectTimeout`, with exponential backoff.
 
     Args:
@@ -401,17 +402,19 @@ def _request_wrapper(
         timeout (`float`, *optional*, defaults to `10`):
             How many seconds to wait for the server to send data before
             giving up which is passed to `requests.request`.
-        force_internal_redirects (`bool`, *optional*, defaults to `False`)
-            If True, internal (relative) redirection will be resolved even when
-            `allow_redirection` is set to False.
+        follow_relative_redirects (`bool`, *optional*, defaults to `False`)
+            If True, relative redirection (redirection to the same site) will be
+            resolved even when `allow_redirection` kwarg is set to False. Useful when we
+            want to follow a redirection to a renamed repository without following
+            redirection to a CDN.
         **params (`dict`, *optional*):
             Params to pass to `requests.request`.
     """
     # 1. Check online mode
     _raise_if_offline_mode_is_enabled(f"Tried to reach {url}")
 
-    # 2. Force internal redirection
-    if force_internal_redirects:
+    # 2. Force relative redirection
+    if follow_relative_redirects:
         response = _request_wrapper(
             method=method,
             url=url,
@@ -419,7 +422,7 @@ def _request_wrapper(
             base_wait_time=base_wait_time,
             max_wait_time=max_wait_time,
             timeout=timeout,
-            force_internal_redirects=False,
+            follow_relative_redirects=False,
             **params,
         )
 
@@ -430,7 +433,7 @@ def _request_wrapper(
             if parsed_target.netloc == "":
                 # This means it is a relative 'location' headers, as allowed by RFC 7231.
                 # (e.g. '/path/to/resource' instead of 'http://domain.tld/path/to/resource')
-                # We want to follow this internal redirect !
+                # We want to follow this relative redirect !
                 #
                 # Highly inspired by `resolve_redirects` from requests library.
                 # See https://github.com/psf/requests/blob/main/requests/sessions.py#L159
@@ -441,7 +444,7 @@ def _request_wrapper(
                     base_wait_time=base_wait_time,
                     max_wait_time=max_wait_time,
                     timeout=timeout,
-                    force_internal_redirects=True,
+                    follow_relative_redirects=True,  # resolve recursively
                     **params,
                 )
         return response
@@ -650,7 +653,7 @@ def cached_download(
                 url=url,
                 headers=headers,
                 allow_redirects=False,
-                force_internal_redirects=True,
+                follow_relative_redirects=True,
                 proxies=proxies,
                 timeout=etag_timeout,
             )
@@ -1067,7 +1070,7 @@ def hf_hub_download(
                 url=url,
                 headers=headers,
                 allow_redirects=False,
-                force_internal_redirects=True,
+                follow_relative_redirects=True,
                 proxies=proxies,
                 timeout=etag_timeout,
             )
