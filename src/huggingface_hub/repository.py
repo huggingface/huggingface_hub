@@ -631,8 +631,12 @@ class Repository:
                 repo_url += REPO_TYPES_URL_PREFIXES[self.repo_type]
 
             if token is not None:
+                if token.startswith("api_org"):
+                    raise ValueError("You must use your personal account token.")
+
                 whoami_info = self.client.whoami(token)
                 user = whoami_info["name"]
+
                 valid_organisations = [org["name"] for org in whoami_info["orgs"]]
 
                 if namespace is not None:
