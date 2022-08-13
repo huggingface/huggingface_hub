@@ -636,7 +636,6 @@ class Repository:
 
                 whoami_info = self.client.whoami(token)
                 user = whoami_info["name"]
-
                 valid_organisations = [org["name"] for org in whoami_info["orgs"]]
 
                 if namespace is not None:
