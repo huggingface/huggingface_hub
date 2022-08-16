@@ -13,7 +13,7 @@ from functools import partial
 from hashlib import sha256
 from pathlib import Path
 from typing import BinaryIO, Dict, Optional, Tuple, Union
-from urllib.parse import quote
+from urllib.parse import quote, urlparse
 
 import packaging.version
 
@@ -369,7 +369,7 @@ def _raise_if_offline_mode_is_enabled(msg: Optional[str] = None):
         )
 
 
-def _request_with_retry(
+def _request_wrapper(
     method: str,
     url: str,
     *,
@@ -377,34 +377,82 @@ def _request_with_retry(
     base_wait_time: float = 0.5,
     max_wait_time: float = 2,
     timeout: float = 10.0,
+    follow_relative_redirects: bool = False,
     **params,
 ) -> requests.Response:
-    """Wrapper around requests to retry in case it fails with a `ConnectTimeout`, with
-    exponential backoff.
+    """Wrapper around requests methods to add several features.
 
-        Note that if the environment variable HF_HUB_OFFLINE is set to 1, then a
-        `OfflineModeIsEnabled` error is raised.
+    What it does:
+    1. Ensure offline mode is disabled (env variable `HF_HUB_OFFLINE` not set to 1).
+       If enabled, a `OfflineModeIsEnabled` exception is raised.
+    2. Follow relative redirections if `follow_relative_redirects=True` even when
+       `allow_redirection` kwarg is set to False.
+    3. Retry in case request fails with a `ConnectTimeout`, with exponential backoff.
 
-        Args:
-            method (`str`):
-                HTTP method, such as 'GET' or 'HEAD'.
-            url (`str`):
-                The URL of the resource to fetch.
-            max_retries (`int`, *optional*, defaults to `0`):
-                Maximum number of retries, defaults to 0 (no retries).
-            base_wait_time (`float`, *optional*, defaults to `0.5`):
-                Duration (in seconds) to wait before retrying the first time.
-                Wait time between retries then grows exponentially, capped by
-                `max_wait_time`.
-            max_wait_time (`float`, *optional*, defaults to `2`):
-                Maximum amount of time between two retries, in seconds.
-            timeout (`float`, *optional*, defaults to `10`):
-                How many seconds to wait for the server to send data before
-                giving up which is passed to `requests.request`.
-            **params (`dict`, *optional*):
-                Params to pass to `requests.request`.
+    Args:
+        method (`str`):
+            HTTP method, such as 'GET' or 'HEAD'.
+        url (`str`):
+            The URL of the resource to fetch.
+        max_retries (`int`, *optional*, defaults to `0`):
+            Maximum number of retries, defaults to 0 (no retries).
+        base_wait_time (`float`, *optional*, defaults to `0.5`):
+            Duration (in seconds) to wait before retrying the first time.
+            Wait time between retries then grows exponentially, capped by
+            `max_wait_time`.
+        max_wait_time (`float`, *optional*, defaults to `2`):
+            Maximum amount of time between two retries, in seconds.
+        timeout (`float`, *optional*, defaults to `10`):
+            How many seconds to wait for the server to send data before
+            giving up which is passed to `requests.request`.
+        follow_relative_redirects (`bool`, *optional*, defaults to `False`)
+            If True, relative redirection (redirection to the same site) will be
+            resolved even when `allow_redirection` kwarg is set to False. Useful when we
+            want to follow a redirection to a renamed repository without following
+            redirection to a CDN.
+        **params (`dict`, *optional*):
+            Params to pass to `requests.request`.
     """
+    # 1. Check online mode
     _raise_if_offline_mode_is_enabled(f"Tried to reach {url}")
+
+    # 2. Force relative redirection
+    if follow_relative_redirects:
+        response = _request_wrapper(
+            method=method,
+            url=url,
+            max_retries=max_retries,
+            base_wait_time=base_wait_time,
+            max_wait_time=max_wait_time,
+            timeout=timeout,
+            follow_relative_redirects=False,
+            **params,
+        )
+
+        # If redirection, we redirect only relative paths.
+        # This is useful in case of a renamed repository.
+        if 300 <= response.status_code <= 399:
+            parsed_target = urlparse(response.headers["Location"])
+            if parsed_target.netloc == "":
+                # This means it is a relative 'location' headers, as allowed by RFC 7231.
+                # (e.g. '/path/to/resource' instead of 'http://domain.tld/path/to/resource')
+                # We want to follow this relative redirect !
+                #
+                # Highly inspired by `resolve_redirects` from requests library.
+                # See https://github.com/psf/requests/blob/main/requests/sessions.py#L159
+                return _request_wrapper(
+                    method=method,
+                    url=urlparse(url)._replace(path=parsed_target.path).geturl(),
+                    max_retries=max_retries,
+                    base_wait_time=base_wait_time,
+                    max_wait_time=max_wait_time,
+                    timeout=timeout,
+                    follow_relative_redirects=True,  # resolve recursively
+                    **params,
+                )
+        return response
+
+    # 3. Exponential backoff
     tries, success = 0, False
     while not success:
         tries += 1
@@ -428,6 +476,14 @@ def _request_with_retry(
     return response
 
 
+def _request_with_retry(*args, **kwargs) -> requests.Response:
+    """Deprecated method. Please use `_request_wrapper` instead.
+
+    Alias to keep backward compatibility (used in Transformers).
+    """
+    return _request_wrapper(*args, **kwargs)
+
+
 def http_get(
     url: str,
     temp_file: BinaryIO,
@@ -444,7 +500,7 @@ def http_get(
     headers = copy.deepcopy(headers)
     if resume_size > 0:
         headers["Range"] = "bytes=%d-" % (resume_size,)
-    r = _request_with_retry(
+    r = _request_wrapper(
         method="GET",
         url=url,
         stream=True,
@@ -597,11 +653,12 @@ def cached_download(
     etag = None
     if not local_files_only:
         try:
-            r = _request_with_retry(
+            r = _request_wrapper(
                 method="HEAD",
                 url=url,
                 headers=headers,
                 allow_redirects=False,
+                follow_relative_redirects=True,
                 proxies=proxies,
                 timeout=etag_timeout,
             )
@@ -615,10 +672,10 @@ def cached_download(
                     "Distant resource does not have an ETag, we won't be able to"
                     " reliably ensure reproducibility."
                 )
-            # In case of a redirect,
-            # save an extra redirect on the request.get call,
+            # In case of a redirect, save an extra redirect on the request.get call,
             # and ensure we download the exact atomic version even if it changed
             # between the HEAD and the GET (unlikely, but hey).
+            # Useful for lfs blobs that are stored on a CDN.
             if 300 <= r.status_code <= 399:
                 url_to_download = r.headers["Location"]
         except (requests.exceptions.SSLError, requests.exceptions.ProxyError):
@@ -1030,11 +1087,12 @@ def hf_hub_download(
     commit_hash = None
     if not local_files_only:
         try:
-            r = _request_with_retry(
+            r = _request_wrapper(
                 method="HEAD",
                 url=url,
                 headers=headers,
                 allow_redirects=False,
+                follow_relative_redirects=True,
                 proxies=proxies,
                 timeout=etag_timeout,
             )
@@ -1070,10 +1128,10 @@ def hf_hub_download(
                     " reliably ensure reproducibility."
                 )
             etag = _normalize_etag(etag)
-            # In case of a redirect,
-            # save an extra redirect on the request.get call,
+            # In case of a redirect, save an extra redirect on the request.get call,
             # and ensure we download the exact atomic version even if it changed
             # between the HEAD and the GET (unlikely, but hey).
+            # Useful for lfs blobs that are stored on a CDN.
             if 300 <= r.status_code <= 399:
                 url_to_download = r.headers["Location"]
                 if (
