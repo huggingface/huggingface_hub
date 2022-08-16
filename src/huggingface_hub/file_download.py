@@ -857,10 +857,9 @@ def _cache_commit_hash_for_specific_revision(
     """
     if revision != commit_hash:
         ref_path = os.path.join(storage_folder, "refs", revision)
-        if not os.path.exists(ref_path):
-            os.makedirs(os.path.dirname(ref_path), exist_ok=True)
-            with open(ref_path, "w") as f:
-                f.write(commit_hash)
+        os.makedirs(os.path.dirname(ref_path), exist_ok=True)
+        with open(ref_path, "w") as f:
+            f.write(commit_hash)
 
 
 def repo_folder_name(*, repo_id: str, repo_type: str) -> str:
