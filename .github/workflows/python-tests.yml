@@ -5,14 +5,8 @@ on:
     branches:
       - main
       - ci_*
-    paths-ignore:
-      - "js/**"
-      - "api-inference-community/**"
   pull_request:
     types: [assigned, opened, synchronize, reopened]
-    paths-ignore:
-      - "js/**"
-      - "api-inference-community/**"
 
 env:
   HUGGINGFACE_CO_STAGING: yes
