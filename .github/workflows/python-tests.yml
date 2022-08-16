@@ -90,7 +90,9 @@ jobs:
             ;;
 
             tensorflow)
-              eval "$PYTEST ../tests/test_tf* ../tests/test_keras*"
+              # Cannot be on same line since '_tf*' checks if tensorflow is NOT imported by default
+              eval "$PYTEST ../tests/test_tf*"
+              eval "$PYTEST ../tests/test_keras*"
             ;;
 
             torch)
