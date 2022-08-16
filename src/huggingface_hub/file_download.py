@@ -1101,11 +1101,14 @@ def hf_hub_download(
             except EntryNotFoundError:
                 commit_hash = r.headers.get(HUGGINGFACE_HEADER_X_REPO_COMMIT)
                 if commit_hash is not None and not legacy_cache_layout:
-                    no_exist_path = os.path.join(
-                        storage_folder, ".no_exist", commit_hash
+                    no_exist_file_path = (
+                        Path(storage_folder)
+                        / ".no_exist"
+                        / commit_hash
+                        / relative_filename
                     )
-                    os.makedirs(no_exist_path, exist_ok=True)
-                    (Path(no_exist_path) / relative_filename).touch()
+                    no_exist_file_path.parent.mkdir(parents=True, exist_ok=True)
+                    no_exist_file_path.touch()
                     _cache_commit_hash_for_specific_revision(
                         storage_folder, revision, commit_hash
                     )
