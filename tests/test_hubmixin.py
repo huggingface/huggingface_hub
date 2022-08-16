@@ -2,9 +2,7 @@ import json
 import os
 import shutil
 import tempfile
-import time
 import unittest
-from io import BytesIO
 from unittest.mock import Mock
 
 from huggingface_hub import HfApi, hf_hub_download
@@ -242,45 +240,3 @@ class HubMixingTest(HubMixingCommonTest):
 
         self.assertTrue("large_file.txt" in [f.rfilename for f in model_info.siblings])
         self._api.delete_repo(repo_id=f"{REPO_NAME}", token=self._token)
-
-    @expect_deprecation("push_to_hub")
-    def test_push_to_hub_via_git_with_existing_files(self):
-        # TODO: remove in 0.12 when git method will be removed
-        REPO_A = repo_name("PUSH_TO_HUB_git_with_existing_files")
-        REPO_B = repo_name("PUSH_TO_HUB_git_without_existing_files")
-        self._api.create_repo(token=self._token, repo_id=REPO_A)
-        for i in range(5):
-            self._api.upload_file(
-                # Each are .5mb in size
-                path_or_fileobj=BytesIO(os.urandom(500000)),
-                path_in_repo=f"temp/new_file_{i}.bytes",
-                repo_id=f"{USER}/{REPO_A}",
-                token=self._token,
-            )
-        model = DummyModel()
-        start_time = time.time()
-        model.push_to_hub(
-            repo_path_or_name=f"{WORKING_REPO_SUBDIR}/{REPO_A}",
-            api_endpoint=ENDPOINT_STAGING,
-            use_auth_token=self._token,
-            git_user="ci",
-            git_email="ci@dummy.com",
-            config={"num": 7, "act": "gelu_fast"},
-        )
-        REPO_A_TIME = start_time - time.time()
-
-        start_time = time.time()
-        model.push_to_hub(
-            repo_path_or_name=f"{USER}/{REPO_B}",
-            api_endpoint=ENDPOINT_STAGING,
-            use_auth_token=self._token,
-            git_user="ci",
-            git_email="ci@dummy.com",
-            config={"num": 7, "act": "gelu_fast"},
-        )
-        REPO_B_TIME = start_time - time.time()
-        # Less than half a second from each other
-        self.assertLess(REPO_A_TIME - REPO_B_TIME, 0.5)
-
-        self._api.delete_repo(repo_id=REPO_A, token=self._token)
-        self._api.delete_repo(repo_id=REPO_B, token=self._token)
