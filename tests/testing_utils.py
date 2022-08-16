@@ -37,6 +37,10 @@ DUMMY_MODEL_ID_PINNED_SHA256 = (
 )
 # Sha-256 of pytorch_model.bin on the top of `main`, for checking purposes
 
+# "hf-internal-testing/dummy-will-be-renamed" has been renamed to "hf-internal-testing/dummy-renamed"
+DUMMY_RENAMED_MODEL_ID = (  # Regression test #941
+    "hf-internal-testing/dummy-will-be-renamed"
+)
 
 SAMPLE_DATASET_IDENTIFIER = "lhoestq/custom_squad"
 # Example dataset ids

@@ -13,6 +13,7 @@ from huggingface_hub import (
     upload_file,
 )
 from huggingface_hub.utils import logging
+from huggingface_hub.utils._errors import EntryNotFoundError
 
 from .testing_constants import ENDPOINT_STAGING, TOKEN, USER
 from .testing_utils import repo_name, with_production_testing
@@ -32,92 +33,109 @@ def get_file_contents(path):
 @with_production_testing
 class CacheFileLayoutHfHubDownload(unittest.TestCase):
     def test_file_downloaded_in_cache(self):
-        with tempfile.TemporaryDirectory() as cache:
-            hf_hub_download(MODEL_IDENTIFIER, "file_0.txt", cache_dir=cache)
+        for revision, expected_reference in (
+            (None, "main"),
+            ("file-2", "file-2"),
+        ):
+            with self.subTest(revision), tempfile.TemporaryDirectory() as cache:
+                with tempfile.TemporaryDirectory() as cache:
+                    hf_hub_download(
+                        MODEL_IDENTIFIER,
+                        "file_0.txt",
+                        cache_dir=cache,
+                        revision=revision,
+                    )
 
-            expected_directory_name = f'models--{MODEL_IDENTIFIER.replace("/", "--")}'
-            expected_path = os.path.join(cache, expected_directory_name)
+                    expected_directory_name = (
+                        f'models--{MODEL_IDENTIFIER.replace("/", "--")}'
+                    )
+                    expected_path = os.path.join(cache, expected_directory_name)
 
-            refs = os.listdir(os.path.join(expected_path, "refs"))
-            snapshots = os.listdir(os.path.join(expected_path, "snapshots"))
+                    refs = os.listdir(os.path.join(expected_path, "refs"))
+                    snapshots = os.listdir(os.path.join(expected_path, "snapshots"))
 
-            expected_reference = "main"
+                    # Only reference should be the expected one.
+                    self.assertListEqual(refs, [expected_reference])
 
-            # Only reference should be `main`.
-            self.assertListEqual(refs, [expected_reference])
+                    with open(
+                        os.path.join(expected_path, "refs", expected_reference)
+                    ) as f:
+                        snapshot_name = f.readline().strip()
 
-            with open(os.path.join(expected_path, "refs", expected_reference)) as f:
-                snapshot_name = f.readline().strip()
+                    # The `main` reference should point to the only snapshot we have downloaded
+                    self.assertListEqual(snapshots, [snapshot_name])
 
-            # The `main` reference should point to the only snapshot we have downloaded
-            self.assertListEqual(snapshots, [snapshot_name])
+                    snapshot_path = os.path.join(
+                        expected_path, "snapshots", snapshot_name
+                    )
+                    snapshot_content = os.listdir(snapshot_path)
 
-            snapshot_path = os.path.join(expected_path, "snapshots", snapshot_name)
-            snapshot_content = os.listdir(snapshot_path)
+                    # Only a single file in the snapshot
+                    self.assertEqual(len(snapshot_content), 1)
 
-            # Only a single file in the snapshot
-            self.assertEqual(len(snapshot_content), 1)
+                    snapshot_content_path = os.path.join(
+                        snapshot_path, snapshot_content[0]
+                    )
 
-            snapshot_content_path = os.path.join(snapshot_path, snapshot_content[0])
+                    # The snapshot content should link to a blob
+                    self.assertTrue(os.path.islink(snapshot_content_path))
 
-            # The snapshot content should link to a blob
-            self.assertTrue(os.path.islink(snapshot_content_path))
+                    resolved_blob_relative = os.readlink(snapshot_content_path)
+                    resolved_blob_absolute = os.path.normpath(
+                        os.path.join(snapshot_path, resolved_blob_relative)
+                    )
 
-            resolved_blob_relative = os.readlink(snapshot_content_path)
-            resolved_blob_absolute = os.path.normpath(
-                os.path.join(snapshot_path, resolved_blob_relative)
-            )
+                    with open(resolved_blob_absolute) as f:
+                        blob_contents = f.readline().strip()
 
-            with open(resolved_blob_absolute) as f:
-                blob_contents = f.read().strip()
+                    # The contents of the file should be 'File 0'.
+                    self.assertEqual(blob_contents, "File 0")
 
-            # The contents of the file should be 'File 0'.
-            self.assertEqual(blob_contents, "File 0")
+    def test_no_exist_file_is_cached(self):
+        revisions = [None, "file-2"]
+        expected_references = ["main", "file-2"]
+        for revision, expected_reference in zip(revisions, expected_references):
+            with self.subTest(revision), tempfile.TemporaryDirectory() as cache:
+                filename = "this_does_not_exist.txt"
+                with self.assertRaises(EntryNotFoundError):
+                    # The file does not exist, so we get an exception.
+                    hf_hub_download(
+                        MODEL_IDENTIFIER, filename, cache_dir=cache, revision=revision
+                    )
 
-    def test_file_downloaded_in_cache_with_revision(self):
-        with tempfile.TemporaryDirectory() as cache:
-            hf_hub_download(
-                MODEL_IDENTIFIER, "file_0.txt", cache_dir=cache, revision="file-2"
-            )
+                expected_directory_name = (
+                    f'models--{MODEL_IDENTIFIER.replace("/", "--")}'
+                )
+                expected_path = os.path.join(cache, expected_directory_name)
 
-            expected_directory_name = f'models--{MODEL_IDENTIFIER.replace("/", "--")}'
-            expected_path = os.path.join(cache, expected_directory_name)
+                refs = os.listdir(os.path.join(expected_path, "refs"))
+                no_exist_snapshots = os.listdir(
+                    os.path.join(expected_path, ".no_exist")
+                )
 
-            refs = os.listdir(os.path.join(expected_path, "refs"))
-            snapshots = os.listdir(os.path.join(expected_path, "snapshots"))
+                # Only reference should be `main`.
+                self.assertListEqual(refs, [expected_reference])
 
-            expected_reference = "file-2"
+                with open(os.path.join(expected_path, "refs", expected_reference)) as f:
+                    snapshot_name = f.readline().strip()
 
-            # Only reference should be `file-2`.
-            self.assertListEqual(refs, [expected_reference])
+                # The `main` reference should point to the only snapshot we have downloaded
+                self.assertListEqual(no_exist_snapshots, [snapshot_name])
 
-            with open(os.path.join(expected_path, "refs", expected_reference)) as f:
-                snapshot_name = f.read().strip()
+                no_exist_path = os.path.join(expected_path, ".no_exist", snapshot_name)
+                no_exist_content = os.listdir(no_exist_path)
 
-            # The `main` reference should point to the only snapshot we have downloaded
-            self.assertListEqual(snapshots, [snapshot_name])
+                # Only a single file in the no_exist snapshot
+                self.assertEqual(len(no_exist_content), 1)
 
-            snapshot_path = os.path.join(expected_path, "snapshots", snapshot_name)
-            snapshot_content = os.listdir(snapshot_path)
+                # The no_exist content should be our file
+                self.assertEqual(no_exist_content[0], filename)
 
-            # Only a single file in the snapshot
-            self.assertEqual(len(snapshot_content), 1)
+                with open(os.path.join(no_exist_path, filename)) as f:
+                    content = f.read().strip()
 
-            snapshot_content_path = os.path.join(snapshot_path, snapshot_content[0])
-
-            # The snapshot content should link to a blob
-            self.assertTrue(os.path.islink(snapshot_content_path))
-
-            resolved_blob_relative = os.readlink(snapshot_content_path)
-            resolved_blob_absolute = os.path.normpath(
-                os.path.join(snapshot_path, resolved_blob_relative)
-            )
-
-            with open(resolved_blob_absolute) as f:
-                blob_contents = f.readline().strip()
-
-            # The contents of the file should be 'File 0'.
-            self.assertEqual(blob_contents, "File 0")
+                # The contents of the file should be empty.
+                self.assertEqual(content, "")
 
     def test_file_download_happens_once(self):
         # Tests that a file is only downloaded once if it's not updated.
