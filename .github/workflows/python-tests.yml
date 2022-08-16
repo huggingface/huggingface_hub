@@ -18,7 +18,7 @@ env:
   HUGGINGFACE_CO_STAGING: yes
 
 jobs:
-  build_tests:
+  build:
     runs-on: ubuntu-latest
     strategy:
       matrix:
@@ -102,4 +102,4 @@ jobs:
       # Upload code coverage
       - name: Upload coverage reports to Codecov with GitHub Action
         uses: codecov/codecov-action@v3
-        files: ./coverage.xml
+        file: ./coverage.xml
