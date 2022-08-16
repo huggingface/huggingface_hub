@@ -66,6 +66,7 @@ from .utils.endpoint_helpers import (
     ModelTags,
     _filter_emissions,
 )
+from .utils.paths import filter_repo_objects
 
 
 if sys.version_info >= (3, 8):
@@ -2217,6 +2218,8 @@ class HfApi:
         revision: Optional[str] = None,
         create_pr: Optional[bool] = None,
         parent_commit: Optional[str] = None,
+        allow_patterns: Optional[Union[List[str], str]] = None,
+        ignore_patterns: Optional[Union[List[str], str]] = None,
     ):
         """
         Upload a local folder to the given repo. The upload is done
@@ -2330,6 +2333,14 @@ class HfApi:
                         ).replace(os.sep, "/"),
                     )
                 )
+        files_to_add = list(
+            filter_repo_objects(
+                files_to_add,
+                allow_patterns=allow_patterns,
+                ignore_patterns=ignore_patterns,
+                key=lambda x: x.path_in_repo,
+            )
+        )
 
         logger.debug(f"About to upload / commit {len(files_to_add)} files to the Hub")
 
