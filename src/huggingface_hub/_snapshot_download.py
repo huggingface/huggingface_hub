@@ -165,7 +165,7 @@ def snapshot_download(
         repo_id=repo_id, repo_type=repo_type, revision=revision, token=token
     )
     filtered_repo_files = filter_repo_objects(
-        paths=[f.rfilename for f in repo_info.siblings],
+        items=[f.rfilename for f in repo_info.siblings],
         allow_patterns=allow_patterns,
         ignore_patterns=ignore_patterns,
     )
