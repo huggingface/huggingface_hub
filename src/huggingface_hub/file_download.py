@@ -34,7 +34,11 @@ from .constants import (
 )
 from .hf_api import HfFolder
 from .utils import logging, tqdm
-from .utils._errors import LocalEntryNotFoundError, _raise_for_status
+from .utils._errors import (
+    EntryNotFoundError,
+    LocalEntryNotFoundError,
+    _raise_for_status,
+)
 
 
 logger = logging.get_logger(__name__)
@@ -844,6 +848,20 @@ def _create_relative_symlink(src: str, dst: str) -> None:
             raise
 
 
+def _cache_commit_hash_for_specific_revision(
+    storage_folder: str, revision: str, commit_hash: str
+) -> None:
+    """Cache reference between a revision (tag, branch or truncated commit hash) and the corresponding commit hash.
+
+    Does nothing if `revision` is already a proper `commit_hash` or reference is already cached.
+    """
+    if revision != commit_hash:
+        ref_path = os.path.join(storage_folder, "refs", revision)
+        os.makedirs(os.path.dirname(ref_path), exist_ok=True)
+        with open(ref_path, "w") as f:
+            f.write(commit_hash)
+
+
 def repo_folder_name(*, repo_id: str, repo_type: str) -> str:
     """Return a serialized version of a hf.co repo name and type, safe for disk storage
     as a single non-nested folder.
@@ -1077,7 +1095,23 @@ def hf_hub_download(
                 proxies=proxies,
                 timeout=etag_timeout,
             )
-            _raise_for_status(r)
+            try:
+                _raise_for_status(r)
+            except EntryNotFoundError:
+                commit_hash = r.headers.get(HUGGINGFACE_HEADER_X_REPO_COMMIT)
+                if commit_hash is not None and not legacy_cache_layout:
+                    no_exist_file_path = (
+                        Path(storage_folder)
+                        / ".no_exist"
+                        / commit_hash
+                        / relative_filename
+                    )
+                    no_exist_file_path.parent.mkdir(parents=True, exist_ok=True)
+                    no_exist_file_path.touch()
+                    _cache_commit_hash_for_specific_revision(
+                        storage_folder, revision, commit_hash
+                    )
+                raise
             commit_hash = r.headers[HUGGINGFACE_HEADER_X_REPO_COMMIT]
             if commit_hash is None:
                 raise OSError(
@@ -1173,11 +1207,7 @@ def hf_hub_download(
     # if passed revision is not identical to commit_hash
     # then revision has to be a branch name or tag name.
     # In that case store a ref.
-    if revision != commit_hash:
-        ref_path = os.path.join(storage_folder, "refs", revision)
-        os.makedirs(os.path.dirname(ref_path), exist_ok=True)
-        with open(ref_path, "w") as f:
-            f.write(commit_hash)
+    _cache_commit_hash_for_specific_revision(storage_folder, revision, commit_hash)
 
     if os.path.exists(pointer_path) and not force_download:
         return pointer_path
