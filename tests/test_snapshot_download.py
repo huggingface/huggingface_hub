@@ -314,7 +314,7 @@ class SnapshotDownloadTests(unittest.TestCase):
 
     def check_download_model_with_regex(self, regex, allow=True):
         # Test `main` branch
-        allow_regex = regex if allow else None
+        allow_regex = regex if allow else None  # TODO expect deprecation here
         ignore_regex = regex if not allow else None
 
         with tempfile.TemporaryDirectory() as tmpdirname:

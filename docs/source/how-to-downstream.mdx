@@ -85,28 +85,29 @@ already know the file names you need.
 
 However, you don't always want to download the contents of an entire repository with
 [`snapshot_download`]. Even if you don't know the file name, you can download specific
-files if you know the file type with `allow_regex` and `ignore_regex`. Use the
-`allow_regex` and `ignore_regex` arguments to specify which files to download. These
-parameters accept either a single regex or a list of regexes. 
+files if you know the file type with `allow_patterns` and `ignore_patterns`. Use the
+`allow_patterns` and `ignore_patterns` arguments to specify which files to download. These
+parameters accept either a single pattern or a list of patterns.
 
-The regex matching is based on
-[`fnmatch`](https://docs.python.org/3/library/fnmatch.html), which provides support for
-Unix shell-style wildcards.
+Patterns correspond to
+Standard Wildcards (globbing patterns) as documented
+[here](https://tldp.org/LDP/GNU-Linux-Tools-Summary/html/x11655.htm). The pattern
+matching is based on [`fnmatch`](https://docs.python.org/3/library/fnmatch.html).
 
-For example, you can use `allow_regex` to only download JSON configuration files:
+For example, you can use `allow_patterns` to only download JSON configuration files:
 
 ```python
 >>> from huggingface_hub import snapshot_download
->>> snapshot_download(repo_id="lysandre/arxiv-nlp", allow_regex="*.json")
+>>> snapshot_download(repo_id="lysandre/arxiv-nlp", allow_patterns="*.json")
 ```
 
-On the other hand, `ignore_regex` can exclude certain files from being downloaded. The
+On the other hand, `ignore_patterns` can exclude certain files from being downloaded. The
 following example ignores the `.msgpack` and `.h5` file extensions:
 
 ```python
 >>> from huggingface_hub import snapshot_download
->>> snapshot_download(repo_id="lysandre/arxiv-nlp", ignore_regex=["*.msgpack", "*.h5"])
+>>> snapshot_download(repo_id="lysandre/arxiv-nlp", ignore_patterns=["*.msgpack", "*.h5"])
 ```
 
-Passing a regex can be especially useful when repositories contain files that are never
+Passing a pattern can be especially useful when repositories contain files that are never
 expected to be downloaded by [`snapshot_download`].
