@@ -329,7 +329,6 @@ class ModelHubMixin:
                 return api.upload_folder(
                     repo_id=repo_id,
                     repo_type="model",
-                    path_in_repo="",
                     token=token,
                     folder_path=saved_path,
                     commit_message=commit_message,
