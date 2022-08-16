@@ -26,7 +26,7 @@ jobs:
         python-version: ["3.7", "3.10"]
         test_name: ["Repository only", "Everything else", "fastai", "torch", "tensorflow"]
         include:
-          - python-version: "3.10" # LFS not run on 3.7
+          - python-version: "3.10" # LFS not ran on 3.7
             test_name: "lfs"
 
     steps:
