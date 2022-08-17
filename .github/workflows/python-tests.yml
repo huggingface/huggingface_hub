@@ -62,7 +62,7 @@ jobs:
       - name: Run tests
         working-directory: ./src # For code coverage to work
         run: |
-          PYTEST="python -m pytest -sv -n auto --log-cli-level=INFO --cov=./huggingface_hub --cov-report=xml:../coverage.xml"
+          PYTEST="python -m pytest -sv -n 8 --log-cli-level=INFO --cov=./huggingface_hub --cov-report=xml:../coverage.xml"
 
           case "${{ matrix.test_name }}" in
 

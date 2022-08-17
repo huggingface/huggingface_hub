@@ -1,3 +1,4 @@
+import contextlib
 import os
 import stat
 import time
@@ -7,7 +8,7 @@ from contextlib import contextmanager
 from distutils.util import strtobool
 from enum import Enum
 from functools import wraps
-from typing import Callable, Optional
+from typing import Callable, Generator, Optional
 from unittest.mock import patch
 
 import pytest
@@ -289,3 +290,19 @@ def expect_deprecation(function_name: str):
         return _inner_test_function
 
     return _inner_decorator
+
+
+@contextlib.contextmanager
+def safe_chdir(path: str) -> Generator[None, None, None]:
+    """Context manager to safely change current working directory.
+
+    CWD is changed back to original one onced exiting.
+
+    Taken from https://stackoverflow.com/a/169112.
+    """
+    curdir = os.getcwd()
+    os.chdir(path)
+    try:
+        yield
+    finally:
+        os.chdir(curdir)
