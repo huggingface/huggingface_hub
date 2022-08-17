@@ -2229,10 +2229,10 @@ class HfApi:
 
         Use the `allow_patterns` and `ignore_patterns` arguments to specify which files
         to upload. These parameters accept either a single pattern or a list of
-        patterns. Patterns correspond to Standard Wildcards (globbing patterns) as
-        documented [here](https://tldp.org/LDP/GNU-Linux-Tools-Summary/html/x11655.htm).
-        If both `allow_patterns` and `ignore_patterns` are provided, both constraints
-        apply. By default, all files from the folder are uploaded.
+        patterns. Patterns are Standard Wildcards (globbing patterns) as documented
+        [here](https://tldp.org/LDP/GNU-Linux-Tools-Summary/html/x11655.htm). If both
+        `allow_patterns` and `ignore_patterns` are provided, both constraints apply. By
+        default, all files from the folder are uploaded.
 
         Uses `HfApi.create_commit` under the hood.
 
