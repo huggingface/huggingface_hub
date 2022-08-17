@@ -1,17 +1,16 @@
 import warnings
 from functools import wraps
 from inspect import Parameter, signature
+from typing import Set
 
 
-def _deprecate_positional_args(func=None, *, version="0.8"):
+def _deprecate_positional_args(*, version: str):
     """Decorator for methods that issues warnings for positional arguments.
     Using the keyword-only argument syntax in pep 3102, arguments after the
     * will issue a warning when passed as a positional argument.
 
     Args:
-        func (``Callable``, `optional`):
-            Function to check arguments on.
-        version (``Callable``, `optional`, defaults to ``"0.8"``):
+        version (`str`):
             The version when positional arguments will result in error.
     """
 
@@ -37,9 +36,9 @@ def _deprecate_positional_args(func=None, *, version="0.8"):
             ]
             args_msg = ", ".join(args_msg)
             warnings.warn(
-                f"Pass {args_msg} as keyword args. From version "
-                f"{version} passing these as positional arguments "
-                "will result in an error",
+                f"Deprecated positional argument(s) used in '{f.__name__}': pass"
+                f" {args_msg} as keyword args. From version {version} passing these as"
+                " positional arguments will result in an error,",
                 FutureWarning,
             )
             kwargs.update(zip(sig.parameters, args))
@@ -47,6 +46,45 @@ def _deprecate_positional_args(func=None, *, version="0.8"):
 
         return inner_f
 
-    if func is not None:
-        return _inner_deprecate_positional_args(func)
+    return _inner_deprecate_positional_args
+
+
+def _deprecate_arguments(*, version: str, deprecated_args: Set[str]):
+    """Decorator to issue warnings when using deprecated arguments.
+
+    TODO: could be useful to be able to set a custom error message.
+
+    Args:
+        version (`str`):
+            The version when deprecated arguments will result in error.
+        deprecated_args (`List[str]`):
+            List of the arguments to be deprecated.
+    """
+
+    def _inner_deprecate_positional_args(f):
+        sig = signature(f)
+
+        @wraps(f)
+        def inner_f(*args, **kwargs):
+            # Check for used deprecated arguments
+            used_deprecated_args = []
+            for _, parameter in zip(args, sig.parameters.values()):
+                if parameter.name in deprecated_args:
+                    used_deprecated_args.append(parameter.name)
+            for kwarg_name in kwargs:
+                if kwarg_name in deprecated_args:
+                    used_deprecated_args.append(kwarg_name)
+
+            # Warn and proceed
+            if len(used_deprecated_args) > 0:
+                warnings.warn(
+                    f"Deprecated argument(s) used in '{f.__name__}':"
+                    f" {', '.join(used_deprecated_args)}. Will not be supported from"
+                    f" version '{version}'.",
+                    FutureWarning,
+                )
+            return f(*args, **kwargs)
+
+        return inner_f
+
     return _inner_deprecate_positional_args
