@@ -2229,6 +2229,13 @@ class HfApi:
         The structure of the folder will be preserved. Files with the same name
         already present in the repository will be overwritten, others will be left untouched.
 
+        Use the `allow_patterns` and `ignore_patterns` arguments to specify which files
+        to upload. These parameters accept either a single pattern or a list of
+        patterns. Patterns correspond to Standard Wildcards (globbing patterns) as
+        documented [here](https://tldp.org/LDP/GNU-Linux-Tools-Summary/html/x11655.htm).
+        If both `allow_patterns` and `ignore_patterns` are provided, both constraints
+        apply. By default, all files from the folder are uploaded.
+
         Uses `HfApi.create_commit` under the hood.
 
         Args:
@@ -2264,7 +2271,10 @@ class HfApi:
                 If specified and `create_pr` is `True`, the pull request will be created from `parent_commit`.
                 Specifying `parent_commit` ensures the repo has not changed before committing the changes, and can be
                 especially useful if the repo is updated / committed to concurrently.
-
+            allow_patterns (`List[str]` or `str`, *optional*):
+                If provided, only files matching at least one pattern are uploaded.
+            ignore_patterns (`List[str]` or `str`, *optional*):
+                If provided, files matching any of the patterns are not uploaded.
 
         Returns:
             `str`: A URL to visualize the uploaded folder on the hub
@@ -2289,6 +2299,7 @@ class HfApi:
         ...     repo_id="username/my-dataset",
         ...     repo_type="datasets",
         ...     token="my_token",
+        ...     ignore_patterns="**/logs/*.txt",
         ... )
         # "https://huggingface.co/datasets/username/my-dataset/tree/main/remote/experiment/checkpoints"
 

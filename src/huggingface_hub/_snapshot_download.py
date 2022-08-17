@@ -75,10 +75,10 @@ def snapshot_download(
         local_files_only (`bool`, *optional*, defaults to `False`):
             If `True`, avoid downloading the file and return the path to the
             local cached file if it exists.
-        allow_patterns (`list of str`, `str`, *optional*):
-            If provided, only files matching this regex are downloaded.
-        ignore_patterns (`list of str`, `str`, *optional*):
-            If provided, files matching this regex are not downloaded.
+        allow_patterns (`List[str]` or `str`, *optional*):
+            If provided, only files matching at least one pattern are downloaded.
+        ignore_patterns (`List[str]` or `str`, *optional*):
+            If provided, files matching any of the patterns are not downloaded.
 
     Returns:
         Local folder path (string) of repo snapshot

@@ -39,10 +39,11 @@ Specify the path of the file to upload, where you want to upload the file to in 
 ```py
 >>> from huggingface_hub import HfApi
 >>> api = HfApi()
->>> api.upload_file(path_or_fileobj="/path/to/local/folder/README.md", 
-...                 path_in_repo="README.md", 
-...                 repo_id="username/test-dataset",
-...                 repo_type="dataset",
+>>> api.upload_file(
+...   path_or_fileobj="/path/to/local/folder/README.md",
+...   path_in_repo="README.md",
+...   repo_id="username/test-dataset",
+...   repo_type="dataset",
 ... )
 ```
 
@@ -50,13 +51,19 @@ Specify the path of the file to upload, where you want to upload the file to in 
 
 Use the [`upload_folder`] function to upload a local folder to an existing repository. Specify the path of the local folder to upload, where you want to upload the folder to in the repository, and the name of the repository you want to add the folder to. Depending on your repository type, you can optionally set the repository type as a `dataset`, `model`, or `space`.
 
+Use the `allow_patterns` and `ignore_patterns` arguments to specify which files to upload. These parameters accept either a single pattern or a list of patterns.
+Patterns correspond to Standard Wildcards (globbing patterns) as documented [here](https://tldp.org/LDP/GNU-Linux-Tools-Summary/html/x11655.htm). 
+If both `allow_patterns` and `ignore_patterns` are provided, both constraints apply. By default, all files from the folder are uploaded.
+
 ```py
 >>> from huggingface_hub import HfApi
 >>> api = HfApi()
->>> api.upload_folder(folder_path="/path/to/local/folder",
-...                   path_in_repo="my-dataset/train",
-...                   repo_id="username/test-dataset",
-...                   repo_type="dataset",
+>>> api.upload_folder(
+...   folder_path="/path/to/local/folder",
+...   path_in_repo="my-dataset/train",
+...   repo_id="username/test-dataset",
+...   repo_type="dataset",
+...   ignore_patterns="**/logs/*.txt",
 ... )
 ```
 
