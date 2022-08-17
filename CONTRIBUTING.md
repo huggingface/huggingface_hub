@@ -258,13 +258,14 @@ repository they can be run with the following:
 
 ```bash
 $ HUGGINGFACE_CO_STAGING=1 python -m pytest -sv ./tests
+```
 
-In fact, that's how `make test` is implemented (sans the `pip install` line)!
+In fact, that's how `make test` is implemented (without the `pip install` line)!
 
 You can specify a smaller set of tests in order to test only the feature
 you're working on.
 
-For example, the following will only run the tests hel in the `test_repository.py` file:
+For example, the following will only run the tests in the `test_repository.py` file:
 
 ```bash
 $ HUGGINGFACE_CO_STAGING=1 python -m pytest -sv ./tests/test_repository.py
