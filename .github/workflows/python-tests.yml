@@ -5,14 +5,8 @@ on:
     branches:
       - main
       - ci_*
-    paths-ignore:
-      - "js/**"
-      - "api-inference-community/**"
   pull_request:
     types: [assigned, opened, synchronize, reopened]
-    paths-ignore:
-      - "js/**"
-      - "api-inference-community/**"
 
 env:
   HUGGINGFACE_CO_STAGING: yes
@@ -21,117 +15,90 @@ jobs:
   build:
     runs-on: ubuntu-latest
     strategy:
+      fail-fast: false
       matrix:
         python-version: ["3.7", "3.10"]
-        test_repository: ["Repository only", "Everything else"]
+        test_name: ["Repository only", "Everything else", "fastai", "torch", "tensorflow"]
+        include:
+          - python-version: "3.10" # LFS not ran on 3.7
+            test_name: "lfs"
 
     steps:
       - uses: actions/checkout@v2
-
       - name: Set up Python ${{ matrix.python-version }}
         uses: actions/setup-python@v2
         with:
           python-version: ${{ matrix.python-version }}
 
-      - name: Install dependencies
+      # Install dependencies
+      - name: Configure and install dependencies
         run: |
-          sudo apt install -y libsndfile1-dev
           pip install --upgrade pip
           pip install .[testing]
 
-      - run: |
-          if [[ "${{ matrix.test_repository }}" == "Repository only" ]]
-          then
-            pytest --log-cli-level=INFO -sv ./tests/test_repository.py -k RepositoryTest
+          case "${{ matrix.test_name }}" in
 
-          else
-            pytest --log-cli-level=INFO -sv ./tests/ -k 'not RepositoryTest'
-          fi
+            "Repository only" | "Everything else")
+              sudo apt install -y libsndfile1-dev
+              ;;
 
-  build_pytorch:
-    runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        python-version: ["3.7", "3.10"]
+            lfs)
+              git config --global user.email "ci@dummy.com"
+              git config --global user.name "ci"
+              ;;
 
-    steps:
-    - uses: actions/checkout@v2
+            fastai | torch)
+              pip install .[${{ matrix.test_name }}]
+              ;;
 
-    - name: Set up Python ${{ matrix.python-version }}
-      uses: actions/setup-python@v2
-      with:
-        python-version: ${{ matrix.python-version }}
+            tensorflow)
+              sudo apt install -y graphviz
+              pip install .[tensorflow]
+              ;;
 
-    - name: Install dependencies
-      run: |
-        pip install --upgrade pip
-        pip install .[testing,torch]
+          esac
 
-    - run: pytest -sv ./tests/test_hubmixin*
+      # Run tests
+      - name: Run tests
+        working-directory: ./src # For code coverage to work
+        run: |
+          PYTEST="python -m pytest -sv --log-cli-level=INFO --cov=./huggingface_hub --cov-report=xml:../coverage.xml"
 
-  build_tensorflow:
-    runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        python-version: ["3.7", "3.10"]
+          case "${{ matrix.test_name }}" in
 
-    steps:
-    - uses: actions/checkout@v2
+            "Repository only")
+              eval "$PYTEST ../tests -k 'RepositoryTest'"
+              ;;
 
-    - name: Set up Python ${{ matrix.python-version }}
-      uses: actions/setup-python@v2
-      with:
-        python-version: ${{ matrix.python-version }}
+            "Everything else")
+              eval "$PYTEST ../tests -k 'not RepositoryTest'"
+              ;;
 
-    - name: Install dependencies
-      run: |
-        sudo apt install -y graphviz
-        pip install --upgrade pip
-        pip install .[testing,tensorflow]
+            lfs)
+              eval "RUN_GIT_LFS_TESTS=1 $PYTEST ../tests -k 'HfLargefilesTest'"
+            ;;
 
-    - run: pytest -sv ./tests/test_tf*
 
-    - run: pytest -sv ./tests/test_keras*
+            fastai)
+              eval "$PYTEST ../tests/test_fastai*"
+            ;;
 
-  build_fastai:
-    runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        python-version: ["3.7", "3.9"]
+            tensorflow)
+              # Cannot be on same line since '_tf*' checks if tensorflow is NOT imported by default
+              eval "$PYTEST ../tests/test_tf*"
+              eval "$PYTEST ../tests/test_keras*"
+            ;;
 
-    steps:
-    - uses: actions/checkout@v2
+            torch)
+              eval "$PYTEST ../tests/test_hubmixin*"
+            ;;
 
-    - name: Set up Python ${{ matrix.python-version }}
-      uses: actions/setup-python@v2
-      with:
-        python-version: ${{ matrix.python-version }}
+          esac
 
-    - name: Install dependencies
-      run: |
-        pip install --upgrade pip
-        pip install .[testing,fastai]
 
-    - run: pytest -sv ./tests/test_fastai*
-
-  tests_lfs:
-    runs-on: ubuntu-latest
-
-    steps:
-    - uses: actions/checkout@v2
-
-    - name: Set up Python
-      uses: actions/setup-python@v2
-      with:
-        python-version: "3.10"
-
-    - run: |
-        git config --global user.email "ci@dummy.com"
-        git config --global user.name "ci"
-
-    - name: Install dependencies
-      run: |
-        pip install --upgrade pip
-        pip install .[testing]
-
-    - run: RUN_GIT_LFS_TESTS=1 pytest -sv ./tests/ -k "HfLargefilesTest"
+      # Upload code coverage
+      - name: Upload coverage reports to Codecov with GitHub Action
+        uses: codecov/codecov-action@v3
+        with:
+          files: ./coverage.xml
+          verbose: true
