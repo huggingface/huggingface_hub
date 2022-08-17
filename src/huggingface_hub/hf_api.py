@@ -3262,6 +3262,7 @@ def _parse_revision_from_pr_url(pr_url: str) -> str:
     ```py
     >>> _parse_revision_from_pr_url("https://huggingface.co/bigscience/bloom/discussions/2")
     "refs/pr/2"
+    ```
     """
     re_match = re.match(_REGEX_DISCUSSION_URL, pr_url)
     if re_match is None:
