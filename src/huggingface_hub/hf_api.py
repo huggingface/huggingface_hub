@@ -2326,10 +2326,6 @@ class HfApi:
             else f"Upload {path_in_repo} with huggingface_hub"
         )
 
-        folder_path = os.path.normpath(os.path.expanduser(folder_path))
-        if not os.path.isdir(folder_path):
-            raise ValueError(f"Provided path: '{folder_path}' is not a directory")
-
         files_to_add = _prepare_upload_folder_commit(
             folder_path,
             path_in_repo,
@@ -3263,7 +3259,7 @@ def _prepare_upload_folder_commit(
     """Generate the list of Add operations for a commit to upload a folder.
 
     Files not matching the `allow_patterns` (allowlist) and `ignore_patterns` (denylist)
-    constraints are not discarded.
+    constraints are discarded.
     """
     folder_path = os.path.normpath(os.path.expanduser(folder_path))
     if not os.path.isdir(folder_path):
