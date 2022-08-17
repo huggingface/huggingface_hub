@@ -70,6 +70,17 @@ class TestPathsUtils(unittest.TestCase):
             key=lambda x: x.path,
         )
 
+    def test_filter_objects_key_not_provided(self) -> None:
+        """Test ValueError is raised if filtering non-string objects."""
+        with self.assertRaisesRegex(ValueError, "Please provide `key` argument"):
+            list(
+                filter_repo_objects(
+                    items=DUMMY_OBJECTS,
+                    allow_patterns=["*.png", "*.jpg"],
+                    ignore_patterns=".*",
+                )
+            )
+
     def _check(
         self,
         items: List[Any],
