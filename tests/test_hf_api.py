@@ -59,6 +59,7 @@ from huggingface_hub.utils.endpoint_helpers import (
     _filter_emissions,
 )
 from requests.exceptions import HTTPError
+from tests.conftest import CacheDirFixture, RepoIdFixture
 
 from .testing_constants import (
     ENDPOINT_STAGING,
@@ -85,7 +86,6 @@ logger = logging.get_logger(__name__)
 
 dataset_repo_name = partial(repo_name, prefix="my-dataset")
 space_repo_name = partial(repo_name, prefix="my-space")
-large_file_repo_name = partial(repo_name, prefix="my-model-largefiles")
 
 WORKING_REPO_DIR = os.path.join(
     os.path.dirname(os.path.abspath(__file__)), "fixtures/working_repo"
@@ -94,7 +94,7 @@ LARGE_FILE_14MB = "https://cdn-media.huggingface.co/lfs-largefiles/progit.epub"
 LARGE_FILE_18MB = "https://cdn-media.huggingface.co/lfs-largefiles/progit.pdf"
 
 
-class HfApiCommonTest(unittest.TestCase):
+class HfApiCommonTest(unittest.TestCase, CacheDirFixture, RepoIdFixture):
     _api = HfApi(endpoint=ENDPOINT_STAGING)
 
 
@@ -1475,32 +1475,21 @@ class HfLargefilesTest(HfApiCommonTest):
         cls._token = TOKEN
         cls._api.set_access_token(TOKEN)
 
-    def setUp(self):
-        self.REPO_NAME_LARGE_FILE = large_file_repo_name()
-        if os.path.exists(WORKING_REPO_DIR):
-            shutil.rmtree(WORKING_REPO_DIR, onerror=set_write_permission_and_retry)
-        logger.info(
-            f"Does {WORKING_REPO_DIR} exist: {os.path.exists(WORKING_REPO_DIR)}"
-        )
-
-    def tearDown(self):
-        self._api.delete_repo(repo_id=self.REPO_NAME_LARGE_FILE, token=self._token)
-
     def setup_local_clone(self, REMOTE_URL):
         REMOTE_URL_AUTH = REMOTE_URL.replace(
             ENDPOINT_STAGING, ENDPOINT_STAGING_BASIC_AUTH
         )
         subprocess.run(
-            ["git", "clone", REMOTE_URL_AUTH, WORKING_REPO_DIR],
+            ["git", "clone", REMOTE_URL_AUTH, self.cache_dir_str],
             check=True,
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
         )
         subprocess.run(
-            ["git", "lfs", "track", "*.pdf"], check=True, cwd=WORKING_REPO_DIR
+            ["git", "lfs", "track", "*.pdf"], check=True, cwd=self.cache_dir_str
         )
         subprocess.run(
-            ["git", "lfs", "track", "*.epub"], check=True, cwd=WORKING_REPO_DIR
+            ["git", "lfs", "track", "*.epub"], check=True, cwd=self.cache_dir_str
         )
 
     @retry_endpoint
@@ -1518,11 +1507,13 @@ class HfLargefilesTest(HfApiCommonTest):
             check=True,
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
-            cwd=WORKING_REPO_DIR,
+            cwd=self.cache_dir_str,
         )
-        subprocess.run(["git", "add", "*"], check=True, cwd=WORKING_REPO_DIR)
+        subprocess.run(["git", "add", "*"], check=True, cwd=self.cache_dir_str)
         subprocess.run(
-            ["git", "commit", "-m", "commit message"], check=True, cwd=WORKING_REPO_DIR
+            ["git", "commit", "-m", "commit message"],
+            check=True,
+            cwd=self.cache_dir_str,
         )
 
         # This will fail as we haven't set up our custom transfer agent yet.
@@ -1530,18 +1521,18 @@ class HfLargefilesTest(HfApiCommonTest):
             ["git", "push"],
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
-            cwd=WORKING_REPO_DIR,
+            cwd=self.cache_dir_str,
         )
         self.assertEqual(failed_process.returncode, 1)
         self.assertIn("cli lfs-enable-largefiles", failed_process.stderr.decode())
         # ^ Instructions on how to fix this are included in the error message.
 
         subprocess.run(
-            ["huggingface-cli", "lfs-enable-largefiles", WORKING_REPO_DIR], check=True
+            ["huggingface-cli", "lfs-enable-largefiles", self.cache_dir_str], check=True
         )
 
         start_time = time.time()
-        subprocess.run(["git", "push"], check=True, cwd=WORKING_REPO_DIR)
+        subprocess.run(["git", "push"], check=True, cwd=self.cache_dir_str)
         print("took", time.time() - start_time)
 
         # To be 100% sure, let's download the resolved file
@@ -1554,7 +1545,7 @@ class HfLargefilesTest(HfApiCommonTest):
             stderr=subprocess.PIPE,
             cwd=WORKING_REPO_DIR,
         )
-        dest_filesize = os.stat(os.path.join(WORKING_REPO_DIR, DEST_FILENAME)).st_size
+        dest_filesize = os.stat(self.cache_dir / DEST_FILENAME).st_size
         self.assertEqual(dest_filesize, 18685041)
 
     @retry_endpoint
@@ -1573,28 +1564,28 @@ class HfLargefilesTest(HfApiCommonTest):
             check=True,
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
-            cwd=WORKING_REPO_DIR,
+            cwd=self.cache_dir_str,
         )
         subprocess.run(
             ["wget", LARGE_FILE_14MB],
             check=True,
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
-            cwd=WORKING_REPO_DIR,
+            cwd=self.cache_dir_str,
         )
-        subprocess.run(["git", "add", "*"], check=True, cwd=WORKING_REPO_DIR)
+        subprocess.run(["git", "add", "*"], check=True, cwd=self.cache_dir_str)
         subprocess.run(
             ["git", "commit", "-m", "both files in same commit"],
             check=True,
-            cwd=WORKING_REPO_DIR,
+            cwd=self.cache_dir_str,
         )
 
         subprocess.run(
-            ["huggingface-cli", "lfs-enable-largefiles", WORKING_REPO_DIR], check=True
+            ["huggingface-cli", "lfs-enable-largefiles", self.cache_dir_str], check=True
         )
 
         start_time = time.time()
-        subprocess.run(["git", "push"], check=True, cwd=WORKING_REPO_DIR)
+        subprocess.run(["git", "push"], check=True, cwd=self.cache_dir_str)
         print("took", time.time() - start_time)
 
 
