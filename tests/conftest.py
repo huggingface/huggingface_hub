@@ -14,19 +14,21 @@ from .testing_utils import repo_name
 
 
 @pytest.fixture
-def fx_cache_dir(request: SubRequest) -> None:
+def fx_repo_id(request: SubRequest) -> None:
     # TODO: docstring
-    with TemporaryDirectory(prefix=_get_test_name(request)) as cache_dir:
-        request.cls.cache_dir = Path(cache_dir)
-        request.cls.cache_dir_str = cache_dir
-        yield
+    request.cls.repo_name = repo_name(prefix=_get_test_name(request)[-50:])
+    request.cls.repo_id = f"{USER}/{request.cls.repo_name}"
 
 
 @pytest.fixture
-def fx_repo_id(request: SubRequest) -> None:
+def fx_cache_dir(request: SubRequest, fx_repo_id: None) -> None:
     # TODO: docstring
-    request.cls.repo_name = repo_name(prefix=_get_test_name(request)[:50])
-    request.cls.repo_id = f"{USER}/{request.cls.repo_name}"
+    with TemporaryDirectory(prefix=_get_test_name(request)) as cache_dir:
+        repo_cache_dir = Path(cache_dir) / request.cls.repo_name
+        repo_cache_dir.mkdir(parents=True, exist_ok=True)
+        request.cls.cache_dir = repo_cache_dir
+        request.cls.cache_dir_str = str(repo_cache_dir)
+        yield
 
 
 @pytest.fixture
@@ -65,18 +67,18 @@ def fx_create_tmp_repo(request: SubRequest, fx_api_connected: None, fx_repo_id: 
     request.cls.create_tmp_repo = _create_tmp_repo
 
 
-@pytest.mark.usefixtures("fx_cache_dir")
-class CacheDirFixture(abc.ABC):
-    # TODO: docstring and test
-    cache_dir: Path
-    cache_dir_str: str
-
-
 @pytest.mark.usefixtures("fx_repo_id")
 class RepoIdFixture(abc.ABC):
     # TODO: docstring and test
     repo_name: str
     repo_id: str
+
+
+@pytest.mark.usefixtures("fx_cache_dir")
+class CacheDirFixture(abc.ABC):
+    # TODO: docstring and test
+    cache_dir: Path
+    cache_dir_str: str
 
 
 @pytest.mark.usefixtures("fx_create_tmp_repo")
