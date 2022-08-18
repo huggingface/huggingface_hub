@@ -36,6 +36,7 @@ from huggingface_hub.utils import logging
 
 from .testing_constants import ENDPOINT_STAGING, TOKEN, USER
 from .testing_utils import (
+    expect_deprecation,
     repo_name,
     retry_endpoint,
     set_write_permission_and_retry,
@@ -444,6 +445,7 @@ class RepositoryTest(RepositoryCommonTest):
         self.assertTrue("model.bin" in files)
 
     @retry_endpoint
+    @expect_deprecation("clone_from")
     def test_clone_with_repo_name_and_org(self):
         clone = Repository(
             f"{WORKING_REPO_DIR}/{self.REPO_NAME}",
@@ -474,6 +476,7 @@ class RepositoryTest(RepositoryCommonTest):
         self.assertTrue("model.bin" in files)
 
     @retry_endpoint
+    @expect_deprecation("clone_from")
     def test_clone_with_repo_name_and_user_namespace(self):
         clone = Repository(
             f"{WORKING_REPO_DIR}/{self.REPO_NAME}",
@@ -518,6 +521,7 @@ class RepositoryTest(RepositoryCommonTest):
         )
 
     @retry_endpoint
+    @expect_deprecation("clone_from")
     def test_clone_with_repo_name_user_and_no_auth_token(self):
         # Create repo
         Repository(
@@ -1705,6 +1709,7 @@ class RepositoryDatasetTest(RepositoryCommonTest):
         self.assertTrue("test.py" in files)
 
     @retry_endpoint
+    @expect_deprecation("clone_from")
     def test_clone_with_repo_name_and_org(self):
         clone = Repository(
             f"{WORKING_DATASET_DIR}/{self.REPO_NAME}",
@@ -1799,6 +1804,7 @@ class RepositoryDatasetTest(RepositoryCommonTest):
         )
 
     @retry_endpoint
+    @expect_deprecation("clone_from")
     def test_clone_with_repo_name_org_and_no_auth_token(self):
         # Create repo
         Repository(

@@ -656,8 +656,8 @@ class Repository:
                             )
                         else:
                             warnings.warn(
-                                "Creating a repository through clone_from is deprecated"
-                                "will be removed in v0.11.",
+                                "Creating a repository through 'clone_from' is"
+                                " deprecated and will be removed in v0.11.",
                                 FutureWarning,
                             )
 

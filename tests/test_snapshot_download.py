@@ -12,7 +12,7 @@ from huggingface_hub.hf_api import HfFolder
 from huggingface_hub.utils import logging
 
 from .testing_constants import ENDPOINT_STAGING, TOKEN, USER
-from .testing_utils import retry_endpoint, set_write_permission_and_retry
+from .testing_utils import expect_deprecation, retry_endpoint, set_write_permission_and_retry
 
 
 logger = logging.get_logger(__name__)
@@ -32,6 +32,7 @@ class SnapshotDownloadTests(unittest.TestCase):
         cls._api.set_access_token(TOKEN)
 
     @retry_endpoint
+    @expect_deprecation("clone_from")
     def setUp(self) -> None:
         if os.path.exists(REPO_NAME):
             shutil.rmtree(REPO_NAME, onerror=set_write_permission_and_retry)
