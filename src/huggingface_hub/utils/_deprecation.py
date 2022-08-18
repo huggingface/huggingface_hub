@@ -1,7 +1,7 @@
 import warnings
 from functools import wraps
 from inspect import Parameter, signature
-from typing import Set
+from typing import Optional, Set
 
 
 def _deprecate_positional_args(*, version: str):
@@ -49,7 +49,9 @@ def _deprecate_positional_args(*, version: str):
     return _inner_deprecate_positional_args
 
 
-def _deprecate_arguments(*, version: str, deprecated_args: Set[str]):
+def _deprecate_arguments(
+    *, version: str, deprecated_args: Set[str], custom_message: Optional[str] = None
+):
     """Decorator to issue warnings when using deprecated arguments.
 
     TODO: could be useful to be able to set a custom error message.
@@ -59,6 +61,9 @@ def _deprecate_arguments(*, version: str, deprecated_args: Set[str]):
             The version when deprecated arguments will result in error.
         deprecated_args (`List[str]`):
             List of the arguments to be deprecated.
+        custom_message (`str`, *optional*):
+            Warning message that is raised. If not passed, a default warning message
+            will be created.
     """
 
     def _inner_deprecate_positional_args(f):
@@ -77,12 +82,14 @@ def _deprecate_arguments(*, version: str, deprecated_args: Set[str]):
 
             # Warn and proceed
             if len(used_deprecated_args) > 0:
-                warnings.warn(
+                message = (
                     f"Deprecated argument(s) used in '{f.__name__}':"
                     f" {', '.join(used_deprecated_args)}. Will not be supported from"
-                    f" version '{version}'.",
-                    FutureWarning,
+                    f" version '{version}'."
                 )
+                if custom_message is not None:
+                    message += "\n\n" + custom_message
+                warnings.warn(message, FutureWarning)
             return f(*args, **kwargs)
 
         return inner_f

@@ -2,7 +2,7 @@ import json
 import os
 import tempfile
 from pathlib import Path
-from typing import Dict, Optional, Union
+from typing import Dict, List, Optional, Union
 
 import requests
 from huggingface_hub import hf_api
@@ -268,6 +268,8 @@ class ModelHubMixin:
         token: Optional[str] = None,
         branch: Optional[str] = None,
         create_pr: Optional[bool] = None,
+        allow_patterns: Optional[Union[List[str], str]] = None,
+        ignore_patterns: Optional[Union[List[str], str]] = None,
         # TODO (release 0.12): signature must be the following
         # repo_id: str,
         # *,
@@ -278,9 +280,14 @@ class ModelHubMixin:
         # branch: Optional[str] = None,
         # create_pr: Optional[bool] = None,
         # config: Optional[dict] = None,
+        # allow_patterns: Optional[Union[List[str], str]] = None,
+        # ignore_patterns: Optional[Union[List[str], str]] = None,
     ) -> str:
         """
         Upload model checkpoint to the Hub.
+
+        Use `allow_patterns` and `ignore_patterns` to precisely filter which files
+        should be pushed to the hub. See [`upload_folder`] reference for more details.
 
         Parameters:
             repo_id (`str`, *optional*):
@@ -304,6 +311,10 @@ class ModelHubMixin:
                 Defaults to `False`.
             config (`dict`, *optional*):
                 Configuration object to be saved alongside the model weights.
+            allow_patterns (`List[str]` or `str`, *optional*):
+                If provided, only files matching at least one pattern are pushed.
+            ignore_patterns (`List[str]` or `str`, *optional*):
+                If provided, files matching any of the patterns are not pushed.
 
         Returns:
             The url of the commit of your model in the given repository.
@@ -334,6 +345,8 @@ class ModelHubMixin:
                     commit_message=commit_message,
                     revision=branch,
                     create_pr=create_pr,
+                    allow_patterns=allow_patterns,
+                    ignore_patterns=ignore_patterns,
                 )
 
         # If the repo id is None, it means we use the deprecated version using Git

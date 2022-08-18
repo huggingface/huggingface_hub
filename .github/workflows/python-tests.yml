@@ -5,8 +5,12 @@ on:
     branches:
       - main
       - ci_*
+    paths-ignore:
+      - "docs/**"
   pull_request:
     types: [assigned, opened, synchronize, reopened]
+    paths-ignore:
+      - "docs/**"
 
 env:
   HUGGINGFACE_CO_STAGING: yes
