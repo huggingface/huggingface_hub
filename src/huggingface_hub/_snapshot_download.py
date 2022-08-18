@@ -5,9 +5,8 @@ from typing import Dict, List, Optional, Union
 from .constants import DEFAULT_REVISION, HUGGINGFACE_HUB_CACHE, REPO_TYPES
 from .file_download import REGEX_COMMIT_HASH, hf_hub_download, repo_folder_name
 from .hf_api import HfApi, HfFolder
-from .utils import logging
+from .utils import filter_repo_objects, logging
 from .utils._deprecation import _deprecate_arguments
-from .utils.paths import filter_repo_objects
 
 
 logger = logging.get_logger(__name__)

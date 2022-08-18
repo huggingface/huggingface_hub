@@ -40,10 +40,10 @@ Specify the path of the file to upload, where you want to upload the file to in 
 >>> from huggingface_hub import HfApi
 >>> api = HfApi()
 >>> api.upload_file(
-...   path_or_fileobj="/path/to/local/folder/README.md",
-...   path_in_repo="README.md",
-...   repo_id="username/test-dataset",
-...   repo_type="dataset",
+...     path_or_fileobj="/path/to/local/folder/README.md",
+...     path_in_repo="README.md",
+...     repo_id="username/test-dataset",
+...     repo_type="dataset",
 ... )
 ```
 
@@ -59,11 +59,11 @@ If both `allow_patterns` and `ignore_patterns` are provided, both constraints ap
 >>> from huggingface_hub import HfApi
 >>> api = HfApi()
 >>> api.upload_folder(
-...   folder_path="/path/to/local/folder",
-...   path_in_repo="my-dataset/train",
-...   repo_id="username/test-dataset",
-...   repo_type="dataset",
-...   ignore_patterns="**/logs/*.txt",
+...     folder_path="/path/to/local/folder",
+...     path_in_repo="my-dataset/train",
+...     repo_id="username/test-dataset",
+...     repo_type="dataset",
+...     ignore_patterns="**/logs/*.txt",
 ... )
 ```
 

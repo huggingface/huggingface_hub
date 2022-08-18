@@ -51,7 +51,7 @@ from .constants import (
     REPO_TYPES_URL_PREFIXES,
     SPACES_SDK_TYPES,
 )
-from .utils import logging
+from .utils import filter_repo_objects, logging
 from .utils._deprecation import _deprecate_positional_args
 from .utils._errors import (
     _raise_convert_bad_request,
@@ -66,7 +66,6 @@ from .utils.endpoint_helpers import (
     ModelTags,
     _filter_emissions,
 )
-from .utils.paths import filter_repo_objects
 
 
 if sys.version_info >= (3, 8):
