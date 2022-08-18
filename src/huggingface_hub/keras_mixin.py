@@ -1,13 +1,20 @@
 import collections.abc as collections
 import json
 import os
+import tempfile
 import warnings
 from pathlib import Path
 from shutil import copytree, rmtree
 from typing import Any, Dict, Optional, Union
+from urllib.parse import quote
 
 import yaml
-from huggingface_hub import ModelHubMixin, snapshot_download
+from huggingface_hub import (
+    CommitOperationDelete,
+    ModelHubMixin,
+    hf_api,
+    snapshot_download,
+)
 from huggingface_hub.file_download import (
     get_tf_version,
     is_graphviz_available,
@@ -15,10 +22,16 @@ from huggingface_hub.file_download import (
     is_tf_available,
 )
 
-from .constants import CONFIG_NAME
-from .hf_api import HfApi, HfFolder
+from .constants import CONFIG_NAME, DEFAULT_REVISION
+from .hf_api import (
+    HfApi,
+    HfFolder,
+    _parse_revision_from_pr_url,
+    _prepare_upload_folder_commit,
+)
 from .repository import Repository
 from .utils import logging
+from .utils._deprecation import _deprecate_arguments, _deprecate_positional_args
 
 
 logger = logging.get_logger(__name__)
@@ -281,8 +294,22 @@ def from_pretrained_keras(*args, **kwargs):
     return KerasModelHubMixin.from_pretrained(*args, **kwargs)
 
 
+@_deprecate_positional_args(version="0.12")
+@_deprecate_arguments(
+    version="0.12",
+    deprecated_args={
+        "repo_path_or_name",
+        "repo_url",
+        "organization",
+        "use_auth_token",
+        "git_user",
+        "git_email",
+    },
+)
 def push_to_hub_keras(
+    # NOTE: deprecated signature that will change in 0.12
     model,
+    *,
     repo_path_or_name: Optional[str] = None,
     repo_url: Optional[str] = None,
     log_dir: Optional[str] = None,
@@ -297,7 +324,28 @@ def push_to_hub_keras(
     include_optimizer: Optional[bool] = False,
     tags: Optional[Union[list, str]] = None,
     plot_model: Optional[bool] = True,
+    # NOTE: New arguments since 0.9
+    token: Optional[str] = True,
+    repo_id: Optional[str] = None,  # optional only until 0.12
+    branch: Optional[str] = None,
+    create_pr: Optional[bool] = None,
     **model_save_kwargs,
+    # TODO (release 0.12): signature must be the following
+    # model,
+    # repo_id: str,
+    # *,
+    # commit_message: Optional[str] = "Add model",
+    # private: Optional[bool] = None,
+    # api_endpoint: Optional[str] = None,
+    # token: Optional[str] = True,
+    # branch: Optional[str] = None,
+    # create_pr: Optional[bool] = None,
+    # config: Optional[dict] = None,
+    # log_dir: Optional[str] = None,
+    # include_optimizer: Optional[bool] = False,
+    # tags: Optional[Union[list, str]] = None,
+    # plot_model: Optional[bool] = True,
+    # **model_save_kwargs,
 ):
     """
     Upload model checkpoint or tokenizer files to the Hub while synchronizing a
@@ -308,41 +356,31 @@ def push_to_hub_keras(
             The [Keras
             model](`https://www.tensorflow.org/api_docs/python/tf/keras/Model`)
             you'd like to push to the Hub. The model must be compiled and built.
-        repo_path_or_name (`str`, *optional*):
-            Can either be a repository name for your model or tokenizer in the
-            Hub or a path to a local folder (in which case the repository will
-            have the name of that local folder). If not specified, will default
-            to the name given by `repo_url` and a local directory with that name
-            will be created.
-        repo_url (`str`, *optional*):
-            Specify this in case you want to push to an existing repository in
-            the Hub. If unspecified, a new repository will be created in your
-            namespace (unless you specify an `organization`) with `repo_name`.
-        log_dir (`str`, *optional*):
-            TensorBoard logging directory to be pushed. The Hub automatically
-            hosts and displays a TensorBoard instance if log files are included
-            in the repository.
+        repo_id (`str`):
+            Repository name to which push
         commit_message (`str`, *optional*, defaults to "Add message"):
             Message to commit while pushing.
-        organization (`str`, *optional*):
-            Organization in which you want to push your model or tokenizer (you
-            must be a member of this organization).
         private (`bool`, *optional*):
             Whether the repository created should be private.
         api_endpoint (`str`, *optional*):
             The API endpoint to use when pushing the model to the hub.
-        use_auth_token (`bool` or `str`, *optional*, defaults to `True`):
+        token (`str`, *optional*):
             The token to use as HTTP bearer authorization for remote files. If
-            `True`, will use the token generated when running `transformers-cli
-            login` (stored in `~/.huggingface`). Will default to `True`.
-        git_user (`str`, *optional*):
-            will override the `git config user.name` for committing and pushing
-            files to the Hub.
-        git_email (`str`, *optional*):
-            will override the `git config user.email` for committing and pushing
-            files to the Hub.
+            not set, will use the token set when logging in with
+            `huggingface-cli login` (stored in `~/.huggingface`).
+        branch (`str`, *optional*):
+            The git branch on which to push the model. This defaults to
+            the default branch as specified in your repository, which
+            defaults to `"main"`.
+        create_pr (`boolean`, *optional*):
+            Whether or not to create a Pull Request from `branch` with that commit.
+            Defaults to `False`.
         config (`dict`, *optional*):
             Configuration object to be saved alongside the model weights.
+        log_dir (`str`, *optional*):
+            TensorBoard logging directory to be pushed. The Hub automatically
+            hosts and displays a TensorBoard instance if log files are included
+            in the repository.
         include_optimizer (`bool`, *optional*, defaults to `False`):
             Whether or not to include optimizer during serialization.
         tags (Union[`list`, `str`], *optional*):
@@ -358,7 +396,69 @@ def push_to_hub_keras(
     Returns:
         The url of the commit of your model in the given repository.
     """
+    if repo_id is not None:
+        token, _ = hf_api._validate_or_retrieve_token(token)
+        api = HfApi(endpoint=api_endpoint)
 
+        api.create_repo(
+            repo_id=repo_id,
+            repo_type="model",
+            token=token,
+            private=private,
+            exist_ok=True,
+        )
+
+        # Push the files to the repo in a single commit
+        with tempfile.TemporaryDirectory() as tmp:
+            saved_path = Path(tmp) / repo_id
+            save_pretrained_keras(
+                model,
+                saved_path,
+                config=config,
+                include_optimizer=include_optimizer,
+                tags=tags,
+                plot_model=plot_model,
+                **model_save_kwargs,
+            )
+
+            # If log dir is provided, delete old logs + add new ones
+            operations = []
+            if log_dir is not None:
+                # Delete previous log files from Hub
+                operations += [
+                    CommitOperationDelete(path_in_repo=file)
+                    for file in api.list_repo_files(repo_id=repo_id, token=token)
+                    if file.startswith("logs/")
+                ]
+
+                # Copy new log files
+                copytree(log_dir, saved_path / "logs")
+
+            # NOTE: `_prepare_upload_folder_commit` and `create_commit` calls are
+            #       duplicate code from `upload_folder`. We are not directly using
+            #       `upload_folder` since we want to add delete operations to the
+            #       commit as well.
+            operations += _prepare_upload_folder_commit(saved_path, path_in_repo="")
+            pr_url = api.create_commit(
+                repo_type="model",
+                repo_id=repo_id,
+                operations=operations,
+                commit_message=commit_message,
+                token=token,
+                revision=branch,
+                create_pr=create_pr,
+            )
+            revision = branch
+            if revision is None:
+                revision = (
+                    quote(_parse_revision_from_pr_url(pr_url), safe="")
+                    if pr_url is not None
+                    else DEFAULT_REVISION
+                )
+            return f"{api.endpoint}/{repo_id}/tree/{revision}/"
+
+    # Repo id is None means we use the deprecated version using Git
+    # TODO: remove code between here and `return repo.git_push()` in release 0.12
     if repo_path_or_name is None and repo_url is None:
         raise ValueError("You need to specify a `repo_path_or_name` or a `repo_url`.")
 

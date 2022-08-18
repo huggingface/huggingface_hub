@@ -1,20 +1,22 @@
 import json
 import os
+import tempfile
 from pathlib import Path
 from typing import Dict, Optional, Union
 
 import requests
+from huggingface_hub import hf_api
 
 from .constants import CONFIG_NAME, PYTORCH_WEIGHTS_NAME
 from .file_download import hf_hub_download, is_torch_available
 from .hf_api import HfApi, HfFolder
 from .repository import Repository
 from .utils import logging
+from .utils._deprecation import _deprecate_arguments, _deprecate_positional_args
 
 
 if is_torch_available():
     import torch
-
 
 logger = logging.get_logger(__name__)
 
@@ -37,20 +39,25 @@ class ModelHubMixin:
         """
         Save weights in local directory.
 
-                Parameters:
-                    save_directory (`str`):
-                        Specify directory in which you want to save weights.
-                    config (`dict`, *optional*):
-                        specify config (must be dict) in case you want to save
-                        it.
-                    push_to_hub (`bool`, *optional*, defaults to `False`):
-                        Set it to `True` in case you want to push your weights
-                        to huggingface_hub
-                    kwargs (`Dict`, *optional*):
-                        kwargs will be passed to `push_to_hub`
+        Parameters:
+            save_directory (`str`):
+                Specify directory in which you want to save weights.
+            config (`dict`, *optional*):
+                Specify config (must be dict) in case you want to save
+                it.
+            push_to_hub (`bool`, *optional*, defaults to `False`):
+                Whether or not to push your model to the Hugging Face model hub after
+                saving it. You can specify the repository you want to push to with
+                `repo_id` (will default to the name of `save_directory` in your
+                namespace).
+            kwargs:
+                Additional key word arguments passed along to the
+                [`~utils.PushToHubMixin.push_to_hub`] method.
         """
-
         os.makedirs(save_directory, exist_ok=True)
+
+        # saving model weights/files
+        self._save_pretrained(save_directory)
 
         # saving config
         if isinstance(config, dict):
@@ -58,13 +65,33 @@ class ModelHubMixin:
             with open(path, "w") as f:
                 json.dump(config, f)
 
-        # saving model weights/files
-        self._save_pretrained(save_directory)
-
         if push_to_hub:
-            return self.push_to_hub(save_directory, **kwargs)
+            kwargs = kwargs.copy()  # soft-copy to avoid mutating input
+            if config is not None:  # kwarg for `push_to_hub`
+                kwargs["config"] = config
 
-    def _save_pretrained(self, save_directory):
+            if (
+                # If a deprecated argument is passed, we have to use the deprecated
+                # version of `push_to_hub`.
+                # TODO: remove this possibility in v0.12
+                kwargs.get("repo_url") is not None
+                or kwargs.get("repo_path_or_name") is not None
+                or kwargs.get("organization") is not None
+                or kwargs.get("use_auth_token") is not None
+                or kwargs.get("git_user") is not None
+                or kwargs.get("git_email") is not None
+                or kwargs.get("skip_lfs_files") is not None
+            ):
+                if kwargs.get("repo_path_or_name") is None:
+                    # Repo name defaults to `save_directory` name
+                    kwargs["repo_path_or_name"] = save_directory
+            elif kwargs.get("repo_id") is None:
+                # Repo name defaults to `save_directory` name
+                kwargs["repo_id"] = Path(save_directory).name
+
+            return self.push_to_hub(**kwargs)
+
+    def _save_pretrained(self, save_directory: str):
         """
         Overwrite this method in subclass to define how to save your model.
         """
@@ -208,8 +235,23 @@ class ModelHubMixin:
         pretrained"""
         raise NotImplementedError
 
+    @_deprecate_positional_args(version="0.12")
+    @_deprecate_arguments(
+        version="0.12",
+        deprecated_args={
+            "repo_url",
+            "repo_path_or_name",
+            "organization",
+            "use_auth_token",
+            "git_user",
+            "git_email",
+            "skip_lfs_files",
+        },
+    )
     def push_to_hub(
         self,
+        # NOTE: deprecated signature that will change in 0.12
+        *,
         repo_path_or_name: Optional[str] = None,
         repo_url: Optional[str] = None,
         commit_message: Optional[str] = "Add model",
@@ -221,55 +263,81 @@ class ModelHubMixin:
         git_email: Optional[str] = None,
         config: Optional[dict] = None,
         skip_lfs_files: bool = False,
+        # NOTE: New arguments since 0.9
+        repo_id: Optional[str] = None,  # optional only until 0.12
+        token: Optional[str] = None,
+        branch: Optional[str] = None,
+        create_pr: Optional[bool] = None,
+        # TODO (release 0.12): signature must be the following
+        # repo_id: str,
+        # *,
+        # commit_message: Optional[str] = "Add model",
+        # private: Optional[bool] = None,
+        # api_endpoint: Optional[str] = None,
+        # token: Optional[str] = None,
+        # branch: Optional[str] = None,
+        # create_pr: Optional[bool] = None,
+        # config: Optional[dict] = None,
     ) -> str:
         """
-        Upload model checkpoint or tokenizer files to the Hub while
-        synchronizing a local clone of the repo in `repo_path_or_name`.
+        Upload model checkpoint to the Hub.
 
         Parameters:
-            repo_path_or_name (`str`, *optional*):
-                Can either be a repository name for your model or tokenizer in
-                the Hub or a path to a local folder (in which case the
-                repository will have the name of that local folder). If not
-                specified, will default to the name given by `repo_url` and a
-                local directory with that name will be created.
-            repo_url (`str`, *optional*):
-                Specify this in case you want to push to an existing repository
-                in the hub. If unspecified, a new repository will be created in
-                your namespace (unless you specify an `organization`) with
-                `repo_name`.
+            repo_id (`str`, *optional*):
+                Repository name to which push.
             commit_message (`str`, *optional*):
-                Message to commit while pushing. Will default to `"add config"`,
-                `"add tokenizer"` or `"add model"` depending on the type of the
-                class.
-            organization (`str`, *optional*):
-                Organization in which you want to push your model or tokenizer
-                (you must be a member of this organization).
+                Message to commit while pushing.
             private (`bool`, *optional*):
                 Whether the repository created should be private.
             api_endpoint (`str`, *optional*):
                 The API endpoint to use when pushing the model to the hub.
-            use_auth_token (`bool` or `str`, *optional*):
+            token (`str`, *optional*):
                 The token to use as HTTP bearer authorization for remote files.
-                If `True`, will use the token generated when running
-                `transformers-cli login` (stored in `~/.huggingface`). Will
-                default to `True` if `repo_url` is not specified.
-            git_user (`str`, *optional*):
-                will override the `git config user.name` for committing and
-                pushing files to the hub.
-            git_email (`str`, *optional*):
-                will override the `git config user.email` for committing and
-                pushing files to the hub.
+                If not set, will use the token set when logging in with
+                `transformers-cli login` (stored in `~/.huggingface`).
+            branch (`str`, *optional*):
+                The git branch on which to push the model. This defaults to
+                the default branch as specified in your repository, which
+                defaults to `"main"`.
+            create_pr (`boolean`, *optional*):
+                Whether or not to create a Pull Request from `branch` with that commit.
+                Defaults to `False`.
             config (`dict`, *optional*):
                 Configuration object to be saved alongside the model weights.
-            skip_lfs_files (`bool`, *optional*, defaults to `False`):
-                Whether to skip git-LFS files or not.
-
 
         Returns:
             The url of the commit of your model in the given repository.
         """
+        # If the repo id is set, it means we use the new version using HTTP endpoint
+        # (introduced in v0.9).
+        if repo_id is not None:
+            token, _ = hf_api._validate_or_retrieve_token(token)
+            api = HfApi(endpoint=api_endpoint)
 
+            api.create_repo(
+                repo_id=repo_id,
+                repo_type="model",
+                token=token,
+                private=private,
+                exist_ok=True,
+            )
+
+            # Push the files to the repo in a single commit
+            with tempfile.TemporaryDirectory() as tmp:
+                saved_path = Path(tmp) / repo_id
+                self.save_pretrained(saved_path, config=config)
+                return api.upload_folder(
+                    repo_id=repo_id,
+                    repo_type="model",
+                    token=token,
+                    folder_path=saved_path,
+                    commit_message=commit_message,
+                    revision=branch,
+                    create_pr=create_pr,
+                )
+
+        # If the repo id is None, it means we use the deprecated version using Git
+        # TODO: remove code between here and `return repo.git_push()` in release 0.12
         if repo_path_or_name is None and repo_url is None:
             raise ValueError(
                 "You need to specify a `repo_path_or_name` or a `repo_url`."
@@ -351,7 +419,7 @@ class PyTorchModelHubMixin(ModelHubMixin):
         ...     "mymodel", push_to_hub=False
         >>> )  # Saving model weights in the directory
         >>> model.push_to_hub(
-        ...     "mymodel", "model-1"
+        ...     repo_id="mymodel", commit_message="model-1"
         >>> )  # Pushing model-weights to hf-hub
 
         >>> # Downloading weights from hf-hub & model will be initialized from those weights

@@ -216,6 +216,7 @@ def metadata_update(
     commit_description: Optional[str] = None,
     revision: Optional[str] = None,
     create_pr: bool = False,
+    parent_commit: Optional[str] = None,
 ) -> str:
     """
     Updates the metadata in the README.md of a repository on the Hugging Face Hub.
@@ -256,6 +257,12 @@ def metadata_update(
         create_pr (`boolean`, *optional*):
             Whether or not to create a Pull Request from `revision` with that commit.
             Defaults to `False`.
+        parent_commit (`str`, *optional*):
+            The OID / SHA of the parent commit, as a hexadecimal string. Shorthands (7 first characters) are also supported.
+            If specified and `create_pr` is `False`, the commit will fail if `revision` does not point to `parent_commit`.
+            If specified and `create_pr` is `True`, the pull request will be created from `parent_commit`.
+            Specifying `parent_commit` ensures the repo has not changed before committing the changes, and can be
+            especially useful if the repo is updated / committed to concurrently.
     Returns:
         `str`: URL of the commit which updated the card metadata.
     """
@@ -314,6 +321,7 @@ def metadata_update(
             commit_description=commit_description,
             create_pr=create_pr,
             revision=revision,
+            parent_commit=parent_commit,
         )
 
 

@@ -1,10 +1,25 @@
 import os
+import re
+from typing import Optional
 
 
 # Possible values for env variables
 
 ENV_VARS_TRUE_VALUES = {"1", "ON", "YES", "TRUE"}
 ENV_VARS_TRUE_AND_AUTO_VALUES = ENV_VARS_TRUE_VALUES.union({"AUTO"})
+
+
+def _is_true(value: Optional[str]) -> bool:
+    if value is None:
+        return False
+    return value.upper() in ENV_VARS_TRUE_VALUES
+
+
+def _is_true_or_auto(value: Optional[str]) -> bool:
+    if value is None:
+        return False
+    return value.upper() in ENV_VARS_TRUE_AND_AUTO_VALUES
+
 
 # Constants for file downloads
 
@@ -15,14 +30,14 @@ FLAX_WEIGHTS_NAME = "flax_model.msgpack"
 CONFIG_NAME = "config.json"
 REPOCARD_NAME = "README.md"
 
+# Git-related constants
+
 DEFAULT_REVISION = "main"
+REGEX_COMMIT_OID = re.compile(r"[A-Fa-f0-9]{5,40}")
 
 HUGGINGFACE_CO_URL_HOME = "https://huggingface.co/"
 
-ENV_VARS_TRUE_VALUES = {"1", "ON", "YES", "TRUE"}
-_staging_mode = (
-    os.environ.get("HUGGINGFACE_CO_STAGING", "NO").upper() in ENV_VARS_TRUE_VALUES
-)
+_staging_mode = _is_true(os.environ.get("HUGGINGFACE_CO_STAGING"))
 
 ENDPOINT = os.getenv("HF_ENDPOINT") or (
     "https://hub-ci.huggingface.co" if _staging_mode else "https://huggingface.co"
@@ -64,8 +79,16 @@ default_cache_path = os.path.join(hf_cache_home, "hub")
 
 HUGGINGFACE_HUB_CACHE = os.getenv("HUGGINGFACE_HUB_CACHE", default_cache_path)
 
-HF_HUB_OFFLINE = os.environ.get("HF_HUB_OFFLINE", "AUTO").upper()
-if HF_HUB_OFFLINE in ENV_VARS_TRUE_VALUES:
-    HF_HUB_OFFLINE = True
-else:
-    HF_HUB_OFFLINE = False
+HF_HUB_OFFLINE = _is_true(os.environ.get("HF_HUB_OFFLINE"))
+
+
+# Here, `True` will disable progress bars globally without possibility of enabling it
+# programatically. `False` will enable them without possibility of disabling them.
+# If environement variable is not set (None), then the user is free to enable/disable
+# them programmatically.
+# TL;DR: env variable has priority over code
+HF_HUB_DISABLE_PROGRESS_BARS: Optional[bool] = os.environ.get(
+    "HF_HUB_DISABLE_PROGRESS_BARS"
+)
+if HF_HUB_DISABLE_PROGRESS_BARS is not None:
+    HF_HUB_DISABLE_PROGRESS_BARS = _is_true(HF_HUB_DISABLE_PROGRESS_BARS)

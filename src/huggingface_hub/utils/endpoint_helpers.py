@@ -11,9 +11,8 @@
 # limitations under the License.
 """
 Helpful utility functions and classes in relation to exploring API endpoints
-with the aim for a user-friendly interface
+with the aim for a user-friendly interface.
 """
-
 import math
 import re
 from dataclasses import dataclass
@@ -54,7 +53,7 @@ def _filter_emissions(
                 if emission:
                     emission = str(emission)
                     if any(char.isdigit() for char in emission):
-                        emission = re.search("\d+\.\d+|\d+", emission).group(0)
+                        emission = re.search(r"\d+\.\d+|\d+", emission).group(0)
                         emissions.append((i, float(emission)))
     filtered_results = []
     for idx, emission in emissions:

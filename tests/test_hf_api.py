@@ -11,17 +11,17 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-
-
 import os
 import shutil
 import subprocess
 import tempfile
 import time
+import types
 import unittest
-import uuid
 import warnings
+from functools import partial
 from io import BytesIO
+from typing import List
 from urllib.parse import quote
 
 import pytest
@@ -29,6 +29,7 @@ import pytest
 import requests
 from huggingface_hub._commit_api import CommitOperationAdd, CommitOperationDelete
 from huggingface_hub.commands.user import _login
+from huggingface_hub.community import DiscussionComment, DiscussionWithDetails
 from huggingface_hub.constants import (
     REPO_TYPE_DATASET,
     REPO_TYPE_MODEL,
@@ -45,6 +46,7 @@ from huggingface_hub.hf_api import (
     MetricInfo,
     ModelInfo,
     ModelSearchArguments,
+    RepoFile,
     SpaceInfo,
     erase_from_credential_store,
     read_from_credential_store,
@@ -70,6 +72,8 @@ from .testing_utils import (
     DUMMY_DATASET_ID_REVISION_ONE_SPECIFIC_COMMIT,
     DUMMY_MODEL_ID,
     DUMMY_MODEL_ID_REVISION_ONE_SPECIFIC_COMMIT,
+    SAMPLE_DATASET_IDENTIFIER,
+    repo_name,
     require_git_lfs,
     retry_endpoint,
     set_write_permission_and_retry,
@@ -79,22 +83,9 @@ from .testing_utils import (
 
 logger = logging.get_logger(__name__)
 
-
-def repo_name(id=uuid.uuid4().hex[:6]):
-    return "my-model-{0}-{1}".format(id, int(time.time() * 10e3))
-
-
-def repo_name_large_file(id=uuid.uuid4().hex[:6]):
-    return "my-model-largefiles-{0}-{1}".format(id, int(time.time() * 10e3))
-
-
-def dataset_repo_name(id=uuid.uuid4().hex[:6]):
-    return "my-dataset-{0}-{1}".format(id, int(time.time() * 10e3))
-
-
-def space_repo_name(id=uuid.uuid4().hex[:6]):
-    return "my-space-{0}-{1}".format(id, int(time.time() * 10e3))
-
+dataset_repo_name = partial(repo_name, prefix="my-dataset")
+space_repo_name = partial(repo_name, prefix="my-space")
+large_file_repo_name = partial(repo_name, prefix="my-model-largefiles")
 
 WORKING_REPO_DIR = os.path.join(
     os.path.dirname(os.path.abspath(__file__)), "fixtures/working_repo"
@@ -718,6 +709,22 @@ class CommitApiTest(HfApiCommonTestWithLogin):
                     self._api.delete_repo(repo_id=REPO_NAME, token=self._token)
 
     @retry_endpoint
+    def test_upload_folder_default_path_in_repo(self):
+        REPO_NAME = repo_name("upload_folder_to_root")
+        self._api.create_repo(
+            token=self._token,
+            repo_id=REPO_NAME,
+            exist_ok=False,
+        )
+        url = self._api.upload_folder(
+            folder_path=self.tmp_dir,
+            repo_id=f"{USER}/{REPO_NAME}",
+            token=self._token,
+        )
+        # URL to root of repository
+        self.assertEqual(url, f"{self._api.endpoint}/{USER}/{REPO_NAME}/tree/main/")
+
+    @retry_endpoint
     def test_create_commit_create_pr(self):
         REPO_NAME = repo_name("create_commit_create_pr")
         self._api.create_repo(
@@ -845,6 +852,41 @@ class CommitApiTest(HfApiCommonTestWithLogin):
                 finally:
                     self._api.delete_repo(repo_id=REPO_NAME, token=self._token)
 
+    @retry_endpoint
+    def test_create_commit_conflict(self):
+        REPO_NAME = repo_name("create_commit_conflict")
+        self._api.create_repo(
+            token=self._token,
+            repo_id=REPO_NAME,
+            exist_ok=False,
+        )
+        parent_commit = self._api.model_info(f"{USER}/{REPO_NAME}").sha
+        try:
+            self._api.upload_file(
+                path_or_fileobj=self.tmp_file,
+                path_in_repo="temp/new_file.md",
+                repo_id=f"{USER}/{REPO_NAME}",
+                token=self._token,
+            )
+            operations = [
+                CommitOperationAdd(
+                    path_in_repo="buffer", path_or_fileobj=b"Buffer data"
+                ),
+            ]
+            with self.assertRaises(HTTPError) as exc_ctx:
+                self._api.create_commit(
+                    operations=operations,
+                    commit_message="Test create_commit",
+                    repo_id=f"{USER}/{REPO_NAME}",
+                    token=self._token,
+                    parent_commit=parent_commit,
+                )
+            self.assertEqual(exc_ctx.exception.response.status_code, 412)
+        except Exception as err:
+            self.fail(err)
+        finally:
+            self._api.delete_repo(repo_id=REPO_NAME, token=self._token)
+
 
 class HfApiPublicTest(unittest.TestCase):
     def test_staging_list_models(self):
@@ -864,7 +906,8 @@ class HfApiPublicTest(unittest.TestCase):
         models = _api.list_models(author="google")
         self.assertGreater(len(models), 10)
         self.assertIsInstance(models[0], ModelInfo)
-        [self.assertTrue("google" in model.author for model in models)]
+        for model in models:
+            self.assertTrue(model.modelId.startswith("google/"))
 
     @with_production_testing
     def test_list_models_search(self):
@@ -872,7 +915,8 @@ class HfApiPublicTest(unittest.TestCase):
         models = _api.list_models(search="bert")
         self.assertGreater(len(models), 10)
         self.assertIsInstance(models[0], ModelInfo)
-        [self.assertTrue("bert" in model.modelId.lower()) for model in models]
+        for model in models:
+            self.assertTrue("bert" in model.modelId.lower())
 
     @with_production_testing
     def test_list_models_complex_query(self):
@@ -923,10 +967,19 @@ class HfApiPublicTest(unittest.TestCase):
             revision=DUMMY_MODEL_ID_REVISION_ONE_SPECIFIC_COMMIT,
             securityStatus=True,
         )
-        self.assertEqual(
-            getattr(model, "securityStatus"),
-            {"containsInfected": False},
+        self.assertEqual(model.securityStatus, {"containsInfected": False})
+
+    @with_production_testing
+    def test_model_info_with_file_metadata(self):
+        _api = HfApi()
+        model = _api.model_info(
+            repo_id=DUMMY_MODEL_ID,
+            revision=DUMMY_MODEL_ID_REVISION_ONE_SPECIFIC_COMMIT,
+            files_metadata=True,
         )
+        files = model.siblings
+        assert files is not None
+        self._check_siblings_metadata(files)
 
     @with_production_testing
     def test_list_repo_files(self):
@@ -1082,6 +1135,29 @@ class HfApiPublicTest(unittest.TestCase):
         )
         self.assertIsInstance(dataset, DatasetInfo)
         self.assertEqual(dataset.sha, DUMMY_DATASET_ID_REVISION_ONE_SPECIFIC_COMMIT)
+
+    @with_production_testing
+    def test_dataset_info_with_file_metadata(self):
+        _api = HfApi()
+        dataset = _api.dataset_info(
+            repo_id=SAMPLE_DATASET_IDENTIFIER,
+            files_metadata=True,
+        )
+        files = dataset.siblings
+        assert files is not None
+        self._check_siblings_metadata(files)
+
+    def _check_siblings_metadata(self, files: List[RepoFile]):
+        """Check requested metadata has been received from the server."""
+        at_least_one_lfs = False
+        for file in files:
+            self.assertTrue(isinstance(file.blob_id, str))
+            self.assertTrue(isinstance(file.size, int))
+            if file.lfs is not None:
+                at_least_one_lfs = True
+                self.assertTrue(isinstance(file.lfs, dict))
+                self.assertTrue("sha256" in file.lfs)
+        self.assertTrue(at_least_one_lfs)
 
     def test_staging_list_metrics(self):
         _api = HfApi(endpoint=ENDPOINT_STAGING)
@@ -1400,7 +1476,7 @@ class HfLargefilesTest(HfApiCommonTest):
         cls._api.set_access_token(TOKEN)
 
     def setUp(self):
-        self.REPO_NAME_LARGE_FILE = repo_name_large_file()
+        self.REPO_NAME_LARGE_FILE = large_file_repo_name()
         if os.path.exists(WORKING_REPO_DIR):
             shutil.rmtree(WORKING_REPO_DIR, onerror=set_write_permission_and_retry)
         logger.info(
@@ -1540,3 +1616,171 @@ class HfApiMiscTest(unittest.TestCase):
                 repo_type_and_id_from_hf_id(key, hub_url="https://huggingface.co"),
                 tuple(value),
             )
+
+
+class HfApiDiscussionsTest(HfApiCommonTestWithLogin):
+    def setUp(self):
+        super().setUp()
+        self.repo_name = f"{USER}/{repo_name()}"
+        self._api.create_repo(repo_id=self.repo_name, token=self._token)
+        self.pull_request = self._api.create_discussion(
+            repo_id=self.repo_name,
+            pull_request=True,
+            title="Test Pull Request",
+            token=self._token,
+        )
+        self.discussion = self._api.create_discussion(
+            repo_id=self.repo_name,
+            pull_request=False,
+            title="Test Discussion",
+            token=self._token,
+        )
+
+    def tearDown(self):
+        self._api.delete_repo(repo_id=self.repo_name, token=self._token)
+        super().tearDown()
+
+    def test_create_discussion(self):
+        discussion = self._api.create_discussion(
+            repo_id=self.repo_name,
+            title=" Test discussion !  ",
+            token=self._token,
+        )
+        self.assertEqual(discussion.num, 3)
+        self.assertEqual(discussion.author, USER)
+        self.assertEqual(discussion.is_pull_request, False)
+        self.assertEqual(discussion.title, "Test discussion !")
+
+    def test_create_pull_request(self):
+        discussion = self._api.create_discussion(
+            repo_id=self.repo_name,
+            title=" Test PR !  ",
+            token=self._token,
+            pull_request=True,
+        )
+        self.assertEqual(discussion.num, 3)
+        self.assertEqual(discussion.author, USER)
+        self.assertEqual(discussion.is_pull_request, True)
+        self.assertEqual(discussion.title, "Test PR !")
+
+        model_info = self._api.repo_info(
+            repo_id=self.repo_name,
+            revision="refs/pr/1",
+        )
+        self.assertIsInstance(model_info, ModelInfo)
+
+    def test_get_repo_discussion(self):
+        discussions_generator = self._api.get_repo_discussions(repo_id=self.repo_name)
+        self.assertIsInstance(discussions_generator, types.GeneratorType)
+        self.assertListEqual(
+            list([d.num for d in discussions_generator]),
+            [self.discussion.num, self.pull_request.num],
+        )
+
+    def test_get_discussion_details(self):
+        retrieved = self._api.get_discussion_details(
+            repo_id=self.repo_name, discussion_num=2
+        )
+        self.assertEqual(retrieved, self.discussion)
+
+    def test_edit_discussion_comment(self):
+        def get_first_comment(discussion: DiscussionWithDetails) -> DiscussionComment:
+            return [evt for evt in discussion.events if evt.type == "comment"][0]
+
+        edited_comment = self._api.edit_discussion_comment(
+            repo_id=self.repo_name,
+            discussion_num=self.pull_request.num,
+            comment_id=get_first_comment(self.pull_request).id,
+            new_content="**Edited** comment 🤗",
+            token=self._token,
+        )
+        retrieved = self._api.get_discussion_details(
+            repo_id=self.repo_name, discussion_num=self.pull_request.num
+        )
+        self.assertEqual(get_first_comment(retrieved).edited, True)
+        self.assertEqual(
+            get_first_comment(retrieved).id, get_first_comment(self.pull_request).id
+        )
+        self.assertEqual(get_first_comment(retrieved).content, "**Edited** comment 🤗")
+
+        self.assertEqual(get_first_comment(retrieved), edited_comment)
+
+    def test_comment_discussion(self):
+        new_comment = self._api.comment_discussion(
+            repo_id=self.repo_name,
+            discussion_num=self.discussion.num,
+            comment="""\
+                # Multi-line comment
+
+                **With formatting**, including *italic text* & ~strike through~
+                And even [links](http://hf.co)! 💥🤯
+            """,
+            token=self._token,
+        )
+        retrieved = self._api.get_discussion_details(
+            repo_id=self.repo_name, discussion_num=self.discussion.num
+        )
+        self.assertEqual(len(retrieved.events), 2)
+        self.assertIn(new_comment, retrieved.events)
+
+    def test_rename_discussion(self):
+        rename_event = self._api.rename_discussion(
+            repo_id=self.repo_name,
+            discussion_num=self.discussion.num,
+            new_title="New titlee",
+            token=self._token,
+        )
+        retrieved = self._api.get_discussion_details(
+            repo_id=self.repo_name, discussion_num=self.discussion.num
+        )
+        self.assertIn(rename_event, retrieved.events)
+        self.assertEqual(rename_event.old_title, self.discussion.title)
+        self.assertEqual(rename_event.new_title, "New titlee")
+
+    def test_change_discussion_status(self):
+        status_change_event = self._api.change_discussion_status(
+            repo_id=self.repo_name,
+            discussion_num=self.discussion.num,
+            new_status="closed",
+            token=self._token,
+        )
+        retrieved = self._api.get_discussion_details(
+            repo_id=self.repo_name, discussion_num=self.discussion.num
+        )
+        self.assertIn(status_change_event, retrieved.events)
+        self.assertEqual(status_change_event.new_status, "closed")
+
+        with self.assertRaises(ValueError):
+            self._api.change_discussion_status(
+                repo_id=self.repo_name,
+                discussion_num=self.discussion.num,
+                new_status="published",
+                token=self._token,
+            )
+
+    # @unittest.skip("To unskip when create_commit works for arbitrary references")
+    def test_merge_pull_request(self):
+        self._api.create_commit(
+            repo_id=self.repo_name,
+            commit_message="Commit some file",
+            operations=[
+                CommitOperationAdd(path_in_repo="file.test", path_or_fileobj=b"Content")
+            ],
+            revision=self.pull_request.git_reference,
+            token=self._token,
+        )
+        self._api.change_discussion_status(
+            repo_id=self.repo_name,
+            discussion_num=self.pull_request.num,
+            new_status="open",
+            token=self._token,
+        )
+        self._api.merge_pull_request(
+            self.repo_name, self.pull_request.num, token=self._token
+        )
+
+        retrieved = self._api.get_discussion_details(
+            repo_id=self.repo_name, discussion_num=self.pull_request.num
+        )
+        self.assertEqual(retrieved.status, "merged")
+        self.assertIsNotNone(retrieved.merge_commit_oid)
