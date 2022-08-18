@@ -1,7 +1,8 @@
+import abc
 from contextlib import contextmanager
 from pathlib import Path
 from tempfile import TemporaryDirectory
-from typing import Optional
+from typing import ContextManager, Optional
 
 import pytest
 
@@ -35,8 +36,9 @@ def fx_api_disconnected(request: SubRequest) -> None:
 
 
 @pytest.fixture
-def fx_api_connected(request: SubRequest, fx_api_disconnected: None) -> None:
+def fx_api_connected(request: SubRequest) -> None:
     # TODO: docstring and test
+    request.cls._api = HfApi(endpoint=ENDPOINT_STAGING)
     request.cls._token = TOKEN
     request.cls._api.set_access_token(TOKEN)
 
@@ -61,6 +63,26 @@ def fx_create_tmp_repo(request: SubRequest, fx_api_connected: None, fx_repo_id: 
         )
 
     request.cls.create_tmp_repo = _create_tmp_repo
+
+
+@pytest.mark.usefixtures("fx_cache_dir")
+class CacheDirFixture(abc.ABC):
+    # TODO: docstring and test
+    cache_dir: Path
+    cache_dir_str: str
+
+
+@pytest.mark.usefixtures("fx_repo_id")
+class RepoIdFixture(abc.ABC):
+    # TODO: docstring and test
+    repo_name: str
+    repo_id: str
+
+
+@pytest.mark.usefixtures("fx_create_tmp_repo")
+class CreateTmpRepoFixture(abc.ABC):
+    # TODO: docstring and test
+    create_tmp_repo: ContextManager
 
 
 def _get_test_name(request: SubRequest) -> str:

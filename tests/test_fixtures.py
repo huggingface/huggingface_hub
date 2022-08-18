@@ -1,12 +1,11 @@
 import unittest
 
-import pytest
-
 from huggingface_hub.utils import RepositoryNotFoundError
 
+from .conftest import CacheDirFixture, CreateTmpRepoFixture
 
-@pytest.mark.usefixtures("fx_cache_dir")
-class TestCacheDirFixture(unittest.TestCase):
+
+class TestCacheDirFixture(unittest.TestCase, CacheDirFixture):
     """Test cache_dir fixture."""
 
     def test_cache_dir_fixture(self):
@@ -16,8 +15,7 @@ class TestCacheDirFixture(unittest.TestCase):
         self.assertEqual(str(self.cache_dir), self.cache_dir_str)
 
 
-@pytest.mark.usefixtures("fx_create_tmp_repo")
-class TestCreateTmpRepoFixture(unittest.TestCase):
+class TestCreateTmpRepoFixture(unittest.TestCase, CreateTmpRepoFixture):
     """Test tmp repo fixture."""
 
     def test_create_tmp_repo_fixture(self):

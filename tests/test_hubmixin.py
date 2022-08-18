@@ -4,13 +4,12 @@ import unittest
 from pathlib import Path
 from unittest.mock import Mock
 
-import pytest
-
 from huggingface_hub import HfApi, hf_hub_download
 from huggingface_hub.file_download import is_torch_available
 from huggingface_hub.hub_mixin import PyTorchModelHubMixin
 from huggingface_hub.repository import Repository
 
+from .conftest import CacheDirFixture
 from .testing_constants import ENDPOINT_STAGING, TOKEN, USER
 from .testing_utils import expect_deprecation, repo_name, safe_chdir
 
@@ -45,8 +44,7 @@ else:
 
 
 @require_torch
-@pytest.mark.usefixtures("fx_cache_dir")
-class HubMixingTest(unittest.TestCase):
+class HubMixingTest(unittest.TestCase, CacheDirFixture):
     _api = HfApi(endpoint=ENDPOINT_STAGING)
     cache_dir: Path  # from fx_cache_dir fixture
     cache_dir_str: str  # from fx_cache_dir fixture

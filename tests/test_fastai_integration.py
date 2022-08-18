@@ -1,5 +1,4 @@
 import os
-import shutil
 from unittest import TestCase, skip
 
 from huggingface_hub import HfApi
@@ -14,14 +13,9 @@ from huggingface_hub.file_download import (
     is_torch_available,
 )
 
-from .testing_constants import ENDPOINT_STAGING, TOKEN, USER
-from .testing_utils import repo_name, set_write_permission_and_retry
+from .conftest import CacheDirFixture, RepoIdFixture
+from .testing_constants import ENDPOINT_STAGING, TOKEN
 
-
-WORKING_REPO_SUBDIR = f"fixtures/working_repo_{__name__.split('.')[-1]}"
-WORKING_REPO_DIR = os.path.join(
-    os.path.dirname(os.path.abspath(__file__)), WORKING_REPO_SUBDIR
-)
 
 if is_fastai_available():
     from fastai.data.block import DataBlock
@@ -63,7 +57,7 @@ else:
 
 
 @require_fastai_fastcore
-class TestFastaiUtils(TestCase):
+class TestFastaiUtils(TestCase, CacheDirFixture, RepoIdFixture):
     @classmethod
     def setUpClass(cls):
         """
@@ -73,45 +67,32 @@ class TestFastaiUtils(TestCase):
         cls._token = TOKEN
         cls._api.set_access_token(TOKEN)
 
-    def tearDown(self) -> None:
-        try:
-            shutil.rmtree(WORKING_REPO_DIR, onerror=set_write_permission_and_retry)
-        except FileNotFoundError:
-            pass
-
     def test_save_pretrained_without_config(self):
-        REPO_NAME = repo_name("fastai-save")
-        _save_pretrained_fastai(dummy_model, f"{WORKING_REPO_DIR}/{REPO_NAME}")
-        files = os.listdir(f"{WORKING_REPO_DIR}/{REPO_NAME}")
+        _save_pretrained_fastai(dummy_model, self.cache_dir_str)
+        files = os.listdir(self.cache_dir_str)
         self.assertTrue("model.pkl" in files)
         self.assertTrue("pyproject.toml" in files)
         self.assertTrue("README.md" in files)
         self.assertEqual(len(files), 3)
 
     def test_save_pretrained_with_config(self):
-        REPO_NAME = repo_name("fastai-save")
-        _save_pretrained_fastai(
-            dummy_model, f"{WORKING_REPO_DIR}/{REPO_NAME}", config=dummy_config
-        )
-        files = os.listdir(f"{WORKING_REPO_DIR}/{REPO_NAME}")
+        _save_pretrained_fastai(dummy_model, self.cache_dir_str, config=dummy_config)
+        files = os.listdir(self.cache_dir_str)
         self.assertTrue("config.json" in files)
         self.assertEqual(len(files), 4)
 
     def test_push_to_hub_and_from_pretrained_fastai(self):
-        REPO_NAME = repo_name("fastai-push_to_hub")
         push_to_hub_fastai(
             learner=dummy_model,
-            repo_id=f"{USER}/{REPO_NAME}",
+            repo_id=self.repo_id,
             token=self._token,
             config=dummy_config,
         )
-        model_info = self._api.model_info(
-            f"{USER}/{REPO_NAME}",
-        )
-        self.assertEqual(model_info.modelId, f"{USER}/{REPO_NAME}")
+        model_info = self._api.model_info(self.repo_id)
+        self.assertEqual(model_info.modelId, self.repo_id)
 
-        loaded_model = from_pretrained_fastai(f"{USER}/{REPO_NAME}")
+        loaded_model = from_pretrained_fastai(self.repo_id)
         self.assertEqual(
             dummy_model.show_training_loop(), loaded_model.show_training_loop()
         )
-        self._api.delete_repo(repo_id=f"{REPO_NAME}", token=self._token)
+        self._api.delete_repo(repo_id=self.repo_name, token=self._token)
