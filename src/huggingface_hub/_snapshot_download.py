@@ -1,43 +1,22 @@
 import os
-from fnmatch import fnmatch
 from pathlib import Path
 from typing import Dict, List, Optional, Union
 
 from .constants import DEFAULT_REVISION, HUGGINGFACE_HUB_CACHE, REPO_TYPES
 from .file_download import REGEX_COMMIT_HASH, hf_hub_download, repo_folder_name
 from .hf_api import HfApi, HfFolder
-from .utils import logging
+from .utils import filter_repo_objects, logging
+from .utils._deprecation import _deprecate_arguments
 
 
 logger = logging.get_logger(__name__)
 
 
-def _filter_repo_files(
-    *,
-    repo_files: List[str],
-    allow_regex: Optional[Union[List[str], str]] = None,
-    ignore_regex: Optional[Union[List[str], str]] = None,
-) -> List[str]:
-    allow_regex = [allow_regex] if isinstance(allow_regex, str) else allow_regex
-    ignore_regex = [ignore_regex] if isinstance(ignore_regex, str) else ignore_regex
-    filtered_files = []
-    for repo_file in repo_files:
-        # if there's an allowlist, skip download if file does not match any regex
-        if allow_regex is not None and not any(
-            fnmatch(repo_file, r) for r in allow_regex
-        ):
-            continue
-
-        # if there's a denylist, skip download if file does matches any regex
-        if ignore_regex is not None and any(
-            fnmatch(repo_file, r) for r in ignore_regex
-        ):
-            continue
-
-        filtered_files.append(repo_file)
-    return filtered_files
-
-
+@_deprecate_arguments(
+    version="0.12",
+    deprecated_args={"allow_regex", "ignore_regex"},
+    custom_message="Please use `allow_patterns` and `ignore_patterns` instead.",
+)
 def snapshot_download(
     repo_id: str,
     *,
@@ -54,6 +33,8 @@ def snapshot_download(
     local_files_only: Optional[bool] = False,
     allow_regex: Optional[Union[List[str], str]] = None,
     ignore_regex: Optional[Union[List[str], str]] = None,
+    allow_patterns: Optional[Union[List[str], str]] = None,
+    ignore_patterns: Optional[Union[List[str], str]] = None,
 ) -> str:
     """Download all files of a repo.
 
@@ -98,10 +79,10 @@ def snapshot_download(
         local_files_only (`bool`, *optional*, defaults to `False`):
             If `True`, avoid downloading the file and return the path to the
             local cached file if it exists.
-        allow_regex (`list of str`, `str`, *optional*):
-            If provided, only files matching this regex are downloaded.
-        ignore_regex (`list of str`, `str`, *optional*):
-            If provided, files matching this regex are not downloaded.
+        allow_patterns (`List[str]` or `str`, *optional*):
+            If provided, only files matching at least one pattern are downloaded.
+        ignore_patterns (`List[str]` or `str`, *optional*):
+            If provided, files matching any of the patterns are not downloaded.
 
     Returns:
         Local folder path (string) of repo snapshot
@@ -119,7 +100,6 @@ def snapshot_download(
 
     </Tip>
     """
-
     if cache_dir is None:
         cache_dir = HUGGINGFACE_HUB_CACHE
     if revision is None:
@@ -151,6 +131,13 @@ def snapshot_download(
         cache_dir, repo_folder_name(repo_id=repo_id, repo_type=repo_type)
     )
 
+    # TODO: remove these 4 lines in version 0.12
+    #       Deprecated code to ensure backward compatibility.
+    if allow_regex is not None:
+        allow_patterns = allow_regex
+    if ignore_regex is not None:
+        ignore_patterns = ignore_regex
+
     # if we have no internet connection we will look for an
     # appropriate folder in the cache
     # If the specified revision is a commit hash, look inside "snapshots".
@@ -181,10 +168,10 @@ def snapshot_download(
     repo_info = _api.repo_info(
         repo_id=repo_id, repo_type=repo_type, revision=revision, token=token
     )
-    filtered_repo_files = _filter_repo_files(
-        repo_files=[f.rfilename for f in repo_info.siblings],
-        allow_regex=allow_regex,
-        ignore_regex=ignore_regex,
+    filtered_repo_files = filter_repo_objects(
+        items=[f.rfilename for f in repo_info.siblings],
+        allow_patterns=allow_patterns,
+        ignore_patterns=ignore_patterns,
     )
     commit_hash = repo_info.sha
     snapshot_folder = os.path.join(storage_folder, "snapshots", commit_hash)

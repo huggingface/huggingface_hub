@@ -51,7 +51,7 @@ from .constants import (
     REPO_TYPES_URL_PREFIXES,
     SPACES_SDK_TYPES,
 )
-from .utils import logging
+from .utils import filter_repo_objects, logging
 from .utils._deprecation import _deprecate_positional_args
 from .utils._errors import (
     _raise_convert_bad_request,
@@ -2215,6 +2215,8 @@ class HfApi:
         revision: Optional[str] = None,
         create_pr: Optional[bool] = None,
         parent_commit: Optional[str] = None,
+        allow_patterns: Optional[Union[List[str], str]] = None,
+        ignore_patterns: Optional[Union[List[str], str]] = None,
     ):
         """
         Upload a local folder to the given repo. The upload is done
@@ -2223,6 +2225,13 @@ class HfApi:
 
         The structure of the folder will be preserved. Files with the same name
         already present in the repository will be overwritten, others will be left untouched.
+
+        Use the `allow_patterns` and `ignore_patterns` arguments to specify which files
+        to upload. These parameters accept either a single pattern or a list of
+        patterns. Patterns are Standard Wildcards (globbing patterns) as documented
+        [here](https://tldp.org/LDP/GNU-Linux-Tools-Summary/html/x11655.htm). If both
+        `allow_patterns` and `ignore_patterns` are provided, both constraints apply. By
+        default, all files from the folder are uploaded.
 
         Uses `HfApi.create_commit` under the hood.
 
@@ -2259,7 +2268,10 @@ class HfApi:
                 If specified and `create_pr` is `True`, the pull request will be created from `parent_commit`.
                 Specifying `parent_commit` ensures the repo has not changed before committing the changes, and can be
                 especially useful if the repo is updated / committed to concurrently.
-
+            allow_patterns (`List[str]` or `str`, *optional*):
+                If provided, only files matching at least one pattern are uploaded.
+            ignore_patterns (`List[str]` or `str`, *optional*):
+                If provided, files matching any of the patterns are not uploaded.
 
         Returns:
             `str`: A URL to visualize the uploaded folder on the hub
@@ -2284,6 +2296,7 @@ class HfApi:
         ...     repo_id="username/my-dataset",
         ...     repo_type="datasets",
         ...     token="my_token",
+        ...     ignore_patterns="**/logs/*.txt",
         ... )
         # "https://huggingface.co/datasets/username/my-dataset/tree/main/remote/experiment/checkpoints"
 
@@ -2312,7 +2325,12 @@ class HfApi:
             else f"Upload {path_in_repo} with huggingface_hub"
         )
 
-        files_to_add = _prepare_upload_folder_commit(folder_path, path_in_repo)
+        files_to_add = _prepare_upload_folder_commit(
+            folder_path,
+            path_in_repo,
+            allow_patterns=allow_patterns,
+            ignore_patterns=ignore_patterns,
+        )
 
         pr_url = self.create_commit(
             repo_type=repo_type,
@@ -3232,9 +3250,16 @@ class HfFolder:
 
 
 def _prepare_upload_folder_commit(
-    folder_path: str, path_in_repo: str
+    folder_path: str,
+    path_in_repo: str,
+    allow_patterns: Optional[Union[List[str], str]] = None,
+    ignore_patterns: Optional[Union[List[str], str]] = None,
 ) -> List[CommitOperationAdd]:
-    """Generate the list of Add operations for a commit to upload a folder."""
+    """Generate the list of Add operations for a commit to upload a folder.
+
+    Files not matching the `allow_patterns` (allowlist) and `ignore_patterns` (denylist)
+    constraints are discarded.
+    """
     folder_path = os.path.normpath(os.path.expanduser(folder_path))
     if not os.path.isdir(folder_path):
         raise ValueError(f"Provided path: '{folder_path}' is not a directory")
@@ -3252,7 +3277,15 @@ def _prepare_upload_folder_commit(
                     ).replace(os.sep, "/"),
                 )
             )
-    return files_to_add
+
+    return list(
+        filter_repo_objects(
+            files_to_add,
+            allow_patterns=allow_patterns,
+            ignore_patterns=ignore_patterns,
+            key=lambda x: x.path_in_repo,
+        )
+    )
 
 
 def _parse_revision_from_pr_url(pr_url: str) -> str:

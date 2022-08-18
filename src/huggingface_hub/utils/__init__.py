@@ -22,6 +22,7 @@ from ._errors import (
     RepositoryNotFoundError,
     RevisionNotFoundError,
 )
+from ._paths import filter_repo_objects
 from ._subprocess import run_subprocess
 from .tqdm import (
     are_progress_bars_disabled,

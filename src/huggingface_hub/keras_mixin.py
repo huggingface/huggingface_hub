@@ -5,7 +5,7 @@ import tempfile
 import warnings
 from pathlib import Path
 from shutil import copytree, rmtree
-from typing import Any, Dict, Optional, Union
+from typing import Any, Dict, List, Optional, Union
 from urllib.parse import quote
 
 import yaml
@@ -329,6 +329,8 @@ def push_to_hub_keras(
     repo_id: Optional[str] = None,  # optional only until 0.12
     branch: Optional[str] = None,
     create_pr: Optional[bool] = None,
+    allow_patterns: Optional[Union[List[str], str]] = None,
+    ignore_patterns: Optional[Union[List[str], str]] = None,
     **model_save_kwargs,
     # TODO (release 0.12): signature must be the following
     # model,
@@ -341,6 +343,8 @@ def push_to_hub_keras(
     # branch: Optional[str] = None,
     # create_pr: Optional[bool] = None,
     # config: Optional[dict] = None,
+    # allow_patterns: Optional[Union[List[str], str]] = None,
+    # ignore_patterns: Optional[Union[List[str], str]] = None,
     # log_dir: Optional[str] = None,
     # include_optimizer: Optional[bool] = False,
     # tags: Optional[Union[list, str]] = None,
@@ -350,6 +354,9 @@ def push_to_hub_keras(
     """
     Upload model checkpoint or tokenizer files to the Hub while synchronizing a
     local clone of the repo in `repo_path_or_name`.
+
+    Use `allow_patterns` and `ignore_patterns` to precisely filter which files should be
+    pushed to the hub. See [`upload_folder`] reference for more details.
 
     Parameters:
         model (`Keras.Model`):
@@ -377,6 +384,10 @@ def push_to_hub_keras(
             Defaults to `False`.
         config (`dict`, *optional*):
             Configuration object to be saved alongside the model weights.
+        allow_patterns (`List[str]` or `str`, *optional*):
+            If provided, only files matching at least one pattern are pushed.
+        ignore_patterns (`List[str]` or `str`, *optional*):
+            If provided, files matching any of the patterns are not pushed.
         log_dir (`str`, *optional*):
             TensorBoard logging directory to be pushed. The Hub automatically
             hosts and displays a TensorBoard instance if log files are included
@@ -438,7 +449,12 @@ def push_to_hub_keras(
             #       duplicate code from `upload_folder`. We are not directly using
             #       `upload_folder` since we want to add delete operations to the
             #       commit as well.
-            operations += _prepare_upload_folder_commit(saved_path, path_in_repo="")
+            operations += _prepare_upload_folder_commit(
+                saved_path,
+                path_in_repo="",
+                allow_patterns=allow_patterns,
+                ignore_patterns=ignore_patterns,
+            )
             pr_url = api.create_commit(
                 repo_type="model",
                 repo_id=repo_id,
