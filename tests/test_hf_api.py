@@ -22,6 +22,7 @@ import warnings
 from functools import partial
 from io import BytesIO
 from typing import List
+from unittest.mock import patch
 from urllib.parse import quote
 
 import pytest
@@ -1682,6 +1683,22 @@ class HfApiDiscussionsTest(HfApiCommonTestWithLogin):
             repo_id=self.repo_name, discussion_num=2
         )
         self.assertEqual(retrieved, self.discussion)
+
+    @patch("huggingface_hub.utils._datetime._dateutil_available", False)
+    def test_get_discussion_details_without_dateutil(self):
+        """
+        Checks that even if dateutil is not installed, datetime parsing from server
+        still works accurately.
+        """
+        retrieved = self._api.get_discussion_details(
+            repo_id=self.repo_name, discussion_num=2
+        )
+        # `retrieved.created` has been parsed using datetime.strptime while
+        # `self.discussion.created_at` has been parsed by dateutil.
+        self.assertEqual(retrieved.created_at, self.discussion.created_at)
+        self.assertEqual(
+            retrieved.created_at.timestamp(), self.discussion.created_at.timestamp()
+        )
 
     def test_edit_discussion_comment(self):
         def get_first_comment(discussion: DiscussionWithDetails) -> DiscussionComment:

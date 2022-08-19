@@ -23,6 +23,10 @@ install_requires = [
 
 extras = {}
 
+extras["dateutil"] = [
+    "python-dateutil",
+]
+
 extras["torch"] = [
     "torch",
 ]
@@ -35,7 +39,7 @@ extras["fastai"] = [
 
 extras["tensorflow"] = ["tensorflow", "pydot", "graphviz"]
 
-extras["testing"] = [
+extras["testing"] = extras["dateutil"] + [
     "pytest",
     "pytest-cov",
     "datasets",
