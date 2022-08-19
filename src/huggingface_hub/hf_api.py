@@ -237,7 +237,7 @@ class ModelInfo:
             Pipeline tag to identify the correct widget.
         siblings (`List[RepoFile]`, *optional*):
             list of ([`huggingface_hub.hf_api.RepoFile`]) objects that constitute the model.
-        private (`bool`, *optional*):
+        private (`bool`, *optional*, defaults to `False`):
             is the repo private
         author (`str`, *optional*):
             repo author
@@ -256,7 +256,7 @@ class ModelInfo:
         tags: Optional[List[str]] = None,
         pipeline_tag: Optional[str] = None,
         siblings: Optional[List[Dict]] = None,
-        private: Optional[bool] = None,
+        private: bool = False,
         author: Optional[str] = None,
         config: Optional[Dict] = None,
         **kwargs,
@@ -303,7 +303,7 @@ class DatasetInfo:
             List of tags.
         siblings (`List[RepoFile]`, *optional*):
             list of [`huggingface_hub.hf_api.RepoFile`] objects that constitute the dataset.
-        private (`bool`, *optional*):
+        private (`bool`, *optional*, defaults to `False`):
             is the repo private
         author (`str`, *optional*):
             repo author
@@ -325,7 +325,7 @@ class DatasetInfo:
         lastModified: Optional[str] = None,
         tags: Optional[List[str]] = None,
         siblings: Optional[List[Dict]] = None,
-        private: Optional[bool] = None,
+        private: bool = False,
         author: Optional[str] = None,
         description: Optional[str] = None,
         citation: Optional[str] = None,
@@ -378,7 +378,7 @@ class SpaceInfo:
             date of last commit to repo
         siblings (`List[RepoFile]`, *optional*):
             list of [`huggingface_hub.hf_api.RepoFIle`] objects that constitute the Space
-        private (`bool`, *optional*):
+        private (`bool`, *optional*, defaults to `False`):
             is the repo private
         author (`str`, *optional*):
             repo author
@@ -393,7 +393,7 @@ class SpaceInfo:
         sha: Optional[str] = None,
         lastModified: Optional[str] = None,
         siblings: Optional[List[Dict]] = None,
-        private: Optional[bool] = None,
+        private: bool = False,
         author: Optional[str] = None,
         **kwargs,
     ):
@@ -1525,7 +1525,7 @@ class HfApi:
         *,
         token: Optional[str] = None,
         organization: Optional[str] = None,
-        private: Optional[bool] = None,
+        private: bool = False,
         repo_type: Optional[str] = None,
         exist_ok: Optional[bool] = False,
         space_sdk: Optional[str] = None,
@@ -1546,7 +1546,7 @@ class HfApi:
 
             token (`str`, *optional*):
                 An authentication token (See https://huggingface.co/settings/token)
-            private (`bool`, *optional*):
+            private (`bool`, *optional*, defaults to `False`):
                 Whether the model repo should be private.
             repo_type (`str`, *optional*):
                 Set to `"dataset"` or `"space"` if uploading to a dataset or

@@ -315,7 +315,7 @@ def push_to_hub_keras(
     log_dir: Optional[str] = None,
     commit_message: Optional[str] = "Add model",
     organization: Optional[str] = None,
-    private: Optional[bool] = None,
+    private: bool = False,
     api_endpoint: Optional[str] = None,
     use_auth_token: Optional[Union[bool, str]] = True,
     git_user: Optional[str] = None,
@@ -337,7 +337,7 @@ def push_to_hub_keras(
     # repo_id: str,
     # *,
     # commit_message: Optional[str] = "Add model",
-    # private: Optional[bool] = None,
+    # private: bool = None,
     # api_endpoint: Optional[str] = None,
     # token: Optional[str] = True,
     # branch: Optional[str] = None,
@@ -367,7 +367,7 @@ def push_to_hub_keras(
             Repository name to which push
         commit_message (`str`, *optional*, defaults to "Add message"):
             Message to commit while pushing.
-        private (`bool`, *optional*):
+        private (`bool`, *optional*, defaults to `False`):
             Whether the repository created should be private.
         api_endpoint (`str`, *optional*):
             The API endpoint to use when pushing the model to the hub.
