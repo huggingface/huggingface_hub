@@ -1,5 +1,5 @@
 import unittest
-from datetime import datetime
+from datetime import datetime, timezone
 from unittest.mock import patch
 
 import pytest
@@ -22,7 +22,7 @@ class TestDatetimeUtils(unittest.TestCase):
 
         self.assertEqual(
             parse_datetime("2022-08-19T07:19:38.123Z"),
-            datetime(2022, 8, 19, 7, 19, 38, 123000, tzinfo=datetime.timezone.utc),
+            datetime(2022, 8, 19, 7, 19, 38, 123000, tzinfo=timezone.utc),
         )
 
         # Case that cannot be parsed without dateutil.
@@ -45,7 +45,7 @@ class TestDatetimeUtils(unittest.TestCase):
 
         self.assertEqual(
             parse_datetime("2022-08-19T07:19:38.123Z"),
-            datetime(2022, 8, 19, 7, 19, 38, 123000, tzinfo=datetime.timezone.utc),
+            datetime(2022, 8, 19, 7, 19, 38, 123000, tzinfo=timezone.utc),
         )
 
         with pytest.raises(
