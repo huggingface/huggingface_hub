@@ -25,10 +25,10 @@ def parse_datetime(date_string: str) -> datetime:
     """
     Parses a date_string returned from the server to a datetime object.
 
-    This parser has a pure-python implementation in order to avoid an external
-    dependency (python-dateutil). It is a weak-parser is the sense that it handles only
-    a single format of date_string. It is expected that the server format will never
-    change. See full discussion about this decision on PR:
+    This parser is a weak-parser is the sense that it handles only a single format of
+    date_string. It is expected that the server format will never change. The
+    implementation depends only on the standard lib to avoid an external dependency
+    (python-dateutil). See full discussion about this decision on PR:
     https://github.com/huggingface/huggingface_hub/pull/999.
 
     Usage:
