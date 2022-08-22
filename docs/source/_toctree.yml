@@ -39,4 +39,6 @@
       title: Discussions and Pull Requests
     - local: package_reference/cache
       title: Cache-system reference
+    - local: package_reference/cards
+      title: Repo Cards and Repo Card Data
   title: "Reference"
