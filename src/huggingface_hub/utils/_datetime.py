@@ -25,20 +25,22 @@ def parse_datetime(date_string: str) -> datetime:
     """
     Parses a date_string returned from the server to a datetime object.
 
-    NOTE: This is a weak-parser is the sense that it handles only a single format of
-          date_string. It is expected that the server format will never change. See full
-          discussion about this decision on PR:
-          https://github.com/huggingface/huggingface_hub/pull/999.
+    This parser has a pure-python implementation in order to avoid an external
+    dependency (python-dateutil). It is a weak-parser is the sense that it handles only
+    a single format of date_string. It is expected that the server format will never
+    change. See full discussion about this decision on PR:
+    https://github.com/huggingface/huggingface_hub/pull/999.
 
     Usage:
         ```py
         > parse_datetime('2022-08-19T07:19:38.123Z')
-        datetime.datetime(2022, 8, 19, 7, 19, 38, 123000)
+        datetime.datetime(2022, 8, 19, 7, 19, 38, 123000, tzinfo=timezone.utc)
         ```
 
     Args:
         date_string (`str`):
             A string representing a datetime returned by the Hub server.
+            String is expected to follow '%Y-%m-%dT%H:%M:%S.%fZ' pattern.
 
     Returns:
         A python datetime object.

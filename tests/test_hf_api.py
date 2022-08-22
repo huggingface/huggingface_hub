@@ -22,7 +22,6 @@ import warnings
 from functools import partial
 from io import BytesIO
 from typing import List
-from unittest.mock import patch
 from urllib.parse import quote
 
 import pytest
