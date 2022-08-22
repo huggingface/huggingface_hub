@@ -391,7 +391,8 @@ class HubKerasSequentialTest(HubMixingTestKeras):
         # Trick to get a non-existing directory with expected repo_name
         repo_path_or_name = str(self.cache_dir / self.repo_name)
 
-        model.push_to_hub(
+        push_to_hub_keras(
+            model,
             repo_path_or_name=repo_path_or_name,
             api_endpoint=ENDPOINT_STAGING,
             use_auth_token=self._token,
