@@ -166,8 +166,11 @@ class HubMixingTestKeras(unittest.TestCase, CacheDirFixture, RepoIdFixture):
         model = DummyModel()
         model(model.dummy_inputs)
 
+        # Trick to get a non-existing directory with expected repo_name
+        repo_path_or_name = str(self.cache_dir / self.repo_name)
+
         model.push_to_hub(
-            repo_path_or_name=self.cache_dir_str,
+            repo_path_or_name=repo_path_or_name,
             api_endpoint=ENDPOINT_STAGING,
             use_auth_token=self._token,
             git_user="ci",
@@ -385,9 +388,11 @@ class HubKerasSequentialTest(HubMixingTestKeras):
         model = self.model_init()
         model.build((None, 2))
 
-        push_to_hub_keras(
-            model,
-            repo_path_or_name=self.cache_dir_str,
+        # Trick to get a non-existing directory with expected repo_name
+        repo_path_or_name = str(self.cache_dir / self.repo_name)
+
+        model.push_to_hub(
+            repo_path_or_name=repo_path_or_name,
             api_endpoint=ENDPOINT_STAGING,
             use_auth_token=self._token,
             git_user="ci",
