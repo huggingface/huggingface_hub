@@ -100,12 +100,17 @@ class CardData:
         """Use this method in child classes to alter the dict representation of the data. Alter the dict in-place.
 
         Args:
-            data_dict (_type_): The raw dict representation of the card data.
+            data_dict (dict): The raw dict representation of the card data.
         """
         pass
 
     def to_yaml(self, line_break=None):
-        """Dumps CardData to a YAML block for inclusion in a README.md file."""
+        """Dumps CardData to a YAML block for inclusion in a README.md file.
+
+        Args:
+            line_break (str, *optional*):
+                The line break to use when dumping to yaml.
+        """
         return yaml.dump(self.to_dict(), sort_keys=False, line_break=line_break).strip()
 
     def __repr__(self):
@@ -305,6 +310,7 @@ def model_index_to_eval_results(model_index: List[Dict[str, Any]]):
             reported in the provided model_index.
 
     Example:
+        ```python
         >>> from huggingface_hub.repocard_data import model_index_to_eval_results
         >>> # Define a minimal model index
         >>> model_index = [
@@ -336,6 +342,8 @@ def model_index_to_eval_results(model_index: List[Dict[str, Any]]):
         'image-classification'
         >>> eval_results[0].metric_type
         'accuracy'
+
+        ```
     """
 
     eval_results = []
@@ -413,6 +421,7 @@ def eval_results_to_model_index(model_name: str, eval_results: List[EvalResult])
         model_index (`List[Dict[str, Any]]`): The eval_results converted to a model-index.
 
     Example:
+        ```python
         >>> from huggingface_hub.repocard_data import eval_results_to_model_index, EvalResult
         >>> # Define minimal eval_results
         >>> eval_results = [
@@ -426,6 +435,8 @@ def eval_results_to_model_index(model_name: str, eval_results: List[EvalResult])
         ... ]
         >>> eval_results_to_model_index("my-cool-model", eval_results)
         [{'name': 'my-cool-model', 'results': [{'task': {'type': 'image-classification'}, 'dataset': {'name': 'Beans', 'type': 'beans'}, 'metrics': [{'type': 'accuracy', 'value': 0.9}]}]}]
+
+        ```
     """
 
     # Metrics are reported on a unique task-and-dataset basis.

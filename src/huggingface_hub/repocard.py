@@ -88,9 +88,12 @@ class RepoCard:
             filepath (`Union[Path, str]`): Filepath to the markdown file to save.
 
         Example:
+            ```python
             >>> from huggingface_hub.repocard import RepoCard
             >>> card = RepoCard("---\nlanguage: en\n---\n# This is a test repo card")
             >>> card.save("/tmp/test.md")
+
+            ```
         """
         filepath = Path(filepath)
         filepath.parent.mkdir(parents=True, exist_ok=True)
@@ -115,9 +118,12 @@ class RepoCard:
                 README.md file or filepath.
 
         Example:
+            ```python
             >>> from huggingface_hub.repocard import RepoCard
             >>> card = RepoCard.load("nateraw/food")
             >>> assert card.data.tags == ["generated_from_trainer", "image-classification", "pytorch"]
+
+            ```
         """
 
         if Path(repo_id_or_path).exists():
@@ -220,6 +226,7 @@ class RepoCard:
                 commit_description=commit_description,
                 create_pr=create_pr,
                 revision=revision,
+                parent_commit=parent_commit,
             )
         return url
 
@@ -247,6 +254,7 @@ class RepoCard:
             template.
 
         Example:
+            ```python
             >>> from huggingface_hub import ModelCard, ModelCardData, EvalResult
 
             >>> # Using the Default Template
@@ -291,6 +299,7 @@ class RepoCard:
             ...     custom_template_var='custom value',  # will be replaced in template if it exists
             ... )
 
+            ```
         """
         if is_jinja_available():
             import jinja2
@@ -440,49 +449,52 @@ def metadata_eval_result(
         `dict`: a metadata dict with the result from a model evaluated on a dataset.
 
     Example:
-    >>> from huggingface_hub import metadata_eval_result
-    >>> results = metadata_eval_result(
-    ...         model_pretty_name="RoBERTa fine-tuned on ReactionGIF",
-    ...         task_pretty_name="Text Classification",
-    ...         task_id="text-classification",
-    ...         metrics_pretty_name="Accuracy",
-    ...         metrics_id="accuracy",
-    ...         metrics_value=0.2662102282047272,
-    ...         dataset_pretty_name="ReactionJPEG",
-    ...         dataset_id="julien-c/reactionjpeg",
-    ...         dataset_config="default",
-    ...         dataset_split="test",
-    ... )
-    >>> results == {
-    ...     'model-index': [
-    ...         {
-    ...             'name': 'RoBERTa fine-tuned on ReactionGIF',
-    ...             'results': [
-    ...                 {
-    ...                     'task': {
-    ...                         'type': 'text-classification',
-    ...                         'name': 'Text Classification'
-    ...                     },
-    ...                     'dataset': {
-    ...                         'name': 'ReactionJPEG',
-    ...                         'type': 'julien-c/reactionjpeg',
-    ...                         'config': 'default',
-    ...                         'split': 'test'
-    ...                     },
-    ...                     'metrics': [
-    ...                         {
-    ...                             'type': 'accuracy',
-    ...                             'value': 0.2662102282047272,
-    ...                             'name': 'Accuracy',
-    ...                             'verified': False
-    ...                         }
-    ...                     ]
-    ...                 }
-    ...             ]
-    ...         }
-    ...     ]
-    ... }
-    True
+        ```python
+        >>> from huggingface_hub import metadata_eval_result
+        >>> results = metadata_eval_result(
+        ...         model_pretty_name="RoBERTa fine-tuned on ReactionGIF",
+        ...         task_pretty_name="Text Classification",
+        ...         task_id="text-classification",
+        ...         metrics_pretty_name="Accuracy",
+        ...         metrics_id="accuracy",
+        ...         metrics_value=0.2662102282047272,
+        ...         dataset_pretty_name="ReactionJPEG",
+        ...         dataset_id="julien-c/reactionjpeg",
+        ...         dataset_config="default",
+        ...         dataset_split="test",
+        ... )
+        >>> results == {
+        ...     'model-index': [
+        ...         {
+        ...             'name': 'RoBERTa fine-tuned on ReactionGIF',
+        ...             'results': [
+        ...                 {
+        ...                     'task': {
+        ...                         'type': 'text-classification',
+        ...                         'name': 'Text Classification'
+        ...                     },
+        ...                     'dataset': {
+        ...                         'name': 'ReactionJPEG',
+        ...                         'type': 'julien-c/reactionjpeg',
+        ...                         'config': 'default',
+        ...                         'split': 'test'
+        ...                     },
+        ...                     'metrics': [
+        ...                         {
+        ...                             'type': 'accuracy',
+        ...                             'value': 0.2662102282047272,
+        ...                             'name': 'Accuracy',
+        ...                             'verified': False
+        ...                         }
+        ...                     ]
+        ...                 }
+        ...             ]
+        ...         }
+        ...     ]
+        ... }
+        True
+
+        ```
     """
 
     return {
@@ -524,18 +536,6 @@ def metadata_update(
     """
     Updates the metadata in the README.md of a repository on the Hugging Face Hub.
 
-    Example:
-    >>> from huggingface_hub import metadata_update
-    >>> metadata = {'model-index': [{'name': 'RoBERTa fine-tuned on ReactionGIF',
-    ...             'results': [{'dataset': {'name': 'ReactionGIF',
-    ...                                      'type': 'julien-c/reactiongif'},
-    ...                           'metrics': [{'name': 'Recall',
-    ...                                        'type': 'recall',
-    ...                                        'value': 0.7762102282047272}],
-    ...                          'task': {'name': 'Text Classification',
-    ...                                   'type': 'text-classification'}}]}]}
-    >>> url = metadata_update("julien-c/reactiongif-roberta", metadata)
-
     Args:
         repo_id (`str`):
             The name of the repository.
@@ -568,6 +568,21 @@ def metadata_update(
             especially useful if the repo is updated / committed to concurrently.
     Returns:
         `str`: URL of the commit which updated the card metadata.
+
+    Example:
+        ```python
+        >>> from huggingface_hub import metadata_update
+        >>> metadata = {'model-index': [{'name': 'RoBERTa fine-tuned on ReactionGIF',
+        ...             'results': [{'dataset': {'name': 'ReactionGIF',
+        ...                                      'type': 'julien-c/reactiongif'},
+        ...                           'metrics': [{'name': 'Recall',
+        ...                                        'type': 'recall',
+        ...                                        'value': 0.7762102282047272}],
+        ...                          'task': {'name': 'Text Classification',
+        ...                                   'type': 'text-classification'}}]}]}
+        >>> url = metadata_update("julien-c/reactiongif-roberta", metadata)
+
+        ```
     """
     commit_message = (
         commit_message
