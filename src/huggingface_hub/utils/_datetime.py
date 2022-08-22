@@ -16,20 +16,6 @@
 from datetime import datetime, timezone
 
 
-# Try to import `dateutil` for robust parsing.
-_dateutil_available = False
-try:
-    import dateutil.parser
-
-    _dateutil_available = True
-except ModuleNotFoundError:
-    pass
-
-
-def _is_dateutil_available() -> bool:
-    return _dateutil_available
-
-
 # Local machine offset compared to UTC
 # Taken from https://stackoverflow.com/a/3168394.
 UTC_OFFSET = datetime.now(timezone.utc).astimezone().utcoffset()
@@ -38,8 +24,11 @@ UTC_OFFSET = datetime.now(timezone.utc).astimezone().utcoffset()
 def parse_datetime(date_string: str) -> datetime:
     """
     Parses a date_string returned from the server to a datetime object.
-    If `dateutil` package is available, a robust date parser will be used. Otherwise,
-    only date_string following isoformat or returned by the server are expected to work.
+
+    NOTE: This is a weak-parser is the sense that it handles only a single format of
+          date_string. It is expected that the server format will never change. See full
+          discussion about this decision on PR:
+          https://github.com/huggingface/huggingface_hub/pull/999.
 
     Usage:
         ```py
@@ -58,9 +47,6 @@ def parse_datetime(date_string: str) -> datetime:
         :class:`ValueError`:
             If `date_string` cannot be parsed.
     """
-    if _is_dateutil_available():
-        return dateutil.parser.parse(date_string)
-
     try:
         # Datetime ending with a Z means "UTC". Here we parse the date as local machine
         # timezone and then move it to the appropriate UTC timezone.
@@ -70,16 +56,8 @@ def parse_datetime(date_string: str) -> datetime:
         dt = datetime.strptime(date_string, "%Y-%m-%dT%H:%M:%S.%fZ")
         dt += UTC_OFFSET  # By default, datetime is not timezoned -> move to UTC time
         return dt.astimezone(timezone.utc)  # Set explicit timezone
-    except ValueError:
-        pass
-
-    try:
-        return datetime.fromisoformat(date_string)  # Not timezoned
-    except ValueError:
-        pass
-
-    raise ValueError(
-        f"Cannot parse '{date_string}' as a datetime. Please install dateutil for"
-        " robust datetime parsing using `pip install huggingface_hub[dateutil]` or"
-        " `pip install python-dateutil`."
-    )
+    except ValueError as e:
+        raise ValueError(
+            f"Cannot parse '{date_string}' as a datetime. Date string is expected to"
+            " follow '%Y-%m-%dT%H:%M:%S.%fZ' pattern."
+        ) from e
