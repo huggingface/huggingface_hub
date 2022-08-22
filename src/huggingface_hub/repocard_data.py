@@ -129,10 +129,11 @@ class ModelCardData(CardData):
 
         Args:
             language (`Union[str, List[str]]`, *optional*):
-                Language of model's training data or metadata. Example: `'en'`. Defaults to `None`.
+                Language of model's training data or metadata. It must be an ISO 639-1, 639-2 or
+                639-3 code (two/three letters), or a special value like "code", "multilingual". Defaults to `None`.
             license (`str`, *optional*):
                 License of this model. Example: apache-2.0 or any license from
-                https://hf.co/docs/hub/model-repos#list-of-license-identifiers. Defaults to None.
+                https://huggingface.co/docs/hub/repositories-licenses. Defaults to None.
             library_name (`str`, *optional*):
                 Name of library used by this model. Example: keras or any library from
                 https://github.com/huggingface/hub-docs/blob/main/js/src/lib/interfaces/Libraries.ts.
@@ -157,6 +158,7 @@ class ModelCardData(CardData):
                 Additional metadata that will be added to the model card. Defaults to None.
 
         Example:
+            ```python
             >>> from huggingface_hub import CardData
             >>> card_data = CardData(
             ...     language="en",
@@ -167,6 +169,7 @@ class ModelCardData(CardData):
             >>> card_data.to_dict()
             {'language': 'en', 'license': 'mit', 'library_name': 'timm', 'tags': ['image-classification', 'resnet']}
 
+            ```
         """
 
         self.language = language
@@ -211,8 +214,8 @@ class DatasetCardData(CardData):
         self,
         annotations_creators: Optional[Union[str, List[str]]] = None,
         language_creators: Optional[Union[str, List[str]]] = None,
-        language: Optional[Union[str, List[str]]] = None,
-        license: Optional[Union[str, List[str]]] = None,
+        languages: Optional[Union[str, List[str]]] = None,
+        licenses: Optional[Union[str, List[str]]] = None,
         multilinguality: Optional[Union[str, List[str]]] = None,
         size_categories: Optional[Union[str, List[str]]] = None,
         source_datasets: Optional[Union[str, List[str]]] = None,
@@ -224,10 +227,47 @@ class DatasetCardData(CardData):
         configs: Optional[Union[str, List[str]]] = None,
         **kwargs,
     ):
+        """Dataset Card Metadata that is used by Hugging Face Hub when included at the top of your README.md
+
+        Args:
+            annotations_creators (`Union[str, List[str]]`, *optional*):
+                How the annotations for the dataset were created.
+                Options are: 'found', 'crowdsourced', 'expert-generated', 'machine-generated', 'no-annotation', 'other'.
+            language_creators (`Union[str, List[str]]`, *optional*):
+                How the text-based data in the dataset was created.
+                Options are: 'found', 'crowdsourced', 'expert-generated', 'machine-generated', 'other'
+            languages (`Union[str, List[str]]`, *optional*):
+                Language of model's training data or metadata. It must be an ISO 639-1, 639-2 or
+                639-3 code (two/three letters), or a special value like "code", "multilingual".
+            licenses (`Union[str, List[str]]`, *optional*):
+                License(s) of this dataset. Example: apache-2.0 or any license from
+                https://huggingface.co/docs/hub/repositories-licenses.
+            multilinguality (`Union[str, List[str]]`, *optional*):
+                Whether the dataset is multilingual.
+                Options are: 'monolingual', 'multilingual', 'translation', 'other'.
+            size_categories (`Union[str, List[str]]`, *optional*):
+                The number of examples in the dataset. Options are: 'n<1K', '1K<n<10K', '10K<n<100K',
+                '100K<n<1M', '1M<n<10M', '10M<n<100M', '100M<n<1B', '1B<n<10B', '10B<n<100B', '100B<n<1T', 'n>1T', and 'other'.
+            source_datasets (`Union[str, List[str]]`, *optional*):
+                Indicates whether the dataset is an original dataset or extended from another existing dataset.
+                Options are: 'original' and 'extended'.
+            task_categories (`Union[str, List[str]]`, *optional*):
+                What categories of task does the dataset support?
+            task_ids (`Union[str, List[str]]`, *optional*):
+                What specific tasks does the dataset support?
+            paperswithcode_id (`str`, *optional*):
+                ID of the dataset on PapersWithCode.
+            pretty_name (`str`, *optional*):
+                A more human-readable name for the dataset. (ex. "Cats vs. Dogs")
+            train_eval_index (`Dict`, *optional*):
+                A dictionary that describes the necessary spec for doing evaluation on the Hub.
+            configs (`Union[str, List[str]]`, *optional*):
+                A list of the available dataset configs for the dataset.
+        """
         self.annotations_creators = annotations_creators
         self.language_creators = language_creators
-        self.language = language
-        self.license = license
+        self.languages = languages
+        self.licenses = licenses
         self.multilinguality = multilinguality
         self.size_categories = size_categories
         self.source_datasets = source_datasets
