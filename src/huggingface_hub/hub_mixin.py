@@ -256,7 +256,7 @@ class ModelHubMixin:
         repo_url: Optional[str] = None,
         commit_message: Optional[str] = "Add model",
         organization: Optional[str] = None,
-        private: Optional[bool] = None,
+        private: bool = False,
         api_endpoint: Optional[str] = None,
         use_auth_token: Optional[Union[bool, str]] = None,
         git_user: Optional[str] = None,
@@ -274,7 +274,7 @@ class ModelHubMixin:
         # repo_id: str,
         # *,
         # commit_message: Optional[str] = "Add model",
-        # private: Optional[bool] = None,
+        # private: bool = False,
         # api_endpoint: Optional[str] = None,
         # token: Optional[str] = None,
         # branch: Optional[str] = None,
@@ -294,7 +294,7 @@ class ModelHubMixin:
                 Repository name to which push.
             commit_message (`str`, *optional*):
                 Message to commit while pushing.
-            private (`bool`, *optional*):
+            private (`bool`, *optional*, defaults to `False`):
                 Whether the repository created should be private.
             api_endpoint (`str`, *optional*):
                 The API endpoint to use when pushing the model to the hub.
