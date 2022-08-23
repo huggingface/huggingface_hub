@@ -709,6 +709,22 @@ class CommitApiTest(HfApiCommonTestWithLogin):
                     self._api.delete_repo(repo_id=REPO_NAME, token=self._token)
 
     @retry_endpoint
+    def test_upload_folder_default_path_in_repo(self):
+        REPO_NAME = repo_name("upload_folder_to_root")
+        self._api.create_repo(
+            token=self._token,
+            repo_id=REPO_NAME,
+            exist_ok=False,
+        )
+        url = self._api.upload_folder(
+            folder_path=self.tmp_dir,
+            repo_id=f"{USER}/{REPO_NAME}",
+            token=self._token,
+        )
+        # URL to root of repository
+        self.assertEqual(url, f"{self._api.endpoint}/{USER}/{REPO_NAME}/tree/main/")
+
+    @retry_endpoint
     def test_create_commit_create_pr(self):
         REPO_NAME = repo_name("create_commit_create_pr")
         self._api.create_repo(
@@ -943,6 +959,14 @@ class HfApiPublicTest(unittest.TestCase):
         self.assertIsInstance(model, ModelInfo)
         self.assertEqual(model.sha, DUMMY_MODEL_ID_REVISION_ONE_SPECIFIC_COMMIT)
 
+    # TODO; un-skip this test once it's fixed.
+    @unittest.skip(
+        "Security status is currently unreliable on the server endpoint, so this"
+        " test occasionally fails. Issue is tracked in"
+        " https://github.com/huggingface/huggingface_hub/issues/1002 and"
+        " https://github.com/huggingface/moon-landing/issues/3695. TODO: un-skip"
+        " this test once it's fixed."
+    )
     @with_production_testing
     def test_model_info_with_security(self):
         _api = HfApi()

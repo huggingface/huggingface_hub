@@ -10,15 +10,13 @@ from pathlib import Path
 from typing import Callable, Dict, Iterator, List, Optional, Tuple, Union
 from urllib.parse import urlparse
 
-from tqdm.auto import tqdm
-
 from huggingface_hub.constants import REPO_TYPES_URL_PREFIXES, REPOCARD_NAME
 from huggingface_hub.repocard import metadata_load, metadata_save
 from requests.exceptions import HTTPError
 
 from .hf_api import HfApi, HfFolder, repo_type_and_id_from_hf_id
 from .lfs import LFS_MULTIPART_UPLOAD_COMMAND
-from .utils import logging, run_subprocess
+from .utils import logging, run_subprocess, tqdm
 
 
 logger = logging.get_logger(__name__)
