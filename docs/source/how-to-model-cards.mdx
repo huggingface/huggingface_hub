@@ -97,11 +97,11 @@ This model does this and that.
 This model was created by [@nateraw](https://hf.co/nateraw).
 ```
 
-As you update the card data, you can validate the card is still valid against the Hub by calling `card.validate()`. This ensures that the card passes any validation rules set up on the Hugging Face Hub.
+As you update the card data, you can validate the card is still valid against the Hub by calling [`ModelCard.validate`]. This ensures that the card passes any validation rules set up on the Hugging Face Hub.
 
 ### From the Default Template
 
-Instead of using your own template, you can also use the default template, which is a fully featured model card with tons of sections you may want to fill out.
+Instead of using your own template, you can also use the [default template](https://github.com/huggingface/huggingface_hub/blob/main/src/huggingface_hub/templates/modelcard_template.md), which is a fully featured model card with tons of sections you may want to fill out.
 
 ```python
 card_data = ModelCardData(language='en', license='mit', library_name='keras')
@@ -119,7 +119,7 @@ print(card)
 
 ## Sharing Model Cards
 
-If you're authenticated with the Hugging Face Hub (either by using `huggingface-cli login` or `huggingface_hub.notebook_login()`), you can push cards to hub by simply calling `card.push_to_hub`. Let's take a look at how to do that...
+If you're authenticated with the Hugging Face Hub (either by using `huggingface-cli login` or `huggingface_hub.notebook_login()`), you can push cards to hub by simply calling [`ModelCard.push_to_hub()`]. Let's take a look at how to do that...
 
 First, we'll create a new repo called 'hf-hub-modelcards-pr-test' under the under the authenticated user's namespace:
 
@@ -163,9 +163,9 @@ A resulting PR created from this command can be seen [here](https://huggingface.
 
 ### Including Evaluation Results
 
-To include evaluation results in the metadata `model-inde`x`, you can pass an `EvalResult` or a list of `EvalResult` with your associated evaluation results. Under the hood it'll create the `model-index` when you call `card.data.to_dict()`.
+To include evaluation results in the metadata `model-index`, you can pass an [`EvalResult`] or a list of `EvalResult` with your associated evaluation results. Under the hood it'll create the `model-index` when you call `card.data.to_dict()`.
 
-Note that it requires you to include the `model_name` attribute in `ModelCardData`.
+Note that it requires you to include the `model_name` attribute in [`ModelCardData`].
 
 ```python
 card_data = ModelCardData(
