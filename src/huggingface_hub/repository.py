@@ -601,6 +601,10 @@ class Repository:
                 must be passed in order to handle private repositories.
 
         Raises:
+            `ValueError`: if an organization token (starts with "api_org")
+            is passed.
+
+        Raises:
             `EnvironmentError`: if you are trying to clone the repository in a
             non-empty folder, or if the `git`
                 operations raise errors.
