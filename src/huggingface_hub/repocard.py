@@ -52,8 +52,11 @@ class RepoCard:
         Args:
             content (`str`): The content of the Markdown file.
 
-        Raises:
-            ValueError: When the content of the repo card metadata is not a dictionary.
+        <Tip>
+        Raises the following error:
+            - [`ValueError`](https://docs.python.org/3/library/exceptions.html#ValueError)
+              when the content of the repo card metadata is not a dictionary.
+        </Tip>
         """
         self.content = content
         match = REGEX_YAML_BLOCK.search(content)
@@ -108,7 +111,8 @@ class RepoCard:
             repo_type (`str`, *optional*):
                 The type of Hugging Face repo to push to. Defaults to None, which will use
                 use "model". Other options are "dataset" and "space". Not used when loading from
-                a local filepath.
+                a local filepath. If this is called from a child class, the default value will be
+                the child class's `repo_type`.
             token (`str`, *optional*):
                 Authentication token, obtained with `huggingface_hub.HfApi.login` method. Will default to
                 the stored token.
@@ -141,9 +145,21 @@ class RepoCard:
             return cls(f.read())
 
     def validate(self, repo_type=None):
-        """Validates card against Hugging Face Hub's model card validation logic.
+        """Validates card against Hugging Face Hub's card validation logic.
         Using this function requires access to the internet, so it is only called
-        internally by `huggingface_hub.ModelCard.push_to_hub`.
+        internally by `huggingface_hub.RepoCard.push_to_hub`.
+
+        Args:
+            repo_type (`str`, *optional*, defaults to "model"):
+                The type of Hugging Face repo to push to. Defaults to "model". Other options are "dataset" and "space".
+                If this function is called from a child class, the default will be the child class's `repo_type`.
+        <Tip>
+        Raises the following error:
+            - [`RuntimeError`](https://docs.python.org/3/library/exceptions.html#RuntimeError)
+              if the card fails validation checks.
+            - [`HTTPError`](https://2.python-requests.org/en/master/api/#requests.HTTPError)
+              if the request to the Hub API fails for any other reason.
+        </Tip>
         """
 
         # If repo type is provided, otherwise, use the repo type of the card.
@@ -185,9 +201,9 @@ class RepoCard:
             token (`str`, *optional*):
                 Authentication token, obtained with `huggingface_hub.HfApi.login` method. Will default to
                 the stored token.
-            repo_type (`str`, *optional*):
-                The type of Hugging Face repo to push to. Defaults to None, which will use
-                use "model". Other options are "dataset" and "space".
+            repo_type (`str`, *optional*, defaults to "model"):
+                The type of Hugging Face repo to push to. Options are "model", "dataset", and "space". If this
+                function is called by a Child class, it will default to the Child class's `repo_type`.
             commit_message (`str`, *optional*):
                 The summary / title / first line of the generated commit
             commit_description (`str`, *optional*)
