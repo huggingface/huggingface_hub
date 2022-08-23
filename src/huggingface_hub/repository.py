@@ -614,6 +614,9 @@ class Repository:
                 " `huggingface-cli login` or provide your token manually with the"
                 " `use_auth_token` key."
             )
+        elif token is not None and token.startswith("api_org"):
+            raise ValueError("You must use your personal access token.")
+
         hub_url = self.client.endpoint
         if hub_url in repo_url or (
             "http" not in repo_url and len(repo_url.split("/")) <= 2
@@ -631,9 +634,6 @@ class Repository:
                 repo_url += REPO_TYPES_URL_PREFIXES[self.repo_type]
 
             if token is not None:
-                if token.startswith("api_org"):
-                    raise ValueError("You must use your personal account token.")
-
                 whoami_info = self.client.whoami(token)
                 user = whoami_info["name"]
                 valid_organisations = [org["name"] for org in whoami_info["orgs"]]
