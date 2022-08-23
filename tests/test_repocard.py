@@ -24,6 +24,8 @@ import pytest
 import requests
 import yaml
 from huggingface_hub import (
+    DatasetCard,
+    DatasetCardData,
     ModelCard,
     ModelCardData,
     metadata_eval_result,
@@ -593,4 +595,61 @@ class ModelCardTest(unittest.TestCase):
 
 
 class DatasetCardTest(unittest.TestCase):
-    pass
+    def test_load_datasetcard_from_file(self):
+        sample_path = SAMPLE_CARDS_DIR / "sample_datasetcard_simple.md"
+        card = DatasetCard.load(sample_path)
+        self.assertEqual(
+            card.data.to_dict(),
+            {
+                "annotations_creators": ["crowdsourced", "expert-generated"],
+                "language_creators": ["found"],
+                "language": ["en"],
+                "license": ["bsd-3-clause"],
+                "multilinguality": ["monolingual"],
+                "size_categories": ["n<1K"],
+                "task_categories": ["image-segmentation"],
+                "task_ids": ["semantic-segmentation"],
+                "pretty_name": "Sample Segmentation",
+            },
+        )
+        self.assertIsInstance(card, DatasetCard)
+        self.assertIsInstance(card.data, DatasetCardData)
+        self.assertTrue(card.text.strip().startswith("# Dataset Card for"))
+
+    @require_jinja
+    def test_dataset_card_from_default_template(self):
+        card_data=DatasetCardData(
+            language="en",
+            license="mit",
+            pretty_name="My Cool Dataset",
+        )
+
+        # Here we check default title when pretty_name not provided.
+        card = DatasetCard.from_template(card_data)
+        self.assertTrue(card.text.strip().startswith("# Dataset Card for Dataset Name"))
+
+        # Here we pass the card data as kwargs as well so template picks up pretty_name.
+        card = DatasetCard.from_template(card_data, **card_data.to_dict())
+        self.assertTrue(card.text.strip().startswith("# Dataset Card for My Cool Dataset"))
+
+        self.assertIsInstance(card, DatasetCard)
+
+    @require_jinja
+    def test_dataset_card_from_custom_template(self):
+        card = DatasetCard.from_template(
+            card_data=DatasetCardData(
+                language="en",
+                license="mit",
+                pretty_name="My Cool Dataset",
+            ),
+            template_path=SAMPLE_CARDS_DIR / "sample_datasetcard_template.md",
+            pretty_name="My Cool Dataset",
+            some_data="asdf",
+        )
+        self.assertIsInstance(card, DatasetCard)
+
+        # Title this time is just # {{ pretty_name }}
+        self.assertTrue(card.text.strip().startswith("# My Cool Dataset"))
+
+        # some_data is at the bottom of the template, so should end with whatever we passed to it
+        self.assertTrue(card.text.strip().endswith("asdf"))

@@ -118,7 +118,7 @@ class RepoCard:
                 the stored token.
 
         Returns:
-            `huggingface_hub.RepoCard`: The RepoCard (or subclass) initialized from the repo's
+            [`huggingface_hub.repocard.RepoCard`]: The RepoCard (or subclass) initialized from the repo's
                 README.md file or filepath.
 
         Example:
@@ -147,14 +147,15 @@ class RepoCard:
     def validate(self, repo_type=None):
         """Validates card against Hugging Face Hub's card validation logic.
         Using this function requires access to the internet, so it is only called
-        internally by `huggingface_hub.RepoCard.push_to_hub`.
+        internally by [`huggingface_hub.repocard.RepoCard.push_to_hub`].
 
         Args:
             repo_type (`str`, *optional*, defaults to "model"):
-                The type of Hugging Face repo to push to. Defaults to "model". Other options are "dataset" and "space".
+                The type of Hugging Face repo to push to. Options are "model", "dataset", and "space".
                 If this function is called from a child class, the default will be the child class's `repo_type`.
+
         <Tip>
-        Raises the following error:
+        Raises the following errors:
             - [`RuntimeError`](https://docs.python.org/3/library/exceptions.html#RuntimeError)
               if the card fails validation checks.
             - [`HTTPError`](https://2.python-requests.org/en/master/api/#requests.HTTPError)
@@ -203,14 +204,13 @@ class RepoCard:
                 the stored token.
             repo_type (`str`, *optional*, defaults to "model"):
                 The type of Hugging Face repo to push to. Options are "model", "dataset", and "space". If this
-                function is called by a Child class, it will default to the Child class's `repo_type`.
+                function is called by a child class, it will default to the child class's `repo_type`.
             commit_message (`str`, *optional*):
-                The summary / title / first line of the generated commit
+                The summary / title / first line of the generated commit.
             commit_description (`str`, *optional*)
-                The description of the generated commit
+                The description of the generated commit.
             revision (`str`, *optional*):
-                The git revision to commit from. Defaults to the head of the
-                `"main"` branch.
+                The git revision to commit from. Defaults to the head of the `"main"` branch.
             create_pr (`bool`, *optional*):
                 Whether or not to create a Pull Request with this commit. Defaults to `False`.
             parent_commit (`str`, *optional*):
@@ -266,7 +266,7 @@ class RepoCard:
                 in with `template_kwargs`. Defaults to the default template.
 
         Returns:
-            `huggingface_hub.RepoCard`: A RepoCard instance with the specified card data and content from the
+            [`huggingface_hub.repocard.RepoCard`]: A RepoCard instance with the specified card data and content from the
             template.
         """
         if is_jinja_available():
@@ -310,7 +310,7 @@ class ModelCard(RepoCard):
                 in with `template_kwargs`. Defaults to the default template.
 
         Returns:
-            `huggingface_hub.ModelCard`: A ModelCard instance with the specified card data and content from the
+            [`huggingface_hub.ModelCard`]: A ModelCard instance with the specified card data and content from the
             template.
 
         Example:
@@ -390,7 +390,7 @@ class DatasetCard(RepoCard):
                 in with `template_kwargs`. Defaults to the default template.
 
         Returns:
-            `huggingface_hub.DatasetCard`: A DatasetCard instance with the specified card data and content from the
+            [`huggingface_hub.DatasetCard`]: A DatasetCard instance with the specified card data and content from the
             template.
 
         Example:
