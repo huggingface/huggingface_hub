@@ -1,6 +1,6 @@
 import copy
 from dataclasses import dataclass
-from typing import Any, Dict, List, Optional, Union
+from typing import Any, Dict, List, Optional, Union, Tuple
 
 import yaml
 
@@ -249,6 +249,7 @@ class DatasetCardData(CardData):
             A more human-readable name for the dataset. (ex. "Cats vs. Dogs")
         train_eval_index (`Dict`, *optional*):
             A dictionary that describes the necessary spec for doing evaluation on the Hub.
+            If not provided, it will be gathered from the 'train-eval-index' key of the kwargs.
         configs (`Union[str, List[str]]`, *optional*):
             A list of the available dataset configs for the dataset.
     """
@@ -291,7 +292,7 @@ class DatasetCardData(CardData):
         data_dict["train-eval-index"] = data_dict.pop("train_eval_index")
 
 
-def model_index_to_eval_results(model_index: List[Dict[str, Any]]):
+def model_index_to_eval_results(model_index: List[Dict[str, Any]]) -> Tuple[str, List[EvalResult]]:
     """Takes in a model index and returns the model name and a list of `huggingface_hub.EvalResult` objects.
 
     A detailed spec of the model index can be found here:
@@ -299,14 +300,14 @@ def model_index_to_eval_results(model_index: List[Dict[str, Any]]):
 
     Args:
         model_index (`List[Dict[str, Any]]`):
-        A model index data structure, likely coming from a README.md file on the
-        Hugging Face Hub.
+            A model index data structure, likely coming from a README.md file on the
+            Hugging Face Hub.
 
     Returns:
-        - model_name (`str`):
+        model_name (`str`):
             The name of the model as found in the model index. This is used as the
             identifier for the model on leaderboards like PapersWithCode.
-        - eval_results (`List[EvalResult]`):
+        eval_results (`List[EvalResult]`):
             A list of `huggingface_hub.EvalResult` objects containing the metrics
             reported in the provided model_index.
 
@@ -405,7 +406,7 @@ def _remove_none(obj):
         return obj
 
 
-def eval_results_to_model_index(model_name: str, eval_results: List[EvalResult]):
+def eval_results_to_model_index(model_name: str, eval_results: List[EvalResult]) -> List[Dict[str, Any]]:
     """Takes in given model name and list of `huggingface_hub.EvalResult` and returns a
     valid model-index that will be compatible with the format expected by the
     Hugging Face Hub.
