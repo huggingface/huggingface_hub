@@ -9,7 +9,7 @@ from dataclasses import dataclass
 from datetime import datetime
 from typing import List, Optional
 
-from dateutil.parser import parse as parse_datetime
+from .utils import parse_datetime
 
 
 if sys.version_info >= (3, 8):
