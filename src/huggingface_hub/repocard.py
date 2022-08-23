@@ -52,6 +52,24 @@ class RepoCard:
         Args:
             content (`str`): The content of the Markdown file.
 
+        Example:
+            ```python
+            >>> from huggingface_hub.repocard import RepoCard
+            >>> text = '''
+            ... ---
+            ... language: en
+            ... license: mit
+            ... ---
+            ...
+            ... # My repo
+            ... '''
+            >>> card = RepoCard(text)
+            >>> card.data.to_dict()
+            {'language': 'en', 'license': 'mit'}
+            >>> card.text
+            '\\n# My repo\\n'
+
+            ```
         <Tip>
         Raises the following error:
 

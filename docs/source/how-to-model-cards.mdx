@@ -21,6 +21,61 @@ This card has some helpful attributes that you may want to access/leverage:
 
 ## Creating Model Cards
 
+### From Text
+
+To initialize a Model Card from text, just pass the text content of the card to the `ModelCard` on init.
+
+```python
+text = """
+---
+language: en
+license: mit
+---
+
+# My Model Card
+"""
+
+card = ModelCard(text)
+card.data.to_dict() == {'language': 'en', 'license': 'mit'}  # True
+```
+
+Another way you might want to do this is with f-strings. In the following example, we:
+
+- Use [`ModelCardData.to_yaml`] to convert metadata we defined to YAML so we can use it to insert the YAML block in the model card
+- Show how you might use a template variable via Python f-strings.
+
+```python
+card_data = ModelCardData(language='en', license='mit', library='timm')
+
+example_template_var = 'nateraw'
+text = f"""
+---
+{ card_data.to_yaml() }
+---
+
+# My Model Card
+
+This model created by [@{example_template_var}](https://github.com/{example_template_var})
+"""
+
+card = ModelCard(text)
+print(card)
+```
+
+The above example would leave us with a card that looks like this:
+
+```
+---
+language: en
+license: mit
+library: timm
+---
+
+# My Model Card
+
+This model created by [@nateraw](https://github.com/nateraw)
+```
+
 ### From a Jinja Template
 
 If you have `Jinja2` installed, you can create Model Cards from a jinja template file. Let's see a basic example:
