@@ -241,7 +241,9 @@ class ModelCardData(CardData):
             if type(self.eval_results) == EvalResult:
                 self.eval_results = [self.eval_results]
             if self.model_name is None:
-                raise ValueError("Passing `eval_results` requires `model_name` to be set.")
+                raise ValueError(
+                    "Passing `eval_results` requires `model_name` to be set."
+                )
 
     def _to_dict(self, data_dict):
         """Format the internal data dict. In this case, we convert eval results to a valid model index"""
