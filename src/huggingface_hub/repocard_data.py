@@ -1,6 +1,6 @@
 import copy
 from dataclasses import dataclass
-from typing import Any, Dict, List, Optional, Union, Tuple
+from typing import Any, Dict, List, Optional, Tuple, Union
 
 import yaml
 
@@ -292,7 +292,9 @@ class DatasetCardData(CardData):
         data_dict["train-eval-index"] = data_dict.pop("train_eval_index")
 
 
-def model_index_to_eval_results(model_index: List[Dict[str, Any]]) -> Tuple[str, List[EvalResult]]:
+def model_index_to_eval_results(
+    model_index: List[Dict[str, Any]]
+) -> Tuple[str, List[EvalResult]]:
     """Takes in a model index and returns the model name and a list of `huggingface_hub.EvalResult` objects.
 
     A detailed spec of the model index can be found here:
@@ -406,7 +408,9 @@ def _remove_none(obj):
         return obj
 
 
-def eval_results_to_model_index(model_name: str, eval_results: List[EvalResult]) -> List[Dict[str, Any]]:
+def eval_results_to_model_index(
+    model_name: str, eval_results: List[EvalResult]
+) -> List[Dict[str, Any]]:
     """Takes in given model name and list of `huggingface_hub.EvalResult` and returns a
     valid model-index that will be compatible with the format expected by the
     Hugging Face Hub.

@@ -618,7 +618,7 @@ class DatasetCardTest(unittest.TestCase):
 
     @require_jinja
     def test_dataset_card_from_default_template(self):
-        card_data=DatasetCardData(
+        card_data = DatasetCardData(
             language="en",
             license="mit",
             pretty_name="My Cool Dataset",
@@ -630,7 +630,9 @@ class DatasetCardTest(unittest.TestCase):
 
         # Here we pass the card data as kwargs as well so template picks up pretty_name.
         card = DatasetCard.from_template(card_data, **card_data.to_dict())
-        self.assertTrue(card.text.strip().startswith("# Dataset Card for My Cool Dataset"))
+        self.assertTrue(
+            card.text.strip().startswith("# Dataset Card for My Cool Dataset")
+        )
 
         self.assertIsInstance(card, DatasetCard)
 

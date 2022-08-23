@@ -166,44 +166,32 @@ class ModelCardDataTest(unittest.TestCase):
 
 class DatasetCardDataTest(unittest.TestCase):
     def test_train_eval_index_keys_updated(self):
-        train_eval_index=[
+        train_eval_index = [
             {
-                'config': 'plain_text',
+                "config": "plain_text",
                 "task": "text-classification",
                 "task_id": "binary_classification",
-                "splits": {
-                    'train_split': 'train',
-                    'eval_split': 'test'
-                },
-                "col_mapping": {
-                    "text": "text",
-                    "label": "target"
-                },
+                "splits": {"train_split": "train", "eval_split": "test"},
+                "col_mapping": {"text": "text", "label": "target"},
                 "metrics": [
                     {
-                        'type': 'accuracy',
-                        'name': 'Accuracy',
+                        "type": "accuracy",
+                        "name": "Accuracy",
                     },
-                    {
-                        'type': 'f1',
-                        'name': 'F1 macro',
-                        'args': {
-                            'average': 'macro'
-                        }
-                    }
-                ]
+                    {"type": "f1", "name": "F1 macro", "args": {"average": "macro"}},
+                ],
             }
         ]
-        card_data=DatasetCardData(
+        card_data = DatasetCardData(
             language="en",
             license="mit",
             pretty_name="My Cool Dataset",
-            train_eval_index=train_eval_index
+            train_eval_index=train_eval_index,
         )
         # The init should have popped this out of kwargs and into train_eval_index attr
         self.assertEqual(card_data.train_eval_index, train_eval_index)
         # Underlying train_eval_index gets converted to train-eval-index in DatasetCardData._to_dict.
         # So train_eval_index should be None in the dict
-        self.assertTrue(card_data.to_dict().get('train_eval_index') is None)
+        self.assertTrue(card_data.to_dict().get("train_eval_index") is None)
         # And train-eval-index should be in the dict
-        self.assertEqual(card_data.to_dict()['train-eval-index'], train_eval_index)
+        self.assertEqual(card_data.to_dict()["train-eval-index"], train_eval_index)
