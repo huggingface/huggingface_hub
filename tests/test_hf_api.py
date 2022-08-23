@@ -961,6 +961,14 @@ class HfApiPublicTest(unittest.TestCase):
 
     @with_production_testing
     def test_model_info_with_security(self):
+        # TODO; un-skip this test once it's fixed.
+        pytest.skip(
+            "Security status is currently unreliable on the server endpoint, so this"
+            " test occasionally fails. Issue is tracked in"
+            " https://github.com/huggingface/huggingface_hub/issues/1002 and"
+            " https://github.com/huggingface/moon-landing/issues/3695. TODO: un-skip"
+            " this test once it's fixed."
+        )
         _api = HfApi()
         model = _api.model_info(
             repo_id=DUMMY_MODEL_ID,
