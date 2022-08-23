@@ -409,7 +409,7 @@ class DatasetCard(RepoCard):
             ... )
             >>> card = DatasetCard.from_template(
             ...     card_data,
-            ...     model_description='This model does x + y...'
+            ...     pretty_name=card_data.pretty_name,
             ... )
 
             >>> # Using a Custom Template

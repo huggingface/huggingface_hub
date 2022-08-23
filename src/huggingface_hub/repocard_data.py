@@ -219,7 +219,7 @@ class DatasetCardData(CardData):
 
     Args:
         language (`Union[str, List[str]]`, *optional*):
-            Language of model's training data or metadata. It must be an ISO 639-1, 639-2 or
+            Language of dataset's data or metadata. It must be an ISO 639-1, 639-2 or
             639-3 code (two/three letters), or a special value like "code", "multilingual".
         license (`Union[str, List[str]]`, *optional*):
             License(s) of this dataset. Example: apache-2.0 or any license from

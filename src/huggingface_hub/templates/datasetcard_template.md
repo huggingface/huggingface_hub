@@ -2,7 +2,7 @@
 {{ card_data }}
 ---
 
-# Dataset Card for {{ pretty_name }}
+# Dataset Card for {{ pretty_name | default("Dataset Name", true) }}
 
 ## Table of Contents
 - [Table of Contents](#table-of-contents)
