@@ -16,7 +16,7 @@ class EvalResult:
     """
     Flattened representation of individual evaluation results found in model-index of Model Cards.
 
-    For more information on the model-index spec, see https://raw.githubusercontent.com/huggingface/hub-docs/main/modelcard.md.
+    For more information on the model-index spec, see https://github.com/huggingface/hub-docs/blob/main/modelcard.md?plain=1.
 
     Args:
         task_type (`str`):
@@ -241,7 +241,7 @@ class ModelCardData(CardData):
             if type(self.eval_results) == EvalResult:
                 self.eval_results = [self.eval_results]
             if self.model_name is None:
-                raise ValueError("`eval_results` requires `model_name` to be set.")
+                raise ValueError("Passing `eval_results` requires `model_name` to be set.")
 
     def _to_dict(self, data_dict):
         """Format the internal data dict. In this case, we convert eval results to a valid model index"""
@@ -336,7 +336,7 @@ def model_index_to_eval_results(
     """Takes in a model index and returns the model name and a list of `huggingface_hub.EvalResult` objects.
 
     A detailed spec of the model index can be found here:
-    https://github.com/huggingface/hub-docs/blob/main/modelcard.md
+    https://github.com/huggingface/hub-docs/blob/main/modelcard.md?plain=1
 
     Args:
         model_index (`List[Dict[str, Any]]`):
