@@ -5,7 +5,7 @@ from typing import Dict, List, Optional, Union
 from .constants import DEFAULT_REVISION, HUGGINGFACE_HUB_CACHE, REPO_TYPES
 from .file_download import REGEX_COMMIT_HASH, hf_hub_download, repo_folder_name
 from .hf_api import HfApi, HfFolder
-from .utils import filter_repo_objects, logging
+from .utils import filter_repo_objects, logging, tqdm
 from .utils._deprecation import _deprecate_arguments
 
 
@@ -168,10 +168,12 @@ def snapshot_download(
     repo_info = _api.repo_info(
         repo_id=repo_id, repo_type=repo_type, revision=revision, token=token
     )
-    filtered_repo_files = filter_repo_objects(
-        items=[f.rfilename for f in repo_info.siblings],
-        allow_patterns=allow_patterns,
-        ignore_patterns=ignore_patterns,
+    filtered_repo_files = list(
+        filter_repo_objects(
+            items=[f.rfilename for f in repo_info.siblings],
+            allow_patterns=allow_patterns,
+            ignore_patterns=ignore_patterns,
+        )
     )
     commit_hash = repo_info.sha
     snapshot_folder = os.path.join(storage_folder, "snapshots", commit_hash)
@@ -188,7 +190,9 @@ def snapshot_download(
     # so no network call happens if we already
     # have the file locally.
 
-    for repo_file in filtered_repo_files:
+    for repo_file in tqdm(
+        filtered_repo_files, f"Fetching {len(filtered_repo_files)} files"
+    ):
         _ = hf_hub_download(
             repo_id,
             filename=repo_file,
