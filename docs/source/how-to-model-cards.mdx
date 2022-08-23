@@ -15,7 +15,7 @@ card = ModelCard.load('nateraw/vit-base-beans')
 ```
 
 This card has some helpful attributes that you may want to access/leverage:
-  - `card.data`: Returns a `ModelCardData` instance with the model card's metadata. Call `.to_dict()` on this instance to get the representation as a dictionary.
+  - `card.data`: Returns a [`ModelCardData`] instance with the model card's metadata. Call `.to_dict()` on this instance to get the representation as a dictionary.
   - `card.text`: Returns the text of the card, *excluding the metadata header*.
   - `card.content`: Returns the text content of the card, *including the metadata header*.
 
@@ -27,6 +27,8 @@ If you have `Jinja2` installed, you can create Model Cards from a jinja template
 
 ```python
 from pathlib import Path
+
+from huggingface_hub import ModelCard, ModelCardData
 
 # Define your jinja template
 template_text = """
