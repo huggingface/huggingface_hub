@@ -15,6 +15,8 @@ class EvalResult:
     """
     Flattened representation of individual evaluation results found in model-index of Model Cards.
 
+    For more information on the model-index spec, see https://raw.githubusercontent.com/huggingface/hub-docs/main/modelcard.md.
+
     Args:
         task_type (`str`):
             The task identifier. Example: "image-classification".
