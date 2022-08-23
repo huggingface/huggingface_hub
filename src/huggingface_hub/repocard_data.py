@@ -1,4 +1,5 @@
 import copy
+from collections import defaultdict
 from dataclasses import dataclass
 from typing import Any, Dict, List, Optional, Tuple, Union
 
@@ -484,13 +485,10 @@ def eval_results_to_model_index(
 
     # Metrics are reported on a unique task-and-dataset basis.
     # Here, we make a map of those pairs and the associated EvalResults.
-    task_and_ds_types_map = dict()
+    task_and_ds_types_map = defaultdict(list)
     for eval_result in eval_results:
         task_and_ds_pair = (eval_result.task_type, eval_result.dataset_type)
-        if task_and_ds_pair in task_and_ds_types_map:
-            task_and_ds_types_map[task_and_ds_pair].append(eval_result)
-        else:
-            task_and_ds_types_map[task_and_ds_pair] = [eval_result]
+        task_and_ds_types_map[task_and_ds_pair].append(eval_result)
 
     # Use the map from above to generate the model index data.
     model_index_data = []
