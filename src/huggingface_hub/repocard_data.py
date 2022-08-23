@@ -122,7 +122,7 @@ class CardData:
     def __init__(self, **kwargs):
         self.__dict__.update(kwargs)
 
-    def to_dict(self):
+    def to_dict(self) -> Dict[str, Any]:
         """Converts CardData to a dict.
 
         Returns:
@@ -138,16 +138,19 @@ class CardData:
         """Use this method in child classes to alter the dict representation of the data. Alter the dict in-place.
 
         Args:
-            data_dict (dict): The raw dict representation of the card data.
+            data_dict (`dict`): The raw dict representation of the card data.
         """
         pass
 
-    def to_yaml(self, line_break=None):
+    def to_yaml(self, line_break=None) -> str:
         """Dumps CardData to a YAML block for inclusion in a README.md file.
 
         Args:
             line_break (str, *optional*):
                 The line break to use when dumping to yaml.
+
+        Returns:
+            `str`: CardData represented as a YAML block.
         """
         return yaml.dump(self.to_dict(), sort_keys=False, line_break=line_break).strip()
 
