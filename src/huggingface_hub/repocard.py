@@ -279,7 +279,8 @@ class ModelCard(RepoCard):
         template_path: Optional[str] = None,
         **template_kwargs,
     ):
-        """Initialize a ModelCard from a template. By default, it uses the default template.
+        """Initialize a ModelCard from a template. By default, it uses the default template, which can be found here:
+        https://github.com/huggingface/huggingface_hub/blob/main/src/huggingface_hub/templates/modelcard_template.md
 
         Templates are Jinja2 templates that can be customized by passing keyword arguments.
 
@@ -345,6 +346,7 @@ class ModelCard(RepoCard):
         """
         return super().from_template(card_data, template_path, **template_kwargs)
 
+
 class DatasetCard(RepoCard):
     card_data_class = DatasetCardData
     default_template_path = TEMPLATE_DATASETCARD_PATH
@@ -357,7 +359,8 @@ class DatasetCard(RepoCard):
         template_path: Optional[str] = None,
         **template_kwargs,
     ):
-        """Initialize a DatasetCard from a template. By default, it uses the default template.
+        """Initialize a DatasetCard from a template. By default, it uses the default template, which can be found here:
+        https://github.com/huggingface/huggingface_hub/blob/main/src/huggingface_hub/templates/datasetcard_template.md
 
         Templates are Jinja2 templates that can be customized by passing keyword arguments.
 
@@ -406,6 +409,7 @@ class DatasetCard(RepoCard):
             ```
         """
         return super().from_template(card_data, template_path, **template_kwargs)
+
 
 def _detect_line_ending(content: str) -> Literal["\r", "\n", "\r\n", None]:
     """
