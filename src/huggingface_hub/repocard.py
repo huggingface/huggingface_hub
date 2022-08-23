@@ -375,12 +375,12 @@ class DatasetCard(RepoCard):
 
         Example:
             ```python
-            >>> from huggingface_hub import DatasetCard, DatasetCardData, EvalResult
+            >>> from huggingface_hub import DatasetCard, DatasetCardData
 
             >>> # Using the Default Template
             >>> card_data = DatasetCardData(
-            ...     languages=['en'],
-            ...     licenses=['mit'],
+            ...     language='en',
+            ...     license='mit',
             ...     annotations_creators='crowdsourced',
             ...     task_categories=['text-classification'],
             ...     task_ids=['sentiment-classification', 'text-scoring'],
@@ -394,8 +394,8 @@ class DatasetCard(RepoCard):
 
             >>> # Using a Custom Template
             >>> card_data = DatasetCardData(
-            ...     languages=['en'],
-            ...     licenses=['mit'],
+            ...     language='en',
+            ...     license='mit',
             ... )
             >>> card = DatasetCard.from_template(
             ...     card_data=card_data,

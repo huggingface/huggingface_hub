@@ -218,10 +218,10 @@ class DatasetCardData(CardData):
     """Dataset Card Metadata that is used by Hugging Face Hub when included at the top of your README.md
 
     Args:
-        languages (`Union[str, List[str]]`, *optional*):
+        language (`Union[str, List[str]]`, *optional*):
             Language of model's training data or metadata. It must be an ISO 639-1, 639-2 or
             639-3 code (two/three letters), or a special value like "code", "multilingual".
-        licenses (`Union[str, List[str]]`, *optional*):
+        license (`Union[str, List[str]]`, *optional*):
             License(s) of this dataset. Example: apache-2.0 or any license from
             https://huggingface.co/docs/hub/repositories-licenses.
         annotations_creators (`Union[str, List[str]]`, *optional*):
@@ -255,8 +255,8 @@ class DatasetCardData(CardData):
 
     def __init__(
         self,
-        languages: Optional[Union[str, List[str]]] = None,
-        licenses: Optional[Union[str, List[str]]] = None,
+        language: Optional[Union[str, List[str]]] = None,
+        license: Optional[Union[str, List[str]]] = None,
         annotations_creators: Optional[Union[str, List[str]]] = None,
         language_creators: Optional[Union[str, List[str]]] = None,
         multilinguality: Optional[Union[str, List[str]]] = None,
@@ -272,8 +272,8 @@ class DatasetCardData(CardData):
     ):
         self.annotations_creators = annotations_creators
         self.language_creators = language_creators
-        self.languages = languages
-        self.licenses = licenses
+        self.language = language
+        self.license = license
         self.multilinguality = multilinguality
         self.size_categories = size_categories
         self.source_datasets = source_datasets
