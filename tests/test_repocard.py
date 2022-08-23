@@ -501,13 +501,13 @@ class RepoCardTest(TestCaseWithCapLog):
         with pytest.raises(
             ValueError, match="repo card metadata block should be a dict"
         ):
-            RepoCard.load(sample_path)
+            RepoCard(sample_path.read_text())
 
     def test_repo_card_without_metadata(self):
         sample_path = SAMPLE_CARDS_DIR / "sample_no_metadata.md"
 
         with self.caplog.at_level(logging.WARNING):
-            card = RepoCard.load(sample_path)
+            card = RepoCard(sample_path.read_text())
         self.assertIn(
             "Repo card metadata block was not found. Setting CardData to empty.",
             self.caplog.text,
