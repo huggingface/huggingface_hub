@@ -22,7 +22,6 @@ from typing import BinaryIO, Dict, Iterable, Iterator, List, Optional, Tuple, Un
 from urllib.parse import quote
 
 import requests
-from dateutil.parser import parse as parse_datetime
 from requests.exceptions import HTTPError
 
 from ._commit_api import (
@@ -51,7 +50,7 @@ from .constants import (
     REPO_TYPES_URL_PREFIXES,
     SPACES_SDK_TYPES,
 )
-from .utils import filter_repo_objects, logging
+from .utils import filter_repo_objects, logging, parse_datetime
 from .utils._deprecation import _deprecate_positional_args
 from .utils._errors import (
     _raise_convert_bad_request,
