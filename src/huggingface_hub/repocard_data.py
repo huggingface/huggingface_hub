@@ -217,10 +217,10 @@ class ModelCardData(CardData):
 class DatasetCardData(CardData):
     def __init__(
         self,
-        annotations_creators: Optional[Union[str, List[str]]] = None,
-        language_creators: Optional[Union[str, List[str]]] = None,
         languages: Optional[Union[str, List[str]]] = None,
         licenses: Optional[Union[str, List[str]]] = None,
+        annotations_creators: Optional[Union[str, List[str]]] = None,
+        language_creators: Optional[Union[str, List[str]]] = None,
         multilinguality: Optional[Union[str, List[str]]] = None,
         size_categories: Optional[Union[str, List[str]]] = None,
         source_datasets: Optional[Union[str, List[str]]] = None,
@@ -235,18 +235,18 @@ class DatasetCardData(CardData):
         """Dataset Card Metadata that is used by Hugging Face Hub when included at the top of your README.md
 
         Args:
-            annotations_creators (`Union[str, List[str]]`, *optional*):
-                How the annotations for the dataset were created.
-                Options are: 'found', 'crowdsourced', 'expert-generated', 'machine-generated', 'no-annotation', 'other'.
-            language_creators (`Union[str, List[str]]`, *optional*):
-                How the text-based data in the dataset was created.
-                Options are: 'found', 'crowdsourced', 'expert-generated', 'machine-generated', 'other'
             languages (`Union[str, List[str]]`, *optional*):
                 Language of model's training data or metadata. It must be an ISO 639-1, 639-2 or
                 639-3 code (two/three letters), or a special value like "code", "multilingual".
             licenses (`Union[str, List[str]]`, *optional*):
                 License(s) of this dataset. Example: apache-2.0 or any license from
                 https://huggingface.co/docs/hub/repositories-licenses.
+            annotations_creators (`Union[str, List[str]]`, *optional*):
+                How the annotations for the dataset were created.
+                Options are: 'found', 'crowdsourced', 'expert-generated', 'machine-generated', 'no-annotation', 'other'.
+            language_creators (`Union[str, List[str]]`, *optional*):
+                How the text-based data in the dataset was created.
+                Options are: 'found', 'crowdsourced', 'expert-generated', 'machine-generated', 'other'
             multilinguality (`Union[str, List[str]]`, *optional*):
                 Whether the dataset is multilingual.
                 Options are: 'monolingual', 'multilingual', 'translation', 'other'.

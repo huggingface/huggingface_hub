@@ -53,7 +53,6 @@ class RepoCard:
             content (`str`): The content of the Markdown file.
 
         Raises:
-            ValueError: When the content of the repo card metadata is not found.
             ValueError: When the content of the repo card metadata is not a dictionary.
         """
         self.content = content
@@ -237,17 +236,60 @@ class RepoCard:
         template_path: Optional[str] = None,
         **template_kwargs,
     ):
-        """Initialize a ModelCard from a template. By default, it uses the default template.
+        """Initialize a RepoCard from a template. By default, it uses the default template.
 
         Templates are Jinja2 templates that can be customized by passing keyword arguments.
 
         Args:
             card_data (`huggingface_hub.CardData`):
                 A huggingface_hub.CardData instance containing the metadata you want to include in the YAML
+                header of the repo card on the Hugging Face Hub.
+            template_path (`str`, *optional*):
+                A path to a markdown file with optional Jinja template variables that can be filled
+                in with `template_kwargs`. Defaults to the default template.
+
+        Returns:
+            `huggingface_hub.RepoCard`: A RepoCard instance with the specified card data and content from the
+            template.
+        """
+        if is_jinja_available():
+            import jinja2
+        else:
+            raise ImportError(
+                "Using RepoCard.from_template requires Jinja2 to be installed. Please"
+                " install it with `pip install Jinja2`."
+            )
+
+        template_path = template_path or cls.default_template_path
+        content = jinja2.Template(Path(template_path).read_text()).render(
+            card_data=card_data.to_yaml(), **template_kwargs
+        )
+        return cls(content)
+
+
+class ModelCard(RepoCard):
+    card_data_class = ModelCardData
+    default_template_path = TEMPLATE_MODELCARD_PATH
+    repo_type = "model"
+
+    @classmethod
+    def from_template(
+        cls,
+        card_data: CardData,
+        template_path: Optional[str] = None,
+        **template_kwargs,
+    ):
+        """Initialize a ModelCard from a template. By default, it uses the default template.
+
+        Templates are Jinja2 templates that can be customized by passing keyword arguments.
+
+        Args:
+            card_data (`huggingface_hub.ModelCardData`):
+                A huggingface_hub.ModelCardData instance containing the metadata you want to include in the YAML
                 header of the model card on the Hugging Face Hub.
             template_path (`str`, *optional*):
                 A path to a markdown file with optional Jinja template variables that can be filled
-                in with `template_kwargs`. Defaults to the default template. # TODO - add link here
+                in with `template_kwargs`. Defaults to the default template.
 
         Returns:
             `huggingface_hub.ModelCard`: A ModelCard instance with the specified card data and content from the
@@ -301,32 +343,69 @@ class RepoCard:
 
             ```
         """
-        if is_jinja_available():
-            import jinja2
-        else:
-            raise ImportError(
-                "Using RepoCard.from_template requires Jinja2 to be installed. Please"
-                " install it with `pip install Jinja2`."
-            )
-
-        template_path = template_path or cls.default_template_path
-        content = jinja2.Template(Path(template_path).read_text()).render(
-            card_data=card_data.to_yaml(), **template_kwargs
-        )
-        return cls(content)
-
-
-class ModelCard(RepoCard):
-    card_data_class = ModelCardData
-    default_template_path = TEMPLATE_MODELCARD_PATH
-    repo_type = "model"
-
+        return super().from_template(card_data, template_path, **template_kwargs)
 
 class DatasetCard(RepoCard):
     card_data_class = DatasetCardData
     default_template_path = TEMPLATE_DATASETCARD_PATH
     repo_type = "dataset"
 
+    @classmethod
+    def from_template(
+        cls,
+        card_data: CardData,
+        template_path: Optional[str] = None,
+        **template_kwargs,
+    ):
+        """Initialize a DatasetCard from a template. By default, it uses the default template.
+
+        Templates are Jinja2 templates that can be customized by passing keyword arguments.
+
+        Args:
+            card_data (`huggingface_hub.DatasetCardData`):
+                A huggingface_hub.DatasetCardData instance containing the metadata you want to include in the YAML
+                header of the dataset card on the Hugging Face Hub.
+            template_path (`str`, *optional*):
+                A path to a markdown file with optional Jinja template variables that can be filled
+                in with `template_kwargs`. Defaults to the default template.
+
+        Returns:
+            `huggingface_hub.DatasetCard`: A DatasetCard instance with the specified card data and content from the
+            template.
+
+        Example:
+            ```python
+            >>> from huggingface_hub import DatasetCard, DatasetCardData, EvalResult
+
+            >>> # Using the Default Template
+            >>> card_data = DatasetCardData(
+            ...     languages=['en'],
+            ...     licenses=['mit'],
+            ...     annotations_creators='crowdsourced',
+            ...     task_categories=['text-classification'],
+            ...     task_ids=['sentiment-classification', 'text-scoring'],
+            ...     multilinguality='monolingual',
+            ...     pretty_name='My Text Classification Dataset',
+            ... )
+            >>> card = DatasetCard.from_template(
+            ...     card_data,
+            ...     model_description='This model does x + y...'
+            ... )
+
+            >>> # Using a Custom Template
+            >>> card_data = DatasetCardData(
+            ...     languages=['en'],
+            ...     licenses=['mit'],
+            ... )
+            >>> card = DatasetCard.from_template(
+            ...     card_data=card_data,
+            ...     template_path='./src/huggingface_hub/templates/datasetcard_template.md',
+            ...     custom_template_var='custom value',  # will be replaced in template if it exists
+            ... )
+
+            ```
+        """
+        return super().from_template(card_data, template_path, **template_kwargs)
 
 def _detect_line_ending(content: str) -> Literal["\r", "\n", "\r\n", None]:
     """
