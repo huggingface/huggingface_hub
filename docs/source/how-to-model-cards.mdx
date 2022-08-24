@@ -6,7 +6,7 @@ for a deeper view of what Model Cards on the Hub are, and how they work under th
 
 ## Loading a Model Card from the Hub
 
-To load an existing card from the hub, you can use the [`ModelCard.load`] function. Here, we'll load the card from [`nateraw/vit-base-beans`](https://huggingface.co/nateraw/vit-base-beans).
+To load an existing card from the Hub, you can use the [`ModelCard.load`] function. Here, we'll load the card from [`nateraw/vit-base-beans`](https://huggingface.co/nateraw/vit-base-beans).
 
 ```python
 from huggingface_hub import ModelCard
@@ -26,7 +26,7 @@ This card has some helpful attributes that you may want to access/leverage:
 To initialize a Model Card from text, just pass the text content of the card to the `ModelCard` on init.
 
 ```python
-text = """
+content = """
 ---
 language: en
 license: mit
@@ -35,20 +35,20 @@ license: mit
 # My Model Card
 """
 
-card = ModelCard(text)
+card = ModelCard(content)
 card.data.to_dict() == {'language': 'en', 'license': 'mit'}  # True
 ```
 
 Another way you might want to do this is with f-strings. In the following example, we:
 
-- Use [`ModelCardData.to_yaml`] to convert metadata we defined to YAML so we can use it to insert the YAML block in the model card
+- Use [`ModelCardData.to_yaml`] to convert metadata we defined to YAML so we can use it to insert the YAML block in the model card.
 - Show how you might use a template variable via Python f-strings.
 
 ```python
 card_data = ModelCardData(language='en', license='mit', library='timm')
 
 example_template_var = 'nateraw'
-text = f"""
+content = f"""
 ---
 { card_data.to_yaml() }
 ---
@@ -58,7 +58,7 @@ text = f"""
 This model created by [@{example_template_var}](https://github.com/{example_template_var})
 """
 
-card = ModelCard(text)
+card = ModelCard(content)
 print(card)
 ```
 
@@ -174,9 +174,9 @@ print(card)
 
 ## Sharing Model Cards
 
-If you're authenticated with the Hugging Face Hub (either by using `huggingface-cli login` or `huggingface_hub.notebook_login()`), you can push cards to hub by simply calling [`ModelCard.push_to_hub`]. Let's take a look at how to do that...
+If you're authenticated with the Hugging Face Hub (either by using `huggingface-cli login` or `huggingface_hub.notebook_login()`), you can push cards to the Hub by simply calling [`ModelCard.push_to_hub`]. Let's take a look at how to do that...
 
-First, we'll create a new repo called 'hf-hub-modelcards-pr-test' under the under the authenticated user's namespace:
+First, we'll create a new repo called 'hf-hub-modelcards-pr-test' under the authenticated user's namespace:
 
 ```python
 from huggingface_hub import whoami, create_repo
