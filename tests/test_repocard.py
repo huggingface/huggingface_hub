@@ -519,7 +519,7 @@ class RepoCardTest(TestCaseWithCapLog):
         card.validate()
 
         card.data.license = "asdf"
-        with pytest.raises(RuntimeError, match='- Error: "license" must be one of'):
+        with pytest.raises(ValueError, match='- Error: "license" must be one of'):
             card.validate()
 
     def test_push_to_hub(self):
@@ -701,12 +701,17 @@ class DatasetCardTest(TestCaseWithCapLog):
         card_data = DatasetCardData(
             language="en",
             license="mit",
-            pretty_name="My Cool Dataset",
         )
 
         # Here we check default title when pretty_name not provided.
         card = DatasetCard.from_template(card_data)
         self.assertTrue(card.text.strip().startswith("# Dataset Card for Dataset Name"))
+
+        card_data = DatasetCardData(
+            language="en",
+            license="mit",
+            pretty_name="My Cool Dataset",
+        )
 
         # Here we pass the card data as kwargs as well so template picks up pretty_name.
         card = DatasetCard.from_template(card_data, **card_data.to_dict())
