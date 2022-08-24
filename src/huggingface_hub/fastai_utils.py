@@ -353,7 +353,7 @@ def push_to_hub_fastai(
     learner,
     repo_id: str,
     commit_message: Optional[str] = "Add model",
-    private: Optional[bool] = None,
+    private: bool = False,
     token: Optional[str] = None,
     config: Optional[dict] = None,
     **kwargs,
@@ -369,7 +369,7 @@ def push_to_hub_fastai(
             The repository id for your model in Hub in the format of "namespace/repo_name". The namespace can be your individual account or an organization to which you have write access (for example, 'stanfordnlp/stanza-de').
         commit_message (`str`, *optional*):
             Message to commit while pushing. Will default to :obj:`"add model"`.
-        private (`bool`, *optional*):
+        private (`bool`, *optional*, defaults to `False`):
             Whether or not the repository created should be private.
         token (`str`, *optional*):
             The Hugging Face account token to use as HTTP bearer authorization for remote files. If :obj:`None`, the token will be asked by a prompt.

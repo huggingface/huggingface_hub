@@ -959,6 +959,14 @@ class HfApiPublicTest(unittest.TestCase):
         self.assertIsInstance(model, ModelInfo)
         self.assertEqual(model.sha, DUMMY_MODEL_ID_REVISION_ONE_SPECIFIC_COMMIT)
 
+    # TODO; un-skip this test once it's fixed.
+    @unittest.skip(
+        "Security status is currently unreliable on the server endpoint, so this"
+        " test occasionally fails. Issue is tracked in"
+        " https://github.com/huggingface/huggingface_hub/issues/1002 and"
+        " https://github.com/huggingface/moon-landing/issues/3695. TODO: un-skip"
+        " this test once it's fixed."
+    )
     @with_production_testing
     def test_model_info_with_security(self):
         _api = HfApi()

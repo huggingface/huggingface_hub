@@ -22,7 +22,6 @@ from typing import BinaryIO, Dict, Iterable, Iterator, List, Optional, Tuple, Un
 from urllib.parse import quote
 
 import requests
-from dateutil.parser import parse as parse_datetime
 from requests.exceptions import HTTPError
 
 from ._commit_api import (
@@ -51,7 +50,7 @@ from .constants import (
     REPO_TYPES_URL_PREFIXES,
     SPACES_SDK_TYPES,
 )
-from .utils import logging
+from .utils import filter_repo_objects, logging, parse_datetime
 from .utils._deprecation import _deprecate_positional_args
 from .utils._errors import (
     _raise_convert_bad_request,
@@ -73,9 +72,8 @@ if sys.version_info >= (3, 8):
 else:
     from typing_extensions import Literal, TypedDict
 
-
-REGEX_DISCUSSION_URL = re.compile(r".*/discussions/(\d+)$")
 USERNAME_PLACEHOLDER = "hf_user"
+_REGEX_DISCUSSION_URL = re.compile(r".*/discussions/(\d+)$")
 
 logger = logging.get_logger(__name__)
 
@@ -238,7 +236,7 @@ class ModelInfo:
             Pipeline tag to identify the correct widget.
         siblings (`List[RepoFile]`, *optional*):
             list of ([`huggingface_hub.hf_api.RepoFile`]) objects that constitute the model.
-        private (`bool`, *optional*):
+        private (`bool`, *optional*, defaults to `False`):
             is the repo private
         author (`str`, *optional*):
             repo author
@@ -257,7 +255,7 @@ class ModelInfo:
         tags: Optional[List[str]] = None,
         pipeline_tag: Optional[str] = None,
         siblings: Optional[List[Dict]] = None,
-        private: Optional[bool] = None,
+        private: bool = False,
         author: Optional[str] = None,
         config: Optional[Dict] = None,
         **kwargs,
@@ -304,7 +302,7 @@ class DatasetInfo:
             List of tags.
         siblings (`List[RepoFile]`, *optional*):
             list of [`huggingface_hub.hf_api.RepoFile`] objects that constitute the dataset.
-        private (`bool`, *optional*):
+        private (`bool`, *optional*, defaults to `False`):
             is the repo private
         author (`str`, *optional*):
             repo author
@@ -326,7 +324,7 @@ class DatasetInfo:
         lastModified: Optional[str] = None,
         tags: Optional[List[str]] = None,
         siblings: Optional[List[Dict]] = None,
-        private: Optional[bool] = None,
+        private: bool = False,
         author: Optional[str] = None,
         description: Optional[str] = None,
         citation: Optional[str] = None,
@@ -379,7 +377,7 @@ class SpaceInfo:
             date of last commit to repo
         siblings (`List[RepoFile]`, *optional*):
             list of [`huggingface_hub.hf_api.RepoFIle`] objects that constitute the Space
-        private (`bool`, *optional*):
+        private (`bool`, *optional*, defaults to `False`):
             is the repo private
         author (`str`, *optional*):
             repo author
@@ -394,7 +392,7 @@ class SpaceInfo:
         sha: Optional[str] = None,
         lastModified: Optional[str] = None,
         siblings: Optional[List[Dict]] = None,
-        private: Optional[bool] = None,
+        private: bool = False,
         author: Optional[str] = None,
         **kwargs,
     ):
@@ -1519,14 +1517,14 @@ class HfApi:
         )
         return [f.rfilename for f in repo_info.siblings]
 
-    @_deprecate_positional_args
+    @_deprecate_positional_args(version="0.12")
     def create_repo(
         self,
         repo_id: str = None,
         *,
         token: Optional[str] = None,
         organization: Optional[str] = None,
-        private: Optional[bool] = None,
+        private: bool = False,
         repo_type: Optional[str] = None,
         exist_ok: Optional[bool] = False,
         space_sdk: Optional[str] = None,
@@ -1547,7 +1545,7 @@ class HfApi:
 
             token (`str`, *optional*):
                 An authentication token (See https://huggingface.co/settings/token)
-            private (`bool`, *optional*):
+            private (`bool`, *optional*, defaults to `False`):
                 Whether the model repo should be private.
             repo_type (`str`, *optional*):
                 Set to `"dataset"` or `"space"` if uploading to a dataset or
@@ -2006,6 +2004,11 @@ class HfApi:
                 " `CommitOperationDelete`"
             )
 
+        logger.debug(
+            f"About to commit to the hub: {len(additions)} addition(s) and"
+            f" {len(deletions)} deletion(s)."
+        )
+
         for addition in additions:
             addition.validate()
 
@@ -2189,20 +2192,14 @@ class HfApi:
             create_pr=create_pr,
             parent_commit=parent_commit,
         )
-        if pr_url is not None:
-            re_match = re.match(REGEX_DISCUSSION_URL, pr_url)
-            if re_match is None:
-                raise RuntimeError(
-                    "Unexpected response from the hub, expected a Pull Request URL but"
-                    f" got: '{pr_url}'"
-                )
-            revision = quote(f"refs/pr/{re_match[1]}", safe="")
 
+        if pr_url is not None:
+            revision = quote(_parse_revision_from_pr_url(pr_url), safe="")
         if repo_type in REPO_TYPES_URL_PREFIXES:
             repo_id = REPO_TYPES_URL_PREFIXES[repo_type] + repo_id
         revision = revision if revision is not None else DEFAULT_REVISION
+        # Similar to `hf_hub_url` but it's "blob" instead of "resolve"
         return f"{self.endpoint}/{repo_id}/blob/{revision}/{path_in_repo}"
-        # ^ Similar to `hf_hub_url` but it's "blob" instead of "resolve"
 
     def upload_folder(
         self,
@@ -2217,6 +2214,8 @@ class HfApi:
         revision: Optional[str] = None,
         create_pr: Optional[bool] = None,
         parent_commit: Optional[str] = None,
+        allow_patterns: Optional[Union[List[str], str]] = None,
+        ignore_patterns: Optional[Union[List[str], str]] = None,
     ):
         """
         Upload a local folder to the given repo. The upload is done
@@ -2225,6 +2224,13 @@ class HfApi:
 
         The structure of the folder will be preserved. Files with the same name
         already present in the repository will be overwritten, others will be left untouched.
+
+        Use the `allow_patterns` and `ignore_patterns` arguments to specify which files
+        to upload. These parameters accept either a single pattern or a list of
+        patterns. Patterns are Standard Wildcards (globbing patterns) as documented
+        [here](https://tldp.org/LDP/GNU-Linux-Tools-Summary/html/x11655.htm). If both
+        `allow_patterns` and `ignore_patterns` are provided, both constraints apply. By
+        default, all files from the folder are uploaded.
 
         Uses `HfApi.create_commit` under the hood.
 
@@ -2261,7 +2267,10 @@ class HfApi:
                 If specified and `create_pr` is `True`, the pull request will be created from `parent_commit`.
                 Specifying `parent_commit` ensures the repo has not changed before committing the changes, and can be
                 especially useful if the repo is updated / committed to concurrently.
-
+            allow_patterns (`List[str]` or `str`, *optional*):
+                If provided, only files matching at least one pattern are uploaded.
+            ignore_patterns (`List[str]` or `str`, *optional*):
+                If provided, files matching any of the patterns are not uploaded.
 
         Returns:
             `str`: A URL to visualize the uploaded folder on the hub
@@ -2286,6 +2295,7 @@ class HfApi:
         ...     repo_id="username/my-dataset",
         ...     repo_type="datasets",
         ...     token="my_token",
+        ...     ignore_patterns="**/logs/*.txt",
         ... )
         # "https://huggingface.co/datasets/username/my-dataset/tree/main/remote/experiment/checkpoints"
 
@@ -2313,25 +2323,13 @@ class HfApi:
             if commit_message is not None
             else f"Upload {path_in_repo} with huggingface_hub"
         )
-        folder_path = os.path.normpath(os.path.expanduser(folder_path))
-        if not os.path.isdir(folder_path):
-            raise ValueError(f"Provided path: '{folder_path}' is not a directory")
 
-        files_to_add: List[CommitOperationAdd] = []
-        for dirpath, _, filenames in os.walk(folder_path):
-            for filename in filenames:
-                abs_path = os.path.join(dirpath, filename)
-                rel_path = os.path.relpath(abs_path, folder_path)
-                files_to_add.append(
-                    CommitOperationAdd(
-                        path_or_fileobj=abs_path,
-                        path_in_repo=os.path.normpath(
-                            os.path.join(path_in_repo, rel_path)
-                        ).replace(os.sep, "/"),
-                    )
-                )
-
-        logger.debug(f"About to upload / commit {len(files_to_add)} files to the Hub")
+        files_to_add = _prepare_upload_folder_commit(
+            folder_path,
+            path_in_repo,
+            allow_patterns=allow_patterns,
+            ignore_patterns=ignore_patterns,
+        )
 
         pr_url = self.create_commit(
             repo_type=repo_type,
@@ -2346,20 +2344,12 @@ class HfApi:
         )
 
         if pr_url is not None:
-            re_match = re.match(REGEX_DISCUSSION_URL, pr_url)
-            if re_match is None:
-                raise RuntimeError(
-                    "Unexpected response from the hub, expected a Pull Request URL but"
-                    f" got: '{pr_url}'"
-                )
-            revision = quote(f"refs/pr/{re_match[1]}", safe="")
-
+            revision = quote(_parse_revision_from_pr_url(pr_url), safe="")
         if repo_type in REPO_TYPES_URL_PREFIXES:
             repo_id = REPO_TYPES_URL_PREFIXES[repo_type] + repo_id
-
         revision = revision if revision is not None else DEFAULT_REVISION
+        # Similar to `hf_hub_url` but it's "tree" instead of "resolve"
         return f"{self.endpoint}/{repo_id}/tree/{revision}/{path_in_repo}"
-        # ^ Similar to `hf_hub_url` but it's "tree" instead of "resolve"
 
     def delete_file(
         self,
@@ -3231,8 +3221,8 @@ class HfFolder:
         """
         Get token or None if not existent.
 
-        Note that a token can be also provided using the `HUGGING_FACE_HUB_TOKEN`
-        environment variable.
+        Note that a token can be also provided using the
+        `HUGGING_FACE_HUB_TOKEN` environment variable.
 
         Returns:
             `str` or `None`: The token, `None` if it doesn't exist.
@@ -3256,6 +3246,63 @@ class HfFolder:
             os.remove(cls.path_token)
         except FileNotFoundError:
             pass
+
+
+def _prepare_upload_folder_commit(
+    folder_path: str,
+    path_in_repo: str,
+    allow_patterns: Optional[Union[List[str], str]] = None,
+    ignore_patterns: Optional[Union[List[str], str]] = None,
+) -> List[CommitOperationAdd]:
+    """Generate the list of Add operations for a commit to upload a folder.
+
+    Files not matching the `allow_patterns` (allowlist) and `ignore_patterns` (denylist)
+    constraints are discarded.
+    """
+    folder_path = os.path.normpath(os.path.expanduser(folder_path))
+    if not os.path.isdir(folder_path):
+        raise ValueError(f"Provided path: '{folder_path}' is not a directory")
+
+    files_to_add: List[CommitOperationAdd] = []
+    for dirpath, _, filenames in os.walk(folder_path):
+        for filename in filenames:
+            abs_path = os.path.join(dirpath, filename)
+            rel_path = os.path.relpath(abs_path, folder_path)
+            files_to_add.append(
+                CommitOperationAdd(
+                    path_or_fileobj=abs_path,
+                    path_in_repo=os.path.normpath(
+                        os.path.join(path_in_repo, rel_path)
+                    ).replace(os.sep, "/"),
+                )
+            )
+
+    return list(
+        filter_repo_objects(
+            files_to_add,
+            allow_patterns=allow_patterns,
+            ignore_patterns=ignore_patterns,
+            key=lambda x: x.path_in_repo,
+        )
+    )
+
+
+def _parse_revision_from_pr_url(pr_url: str) -> str:
+    """Safely parse revision number from a PR url.
+
+    Example:
+    ```py
+    >>> _parse_revision_from_pr_url("https://huggingface.co/bigscience/bloom/discussions/2")
+    "refs/pr/2"
+    ```
+    """
+    re_match = re.match(_REGEX_DISCUSSION_URL, pr_url)
+    if re_match is None:
+        raise RuntimeError(
+            "Unexpected response from the hub, expected a Pull Request URL but"
+            f" got: '{pr_url}'"
+        )
+    return f"refs/pr/{re_match[1]}"
 
 
 api = HfApi()
@@ -3301,3 +3348,5 @@ comment_discussion = api.comment_discussion
 edit_discussion_comment = api.edit_discussion_comment
 rename_discussion = api.rename_discussion
 merge_pull_request = api.merge_pull_request
+
+_validate_or_retrieve_token = api._validate_or_retrieve_token
