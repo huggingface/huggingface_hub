@@ -702,7 +702,7 @@ def metadata_update(
         ...                                        'value': 0.7762102282047272}],
         ...                          'task': {'name': 'Text Classification',
         ...                                   'type': 'text-classification'}}]}]}
-        >>> url = metadata_update("julien-c/reactiongif-roberta", metadata)
+        >>> url = metadata_update("hf-internal-testing/reactiongif-roberta-card", metadata)
 
         ```
     """
