@@ -301,7 +301,7 @@ class RepoCard:
 
         template_path = template_path or cls.default_template_path
         kwargs = card_data.to_dict().copy()
-        kwargs.update(template_kwargs) # Template_kwargs have priority 
+        kwargs.update(template_kwargs)  # Template_kwargs have priority
         content = jinja2.Template(Path(template_path).read_text()).render(
             card_data=card_data.to_yaml(), **kwargs
         )
