@@ -22,7 +22,7 @@ class EvalResult:
         task_type (`str`):
             The task identifier. Example: "image-classification".
         dataset_type (`str`):
-            The dataset identifier. Example: common_voice. Use dataset id from https://hf.co/datasets.
+            The dataset identifier. Example: "common_voice". Use dataset id from https://hf.co/datasets.
         dataset_name (`str`):
             A pretty name for the dataset. Example: "Common Voice (French)".
         metric_type (`str`):

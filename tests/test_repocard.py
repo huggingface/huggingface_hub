@@ -144,7 +144,6 @@ def require_jinja(test_case):
     Decorator marking a test that requires Jinja2.
 
     These tests are skipped when Jinja2 is not installed.
-
     """
     if not is_jinja_available():
         return unittest.skip("test requires Jinja2.")(test_case)
@@ -602,7 +601,6 @@ class ModelCardTest(TestCaseWithCapLog):
         self.assertIsNone(card.data.eval_results)
 
     def test_load_model_card_from_file(self):
-
         sample_path = SAMPLE_CARDS_DIR / "sample_simple.md"
         card = ModelCard.load(sample_path)
         self.assertIsInstance(card, ModelCard)

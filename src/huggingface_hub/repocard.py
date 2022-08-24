@@ -314,7 +314,7 @@ class ModelCard(RepoCard):
     @classmethod
     def from_template(
         cls,
-        card_data: CardData,
+        card_data: ModelCardData,
         template_path: Optional[str] = None,
         **template_kwargs,
     ):
@@ -394,7 +394,7 @@ class DatasetCard(RepoCard):
     @classmethod
     def from_template(
         cls,
-        card_data: CardData,
+        card_data: DatasetCardData,
         template_path: Optional[str] = None,
         **template_kwargs,
     ):
