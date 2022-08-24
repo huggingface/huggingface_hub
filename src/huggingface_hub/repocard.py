@@ -122,7 +122,12 @@ class RepoCard:
         filepath.write_text(str(self))
 
     @classmethod
-    def load(cls, repo_id_or_path: Union[str, Path], repo_type=None, token=None):
+    def load(
+        cls,
+        repo_id_or_path: Union[str, Path],
+        repo_type: Optional[str] = None,
+        token: Optional[str] = None,
+    ):
         """Initialize a RepoCard from a Hugging Face Hub repo's README.md or a local filepath.
 
         Args:
@@ -164,7 +169,7 @@ class RepoCard:
         with Path(card_path).open(mode="r", newline="") as f:
             return cls(f.read())
 
-    def validate(self, repo_type=None):
+    def validate(self, repo_type: Optional[str] = None):
         """Validates card against Hugging Face Hub's card validation logic.
         Using this function requires access to the internet, so it is only called
         internally by [`huggingface_hub.repocard.RepoCard.push_to_hub`].
@@ -207,14 +212,14 @@ class RepoCard:
 
     def push_to_hub(
         self,
-        repo_id,
-        token=None,
-        repo_type=None,
-        commit_message=None,
-        commit_description=None,
-        revision=None,
-        create_pr=None,
-        parent_commit=None,
+        repo_id: str,
+        token: Optional[str] = None,
+        repo_type: Optional[str] = None,
+        commit_message: Optional[str] = None,
+        commit_description: Optional[str] = None,
+        revision: Optional[str] = None,
+        create_pr: Optional[bool] = None,
+        parent_commit: Optional[str] = None,
     ):
         """Push a RepoCard to a Hugging Face Hub repo.
 
