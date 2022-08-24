@@ -177,7 +177,7 @@ class RepoCard:
         <Tip>
         Raises the following errors:
 
-            - [`RuntimeError`](https://docs.python.org/3/library/exceptions.html#RuntimeError)
+            - [`ValueError`](https://docs.python.org/3/library/exceptions.html#ValueError)
               if the card fails validation checks.
             - [`HTTPError`](https://2.python-requests.org/en/master/api/#requests.HTTPError)
               if the request to the Hub API fails for any other reason.
@@ -201,7 +201,7 @@ class RepoCard:
             r.raise_for_status()
         except requests.exceptions.HTTPError as exc:
             if r.status_code == 400:
-                raise RuntimeError(r.text)
+                raise ValueError(r.text)
             else:
                 raise exc
 
