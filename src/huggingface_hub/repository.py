@@ -619,7 +619,10 @@ class Repository:
                 " `use_auth_token` key."
             )
         elif token is not None and token.startswith("api_org"):
-            raise ValueError("You must use your personal access token.")
+            raise ValueError(
+                "You must use your personal access token (see"
+                " https://hf.co/settings/tokens)."
+            )
 
         hub_url = self.client.endpoint
         if hub_url in repo_url or (
