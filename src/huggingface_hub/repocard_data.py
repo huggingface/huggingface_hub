@@ -208,6 +208,7 @@ class ModelCardData(CardData):
 
     def __init__(
         self,
+        *,
         language: Optional[Union[str, List[str]]] = None,
         license: Optional[str] = None,
         library_name: Optional[str] = None,
@@ -299,6 +300,7 @@ class DatasetCardData(CardData):
 
     def __init__(
         self,
+        *,
         language: Optional[Union[str, List[str]]] = None,
         license: Optional[Union[str, List[str]]] = None,
         annotations_creators: Optional[Union[str, List[str]]] = None,
