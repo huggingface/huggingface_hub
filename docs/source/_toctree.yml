@@ -17,7 +17,7 @@
     title: Access the Inference API
   - local: how-to-discussions-and-pull-requests
     title: Interact with Discussions and Pull Requests
-  - local: how-to-cache.mdx
+  - local: how-to-cache
     title: Manage the cache directory
   title: "Guides"
 - sections:
