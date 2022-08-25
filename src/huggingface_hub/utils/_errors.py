@@ -12,7 +12,7 @@ class RepositoryNotFoundError(HTTPError):
 
     ```py
     >>> from huggingface_hub import model_info
-    >>> model_info("<non_existant_repository>")
+    >>> model_info("<non_existent_repository>")
     huggingface_hub.utils._errors.RepositoryNotFoundError: 404 Client Error: Repository Not Found for url: <url>
     ```
     """
@@ -30,7 +30,7 @@ class RevisionNotFoundError(HTTPError):
 
     ```py
     >>> from huggingface_hub import hf_hub_download
-    >>> hf_hub_download('bert-base-cased', 'config.json', revision='<non-existant-revision>')
+    >>> hf_hub_download('bert-base-cased', 'config.json', revision='<non-existent-revision>')
     huggingface_hub.utils._errors.RevisionNotFoundError: 404 Client Error: Revision Not Found for url: <url>
     ```
     """
@@ -48,7 +48,7 @@ class EntryNotFoundError(HTTPError):
 
     ```py
     >>> from huggingface_hub import hf_hub_download
-    >>> hf_hub_download('bert-base-cased', '<non-existant-file>')
+    >>> hf_hub_download('bert-base-cased', '<non-existent-file>')
     huggingface_hub.utils._errors.EntryNotFoundError: 404 Client Error: Entry Not Found for url: <url>
     ```
     """
