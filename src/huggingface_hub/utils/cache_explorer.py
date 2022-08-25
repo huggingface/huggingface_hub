@@ -91,8 +91,7 @@ class HFCacheInfo:
     /!\ Here `size_on_disk` is equal to the sum of all repo sizes (only blobs).
     """
 
-    datasets: List[CachedRepoInfo]
-    models: List[CachedRepoInfo]
+    repos: List[CachedRepoInfo]
     size_on_disk: int
 
     @property
@@ -111,25 +110,18 @@ def scan_cache_dir(
     if cache_dir is None:
         cache_dir = HUGGINGFACE_HUB_CACHE
 
-    datasets: List[CachedRepoInfo] = []
-    models: List[CachedRepoInfo] = []
+    repos: List[CachedRepoInfo] = []
     for repo_path in Path(cache_dir).iterdir():
         try:
             if repo_path.is_dir():
                 repo_info = _scan_cached_repo(repo_path)
-                if repo_info.repo_type == "dataset":
-                    datasets.append(repo_info)
-                elif repo_info.repo_type == "model":
-                    models.append(repo_info)
-                else:
-                    raise ValueError()
+                repos.append(repo_info)
         except CorruptedCacheException as e:
-            print(f"Error while scanning {repo_path}: {e}")
+            print(f"Error while scanning {repo_path}.\n\t{e}")
 
     return HFCacheInfo(
-        datasets=sorted(datasets, key=lambda repo: repo.repo_path),
-        models=sorted(models, key=lambda repo: repo.repo_path),
-        size_on_disk=sum(repo.size_on_disk for repo in datasets + models),
+        repos=sorted(repos, key=lambda repo: repo.repo_path),
+        size_on_disk=sum(repo.size_on_disk for repo in repos),
     )
 
 
@@ -139,14 +131,20 @@ def _scan_cached_repo(repo_path: Path) -> Optional[CachedRepoInfo]:
     Any unexpected behavior will raise a `CorruptedCacheException`.
     """
     if not repo_path.is_dir():
-        raise CorruptedCacheException("Not a directory !")
+        raise CorruptedCacheException(f"Repo path is not a directory: {repo_path}")
 
     if "--" not in repo_path.name:
-        raise CorruptedCacheException("Not a valid HuggingFace cache directory !")
+        raise CorruptedCacheException(
+            f"Repo path is not a valid HuggingFace cache directory: {repo_path}"
+        )
 
     repo_type, repo_id = repo_path.name.split("--", maxsplit=1)
-    if repo_type not in {"datasets", "models"}:
-        raise CorruptedCacheException("Repo type must be `dataset` or `model` !")
+    if repo_type not in {"datasets", "models", "spaces"}:
+        raise CorruptedCacheException(
+            f"Repo type must be `dataset`, `model` or `space`, found `{repo_type}`"
+            f" ({repo_path})."
+        )
+    repo_id = repo_id.replace("--", "/")  # google/fleurs -> "google/fleurs"
     repo_type = repo_type[:-1]  # "models" -> "model"
 
     blob_sizes: Dict[Path, int] = {}  # Key is blob_path, value is blob size (in bytes)
@@ -156,13 +154,17 @@ def _scan_cached_repo(repo_path: Path) -> Optional[CachedRepoInfo]:
     blobs_path = repo_path / "blobs"
 
     if not snapshots_path.exists() or not snapshots_path.is_dir():
-        raise CorruptedCacheException("Snapshots dir doesn't exist !")
+        raise CorruptedCacheException(
+            f"Snapshots dir doesn't exist in cached repo: {snapshots_path}"
+        )
 
     # Scan snapshots directory
     cached_revisions_by_hash: Dict[str, CachedRevisionInfo] = {}
     for revision_path in snapshots_path.iterdir():
         if revision_path.is_file():
-            raise CorruptedCacheException("Snapshots folder corrupted: found a file  !")
+            raise CorruptedCacheException(
+                f"Snapshots folder corrupted. Found a file: {revision_path}"
+            )
 
         cached_files = []
         for file_path in revision_path.glob("**/*"):
@@ -172,16 +174,18 @@ def _scan_cached_repo(repo_path: Path) -> Optional[CachedRepoInfo]:
 
             if not file_path.is_symlink():
                 raise CorruptedCacheException(
-                    "Revision folder corrupted: found a non-symlink file !"
+                    f"Revision folder corrupted. Found a non-symlink file: {file_path}"
                 )
 
             blob_path = Path(file_path).resolve()
             if not blob_path.exists():
-                raise CorruptedCacheException("Blob missing (broken symlink) !")
+                raise CorruptedCacheException(
+                    f"Blob missing (broken symlink): {blob_path}"
+                )
 
             if blobs_path not in blob_path.parents:
                 raise CorruptedCacheException(
-                    "Blob symlink points outside of blob directory !"
+                    f"Blob symlink points outside of blob directory: {blob_path}"
                 )
 
             if blob_path not in blob_sizes:
@@ -214,7 +218,9 @@ def _scan_cached_repo(repo_path: Path) -> Optional[CachedRepoInfo]:
         #         └── pr
         #             └── 1
         if refs_path.is_file():
-            raise CorruptedCacheException("Refs directory cannot be a file !")
+            raise CorruptedCacheException(
+                f"Refs directory cannot be a file: {refs_path}"
+            )
 
         for ref_path in refs_path.glob("**/*"):
             # glob("**/*") iterates over all files and directories -> skip directories
@@ -227,7 +233,8 @@ def _scan_cached_repo(repo_path: Path) -> Optional[CachedRepoInfo]:
 
             if commit_hash not in cached_revisions_by_hash:
                 raise CorruptedCacheException(
-                    "Reference refers to a missing commit hash !"
+                    f"Reference refers to a missing commit hash: {commit_hash}."
+                    f" Existing hashes: {', '.join(cached_revisions_by_hash.keys())}"
                 )
 
             cached_revision = cached_revisions_by_hash[commit_hash]
