@@ -76,7 +76,7 @@ else:
 
 
 @require_tf
-class HubMixingTestKeras(unittest.TestCase):
+class CommonKerasTest(unittest.TestCase):
     def tearDown(self) -> None:
         if os.path.exists(WORKING_REPO_DIR):
             shutil.rmtree(WORKING_REPO_DIR, onerror=set_write_permission_and_retry)
@@ -93,6 +93,8 @@ class HubMixingTestKeras(unittest.TestCase):
         cls._token = TOKEN
         cls._api.set_access_token(TOKEN)
 
+
+class HubMixingTestKeras(CommonKerasTest):
     def test_save_pretrained(self):
         REPO_NAME = repo_name("save")
         model = DummyModel()
@@ -209,7 +211,7 @@ class HubMixingTestKeras(unittest.TestCase):
 
 
 @require_tf
-class HubKerasSequentialTest(HubMixingTestKeras):
+class HubKerasSequentialTest(CommonKerasTest):
     def model_init(self):
         model = tf.keras.models.Sequential()
         model.add(tf.keras.layers.Dense(2, activation="relu"))
@@ -533,12 +535,18 @@ class HubKerasSequentialTest(HubMixingTestKeras):
 
 
 @require_tf
-class HubKerasFunctionalTest(HubKerasSequentialTest):
+class HubKerasFunctionalTest(CommonKerasTest):
     def model_init(self):
         inputs = tf.keras.layers.Input(shape=(2,))
         outputs = tf.keras.layers.Dense(2, activation="relu")(inputs)
         model = tf.keras.models.Model(inputs=inputs, outputs=outputs)
         model.compile(optimizer="adam", loss="mse")
+        return model
+
+    def model_fit(self, model):
+        x = tf.constant([[0.44, 0.90], [0.65, 0.39]])
+        y = tf.constant([[1, 1], [0, 0]])
+        model.fit(x, y)
         return model
 
     def test_save_pretrained(self):
