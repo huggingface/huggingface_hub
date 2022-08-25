@@ -882,6 +882,11 @@ class CommitApiTest(HfApiCommonTestWithLogin):
                     parent_commit=parent_commit,
                 )
             self.assertEqual(exc_ctx.exception.response.status_code, 412)
+            self.assertIn(
+                # Check the server message is added to the exception
+                "A commit has happened since. Please refresh and try again.",
+                str(exc_ctx.exception),
+            )
         except Exception as err:
             self.fail(err)
         finally:
