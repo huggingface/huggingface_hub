@@ -34,11 +34,17 @@ class ScanCacheCommand(BaseHuggingfaceCLICommand):
             type=Optional[str],
             default=None,
             help=(
-                "(optional): which cache directory to scan. Default to the"
-                " default local HuggingFace cache."
+                "cache directory to scan (optional). Default to the"
+                " default HuggingFace cache."
             ),
         )
-        scan_cache_parser.add_argument("-v", "--verbose", action="count", default=0)
+        scan_cache_parser.add_argument(
+            "-v",
+            "--verbose",
+            action="count",
+            default=0,
+            help="show a more verbose output",
+        )
         scan_cache_parser.set_defaults(func=ScanCacheCommand)
 
     def __init__(self, args):
