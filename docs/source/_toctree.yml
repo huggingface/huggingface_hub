@@ -18,7 +18,7 @@
   - local: how-to-discussions-and-pull-requests
     title: Interact with Discussions and Pull Requests
   - local: how-to-cache
-    title: Manage the cache directory
+    title: Manage the Cache
   title: "Guides"
 - sections:
     - local: package_reference/repository

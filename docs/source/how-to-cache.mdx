@@ -122,7 +122,7 @@ format so that it can be used with tools such as `grep` to filter the entries.
 The snippet below shows a scan report in a folder in which 4 models and 2 datasets are
 cached.
 
-```
+```text
 ➜ huggingface-cli scan-cache       
 REPO ID                     REPO TYPE SIZE ON DISK NB FILES REFS                LOCAL PATH                                                                
 --------------------------- --------- ------------ -------- ------------------- ------------------------------------------------------------------------- 
@@ -144,7 +144,7 @@ the repo on disk is expected to be less than the sum of the size of each of its 
 For example, here `bert-base-cased` has 2 revisions of 1.4G and 1.5G but the total disk
 usage is only 1.9G.
 
-```
+```text
 ➜ huggingface-cli scan-cache -v
 REPO ID                     REPO TYPE REVISION                                 SIZE ON DISK NB FILES REFS        LOCAL PATH                                                                                                                   
 --------------------------- --------- ---------------------------------------- ------------ -------- ----------- ---------------------------------------------------------------------------------------------------------------------------- 
