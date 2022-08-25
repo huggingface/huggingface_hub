@@ -1,8 +1,12 @@
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Dict, List, Literal, Optional, Set, Union
+from typing import Dict, List, Optional, Set, Union
 
 from ..constants import HUGGINGFACE_HUB_CACHE
+from ._typing import Literal
+
+
+REPO_TYPE_T = Literal["model", "dataset", "space"]
 
 
 @dataclass
@@ -58,7 +62,7 @@ class CachedRepoInfo:
     """
 
     repo_id: str
-    repo_type: Literal["model", "dataset"]
+    repo_type: REPO_TYPE_T
     repo_path: Path
     revisions: Set[CachedRevisionInfo]
     size_on_disk: int
@@ -68,6 +72,16 @@ class CachedRepoInfo:
     def size_on_disk_str(self) -> str:
         """Human-readable sizes"""
         return _format_size(self.size_on_disk)
+
+    @property
+    def refs(self) -> Dict[str, CachedRevisionInfo]:
+        """Mapping between refs and revision infos."""
+        refs = {}
+        for revision in self.revisions:
+            if revision.refs is not None:
+                for ref in revision.refs:
+                    refs[ref] = revision
+        return refs
 
 
 @dataclass
@@ -239,8 +253,8 @@ def _format_size(num: int, suffix: str = "B") -> str:
 
     Taken from https://stackoverflow.com/a/1094933
     """
-    for unit in ["", "Ki", "Mi", "Gi", "Ti", "Pi", "Ei", "Zi"]:
-        if abs(num) < 1024.0:
+    for unit in ["", "K", "M", "G", "T", "P", "E", "Z"]:
+        if abs(num) < 1000.0:
             return f"{num:3.1f}{unit}{suffix}"
-        num /= 1024.0
+        num /= 1000.0
     return f"{num:.1f}Yi{suffix}"

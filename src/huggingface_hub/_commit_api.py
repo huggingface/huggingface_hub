@@ -1,22 +1,14 @@
 """
 Type definitions and utilities for the `create_commit` API
 """
-
 import base64
 import io
 import os
-import sys
 from concurrent import futures
 from concurrent.futures import ThreadPoolExecutor
 from contextlib import contextmanager
 from dataclasses import dataclass, field
 from typing import BinaryIO, Dict, Iterable, List, Optional, Tuple, Union
-
-
-if sys.version_info >= (3, 8):
-    from typing import Literal
-else:
-    from typing_extensions import Literal
 
 import requests
 
@@ -24,6 +16,7 @@ from .constants import ENDPOINT
 from .lfs import UploadInfo, _validate_batch_actions, lfs_upload, post_lfs_batch_info
 from .utils import logging
 from .utils._errors import _raise_convert_bad_request
+from .utils._typing import Literal
 
 
 logger = logging.get_logger(__name__)
