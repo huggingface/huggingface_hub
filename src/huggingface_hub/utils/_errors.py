@@ -101,6 +101,26 @@ def _add_request_id_to_error_args(e, request_id):
         e.args = (e.args[0] + f" (Request ID: {request_id})",) + e.args[1:]
 
 
+def _add_server_message_to_error_args(e: HTTPError, response: Response):
+    """
+    If the server response raises an HTTPError, we try to decode the response body and
+    find an error message. If the server returned one, it is added to the HTTPError
+    message.
+    """
+    try:
+        server_message = response.json().get("error", None)
+    except JSONDecodeError:
+        return
+
+    if (
+        server_message is not None
+        and len(server_message) > 0
+        and len(e.args) > 0
+        and isinstance(e.args[0], str)
+    ):
+        e.args = (e.args[0] + "\n\n" + str(server_message),) + e.args[1:]
+
+
 def _raise_for_status(response):
     """
     Internal version of `response.raise_for_status()` that will refine a
@@ -144,6 +164,7 @@ def _raise_for_status(response):
             e = RepositoryNotFoundError(message, response)
 
         _add_request_id_to_error_args(e, request_id)
+        _add_server_message_to_error_args(e, response)
 
         raise e
 
