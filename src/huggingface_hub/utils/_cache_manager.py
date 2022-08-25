@@ -76,8 +76,8 @@ class CachedRevisionInfo:
 class CachedRepoInfo:
     r"""Information about a cached repository (dataset or model).
 
-    /!\ `size_on_disk` is not necesarily the sum of all revisions sizes because of
-        duplicated files. Also only blobs are taken into account, not the (neglectable)
+    /!\ `size_on_disk` is not necessarily the sum of all revisions sizes because of
+        duplicated files. Also only blobs are taken into account, not the (negligible)
         size of folders and symlinks.
     """
 

@@ -1,0 +1,170 @@
+# Manage `huggingface_hub` cache-system
+
+## Understand caching
+
+Huggingface Hub cache-system is designed to be the central cache shared across libraries 
+that depend on the Hub. It has been updated in v0.8.0 to prevent re-downloading same files
+between revisions.
+
+The caching system is designed as follows:
+
+```
+<CACHE_DIR>
+├─ <MODELS>
+├─ <DATASETS>
+├─ <SPACES>
+```
+
+The `<CACHE_DIR>` is usually your user's home directory. However, it is customizable with the
+`cache_dir` argument on all methods, or by specifying the `HF_HOME` environment variable.
+
+Models, datasets and spaces share a common root. Each of these repositories contains the namespace
+(organization, username) if it exists, alongside the repository name:
+
+```
+<CACHE_DIR>
+├─ models--julien-c--EsperBERTo-small
+├─ models--lysandrejik--arxiv-nlp
+├─ models--bert-base-cased
+├─ datasets--glue
+├─ datasets--huggingface--DataMeasurementsFiles
+├─ spaces--dalle-mini--dalle-mini
+```
+
+It is within these folders that all files will now be downloaded from the hub. Caching ensures that
+a file isn't downloaded twice if it already exists and wasn't updated; but if it was updated,
+and you're asking for the latest file, then it will download the latest file (while keeping
+the previous file intact in case you need it again).
+
+In order to achieve this, all folders contain the same skeleton:
+
+```
+<CACHE_DIR>
+├─ datasets--glue
+│  ├─ refs
+│  ├─ blobs
+│  ├─ snapshots
+...
+```
+
+Each folder is designed to contain the following:
+
+### Refs
+
+The `refs` folder contains files which indicates the latest revision of the given reference. For example,
+if we have previously fetched a file from the `main` branch of a repository, the `refs`
+folder will contain a file named `main`, which will itself contain the commit identifier of the current head.
+
+If the latest commit of `main` has `aaaaaa` as identifier, then it will contain `aaaaaa`.
+
+If that same branch gets updated with a new commit, that has `bbbbbb` as an identifier, then
+re-downloading a file from that reference will update the `refs/main` file to contain `bbbbbb`.
+
+### Blobs
+
+The `blobs` folder contains the actual files that we have downloaded. The name of each file is their hash.
+
+### Snapshots
+
+The `snapshots` folder contains symlinks to the blobs mentioned above. It is itself made up of several folders:
+one per known revision!
+
+In the explanation above, we had initially fetched a file from the `aaaaaa` revision, before fetching a file from
+the `bbbbbb` revision. In this situation, we would now have two folders in the `snapshots` folder: `aaaaaa`
+and `bbbbbb`.
+
+In each of these folders, live symlinks that have the names of the files that we have downloaded. For example,
+if we had downloaded the `README.md` file at revision `aaaaaa`, we would have the following path:
+
+```
+<CACHE_DIR>/<REPO_NAME>/snapshots/aaaaaa/README.md
+```
+
+That `README.md` file is actually a symlink linking to the blob that has the hash of the file.
+
+By creating the skeleton this way we open the mechanism to file sharing: if the same file was fetched in
+revision `bbbbbb`, it would have the same hash and the file would not need to be re-downloaded.
+
+### In practice
+
+In practice, your cache should look like the following tree:
+
+```
+    [  96]  .
+    └── [ 160]  models--julien-c--EsperBERTo-small
+        ├── [ 160]  blobs
+        │   ├── [321M]  403450e234d65943a7dcf7e05a771ce3c92faa84dd07db4ac20f592037a1e4bd
+        │   ├── [ 398]  7cb18dc9bafbfcf74629a4b760af1b160957a83e
+        │   └── [1.4K]  d7edf6bd2a681fb0175f7735299831ee1b22b812
+        ├── [  96]  refs
+        │   └── [  40]  main
+        └── [ 128]  snapshots
+            ├── [ 128]  2439f60ef33a0d46d85da5001d52aeda5b00ce9f
+            │   ├── [  52]  README.md -> ../../blobs/d7edf6bd2a681fb0175f7735299831ee1b22b812
+            │   └── [  76]  pytorch_model.bin -> ../../blobs/403450e234d65943a7dcf7e05a771ce3c92faa84dd07db4ac20f592037a1e4bd
+            └── [ 128]  bbc77c8132af1cc5cf678da3f1ddf2de43606d48
+                ├── [  52]  README.md -> ../../blobs/7cb18dc9bafbfcf74629a4b760af1b160957a83e
+                └── [  76]  pytorch_model.bin -> ../../blobs/403450e234d65943a7dcf7e05a771ce3c92faa84dd07db4ac20f592037a1e4bd
+```
+
+## Scan your cache
+
+At the moment, cached files are never deleted from your local directory: when you download
+a new revision of a branch, previous files would be kept in case you need them again.
+
+### From the terminal
+
+In you need to clean you local cache to save space, you can use the `scan-cache` command
+from `huggingface-cli`. This command scans the cache and prints a report including details
+like repo id, repo type, disk usage, refs and full local path. The output is in tabular
+format so that it can be used with tools such as `grep` to filter the entries.
+
+The snippet below shows a scan report in a folder in which 4 models and 2 datasets are
+cached.
+
+```
+➜ huggingface-cli scan-cache       
+REPO ID                     REPO TYPE SIZE ON DISK NB FILES REFS                LOCAL PATH                                                                
+--------------------------- --------- ------------ -------- ------------------- ------------------------------------------------------------------------- 
+glue                        dataset         116.3K       15 2.4.0, main, 1.17.0 /Users/lucain/.cache/huggingface/hub/datasets--glue                       
+google/fleurs               dataset          64.9M        6 refs/pr/1, main     /Users/lucain/.cache/huggingface/hub/datasets--google--fleurs             
+Jean-Baptiste/camembert-ner model           441.0M        7 main                /Users/lucain/.cache/huggingface/hub/models--Jean-Baptiste--camembert-ner 
+bert-base-cased             model             1.9G       13 main                /Users/lucain/.cache/huggingface/hub/models--bert-base-cased              
+t5-base                     model            10.1K        3 main                /Users/lucain/.cache/huggingface/hub/models--t5-base                      
+t5-small                    model           970.7M       11 refs/pr/1, main     /Users/lucain/.cache/huggingface/hub/models--t5-small                     
+
+Done in 0.0s. Scanned 6 repo(s) for a total of 3.4G.
+Got 1 error(s) while scanning. Use -vvv to print details.
+```
+
+To get a more detailed report, use the `--verbose` option. For each repo, you get a
+list of all revisions that have been downloaded. As explained above, the files that don't
+change between 2 revisions are shared thanks to the symlinks. This means that the size of
+the repo on disk is expected to be less than the sum of the size of each of its revisions.
+For example, here `bert-base-cased` has 2 revisions of 1.4G and 1.5G but the total disk
+usage is only 1.9G.
+
+```
+➜ huggingface-cli scan-cache -v
+REPO ID                     REPO TYPE REVISION                                 SIZE ON DISK NB FILES REFS        LOCAL PATH                                                                                                                   
+--------------------------- --------- ---------------------------------------- ------------ -------- ----------- ---------------------------------------------------------------------------------------------------------------------------- 
+glue                        dataset   9338f7b671827df886678df2bdd7cc7b4f36dffd        97.7K       14 main, 2.4.0 /Users/lucain/.cache/huggingface/hub/datasets--glue/snapshots/9338f7b671827df886678df2bdd7cc7b4f36dffd                       
+glue                        dataset   f021ae41c879fcabcf823648ec685e3fead91fe7        97.8K       14 1.17.0      /Users/lucain/.cache/huggingface/hub/datasets--glue/snapshots/f021ae41c879fcabcf823648ec685e3fead91fe7                       
+google/fleurs               dataset   129b6e96cf1967cd5d2b9b6aec75ce6cce7c89e8        25.4K        3 refs/pr/1   /Users/lucain/.cache/huggingface/hub/datasets--google--fleurs/snapshots/129b6e96cf1967cd5d2b9b6aec75ce6cce7c89e8             
+google/fleurs               dataset   24f85a01eb955224ca3946e70050869c56446805        64.9M        4 main        /Users/lucain/.cache/huggingface/hub/datasets--google--fleurs/snapshots/24f85a01eb955224ca3946e70050869c56446805             
+Jean-Baptiste/camembert-ner model     dbec8489a1c44ecad9da8a9185115bccabd799fe       441.0M        7 main        /Users/lucain/.cache/huggingface/hub/models--Jean-Baptiste--camembert-ner/snapshots/dbec8489a1c44ecad9da8a9185115bccabd799fe 
+bert-base-cased             model     378aa1bda6387fd00e824948ebe3488630ad8565         1.5G        9             /Users/lucain/.cache/huggingface/hub/models--bert-base-cased/snapshots/378aa1bda6387fd00e824948ebe3488630ad8565              
+bert-base-cased             model     a8d257ba9925ef39f3036bfc338acf5283c512d9         1.4G        9 main        /Users/lucain/.cache/huggingface/hub/models--bert-base-cased/snapshots/a8d257ba9925ef39f3036bfc338acf5283c512d9              
+t5-base                     model     23aa4f41cb7c08d4b05c8f327b22bfa0eb8c7ad9        10.1K        3 main        /Users/lucain/.cache/huggingface/hub/models--t5-base/snapshots/23aa4f41cb7c08d4b05c8f327b22bfa0eb8c7ad9                      
+t5-small                    model     98ffebbb27340ec1b1abd7c45da12c253ee1882a       726.2M        6 refs/pr/1   /Users/lucain/.cache/huggingface/hub/models--t5-small/snapshots/98ffebbb27340ec1b1abd7c45da12c253ee1882a                     
+t5-small                    model     d0a119eedb3718e34c648e594394474cf95e0617       485.8M        6             /Users/lucain/.cache/huggingface/hub/models--t5-small/snapshots/d0a119eedb3718e34c648e594394474cf95e0617                     
+t5-small                    model     d78aea13fa7ecd06c29e3e46195d6341255065d5       970.7M        9 main        /Users/lucain/.cache/huggingface/hub/models--t5-small/snapshots/d78aea13fa7ecd06c29e3e46195d6341255065d5                     
+
+Done in 0.0s. Scanned 6 repo(s) for a total of 3.4G.
+Got 1 error(s) while scanning. Use -vvv to print details.
+```
+
+### From Python
+
+For more advanced usage, a python utility is provided to scan your cache. You can use it
+to get a detailed report in a structured format.
