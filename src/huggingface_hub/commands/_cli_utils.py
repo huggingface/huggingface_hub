@@ -21,9 +21,7 @@ class ANSI:
     """
 
     _bold = "\u001b[1m"
-    _cyan = "\u001b[36;1m"
     _gray = "\u001b[90m"
-    _green = "\u001b[32m"
     _red = "\u001b[31m"
     _reset = "\u001b[0m"
 
@@ -32,16 +30,8 @@ class ANSI:
         return cls._format(s, cls._bold)
 
     @classmethod
-    def cyan(cls, s: str) -> str:
-        return cls._format(s, cls._cyan)
-
-    @classmethod
     def gray(cls, s: str) -> str:
         return cls._format(s, cls._gray)
-
-    @classmethod
-    def green(cls, s: str) -> str:
-        return cls._format(s, cls._green)
 
     @classmethod
     def red(cls, s: str) -> str:
