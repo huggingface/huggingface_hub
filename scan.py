@@ -41,7 +41,7 @@ Models:
 ```
 
 """
-from huggingface_hub.utils.cache_explorer import (
+from huggingface_hub.utils import (
     CachedRepoInfo,
     CachedRevisionInfo,
     scan_cache_dir,
