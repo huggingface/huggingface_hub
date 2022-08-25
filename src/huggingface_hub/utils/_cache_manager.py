@@ -1,3 +1,18 @@
+# coding=utf-8
+# Copyright 2022-present, the HuggingFace Inc. team.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+"""Contains utilities to manage the HF cache directory."""
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Dict, List, Optional, Set, Union
@@ -7,6 +22,10 @@ from ._typing import Literal
 
 
 REPO_TYPE_T = Literal["model", "dataset", "space"]
+
+
+class CorruptedCacheException(Exception):
+    """Exception for any unexpected structure in the huggingface cache."""
 
 
 @dataclass
@@ -41,6 +60,7 @@ class CachedRevisionInfo:
     commit_hash: str
     size_on_disk: int
     files: List[CachedFileInfo]  # sorted by name
+    snapshot_path: Path
     refs: Optional[Set[str]] = None
 
     @property
@@ -93,35 +113,32 @@ class HFCacheInfo:
 
     repos: List[CachedRepoInfo]
     size_on_disk: int
+    errors: List[CorruptedCacheException]
 
     @property
     def size_on_disk_str(self) -> str:
         return _format_size(self.size_on_disk)
 
 
-class CorruptedCacheException(Exception):
-    """Exception for any unexpected structure in the huggingface cache."""
-
-
-def scan_cache_dir(
-    cache_dir: Optional[Union["str", Path]] = None
-) -> List[CachedRepoInfo]:
+def scan_cache_dir(cache_dir: Optional[Union[str, Path]] = None) -> HFCacheInfo:
     """Scan the entire cache directory and return information about it."""
     if cache_dir is None:
         cache_dir = HUGGINGFACE_HUB_CACHE
 
     repos: List[CachedRepoInfo] = []
+    errors: List[CorruptedCacheException] = []
     for repo_path in Path(cache_dir).iterdir():
         try:
             if repo_path.is_dir():
                 repo_info = _scan_cached_repo(repo_path)
                 repos.append(repo_info)
         except CorruptedCacheException as e:
-            print(f"Error while scanning {repo_path}.\n\t{e}")
+            errors.append(e)
 
     return HFCacheInfo(
         repos=sorted(repos, key=lambda repo: repo.repo_path),
         size_on_disk=sum(repo.size_on_disk for repo in repos),
+        errors=errors,
     )
 
 
@@ -207,6 +224,7 @@ def _scan_cached_repo(repo_path: Path) -> Optional[CachedRepoInfo]:
                 for blob_path in set(file.blob_path for file in cached_files)
             ),
             files=sorted(cached_files, key=lambda file: file.file_path),
+            snapshot_path=revision_path,
         )
 
     # Scan over `refs` directory
@@ -255,13 +273,13 @@ def _scan_cached_repo(repo_path: Path) -> Optional[CachedRepoInfo]:
     )
 
 
-def _format_size(num: int, suffix: str = "B") -> str:
+def _format_size(num: int) -> str:
     """Format size in bytes into a human-readable string.
 
     Taken from https://stackoverflow.com/a/1094933
     """
     for unit in ["", "K", "M", "G", "T", "P", "E", "Z"]:
         if abs(num) < 1000.0:
-            return f"{num:3.1f}{unit}{suffix}"
+            return f"{num:3.1f}{unit}"
         num /= 1000.0
-    return f"{num:.1f}Yi{suffix}"
+    return f"{num:.1f}Y"

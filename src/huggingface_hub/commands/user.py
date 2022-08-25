@@ -15,7 +15,7 @@
 import subprocess
 from argparse import ArgumentParser
 from getpass import getpass
-from typing import List, Union
+from typing import List
 
 from huggingface_hub.commands import BaseHuggingfaceCLICommand
 from huggingface_hub.constants import (
@@ -28,6 +28,7 @@ from huggingface_hub.hf_api import HfApi, HfFolder
 from requests.exceptions import HTTPError
 
 from ..utils import run_subprocess
+from ._cli_utils import ANSI
 
 
 class UserCommands(BaseHuggingfaceCLICommand):
@@ -93,46 +94,6 @@ class UserCommands(BaseHuggingfaceCLICommand):
             help="Optional: answer Yes to the prompt",
         )
         repo_create_parser.set_defaults(func=lambda args: RepoCreateCommand(args))
-
-
-class ANSI:
-    """
-    Helper for en.wikipedia.org/wiki/ANSI_escape_code
-    """
-
-    _bold = "\u001b[1m"
-    _red = "\u001b[31m"
-    _gray = "\u001b[90m"
-    _reset = "\u001b[0m"
-
-    @classmethod
-    def bold(cls, s):
-        return f"{cls._bold}{s}{cls._reset}"
-
-    @classmethod
-    def red(cls, s):
-        return f"{cls._bold + cls._red}{s}{cls._reset}"
-
-    @classmethod
-    def gray(cls, s):
-        return f"{cls._gray}{s}{cls._reset}"
-
-
-def tabulate(rows: List[List[Union[str, int]]], headers: List[str]) -> str:
-    """
-    Inspired by:
-
-    - stackoverflow.com/a/8356620/593036
-    - stackoverflow.com/questions/9535954/printing-lists-as-tabular-data
-    """
-    col_widths = [max(len(str(x)) for x in col) for col in zip(*rows, headers)]
-    row_format = ("{{:{}}} " * len(headers)).format(*col_widths)
-    lines = []
-    lines.append(row_format.format(*headers))
-    lines.append(row_format.format(*["-" * w for w in col_widths]))
-    for row in rows:
-        lines.append(row_format.format(*row))
-    return "\n".join(lines)
 
 
 def currently_setup_credential_helpers(directory=None) -> List[str]:
