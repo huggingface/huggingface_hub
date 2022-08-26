@@ -287,9 +287,7 @@ def scan_cache_dir(cache_dir: Optional[Union[str, Path]] = None) -> HFCacheInfo:
     errors: List[CorruptedCacheException] = []
     for repo_path in Path(cache_dir).resolve().iterdir():
         try:
-            if repo_path.is_dir():
-                repo_info = _scan_cached_repo(repo_path)
-                repos.add(repo_info)
+            repos.add(_scan_cached_repo(repo_path))
         except CorruptedCacheException as e:
             errors.append(e)
 
