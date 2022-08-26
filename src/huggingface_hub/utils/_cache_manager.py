@@ -38,12 +38,10 @@ class CachedFileInfo:
         file_path (`Path`):
             Path of the file in the `snapshots` directory. The file path is a symlink
             referring to a blob in the `blobs` folder.
-        blob¨path (`Path`):
+        blob_path (`Path`):
             Path of the blob file. This is equivalent to `file_path.resolve()`.
         size_on_disk (`int`):
             Size of the blob file in bytes.
-
-    Read-only properties:
         size_on_disk_str (`str`):
             Size of the blob file as a human-readable string. Example: "36M".
     """
@@ -55,14 +53,39 @@ class CachedFileInfo:
 
     @property
     def size_on_disk_str(self) -> str:
+        """
+        Return size of the blob file as a human-readable string.
+
+        Example: "36M".
+        """
         return _format_size(self.size_on_disk)
 
 
 @dataclass
 class CachedRevisionInfo:
-    r"""Information about a revision (a snapshot).
+    r"""Data structure holding information about a revision.
 
-    A revision can be either referenced by 1 or more `refs` or be "detached" (no refs).
+    A revision correspond to a folder in the `snapshots` folder and is populated with
+    the exact tree structure as the repo on the Hub but contains only symlinks. A
+    revision can be either referenced by 1 or more `refs` or be "detached" (no refs).
+
+    Args:
+        commit_hash (`str`):
+            Hash of the revision (unique).
+            Example: `9338f7b671827df886678df2bdd7cc7b4f36dffd`.
+        snapshot_path (`Path`):
+            Path to the revision directory in the `snapshots` folder. It contains the
+            exact tree structure as the repo on the Hub.
+        files: (`List['CachedFileInfo']`):
+            List of all the files contained in the snapshot.
+        size_on_disk (`int`):
+            Sum of the blob files sizes that are symlink-ed by the revision.
+        refs (`Set[str]`):
+            Set of `refs` pointing to this revision. If the revision has no `refs`, it
+            is considered detached.
+            Example: `{"main", "2.4.0"}` or `{"refs/pr/1"}`.
+
+
 
     <Tip warning={true}>
 
@@ -74,9 +97,9 @@ class CachedRevisionInfo:
     """
 
     commit_hash: str
-    size_on_disk: int
-    files: List[CachedFileInfo]  # sorted by name
     snapshot_path: Path
+    files: List[CachedFileInfo]  # sorted by name
+    size_on_disk: int
     refs: Optional[Set[str]] = None
 
     @property

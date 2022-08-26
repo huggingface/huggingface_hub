@@ -169,4 +169,15 @@ Got 1 error(s) while scanning. Use -vvv to print details.
 For more advanced usage, a python utility is provided to scan your cache. You can use it
 to get a detailed report in a structured format.
 
+[[autodoc]] huggingface_hub.utils.scan_cache_dir
+
+[[autodoc]] huggingface_hub.utils.CachedRepoInfo
+    - size_on_disk_str
+    - refs
+
+[[autodoc]] huggingface_hub.utils.CachedRevisionInfo
+    - size_on_disk_str
+    - nb_files
+
 [[autodoc]] huggingface_hub.utils.CachedFileInfo
+    - size_on_disk_str
