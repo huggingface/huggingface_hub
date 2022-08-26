@@ -110,14 +110,16 @@ In practice, your cache should look like the following tree:
 ## Scan your cache
 
 At the moment, cached files are never deleted from your local directory: when you download
-a new revision of a branch, previous files would be kept in case you need them again.
+a new revision of a branch, previous files are kept in case you need them again.
+Therefore it can be useful to scan your cache directory in order to know which repos
+and revisions are taking the most disk space. `huggingface_hub` provides an helper to
+do so that can be used via `huggingface-cli` or in a python script.
 
 ### From the terminal
 
-In you need to clean you local cache to save space, you can use the `scan-cache` command
-from `huggingface-cli`. This command scans the cache and prints a report including details
-like repo id, repo type, disk usage, refs and full local path. The output is in tabular
-format so that it can be used with tools such as `grep` to filter the entries.
+The easiest way to scan your HF cache-system is to use the `scan-cache` command from
+`huggingface-cli` tool. This command scans the cache and prints a report with information
+like repo id, repo type, disk usage, refs and full local path.
 
 The snippet below shows a scan report in a folder in which 4 models and 2 datasets are
 cached.
@@ -164,16 +166,32 @@ Done in 0.0s. Scanned 6 repo(s) for a total of 3.4G.
 Got 1 error(s) while scanning. Use -vvv to print details.
 ```
 
+#### Grep example
+
+Since the output is in tabular format, you can combine it with any `grep`-like tools to
+filter the entries. Here is an example to filter only revisions from the "t5-small"
+model on a Unix-based machine.
+
+
+```text
+➜ eval "huggingface-cli scan-cache -v" | grep "t5-small"
+t5-small                    model     98ffebbb27340ec1b1abd7c45da12c253ee1882a       726.2M        6 refs/pr/1   /Users/lucain/.cache/huggingface/hub/models--t5-small/snapshots/98ffebbb27340ec1b1abd7c45da12c253ee1882a                     
+t5-small                    model     d0a119eedb3718e34c648e594394474cf95e0617       485.8M        6             /Users/lucain/.cache/huggingface/hub/models--t5-small/snapshots/d0a119eedb3718e34c648e594394474cf95e0617                     
+t5-small                    model     d78aea13fa7ecd06c29e3e46195d6341255065d5       970.7M        9 main        /Users/lucain/.cache/huggingface/hub/models--t5-small/snapshots/d78aea13fa7ecd06c29e3e46195d6341255065d5
+```
+
 ### From Python
 
-For more advanced usage, [`scan_cache_dir`] is a python utility that scans your cache.
+For a more advanced usage, use [`scan_cache_dir`] which is the python utility called by
+the CLI tool.
+
 You can use it to get a detailed report structured around 4 dataclasses:
 - [`HFCacheInfo`]: complete report returned by [`scan_cache_dir`]
 - [`CachedRepoInfo`]: information about a cached repo
 - [`CachedRevisionInfo`]: information about a cached revision (e.g. "snapshot") inside a repo
 - [`CachedFileInfo`]: information about a cached file in a snapshot
 
-Here is a simple example of the returned format. See reference for details.
+Here is a simple usage example. See reference for details.
 
 ```py
 >>> from huggingface_hub import scan_cache_dir

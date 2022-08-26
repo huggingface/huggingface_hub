@@ -76,8 +76,8 @@ class CachedRevisionInfo:
             exact tree structure as the repo on the Hub.
         size_on_disk (`int`):
             Sum of the blob file sizes that are symlink-ed by the revision.
-        files: (`FrozenSet[[`CachedFileInfo`]]`):
-            Set of [`CachedFileInfo`] describing all files contained in the snapshot.
+        files: (`FrozenSet[CachedFileInfo]`):
+            Set of [`~CachedFileInfo`] describing all files contained in the snapshot.
         refs (`FrozenSet[str]`):
             Set of `refs` pointing to this revision. If the revision has no `refs`, it
             is considered detached.
@@ -130,8 +130,8 @@ class CachedRepoInfo:
             Sum of the blob file sizes in the cached repo.
         nb_files (`int`):
             Total number of blob files in the cached repo.
-        revisions (`FrozenSet[[`CachedRevisionInfo`]]`):
-            Set of [`CachedRevisionInfo`] describing all revisions cached in the repo.
+        revisions (`FrozenSet[CachedRevisionInfo]`):
+            Set of [`~CachedRevisionInfo`] describing all revisions cached in the repo.
 
     <Tip warning={true}>
 
@@ -175,11 +175,11 @@ class HFCacheInfo:
     Args:
         size_on_disk (`int`):
             Sum of all valid repo sizes in the cache-system.
-        repos (`FrozenSet[[`CachedRepoInfo`]]`):
-            Set of [`CachedRepoInfo`] describing all valid cached repos found on the
+        repos (`FrozenSet[CachedRepoInfo]`):
+            Set of [`~CachedRepoInfo`] describing all valid cached repos found on the
             cache-system while scanning.
-        errors (`List[[`CorruptedCacheException`]]`):
-            List of [`CorruptedCacheException`] that occurred while scanning the cache.
+        errors (`List[CorruptedCacheException]`):
+            List of [`~CorruptedCacheException`] that occurred while scanning the cache.
             Those exceptions are captured so that the scan can continue. Corrupted repos
             are skipped from the scan.
 
@@ -207,11 +207,11 @@ class HFCacheInfo:
 
 
 def scan_cache_dir(cache_dir: Optional[Union[str, Path]] = None) -> HFCacheInfo:
-    """Scan the entire HF cache-system and return a [`HFCacheInfo`] structure.
+    """Scan the entire HF cache-system and return a [`~HFCacheInfo`] structure.
 
     Use `scan_cache_dir` in order to programmatically scan your cache-system. The cache
-    will be scanned repo by repo. If a repo is corrupted, a [`CorruptedCacheException`]
-    will be thrown internally but captured and returned in the [`HFCacheInfo`]
+    will be scanned repo by repo. If a repo is corrupted, a [`~CorruptedCacheException`]
+    will be thrown internally but captured and returned in the [`~HFCacheInfo`]
     structure. Only valid repos get a proper report.
 
     ```py
@@ -277,6 +277,8 @@ def scan_cache_dir(cache_dir: Optional[Union[str, Path]] = None) -> HFCacheInfo:
     Args:
         cache_dir (`str` or `Path`, `optional`):
             Cache directory to cache. Defaults to the default HF cache directory.
+
+    Returns: a [`~HFCacheInfo`] object.
     """
     if cache_dir is None:
         cache_dir = HUGGINGFACE_HUB_CACHE
@@ -301,7 +303,7 @@ def scan_cache_dir(cache_dir: Optional[Union[str, Path]] = None) -> HFCacheInfo:
 def _scan_cached_repo(repo_path: Path) -> CachedRepoInfo:
     """Scan a single cache repo and return information about it.
 
-    Any unexpected behavior will raise a [`CorruptedCacheException`].
+    Any unexpected behavior will raise a [`~CorruptedCacheException`].
     """
     if not repo_path.is_dir():
         raise CorruptedCacheException(f"Repo path is not a directory: {repo_path}")
