@@ -1,5 +1,6 @@
 import os
 import shutil
+from typing import Generator
 import unittest
 from pathlib import Path
 from tempfile import TemporaryDirectory
@@ -23,7 +24,7 @@ REPO_A_MAIN_README_BLOB_HASH = "4baf04727c45b660add228b2934001991bd34b29"
 
 
 @pytest.fixture
-def fx_cache_dir(request: SubRequest) -> None:
+def fx_cache_dir(request: SubRequest) -> Generator[None, None, None]:
     """Add a `cache_dir` attribute pointing to a temporary directory."""
     with TemporaryDirectory() as cache_dir:
         request.cls.cache_dir = Path(cache_dir).resolve()
@@ -32,7 +33,7 @@ def fx_cache_dir(request: SubRequest) -> None:
 
 @pytest.mark.usefixtures("fx_cache_dir")
 class TestValidCacheUtils(unittest.TestCase):
-    cache_dir: str
+    cache_dir: Path
 
     def setUp(self) -> None:
         """Setup a clean cache for tests."""
