@@ -166,20 +166,55 @@ Got 1 error(s) while scanning. Use -vvv to print details.
 
 ### From Python
 
-For more advanced usage, a python utility is provided to scan your cache. You can use it
-to get a detailed report in a structured format.
+For more advanced usage, [`scan_cache_dir`] is a python utility that scans your cache.
+You can use it to get a detailed report structured around 4 dataclasses:
+- [`HFCacheInfo`]: complete report returned by [`scan_cache_dir`]
+- [`CachedRepoInfo`]: information about a cached repo
+- [`CachedRevisionInfo`]: information about a cached revision (e.g. "snapshot") inside a repo
+- [`CachedFileInfo`]: information about a cached file in a snapshot
 
-[[autodoc]] huggingface_hub.utils.scan_cache_dir
+Here is a simple example of the returned format. See reference for details.
 
-[[autodoc]] huggingface_hub.utils.HFCacheInfo
+```py
+>>> from huggingface_hub import scan_cache_dir
 
-[[autodoc]] huggingface_hub.utils.CachedRepoInfo
-    - size_on_disk_str
-    - refs
-
-[[autodoc]] huggingface_hub.utils.CachedRevisionInfo
-    - size_on_disk_str
-    - nb_files
-
-[[autodoc]] huggingface_hub.utils.CachedFileInfo
-    - size_on_disk_str
+>>> hf_cache_info = scan_cache_dir()
+HFCacheInfo(
+    size_on_disk=3398085269,
+    repos=frozenset({
+        CachedRepoInfo(
+            repo_id='t5-small',
+            repo_type='model',
+            repo_path=PosixPath(...),
+            size_on_disk=970726914,
+            nb_files=11,
+            revisions=frozenset({
+                CachedRevisionInfo(
+                    commit_hash='d78aea13fa7ecd06c29e3e46195d6341255065d5',
+                    size_on_disk=970726339,
+                    snapshot_path=PosixPath(...),
+                    files=frozenset({
+                        CachedFileInfo(
+                            file_name='config.json',
+                            size_on_disk=1197
+                            file_path=PosixPath(...),
+                            blob_path=PosixPath(...),
+                        ),
+                        CachedFileInfo(...),
+                        ...
+                    }),
+                ),
+                CachedRevisionInfo(...),
+                ...
+            }),
+        ),
+        CachedRepoInfo(...),
+        ...
+    }),
+    errors=[
+        CorruptedCacheException("Snapshots dir doesn't exist in cached repo: ..."),
+        CorruptedCacheException(...),
+        ...
+    ],
+)
+```

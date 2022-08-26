@@ -35,4 +35,6 @@
       title: Utilities
     - local: package_reference/community
       title: Discussions and Pull Requests
+    - local: package_reference/cache
+      title: Cache-system reference
   title: "Reference"

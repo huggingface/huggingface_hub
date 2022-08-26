@@ -256,11 +256,10 @@ def scan_cache_dir(cache_dir: Optional[Union[str, Path]] = None) -> HFCacheInfo:
             ...
         ],
     )
-
     ```
 
     You can also print a detailed report directly from the `huggingface-cli` using:
-    ```
+    ```text
     > huggingface-cli scan-cache
     REPO ID                     REPO TYPE SIZE ON DISK NB FILES REFS                LOCAL PATH
     --------------------------- --------- ------------ -------- ------------------- -------------------------------------------------------------------------
