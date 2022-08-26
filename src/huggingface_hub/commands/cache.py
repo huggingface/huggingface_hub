@@ -84,7 +84,9 @@ class ScanCacheCommand(BaseHuggingfaceCLICommand):
                             ", ".join(repo.refs),
                             str(repo.repo_path),
                         ]
-                        for repo in hf_cache_info.repos
+                        for repo in sorted(
+                            hf_cache_info.repos, key=lambda repo: repo.repo_path
+                        )
                     ],
                     headers=[
                         "REPO ID",
@@ -109,8 +111,12 @@ class ScanCacheCommand(BaseHuggingfaceCLICommand):
                             ", ".join(revision.refs) if revision.refs else "",
                             str(revision.snapshot_path),
                         ]
-                        for repo in hf_cache_info.repos
-                        for revision in repo.revisions
+                        for repo in sorted(
+                            hf_cache_info.repos, key=lambda repo: repo.repo_path
+                        )
+                        for revision in sorted(
+                            repo.revisions, key=lambda revision: revision.commit_hash
+                        )
                     ],
                     headers=[
                         "REPO ID",
