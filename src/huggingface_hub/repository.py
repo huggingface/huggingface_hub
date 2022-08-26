@@ -595,20 +595,23 @@ class Repository:
                 - `None`, which would retrieve the value of
                   `self.huggingface_token`.
 
-        Raises:
-            `ValueError`: if the `token` cannot be identified and the `private`
-            keyword is set to `True`. The `token`
-                must be passed in order to handle private repositories.
+        <Tip>
 
-        Raises:
-            `ValueError`: if an organization token (starts with "api_org")
-            is passed.
+        Raises the following error:
 
-        Raises:
-            `EnvironmentError`: if you are trying to clone the repository in a
-            non-empty folder, or if the `git`
-                operations raise errors.
+            - [`ValueError`](https://docs.python.org/3/library/exceptions.html#ValueError)
+              if the `token` cannot be identified and the `private` keyword is set to
+              `True`. The `token` must be passed in order to handle private repositories.
 
+            - [`ValueError`](https://docs.python.org/3/library/exceptions.html#ValueError)
+              if an organization token (starts with "api_org") is passed. Use must use
+              your own personal access token (see https://hf.co/settings/tokens).
+
+            - [`EnvironmentError`](https://docs.python.org/3/library/exceptions.html#EnvironmentError)
+              if you are trying to clone the repository in a non-empty folder, or if the
+              `git` operations raise errors.
+
+        </Tip>
         """
         token = use_auth_token if use_auth_token is not None else self.huggingface_token
         if token is None and self.private:
