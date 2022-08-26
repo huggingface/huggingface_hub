@@ -1,14 +1,18 @@
 import os
 import shutil
+import sys
 import unittest
+from io import StringIO
 from pathlib import Path
 from tempfile import TemporaryDirectory
 from typing import Generator
+from unittest.mock import Mock
 
 import pytest
 
 from _pytest.fixtures import SubRequest
 from huggingface_hub._snapshot_download import snapshot_download
+from huggingface_hub.commands.cache import ScanCacheCommand
 from huggingface_hub.utils import scan_cache_dir
 
 from .testing_constants import TOKEN
@@ -36,7 +40,7 @@ class TestValidCacheUtils(unittest.TestCase):
     cache_dir: Path
 
     def setUp(self) -> None:
-        """Setup a clean cache for tests."""
+        """Setup a clean cache for tests that will remain valid in all tests."""
         # Download latest main
         snapshot_download(
             repo_id=VALID_MODEL_ID,
@@ -159,6 +163,62 @@ class TestValidCacheUtils(unittest.TestCase):
         )  # different
         self.assertEquals(pr_1_readme_file.blob_path, main_readme_blob_path)  # same
 
+    def test_cli_scan_cache_quiet(self) -> None:
+        """Test output from CLI scan cache with non verbose output.
+
+        End-to-end test just to see if output is in expected format.
+        """
+        output = StringIO()
+        args = Mock()
+        args.verbose = 0
+        args.dir = self.cache_dir
+
+        # Taken from https://stackoverflow.com/a/34738440
+        previous_output = sys.stdout
+        sys.stdout = output
+        ScanCacheCommand(args).run()
+        sys.stdout = previous_output
+
+        expected_output = f"""
+        REPO ID                       REPO TYPE SIZE ON DISK NB FILES REFS            LOCAL PATH
+        ----------------------------- --------- ------------ -------- --------------- -------------------------------------------------------------------------------------------------------------
+        valid_org/test_scan_dataset_b dataset           2.2K        2 main            {self.cache_dir}/datasets--valid_org--test_scan_dataset_b
+        valid_org/test_scan_repo_a    model             1.4K        4 main, refs/pr/1 {self.cache_dir}/models--valid_org--test_scan_repo_a
+
+        Done in 0.0s. Scanned 2 repo(s) for a total of \x1b[1m\x1b[31m3.5K\x1b[0m.
+        """
+
+        self.assertListEqual(output.getvalue().split(), expected_output.split())
+
+    def test_cli_scan_cache_verbose(self) -> None:
+        """Test output from CLI scan cache with verbose output.
+
+        End-to-end test just to see if output is in expected format.
+        """
+        output = StringIO()
+        args = Mock()
+        args.verbose = 1
+        args.dir = self.cache_dir
+
+        # Taken from https://stackoverflow.com/a/34738440
+        previous_output = sys.stdout
+        sys.stdout = output
+        ScanCacheCommand(args).run()
+        sys.stdout = previous_output
+
+        expected_output = f"""
+        REPO ID                       REPO TYPE REVISION                                 SIZE ON DISK NB FILES REFS      LOCAL PATH
+        ----------------------------- --------- ---------------------------------------- ------------ -------- --------- ----------------------------------------------------------------------------------------------------------------------------------------------------------------
+        valid_org/test_scan_dataset_b dataset   1ac47c6f707cbc4825c2aa431ad5ab8cf09e60ed         2.2K        2 main      {self.cache_dir}/datasets--valid_org--test_scan_dataset_b/snapshots/1ac47c6f707cbc4825c2aa431ad5ab8cf09e60ed
+        valid_org/test_scan_repo_a    model     1da18ebd9185d146bcf84e308de53715d97d67d1         1.3K        1           {self.cache_dir}/models--valid_org--test_scan_repo_a/snapshots/1da18ebd9185d146bcf84e308de53715d97d67d1
+        valid_org/test_scan_repo_a    model     401874e6a9c254a8baae85edd8a073921ecbd7f5         1.4K        3 main      {self.cache_dir}/models--valid_org--test_scan_repo_a/snapshots/401874e6a9c254a8baae85edd8a073921ecbd7f5
+        valid_org/test_scan_repo_a    model     fc674b0d440d3ea6f94bc4012e33ebd1dfc11b5b         1.4K        4 refs/pr/1 {self.cache_dir}/models--valid_org--test_scan_repo_a/snapshots/fc674b0d440d3ea6f94bc4012e33ebd1dfc11b5b
+
+        Done in 0.0s. Scanned 2 repo(s) for a total of \x1b[1m\x1b[31m3.5K\x1b[0m.
+        """
+
+        self.assertListEqual(output.getvalue().split(), expected_output.split())
+
 
 @pytest.mark.usefixtures("fx_cache_dir")
 class TestCorruptedCacheUtils(unittest.TestCase):
@@ -166,7 +226,7 @@ class TestCorruptedCacheUtils(unittest.TestCase):
     repo_path: Path
 
     def setUp(self) -> None:
-        """Setup a clean cache for tests with a single repo."""
+        """Setup a clean cache for tests that will get corrupted in tests."""
         # Download latest main
         snapshot_download(
             repo_id=VALID_MODEL_ID,

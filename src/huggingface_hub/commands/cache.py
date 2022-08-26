@@ -31,7 +31,7 @@ class ScanCacheCommand(BaseHuggingfaceCLICommand):
 
         scan_cache_parser.add_argument(
             "--dir",
-            type=Optional[str],
+            type=str,
             default=None,
             help=(
                 "cache directory to scan (optional). Default to the"
@@ -81,7 +81,7 @@ class ScanCacheCommand(BaseHuggingfaceCLICommand):
                             repo.repo_type,
                             "{:>12}".format(repo.size_on_disk_str),
                             repo.nb_files,
-                            ", ".join(repo.refs),
+                            ", ".join(sorted(repo.refs)),
                             str(repo.repo_path),
                         ]
                         for repo in sorted(
@@ -108,7 +108,7 @@ class ScanCacheCommand(BaseHuggingfaceCLICommand):
                             revision.commit_hash,
                             "{:>12}".format(revision.size_on_disk_str),
                             revision.nb_files,
-                            ", ".join(revision.refs) if revision.refs else "",
+                            ", ".join(sorted(revision.refs)),
                             str(revision.snapshot_path),
                         ]
                         for repo in sorted(
