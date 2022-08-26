@@ -30,16 +30,28 @@ class CorruptedCacheException(Exception):
 
 @dataclass
 class CachedFileInfo:
-    """Information about a single file.
+    """Data structure holding information about a single cached file.
 
-    The file path is a symlink existing in the `snapshots` folder and referring to a
-    blob in the `blobs` folder.
+    Args:
+        file_name (`str`):
+            Name of the file. Example: `config.json`.
+        file_path (`Path`):
+            Path of the file in the `snapshots` directory. The file path is a symlink
+            referring to a blob in the `blobs` folder.
+        blob¨path (`Path`):
+            Path of the blob file. This is equivalent to `file_path.resolve()`.
+        size_on_disk (`int`):
+            Size of the blob file in bytes.
+
+    Read-only properties:
+        size_on_disk_str (`str`):
+            Size of the blob file as a human-readable string. Example: "36M".
     """
 
     file_name: str
     file_path: Path
-    size_on_disk: int
     blob_path: Path
+    size_on_disk: int
 
     @property
     def size_on_disk_str(self) -> str:
@@ -52,9 +64,13 @@ class CachedRevisionInfo:
 
     A revision can be either referenced by 1 or more `refs` or be "detached" (no refs).
 
-    /!\ `size_on_disk` is not necesarily the sum of all file sizes because of possible
-        duplicated files. Also only blobs are taken into account, not the (neglectable)
-        size of folders and symlinks.
+    <Tip warning={true}>
+
+    `size_on_disk` is not necessarily the sum of all file sizes because of possible
+    duplicated files. Besides, only blobs are taken into account, not the (negligible)
+    size of folders and symlinks.
+
+    </Tip>
     """
 
     commit_hash: str
@@ -76,9 +92,13 @@ class CachedRevisionInfo:
 class CachedRepoInfo:
     r"""Information about a cached repository (dataset or model).
 
-    /!\ `size_on_disk` is not necessarily the sum of all revisions sizes because of
-        duplicated files. Also only blobs are taken into account, not the (negligible)
-        size of folders and symlinks.
+    <Tip warning={true}>
+
+    `size_on_disk` is not necessarily the sum of all revisions sizes because of
+    duplicated files. Besides, only blobs are taken into account, not the (negligible)
+    size of folders and symlinks.
+
+    </Tip>
     """
 
     repo_id: str
@@ -108,7 +128,11 @@ class CachedRepoInfo:
 class HFCacheInfo:
     r"""Information about the entire cache repository.
 
-    /!\ Here `size_on_disk` is equal to the sum of all repo sizes (only blobs).
+    <Tip warning={true}>
+
+    Here `size_on_disk` is equal to the sum of all repo sizes (only blobs).
+
+    </Tip>
     """
 
     repos: List[CachedRepoInfo]
@@ -127,7 +151,7 @@ def scan_cache_dir(cache_dir: Optional[Union[str, Path]] = None) -> HFCacheInfo:
 
     repos: List[CachedRepoInfo] = []
     errors: List[CorruptedCacheException] = []
-    for repo_path in Path(cache_dir).iterdir():
+    for repo_path in Path(cache_dir).resolve().iterdir():
         try:
             if repo_path.is_dir():
                 repo_info = _scan_cached_repo(repo_path)
