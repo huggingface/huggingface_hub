@@ -25,7 +25,7 @@ REPO_TYPE_T = Literal["model", "dataset", "space"]
 
 
 class CorruptedCacheException(Exception):
-    """Exception for any unexpected structure in the huggingface cache."""
+    """Exception for any unexpected structure in the Huggingface cache-system."""
 
 
 @dataclass(frozen=True)
@@ -42,8 +42,6 @@ class CachedFileInfo:
             Path of the blob file. This is equivalent to `file_path.resolve()`.
         size_on_disk (`int`):
             Size of the blob file in bytes.
-        size_on_disk_str (`str`):
-            Size of the blob file as a human-readable string. Example: "36M".
     """
 
     file_name: str
@@ -54,16 +52,16 @@ class CachedFileInfo:
     @property
     def size_on_disk_str(self) -> str:
         """
-        Return size of the blob file as a human-readable string.
+        (property) Size of the blob file as a human-readable string.
 
-        Example: "36M".
+        Example: "42.2K".
         """
         return _format_size(self.size_on_disk)
 
 
 @dataclass(frozen=True)
 class CachedRevisionInfo:
-    r"""Frozen data structure holding information about a revision.
+    """Frozen data structure holding information about a revision.
 
     A revision correspond to a folder in the `snapshots` folder and is populated with
     the exact tree structure as the repo on the Hub but contains only symlinks. A
@@ -77,12 +75,12 @@ class CachedRevisionInfo:
             Path to the revision directory in the `snapshots` folder. It contains the
             exact tree structure as the repo on the Hub.
         size_on_disk (`int`):
-            Sum of the blob files sizes that are symlink-ed by the revision.
-        files: (`Set['CachedFileInfo']`):
-            Set of `CachedFileInfo` describing all files contained in the snapshot.
-        refs (`Set[str]`):
-            Immutable set of `refs` pointing to this revision. If the revision has no
-            `refs`, it is considered detached.
+            Sum of the blob file sizes that are symlink-ed by the revision.
+        files: (`FrozenSet[[`CachedFileInfo`]]`):
+            Set of [`CachedFileInfo`] describing all files contained in the snapshot.
+        refs (`FrozenSet[str]`):
+            Set of `refs` pointing to this revision. If the revision has no `refs`, it
+            is considered detached.
             Example: `{"main", "2.4.0"}` or `{"refs/pr/1"}`.
 
     <Tip warning={true}>
@@ -102,16 +100,38 @@ class CachedRevisionInfo:
 
     @property
     def size_on_disk_str(self) -> str:
+        """
+        (property) Sum of the blob file sizes as a human-readable string.
+
+        Example: "42.2K".
+        """
         return _format_size(self.size_on_disk)
 
     @property
     def nb_files(self) -> int:
+        """
+        (property) Total number of files in the revision.
+        """
         return len(self.files)
 
 
 @dataclass(frozen=True)
 class CachedRepoInfo:
-    r"""Frozen data structure holding information about a cached repository.
+    """Frozen data structure holding information about a cached repository.
+
+    Args:
+        repo_id (`str`):
+            Repo id of the repo on the Hub. Example: `"google/fleurs"`.
+        repo_type (`Literal["dataset", "model", "space"]`):
+            Type of the cached repo.
+        repo_path (`Path`):
+            Local path to the cached repo.
+        size_on_disk (`int`):
+            Sum of the blob file sizes in the cached repo.
+        nb_files (`int`):
+            Total number of blob files in the cached repo.
+        revisions (`FrozenSet[[`CachedRevisionInfo`]]`):
+            Set of [`CachedRevisionInfo`] describing all revisions cached in the repo.
 
     <Tip warning={true}>
 
@@ -125,48 +145,140 @@ class CachedRepoInfo:
     repo_id: str
     repo_type: REPO_TYPE_T
     repo_path: Path
-    revisions: FrozenSet[CachedRevisionInfo]
     size_on_disk: int
     nb_files: int
+    revisions: FrozenSet[CachedRevisionInfo]
 
     @property
     def size_on_disk_str(self) -> str:
-        """Human-readable sizes"""
+        """
+        (property) Sum of the blob file sizes as a human-readable string.
+
+        Example: "42.2K".
+        """
         return _format_size(self.size_on_disk)
 
     @property
     def refs(self) -> Dict[str, CachedRevisionInfo]:
-        """Mapping between refs and revision infos."""
-        refs = {}
-        for revision in self.revisions:
-            if revision.refs is not None:
-                for ref in revision.refs:
-                    refs[ref] = revision
-        return refs
+        """
+        (property) Mapping between `refs` and revision data structures.
+        """
+        return {ref: revision for revision in self.revisions for ref in revision.refs}
 
 
 @dataclass(frozen=True)
 class HFCacheInfo:
-    r"""Frozen data structure holding information about the entire cache-system.
+    """Frozen data structure holding information about the entire cache-system.
+
+    This data structure is returned by [`scan_cache_dir`] and is immutable.
+
+    Args:
+        size_on_disk (`int`):
+            Sum of all valid repo sizes in the cache-system.
+        repos (`FrozenSet[[`CachedRepoInfo`]]`):
+            Set of [`CachedRepoInfo`] describing all valid cached repos found on the
+            cache-system while scanning.
+        errors (`List[[`CorruptedCacheException`]]`):
+            List of [`CorruptedCacheException`] that occurred while scanning the cache.
+            Those exceptions are captured so that the scan can continue. Corrupted repos
+            are skipped from the scan.
 
     <Tip warning={true}>
 
-    Here `size_on_disk` is equal to the sum of all repo sizes (only blobs).
+    Here `size_on_disk` is equal to the sum of all repo sizes (only blobs). However if
+    some cached repos are corrupted, their sizes are not taken into account.
 
     </Tip>
     """
 
-    repos: FrozenSet[CachedRepoInfo]
     size_on_disk: int
+    repos: FrozenSet[CachedRepoInfo]
     errors: List[CorruptedCacheException]
 
     @property
     def size_on_disk_str(self) -> str:
+        """
+        (property) Sum of all valid repo sizes in the cache-system as a human-readable
+        string.
+
+        Example: "42.2K".
+        """
         return _format_size(self.size_on_disk)
 
 
 def scan_cache_dir(cache_dir: Optional[Union[str, Path]] = None) -> HFCacheInfo:
-    """Scan the entire cache directory and return information about it."""
+    """Scan the entire HF cache-system and return a [`HFCacheInfo`] structure.
+
+    Use `scan_cache_dir` in order to programmatically scan your cache-system. The cache
+    will be scanned repo by repo. If a repo is corrupted, a [`CorruptedCacheException`]
+    will be thrown internally but captured and returned in the [`HFCacheInfo`]
+    structure. Only valid repos get a proper report.
+
+    ```py
+    >>> from huggingface_hub import scan_cache_dir
+
+    >>> hf_cache_info = scan_cache_dir()
+    HFCacheInfo(
+        size_on_disk=3398085269,
+        repos=frozenset({
+            CachedRepoInfo(
+                repo_id='t5-small',
+                repo_type='model',
+                repo_path=PosixPath(...),
+                size_on_disk=970726914,
+                nb_files=11,
+                revisions=frozenset({
+                    CachedRevisionInfo(
+                        commit_hash='d78aea13fa7ecd06c29e3e46195d6341255065d5',
+                        size_on_disk=970726339,
+                        snapshot_path=PosixPath(...),
+                        files=frozenset({
+                            CachedFileInfo(
+                                file_name='config.json',
+                                size_on_disk=1197
+                                file_path=PosixPath(...),
+                                blob_path=PosixPath(...),
+                            ),
+                            CachedFileInfo(...),
+                            ...
+                        }),
+                    ),
+                    CachedRevisionInfo(...),
+                    ...
+                }),
+            ),
+            CachedRepoInfo(...),
+            ...
+        }),
+        errors=[
+            CorruptedCacheException("Snapshots dir doesn't exist in cached repo: ..."),
+            CorruptedCacheException(...),
+            ...
+        ],
+    )
+
+    ```
+
+    You can also print a detailed report directly from the `huggingface-cli` using:
+    ```
+    > huggingface-cli scan-cache
+    REPO ID                     REPO TYPE SIZE ON DISK NB FILES REFS                LOCAL PATH
+    --------------------------- --------- ------------ -------- ------------------- -------------------------------------------------------------------------
+    glue                        dataset         116.3K       15 1.17.0, main, 2.4.0 /Users/lucain/.cache/huggingface/hub/datasets--glue
+    google/fleurs               dataset          64.9M        6 main, refs/pr/1     /Users/lucain/.cache/huggingface/hub/datasets--google--fleurs
+    Jean-Baptiste/camembert-ner model           441.0M        7 main                /Users/lucain/.cache/huggingface/hub/models--Jean-Baptiste--camembert-ner
+    bert-base-cased             model             1.9G       13 main                /Users/lucain/.cache/huggingface/hub/models--bert-base-cased
+    t5-base                     model            10.1K        3 main                /Users/lucain/.cache/huggingface/hub/models--t5-base
+    t5-small                    model           970.7M       11 refs/pr/1, main     /Users/lucain/.cache/huggingface/hub/models--t5-small
+
+    Done in 0.0s. Scanned 6 repo(s) for a total of 3.4G.
+    Got 1 error(s) while scanning. Use -vvv to print details.
+    ```
+
+    Args:
+        cache_dir (`str` or `Path`, `optional`):
+            Cache directory to cache. Defaults to the default HF cache directory.
+    """
     if cache_dir is None:
         cache_dir = HUGGINGFACE_HUB_CACHE
 
@@ -190,7 +302,7 @@ def scan_cache_dir(cache_dir: Optional[Union[str, Path]] = None) -> HFCacheInfo:
 def _scan_cached_repo(repo_path: Path) -> CachedRepoInfo:
     """Scan a single cache repo and return information about it.
 
-    Any unexpected behavior will raise a `CorruptedCacheException`.
+    Any unexpected behavior will raise a [`CorruptedCacheException`].
     """
     if not repo_path.is_dir():
         raise CorruptedCacheException(f"Repo path is not a directory: {repo_path}")
