@@ -188,7 +188,10 @@ class TestValidCacheUtils(unittest.TestCase):
         Done in 0.0s. Scanned 2 repo(s) for a total of \x1b[1m\x1b[31m3.5K\x1b[0m.
         """
 
-        self.assertListEqual(output.getvalue().split(), expected_output.split())
+        self.assertListEqual(
+            output.getvalue().replace("-", "").split(),
+            expected_output.replace("-", "").split(),
+        )
 
     def test_cli_scan_cache_verbose(self) -> None:
         """Test output from CLI scan cache with verbose output.
@@ -217,7 +220,10 @@ class TestValidCacheUtils(unittest.TestCase):
         Done in 0.0s. Scanned 2 repo(s) for a total of \x1b[1m\x1b[31m3.5K\x1b[0m.
         """
 
-        self.assertListEqual(output.getvalue().split(), expected_output.split())
+        self.assertListEqual(
+            output.getvalue().replace("-", "").split(),
+            expected_output.replace("-", "").split(),
+        )
 
 
 @pytest.mark.usefixtures("fx_cache_dir")
