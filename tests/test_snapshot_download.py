@@ -12,7 +12,6 @@ from huggingface_hub.hf_api import HfFolder
 from huggingface_hub.utils import logging
 
 from .testing_constants import ENDPOINT_STAGING, TOKEN, USER
-
 from .testing_utils import (
     expect_deprecation,
     retry_endpoint,
