@@ -38,7 +38,8 @@ ALL_TASKS = [
     "image-segmentation",
     "text-to-image",
     # Others
-    "structured-data-classification",
+    "tabular-classification",
+    "tabular-regression",
 ]
 
 

@@ -882,6 +882,11 @@ class CommitApiTest(HfApiCommonTestWithLogin):
                     parent_commit=parent_commit,
                 )
             self.assertEqual(exc_ctx.exception.response.status_code, 412)
+            self.assertIn(
+                # Check the server message is added to the exception
+                "A commit has happened since. Please refresh and try again.",
+                str(exc_ctx.exception),
+            )
         except Exception as err:
             self.fail(err)
         finally:
@@ -959,6 +964,14 @@ class HfApiPublicTest(unittest.TestCase):
         self.assertIsInstance(model, ModelInfo)
         self.assertEqual(model.sha, DUMMY_MODEL_ID_REVISION_ONE_SPECIFIC_COMMIT)
 
+    # TODO; un-skip this test once it's fixed.
+    @unittest.skip(
+        "Security status is currently unreliable on the server endpoint, so this"
+        " test occasionally fails. Issue is tracked in"
+        " https://github.com/huggingface/huggingface_hub/issues/1002 and"
+        " https://github.com/huggingface/moon-landing/issues/3695. TODO: un-skip"
+        " this test once it's fixed."
+    )
     @with_production_testing
     def test_model_info_with_security(self):
         _api = HfApi()

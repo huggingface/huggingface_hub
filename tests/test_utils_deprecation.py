@@ -68,3 +68,41 @@ class TestDeprecationUtils(unittest.TestCase):
 
         with pytest.warns(FutureWarning):
             dummy_b_c_deprecated("A", b="B", c="C")
+
+    def test_deprecate_arguments_with_default_warning_message(self) -> None:
+        """Test default warning message when deprecating arguments."""
+
+        @_deprecate_arguments(version="xxx", deprecated_args={"a"})
+        def dummy_deprecated_default_message(a: str = "a") -> None:
+            pass
+
+        # Default message
+        with pytest.warns(FutureWarning) as record:
+            dummy_deprecated_default_message(a="a")
+        self.assertEqual(len(record), 1)
+        self.assertEqual(
+            record[0].message.args[0],
+            "Deprecated argument(s) used in 'dummy_deprecated_default_message': a. Will"
+            " not be supported from version 'xxx'.",
+        )
+
+    def test_deprecate_arguments_with_custom_warning_message(self) -> None:
+        """Test custom warning message when deprecating arguments."""
+
+        @_deprecate_arguments(
+            version="xxx",
+            deprecated_args={"a"},
+            custom_message="This is a custom message.",
+        )
+        def dummy_deprecated_custom_message(a: str = "a") -> None:
+            pass
+
+        # Custom message
+        with pytest.warns(FutureWarning) as record:
+            dummy_deprecated_custom_message(a="a")
+        self.assertEqual(len(record), 1)
+        self.assertEqual(
+            record[0].message.args[0],
+            "Deprecated argument(s) used in 'dummy_deprecated_custom_message': a. Will"
+            " not be supported from version 'xxx'.\n\nThis is a custom message.",
+        )
