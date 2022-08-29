@@ -141,7 +141,7 @@ class RepositoryTest(RepositoryCommonTest):
     def test_clone_from_deprecation_warning(self):
         with pytest.warns(
             FutureWarning,
-            match="Creating a repository through clone_from is deprecated*",
+            match="Creating a repository through 'clone_from' is deprecated*",
         ):
             Repository(
                 WORKING_REPO_DIR,
