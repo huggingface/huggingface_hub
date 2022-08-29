@@ -137,7 +137,7 @@ class RepositoryTest(RepositoryCommonTest):
                 repo_type="space",
                 use_auth_token=self._token,
             )
-    
+
     @expect_deprecation("clone_from")
     def test_clone_from_deprecation_warning(self):
         Repository(
