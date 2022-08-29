@@ -476,7 +476,6 @@ class RepositoryTest(RepositoryCommonTest):
         self.assertTrue("model.bin" in files)
 
     @retry_endpoint
-    @expect_deprecation("clone_from")
     def test_clone_with_repo_name_and_user_namespace(self):
         clone = Repository(
             f"{WORKING_REPO_DIR}/{self.REPO_NAME}",
