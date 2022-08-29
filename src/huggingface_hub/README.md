@@ -2,15 +2,49 @@
 
 ## Download files from the Hub
 
-Three utility functions are provided to dowload files from the Hub. One
-advantage of using them is that files are cached locally, so you won't have to
+The `hf_hub_download()` function is the main function to download files from the Hub. One
+advantage of using it is that files are cached locally, so you won't have to
 download the files multiple times. If there are changes in the repository, the
 files will be automatically downloaded again.
 
+
+### `hf_hub_download`
+
+The function takes the following parameters, downloads the remote file,
+stores it to disk (in a version-aware way) and returns its local file path.
+
+Parameters:
+- a `repo_id` (a user or organization name and a repo name, separated by `/`, like `julien-c/EsperBERTo-small`)
+- a `filename` (like `pytorch_model.bin`)
+- an optional Git revision id (can be a branch name, a tag, or a commit hash)
+- a `cache_dir` which you can specify if you want to control where on disk the
+  files are cached.
+
+```python
+from huggingface_hub import hf_hub_download
+hf_hub_download("lysandre/arxiv-nlp", filename="config.json")
+```
+
+### `snapshot_download`
+
+Using `hf_hub_download()` works well when you know which files you want to download;
+for example a model file alongside a configuration file, both with static names.
+There are cases in which you will prefer to download all the files of the remote
+repository at a specified revision. That's what `snapshot_download()` does. It
+downloads and stores a remote repository to disk (in a versioning-aware way) and
+returns its local file path.
+
+Parameters:
+- a `repo_id` in the format `namespace/repository`
+- a `revision` on which the repository will be downloaded
+- a `cache_dir` which you can specify if you want to control where on disk the
+  files are cached
+
 ### `hf_hub_url`
 
-`hf_hub_url()` returns the url we'll use to download the actual files:
+Internally, the library uses `hf_hub_url()` to return the URL to download the actual files:
 `https://huggingface.co/julien-c/EsperBERTo-small/resolve/main/pytorch_model.bin`
+
 
 Parameters:
 - a `repo_id` (a user or organization name and a repo name seperated by a `/`, like `julien-c/EsperBERTo-small`)
@@ -28,59 +62,6 @@ that:
   Cloudfront URL. Cloudfront is a Content Delivery Network, or CDN, that ensures
   that downloads are as fast as possible from anywhere on the globe.
 
-### `cached_download`
-
-`cached_download()` takes the following parameters, downloads the remote file,
-stores it to disk (in a versioning-aware way) and returns its local file path.
-
-Parameters:
-- a remote `url`
-- a `cache_dir` which you can specify if you want to control where on disk the
-  files are cached.
-
-A common use case is to download the files from a download url
-
-```python
-from huggingface_hub import hf_hub_url, cached_download
-config_file_url = hf_hub_url("lysandre/arxiv-nlp", filename="config.json")
-cached_download(config_file_url)
-```
-
-Check out the [source code](https://github.com/huggingface/huggingface_hub/blob/main/src/huggingface_hub/file_download.py) and search for `cached_download` for all possible params (we'll create a real doc page
-in the future).
-
-### `hf_hub_download`
-
-Since the use case of combining `hf_hub_url()` and `cached_download()` is very
-common, we also provide a wrapper that calls both functions.
-
-Parameters:
-- a `repo_id` (a user or organization name and a repo name, separated by `/`, like `julien-c/EsperBERTo-small`)
-- a `filename` (like `pytorch_model.bin`)
-- an optional Git revision id (can be a branch name, a tag, or a commit hash)
-- a `cache_dir` which you can specify if you want to control where on disk the
-  files are cached.
-
-```python
-from huggingface_hub import hf_hub_download
-hf_hub_download("lysandre/arxiv-nlp", filename="config.json")
-```
-
-### `snapshot_download`
-
-Using `hf_hub_download()` works well when you have a fixed repository structure;
-for example a model file alongside a configuration file, both with static names.
-There are cases in which you will prefer to download all the files of the remote
-repository at a specified revision. That's what `snapshot_download()` does. It
-downloads and stores a remote repository to disk (in a versioning-aware way) and
-returns its local file path.
-
-Parameters:
-- a `repo_id` in the format `namespace/repository`
-- a `revision` on which the repository will be downloaded
-- a `cache_dir` which you can specify if you want to control where on disk the
-  files are cached
-
 <br>
 
 ## Publish files to the Hub
@@ -92,7 +73,7 @@ to the Hub: https://huggingface.co/docs/hub/adding-a-model.
 
 ### API utilities in `hf_api.py`
 
-You don't need them for the standard publishing workflow, however, if you need a
+You don't need them for the standard publishing workflow (ie. using git command line), however, if you need a
 programmatic way of creating a repo, deleting it (`⚠️ caution`), pushing a
 single file to a repo or listing models from the Hub, you'll find helpers in
 `hf_api.py`. Some example functionality available with the `HfApi` class:
@@ -105,6 +86,7 @@ single file to a repo or listing models from the Hub, you'll find helpers in
 * `list_repo_objects()`
 * `delete_repo()`
 * `update_repo_visibility()`
+* `create_commit()`
 * `upload_file()`
 * `delete_file()`
 
@@ -126,7 +108,10 @@ With the `HfApi` class there are methods to query models, datasets, and metrics 
   - `list_datasets()`
   - `dataset_info()`
   - `get_dataset_tags()`
-  
+- **Spaces**:
+  - `list_spaces()`
+  - `space_info()`
+
 These lightly wrap around the API Endpoints. Documentation for valid parameters and descriptions can be found [here](https://huggingface.co/docs/hub/endpoints).
   
 
@@ -297,7 +282,7 @@ if other errors happen in your script (a failed push counts as done).
 
 ### Need to upload very large (>5GB) files?
 
-To upload large files (>5GB 🔥), you need to install the custom transfer agent
+To upload large files (>5GB 🔥) from git command-line, you need to install the custom transfer agent
 for git-lfs, bundled in this package. 
 
 To install, just run:

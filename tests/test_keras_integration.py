@@ -1,14 +1,13 @@
 import json
 import os
+import re
 import shutil
 import tempfile
-import time
 import unittest
-import uuid
 
 import pytest
 
-from huggingface_hub import HfApi
+from huggingface_hub import HfApi, hf_hub_download
 from huggingface_hub.file_download import (
     is_graphviz_available,
     is_pydot_available,
@@ -20,14 +19,16 @@ from huggingface_hub.keras_mixin import (
     push_to_hub_keras,
     save_pretrained_keras,
 )
+from huggingface_hub.repository import Repository
 from huggingface_hub.utils import logging
 
 from .testing_constants import ENDPOINT_STAGING, TOKEN, USER
-from .testing_utils import retry_endpoint, set_write_permission_and_retry
-
-
-def repo_name(id=uuid.uuid4().hex[:6]):
-    return "keras-repo-{0}-{1}".format(id, int(time.time() * 10e3))
+from .testing_utils import (
+    expect_deprecation,
+    repo_name,
+    retry_endpoint,
+    set_write_permission_and_retry,
+)
 
 
 logger = logging.get_logger(__name__)
@@ -35,6 +36,10 @@ logger = logging.get_logger(__name__)
 WORKING_REPO_SUBDIR = f"fixtures/working_repo_{__name__.split('.')[-1]}"
 WORKING_REPO_DIR = os.path.join(
     os.path.dirname(os.path.abspath(__file__)), WORKING_REPO_SUBDIR
+)
+
+PUSH_TO_HUB_KERAS_WARNING_REGEX = re.escape(
+    "Deprecated argument(s) used in 'push_to_hub_keras':"
 )
 
 if is_tf_available():
@@ -152,10 +157,43 @@ class HubMixingTestKeras(unittest.TestCase):
         self.assertDictEqual(model.config, {"num": 10, "act": "gelu_fast"})
 
     @retry_endpoint
-    def test_push_to_hub(self):
-        REPO_NAME = repo_name("PUSH_TO_HUB")
+    def test_push_to_hub_keras_mixin_via_http_basic(self):
+        REPO_NAME = repo_name("PUSH_TO_HUB_KERAS_via_http")
+        repo_id = f"{USER}/{REPO_NAME}"
+
         model = DummyModel()
         model(model.dummy_inputs)
+
+        model.push_to_hub(
+            repo_id=repo_id,
+            api_endpoint=ENDPOINT_STAGING,
+            token=self._token,
+            config={"num": 7, "act": "gelu_fast"},
+        )
+
+        # Test model id exists
+        model_info = self._api.model_info(repo_id, token=self._token)
+        self.assertEqual(model_info.modelId, repo_id)
+
+        # Test config has been pushed to hub
+        tmp_config_path = hf_hub_download(
+            repo_id=repo_id, filename="config.json", use_auth_token=self._token
+        )
+        with open(tmp_config_path) as f:
+            self.assertEqual(json.load(f), {"num": 7, "act": "gelu_fast"})
+
+        # Delete tmp file and repo
+        os.remove(tmp_config_path)
+        self._api.delete_repo(repo_id=repo_id, token=self._token)
+
+    @retry_endpoint
+    @expect_deprecation("push_to_hub")
+    def test_push_to_hub_keras_mixin_via_git_deprecated(self):
+        REPO_NAME = repo_name("PUSH_TO_HUB_KERAS_via_git")
+        repo_id = f"{USER}/{REPO_NAME}"
+        model = DummyModel()
+        model(model.dummy_inputs)
+
         model.push_to_hub(
             repo_path_or_name=f"{WORKING_REPO_DIR}/{REPO_NAME}",
             api_endpoint=ENDPOINT_STAGING,
@@ -165,12 +203,9 @@ class HubMixingTestKeras(unittest.TestCase):
             config={"num": 7, "act": "gelu_fast"},
         )
 
-        model_info = self._api.model_info(
-            f"{USER}/{REPO_NAME}",
-        )
-        self.assertEqual(model_info.modelId, f"{USER}/{REPO_NAME}")
-
-        self._api.delete_repo(repo_id=f"{REPO_NAME}", token=self._token)
+        model_info = self._api.model_info(repo_id)
+        self.assertEqual(model_info.modelId, repo_id)
+        self._api.delete_repo(repo_id=repo_id, token=self._token)
 
 
 @require_tf
@@ -367,10 +402,46 @@ class HubKerasSequentialTest(HubMixingTestKeras):
         self.assertTrue(new_model.config == {"num": 10, "act": "gelu_fast"})
 
     @retry_endpoint
-    def test_push_to_hub(self):
+    def test_push_to_hub_keras_sequential_via_http_basic(self):
         REPO_NAME = repo_name("PUSH_TO_HUB")
+        repo_id = f"{USER}/{REPO_NAME}"
+        model = self.model_init()
+        model = self.model_fit(model)
+
+        push_to_hub_keras(
+            model, repo_id=repo_id, token=self._token, api_endpoint=ENDPOINT_STAGING
+        )
+        model_info = HfApi(endpoint=ENDPOINT_STAGING).model_info(repo_id)
+        self.assertEqual(model_info.modelId, repo_id)
+        self.assertTrue("README.md" in [f.rfilename for f in model_info.siblings])
+        self.assertTrue("model.png" in [f.rfilename for f in model_info.siblings])
+        self._api.delete_repo(repo_id=repo_id, token=self._token)
+
+    @retry_endpoint
+    def test_push_to_hub_keras_sequential_via_http_plot_false(self):
+        REPO_NAME = repo_name("PUSH_TO_HUB")
+        repo_id = f"{USER}/{REPO_NAME}"
+        model = self.model_init()
+        model = self.model_fit(model)
+
+        push_to_hub_keras(
+            model,
+            repo_id=repo_id,
+            token=self._token,
+            api_endpoint=ENDPOINT_STAGING,
+            plot_model=False,
+        )
+        model_info = HfApi(endpoint=ENDPOINT_STAGING).model_info(repo_id)
+        self.assertFalse("model.png" in [f.rfilename for f in model_info.siblings])
+        self._api.delete_repo(repo_id=repo_id, token=self._token)
+
+    @retry_endpoint
+    @expect_deprecation("push_to_hub_keras")
+    def test_push_to_hub_keras_sequential_via_git_deprecated(self):
+        REPO_NAME = repo_name("PUSH_TO_HUB_KERAS_sequential_via_git")
         model = self.model_init()
         model.build((None, 2))
+
         push_to_hub_keras(
             model,
             repo_path_or_name=f"{WORKING_REPO_DIR}/{REPO_NAME}",
@@ -382,56 +453,17 @@ class HubKerasSequentialTest(HubMixingTestKeras):
             include_optimizer=False,
         )
 
-        model_info = HfApi(endpoint=ENDPOINT_STAGING).model_info(
-            f"{USER}/{REPO_NAME}",
-        )
+        model_info = HfApi(endpoint=ENDPOINT_STAGING).model_info(f"{USER}/{REPO_NAME}")
         self.assertEqual(model_info.modelId, f"{USER}/{REPO_NAME}")
-
-        self._api.delete_repo(repo_id=f"{REPO_NAME}", token=self._token)
-
-    @retry_endpoint
-    def test_push_to_hub_model_card_build(self):
-        REPO_NAME = repo_name("PUSH_TO_HUB")
-        model = self.model_init()
-        model.build((None, 2))
-        push_to_hub_keras(
-            model,
-            repo_path_or_name=f"{WORKING_REPO_DIR}/{REPO_NAME}",
-            api_endpoint=ENDPOINT_STAGING,
-            use_auth_token=self._token,
-            git_user="ci",
-            git_email="ci@dummy.com",
-        )
-        model_info = HfApi(endpoint=ENDPOINT_STAGING).model_info(
-            f"{USER}/{REPO_NAME}",
-        )
         self.assertTrue("README.md" in [f.rfilename for f in model_info.siblings])
         self.assertTrue("model.png" in [f.rfilename for f in model_info.siblings])
         self._api.delete_repo(repo_id=f"{REPO_NAME}", token=self._token)
 
     @retry_endpoint
-    def test_push_to_hub_model_card_plot_false(self):
-        REPO_NAME = repo_name("PUSH_TO_HUB")
-        model = self.model_init()
-        model = self.model_fit(model)
-        push_to_hub_keras(
-            model,
-            repo_path_or_name=f"{WORKING_REPO_DIR}/{REPO_NAME}",
-            api_endpoint=ENDPOINT_STAGING,
-            use_auth_token=self._token,
-            git_user="ci",
-            git_email="ci@dummy.com",
-            plot_model=False,
-        )
-        model_info = HfApi(endpoint=ENDPOINT_STAGING).model_info(
-            f"{USER}/{REPO_NAME}",
-        )
-        self.assertFalse("model.png" in [f.rfilename for f in model_info.siblings])
-        self._api.delete_repo(repo_id=f"{REPO_NAME}", token=self._token)
-
-    @retry_endpoint
-    def test_override_tensorboard(self):
-        REPO_NAME = repo_name("PUSH_TO_HUB")
+    def test_push_to_hub_keras_via_http_override_tensorboard(self):
+        """Test log directory is overwritten when pushing a keras model a 2nd time."""
+        REPO_NAME = repo_name("PUSH_TO_HUB_KERAS_via_http_override_tensorboard")
+        repo_id = f"{USER}/{REPO_NAME}"
         with tempfile.TemporaryDirectory() as tmpdirname:
             os.makedirs(f"{tmpdirname}/tb_log_dir")
             with open(f"{tmpdirname}/tb_log_dir/tensorboard.txt", "w") as fp:
@@ -440,29 +472,24 @@ class HubKerasSequentialTest(HubMixingTestKeras):
             model.build((None, 2))
             push_to_hub_keras(
                 model,
-                repo_path_or_name=f"{WORKING_REPO_DIR}/{REPO_NAME}",
+                repo_id=repo_id,
                 log_dir=f"{tmpdirname}/tb_log_dir",
                 api_endpoint=ENDPOINT_STAGING,
-                use_auth_token=self._token,
-                git_user="ci",
-                git_email="ci@dummy.com",
+                token=self._token,
             )
+
             os.makedirs(f"{tmpdirname}/tb_log_dir2")
             with open(f"{tmpdirname}/tb_log_dir2/override.txt", "w") as fp:
                 fp.write("Keras FTW")
             push_to_hub_keras(
                 model,
-                repo_path_or_name=f"{WORKING_REPO_DIR}/{REPO_NAME}",
+                repo_id=repo_id,
                 log_dir=f"{tmpdirname}/tb_log_dir2",
                 api_endpoint=ENDPOINT_STAGING,
-                use_auth_token=self._token,
-                git_user="ci",
-                git_email="ci@dummy.com",
+                token=self._token,
             )
 
-            model_info = HfApi(endpoint=ENDPOINT_STAGING).model_info(
-                f"{USER}/{REPO_NAME}",
-            )
+            model_info = HfApi(endpoint=ENDPOINT_STAGING).model_info(repo_id)
             self.assertTrue(
                 "logs/override.txt" in [f.rfilename for f in model_info.siblings]
             )
@@ -470,32 +497,37 @@ class HubKerasSequentialTest(HubMixingTestKeras):
                 "logs/tensorboard.txt" in [f.rfilename for f in model_info.siblings]
             )
 
-            self._api.delete_repo(repo_id=f"{REPO_NAME}", token=self._token)
+            self._api.delete_repo(repo_id=repo_id, token=self._token)
 
     @retry_endpoint
-    def test_push_to_hub_model_kwargs(self):
-        REPO_NAME = repo_name("PUSH_TO_HUB")
+    def test_push_to_hub_keras_via_http_with_model_kwargs(self):
+        REPO_NAME = repo_name("PUSH_TO_HUB_KERAS_via_http_with_model_kwargs")
+        repo_id = f"{USER}/{REPO_NAME}"
+
         model = self.model_init()
         model = self.model_fit(model)
         push_to_hub_keras(
             model,
-            repo_path_or_name=f"{WORKING_REPO_DIR}/{REPO_NAME}",
+            repo_id=repo_id,
             api_endpoint=ENDPOINT_STAGING,
-            use_auth_token=self._token,
-            git_user="ci",
-            git_email="ci@dummy.com",
-            config={"num": 7, "act": "gelu_fast"},
+            token=self._token,
             include_optimizer=True,
             save_traces=False,
         )
 
-        model_info = HfApi(endpoint=ENDPOINT_STAGING).model_info(
-            f"{USER}/{REPO_NAME}",
-        )
-        self.assertEqual(model_info.modelId, f"{USER}/{REPO_NAME}")
+        model_info = HfApi(endpoint=ENDPOINT_STAGING).model_info(repo_id)
+        self.assertEqual(model_info.modelId, repo_id)
 
-        from_pretrained_keras(f"{WORKING_REPO_DIR}/{REPO_NAME}")
-        self.assertRaises(ValueError, msg="Exception encountered when calling layer*")
+        with tempfile.TemporaryDirectory() as tmpdirname:
+            Repository(
+                local_dir=tmpdirname,
+                clone_from=ENDPOINT_STAGING + "/" + repo_id,
+                use_auth_token=self._token,
+            )
+            from_pretrained_keras(tmpdirname)
+            self.assertRaises(
+                ValueError, msg="Exception encountered when calling layer*"
+            )
 
         self._api.delete_repo(repo_id=f"{REPO_NAME}", token=self._token)
 

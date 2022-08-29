@@ -13,10 +13,9 @@ from functools import partial
 from hashlib import sha256
 from pathlib import Path
 from typing import BinaryIO, Dict, Optional, Tuple, Union
-from urllib.parse import quote
+from urllib.parse import quote, urlparse
 
 import packaging.version
-from tqdm.auto import tqdm
 
 import requests
 from filelock import FileLock
@@ -34,8 +33,12 @@ from .constants import (
     REPO_TYPES_URL_PREFIXES,
 )
 from .hf_api import HfFolder
-from .utils import logging
-from .utils._errors import _raise_for_status
+from .utils import logging, tqdm
+from .utils._errors import (
+    EntryNotFoundError,
+    LocalEntryNotFoundError,
+    _raise_for_status,
+)
 
 
 logger = logging.get_logger(__name__)
@@ -366,7 +369,7 @@ def _raise_if_offline_mode_is_enabled(msg: Optional[str] = None):
         )
 
 
-def _request_with_retry(
+def _request_wrapper(
     method: str,
     url: str,
     *,
@@ -374,34 +377,82 @@ def _request_with_retry(
     base_wait_time: float = 0.5,
     max_wait_time: float = 2,
     timeout: float = 10.0,
+    follow_relative_redirects: bool = False,
     **params,
 ) -> requests.Response:
-    """Wrapper around requests to retry in case it fails with a `ConnectTimeout`, with
-    exponential backoff.
+    """Wrapper around requests methods to add several features.
 
-        Note that if the environment variable HF_HUB_OFFLINE is set to 1, then a
-        `OfflineModeIsEnabled` error is raised.
+    What it does:
+    1. Ensure offline mode is disabled (env variable `HF_HUB_OFFLINE` not set to 1).
+       If enabled, a `OfflineModeIsEnabled` exception is raised.
+    2. Follow relative redirections if `follow_relative_redirects=True` even when
+       `allow_redirection` kwarg is set to False.
+    3. Retry in case request fails with a `ConnectTimeout`, with exponential backoff.
 
-        Args:
-            method (`str`):
-                HTTP method, such as 'GET' or 'HEAD'.
-            url (`str`):
-                The URL of the resource to fetch.
-            max_retries (`int`, *optional*, defaults to `0`):
-                Maximum number of retries, defaults to 0 (no retries).
-            base_wait_time (`float`, *optional*, defaults to `0.5`):
-                Duration (in seconds) to wait before retrying the first time.
-                Wait time between retries then grows exponentially, capped by
-                `max_wait_time`.
-            max_wait_time (`float`, *optional*, defaults to `2`):
-                Maximum amount of time between two retries, in seconds.
-            timeout (`float`, *optional*, defaults to `10`):
-                How many seconds to wait for the server to send data before
-                giving up which is passed to `requests.request`.
-            **params (`dict`, *optional*):
-                Params to pass to `requests.request`.
+    Args:
+        method (`str`):
+            HTTP method, such as 'GET' or 'HEAD'.
+        url (`str`):
+            The URL of the resource to fetch.
+        max_retries (`int`, *optional*, defaults to `0`):
+            Maximum number of retries, defaults to 0 (no retries).
+        base_wait_time (`float`, *optional*, defaults to `0.5`):
+            Duration (in seconds) to wait before retrying the first time.
+            Wait time between retries then grows exponentially, capped by
+            `max_wait_time`.
+        max_wait_time (`float`, *optional*, defaults to `2`):
+            Maximum amount of time between two retries, in seconds.
+        timeout (`float`, *optional*, defaults to `10`):
+            How many seconds to wait for the server to send data before
+            giving up which is passed to `requests.request`.
+        follow_relative_redirects (`bool`, *optional*, defaults to `False`)
+            If True, relative redirection (redirection to the same site) will be
+            resolved even when `allow_redirection` kwarg is set to False. Useful when we
+            want to follow a redirection to a renamed repository without following
+            redirection to a CDN.
+        **params (`dict`, *optional*):
+            Params to pass to `requests.request`.
     """
+    # 1. Check online mode
     _raise_if_offline_mode_is_enabled(f"Tried to reach {url}")
+
+    # 2. Force relative redirection
+    if follow_relative_redirects:
+        response = _request_wrapper(
+            method=method,
+            url=url,
+            max_retries=max_retries,
+            base_wait_time=base_wait_time,
+            max_wait_time=max_wait_time,
+            timeout=timeout,
+            follow_relative_redirects=False,
+            **params,
+        )
+
+        # If redirection, we redirect only relative paths.
+        # This is useful in case of a renamed repository.
+        if 300 <= response.status_code <= 399:
+            parsed_target = urlparse(response.headers["Location"])
+            if parsed_target.netloc == "":
+                # This means it is a relative 'location' headers, as allowed by RFC 7231.
+                # (e.g. '/path/to/resource' instead of 'http://domain.tld/path/to/resource')
+                # We want to follow this relative redirect !
+                #
+                # Highly inspired by `resolve_redirects` from requests library.
+                # See https://github.com/psf/requests/blob/main/requests/sessions.py#L159
+                return _request_wrapper(
+                    method=method,
+                    url=urlparse(url)._replace(path=parsed_target.path).geturl(),
+                    max_retries=max_retries,
+                    base_wait_time=base_wait_time,
+                    max_wait_time=max_wait_time,
+                    timeout=timeout,
+                    follow_relative_redirects=True,  # resolve recursively
+                    **params,
+                )
+        return response
+
+    # 3. Exponential backoff
     tries, success = 0, False
     while not success:
         tries += 1
@@ -425,6 +476,14 @@ def _request_with_retry(
     return response
 
 
+def _request_with_retry(*args, **kwargs) -> requests.Response:
+    """Deprecated method. Please use `_request_wrapper` instead.
+
+    Alias to keep backward compatibility (used in Transformers).
+    """
+    return _request_wrapper(*args, **kwargs)
+
+
 def http_get(
     url: str,
     temp_file: BinaryIO,
@@ -441,7 +500,7 @@ def http_get(
     headers = copy.deepcopy(headers)
     if resume_size > 0:
         headers["Range"] = "bytes=%d-" % (resume_size,)
-    r = _request_with_retry(
+    r = _request_wrapper(
         method="GET",
         url=url,
         stream=True,
@@ -553,6 +612,8 @@ def cached_download(
           If the revision to download from cannot be found.
         - [`~huggingface_hub.utils.EntryNotFoundError`]
           If the file to download cannot be found.
+        - [`~huggingface_hub.utils.LocalEntryNotFoundError`]
+          If network is disabled or unavailable and file is not found in cache.
 
     </Tip>
     """
@@ -592,11 +653,12 @@ def cached_download(
     etag = None
     if not local_files_only:
         try:
-            r = _request_with_retry(
+            r = _request_wrapper(
                 method="HEAD",
                 url=url,
                 headers=headers,
                 allow_redirects=False,
+                follow_relative_redirects=True,
                 proxies=proxies,
                 timeout=etag_timeout,
             )
@@ -610,10 +672,10 @@ def cached_download(
                     "Distant resource does not have an ETag, we won't be able to"
                     " reliably ensure reproducibility."
                 )
-            # In case of a redirect,
-            # save an extra redirect on the request.get call,
+            # In case of a redirect, save an extra redirect on the request.get call,
             # and ensure we download the exact atomic version even if it changed
             # between the HEAD and the GET (unlikely, but hey).
+            # Useful for lfs blobs that are stored on a CDN.
             if 300 <= r.status_code <= 399:
                 url_to_download = r.headers["Location"]
         except (requests.exceptions.SSLError, requests.exceptions.ProxyError):
@@ -659,13 +721,13 @@ def cached_download(
                 # the models might've been found if local_files_only=False
                 # Notify the user about that
                 if local_files_only:
-                    raise ValueError(
+                    raise LocalEntryNotFoundError(
                         "Cannot find the requested files in the cached path and"
                         " outgoing traffic has been disabled. To enable model look-ups"
                         " and downloads online, set 'local_files_only' to False."
                     )
                 else:
-                    raise ValueError(
+                    raise LocalEntryNotFoundError(
                         "Connection error, and we cannot find the requested files in"
                         " the cached path. Please try again or make sure your Internet"
                         " connection is on."
@@ -784,6 +846,20 @@ def _create_relative_symlink(src: str, dst: str) -> None:
             )
         else:
             raise
+
+
+def _cache_commit_hash_for_specific_revision(
+    storage_folder: str, revision: str, commit_hash: str
+) -> None:
+    """Cache reference between a revision (tag, branch or truncated commit hash) and the corresponding commit hash.
+
+    Does nothing if `revision` is already a proper `commit_hash` or reference is already cached.
+    """
+    if revision != commit_hash:
+        ref_path = os.path.join(storage_folder, "refs", revision)
+        os.makedirs(os.path.dirname(ref_path), exist_ok=True)
+        with open(ref_path, "w") as f:
+            f.write(commit_hash)
 
 
 def repo_folder_name(*, repo_id: str, repo_type: str) -> str:
@@ -911,6 +987,8 @@ def hf_hub_download(
           If the revision to download from cannot be found.
         - [`~huggingface_hub.utils.EntryNotFoundError`]
           If the file to download cannot be found.
+        - [`~huggingface_hub.utils.LocalEntryNotFoundError`]
+          If network is disabled or unavailable and file is not found in cache.
 
     </Tip>
     """
@@ -1008,15 +1086,32 @@ def hf_hub_download(
     commit_hash = None
     if not local_files_only:
         try:
-            r = _request_with_retry(
+            r = _request_wrapper(
                 method="HEAD",
                 url=url,
                 headers=headers,
                 allow_redirects=False,
+                follow_relative_redirects=True,
                 proxies=proxies,
                 timeout=etag_timeout,
             )
-            _raise_for_status(r)
+            try:
+                _raise_for_status(r)
+            except EntryNotFoundError:
+                commit_hash = r.headers.get(HUGGINGFACE_HEADER_X_REPO_COMMIT)
+                if commit_hash is not None and not legacy_cache_layout:
+                    no_exist_file_path = (
+                        Path(storage_folder)
+                        / ".no_exist"
+                        / commit_hash
+                        / relative_filename
+                    )
+                    no_exist_file_path.parent.mkdir(parents=True, exist_ok=True)
+                    no_exist_file_path.touch()
+                    _cache_commit_hash_for_specific_revision(
+                        storage_folder, revision, commit_hash
+                    )
+                raise
             commit_hash = r.headers[HUGGINGFACE_HEADER_X_REPO_COMMIT]
             if commit_hash is None:
                 raise OSError(
@@ -1035,10 +1130,10 @@ def hf_hub_download(
                     " reliably ensure reproducibility."
                 )
             etag = _normalize_etag(etag)
-            # In case of a redirect,
-            # save an extra redirect on the request.get call,
+            # In case of a redirect, save an extra redirect on the request.get call,
             # and ensure we download the exact atomic version even if it changed
             # between the HEAD and the GET (unlikely, but hey).
+            # Useful for lfs blobs that are stored on a CDN.
             if 300 <= r.status_code <= 399:
                 url_to_download = r.headers["Location"]
                 if (
@@ -1089,13 +1184,13 @@ def hf_hub_download(
         # the models might've been found if local_files_only=False
         # Notify the user about that
         if local_files_only:
-            raise ValueError(
+            raise LocalEntryNotFoundError(
                 "Cannot find the requested files in the disk cache and"
                 " outgoing traffic has been disabled. To enable hf.co look-ups"
                 " and downloads online, set 'local_files_only' to False."
             )
         else:
-            raise ValueError(
+            raise LocalEntryNotFoundError(
                 "Connection error, and we cannot find the requested files in"
                 " the disk cache. Please try again or make sure your Internet"
                 " connection is on."
@@ -1112,11 +1207,7 @@ def hf_hub_download(
     # if passed revision is not identical to commit_hash
     # then revision has to be a branch name or tag name.
     # In that case store a ref.
-    if revision != commit_hash:
-        ref_path = os.path.join(storage_folder, "refs", revision)
-        os.makedirs(os.path.dirname(ref_path), exist_ok=True)
-        with open(ref_path, "w") as f:
-            f.write(commit_hash)
+    _cache_commit_hash_for_specific_revision(storage_folder, revision, commit_hash)
 
     if os.path.exists(pointer_path) and not force_download:
         return pointer_path
@@ -1188,3 +1279,54 @@ def hf_hub_download(
         pass
 
     return pointer_path
+
+
+def try_to_load_from_cache(
+    repo_id: str,
+    filename: str,
+    cache_dir: Union[str, Path, None] = None,
+    revision: Optional[str] = None,
+    repo_type: Optional[str] = None,
+) -> Optional[str]:
+    """
+    Explores the cache to return the latest cached file for a given revision if found.
+
+    This function will not raise any exception if the file in not cached.
+
+    Returns:
+        Local path (string) of file or `None` if no cached file is found.
+    """
+    if revision is None:
+        revision = "main"
+    if repo_type is None:
+        repo_type = "model"
+    if repo_type not in REPO_TYPES:
+        raise ValueError(
+            f"Invalid repo type: {repo_type}. Accepted repo types are:"
+            f" {str(REPO_TYPES)}"
+        )
+    if cache_dir is None:
+        cache_dir = HUGGINGFACE_HUB_CACHE
+
+    object_id = repo_id.replace("/", "--")
+    repo_cache = os.path.join(cache_dir, f"{repo_type}s--{object_id}")
+    if not os.path.isdir(repo_cache):
+        # No cache for this model
+        return None
+    for subfolder in ["refs", "snapshots"]:
+        if not os.path.isdir(os.path.join(repo_cache, subfolder)):
+            return None
+
+    # Resolve refs (for instance to convert main to the associated commit sha)
+    cached_refs = os.listdir(os.path.join(repo_cache, "refs"))
+    if revision in cached_refs:
+        with open(os.path.join(repo_cache, "refs", revision)) as f:
+            revision = f.read()
+
+    cached_shas = os.listdir(os.path.join(repo_cache, "snapshots"))
+    if revision not in cached_shas:
+        # No cache for this revision and we won't try to return a random revision
+        return None
+
+    cached_file = os.path.join(repo_cache, "snapshots", revision, filename)
+    return cached_file if os.path.isfile(cached_file) else None

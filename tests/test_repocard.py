@@ -15,9 +15,8 @@ import copy
 import os
 import shutil
 import tempfile
-import time
 import unittest
-import uuid
+from functools import partial
 from pathlib import Path
 
 import pytest
@@ -36,7 +35,12 @@ from huggingface_hub.repository import Repository
 from huggingface_hub.utils import logging
 
 from .testing_constants import ENDPOINT_STAGING, TOKEN, USER
-from .testing_utils import retry_endpoint, set_write_permission_and_retry
+from .testing_utils import (
+    expect_deprecation,
+    repo_name,
+    retry_endpoint,
+    set_write_permission_and_retry,
+)
 
 
 ROUND_TRIP_MODELCARD_CASE = """
@@ -117,9 +121,7 @@ REPOCARD_DIR = os.path.join(
     os.path.dirname(os.path.abspath(__file__)), "fixtures/repocard"
 )
 
-
-def repo_name(id=uuid.uuid4().hex[:6]):
-    return "dummy-hf-hub-{0}-{1}".format(id, int(time.time() * 10e3))
+repo_name = partial(repo_name, prefix="dummy-hf-hub")
 
 
 class RepocardTest(unittest.TestCase):
@@ -201,6 +203,7 @@ class RepocardUpdateTest(unittest.TestCase):
         cls._api.set_access_token(TOKEN)
 
     @retry_endpoint
+    @expect_deprecation("clone_from")
     def setUp(self) -> None:
         self.repo_path = Path(tempfile.mkdtemp())
         self.REPO_NAME = repo_name()
@@ -217,7 +220,7 @@ class RepocardUpdateTest(unittest.TestCase):
                 f.write(DUMMY_MODELCARD_EVAL_RESULT)
 
         self.existing_metadata = yaml.safe_load(
-            DUMMY_MODELCARD_EVAL_RESULT.strip().strip("---")
+            DUMMY_MODELCARD_EVAL_RESULT.strip().strip("-")
         )
 
     def tearDown(self) -> None:

@@ -2,10 +2,15 @@ import os
 import stat
 import time
 import unittest
+import uuid
 from contextlib import contextmanager
 from distutils.util import strtobool
 from enum import Enum
+from functools import wraps
+from typing import Callable, Optional
 from unittest.mock import patch
+
+import pytest
 
 from huggingface_hub.utils import logging
 from requests.exceptions import HTTPError
@@ -32,6 +37,10 @@ DUMMY_MODEL_ID_PINNED_SHA256 = (
 )
 # Sha-256 of pytorch_model.bin on the top of `main`, for checking purposes
 
+# "hf-internal-testing/dummy-will-be-renamed" has been renamed to "hf-internal-testing/dummy-renamed"
+DUMMY_RENAMED_MODEL_ID = (  # Regression test #941
+    "hf-internal-testing/dummy-will-be-renamed"
+)
 
 SAMPLE_DATASET_IDENTIFIER = "lhoestq/custom_squad"
 # Example dataset ids
@@ -39,6 +48,24 @@ DUMMY_DATASET_ID = "lhoestq/test"
 DUMMY_DATASET_ID_REVISION_ONE_SPECIFIC_COMMIT = (  # on branch "test-branch"
     "81d06f998585f8ee10e6e3a2ea47203dc75f2a16"
 )
+
+
+def repo_name(id: Optional[str] = None, prefix: str = "repo") -> str:
+    """
+    Return a readable pseudo-unique repository name for tests.
+
+    Example:
+    ```py
+    >>> repo_name()
+    repo-2fe93f-16599646671840
+
+    >>> repo_name("my-space", prefix='space')
+    space-my-space-16599481979701
+    """
+    if id is None:
+        id = uuid.uuid4().hex[:6]
+    ts = int(time.time() * 10e3)
+    return f"{prefix}-{id}-{ts}"
 
 
 def parse_flag_from_env(key, default=False):
@@ -208,3 +235,57 @@ def retry_endpoint(function, number_of_tries: int = 3, wait_time: int = 5):
             return function(*args, **kwargs)
 
     return decorator
+
+
+def expect_deprecation(function_name: str):
+    """
+    Decorator to flag tests that we expect to use deprecated arguments.
+
+    Parameters:
+        function_name (`str`):
+            Name of the function that we expect to use in a deprecated way.
+
+    NOTE: if a test is expected to warns FutureWarnings but is not, the test will fail.
+
+    Context: over time, some arguments/methods become deprecated. In order to track
+             deprecation in tests, we run pytest with flag `-Werror::FutureWarning`.
+             In order to keep old tests during the deprecation phase (before removing
+             the feature completely) without changing them internally, we can flag
+             them with this decorator.
+    See full discussion in https://github.com/huggingface/huggingface_hub/pull/952.
+
+    This decorator works hand-in-hand with the `_deprecate_arguments` and
+    `_deprecate_positional_args` decorators.
+
+    Example
+    ```py
+    # in src/hub_mixins.py
+    from .utils._deprecation import _deprecate_arguments
+
+    @_deprecate_arguments(version="0.12", deprecated_args={"repo_url"})
+    def push_to_hub(...):
+        (...)
+
+    # in tests/test_something.py
+    from .testing_utils import expect_deprecation
+
+    class SomethingTest(unittest.TestCase):
+        (...)
+
+        @expect_deprecation("push_to_hub"):
+        def test_push_to_hub_git_version(self):
+            (...)
+            push_to_hub(repo_url="something") <- Should warn with FutureWarnings
+            (...)
+    ```
+    """
+
+    def _inner_decorator(test_function: Callable) -> Callable:
+        @wraps(test_function)
+        def _inner_test_function(*args, **kwargs):
+            with pytest.warns(FutureWarning, match=f".*'{function_name}'.*"):
+                return test_function(*args, **kwargs)
+
+        return _inner_test_function
+
+    return _inner_decorator
