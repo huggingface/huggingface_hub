@@ -27,8 +27,7 @@ import requests
 from huggingface_hub.commands import BaseHuggingfaceCLICommand
 from huggingface_hub.lfs import LFS_MULTIPART_UPLOAD_COMMAND, SliceFileObj
 
-from ..utils import logging
-from ..utils._errors import _raise_for_status
+from ..utils import _raise_for_status, logging
 
 
 logger = logging.get_logger(__name__)

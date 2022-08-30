@@ -33,11 +33,12 @@ from .constants import (
     REPO_TYPES_URL_PREFIXES,
 )
 from .hf_api import HfFolder
-from .utils import logging, tqdm
-from .utils._errors import (
+from .utils import (
     EntryNotFoundError,
     LocalEntryNotFoundError,
     _raise_for_status,
+    logging,
+    tqdm,
 )
 
 
