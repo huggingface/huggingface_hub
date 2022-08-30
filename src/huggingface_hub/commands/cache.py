@@ -62,12 +62,12 @@ class ScanCacheCommand(BaseHuggingfaceCLICommand):
             f"\nDone in {round(t1-t0,1)}s. Scanned {len(hf_cache_info.repos)} repo(s)"
             f" for a total of {ANSI.red(hf_cache_info.size_on_disk_str)}."
         )
-        if len(hf_cache_info.errors) > 0:
-            message = f"Got {len(hf_cache_info.errors)} error(s) while scanning."
+        if len(hf_cache_info.warnings) > 0:
+            message = f"Got {len(hf_cache_info.warnings)} warning(s) while scanning."
             if self.verbosity >= 3:
                 print(ANSI.gray(message))
-                for error in hf_cache_info.errors:
-                    print(ANSI.gray(error))
+                for warning in hf_cache_info.warnings:
+                    print(ANSI.gray(warning))
             else:
                 print(ANSI.gray(message + " Use -vvv to print details."))
 

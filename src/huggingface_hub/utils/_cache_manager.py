@@ -178,7 +178,7 @@ class HFCacheInfo:
         repos (`FrozenSet[CachedRepoInfo]`):
             Set of [`~CachedRepoInfo`] describing all valid cached repos found on the
             cache-system while scanning.
-        errors (`List[CorruptedCacheException]`):
+        warnings (`List[CorruptedCacheException]`):
             List of [`~CorruptedCacheException`] that occurred while scanning the cache.
             Those exceptions are captured so that the scan can continue. Corrupted repos
             are skipped from the scan.
@@ -193,7 +193,7 @@ class HFCacheInfo:
 
     size_on_disk: int
     repos: FrozenSet[CachedRepoInfo]
-    errors: List[CorruptedCacheException]
+    warnings: List[CorruptedCacheException]
 
     @property
     def size_on_disk_str(self) -> str:
@@ -250,7 +250,7 @@ def scan_cache_dir(cache_dir: Optional[Union[str, Path]] = None) -> HFCacheInfo:
             CachedRepoInfo(...),
             ...
         }),
-        errors=[
+        warnings=[
             CorruptedCacheException("Snapshots dir doesn't exist in cached repo: ..."),
             CorruptedCacheException(...),
             ...
@@ -271,7 +271,7 @@ def scan_cache_dir(cache_dir: Optional[Union[str, Path]] = None) -> HFCacheInfo:
     t5-small                    model           970.7M       11 refs/pr/1, main     /Users/lucain/.cache/huggingface/hub/models--t5-small
 
     Done in 0.0s. Scanned 6 repo(s) for a total of 3.4G.
-    Got 1 error(s) while scanning. Use -vvv to print details.
+    Got 1 warning(s) while scanning. Use -vvv to print details.
     ```
 
     Args:
@@ -307,17 +307,17 @@ def scan_cache_dir(cache_dir: Optional[Union[str, Path]] = None) -> HFCacheInfo:
         )
 
     repos: Set[CachedRepoInfo] = set()
-    errors: List[CorruptedCacheException] = []
+    warnings: List[CorruptedCacheException] = []
     for repo_path in cache_dir.iterdir():
         try:
             repos.add(_scan_cached_repo(repo_path))
         except CorruptedCacheException as e:
-            errors.append(e)
+            warnings.append(e)
 
     return HFCacheInfo(
         repos=frozenset(repos),
         size_on_disk=sum(repo.size_on_disk for repo in repos),
-        errors=errors,
+        warnings=warnings,
     )
 
 
