@@ -101,13 +101,13 @@ class TestValidCacheUtils(unittest.TestCase):
         )
 
     def test_scan_cache_on_valid_cache(self) -> None:
-        """Scan the cache dir without errors."""
+        """Scan the cache dir without warnings."""
         report = scan_cache_dir(self.cache_dir)
 
         # Check general information about downloaded snapshots
         self.assertEquals(report.size_on_disk, 3547)
         self.assertEquals(len(report.repos), 2)  # Model and dataset
-        self.assertEquals(len(report.errors), 0)  # Repos are valid
+        self.assertEquals(len(report.warnings), 0)  # Repos are valid
 
         repo_a = [repo for repo in report.repos if repo.repo_id == VALID_MODEL_ID][0]
 
@@ -267,9 +267,9 @@ class TestCorruptedCacheUtils(unittest.TestCase):
         report = scan_cache_dir(self.cache_dir)
         self.assertEquals(len(report.repos), 1)  # Scan still worked !
 
-        self.assertEqual(len(report.errors), 1)
+        self.assertEqual(len(report.warnings), 1)
         self.assertEqual(
-            str(report.errors[0]), f"Repo path is not a directory: {repo_path}"
+            str(report.warnings[0]), f"Repo path is not a directory: {repo_path}"
         )
 
         # Case 2: a folder with wrong naming
@@ -280,9 +280,9 @@ class TestCorruptedCacheUtils(unittest.TestCase):
         report = scan_cache_dir(self.cache_dir)
         self.assertEquals(len(report.repos), 1)  # Scan still worked !
 
-        self.assertEqual(len(report.errors), 1)
+        self.assertEqual(len(report.warnings), 1)
         self.assertEqual(
-            str(report.errors[0]),
+            str(report.warnings[0]),
             f"Repo path is not a valid HuggingFace cache directory: {repo_path}",
         )
 
@@ -294,9 +294,9 @@ class TestCorruptedCacheUtils(unittest.TestCase):
         report = scan_cache_dir(self.cache_dir)
         self.assertEquals(len(report.repos), 1)  # Scan still worked !
 
-        self.assertEqual(len(report.errors), 1)
+        self.assertEqual(len(report.warnings), 1)
         self.assertEqual(
-            str(report.errors[0]),
+            str(report.warnings[0]),
             "Repo type must be `dataset`, `model` or `space`, found `not-model`"
             f" ({repo_path}).",
         )
@@ -309,9 +309,9 @@ class TestCorruptedCacheUtils(unittest.TestCase):
         report = scan_cache_dir(self.cache_dir)
         self.assertEquals(len(report.repos), 0)  # Failed
 
-        self.assertEqual(len(report.errors), 1)
+        self.assertEqual(len(report.warnings), 1)
         self.assertEqual(
-            str(report.errors[0]),
+            str(report.warnings[0]),
             f"Snapshots dir doesn't exist in cached repo: {snapshots_path}",
         )
 
@@ -323,9 +323,9 @@ class TestCorruptedCacheUtils(unittest.TestCase):
         report = scan_cache_dir(self.cache_dir)
         self.assertEquals(len(report.repos), 0)  # Failed
 
-        self.assertEqual(len(report.errors), 1)
+        self.assertEqual(len(report.warnings), 1)
         self.assertEqual(
-            str(report.errors[0]),
+            str(report.warnings[0]),
             f"Snapshots folder corrupted. Found a file: {wrong_file_path}",
         )
 
@@ -338,9 +338,9 @@ class TestCorruptedCacheUtils(unittest.TestCase):
         report = scan_cache_dir(self.cache_dir)
         self.assertEquals(len(report.repos), 0)  # Failed
 
-        self.assertEqual(len(report.errors), 1)
+        self.assertEqual(len(report.warnings), 1)
         self.assertEqual(
-            str(report.errors[0]),
+            str(report.warnings[0]),
             "Reference(s) refer to missing commit hashes:"
             " {'revision_hash_that_does_not_exist': {'not_main'}} "
             + f"({self.repo_path }).",
