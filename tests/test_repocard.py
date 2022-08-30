@@ -35,7 +35,12 @@ from huggingface_hub.repository import Repository
 from huggingface_hub.utils import logging
 
 from .testing_constants import ENDPOINT_STAGING, TOKEN, USER
-from .testing_utils import repo_name, retry_endpoint, set_write_permission_and_retry
+from .testing_utils import (
+    expect_deprecation,
+    repo_name,
+    retry_endpoint,
+    set_write_permission_and_retry,
+)
 
 
 ROUND_TRIP_MODELCARD_CASE = """
@@ -198,6 +203,7 @@ class RepocardUpdateTest(unittest.TestCase):
         cls._api.set_access_token(TOKEN)
 
     @retry_endpoint
+    @expect_deprecation("clone_from")
     def setUp(self) -> None:
         self.repo_path = Path(tempfile.mkdtemp())
         self.REPO_NAME = repo_name()

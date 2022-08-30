@@ -36,6 +36,7 @@ from huggingface_hub.utils import logging
 
 from .testing_constants import ENDPOINT_STAGING, TOKEN, USER
 from .testing_utils import (
+    expect_deprecation,
     repo_name,
     retry_endpoint,
     set_write_permission_and_retry,
@@ -136,6 +137,14 @@ class RepositoryTest(RepositoryCommonTest):
                 repo_type="space",
                 use_auth_token=self._token,
             )
+
+    @expect_deprecation("clone_from")
+    def test_clone_from_deprecation_warning(self):
+        Repository(
+            WORKING_REPO_DIR,
+            clone_from=f"{USER}/{uuid.uuid4()}",
+            use_auth_token=self._token,
+        )
 
     def test_clone_from_model(self):
         temp_repo_url = self._api.create_repo(
@@ -403,6 +412,7 @@ class RepositoryTest(RepositoryCommonTest):
         self.assertEqual(result.status, -9)
 
     @retry_endpoint
+    @expect_deprecation("clone_from")
     def test_clone_with_endpoint(self):
         clone = Repository(
             f"{WORKING_REPO_DIR}/{self.REPO_NAME}",
@@ -433,6 +443,7 @@ class RepositoryTest(RepositoryCommonTest):
         self.assertTrue("model.bin" in files)
 
     @retry_endpoint
+    @expect_deprecation("clone_from")
     def test_clone_with_repo_name_and_org(self):
         clone = Repository(
             f"{WORKING_REPO_DIR}/{self.REPO_NAME}",
@@ -525,8 +536,8 @@ class RepositoryTest(RepositoryCommonTest):
         )
 
     @retry_endpoint
+    @expect_deprecation("clone_from")
     def test_clone_with_repo_name_org_and_no_auth_token(self):
-        # Create repo
         Repository(
             f"{WORKING_REPO_DIR}/{self.REPO_NAME}",
             use_auth_token=self._token,
@@ -1694,6 +1705,7 @@ class RepositoryDatasetTest(RepositoryCommonTest):
         self.assertTrue("test.py" in files)
 
     @retry_endpoint
+    @expect_deprecation("clone_from")
     def test_clone_with_repo_name_and_org(self):
         clone = Repository(
             f"{WORKING_DATASET_DIR}/{self.REPO_NAME}",
@@ -1788,8 +1800,8 @@ class RepositoryDatasetTest(RepositoryCommonTest):
         )
 
     @retry_endpoint
+    @expect_deprecation("clone_from")
     def test_clone_with_repo_name_org_and_no_auth_token(self):
-        # Create repo
         Repository(
             f"{WORKING_DATASET_DIR}/{self.REPO_NAME}",
             clone_from=f"valid_org/{self.REPO_NAME}",

@@ -36,6 +36,7 @@ class SnapshotDownloadTests(unittest.TestCase):
         cls._api.set_access_token(TOKEN)
 
     @retry_endpoint
+    @expect_deprecation("clone_from")
     def setUp(self) -> None:
         if os.path.exists(REPO_NAME):
             shutil.rmtree(REPO_NAME, onerror=set_write_permission_and_retry)

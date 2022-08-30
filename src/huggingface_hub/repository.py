@@ -5,6 +5,7 @@ import subprocess
 import tempfile
 import threading
 import time
+import warnings
 from contextlib import contextmanager
 from pathlib import Path
 from typing import Callable, Dict, Iterator, List, Optional, Tuple, Union
@@ -667,6 +668,12 @@ class Repository:
                                 " on Hugging Face Hub."
                             )
                         else:
+                            warnings.warn(
+                                "Creating a repository through 'clone_from' is"
+                                " deprecated and will be removed in v0.11.",
+                                FutureWarning,
+                            )
+
                             self.client.create_repo(
                                 repo_id=repo_id,
                                 token=token,
