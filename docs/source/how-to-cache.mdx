@@ -2,7 +2,7 @@
 
 ## Understand caching
 
-The Hugging Face Hub cache-system is designed to be the central cache shared across libraries 
+The Hugging Face Hub cache-system is designed to be the central cache shared across libraries
 that depend on the Hub. It has been updated in v0.8.0 to prevent re-downloading same files
 between revisions.
 
@@ -16,10 +16,12 @@ The caching system is designed as follows:
 ```
 
 The `<CACHE_DIR>` is usually your user's home directory. However, it is customizable with the
-`cache_dir` argument on all methods, or by specifying the `HF_HOME` environment variable.
+`cache_dir` argument on all methods, or by specifying either `HF_HOME` or
+`HUGGINGFACE_HUB_CACHE` environment variable.
 
-Models, datasets and spaces share a common root. Each of these repositories contains the namespace
-(organization or username) if it exists, alongside the repository name:
+Models, datasets and spaces share a common root. Each of these repositories contains the
+repository type, the namespace (organization or username) if it exists and the
+repository name:
 
 ```
 <CACHE_DIR>
@@ -125,18 +127,18 @@ The snippet below shows a scan report in a folder in which 4 models and 2 datase
 cached.
 
 ```text
-➜ huggingface-cli scan-cache       
-REPO ID                     REPO TYPE SIZE ON DISK NB FILES REFS                LOCAL PATH                                                                
---------------------------- --------- ------------ -------- ------------------- ------------------------------------------------------------------------- 
-glue                        dataset         116.3K       15 2.4.0, main, 1.17.0 /Users/lucain/.cache/huggingface/hub/datasets--glue                       
-google/fleurs               dataset          64.9M        6 refs/pr/1, main     /Users/lucain/.cache/huggingface/hub/datasets--google--fleurs             
-Jean-Baptiste/camembert-ner model           441.0M        7 main                /Users/lucain/.cache/huggingface/hub/models--Jean-Baptiste--camembert-ner 
-bert-base-cased             model             1.9G       13 main                /Users/lucain/.cache/huggingface/hub/models--bert-base-cased              
-t5-base                     model            10.1K        3 main                /Users/lucain/.cache/huggingface/hub/models--t5-base                      
-t5-small                    model           970.7M       11 refs/pr/1, main     /Users/lucain/.cache/huggingface/hub/models--t5-small                     
+➜ huggingface-cli scan-cache
+REPO ID                     REPO TYPE SIZE ON DISK NB FILES REFS                LOCAL PATH
+--------------------------- --------- ------------ -------- ------------------- -------------------------------------------------------------------------
+glue                        dataset         116.3K       15 2.4.0, main, 1.17.0 /Users/lucain/.cache/huggingface/hub/datasets--glue
+google/fleurs               dataset          64.9M        6 refs/pr/1, main     /Users/lucain/.cache/huggingface/hub/datasets--google--fleurs
+Jean-Baptiste/camembert-ner model           441.0M        7 main                /Users/lucain/.cache/huggingface/hub/models--Jean-Baptiste--camembert-ner
+bert-base-cased             model             1.9G       13 main                /Users/lucain/.cache/huggingface/hub/models--bert-base-cased
+t5-base                     model            10.1K        3 main                /Users/lucain/.cache/huggingface/hub/models--t5-base
+t5-small                    model           970.7M       11 refs/pr/1, main     /Users/lucain/.cache/huggingface/hub/models--t5-small
 
 Done in 0.0s. Scanned 6 repo(s) for a total of 3.4G.
-Got 1 error(s) while scanning. Use -vvv to print details.
+Got 1 warning(s) while scanning. Use -vvv to print details.
 ```
 
 To get a more detailed report, use the `--verbose` option. For each repo, you get a
@@ -148,22 +150,22 @@ usage is only 1.9G.
 
 ```text
 ➜ huggingface-cli scan-cache -v
-REPO ID                     REPO TYPE REVISION                                 SIZE ON DISK NB FILES REFS        LOCAL PATH                                                                                                                   
---------------------------- --------- ---------------------------------------- ------------ -------- ----------- ---------------------------------------------------------------------------------------------------------------------------- 
-glue                        dataset   9338f7b671827df886678df2bdd7cc7b4f36dffd        97.7K       14 main, 2.4.0 /Users/lucain/.cache/huggingface/hub/datasets--glue/snapshots/9338f7b671827df886678df2bdd7cc7b4f36dffd                       
-glue                        dataset   f021ae41c879fcabcf823648ec685e3fead91fe7        97.8K       14 1.17.0      /Users/lucain/.cache/huggingface/hub/datasets--glue/snapshots/f021ae41c879fcabcf823648ec685e3fead91fe7                       
-google/fleurs               dataset   129b6e96cf1967cd5d2b9b6aec75ce6cce7c89e8        25.4K        3 refs/pr/1   /Users/lucain/.cache/huggingface/hub/datasets--google--fleurs/snapshots/129b6e96cf1967cd5d2b9b6aec75ce6cce7c89e8             
-google/fleurs               dataset   24f85a01eb955224ca3946e70050869c56446805        64.9M        4 main        /Users/lucain/.cache/huggingface/hub/datasets--google--fleurs/snapshots/24f85a01eb955224ca3946e70050869c56446805             
-Jean-Baptiste/camembert-ner model     dbec8489a1c44ecad9da8a9185115bccabd799fe       441.0M        7 main        /Users/lucain/.cache/huggingface/hub/models--Jean-Baptiste--camembert-ner/snapshots/dbec8489a1c44ecad9da8a9185115bccabd799fe 
-bert-base-cased             model     378aa1bda6387fd00e824948ebe3488630ad8565         1.5G        9             /Users/lucain/.cache/huggingface/hub/models--bert-base-cased/snapshots/378aa1bda6387fd00e824948ebe3488630ad8565              
-bert-base-cased             model     a8d257ba9925ef39f3036bfc338acf5283c512d9         1.4G        9 main        /Users/lucain/.cache/huggingface/hub/models--bert-base-cased/snapshots/a8d257ba9925ef39f3036bfc338acf5283c512d9              
-t5-base                     model     23aa4f41cb7c08d4b05c8f327b22bfa0eb8c7ad9        10.1K        3 main        /Users/lucain/.cache/huggingface/hub/models--t5-base/snapshots/23aa4f41cb7c08d4b05c8f327b22bfa0eb8c7ad9                      
-t5-small                    model     98ffebbb27340ec1b1abd7c45da12c253ee1882a       726.2M        6 refs/pr/1   /Users/lucain/.cache/huggingface/hub/models--t5-small/snapshots/98ffebbb27340ec1b1abd7c45da12c253ee1882a                     
-t5-small                    model     d0a119eedb3718e34c648e594394474cf95e0617       485.8M        6             /Users/lucain/.cache/huggingface/hub/models--t5-small/snapshots/d0a119eedb3718e34c648e594394474cf95e0617                     
-t5-small                    model     d78aea13fa7ecd06c29e3e46195d6341255065d5       970.7M        9 main        /Users/lucain/.cache/huggingface/hub/models--t5-small/snapshots/d78aea13fa7ecd06c29e3e46195d6341255065d5                     
+REPO ID                     REPO TYPE REVISION                                 SIZE ON DISK NB FILES REFS        LOCAL PATH
+--------------------------- --------- ---------------------------------------- ------------ -------- ----------- ----------------------------------------------------------------------------------------------------------------------------
+glue                        dataset   9338f7b671827df886678df2bdd7cc7b4f36dffd        97.7K       14 main, 2.4.0 /Users/lucain/.cache/huggingface/hub/datasets--glue/snapshots/9338f7b671827df886678df2bdd7cc7b4f36dffd
+glue                        dataset   f021ae41c879fcabcf823648ec685e3fead91fe7        97.8K       14 1.17.0      /Users/lucain/.cache/huggingface/hub/datasets--glue/snapshots/f021ae41c879fcabcf823648ec685e3fead91fe7
+google/fleurs               dataset   129b6e96cf1967cd5d2b9b6aec75ce6cce7c89e8        25.4K        3 refs/pr/1   /Users/lucain/.cache/huggingface/hub/datasets--google--fleurs/snapshots/129b6e96cf1967cd5d2b9b6aec75ce6cce7c89e8
+google/fleurs               dataset   24f85a01eb955224ca3946e70050869c56446805        64.9M        4 main        /Users/lucain/.cache/huggingface/hub/datasets--google--fleurs/snapshots/24f85a01eb955224ca3946e70050869c56446805
+Jean-Baptiste/camembert-ner model     dbec8489a1c44ecad9da8a9185115bccabd799fe       441.0M        7 main        /Users/lucain/.cache/huggingface/hub/models--Jean-Baptiste--camembert-ner/snapshots/dbec8489a1c44ecad9da8a9185115bccabd799fe
+bert-base-cased             model     378aa1bda6387fd00e824948ebe3488630ad8565         1.5G        9             /Users/lucain/.cache/huggingface/hub/models--bert-base-cased/snapshots/378aa1bda6387fd00e824948ebe3488630ad8565
+bert-base-cased             model     a8d257ba9925ef39f3036bfc338acf5283c512d9         1.4G        9 main        /Users/lucain/.cache/huggingface/hub/models--bert-base-cased/snapshots/a8d257ba9925ef39f3036bfc338acf5283c512d9
+t5-base                     model     23aa4f41cb7c08d4b05c8f327b22bfa0eb8c7ad9        10.1K        3 main        /Users/lucain/.cache/huggingface/hub/models--t5-base/snapshots/23aa4f41cb7c08d4b05c8f327b22bfa0eb8c7ad9
+t5-small                    model     98ffebbb27340ec1b1abd7c45da12c253ee1882a       726.2M        6 refs/pr/1   /Users/lucain/.cache/huggingface/hub/models--t5-small/snapshots/98ffebbb27340ec1b1abd7c45da12c253ee1882a
+t5-small                    model     d0a119eedb3718e34c648e594394474cf95e0617       485.8M        6             /Users/lucain/.cache/huggingface/hub/models--t5-small/snapshots/d0a119eedb3718e34c648e594394474cf95e0617
+t5-small                    model     d78aea13fa7ecd06c29e3e46195d6341255065d5       970.7M        9 main        /Users/lucain/.cache/huggingface/hub/models--t5-small/snapshots/d78aea13fa7ecd06c29e3e46195d6341255065d5
 
 Done in 0.0s. Scanned 6 repo(s) for a total of 3.4G.
-Got 1 error(s) while scanning. Use -vvv to print details.
+Got 1 warning(s) while scanning. Use -vvv to print details.
 ```
 
 #### Grep example
@@ -172,11 +174,10 @@ Since the output is in tabular format, you can combine it with any `grep`-like t
 filter the entries. Here is an example to filter only revisions from the "t5-small"
 model on a Unix-based machine.
 
-
 ```text
 ➜ eval "huggingface-cli scan-cache -v" | grep "t5-small"
-t5-small                    model     98ffebbb27340ec1b1abd7c45da12c253ee1882a       726.2M        6 refs/pr/1   /Users/lucain/.cache/huggingface/hub/models--t5-small/snapshots/98ffebbb27340ec1b1abd7c45da12c253ee1882a                     
-t5-small                    model     d0a119eedb3718e34c648e594394474cf95e0617       485.8M        6             /Users/lucain/.cache/huggingface/hub/models--t5-small/snapshots/d0a119eedb3718e34c648e594394474cf95e0617                     
+t5-small                    model     98ffebbb27340ec1b1abd7c45da12c253ee1882a       726.2M        6 refs/pr/1   /Users/lucain/.cache/huggingface/hub/models--t5-small/snapshots/98ffebbb27340ec1b1abd7c45da12c253ee1882a
+t5-small                    model     d0a119eedb3718e34c648e594394474cf95e0617       485.8M        6             /Users/lucain/.cache/huggingface/hub/models--t5-small/snapshots/d0a119eedb3718e34c648e594394474cf95e0617
 t5-small                    model     d78aea13fa7ecd06c29e3e46195d6341255065d5       970.7M        9 main        /Users/lucain/.cache/huggingface/hub/models--t5-small/snapshots/d78aea13fa7ecd06c29e3e46195d6341255065d5
 ```
 
@@ -186,6 +187,7 @@ For a more advanced usage, use [`scan_cache_dir`] which is the python utility ca
 the CLI tool.
 
 You can use it to get a detailed report structured around 4 dataclasses:
+
 - [`HFCacheInfo`]: complete report returned by [`scan_cache_dir`]
 - [`CachedRepoInfo`]: information about a cached repo
 - [`CachedRevisionInfo`]: information about a cached revision (e.g. "snapshot") inside a repo
@@ -229,7 +231,7 @@ HFCacheInfo(
         CachedRepoInfo(...),
         ...
     }),
-    errors=[
+    warnings=[
         CorruptedCacheException("Snapshots dir doesn't exist in cached repo: ..."),
         CorruptedCacheException(...),
         ...
