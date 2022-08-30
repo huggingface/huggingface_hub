@@ -18,7 +18,9 @@
 from . import tqdm as _tqdm  # _tqdm is the module
 from ._datetime import parse_datetime
 from ._errors import (
+    BadRequestError,
     EntryNotFoundError,
+    HfHubHTTPError,
     LocalEntryNotFoundError,
     RepositoryNotFoundError,
     RevisionNotFoundError,

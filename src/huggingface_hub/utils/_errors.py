@@ -2,6 +2,7 @@ from typing import Optional
 
 from requests import HTTPError, Response
 
+from ._deprecation import _deprecate_method
 from ._fixes import JSONDecodeError
 
 
@@ -96,13 +97,13 @@ class LocalEntryNotFoundError(EntryNotFoundError, FileNotFoundError, ValueError)
 
 class BadRequestError(HfHubHTTPError, ValueError):
     """
-    Raised by `_raise_convert_bad_request` when the server returns HTTP 400 error.
+    Raised by `_raise_for_status` when the server returns a HTTP 400 error.
 
     Example:
 
     ```py
     >>> resp = requests.post("hf.co/api/check", ...)
-    >>> _raise_convert_bad_request(resp, endpoint_name="check")
+    >>> _raise_for_status(resp, endpoint_name="check")
     huggingface_hub.utils._errors.BadRequestError: Bad request for check endpoint: {details} (Request ID: XXX)
     ```
     """
@@ -158,18 +159,20 @@ def _raise_for_status(response: Response, endpoint_name: Optional[str] = None) -
         raise HfHubHTTPError(str(HTTPError), response=response) from e
 
 
+@_deprecate_method(version="0.12", message="Use `_raise_for_status` instead.")
 def _raise_with_request_id(response):
     """Keep alias for now ?"""
     _raise_for_status(response)
 
 
+@_deprecate_method(version="0.12", message="Use `_raise_for_status` instead.")
 def _raise_convert_bad_request(response: Response, endpoint_name: str):
     """
     Calls _raise_for_status on resp and converts HTTP 400 errors into ValueError.
 
     Keep alias for now ?
     """
-    _raise_for_status(response, endpoint_name)
+    _raise_for_status(response, endpoint_name=endpoint_name)
 
 
 def _add_information_to_error_message(message: str, response: Response) -> str:
@@ -183,18 +186,18 @@ def _add_information_to_error_message(message: str, response: Response) -> str:
         if (
             server_message is not None
             and len(server_message) > 0
-            and server_message not in message
+            and server_message.lower() not in message.lower()
         ):
             if "\n\n" in message:
-                message += "\n\n" + message
+                message += "\n" + server_message
             else:
-                message += "\n" + message
+                message += "\n\n" + server_message
     except JSONDecodeError:
         pass
 
     # Add Request ID
     request_id = response.headers.get("X-Request-Id")
-    if request_id is not None and request_id not in message:
+    if request_id is not None and str(request_id).lower() not in message.lower():
         request_id_message = f" (Request ID: {request_id})"
         if "\n" in message:
             newline_index = message.index("\n")

@@ -99,7 +99,7 @@ class CachedDownloadTests(unittest.TestCase):
         url = hf_hub_url(DUMMY_MODEL_ID, filename="missing.bin")
         with self.assertRaisesRegex(
             EntryNotFoundError,
-            re.compile("404 Client Error.*Entry Not Found", flags=re.DOTALL),
+            re.compile("404 Client Error(.*)Entry Not Found", flags=re.DOTALL),
         ):
             _ = cached_download(url, legacy_cache_layout=True)
 
@@ -148,7 +148,7 @@ class CachedDownloadTests(unittest.TestCase):
         )
         with self.assertRaisesRegex(
             RevisionNotFoundError,
-            re.compile("404 Client Error.*Revision Not Found", flags=re.DOTALL),
+            re.compile("404 Client Error(.*)Revision Not Found", flags=re.DOTALL),
         ):
             _ = cached_download(url, legacy_cache_layout=True)
 
@@ -157,7 +157,7 @@ class CachedDownloadTests(unittest.TestCase):
         url = hf_hub_url("bert-base", filename="pytorch_model.bin")
         with self.assertRaisesRegex(
             RepositoryNotFoundError,
-            re.compile("401 Client Error.*Repository Not Found", flags=re.DOTALL),
+            re.compile("401 Client Error(.*)Repository Not Found", flags=re.DOTALL),
         ):
             _ = cached_download(url, legacy_cache_layout=True)
 

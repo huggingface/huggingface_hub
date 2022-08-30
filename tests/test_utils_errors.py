@@ -1,14 +1,19 @@
 import unittest
+from unittest.mock import Mock, patch
 
 from huggingface_hub.utils._errors import (
+    BadRequestError,
     EntryNotFoundError,
+    HfHubHTTPError,
     RepositoryNotFoundError,
     RevisionNotFoundError,
+    _raise_convert_bad_request,
     _raise_for_status,
     _raise_with_request_id,
 )
-from requests.exceptions import HTTPError
 from requests.models import Response
+
+from .testing_utils import expect_deprecation
 
 
 class TestErrorUtils(unittest.TestCase):
@@ -58,28 +63,163 @@ class TestErrorUtils(unittest.TestCase):
         self.assertEqual(context.exception.response.status_code, 404)
         self.assertIn("Request ID: 123", str(context.exception))
 
+    def test_raise_for_status_bad_request_no_endpoint_name(self):
+        """Test HTTPError converted to BadRequestError if error 400."""
+        response = Response()
+        response.status_code = 400
+        with self.assertRaisesRegex(BadRequestError, "Bad request:") as context:
+            _raise_for_status(response)
+        self.assertEqual(context.exception.response.status_code, 400)
+
+    def test_raise_for_status_bad_request_with_endpoint_name(self):
+        """Test endpoint name is added to BadRequestError message."""
+        response = Response()
+        response.status_code = 400
+        with self.assertRaisesRegex(
+            BadRequestError, "Bad request for preupload endpoint:"
+        ) as context:
+            _raise_for_status(response, endpoint_name="preupload")
+        self.assertEqual(context.exception.response.status_code, 400)
+
     def test_raise_for_status_fallback(self):
+        """Test HTTPError is converted to HfHubHTTPError."""
         response = Response()
         response.status_code = 404
         response.headers = {
             "X-Request-Id": "test-id",
         }
         response.url = "test_URL"
-        with self.assertRaisesRegex(HTTPError, "Request ID: test-id") as context:
+        with self.assertRaisesRegex(HfHubHTTPError, "Request ID: test-id") as context:
             _raise_for_status(response)
 
         self.assertEqual(context.exception.response.status_code, 404)
         self.assertEqual(context.exception.response.url, "test_URL")
 
-    def test_raise_with_request_id(self):
-        response = Response()
-        response.status_code = 404
-        response.headers = {
-            "X-Request-Id": "test-id",
-        }
-        response.url = "test_URL"
-        with self.assertRaisesRegex(HTTPError, "Request ID: test-id") as context:
-            _raise_with_request_id(response)
+    @expect_deprecation("_raise_with_request_id")
+    @patch("huggingface_hub.utils._errors._raise_for_status")
+    def test_raise_with_request_id(self, mock__raise_for_status: Mock):
+        """Test `_raise_with_request_id` alias."""
+        response_mock = Mock()
+        _raise_with_request_id(response_mock)
+        mock__raise_for_status.assert_called_once_with(response_mock)
 
-        self.assertEqual(context.exception.response.status_code, 404)
-        self.assertEqual(context.exception.response.url, "test_URL")
+    @expect_deprecation("_raise_convert_bad_request")
+    @patch("huggingface_hub.utils._errors._raise_for_status")
+    def test_raise_convert_bad_request(self, mock__raise_for_status: Mock):
+        """Test `_raise_convert_bad_request` alias."""
+        response_mock = Mock()
+        endpoint_name_mock = Mock()
+        _raise_convert_bad_request(response_mock, endpoint_name_mock)
+        mock__raise_for_status.assert_called_once_with(
+            response_mock, endpoint_name=endpoint_name_mock
+        )
+
+
+class TestHfHubHTTPError(unittest.TestCase):
+    response: Response
+
+    def setUp(self) -> None:
+        """Setup with a default response."""
+        self.response = Response()
+        self.response.status_code = 404
+        self.response.url = "test_URL"
+
+    def test_hf_hub_http_error_initialization(self) -> None:
+        """Test HfHubHTTPError is initialized properly."""
+        error = HfHubHTTPError("this is a message", response=self.response)
+        self.assertEqual(str(error), "this is a message")
+        self.assertEqual(error.response, self.response)
+
+    def test_hf_hub_http_error_init_with_request_id(self) -> None:
+        """Test request id is added to the message."""
+        self.response.headers = {"X-Request-Id": "test-id"}
+        error = HfHubHTTPError("this is a message", response=self.response)
+        self.assertEqual(str(error), "this is a message (Request ID: test-id)")
+
+    def test_hf_hub_http_error_init_with_request_id_and_multiline_message(self) -> None:
+        """Test request id is added to the end of the first line."""
+        self.response.headers = {"X-Request-Id": "test-id"}
+        error = HfHubHTTPError(
+            "this is a message\nthis is more details", response=self.response
+        )
+        self.assertEqual(
+            str(error), "this is a message (Request ID: test-id)\nthis is more details"
+        )
+
+        error = HfHubHTTPError(
+            "this is a message\n\nthis is more details", response=self.response
+        )
+        self.assertEqual(
+            str(error),
+            "this is a message (Request ID: test-id)\n\nthis is more details",
+        )
+
+    def test_hf_hub_http_error_init_with_request_id_already_in_message(self) -> None:
+        """Test request id is not duplicated in error message (case insensitive)"""
+        self.response.headers = {"X-Request-Id": "test-id"}
+        error = HfHubHTTPError(
+            "this is a message on request TEST-ID", response=self.response
+        )
+        self.assertEqual(str(error), "this is a message on request TEST-ID")
+
+    def test_hf_hub_http_error_init_with_server_error(self) -> None:
+        """Test server error is added to the error message."""
+        self.response._content = (
+            b'{"error": "This is a message returned by the server"}'
+        )
+        error = HfHubHTTPError("this is a message", response=self.response)
+        self.assertEqual(
+            str(error), "this is a message\n\nThis is a message returned by the server"
+        )
+
+    def test_hf_hub_http_error_init_with_server_error_and_multiline_message(
+        self,
+    ) -> None:
+        """Test server error is added to the error message after the details."""
+        self.response._content = (
+            b'{"error": "This is a message returned by the server"}'
+        )
+        error = HfHubHTTPError(
+            "this is a message\n\nSome details.", response=self.response
+        )
+        self.assertEqual(
+            str(error),
+            "this is a message\n\nSome details.\nThis is a message returned by the"
+            " server",
+        )
+
+    def test_hf_hub_http_error_init_with_server_error_already_in_message(
+        self,
+    ) -> None:
+        """Test server error is not duplicated if already in details.
+
+        Case insensitive.
+        """
+        self.response._content = b'{"error": "repo NOT found"}'
+        error = HfHubHTTPError(
+            "this is a message\n\nRepo Not Found. and more\nand more",
+            response=self.response,
+        )
+        self.assertEqual(
+            str(error),
+            "this is a message\n\nRepo Not Found. and more\nand more",
+        )
+
+    def test_hf_hub_http_error_init_with_unparsable_server_error(
+        self,
+    ) -> None:
+        """Test error message is unchanged and exception is not raised.."""
+        self.response._content = b"this is not a json-formatted string"
+        error = HfHubHTTPError("this is a message", response=self.response)
+        self.assertEqual(str(error), "this is a message")
+
+    def test_hf_hub_http_error_append_to_message(self) -> None:
+        """Test add extra information to existing HfHubHTTPError."""
+        error = HfHubHTTPError("this is a message", response=self.response)
+        error.args = error.args + (1, 2, 3)  # faking some extra args
+
+        error.append_to_message("\nthis is an additional message")
+        self.assertEqual(
+            error.args,
+            ("this is a message\nthis is an additional message", 1, 2, 3),
+        )

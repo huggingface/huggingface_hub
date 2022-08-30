@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 import os
+import re
 import shutil
 import subprocess
 import tempfile
@@ -52,7 +53,7 @@ from huggingface_hub.hf_api import (
     read_from_credential_store,
     repo_type_and_id_from_hf_id,
 )
-from huggingface_hub.utils import logging
+from huggingface_hub.utils import RepositoryNotFoundError, logging
 from huggingface_hub.utils.endpoint_helpers import (
     DatasetFilter,
     ModelFilter,
@@ -191,9 +192,13 @@ class HfApiEndpointsTest(HfApiCommonTestWithLogin):
     @retry_endpoint
     def test_delete_repo_error_message(self):
         # test for #751
+        # See https://github.com/huggingface/huggingface_hub/issues/751
         with self.assertRaisesRegex(
             requests.exceptions.HTTPError,
-            r"404 Client Error: Repository Not Found (.+) \(Request ID: .+\)",
+            re.compile(
+                r"404 Client Error(.+)\(Request ID: .+\)(.*)Repository Not Found",
+                flags=re.DOTALL,
+            ),
         ):
             self._api.delete_repo("repo-that-does-not-exist", token=self._token)
 
@@ -891,6 +896,27 @@ class CommitApiTest(HfApiCommonTestWithLogin):
             self.fail(err)
         finally:
             self._api.delete_repo(repo_id=REPO_NAME, token=self._token)
+
+    @retry_endpoint
+    def test_create_commit_repo_does_not_exist(self) -> None:
+        """Test error message is detailed when creating a commit on a missing repo."""
+        with self.assertRaises(RepositoryNotFoundError) as context:
+            self._api.create_commit(
+                repo_id=f"{USER}/repo_that_do_not_exist",
+                operations=[],  # empty commit
+                commit_message="fake_message",
+            )
+
+        self.assertEqual(
+            str(context.exception),
+            "404 Client Error. (Request ID: J0P4ZXmZyBAd36mfKIoL3)"
+            + "\n\nRepository Not Found for url:"
+            + " https://huggingface.co/api/models/fergre/repo_that_do_not_exist/preupload/main."
+            + "\nPlease make sure you specified the correct `repo_id` and `repo_type`."
+            + "\nIf the repo is private, make sure you are authenticated."
+            + "\nNote: Creating a commit assumes that the repo already exists on the"
+            + " Huggingface Hub. Please use `create_repo` if it's not the case.",
+        )
 
 
 class HfApiPublicTest(unittest.TestCase):

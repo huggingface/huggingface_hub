@@ -53,11 +53,7 @@ from .constants import (
 )
 from .utils import filter_repo_objects, logging, parse_datetime
 from .utils._deprecation import _deprecate_positional_args
-from .utils._errors import (
-    _raise_convert_bad_request,
-    _raise_for_status,
-    _raise_with_request_id,
-)
+from .utils._errors import _raise_for_status
 from .utils.endpoint_helpers import (
     AttributeDictionary,
     DatasetFilter,
@@ -622,7 +618,7 @@ class HfApi:
         path = f"{self.endpoint}/api/whoami-v2"
         r = requests.get(path, headers={"authorization": f"Bearer {token}"})
         try:
-            _raise_with_request_id(r)
+            _raise_for_status(r)
         except HTTPError as e:
             raise HTTPError(
                 "Invalid user token. If you didn't pass a user token, make sure you "
@@ -716,7 +712,7 @@ class HfApi:
         "Gets all valid model tags as a nested namespace object"
         path = f"{self.endpoint}/api/models-tags-by-type"
         r = requests.get(path)
-        _raise_with_request_id(r)
+        _raise_for_status(r)
         d = r.json()
         return ModelTags(d)
 
@@ -726,7 +722,7 @@ class HfApi:
         """
         path = f"{self.endpoint}/api/datasets-tags-by-type"
         r = requests.get(path)
-        _raise_with_request_id(r)
+        _raise_for_status(r)
         d = r.json()
         return DatasetTags(d)
 
@@ -867,7 +863,7 @@ class HfApi:
         if cardData is not None:
             params.update({"cardData": cardData})
         r = requests.get(path, params=params, headers=headers)
-        _raise_with_request_id(r)
+        _raise_for_status(r)
         d = r.json()
         res = [ModelInfo(**x) for x in d]
         if emissions_thresholds is not None:
@@ -1060,7 +1056,7 @@ class HfApi:
             if cardData:
                 params.update({"full": True})
         r = requests.get(path, params=params, headers=headers)
-        _raise_with_request_id(r)
+        _raise_for_status(r)
         d = r.json()
         return [DatasetInfo(**x) for x in d]
 
@@ -1115,7 +1111,7 @@ class HfApi:
         path = f"{self.endpoint}/api/metrics"
         params = {}
         r = requests.get(path, params=params)
-        _raise_with_request_id(r)
+        _raise_for_status(r)
         d = r.json()
         return [MetricInfo(**x) for x in d]
 
@@ -1632,7 +1628,7 @@ class HfApi:
         )
 
         try:
-            _raise_with_request_id(r)
+            _raise_for_status(r)
         except HTTPError as err:
             if not (exist_ok and err.response.status_code == 409):
                 try:
@@ -1970,6 +1966,9 @@ class HfApi:
                 If the Hub API returns an HTTP 400 error (bad request)
             :class:`ValueError`:
                 If `create_pr` is `True` and revision is neither `None` nor `"main"`.
+            :class: `RepositoryNotFoundError`:
+                If repository is not found (error 404): wrong repo_id/repo_type, private
+                but not authenticated or repo does not exist.
 
         <Tip warning={true}>
 
@@ -2034,7 +2033,7 @@ class HfApi:
             )
         except RepositoryNotFoundError as e:
             e.append_to_message(
-                "\nTip: `create_commit` assumes that the repo already exists on the"
+                "\nTip: Creating a commit assumes that the repo already exists on the"
                 " Huggingface Hub. Please use `create_repo` if it's not the case."
             )
             raise
@@ -2066,7 +2065,7 @@ class HfApi:
             json=commit_payload,
             params={"create_pr": "1"} if create_pr else None,
         )
-        _raise_convert_bad_request(commit_resp, endpoint_name="commit")
+        _raise_for_status(commit_resp, endpoint_name="commit")
         return commit_resp.json().get("pullRequestUrl", None)
 
     def upload_file(
@@ -2143,6 +2142,15 @@ class HfApi:
               or because it is set to `private` and you do not have access.
             - [`~huggingface_hub.utils.RevisionNotFoundError`]
               If the revision to download from cannot be found.
+
+        </Tip>
+
+        <Tip warning={true}>
+
+        `upload_file` assumes that the repo already exists on the Hub. If you get a
+        Client error 404, please make sure you are authenticated and that `repo_id` and
+        `repo_type` are set correctly. If repo does not exist, create it first using
+        [`~huggingface_hub.hf_api.create_repo`].
 
         </Tip>
 
@@ -2301,6 +2309,15 @@ class HfApi:
             if the HuggingFace API returned an error
             - [`ValueError`](https://docs.python.org/3/library/exceptions.html#ValueError)
             if some parameter value is invalid
+
+        </Tip>
+
+        <Tip warning={true}>
+
+        `upload_folder` assumes that the repo already exists on the Hub. If you get a
+        Client error 404, please make sure you are authenticated and that `repo_id` and
+        `repo_type` are set correctly. If repo does not exist, create it first using
+        [`~huggingface_hub.hf_api.create_repo`].
 
         </Tip>
 
