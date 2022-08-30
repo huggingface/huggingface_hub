@@ -905,18 +905,21 @@ class CommitApiTest(HfApiCommonTestWithLogin):
                 repo_id=f"{USER}/repo_that_do_not_exist",
                 operations=[],  # empty commit
                 commit_message="fake_message",
+                token=self._token,
             )
 
-        self.assertEqual(
-            str(context.exception),
-            "404 Client Error. (Request ID: J0P4ZXmZyBAd36mfKIoL3)"
+        request_id = context.exception.response.headers.get("X-Request-Id")
+        expected_message = (
+            f"404 Client Error. (Request ID: {request_id})"
             + "\n\nRepository Not Found for url:"
-            + " https://huggingface.co/api/models/fergre/repo_that_do_not_exist/preupload/main."
+            + f" {self._api.endpoint}/api/models/{USER}/repo_that_do_not_exist/preupload/main."
             + "\nPlease make sure you specified the correct `repo_id` and `repo_type`."
             + "\nIf the repo is private, make sure you are authenticated."
             + "\nNote: Creating a commit assumes that the repo already exists on the"
-            + " Huggingface Hub. Please use `create_repo` if it's not the case.",
+            + " Huggingface Hub. Please use `create_repo` if it's not the case."
         )
+
+        self.assertEqual(str(context.exception), expected_message)
 
 
 class HfApiPublicTest(unittest.TestCase):

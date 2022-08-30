@@ -2033,7 +2033,7 @@ class HfApi:
             )
         except RepositoryNotFoundError as e:
             e.append_to_message(
-                "\nTip: Creating a commit assumes that the repo already exists on the"
+                "\nNote: Creating a commit assumes that the repo already exists on the"
                 " Huggingface Hub. Please use `create_repo` if it's not the case."
             )
             raise
