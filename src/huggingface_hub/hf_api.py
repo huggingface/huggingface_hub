@@ -15,7 +15,6 @@
 import os
 import re
 import subprocess
-import sys
 import warnings
 from os.path import expanduser
 from typing import BinaryIO, Dict, Iterable, Iterator, List, Optional, Tuple, Union
@@ -57,6 +56,7 @@ from .utils._errors import (
     _raise_for_status,
     _raise_with_request_id,
 )
+from .utils._typing import Literal, TypedDict
 from .utils.endpoint_helpers import (
     AttributeDictionary,
     DatasetFilter,
@@ -66,11 +66,6 @@ from .utils.endpoint_helpers import (
     _filter_emissions,
 )
 
-
-if sys.version_info >= (3, 8):
-    from typing import Literal, TypedDict
-else:
-    from typing_extensions import Literal, TypedDict
 
 USERNAME_PLACEHOLDER = "hf_user"
 _REGEX_DISCUSSION_URL = re.compile(r".*/discussions/(\d+)$")

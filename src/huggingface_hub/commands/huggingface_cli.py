@@ -15,6 +15,7 @@
 
 from argparse import ArgumentParser
 
+from huggingface_hub.commands.cache import ScanCacheCommand
 from huggingface_hub.commands.lfs import LfsCommands
 from huggingface_hub.commands.user import UserCommands
 
@@ -28,6 +29,7 @@ def main():
     # Register commands
     UserCommands.register_subcommand(commands_parser)
     LfsCommands.register_subcommand(commands_parser)
+    ScanCacheCommand.register_subcommand(commands_parser)
 
     # Let's go
     args = parser.parse_args()

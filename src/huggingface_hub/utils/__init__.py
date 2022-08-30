@@ -16,6 +16,14 @@
 # limitations under the License
 
 from . import tqdm as _tqdm  # _tqdm is the module
+from ._cache_manager import (
+    CachedFileInfo,
+    CachedRepoInfo,
+    CachedRevisionInfo,
+    CorruptedCacheException,
+    HFCacheInfo,
+    scan_cache_dir,
+)
 from ._datetime import parse_datetime
 from ._errors import (
     EntryNotFoundError,

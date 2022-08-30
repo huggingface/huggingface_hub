@@ -199,7 +199,15 @@ __getattr__, __dir__, __all__ = _attach(
         ],
         "repository": ["Repository"],
         "_snapshot_download": ["snapshot_download"],
-        "utils": ["logging"],
+        "utils": [
+            "logging",
+            "CachedFileInfo",
+            "CachedRepoInfo",
+            "CachedRevisionInfo",
+            "CorruptedCacheException",
+            "HFCacheInfo",
+            "scan_cache_dir",
+        ],
         "utils.endpoint_helpers": ["DatasetFilter", "ModelFilter"],
         "repocard": [
             "metadata_eval_result",
