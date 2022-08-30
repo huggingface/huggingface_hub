@@ -36,6 +36,21 @@ def fx_cache_dir(request: SubRequest) -> Generator[None, None, None]:
 
 
 @pytest.mark.usefixtures("fx_cache_dir")
+class TestMissingCacheUtils(unittest.TestCase):
+    cache_dir: Path
+
+    def test_cache_dir_is_missing(self) -> None:
+        """Directory to scan does not exist raises ValueError."""
+        self.assertRaises(ValueError, scan_cache_dir, self.cache_dir / "does_not_exist")
+
+    def test_cache_dir_is_a_file(self) -> None:
+        """Directory to scan is a file raises ValueError."""
+        file_path = self.cache_dir / "file.txt"
+        file_path.touch()
+        self.assertRaises(ValueError, scan_cache_dir, file_path)
+
+
+@pytest.mark.usefixtures("fx_cache_dir")
 class TestValidCacheUtils(unittest.TestCase):
     cache_dir: Path
 

@@ -278,14 +278,37 @@ def scan_cache_dir(cache_dir: Optional[Union[str, Path]] = None) -> HFCacheInfo:
         cache_dir (`str` or `Path`, `optional`):
             Cache directory to cache. Defaults to the default HF cache directory.
 
+    <Tip warning={true}>
+
+    Raises:
+
+        - [`ValueError`](https://docs.python.org/3/library/exceptions.html#ValueError)
+          If directory to scan is missing or is a file.
+
+    </Tip>
+
     Returns: a [`~HFCacheInfo`] object.
     """
     if cache_dir is None:
         cache_dir = HUGGINGFACE_HUB_CACHE
 
+    cache_dir = Path(cache_dir).resolve()
+    if not cache_dir.exists():
+        raise ValueError(
+            f"Cache directory not found: {cache_dir}. Please use `cache_dir` argument"
+            " or set `HUGGINGFACE_HUB_CACHE` environment variable."
+        )
+
+    if cache_dir.is_file():
+        raise ValueError(
+            f"Scan cache expects a directory but found a file: {cache_dir}. Please use"
+            " `cache_dir` argument or set `HUGGINGFACE_HUB_CACHE` environment"
+            " variable."
+        )
+
     repos: Set[CachedRepoInfo] = set()
     errors: List[CorruptedCacheException] = []
-    for repo_path in Path(cache_dir).resolve().iterdir():
+    for repo_path in cache_dir.iterdir():
         try:
             repos.add(_scan_cached_repo(repo_path))
         except CorruptedCacheException as e:
