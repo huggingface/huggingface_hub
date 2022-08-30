@@ -96,29 +96,53 @@ class BadRequestError(ValueError, HTTPError):
         super().__init__(message, response=response)
 
 
-def _add_request_id_to_error_args(e, request_id):
-    if request_id is not None and len(e.args) > 0 and isinstance(e.args[0], str):
-        e.args = (e.args[0] + f" (Request ID: {request_id})",) + e.args[1:]
-
-
-def _add_server_message_to_error_args(e: HTTPError, response: Response):
+def _add_information_to_error_args(error: HTTPError, response: Response) -> None:
     """
-    If the server response raises an HTTPError, we try to decode the response body and
-    find an error message. If the server returned one, it is added to the HTTPError
-    message.
+    If the server response raises an HTTPError, add information from the server Response
+    to the HTTPError message.
+
+    NOTE: input error is mutated ! 
+
+    Added details:
+    - Request id from "X-Request-Id" header if exists.
+    - Server error message if we can found one in the response body.
     """
-    try:
-        server_message = response.json().get("error", None)
-    except JSONDecodeError:
+    # Safety check that the HTTP error already has a message.
+    if len(error.args) == 0 or not isinstance(error.args[0], str):
         return
 
-    if (
-        server_message is not None
-        and len(server_message) > 0
-        and len(e.args) > 0
-        and isinstance(e.args[0], str)
-    ):
-        e.args = (e.args[0] + "\n\n" + str(server_message),) + e.args[1:]
+    error_message = error.args[0]
+
+    # Add message from response body
+    try:
+        server_message = response.json().get("error", None)
+        if (
+            server_message is not None
+            and len(server_message) > 0
+            and server_message not in error_message
+        ):
+            error_message += "\n\n" + server_message
+    except JSONDecodeError:
+        pass
+
+    # Add Request ID
+    request_id = response.headers.get("X-Request-Id")
+    if request_id is not None and request_id not in error_message:
+        request_id_message = f" (Request ID: {request_id})"
+        if "\n" in error_message:
+            newline_index = error_message.index("\n")
+            error_message = error_message[:newline_index] + request_id_message + error_message[newline_index:]
+        else:
+            error_message += request_id_message
+
+    import pdb;pdb.set_trace()
+
+    # Mutate HTTPError
+    error.args = (error_message,) + error.args[1:]
+
+
+# def _add_request_id_to_error_args(e, request_id)
+# def _add_server_message_to_error_args(e: HTTPError, response: Response)
 
 
 def _raise_for_status(response):
@@ -126,7 +150,6 @@ def _raise_for_status(response):
     Internal version of `response.raise_for_status()` that will refine a
     potential HTTPError.
     """
-    request_id = response.headers.get("X-Request-Id")
     try:
         response.raise_for_status()
     except HTTPError as e:
@@ -134,68 +157,58 @@ def _raise_for_status(response):
             error_code = response.headers["X-Error-Code"]
             if error_code == "RepoNotFound":
                 message = (
-                    f"{response.status_code} Client Error: Repository Not Found for"
-                    f" url: {response.url}. If the repo is private, make sure you are"
+                    f"{response.status_code} Client Error.\n\nRepository Not Found for"
+                    f" url: {response.url}.\nIf the repo is private, make sure you are"
                     " authenticated."
                 )
                 e = RepositoryNotFoundError(message, response)
             elif error_code == "RevisionNotFound":
                 message = (
-                    f"{response.status_code} Client Error: Revision Not Found for url:"
+                    f"{response.status_code} Client Error.\n\nRevision Not Found for url:"
                     f" {response.url}."
                 )
                 e = RevisionNotFoundError(message, response)
             if error_code == "EntryNotFound":
                 message = (
-                    f"{response.status_code} Client Error: Entry Not Found for url:"
+                    f"{response.status_code} Client Error.\n\nEntry Not Found for url:"
                     f" {response.url}."
                 )
                 e = EntryNotFoundError(message, response)
-            _add_request_id_to_error_args(e, request_id)
-            raise e
 
-        if response.status_code == 401:
+        elif response.status_code == 401:
             # The repo was not found and the user is not Authenticated
             message = (
-                f"{response.status_code} Client Error: Repository Not Found for url:"
+                f"{response.status_code} Client Error.\n\nRepository Not Found for url:"
                 f" {response.url}. If the repo is private, make sure you are"
                 " authenticated."
             )
             e = RepositoryNotFoundError(message, response)
 
-        _add_request_id_to_error_args(e, request_id)
-        _add_server_message_to_error_args(e, response)
-
+        _add_information_to_error_args(e, response=response)
         raise e
 
 
-def _raise_with_request_id(request):
-    request_id = request.headers.get("X-Request-Id")
-    try:
-        request.raise_for_status()
-    except Exception as e:
-        _add_request_id_to_error_args(e, request_id)
-
-        raise e
+def _raise_with_request_id(response):
+    _raise_for_status(response)
 
 
-def _raise_convert_bad_request(resp: Response, endpoint_name: str):
+def _raise_convert_bad_request(response: Response, endpoint_name: str):
     """
     Calls _raise_for_status on resp and converts HTTP 400 errors into ValueError.
     """
     try:
-        _raise_for_status(resp)
+        _raise_for_status(response)
     except HTTPError as exc:
-        request_id = resp.headers.get("X-Request-Id")
+        request_id = response.headers.get("X-Request-Id")
         try:
-            details = resp.json().get("error", None)
+            details = response.json().get("error", None)
         except JSONDecodeError:
             raise exc
-        if resp.status_code == 400 and details:
+        if response.status_code == 400 and details:
             raise BadRequestError(
                 f"Bad request for {endpoint_name} endpoint: {details} (Request ID:"
                 f" {request_id})",
-                response=resp,
+                response=response,
             ) from exc
-        _add_request_id_to_error_args(exc, request_id=request_id)
+        _add_information_to_error_args(exc, response=response)
         raise
