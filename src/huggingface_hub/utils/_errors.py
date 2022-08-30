@@ -1,9 +1,33 @@
+from typing import Optional
+
 from requests import HTTPError, Response
 
 from ._fixes import JSONDecodeError
 
 
-class RepositoryNotFoundError(HTTPError):
+class HfHubHTTPError(HTTPError):
+    """
+    HTTPError to inherit from for any custom HTTP Error raised in HF Hub.
+
+    Any HTTPError is converted at least into a `HfHubHTTPError`. If some information is
+    sent back by the server, it will be added to the error message.
+
+    Added details:
+    - Request id from "X-Request-Id" header if exists.
+    - Server error message if we can found one in the response body.
+    """
+
+    def __init__(self, message: str, response: Optional[Response]):
+        if response is not None:
+            message = _add_information_to_error_message(message, response)
+        super().__init__(message, response=response)
+
+    def append_to_message(self, additional_message: str) -> None:
+        """Append additional information to the `HfHubHTTPError` initial message."""
+        self.args = (self.args[0] + additional_message,) + self.args[1:]
+
+
+class RepositoryNotFoundError(HfHubHTTPError):
     """
     Raised when trying to access a hf.co URL with an invalid repository name, or
     with a private repo name the user does not have access to.
@@ -17,11 +41,8 @@ class RepositoryNotFoundError(HTTPError):
     ```
     """
 
-    def __init__(self, message, response):
-        super().__init__(message, response=response)
 
-
-class RevisionNotFoundError(HTTPError):
+class RevisionNotFoundError(HfHubHTTPError):
     """
     Raised when trying to access a hf.co URL with a valid repository but an invalid
     revision.
@@ -35,11 +56,8 @@ class RevisionNotFoundError(HTTPError):
     ```
     """
 
-    def __init__(self, message, response):
-        super().__init__(message, response=response)
 
-
-class EntryNotFoundError(HTTPError):
+class EntryNotFoundError(HfHubHTTPError):
     """
     Raised when trying to access a hf.co URL with a valid repository and revision
     but an invalid filename.
@@ -52,9 +70,6 @@ class EntryNotFoundError(HTTPError):
     huggingface_hub.utils._errors.EntryNotFoundError: 404 Client Error: Entry Not Found for url: <url>
     ```
     """
-
-    def __init__(self, message, response):
-        super().__init__(message, response=response)
 
 
 class LocalEntryNotFoundError(EntryNotFoundError, FileNotFoundError, ValueError):
@@ -75,77 +90,25 @@ class LocalEntryNotFoundError(EntryNotFoundError, FileNotFoundError, ValueError)
     ```
     """
 
-    def __init__(self, message):
+    def __init__(self, message: str):
         super().__init__(message, response=None)
 
 
-class BadRequestError(ValueError, HTTPError):
+class BadRequestError(HfHubHTTPError, ValueError):
     """
-    Raised by `_raise_convert_bad_request` when the server returns HTTP 400 error
+    Raised by `_raise_convert_bad_request` when the server returns HTTP 400 error.
 
     Example:
 
     ```py
-    >>> resp = request.post("hf.co/api/check", ...)
+    >>> resp = requests.post("hf.co/api/check", ...)
     >>> _raise_convert_bad_request(resp, endpoint_name="check")
     huggingface_hub.utils._errors.BadRequestError: Bad request for check endpoint: {details} (Request ID: XXX)
     ```
     """
 
-    def __init__(self, message, response):
-        super().__init__(message, response=response)
 
-
-def _add_information_to_error_args(error: HTTPError, response: Response) -> None:
-    """
-    If the server response raises an HTTPError, add information from the server Response
-    to the HTTPError message.
-
-    NOTE: input error is mutated ! 
-
-    Added details:
-    - Request id from "X-Request-Id" header if exists.
-    - Server error message if we can found one in the response body.
-    """
-    # Safety check that the HTTP error already has a message.
-    if len(error.args) == 0 or not isinstance(error.args[0], str):
-        return
-
-    error_message = error.args[0]
-
-    # Add message from response body
-    try:
-        server_message = response.json().get("error", None)
-        if (
-            server_message is not None
-            and len(server_message) > 0
-            and server_message not in error_message
-        ):
-            error_message += "\n\n" + server_message
-    except JSONDecodeError:
-        pass
-
-    # Add Request ID
-    request_id = response.headers.get("X-Request-Id")
-    if request_id is not None and request_id not in error_message:
-        request_id_message = f" (Request ID: {request_id})"
-        if "\n" in error_message:
-            newline_index = error_message.index("\n")
-            error_message = error_message[:newline_index] + request_id_message + error_message[newline_index:]
-        else:
-            error_message += request_id_message
-
-    import pdb;pdb.set_trace()
-
-    # Mutate HTTPError
-    error.args = (error_message,) + error.args[1:]
-
-
-# def _add_request_id_to_error_args(e, request_id)
-# def _add_server_message_to_error_args(e: HTTPError, response: Response)
-
-
-def _raise_for_status(response):
+def _raise_for_status(response: Response, endpoint_name: Optional[str] = None) -> None:
     """
     Internal version of `response.raise_for_status()` that will refine a
     potential HTTPError.
@@ -153,62 +116,92 @@ def _raise_for_status(response):
     try:
         response.raise_for_status()
     except HTTPError as e:
-        if "X-Error-Code" in response.headers:
-            error_code = response.headers["X-Error-Code"]
-            if error_code == "RepoNotFound":
-                message = (
-                    f"{response.status_code} Client Error.\n\nRepository Not Found for"
-                    f" url: {response.url}.\nIf the repo is private, make sure you are"
-                    " authenticated."
-                )
-                e = RepositoryNotFoundError(message, response)
-            elif error_code == "RevisionNotFound":
-                message = (
-                    f"{response.status_code} Client Error.\n\nRevision Not Found for url:"
-                    f" {response.url}."
-                )
-                e = RevisionNotFoundError(message, response)
-            if error_code == "EntryNotFound":
-                message = (
-                    f"{response.status_code} Client Error.\n\nEntry Not Found for url:"
-                    f" {response.url}."
-                )
-                e = EntryNotFoundError(message, response)
+        error_code = response.headers.get("X-Error-Code")
 
-        elif response.status_code == 401:
-            # The repo was not found and the user is not Authenticated
+        if error_code == "RevisionNotFound":
             message = (
-                f"{response.status_code} Client Error.\n\nRepository Not Found for url:"
-                f" {response.url}. If the repo is private, make sure you are"
-                " authenticated."
+                f"{response.status_code} Client Error."
+                + "\n\n"
+                + f"Revision Not Found for url: {response.url}."
             )
-            e = RepositoryNotFoundError(message, response)
+            raise RevisionNotFoundError(message, response) from e
 
-        _add_information_to_error_args(e, response=response)
-        raise e
+        elif error_code == "EntryNotFound":
+            message = (
+                f"{response.status_code} Client Error."
+                + "\n\n"
+                + f"Entry Not Found for url: {response.url}."
+            )
+            raise EntryNotFoundError(message, response) from e
+
+        elif error_code == "RepoNotFound" or response.status_code == 401:
+            message = (
+                f"{response.status_code} Client Error."
+                + "\n\n"
+                + f"Repository Not Found for url: {response.url}."
+                + "\nPlease make sure you specified the correct `repo_id` and"
+                " `repo_type`."
+                + "\nIf the repo is private, make sure you are authenticated."
+            )
+            raise RepositoryNotFoundError(message, response) from e
+
+        elif response.status_code == 400:
+            message = (
+                f"\n\nBad request for {endpoint_name} endpoint:"
+                if endpoint_name is not None
+                else "\n\nBad request:"
+            )
+            raise BadRequestError(message, response=response) from e
+
+        # Convert `HTTPError` into a `HfHubHTTPError` to display request information
+        # as well (request id and/or server error message)
+        raise HfHubHTTPError(str(HTTPError), response=response) from e
 
 
 def _raise_with_request_id(response):
+    """Keep alias for now ?"""
     _raise_for_status(response)
 
 
 def _raise_convert_bad_request(response: Response, endpoint_name: str):
     """
     Calls _raise_for_status on resp and converts HTTP 400 errors into ValueError.
+
+    Keep alias for now ?
     """
+    _raise_for_status(response, endpoint_name)
+
+
+def _add_information_to_error_message(message: str, response: Response) -> str:
+    """
+    Add information to the error message based on response from the server.
+    Used when initializing `HfHubHTTPError`.
+    """
+    # Add message from response body
     try:
-        _raise_for_status(response)
-    except HTTPError as exc:
-        request_id = response.headers.get("X-Request-Id")
-        try:
-            details = response.json().get("error", None)
-        except JSONDecodeError:
-            raise exc
-        if response.status_code == 400 and details:
-            raise BadRequestError(
-                f"Bad request for {endpoint_name} endpoint: {details} (Request ID:"
-                f" {request_id})",
-                response=response,
-            ) from exc
-        _add_information_to_error_args(exc, response=response)
-        raise
+        server_message = response.json().get("error", None)
+        if (
+            server_message is not None
+            and len(server_message) > 0
+            and server_message not in message
+        ):
+            if "\n\n" in message:
+                message += "\n\n" + message
+            else:
+                message += "\n" + message
+    except JSONDecodeError:
+        pass
+
+    # Add Request ID
+    request_id = response.headers.get("X-Request-Id")
+    if request_id is not None and request_id not in message:
+        request_id_message = f" (Request ID: {request_id})"
+        if "\n" in message:
+            newline_index = message.index("\n")
+            message = (
+                message[:newline_index] + request_id_message + message[newline_index:]
+            )
+        else:
+            message += request_id_message
+
+    return message

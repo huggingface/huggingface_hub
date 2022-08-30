@@ -22,6 +22,7 @@ from typing import BinaryIO, Dict, Iterable, Iterator, List, Optional, Tuple, Un
 from urllib.parse import quote
 
 import requests
+from huggingface_hub.utils import RepositoryNotFoundError
 from requests.exceptions import HTTPError
 
 from ._commit_api import (
@@ -1969,6 +1970,15 @@ class HfApi:
                 If the Hub API returns an HTTP 400 error (bad request)
             :class:`ValueError`:
                 If `create_pr` is `True` and revision is neither `None` nor `"main"`.
+
+        <Tip warning={true}>
+
+        `create_commit` assumes that the repo already exists on the Hub. If you get a
+        Client error 404, please make sure you are authenticated and that `repo_id` and
+        `repo_type` are set correctly. If repo does not exist, create it first using
+        [`~huggingface_hub.hf_api.create_repo`].
+
+        </Tip>
         """
         if parent_commit is not None and not REGEX_COMMIT_OID.fullmatch(parent_commit):
             raise ValueError(
@@ -2012,15 +2022,23 @@ class HfApi:
         for addition in additions:
             addition.validate()
 
-        additions_with_upload_mode = fetch_upload_modes(
-            additions=additions,
-            repo_type=repo_type,
-            repo_id=repo_id,
-            token=token,
-            revision=revision,
-            endpoint=self.endpoint,
-            create_pr=create_pr,
-        )
+        try:
+            additions_with_upload_mode = fetch_upload_modes(
+                additions=additions,
+                repo_type=repo_type,
+                repo_id=repo_id,
+                token=token,
+                revision=revision,
+                endpoint=self.endpoint,
+                create_pr=create_pr,
+            )
+        except RepositoryNotFoundError as e:
+            e.append_to_message(
+                "\nTip: `create_commit` assumes that the repo already exists on the"
+                " Huggingface Hub. Please use `create_repo` if it's not the case."
+            )
+            raise
+
         upload_lfs_files(
             additions=[
                 addition
