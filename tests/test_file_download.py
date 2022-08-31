@@ -13,6 +13,7 @@
 # limitations under the License.
 import os
 import unittest
+from pathlib import Path
 from tempfile import TemporaryDirectory
 
 import pytest
@@ -246,6 +247,46 @@ class CachedDownloadTests(unittest.TestCase):
                     cache_dir=tmpdir,
                 )
                 self.assertTrue(os.path.exists(filepath))
+
+    def test_hf_hub_download_with_empty_subfolder(self):
+        """
+        Check subfolder arg is processed correctly when empty string is passed to
+        `hf_hub_download`.
+
+        See https://github.com/huggingface/huggingface_hub/issues/1016.
+        """
+        filepath = Path(
+            hf_hub_download(
+                DUMMY_MODEL_ID,
+                filename=CONFIG_NAME,
+                subfolder="",  # Subfolder should be processed as `None`
+            )
+        )
+
+        # Check file exists and is not in a subfolder in cache
+        # e.g: "(...)/snapshots/<commit-id>/config.json"
+        self.assertTrue(filepath.is_file())
+        self.assertEqual(filepath.name, CONFIG_NAME)
+        self.assertEqual(Path(filepath).parent.parent.name, "snapshots")
+
+    def test_hf_hub_url_with_empty_subfolder(self):
+        """
+        Check subfolder arg is processed correctly when empty string is passed to
+        `hf_hub_url`.
+
+        See https://github.com/huggingface/huggingface_hub/issues/1016.
+        """
+        url = hf_hub_url(
+            DUMMY_MODEL_ID,
+            filename=CONFIG_NAME,
+            subfolder="",  # Subfolder should be processed as `None`
+        )
+        self.assertTrue(
+            url.endswith(
+                # "./resolve/main/config.json" and not "./resolve/main//config.json"
+                f"{DUMMY_MODEL_ID}/resolve/main/config.json",
+            )
+        )
 
     def test_hf_hub_download_legacy(self):
         filepath = hf_hub_download(
