@@ -461,7 +461,7 @@ def _request_wrapper(
                 method=method.upper(), url=url, timeout=timeout, **params
             )
             success = True
-        except requests.exceptions.ConnectTimeout as err:
+        except (requests.exceptions.ConnectTimeout, requests.exceptions.ProxyError) as err: # or simply "except Exception as err:"
             if tries > max_retries:
                 raise err
             else:
