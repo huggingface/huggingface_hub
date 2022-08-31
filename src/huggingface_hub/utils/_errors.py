@@ -205,7 +205,7 @@ def hf_raise_for_status(
         - [`~huggingface_hub.utils.BadRequestError`]
             If request failed with a HTTP 400 BadRequest error.
         - [`~huggingface_hub.utils.HfHubHTTPError`]
-            If request failed with any other cases.
+            If request failed for a reason not listed above.
 
     </Tip>
     """
