@@ -1457,11 +1457,14 @@ class HfApiPrivateTest(HfApiCommonTestWithLogin):
         )
 
     def test_model_info(self):
-        shutil.rmtree(os.path.dirname(HfFolder.path_token))
+        shutil.rmtree(os.path.dirname(HfFolder.path_token), ignore_errors=True)
         # Test we cannot access model info without a token
         with self.assertRaisesRegex(
             requests.exceptions.HTTPError,
-            r"401 Client Error: Repository Not Found for url: (.+) \(Request ID: .+\)",
+            re.compile(
+                r"401 Client Error(.+)\(Request ID: .+\)(.*)Repository Not Found",
+                flags=re.DOTALL,
+            ),
         ):
             _ = self._api.model_info(repo_id=f"{USER}/{self.REPO_NAME}")
         # Test we can access model info with a token
