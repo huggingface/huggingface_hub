@@ -20,7 +20,7 @@ class HfHubHTTPError(HTTPError):
     Usage:
     ```py
         import requests
-        from huggingface_hub.utils import hf_raise_for_status
+        from huggingface_hub.utils import hf_raise_for_status, HfHubHTTPError
 
         response = requests.post(...)
         try:
@@ -168,7 +168,7 @@ def hf_raise_for_status(
     Usage:
     ```py
         import requests
-        from huggingface_hub.utils import hf_raise_for_status
+        from huggingface_hub.utils import hf_raise_for_status, HfHubHTTPError
 
         response = requests.post(...)
         try:
