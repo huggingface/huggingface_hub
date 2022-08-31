@@ -219,6 +219,8 @@ def hf_hub_url(
 
     -  [1] https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/ETag
     """
+    if subfolder == "":
+        subfolder = None
     if subfolder is not None:
         filename = f"{subfolder}/{filename}"
 
@@ -1032,6 +1034,8 @@ def hf_hub_download(
     if isinstance(cache_dir, Path):
         cache_dir = str(cache_dir)
 
+    if subfolder == "":
+        subfolder = None
     if subfolder is not None:
         # This is used to create a URL, and not a local path, hence the forward slash.
         filename = f"{subfolder}/{filename}"
