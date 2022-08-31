@@ -16,12 +16,45 @@ class HfHubHTTPError(HTTPError):
     Added details:
     - Request id from "X-Request-Id" header if exists.
     - Server error message if we can found one in the response body.
+
+    Usage:
+    ```py
+        import requests
+        from huggingface_hub.utils import hf_raise_for_status
+
+        response = requests.post(...)
+        try:
+            hf_raise_for_status(response)
+        except HfHubHTTPError as e:
+            print(str(e)) # formatted message
+            e.request_id, e.server_message # details returned by server
+
+            # Complete the error message with additional information once it's raised
+            e.append_to_message("\n`create_commit` expects the repository to exist.")
+            raise
+    ```
     """
 
+    request_id: Optional[str] = None
+    server_message: Optional[str] = None
+
     def __init__(self, message: str, response: Optional[Response]):
+        # Parse server information if any.
         if response is not None:
-            message = _add_information_to_error_message(message, response)
-        super().__init__(message, response=response)
+            self.request_id = response.headers.get("X-Request-Id")
+            try:
+                self.server_message = response.json().get("error", None)
+            except JSONDecodeError:
+                pass
+
+        super().__init__(
+            _format_error_message(
+                message,
+                request_id=self.request_id,
+                server_message=self.server_message,
+            ),
+            response=response,
+        )
 
     def append_to_message(self, additional_message: str) -> None:
         """Append additional information to the `HfHubHTTPError` initial message."""
@@ -38,7 +71,13 @@ class RepositoryNotFoundError(HfHubHTTPError):
     ```py
     >>> from huggingface_hub import model_info
     >>> model_info("<non_existent_repository>")
-    huggingface_hub.utils._errors.RepositoryNotFoundError: 404 Client Error: Repository Not Found for url: <url>
+    (...)
+    huggingface_hub.utils._errors.RepositoryNotFoundError: 401 Client Error. (Request ID: PvMw_VjBMjVdMz53WKIzP)
+
+    Repository Not Found for url: https://huggingface.co/api/models/%3Cnon_existent_repository%3E.
+    Please make sure you specified the correct `repo_id` and `repo_type`.
+    If the repo is private, make sure you are authenticated.
+    Invalid username or password.
     ```
     """
 
@@ -53,7 +92,10 @@ class RevisionNotFoundError(HfHubHTTPError):
     ```py
     >>> from huggingface_hub import hf_hub_download
     >>> hf_hub_download('bert-base-cased', 'config.json', revision='<non-existent-revision>')
-    huggingface_hub.utils._errors.RevisionNotFoundError: 404 Client Error: Revision Not Found for url: <url>
+    (...)
+    huggingface_hub.utils._errors.RevisionNotFoundError: 404 Client Error. (Request ID: Mwhe_c3Kt650GcdKEFomX)
+
+    Revision Not Found for url: https://huggingface.co/bert-base-cased/resolve/%3Cnon-existent-revision%3E/config.json.
     ```
     """
 
@@ -68,7 +110,10 @@ class EntryNotFoundError(HfHubHTTPError):
     ```py
     >>> from huggingface_hub import hf_hub_download
     >>> hf_hub_download('bert-base-cased', '<non-existent-file>')
-    huggingface_hub.utils._errors.EntryNotFoundError: 404 Client Error: Entry Not Found for url: <url>
+    (...)
+    huggingface_hub.utils._errors.EntryNotFoundError: 404 Client Error. (Request ID: 53pNl6M0MxsnG5Sw8JA6x)
+
+    Entry Not Found for url: https://huggingface.co/bert-base-cased/resolve/main/%3Cnon-existent-file%3E.
     ```
     """
 
@@ -87,6 +132,7 @@ class LocalEntryNotFoundError(EntryNotFoundError, FileNotFoundError, ValueError)
     ```py
     >>> from huggingface_hub import hf_hub_download
     >>> hf_hub_download('bert-base-cased', '<non-cached-file>',  local_files_only=True)
+    (...)
     huggingface_hub.utils._errors.LocalEntryNotFoundError: Cannot find the requested files in the disk cache and outgoing traffic has been disabled. To enable hf.co look-ups and downloads online, set 'local_files_only' to False.
     ```
     """
@@ -97,22 +143,71 @@ class LocalEntryNotFoundError(EntryNotFoundError, FileNotFoundError, ValueError)
 
 class BadRequestError(HfHubHTTPError, ValueError):
     """
-    Raised by `_raise_for_status` when the server returns a HTTP 400 error.
+    Raised by `hf_raise_for_status` when the server returns a HTTP 400 error.
 
     Example:
 
     ```py
     >>> resp = requests.post("hf.co/api/check", ...)
-    >>> _raise_for_status(resp, endpoint_name="check")
+    >>> hf_raise_for_status(resp, endpoint_name="check")
     huggingface_hub.utils._errors.BadRequestError: Bad request for check endpoint: {details} (Request ID: XXX)
     ```
     """
 
 
-def _raise_for_status(response: Response, endpoint_name: Optional[str] = None) -> None:
+def hf_raise_for_status(
+    response: Response, endpoint_name: Optional[str] = None
+) -> None:
     """
     Internal version of `response.raise_for_status()` that will refine a
-    potential HTTPError.
+    potential HTTPError. Raised exception will be an instance of `HfHubHTTPError`.
+
+    This helper is meant to be the unique method to raise_for_status when making a call
+    to the Hugging Face Hub.
+
+    Usage:
+    ```py
+        import requests
+        from huggingface_hub.utils import hf_raise_for_status
+
+        response = requests.post(...)
+        try:
+            hf_raise_for_status(response)
+        except HfHubHTTPError as e:
+            print(str(e)) # formatted message
+            e.request_id, e.server_message # details returned by server
+
+            # Complete the error message with additional information once it's raised
+            e.append_to_message("\n`create_commit` expects the repository to exist.")
+            raise
+    ```
+
+    Args:
+        response (`Response`):
+            Response from the server.
+        endpoint_name (`str`, *optional*):
+            Name of the endpoint that has been called. If provided, the error message
+            will be more complete.
+
+    <Tip warning={true}>
+
+    Raises when the request has failed:
+
+        - [`~huggingface_hub.utils.RepositoryNotFoundError`]
+            If the repository to download from cannot be found. This may be because it
+            doesn't exist, because `repo_type` is not set correctly, or because the repo
+            is `private` and you do not have access.
+        - [`~huggingface_hub.utils.RevisionNotFoundError`]
+            If the repository exists but the revision couldn't be find.
+        - [`~huggingface_hub.utils.EntryNotFoundError`]
+            If the repository exists but the entry (e.g. the requested file) couldn't be
+            find.
+        - [`~huggingface_hub.utils.BadRequestError`]
+            If request failed with a HTTP 400 BadRequest error.
+        - [`~huggingface_hub.utils.HfHubHTTPError`]
+            If request failed with any other cases.
+
+    </Tip>
     """
     try:
         response.raise_for_status()
@@ -159,44 +254,52 @@ def _raise_for_status(response: Response, endpoint_name: Optional[str] = None) -
         raise HfHubHTTPError(str(HTTPError), response=response) from e
 
 
-@_deprecate_method(version="0.12", message="Use `_raise_for_status` instead.")
+@_deprecate_method(version="0.15", message="Use `hf_raise_for_status` instead.")
+def _raise_for_status(response):
+    """Keep alias for now.
+
+    Deprecated but will stay longer since used in transformers.
+    """
+    hf_raise_for_status(response)
+
+
+@_deprecate_method(version="0.13", message="Use `hf_raise_for_status` instead.")
 def _raise_with_request_id(response):
-    """Keep alias for now ?"""
-    _raise_for_status(response)
+    """Keep alias for now."""
+    hf_raise_for_status(response)
 
 
-@_deprecate_method(version="0.12", message="Use `_raise_for_status` instead.")
+@_deprecate_method(version="0.13", message="Use `hf_raise_for_status` instead.")
 def _raise_convert_bad_request(response: Response, endpoint_name: str):
     """
-    Calls _raise_for_status on resp and converts HTTP 400 errors into ValueError.
+    Calls hf_raise_for_status on resp and converts HTTP 400 errors into ValueError.
 
-    Keep alias for now ?
+    Keep alias for now.
     """
-    _raise_for_status(response, endpoint_name=endpoint_name)
+    hf_raise_for_status(response, endpoint_name=endpoint_name)
 
 
-def _add_information_to_error_message(message: str, response: Response) -> str:
+def _format_error_message(
+    message: str, request_id: Optional[str], server_message: Optional[str]
+) -> str:
     """
-    Add information to the error message based on response from the server.
+    Format the `HfHubHTTPError` error message based on initial message and information
+    returned by the server.
+
     Used when initializing `HfHubHTTPError`.
     """
     # Add message from response body
-    try:
-        server_message = response.json().get("error", None)
-        if (
-            server_message is not None
-            and len(server_message) > 0
-            and server_message.lower() not in message.lower()
-        ):
-            if "\n\n" in message:
-                message += "\n" + server_message
-            else:
-                message += "\n\n" + server_message
-    except JSONDecodeError:
-        pass
+    if (
+        server_message is not None
+        and len(server_message) > 0
+        and server_message.lower() not in message.lower()
+    ):
+        if "\n\n" in message:
+            message += "\n" + server_message
+        else:
+            message += "\n\n" + server_message
 
     # Add Request ID
-    request_id = response.headers.get("X-Request-Id")
     if request_id is not None and str(request_id).lower() not in message.lower():
         request_id_message = f" (Request ID: {request_id})"
         if "\n" in message:

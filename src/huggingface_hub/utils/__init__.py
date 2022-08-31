@@ -32,7 +32,7 @@ from ._errors import (
     LocalEntryNotFoundError,
     RepositoryNotFoundError,
     RevisionNotFoundError,
-    _raise_for_status,
+    hf_raise_for_status,
 )
 from ._paths import filter_repo_objects
 from ._subprocess import run_subprocess

@@ -36,7 +36,7 @@ from .hf_api import HfFolder
 from .utils import (
     EntryNotFoundError,
     LocalEntryNotFoundError,
-    _raise_for_status,
+    hf_raise_for_status,
     logging,
     tqdm,
 )
@@ -510,7 +510,7 @@ def http_get(
         timeout=timeout,
         max_retries=max_retries,
     )
-    _raise_for_status(r)
+    hf_raise_for_status(r)
     content_length = r.headers.get("Content-Length")
     total = resume_size + int(content_length) if content_length is not None else None
     progress = tqdm(
@@ -663,7 +663,7 @@ def cached_download(
                 proxies=proxies,
                 timeout=etag_timeout,
             )
-            _raise_for_status(r)
+            hf_raise_for_status(r)
             etag = r.headers.get("X-Linked-Etag") or r.headers.get("ETag")
             # We favor a custom header indicating the etag of the linked resource, and
             # we fallback to the regular etag header.
@@ -1097,7 +1097,7 @@ def hf_hub_download(
                 timeout=etag_timeout,
             )
             try:
-                _raise_for_status(r)
+                hf_raise_for_status(r)
             except EntryNotFoundError:
                 commit_hash = r.headers.get(HUGGINGFACE_HEADER_X_REPO_COMMIT)
                 if commit_hash is not None and not legacy_cache_layout:
