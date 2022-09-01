@@ -225,7 +225,7 @@ class ModelInfo:
             repo sha at this particular revision
         lastModified (`str`, *optional*):
             date of last commit to repo
-        tags (`Listr[str]`, *optional*):
+        tags (`List[str]`, *optional*):
             List of tags.
         pipeline_tag (`str`, *optional*):
             Pipeline tag to identify the correct widget.
@@ -237,6 +237,9 @@ class ModelInfo:
             repo author
         config (`Dict`, *optional*):
             Model configuration information
+        securityStatus (`Dict`, *optional*):
+            Security status of the model.
+            Example: {"containsInfected": False}
         kwargs (`Dict`, *optional*):
             Kwargs that will be become attributes of the class.
     """
@@ -253,6 +256,7 @@ class ModelInfo:
         private: bool = False,
         author: Optional[str] = None,
         config: Optional[Dict] = None,
+        securityStatus: Optional[Dict] = None,
         **kwargs,
     ):
         self.modelId = modelId
@@ -266,6 +270,7 @@ class ModelInfo:
         self.private = private
         self.author = author
         self.config = config
+        self.securityStatus = securityStatus
         for k, v in kwargs.items():
             setattr(self, k, v)
 
