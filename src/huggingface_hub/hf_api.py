@@ -656,8 +656,10 @@ class HfApi:
         Returns:
             Validated token and the name of the repository.
         Raises:
-            :class:`EnvironmentError`: If the token is not passed and there's no token saved locally.
-            :class:`ValueError`: If organization token or invalid token is passed.
+            - [`EnvironmentError`](https://docs.python.org/3/library/exceptions.html#EnvironmentError)
+              If the token is not passed and there's no token saved locally.
+            - [`ValueError`](https://docs.python.org/3/library/exceptions.html#ValueError)
+              If organization token or invalid token is passed.
         """
         if token is None or token is True:
             token = HfFolder.get_token()
@@ -1952,15 +1954,15 @@ class HfApi:
                 on the Hub. Otherwise returns `None`.
 
         Raises:
-            :class:`ValueError`:
+            - [`ValueError`](https://docs.python.org/3/library/exceptions.html#ValueError)
                 If commit message is empty.
-            :class:`ValueError`:
+            - [`ValueError`](https://docs.python.org/3/library/exceptions.html#ValueError)
                 If parent commit is not a valid commit OID.
-            :class:`ValueError`:
+            - [`ValueError`](https://docs.python.org/3/library/exceptions.html#ValueError)
                 If the Hub API returns an HTTP 400 error (bad request)
-            :class:`ValueError`:
+            - [`ValueError`](https://docs.python.org/3/library/exceptions.html#ValueError)
                 If `create_pr` is `True` and revision is neither `None` nor `"main"`.
-            :class: `RepositoryNotFoundError`:
+            - [`~utils.RepositoryNotFoundError`]:
                 If repository is not found (error 404): wrong repo_id/repo_type, private
                 but not authenticated or repo does not exist.
 
