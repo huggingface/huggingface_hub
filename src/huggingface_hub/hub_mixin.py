@@ -182,8 +182,12 @@ class ModelHubMixin:
         if len(model_id.split("@")) == 2:
             model_id, revision = model_id.split("@")
 
-        if os.path.isdir(model_id) and CONFIG_NAME in os.listdir(model_id):
-            config_file = os.path.join(model_id, CONFIG_NAME)
+        config_file: Optional[str] = None
+        if os.path.isdir(model_id):
+            if CONFIG_NAME in os.listdir(model_id):
+                config_file = os.path.join(model_id, CONFIG_NAME)
+            else:
+                logger.warning(f"{CONFIG_NAME} not found in {Path(model_id).resolve()}")
         else:
             try:
                 config_file = hf_hub_download(
@@ -199,7 +203,6 @@ class ModelHubMixin:
                 )
             except requests.exceptions.RequestException:
                 logger.warning(f"{CONFIG_NAME} not found in HuggingFace Hub")
-                config_file = None
 
         if config_file is not None:
             with open(config_file, "r", encoding="utf-8") as f:
