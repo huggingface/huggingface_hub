@@ -239,7 +239,7 @@ class ModelInfo:
             Model configuration information
         securityStatus (`Dict`, *optional*):
             Security status of the model.
-            Example: {"containsInfected": False}
+            Example: `{"containsInfected": False}`
         kwargs (`Dict`, *optional*):
             Kwargs that will be become attributes of the class.
     """
