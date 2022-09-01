@@ -2,7 +2,11 @@ import unittest
 from pathlib import Path
 from unittest.mock import Mock, patch
 
-from huggingface_hub.utils._validators import validate_hf_hub_args, validate_repo_id
+from huggingface_hub.utils import (
+    HFValidationError,
+    validate_hf_hub_args,
+    validate_repo_id,
+)
 
 
 @patch("huggingface_hub.utils._validators.validate_repo_id")
@@ -51,5 +55,7 @@ class TestRepoIdValidator(unittest.TestCase):
     def test_not_valid_repo_ids(self) -> None:
         """Test `repo_id` validation on not valid values."""
         for repo_id in self.NOT_VALID_VALUES:
-            with self.assertRaises(ValueError, msg=f"'{repo_id}' must not be valid"):
+            with self.assertRaises(
+                HFValidationError, msg=f"'{repo_id}' must not be valid"
+            ):
                 validate_repo_id(repo_id)

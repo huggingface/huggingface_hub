@@ -12,7 +12,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-"""Contains utilities to validate argument values in Huggingface Hub."""
+"""Contains utilities to validate argument values in `huggingface_hub`."""
 import inspect
 import re
 from functools import wraps
@@ -33,16 +33,47 @@ REPO_ID_REGEX = re.compile(
 )
 
 
-def validate_hf_hub_args(fn: Callable) -> None:
+class HFValidationError(ValueError):
+    """Generic exception thrown by `huggingface_hub` validators.
+
+    Inherits from [`ValueError`](https://docs.python.org/3/library/exceptions.html#ValueError).
+    """
+
+
+def validate_hf_hub_args(fn: Callable) -> Callable:
     """Validate values received as argument for any public method of `huggingface_hub`.
 
     The goal of this decorator is to harmonize validation of arguments reused
     everywhere. By default, all defined validators are tested.
 
     Validators:
-        - `repo_id`: must be `"repo_name"` or `"user/repo_name"`.
+        - [`~huggingface_hub.utils.validate_repo_id`]: `repo_id` must be `"repo_name"`
+          or `"user/repo_name"`.
+
+    Usage:
+    ```py
+    >>> from huggingface_hub.utils import validate_hf_hub_args
+
+    >>> @validate_hf_hub_args
+    ... def my_cool_method(repo_id: str):
+    ...     print(repo_id)
+
+    >>> my_cool_method(repo_id="valid_repo_id")
+    valid_repo_id
+
+    >>> my_cool_method("other--repo--id")
+    huggingface_hub.utils._validators.HFValidationError: Cannot have -- or .. in repo_id: 'other--repo--id'.
+
+    >>> my_cool_method(repo_id="other--repo--id")
+    huggingface_hub.utils._validators.HFValidationError: Cannot have -- or .. in repo_id: 'other--repo--id'.
+    ```
+
+    <Tip warning={true}>
+    Raises:
+        - [`~huggingface_hub.utils.HFValidationError`]
+          If an input is not valid.
+    </Tip>
     """
-    # TODO: add a way to modify input value as in Pydantic?
     # TODO: add an argument to opt-out validation for specific argument?
     signature = inspect.signature(fn)
 
@@ -77,6 +108,14 @@ def validate_repo_id(repo_id: str) -> None:
         Valid: `"foo"`, `"foo/bar"`, `"123"`, `"Foo-BAR_foo.bar123"`
         Not valid: `"datasets/foo/bar"`, `".repo_id"`, `"foo--bar"`, `"foo.git"`
 
+    Usage:
+    ```py
+    >>> from huggingface_hub.utils import validate_repo_id
+    >>> validate_repo_id(repo_id="valid_repo_id")
+    >>> validate_repo_id(repo_id="other--repo--id")
+    huggingface_hub.utils._validators.HFValidationError: Cannot have -- or .. in repo_id: 'other--repo--id'.
+    ```
+
     Discussed in https://github.com/huggingface/huggingface_hub/issues/1008.
     In moon-landing:
     - https://github.com/huggingface/moon-landing/blob/main/server/lib/Names.ts#L27
@@ -84,23 +123,25 @@ def validate_repo_id(repo_id: str) -> None:
     """
     if not isinstance(repo_id, str):
         # Typically, a Path is not a repo_id
-        raise ValueError(f"Repo id must be a string, not {type(repo_id)}: '{repo_id}'.")
+        raise HFValidationError(
+            f"Repo id must be a string, not {type(repo_id)}: '{repo_id}'."
+        )
 
     if repo_id.count("/") > 1:
-        raise ValueError(
+        raise HFValidationError(
             f"Repo id must be in the form 'repo_name' or 'user/repo_name': '{repo_id}'."
             " Use `repo_type` argument if needed."
         )
 
     if not REPO_ID_REGEX.match(repo_id):
-        raise ValueError(
+        raise HFValidationError(
             "Repo id must use alphanumeric chars or '-', '_', '.', '--' and '..' are"
             " forbidden, '-' and '.' cannot start or end the name, max length is 96:"
             f" '{repo_id}'."
         )
 
     if "--" in repo_id or ".." in repo_id:
-        raise ValueError(f"Cannot have -- or .. in repo_id: '{repo_id}'.")
+        raise HFValidationError(f"Cannot have -- or .. in repo_id: '{repo_id}'.")
 
     if repo_id.endswith(".git"):
-        raise ValueError(f"Repo_id cannot end by '.git': '{repo_id}'.")
+        raise HFValidationError(f"Repo_id cannot end by '.git': '{repo_id}'.")
