@@ -69,9 +69,9 @@ to validate type hints but with more limited features.
 
 ### Generic decorator
 
-`@validate_hf_hub_args` is a generic decorator to encapsulate methods that have
-arguments following `huggingface_hub`'s naming. By default, all arguments that has a
-validator implemented will be validated.
+[`~huggingface_hub.utils.validate_hf_hub_args`] is a generic decorator to encapsulate
+methods that have arguments following `huggingface_hub`'s naming. By default, all
+arguments that has a validator implemented will be validated.
 
 If an input is not valid, a [`~huggingface_hub.utils.HFValidationError`] is thrown. Only
 the first non-valid value throws an error and stops the validation process.
@@ -88,11 +88,11 @@ Usage:
 >>> my_cool_method(repo_id="valid_repo_id")
 valid_repo_id
 
->>> my_cool_method("other--repo--id")
-huggingface_hub.utils._validators.HFValidationError: Cannot have -- or .. in repo_id: 'other--repo--id'.
+>>> my_cool_method("other..repo..id")
+huggingface_hub.utils._validators.HFValidationError: Cannot have -- or .. in repo_id: 'other..repo..id'.
 
->>> my_cool_method(repo_id="other--repo--id")
-huggingface_hub.utils._validators.HFValidationError: Cannot have -- or .. in repo_id: 'other--repo--id'.
+>>> my_cool_method(repo_id="other..repo..id")
+huggingface_hub.utils._validators.HFValidationError: Cannot have -- or .. in repo_id: 'other..repo..id'.
 ```
 
 #### validate_hf_hub_args
