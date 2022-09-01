@@ -458,8 +458,12 @@ class DatasetCard(RepoCard):
 
 
 def _detect_line_ending(content: str) -> Literal["\r", "\n", "\r\n", None]:
-    """
-    same implem as in Hub server, keep it in sync
+    """Detect the line ending of a string. Used by RepoCard to avoid making huge diff on newlines.
+
+    Uses same implem as in Hub server, keep it in sync.
+
+    Returns:
+        str: The detected line ending of the string.
     """
     cr = content.count("\r")
     lf = content.count("\n")
