@@ -17,7 +17,7 @@ class HfHubHTTPError(HTTPError):
     - Request id from "X-Request-Id" header if exists.
     - Server error message if we can found one in the response body.
 
-    Usage:
+    Example:
     ```py
         import requests
         from huggingface_hub.utils import hf_raise_for_status, HfHubHTTPError
@@ -165,7 +165,7 @@ def hf_raise_for_status(
     This helper is meant to be the unique method to raise_for_status when making a call
     to the Hugging Face Hub.
 
-    Usage:
+    Example:
     ```py
         import requests
         from huggingface_hub.utils import hf_raise_for_status, HfHubHTTPError

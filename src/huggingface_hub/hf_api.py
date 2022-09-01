@@ -2150,7 +2150,7 @@ class HfApi:
 
         </Tip>
 
-        Example usage:
+        Example:
 
         ```python
         >>> from huggingface_hub import upload_file
@@ -2317,7 +2317,7 @@ class HfApi:
 
         </Tip>
 
-        Example usage:
+        Example:
 
         ```python
         >>> upload_folder(

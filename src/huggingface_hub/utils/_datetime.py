@@ -31,7 +31,7 @@ def parse_datetime(date_string: str) -> datetime:
     (python-dateutil). See full discussion about this decision on PR:
     https://github.com/huggingface/huggingface_hub/pull/999.
 
-    Usage:
+    Example:
         ```py
         > parse_datetime('2022-08-19T07:19:38.123Z')
         datetime.datetime(2022, 8, 19, 7, 19, 38, 123000, tzinfo=timezone.utc)

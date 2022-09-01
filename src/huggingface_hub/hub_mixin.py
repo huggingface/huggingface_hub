@@ -411,7 +411,7 @@ class PyTorchModelHubMixin(ModelHubMixin):
         Mix this class with your torch-model class for ease process of saving &
         loading from huggingface-hub.
 
-        Example usage:
+        Example:
 
         ```python
         >>> from huggingface_hub import PyTorchModelHubMixin
