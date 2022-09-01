@@ -18,6 +18,7 @@ from huggingface_hub.repocard_types import (
 )
 
 from .constants import REPOCARD_NAME
+from .utils import validate_hf_hub_args
 
 
 # exact same regex as in the Hub server. Please keep in sync.
@@ -205,6 +206,7 @@ def metadata_eval_result(
     return {"model-index": [data]}
 
 
+@validate_hf_hub_args
 def metadata_update(
     repo_id: str,
     metadata: Dict,

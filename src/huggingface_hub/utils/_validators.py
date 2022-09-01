@@ -23,7 +23,7 @@ from typing import Callable
 REPO_ID_REGEX = re.compile(
     r"""
     ^
-    (\b[\w\-.]+\b/)? # optional username
+    (\b[\w\-.]+\b/)? # optional namespace (username or organization)
     \b               # starts with a word boundary
     [\w\-.]{1,96}    # repo_name: alphanumeric + . _ -
     \b               # ends with a word boundary
@@ -48,7 +48,7 @@ def validate_hf_hub_args(fn: Callable) -> Callable:
 
     Validators:
         - [`~huggingface_hub.utils.validate_repo_id`]: `repo_id` must be `"repo_name"`
-          or `"user/repo_name"`.
+          or `"namespace/repo_name"`. Namespace is a username or an organization.
 
     Usage:
     ```py
@@ -100,7 +100,7 @@ def validate_repo_id(repo_id: str) -> None:
 
     Rules:
     - Between 1 and 96 characters.
-    - Either "repo_name" or "user/repo_name"
+    - Either "repo_name" or "namespace/repo_name"
     - [a-zA-Z0-9] or "-", "_", "."
     - "--" and ".." are forbidden
 
@@ -129,8 +129,8 @@ def validate_repo_id(repo_id: str) -> None:
 
     if repo_id.count("/") > 1:
         raise HFValidationError(
-            f"Repo id must be in the form 'repo_name' or 'user/repo_name': '{repo_id}'."
-            " Use `repo_type` argument if needed."
+            "Repo id must be in the form 'repo_name' or 'namespace/repo_name':"
+            f" '{repo_id}'. Use `repo_type` argument if needed."
         )
 
     if not REPO_ID_REGEX.match(repo_id):

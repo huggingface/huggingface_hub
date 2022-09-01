@@ -49,7 +49,7 @@ from .constants import (
     REPO_TYPES_URL_PREFIXES,
     SPACES_SDK_TYPES,
 )
-from .utils import filter_repo_objects, logging, parse_datetime
+from .utils import filter_repo_objects, logging, parse_datetime, validate_hf_hub_args
 from .utils._deprecation import _deprecate_positional_args
 from .utils._errors import (
     _raise_convert_bad_request,
@@ -1198,6 +1198,7 @@ class HfApi:
         d = r.json()
         return [SpaceInfo(**x) for x in d]
 
+    @validate_hf_hub_args
     def model_info(
         self,
         repo_id: str,
@@ -1272,6 +1273,7 @@ class HfApi:
         d = r.json()
         return ModelInfo(**d)
 
+    @validate_hf_hub_args
     def dataset_info(
         self,
         repo_id: str,
@@ -1336,6 +1338,7 @@ class HfApi:
         d = r.json()
         return DatasetInfo(**d)
 
+    @validate_hf_hub_args
     def space_info(
         self,
         repo_id: str,
@@ -1400,6 +1403,7 @@ class HfApi:
         d = r.json()
         return SpaceInfo(**d)
 
+    @validate_hf_hub_args
     def repo_info(
         self,
         repo_id: str,
@@ -1472,6 +1476,7 @@ class HfApi:
         else:
             raise ValueError("Unsupported repo type.")
 
+    @validate_hf_hub_args
     def list_repo_files(
         self,
         repo_id: str,
@@ -1512,6 +1517,7 @@ class HfApi:
         )
         return [f.rfilename for f in repo_info.siblings]
 
+    @validate_hf_hub_args
     @_deprecate_positional_args(version="0.12")
     def create_repo(
         self,
@@ -1642,6 +1648,7 @@ class HfApi:
         d = r.json()
         return d["url"]
 
+    @validate_hf_hub_args
     def delete_repo(
         self,
         repo_id: str = None,
@@ -1733,6 +1740,7 @@ class HfApi:
         )
         _raise_for_status(r)
 
+    @validate_hf_hub_args
     def update_repo_visibility(
         self,
         repo_id: str = None,
@@ -1886,6 +1894,7 @@ class HfApi:
             " completed."
         )
 
+    @validate_hf_hub_args
     def create_commit(
         self,
         repo_id: str,
@@ -2046,6 +2055,7 @@ class HfApi:
         _raise_convert_bad_request(commit_resp, endpoint_name="commit")
         return commit_resp.json().get("pullRequestUrl", None)
 
+    @validate_hf_hub_args
     def upload_file(
         self,
         *,
@@ -2196,6 +2206,7 @@ class HfApi:
         # Similar to `hf_hub_url` but it's "blob" instead of "resolve"
         return f"{self.endpoint}/{repo_id}/blob/{revision}/{path_in_repo}"
 
+    @validate_hf_hub_args
     def upload_folder(
         self,
         *,
@@ -2346,6 +2357,7 @@ class HfApi:
         # Similar to `hf_hub_url` but it's "tree" instead of "resolve"
         return f"{self.endpoint}/{repo_id}/tree/{revision}/{path_in_repo}"
 
+    @validate_hf_hub_args
     def delete_file(
         self,
         path_in_repo: str,
@@ -2467,6 +2479,7 @@ class HfApi:
         else:
             return f"{organization}/{model_id}"
 
+    @validate_hf_hub_args
     def get_repo_discussions(
         self,
         repo_id: str,
@@ -2546,6 +2559,7 @@ class HfApi:
                 )
             page_index = page_index + 1
 
+    @validate_hf_hub_args
     def get_discussion_details(
         self,
         repo_id: str,
@@ -2635,6 +2649,7 @@ class HfApi:
             diff=discussion_details.get("diff"),
         )
 
+    @validate_hf_hub_args
     def create_discussion(
         self,
         repo_id: str,
@@ -2723,6 +2738,7 @@ class HfApi:
             token=token,
         )
 
+    @validate_hf_hub_args
     def create_pull_request(
         self,
         repo_id: str,
@@ -2810,6 +2826,7 @@ class HfApi:
         _raise_for_status(resp)
         return resp
 
+    @validate_hf_hub_args
     def comment_discussion(
         self,
         repo_id: str,
@@ -2885,6 +2902,7 @@ class HfApi:
         )
         return deserialize_event(resp.json()["newMessage"])
 
+    @validate_hf_hub_args
     def rename_discussion(
         self,
         repo_id: str,
@@ -2951,6 +2969,7 @@ class HfApi:
         )
         return deserialize_event(resp.json()["newTitle"])
 
+    @validate_hf_hub_args
     def change_discussion_status(
         self,
         repo_id: str,
@@ -3025,6 +3044,7 @@ class HfApi:
         )
         return deserialize_event(resp.json()["newStatus"])
 
+    @validate_hf_hub_args
     def merge_pull_request(
         self,
         repo_id: str,
@@ -3077,6 +3097,7 @@ class HfApi:
             body={"comment": comment.strip()} if comment and comment.strip() else None,
         )
 
+    @validate_hf_hub_args
     def edit_discussion_comment(
         self,
         repo_id: str,
@@ -3133,6 +3154,7 @@ class HfApi:
         )
         return deserialize_event(resp.json()["updatedComment"])
 
+    @validate_hf_hub_args
     def hide_discussion_comment(
         self,
         repo_id: str,
