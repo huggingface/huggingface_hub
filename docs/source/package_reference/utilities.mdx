@@ -56,7 +56,7 @@ Using these shouldn't be necessary if you use `huggingface_hub` and you don't mo
 
 ### Raise for status
 
-`hf_raise_for_status` is meant to be the central method to "raise for status" from any
+[`~utils.hf_raise_for_status`] is meant to be the central method to "raise for status" from any
 request made to the Hub. It wraps the base `requests.raise_for_status` to provide
 additional information. Any `HTTPError` thrown is converted into a `HfHubHTTPError`.
 
