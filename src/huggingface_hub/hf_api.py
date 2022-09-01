@@ -1236,10 +1236,10 @@ class HfApi:
 
         Raises the following errors:
 
-            - [`~huggingface_hub.utils.RepositoryNotFoundError`]
+            - [`~utils.RepositoryNotFoundError`]
               If the repository to download from cannot be found. This may be because it doesn't exist,
               or because it is set to `private` and you do not have access.
-            - [`~huggingface_hub.utils.RevisionNotFoundError`]
+            - [`~utils.RevisionNotFoundError`]
               If the revision to download from cannot be found.
 
         </Tip>
@@ -1300,16 +1300,16 @@ class HfApi:
                 (size, LFS metadata, etc). Defaults to `False`.
 
         Returns:
-            [`huggingface_hub.hf_api.DatasetInfo`]: The dataset repository information.
+            [`hf_api.DatasetInfo`]: The dataset repository information.
 
         <Tip>
 
         Raises the following errors:
 
-            - [`~huggingface_hub.utils.RepositoryNotFoundError`]
+            - [`~utils.RepositoryNotFoundError`]
               If the repository to download from cannot be found. This may be because it doesn't exist,
               or because it is set to `private` and you do not have access.
-            - [`~huggingface_hub.utils.RevisionNotFoundError`]
+            - [`~utils.RevisionNotFoundError`]
               If the revision to download from cannot be found.
 
         </Tip>
@@ -1364,16 +1364,16 @@ class HfApi:
                 (size, LFS metadata, etc). Defaults to `False`.
 
         Returns:
-            [`huggingface_hub.hf_api.SpaceInfo`]: The space repository information.
+            [`~hf_api.SpaceInfo`]: The space repository information.
 
         <Tip>
 
         Raises the following errors:
 
-            - [`~huggingface_hub.utils.RepositoryNotFoundError`]
+            - [`~utils.RepositoryNotFoundError`]
               If the repository to download from cannot be found. This may be because it doesn't exist,
               or because it is set to `private` and you do not have access.
-            - [`~huggingface_hub.utils.RevisionNotFoundError`]
+            - [`~utils.RevisionNotFoundError`]
               If the revision to download from cannot be found.
 
         </Tip>
@@ -1435,10 +1435,10 @@ class HfApi:
 
         Raises the following errors:
 
-            - [`~huggingface_hub.utils.RepositoryNotFoundError`]
+            - [`~utils.RepositoryNotFoundError`]
               If the repository to download from cannot be found. This may be because it doesn't exist,
               or because it is set to `private` and you do not have access.
-            - [`~huggingface_hub.utils.RevisionNotFoundError`]
+            - [`~utils.RevisionNotFoundError`]
               If the revision to download from cannot be found.
 
         </Tip>
@@ -1671,7 +1671,7 @@ class HfApi:
 
         Raises the following errors:
 
-            - [`~huggingface_hub.utils.RepositoryNotFoundError`]
+            - [`~utils.RepositoryNotFoundError`]
               If the repository to download from cannot be found. This may be because it doesn't exist,
               or because it is set to `private` and you do not have access.
 
@@ -1770,7 +1770,7 @@ class HfApi:
 
         Raises the following errors:
 
-            - [`~huggingface_hub.utils.RepositoryNotFoundError`]
+            - [`~utils.RepositoryNotFoundError`]
               If the repository to download from cannot be found. This may be because it doesn't exist,
               or because it is set to `private` and you do not have access.
 
@@ -1839,7 +1839,7 @@ class HfApi:
 
         Raises the following errors:
 
-            - [`~huggingface_hub.utils.RepositoryNotFoundError`]
+            - [`~utils.RepositoryNotFoundError`]
               If the repository to download from cannot be found. This may be because it doesn't exist,
               or because it is set to `private` and you do not have access.
 
@@ -1906,11 +1906,11 @@ class HfApi:
                 The repository in which the commit will be created, for example:
                 `"username/custom_transformers"`
 
-            operations (`Iterable` of [`~huggingface_hub.hf_api.CommitOperation`]):
+            operations (`Iterable` of [`~hf_api.CommitOperation`]):
                 An iterable of operations to include in the commit, either:
 
-                    - [`~huggingface_hub.hf_api.CommitOperationAdd`] to upload a file
-                    - [`~huggingface_hub.hf_api.CommitOperationDelete`] to delete a file
+                    - [`~hf_api.CommitOperationAdd`] to upload a file
+                    - [`~hf_api.CommitOperationDelete`] to delete a file
 
             commit_message (`str`):
                 The summary (first line) of the commit that will be created.
@@ -1971,7 +1971,7 @@ class HfApi:
         `create_commit` assumes that the repo already exists on the Hub. If you get a
         Client error 404, please make sure you are authenticated and that `repo_id` and
         `repo_type` are set correctly. If repo does not exist, create it first using
-        [`~huggingface_hub.hf_api.create_repo`].
+        [`~hf_api.create_repo`].
 
         </Tip>
         """
@@ -2133,10 +2133,10 @@ class HfApi:
               if the HuggingFace API returned an error
             - [`ValueError`](https://docs.python.org/3/library/exceptions.html#ValueError)
               if some parameter value is invalid
-            - [`~huggingface_hub.utils.RepositoryNotFoundError`]
+            - [`~utils.RepositoryNotFoundError`]
               If the repository to download from cannot be found. This may be because it doesn't exist,
               or because it is set to `private` and you do not have access.
-            - [`~huggingface_hub.utils.RevisionNotFoundError`]
+            - [`~utils.RevisionNotFoundError`]
               If the revision to download from cannot be found.
 
         </Tip>
@@ -2146,7 +2146,7 @@ class HfApi:
         `upload_file` assumes that the repo already exists on the Hub. If you get a
         Client error 404, please make sure you are authenticated and that `repo_id` and
         `repo_type` are set correctly. If repo does not exist, create it first using
-        [`~huggingface_hub.hf_api.create_repo`].
+        [`~hf_api.create_repo`].
 
         </Tip>
 
@@ -2313,7 +2313,7 @@ class HfApi:
         `upload_folder` assumes that the repo already exists on the Hub. If you get a
         Client error 404, please make sure you are authenticated and that `repo_id` and
         `repo_type` are set correctly. If repo does not exist, create it first using
-        [`~huggingface_hub.hf_api.create_repo`].
+        [`~hf_api.create_repo`].
 
         </Tip>
 
@@ -2438,12 +2438,12 @@ class HfApi:
               if the HuggingFace API returned an error
             - [`ValueError`](https://docs.python.org/3/library/exceptions.html#ValueError)
               if some parameter value is invalid
-            - [`~huggingface_hub.utils.RepositoryNotFoundError`]
+            - [`~utils.RepositoryNotFoundError`]
               If the repository to download from cannot be found. This may be because it doesn't exist,
               or because it is set to `private` and you do not have access.
-            - [`~huggingface_hub.utils.RevisionNotFoundError`]
+            - [`~utils.RevisionNotFoundError`]
               If the revision to download from cannot be found.
-            - [`~huggingface_hub.utils.EntryNotFoundError`]
+            - [`~utils.EntryNotFoundError`]
               If the file to download cannot be found.
 
         </Tip>
@@ -2615,7 +2615,7 @@ class HfApi:
               if the HuggingFace API returned an error
             - [`ValueError`](https://docs.python.org/3/library/exceptions.html#ValueError)
               if some parameter value is invalid
-            - [`~huggingface_hub.utils.RepositoryNotFoundError`]
+            - [`~utils.RepositoryNotFoundError`]
               If the repository to download from cannot be found. This may be because it doesn't exist,
               or because it is set to `private` and you do not have access.
 
@@ -2718,7 +2718,7 @@ class HfApi:
               if the HuggingFace API returned an error
             - [`ValueError`](https://docs.python.org/3/library/exceptions.html#ValueError)
               if some parameter value is invalid
-            - [`~huggingface_hub.utils.RepositoryNotFoundError`]
+            - [`~utils.RepositoryNotFoundError`]
               If the repository to download from cannot be found. This may be because it doesn't exist,
               or because it is set to `private` and you do not have access.
 
@@ -2802,7 +2802,7 @@ class HfApi:
               if the HuggingFace API returned an error
             - [`ValueError`](https://docs.python.org/3/library/exceptions.html#ValueError)
               if some parameter value is invalid
-            - [`~huggingface_hub.utils.RepositoryNotFoundError`]
+            - [`~utils.RepositoryNotFoundError`]
               If the repository to download from cannot be found. This may be because it doesn't exist,
               or because it is set to `private` and you do not have access.
 
@@ -2905,7 +2905,7 @@ class HfApi:
               if the HuggingFace API returned an error
             - [`ValueError`](https://docs.python.org/3/library/exceptions.html#ValueError)
               if some parameter value is invalid
-            - [`~huggingface_hub.utils.RepositoryNotFoundError`]
+            - [`~utils.RepositoryNotFoundError`]
               If the repository to download from cannot be found. This may be because it doesn't exist,
               or because it is set to `private` and you do not have access.
 
@@ -2971,7 +2971,7 @@ class HfApi:
               if the HuggingFace API returned an error
             - [`ValueError`](https://docs.python.org/3/library/exceptions.html#ValueError)
               if some parameter value is invalid
-            - [`~huggingface_hub.utils.RepositoryNotFoundError`]
+            - [`~utils.RepositoryNotFoundError`]
               If the repository to download from cannot be found. This may be because it doesn't exist,
               or because it is set to `private` and you do not have access.
 
@@ -3040,7 +3040,7 @@ class HfApi:
               if the HuggingFace API returned an error
             - [`ValueError`](https://docs.python.org/3/library/exceptions.html#ValueError)
               if some parameter value is invalid
-            - [`~huggingface_hub.utils.RepositoryNotFoundError`]
+            - [`~utils.RepositoryNotFoundError`]
               If the repository to download from cannot be found. This may be because it doesn't exist,
               or because it is set to `private` and you do not have access.
 
@@ -3098,7 +3098,7 @@ class HfApi:
               if the HuggingFace API returned an error
             - [`ValueError`](https://docs.python.org/3/library/exceptions.html#ValueError)
               if some parameter value is invalid
-            - [`~huggingface_hub.utils.RepositoryNotFoundError`]
+            - [`~utils.RepositoryNotFoundError`]
               If the repository to download from cannot be found. This may be because it doesn't exist,
               or because it is set to `private` and you do not have access.
 
@@ -3153,7 +3153,7 @@ class HfApi:
               if the HuggingFace API returned an error
             - [`ValueError`](https://docs.python.org/3/library/exceptions.html#ValueError)
               if some parameter value is invalid
-            - [`~huggingface_hub.utils.RepositoryNotFoundError`]
+            - [`~utils.RepositoryNotFoundError`]
               If the repository to download from cannot be found. This may be because it doesn't exist,
               or because it is set to `private` and you do not have access.
 
@@ -3210,7 +3210,7 @@ class HfApi:
               if the HuggingFace API returned an error
             - [`ValueError`](https://docs.python.org/3/library/exceptions.html#ValueError)
               if some parameter value is invalid
-            - [`~huggingface_hub.utils.RepositoryNotFoundError`]
+            - [`~utils.RepositoryNotFoundError`]
               If the repository to download from cannot be found. This may be because it doesn't exist,
               or because it is set to `private` and you do not have access.
 

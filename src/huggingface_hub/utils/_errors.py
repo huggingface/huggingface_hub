@@ -193,18 +193,18 @@ def hf_raise_for_status(
 
     Raises when the request has failed:
 
-        - [`~huggingface_hub.utils.RepositoryNotFoundError`]
+        - [`~utils.RepositoryNotFoundError`]
             If the repository to download from cannot be found. This may be because it
             doesn't exist, because `repo_type` is not set correctly, or because the repo
             is `private` and you do not have access.
-        - [`~huggingface_hub.utils.RevisionNotFoundError`]
+        - [`~utils.RevisionNotFoundError`]
             If the repository exists but the revision couldn't be find.
-        - [`~huggingface_hub.utils.EntryNotFoundError`]
+        - [`~utils.EntryNotFoundError`]
             If the repository exists but the entry (e.g. the requested file) couldn't be
             find.
-        - [`~huggingface_hub.utils.BadRequestError`]
+        - [`~utils.BadRequestError`]
             If request failed with a HTTP 400 BadRequest error.
-        - [`~huggingface_hub.utils.HfHubHTTPError`]
+        - [`~utils.HfHubHTTPError`]
             If request failed for a reason not listed above.
 
     </Tip>

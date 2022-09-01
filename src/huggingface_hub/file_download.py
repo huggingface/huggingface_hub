@@ -606,14 +606,14 @@ def cached_download(
           if ETag cannot be determined.
         - [`ValueError`](https://docs.python.org/3/library/exceptions.html#ValueError)
           if some parameter value is invalid
-        - [`~huggingface_hub.utils.RepositoryNotFoundError`]
+        - [`~utils.RepositoryNotFoundError`]
           If the repository to download from cannot be found. This may be because it doesn't exist,
           or because it is set to `private` and you do not have access.
-        - [`~huggingface_hub.utils.RevisionNotFoundError`]
+        - [`~utils.RevisionNotFoundError`]
           If the revision to download from cannot be found.
-        - [`~huggingface_hub.utils.EntryNotFoundError`]
+        - [`~utils.EntryNotFoundError`]
           If the file to download cannot be found.
-        - [`~huggingface_hub.utils.LocalEntryNotFoundError`]
+        - [`~utils.LocalEntryNotFoundError`]
           If network is disabled or unavailable and file is not found in cache.
 
     </Tip>
@@ -981,14 +981,14 @@ def hf_hub_download(
           if ETag cannot be determined.
         - [`ValueError`](https://docs.python.org/3/library/exceptions.html#ValueError)
           if some parameter value is invalid
-        - [`~huggingface_hub.utils.RepositoryNotFoundError`]
+        - [`~utils.RepositoryNotFoundError`]
           If the repository to download from cannot be found. This may be because it doesn't exist,
           or because it is set to `private` and you do not have access.
-        - [`~huggingface_hub.utils.RevisionNotFoundError`]
+        - [`~utils.RevisionNotFoundError`]
           If the revision to download from cannot be found.
-        - [`~huggingface_hub.utils.EntryNotFoundError`]
+        - [`~utils.EntryNotFoundError`]
           If the file to download cannot be found.
-        - [`~huggingface_hub.utils.LocalEntryNotFoundError`]
+        - [`~utils.LocalEntryNotFoundError`]
           If network is disabled or unavailable and file is not found in cache.
 
     </Tip>
