@@ -73,7 +73,7 @@ to validate type hints but with more limited features.
 methods that have arguments following `huggingface_hub`'s naming. By default, all
 arguments that has a validator implemented will be validated.
 
-If an input is not valid, a [`~huggingface_hub.utils.HFValidationError`] is thrown. Only
+If an input is not valid, a [`~utils.HFValidationError`] is thrown. Only
 the first non-valid value throws an error and stops the validation process.
 
 Usage:
@@ -97,11 +97,11 @@ huggingface_hub.utils._validators.HFValidationError: Cannot have -- or .. in rep
 
 #### validate_hf_hub_args
 
-[[autodoc]] huggingface_hub.utils.validate_hf_hub_args
+[[autodoc]] utils.validate_hf_hub_args
 
 #### HFValidationError
 
-[[autodoc]] huggingface_hub.utils.HFValidationError
+[[autodoc]] utils.HFValidationError
 
 ### Argument validators
 
@@ -110,4 +110,4 @@ validated.
 
 #### `repo_id`
 
-[[autodoc]] huggingface_hub.utils.validate_repo_id
+[[autodoc]] utils.validate_repo_id

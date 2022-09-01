@@ -47,7 +47,7 @@ def validate_hf_hub_args(fn: Callable) -> Callable:
     everywhere. By default, all defined validators are tested.
 
     Validators:
-        - [`~huggingface_hub.utils.validate_repo_id`]: `repo_id` must be `"repo_name"`
+        - [`~utils.validate_repo_id`]: `repo_id` must be `"repo_name"`
           or `"namespace/repo_name"`. Namespace is a username or an organization.
 
     Usage:
@@ -70,7 +70,7 @@ def validate_hf_hub_args(fn: Callable) -> Callable:
 
     <Tip warning={true}>
     Raises:
-        - [`~huggingface_hub.utils.HFValidationError`]
+        - [`~utils.HFValidationError`]
           If an input is not valid.
     </Tip>
     """
