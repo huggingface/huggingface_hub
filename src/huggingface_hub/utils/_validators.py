@@ -50,7 +50,7 @@ def validate_hf_hub_args(fn: Callable) -> Callable:
         - [`~huggingface_hub.utils.validate_repo_id`]: `repo_id` must be `"repo_name"`
           or `"namespace/repo_name"`. Namespace is a username or an organization.
 
-    Usage:
+    Example:
     ```py
     >>> from huggingface_hub.utils import validate_hf_hub_args
 
@@ -104,11 +104,11 @@ def validate_repo_id(repo_id: str) -> None:
     - [a-zA-Z0-9] or "-", "_", "."
     - "--" and ".." are forbidden
 
-    Examples:
-        Valid: `"foo"`, `"foo/bar"`, `"123"`, `"Foo-BAR_foo.bar123"`
-        Not valid: `"datasets/foo/bar"`, `".repo_id"`, `"foo--bar"`, `"foo.git"`
+    Valid: `"foo"`, `"foo/bar"`, `"123"`, `"Foo-BAR_foo.bar123"`
 
-    Usage:
+    Not valid: `"datasets/foo/bar"`, `".repo_id"`, `"foo--bar"`, `"foo.git"`
+
+    Example:
     ```py
     >>> from huggingface_hub.utils import validate_repo_id
     >>> validate_repo_id(repo_id="valid_repo_id")
