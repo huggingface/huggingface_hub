@@ -61,11 +61,11 @@ def validate_hf_hub_args(fn: Callable) -> Callable:
     >>> my_cool_method(repo_id="valid_repo_id")
     valid_repo_id
 
-    >>> my_cool_method("other--repo--id")
-    huggingface_hub.utils._validators.HFValidationError: Cannot have -- or .. in repo_id: 'other--repo--id'.
+    >>> my_cool_method("other..repo..id")
+    huggingface_hub.utils._validators.HFValidationError: Cannot have -- or .. in repo_id: 'other..repo..id'.
 
-    >>> my_cool_method(repo_id="other--repo--id")
-    huggingface_hub.utils._validators.HFValidationError: Cannot have -- or .. in repo_id: 'other--repo--id'.
+    >>> my_cool_method(repo_id="other..repo..id")
+    huggingface_hub.utils._validators.HFValidationError: Cannot have -- or .. in repo_id: 'other..repo..id'.
     ```
 
     <Tip warning={true}>
@@ -112,8 +112,8 @@ def validate_repo_id(repo_id: str) -> None:
     ```py
     >>> from huggingface_hub.utils import validate_repo_id
     >>> validate_repo_id(repo_id="valid_repo_id")
-    >>> validate_repo_id(repo_id="other--repo--id")
-    huggingface_hub.utils._validators.HFValidationError: Cannot have -- or .. in repo_id: 'other--repo--id'.
+    >>> validate_repo_id(repo_id="other..repo..id")
+    huggingface_hub.utils._validators.HFValidationError: Cannot have -- or .. in repo_id: 'other..repo..id'.
     ```
 
     Discussed in https://github.com/huggingface/huggingface_hub/issues/1008.
