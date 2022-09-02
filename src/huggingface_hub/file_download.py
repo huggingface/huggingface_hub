@@ -122,6 +122,14 @@ try:
 except importlib_metadata.PackageNotFoundError:
     pass
 
+_jinja_version = "N/A"
+_jinja_available = False
+try:
+    _jinja_version: str = importlib_metadata.version("Jinja2")
+    _jinja_available = True
+except importlib_metadata.PackageNotFoundError:
+    pass
+
 
 def is_torch_available():
     return _torch_available
@@ -149,6 +157,14 @@ def is_fastcore_available():
 
 def get_fastcore_version():
     return _fastcore_version
+
+
+def is_jinja_available():
+    return _jinja_available
+
+
+def get_jinja_version():
+    return _jinja_version
 
 
 REGEX_COMMIT_HASH = re.compile(r"^[0-9a-f]{40}$")
