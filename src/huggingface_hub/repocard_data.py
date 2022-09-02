@@ -41,7 +41,7 @@ class EvalResult:
             The revision (AKA Git Sha) of the dataset used in `load_dataset()`.
             Example: 5503434ddd753f426f4b38109466949a1217c2bb
         dataset_args (`Dict[str, Any]`, *optional*):
-            The arguments passed during `Metric.compute()`. Example for `bleu`: max_order: 4.
+            The arguments passed during `Metric.compute()`. Example for `bleu`: `{"max_order": 4}`
         metric_name: (`str`, *optional*):
             A pretty name for the metric. Example: "Test WER".
         metric_config: (`str`, *optional*):
