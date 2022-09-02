@@ -10,31 +10,53 @@ get a feel for how you would use these utilities in your own projects.
 The `RepoCard` object is the parent class of [`ModelCard`] and [`DatasetCard`].
 
 [[autodoc]] huggingface_hub.repocard.RepoCard
+    - __init__
+    - all
+## Card Data
 
 The [`CardData`] object is the parent class of [`ModelCardData`] and [`DatasetCardData`].
 
 [[autodoc]] huggingface_hub.repocard_data.CardData
 
 ## Model Cards
+### ModelCard
 
 [[autodoc]] ModelCard
+
+### ModelCardData
 
 [[autodoc]] ModelCardData
 
 ## Dataset Cards
 
+Dataset cards are also known as Data Cards in the ML Community.
+
+### DatasetCard
+
 [[autodoc]] DatasetCard
+
+### DatasetCardData
 
 [[autodoc]] DatasetCardData
 
 ## Utilities
 
+### EvalResult
+
 [[autodoc]] EvalResult
+
+### model_index_to_eval_results
 
 [[autodoc]] huggingface_hub.repocard_data.model_index_to_eval_results
 
+### eval_results_to_model_index
+
 [[autodoc]] huggingface_hub.repocard_data.eval_results_to_model_index
 
+### metadata_eval_result
+
 [[autodoc]] huggingface_hub.repocard.metadata_eval_result
+
+### metadata_update
 
 [[autodoc]] huggingface_hub.repocard.metadata_update

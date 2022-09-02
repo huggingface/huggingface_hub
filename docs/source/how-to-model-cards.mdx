@@ -172,7 +172,6 @@ card = ModelCard.from_template(
     model_description="this model does this and that",
     developers="Nate Raw",
     more_resources="https://github.com/huggingface/huggingface_hub",
-    **card_data.to_dict()  # Pass along any card data vals that might fill out part of the template
 )
 card.save('my_model_card_2.md')
 print(card)
@@ -202,7 +201,6 @@ card = ModelCard.from_template(
     model_description="this model does this and that",
     developers="Nate Raw",
     more_resources="https://github.com/huggingface/huggingface_hub",
-    **card_data.to_dict()  # Pass along any card data vals that might fill out part of the template
 )
 ```
 
