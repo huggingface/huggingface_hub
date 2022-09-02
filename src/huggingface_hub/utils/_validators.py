@@ -69,8 +69,10 @@ def validate_hf_hub_args(fn: Callable) -> Callable:
     ```
 
     <Tip warning={true}>
-        Raises:
-            - [`~utils.HFValidationError`]: If an input is not valid.
+
+    Raises:
+        - [`~utils.HFValidationError`]: If an input is not valid.
+
     </Tip>
     """
     # TODO: add an argument to opt-out validation for specific argument?
