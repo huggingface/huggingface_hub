@@ -180,7 +180,7 @@ class DeleteCacheStrategy:
     `~utils.HFCacheInfo.delete_revisions`.
 
     Args:
-        freed_size (`float`):
+        expected_freed_size (`float`):
             Expected freed size once strategy is executed.
         blobs (`FrozenSet[Path]`):
             Set of blob file paths to be deleted.
@@ -192,20 +192,20 @@ class DeleteCacheStrategy:
             Set of snapshots to be deleted (directory of symlinks).
     """
 
-    freed_size: int
+    expected_freed_size: int
     blobs: FrozenSet[Path]
     refs: FrozenSet[Path]
     repos: FrozenSet[Path]
     snapshots: FrozenSet[Path]
 
     @property
-    def freed_size_str(self) -> str:
+    def expected_freed_size_str(self) -> str:
         """
         (property) Expected size that will be freed as a human-readable string.
 
         Example: "42.2K".
         """
-        return _format_size(self.freed_size)
+        return _format_size(self.expected_freed_size)
 
     def execute(self) -> None:
         """Execute the defined strategy.
@@ -245,7 +245,7 @@ class DeleteCacheStrategy:
         for path in self.blobs:
             _delete(path, path_type="blob")
 
-        logger.info(f"Cache deletion done. Saved {self.freed_size_str}.")
+        logger.info(f"Cache deletion done. Saved {self.expected_freed_size_str}.")
 
 
 @dataclass(frozen=True)
@@ -301,7 +301,7 @@ class HFCacheInfo:
         >>> delete_strategy = cache_info.delete_revisions(
         ...     "81fd1d6e7847c99f5862c9fb81387956d99ec7aa"
         ... )
-        >>> print(f"Will free {delete_strategy.freed_size_str}.")
+        >>> print(f"Will free {delete_strategy.expected_freed_size_str}.")
         Will free 7.9K.
         >>> delete_strategy.execute()
         Cache deletion done. Saved 7.9K.
@@ -347,7 +347,7 @@ class HFCacheInfo:
         delete_strategy_refs: Set[Path] = set()
         delete_strategy_repos: Set[Path] = set()
         delete_strategy_snapshots: Set[Path] = set()
-        delete_strategy_freed_size = 0
+        delete_strategy_expected_freed_size = 0
 
         for affected_repo, revisions_to_delete in repos_with_revisions.items():
             other_revisions = affected_repo.revisions - revisions_to_delete
@@ -356,7 +356,7 @@ class HFCacheInfo:
             # -> delete the entire cached repo
             if len(other_revisions) == 0:
                 delete_strategy_repos.add(affected_repo.repo_path)
-                delete_strategy_freed_size += affected_repo.size_on_disk
+                delete_strategy_expected_freed_size += affected_repo.size_on_disk
                 continue
 
             # Some revisions of the repo will be deleted but not all. We need to filter
@@ -384,7 +384,7 @@ class HFCacheInfo:
                         # Blob file not referenced by remaining revisions -> delete
                         if is_file_alone:
                             delete_strategy_blobs.add(file.blob_path)
-                            delete_strategy_freed_size += file.size_on_disk
+                            delete_strategy_expected_freed_size += file.size_on_disk
 
         # Return the strategy instead of executing it.
         return DeleteCacheStrategy(
@@ -392,7 +392,7 @@ class HFCacheInfo:
             refs=frozenset(delete_strategy_refs),
             repos=frozenset(delete_strategy_repos),
             snapshots=frozenset(delete_strategy_snapshots),
-            freed_size=delete_strategy_freed_size,
+            expected_freed_size=delete_strategy_expected_freed_size,
         )
 
 
