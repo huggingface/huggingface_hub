@@ -71,7 +71,7 @@ def validate_hf_hub_args(fn: Callable) -> Callable:
     <Tip warning={true}>
 
     Raises:
-        - [`~utils.HFValidationError`]: If an input is not valid.
+        [`~utils.HFValidationError`]: If an input is not valid.
 
     </Tip>
     """
