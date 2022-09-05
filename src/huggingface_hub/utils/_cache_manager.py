@@ -13,13 +13,19 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 """Contains utilities to manage the HF cache directory."""
+import os
+import shutil
+from collections import defaultdict
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Dict, FrozenSet, List, Optional, Set, Union
+from typing import Dict, FrozenSet, Iterable, List, Optional, Set, Union
 
 from ..constants import HUGGINGFACE_HUB_CACHE
+from . import logging
 from ._typing import Literal
 
+
+logger = logging.get_logger(__name__)
 
 REPO_TYPE_T = Literal["model", "dataset", "space"]
 
@@ -167,6 +173,82 @@ class CachedRepoInfo:
 
 
 @dataclass(frozen=True)
+class DeleteCacheStrategy:
+    """Frozen data structure holding the strategy to delete cached revisions.
+
+    This object is not meant to be instantiated programmatically but to be returned by
+    `~utils.HFCacheInfo.delete_revisions`.
+
+    Args:
+        freed_size (`float`):
+            Expected freed size once strategy is executed.
+        blobs (`FrozenSet[Path]`):
+            Set of blob file paths to be deleted.
+        refs (`FrozenSet[Path]`):
+            Set of reference file paths to be deleted.
+        repos (`FrozenSet[Path]`):
+            Set of entire repo paths to be deleted.
+        snapshots (`FrozenSet[Path]`):
+            Set of snapshots to be deleted (directory of symlinks).
+    """
+
+    freed_size: int
+    blobs: FrozenSet[Path]
+    refs: FrozenSet[Path]
+    repos: FrozenSet[Path]
+    snapshots: FrozenSet[Path]
+
+    @property
+    def freed_size_str(self) -> str:
+        """
+        (property) Expected size that will be freed as a human-readable string.
+
+        Example: "42.2K".
+        """
+        return _format_size(self.freed_size)
+
+    def execute(self) -> None:
+        """Execute the defined strategy.
+
+        <Tip warning={true}>
+
+        If this method is interrupted, the cache might get corrupted. Deletion order is
+        implemented so that references and symlinks are deleted before the actual blob
+        files.
+
+        </Tip>
+
+        <Tip warning={true}>
+
+        This method is irreversible. If executed, cached files are erased and must be
+        downloaded again.
+
+        </Tip>
+        """
+        # Deletion order matters. Blobs are deleted in last so that the user can't end
+        # up in a state where a `ref`` refers to a missing snapshot or a snapshot
+        # symlink refers to a deleted blob.
+
+        # Delete entire repos
+        for path in self.repos:
+            _delete(path, path_type="repo")
+
+        # Delete snapshot directories
+        for path in self.snapshots:
+            _delete(path, path_type="snapshot")
+
+        # Delete refs files
+        for path in self.refs:
+            _delete(path, path_type="ref")
+
+        # Delete blob files
+        for path in self.blobs:
+            _delete(path, path_type="blob")
+
+        logger.info(f"Cache deletion done. Saved {self.freed_size_str}.")
+
+
+@dataclass(frozen=True)
 class HFCacheInfo:
     """Frozen data structure holding information about the entire cache-system.
 
@@ -204,6 +286,114 @@ class HFCacheInfo:
         Example: "42.2K".
         """
         return _format_size(self.size_on_disk)
+
+    def delete_revisions(self, *revisions: str) -> DeleteCacheStrategy:
+        """Prepare the strategy to delete 1 or more revisions cached locally.
+
+        Input revisions can be any revision hash. If a revision hash is not found in the
+        local cache, a warning is thrown but no error is raised. Revisions can be from
+        different cached repos since hashes are unique across repos,
+
+        Examples:
+        ```py
+        >>> from huggingface_hub.utils import scan_cache_dir
+        >>> cache_info = scan_cache_dir()
+        >>> delete_strategy = cache_info.delete_revisions(
+        ...     "81fd1d6e7847c99f5862c9fb81387956d99ec7aa"
+        ... )
+        >>> print(f"Will free {delete_strategy.freed_size_str}.")
+        Will free 7.9K.
+        >>> delete_strategy.execute()
+        Cache deletion done. Saved 7.9K.
+        ```
+
+        ```py
+        >>> from huggingface_hub.utils import scan_cache_dir
+        >>> scan_cache_dir().delete_revisions(
+        ...     "81fd1d6e7847c99f5862c9fb81387956d99ec7aa",
+        ...     "e2983b237dccf3ab4937c97fa717319a9ca1a96d",
+        ...     "6c0e6080953db56375760c0471a8c5f2929baf11",
+        ... ).execute()
+        Cache deletion done. Saved 8.6G.
+        ```
+
+        <Tip warning={true}>
+
+        `delete_revisions` returns a [`~utils.DeleteCacheStrategy`] object that needs to
+        be executed. The [`~utils.DeleteCacheStrategy`] is not meant to be modified but
+        allows having a dry run before actually executing the deletion.
+
+        </Tip>
+        """
+        hashes_to_delete: Set[str] = set(revisions)
+
+        repos_with_revisions: Dict[
+            CachedRepoInfo, Set[CachedRevisionInfo]
+        ] = defaultdict(set)
+
+        for repo in self.repos:
+            for revision in repo.revisions:
+                if revision.commit_hash in hashes_to_delete:
+                    repos_with_revisions[repo].add(revision)
+                    hashes_to_delete.remove(revision.commit_hash)
+
+        if len(hashes_to_delete) > 0:
+            logger.warning(
+                "Revision(s) not found - cannot delete them:"
+                f" {', '.join(hashes_to_delete)}"
+            )
+
+        delete_strategy_blobs: Set[Path] = set()
+        delete_strategy_refs: Set[Path] = set()
+        delete_strategy_repos: Set[Path] = set()
+        delete_strategy_snapshots: Set[Path] = set()
+        delete_strategy_freed_size = 0
+
+        for affected_repo, revisions_to_delete in repos_with_revisions.items():
+            other_revisions = affected_repo.revisions - revisions_to_delete
+
+            # If no other revisions, it means all revisions are deleted
+            # -> delete the entire cached repo
+            if len(other_revisions) == 0:
+                delete_strategy_repos.add(affected_repo.repo_path)
+                delete_strategy_freed_size += affected_repo.size_on_disk
+                continue
+
+            # Some revisions of the repo will be deleted but not all. We need to filter
+            # which blob files will not be linked anymore.
+            for revision_to_delete in revisions_to_delete:
+                # Snapshot dir
+                delete_strategy_snapshots.add(revision_to_delete.snapshot_path)
+
+                # Refs dir
+                for ref in revision_to_delete.refs:
+                    delete_strategy_refs.add(affected_repo.repo_path / "refs" / ref)
+
+                # Blobs dir
+                for file in revision_to_delete.files:
+                    if file.blob_path not in delete_strategy_blobs:
+                        is_file_alone = True
+                        for revision in other_revisions:
+                            for rev_file in revision.files:
+                                if file.blob_path == rev_file.blob_path:
+                                    is_file_alone = False
+                                    break
+                            if not is_file_alone:
+                                break
+
+                        # Blob file not referenced by remaining revisions -> delete
+                        if is_file_alone:
+                            delete_strategy_blobs.add(file.blob_path)
+                            delete_strategy_freed_size += file.size_on_disk
+
+        # Return the strategy instead of executing it.
+        return DeleteCacheStrategy(
+            blobs=frozenset(delete_strategy_blobs),
+            refs=frozenset(delete_strategy_refs),
+            repos=frozenset(delete_strategy_repos),
+            snapshots=frozenset(delete_strategy_snapshots),
+            freed_size=delete_strategy_freed_size,
+        )
 
 
 def scan_cache_dir(cache_dir: Optional[Union[str, Path]] = None) -> HFCacheInfo:
@@ -356,7 +546,9 @@ def _scan_cached_repo(repo_path: Path) -> CachedRepoInfo:
         )
 
     # Scan over `refs` directory
-    refs_by_hash: Dict[str, Set[str]] = {}  # key is revision hash, value is set of refs
+
+    # key is revision hash, value is set of refs
+    refs_by_hash: Dict[str, Set[str]] = defaultdict(set)
     if refs_path.exists():
         # Example of `refs` directory
         # ── refs
@@ -378,10 +570,7 @@ def _scan_cached_repo(repo_path: Path) -> CachedRepoInfo:
             with ref_path.open() as f:
                 commit_hash = f.read()
 
-            if commit_hash in refs_by_hash:
-                refs_by_hash[commit_hash].add(ref_name)
-            else:
-                refs_by_hash[commit_hash] = {ref_name}
+            refs_by_hash[commit_hash].add(ref_name)
 
     # Scan snapshots directory
     cached_revisions: Set[CachedRevisionInfo] = set()
@@ -467,3 +656,18 @@ def _format_size(num: int) -> str:
             return f"{num_f:3.1f}{unit}"
         num_f /= 1000.0
     return f"{num_f:.1f}Y"
+
+
+def _delete(path: Path, path_type: str) -> None:
+    """Delete a local file or folder.
+
+    If the path does not exists, error is logged and ignored.
+    """
+    logger.info(f"Delete {path_type}: {path}")
+    try:
+        if path.is_file():
+            os.remove(path)
+        else:
+            shutil.rmtree(path)
+    except FileNotFoundError:
+        logger.warning(f"Couldn't delete {path_type}: file not found ({path})")
