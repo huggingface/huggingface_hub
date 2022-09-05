@@ -13,7 +13,7 @@ import pytest
 from _pytest.fixtures import SubRequest
 from huggingface_hub._snapshot_download import snapshot_download
 from huggingface_hub.commands.cache import ScanCacheCommand
-from huggingface_hub.utils import scan_cache_dir
+from huggingface_hub.utils import DeleteCacheStrategy, HFCacheInfo, scan_cache_dir
 
 from .testing_constants import TOKEN
 
@@ -344,4 +344,155 @@ class TestCorruptedCacheUtils(unittest.TestCase):
             "Reference(s) refer to missing commit hashes:"
             " {'revision_hash_that_does_not_exist': {'not_main'}} "
             + f"({self.repo_path }).",
+        )
+
+
+class TestDeleteRevisionsDryRun(unittest.TestCase):
+    cache_info: Mock  # Mocked HFCacheInfo
+
+    def setUp(self) -> None:
+        """Set up fake cache scan report."""
+        repo_A_path = Path("repo_A")
+        blobs_path = repo_A_path / "blobs"
+        snapshots_path = repo_A_path / "snapshots_path"
+
+        # Define blob files
+        main_only_file = Mock()
+        main_only_file.blob_path = blobs_path / "main_only_hash"
+        main_only_file.size_on_disk = 1
+
+        detached_only_file = Mock()
+        detached_only_file.blob_path = blobs_path / "detached_only_hash"
+        detached_only_file.size_on_disk = 10
+
+        pr_1_only_file = Mock()
+        pr_1_only_file.blob_path = blobs_path / "pr_1_only_hash"
+        pr_1_only_file.size_on_disk = 100
+
+        detached_and_pr_1_only_file = Mock()
+        detached_and_pr_1_only_file.blob_path = (
+            blobs_path / "detached_and_pr_1_only_hash"
+        )
+        detached_and_pr_1_only_file.size_on_disk = 1000
+
+        shared_file = Mock()
+        shared_file.blob_path = blobs_path / "shared_file_hash"
+        shared_file.size_on_disk = 10000
+
+        # Define revisions
+        repo_A_rev_main = Mock()
+        repo_A_rev_main.commit_hash = "repo_A_rev_main"
+        repo_A_rev_main.snapshot_path = snapshots_path / "repo_A_rev_main"
+        repo_A_rev_main.files = {main_only_file, shared_file}
+        repo_A_rev_main.refs = {"main"}
+
+        repo_A_rev_detached = Mock()
+        repo_A_rev_detached.commit_hash = "repo_A_rev_detached"
+        repo_A_rev_detached.snapshot_path = snapshots_path / "repo_A_rev_detached"
+        repo_A_rev_detached.files = {
+            detached_only_file,
+            detached_and_pr_1_only_file,
+            shared_file,
+        }
+        repo_A_rev_detached.refs = {}
+
+        repo_A_rev_pr_1 = Mock()
+        repo_A_rev_pr_1.commit_hash = "repo_A_rev_pr_1"
+        repo_A_rev_pr_1.snapshot_path = snapshots_path / "repo_A_rev_pr_1"
+        repo_A_rev_pr_1.files = {
+            pr_1_only_file,
+            detached_and_pr_1_only_file,
+            shared_file,
+        }
+        repo_A_rev_pr_1.refs = {"refs/pr/1"}
+
+        # Define repo
+        repo_A = Mock()
+        repo_A.repo_path = Path("repo_A")
+        repo_A.size_on_disk = 4444
+        repo_A.revisions = {repo_A_rev_main, repo_A_rev_detached, repo_A_rev_pr_1}
+
+        # Define cache
+        cache_info = Mock()
+        cache_info.repos = [repo_A]
+        self.cache_info = cache_info
+
+    def test_delete_detached_revision(self) -> None:
+        strategy = HFCacheInfo.delete_revisions(self.cache_info, "repo_A_rev_detached")
+        expected = DeleteCacheStrategy(
+            expected_freed_size=10,
+            blobs={
+                # "shared_file_hash" and "detached_and_pr_1_only_hash" are not deleted
+                Path("repo_A/blobs/detached_only_hash"),
+            },
+            refs=set(),  # No ref deleted since detached
+            repos=set(),  # No repo deleted as other revisions exist
+            snapshots={Path("repo_A/snapshots_path/repo_A_rev_detached")},
+        )
+        self.assertEqual(strategy, expected)
+
+    def test_delete_pr_1_revision(self) -> None:
+        strategy = HFCacheInfo.delete_revisions(self.cache_info, "repo_A_rev_pr_1")
+        expected = DeleteCacheStrategy(
+            expected_freed_size=100,
+            blobs={
+                # "shared_file_hash" and "detached_and_pr_1_only_hash" are not deleted
+                Path("repo_A/blobs/pr_1_only_hash")
+            },
+            refs={Path("repo_A/refs/refs/pr/1")},  # Ref is deleted !
+            repos=set(),  # No repo deleted as other revisions exist
+            snapshots={Path("repo_A/snapshots_path/repo_A_rev_pr_1")},
+        )
+        self.assertEqual(strategy, expected)
+
+    def test_delete_pr_1_and_detached(self) -> None:
+        strategy = HFCacheInfo.delete_revisions(
+            self.cache_info, "repo_A_rev_detached", "repo_A_rev_pr_1"
+        )
+        expected = DeleteCacheStrategy(
+            expected_freed_size=1110,
+            blobs={
+                Path("repo_A/blobs/detached_only_hash"),
+                Path("repo_A/blobs/pr_1_only_hash"),
+                # blob shared in both revisions and only those two
+                Path("repo_A/blobs/detached_and_pr_1_only_hash"),
+            },
+            refs={Path("repo_A/refs/refs/pr/1")},
+            repos=set(),
+            snapshots={
+                Path("repo_A/snapshots_path/repo_A_rev_detached"),
+                Path("repo_A/snapshots_path/repo_A_rev_pr_1"),
+            },
+        )
+        self.assertEqual(strategy, expected)
+
+    def test_delete_all_revisions(self) -> None:
+        strategy = HFCacheInfo.delete_revisions(
+            self.cache_info, "repo_A_rev_detached", "repo_A_rev_pr_1", "repo_A_rev_main"
+        )
+        expected = DeleteCacheStrategy(
+            expected_freed_size=4444,
+            blobs=set(),
+            refs=set(),
+            repos={Path("repo_A")},  # No remaining revisions: full repo is deleted
+            snapshots=set(),
+        )
+        self.assertEqual(strategy, expected)
+
+    def test_delete_unknown_revision(self) -> None:
+        with self.assertLogs() as captured:
+            strategy = HFCacheInfo.delete_revisions(
+                self.cache_info, "repo_A_rev_detached", "abcdef123456789"
+            )
+
+        # Expected is same strategy as without "abcdef123456789"
+        expected = HFCacheInfo.delete_revisions(self.cache_info, "repo_A_rev_detached")
+        self.assertEqual(strategy, expected)
+
+        # Expect a warning message
+        self.assertEqual(len(captured.records), 1)
+        self.assertEqual(captured.records[0].levelname, "WARNING")
+        self.assertEqual(
+            captured.records[0].message,
+            "Revision(s) not found - cannot delete them: abcdef123456789",
         )
