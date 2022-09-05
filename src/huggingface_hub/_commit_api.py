@@ -14,7 +14,7 @@ import requests
 
 from .constants import ENDPOINT
 from .lfs import UploadInfo, _validate_batch_actions, lfs_upload, post_lfs_batch_info
-from .utils import hf_raise_for_status, logging
+from .utils import hf_raise_for_status, logging, validate_hf_hub_args
 from .utils._typing import Literal
 
 
@@ -160,6 +160,7 @@ class CommitOperationAdd:
 CommitOperation = Union[CommitOperationAdd, CommitOperationDelete]
 
 
+@validate_hf_hub_args
 def upload_lfs_files(
     *,
     additions: Iterable[CommitOperationAdd],
@@ -315,6 +316,7 @@ def validate_preupload_info(preupload_info: dict):
     return preupload_info
 
 
+@validate_hf_hub_args
 def fetch_upload_modes(
     additions: Iterable[CommitOperationAdd],
     repo_type: str,

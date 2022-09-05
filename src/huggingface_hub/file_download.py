@@ -39,6 +39,7 @@ from .utils import (
     hf_raise_for_status,
     logging,
     tqdm,
+    validate_hf_hub_args,
 )
 
 
@@ -123,6 +124,14 @@ try:
 except importlib_metadata.PackageNotFoundError:
     pass
 
+_jinja_version = "N/A"
+_jinja_available = False
+try:
+    _jinja_version: str = importlib_metadata.version("Jinja2")
+    _jinja_available = True
+except importlib_metadata.PackageNotFoundError:
+    pass
+
 
 def is_torch_available():
     return _torch_available
@@ -152,9 +161,18 @@ def get_fastcore_version():
     return _fastcore_version
 
 
+def is_jinja_available():
+    return _jinja_available
+
+
+def get_jinja_version():
+    return _jinja_version
+
+
 REGEX_COMMIT_HASH = re.compile(r"^[0-9a-f]{40}$")
 
 
+@validate_hf_hub_args
 def hf_hub_url(
     repo_id: str,
     filename: str,
@@ -220,6 +238,8 @@ def hf_hub_url(
 
     -  [1] https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/ETag
     """
+    if subfolder == "":
+        subfolder = None
     if subfolder is not None:
         filename = f"{subfolder}/{filename}"
 
@@ -462,7 +482,10 @@ def _request_wrapper(
                 method=method.upper(), url=url, timeout=timeout, **params
             )
             success = True
-        except requests.exceptions.ConnectTimeout as err:
+        except (
+            requests.exceptions.ConnectTimeout,
+            requests.exceptions.ProxyError,
+        ) as err:
             if tries > max_retries:
                 raise err
             else:
@@ -863,6 +886,7 @@ def _cache_commit_hash_for_specific_revision(
             f.write(commit_hash)
 
 
+@validate_hf_hub_args
 def repo_folder_name(*, repo_id: str, repo_type: str) -> str:
     """Return a serialized version of a hf.co repo name and type, safe for disk storage
     as a single non-nested folder.
@@ -874,6 +898,7 @@ def repo_folder_name(*, repo_id: str, repo_type: str) -> str:
     return REPO_ID_SEPARATOR.join(parts)
 
 
+@validate_hf_hub_args
 def hf_hub_download(
     repo_id: str,
     filename: str,
@@ -1033,6 +1058,8 @@ def hf_hub_download(
     if isinstance(cache_dir, Path):
         cache_dir = str(cache_dir)
 
+    if subfolder == "":
+        subfolder = None
     if subfolder is not None:
         # This is used to create a URL, and not a local path, hence the forward slash.
         filename = f"{subfolder}/{filename}"
@@ -1282,6 +1309,7 @@ def hf_hub_download(
     return pointer_path
 
 
+@validate_hf_hub_args
 def try_to_load_from_cache(
     repo_id: str,
     filename: str,

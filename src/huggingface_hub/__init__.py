@@ -214,6 +214,8 @@ __getattr__, __dir__, __all__ = _attach(
             "metadata_load",
             "metadata_save",
             "metadata_update",
+            "ModelCard",
+            "DatasetCard",
         ],
         "community": [
             "Discussion",
@@ -224,5 +226,6 @@ __getattr__, __dir__, __all__ = _attach(
             "DiscussionCommit",
             "DiscussionTitleChange",
         ],
+        "repocard_data": ["CardData", "ModelCardData", "DatasetCardData", "EvalResult"],
     },
 )

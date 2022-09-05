@@ -28,7 +28,7 @@ import requests
 from huggingface_hub.constants import ENDPOINT, REPO_TYPES_URL_PREFIXES
 from requests.auth import HTTPBasicAuth
 
-from .utils import hf_raise_for_status
+from .utils import hf_raise_for_status, validate_hf_hub_args
 from .utils.sha import sha256, sha_fileobj
 
 
@@ -149,6 +149,7 @@ def _validate_batch_error(lfs_batch_error: dict):
     return lfs_batch_error
 
 
+@validate_hf_hub_args
 def post_lfs_batch_info(
     upload_infos: Iterable[UploadInfo],
     token: str,
@@ -250,11 +251,11 @@ def lfs_upload(
 
     Returns:
         `requests.Response`:
-            the repsonse from the completion request in case of amulti-part upload, and the
+            the response from the completion request in case of a multi-part upload, and the
             response from the single PUT request in case of a single-part upload
 
     Raises:
-        `ValueError`: if some objects / repsonses are malformed
+        `ValueError`: if some objects / responses are malformed
 
         `requests.HTTPError`
     """

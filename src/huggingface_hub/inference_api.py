@@ -3,7 +3,7 @@ from typing import Dict, List, Optional, Union
 import requests
 
 from .hf_api import HfApi
-from .utils import logging
+from .utils import logging, validate_hf_hub_args
 
 
 logger = logging.get_logger(__name__)
@@ -77,6 +77,7 @@ class InferenceApi:
     ```
     """
 
+    @validate_hf_hub_args
     def __init__(
         self,
         repo_id: str,

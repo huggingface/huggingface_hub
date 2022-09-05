@@ -109,3 +109,54 @@ user as possible.
 #### LocalEntryNotFoundError
 
 [[autodoc]] huggingface_hub.utils.LocalEntryNotFoundError
+
+## Validators
+
+`huggingface_hub` include custom validators to validate method arguments automatically.
+Validation is inspired by the work done in [Pydantic](https://pydantic-docs.helpmanual.io/)
+to validate type hints but with more limited features.
+
+### Generic decorator
+
+[`~utils.validate_hf_hub_args`] is a generic decorator to encapsulate
+methods that have arguments following `huggingface_hub`'s naming. By default, all
+arguments that has a validator implemented will be validated.
+
+If an input is not valid, a [`~utils.HFValidationError`] is thrown. Only
+the first non-valid value throws an error and stops the validation process.
+
+Usage:
+
+```py
+>>> from huggingface_hub.utils import validate_hf_hub_args
+
+>>> @validate_hf_hub_args
+... def my_cool_method(repo_id: str):
+...     print(repo_id)
+
+>>> my_cool_method(repo_id="valid_repo_id")
+valid_repo_id
+
+>>> my_cool_method("other..repo..id")
+huggingface_hub.utils._validators.HFValidationError: Cannot have -- or .. in repo_id: 'other..repo..id'.
+
+>>> my_cool_method(repo_id="other..repo..id")
+huggingface_hub.utils._validators.HFValidationError: Cannot have -- or .. in repo_id: 'other..repo..id'.
+```
+
+#### validate_hf_hub_args
+
+[[autodoc]] utils.validate_hf_hub_args
+
+#### HFValidationError
+
+[[autodoc]] utils.HFValidationError
+
+### Argument validators
+
+Validators can also be used individually. Here is a list of all arguments that can be
+validated.
+
+#### `repo_id`
+
+[[autodoc]] utils.validate_repo_id

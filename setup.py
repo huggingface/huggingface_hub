@@ -40,6 +40,7 @@ extras["testing"] = [
     "pytest-cov",
     "datasets",
     "soundfile",
+    "Jinja2",
 ]
 
 extras["quality"] = [
@@ -90,4 +91,5 @@ setup(
         "Programming Language :: Python :: 3",
         "Topic :: Scientific/Engineering :: Artificial Intelligence",
     ],
+    include_package_data=True,
 )
