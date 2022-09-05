@@ -18,7 +18,7 @@ import shutil
 from collections import defaultdict
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Dict, FrozenSet, Iterable, List, Optional, Set, Union
+from typing import Dict, FrozenSet, List, Optional, Set, Union
 
 from ..constants import HUGGINGFACE_HUB_CACHE
 from . import logging
