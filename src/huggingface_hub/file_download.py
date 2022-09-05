@@ -169,6 +169,7 @@ def get_jinja_version():
 
 REGEX_COMMIT_HASH = re.compile(r"^[0-9a-f]{40}$")
 
+
 # Do not validate `repo_id` in `hf_hub_url` for now as the `repo_id="datasets/.../..."`
 # pattern is used/advertised in Transformers examples.
 # Related: https://github.com/huggingface/huggingface_hub/pull/1029
