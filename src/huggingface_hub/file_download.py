@@ -33,11 +33,13 @@ from .constants import (
     REPO_TYPES_URL_PREFIXES,
 )
 from .hf_api import HfFolder
-from .utils import logging, tqdm, validate_hf_hub_args
-from .utils._errors import (
+from .utils import (
     EntryNotFoundError,
     LocalEntryNotFoundError,
-    _raise_for_status,
+    hf_raise_for_status,
+    logging,
+    tqdm,
+    validate_hf_hub_args,
 )
 
 
@@ -535,7 +537,7 @@ def http_get(
         timeout=timeout,
         max_retries=max_retries,
     )
-    _raise_for_status(r)
+    hf_raise_for_status(r)
     content_length = r.headers.get("Content-Length")
     total = resume_size + int(content_length) if content_length is not None else None
     progress = tqdm(
@@ -631,14 +633,14 @@ def cached_download(
           if ETag cannot be determined.
         - [`ValueError`](https://docs.python.org/3/library/exceptions.html#ValueError)
           if some parameter value is invalid
-        - [`~huggingface_hub.utils.RepositoryNotFoundError`]
+        - [`~utils.RepositoryNotFoundError`]
           If the repository to download from cannot be found. This may be because it doesn't exist,
           or because it is set to `private` and you do not have access.
-        - [`~huggingface_hub.utils.RevisionNotFoundError`]
+        - [`~utils.RevisionNotFoundError`]
           If the revision to download from cannot be found.
-        - [`~huggingface_hub.utils.EntryNotFoundError`]
+        - [`~utils.EntryNotFoundError`]
           If the file to download cannot be found.
-        - [`~huggingface_hub.utils.LocalEntryNotFoundError`]
+        - [`~utils.LocalEntryNotFoundError`]
           If network is disabled or unavailable and file is not found in cache.
 
     </Tip>
@@ -688,7 +690,7 @@ def cached_download(
                 proxies=proxies,
                 timeout=etag_timeout,
             )
-            _raise_for_status(r)
+            hf_raise_for_status(r)
             etag = r.headers.get("X-Linked-Etag") or r.headers.get("ETag")
             # We favor a custom header indicating the etag of the linked resource, and
             # we fallback to the regular etag header.
@@ -1012,14 +1014,14 @@ def hf_hub_download(
           if ETag cannot be determined.
         - [`ValueError`](https://docs.python.org/3/library/exceptions.html#ValueError)
           if some parameter value is invalid
-        - [`~huggingface_hub.utils.RepositoryNotFoundError`]
+        - [`~utils.RepositoryNotFoundError`]
           If the repository to download from cannot be found. This may be because it doesn't exist,
           or because it is set to `private` and you do not have access.
-        - [`~huggingface_hub.utils.RevisionNotFoundError`]
+        - [`~utils.RevisionNotFoundError`]
           If the revision to download from cannot be found.
-        - [`~huggingface_hub.utils.EntryNotFoundError`]
+        - [`~utils.EntryNotFoundError`]
           If the file to download cannot be found.
-        - [`~huggingface_hub.utils.LocalEntryNotFoundError`]
+        - [`~utils.LocalEntryNotFoundError`]
           If network is disabled or unavailable and file is not found in cache.
 
     </Tip>
@@ -1130,7 +1132,7 @@ def hf_hub_download(
                 timeout=etag_timeout,
             )
             try:
-                _raise_for_status(r)
+                hf_raise_for_status(r)
             except EntryNotFoundError:
                 commit_hash = r.headers.get(HUGGINGFACE_HEADER_X_REPO_COMMIT)
                 if commit_hash is not None and not legacy_cache_layout:

@@ -49,15 +49,64 @@ Using these shouldn't be necessary if you use `huggingface_hub` and you don't mo
 
 [[autodoc]] logging.get_logger
 
-## Custom errors
+## Handling HTTP errors
 
-See below for all custom errors thrown by different methods across the package.
+`huggingface_hub` defines its own HTTP errors to refine the `HTTPError` raised by
+`requests` with additional information sent back by the server.
+
+### Raise for status
+
+[`~utils.hf_raise_for_status`] is meant to be the central method to "raise for status" from any
+request made to the Hub. It wraps the base `requests.raise_for_status` to provide
+additional information. Any `HTTPError` thrown is converted into a `HfHubHTTPError`.
+
+```py
+import requests
+from huggingface_hub.utils import hf_raise_for_status, HfHubHTTPError
+
+response = requests.post(...)
+try:
+    hf_raise_for_status(response)
+except HfHubHTTPError as e:
+    print(str(e)) # formatted message
+    e.request_id, e.server_message # details returned by server
+
+    # Complete the error message with additional information once it's raised
+    e.append_to_message("\n`create_commit` expects the repository to exist.")
+    raise
+```
+
+[[autodoc]] huggingface_hub.utils.hf_raise_for_status
+
+### HTTP errors
+
+Here is a list of HTTP errors thrown in `huggingface_hub`.
+
+#### HfHubHTTPError
+
+`HfHubHTTPError` is the parent class for any HF Hub HTTP error. It takes care of parsing
+the server response and format the error message to provide as much information to the
+user as possible.
+
+[[autodoc]] huggingface_hub.utils.HfHubHTTPError
+
+#### RepositoryNotFoundError
 
 [[autodoc]] huggingface_hub.utils.RepositoryNotFoundError
 
+#### RevisionNotFoundError
+
 [[autodoc]] huggingface_hub.utils.RevisionNotFoundError
 
+#### EntryNotFoundError
+
 [[autodoc]] huggingface_hub.utils.EntryNotFoundError
+
+#### BadRequestError
+
+[[autodoc]] huggingface_hub.utils.BadRequestError
+
+#### LocalEntryNotFoundError
 
 [[autodoc]] huggingface_hub.utils.LocalEntryNotFoundError
 

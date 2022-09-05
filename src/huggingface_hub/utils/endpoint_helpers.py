@@ -231,7 +231,7 @@ class AttributeDictionary(dict):
     If a key starts with a number, it will exist in the dictionary but not as an
     attribute
 
-    Example usage:
+    Example:
 
     ```python
     >>> d = AttributeDictionary()
@@ -276,7 +276,7 @@ class GeneralTags(AttributeDictionary):
     A namespace object holding all tags, filtered by `keys` If a tag starts with
     a number, it will only exist in the dictionary
 
-    Example usage:
+    Example:
     ```python
     >>> a.b["1a"]  # will work
     >>> a["b"]["1a"]  # will work
@@ -315,7 +315,7 @@ class ModelTags(GeneralTags):
     A namespace object holding all available model tags If a tag starts with a
     number, it will only exist in the dictionary
 
-    Example usage:
+    Example:
 
     ```python
     >>> a.dataset["1_5BArabicCorpus"]  # will work

@@ -26,10 +26,13 @@ from ._cache_manager import (
 )
 from ._datetime import parse_datetime
 from ._errors import (
+    BadRequestError,
     EntryNotFoundError,
+    HfHubHTTPError,
     LocalEntryNotFoundError,
     RepositoryNotFoundError,
     RevisionNotFoundError,
+    hf_raise_for_status,
 )
 from ._paths import filter_repo_objects
 from ._subprocess import run_subprocess
