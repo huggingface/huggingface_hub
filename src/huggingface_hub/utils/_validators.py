@@ -118,7 +118,7 @@ def validate_repo_id(repo_id: str) -> None:
     ```
 
     Discussed in https://github.com/huggingface/huggingface_hub/issues/1008.
-    In moon-landing:
+    In moon-landing (internal repository):
     - https://github.com/huggingface/moon-landing/blob/main/server/lib/Names.ts#L27
     - https://github.com/huggingface/moon-landing/blob/main/server/views/components/NewRepoForm/NewRepoForm.svelte#L138
     """
