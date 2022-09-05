@@ -33,7 +33,7 @@ from .constants import (
     REPO_TYPES_URL_PREFIXES,
 )
 from .hf_api import HfFolder
-from .utils import logging, tqdm
+from .utils import logging, tqdm, validate_hf_hub_args
 from .utils._errors import (
     EntryNotFoundError,
     LocalEntryNotFoundError,
@@ -170,6 +170,7 @@ def get_jinja_version():
 REGEX_COMMIT_HASH = re.compile(r"^[0-9a-f]{40}$")
 
 
+@validate_hf_hub_args
 def hf_hub_url(
     repo_id: str,
     filename: str,
@@ -883,6 +884,7 @@ def _cache_commit_hash_for_specific_revision(
             f.write(commit_hash)
 
 
+@validate_hf_hub_args
 def repo_folder_name(*, repo_id: str, repo_type: str) -> str:
     """Return a serialized version of a hf.co repo name and type, safe for disk storage
     as a single non-nested folder.
@@ -894,6 +896,7 @@ def repo_folder_name(*, repo_id: str, repo_type: str) -> str:
     return REPO_ID_SEPARATOR.join(parts)
 
 
+@validate_hf_hub_args
 def hf_hub_download(
     repo_id: str,
     filename: str,
@@ -1304,6 +1307,7 @@ def hf_hub_download(
     return pointer_path
 
 
+@validate_hf_hub_args
 def try_to_load_from_cache(
     repo_id: str,
     filename: str,

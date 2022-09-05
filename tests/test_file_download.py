@@ -193,13 +193,6 @@ class CachedDownloadTests(unittest.TestCase):
             repo_type=REPO_TYPE_DATASET,
             revision=DATASET_REVISION_ID_ONE_SPECIFIC_COMMIT,
         )
-        # We can also just get the same url by prefixing "datasets" to repo_id:
-        url2 = hf_hub_url(
-            repo_id=f"datasets/{DATASET_ID}",
-            filename=DATASET_SAMPLE_PY_FILE,
-            revision=DATASET_REVISION_ID_ONE_SPECIFIC_COMMIT,
-        )
-        self.assertEqual(url, url2)
         # now let's download
         filepath = cached_download(url, force_download=True, legacy_cache_layout=True)
         metadata = filename_to_url(filepath, legacy_cache_layout=True)

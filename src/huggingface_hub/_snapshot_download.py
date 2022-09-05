@@ -5,7 +5,7 @@ from typing import Dict, List, Optional, Union
 from .constants import DEFAULT_REVISION, HUGGINGFACE_HUB_CACHE, REPO_TYPES
 from .file_download import REGEX_COMMIT_HASH, hf_hub_download, repo_folder_name
 from .hf_api import HfApi, HfFolder
-from .utils import filter_repo_objects, logging, tqdm
+from .utils import filter_repo_objects, logging, tqdm, validate_hf_hub_args
 from .utils._deprecation import _deprecate_arguments
 
 
@@ -17,6 +17,7 @@ logger = logging.get_logger(__name__)
     deprecated_args={"allow_regex", "ignore_regex"},
     custom_message="Please use `allow_patterns` and `ignore_patterns` instead.",
 )
+@validate_hf_hub_args
 def snapshot_download(
     repo_id: str,
     *,

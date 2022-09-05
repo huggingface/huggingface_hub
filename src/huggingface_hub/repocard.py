@@ -25,6 +25,7 @@ from huggingface_hub.repocard_data import (
 )
 
 from .constants import REPOCARD_NAME
+from .utils import validate_hf_hub_args
 from .utils.logging import get_logger
 
 
@@ -653,6 +654,7 @@ def metadata_eval_result(
     }
 
 
+@validate_hf_hub_args
 def metadata_update(
     repo_id: str,
     metadata: Dict,
