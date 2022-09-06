@@ -205,6 +205,7 @@ __getattr__, __dir__, __all__ = _attach(
             "CachedRepoInfo",
             "CachedRevisionInfo",
             "CorruptedCacheException",
+            "DeleteCacheStrategy",
             "HFCacheInfo",
             "scan_cache_dir",
         ],
