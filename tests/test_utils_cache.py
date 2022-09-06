@@ -646,3 +646,6 @@ class TestTryDeletePath(unittest.TestCase):
                 f" permission denied ({dir_path})\nTraceback (most recent call last):"
             )
         )
+
+        # For proper cleanup
+        dir_path.chmod(509)
