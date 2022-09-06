@@ -631,7 +631,7 @@ def _scan_cached_repo(repo_path: Path) -> CachedRepoInfo:
     if len(refs_by_hash) > 0:
         raise CorruptedCacheException(
             "Reference(s) refer to missing commit hashes:"
-            f" {refs_by_hash} ({repo_path})."
+            f" {dict(refs_by_hash)} ({repo_path})."
         )
 
     # Build and return frozen structure
