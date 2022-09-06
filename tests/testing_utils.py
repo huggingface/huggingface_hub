@@ -211,6 +211,7 @@ def retry_endpoint(function, number_of_tries: int = 3, wait_time: int = 5):
         wait_time: Time to wait in-between attempts in seconds
     """
 
+    @wraps(function)
     def decorator(*args, **kwargs):
         retry_count = 1
         while retry_count < number_of_tries:

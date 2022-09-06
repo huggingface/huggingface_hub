@@ -15,7 +15,8 @@ from huggingface_hub.file_download import (
 )
 from huggingface_hub.hf_api import HfApi, HfFolder
 from huggingface_hub.repository import Repository
-from huggingface_hub.utils import logging
+
+from .utils import logging, validate_hf_hub_args
 
 
 logger = logging.get_logger(__name__)
@@ -305,6 +306,7 @@ def _save_pretrained_fastai(
         )
 
 
+@validate_hf_hub_args
 def from_pretrained_fastai(
     repo_id: str,
     revision: Optional[str] = None,
@@ -349,6 +351,7 @@ def from_pretrained_fastai(
     return load_learner(os.path.join(storage_folder, "model.pkl"))
 
 
+@validate_hf_hub_args
 def push_to_hub_fastai(
     learner,
     repo_id: str,

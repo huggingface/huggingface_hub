@@ -14,8 +14,7 @@ import requests
 
 from .constants import ENDPOINT
 from .lfs import UploadInfo, _validate_batch_actions, lfs_upload, post_lfs_batch_info
-from .utils import logging
-from .utils._errors import _raise_convert_bad_request
+from .utils import hf_raise_for_status, logging, validate_hf_hub_args
 from .utils._typing import Literal
 
 
@@ -161,6 +160,7 @@ class CommitOperationAdd:
 CommitOperation = Union[CommitOperationAdd, CommitOperationDelete]
 
 
+@validate_hf_hub_args
 def upload_lfs_files(
     *,
     additions: Iterable[CommitOperationAdd],
@@ -261,7 +261,7 @@ def _upload_lfs_object(
     """
     Handles uploading a given object to the Hub with the LFS protocol.
 
-    Defers to [`~huggingface_hub.utils.lfs.lfs_upload`] for the actual upload logic.
+    Defers to [`~utils.lfs.lfs_upload`] for the actual upload logic.
 
     Can be a No-op if the content of the file is already present on the hub
     large file storage.
@@ -271,7 +271,7 @@ def _upload_lfs_object(
             The add operation triggering this upload
         lfs_batch_action (`dict`):
             Upload instructions from the LFS batch endpoint for this object.
-            See [`~huggingface_hub.utils.lfs..post_lfs_batch_info`] for more details.
+            See [`~utils.lfs.post_lfs_batch_info`] for more details.
         token (`str`):
             A [user access token](https://hf.co/settings/tokens) to authenticate requests against the Hub
 
@@ -316,6 +316,7 @@ def validate_preupload_info(preupload_info: dict):
     return preupload_info
 
 
+@validate_hf_hub_args
 def fetch_upload_modes(
     additions: Iterable[CommitOperationAdd],
     repo_type: str,
@@ -373,7 +374,7 @@ def fetch_upload_modes(
         headers=headers,
         params={"create_pr": "1"} if create_pr else None,
     )
-    _raise_convert_bad_request(resp, endpoint_name="preupload")
+    hf_raise_for_status(resp, endpoint_name="preupload")
 
     preupload_info = validate_preupload_info(resp.json())
 

@@ -5,6 +5,7 @@ import pytest
 
 from huggingface_hub.utils._deprecation import (
     _deprecate_arguments,
+    _deprecate_method,
     _deprecate_positional_args,
 )
 
@@ -105,4 +106,21 @@ class TestDeprecationUtils(unittest.TestCase):
             record[0].message.args[0],
             "Deprecated argument(s) used in 'dummy_deprecated_custom_message': a. Will"
             " not be supported from version 'xxx'.\n\nThis is a custom message.",
+        )
+
+    def test_deprecated_method(self) -> None:
+        """Test deprecate method throw warning."""
+
+        @_deprecate_method(version="xxx", message="This is a custom message.")
+        def dummy_deprecated() -> None:
+            pass
+
+        # Custom message
+        with pytest.warns(FutureWarning) as record:
+            dummy_deprecated()
+        self.assertEqual(len(record), 1)
+        self.assertEqual(
+            record[0].message.args[0],
+            "'dummy_deprecated' (from 'tests.test_utils_deprecation') is deprecated"
+            " and will be removed from version 'xxx'. This is a custom message.",
         )

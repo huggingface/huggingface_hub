@@ -21,6 +21,7 @@ from typing import BinaryIO, Dict, Iterable, Iterator, List, Optional, Tuple, Un
 from urllib.parse import quote
 
 import requests
+from huggingface_hub.utils import RepositoryNotFoundError
 from requests.exceptions import HTTPError
 
 from ._commit_api import (
@@ -49,13 +50,14 @@ from .constants import (
     REPO_TYPES_URL_PREFIXES,
     SPACES_SDK_TYPES,
 )
-from .utils import filter_repo_objects, logging, parse_datetime
-from .utils._deprecation import _deprecate_positional_args
-from .utils._errors import (
-    _raise_convert_bad_request,
-    _raise_for_status,
-    _raise_with_request_id,
+from .utils import (
+    filter_repo_objects,
+    hf_raise_for_status,
+    logging,
+    parse_datetime,
+    validate_hf_hub_args,
 )
+from .utils._deprecation import _deprecate_positional_args
 from .utils._typing import Literal, TypedDict
 from .utils.endpoint_helpers import (
     AttributeDictionary,
@@ -621,7 +623,7 @@ class HfApi:
         path = f"{self.endpoint}/api/whoami-v2"
         r = requests.get(path, headers={"authorization": f"Bearer {token}"})
         try:
-            _raise_with_request_id(r)
+            hf_raise_for_status(r)
         except HTTPError as e:
             raise HTTPError(
                 "Invalid user token. If you didn't pass a user token, make sure you "
@@ -665,8 +667,10 @@ class HfApi:
         Returns:
             Validated token and the name of the repository.
         Raises:
-            :class:`EnvironmentError`: If the token is not passed and there's no token saved locally.
-            :class:`ValueError`: If organization token or invalid token is passed.
+            [`EnvironmentError`](https://docs.python.org/3/library/exceptions.html#EnvironmentError)
+              If the token is not passed and there's no token saved locally.
+            [`ValueError`](https://docs.python.org/3/library/exceptions.html#ValueError)
+              If organization token or invalid token is passed.
         """
         if token is None or token is True:
             token = HfFolder.get_token()
@@ -715,7 +719,7 @@ class HfApi:
         "Gets all valid model tags as a nested namespace object"
         path = f"{self.endpoint}/api/models-tags-by-type"
         r = requests.get(path)
-        _raise_with_request_id(r)
+        hf_raise_for_status(r)
         d = r.json()
         return ModelTags(d)
 
@@ -725,7 +729,7 @@ class HfApi:
         """
         path = f"{self.endpoint}/api/datasets-tags-by-type"
         r = requests.get(path)
-        _raise_with_request_id(r)
+        hf_raise_for_status(r)
         d = r.json()
         return DatasetTags(d)
 
@@ -866,7 +870,7 @@ class HfApi:
         if cardData is not None:
             params.update({"cardData": cardData})
         r = requests.get(path, params=params, headers=headers)
-        _raise_with_request_id(r)
+        hf_raise_for_status(r)
         d = r.json()
         res = [ModelInfo(**x) for x in d]
         if emissions_thresholds is not None:
@@ -1059,7 +1063,7 @@ class HfApi:
             if cardData:
                 params.update({"full": True})
         r = requests.get(path, params=params, headers=headers)
-        _raise_with_request_id(r)
+        hf_raise_for_status(r)
         d = r.json()
         return [DatasetInfo(**x) for x in d]
 
@@ -1114,7 +1118,7 @@ class HfApi:
         path = f"{self.endpoint}/api/metrics"
         params = {}
         r = requests.get(path, params=params)
-        _raise_with_request_id(r)
+        hf_raise_for_status(r)
         d = r.json()
         return [MetricInfo(**x) for x in d]
 
@@ -1199,10 +1203,11 @@ class HfApi:
         if models is not None:
             params.update({"models": models})
         r = requests.get(path, params=params, headers=headers)
-        r.raise_for_status()
+        hf_raise_for_status(r)
         d = r.json()
         return [SpaceInfo(**x) for x in d]
 
+    @validate_hf_hub_args
     def model_info(
         self,
         repo_id: str,
@@ -1243,10 +1248,10 @@ class HfApi:
 
         Raises the following errors:
 
-            - [`~huggingface_hub.utils.RepositoryNotFoundError`]
+            - [`~utils.RepositoryNotFoundError`]
               If the repository to download from cannot be found. This may be because it doesn't exist,
               or because it is set to `private` and you do not have access.
-            - [`~huggingface_hub.utils.RevisionNotFoundError`]
+            - [`~utils.RevisionNotFoundError`]
               If the revision to download from cannot be found.
 
         </Tip>
@@ -1273,10 +1278,11 @@ class HfApi:
             timeout=timeout,
             params=params,
         )
-        _raise_for_status(r)
+        hf_raise_for_status(r)
         d = r.json()
         return ModelInfo(**d)
 
+    @validate_hf_hub_args
     def dataset_info(
         self,
         repo_id: str,
@@ -1307,16 +1313,16 @@ class HfApi:
                 (size, LFS metadata, etc). Defaults to `False`.
 
         Returns:
-            [`huggingface_hub.hf_api.DatasetInfo`]: The dataset repository information.
+            [`hf_api.DatasetInfo`]: The dataset repository information.
 
         <Tip>
 
         Raises the following errors:
 
-            - [`~huggingface_hub.utils.RepositoryNotFoundError`]
+            - [`~utils.RepositoryNotFoundError`]
               If the repository to download from cannot be found. This may be because it doesn't exist,
               or because it is set to `private` and you do not have access.
-            - [`~huggingface_hub.utils.RevisionNotFoundError`]
+            - [`~utils.RevisionNotFoundError`]
               If the revision to download from cannot be found.
 
         </Tip>
@@ -1337,10 +1343,11 @@ class HfApi:
             params["blobs"] = True
 
         r = requests.get(path, headers=headers, timeout=timeout, params=params)
-        _raise_for_status(r)
+        hf_raise_for_status(r)
         d = r.json()
         return DatasetInfo(**d)
 
+    @validate_hf_hub_args
     def space_info(
         self,
         repo_id: str,
@@ -1371,16 +1378,16 @@ class HfApi:
                 (size, LFS metadata, etc). Defaults to `False`.
 
         Returns:
-            [`huggingface_hub.hf_api.SpaceInfo`]: The space repository information.
+            [`~hf_api.SpaceInfo`]: The space repository information.
 
         <Tip>
 
         Raises the following errors:
 
-            - [`~huggingface_hub.utils.RepositoryNotFoundError`]
+            - [`~utils.RepositoryNotFoundError`]
               If the repository to download from cannot be found. This may be because it doesn't exist,
               or because it is set to `private` and you do not have access.
-            - [`~huggingface_hub.utils.RevisionNotFoundError`]
+            - [`~utils.RevisionNotFoundError`]
               If the revision to download from cannot be found.
 
         </Tip>
@@ -1401,10 +1408,11 @@ class HfApi:
             params["blobs"] = True
 
         r = requests.get(path, headers=headers, timeout=timeout, params=params)
-        _raise_for_status(r)
+        hf_raise_for_status(r)
         d = r.json()
         return SpaceInfo(**d)
 
+    @validate_hf_hub_args
     def repo_info(
         self,
         repo_id: str,
@@ -1442,10 +1450,10 @@ class HfApi:
 
         Raises the following errors:
 
-            - [`~huggingface_hub.utils.RepositoryNotFoundError`]
+            - [`~utils.RepositoryNotFoundError`]
               If the repository to download from cannot be found. This may be because it doesn't exist,
               or because it is set to `private` and you do not have access.
-            - [`~huggingface_hub.utils.RevisionNotFoundError`]
+            - [`~utils.RevisionNotFoundError`]
               If the revision to download from cannot be found.
 
         </Tip>
@@ -1477,6 +1485,7 @@ class HfApi:
         else:
             raise ValueError("Unsupported repo type.")
 
+    @validate_hf_hub_args
     def list_repo_files(
         self,
         repo_id: str,
@@ -1517,6 +1526,7 @@ class HfApi:
         )
         return [f.rfilename for f in repo_info.siblings]
 
+    @validate_hf_hub_args
     @_deprecate_positional_args(version="0.12")
     def create_repo(
         self,
@@ -1631,7 +1641,7 @@ class HfApi:
         )
 
         try:
-            _raise_with_request_id(r)
+            hf_raise_for_status(r)
         except HTTPError as err:
             if not (exist_ok and err.response.status_code == 409):
                 try:
@@ -1647,6 +1657,7 @@ class HfApi:
         d = r.json()
         return d["url"]
 
+    @validate_hf_hub_args
     def delete_repo(
         self,
         repo_id: str = None,
@@ -1678,7 +1689,7 @@ class HfApi:
 
         Raises the following errors:
 
-            - [`~huggingface_hub.utils.RepositoryNotFoundError`]
+            - [`~utils.RepositoryNotFoundError`]
               If the repository to download from cannot be found. This may be because it doesn't exist,
               or because it is set to `private` and you do not have access.
 
@@ -1736,8 +1747,9 @@ class HfApi:
             headers={"authorization": f"Bearer {token}"},
             json=json,
         )
-        _raise_for_status(r)
+        hf_raise_for_status(r)
 
+    @validate_hf_hub_args
     def update_repo_visibility(
         self,
         repo_id: str = None,
@@ -1777,7 +1789,7 @@ class HfApi:
 
         Raises the following errors:
 
-            - [`~huggingface_hub.utils.RepositoryNotFoundError`]
+            - [`~utils.RepositoryNotFoundError`]
               If the repository to download from cannot be found. This may be because it doesn't exist,
               or because it is set to `private` and you do not have access.
 
@@ -1810,7 +1822,7 @@ class HfApi:
             headers={"authorization": f"Bearer {token}"},
             json=json,
         )
-        _raise_for_status(r)
+        hf_raise_for_status(r)
         return r.json()
 
     def move_repo(
@@ -1846,7 +1858,7 @@ class HfApi:
 
         Raises the following errors:
 
-            - [`~huggingface_hub.utils.RepositoryNotFoundError`]
+            - [`~utils.RepositoryNotFoundError`]
               If the repository to download from cannot be found. This may be because it doesn't exist,
               or because it is set to `private` and you do not have access.
 
@@ -1876,7 +1888,7 @@ class HfApi:
             json=json,
         )
         try:
-            _raise_for_status(r)
+            hf_raise_for_status(r)
         except HTTPError as e:
             if r.text:
                 raise HTTPError(
@@ -1891,6 +1903,7 @@ class HfApi:
             " completed."
         )
 
+    @validate_hf_hub_args
     def create_commit(
         self,
         repo_id: str,
@@ -1913,11 +1926,11 @@ class HfApi:
                 The repository in which the commit will be created, for example:
                 `"username/custom_transformers"`
 
-            operations (`Iterable` of [`~huggingface_hub.hf_api.CommitOperation`]):
+            operations (`Iterable` of [`~hf_api.CommitOperation`]):
                 An iterable of operations to include in the commit, either:
 
-                    - [`~huggingface_hub.hf_api.CommitOperationAdd`] to upload a file
-                    - [`~huggingface_hub.hf_api.CommitOperationDelete`] to delete a file
+                    - [`~hf_api.CommitOperationAdd`] to upload a file
+                    - [`~hf_api.CommitOperationDelete`] to delete a file
 
             commit_message (`str`):
                 The summary (first line) of the commit that will be created.
@@ -1961,14 +1974,26 @@ class HfApi:
                 on the Hub. Otherwise returns `None`.
 
         Raises:
-            :class:`ValueError`:
+            [`ValueError`](https://docs.python.org/3/library/exceptions.html#ValueError)
                 If commit message is empty.
-            :class:`ValueError`:
+            [`ValueError`](https://docs.python.org/3/library/exceptions.html#ValueError)
                 If parent commit is not a valid commit OID.
-            :class:`ValueError`:
+            [`ValueError`](https://docs.python.org/3/library/exceptions.html#ValueError)
                 If the Hub API returns an HTTP 400 error (bad request)
-            :class:`ValueError`:
+            [`ValueError`](https://docs.python.org/3/library/exceptions.html#ValueError)
                 If `create_pr` is `True` and revision is neither `None` nor `"main"`.
+            [`~utils.RepositoryNotFoundError`]:
+                If repository is not found (error 404): wrong repo_id/repo_type, private
+                but not authenticated or repo does not exist.
+
+        <Tip warning={true}>
+
+        `create_commit` assumes that the repo already exists on the Hub. If you get a
+        Client error 404, please make sure you are authenticated and that `repo_id` and
+        `repo_type` are set correctly. If repo does not exist, create it first using
+        [`~hf_api.create_repo`].
+
+        </Tip>
         """
         if parent_commit is not None and not REGEX_COMMIT_OID.fullmatch(parent_commit):
             raise ValueError(
@@ -2012,15 +2037,23 @@ class HfApi:
         for addition in additions:
             addition.validate()
 
-        additions_with_upload_mode = fetch_upload_modes(
-            additions=additions,
-            repo_type=repo_type,
-            repo_id=repo_id,
-            token=token,
-            revision=revision,
-            endpoint=self.endpoint,
-            create_pr=create_pr,
-        )
+        try:
+            additions_with_upload_mode = fetch_upload_modes(
+                additions=additions,
+                repo_type=repo_type,
+                repo_id=repo_id,
+                token=token,
+                revision=revision,
+                endpoint=self.endpoint,
+                create_pr=create_pr,
+            )
+        except RepositoryNotFoundError as e:
+            e.append_to_message(
+                "\nNote: Creating a commit assumes that the repo already exists on the"
+                " Huggingface Hub. Please use `create_repo` if it's not the case."
+            )
+            raise
+
         upload_lfs_files(
             additions=[
                 addition
@@ -2048,9 +2081,10 @@ class HfApi:
             json=commit_payload,
             params={"create_pr": "1"} if create_pr else None,
         )
-        _raise_convert_bad_request(commit_resp, endpoint_name="commit")
+        hf_raise_for_status(commit_resp, endpoint_name="commit")
         return commit_resp.json().get("pullRequestUrl", None)
 
+    @validate_hf_hub_args
     def upload_file(
         self,
         *,
@@ -2120,15 +2154,24 @@ class HfApi:
               if the HuggingFace API returned an error
             - [`ValueError`](https://docs.python.org/3/library/exceptions.html#ValueError)
               if some parameter value is invalid
-            - [`~huggingface_hub.utils.RepositoryNotFoundError`]
+            - [`~utils.RepositoryNotFoundError`]
               If the repository to download from cannot be found. This may be because it doesn't exist,
               or because it is set to `private` and you do not have access.
-            - [`~huggingface_hub.utils.RevisionNotFoundError`]
+            - [`~utils.RevisionNotFoundError`]
               If the revision to download from cannot be found.
 
         </Tip>
 
-        Example usage:
+        <Tip warning={true}>
+
+        `upload_file` assumes that the repo already exists on the Hub. If you get a
+        Client error 404, please make sure you are authenticated and that `repo_id` and
+        `repo_type` are set correctly. If repo does not exist, create it first using
+        [`~hf_api.create_repo`].
+
+        </Tip>
+
+        Example:
 
         ```python
         >>> from huggingface_hub import upload_file
@@ -2201,6 +2244,7 @@ class HfApi:
         # Similar to `hf_hub_url` but it's "blob" instead of "resolve"
         return f"{self.endpoint}/{repo_id}/blob/{revision}/{path_in_repo}"
 
+    @validate_hf_hub_args
     def upload_folder(
         self,
         *,
@@ -2286,7 +2330,16 @@ class HfApi:
 
         </Tip>
 
-        Example usage:
+        <Tip warning={true}>
+
+        `upload_folder` assumes that the repo already exists on the Hub. If you get a
+        Client error 404, please make sure you are authenticated and that `repo_id` and
+        `repo_type` are set correctly. If repo does not exist, create it first using
+        [`~hf_api.create_repo`].
+
+        </Tip>
+
+        Example:
 
         ```python
         >>> upload_folder(
@@ -2351,6 +2404,7 @@ class HfApi:
         # Similar to `hf_hub_url` but it's "tree" instead of "resolve"
         return f"{self.endpoint}/{repo_id}/tree/{revision}/{path_in_repo}"
 
+    @validate_hf_hub_args
     def delete_file(
         self,
         path_in_repo: str,
@@ -2407,12 +2461,12 @@ class HfApi:
               if the HuggingFace API returned an error
             - [`ValueError`](https://docs.python.org/3/library/exceptions.html#ValueError)
               if some parameter value is invalid
-            - [`~huggingface_hub.utils.RepositoryNotFoundError`]
+            - [`~utils.RepositoryNotFoundError`]
               If the repository to download from cannot be found. This may be because it doesn't exist,
               or because it is set to `private` and you do not have access.
-            - [`~huggingface_hub.utils.RevisionNotFoundError`]
+            - [`~utils.RevisionNotFoundError`]
               If the revision to download from cannot be found.
-            - [`~huggingface_hub.utils.EntryNotFoundError`]
+            - [`~utils.EntryNotFoundError`]
               If the file to download cannot be found.
 
         </Tip>
@@ -2472,6 +2526,7 @@ class HfApi:
         else:
             return f"{organization}/{model_id}"
 
+    @validate_hf_hub_args
     def get_repo_discussions(
         self,
         repo_id: str,
@@ -2526,7 +2581,7 @@ class HfApi:
                 path,
                 headers={"Authorization": f"Bearer {token}"} if token else None,
             )
-            _raise_for_status(resp)
+            hf_raise_for_status(resp)
             paginated_discussions = resp.json()
             total = paginated_discussions["count"]
             start = paginated_discussions["start"]
@@ -2551,6 +2606,7 @@ class HfApi:
                 )
             page_index = page_index + 1
 
+    @validate_hf_hub_args
     def get_discussion_details(
         self,
         repo_id: str,
@@ -2584,7 +2640,7 @@ class HfApi:
               if the HuggingFace API returned an error
             - [`ValueError`](https://docs.python.org/3/library/exceptions.html#ValueError)
               if some parameter value is invalid
-            - [`~huggingface_hub.utils.RepositoryNotFoundError`]
+            - [`~utils.RepositoryNotFoundError`]
               If the repository to download from cannot be found. This may be because it doesn't exist,
               or because it is set to `private` and you do not have access.
 
@@ -2607,7 +2663,7 @@ class HfApi:
             params={"diff": "1"},
             headers={"Authorization": f"Bearer {token}"} if token else None,
         )
-        _raise_for_status(resp)
+        hf_raise_for_status(resp)
 
         discussion_details = resp.json()
         is_pull_request = discussion_details["isPullRequest"]
@@ -2640,6 +2696,7 @@ class HfApi:
             diff=discussion_details.get("diff"),
         )
 
+    @validate_hf_hub_args
     def create_discussion(
         self,
         repo_id: str,
@@ -2687,7 +2744,7 @@ class HfApi:
               if the HuggingFace API returned an error
             - [`ValueError`](https://docs.python.org/3/library/exceptions.html#ValueError)
               if some parameter value is invalid
-            - [`~huggingface_hub.utils.RepositoryNotFoundError`]
+            - [`~utils.RepositoryNotFoundError`]
               If the repository to download from cannot be found. This may be because it doesn't exist,
               or because it is set to `private` and you do not have access.
 
@@ -2719,7 +2776,7 @@ class HfApi:
             },
             headers={"Authorization": f"Bearer {token}"},
         )
-        _raise_for_status(resp)
+        hf_raise_for_status(resp)
         num = resp.json()["num"]
         return self.get_discussion_details(
             repo_id=repo_id,
@@ -2728,6 +2785,7 @@ class HfApi:
             token=token,
         )
 
+    @validate_hf_hub_args
     def create_pull_request(
         self,
         repo_id: str,
@@ -2771,7 +2829,7 @@ class HfApi:
               if the HuggingFace API returned an error
             - [`ValueError`](https://docs.python.org/3/library/exceptions.html#ValueError)
               if some parameter value is invalid
-            - [`~huggingface_hub.utils.RepositoryNotFoundError`]
+            - [`~utils.RepositoryNotFoundError`]
               If the repository to download from cannot be found. This may be because it doesn't exist,
               or because it is set to `private` and you do not have access.
 
@@ -2812,9 +2870,10 @@ class HfApi:
             headers={"Authorization": f"Bearer {token}"},
             json=body,
         )
-        _raise_for_status(resp)
+        hf_raise_for_status(resp)
         return resp
 
+    @validate_hf_hub_args
     def comment_discussion(
         self,
         repo_id: str,
@@ -2874,7 +2933,7 @@ class HfApi:
               if the HuggingFace API returned an error
             - [`ValueError`](https://docs.python.org/3/library/exceptions.html#ValueError)
               if some parameter value is invalid
-            - [`~huggingface_hub.utils.RepositoryNotFoundError`]
+            - [`~utils.RepositoryNotFoundError`]
               If the repository to download from cannot be found. This may be because it doesn't exist,
               or because it is set to `private` and you do not have access.
 
@@ -2890,6 +2949,7 @@ class HfApi:
         )
         return deserialize_event(resp.json()["newMessage"])
 
+    @validate_hf_hub_args
     def rename_discussion(
         self,
         repo_id: str,
@@ -2940,7 +3000,7 @@ class HfApi:
               if the HuggingFace API returned an error
             - [`ValueError`](https://docs.python.org/3/library/exceptions.html#ValueError)
               if some parameter value is invalid
-            - [`~huggingface_hub.utils.RepositoryNotFoundError`]
+            - [`~utils.RepositoryNotFoundError`]
               If the repository to download from cannot be found. This may be because it doesn't exist,
               or because it is set to `private` and you do not have access.
 
@@ -2956,6 +3016,7 @@ class HfApi:
         )
         return deserialize_event(resp.json()["newTitle"])
 
+    @validate_hf_hub_args
     def change_discussion_status(
         self,
         repo_id: str,
@@ -3009,7 +3070,7 @@ class HfApi:
               if the HuggingFace API returned an error
             - [`ValueError`](https://docs.python.org/3/library/exceptions.html#ValueError)
               if some parameter value is invalid
-            - [`~huggingface_hub.utils.RepositoryNotFoundError`]
+            - [`~utils.RepositoryNotFoundError`]
               If the repository to download from cannot be found. This may be because it doesn't exist,
               or because it is set to `private` and you do not have access.
 
@@ -3030,6 +3091,7 @@ class HfApi:
         )
         return deserialize_event(resp.json()["newStatus"])
 
+    @validate_hf_hub_args
     def merge_pull_request(
         self,
         repo_id: str,
@@ -3067,7 +3129,7 @@ class HfApi:
               if the HuggingFace API returned an error
             - [`ValueError`](https://docs.python.org/3/library/exceptions.html#ValueError)
               if some parameter value is invalid
-            - [`~huggingface_hub.utils.RepositoryNotFoundError`]
+            - [`~utils.RepositoryNotFoundError`]
               If the repository to download from cannot be found. This may be because it doesn't exist,
               or because it is set to `private` and you do not have access.
 
@@ -3082,6 +3144,7 @@ class HfApi:
             body={"comment": comment.strip()} if comment and comment.strip() else None,
         )
 
+    @validate_hf_hub_args
     def edit_discussion_comment(
         self,
         repo_id: str,
@@ -3122,7 +3185,7 @@ class HfApi:
               if the HuggingFace API returned an error
             - [`ValueError`](https://docs.python.org/3/library/exceptions.html#ValueError)
               if some parameter value is invalid
-            - [`~huggingface_hub.utils.RepositoryNotFoundError`]
+            - [`~utils.RepositoryNotFoundError`]
               If the repository to download from cannot be found. This may be because it doesn't exist,
               or because it is set to `private` and you do not have access.
 
@@ -3138,6 +3201,7 @@ class HfApi:
         )
         return deserialize_event(resp.json()["updatedComment"])
 
+    @validate_hf_hub_args
     def hide_discussion_comment(
         self,
         repo_id: str,
@@ -3179,7 +3243,7 @@ class HfApi:
               if the HuggingFace API returned an error
             - [`ValueError`](https://docs.python.org/3/library/exceptions.html#ValueError)
               if some parameter value is invalid
-            - [`~huggingface_hub.utils.RepositoryNotFoundError`]
+            - [`~utils.RepositoryNotFoundError`]
               If the repository to download from cannot be found. This may be because it doesn't exist,
               or because it is set to `private` and you do not have access.
 

@@ -19,6 +19,8 @@
     title: Interact with Discussions and Pull Requests
   - local: how-to-cache
     title: Manage the Cache
+  - local: how-to-model-cards
+    title: Create and Share Model Cards
   title: "Guides"
 - sections:
     - local: package_reference/repository
@@ -37,4 +39,6 @@
       title: Discussions and Pull Requests
     - local: package_reference/cache
       title: Cache-system reference
+    - local: package_reference/cards
+      title: Repo Cards and Repo Card Data
   title: "Reference"

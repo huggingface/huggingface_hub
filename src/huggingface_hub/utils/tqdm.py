@@ -15,7 +15,7 @@
 # limitations under the License
 """Utility helpers to handle progress bars in `huggingface_hub`.
 
-Usage:
+Example:
     1. Use `huggingface_hub.utils.tqdm` as you would use `tqdm.tqdm` or `tqdm.auto.tqdm`.
     2. To disable progress bars, either use `disable_progress_bars()` helper or set the
        environement variable `HF_HUB_DISABLE_PROGRESS_BARS` to 1.

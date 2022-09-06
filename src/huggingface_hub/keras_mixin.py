@@ -30,7 +30,7 @@ from .hf_api import (
     _prepare_upload_folder_commit,
 )
 from .repository import Repository
-from .utils import logging
+from .utils import logging, validate_hf_hub_args
 from .utils._deprecation import _deprecate_arguments, _deprecate_positional_args
 
 
@@ -306,6 +306,7 @@ def from_pretrained_keras(*args, **kwargs):
         "git_email",
     },
 )
+@validate_hf_hub_args
 def push_to_hub_keras(
     # NOTE: deprecated signature that will change in 0.12
     model,

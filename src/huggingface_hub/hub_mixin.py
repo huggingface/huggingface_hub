@@ -11,7 +11,7 @@ from .constants import CONFIG_NAME, PYTORCH_WEIGHTS_NAME
 from .file_download import hf_hub_download, is_torch_available
 from .hf_api import HfApi, HfFolder
 from .repository import Repository
-from .utils import logging
+from .utils import logging, validate_hf_hub_args
 from .utils._deprecation import _deprecate_arguments, _deprecate_positional_args
 
 
@@ -182,8 +182,12 @@ class ModelHubMixin:
         if len(model_id.split("@")) == 2:
             model_id, revision = model_id.split("@")
 
-        if os.path.isdir(model_id) and CONFIG_NAME in os.listdir(model_id):
-            config_file = os.path.join(model_id, CONFIG_NAME)
+        config_file: Optional[str] = None
+        if os.path.isdir(model_id):
+            if CONFIG_NAME in os.listdir(model_id):
+                config_file = os.path.join(model_id, CONFIG_NAME)
+            else:
+                logger.warning(f"{CONFIG_NAME} not found in {Path(model_id).resolve()}")
         else:
             try:
                 config_file = hf_hub_download(
@@ -199,7 +203,6 @@ class ModelHubMixin:
                 )
             except requests.exceptions.RequestException:
                 logger.warning(f"{CONFIG_NAME} not found in HuggingFace Hub")
-                config_file = None
 
         if config_file is not None:
             with open(config_file, "r", encoding="utf-8") as f:
@@ -248,6 +251,7 @@ class ModelHubMixin:
             "skip_lfs_files",
         },
     )
+    @validate_hf_hub_args
     def push_to_hub(
         self,
         # NOTE: deprecated signature that will change in 0.12
@@ -411,7 +415,7 @@ class PyTorchModelHubMixin(ModelHubMixin):
         Mix this class with your torch-model class for ease process of saving &
         loading from huggingface-hub.
 
-        Example usage:
+        Example:
 
         ```python
         >>> from huggingface_hub import PyTorchModelHubMixin
