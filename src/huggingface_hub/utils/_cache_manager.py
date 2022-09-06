@@ -231,19 +231,19 @@ class DeleteCacheStrategy:
 
         # Delete entire repos
         for path in self.repos:
-            _delete(path, path_type="repo")
+            _try_delete_path(path, path_type="repo")
 
         # Delete snapshot directories
         for path in self.snapshots:
-            _delete(path, path_type="snapshot")
+            _try_delete_path(path, path_type="snapshot")
 
         # Delete refs files
         for path in self.refs:
-            _delete(path, path_type="ref")
+            _try_delete_path(path, path_type="ref")
 
         # Delete blob files
         for path in self.blobs:
-            _delete(path, path_type="blob")
+            _try_delete_path(path, path_type="blob")
 
         logger.info(f"Cache deletion done. Saved {self.expected_freed_size_str}.")
 
@@ -658,10 +658,16 @@ def _format_size(num: int) -> str:
     return f"{num_f:.1f}Y"
 
 
-def _delete(path: Path, path_type: str) -> None:
-    """Delete a local file or folder.
+def _try_delete_path(path: Path, path_type: str) -> None:
+    """Try to delete a local file or folder.
 
-    If the path does not exists, error is logged and ignored.
+    If the path does not exists, error is logged as a warning and then ignored.
+
+    Args:
+        path (`Path`)
+            Path to delete. Can be a file or a folder.
+        path_type (`str`)
+            What path are we deleting ? Only for logging purposes. Example: "snapshot".
     """
     logger.info(f"Delete {path_type}: {path}")
     try:
@@ -670,4 +676,10 @@ def _delete(path: Path, path_type: str) -> None:
         else:
             shutil.rmtree(path)
     except FileNotFoundError:
-        logger.warning(f"Couldn't delete {path_type}: file not found ({path})")
+        logger.warning(
+            f"Couldn't delete {path_type}: file not found ({path})", exc_info=True
+        )
+    except PermissionError:
+        logger.warning(
+            f"Couldn't delete {path_type}: permission denied ({path})", exc_info=True
+        )

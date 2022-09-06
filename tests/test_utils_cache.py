@@ -14,6 +14,7 @@ from _pytest.fixtures import SubRequest
 from huggingface_hub._snapshot_download import snapshot_download
 from huggingface_hub.commands.cache import ScanCacheCommand
 from huggingface_hub.utils import DeleteCacheStrategy, HFCacheInfo, scan_cache_dir
+from huggingface_hub.utils._cache_manager import _try_delete_path
 
 from .testing_constants import TOKEN
 
@@ -495,4 +496,153 @@ class TestDeleteRevisionsDryRun(unittest.TestCase):
         self.assertEqual(
             captured.records[0].message,
             "Revision(s) not found - cannot delete them: abcdef123456789",
+        )
+
+
+@pytest.mark.usefixtures("fx_cache_dir")
+class TestDeleteStrategyExecute(unittest.TestCase):
+    cache_dir: Path
+
+    def test_execute(self) -> None:
+        # Repo folders
+        repo_A_path = self.cache_dir / "repo_A"
+        repo_A_path.mkdir()
+        repo_B_path = self.cache_dir / "repo_B"
+        repo_B_path.mkdir()
+
+        # Refs files in repo_B
+        refs_main_path = repo_B_path / "refs" / "main"
+        refs_main_path.parent.mkdir(parents=True)
+        refs_main_path.touch()
+        refs_pr_1_path = repo_B_path / "refs" / "refs" / "pr" / "1"
+        refs_pr_1_path.parent.mkdir(parents=True)
+        refs_pr_1_path.touch()
+
+        # Blobs files in repo_B
+        (repo_B_path / "blobs").mkdir()
+        blob_1 = repo_B_path / "blobs" / "blob_1"
+        blob_2 = repo_B_path / "blobs" / "blob_2"
+        blob_3 = repo_B_path / "blobs" / "blob_3"
+        blob_1.touch()
+        blob_2.touch()
+        blob_3.touch()
+
+        # Snapshot folders in repo_B
+        snapshot_1 = repo_B_path / "snapshots" / "snapshot_1"
+        snapshot_2 = repo_B_path / "snapshots" / "snapshot_2"
+
+        snapshot_1.mkdir(parents=True)
+        snapshot_2.mkdir()
+
+        # Execute deletion
+        # Delete repo_A + keep only blob_1, main ref and snapshot_1 in repo_B.
+        DeleteCacheStrategy(
+            expected_freed_size=123456,
+            blobs={blob_2, blob_3},
+            refs={refs_pr_1_path},
+            repos={repo_A_path},
+            snapshots={snapshot_2},
+        ).execute()
+
+        # Repo A deleted
+        self.assertFalse(repo_A_path.exists())
+        self.assertTrue(repo_B_path.exists())
+
+        # Only `blob` 1 remains
+        self.assertTrue(blob_1.exists())
+        self.assertFalse(blob_2.exists())
+        self.assertFalse(blob_3.exists())
+
+        # Only ref `main` remains
+        self.assertTrue(refs_main_path.exists())
+        self.assertFalse(refs_pr_1_path.exists())
+
+        # Only `snapshot_1` remains
+        self.assertTrue(snapshot_1.exists())
+        self.assertFalse(snapshot_2.exists())
+
+
+@pytest.mark.usefixtures("fx_cache_dir")
+class TestTryDeletePath(unittest.TestCase):
+    cache_dir: Path
+
+    def test_delete_path_on_file_success(self) -> None:
+        """Successfully delete a local file."""
+        file_path = self.cache_dir / "file.txt"
+        file_path.touch()
+        _try_delete_path(file_path, path_type="TYPE")
+        self.assertFalse(file_path.exists())
+
+    def test_delete_path_on_folder_success(self) -> None:
+        """Successfully delete a local folder."""
+        dir_path = self.cache_dir / "something"
+        subdir_path = dir_path / "bar"
+        subdir_path.mkdir(parents=True)  # subfolder
+
+        file_path_1 = dir_path / "file.txt"  # file at root
+        file_path_1.touch()
+
+        file_path_2 = subdir_path / "config.json"  # file in subfolder
+        file_path_2.touch()
+
+        _try_delete_path(dir_path, path_type="TYPE")
+
+        self.assertFalse(dir_path.exists())
+        self.assertFalse(subdir_path.exists())
+        self.assertFalse(file_path_1.exists())
+        self.assertFalse(file_path_2.exists())
+
+    def test_delete_path_on_missing_file(self) -> None:
+        """Try delete a missing file."""
+        file_path = self.cache_dir / "file.txt"
+
+        with self.assertLogs() as captured:
+            _try_delete_path(file_path, path_type="TYPE")
+
+        # Assert warning message with traceback for debug purposes
+        self.assertEquals(len(captured.output), 1)
+        self.assertTrue(
+            captured.output[0].startswith(
+                "WARNING:huggingface_hub.utils._cache_manager:Couldn't delete TYPE:"
+                f" file not found ({file_path})\nTraceback (most recent call last):"
+            )
+        )
+
+    def test_delete_path_on_missing_folder(self) -> None:
+        """Try delete a missing folder."""
+        dir_path = self.cache_dir / "folder"
+
+        with self.assertLogs() as captured:
+            _try_delete_path(dir_path, path_type="TYPE")
+
+        # Assert warning message with traceback for debug purposes
+        self.assertEquals(len(captured.output), 1)
+        self.assertTrue(
+            captured.output[0].startswith(
+                "WARNING:huggingface_hub.utils._cache_manager:Couldn't delete TYPE:"
+                f" file not found ({dir_path})\nTraceback (most recent call last):"
+            )
+        )
+
+    def test_delete_path_on_local_folder_with_wrong_permission(self) -> None:
+        """Try delete a local folder that is protected."""
+        dir_path = self.cache_dir / "something"
+        dir_path.mkdir()
+        file_path_1 = dir_path / "file.txt"  # file at root
+        file_path_1.touch()
+        dir_path.chmod(444)  # Read-only folder
+
+        with self.assertLogs() as captured:
+            _try_delete_path(dir_path, path_type="TYPE")
+
+        # Folder still exists (couldn't be deleted)
+        self.assertTrue(dir_path.is_dir())
+
+        # Assert warning message with traceback for debug purposes
+        self.assertEquals(len(captured.output), 1)
+        self.assertTrue(
+            captured.output[0].startswith(
+                "WARNING:huggingface_hub.utils._cache_manager:Couldn't delete TYPE:"
+                f" permission denied ({dir_path})\nTraceback (most recent call last):"
+            )
         )
