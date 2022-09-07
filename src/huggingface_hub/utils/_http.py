@@ -15,13 +15,14 @@
 """Contains utilities to handle HTTP requests in Huggingface Hub."""
 import time
 from http import HTTPStatus
-from typing import Literal, Tuple, Type, Union
+from typing import Tuple, Type, Union
 
 import requests
 from requests import Response
 from requests.exceptions import ConnectTimeout, ProxyError
 
 from . import logging
+from ._typing import Literal
 
 
 logger = logging.get_logger(__name__)
