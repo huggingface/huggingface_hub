@@ -25,6 +25,7 @@ from huggingface_hub.constants import (
     REPO_TYPE_DATASET,
 )
 from huggingface_hub.file_download import (
+    _CACHED_NO_EXIST,
     cached_download,
     filename_to_url,
     hf_hub_download,
@@ -320,3 +321,19 @@ class CachedDownloadTests(unittest.TestCase):
         )
         # Same for uncached models
         self.assertIsNone(try_to_load_from_cache("bert-base", filename=CONFIG_NAME))
+
+    def test_try_to_load_from_cache_no_exist(self):
+        # Make sure the file is cached
+        with self.assertRaises(EntryNotFoundError):
+            _ = hf_hub_download(DUMMY_MODEL_ID, filename="dummy")
+
+        new_file_path = try_to_load_from_cache(DUMMY_MODEL_ID, filename="dummy")
+        self.assertEqual(new_file_path, _CACHED_NO_EXIST)
+
+        new_file_path = try_to_load_from_cache(
+            DUMMY_MODEL_ID, filename="dummy", revision="main"
+        )
+        self.assertEqual(new_file_path, _CACHED_NO_EXIST)
+
+        # If file non-existence is not cached, returns None
+        self.assertIsNone(try_to_load_from_cache(DUMMY_MODEL_ID, filename="dummy2"))
