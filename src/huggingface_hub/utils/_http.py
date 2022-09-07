@@ -45,6 +45,11 @@ def http_backoff(
 ) -> Response:
     """Wrapper around requests to retry calls on an endpoint, with exponential backoff.
 
+    Endpoint call is retried on exceptions (ex: connection timeout, proxy error,...)
+    and/or on specific status codes (ex: service unavailable). If the call failed more
+    than `max_retries`, the exception is thrown or `raise_for_status` is called on the
+    response object.
+
     Re-implement mechanisms from the `backoff` library to avoid adding an external
     dependencies to `hugging_face_hub`. See https://github.com/litl/backoff.
 
@@ -70,8 +75,21 @@ def http_backoff(
             HTTP 503 Service Unavailable is retried.
         **kwargs (`dict`, *optional*):
             kwargs to pass to `requests.request`.
+
+    Example:
+    ```
+    >>> from huggingface_hub.utils import http_backoff
+
+    # Same usage as "requests.request".
+    >>> response = http_backoff("GET", "https://www.google.com")
+    >>> response.raise_for_status()
+
+    # If you expect a Gateway Timeout from time to time
+    >>> http_backoff("PUT", upload_url, data=data, retry_on_status_codes=504)
+    >>> response.raise_for_status()
+    ```
     """
-    if issubclass(retry_on_exceptions, Exception):  # Tuple from single exception type
+    if isinstance(retry_on_exceptions, type):  # Tuple from single exception type
         retry_on_exceptions = (retry_on_exceptions,)
 
     if isinstance(retry_on_status_codes, int):  # Tuple from single status code
