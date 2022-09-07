@@ -122,6 +122,10 @@ def http_backoff(
             if nb_tries > max_retries:
                 raise err
 
-        sleep_time = min(max_wait_time, sleep_time * 2)  # Exponential backoff
+        # Sleep for X seconds
         logger.info(f"Retrying in {sleep_time}s [{nb_tries/max_retries}].")
+        print(f"Retrying in {sleep_time}s [{nb_tries/max_retries}].")
         time.sleep(sleep_time)
+
+        # Update sleep time for next retry
+        sleep_time = min(max_wait_time, sleep_time * 2)  # Exponential backoff
