@@ -50,20 +50,16 @@ class TestHuggingfaceHubInit(unittest.TestCase):
             " `./src/huggingface_hub/__init__.py`.",
         )
         _submod_attrs_definition = (
-            "_SUBMOD_ATTRS = {"
-            + "\n"
+            "_SUBMOD_ATTRS = {\n"
             + "\n".join(
-                f'    "{module}": ['
-                + "\n"
+                f'    "{module}": [\n'
                 + "\n".join(
                     f'        "{attr}",' for attr in sorted(_SUBMOD_ATTRS[module])
                 )
-                + "\n"
-                + "    ],"
+                + "\n    ],"
                 for module in sorted(_SUBMOD_ATTRS.keys())
             )
-            + "\n"
-            + "}"
+            + "\n}"
         )
         reordered_content_before_static_checks = SUBMOD_ATTRS_PATTERN.sub(
             _submod_attrs_definition, init_content_before_static_checks
