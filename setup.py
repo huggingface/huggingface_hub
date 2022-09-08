@@ -52,6 +52,7 @@ extras["quality"] = [
     "isort>=5.5.4",
     "mypy",
     "types-requests",
+    "types-simplejson",
     "types-urllib3",
 ]
 
