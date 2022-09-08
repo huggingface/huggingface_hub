@@ -17,6 +17,7 @@ from urllib.parse import quote, urlparse
 
 import packaging.version
 
+import httpx
 import requests
 from filelock import FileLock
 from huggingface_hub import constants
@@ -394,7 +395,7 @@ def _raise_if_offline_mode_is_enabled(msg: Optional[str] = None):
         )
 
 
-def _request_wrapper(
+async def _request_wrapper(
     method: str,
     url: str,
     *,
@@ -443,7 +444,7 @@ def _request_wrapper(
 
     # 2. Force relative redirection
     if follow_relative_redirects:
-        response = _request_wrapper(
+        response = await _request_wrapper(
             method=method,
             url=url,
             max_retries=max_retries,
@@ -465,7 +466,7 @@ def _request_wrapper(
                 #
                 # Highly inspired by `resolve_redirects` from requests library.
                 # See https://github.com/psf/requests/blob/main/requests/sessions.py#L159
-                return _request_wrapper(
+                return await _request_wrapper(
                     method=method,
                     url=urlparse(url)._replace(path=parsed_target.path).geturl(),
                     max_retries=max_retries,
@@ -482,9 +483,18 @@ def _request_wrapper(
     while not success:
         tries += 1
         try:
-            response = requests.request(
-                method=method.upper(), url=url, timeout=timeout, **params
-            )
+            params.pop("allow_redirects", None)
+            async with httpx.AsyncClient(proxies=params.pop("proxies", None)) as client:
+                if not params.get("stream"):
+                    response = await client.request(
+                        method=method.upper(), url=url, timeout=timeout, **params
+                    )
+                else:
+                    params.pop("stream")
+                    req = client.build_request(
+                        method.upper(), url=url, timeout=timeout, **params
+                    )
+                    return await client.send(req, stream=True)
             success = True
         except (
             requests.exceptions.ConnectTimeout,
@@ -512,7 +522,7 @@ def _request_with_retry(*args, **kwargs) -> requests.Response:
     return _request_wrapper(*args, **kwargs)
 
 
-def http_get(
+async def http_get(
     url: str,
     temp_file: BinaryIO,
     *,
@@ -528,31 +538,37 @@ def http_get(
     headers = copy.deepcopy(headers)
     if resume_size > 0:
         headers["Range"] = "bytes=%d-" % (resume_size,)
-    r = _request_wrapper(
-        method="GET",
-        url=url,
-        stream=True,
-        proxies=proxies,
-        headers=headers,
-        timeout=timeout,
-        max_retries=max_retries,
-    )
-    hf_raise_for_status(r)
-    content_length = r.headers.get("Content-Length")
-    total = resume_size + int(content_length) if content_length is not None else None
-    progress = tqdm(
-        unit="B",
-        unit_scale=True,
-        total=total,
-        initial=resume_size,
-        desc="Downloading",
-        disable=bool(logger.getEffectiveLevel() == logging.NOTSET),
-    )
-    for chunk in r.iter_content(chunk_size=1024):
-        if chunk:  # filter out keep-alive new chunks
-            progress.update(len(chunk))
-            temp_file.write(chunk)
-    progress.close()
+
+    async with httpx.AsyncClient(proxies=proxies).stream(
+        "GET", url=url, timeout=timeout
+    ) as r:
+        # r = await _request_wrapper(
+        #     method="GET",
+        #     url=url,
+        #     stream=True,
+        #     proxies=proxies,
+        #     headers=headers,
+        #     timeout=timeout,
+        #     max_retries=max_retries,
+        # )
+        hf_raise_for_status(r)
+        content_length = r.headers.get("Content-Length")
+        total = (
+            resume_size + int(content_length) if content_length is not None else None
+        )
+        progress = tqdm(
+            unit="B",
+            unit_scale=True,
+            total=total,
+            initial=resume_size,
+            desc="Downloading",
+            disable=bool(logger.getEffectiveLevel() == logging.NOTSET),
+        )
+        async for chunk in r.aiter_bytes(chunk_size=1024):
+            if chunk:  # filter out keep-alive new chunks
+                progress.update(len(chunk))
+                temp_file.write(chunk)
+        progress.close()
 
 
 def cached_download(
@@ -907,7 +923,7 @@ def repo_folder_name(*, repo_id: str, repo_type: str) -> str:
 # Related: https://github.com/huggingface/huggingface_hub/pull/1029
 # TODO: set back validation in V0.12.
 # @validate_hf_hub_args
-def hf_hub_download(
+async def hf_hub_download(
     repo_id: str,
     filename: str,
     *,
@@ -1122,7 +1138,7 @@ def hf_hub_download(
     commit_hash = None
     if not local_files_only:
         try:
-            r = _request_wrapper(
+            r = await _request_wrapper(
                 method="HEAD",
                 url=url,
                 headers=headers,
@@ -1295,7 +1311,7 @@ def hf_hub_download(
         with temp_file_manager() as temp_file:
             logger.info("downloading %s to %s", url, temp_file.name)
 
-            http_get(
+            await http_get(
                 url_to_download,
                 temp_file,
                 proxies=proxies,

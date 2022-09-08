@@ -2,6 +2,8 @@ import os
 from pathlib import Path
 from typing import Dict, List, Optional, Union
 
+import httpx
+
 from .constants import DEFAULT_REVISION, HUGGINGFACE_HUB_CACHE, REPO_TYPES
 from .file_download import REGEX_COMMIT_HASH, hf_hub_download, repo_folder_name
 from .hf_api import HfApi, HfFolder
@@ -18,7 +20,7 @@ logger = logging.get_logger(__name__)
     custom_message="Please use `allow_patterns` and `ignore_patterns` instead.",
 )
 @validate_hf_hub_args
-def snapshot_download(
+async def snapshot_download(
     repo_id: str,
     *,
     revision: Optional[str] = None,
@@ -191,22 +193,51 @@ def snapshot_download(
     # so no network call happens if we already
     # have the file locally.
 
-    for repo_file in tqdm(
-        filtered_repo_files, f"Fetching {len(filtered_repo_files)} files"
-    ):
-        _ = hf_hub_download(
-            repo_id,
-            filename=repo_file,
-            repo_type=repo_type,
-            revision=commit_hash,
-            cache_dir=cache_dir,
-            library_name=library_name,
-            library_version=library_version,
-            user_agent=user_agent,
-            proxies=proxies,
-            etag_timeout=etag_timeout,
-            resume_download=resume_download,
-            use_auth_token=use_auth_token,
+    progress = tqdm(
+        total=len(filtered_repo_files),
+        initial=0,
+        desc=f"Fetching {len(filtered_repo_files)} files",
+    )
+
+    async def _inner(repo_file):
+        try:
+            _ = await hf_hub_download(
+                repo_id,
+                filename=repo_file,
+                repo_type=repo_type,
+                revision=commit_hash,
+                cache_dir=cache_dir,
+                library_name=library_name,
+                library_version=library_version,
+                user_agent=user_agent,
+                proxies=proxies,
+                etag_timeout=etag_timeout,
+                resume_download=resume_download,
+                use_auth_token=use_auth_token,
+            )
+        except httpx.HTTPStatusError as e:
+            print(e)
+        progress.update()
+
+    import asyncio
+
+    for i in range(0, 30000, 20):
+        await asyncio.gather(
+            *[_inner(file) for file in filtered_repo_files[i : i * 20]],
+            return_exceptions=True,
         )
+
+    progress.close()
+
+    # for f in tqdm.asyncio.tqdm.as_completed(
+    #     [_inner(file) for file in filtered_repo_files],
+    #     # f"Fetching {len(filtered_repo_files)} files",
+    # ):
+    #     await f
+
+    # for repo_file in tqdm(
+    #     filtered_repo_files,
+    # ):
+    #     await _inner(repo_file)
 
     return snapshot_folder
