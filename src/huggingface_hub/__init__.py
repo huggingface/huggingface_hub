@@ -44,8 +44,25 @@ from typing import TYPE_CHECKING
 
 __version__ = "0.10.0.dev0"
 
+# Alphabetical order of definitions is ensured in tests
+# WARNING: any comment added in this dictionary definition will be lost when
+# re-generating the file !
 _SUBMOD_ATTRS = {
-    "commands.user": ["notebook_login"],
+    "_snapshot_download": [
+        "snapshot_download",
+    ],
+    "commands.user": [
+        "notebook_login",
+    ],
+    "community": [
+        "Discussion",
+        "DiscussionComment",
+        "DiscussionCommit",
+        "DiscussionEvent",
+        "DiscussionStatusChange",
+        "DiscussionTitleChange",
+        "DiscussionWithDetails",
+    ],
     "constants": [
         "CONFIG_NAME",
         "FLAX_WEIGHTS_NAME",
@@ -109,44 +126,49 @@ _SUBMOD_ATTRS = {
         "upload_folder",
         "whoami",
     ],
-    "hub_mixin": ["ModelHubMixin", "PyTorchModelHubMixin"],
-    "inference_api": ["InferenceApi"],
+    "hub_mixin": [
+        "ModelHubMixin",
+        "PyTorchModelHubMixin",
+    ],
+    "inference_api": [
+        "InferenceApi",
+    ],
     "keras_mixin": [
         "KerasModelHubMixin",
         "from_pretrained_keras",
         "push_to_hub_keras",
         "save_pretrained_keras",
     ],
-    "repository": ["Repository"],
-    "_snapshot_download": ["snapshot_download"],
+    "repocard": [
+        "DatasetCard",
+        "ModelCard",
+        "metadata_eval_result",
+        "metadata_load",
+        "metadata_save",
+        "metadata_update",
+    ],
+    "repocard_data": [
+        "CardData",
+        "DatasetCardData",
+        "EvalResult",
+        "ModelCardData",
+    ],
+    "repository": [
+        "Repository",
+    ],
     "utils": [
-        "logging",
         "CachedFileInfo",
         "CachedRepoInfo",
         "CachedRevisionInfo",
         "CorruptedCacheException",
         "HFCacheInfo",
+        "logging",
         "scan_cache_dir",
     ],
-    "utils.endpoint_helpers": ["DatasetFilter", "ModelFilter"],
-    "repocard": [
-        "metadata_eval_result",
-        "metadata_load",
-        "metadata_save",
-        "metadata_update",
-        "ModelCard",
-        "DatasetCard",
+    "utils.endpoint_helpers": [
+        "DatasetFilter",
+        "ModelFilter",
     ],
-    "community": [
-        "Discussion",
-        "DiscussionWithDetails",
-        "DiscussionEvent",
-        "DiscussionComment",
-        "DiscussionStatusChange",
-        "DiscussionCommit",
-        "DiscussionTitleChange",
-    ],
-    "repocard_data": ["CardData", "ModelCardData", "DatasetCardData", "EvalResult"],
 }
 
 
