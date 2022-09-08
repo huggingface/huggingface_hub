@@ -696,6 +696,29 @@ class HfApi:
 
         return token, name
 
+    def _build_auth_headers(
+        self, *, token: Optional[str], use_auth_token: Optional[Union[str, bool]]
+    ) -> Dict[str, str]:
+        """Helper to build Authorization header from kwargs. To be removed in 0.12.0 when `token` is deprecated."""
+        if token is not None:
+            warnings.warn(
+                "`token` is deprecated and will be removed in 0.12.0. Use"
+                " `use_auth_token` instead.",
+                FutureWarning,
+            )
+
+        auth_token = None
+        if use_auth_token is None and token is None:
+            # To maintain backwards-compatibility. To be removed in 0.12.0
+            auth_token = HfFolder.get_token()
+        elif use_auth_token:
+            auth_token, _ = self._validate_or_retrieve_token(use_auth_token)
+        else:
+            auth_token = token
+        return (
+            {"authorization": f"Bearer {auth_token}"} if auth_token is not None else {}
+        )
+
     @staticmethod
     def set_access_token(access_token: str):
         """
@@ -1265,19 +1288,7 @@ class HfApi:
 
         </Tip>
         """
-        if token is not None:
-            warnings.warn(
-                "`token` is deprecated and will be removed in 0.12.0. Use"
-                " `use_auth_token` instead.",
-                FutureWarning,
-            )
-
-        if use_auth_token is None and token is None:
-            # To maintain backwards-compatibility. To be removed in 0.12.0
-            token = HfFolder.get_token()
-        elif use_auth_token:
-            token, name = self._validate_or_retrieve_token(use_auth_token)
-
+        headers = self._build_auth_headers(token=token, use_auth_token=use_auth_token)
         path = (
             f"{self.endpoint}/api/models/{repo_id}"
             if revision is None
@@ -1285,7 +1296,6 @@ class HfApi:
                 f"{self.endpoint}/api/models/{repo_id}/revision/{quote(revision, safe='')}"
             )
         )
-        headers = {"authorization": f"Bearer {token}"} if token is not None else None
         params = {}
         if securityStatus:
             params["securityStatus"] = True
@@ -1352,18 +1362,7 @@ class HfApi:
 
         </Tip>
         """
-        if token is not None:
-            warnings.warn(
-                "`token` is deprecated and will be removed in 0.12.0. Use"
-                " `use_auth_token` instead.",
-                FutureWarning,
-            )
-
-        if use_auth_token is None and token is None:
-            # To maintain backwards-compatibility. To be removed in 0.12.0
-            token = HfFolder.get_token()
-        elif use_auth_token:
-            token, name = self._validate_or_retrieve_token(use_auth_token)
+        headers = self._build_auth_headers(token=token, use_auth_token=use_auth_token)
 
         path = (
             f"{self.endpoint}/api/datasets/{repo_id}"
@@ -1372,7 +1371,6 @@ class HfApi:
                 f"{self.endpoint}/api/datasets/{repo_id}/revision/{quote(revision, safe='')}"
             )
         )
-        headers = {"authorization": f"Bearer {token}"} if token is not None else None
         params = {}
         if files_metadata:
             params["blobs"] = True
@@ -1433,19 +1431,7 @@ class HfApi:
 
         </Tip>
         """
-        if token is not None:
-            warnings.warn(
-                "`token` is deprecated and will be removed in 0.12.0. Use"
-                " `use_auth_token` instead.",
-                FutureWarning,
-            )
-
-        if use_auth_token is None and token is None:
-            # To maintain backwards-compatibility. To be removed in 0.12.0
-            token = HfFolder.get_token()
-        elif use_auth_token:
-            token, name = self._validate_or_retrieve_token(use_auth_token)
-
+        headers = self._build_auth_headers(token=token, use_auth_token=use_auth_token)
         path = (
             f"{self.endpoint}/api/spaces/{repo_id}"
             if revision is None
@@ -1453,7 +1439,6 @@ class HfApi:
                 f"{self.endpoint}/api/spaces/{repo_id}/revision/{quote(revision, safe='')}"
             )
         )
-        headers = {"authorization": f"Bearer {token}"} if token is not None else None
         params = {}
         if files_metadata:
             params["blobs"] = True

@@ -167,7 +167,7 @@ def snapshot_download(
     # if we have internet connection we retrieve the correct folder name from the huggingface api
     _api = HfApi()
     repo_info = _api.repo_info(
-        repo_id=repo_id, repo_type=repo_type, revision=revision, token=token
+        repo_id=repo_id, repo_type=repo_type, revision=revision, use_auth_token=token
     )
     filtered_repo_files = list(
         filter_repo_objects(

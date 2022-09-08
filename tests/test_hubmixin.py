@@ -178,7 +178,7 @@ class HubMixingTest(HubMixingCommonTest):
         )
 
         # Test model id exists
-        model_info = self._api.model_info(repo_id, token=self._token)
+        model_info = self._api.model_info(repo_id, use_auth_token=self._token)
         self.assertEqual(model_info.modelId, repo_id)
 
         # Test config has been pushed to hub
@@ -204,7 +204,7 @@ class HubMixingTest(HubMixingCommonTest):
             use_auth_token=self._token,
         )
 
-        model_info = self._api.model_info(repo_id, token=self._token)
+        model_info = self._api.model_info(repo_id, use_auth_token=self._token)
         self.assertEqual(model_info.modelId, repo_id)
         self._api.delete_repo(repo_id=repo_id, token=self._token)
 
@@ -236,7 +236,9 @@ class HubMixingTest(HubMixingCommonTest):
                 git_email="ci@dummy.com",
             )
 
-        model_info = self._api.model_info(f"{USER}/{REPO_NAME}", token=self._token)
+        model_info = self._api.model_info(
+            f"{USER}/{REPO_NAME}", use_auth_token=self._token
+        )
 
         self.assertTrue("large_file.txt" in [f.rfilename for f in model_info.siblings])
         self._api.delete_repo(repo_id=f"{REPO_NAME}", token=self._token)

@@ -439,7 +439,7 @@ def push_to_hub_keras(
                 # Delete previous log files from Hub
                 operations += [
                     CommitOperationDelete(path_in_repo=file)
-                    for file in api.list_repo_files(repo_id=repo_id, token=token)
+                    for file in api.list_repo_files(repo_id=repo_id, use_auth_token=token)
                     if file.startswith("logs/")
                 ]
 
