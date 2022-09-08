@@ -487,6 +487,7 @@ def _request_wrapper(
         max_wait_time=max_wait_time,
         retry_on_exceptions=(ConnectTimeout, ProxyError),
         retry_on_status_codes=(),
+        timeout=timeout,
         **params,
     )
 
