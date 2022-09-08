@@ -21,6 +21,7 @@ from ._cache_manager import (
     CachedRepoInfo,
     CachedRevisionInfo,
     CorruptedCacheException,
+    DeleteCacheStrategy,
     HFCacheInfo,
     scan_cache_dir,
 )

@@ -238,3 +238,56 @@ HFCacheInfo(
     ],
 )
 ```
+
+## Clean your cache
+
+Scanning your cache is interesting but what you really want to do next is usually to
+delete some portions to free up some space on your drive. This is possible using the
+[`~HFCacheInfo.delete_revisions`] helper from [`HFCacheInfo`] object returned when
+scanning the cache.
+
+Pass a list of revisions to delete and the tool will define a strategy to free up the
+space. It returns a [`DeleteCacheStrategy`] object that describes which files and
+folders will be deleted and the expected freed space. Once you agree with the deletion,
+you must execute it to make the deletion effective. In order to avoid discrepancies, you
+cannot edit a strategy manually.
+
+The strategy to delete revisions is the following:
+
+- the `snapshot` folder containing the revision symlinks is deleted.
+- blobs files that are targeted only by revisions to be deleted are deleted as well.
+- if a revision is linked to 1 or more `refs`, references are deleted.
+- if all revisions from a repo are deleted, the entire cached repository is deleted.
+
+Here is a simple usage example. See reference for details.
+
+```py
+>>> from huggingface_hub import scan_cache_dir
+
+>>> delete_strategy = scan_cache_dir().delete_revisions(
+...     "81fd1d6e7847c99f5862c9fb81387956d99ec7aa"
+...     "e2983b237dccf3ab4937c97fa717319a9ca1a96d",
+...     "6c0e6080953db56375760c0471a8c5f2929baf11",
+... )
+>>> print("Will free " + delete_strategy.expected_freed_size_str)
+Will free 8.6G
+
+>>> delete_strategy.execute()
+Cache deletion done. Saved 8.6G.
+```
+
+<Tip>
+
+Revision hashes are unique across all repositories. This means you don't need to
+provide any `repo_id` or `repo_type` when removing revisions.
+
+</Tip>
+
+<Tip warning={true}>
+
+If a revision is not found in the cache, it will be silently ignored. Besides, if a file
+or folder cannot be found while trying to delete it, a warning will be logged but no
+error is thrown. The deletion continues for other paths contained in the
+[`DeleteCacheStrategy`] object.
+
+</Tip>
