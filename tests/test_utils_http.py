@@ -98,7 +98,7 @@ class TestHttpBackoff(unittest.TestCase):
         """Test `http_backoff` sleep time goes exponential until max limit.
 
         Since timing between 2 requests is sleep duration + some other stuff, this test
-        can be unstable. However, sleep durations between 4ms and 20ms should be enough
+        can be unstable. However, sleep durations between 10ms and 50ms should be enough
         to make the approximation that measured durations are the "sleep time" waited by
         `http_backoff`. If this is not the case, just increase `base_wait_time`,
         `max_wait_time` and `expected_sleep_times` with bigger values.
@@ -110,18 +110,18 @@ class TestHttpBackoff(unittest.TestCase):
             while True:
                 yield ConnectTimeout()
                 t1 = time.time()
-                sleep_times.append(round(t1 - t0, 3))
+                sleep_times.append(round(t1 - t0, 2))
                 t0 = t1
 
         mock_request.side_effect = _side_effect_timer()
 
         with self.assertRaises(ConnectTimeout):
             http_backoff(
-                "GET", URL, base_wait_time=0.004, max_wait_time=0.02, max_retries=5
+                "GET", URL, base_wait_time=0.01, max_wait_time=0.05, max_retries=5
             )
 
         self.assertEqual(mock_request.call_count, 6)
 
         # Assert sleep times are exponential until plateau
-        expected_sleep_times = [0.004, 0.008, 0.016, 0.02, 0.02]
+        expected_sleep_times = [0.01, 0.02, 0.04, 0.05, 0.05]
         self.assertListEqual(sleep_times, expected_sleep_times)

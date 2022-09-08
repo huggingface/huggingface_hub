@@ -107,7 +107,7 @@ def http_backoff(
                 return response
 
             # Wrong status code returned (HTTP 503 for instance)
-            logger.info(
+            logger.warning(
                 f"HTTP Error {response.status_code} thrown while requesting"
                 f" {method} {url}"
             )
@@ -118,14 +118,13 @@ def http_backoff(
                 return response
 
         except retry_on_exceptions as err:
-            logger.info(f"'{err}' thrown while requesting {method} {url}")
+            logger.warning(f"'{err}' thrown while requesting {method} {url}")
 
             if nb_tries > max_retries:
                 raise err
 
         # Sleep for X seconds
-        logger.info(f"Retrying in {sleep_time}s [{nb_tries/max_retries}].")
-        print(f"Retrying in {sleep_time}s [{nb_tries/max_retries}].")
+        logger.warning(f"Retrying in {sleep_time}s [{nb_tries/max_retries}].")
         time.sleep(sleep_time)
 
         # Update sleep time for next retry
