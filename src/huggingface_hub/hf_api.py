@@ -840,9 +840,10 @@ class HfApi:
         ```
         """
         path = f"{self.endpoint}/api/models"
+        headers = {}
         if use_auth_token:
             token, name = self._validate_or_retrieve_token(use_auth_token)
-        headers = {"authorization": f"Bearer {token}"} if use_auth_token else None
+            headers["authorization"] = f"Bearer {token}"
         params = {}
         if filter is not None:
             if isinstance(filter, ModelFilter):
@@ -1037,9 +1038,10 @@ class HfApi:
         ```
         """
         path = f"{self.endpoint}/api/datasets"
+        headers = {}
         if use_auth_token:
             token, name = self._validate_or_retrieve_token(use_auth_token)
-        headers = {"authorization": f"Bearer {token}"} if use_auth_token else None
+            headers["authorization"] = f"Bearer {token}"
         params = {}
         if filter is not None:
             if isinstance(filter, DatasetFilter):
@@ -1176,9 +1178,10 @@ class HfApi:
             `List[SpaceInfo]`: a list of [`huggingface_hub.hf_api.SpaceInfo`] objects
         """
         path = f"{self.endpoint}/api/spaces"
+        headers = {}
         if use_auth_token:
             token, name = self._validate_or_retrieve_token(use_auth_token)
-        headers = {"authorization": f"Bearer {token}"} if use_auth_token else None
+            headers["authorization"] = f"Bearer {token}"
         params = {}
         if filter is not None:
             params.update({"filter": filter})
@@ -1232,7 +1235,7 @@ class HfApi:
                 The revision of the model repository from which to get the
                 information.
             token (`str`, *optional*):
-                Deprecated in favor of `use_auth_token`. Will be removed in 0.11.0.
+                Deprecated in favor of `use_auth_token`. Will be removed in 0.12.0.
                 An authentication token (See https://huggingface.co/settings/token)
             timeout (`float`, *optional*):
                 Whether to set a timeout for the request to the Hub.
@@ -1264,13 +1267,13 @@ class HfApi:
         """
         if token is not None:
             warnings.warn(
-                "`token` is deprecated and will be removed in 0.11.0. Use"
+                "`token` is deprecated and will be removed in 0.12.0. Use"
                 " `use_auth_token` instead.",
                 FutureWarning,
             )
 
         if use_auth_token is None and token is None:
-            # To maintain backwards-compatibility. To be removed in 0.11.0
+            # To maintain backwards-compatibility. To be removed in 0.12.0
             token = HfFolder.get_token()
         elif use_auth_token:
             token, name = self._validate_or_retrieve_token(use_auth_token)
@@ -1322,7 +1325,7 @@ class HfApi:
                 The revision of the dataset repository from which to get the
                 information.
             token (`str`, *optional*):
-                Deprecated in favor of `use_auth_token`. Will be removed in 0.11.0.
+                Deprecated in favor of `use_auth_token`. Will be removed in 0.12.0.
                 An authentication token (See https://huggingface.co/settings/token)
             timeout (`float`, *optional*):
                 Whether to set a timeout for the request to the Hub.
@@ -1351,13 +1354,13 @@ class HfApi:
         """
         if token is not None:
             warnings.warn(
-                "`token` is deprecated and will be removed in 0.11.0. Use"
+                "`token` is deprecated and will be removed in 0.12.0. Use"
                 " `use_auth_token` instead.",
                 FutureWarning,
             )
 
         if use_auth_token is None and token is None:
-            # To maintain backwards-compatibility. To be removed in 0.11.0
+            # To maintain backwards-compatibility. To be removed in 0.12.0
             token = HfFolder.get_token()
         elif use_auth_token:
             token, name = self._validate_or_retrieve_token(use_auth_token)
@@ -1403,7 +1406,7 @@ class HfApi:
                 The revision of the space repository from which to get the
                 information.
             token (`str`, *optional*):
-                Deprecated in favor of `use_auth_token`. Will be removed in 0.11.0.
+                Deprecated in favor of `use_auth_token`. Will be removed in 0.12.0.
                 An authentication token (See https://huggingface.co/settings/token)
             timeout (`float`, *optional*):
                 Whether to set a timeout for the request to the Hub.
@@ -1432,13 +1435,13 @@ class HfApi:
         """
         if token is not None:
             warnings.warn(
-                "`token` is deprecated and will be removed in 0.11.0. Use"
+                "`token` is deprecated and will be removed in 0.12.0. Use"
                 " `use_auth_token` instead.",
                 FutureWarning,
             )
 
         if use_auth_token is None and token is None:
-            # To maintain backwards-compatibility. To be removed in 0.11.0
+            # To maintain backwards-compatibility. To be removed in 0.12.0
             token = HfFolder.get_token()
         elif use_auth_token:
             token, name = self._validate_or_retrieve_token(use_auth_token)
@@ -1483,7 +1486,7 @@ class HfApi:
                 The revision of the repository from which to get the
                 information.
             token (`str`, *optional*):
-                Deprecated in favor of `use_auth_token`. Will be removed in 0.11.0.
+                Deprecated in favor of `use_auth_token`. Will be removed in 0.12.0.
                 An authentication token (See https://huggingface.co/settings/token)
             timeout (`float`, *optional*):
                 Whether to set a timeout for the request to the Hub.
@@ -1555,7 +1558,7 @@ class HfApi:
                 space, `None` or `"model"` if uploading to a model. Default is
                 `None`.
             token (`str`, *optional*):
-                Deprecated in favor of `use_auth_token`. Will be removed in 0.11.0.
+                Deprecated in favor of `use_auth_token`. Will be removed in 0.12.0.
                 An authentication token (See https://huggingface.co/settings/token)
             timeout (`float`, *optional*):
                 Whether to set a timeout for the request to the Hub.
@@ -2562,7 +2565,7 @@ class HfApi:
                 If passed, the repository name will be in the organization
                 namespace instead of the user namespace.
             token (`str`, *optional*):
-                Deprecated in favor of `use_auth_token`. Will be removed in 0.11.0.
+                Deprecated in favor of `use_auth_token`. Will be removed in 0.12.0.
                 The Hugging Face authentication token
             use_auth_token (`bool` or `str`, *optional*):
                 Whether to use the `auth_token` provided from the
@@ -2576,7 +2579,7 @@ class HfApi:
         """
         if token is not None:
             warnings.warn(
-                "`token` is deprecated and will be removed in 0.11.0. Use"
+                "`token` is deprecated and will be removed in 0.12.0. Use"
                 " `use_auth_token` instead.",
                 FutureWarning,
             )
