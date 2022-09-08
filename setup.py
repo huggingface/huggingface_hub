@@ -51,6 +51,8 @@ extras["quality"] = [
     "flake8-bugbear",
     "isort>=5.5.4",
     "mypy",
+    "types-requests",
+    "types-urllib3",
 ]
 
 extras["all"] = extras["testing"] + extras["quality"]
