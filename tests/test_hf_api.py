@@ -609,11 +609,13 @@ class CommitApiTest(HfApiCommonTestWithLogin):
             self._api.delete_repo(repo_id=REPO_NAME, token=self._token)
 
     def test_get_full_repo_name(self):
-        repo_name_with_no_org = self._api.get_full_repo_name("model", token=self._token)
+        repo_name_with_no_org = self._api.get_full_repo_name(
+            "model", use_auth_token=self._token
+        )
         self.assertEqual(repo_name_with_no_org, f"{USER}/model")
 
         repo_name_with_no_org = self._api.get_full_repo_name(
-            "model", organization="org", token=self._token
+            "model", organization="org", use_auth_token=self._token
         )
         self.assertEqual(repo_name_with_no_org, "org/model")
 
