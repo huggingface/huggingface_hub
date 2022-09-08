@@ -1468,10 +1468,37 @@ class HfApiPrivateTest(HfApiCommonTestWithLogin):
         ):
             _ = self._api.model_info(repo_id=f"{USER}/{self.REPO_NAME}")
         # Test we can access model info with a token
+        with self.assertWarns(FutureWarning):
+            model_info = self._api.model_info(
+                repo_id=f"{USER}/{self.REPO_NAME}", token=self._token
+            )
+            self.assertIsInstance(model_info, ModelInfo)
         model_info = self._api.model_info(
-            repo_id=f"{USER}/{self.REPO_NAME}", token=self._token
+            repo_id=f"{USER}/{self.REPO_NAME}", use_auth_token=self._token
         )
         self.assertIsInstance(model_info, ModelInfo)
+
+    def test_dataset_info(self):
+        shutil.rmtree(os.path.dirname(HfFolder.path_token), ignore_errors=True)
+        # Test we cannot access model info without a token
+        with self.assertRaisesRegex(
+            requests.exceptions.HTTPError,
+            re.compile(
+                r"401 Client Error(.+)\(Request ID: .+\)(.*)Repository Not Found",
+                flags=re.DOTALL,
+            ),
+        ):
+            _ = self._api.dataset_info(repo_id=f"{USER}/{self.REPO_NAME}")
+        # Test we can access model info with a token
+        with self.assertWarns(FutureWarning):
+            dataset_info = self._api.dataset_info(
+                repo_id=f"{USER}/{self.REPO_NAME}", token=self._token
+            )
+            self.assertIsInstance(dataset_info, DatasetInfo)
+        dataset_info = self._api.dataset_info(
+            repo_id=f"{USER}/{self.REPO_NAME}", use_auth_token=self._token
+        )
+        self.assertIsInstance(dataset_info, DatasetInfo)
 
     def test_list_private_datasets(self):
         orig = len(self._api.list_datasets())
