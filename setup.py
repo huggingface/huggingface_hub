@@ -37,6 +37,7 @@ extras["tensorflow"] = ["tensorflow", "pydot", "graphviz"]
 
 extras["testing"] = [
     "datasets",
+    "isort>=5.5.4",
     "jedi",
     "Jinja2",
     "pytest",
