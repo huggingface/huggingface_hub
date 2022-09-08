@@ -715,9 +715,7 @@ class HfApi:
             auth_token, _ = self._validate_or_retrieve_token(use_auth_token)
         else:
             auth_token = token
-        return (
-            {"authorization": f"Bearer {auth_token}"} if auth_token is not None else {}
-        )
+        return {"authorization": f"Bearer {auth_token}"} if auth_token else {}
 
     @staticmethod
     def set_access_token(access_token: str):
