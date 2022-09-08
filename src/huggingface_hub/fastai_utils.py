@@ -3,7 +3,7 @@ import os
 from pathlib import Path
 from pickle import DEFAULT_PROTOCOL, PicklingError
 import tempfile
-from typing import Any, Dict, Optional,Union,List
+from typing import Any, Dict, Optional, Union, List
 
 from packaging import version
 
@@ -18,7 +18,7 @@ from huggingface_hub.file_download import (
 from huggingface_hub.hf_api import HfApi, HfFolder
 from huggingface_hub.repository import Repository
 from huggingface_hub.utils import logging
-from .utils._deprecation import _deprecate_arguments,_deprecate_positional_args
+from .utils._deprecation import _deprecate_arguments, _deprecate_positional_args
 
 logger = logging.get_logger(__name__)
 
@@ -350,52 +350,43 @@ def from_pretrained_fastai(
 
     return load_learner(os.path.join(storage_folder, "model.pkl"))
 
+
 @_deprecate_positional_args(version="0.12")
 @_deprecate_arguments(
     version="0.12",
     deprecated_args={
-        "repo_url",
-        "repo_path_or_name",
-        "organization",
-        "use_auth_token",
         "git_user",
         "git_email",
-        "skip_lfs_files",
     },
 )
 def push_to_hub_fastai(
-    learner,
-    # NOTE: deprecated signature that will change in 0.12
-    repo_path_or_name: Optional[str] = None,
-    repo_url: Optional[str] = None,
-    commit_message: Optional[str] = "Add model",
-    organization: Optional[str] = None,
-    private: Optional[bool] = None,
-    api_endpoint: Optional[str] = None,
-    use_auth_token: Optional[Union[bool, str]] = None,
-    git_user: Optional[str] = None,
-    git_email: Optional[str] = None,
-    config: Optional[dict] = None,
-    skip_lfs_files: bool = False,
     # NOTE: New arguments since 0.9
-    repo_id: Optional[str] = None,  # optional only until 0.12
+    learner,
+    repo_id: str,
+    commit_message: Optional[str] = "Add model",
+    private: Optional[bool] = None,
     token: Optional[str] = None,
+    config: Optional[dict] = None,
     branch: Optional[str] = None,
     create_pr: Optional[bool] = None,
     allow_patterns: Optional[Union[List[str], str]] = None,
     ignore_patterns: Optional[Union[List[str], str]] = None,
+    api_endpoint: Optional[str] = None,
+    # NOTE: deprecated signature that will change in 0.12
+    git_user: Optional[str] = None,
+    git_email: Optional[str] = None,
     # TODO (release 0.12): signature must be the following
-    # repo_id: str,
-    # *,
+    # learner,
+    # repo_id: Optional[str] = None,  # optional only until 0.12
     # commit_message: Optional[str] = "Add model",
     # private: Optional[bool] = None,
-    # api_endpoint: Optional[str] = None,
     # token: Optional[str] = None,
+    # config: Optional[dict] = None,
     # branch: Optional[str] = None,
     # create_pr: Optional[bool] = None,
-    # config: Optional[dict] = None,
     # allow_patterns: Optional[Union[List[str], str]] = None,
     # ignore_patterns: Optional[Union[List[str], str]] = None,
+    # api_endpoint: Optional[str] = None,
 ):
     """
     Upload learner checkpoint files to the Hub while synchronizing a local clone of the repo in
@@ -412,6 +403,8 @@ def push_to_hub_fastai(
             Whether or not the repository created should be private.
         token (`str`, *optional*):
             The Hugging Face account token to use as HTTP bearer authorization for remote files. If :obj:`None`, the token will be asked by a prompt.
+        config (`dict`, *optional*):
+            Configuration object to be saved alongside the model weights.
         branch (`str`, *optional*):
             The git branch on which to push the model. This defaults to
             the default branch as specified in your repository, which
@@ -419,15 +412,8 @@ def push_to_hub_fastai(
         create_pr (`boolean`, *optional*):
             Whether or not to create a Pull Request from `branch` with that commit.
             Defaults to `False`.
-        config (`dict`, *optional*):
-            Configuration object to be saved alongside the model weights.
         api_endpoint (`str`, *optional*):
             The API endpoint to use when pushing the model to the hub.
-        git_user (`str`, *optional*):
-            Will override the ``git config user.name`` for committing and pushing files to the hub.
-        git_email (`str`, *optional*):
-            Will override the ``git config user.email`` for committing and pushing files to the hub.
-
     Returns:
         The url of the commit of your model in the given repository.
 
@@ -442,78 +428,28 @@ def push_to_hub_fastai(
     """
 
     _check_fastai_fastcore_versions()
-    # If the repo id is set, it means we use the new version using HTTP endpoint
-    # (introduced in v0.9).
-    if repo_id is not None:
-        token,_ = hf_api._validate_or_retrieve_token(token)
-        api = HfApi(endpoint=api_endpoint)
-        api.create_repo(
-                repo_id=repo_id,
-                repo_type="model",
-                token=token,
-                private=private,
-                exist_ok=True,
-            )
-        
-        # Push the files to the repo in a single commit
-        with tempfile.TemporaryDirectory() as tmp:
-            saved_path = Path(tmp) / repo_id
-            _save_pretrained_fastai(learner,saved_path,config=config)
-            return api.upload_folder(
-                repo_id=repo_id,
-                repo_type="model",
-                token=token,
-                folder_path=saved_path,
-                commit_message=commit_message,
-                revision=branch,
-                create_pr=create_pr,
-                allow_patterns=allow_patterns,
-                ignore_patterns=ignore_patterns
-            )
-    # If the repo id is None, it means we use the deprecated version using Git
-    # TODO: remove code between here and `return repo.git_push()` in release 0.12
-    if repo_path_or_name is None and repo_url is None:
-        raise ValueError(
-            "You need to specify a `repo_path_or_name` or a `repo_url`."        
-            )
-    
-    if use_auth_token is None and repo_url is None:
-        token = HfFolder.get_token()
-        if token is None:
-            raise ValueError(
-                    "You must login to the Hugging Face hub on this computer by typing"
-                    " `huggingface-cli login` and entering your credentials to use"
-                    " `use_auth_token=True`. Alternatively, you can pass your own token"
-                    " as the `use_auth_token` argument."
-            )
-        elif isinstance(use_auth_token,str):
-            token = use_auth_token
-        else:
-            token = None
-        
-        if repo_path_or_name is None:
-            repo_path_or_name = repo_url.split("/")[-1]
-
-    # Create repo using `HfApi()`.
-    repo_url = HfApi(endpoint=api_endpoint).create_repo(
-        repo_id,
+    token, _ = hf_api._validate_or_retrieve_token(token)
+    api = HfApi(endpoint=api_endpoint)
+    api.create_repo(
+        repo_id=repo_id,
+        repo_type="model",
         token=token,
         private=private,
-        repo_type=None,
         exist_ok=True,
     )
 
-    # If repository exists in the Hugging Face Hub then clone it locally in `repo_id`.
-    repo = Repository(
-        repo_id,
-        clone_from=repo_url,
-        use_auth_token=token,
-        git_user=git_user,
-        git_email=git_email,
-        skip_lfs_files=skip_lfs_files
-    )
-    repo.git_pull(rebase=True)
-
-    _save_pretrained_fastai(learner, repo_id, config=config)
-
-    return repo.push_to_hub(commit_message=commit_message)
+    # Push the files to the repo in a single commit
+    with tempfile.TemporaryDirectory() as tmp:
+        saved_path = Path(tmp) / repo_id
+        _save_pretrained_fastai(learner, saved_path, config=config)
+        return api.upload_folder(
+            repo_id=repo_id,
+            repo_type="model",
+            token=token,
+            folder_path=saved_path,
+            commit_message=commit_message,
+            revision=branch,
+            create_pr=create_pr,
+            allow_patterns=allow_patterns,
+            ignore_patterns=ignore_patterns,
+        )
