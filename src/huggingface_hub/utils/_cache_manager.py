@@ -288,7 +288,7 @@ class HFCacheInfo:
         return _format_size(self.size_on_disk)
 
     def delete_revisions(self, *revisions: str) -> DeleteCacheStrategy:
-        """Prepare the strategy to delete 1 or more revisions cached locally.
+        """Prepare the strategy to delete one or more revisions cached locally.
 
         Input revisions can be any revision hash. If a revision hash is not found in the
         local cache, a warning is thrown but no error is raised. Revisions can be from
