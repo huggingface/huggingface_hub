@@ -389,8 +389,10 @@ def push_to_hub_fastai(
     # api_endpoint: Optional[str] = None,
 ):
     """
-    Upload learner checkpoint files to the Hub while synchronizing a local clone of the repo in
-    :obj:`repo_id`.
+    Upload learner checkpoint files to the Hub.
+
+    Use `allow_patterns` and `ignore_patterns` to precisely filter which files should be
+    pushed to the hub. See [`upload_folder`] reference for more details.
 
     Args:
         learner (`Learner`):
@@ -414,6 +416,10 @@ def push_to_hub_fastai(
             Defaults to `False`.
         api_endpoint (`str`, *optional*):
             The API endpoint to use when pushing the model to the hub.
+        allow_patterns (`List[str]` or `str`, *optional*):
+            If provided, only files matching at least one pattern are pushed.
+        ignore_patterns (`List[str]` or `str`, *optional*):
+            If provided, files matching any of the patterns are not pushed.
     Returns:
         The url of the commit of your model in the given repository.
 
