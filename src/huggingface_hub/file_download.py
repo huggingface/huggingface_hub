@@ -170,6 +170,8 @@ def get_jinja_version():
     return _jinja_version
 
 
+# Return value when trying to load a file from cache but the file does not exist in the distant repo.
+_CACHED_NO_EXIST = object()
 REGEX_COMMIT_HASH = re.compile(r"^[0-9a-f]{40}$")
 
 
@@ -1318,8 +1320,25 @@ def try_to_load_from_cache(
 
     This function will not raise any exception if the file in not cached.
 
+    Args:
+        cache_dir (`str` or `os.PathLike`):
+            The folder where the cached files lie.
+        repo_id (`str`):
+            The ID of the repo on huggingface.co.
+        filename (`str`):
+            The filename to look for inside `repo_id`.
+        revision (`str`, *optional*):
+            The specific model version to use. Will default to `"main"` if it's not provided and no `commit_hash` is
+            provided either.
+        repo_type (`str`, *optional*):
+            The type of the repository. Will default to `"model"`.
+
     Returns:
-        Local path (string) of file or `None` if no cached file is found.
+        `Optional[str]` or `_CACHED_NO_EXIST`:
+            Will return `None` if the file was not cached. Otherwise:
+            - The exact path to the cached file if it's found in the cache
+            - A special value `_CACHED_NO_EXIST` if the file does not exist at the given commit hash and this fact was
+              cached.
     """
     if revision is None:
         revision = "main"
@@ -1347,6 +1366,9 @@ def try_to_load_from_cache(
     if revision in cached_refs:
         with open(os.path.join(repo_cache, "refs", revision)) as f:
             revision = f.read()
+
+    if os.path.isfile(os.path.join(repo_cache, ".no_exist", revision, filename)):
+        return _CACHED_NO_EXIST
 
     cached_shas = os.listdir(os.path.join(repo_cache, "snapshots"))
     if revision not in cached_shas:
