@@ -23,6 +23,10 @@ install_requires = [
 
 extras = {}
 
+extras["cli"] = [
+    "simple_term_menu",
+]
+
 extras["torch"] = [
     "torch",
 ]

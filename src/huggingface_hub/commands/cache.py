@@ -12,7 +12,22 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-"""Contains commands to manage the HF cache directory."""
+"""Contains commands to manage the HF cache directory.
+
+huggingface-cli scan-cache
+huggingface-cli scan-cache -v
+huggingface-cli scan-cache -vvv
+huggingface-cli scan-cache --dir ~/.cache/huggingface/hub
+
+huggingface-cli delete-cache
+huggingface-cli delete-cache a5ae8a094021fa4094b270166440d4a165939446 0e4ab15e8865b843b3a348275facfd198cf22f03
+huggingface-cli delete-cache -y a5ae8a094021fa4094b270166440d4a165939446 0e4ab15e8865b843b3a348275facfd198cf22f03
+
+huggingface-cli delete-cache --keep-last
+huggingface-cli delete-cache --keep-last -y
+huggingface-cli delete-cache --keep-last --dry-run
+
+"""
 import time
 from argparse import ArgumentParser
 from typing import Optional
