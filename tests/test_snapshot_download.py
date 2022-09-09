@@ -12,7 +12,11 @@ from huggingface_hub.hf_api import HfFolder
 from huggingface_hub.utils import logging
 
 from .testing_constants import ENDPOINT_STAGING, TOKEN, USER
-from .testing_utils import retry_endpoint, set_write_permission_and_retry
+from .testing_utils import (
+    expect_deprecation,
+    retry_endpoint,
+    set_write_permission_and_retry,
+)
 
 
 logger = logging.get_logger(__name__)
@@ -32,6 +36,7 @@ class SnapshotDownloadTests(unittest.TestCase):
         cls._api.set_access_token(TOKEN)
 
     @retry_endpoint
+    @expect_deprecation("clone_from")
     def setUp(self) -> None:
         if os.path.exists(REPO_NAME):
             shutil.rmtree(REPO_NAME, onerror=set_write_permission_and_retry)
@@ -340,15 +345,23 @@ class SnapshotDownloadTests(unittest.TestCase):
             # folder name contains the revision's commit sha.
             self.assertTrue(self.second_commit_hash in storage_folder)
 
+    # TODO: from version 0.12, replace `regex` by 'patterns` and remove expected
+    #       deprecation. Could be possible to already do tests with `allow_patterns` and
+    #       `ignore_patterns` but current test implementation is convenient since it
+    #       covers both old and new naming + check deprecation.
+    @expect_deprecation("snapshot_download")
     def test_download_model_with_allow_regex(self):
         self.check_download_model_with_regex("*.txt")
 
+    @expect_deprecation("snapshot_download")
     def test_download_model_with_allow_regex_list(self):
         self.check_download_model_with_regex(["dummy_file.txt", "dummy_file_2.txt"])
 
+    @expect_deprecation("snapshot_download")
     def test_download_model_with_ignore_regex(self):
         self.check_download_model_with_regex(".gitattributes", allow=False)
 
+    @expect_deprecation("snapshot_download")
     def test_download_model_with_ignore_regex_list(self):
         self.check_download_model_with_regex(["*.git*", "*.pt"], allow=False)
 

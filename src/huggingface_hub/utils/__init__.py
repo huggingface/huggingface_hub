@@ -16,13 +16,29 @@
 # limitations under the License
 
 from . import tqdm as _tqdm  # _tqdm is the module
+from ._cache_manager import (
+    CachedFileInfo,
+    CachedRepoInfo,
+    CachedRevisionInfo,
+    CorruptedCacheException,
+    DeleteCacheStrategy,
+    HFCacheInfo,
+    scan_cache_dir,
+)
+from ._datetime import parse_datetime
 from ._errors import (
+    BadRequestError,
     EntryNotFoundError,
+    HfHubHTTPError,
     LocalEntryNotFoundError,
     RepositoryNotFoundError,
     RevisionNotFoundError,
+    hf_raise_for_status,
 )
+from ._http import http_backoff
+from ._paths import filter_repo_objects
 from ._subprocess import run_subprocess
+from ._validators import HFValidationError, validate_hf_hub_args, validate_repo_id
 from .tqdm import (
     are_progress_bars_disabled,
     disable_progress_bars,

@@ -2,7 +2,7 @@ import json
 import os
 import tempfile
 from pathlib import Path
-from typing import Dict, Optional, Union
+from typing import Dict, List, Optional, Union
 
 import requests
 from huggingface_hub import hf_api
@@ -11,7 +11,7 @@ from .constants import CONFIG_NAME, PYTORCH_WEIGHTS_NAME
 from .file_download import hf_hub_download, is_torch_available
 from .hf_api import HfApi, HfFolder
 from .repository import Repository
-from .utils import logging
+from .utils import logging, validate_hf_hub_args
 from .utils._deprecation import _deprecate_arguments, _deprecate_positional_args
 
 
@@ -182,8 +182,12 @@ class ModelHubMixin:
         if len(model_id.split("@")) == 2:
             model_id, revision = model_id.split("@")
 
-        if os.path.isdir(model_id) and CONFIG_NAME in os.listdir(model_id):
-            config_file = os.path.join(model_id, CONFIG_NAME)
+        config_file: Optional[str] = None
+        if os.path.isdir(model_id):
+            if CONFIG_NAME in os.listdir(model_id):
+                config_file = os.path.join(model_id, CONFIG_NAME)
+            else:
+                logger.warning(f"{CONFIG_NAME} not found in {Path(model_id).resolve()}")
         else:
             try:
                 config_file = hf_hub_download(
@@ -199,7 +203,6 @@ class ModelHubMixin:
                 )
             except requests.exceptions.RequestException:
                 logger.warning(f"{CONFIG_NAME} not found in HuggingFace Hub")
-                config_file = None
 
         if config_file is not None:
             with open(config_file, "r", encoding="utf-8") as f:
@@ -248,6 +251,7 @@ class ModelHubMixin:
             "skip_lfs_files",
         },
     )
+    @validate_hf_hub_args
     def push_to_hub(
         self,
         # NOTE: deprecated signature that will change in 0.12
@@ -256,7 +260,7 @@ class ModelHubMixin:
         repo_url: Optional[str] = None,
         commit_message: Optional[str] = "Add model",
         organization: Optional[str] = None,
-        private: Optional[bool] = None,
+        private: bool = False,
         api_endpoint: Optional[str] = None,
         use_auth_token: Optional[Union[bool, str]] = None,
         git_user: Optional[str] = None,
@@ -268,26 +272,33 @@ class ModelHubMixin:
         token: Optional[str] = None,
         branch: Optional[str] = None,
         create_pr: Optional[bool] = None,
+        allow_patterns: Optional[Union[List[str], str]] = None,
+        ignore_patterns: Optional[Union[List[str], str]] = None,
         # TODO (release 0.12): signature must be the following
         # repo_id: str,
         # *,
         # commit_message: Optional[str] = "Add model",
-        # private: Optional[bool] = None,
+        # private: bool = False,
         # api_endpoint: Optional[str] = None,
         # token: Optional[str] = None,
         # branch: Optional[str] = None,
         # create_pr: Optional[bool] = None,
         # config: Optional[dict] = None,
+        # allow_patterns: Optional[Union[List[str], str]] = None,
+        # ignore_patterns: Optional[Union[List[str], str]] = None,
     ) -> str:
         """
         Upload model checkpoint to the Hub.
+
+        Use `allow_patterns` and `ignore_patterns` to precisely filter which files
+        should be pushed to the hub. See [`upload_folder`] reference for more details.
 
         Parameters:
             repo_id (`str`, *optional*):
                 Repository name to which push.
             commit_message (`str`, *optional*):
                 Message to commit while pushing.
-            private (`bool`, *optional*):
+            private (`bool`, *optional*, defaults to `False`):
                 Whether the repository created should be private.
             api_endpoint (`str`, *optional*):
                 The API endpoint to use when pushing the model to the hub.
@@ -304,6 +315,10 @@ class ModelHubMixin:
                 Defaults to `False`.
             config (`dict`, *optional*):
                 Configuration object to be saved alongside the model weights.
+            allow_patterns (`List[str]` or `str`, *optional*):
+                If provided, only files matching at least one pattern are pushed.
+            ignore_patterns (`List[str]` or `str`, *optional*):
+                If provided, files matching any of the patterns are not pushed.
 
         Returns:
             The url of the commit of your model in the given repository.
@@ -334,6 +349,8 @@ class ModelHubMixin:
                     commit_message=commit_message,
                     revision=branch,
                     create_pr=create_pr,
+                    allow_patterns=allow_patterns,
+                    ignore_patterns=ignore_patterns,
                 )
 
         # If the repo id is None, it means we use the deprecated version using Git
@@ -398,7 +415,7 @@ class PyTorchModelHubMixin(ModelHubMixin):
         Mix this class with your torch-model class for ease process of saving &
         loading from huggingface-hub.
 
-        Example usage:
+        Example:
 
         ```python
         >>> from huggingface_hub import PyTorchModelHubMixin

@@ -12,7 +12,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 import os
+import re
 import unittest
+from pathlib import Path
 from tempfile import TemporaryDirectory
 
 import pytest
@@ -97,7 +99,8 @@ class CachedDownloadTests(unittest.TestCase):
         # Valid revision (None) but missing file on repo.
         url = hf_hub_url(DUMMY_MODEL_ID, filename="missing.bin")
         with self.assertRaisesRegex(
-            EntryNotFoundError, "404 Client Error: Entry Not Found"
+            EntryNotFoundError,
+            re.compile("404 Client Error(.*)Entry Not Found", flags=re.DOTALL),
         ):
             _ = cached_download(url, legacy_cache_layout=True)
 
@@ -145,7 +148,8 @@ class CachedDownloadTests(unittest.TestCase):
             revision=DUMMY_MODEL_ID_REVISION_INVALID,
         )
         with self.assertRaisesRegex(
-            RevisionNotFoundError, "404 Client Error: Revision Not Found"
+            RevisionNotFoundError,
+            re.compile("404 Client Error(.*)Revision Not Found", flags=re.DOTALL),
         ):
             _ = cached_download(url, legacy_cache_layout=True)
 
@@ -153,7 +157,8 @@ class CachedDownloadTests(unittest.TestCase):
         # Invalid model file.
         url = hf_hub_url("bert-base", filename="pytorch_model.bin")
         with self.assertRaisesRegex(
-            RepositoryNotFoundError, "401 Client Error: Repository Not Found"
+            RepositoryNotFoundError,
+            re.compile("401 Client Error(.*)Repository Not Found", flags=re.DOTALL),
         ):
             _ = cached_download(url, legacy_cache_layout=True)
 
@@ -192,13 +197,6 @@ class CachedDownloadTests(unittest.TestCase):
             repo_type=REPO_TYPE_DATASET,
             revision=DATASET_REVISION_ID_ONE_SPECIFIC_COMMIT,
         )
-        # We can also just get the same url by prefixing "datasets" to repo_id:
-        url2 = hf_hub_url(
-            repo_id=f"datasets/{DATASET_ID}",
-            filename=DATASET_SAMPLE_PY_FILE,
-            revision=DATASET_REVISION_ID_ONE_SPECIFIC_COMMIT,
-        )
-        self.assertEqual(url, url2)
         # now let's download
         filepath = cached_download(url, force_download=True, legacy_cache_layout=True)
         metadata = filename_to_url(filepath, legacy_cache_layout=True)
@@ -246,6 +244,46 @@ class CachedDownloadTests(unittest.TestCase):
                     cache_dir=tmpdir,
                 )
                 self.assertTrue(os.path.exists(filepath))
+
+    def test_hf_hub_download_with_empty_subfolder(self):
+        """
+        Check subfolder arg is processed correctly when empty string is passed to
+        `hf_hub_download`.
+
+        See https://github.com/huggingface/huggingface_hub/issues/1016.
+        """
+        filepath = Path(
+            hf_hub_download(
+                DUMMY_MODEL_ID,
+                filename=CONFIG_NAME,
+                subfolder="",  # Subfolder should be processed as `None`
+            )
+        )
+
+        # Check file exists and is not in a subfolder in cache
+        # e.g: "(...)/snapshots/<commit-id>/config.json"
+        self.assertTrue(filepath.is_file())
+        self.assertEqual(filepath.name, CONFIG_NAME)
+        self.assertEqual(Path(filepath).parent.parent.name, "snapshots")
+
+    def test_hf_hub_url_with_empty_subfolder(self):
+        """
+        Check subfolder arg is processed correctly when empty string is passed to
+        `hf_hub_url`.
+
+        See https://github.com/huggingface/huggingface_hub/issues/1016.
+        """
+        url = hf_hub_url(
+            DUMMY_MODEL_ID,
+            filename=CONFIG_NAME,
+            subfolder="",  # Subfolder should be processed as `None`
+        )
+        self.assertTrue(
+            url.endswith(
+                # "./resolve/main/config.json" and not "./resolve/main//config.json"
+                f"{DUMMY_MODEL_ID}/resolve/main/config.json",
+            )
+        )
 
     def test_hf_hub_download_legacy(self):
         filepath = hf_hub_download(

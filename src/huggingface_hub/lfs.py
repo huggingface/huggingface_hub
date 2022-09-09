@@ -13,7 +13,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 """Git LFS related type definitions and utilities"""
-
 import io
 import os
 import re
@@ -29,6 +28,7 @@ import requests
 from huggingface_hub.constants import ENDPOINT, REPO_TYPES_URL_PREFIXES
 from requests.auth import HTTPBasicAuth
 
+from .utils import hf_raise_for_status, http_backoff, validate_hf_hub_args
 from .utils.sha import sha256, sha_fileobj
 
 
@@ -149,6 +149,7 @@ def _validate_batch_error(lfs_batch_error: dict):
     return lfs_batch_error
 
 
+@validate_hf_hub_args
 def post_lfs_batch_info(
     upload_infos: Iterable[UploadInfo],
     token: str,
@@ -208,7 +209,7 @@ def post_lfs_batch_info(
         },
         auth=HTTPBasicAuth("access_token", token),
     )
-    resp.raise_for_status()
+    hf_raise_for_status(resp)
     batch_info = resp.json()
 
     objects = batch_info.get("objects", None)
@@ -250,11 +251,11 @@ def lfs_upload(
 
     Returns:
         `requests.Response`:
-            the repsonse from the completion request in case of amulti-part upload, and the
+            the response from the completion request in case of a multi-part upload, and the
             response from the single PUT request in case of a single-part upload
 
     Raises:
-        `ValueError`: if some objects / repsonses are malformed
+        `ValueError`: if some objects / responses are malformed
 
         `requests.HTTPError`
     """
@@ -290,7 +291,7 @@ def lfs_upload(
             auth=HTTPBasicAuth(username="USER", password=token),
             json={"oid": upload_info.sha256.hex(), "size": upload_info.size},
         )
-        verify_resp.raise_for_status()
+        hf_raise_for_status(verify_resp)
 
 
 def _upload_single_part(upload_url: str, fileobj: BinaryIO):
@@ -307,8 +308,8 @@ def _upload_single_part(upload_url: str, fileobj: BinaryIO):
 
     Raises: `requests.HTTPError` if the upload resulted in an error
     """
-    upload_res = requests.put(upload_url, data=fileobj)
-    upload_res.raise_for_status()
+    upload_res = http_backoff("PUT", upload_url, data=fileobj)
+    hf_raise_for_status(upload_res)
     return upload_res
 
 
@@ -375,8 +376,8 @@ def _upload_multi_part(
             seek_from=chunk_size * part_idx,
             read_limit=chunk_size,
         ) as fileobj_slice:
-            part_upload_res = requests.put(part_upload_url, data=fileobj_slice)
-            part_upload_res.raise_for_status()
+            part_upload_res = http_backoff("PUT", part_upload_url, data=fileobj_slice)
+            hf_raise_for_status(part_upload_res)
             etag = part_upload_res.headers.get("etag")
             if etag is None or etag == "":
                 raise ValueError(
@@ -390,7 +391,7 @@ def _upload_multi_part(
         json=completion_payload,
         headers=LFS_HEADERS,
     )
-    completion_res.raise_for_status()
+    hf_raise_for_status(completion_res)
     return completion_res
 
 

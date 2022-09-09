@@ -4,18 +4,13 @@ Data structures to interact with Discussions and Pull Requests on the Hub.
 See [the Discussions and Pull Requests guide](https://huggingface.co/docs/hub/repositories-pull-requests-discussions)
 for more information on Pull Requests, Discussions, and the community tab.
 """
-import sys
 from dataclasses import dataclass
 from datetime import datetime
 from typing import List, Optional
 
-from dateutil.parser import parse as parse_datetime
+from .utils import parse_datetime
+from .utils._typing import Literal
 
-
-if sys.version_info >= (3, 8):
-    from typing import Literal
-else:
-    from typing_extensions import Literal
 
 DiscussionStatus = Literal["open", "closed", "merged", "draft"]
 

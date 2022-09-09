@@ -21,22 +21,42 @@ from pathlib import Path
 
 import pytest
 
+import requests
 import yaml
 from huggingface_hub import (
+    DatasetCard,
+    DatasetCardData,
+    EvalResult,
+    ModelCard,
+    ModelCardData,
     metadata_eval_result,
     metadata_load,
     metadata_save,
     metadata_update,
 )
 from huggingface_hub.constants import REPOCARD_NAME
-from huggingface_hub.file_download import hf_hub_download
+from huggingface_hub.file_download import hf_hub_download, is_jinja_available
 from huggingface_hub.hf_api import HfApi
+from huggingface_hub.repocard import RepoCard
+from huggingface_hub.repocard_data import CardData
 from huggingface_hub.repository import Repository
 from huggingface_hub.utils import logging
 
-from .testing_constants import ENDPOINT_STAGING, TOKEN, USER
-from .testing_utils import repo_name, retry_endpoint, set_write_permission_and_retry
+from .testing_constants import (
+    ENDPOINT_STAGING,
+    ENDPOINT_STAGING_BASIC_AUTH,
+    TOKEN,
+    USER,
+)
+from .testing_utils import (
+    expect_deprecation,
+    repo_name,
+    retry_endpoint,
+    set_write_permission_and_retry,
+)
 
+
+SAMPLE_CARDS_DIR = Path(__file__).parent / "fixtures/cards"
 
 ROUND_TRIP_MODELCARD_CASE = """
 ---
@@ -119,7 +139,19 @@ REPOCARD_DIR = os.path.join(
 repo_name = partial(repo_name, prefix="dummy-hf-hub")
 
 
-class RepocardTest(unittest.TestCase):
+def require_jinja(test_case):
+    """
+    Decorator marking a test that requires Jinja2.
+
+    These tests are skipped when Jinja2 is not installed.
+    """
+    if not is_jinja_available():
+        return unittest.skip("test requires Jinja2.")(test_case)
+    else:
+        return test_case
+
+
+class RepocardMetadataTest(unittest.TestCase):
     def setUp(self):
         os.makedirs(REPOCARD_DIR, exist_ok=True)
 
@@ -186,7 +218,7 @@ class RepocardTest(unittest.TestCase):
         self.assertEqual(content, DUMMY_MODELCARD_EVAL_RESULT.splitlines())
 
 
-class RepocardUpdateTest(unittest.TestCase):
+class RepocardMetadataUpdateTest(unittest.TestCase):
     _api = HfApi(endpoint=ENDPOINT_STAGING)
 
     @classmethod
@@ -198,6 +230,7 @@ class RepocardUpdateTest(unittest.TestCase):
         cls._api.set_access_token(TOKEN)
 
     @retry_endpoint
+    @expect_deprecation("clone_from")
     def setUp(self) -> None:
         self.repo_path = Path(tempfile.mkdtemp())
         self.REPO_NAME = repo_name()
@@ -222,7 +255,7 @@ class RepocardUpdateTest(unittest.TestCase):
         shutil.rmtree(self.repo_path)
 
     def test_update_dataset_name(self):
-        new_datasets_data = {"datasets": "['test/test_dataset']"}
+        new_datasets_data = {"datasets": ["test/test_dataset"]}
         metadata_update(
             f"{USER}/{self.REPO_NAME}", new_datasets_data, token=self._token
         )
@@ -360,3 +393,350 @@ class RepocardUpdateTest(unittest.TestCase):
         self.repo.git_pull()
         updated_metadata = metadata_load(self.repo_path / self.REPO_NAME / "README.md")
         self.assertDictEqual(updated_metadata, expected_metadata)
+
+
+class TestCaseWithCapLog(unittest.TestCase):
+    _api = HfApi(endpoint=ENDPOINT_STAGING)
+
+    @pytest.fixture(autouse=True)
+    def inject_fixtures(self, caplog):
+        """Assign pytest caplog as attribute so we can use captured log messages in tests below."""
+        self.caplog = caplog
+
+
+class RepoCardTest(TestCaseWithCapLog):
+    def test_load_repocard_from_file(self):
+        sample_path = SAMPLE_CARDS_DIR / "sample_simple.md"
+        card = RepoCard.load(sample_path)
+        self.assertEqual(
+            card.data.to_dict(),
+            {
+                "language": ["en"],
+                "license": "mit",
+                "library_name": "pytorch-lightning",
+                "tags": ["pytorch", "image-classification"],
+                "datasets": ["beans"],
+                "metrics": ["acc"],
+            },
+        )
+        self.assertTrue(
+            card.text.strip().startswith("# my-cool-model"),
+            "Card text not loaded properly",
+        )
+
+    def test_change_repocard_data(self):
+        sample_path = SAMPLE_CARDS_DIR / "sample_simple.md"
+        card = RepoCard.load(sample_path)
+        card.data.language = ["fr"]
+
+        with tempfile.TemporaryDirectory() as tempdir:
+            updated_card_path = Path(tempdir) / "updated.md"
+            card.save(updated_card_path)
+
+            updated_card = RepoCard.load(updated_card_path)
+            self.assertEqual(
+                updated_card.data.language, ["fr"], "Card data not updated properly"
+            )
+
+    @require_jinja
+    def test_repo_card_from_default_template(self):
+        card = RepoCard.from_template(
+            card_data=CardData(
+                language="en",
+                license="mit",
+                library_name="pytorch",
+                tags=["image-classification", "resnet"],
+                datasets="imagenet",
+                metrics=["acc", "f1"],
+            ),
+            model_id=None,
+        )
+        self.assertIsInstance(card, RepoCard)
+        self.assertTrue(
+            card.text.strip().startswith("# Model Card for Model ID"),
+            "Default model name not set correctly",
+        )
+
+    @require_jinja
+    def test_repo_card_from_default_template_with_model_id(self):
+        card = RepoCard.from_template(
+            card_data=CardData(
+                language="en",
+                license="mit",
+                library_name="pytorch",
+                tags=["image-classification", "resnet"],
+                datasets="imagenet",
+                metrics=["acc", "f1"],
+            ),
+            model_id="my-cool-model",
+        )
+        self.assertTrue(
+            card.text.strip().startswith("# Model Card for my-cool-model"),
+            "model_id not properly set in card template",
+        )
+
+    @require_jinja
+    def test_repo_card_from_custom_template(self):
+        template_path = SAMPLE_CARDS_DIR / "sample_template.md"
+        card = RepoCard.from_template(
+            card_data=CardData(
+                language="en",
+                license="mit",
+                library_name="pytorch",
+                tags="text-classification",
+                datasets="glue",
+                metrics="acc",
+            ),
+            template_path=template_path,
+            some_data="asdf",
+        )
+        self.assertTrue(
+            card.text.endswith("asdf"),
+            "Custom template didn't set jinja variable correctly",
+        )
+
+    def test_repo_card_data_must_be_dict(self):
+        sample_path = SAMPLE_CARDS_DIR / "sample_invalid_card_data.md"
+        with pytest.raises(
+            ValueError, match="repo card metadata block should be a dict"
+        ):
+            RepoCard(sample_path.read_text())
+
+    def test_repo_card_without_metadata(self):
+        sample_path = SAMPLE_CARDS_DIR / "sample_no_metadata.md"
+
+        with self.caplog.at_level(logging.WARNING):
+            card = RepoCard(sample_path.read_text())
+        self.assertIn(
+            "Repo card metadata block was not found. Setting CardData to empty.",
+            self.caplog.text,
+        )
+        self.assertEqual(card.data, CardData())
+
+    def test_validate_repocard(self):
+        sample_path = SAMPLE_CARDS_DIR / "sample_simple.md"
+        card = RepoCard.load(sample_path)
+        card.validate()
+
+        card.data.license = "asdf"
+        with pytest.raises(ValueError, match='- Error: "license" must be one of'):
+            card.validate()
+
+    def test_push_to_hub(self):
+        repo_id = f"{USER}/{repo_name('push-card')}"
+        self._api.create_repo(repo_id, token=TOKEN)
+
+        card_data = CardData(
+            language="en",
+            license="mit",
+            library_name="pytorch",
+            tags=["text-classification"],
+            datasets="glue",
+            metrics="acc",
+        )
+        # Mock what RepoCard.from_template does so we can test w/o Jinja2
+        content = f"{card_data.to_yaml()}\n\n# MyModel\n\nHello, world!"
+        card = RepoCard(content)
+
+        url = f"{ENDPOINT_STAGING_BASIC_AUTH}/{repo_id}/resolve/main/README.md"
+
+        # Check this file doesn't exist (sanity check)
+        with pytest.raises(requests.exceptions.HTTPError):
+            r = requests.get(url)
+            r.raise_for_status()
+
+        # Push the card up to README.md in the repo
+        card.push_to_hub(repo_id, token=TOKEN)
+
+        # No error should occur now, as README.md should exist
+        r = requests.get(url)
+        r.raise_for_status()
+
+        self._api.delete_repo(repo_id=repo_id, token=TOKEN)
+
+    def test_push_and_create_pr(self):
+        repo_id = f"{USER}/{repo_name('pr-card')}"
+        self._api.create_repo(repo_id, token=TOKEN)
+        card_data = CardData(
+            language="en",
+            license="mit",
+            library_name="pytorch",
+            tags=["text-classification"],
+            datasets="glue",
+            metrics="acc",
+        )
+        # Mock what RepoCard.from_template does so we can test w/o Jinja2
+        content = f"{card_data.to_yaml()}\n\n# MyModel\n\nHello, world!"
+        card = RepoCard(content)
+
+        url = f"{ENDPOINT_STAGING_BASIC_AUTH}/api/models/{repo_id}/discussions"
+        r = requests.get(url)
+        data = r.json()
+        self.assertEqual(data["count"], 0)
+        card.push_to_hub(repo_id, token=TOKEN, create_pr=True)
+        r = requests.get(url)
+        data = r.json()
+        self.assertEqual(data["count"], 1)
+
+        self._api.delete_repo(repo_id=repo_id, token=TOKEN)
+
+    def test_preserve_windows_linebreaks(self):
+        card_path = SAMPLE_CARDS_DIR / "sample_windows_line_breaks.md"
+        card = RepoCard.load(card_path)
+        self.assertIn("\r\n", str(card))
+
+
+class ModelCardTest(TestCaseWithCapLog):
+    def test_model_card_with_invalid_model_index(self):
+        """
+        Test that when loading a card that has invalid model-index, no eval_results are added + it logs a warning
+        """
+        sample_path = SAMPLE_CARDS_DIR / "sample_invalid_model_index.md"
+        with self.caplog.at_level(logging.WARNING):
+            card = ModelCard.load(sample_path)
+        self.assertIn(
+            "Invalid model-index. Not loading eval results into CardData.",
+            self.caplog.text,
+        )
+        self.assertIsNone(card.data.eval_results)
+
+    def test_load_model_card_from_file(self):
+        sample_path = SAMPLE_CARDS_DIR / "sample_simple.md"
+        card = ModelCard.load(sample_path)
+        self.assertIsInstance(card, ModelCard)
+        self.assertEqual(
+            card.data.to_dict(),
+            {
+                "language": ["en"],
+                "license": "mit",
+                "library_name": "pytorch-lightning",
+                "tags": ["pytorch", "image-classification"],
+                "datasets": ["beans"],
+                "metrics": ["acc"],
+            },
+        )
+        self.assertTrue(
+            card.text.strip().startswith("# my-cool-model"),
+            "Card text not loaded properly",
+        )
+
+    @require_jinja
+    def test_model_card_from_custom_template(self):
+        template_path = SAMPLE_CARDS_DIR / "sample_template.md"
+        card = ModelCard.from_template(
+            card_data=ModelCardData(
+                language="en",
+                license="mit",
+                library_name="pytorch",
+                tags="text-classification",
+                datasets="glue",
+                metrics="acc",
+            ),
+            template_path=template_path,
+            some_data="asdf",
+        )
+        self.assertIsInstance(card, ModelCard)
+        self.assertTrue(
+            card.text.endswith("asdf"),
+            "Custom template didn't set jinja variable correctly",
+        )
+
+    @require_jinja
+    def test_model_card_from_template_eval_results(self):
+        template_path = SAMPLE_CARDS_DIR / "sample_template.md"
+        card = ModelCard.from_template(
+            card_data=ModelCardData(
+                eval_results=[
+                    EvalResult(
+                        task_type="text-classification",
+                        task_name="Text Classification",
+                        dataset_type="julien-c/reactiongif",
+                        dataset_name="ReactionGIF",
+                        dataset_config="default",
+                        dataset_split="test",
+                        metric_type="accuracy",
+                        metric_value=0.2662102282047272,
+                        metric_name="Accuracy",
+                        metric_config="default",
+                        verified=False,
+                    ),
+                ],
+                model_name="RoBERTa fine-tuned on ReactionGIF",
+            ),
+            template_path=template_path,
+            some_data="asdf",
+        )
+        self.assertIsInstance(card, ModelCard)
+        self.assertTrue(card.text.endswith("asdf"))
+        self.assertTrue(card.data.to_dict().get("eval_results") is None)
+        self.assertEqual(
+            str(card)[: len(DUMMY_MODELCARD_EVAL_RESULT)], DUMMY_MODELCARD_EVAL_RESULT
+        )
+
+
+class DatasetCardTest(TestCaseWithCapLog):
+    def test_load_datasetcard_from_file(self):
+        sample_path = SAMPLE_CARDS_DIR / "sample_datasetcard_simple.md"
+        card = DatasetCard.load(sample_path)
+        self.assertEqual(
+            card.data.to_dict(),
+            {
+                "annotations_creators": ["crowdsourced", "expert-generated"],
+                "language_creators": ["found"],
+                "language": ["en"],
+                "license": ["bsd-3-clause"],
+                "multilinguality": ["monolingual"],
+                "size_categories": ["n<1K"],
+                "task_categories": ["image-segmentation"],
+                "task_ids": ["semantic-segmentation"],
+                "pretty_name": "Sample Segmentation",
+            },
+        )
+        self.assertIsInstance(card, DatasetCard)
+        self.assertIsInstance(card.data, DatasetCardData)
+        self.assertTrue(card.text.strip().startswith("# Dataset Card for"))
+
+    @require_jinja
+    def test_dataset_card_from_default_template(self):
+        card_data = DatasetCardData(
+            language="en",
+            license="mit",
+        )
+
+        # Here we check default title when pretty_name not provided.
+        card = DatasetCard.from_template(card_data)
+        self.assertTrue(card.text.strip().startswith("# Dataset Card for Dataset Name"))
+
+        card_data = DatasetCardData(
+            language="en",
+            license="mit",
+            pretty_name="My Cool Dataset",
+        )
+
+        # Here we pass the card data as kwargs as well so template picks up pretty_name.
+        card = DatasetCard.from_template(card_data, **card_data.to_dict())
+        self.assertTrue(
+            card.text.strip().startswith("# Dataset Card for My Cool Dataset")
+        )
+
+        self.assertIsInstance(card, DatasetCard)
+
+    @require_jinja
+    def test_dataset_card_from_custom_template(self):
+        card = DatasetCard.from_template(
+            card_data=DatasetCardData(
+                language="en",
+                license="mit",
+                pretty_name="My Cool Dataset",
+            ),
+            template_path=SAMPLE_CARDS_DIR / "sample_datasetcard_template.md",
+            pretty_name="My Cool Dataset",
+            some_data="asdf",
+        )
+        self.assertIsInstance(card, DatasetCard)
+
+        # Title this time is just # {{ pretty_name }}
+        self.assertTrue(card.text.strip().startswith("# My Cool Dataset"))
+
+        # some_data is at the bottom of the template, so should end with whatever we passed to it
+        self.assertTrue(card.text.strip().endswith("asdf"))

@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 import os
+import re
 import shutil
 import subprocess
 import tempfile
@@ -52,7 +53,7 @@ from huggingface_hub.hf_api import (
     read_from_credential_store,
     repo_type_and_id_from_hf_id,
 )
-from huggingface_hub.utils import logging
+from huggingface_hub.utils import RepositoryNotFoundError, logging
 from huggingface_hub.utils.endpoint_helpers import (
     DatasetFilter,
     ModelFilter,
@@ -191,9 +192,13 @@ class HfApiEndpointsTest(HfApiCommonTestWithLogin):
     @retry_endpoint
     def test_delete_repo_error_message(self):
         # test for #751
+        # See https://github.com/huggingface/huggingface_hub/issues/751
         with self.assertRaisesRegex(
             requests.exceptions.HTTPError,
-            r"404 Client Error: Repository Not Found (.+) \(Request ID: .+\)",
+            re.compile(
+                r"404 Client Error(.+)\(Request ID: .+\)(.*)Repository Not Found",
+                flags=re.DOTALL,
+            ),
         ):
             self._api.delete_repo("repo-that-does-not-exist", token=self._token)
 
@@ -882,10 +887,39 @@ class CommitApiTest(HfApiCommonTestWithLogin):
                     parent_commit=parent_commit,
                 )
             self.assertEqual(exc_ctx.exception.response.status_code, 412)
+            self.assertIn(
+                # Check the server message is added to the exception
+                "A commit has happened since. Please refresh and try again.",
+                str(exc_ctx.exception),
+            )
         except Exception as err:
             self.fail(err)
         finally:
             self._api.delete_repo(repo_id=REPO_NAME, token=self._token)
+
+    @retry_endpoint
+    def test_create_commit_repo_does_not_exist(self) -> None:
+        """Test error message is detailed when creating a commit on a missing repo."""
+        with self.assertRaises(RepositoryNotFoundError) as context:
+            self._api.create_commit(
+                repo_id=f"{USER}/repo_that_do_not_exist",
+                operations=[],  # empty commit
+                commit_message="fake_message",
+                token=self._token,
+            )
+
+        request_id = context.exception.response.headers.get("X-Request-Id")
+        expected_message = (
+            f"404 Client Error. (Request ID: {request_id})"
+            + "\n\nRepository Not Found for url:"
+            + f" {self._api.endpoint}/api/models/{USER}/repo_that_do_not_exist/preupload/main."
+            + "\nPlease make sure you specified the correct `repo_id` and `repo_type`."
+            + "\nIf the repo is private, make sure you are authenticated."
+            + "\nNote: Creating a commit assumes that the repo already exists on the"
+            + " Huggingface Hub. Please use `create_repo` if it's not the case."
+        )
+
+        self.assertEqual(str(context.exception), expected_message)
 
 
 class HfApiPublicTest(unittest.TestCase):
@@ -959,6 +993,14 @@ class HfApiPublicTest(unittest.TestCase):
         self.assertIsInstance(model, ModelInfo)
         self.assertEqual(model.sha, DUMMY_MODEL_ID_REVISION_ONE_SPECIFIC_COMMIT)
 
+    # TODO; un-skip this test once it's fixed.
+    @unittest.skip(
+        "Security status is currently unreliable on the server endpoint, so this"
+        " test occasionally fails. Issue is tracked in"
+        " https://github.com/huggingface/huggingface_hub/issues/1002 and"
+        " https://github.com/huggingface/moon-landing/issues/3695. TODO: un-skip"
+        " this test once it's fixed."
+    )
     @with_production_testing
     def test_model_info_with_security(self):
         _api = HfApi()
@@ -1415,11 +1457,14 @@ class HfApiPrivateTest(HfApiCommonTestWithLogin):
         )
 
     def test_model_info(self):
-        shutil.rmtree(os.path.dirname(HfFolder.path_token))
+        shutil.rmtree(os.path.dirname(HfFolder.path_token), ignore_errors=True)
         # Test we cannot access model info without a token
         with self.assertRaisesRegex(
             requests.exceptions.HTTPError,
-            r"401 Client Error: Repository Not Found for url: (.+) \(Request ID: .+\)",
+            re.compile(
+                r"401 Client Error(.+)\(Request ID: .+\)(.*)Repository Not Found",
+                flags=re.DOTALL,
+            ),
         ):
             _ = self._api.model_info(repo_id=f"{USER}/{self.REPO_NAME}")
         # Test we can access model info with a token

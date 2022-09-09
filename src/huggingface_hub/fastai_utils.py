@@ -20,6 +20,9 @@ from huggingface_hub.repository import Repository
 from huggingface_hub.utils import logging
 from .utils._deprecation import _deprecate_arguments, _deprecate_positional_args
 
+from .utils import logging, validate_hf_hub_args
+
+
 logger = logging.get_logger(__name__)
 
 
@@ -307,6 +310,7 @@ def _save_pretrained_fastai(
         )
 
 
+@validate_hf_hub_args
 def from_pretrained_fastai(
     repo_id: str,
     revision: Optional[str] = None,
@@ -359,12 +363,13 @@ def from_pretrained_fastai(
         "git_email",
     },
 )
+@validate_hf_hub_args
 def push_to_hub_fastai(
     # NOTE: New arguments since 0.9
     learner,
     repo_id: str,
     commit_message: Optional[str] = "Add model",
-    private: Optional[bool] = None,
+    private: bool = False,
     token: Optional[str] = None,
     config: Optional[dict] = None,
     branch: Optional[str] = None,
@@ -401,7 +406,7 @@ def push_to_hub_fastai(
             The repository id for your model in Hub in the format of "namespace/repo_name". The namespace can be your individual account or an organization to which you have write access (for example, 'stanfordnlp/stanza-de').
         commit_message (`str`, *optional*):
             Message to commit while pushing. Will default to :obj:`"add model"`.
-        private (`bool`, *optional*):
+        private (`bool`, *optional*, defaults to `False`):
             Whether or not the repository created should be private.
         token (`str`, *optional*):
             The Hugging Face account token to use as HTTP bearer authorization for remote files. If :obj:`None`, the token will be asked by a prompt.

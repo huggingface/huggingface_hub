@@ -116,7 +116,7 @@ def _attach(package_name, submodules=None, submod_attrs=None):
 
 # ************
 
-__version__ = "0.9.0.dev0"
+__version__ = "0.10.0.dev0"
 
 
 __getattr__, __dir__, __all__ = _attach(
@@ -199,13 +199,24 @@ __getattr__, __dir__, __all__ = _attach(
         ],
         "repository": ["Repository"],
         "_snapshot_download": ["snapshot_download"],
-        "utils": ["logging"],
+        "utils": [
+            "logging",
+            "CachedFileInfo",
+            "CachedRepoInfo",
+            "CachedRevisionInfo",
+            "CorruptedCacheException",
+            "DeleteCacheStrategy",
+            "HFCacheInfo",
+            "scan_cache_dir",
+        ],
         "utils.endpoint_helpers": ["DatasetFilter", "ModelFilter"],
         "repocard": [
             "metadata_eval_result",
             "metadata_load",
             "metadata_save",
             "metadata_update",
+            "ModelCard",
+            "DatasetCard",
         ],
         "community": [
             "Discussion",
@@ -216,5 +227,6 @@ __getattr__, __dir__, __all__ = _attach(
             "DiscussionCommit",
             "DiscussionTitleChange",
         ],
+        "repocard_data": ["CardData", "ModelCardData", "DatasetCardData", "EvalResult"],
     },
 )

@@ -5,6 +5,7 @@ import subprocess
 import tempfile
 import threading
 import time
+import warnings
 from contextlib import contextmanager
 from pathlib import Path
 from typing import Callable, Dict, Iterator, List, Optional, Tuple, Union
@@ -595,16 +596,23 @@ class Repository:
                 - `None`, which would retrieve the value of
                   `self.huggingface_token`.
 
-        Raises:
-            `ValueError`: if the `token` cannot be identified and the `private`
-            keyword is set to `True`. The `token`
-                must be passed in order to handle private repositories.
+        <Tip>
 
-        Raises:
-            `EnvironmentError`: if you are trying to clone the repository in a
-            non-empty folder, or if the `git`
-                operations raise errors.
+        Raises the following error:
 
+            - [`ValueError`](https://docs.python.org/3/library/exceptions.html#ValueError)
+              if the `token` cannot be identified and the `private` keyword is set to
+              `True`. The `token` must be passed in order to handle private repositories.
+
+            - [`ValueError`](https://docs.python.org/3/library/exceptions.html#ValueError)
+              if an organization token (starts with "api_org") is passed. Use must use
+              your own personal access token (see https://hf.co/settings/tokens).
+
+            - [`EnvironmentError`](https://docs.python.org/3/library/exceptions.html#EnvironmentError)
+              if you are trying to clone the repository in a non-empty folder, or if the
+              `git` operations raise errors.
+
+        </Tip>
         """
         token = use_auth_token if use_auth_token is not None else self.huggingface_token
         if token is None and self.private:
@@ -614,6 +622,12 @@ class Repository:
                 " `huggingface-cli login` or provide your token manually with the"
                 " `use_auth_token` key."
             )
+        elif token is not None and token.startswith("api_org"):
+            raise ValueError(
+                "You must use your personal access token, not an Organization token"
+                " (see https://hf.co/settings/tokens)."
+            )
+
         hub_url = self.client.endpoint
         if hub_url in repo_url or (
             "http" not in repo_url and len(repo_url.split("/")) <= 2
@@ -654,6 +668,12 @@ class Repository:
                                 " on Hugging Face Hub."
                             )
                         else:
+                            warnings.warn(
+                                "Creating a repository through 'clone_from' is"
+                                " deprecated and will be removed in v0.11.",
+                                FutureWarning,
+                            )
+
                             self.client.create_repo(
                                 repo_id=repo_id,
                                 token=token,

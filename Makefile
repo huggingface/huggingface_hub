@@ -1,7 +1,7 @@
 .PHONY: quality style test
 
 
-check_dirs := tests src
+check_dirs := tests src setup.py
 
 
 quality:

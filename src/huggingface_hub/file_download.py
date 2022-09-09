@@ -6,7 +6,6 @@ import os
 import re
 import sys
 import tempfile
-import time
 import warnings
 from contextlib import contextmanager
 from functools import partial
@@ -20,6 +19,7 @@ import packaging.version
 import requests
 from filelock import FileLock
 from huggingface_hub import constants
+from requests.exceptions import ConnectTimeout, ProxyError
 
 from . import __version__
 from .constants import (
@@ -33,11 +33,14 @@ from .constants import (
     REPO_TYPES_URL_PREFIXES,
 )
 from .hf_api import HfFolder
-from .utils import logging, tqdm
-from .utils._errors import (
+from .utils import (
     EntryNotFoundError,
     LocalEntryNotFoundError,
-    _raise_for_status,
+    hf_raise_for_status,
+    http_backoff,
+    logging,
+    tqdm,
+    validate_hf_hub_args,
 )
 
 
@@ -122,6 +125,14 @@ try:
 except importlib_metadata.PackageNotFoundError:
     pass
 
+_jinja_version = "N/A"
+_jinja_available = False
+try:
+    _jinja_version: str = importlib_metadata.version("Jinja2")
+    _jinja_available = True
+except importlib_metadata.PackageNotFoundError:
+    pass
+
 
 def is_torch_available():
     return _torch_available
@@ -151,9 +162,22 @@ def get_fastcore_version():
     return _fastcore_version
 
 
+def is_jinja_available():
+    return _jinja_available
+
+
+def get_jinja_version():
+    return _jinja_version
+
+
 REGEX_COMMIT_HASH = re.compile(r"^[0-9a-f]{40}$")
 
 
+# Do not validate `repo_id` in `hf_hub_url` for now as the `repo_id="datasets/.../..."`
+# pattern is used/advertised in Transformers examples.
+# Related: https://github.com/huggingface/huggingface_hub/pull/1029
+# TODO: set back validation in V0.12.
+# @validate_hf_hub_args
 def hf_hub_url(
     repo_id: str,
     filename: str,
@@ -219,6 +243,8 @@ def hf_hub_url(
 
     -  [1] https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/ETag
     """
+    if subfolder == "":
+        subfolder = None
     if subfolder is not None:
         filename = f"{subfolder}/{filename}"
 
@@ -453,27 +479,17 @@ def _request_wrapper(
         return response
 
     # 3. Exponential backoff
-    tries, success = 0, False
-    while not success:
-        tries += 1
-        try:
-            response = requests.request(
-                method=method.upper(), url=url, timeout=timeout, **params
-            )
-            success = True
-        except requests.exceptions.ConnectTimeout as err:
-            if tries > max_retries:
-                raise err
-            else:
-                logger.info(
-                    f"{method} request to {url} timed out, retrying..."
-                    f" [{tries/max_retries}]"
-                )
-                sleep_time = min(
-                    max_wait_time, base_wait_time * 2 ** (tries - 1)
-                )  # Exponential backoff
-                time.sleep(sleep_time)
-    return response
+    return http_backoff(
+        method=method,
+        url=url,
+        max_retries=max_retries,
+        base_wait_time=base_wait_time,
+        max_wait_time=max_wait_time,
+        retry_on_exceptions=(ConnectTimeout, ProxyError),
+        retry_on_status_codes=(),
+        timeout=timeout,
+        **params,
+    )
 
 
 def _request_with_retry(*args, **kwargs) -> requests.Response:
@@ -509,7 +525,7 @@ def http_get(
         timeout=timeout,
         max_retries=max_retries,
     )
-    _raise_for_status(r)
+    hf_raise_for_status(r)
     content_length = r.headers.get("Content-Length")
     total = resume_size + int(content_length) if content_length is not None else None
     progress = tqdm(
@@ -605,14 +621,14 @@ def cached_download(
           if ETag cannot be determined.
         - [`ValueError`](https://docs.python.org/3/library/exceptions.html#ValueError)
           if some parameter value is invalid
-        - [`~huggingface_hub.utils.RepositoryNotFoundError`]
+        - [`~utils.RepositoryNotFoundError`]
           If the repository to download from cannot be found. This may be because it doesn't exist,
           or because it is set to `private` and you do not have access.
-        - [`~huggingface_hub.utils.RevisionNotFoundError`]
+        - [`~utils.RevisionNotFoundError`]
           If the revision to download from cannot be found.
-        - [`~huggingface_hub.utils.EntryNotFoundError`]
+        - [`~utils.EntryNotFoundError`]
           If the file to download cannot be found.
-        - [`~huggingface_hub.utils.LocalEntryNotFoundError`]
+        - [`~utils.LocalEntryNotFoundError`]
           If network is disabled or unavailable and file is not found in cache.
 
     </Tip>
@@ -662,7 +678,7 @@ def cached_download(
                 proxies=proxies,
                 timeout=etag_timeout,
             )
-            _raise_for_status(r)
+            hf_raise_for_status(r)
             etag = r.headers.get("X-Linked-Etag") or r.headers.get("ETag")
             # We favor a custom header indicating the etag of the linked resource, and
             # we fallback to the regular etag header.
@@ -862,6 +878,7 @@ def _cache_commit_hash_for_specific_revision(
             f.write(commit_hash)
 
 
+@validate_hf_hub_args
 def repo_folder_name(*, repo_id: str, repo_type: str) -> str:
     """Return a serialized version of a hf.co repo name and type, safe for disk storage
     as a single non-nested folder.
@@ -873,6 +890,11 @@ def repo_folder_name(*, repo_id: str, repo_type: str) -> str:
     return REPO_ID_SEPARATOR.join(parts)
 
 
+# Do not validate `repo_id` in `hf_hub_download` for now as the `repo_id="datasets/.../..."`
+# pattern is used/advertised in Transformers examples.
+# Related: https://github.com/huggingface/huggingface_hub/pull/1029
+# TODO: set back validation in V0.12.
+# @validate_hf_hub_args
 def hf_hub_download(
     repo_id: str,
     filename: str,
@@ -980,14 +1002,14 @@ def hf_hub_download(
           if ETag cannot be determined.
         - [`ValueError`](https://docs.python.org/3/library/exceptions.html#ValueError)
           if some parameter value is invalid
-        - [`~huggingface_hub.utils.RepositoryNotFoundError`]
+        - [`~utils.RepositoryNotFoundError`]
           If the repository to download from cannot be found. This may be because it doesn't exist,
           or because it is set to `private` and you do not have access.
-        - [`~huggingface_hub.utils.RevisionNotFoundError`]
+        - [`~utils.RevisionNotFoundError`]
           If the revision to download from cannot be found.
-        - [`~huggingface_hub.utils.EntryNotFoundError`]
+        - [`~utils.EntryNotFoundError`]
           If the file to download cannot be found.
-        - [`~huggingface_hub.utils.LocalEntryNotFoundError`]
+        - [`~utils.LocalEntryNotFoundError`]
           If network is disabled or unavailable and file is not found in cache.
 
     </Tip>
@@ -1032,6 +1054,8 @@ def hf_hub_download(
     if isinstance(cache_dir, Path):
         cache_dir = str(cache_dir)
 
+    if subfolder == "":
+        subfolder = None
     if subfolder is not None:
         # This is used to create a URL, and not a local path, hence the forward slash.
         filename = f"{subfolder}/{filename}"
@@ -1096,7 +1120,7 @@ def hf_hub_download(
                 timeout=etag_timeout,
             )
             try:
-                _raise_for_status(r)
+                hf_raise_for_status(r)
             except EntryNotFoundError:
                 commit_hash = r.headers.get(HUGGINGFACE_HEADER_X_REPO_COMMIT)
                 if commit_hash is not None and not legacy_cache_layout:
@@ -1281,6 +1305,7 @@ def hf_hub_download(
     return pointer_path
 
 
+@validate_hf_hub_args
 def try_to_load_from_cache(
     repo_id: str,
     filename: str,
