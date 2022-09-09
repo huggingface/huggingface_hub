@@ -165,6 +165,7 @@ _SUBMOD_ATTRS = {
         "CachedRepoInfo",
         "CachedRevisionInfo",
         "CorruptedCacheException",
+        "DeleteCacheStrategy",
         "HFCacheInfo",
         "logging",
         "scan_cache_dir",
@@ -361,6 +362,7 @@ if TYPE_CHECKING:
     from .utils import CachedRepoInfo  # noqa: F401
     from .utils import CachedRevisionInfo  # noqa: F401
     from .utils import CorruptedCacheException  # noqa: F401
+    from .utils import DeleteCacheStrategy  # noqa: F401
     from .utils import HFCacheInfo  # noqa: F401
     from .utils import logging  # noqa: F401
     from .utils import scan_cache_dir  # noqa: F401

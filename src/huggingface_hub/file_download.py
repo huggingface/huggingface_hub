@@ -6,7 +6,6 @@ import os
 import re
 import sys
 import tempfile
-import time
 import warnings
 from contextlib import contextmanager
 from functools import partial
@@ -20,6 +19,7 @@ import packaging.version
 import requests
 from filelock import FileLock
 from huggingface_hub import constants
+from requests.exceptions import ConnectTimeout, ProxyError
 
 from . import __version__
 from .constants import (
@@ -37,6 +37,7 @@ from .utils import (
     EntryNotFoundError,
     LocalEntryNotFoundError,
     hf_raise_for_status,
+    http_backoff,
     logging,
     tqdm,
     validate_hf_hub_args,
@@ -478,30 +479,17 @@ def _request_wrapper(
         return response
 
     # 3. Exponential backoff
-    tries, success = 0, False
-    while not success:
-        tries += 1
-        try:
-            response = requests.request(
-                method=method.upper(), url=url, timeout=timeout, **params
-            )
-            success = True
-        except (
-            requests.exceptions.ConnectTimeout,
-            requests.exceptions.ProxyError,
-        ) as err:
-            if tries > max_retries:
-                raise err
-            else:
-                logger.info(
-                    f"{method} request to {url} timed out, retrying..."
-                    f" [{tries/max_retries}]"
-                )
-                sleep_time = min(
-                    max_wait_time, base_wait_time * 2 ** (tries - 1)
-                )  # Exponential backoff
-                time.sleep(sleep_time)
-    return response
+    return http_backoff(
+        method=method,
+        url=url,
+        max_retries=max_retries,
+        base_wait_time=base_wait_time,
+        max_wait_time=max_wait_time,
+        retry_on_exceptions=(ConnectTimeout, ProxyError),
+        retry_on_status_codes=(),
+        timeout=timeout,
+        **params,
+    )
 
 
 def _request_with_retry(*args, **kwargs) -> requests.Response:
