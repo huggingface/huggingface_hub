@@ -1,6 +1,7 @@
 import os
 import shutil
 import sys
+import time
 import unittest
 from io import StringIO
 from pathlib import Path
@@ -14,7 +15,11 @@ from _pytest.fixtures import SubRequest
 from huggingface_hub._snapshot_download import snapshot_download
 from huggingface_hub.commands.cache import ScanCacheCommand
 from huggingface_hub.utils import DeleteCacheStrategy, HFCacheInfo, scan_cache_dir
-from huggingface_hub.utils._cache_manager import _try_delete_path
+from huggingface_hub.utils._cache_manager import (
+    _format_size,
+    _format_ts,
+    _try_delete_path,
+)
 
 from .testing_constants import TOKEN
 
@@ -649,3 +654,36 @@ class TestTryDeletePath(unittest.TestCase):
 
         # For proper cleanup
         dir_path.chmod(509)
+
+
+class TestStringFormatters(unittest.TestCase):
+    SIZES = {
+        16.0: "16.0",
+        1000.0: "1.0K",
+        1024 * 1024 * 1024: "1.1G",  # not 1.0GB
+    }
+
+    SINCE = {
+        1: "now",
+        5: "5 seconds ago",
+        80: "1 minute ago",
+        1000: "17 minutes ago",
+        4000: "1 hour ago",
+        8000: "2 hours ago",
+        3600 * 24 * 13: "2 weeks ago",
+        3600 * 24 * 30 * 8.2: "8 months ago",
+        3600 * 24 * 365: "1 year ago",
+        3600 * 24 * 365 * 9.6: "10 years ago",
+    }
+
+    def test_format_size(self) -> None:
+        """Test `_format_size` formatter."""
+        for size, expected in self.SIZES.items():
+            self.assertEqual(_format_size(size), expected)
+
+    def test_format_ts(self) -> None:
+        """Test `_format_ts` formatter."""
+        for ts, expected in self.SINCE.items():
+            self.assertEqual(
+                _format_ts(time.time() - ts), expected, msg=f"Wrong formatting for {ts}"
+            )

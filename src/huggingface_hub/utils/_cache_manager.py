@@ -15,6 +15,7 @@
 """Contains utilities to manage the HF cache directory."""
 import os
 import shutil
+import time
 from collections import defaultdict
 from dataclasses import dataclass
 from pathlib import Path
@@ -48,12 +49,48 @@ class CachedFileInfo:
             Path of the blob file. This is equivalent to `file_path.resolve()`.
         size_on_disk (`int`):
             Size of the blob file in bytes.
+        blob_last_accessed (`float`):
+            Timestamp of the last time the blob file has been accessed (from any
+            revision).
+        blob_last_modified (`float`):
+            Timestamp of the last time the blob file has been modified/created.
+
+    <Tip warning={true}>
+
+    `blob_last_accessed` and `blob_last_modified` reliability can depend on the OS you
+    are using. See [python documentation](https://docs.python.org/3/library/os.html#os.stat_result)
+    for more details.
+
+    </Tip>
     """
 
     file_name: str
     file_path: Path
     blob_path: Path
     size_on_disk: int
+
+    blob_last_accessed: float
+    blob_last_modified: float
+
+    @property
+    def blob_last_accessed_str(self) -> str:
+        """
+        (property) Timestamp of the last time the blob file has been accessed (from any
+        revision), returned as a human-readable string.
+
+        Example: "2 weeks ago".
+        """
+        return _format_ts(self.blob_last_accessed)
+
+    @property
+    def blob_last_modified_str(self) -> str:
+        """
+        (property) Timestamp of the last time the blob file has been modified, returned
+        as a human-readable string.
+
+        Example: "2 weeks ago".
+        """
+        return _format_ts(self.blob_last_modified)
 
     @property
     def size_on_disk_str(self) -> str:
@@ -80,14 +117,23 @@ class CachedRevisionInfo:
         snapshot_path (`Path`):
             Path to the revision directory in the `snapshots` folder. It contains the
             exact tree structure as the repo on the Hub.
-        size_on_disk (`int`):
-            Sum of the blob file sizes that are symlink-ed by the revision.
         files: (`FrozenSet[CachedFileInfo]`):
             Set of [`~CachedFileInfo`] describing all files contained in the snapshot.
         refs (`FrozenSet[str]`):
             Set of `refs` pointing to this revision. If the revision has no `refs`, it
             is considered detached.
             Example: `{"main", "2.4.0"}` or `{"refs/pr/1"}`.
+        size_on_disk (`int`):
+            Sum of the blob file sizes that are symlink-ed by the revision.
+        last_modified (`float`):
+            Timestamp of the last time the revision has been created/modified.
+
+    <Tip warning={true}>
+
+    `last_accessed` cannot be determined correctly on a single revision as blob files
+    are shared across revisions.
+
+    </Tip>
 
     <Tip warning={true}>
 
@@ -103,6 +149,18 @@ class CachedRevisionInfo:
     size_on_disk: int
     files: FrozenSet[CachedFileInfo]
     refs: FrozenSet[str]
+
+    last_modified: float
+
+    @property
+    def last_modified_str(self) -> str:
+        """
+        (property) Timestamp of the last time the revision has been modified, returned
+        as a human-readable string.
+
+        Example: "2 weeks ago".
+        """
+        return _format_ts(self.last_modified)
 
     @property
     def size_on_disk_str(self) -> str:
@@ -138,12 +196,24 @@ class CachedRepoInfo:
             Total number of blob files in the cached repo.
         revisions (`FrozenSet[CachedRevisionInfo]`):
             Set of [`~CachedRevisionInfo`] describing all revisions cached in the repo.
+        last_accessed (`float`):
+            Timestamp of the last time a blob file of the repo has been accessed.
+        last_modified (`float`):
+            Timestamp of the last time a blob file of the repo has been modified/created.
 
     <Tip warning={true}>
 
     `size_on_disk` is not necessarily the sum of all revisions sizes because of
     duplicated files. Besides, only blobs are taken into account, not the (negligible)
     size of folders and symlinks.
+
+    </Tip>
+
+    <Tip warning={true}>
+
+    `last_accessed` and `last_modified` reliability can depend on the OS you are using.
+    See [python documentation](https://docs.python.org/3/library/os.html#os.stat_result)
+    for more details.
 
     </Tip>
     """
@@ -154,6 +224,29 @@ class CachedRepoInfo:
     size_on_disk: int
     nb_files: int
     revisions: FrozenSet[CachedRevisionInfo]
+
+    last_accessed: float
+    last_modified: float
+
+    @property
+    def last_accessed_str(self) -> str:
+        """
+        (property) Last time a blob file of the repo has been accessed, returned as a
+        human-readable string.
+
+        Example: "2 weeks ago".
+        """
+        return _format_ts(self.last_accessed)
+
+    @property
+    def last_modified_str(self) -> str:
+        """
+        (property) Last time a blob file of the repo has been modified, returned as a
+        human-readable string.
+
+        Example: "2 weeks ago".
+        """
+        return _format_ts(self.last_modified)
 
     @property
     def size_on_disk_str(self) -> str:
@@ -534,7 +627,7 @@ def _scan_cached_repo(repo_path: Path) -> CachedRepoInfo:
             f" ({repo_path})."
         )
 
-    blob_sizes: Dict[Path, int] = {}  # Key is blob_path, value is blob size (in bytes)
+    blob_stats: Dict[Path, os.stat_result] = {}  # Key is blob_path, value is blob stats
 
     snapshots_path = repo_path / "snapshots"
     refs_path = repo_path / "refs"
@@ -602,28 +695,33 @@ def _scan_cached_repo(repo_path: Path) -> CachedRepoInfo:
                     f"Blob symlink points outside of blob directory: {blob_path}"
                 )
 
-            if blob_path not in blob_sizes:
-                blob_sizes[blob_path] = blob_path.stat().st_size
+            if blob_path not in blob_stats:
+                blob_stats[blob_path] = blob_path.stat()
 
             cached_files.add(
                 CachedFileInfo(
                     file_name=file_path.name,
                     file_path=file_path,
-                    size_on_disk=blob_sizes[blob_path],
+                    size_on_disk=blob_stats[blob_path].st_size,
                     blob_path=blob_path,
+                    blob_last_accessed=blob_stats[blob_path].st_atime,
+                    blob_last_modified=blob_stats[blob_path].st_mtime,
                 )
             )
 
         cached_revisions.add(
             CachedRevisionInfo(
                 commit_hash=revision_path.name,
+                files=frozenset(cached_files),
+                refs=frozenset(refs_by_hash.pop(revision_path.name, set())),
                 size_on_disk=sum(
-                    blob_sizes[blob_path]
+                    blob_stats[blob_path].st_size
                     for blob_path in set(file.blob_path for file in cached_files)
                 ),
-                files=frozenset(cached_files),
                 snapshot_path=revision_path,
-                refs=frozenset(refs_by_hash.pop(revision_path.name, set())),
+                last_modified=max(
+                    blob_stats[file.blob_path].st_mtime for file in cached_files
+                ),
             )
         )
 
@@ -636,12 +734,14 @@ def _scan_cached_repo(repo_path: Path) -> CachedRepoInfo:
 
     # Build and return frozen structure
     return CachedRepoInfo(
+        nb_files=len(blob_stats),
         repo_id=repo_id,
+        repo_path=repo_path,
         repo_type=repo_type,  # type: ignore
         revisions=frozenset(cached_revisions),
-        repo_path=repo_path,
-        size_on_disk=sum(blob_sizes.values()),
-        nb_files=len(blob_sizes),
+        size_on_disk=sum(stat.st_size for stat in blob_stats.values()),
+        last_accessed=max(stat.st_atime for stat in blob_stats.values()),
+        last_modified=max(stat.st_mtime for stat in blob_stats.values()),
     )
 
 
@@ -656,6 +756,32 @@ def _format_size(num: int) -> str:
             return f"{num_f:3.1f}{unit}"
         num_f /= 1000.0
     return f"{num_f:.1f}Y"
+
+
+_TIMESINCE_CHUNKS = (
+    # Label, divider, max value
+    ("second", 1, 60),
+    ("minute", 60, 60),
+    ("hour", 60 * 60, 24),
+    ("day", 60 * 60 * 24, 6),
+    ("week", 60 * 60 * 24 * 7, 6),
+    ("month", 60 * 60 * 24 * 30, 11),
+    ("year", 60 * 60 * 24 * 365, None),
+)
+
+
+def _format_ts(ts: float) -> str:
+    """Format timestamp in seconds into a human-readable string, relative to now.
+
+    Vaguely inspired by Django's `timesince` formatter.
+    """
+    delta = time.time() - ts
+    if delta < 2:
+        return "now"
+    for label, divider, max_value in _TIMESINCE_CHUNKS:
+        value = round(delta / divider)
+        if max_value is None or value <= max_value:
+            return f"{value} {label}{'s' if value > 1 else ''} ago"
 
 
 def _try_delete_path(path: Path, path_type: str) -> None:

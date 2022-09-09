@@ -81,6 +81,8 @@ class ScanCacheCommand(BaseHuggingfaceCLICommand):
                             repo.repo_type,
                             "{:>12}".format(repo.size_on_disk_str),
                             repo.nb_files,
+                            repo.last_accessed_str,
+                            repo.last_modified_str,
                             ", ".join(sorted(repo.refs)),
                             str(repo.repo_path),
                         ]
@@ -93,6 +95,8 @@ class ScanCacheCommand(BaseHuggingfaceCLICommand):
                         "REPO TYPE",
                         "SIZE ON DISK",
                         "NB FILES",
+                        "LAST_ACCESSED",
+                        "LAST_MODIFIED",
                         "REFS",
                         "LOCAL PATH",
                     ],
@@ -108,6 +112,7 @@ class ScanCacheCommand(BaseHuggingfaceCLICommand):
                             revision.commit_hash,
                             "{:>12}".format(revision.size_on_disk_str),
                             revision.nb_files,
+                            revision.last_modified_str,
                             ", ".join(sorted(revision.refs)),
                             str(revision.snapshot_path),
                         ]
@@ -124,6 +129,7 @@ class ScanCacheCommand(BaseHuggingfaceCLICommand):
                         "REVISION",
                         "SIZE ON DISK",
                         "NB FILES",
+                        "LAST_MODIFIED",
                         "REFS",
                         "LOCAL PATH",
                     ],
