@@ -26,12 +26,16 @@
 #
 # The static model imports are done inside the `if TYPE_CHECKING:` statement at
 # the bottom of this file. Since module/functions imports are duplicated, it is
-# mandatory to make sure to add them twice when adding one. This is tested in
-# `./tests/test_init_lazy_loading.py` module.
+# mandatory to make sure to add them twice when adding one. This is checked in the
+# `make quality` command.
 #
 # To update the static imports, please run the following command and commit the changes.
 # ```
-# pytest tests/test_init_lazy_loading.py -k test_static_imports --update-init-file
+# # Use script
+# python utils/check_static_imports.py --update-file
+#
+# # Or run style on codebase
+# make style
 # ```
 #
 # ***********
@@ -264,7 +268,11 @@ __getattr__, __dir__, __all__ = _attach(
 #
 # To update the static imports, please run the following command and commit the changes.
 # ```
-# pytest tests/test_init_lazy_loading.py -k test_static_imports --update-init-file
+# # Use script
+# python utils/check_static_imports.py --update-file
+#
+# # Or run style on codebase
+# make style
 # ```
 if TYPE_CHECKING:
     from ._snapshot_download import snapshot_download  # noqa: F401
