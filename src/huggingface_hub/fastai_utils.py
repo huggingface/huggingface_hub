@@ -17,10 +17,9 @@ from huggingface_hub.file_download import (
 )
 from huggingface_hub.hf_api import HfApi, HfFolder
 from huggingface_hub.repository import Repository
-from huggingface_hub.utils import logging
-from .utils._deprecation import _deprecate_arguments, _deprecate_positional_args
 
 from .utils import logging, validate_hf_hub_args
+from .utils._deprecation import _deprecate_arguments, _deprecate_positional_args
 
 
 logger = logging.get_logger(__name__)
