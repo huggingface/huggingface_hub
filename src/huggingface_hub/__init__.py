@@ -275,7 +275,7 @@ __getattr__, __dir__, __all__ = _attach(
 # # Or run style on codebase
 # make style
 # ```
-if TYPE_CHECKING:
+if TYPE_CHECKING:  # pragma: no cover
     from ._snapshot_download import snapshot_download  # noqa: F401
     from .commands.user import notebook_login  # noqa: F401
     from .community import Discussion  # noqa: F401
