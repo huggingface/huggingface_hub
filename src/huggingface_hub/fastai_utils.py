@@ -367,6 +367,7 @@ def from_pretrained_fastai(
 def push_to_hub_fastai(
     # NOTE: New arguments since 0.9
     learner,
+    *,
     repo_id: str,
     commit_message: Optional[str] = "Add model",
     private: bool = False,
