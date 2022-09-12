@@ -776,8 +776,8 @@ def _format_ts(ts: float) -> str:
     Vaguely inspired by Django's `timesince` formatter.
     """
     delta = time.time() - ts
-    if delta < 2:
-        return "now"
+    if delta < 20:
+        return "a few seconds ago"
     for label, divider, max_value in _TIMESINCE_CHUNKS:
         value = round(delta / divider)
         if max_value is None or value <= max_value:

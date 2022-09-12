@@ -201,10 +201,10 @@ class TestValidCacheUtils(unittest.TestCase):
         sys.stdout = previous_output
 
         expected_output = f"""
-        REPO ID                       REPO TYPE SIZE ON DISK NB FILES REFS            LOCAL PATH
-        ----------------------------- --------- ------------ -------- --------------- -------------------------------------------------------------------------------------------------------------
-        valid_org/test_scan_dataset_b dataset           2.2K        2 main            {self.cache_dir}/datasets--valid_org--test_scan_dataset_b
-        valid_org/test_scan_repo_a    model             1.4K        4 main, refs/pr/1 {self.cache_dir}/models--valid_org--test_scan_repo_a
+        REPO ID                       REPO TYPE SIZE ON DISK NB FILES LAST_ACCESSED     LAST_MODIFIED     REFS            LOCAL PATH
+        ----------------------------- --------- ------------ -------- ----------------- ----------------- --------------- ---------------------------------------------------------
+        valid_org/test_scan_dataset_b dataset           2.2K        2 a few seconds ago a few seconds ago main            {self.cache_dir}/datasets--valid_org--test_scan_dataset_b
+        valid_org/test_scan_repo_a    model             1.4K        4 a few seconds ago a few seconds ago main, refs/pr/1 {self.cache_dir}/models--valid_org--test_scan_repo_a
 
         Done in 0.0s. Scanned 2 repo(s) for a total of \x1b[1m\x1b[31m3.5K\x1b[0m.
         """
@@ -231,12 +231,12 @@ class TestValidCacheUtils(unittest.TestCase):
         sys.stdout = previous_output
 
         expected_output = f"""
-        REPO ID                       REPO TYPE REVISION                                 SIZE ON DISK NB FILES REFS      LOCAL PATH
-        ----------------------------- --------- ---------------------------------------- ------------ -------- --------- ----------------------------------------------------------------------------------------------------------------------------------------------------------------
-        valid_org/test_scan_dataset_b dataset   1ac47c6f707cbc4825c2aa431ad5ab8cf09e60ed         2.2K        2 main      {self.cache_dir}/datasets--valid_org--test_scan_dataset_b/snapshots/1ac47c6f707cbc4825c2aa431ad5ab8cf09e60ed
-        valid_org/test_scan_repo_a    model     1da18ebd9185d146bcf84e308de53715d97d67d1         1.3K        1           {self.cache_dir}/models--valid_org--test_scan_repo_a/snapshots/1da18ebd9185d146bcf84e308de53715d97d67d1
-        valid_org/test_scan_repo_a    model     401874e6a9c254a8baae85edd8a073921ecbd7f5         1.4K        3 main      {self.cache_dir}/models--valid_org--test_scan_repo_a/snapshots/401874e6a9c254a8baae85edd8a073921ecbd7f5
-        valid_org/test_scan_repo_a    model     fc674b0d440d3ea6f94bc4012e33ebd1dfc11b5b         1.4K        4 refs/pr/1 {self.cache_dir}/models--valid_org--test_scan_repo_a/snapshots/fc674b0d440d3ea6f94bc4012e33ebd1dfc11b5b
+        REPO ID                       REPO TYPE REVISION                                 SIZE ON DISK NB FILES LAST_MODIFIED     REFS      LOCAL PATH
+        ----------------------------- --------- ---------------------------------------- ------------ -------- ----------------- --------- ------------------------------------------------------------------------------------------------------------
+        valid_org/test_scan_dataset_b dataset   1ac47c6f707cbc4825c2aa431ad5ab8cf09e60ed         2.2K        2 a few seconds ago main      {self.cache_dir}/datasets--valid_org--test_scan_dataset_b/snapshots/1ac47c6f707cbc4825c2aa431ad5ab8cf09e60ed
+        valid_org/test_scan_repo_a    model     1da18ebd9185d146bcf84e308de53715d97d67d1         1.3K        1 a few seconds ago           {self.cache_dir}/models--valid_org--test_scan_repo_a/snapshots/1da18ebd9185d146bcf84e308de53715d97d67d1
+        valid_org/test_scan_repo_a    model     401874e6a9c254a8baae85edd8a073921ecbd7f5         1.4K        3 a few seconds ago main      {self.cache_dir}/models--valid_org--test_scan_repo_a/snapshots/401874e6a9c254a8baae85edd8a073921ecbd7f5
+        valid_org/test_scan_repo_a    model     fc674b0d440d3ea6f94bc4012e33ebd1dfc11b5b         1.4K        4 a few seconds ago refs/pr/1 {self.cache_dir}/models--valid_org--test_scan_repo_a/snapshots/fc674b0d440d3ea6f94bc4012e33ebd1dfc11b5b
 
         Done in 0.0s. Scanned 2 repo(s) for a total of \x1b[1m\x1b[31m3.5K\x1b[0m.
         """
@@ -660,12 +660,13 @@ class TestStringFormatters(unittest.TestCase):
     SIZES = {
         16.0: "16.0",
         1000.0: "1.0K",
-        1024 * 1024 * 1024: "1.1G",  # not 1.0GB
+        1024 * 1024 * 1024: "1.1G",  # not 1.0GiB
     }
 
     SINCE = {
-        1: "now",
-        5: "5 seconds ago",
+        1: "a few seconds ago",
+        15: "a few seconds ago",
+        25: "25 seconds ago",
         80: "1 minute ago",
         1000: "17 minutes ago",
         4000: "1 hour ago",
