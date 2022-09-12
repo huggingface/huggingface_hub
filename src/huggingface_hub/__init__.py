@@ -1,7 +1,3 @@
-# flake8: noqa
-# There's no way to ignore "F401 '...' imported but unused" warnings in this
-# module, but to preserve other warnings. So, don't check this module at all.
-
 # Copyright 2020 The HuggingFace Team. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -17,18 +13,168 @@
 # limitations under the License.
 
 # ***********
-# vendored from https://github.com/scientific-python/lazy_loader
+# `huggingface_hub` init has 2 modes:
+# - Normal usage:
+#       If imported to use it, all modules and functions are lazy-loaded. This means
+#       they exist at top level in module but are imported only the first time they are
+#       used. This way, `from huggingface_hub import something` will import `something`
+#       quickly without the hassle of importing all the features from `huggingface_hub`.
+# - Static check:
+#       If statically analyzed, all modules and functions are loaded normally. This way
+#       static typing check works properly as well as autocomplete in text editors and
+#       IDEs.
+#
+# The static model imports are done inside the `if TYPE_CHECKING:` statement at
+# the bottom of this file. Since module/functions imports are duplicated, it is
+# mandatory to make sure to add them twice when adding one. This is checked in the
+# `make quality` command.
+#
+# To update the static imports, please run the following command and commit the changes.
+# ```
+# # Use script
+# python utils/check_static_imports.py --update-file
+#
+# # Or run style on codebase
+# make style
+# ```
+#
+# ***********
+# Lazy loader vendored from https://github.com/scientific-python/lazy_loader
 import importlib
-import importlib.util
-import inspect
 import os
 import sys
-import types
-import warnings
+from typing import TYPE_CHECKING
 
 
-class _LazyImportWarning(Warning):
-    pass
+__version__ = "0.10.0.dev0"
+
+# Alphabetical order of definitions is ensured in tests
+# WARNING: any comment added in this dictionary definition will be lost when
+# re-generating the file !
+_SUBMOD_ATTRS = {
+    "_snapshot_download": [
+        "snapshot_download",
+    ],
+    "commands.user": [
+        "notebook_login",
+    ],
+    "community": [
+        "Discussion",
+        "DiscussionComment",
+        "DiscussionCommit",
+        "DiscussionEvent",
+        "DiscussionStatusChange",
+        "DiscussionTitleChange",
+        "DiscussionWithDetails",
+    ],
+    "constants": [
+        "CONFIG_NAME",
+        "FLAX_WEIGHTS_NAME",
+        "HUGGINGFACE_CO_URL_HOME",
+        "HUGGINGFACE_CO_URL_TEMPLATE",
+        "PYTORCH_WEIGHTS_NAME",
+        "REPO_TYPE_DATASET",
+        "REPO_TYPE_MODEL",
+        "REPO_TYPE_SPACE",
+        "TF2_WEIGHTS_NAME",
+        "TF_WEIGHTS_NAME",
+    ],
+    "fastai_utils": [
+        "_save_pretrained_fastai",
+        "from_pretrained_fastai",
+        "push_to_hub_fastai",
+    ],
+    "file_download": [
+        "cached_download",
+        "hf_hub_download",
+        "hf_hub_url",
+        "try_to_load_from_cache",
+    ],
+    "hf_api": [
+        "CommitOperation",
+        "CommitOperationAdd",
+        "CommitOperationDelete",
+        "DatasetSearchArguments",
+        "HfApi",
+        "HfFolder",
+        "ModelSearchArguments",
+        "change_discussion_status",
+        "comment_discussion",
+        "create_commit",
+        "create_discussion",
+        "create_pull_request",
+        "create_repo",
+        "dataset_info",
+        "delete_file",
+        "delete_repo",
+        "edit_discussion_comment",
+        "get_dataset_tags",
+        "get_discussion_details",
+        "get_full_repo_name",
+        "get_model_tags",
+        "get_repo_discussions",
+        "list_datasets",
+        "list_metrics",
+        "list_models",
+        "list_repo_files",
+        "merge_pull_request",
+        "model_info",
+        "move_repo",
+        "rename_discussion",
+        "repo_type_and_id_from_hf_id",
+        "set_access_token",
+        "space_info",
+        "unset_access_token",
+        "update_repo_visibility",
+        "upload_file",
+        "upload_folder",
+        "whoami",
+    ],
+    "hub_mixin": [
+        "ModelHubMixin",
+        "PyTorchModelHubMixin",
+    ],
+    "inference_api": [
+        "InferenceApi",
+    ],
+    "keras_mixin": [
+        "KerasModelHubMixin",
+        "from_pretrained_keras",
+        "push_to_hub_keras",
+        "save_pretrained_keras",
+    ],
+    "repocard": [
+        "DatasetCard",
+        "ModelCard",
+        "metadata_eval_result",
+        "metadata_load",
+        "metadata_save",
+        "metadata_update",
+    ],
+    "repocard_data": [
+        "CardData",
+        "DatasetCardData",
+        "EvalResult",
+        "ModelCardData",
+    ],
+    "repository": [
+        "Repository",
+    ],
+    "utils": [
+        "CachedFileInfo",
+        "CachedRepoInfo",
+        "CachedRevisionInfo",
+        "CorruptedCacheException",
+        "DeleteCacheStrategy",
+        "HFCacheInfo",
+        "logging",
+        "scan_cache_dir",
+    ],
+    "utils.endpoint_helpers": [
+        "DatasetFilter",
+        "ModelFilter",
+    ],
+}
 
 
 def _attach(package_name, submodules=None, submod_attrs=None):
@@ -114,119 +260,111 @@ def _attach(package_name, submodules=None, submod_attrs=None):
     return __getattr__, __dir__, list(__all__)
 
 
-# ************
-
-__version__ = "0.10.0.dev0"
-
-
 __getattr__, __dir__, __all__ = _attach(
-    __name__,
-    submodules=[],
-    submod_attrs={
-        "commands.user": ["notebook_login"],
-        "constants": [
-            "CONFIG_NAME",
-            "FLAX_WEIGHTS_NAME",
-            "HUGGINGFACE_CO_URL_HOME",
-            "HUGGINGFACE_CO_URL_TEMPLATE",
-            "PYTORCH_WEIGHTS_NAME",
-            "REPO_TYPE_DATASET",
-            "REPO_TYPE_MODEL",
-            "REPO_TYPE_SPACE",
-            "TF2_WEIGHTS_NAME",
-            "TF_WEIGHTS_NAME",
-        ],
-        "fastai_utils": [
-            "_save_pretrained_fastai",
-            "from_pretrained_fastai",
-            "push_to_hub_fastai",
-        ],
-        "file_download": [
-            "cached_download",
-            "hf_hub_download",
-            "hf_hub_url",
-            "try_to_load_from_cache",
-        ],
-        "hf_api": [
-            "CommitOperation",
-            "CommitOperationAdd",
-            "CommitOperationDelete",
-            "DatasetSearchArguments",
-            "HfApi",
-            "HfFolder",
-            "ModelSearchArguments",
-            "change_discussion_status",
-            "comment_discussion",
-            "create_commit",
-            "create_discussion",
-            "create_pull_request",
-            "create_repo",
-            "dataset_info",
-            "delete_file",
-            "delete_repo",
-            "edit_discussion_comment",
-            "get_dataset_tags",
-            "get_discussion_details",
-            "get_full_repo_name",
-            "get_model_tags",
-            "get_repo_discussions",
-            "list_datasets",
-            "list_metrics",
-            "list_models",
-            "list_repo_files",
-            "login",
-            "logout",
-            "merge_pull_request",
-            "model_info",
-            "move_repo",
-            "rename_discussion",
-            "repo_type_and_id_from_hf_id",
-            "set_access_token",
-            "space_info",
-            "unset_access_token",
-            "update_repo_visibility",
-            "upload_file",
-            "upload_folder",
-            "whoami",
-        ],
-        "hub_mixin": ["ModelHubMixin", "PyTorchModelHubMixin"],
-        "inference_api": ["InferenceApi"],
-        "keras_mixin": [
-            "KerasModelHubMixin",
-            "from_pretrained_keras",
-            "push_to_hub_keras",
-            "save_pretrained_keras",
-        ],
-        "repository": ["Repository"],
-        "_snapshot_download": ["snapshot_download"],
-        "utils": [
-            "logging",
-            "CachedFileInfo",
-            "CachedRepoInfo",
-            "CachedRevisionInfo",
-            "CorruptedCacheException",
-            "DeleteCacheStrategy",
-            "HFCacheInfo",
-            "scan_cache_dir",
-        ],
-        "utils.endpoint_helpers": ["DatasetFilter", "ModelFilter"],
-        "repocard": [
-            "metadata_eval_result",
-            "metadata_load",
-            "metadata_save",
-            "metadata_update",
-            "ModelCard",
-            "DatasetCard",
-        ],
-        "community": [
-            "Discussion",
-            "DiscussionWithDetails",
-            "DiscussionEvent",
-            "DiscussionComment",
-            "DiscussionStatusChange",
-            "DiscussionCommit",
-            "DiscussionTitleChange",
-        ],
-        "repocard_data": ["CardData", "ModelCardData", "DatasetCardData", "EvalResult"],
-    },
+    __name__, submodules=[], submod_attrs=_SUBMOD_ATTRS
 )
+
+# WARNING: any content below this statement is generated automatically. Any manual edit
+# will be lost when re-generating this file !
+#
+# To update the static imports, please run the following command and commit the changes.
+# ```
+# # Use script
+# python utils/check_static_imports.py --update-file
+#
+# # Or run style on codebase
+# make style
+# ```
+if TYPE_CHECKING:  # pragma: no cover
+    from ._snapshot_download import snapshot_download  # noqa: F401
+    from .commands.user import notebook_login  # noqa: F401
+    from .community import Discussion  # noqa: F401
+    from .community import DiscussionComment  # noqa: F401
+    from .community import DiscussionCommit  # noqa: F401
+    from .community import DiscussionEvent  # noqa: F401
+    from .community import DiscussionStatusChange  # noqa: F401
+    from .community import DiscussionTitleChange  # noqa: F401
+    from .community import DiscussionWithDetails  # noqa: F401
+    from .constants import CONFIG_NAME  # noqa: F401
+    from .constants import FLAX_WEIGHTS_NAME  # noqa: F401
+    from .constants import HUGGINGFACE_CO_URL_HOME  # noqa: F401
+    from .constants import HUGGINGFACE_CO_URL_TEMPLATE  # noqa: F401
+    from .constants import PYTORCH_WEIGHTS_NAME  # noqa: F401
+    from .constants import REPO_TYPE_DATASET  # noqa: F401
+    from .constants import REPO_TYPE_MODEL  # noqa: F401
+    from .constants import REPO_TYPE_SPACE  # noqa: F401
+    from .constants import TF2_WEIGHTS_NAME  # noqa: F401
+    from .constants import TF_WEIGHTS_NAME  # noqa: F401
+    from .fastai_utils import _save_pretrained_fastai  # noqa: F401
+    from .fastai_utils import from_pretrained_fastai  # noqa: F401
+    from .fastai_utils import push_to_hub_fastai  # noqa: F401
+    from .file_download import cached_download  # noqa: F401
+    from .file_download import hf_hub_download  # noqa: F401
+    from .file_download import hf_hub_url  # noqa: F401
+    from .file_download import try_to_load_from_cache  # noqa: F401
+    from .hf_api import CommitOperation  # noqa: F401
+    from .hf_api import CommitOperationAdd  # noqa: F401
+    from .hf_api import CommitOperationDelete  # noqa: F401
+    from .hf_api import DatasetSearchArguments  # noqa: F401
+    from .hf_api import HfApi  # noqa: F401
+    from .hf_api import HfFolder  # noqa: F401
+    from .hf_api import ModelSearchArguments  # noqa: F401
+    from .hf_api import change_discussion_status  # noqa: F401
+    from .hf_api import comment_discussion  # noqa: F401
+    from .hf_api import create_commit  # noqa: F401
+    from .hf_api import create_discussion  # noqa: F401
+    from .hf_api import create_pull_request  # noqa: F401
+    from .hf_api import create_repo  # noqa: F401
+    from .hf_api import dataset_info  # noqa: F401
+    from .hf_api import delete_file  # noqa: F401
+    from .hf_api import delete_repo  # noqa: F401
+    from .hf_api import edit_discussion_comment  # noqa: F401
+    from .hf_api import get_dataset_tags  # noqa: F401
+    from .hf_api import get_discussion_details  # noqa: F401
+    from .hf_api import get_full_repo_name  # noqa: F401
+    from .hf_api import get_model_tags  # noqa: F401
+    from .hf_api import get_repo_discussions  # noqa: F401
+    from .hf_api import list_datasets  # noqa: F401
+    from .hf_api import list_metrics  # noqa: F401
+    from .hf_api import list_models  # noqa: F401
+    from .hf_api import list_repo_files  # noqa: F401
+    from .hf_api import merge_pull_request  # noqa: F401
+    from .hf_api import model_info  # noqa: F401
+    from .hf_api import move_repo  # noqa: F401
+    from .hf_api import rename_discussion  # noqa: F401
+    from .hf_api import repo_type_and_id_from_hf_id  # noqa: F401
+    from .hf_api import set_access_token  # noqa: F401
+    from .hf_api import space_info  # noqa: F401
+    from .hf_api import unset_access_token  # noqa: F401
+    from .hf_api import update_repo_visibility  # noqa: F401
+    from .hf_api import upload_file  # noqa: F401
+    from .hf_api import upload_folder  # noqa: F401
+    from .hf_api import whoami  # noqa: F401
+    from .hub_mixin import ModelHubMixin  # noqa: F401
+    from .hub_mixin import PyTorchModelHubMixin  # noqa: F401
+    from .inference_api import InferenceApi  # noqa: F401
+    from .keras_mixin import KerasModelHubMixin  # noqa: F401
+    from .keras_mixin import from_pretrained_keras  # noqa: F401
+    from .keras_mixin import push_to_hub_keras  # noqa: F401
+    from .keras_mixin import save_pretrained_keras  # noqa: F401
+    from .repocard import DatasetCard  # noqa: F401
+    from .repocard import ModelCard  # noqa: F401
+    from .repocard import metadata_eval_result  # noqa: F401
+    from .repocard import metadata_load  # noqa: F401
+    from .repocard import metadata_save  # noqa: F401
+    from .repocard import metadata_update  # noqa: F401
+    from .repocard_data import CardData  # noqa: F401
+    from .repocard_data import DatasetCardData  # noqa: F401
+    from .repocard_data import EvalResult  # noqa: F401
+    from .repocard_data import ModelCardData  # noqa: F401
+    from .repository import Repository  # noqa: F401
+    from .utils import CachedFileInfo  # noqa: F401
+    from .utils import CachedRepoInfo  # noqa: F401
+    from .utils import CachedRevisionInfo  # noqa: F401
+    from .utils import CorruptedCacheException  # noqa: F401
+    from .utils import DeleteCacheStrategy  # noqa: F401
+    from .utils import HFCacheInfo  # noqa: F401
+    from .utils import logging  # noqa: F401
+    from .utils import scan_cache_dir  # noqa: F401
+    from .utils.endpoint_helpers import DatasetFilter  # noqa: F401
+    from .utils.endpoint_helpers import ModelFilter  # noqa: F401
