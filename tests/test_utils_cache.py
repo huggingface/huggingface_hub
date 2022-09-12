@@ -253,7 +253,7 @@ class TestCorruptedCacheUtils(unittest.TestCase):
     repo_path: Path
 
     def setUp(self) -> None:
-        """Setup a clean cache for tests that will get corrupted in tests."""
+        """Setup a clean cache for tests that will get corrupted/modified in tests."""
         # Download latest main
         snapshot_download(
             repo_id=VALID_MODEL_ID,
@@ -351,6 +351,77 @@ class TestCorruptedCacheUtils(unittest.TestCase):
             " {'revision_hash_that_does_not_exist': {'not_main'}} "
             + f"({self.repo_path }).",
         )
+
+    def test_scan_cache_last_modified_and_last_accessed(self) -> None:
+        """Scan the last_modified and last_accessed properties when scanning."""
+        TIME_GAP = 0.1
+
+        # Make a first scan
+        report_1 = scan_cache_dir(self.cache_dir)
+
+        # Values from first report
+        repo_1 = list(report_1.repos)[0]
+        revision_1 = list(repo_1.revisions)[0]
+        readme_file_1 = [
+            file for file in revision_1.files if file.file_name == "README.md"
+        ][0]
+        another_file_1 = [
+            file for file in revision_1.files if file.file_name == "Another file.md"
+        ][0]
+
+        # Comparison of last_accessed/last_modified between file and repo
+        self.assertLessEqual(readme_file_1.blob_last_accessed, repo_1.last_accessed)
+        self.assertLessEqual(readme_file_1.blob_last_modified, repo_1.last_modified)
+        self.assertEqual(revision_1.last_modified, repo_1.last_modified)
+
+        # Sleep and write new readme
+        time.sleep(TIME_GAP)
+        readme_file_1.file_path.write_text("modified readme")
+
+        # Sleep and read content from readme
+        time.sleep(TIME_GAP)
+        with readme_file_1.file_path.open("r") as f:
+            _ = f.read()
+
+        # Sleep and re-scan
+        time.sleep(TIME_GAP)
+        report_2 = scan_cache_dir(self.cache_dir)
+
+        # Values from second report
+        repo_2 = list(report_2.repos)[0]
+        revision_2 = list(repo_2.revisions)[0]
+        readme_file_2 = [
+            file for file in revision_2.files if file.file_name == "README.md"
+        ][0]
+        another_file_2 = [
+            file for file in revision_1.files if file.file_name == "Another file.md"
+        ][0]
+
+        # Report 1 is not updated when cache changes
+        self.assertLess(repo_1.last_accessed, repo_2.last_accessed)
+        self.assertLess(repo_1.last_modified, repo_2.last_modified)
+
+        # "Another_file.md" did not change
+        self.assertEqual(another_file_1, another_file_2)
+
+        # Readme.md has been modified and then accessed more recently
+        self.assertGreaterEqual(
+            readme_file_2.blob_last_modified - readme_file_1.blob_last_modified,
+            TIME_GAP * 0.999,  # 0.999 factor because not exactly precise
+        )
+        self.assertGreaterEqual(
+            readme_file_2.blob_last_accessed - readme_file_1.blob_last_accessed,
+            2 * TIME_GAP * 0.999,  # 0.999 factor because not exactly precise
+        )
+        self.assertGreaterEqual(
+            readme_file_2.blob_last_accessed - readme_file_2.blob_last_modified,
+            TIME_GAP * 0.999,  # 0.999 factor because not exactly precise
+        )
+
+        # Comparison of last_accessed/last_modified between file and repo
+        self.assertEqual(readme_file_2.blob_last_accessed, repo_2.last_accessed)
+        self.assertEqual(readme_file_2.blob_last_modified, repo_2.last_modified)
+        self.assertEqual(revision_2.last_modified, repo_2.last_modified)
 
 
 class TestDeleteRevisionsDryRun(unittest.TestCase):
