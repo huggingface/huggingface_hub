@@ -13,7 +13,7 @@ import pytest
 
 from _pytest.fixtures import SubRequest
 from huggingface_hub._snapshot_download import snapshot_download
-from huggingface_hub.commands.cache import ScanCacheCommand
+from huggingface_hub.commands.scan_cache import ScanCacheCommand
 from huggingface_hub.utils import DeleteCacheStrategy, HFCacheInfo, scan_cache_dir
 from huggingface_hub.utils._cache_manager import (
     _format_size,

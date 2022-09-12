@@ -1,7 +1,7 @@
 import unittest
 from argparse import ArgumentParser
 
-from huggingface_hub.commands.cache import ScanCacheCommand
+from huggingface_hub.commands.scan_cache import ScanCacheCommand
 
 
 class TestCLI(unittest.TestCase):

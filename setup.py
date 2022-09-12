@@ -24,7 +24,8 @@ install_requires = [
 extras = {}
 
 extras["cli"] = [
-    "simple_term_menu",
+    "InquirerPy==0.3.4",
+    # Note: installs `prompt-toolkit` in the background
 ]
 
 extras["torch"] = [
