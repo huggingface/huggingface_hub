@@ -47,9 +47,7 @@ NOTE:
       support of Windows". Not built on top of `python-prompt-toolkit`.
       See https://github.com/magmax/python-inquirer
 """
-import sys
 from argparse import ArgumentParser
-from ast import Call
 from functools import wraps
 from typing import Callable, Iterable, List, Optional
 
