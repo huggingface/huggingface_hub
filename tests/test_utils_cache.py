@@ -1,6 +1,7 @@
 import os
 import shutil
 import sys
+import time
 import unittest
 from io import StringIO
 from pathlib import Path
@@ -14,7 +15,11 @@ from _pytest.fixtures import SubRequest
 from huggingface_hub._snapshot_download import snapshot_download
 from huggingface_hub.commands.cache import ScanCacheCommand
 from huggingface_hub.utils import DeleteCacheStrategy, HFCacheInfo, scan_cache_dir
-from huggingface_hub.utils._cache_manager import _try_delete_path
+from huggingface_hub.utils._cache_manager import (
+    _format_size,
+    _format_timesince,
+    _try_delete_path,
+)
 
 from .testing_constants import TOKEN
 
@@ -196,10 +201,10 @@ class TestValidCacheUtils(unittest.TestCase):
         sys.stdout = previous_output
 
         expected_output = f"""
-        REPO ID                       REPO TYPE SIZE ON DISK NB FILES REFS            LOCAL PATH
-        ----------------------------- --------- ------------ -------- --------------- -------------------------------------------------------------------------------------------------------------
-        valid_org/test_scan_dataset_b dataset           2.2K        2 main            {self.cache_dir}/datasets--valid_org--test_scan_dataset_b
-        valid_org/test_scan_repo_a    model             1.4K        4 main, refs/pr/1 {self.cache_dir}/models--valid_org--test_scan_repo_a
+        REPO ID                       REPO TYPE SIZE ON DISK NB FILES LAST_ACCESSED     LAST_MODIFIED     REFS            LOCAL PATH
+        ----------------------------- --------- ------------ -------- ----------------- ----------------- --------------- ---------------------------------------------------------
+        valid_org/test_scan_dataset_b dataset           2.2K        2 a few seconds ago a few seconds ago main            {self.cache_dir}/datasets--valid_org--test_scan_dataset_b
+        valid_org/test_scan_repo_a    model             1.4K        4 a few seconds ago a few seconds ago main, refs/pr/1 {self.cache_dir}/models--valid_org--test_scan_repo_a
 
         Done in 0.0s. Scanned 2 repo(s) for a total of \x1b[1m\x1b[31m3.5K\x1b[0m.
         """
@@ -226,12 +231,12 @@ class TestValidCacheUtils(unittest.TestCase):
         sys.stdout = previous_output
 
         expected_output = f"""
-        REPO ID                       REPO TYPE REVISION                                 SIZE ON DISK NB FILES REFS      LOCAL PATH
-        ----------------------------- --------- ---------------------------------------- ------------ -------- --------- ----------------------------------------------------------------------------------------------------------------------------------------------------------------
-        valid_org/test_scan_dataset_b dataset   1ac47c6f707cbc4825c2aa431ad5ab8cf09e60ed         2.2K        2 main      {self.cache_dir}/datasets--valid_org--test_scan_dataset_b/snapshots/1ac47c6f707cbc4825c2aa431ad5ab8cf09e60ed
-        valid_org/test_scan_repo_a    model     1da18ebd9185d146bcf84e308de53715d97d67d1         1.3K        1           {self.cache_dir}/models--valid_org--test_scan_repo_a/snapshots/1da18ebd9185d146bcf84e308de53715d97d67d1
-        valid_org/test_scan_repo_a    model     401874e6a9c254a8baae85edd8a073921ecbd7f5         1.4K        3 main      {self.cache_dir}/models--valid_org--test_scan_repo_a/snapshots/401874e6a9c254a8baae85edd8a073921ecbd7f5
-        valid_org/test_scan_repo_a    model     fc674b0d440d3ea6f94bc4012e33ebd1dfc11b5b         1.4K        4 refs/pr/1 {self.cache_dir}/models--valid_org--test_scan_repo_a/snapshots/fc674b0d440d3ea6f94bc4012e33ebd1dfc11b5b
+        REPO ID                       REPO TYPE REVISION                                 SIZE ON DISK NB FILES LAST_MODIFIED     REFS      LOCAL PATH
+        ----------------------------- --------- ---------------------------------------- ------------ -------- ----------------- --------- ------------------------------------------------------------------------------------------------------------
+        valid_org/test_scan_dataset_b dataset   1ac47c6f707cbc4825c2aa431ad5ab8cf09e60ed         2.2K        2 a few seconds ago main      {self.cache_dir}/datasets--valid_org--test_scan_dataset_b/snapshots/1ac47c6f707cbc4825c2aa431ad5ab8cf09e60ed
+        valid_org/test_scan_repo_a    model     1da18ebd9185d146bcf84e308de53715d97d67d1         1.3K        1 a few seconds ago           {self.cache_dir}/models--valid_org--test_scan_repo_a/snapshots/1da18ebd9185d146bcf84e308de53715d97d67d1
+        valid_org/test_scan_repo_a    model     401874e6a9c254a8baae85edd8a073921ecbd7f5         1.4K        3 a few seconds ago main      {self.cache_dir}/models--valid_org--test_scan_repo_a/snapshots/401874e6a9c254a8baae85edd8a073921ecbd7f5
+        valid_org/test_scan_repo_a    model     fc674b0d440d3ea6f94bc4012e33ebd1dfc11b5b         1.4K        4 a few seconds ago refs/pr/1 {self.cache_dir}/models--valid_org--test_scan_repo_a/snapshots/fc674b0d440d3ea6f94bc4012e33ebd1dfc11b5b
 
         Done in 0.0s. Scanned 2 repo(s) for a total of \x1b[1m\x1b[31m3.5K\x1b[0m.
         """
@@ -248,7 +253,7 @@ class TestCorruptedCacheUtils(unittest.TestCase):
     repo_path: Path
 
     def setUp(self) -> None:
-        """Setup a clean cache for tests that will get corrupted in tests."""
+        """Setup a clean cache for tests that will get corrupted/modified in tests."""
         # Download latest main
         snapshot_download(
             repo_id=VALID_MODEL_ID,
@@ -346,6 +351,77 @@ class TestCorruptedCacheUtils(unittest.TestCase):
             " {'revision_hash_that_does_not_exist': {'not_main'}} "
             + f"({self.repo_path }).",
         )
+
+    def test_scan_cache_last_modified_and_last_accessed(self) -> None:
+        """Scan the last_modified and last_accessed properties when scanning."""
+        TIME_GAP = 0.1
+
+        # Make a first scan
+        report_1 = scan_cache_dir(self.cache_dir)
+
+        # Values from first report
+        repo_1 = list(report_1.repos)[0]
+        revision_1 = list(repo_1.revisions)[0]
+        readme_file_1 = [
+            file for file in revision_1.files if file.file_name == "README.md"
+        ][0]
+        another_file_1 = [
+            file for file in revision_1.files if file.file_name == "Another file.md"
+        ][0]
+
+        # Comparison of last_accessed/last_modified between file and repo
+        self.assertLessEqual(readme_file_1.blob_last_accessed, repo_1.last_accessed)
+        self.assertLessEqual(readme_file_1.blob_last_modified, repo_1.last_modified)
+        self.assertEqual(revision_1.last_modified, repo_1.last_modified)
+
+        # Sleep and write new readme
+        time.sleep(TIME_GAP)
+        readme_file_1.file_path.write_text("modified readme")
+
+        # Sleep and read content from readme
+        time.sleep(TIME_GAP)
+        with readme_file_1.file_path.open("r") as f:
+            _ = f.read()
+
+        # Sleep and re-scan
+        time.sleep(TIME_GAP)
+        report_2 = scan_cache_dir(self.cache_dir)
+
+        # Values from second report
+        repo_2 = list(report_2.repos)[0]
+        revision_2 = list(repo_2.revisions)[0]
+        readme_file_2 = [
+            file for file in revision_2.files if file.file_name == "README.md"
+        ][0]
+        another_file_2 = [
+            file for file in revision_1.files if file.file_name == "Another file.md"
+        ][0]
+
+        # Report 1 is not updated when cache changes
+        self.assertLess(repo_1.last_accessed, repo_2.last_accessed)
+        self.assertLess(repo_1.last_modified, repo_2.last_modified)
+
+        # "Another_file.md" did not change
+        self.assertEqual(another_file_1, another_file_2)
+
+        # Readme.md has been modified and then accessed more recently
+        self.assertGreaterEqual(
+            readme_file_2.blob_last_modified - readme_file_1.blob_last_modified,
+            TIME_GAP * 0.999,  # 0.999 factor because not exactly precise
+        )
+        self.assertGreaterEqual(
+            readme_file_2.blob_last_accessed - readme_file_1.blob_last_accessed,
+            2 * TIME_GAP * 0.999,  # 0.999 factor because not exactly precise
+        )
+        self.assertGreaterEqual(
+            readme_file_2.blob_last_accessed - readme_file_2.blob_last_modified,
+            TIME_GAP * 0.999,  # 0.999 factor because not exactly precise
+        )
+
+        # Comparison of last_accessed/last_modified between file and repo
+        self.assertEqual(readme_file_2.blob_last_accessed, repo_2.last_accessed)
+        self.assertEqual(readme_file_2.blob_last_modified, repo_2.last_modified)
+        self.assertEqual(revision_2.last_modified, repo_2.last_modified)
 
 
 class TestDeleteRevisionsDryRun(unittest.TestCase):
@@ -649,3 +725,43 @@ class TestTryDeletePath(unittest.TestCase):
 
         # For proper cleanup
         dir_path.chmod(509)
+
+
+class TestStringFormatters(unittest.TestCase):
+    SIZES = {
+        16.0: "16.0",
+        1000.0: "1.0K",
+        1024 * 1024 * 1024: "1.1G",  # not 1.0GiB
+    }
+
+    SINCE = {
+        1: "a few seconds ago",
+        15: "a few seconds ago",
+        25: "25 seconds ago",
+        80: "1 minute ago",
+        1000: "17 minutes ago",
+        4000: "1 hour ago",
+        8000: "2 hours ago",
+        3600 * 24 * 13: "2 weeks ago",
+        3600 * 24 * 30 * 8.2: "8 months ago",
+        3600 * 24 * 365: "1 year ago",
+        3600 * 24 * 365 * 9.6: "10 years ago",
+    }
+
+    def test_format_size(self) -> None:
+        """Test `_format_size` formatter."""
+        for size, expected in self.SIZES.items():
+            self.assertEqual(
+                _format_size(size),
+                expected,
+                msg=f"Wrong formatting for {size} == '{expected}'",
+            )
+
+    def test_format_timesince(self) -> None:
+        """Test `_format_timesince` formatter."""
+        for ts, expected in self.SINCE.items():
+            self.assertEqual(
+                _format_timesince(time.time() - ts),
+                expected,
+                msg=f"Wrong formatting for {ts} == '{expected}'",
+            )
