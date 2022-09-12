@@ -80,7 +80,7 @@ class CachedFileInfo:
 
         Example: "2 weeks ago".
         """
-        return _format_ts(self.blob_last_accessed)
+        return _format_timesince(self.blob_last_accessed)
 
     @property
     def blob_last_modified_str(self) -> str:
@@ -90,7 +90,7 @@ class CachedFileInfo:
 
         Example: "2 weeks ago".
         """
-        return _format_ts(self.blob_last_modified)
+        return _format_timesince(self.blob_last_modified)
 
     @property
     def size_on_disk_str(self) -> str:
@@ -160,7 +160,7 @@ class CachedRevisionInfo:
 
         Example: "2 weeks ago".
         """
-        return _format_ts(self.last_modified)
+        return _format_timesince(self.last_modified)
 
     @property
     def size_on_disk_str(self) -> str:
@@ -236,7 +236,7 @@ class CachedRepoInfo:
 
         Example: "2 weeks ago".
         """
-        return _format_ts(self.last_accessed)
+        return _format_timesince(self.last_accessed)
 
     @property
     def last_modified_str(self) -> str:
@@ -246,7 +246,7 @@ class CachedRepoInfo:
 
         Example: "2 weeks ago".
         """
-        return _format_ts(self.last_modified)
+        return _format_timesince(self.last_modified)
 
     @property
     def size_on_disk_str(self) -> str:
@@ -770,7 +770,7 @@ _TIMESINCE_CHUNKS = (
 )
 
 
-def _format_ts(ts: float) -> str:
+def _format_timesince(ts: float) -> str:
     """Format timestamp in seconds into a human-readable string, relative to now.
 
     Vaguely inspired by Django's `timesince` formatter.

@@ -17,7 +17,7 @@ from huggingface_hub.commands.cache import ScanCacheCommand
 from huggingface_hub.utils import DeleteCacheStrategy, HFCacheInfo, scan_cache_dir
 from huggingface_hub.utils._cache_manager import (
     _format_size,
-    _format_ts,
+    _format_timesince,
     _try_delete_path,
 )
 
@@ -753,9 +753,11 @@ class TestStringFormatters(unittest.TestCase):
         for size, expected in self.SIZES.items():
             self.assertEqual(_format_size(size), expected)
 
-    def test_format_ts(self) -> None:
-        """Test `_format_ts` formatter."""
+    def test_format_timesince(self) -> None:
+        """Test `_format_timesince` formatter."""
         for ts, expected in self.SINCE.items():
             self.assertEqual(
-                _format_ts(time.time() - ts), expected, msg=f"Wrong formatting for {ts}"
+                _format_timesince(time.time() - ts),
+                expected,
+                msg=f"Wrong formatting for {ts}",
             )
