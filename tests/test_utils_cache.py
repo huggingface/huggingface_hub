@@ -1,9 +1,7 @@
 import os
 import shutil
-import sys
 import time
 import unittest
-from io import StringIO
 from pathlib import Path
 from tempfile import TemporaryDirectory
 from typing import Generator
@@ -22,6 +20,7 @@ from huggingface_hub.utils._cache_manager import (
 )
 
 from .testing_constants import TOKEN
+from .testing_utils import capture_output
 
 
 VALID_MODEL_ID = "valid_org/test_scan_repo_a"
@@ -189,16 +188,12 @@ class TestValidCacheUtils(unittest.TestCase):
 
         End-to-end test just to see if output is in expected format.
         """
-        output = StringIO()
         args = Mock()
         args.verbose = 0
         args.dir = self.cache_dir
 
-        # Taken from https://stackoverflow.com/a/34738440
-        previous_output = sys.stdout
-        sys.stdout = output
-        ScanCacheCommand(args).run()
-        sys.stdout = previous_output
+        with capture_output() as output:
+            ScanCacheCommand(args).run()
 
         expected_output = f"""
         REPO ID                       REPO TYPE SIZE ON DISK NB FILES LAST_ACCESSED     LAST_MODIFIED     REFS            LOCAL PATH
@@ -219,16 +214,12 @@ class TestValidCacheUtils(unittest.TestCase):
 
         End-to-end test just to see if output is in expected format.
         """
-        output = StringIO()
         args = Mock()
         args.verbose = 1
         args.dir = self.cache_dir
 
-        # Taken from https://stackoverflow.com/a/34738440
-        previous_output = sys.stdout
-        sys.stdout = output
-        ScanCacheCommand(args).run()
-        sys.stdout = previous_output
+        with capture_output() as output:
+            ScanCacheCommand(args).run()
 
         expected_output = f"""
         REPO ID                       REPO TYPE REVISION                                 SIZE ON DISK NB FILES LAST_MODIFIED     REFS      LOCAL PATH

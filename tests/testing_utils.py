@@ -1,5 +1,6 @@
 import os
 import stat
+import sys
 import time
 import unittest
 import uuid
@@ -7,7 +8,8 @@ from contextlib import contextmanager
 from distutils.util import strtobool
 from enum import Enum
 from functools import wraps
-from typing import Callable, Optional
+from io import StringIO
+from typing import Callable, Generator, Optional
 from unittest.mock import patch
 
 import pytest
@@ -290,3 +292,27 @@ def expect_deprecation(function_name: str):
         return _inner_test_function
 
     return _inner_decorator
+
+
+@contextmanager
+def capture_output() -> Generator[StringIO, None, None]:
+    """Capture output that is printed to console.
+
+    Especially useful to test CLI commands.
+
+    Taken from https://stackoverflow.com/a/34738440
+
+    Example:
+    ```py
+    class TestHelloWorld(unittest.TestCase):
+        def test_hello_world(self):
+            with capture_output() as output:
+                print("hello world")
+            self.assertEqual(output.getvalue(), "hello world\n")
+    ```
+    """
+    output = StringIO()
+    previous_output = sys.stdout
+    sys.stdout = output
+    yield output
+    sys.stdout = previous_output

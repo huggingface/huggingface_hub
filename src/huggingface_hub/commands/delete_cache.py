@@ -212,15 +212,20 @@ class DeleteCacheCommand(BaseHuggingfaceCLICommand):
                     f" used {repo.last_accessed_str})"
                 )
             )
-            for revision in sorted(repo.revisions, key=lambda r: r.commit_hash):
+            for revision in sorted(
+                # Sort by last modified first
+                repo.revisions,
+                key=lambda r: r.last_modified,
+                reverse=True,
+            ):
                 # Revision as choice
                 choices.append(
                     Choice(
                         revision.commit_hash,
                         name=(
                             f"{revision.commit_hash[:8]}:"
-                            f" {', '.join(revision.refs or 'detached')} # modified"
-                            f" {revision.last_modified_str}"
+                            f" {', '.join(sorted(revision.refs)) or '(detached)'} #"
+                            f" modified {revision.last_modified_str}"
                         ),
                         enabled=revision.commit_hash in preselected_hashes,
                     )
