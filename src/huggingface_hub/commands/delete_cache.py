@@ -83,6 +83,15 @@ class DeleteCacheCommand(BaseHuggingfaceCLICommand):
         self.cache_dir: Optional[str] = args.dir
 
     def run(self):
+        # TODO: add support for `huggingface-cli delete-cache aaaaaa bbbbbb cccccc (...)` as pre-selection
+        # TODO: add "--keep-last" arg to delete revisions that are not on `main` ref
+        # TODO: add "--filter" arg to filter repositories by name
+        # TODO: add "--dry-run" and "--from-dry-run" to bypass the TUI
+        # TODO: add "--sort" arg to sort by size ?
+        # TODO: add "--limit" arg to limit to X repos ?
+        # TODO: add "-y" arg for immediate deletion ?
+        # See https://github.com/huggingface/huggingface_hub/issues/1025
+
         # Scan cache directory
         hf_cache_info = scan_cache_dir(self.cache_dir)
 
