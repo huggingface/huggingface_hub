@@ -50,10 +50,6 @@ NOTE:
 from argparse import ArgumentParser
 from typing import Iterable, List, Optional
 
-from InquirerPy import inquirer
-from InquirerPy.base.control import Choice
-from InquirerPy.separator import Separator
-
 from ..utils import CachedRepoInfo, HFCacheInfo, scan_cache_dir
 from . import BaseHuggingfaceCLICommand
 
@@ -83,6 +79,9 @@ class DeleteCacheCommand(BaseHuggingfaceCLICommand):
         self.cache_dir: Optional[str] = args.dir
 
     def run(self):
+        # soft import
+        from InquirerPy import inquirer
+
         # TODO: add support for `huggingface-cli delete-cache aaaaaa bbbbbb cccccc (...)` as pre-selection
         # TODO: add "--keep-last" arg to delete revisions that are not on `main` ref
         # TODO: add "--filter" arg to filter repositories by name
@@ -91,7 +90,6 @@ class DeleteCacheCommand(BaseHuggingfaceCLICommand):
         # TODO: add "--limit" arg to limit to X repos ?
         # TODO: add "-y" arg for immediate deletion ?
         # See https://github.com/huggingface/huggingface_hub/issues/1025
-
         # Scan cache directory
         hf_cache_info = scan_cache_dir(self.cache_dir)
 
@@ -129,6 +127,10 @@ class DeleteCacheCommand(BaseHuggingfaceCLICommand):
 
         Some revisions can be preselected.
         """
+        # soft imports
+        from InquirerPy import inquirer
+        from InquirerPy.base.control import Choice
+
         # Define multiselect list
         choices = self._get_choices_from_scan(
             repos=hf_cache_info.repos, preselected_hashes=preselected_hashes
@@ -191,6 +193,10 @@ class DeleteCacheCommand(BaseHuggingfaceCLICommand):
         Return:
             The list of choices to pass to `inquirer.checkbox`.
         """
+        # soft imports
+        from InquirerPy.base.control import Choice
+        from InquirerPy.separator import Separator
+
         choices = []
 
         # First choice is to cancel the deletion. If selected, nothing will be deleted,
