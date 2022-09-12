@@ -29,8 +29,7 @@ NOTE:
     For the moment, the TUI feature is in beta.
 
     See:
-    - https://github.com/magmax/python-inquirer
-    - https://magmax.org/python-inquirer/
+    - https://github.com/kazhala/InquirerPy
     - https://inquirerpy.readthedocs.io/en/latest/
     - https://github.com/prompt-toolkit/python-prompt-toolkit
 
@@ -44,6 +43,9 @@ NOTE:
     - `pick` (or `pickpack`): easy to use and flexible but built on top of Python's
       standard library `curses` that is specific to Unix (not implemented on Windows).
       See https://github.com/wong2/pick and https://github.com/anafvana/pickpack.
+    - `inquirer`: lot of traction (700 stars) but explicitly states "experimental
+      support of Windows". Not built on top of `python-prompt-toolkit`.
+      See https://github.com/magmax/python-inquirer
 """
 from argparse import ArgumentParser
 from typing import Iterable, List, Optional
