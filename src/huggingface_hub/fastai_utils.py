@@ -14,8 +14,7 @@ from huggingface_hub.file_download import (
     get_fastai_version,
     get_fastcore_version,
 )
-from huggingface_hub.hf_api import HfApi, HfFolder
-from huggingface_hub.repository import Repository
+from huggingface_hub.hf_api import HfApi
 
 from .utils import logging, validate_hf_hub_args
 from .utils._deprecation import _deprecate_arguments, _deprecate_positional_args
