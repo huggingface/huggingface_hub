@@ -47,11 +47,38 @@ NOTE:
       support of Windows". Not built on top of `python-prompt-toolkit`.
       See https://github.com/magmax/python-inquirer
 """
+import sys
 from argparse import ArgumentParser
-from typing import Iterable, List, Optional
+from ast import Call
+from functools import wraps
+from typing import Callable, Iterable, List, Optional
 
 from ..utils import CachedRepoInfo, HFCacheInfo, scan_cache_dir
 from . import BaseHuggingfaceCLICommand
+
+
+try:
+    from InquirerPy import inquirer
+    from InquirerPy.base.control import Choice
+    from InquirerPy.separator import Separator
+
+    _inquirer_py_available = True
+except ImportError:
+    _inquirer_py_available = False
+
+
+def require_inquirer_py(fn: Callable) -> Callable:
+    # TODO: refactor this + imports in a unified pattern
+    @wraps(fn)
+    def _inner(*args, **kwargs):
+        if not _inquirer_py_available:
+            raise ImportError(
+                "The `huggingface-cli delete-cache` command require extra dependencies."
+                " Please run `pip install huggingface_hub[cli]` to install them."
+            )
+        return fn(*args, **kwargs)
+
+    return _inner
 
 
 # Possibility for the user to cancel deletion
@@ -78,10 +105,8 @@ class DeleteCacheCommand(BaseHuggingfaceCLICommand):
     def __init__(self, args):
         self.cache_dir: Optional[str] = args.dir
 
+    @require_inquirer_py
     def run(self):
-        # soft import
-        from InquirerPy import inquirer
-
         # TODO: add support for `huggingface-cli delete-cache aaaaaa bbbbbb cccccc (...)` as pre-selection
         # TODO: add "--keep-last" arg to delete revisions that are not on `main` ref
         # TODO: add "--filter" arg to filter repositories by name
@@ -127,10 +152,6 @@ class DeleteCacheCommand(BaseHuggingfaceCLICommand):
 
         Some revisions can be preselected.
         """
-        # soft imports
-        from InquirerPy import inquirer
-        from InquirerPy.base.control import Choice
-
         # Define multiselect list
         choices = self._get_choices_from_scan(
             repos=hf_cache_info.repos, preselected_hashes=preselected_hashes
@@ -193,10 +214,6 @@ class DeleteCacheCommand(BaseHuggingfaceCLICommand):
         Return:
             The list of choices to pass to `inquirer.checkbox`.
         """
-        # soft imports
-        from InquirerPy.base.control import Choice
-        from InquirerPy.separator import Separator
-
         choices = []
 
         # First choice is to cancel the deletion. If selected, nothing will be deleted,
