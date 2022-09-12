@@ -751,7 +751,11 @@ class TestStringFormatters(unittest.TestCase):
     def test_format_size(self) -> None:
         """Test `_format_size` formatter."""
         for size, expected in self.SIZES.items():
-            self.assertEqual(_format_size(size), expected)
+            self.assertEqual(
+                _format_size(size),
+                expected,
+                msg=f"Wrong formatting for {size} == '{expected}'",
+            )
 
     def test_format_timesince(self) -> None:
         """Test `_format_timesince` formatter."""
@@ -759,5 +763,5 @@ class TestStringFormatters(unittest.TestCase):
             self.assertEqual(
                 _format_timesince(time.time() - ts),
                 expected,
-                msg=f"Wrong formatting for {ts}",
+                msg=f"Wrong formatting for {ts} == '{expected}'",
             )
