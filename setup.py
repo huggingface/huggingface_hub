@@ -41,18 +41,21 @@ extras["fastai"] = [
 extras["tensorflow"] = ["tensorflow", "pydot", "graphviz"]
 
 extras["testing"] = [
+    "datasets",
+    "isort>=5.5.4",
+    "jedi",
+    "Jinja2",
     "pytest",
     "pytest-cov",
-    "datasets",
     "soundfile",
-    "Jinja2",
 ]
 
 extras["quality"] = [
     "black==22.3",
-    "isort>=5.5.4",
     "flake8>=3.8.3",
     "flake8-bugbear",
+    "isort>=5.5.4",
+    "mypy",
 ]
 
 extras["all"] = extras["testing"] + extras["quality"]
