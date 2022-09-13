@@ -66,7 +66,7 @@ except ImportError:
 
 
 def require_inquirer_py(fn: Callable) -> Callable:
-    # TODO: refactor this + imports in a unified pattern
+    # TODO: refactor this + imports in a unified pattern across codebase
     @wraps(fn)
     def _inner(*args, **kwargs):
         if not _inquirer_py_available:
@@ -80,7 +80,7 @@ def require_inquirer_py(fn: Callable) -> Callable:
 
 
 # Possibility for the user to cancel deletion
-_NO_DELETION_STR = "NO_DELETION_NOT_A_REVISION"
+_CANCEL_DELETION_STR = "CANCEL_DELETION"
 
 
 class DeleteCacheCommand(BaseHuggingfaceCLICommand):
@@ -120,7 +120,7 @@ class DeleteCacheCommand(BaseHuggingfaceCLICommand):
         selected_hashes = self._manual_review(hf_cache_info, preselected_hashes=[])
 
         # If deletion is not cancelled
-        if len(selected_hashes) > 0 and _NO_DELETION_STR not in selected_hashes:
+        if len(selected_hashes) > 0 and _CANCEL_DELETION_STR not in selected_hashes:
             confirmed = inquirer.confirm(
                 self._get_instructions_str(hf_cache_info, selected_hashes)
                 + " Confirm deletion ?",
@@ -131,7 +131,7 @@ class DeleteCacheCommand(BaseHuggingfaceCLICommand):
             if confirmed:
                 strategy = hf_cache_info.delete_revisions(*selected_hashes)
                 print("Start deletion.")
-                strategy.execute()
+                # strategy.execute()
                 print(
                     f"Done. Deleted {len(strategy.repos)} repo(s) and"
                     f" {len(strategy.snapshots)} revision(s) for a total of"
@@ -218,7 +218,7 @@ class DeleteCacheCommand(BaseHuggingfaceCLICommand):
         # no matter the other selected items.
         choices.append(
             Choice(
-                _NO_DELETION_STR,
+                _CANCEL_DELETION_STR,
                 name="None of the following (if selected, nothing will be deleted).",
                 enabled=False,
             )
@@ -258,7 +258,7 @@ class DeleteCacheCommand(BaseHuggingfaceCLICommand):
     def _get_instructions_str(
         self, hf_cache_info: HFCacheInfo, selected_hashes: List[str]
     ) -> str:
-        if _NO_DELETION_STR in selected_hashes:
+        if _CANCEL_DELETION_STR in selected_hashes:
             return "Nothing will be deleted."
         strategy = hf_cache_info.delete_revisions(*selected_hashes)
         return (

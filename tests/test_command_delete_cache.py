@@ -1,7 +1,10 @@
 import unittest
 from unittest.mock import Mock, patch
 
-from huggingface_hub.commands.delete_cache import _NO_DELETION_STR, DeleteCacheCommand
+from huggingface_hub.commands.delete_cache import (
+    _CANCEL_DELETION_STR,
+    DeleteCacheCommand,
+)
 from InquirerPy.base.control import Choice
 from InquirerPy.separator import Separator
 
@@ -17,7 +20,7 @@ class TestDeleteCacheCommand(unittest.TestCase):
         choices = self.command._get_choices_from_scan(repos={}, preselected_hashes=[])
         self.assertEqual(len(choices), 1)
         self.assertIsInstance(choices[0], Choice)
-        self.assertEqual(choices[0].value, _NO_DELETION_STR)
+        self.assertEqual(choices[0].value, _CANCEL_DELETION_STR)
         self.assertTrue(len(choices[0].name) != 0)  # Something displayed to the user
         self.assertFalse(choices[0].enabled)
 
@@ -85,7 +88,7 @@ class TestDeleteCacheCommand(unittest.TestCase):
 
         # Item to cancel everything
         self.assertIsInstance(choices[0], Choice)
-        self.assertEqual(choices[0].value, _NO_DELETION_STR)
+        self.assertEqual(choices[0].value, _CANCEL_DELETION_STR)
         self.assertTrue(len(choices[0].name) != 0)
         self.assertFalse(choices[0].enabled)
 
@@ -136,11 +139,11 @@ class TestDeleteCacheCommand(unittest.TestCase):
         self.assertFalse(choices[7].enabled)
 
     def test_get_instructions_str_on_no_deletion_item(self) -> None:
-        """Test `_get_instructions` when `_NO_DELETION_STR` is passed."""
+        """Test `_get_instructions` when `_CANCEL_DELETION_STR` is passed."""
         self.assertEqual(
             self.command._get_instructions_str(
                 hf_cache_info=Mock(),
-                selected_hashes=["hash_1", _NO_DELETION_STR, "hash_2"],
+                selected_hashes=["hash_1", _CANCEL_DELETION_STR, "hash_2"],
             ),
             "Nothing will be deleted.",
         )
@@ -251,7 +254,11 @@ class TestMockedDeleteCacheCommand(unittest.TestCase):
         scan_cache_dir_mock: Mock,
     ) -> None:
         """Test command run when some are selected but "cancel item" as well."""
-        self.manual_review_mock.return_value = ["hash_1", "hash_2", _NO_DELETION_STR]
+        self.manual_review_mock.return_value = [
+            "hash_1",
+            "hash_2",
+            _CANCEL_DELETION_STR,
+        ]
 
         # Run
         with capture_output() as output:
