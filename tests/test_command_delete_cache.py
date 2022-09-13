@@ -7,7 +7,8 @@ from unittest.mock import Mock, patch
 from huggingface_hub.commands.delete_cache import (
     _CANCEL_DELETION_STR,
     DeleteCacheCommand,
-    _get_instructions_str,
+    _ask_for_confirmation_no_tui,
+    _get_expectations_str,
     _get_tui_choices_from_scan,
     _manual_review_no_tui,
     _read_manual_review_tmp_file,
@@ -90,17 +91,17 @@ class TestDeleteCacheHelpers(unittest.TestCase):
         )
         self.assertFalse(choices[7].enabled)
 
-    def test_get_instructions_str_on_no_deletion_item(self) -> None:
+    def test_get_expectations_str_on_no_deletion_item(self) -> None:
         """Test `_get_instructions` when `_CANCEL_DELETION_STR` is passed."""
         self.assertEqual(
-            _get_instructions_str(
+            _get_expectations_str(
                 hf_cache_info=Mock(),
                 selected_hashes=["hash_1", _CANCEL_DELETION_STR, "hash_2"],
             ),
             "Nothing will be deleted.",
         )
 
-    def test_get_instructions_str_with_selection(self) -> None:
+    def test_get_expectations_str_with_selection(self) -> None:
         """Test `_get_instructions` with 2 revisions selected."""
         strategy_mock = Mock()
         strategy_mock.expected_freed_size_str = "5.1M"
@@ -109,7 +110,7 @@ class TestDeleteCacheHelpers(unittest.TestCase):
         cache_mock.delete_revisions.return_value = strategy_mock
 
         self.assertEqual(
-            _get_instructions_str(
+            _get_expectations_str(
                 hf_cache_info=cache_mock,
                 selected_hashes=["hash_1", "hash_2"],
             ),
@@ -155,10 +156,10 @@ class TestDeleteCacheHelpers(unittest.TestCase):
 
     @patch("huggingface_hub.commands.delete_cache.input")
     @patch("huggingface_hub.commands.delete_cache.mkstemp")
-    def test_manual_review_no_tui(self, mkstemp_mock: Mock, input_mock: Mock) -> None:
+    def test_manual_review_no_tui(self, mock_mkstemp: Mock, mock_input: Mock) -> None:
         # Mock file creation so that we know the file location in test
         fd, tmp_path = mkstemp()
-        mkstemp_mock.return_value = fd, tmp_path
+        mock_mkstemp.return_value = fd, tmp_path
 
         # Mock cache
         cache_mock = _get_cache_mock()
@@ -191,7 +192,7 @@ class TestDeleteCacheHelpers(unittest.TestCase):
             yield "no"  # User edited the file and want to see the strategy diff
             yield "y"  # User confirms
 
-        input_mock.side_effect = _input_answers()
+        mock_input.side_effect = _input_answers()
 
         # Run manual review
         with capture_output() as output:
@@ -201,7 +202,7 @@ class TestDeleteCacheHelpers(unittest.TestCase):
             )
 
         # Tmp file has been created but is now deleted
-        mkstemp_mock.assert_called_once_with(suffix=".txt")
+        mock_mkstemp.assert_called_once_with(suffix=".txt")
         self.assertFalse(os.path.isfile(tmp_path))  # now deleted
 
         # User changed the selection
@@ -215,12 +216,38 @@ class TestDeleteCacheHelpers(unittest.TestCase):
         self.assertIn(tmp_path, printed)
 
         # Check input called twice
-        self.assertEqual(input_mock.call_count, 2)
+        self.assertEqual(mock_input.call_count, 2)
+
+    @patch("huggingface_hub.commands.delete_cache.input")
+    def test_ask_for_confirmation_no_tui(self, mock_input: Mock) -> None:
+        """Test `_ask_for_confirmation_no_tui`."""
+        # Answer yes
+        mock_input.side_effect = ("y",)
+        value = _ask_for_confirmation_no_tui("custom message 1", default=True)
+        mock_input.assert_called_with("custom message 1 (Y/n) ")
+        self.assertTrue(value)
+
+        # Answer no
+        mock_input.side_effect = ("NO",)
+        value = _ask_for_confirmation_no_tui("custom message 2", default=True)
+        mock_input.assert_called_with("custom message 2 (Y/n) ")
+        self.assertFalse(value)
+
+        # Answer invalid, then default
+        mock_input.side_effect = ("foo", "")
+        with capture_output() as output:
+            value = _ask_for_confirmation_no_tui("custom message 3", default=False)
+        mock_input.assert_called_with("custom message 3 (y/N) ")
+        self.assertFalse(value)
+        self.assertEqual(
+            output.getvalue(),
+            "Invalid input. Must be one of ('y', 'yes', '1', 'n', 'no', '0', '')\n",
+        )
 
 
 @patch("huggingface_hub.commands.delete_cache._ask_for_confirmation_no_tui")
+@patch("huggingface_hub.commands.delete_cache._get_expectations_str")
 @patch("huggingface_hub.commands.delete_cache.inquirer.confirm")
-@patch("huggingface_hub.commands.delete_cache._get_instructions_str")
 @patch("huggingface_hub.commands.delete_cache._manual_review_tui")
 @patch("huggingface_hub.commands.delete_cache._manual_review_no_tui")
 @patch("huggingface_hub.commands.delete_cache.scan_cache_dir")
@@ -241,13 +268,13 @@ class TestMockedDeleteCacheCommand(unittest.TestCase):
         self,
         mock_scan_cache_dir: Mock,
         mock__manual_review_tui: Mock,
-        mock__get_instructions_str: Mock,
+        mock__get_expectations_str: Mock,
         mock_confirm: Mock,
     ) -> None:
         """Test command run with a mocked manual review step."""
         # Mock return values
         mock__manual_review_tui.return_value = ["hash_1", "hash_2"]
-        mock__get_instructions_str.return_value = "Will delete A and B."
+        mock__get_expectations_str.return_value = "Will delete A and B."
         mock_confirm.return_value.execute.return_value = True
         mock_scan_cache_dir.return_value = _get_cache_mock()
 
@@ -264,7 +291,7 @@ class TestMockedDeleteCacheCommand(unittest.TestCase):
         mock__manual_review_tui.assert_called_once_with(cache_mock, preselected=[])
 
         # Step 3: ask confirmation
-        mock__get_instructions_str.assert_called_once_with(
+        mock__get_expectations_str.assert_called_once_with(
             cache_mock, ["hash_1", "hash_2"]
         )
         mock_confirm.assert_called_once_with(
@@ -320,13 +347,13 @@ class TestMockedDeleteCacheCommand(unittest.TestCase):
         self,
         mock_scan_cache_dir: Mock,
         mock__manual_review_no_tui: Mock,
-        mock__get_instructions_str: Mock,
+        mock__get_expectations_str: Mock,
         mock__ask_for_confirmation_no_tui: Mock,
     ) -> None:
         """Test command run with a mocked manual review step."""
         # Mock return values
         mock__manual_review_no_tui.return_value = ["hash_1", "hash_2"]
-        mock__get_instructions_str.return_value = "Will delete A and B."
+        mock__get_expectations_str.return_value = "Will delete A and B."
         mock__ask_for_confirmation_no_tui.return_value.return_value = True
         mock_scan_cache_dir.return_value = _get_cache_mock()
 
@@ -343,7 +370,7 @@ class TestMockedDeleteCacheCommand(unittest.TestCase):
         mock__manual_review_no_tui.assert_called_once_with(cache_mock, preselected=[])
 
         # Step 3: ask confirmation
-        mock__get_instructions_str.assert_called_once_with(
+        mock__get_expectations_str.assert_called_once_with(
             cache_mock, ["hash_1", "hash_2"]
         )
         mock__ask_for_confirmation_no_tui.assert_called_once_with(

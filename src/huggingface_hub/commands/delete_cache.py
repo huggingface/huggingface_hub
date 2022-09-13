@@ -16,8 +16,7 @@
 
 Usage:
     huggingface-cli delete-cache
-    huggingface-cli delete-cache --keep-last
-    huggingface-cli delete-cache --keep-last -y
+    huggingface-cli delete-cache --disable-tui
 
 NOTE:
     This command is based on `InquirerPy` to build the multiselect menu in the terminal.
@@ -77,6 +76,7 @@ except ImportError:
 
 
 def require_inquirer_py(fn: Callable) -> Callable:
+    """Decorator to flag methods that require `InquirerPy`."""
     # TODO: refactor this + imports in a unified pattern across codebase
     @wraps(fn)
     def _inner(*args, **kwargs):
@@ -128,6 +128,7 @@ class DeleteCacheCommand(BaseHuggingfaceCLICommand):
         self.disable_tui: bool = args.disable_tui
 
     def run(self):
+        """Run `delete-cache` command with or without TUI."""
         # Scan cache directory
         hf_cache_info = scan_cache_dir(self.cache_dir)
 
@@ -140,7 +141,7 @@ class DeleteCacheCommand(BaseHuggingfaceCLICommand):
         # If deletion is not cancelled
         if len(selected_hashes) > 0 and _CANCEL_DELETION_STR not in selected_hashes:
             confirm_message = (
-                _get_instructions_str(hf_cache_info, selected_hashes)
+                _get_expectations_str(hf_cache_info, selected_hashes)
                 + " Confirm deletion ?"
             )
 
@@ -183,7 +184,7 @@ def _manual_review_tui(hf_cache_info: HFCacheInfo, preselected: List[str]) -> Li
         height=100,  # Large list if possible
         # We use the instruction to display to the user the expected effect of the
         # deletion.
-        instruction=_get_instructions_str(
+        instruction=_get_expectations_str(
             hf_cache_info,
             selected_hashes=[
                 c.value for c in choices if isinstance(c, Choice) and c.enabled
@@ -203,7 +204,7 @@ def _manual_review_tui(hf_cache_info: HFCacheInfo, preselected: List[str]) -> Li
     def _update_expectations(_) -> None:
         # Hacky way to dynamically set an instruction message to the checkbox when
         # a revision hash is selected/unselected.
-        checkbox._instruction = _get_instructions_str(
+        checkbox._instruction = _get_expectations_str(
             hf_cache_info,
             selected_hashes=[
                 choice["value"]
@@ -337,7 +338,7 @@ def _manual_review_no_tui(
     while True:
         selected_hashes = _read_manual_review_tmp_file(tmp_path)
         if _ask_for_confirmation_no_tui(
-            _get_instructions_str(hf_cache_info, selected_hashes) + " Continue ?",
+            _get_expectations_str(hf_cache_info, selected_hashes) + " Continue ?",
             default=False,
         ):
             break
@@ -365,9 +366,17 @@ def _ask_for_confirmation_no_tui(message: str, default: bool = True) -> bool:
         print(f"Invalid input. Must be one of {ALL}")
 
 
-def _get_instructions_str(
+def _get_expectations_str(
     hf_cache_info: HFCacheInfo, selected_hashes: List[str]
 ) -> str:
+    """Format a string to display to the user how much space would be saved.
+
+    Example:
+    ```
+    >>> _get_expectations_str(hf_cache_info, selected_hashes)
+    '7 revisions selected counting for 4.3G.'
+    ```
+    """
     if _CANCEL_DELETION_STR in selected_hashes:
         return "Nothing will be deleted."
     strategy = hf_cache_info.delete_revisions(*selected_hashes)
@@ -378,6 +387,26 @@ def _get_instructions_str(
 
 
 def _read_manual_review_tmp_file(tmp_path: str) -> List[str]:
+    """Read the manually reviewed instruction file and return a list of revision hash.
+
+    Example:
+        ```txt
+        # This is the tmp file content
+        ###
+
+        # Commented out line
+        123456789 # revision hash
+
+        # Something else
+        #      a_newer_hash # 2 days ago
+            an_older_hash # 3 days ago
+        ```
+
+        ```py
+        >>> _read_manual_review_tmp_file(tmp_path)
+        ['123456789', 'an_older_hash']
+        ```
+    """
     with open(tmp_path) as f:
         content = f.read()
 
