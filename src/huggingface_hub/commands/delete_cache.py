@@ -55,12 +55,15 @@ TODO: add "--limit" arg to limit to X repos ?
 TODO: add "-y" arg for immediate deletion ?
 See discussions in https://github.com/huggingface/huggingface_hub/issues/1025.
 """
+import os
 from argparse import ArgumentParser
 from functools import wraps
+from tempfile import mkstemp
 from typing import Callable, Iterable, List, Optional
 
 from ..utils import CachedRepoInfo, HFCacheInfo, scan_cache_dir
 from . import BaseHuggingfaceCLICommand
+from ._cli_utils import ANSI
 
 
 try:
@@ -288,21 +291,71 @@ def _manual_review_no_tui(
     Used when TUI is disabled. Manual review happens in a separate tmp file that the
     user can manually edit.
     """
-    # 1. Create temporary file with delete commands.
+    # 1. Generate temporary file with delete commands.
+    fd, tmp_path = mkstemp(suffix=".txt")  # suffix to make it easier to find by editors
+    os.close(fd)
+
+    lines = []
+    for repo in sorted(hf_cache_info.repos, key=lambda r: (r.repo_type, r.repo_id)):
+        lines.append(
+            f"\n# {repo.repo_type.capitalize()} {repo.repo_id} ({repo.size_on_disk_str},"
+            f" used {repo.last_accessed_str})"
+        )
+        for revision in sorted(
+            # Sort by last modified first
+            repo.revisions,
+            key=lambda r: r.last_modified,
+            reverse=True,
+        ):
+            lines.append(
+                # Deselect by prepending a '#'
+                f"{'' if revision.commit_hash in preselected else '#'}   "
+                f" {revision.commit_hash} # Refs:"
+                # Print `refs` as comment on same line
+                f" {', '.join(sorted(revision.refs)) or '(detached)'} # modified"
+                # Print `last_modified` as comment on same line
+                f" {revision.last_modified_str}"
+            )
+
+    with open(tmp_path, "w") as f:
+        f.write(_MANUAL_REVIEW_NO_TUI_INSTRUCTIONS)
+        f.write("\n".join(lines))
+
     # 2. Prompt instructions to user.
+    instructions = f"""
+    TUI is disabled. In other to select which revisions you want to delete, please edit
+    the following file using the text editor of your choice. Instructions for manual
+    editing are located at the beginning of the file. Edit the file, save it and confirm
+    to continue.
+    File to edit: {ANSI.bold(tmp_path)}
+    """
+    print("\n".join(line.strip() for line in instructions.strip().split("\n")))
+
     # 3. Wait for user confirmation.
-    # 4. Read back delete commands from temporary file.
-    # 5. Return
-    return []
-
-
-def _ask_for_confirmation_no_tui(message: str) -> bool:
-    """Ask for confirmation using pure-python."""
-    YES = ("", "y", "yes", "1")  # Default
-    NO = ("n", "no", "0")
-    ALL = YES + NO
     while True:
-        answer = input(message + " (Y/n)").lower()
+        selected_hashes = _read_manual_review_tmp_file(tmp_path)
+        if _ask_for_confirmation_no_tui(
+            _get_instructions_str(hf_cache_info, selected_hashes) + " Delete them ?",
+            default=False,
+        ):
+            break
+
+    # 4. Return selected_hashes
+    os.remove(tmp_path)
+    return selected_hashes
+
+
+def _ask_for_confirmation_no_tui(message: str, default: bool = True) -> bool:
+    """Ask for confirmation using pure-python."""
+    YES = ("y", "yes", "1")
+    NO = ("n", "no", "0")
+    DEFAULT = ""
+    ALL = YES + NO + (DEFAULT,)
+    full_message = message + (" (Y/n) " if default else " (y/N) ")
+    while True:
+        answer = input(full_message).lower()
+        if answer == DEFAULT:
+            return default
         if answer in YES:
             return True
         if answer in NO:
@@ -320,3 +373,49 @@ def _get_instructions_str(
         f"{len(selected_hashes)} revisions selected counting for"
         f" {strategy.expected_freed_size_str}."
     )
+
+
+def _read_manual_review_tmp_file(tmp_path: str) -> None:
+    with open(tmp_path) as f:
+        content = f.read()
+
+    # Split lines
+    lines = [line.strip() for line in content.split("\n")]
+
+    # Filter commented lines
+    selected_lines = [line for line in lines if not line.startswith("#")]
+
+    # Select only before comment
+    selected_hashes = [line.split("#")[0].strip() for line in selected_lines]
+
+    # Return revision hashes
+    return [hash for hash in selected_hashes if len(hash) > 0]
+
+
+_MANUAL_REVIEW_NO_TUI_INSTRUCTIONS = """
+# INSTRUCTIONS
+# ------------
+# This is a temporary file created by running `huggingface-cli delete-cache` with the
+# `--disable-tui` option. It contains a set of revisions that can be deleted from your
+# local cache directory.
+#
+# Please manually review the revisions you want to delete:
+#   - Revision hashes can be commented out with '#'.
+#   - Only non-commented revisions in this file will be deleted.
+#   - Revision hashes that are removed from this file are ignored as well.
+#   - If `CANCEL_DELETION` line is uncommented, the all cache deletion is cancelled and
+#     no changes will be applied.
+#
+# Once you've manually reviewed this file, please confirm deletion in the terminal. This
+# file will be automatically removed once done.
+# ------------
+
+# KILL SWITCH
+# ------------
+# Un-comment following line to completely cancel the deletion process
+# CANCEL_DELETION
+# ------------
+
+# REVISIONS
+# ------------
+""".strip()
