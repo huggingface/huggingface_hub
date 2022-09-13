@@ -82,9 +82,11 @@ def require_inquirer_py(fn: Callable) -> Callable:
     def _inner(*args, **kwargs):
         if not _inquirer_py_available:
             raise ImportError(
-                "The `huggingface-cli delete-cache` command require extra dependencies."
-                " Please run `pip install huggingface_hub[cli]` to install them."
+                "The `delete-cache` command requires extra dependencies to work with"
+                " the TUI.\nPlease run `pip install huggingface_hub[cli]` to install"
+                " them.\nOtherwise, disable TUI using the `--disable-tui` flag."
             )
+
         return fn(*args, **kwargs)
 
     return _inner
@@ -114,8 +116,8 @@ class DeleteCacheCommand(BaseHuggingfaceCLICommand):
             "--disable-tui",
             action="store_true",
             help=(
-                "Disable Terminal User Interface mode. Useful if your platform/terminal"
-                " doesn't support the multiselect menu."
+                "Disable Terminal User Interface (TUI) mode. Useful if your"
+                " platform/terminal doesn't support the multiselect menu."
             ),
         )
 
@@ -220,9 +222,9 @@ def _manual_review_tui(hf_cache_info: HFCacheInfo, preselected: List[str]) -> Li
 
 
 @require_inquirer_py
-def _ask_for_confirmation_tui(message: str) -> bool:
+def _ask_for_confirmation_tui(message: str, default: bool = True) -> bool:
     """Ask for confirmation using Inquirer."""
-    return inquirer.confirm(message, default=True).execute()
+    return inquirer.confirm(message, default=default).execute()
 
 
 def _get_tui_choices_from_scan(
