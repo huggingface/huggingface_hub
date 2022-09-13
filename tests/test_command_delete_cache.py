@@ -1,4 +1,8 @@
+import os
 import unittest
+from pathlib import Path
+from tempfile import TemporaryDirectory, mkstemp
+from typing import Set
 from unittest.mock import Mock, patch
 
 from huggingface_hub.commands.delete_cache import (
@@ -6,6 +10,8 @@ from huggingface_hub.commands.delete_cache import (
     DeleteCacheCommand,
     _get_instructions_str,
     _get_tui_choices_from_scan,
+    _manual_review_no_tui,
+    _read_manual_review_tmp_file,
 )
 from InquirerPy.base.control import Choice
 from InquirerPy.separator import Separator
@@ -23,65 +29,14 @@ class TestDeleteCacheHelpers(unittest.TestCase):
         self.assertFalse(choices[0].enabled)
 
     def test_get_tui_choices_from_scan_with_preselection(self) -> None:
-        # First model with 1 revision
-        model_1 = Mock()
-        model_1.repo_type = "model"
-        model_1.repo_id = "gpt2"
-        model_1.size_on_disk_str = "3.6G"
-        model_1.last_accessed_str = "2 hours ago"
-
-        model_1_revision_1 = Mock()
-        model_1_revision_1.commit_hash = "abcdef123456789"
-        model_1_revision_1.refs = {"main", "refs/pr/1"}
-        # model_1_revision_1.last_modified = 123456789  # timestamp
-        model_1_revision_1.last_modified_str = "2 years ago"
-
-        model_1.revisions = {model_1_revision_1}
-
-        # Second model with 2 revisions
-        model_2 = Mock()
-        model_2.repo_type = "model"
-        model_2.repo_id = "dummy_model"
-        model_2.size_on_disk_str = "1.4K"
-        model_2.last_accessed_str = "2 years ago"
-
-        model_2_revision_1 = Mock()
-        model_2_revision_1.commit_hash = "recent_hash_id"
-        model_2_revision_1.refs = {"main"}
-        model_2_revision_1.last_modified = 123456789  # newer timestamp
-        model_2_revision_1.last_modified_str = "2 years ago"
-
-        model_2_revision_2 = Mock()
-        model_2_revision_2.commit_hash = "older_hash_id"
-        model_2_revision_2.refs = {}
-        model_2_revision_2.last_modified = 12345678  # older timestamp
-        model_2_revision_2.last_modified_str = "3 years ago"
-
-        model_2.revisions = {model_2_revision_1, model_2_revision_2}
-
-        # And a dataset with 1 revision
-        dataset_1 = Mock()
-        dataset_1.repo_type = "dataset"
-        dataset_1.repo_id = "dummy_dataset"
-        dataset_1.size_on_disk_str = "8M"
-        dataset_1.last_accessed_str = "2 weeks ago"
-
-        dataset_1_revision_1 = Mock()
-        dataset_1_revision_1.commit_hash = "dataset_revision_hash_id"
-        dataset_1_revision_1.refs = {}
-        dataset_1_revision_1.last_modified_str = "1 day ago"
-
-        dataset_1.revisions = {dataset_1_revision_1}
-
         choices = _get_tui_choices_from_scan(
-            repos={model_1, model_2, dataset_1},
+            repos=_get_cache_mock().repos,
             preselected=[
                 "dataset_revision_hash_id",  # dataset_1 is preselected
                 "a_revision_id_that_does_not_exist",  # unknown but will not complain
                 "older_hash_id",  # only the oldest revision from model_2
             ],
         )
-
         self.assertEqual(len(choices), 8)
 
         # Item to cancel everything
@@ -163,6 +118,106 @@ class TestDeleteCacheHelpers(unittest.TestCase):
         )
         cache_mock.delete_revisions.assert_called_once_with("hash_1", "hash_2")
 
+    def test_read_manual_review_tmp_file(self) -> None:
+        """Test `_read_manual_review_tmp_file`."""
+
+        with TemporaryDirectory() as tmp_dir:
+            tmp_path = Path(tmp_dir) / "file.txt"
+
+            with tmp_path.open("w") as f:
+                f.writelines(
+                    [
+                        "# something commented out\n",
+                        "###\n",
+                        "\n\n\n\n",  # some empty lines
+                        "    # Something commented out after spaces\n",
+                        "a_revision_hash\n",
+                        "a_revision_hash_with_a_comment # 2 years ago\n",
+                        "    a_revision_hash_after_spaces\n",
+                        "  a_revision_hash_with_a_comment_after_spaces # 2years ago\n",
+                        "    # hash_commented_out #  2 years ago\n",
+                        "a_revision_hash\n",  # Duplicate
+                        "",  # empty line
+                    ]
+                )
+
+            # Only non-commented lines are returned
+            # Order is kept and lines are not de-duplicated
+            self.assertListEqual(
+                _read_manual_review_tmp_file(tmp_path),
+                [
+                    "a_revision_hash",
+                    "a_revision_hash_with_a_comment",
+                    "a_revision_hash_after_spaces",
+                    "a_revision_hash_with_a_comment_after_spaces",
+                    "a_revision_hash",
+                ],
+            )
+
+    @patch("huggingface_hub.commands.delete_cache.input")
+    @patch("huggingface_hub.commands.delete_cache.mkstemp")
+    def test_manual_review_no_tui(self, mkstemp_mock: Mock, input_mock: Mock) -> None:
+        # Mock file creation so that we know the file location in test
+        fd, tmp_path = mkstemp()
+        mkstemp_mock.return_value = fd, tmp_path
+
+        # Mock cache
+        cache_mock = _get_cache_mock()
+
+        # Mock input from user
+        def _input_answers():
+            self.assertTrue(os.path.isfile(tmp_path))  # not deleted yet
+            with open(tmp_path) as f:
+                content = f.read()
+            self.assertTrue(content.startswith("# INSTRUCTIONS"))
+
+            # older_hash_id is not commented
+            self.assertIn("\n    older_hash_id # Refs: (detached)", content)
+            # same for abcdef123456789
+            self.assertIn("\n    abcdef123456789 # Refs: main, refs/pr/1", content)
+            # dataset revision is not preselected
+            self.assertIn("#    dataset_revision_hash_id", content)
+            # same for recent_hash_id
+            self.assertIn("#    recent_hash_id", content)
+
+            # Select dataset revision
+            content = content.replace(
+                "#    dataset_revision_hash_id", "dataset_revision_hash_id"
+            )
+            # Deselect abcdef123456789
+            content = content.replace("abcdef123456789", "# abcdef123456789")
+            with open(tmp_path, "w") as f:
+                f.write(content)
+
+            yield "no"  # User edited the file and want to see the strategy diff
+            yield "y"  # User confirms
+
+        input_mock.side_effect = _input_answers()
+
+        # Run manual review
+        with capture_output() as output:
+            selected_hashes = _manual_review_no_tui(
+                hf_cache_info=cache_mock,
+                preselected=["abcdef123456789", "older_hash_id"],
+            )
+
+        # Tmp file has been created but is now deleted
+        mkstemp_mock.assert_called_once_with(suffix=".txt")
+        self.assertFalse(os.path.isfile(tmp_path))  # now deleted
+
+        # User changed the selection
+        self.assertListEqual(
+            selected_hashes, ["dataset_revision_hash_id", "older_hash_id"]
+        )
+
+        # Check printed instructions
+        printed = output.getvalue()
+        self.assertTrue(printed.startswith("TUI is disabled. In other to"))  # ...
+        self.assertIn(tmp_path, printed)
+
+        # Check input called twice
+        self.assertEqual(input_mock.call_count, 2)
+
 
 @patch("huggingface_hub.commands.delete_cache._ask_for_confirmation_no_tui")
 @patch("huggingface_hub.commands.delete_cache.inquirer.confirm")
@@ -195,8 +250,7 @@ class TestMockedDeleteCacheCommand(unittest.TestCase):
         mock__manual_review_tui.return_value = ["hash_1", "hash_2"]
         mock__get_instructions_str.return_value = "Will delete A and B."
         mock_confirm.return_value.execute.return_value = True
-        strategy_mock = mock_scan_cache_dir.return_value.delete_revisions.return_value
-        strategy_mock.expected_freed_size_str = "8M"
+        mock_scan_cache_dir.return_value = _get_cache_mock()
 
         # Run
         self.command.disable_tui = False
@@ -228,7 +282,7 @@ class TestMockedDeleteCacheCommand(unittest.TestCase):
         self.assertEqual(
             output.getvalue(),
             "Start deletion.\n"
-            "Done. Deleted 0 repo(s) and 0 revision(s) for a total of 8M.\n",
+            "Done. Deleted 0 repo(s) and 0 revision(s) for a total of 5.1M.\n",
         )
 
     def test_run_nothing_selected_with_tui(self, mock__manual_review_tui: Mock) -> None:
@@ -262,3 +316,112 @@ class TestMockedDeleteCacheCommand(unittest.TestCase):
 
         # Check output
         self.assertEqual(output.getvalue(), "Deletion is cancelled. Do nothing.\n")
+
+    def test_run_and_delete_no_tui(
+        self,
+        mock_scan_cache_dir: Mock,
+        mock__manual_review_no_tui: Mock,
+        mock__get_instructions_str: Mock,
+        mock__ask_for_confirmation_no_tui: Mock,
+    ) -> None:
+        """Test command run with a mocked manual review step."""
+        # Mock return values
+        mock__manual_review_no_tui.return_value = ["hash_1", "hash_2"]
+        mock__get_instructions_str.return_value = "Will delete A and B."
+        mock__ask_for_confirmation_no_tui.return_value.return_value = True
+        mock_scan_cache_dir.return_value = _get_cache_mock()
+
+        # Run
+        self.command.disable_tui = True
+        with capture_output() as output:
+            self.command.run()
+
+        # Step 1: scan
+        mock_scan_cache_dir.assert_called_once_with(self.args.dir)
+        cache_mock = mock_scan_cache_dir.return_value
+
+        # Step 2: manual review
+        mock__manual_review_no_tui.assert_called_once_with(cache_mock, preselected=[])
+
+        # Step 3: ask confirmation
+        mock__get_instructions_str.assert_called_once_with(
+            cache_mock, ["hash_1", "hash_2"]
+        )
+        mock__ask_for_confirmation_no_tui.assert_called_once_with(
+            "Will delete A and B. Confirm deletion ?"
+        )
+
+        # Step 4: delete
+        cache_mock.delete_revisions.assert_called_once_with("hash_1", "hash_2")
+        strategy_mock = cache_mock.delete_revisions.return_value
+        strategy_mock.execute.assert_called_once_with()
+
+        # Check output
+        self.assertEqual(
+            output.getvalue(),
+            "Start deletion.\n"
+            "Done. Deleted 0 repo(s) and 0 revision(s) for a total of 5.1M.\n",
+        )
+
+
+def _get_cache_mock() -> Mock:
+    # First model with 1 revision
+    model_1 = Mock()
+    model_1.repo_type = "model"
+    model_1.repo_id = "gpt2"
+    model_1.size_on_disk_str = "3.6G"
+    model_1.last_accessed_str = "2 hours ago"
+
+    model_1_revision_1 = Mock()
+    model_1_revision_1.commit_hash = "abcdef123456789"
+    model_1_revision_1.refs = {"main", "refs/pr/1"}
+    # model_1_revision_1.last_modified = 123456789  # timestamp
+    model_1_revision_1.last_modified_str = "2 years ago"
+
+    model_1.revisions = {model_1_revision_1}
+
+    # Second model with 2 revisions
+    model_2 = Mock()
+    model_2.repo_type = "model"
+    model_2.repo_id = "dummy_model"
+    model_2.size_on_disk_str = "1.4K"
+    model_2.last_accessed_str = "2 years ago"
+
+    model_2_revision_1 = Mock()
+    model_2_revision_1.commit_hash = "recent_hash_id"
+    model_2_revision_1.refs = {"main"}
+    model_2_revision_1.last_modified = 123456789  # newer timestamp
+    model_2_revision_1.last_modified_str = "2 years ago"
+
+    model_2_revision_2 = Mock()
+    model_2_revision_2.commit_hash = "older_hash_id"
+    model_2_revision_2.refs = {}
+    model_2_revision_2.last_modified = 12345678  # older timestamp
+    model_2_revision_2.last_modified_str = "3 years ago"
+
+    model_2.revisions = {model_2_revision_1, model_2_revision_2}
+
+    # And a dataset with 1 revision
+    dataset_1 = Mock()
+    dataset_1.repo_type = "dataset"
+    dataset_1.repo_id = "dummy_dataset"
+    dataset_1.size_on_disk_str = "8M"
+    dataset_1.last_accessed_str = "2 weeks ago"
+
+    dataset_1_revision_1 = Mock()
+    dataset_1_revision_1.commit_hash = "dataset_revision_hash_id"
+    dataset_1_revision_1.refs = {}
+    dataset_1_revision_1.last_modified_str = "1 day ago"
+
+    dataset_1.revisions = {dataset_1_revision_1}
+
+    # Fake cache
+    strategy_mock = Mock()
+    strategy_mock.repos = []
+    strategy_mock.snapshots = []
+    strategy_mock.expected_freed_size_str = "5.1M"
+
+    cache_mock = Mock()
+    cache_mock.repos = {model_1, model_2, dataset_1}
+    cache_mock.delete_revisions.return_value = strategy_mock
+    return cache_mock

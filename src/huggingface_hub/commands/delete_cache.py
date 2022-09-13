@@ -337,7 +337,7 @@ def _manual_review_no_tui(
     while True:
         selected_hashes = _read_manual_review_tmp_file(tmp_path)
         if _ask_for_confirmation_no_tui(
-            _get_instructions_str(hf_cache_info, selected_hashes) + " Delete them ?",
+            _get_instructions_str(hf_cache_info, selected_hashes) + " Continue ?",
             default=False,
         ):
             break
@@ -377,7 +377,7 @@ def _get_instructions_str(
     )
 
 
-def _read_manual_review_tmp_file(tmp_path: str) -> None:
+def _read_manual_review_tmp_file(tmp_path: str) -> List[str]:
     with open(tmp_path) as f:
         content = f.read()
 
@@ -394,7 +394,7 @@ def _read_manual_review_tmp_file(tmp_path: str) -> None:
     return [hash for hash in selected_hashes if len(hash) > 0]
 
 
-_MANUAL_REVIEW_NO_TUI_INSTRUCTIONS = """
+_MANUAL_REVIEW_NO_TUI_INSTRUCTIONS = f"""
 # INSTRUCTIONS
 # ------------
 # This is a temporary file created by running `huggingface-cli delete-cache` with the
@@ -405,7 +405,7 @@ _MANUAL_REVIEW_NO_TUI_INSTRUCTIONS = """
 #   - Revision hashes can be commented out with '#'.
 #   - Only non-commented revisions in this file will be deleted.
 #   - Revision hashes that are removed from this file are ignored as well.
-#   - If `CANCEL_DELETION` line is uncommented, the all cache deletion is cancelled and
+#   - If `{_CANCEL_DELETION_STR}` line is uncommented, the all cache deletion is cancelled and
 #     no changes will be applied.
 #
 # Once you've manually reviewed this file, please confirm deletion in the terminal. This
@@ -415,7 +415,7 @@ _MANUAL_REVIEW_NO_TUI_INSTRUCTIONS = """
 # KILL SWITCH
 # ------------
 # Un-comment following line to completely cancel the deletion process
-# CANCEL_DELETION
+# {_CANCEL_DELETION_STR}
 # ------------
 
 # REVISIONS
