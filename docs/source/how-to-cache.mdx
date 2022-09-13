@@ -249,14 +249,18 @@ HFCacheInfo(
 
 Scanning your cache is interesting but what you really want to do next is usually to
 delete some portions to free up some space on your drive. This is possible using the
+`delete-cache` CLI command. One can also programmatically use the
 [`~HFCacheInfo.delete_revisions`] helper from [`HFCacheInfo`] object returned when
 scanning the cache.
 
-Pass a list of revisions to delete and the tool will define a strategy to free up the
-space. It returns a [`DeleteCacheStrategy`] object that describes which files and
-folders will be deleted and the expected freed space. Once you agree with the deletion,
-you must execute it to make the deletion effective. In order to avoid discrepancies, you
-cannot edit a strategy manually.
+### Delete strategy
+
+To delete some cache, you need to pass a list of revisions to delete. The tool will
+define a strategy to free up the space based on this list. It returns a
+[`DeleteCacheStrategy`] object that describes which files and folders will be deleted.
+The [`DeleteCacheStrategy`] allows give you how much space is expected to be freed.
+Once you agree with the deletion, you must execute it to make the deletion effective. In
+order to avoid discrepancies, you cannot edit a strategy object manually.
 
 The strategy to delete revisions is the following:
 
@@ -264,23 +268,6 @@ The strategy to delete revisions is the following:
 - blobs files that are targeted only by revisions to be deleted are deleted as well.
 - if a revision is linked to 1 or more `refs`, references are deleted.
 - if all revisions from a repo are deleted, the entire cached repository is deleted.
-
-Here is a simple usage example. See reference for details.
-
-```py
->>> from huggingface_hub import scan_cache_dir
-
->>> delete_strategy = scan_cache_dir().delete_revisions(
-...     "81fd1d6e7847c99f5862c9fb81387956d99ec7aa"
-...     "e2983b237dccf3ab4937c97fa717319a9ca1a96d",
-...     "6c0e6080953db56375760c0471a8c5f2929baf11",
-... )
->>> print("Will free " + delete_strategy.expected_freed_size_str)
-Will free 8.6G
-
->>> delete_strategy.execute()
-Cache deletion done. Saved 8.6G.
-```
 
 <Tip>
 
@@ -297,3 +284,135 @@ error is thrown. The deletion continues for other paths contained in the
 [`DeleteCacheStrategy`] object.
 
 </Tip>
+
+### From the terminal
+
+The easiest way to delete some revisions from your HF cache-system is to use the
+`delete-cache` command from `huggingface-cli` tool. The command has two modes. By
+default, a TUI (Terminal User Interface) is displayed to the user to select which
+revisions to delete. This TUI is currently in beta as it has not been tested on all
+platforms. If the TUI doesn't work on your machine, you can disable it using the
+`--disable-tui` flag.
+
+#### Using the TUI
+
+This is the default mode. To use it, you first need to install extra dependencies by
+running the following command:
+
+```
+pip install huggingface_hub["cli"]
+```
+
+Then run the command:
+
+```
+huggingface-cli delete-cache
+```
+
+You should now see a list of revisions that you can select/deselect:
+
+![](/media/delete-cache-tui.png)
+
+Instructions:
+    - Press keyboard arrow keys <up> and <down> to move the cursor.
+    - Press <space> to toggle (select/unselect) an item.
+    - When a revision is selected, the first line is updated to show you how much space
+      will be freed.
+    - Press <enter> to confirm your selection.
+    - If you want to cancel the operation and quit, you can select the first item
+      ("None of the following"). If this item is selected, the delete process will be
+      cancelled, no matter what other items are selected. Otherwise you can also press
+      "<ctrl+c>" to quit the TUI.
+
+Once you've selected the revisions you want to delete and pressed <enter>, a last
+confirmation message will be prompted. Press <enter> again and the deletion will be
+effective. If you want to cancel, enter `n`.
+
+```txt
+✗ huggingface-cli delete-cache --dir ~/.cache/huggingface/hub
+? Select revisions to delete: 2 revision(s) selected.
+? 2 revisions selected counting for 3.1G. Confirm deletion ? Yes
+Start deletion.
+Done. Deleted 1 repo(s) and 0 revision(s) for a total of 3.1G.
+```
+
+#### Without TUI
+
+As mentioned above, the TUI mode is currently in beta and is optional. It may be the
+case that it doesn't work on your machine or that you don't find it convenient.
+
+Another approach is to use the `--disable-tui` flag. The process is very similar as you
+will be asked to manually review the list of revisions to delete. However, this manual
+step will not take place in the terminal directly but in a temporary file generated on
+the fly and that you can manually edit.
+
+This file has all the instructions you need in the header. Open it in your favorite text
+editor. To select/deselect a revision, simply comment/uncomment it with a `#`. Once the
+manual review is done and the file is edited, you can save it. Go back to your terminal
+and press <enter>. By default it will compute how much space would be freed with the
+updated list of revisions. You can continue to edit the file or confirm with `"y"`.
+
+```sh
+huggingface-cli delete-cache --disable-tui
+```
+
+Example of command file:
+
+```txt
+# INSTRUCTIONS
+# ------------
+# This is a temporary file created by running `huggingface-cli delete-cache` with the
+# `--disable-tui` option. It contains a set of revisions that can be deleted from your
+# local cache directory.
+#
+# Please manually review the revisions you want to delete:
+#   - Revision hashes can be commented out with '#'.
+#   - Only non-commented revisions in this file will be deleted.
+#   - Revision hashes that are removed from this file are ignored as well.
+#   - If `CANCEL_DELETION` line is uncommented, the all cache deletion is cancelled and
+#     no changes will be applied.
+#
+# Once you've manually reviewed this file, please confirm deletion in the terminal. This
+# file will be automatically removed once done.
+# ------------
+
+# KILL SWITCH
+# ------------
+# Un-comment following line to completely cancel the deletion process
+# CANCEL_DELETION
+# ------------
+
+# REVISIONS
+# ------------
+# Dataset chrisjay/crowd-speech-africa (761.7M, used 5 days ago)
+    ebedcd8c55c90d39fd27126d29d8484566cd27ca # Refs: main # modified 5 days ago
+
+# Dataset oscar (3.3M, used 4 days ago)
+#    916f956518279c5e60c63902ebdf3ddf9fa9d629 # Refs: main # modified 4 days ago
+
+# Dataset wikiann (804.1K, used 2 weeks ago)
+    89d089624b6323d69dcd9e5eb2def0551887a73a # Refs: main # modified 2 weeks ago
+
+# Dataset z-uo/male-LJSpeech-italian (5.5G, used 5 days ago)
+#    9cfa5647b32c0a30d0adfca06bf198d82192a0d1 # Refs: main # modified 5 days ago
+```
+
+### From Python
+
+For more flexibility, you can also use the [`~HFCacheInfo.delete_revisions`] method
+programmatically. Here is a simple example. See reference for details.
+
+```py
+>>> from huggingface_hub import scan_cache_dir
+
+>>> delete_strategy = scan_cache_dir().delete_revisions(
+...     "81fd1d6e7847c99f5862c9fb81387956d99ec7aa"
+...     "e2983b237dccf3ab4937c97fa717319a9ca1a96d",
+...     "6c0e6080953db56375760c0471a8c5f2929baf11",
+... )
+>>> print("Will free " + delete_strategy.expected_freed_size_str)
+Will free 8.6G
+
+>>> delete_strategy.execute()
+Cache deletion done. Saved 8.6G.
+```
