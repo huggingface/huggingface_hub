@@ -67,9 +67,12 @@ class InferenceApiTest(unittest.TestCase):
     @with_production_testing
     def test_inference_with_audio(self):
         api = InferenceApi("facebook/wav2vec2-base-960h")
-        dataset = datasets.load_dataset(
-            "patrickvonplaten/librispeech_asr_dummy", "clean", split="validation"
-        )
+        with self.assertWarns(FutureWarning):
+            dataset = datasets.load_dataset(
+                "patrickvonplaten/librispeech_asr_dummy",
+                "clean",
+                split="validation",
+            )
         data = self.read(dataset["file"][0])
         result = api(data=data)
         self.assertIsInstance(result, dict)
@@ -78,7 +81,12 @@ class InferenceApiTest(unittest.TestCase):
     @with_production_testing
     def test_inference_with_image(self):
         api = InferenceApi("google/vit-base-patch16-224")
-        dataset = datasets.load_dataset("Narsil/image_dummy", "image", split="test")
+        with self.assertWarns(FutureWarning):
+            dataset = datasets.load_dataset(
+                "Narsil/image_dummy",
+                "image",
+                split="test",
+            )
         data = self.read(dataset["file"][0])
         result = api(data=data)
         self.assertIsInstance(result, list)
