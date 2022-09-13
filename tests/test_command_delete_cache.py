@@ -4,6 +4,8 @@ from unittest.mock import Mock, patch
 from huggingface_hub.commands.delete_cache import (
     _CANCEL_DELETION_STR,
     DeleteCacheCommand,
+    _get_instructions_str,
+    _get_tui_choices_from_scan,
 )
 from InquirerPy.base.control import Choice
 from InquirerPy.separator import Separator
@@ -11,20 +13,16 @@ from InquirerPy.separator import Separator
 from .testing_utils import capture_output
 
 
-class TestDeleteCacheCommand(unittest.TestCase):
-    def setUp(self) -> None:
-        self.args = Mock()
-        self.command = DeleteCacheCommand(self.args)
-
-    def test_get_choices_from_scan_empty(self) -> None:
-        choices = self.command._get_choices_from_scan(repos={}, preselected_hashes=[])
+class TestDeleteCacheHelpers(unittest.TestCase):
+    def test_get_tui_choices_from_scan_empty(self) -> None:
+        choices = _get_tui_choices_from_scan(repos={}, preselected=[])
         self.assertEqual(len(choices), 1)
         self.assertIsInstance(choices[0], Choice)
         self.assertEqual(choices[0].value, _CANCEL_DELETION_STR)
         self.assertTrue(len(choices[0].name) != 0)  # Something displayed to the user
         self.assertFalse(choices[0].enabled)
 
-    def test_get_choices_from_scan_with_preselection(self) -> None:
+    def test_get_tui_choices_from_scan_with_preselection(self) -> None:
         # First model with 1 revision
         model_1 = Mock()
         model_1.repo_type = "model"
@@ -75,9 +73,9 @@ class TestDeleteCacheCommand(unittest.TestCase):
 
         dataset_1.revisions = {dataset_1_revision_1}
 
-        choices = self.command._get_choices_from_scan(
+        choices = _get_tui_choices_from_scan(
             repos={model_1, model_2, dataset_1},
-            preselected_hashes=[
+            preselected=[
                 "dataset_revision_hash_id",  # dataset_1 is preselected
                 "a_revision_id_that_does_not_exist",  # unknown but will not complain
                 "older_hash_id",  # only the oldest revision from model_2
@@ -141,7 +139,7 @@ class TestDeleteCacheCommand(unittest.TestCase):
     def test_get_instructions_str_on_no_deletion_item(self) -> None:
         """Test `_get_instructions` when `_CANCEL_DELETION_STR` is passed."""
         self.assertEqual(
-            self.command._get_instructions_str(
+            _get_instructions_str(
                 hf_cache_info=Mock(),
                 selected_hashes=["hash_1", _CANCEL_DELETION_STR, "hash_2"],
             ),
@@ -157,7 +155,7 @@ class TestDeleteCacheCommand(unittest.TestCase):
         cache_mock.delete_revisions.return_value = strategy_mock
 
         self.assertEqual(
-            self.command._get_instructions_str(
+            _get_instructions_str(
                 hf_cache_info=cache_mock,
                 selected_hashes=["hash_1", "hash_2"],
             ),
@@ -168,38 +166,65 @@ class TestDeleteCacheCommand(unittest.TestCase):
 
 @patch("huggingface_hub.commands.delete_cache.scan_cache_dir")
 @patch("huggingface_hub.commands.delete_cache.inquirer.confirm")
+@patch("huggingface_hub.commands.delete_cache._manual_review_tui")
+@patch("huggingface_hub.commands.delete_cache._get_instructions_str")
 class TestMockedDeleteCacheCommand(unittest.TestCase):
     """Test case with a patched `DeleteCacheCommand` to test `.run()` without testing
     the manual review.
     """
 
     args: Mock
-    manual_review_mock: Mock
-    get_instructions_str_mock: Mock
     command: DeleteCacheCommand
 
     def setUp(self) -> None:
         self.args = Mock()
-        self.manual_review_mock = Mock()
-        self.get_instructions_str_mock = Mock()
-
         self.command = DeleteCacheCommand(self.args)
-        self.command._manual_review = self.manual_review_mock
-        self.command._get_instructions_str = self.get_instructions_str_mock
 
-    def test_run_and_delete(
+    def _check_mock_injections(
         self,
+        confirm_mock: Mock,
+        scan_cache_dir_mock: Mock,
+        manual_review_tui_mock: Mock,
+        get_instructions_str_mock: Mock,
+    ) -> None:
+        """Hacky way to check that mocks injection is done correctly.
+
+        When adding/removing a patch, the order might change (and is not alphabetical)
+        which mess up the tests. This helper checks that the order is as expected.
+        """
+        self.assertEqual(confirm_mock._extract_mock_name(), "confirm")
+        self.assertEqual(scan_cache_dir_mock._extract_mock_name(), "scan_cache_dir")
+        self.assertEqual(
+            manual_review_tui_mock._extract_mock_name(), "_manual_review_tui"
+        )
+        self.assertEqual(
+            get_instructions_str_mock._extract_mock_name(), "_get_instructions_str"
+        )
+
+    def test_run_and_delete_with_tui(
+        self,
+        get_instructions_str_mock: Mock,
+        manual_review_tui_mock: Mock,
         confirm_mock: Mock,
         scan_cache_dir_mock: Mock,
     ) -> None:
         """Test command run with a mocked manual review step."""
-        self.manual_review_mock.return_value = ["hash_1", "hash_2"]
-        self.get_instructions_str_mock.return_value = "Will delete A and B."
+        self._check_mock_injections(
+            confirm_mock,
+            scan_cache_dir_mock,
+            manual_review_tui_mock,
+            get_instructions_str_mock,
+        )
+
+        # Mock return values
+        manual_review_tui_mock.return_value = ["hash_1", "hash_2"]
+        get_instructions_str_mock.return_value = "Will delete A and B."
         confirm_mock.return_value.execute.return_value = True
         strategy_mock = scan_cache_dir_mock.return_value.delete_revisions.return_value
         strategy_mock.expected_freed_size_str = "8M"
 
         # Run
+        self.command.disable_tui = False
         with capture_output() as output:
             self.command.run()
 
@@ -208,12 +233,10 @@ class TestMockedDeleteCacheCommand(unittest.TestCase):
         cache_mock = scan_cache_dir_mock.return_value
 
         # Step 2: manual review
-        self.manual_review_mock.assert_called_once_with(
-            cache_mock, preselected_hashes=[]
-        )
+        manual_review_tui_mock.assert_called_once_with(cache_mock, preselected=[])
 
         # Step 3: ask confirmation
-        self.get_instructions_str_mock.assert_called_once_with(
+        get_instructions_str_mock.assert_called_once_with(
             cache_mock, ["hash_1", "hash_2"]
         )
         confirm_mock.assert_called_once_with(
@@ -233,34 +256,52 @@ class TestMockedDeleteCacheCommand(unittest.TestCase):
             "Done. Deleted 0 repo(s) and 0 revision(s) for a total of 8M.\n",
         )
 
-    def test_run_nothing_selected(
+    def test_run_nothing_selected_with_tui(
         self,
+        get_instructions_str_mock: Mock,
+        manual_review_tui_mock: Mock,
         confirm_mock: Mock,
         scan_cache_dir_mock: Mock,
     ) -> None:
         """Test command run but nothing is selected in manual review."""
-        self.manual_review_mock.return_value = []
+        self._check_mock_injections(
+            confirm_mock,
+            scan_cache_dir_mock,
+            manual_review_tui_mock,
+            get_instructions_str_mock,
+        )
+
+        # Mock return value
+        manual_review_tui_mock.return_value = []
 
         # Run
+        self.command.disable_tui = False
         with capture_output() as output:
             self.command.run()
 
         # Check output
         self.assertEqual(output.getvalue(), "Deletion is cancelled. Do nothing.\n")
 
-    def test_run_stuff_selected_but_cancel_item_as_well(
+    def test_run_stuff_selected_but_cancel_item_as_well_with_tui(
         self,
+        get_instructions_str_mock: Mock,
+        manual_review_tui_mock: Mock,
         confirm_mock: Mock,
         scan_cache_dir_mock: Mock,
     ) -> None:
         """Test command run when some are selected but "cancel item" as well."""
-        self.manual_review_mock.return_value = [
-            "hash_1",
-            "hash_2",
-            _CANCEL_DELETION_STR,
-        ]
+        self._check_mock_injections(
+            confirm_mock,
+            scan_cache_dir_mock,
+            manual_review_tui_mock,
+            get_instructions_str_mock,
+        )
+
+        # Mock return value
+        manual_review_tui_mock.return_value = ["hash_1", "hash_2", _CANCEL_DELETION_STR]
 
         # Run
+        self.command.disable_tui = False
         with capture_output() as output:
             self.command.run()
 

@@ -46,6 +46,14 @@ NOTE:
     - `inquirer`: lot of traction (700 stars) but explicitly states "experimental
       support of Windows". Not built on top of `python-prompt-toolkit`.
       See https://github.com/magmax/python-inquirer
+
+TODO: add support for `huggingface-cli delete-cache aaaaaa bbbbbb cccccc (...)` ?
+TODO: add "--keep-last" arg to delete revisions that are not on `main` ref
+TODO: add "--filter" arg to filter repositories by name ?
+TODO: add "--sort" arg to sort by size ?
+TODO: add "--limit" arg to limit to X repos ?
+TODO: add "-y" arg for immediate deletion ?
+See discussions in https://github.com/huggingface/huggingface_hub/issues/1025.
 """
 from argparse import ArgumentParser
 from functools import wraps
@@ -98,40 +106,50 @@ class DeleteCacheCommand(BaseHuggingfaceCLICommand):
                 "cache directory (optional). Default to the default HuggingFace cache."
             ),
         )
+
+        delete_cache_parser.add_argument(
+            "--disable-tui",
+            action="store_true",
+            help=(
+                "Disable Terminal User Interface mode. Useful if your platform/terminal"
+                " doesn't support the multiselect menu."
+            ),
+        )
+
         delete_cache_parser.set_defaults(func=DeleteCacheCommand)
 
     def __init__(self, args):
         self.cache_dir: Optional[str] = args.dir
+        self.disable_tui: bool = args.disable_tui
 
-    @require_inquirer_py
     def run(self):
-        # TODO: add support for `huggingface-cli delete-cache aaaaaa bbbbbb cccccc (...)` as pre-selection
-        # TODO: add "--keep-last" arg to delete revisions that are not on `main` ref
-        # TODO: add "--filter" arg to filter repositories by name
-        # TODO: add "--dry-run" and "--from-dry-run" to bypass the TUI
-        # TODO: add "--sort" arg to sort by size ?
-        # TODO: add "--limit" arg to limit to X repos ?
-        # TODO: add "-y" arg for immediate deletion ?
-        # See https://github.com/huggingface/huggingface_hub/issues/1025
         # Scan cache directory
         hf_cache_info = scan_cache_dir(self.cache_dir)
 
         # Manual review from the user
-        selected_hashes = self._manual_review(hf_cache_info, preselected_hashes=[])
+        if self.disable_tui:
+            selected_hashes = _manual_review_no_tui(hf_cache_info, preselected=[])
+        else:
+            selected_hashes = _manual_review_tui(hf_cache_info, preselected=[])
 
         # If deletion is not cancelled
         if len(selected_hashes) > 0 and _CANCEL_DELETION_STR not in selected_hashes:
-            confirmed = inquirer.confirm(
-                self._get_instructions_str(hf_cache_info, selected_hashes)
-                + " Confirm deletion ?",
-                default=True,
-            ).execute()
+            confirm_message = (
+                _get_instructions_str(hf_cache_info, selected_hashes)
+                + " Confirm deletion ?"
+            )
+
+            # Confirm deletion
+            if self.disable_tui:
+                confirmed = _ask_for_confirmation_no_tui(confirm_message)
+            else:
+                confirmed = _ask_for_confirmation_tui(confirm_message)
 
             # Deletion is confirmed
             if confirmed:
                 strategy = hf_cache_info.delete_revisions(*selected_hashes)
                 print("Start deletion.")
-                # strategy.execute()
+                strategy.execute()
                 print(
                     f"Done. Deleted {len(strategy.repos)} repo(s) and"
                     f" {len(strategy.snapshots)} revision(s) for a total of"
@@ -142,126 +160,163 @@ class DeleteCacheCommand(BaseHuggingfaceCLICommand):
         # Deletion is cancelled
         print("Deletion is cancelled. Do nothing.")
 
-    def _manual_review(
-        self, hf_cache_info: HFCacheInfo, preselected_hashes: List[str]
-    ) -> List[str]:
-        """Displays a multi-select menu in the terminal for the user to manually select
-        and review the revisions to be deleted.
 
-        Some revisions can be preselected.
-        """
-        # Define multiselect list
-        choices = self._get_choices_from_scan(
-            repos=hf_cache_info.repos, preselected_hashes=preselected_hashes
+@require_inquirer_py
+def _manual_review_tui(hf_cache_info: HFCacheInfo, preselected: List[str]) -> List[str]:
+    """Ask the user for a manual review of the revisions to delete.
+
+    Displays a multi-select menu in the terminal (TUI).
+    """
+    # Define multiselect list
+    choices = _get_tui_choices_from_scan(
+        repos=hf_cache_info.repos, preselected=preselected
+    )
+    checkbox = inquirer.checkbox(
+        message="Select revisions to delete:",
+        choices=choices,  # List of revisions with some pre-selection
+        cycle=False,  # No loop between top and bottom
+        height=100,  # Large list if possible
+        # We use the instruction to display to the user the expected effect of the
+        # deletion.
+        instruction=_get_instructions_str(
+            hf_cache_info,
+            selected_hashes=[
+                c.value for c in choices if isinstance(c, Choice) and c.enabled
+            ],
+        ),
+        # We use the long instruction to should keybindings instructions to the user
+        long_instruction=(
+            "Press <space> to select, <enter> to validate and <ctrl+c> to quit"
+            " without modification."
+        ),
+        # Message that is displayed once the user validates its selection.
+        transformer=lambda result: f"{len(result)} revision(s) selected.",
+    )
+
+    # Add a callback to update the information line when a revision is
+    # selected/unselected
+    def _update_expectations(_) -> None:
+        # Hacky way to dynamically set an instruction message to the checkbox when
+        # a revision hash is selected/unselected.
+        checkbox._instruction = _get_instructions_str(
+            hf_cache_info,
+            selected_hashes=[
+                choice["value"]
+                for choice in checkbox.content_control.choices
+                if choice["enabled"]
+            ],
         )
-        checkbox = inquirer.checkbox(
-            message="Select revisions to delete:",
-            choices=choices,  # List of revisions with some pre-selection
-            cycle=False,  # No loop between top and bottom
-            height=16,  # Large list is possible
-            # We use the instruction to display to the user the expected effect of the
-            # deletion.
-            instruction=self._get_instructions_str(
-                hf_cache_info,
-                selected_hashes=[
-                    c.value for c in choices if isinstance(c, Choice) and c.enabled
-                ],
-            ),
-            # We use the long instruction to should keybindings instructions to the user
-            long_instruction=(
-                "Press <space> to select, <enter> to validate and <ctrl+c> to quit"
-                " without modification."
-            ),
-            # Message that is displayed once the user validates its selection.
-            transformer=lambda result: f"{len(result)} revision(s) selected.",
+
+    checkbox.kb_func_lookup["toggle"].append({"func": _update_expectations})
+
+    # Finally display the form to the user.
+    try:
+        return checkbox.execute()
+    except KeyboardInterrupt:
+        return []  # Quit without deletion
+
+
+@require_inquirer_py
+def _ask_for_confirmation_tui(message: str) -> bool:
+    """Ask for confirmation using Inquirer."""
+    return inquirer.confirm(message, default=True).execute()
+
+
+def _get_tui_choices_from_scan(
+    repos: Iterable[CachedRepoInfo], preselected: List[str]
+) -> List:
+    """Build a list of choices from the scanned repos.
+
+    Args:
+        repos (*Iterable[`CachedRepoInfo`]*):
+            List of scanned repos on which we want to delete revisions.
+        preselected (*List[`str`]*):
+            List of revision hashes that will be preselected.
+
+    Return:
+        The list of choices to pass to `inquirer.checkbox`.
+    """
+    choices = []
+
+    # First choice is to cancel the deletion. If selected, nothing will be deleted,
+    # no matter the other selected items.
+    choices.append(
+        Choice(
+            _CANCEL_DELETION_STR,
+            name="None of the following (if selected, nothing will be deleted).",
+            enabled=False,
         )
+    )
 
-        # Add a callback to update the information line when a revision is
-        # selected/unselected
-        def _update_expectations(_) -> None:
-            # Hacky way to dynamically set an instruction message to the checkbox when
-            # a revision hash is selected/unselected.
-            checkbox._instruction = self._get_instructions_str(
-                hf_cache_info,
-                selected_hashes=[
-                    choice["value"]
-                    for choice in checkbox.content_control.choices
-                    if choice["enabled"]
-                ],
-            )
-
-        checkbox.kb_func_lookup["toggle"].append({"func": _update_expectations})
-
-        # Finally display the form to the user.
-        try:
-            return checkbox.execute()
-        except KeyboardInterrupt:
-            return []  # Quit without deletion
-
-    def _get_choices_from_scan(
-        self, repos: Iterable[CachedRepoInfo], preselected_hashes: List[str]
-    ) -> List:
-        """Build a list of choices from the scanned repos.
-
-        Args:
-            repos (*Iterable[`CachedRepoInfo`]*):
-                List of scanned repos on which we want to delete revisions.
-            preselected_hashes (*List[`str`]*):
-                List of revision hashes that will be preselected.
-
-        Return:
-            The list of choices to pass to `inquirer.checkbox`.
-        """
-        choices = []
-
-        # First choice is to cancel the deletion. If selected, nothing will be deleted,
-        # no matter the other selected items.
+    # Display a separator per repo and a Choice for each revisions of the repo
+    for repo in sorted(repos, key=lambda r: (r.repo_type, r.repo_id)):
+        # Repo as separator
         choices.append(
-            Choice(
-                _CANCEL_DELETION_STR,
-                name="None of the following (if selected, nothing will be deleted).",
-                enabled=False,
+            Separator(
+                f"\n{repo.repo_type.capitalize()} {repo.repo_id} ({repo.size_on_disk_str},"
+                f" used {repo.last_accessed_str})"
             )
         )
-
-        # Display a separator per repo and a Choice for each revisions of the repo
-        for repo in sorted(repos, key=lambda r: (r.repo_type, r.repo_id)):
-            # Repo as separator
+        for revision in sorted(
+            # Sort by last modified first
+            repo.revisions,
+            key=lambda r: r.last_modified,
+            reverse=True,
+        ):
+            # Revision as choice
             choices.append(
-                Separator(
-                    f"\n{repo.repo_type.capitalize()} {repo.repo_id} ({repo.size_on_disk_str},"
-                    f" used {repo.last_accessed_str})"
+                Choice(
+                    revision.commit_hash,
+                    name=(
+                        f"{revision.commit_hash[:8]}:"
+                        f" {', '.join(sorted(revision.refs)) or '(detached)'} #"
+                        f" modified {revision.last_modified_str}"
+                    ),
+                    enabled=revision.commit_hash in preselected,
                 )
             )
-            for revision in sorted(
-                # Sort by last modified first
-                repo.revisions,
-                key=lambda r: r.last_modified,
-                reverse=True,
-            ):
-                # Revision as choice
-                choices.append(
-                    Choice(
-                        revision.commit_hash,
-                        name=(
-                            f"{revision.commit_hash[:8]}:"
-                            f" {', '.join(sorted(revision.refs)) or '(detached)'} #"
-                            f" modified {revision.last_modified_str}"
-                        ),
-                        enabled=revision.commit_hash in preselected_hashes,
-                    )
-                )
 
-        # Return choices
-        return choices
+    # Return choices
+    return choices
 
-    def _get_instructions_str(
-        self, hf_cache_info: HFCacheInfo, selected_hashes: List[str]
-    ) -> str:
-        if _CANCEL_DELETION_STR in selected_hashes:
-            return "Nothing will be deleted."
-        strategy = hf_cache_info.delete_revisions(*selected_hashes)
-        return (
-            f"{len(selected_hashes)} revisions selected counting for"
-            f" {strategy.expected_freed_size_str}."
-        )
+
+def _manual_review_no_tui(
+    hf_cache_info: HFCacheInfo, preselected: List[str]
+) -> List[str]:
+    """Ask the user for a manual review of the revisions to delete.
+
+    Used when TUI is disabled. Manual review happens in a separate tmp file that the
+    user can manually edit.
+    """
+    # 1. Create temporary file with delete commands.
+    # 2. Prompt instructions to user.
+    # 3. Wait for user confirmation.
+    # 4. Read back delete commands from temporary file.
+    # 5. Return
+    return []
+
+
+def _ask_for_confirmation_no_tui(message: str) -> bool:
+    """Ask for confirmation using pure-python."""
+    YES = ("", "y", "yes", "1")  # Default
+    NO = ("n", "no", "0")
+    ALL = YES + NO
+    while True:
+        answer = input(message + " (Y/n)").lower()
+        if answer in YES:
+            return True
+        if answer in NO:
+            return False
+        print(f"Invalid input. Must be one of {ALL}")
+
+
+def _get_instructions_str(
+    hf_cache_info: HFCacheInfo, selected_hashes: List[str]
+) -> str:
+    if _CANCEL_DELETION_STR in selected_hashes:
+        return "Nothing will be deleted."
+    strategy = hf_cache_info.delete_revisions(*selected_hashes)
+    return (
+        f"{len(selected_hashes)} revisions selected counting for"
+        f" {strategy.expected_freed_size_str}."
+    )
