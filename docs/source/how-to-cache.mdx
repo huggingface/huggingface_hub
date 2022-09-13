@@ -117,7 +117,7 @@ Therefore it can be useful to scan your cache directory in order to know which r
 and revisions are taking the most disk space. `huggingface_hub` provides an helper to
 do so that can be used via `huggingface-cli` or in a python script.
 
-### From the terminal
+### Scan cache from the terminal
 
 The easiest way to scan your HF cache-system is to use the `scan-cache` command from
 `huggingface-cli` tool. This command scans the cache and prints a report with information
@@ -181,7 +181,7 @@ t5-small                    model     d0a119eedb3718e34c648e594394474cf95e0617  
 t5-small                    model     d78aea13fa7ecd06c29e3e46195d6341255065d5       970.7M        9 1 week ago    main        /home/wauplin/.cache/huggingface/hub/models--t5-small/snapshots/d78aea13fa7ecd06c29e3e46195d6341255065d5
 ```
 
-### From Python
+### Scan cache from Python
 
 For a more advanced usage, use [`scan_cache_dir`] which is the python utility called by
 the CLI tool.
@@ -285,7 +285,7 @@ error is thrown. The deletion continues for other paths contained in the
 
 </Tip>
 
-### From the terminal
+### Clean cache from the terminal
 
 The easiest way to delete some revisions from your HF cache-system is to use the
 `delete-cache` command from `huggingface-cli` tool. The command has two modes. By
@@ -399,7 +399,7 @@ Example of command file:
 #    9cfa5647b32c0a30d0adfca06bf198d82192a0d1 # Refs: main # modified 5 days ago
 ```
 
-### From Python
+### Clean cache from Python
 
 For more flexibility, you can also use the [`~HFCacheInfo.delete_revisions`] method
 programmatically. Here is a simple example. See reference for details.
