@@ -17,6 +17,7 @@
 Usage:
     huggingface-cli delete-cache
     huggingface-cli delete-cache --disable-tui
+    huggingface-cli delete-cache --dir ~/.cache/huggingface/hub
 
 NOTE:
     This command is based on `InquirerPy` to build the multiselect menu in the terminal.
