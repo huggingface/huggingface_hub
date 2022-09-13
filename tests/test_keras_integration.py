@@ -174,7 +174,7 @@ class HubMixingTestKeras(CommonKerasTest):
         )
 
         # Test model id exists
-        model_info = self._api.model_info(repo_id, token=self._token)
+        model_info = self._api.model_info(repo_id, use_auth_token=self._token)
         self.assertEqual(model_info.modelId, repo_id)
 
         # Test config has been pushed to hub

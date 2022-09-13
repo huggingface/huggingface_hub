@@ -92,8 +92,8 @@ def _validate_repo_id_deprecation(repo_id, name, organization):
 
     if repo_id and (name or organization):
         raise ValueError(
-            "Only pass `repo_id` and leave deprecated `name` and "
-            "`organization` to be None."
+            "Only pass `repo_id` and leave deprecated `name` and `organization` to be"
+            " None."
         )
     elif name or organization:
         warnings.warn(
@@ -617,8 +617,8 @@ class HfApi:
             token = HfFolder.get_token()
         if token is None:
             raise ValueError(
-                "You need to pass a valid `token` or login by using `huggingface-cli "
-                "login`"
+                "You need to pass a valid `token` or login by using `huggingface-cli"
+                " login`"
             )
         path = f"{self.endpoint}/api/whoami-v2"
         r = requests.get(path, headers={"authorization": f"Bearer {token}"})
@@ -651,7 +651,7 @@ class HfApi:
 
     def _validate_or_retrieve_token(
         self,
-        token: Optional[str] = None,
+        token: Optional[Union[str, bool]] = None,
         name: Optional[str] = None,
         function_name: Optional[str] = None,
     ):
@@ -676,8 +676,8 @@ class HfApi:
             token = HfFolder.get_token()
             if token is None:
                 raise EnvironmentError(
-                    "You need to provide a `token` or be logged in to Hugging "
-                    "Face with `huggingface-cli login`."
+                    "You need to provide a `token` or be logged in to Hugging Face with"
+                    " `huggingface-cli login`."
                 )
         if name is not None:
             if self._is_valid_token(name):
@@ -695,6 +695,27 @@ class HfApi:
                 raise ValueError("Invalid token passed!")
 
         return token, name
+
+    def _build_auth_headers(
+        self, *, token: Optional[str], use_auth_token: Optional[Union[str, bool]]
+    ) -> Dict[str, str]:
+        """Helper to build Authorization header from kwargs. To be removed in 0.12.0 when `token` is deprecated."""
+        if token is not None:
+            warnings.warn(
+                "`token` is deprecated and will be removed in 0.12.0. Use"
+                " `use_auth_token` instead.",
+                FutureWarning,
+            )
+
+        auth_token = None
+        if use_auth_token is None and token is None:
+            # To maintain backwards-compatibility. To be removed in 0.12.0
+            auth_token = HfFolder.get_token()
+        elif use_auth_token:
+            auth_token, _ = self._validate_or_retrieve_token(use_auth_token)
+        else:
+            auth_token = token
+        return {"authorization": f"Bearer {auth_token}"} if auth_token else {}
 
     @staticmethod
     def set_access_token(access_token: str):
@@ -840,9 +861,10 @@ class HfApi:
         ```
         """
         path = f"{self.endpoint}/api/models"
+        headers = {}
         if use_auth_token:
             token, name = self._validate_or_retrieve_token(use_auth_token)
-        headers = {"authorization": f"Bearer {token}"} if use_auth_token else None
+            headers["authorization"] = f"Bearer {token}"
         params = {}
         if filter is not None:
             if isinstance(filter, ModelFilter):
@@ -1037,9 +1059,10 @@ class HfApi:
         ```
         """
         path = f"{self.endpoint}/api/datasets"
+        headers = {}
         if use_auth_token:
             token, name = self._validate_or_retrieve_token(use_auth_token)
-        headers = {"authorization": f"Bearer {token}"} if use_auth_token else None
+            headers["authorization"] = f"Bearer {token}"
         params = {}
         if filter is not None:
             if isinstance(filter, DatasetFilter):
@@ -1176,9 +1199,10 @@ class HfApi:
             `List[SpaceInfo]`: a list of [`huggingface_hub.hf_api.SpaceInfo`] objects
         """
         path = f"{self.endpoint}/api/spaces"
+        headers = {}
         if use_auth_token:
             token, name = self._validate_or_retrieve_token(use_auth_token)
-        headers = {"authorization": f"Bearer {token}"} if use_auth_token else None
+            headers["authorization"] = f"Bearer {token}"
         params = {}
         if filter is not None:
             params.update({"filter": filter})
@@ -1217,6 +1241,7 @@ class HfApi:
         timeout: Optional[float] = None,
         securityStatus: Optional[bool] = None,
         files_metadata: bool = False,
+        use_auth_token: Optional[Union[bool, str]] = None,
     ) -> ModelInfo:
         """
         Get info on one specific model on huggingface.co
@@ -1231,6 +1256,7 @@ class HfApi:
                 The revision of the model repository from which to get the
                 information.
             token (`str`, *optional*):
+                Deprecated in favor of `use_auth_token`. Will be removed in 0.12.0.
                 An authentication token (See https://huggingface.co/settings/token)
             timeout (`float`, *optional*):
                 Whether to set a timeout for the request to the Hub.
@@ -1240,6 +1266,10 @@ class HfApi:
             files_metadata (`bool`, *optional*):
                 Whether or not to retrieve metadata for files in the repository
                 (size, LFS metadata, etc). Defaults to `False`.
+            use_auth_token (`bool` or `str`, *optional*):
+                Whether to use the `auth_token` provided from the
+                `huggingface_hub` cli. If not logged in, a valid `auth_token`
+                can be passed in as a string.
 
         Returns:
             [`huggingface_hub.hf_api.ModelInfo`]: The model repository information.
@@ -1256,9 +1286,7 @@ class HfApi:
 
         </Tip>
         """
-        if token is None:
-            token = HfFolder.get_token()
-
+        headers = self._build_auth_headers(token=token, use_auth_token=use_auth_token)
         path = (
             f"{self.endpoint}/api/models/{repo_id}"
             if revision is None
@@ -1266,7 +1294,6 @@ class HfApi:
                 f"{self.endpoint}/api/models/{repo_id}/revision/{quote(revision, safe='')}"
             )
         )
-        headers = {"authorization": f"Bearer {token}"} if token is not None else None
         params = {}
         if securityStatus:
             params["securityStatus"] = True
@@ -1291,6 +1318,7 @@ class HfApi:
         token: Optional[str] = None,
         timeout: Optional[float] = None,
         files_metadata: bool = False,
+        use_auth_token: Optional[Union[bool, str]] = None,
     ) -> DatasetInfo:
         """
         Get info on one specific dataset on huggingface.co.
@@ -1305,12 +1333,17 @@ class HfApi:
                 The revision of the dataset repository from which to get the
                 information.
             token (`str`, *optional*):
+                Deprecated in favor of `use_auth_token`. Will be removed in 0.12.0.
                 An authentication token (See https://huggingface.co/settings/token)
             timeout (`float`, *optional*):
                 Whether to set a timeout for the request to the Hub.
             files_metadata (`bool`, *optional*):
                 Whether or not to retrieve metadata for files in the repository
                 (size, LFS metadata, etc). Defaults to `False`.
+            use_auth_token (`bool` or `str`, *optional*):
+                Whether to use the `auth_token` provided from the
+                `huggingface_hub` cli. If not logged in, a valid `auth_token`
+                can be passed in as a string.
 
         Returns:
             [`hf_api.DatasetInfo`]: The dataset repository information.
@@ -1327,8 +1360,7 @@ class HfApi:
 
         </Tip>
         """
-        if token is None:
-            token = HfFolder.get_token()
+        headers = self._build_auth_headers(token=token, use_auth_token=use_auth_token)
 
         path = (
             f"{self.endpoint}/api/datasets/{repo_id}"
@@ -1337,7 +1369,6 @@ class HfApi:
                 f"{self.endpoint}/api/datasets/{repo_id}/revision/{quote(revision, safe='')}"
             )
         )
-        headers = {"authorization": f"Bearer {token}"} if token is not None else None
         params = {}
         if files_metadata:
             params["blobs"] = True
@@ -1356,6 +1387,7 @@ class HfApi:
         token: Optional[str] = None,
         timeout: Optional[float] = None,
         files_metadata: bool = False,
+        use_auth_token: Optional[Union[bool, str]] = None,
     ) -> SpaceInfo:
         """
         Get info on one specific Space on huggingface.co.
@@ -1370,12 +1402,17 @@ class HfApi:
                 The revision of the space repository from which to get the
                 information.
             token (`str`, *optional*):
+                Deprecated in favor of `use_auth_token`. Will be removed in 0.12.0.
                 An authentication token (See https://huggingface.co/settings/token)
             timeout (`float`, *optional*):
                 Whether to set a timeout for the request to the Hub.
             files_metadata (`bool`, *optional*):
                 Whether or not to retrieve metadata for files in the repository
                 (size, LFS metadata, etc). Defaults to `False`.
+            use_auth_token (`bool` or `str`, *optional*):
+                Whether to use the `auth_token` provided from the
+                `huggingface_hub` cli. If not logged in, a valid `auth_token`
+                can be passed in as a string.
 
         Returns:
             [`~hf_api.SpaceInfo`]: The space repository information.
@@ -1392,9 +1429,7 @@ class HfApi:
 
         </Tip>
         """
-        if token is None:
-            token = HfFolder.get_token()
-
+        headers = self._build_auth_headers(token=token, use_auth_token=use_auth_token)
         path = (
             f"{self.endpoint}/api/spaces/{repo_id}"
             if revision is None
@@ -1402,7 +1437,6 @@ class HfApi:
                 f"{self.endpoint}/api/spaces/{repo_id}/revision/{quote(revision, safe='')}"
             )
         )
-        headers = {"authorization": f"Bearer {token}"} if token is not None else None
         params = {}
         if files_metadata:
             params["blobs"] = True
@@ -1422,6 +1456,7 @@ class HfApi:
         token: Optional[str] = None,
         timeout: Optional[float] = None,
         files_metadata: bool = False,
+        use_auth_token: Optional[Union[bool, str]] = None,
     ) -> Union[ModelInfo, DatasetInfo, SpaceInfo]:
         """
         Get the info object for a given repo of a given type.
@@ -1434,12 +1469,17 @@ class HfApi:
                 The revision of the repository from which to get the
                 information.
             token (`str`, *optional*):
+                Deprecated in favor of `use_auth_token`. Will be removed in 0.12.0.
                 An authentication token (See https://huggingface.co/settings/token)
             timeout (`float`, *optional*):
                 Whether to set a timeout for the request to the Hub.
             files_metadata (`bool`, *optional*):
                 Whether or not to retrieve metadata for files in the repository
                 (size, LFS metadata, etc). Defaults to `False`.
+            use_auth_token (`bool` or `str`, *optional*):
+                Whether to use the `auth_token` provided from the
+                `huggingface_hub` cli. If not logged in, a valid `auth_token`
+                can be passed in as a string.
 
         Returns:
             `Union[SpaceInfo, DatasetInfo, ModelInfo]`: The repository information, as a
@@ -1459,31 +1499,21 @@ class HfApi:
         </Tip>
         """
         if repo_type is None or repo_type == "model":
-            return self.model_info(
-                repo_id,
-                revision=revision,
-                token=token,
-                timeout=timeout,
-                files_metadata=files_metadata,
-            )
+            method = self.model_info
         elif repo_type == "dataset":
-            return self.dataset_info(
-                repo_id,
-                revision=revision,
-                token=token,
-                timeout=timeout,
-                files_metadata=files_metadata,
-            )
+            method = self.dataset_info
         elif repo_type == "space":
-            return self.space_info(
-                repo_id,
-                revision=revision,
-                token=token,
-                timeout=timeout,
-                files_metadata=files_metadata,
-            )
+            method = self.space_info
         else:
             raise ValueError("Unsupported repo type.")
+        return method(
+            repo_id,
+            revision=revision,
+            token=token,
+            timeout=timeout,
+            files_metadata=files_metadata,
+            use_auth_token=use_auth_token,
+        )
 
     @validate_hf_hub_args
     def list_repo_files(
@@ -1494,6 +1524,7 @@ class HfApi:
         repo_type: Optional[str] = None,
         token: Optional[str] = None,
         timeout: Optional[float] = None,
+        use_auth_token: Optional[Union[bool, str]] = None,
     ) -> List[str]:
         """
         Get the list of files in a given repo.
@@ -1510,9 +1541,14 @@ class HfApi:
                 space, `None` or `"model"` if uploading to a model. Default is
                 `None`.
             token (`str`, *optional*):
+                Deprecated in favor of `use_auth_token`. Will be removed in 0.12.0.
                 An authentication token (See https://huggingface.co/settings/token)
             timeout (`float`, *optional*):
                 Whether to set a timeout for the request to the Hub.
+            use_auth_token (`bool` or `str`, *optional*):
+                Whether to use the `auth_token` provided from the
+                `huggingface_hub` cli. If not logged in, a valid `auth_token`
+                can be passed in as a string.
 
         Returns:
             `List[str]`: the list of files in a given repository.
@@ -1523,6 +1559,7 @@ class HfApi:
             repo_type=repo_type,
             token=token,
             timeout=timeout,
+            use_auth_token=use_auth_token,
         )
         return [f.rfilename for f in repo_info.siblings]
 
@@ -1997,8 +2034,8 @@ class HfApi:
         """
         if parent_commit is not None and not REGEX_COMMIT_OID.fullmatch(parent_commit):
             raise ValueError(
-                "`parent_commit` is not a valid commit OID. It must match the following"
-                f" regex: {REGEX_COMMIT_OID}"
+                "`parent_commit` is not a valid commit OID. It must match the"
+                f" following regex: {REGEX_COMMIT_OID}"
             )
 
         if commit_message is None or len(commit_message) == 0:
@@ -2498,6 +2535,7 @@ class HfApi:
         *,
         organization: Optional[str] = None,
         token: Optional[str] = None,
+        use_auth_token: Optional[Union[bool, str]] = None,
     ):
         """
         Returns the repository name for a given model ID and optional
@@ -2510,13 +2548,28 @@ class HfApi:
                 If passed, the repository name will be in the organization
                 namespace instead of the user namespace.
             token (`str`, *optional*):
+                Deprecated in favor of `use_auth_token`. Will be removed in 0.12.0.
                 The Hugging Face authentication token
+            use_auth_token (`bool` or `str`, *optional*):
+                Whether to use the `auth_token` provided from the
+                `huggingface_hub` cli. If not logged in, a valid `auth_token`
+                can be passed in as a string.
 
         Returns:
             `str`: The repository name in the user's namespace
             ({username}/{model_id}) if no organization is passed, and under the
             organization namespace ({organization}/{model_id}) otherwise.
         """
+        if token is not None:
+            warnings.warn(
+                "`token` is deprecated and will be removed in 0.12.0. Use"
+                " `use_auth_token` instead.",
+                FutureWarning,
+            )
+
+        if token is None and use_auth_token:
+            token, name = self._validate_or_retrieve_token(use_auth_token)
+
         if organization is None:
             if "/" in model_id:
                 username = model_id.split("/")[0]
@@ -3363,8 +3416,8 @@ def _parse_revision_from_pr_url(pr_url: str) -> str:
     re_match = re.match(_REGEX_DISCUSSION_URL, pr_url)
     if re_match is None:
         raise RuntimeError(
-            "Unexpected response from the hub, expected a Pull Request URL but"
-            f" got: '{pr_url}'"
+            "Unexpected response from the hub, expected a Pull Request URL but got:"
+            f" '{pr_url}'"
         )
     return f"refs/pr/{re_match[1]}"
 

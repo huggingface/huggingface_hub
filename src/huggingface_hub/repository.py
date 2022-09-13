@@ -658,7 +658,9 @@ class Repository:
                 if namespace == user or namespace in valid_organisations:
                     try:
                         _ = HfApi().repo_info(
-                            f"{repo_id}", repo_type=self.repo_type, token=token
+                            f"{repo_id}",
+                            repo_type=self.repo_type,
+                            use_auth_token=token,
                         )
                     except HTTPError:
                         if self.repo_type == "space":

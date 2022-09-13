@@ -112,7 +112,7 @@ class InferenceApi:
             self.headers["Authorization"] = f"Bearer {token}"
 
         # Configure task
-        model_info = HfApi().model_info(repo_id=repo_id, token=token)
+        model_info = HfApi().model_info(repo_id=repo_id, use_auth_token=token)
         if not model_info.pipeline_tag and not task:
             raise ValueError(
                 "Task not specified in the repository. Please add it to the model card"
