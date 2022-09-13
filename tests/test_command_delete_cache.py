@@ -2,7 +2,6 @@ import os
 import unittest
 from pathlib import Path
 from tempfile import TemporaryDirectory, mkstemp
-from typing import Set
 from unittest.mock import Mock, patch
 
 from huggingface_hub.commands.delete_cache import (
