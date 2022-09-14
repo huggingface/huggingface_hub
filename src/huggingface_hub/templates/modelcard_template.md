@@ -33,12 +33,12 @@
 {{ model_description | default("", true) }}
 
 - **Developed by:** {{ developers | default("[More Information Needed]", true)}}
-- **Shared by [Optional]:** {{ shared_by | default("[More Information Needed]", true)}}
+- **Shared by [optional]:** {{ shared_by | default("[More Information Needed]", true)}}
 - **Model type:** {{ model_type | default("[More Information Needed]", true)}}
 - **Language(s) (NLP):** {{ language | default("[More Information Needed]", true)}}
 - **License:** {{ license | default("[More Information Needed]", true)}}
-- **Related Models [Optional]:** {{ related_models | default("[More Information Needed]", true)}}
-    - **Parent Model [Optional]:** {{ parent_model | default("[More Information Needed]", true)}}
+- **Related Models [optional]:** {{ related_models | default("[More Information Needed]", true)}}
+    - **Parent Model [optional]:** {{ parent_model | default("[More Information Needed]", true)}}
 - **Resources for more information:** {{ more_resources | default("[More Information Needed]", true)}}
 
 # Uses
@@ -51,7 +51,7 @@
 
 {{ direct_use | default("[More Information Needed]", true)}}
 
-## Downstream Use [Optional]
+## Downstream Use [optional]
 
 <!-- This section is for the model use when fine-tuned for a task, or when plugged into a larger ecosystem/app -->
 
@@ -83,7 +83,7 @@
 
 {{ training_data | default("[More Information Needed]", true)}}
 
-## Training Procedure [Optional]
+## Training Procedure [optional]
 
 <!-- This relates heavily to the Technical Specifications. Content here should link to that section when it is relevant to the training procedure. -->
 
@@ -125,7 +125,7 @@
 
 {{ results | default("[More Information Needed]", true)}}
 
-# Model Examination [Optional]
+# Model Examination [optional]
 
 <!-- Relevant interpretability work for the model goes here -->
 
@@ -161,7 +161,7 @@ Carbon emissions can be estimated using the [Machine Learning Impact calculator]
 
 {{ software | default("[More Information Needed]", true)}}
 
-# Citation  [Optional]
+# Citation [optional]
 
 <!-- If there is a paper or blog post introducing the model, the APA and Bibtex information for that should go in this section. -->
 
