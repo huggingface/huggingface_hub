@@ -1847,7 +1847,7 @@ class HfApi:
             namespace = organization
 
         if repo_type is None:
-            repo_type = "model" # default repo type
+            repo_type = "model"  # default repo type
 
         path = f"{self.endpoint}/api/{repo_type}s/{namespace}/{name}/settings"
 
