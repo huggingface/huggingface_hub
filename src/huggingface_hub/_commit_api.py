@@ -415,6 +415,7 @@ def prepare_commit_payload(
                 "path": add_op.path_in_repo,
                 "algo": "sha256",
                 "oid": add_op._upload_info().sha256.hex(),
+                "size": add_op._upload_info().size
             }
             for (add_op, upload_mode) in additions
             if upload_mode == "lfs"
