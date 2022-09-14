@@ -37,8 +37,8 @@
 - **Model type:** {{ model_type | default("[More Information Needed]", true)}}
 - **Language(s) (NLP):** {{ language | default("[More Information Needed]", true)}}
 - **License:** {{ license | default("[More Information Needed]", true)}}
-- **Related Models:** {{ related_models | default("[More Information Needed]", true)}}
-    - **Parent Model:** {{ parent_model | default("[More Information Needed]", true)}}
+- **Related Models [Optional]:** {{ related_models | default("[More Information Needed]", true)}}
+    - **Parent Model [Optional]:** {{ parent_model | default("[More Information Needed]", true)}}
 - **Resources for more information:** {{ more_resources | default("[More Information Needed]", true)}}
 
 # Uses
@@ -83,7 +83,7 @@
 
 {{ training_data | default("[More Information Needed]", true)}}
 
-## Training Procedure
+## Training Procedure [Optional]
 
 <!-- This relates heavily to the Technical Specifications. Content here should link to that section when it is relevant to the training procedure. -->
 
@@ -125,7 +125,9 @@
 
 {{ results | default("[More Information Needed]", true)}}
 
-# Model Examination
+# Model Examination [Optional]
+
+<!-- Relevant interpretability work for the model goes here -->
 
 {{ model_examination | default("[More Information Needed]", true)}}
 
@@ -159,7 +161,7 @@ Carbon emissions can be estimated using the [Machine Learning Impact calculator]
 
 {{ software | default("[More Information Needed]", true)}}
 
-# Citation
+# Citation  [Optional]
 
 <!-- If there is a paper or blog post introducing the model, the APA and Bibtex information for that should go in this section. -->
 
