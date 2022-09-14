@@ -63,7 +63,7 @@ LFS_HEADERS = {
 @dataclass
 class UploadInfo:
     """
-    Dataclass holding required information to determine wether a blob
+    Dataclass holding required information to determine whether a blob
     should be uploaded to the hub using the LFS protocol or the regular protocol
 
     Args:

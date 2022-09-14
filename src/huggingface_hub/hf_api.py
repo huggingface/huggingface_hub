@@ -1846,11 +1846,10 @@ class HfApi:
         else:
             namespace = organization
 
-        path_prefix = f"{self.endpoint}/api/"
-        if repo_type in REPO_TYPES_URL_PREFIXES:
-            path_prefix += REPO_TYPES_URL_PREFIXES[repo_type]
+        if repo_type is None:
+            repo_type = "model" # default repo type
 
-        path = f"{path_prefix}{namespace}/{name}/settings"
+        path = f"{self.endpoint}/api/{repo_type}s/{namespace}/{name}/settings"
 
         json = {"private": private}
 
