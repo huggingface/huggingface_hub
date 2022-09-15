@@ -314,6 +314,10 @@ def _login(hf_api, token=None):
 
     helpers = currently_setup_credential_helpers()
 
+    import pdb
+
+    pdb.set_trace()
+
     if "store" not in helpers:
         print(
             ANSI.red(
