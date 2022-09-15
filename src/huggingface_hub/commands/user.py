@@ -342,7 +342,7 @@ def _login(hf_api, token=None):
 def _set_store_as_git_credential_helper_globally() -> None:
     """Set globally the credential.helper to `store`.
 
-    To be used only in Google Colab as we assume the user don't care about the git
+    To be used only in Google Colab as we assume the user doesn't care about the git
     credential config. It is the only particular case where we don't want to display the
     warning message in `notebook_login()`.
 
