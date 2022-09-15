@@ -314,14 +314,11 @@ def _login(hf_api, token=None):
         _set_store_as_git_credential_helper_globally()
 
     print("******************************")
-    print(helpers)
     print(currently_setup_credential_helpers())
     print(_is_google_colab())
     print(os.getcwd())
     print(_set_store_as_git_credential_helper_globally())
     print(run_subprocess("git config --global credential.helper store"))
-    print(helpers)
-    print(currently_setup_credential_helpers())
     print("******************************")
 
     try:
