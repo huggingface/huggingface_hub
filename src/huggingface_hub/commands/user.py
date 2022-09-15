@@ -12,7 +12,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import os
 import subprocess
 from argparse import ArgumentParser
 from getpass import getpass
@@ -325,22 +324,6 @@ def _login(hf_api, token=None):
     # See https://github.com/huggingface/huggingface_hub/issues/1043#issuecomment-1247010710
     if _is_google_colab:
         _set_store_as_git_credential_helper_globally()
-
-    print("******************************")
-    print(currently_setup_credential_helpers())
-    print(_is_google_colab)
-    print(os.getcwd())
-    print(_set_store_as_git_credential_helper_globally())
-    print(run_subprocess("git config --global credential.helper store"))
-    print("******************************")
-
-    try:
-        print(get_ipython())
-        print("c'est bon?")
-    except NameError as e:
-        print(e)
-
-    print("******************************")
 
     helpers = currently_setup_credential_helpers()
 
