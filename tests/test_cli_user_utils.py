@@ -12,7 +12,7 @@ from huggingface_hub.utils import run_subprocess
 class TestMiscUserUtils(unittest.TestCase):
     def test_is_google_colab(self) -> None:
         """Test `_is_google_colab`."""
-        self.assertFalse(_is_google_colab())
+        self.assertFalse(_is_google_colab)
 
 
 class TestSetGlobalStore(unittest.TestCase):
