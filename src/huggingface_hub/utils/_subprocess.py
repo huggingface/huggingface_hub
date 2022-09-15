@@ -13,9 +13,9 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License
-
+import os
 import subprocess
-from typing import List
+from typing import List, Optional, Union
 
 from .logging import get_logger
 
@@ -24,7 +24,7 @@ logger = get_logger(__name__)
 
 
 def run_subprocess(
-    command: List[str], folder: str, check=True, **kwargs
+    command: Union[str, List[str]], folder: Optional[str] = None, check=True, **kwargs
 ) -> subprocess.CompletedProcess:
     """
     Method to run subprocesses. Calling this will capture the `stderr` and `stdout`,
@@ -32,10 +32,11 @@ def run_subprocess(
     be captured.
 
     Args:
-        command (`List[str]`):
-            The command to execute as a list of strings.
-        folder (`str`):
-            The folder in which to run the command.
+        command (`str` or `List[str]`):
+            The command to execute as a string or list of strings.
+        folder (`str`, *optional*):
+            The folder in which to run the command. Defaults to current working
+            directory (from `os.getcwd()`).
         check (`bool`, *optional*, defaults to `True`):
             Setting `check` to `True` will raise a `subprocess.CalledProcessError`
             when the subprocess has a non-zero exit code.
@@ -46,7 +47,7 @@ def run_subprocess(
         `subprocess.CompletedProcess`: The completed process.
     """
     if isinstance(command, str):
-        raise ValueError("`run_subprocess` should be called with a list of strings.")
+        command = command.split()
 
     return subprocess.run(
         command,
@@ -54,6 +55,6 @@ def run_subprocess(
         stdout=subprocess.PIPE,
         check=check,
         encoding="utf-8",
-        cwd=folder,
+        cwd=folder or os.getcwd(),
         **kwargs,
     )
