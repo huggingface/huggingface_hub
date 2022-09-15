@@ -306,6 +306,12 @@ def _login(hf_api, token=None):
     HfFolder.save_token(token)
     print("Login successful")
     print("Your token has been saved to", HfFolder.path_token)
+
+    # Only in Google Colab to avoid the warning message
+    # See https://github.com/huggingface/huggingface_hub/issues/1043#issuecomment-1247010710
+    if _is_google_colab():
+        _set_store_as_git_credential_helper_globally()
+
     helpers = currently_setup_credential_helpers()
 
     if "store" not in helpers:
@@ -318,3 +324,36 @@ def _login(hf_api, token=None):
                 " default\n\ngit config --global credential.helper store"
             )
         )
+
+
+def _is_google_colab() -> bool:
+    """Return `True` if script is running in a Google Colab notebook.
+
+    If running in Google Colab, warning about by default.
+    See https://github.com/huggingface/huggingface_hub/issues/1043
+
+    Taken from https://stackoverflow.com/a/63519730.
+    """
+    return (
+        "google.colab" in str(get_ipython())  # noqa: F821
+        if hasattr(__builtins__, "__IPYTHON__")
+        else False
+    )
+
+
+def _set_store_as_git_credential_helper_globally() -> None:
+    """Set globally the credential.helper to `store`.
+
+    To be used only in Google Colab as we assume the user don't care about the git
+    credential config. It is the only particular case where we don't want to display the
+    warning message in `notebook_login()`.
+
+    Related:
+    - https://github.com/huggingface/huggingface_hub/issues/1043
+    - https://github.com/huggingface/huggingface_hub/issues/1051
+    - https://git-scm.com/docs/git-credential-store
+    """
+    try:
+        run_subprocess("git config --global credential.helper store")
+    except subprocess.CalledProcessError as exc:
+        raise EnvironmentError(exc.stderr)
