@@ -334,6 +334,9 @@ def _is_google_colab() -> bool:
 
     Taken from https://stackoverflow.com/a/63519730.
     """
+    import pdb
+
+    pdb.set_trace()
     return (
         "google.colab" in str(get_ipython())  # noqa: F821
         if hasattr(__builtins__, "__IPYTHON__")
