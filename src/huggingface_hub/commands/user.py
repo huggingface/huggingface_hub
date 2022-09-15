@@ -313,8 +313,6 @@ def _login(hf_api, token=None):
     if _is_google_colab():
         _set_store_as_git_credential_helper_globally()
 
-    helpers = currently_setup_credential_helpers()
-
     print("******************************")
     print(helpers)
     print(currently_setup_credential_helpers())
@@ -322,7 +320,19 @@ def _login(hf_api, token=None):
     print(os.getcwd())
     print(_set_store_as_git_credential_helper_globally())
     print(run_subprocess("git config --global credential.helper store"))
+    print(helpers)
+    print(currently_setup_credential_helpers())
     print("******************************")
+
+    try:
+        print(get_ipython())
+        print("c'est bon?")
+    except NameError as e:
+        print(e)
+
+    print("******************************")
+
+    helpers = currently_setup_credential_helpers()
 
     if "store" not in helpers:
         print(
