@@ -337,7 +337,7 @@ def _is_google_colab() -> bool:
           so let's use a simple try/catch.
     """
     try:
-        "google.colab" in str(get_ipython())  # noqa: F821
+        return "google.colab" in str(get_ipython())  # noqa: F821
     except NameError:
         return False
 
