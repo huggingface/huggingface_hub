@@ -333,15 +333,13 @@ def _is_google_colab() -> bool:
     See https://github.com/huggingface/huggingface_hub/issues/1043
 
     Taken from https://stackoverflow.com/a/63519730.
+    Note: looking in __builtin__  as suggested on SO did not work on google colab for me
+          so let's use a simple try/catch.
     """
-    import pdb
-
-    pdb.set_trace()
-    return (
+    try:
         "google.colab" in str(get_ipython())  # noqa: F821
-        if hasattr(__builtins__, "__IPYTHON__")
-        else False
-    )
+    except NameError:
+        return False
 
 
 def _set_store_as_git_credential_helper_globally() -> None:
