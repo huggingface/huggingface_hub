@@ -251,6 +251,8 @@ class TestValidCacheUtils(unittest.TestCase):
 class TestCorruptedCacheUtils(unittest.TestCase):
     cache_dir: Path
     repo_path: Path
+    refs_path: Path
+    snapshots_path: Path
 
     def setUp(self) -> None:
         """Setup a clean cache for tests that will get corrupted/modified in tests."""
@@ -263,6 +265,8 @@ class TestCorruptedCacheUtils(unittest.TestCase):
         )
 
         self.repo_path = self.cache_dir / "models--valid_org--test_scan_repo_a"
+        self.refs_path = self.repo_path / "refs"
+        self.snapshots_path = self.repo_path / "snapshots"
 
     def test_repo_path_not_valid_dir(self) -> None:
         """Test if found a not valid path in cache dir."""
@@ -309,8 +313,7 @@ class TestCorruptedCacheUtils(unittest.TestCase):
 
     def test_snapshots_path_not_found(self) -> None:
         """Test if snapshots directory is missing in cached repo."""
-        snapshots_path = self.repo_path / "snapshots"
-        shutil.rmtree(snapshots_path)
+        shutil.rmtree(self.snapshots_path)
 
         report = scan_cache_dir(self.cache_dir)
         self.assertEquals(len(report.repos), 0)  # Failed
@@ -318,12 +321,12 @@ class TestCorruptedCacheUtils(unittest.TestCase):
         self.assertEqual(len(report.warnings), 1)
         self.assertEqual(
             str(report.warnings[0]),
-            f"Snapshots dir doesn't exist in cached repo: {snapshots_path}",
+            f"Snapshots dir doesn't exist in cached repo: {self.snapshots_path}",
         )
 
     def test_file_in_snapshots_dir(self) -> None:
         """Test if snapshots directory contains a file."""
-        wrong_file_path = self.repo_path / "snapshots" / "should_not_be_there"
+        wrong_file_path = self.snapshots_path / "should_not_be_there"
         wrong_file_path.touch()
 
         report = scan_cache_dir(self.cache_dir)
@@ -334,6 +337,50 @@ class TestCorruptedCacheUtils(unittest.TestCase):
             str(report.warnings[0]),
             f"Snapshots folder corrupted. Found a file: {wrong_file_path}",
         )
+
+    def test_snapshot_with_no_blob_files(self) -> None:
+        """Test if a snapshot directory (e.g. a cached revision) is empty."""
+        for revision_path in self.snapshots_path.glob("*"):
+            # Delete content of the revision
+            shutil.rmtree(revision_path)
+            revision_path.mkdir()
+
+        # Scan
+        report = scan_cache_dir(self.cache_dir)
+
+        # Get single repo
+        self.assertEqual(len(report.warnings), 0)  # Did not fail
+        self.assertEqual(len(report.repos), 1)
+        repo_report = list(report.repos)[0]
+
+        # Repo report is empty
+        self.assertEqual(repo_report.size_on_disk, 0)
+        self.assertEqual(len(repo_report.revisions), 1)
+        revision_report = list(repo_report.revisions)[0]
+
+        # No files in revision so last_modified is the one from the revision folder
+        self.assertEqual(revision_report.nb_files, 0)
+        self.assertEqual(revision_report.last_modified, revision_path.stat().st_mtime)
+
+    def test_repo_with_no_snapshots(self) -> None:
+        """Test if the snapshot directory exists but is empty."""
+        shutil.rmtree(self.refs_path)
+        shutil.rmtree(self.snapshots_path)
+        self.snapshots_path.mkdir()
+
+        # Scan
+        report = scan_cache_dir(self.cache_dir)
+
+        # Get single repo
+        self.assertEqual(len(report.warnings), 0)  # Did not fail
+        self.assertEqual(len(report.repos), 1)
+        repo_report = list(report.repos)[0]
+
+        # No revisions in repos so last_modified is the one from the repo folder
+        self.assertEqual(repo_report.size_on_disk, 0)
+        self.assertEqual(len(repo_report.revisions), 0)
+        self.assertEqual(repo_report.last_modified, self.repo_path.stat().st_mtime)
+        self.assertEqual(repo_report.last_accessed, self.repo_path.stat().st_atime)
 
     def test_ref_to_missing_revision(self) -> None:
         """Test if a `refs` points to a missing revision."""
