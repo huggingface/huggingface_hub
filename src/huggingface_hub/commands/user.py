@@ -314,9 +314,12 @@ def _login(hf_api, token=None):
 
     helpers = currently_setup_credential_helpers()
 
-    import pdb
-
-    pdb.set_trace()
+    print("******************************")
+    print(helpers())
+    print(_is_google_colab())
+    print(_set_store_as_git_credential_helper_globally())
+    print(run_subprocess("git config --global credential.helper store"))
+    print("******************************")
 
     if "store" not in helpers:
         print(
