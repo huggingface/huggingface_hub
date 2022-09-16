@@ -16,8 +16,6 @@
 import io
 import os
 import re
-import subprocess
-import sys
 from contextlib import AbstractContextManager
 from dataclasses import dataclass
 from math import ceil
@@ -35,24 +33,6 @@ from .utils.sha import sha256, sha_fileobj
 OID_REGEX = re.compile(r"^[0-9a-f]{40}$")
 
 LFS_MULTIPART_UPLOAD_COMMAND = "lfs-multipart-upload"
-
-
-def install_lfs_in_userspace():
-    """
-    If in Linux, installs git-lfs in userspace (sometimes useful if you can't
-    `sudo apt install` or equivalent).
-    """
-    if sys.platform != "linux":
-        raise ValueError("Only implemented for Linux right now")
-    GIT_LFS_TARBALL = "https://github.com/git-lfs/git-lfs/releases/download/v2.13.1/git-lfs-linux-amd64-v2.13.1.tar.gz"
-    CWD = os.path.join(os.getcwd(), "install_lfs")
-    os.makedirs(CWD, exist_ok=True)
-    subprocess.run(
-        ["wget", "-O", "tarball.tar.gz", GIT_LFS_TARBALL], check=True, cwd=CWD
-    )
-    subprocess.run(["tar", "-xvzf", "tarball.tar.gz"], check=True, cwd=CWD)
-    subprocess.run(["bash", "install.sh"], check=True, cwd=CWD)
-
 
 LFS_HEADERS = {
     "Accept": "application/vnd.git-lfs+json",
