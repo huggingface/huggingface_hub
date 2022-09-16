@@ -1424,7 +1424,7 @@ def get_hf_file_metadata(
         proxies (`dict`, *optional*):
             Dictionary mapping protocol to the URL of the proxy passed to
             `requests.request`.
-        etag_timeout (`float`, *optional*, defaults to `10`):
+        etag_timeout (`float`, *optional*, defaults to 10):
             How many seconds to wait for the server to send metadata before giving up.
 
     Returns:
