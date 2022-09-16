@@ -1464,5 +1464,8 @@ def get_hf_file_metadata(
             r.headers.get("ETag")
             or r.headers.get(HUGGINGFACE_HEADER_X_LINKED_ETAG)
         ),
-        location=r.headers.get("Location") or url,
+        # Either from response headers (if redirected) or defaults to request url
+        # Do not use directly `url`, as `_request_wrapper` might have followed relative
+        # redirects.
+        location=r.headers.get("Location") or r.request.url,
     )
