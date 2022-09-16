@@ -1,5 +1,7 @@
+import inspect
 import os
 import stat
+import sys
 import time
 import unittest
 import uuid
@@ -7,8 +9,9 @@ from contextlib import contextmanager
 from distutils.util import strtobool
 from enum import Enum
 from functools import wraps
-from typing import Callable, Optional
-from unittest.mock import patch
+from io import StringIO
+from typing import Callable, Generator, Optional, TypeVar
+from unittest.mock import Mock, patch
 
 import pytest
 
@@ -290,3 +293,126 @@ def expect_deprecation(function_name: str):
         return _inner_test_function
 
     return _inner_decorator
+
+
+@contextmanager
+def capture_output() -> Generator[StringIO, None, None]:
+    """Capture output that is printed to console.
+
+    Especially useful to test CLI commands.
+
+    Taken from https://stackoverflow.com/a/34738440
+
+    Example:
+    ```py
+    class TestHelloWorld(unittest.TestCase):
+        def test_hello_world(self):
+            with capture_output() as output:
+                print("hello world")
+            self.assertEqual(output.getvalue(), "hello world\n")
+    ```
+    """
+    output = StringIO()
+    previous_output = sys.stdout
+    sys.stdout = output
+    yield output
+    sys.stdout = previous_output
+
+
+T = TypeVar("T")
+
+
+def handle_injection(cls: T) -> T:
+    """Handle mock injection for each test of a test class.
+
+    When patching variables on a class level, only relevant mocks will be injected to
+    the tests. This has 2 advantages:
+    1. There is no need to expect all mocks in test arguments when they are not needed.
+    2. Default mock injection append all mocks 1 by 1 to the test args. If the order of
+       the patch calls or test argument is changed, it can lead to unexpected behavior.
+
+    NOTE: `@handle_injection` has to be defined after the `@patch` calls.
+
+    Example:
+    ```py
+    @patch("something.foo")
+    @patch("something_else.foo.bar") # order doesn't matter
+    @handle_injection # after @patch calls
+    def TestHelloWorld(unittest.TestCase):
+
+        def test_hello_foo(self, mock_foo: Mock) -> None:
+            (...)
+
+        def test_hello_bar(self, mock_bar: Mock) -> None
+            (...)
+
+        def test_hello_both(self, mock_foo: Mock, mock_bar: Mock) -> None:
+            (...)
+    ```
+
+    There are limitations with the current implementation:
+    1. All patched variables must have different names.
+       Named injection will not work with both `@patch("something.foo")` and
+       `@patch("something_else.foo")` patches.
+    2. Tests are expected to take only `self` and mock arguments. If it's not the case,
+       this helper will fail.
+    3. Tests arguments must follow the `mock_{variable_name}` naming.
+       Example: `@patch("something._foo")` -> `"mock__foo"`.
+    4. Tests arguments must be typed as `Mock`.
+
+    If required, we can improve the current implementation in the future to mitigate
+    those limitations.
+
+    Based on:
+    - https://stackoverflow.com/a/3467879
+    - https://stackoverflow.com/a/30764825
+    - https://stackoverflow.com/a/57115876
+
+    NOTE: this decorator is inspired from the fixture system from pytest.
+    """
+
+    def _test_decorator(fn: Callable) -> Callable:
+        signature = inspect.signature(fn)
+        parameters = signature.parameters
+
+        @wraps(fn)
+        def _inner(*args, **kwargs):
+            assert kwargs == {}
+
+            # Initialize new dict at least with `self`.
+            assert len(args) > 0
+            assert len(parameters) > 0
+            new_kwargs = {"self": args[0]}
+
+            # Check which mocks have been injected
+            mocks = {}
+            for value in args[1:]:
+                assert isinstance(value, Mock)
+                mock_name = "mock_" + value._extract_mock_name()
+                mocks[mock_name] = value
+
+            # Check which mocks are expected
+            for name, parameter in parameters.items():
+                if name == "self":
+                    continue
+                assert parameter.annotation is Mock
+                assert name in mocks, (
+                    f"Mock `{name}` not found for test `{fn.__name__}`. Available:"
+                    f" {', '.join(sorted(mocks.keys()))}"
+                )
+                new_kwargs[name] = mocks[name]
+
+            # Run test only with a subset of mocks
+            return fn(**new_kwargs)
+
+        return _inner
+
+    # Iterate over class functions and decorate tests
+    # Taken from https://stackoverflow.com/a/3467879
+    #        and https://stackoverflow.com/a/30764825
+    for name, fn in inspect.getmembers(cls):
+        if name.startswith("test_"):
+            setattr(cls, name, _test_decorator(fn))
+
+    # Return decorated class
+    return cls
