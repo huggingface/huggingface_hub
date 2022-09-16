@@ -188,7 +188,7 @@ class HfFileMetadata:
         etag (`str`, *optional*):
             Etag of the file on the server.
         location (`str`):
-            Full url of the file on the Hub.
+            Location where to download the file. Can be a Hub url or not (CDN).
     """
 
     commit_hash: Optional[str]
