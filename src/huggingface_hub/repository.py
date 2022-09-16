@@ -558,7 +558,7 @@ class Repository:
     @property
     @_deprecate_method(
         version="0.12",
-        message="`repo_type` attribute is not a reliable information in `Repository`.",
+        message="Attribute `repo_type` is not a reliable information.",
     )
     def repo_type(self) -> Optional[str]:
         """Make `repo_type` a private attribute to warn users this is not a value to
@@ -570,7 +570,7 @@ class Repository:
     @property
     @_deprecate_method(
         version="0.12",
-        message="`private` attribute will soon be removed.",
+        message="Attribute `private` is not a reliable information.",
     )
     def private(self) -> Optional[str]:
         """Make `private` a private attribute to warn users this is not a value to
