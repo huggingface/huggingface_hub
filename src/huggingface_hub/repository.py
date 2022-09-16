@@ -558,7 +558,7 @@ class Repository:
     @property
     @_deprecate_method(
         version="0.12",
-        message="Attribute `repo_type` is not a reliable information.",
+        message="`repo_type` is only used in a deprecated use case of `clone_from`.",
     )
     def repo_type(self) -> Optional[str]:
         """Make `repo_type` a private attribute to warn users this is not a value to
