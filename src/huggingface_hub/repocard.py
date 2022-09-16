@@ -25,7 +25,7 @@ from huggingface_hub.repocard_data import (
 )
 
 from .constants import REPOCARD_NAME
-from .utils import validate_hf_hub_args
+from .utils import EntryNotFoundError, validate_hf_hub_args
 from .utils.logging import get_logger
 
 
@@ -670,6 +670,8 @@ def metadata_update(
 ) -> str:
     """
     Updates the metadata in the README.md of a repository on the Hugging Face Hub.
+    If the README.md file doesn't exist yet, a new one is created with metadata and an
+    empty content.
 
     Args:
         repo_id (`str`):
@@ -686,7 +688,7 @@ def metadata_update(
             The Hugging Face authentication token.
         commit_message (`str`, *optional*):
             The summary / title / first line of the generated commit. Defaults to
-            `f"Update metdata with huggingface_hub"`
+            `f"Update metadata with huggingface_hub"`
         commit_description (`str` *optional*)
             The description of the generated commit
         revision (`str`, *optional*):
@@ -725,7 +727,12 @@ def metadata_update(
         else "Update metadata with huggingface_hub"
     )
 
-    card = ModelCard.load(repo_id, token=token)
+    # Either load repo_card from the Hub or create an empty one.
+    # NOTE: Will not create the repo if it doesn't exist.
+    try:
+        card = RepoCard.load(repo_id, token=token)
+    except EntryNotFoundError:
+        card = RepoCard("")
 
     for key, value in metadata.items():
         if key == "model-index":

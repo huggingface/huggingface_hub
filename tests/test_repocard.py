@@ -394,6 +394,16 @@ class RepocardMetadataUpdateTest(unittest.TestCase):
         updated_metadata = metadata_load(self.repo_path / self.REPO_NAME / "README.md")
         self.assertDictEqual(updated_metadata, expected_metadata)
 
+    def test_metadata_update_non_existing_readme(self) -> None:
+        repo_id = f"{USER}/{self.REPO_NAME}"
+        self._api.delete_file("README.md", repo_id=repo_id, token=self._token)
+        metadata_update(repo_id, {"tag": "this_is_a_test"}, token=self._token)
+
+        self.assertEqual(
+            ModelCard.load(repo_id, token=self._token).data.to_dict(),
+            {"tag": "this_is_a_test"},
+        )
+
 
 class TestCaseWithCapLog(unittest.TestCase):
     _api = HfApi(endpoint=ENDPOINT_STAGING)
