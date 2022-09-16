@@ -1415,7 +1415,7 @@ def get_hf_file_metadata(
     Args:
         url (`str`):
             File url, for example returned by [`hf_hub_url`].
-        use_auth_token (`str`, `bool`, *optional*):
+        use_auth_token (`str` or `bool`, *optional*):
             A token to be used for the download.
                 - If `True`, the token is read from the HuggingFace config
                   folder.
