@@ -570,7 +570,7 @@ class Repository:
     @property
     @_deprecate_method(
         version="0.12",
-        message="Attribute `private` is not a reliable information.",
+        message="`private` is only used in a deprecated use case of `clone_from`.",
     )
     def private(self) -> Optional[str]:
         """Make `private` a private attribute to warn users this is not a value to
