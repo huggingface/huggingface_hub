@@ -399,7 +399,7 @@ class RepocardMetadataUpdateTest(unittest.TestCase):
         updated_metadata = metadata_load(self.repo_path / self.REPO_NAME / "README.md")
         self.assertDictEqual(updated_metadata, expected_metadata)
 
-    def test_update_metadata_on_empty_text_content(self):
+    def test_update_metadata_on_empty_text_content(self) -> None:
         """Test `update_metadata` on a model card that has metadata but no text content
 
         Regression test for https://github.com/huggingface/huggingface_hub/issues/1010
