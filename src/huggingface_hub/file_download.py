@@ -1431,6 +1431,7 @@ def get_hf_file_metadata(
         A [`HfFileMetadata`] object containing metadata such as location, etag and
         commit_hash.
     """
+    # TODO: helper to get headers from `use_auth_token` (copy-pasted several times)
     headers = {}
     if isinstance(use_auth_token, str):
         headers["authorization"] = f"Bearer {use_auth_token}"
