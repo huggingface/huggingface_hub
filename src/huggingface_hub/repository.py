@@ -18,6 +18,7 @@ from requests.exceptions import HTTPError
 from .hf_api import HfApi, HfFolder, repo_type_and_id_from_hf_id
 from .lfs import LFS_MULTIPART_UPLOAD_COMMAND
 from .utils import logging, run_subprocess, tqdm
+from .utils._deprecation import _deprecate_arguments, _deprecate_method
 
 
 logger = logging.get_logger(__name__)
@@ -420,6 +421,14 @@ class Repository:
 
     command_queue: List[CommandInProgress]
 
+    @_deprecate_arguments(
+        version="0.12",
+        deprecated_args=[
+            # Private arg is only used to create the repo if it doesn't exist which is a
+            # deprecated behavior.
+            "private"
+        ],
+    )
     def __init__(
         self,
         local_dir: str,
@@ -450,11 +459,12 @@ class Repository:
                 path (e.g. `'my_trained_model/'`) to the local directory, where
                 the `Repository` will be initalized.
             clone_from (`str`, *optional*):
-                repository url (e.g.
-                `'https://huggingface.co/philschmid/playground-tests'`).
+                Either a repository url or `repo_id`.
+                Example:
+                - `"https://huggingface.co/philschmid/playground-tests"`
+                - `"philschmid/playground-tests"`
             repo_type (`str`, *optional*):
-                To set when creating a repo: et to "dataset" or "space" if
-                creating a dataset or space, default is model.
+                To set when cloning a repo from a repo_id. Default is model.
             use_auth_token (`str` or `bool`, *optional*, defaults to `True`):
                 huggingface_token can be extract from `HfApi().login(username,
                 password)` and is used to authenticate against the hub (useful
@@ -469,8 +479,6 @@ class Repository:
                 Revision to checkout after initializing the repository. If the
                 revision doesn't exist, a branch will be created with that
                 revision name from the default branch's current HEAD.
-            private (`bool`, *optional*, defaults to `False`):
-                whether the repository is private or not.
             skip_lfs_files (`bool`, *optional*, defaults to `False`):
                 whether to skip git-LFS files or not.
             client (`HfApi`, *optional*):
@@ -480,9 +488,9 @@ class Repository:
 
         os.makedirs(local_dir, exist_ok=True)
         self.local_dir = os.path.join(os.getcwd(), local_dir)
-        self.repo_type = repo_type
+        self._repo_type = repo_type
         self.command_queue = []
-        self.private = private
+        self._private = private
         self.skip_lfs_files = skip_lfs_files
         self.client = client if client is not None else HfApi()
 
@@ -546,6 +554,30 @@ class Repository:
             raise EnvironmentError(exc.stderr)
 
         return result
+
+    @property
+    @_deprecate_method(
+        version="0.12",
+        message="`repo_type` attribute is not a reliable information in `Repository`.",
+    )
+    def repo_type(self) -> Optional[str]:
+        """Make `repo_type` a private attribute to warn users this is not a value to
+        access from `Repository` object (error-prone). Property to be removed when
+        `repo_type` will be definitely removed (v0.12).
+        """
+        return self._repo_type
+
+    @property
+    @_deprecate_method(
+        version="0.12",
+        message="`private` attribute will soon be removed.",
+    )
+    def private(self) -> Optional[str]:
+        """Make `private` a private attribute to warn users this is not a value to
+        access from `Repository` object (error-prone). Property to be removed when
+        `private` will be definitely removed (v0.12).
+        """
+        return self._private
 
     def check_git_versions(self):
         """
@@ -615,7 +647,7 @@ class Repository:
         </Tip>
         """
         token = use_auth_token if use_auth_token is not None else self.huggingface_token
-        if token is None and self.private:
+        if token is None and self._private:
             raise ValueError(
                 "Couldn't load Hugging Face Authorization Token. Credentials are"
                 " required to work with private repositories. Please login in using"
@@ -637,12 +669,12 @@ class Repository:
             )
 
             if repo_type is not None:
-                self.repo_type = repo_type
+                self._repo_type = repo_type
 
             repo_url = hub_url + "/"
 
-            if self.repo_type in REPO_TYPES_URL_PREFIXES:
-                repo_url += REPO_TYPES_URL_PREFIXES[self.repo_type]
+            if self._repo_type in REPO_TYPES_URL_PREFIXES:
+                repo_url += REPO_TYPES_URL_PREFIXES[self._repo_type]
 
             if token is not None:
                 whoami_info = self.client.whoami(token)
@@ -659,11 +691,11 @@ class Repository:
                     try:
                         _ = HfApi().repo_info(
                             f"{repo_id}",
-                            repo_type=self.repo_type,
+                            repo_type=self._repo_type,
                             use_auth_token=token,
                         )
                     except HTTPError:
-                        if self.repo_type == "space":
+                        if self._repo_type == "space":
                             raise ValueError(
                                 "Creating a Space through passing Space link to"
                                 " clone_from is not allowed. Make sure the Space exists"
@@ -679,9 +711,9 @@ class Repository:
                             self.client.create_repo(
                                 repo_id=repo_id,
                                 token=token,
-                                repo_type=self.repo_type,
+                                repo_type=self._repo_type,
                                 exist_ok=True,
-                                private=self.private,
+                                private=self._private,
                             )
 
             else:
@@ -1399,7 +1431,7 @@ class Repository:
                 to the remote.
         """
         if clean_ok and self.is_repo_clean():
-            logger.info("Repo currently clean.  Ignoring push_to_hub")
+            logger.info("Repo currently clean. Ignoring push_to_hub")
             return None
         self.git_add(auto_lfs_track=True)
         self.git_commit(commit_message)
