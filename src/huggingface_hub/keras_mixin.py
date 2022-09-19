@@ -9,12 +9,7 @@ from typing import Any, Dict, List, Optional, Union
 from urllib.parse import quote
 
 import yaml
-from huggingface_hub import (
-    CommitOperationDelete,
-    ModelHubMixin,
-    hf_api,
-    snapshot_download,
-)
+from huggingface_hub import CommitOperationDelete, ModelHubMixin, snapshot_download
 from huggingface_hub.file_download import (
     get_tf_version,
     is_graphviz_available,
@@ -404,9 +399,7 @@ def push_to_hub_keras(
         The url of the commit of your model in the given repository.
     """
     if repo_id is not None:
-        token, _ = hf_api._validate_or_retrieve_token(token)
         api = HfApi(endpoint=api_endpoint)
-
         api.create_repo(
             repo_id=repo_id,
             repo_type="model",

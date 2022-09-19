@@ -14,7 +14,7 @@ import requests
 
 from .constants import ENDPOINT
 from .lfs import UploadInfo, _validate_batch_actions, lfs_upload, post_lfs_batch_info
-from .utils import hf_raise_for_status, logging, validate_hf_hub_args
+from .utils import build_hf_headers, hf_raise_for_status, logging, validate_hf_hub_args
 from .utils._typing import Literal
 
 
@@ -355,7 +355,12 @@ def fetch_upload_modes(
             If the Hub API returned an HTTP 400 error (bad request)
     """
     endpoint = endpoint if endpoint is not None else ENDPOINT
-    headers = {"authorization": f"Bearer {token}"} if token is not None else None
+    headers = build_hf_headers(
+        endpoint=endpoint,
+        token=token,
+        repo_id=repo_id,
+        repo_type=repo_type,
+    )
     payload = {
         "files": [
             {

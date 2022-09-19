@@ -11,7 +11,6 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-
 import subprocess
 from argparse import ArgumentParser
 from getpass import getpass
@@ -28,6 +27,7 @@ from huggingface_hub.hf_api import HfApi
 from requests.exceptions import HTTPError
 
 from ..utils import HfFolder, run_subprocess
+from ..utils._headers import _is_valid_token
 from ._cli_utils import ANSI
 
 
@@ -308,13 +308,16 @@ def notebook_login():
         # Erase token and clear value to make sure it's not saved in the notebook.
         token_widget.value = ""
         clear_output()
-        _login(HfApi(), token=token)
+        _login(token=token)
 
     token_finish_button.on_click(login_token_event)
 
 
-def _login(hf_api, token=None):
-    token, name = hf_api._validate_or_retrieve_token(token)
+def _login(hf_api: HfApi, token: str) -> None:
+    if token.startswith("api_org"):
+        raise ValueError("You must use your personal account token.")
+    if not _is_valid_token(endpoint=hf_api.endpoint, token=token):
+        raise ValueError("Invalid token passed!")
     hf_api.set_access_token(token)
     HfFolder.save_token(token)
     print("Login successful")
