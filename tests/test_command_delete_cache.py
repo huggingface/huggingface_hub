@@ -67,17 +67,17 @@ class TestDeleteCacheHelpers(unittest.TestCase):
             choices[3]._line, "\nModel dummy_model (1.4K, used 2 years ago)"
         )
 
-        # Newest revision of `dummy_model`
-        self.assertIsInstance(choices[4], Choice)
-        self.assertEqual(choices[4].value, "recent_hash_id")
-        self.assertEqual(choices[4].name, "recent_h: main # modified 2 years ago")
-        self.assertFalse(choices[4].enabled)
-
         # Oldest revision of `dummy_model`
+        self.assertIsInstance(choices[4], Choice)
+        self.assertEqual(choices[4].value, "older_hash_id")
+        self.assertEqual(choices[4].name, "older_ha: (detached) # modified 3 years ago")
+        self.assertTrue(choices[4].enabled)  # preselected
+
+        # Newest revision of `dummy_model`
         self.assertIsInstance(choices[5], Choice)
-        self.assertEqual(choices[5].value, "older_hash_id")
-        self.assertEqual(choices[5].name, "older_ha: (detached) # modified 3 years ago")
-        self.assertTrue(choices[5].enabled)  # preselected
+        self.assertEqual(choices[5].value, "recent_hash_id")
+        self.assertEqual(choices[5].name, "recent_h: main # modified 2 years ago")
+        self.assertFalse(choices[5].enabled)
 
         # Model `gpt2` separator
         self.assertIsInstance(choices[6], Separator)
@@ -396,6 +396,7 @@ def _get_cache_mock() -> Mock:
     model_1.repo_type = "model"
     model_1.repo_id = "gpt2"
     model_1.size_on_disk_str = "3.6G"
+    model_1.last_accessed = 1660000000
     model_1.last_accessed_str = "2 hours ago"
 
     model_1_revision_1 = Mock()
@@ -411,6 +412,7 @@ def _get_cache_mock() -> Mock:
     model_2.repo_type = "model"
     model_2.repo_id = "dummy_model"
     model_2.size_on_disk_str = "1.4K"
+    model_2.last_accessed = 1550000000
     model_2.last_accessed_str = "2 years ago"
 
     model_2_revision_1 = Mock()
@@ -432,6 +434,7 @@ def _get_cache_mock() -> Mock:
     dataset_1.repo_type = "dataset"
     dataset_1.repo_id = "dummy_dataset"
     dataset_1.size_on_disk_str = "8M"
+    dataset_1.last_accessed = 1660000000
     dataset_1.last_accessed_str = "2 weeks ago"
 
     dataset_1_revision_1 = Mock()
