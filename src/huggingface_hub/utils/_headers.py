@@ -92,9 +92,6 @@ def build_hf_headers(
             If token is invalid (not recognized by the server).
         [`EnvironmentError`](https://docs.python.org/3/library/exceptions.html#EnvironmentError)
             If "write" access is required but token is not passed and not saved locally.
-        [`EnvironmentError`](https://docs.python.org/3/library/exceptions.html#EnvironmentError)
-            If making a call to a private repo but token is not passed and not saved
-            locally.
     """
     # Get auth token to send
     token_to_send = _get_token_to_send(
@@ -160,21 +157,13 @@ def _get_token_to_send(
         url=url, endpoint=endpoint, repo_id=repo_id, repo_type=repo_type
     ):
         cached_token = HfFolder().get_token()
-        if cached_token is None:
-            if is_write_action:
-                raise EnvironmentError(
-                    "Token is required (write-access action) but no token found. You"
-                    " need to provide a token or be logged in to Hugging Face with"
-                    " `huggingface-cli login` or `notebook_login`. See"
-                    " https://huggingface.co/settings/tokens."
-                )
-            else:
-                raise EnvironmentError(
-                    "Token is required to perform an action on a private repo but no"
-                    " token found. You need to provide a token or be logged in to"
-                    " Hugging Face with `huggingface-cli login` or `notebook_login`."
-                    " See https://huggingface.co/settings/tokens."
-                )
+        if cached_token is None and is_write_action:
+            raise EnvironmentError(
+                "Token is required (write-access action) but no token found. You"
+                " need to provide a token or be logged in to Hugging Face with"
+                " `huggingface-cli login` or `notebook_login`. See"
+                " https://huggingface.co/settings/tokens."
+            )
         token_to_send = cached_token
     else:  # "read" permission + repo is not private/gated
         token_to_send = None
@@ -213,6 +202,8 @@ def _is_private(
             return False
         except RepositoryNotFoundError:
             return True
+        except Exception:  # Anything else: don't assume private repo
+            return False
 
     # Should not happen
     if endpoint is None:
@@ -230,6 +221,8 @@ def _is_private(
         return False
     except RepositoryNotFoundError:
         return True
+    except Exception:  # Anything else: don't assume private repo
+        return False
 
 
 @lru_cache()
