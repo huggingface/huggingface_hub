@@ -43,7 +43,6 @@ from huggingface_hub.hf_api import (
     DatasetInfo,
     DatasetSearchArguments,
     HfApi,
-    HfFolder,
     MetricInfo,
     ModelInfo,
     ModelSearchArguments,
@@ -53,7 +52,7 @@ from huggingface_hub.hf_api import (
     read_from_credential_store,
     repo_type_and_id_from_hf_id,
 )
-from huggingface_hub.utils import RepositoryNotFoundError, logging
+from huggingface_hub.utils import HfFolder, RepositoryNotFoundError, logging
 from huggingface_hub.utils.endpoint_helpers import (
     DatasetFilter,
     ModelFilter,

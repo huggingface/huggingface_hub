@@ -24,10 +24,10 @@ from huggingface_hub.constants import (
     REPO_TYPES_URL_PREFIXES,
     SPACES_SDK_TYPES,
 )
-from huggingface_hub.hf_api import HfApi, HfFolder
+from huggingface_hub.hf_api import HfApi
 from requests.exceptions import HTTPError
 
-from ..utils import run_subprocess
+from ..utils import HfFolder, run_subprocess
 from ._cli_utils import ANSI
 
 

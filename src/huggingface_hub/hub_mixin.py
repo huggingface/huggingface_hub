@@ -9,9 +9,9 @@ from huggingface_hub import hf_api
 
 from .constants import CONFIG_NAME, PYTORCH_WEIGHTS_NAME
 from .file_download import hf_hub_download, is_torch_available
-from .hf_api import HfApi, HfFolder
+from .hf_api import HfApi
 from .repository import Repository
-from .utils import logging, validate_hf_hub_args
+from .utils import HfFolder, logging, validate_hf_hub_args
 from .utils._deprecation import _deprecate_arguments, _deprecate_positional_args
 
 

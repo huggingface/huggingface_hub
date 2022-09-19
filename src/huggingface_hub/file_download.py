@@ -32,9 +32,9 @@ from .constants import (
     REPO_TYPES,
     REPO_TYPES_URL_PREFIXES,
 )
-from .hf_api import HfFolder
 from .utils import (
     EntryNotFoundError,
+    HfFolder,
     LocalEntryNotFoundError,
     hf_raise_for_status,
     http_backoff,

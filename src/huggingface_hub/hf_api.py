@@ -16,7 +16,6 @@ import os
 import re
 import subprocess
 import warnings
-from os.path import expanduser
 from typing import BinaryIO, Dict, Iterable, Iterator, List, Optional, Tuple, Union
 from urllib.parse import quote
 
@@ -51,6 +50,7 @@ from .constants import (
     SPACES_SDK_TYPES,
 )
 from .utils import (
+    HfFolder,
     filter_repo_objects,
     hf_raise_for_status,
     logging,
@@ -3314,54 +3314,6 @@ class HfApi:
             resource=f"comment/{comment_id.lower()}/hide",
         )
         return deserialize_event(resp.json()["updatedComment"])
-
-
-class HfFolder:
-    path_token = expanduser("~/.huggingface/token")
-
-    @classmethod
-    def save_token(cls, token):
-        """
-        Save token, creating folder as needed.
-
-        Args:
-            token (`str`):
-                The token to save to the [`HfFolder`]
-        """
-        os.makedirs(os.path.dirname(cls.path_token), exist_ok=True)
-        with open(cls.path_token, "w+") as f:
-            f.write(token)
-
-    @classmethod
-    def get_token(cls) -> Optional[str]:
-        """
-        Get token or None if not existent.
-
-        Note that a token can be also provided using the
-        `HUGGING_FACE_HUB_TOKEN` environment variable.
-
-        Returns:
-            `str` or `None`: The token, `None` if it doesn't exist.
-
-        """
-        token: Optional[str] = os.environ.get("HUGGING_FACE_HUB_TOKEN")
-        if token is None:
-            try:
-                with open(cls.path_token, "r") as f:
-                    token = f.read()
-            except FileNotFoundError:
-                pass
-        return token
-
-    @classmethod
-    def delete_token(cls):
-        """
-        Deletes the token from storage. Does not fail if token does not exist.
-        """
-        try:
-            os.remove(cls.path_token)
-        except FileNotFoundError:
-            pass
 
 
 def _prepare_upload_folder_commit(

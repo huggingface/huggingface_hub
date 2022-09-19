@@ -8,8 +8,7 @@ import pytest
 
 import requests
 from huggingface_hub import HfApi, Repository, snapshot_download
-from huggingface_hub.hf_api import HfFolder
-from huggingface_hub.utils import logging
+from huggingface_hub.utils import HfFolder, logging
 
 from .testing_constants import ENDPOINT_STAGING, TOKEN, USER
 from .testing_utils import (

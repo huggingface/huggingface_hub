@@ -23,14 +23,9 @@ from huggingface_hub.file_download import (
 )
 
 from .constants import CONFIG_NAME, DEFAULT_REVISION
-from .hf_api import (
-    HfApi,
-    HfFolder,
-    _parse_revision_from_pr_url,
-    _prepare_upload_folder_commit,
-)
+from .hf_api import HfApi, _parse_revision_from_pr_url, _prepare_upload_folder_commit
 from .repository import Repository
-from .utils import logging, validate_hf_hub_args
+from .utils import HfFolder, logging, validate_hf_hub_args
 from .utils._deprecation import _deprecate_arguments, _deprecate_positional_args
 
 
