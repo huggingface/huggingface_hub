@@ -195,7 +195,7 @@ def _get_token_to_send(
     return token_to_send
 
 
-@lru_cache
+@lru_cache()
 def _is_private(
     url: Optional[str],
     endpoint: Optional[str],
@@ -232,7 +232,7 @@ def _is_private(
         return True
 
 
-@lru_cache
+@lru_cache()
 def _is_valid_token(endpoint: str, token: str) -> None:
     """Check if the given token is valid.
 
