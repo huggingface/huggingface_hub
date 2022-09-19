@@ -18,7 +18,7 @@ from typing import Dict, Optional, Union
 
 import requests
 
-from ._errors import HTTPError, RepositoryNotFoundError, hf_raise_for_status
+from ._errors import RepositoryNotFoundError, hf_raise_for_status
 from ._hf_folder import HfFolder
 
 
@@ -103,6 +103,10 @@ def build_hf_headers(
         repo_type=repo_type,
         url=url,
     )
+    if token_to_send is not None:
+        _validate_token_to_send(
+            token_to_send, endpoint=endpoint, is_write_action=is_write_action
+        )
 
     # Combine headers
     headers = {}
@@ -128,15 +132,15 @@ def _get_token_to_send(
     """
     # Case token is explicitly provided via `token`
     if token is not None:
-        token_to_send = token
+        return token
 
     # Case token is explicitly provided via `use_auth_token`
     elif isinstance(use_auth_token, str):
-        token_to_send = use_auth_token
+        return use_auth_token
 
     # Case token is explicitly forbidden
     elif use_auth_token is False:
-        token_to_send = None
+        return None
 
     # Case token is explicitly required
     elif use_auth_token is True:
@@ -148,7 +152,7 @@ def _get_token_to_send(
                 " `huggingface-cli login` or `notebook_login`. See"
                 " https://huggingface.co/settings/tokens."
             )
-        token_to_send = cached_token
+        return cached_token
 
     # Otherwise: user did not give a preference whether to send a token or not.
     # In order to preserve user privacy, token is sent only for private/gated repos or
@@ -164,24 +168,25 @@ def _get_token_to_send(
                 " `huggingface-cli login` or `notebook_login`. See"
                 " https://huggingface.co/settings/tokens."
             )
-        token_to_send = cached_token
+        return cached_token
     else:  # "read" permission + repo is not private/gated
-        token_to_send = None
+        return None
 
-    # Validate token and return
-    if token_to_send is not None:
-        if is_write_action and token_to_send.startswith("api_org"):
-            raise ValueError(
-                "You must use your personal account token for write-access methods. To"
-                " generate a write-access token, go to"
-                " https://huggingface.co/settings/tokens"
-            )
-        if endpoint is not None and not _is_valid_token(endpoint, token_to_send):
-            raise ValueError(
-                "Invalid token passed! Go to https://huggingface.co/settings/tokens to"
-                " get one."
-            )
-    return token_to_send
+
+def _validate_token_to_send(
+    token: str, endpoint: Optional[str], is_write_action: bool
+) -> None:
+    if is_write_action and token.startswith("api_org"):
+        raise ValueError(
+            "You must use your personal account token for write-access methods. To"
+            " generate a write-access token, go to"
+            " https://huggingface.co/settings/tokens"
+        )
+    if endpoint is not None and not _is_valid_token(endpoint, token):
+        raise ValueError(
+            "Invalid token passed! Go to https://huggingface.co/settings/tokens to"
+            " get one."
+        )
 
 
 @lru_cache()
@@ -237,5 +242,5 @@ def _is_valid_token(endpoint: str, token: str) -> None:
     try:
         hf_raise_for_status(r)
         return True
-    except HTTPError:
+    except Exception:
         return False

@@ -985,7 +985,6 @@ class HfApi:
         ```
         """
         path = f"{self.endpoint}/api/datasets"
-        headers = {}
         headers = build_hf_headers(
             use_auth_token=use_auth_token, endpoint=self.endpoint
         )
