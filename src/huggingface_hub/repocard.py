@@ -3,7 +3,7 @@ import re
 import sys
 import tempfile
 from pathlib import Path
-from typing import Any, Dict, Optional, Union
+from typing import Any, Dict, Optional, Type, Union
 
 
 if sys.version_info >= (3, 8):
@@ -727,12 +727,19 @@ def metadata_update(
         else "Update metadata with huggingface_hub"
     )
 
+    # Card class given repo_type
+    card_class: Type[RepoCard] = RepoCard
+    if repo_type is None or repo_type == "model":
+        card_class = ModelCard
+    elif repo_type == "dataset":
+        card_class = DatasetCard
+
     # Either load repo_card from the Hub or create an empty one.
     # NOTE: Will not create the repo if it doesn't exist.
     try:
-        card = RepoCard.load(repo_id, token=token)
+        card = card_class.load(repo_id, token=token)
     except EntryNotFoundError:
-        card = RepoCard("")
+        card = card_class("")
 
     for key, value in metadata.items():
         if key == "model-index":
