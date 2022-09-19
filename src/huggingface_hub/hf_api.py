@@ -2511,7 +2511,7 @@ class HfApi:
             if "/" in model_id:
                 username = model_id.split("/")[0]
             else:
-                username = self.whoami(token=token)["name"]
+                username = self.whoami(token=token or use_auth_token)["name"]
             return f"{username}/{model_id}"
         else:
             return f"{organization}/{model_id}"
