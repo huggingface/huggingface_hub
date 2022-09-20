@@ -73,7 +73,8 @@ REPO_TYPES_MAPPING = {
 default_home = os.path.join("~", ".cache")
 hf_cache_home = os.path.expanduser(
     os.getenv(
-        "HF_HOME", os.path.join(os.getenv("XDG_CACHE_HOME", default_home), "huggingface")
+        "HF_HOME",
+        os.path.join(os.getenv("XDG_CACHE_HOME", default_home), "huggingface"),
     )
 )
 default_cache_path = os.path.join(hf_cache_home, "hub")
