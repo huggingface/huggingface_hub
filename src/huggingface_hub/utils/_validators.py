@@ -17,7 +17,7 @@ import inspect
 import re
 from functools import wraps
 from itertools import chain
-from typing import Callable, TypeVar
+from typing import TypeVar
 
 
 REPO_ID_REGEX = re.compile(

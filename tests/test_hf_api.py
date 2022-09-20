@@ -844,7 +844,7 @@ class CommitApiTest(HfApiCommonTestWithLogin):
                         )
                         # Check commit info
                         self.assertIsInstance(resp, CommitInfo)
-                        self.assertIsNone(resp.pr_url) # No pr created
+                        self.assertIsNone(resp.pr_url)  # No pr created
                     with self.assertRaises(HTTPError):
                         # Should raise a 404
                         hf_hub_download(
