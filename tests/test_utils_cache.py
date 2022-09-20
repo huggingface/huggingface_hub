@@ -3,13 +3,10 @@ import shutil
 import time
 import unittest
 from pathlib import Path
-from tempfile import TemporaryDirectory
-from typing import Generator
 from unittest.mock import Mock
 
 import pytest
 
-from _pytest.fixtures import SubRequest
 from huggingface_hub._snapshot_download import snapshot_download
 from huggingface_hub.commands.scan_cache import ScanCacheCommand
 from huggingface_hub.utils import DeleteCacheStrategy, HFCacheInfo, scan_cache_dir
@@ -30,14 +27,6 @@ REPO_A_MAIN_HASH = "401874e6a9c254a8baae85edd8a073921ecbd7f5"
 REPO_A_PR_1_HASH = "fc674b0d440d3ea6f94bc4012e33ebd1dfc11b5b"
 REPO_A_OTHER_HASH = "1da18ebd9185d146bcf84e308de53715d97d67d1"
 REPO_A_MAIN_README_BLOB_HASH = "4baf04727c45b660add228b2934001991bd34b29"
-
-
-@pytest.fixture
-def fx_cache_dir(request: SubRequest) -> Generator[None, None, None]:
-    """Add a `cache_dir` attribute pointing to a temporary directory."""
-    with TemporaryDirectory() as cache_dir:
-        request.cls.cache_dir = Path(cache_dir).resolve()
-        yield
 
 
 @pytest.mark.usefixtures("fx_cache_dir")

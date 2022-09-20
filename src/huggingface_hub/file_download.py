@@ -196,9 +196,16 @@ with tempfile.TemporaryDirectory() as tmpdir:
             if os.name == "nt":
                 message += (
                     "\nTo support symlinks on Windows, you either need to activate"
-                    " Developer Mode or to run Python as an administrator."
+                    " Developer Mode or to run Python as an administrator. In order to"
+                    " see activate developer mode, see this article:"
+                    " https://docs.microsoft.com/en-us/windows/apps/get-started/enable-your-device-for-development"
                 )
             warnings.warn(message)
+
+
+def are_symlinks_supported():
+    return _are_symlinks_supported
+
 
 # Return value when trying to load a file from cache but the file does not exist in the distant repo.
 _CACHED_NO_EXIST = object()
@@ -915,7 +922,7 @@ def _create_relative_symlink(src: str, dst: str, new_blob: bool = False) -> None
     except OSError:
         pass
 
-    if _are_symlinks_supported:
+    if are_symlinks_supported():
         os.symlink(relative_src, dst)
     elif new_blob:
         os.replace(src, dst)

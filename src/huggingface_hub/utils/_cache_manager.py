@@ -631,7 +631,6 @@ def _scan_cached_repo(repo_path: Path) -> CachedRepoInfo:
 
     snapshots_path = repo_path / "snapshots"
     refs_path = repo_path / "refs"
-    blobs_path = repo_path / "blobs"
 
     if not snapshots_path.exists() or not snapshots_path.is_dir():
         raise CorruptedCacheException(
