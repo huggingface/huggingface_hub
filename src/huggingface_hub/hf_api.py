@@ -175,22 +175,22 @@ class BlobLfsInfo(TypedDict, total=False):
 class CommitInfo:
     """Data structure containing information about a newly created commit.
 
-    Returned by `create_commit(...)`.
+    Returned by [`create_commit`].
 
     Args:
-        commit_url (str):
+        commit_url (`str`):
             Url where to find the commit.
 
-        commit_message (str):
+        commit_message (`str`):
             The summary (first line) of the commit that has been created.
 
-        commit_description (str):
+        commit_description (`str`):
             Description of the commit that has been created. Can be empty.
 
-        oid (str):
+        oid (`str`):
             Commit hash id. Example: `"91c54ad1727ee830252e457677f467be0bfd8a57"`.
 
-        pr_url (str, *optional*):
+        pr_url (`str`, *optional*):
             Url to the PR that has been created, if any. Populated when `create_pr=True`
             is passed.
     """
