@@ -458,7 +458,7 @@ def push_to_hub_keras(
                 allow_patterns=allow_patterns,
                 ignore_patterns=ignore_patterns,
             )
-            pr_url = api.create_commit(
+            commit_info = api.create_commit(
                 repo_type="model",
                 repo_id=repo_id,
                 operations=operations,
@@ -470,8 +470,8 @@ def push_to_hub_keras(
             revision = branch
             if revision is None:
                 revision = (
-                    quote(_parse_revision_from_pr_url(pr_url), safe="")
-                    if pr_url is not None
+                    quote(_parse_revision_from_pr_url(commit_info.pr_url), safe="")
+                    if commit_info.pr_url is not None
                     else DEFAULT_REVISION
                 )
             return f"{api.endpoint}/{repo_id}/tree/{revision}/"

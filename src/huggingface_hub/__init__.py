@@ -103,6 +103,7 @@ _SUBMOD_ATTRS = {
         "change_discussion_status",
         "comment_discussion",
         "create_commit",
+        "CommitInfo",
         "create_discussion",
         "create_pull_request",
         "create_repo",
