@@ -4,6 +4,7 @@ import io
 import json
 import os
 import re
+import shutil
 import sys
 import tempfile
 import warnings
@@ -859,7 +860,7 @@ def _normalize_etag(etag: Optional[str]) -> Optional[str]:
     return etag.strip('"')
 
 
-def _create_relative_symlink(src: str, dst: str) -> None:
+def _create_relative_symlink(src: str, dst: str, new_blob: bool = False) -> None:
     """Create a symbolic link named dst pointing to src as a relative path to dst.
 
     The relative part is mostly because it seems more elegant to the author.
@@ -880,14 +881,23 @@ def _create_relative_symlink(src: str, dst: str) -> None:
     except OSError:
         # Likely running on Windows
         if os.name == "nt":
-            raise OSError(
+            warnings.warn(
                 "Windows requires Developer Mode to be activated, or to run Python as "
                 "an administrator, in order to create symlinks.\nIn order to "
                 "activate Developer Mode, see this article: "
                 "https://docs.microsoft.com/en-us/windows/apps/get-started/enable-your-device-for-development"
             )
+
+        # Symlink cannot be created on this platform (most likely to be Windows).
+        # The workaround is to avoid symlinks by having the actual file in `dst`. If it
+        # is a new file (`new_blob=True`), we move it to `dst`. If it is not a new file
+        # (`new_blob=False`), we don't know if the blob file is already referenced
+        # elsewhere. To avoid breaking existing cache, the file is duplicated on the
+        # disk.
+        if new_blob:
+            os.replace(src, dst)
         else:
-            raise
+            shutil.copyfile(src, dst)
 
 
 def _cache_commit_hash_for_specific_revision(
@@ -1266,7 +1276,7 @@ def hf_hub_download(
     if os.path.exists(blob_path) and not force_download:
         # we have the blob already, but not the pointer
         logger.info("creating pointer to %s from %s", blob_path, pointer_path)
-        _create_relative_symlink(blob_path, pointer_path)
+        _create_relative_symlink(blob_path, pointer_path, new_blob=False)
         return pointer_path
 
     # Prevent parallel downloads of the same file with a lock.
@@ -1322,7 +1332,7 @@ def hf_hub_download(
         os.replace(temp_file.name, blob_path)
 
         logger.info("creating pointer to %s from %s", blob_path, pointer_path)
-        _create_relative_symlink(blob_path, pointer_path)
+        _create_relative_symlink(blob_path, pointer_path, new_blob=True)
 
     try:
         os.remove(lock_path)
