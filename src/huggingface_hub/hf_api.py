@@ -193,6 +193,15 @@ class CommitInfo:
         pr_url (`str`, *optional*):
             Url to the PR that has been created, if any. Populated when `create_pr=True`
             is passed.
+
+        pr_revision (`str`, *optional*):
+            Revision of the PR that has been created, if any. Populated when
+            `create_pr=True` is passed. Example: `"refs/pr/1"`.
+
+        pr_num (`int`, *optional*):
+            Number of the PR discussion that has been created, if any. Populated when
+            `create_pr=True` is passed. Can be passed as `discussion_num` in
+            [`get_discussion_details`]. Example: `1`.
     """
 
     commit_url: str
@@ -200,6 +209,17 @@ class CommitInfo:
     commit_description: str
     oid: str
     pr_url: Optional[str] = None
+
+    @property
+    def pr_revision(self) -> Optional[str]:
+        if self.pr_url is not None:
+            return _parse_revision_from_pr_url(self.pr_url)
+
+    @property
+    def pr_num(self) -> Optional[int]:
+        revision = self.pr_revision
+        if revision is not None:
+            return int(revision.split("/")[-1])
 
 
 class RepoFile:

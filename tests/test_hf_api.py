@@ -775,6 +775,8 @@ class CommitApiTest(HfApiCommonTestWithLogin):
                 resp.pr_url,
                 f"{self._api.endpoint}/{USER}/{REPO_NAME}/discussions/1",
             )
+            self.assertEqual(resp.pr_num, 1)
+            self.assertEqual(resp.pr_revision, "refs/pr/1")
 
             with self.assertRaises(HTTPError) as ctx:
                 # Should raise a 404
@@ -845,6 +847,8 @@ class CommitApiTest(HfApiCommonTestWithLogin):
                         # Check commit info
                         self.assertIsInstance(resp, CommitInfo)
                         self.assertIsNone(resp.pr_url)  # No pr created
+                        self.assertIsNone(resp.pr_num)
+                        self.assertIsNone(resp.pr_revision)
                     with self.assertRaises(HTTPError):
                         # Should raise a 404
                         hf_hub_download(
