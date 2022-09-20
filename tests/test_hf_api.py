@@ -192,7 +192,7 @@ class HfApiEndpointsTest(HfApiCommonTestWithLogin):
     @patch("huggingface_hub.utils._headers.HfFolder")
     def test_whoami_with_implicit_token_from_login(self, mock_HfFolder: Mock) -> None:
         """Test using `whoami` after a `huggingface-cli login`."""
-        mock_HfFolder().get_token.return_value  = self._token
+        mock_HfFolder().get_token.return_value = self._token
         info = self._api.whoami()
         self.assertEqual(info["name"], USER)
 
