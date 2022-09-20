@@ -13,6 +13,7 @@
 # limitations under the License.
 import copy
 import os
+import re
 import shutil
 import tempfile
 import unittest
@@ -767,6 +768,9 @@ class DatasetCardTest(TestCaseWithCapLog):
             card.text.strip().startswith("# Dataset Card for My Cool Dataset")
         )
         self.assertIsInstance(card, DatasetCard)
+
+        matches = re.findall(r"Homepage:\*\* https:\/\/huggingface\.co", str(card))
+        self.assertEqual(matches[0], "Homepage:** https://huggingface.co")
 
     @require_jinja
     def test_dataset_card_from_custom_template(self):
