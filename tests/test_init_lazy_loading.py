@@ -31,7 +31,7 @@ class TestHuggingfaceHubInit(unittest.TestCase):
                 self.assertTrue(
                     signature_list[0]
                     .docstring()
-                    .startswith("create_commit(self, repo_id: str")
+                    .startswith("create_commit(repo_id: str,")
                 )
                 break
         else:
