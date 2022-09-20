@@ -8,6 +8,7 @@ import sys
 import tempfile
 import warnings
 from contextlib import contextmanager
+from dataclasses import dataclass
 from functools import partial
 from hashlib import sha256
 from pathlib import Path
@@ -173,6 +174,26 @@ def get_jinja_version():
 # Return value when trying to load a file from cache but the file does not exist in the distant repo.
 _CACHED_NO_EXIST = object()
 REGEX_COMMIT_HASH = re.compile(r"^[0-9a-f]{40}$")
+
+
+@dataclass(frozen=True)
+class HfFileMetadata:
+    """Data structure containing information about a file versioned on the Hub.
+
+    Returned by [`get_hf_file_metadata`] based on a URL.
+
+    Args:
+        commit_hash (`str`, *optional*):
+            The commit_hash related to the file.
+        etag (`str`, *optional*):
+            Etag of the file on the server.
+        location (`str`):
+            Location where to download the file. Can be a Hub url or not (CDN).
+    """
+
+    commit_hash: Optional[str]
+    etag: Optional[str]
+    location: str
 
 
 # Do not validate `repo_id` in `hf_hub_url` for now as the `repo_id="datasets/.../..."`
@@ -513,7 +534,7 @@ def http_get(
     max_retries=0,
 ):
     """
-    Donwload a remote file. Do not gobble up errors, and will return errors tailored to the Hugging Face Hub.
+    Download a remote file. Do not gobble up errors, and will return errors tailored to the Hugging Face Hub.
     """
     headers = copy.deepcopy(headers)
     if resume_size > 0:
@@ -806,7 +827,7 @@ def cached_download(
     return cache_path
 
 
-def _normalize_etag(etag: str) -> str:
+def _normalize_etag(etag: Optional[str]) -> Optional[str]:
     """Normalize ETag HTTP header, so it can be used to create nice filepaths.
 
     The HTTP spec allows two forms of ETag:
@@ -816,11 +837,14 @@ def _normalize_etag(etag: str) -> str:
     The hf.co hub guarantees to only send the second form.
 
     Args:
-        etag (`str`): HTTP header
+        etag (`str`, *optional*): HTTP header
 
     Returns:
-        `str`: string that can be used as a nice directory name.
+        `str` or `None`: string that can be used as a nice directory name.
+        Returns `None` if input is None.
     """
+    if etag is None:
+        return None
     return etag.strip('"')
 
 
@@ -1090,19 +1114,18 @@ def hf_hub_download(
     commit_hash = None
     if not local_files_only:
         try:
-            r = _request_wrapper(
-                method="HEAD",
-                url=url,
-                headers=headers,
-                allow_redirects=False,
-                follow_relative_redirects=True,
-                proxies=proxies,
-                timeout=etag_timeout,
-            )
             try:
-                hf_raise_for_status(r)
-            except EntryNotFoundError:
-                commit_hash = r.headers.get(HUGGINGFACE_HEADER_X_REPO_COMMIT)
+                metadata = get_hf_file_metadata(
+                    url=url,
+                    use_auth_token=use_auth_token,
+                    proxies=proxies,
+                    timeout=etag_timeout,
+                )
+            except EntryNotFoundError as http_error:
+                # Cache the non-existence of the file and raise
+                commit_hash = http_error.response.headers.get(
+                    HUGGINGFACE_HEADER_X_REPO_COMMIT
+                )
                 if commit_hash is not None and not legacy_cache_layout:
                     no_exist_file_path = (
                         Path(storage_folder)
@@ -1116,15 +1139,17 @@ def hf_hub_download(
                         storage_folder, revision, commit_hash
                     )
                 raise
-            commit_hash = r.headers[HUGGINGFACE_HEADER_X_REPO_COMMIT]
+
+            # Commit hash must exist
+            commit_hash = metadata.commit_hash
             if commit_hash is None:
                 raise OSError(
                     "Distant resource does not seem to be on huggingface.co (missing"
                     " commit header)."
                 )
-            etag = r.headers.get(HUGGINGFACE_HEADER_X_LINKED_ETAG) or r.headers.get(
-                "ETag"
-            )
+
+            # Etag must exist
+            etag = metadata.etag
             # We favor a custom header indicating the etag of the linked resource, and
             # we fallback to the regular etag header.
             # If we don't have any of those, raise an error.
@@ -1133,13 +1158,13 @@ def hf_hub_download(
                     "Distant resource does not have an ETag, we won't be able to"
                     " reliably ensure reproducibility."
                 )
-            etag = _normalize_etag(etag)
+
             # In case of a redirect, save an extra redirect on the request.get call,
             # and ensure we download the exact atomic version even if it changed
             # between the HEAD and the GET (unlikely, but hey).
             # Useful for lfs blobs that are stored on a CDN.
-            if 300 <= r.status_code <= 399:
-                url_to_download = r.headers["Location"]
+            if metadata.location != url:
+                url_to_download = metadata.location
                 if (
                     "lfs.huggingface.co" in url_to_download
                     or "lfs-staging.huggingface.co" in url_to_download
@@ -1355,3 +1380,71 @@ def try_to_load_from_cache(
 
     cached_file = os.path.join(repo_cache, "snapshots", revision, filename)
     return cached_file if os.path.isfile(cached_file) else None
+
+
+def get_hf_file_metadata(
+    url: str,
+    use_auth_token: Union[bool, str, None] = None,
+    proxies: Optional[Dict] = None,
+    timeout: Optional[float] = 10,
+) -> HfFileMetadata:
+    """Fetch metadata of a file versioned on the Hub for a given url.
+
+    Args:
+        url (`str`):
+            File url, for example returned by [`hf_hub_url`].
+        use_auth_token (`str` or `bool`, *optional*):
+            A token to be used for the download.
+                - If `True`, the token is read from the HuggingFace config
+                  folder.
+                - If `False` or `None`, no token is provided.
+                - If a string, it's used as the authentication token.
+        proxies (`dict`, *optional*):
+            Dictionary mapping protocol to the URL of the proxy passed to
+            `requests.request`.
+        etag_timeout (`float`, *optional*, defaults to 10):
+            How many seconds to wait for the server to send metadata before giving up.
+
+    Returns:
+        A [`HfFileMetadata`] object containing metadata such as location, etag and
+        commit_hash.
+    """
+    # TODO: helper to get headers from `use_auth_token` (copy-pasted several times)
+    headers = {}
+    if isinstance(use_auth_token, str):
+        headers["authorization"] = f"Bearer {use_auth_token}"
+    elif use_auth_token:
+        token = HfFolder.get_token()
+        if token is None:
+            raise EnvironmentError(
+                "You specified use_auth_token=True, but a huggingface token was not"
+                " found."
+            )
+        headers["authorization"] = f"Bearer {token}"
+
+    # Retrieve metadata
+    r = _request_wrapper(
+        method="HEAD",
+        url=url,
+        headers=headers,
+        allow_redirects=False,
+        follow_relative_redirects=True,
+        proxies=proxies,
+        timeout=timeout,
+    )
+    hf_raise_for_status(r)
+
+    # Return
+    return HfFileMetadata(
+        commit_hash=r.headers.get(HUGGINGFACE_HEADER_X_REPO_COMMIT),
+        etag=_normalize_etag(
+            # We favor a custom header indicating the etag of the linked resource, and
+            # we fallback to the regular etag header.
+            r.headers.get("ETag")
+            or r.headers.get(HUGGINGFACE_HEADER_X_LINKED_ETAG)
+        ),
+        # Either from response headers (if redirected) or defaults to request url
+        # Do not use directly `url`, as `_request_wrapper` might have followed relative
+        # redirects.
+        location=r.headers.get("Location") or r.request.url,
+    )
