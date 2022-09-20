@@ -23,6 +23,7 @@ import warnings
 from functools import partial
 from io import BytesIO
 from typing import List
+from unittest.mock import Mock, patch
 from urllib.parse import quote
 
 import pytest
@@ -180,13 +181,20 @@ def test_repo_id_no_warning():
 
 
 class HfApiEndpointsTest(HfApiCommonTestWithLogin):
-    def test_whoami(self):
+    def test_whoami_with_passing_token(self):
         info = self._api.whoami(token=self._token)
         self.assertEqual(info["name"], USER)
         self.assertEqual(info["fullname"], FULL_NAME)
         self.assertIsInstance(info["orgs"], list)
         valid_org = [org for org in info["orgs"] if org["name"] == "valid_org"][0]
         self.assertIsInstance(valid_org["apiToken"], str)
+
+    @patch("huggingface_hub.utils._headers.HfFolder")
+    def test_whoami_with_implicit_token_from_login(self, mock_HfFolder: Mock) -> None:
+        """Test using `whoami` after a `huggingface-cli login`."""
+        mock_HfFolder().get_token.return_value  = self._token
+        info = self._api.whoami()
+        self.assertEqual(info["name"], USER)
 
     @retry_endpoint
     def test_delete_repo_error_message(self):

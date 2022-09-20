@@ -615,7 +615,13 @@ class HfApi:
         """
         r = requests.get(
             f"{self.endpoint}/api/whoami-v2",
-            headers=build_hf_headers(token=token, endpoint=self.endpoint),
+            headers=build_hf_headers(
+                token=token,
+                endpoint=self.endpoint,
+                # If `token` is provided and not `None`, it will be used by default.
+                # Otherwise, the token must be retrieved from cache or env variable.
+                use_auth_token=True,
+            ),
         )
         try:
             hf_raise_for_status(r)
