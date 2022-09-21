@@ -8,21 +8,9 @@ import pytest
 from huggingface_hub import hf_hub_download, scan_cache_dir
 from huggingface_hub.constants import CONFIG_NAME
 from huggingface_hub.file_download import are_symlinks_supported
-from huggingface_hub.utils import logging
 
 from .testing_constants import TOKEN
 from .testing_utils import DUMMY_MODEL_ID, with_production_testing
-
-
-logger = logging.get_logger(__name__)
-MODEL_IDENTIFIER = "hf-internal-testing/hfh-cache-layout"
-
-
-def get_file_contents(path):
-    with open(path) as f:
-        content = f.read()
-
-    return content
 
 
 @with_production_testing
