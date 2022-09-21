@@ -383,6 +383,17 @@ def handle_injection(cls: T) -> T:
 def handle_injection_in_test(fn: Callable) -> Callable:
     """
     Handle injections at a test level. See `handle_injection` for more details.
+
+    Example:
+    ```py
+    def TestHelloWorld(unittest.TestCase):
+
+        @patch("something.foo")
+        @patch("something_else.foo.bar") # order doesn't matter
+        @handle_injection_in_test # after @patch calls
+        def test_hello_foo(self, mock_foo: Mock) -> None:
+            (...)
+    ```
     """
     signature = inspect.signature(fn)
     parameters = signature.parameters
