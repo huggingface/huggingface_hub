@@ -204,7 +204,7 @@ def are_symlinks_supported() -> bool:
                         " warning can be disabled by setting the"
                         " `DISABLE_SYMLINKS_WARNING` environment variable. For more"
                         " details, see"
-                        " https://huggingface.co/docs/huggingface_hub/package_reference/utilities."
+                        " https://huggingface.co/docs/huggingface_hub/how-to-cache#limitations."
                     )
                     if os.name == "nt":
                         message += (
