@@ -130,6 +130,11 @@ model-index:
 ---
 """
 
+DUMMY_MODELCARD_NO_TEXT_CONTENT = """---
+license: cc-by-sa-4.0
+---
+"""
+
 logger = logging.get_logger(__name__)
 
 REPOCARD_DIR = os.path.join(
@@ -392,6 +397,23 @@ class RepocardMetadataUpdateTest(unittest.TestCase):
         )
         self.repo.git_pull()
         updated_metadata = metadata_load(self.repo_path / self.REPO_NAME / "README.md")
+        self.assertDictEqual(updated_metadata, expected_metadata)
+
+    def test_update_metadata_on_empty_text_content(self) -> None:
+        """Test `update_metadata` on a model card that has metadata but no text content
+
+        Regression test for https://github.com/huggingface/huggingface_hub/issues/1010
+        """
+        # Create modelcard with metadata but empty text content
+        with self.repo.commit("Add README to main branch"):
+            with open("README.md", "w") as f:
+                f.write(DUMMY_MODELCARD_NO_TEXT_CONTENT)
+        metadata_update(f"{USER}/{self.REPO_NAME}", {"tag": "test"}, token=self._token)
+
+        # Check update went fine
+        self.repo.git_pull()
+        updated_metadata = metadata_load(self.repo_path / self.REPO_NAME / "README.md")
+        expected_metadata = {"license": "cc-by-sa-4.0", "tag": "test"}
         self.assertDictEqual(updated_metadata, expected_metadata)
 
 
