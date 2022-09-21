@@ -70,7 +70,7 @@ REPO_TYPES_MAPPING = {
 
 
 # default cache
-default_home = os.path.join("~", ".cache")
+default_home = os.path.join(os.path.expanduser("~"), ".cache")
 hf_cache_home = os.path.expanduser(
     os.getenv(
         "HF_HOME",
