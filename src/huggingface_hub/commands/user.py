@@ -27,7 +27,6 @@ from huggingface_hub.hf_api import HfApi
 from requests.exceptions import HTTPError
 
 from ..utils import HfFolder, run_subprocess
-from ..utils._headers import _is_valid_token
 from ._cli_utils import ANSI
 
 
@@ -316,7 +315,7 @@ def notebook_login():
 def _login(hf_api: HfApi, token: str) -> None:
     if token.startswith("api_org"):
         raise ValueError("You must use your personal account token.")
-    if not _is_valid_token(endpoint=hf_api.endpoint, token=token):
+    if not hf_api._is_valid_token(token=token):
         raise ValueError("Invalid token passed!")
     hf_api.set_access_token(token)
     HfFolder.save_token(token)

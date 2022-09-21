@@ -670,7 +670,7 @@ def cached_download(
 
     os.makedirs(cache_dir, exist_ok=True)
 
-    headers = build_hf_headers(url=url, use_auth_token=use_auth_token)
+    headers = build_hf_headers(use_auth_token=use_auth_token)
     headers["user-agent"] = http_user_agent(
         library_name=library_name,
         library_version=library_version,
@@ -1102,7 +1102,7 @@ def hf_hub_download(
 
     url = hf_hub_url(repo_id, filename, repo_type=repo_type, revision=revision)
 
-    headers = build_hf_headers(url=url, use_auth_token=use_auth_token)
+    headers = build_hf_headers(use_auth_token=use_auth_token)
     headers["user-agent"] = http_user_agent(
         library_name=library_name,
         library_version=library_version,
@@ -1409,7 +1409,7 @@ def get_hf_file_metadata(
         A [`HfFileMetadata`] object containing metadata such as location, etag and
         commit_hash.
     """
-    headers = build_hf_headers(url=url, use_auth_token=use_auth_token)
+    headers = build_hf_headers(use_auth_token=use_auth_token)
 
     # Retrieve metadata
     r = _request_wrapper(

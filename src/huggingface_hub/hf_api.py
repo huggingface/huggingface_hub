@@ -616,11 +616,9 @@ class HfApi:
         r = requests.get(
             f"{self.endpoint}/api/whoami-v2",
             headers=build_hf_headers(
-                token=token,
-                endpoint=self.endpoint,
                 # If `token` is provided and not `None`, it will be used by default.
                 # Otherwise, the token must be retrieved from cache or env variable.
-                use_auth_token=True,
+                use_auth_token=(token or True),
             ),
         )
         try:
@@ -633,7 +631,7 @@ class HfApi:
             ) from e
         return r.json()
 
-    def _is_valid_token(self, token: str):
+    def _is_valid_token(self, token: str) -> bool:
         """
         Determines whether `token` is a valid token or not.
 
@@ -794,9 +792,7 @@ class HfApi:
         ```
         """
         path = f"{self.endpoint}/api/models"
-        headers = build_hf_headers(
-            use_auth_token=use_auth_token, endpoint=self.endpoint
-        )
+        headers = build_hf_headers(use_auth_token=use_auth_token)
         params = {}
         if filter is not None:
             if isinstance(filter, ModelFilter):
@@ -991,9 +987,7 @@ class HfApi:
         ```
         """
         path = f"{self.endpoint}/api/datasets"
-        headers = build_hf_headers(
-            use_auth_token=use_auth_token, endpoint=self.endpoint
-        )
+        headers = build_hf_headers(use_auth_token=use_auth_token)
         params = {}
         if filter is not None:
             if isinstance(filter, DatasetFilter):
@@ -1130,9 +1124,7 @@ class HfApi:
             `List[SpaceInfo]`: a list of [`huggingface_hub.hf_api.SpaceInfo`] objects
         """
         path = f"{self.endpoint}/api/spaces"
-        headers = build_hf_headers(
-            use_auth_token=use_auth_token, endpoint=self.endpoint
-        )
+        headers = build_hf_headers(use_auth_token=use_auth_token)
         params = {}
         if filter is not None:
             params.update({"filter": filter})
@@ -1217,13 +1209,7 @@ class HfApi:
 
         </Tip>
         """
-        headers = build_hf_headers(
-            token=token,
-            use_auth_token=use_auth_token,
-            endpoint=self.endpoint,
-            repo_id=repo_id,
-            repo_type="model",
-        )
+        headers = build_hf_headers(use_auth_token=token or use_auth_token)
         path = (
             f"{self.endpoint}/api/models/{repo_id}"
             if revision is None
@@ -1298,13 +1284,7 @@ class HfApi:
 
         </Tip>
         """
-        headers = build_hf_headers(
-            token=token,
-            use_auth_token=use_auth_token,
-            endpoint=self.endpoint,
-            repo_id=repo_id,
-            repo_type="dataset",
-        )
+        headers = build_hf_headers(use_auth_token=token or use_auth_token)
         path = (
             f"{self.endpoint}/api/datasets/{repo_id}"
             if revision is None
@@ -1373,13 +1353,7 @@ class HfApi:
 
         </Tip>
         """
-        headers = build_hf_headers(
-            token=token,
-            use_auth_token=use_auth_token,
-            endpoint=self.endpoint,
-            repo_id=repo_id,
-            repo_type="space",
-        )
+        headers = build_hf_headers(use_auth_token=token or use_auth_token)
         path = (
             f"{self.endpoint}/api/spaces/{repo_id}"
             if revision is None
@@ -1617,9 +1591,7 @@ class HfApi:
 
         if getattr(self, "_lfsmultipartthresh", None):
             json["lfsmultipartthresh"] = self._lfsmultipartthresh
-        headers = build_hf_headers(
-            token=token, endpoint=self.endpoint, is_write_action=True
-        )
+        headers = build_hf_headers(use_auth_token=token, is_write_action=True)
         r = requests.post(path, headers=headers, json=json)
 
         try:
@@ -1720,13 +1692,7 @@ class HfApi:
         if repo_type is not None:
             json["type"] = repo_type
 
-        headers = build_hf_headers(
-            token=token,
-            endpoint=self.endpoint,
-            is_write_action=True,
-            repo_id=repo_id,
-            repo_type=repo_type,
-        )
+        headers = build_hf_headers(use_auth_token=token, is_write_action=True)
         r = requests.delete(path, headers=headers, json=json)
         hf_raise_for_status(r)
 
@@ -1789,18 +1755,11 @@ class HfApi:
         if repo_type is None:
             repo_type = REPO_TYPE_MODEL  # default repo type
 
-        path = f"{self.endpoint}/api/{repo_type}s/{namespace}/{name}/settings"
-
-        json = {"private": private}
-
-        headers = build_hf_headers(
-            token=token,
-            endpoint=self.endpoint,
-            is_write_action=True,
-            repo_id=repo_id,
-            repo_type=repo_type,
+        r = requests.put(
+            url=f"{self.endpoint}/api/{repo_type}s/{namespace}/{name}/settings",
+            headers=build_hf_headers(use_auth_token=token, is_write_action=True),
+            json={"private": private},
         )
-        r = requests.put(path, headers=headers, json=json)
         hf_raise_for_status(r)
         return r.json()
 
@@ -1858,13 +1817,7 @@ class HfApi:
         json = {"fromRepo": from_id, "toRepo": to_id, "type": repo_type}
 
         path = f"{self.endpoint}/api/repos/move"
-        headers = build_hf_headers(
-            token=token,
-            endpoint=self.endpoint,
-            is_write_action=True,
-            repo_id=from_id,
-            repo_type=repo_type,
-        )
+        headers = build_hf_headers(use_auth_token=token, is_write_action=True)
         r = requests.post(path, headers=headers, json=json)
         try:
             hf_raise_for_status(r)
@@ -2053,13 +2006,7 @@ class HfApi:
         )
         commit_url = f"{self.endpoint}/api/{repo_type}s/{repo_id}/commit/{revision}"
 
-        headers = build_hf_headers(
-            token=token,
-            endpoint=self.endpoint,
-            is_write_action=True,
-            repo_id=repo_id,
-            repo_type=repo_type,
-        )
+        headers = build_hf_headers(use_auth_token=token, is_write_action=True)
         commit_resp = requests.post(
             url=commit_url,
             headers=headers,
@@ -2570,9 +2517,7 @@ class HfApi:
         if repo_type is None:
             repo_type = REPO_TYPE_MODEL
 
-        headers = build_hf_headers(
-            token=token, endpoint=self.endpoint, repo_id=repo_id, repo_type=repo_type
-        )
+        headers = build_hf_headers(use_auth_token=token)
 
         def _fetch_discussion_page(page_index: int):
             path = (
@@ -2654,9 +2599,7 @@ class HfApi:
         path = (
             f"{self.endpoint}/api/{repo_type}s/{repo_id}/discussions/{discussion_num}"
         )
-        headers = build_hf_headers(
-            token=token, endpoint=self.endpoint, repo_id=repo_id, repo_type=repo_type
-        )
+        headers = build_hf_headers(use_auth_token=token)
         resp = requests.get(path, params={"diff": "1"}, headers=headers)
         hf_raise_for_status(resp)
 
@@ -2761,13 +2704,7 @@ class HfApi:
             )
         )
 
-        headers = build_hf_headers(
-            token=token,
-            endpoint=self.endpoint,
-            is_write_action=True,
-            repo_id=repo_id,
-            repo_type=repo_type,
-        )
+        headers = build_hf_headers(use_auth_token=token, is_write_action=True)
         resp = requests.post(
             f"{self.endpoint}/api/{repo_type}s/{repo_id}/discussions",
             json={
@@ -2865,13 +2802,7 @@ class HfApi:
 
         path = f"{self.endpoint}/api/{repo_id}/discussions/{discussion_num}/{resource}"
 
-        headers = build_hf_headers(
-            token=token,
-            is_write_action=True,
-            endpoint=self.endpoint,
-            repo_id=repo_id,
-            repo_type=repo_type,
-        )
+        headers = build_hf_headers(use_auth_token=token, is_write_action=True)
         resp = requests.post(path, headers=headers, json=body)
         hf_raise_for_status(resp)
         return resp
