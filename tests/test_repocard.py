@@ -399,16 +399,6 @@ class RepocardMetadataUpdateTest(unittest.TestCase):
         updated_metadata = metadata_load(self.repo_path / self.REPO_NAME / "README.md")
         self.assertDictEqual(updated_metadata, expected_metadata)
 
-    def test_metadata_update_non_existing_readme(self) -> None:
-        repo_id = f"{USER}/{self.REPO_NAME}"
-        self._api.delete_file("README.md", repo_id=repo_id, token=self._token)
-        metadata_update(repo_id, {"tag": "this_is_a_test"}, token=self._token)
-
-        self.assertEqual(
-            ModelCard.load(repo_id, token=self._token).data.to_dict(),
-            {"tag": "this_is_a_test"},
-        )
-
     def test_update_metadata_on_empty_text_content(self) -> None:
         """Test `update_metadata` on a model card that has metadata but no text content
 
@@ -425,6 +415,61 @@ class RepocardMetadataUpdateTest(unittest.TestCase):
         updated_metadata = metadata_load(self.repo_path / self.REPO_NAME / "README.md")
         expected_metadata = {"license": "cc-by-sa-4.0", "tag": "test"}
         self.assertDictEqual(updated_metadata, expected_metadata)
+
+
+class TestMetadataUpdateOnMissingCard(unittest.TestCase):
+    def setUp(self) -> None:
+        """
+        Share this valid token in all tests below.
+        """
+        self._token = TOKEN
+        self._api = HfApi(endpoint=ENDPOINT_STAGING)
+        self._repo_id = f"{USER}/{repo_name()}"
+
+    def test_metadata_update_missing_readme_on_model(self) -> None:
+        self._api.create_repo(self._repo_id, token=self._token)
+        metadata_update(self._repo_id, {"tag": "this_is_a_test"}, token=self._token)
+        model_card = ModelCard.load(self._repo_id, token=self._token)
+
+        # Created a card with default template + metadata
+        self.assertIn("# Model Card for Model ID", str(model_card))
+        self.assertEqual(model_card.data.to_dict(), {"tag": "this_is_a_test"})
+
+        self._api.delete_repo(self._repo_id, token=self._token)
+
+    def test_metadata_update_missing_readme_on_dataset(self) -> None:
+        self._api.create_repo(self._repo_id, repo_type="dataset", token=self._token)
+        metadata_update(
+            self._repo_id,
+            {"tag": "this is a dataset test"},
+            token=self._token,
+            repo_type="dataset",
+        )
+        dataset_card = DatasetCard.load(self._repo_id, token=self._token)
+
+        # Created a card with default template + metadata
+        self.assertIn("# Dataset Card for Dataset Name", str(dataset_card))
+        self.assertEqual(dataset_card.data.to_dict(), {"tag": "this is a dataset test"})
+
+        self._api.delete_repo(self._repo_id, repo_type="dataset", token=self._token)
+
+    def test_metadata_update_missing_readme_on_space(self) -> None:
+        self._api.create_repo(
+            self._repo_id, repo_type="space", token=self._token, space_sdk="static"
+        )
+        self._api.delete_file(
+            "README.md", self._repo_id, repo_type="space", token=self._token
+        )
+        with self.assertRaises(ValueError):
+            # Cannot create a default readme on a space repo (should be automatically
+            # created on the Hub).
+            metadata_update(
+                self._repo_id,
+                {"tag": "this is a space test"},
+                token=self._token,
+                repo_type="space",
+            )
+        self._api.delete_repo(self._repo_id, repo_type="space", token=self._token)
 
 
 class TestCaseWithCapLog(unittest.TestCase):

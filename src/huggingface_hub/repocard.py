@@ -728,18 +728,29 @@ def metadata_update(
     )
 
     # Card class given repo_type
-    card_class: Type[RepoCard] = RepoCard
+    card_class: Type[RepoCard]
     if repo_type is None or repo_type == "model":
         card_class = ModelCard
     elif repo_type == "dataset":
         card_class = DatasetCard
+    elif repo_type == "space":  # Case `Space`
+        card_class = RepoCard
+    else:
+        raise ValueError(f"Unknown repo_type: {repo_type}")
 
     # Either load repo_card from the Hub or create an empty one.
     # NOTE: Will not create the repo if it doesn't exist.
     try:
-        card = card_class.load(repo_id, token=token)
+        card = card_class.load(repo_id, token=token, repo_type=repo_type)
     except EntryNotFoundError:
-        card = card_class("")
+        if repo_type == "space":
+            raise ValueError(
+                "Cannot update metadata on a Space that doesn't contain a `README.md`"
+                " file."
+            )
+
+        # Initialize a ModelCard or DatasetCard from default template and no data.
+        card = card_class.from_template(CardData())
 
     for key, value in metadata.items():
         if key == "model-index":
