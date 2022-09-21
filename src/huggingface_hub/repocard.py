@@ -671,7 +671,8 @@ def metadata_update(
     """
     Updates the metadata in the README.md of a repository on the Hugging Face Hub.
     If the README.md file doesn't exist yet, a new one is created with metadata and an
-    empty content.
+    the default ModelCard or DatasetCard template. For `space` repo, an error is thrown
+    as a Space cannot exist without a `README.md` file.
 
     Args:
         repo_id (`str`):
