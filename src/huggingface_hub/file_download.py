@@ -172,9 +172,6 @@ def get_jinja_version():
     return _jinja_version
 
 
-# Check if the platform supports symlinks
-
-
 _are_symlinks_supported: Optional[bool] = None
 
 
