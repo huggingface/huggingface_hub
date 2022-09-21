@@ -31,7 +31,7 @@ class TestCacheLayoutIfSymlinksNotSupported(unittest.TestCase):
         with self.assertWarns(UserWarning):
             self.assertFalse(are_symlinks_supported())
 
-        # Afterward: value is cached
+        # Afterward: value is cached (no warning raised)
         with warnings.catch_warnings():
             # Taken from https://stackoverflow.com/a/45671804
             warnings.simplefilter("error")
