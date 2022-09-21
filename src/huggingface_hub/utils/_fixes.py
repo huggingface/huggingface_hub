@@ -9,23 +9,19 @@ except ImportError:
     except ImportError:
         from json import JSONDecodeError  # noqa
 
+from functools import partial
+
 import yaml
 
 
-def yaml_dump(data):
-    """
-    Fix Yaml dump to encode special characters properly.
-
-    Taken from https://stackoverflow.com/a/64566452
-           and https://stackoverflow.com/a/4004439
-
-    Example:
-    ```py
-    >>> yaml.dump({"emoji": "👀", "some unicode": "日本か"})
-    'emoji: "\\U0001F440"\nsome unicode: "\\u65E5\\u672C\\u304B"\n'
-
-    >>> yaml_dump({"emoji": "👀", "some unicode": "日本か"})
-    'emoji: "👀"\nsome unicode: "日本か"\n'
-    ```
-    """
-    return yaml.dump(data).encode().decode("unicode-escape")
+# Wrap `yaml.dump` to set `allow_unicode=True` by default.
+#
+# Example:
+# ```py
+# >>> yaml.dump({"emoji": "👀", "some unicode": "日本か"})
+# 'emoji: "\\U0001F440"\nsome unicode: "\\u65E5\\u672C\\u304B"\n'
+#
+# >>> yaml_dump({"emoji": "👀", "some unicode": "日本か"})
+# 'emoji: "👀"\nsome unicode: "日本か"\n'
+# ```
+yaml_dump = partial(yaml.dump, allow_unicode=True)
