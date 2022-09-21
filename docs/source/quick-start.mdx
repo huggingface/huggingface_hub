@@ -54,21 +54,16 @@ full-length hash instead of the shorter 7-character commit hash:
 
 For more details and options, see the API reference for [`hf_hub_download`].
 
-## Create a repository
+## Login
 
-To create and share files to the Hub, you need to have a Hugging Face account. [Create
-an account](https://hf.co/join) if you don't already have one, and then sign in to find
-your [User Access Token](https://huggingface.co/docs/hub/security-tokens) in
-your Settings. The User Access Token is used to authenticate your identity to the Hub.
+In a lot of cases, you must be logged in with a Hugging Face account to interact with
+the Hub: download private repos, upload files, create PRs,...
+[Create an account](https://hf.co/join) if you don't already have one, and then sign in
+to get your [User Access Token](https://huggingface.co/docs/hub/security-tokens) from
+your [Settings page](https://huggingface.co/settings/tokens). The User Access Token is
+used to authenticate your identity to the Hub.
 
-<Tip>
-
-You can also provide your token to our functions and methods. This way you don't need to
-store your token anywhere.
-
-</Tip>
-
-1. Log in to your Hugging Face account with the following command:
+Once you have your User Access Token, run the following command in your terminal:
 
 ```bash
 huggingface-cli login
@@ -82,9 +77,25 @@ Or if you prefer to work from a Jupyter or Colaboratory notebook, then login wit
 >>> notebook_login()
 ```
 
-2. Enter your User Access Token to authenticate your identity to the Hub.
+<Tip>
 
-After you've created an account, create a repository with the [`create_repo`] function:
+You can also provide your token to our functions and methods. This way you don't need to
+store your token anywhere.
+
+</Tip>
+
+<Tip>
+
+Once you are logged in, all requests to the Hub will use your access token by default.
+If you want to disable implicit use of your token, you should set the
+`DISABLE_IMPLICIT_HF_TOKEN` environment variable.
+
+</Tip>
+
+## Create a repository
+
+Once you've registered and logged in, create a repository with the [`create_repo`]
+function:
 
 ```py
 >>> from huggingface_hub import HfApi
