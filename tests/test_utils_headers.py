@@ -57,7 +57,7 @@ class TestAuthHeadersUtil(unittest.TestCase):
         self.assertEqual(build_hf_headers(), {})  # token is not sent
 
     @patch.dict("os.environ", {"DISABLE_IMPLICIT_HF_TOKEN": "1"})
-    def test_implicit_use_disabled(self, mock_HfFolder: Mock) -> None:
+    def test_implicit_use_disabled_but_explicit_use(self, mock_HfFolder: Mock) -> None:
         mock_HfFolder().get_token.return_value = FAKE_TOKEN
 
         # This is not an implicit use so we still send it
