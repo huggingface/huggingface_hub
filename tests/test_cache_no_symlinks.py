@@ -111,7 +111,7 @@ class TestCacheLayoutIfSymlinksNotSupported(unittest.TestCase):
         self.assertTrue(blob_path.is_file())
 
     @patch("huggingface_hub.file_download.are_symlinks_supported")
-    def test_scan_cache_dir_no_symlinks(
+    def test_scan_and_delete_cache_no_symlinks(
         self, mock_are_symlinks_supported: Mock
     ) -> None:
         """Test scan_cache_dir works as well when cache-system doesn't use symlinks."""
@@ -170,6 +170,7 @@ class TestCacheLayoutIfSymlinksNotSupported(unittest.TestCase):
         self.assertEqual(repo.nb_files, 4)
         self.assertEqual(len(repo.refs), 1)  # only `main`
         main_revision = repo.refs["main"]
+        main_ref = main_revision.commit_hash
         older_revision = [rev for rev in repo.revisions if rev is not main_revision][0]
 
         # 2 files in `main` revisions, both are not symlinks
@@ -194,3 +195,24 @@ class TestCacheLayoutIfSymlinksNotSupported(unittest.TestCase):
         self.assertEqual(
             repo.size_on_disk, main_revision.size_on_disk + older_revision.size_on_disk
         )
+
+        # Test delete repo strategy
+        strategy_delete_repo = report.delete_revisions(main_ref, OLDER_REVISION)
+        self.assertEqual(strategy_delete_repo.expected_freed_size, repo.size_on_disk)
+        self.assertEqual(len(strategy_delete_repo.blobs), 0)
+        self.assertEqual(len(strategy_delete_repo.snapshots), 0)
+        self.assertEqual(len(strategy_delete_repo.refs), 0)
+        self.assertEqual(len(strategy_delete_repo.repos), 1)
+
+        # Test delete older revision strategy
+        strategy_delete_revision = report.delete_revisions(OLDER_REVISION)
+        self.assertEqual(
+            strategy_delete_revision.blobs,
+            {file.blob_path for file in older_revision.files},
+        )
+        self.assertEqual(
+            strategy_delete_revision.snapshots, {older_revision.snapshot_path}
+        )
+        self.assertEqual(len(strategy_delete_revision.refs), 0)
+        self.assertEqual(len(strategy_delete_revision.repos), 0)
+        strategy_delete_revision.execute()  # Execute without error
