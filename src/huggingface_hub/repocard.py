@@ -734,7 +734,7 @@ def metadata_update(
         card_class = ModelCard
     elif repo_type == "dataset":
         card_class = DatasetCard
-    elif repo_type == "space":  # Case `Space`
+    elif repo_type == "space":
         card_class = RepoCard
     else:
         raise ValueError(f"Unknown repo_type: {repo_type}")
