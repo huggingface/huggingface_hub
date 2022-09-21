@@ -953,6 +953,7 @@ def hf_hub_download(
           that have been resolved at that particular commit. Each filename is a symlink to the blob
           at that particular commit.
 
+    ```
     [  96]  .
     └── [ 160]  models--julien-c--EsperBERTo-small
         ├── [ 160]  blobs
@@ -968,6 +969,7 @@ def hf_hub_download(
             └── [ 128]  bbc77c8132af1cc5cf678da3f1ddf2de43606d48
                 ├── [  52]  README.md -> ../../blobs/7cb18dc9bafbfcf74629a4b760af1b160957a83e
                 └── [  76]  pytorch_model.bin -> ../../blobs/403450e234d65943a7dcf7e05a771ce3c92faa84dd07db4ac20f592037a1e4bd
+    ```
 
     Args:
         repo_id (`str`):
