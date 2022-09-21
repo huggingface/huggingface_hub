@@ -81,13 +81,16 @@ def _get_token_to_send(use_auth_token: Optional[Union[bool, str]]) -> Optional[s
     # Token is not provided: we get it from local cache
     cached_token = HfFolder().get_token()
 
-    # Case token is explicitly required but not found
-    if use_auth_token is True and cached_token is None:
-        raise EnvironmentError(
-            "Token is required (`use_auth_token=True`), but no token found. You need to"
-            " provide a token or be logged in to Hugging Face with `huggingface-cli"
-            " login` or `notebook_login`. See https://huggingface.co/settings/tokens."
-        )
+    # Case token is explicitly required
+    if use_auth_token is True:
+        if cached_token is None:
+            raise EnvironmentError(
+                "Token is required (`use_auth_token=True`), but no token found. You"
+                " need to provide a token or be logged in to Hugging Face with"
+                " `huggingface-cli login` or `notebook_login`. See"
+                " https://huggingface.co/settings/tokens."
+            )
+        return cached_token
 
     # Case implicit use of the token is forbidden by env variable
     if os.environ.get("DISABLE_IMPLICIT_HF_TOKEN"):
