@@ -3,7 +3,7 @@ from collections import defaultdict
 from dataclasses import dataclass
 from typing import Any, Dict, List, Optional, Tuple, Union
 
-import yaml
+from huggingface_hub.utils import yaml_dump
 
 from .utils.logging import get_logger
 
@@ -152,7 +152,7 @@ class CardData:
         Returns:
             `str`: CardData represented as a YAML block.
         """
-        return yaml.dump(self.to_dict(), sort_keys=False, line_break=line_break).strip()
+        return yaml_dump(self.to_dict(), sort_keys=False, line_break=line_break).strip()
 
     def __repr__(self):
         return self.to_yaml()

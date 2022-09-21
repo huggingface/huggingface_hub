@@ -23,6 +23,7 @@ from huggingface_hub.repocard_data import (
     eval_results_to_model_index,
     model_index_to_eval_results,
 )
+from huggingface_hub.utils import yaml_dump
 
 from .constants import REPOCARD_NAME
 from .utils import EntryNotFoundError, validate_hf_hub_args
@@ -512,7 +513,7 @@ def metadata_save(local_path: Union[str, Path], data: Dict) -> None:
 
     # creates a new file if it not
     with open(local_path, "w", newline="") as readme:
-        data_yaml = yaml.dump(data, sort_keys=False, line_break=line_break)
+        data_yaml = yaml_dump(data, sort_keys=False, line_break=line_break)
         # sort_keys: keep dict order
         match = REGEX_YAML_BLOCK.search(content)
         if match:
