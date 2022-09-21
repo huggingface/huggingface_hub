@@ -1,4 +1,5 @@
 import unittest
+import warnings
 from pathlib import Path
 from unittest.mock import Mock, patch
 
@@ -6,6 +7,7 @@ import pytest
 
 from huggingface_hub import hf_hub_download
 from huggingface_hub.constants import CONFIG_NAME
+from huggingface_hub.file_download import are_symlinks_supported
 from huggingface_hub.utils import logging
 
 from .testing_constants import TOKEN
@@ -25,10 +27,29 @@ def get_file_contents(path):
 
 @with_production_testing
 @pytest.mark.usefixtures("fx_cache_dir")
-@patch("huggingface_hub.file_download.are_symlinks_supported")
 class TestCacheLayoutIfSymlinksNotSupported(unittest.TestCase):
     cache_dir: Path
 
+    @patch("huggingface_hub.file_download._are_symlinks_supported", None)
+    def test_are_symlinks_supported_normal(self) -> None:
+        self.assertTrue(are_symlinks_supported())
+
+    @patch("huggingface_hub.file_download.os.symlink")  # Symlinks not supported
+    @patch("huggingface_hub.file_download._are_symlinks_supported", None)  # first use
+    def test_are_symlinks_supported_windows(self, mock_symlink: Mock) -> None:
+        mock_symlink.side_effect = OSError()
+
+        # First time: warning is raised
+        with self.assertWarns(UserWarning):
+            self.assertFalse(are_symlinks_supported())
+
+        # Afterward: value is cached
+        with warnings.catch_warnings():
+            # Taken from https://stackoverflow.com/a/45671804
+            warnings.simplefilter("error")
+            self.assertFalse(are_symlinks_supported())
+
+    @patch("huggingface_hub.file_download.are_symlinks_supported")
     def test_download_no_symlink_new_file(
         self, mock_are_symlinks_supported: Mock
     ) -> None:
@@ -49,6 +70,7 @@ class TestCacheLayoutIfSymlinksNotSupported(unittest.TestCase):
         # Blobs directory is empty
         self.assertEqual(len(list((Path(filepath).parents[2] / "blobs").glob("*"))), 0)
 
+    @patch("huggingface_hub.file_download.are_symlinks_supported")
     def test_download_no_symlink_existing_file(
         self, mock_are_symlinks_supported: Mock
     ) -> None:

@@ -173,37 +173,49 @@ def get_jinja_version():
 
 
 # Check if the platform supports symlinks
-_are_symlinks_supported = True
-with tempfile.TemporaryDirectory() as tmpdir:
-    src_path = Path(tmpdir) / "dummy_file_src"
-    src_path.touch()
-    dst_path = Path(tmpdir) / "dummy_file_dst"
-    try:
-        os.symlink(src_path, dst_path)
-    except OSError:
-        # Likely running on Windows
-        _are_symlinks_supported = False
-
-        if not os.environ.get("DISABLE_SYMLINKS_WARNING"):
-            message = (
-                "`huggingface_hub` cache-system uses symlinks by default to efficiently"
-                " store duplicated files but your machine doesn't support them. Caching"
-                " files will still work but in a degraded version that might require"
-                " more space on your disk. This warning can be disabled by setting the"
-                " `DISABLE_SYMLINKS_WARNING` environment variable. For more details,"
-                " see https://huggingface.co/docs/huggingface_hub/package_reference/utilities."
-            )
-            if os.name == "nt":
-                message += (
-                    "\nTo support symlinks on Windows, you either need to activate"
-                    " Developer Mode or to run Python as an administrator. In order to"
-                    " see activate developer mode, see this article:"
-                    " https://docs.microsoft.com/en-us/windows/apps/get-started/enable-your-device-for-development"
-                )
-            warnings.warn(message)
 
 
-def are_symlinks_supported():
+_are_symlinks_supported: Optional[bool] = None
+
+
+def are_symlinks_supported() -> bool:
+    # Check symlink compatibility only once at first time use
+    global _are_symlinks_supported
+
+    if _are_symlinks_supported is None:
+        _are_symlinks_supported = True
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            src_path = Path(tmpdir) / "dummy_file_src"
+            src_path.touch()
+            dst_path = Path(tmpdir) / "dummy_file_dst"
+            try:
+                os.symlink(src_path, dst_path)
+            except OSError:
+                # Likely running on Windows
+                _are_symlinks_supported = False
+
+                if not os.environ.get("DISABLE_SYMLINKS_WARNING"):
+                    message = (
+                        "`huggingface_hub` cache-system uses symlinks by default to"
+                        " efficiently store duplicated files but your machine doesn't"
+                        " support them. Caching files will still work but in a degraded"
+                        " version that might require more space on your disk. This"
+                        " warning can be disabled by setting the"
+                        " `DISABLE_SYMLINKS_WARNING` environment variable. For more"
+                        " details, see"
+                        " https://huggingface.co/docs/huggingface_hub/package_reference/utilities."
+                    )
+                    if os.name == "nt":
+                        message += (
+                            "\nTo support symlinks on Windows, you either need to"
+                            " activate Developer Mode or to run Python as an"
+                            " administrator. In order to see activate developer mode,"
+                            " see this article:"
+                            " https://docs.microsoft.com/en-us/windows/apps/get-started/enable-your-device-for-development"
+                        )
+                    warnings.warn(message)
+
     return _are_symlinks_supported
 
 
