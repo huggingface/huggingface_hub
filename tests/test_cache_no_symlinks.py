@@ -5,7 +5,7 @@ from unittest.mock import Mock, patch
 
 import pytest
 
-from huggingface_hub import hf_hub_download
+from huggingface_hub import hf_hub_download, scan_cache_dir
 from huggingface_hub.constants import CONFIG_NAME
 from huggingface_hub.file_download import are_symlinks_supported
 from huggingface_hub.utils import logging
@@ -109,3 +109,88 @@ class TestCacheLayoutIfSymlinksNotSupported(unittest.TestCase):
         # Blob file still exists as well (has not been deleted)
         # => duplicate file on disk
         self.assertTrue(blob_path.is_file())
+
+    @patch("huggingface_hub.file_download.are_symlinks_supported")
+    def test_scan_cache_dir_no_symlinks(
+        self, mock_are_symlinks_supported: Mock
+    ) -> None:
+        """Test scan_cache_dir works as well when cache-system doesn't use symlinks."""
+        OLDER_REVISION = "44c70f043cfe8162efc274ff531575e224a0e6f0"
+
+        # Symlinks not supported
+        mock_are_symlinks_supported.return_value = False
+
+        # Download config.json from main
+        hf_hub_download(
+            DUMMY_MODEL_ID,
+            filename=CONFIG_NAME,
+            cache_dir=self.cache_dir,
+            use_auth_token=TOKEN,
+        )
+
+        # Download README.md from main
+        hf_hub_download(
+            DUMMY_MODEL_ID,
+            filename="README.md",
+            cache_dir=self.cache_dir,
+            use_auth_token=TOKEN,
+        )
+
+        # Download config.json from older revision
+        hf_hub_download(
+            DUMMY_MODEL_ID,
+            filename=CONFIG_NAME,
+            cache_dir=self.cache_dir,
+            use_auth_token=TOKEN,
+            revision=OLDER_REVISION,
+        )
+
+        # Now symlinks work: user has rerun the script as admin
+        mock_are_symlinks_supported.return_value = True
+
+        # Download merges.txt from older revision with symlinks
+        hf_hub_download(
+            DUMMY_MODEL_ID,
+            filename="merges.txt",
+            cache_dir=self.cache_dir,
+            use_auth_token=TOKEN,
+            revision=OLDER_REVISION,
+        )
+
+        # Scan cache directory
+        report = scan_cache_dir(self.cache_dir)
+
+        # 1 repo found, no warnings
+        self.assertEqual(len(report.repos), 1)
+        self.assertEqual(len(report.warnings), 0)
+        repo = list(report.repos)[0]
+
+        # 2 revisions found
+        self.assertEqual(len(repo.revisions), 2)
+        self.assertEqual(repo.nb_files, 4)
+        self.assertEqual(len(repo.refs), 1)  # only `main`
+        main_revision = repo.refs["main"]
+        older_revision = [rev for rev in repo.revisions if rev is not main_revision][0]
+
+        # 2 files in `main` revisions, both are not symlinks
+        self.assertEqual(main_revision.nb_files, 2)
+        for file in main_revision.files:
+            # No symlinks means the files are in the snapshot dir itself
+            self.assertTrue(main_revision.snapshot_path in file.blob_path.parents)
+
+        # 2 files in older revision, only 1 as symlink
+        for file in older_revision.files:
+            if file.file_name == CONFIG_NAME:
+                # In snapshot dir
+                self.assertTrue(older_revision.snapshot_path in file.blob_path.parents)
+            else:
+                # In blob dir
+                self.assertFalse(older_revision.snapshot_path in file.blob_path.parents)
+                self.assertTrue("blobs" in str(file.blob_path))
+
+        # Since files are not shared (README.md is duplicated in cache), the total size
+        # of the repo is the sum of each revision size. If symlinks were used, the total
+        # size of the repo would be lower.
+        self.assertEqual(
+            repo.size_on_disk, main_revision.size_on_disk + older_revision.size_on_disk
+        )
