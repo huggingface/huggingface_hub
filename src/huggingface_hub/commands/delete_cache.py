@@ -59,9 +59,9 @@ import os
 from argparse import ArgumentParser
 from functools import wraps
 from tempfile import mkstemp
-from typing import Callable, Iterable, List, Optional
+from typing import Any, Callable, Iterable, List, Optional
 
-from ..utils import CachedRepoInfo, HFCacheInfo, scan_cache_dir
+from ..utils import CachedRepoInfo, CachedRevisionInfo, HFCacheInfo, scan_cache_dir
 from . import BaseHuggingfaceCLICommand
 from ._cli_utils import ANSI
 
@@ -256,7 +256,7 @@ def _get_tui_choices_from_scan(
     )
 
     # Display a separator per repo and a Choice for each revisions of the repo
-    for repo in sorted(repos, key=lambda r: (r.repo_type, r.repo_id)):
+    for repo in sorted(repos, key=_repo_sorting_order):
         # Repo as separator
         choices.append(
             Separator(
@@ -264,12 +264,7 @@ def _get_tui_choices_from_scan(
                 f" used {repo.last_accessed_str})"
             )
         )
-        for revision in sorted(
-            # Sort by last modified first
-            repo.revisions,
-            key=lambda r: r.last_modified,
-            reverse=True,
-        ):
+        for revision in sorted(repo.revisions, key=_revision_sorting_order):
             # Revision as choice
             choices.append(
                 Choice(
@@ -300,17 +295,12 @@ def _manual_review_no_tui(
     os.close(fd)
 
     lines = []
-    for repo in sorted(hf_cache_info.repos, key=lambda r: (r.repo_type, r.repo_id)):
+    for repo in sorted(hf_cache_info.repos, key=_repo_sorting_order):
         lines.append(
             f"\n# {repo.repo_type.capitalize()} {repo.repo_id} ({repo.size_on_disk_str},"
             f" used {repo.last_accessed_str})"
         )
-        for revision in sorted(
-            # Sort by last modified first
-            repo.revisions,
-            key=lambda r: r.last_modified,
-            reverse=True,
-        ):
+        for revision in sorted(repo.revisions, key=_revision_sorting_order):
             lines.append(
                 # Deselect by prepending a '#'
                 f"{'' if revision.commit_hash in preselected else '#'}   "
@@ -451,3 +441,13 @@ _MANUAL_REVIEW_NO_TUI_INSTRUCTIONS = f"""
 # REVISIONS
 # ------------
 """.strip()
+
+
+def _repo_sorting_order(repo: CachedRepoInfo) -> Any:
+    # First split by Dataset/Model, then sort by last accessed (oldest first)
+    return (repo.repo_type, repo.last_accessed)
+
+
+def _revision_sorting_order(revision: CachedRevisionInfo) -> Any:
+    # Sort by last modified (oldest first)
+    return revision.last_modified

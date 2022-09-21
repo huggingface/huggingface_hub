@@ -28,6 +28,7 @@ from huggingface_hub.file_download import (
     _CACHED_NO_EXIST,
     cached_download,
     filename_to_url,
+    get_hf_file_metadata,
     hf_hub_download,
     hf_hub_url,
     try_to_load_from_cache,
@@ -45,7 +46,8 @@ from .testing_utils import (
     DUMMY_MODEL_ID_PINNED_SHA256,
     DUMMY_MODEL_ID_REVISION_INVALID,
     DUMMY_MODEL_ID_REVISION_ONE_SPECIFIC_COMMIT,
-    DUMMY_RENAMED_MODEL_ID,
+    DUMMY_RENAMED_NEW_MODEL_ID,
+    DUMMY_RENAMED_OLD_MODEL_ID,
     SAMPLE_DATASET_IDENTIFIER,
     OfflineSimulationMode,
     offline,
@@ -225,7 +227,7 @@ class CachedDownloadTests(unittest.TestCase):
         """
         with TemporaryDirectory() as tmpdir:
             filepath = hf_hub_download(
-                DUMMY_RENAMED_MODEL_ID, "config.json", cache_dir=tmpdir
+                DUMMY_RENAMED_OLD_MODEL_ID, "config.json", cache_dir=tmpdir
             )
             self.assertTrue(os.path.exists(filepath))
 
@@ -239,7 +241,7 @@ class CachedDownloadTests(unittest.TestCase):
             with TemporaryDirectory() as tmpdir:
                 filepath = cached_download(
                     hf_hub_url(
-                        DUMMY_RENAMED_MODEL_ID,
+                        DUMMY_RENAMED_OLD_MODEL_ID,
                         filename="config.json",
                     ),
                     cache_dir=tmpdir,
@@ -337,3 +339,34 @@ class CachedDownloadTests(unittest.TestCase):
 
         # If file non-existence is not cached, returns None
         self.assertIsNone(try_to_load_from_cache(DUMMY_MODEL_ID, filename="dummy2"))
+
+    def test_get_hf_file_metadata_basic(self) -> None:
+        """Test getting metadata from a file on the Hub."""
+        url = hf_hub_url(
+            DUMMY_MODEL_ID,
+            filename=CONFIG_NAME,
+            revision=DUMMY_MODEL_ID_REVISION_ONE_SPECIFIC_COMMIT,
+        )
+        metadata = get_hf_file_metadata(url)
+
+        # Metadata
+        self.assertEqual(
+            metadata.commit_hash, DUMMY_MODEL_ID_REVISION_ONE_SPECIFIC_COMMIT
+        )
+        self.assertIsNotNone(metadata.etag)  # example: "85c2fc2dcdd86563aaa85ef4911..."
+        self.assertEqual(metadata.location, url)  # no redirect
+
+    def test_get_hf_file_metadata_from_a_renamed_repo(self) -> None:
+        """Test getting metadata from a file in a renamed repo on the Hub."""
+        url = hf_hub_url(
+            DUMMY_RENAMED_OLD_MODEL_ID,
+            filename=CONFIG_NAME,
+            subfolder="",  # Subfolder should be processed as `None`
+        )
+        metadata = get_hf_file_metadata(url)
+
+        # Got redirected to renamed repo
+        self.assertEqual(
+            metadata.location,
+            url.replace(DUMMY_RENAMED_OLD_MODEL_ID, DUMMY_RENAMED_NEW_MODEL_ID),
+        )

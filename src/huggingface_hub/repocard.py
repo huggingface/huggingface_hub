@@ -41,7 +41,6 @@ logger = get_logger(__name__)
 
 
 class RepoCard:
-
     card_data_class = CardData
     default_template_path = TEMPLATE_MODELCARD_PATH
     repo_type = "model"
