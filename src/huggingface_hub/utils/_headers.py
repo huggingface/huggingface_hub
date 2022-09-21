@@ -48,6 +48,28 @@ def build_hf_headers(
     Returns:
         A `Dict` of headers to pass in your API call.
 
+    Example:
+    ```py
+        > build_hf_headers(use_auth_token="hf_***") # explicit token
+        {"authorization": "Bearer hf_***"}
+
+        > build_hf_headers(use_auth_token=True) # explicitly use cached token
+        {"authorization": "Bearer hf_***"}
+
+        > build_hf_headers(use_auth_token=False) # explicitly don't use cached token
+        {}
+
+        > build_hf_headers() # implicit use of the cached token
+        {"authorization": "Bearer hf_***"}
+
+        # DISABLE_IMPLICIT_HF_TOKEN=True # to set as env variable
+        > build_hf_headers() # token is not sent
+        {}
+
+        > build_hf_headers(use_auth_token="api_org_***", is_write_action=True)
+        ValueError: You must use your personal account token for write-access methods.
+    ```
+
     Raises:
         [`ValueError`](https://docs.python.org/3/library/exceptions.html#ValueError)
             If organization token is passed and "write" access is required.
