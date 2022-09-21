@@ -12,7 +12,14 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-"""Contains commands to manage the HF cache directory."""
+"""Contains command to scan the HF cache directory.
+
+Usage:
+    huggingface-cli scan-cache
+    huggingface-cli scan-cache -v
+    huggingface-cli scan-cache -vvv
+    huggingface-cli scan-cache --dir ~/.cache/huggingface/hub
+"""
 import time
 from argparse import ArgumentParser
 from typing import Optional

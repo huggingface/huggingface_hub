@@ -1,7 +1,8 @@
 import unittest
 from argparse import ArgumentParser
 
-from huggingface_hub.commands.cache import ScanCacheCommand
+from huggingface_hub.commands.delete_cache import DeleteCacheCommand
+from huggingface_hub.commands.scan_cache import ScanCacheCommand
 
 
 class TestCLI(unittest.TestCase):
@@ -16,6 +17,7 @@ class TestCLI(unittest.TestCase):
         )
         commands_parser = self.parser.add_subparsers()
         ScanCacheCommand.register_subcommand(commands_parser)
+        DeleteCacheCommand.register_subcommand(commands_parser)
 
     def test_scan_cache_basic(self) -> None:
         """Test `huggingface-cli scan-cache`."""
@@ -44,3 +46,9 @@ class TestCLI(unittest.TestCase):
         self.assertEqual(args.dir, None)
         self.assertEqual(args.verbose, 3)
         self.assertEqual(args.func, ScanCacheCommand)
+
+    def test_delete_cache_with_dir(self) -> None:
+        """Test `huggingface-cli delete-cache --dir something`."""
+        args = self.parser.parse_args(["delete-cache", "--dir", "something"])
+        self.assertEqual(args.dir, "something")
+        self.assertEqual(args.func, DeleteCacheCommand)

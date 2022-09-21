@@ -575,7 +575,7 @@ def scan_cache_dir(cache_dir: Optional[Union[str, Path]] = None) -> HFCacheInfo:
     if cache_dir is None:
         cache_dir = HUGGINGFACE_HUB_CACHE
 
-    cache_dir = Path(cache_dir).resolve()
+    cache_dir = Path(cache_dir).expanduser().resolve()
     if not cache_dir.exists():
         raise ValueError(
             f"Cache directory not found: {cache_dir}. Please use `cache_dir` argument"
@@ -709,6 +709,15 @@ def _scan_cached_repo(repo_path: Path) -> CachedRepoInfo:
                 )
             )
 
+        # Last modified is either the last modified blob file or the revision folder
+        # itself if it is empty
+        if len(cached_files) > 0:
+            revision_last_modified = max(
+                blob_stats[file.blob_path].st_mtime for file in cached_files
+            )
+        else:
+            revision_last_modified = revision_path.stat().st_mtime
+
         cached_revisions.add(
             CachedRevisionInfo(
                 commit_hash=revision_path.name,
@@ -719,9 +728,7 @@ def _scan_cached_repo(repo_path: Path) -> CachedRepoInfo:
                     for blob_path in set(file.blob_path for file in cached_files)
                 ),
                 snapshot_path=revision_path,
-                last_modified=max(
-                    blob_stats[file.blob_path].st_mtime for file in cached_files
-                ),
+                last_modified=revision_last_modified,
             )
         )
 
@@ -732,6 +739,16 @@ def _scan_cached_repo(repo_path: Path) -> CachedRepoInfo:
             f" {dict(refs_by_hash)} ({repo_path})."
         )
 
+    # Last modified is either the last modified blob file or the repo folder itself if
+    # no blob files has been found. Same for last accessed.
+    if len(blob_stats) > 0:
+        repo_last_accessed = max(stat.st_atime for stat in blob_stats.values())
+        repo_last_modified = max(stat.st_mtime for stat in blob_stats.values())
+    else:
+        repo_stats = repo_path.stat()
+        repo_last_accessed = repo_stats.st_atime
+        repo_last_modified = repo_stats.st_mtime
+
     # Build and return frozen structure
     return CachedRepoInfo(
         nb_files=len(blob_stats),
@@ -740,8 +757,8 @@ def _scan_cached_repo(repo_path: Path) -> CachedRepoInfo:
         repo_type=repo_type,  # type: ignore
         revisions=frozenset(cached_revisions),
         size_on_disk=sum(stat.st_size for stat in blob_stats.values()),
-        last_accessed=max(stat.st_atime for stat in blob_stats.values()),
-        last_modified=max(stat.st_mtime for stat in blob_stats.values()),
+        last_accessed=repo_last_accessed,
+        last_modified=repo_last_modified,
     )
 
 

@@ -23,6 +23,11 @@ install_requires = [
 
 extras = {}
 
+extras["cli"] = [
+    "InquirerPy==0.3.4",
+    # Note: installs `prompt-toolkit` in the background
+]
+
 extras["torch"] = [
     "torch",
 ]
@@ -35,7 +40,7 @@ extras["fastai"] = [
 
 extras["tensorflow"] = ["tensorflow", "pydot", "graphviz"]
 
-extras["testing"] = [
+extras["testing"] = extras["cli"] + [
     "datasets",
     "isort>=5.5.4",
     "jedi",
