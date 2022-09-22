@@ -307,7 +307,7 @@ def notebook_login():
         # Erase token and clear value to make sure it's not saved in the notebook.
         token_widget.value = ""
         clear_output()
-        _login(token=token)
+        _login(hf_api=HfApi(), token=token)
 
     token_finish_button.on_click(login_token_event)
 
