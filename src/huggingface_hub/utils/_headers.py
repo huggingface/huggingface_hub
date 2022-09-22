@@ -98,6 +98,9 @@ def build_hf_headers(
 
         >>> build_hf_headers(use_auth_token="api_org_***", is_write_action=True)
         ValueError: You must use your personal account token for write-access methods.
+
+        >>> build_hf_headers(library_name="transformers", library_version="1.2.3")
+        {"user-agent": "transformers/1.2.3; hf_hub/0.10.2; python/3.10.4; tensorflow/1.55"}
     ```
 
     Raises:
