@@ -212,7 +212,7 @@ class CommitInfo:
     pr_url: Optional[str] = None
 
     # Computed from `pr_url` in `__post_init__`
-    pr_revision: Optional[str] = field(init=False) 
+    pr_revision: Optional[str] = field(init=False)
     pr_num: Optional[str] = field(init=False)
 
     def __post_init__(self):
