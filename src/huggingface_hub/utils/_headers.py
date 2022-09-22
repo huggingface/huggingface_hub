@@ -27,7 +27,7 @@ def build_hf_headers(
 
     By default, authorization token is always provided either from argument (explicit
     use) or retrieved from the cache (implicit use). To explicitly avoid sending the
-    token to the Hub, set `use_auth_token=False` or set the `DISABLE_IMPLICIT_HF_TOKEN`
+    token to the Hub, set `use_auth_token=False` or set the `HF_HUB_DISABLE_IMPLICIT_TOKEN`
     environment variable.
 
     In case of an API call that requires write access, an error is thrown if token is
@@ -40,7 +40,7 @@ def build_hf_headers(
                 - if `True`, the token is read from the machine (cache or env variable)
                 - if `False`, authorization header is not set
                 - if `None`, the token is read from the machine only except if
-                  `DISABLE_IMPLICIT_HF_TOKEN` env variable is set.
+                  `HF_HUB_DISABLE_IMPLICIT_TOKEN` env variable is set.
         is_write_action (`bool`, default to `False`):
             Set to True if the API call requires a write access. If `True`, the token
             will be validated (cannot be `None`, cannot start by `"api_org***"`).
@@ -62,7 +62,7 @@ def build_hf_headers(
         > build_hf_headers() # implicit use of the cached token
         {"authorization": "Bearer hf_***"}
 
-        # DISABLE_IMPLICIT_HF_TOKEN=True # to set as env variable
+        # HF_HUB_DISABLE_IMPLICIT_TOKEN=True # to set as env variable
         > build_hf_headers() # token is not sent
         {}
 
@@ -115,7 +115,7 @@ def _get_token_to_send(use_auth_token: Optional[Union[bool, str]]) -> Optional[s
         return cached_token
 
     # Case implicit use of the token is forbidden by env variable
-    if os.environ.get("DISABLE_IMPLICIT_HF_TOKEN"):
+    if os.environ.get("HF_HUB_DISABLE_IMPLICIT_TOKEN"):
         return None
 
     # Otherwise: we use the cached token as the user has not explicitly forbidden it

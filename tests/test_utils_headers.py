@@ -51,12 +51,12 @@ class TestAuthHeadersUtil(unittest.TestCase):
         with self.assertRaises(ValueError):
             build_hf_headers(use_auth_token=False, is_write_action=True)
 
-    @patch.dict("os.environ", {"DISABLE_IMPLICIT_HF_TOKEN": "1"})
+    @patch.dict("os.environ", {"HF_HUB_DISABLE_IMPLICIT_TOKEN": "1"})
     def test_implicit_use_disabled(self, mock_HfFolder: Mock) -> None:
         mock_HfFolder().get_token.return_value = FAKE_TOKEN
         self.assertEqual(build_hf_headers(), {})  # token is not sent
 
-    @patch.dict("os.environ", {"DISABLE_IMPLICIT_HF_TOKEN": "1"})
+    @patch.dict("os.environ", {"HF_HUB_DISABLE_IMPLICIT_TOKEN": "1"})
     def test_implicit_use_disabled_but_explicit_use(self, mock_HfFolder: Mock) -> None:
         mock_HfFolder().get_token.return_value = FAKE_TOKEN
 
