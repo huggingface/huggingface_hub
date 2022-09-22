@@ -5,7 +5,6 @@ import json
 import os
 import re
 import shutil
-import sys
 import tempfile
 import warnings
 from contextlib import contextmanager
@@ -16,14 +15,12 @@ from pathlib import Path
 from typing import BinaryIO, Dict, Optional, Tuple, Union
 from urllib.parse import quote, urlparse
 
-import packaging.version
-
 import requests
 from filelock import FileLock
 from huggingface_hub import constants
 from requests.exceptions import ConnectTimeout, ProxyError
 
-from . import __version__
+from . import __version__  # noqa: F401
 from .constants import (
     DEFAULT_REVISION,
     HUGGINGFACE_CO_URL_TEMPLATE,
@@ -34,6 +31,20 @@ from .constants import (
     REPO_TYPES,
     REPO_TYPES_URL_PREFIXES,
 )
+from .utils import get_fastai_version  # noqa: F401 # for backward compatibility
+from .utils import get_fastcore_version  # noqa: F401 # for backward compatibility
+from .utils import get_graphviz_version  # noqa: F401 # for backward compatibility
+from .utils import get_jinja_version  # noqa: F401 # for backward compatibility
+from .utils import get_pydot_version  # noqa: F401 # for backward compatibility
+from .utils import get_tf_version  # noqa: F401 # for backward compatibility
+from .utils import get_torch_version  # noqa: F401 # for backward compatibility
+from .utils import is_fastai_available  # noqa: F401 # for backward compatibility
+from .utils import is_fastcore_available  # noqa: F401 # for backward compatibility
+from .utils import is_graphviz_available  # noqa: F401 # for backward compatibility
+from .utils import is_jinja_available  # noqa: F401 # for backward compatibility
+from .utils import is_pydot_available  # noqa: F401 # for backward compatibility
+from .utils import is_tf_available  # noqa: F401 # for backward compatibility
+from .utils import is_torch_available  # noqa: F401 # for backward compatibility
 from .utils import (
     EntryNotFoundError,
     LocalEntryNotFoundError,
@@ -44,132 +55,10 @@ from .utils import (
     tqdm,
     validate_hf_hub_args,
 )
+from .utils._headers import _http_user_agent
 
 
 logger = logging.get_logger(__name__)
-
-_PY_VERSION: str = sys.version.split()[0].rstrip("+")
-
-if packaging.version.Version(_PY_VERSION) < packaging.version.Version("3.8.0"):
-    import importlib_metadata
-else:
-    import importlib.metadata as importlib_metadata
-
-_torch_version = "N/A"
-_torch_available = False
-try:
-    _torch_version = importlib_metadata.version("torch")
-    _torch_available = True
-except importlib_metadata.PackageNotFoundError:
-    pass
-
-_pydot_available = False
-
-try:
-    _pydot_version = importlib_metadata.version("pydot")
-    _pydot_available = True
-except importlib_metadata.PackageNotFoundError:
-    pass
-
-
-def is_pydot_available():
-    return _pydot_available
-
-
-_graphviz_available = False
-
-try:
-    _graphviz_version = importlib_metadata.version("graphviz")
-    _graphviz_available = True
-except importlib_metadata.PackageNotFoundError:
-    pass
-
-
-def is_graphviz_available():
-    return _graphviz_available
-
-
-_tf_version = "N/A"
-_tf_available = False
-_tf_candidates = (
-    "tensorflow",
-    "tensorflow-cpu",
-    "tensorflow-gpu",
-    "tf-nightly",
-    "tf-nightly-cpu",
-    "tf-nightly-gpu",
-    "intel-tensorflow",
-    "intel-tensorflow-avx512",
-    "tensorflow-rocm",
-    "tensorflow-macos",
-)
-for package_name in _tf_candidates:
-    try:
-        _tf_version = importlib_metadata.version(package_name)
-        _tf_available = True
-        break
-    except importlib_metadata.PackageNotFoundError:
-        pass
-
-_fastai_version = "N/A"
-_fastai_available = False
-try:
-    _fastai_version: str = importlib_metadata.version("fastai")
-    _fastai_available = True
-except importlib_metadata.PackageNotFoundError:
-    pass
-
-_fastcore_version = "N/A"
-_fastcore_available = False
-try:
-    _fastcore_version: str = importlib_metadata.version("fastcore")
-    _fastcore_available = True
-except importlib_metadata.PackageNotFoundError:
-    pass
-
-_jinja_version = "N/A"
-_jinja_available = False
-try:
-    _jinja_version: str = importlib_metadata.version("Jinja2")
-    _jinja_available = True
-except importlib_metadata.PackageNotFoundError:
-    pass
-
-
-def is_torch_available():
-    return _torch_available
-
-
-def is_tf_available():
-    return _tf_available
-
-
-def get_tf_version():
-    return _tf_version
-
-
-def is_fastai_available():
-    return _fastai_available
-
-
-def get_fastai_version():
-    return _fastai_version
-
-
-def is_fastcore_available():
-    return _fastcore_available
-
-
-def get_fastcore_version():
-    return _fastcore_version
-
-
-def is_jinja_available():
-    return _jinja_available
-
-
-def get_jinja_version():
-    return _jinja_version
 
 
 _are_symlinks_supported: Optional[bool] = None
@@ -414,38 +303,12 @@ def http_user_agent(
     library_version: Optional[str] = None,
     user_agent: Union[Dict, str, None] = None,
 ) -> str:
-    """Formats a user-agent string with basic info about a request.
-
-    Args:
-        library_name (`str`, *optional*):
-            The name of the library to which the object corresponds.
-        library_version (`str`, *optional*):
-            The version of the library.
-        user_agent (`str`, `dict`, *optional*):
-            The user agent info in the form of a dictionary or a single string.
-
-    Returns:
-        The formatted user-agent string.
-    """
-    if library_name is not None:
-        ua = f"{library_name}/{library_version}"
-    else:
-        ua = "unknown/None"
-    ua += f"; hf_hub/{__version__}"
-    ua += f"; python/{_PY_VERSION}"
-    if is_torch_available():
-        ua += f"; torch/{_torch_version}"
-    if is_tf_available():
-        ua += f"; tensorflow/{_tf_version}"
-    if is_fastai_available():
-        ua += f"; fastai/{_fastai_version}"
-    if is_fastcore_available():
-        ua += f"; fastcore/{_fastcore_version}"
-    if isinstance(user_agent, dict):
-        ua += "; " + "; ".join(f"{k}/{v}" for k, v in user_agent.items())
-    elif isinstance(user_agent, str):
-        ua += "; " + user_agent
-    return ua
+    """Deprecated in favor of [`build_hf_headers`]."""
+    return _http_user_agent(
+        library_name=library_name,
+        library_version=library_version,
+        user_agent=user_agent,
+    )
 
 
 class OfflineModeIsEnabled(ConnectionError):
@@ -715,8 +578,8 @@ def cached_download(
 
     os.makedirs(cache_dir, exist_ok=True)
 
-    headers = build_hf_headers(use_auth_token=use_auth_token)
-    headers["user-agent"] = http_user_agent(
+    headers = build_hf_headers(
+        use_auth_token=use_auth_token,
         library_name=library_name,
         library_version=library_version,
         user_agent=user_agent,
@@ -1153,8 +1016,8 @@ def hf_hub_download(
 
     url = hf_hub_url(repo_id, filename, repo_type=repo_type, revision=revision)
 
-    headers = build_hf_headers(use_auth_token=use_auth_token)
-    headers["user-agent"] = http_user_agent(
+    headers = build_hf_headers(
+        use_auth_token=use_auth_token,
         library_name=library_name,
         library_version=library_version,
         user_agent=user_agent,

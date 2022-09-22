@@ -8,11 +8,6 @@ import unittest
 import pytest
 
 from huggingface_hub import HfApi, hf_hub_download
-from huggingface_hub.file_download import (
-    is_graphviz_available,
-    is_pydot_available,
-    is_tf_available,
-)
 from huggingface_hub.keras_mixin import (
     KerasModelHubMixin,
     from_pretrained_keras,
@@ -20,7 +15,12 @@ from huggingface_hub.keras_mixin import (
     save_pretrained_keras,
 )
 from huggingface_hub.repository import Repository
-from huggingface_hub.utils import logging
+from huggingface_hub.utils import (
+    is_graphviz_available,
+    is_pydot_available,
+    is_tf_available,
+    logging,
+)
 
 from .testing_constants import ENDPOINT_STAGING, TOKEN, USER
 from .testing_utils import (

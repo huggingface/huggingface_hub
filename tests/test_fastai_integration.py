@@ -8,7 +8,7 @@ from huggingface_hub.fastai_utils import (
     from_pretrained_fastai,
     push_to_hub_fastai,
 )
-from huggingface_hub.file_download import (
+from huggingface_hub.utils import (
     is_fastai_available,
     is_fastcore_available,
     is_torch_available,

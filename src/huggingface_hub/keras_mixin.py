@@ -10,7 +10,7 @@ from urllib.parse import quote
 
 import yaml
 from huggingface_hub import CommitOperationDelete, ModelHubMixin, snapshot_download
-from huggingface_hub.file_download import (
+from huggingface_hub.utils import (
     get_tf_version,
     is_graphviz_available,
     is_pydot_available,

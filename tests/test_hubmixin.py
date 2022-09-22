@@ -6,10 +6,9 @@ import unittest
 from unittest.mock import Mock
 
 from huggingface_hub import HfApi, hf_hub_download
-from huggingface_hub.file_download import is_torch_available
 from huggingface_hub.hub_mixin import PyTorchModelHubMixin
 from huggingface_hub.repository import Repository
-from huggingface_hub.utils import logging
+from huggingface_hub.utils import is_torch_available, logging
 
 from .testing_constants import ENDPOINT_STAGING, TOKEN, USER
 from .testing_utils import expect_deprecation, repo_name, set_write_permission_and_retry
