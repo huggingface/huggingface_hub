@@ -16,7 +16,7 @@ import os
 import re
 import subprocess
 import warnings
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import BinaryIO, Dict, Iterable, Iterator, List, Optional, Tuple, Union
 from urllib.parse import quote
 
@@ -211,16 +211,21 @@ class CommitInfo:
     oid: str
     pr_url: Optional[str] = None
 
-    @property
-    def pr_revision(self) -> Optional[str]:
-        if self.pr_url is not None:
-            return _parse_revision_from_pr_url(self.pr_url)
+    # Computed from `pr_url` in `__post_init__`
+    pr_revision: Optional[str] = field(init=False) 
+    pr_num: Optional[str] = field(init=False)
 
-    @property
-    def pr_num(self) -> Optional[int]:
-        revision = self.pr_revision
-        if revision is not None:
-            return int(revision.split("/")[-1])
+    def __post_init__(self):
+        """Populate pr-related fields after initialization.
+
+        See https://docs.python.org/3.10/library/dataclasses.html#post-init-processing.
+        """
+        if self.pr_url is not None:
+            self.pr_revision = _parse_revision_from_pr_url(self.pr_url)
+            self.pr_num = int(self.pr_revision.split("/")[-1])
+        else:
+            self.pr_revision = None
+            self.pr_num = None
 
 
 class RepoFile:

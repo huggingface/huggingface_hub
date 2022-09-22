@@ -771,6 +771,8 @@ class CommitApiTest(HfApiCommonTestWithLogin):
             # Check commit info
             self.assertIsInstance(resp, CommitInfo)
             commit_id = resp.oid
+            self.assertIn("pr_revision='refs/pr/1'", str(resp))
+            self.assertIsInstance(commit_id, str)
             self.assertGreater(len(commit_id), 0)
             self.assertEqual(
                 resp.commit_url,
