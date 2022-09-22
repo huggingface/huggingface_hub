@@ -52,6 +52,9 @@ class TestDeprecationUtils(unittest.TestCase):
 
             dummy_b_c_deprecated("A")
 
+            dummy_b_c_deprecated("A", b="b")
+            dummy_b_c_deprecated("A", b="b", c="c")
+
         with pytest.warns(FutureWarning):
             dummy_c_deprecated("A", "B", "C")
 
@@ -79,7 +82,7 @@ class TestDeprecationUtils(unittest.TestCase):
 
         # Default message
         with pytest.warns(FutureWarning) as record:
-            dummy_deprecated_default_message(a="a")
+            dummy_deprecated_default_message(a="A")
         self.assertEqual(len(record), 1)
         self.assertEqual(
             record[0].message.args[0],
@@ -100,7 +103,7 @@ class TestDeprecationUtils(unittest.TestCase):
 
         # Custom message
         with pytest.warns(FutureWarning) as record:
-            dummy_deprecated_custom_message(a="a")
+            dummy_deprecated_custom_message(a="A")
         self.assertEqual(len(record), 1)
         self.assertEqual(
             record[0].message.args[0],

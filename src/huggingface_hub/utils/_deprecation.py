@@ -76,8 +76,13 @@ def _deprecate_arguments(
             for _, parameter in zip(args, sig.parameters.values()):
                 if parameter.name in deprecated_args:
                     used_deprecated_args.append(parameter.name)
-            for kwarg_name in kwargs:
-                if kwarg_name in deprecated_args:
+            for kwarg_name, kwarg_value in kwargs.items():
+                if (
+                    # If argument is deprecated but still used
+                    kwarg_name in deprecated_args
+                    # And then the value is not the default value
+                    and kwarg_value != sig.parameters[kwarg_name].default
+                ):
                     used_deprecated_args.append(kwarg_name)
 
             # Warn and proceed

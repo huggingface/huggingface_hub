@@ -4,7 +4,7 @@ from typing import Dict, List, Optional, Union
 
 from .constants import DEFAULT_REVISION, HUGGINGFACE_HUB_CACHE, REPO_TYPES
 from .file_download import REGEX_COMMIT_HASH, hf_hub_download, repo_folder_name
-from .hf_api import HfApi, HfFolder
+from .hf_api import HfApi
 from .utils import filter_repo_objects, logging, tqdm, validate_hf_hub_args
 from .utils._deprecation import _deprecate_arguments
 
@@ -108,18 +108,6 @@ def snapshot_download(
     if isinstance(cache_dir, Path):
         cache_dir = str(cache_dir)
 
-    if isinstance(use_auth_token, str):
-        token = use_auth_token
-    elif use_auth_token:
-        token = HfFolder.get_token()
-        if token is None:
-            raise EnvironmentError(
-                "You specified use_auth_token=True, but a Hugging Face token was not"
-                " found."
-            )
-    else:
-        token = None
-
     if repo_type is None:
         repo_type = "model"
     if repo_type not in REPO_TYPES:
@@ -167,7 +155,10 @@ def snapshot_download(
     # if we have internet connection we retrieve the correct folder name from the huggingface api
     _api = HfApi()
     repo_info = _api.repo_info(
-        repo_id=repo_id, repo_type=repo_type, revision=revision, use_auth_token=token
+        repo_id=repo_id,
+        repo_type=repo_type,
+        revision=revision,
+        use_auth_token=use_auth_token,
     )
     filtered_repo_files = list(
         filter_repo_objects(
