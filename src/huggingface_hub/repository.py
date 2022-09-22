@@ -15,9 +15,9 @@ from huggingface_hub.constants import REPO_TYPES_URL_PREFIXES, REPOCARD_NAME
 from huggingface_hub.repocard import metadata_load, metadata_save
 from requests.exceptions import HTTPError
 
-from .hf_api import HfApi, HfFolder, repo_type_and_id_from_hf_id
+from .hf_api import HfApi, repo_type_and_id_from_hf_id
 from .lfs import LFS_MULTIPART_UPLOAD_COMMAND
-from .utils import logging, run_subprocess, tqdm
+from .utils import HfFolder, logging, run_subprocess, tqdm
 from .utils._deprecation import _deprecate_arguments, _deprecate_method
 
 

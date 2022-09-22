@@ -16,7 +16,6 @@ import os
 import re
 import subprocess
 import warnings
-from os.path import expanduser
 from typing import BinaryIO, Dict, Iterable, Iterator, List, Optional, Tuple, Union
 from urllib.parse import quote
 
@@ -50,14 +49,16 @@ from .constants import (
     REPO_TYPES_URL_PREFIXES,
     SPACES_SDK_TYPES,
 )
+from .utils import HfFolder  # noqa: F401 # imported for backward compatibility
 from .utils import (
+    build_hf_headers,
     filter_repo_objects,
     hf_raise_for_status,
     logging,
     parse_datetime,
     validate_hf_hub_args,
 )
-from .utils._deprecation import _deprecate_positional_args
+from .utils._deprecation import _deprecate_arguments, _deprecate_positional_args
 from .utils._typing import Literal, TypedDict
 from .utils.endpoint_helpers import (
     AttributeDictionary,
@@ -613,15 +614,14 @@ class HfApi:
                 Hugging Face token. Will default to the locally saved token if
                 not provided.
         """
-        if token is None:
-            token = HfFolder.get_token()
-        if token is None:
-            raise ValueError(
-                "You need to pass a valid `token` or login by using `huggingface-cli"
-                " login`"
-            )
-        path = f"{self.endpoint}/api/whoami-v2"
-        r = requests.get(path, headers={"authorization": f"Bearer {token}"})
+        r = requests.get(
+            f"{self.endpoint}/api/whoami-v2",
+            headers=build_hf_headers(
+                # If `token` is provided and not `None`, it will be used by default.
+                # Otherwise, the token must be retrieved from cache or env variable.
+                use_auth_token=(token or True),
+            ),
+        )
         try:
             hf_raise_for_status(r)
         except HTTPError as e:
@@ -632,7 +632,7 @@ class HfApi:
             ) from e
         return r.json()
 
-    def _is_valid_token(self, token: str):
+    def _is_valid_token(self, token: str) -> bool:
         """
         Determines whether `token` is a valid token or not.
 
@@ -648,74 +648,6 @@ class HfApi:
             return True
         except HTTPError:
             return False
-
-    def _validate_or_retrieve_token(
-        self,
-        token: Optional[Union[str, bool]] = None,
-        name: Optional[str] = None,
-        function_name: Optional[str] = None,
-    ):
-        """
-        Retrieves and validates stored token or validates passed token.
-        Args:
-            token (``str``, `optional`):
-                Hugging Face token. Will default to the locally saved token if not provided.
-            name (``str``, `optional`):
-                Name of the repository. This is deprecated in favor of repo_id and will be removed in v0.8.
-            function_name (``str``, `optional`):
-                If _validate_or_retrieve_token is called from a function, name of that function to be passed inside deprecation warning.
-        Returns:
-            Validated token and the name of the repository.
-        Raises:
-            [`EnvironmentError`](https://docs.python.org/3/library/exceptions.html#EnvironmentError)
-              If the token is not passed and there's no token saved locally.
-            [`ValueError`](https://docs.python.org/3/library/exceptions.html#ValueError)
-              If organization token or invalid token is passed.
-        """
-        if token is None or token is True:
-            token = HfFolder.get_token()
-            if token is None:
-                raise EnvironmentError(
-                    "You need to provide a `token` or be logged in to Hugging Face with"
-                    " `huggingface-cli login`."
-                )
-        if name is not None:
-            if self._is_valid_token(name):
-                # TODO(0.6) REMOVE
-                warnings.warn(
-                    f"`{function_name}` now takes `token` as an optional positional"
-                    " argument. Be sure to adapt your code!",
-                    FutureWarning,
-                )
-                token, name = name, token
-        if isinstance(token, str):
-            if token.startswith("api_org"):
-                raise ValueError("You must use your personal account token.")
-            if not self._is_valid_token(token):
-                raise ValueError("Invalid token passed!")
-
-        return token, name
-
-    def _build_auth_headers(
-        self, *, token: Optional[str], use_auth_token: Optional[Union[str, bool]]
-    ) -> Dict[str, str]:
-        """Helper to build Authorization header from kwargs. To be removed in 0.12.0 when `token` is deprecated."""
-        if token is not None:
-            warnings.warn(
-                "`token` is deprecated and will be removed in 0.12.0. Use"
-                " `use_auth_token` instead.",
-                FutureWarning,
-            )
-
-        auth_token = None
-        if use_auth_token is None and token is None:
-            # To maintain backwards-compatibility. To be removed in 0.12.0
-            auth_token = HfFolder.get_token()
-        elif use_auth_token:
-            auth_token, _ = self._validate_or_retrieve_token(use_auth_token)
-        else:
-            auth_token = token
-        return {"authorization": f"Bearer {auth_token}"} if auth_token else {}
 
     @staticmethod
     def set_access_token(access_token: str):
@@ -861,10 +793,7 @@ class HfApi:
         ```
         """
         path = f"{self.endpoint}/api/models"
-        headers = {}
-        if use_auth_token:
-            token, name = self._validate_or_retrieve_token(use_auth_token)
-            headers["authorization"] = f"Bearer {token}"
+        headers = build_hf_headers(use_auth_token=use_auth_token)
         params = {}
         if filter is not None:
             if isinstance(filter, ModelFilter):
@@ -1059,10 +988,7 @@ class HfApi:
         ```
         """
         path = f"{self.endpoint}/api/datasets"
-        headers = {}
-        if use_auth_token:
-            token, name = self._validate_or_retrieve_token(use_auth_token)
-            headers["authorization"] = f"Bearer {token}"
+        headers = build_hf_headers(use_auth_token=use_auth_token)
         params = {}
         if filter is not None:
             if isinstance(filter, DatasetFilter):
@@ -1199,10 +1125,7 @@ class HfApi:
             `List[SpaceInfo]`: a list of [`huggingface_hub.hf_api.SpaceInfo`] objects
         """
         path = f"{self.endpoint}/api/spaces"
-        headers = {}
-        if use_auth_token:
-            token, name = self._validate_or_retrieve_token(use_auth_token)
-            headers["authorization"] = f"Bearer {token}"
+        headers = build_hf_headers(use_auth_token=use_auth_token)
         params = {}
         if filter is not None:
             params.update({"filter": filter})
@@ -1232,6 +1155,7 @@ class HfApi:
         return [SpaceInfo(**x) for x in d]
 
     @validate_hf_hub_args
+    @_deprecate_arguments(version="0.12", deprecated_args={"token"})
     def model_info(
         self,
         repo_id: str,
@@ -1286,7 +1210,7 @@ class HfApi:
 
         </Tip>
         """
-        headers = self._build_auth_headers(token=token, use_auth_token=use_auth_token)
+        headers = build_hf_headers(use_auth_token=token or use_auth_token)
         path = (
             f"{self.endpoint}/api/models/{repo_id}"
             if revision is None
@@ -1310,6 +1234,7 @@ class HfApi:
         return ModelInfo(**d)
 
     @validate_hf_hub_args
+    @_deprecate_arguments(version="0.12", deprecated_args={"token"})
     def dataset_info(
         self,
         repo_id: str,
@@ -1360,8 +1285,7 @@ class HfApi:
 
         </Tip>
         """
-        headers = self._build_auth_headers(token=token, use_auth_token=use_auth_token)
-
+        headers = build_hf_headers(use_auth_token=token or use_auth_token)
         path = (
             f"{self.endpoint}/api/datasets/{repo_id}"
             if revision is None
@@ -1379,6 +1303,7 @@ class HfApi:
         return DatasetInfo(**d)
 
     @validate_hf_hub_args
+    @_deprecate_arguments(version="0.12", deprecated_args={"token"})
     def space_info(
         self,
         repo_id: str,
@@ -1429,7 +1354,7 @@ class HfApi:
 
         </Tip>
         """
-        headers = self._build_auth_headers(token=token, use_auth_token=use_auth_token)
+        headers = build_hf_headers(use_auth_token=token or use_auth_token)
         path = (
             f"{self.endpoint}/api/spaces/{repo_id}"
             if revision is None
@@ -1611,10 +1536,6 @@ class HfApi:
 
         path = f"{self.endpoint}/api/repos/create"
 
-        token, name = self._validate_or_retrieve_token(
-            token, name, function_name="create_repo"
-        )
-
         checked_name = repo_type_and_id_from_hf_id(name)
 
         if (
@@ -1671,11 +1592,8 @@ class HfApi:
 
         if getattr(self, "_lfsmultipartthresh", None):
             json["lfsmultipartthresh"] = self._lfsmultipartthresh
-        r = requests.post(
-            path,
-            headers={"authorization": f"Bearer {token}"},
-            json=json,
-        )
+        headers = build_hf_headers(use_auth_token=token, is_write_action=True)
+        r = requests.post(path, headers=headers, json=json)
 
         try:
             hf_raise_for_status(r)
@@ -1736,10 +1654,6 @@ class HfApi:
 
         path = f"{self.endpoint}/api/repos/delete"
 
-        token, name = self._validate_or_retrieve_token(
-            token, name, function_name="delete_repo"
-        )
-
         checked_name = repo_type_and_id_from_hf_id(name)
 
         if (
@@ -1779,11 +1693,8 @@ class HfApi:
         if repo_type is not None:
             json["type"] = repo_type
 
-        r = requests.delete(
-            path,
-            headers={"authorization": f"Bearer {token}"},
-            json=json,
-        )
+        headers = build_hf_headers(use_auth_token=token, is_write_action=True)
+        r = requests.delete(path, headers=headers, json=json)
         hf_raise_for_status(r)
 
     @validate_hf_hub_args
@@ -1837,10 +1748,6 @@ class HfApi:
 
         organization, name = repo_id.split("/") if "/" in repo_id else (None, repo_id)
 
-        token, name = self._validate_or_retrieve_token(
-            token, name, function_name="update_repo_visibility"
-        )
-
         if organization is None:
             namespace = self.whoami(token)["name"]
         else:
@@ -1849,14 +1756,10 @@ class HfApi:
         if repo_type is None:
             repo_type = REPO_TYPE_MODEL  # default repo type
 
-        path = f"{self.endpoint}/api/{repo_type}s/{namespace}/{name}/settings"
-
-        json = {"private": private}
-
         r = requests.put(
-            path,
-            headers={"authorization": f"Bearer {token}"},
-            json=json,
+            url=f"{self.endpoint}/api/{repo_type}s/{namespace}/{name}/settings",
+            headers=build_hf_headers(use_auth_token=token, is_write_action=True),
+            json={"private": private},
         )
         hf_raise_for_status(r)
         return r.json()
@@ -1900,9 +1803,6 @@ class HfApi:
 
         </Tip>
         """
-
-        token, name = self._validate_or_retrieve_token(token)
-
         if len(from_id.split("/")) != 2:
             raise ValueError(
                 f"Invalid repo_id: {from_id}. It should have a namespace"
@@ -1918,11 +1818,8 @@ class HfApi:
         json = {"fromRepo": from_id, "toRepo": to_id, "type": repo_type}
 
         path = f"{self.endpoint}/api/repos/move"
-        r = requests.post(
-            path,
-            headers={"authorization": f"Bearer {token}"},
-            json=json,
-        )
+        headers = build_hf_headers(use_auth_token=token, is_write_action=True)
+        r = requests.post(path, headers=headers, json=json)
         try:
             hf_raise_for_status(r)
         except HTTPError as e:
@@ -2046,7 +1943,6 @@ class HfApi:
         repo_type = repo_type if repo_type is not None else REPO_TYPE_MODEL
         if repo_type not in REPO_TYPES:
             raise ValueError(f"Invalid repo type, must be one of {REPO_TYPES}")
-        token, name = self._validate_or_retrieve_token(token)
         revision = (
             quote(revision, safe="") if revision is not None else DEFAULT_REVISION
         )
@@ -2111,9 +2007,10 @@ class HfApi:
         )
         commit_url = f"{self.endpoint}/api/{repo_type}s/{repo_id}/commit/{revision}"
 
+        headers = build_hf_headers(use_auth_token=token, is_write_action=True)
         commit_resp = requests.post(
             url=commit_url,
-            headers={"Authorization": f"Bearer {token}"},
+            headers=headers,
             json=commit_payload,
             params={"create_pr": "1"} if create_pr else None,
         )
@@ -2566,14 +2463,11 @@ class HfApi:
                 FutureWarning,
             )
 
-        if token is None and use_auth_token:
-            token, name = self._validate_or_retrieve_token(use_auth_token)
-
         if organization is None:
             if "/" in model_id:
                 username = model_id.split("/")[0]
             else:
-                username = self.whoami(token=token)["name"]
+                username = self.whoami(token=token or use_auth_token)["name"]
             return f"{username}/{model_id}"
         else:
             return f"{organization}/{model_id}"
@@ -2623,16 +2517,14 @@ class HfApi:
             raise ValueError(f"Invalid repo type, must be one of {REPO_TYPES}")
         if repo_type is None:
             repo_type = REPO_TYPE_MODEL
-        repo_id = f"{repo_type}s/{repo_id}"
-        if token is None:
-            token = HfFolder.get_token()
+
+        headers = build_hf_headers(use_auth_token=token)
 
         def _fetch_discussion_page(page_index: int):
-            path = f"{self.endpoint}/api/{repo_id}/discussions?p={page_index}"
-            resp = requests.get(
-                path,
-                headers={"Authorization": f"Bearer {token}"} if token else None,
+            path = (
+                f"{self.endpoint}/api/{repo_type}s/{repo_id}/discussions?p={page_index}"
             )
+            resp = requests.get(path, headers=headers)
             hf_raise_for_status(resp)
             paginated_discussions = resp.json()
             total = paginated_discussions["count"]
@@ -2704,17 +2596,12 @@ class HfApi:
             raise ValueError(f"Invalid repo type, must be one of {REPO_TYPES}")
         if repo_type is None:
             repo_type = REPO_TYPE_MODEL
-        repo_id = f"{repo_type}s/{repo_id}"
-        if token is None:
-            token = HfFolder.get_token()
 
-        path = f"{self.endpoint}/api/{repo_id}/discussions/{discussion_num}"
-
-        resp = requests.get(
-            path,
-            params={"diff": "1"},
-            headers={"Authorization": f"Bearer {token}"} if token else None,
+        path = (
+            f"{self.endpoint}/api/{repo_type}s/{repo_id}/discussions/{discussion_num}"
         )
+        headers = build_hf_headers(use_auth_token=token)
+        resp = requests.get(path, params={"diff": "1"}, headers=headers)
         hf_raise_for_status(resp)
 
         discussion_details = resp.json()
@@ -2805,8 +2692,7 @@ class HfApi:
             raise ValueError(f"Invalid repo type, must be one of {REPO_TYPES}")
         if repo_type is None:
             repo_type = REPO_TYPE_MODEL
-        full_repo_id = f"{repo_type}s/{repo_id}"
-        token, _ = self._validate_or_retrieve_token(token=token)
+
         if description is not None:
             description = description.strip()
         description = (
@@ -2819,14 +2705,15 @@ class HfApi:
             )
         )
 
+        headers = build_hf_headers(use_auth_token=token, is_write_action=True)
         resp = requests.post(
-            f"{self.endpoint}/api/{full_repo_id}/discussions",
+            f"{self.endpoint}/api/{repo_type}s/{repo_id}/discussions",
             json={
                 "title": title.strip(),
                 "description": description,
                 "pullRequest": pull_request,
             },
-            headers={"Authorization": f"Bearer {token}"},
+            headers=headers,
         )
         hf_raise_for_status(resp)
         num = resp.json()["num"]
@@ -2913,15 +2800,11 @@ class HfApi:
         if repo_type is None:
             repo_type = REPO_TYPE_MODEL
         repo_id = f"{repo_type}s/{repo_id}"
-        token, _ = self._validate_or_retrieve_token(token=token)
 
         path = f"{self.endpoint}/api/{repo_id}/discussions/{discussion_num}/{resource}"
 
-        resp = requests.post(
-            path,
-            headers={"Authorization": f"Bearer {token}"},
-            json=body,
-        )
+        headers = build_hf_headers(use_auth_token=token, is_write_action=True)
+        resp = requests.post(path, headers=headers, json=body)
         hf_raise_for_status(resp)
         return resp
 
@@ -3316,54 +3199,6 @@ class HfApi:
         return deserialize_event(resp.json()["updatedComment"])
 
 
-class HfFolder:
-    path_token = expanduser("~/.huggingface/token")
-
-    @classmethod
-    def save_token(cls, token):
-        """
-        Save token, creating folder as needed.
-
-        Args:
-            token (`str`):
-                The token to save to the [`HfFolder`]
-        """
-        os.makedirs(os.path.dirname(cls.path_token), exist_ok=True)
-        with open(cls.path_token, "w+") as f:
-            f.write(token)
-
-    @classmethod
-    def get_token(cls) -> Optional[str]:
-        """
-        Get token or None if not existent.
-
-        Note that a token can be also provided using the
-        `HUGGING_FACE_HUB_TOKEN` environment variable.
-
-        Returns:
-            `str` or `None`: The token, `None` if it doesn't exist.
-
-        """
-        token: Optional[str] = os.environ.get("HUGGING_FACE_HUB_TOKEN")
-        if token is None:
-            try:
-                with open(cls.path_token, "r") as f:
-                    token = f.read()
-            except FileNotFoundError:
-                pass
-        return token
-
-    @classmethod
-    def delete_token(cls):
-        """
-        Deletes the token from storage. Does not fail if token does not exist.
-        """
-        try:
-            os.remove(cls.path_token)
-        except FileNotFoundError:
-            pass
-
-
 def _prepare_upload_folder_commit(
     folder_path: str,
     path_in_repo: str,
@@ -3464,5 +3299,3 @@ comment_discussion = api.comment_discussion
 edit_discussion_comment = api.edit_discussion_comment
 rename_discussion = api.rename_discussion
 merge_pull_request = api.merge_pull_request
-
-_validate_or_retrieve_token = api._validate_or_retrieve_token

@@ -11,11 +11,9 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-
 import unittest
 
-import datasets
-
+from huggingface_hub import hf_hub_download
 from huggingface_hub.inference_api import InferenceApi
 
 from .testing_utils import with_production_testing
@@ -67,13 +65,12 @@ class InferenceApiTest(unittest.TestCase):
     @with_production_testing
     def test_inference_with_audio(self):
         api = InferenceApi("facebook/wav2vec2-base-960h")
-        with self.assertWarns(FutureWarning):
-            dataset = datasets.load_dataset(
-                "patrickvonplaten/librispeech_asr_dummy",
-                "clean",
-                split="validation",
-            )
-        data = self.read(dataset["file"][0])
+        file = hf_hub_download(
+            repo_id="hf-internal-testing/dummy-flac-single-example",
+            repo_type="dataset",
+            filename="example.flac",
+        )
+        data = self.read(file)
         result = api(data=data)
         self.assertIsInstance(result, dict)
         self.assertTrue("text" in result, f"We received {result} instead")
@@ -81,13 +78,10 @@ class InferenceApiTest(unittest.TestCase):
     @with_production_testing
     def test_inference_with_image(self):
         api = InferenceApi("google/vit-base-patch16-224")
-        with self.assertWarns(FutureWarning):
-            dataset = datasets.load_dataset(
-                "Narsil/image_dummy",
-                "image",
-                split="test",
-            )
-        data = self.read(dataset["file"][0])
+        file = hf_hub_download(
+            repo_id="Narsil/image_dummy", repo_type="dataset", filename="lena.png"
+        )
+        data = self.read(file)
         result = api(data=data)
         self.assertIsInstance(result, list)
         for classification in result:
