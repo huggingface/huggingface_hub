@@ -7,7 +7,7 @@ from typing import Any, Dict, List, Optional, Union
 
 from packaging import version
 
-from huggingface_hub import hf_api, snapshot_download
+from huggingface_hub import snapshot_download
 from huggingface_hub.constants import CONFIG_NAME
 from huggingface_hub.file_download import (
     _PY_VERSION,
@@ -437,7 +437,6 @@ def push_to_hub_fastai(
     """
 
     _check_fastai_fastcore_versions()
-    token, _ = hf_api._validate_or_retrieve_token(token)
     api = HfApi(endpoint=api_endpoint)
     api.create_repo(
         repo_id=repo_id,

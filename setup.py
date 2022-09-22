@@ -41,7 +41,6 @@ extras["fastai"] = [
 extras["tensorflow"] = ["tensorflow", "pydot", "graphviz"]
 
 extras["testing"] = extras["cli"] + [
-    "datasets",
     "isort>=5.5.4",
     "jedi",
     "Jinja2",

@@ -33,10 +33,10 @@ from .constants import (
     REPO_TYPES,
     REPO_TYPES_URL_PREFIXES,
 )
-from .hf_api import HfFolder
 from .utils import (
     EntryNotFoundError,
     LocalEntryNotFoundError,
+    build_hf_headers,
     hf_raise_for_status,
     http_backoff,
     logging,
@@ -670,23 +670,12 @@ def cached_download(
 
     os.makedirs(cache_dir, exist_ok=True)
 
-    headers = {
-        "user-agent": http_user_agent(
-            library_name=library_name,
-            library_version=library_version,
-            user_agent=user_agent,
-        )
-    }
-    if isinstance(use_auth_token, str):
-        headers["authorization"] = f"Bearer {use_auth_token}"
-    elif use_auth_token:
-        token = HfFolder.get_token()
-        if token is None:
-            raise EnvironmentError(
-                "You specified use_auth_token=True, but a huggingface token was not"
-                " found."
-            )
-        headers["authorization"] = f"Bearer {token}"
+    headers = build_hf_headers(use_auth_token=use_auth_token)
+    headers["user-agent"] = http_user_agent(
+        library_name=library_name,
+        library_version=library_version,
+        user_agent=user_agent,
+    )
 
     url_to_download = url
     etag = None
@@ -1115,23 +1104,12 @@ def hf_hub_download(
 
     url = hf_hub_url(repo_id, filename, repo_type=repo_type, revision=revision)
 
-    headers = {
-        "user-agent": http_user_agent(
-            library_name=library_name,
-            library_version=library_version,
-            user_agent=user_agent,
-        )
-    }
-    if isinstance(use_auth_token, str):
-        headers["authorization"] = f"Bearer {use_auth_token}"
-    elif use_auth_token:
-        token = HfFolder.get_token()
-        if token is None:
-            raise EnvironmentError(
-                "You specified use_auth_token=True, but a huggingface token was not"
-                " found."
-            )
-        headers["authorization"] = f"Bearer {token}"
+    headers = build_hf_headers(use_auth_token=use_auth_token)
+    headers["user-agent"] = http_user_agent(
+        library_name=library_name,
+        library_version=library_version,
+        user_agent=user_agent,
+    )
 
     url_to_download = url
     etag = None
@@ -1433,18 +1411,7 @@ def get_hf_file_metadata(
         A [`HfFileMetadata`] object containing metadata such as location, etag and
         commit_hash.
     """
-    # TODO: helper to get headers from `use_auth_token` (copy-pasted several times)
-    headers = {}
-    if isinstance(use_auth_token, str):
-        headers["authorization"] = f"Bearer {use_auth_token}"
-    elif use_auth_token:
-        token = HfFolder.get_token()
-        if token is None:
-            raise EnvironmentError(
-                "You specified use_auth_token=True, but a huggingface token was not"
-                " found."
-            )
-        headers["authorization"] = f"Bearer {token}"
+    headers = build_hf_headers(use_auth_token=use_auth_token)
 
     # Retrieve metadata
     r = _request_wrapper(

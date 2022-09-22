@@ -369,49 +369,63 @@ def handle_injection(cls: T) -> T:
 
     NOTE: this decorator is inspired from the fixture system from pytest.
     """
-
-    def _test_decorator(fn: Callable) -> Callable:
-        signature = inspect.signature(fn)
-        parameters = signature.parameters
-
-        @wraps(fn)
-        def _inner(*args, **kwargs):
-            assert kwargs == {}
-
-            # Initialize new dict at least with `self`.
-            assert len(args) > 0
-            assert len(parameters) > 0
-            new_kwargs = {"self": args[0]}
-
-            # Check which mocks have been injected
-            mocks = {}
-            for value in args[1:]:
-                assert isinstance(value, Mock)
-                mock_name = "mock_" + value._extract_mock_name()
-                mocks[mock_name] = value
-
-            # Check which mocks are expected
-            for name, parameter in parameters.items():
-                if name == "self":
-                    continue
-                assert parameter.annotation is Mock
-                assert name in mocks, (
-                    f"Mock `{name}` not found for test `{fn.__name__}`. Available:"
-                    f" {', '.join(sorted(mocks.keys()))}"
-                )
-                new_kwargs[name] = mocks[name]
-
-            # Run test only with a subset of mocks
-            return fn(**new_kwargs)
-
-        return _inner
-
     # Iterate over class functions and decorate tests
     # Taken from https://stackoverflow.com/a/3467879
     #        and https://stackoverflow.com/a/30764825
     for name, fn in inspect.getmembers(cls):
         if name.startswith("test_"):
-            setattr(cls, name, _test_decorator(fn))
+            setattr(cls, name, handle_injection_in_test(fn))
 
     # Return decorated class
     return cls
+
+
+def handle_injection_in_test(fn: Callable) -> Callable:
+    """
+    Handle injections at a test level. See `handle_injection` for more details.
+
+    Example:
+    ```py
+    def TestHelloWorld(unittest.TestCase):
+
+        @patch("something.foo")
+        @patch("something_else.foo.bar") # order doesn't matter
+        @handle_injection_in_test # after @patch calls
+        def test_hello_foo(self, mock_foo: Mock) -> None:
+            (...)
+    ```
+    """
+    signature = inspect.signature(fn)
+    parameters = signature.parameters
+
+    @wraps(fn)
+    def _inner(*args, **kwargs):
+        assert kwargs == {}
+
+        # Initialize new dict at least with `self`.
+        assert len(args) > 0
+        assert len(parameters) > 0
+        new_kwargs = {"self": args[0]}
+
+        # Check which mocks have been injected
+        mocks = {}
+        for value in args[1:]:
+            assert isinstance(value, Mock)
+            mock_name = "mock_" + value._extract_mock_name()
+            mocks[mock_name] = value
+
+        # Check which mocks are expected
+        for name, parameter in parameters.items():
+            if name == "self":
+                continue
+            assert parameter.annotation is Mock
+            assert name in mocks, (
+                f"Mock `{name}` not found for test `{fn.__name__}`. Available:"
+                f" {', '.join(sorted(mocks.keys()))}"
+            )
+            new_kwargs[name] = mocks[name]
+
+        # Run test only with a subset of mocks
+        return fn(**new_kwargs)
+
+    return _inner
