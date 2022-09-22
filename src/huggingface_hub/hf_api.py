@@ -49,6 +49,7 @@ from .constants import (
     REPO_TYPES_URL_PREFIXES,
     SPACES_SDK_TYPES,
 )
+from .utils import HfFolder  # noqa: F401 # imported for backward compatibility
 from .utils import (
     build_hf_headers,
     filter_repo_objects,
