@@ -99,7 +99,6 @@ _SUBMOD_ATTRS = {
         "CommitOperationDelete",
         "DatasetSearchArguments",
         "HfApi",
-        "HfFolder",
         "ModelSearchArguments",
         "change_discussion_status",
         "comment_discussion",
@@ -170,6 +169,7 @@ _SUBMOD_ATTRS = {
         "CorruptedCacheException",
         "DeleteCacheStrategy",
         "HFCacheInfo",
+        "HfFolder",
         "logging",
         "scan_cache_dir",
     ],
@@ -313,7 +313,6 @@ if TYPE_CHECKING:  # pragma: no cover
     from .hf_api import CommitOperationDelete  # noqa: F401
     from .hf_api import DatasetSearchArguments  # noqa: F401
     from .hf_api import HfApi  # noqa: F401
-    from .hf_api import HfFolder  # noqa: F401
     from .hf_api import ModelSearchArguments  # noqa: F401
     from .hf_api import change_discussion_status  # noqa: F401
     from .hf_api import comment_discussion  # noqa: F401
@@ -370,6 +369,7 @@ if TYPE_CHECKING:  # pragma: no cover
     from .utils import CorruptedCacheException  # noqa: F401
     from .utils import DeleteCacheStrategy  # noqa: F401
     from .utils import HFCacheInfo  # noqa: F401
+    from .utils import HfFolder  # noqa: F401
     from .utils import logging  # noqa: F401
     from .utils import scan_cache_dir  # noqa: F401
     from .utils.endpoint_helpers import DatasetFilter  # noqa: F401
