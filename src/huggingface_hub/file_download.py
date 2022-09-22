@@ -4,6 +4,7 @@ import io
 import json
 import os
 import re
+import shutil
 import sys
 import tempfile
 import warnings
@@ -169,6 +170,50 @@ def is_jinja_available():
 
 def get_jinja_version():
     return _jinja_version
+
+
+_are_symlinks_supported: Optional[bool] = None
+
+
+def are_symlinks_supported() -> bool:
+    # Check symlink compatibility only once at first time use
+    global _are_symlinks_supported
+
+    if _are_symlinks_supported is None:
+        _are_symlinks_supported = True
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            src_path = Path(tmpdir) / "dummy_file_src"
+            src_path.touch()
+            dst_path = Path(tmpdir) / "dummy_file_dst"
+            try:
+                os.symlink(src_path, dst_path)
+            except OSError:
+                # Likely running on Windows
+                _are_symlinks_supported = False
+
+                if not os.environ.get("DISABLE_SYMLINKS_WARNING"):
+                    message = (
+                        "`huggingface_hub` cache-system uses symlinks by default to"
+                        " efficiently store duplicated files but your machine doesn't"
+                        " support them. Caching files will still work but in a degraded"
+                        " version that might require more space on your disk. This"
+                        " warning can be disabled by setting the"
+                        " `DISABLE_SYMLINKS_WARNING` environment variable. For more"
+                        " details, see"
+                        " https://huggingface.co/docs/huggingface_hub/how-to-cache#limitations."
+                    )
+                    if os.name == "nt":
+                        message += (
+                            "\nTo support symlinks on Windows, you either need to"
+                            " activate Developer Mode or to run Python as an"
+                            " administrator. In order to see activate developer mode,"
+                            " see this article:"
+                            " https://docs.microsoft.com/en-us/windows/apps/get-started/enable-your-device-for-development"
+                        )
+                    warnings.warn(message)
+
+    return _are_symlinks_supported
 
 
 # Return value when trying to load a file from cache but the file does not exist in the distant repo.
@@ -848,7 +893,7 @@ def _normalize_etag(etag: Optional[str]) -> Optional[str]:
     return etag.strip('"')
 
 
-def _create_relative_symlink(src: str, dst: str) -> None:
+def _create_relative_symlink(src: str, dst: str, new_blob: bool = False) -> None:
     """Create a symbolic link named dst pointing to src as a relative path to dst.
 
     The relative part is mostly because it seems more elegant to the author.
@@ -858,25 +903,29 @@ def _create_relative_symlink(src: str, dst: str) -> None:
             ├── [ 128]  2439f60ef33a0d46d85da5001d52aeda5b00ce9f
             │   ├── [  52]  README.md -> ../../blobs/d7edf6bd2a681fb0175f7735299831ee1b22b812
             │   └── [  76]  pytorch_model.bin -> ../../blobs/403450e234d65943a7dcf7e05a771ce3c92faa84dd07db4ac20f592037a1e4bd
+
+    If symlinks cannot be created on this platform (most likely to be Windows), the
+    workaround is to avoid symlinks by having the actual file in `dst`. If it is a new
+    file (`new_blob=True`), we move it to `dst`. If it is not a new file
+    (`new_blob=False`), we don't know if the blob file is already referenced elsewhere.
+    To avoid breaking existing cache, the file is duplicated on the disk.
+
+    In case symlinks are not supported, a warning message is displayed to the user once
+    when loading `huggingface_hub`. The warning message can be disable with the
+    `DISABLE_SYMLINKS_WARNING` environment variable.
     """
     relative_src = os.path.relpath(src, start=os.path.dirname(dst))
     try:
         os.remove(dst)
     except OSError:
         pass
-    try:
+
+    if are_symlinks_supported():
         os.symlink(relative_src, dst)
-    except OSError:
-        # Likely running on Windows
-        if os.name == "nt":
-            raise OSError(
-                "Windows requires Developer Mode to be activated, or to run Python as "
-                "an administrator, in order to create symlinks.\nIn order to "
-                "activate Developer Mode, see this article: "
-                "https://docs.microsoft.com/en-us/windows/apps/get-started/enable-your-device-for-development"
-            )
-        else:
-            raise
+    elif new_blob:
+        os.replace(src, dst)
+    else:
+        shutil.copyfile(src, dst)
 
 
 def _cache_commit_hash_for_specific_revision(
@@ -1246,7 +1295,7 @@ def hf_hub_download(
     if os.path.exists(blob_path) and not force_download:
         # we have the blob already, but not the pointer
         logger.info("creating pointer to %s from %s", blob_path, pointer_path)
-        _create_relative_symlink(blob_path, pointer_path)
+        _create_relative_symlink(blob_path, pointer_path, new_blob=False)
         return pointer_path
 
     # Prevent parallel downloads of the same file with a lock.
@@ -1302,7 +1351,7 @@ def hf_hub_download(
         os.replace(temp_file.name, blob_path)
 
         logger.info("creating pointer to %s from %s", blob_path, pointer_path)
-        _create_relative_symlink(blob_path, pointer_path)
+        _create_relative_symlink(blob_path, pointer_path, new_blob=True)
 
     try:
         os.remove(lock_path)

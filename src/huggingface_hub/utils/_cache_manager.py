@@ -631,7 +631,6 @@ def _scan_cached_repo(repo_path: Path) -> CachedRepoInfo:
 
     snapshots_path = repo_path / "snapshots"
     refs_path = repo_path / "refs"
-    blobs_path = repo_path / "blobs"
 
     if not snapshots_path.exists() or not snapshots_path.is_dir():
         raise CorruptedCacheException(
@@ -679,20 +678,10 @@ def _scan_cached_repo(repo_path: Path) -> CachedRepoInfo:
             if file_path.is_dir():
                 continue
 
-            if not file_path.is_symlink():
-                raise CorruptedCacheException(
-                    f"Revision folder corrupted. Found a non-symlink file: {file_path}"
-                )
-
             blob_path = Path(file_path).resolve()
             if not blob_path.exists():
                 raise CorruptedCacheException(
                     f"Blob missing (broken symlink): {blob_path}"
-                )
-
-            if blobs_path not in blob_path.parents:
-                raise CorruptedCacheException(
-                    f"Blob symlink points outside of blob directory: {blob_path}"
                 )
 
             if blob_path not in blob_stats:

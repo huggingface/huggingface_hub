@@ -109,6 +109,25 @@ In practice, your cache should look like the following tree:
                 └── [  76]  pytorch_model.bin -> ../../blobs/403450e234d65943a7dcf7e05a771ce3c92faa84dd07db4ac20f592037a1e4bd
 ```
 
+### Limitations
+
+In order to have an efficient cache-system, `huggingface-hub` uses symlinks. However,
+symlinks are not supported on all machines. This is a known limitation especially on
+Windows. When this is the case, `huggingface_hub` do not use the `blobs/` directory but
+directly stores the files in the `snapshots/` directory instead. This workaround allows
+users to download and cache files from the Hub exactly the same way. Tools to inspect
+and delete the cache (see below) are also supported. However, the cache-system is less
+efficient as a single file might be downloaded several times if multiple revisions of
+the same repo is downloaded.
+
+If you want to benefit from the symlink-based cache-system on a Windows machine, you
+either need to [activate Developer Mode](https://docs.microsoft.com/en-us/windows/apps/get-started/enable-your-device-for-development)
+or to run Python as an administrator.
+
+When symlinks are not supported, a warning message is displayed to the user to alert
+them they are using a degraded version of the cache-system. This warning can be disabled
+by setting the `DISABLE_SYMLINKS_WARNING` environment variable to true.
+
 ## Scan your cache
 
 At the moment, cached files are never deleted from your local directory: when you download
