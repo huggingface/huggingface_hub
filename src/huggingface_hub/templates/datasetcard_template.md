@@ -31,95 +31,95 @@
 
 ## Dataset Description
 
-- **Homepage:**
-- **Repository:**
-- **Paper:**
-- **Leaderboard:**
-- **Point of Contact:**
+- **Homepage:** {{ homepage_url | default("", true)}}
+- **Repository:** {{ repo_url | default("", true)}}
+- **Paper:** {{ paper_url | default("", true)}}
+- **Leaderboard:** {{ leaderboard_url | default("", true)}}
+- **Point of Contact:** {{ point_of_contact | default("", true)}}
 
 ### Dataset Summary
 
-[More Information Needed]
+{{ dataset_summary | default("[More Information Needed]", true)}}
 
 ### Supported Tasks and Leaderboards
 
-[More Information Needed]
+{{ supported_tasks_and_leaderboards_section | default("[More Information Needed]", true)}}
 
 ### Languages
 
-[More Information Needed]
+{{ languages_section | default("[More Information Needed]", true)}}
 
 ## Dataset Structure
 
 ### Data Instances
 
-[More Information Needed]
+{{ data_instances_section | default("[More Information Needed]", true)}}
 
 ### Data Fields
 
-[More Information Needed]
+{{ data_fields_section | default("[More Information Needed]", true)}}
 
 ### Data Splits
 
-[More Information Needed]
+{{ data_splits_section | default("[More Information Needed]", true)}}
 
 ## Dataset Creation
 
 ### Curation Rationale
 
-[More Information Needed]
+{{ curation_rationale_section | default("[More Information Needed]", true)}}
 
 ### Source Data
 
 #### Initial Data Collection and Normalization
 
-[More Information Needed]
+{{ data_collection_section | default("[More Information Needed]", true)}}
 
 #### Who are the source language producers?
 
-[More Information Needed]
+{{ source_language_producers_section | default("[More Information Needed]", true)}}
 
 ### Annotations
 
 #### Annotation process
 
-[More Information Needed]
+{{ annotation_process_section | default("[More Information Needed]", true)}}
 
 #### Who are the annotators?
 
-[More Information Needed]
+{{ who_are_annotators_section | default("[More Information Needed]", true)}}
 
 ### Personal and Sensitive Information
 
-[More Information Needed]
+{{ personal_and_sensitive_information_section | default("[More Information Needed]", true)}}
 
 ## Considerations for Using the Data
 
 ### Social Impact of Dataset
 
-[More Information Needed]
+{{ social_impact_section | default("[More Information Needed]", true)}}
 
 ### Discussion of Biases
 
-[More Information Needed]
+{{ discussion_of_biases_section | default("[More Information Needed]", true)}}
 
 ### Other Known Limitations
 
-[More Information Needed]
+{{ known_limitations_section | default("[More Information Needed]", true)}}
 
 ## Additional Information
 
 ### Dataset Curators
 
-[More Information Needed]
+{{ dataset_curators_section | default("[More Information Needed]", true)}}
 
 ### Licensing Information
 
-[More Information Needed]
+{{ licensing_information_section | default("[More Information Needed]", true)}}
 
 ### Citation Information
 
-[More Information Needed]
+{{ citation_information_section | default("[More Information Needed]", true)}}
 
 ### Contributions
 

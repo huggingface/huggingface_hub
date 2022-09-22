@@ -13,6 +13,7 @@
 # limitations under the License.
 import copy
 import os
+import re
 import shutil
 import tempfile
 import unittest
@@ -742,6 +743,34 @@ class DatasetCardTest(TestCaseWithCapLog):
         )
 
         self.assertIsInstance(card, DatasetCard)
+
+    @require_jinja
+    def test_dataset_card_from_default_template_with_template_variables(self):
+        card_data = DatasetCardData(
+            language="en",
+            license="mit",
+            pretty_name="My Cool Dataset",
+        )
+
+        # Here we pass the card data as kwargs as well so template picks up pretty_name.
+        card = DatasetCard.from_template(
+            card_data,
+            homepage_url="https://huggingface.co",
+            repo_url="https://github.com/huggingface/huggingface_hub",
+            paper_url="https://arxiv.org/pdf/1910.03771.pdf",
+            point_of_contact="https://huggingface.co/nateraw",
+            dataset_summary=(
+                "This is a test dataset card to check if the template variables "
+                "in the dataset card template are working."
+            ),
+        )
+        self.assertTrue(
+            card.text.strip().startswith("# Dataset Card for My Cool Dataset")
+        )
+        self.assertIsInstance(card, DatasetCard)
+
+        matches = re.findall(r"Homepage:\*\* https:\/\/huggingface\.co", str(card))
+        self.assertEqual(matches[0], "Homepage:** https://huggingface.co")
 
     @require_jinja
     def test_dataset_card_from_custom_template(self):
