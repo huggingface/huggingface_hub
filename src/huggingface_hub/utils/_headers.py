@@ -50,23 +50,23 @@ def build_hf_headers(
 
     Example:
     ```py
-        > build_hf_headers(use_auth_token="hf_***") # explicit token
+        >>> build_hf_headers(use_auth_token="hf_***") # explicit token
         {"authorization": "Bearer hf_***"}
 
-        > build_hf_headers(use_auth_token=True) # explicitly use cached token
+        >>> build_hf_headers(use_auth_token=True) # explicitly use cached token
         {"authorization": "Bearer hf_***"}
 
-        > build_hf_headers(use_auth_token=False) # explicitly don't use cached token
+        >>> build_hf_headers(use_auth_token=False) # explicitly don't use cached token
         {}
 
-        > build_hf_headers() # implicit use of the cached token
+        >>> build_hf_headers() # implicit use of the cached token
         {"authorization": "Bearer hf_***"}
 
         # HF_HUB_DISABLE_IMPLICIT_TOKEN=True # to set as env variable
-        > build_hf_headers() # token is not sent
+        >>> build_hf_headers() # token is not sent
         {}
 
-        > build_hf_headers(use_auth_token="api_org_***", is_write_action=True)
+        >>> build_hf_headers(use_auth_token="api_org_***", is_write_action=True)
         ValueError: You must use your personal account token for write-access methods.
     ```
 
