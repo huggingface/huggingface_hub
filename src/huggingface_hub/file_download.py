@@ -200,8 +200,11 @@ def are_symlinks_supported(cache_dir: Union[str, Path, None] = None) -> bool:
             src_path = Path(tmpdir) / "dummy_file_src"
             src_path.touch()
             dst_path = Path(tmpdir) / "dummy_file_dst"
+
+            # Relative source path as in `_create_relative_symlink``
+            relative_src = os.path.relpath(src_path, start=os.path.dirname(dst_path))
             try:
-                os.symlink(src_path, dst_path)
+                os.symlink(relative_src, dst_path)
             except OSError:
                 # Likely running on Windows
                 _are_symlinks_supported_in_dir[cache_dir] = False
