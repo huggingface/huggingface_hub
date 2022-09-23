@@ -196,6 +196,7 @@ def are_symlinks_supported(cache_dir: Union[str, Path, None] = None) -> bool:
     if cache_dir not in _are_symlinks_supported_in_dir:
         _are_symlinks_supported_in_dir[cache_dir] = True
 
+        os.makedirs(cache_dir, exist_ok=True)
         with tempfile.TemporaryDirectory(dir=cache_dir) as tmpdir:
             src_path = Path(tmpdir) / "dummy_file_src"
             src_path.touch()
