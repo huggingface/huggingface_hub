@@ -17,7 +17,7 @@ import inspect
 import re
 from functools import wraps
 from itertools import chain
-from typing import Callable
+from typing import TypeVar
 
 
 REPO_ID_REGEX = re.compile(
@@ -40,7 +40,11 @@ class HFValidationError(ValueError):
     """
 
 
-def validate_hf_hub_args(fn: Callable) -> Callable:
+# type hint meaning "function signature not changed by decorator"
+CallableT = TypeVar("CallableT")  # callable type
+
+
+def validate_hf_hub_args(fn: CallableT) -> CallableT:
     """Validate values received as argument for any public method of `huggingface_hub`.
 
     The goal of this decorator is to harmonize validation of arguments reused

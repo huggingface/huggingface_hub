@@ -41,6 +41,7 @@ from huggingface_hub.constants import (
 from huggingface_hub.file_download import cached_download, hf_hub_download
 from huggingface_hub.hf_api import (
     USERNAME_PLACEHOLDER,
+    CommitInfo,
     DatasetInfo,
     DatasetSearchArguments,
     HfApi,
@@ -766,10 +767,26 @@ class CommitApiTest(HfApiCommonTestWithLogin):
                 token=self._token,
                 create_pr=True,
             )
+
+            # Check commit info
+            self.assertIsInstance(resp, CommitInfo)
+            commit_id = resp.oid
+            self.assertIn("pr_revision='refs/pr/1'", str(resp))
+            self.assertIsInstance(commit_id, str)
+            self.assertGreater(len(commit_id), 0)
             self.assertEqual(
-                resp,
+                resp.commit_url,
+                f"{self._api.endpoint}/{USER}/{REPO_NAME}/commit/{commit_id}",
+            )
+            self.assertEqual(resp.commit_message, "Test create_commit")
+            self.assertEqual(resp.commit_description, "")
+            self.assertEqual(
+                resp.pr_url,
                 f"{self._api.endpoint}/{USER}/{REPO_NAME}/discussions/1",
             )
+            self.assertEqual(resp.pr_num, 1)
+            self.assertEqual(resp.pr_revision, "refs/pr/1")
+
             with self.assertRaises(HTTPError) as ctx:
                 # Should raise a 404
                 hf_hub_download(
@@ -830,13 +847,17 @@ class CommitApiTest(HfApiCommonTestWithLogin):
                                 path_or_fileobj=self.tmp_file,
                             ),
                         ]
-                        return_val = self._api.create_commit(
+                        resp = self._api.create_commit(
                             operations=operations,
                             commit_message="Test create_commit",
                             repo_id=f"{USER}/{REPO_NAME}",
                             token=self._token,
                         )
-                        self.assertIsNone(return_val)
+                        # Check commit info
+                        self.assertIsInstance(resp, CommitInfo)
+                        self.assertIsNone(resp.pr_url)  # No pr created
+                        self.assertIsNone(resp.pr_num)
+                        self.assertIsNone(resp.pr_revision)
                     with self.assertRaises(HTTPError):
                         # Should raise a 404
                         hf_hub_download(
