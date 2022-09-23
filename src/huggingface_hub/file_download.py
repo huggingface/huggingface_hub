@@ -20,7 +20,7 @@ from filelock import FileLock
 from huggingface_hub import constants
 from requests.exceptions import ConnectTimeout, ProxyError
 
-from . import __version__  # noqa: F401
+from . import __version__  # noqa: F401 # for backward compatibility
 from .constants import (
     DEFAULT_REVISION,
     HUGGINGFACE_CO_URL_TEMPLATE,
@@ -56,6 +56,7 @@ from .utils import (
     validate_hf_hub_args,
 )
 from .utils._headers import _http_user_agent
+from .utils._runtime import _PY_VERSION  # noqa: F401 # for backward compatibility
 
 
 logger = logging.get_logger(__name__)
