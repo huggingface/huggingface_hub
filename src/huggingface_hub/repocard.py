@@ -13,7 +13,7 @@ else:
 
 import requests
 import yaml
-from huggingface_hub.file_download import hf_hub_download, is_jinja_available
+from huggingface_hub.file_download import hf_hub_download
 from huggingface_hub.hf_api import upload_file
 from huggingface_hub.repocard_data import (
     CardData,
@@ -23,7 +23,7 @@ from huggingface_hub.repocard_data import (
     eval_results_to_model_index,
     model_index_to_eval_results,
 )
-from huggingface_hub.utils import yaml_dump
+from huggingface_hub.utils import is_jinja_available, yaml_dump
 
 from .constants import REPOCARD_NAME
 from .utils import EntryNotFoundError, validate_hf_hub_args

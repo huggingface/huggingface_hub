@@ -9,13 +9,13 @@ from typing import Any, Dict, List, Optional, Union
 from urllib.parse import quote
 
 from huggingface_hub import CommitOperationDelete, ModelHubMixin, snapshot_download
-from huggingface_hub.file_download import (
+from huggingface_hub.utils import (
     get_tf_version,
     is_graphviz_available,
     is_pydot_available,
     is_tf_available,
+    yaml_dump,
 )
-from huggingface_hub.utils import yaml_dump
 
 from .constants import CONFIG_NAME, DEFAULT_REVISION
 from .hf_api import HfApi, _parse_revision_from_pr_url, _prepare_upload_folder_commit

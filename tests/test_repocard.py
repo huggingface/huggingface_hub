@@ -36,12 +36,12 @@ from huggingface_hub import (
     metadata_update,
 )
 from huggingface_hub.constants import REPOCARD_NAME
-from huggingface_hub.file_download import hf_hub_download, is_jinja_available
+from huggingface_hub.file_download import hf_hub_download
 from huggingface_hub.hf_api import HfApi
 from huggingface_hub.repocard import RepoCard
 from huggingface_hub.repocard_data import CardData
 from huggingface_hub.repository import Repository
-from huggingface_hub.utils import logging
+from huggingface_hub.utils import is_jinja_available, logging
 
 from .testing_constants import (
     ENDPOINT_STAGING,

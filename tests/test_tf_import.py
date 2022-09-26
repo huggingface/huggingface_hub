@@ -1,7 +1,7 @@
 import sys
 import unittest
 
-from huggingface_hub.file_download import is_tf_available
+from huggingface_hub.utils import is_tf_available
 
 
 def require_tf(test_case):

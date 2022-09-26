@@ -17,10 +17,27 @@ import os
 from typing import Dict, Optional, Union
 
 from ._hf_folder import HfFolder
+from ._runtime import (
+    get_fastai_version,
+    get_fastcore_version,
+    get_hf_hub_version,
+    get_python_version,
+    get_tf_version,
+    get_torch_version,
+    is_fastai_available,
+    is_fastcore_available,
+    is_tf_available,
+    is_torch_available,
+)
 
 
 def build_hf_headers(
-    *, use_auth_token: Optional[Union[bool, str]] = None, is_write_action: bool = False
+    *,
+    use_auth_token: Optional[Union[bool, str]] = None,
+    is_write_action: bool = False,
+    library_name: Optional[str] = None,
+    library_version: Optional[str] = None,
+    user_agent: Union[Dict, str, None] = None,
 ) -> Dict[str, str]:
     """
     Build headers dictionary to send in a HF Hub call.
@@ -33,6 +50,10 @@ def build_hf_headers(
     In case of an API call that requires write access, an error is thrown if token is
     `None` or token is an organization token (starting with `"api_org***"`).
 
+    In addition to the auth header, a user-agent is added to provide information about
+    the installed packages (versions of python, huggingface_hub, torch, tensorflow,
+    fastai and fastcore).
+
     Args:
         use_auth_token (`str`, `bool`, *optional*):
             The token to be sent in authorization header for the Hub call:
@@ -44,6 +65,15 @@ def build_hf_headers(
         is_write_action (`bool`, default to `False`):
             Set to True if the API call requires a write access. If `True`, the token
             will be validated (cannot be `None`, cannot start by `"api_org***"`).
+        library_name (`str`, *optional*):
+            The name of the library that is making the HTTP request. Will be added to
+            the user-agent header.
+        library_version (`str`, *optional*):
+            The version of the library that is making the HTTP request. Will be added
+            to the user-agent header.
+        user_agent (`str`, `dict`, *optional*):
+            The user agent info in the form of a dictionary or a single string. It will
+            be completed with information about the installed packages.
 
     Returns:
         A `Dict` of headers to pass in your API call.
@@ -51,23 +81,26 @@ def build_hf_headers(
     Example:
     ```py
         >>> build_hf_headers(use_auth_token="hf_***") # explicit token
-        {"authorization": "Bearer hf_***"}
+        {"authorization": "Bearer hf_***", "user-agent": ""}
 
         >>> build_hf_headers(use_auth_token=True) # explicitly use cached token
-        {"authorization": "Bearer hf_***"}
+        {"authorization": "Bearer hf_***",...}
 
         >>> build_hf_headers(use_auth_token=False) # explicitly don't use cached token
-        {}
+        {"user-agent": ...}
 
         >>> build_hf_headers() # implicit use of the cached token
-        {"authorization": "Bearer hf_***"}
+        {"authorization": "Bearer hf_***",...}
 
         # HF_HUB_DISABLE_IMPLICIT_TOKEN=True # to set as env variable
         >>> build_hf_headers() # token is not sent
-        {}
+        {"user-agent": ...}
 
         >>> build_hf_headers(use_auth_token="api_org_***", is_write_action=True)
         ValueError: You must use your personal account token for write-access methods.
+
+        >>> build_hf_headers(library_name="transformers", library_version="1.2.3")
+        {"authorization": ..., "user-agent": "transformers/1.2.3; hf_hub/0.10.2; python/3.10.4; tensorflow/1.55"}
     ```
 
     Raises:
@@ -83,10 +116,15 @@ def build_hf_headers(
     _validate_token_to_send(token_to_send, is_write_action=is_write_action)
 
     # Combine headers
-    headers = {}
+    headers = {
+        "user-agent": _http_user_agent(
+            library_name=library_name,
+            library_version=library_version,
+            user_agent=user_agent,
+        )
+    }
     if token_to_send is not None:
         headers["authorization"] = f"Bearer {token_to_send}"
-    # TODO: add user agent in headers
     return headers
 
 
@@ -137,3 +175,43 @@ def _validate_token_to_send(token: Optional[str], is_write_action: bool) -> None
                 " generate a write-access token, go to"
                 " https://huggingface.co/settings/tokens"
             )
+
+
+def _http_user_agent(
+    *,
+    library_name: Optional[str] = None,
+    library_version: Optional[str] = None,
+    user_agent: Union[Dict, str, None] = None,
+) -> str:
+    """Format a user-agent string containing information about the installed packages.
+
+    Args:
+        library_name (`str`, *optional*):
+            The name of the library that is making the HTTP request.
+        library_version (`str`, *optional*):
+            The version of the library that is making the HTTP request.
+        user_agent (`str`, `dict`, *optional*):
+            The user agent info in the form of a dictionary or a single string.
+
+    Returns:
+        The formatted user-agent string.
+    """
+    if library_name is not None:
+        ua = f"{library_name}/{library_version}"
+    else:
+        ua = "unknown/None"
+    ua += f"; hf_hub/{get_hf_hub_version()}"
+    ua += f"; python/{get_python_version()}"
+    if is_torch_available():
+        ua += f"; torch/{get_torch_version()}"
+    if is_tf_available():
+        ua += f"; tensorflow/{get_tf_version()}"
+    if is_fastai_available():
+        ua += f"; fastai/{get_fastai_version()}"
+    if is_fastcore_available():
+        ua += f"; fastcore/{get_fastcore_version()}"
+    if isinstance(user_agent, dict):
+        ua += "; " + "; ".join(f"{k}/{v}" for k, v in user_agent.items())
+    elif isinstance(user_agent, str):
+        ua += "; " + user_agent
+    return ua

@@ -9,15 +9,16 @@ from packaging import version
 
 from huggingface_hub import snapshot_download
 from huggingface_hub.constants import CONFIG_NAME
-from huggingface_hub.file_download import (
-    _PY_VERSION,
+from huggingface_hub.hf_api import HfApi
+from huggingface_hub.utils import (
     get_fastai_version,
     get_fastcore_version,
+    get_python_version,
 )
-from huggingface_hub.hf_api import HfApi
 
 from .utils import logging, validate_hf_hub_args
 from .utils._deprecation import _deprecate_arguments, _deprecate_positional_args
+from .utils._runtime import _PY_VERSION  # noqa: F401 # for backward compatibility...
 
 
 logger = logging.get_logger(__name__)
@@ -214,7 +215,7 @@ More information needed
 """
 
 PYPROJECT_TEMPLATE = f"""[build-system]
-requires = ["setuptools>=40.8.0", "wheel", "python={_PY_VERSION}", "fastai={get_fastai_version()}", "fastcore={get_fastcore_version()}"]
+requires = ["setuptools>=40.8.0", "wheel", "python={get_python_version()}", "fastai={get_fastai_version()}", "fastcore={get_fastcore_version()}"]
 build-backend = "setuptools.build_meta:__legacy__"
 """
 
