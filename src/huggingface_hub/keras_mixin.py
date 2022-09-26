@@ -8,13 +8,13 @@ from shutil import copytree, rmtree
 from typing import Any, Dict, List, Optional, Union
 from urllib.parse import quote
 
-import yaml
 from huggingface_hub import CommitOperationDelete, ModelHubMixin, snapshot_download
 from huggingface_hub.utils import (
     get_tf_version,
     is_graphviz_available,
     is_pydot_available,
     is_tf_available,
+    yaml_dump,
 )
 
 from .constants import CONFIG_NAME, DEFAULT_REVISION
@@ -105,7 +105,7 @@ def _create_model_card(
     readme_path = f"{repo_dir}/README.md"
     metadata["library_name"] = "keras"
     model_card = "---\n"
-    model_card += yaml.dump(metadata, default_flow_style=False)
+    model_card += yaml_dump(metadata, default_flow_style=False)
     model_card += "---\n"
     model_card += "\n## Model description\n\nMore information needed\n"
     model_card += "\n## Intended uses & limitations\n\nMore information needed\n"
@@ -446,7 +446,7 @@ def push_to_hub_keras(
                 allow_patterns=allow_patterns,
                 ignore_patterns=ignore_patterns,
             )
-            pr_url = api.create_commit(
+            commit_info = api.create_commit(
                 repo_type="model",
                 repo_id=repo_id,
                 operations=operations,
@@ -458,8 +458,8 @@ def push_to_hub_keras(
             revision = branch
             if revision is None:
                 revision = (
-                    quote(_parse_revision_from_pr_url(pr_url), safe="")
-                    if pr_url is not None
+                    quote(_parse_revision_from_pr_url(commit_info.pr_url), safe="")
+                    if commit_info.pr_url is not None
                     else DEFAULT_REVISION
                 )
             return f"{api.endpoint}/{repo_id}/tree/{revision}/"

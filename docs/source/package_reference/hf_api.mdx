@@ -25,15 +25,29 @@ models = hf_api.list_models()
 
 Using the `HfApi` class directly enables you to set a different endpoint to that of the Hugging Face's Hub.
 
+### HfApi
+
 [[autodoc]] HfApi
+
+### ModelInfo
 
 [[autodoc]] huggingface_hub.hf_api.ModelInfo
 
+### DatasetInfo
+
 [[autodoc]] huggingface_hub.hf_api.DatasetInfo
+
+### SpaceInfo
 
 [[autodoc]] huggingface_hub.hf_api.SpaceInfo
 
+### RepoFile
+
 [[autodoc]] huggingface_hub.hf_api.RepoFile
+
+### CommitInfo
+
+[[autodoc]] huggingface_hub.hf_api.CommitInfo
 
 ## `create_commit` API
 
@@ -56,10 +70,18 @@ It does this using the [`HfFolder`] utility, which saves data at the root of the
 
 Some helpers to filter repositories on the Hub are available in the `huggingface_hub` package.
 
+### DatasetFilter
+
 [[autodoc]] DatasetFilter
+
+### ModelFilter
 
 [[autodoc]] ModelFilter
 
+### DatasetSearchArguments
+
 [[autodoc]] DatasetSearchArguments
+
+### ModelSearchArguments
 
 [[autodoc]] ModelSearchArguments

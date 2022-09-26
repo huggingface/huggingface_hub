@@ -3,7 +3,7 @@ import re
 import sys
 import tempfile
 from pathlib import Path
-from typing import Any, Dict, Optional, Union
+from typing import Any, Dict, Optional, Type, Union
 
 
 if sys.version_info >= (3, 8):
@@ -23,10 +23,10 @@ from huggingface_hub.repocard_data import (
     eval_results_to_model_index,
     model_index_to_eval_results,
 )
-from huggingface_hub.utils import is_jinja_available
+from huggingface_hub.utils import is_jinja_available, yaml_dump
 
 from .constants import REPOCARD_NAME
-from .utils import validate_hf_hub_args
+from .utils import EntryNotFoundError, validate_hf_hub_args
 from .utils.logging import get_logger
 
 
@@ -513,7 +513,7 @@ def metadata_save(local_path: Union[str, Path], data: Dict) -> None:
 
     # creates a new file if it not
     with open(local_path, "w", newline="") as readme:
-        data_yaml = yaml.dump(data, sort_keys=False, line_break=line_break)
+        data_yaml = yaml_dump(data, sort_keys=False, line_break=line_break)
         # sort_keys: keep dict order
         match = REGEX_YAML_BLOCK.search(content)
         if match:
@@ -670,6 +670,9 @@ def metadata_update(
 ) -> str:
     """
     Updates the metadata in the README.md of a repository on the Hugging Face Hub.
+    If the README.md file doesn't exist yet, a new one is created with metadata and an
+    the default ModelCard or DatasetCard template. For `space` repo, an error is thrown
+    as a Space cannot exist without a `README.md` file.
 
     Args:
         repo_id (`str`):
@@ -686,7 +689,7 @@ def metadata_update(
             The Hugging Face authentication token.
         commit_message (`str`, *optional*):
             The summary / title / first line of the generated commit. Defaults to
-            `f"Update metdata with huggingface_hub"`
+            `f"Update metadata with huggingface_hub"`
         commit_description (`str` *optional*)
             The description of the generated commit
         revision (`str`, *optional*):
@@ -725,7 +728,30 @@ def metadata_update(
         else "Update metadata with huggingface_hub"
     )
 
-    card = ModelCard.load(repo_id, token=token)
+    # Card class given repo_type
+    card_class: Type[RepoCard]
+    if repo_type is None or repo_type == "model":
+        card_class = ModelCard
+    elif repo_type == "dataset":
+        card_class = DatasetCard
+    elif repo_type == "space":
+        card_class = RepoCard
+    else:
+        raise ValueError(f"Unknown repo_type: {repo_type}")
+
+    # Either load repo_card from the Hub or create an empty one.
+    # NOTE: Will not create the repo if it doesn't exist.
+    try:
+        card = card_class.load(repo_id, token=token, repo_type=repo_type)
+    except EntryNotFoundError:
+        if repo_type == "space":
+            raise ValueError(
+                "Cannot update metadata on a Space that doesn't contain a `README.md`"
+                " file."
+            )
+
+        # Initialize a ModelCard or DatasetCard from default template and no data.
+        card = card_class.from_template(CardData())
 
     for key, value in metadata.items():
         if key == "model-index":

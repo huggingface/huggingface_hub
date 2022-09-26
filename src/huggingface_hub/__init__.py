@@ -93,6 +93,7 @@ _SUBMOD_ATTRS = {
         "try_to_load_from_cache",
     ],
     "hf_api": [
+        "CommitInfo",
         "CommitOperation",
         "CommitOperationAdd",
         "CommitOperationDelete",
@@ -306,6 +307,7 @@ if TYPE_CHECKING:  # pragma: no cover
     from .file_download import hf_hub_download  # noqa: F401
     from .file_download import hf_hub_url  # noqa: F401
     from .file_download import try_to_load_from_cache  # noqa: F401
+    from .hf_api import CommitInfo  # noqa: F401
     from .hf_api import CommitOperation  # noqa: F401
     from .hf_api import CommitOperationAdd  # noqa: F401
     from .hf_api import CommitOperationDelete  # noqa: F401

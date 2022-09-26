@@ -6,7 +6,7 @@ from unittest.mock import Mock, patch
 import pytest
 
 from huggingface_hub import hf_hub_download, scan_cache_dir
-from huggingface_hub.constants import CONFIG_NAME
+from huggingface_hub.constants import CONFIG_NAME, HUGGINGFACE_HUB_CACHE
 from huggingface_hub.file_download import are_symlinks_supported
 
 from .testing_constants import TOKEN
@@ -18,24 +18,35 @@ from .testing_utils import DUMMY_MODEL_ID, with_production_testing
 class TestCacheLayoutIfSymlinksNotSupported(unittest.TestCase):
     cache_dir: Path
 
-    @patch("huggingface_hub.file_download._are_symlinks_supported", None)
-    def test_are_symlinks_supported_normal(self) -> None:
+    @patch(
+        "huggingface_hub.file_download._are_symlinks_supported_in_dir",
+        {HUGGINGFACE_HUB_CACHE: True},
+    )
+    def test_are_symlinks_supported_default(self) -> None:
         self.assertTrue(are_symlinks_supported())
 
-    @patch("huggingface_hub.file_download.os.symlink")  # Symlinks not supported
-    @patch("huggingface_hub.file_download._are_symlinks_supported", None)  # first use
-    def test_are_symlinks_supported_windows(self, mock_symlink: Mock) -> None:
-        mock_symlink.side_effect = OSError()
+    @patch("huggingface_hub.file_download.os.symlink")
+    @patch("huggingface_hub.file_download._are_symlinks_supported_in_dir", {})
+    def test_are_symlinks_supported_windows_specific_dir(
+        self, mock_symlink: Mock
+    ) -> None:
+        mock_symlink.side_effect = [OSError(), None]  # First dir not supported then yes
+        this_dir = Path(__file__).parent
 
-        # First time: warning is raised
+        # First time in `this_dir`: warning is raised
         with self.assertWarns(UserWarning):
-            self.assertFalse(are_symlinks_supported())
+            self.assertFalse(are_symlinks_supported(this_dir))
 
-        # Afterward: value is cached (no warning raised)
         with warnings.catch_warnings():
+            # Assert no warnings raised
             # Taken from https://stackoverflow.com/a/45671804
             warnings.simplefilter("error")
-            self.assertFalse(are_symlinks_supported())
+
+            # Second time in `this_dir` but with absolute path: value is still cached
+            self.assertFalse(are_symlinks_supported(this_dir.absolute()))
+
+            # Try with another directory: symlinks are supported, no warnings
+            self.assertTrue(are_symlinks_supported())  # True
 
     @patch("huggingface_hub.file_download.are_symlinks_supported")
     def test_download_no_symlink_new_file(

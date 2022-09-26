@@ -16,6 +16,7 @@ import os
 import re
 import subprocess
 import warnings
+from dataclasses import dataclass, field
 from typing import BinaryIO, Dict, Iterable, Iterator, List, Optional, Tuple, Union
 from urllib.parse import quote
 
@@ -169,6 +170,62 @@ def repo_type_and_id_from_hf_id(
 class BlobLfsInfo(TypedDict, total=False):
     size: int
     sha256: str
+
+
+@dataclass
+class CommitInfo:
+    """Data structure containing information about a newly created commit.
+
+    Returned by [`create_commit`].
+
+    Args:
+        commit_url (`str`):
+            Url where to find the commit.
+
+        commit_message (`str`):
+            The summary (first line) of the commit that has been created.
+
+        commit_description (`str`):
+            Description of the commit that has been created. Can be empty.
+
+        oid (`str`):
+            Commit hash id. Example: `"91c54ad1727ee830252e457677f467be0bfd8a57"`.
+
+        pr_url (`str`, *optional*):
+            Url to the PR that has been created, if any. Populated when `create_pr=True`
+            is passed.
+
+        pr_revision (`str`, *optional*):
+            Revision of the PR that has been created, if any. Populated when
+            `create_pr=True` is passed. Example: `"refs/pr/1"`.
+
+        pr_num (`int`, *optional*):
+            Number of the PR discussion that has been created, if any. Populated when
+            `create_pr=True` is passed. Can be passed as `discussion_num` in
+            [`get_discussion_details`]. Example: `1`.
+    """
+
+    commit_url: str
+    commit_message: str
+    commit_description: str
+    oid: str
+    pr_url: Optional[str] = None
+
+    # Computed from `pr_url` in `__post_init__`
+    pr_revision: Optional[str] = field(init=False)
+    pr_num: Optional[str] = field(init=False)
+
+    def __post_init__(self):
+        """Populate pr-related fields after initialization.
+
+        See https://docs.python.org/3.10/library/dataclasses.html#post-init-processing.
+        """
+        if self.pr_url is not None:
+            self.pr_revision = _parse_revision_from_pr_url(self.pr_url)
+            self.pr_num = int(self.pr_revision.split("/")[-1])
+        else:
+            self.pr_revision = None
+            self.pr_num = None
 
 
 class RepoFile:
@@ -1850,7 +1907,7 @@ class HfApi:
         create_pr: Optional[bool] = None,
         num_threads: int = 5,
         parent_commit: Optional[str] = None,
-    ) -> Optional[str]:
+    ) -> CommitInfo:
         """
         Creates a commit in the given repo, deleting & uploading files as needed.
 
@@ -1902,9 +1959,9 @@ class HfApi:
                 if the repo is updated / committed to concurrently.
 
         Returns:
-            `str` or `None`:
-                If `create_pr` is `True`, returns the URL to the newly created Pull Request
-                on the Hub. Otherwise returns `None`.
+            [`CommitInfo`]:
+                Instance of [`CommitInfo`] containing information about the newly
+                created commit (commit hash, commit url, pr url, commit message,...).
 
         Raises:
             [`ValueError`](https://docs.python.org/3/library/exceptions.html#ValueError)
@@ -2015,7 +2072,14 @@ class HfApi:
             params={"create_pr": "1"} if create_pr else None,
         )
         hf_raise_for_status(commit_resp, endpoint_name="commit")
-        return commit_resp.json().get("pullRequestUrl", None)
+        commit_data = commit_resp.json()
+        return CommitInfo(
+            commit_url=commit_data["commitUrl"],
+            commit_message=commit_message,
+            commit_description=commit_description,
+            oid=commit_data["commitOid"],
+            pr_url=commit_data["pullRequestUrl"] if create_pr else None,
+        )
 
     @validate_hf_hub_args
     def upload_file(
@@ -2157,7 +2221,7 @@ class HfApi:
             path_in_repo=path_in_repo,
         )
 
-        pr_url = self.create_commit(
+        commit_info = self.create_commit(
             repo_id=repo_id,
             repo_type=repo_type,
             operations=[operation],
@@ -2169,8 +2233,8 @@ class HfApi:
             parent_commit=parent_commit,
         )
 
-        if pr_url is not None:
-            revision = quote(_parse_revision_from_pr_url(pr_url), safe="")
+        if commit_info.pr_url is not None:
+            revision = quote(_parse_revision_from_pr_url(commit_info.pr_url), safe="")
         if repo_type in REPO_TYPES_URL_PREFIXES:
             repo_id = REPO_TYPES_URL_PREFIXES[repo_type] + repo_id
         revision = revision if revision is not None else DEFAULT_REVISION
@@ -2317,7 +2381,7 @@ class HfApi:
             ignore_patterns=ignore_patterns,
         )
 
-        pr_url = self.create_commit(
+        commit_info = self.create_commit(
             repo_type=repo_type,
             repo_id=repo_id,
             operations=files_to_add,
@@ -2329,8 +2393,8 @@ class HfApi:
             parent_commit=parent_commit,
         )
 
-        if pr_url is not None:
-            revision = quote(_parse_revision_from_pr_url(pr_url), safe="")
+        if commit_info.pr_url is not None:
+            revision = quote(_parse_revision_from_pr_url(commit_info.pr_url), safe="")
         if repo_type in REPO_TYPES_URL_PREFIXES:
             repo_id = REPO_TYPES_URL_PREFIXES[repo_type] + repo_id
         revision = revision if revision is not None else DEFAULT_REVISION
@@ -2350,7 +2414,7 @@ class HfApi:
         commit_description: Optional[str] = None,
         create_pr: Optional[bool] = None,
         parent_commit: Optional[str] = None,
-    ):
+    ) -> CommitInfo:
         """
         Deletes a file in the given repo.
 
