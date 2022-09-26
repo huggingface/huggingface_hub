@@ -66,10 +66,10 @@ def build_hf_headers(
             Set to True if the API call requires a write access. If `True`, the token
             will be validated (cannot be `None`, cannot start by `"api_org***"`).
         library_name (`str`, *optional*):
-            The name of the library that his making the HTTP request. Will be added to
+            The name of the library that is making the HTTP request. Will be added to
             the user-agent header.
         library_version (`str`, *optional*):
-            The version of the library that his making the HTTP request. Will be added
+            The version of the library that is making the HTTP request. Will be added
             to the user-agent header.
         user_agent (`str`, `dict`, *optional*):
             The user agent info in the form of a dictionary or a single string. It will
@@ -187,9 +187,9 @@ def _http_user_agent(
 
     Args:
         library_name (`str`, *optional*):
-            The name of the library that his making the HTTP request.
+            The name of the library that is making the HTTP request.
         library_version (`str`, *optional*):
-            The version of the library that his making the HTTP request.
+            The version of the library that is making the HTTP request.
         user_agent (`str`, `dict`, *optional*):
             The user agent info in the form of a dictionary or a single string.
 
