@@ -13,7 +13,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 """Contains utilities to handle headers to send in calls to Huggingface Hub."""
-import os
 from typing import Dict, Optional, Union
 
 from ..constants import HF_HUB_DISABLE_IMPLICIT_TOKEN
