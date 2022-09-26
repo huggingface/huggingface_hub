@@ -35,6 +35,7 @@ from ._errors import (
     RevisionNotFoundError,
     hf_raise_for_status,
 )
+from ._fixes import yaml_dump
 from ._headers import build_hf_headers
 from ._hf_folder import HfFolder
 from ._http import http_backoff

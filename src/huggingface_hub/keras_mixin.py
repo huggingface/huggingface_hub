@@ -8,7 +8,6 @@ from shutil import copytree, rmtree
 from typing import Any, Dict, List, Optional, Union
 from urllib.parse import quote
 
-import yaml
 from huggingface_hub import CommitOperationDelete, ModelHubMixin, snapshot_download
 from huggingface_hub.file_download import (
     get_tf_version,
@@ -16,6 +15,7 @@ from huggingface_hub.file_download import (
     is_pydot_available,
     is_tf_available,
 )
+from huggingface_hub.utils import yaml_dump
 
 from .constants import CONFIG_NAME, DEFAULT_REVISION
 from .hf_api import HfApi, _parse_revision_from_pr_url, _prepare_upload_folder_commit
@@ -105,7 +105,7 @@ def _create_model_card(
     readme_path = f"{repo_dir}/README.md"
     metadata["library_name"] = "keras"
     model_card = "---\n"
-    model_card += yaml.dump(metadata, default_flow_style=False)
+    model_card += yaml_dump(metadata, default_flow_style=False)
     model_card += "---\n"
     model_card += "\n## Model description\n\nMore information needed\n"
     model_card += "\n## Intended uses & limitations\n\nMore information needed\n"
