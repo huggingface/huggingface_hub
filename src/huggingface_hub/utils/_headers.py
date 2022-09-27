@@ -13,9 +13,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 """Contains utilities to handle headers to send in calls to Huggingface Hub."""
-import os
 from typing import Dict, Optional, Union
 
+from ..constants import HF_HUB_DISABLE_IMPLICIT_TOKEN
 from ._hf_folder import HfFolder
 from ._runtime import (
     get_fastai_version,
@@ -153,7 +153,7 @@ def _get_token_to_send(use_auth_token: Optional[Union[bool, str]]) -> Optional[s
         return cached_token
 
     # Case implicit use of the token is forbidden by env variable
-    if os.environ.get("HF_HUB_DISABLE_IMPLICIT_TOKEN"):
+    if HF_HUB_DISABLE_IMPLICIT_TOKEN:
         return None
 
     # Otherwise: we use the cached token as the user has not explicitly forbidden it

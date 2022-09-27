@@ -59,17 +59,21 @@ class TestAuthHeadersUtil(unittest.TestCase):
         with self.assertRaises(ValueError):
             build_hf_headers(use_auth_token=False, is_write_action=True)
 
-    @patch.dict("os.environ", {"HF_HUB_DISABLE_IMPLICIT_TOKEN": "1"})
     def test_implicit_use_disabled(self, mock_HfFolder: Mock) -> None:
-        mock_HfFolder().get_token.return_value = FAKE_TOKEN
-        self.assertEqual(build_hf_headers(), NO_AUTH_HEADER)  # token is not sent
+        with patch(  # not as decorator to avoid friction with @handle_injection
+            "huggingface_hub.utils._headers.HF_HUB_DISABLE_IMPLICIT_TOKEN", True
+        ):
+            mock_HfFolder().get_token.return_value = FAKE_TOKEN
+            self.assertEqual(build_hf_headers(), NO_AUTH_HEADER)  # token is not sent
 
-    @patch.dict("os.environ", {"HF_HUB_DISABLE_IMPLICIT_TOKEN": "1"})
     def test_implicit_use_disabled_but_explicit_use(self, mock_HfFolder: Mock) -> None:
-        mock_HfFolder().get_token.return_value = FAKE_TOKEN
+        with patch(  # not as decorator to avoid friction with @handle_injection
+            "huggingface_hub.utils._headers.HF_HUB_DISABLE_IMPLICIT_TOKEN", True
+        ):
+            mock_HfFolder().get_token.return_value = FAKE_TOKEN
 
-        # This is not an implicit use so we still send it
-        self.assertEqual(build_hf_headers(use_auth_token=True), FAKE_TOKEN_HEADER)
+            # This is not an implicit use so we still send it
+            self.assertEqual(build_hf_headers(use_auth_token=True), FAKE_TOKEN_HEADER)
 
 
 class TestUserAgentHeadersUtil(unittest.TestCase):

@@ -86,7 +86,7 @@ HF_HUB_OFFLINE = _is_true(os.environ.get("HF_HUB_OFFLINE"))
 
 # Here, `True` will disable progress bars globally without possibility of enabling it
 # programatically. `False` will enable them without possibility of disabling them.
-# If environement variable is not set (None), then the user is free to enable/disable
+# If environment variable is not set (None), then the user is free to enable/disable
 # them programmatically.
 # TL;DR: env variable has priority over code
 HF_HUB_DISABLE_PROGRESS_BARS: Optional[bool] = os.environ.get(
@@ -94,3 +94,13 @@ HF_HUB_DISABLE_PROGRESS_BARS: Optional[bool] = os.environ.get(
 )
 if HF_HUB_DISABLE_PROGRESS_BARS is not None:
     HF_HUB_DISABLE_PROGRESS_BARS = _is_true(HF_HUB_DISABLE_PROGRESS_BARS)
+
+# Disable warning on machines that do not support symlinks (e.g. Windows non-developer)
+HF_HUB_DISABLE_SYMLINKS_WARNING: bool = _is_true(
+    os.environ.get("HF_HUB_DISABLE_SYMLINKS_WARNING")
+)
+
+# Disable sending the cached token by default is all HTTP requests to the Hub
+HF_HUB_DISABLE_IMPLICIT_TOKEN: bool = _is_true(
+    os.environ.get("HF_HUB_DISABLE_IMPLICIT_TOKEN")
+)

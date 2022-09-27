@@ -23,6 +23,7 @@ from requests.exceptions import ConnectTimeout, ProxyError
 from . import __version__  # noqa: F401 # for backward compatibility
 from .constants import (
     DEFAULT_REVISION,
+    HF_HUB_DISABLE_SYMLINKS_WARNING,
     HUGGINGFACE_CO_URL_TEMPLATE,
     HUGGINGFACE_HEADER_X_LINKED_ETAG,
     HUGGINGFACE_HEADER_X_REPO_COMMIT,
@@ -100,15 +101,15 @@ def are_symlinks_supported(cache_dir: Union[str, Path, None] = None) -> bool:
                 # Likely running on Windows
                 _are_symlinks_supported_in_dir[cache_dir] = False
 
-                if not os.environ.get("DISABLE_SYMLINKS_WARNING"):
+                if not HF_HUB_DISABLE_SYMLINKS_WARNING:
                     message = (
                         "`huggingface_hub` cache-system uses symlinks by default to"
                         " efficiently store duplicated files but your machine does not"
                         f" support them in {cache_dir}. Caching files will still work"
                         " but in a degraded version that might require more space on"
                         " your disk. This warning can be disabled by setting the"
-                        " `DISABLE_SYMLINKS_WARNING` environment variable. For more"
-                        " details, see"
+                        " `HF_HUB_DISABLE_SYMLINKS_WARNING` environment variable. For"
+                        " more details, see"
                         " https://huggingface.co/docs/huggingface_hub/how-to-cache#limitations."
                     )
                     if os.name == "nt":
