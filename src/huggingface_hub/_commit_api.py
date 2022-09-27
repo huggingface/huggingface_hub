@@ -166,7 +166,7 @@ def upload_lfs_files(
     additions: Iterable[CommitOperationAdd],
     repo_type: str,
     repo_id: str,
-    token: str,
+    token: Optional[str],
     endpoint: Optional[str] = None,
     num_threads: int = 5,
 ):
@@ -184,7 +184,7 @@ def upload_lfs_files(
         repo_id (`str`):
             A namespace (user or an organization) and a repo name separated
             by a `/`.
-        token (`str`):
+        token (`str`, *optional*):
             An authentication token ( See https://huggingface.co/settings/tokens )
         num_threads (`int`, *optional*):
             The number of concurrent threads to use when uploading. Defaults to 5.
@@ -256,7 +256,7 @@ def upload_lfs_files(
 
 
 def _upload_lfs_object(
-    operation: CommitOperationAdd, lfs_batch_action: dict, token: str
+    operation: CommitOperationAdd, lfs_batch_action: dict, token: Optional[str]
 ):
     """
     Handles uploading a given object to the Hub with the LFS protocol.
@@ -272,7 +272,7 @@ def _upload_lfs_object(
         lfs_batch_action (`dict`):
             Upload instructions from the LFS batch endpoint for this object.
             See [`~utils.lfs.post_lfs_batch_info`] for more details.
-        token (`str`):
+        token (`str`, *optional*):
             A [user access token](https://hf.co/settings/tokens) to authenticate requests against the Hub
 
     Raises: `ValueError` if `lfs_batch_action` is improperly formatted
@@ -321,7 +321,7 @@ def fetch_upload_modes(
     additions: Iterable[CommitOperationAdd],
     repo_type: str,
     repo_id: str,
-    token: str,
+    token: Optional[str],
     revision: str,
     endpoint: Optional[str] = None,
     create_pr: Optional[bool] = None,
@@ -339,7 +339,7 @@ def fetch_upload_modes(
         repo_id (`str`):
             A namespace (user or an organization) and a repo name separated
             by a `/`.
-        token (`str`):
+        token (`str`, *optional*):
             An authentication token ( See https://huggingface.co/settings/tokens )
         revision (`str`):
             The git revision to upload the files to. Can be any valid git revision.
