@@ -52,6 +52,8 @@ def extra_cache_folder(
     ```text
         extra/
         └── datasets/
+        │   ├── default/
+        │   │   ├── modules/
         │   ├── SQuAD/
         │   │   ├── downloaded/
         │   │   ├── extracted/
@@ -61,6 +63,8 @@ def extra_cache_folder(
         │       ├── extracted/
         │       └── processed/
         └── transformers/
+            ├── default/
+            │   ├── something/
             ├── bert-base-cased/
             │   ├── default/
             │   └── training/
