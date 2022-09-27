@@ -48,6 +48,37 @@ def extra_cache_folder(
     default to a `"default/"` subfolder) but library name is mandatory as we want every
     downstream library to manage its own cache.
 
+    Expected tree:
+    ```text
+        extra/
+        └── datasets/
+        │   ├── SQuAD/
+        │   │   ├── downloaded/
+        │   │   ├── extracted/
+        │   │   └── processed/
+        │   ├── Helsinki-NLP--tatoeba_mt/
+        │       ├── downloaded/
+        │       ├── extracted/
+        │       └── processed/
+        └── transformers/
+            ├── bert-base-cased/
+            │   ├── default/
+            │   └── training/
+        hub/
+        └── models--julien-c--EsperBERTo-small/
+            ├── blobs/
+            │   ├── (...)
+            │   ├── (...)
+            ├── refs/
+            │   └── (...)
+            └── [ 128]  snapshots/
+                ├── 2439f60ef33a0d46d85da5001d52aeda5b00ce9f/
+                │   ├── (...)
+                └── bbc77c8132af1cc5cf678da3f1ddf2de43606d48/
+                    └── (...)
+    ```
+
+
     Args:
         library_name (`str`):
             Name of the library that will manage the cache folder. Example: `"dataset"`.
@@ -74,8 +105,8 @@ def extra_cache_folder(
     >>> extra_cache_folder(library_name="datasets", namespace="SQuAD", subfolder="extracted")
     PosixPath('/home/wauplin/.cache/huggingface/extra/datasets/SQuAD/extracted')
 
-    >>> extra_cache_folder(library_name="datasets", namespace="SQuAD")
-    PosixPath('/home/wauplin/.cache/huggingface/extra/datasets/SQuAD/default')
+    >>> extra_cache_folder(library_name="datasets", namespace="Helsinki-NLP/tatoeba_mt")
+    PosixPath('/home/wauplin/.cache/huggingface/extra/datasets/Helsinki-NLP--tatoeba_mt/default')
 
     >>> extra_cache_folder(library_name="datasets", cache_dir="/tmp/tmp123456")
     PosixPath('/tmp/tmp123456/datasets/default/default')
@@ -88,9 +119,9 @@ def extra_cache_folder(
 
     # Avoid names that could create path issues
     for part in ("/", "\\"):
-        for name in (library_name, namespace, subfolder):
-            if part in name:
-                raise ValueError(f"Wrong name passed: '{part}' forbidden in '{name}'.")
+        library_name = library_name.replace(part, "--")
+        namespace = namespace.replace(part, "--")
+        subfolder = subfolder.replace(part, "--")
 
     # Path to subfolder is created
     path = cache_dir / library_name / namespace / subfolder
