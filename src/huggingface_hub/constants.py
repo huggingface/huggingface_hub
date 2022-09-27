@@ -77,15 +77,18 @@ hf_cache_home = os.path.expanduser(
         os.path.join(os.getenv("XDG_CACHE_HOME", default_home), "huggingface"),
     )
 )
+
 default_cache_path = os.path.join(hf_cache_home, "hub")
+default_extra_cache_path = os.path.join(hf_cache_home, "extra")
 
 HUGGINGFACE_HUB_CACHE = os.getenv("HUGGINGFACE_HUB_CACHE", default_cache_path)
+HUGGINGFACE_EXTRA_CACHE = os.getenv("HUGGINGFACE_EXTRA_CACHE", default_extra_cache_path)
 
 HF_HUB_OFFLINE = _is_true(os.environ.get("HF_HUB_OFFLINE"))
 
 
 # Here, `True` will disable progress bars globally without possibility of enabling it
-# programatically. `False` will enable them without possibility of disabling them.
+# programmatically. `False` will enable them without possibility of disabling them.
 # If environment variable is not set (None), then the user is free to enable/disable
 # them programmatically.
 # TL;DR: env variable has priority over code

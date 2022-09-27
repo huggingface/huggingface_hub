@@ -1,0 +1,104 @@
+# coding=utf-8
+# Copyright 2019-present, the HuggingFace Inc. team.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+from pathlib import Path
+from typing import Union
+
+from ..constants import HUGGINGFACE_EXTRA_CACHE
+
+
+def extra_cache_folder(
+    library_name: str,
+    namespace: str = "default",
+    subfolder: str = "default",
+    *,
+    cache_dir: Union[str, Path, None] = None,
+):
+    """Return a folder path to cache arbitrary files.
+
+    `huggingface_hub` provides a canonical folder path to store extra files. This is the
+    recommended way to integrate cache in a downstream library as it will benefit from
+    the builtins tools to scan and delete the cache properly.
+
+    The distinction is made between files cached from the Hub and extra files. Files from
+    the Hub are cached in a git-aware manner and entirely managed by `huggingface_hub`.
+    See [related documentation](https://huggingface.co/docs/huggingface_hub/how-to-cache).
+    All other files that a downstream library caches are considered to be "extra files"
+    (files downloaded from external sources, extracted from a .tar archive, preprocessed
+    for training,...).
+
+    Once the folder path is generated, it is guaranteed to exist and to be a directory.
+    The path is based on 3 levels of depth: the library name, a namespace and a
+    subfolder. Those 3 levels grants flexibility while allowing `huggingface_hub` to
+    expect folders when scanning/deleting parts of the extra cache. Within a library, it
+    is expected that all namespaces share the same subset of subfolder names but this is
+    not a mandatory rule. The downstream library has then full control on which file
+    structure to adopt within its cache. Namespace and subfolder are optional (would
+    default to a `"default/"` subfolder) but library name is mandatory as we want every
+    downstream library to manage its own cache.
+
+    Args:
+        library_name (`str`):
+            Name of the library that will manage the cache folder. Example: `"dataset"`.
+        namespace (`str`, *optional*, defaults to "default"):
+            Namespace to which the data belongs. Example: `"SQuAD"`.
+        subfolder (`str`, *optional*, defaults to "default"):
+            Subfolder in which the data will be stored. Example: `extracted`.
+        cache_dir (`str`, `Path`, *optional*):
+            Path to the folder where extra files are cached. This should not be the same
+            folder where Hub files are cached. Defaults to `HF_HOME / "extra"` if not
+            provided. This value can also be set via the environment variable
+            `HUGGINGFACE_EXTRA_CACHE`.
+
+    Returns:
+        Path to the cache folder (`Path`).
+
+    Example:
+    ```py
+    >>> from huggingface_hub import extra_cache_folder
+
+    >>> extra_cache_folder(library_name="datasets", namespace="SQuAD", subfolder="download")
+    PosixPath('/home/wauplin/.cache/huggingface/extra/datasets/SQuAD/download')
+
+    >>> extra_cache_folder(library_name="datasets", namespace="SQuAD", subfolder="extracted")
+    PosixPath('/home/wauplin/.cache/huggingface/extra/datasets/SQuAD/extracted')
+
+    >>> extra_cache_folder(library_name="datasets", namespace="SQuAD")
+    PosixPath('/home/wauplin/.cache/huggingface/extra/datasets/SQuAD/default')
+
+    >>> extra_cache_folder(library_name="datasets", cache_dir="/tmp/tmp123456")
+    PosixPath('/tmp/tmp123456/datasets/default/default')
+    ```
+    """
+    # Resolve cache_dir
+    if cache_dir is None:
+        cache_dir = HUGGINGFACE_EXTRA_CACHE
+    cache_dir = Path(cache_dir).expanduser().resolve()
+
+    # Avoid names that could create path issues
+    for part in ("/", "\\"):
+        for name in (library_name, namespace, subfolder):
+            if part in name:
+                raise ValueError(f"Wrong name passed: '{part}' forbidden in '{name}'.")
+
+    # Path to subfolder is created
+    path = cache_dir / library_name / namespace / subfolder
+    if path.is_file():
+        raise ValueError(
+            f"Invalid extra cache folder: path already exists and is a file ({path})."
+        )
+    path.mkdir(exist_ok=True, parents=True)
+
+    # Return
+    return path
