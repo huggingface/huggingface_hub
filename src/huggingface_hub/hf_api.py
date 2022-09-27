@@ -2705,7 +2705,7 @@ class HfApi:
         repo_id: str,
         title: str,
         *,
-        token: str,
+        token: Optional[str],
         description: Optional[str] = None,
         repo_type: Optional[str] = None,
         pull_request: bool = False,
@@ -2724,7 +2724,7 @@ class HfApi:
                 The title of the discussion. It can be up to 200 characters long,
                 and must be at least 3 characters long. Leading and trailing whitespaces
                 will be stripped.
-            token (`str`):
+            token (`str`, *optional*):
                 An authentication token (See https://huggingface.co/settings/token)
             description (`str`, *optional*):
                 An optional description for the Pull Request.
@@ -2794,7 +2794,7 @@ class HfApi:
         repo_id: str,
         title: str,
         *,
-        token: str,
+        token: Optional[str],
         description: Optional[str] = None,
         repo_type: Optional[str] = None,
     ) -> DiscussionWithDetails:
@@ -2812,7 +2812,7 @@ class HfApi:
                 The title of the discussion. It can be up to 200 characters long,
                 and must be at least 3 characters long. Leading and trailing whitespaces
                 will be stripped.
-            token (`str`):
+            token (`str`, *optional*):
                 An authentication token (See https://huggingface.co/settings/token)
             description (`str`, *optional*):
                 An optional description for the Pull Request.
@@ -3096,7 +3096,7 @@ class HfApi:
         repo_id: str,
         discussion_num: int,
         *,
-        token: str,
+        token: Optional[str],
         comment: Optional[str] = None,
         repo_type: Optional[str] = None,
     ):
@@ -3207,7 +3207,7 @@ class HfApi:
         discussion_num: int,
         comment_id: str,
         *,
-        token: str,
+        token: Optional[str],
         repo_type: Optional[str] = None,
     ) -> DiscussionComment:
         """Hides a comment on a Discussion / Pull Request.
