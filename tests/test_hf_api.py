@@ -951,6 +951,54 @@ class CommitApiTest(HfApiCommonTestWithLogin):
 
         self.assertEqual(str(context.exception), expected_message)
 
+    @retry_endpoint
+    def test_create_commit_lfs_file_implicit_token(self):
+        """Test that uploading a file as LFS works with implicit token (from cache).
+
+        Regression test for https://github.com/huggingface/huggingface_hub/pull/1084.
+        """
+        REPO_NAME = repo_name("create_commit_with_lfs")
+        repo_id = f"{USER}/{REPO_NAME}"
+
+        with patch("huggingface_hub.utils.HfFolder.get_token") as mock:
+            mock.return_value = self._token  # Set implicit token
+
+            # Create repo
+            self._api.create_repo(repo_id=REPO_NAME, exist_ok=False)
+
+            # Set repo to track png files as LFS
+            self._api.create_commit(
+                operations=[
+                    CommitOperationAdd(
+                        path_in_repo=".gitattributes",
+                        path_or_fileobj=b"*.png filter=lfs diff=lfs merge=lfs -text",
+                    ),
+                ],
+                commit_message="Update .gitattributes",
+                repo_id=repo_id,
+            )
+
+            # Upload a PNG file
+            self._api.create_commit(
+                operations=[
+                    CommitOperationAdd(
+                        path_in_repo="image.png", path_or_fileobj=b"image data"
+                    ),
+                ],
+                commit_message="Test upload lfs file",
+                repo_id=repo_id,
+            )
+
+            # Check uploaded as LFS
+            info = self._api.model_info(
+                repo_id=repo_id, use_auth_token=self._token, files_metadata=True
+            )
+            siblings = {file.rfilename: file for file in info.siblings}
+            self.assertIsInstance(siblings["image.png"].lfs, dict)  # LFS file
+
+            # Delete repo
+            self._api.delete_repo(repo_id=REPO_NAME, token=self._token)
+
 
 class HfApiPublicTest(unittest.TestCase):
     def test_staging_list_models(self):
