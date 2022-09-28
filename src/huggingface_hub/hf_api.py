@@ -2528,17 +2528,11 @@ class HfApi:
                 `None`.
 
         Raises:
-            [`ValueError`](https://docs.python.org/3/library/exceptions.html#ValueError)
-                If commit message is empty.
-            [`ValueError`](https://docs.python.org/3/library/exceptions.html#ValueError)
-                If parent commit is not a valid commit OID.
-            [`ValueError`](https://docs.python.org/3/library/exceptions.html#ValueError)
-                If the Hub API returns an HTTP 400 error (bad request)
-            [`ValueError`](https://docs.python.org/3/library/exceptions.html#ValueError)
-                If `create_pr` is `True` and revision is neither `None` nor `"main"`.
             [`~utils.RepositoryNotFoundError`]:
                 If repository is not found (error 404): wrong repo_id/repo_type, private
                 but not authenticated or repo does not exist.
+            [`~utils.RepositoryNotFoundError`]:
+                If revision is not found (error 404) on the repo.
         """
         if repo_type is None:
             repo_type = REPO_TYPE_MODEL
