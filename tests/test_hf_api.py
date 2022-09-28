@@ -1129,7 +1129,7 @@ class HfApiTagEndpointTest(HfApiCommonTestWithLogin):
     @retry_endpoint
     @use_tmp_repo("model")
     def test_create_tag_on_missing_revision(self) -> None:
-        """Check `create_tag` with an invalid tag name."""
+        """Check `create_tag` on a missing revision."""
         with self.assertRaises(RevisionNotFoundError):
             self._api.create_tag(
                 self._repo_id, tag="invalid tag", token=self._token, revision="foobar"
