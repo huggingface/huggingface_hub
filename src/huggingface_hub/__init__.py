@@ -106,6 +106,7 @@ _SUBMOD_ATTRS = {
         "create_discussion",
         "create_pull_request",
         "create_repo",
+        "create_tag",
         "dataset_info",
         "delete_file",
         "delete_repo",
@@ -320,6 +321,7 @@ if TYPE_CHECKING:  # pragma: no cover
     from .hf_api import create_discussion  # noqa: F401
     from .hf_api import create_pull_request  # noqa: F401
     from .hf_api import create_repo  # noqa: F401
+    from .hf_api import create_tag  # noqa: F401
     from .hf_api import dataset_info  # noqa: F401
     from .hf_api import delete_file  # noqa: F401
     from .hf_api import delete_repo  # noqa: F401
