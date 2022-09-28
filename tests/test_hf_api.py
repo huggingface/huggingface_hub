@@ -1015,7 +1015,10 @@ class HfApiTagEndpointTest(HfApiCommonTestWithLogin):
     def test_create_tag_on_main(self) -> None:
         """Check `create_tag` on default main branch works."""
         self._api.create_tag(
-            self._repo_id, tag="v0", message="This is a tag message.", token=self._token
+            self._repo_id,
+            tag="v0",
+            tag_message="This is a tag message.",
+            token=self._token,
         )
 
         # Check tag  is on `main`
