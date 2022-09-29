@@ -49,12 +49,7 @@ from .testing_constants import (
     TOKEN,
     USER,
 )
-from .testing_utils import (
-    expect_deprecation,
-    repo_name,
-    retry_endpoint,
-    set_write_permission_and_retry,
-)
+from .testing_utils import repo_name, retry_endpoint, set_write_permission_and_retry
 
 
 SAMPLE_CARDS_DIR = Path(__file__).parent / "fixtures/cards"

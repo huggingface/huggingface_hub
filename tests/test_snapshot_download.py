@@ -4,8 +4,6 @@ import tempfile
 import time
 import unittest
 
-import pytest
-
 import requests
 from huggingface_hub import HfApi, Repository, snapshot_download
 from huggingface_hub.utils import HfFolder, logging
@@ -363,14 +361,3 @@ class SnapshotDownloadTests(unittest.TestCase):
     @expect_deprecation("snapshot_download")
     def test_download_model_with_ignore_regex_list(self):
         self.check_download_model_with_regex(["*.git*", "*.pt"], allow=False)
-
-
-def test_snapshot_download_import():
-    with pytest.warns(FutureWarning, match="has been made private"):
-        from huggingface_hub.snapshot_download import snapshot_download as x  # noqa
-
-    assert x is snapshot_download
-
-
-def test_snapshot_download_import_constant_not_raise():
-    from huggingface_hub.snapshot_download import REPO_ID_SEPARATOR  # noqa
