@@ -236,10 +236,17 @@ class RepocardMetadataUpdateTest(unittest.TestCase):
         cls._api.set_access_token(TOKEN)
 
     @retry_endpoint
-    @expect_deprecation("clone_from")
     def setUp(self) -> None:
         self.repo_path = Path(tempfile.mkdtemp())
         self.REPO_NAME = repo_name()
+        self._api.create_repo(f"{USER}/{self.REPO_NAME}", token=self._token)
+        self._api.upload_file(
+            DUMMY_MODELCARD_EVAL_RESULT.encode(),
+            path_in_repo="README.md",
+            commit_message="Add README to main branch",
+            token=self._token,
+        )
+
         self.repo = Repository(
             self.repo_path / self.REPO_NAME,
             clone_from=f"{USER}/{self.REPO_NAME}",
@@ -247,11 +254,6 @@ class RepocardMetadataUpdateTest(unittest.TestCase):
             git_user="ci",
             git_email="ci@dummy.com",
         )
-
-        with self.repo.commit("Add README to main branch"):
-            with open("README.md", "w+") as f:
-                f.write(DUMMY_MODELCARD_EVAL_RESULT)
-
         self.existing_metadata = yaml.safe_load(
             DUMMY_MODELCARD_EVAL_RESULT.strip().strip("-")
         )

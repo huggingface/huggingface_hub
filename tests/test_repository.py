@@ -127,24 +127,17 @@ class RepositoryTest(RepositoryCommonTest):
             repo_type="space",
         )
 
-    def test_clone_from_space(self):
-        with pytest.raises(
-            ValueError, match="Creating a Space through passing Space link*"
-        ):
+    def test_clone_from_missing_repo(self):
+        """
+        If the repo does not exist, it is not created automatically. This behavior
+        was possible before but has been deprecated and removed.
+        """
+        with pytest.raises(EnvironmentError, match=".*remote: Repository not found.*"):
             Repository(
                 WORKING_REPO_DIR,
                 clone_from=f"{USER}/{uuid.uuid4()}",
-                repo_type="space",
                 use_auth_token=self._token,
             )
-
-    @expect_deprecation("clone_from")
-    def test_clone_from_deprecation_warning(self):
-        Repository(
-            WORKING_REPO_DIR,
-            clone_from=f"{USER}/{uuid.uuid4()}",
-            use_auth_token=self._token,
-        )
 
     def test_clone_from_model(self):
         temp_repo_url = self._api.create_repo(
@@ -217,9 +210,8 @@ class RepositoryTest(RepositoryCommonTest):
             f.write("hello")
         with open(os.path.join(WORKING_REPO_DIR, "model.bin"), "w") as f:
             f.write("hello")
-        self.assertRaises(
-            OSError, Repository, WORKING_REPO_DIR, clone_from=self._repo_url
-        )
+        with self.assertRaises(EnvironmentError):
+            Repository(WORKING_REPO_DIR, clone_from=self._repo_url)
 
     @retry_endpoint
     def test_init_clone_in_nonempty_non_linked_git_repo(self):
@@ -238,10 +230,10 @@ class RepositoryTest(RepositoryCommonTest):
         os.makedirs(WORKING_REPO_DIR, exist_ok=True)
         Repository(WORKING_REPO_DIR, clone_from=self._repo_url)
 
-        # Try and clone another repository within the same directory. Should error out due to mismatched remotes.
-        self.assertRaises(
-            EnvironmentError, Repository, WORKING_REPO_DIR, clone_from=temp_repo_url
-        )
+        # Try and clone another repository within the same directory.
+        # Should error out due to mismatched remotes.
+        with self.assertRaises(EnvironmentError):
+            Repository(WORKING_REPO_DIR, clone_from=temp_repo_url)
 
         self._api.delete_repo(repo_id=f"{self.REPO_NAME}-temp", token=self._token)
 
@@ -412,8 +404,9 @@ class RepositoryTest(RepositoryCommonTest):
         self.assertEqual(result.status, -9)
 
     @retry_endpoint
-    @expect_deprecation("clone_from")
     def test_clone_with_endpoint(self):
+        self._api.create_repo(f"valid_org/{self.REPO_NAME}", token=self._token)
+
         clone = Repository(
             f"{WORKING_REPO_DIR}/{self.REPO_NAME}",
             clone_from=f"{ENDPOINT_STAGING}/valid_org/{self.REPO_NAME}",
@@ -443,8 +436,9 @@ class RepositoryTest(RepositoryCommonTest):
         self.assertTrue("model.bin" in files)
 
     @retry_endpoint
-    @expect_deprecation("clone_from")
     def test_clone_with_repo_name_and_org(self):
+        self._api.create_repo(f"valid_org/{self.REPO_NAME}", token=self._token)
+
         clone = Repository(
             f"{WORKING_REPO_DIR}/{self.REPO_NAME}",
             clone_from=f"valid_org/{self.REPO_NAME}",
@@ -475,6 +469,8 @@ class RepositoryTest(RepositoryCommonTest):
 
     @retry_endpoint
     def test_clone_with_repo_name_and_user_namespace(self):
+        self._api.create_repo(f"{USER}/{self.REPO_NAME}", token=self._token)
+
         clone = Repository(
             f"{WORKING_REPO_DIR}/{self.REPO_NAME}",
             clone_from=f"{USER}/{self.REPO_NAME}",
@@ -507,44 +503,18 @@ class RepositoryTest(RepositoryCommonTest):
 
     @retry_endpoint
     def test_clone_with_repo_name_and_no_namespace(self):
-        self.assertRaises(
-            OSError,
-            Repository,
-            f"{WORKING_REPO_DIR}/{self.REPO_NAME}",
-            clone_from=self.REPO_NAME,
-            use_auth_token=self._token,
-            git_user="ci",
-            git_email="ci@dummy.com",
-        )
+        with self.assertRaises(EnvironmentError):
+            Repository(
+                f"{WORKING_REPO_DIR}/{self.REPO_NAME}",
+                clone_from=self.REPO_NAME,
+                use_auth_token=self._token,
+                git_user="ci",
+                git_email="ci@dummy.com",
+            )
 
     @retry_endpoint
-    def test_clone_with_repo_name_user_and_no_auth_token(self):
-        # Create repo
-        Repository(
-            f"{WORKING_REPO_DIR}/{self.REPO_NAME}",
-            clone_from=f"{USER}/{self.REPO_NAME}",
-            git_user="ci",
-            git_email="ci@dummy.com",
-        )
-
-        # Instantiate it without token
-        Repository(
-            f"{WORKING_REPO_DIR}/{self.REPO_NAME}",
-            clone_from=f"{USER}/{self.REPO_NAME}",
-            git_user="ci",
-            git_email="ci@dummy.com",
-        )
-
-    @retry_endpoint
-    @expect_deprecation("clone_from")
     def test_clone_with_repo_name_org_and_no_auth_token(self):
-        Repository(
-            f"{WORKING_REPO_DIR}/{self.REPO_NAME}",
-            use_auth_token=self._token,
-            clone_from=f"valid_org/{self.REPO_NAME}",
-            git_user="ci",
-            git_email="ci@dummy.com",
-        )
+        self._api.create_repo(f"valid_org/{self.REPO_NAME}", token=self._token)
 
         # Instantiate it without token
         Repository(
@@ -1733,8 +1703,11 @@ class RepositoryDatasetTest(RepositoryCommonTest):
         self.assertTrue("test.py" in files)
 
     @retry_endpoint
-    @expect_deprecation("clone_from")
     def test_clone_with_repo_name_and_org(self):
+        self._api.create_repo(
+            f"valid_org/{self.REPO_NAME}", repo_type="dataset", token=self._token
+        )
+
         clone = Repository(
             f"{WORKING_DATASET_DIR}/{self.REPO_NAME}",
             clone_from=f"valid_org/{self.REPO_NAME}",
@@ -1828,15 +1801,9 @@ class RepositoryDatasetTest(RepositoryCommonTest):
         )
 
     @retry_endpoint
-    @expect_deprecation("clone_from")
     def test_clone_with_repo_name_org_and_no_auth_token(self):
-        Repository(
-            f"{WORKING_DATASET_DIR}/{self.REPO_NAME}",
-            clone_from=f"valid_org/{self.REPO_NAME}",
-            repo_type="dataset",
-            use_auth_token=self._token,
-            git_user="ci",
-            git_email="ci@dummy.com",
+        self._api.create_repo(
+            f"valid_org/{self.REPO_NAME}", repo_type="dataset", token=self._token
         )
 
         # Instantiate it without token
