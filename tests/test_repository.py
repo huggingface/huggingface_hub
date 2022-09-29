@@ -469,8 +469,6 @@ class RepositoryTest(RepositoryCommonTest):
 
     @retry_endpoint
     def test_clone_with_repo_name_and_user_namespace(self):
-        self._api.create_repo(f"{USER}/{self.REPO_NAME}", token=self._token)
-
         clone = Repository(
             f"{WORKING_REPO_DIR}/{self.REPO_NAME}",
             clone_from=f"{USER}/{self.REPO_NAME}",

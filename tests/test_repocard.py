@@ -236,7 +236,8 @@ class RepocardMetadataUpdateTest(unittest.TestCase):
         self.REPO_NAME = repo_name()
         self._api.create_repo(f"{USER}/{self.REPO_NAME}", token=self._token)
         self._api.upload_file(
-            DUMMY_MODELCARD_EVAL_RESULT.encode(),
+            path_or_fileobj=DUMMY_MODELCARD_EVAL_RESULT.encode(),
+            repo_id=f"{USER}/{self.REPO_NAME}",
             path_in_repo="README.md",
             commit_message="Add README to main branch",
             token=self._token,
