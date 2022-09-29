@@ -2489,6 +2489,68 @@ class HfApi:
             parent_commit=parent_commit,
         )
 
+    @validate_hf_hub_args
+    def create_tag(
+        self,
+        repo_id: str,
+        *,
+        tag: str,
+        tag_message: Optional[str] = None,
+        revision: Optional[str] = None,
+        token: Optional[str] = None,
+        repo_type: Optional[str] = None,
+    ) -> None:
+        """
+        Tag a given commit of a repo on the Hub.
+
+        Args:
+            repo_id (`str`):
+                The repository in which a commit will be tagged.
+                Example: `"user/my-cool-model"`.
+
+            tag (`str`):
+                The name of the tag to create.
+
+            tag_message (`str`, *optional*):
+                The description of the tag to create.
+
+            revision (`str`, *optional*):
+                The git revision to tag. It can be a branch name or the OID/SHA of a
+                commit, as a hexadecimal string. Shorthands (7 first characters) are
+                also supported. Defaults to the head of the `"main"` branch.
+
+            token (`str`, *optional*):
+                Authentication token. Will default to the stored token.
+
+            repo_type (`str`, *optional*):
+                Set to `"dataset"` or `"space"` if uploading to a dataset or
+                space, `None` or `"model"` if uploading to a model. Default is
+                `None`.
+
+        Raises:
+            [`~utils.RepositoryNotFoundError`]:
+                If repository is not found (error 404): wrong repo_id/repo_type, private
+                but not authenticated or repo does not exist.
+            [`~utils.RepositoryNotFoundError`]:
+                If revision is not found (error 404) on the repo.
+        """
+        if repo_type is None:
+            repo_type = REPO_TYPE_MODEL
+        revision = (
+            quote(revision, safe="") if revision is not None else DEFAULT_REVISION
+        )
+
+        # Prepare request
+        tag_url = f"{self.endpoint}/api/{repo_type}s/{repo_id}/tag/{revision}"
+        headers = build_hf_headers(use_auth_token=token, is_write_action=True)
+        payload = {"tag": tag}
+        if tag_message is not None:
+            payload["message"] = tag_message
+
+        # Tag
+        response = requests.post(url=tag_url, headers=headers, json=payload)
+        hf_raise_for_status(response)
+
     def get_full_repo_name(
         self,
         model_id: str,
@@ -3352,6 +3414,7 @@ move_repo = api.move_repo
 upload_file = api.upload_file
 upload_folder = api.upload_folder
 delete_file = api.delete_file
+create_tag = api.create_tag
 get_full_repo_name = api.get_full_repo_name
 
 get_discussion_details = api.get_discussion_details
