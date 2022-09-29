@@ -1565,13 +1565,6 @@ class HfApi:
             repo_id (`str`):
                 A namespace (user or an organization) and a repo name separated
                 by a `/`.
-
-                <Tip>
-
-                Version added: 0.5
-
-                </Tip>
-
             token (`str`, *optional*):
                 An authentication token (See https://huggingface.co/settings/token)
             private (`bool`, *optional*, defaults to `False`):
@@ -1684,13 +1677,6 @@ class HfApi:
             repo_id (`str`):
                 A namespace (user or an organization) and a repo name separated
                 by a `/`.
-
-                <Tip>
-
-                Version added: 0.5
-
-                </Tip>
-
             token (`str`, *optional*):
                 An authentication token (See https://huggingface.co/settings/token)
             repo_type (`str`, *optional*):
@@ -1771,13 +1757,6 @@ class HfApi:
             repo_id (`str`, *optional*):
                 A namespace (user or an organization) and a repo name separated
                 by a `/`.
-
-                <Tip>
-
-                Version added: 0.5
-
-                </Tip>
-
             private (`bool`, *optional*, defaults to `False`):
                 Whether the model repo should be private.
             token (`str`, *optional*):
