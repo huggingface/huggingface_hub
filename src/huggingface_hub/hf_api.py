@@ -1971,7 +1971,6 @@ class HfApi:
         token: Optional[str] = None,
         repo_type: Optional[str] = None,
         revision: Optional[str] = None,
-        identical_ok: Optional[bool] = None,
         commit_message: Optional[str] = None,
         commit_description: Optional[str] = None,
         create_pr: Optional[bool] = None,
@@ -2002,9 +2001,6 @@ class HfApi:
             revision (`str`, *optional*):
                 The git revision to commit from. Defaults to the head of the
                 `"main"` branch.
-            identical_ok (`bool`, *optional*, defaults to `True`):
-                Deprecated: will be removed in 0.11.0.
-                Changing this value has no effect.
             commit_message (`str`, *optional*):
                 The summary / title / first line of the generated commit
             commit_description (`str` *optional*)
@@ -2081,13 +2077,6 @@ class HfApi:
         "https://huggingface.co/username/my-model/blob/refs%2Fpr%2F1/remote/file/path.h5"
         ```
         """
-        if identical_ok is not None:
-            warnings.warn(
-                "`identical_ok` has no effect and is deprecated. It will be removed in"
-                " 0.11.0.",
-                FutureWarning,
-            )
-
         if repo_type not in REPO_TYPES:
             raise ValueError(f"Invalid repo type, must be one of {REPO_TYPES}")
 
