@@ -5,7 +5,6 @@ import subprocess
 import tempfile
 import threading
 import time
-import warnings
 from contextlib import contextmanager
 from pathlib import Path
 from typing import Callable, Dict, Iterator, List, Optional, Tuple, Union
@@ -13,7 +12,6 @@ from urllib.parse import urlparse
 
 from huggingface_hub.constants import REPO_TYPES_URL_PREFIXES, REPOCARD_NAME
 from huggingface_hub.repocard import metadata_load, metadata_save
-from requests.exceptions import HTTPError
 
 from .hf_api import HfApi, repo_type_and_id_from_hf_id
 from .lfs import LFS_MULTIPART_UPLOAD_COMMAND
@@ -677,49 +675,13 @@ class Repository:
                 repo_url += REPO_TYPES_URL_PREFIXES[self._repo_type]
 
             if token is not None:
-                whoami_info = self.client.whoami(token)
-                user = whoami_info["name"]
-                valid_organisations = [org["name"] for org in whoami_info["orgs"]]
-
-                if namespace is not None:
-                    repo_id = f"{namespace}/{repo_id}"
-                repo_url += repo_id
-
+                # Add token in git url when provided
                 scheme = urlparse(repo_url).scheme
                 repo_url = repo_url.replace(f"{scheme}://", f"{scheme}://user:{token}@")
-                if namespace == user or namespace in valid_organisations:
-                    try:
-                        _ = HfApi().repo_info(
-                            f"{repo_id}",
-                            repo_type=self._repo_type,
-                            use_auth_token=token,
-                        )
-                    except HTTPError:
-                        if self._repo_type == "space":
-                            raise ValueError(
-                                "Creating a Space through passing Space link to"
-                                " clone_from is not allowed. Make sure the Space exists"
-                                " on Hugging Face Hub."
-                            )
-                        else:
-                            warnings.warn(
-                                "Creating a repository through 'clone_from' is"
-                                " deprecated and will be removed in v0.11.",
-                                FutureWarning,
-                            )
 
-                            self.client.create_repo(
-                                repo_id=repo_id,
-                                token=token,
-                                repo_type=self._repo_type,
-                                exist_ok=True,
-                                private=self._private,
-                            )
-
-            else:
-                if namespace is not None:
-                    repo_url += f"{namespace}/"
-                repo_url += repo_id
+            if namespace is not None:
+                repo_url += f"{namespace}/"
+            repo_url += repo_id
 
         # For error messages, it's cleaner to show the repo url without the token.
         clean_repo_url = re.sub(r"(https?)://.*@", r"\1://", repo_url)
@@ -744,39 +706,7 @@ class Repository:
                     )
             else:
                 # Check if the folder is the root of a git repository
-                in_repository = is_git_repo(self.local_dir)
-
-                if in_repository:
-                    if is_local_clone(self.local_dir, repo_url):
-                        logger.warning(
-                            f"{self.local_dir} is already a clone of {clean_repo_url}."
-                            " Make sure you pull the latest changes with"
-                            " `repo.git_pull()`."
-                        )
-                    else:
-                        output = run_subprocess(
-                            "git remote get-url origin".split(),
-                            self.local_dir,
-                            check=False,
-                        )
-
-                        error_msg = (
-                            f"Tried to clone {clean_repo_url} in an unrelated git"
-                            " repository.\nIf you believe this is an error, please add"
-                            f" a remote with the following URL: {clean_repo_url}."
-                        )
-                        if output.returncode == 0:
-                            clean_local_remote_url = re.sub(
-                                r"https://.*@", "https://", output.stdout
-                            )
-                            error_msg += (
-                                "\nLocal path has its origin defined as:"
-                                f" {clean_local_remote_url}"
-                            )
-
-                        raise EnvironmentError(error_msg)
-
-                if not in_repository:
+                if not is_git_repo(self.local_dir):
                     raise EnvironmentError(
                         "Tried to clone a repository in a non-empty folder that isn't a"
                         " git repository. If you really want to do this, do it"
@@ -784,6 +714,34 @@ class Repository:
                         " origin main\n or clone repo to a new folder and move your"
                         " existing files there afterwards."
                     )
+
+                if is_local_clone(self.local_dir, repo_url):
+                    logger.warning(
+                        f"{self.local_dir} is already a clone of {clean_repo_url}."
+                        " Make sure you pull the latest changes with"
+                        " `repo.git_pull()`."
+                    )
+                else:
+                    output = run_subprocess(
+                        "git remote get-url origin".split(),
+                        self.local_dir,
+                        check=False,
+                    )
+
+                    error_msg = (
+                        f"Tried to clone {clean_repo_url} in an unrelated git"
+                        " repository.\nIf you believe this is an error, please add"
+                        f" a remote with the following URL: {clean_repo_url}."
+                    )
+                    if output.returncode == 0:
+                        clean_local_remote_url = re.sub(
+                            r"https://.*@", "https://", output.stdout
+                        )
+                        error_msg += (
+                            "\nLocal path has its origin defined as:"
+                            f" {clean_local_remote_url}"
+                        )
+                    raise EnvironmentError(error_msg)
 
         except subprocess.CalledProcessError as exc:
             raise EnvironmentError(exc.stderr)

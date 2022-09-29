@@ -4,8 +4,6 @@ import tempfile
 import time
 import unittest
 
-import pytest
-
 import requests
 from huggingface_hub import HfApi, Repository, snapshot_download
 from huggingface_hub.utils import HfFolder, logging
@@ -35,11 +33,11 @@ class SnapshotDownloadTests(unittest.TestCase):
         cls._api.set_access_token(TOKEN)
 
     @retry_endpoint
-    @expect_deprecation("clone_from")
     def setUp(self) -> None:
         if os.path.exists(REPO_NAME):
             shutil.rmtree(REPO_NAME, onerror=set_write_permission_and_retry)
         logger.info(f"Does {REPO_NAME} exist: {os.path.exists(REPO_NAME)}")
+        self._api.create_repo(f"{USER}/{REPO_NAME}", token=self._token)
         repo = Repository(
             REPO_NAME,
             clone_from=f"{USER}/{REPO_NAME}",
@@ -363,14 +361,3 @@ class SnapshotDownloadTests(unittest.TestCase):
     @expect_deprecation("snapshot_download")
     def test_download_model_with_ignore_regex_list(self):
         self.check_download_model_with_regex(["*.git*", "*.pt"], allow=False)
-
-
-def test_snapshot_download_import():
-    with pytest.warns(FutureWarning, match="has been made private"):
-        from huggingface_hub.snapshot_download import snapshot_download as x  # noqa
-
-    assert x is snapshot_download
-
-
-def test_snapshot_download_import_constant_not_raise():
-    from huggingface_hub.snapshot_download import REPO_ID_SEPARATOR  # noqa
