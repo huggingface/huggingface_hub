@@ -79,7 +79,8 @@ class CommandInProgress:
         """
         The current output message on the standard error.
         """
-        self._stderr += self._process.stderr.read()
+        if self._process.stderr is not None:
+            self._stderr += self._process.stderr.read()
         return self._stderr
 
     @property
@@ -87,7 +88,8 @@ class CommandInProgress:
         """
         The current output message on the standard output.
         """
-        self._stdout += self._process.stdout.read()
+        if self._process.stdout is not None:
+            self._stdout += self._process.stdout.read()
         return self._stdout
 
     def __repr__(self):
@@ -1360,7 +1362,7 @@ class Repository:
         blocking: bool = True,
         clean_ok: bool = True,
         auto_lfs_prune: bool = False,
-    ) -> Optional[str]:
+    ) -> Union[None, str, Tuple[str, CommandInProgress]]:
         """
         Helper to add, commit, and push files to remote repository on the
         HuggingFace Hub. Will automatically track large files (>10MB).

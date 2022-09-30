@@ -4,7 +4,6 @@ Type definitions and utilities for the `create_commit` API
 import base64
 import io
 import os
-from abc import ABC
 from concurrent import futures
 from concurrent.futures import ThreadPoolExecutor
 from contextlib import contextmanager
@@ -25,7 +24,7 @@ logger = logging.get_logger(__name__)
 UploadMode = Literal["lfs", "regular"]
 
 
-class CommitOperation(ABC):
+class CommitOperation:
     """Abstract commit operation."""
 
 

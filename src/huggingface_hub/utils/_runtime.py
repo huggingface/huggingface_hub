@@ -14,7 +14,6 @@
 # limitations under the License.
 """Check presence of installed packages at runtime."""
 import sys
-from typing import Optional
 
 import packaging.version
 
