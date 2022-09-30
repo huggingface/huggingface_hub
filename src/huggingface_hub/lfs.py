@@ -20,7 +20,7 @@ from contextlib import AbstractContextManager
 from dataclasses import dataclass
 from math import ceil
 from os.path import getsize
-from typing import BinaryIO, Iterable, List, Optional, Tuple, TypedDict
+from typing import BinaryIO, Iterable, List, Optional, Tuple
 
 import requests
 from huggingface_hub.constants import ENDPOINT, REPO_TYPES_URL_PREFIXES
@@ -32,6 +32,7 @@ from .utils import (
     http_backoff,
     validate_hf_hub_args,
 )
+from .utils._typing import TypedDict
 from .utils.sha import sha256, sha_fileobj
 
 

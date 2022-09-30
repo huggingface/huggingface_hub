@@ -7,7 +7,7 @@ import threading
 import time
 from contextlib import contextmanager
 from pathlib import Path
-from typing import Callable, Dict, Iterator, List, Optional, Tuple, TypedDict, Union
+from typing import Callable, Dict, Iterator, List, Optional, Tuple, Union
 from urllib.parse import urlparse
 
 from huggingface_hub.constants import REPO_TYPES_URL_PREFIXES, REPOCARD_NAME
@@ -17,6 +17,7 @@ from .hf_api import HfApi, repo_type_and_id_from_hf_id
 from .lfs import LFS_MULTIPART_UPLOAD_COMMAND
 from .utils import HfFolder, logging, run_subprocess, tqdm
 from .utils._deprecation import _deprecate_arguments, _deprecate_method
+from .utils._typing import TypedDict
 
 
 logger = logging.get_logger(__name__)
