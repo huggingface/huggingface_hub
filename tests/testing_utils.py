@@ -429,3 +429,53 @@ def handle_injection_in_test(fn: Callable) -> Callable:
         return fn(**new_kwargs)
 
     return _inner
+
+
+def use_tmp_repo(repo_type: str = "model") -> Callable[[T], T]:
+    """
+    Test decorator to create a repo for the test and properly delete it afterward.
+
+    TODO: could we make `_api`, `_user` and `_token` cleaner ?
+
+    Example:
+    ```py
+    from .testing_utils import use_tmp_repo
+
+    class HfApiCommonTest(unittest.TestCase):
+        _api = HfApi(endpoint=ENDPOINT_STAGING)
+        _token = TOKEN
+        _user = USER
+        _repo_id: str
+
+        @use_tmp_repo()
+        def test_create_tag_on_model(self) -> None:
+            self._repo_id  # populated
+            (...)
+
+        @use_tmp_repo("dataset")
+        def test_create_tag_on_dataset(self) -> None:
+            self._repo_id  # populated
+            (...)
+    ```
+    """
+
+    def _inner_use_tmp_repo(test_fn: T) -> T:
+        @wraps(test_fn)
+        def _inner(*args, **kwargs):
+            self = args[0]
+            assert isinstance(self, unittest.TestCase)
+            token = self._token
+
+            repo_id = f"{self._user}/{repo_name(prefix=repo_type)}"
+            self._api.create_repo(repo_id=repo_id, token=token, repo_type=repo_type)
+            try:
+                self._repo_id = repo_id
+                return test_fn(*args, **kwargs)
+            finally:
+                self._api.delete_repo(
+                    repo_id=repo_id, token=self._token, repo_type=repo_type
+                )
+
+        return _inner
+
+    return _inner_use_tmp_repo
