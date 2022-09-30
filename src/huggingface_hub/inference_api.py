@@ -83,7 +83,7 @@ class InferenceApi:
         repo_id: str,
         task: Optional[str] = None,
         token: Optional[str] = None,
-        gpu: Optional[bool] = False,
+        gpu: bool = False,
     ):
         """Inits headers and API call information.
 

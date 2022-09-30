@@ -274,7 +274,7 @@ def url_to_filename(url: str, etag: Optional[str] = None) -> str:
 def filename_to_url(
     filename,
     cache_dir: Optional[str] = None,
-    legacy_cache_layout: Optional[bool] = False,
+    legacy_cache_layout: bool = False,
 ) -> Tuple[str, str]:
     """
     Return the url and etag (which may be `None`) stored for `filename`. Raise
@@ -501,14 +501,14 @@ def cached_download(
     library_version: Optional[str] = None,
     cache_dir: Union[str, Path, None] = None,
     user_agent: Union[Dict, str, None] = None,
-    force_download: Optional[bool] = False,
+    force_download: bool = False,
     force_filename: Optional[str] = None,
     proxies: Optional[Dict] = None,
-    etag_timeout: Optional[float] = 10,
-    resume_download: Optional[bool] = False,
+    etag_timeout: float = 10,
+    resume_download: bool = False,
     use_auth_token: Union[bool, str, None] = None,
-    local_files_only: Optional[bool] = False,
-    legacy_cache_layout: Optional[bool] = False,
+    local_files_only: bool = False,
+    legacy_cache_layout: bool = False,
 ) -> Optional[str]:  # pragma: no cover
     """
     Download from a given URL and cache it if it's not already present in the
@@ -854,14 +854,14 @@ def hf_hub_download(
     library_version: Optional[str] = None,
     cache_dir: Union[str, Path, None] = None,
     user_agent: Union[Dict, str, None] = None,
-    force_download: Optional[bool] = False,
+    force_download: bool = False,
     force_filename: Optional[str] = None,
     proxies: Optional[Dict] = None,
-    etag_timeout: Optional[float] = 10,
-    resume_download: Optional[bool] = False,
+    etag_timeout: float = 10,
+    resume_download: bool = False,
     use_auth_token: Union[bool, str, None] = None,
-    local_files_only: Optional[bool] = False,
-    legacy_cache_layout: Optional[bool] = False,
+    local_files_only: bool = False,
+    legacy_cache_layout: bool = False,
 ):
     """Download a given file if it's not already present in the local cache.
 

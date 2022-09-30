@@ -539,7 +539,7 @@ def metadata_eval_result(
     dataset_pretty_name: str,
     dataset_id: str,
     metrics_config: Optional[str] = None,
-    metrics_verified: Optional[bool] = False,
+    metrics_verified: bool = False,
     dataset_config: Optional[str] = None,
     dataset_split: Optional[str] = None,
     dataset_revision: Optional[str] = None,

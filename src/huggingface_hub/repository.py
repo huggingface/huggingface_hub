@@ -7,7 +7,7 @@ import threading
 import time
 from contextlib import contextmanager
 from pathlib import Path
-from typing import Callable, Dict, Iterator, List, Optional, Tuple, Union
+from typing import Callable, Dict, Iterator, List, Optional, Tuple, TypedDict, Union
 from urllib.parse import urlparse
 
 from huggingface_hub.constants import REPO_TYPES_URL_PREFIXES, REPOCARD_NAME
@@ -235,7 +235,7 @@ def is_binary_file(filename: Union[str, Path]) -> bool:
 
 
 def files_to_be_staged(
-    pattern: Optional[str] = None, folder: Union[str, Path, None] = None
+    pattern: str = ".", folder: Union[str, Path, None] = None
 ) -> List[str]:
     """
     Returns a list of filenames that are to be staged.
@@ -249,8 +249,6 @@ def files_to_be_staged(
     Returns:
         `List[str]`: List of files that are to be staged.
     """
-    if pattern is None:
-        pattern = "."
     try:
         p = run_subprocess(f"git ls-files -mo {pattern}", folder)
         if len(p.stdout.strip()):
@@ -307,6 +305,12 @@ def commits_to_push(folder: Union[str, Path], upstream: Optional[str] = None) ->
         raise EnvironmentError(exc.stderr)
 
 
+class PbarT(TypedDict):
+    # Used to store an opened progress bar in `_lfs_log_progress`
+    bar: tqdm
+    past_bytes: int
+
+
 @contextmanager
 def _lfs_log_progress():
     """
@@ -326,7 +330,8 @@ def _lfs_log_progress():
         To be launched as a separate thread with an event meaning it should stop
         the tail.
         """
-        pbars = {}
+        # Key is tuple(state, filename), value is a dict(tqdm bar and a previous value)
+        pbars: Dict[Tuple[str, str], PbarT] = {}
 
         def close_pbars():
             for pbar in pbars.values():
@@ -370,26 +375,27 @@ def _lfs_log_progress():
             description = f"{state.capitalize()} file {filename}"
 
             current_bytes, total_bytes = byte_progress.split("/")
+            current_bytes_int = int(current_bytes)
+            total_bytes_int = int(total_bytes)
 
-            current_bytes = int(current_bytes)
-            total_bytes = int(total_bytes)
-
-            if pbars.get((state, filename)) is None:
+            pbar = pbars.get((state, filename))
+            if pbar is None:
+                # Initialize progress bar
                 pbars[(state, filename)] = {
                     "bar": tqdm(
                         desc=description,
-                        initial=current_bytes,
-                        total=total_bytes,
+                        initial=current_bytes_int,
+                        total=total_bytes_int,
                         unit="B",
                         unit_scale=True,
                         unit_divisor=1024,
                     ),
-                    "past_bytes": current_bytes,
+                    "past_bytes": int(current_bytes),
                 }
             else:
-                past_bytes = pbars[(state, filename)]["past_bytes"]
-                pbars[(state, filename)]["bar"].update(current_bytes - past_bytes)
-                pbars[(state, filename)]["past_bytes"] = current_bytes
+                # Update progress bar
+                pbar["bar"].update(current_bytes_int - pbar["past_bytes"])
+                pbar["past_bytes"] = current_bytes_int
 
     current_lfs_progress_value = os.environ.get("GIT_LFS_PROGRESS", "")
 
@@ -497,11 +503,13 @@ class Repository:
         self.check_git_versions()
 
         if isinstance(use_auth_token, str):
-            self.huggingface_token = use_auth_token
-        elif use_auth_token:
-            self.huggingface_token = HfFolder.get_token()
-        else:
+            self.huggingface_token: Optional[str] = use_auth_token
+        elif use_auth_token is False:
             self.huggingface_token = None
+        else:
+            # if `True` -> explicit use of the cached token
+            # if `None` -> implicit use of the cached token
+            self.huggingface_token = HfFolder.get_token()
 
         if clone_from is not None:
             self.clone_from(repo_url=clone_from)
@@ -572,7 +580,7 @@ class Repository:
         version="0.12",
         message="`private` is only used in a deprecated use case of `clone_from`.",
     )
-    def private(self) -> Optional[str]:
+    def private(self) -> bool:
         """Make `private` a private attribute to warn users this is not a value to
         access from `Repository` object (error-prone). Property to be removed when
         `private` will be definitely removed (v0.12).
@@ -862,9 +870,7 @@ class Repository:
 
         return deleted_files
 
-    def lfs_track(
-        self, patterns: Union[str, List[str]], filename: Optional[bool] = False
-    ):
+    def lfs_track(self, patterns: Union[str, List[str]], filename: bool = False):
         """
         Tell git-lfs to track files according to a pattern.
 
@@ -919,7 +925,7 @@ class Repository:
         except subprocess.CalledProcessError as exc:
             raise EnvironmentError(exc.stderr)
 
-    def auto_track_binary_files(self, pattern: Optional[str] = ".") -> List[str]:
+    def auto_track_binary_files(self, pattern: str = ".") -> List[str]:
         """
         Automatically track binary files with git-lfs.
 
@@ -962,7 +968,7 @@ class Repository:
 
         return files_to_be_tracked_with_lfs
 
-    def auto_track_large_files(self, pattern: Optional[str] = ".") -> List[str]:
+    def auto_track_large_files(self, pattern: str = ".") -> List[str]:
         """
         Automatically track large files (files that weigh more than 10MBs) with
         git-lfs.
@@ -1019,7 +1025,7 @@ class Repository:
         except subprocess.CalledProcessError as exc:
             raise EnvironmentError(exc.stderr)
 
-    def git_pull(self, rebase: Optional[bool] = False, lfs: Optional[bool] = False):
+    def git_pull(self, rebase: bool = False, lfs: bool = False):
         """
         git pull
 
@@ -1043,9 +1049,7 @@ class Repository:
         except subprocess.CalledProcessError as exc:
             raise EnvironmentError(exc.stderr)
 
-    def git_add(
-        self, pattern: Optional[str] = ".", auto_lfs_track: Optional[bool] = False
-    ):
+    def git_add(self, pattern: str = ".", auto_lfs_track: bool = False):
         """
         git add
 
@@ -1101,8 +1105,8 @@ class Repository:
     def git_push(
         self,
         upstream: Optional[str] = None,
-        blocking: Optional[bool] = True,
-        auto_lfs_prune: Optional[bool] = False,
+        blocking: bool = True,
+        auto_lfs_prune: bool = False,
     ) -> Union[str, Tuple[str, CommandInProgress]]:
         """
         git push
@@ -1175,7 +1179,7 @@ class Repository:
                 else:
                     return status
 
-            command = CommandInProgress(
+            command_in_progress = CommandInProgress(
                 "push",
                 is_done_method=lambda: process.poll() is not None,
                 status_method=status_method,
@@ -1183,16 +1187,16 @@ class Repository:
                 post_method=self.lfs_prune if auto_lfs_prune else None,
             )
 
-            self.command_queue.append(command)
+            self.command_queue.append(command_in_progress)
 
-            return self.git_head_commit_url(), command
+            return self.git_head_commit_url(), command_in_progress
 
         if auto_lfs_prune:
             self.lfs_prune()
 
         return self.git_head_commit_url()
 
-    def git_checkout(self, revision: str, create_branch_ok: Optional[bool] = False):
+    def git_checkout(self, revision: str, create_branch_ok: bool = False):
         """
         git checkout a given revision
 
@@ -1352,10 +1356,10 @@ class Repository:
 
     def push_to_hub(
         self,
-        commit_message: Optional[str] = "commit files to HF hub",
-        blocking: Optional[bool] = True,
-        clean_ok: Optional[bool] = True,
-        auto_lfs_prune: Optional[bool] = False,
+        commit_message: str = "commit files to HF hub",
+        blocking: bool = True,
+        clean_ok: bool = True,
+        auto_lfs_prune: bool = False,
     ) -> Optional[str]:
         """
         Helper to add, commit, and push files to remote repository on the
@@ -1391,9 +1395,9 @@ class Repository:
         self,
         commit_message: str,
         branch: Optional[str] = None,
-        track_large_files: Optional[bool] = True,
-        blocking: Optional[bool] = True,
-        auto_lfs_prune: Optional[bool] = False,
+        track_large_files: bool = True,
+        blocking: bool = True,
+        auto_lfs_prune: bool = False,
     ):
         """
         Context manager utility to handle committing to a repository. This

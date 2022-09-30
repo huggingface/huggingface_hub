@@ -94,7 +94,7 @@ def _plot_network(model, save_directory):
 def _create_model_card(
     model,
     repo_dir: Path,
-    plot_model: Optional[bool] = True,
+    plot_model: bool = True,
     metadata: Optional[dict] = None,
 ):
     """
@@ -140,8 +140,8 @@ def save_pretrained_keras(
     model,
     save_directory: Union[str, Path],
     config: Optional[Dict[str, Any]] = None,
-    include_optimizer: Optional[bool] = False,
-    plot_model: Optional[bool] = True,
+    include_optimizer: bool = False,
+    plot_model: bool = True,
     tags: Optional[Union[list, str]] = None,
     **model_save_kwargs,
 ):
@@ -316,9 +316,9 @@ def push_to_hub_keras(
     git_user: Optional[str] = None,
     git_email: Optional[str] = None,
     config: Optional[dict] = None,
-    include_optimizer: Optional[bool] = False,
+    include_optimizer: bool = False,
     tags: Optional[Union[list, str]] = None,
-    plot_model: Optional[bool] = True,
+    plot_model: bool = True,
     # NOTE: New arguments since 0.9
     token: Optional[str] = None,
     repo_id: Optional[str] = None,  # optional only until 0.12
@@ -331,7 +331,7 @@ def push_to_hub_keras(
     # model,
     # repo_id: str,
     # *,
-    # commit_message: Optional[str] = "Add model",
+    # commit_message: str = "Add model",
     # private: bool = None,
     # api_endpoint: Optional[str] = None,
     # token: Optional[str] = True,
@@ -341,7 +341,7 @@ def push_to_hub_keras(
     # allow_patterns: Optional[Union[List[str], str]] = None,
     # ignore_patterns: Optional[Union[List[str], str]] = None,
     # log_dir: Optional[str] = None,
-    # include_optimizer: Optional[bool] = False,
+    # include_optimizer: bool = False,
     # tags: Optional[Union[list, str]] = None,
     # plot_model: Optional[bool] = True,
     # **model_save_kwargs,

@@ -257,7 +257,7 @@ class ModelHubMixin:
         *,
         repo_path_or_name: Optional[str] = None,
         repo_url: Optional[str] = None,
-        commit_message: Optional[str] = "Add model",
+        commit_message: str = "Add model",
         organization: Optional[str] = None,
         private: bool = False,
         api_endpoint: Optional[str] = None,
@@ -276,7 +276,7 @@ class ModelHubMixin:
         # TODO (release 0.12): signature must be the following
         # repo_id: str,
         # *,
-        # commit_message: Optional[str] = "Add model",
+        # commit_message: str = "Add model",
         # private: bool = False,
         # api_endpoint: Optional[str] = None,
         # token: Optional[str] = None,

@@ -367,7 +367,7 @@ def push_to_hub_fastai(
     learner,
     *,
     repo_id: str,
-    commit_message: Optional[str] = "Add model",
+    commit_message: str = "Add model",
     private: bool = False,
     token: Optional[str] = None,
     config: Optional[dict] = None,
@@ -382,7 +382,7 @@ def push_to_hub_fastai(
     # TODO (release 0.12): signature must be the following
     # learner,
     # repo_id: Optional[str] = None,  # optional only until 0.12
-    # commit_message: Optional[str] = "Add model",
+    # commit_message: str = "Add model",
     # private: Optional[bool] = None,
     # token: Optional[str] = None,
     # config: Optional[dict] = None,
