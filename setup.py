@@ -50,7 +50,6 @@ extras["testing"] = extras["cli"] + [
 ]
 
 extras["typing"] = [
-    "mypy>=0.980",
     "types-PyYAML",
     "types-requests",
     "types-simplejson",
@@ -67,7 +66,7 @@ extras["quality"] = [
     "mypy",
 ]
 
-extras["all"] = extras["testing"] + extras["quality"]
+extras["all"] = extras["testing"] + extras["quality"] + extras["typing"]
 
 extras["dev"] = extras["all"]
 
