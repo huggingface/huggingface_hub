@@ -16,7 +16,7 @@ with the aim for a user-friendly interface.
 import math
 import re
 from dataclasses import dataclass
-from typing import List, Union
+from typing import List, Optional, Union
 
 
 def _filter_emissions(
@@ -137,15 +137,15 @@ class DatasetFilter:
     ```
     """
 
-    author: str = None
-    benchmark: Union[str, List[str]] = None
-    dataset_name: str = None
-    language_creators: Union[str, List[str]] = None
-    languages: Union[str, List[str]] = None
-    multilinguality: Union[str, List[str]] = None
-    size_categories: Union[str, List[str]] = None
-    task_categories: Union[str, List[str]] = None
-    task_ids: Union[str, List[str]] = None
+    author: Optional[str] = None
+    benchmark: Optional[Union[str, List[str]]] = None
+    dataset_name: Optional[str] = None
+    language_creators: Optional[Union[str, List[str]]] = None
+    languages: Optional[Union[str, List[str]]] = None
+    multilinguality: Optional[Union[str, List[str]]] = None
+    size_categories: Optional[Union[str, List[str]]] = None
+    task_categories: Optional[Union[str, List[str]]] = None
+    task_ids: Optional[Union[str, List[str]]] = None
 
 
 @dataclass
@@ -215,13 +215,13 @@ class ModelFilter:
     ```
     """
 
-    author: str = None
-    library: Union[str, List[str]] = None
-    language: Union[str, List[str]] = None
-    model_name: str = None
-    task: Union[str, List[str]] = None
-    trained_dataset: Union[str, List[str]] = None
-    tags: Union[str, List[str]] = None
+    author: Optional[str] = None
+    library: Optional[Union[str, List[str]]] = None
+    language: Optional[Union[str, List[str]]] = None
+    model_name: Optional[str] = None
+    task: Optional[Union[str, List[str]]] = None
+    trained_dataset: Optional[Union[str, List[str]]] = None
+    tags: Optional[Union[str, List[str]]] = None
 
 
 class AttributeDictionary(dict):

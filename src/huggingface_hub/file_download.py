@@ -1321,7 +1321,7 @@ def get_hf_file_metadata(
     url: str,
     use_auth_token: Union[bool, str, None] = None,
     proxies: Optional[Dict] = None,
-    timeout: Optional[float] = 10,
+    timeout: float = 10,
 ) -> HfFileMetadata:
     """Fetch metadata of a file versioned on the Hub for a given url.
 
@@ -1337,7 +1337,7 @@ def get_hf_file_metadata(
         proxies (`dict`, *optional*):
             Dictionary mapping protocol to the URL of the proxy passed to
             `requests.request`.
-        etag_timeout (`float`, *optional*, defaults to 10):
+        timeout (`float`, *optional*, defaults to 10):
             How many seconds to wait for the server to send metadata before giving up.
 
     Returns:

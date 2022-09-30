@@ -63,7 +63,7 @@ for candidate_name, package_names in _CANDIDATES.items():
             pass
 
 
-def _get_version(package_name: str) -> Optional[str]:
+def _get_version(package_name: str) -> str:
     return _package_versions.get(package_name, "N/A")
 
 
