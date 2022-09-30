@@ -166,7 +166,7 @@ def is_tracked_with_lfs(filename: Union[str, Path]) -> bool:
     filename = Path(filename).name
 
     try:
-        p = run_subprocess(f"git check-attr -a {filename}", folder)
+        p = run_subprocess("git check-attr -a".split() + [filename], folder)
         attributes = p.stdout.strip()
     except subprocess.CalledProcessError as exc:
         if not is_git_repo(folder):
@@ -203,7 +203,7 @@ def is_git_ignored(filename: Union[str, Path]) -> bool:
     filename = Path(filename).name
 
     try:
-        p = run_subprocess(f"git check-ignore {filename}", folder, check=False)
+        p = run_subprocess("git check-ignore".split() + [filename], folder, check=False)
         # Will return exit code 1 if not gitignored
         is_ignored = not bool(p.returncode)
     except subprocess.CalledProcessError as exc:
@@ -253,7 +253,7 @@ def files_to_be_staged(
         `List[str]`: List of files that are to be staged.
     """
     try:
-        p = run_subprocess(f"git ls-files -mo {pattern}", folder)
+        p = run_subprocess("git ls-files -mo".split() + [pattern], folder)
         if len(p.stdout.strip()):
             files = p.stdout.strip().split("\n")
         else:
@@ -776,10 +776,14 @@ class Repository:
         """
         try:
             if git_user is not None:
-                run_subprocess(f"git config user.name {git_user}", self.local_dir)
+                run_subprocess(
+                    "git config user.name".split() + [git_user], self.local_dir
+                )
 
             if git_email is not None:
-                run_subprocess(f"git config user.email {git_email}", self.local_dir)
+                run_subprocess(
+                    f"git config user.email {git_email}".split(), self.local_dir
+                )
         except subprocess.CalledProcessError as exc:
             raise EnvironmentError(exc.stderr)
 
@@ -910,7 +914,7 @@ class Repository:
             patterns = [patterns]
         try:
             for pattern in patterns:
-                run_subprocess(f"git lfs untrack {pattern}", self.local_dir)
+                run_subprocess("git lfs untrack".split() + [pattern], self.local_dir)
         except subprocess.CalledProcessError as exc:
             raise EnvironmentError(exc.stderr)
 
@@ -1081,7 +1085,7 @@ class Repository:
                 )
 
         try:
-            result = run_subprocess(f"git add -v {pattern}", self.local_dir)
+            result = run_subprocess("git add -v".split() + [pattern], self.local_dir)
             logger.info(f"Adding to index:\n{result.stdout}\n")
         except subprocess.CalledProcessError as exc:
             raise EnvironmentError(exc.stderr)
@@ -1096,7 +1100,7 @@ class Repository:
         """
         try:
             result = run_subprocess(
-                f"git commit -v -m {commit_message}", self.local_dir
+                "git commit -v -m".split() + [commit_message], self.local_dir
             )
             logger.info(f"Committed:\n{result.stdout}\n")
         except subprocess.CalledProcessError as exc:
@@ -1291,7 +1295,9 @@ class Repository:
 
         if delete_locally:
             try:
-                run_subprocess(f"git tag -d {tag_name}", self.local_dir).stdout.strip()
+                run_subprocess(
+                    ["git", "tag", "-d", tag_name], self.local_dir
+                ).stdout.strip()
             except subprocess.CalledProcessError as exc:
                 raise EnvironmentError(exc.stderr)
 
