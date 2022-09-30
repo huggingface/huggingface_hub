@@ -17,7 +17,7 @@ import re
 import subprocess
 import warnings
 from dataclasses import dataclass, field
-from typing import BinaryIO, Dict, Iterable, Iterator, List, Optional, Tuple, Union
+from typing import Any, BinaryIO, Dict, Iterable, Iterator, List, Optional, Tuple, Union
 from urllib.parse import quote
 
 import requests
@@ -564,6 +564,7 @@ def write_to_credential_store(username: str, password: str):
         input_username = f"username={username.lower()}"
         input_password = f"password={password}"
 
+        assert process.stdin is not None
         process.stdin.write(
             f"url={ENDPOINT}\n{input_username}\n{input_password}\n\n".encode("utf-8")
         )
@@ -593,6 +594,8 @@ def read_from_credential_store(
 
         standard_input += "\n"
 
+        assert process.stdin is not None
+        assert process.stdout is not None
         process.stdin.write(standard_input.encode("utf-8"))
         process.stdin.flush()
         output = process.stdout.read()
@@ -1153,7 +1156,7 @@ class HfApi:
         """
         path = f"{self.endpoint}/api/spaces"
         headers = build_hf_headers(use_auth_token=use_auth_token)
-        params = {}
+        params: Dict[str, Any] = {}
         if filter is not None:
             params.update({"filter": filter})
         if author is not None:
@@ -2636,7 +2639,7 @@ class HfApi:
         repo_id: str,
         title: str,
         *,
-        token: Optional[str],
+        token: Optional[str] = None,
         description: Optional[str] = None,
         repo_type: Optional[str] = None,
         pull_request: bool = False,
@@ -2725,7 +2728,7 @@ class HfApi:
         repo_id: str,
         title: str,
         *,
-        token: Optional[str],
+        token: Optional[str] = None,
         description: Optional[str] = None,
         repo_type: Optional[str] = None,
     ) -> DiscussionWithDetails:
@@ -3027,7 +3030,7 @@ class HfApi:
         repo_id: str,
         discussion_num: int,
         *,
-        token: Optional[str],
+        token: Optional[str] = None,
         comment: Optional[str] = None,
         repo_type: Optional[str] = None,
     ):
@@ -3138,7 +3141,7 @@ class HfApi:
         discussion_num: int,
         comment_id: str,
         *,
-        token: Optional[str],
+        token: Optional[str] = None,
         repo_type: Optional[str] = None,
     ) -> DiscussionComment:
         """Hides a comment on a Discussion / Pull Request.

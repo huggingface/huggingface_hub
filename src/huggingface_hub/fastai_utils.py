@@ -25,8 +25,8 @@ logger = logging.get_logger(__name__)
 
 
 def _check_fastai_fastcore_versions(
-    fastai_min_version: Optional[str] = "2.4",
-    fastcore_min_version: Optional[str] = "1.3.27",
+    fastai_min_version: str = "2.4",
+    fastcore_min_version: str = "1.3.27",
 ):
     """
     Checks that the installed fastai and fastcore versions are compatible for pickle serialization.
@@ -75,8 +75,8 @@ def _check_fastai_fastcore_versions(
 
 def _check_fastai_fastcore_pyproject_versions(
     storage_folder: str,
-    fastai_min_version: Optional[str] = "2.4",
-    fastcore_min_version: Optional[str] = "1.3.27",
+    fastai_min_version: str = "2.4",
+    fastcore_min_version: str = "1.3.27",
 ):
     """
     Checks that the `pyproject.toml` file in the directory `storage_folder` has fastai and fastcore versions

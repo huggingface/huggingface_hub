@@ -12,7 +12,7 @@ from dataclasses import dataclass
 from functools import partial
 from hashlib import sha256
 from pathlib import Path
-from typing import BinaryIO, Dict, Optional, Tuple, Union
+from typing import BinaryIO, Dict, Generator, Optional, Tuple, Union
 from urllib.parse import quote, urlparse
 
 import requests
@@ -714,7 +714,7 @@ def cached_download(
             incomplete_path = cache_path + ".incomplete"
 
             @contextmanager
-            def _resumable_file_manager() -> "io.BufferedWriter":
+            def _resumable_file_manager() -> Generator[io.BufferedWriter, None, None]:
                 with open(incomplete_path, "ab") as f:
                     yield f
 

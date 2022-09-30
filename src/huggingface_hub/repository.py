@@ -640,7 +640,15 @@ class Repository:
 
         </Tip>
         """
-        token = use_auth_token if use_auth_token is not None else self.huggingface_token
+        token = (
+            use_auth_token  # str -> use it
+            if isinstance(use_auth_token, str)
+            else (
+                None  # `False` -> explicit no token
+                if use_auth_token is False
+                else self.huggingface_token  # `None` or `True` -> use default
+            )
+        )
         if token is None and self._private:
             raise ValueError(
                 "Couldn't load Hugging Face Authorization Token. Credentials are"

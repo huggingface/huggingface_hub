@@ -110,10 +110,7 @@ class UserCommands(BaseHuggingfaceCLICommand):
 
 def currently_setup_credential_helpers(directory=None) -> List[str]:
     try:
-        output = run_subprocess(
-            "git config --list".split(),
-            directory,
-        ).stdout.split("\n")
+        output = run_subprocess("git config --list", directory).stdout.split("\n")
 
         current_credential_helpers = []
         for line in output:
