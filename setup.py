@@ -46,6 +46,7 @@ extras["testing"] = extras["cli"] + [
     "Jinja2",
     "pytest",
     "pytest-cov",
+    "pytest-env",
     "soundfile",
 ]
 
