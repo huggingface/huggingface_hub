@@ -132,9 +132,9 @@ def repo_type_and_id_from_hf_id(
             f"Unable to retrieve user and repo ID from the passed HF ID: {hf_id}"
         )
 
-    repo_type = (
-        repo_type if repo_type in REPO_TYPES else REPO_TYPES_MAPPING.get(repo_type)
-    )
+    if repo_type not in REPO_TYPES:
+        assert repo_type is not None
+        repo_type = REPO_TYPES_MAPPING.get(repo_type)
 
     return repo_type, namespace, repo_id
 
@@ -297,7 +297,7 @@ class ModelInfo:
         self.tags = tags
         self.pipeline_tag = pipeline_tag
         self.siblings = (
-            [RepoFile(**x) for x in siblings] if siblings is not None else None
+            [RepoFile(**x) for x in siblings] if siblings is not None else []
         )
         self.private = private
         self.author = author
@@ -373,7 +373,7 @@ class DatasetInfo:
         self.citation = citation
         self.cardData = cardData
         self.siblings = (
-            [RepoFile(**x) for x in siblings] if siblings is not None else None
+            [RepoFile(**x) for x in siblings] if siblings is not None else []
         )
         # Legacy stuff, "key" is always returned with an empty string
         # because of old versions of the datasets lib that need this field
@@ -432,7 +432,7 @@ class SpaceInfo:
         self.sha = sha
         self.lastModified = lastModified
         self.siblings = (
-            [RepoFile(**x) for x in siblings] if siblings is not None else None
+            [RepoFile(**x) for x in siblings] if siblings is not None else []
         )
         self.private = private
         self.author = author
@@ -600,8 +600,7 @@ def read_from_credential_store(
         assert process.stdout is not None
         process.stdin.write(standard_input.encode("utf-8"))
         process.stdin.flush()
-        output = process.stdout.read()
-        output = output.decode("utf-8")
+        output = process.stdout.read().decode("utf-8")
 
     if len(output) == 0:
         return None, None
@@ -881,11 +880,11 @@ class HfApi:
         if model_filter.model_name is not None:
             model_str += model_filter.model_name
 
-        filter_tuple = []
+        filter_list: List[str] = []
 
         # Handling tasks
         if model_filter.task is not None:
-            filter_tuple.extend(
+            filter_list.extend(
                 [model_filter.task]
                 if isinstance(model_filter.task, str)
                 else model_filter.task
@@ -898,11 +897,11 @@ class HfApi:
             for dataset in model_filter.trained_dataset:
                 if "dataset:" not in dataset:
                     dataset = f"dataset:{dataset}"
-                filter_tuple.append(dataset)
+                filter_list.append(dataset)
 
         # Handling library
         if model_filter.library:
-            filter_tuple.extend(
+            filter_list.extend(
                 [model_filter.library]
                 if isinstance(model_filter.library, str)
                 else model_filter.library
@@ -916,14 +915,16 @@ class HfApi:
                 else model_filter.tags
             )
 
-        query_dict = {}
+        query_dict: Dict[str, Any] = {}
         if model_str is not None:
             query_dict["search"] = model_str
         if len(tags) > 0:
             query_dict["tags"] = tags
-        if model_filter.language is not None:
-            filter_tuple.append(model_filter.language)
-        query_dict["filter"] = tuple(filter_tuple)
+        if isinstance(model_filter.language, list):
+            filter_list.extend(model_filter.language)
+        elif isinstance(model_filter.language, str):
+            filter_list.append(model_filter.language)
+        query_dict["filter"] = tuple(filter_list)
         return query_dict
 
     def list_datasets(
@@ -1062,7 +1063,7 @@ class HfApi:
         if dataset_filter.dataset_name is not None:
             dataset_str += dataset_filter.dataset_name
 
-        filter_tuple = []
+        filter_list = []
         data_attributes = [
             "benchmark",
             "language_creators",
@@ -1081,12 +1082,12 @@ class HfApi:
                 for data in curr_attr:
                     if f"{attr}:" not in data:
                         data = f"{attr}:{data}"
-                    filter_tuple.append(data)
+                    filter_list.append(data)
 
-        query_dict = {}
+        query_dict: Dict[str, Any] = {}
         if dataset_str is not None:
             query_dict["search"] = dataset_str
-        query_dict["filter"] = tuple(filter_tuple)
+        query_dict["filter"] = tuple(filter_list)
         return query_dict
 
     def list_metrics(self) -> List[MetricInfo]:
@@ -1097,8 +1098,7 @@ class HfApi:
             `List[MetricInfo]`: a list of [`MetricInfo`] objects which.
         """
         path = f"{self.endpoint}/api/metrics"
-        params = {}
-        r = requests.get(path, params=params)
+        r = requests.get(path)
         hf_raise_for_status(r)
         d = r.json()
         return [MetricInfo(**x) for x in d]
@@ -1524,7 +1524,7 @@ class HfApi:
     @_deprecate_positional_args(version="0.12")
     def create_repo(
         self,
-        repo_id: str = None,
+        repo_id: str,
         *,
         token: Optional[str] = None,
         private: bool = False,
@@ -1584,7 +1584,7 @@ class HfApi:
         if getattr(self, "_lfsmultipartthresh", None):
             # Testing purposes only.
             # See https://github.com/huggingface/huggingface_hub/pull/733/files#r820604472
-            json["lfsmultipartthresh"] = self._lfsmultipartthresh
+            json["lfsmultipartthresh"] = self._lfsmultipartthresh # type: ignore
         headers = build_hf_headers(use_auth_token=token, is_write_action=True)
         r = requests.post(path, headers=headers, json=json)
 
@@ -1603,7 +1603,7 @@ class HfApi:
     @validate_hf_hub_args
     def delete_repo(
         self,
-        repo_id: str = None,
+        repo_id: str,
         *,
         token: Optional[str] = None,
         repo_type: Optional[str] = None,
@@ -1649,7 +1649,7 @@ class HfApi:
     @validate_hf_hub_args
     def update_repo_visibility(
         self,
-        repo_id: str = None,
+        repo_id: str,
         private: bool = False,
         *,
         token: Optional[str] = None,

@@ -160,7 +160,6 @@ def snapshot_download(
         revision=revision,
         use_auth_token=use_auth_token,
     )
-    assert repo_info.siblings is not None
     assert repo_info.sha is not None
     filtered_repo_files = list(
         filter_repo_objects(
