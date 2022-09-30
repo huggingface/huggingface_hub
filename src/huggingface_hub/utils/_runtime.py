@@ -25,7 +25,7 @@ _PY_VERSION: str = sys.version.split()[0].rstrip("+")
 if packaging.version.Version(_PY_VERSION) < packaging.version.Version("3.8.0"):
     import importlib_metadata
 else:
-    import importlib.metadata as importlib_metadata
+    import importlib.metadata as importlib_metadata  # type: ignore
 
 
 _package_versions = {}
