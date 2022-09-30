@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 import subprocess
-from argparse import ArgumentParser
+from argparse import _SubParsersAction
 from getpass import getpass
 from typing import List
 
@@ -45,7 +45,7 @@ except NameError:
 
 class UserCommands(BaseHuggingfaceCLICommand):
     @staticmethod
-    def register_subcommand(parser: ArgumentParser):
+    def register_subcommand(parser: _SubParsersAction):
         login_parser = parser.add_parser(
             "login", help="Log in using a token from huggingface.co/settings/tokens"
         )
