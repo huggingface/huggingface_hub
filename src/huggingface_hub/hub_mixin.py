@@ -15,7 +15,7 @@ from .utils._deprecation import _deprecate_arguments, _deprecate_positional_args
 
 
 if is_torch_available():
-    import torch
+    import torch  # type: ignore
 
 logger = logging.get_logger(__name__)
 
