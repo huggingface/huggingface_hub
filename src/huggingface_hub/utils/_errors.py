@@ -254,13 +254,9 @@ def hf_raise_for_status(
         raise HfHubHTTPError(str(HTTPError), response=response) from e
 
 
+@_deprecate_method(version="0.13", message="Use `hf_raise_for_status` instead.")
 def _raise_for_status(response):
-    """Keep alias for now.
-
-    Deprecated but without warning since it is used in transformers.
-    TODO: deprecate this properly after next release (just after v0.10).
-          See https://github.com/huggingface/huggingface_hub/pull/1019#issuecomment-1233240452
-    """
+    """Keep alias for now."""
     hf_raise_for_status(response)
 
 
