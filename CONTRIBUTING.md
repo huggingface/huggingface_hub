@@ -143,7 +143,7 @@ Follow these steps to start contributing:
    below an explanation regarding the environment variable):
 
    ```bash
-   $ HUGGINGFACE_CO_STAGING=1 pytest tests/<TEST_TO_RUN>.py
+   $ pytest tests/<TEST_TO_RUN>.py
    ```
 
    > For the following commands leveraging the `make` utility, we recommend using the WSL system when running on
@@ -250,14 +250,14 @@ An extensive test suite is included to test the library behavior and several exa
 the [tests folder](https://github.com/huggingface/huggingface_hub/tree/main/tests).
 
 The `huggingface_hub` library's normal behavior is to work with the production Hugging Face Hub. However,
-for tests, we prefer to run on a staging version. In order to do this, it's important to set the
-`HUGGINGFACE_CO_STAGING` environment variable to `1` when running tests. It is preferred to pass this in when running the tests, than setting a permanent environmental variable, as shown below.
+for tests, we prefer to run on a staging version. In order to do this, the `HUGGINGFACE_CO_STAGING`
+environment variable to `1` when running tests (see `setup.cfg` config file).
 
 We use `pytest` in order to run the tests for the library . From the root of the
 repository they can be run with the following:
 
 ```bash
-$ HUGGINGFACE_CO_STAGING=1 python -m pytest -sv ./tests
+$ python -m pytest ./tests
 ```
 
 In fact, that's how `make test` is implemented (without the `pip install` line)!
@@ -268,11 +268,11 @@ you're working on.
 For example, the following will only run the tests in the `test_repository.py` file:
 
 ```bash
-$ HUGGINGFACE_CO_STAGING=1 python -m pytest -sv ./tests/test_repository.py
+$ python -m pytest ./tests/test_repository.py
 ```
 
 And the following will only run the tests that include `tag` in their name:
 
 ```bash
-$ HUGGINGFACE_CO_STAGING=1 python -m pytest -sv ./tests -k tag
+$ python -m pytest ./tests -k tag
 ```

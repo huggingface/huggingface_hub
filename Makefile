@@ -16,5 +16,5 @@ style:
 	python utils/check_static_imports.py --update-file
 
 test:
-	HUGGINGFACE_CO_STAGING=1 pytest -sv ./tests/
+	pytest ./tests/
 
