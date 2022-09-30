@@ -1584,7 +1584,7 @@ class HfApi:
         if getattr(self, "_lfsmultipartthresh", None):
             # Testing purposes only.
             # See https://github.com/huggingface/huggingface_hub/pull/733/files#r820604472
-            json["lfsmultipartthresh"] = self._lfsmultipartthresh # type: ignore
+            json["lfsmultipartthresh"] = self._lfsmultipartthresh  # type: ignore
         headers = build_hf_headers(use_auth_token=token, is_write_action=True)
         r = requests.post(path, headers=headers, json=json)
 
@@ -2882,7 +2882,7 @@ class HfApi:
             resource="comment",
             body={"comment": comment},
         )
-        return deserialize_event(resp.json()["newMessage"])
+        return deserialize_event(resp.json()["newMessage"])  # type: ignore
 
     @validate_hf_hub_args
     def rename_discussion(
@@ -2949,7 +2949,7 @@ class HfApi:
             resource="title",
             body={"title": new_title},
         )
-        return deserialize_event(resp.json()["newTitle"])
+        return deserialize_event(resp.json()["newTitle"])  # type: ignore
 
     @validate_hf_hub_args
     def change_discussion_status(
@@ -3013,7 +3013,7 @@ class HfApi:
         """
         if new_status not in ["open", "closed"]:
             raise ValueError("Invalid status, valid statuses are: 'open' and 'closed'")
-        body = {"status": new_status}
+        body: Dict[str, str] = {"status": new_status}
         if comment and comment.strip():
             body["comment"] = comment.strip()
         resp = self._post_discussion_changes(
@@ -3024,7 +3024,7 @@ class HfApi:
             resource="status",
             body=body,
         )
-        return deserialize_event(resp.json()["newStatus"])
+        return deserialize_event(resp.json()["newStatus"])  # type: ignore
 
     @validate_hf_hub_args
     def merge_pull_request(
@@ -3134,7 +3134,7 @@ class HfApi:
             resource=f"comment/{comment_id.lower()}/edit",
             body={"content": new_content},
         )
-        return deserialize_event(resp.json()["updatedComment"])
+        return deserialize_event(resp.json()["updatedComment"])  # type: ignore
 
     @validate_hf_hub_args
     def hide_discussion_comment(
@@ -3196,7 +3196,7 @@ class HfApi:
             token=token,
             resource=f"comment/{comment_id.lower()}/hide",
         )
-        return deserialize_event(resp.json()["updatedComment"])
+        return deserialize_event(resp.json()["updatedComment"])  # type: ignore
 
 
 def _prepare_upload_folder_commit(

@@ -324,7 +324,7 @@ class ModelCard(RepoCard):
     repo_type = "model"
 
     @classmethod
-    def from_template(
+    def from_template(  # type: ignore # violates Liskov property but easier to use
         cls,
         card_data: ModelCardData,
         template_path: Optional[str] = None,
@@ -404,7 +404,7 @@ class DatasetCard(RepoCard):
     repo_type = "dataset"
 
     @classmethod
-    def from_template(
+    def from_template(  # type: ignore # violates Liskov property but easier to use
         cls,
         card_data: DatasetCardData,
         template_path: Optional[str] = None,

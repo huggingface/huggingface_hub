@@ -49,6 +49,16 @@ extras["testing"] = extras["cli"] + [
     "soundfile",
 ]
 
+extras["typing"] = [
+    "mypy>=0.980",
+    "types-PyYAML",
+    "types-requests",
+    "types-simplejson",
+    "types-toml",
+    "types-tqdm",
+    "types-urllib3",
+]
+
 extras["quality"] = [
     "black==22.3",
     "flake8>=3.8.3",
