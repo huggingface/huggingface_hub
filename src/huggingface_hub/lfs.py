@@ -20,7 +20,7 @@ from contextlib import AbstractContextManager
 from dataclasses import dataclass
 from math import ceil
 from os.path import getsize
-from typing import BinaryIO, Iterable, List, Optional, Tuple
+from typing import BinaryIO, Iterable, List, Optional, Tuple, TypedDict
 
 import requests
 from huggingface_hub.constants import ENDPOINT, REPO_TYPES_URL_PREFIXES
@@ -305,6 +305,18 @@ def _upload_single_part(upload_url: str, fileobj: BinaryIO):
     return upload_res
 
 
+class PayloadPartT(TypedDict):
+    partNumber: int
+    etag: str
+
+
+class CompletionPayloadT(TypedDict):
+    """Payload that will be sent to the Hub when uploading multi-part."""
+
+    oid: str
+    parts: List[PayloadPartT]
+
+
 def _upload_multi_part(
     completion_url: str,
     fileobj: BinaryIO,
@@ -351,7 +363,7 @@ def _upload_multi_part(
     if num_parts != ceil(upload_info.size / chunk_size):
         raise ValueError("Invalid server response to upload large LFS file")
 
-    completion_payload = {
+    completion_payload: CompletionPayloadT = {
         "oid": upload_info.sha256.hex(),
         "parts": [
             {

@@ -784,10 +784,11 @@ def _format_timesince(ts: float) -> str:
     delta = time.time() - ts
     if delta < 20:
         return "a few seconds ago"
-    for label, divider, max_value in _TIMESINCE_CHUNKS:
+    for label, divider, max_value in _TIMESINCE_CHUNKS:  # noqa: B007
         value = round(delta / divider)
-        if max_value is None or value <= max_value:
-            return f"{value} {label}{'s' if value > 1 else ''} ago"
+        if max_value is not None and value <= max_value:
+            break
+    return f"{value} {label}{'s' if value > 1 else ''} ago"
 
 
 def _try_delete_path(path: Path, path_type: str) -> None:

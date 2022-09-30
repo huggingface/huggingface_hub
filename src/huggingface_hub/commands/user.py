@@ -38,7 +38,7 @@ try:
     # Taken from https://stackoverflow.com/a/63519730.
     # Got some trouble to make it work inside `login_token_event` callback so now set as
     # global variable.
-    _is_google_colab = "google.colab" in str(get_ipython())  # noqa: F821
+    _is_google_colab = "google.colab" in str(get_ipython())  # type: ignore # noqa: F821
 except NameError:
     _is_google_colab = False
 
@@ -272,8 +272,8 @@ def notebook_login():
     Displays a widget to login to the HF website and store the token.
     """
     try:
-        import ipywidgets.widgets as widgets
-        from IPython.display import clear_output, display
+        import ipywidgets.widgets as widgets  # type: ignore
+        from IPython.display import clear_output, display  # type: ignore
     except ImportError:
         raise ImportError(
             "The `notebook_login` function can only be used in a notebook (Jupyter or"

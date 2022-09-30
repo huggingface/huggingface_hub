@@ -348,7 +348,7 @@ def from_pretrained_fastai(
 
     _check_fastai_fastcore_pyproject_versions(storage_folder)
 
-    from fastai.learner import load_learner
+    from fastai.learner import load_learner  # type: ignore
 
     return load_learner(os.path.join(storage_folder, "model.pkl"))
 

@@ -158,12 +158,16 @@ class RepoCard:
 
         if Path(repo_id_or_path).exists():
             card_path = Path(repo_id_or_path)
-        else:
+        elif isinstance(repo_id_or_path, str):
             card_path = hf_hub_download(
                 repo_id_or_path,
                 REPOCARD_NAME,
                 repo_type=repo_type or cls.repo_type,
                 use_auth_token=token,
+            )
+        else:
+            raise ValueError(
+                f"Cannot load RepoCard: path not found on disk ({repo_id_or_path})."
             )
 
         # Preserve newlines in the existing file.
@@ -305,12 +309,12 @@ class RepoCard:
                 " install it with `pip install Jinja2`."
             )
 
-        template_path = template_path or cls.default_template_path
         kwargs = card_data.to_dict().copy()
         kwargs.update(template_kwargs)  # Template_kwargs have priority
-        content = jinja2.Template(Path(template_path).read_text()).render(
-            card_data=card_data.to_yaml(), **kwargs
+        template = jinja2.Template(
+            Path(template_path or cls.default_template_path).read_text()
         )
+        content = template.render(card_data=card_data.to_yaml(), **kwargs)
         return cls(content)
 
 

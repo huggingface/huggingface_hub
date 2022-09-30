@@ -52,9 +52,9 @@ def _filter_emissions(
                     emission = emission["emissions"]
                 if emission:
                     emission = str(emission)
-                    if any(char.isdigit() for char in emission):
-                        emission = re.search(r"\d+\.\d+|\d+", emission).group(0)
-                        emissions.append((i, float(emission)))
+                    matched = re.search(r"\d+\.\d+|\d+", emission)
+                    if matched is not None:
+                        emissions.append((i, float(matched.group(0))))
     filtered_results = []
     for idx, emission in emissions:
         if emission >= minimum_threshold and emission <= maximum_threshold:

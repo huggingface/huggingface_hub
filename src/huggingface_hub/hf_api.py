@@ -106,6 +106,7 @@ def repo_type_and_id_from_hf_id(
     url_segments = hf_id.split("/")
     is_hf_id = len(url_segments) <= 3
 
+    namespace: Optional[str]
     if is_hf_url:
         namespace, repo_id = url_segments[-2:]
         if namespace == hub_url:
@@ -2466,7 +2467,7 @@ class HfApi:
             if "/" in model_id:
                 username = model_id.split("/")[0]
             else:
-                username = self.whoami(token=token or use_auth_token)["name"]
+                username = self.whoami(token=token or use_auth_token)["name"]  # type: ignore
             return f"{username}/{model_id}"
         else:
             return f"{organization}/{model_id}"

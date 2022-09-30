@@ -23,13 +23,11 @@ logger = logging.get_logger(__name__)
 
 UploadMode = Literal["lfs", "regular"]
 
-
-class CommitOperation:
-    """Abstract commit operation."""
+CommitOperationT = Union["CommitOperationAdd", "CommitOperationDelete"]
 
 
 @dataclass
-class CommitOperationDelete(CommitOperation):
+class CommitOperationDelete:
     """
     Data structure holding necessary info to delete
     a file from a repository on the Hub
@@ -44,7 +42,7 @@ class CommitOperationDelete(CommitOperation):
 
 
 @dataclass
-class CommitOperationAdd(CommitOperation):
+class CommitOperationAdd:
     """
     Data structure holding necessary info to upload a file
     to a repository on the Hub

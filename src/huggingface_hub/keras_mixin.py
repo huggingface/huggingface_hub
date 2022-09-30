@@ -28,7 +28,7 @@ from .utils._deprecation import _deprecate_arguments, _deprecate_positional_args
 logger = logging.get_logger(__name__)
 
 if is_tf_available():
-    import tensorflow as tf
+    import tensorflow as tf  # type: ignore
 
 
 def _flatten_dict(dictionary, parent_key=""):
