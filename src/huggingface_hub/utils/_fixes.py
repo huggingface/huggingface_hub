@@ -10,6 +10,7 @@ except ImportError:
         from json import JSONDecodeError  # noqa
 
 from functools import partial
+from typing import Callable
 
 import yaml
 
@@ -24,4 +25,4 @@ import yaml
 # >>> yaml_dump({"emoji": "👀", "some unicode": "日本か"})
 # 'emoji: "👀"\nsome unicode: "日本か"\n'
 # ```
-yaml_dump = partial(yaml.dump, allow_unicode=True)
+yaml_dump: Callable[..., str] = partial(yaml.dump, stream=None, allow_unicode=True)

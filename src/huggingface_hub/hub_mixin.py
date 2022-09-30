@@ -30,7 +30,7 @@ class ModelHubMixin:
 
     def save_pretrained(
         self,
-        save_directory: str,
+        save_directory: Union[str, Path],
         config: Optional[dict] = None,
         push_to_hub: bool = False,
         **kwargs,
@@ -39,7 +39,7 @@ class ModelHubMixin:
         Save weights in local directory.
 
         Parameters:
-            save_directory (`str`):
+            save_directory (`str` or `Path`):
                 Specify directory in which you want to save weights.
             config (`dict`, *optional*):
                 Specify config (must be dict) in case you want to save
@@ -90,7 +90,7 @@ class ModelHubMixin:
 
             return self.push_to_hub(**kwargs)
 
-    def _save_pretrained(self, save_directory: str):
+    def _save_pretrained(self, save_directory: Union[str, Path]):
         """
         Overwrite this method in subclass to define how to save your model.
         """

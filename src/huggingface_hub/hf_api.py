@@ -17,6 +17,7 @@ import re
 import subprocess
 import warnings
 from dataclasses import dataclass, field
+from pathlib import Path
 from typing import Any, BinaryIO, Dict, Iterable, Iterator, List, Optional, Tuple, Union
 from urllib.parse import quote
 
@@ -2118,7 +2119,7 @@ class HfApi:
         self,
         *,
         repo_id: str,
-        folder_path: str,
+        folder_path: Union[str, Path],
         path_in_repo: Optional[str] = None,
         commit_message: Optional[str] = None,
         commit_description: Optional[str] = None,
@@ -2151,7 +2152,7 @@ class HfApi:
             repo_id (`str`):
                 The repository to which the file will be uploaded, for example:
                 `"username/custom_transformers"`
-            folder_path (`str`):
+            folder_path (`str` or `Path`):
                 Path to the folder to upload on the local file system
             path_in_repo (`str`, *optional*):
                 Relative path of the directory in the repo, for example:
@@ -3198,7 +3199,7 @@ class HfApi:
 
 
 def _prepare_upload_folder_commit(
-    folder_path: str,
+    folder_path: Union[str, Path],
     path_in_repo: str,
     allow_patterns: Optional[Union[List[str], str]] = None,
     ignore_patterns: Optional[Union[List[str], str]] = None,

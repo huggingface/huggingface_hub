@@ -9,6 +9,7 @@ from typing import Any, Dict, List, Optional, Union
 from urllib.parse import quote
 
 from huggingface_hub import CommitOperationDelete, ModelHubMixin, snapshot_download
+from huggingface_hub._commit_api import CommitOperation
 from huggingface_hub.utils import (
     get_tf_version,
     is_graphviz_available,
@@ -102,9 +103,11 @@ def _create_model_card(
     hyperparameters = _create_hyperparameter_table(model)
     if plot_model and is_graphviz_available() and is_pydot_available():
         _plot_network(model, repo_dir)
+    if metadata is None:
+        metadata = {}
     readme_path = f"{repo_dir}/README.md"
     metadata["library_name"] = "keras"
-    model_card = "---\n"
+    model_card: str = "---\n"
     model_card += yaml_dump(metadata, default_flow_style=False)
     model_card += "---\n"
     model_card += "\n## Model description\n\nMore information needed\n"
@@ -135,7 +138,7 @@ def _create_model_card(
 
 def save_pretrained_keras(
     model,
-    save_directory: str,
+    save_directory: Union[str, Path],
     config: Optional[Dict[str, Any]] = None,
     include_optimizer: Optional[bool] = False,
     plot_model: Optional[bool] = True,
@@ -151,7 +154,7 @@ def save_pretrained_keras(
             The [Keras
             model](https://www.tensorflow.org/api_docs/python/tf/keras/Model)
             you'd like to save. The model must be compiled and built.
-        save_directory (`str`):
+        save_directory (`str` or `Path`):
             Specify directory in which you want to save the Keras model.
         config (`dict`, *optional*):
             Configuration object to be saved alongside the model weights.
@@ -177,7 +180,8 @@ def save_pretrained_keras(
     if not model.built:
         raise ValueError("Model should be built before trying to save")
 
-    os.makedirs(save_directory, exist_ok=True)
+    save_directory = Path(save_directory)
+    save_directory.mkdir(parents=True, exist_ok=True)
 
     # saving config
     if config:
@@ -186,8 +190,8 @@ def save_pretrained_keras(
                 "Provided config to save_pretrained_keras should be a dict. Got:"
                 f" '{type(config)}'"
             )
-        path = os.path.join(save_directory, CONFIG_NAME)
-        with open(path, "w") as f:
+
+        with (save_directory / CONFIG_NAME).open("w") as f:
             json.dump(config, f)
 
     metadata = {}
@@ -209,14 +213,14 @@ def save_pretrained_keras(
 
     if model.history is not None:
         if model.history.history != {}:
-            path = os.path.join(save_directory, "history.json")
-            if os.path.exists(path):
+            path = save_directory / "history.json"
+            if path.exists():
                 warnings.warn(
                     "`history.json` file already exists, it will be overwritten by the"
                     " history of this version.",
                     UserWarning,
                 )
-            with open(path, "w", encoding="utf-8") as f:
+            with path.open("w", encoding="utf-8") as f:
                 json.dump(model.history.history, f, indent=2, sort_keys=True)
 
     _create_model_card(model, save_directory, plot_model, metadata)
@@ -304,7 +308,7 @@ def push_to_hub_keras(
     repo_path_or_name: Optional[str] = None,
     repo_url: Optional[str] = None,
     log_dir: Optional[str] = None,
-    commit_message: Optional[str] = "Add model",
+    commit_message: str = "Add Keras model",
     organization: Optional[str] = None,
     private: bool = False,
     api_endpoint: Optional[str] = None,
@@ -316,7 +320,7 @@ def push_to_hub_keras(
     tags: Optional[Union[list, str]] = None,
     plot_model: Optional[bool] = True,
     # NOTE: New arguments since 0.9
-    token: Optional[str] = True,
+    token: Optional[str] = None,
     repo_id: Optional[str] = None,  # optional only until 0.12
     branch: Optional[str] = None,
     create_pr: Optional[bool] = None,
@@ -356,7 +360,7 @@ def push_to_hub_keras(
             you'd like to push to the Hub. The model must be compiled and built.
         repo_id (`str`):
             Repository name to which push
-        commit_message (`str`, *optional*, defaults to "Add message"):
+        commit_message (`str`, *optional*, defaults to "Add Keras model"):
             Message to commit while pushing.
         private (`bool`, *optional*, defaults to `False`):
             Whether the repository created should be private.
@@ -422,7 +426,7 @@ def push_to_hub_keras(
             )
 
             # If log dir is provided, delete old logs + add new ones
-            operations = []
+            operations: List[CommitOperation] = []
             if log_dir is not None:
                 # Delete previous log files from Hub
                 operations += [
@@ -485,6 +489,7 @@ def push_to_hub_keras(
         )
 
     if repo_path_or_name is None:
+        assert repo_url is not None  # checked above
         repo_path_or_name = repo_url.split("/")[-1]
 
     # If no URL is passed and there's no path to a directory containing files, create a repo

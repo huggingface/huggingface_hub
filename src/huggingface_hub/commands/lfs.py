@@ -97,8 +97,8 @@ class LfsEnableCommand:
 
 def write_msg(msg: Dict):
     """Write out the message in Line delimited JSON."""
-    msg = json.dumps(msg) + "\n"
-    sys.stdout.write(msg)
+    msg_str = json.dumps(msg) + "\n"
+    sys.stdout.write(msg_str)
     sys.stdout.flush()
 
 

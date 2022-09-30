@@ -4,6 +4,7 @@ Type definitions and utilities for the `create_commit` API
 import base64
 import io
 import os
+from abc import ABC
 from concurrent import futures
 from concurrent.futures import ThreadPoolExecutor
 from contextlib import contextmanager
@@ -24,8 +25,12 @@ logger = logging.get_logger(__name__)
 UploadMode = Literal["lfs", "regular"]
 
 
+class CommitOperation(ABC):
+    """Abstract commit operation."""
+
+
 @dataclass
-class CommitOperationDelete:
+class CommitOperationDelete(CommitOperation):
     """
     Data structure holding necessary info to delete
     a file from a repository on the Hub
@@ -40,7 +45,7 @@ class CommitOperationDelete:
 
 
 @dataclass
-class CommitOperationAdd:
+class CommitOperationAdd(CommitOperation):
     """
     Data structure holding necessary info to upload a file
     to a repository on the Hub

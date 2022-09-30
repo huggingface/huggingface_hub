@@ -252,7 +252,7 @@ def _create_model_pyproject(repo_dir: Path):
 
 def _save_pretrained_fastai(
     learner,
-    save_directory: str,
+    save_directory: Union[str, Path],
     config: Optional[Dict[str, Any]] = None,
 ):
     """
@@ -261,7 +261,7 @@ def _save_pretrained_fastai(
     Args:
         learner (`Learner`):
             The `fastai.Learner` you'd like to save.
-        save_directory (`str`):
+        save_directory (`str` or `Path`):
             Specific directory in which you want to save the fastai learner.
         config (`dict`, *optional*):
             Configuration object. Will be uploaded as a .json file. Example: 'https://huggingface.co/espejelomar/fastai-pet-breeds-classification/blob/main/config.json'.

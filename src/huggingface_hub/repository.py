@@ -234,7 +234,9 @@ def is_binary_file(filename: Union[str, Path]) -> bool:
         return True
 
 
-def files_to_be_staged(pattern: str, folder: Union[str, Path]) -> List[str]:
+def files_to_be_staged(
+    pattern: Optional[str] = None, folder: Union[str, Path, None] = None
+) -> List[str]:
     """
     Returns a list of filenames that are to be staged.
 
@@ -247,6 +249,8 @@ def files_to_be_staged(pattern: str, folder: Union[str, Path]) -> List[str]:
     Returns:
         `List[str]`: List of files that are to be staged.
     """
+    if pattern is None:
+        pattern = "."
     try:
         p = run_subprocess(f"git ls-files -mo {pattern}", folder)
         if len(p.stdout.strip()):
@@ -1441,11 +1445,11 @@ class Repository:
 
         if len(files_to_stage):
             if len(files_to_stage) > 5:
-                files_to_stage = str(files_to_stage[:5])[:-1] + ", ...]"
+                files_in_msg = str(files_to_stage[:5])[:-1] + ", ...]"
 
             logger.error(
                 "There exists some updated files in the local repository that are not"
-                f" committed: {files_to_stage}. This may lead to errors if checking out"
+                f" committed: {files_in_msg}. This may lead to errors if checking out"
                 " a branch. These files and their modifications will be added to the"
                 " current commit."
             )
@@ -1499,6 +1503,7 @@ class Repository:
         filepath = os.path.join(self.local_dir, REPOCARD_NAME)
         if os.path.isfile(filepath):
             return metadata_load(filepath)
+        return None
 
     def repocard_metadata_save(self, data: Dict) -> None:
         return metadata_save(os.path.join(self.local_dir, REPOCARD_NAME), data)
