@@ -9,6 +9,6 @@ To run the test suite, please perform the following from the root directory of t
 
       We need git-lfs on our system to run some of the tests
     
-3. `HUGGINGFACE_CO_STAGING=1 pytest -sv ./tests/`
+3. `pytest ./tests/`
     
       We need to set an environmental variable to make sure the private API tests can run. 
