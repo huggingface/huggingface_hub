@@ -270,46 +270,52 @@ NOTEBOOK_LOGIN_TOKEN_HTML_END = """
 notebooks. </center>"""
 
 
-def notebook_login():
+def notebook_login(token=False):
     """
     Displays a widget to login to the HF website and store the token.
     """
-    try:
-        import ipywidgets.widgets as widgets
-        from IPython.display import clear_output, display
-    except ImportError:
-        raise ImportError(
-            "The `notebook_login` function can only be used in a notebook (Jupyter or"
-            " Colab) and you need the `ipywidgets` module: `pip install ipywidgets`."
-        )
 
-    box_layout = widgets.Layout(
-        display="flex", flex_flow="column", align_items="center", width="50%"
-    )
-
-    token_widget = widgets.Password(description="Token:")
-    token_finish_button = widgets.Button(description="Login")
-
-    login_token_widget = widgets.VBox(
-        [
-            widgets.HTML(NOTEBOOK_LOGIN_TOKEN_HTML_START),
-            token_widget,
-            token_finish_button,
-            widgets.HTML(NOTEBOOK_LOGIN_TOKEN_HTML_END),
-        ],
-        layout=box_layout,
-    )
-    display(login_token_widget)
-
-    # On click events
-    def login_token_event(t):
-        token = token_widget.value
-        # Erase token and clear value to make sure it's not saved in the notebook.
-        token_widget.value = ""
-        clear_output()
+    def login(token):
         _login(hf_api=HfApi(), token=token)
 
-    token_finish_button.on_click(login_token_event)
+    if token:
+        login(token)
+    else:
+        try:
+            import ipywidgets.widgets as widgets
+            from IPython.display import clear_output, display
+        except ImportError:
+            raise ImportError(
+                "The `notebook_login` function can only be used in a notebook (Jupyter or"
+                " Colab) and you need the `ipywidgets` module: `pip install ipywidgets`."
+            )
+
+        box_layout = widgets.Layout(
+            display="flex", flex_flow="column", align_items="center", width="50%"
+        )
+
+        token_widget = widgets.Password(description="Token:")
+        token_finish_button = widgets.Button(description="Login")
+
+        login_token_widget = widgets.VBox(
+            [
+                widgets.HTML(NOTEBOOK_LOGIN_TOKEN_HTML_START),
+                token_widget,
+                token_finish_button,
+                widgets.HTML(NOTEBOOK_LOGIN_TOKEN_HTML_END),
+            ],
+            layout=box_layout,
+        )
+        display(login_token_widget)
+
+        def login_token_event(t):
+            token = token_widget.value
+            # Erase token and clear value to make sure it's not saved in the notebook.
+            token_widget.value = ""
+            clear_output()
+            login(token)
+
+        token_finish_button.on_click(login_token_event)
 
 
 def _login(hf_api: HfApi, token: str) -> None:
