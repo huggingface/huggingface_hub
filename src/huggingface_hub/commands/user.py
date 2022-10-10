@@ -25,6 +25,7 @@ from huggingface_hub.constants import (
 )
 from huggingface_hub.hf_api import HfApi
 from requests.exceptions import HTTPError
+from termcolor import colored, cprint
 
 from ..utils import HfFolder, run_subprocess
 from ._cli_utils import ANSI
@@ -160,13 +161,13 @@ class WhoamiCommand(BaseUserCommand):
             print(info["name"])
             orgs = [org["name"] for org in info["orgs"]]
             if orgs:
-                print(ANSI.bold("orgs: "), ",".join(orgs))
+                print(colored("orgs: ", attrs=["bold"]), ",".join(orgs))
 
             if ENDPOINT != "https://huggingface.co":
                 print(f"Authenticated through private endpoint: {ENDPOINT}")
         except HTTPError as e:
             print(e)
-            print(ANSI.red(e.response.text))
+            cprint(e.response.text, color="red")
             exit(1)
 
 
@@ -189,20 +190,19 @@ class RepoCreateCommand(BaseUserCommand):
             exit(1)
         try:
             stdout = subprocess.check_output(["git", "--version"]).decode("utf-8")
-            print(ANSI.gray(stdout.strip()))
+            cprint(stdout.strip(), color="grey")
         except FileNotFoundError:
             print("Looks like you do not have git installed, please install.")
 
         try:
             stdout = subprocess.check_output(["git-lfs", "--version"]).decode("utf-8")
-            print(ANSI.gray(stdout.strip()))
+            cprint(stdout.strip(), color="grey")
         except FileNotFoundError:
-            print(
-                ANSI.red(
-                    "Looks like you do not have git-lfs installed, please install."
-                    " You can install from https://git-lfs.github.com/."
-                    " Then run `git lfs install` (you only have to do this once)."
-                )
+            cprint(
+                "Looks like you do not have git-lfs installed, please install."
+                " You can install from https://git-lfs.github.com/."
+                " Then run `git lfs install` (you only have to do this once)."
+                color="red"
             )
         print("")
 
@@ -222,7 +222,7 @@ class RepoCreateCommand(BaseUserCommand):
         else:
             prefixed_repo_id = repo_id
 
-        print(f"You are about to create {ANSI.bold(prefixed_repo_id)}")
+        print(f"You are about to create {colored(prefixed_repo_id, attrs=["bold"])}")
 
         if not self.args.yes:
             choice = input("Proceed? [Y/n] ").lower()
@@ -238,10 +238,10 @@ class RepoCreateCommand(BaseUserCommand):
             )
         except HTTPError as e:
             print(e)
-            print(ANSI.red(e.response.text))
+            cprint(e.response.text, color="red")
             exit(1)
         print("\nYour repo now lives at:")
-        print(f"  {ANSI.bold(url)}")
+        print(f"  {colored(url, attrs=["bold"])}")
         print(
             "\nYou can clone it locally with the command below,"
             " and commit/push as usual."
@@ -330,14 +330,13 @@ def _login(hf_api: HfApi, token: str) -> None:
     helpers = currently_setup_credential_helpers()
 
     if "store" not in helpers:
-        print(
-            ANSI.red(
-                "Authenticated through git-credential store but this isn't the helper"
-                " defined on your machine.\nYou might have to re-authenticate when"
-                " pushing to the Hugging Face Hub. Run the following command in your"
-                " terminal in case you want to set this credential helper as the"
-                " default\n\ngit config --global credential.helper store"
-            )
+        cprint(
+            "Authenticated through git-credential store but this isn't the helper"
+            " defined on your machine.\nYou might have to re-authenticate when"
+            " pushing to the Hugging Face Hub. Run the following command in your"
+            " terminal in case you want to set this credential helper as the"
+            " default\n\ngit config --global credential.helper store",
+            color="red"
         )
 
 

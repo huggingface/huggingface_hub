@@ -60,6 +60,7 @@ from argparse import ArgumentParser
 from functools import wraps
 from tempfile import mkstemp
 from typing import Any, Callable, Iterable, List, Optional
+from termcolor import colored
 
 from ..utils import CachedRepoInfo, CachedRevisionInfo, HFCacheInfo, scan_cache_dir
 from . import BaseHuggingfaceCLICommand
@@ -321,7 +322,7 @@ def _manual_review_no_tui(
     the following file using the text editor of your choice. Instructions for manual
     editing are located at the beginning of the file. Edit the file, save it and confirm
     to continue.
-    File to edit: {ANSI.bold(tmp_path)}
+    File to edit: {colored(tmp_path, attrs=["bold"])}
     """
     print("\n".join(line.strip() for line in instructions.strip().split("\n")))
 

@@ -23,6 +23,7 @@ Usage:
 import time
 from argparse import ArgumentParser
 from typing import Optional
+from termcolor import cprint, colored
 
 from ..utils import HFCacheInfo, scan_cache_dir
 from . import BaseHuggingfaceCLICommand
@@ -67,16 +68,16 @@ class ScanCacheCommand(BaseHuggingfaceCLICommand):
 
         print(
             f"\nDone in {round(t1-t0,1)}s. Scanned {len(hf_cache_info.repos)} repo(s)"
-            f" for a total of {ANSI.red(hf_cache_info.size_on_disk_str)}."
+            f" for a total of {colored(hf_cache_info.size_on_disk_str, "red")}."
         )
         if len(hf_cache_info.warnings) > 0:
             message = f"Got {len(hf_cache_info.warnings)} warning(s) while scanning."
             if self.verbosity >= 3:
-                print(ANSI.gray(message))
+                cprint(colored(message, color="grey"))
                 for warning in hf_cache_info.warnings:
-                    print(ANSI.gray(warning))
+                    cprint(warning, color="grey"))
             else:
-                print(ANSI.gray(message + " Use -vvv to print details."))
+                cprint(message + " Use -vvv to print details.", color="grey")
 
     def _print_hf_cache_info_as_table(self, hf_cache_info: HFCacheInfo) -> None:
         if self.verbosity == 0:
