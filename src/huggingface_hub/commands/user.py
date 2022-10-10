@@ -201,8 +201,8 @@ class RepoCreateCommand(BaseUserCommand):
             cprint(
                 "Looks like you do not have git-lfs installed, please install."
                 " You can install from https://git-lfs.github.com/."
-                " Then run `git lfs install` (you only have to do this once)."
-                color="red"
+                " Then run `git lfs install` (you only have to do this once).",
+                color="red",
             )
         print("")
 
@@ -222,7 +222,8 @@ class RepoCreateCommand(BaseUserCommand):
         else:
             prefixed_repo_id = repo_id
 
-        print(f"You are about to create {colored(prefixed_repo_id, attrs=["bold"])}")
+        bold_prefixed_repo_id = colored(prefixed_repo_id, attrs=["bold"])
+        print(f"You are about to create {bold_prefixed_repo_id}")
 
         if not self.args.yes:
             choice = input("Proceed? [Y/n] ").lower()
@@ -240,8 +241,9 @@ class RepoCreateCommand(BaseUserCommand):
             print(e)
             cprint(e.response.text, color="red")
             exit(1)
+        bold_url = colored(url, attrs=["bold"])
         print("\nYour repo now lives at:")
-        print(f"  {colored(url, attrs=["bold"])}")
+        print(f"  {bold_url}")
         print(
             "\nYou can clone it locally with the command below,"
             " and commit/push as usual."
@@ -336,7 +338,7 @@ def _login(hf_api: HfApi, token: str) -> None:
             " pushing to the Hugging Face Hub. Run the following command in your"
             " terminal in case you want to set this credential helper as the"
             " default\n\ngit config --global credential.helper store",
-            color="red"
+            color="red",
         )
 
 
