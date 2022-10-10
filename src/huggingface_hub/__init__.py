@@ -164,6 +164,7 @@ _SUBMOD_ATTRS = {
         "Repository",
     ],
     "utils": [
+        "CacheNotFound",
         "CachedFileInfo",
         "CachedRepoInfo",
         "CachedRevisionInfo",
@@ -368,6 +369,7 @@ if TYPE_CHECKING:  # pragma: no cover
     from .utils import CachedFileInfo  # noqa: F401
     from .utils import CachedRepoInfo  # noqa: F401
     from .utils import CachedRevisionInfo  # noqa: F401
+    from .utils import CacheNotFound  # noqa: F401
     from .utils import CorruptedCacheException  # noqa: F401
     from .utils import DeleteCacheStrategy  # noqa: F401
     from .utils import HFCacheInfo  # noqa: F401
