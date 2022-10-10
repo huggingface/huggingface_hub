@@ -1,5 +1,6 @@
 import os
 import shutil
+import tempfile
 import time
 import unittest
 from pathlib import Path
@@ -36,7 +37,9 @@ class TestMissingCacheUtils(unittest.TestCase):
 
     def test_cache_dir_is_missing(self) -> None:
         """Directory to scan does not exist raises CacheNotFound."""
-        self.assertRaises(CacheNotFound, scan_cache_dir, self.cache_dir / "does_not_exist")
+        self.assertRaises(
+            CacheNotFound, scan_cache_dir, self.cache_dir / "does_not_exist"
+        )
 
     def test_cache_dir_is_a_file(self) -> None:
         """Directory to scan is a file raises ValueError."""
@@ -227,27 +230,26 @@ class TestValidCacheUtils(unittest.TestCase):
             expected_output.replace("-", "").split(),
         )
 
-
     def test_cli_scan_missing_cache(self) -> None:
         """Test output from CLI scan cache when cache does not exist.
 
         End-to-end test just to see if output is in expected format.
         """
+        tmp_dir = tempfile.mkdtemp()
+        os.rmdir(tmp_dir)
+
         args = Mock()
         args.verbose = 0
-        args.dir = "/tmp/empty"
+        args.dir = tmp_dir
 
         with capture_output() as output:
             ScanCacheCommand(args).run()
 
         expected_output = f"""
-        Cache directory not found: /tmp/empty
+        Cache directory not found: {tmp_dir}
         """
 
-        self.assertListEqual(
-            output.getvalue().replace("-", "").split(),
-            expected_output.replace("-", "").split(),
-        )
+        self.assertListEqual(output.getvalue().split(), expected_output.split())
 
 
 @pytest.mark.usefixtures("fx_cache_dir")

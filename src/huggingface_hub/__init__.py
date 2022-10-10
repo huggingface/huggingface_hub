@@ -167,6 +167,7 @@ _SUBMOD_ATTRS = {
         "CachedFileInfo",
         "CachedRepoInfo",
         "CachedRevisionInfo",
+        "CacheNotFound",
         "CorruptedCacheException",
         "DeleteCacheStrategy",
         "HFCacheInfo",

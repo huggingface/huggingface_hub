@@ -24,7 +24,7 @@ import time
 from argparse import ArgumentParser
 from typing import Optional
 
-from ..utils import HFCacheInfo, scan_cache_dir, CacheNotFound
+from ..utils import CacheNotFound, HFCacheInfo, scan_cache_dir
 from . import BaseHuggingfaceCLICommand
 from ._cli_utils import ANSI, tabulate
 
@@ -64,7 +64,7 @@ class ScanCacheCommand(BaseHuggingfaceCLICommand):
             hf_cache_info = scan_cache_dir(self.cache_dir)
             t1 = time.time()
         except CacheNotFound as exc:
-            cache_dir = str(exc)
+            cache_dir = exc.cache_dir
             print(f"Cache directory not found: {cache_dir}")
             return
 
