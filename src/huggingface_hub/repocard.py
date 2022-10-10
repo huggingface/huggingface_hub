@@ -120,7 +120,7 @@ class RepoCard:
         """
         filepath = Path(filepath)
         filepath.parent.mkdir(parents=True, exist_ok=True)
-        filepath.write_text(str(self))
+        filepath.write_text(str(self), encoding="utf-8")
 
     @classmethod
     def load(
@@ -167,7 +167,7 @@ class RepoCard:
             )
 
         # Preserve newlines in the existing file.
-        with Path(card_path).open(mode="r", newline="") as f:
+        with Path(card_path).open(mode="r", newline="", encoding="utf-8") as f:
             return cls(f.read())
 
     def validate(self, repo_type: Optional[str] = None):
