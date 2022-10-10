@@ -11,6 +11,7 @@ from huggingface_hub._snapshot_download import snapshot_download
 from huggingface_hub.commands.scan_cache import ScanCacheCommand
 from huggingface_hub.utils import DeleteCacheStrategy, HFCacheInfo, scan_cache_dir
 from huggingface_hub.utils._cache_manager import (
+    CacheNotFound,
     _format_size,
     _format_timesince,
     _try_delete_path,
@@ -34,8 +35,8 @@ class TestMissingCacheUtils(unittest.TestCase):
     cache_dir: Path
 
     def test_cache_dir_is_missing(self) -> None:
-        """Directory to scan does not exist raises ValueError."""
-        self.assertRaises(ValueError, scan_cache_dir, self.cache_dir / "does_not_exist")
+        """Directory to scan does not exist raises CacheNotFound."""
+        self.assertRaises(CacheNotFound, scan_cache_dir, self.cache_dir / "does_not_exist")
 
     def test_cache_dir_is_a_file(self) -> None:
         """Directory to scan is a file raises ValueError."""
@@ -219,6 +220,28 @@ class TestValidCacheUtils(unittest.TestCase):
         valid_org/test_scan_repo_a    model     fc674b0d440d3ea6f94bc4012e33ebd1dfc11b5b         1.4K        4 a few seconds ago refs/pr/1 {self.cache_dir}/models--valid_org--test_scan_repo_a/snapshots/fc674b0d440d3ea6f94bc4012e33ebd1dfc11b5b
 
         Done in 0.0s. Scanned 2 repo(s) for a total of \x1b[1m\x1b[31m3.5K\x1b[0m.
+        """
+
+        self.assertListEqual(
+            output.getvalue().replace("-", "").split(),
+            expected_output.replace("-", "").split(),
+        )
+
+
+    def test_cli_scan_missing_cache(self) -> None:
+        """Test output from CLI scan cache when cache does not exist.
+
+        End-to-end test just to see if output is in expected format.
+        """
+        args = Mock()
+        args.verbose = 0
+        args.dir = "/tmp/empty"
+
+        with capture_output() as output:
+            ScanCacheCommand(args).run()
+
+        expected_output = f"""
+        Cache directory not found: /tmp/empty
         """
 
         self.assertListEqual(

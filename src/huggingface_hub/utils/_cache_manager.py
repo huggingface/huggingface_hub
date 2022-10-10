@@ -30,6 +30,8 @@ logger = logging.get_logger(__name__)
 
 REPO_TYPE_T = Literal["model", "dataset", "space"]
 
+class CacheNotFound(Exception):
+    """Exception thrown when the Huggingface cache is not found."""
 
 class CorruptedCacheException(Exception):
     """Exception for any unexpected structure in the Huggingface cache-system."""
@@ -577,10 +579,7 @@ def scan_cache_dir(cache_dir: Optional[Union[str, Path]] = None) -> HFCacheInfo:
 
     cache_dir = Path(cache_dir).expanduser().resolve()
     if not cache_dir.exists():
-        raise ValueError(
-            f"Cache directory not found: {cache_dir}. Please use `cache_dir` argument"
-            " or set `HUGGINGFACE_HUB_CACHE` environment variable."
-        )
+        raise CacheNotFound(cache_dir)
 
     if cache_dir.is_file():
         raise ValueError(
