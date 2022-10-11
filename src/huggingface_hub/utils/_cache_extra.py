@@ -15,10 +15,10 @@
 from pathlib import Path
 from typing import Union
 
-from ..constants import HUGGINGFACE_EXTRA_CACHE
+from ..constants import HUGGINGFACE_ASSETS_CACHE
 
 
-def extra_cache_folder(
+def cached_assets_path(
     library_name: str,
     namespace: str = "default",
     subfolder: str = "default",
@@ -27,33 +27,31 @@ def extra_cache_folder(
 ):
     """Return a folder path to cache arbitrary files.
 
-    `huggingface_hub` provides a canonical folder path to store extra files. This is the
+    `huggingface_hub` provides a canonical folder path to store assets. This is the
     recommended way to integrate cache in a downstream library as it will benefit from
     the builtins tools to scan and delete the cache properly.
 
-    The distinction is made between files cached from the Hub and extra files. Files from
-    the Hub are cached in a git-aware manner and entirely managed by `huggingface_hub`.
-    See [related documentation](https://huggingface.co/docs/huggingface_hub/how-to-cache).
-    All other files that a downstream library caches are considered to be "extra files"
+    The distinction is made between files cached from the Hub and assets. Files from the
+    Hub are cached in a git-aware manner and entirely managed by `huggingface_hub`. See
+    [related documentation](https://huggingface.co/docs/huggingface_hub/how-to-cache).
+    All other files that a downstream library caches are considered to be "assets"
     (files downloaded from external sources, extracted from a .tar archive, preprocessed
     for training,...).
 
     Once the folder path is generated, it is guaranteed to exist and to be a directory.
     The path is based on 3 levels of depth: the library name, a namespace and a
     subfolder. Those 3 levels grants flexibility while allowing `huggingface_hub` to
-    expect folders when scanning/deleting parts of the extra cache. Within a library, it
-    is expected that all namespaces share the same subset of subfolder names but this is
-    not a mandatory rule. The downstream library has then full control on which file
+    expect folders when scanning/deleting parts of the assets cache. Within a library,
+    it is expected that all namespaces share the same subset of subfolder names but this
+    is not a mandatory rule. The downstream library has then full control on which file
     structure to adopt within its cache. Namespace and subfolder are optional (would
     default to a `"default/"` subfolder) but library name is mandatory as we want every
     downstream library to manage its own cache.
 
     Expected tree:
     ```text
-        extra/
+        assets/
         └── datasets/
-        │   ├── default/
-        │   │   ├── modules/
         │   ├── SQuAD/
         │   │   ├── downloaded/
         │   │   ├── extracted/
@@ -91,34 +89,33 @@ def extra_cache_folder(
         subfolder (`str`, *optional*, defaults to "default"):
             Subfolder in which the data will be stored. Example: `extracted`.
         cache_dir (`str`, `Path`, *optional*):
-            Path to the folder where extra files are cached. This should not be the same
-            folder where Hub files are cached. Defaults to `HF_HOME / "extra"` if not
-            provided. This value can also be set via the environment variable
-            `HUGGINGFACE_EXTRA_CACHE`.
+            Path to the folder where assets are cached. This must not be the same folder
+            where Hub files are cached. Defaults to `HF_HOME / "assets"` if not provided.
+            Can also be set with `HUGGINGFACE_ASSETS_CACHE` environment variable.
 
     Returns:
         Path to the cache folder (`Path`).
 
     Example:
     ```py
-    >>> from huggingface_hub import extra_cache_folder
+    >>> from huggingface_hub import cached_assets_path
 
-    >>> extra_cache_folder(library_name="datasets", namespace="SQuAD", subfolder="download")
+    >>> cached_assets_path(library_name="datasets", namespace="SQuAD", subfolder="download")
     PosixPath('/home/wauplin/.cache/huggingface/extra/datasets/SQuAD/download')
 
-    >>> extra_cache_folder(library_name="datasets", namespace="SQuAD", subfolder="extracted")
+    >>> cached_assets_path(library_name="datasets", namespace="SQuAD", subfolder="extracted")
     PosixPath('/home/wauplin/.cache/huggingface/extra/datasets/SQuAD/extracted')
 
-    >>> extra_cache_folder(library_name="datasets", namespace="Helsinki-NLP/tatoeba_mt")
+    >>> cached_assets_path(library_name="datasets", namespace="Helsinki-NLP/tatoeba_mt")
     PosixPath('/home/wauplin/.cache/huggingface/extra/datasets/Helsinki-NLP--tatoeba_mt/default')
 
-    >>> extra_cache_folder(library_name="datasets", cache_dir="/tmp/tmp123456")
+    >>> cached_assets_path(library_name="datasets", cache_dir="/tmp/tmp123456")
     PosixPath('/tmp/tmp123456/datasets/default/default')
     ```
     """
     # Resolve cache_dir
     if cache_dir is None:
-        cache_dir = HUGGINGFACE_EXTRA_CACHE
+        cache_dir = HUGGINGFACE_ASSETS_CACHE
     cache_dir = Path(cache_dir).expanduser().resolve()
 
     # Avoid names that could create path issues
@@ -131,7 +128,7 @@ def extra_cache_folder(
     path = cache_dir / library_name / namespace / subfolder
     if path.is_file():
         raise ValueError(
-            f"Invalid extra cache folder: path already exists and is a file ({path})."
+            f"Invalid assets cache folder: path already exists and is a file ({path})."
         )
     path.mkdir(exist_ok=True, parents=True)
 
