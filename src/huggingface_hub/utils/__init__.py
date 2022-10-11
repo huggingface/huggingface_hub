@@ -20,6 +20,7 @@ from ._cache_manager import (
     CachedFileInfo,
     CachedRepoInfo,
     CachedRevisionInfo,
+    CacheNotFound,
     CorruptedCacheException,
     DeleteCacheStrategy,
     HFCacheInfo,

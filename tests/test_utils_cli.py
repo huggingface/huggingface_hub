@@ -1,9 +1,12 @@
+import os
 import unittest
+from unittest import mock
 
 from huggingface_hub.commands._cli_utils import ANSI, tabulate
 
 
 class TestCLIUtils(unittest.TestCase):
+    @mock.patch.dict(os.environ, {}, clear=True)
     def test_ansi_utils(self) -> None:
         """Test `ANSI` works as expected."""
         self.assertEqual(
@@ -24,6 +27,30 @@ class TestCLIUtils(unittest.TestCase):
         self.assertEqual(
             ANSI.gray(ANSI.bold("this is bold and grey")),
             "\x1b[90m\x1b[1mthis is bold and grey\x1b[0m\x1b[0m",
+        )
+
+    @mock.patch.dict(os.environ, {"NO_COLOR": "1"}, clear=True)
+    def test_ansi_no_color(self) -> None:
+        """Test `ANSI` respects `NO_COLOR` env var."""
+
+        self.assertEqual(
+            ANSI.bold("this is bold"),
+            "this is bold",
+        )
+
+        self.assertEqual(
+            ANSI.gray("this is gray"),
+            "this is gray",
+        )
+
+        self.assertEqual(
+            ANSI.red("this is red"),
+            "this is red",
+        )
+
+        self.assertEqual(
+            ANSI.gray(ANSI.bold("this is bold and grey")),
+            "this is bold and grey",
         )
 
     def test_tabulate_utility(self) -> None:

@@ -1166,7 +1166,10 @@ class HfApiPublicTest(unittest.TestCase):
         models = _api.list_models(search="bert")
         self.assertGreater(len(models), 10)
         self.assertIsInstance(models[0], ModelInfo)
-        for model in models:
+        for model in models[:10]:
+            # Rough rule: at least first 10 will have "bert" in the name
+            # Not optimal since it is dependent on how the Hub implements the search
+            # (and changes it in the future) but for now it should do the trick.
             self.assertTrue("bert" in model.modelId.lower())
 
     @with_production_testing
