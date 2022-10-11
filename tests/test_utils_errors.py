@@ -96,6 +96,7 @@ class TestErrorUtils(unittest.TestCase):
         self.assertEqual(context.exception.response.status_code, 404)
         self.assertEqual(context.exception.response.url, "test_URL")
 
+    @expect_deprecation("_raise_for_status")
     @patch("huggingface_hub.utils._errors.hf_raise_for_status")
     def test_raise_for_status(self, mock_hf_raise_for_status: Mock) -> None:
         """Test `_raise_for_status` alias."""

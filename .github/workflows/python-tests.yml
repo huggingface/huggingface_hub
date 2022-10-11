@@ -12,9 +12,6 @@ on:
     paths-ignore:
       - "docs/**"
 
-env:
-  HUGGINGFACE_CO_STAGING: yes
-
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -22,7 +19,14 @@ jobs:
       fail-fast: false
       matrix:
         python-version: ["3.7", "3.10"]
-        test_name: ["Repository only", "Everything else", "fastai", "torch", "tensorflow"]
+        test_name:
+          [
+            "Repository only",
+            "Everything else",
+            "fastai",
+            "torch",
+            "tensorflow",
+          ]
         include:
           - python-version: "3.10" # LFS not ran on 3.7
             test_name: "lfs"
@@ -66,7 +70,7 @@ jobs:
       - name: Run tests
         working-directory: ./src # For code coverage to work
         run: |
-          PYTEST="python -m pytest -sv --log-cli-level=INFO --cov=./huggingface_hub --cov-report=xml:../coverage.xml"
+          PYTEST="python -m pytest --cov=./huggingface_hub --cov-report=xml:../coverage.xml"
 
           case "${{ matrix.test_name }}" in
 
@@ -98,7 +102,6 @@ jobs:
             ;;
 
           esac
-
 
       # Upload code coverage
       - name: Upload coverage reports to Codecov with GitHub Action

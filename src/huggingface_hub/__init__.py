@@ -46,7 +46,7 @@ import sys
 from typing import TYPE_CHECKING
 
 
-__version__ = "0.10.0.dev0"
+__version__ = "0.11.0.dev0"
 
 # Alphabetical order of definitions is ensured in tests
 # WARNING: any comment added in this dictionary definition will be lost when
@@ -106,6 +106,7 @@ _SUBMOD_ATTRS = {
         "create_discussion",
         "create_pull_request",
         "create_repo",
+        "create_tag",
         "dataset_info",
         "delete_file",
         "delete_repo",
@@ -163,6 +164,7 @@ _SUBMOD_ATTRS = {
         "Repository",
     ],
     "utils": [
+        "CacheNotFound",
         "CachedFileInfo",
         "CachedRepoInfo",
         "CachedRevisionInfo",
@@ -321,6 +323,7 @@ if TYPE_CHECKING:  # pragma: no cover
     from .hf_api import create_discussion  # noqa: F401
     from .hf_api import create_pull_request  # noqa: F401
     from .hf_api import create_repo  # noqa: F401
+    from .hf_api import create_tag  # noqa: F401
     from .hf_api import dataset_info  # noqa: F401
     from .hf_api import delete_file  # noqa: F401
     from .hf_api import delete_repo  # noqa: F401
@@ -367,6 +370,7 @@ if TYPE_CHECKING:  # pragma: no cover
     from .utils import CachedFileInfo  # noqa: F401
     from .utils import CachedRepoInfo  # noqa: F401
     from .utils import CachedRevisionInfo  # noqa: F401
+    from .utils import CacheNotFound  # noqa: F401
     from .utils import CorruptedCacheException  # noqa: F401
     from .utils import DeleteCacheStrategy  # noqa: F401
     from .utils import HFCacheInfo  # noqa: F401

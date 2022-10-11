@@ -77,40 +77,6 @@ _REGEX_DISCUSSION_URL = re.compile(r".*/discussions/(\d+)$")
 logger = logging.get_logger(__name__)
 
 
-# TODO: remove after deprecation period is over (v0.10)
-def _validate_repo_id_deprecation(repo_id, name, organization):
-    """Returns (name, organization) from the input."""
-    if repo_id and not name and organization:
-        # this means the user had passed name as positional, now mapped to
-        # repo_id and is passing organization as well. This wouldn't be an
-        # issue if they pass everything as kwarg. So we switch the parameters
-        # here:
-        repo_id, name = name, repo_id
-
-    if not (repo_id or name):
-        raise ValueError(
-            "No name provided. Please pass `repo_id` with a valid repository name."
-        )
-
-    if repo_id and (name or organization):
-        raise ValueError(
-            "Only pass `repo_id` and leave deprecated `name` and `organization` to be"
-            " None."
-        )
-    elif name or organization:
-        warnings.warn(
-            "`name` and `organization` input arguments are deprecated and "
-            "will be removed in v0.10. Pass `repo_id` instead.",
-            FutureWarning,
-        )
-    else:
-        if "/" in repo_id:
-            organization, name = repo_id.split("/")
-        else:
-            organization, name = None, repo_id
-    return name, organization
-
-
 def repo_type_and_id_from_hf_id(
     hf_id: str, hub_url: Optional[str] = None
 ) -> Tuple[Optional[str], Optional[str], str]:
@@ -129,6 +95,10 @@ def repo_type_and_id_from_hf_id(
             - <repo_id>
         hub_url (`str`, *optional*):
             The URL of the HuggingFace Hub, defaults to https://huggingface.co
+
+    Returns:
+        A tuple with three items: repo_type (`str` or `None`), namespace (`str` or
+        `None`) and repo_id (`str`).
     """
     hub_url = re.sub(r"https?://", "", hub_url if hub_url is not None else ENDPOINT)
     is_hf_url = hub_url in hf_id and "@" not in hf_id
@@ -1552,12 +1522,10 @@ class HfApi:
         repo_id: str = None,
         *,
         token: Optional[str] = None,
-        organization: Optional[str] = None,
         private: bool = False,
         repo_type: Optional[str] = None,
-        exist_ok: Optional[bool] = False,
+        exist_ok: bool = False,
         space_sdk: Optional[str] = None,
-        name: Optional[str] = None,
     ) -> str:
         """Create an empty repo on the HuggingFace Hub.
 
@@ -1565,13 +1533,6 @@ class HfApi:
             repo_id (`str`):
                 A namespace (user or an organization) and a repo name separated
                 by a `/`.
-
-                <Tip>
-
-                Version added: 0.5
-
-                </Tip>
-
             token (`str`, *optional*):
                 An authentication token (See https://huggingface.co/settings/token)
             private (`bool`, *optional*, defaults to `False`):
@@ -1589,41 +1550,9 @@ class HfApi:
         Returns:
             `str`: URL to the newly created repo.
         """
-        name, organization = _validate_repo_id_deprecation(repo_id, name, organization)
+        organization, name = repo_id.split("/") if "/" in repo_id else (None, repo_id)
 
         path = f"{self.endpoint}/api/repos/create"
-
-        checked_name = repo_type_and_id_from_hf_id(name)
-
-        if (
-            repo_type is not None
-            and checked_name[0] is not None
-            and repo_type != checked_name[0]
-        ):
-            raise ValueError(
-                f"""Passed `repo_type` and found `repo_type` are not the same ({repo_type},
-{checked_name[0]}).
-            Please make sure you are expecting the right type of repository to
-            exist."""
-            )
-
-        if (
-            organization is not None
-            and checked_name[1] is not None
-            and organization != checked_name[1]
-        ):
-            raise ValueError(
-                f"""Passed `organization` and `name` organization are not the same ({organization},
-{checked_name[1]}).
-            Please either include the organization in only `name` or the
-            `organization` parameter, such as
-            `api.create_repo({checked_name[0]}, organization={organization})` or
-            `api.create_repo({checked_name[1]}/{checked_name[2]})`"""
-            )
-
-        repo_type = repo_type or checked_name[0]
-        organization = organization or checked_name[1]
-        name = checked_name[2]
 
         if repo_type not in REPO_TYPES:
             raise ValueError("Invalid repo type")
@@ -1648,6 +1577,8 @@ class HfApi:
             )
 
         if getattr(self, "_lfsmultipartthresh", None):
+            # Testing purposes only.
+            # See https://github.com/huggingface/huggingface_hub/pull/733/files#r820604472
             json["lfsmultipartthresh"] = self._lfsmultipartthresh
         headers = build_hf_headers(use_auth_token=token, is_write_action=True)
         r = requests.post(path, headers=headers, json=json)
@@ -1655,16 +1586,11 @@ class HfApi:
         try:
             hf_raise_for_status(r)
         except HTTPError as err:
-            if not (exist_ok and err.response.status_code == 409):
-                try:
-                    additional_info = r.json().get("error", None)
-                    if additional_info:
-                        new_err = f"{err.args[0]} - {additional_info}"
-                        err.args = (new_err,) + err.args[1:]
-                except ValueError:
-                    pass
-
-                raise err
+            if exist_ok and err.response.status_code == 409:
+                # Repo already exists and `exist_ok=True`
+                pass
+            else:
+                raise
 
         d = r.json()
         return d["url"]
@@ -1684,13 +1610,6 @@ class HfApi:
             repo_id (`str`):
                 A namespace (user or an organization) and a repo name separated
                 by a `/`.
-
-                <Tip>
-
-                Version added: 0.5
-
-                </Tip>
-
             token (`str`, *optional*):
                 An authentication token (See https://huggingface.co/settings/token)
             repo_type (`str`, *optional*):
@@ -1710,38 +1629,6 @@ class HfApi:
         organization, name = repo_id.split("/") if "/" in repo_id else (None, repo_id)
 
         path = f"{self.endpoint}/api/repos/delete"
-
-        checked_name = repo_type_and_id_from_hf_id(name)
-
-        if (
-            repo_type is not None
-            and checked_name[0] is not None
-            and repo_type != checked_name[0]
-        ):
-            raise ValueError(
-                f"""Passed `repo_type` and found `repo_type` are not the same ({repo_type},
-{checked_name[0]}).
-            Please make sure you are expecting the right type of repository to
-            exist."""
-            )
-
-        if (
-            organization is not None
-            and checked_name[1] is not None
-            and organization != checked_name[1]
-        ):
-            raise ValueError(
-                "Passed `organization` and `name` organization are not the same"
-                f" ({organization}, {checked_name[1]})."
-                "\nPlease either include the organization in only `name` or the"
-                " `organization` parameter, such as "
-                f"`api.create_repo({checked_name[0]}, organization={organization})` "
-                f"or `api.create_repo({checked_name[1]}/{checked_name[2]})`"
-            )
-
-        repo_type = repo_type or checked_name[0]
-        organization = organization or checked_name[1]
-        name = checked_name[2]
 
         if repo_type not in REPO_TYPES:
             raise ValueError("Invalid repo type")
@@ -1771,13 +1658,6 @@ class HfApi:
             repo_id (`str`, *optional*):
                 A namespace (user or an organization) and a repo name separated
                 by a `/`.
-
-                <Tip>
-
-                Version added: 0.5
-
-                </Tip>
-
             private (`bool`, *optional*, defaults to `False`):
                 Whether the model repo should be private.
             token (`str`, *optional*):
@@ -2091,7 +1971,6 @@ class HfApi:
         token: Optional[str] = None,
         repo_type: Optional[str] = None,
         revision: Optional[str] = None,
-        identical_ok: Optional[bool] = None,
         commit_message: Optional[str] = None,
         commit_description: Optional[str] = None,
         create_pr: Optional[bool] = None,
@@ -2122,9 +2001,6 @@ class HfApi:
             revision (`str`, *optional*):
                 The git revision to commit from. Defaults to the head of the
                 `"main"` branch.
-            identical_ok (`bool`, *optional*, defaults to `True`):
-                Deprecated: will be removed in 0.11.0.
-                Changing this value has no effect.
             commit_message (`str`, *optional*):
                 The summary / title / first line of the generated commit
             commit_description (`str` *optional*)
@@ -2201,13 +2077,6 @@ class HfApi:
         "https://huggingface.co/username/my-model/blob/refs%2Fpr%2F1/remote/file/path.h5"
         ```
         """
-        if identical_ok is not None:
-            warnings.warn(
-                "`identical_ok` has no effect and is deprecated. It will be removed in"
-                " 0.11.0.",
-                FutureWarning,
-            )
-
         if repo_type not in REPO_TYPES:
             raise ValueError(f"Invalid repo type, must be one of {REPO_TYPES}")
 
@@ -2489,6 +2358,68 @@ class HfApi:
             parent_commit=parent_commit,
         )
 
+    @validate_hf_hub_args
+    def create_tag(
+        self,
+        repo_id: str,
+        *,
+        tag: str,
+        tag_message: Optional[str] = None,
+        revision: Optional[str] = None,
+        token: Optional[str] = None,
+        repo_type: Optional[str] = None,
+    ) -> None:
+        """
+        Tag a given commit of a repo on the Hub.
+
+        Args:
+            repo_id (`str`):
+                The repository in which a commit will be tagged.
+                Example: `"user/my-cool-model"`.
+
+            tag (`str`):
+                The name of the tag to create.
+
+            tag_message (`str`, *optional*):
+                The description of the tag to create.
+
+            revision (`str`, *optional*):
+                The git revision to tag. It can be a branch name or the OID/SHA of a
+                commit, as a hexadecimal string. Shorthands (7 first characters) are
+                also supported. Defaults to the head of the `"main"` branch.
+
+            token (`str`, *optional*):
+                Authentication token. Will default to the stored token.
+
+            repo_type (`str`, *optional*):
+                Set to `"dataset"` or `"space"` if uploading to a dataset or
+                space, `None` or `"model"` if uploading to a model. Default is
+                `None`.
+
+        Raises:
+            [`~utils.RepositoryNotFoundError`]:
+                If repository is not found (error 404): wrong repo_id/repo_type, private
+                but not authenticated or repo does not exist.
+            [`~utils.RepositoryNotFoundError`]:
+                If revision is not found (error 404) on the repo.
+        """
+        if repo_type is None:
+            repo_type = REPO_TYPE_MODEL
+        revision = (
+            quote(revision, safe="") if revision is not None else DEFAULT_REVISION
+        )
+
+        # Prepare request
+        tag_url = f"{self.endpoint}/api/{repo_type}s/{repo_id}/tag/{revision}"
+        headers = build_hf_headers(use_auth_token=token, is_write_action=True)
+        payload = {"tag": tag}
+        if tag_message is not None:
+            payload["message"] = tag_message
+
+        # Tag
+        response = requests.post(url=tag_url, headers=headers, json=payload)
+        hf_raise_for_status(response)
+
     def get_full_repo_name(
         self,
         model_id: str,
@@ -2705,7 +2636,7 @@ class HfApi:
         repo_id: str,
         title: str,
         *,
-        token: str,
+        token: Optional[str],
         description: Optional[str] = None,
         repo_type: Optional[str] = None,
         pull_request: bool = False,
@@ -2724,7 +2655,7 @@ class HfApi:
                 The title of the discussion. It can be up to 200 characters long,
                 and must be at least 3 characters long. Leading and trailing whitespaces
                 will be stripped.
-            token (`str`):
+            token (`str`, *optional*):
                 An authentication token (See https://huggingface.co/settings/token)
             description (`str`, *optional*):
                 An optional description for the Pull Request.
@@ -2794,7 +2725,7 @@ class HfApi:
         repo_id: str,
         title: str,
         *,
-        token: str,
+        token: Optional[str],
         description: Optional[str] = None,
         repo_type: Optional[str] = None,
     ) -> DiscussionWithDetails:
@@ -2812,7 +2743,7 @@ class HfApi:
                 The title of the discussion. It can be up to 200 characters long,
                 and must be at least 3 characters long. Leading and trailing whitespaces
                 will be stripped.
-            token (`str`):
+            token (`str`, *optional*):
                 An authentication token (See https://huggingface.co/settings/token)
             description (`str`, *optional*):
                 An optional description for the Pull Request.
@@ -3096,7 +3027,7 @@ class HfApi:
         repo_id: str,
         discussion_num: int,
         *,
-        token: str,
+        token: Optional[str],
         comment: Optional[str] = None,
         repo_type: Optional[str] = None,
     ):
@@ -3207,7 +3138,7 @@ class HfApi:
         discussion_num: int,
         comment_id: str,
         *,
-        token: str,
+        token: Optional[str],
         repo_type: Optional[str] = None,
     ) -> DiscussionComment:
         """Hides a comment on a Discussion / Pull Request.
@@ -3352,6 +3283,7 @@ move_repo = api.move_repo
 upload_file = api.upload_file
 upload_folder = api.upload_folder
 delete_file = api.delete_file
+create_tag = api.create_tag
 get_full_repo_name = api.get_full_repo_name
 
 get_discussion_details = api.get_discussion_details

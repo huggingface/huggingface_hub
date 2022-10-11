@@ -26,7 +26,12 @@ import requests
 from huggingface_hub.constants import ENDPOINT, REPO_TYPES_URL_PREFIXES
 from requests.auth import HTTPBasicAuth
 
-from .utils import hf_raise_for_status, http_backoff, validate_hf_hub_args
+from .utils import (
+    get_token_to_send,
+    hf_raise_for_status,
+    http_backoff,
+    validate_hf_hub_args,
+)
 from .utils.sha import sha256, sha_fileobj
 
 
@@ -132,7 +137,7 @@ def _validate_batch_error(lfs_batch_error: dict):
 @validate_hf_hub_args
 def post_lfs_batch_info(
     upload_infos: Iterable[UploadInfo],
-    token: str,
+    token: Optional[str],
     repo_type: str,
     repo_id: str,
     endpoint: Optional[str] = None,
@@ -151,7 +156,7 @@ def post_lfs_batch_info(
         repo_id (`str`):
             A namespace (user or an organization) and a repo name separated
             by a `/`.
-        token (`str`):
+        token (`str`, *optional*):
             An authentication token ( See https://huggingface.co/settings/tokens )
 
     Returns:
@@ -187,7 +192,10 @@ def post_lfs_batch_info(
             ],
             "hash_algo": "sha256",
         },
-        auth=HTTPBasicAuth("access_token", token),
+        auth=HTTPBasicAuth(
+            "access_token",
+            get_token_to_send(token or True),  # Token must be provided or retrieved
+        ),
     )
     hf_raise_for_status(resp)
     batch_info = resp.json()
@@ -207,7 +215,7 @@ def lfs_upload(
     upload_info: UploadInfo,
     upload_action: dict,
     verify_action: Optional[dict],
-    token: str,
+    token: Optional[str],
 ):
     """
     Uploads a file using the git lfs protocol and determines automatically whether or not
@@ -225,7 +233,7 @@ def lfs_upload(
             The `verify` action from the LFS Batch endpoint. Must contain
             a `href` field, and optionally a `header` field. The `href` URL will
             be called after a successful upload.
-        token (`str`):
+        token (`str`, *optional*):
             A [user access token](https://hf.co/settings/tokens) to authenticate requests
             against the Hub.
 
@@ -268,7 +276,11 @@ def lfs_upload(
     if verify_action is not None:
         verify_resp = requests.post(
             verify_action["href"],
-            auth=HTTPBasicAuth(username="USER", password=token),
+            auth=HTTPBasicAuth(
+                username="USER",
+                # Token must be provided or retrieved
+                password=get_token_to_send(token or True),
+            ),
             json={"oid": upload_info.sha256.hex(), "size": upload_info.size},
         )
         hf_raise_for_status(verify_resp)

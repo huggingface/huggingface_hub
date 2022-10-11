@@ -112,7 +112,7 @@ def build_hf_headers(
             If `use_auth_token=True` but token is not saved locally.
     """
     # Get auth token to send
-    token_to_send = _get_token_to_send(use_auth_token)
+    token_to_send = get_token_to_send(use_auth_token)
     _validate_token_to_send(token_to_send, is_write_action=is_write_action)
 
     # Combine headers
@@ -128,7 +128,7 @@ def build_hf_headers(
     return headers
 
 
-def _get_token_to_send(use_auth_token: Optional[Union[bool, str]]) -> Optional[str]:
+def get_token_to_send(use_auth_token: Optional[Union[bool, str]]) -> Optional[str]:
     """Select the token to send from either `use_auth_token` or the cache."""
     # Case token is explicitly provided
     if isinstance(use_auth_token, str):

@@ -54,7 +54,12 @@ from huggingface_hub.hf_api import (
     read_from_credential_store,
     repo_type_and_id_from_hf_id,
 )
-from huggingface_hub.utils import HfFolder, RepositoryNotFoundError, logging
+from huggingface_hub.utils import (
+    HfFolder,
+    RepositoryNotFoundError,
+    RevisionNotFoundError,
+    logging,
+)
 from huggingface_hub.utils.endpoint_helpers import (
     DatasetFilter,
     ModelFilter,
@@ -79,6 +84,7 @@ from .testing_utils import (
     require_git_lfs,
     retry_endpoint,
     set_write_permission_and_retry,
+    use_tmp_repo,
     with_production_testing,
 )
 
@@ -951,6 +957,187 @@ class CommitApiTest(HfApiCommonTestWithLogin):
 
         self.assertEqual(str(context.exception), expected_message)
 
+    @retry_endpoint
+    def test_create_commit_lfs_file_implicit_token(self):
+        """Test that uploading a file as LFS works with implicit token (from cache).
+
+        Regression test for https://github.com/huggingface/huggingface_hub/pull/1084.
+        """
+        REPO_NAME = repo_name("create_commit_with_lfs")
+        repo_id = f"{USER}/{REPO_NAME}"
+
+        with patch("huggingface_hub.utils.HfFolder.get_token") as mock:
+            mock.return_value = self._token  # Set implicit token
+
+            # Create repo
+            self._api.create_repo(repo_id=REPO_NAME, exist_ok=False)
+
+            # Set repo to track png files as LFS
+            self._api.create_commit(
+                operations=[
+                    CommitOperationAdd(
+                        path_in_repo=".gitattributes",
+                        path_or_fileobj=b"*.png filter=lfs diff=lfs merge=lfs -text",
+                    ),
+                ],
+                commit_message="Update .gitattributes",
+                repo_id=repo_id,
+            )
+
+            # Upload a PNG file
+            self._api.create_commit(
+                operations=[
+                    CommitOperationAdd(
+                        path_in_repo="image.png", path_or_fileobj=b"image data"
+                    ),
+                ],
+                commit_message="Test upload lfs file",
+                repo_id=repo_id,
+            )
+
+            # Check uploaded as LFS
+            info = self._api.model_info(
+                repo_id=repo_id, use_auth_token=self._token, files_metadata=True
+            )
+            siblings = {file.rfilename: file for file in info.siblings}
+            self.assertIsInstance(siblings["image.png"].lfs, dict)  # LFS file
+
+            # Delete repo
+            self._api.delete_repo(repo_id=REPO_NAME, token=self._token)
+
+
+class HfApiTagEndpointTest(HfApiCommonTestWithLogin):
+    _user = USER
+    _repo_id: str
+
+    @retry_endpoint
+    @use_tmp_repo("model")
+    def test_create_tag_on_main(self) -> None:
+        """Check `create_tag` on default main branch works."""
+        self._api.create_tag(
+            self._repo_id,
+            tag="v0",
+            tag_message="This is a tag message.",
+            token=self._token,
+        )
+
+        # Check tag  is on `main`
+        tag_info = self._api.model_info(
+            self._repo_id, revision="v0", use_auth_token=self._token
+        )
+        main_info = self._api.model_info(
+            self._repo_id, revision="main", use_auth_token=self._token
+        )
+        self.assertEqual(tag_info.sha, main_info.sha)
+
+    @retry_endpoint
+    @use_tmp_repo("model")
+    def test_create_tag_on_pr(self) -> None:
+        """Check `create_tag` on a PR ref works."""
+        # Create a PR with a readme
+        commit_info: CommitInfo = self._api.create_commit(
+            repo_id=self._repo_id,
+            token=self._token,
+            create_pr=True,
+            commit_message="upload readme",
+            operations=[
+                CommitOperationAdd(
+                    path_or_fileobj=b"this is a file content", path_in_repo="readme.md"
+                )
+            ],
+        )
+
+        # Tag the PR
+        self._api.create_tag(
+            self._repo_id, tag="v0", token=self._token, revision=commit_info.pr_revision
+        )
+
+        # Check tag  is on `refs/pr/1`
+        tag_info = self._api.model_info(
+            self._repo_id, revision="v0", use_auth_token=self._token
+        )
+        pr_info = self._api.model_info(
+            self._repo_id, revision=commit_info.pr_revision, use_auth_token=self._token
+        )
+        main_info = self._api.model_info(self._repo_id, use_auth_token=self._token)
+
+        self.assertEqual(tag_info.sha, pr_info.sha)
+        self.assertNotEqual(tag_info.sha, main_info.sha)
+
+    @retry_endpoint
+    @use_tmp_repo("dataset")
+    def test_create_tag_on_commit_oid(self) -> None:
+        """Check `create_tag` on specific commit oid works (both long and shorthands).
+
+        Test it on a `dataset` repo.
+        """
+        # Create a PR with a readme
+        commit_info_1: CommitInfo = self._api.create_commit(
+            repo_id=self._repo_id,
+            repo_type="dataset",
+            token=self._token,
+            commit_message="upload readme",
+            operations=[
+                CommitOperationAdd(
+                    path_or_fileobj=b"this is a file content", path_in_repo="readme.md"
+                )
+            ],
+        )
+        commit_info_2: CommitInfo = self._api.create_commit(
+            repo_id=self._repo_id,
+            repo_type="dataset",
+            token=self._token,
+            commit_message="upload config",
+            operations=[
+                CommitOperationAdd(
+                    path_or_fileobj=b"{'hello': 'world'}", path_in_repo="config.json"
+                )
+            ],
+        )
+
+        # Tag commits
+        self._api.create_tag(
+            self._repo_id,
+            tag="commit_1",
+            repo_type="dataset",
+            token=self._token,
+            revision=commit_info_1.oid,  # long version
+        )
+        self._api.create_tag(
+            self._repo_id,
+            tag="commit_2",
+            repo_type="dataset",
+            token=self._token,
+            revision=commit_info_2.oid[:7],  # use shorthand !
+        )
+
+        # Check tags
+        tag_1_info = self._api.dataset_info(
+            self._repo_id, revision="commit_1", use_auth_token=self._token
+        )
+        tag_2_info = self._api.dataset_info(
+            self._repo_id, revision="commit_2", use_auth_token=self._token
+        )
+
+        self.assertEqual(tag_1_info.sha, commit_info_1.oid)
+        self.assertEqual(tag_2_info.sha, commit_info_2.oid)
+
+    @retry_endpoint
+    @use_tmp_repo("model")
+    def test_invalid_tag_name(self) -> None:
+        """Check `create_tag` with an invalid tag name."""
+        with self.assertRaises(HTTPError):
+            self._api.create_tag(self._repo_id, tag="invalid tag", token=self._token)
+
+    @retry_endpoint
+    @use_tmp_repo("model")
+    def test_create_tag_on_missing_revision(self) -> None:
+        """Check `create_tag` on a missing revision."""
+        with self.assertRaises(RevisionNotFoundError):
+            self._api.create_tag(
+                self._repo_id, tag="invalid tag", token=self._token, revision="foobar"
+            )
+
 
 class HfApiPublicTest(unittest.TestCase):
     def test_staging_list_models(self):
@@ -979,7 +1166,10 @@ class HfApiPublicTest(unittest.TestCase):
         models = _api.list_models(search="bert")
         self.assertGreater(len(models), 10)
         self.assertIsInstance(models[0], ModelInfo)
-        for model in models:
+        for model in models[:10]:
+            # Rough rule: at least first 10 will have "bert" in the name
+            # Not optimal since it is dependent on how the Hub implements the search
+            # (and changes it in the future) but for now it should do the trick.
             self.assertTrue("bert" in model.modelId.lower())
 
     @with_production_testing
