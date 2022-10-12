@@ -809,9 +809,9 @@ def _create_relative_symlink(src: str, dst: str, new_blob: bool = False) -> None
             os.symlink(relative_src, dst)
         except FileExistsError:
             if os.path.islink(dst) and os.path.realpath(dst) == os.path.realpath(src):
-                # `dst` already exists and is a symlink to the `src`` blob. It is most
+                # `dst` already exists and is a symlink to the `src` blob. It is most
                 # likely that the file has been cached twice concurrently (exactly
-                # between `os.remove`` and `os.symlink``). Do nothing.
+                # between `os.remove` and `os.symlink`). Do nothing.
                 pass
             else:
                 # Very unlikely to happen. Means a file `dst` has been created exactly
