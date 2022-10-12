@@ -23,7 +23,7 @@ def cached_assets_path(
     namespace: str = "default",
     subfolder: str = "default",
     *,
-    cache_dir: Union[str, Path, None] = None,
+    assets_dir: Union[str, Path, None] = None,
 ):
     """Return a folder path to cache arbitrary files.
 
@@ -88,7 +88,7 @@ def cached_assets_path(
             Namespace to which the data belongs. Example: `"SQuAD"`.
         subfolder (`str`, *optional*, defaults to "default"):
             Subfolder in which the data will be stored. Example: `extracted`.
-        cache_dir (`str`, `Path`, *optional*):
+        assets_dir (`str`, `Path`, *optional*):
             Path to the folder where assets are cached. This must not be the same folder
             where Hub files are cached. Defaults to `HF_HOME / "assets"` if not provided.
             Can also be set with `HUGGINGFACE_ASSETS_CACHE` environment variable.
@@ -109,28 +109,30 @@ def cached_assets_path(
     >>> cached_assets_path(library_name="datasets", namespace="Helsinki-NLP/tatoeba_mt")
     PosixPath('/home/wauplin/.cache/huggingface/extra/datasets/Helsinki-NLP--tatoeba_mt/default')
 
-    >>> cached_assets_path(library_name="datasets", cache_dir="/tmp/tmp123456")
+    >>> cached_assets_path(library_name="datasets", assets_dir="/tmp/tmp123456")
     PosixPath('/tmp/tmp123456/datasets/default/default')
     ```
     """
-    # Resolve cache_dir
-    if cache_dir is None:
-        cache_dir = HUGGINGFACE_ASSETS_CACHE
-    cache_dir = Path(cache_dir).expanduser().resolve()
+    # Resolve assets_dir
+    if assets_dir is None:
+        assets_dir = HUGGINGFACE_ASSETS_CACHE
+    assets_dir = Path(assets_dir).expanduser().resolve()
 
     # Avoid names that could create path issues
-    for part in ("/", "\\"):
+    for part in (" ", "/", "\\"):
         library_name = library_name.replace(part, "--")
         namespace = namespace.replace(part, "--")
         subfolder = subfolder.replace(part, "--")
 
     # Path to subfolder is created
-    path = cache_dir / library_name / namespace / subfolder
-    if path.is_file():
+    path = assets_dir / library_name / namespace / subfolder
+    try:
+        path.mkdir(exist_ok=True, parents=True)
+    except (FileExistsError, NotADirectoryError):
         raise ValueError(
-            f"Invalid assets cache folder: path already exists and is a file ({path})."
+            "Corrupted assets folder: cannot create directory because of an existing"
+            f" file ({path})."
         )
-    path.mkdir(exist_ok=True, parents=True)
 
     # Return
     return path
