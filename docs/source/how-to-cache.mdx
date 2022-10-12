@@ -130,7 +130,65 @@ by setting the `HF_HUB_DISABLE_SYMLINKS_WARNING` environment variable to true.
 
 ## Caching assets
 
-TO BE COMPLETED
+In addition to caching files from the Hub, downstream libraries often requires to cache
+other files related to HF but not handled directly by `huggingface_hub` (example: file
+downloaded from GitHub, preprocessed data, logs,...). In order to cache those files,
+called `assets`, one can use [`cached_assets_path`]. This small helper generates paths
+in the HF cache in a unified way based on the name of the library requesting it and
+optionally on a namespace and a subfolder name. The goal is to let every downstream
+libraries manage its assets its own way (e.g. no rule on the structure) as long as it
+stays in the right assets folder. Those libraries can then leverage tools from
+`huggingface_hub` to manage the cache, in particular scanning and deleting parts of the
+assets from a CLI command.
+
+```py
+from huggingface_hub import cached_assets_path
+
+assets_path = cached_assets_path(library_name="datasets", namespace="SQuAD", subfolder="download")
+something_path = assets_path / "something.json" # Do anything you like in your assets folder !
+```
+
+<Tip>
+
+[`cached_assets_path`] is the recommended way to store assets but is not mandatory. If
+your library already uses its own cache, feel free to use it!
+
+</Tip>
+
+### Assets in practice
+
+In practice, your assets cache should look like the following tree:
+
+```text
+    assets/
+    └── datasets/
+    │   ├── SQuAD/
+    │   │   ├── downloaded/
+    │   │   ├── extracted/
+    │   │   └── processed/
+    │   ├── Helsinki-NLP--tatoeba_mt/
+    │       ├── downloaded/
+    │       ├── extracted/
+    │       └── processed/
+    └── transformers/
+        ├── default/
+        │   ├── something/
+        ├── bert-base-cased/
+        │   ├── default/
+        │   └── training/
+    hub/
+    └── models--julien-c--EsperBERTo-small/
+        ├── blobs/
+        │   ├── (...)
+        │   ├── (...)
+        ├── refs/
+        │   └── (...)
+        └── [ 128]  snapshots/
+            ├── 2439f60ef33a0d46d85da5001d52aeda5b00ce9f/
+            │   ├── (...)
+            └── bbc77c8132af1cc5cf678da3f1ddf2de43606d48/
+                └── (...)
+```
 
 ## Scan your cache
 
