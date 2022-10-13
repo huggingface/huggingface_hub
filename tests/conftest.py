@@ -46,7 +46,7 @@ def clean_hf_folder_token_for_tests() -> Generator:
         HfFolder().save_token(token)
 
 
-@pytest.fixture(autouse=True, scope="session")
+@pytest.fixture(autouse=True)
 def disable_symlinks_on_windows_ci(monkeypatch: pytest.MonkeyPatch) -> None:
     class FakeSymlinkDict(dict):
         def __contains__(self, __o: object) -> bool:
