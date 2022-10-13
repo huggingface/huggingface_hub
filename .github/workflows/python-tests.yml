@@ -115,6 +115,8 @@ jobs:
     # Please make sure to keep it updated as well.
     # Lighter version of the tests with only 1 test suite running on Python3.7.
     runs-on: windows-latest
+    env:
+      RUNNING_ON_WINDOWS_CI_WITHOUT_SYMLINKS: 1
     strategy:
       fail-fast: false
       matrix:
@@ -137,7 +139,7 @@ jobs:
       # Run tests
       - name: Run tests
         working-directory: ./src # For code coverage to work
-        run: RUNNING_ON_WINDOWS_CI_WITHOUT_SYMLINKS=1 python -m pytest --cov=./huggingface_hub --cov-report=xml:../coverage.xml ../tests
+        run: python -m pytest --cov=./huggingface_hub --cov-report=xml:../coverage.xml ../tests
 
       # Upload code coverage
       - name: Upload coverage reports to Codecov with GitHub Action
