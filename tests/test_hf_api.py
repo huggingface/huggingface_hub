@@ -30,7 +30,7 @@ import pytest
 
 import requests
 from huggingface_hub._commit_api import CommitOperationAdd, CommitOperationDelete
-from huggingface_hub.commands.user import _login
+from huggingface_hub._login import _login
 from huggingface_hub.community import DiscussionComment, DiscussionWithDetails
 from huggingface_hub.constants import (
     REPO_TYPE_DATASET,
