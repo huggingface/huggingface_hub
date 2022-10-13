@@ -172,6 +172,7 @@ _SUBMOD_ATTRS = {
         "DeleteCacheStrategy",
         "HFCacheInfo",
         "HfFolder",
+        "cached_assets_path",
         "logging",
         "scan_cache_dir",
     ],
@@ -374,6 +375,7 @@ if TYPE_CHECKING:  # pragma: no cover
     from .utils import DeleteCacheStrategy  # noqa: F401
     from .utils import HFCacheInfo  # noqa: F401
     from .utils import HfFolder  # noqa: F401
+    from .utils import cached_assets_path  # noqa: F401
     from .utils import logging  # noqa: F401
     from .utils import scan_cache_dir  # noqa: F401
     from .utils.endpoint_helpers import DatasetFilter  # noqa: F401

@@ -16,6 +16,7 @@ import re
 import unittest
 from pathlib import Path
 from tempfile import TemporaryDirectory
+from unittest.mock import Mock, patch
 
 import pytest
 
@@ -26,6 +27,7 @@ from huggingface_hub.constants import (
 )
 from huggingface_hub.file_download import (
     _CACHED_NO_EXIST,
+    _create_relative_symlink,
     cached_download,
     filename_to_url,
     get_hf_file_metadata,
@@ -370,3 +372,38 @@ class CachedDownloadTests(unittest.TestCase):
             metadata.location,
             url.replace(DUMMY_RENAMED_OLD_MODEL_ID, DUMMY_RENAMED_NEW_MODEL_ID),
         )
+
+
+class CreateSymlinkTest(unittest.TestCase):
+    @patch("huggingface_hub.file_download.are_symlinks_supported")
+    def test_create_relative_symlink_concurrent_access(
+        self, mock_are_symlinks_supported: Mock
+    ) -> None:
+        with TemporaryDirectory() as tmpdir:
+            src = os.path.join(tmpdir, "source")
+            other = os.path.join(tmpdir, "other")
+            dst = os.path.join(tmpdir, "destination")
+
+            # Normal case: symlink does not exist
+            mock_are_symlinks_supported.return_value = True
+            _create_relative_symlink(src, dst)
+            self.assertEqual(os.path.realpath(dst), os.path.realpath(src))
+
+            # Symlink already exists when it tries to create it (most probably from a
+            # concurrent access) but do not raise exception
+            def _are_symlinks_supported(cache_dir: str) -> bool:
+                os.symlink(src, dst)
+                return True
+
+            mock_are_symlinks_supported.side_effect = _are_symlinks_supported
+            _create_relative_symlink(src, dst)
+
+            # Symlink already exists but pointing to a different source file. This should
+            # never happen in the context of HF cache system -> raise exception
+            def _are_symlinks_supported(cache_dir: str) -> bool:
+                os.symlink(other, dst)
+                return True
+
+            mock_are_symlinks_supported.side_effect = _are_symlinks_supported
+            with self.assertRaises(FileExistsError):
+                _create_relative_symlink(src, dst)
