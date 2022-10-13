@@ -35,6 +35,10 @@ def login(token: Optional[str] = None) -> None:
     To login from outside of a script, one can also use `huggingface-cli login` which is
     a cli command that wraps [`login`].
 
+    Note: [`login`] is a drop-in replacement method for `notebook_login` as it wraps
+          and extend its capabilities. Still, `notebook_login` is not officially
+          deprecated as it is a widely used and known method in the community.
+
     Args:
         token (`str`, *optional*):
             User access token to generate from https://huggingface.co/settings/token.
