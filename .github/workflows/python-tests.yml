@@ -113,7 +113,7 @@ jobs:
   build-windows:
     # (almost) Duplicate config compared to `build-ubuntu` but running on Windows.
     # Please make sure to keep it updated as well.
-    # Lighter version of the tests (only 1 test suite).
+    # Lighter version of the tests with only 1 test suite running on Python3.7.
     runs-on: windows-latest
     strategy:
       fail-fast: false
