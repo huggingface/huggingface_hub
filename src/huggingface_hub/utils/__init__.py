@@ -16,6 +16,7 @@
 # limitations under the License
 
 from . import tqdm as _tqdm  # _tqdm is the module
+from ._cache_assets import cached_assets_path
 from ._cache_manager import (
     CachedFileInfo,
     CachedRepoInfo,
