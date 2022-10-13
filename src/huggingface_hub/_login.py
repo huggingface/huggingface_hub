@@ -27,10 +27,10 @@ logger = logging.get_logger(__name__)
 def login(token: Optional[str] = None) -> None:
     """Login the machine to access the Hub.
 
-    If `token` is provided, it is persisted in cache and set as a git credential. Once
-    done, the machine is logged in and the access token will be available across all
-    `huggingface_hub` components. If `token` is not provided, it will be prompted to the
-    user either with a widget (in a notebook) or via the terminal.
+    The `token` is persisted in cache and set as a git credential. Once done, the machine
+    is logged in and the access token will be available across all `huggingface_hub`
+    components. If `token` is not provided, it will be prompted to the user either with
+    a widget (in a notebook) or via the terminal.
 
     To login from outside of a script, one can also use `huggingface-cli login` which is
     a cli command that wraps [`login`].
@@ -75,7 +75,7 @@ def logout() -> None:
 ###
 
 
-def interpreter_login():
+def interpreter_login() -> None:
     """
     Displays a prompt to login to the HF website and store the token.
     """
@@ -117,7 +117,7 @@ NOTEBOOK_LOGIN_TOKEN_HTML_END = """
 notebooks. </center>"""
 
 
-def notebook_login():
+def notebook_login() -> None:
     """
     Displays a widget to login to the HF website and store the token.
     """
