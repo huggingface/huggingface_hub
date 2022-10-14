@@ -14,7 +14,6 @@
 import copy
 import os
 import re
-import shutil
 import tempfile
 import unittest
 from functools import partial
@@ -49,7 +48,7 @@ from .testing_constants import (
     TOKEN,
     USER,
 )
-from .testing_utils import repo_name, retry_endpoint, set_write_permission_and_retry
+from .testing_utils import repo_name, retry_endpoint, rmtree_with_retry
 
 
 SAMPLE_CARDS_DIR = Path(__file__).parent / "fixtures/cards"
@@ -158,7 +157,7 @@ class RepocardMetadataTest(unittest.TestCase):
 
     def tearDown(self) -> None:
         if os.path.exists(REPOCARD_DIR):
-            shutil.rmtree(REPOCARD_DIR, onerror=set_write_permission_and_retry)
+            rmtree_with_retry(REPOCARD_DIR)
         logger.info(f"Does {REPOCARD_DIR} exist: {os.path.exists(REPOCARD_DIR)}")
 
     def test_metadata_load(self):
@@ -256,7 +255,7 @@ class RepocardMetadataUpdateTest(unittest.TestCase):
 
     def tearDown(self) -> None:
         self._api.delete_repo(repo_id=f"{self.REPO_NAME}", token=self._token)
-        shutil.rmtree(self.repo_path)
+        rmtree_with_retry(self.repo_path)
 
     def test_update_dataset_name(self):
         new_datasets_data = {"datasets": ["test/test_dataset"]}

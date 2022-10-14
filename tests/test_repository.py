@@ -39,7 +39,7 @@ from .testing_utils import (
     expect_deprecation,
     repo_name,
     retry_endpoint,
-    set_write_permission_and_retry,
+    rmtree_with_retry,
     with_production_testing,
 )
 
@@ -75,7 +75,7 @@ class RepositoryTest(RepositoryCommonTest):
     @retry_endpoint
     def setUp(self):
         if os.path.exists(WORKING_REPO_DIR):
-            shutil.rmtree(WORKING_REPO_DIR, onerror=set_write_permission_and_retry)
+            rmtree_with_retry(WORKING_REPO_DIR)
         logger.info(
             f"Does {WORKING_REPO_DIR} exist: {os.path.exists(WORKING_REPO_DIR)}"
         )
@@ -421,7 +421,7 @@ class RepositoryTest(RepositoryCommonTest):
             with open("model.bin", "w") as f:
                 f.write("hello")
 
-        shutil.rmtree(f"{WORKING_REPO_DIR}/{self.REPO_NAME}")
+        rmtree_with_retry(f"{WORKING_REPO_DIR}/{self.REPO_NAME}")
 
         Repository(
             f"{WORKING_REPO_DIR}/{self.REPO_NAME}",
@@ -453,7 +453,7 @@ class RepositoryTest(RepositoryCommonTest):
             with open("model.bin", "w") as f:
                 f.write("hello")
 
-        shutil.rmtree(f"{WORKING_REPO_DIR}/{self.REPO_NAME}")
+        rmtree_with_retry(f"{WORKING_REPO_DIR}/{self.REPO_NAME}")
 
         Repository(
             f"{WORKING_REPO_DIR}/{self.REPO_NAME}",
@@ -485,7 +485,7 @@ class RepositoryTest(RepositoryCommonTest):
             with open("model.bin", "w") as f:
                 f.write("hello")
 
-        shutil.rmtree(f"{WORKING_REPO_DIR}/{self.REPO_NAME}")
+        rmtree_with_retry(f"{WORKING_REPO_DIR}/{self.REPO_NAME}")
 
         Repository(
             f"{WORKING_REPO_DIR}/{self.REPO_NAME}",
@@ -541,7 +541,7 @@ class RepositoryTest(RepositoryCommonTest):
             skip_lfs_files=True,
         )
 
-        shutil.rmtree(f"{WORKING_REPO_DIR}/{self.REPO_NAME}")
+        rmtree_with_retry(f"{WORKING_REPO_DIR}/{self.REPO_NAME}")
 
         Repository(
             f"{WORKING_REPO_DIR}/{self.REPO_NAME}",
@@ -563,7 +563,7 @@ class RepositoryTest(RepositoryCommonTest):
             with open("file.bin", "w+") as f:
                 f.write("Bin file")
 
-        shutil.rmtree(repo.local_dir)
+        rmtree_with_retry(repo.local_dir)
 
         repo = Repository(
             self.REPO_NAME,
@@ -751,7 +751,7 @@ class RepositoryTest(RepositoryCommonTest):
     def test_add_tag(self):
         # Eventually see why this is needed
         if os.path.exists(WORKING_REPO_DIR):
-            shutil.rmtree(WORKING_REPO_DIR, onerror=set_write_permission_and_retry)
+            rmtree_with_retry(WORKING_REPO_DIR)
         repo = Repository(
             WORKING_REPO_DIR,
             clone_from=f"{USER}/{self.REPO_NAME}",
@@ -1003,7 +1003,7 @@ class RepositoryOfflineTest(RepositoryCommonTest):
     @classmethod
     def setUpClass(cls) -> None:
         if os.path.exists(WORKING_REPO_DIR):
-            shutil.rmtree(WORKING_REPO_DIR, onerror=set_write_permission_and_retry)
+            rmtree_with_retry(WORKING_REPO_DIR)
         logger.info(
             f"Does {WORKING_REPO_DIR} exist: {os.path.exists(WORKING_REPO_DIR)}"
         )
@@ -1060,7 +1060,7 @@ class RepositoryOfflineTest(RepositoryCommonTest):
     @classmethod
     def tearDownClass(cls) -> None:
         if os.path.exists(WORKING_REPO_DIR):
-            shutil.rmtree(WORKING_REPO_DIR, onerror=set_write_permission_and_retry)
+            rmtree_with_retry(WORKING_REPO_DIR)
         logger.info(
             f"Does {WORKING_REPO_DIR} exist: {os.path.exists(WORKING_REPO_DIR)}"
         )
@@ -1643,10 +1643,7 @@ class RepositoryDatasetTest(RepositoryCommonTest):
     def setUp(self):
         self.REPO_NAME = repo_name()
         if os.path.exists(f"{WORKING_DATASET_DIR}/{self.REPO_NAME}"):
-            shutil.rmtree(
-                f"{WORKING_DATASET_DIR}/{self.REPO_NAME}",
-                onerror=set_write_permission_and_retry,
-            )
+            rmtree_with_retry(f"{WORKING_DATASET_DIR}/{self.REPO_NAME}")
         logger.info(
             f"Does {WORKING_DATASET_DIR}/{self.REPO_NAME} exist:"
             f" {os.path.exists(f'{WORKING_DATASET_DIR}/{self.REPO_NAME}')}"
@@ -1685,7 +1682,7 @@ class RepositoryDatasetTest(RepositoryCommonTest):
             for file in os.listdir(DATASET_FIXTURE):
                 shutil.copyfile(pathlib.Path(DATASET_FIXTURE) / file, file)
 
-        shutil.rmtree(f"{WORKING_DATASET_DIR}/{self.REPO_NAME}")
+        rmtree_with_retry(f"{WORKING_DATASET_DIR}/{self.REPO_NAME}")
 
         Repository(
             f"{WORKING_DATASET_DIR}/{self.REPO_NAME}",
@@ -1719,7 +1716,7 @@ class RepositoryDatasetTest(RepositoryCommonTest):
             for file in os.listdir(DATASET_FIXTURE):
                 shutil.copyfile(pathlib.Path(DATASET_FIXTURE) / file, file)
 
-        shutil.rmtree(f"{WORKING_DATASET_DIR}/{self.REPO_NAME}")
+        rmtree_with_retry(f"{WORKING_DATASET_DIR}/{self.REPO_NAME}")
 
         Repository(
             f"{WORKING_DATASET_DIR}/{self.REPO_NAME}",
@@ -1749,7 +1746,7 @@ class RepositoryDatasetTest(RepositoryCommonTest):
             for file in os.listdir(DATASET_FIXTURE):
                 shutil.copyfile(pathlib.Path(DATASET_FIXTURE) / file, file)
 
-        shutil.rmtree(f"{WORKING_DATASET_DIR}/{self.REPO_NAME}")
+        rmtree_with_retry(f"{WORKING_DATASET_DIR}/{self.REPO_NAME}")
 
         Repository(
             f"{WORKING_DATASET_DIR}/{self.REPO_NAME}",

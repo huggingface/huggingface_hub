@@ -1,5 +1,6 @@
 import inspect
 import os
+import shutil
 import stat
 import sys
 import time
@@ -10,7 +11,8 @@ from distutils.util import strtobool
 from enum import Enum
 from functools import wraps
 from io import StringIO
-from typing import Callable, Generator, Optional, TypeVar
+from pathlib import Path
+from typing import Callable, Generator, Optional, TypeVar, Union
 from unittest.mock import Mock, patch
 
 import pytest
@@ -186,6 +188,10 @@ def offline(mode=OfflineSimulationMode.CONNECTION_FAILS, timeout=1e-16):
 def set_write_permission_and_retry(func, path, excinfo):
     os.chmod(path, stat.S_IWRITE)
     func(path)
+
+
+def rmtree_with_retry(path: Union[str, Path]) -> None:
+    shutil.rmtree(path, onerror=set_write_permission_and_retry)
 
 
 def with_production_testing(func):

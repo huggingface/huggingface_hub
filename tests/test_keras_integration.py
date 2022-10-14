@@ -1,7 +1,6 @@
 import json
 import os
 import re
-import shutil
 import tempfile
 import unittest
 
@@ -27,7 +26,7 @@ from .testing_utils import (
     expect_deprecation,
     repo_name,
     retry_endpoint,
-    set_write_permission_and_retry,
+    rmtree_with_retry,
 )
 
 
@@ -79,7 +78,7 @@ else:
 class CommonKerasTest(unittest.TestCase):
     def tearDown(self) -> None:
         if os.path.exists(WORKING_REPO_DIR):
-            shutil.rmtree(WORKING_REPO_DIR, onerror=set_write_permission_and_retry)
+            rmtree_with_retry(WORKING_REPO_DIR)
         logger.info(
             f"Does {WORKING_REPO_DIR} exist: {os.path.exists(WORKING_REPO_DIR)}"
         )

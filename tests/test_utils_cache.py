@@ -1,5 +1,4 @@
 import os
-import shutil
 import tempfile
 import time
 import unittest
@@ -19,7 +18,7 @@ from huggingface_hub.utils._cache_manager import (
 )
 
 from .testing_constants import TOKEN
-from .testing_utils import capture_output
+from .testing_utils import capture_output, rmtree_with_retry
 
 
 VALID_MODEL_ID = "valid_org/test_scan_repo_a"
@@ -302,7 +301,7 @@ class TestCorruptedCacheUtils(unittest.TestCase):
         )
 
         # Case 3: good naming but not a dataset/model/space
-        shutil.rmtree(repo_path)
+        rmtree_with_retry(repo_path)
         repo_path = self.cache_dir / "not-models--t5-small"
         repo_path.mkdir()
 
@@ -318,7 +317,7 @@ class TestCorruptedCacheUtils(unittest.TestCase):
 
     def test_snapshots_path_not_found(self) -> None:
         """Test if snapshots directory is missing in cached repo."""
-        shutil.rmtree(self.snapshots_path)
+        rmtree_with_retry(self.snapshots_path)
 
         report = scan_cache_dir(self.cache_dir)
         self.assertEquals(len(report.repos), 0)  # Failed
@@ -347,7 +346,7 @@ class TestCorruptedCacheUtils(unittest.TestCase):
         """Test if a snapshot directory (e.g. a cached revision) is empty."""
         for revision_path in self.snapshots_path.glob("*"):
             # Delete content of the revision
-            shutil.rmtree(revision_path)
+            rmtree_with_retry(revision_path)
             revision_path.mkdir()
 
         # Scan
@@ -369,8 +368,8 @@ class TestCorruptedCacheUtils(unittest.TestCase):
 
     def test_repo_with_no_snapshots(self) -> None:
         """Test if the snapshot directory exists but is empty."""
-        shutil.rmtree(self.refs_path)
-        shutil.rmtree(self.snapshots_path)
+        rmtree_with_retry(self.refs_path)
+        rmtree_with_retry(self.snapshots_path)
         self.snapshots_path.mkdir()
 
         # Scan

@@ -1,5 +1,4 @@
 import os
-import shutil
 import tempfile
 import time
 import unittest
@@ -9,11 +8,7 @@ from huggingface_hub import HfApi, Repository, snapshot_download
 from huggingface_hub.utils import HfFolder, logging
 
 from .testing_constants import ENDPOINT_STAGING, TOKEN, USER
-from .testing_utils import (
-    expect_deprecation,
-    retry_endpoint,
-    set_write_permission_and_retry,
-)
+from .testing_utils import expect_deprecation, retry_endpoint, rmtree_with_retry
 
 
 logger = logging.get_logger(__name__)
@@ -35,7 +30,7 @@ class SnapshotDownloadTests(unittest.TestCase):
     @retry_endpoint
     def setUp(self) -> None:
         if os.path.exists(REPO_NAME):
-            shutil.rmtree(REPO_NAME, onerror=set_write_permission_and_retry)
+            rmtree_with_retry(REPO_NAME)
         logger.info(f"Does {REPO_NAME} exist: {os.path.exists(REPO_NAME)}")
         self._api.create_repo(f"{USER}/{REPO_NAME}", token=self._token)
         repo = Repository(
@@ -68,7 +63,7 @@ class SnapshotDownloadTests(unittest.TestCase):
 
     def tearDown(self) -> None:
         self._api.delete_repo(repo_id=REPO_NAME, token=self._token)
-        shutil.rmtree(REPO_NAME)
+        rmtree_with_retry(REPO_NAME)
 
     def test_download_model(self):
         # Test `main` branch

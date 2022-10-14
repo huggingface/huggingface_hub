@@ -1,5 +1,4 @@
 import os
-import shutil
 from unittest import TestCase, skip
 
 from huggingface_hub import HfApi
@@ -15,7 +14,7 @@ from huggingface_hub.utils import (
 )
 
 from .testing_constants import ENDPOINT_STAGING, TOKEN, USER
-from .testing_utils import repo_name, set_write_permission_and_retry
+from .testing_utils import repo_name, rmtree_with_retry
 
 
 WORKING_REPO_SUBDIR = f"fixtures/working_repo_{__name__.split('.')[-1]}"
@@ -75,7 +74,7 @@ class TestFastaiUtils(TestCase):
 
     def tearDown(self) -> None:
         try:
-            shutil.rmtree(WORKING_REPO_DIR, onerror=set_write_permission_and_retry)
+            rmtree_with_retry(WORKING_REPO_DIR)
         except FileNotFoundError:
             pass
 

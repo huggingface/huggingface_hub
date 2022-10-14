@@ -83,7 +83,7 @@ from .testing_utils import (
     repo_name,
     require_git_lfs,
     retry_endpoint,
-    set_write_permission_and_retry,
+    rmtree_with_retry,
     use_tmp_repo,
     with_production_testing,
 )
@@ -370,9 +370,7 @@ class CommitApiTest(HfApiCommonTestWithLogin):
         with open(self.nested_tmp_file, "wb+") as f:
             f.truncate(1024 * 1024)
 
-        self.addCleanup(
-            lambda: shutil.rmtree(self.tmp_dir, onerror=set_write_permission_and_retry)
-        )
+        self.addCleanup(rmtree_with_retry, self.tmp_dir)
 
     @retry_endpoint
     def test_upload_file_validation(self):
@@ -1770,7 +1768,7 @@ class HfLargefilesTest(HfApiCommonTest):
     def setUp(self):
         self.REPO_NAME_LARGE_FILE = large_file_repo_name()
         if os.path.exists(WORKING_REPO_DIR):
-            shutil.rmtree(WORKING_REPO_DIR, onerror=set_write_permission_and_retry)
+            rmtree_with_retry(WORKING_REPO_DIR)
         logger.info(
             f"Does {WORKING_REPO_DIR} exist: {os.path.exists(WORKING_REPO_DIR)}"
         )
