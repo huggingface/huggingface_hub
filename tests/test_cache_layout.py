@@ -327,18 +327,18 @@ class ReferenceUpdates(unittest.TestCase):
         Share this valid token in all tests below.
         """
         cls._token = TOKEN
+        cls._api.token = TOKEN
         cls._api.set_access_token(TOKEN)
 
     def test_update_reference(self):
         repo_id = f"{USER}/{repo_name()}"
-        create_repo(repo_id, token=self._token, exist_ok=True)
+        self._api.create_repo(repo_id, exist_ok=True)
 
         try:
-            upload_file(
+            self._api.upload_file(
                 path_or_fileobj=BytesIO(b"Some string"),
                 path_in_repo="file.txt",
                 repo_id=repo_id,
-                token=self._token,
             )
 
             with tempfile.TemporaryDirectory() as cache:
@@ -357,11 +357,10 @@ class ReferenceUpdates(unittest.TestCase):
                 )
 
                 # Upload a new file on the same branch
-                upload_file(
+                self._api.upload_file(
                     path_or_fileobj=BytesIO(b"Some new string"),
                     path_in_repo="file.txt",
                     repo_id=repo_id,
-                    token=self._token,
                 )
 
                 hf_hub_download(repo_id, "file.txt", cache_dir=cache)
@@ -400,4 +399,4 @@ class ReferenceUpdates(unittest.TestCase):
         except Exception:
             raise
         finally:
-            delete_repo(repo_id, token=self._token)
+            self._api.delete_repo(repo_id)

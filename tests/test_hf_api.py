@@ -163,6 +163,7 @@ class HfApiCommonTestWithLogin(HfApiCommonTest):
         Share this valid token in all tests below.
         """
         cls._token = TOKEN
+        cls._api.token = TOKEN
         cls._api.set_access_token(TOKEN)
 
 
@@ -170,7 +171,7 @@ class HfApiCommonTestWithLogin(HfApiCommonTest):
 def test_repo_id_no_warning():
     # tests that passing repo_id as positional arg doesn't raise any warnings
     # for {create, delete}_repo and update_repo_visibility
-    api = HfApi(endpoint=ENDPOINT_STAGING)
+    api = HfApi(endpoint=ENDPOINT_STAGING, token=TOKEN)
     REPO_NAME = repo_name("crud")
 
     args = [
@@ -181,9 +182,7 @@ def test_repo_id_no_warning():
 
     for method, kwargs in args:
         with warnings.catch_warnings(record=True) as record:
-            getattr(api, method)(
-                REPO_NAME, token=TOKEN, repo_type=REPO_TYPE_MODEL, **kwargs
-            )
+            getattr(api, method)(REPO_NAME, repo_type=REPO_TYPE_MODEL, **kwargs)
         assert not len(record)
 
 
@@ -200,8 +199,17 @@ class HfApiEndpointsTest(HfApiCommonTestWithLogin):
     def test_whoami_with_implicit_token_from_login(self, mock_HfFolder: Mock) -> None:
         """Test using `whoami` after a `huggingface-cli login`."""
         mock_HfFolder().get_token.return_value = self._token
+
+        with patch.object(self._api, "token", None):  # no default token
+            info = self._api.whoami()
+        self.assertEqual(info["name"], USER)
+
+    @patch("huggingface_hub.utils._headers.HfFolder")
+    def test_whoami_with_implicit_token_from_hf_api(self, mock_HfFolder: Mock) -> None:
+        """Test using `whoami` with token from the HfApi client."""
         info = self._api.whoami()
         self.assertEqual(info["name"], USER)
+        mock_HfFolder().get_token.assert_not_called()
 
     @retry_endpoint
     def test_delete_repo_error_message(self):
@@ -214,113 +222,72 @@ class HfApiEndpointsTest(HfApiCommonTestWithLogin):
                 flags=re.DOTALL,
             ),
         ):
-            self._api.delete_repo("repo-that-does-not-exist", token=self._token)
+            self._api.delete_repo("repo-that-does-not-exist")
 
     @retry_endpoint
     def test_create_update_and_delete_repo(self):
         REPO_NAME = repo_name("crud")
-        self._api.create_repo(repo_id=REPO_NAME, token=self._token)
-        res = self._api.update_repo_visibility(
-            repo_id=REPO_NAME, token=self._token, private=True
-        )
+        self._api.create_repo(repo_id=REPO_NAME)
+        res = self._api.update_repo_visibility(repo_id=REPO_NAME, private=True)
         self.assertTrue(res["private"])
-        res = self._api.update_repo_visibility(
-            repo_id=REPO_NAME, token=self._token, private=False
-        )
+        res = self._api.update_repo_visibility(repo_id=REPO_NAME, private=False)
         self.assertFalse(res["private"])
-        self._api.delete_repo(repo_id=REPO_NAME, token=self._token)
+        self._api.delete_repo(repo_id=REPO_NAME)
 
     @retry_endpoint
     def test_create_update_and_delete_model_repo(self):
         REPO_NAME = repo_name("crud")
-        self._api.create_repo(
-            repo_id=REPO_NAME, token=self._token, repo_type=REPO_TYPE_MODEL
-        )
+        self._api.create_repo(repo_id=REPO_NAME, repo_type=REPO_TYPE_MODEL)
         res = self._api.update_repo_visibility(
-            repo_id=REPO_NAME,
-            token=self._token,
-            private=True,
-            repo_type=REPO_TYPE_MODEL,
+            repo_id=REPO_NAME, private=True, repo_type=REPO_TYPE_MODEL
         )
         self.assertTrue(res["private"])
         res = self._api.update_repo_visibility(
-            repo_id=REPO_NAME,
-            token=self._token,
-            private=False,
-            repo_type=REPO_TYPE_MODEL,
+            repo_id=REPO_NAME, private=False, repo_type=REPO_TYPE_MODEL
         )
         self.assertFalse(res["private"])
-        self._api.delete_repo(
-            repo_id=REPO_NAME, token=self._token, repo_type=REPO_TYPE_MODEL
-        )
+        self._api.delete_repo(repo_id=REPO_NAME, repo_type=REPO_TYPE_MODEL)
 
     @retry_endpoint
     def test_create_update_and_delete_dataset_repo(self):
         DATASET_REPO_NAME = dataset_repo_name("crud")
-        self._api.create_repo(
-            repo_id=DATASET_REPO_NAME, token=self._token, repo_type=REPO_TYPE_DATASET
-        )
+        self._api.create_repo(repo_id=DATASET_REPO_NAME, repo_type=REPO_TYPE_DATASET)
         res = self._api.update_repo_visibility(
-            repo_id=DATASET_REPO_NAME,
-            token=self._token,
-            private=True,
-            repo_type=REPO_TYPE_DATASET,
+            repo_id=DATASET_REPO_NAME, private=True, repo_type=REPO_TYPE_DATASET
         )
         self.assertTrue(res["private"])
         res = self._api.update_repo_visibility(
-            repo_id=DATASET_REPO_NAME,
-            token=self._token,
-            private=False,
-            repo_type=REPO_TYPE_DATASET,
+            repo_id=DATASET_REPO_NAME, private=False, repo_type=REPO_TYPE_DATASET
         )
         self.assertFalse(res["private"])
-        self._api.delete_repo(
-            repo_id=DATASET_REPO_NAME, token=self._token, repo_type=REPO_TYPE_DATASET
-        )
+        self._api.delete_repo(repo_id=DATASET_REPO_NAME, repo_type=REPO_TYPE_DATASET)
 
     @retry_endpoint
     def test_create_update_and_delete_space_repo(self):
         SPACE_REPO_NAME = space_repo_name("failing")
         with pytest.raises(ValueError, match=r"No space_sdk provided.*"):
             self._api.create_repo(
-                token=self._token,
-                repo_id=SPACE_REPO_NAME,
-                repo_type=REPO_TYPE_SPACE,
-                space_sdk=None,
+                repo_id=SPACE_REPO_NAME, repo_type=REPO_TYPE_SPACE, space_sdk=None
             )
         with pytest.raises(ValueError, match=r"Invalid space_sdk.*"):
             self._api.create_repo(
-                token=self._token,
-                repo_id=SPACE_REPO_NAME,
-                repo_type=REPO_TYPE_SPACE,
-                space_sdk="asdfasdf",
+                repo_id=SPACE_REPO_NAME, repo_type=REPO_TYPE_SPACE, space_sdk="asdfasdf"
             )
 
         for sdk in SPACES_SDK_TYPES:
             SPACE_REPO_NAME = space_repo_name(sdk)
             self._api.create_repo(
-                repo_id=SPACE_REPO_NAME,
-                token=self._token,
-                repo_type=REPO_TYPE_SPACE,
-                space_sdk=sdk,
+                repo_id=SPACE_REPO_NAME, repo_type=REPO_TYPE_SPACE, space_sdk=sdk
             )
             res = self._api.update_repo_visibility(
-                repo_id=SPACE_REPO_NAME,
-                token=self._token,
-                private=True,
-                repo_type=REPO_TYPE_SPACE,
+                repo_id=SPACE_REPO_NAME, private=True, repo_type=REPO_TYPE_SPACE
             )
             self.assertTrue(res["private"])
             res = self._api.update_repo_visibility(
-                repo_id=SPACE_REPO_NAME,
-                token=self._token,
-                private=False,
-                repo_type=REPO_TYPE_SPACE,
+                repo_id=SPACE_REPO_NAME, private=False, repo_type=REPO_TYPE_SPACE
             )
             self.assertFalse(res["private"])
-            self._api.delete_repo(
-                repo_id=SPACE_REPO_NAME, token=self._token, repo_type=REPO_TYPE_SPACE
-            )
+            self._api.delete_repo(repo_id=SPACE_REPO_NAME, repo_type=REPO_TYPE_SPACE)
 
     @retry_endpoint
     def test_move_repo(self):
@@ -331,30 +298,17 @@ class HfApiEndpointsTest(HfApiCommonTestWithLogin):
 
         for repo_type in [REPO_TYPE_MODEL, REPO_TYPE_DATASET, REPO_TYPE_SPACE]:
             self._api.create_repo(
-                repo_id=REPO_NAME,
-                token=self._token,
-                repo_type=repo_type,
-                space_sdk="static",
+                repo_id=REPO_NAME, repo_type=repo_type, space_sdk="static"
             )
 
             with pytest.raises(ValueError, match=r"Invalid repo_id*"):
                 self._api.move_repo(
-                    from_id=repo_id,
-                    to_id="invalid_repo_id",
-                    token=self._token,
-                    repo_type=repo_type,
+                    from_id=repo_id, to_id="invalid_repo_id", repo_type=repo_type
                 )
 
             # Should raise an error if it fails
-            self._api.move_repo(
-                from_id=repo_id,
-                to_id=new_repo_id,
-                token=self._token,
-                repo_type=repo_type,
-            )
-            self._api.delete_repo(
-                repo_id=NEW_REPO_NAME, token=self._token, repo_type=repo_type
-            )
+            self._api.move_repo(from_id=repo_id, to_id=new_repo_id, repo_type=repo_type)
+            self._api.delete_repo(repo_id=NEW_REPO_NAME, repo_type=repo_type)
 
 
 class CommitApiTest(HfApiCommonTestWithLogin):
@@ -383,7 +337,6 @@ class CommitApiTest(HfApiCommonTestWithLogin):
                 path_in_repo="README.md",
                 repo_id=f"{USER}/{REPO_NAME}",
                 repo_type="this type does not exist",
-                token=self._token,
             )
 
     def test_commit_operation_validation(self):
@@ -410,13 +363,12 @@ class CommitApiTest(HfApiCommonTestWithLogin):
     @retry_endpoint
     def test_upload_file_path(self):
         REPO_NAME = repo_name("path")
-        self._api.create_repo(token=self._token, repo_id=REPO_NAME)
+        self._api.create_repo(repo_id=REPO_NAME)
         try:
             return_val = self._api.upload_file(
                 path_or_fileobj=self.tmp_file,
                 path_in_repo="temp/new_file.md",
                 repo_id=f"{USER}/{REPO_NAME}",
-                token=self._token,
             )
             self.assertEqual(
                 return_val,
@@ -437,28 +389,25 @@ class CommitApiTest(HfApiCommonTestWithLogin):
         except Exception as err:
             self.fail(err)
         finally:
-            self._api.delete_repo(repo_id=REPO_NAME, token=self._token)
+            self._api.delete_repo(repo_id=REPO_NAME)
 
     @retry_endpoint
     def test_upload_file_fileobj(self):
         REPO_NAME = repo_name("fileobj")
-        self._api.create_repo(repo_id=REPO_NAME, token=self._token)
+        self._api.create_repo(repo_id=REPO_NAME)
         try:
             with open(self.tmp_file, "rb") as filestream:
                 return_val = self._api.upload_file(
                     path_or_fileobj=filestream,
                     path_in_repo="temp/new_file.md",
                     repo_id=f"{USER}/{REPO_NAME}",
-                    token=self._token,
                 )
             self.assertEqual(
                 return_val,
                 f"{self._api.endpoint}/{USER}/{REPO_NAME}/blob/main/temp/new_file.md",
             )
             url = "{}/{user}/{repo}/resolve/main/temp/new_file.md".format(
-                ENDPOINT_STAGING,
-                user=USER,
-                repo=REPO_NAME,
+                ENDPOINT_STAGING, user=USER, repo=REPO_NAME
             )
             filepath = cached_download(
                 url, force_download=True, legacy_cache_layout=True
@@ -470,19 +419,18 @@ class CommitApiTest(HfApiCommonTestWithLogin):
         except Exception as err:
             self.fail(err)
         finally:
-            self._api.delete_repo(repo_id=REPO_NAME, token=self._token)
+            self._api.delete_repo(repo_id=REPO_NAME)
 
     @retry_endpoint
     def test_upload_file_bytesio(self):
         REPO_NAME = repo_name("bytesio")
-        self._api.create_repo(repo_id=REPO_NAME, token=self._token)
+        self._api.create_repo(repo_id=REPO_NAME)
         try:
             filecontent = BytesIO(b"File content, but in bytes IO")
             return_val = self._api.upload_file(
                 path_or_fileobj=filecontent,
                 path_in_repo="temp/new_file.md",
                 repo_id=f"{USER}/{REPO_NAME}",
-                token=self._token,
             )
             self.assertEqual(
                 return_val,
@@ -490,9 +438,7 @@ class CommitApiTest(HfApiCommonTestWithLogin):
             )
 
             url = "{}/{user}/{repo}/resolve/main/temp/new_file.md".format(
-                ENDPOINT_STAGING,
-                user=USER,
-                repo=REPO_NAME,
+                ENDPOINT_STAGING, user=USER, repo=REPO_NAME
             )
             filepath = cached_download(
                 url, force_download=True, legacy_cache_layout=True
@@ -504,7 +450,7 @@ class CommitApiTest(HfApiCommonTestWithLogin):
         except Exception as err:
             self.fail(err)
         finally:
-            self._api.delete_repo(repo_id=REPO_NAME, token=self._token)
+            self._api.delete_repo(repo_id=REPO_NAME)
 
     @retry_endpoint
     def test_create_repo_org_token_fail(self):
@@ -516,17 +462,17 @@ class CommitApiTest(HfApiCommonTestWithLogin):
 
     @retry_endpoint
     def test_create_repo_org_token_none_fail(self):
-        REPO_NAME = repo_name("org")
         HfFolder.save_token("api_org_dummy_token")
         with pytest.raises(
             ValueError, match="You must use your personal account token."
         ):
-            self._api.create_repo(repo_id=REPO_NAME)
+            with patch.object(self._api, "token", None):  # no default token
+                self._api.create_repo(repo_id=repo_name("org"))
 
     @retry_endpoint
     def test_upload_buffer(self):
         REPO_NAME = repo_name("buffer")
-        self._api.create_repo(repo_id=REPO_NAME, token=self._token)
+        self._api.create_repo(repo_id=REPO_NAME)
         try:
             buffer = BytesIO()
             buffer.write(self.tmp_file_content.encode())
@@ -534,7 +480,6 @@ class CommitApiTest(HfApiCommonTestWithLogin):
                 path_or_fileobj=buffer.getvalue(),
                 path_in_repo="temp/new_file.md",
                 repo_id=f"{USER}/{REPO_NAME}",
-                token=self._token,
             )
             self.assertEqual(
                 return_val,
@@ -542,9 +487,7 @@ class CommitApiTest(HfApiCommonTestWithLogin):
             )
 
             url = "{}/{user}/{repo}/resolve/main/temp/new_file.md".format(
-                ENDPOINT_STAGING,
-                user=USER,
-                repo=REPO_NAME,
+                ENDPOINT_STAGING, user=USER, repo=REPO_NAME
             )
             filepath = cached_download(
                 url, force_download=True, legacy_cache_layout=True
@@ -556,13 +499,13 @@ class CommitApiTest(HfApiCommonTestWithLogin):
         except Exception as err:
             self.fail(err)
         finally:
-            self._api.delete_repo(repo_id=REPO_NAME, token=self._token)
+            self._api.delete_repo(repo_id=REPO_NAME)
 
     @retry_endpoint
     def test_upload_file_create_pr(self):
         REPO_NAME = repo_name("buffer")
         pr_revision = quote("refs/pr/1", safe="")
-        self._api.create_repo(repo_id=REPO_NAME, token=self._token)
+        self._api.create_repo(repo_id=REPO_NAME)
         try:
             buffer = BytesIO()
             buffer.write(self.tmp_file_content.encode())
@@ -570,7 +513,6 @@ class CommitApiTest(HfApiCommonTestWithLogin):
                 path_or_fileobj=buffer.getvalue(),
                 path_in_repo="temp/new_file.md",
                 repo_id=f"{USER}/{REPO_NAME}",
-                token=self._token,
                 create_pr=True,
             )
             self.assertEqual(
@@ -579,10 +521,7 @@ class CommitApiTest(HfApiCommonTestWithLogin):
             )
 
             url = "{}/{user}/{repo}/resolve/{revision}/temp/new_file.md".format(
-                ENDPOINT_STAGING,
-                revision=pr_revision,
-                user=USER,
-                repo=REPO_NAME,
+                ENDPOINT_STAGING, revision=pr_revision, user=USER, repo=REPO_NAME
             )
             filepath = cached_download(
                 url, force_download=True, legacy_cache_layout=True
@@ -594,23 +533,20 @@ class CommitApiTest(HfApiCommonTestWithLogin):
         except Exception as err:
             self.fail(err)
         finally:
-            self._api.delete_repo(repo_id=REPO_NAME, token=self._token)
+            self._api.delete_repo(repo_id=REPO_NAME)
 
     @retry_endpoint
     def test_delete_file(self):
         REPO_NAME = repo_name("delete")
-        self._api.create_repo(token=self._token, repo_id=REPO_NAME)
+        self._api.create_repo(repo_id=REPO_NAME)
         try:
             self._api.upload_file(
                 path_or_fileobj=self.tmp_file,
                 path_in_repo="temp/new_file.md",
                 repo_id=f"{USER}/{REPO_NAME}",
-                token=self._token,
             )
             self._api.delete_file(
-                path_in_repo="temp/new_file.md",
-                repo_id=f"{USER}/{REPO_NAME}",
-                token=self._token,
+                path_in_repo="temp/new_file.md", repo_id=f"{USER}/{REPO_NAME}"
             )
 
             with self.assertRaises(HTTPError):
@@ -620,16 +556,14 @@ class CommitApiTest(HfApiCommonTestWithLogin):
         except Exception as err:
             self.fail(err)
         finally:
-            self._api.delete_repo(repo_id=REPO_NAME, token=self._token)
+            self._api.delete_repo(repo_id=REPO_NAME)
 
     def test_get_full_repo_name(self):
-        repo_name_with_no_org = self._api.get_full_repo_name(
-            "model", use_auth_token=self._token
-        )
+        repo_name_with_no_org = self._api.get_full_repo_name("model")
         self.assertEqual(repo_name_with_no_org, f"{USER}/model")
 
         repo_name_with_no_org = self._api.get_full_repo_name(
-            "model", organization="org", use_auth_token=self._token
+            "model", organization="org"
         )
         self.assertEqual(repo_name_with_no_org, "org/model")
 
@@ -640,17 +574,13 @@ class CommitApiTest(HfApiCommonTestWithLogin):
             with self.subTest(f"{visibility} repo"):
                 REPO_NAME = repo_name(f"upload_folder_{visibility}")
                 self._api.create_repo(
-                    token=self._token,
-                    repo_id=REPO_NAME,
-                    private=private,
-                    exist_ok=False,
+                    repo_id=REPO_NAME, private=private, exist_ok=False
                 )
                 try:
                     url = self._api.upload_folder(
                         folder_path=self.tmp_dir,
                         path_in_repo="temp/dir",
                         repo_id=f"{USER}/{REPO_NAME}",
-                        token=self._token,
                     )
                     self.assertEqual(
                         url,
@@ -663,7 +593,6 @@ class CommitApiTest(HfApiCommonTestWithLogin):
                             repo_id=f"{USER}/{REPO_NAME}",
                             filename=remote_path,
                             revision="main",
-                            use_auth_token=self._token,
                         )
                         assert filepath is not None
                         with open(filepath, "rb") as downloaded_file:
@@ -677,12 +606,11 @@ class CommitApiTest(HfApiCommonTestWithLogin):
                         folder_path=self.tmp_dir,
                         path_in_repo="temp/dir",
                         repo_id=f"{USER}/{REPO_NAME}",
-                        token=self._token,
                     )
                 except Exception as err:
                     self.fail(err)
                 finally:
-                    self._api.delete_repo(repo_id=REPO_NAME, token=self._token)
+                    self._api.delete_repo(repo_id=REPO_NAME)
 
     @retry_endpoint
     def test_upload_folder_create_pr(self):
@@ -692,17 +620,13 @@ class CommitApiTest(HfApiCommonTestWithLogin):
             with self.subTest(f"{visibility} repo"):
                 REPO_NAME = repo_name(f"upload_folder_{visibility}")
                 self._api.create_repo(
-                    token=self._token,
-                    repo_id=REPO_NAME,
-                    private=private,
-                    exist_ok=False,
+                    repo_id=REPO_NAME, private=private, exist_ok=False
                 )
                 try:
                     return_val = self._api.upload_folder(
                         folder_path=self.tmp_dir,
                         path_in_repo="temp/dir",
                         repo_id=f"{USER}/{REPO_NAME}",
-                        token=self._token,
                         create_pr=True,
                     )
                     self.assertEqual(
@@ -716,7 +640,6 @@ class CommitApiTest(HfApiCommonTestWithLogin):
                             repo_id=f"{USER}/{REPO_NAME}",
                             filename=remote_path,
                             revision="refs/pr/1",
-                            use_auth_token=self._token,
                         )
                         assert filepath is not None
                         with open(filepath, "rb") as downloaded_file:
@@ -727,20 +650,14 @@ class CommitApiTest(HfApiCommonTestWithLogin):
                 except Exception as err:
                     self.fail(err)
                 finally:
-                    self._api.delete_repo(repo_id=REPO_NAME, token=self._token)
+                    self._api.delete_repo(repo_id=REPO_NAME)
 
     @retry_endpoint
     def test_upload_folder_default_path_in_repo(self):
         REPO_NAME = repo_name("upload_folder_to_root")
-        self._api.create_repo(
-            token=self._token,
-            repo_id=REPO_NAME,
-            exist_ok=False,
-        )
+        self._api.create_repo(repo_id=REPO_NAME, exist_ok=False)
         url = self._api.upload_folder(
-            folder_path=self.tmp_dir,
-            repo_id=f"{USER}/{REPO_NAME}",
-            token=self._token,
+            folder_path=self.tmp_dir, repo_id=f"{USER}/{REPO_NAME}"
         )
         # URL to root of repository
         self.assertEqual(url, f"{self._api.endpoint}/{USER}/{REPO_NAME}/tree/main/")
@@ -748,17 +665,12 @@ class CommitApiTest(HfApiCommonTestWithLogin):
     @retry_endpoint
     def test_create_commit_create_pr(self):
         REPO_NAME = repo_name("create_commit_create_pr")
-        self._api.create_repo(
-            token=self._token,
-            repo_id=REPO_NAME,
-            exist_ok=False,
-        )
+        self._api.create_repo(repo_id=REPO_NAME, exist_ok=False)
         try:
             self._api.upload_file(
                 path_or_fileobj=self.tmp_file,
                 path_in_repo="temp/new_file.md",
                 repo_id=f"{USER}/{REPO_NAME}",
-                token=self._token,
             )
             operations = [
                 CommitOperationDelete(path_in_repo="temp/new_file.md"),
@@ -770,7 +682,6 @@ class CommitApiTest(HfApiCommonTestWithLogin):
                 operations=operations,
                 commit_message="Test create_commit",
                 repo_id=f"{USER}/{REPO_NAME}",
-                token=self._token,
                 create_pr=True,
             )
 
@@ -796,9 +707,7 @@ class CommitApiTest(HfApiCommonTestWithLogin):
             with self.assertRaises(HTTPError) as ctx:
                 # Should raise a 404
                 hf_hub_download(
-                    f"{USER}/{REPO_NAME}",
-                    "buffer",
-                    use_auth_token=self._token,
+                    f"{USER}/{REPO_NAME}", "buffer", use_auth_token=self._token
                 )
                 self.assertEqual(ctx.exception.response.status_code, 404)
             filepath = hf_hub_download(
@@ -814,7 +723,7 @@ class CommitApiTest(HfApiCommonTestWithLogin):
         except Exception as err:
             self.fail(err)
         finally:
-            self._api.delete_repo(repo_id=REPO_NAME, token=self._token)
+            self._api.delete_repo(repo_id=REPO_NAME)
 
     @retry_endpoint
     def test_create_commit(self):
@@ -823,17 +732,13 @@ class CommitApiTest(HfApiCommonTestWithLogin):
             with self.subTest(f"{visibility} repo"):
                 REPO_NAME = repo_name(f"create_commit_{visibility}")
                 self._api.create_repo(
-                    token=self._token,
-                    repo_id=REPO_NAME,
-                    private=private,
-                    exist_ok=False,
+                    repo_id=REPO_NAME, private=private, exist_ok=False
                 )
                 try:
                     self._api.upload_file(
                         path_or_fileobj=self.tmp_file,
                         path_in_repo="temp/new_file.md",
                         repo_id=f"{USER}/{REPO_NAME}",
-                        token=self._token,
                     )
                     with open(self.tmp_file, "rb") as fileobj:
                         operations = [
@@ -857,7 +762,6 @@ class CommitApiTest(HfApiCommonTestWithLogin):
                             operations=operations,
                             commit_message="Test create_commit",
                             repo_id=f"{USER}/{REPO_NAME}",
-                            token=self._token,
                         )
                         # Check commit info
                         self.assertIsInstance(resp, CommitInfo)
@@ -891,23 +795,18 @@ class CommitApiTest(HfApiCommonTestWithLogin):
                 except Exception as err:
                     self.fail(err)
                 finally:
-                    self._api.delete_repo(repo_id=REPO_NAME, token=self._token)
+                    self._api.delete_repo(repo_id=REPO_NAME)
 
     @retry_endpoint
     def test_create_commit_conflict(self):
         REPO_NAME = repo_name("create_commit_conflict")
-        self._api.create_repo(
-            token=self._token,
-            repo_id=REPO_NAME,
-            exist_ok=False,
-        )
+        self._api.create_repo(repo_id=REPO_NAME, exist_ok=False)
         parent_commit = self._api.model_info(f"{USER}/{REPO_NAME}").sha
         try:
             self._api.upload_file(
                 path_or_fileobj=self.tmp_file,
                 path_in_repo="temp/new_file.md",
                 repo_id=f"{USER}/{REPO_NAME}",
-                token=self._token,
             )
             operations = [
                 CommitOperationAdd(
@@ -919,7 +818,6 @@ class CommitApiTest(HfApiCommonTestWithLogin):
                     operations=operations,
                     commit_message="Test create_commit",
                     repo_id=f"{USER}/{REPO_NAME}",
-                    token=self._token,
                     parent_commit=parent_commit,
                 )
             self.assertEqual(exc_ctx.exception.response.status_code, 412)
@@ -931,7 +829,7 @@ class CommitApiTest(HfApiCommonTestWithLogin):
         except Exception as err:
             self.fail(err)
         finally:
-            self._api.delete_repo(repo_id=REPO_NAME, token=self._token)
+            self._api.delete_repo(repo_id=REPO_NAME)
 
     @retry_endpoint
     def test_create_commit_repo_does_not_exist(self) -> None:
@@ -941,7 +839,6 @@ class CommitApiTest(HfApiCommonTestWithLogin):
                 repo_id=f"{USER}/repo_that_do_not_exist",
                 operations=[],  # empty commit
                 commit_message="fake_message",
-                token=self._token,
             )
 
         request_id = context.exception.response.headers.get("X-Request-Id")
@@ -966,7 +863,7 @@ class CommitApiTest(HfApiCommonTestWithLogin):
         REPO_NAME = repo_name("create_commit_with_lfs")
         repo_id = f"{USER}/{REPO_NAME}"
 
-        with patch("huggingface_hub.utils.HfFolder.get_token") as mock:
+        def _inner(mock: Mock) -> None:
             mock.return_value = self._token  # Set implicit token
 
             # Create repo
@@ -1005,6 +902,10 @@ class CommitApiTest(HfApiCommonTestWithLogin):
             # Delete repo
             self._api.delete_repo(repo_id=REPO_NAME, token=self._token)
 
+        with patch.object(self._api, "token", None):  # no default token
+            with patch("huggingface_hub.utils.HfFolder.get_token") as mock:
+                _inner(mock)  # just to avoid indenting twice the code code
+
 
 class HfApiTagEndpointTest(HfApiCommonTestWithLogin):
     _user = USER
@@ -1015,19 +916,12 @@ class HfApiTagEndpointTest(HfApiCommonTestWithLogin):
     def test_create_tag_on_main(self) -> None:
         """Check `create_tag` on default main branch works."""
         self._api.create_tag(
-            self._repo_id,
-            tag="v0",
-            tag_message="This is a tag message.",
-            token=self._token,
+            self._repo_id, tag="v0", tag_message="This is a tag message."
         )
 
         # Check tag  is on `main`
-        tag_info = self._api.model_info(
-            self._repo_id, revision="v0", use_auth_token=self._token
-        )
-        main_info = self._api.model_info(
-            self._repo_id, revision="main", use_auth_token=self._token
-        )
+        tag_info = self._api.model_info(self._repo_id, revision="v0")
+        main_info = self._api.model_info(self._repo_id, revision="main")
         self.assertEqual(tag_info.sha, main_info.sha)
 
     @retry_endpoint
@@ -1037,7 +931,6 @@ class HfApiTagEndpointTest(HfApiCommonTestWithLogin):
         # Create a PR with a readme
         commit_info: CommitInfo = self._api.create_commit(
             repo_id=self._repo_id,
-            token=self._token,
             create_pr=True,
             commit_message="upload readme",
             operations=[
@@ -1048,18 +941,12 @@ class HfApiTagEndpointTest(HfApiCommonTestWithLogin):
         )
 
         # Tag the PR
-        self._api.create_tag(
-            self._repo_id, tag="v0", token=self._token, revision=commit_info.pr_revision
-        )
+        self._api.create_tag(self._repo_id, tag="v0", revision=commit_info.pr_revision)
 
         # Check tag  is on `refs/pr/1`
-        tag_info = self._api.model_info(
-            self._repo_id, revision="v0", use_auth_token=self._token
-        )
-        pr_info = self._api.model_info(
-            self._repo_id, revision=commit_info.pr_revision, use_auth_token=self._token
-        )
-        main_info = self._api.model_info(self._repo_id, use_auth_token=self._token)
+        tag_info = self._api.model_info(self._repo_id, revision="v0")
+        pr_info = self._api.model_info(self._repo_id, revision=commit_info.pr_revision)
+        main_info = self._api.model_info(self._repo_id)
 
         self.assertEqual(tag_info.sha, pr_info.sha)
         self.assertNotEqual(tag_info.sha, main_info.sha)
@@ -1075,7 +962,6 @@ class HfApiTagEndpointTest(HfApiCommonTestWithLogin):
         commit_info_1: CommitInfo = self._api.create_commit(
             repo_id=self._repo_id,
             repo_type="dataset",
-            token=self._token,
             commit_message="upload readme",
             operations=[
                 CommitOperationAdd(
@@ -1086,7 +972,6 @@ class HfApiTagEndpointTest(HfApiCommonTestWithLogin):
         commit_info_2: CommitInfo = self._api.create_commit(
             repo_id=self._repo_id,
             repo_type="dataset",
-            token=self._token,
             commit_message="upload config",
             operations=[
                 CommitOperationAdd(
@@ -1100,24 +985,18 @@ class HfApiTagEndpointTest(HfApiCommonTestWithLogin):
             self._repo_id,
             tag="commit_1",
             repo_type="dataset",
-            token=self._token,
             revision=commit_info_1.oid,  # long version
         )
         self._api.create_tag(
             self._repo_id,
             tag="commit_2",
             repo_type="dataset",
-            token=self._token,
             revision=commit_info_2.oid[:7],  # use shorthand !
         )
 
         # Check tags
-        tag_1_info = self._api.dataset_info(
-            self._repo_id, revision="commit_1", use_auth_token=self._token
-        )
-        tag_2_info = self._api.dataset_info(
-            self._repo_id, revision="commit_2", use_auth_token=self._token
-        )
+        tag_1_info = self._api.dataset_info(self._repo_id, revision="commit_1")
+        tag_2_info = self._api.dataset_info(self._repo_id, revision="commit_2")
 
         self.assertEqual(tag_1_info.sha, commit_info_1.oid)
         self.assertEqual(tag_2_info.sha, commit_info_2.oid)
@@ -1127,16 +1006,14 @@ class HfApiTagEndpointTest(HfApiCommonTestWithLogin):
     def test_invalid_tag_name(self) -> None:
         """Check `create_tag` with an invalid tag name."""
         with self.assertRaises(HTTPError):
-            self._api.create_tag(self._repo_id, tag="invalid tag", token=self._token)
+            self._api.create_tag(self._repo_id, tag="invalid tag")
 
     @retry_endpoint
     @use_tmp_repo("model")
     def test_create_tag_on_missing_revision(self) -> None:
         """Check `create_tag` on a missing revision."""
         with self.assertRaises(RevisionNotFoundError):
-            self._api.create_tag(
-                self._repo_id, tag="invalid tag", token=self._token, revision="foobar"
-            )
+            self._api.create_tag(self._repo_id, tag="invalid tag", revision="foobar")
 
 
 class HfApiPublicTest(unittest.TestCase):
@@ -1665,74 +1542,72 @@ class HfApiPrivateTest(HfApiCommonTestWithLogin):
     def setUp(self) -> None:
         super().setUp()
         self.REPO_NAME = repo_name("private")
-        self._api.create_repo(repo_id=self.REPO_NAME, token=self._token, private=True)
-        self._api.create_repo(
-            repo_id=self.REPO_NAME, token=self._token, private=True, repo_type="dataset"
-        )
+        self._api.create_repo(repo_id=self.REPO_NAME, private=True)
+        self._api.create_repo(repo_id=self.REPO_NAME, private=True, repo_type="dataset")
 
     def tearDown(self) -> None:
-        self._api.delete_repo(repo_id=self.REPO_NAME, token=self._token)
-        self._api.delete_repo(
-            repo_id=self.REPO_NAME, token=self._token, repo_type="dataset"
-        )
+        self._api.delete_repo(repo_id=self.REPO_NAME)
+        self._api.delete_repo(repo_id=self.REPO_NAME, repo_type="dataset")
 
     def test_model_info(self):
         shutil.rmtree(os.path.dirname(HfFolder.path_token), ignore_errors=True)
-        # Test we cannot access model info without a token
-        with self.assertRaisesRegex(
-            requests.exceptions.HTTPError,
-            re.compile(
-                r"401 Client Error(.+)\(Request ID: .+\)(.*)Repository Not Found",
-                flags=re.DOTALL,
-            ),
-        ):
-            _ = self._api.model_info(repo_id=f"{USER}/{self.REPO_NAME}")
-        # Test we can access model info with a token
-        with self.assertWarns(FutureWarning):
+        with patch.object(self._api, "token", None):  # no default token
+            # Test we cannot access model info without a token
+            with self.assertRaisesRegex(
+                requests.exceptions.HTTPError,
+                re.compile(
+                    r"401 Client Error(.+)\(Request ID: .+\)(.*)Repository Not Found",
+                    flags=re.DOTALL,
+                ),
+            ):
+                _ = self._api.model_info(repo_id=f"{USER}/{self.REPO_NAME}")
+            # Test we can access model info with a token
+            with self.assertWarns(FutureWarning):
+                model_info = self._api.model_info(
+                    repo_id=f"{USER}/{self.REPO_NAME}", token=self._token
+                )
+                self.assertIsInstance(model_info, ModelInfo)
             model_info = self._api.model_info(
-                repo_id=f"{USER}/{self.REPO_NAME}", token=self._token
+                repo_id=f"{USER}/{self.REPO_NAME}", use_auth_token=self._token
             )
             self.assertIsInstance(model_info, ModelInfo)
-        model_info = self._api.model_info(
-            repo_id=f"{USER}/{self.REPO_NAME}", use_auth_token=self._token
-        )
-        self.assertIsInstance(model_info, ModelInfo)
 
     def test_dataset_info(self):
         shutil.rmtree(os.path.dirname(HfFolder.path_token), ignore_errors=True)
-        # Test we cannot access model info without a token
-        with self.assertRaisesRegex(
-            requests.exceptions.HTTPError,
-            re.compile(
-                r"401 Client Error(.+)\(Request ID: .+\)(.*)Repository Not Found",
-                flags=re.DOTALL,
-            ),
-        ):
-            _ = self._api.dataset_info(repo_id=f"{USER}/{self.REPO_NAME}")
-        # Test we can access model info with a token
-        with self.assertWarns(FutureWarning):
+        with patch.object(self._api, "token", None):  # no default token
+            # Test we cannot access model info without a token
+            with self.assertRaisesRegex(
+                requests.exceptions.HTTPError,
+                re.compile(
+                    r"401 Client Error(.+)\(Request ID: .+\)(.*)Repository Not Found",
+                    flags=re.DOTALL,
+                ),
+            ):
+                _ = self._api.dataset_info(repo_id=f"{USER}/{self.REPO_NAME}")
+            # Test we can access model info with a token
+            with self.assertWarns(FutureWarning):
+                dataset_info = self._api.dataset_info(
+                    repo_id=f"{USER}/{self.REPO_NAME}", token=self._token
+                )
+                self.assertIsInstance(dataset_info, DatasetInfo)
             dataset_info = self._api.dataset_info(
-                repo_id=f"{USER}/{self.REPO_NAME}", token=self._token
+                repo_id=f"{USER}/{self.REPO_NAME}", use_auth_token=self._token
             )
             self.assertIsInstance(dataset_info, DatasetInfo)
-        dataset_info = self._api.dataset_info(
-            repo_id=f"{USER}/{self.REPO_NAME}", use_auth_token=self._token
-        )
-        self.assertIsInstance(dataset_info, DatasetInfo)
 
     def test_list_private_datasets(self):
-        orig = len(self._api.list_datasets())
+        orig = len(self._api.list_datasets(use_auth_token=False))
         new = len(self._api.list_datasets(use_auth_token=self._token))
         self.assertGreater(new, orig)
 
     def test_list_private_models(self):
-        orig = len(self._api.list_models())
+        orig = len(self._api.list_models(use_auth_token=False))
         new = len(self._api.list_models(use_auth_token=self._token))
         self.assertGreater(new, orig)
 
     @with_production_testing
     def test_list_private_spaces(self):
-        orig = len(self._api.list_spaces())
+        orig = len(self._api.list_spaces(use_auth_token=False))
         new = len(self._api.list_spaces(use_auth_token=self._token))
         self.assertGreaterEqual(new, orig)
 
@@ -1765,6 +1640,7 @@ class HfLargefilesTest(HfApiCommonTest):
         Share this valid token in all tests below.
         """
         cls._token = TOKEN
+        cls._api.token = TOKEN
         cls._api.set_access_token(TOKEN)
 
     def setUp(self):
@@ -1776,7 +1652,7 @@ class HfLargefilesTest(HfApiCommonTest):
         )
 
     def tearDown(self):
-        self._api.delete_repo(repo_id=self.REPO_NAME_LARGE_FILE, token=self._token)
+        self._api.delete_repo(repo_id=self.REPO_NAME_LARGE_FILE)
 
     def setup_local_clone(self, REMOTE_URL):
         REMOTE_URL_AUTH = REMOTE_URL.replace(
@@ -1798,10 +1674,7 @@ class HfLargefilesTest(HfApiCommonTest):
     @retry_endpoint
     def test_end_to_end_thresh_6M(self):
         self._api._lfsmultipartthresh = 6 * 10**6
-        REMOTE_URL = self._api.create_repo(
-            repo_id=self.REPO_NAME_LARGE_FILE,
-            token=self._token,
-        )
+        REMOTE_URL = self._api.create_repo(repo_id=self.REPO_NAME_LARGE_FILE)
         self._api._lfsmultipartthresh = None
         self.setup_local_clone(REMOTE_URL)
 
@@ -1853,10 +1726,7 @@ class HfLargefilesTest(HfApiCommonTest):
     def test_end_to_end_thresh_16M(self):
         # Here we'll push one multipart and one non-multipart file in the same commit, and see what happens
         self._api._lfsmultipartthresh = 16 * 10**6
-        REMOTE_URL = self._api.create_repo(
-            repo_id=self.REPO_NAME_LARGE_FILE,
-            token=self._token,
-        )
+        REMOTE_URL = self._api.create_repo(repo_id=self.REPO_NAME_LARGE_FILE)
         self._api._lfsmultipartthresh = None
         self.setup_local_clone(REMOTE_URL)
 
@@ -1914,29 +1784,21 @@ class HfApiDiscussionsTest(HfApiCommonTestWithLogin):
     def setUp(self):
         super().setUp()
         self.repo_name = f"{USER}/{repo_name()}"
-        self._api.create_repo(repo_id=self.repo_name, token=self._token)
+        self._api.create_repo(repo_id=self.repo_name)
         self.pull_request = self._api.create_discussion(
-            repo_id=self.repo_name,
-            pull_request=True,
-            title="Test Pull Request",
-            token=self._token,
+            repo_id=self.repo_name, pull_request=True, title="Test Pull Request"
         )
         self.discussion = self._api.create_discussion(
-            repo_id=self.repo_name,
-            pull_request=False,
-            title="Test Discussion",
-            token=self._token,
+            repo_id=self.repo_name, pull_request=False, title="Test Discussion"
         )
 
     def tearDown(self):
-        self._api.delete_repo(repo_id=self.repo_name, token=self._token)
+        self._api.delete_repo(repo_id=self.repo_name)
         super().tearDown()
 
     def test_create_discussion(self):
         discussion = self._api.create_discussion(
-            repo_id=self.repo_name,
-            title=" Test discussion !  ",
-            token=self._token,
+            repo_id=self.repo_name, title=" Test discussion !  "
         )
         self.assertEqual(discussion.num, 3)
         self.assertEqual(discussion.author, USER)
@@ -1945,10 +1807,7 @@ class HfApiDiscussionsTest(HfApiCommonTestWithLogin):
 
     def test_create_pull_request(self):
         discussion = self._api.create_discussion(
-            repo_id=self.repo_name,
-            title=" Test PR !  ",
-            token=self._token,
-            pull_request=True,
+            repo_id=self.repo_name, title=" Test PR !  ", pull_request=True
         )
         self.assertEqual(discussion.num, 3)
         self.assertEqual(discussion.author, USER)
@@ -1984,7 +1843,6 @@ class HfApiDiscussionsTest(HfApiCommonTestWithLogin):
             discussion_num=self.pull_request.num,
             comment_id=get_first_comment(self.pull_request).id,
             new_content="**Edited** comment 🤗",
-            token=self._token,
         )
         retrieved = self._api.get_discussion_details(
             repo_id=self.repo_name, discussion_num=self.pull_request.num
@@ -2007,7 +1865,6 @@ class HfApiDiscussionsTest(HfApiCommonTestWithLogin):
                 **With formatting**, including *italic text* & ~strike through~
                 And even [links](http://hf.co)! 💥🤯
             """,
-            token=self._token,
         )
         retrieved = self._api.get_discussion_details(
             repo_id=self.repo_name, discussion_num=self.discussion.num
@@ -2020,7 +1877,6 @@ class HfApiDiscussionsTest(HfApiCommonTestWithLogin):
             repo_id=self.repo_name,
             discussion_num=self.discussion.num,
             new_title="New titlee",
-            token=self._token,
         )
         retrieved = self._api.get_discussion_details(
             repo_id=self.repo_name, discussion_num=self.discussion.num
@@ -2034,7 +1890,6 @@ class HfApiDiscussionsTest(HfApiCommonTestWithLogin):
             repo_id=self.repo_name,
             discussion_num=self.discussion.num,
             new_status="closed",
-            token=self._token,
         )
         retrieved = self._api.get_discussion_details(
             repo_id=self.repo_name, discussion_num=self.discussion.num
@@ -2047,7 +1902,6 @@ class HfApiDiscussionsTest(HfApiCommonTestWithLogin):
                 repo_id=self.repo_name,
                 discussion_num=self.discussion.num,
                 new_status="published",
-                token=self._token,
             )
 
     # @unittest.skip("To unskip when create_commit works for arbitrary references")
@@ -2059,17 +1913,13 @@ class HfApiDiscussionsTest(HfApiCommonTestWithLogin):
                 CommitOperationAdd(path_in_repo="file.test", path_or_fileobj=b"Content")
             ],
             revision=self.pull_request.git_reference,
-            token=self._token,
         )
         self._api.change_discussion_status(
             repo_id=self.repo_name,
             discussion_num=self.pull_request.num,
             new_status="open",
-            token=self._token,
         )
-        self._api.merge_pull_request(
-            self.repo_name, self.pull_request.num, token=self._token
-        )
+        self._api.merge_pull_request(self.repo_name, self.pull_request.num)
 
         retrieved = self._api.get_discussion_details(
             repo_id=self.repo_name, discussion_num=self.pull_request.num

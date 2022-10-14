@@ -22,7 +22,7 @@ REPO_NAME = "dummy-hf-hub-{}".format(int(time.time() * 10e3))
 
 
 class SnapshotDownloadTests(unittest.TestCase):
-    _api = HfApi(endpoint=ENDPOINT_STAGING)
+    _api = HfApi(endpoint=ENDPOINT_STAGING, token=TOKEN)
 
     @classmethod
     def setUpClass(cls):
@@ -37,7 +37,7 @@ class SnapshotDownloadTests(unittest.TestCase):
         if os.path.exists(REPO_NAME):
             shutil.rmtree(REPO_NAME, onerror=set_write_permission_and_retry)
         logger.info(f"Does {REPO_NAME} exist: {os.path.exists(REPO_NAME)}")
-        self._api.create_repo(f"{USER}/{REPO_NAME}", token=self._token)
+        self._api.create_repo(f"{USER}/{REPO_NAME}")
         repo = Repository(
             REPO_NAME,
             clone_from=f"{USER}/{REPO_NAME}",
@@ -67,7 +67,7 @@ class SnapshotDownloadTests(unittest.TestCase):
         self.third_commit_hash = repo.git_head_hash()
 
     def tearDown(self) -> None:
-        self._api.delete_repo(repo_id=REPO_NAME, token=self._token)
+        self._api.delete_repo(repo_id=REPO_NAME)
         shutil.rmtree(REPO_NAME)
 
     def test_download_model(self):
@@ -113,9 +113,7 @@ class SnapshotDownloadTests(unittest.TestCase):
             self.assertTrue(self.first_commit_hash in storage_folder)
 
     def test_download_private_model(self):
-        self._api.update_repo_visibility(
-            token=self._token, repo_id=REPO_NAME, private=True
-        )
+        self._api.update_repo_visibility(repo_id=REPO_NAME, private=True)
 
         # Test download fails without token
         with tempfile.TemporaryDirectory() as tmpdirname:
@@ -173,9 +171,7 @@ class SnapshotDownloadTests(unittest.TestCase):
             # folder name contains the revision's commit sha.
             self.assertTrue(self.second_commit_hash in storage_folder)
 
-        self._api.update_repo_visibility(
-            token=self._token, repo_id=REPO_NAME, private=False
-        )
+        self._api.update_repo_visibility(repo_id=REPO_NAME, private=False)
 
     def test_download_model_local_only(self):
         # Test no branch specified

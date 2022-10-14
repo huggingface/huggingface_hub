@@ -220,7 +220,7 @@ class RepocardMetadataTest(unittest.TestCase):
 
 
 class RepocardMetadataUpdateTest(unittest.TestCase):
-    _api = HfApi(endpoint=ENDPOINT_STAGING)
+    _api = HfApi(endpoint=ENDPOINT_STAGING, token=TOKEN)
 
     @classmethod
     def setUpClass(cls):
@@ -234,13 +234,12 @@ class RepocardMetadataUpdateTest(unittest.TestCase):
     def setUp(self) -> None:
         self.repo_path = Path(tempfile.mkdtemp())
         self.REPO_NAME = repo_name()
-        self._api.create_repo(f"{USER}/{self.REPO_NAME}", token=self._token)
+        self._api.create_repo(f"{USER}/{self.REPO_NAME}")
         self._api.upload_file(
             path_or_fileobj=DUMMY_MODELCARD_EVAL_RESULT.encode(),
             repo_id=f"{USER}/{self.REPO_NAME}",
             path_in_repo="README.md",
             commit_message="Add README to main branch",
-            token=self._token,
         )
 
         self.repo = Repository(
@@ -255,7 +254,7 @@ class RepocardMetadataUpdateTest(unittest.TestCase):
         )
 
     def tearDown(self) -> None:
-        self._api.delete_repo(repo_id=f"{self.REPO_NAME}", token=self._token)
+        self._api.delete_repo(repo_id=f"{self.REPO_NAME}")
         shutil.rmtree(self.repo_path)
 
     def test_update_dataset_name(self):
@@ -426,7 +425,7 @@ class TestMetadataUpdateOnMissingCard(unittest.TestCase):
         self._repo_id = f"{USER}/{repo_name()}"
 
     def test_metadata_update_missing_readme_on_model(self) -> None:
-        self._api.create_repo(self._repo_id, token=self._token)
+        self._api.create_repo(self._repo_id)
         metadata_update(self._repo_id, {"tag": "this_is_a_test"}, token=self._token)
         model_card = ModelCard.load(self._repo_id, token=self._token)
 
@@ -434,10 +433,10 @@ class TestMetadataUpdateOnMissingCard(unittest.TestCase):
         self.assertIn("# Model Card for Model ID", str(model_card))
         self.assertEqual(model_card.data.to_dict(), {"tag": "this_is_a_test"})
 
-        self._api.delete_repo(self._repo_id, token=self._token)
+        self._api.delete_repo(self._repo_id)
 
     def test_metadata_update_missing_readme_on_dataset(self) -> None:
-        self._api.create_repo(self._repo_id, repo_type="dataset", token=self._token)
+        self._api.create_repo(self._repo_id, repo_type="dataset")
         metadata_update(
             self._repo_id,
             {"tag": "this is a dataset test"},
@@ -450,15 +449,11 @@ class TestMetadataUpdateOnMissingCard(unittest.TestCase):
         self.assertIn("# Dataset Card for Dataset Name", str(dataset_card))
         self.assertEqual(dataset_card.data.to_dict(), {"tag": "this is a dataset test"})
 
-        self._api.delete_repo(self._repo_id, repo_type="dataset", token=self._token)
+        self._api.delete_repo(self._repo_id, repo_type="dataset")
 
     def test_metadata_update_missing_readme_on_space(self) -> None:
-        self._api.create_repo(
-            self._repo_id, repo_type="space", token=self._token, space_sdk="static"
-        )
-        self._api.delete_file(
-            "README.md", self._repo_id, repo_type="space", token=self._token
-        )
+        self._api.create_repo(self._repo_id, repo_type="space", space_sdk="static")
+        self._api.delete_file("README.md", self._repo_id, repo_type="space")
         with self.assertRaises(ValueError):
             # Cannot create a default readme on a space repo (should be automatically
             # created on the Hub).
@@ -468,7 +463,7 @@ class TestMetadataUpdateOnMissingCard(unittest.TestCase):
                 token=self._token,
                 repo_type="space",
             )
-        self._api.delete_repo(self._repo_id, repo_type="space", token=self._token)
+        self._api.delete_repo(self._repo_id, repo_type="space")
 
 
 class TestCaseWithCapLog(unittest.TestCase):
@@ -600,7 +595,7 @@ class RepoCardTest(TestCaseWithCapLog):
 
     def test_push_to_hub(self):
         repo_id = f"{USER}/{repo_name('push-card')}"
-        self._api.create_repo(repo_id, token=TOKEN)
+        self._api.create_repo(repo_id)
 
         card_data = CardData(
             language="en",
@@ -628,11 +623,11 @@ class RepoCardTest(TestCaseWithCapLog):
         r = requests.get(url)
         r.raise_for_status()
 
-        self._api.delete_repo(repo_id=repo_id, token=TOKEN)
+        self._api.delete_repo(repo_id=repo_id)
 
     def test_push_and_create_pr(self):
         repo_id = f"{USER}/{repo_name('pr-card')}"
-        self._api.create_repo(repo_id, token=TOKEN)
+        self._api.create_repo(repo_id)
         card_data = CardData(
             language="en",
             license="mit",
@@ -654,7 +649,7 @@ class RepoCardTest(TestCaseWithCapLog):
         data = r.json()
         self.assertEqual(data["count"], 1)
 
-        self._api.delete_repo(repo_id=repo_id, token=TOKEN)
+        self._api.delete_repo(repo_id=repo_id)
 
     def test_preserve_windows_linebreaks(self):
         card_path = SAMPLE_CARDS_DIR / "sample_windows_line_breaks.md"
