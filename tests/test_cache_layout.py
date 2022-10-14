@@ -4,14 +4,7 @@ import time
 import unittest
 from io import BytesIO
 
-from huggingface_hub import (
-    HfApi,
-    create_repo,
-    delete_repo,
-    hf_hub_download,
-    snapshot_download,
-    upload_file,
-)
+from huggingface_hub import HfApi, hf_hub_download, snapshot_download
 from huggingface_hub.utils import logging
 from huggingface_hub.utils._errors import EntryNotFoundError
 
