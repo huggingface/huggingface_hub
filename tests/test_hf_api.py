@@ -30,7 +30,7 @@ import pytest
 
 import requests
 from huggingface_hub._commit_api import CommitOperationAdd, CommitOperationDelete
-from huggingface_hub.commands.user import _login
+from huggingface_hub._login import _login
 from huggingface_hub.community import DiscussionComment, DiscussionWithDetails
 from huggingface_hub.constants import (
     REPO_TYPE_DATASET,
@@ -139,7 +139,7 @@ class HfApiLoginTest(HfApiCommonTest):
             read_from_credential_store(USERNAME_PLACEHOLDER), (None, None)
         )
 
-        _login(self._api, token=TOKEN)
+        _login(token=TOKEN)
         self.assertTupleEqual(
             read_from_credential_store(USERNAME_PLACEHOLDER),
             (USERNAME_PLACEHOLDER, TOKEN),
@@ -153,7 +153,7 @@ class HfApiLoginTest(HfApiCommonTest):
         with pytest.raises(
             ValueError, match="You must use your personal account token."
         ):
-            _login(self._api, token="api_org_dummy_token")
+            _login(token="api_org_dummy_token")
 
 
 class HfApiCommonTestWithLogin(HfApiCommonTest):

@@ -25,7 +25,7 @@ from io import BytesIO
 import pytest
 
 import requests
-from huggingface_hub.commands.user import currently_setup_credential_helpers
+from huggingface_hub._login import _currently_setup_credential_helpers
 from huggingface_hub.hf_api import HfApi
 from huggingface_hub.repository import (
     Repository,
@@ -1523,9 +1523,9 @@ class RepositoryOfflineTest(RepositoryCommonTest):
         )
         repo = Repository(WORKING_REPO_DIR)
         self.assertListEqual(
-            currently_setup_credential_helpers(repo.local_dir), ["get", "store"]
+            _currently_setup_credential_helpers(repo.local_dir), ["get", "store"]
         )
-        self.assertEqual(currently_setup_credential_helpers(), ["get"])
+        self.assertEqual(_currently_setup_credential_helpers(), ["get"])
 
     def test_add_tag(self):
         repo = Repository(
