@@ -24,7 +24,7 @@
   title: "Guides"
 - sections:
     - local: package_reference/login
-      title: Login
+      title: Login and logout
     - local: package_reference/repository
       title: Managing local and online repositories
     - local: package_reference/hf_api

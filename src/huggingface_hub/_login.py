@@ -35,9 +35,17 @@ def login(token: Optional[str] = None) -> None:
     To login from outside of a script, one can also use `huggingface-cli login` which is
     a cli command that wraps [`login`].
 
-    Note: [`login`] is a drop-in replacement method for `notebook_login` as it wraps
-          and extend its capabilities. Still, `notebook_login` is not officially
-          deprecated as it is a widely used and known method in the community.
+    <Tip>
+    [`login`] is a drop-in replacement method for [`notebook_login`] as it wraps and
+    extends its capabilities.
+    </Tip>
+
+    <Tip>
+    When the token is not passed, [`login`] will automatically detect if the script runs
+    in a notebook or not. However, this detection might not be accurate due to the
+    variety of notebooks that exists nowadays. If that is the case, you can always force
+    the UI by using [`notebook_login`] or [`interpreter_login`].
+    </Tip>
 
     Args:
         token (`str`, *optional*):
@@ -82,6 +90,12 @@ def logout() -> None:
 def interpreter_login() -> None:
     """
     Displays a prompt to login to the HF website and store the token.
+
+    This is equivalent to [`login`] without passing a token when not run in a notebook.
+    [`interpreter_login`] is useful if you want to force the use of the terminal prompt
+    instead of a notebook widget.
+
+    For more details, see [`login`].
     """
     print(  # docstyle-ignore
         """
@@ -124,6 +138,12 @@ notebooks. </center>"""
 def notebook_login() -> None:
     """
     Displays a widget to login to the HF website and store the token.
+
+    This is equivalent to [`login`] without passing a token when run in a notebook.
+    [`notebook_login`] is useful if you want to force the use of the notebook widget
+    instead of a prompt in the terminal.
+
+    For more details, see [`login`].
     """
     try:
         import ipywidgets.widgets as widgets
@@ -203,7 +223,7 @@ def _set_store_as_git_credential_helper_globally() -> None:
 
     To be used only in Google Colab as we assume the user doesn't care about the git
     credential config. It is the only particular case where we don't want to display the
-    warning message in `notebook_login()`.
+    warning message in [`notebook_login()`].
 
     Related:
     - https://github.com/huggingface/huggingface_hub/issues/1043

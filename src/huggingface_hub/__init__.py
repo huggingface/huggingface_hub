@@ -53,6 +53,7 @@ __version__ = "0.11.0.dev0"
 # re-generating the file !
 _SUBMOD_ATTRS = {
     "_login": [
+        "interpreter_login",
         "login",
         "logout",
         "notebook_login",
@@ -284,6 +285,7 @@ __getattr__, __dir__, __all__ = _attach(
 # make style
 # ```
 if TYPE_CHECKING:  # pragma: no cover
+    from ._login import interpreter_login  # noqa: F401
     from ._login import login  # noqa: F401
     from ._login import logout  # noqa: F401
     from ._login import notebook_login  # noqa: F401
