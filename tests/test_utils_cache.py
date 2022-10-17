@@ -459,15 +459,15 @@ class TestCorruptedCacheUtils(unittest.TestCase):
         # Readme.md has been modified and then accessed more recently
         self.assertGreaterEqual(
             readme_file_2.blob_last_modified - readme_file_1.blob_last_modified,
-            TIME_GAP * 0.999,  # 0.999 factor because not exactly precise
+            TIME_GAP * 0.9,  # 0.9 factor because not exactly precise
         )
         self.assertGreaterEqual(
             readme_file_2.blob_last_accessed - readme_file_1.blob_last_accessed,
-            2 * TIME_GAP * 0.999,  # 0.999 factor because not exactly precise
+            2 * TIME_GAP * 0.9,  # 0.9 factor because not exactly precise
         )
         self.assertGreaterEqual(
             readme_file_2.blob_last_accessed - readme_file_2.blob_last_modified,
-            TIME_GAP * 0.999,  # 0.999 factor because not exactly precise
+            TIME_GAP * 0.9,  # 0.9 factor because not exactly precise
         )
 
         # Comparison of last_accessed/last_modified between file and repo

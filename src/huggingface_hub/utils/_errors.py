@@ -43,9 +43,23 @@ class HfHubHTTPError(HTTPError):
         if response is not None:
             self.request_id = response.headers.get("X-Request-Id")
             try:
-                self.server_message = response.json().get("error", None)
+                server_data = response.json()
             except JSONDecodeError:
-                pass
+                server_data = {}
+
+            self.server_message = server_data.get("error", None)
+
+            msg_from_errors = "\n".join(
+                error["message"]
+                for error in server_data.get("errors", [])
+                if "message" in error
+            )
+            if msg_from_errors != "":
+                self.server_message = (
+                    self.server_message + "\n" + msg_from_errors
+                    if self.server_message is not None
+                    else msg_from_errors
+                )
 
         super().__init__(
             _format_error_message(
