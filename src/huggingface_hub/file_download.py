@@ -799,7 +799,6 @@ def _create_relative_symlink(src: str, dst: str, new_blob: bool = False) -> None
     when loading `huggingface_hub`. The warning message can be disable with the
     `DISABLE_SYMLINKS_WARNING` environment variable.
     """
-    relative_src = os.path.relpath(src, start=os.path.dirname(dst))
     try:
         os.remove(dst)
     except OSError:
@@ -807,7 +806,20 @@ def _create_relative_symlink(src: str, dst: str, new_blob: bool = False) -> None
 
     cache_dir = os.path.dirname(os.path.commonpath([src, dst]))
     if are_symlinks_supported(cache_dir=cache_dir):
-        os.symlink(relative_src, dst)
+        relative_src = os.path.relpath(src, start=os.path.dirname(dst))
+        try:
+            os.symlink(relative_src, dst)
+        except FileExistsError:
+            if os.path.islink(dst) and os.path.realpath(dst) == os.path.realpath(src):
+                # `dst` already exists and is a symlink to the `src` blob. It is most
+                # likely that the file has been cached twice concurrently (exactly
+                # between `os.remove` and `os.symlink`). Do nothing.
+                pass
+            else:
+                # Very unlikely to happen. Means a file `dst` has been created exactly
+                # between `os.remove` and `os.symlink` and is not a symlink to the `src`
+                # blob file. Raise exception.
+                raise
     elif new_blob:
         os.replace(src, dst)
     else:

@@ -30,7 +30,7 @@ import pytest
 
 import requests
 from huggingface_hub._commit_api import CommitOperationAdd, CommitOperationDelete
-from huggingface_hub.commands.user import _login
+from huggingface_hub._login import _login
 from huggingface_hub.community import DiscussionComment, DiscussionWithDetails
 from huggingface_hub.constants import (
     REPO_TYPE_DATASET,
@@ -139,7 +139,7 @@ class HfApiLoginTest(HfApiCommonTest):
             read_from_credential_store(USERNAME_PLACEHOLDER), (None, None)
         )
 
-        _login(self._api, token=TOKEN)
+        _login(token=TOKEN)
         self.assertTupleEqual(
             read_from_credential_store(USERNAME_PLACEHOLDER),
             (USERNAME_PLACEHOLDER, TOKEN),
@@ -153,7 +153,7 @@ class HfApiLoginTest(HfApiCommonTest):
         with pytest.raises(
             ValueError, match="You must use your personal account token."
         ):
-            _login(self._api, token="api_org_dummy_token")
+            _login(token="api_org_dummy_token")
 
 
 class HfApiCommonTestWithLogin(HfApiCommonTest):
@@ -1166,7 +1166,10 @@ class HfApiPublicTest(unittest.TestCase):
         models = _api.list_models(search="bert")
         self.assertGreater(len(models), 10)
         self.assertIsInstance(models[0], ModelInfo)
-        for model in models:
+        for model in models[:10]:
+            # Rough rule: at least first 10 will have "bert" in the name
+            # Not optimal since it is dependent on how the Hub implements the search
+            # (and changes it in the future) but for now it should do the trick.
             self.assertTrue("bert" in model.modelId.lower())
 
     @with_production_testing

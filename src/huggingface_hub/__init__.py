@@ -52,11 +52,14 @@ __version__ = "0.11.0.dev0"
 # WARNING: any comment added in this dictionary definition will be lost when
 # re-generating the file !
 _SUBMOD_ATTRS = {
+    "_login": [
+        "interpreter_login",
+        "login",
+        "logout",
+        "notebook_login",
+    ],
     "_snapshot_download": [
         "snapshot_download",
-    ],
-    "commands.user": [
-        "notebook_login",
     ],
     "community": [
         "Discussion",
@@ -164,6 +167,7 @@ _SUBMOD_ATTRS = {
         "Repository",
     ],
     "utils": [
+        "CacheNotFound",
         "CachedFileInfo",
         "CachedRepoInfo",
         "CachedRevisionInfo",
@@ -171,6 +175,7 @@ _SUBMOD_ATTRS = {
         "DeleteCacheStrategy",
         "HFCacheInfo",
         "HfFolder",
+        "cached_assets_path",
         "logging",
         "scan_cache_dir",
     ],
@@ -280,8 +285,11 @@ __getattr__, __dir__, __all__ = _attach(
 # make style
 # ```
 if TYPE_CHECKING:  # pragma: no cover
+    from ._login import interpreter_login  # noqa: F401
+    from ._login import login  # noqa: F401
+    from ._login import logout  # noqa: F401
+    from ._login import notebook_login  # noqa: F401
     from ._snapshot_download import snapshot_download  # noqa: F401
-    from .commands.user import notebook_login  # noqa: F401
     from .community import Discussion  # noqa: F401
     from .community import DiscussionComment  # noqa: F401
     from .community import DiscussionCommit  # noqa: F401
@@ -368,10 +376,12 @@ if TYPE_CHECKING:  # pragma: no cover
     from .utils import CachedFileInfo  # noqa: F401
     from .utils import CachedRepoInfo  # noqa: F401
     from .utils import CachedRevisionInfo  # noqa: F401
+    from .utils import CacheNotFound  # noqa: F401
     from .utils import CorruptedCacheException  # noqa: F401
     from .utils import DeleteCacheStrategy  # noqa: F401
     from .utils import HFCacheInfo  # noqa: F401
     from .utils import HfFolder  # noqa: F401
+    from .utils import cached_assets_path  # noqa: F401
     from .utils import logging  # noqa: F401
     from .utils import scan_cache_dir  # noqa: F401
     from .utils.endpoint_helpers import DatasetFilter  # noqa: F401

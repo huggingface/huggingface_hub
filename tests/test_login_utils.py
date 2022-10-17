@@ -2,17 +2,8 @@ import subprocess
 import unittest
 from typing import Optional
 
-from huggingface_hub.commands.user import (
-    _is_google_colab,
-    _set_store_as_git_credential_helper_globally,
-)
+from huggingface_hub._login import _set_store_as_git_credential_helper_globally
 from huggingface_hub.utils import run_subprocess
-
-
-class TestMiscUserUtils(unittest.TestCase):
-    def test_is_google_colab(self) -> None:
-        """Test `_is_google_colab`."""
-        self.assertFalse(_is_google_colab)
 
 
 class TestSetGlobalStore(unittest.TestCase):

@@ -2059,7 +2059,7 @@ class HfApi:
         ...         path_or_fileobj=fileobj,
         ...         path_in_repo="remote/file/path.h5",
         ...         repo_id="username/my-dataset",
-        ...         repo_type="datasets",
+        ...         repo_type="dataset",
         ...         token="my_token",
         ...     )
         "https://huggingface.co/datasets/username/my-dataset/blob/main/remote/file/path.h5"

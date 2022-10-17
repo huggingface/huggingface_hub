@@ -16,10 +16,12 @@
 # limitations under the License
 
 from . import tqdm as _tqdm  # _tqdm is the module
+from ._cache_assets import cached_assets_path
 from ._cache_manager import (
     CachedFileInfo,
     CachedRepoInfo,
     CachedRevisionInfo,
+    CacheNotFound,
     CorruptedCacheException,
     DeleteCacheStrategy,
     HFCacheInfo,
@@ -52,8 +54,10 @@ from ._runtime import (
     get_torch_version,
     is_fastai_available,
     is_fastcore_available,
+    is_google_colab,
     is_graphviz_available,
     is_jinja_available,
+    is_notebook,
     is_pydot_available,
     is_tf_available,
     is_torch_available,

@@ -8,6 +8,7 @@ quality:
 	black --check $(check_dirs)
 	isort --check-only $(check_dirs)
 	flake8 $(check_dirs)
+	mypy src
 	python utils/check_static_imports.py
 
 style:
