@@ -204,6 +204,25 @@ class TestHfHubHTTPError(unittest.TestCase):
             " server",
         )
 
+    def test_hf_hub_http_error_init_with_multiple_server_errors(
+        self,
+    ) -> None:
+        """Test server errors are added to the error message after the details.
+
+        Regression test for https://github.com/huggingface/huggingface_hub/issues/1114.
+        """
+        self.response._content = (
+            b'{"httpStatusCode": 400, "errors": [{"message": "this is error 1", "type":'
+            b' "error"}, {"message": "this is error 2", "type": "error"}]}'
+        )
+        error = HfHubHTTPError(
+            "this is a message\n\nSome details.", response=self.response
+        )
+        self.assertEqual(
+            str(error),
+            "this is a message\n\nSome details.\nthis is error 1\nthis is error 2",
+        )
+
     def test_hf_hub_http_error_init_with_server_error_already_in_message(
         self,
     ) -> None:
