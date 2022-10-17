@@ -69,7 +69,7 @@ class TestFastaiUtils(TestCase):
         """
         Share this valid token in all tests below.
         """
-        cls._api = HfApi(endpoint=ENDPOINT_STAGING)
+        cls._api = HfApi(endpoint=ENDPOINT_STAGING, token=TOKEN)
         cls._token = TOKEN
         cls._api.set_access_token(TOKEN)
 

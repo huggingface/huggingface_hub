@@ -1914,7 +1914,7 @@ class HfApi:
                 additions=additions,
                 repo_type=repo_type,
                 repo_id=repo_id,
-                token=token,
+                token=token or self.token,
                 revision=revision,
                 endpoint=self.endpoint,
                 create_pr=create_pr,
