@@ -421,7 +421,7 @@ class TestMetadataUpdateOnMissingCard(unittest.TestCase):
         Share this valid token in all tests below.
         """
         self._token = TOKEN
-        self._api = HfApi(endpoint=ENDPOINT_STAGING)
+        self._api = HfApi(endpoint=ENDPOINT_STAGING, token=TOKEN)
         self._repo_id = f"{USER}/{repo_name()}"
 
     def test_metadata_update_missing_readme_on_model(self) -> None:
@@ -467,7 +467,7 @@ class TestMetadataUpdateOnMissingCard(unittest.TestCase):
 
 
 class TestCaseWithCapLog(unittest.TestCase):
-    _api = HfApi(endpoint=ENDPOINT_STAGING)
+    _api = HfApi(endpoint=ENDPOINT_STAGING, token=TOKEN)
 
     @pytest.fixture(autouse=True)
     def inject_fixtures(self, caplog):

@@ -593,6 +593,7 @@ class CommitApiTest(HfApiCommonTestWithLogin):
                             repo_id=f"{USER}/{REPO_NAME}",
                             filename=remote_path,
                             revision="main",
+                            use_auth_token=self._token,
                         )
                         assert filepath is not None
                         with open(filepath, "rb") as downloaded_file:
@@ -640,6 +641,7 @@ class CommitApiTest(HfApiCommonTestWithLogin):
                             repo_id=f"{USER}/{REPO_NAME}",
                             filename=remote_path,
                             revision="refs/pr/1",
+                            use_auth_token=self._token,
                         )
                         assert filepath is not None
                         with open(filepath, "rb") as downloaded_file:
