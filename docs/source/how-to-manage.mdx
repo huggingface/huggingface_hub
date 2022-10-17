@@ -14,14 +14,21 @@ If you want to create a repository on the Hub, you need to log in to your Huggin
    huggingface-cli login
    ```
 
-2. Alternatively, if you prefer working from a Jupyter or Colaboratory notebook, login with [`notebook_login`]:
+2. Alternatively, you can programmatically login using [`login`] in a notebook or a script:
 
    ```python
-   >>> from huggingface_hub import notebook_login
-   >>> notebook_login()
+   >>> from huggingface_hub import login
+   >>> login()
    ```
 
-   [`notebook_login`] will launch a widget in your notebook from which you can enter your Hugging Face credentials.
+   If ran in a Jupyter or Colaboratory notebook, [`login`] will launch a widget from
+   which you can enter your Hugging Face access token. Otherwise, a message will be
+   prompted in the terminal.
+
+   It is also possible to login programmatically without the widget by directly passing
+   the token to [`login`]. If you do so, be careful when sharing your notebook. It is
+   best practice to load the token from a secure vault instead of saving it in plain in
+   your Colaboratory notebook.
 
 ## Create a repository
 

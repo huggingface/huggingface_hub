@@ -52,11 +52,14 @@ __version__ = "0.11.0.dev0"
 # WARNING: any comment added in this dictionary definition will be lost when
 # re-generating the file !
 _SUBMOD_ATTRS = {
+    "_login": [
+        "interpreter_login",
+        "login",
+        "logout",
+        "notebook_login",
+    ],
     "_snapshot_download": [
         "snapshot_download",
-    ],
-    "commands.user": [
-        "notebook_login",
     ],
     "community": [
         "Discussion",
@@ -282,8 +285,11 @@ __getattr__, __dir__, __all__ = _attach(
 # make style
 # ```
 if TYPE_CHECKING:  # pragma: no cover
+    from ._login import interpreter_login  # noqa: F401
+    from ._login import login  # noqa: F401
+    from ._login import logout  # noqa: F401
+    from ._login import notebook_login  # noqa: F401
     from ._snapshot_download import snapshot_download  # noqa: F401
-    from .commands.user import notebook_login  # noqa: F401
     from .community import Discussion  # noqa: F401
     from .community import DiscussionComment  # noqa: F401
     from .community import DiscussionCommit  # noqa: F401

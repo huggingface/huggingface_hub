@@ -147,7 +147,7 @@ def get_token_to_send(use_auth_token: Optional[Union[bool, str]]) -> Optional[st
             raise EnvironmentError(
                 "Token is required (`use_auth_token=True`), but no token found. You"
                 " need to provide a token or be logged in to Hugging Face with"
-                " `huggingface-cli login` or `notebook_login`. See"
+                " `huggingface-cli login` or `huggingface_hub.login`. See"
                 " https://huggingface.co/settings/tokens."
             )
         return cached_token
@@ -166,7 +166,7 @@ def _validate_token_to_send(token: Optional[str], is_write_action: bool) -> None
             raise ValueError(
                 "Token is required (write-access action) but no token found. You need"
                 " to provide a token or be logged in to Hugging Face with"
-                " `huggingface-cli login` or `notebook_login`. See"
+                " `huggingface-cli login` or `huggingface_hub.login`. See"
                 " https://huggingface.co/settings/tokens."
             )
         if token.startswith("api_org"):
