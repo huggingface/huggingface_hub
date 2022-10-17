@@ -1928,3 +1928,38 @@ class HfApiDiscussionsTest(HfApiCommonTestWithLogin):
         )
         self.assertEqual(retrieved.status, "merged")
         self.assertIsNotNone(retrieved.merge_commit_oid)
+
+
+@patch("huggingface_hub.hf_api.build_hf_headers")
+class HfApiTokenAttributeTest(unittest.TestCase):
+    def test_token_passed(self, mock_build_hf_headers: Mock) -> None:
+        api = HfApi(token="default token")
+        api._build_hf_headers(use_auth_token="A token")
+        self._assert_token_is(mock_build_hf_headers, "A token")
+
+    def test_no_token_passed(self, mock_build_hf_headers: Mock) -> None:
+        api = HfApi(token="default token")
+        api._build_hf_headers()
+        self._assert_token_is(mock_build_hf_headers, "default token")
+
+    def test_token_true_passed(self, mock_build_hf_headers: Mock) -> None:
+        api = HfApi(token="default token")
+        api._build_hf_headers(use_auth_token=True)
+        self._assert_token_is(mock_build_hf_headers, True)
+
+    def test_token_false_passed(self, mock_build_hf_headers: Mock) -> None:
+        api = HfApi(token="default token")
+        api._build_hf_headers(use_auth_token=False)
+        self._assert_token_is(mock_build_hf_headers, False)
+
+    def test_no_token_at_all(self, mock_build_hf_headers: Mock) -> None:
+        api = HfApi()
+        api._build_hf_headers(use_auth_token=None)
+        self._assert_token_is(mock_build_hf_headers, None)
+
+    def _assert_token_is(
+        self, mock_build_hf_headers: Mock, expected_value: str
+    ) -> None:
+        self.assertEquals(
+            mock_build_hf_headers.call_args.kwargs["use_auth_token"], expected_value
+        )
