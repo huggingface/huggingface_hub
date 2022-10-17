@@ -1961,5 +1961,5 @@ class HfApiTokenAttributeTest(unittest.TestCase):
         self, mock_build_hf_headers: Mock, expected_value: str
     ) -> None:
         self.assertEquals(
-            mock_build_hf_headers.call_args.kwargs["use_auth_token"], expected_value
+            mock_build_hf_headers.call_args[1]["use_auth_token"], expected_value
         )
