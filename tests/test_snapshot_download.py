@@ -6,11 +6,12 @@ import unittest
 
 import requests
 from huggingface_hub import HfApi, Repository, snapshot_download
-from huggingface_hub.utils import HfFolder, logging
+from huggingface_hub.utils import HfFolder, RepositoryNotFoundError, logging
 
 from .testing_constants import ENDPOINT_STAGING, TOKEN, USER
 from .testing_utils import (
     expect_deprecation,
+    repo_name,
     retry_endpoint,
     set_write_permission_and_retry,
 )
@@ -18,7 +19,7 @@ from .testing_utils import (
 
 logger = logging.get_logger(__name__)
 
-REPO_NAME = "dummy-hf-hub-{}".format(int(time.time() * 10e3))
+REPO_NAME = repo_name("dummy-hf-hub")
 
 
 class SnapshotDownloadTests(unittest.TestCase):
@@ -37,7 +38,13 @@ class SnapshotDownloadTests(unittest.TestCase):
         if os.path.exists(REPO_NAME):
             shutil.rmtree(REPO_NAME, onerror=set_write_permission_and_retry)
         logger.info(f"Does {REPO_NAME} exist: {os.path.exists(REPO_NAME)}")
+
+        try:
+            self._api.delete_repo(repo_id=REPO_NAME)
+        except RepositoryNotFoundError:
+            pass
         self._api.create_repo(f"{USER}/{REPO_NAME}")
+
         repo = Repository(
             REPO_NAME,
             clone_from=f"{USER}/{REPO_NAME}",
