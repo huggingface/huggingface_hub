@@ -936,26 +936,33 @@ class CommitApiTest(HfApiCommonTestWithLogin):
     @retry_endpoint
     def test_create_commit_repo_does_not_exist(self) -> None:
         """Test error message is detailed when creating a commit on a missing repo."""
-        with self.assertRaises(RepositoryNotFoundError) as context:
-            self._api.create_commit(
-                repo_id=f"{USER}/repo_that_do_not_exist",
-                operations=[],  # empty commit
-                commit_message="fake_message",
-                token=self._token,
-            )
+        # Test once with empty commit and once with an addition commit.
+        for route, operations in (
+            ("commit", []),
+            ("preupload", [CommitOperationAdd("config.json", b"content")]),
+        ):
+            with self.subTest():
+                with self.assertRaises(RepositoryNotFoundError) as context:
+                    self._api.create_commit(
+                        repo_id=f"{USER}/repo_that_do_not_exist",
+                        operations=operations,
+                        commit_message="fake_message",
+                        token=self._token,
+                    )
 
-        request_id = context.exception.response.headers.get("X-Request-Id")
-        expected_message = (
-            f"404 Client Error. (Request ID: {request_id})"
-            + "\n\nRepository Not Found for url:"
-            + f" {self._api.endpoint}/api/models/{USER}/repo_that_do_not_exist/preupload/main."
-            + "\nPlease make sure you specified the correct `repo_id` and `repo_type`."
-            + "\nIf the repo is private, make sure you are authenticated."
-            + "\nNote: Creating a commit assumes that the repo already exists on the"
-            + " Huggingface Hub. Please use `create_repo` if it's not the case."
-        )
+                request_id = context.exception.response.headers.get("X-Request-Id")
+                expected_message = (
+                    f"404 Client Error. (Request ID: {request_id})\n\nRepository Not"
+                    " Found for url:"
+                    f" {self._api.endpoint}/api/models/{USER}/repo_that_do_not_exist/{route}/main.\nPlease"
+                    " make sure you specified the correct `repo_id` and"
+                    " `repo_type`.\nIf the repo is private, make sure you are"
+                    " authenticated.\nNote: Creating a commit assumes that the repo"
+                    " already exists on the Huggingface Hub. Please use `create_repo`"
+                    " if it's not the case."
+                )
 
-        self.assertEqual(str(context.exception), expected_message)
+                self.assertEqual(str(context.exception), expected_message)
 
     @retry_endpoint
     def test_create_commit_lfs_file_implicit_token(self):
@@ -1007,12 +1014,12 @@ class CommitApiTest(HfApiCommonTestWithLogin):
 
     @retry_endpoint
     def test_create_commit_lots_of_files(self):
-        # Try committing 300 text files and 300 bin files (LFS) at once
+        # Try committing 200 text files and 200 bin files (LFS) at once
         REPO_NAME = repo_name("create_commit_lots_of_files")
         self._api.create_repo(repo_id=REPO_NAME, token=self._token, exist_ok=False)
         try:
             operations = []
-            for num in range(300):
+            for num in range(200):
                 operations.append(
                     CommitOperationAdd(
                         path_in_repo=f"file-{num}.bin", path_or_fileobj=b"Hello LFS"
@@ -1024,7 +1031,7 @@ class CommitApiTest(HfApiCommonTestWithLogin):
                     )
                 )
             self._api.create_commit(
-                operations=operations,  # 300 regular + 300 LFS files to upload !
+                operations=operations,  # 200 regular + 200 LFS files to upload !
                 commit_message="Test create_commit with lots of files",
                 repo_id=f"{USER}/{REPO_NAME}",
                 token=self._token,

@@ -1872,6 +1872,11 @@ class HfApi:
 
         </Tip>
         """
+        _CREATE_COMMIT_NO_REPO_ERROR_MESSAGE = (
+            "\nNote: Creating a commit assumes that the repo already exists on the"
+            " Huggingface Hub. Please use `create_repo` if it's not the case."
+        )
+
         if parent_commit is not None and not REGEX_COMMIT_OID.fullmatch(parent_commit):
             raise ValueError(
                 "`parent_commit` is not a valid commit OID. It must match the"
@@ -1923,10 +1928,7 @@ class HfApi:
                 endpoint=self.endpoint,
             )
         except RepositoryNotFoundError as e:
-            e.append_to_message(
-                "\nNote: Creating a commit assumes that the repo already exists on the"
-                " Huggingface Hub. Please use `create_repo` if it's not the case."
-            )
+            e.append_to_message(_CREATE_COMMIT_NO_REPO_ERROR_MESSAGE)
             raise
 
         upload_lfs_files(
@@ -1960,13 +1962,19 @@ class HfApi:
             "Content-Type": "application/x-ndjson",
             **build_hf_headers(use_auth_token=token, is_write_action=True),
         }
-        commit_resp = requests.post(
-            url=commit_url,
-            headers=headers,
-            data=_payload_as_ndjson(),
-            params={"create_pr": "1"} if create_pr else None,
-        )
-        hf_raise_for_status(commit_resp, endpoint_name="commit")
+
+        try:
+            commit_resp = requests.post(
+                url=commit_url,
+                headers=headers,
+                data=_payload_as_ndjson(),
+                params={"create_pr": "1"} if create_pr else None,
+            )
+            hf_raise_for_status(commit_resp, endpoint_name="commit")
+        except RepositoryNotFoundError as e:
+            e.append_to_message(_CREATE_COMMIT_NO_REPO_ERROR_MESSAGE)
+            raise
+
         commit_data = commit_resp.json()
         return CommitInfo(
             commit_url=commit_data["commitUrl"],
