@@ -4,14 +4,7 @@ import time
 import unittest
 from io import BytesIO
 
-from huggingface_hub import (
-    HfApi,
-    create_repo,
-    delete_repo,
-    hf_hub_download,
-    snapshot_download,
-    upload_file,
-)
+from huggingface_hub import HfApi, hf_hub_download, snapshot_download
 from huggingface_hub.utils import logging
 from huggingface_hub.utils._errors import EntryNotFoundError
 
@@ -319,7 +312,7 @@ class CacheFileLayoutSnapshotDownload(unittest.TestCase):
 
 
 class ReferenceUpdates(unittest.TestCase):
-    _api = HfApi(endpoint=ENDPOINT_STAGING)
+    _api = HfApi(endpoint=ENDPOINT_STAGING, token=TOKEN)
 
     @classmethod
     def setUpClass(cls):
@@ -331,14 +324,13 @@ class ReferenceUpdates(unittest.TestCase):
 
     def test_update_reference(self):
         repo_id = f"{USER}/{repo_name()}"
-        create_repo(repo_id, token=self._token, exist_ok=True)
+        self._api.create_repo(repo_id, exist_ok=True)
 
         try:
-            upload_file(
+            self._api.upload_file(
                 path_or_fileobj=BytesIO(b"Some string"),
                 path_in_repo="file.txt",
                 repo_id=repo_id,
-                token=self._token,
             )
 
             with tempfile.TemporaryDirectory() as cache:
@@ -357,11 +349,10 @@ class ReferenceUpdates(unittest.TestCase):
                 )
 
                 # Upload a new file on the same branch
-                upload_file(
+                self._api.upload_file(
                     path_or_fileobj=BytesIO(b"Some new string"),
                     path_in_repo="file.txt",
                     repo_id=repo_id,
-                    token=self._token,
                 )
 
                 hf_hub_download(repo_id, "file.txt", cache_dir=cache)
@@ -400,4 +391,4 @@ class ReferenceUpdates(unittest.TestCase):
         except Exception:
             raise
         finally:
-            delete_repo(repo_id, token=self._token)
+            self._api.delete_repo(repo_id)
