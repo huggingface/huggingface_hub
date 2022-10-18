@@ -204,23 +204,31 @@ def upload_lfs_files(
         error
 
     """
-    # Step 1: retrieve upload instructions from the LFS batch endpoint
-    batch_actions, batch_errors = post_lfs_batch_info(
-        upload_infos=[op._upload_info() for op in additions],
-        token=token,
-        repo_id=repo_id,
-        repo_type=repo_type,
-        endpoint=endpoint,
-    )
-    if batch_errors:
-        message = "\n".join(
-            [
-                f'Encountered error for file with OID {err.get("oid")}:'
-                f' `{err.get("error", {}).get("message")}'
-                for err in batch_errors
-            ]
+    # Step 1: retrieve upload instructions from the LFS batch endpoint.
+    #         Upload instructions are retrieved by chunk of 128 files to avoid reaching
+    #         the payload limit.
+    batch_actions: List[Dict] = []
+    for chunk in chunk_iterable(additions, chunk_size=128):
+        batch_actions_chunk, batch_errors_chunk = post_lfs_batch_info(
+            upload_infos=[op._upload_info() for op in chunk],
+            token=token,
+            repo_id=repo_id,
+            repo_type=repo_type,
+            endpoint=endpoint,
         )
-        raise ValueError(f"LFS batch endpoint returned errors:\n{message}")
+
+        # If at least 1 error, we do not retrieve information for other chunks
+        if batch_errors_chunk:
+            message = "\n".join(
+                [
+                    f'Encountered error for file with OID {err.get("oid")}:'
+                    f' `{err.get("error", {}).get("message")}'
+                    for err in batch_errors_chunk
+                ]
+            )
+            raise ValueError(f"LFS batch endpoint returned errors:\n{message}")
+
+        batch_actions += batch_actions_chunk
 
     # Step 2: upload files concurrently according to these instructions
     oid2addop = {add_op._upload_info().sha256.hex(): add_op for add_op in additions}
