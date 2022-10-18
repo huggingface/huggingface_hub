@@ -312,7 +312,7 @@ class CacheFileLayoutSnapshotDownload(unittest.TestCase):
 
 
 class ReferenceUpdates(unittest.TestCase):
-    _api = HfApi(endpoint=ENDPOINT_STAGING)
+    _api = HfApi(endpoint=ENDPOINT_STAGING, token=TOKEN)
 
     @classmethod
     def setUpClass(cls):
@@ -320,7 +320,6 @@ class ReferenceUpdates(unittest.TestCase):
         Share this valid token in all tests below.
         """
         cls._token = TOKEN
-        cls._api.token = TOKEN
         cls._api.set_access_token(TOKEN)
 
     def test_update_reference(self):
