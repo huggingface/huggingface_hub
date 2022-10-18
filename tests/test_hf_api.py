@@ -1007,12 +1007,12 @@ class CommitApiTest(HfApiCommonTestWithLogin):
 
     @retry_endpoint
     def test_create_commit_lots_of_files(self):
-        # Try committing 1000 text files and 1000 bin files (LFS) at once
+        # Try committing 300 text files and 300 bin files (LFS) at once
         REPO_NAME = repo_name("create_commit_lots_of_files")
         self._api.create_repo(repo_id=REPO_NAME, token=self._token, exist_ok=False)
         try:
             operations = []
-            for num in range(1000):
+            for num in range(300):
                 operations.append(
                     CommitOperationAdd(
                         path_in_repo=f"file-{num}.bin", path_or_fileobj=b"Hello LFS"
@@ -1024,7 +1024,7 @@ class CommitApiTest(HfApiCommonTestWithLogin):
                     )
                 )
             self._api.create_commit(
-                operations=operations,  # 1000 files to upload !
+                operations=operations,  # 300 regular + 300 LFS files to upload !
                 commit_message="Test create_commit with lots of files",
                 repo_id=f"{USER}/{REPO_NAME}",
                 token=self._token,
