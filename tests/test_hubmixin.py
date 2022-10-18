@@ -72,6 +72,7 @@ class HubMixingTest(HubMixingCommonTest):
         Share this valid token in all tests below.
         """
         cls._token = TOKEN
+        cls._api.token = TOKEN
         cls._api.set_access_token(TOKEN)
 
     def test_save_pretrained(self):
@@ -177,7 +178,7 @@ class HubMixingTest(HubMixingCommonTest):
         )
 
         # Test model id exists
-        model_info = self._api.model_info(repo_id, use_auth_token=self._token)
+        model_info = self._api.model_info(repo_id)
         self.assertEqual(model_info.modelId, repo_id)
 
         # Test config has been pushed to hub
@@ -189,7 +190,7 @@ class HubMixingTest(HubMixingCommonTest):
 
         # Delete tmp file and repo
         os.remove(tmp_config_path)
-        self._api.delete_repo(repo_id=repo_id, token=self._token)
+        self._api.delete_repo(repo_id=repo_id)
 
     @expect_deprecation("push_to_hub")
     def test_push_to_hub_via_git_deprecated(self):
@@ -203,9 +204,9 @@ class HubMixingTest(HubMixingCommonTest):
             use_auth_token=self._token,
         )
 
-        model_info = self._api.model_info(repo_id, use_auth_token=self._token)
+        model_info = self._api.model_info(repo_id)
         self.assertEqual(model_info.modelId, repo_id)
-        self._api.delete_repo(repo_id=repo_id, token=self._token)
+        self._api.delete_repo(repo_id=repo_id)
 
     @expect_deprecation("push_to_hub")
     def test_push_to_hub_via_git_use_lfs_by_default(self):
@@ -213,7 +214,7 @@ class HubMixingTest(HubMixingCommonTest):
         REPO_NAME = repo_name("PUSH_TO_HUB_with_lfs_file")
         with tempfile.TemporaryDirectory() as tmpdirname:
             os.makedirs(f"{tmpdirname}/{WORKING_REPO_DIR}/{REPO_NAME}")
-            self._repo_url = self._api.create_repo(repo_id=REPO_NAME, token=self._token)
+            self._repo_url = self._api.create_repo(repo_id=REPO_NAME)
             Repository(
                 local_dir=f"{tmpdirname}/{WORKING_REPO_DIR}/{REPO_NAME}",
                 clone_from=self._repo_url,
@@ -235,9 +236,7 @@ class HubMixingTest(HubMixingCommonTest):
                 git_email="ci@dummy.com",
             )
 
-        model_info = self._api.model_info(
-            f"{USER}/{REPO_NAME}", use_auth_token=self._token
-        )
+        model_info = self._api.model_info(f"{USER}/{REPO_NAME}")
 
         self.assertTrue("large_file.txt" in [f.rfilename for f in model_info.siblings])
-        self._api.delete_repo(repo_id=f"{REPO_NAME}", token=self._token)
+        self._api.delete_repo(repo_id=f"{REPO_NAME}")

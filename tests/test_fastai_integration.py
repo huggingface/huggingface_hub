@@ -69,7 +69,7 @@ class TestFastaiUtils(TestCase):
         """
         Share this valid token in all tests below.
         """
-        cls._api = HfApi(endpoint=ENDPOINT_STAGING)
+        cls._api = HfApi(endpoint=ENDPOINT_STAGING, token=TOKEN)
         cls._token = TOKEN
         cls._api.set_access_token(TOKEN)
 
@@ -105,13 +105,11 @@ class TestFastaiUtils(TestCase):
             token=self._token,
             config=dummy_config,
         )
-        model_info = self._api.model_info(
-            f"{USER}/{REPO_NAME}",
-        )
+        model_info = self._api.model_info(f"{USER}/{REPO_NAME}")
         self.assertEqual(model_info.modelId, f"{USER}/{REPO_NAME}")
 
         loaded_model = from_pretrained_fastai(f"{USER}/{REPO_NAME}")
         self.assertEqual(
             dummy_model.show_training_loop(), loaded_model.show_training_loop()
         )
-        self._api.delete_repo(repo_id=f"{REPO_NAME}", token=self._token)
+        self._api.delete_repo(repo_id=f"{REPO_NAME}")

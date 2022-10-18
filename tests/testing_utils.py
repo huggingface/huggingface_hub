@@ -442,8 +442,7 @@ def use_tmp_repo(repo_type: str = "model") -> Callable[[T], T]:
     from .testing_utils import use_tmp_repo
 
     class HfApiCommonTest(unittest.TestCase):
-        _api = HfApi(endpoint=ENDPOINT_STAGING)
-        _token = TOKEN
+        _api = HfApi(endpoint=ENDPOINT_STAGING, token=TOKEN)
         _user = USER
         _repo_id: str
 
@@ -464,17 +463,14 @@ def use_tmp_repo(repo_type: str = "model") -> Callable[[T], T]:
         def _inner(*args, **kwargs):
             self = args[0]
             assert isinstance(self, unittest.TestCase)
-            token = self._token
 
             repo_id = f"{self._user}/{repo_name(prefix=repo_type)}"
-            self._api.create_repo(repo_id=repo_id, token=token, repo_type=repo_type)
+            self._api.create_repo(repo_id=repo_id, repo_type=repo_type)
             try:
                 self._repo_id = repo_id
                 return test_fn(*args, **kwargs)
             finally:
-                self._api.delete_repo(
-                    repo_id=repo_id, token=self._token, repo_type=repo_type
-                )
+                self._api.delete_repo(repo_id=repo_id, repo_type=repo_type)
 
         return _inner
 

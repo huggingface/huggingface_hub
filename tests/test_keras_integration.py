@@ -89,7 +89,7 @@ class CommonKerasTest(unittest.TestCase):
         """
         Share this valid token in all tests below.
         """
-        cls._api = HfApi(endpoint=ENDPOINT_STAGING)
+        cls._api = HfApi(endpoint=ENDPOINT_STAGING, token=TOKEN)
         cls._token = TOKEN
         cls._api.set_access_token(TOKEN)
 
@@ -174,7 +174,7 @@ class HubMixingTestKeras(CommonKerasTest):
         )
 
         # Test model id exists
-        model_info = self._api.model_info(repo_id, use_auth_token=self._token)
+        model_info = self._api.model_info(repo_id)
         self.assertEqual(model_info.modelId, repo_id)
 
         # Test config has been pushed to hub
@@ -186,7 +186,7 @@ class HubMixingTestKeras(CommonKerasTest):
 
         # Delete tmp file and repo
         os.remove(tmp_config_path)
-        self._api.delete_repo(repo_id=repo_id, token=self._token)
+        self._api.delete_repo(repo_id=repo_id)
 
     @retry_endpoint
     @expect_deprecation("push_to_hub")
@@ -207,7 +207,7 @@ class HubMixingTestKeras(CommonKerasTest):
 
         model_info = self._api.model_info(repo_id)
         self.assertEqual(model_info.modelId, repo_id)
-        self._api.delete_repo(repo_id=repo_id, token=self._token)
+        self._api.delete_repo(repo_id=repo_id)
 
 
 @require_tf
@@ -417,7 +417,7 @@ class HubKerasSequentialTest(CommonKerasTest):
         self.assertEqual(model_info.modelId, repo_id)
         self.assertTrue("README.md" in [f.rfilename for f in model_info.siblings])
         self.assertTrue("model.png" in [f.rfilename for f in model_info.siblings])
-        self._api.delete_repo(repo_id=repo_id, token=self._token)
+        self._api.delete_repo(repo_id=repo_id)
 
     @retry_endpoint
     def test_push_to_hub_keras_sequential_via_http_plot_false(self):
@@ -435,7 +435,7 @@ class HubKerasSequentialTest(CommonKerasTest):
         )
         model_info = HfApi(endpoint=ENDPOINT_STAGING).model_info(repo_id)
         self.assertFalse("model.png" in [f.rfilename for f in model_info.siblings])
-        self._api.delete_repo(repo_id=repo_id, token=self._token)
+        self._api.delete_repo(repo_id=repo_id)
 
     @retry_endpoint
     @expect_deprecation("push_to_hub_keras")
@@ -455,11 +455,11 @@ class HubKerasSequentialTest(CommonKerasTest):
             include_optimizer=False,
         )
 
-        model_info = HfApi(endpoint=ENDPOINT_STAGING).model_info(f"{USER}/{REPO_NAME}")
+        model_info = self._api.model_info(f"{USER}/{REPO_NAME}")
         self.assertEqual(model_info.modelId, f"{USER}/{REPO_NAME}")
         self.assertTrue("README.md" in [f.rfilename for f in model_info.siblings])
         self.assertTrue("model.png" in [f.rfilename for f in model_info.siblings])
-        self._api.delete_repo(repo_id=f"{REPO_NAME}", token=self._token)
+        self._api.delete_repo(repo_id=f"{REPO_NAME}")
 
     @retry_endpoint
     def test_push_to_hub_keras_via_http_override_tensorboard(self):
@@ -491,7 +491,7 @@ class HubKerasSequentialTest(CommonKerasTest):
                 token=self._token,
             )
 
-            model_info = HfApi(endpoint=ENDPOINT_STAGING).model_info(repo_id)
+            model_info = self._api.model_info(repo_id)
             self.assertTrue(
                 "logs/override.txt" in [f.rfilename for f in model_info.siblings]
             )
@@ -499,7 +499,7 @@ class HubKerasSequentialTest(CommonKerasTest):
                 "logs/tensorboard.txt" in [f.rfilename for f in model_info.siblings]
             )
 
-            self._api.delete_repo(repo_id=repo_id, token=self._token)
+            self._api.delete_repo(repo_id=repo_id)
 
     @retry_endpoint
     def test_push_to_hub_keras_via_http_with_model_kwargs(self):
@@ -522,16 +522,14 @@ class HubKerasSequentialTest(CommonKerasTest):
 
         with tempfile.TemporaryDirectory() as tmpdirname:
             Repository(
-                local_dir=tmpdirname,
-                clone_from=ENDPOINT_STAGING + "/" + repo_id,
-                use_auth_token=self._token,
+                local_dir=tmpdirname, clone_from=ENDPOINT_STAGING + "/" + repo_id
             )
             from_pretrained_keras(tmpdirname)
             self.assertRaises(
                 ValueError, msg="Exception encountered when calling layer*"
             )
 
-        self._api.delete_repo(repo_id=f"{REPO_NAME}", token=self._token)
+        self._api.delete_repo(repo_id=f"{REPO_NAME}")
 
 
 @require_tf
