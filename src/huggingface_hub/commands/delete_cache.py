@@ -56,10 +56,10 @@ TODO: add "-y" arg for immediate deletion ?
 See discussions in https://github.com/huggingface/huggingface_hub/issues/1025.
 """
 import os
-from argparse import ArgumentParser
+from argparse import _SubParsersAction
 from functools import wraps
 from tempfile import mkstemp
-from typing import Any, Callable, Iterable, List, Optional
+from typing import Any, Callable, Iterable, List, Optional, Union
 
 from ..utils import CachedRepoInfo, CachedRevisionInfo, HFCacheInfo, scan_cache_dir
 from . import BaseHuggingfaceCLICommand
@@ -99,7 +99,7 @@ _CANCEL_DELETION_STR = "CANCEL_DELETION"
 
 class DeleteCacheCommand(BaseHuggingfaceCLICommand):
     @staticmethod
-    def register_subcommand(parser: ArgumentParser):
+    def register_subcommand(parser: _SubParsersAction):
         delete_cache_parser = parser.add_parser(
             "delete-cache", help="Delete revisions from the cache directory."
         )
@@ -243,7 +243,7 @@ def _get_tui_choices_from_scan(
     Return:
         The list of choices to pass to `inquirer.checkbox`.
     """
-    choices = []
+    choices: List[Union[Choice, Separator]] = []
 
     # First choice is to cancel the deletion. If selected, nothing will be deleted,
     # no matter the other selected items.

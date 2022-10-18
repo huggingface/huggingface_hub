@@ -17,7 +17,8 @@ import re
 import subprocess
 import warnings
 from dataclasses import dataclass, field
-from typing import BinaryIO, Dict, Iterable, Iterator, List, Optional, Tuple, Union
+from pathlib import Path
+from typing import Any, BinaryIO, Dict, Iterable, Iterator, List, Optional, Tuple, Union
 from urllib.parse import quote
 
 import requests
@@ -105,6 +106,7 @@ def repo_type_and_id_from_hf_id(
     url_segments = hf_id.split("/")
     is_hf_id = len(url_segments) <= 3
 
+    namespace: Optional[str]
     if is_hf_url:
         namespace, repo_id = url_segments[-2:]
         if namespace == hub_url:
@@ -130,9 +132,9 @@ def repo_type_and_id_from_hf_id(
             f"Unable to retrieve user and repo ID from the passed HF ID: {hf_id}"
         )
 
-    repo_type = (
-        repo_type if repo_type in REPO_TYPES else REPO_TYPES_MAPPING.get(repo_type)
-    )
+    if repo_type not in REPO_TYPES:
+        assert repo_type is not None, "repo_type `None` do not have mapping"
+        repo_type = REPO_TYPES_MAPPING.get(repo_type)
 
     return repo_type, namespace, repo_id
 
@@ -295,7 +297,7 @@ class ModelInfo:
         self.tags = tags
         self.pipeline_tag = pipeline_tag
         self.siblings = (
-            [RepoFile(**x) for x in siblings] if siblings is not None else None
+            [RepoFile(**x) for x in siblings] if siblings is not None else []
         )
         self.private = private
         self.author = author
@@ -371,7 +373,7 @@ class DatasetInfo:
         self.citation = citation
         self.cardData = cardData
         self.siblings = (
-            [RepoFile(**x) for x in siblings] if siblings is not None else None
+            [RepoFile(**x) for x in siblings] if siblings is not None else []
         )
         # Legacy stuff, "key" is always returned with an empty string
         # because of old versions of the datasets lib that need this field
@@ -430,7 +432,7 @@ class SpaceInfo:
         self.sha = sha
         self.lastModified = lastModified
         self.siblings = (
-            [RepoFile(**x) for x in siblings] if siblings is not None else None
+            [RepoFile(**x) for x in siblings] if siblings is not None else []
         )
         self.private = private
         self.author = author
@@ -564,6 +566,9 @@ def write_to_credential_store(username: str, password: str):
         input_username = f"username={username.lower()}"
         input_password = f"password={password}"
 
+        assert (
+            process.stdin is not None
+        ), "subprocess must be opened with subprocess.PIPE"
         process.stdin.write(
             f"url={ENDPOINT}\n{input_username}\n{input_password}\n\n".encode("utf-8")
         )
@@ -593,10 +598,15 @@ def read_from_credential_store(
 
         standard_input += "\n"
 
+        assert (
+            process.stdin is not None
+        ), "subprocess must be opened with subprocess.PIPE"
+        assert (
+            process.stdout is not None
+        ), "subprocess must be opened with subprocess.PIPE"
         process.stdin.write(standard_input.encode("utf-8"))
         process.stdin.flush()
-        output = process.stdout.read()
-        output = output.decode("utf-8")
+        output = process.stdout.read().decode("utf-8")
 
     if len(output) == 0:
         return None, None
@@ -879,11 +889,11 @@ class HfApi:
         if model_filter.model_name is not None:
             model_str += model_filter.model_name
 
-        filter_tuple = []
+        filter_list: List[str] = []
 
         # Handling tasks
         if model_filter.task is not None:
-            filter_tuple.extend(
+            filter_list.extend(
                 [model_filter.task]
                 if isinstance(model_filter.task, str)
                 else model_filter.task
@@ -896,11 +906,11 @@ class HfApi:
             for dataset in model_filter.trained_dataset:
                 if "dataset:" not in dataset:
                     dataset = f"dataset:{dataset}"
-                filter_tuple.append(dataset)
+                filter_list.append(dataset)
 
         # Handling library
         if model_filter.library:
-            filter_tuple.extend(
+            filter_list.extend(
                 [model_filter.library]
                 if isinstance(model_filter.library, str)
                 else model_filter.library
@@ -914,14 +924,16 @@ class HfApi:
                 else model_filter.tags
             )
 
-        query_dict = {}
+        query_dict: Dict[str, Any] = {}
         if model_str is not None:
             query_dict["search"] = model_str
         if len(tags) > 0:
             query_dict["tags"] = tags
-        if model_filter.language is not None:
-            filter_tuple.append(model_filter.language)
-        query_dict["filter"] = tuple(filter_tuple)
+        if isinstance(model_filter.language, list):
+            filter_list.extend(model_filter.language)
+        elif isinstance(model_filter.language, str):
+            filter_list.append(model_filter.language)
+        query_dict["filter"] = tuple(filter_list)
         return query_dict
 
     def list_datasets(
@@ -1060,7 +1072,7 @@ class HfApi:
         if dataset_filter.dataset_name is not None:
             dataset_str += dataset_filter.dataset_name
 
-        filter_tuple = []
+        filter_list = []
         data_attributes = [
             "benchmark",
             "language_creators",
@@ -1079,12 +1091,12 @@ class HfApi:
                 for data in curr_attr:
                     if f"{attr}:" not in data:
                         data = f"{attr}:{data}"
-                    filter_tuple.append(data)
+                    filter_list.append(data)
 
-        query_dict = {}
+        query_dict: Dict[str, Any] = {}
         if dataset_str is not None:
             query_dict["search"] = dataset_str
-        query_dict["filter"] = tuple(filter_tuple)
+        query_dict["filter"] = tuple(filter_list)
         return query_dict
 
     def list_metrics(self) -> List[MetricInfo]:
@@ -1095,8 +1107,7 @@ class HfApi:
             `List[MetricInfo]`: a list of [`MetricInfo`] objects which.
         """
         path = f"{self.endpoint}/api/metrics"
-        params = {}
-        r = requests.get(path, params=params)
+        r = requests.get(path)
         hf_raise_for_status(r)
         d = r.json()
         return [MetricInfo(**x) for x in d]
@@ -1156,7 +1167,7 @@ class HfApi:
         """
         path = f"{self.endpoint}/api/spaces"
         headers = self._build_hf_headers(use_auth_token=use_auth_token)
-        params = {}
+        params: Dict[str, Any] = {}
         if filter is not None:
             params.update({"filter": filter})
         if author is not None:
@@ -1522,7 +1533,7 @@ class HfApi:
     @_deprecate_positional_args(version="0.12")
     def create_repo(
         self,
-        repo_id: str = None,
+        repo_id: str,
         *,
         token: Optional[str] = None,
         private: bool = False,
@@ -1582,7 +1593,7 @@ class HfApi:
         if getattr(self, "_lfsmultipartthresh", None):
             # Testing purposes only.
             # See https://github.com/huggingface/huggingface_hub/pull/733/files#r820604472
-            json["lfsmultipartthresh"] = self._lfsmultipartthresh
+            json["lfsmultipartthresh"] = self._lfsmultipartthresh  # type: ignore
         headers = self._build_hf_headers(use_auth_token=token, is_write_action=True)
         r = requests.post(path, headers=headers, json=json)
 
@@ -1601,7 +1612,7 @@ class HfApi:
     @validate_hf_hub_args
     def delete_repo(
         self,
-        repo_id: str = None,
+        repo_id: str,
         *,
         token: Optional[str] = None,
         repo_type: Optional[str] = None,
@@ -1647,13 +1658,13 @@ class HfApi:
     @validate_hf_hub_args
     def update_repo_visibility(
         self,
-        repo_id: str = None,
+        repo_id: str,
         private: bool = False,
         *,
         token: Optional[str] = None,
         organization: Optional[str] = None,
         repo_type: Optional[str] = None,
-        name: str = None,
+        name: Optional[str] = None,
     ) -> Dict[str, bool]:
         """Update the visibility setting of a repository.
 
@@ -2118,7 +2129,7 @@ class HfApi:
         self,
         *,
         repo_id: str,
-        folder_path: str,
+        folder_path: Union[str, Path],
         path_in_repo: Optional[str] = None,
         commit_message: Optional[str] = None,
         commit_description: Optional[str] = None,
@@ -2151,7 +2162,7 @@ class HfApi:
             repo_id (`str`):
                 The repository to which the file will be uploaded, for example:
                 `"username/custom_transformers"`
-            folder_path (`str`):
+            folder_path (`str` or `Path`):
                 Path to the folder to upload on the local file system
             path_in_repo (`str`, *optional*):
                 Relative path of the directory in the repo, for example:
@@ -2465,7 +2476,7 @@ class HfApi:
             if "/" in model_id:
                 username = model_id.split("/")[0]
             else:
-                username = self.whoami(token=token or use_auth_token)["name"]
+                username = self.whoami(token=token or use_auth_token)["name"]  # type: ignore
             return f"{username}/{model_id}"
         else:
             return f"{organization}/{model_id}"
@@ -2880,7 +2891,7 @@ class HfApi:
             resource="comment",
             body={"comment": comment},
         )
-        return deserialize_event(resp.json()["newMessage"])
+        return deserialize_event(resp.json()["newMessage"])  # type: ignore
 
     @validate_hf_hub_args
     def rename_discussion(
@@ -2947,7 +2958,7 @@ class HfApi:
             resource="title",
             body={"title": new_title},
         )
-        return deserialize_event(resp.json()["newTitle"])
+        return deserialize_event(resp.json()["newTitle"])  # type: ignore
 
     @validate_hf_hub_args
     def change_discussion_status(
@@ -3011,7 +3022,7 @@ class HfApi:
         """
         if new_status not in ["open", "closed"]:
             raise ValueError("Invalid status, valid statuses are: 'open' and 'closed'")
-        body = {"status": new_status}
+        body: Dict[str, str] = {"status": new_status}
         if comment and comment.strip():
             body["comment"] = comment.strip()
         resp = self._post_discussion_changes(
@@ -3022,7 +3033,7 @@ class HfApi:
             resource="status",
             body=body,
         )
-        return deserialize_event(resp.json()["newStatus"])
+        return deserialize_event(resp.json()["newStatus"])  # type: ignore
 
     @validate_hf_hub_args
     def merge_pull_request(
@@ -3132,7 +3143,7 @@ class HfApi:
             resource=f"comment/{comment_id.lower()}/edit",
             body={"content": new_content},
         )
-        return deserialize_event(resp.json()["updatedComment"])
+        return deserialize_event(resp.json()["updatedComment"])  # type: ignore
 
     @validate_hf_hub_args
     def hide_discussion_comment(
@@ -3194,7 +3205,7 @@ class HfApi:
             token=token,
             resource=f"comment/{comment_id.lower()}/hide",
         )
-        return deserialize_event(resp.json()["updatedComment"])
+        return deserialize_event(resp.json()["updatedComment"])  # type: ignore
 
     def _build_hf_headers(
         self,
@@ -3220,7 +3231,7 @@ class HfApi:
 
 
 def _prepare_upload_folder_commit(
-    folder_path: str,
+    folder_path: Union[str, Path],
     path_in_repo: str,
     allow_patterns: Optional[Union[List[str], str]] = None,
     ignore_patterns: Optional[Union[List[str], str]] = None,

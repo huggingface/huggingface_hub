@@ -15,7 +15,7 @@ from .utils._deprecation import _deprecate_arguments, _deprecate_positional_args
 
 
 if is_torch_available():
-    import torch
+    import torch  # type: ignore
 
 logger = logging.get_logger(__name__)
 
@@ -30,7 +30,7 @@ class ModelHubMixin:
 
     def save_pretrained(
         self,
-        save_directory: str,
+        save_directory: Union[str, Path],
         config: Optional[dict] = None,
         push_to_hub: bool = False,
         **kwargs,
@@ -39,7 +39,7 @@ class ModelHubMixin:
         Save weights in local directory.
 
         Parameters:
-            save_directory (`str`):
+            save_directory (`str` or `Path`):
                 Specify directory in which you want to save weights.
             config (`dict`, *optional*):
                 Specify config (must be dict) in case you want to save
@@ -90,7 +90,7 @@ class ModelHubMixin:
 
             return self.push_to_hub(**kwargs)
 
-    def _save_pretrained(self, save_directory: str):
+    def _save_pretrained(self, save_directory: Union[str, Path]):
         """
         Overwrite this method in subclass to define how to save your model.
         """
@@ -102,7 +102,7 @@ class ModelHubMixin:
         pretrained_model_name_or_path: str,
         force_download: bool = False,
         resume_download: bool = False,
-        proxies: Dict = None,
+        proxies: Optional[Dict] = None,
         use_auth_token: Optional[str] = None,
         cache_dir: Optional[str] = None,
         local_files_only: bool = False,
@@ -257,7 +257,7 @@ class ModelHubMixin:
         *,
         repo_path_or_name: Optional[str] = None,
         repo_url: Optional[str] = None,
-        commit_message: Optional[str] = "Add model",
+        commit_message: str = "Add model",
         organization: Optional[str] = None,
         private: bool = False,
         api_endpoint: Optional[str] = None,
@@ -276,7 +276,7 @@ class ModelHubMixin:
         # TODO (release 0.12): signature must be the following
         # repo_id: str,
         # *,
-        # commit_message: Optional[str] = "Add model",
+        # commit_message: str = "Add model",
         # private: bool = False,
         # api_endpoint: Optional[str] = None,
         # token: Optional[str] = None,
@@ -372,6 +372,7 @@ class ModelHubMixin:
             token = None
 
         if repo_path_or_name is None:
+            assert repo_url is not None, "A `None` repo URL would have raised above"
             repo_path_or_name = repo_url.split("/")[-1]
 
         # If no URL is passed and there's no path to a directory containing files, create a repo

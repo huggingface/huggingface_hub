@@ -28,10 +28,10 @@ def snapshot_download(
     library_version: Optional[str] = None,
     user_agent: Optional[Union[Dict, str]] = None,
     proxies: Optional[Dict] = None,
-    etag_timeout: Optional[float] = 10,
-    resume_download: Optional[bool] = False,
+    etag_timeout: float = 10,
+    resume_download: bool = False,
     use_auth_token: Optional[Union[bool, str]] = None,
-    local_files_only: Optional[bool] = False,
+    local_files_only: bool = False,
     allow_regex: Optional[Union[List[str], str]] = None,
     ignore_regex: Optional[Union[List[str], str]] = None,
     allow_patterns: Optional[Union[List[str], str]] = None,
@@ -160,6 +160,9 @@ def snapshot_download(
         revision=revision,
         use_auth_token=use_auth_token,
     )
+    assert (
+        repo_info.sha is not None
+    ), "Repo info returned from server must have a revision sha."
     filtered_repo_files = list(
         filter_repo_objects(
             items=[f.rfilename for f in repo_info.siblings],

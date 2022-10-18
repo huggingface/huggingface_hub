@@ -12,7 +12,7 @@ from dataclasses import dataclass
 from functools import partial
 from hashlib import sha256
 from pathlib import Path
-from typing import BinaryIO, Dict, Optional, Tuple, Union
+from typing import Any, BinaryIO, Dict, Generator, Optional, Tuple, Union
 from urllib.parse import quote, urlparse
 
 import requests
@@ -58,6 +58,7 @@ from .utils import (
 )
 from .utils._headers import _http_user_agent
 from .utils._runtime import _PY_VERSION  # noqa: F401 # for backward compatibility
+from .utils._typing import HTTP_METHOD_T
 
 
 logger = logging.get_logger(__name__)
@@ -127,6 +128,7 @@ def are_symlinks_supported(cache_dir: Union[str, Path, None] = None) -> bool:
 
 # Return value when trying to load a file from cache but the file does not exist in the distant repo.
 _CACHED_NO_EXIST = object()
+_CACHED_NO_EXIST_T = Any
 REGEX_COMMIT_HASH = re.compile(r"^[0-9a-f]{40}$")
 
 
@@ -274,7 +276,7 @@ def url_to_filename(url: str, etag: Optional[str] = None) -> str:
 def filename_to_url(
     filename,
     cache_dir: Optional[str] = None,
-    legacy_cache_layout: Optional[bool] = False,
+    legacy_cache_layout: bool = False,
 ) -> Tuple[str, str]:
     """
     Return the url and etag (which may be `None`) stored for `filename`. Raise
@@ -347,7 +349,7 @@ def _raise_if_offline_mode_is_enabled(msg: Optional[str] = None):
 
 
 def _request_wrapper(
-    method: str,
+    method: HTTP_METHOD_T,
     url: str,
     *,
     max_retries: int = 0,
@@ -464,7 +466,7 @@ def http_get(
     """
     Download a remote file. Do not gobble up errors, and will return errors tailored to the Hugging Face Hub.
     """
-    headers = copy.deepcopy(headers)
+    headers = copy.deepcopy(headers) or {}
     if resume_size > 0:
         headers["Range"] = "bytes=%d-" % (resume_size,)
     r = _request_wrapper(
@@ -501,14 +503,14 @@ def cached_download(
     library_version: Optional[str] = None,
     cache_dir: Union[str, Path, None] = None,
     user_agent: Union[Dict, str, None] = None,
-    force_download: Optional[bool] = False,
+    force_download: bool = False,
     force_filename: Optional[str] = None,
     proxies: Optional[Dict] = None,
-    etag_timeout: Optional[float] = 10,
-    resume_download: Optional[bool] = False,
+    etag_timeout: float = 10,
+    resume_download: bool = False,
     use_auth_token: Union[bool, str, None] = None,
-    local_files_only: Optional[bool] = False,
-    legacy_cache_layout: Optional[bool] = False,
+    local_files_only: bool = False,
+    legacy_cache_layout: bool = False,
 ) -> Optional[str]:  # pragma: no cover
     """
     Download from a given URL and cache it if it's not already present in the
@@ -714,7 +716,7 @@ def cached_download(
             incomplete_path = cache_path + ".incomplete"
 
             @contextmanager
-            def _resumable_file_manager() -> "io.BufferedWriter":
+            def _resumable_file_manager() -> Generator[io.BufferedWriter, None, None]:
                 with open(incomplete_path, "ab") as f:
                     yield f
 
@@ -724,7 +726,7 @@ def cached_download(
             else:
                 resume_size = 0
         else:
-            temp_file_manager = partial(
+            temp_file_manager = partial(  # type: ignore
                 tempfile.NamedTemporaryFile, mode="wb", dir=cache_dir, delete=False
             )
             resume_size = 0
@@ -866,14 +868,14 @@ def hf_hub_download(
     library_version: Optional[str] = None,
     cache_dir: Union[str, Path, None] = None,
     user_agent: Union[Dict, str, None] = None,
-    force_download: Optional[bool] = False,
+    force_download: bool = False,
     force_filename: Optional[str] = None,
     proxies: Optional[Dict] = None,
-    etag_timeout: Optional[float] = 10,
-    resume_download: Optional[bool] = False,
+    etag_timeout: float = 10,
+    resume_download: bool = False,
     use_auth_token: Union[bool, str, None] = None,
-    local_files_only: Optional[bool] = False,
-    legacy_cache_layout: Optional[bool] = False,
+    local_files_only: bool = False,
+    legacy_cache_layout: bool = False,
 ):
     """Download a given file if it's not already present in the local cache.
 
@@ -1173,6 +1175,8 @@ def hf_hub_download(
             )
 
     # From now on, etag and commit_hash are not None.
+    assert etag is not None, "etag must have been retrieved from server"
+    assert commit_hash is not None, "commit_hash must have been retrieved from server"
     blob_path = os.path.join(storage_folder, "blobs", etag)
     pointer_path = os.path.join(
         storage_folder, "snapshots", commit_hash, relative_filename
@@ -1215,7 +1219,7 @@ def hf_hub_download(
             incomplete_path = blob_path + ".incomplete"
 
             @contextmanager
-            def _resumable_file_manager() -> "io.BufferedWriter":
+            def _resumable_file_manager() -> Generator[io.BufferedWriter, None, None]:
                 with open(incomplete_path, "ab") as f:
                     yield f
 
@@ -1225,7 +1229,7 @@ def hf_hub_download(
             else:
                 resume_size = 0
         else:
-            temp_file_manager = partial(
+            temp_file_manager = partial(  # type: ignore
                 tempfile.NamedTemporaryFile, mode="wb", dir=cache_dir, delete=False
             )
             resume_size = 0
@@ -1264,7 +1268,7 @@ def try_to_load_from_cache(
     cache_dir: Union[str, Path, None] = None,
     revision: Optional[str] = None,
     repo_type: Optional[str] = None,
-) -> Optional[str]:
+) -> Union[str, _CACHED_NO_EXIST_T, None]:
     """
     Explores the cache to return the latest cached file for a given revision if found.
 
@@ -1333,7 +1337,7 @@ def get_hf_file_metadata(
     url: str,
     use_auth_token: Union[bool, str, None] = None,
     proxies: Optional[Dict] = None,
-    timeout: Optional[float] = 10,
+    timeout: float = 10,
 ) -> HfFileMetadata:
     """Fetch metadata of a file versioned on the Hub for a given url.
 
@@ -1349,7 +1353,7 @@ def get_hf_file_metadata(
         proxies (`dict`, *optional*):
             Dictionary mapping protocol to the URL of the proxy passed to
             `requests.request`.
-        etag_timeout (`float`, *optional*, defaults to 10):
+        timeout (`float`, *optional*, defaults to 10):
             How many seconds to wait for the server to send metadata before giving up.
 
     Returns:
@@ -1382,5 +1386,5 @@ def get_hf_file_metadata(
         # Either from response headers (if redirected) or defaults to request url
         # Do not use directly `url`, as `_request_wrapper` might have followed relative
         # redirects.
-        location=r.headers.get("Location") or r.request.url,
+        location=r.headers.get("Location") or r.request.url,  # type: ignore
     )

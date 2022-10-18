@@ -146,8 +146,8 @@ def notebook_login() -> None:
     For more details, see [`login`].
     """
     try:
-        import ipywidgets.widgets as widgets
-        from IPython.display import clear_output, display
+        import ipywidgets.widgets as widgets  # type: ignore
+        from IPython.display import clear_output, display  # type: ignore
     except ImportError:
         raise ImportError(
             "The `notebook_login` function can only be used in a notebook (Jupyter or"

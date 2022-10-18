@@ -14,7 +14,6 @@
 # limitations under the License.
 """Check presence of installed packages at runtime."""
 import sys
-from typing import Optional
 
 import packaging.version
 
@@ -24,9 +23,9 @@ from .. import __version__
 _PY_VERSION: str = sys.version.split()[0].rstrip("+")
 
 if packaging.version.Version(_PY_VERSION) < packaging.version.Version("3.8.0"):
-    import importlib_metadata
+    import importlib_metadata  # type: ignore
 else:
-    import importlib.metadata as importlib_metadata
+    import importlib.metadata as importlib_metadata  # type: ignore
 
 
 _package_versions = {}
@@ -63,7 +62,7 @@ for candidate_name, package_names in _CANDIDATES.items():
             pass
 
 
-def _get_version(package_name: str) -> Optional[str]:
+def _get_version(package_name: str) -> str:
     return _package_versions.get(package_name, "N/A")
 
 
@@ -151,7 +150,7 @@ try:
     # warning disappear. See https://github.com/huggingface/huggingface_hub/issues/1043
     #
     # Taken from https://stackoverflow.com/a/63519730.
-    _is_google_colab = "google.colab" in str(get_ipython())  # noqa: F821
+    _is_google_colab = "google.colab" in str(get_ipython())  # type: ignore # noqa: F821
 except NameError:
     _is_google_colab = False
 
@@ -163,7 +162,7 @@ def is_notebook() -> bool:
     Adapted to make it work with Google colab as well.
     """
     try:
-        shell_class = get_ipython().__class__  # noqa: F821
+        shell_class = get_ipython().__class__  # type: ignore # noqa: F821
         for parent_class in shell_class.__mro__:  # e.g. "is subclass of"
             if parent_class.__name__ == "ZMQInteractiveShell":
                 return True  # Jupyter notebook, Google colab or qtconsole
