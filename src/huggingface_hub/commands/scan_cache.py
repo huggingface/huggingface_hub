@@ -21,7 +21,7 @@ Usage:
     huggingface-cli scan-cache --dir ~/.cache/huggingface/hub
 """
 import time
-from argparse import ArgumentParser
+from argparse import _SubParsersAction
 from typing import Optional
 
 from ..utils import CacheNotFound, HFCacheInfo, scan_cache_dir
@@ -31,7 +31,7 @@ from ._cli_utils import ANSI, tabulate
 
 class ScanCacheCommand(BaseHuggingfaceCLICommand):
     @staticmethod
-    def register_subcommand(parser: ArgumentParser):
+    def register_subcommand(parser: _SubParsersAction):
         scan_cache_parser = parser.add_parser(
             "scan-cache", help="Scan cache directory."
         )

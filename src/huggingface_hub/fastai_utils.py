@@ -25,8 +25,8 @@ logger = logging.get_logger(__name__)
 
 
 def _check_fastai_fastcore_versions(
-    fastai_min_version: Optional[str] = "2.4",
-    fastcore_min_version: Optional[str] = "1.3.27",
+    fastai_min_version: str = "2.4",
+    fastcore_min_version: str = "1.3.27",
 ):
     """
     Checks that the installed fastai and fastcore versions are compatible for pickle serialization.
@@ -75,8 +75,8 @@ def _check_fastai_fastcore_versions(
 
 def _check_fastai_fastcore_pyproject_versions(
     storage_folder: str,
-    fastai_min_version: Optional[str] = "2.4",
-    fastcore_min_version: Optional[str] = "1.3.27",
+    fastai_min_version: str = "2.4",
+    fastcore_min_version: str = "1.3.27",
 ):
     """
     Checks that the `pyproject.toml` file in the directory `storage_folder` has fastai and fastcore versions
@@ -252,7 +252,7 @@ def _create_model_pyproject(repo_dir: Path):
 
 def _save_pretrained_fastai(
     learner,
-    save_directory: str,
+    save_directory: Union[str, Path],
     config: Optional[Dict[str, Any]] = None,
 ):
     """
@@ -261,7 +261,7 @@ def _save_pretrained_fastai(
     Args:
         learner (`Learner`):
             The `fastai.Learner` you'd like to save.
-        save_directory (`str`):
+        save_directory (`str` or `Path`):
             Specific directory in which you want to save the fastai learner.
         config (`dict`, *optional*):
             Configuration object. Will be uploaded as a .json file. Example: 'https://huggingface.co/espejelomar/fastai-pet-breeds-classification/blob/main/config.json'.
@@ -348,7 +348,7 @@ def from_pretrained_fastai(
 
     _check_fastai_fastcore_pyproject_versions(storage_folder)
 
-    from fastai.learner import load_learner
+    from fastai.learner import load_learner  # type: ignore
 
     return load_learner(os.path.join(storage_folder, "model.pkl"))
 
@@ -367,7 +367,7 @@ def push_to_hub_fastai(
     learner,
     *,
     repo_id: str,
-    commit_message: Optional[str] = "Add model",
+    commit_message: str = "Add model",
     private: bool = False,
     token: Optional[str] = None,
     config: Optional[dict] = None,
@@ -382,7 +382,7 @@ def push_to_hub_fastai(
     # TODO (release 0.12): signature must be the following
     # learner,
     # repo_id: Optional[str] = None,  # optional only until 0.12
-    # commit_message: Optional[str] = "Add model",
+    # commit_message: str = "Add model",
     # private: Optional[bool] = None,
     # token: Optional[str] = None,
     # config: Optional[dict] = None,

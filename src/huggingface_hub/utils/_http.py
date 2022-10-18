@@ -23,12 +23,10 @@ from requests import Response
 from requests.exceptions import ConnectTimeout, ProxyError
 
 from . import logging
-from ._typing import Literal
+from ._typing import HTTP_METHOD_T
 
 
 logger = logging.get_logger(__name__)
-
-HTTP_METHOD_T = Literal["GET", "OPTIONS", "HEAD", "POST", "PUT", "PATCH", "DELETE"]
 
 
 def http_backoff(

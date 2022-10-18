@@ -17,7 +17,7 @@ import inspect
 import re
 from functools import wraps
 from itertools import chain
-from typing import TypeVar
+from typing import Callable, TypeVar
 
 
 REPO_ID_REGEX = re.compile(
@@ -41,7 +41,7 @@ class HFValidationError(ValueError):
 
 
 # type hint meaning "function signature not changed by decorator"
-CallableT = TypeVar("CallableT")  # callable type
+CallableT = TypeVar("CallableT", bound=Callable)
 
 
 def validate_hf_hub_args(fn: CallableT) -> CallableT:
@@ -93,7 +93,7 @@ def validate_hf_hub_args(fn: CallableT) -> CallableT:
 
         return fn(*args, **kwargs)
 
-    return _inner_fn
+    return _inner_fn  # type: ignore
 
 
 def validate_repo_id(repo_id: str) -> None:

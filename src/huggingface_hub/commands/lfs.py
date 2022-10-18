@@ -20,7 +20,7 @@ import json
 import os
 import subprocess
 import sys
-from argparse import ArgumentParser
+from argparse import _SubParsersAction
 from typing import Dict, List, Optional
 
 import requests
@@ -55,7 +55,7 @@ class LfsCommands(BaseHuggingfaceCLICommand):
     """
 
     @staticmethod
-    def register_subcommand(parser: ArgumentParser):
+    def register_subcommand(parser: _SubParsersAction):
         enable_parser = parser.add_parser(
             "lfs-enable-largefiles",
             help="Configure your repository to enable upload of files > 5GB.",
@@ -97,8 +97,8 @@ class LfsEnableCommand:
 
 def write_msg(msg: Dict):
     """Write out the message in Line delimited JSON."""
-    msg = json.dumps(msg) + "\n"
-    sys.stdout.write(msg)
+    msg_str = json.dumps(msg) + "\n"
+    sys.stdout.write(msg_str)
     sys.stdout.flush()
 
 

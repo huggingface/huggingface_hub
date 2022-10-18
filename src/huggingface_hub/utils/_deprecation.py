@@ -1,7 +1,7 @@
 import warnings
 from functools import wraps
 from inspect import Parameter, signature
-from typing import Optional, Set
+from typing import Iterable, Optional
 
 
 def _deprecate_positional_args(*, version: str):
@@ -50,7 +50,10 @@ def _deprecate_positional_args(*, version: str):
 
 
 def _deprecate_arguments(
-    *, version: str, deprecated_args: Set[str], custom_message: Optional[str] = None
+    *,
+    version: str,
+    deprecated_args: Iterable[str],
+    custom_message: Optional[str] = None,
 ):
     """Decorator to issue warnings when using deprecated arguments.
 
