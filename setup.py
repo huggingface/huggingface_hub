@@ -50,6 +50,8 @@ extras["testing"] = extras["cli"] + [
     "soundfile",
 ]
 
+# Typing extra dependencies list is duplicated in `.pre-commit-config.yaml`
+# Please make sure to update the list there when adding a new typing dependency.
 extras["typing"] = [
     "types-PyYAML",
     "types-requests",
