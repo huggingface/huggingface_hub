@@ -26,12 +26,7 @@ repos:
     hooks:
       - id: mypy
         # taken from https://github.com/pre-commit/mirrors-mypy/issues/33#issuecomment-735449356
-        args:
-          [
-            "--ignore-missing-imports",
-            "--scripts-are-modules",
-            src/huggingface_hub,
-          ]
+        args: [src, --config-file=pyproject.toml]
         pass_filenames: false
         # Same list of dependencies as in `setup.py`
         additional_dependencies:

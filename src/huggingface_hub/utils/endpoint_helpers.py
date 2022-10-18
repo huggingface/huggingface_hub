@@ -21,8 +21,8 @@ from typing import List, Optional, Union
 
 def _filter_emissions(
     models,
-    minimum_threshold: float = None,
-    maximum_threshold: float = None,
+    minimum_threshold: Optional[float] = None,
+    maximum_threshold: Optional[float] = None,
 ):
     """Filters a list of models for those that include an emission tag
     and limit them to between two thresholds
@@ -292,7 +292,7 @@ class GeneralTags(AttributeDictionary):
             `["library","language"]`
     """
 
-    def __init__(self, tag_dictionary: dict, keys: list = None):
+    def __init__(self, tag_dictionary: dict, keys: Optional[list] = None):
         self._tag_dictionary = tag_dictionary
         if keys is None:
             keys = list(self._tag_dictionary.keys())

@@ -102,7 +102,7 @@ class ModelHubMixin:
         pretrained_model_name_or_path: str,
         force_download: bool = False,
         resume_download: bool = False,
-        proxies: Dict = None,
+        proxies: Optional[Dict] = None,
         use_auth_token: Optional[str] = None,
         cache_dir: Optional[str] = None,
         local_files_only: bool = False,

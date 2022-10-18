@@ -1311,7 +1311,9 @@ class Repository:
 
         return True
 
-    def add_tag(self, tag_name: str, message: str = None, remote: Optional[str] = None):
+    def add_tag(
+        self, tag_name: str, message: Optional[str] = None, remote: Optional[str] = None
+    ):
         """
         Add a tag at the current head and push it
 

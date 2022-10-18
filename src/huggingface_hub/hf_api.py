@@ -1661,7 +1661,7 @@ class HfApi:
         token: Optional[str] = None,
         organization: Optional[str] = None,
         repo_type: Optional[str] = None,
-        name: str = None,
+        name: Optional[str] = None,
     ) -> Dict[str, bool]:
         """Update the visibility setting of a repository.
 

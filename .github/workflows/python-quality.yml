@@ -37,4 +37,4 @@ jobs:
       - run: mypy src/huggingface_hub/__init__.py --follow-imports=silent
 
       # Run mypy on full package
-      - run: mypy src/huggingface_hub
+      - run: mypy src
