@@ -1963,7 +1963,7 @@ class HfApi:
         )
         commit_url = f"{self.endpoint}/api/{repo_type}s/{repo_id}/commit/{revision}"
 
-        def _payload_as_ndjson() -> Iterable[str]:
+        def _payload_as_ndjson() -> Iterable[bytes]:
             for item in commit_payload:
                 yield json.dumps(item).encode()
                 yield b"\n"
@@ -1978,7 +1978,7 @@ class HfApi:
             commit_resp = requests.post(
                 url=commit_url,
                 headers=headers,
-                data=_payload_as_ndjson(),
+                data=_payload_as_ndjson(),  # type: ignore
                 params={"create_pr": "1"} if create_pr else None,
             )
             hf_raise_for_status(commit_resp, endpoint_name="commit")
