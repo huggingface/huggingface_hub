@@ -133,7 +133,7 @@ def repo_type_and_id_from_hf_id(
         )
 
     if repo_type not in REPO_TYPES:
-        assert repo_type is not None
+        assert repo_type is not None, "repo_type `None` do not have mapping"
         repo_type = REPO_TYPES_MAPPING.get(repo_type)
 
     return repo_type, namespace, repo_id
@@ -566,7 +566,9 @@ def write_to_credential_store(username: str, password: str):
         input_username = f"username={username.lower()}"
         input_password = f"password={password}"
 
-        assert process.stdin is not None
+        assert (
+            process.stdin is not None
+        ), "subprocess must be opened with subprocess.PIPE"
         process.stdin.write(
             f"url={ENDPOINT}\n{input_username}\n{input_password}\n\n".encode("utf-8")
         )

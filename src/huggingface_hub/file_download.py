@@ -1175,8 +1175,8 @@ def hf_hub_download(
             )
 
     # From now on, etag and commit_hash are not None.
-    assert etag is not None
-    assert commit_hash is not None
+    assert etag is not None, "etag must have been retrieved from server"
+    assert commit_hash is not None, "commit_hash must have been retrieved from server"
     blob_path = os.path.join(storage_folder, "blobs", etag)
     pointer_path = os.path.join(
         storage_folder, "snapshots", commit_hash, relative_filename

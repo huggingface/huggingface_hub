@@ -160,7 +160,9 @@ def snapshot_download(
         revision=revision,
         use_auth_token=use_auth_token,
     )
-    assert repo_info.sha is not None
+    assert (
+        repo_info.sha is not None
+    ), "Repo info returned from server must have a revision sha."
     filtered_repo_files = list(
         filter_repo_objects(
             items=[f.rfilename for f in repo_info.siblings],
