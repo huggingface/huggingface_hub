@@ -330,7 +330,6 @@ def fetch_upload_modes(
     token: Optional[str],
     revision: str,
     endpoint: Optional[str] = None,
-    create_pr: Optional[bool] = None,
 ) -> List[Tuple[CommitOperationAdd, UploadMode]]:
     """
     Requests the Hub "preupload" endpoint to determine wether each input file
@@ -361,33 +360,10 @@ def fetch_upload_modes(
             If the Hub API returned an HTTP 400 error (bad request)
     """
     endpoint = endpoint if endpoint is not None else ENDPOINT
-<<<<<<< HEAD
     headers = build_hf_headers(use_auth_token=token)
-    payload = {
-        "files": [
-            {
-                "path": op.path_in_repo,
-                "sample": base64.b64encode(op._upload_info().sample).decode("ascii"),
-                "size": op._upload_info().size,
-                "sha": op._upload_info().sha256.hex(),
-            }
-            for op in additions
-        ]
-    }
 
-    resp = requests.post(
-        f"{endpoint}/api/{repo_type}s/{repo_id}/preupload/{revision}",
-        json=payload,
-        headers=headers,
-        params={"create_pr": "1"} if create_pr else None,
-    )
-    hf_raise_for_status(resp, endpoint_name="preupload")
-=======
-    headers = {"authorization": f"Bearer {token}"} if token is not None else None
-
+    # Fetch upload mode (LFS or regular) chunk by chunk.
     path2mode: Dict[str, UploadMode] = {}
->>>>>>> sbrandeis-chunk-lfs-preupload
-
     for chunk in chunk_iterable(additions, 128):
         payload = {
             "files": [
@@ -408,14 +384,11 @@ def fetch_upload_modes(
             json=payload,
             headers=headers,
         )
-        resp.raise_for_status()
-
+        hf_raise_for_status(resp)
         preupload_info = validate_preupload_info(resp.json())
-
-        path2mode = {
-            **path2mode,
-            **{file["path"]: file["uploadMode"] for file in preupload_info["files"]},
-        }
+        path2mode.update(
+            **{file["path"]: file["uploadMode"] for file in preupload_info["files"]}
+        )
 
     return [(op, path2mode[op.path_in_repo]) for op in additions]
 

@@ -1921,7 +1921,6 @@ class HfApi:
                 token=token,
                 revision=revision,
                 endpoint=self.endpoint,
-                create_pr=create_pr,
             )
         except RepositoryNotFoundError as e:
             e.append_to_message(
