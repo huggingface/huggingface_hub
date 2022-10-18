@@ -8,17 +8,7 @@ from concurrent import futures
 from concurrent.futures import ThreadPoolExecutor
 from contextlib import contextmanager
 from dataclasses import dataclass, field
-from typing import (
-    Any,
-    BinaryIO,
-    Dict,
-    Generator,
-    Iterable,
-    List,
-    Optional,
-    Tuple,
-    Union,
-)
+from typing import Any, BinaryIO, Dict, Iterable, List, Optional, Tuple, Union
 
 import requests
 
@@ -401,7 +391,7 @@ def prepare_commit_payload(
     commit_message: str,
     commit_description: Optional[str] = None,
     parent_commit: Optional[str] = None,
-) -> Generator[Dict[str, Any], None, None]:
+) -> Iterable[Dict[str, Any]]:
     """
     Builds the payload to POST to the `/commit` API of the Hub.
 

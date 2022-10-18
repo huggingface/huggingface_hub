@@ -18,17 +18,7 @@ import re
 import subprocess
 import warnings
 from dataclasses import dataclass, field
-from typing import (
-    BinaryIO,
-    Dict,
-    Generator,
-    Iterable,
-    Iterator,
-    List,
-    Optional,
-    Tuple,
-    Union,
-)
+from typing import BinaryIO, Dict, Iterable, Iterator, List, Optional, Tuple, Union
 from urllib.parse import quote
 
 import requests
@@ -1875,6 +1865,12 @@ class HfApi:
         [`~hf_api.create_repo`].
 
         </Tip>
+
+        <Tip warning={true}>
+
+        `create_commit` is limited to 25k LFS files and a 1GB payload for regular files.
+
+        </Tip>
         """
         if parent_commit is not None and not REGEX_COMMIT_OID.fullmatch(parent_commit):
             raise ValueError(
@@ -1955,13 +1951,16 @@ class HfApi:
         )
         commit_url = f"{self.endpoint}/api/{repo_type}s/{repo_id}/commit/{revision}"
 
-        def _payload_as_ndjson() -> Generator[str, None, None]:
+        def _payload_as_ndjson() -> Iterable[str]:
             for item in commit_payload:
                 yield json.dumps(item).encode()
                 yield b"\n"
 
-        headers = build_hf_headers(use_auth_token=token, is_write_action=True)
-        headers["Content-Type"] = "application/x-ndjson"
+        headers = {
+            # See https://github.com/huggingface/huggingface_hub/issues/1085#issuecomment-1265208073
+            "Content-Type": "application/x-ndjson",
+            **build_hf_headers(use_auth_token=token, is_write_action=True),
+        }
         commit_resp = requests.post(
             url=commit_url,
             headers=headers,
