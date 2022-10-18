@@ -94,11 +94,12 @@ HF_HUB_OFFLINE = _is_true(os.environ.get("HF_HUB_OFFLINE"))
 # If environment variable is not set (None), then the user is free to enable/disable
 # them programmatically.
 # TL;DR: env variable has priority over code
-HF_HUB_DISABLE_PROGRESS_BARS: Optional[bool] = os.environ.get(
-    "HF_HUB_DISABLE_PROGRESS_BARS"
+__HF_HUB_DISABLE_PROGRESS_BARS = os.environ.get("HF_HUB_DISABLE_PROGRESS_BARS")
+HF_HUB_DISABLE_PROGRESS_BARS: Optional[bool] = (
+    _is_true(__HF_HUB_DISABLE_PROGRESS_BARS)
+    if __HF_HUB_DISABLE_PROGRESS_BARS is not None
+    else None
 )
-if HF_HUB_DISABLE_PROGRESS_BARS is not None:
-    HF_HUB_DISABLE_PROGRESS_BARS = _is_true(HF_HUB_DISABLE_PROGRESS_BARS)
 
 # Disable warning on machines that do not support symlinks (e.g. Windows non-developer)
 HF_HUB_DISABLE_SYMLINKS_WARNING: bool = _is_true(

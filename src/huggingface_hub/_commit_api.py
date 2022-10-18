@@ -23,6 +23,8 @@ logger = logging.get_logger(__name__)
 
 UploadMode = Literal["lfs", "regular"]
 
+CommitOperationT = Union["CommitOperationAdd", "CommitOperationDelete"]
+
 
 @dataclass
 class CommitOperationDelete:

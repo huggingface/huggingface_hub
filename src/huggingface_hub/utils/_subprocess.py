@@ -15,6 +15,7 @@
 # limitations under the License
 import os
 import subprocess
+from pathlib import Path
 from typing import List, Optional, Union
 
 from .logging import get_logger
@@ -24,7 +25,10 @@ logger = get_logger(__name__)
 
 
 def run_subprocess(
-    command: Union[str, List[str]], folder: Optional[str] = None, check=True, **kwargs
+    command: Union[str, List[str]],
+    folder: Optional[Union[str, Path]] = None,
+    check=True,
+    **kwargs,
 ) -> subprocess.CompletedProcess:
     """
     Method to run subprocesses. Calling this will capture the `stderr` and `stdout`,
@@ -48,6 +52,9 @@ def run_subprocess(
     """
     if isinstance(command, str):
         command = command.split()
+
+    if isinstance(folder, Path):
+        folder = str(folder)
 
     return subprocess.run(
         command,

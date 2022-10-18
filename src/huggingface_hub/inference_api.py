@@ -1,4 +1,4 @@
-from typing import Dict, List, Optional, Union
+from typing import Any, Dict, List, Optional, Union
 
 import requests
 
@@ -83,7 +83,7 @@ class InferenceApi:
         repo_id: str,
         task: Optional[str] = None,
         token: Optional[str] = None,
-        gpu: Optional[bool] = False,
+        gpu: bool = False,
     ):
         """Inits headers and API call information.
 
@@ -144,7 +144,7 @@ class InferenceApi:
         params: Optional[Dict] = None,
         data: Optional[bytes] = None,
     ):
-        payload = {
+        payload: Dict[str, Any] = {
             "options": self.options,
         }
 
