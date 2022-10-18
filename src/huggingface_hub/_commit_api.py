@@ -305,6 +305,7 @@ def _upload_lfs_object(
     verify_action = lfs_batch_action["actions"].get("verify")
 
     with operation.as_file() as fileobj:
+        logger.debug(f"Uploading {operation.path_in_repo} as LFS file...")
         lfs_upload(
             fileobj=fileobj,
             upload_action=upload_action,

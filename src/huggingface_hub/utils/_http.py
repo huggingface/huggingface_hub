@@ -13,6 +13,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 """Contains utilities to handle HTTP requests in Huggingface Hub."""
+import io
 import time
 from http import HTTPStatus
 from typing import Tuple, Type, Union
@@ -89,6 +90,18 @@ def http_backoff(
     >>> http_backoff("PUT", upload_url, data=data, retry_on_status_codes=504)
     >>> response.raise_for_status()
     ```
+
+    <Tip warning={true}>
+
+    When using `requests` it is possible to stream data by passing an iterator to the
+    `data` argument. On http backoff this is a problem as the iterator is not reset
+    after a failed call. This issue is mitigated for file objects or any IO streams
+    by saving the initial position of the cursor (with `data.tell()`) and resetting the
+    cursor between each call (with `data.seek()`). For arbitrary iterators, http backoff
+    will fail. If this is a hard constraint for you, please let us know by opening an
+    issue on [Github](https://github.com/huggingface/huggingface_hub).
+
+    </Tip>
     """
     if isinstance(retry_on_exceptions, type):  # Tuple from single exception type
         retry_on_exceptions = (retry_on_exceptions,)
@@ -98,9 +111,22 @@ def http_backoff(
 
     nb_tries = 0
     sleep_time = base_wait_time
+
+    # If `data` is used and is a file object (or any IO), it will be consumed on the
+    # first HTTP request. We need to save the initial position so that the full content
+    # of the file is re-sent on http backoff. See warning tip in docstring.
+    io_obj_initial_pos = None
+    if "data" in kwargs and isinstance(kwargs["data"], io.IOBase):
+        io_obj_initial_pos = kwargs["data"].tell()
+
     while True:
         nb_tries += 1
         try:
+            # If `data` is used and is a file object (or any IO), set back cursor to
+            # initial position.
+            if io_obj_initial_pos is not None:
+                kwargs["data"].seek(io_obj_initial_pos)
+
             # Perform request and return if status_code is not in the retry list.
             response = requests.request(method=method, url=url, **kwargs)
             if response.status_code not in retry_on_status_codes:
@@ -124,7 +150,7 @@ def http_backoff(
                 raise err
 
         # Sleep for X seconds
-        logger.warning(f"Retrying in {sleep_time}s [{nb_tries/max_retries}].")
+        logger.warning(f"Retrying in {sleep_time}s [Retry {nb_tries}/{max_retries}].")
         time.sleep(sleep_time)
 
         # Update sleep time for next retry
