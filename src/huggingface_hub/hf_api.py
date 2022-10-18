@@ -598,8 +598,12 @@ def read_from_credential_store(
 
         standard_input += "\n"
 
-        assert process.stdin is not None
-        assert process.stdout is not None
+        assert (
+            process.stdin is not None
+        ), "subprocess must be opened with subprocess.PIPE"
+        assert (
+            process.stdout is not None
+        ), "subprocess must be opened with subprocess.PIPE"
         process.stdin.write(standard_input.encode("utf-8"))
         process.stdin.flush()
         output = process.stdout.read().decode("utf-8")

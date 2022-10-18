@@ -372,7 +372,7 @@ class ModelHubMixin:
             token = None
 
         if repo_path_or_name is None:
-            assert repo_url is not None  # checked above
+            assert repo_url is not None, "A `None` repo URL would have raised above"
             repo_path_or_name = repo_url.split("/")[-1]
 
         # If no URL is passed and there's no path to a directory containing files, create a repo
