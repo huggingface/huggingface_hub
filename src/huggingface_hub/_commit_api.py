@@ -8,7 +8,17 @@ from concurrent import futures
 from concurrent.futures import ThreadPoolExecutor
 from contextlib import contextmanager
 from dataclasses import dataclass, field
-from typing import BinaryIO, Dict, Iterable, List, Optional, Tuple, Union
+from typing import (
+    Any,
+    BinaryIO,
+    Dict,
+    Generator,
+    Iterable,
+    List,
+    Optional,
+    Tuple,
+    Union,
+)
 
 import requests
 
@@ -391,35 +401,56 @@ def prepare_commit_payload(
     commit_message: str,
     commit_description: Optional[str] = None,
     parent_commit: Optional[str] = None,
-):
+) -> Generator[Dict[str, Any], None, None]:
     """
-    Builds the payload to POST to the `/commit` API of the Hub
+    Builds the payload to POST to the `/commit` API of the Hub.
+
+    Payload is returned as an iterator so that it can be streamed as a ndjson in the
+    POST request.
+
+    For more information, see:
+        - https://github.com/huggingface/huggingface_hub/issues/1085#issuecomment-1265208073
+        - http://ndjson.org/
     """
     commit_description = commit_description if commit_description is not None else ""
 
-    payload = {
-        **({"parentCommit": parent_commit} if parent_commit is not None else {}),
-        "summary": commit_message,
-        "description": commit_description,
-        "files": [
-            {
+    # 1. Send a header item with the commit metadata
+    header_value = {"summary": commit_message, "description": commit_description}
+    if parent_commit is not None:
+        header_value["parentCommit"] = parent_commit
+    yield {"key": "header", "value": header_value}
+
+    # 2. Send regular files, one per line
+    yield from (
+        {
+            "key": "file",
+            "value": {
+                "content": add_op.b64content().decode(),
                 "path": add_op.path_in_repo,
                 "encoding": "base64",
-                "content": add_op.b64content().decode(),
-            }
-            for (add_op, upload_mode) in additions
-            if upload_mode == "regular"
-        ],
-        "lfsFiles": [
-            {
+            },
+        }
+        for (add_op, upload_mode) in additions
+        if upload_mode == "regular"
+    )
+
+    # 3. Send LFS files, one per line
+    yield from (
+        {
+            "key": "lfsFile",
+            "value": {
                 "path": add_op.path_in_repo,
                 "algo": "sha256",
                 "oid": add_op._upload_info().sha256.hex(),
                 "size": add_op._upload_info().size,
-            }
-            for (add_op, upload_mode) in additions
-            if upload_mode == "lfs"
-        ],
-        "deletedFiles": [{"path": del_op.path_in_repo} for del_op in deletions],
-    }
-    return payload
+            },
+        }
+        for (add_op, upload_mode) in additions
+        if upload_mode == "lfs"
+    )
+
+    # 4. Send deleted files, one per line
+    yield from (
+        {"key": "deletedFile", "value": {"path": del_op.path_in_repo}}
+        for del_op in deletions
+    )

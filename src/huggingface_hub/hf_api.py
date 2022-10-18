@@ -12,12 +12,23 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+import json
 import os
 import re
 import subprocess
 import warnings
 from dataclasses import dataclass, field
-from typing import BinaryIO, Dict, Iterable, Iterator, List, Optional, Tuple, Union
+from typing import (
+    BinaryIO,
+    Dict,
+    Generator,
+    Iterable,
+    Iterator,
+    List,
+    Optional,
+    Tuple,
+    Union,
+)
 from urllib.parse import quote
 
 import requests
@@ -1944,11 +1955,17 @@ class HfApi:
         )
         commit_url = f"{self.endpoint}/api/{repo_type}s/{repo_id}/commit/{revision}"
 
+        def _payload_as_ndjson() -> Generator[str, None, None]:
+            for item in commit_payload:
+                yield json.dumps(item).encode()
+                yield b"\n"
+
         headers = build_hf_headers(use_auth_token=token, is_write_action=True)
+        headers["Content-Type"] = "application/x-ndjson"
         commit_resp = requests.post(
             url=commit_url,
             headers=headers,
-            json=commit_payload,
+            data=_payload_as_ndjson(),
             params={"create_pr": "1"} if create_pr else None,
         )
         hf_raise_for_status(commit_resp, endpoint_name="commit")
