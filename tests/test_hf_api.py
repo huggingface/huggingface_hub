@@ -919,7 +919,7 @@ class CommitApiTest(HfApiCommonTestWithLogin):
     def test_create_commit_lots_of_files(self):
         # Try committing 200 text files and 200 bin files (LFS) at once
         REPO_NAME = repo_name("create_commit_lots_of_files")
-        self._api.create_repo(repo_id=REPO_NAME, token=self._token, exist_ok=False)
+        self._api.create_repo(repo_id=REPO_NAME, exist_ok=False)
         try:
             operations = []
             for num in range(200):
@@ -937,12 +937,11 @@ class CommitApiTest(HfApiCommonTestWithLogin):
                 operations=operations,  # 200 regular + 200 LFS files to upload !
                 commit_message="Test create_commit with lots of files",
                 repo_id=f"{USER}/{REPO_NAME}",
-                token=self._token,
             )
         except Exception as err:
             self.fail(err)
         finally:
-            self._api.delete_repo(repo_id=REPO_NAME, token=self._token)
+            self._api.delete_repo(repo_id=REPO_NAME)
 
 
 class HfApiTagEndpointTest(HfApiCommonTestWithLogin):
