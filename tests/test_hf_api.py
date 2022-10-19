@@ -916,28 +916,28 @@ class CommitApiTest(HfApiCommonTestWithLogin):
                 _inner(mock)  # just to avoid indenting twice the code code
 
     @retry_endpoint
-    def test_create_commit_lots_of_files(self):
-        # Try committing 700 text files and 700 bin files (LFS) at once
-        REPO_NAME = repo_name("create_commit_lots_of_files")
+    def test_create_commit_huge_regular_files(self):
+        """Test committing 12 text files (>100MB in total) at once.
+
+        This was not possible when using `json` format instead of `ndjson`
+        on the `/create-commit` endpoint.
+
+        See https://github.com/huggingface/huggingface_hub/pull/1117.
+        """
+        REPO_NAME = repo_name("create_commit_huge_regular_files")
         self._api.create_repo(repo_id=REPO_NAME, exist_ok=False)
         try:
             operations = []
-            for num in range(700):
+            for num in range(12):
                 operations.append(
                     CommitOperationAdd(
-                        path_in_repo=f"file-{num}.bin",
-                        path_or_fileobj=b"Hello LFS " * 80,  # big enough sample
-                    )
-                )
-                operations.append(
-                    CommitOperationAdd(
-                        path_in_repo=f"file-{num}.txt",
-                        path_or_fileobj=b"Hello regular " * 80,  # big enough sample
+                        path_in_repo=f"file-{num}.text",
+                        path_or_fileobj=b"Hello regular " + b"a" * 1024 * 1024 * 9,
                     )
                 )
             self._api.create_commit(
-                operations=operations,  # 700 regular + 700 LFS files to upload !
-                commit_message="Test create_commit with lots of files",
+                operations=operations,  # 12*9MB regular => too much for "old" method
+                commit_message="Test create_commit with huge regular files",
                 repo_id=f"{USER}/{REPO_NAME}",
             )
         except Exception as err:
