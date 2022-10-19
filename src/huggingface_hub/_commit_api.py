@@ -207,10 +207,10 @@ def upload_lfs_files(
 
     """
     # Step 1: retrieve upload instructions from the LFS batch endpoint.
-    #         Upload instructions are retrieved by chunk of 128 files to avoid reaching
+    #         Upload instructions are retrieved by chunk of 256 files to avoid reaching
     #         the payload limit.
     batch_actions: List[Dict] = []
-    for chunk in chunk_iterable(additions, chunk_size=128):
+    for chunk in chunk_iterable(additions, chunk_size=256):
         batch_actions_chunk, batch_errors_chunk = post_lfs_batch_info(
             upload_infos=[op._upload_info() for op in chunk],
             token=token,
@@ -375,7 +375,7 @@ def fetch_upload_modes(
 
     # Fetch upload mode (LFS or regular) chunk by chunk.
     path2mode: Dict[str, UploadMode] = {}
-    for chunk in chunk_iterable(additions, 128):
+    for chunk in chunk_iterable(additions, 256):
         payload = {
             "files": [
                 {
