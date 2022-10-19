@@ -260,3 +260,49 @@ class TestHfHubHTTPError(unittest.TestCase):
             ("this is a message\nthis is an additional message", 1, 2, 3),
         )
         self.assertIsNone(error.server_message)  # added message is not from server
+
+    def test_hf_hub_http_error_init_with_error_message_in_header(self) -> None:
+        """Test server error from header is added to the error message."""
+        self.response.headers = {"X-Error-Message": "Error message from headers."}
+        error = HfHubHTTPError("this is a message", response=self.response)
+        self.assertEqual(str(error), "this is a message\n\nError message from headers.")
+        self.assertEqual(error.server_message, "Error message from headers.")
+
+    def test_hf_hub_http_error_init_with_error_message_from_header_and_body(
+        self,
+    ) -> None:
+        """Test server error from header and from body are added to the error message."""
+        self.response._content = b'{"error": "Error message from body."}'
+        self.response.headers = {"X-Error-Message": "Error message from headers."}
+        error = HfHubHTTPError("this is a message", response=self.response)
+        self.assertEqual(
+            str(error),
+            "this is a message\n\nError message from headers.\nError message from"
+            " body.",
+        )
+        self.assertEqual(
+            error.server_message,
+            "Error message from headers.\nError message from body.",
+        )
+
+    def test_hf_hub_http_error_init_with_error_message_duplicated_in_header_and_body(
+        self,
+    ) -> None:
+        """Test server error from header and from body are the same.
+
+        Should not duplicate it in the raised `HfHubHTTPError`.
+        """
+        self.response._content = (
+            b'{"error": "Error message duplicated in headers and body."}'
+        )
+        self.response.headers = {
+            "X-Error-Message": "Error message duplicated in headers and body."
+        }
+        error = HfHubHTTPError("this is a message", response=self.response)
+        self.assertEqual(
+            str(error),
+            "this is a message\n\nError message duplicated in headers and body.",
+        )
+        self.assertEqual(
+            error.server_message, "Error message duplicated in headers and body."
+        )
