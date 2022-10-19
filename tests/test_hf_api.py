@@ -29,7 +29,11 @@ from urllib.parse import quote
 import pytest
 
 import requests
-from huggingface_hub._commit_api import CommitOperationAdd, CommitOperationDelete
+from huggingface_hub._commit_api import (
+    CommitOperationAdd,
+    CommitOperationDelete,
+    fetch_upload_modes,
+)
 from huggingface_hub._login import _login
 from huggingface_hub.community import DiscussionComment, DiscussionWithDetails
 from huggingface_hub.constants import (
@@ -940,6 +944,48 @@ class CommitApiTest(HfApiCommonTestWithLogin):
                 commit_message="Test create_commit with huge regular files",
                 repo_id=f"{USER}/{REPO_NAME}",
             )
+        except Exception as err:
+            self.fail(err)
+        finally:
+            self._api.delete_repo(repo_id=REPO_NAME)
+
+    @retry_endpoint
+    def test_commit_preflight_on_lots_of_lfs_files(self):
+        """Test committing 1300 LFS files at once.
+
+        This was not possible when `fetch_upload_modes` was not fetching metadata by
+        chunks. We are not testing the full upload as it would require to upload 1300
+        files which is unnecessary for the test. Having an overall large payload (for
+        `/create-commit` endpoint) is tested in `test_create_commit_huge_regular_files`.
+
+        There is also a 25k LFS files limit on the Hub but this is not tested.
+
+        See https://github.com/huggingface/huggingface_hub/pull/1117.
+        """
+        REPO_NAME = repo_name("commit_preflight_lots_of_lfs_files")
+        self._api.create_repo(repo_id=REPO_NAME, exist_ok=False)
+        try:
+            operations = []
+            for num in range(1300):
+                operations.append(
+                    CommitOperationAdd(
+                        path_in_repo=f"file-{num}.bin",  # considered as LFS
+                        path_or_fileobj=b"Hello LFS" + b"a" * 2048,  # big enough sample
+                    )
+                )
+
+            # Test `fetch_upload_modes` preflight ("are they regular or LFS files?")
+            res = fetch_upload_modes(
+                additions=operations,
+                repo_type="model",
+                repo_id=f"{USER}/{REPO_NAME}",
+                token=TOKEN,
+                revision="main",
+                endpoint=ENDPOINT_STAGING,
+            )
+            self.assertEqual(len(res), 1300)
+            for _, mode in res:
+                self.assertEqual(mode, "lfs")
         except Exception as err:
             self.fail(err)
         finally:
