@@ -47,7 +47,7 @@ class SnapshotDownloadTests(unittest.TestCase):
         repo = Repository(
             REPO_NAME,
             clone_from=f"{USER}/{REPO_NAME}",
-            use_auth_token=self._token,
+            token=self._token,
             git_user="ci",
             git_email="ci@dummy.com",
         )
@@ -137,7 +137,7 @@ class SnapshotDownloadTests(unittest.TestCase):
                 f"{USER}/{REPO_NAME}",
                 revision="main",
                 cache_dir=tmpdirname,
-                use_auth_token=True,
+                token=True,
             )
 
             # folder contains the two files contributed and the .gitattributes
@@ -160,7 +160,7 @@ class SnapshotDownloadTests(unittest.TestCase):
                 f"{USER}/{REPO_NAME}",
                 revision="main",
                 cache_dir=tmpdirname,
-                use_auth_token=self._token,
+                token=self._token,
             )
 
             # folder contains the two files contributed and the .gitattributes

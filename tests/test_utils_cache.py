@@ -59,7 +59,7 @@ class TestValidCacheUtils(unittest.TestCase):
             repo_id=VALID_MODEL_ID,
             repo_type="model",
             cache_dir=self.cache_dir,
-            use_auth_token=TOKEN,
+            token=TOKEN,
         )
 
         # Download latest commit which is same as `main`
@@ -68,7 +68,7 @@ class TestValidCacheUtils(unittest.TestCase):
             revision=REPO_A_MAIN_HASH,
             repo_type="model",
             cache_dir=self.cache_dir,
-            use_auth_token=TOKEN,
+            token=TOKEN,
         )
 
         # Download the first commit
@@ -77,7 +77,7 @@ class TestValidCacheUtils(unittest.TestCase):
             revision=REPO_A_OTHER_HASH,
             repo_type="model",
             cache_dir=self.cache_dir,
-            use_auth_token=TOKEN,
+            token=TOKEN,
         )
 
         # Download from a PR
@@ -86,7 +86,7 @@ class TestValidCacheUtils(unittest.TestCase):
             revision="refs/pr/1",
             repo_type="model",
             cache_dir=self.cache_dir,
-            use_auth_token=TOKEN,
+            token=TOKEN,
         )
 
         # Download a Dataset repo from "main"
@@ -95,7 +95,7 @@ class TestValidCacheUtils(unittest.TestCase):
             revision="main",
             repo_type="dataset",
             cache_dir=self.cache_dir,
-            use_auth_token=TOKEN,
+            token=TOKEN,
         )
 
     def test_scan_cache_on_valid_cache(self) -> None:
@@ -266,7 +266,7 @@ class TestCorruptedCacheUtils(unittest.TestCase):
             repo_id=VALID_MODEL_ID,
             repo_type="model",
             cache_dir=self.cache_dir,
-            use_auth_token=TOKEN,
+            token=TOKEN,
         )
 
         self.repo_path = self.cache_dir / "models--valid_org--test_scan_repo_a"

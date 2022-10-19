@@ -2,9 +2,9 @@
 
 A repository is a place where you can store your model or dataset files. This guide will show you how to:
 
-* Create and delete a repository.
-* Adjust repository visibility.
-* Use the [`Repository`] class for common Git operations like clone, branch, and pull.
+- Create and delete a repository.
+- Adjust repository visibility.
+- Use the [`Repository`] class for common Git operations like clone, branch, and pull.
 
 If you want to create a repository on the Hub, you need to log in to your Hugging Face account:
 
@@ -55,7 +55,7 @@ When you create a repository, you can set your repository visibility with the `p
 >>> create_repo("lysandre/test-private", private=True)
 ```
 
-If you want to change the repository visibility at a later time, you can use the [`update_repo_visibility`] function. 
+If you want to change the repository visibility at a later time, you can use the [`update_repo_visibility`] function.
 
 ## Delete a repository
 
@@ -82,7 +82,7 @@ A repository can be public or private. A private repository is only visible to y
 >>> update_repo_visibility(name=REPO_NAME, private=True)
 ```
 
-## The Repository class 
+## The Repository class
 
 The [`Repository`] class allows you to interact with files and repositories on the Hub with functions similar to Git commands. [`Repository`] is a wrapper over Git and Git-LFS methods, so make sure you have Git-LFS installed (see [here](https://git-lfs.github.com/) for installation instructions) and set up before you begin. With [`Repository`], you can use the Git commands you already know and love.
 
@@ -121,9 +121,9 @@ You can also attribute a Git username and email to a cloned repository by specif
 
 ```py
 >>> repo = Repository(
-...   "my-dataset", 
-...   clone_from="<user>/<dataset_id>", 
-...   use_auth_token=True, 
+...   "my-dataset",
+...   clone_from="<user>/<dataset_id>",
+...   token=True,
 ...   repo_type="dataset",
 ...   git_user="MyName",
 ...   git_email="me@cool.mail"

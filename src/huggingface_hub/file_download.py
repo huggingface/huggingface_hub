@@ -601,7 +601,7 @@ def cached_download(
     os.makedirs(cache_dir, exist_ok=True)
 
     headers = build_hf_headers(
-        use_auth_token=use_auth_token,
+        token=use_auth_token,
         library_name=library_name,
         library_version=library_version,
         user_agent=user_agent,
@@ -873,7 +873,7 @@ def hf_hub_download(
     proxies: Optional[Dict] = None,
     etag_timeout: float = 10,
     resume_download: bool = False,
-    use_auth_token: Union[bool, str, None] = None,
+    token: Union[bool, str, None] = None,
     local_files_only: bool = False,
     legacy_cache_layout: bool = False,
 ):
@@ -939,7 +939,7 @@ def hf_hub_download(
             data before giving up which is passed to `requests.request`.
         resume_download (`bool`, *optional*, defaults to `False`):
             If `True`, resume a previously interrupted download.
-        use_auth_token (`str`, `bool`, *optional*):
+        token (`str`, `bool`, *optional*):
             A token to be used for the download.
                 - If `True`, the token is read from the HuggingFace config
                   folder.
@@ -961,7 +961,7 @@ def hf_hub_download(
     Raises the following errors:
 
         - [`EnvironmentError`](https://docs.python.org/3/library/exceptions.html#EnvironmentError)
-          if `use_auth_token=True` and the token cannot be found.
+          if `token=True` and the token cannot be found.
         - [`OSError`](https://docs.python.org/3/library/exceptions.html#OSError)
           if ETag cannot be determined.
         - [`ValueError`](https://docs.python.org/3/library/exceptions.html#ValueError)
@@ -1006,7 +1006,7 @@ def hf_hub_download(
             proxies=proxies,
             etag_timeout=etag_timeout,
             resume_download=resume_download,
-            use_auth_token=use_auth_token,
+            use_auth_token=token,
             local_files_only=local_files_only,
             legacy_cache_layout=legacy_cache_layout,
         )
@@ -1052,7 +1052,7 @@ def hf_hub_download(
     url = hf_hub_url(repo_id, filename, repo_type=repo_type, revision=revision)
 
     headers = build_hf_headers(
-        use_auth_token=use_auth_token,
+        token=token,
         library_name=library_name,
         library_version=library_version,
         user_agent=user_agent,
@@ -1066,7 +1066,7 @@ def hf_hub_download(
             try:
                 metadata = get_hf_file_metadata(
                     url=url,
-                    use_auth_token=use_auth_token,
+                    token=token,
                     proxies=proxies,
                     timeout=etag_timeout,
                 )
@@ -1335,7 +1335,7 @@ def try_to_load_from_cache(
 
 def get_hf_file_metadata(
     url: str,
-    use_auth_token: Union[bool, str, None] = None,
+    token: Union[bool, str, None] = None,
     proxies: Optional[Dict] = None,
     timeout: float = 10,
 ) -> HfFileMetadata:
@@ -1344,7 +1344,7 @@ def get_hf_file_metadata(
     Args:
         url (`str`):
             File url, for example returned by [`hf_hub_url`].
-        use_auth_token (`str` or `bool`, *optional*):
+        token (`str` or `bool`, *optional*):
             A token to be used for the download.
                 - If `True`, the token is read from the HuggingFace config
                   folder.
@@ -1360,7 +1360,7 @@ def get_hf_file_metadata(
         A [`HfFileMetadata`] object containing metadata such as location, etag and
         commit_hash.
     """
-    headers = build_hf_headers(use_auth_token=use_auth_token)
+    headers = build_hf_headers(token=token)
 
     # Retrieve metadata
     r = _request_wrapper(

@@ -183,7 +183,7 @@ class HubMixingTest(HubMixingCommonTest):
 
         # Test config has been pushed to hub
         tmp_config_path = hf_hub_download(
-            repo_id=repo_id, filename="config.json", use_auth_token=self._token
+            repo_id=repo_id, filename="config.json", token=self._token
         )
         with open(tmp_config_path) as f:
             self.assertEqual(json.load(f), {"num": 7, "act": "gelu_fast"})
@@ -201,7 +201,7 @@ class HubMixingTest(HubMixingCommonTest):
         DummyModel().push_to_hub(
             repo_path_or_name=f"{WORKING_REPO_DIR}/{REPO_NAME}",
             api_endpoint=ENDPOINT_STAGING,
-            use_auth_token=self._token,
+            token=self._token,
         )
 
         model_info = self._api.model_info(repo_id)
@@ -218,7 +218,7 @@ class HubMixingTest(HubMixingCommonTest):
             Repository(
                 local_dir=f"{tmpdirname}/{WORKING_REPO_DIR}/{REPO_NAME}",
                 clone_from=self._repo_url,
-                use_auth_token=self._token,
+                token=self._token,
             )
 
             model = DummyModel()
@@ -231,7 +231,7 @@ class HubMixingTest(HubMixingCommonTest):
             model.push_to_hub(
                 f"{tmpdirname}/{WORKING_REPO_DIR}/{REPO_NAME}",
                 api_endpoint=ENDPOINT_STAGING,
-                use_auth_token=self._token,
+                token=self._token,
                 git_user="ci",
                 git_email="ci@dummy.com",
             )

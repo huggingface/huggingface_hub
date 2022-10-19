@@ -264,7 +264,7 @@ def from_pretrained_keras(*args, **kwargs):
             A dictionary of proxy servers to use by protocol or endpoint, e.g.,
             `{'http': 'foo.bar:3128', 'http://hostname': 'foo.bar:4012'}`. The
             proxies are used on each request.
-        use_auth_token (`str` or `bool`, *optional*):
+        token (`str` or `bool`, *optional*):
             The token to use as HTTP bearer authorization for remote files. If
             `True`, will use the token generated when running `transformers-cli
             login` (stored in `~/.huggingface`).
@@ -280,7 +280,7 @@ def from_pretrained_keras(*args, **kwargs):
 
     <Tip>
 
-    Passing `use_auth_token=True` is required when you want to use a private
+    Passing `token=True` is required when you want to use a private
     model.
 
     </Tip>
@@ -312,7 +312,6 @@ def push_to_hub_keras(
     organization: Optional[str] = None,
     private: bool = False,
     api_endpoint: Optional[str] = None,
-    use_auth_token: Optional[Union[bool, str]] = True,
     git_user: Optional[str] = None,
     git_email: Optional[str] = None,
     config: Optional[dict] = None,
@@ -431,9 +430,7 @@ def push_to_hub_keras(
                 # Delete previous log files from Hub
                 operations += [
                     CommitOperationDelete(path_in_repo=file)
-                    for file in api.list_repo_files(
-                        repo_id=repo_id, use_auth_token=token
-                    )
+                    for file in api.list_repo_files(repo_id=repo_id, token=token)
                     if file.startswith("logs/")
                 ]
 
@@ -473,10 +470,10 @@ def push_to_hub_keras(
     if repo_path_or_name is None and repo_url is None:
         raise ValueError("You need to specify a `repo_path_or_name` or a `repo_url`.")
 
-    if isinstance(use_auth_token, bool) and use_auth_token:
+    if isinstance(token, bool) and token:
         token = HfFolder.get_token()
-    elif isinstance(use_auth_token, str):
-        token = use_auth_token
+    elif isinstance(token, str):
+        token = token
     else:
         token = None
 
@@ -484,8 +481,8 @@ def push_to_hub_keras(
         raise ValueError(
             "You must login to the Hugging Face hub on this computer by typing"
             " `huggingface-cli login` and entering your credentials to use"
-            " `use_auth_token=True`. Alternatively, you can pass your own token as the"
-            " `use_auth_token` argument."
+            " `token=True`. Alternatively, you can pass your own token as the"
+            " `token` argument."
         )
 
     if repo_path_or_name is None:
@@ -508,7 +505,7 @@ def push_to_hub_keras(
     repo = Repository(
         repo_path_or_name,
         clone_from=repo_url,
-        use_auth_token=use_auth_token,
+        token=token,
         git_user=git_user,
         git_email=git_email,
     )
@@ -596,7 +593,7 @@ class KerasModelHubMixin(ModelHubMixin):
         proxies,
         resume_download,
         local_files_only,
-        use_auth_token,
+        token,
         **model_kwargs,
     ):
         """Here we just call from_pretrained_keras function so both the mixin and

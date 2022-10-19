@@ -59,7 +59,7 @@ class TestCacheLayoutIfSymlinksNotSupported(unittest.TestCase):
                 filename=CONFIG_NAME,
                 cache_dir=self.cache_dir,
                 local_files_only=False,
-                use_auth_token=TOKEN,
+                token=TOKEN,
             )
         )
         # Not a symlink !
@@ -80,7 +80,7 @@ class TestCacheLayoutIfSymlinksNotSupported(unittest.TestCase):
                 filename=CONFIG_NAME,
                 cache_dir=self.cache_dir,
                 local_files_only=False,
-                use_auth_token=TOKEN,
+                token=TOKEN,
             )
         )
         self.assertTrue(filepath.is_symlink())
@@ -98,7 +98,7 @@ class TestCacheLayoutIfSymlinksNotSupported(unittest.TestCase):
                 filename=CONFIG_NAME,
                 cache_dir=self.cache_dir,
                 local_files_only=False,
-                use_auth_token=TOKEN,
+                token=TOKEN,
             )
         )
         # File exist but is not a symlink
@@ -124,7 +124,7 @@ class TestCacheLayoutIfSymlinksNotSupported(unittest.TestCase):
             DUMMY_MODEL_ID,
             filename=CONFIG_NAME,
             cache_dir=self.cache_dir,
-            use_auth_token=TOKEN,
+            token=TOKEN,
         )
 
         # Download README.md from main
@@ -132,7 +132,7 @@ class TestCacheLayoutIfSymlinksNotSupported(unittest.TestCase):
             DUMMY_MODEL_ID,
             filename="README.md",
             cache_dir=self.cache_dir,
-            use_auth_token=TOKEN,
+            token=TOKEN,
         )
 
         # Download config.json from older revision
@@ -140,7 +140,7 @@ class TestCacheLayoutIfSymlinksNotSupported(unittest.TestCase):
             DUMMY_MODEL_ID,
             filename=CONFIG_NAME,
             cache_dir=self.cache_dir,
-            use_auth_token=TOKEN,
+            token=TOKEN,
             revision=OLDER_REVISION,
         )
 
@@ -152,7 +152,7 @@ class TestCacheLayoutIfSymlinksNotSupported(unittest.TestCase):
             DUMMY_MODEL_ID,
             filename="merges.txt",
             cache_dir=self.cache_dir,
-            use_auth_token=TOKEN,
+            token=TOKEN,
             revision=OLDER_REVISION,
         )
 
