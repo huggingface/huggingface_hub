@@ -926,13 +926,13 @@ class CommitApiTest(HfApiCommonTestWithLogin):
                 operations.append(
                     CommitOperationAdd(
                         path_in_repo=f"file-{num}.bin",
-                        path_or_fileobj=b"Hello LFS " * 80, # big enough sample
+                        path_or_fileobj=b"Hello LFS " * 80,  # big enough sample
                     )
                 )
                 operations.append(
                     CommitOperationAdd(
                         path_in_repo=f"file-{num}.txt",
-                        path_or_fileobj=b"Hello regular " * 80, # big enough sample
+                        path_or_fileobj=b"Hello regular " * 80,  # big enough sample
                     )
                 )
             self._api.create_commit(
