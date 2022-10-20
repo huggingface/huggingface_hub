@@ -15,7 +15,7 @@ from huggingface_hub.repocard import metadata_load, metadata_save
 
 from .hf_api import HfApi, repo_type_and_id_from_hf_id
 from .lfs import LFS_MULTIPART_UPLOAD_COMMAND
-from .utils import HfFolder, logging, run_subprocess, tqdm
+from .utils import HfFolder, logging, run_subprocess, tqdm, validate_hf_hub_args
 from .utils._deprecation import _deprecate_arguments, _deprecate_method
 from .utils._typing import TypedDict
 
@@ -438,6 +438,7 @@ class Repository:
             "private"
         ],
     )
+    @validate_hf_hub_args
     def __init__(
         self,
         local_dir: str,
@@ -617,6 +618,7 @@ class Repository:
             )
         logger.info(git_version + "\n" + lfs_version)
 
+    @validate_hf_hub_args
     def clone_from(self, repo_url: str, token: Union[bool, str, None] = None):
         """
         Clone from a remote. If the folder already exists, will try to clone the

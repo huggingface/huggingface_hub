@@ -726,6 +726,7 @@ class HfApi:
         d = r.json()
         return DatasetTags(d)
 
+    @validate_hf_hub_args
     def list_models(
         self,
         *,
@@ -937,6 +938,7 @@ class HfApi:
         query_dict["filter"] = tuple(filter_list)
         return query_dict
 
+    @validate_hf_hub_args
     def list_datasets(
         self,
         *,
@@ -1114,6 +1116,7 @@ class HfApi:
         d = r.json()
         return [MetricInfo(**x) for x in d]
 
+    @validate_hf_hub_args
     def list_spaces(
         self,
         *,
@@ -2418,6 +2421,7 @@ class HfApi:
         response = requests.post(url=tag_url, headers=headers, json=payload)
         hf_raise_for_status(response)
 
+    @validate_hf_hub_args
     def get_full_repo_name(
         self,
         model_id: str,

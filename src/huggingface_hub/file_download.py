@@ -152,11 +152,7 @@ class HfFileMetadata:
     location: str
 
 
-# Do not validate `repo_id` in `hf_hub_url` for now as the `repo_id="datasets/.../..."`
-# pattern is used/advertised in Transformers examples.
-# Related: https://github.com/huggingface/huggingface_hub/pull/1029
-# TODO: set back validation in V0.12.
-# @validate_hf_hub_args
+@validate_hf_hub_args
 def hf_hub_url(
     repo_id: str,
     filename: str,
@@ -852,11 +848,7 @@ def repo_folder_name(*, repo_id: str, repo_type: str) -> str:
     return REPO_ID_SEPARATOR.join(parts)
 
 
-# Do not validate `repo_id` in `hf_hub_download` for now as the `repo_id="datasets/.../..."`
-# pattern is used/advertised in Transformers examples.
-# Related: https://github.com/huggingface/huggingface_hub/pull/1029
-# TODO: set back validation in V0.12.
-# @validate_hf_hub_args
+@validate_hf_hub_args
 def hf_hub_download(
     repo_id: str,
     filename: str,
@@ -1333,6 +1325,7 @@ def try_to_load_from_cache(
     return cached_file if os.path.isfile(cached_file) else None
 
 
+@validate_hf_hub_args
 def get_hf_file_metadata(
     url: str,
     token: Union[bool, str, None] = None,

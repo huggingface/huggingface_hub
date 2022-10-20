@@ -97,6 +97,7 @@ class ModelHubMixin:
         raise NotImplementedError
 
     @classmethod
+    @validate_hf_hub_args
     def from_pretrained(
         cls,
         pretrained_model_name_or_path: str,
