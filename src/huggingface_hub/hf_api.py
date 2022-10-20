@@ -1467,7 +1467,6 @@ class HfApi:
             token=token,
             timeout=timeout,
             files_metadata=files_metadata,
-            token=token,
         )
 
     @validate_hf_hub_args
