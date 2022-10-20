@@ -957,9 +957,9 @@ class HfApi:
                 A string or [`DatasetFilter`] which can be used to identify
                 datasets on the hub.
             author (`str`, *optional*):
-                A string which identify the author of the returned models
+                A string which identify the author of the returned datasets.
             search (`str`, *optional*):
-                A string that will be contained in the returned models.
+                A string that will be contained in the returned datasets.
             sort (`Literal["lastModified"]` or `str`, *optional*):
                 The key with which to sort the resulting datasets. Possible
                 values are the properties of the [`huggingface_hub.hf_api.DatasetInfo`] class.
