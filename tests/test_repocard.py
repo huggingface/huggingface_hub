@@ -245,7 +245,7 @@ class RepocardMetadataUpdateTest(unittest.TestCase):
         self.repo = Repository(
             self.repo_path / self.REPO_NAME,
             clone_from=f"{USER}/{self.REPO_NAME}",
-            token=self._token,
+            use_auth_token=self._token,
             git_user="ci",
             git_email="ci@dummy.com",
         )
@@ -289,7 +289,7 @@ class RepocardMetadataUpdateTest(unittest.TestCase):
         path = hf_hub_download(
             f"{USER}/{self.REPO_NAME}",
             filename=REPOCARD_NAME,
-            token=self._token,
+            use_auth_token=self._token,
         )
 
         metadata_update(

@@ -111,7 +111,7 @@ class RepositoryTest(RepositoryCommonTest):
             WORKING_REPO_DIR,
             clone_from=temp_repo_url,
             repo_type="space",
-            token=self._token,
+            use_auth_token=self._token,
         )
         self._api.delete_repo(
             repo_id=f"{USER}/{self.REPO_NAME}-temp", repo_type="space"
@@ -126,7 +126,7 @@ class RepositoryTest(RepositoryCommonTest):
             Repository(
                 WORKING_REPO_DIR,
                 clone_from=f"{USER}/{uuid.uuid4()}",
-                token=self._token,
+                use_auth_token=self._token,
             )
 
     def test_clone_from_model(self):
@@ -137,7 +137,7 @@ class RepositoryTest(RepositoryCommonTest):
             WORKING_REPO_DIR,
             clone_from=temp_repo_url,
             repo_type="model",
-            token=self._token,
+            use_auth_token=self._token,
         )
         self._api.delete_repo(repo_id=f"{USER}/{self.REPO_NAME}-temp")
 
@@ -227,8 +227,12 @@ class RepositoryTest(RepositoryCommonTest):
         logger.info(
             f"Does {WORKING_REPO_DIR} exist: {os.path.exists(WORKING_REPO_DIR)}"
         )
-        Repository(WORKING_REPO_DIR, clone_from=self._repo_url, token=self._token)
-        Repository(WORKING_REPO_DIR, clone_from=self._repo_url, token=self._token)
+        Repository(
+            WORKING_REPO_DIR, clone_from=self._repo_url, use_auth_token=self._token
+        )
+        Repository(
+            WORKING_REPO_DIR, clone_from=self._repo_url, use_auth_token=self._token
+        )
 
     @retry_endpoint
     def test_init_clone_in_nonempty_linked_git_repo(self):
@@ -277,7 +281,7 @@ class RepositoryTest(RepositoryCommonTest):
         repo = Repository(
             WORKING_REPO_DIR,
             clone_from=self._repo_url,
-            token=self._token,
+            use_auth_token=self._token,
             git_user="ci",
             git_email="ci@dummy.com",
         )
@@ -302,7 +306,7 @@ class RepositoryTest(RepositoryCommonTest):
         repo = Repository(
             WORKING_REPO_DIR,
             clone_from=self._repo_url,
-            token=self._token,
+            use_auth_token=self._token,
             git_user="ci",
             git_email="ci@dummy.com",
         )
@@ -337,7 +341,7 @@ class RepositoryTest(RepositoryCommonTest):
         repo = Repository(
             WORKING_REPO_DIR,
             clone_from=self._repo_url,
-            token=self._token,
+            use_auth_token=self._token,
             git_user="ci",
             git_email="ci@dummy.com",
         )
@@ -360,7 +364,7 @@ class RepositoryTest(RepositoryCommonTest):
         repo = Repository(
             WORKING_REPO_DIR,
             clone_from=self._repo_url,
-            token=self._token,
+            use_auth_token=self._token,
             git_user="ci",
             git_email="ci@dummy.com",
         )
@@ -389,7 +393,7 @@ class RepositoryTest(RepositoryCommonTest):
         clone = Repository(
             f"{WORKING_REPO_DIR}/{self.REPO_NAME}",
             clone_from=f"{ENDPOINT_STAGING}/valid_org/{self.REPO_NAME}",
-            token=self._token,
+            use_auth_token=self._token,
             git_user="ci",
             git_email="ci@dummy.com",
         )
@@ -405,7 +409,7 @@ class RepositoryTest(RepositoryCommonTest):
         Repository(
             f"{WORKING_REPO_DIR}/{self.REPO_NAME}",
             clone_from=f"{ENDPOINT_STAGING}/valid_org/{self.REPO_NAME}",
-            token=self._token,
+            use_auth_token=self._token,
             git_user="ci",
             git_email="ci@dummy.com",
         )
@@ -421,7 +425,7 @@ class RepositoryTest(RepositoryCommonTest):
         clone = Repository(
             f"{WORKING_REPO_DIR}/{self.REPO_NAME}",
             clone_from=f"valid_org/{self.REPO_NAME}",
-            token=self._token,
+            use_auth_token=self._token,
             git_user="ci",
             git_email="ci@dummy.com",
         )
@@ -437,7 +441,7 @@ class RepositoryTest(RepositoryCommonTest):
         Repository(
             f"{WORKING_REPO_DIR}/{self.REPO_NAME}",
             clone_from=f"valid_org/{self.REPO_NAME}",
-            token=self._token,
+            use_auth_token=self._token,
             git_user="ci",
             git_email="ci@dummy.com",
         )
@@ -451,7 +455,7 @@ class RepositoryTest(RepositoryCommonTest):
         clone = Repository(
             f"{WORKING_REPO_DIR}/{self.REPO_NAME}",
             clone_from=f"{USER}/{self.REPO_NAME}",
-            token=self._token,
+            use_auth_token=self._token,
             git_user="ci",
             git_email="ci@dummy.com",
         )
@@ -469,7 +473,7 @@ class RepositoryTest(RepositoryCommonTest):
         Repository(
             f"{WORKING_REPO_DIR}/{self.REPO_NAME}",
             clone_from=f"{USER}/{self.REPO_NAME}",
-            token=self._token,
+            use_auth_token=self._token,
             git_user="ci",
             git_email="ci@dummy.com",
         )
@@ -484,7 +488,7 @@ class RepositoryTest(RepositoryCommonTest):
             Repository(
                 f"{WORKING_REPO_DIR}/{self.REPO_NAME}",
                 clone_from=self.REPO_NAME,
-                token=self._token,
+                use_auth_token=self._token,
                 git_user="ci",
                 git_email="ci@dummy.com",
             )
@@ -533,7 +537,7 @@ class RepositoryTest(RepositoryCommonTest):
         repo = Repository(
             self.REPO_NAME,
             clone_from=f"{USER}/{self.REPO_NAME}",
-            token=self._token,
+            use_auth_token=self._token,
             git_user="ci",
             git_email="ci@dummy.com",
         )
@@ -547,7 +551,7 @@ class RepositoryTest(RepositoryCommonTest):
         repo = Repository(
             self.REPO_NAME,
             clone_from=f"{USER}/{self.REPO_NAME}",
-            token=self._token,
+            use_auth_token=self._token,
             skip_lfs_files=True,
         )
 
@@ -566,7 +570,7 @@ class RepositoryTest(RepositoryCommonTest):
         repo = Repository(
             self.REPO_NAME,
             clone_from=f"{USER}/{self.REPO_NAME}",
-            token=self._token,
+            use_auth_token=self._token,
             git_user="ci",
             git_email="ci@dummy.com",
         )
@@ -578,7 +582,7 @@ class RepositoryTest(RepositoryCommonTest):
         repo = Repository(
             WORKING_REPO_DIR,
             clone_from=f"{USER}/{self.REPO_NAME}",
-            token=self._token,
+            use_auth_token=self._token,
             git_user="ci",
             git_email="ci@dummy.com",
         )
@@ -607,7 +611,7 @@ class RepositoryTest(RepositoryCommonTest):
         repo = Repository(
             WORKING_REPO_DIR,
             clone_from=f"{USER}/{self.REPO_NAME}",
-            token=self._token,
+            use_auth_token=self._token,
             git_user="ci",
             git_email="ci@dummy.com",
         )
@@ -629,7 +633,7 @@ class RepositoryTest(RepositoryCommonTest):
             clone = Repository(
                 tmp,
                 clone_from=f"{USER}/{self.REPO_NAME}",
-                token=self._token,
+                use_auth_token=self._token,
                 git_user="ci",
                 git_email="ci@dummy.com",
             )
@@ -647,7 +651,7 @@ class RepositoryTest(RepositoryCommonTest):
         repo = Repository(
             WORKING_REPO_DIR,
             clone_from=f"{USER}/{self.REPO_NAME}",
-            token=self._token,
+            use_auth_token=self._token,
             git_user="ci",
             git_email="ci@dummy.com",
         )
@@ -670,7 +674,7 @@ class RepositoryTest(RepositoryCommonTest):
             clone = Repository(
                 tmp,
                 clone_from=f"{USER}/{self.REPO_NAME}",
-                token=self._token,
+                use_auth_token=self._token,
                 git_user="ci",
                 git_email="ci@dummy.com",
             )
@@ -688,7 +692,7 @@ class RepositoryTest(RepositoryCommonTest):
         repo = Repository(
             WORKING_REPO_DIR,
             clone_from=f"{USER}/{self.REPO_NAME}",
-            token=self._token,
+            use_auth_token=self._token,
             git_user="ci",
             git_email="ci@dummy.com",
             revision="main",
@@ -711,7 +715,7 @@ class RepositoryTest(RepositoryCommonTest):
             clone = Repository(
                 tmp,
                 clone_from=f"{USER}/{self.REPO_NAME}",
-                token=self._token,
+                use_auth_token=self._token,
                 git_user="ci",
                 git_email="ci@dummy.com",
             )
@@ -734,7 +738,7 @@ class RepositoryTest(RepositoryCommonTest):
         repo = Repository(
             WORKING_REPO_DIR,
             clone_from=f"{USER}/{self.REPO_NAME}",
-            token=self._token,
+            use_auth_token=self._token,
             git_user="ci",
             git_email="ci@dummy.com",
             revision="main",
@@ -748,7 +752,7 @@ class RepositoryTest(RepositoryCommonTest):
         repo = Repository(
             WORKING_REPO_DIR,
             clone_from=f"{USER}/{self.REPO_NAME}",
-            token=self._token,
+            use_auth_token=self._token,
             git_user="ci",
             git_email="ci@dummy.com",
             revision="main",
@@ -794,7 +798,7 @@ class RepositoryTest(RepositoryCommonTest):
         repo = Repository(
             WORKING_REPO_DIR,
             clone_from=f"{USER}/{self.REPO_NAME}",
-            token=self._token,
+            use_auth_token=self._token,
             git_user="ci",
             git_email="ci@dummy.com",
             revision="main",
@@ -815,7 +819,7 @@ class RepositoryTest(RepositoryCommonTest):
         repo = Repository(
             WORKING_REPO_DIR,
             clone_from=f"{USER}/{self.REPO_NAME}",
-            token=self._token,
+            use_auth_token=self._token,
             git_user="ci",
             git_email="ci@dummy.com",
             revision="main",
@@ -846,7 +850,7 @@ class RepositoryTest(RepositoryCommonTest):
         repo = Repository(
             WORKING_REPO_DIR,
             clone_from=f"{USER}/{self.REPO_NAME}",
-            token=self._token,
+            use_auth_token=self._token,
             git_user="ci",
             git_email="ci@dummy.com",
             revision="main",
@@ -880,7 +884,7 @@ class RepositoryTest(RepositoryCommonTest):
         repo = Repository(
             WORKING_REPO_DIR,
             clone_from=f"{USER}/{self.REPO_NAME}",
-            token=self._token,
+            use_auth_token=self._token,
             git_user="ci",
             git_email="ci@dummy.com",
             revision="main",
@@ -917,7 +921,7 @@ class RepositoryTest(RepositoryCommonTest):
         repo = Repository(
             WORKING_REPO_DIR,
             clone_from=f"{USER}/{self.REPO_NAME}",
-            token=self._token,
+            use_auth_token=self._token,
             git_user="ci",
             git_email="ci@dummy.com",
             revision="main",
@@ -948,7 +952,7 @@ class RepositoryTest(RepositoryCommonTest):
         repo = Repository(
             WORKING_REPO_DIR,
             clone_from=f"{USER}/{self.REPO_NAME}",
-            token=self._token,
+            use_auth_token=self._token,
             git_user="ci",
             git_email="ci@dummy.com",
             revision="main",
@@ -1456,7 +1460,7 @@ class RepositoryOfflineTest(RepositoryCommonTest):
         token = TOKEN
         api.set_access_token(TOKEN)
 
-        repo = Repository(WORKING_REPO_DIR, token=token)
+        repo = Repository(WORKING_REPO_DIR, use_auth_token=token)
         user = api.whoami(token)
 
         username = subprocess.run(
@@ -1487,7 +1491,7 @@ class RepositoryOfflineTest(RepositoryCommonTest):
             WORKING_REPO_DIR,
             git_user="RANDOM_USER",
             git_email="EMAIL@EMAIL.EMAIL",
-            token=token,
+            use_auth_token=token,
         )
         username = subprocess.run(
             ["git", "config", "user.name"],
@@ -1649,7 +1653,7 @@ class RepositoryDatasetTest(RepositoryCommonTest):
             f"{WORKING_DATASET_DIR}/{self.REPO_NAME}",
             clone_from=f"{ENDPOINT_STAGING}/datasets/{USER}/{self.REPO_NAME}",
             repo_type="dataset",
-            token=self._token,
+            use_auth_token=self._token,
             git_user="ci",
             git_email="ci@dummy.com",
         )
@@ -1663,7 +1667,7 @@ class RepositoryDatasetTest(RepositoryCommonTest):
         Repository(
             f"{WORKING_DATASET_DIR}/{self.REPO_NAME}",
             clone_from=f"{ENDPOINT_STAGING}/datasets/{USER}/{self.REPO_NAME}",
-            token=self._token,
+            use_auth_token=self._token,
             repo_type="dataset",
             git_user="ci",
             git_email="ci@dummy.com",
@@ -1681,7 +1685,7 @@ class RepositoryDatasetTest(RepositoryCommonTest):
             f"{WORKING_DATASET_DIR}/{self.REPO_NAME}",
             clone_from=f"valid_org/{self.REPO_NAME}",
             repo_type="dataset",
-            token=self._token,
+            use_auth_token=self._token,
             git_user="ci",
             git_email="ci@dummy.com",
         )
@@ -1695,7 +1699,7 @@ class RepositoryDatasetTest(RepositoryCommonTest):
         Repository(
             f"{WORKING_DATASET_DIR}/{self.REPO_NAME}",
             clone_from=f"valid_org/{self.REPO_NAME}",
-            token=self._token,
+            use_auth_token=self._token,
             repo_type="dataset",
             git_user="ci",
             git_email="ci@dummy.com",
@@ -1711,7 +1715,7 @@ class RepositoryDatasetTest(RepositoryCommonTest):
             f"{WORKING_DATASET_DIR}/{self.REPO_NAME}",
             clone_from=f"{USER}/{self.REPO_NAME}",
             repo_type="dataset",
-            token=self._token,
+            use_auth_token=self._token,
             git_user="ci",
             git_email="ci@dummy.com",
         )
@@ -1725,7 +1729,7 @@ class RepositoryDatasetTest(RepositoryCommonTest):
         Repository(
             f"{WORKING_DATASET_DIR}/{self.REPO_NAME}",
             clone_from=f"{USER}/{self.REPO_NAME}",
-            token=self._token,
+            use_auth_token=self._token,
             repo_type="dataset",
             git_user="ci",
             git_email="ci@dummy.com",
@@ -1743,7 +1747,7 @@ class RepositoryDatasetTest(RepositoryCommonTest):
             f"{WORKING_DATASET_DIR}/{self.REPO_NAME}",
             clone_from=self.REPO_NAME,
             repo_type="dataset",
-            token=self._token,
+            use_auth_token=self._token,
             git_user="ci",
             git_email="ci@dummy.com",
         )
@@ -1755,7 +1759,7 @@ class RepositoryDatasetTest(RepositoryCommonTest):
             f"{WORKING_DATASET_DIR}/{self.REPO_NAME}",
             clone_from=f"{USER}/{self.REPO_NAME}",
             repo_type="dataset",
-            token=self._token,
+            use_auth_token=self._token,
             git_user="ci",
             git_email="ci@dummy.com",
         )

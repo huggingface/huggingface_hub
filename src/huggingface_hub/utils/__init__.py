@@ -63,7 +63,12 @@ from ._runtime import (
     is_torch_available,
 )
 from ._subprocess import run_subprocess
-from ._validators import HFValidationError, validate_hf_hub_args, validate_repo_id
+from ._validators import (
+    HFValidationError,
+    smoothly_deprecate_use_auth_token,
+    validate_hf_hub_args,
+    validate_repo_id,
+)
 from .tqdm import (
     are_progress_bars_disabled,
     disable_progress_bars,

@@ -593,7 +593,7 @@ class CommitApiTest(HfApiCommonTestWithLogin):
                             repo_id=f"{USER}/{REPO_NAME}",
                             filename=remote_path,
                             revision="main",
-                            token=self._token,
+                            use_auth_token=self._token,
                         )
                         assert filepath is not None
                         with open(filepath, "rb") as downloaded_file:
@@ -641,7 +641,7 @@ class CommitApiTest(HfApiCommonTestWithLogin):
                             repo_id=f"{USER}/{REPO_NAME}",
                             filename=remote_path,
                             revision="refs/pr/1",
-                            token=self._token,
+                            use_auth_token=self._token,
                         )
                         assert filepath is not None
                         with open(filepath, "rb") as downloaded_file:
@@ -708,12 +708,14 @@ class CommitApiTest(HfApiCommonTestWithLogin):
 
             with self.assertRaises(HTTPError) as ctx:
                 # Should raise a 404
-                hf_hub_download(f"{USER}/{REPO_NAME}", "buffer", token=self._token)
+                hf_hub_download(
+                    f"{USER}/{REPO_NAME}", "buffer", use_auth_token=self._token
+                )
                 self.assertEqual(ctx.exception.response.status_code, 404)
             filepath = hf_hub_download(
                 filename="buffer",
                 repo_id=f"{USER}/{REPO_NAME}",
-                token=self._token,
+                use_auth_token=self._token,
                 revision="refs/pr/1",
             )
             self.assertTrue(filepath is not None)
@@ -773,7 +775,7 @@ class CommitApiTest(HfApiCommonTestWithLogin):
                         hf_hub_download(
                             f"{USER}/{REPO_NAME}",
                             "temp/new_file.md",
-                            token=self._token,
+                            use_auth_token=self._token,
                         )
 
                     for path, expected_content in [
@@ -786,7 +788,7 @@ class CommitApiTest(HfApiCommonTestWithLogin):
                             repo_id=f"{USER}/{REPO_NAME}",
                             filename=path,
                             revision="main",
-                            token=self._token,
+                            use_auth_token=self._token,
                         )
                         self.assertTrue(filepath is not None)
                         with open(filepath, "rb") as downloaded_file:
@@ -894,7 +896,7 @@ class CommitApiTest(HfApiCommonTestWithLogin):
 
             # Check uploaded as LFS
             info = self._api.model_info(
-                repo_id=repo_id, token=self._token, files_metadata=True
+                repo_id=repo_id, use_auth_token=self._token, files_metadata=True
             )
             siblings = {file.rfilename: file for file in info.siblings}
             self.assertIsInstance(siblings["image.png"].lfs, dict)  # LFS file
@@ -1568,7 +1570,7 @@ class HfApiPrivateTest(HfApiCommonTestWithLogin):
                 )
                 self.assertIsInstance(model_info, ModelInfo)
             model_info = self._api.model_info(
-                repo_id=f"{USER}/{self.REPO_NAME}", token=self._token
+                repo_id=f"{USER}/{self.REPO_NAME}", use_auth_token=self._token
             )
             self.assertIsInstance(model_info, ModelInfo)
 
@@ -1591,24 +1593,24 @@ class HfApiPrivateTest(HfApiCommonTestWithLogin):
                 )
                 self.assertIsInstance(dataset_info, DatasetInfo)
             dataset_info = self._api.dataset_info(
-                repo_id=f"{USER}/{self.REPO_NAME}", token=self._token
+                repo_id=f"{USER}/{self.REPO_NAME}", use_auth_token=self._token
             )
             self.assertIsInstance(dataset_info, DatasetInfo)
 
     def test_list_private_datasets(self):
-        orig = len(self._api.list_datasets(token=False))
-        new = len(self._api.list_datasets(token=self._token))
+        orig = len(self._api.list_datasets(use_auth_token=False))
+        new = len(self._api.list_datasets(use_auth_token=self._token))
         self.assertGreater(new, orig)
 
     def test_list_private_models(self):
-        orig = len(self._api.list_models(token=False))
-        new = len(self._api.list_models(token=self._token))
+        orig = len(self._api.list_models(use_auth_token=False))
+        new = len(self._api.list_models(use_auth_token=self._token))
         self.assertGreater(new, orig)
 
     @with_production_testing
     def test_list_private_spaces(self):
-        orig = len(self._api.list_spaces(token=False))
-        new = len(self._api.list_spaces(token=self._token))
+        orig = len(self._api.list_spaces(use_auth_token=False))
+        new = len(self._api.list_spaces(use_auth_token=self._token))
         self.assertGreaterEqual(new, orig)
 
 
@@ -1932,7 +1934,7 @@ class HfApiDiscussionsTest(HfApiCommonTestWithLogin):
 class HfApiTokenAttributeTest(unittest.TestCase):
     def test_token_passed(self, mock_build_hf_headers: Mock) -> None:
         api = HfApi(token="default token")
-        api._build_hf_headers(token="A token")
+        api._build_hf_headers(use_auth_token="A token")
         self._assert_token_is(mock_build_hf_headers, "A token")
 
     def test_no_token_passed(self, mock_build_hf_headers: Mock) -> None:
@@ -1942,20 +1944,22 @@ class HfApiTokenAttributeTest(unittest.TestCase):
 
     def test_token_true_passed(self, mock_build_hf_headers: Mock) -> None:
         api = HfApi(token="default token")
-        api._build_hf_headers(token=True)
+        api._build_hf_headers(use_auth_token=True)
         self._assert_token_is(mock_build_hf_headers, True)
 
     def test_token_false_passed(self, mock_build_hf_headers: Mock) -> None:
         api = HfApi(token="default token")
-        api._build_hf_headers(token=False)
+        api._build_hf_headers(use_auth_token=False)
         self._assert_token_is(mock_build_hf_headers, False)
 
     def test_no_token_at_all(self, mock_build_hf_headers: Mock) -> None:
         api = HfApi()
-        api._build_hf_headers(token=None)
+        api._build_hf_headers(use_auth_token=None)
         self._assert_token_is(mock_build_hf_headers, None)
 
     def _assert_token_is(
         self, mock_build_hf_headers: Mock, expected_value: str
     ) -> None:
-        self.assertEquals(mock_build_hf_headers.call_args[1]["token"], expected_value)
+        self.assertEquals(
+            mock_build_hf_headers.call_args[1]["use_auth_token"], expected_value
+        )

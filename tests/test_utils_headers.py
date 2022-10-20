@@ -22,42 +22,42 @@ NO_AUTH_HEADER = {"user-agent": DEFAULT_USER_AGENT}
 @patch("huggingface_hub.utils._headers.HfFolder")
 @handle_injection
 class TestAuthHeadersUtil(unittest.TestCase):
-    def test_token_str(self) -> None:
-        self.assertEqual(build_hf_headers(token=FAKE_TOKEN), FAKE_TOKEN_HEADER)
+    def test_use_auth_token_str(self) -> None:
+        self.assertEqual(build_hf_headers(use_auth_token=FAKE_TOKEN), FAKE_TOKEN_HEADER)
 
-    def test_token_true_no_cached_token(self, mock_HfFolder: Mock) -> None:
+    def test_use_auth_token_true_no_cached_token(self, mock_HfFolder: Mock) -> None:
         mock_HfFolder().get_token.return_value = None
         with self.assertRaises(EnvironmentError):
-            build_hf_headers(token=True)
+            build_hf_headers(use_auth_token=True)
 
-    def test_token_true_has_cached_token(self, mock_HfFolder: Mock) -> None:
+    def test_use_auth_token_true_has_cached_token(self, mock_HfFolder: Mock) -> None:
         mock_HfFolder().get_token.return_value = FAKE_TOKEN
-        self.assertEqual(build_hf_headers(token=True), FAKE_TOKEN_HEADER)
+        self.assertEqual(build_hf_headers(use_auth_token=True), FAKE_TOKEN_HEADER)
 
-    def test_token_false(self, mock_HfFolder: Mock) -> None:
+    def test_use_auth_token_false(self, mock_HfFolder: Mock) -> None:
         mock_HfFolder().get_token.return_value = FAKE_TOKEN
-        self.assertEqual(build_hf_headers(token=False), NO_AUTH_HEADER)
+        self.assertEqual(build_hf_headers(use_auth_token=False), NO_AUTH_HEADER)
 
-    def test_token_none_no_cached_token(self, mock_HfFolder: Mock) -> None:
+    def test_use_auth_token_none_no_cached_token(self, mock_HfFolder: Mock) -> None:
         mock_HfFolder().get_token.return_value = None
         self.assertEqual(build_hf_headers(), NO_AUTH_HEADER)
 
-    def test_token_none_has_cached_token(self, mock_HfFolder: Mock) -> None:
+    def test_use_auth_token_none_has_cached_token(self, mock_HfFolder: Mock) -> None:
         mock_HfFolder().get_token.return_value = FAKE_TOKEN
         self.assertEqual(build_hf_headers(), FAKE_TOKEN_HEADER)
 
     def test_write_action_org_token(self) -> None:
         with self.assertRaises(ValueError):
-            build_hf_headers(token=FAKE_TOKEN_ORG, is_write_action=True)
+            build_hf_headers(use_auth_token=FAKE_TOKEN_ORG, is_write_action=True)
 
     def test_write_action_none_token(self, mock_HfFolder: Mock) -> None:
         mock_HfFolder().get_token.return_value = None
         with self.assertRaises(ValueError):
             build_hf_headers(is_write_action=True)
 
-    def test_write_action_token_false(self) -> None:
+    def test_write_action_use_auth_token_false(self) -> None:
         with self.assertRaises(ValueError):
-            build_hf_headers(token=False, is_write_action=True)
+            build_hf_headers(use_auth_token=False, is_write_action=True)
 
     def test_implicit_use_disabled(self, mock_HfFolder: Mock) -> None:
         with patch(  # not as decorator to avoid friction with @handle_injection
@@ -73,7 +73,7 @@ class TestAuthHeadersUtil(unittest.TestCase):
             mock_HfFolder().get_token.return_value = FAKE_TOKEN
 
             # This is not an implicit use so we still send it
-            self.assertEqual(build_hf_headers(token=True), FAKE_TOKEN_HEADER)
+            self.assertEqual(build_hf_headers(use_auth_token=True), FAKE_TOKEN_HEADER)
 
 
 class TestUserAgentHeadersUtil(unittest.TestCase):

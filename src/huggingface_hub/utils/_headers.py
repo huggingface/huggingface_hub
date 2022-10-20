@@ -29,8 +29,10 @@ from ._runtime import (
     is_tf_available,
     is_torch_available,
 )
+from ._validators import validate_hf_hub_args
 
 
+@validate_hf_hub_args
 def build_hf_headers(
     *,
     token: Optional[Union[bool, str]] = None,
