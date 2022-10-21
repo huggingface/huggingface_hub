@@ -113,6 +113,7 @@ _SUBMOD_ATTRS = {
         "dataset_info",
         "delete_file",
         "delete_repo",
+        "delete_tag",
         "edit_discussion_comment",
         "get_dataset_tags",
         "get_discussion_details",
@@ -333,6 +334,7 @@ if TYPE_CHECKING:  # pragma: no cover
     from .hf_api import dataset_info  # noqa: F401
     from .hf_api import delete_file  # noqa: F401
     from .hf_api import delete_repo  # noqa: F401
+    from .hf_api import delete_tag  # noqa: F401
     from .hf_api import edit_discussion_comment  # noqa: F401
     from .hf_api import get_dataset_tags  # noqa: F401
     from .hf_api import get_discussion_details  # noqa: F401

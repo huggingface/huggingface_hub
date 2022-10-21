@@ -1100,6 +1100,35 @@ class HfApiTagEndpointTest(HfApiCommonTestWithLogin):
         with self.assertRaises(RevisionNotFoundError):
             self._api.create_tag(self._repo_id, tag="invalid tag", revision="foobar")
 
+    @retry_endpoint
+    @use_tmp_repo("model")
+    def test_delete_tag_create_and_delete_tag(self) -> None:
+        """Check `delete_tag` deletes the tag."""
+        self._api.create_tag(self._repo_id, tag="v0")
+        self._api.model_info(self._repo_id, revision="v0")
+
+        self._api.delete_tag(self._repo_id, tag="v0")
+        with self.assertRaises(RevisionNotFoundError):
+            self._api.model_info(self._repo_id, revision="v0")
+
+    @retry_endpoint
+    @use_tmp_repo("model")
+    def test_delete_tag_missing_tag(self) -> None:
+        """Check cannot `delete_tag` if tag doesn't exist."""
+        with self.assertRaises(RevisionNotFoundError):
+            self._api.delete_tag(self._repo_id, tag="v0")
+
+    @retry_endpoint
+    @use_tmp_repo("model")
+    def test_delete_tag_with_branch_name(self) -> None:
+        """Try to `delete_tag` if tag is a branch name.
+
+        Currently getting a HTTP 500.
+        See https://github.com/huggingface/moon-landing/issues/4223.
+        """
+        with self.assertRaises(HTTPError):
+            self._api.delete_tag(self._repo_id, tag="main")
+
 
 class HfApiPublicTest(unittest.TestCase):
     def test_staging_list_models(self):
