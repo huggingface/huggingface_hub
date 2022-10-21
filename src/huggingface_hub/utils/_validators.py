@@ -117,7 +117,7 @@ def validate_hf_hub_args(fn: CallableT) -> CallableT:
                 has_token = True
 
         if check_use_auth_token:
-            smoothly_deprecate_use_auth_token(
+            kwargs = smoothly_deprecate_use_auth_token(
                 fn_name=fn.__name__, has_token=has_token, kwargs=kwargs
             )
 
@@ -184,10 +184,8 @@ def validate_repo_id(repo_id: str) -> None:
 
 def smoothly_deprecate_use_auth_token(
     fn_name: str, has_token: bool, kwargs: Dict[str, Any]
-) -> None:
+) -> Dict[str, Any]:
     """Smoothly deprecate `use_auth_token` in the `huggingface_hub` codebase.
-
-    Warning: `kwargs` is mutated !
 
     The long-term goal is to remove any mention of `use_auth_token` in the codebase in
     favor of a unique and less verbose `token` argument. This will be done a few steps:
@@ -223,7 +221,9 @@ def smoothly_deprecate_use_auth_token(
     - https://github.com/huggingface/huggingface_hub/pull/928
     - (related) https://github.com/huggingface/huggingface_hub/pull/1064
     """
-    use_auth_token = kwargs.pop("use_auth_token", None)  # remove from kwargs
+    new_kwargs = kwargs.copy()  # do not mutate input !
+
+    use_auth_token = new_kwargs.pop("use_auth_token", None)  # remove from kwargs
     if use_auth_token is not None:
         if has_token:
             warnings.warn(
@@ -235,4 +235,6 @@ def smoothly_deprecate_use_auth_token(
         else:
             # `token` argument is not passed and a non-None value is passed in
             # `use_auth_token` => use `use_auth_token` value as `token` kwarg.
-            kwargs["token"] = use_auth_token
+            new_kwargs["token"] = use_auth_token
+
+    return new_kwargs
