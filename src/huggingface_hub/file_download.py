@@ -492,6 +492,7 @@ def http_get(
     progress.close()
 
 
+@validate_hf_hub_args
 def cached_download(
     url: str,
     *,
@@ -504,7 +505,7 @@ def cached_download(
     proxies: Optional[Dict] = None,
     etag_timeout: float = 10,
     resume_download: bool = False,
-    use_auth_token: Union[bool, str, None] = None,
+    token: Union[bool, str, None] = None,
     local_files_only: bool = False,
     legacy_cache_layout: bool = False,
 ) -> Optional[str]:  # pragma: no cover
@@ -542,7 +543,7 @@ def cached_download(
             data before giving up which is passed to `requests.request`.
         resume_download (`bool`, *optional*, defaults to `False`):
             If `True`, resume a previously interrupted download.
-        use_auth_token (`bool`, `str`, *optional*):
+        token (`bool`, `str`, *optional*):
             A token to be used for the download.
                 - If `True`, the token is read from the HuggingFace config
                   folder.
@@ -565,7 +566,7 @@ def cached_download(
     Raises the following errors:
 
         - [`EnvironmentError`](https://docs.python.org/3/library/exceptions.html#EnvironmentError)
-          if `use_auth_token=True` and the token cannot be found.
+          if `token=True` and the token cannot be found.
         - [`OSError`](https://docs.python.org/3/library/exceptions.html#OSError)
           if ETag cannot be determined.
         - [`ValueError`](https://docs.python.org/3/library/exceptions.html#ValueError)
@@ -597,7 +598,7 @@ def cached_download(
     os.makedirs(cache_dir, exist_ok=True)
 
     headers = build_hf_headers(
-        token=use_auth_token,
+        token=token,
         library_name=library_name,
         library_version=library_version,
         user_agent=user_agent,
@@ -998,7 +999,7 @@ def hf_hub_download(
             proxies=proxies,
             etag_timeout=etag_timeout,
             resume_download=resume_download,
-            use_auth_token=token,
+            token=token,
             local_files_only=local_files_only,
             legacy_cache_layout=legacy_cache_layout,
         )
