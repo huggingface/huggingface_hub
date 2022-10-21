@@ -76,7 +76,6 @@ class ModelHubMixin:
                 kwargs.get("repo_url") is not None
                 or kwargs.get("repo_path_or_name") is not None
                 or kwargs.get("organization") is not None
-                or kwargs.get("use_auth_token") is not None
                 or kwargs.get("git_user") is not None
                 or kwargs.get("git_email") is not None
                 or kwargs.get("skip_lfs_files") is not None
@@ -245,7 +244,6 @@ class ModelHubMixin:
             "repo_url",
             "repo_path_or_name",
             "organization",
-            "use_auth_token",
             "git_user",
             "git_email",
             "skip_lfs_files",
