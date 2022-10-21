@@ -1669,12 +1669,7 @@ class HfApiPrivateTest(HfApiCommonTestWithLogin):
                 ),
             ):
                 _ = self._api.dataset_info(repo_id=f"{USER}/{self.REPO_NAME}")
-            # Test we can access model info with a token
-            with self.assertWarns(FutureWarning):
-                dataset_info = self._api.dataset_info(
-                    repo_id=f"{USER}/{self.REPO_NAME}", token=self._token
-                )
-                self.assertIsInstance(dataset_info, DatasetInfo)
+
             dataset_info = self._api.dataset_info(
                 repo_id=f"{USER}/{self.REPO_NAME}", use_auth_token=self._token
             )
