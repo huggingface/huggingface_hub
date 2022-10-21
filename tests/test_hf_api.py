@@ -2007,7 +2007,7 @@ class HfApiDiscussionsTest(HfApiCommonTestWithLogin):
 class HfApiTokenAttributeTest(unittest.TestCase):
     def test_token_passed(self, mock_build_hf_headers: Mock) -> None:
         api = HfApi(token="default token")
-        api._build_hf_headers(use_auth_token="A token")
+        api._build_hf_headers(token="A token")
         self._assert_token_is(mock_build_hf_headers, "A token")
 
     def test_no_token_passed(self, mock_build_hf_headers: Mock) -> None:
@@ -2017,22 +2017,20 @@ class HfApiTokenAttributeTest(unittest.TestCase):
 
     def test_token_true_passed(self, mock_build_hf_headers: Mock) -> None:
         api = HfApi(token="default token")
-        api._build_hf_headers(use_auth_token=True)
+        api._build_hf_headers(token=True)
         self._assert_token_is(mock_build_hf_headers, True)
 
     def test_token_false_passed(self, mock_build_hf_headers: Mock) -> None:
         api = HfApi(token="default token")
-        api._build_hf_headers(use_auth_token=False)
+        api._build_hf_headers(token=False)
         self._assert_token_is(mock_build_hf_headers, False)
 
     def test_no_token_at_all(self, mock_build_hf_headers: Mock) -> None:
         api = HfApi()
-        api._build_hf_headers(use_auth_token=None)
+        api._build_hf_headers(token=None)
         self._assert_token_is(mock_build_hf_headers, None)
 
     def _assert_token_is(
         self, mock_build_hf_headers: Mock, expected_value: str
     ) -> None:
-        self.assertEquals(
-            mock_build_hf_headers.call_args[1]["use_auth_token"], expected_value
-        )
+        self.assertEquals(mock_build_hf_headers.call_args[1]["token"], expected_value)
