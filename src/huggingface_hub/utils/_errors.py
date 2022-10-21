@@ -15,6 +15,7 @@ class HfHubHTTPError(HTTPError):
 
     Added details:
     - Request id from "X-Request-Id" header if exists.
+    - Server error message from the header "X-Error-Message".
     - Server error message if we can found one in the response body.
 
     Example:
@@ -47,19 +48,30 @@ class HfHubHTTPError(HTTPError):
             except JSONDecodeError:
                 server_data = {}
 
-            self.server_message = server_data.get("error", None)
-
-            msg_from_errors = "\n".join(
+            # Retrieve server error message from multiple sources
+            server_message_from_headers = response.headers.get("X-Error-Message")
+            server_message_from_body = server_data.get("error")
+            server_multiple_messages_from_body = "\n".join(
                 error["message"]
                 for error in server_data.get("errors", [])
                 if "message" in error
             )
-            if msg_from_errors != "":
-                self.server_message = (
-                    self.server_message + "\n" + msg_from_errors
-                    if self.server_message is not None
-                    else msg_from_errors
-                )
+
+            # Concatenate error messages
+            _server_message = ""
+            if server_message_from_headers is not None:  # from headers
+                _server_message += server_message_from_headers + "\n"
+            if server_message_from_body is not None:  # from body "error"
+                if server_message_from_body not in _server_message:
+                    _server_message += server_message_from_body + "\n"
+            if server_multiple_messages_from_body is not None:  # from body "errors"
+                if server_multiple_messages_from_body not in _server_message:
+                    _server_message += server_multiple_messages_from_body + "\n"
+            _server_message = _server_message.strip()
+
+            # Set message to `HfHubHTTPError` (if any)
+            if _server_message != "":
+                self.server_message = _server_message
 
         super().__init__(
             _format_error_message(
