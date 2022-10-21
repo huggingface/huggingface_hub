@@ -8,13 +8,19 @@ from concurrent import futures
 from concurrent.futures import ThreadPoolExecutor
 from contextlib import contextmanager
 from dataclasses import dataclass, field
-from typing import BinaryIO, Dict, Iterable, List, Optional, Tuple, Union
+from typing import Any, BinaryIO, Dict, Iterable, List, Optional, Tuple, Union
 
 import requests
 
 from .constants import ENDPOINT
 from .lfs import UploadInfo, _validate_batch_actions, lfs_upload, post_lfs_batch_info
-from .utils import build_hf_headers, hf_raise_for_status, logging, validate_hf_hub_args
+from .utils import (
+    build_hf_headers,
+    chunk_iterable,
+    hf_raise_for_status,
+    logging,
+    validate_hf_hub_args,
+)
 from .utils._typing import Literal
 
 
@@ -200,23 +206,31 @@ def upload_lfs_files(
         error
 
     """
-    # Step 1: retrieve upload instructions from the LFS batch endpoint
-    batch_actions, batch_errors = post_lfs_batch_info(
-        upload_infos=[op._upload_info() for op in additions],
-        token=token,
-        repo_id=repo_id,
-        repo_type=repo_type,
-        endpoint=endpoint,
-    )
-    if batch_errors:
-        message = "\n".join(
-            [
-                f'Encountered error for file with OID {err.get("oid")}:'
-                f' `{err.get("error", {}).get("message")}'
-                for err in batch_errors
-            ]
+    # Step 1: retrieve upload instructions from the LFS batch endpoint.
+    #         Upload instructions are retrieved by chunk of 256 files to avoid reaching
+    #         the payload limit.
+    batch_actions: List[Dict] = []
+    for chunk in chunk_iterable(additions, chunk_size=256):
+        batch_actions_chunk, batch_errors_chunk = post_lfs_batch_info(
+            upload_infos=[op._upload_info() for op in chunk],
+            token=token,
+            repo_id=repo_id,
+            repo_type=repo_type,
+            endpoint=endpoint,
         )
-        raise ValueError(f"LFS batch endpoint returned errors:\n{message}")
+
+        # If at least 1 error, we do not retrieve information for other chunks
+        if batch_errors_chunk:
+            message = "\n".join(
+                [
+                    f'Encountered error for file with OID {err.get("oid")}:'
+                    f' `{err.get("error", {}).get("message")}'
+                    for err in batch_errors_chunk
+                ]
+            )
+            raise ValueError(f"LFS batch endpoint returned errors:\n{message}")
+
+        batch_actions += batch_actions_chunk
 
     # Step 2: upload files concurrently according to these instructions
     oid2addop = {add_op._upload_info().sha256.hex(): add_op for add_op in additions}
@@ -293,6 +307,7 @@ def _upload_lfs_object(
     verify_action = lfs_batch_action["actions"].get("verify")
 
     with operation.as_file() as fileobj:
+        logger.debug(f"Uploading {operation.path_in_repo} as LFS file...")
         lfs_upload(
             fileobj=fileobj,
             upload_action=upload_action,
@@ -326,7 +341,6 @@ def fetch_upload_modes(
     token: Optional[str],
     revision: str,
     endpoint: Optional[str] = None,
-    create_pr: Optional[bool] = None,
 ) -> List[Tuple[CommitOperationAdd, UploadMode]]:
     """
     Requests the Hub "preupload" endpoint to determine wether each input file
@@ -358,31 +372,34 @@ def fetch_upload_modes(
     """
     endpoint = endpoint if endpoint is not None else ENDPOINT
     headers = build_hf_headers(token=token)
-    payload = {
-        "files": [
-            {
-                "path": op.path_in_repo,
-                "sample": base64.b64encode(op._upload_info().sample).decode("ascii"),
-                "size": op._upload_info().size,
-                "sha": op._upload_info().sha256.hex(),
-            }
-            for op in additions
-        ]
-    }
 
-    resp = requests.post(
-        f"{endpoint}/api/{repo_type}s/{repo_id}/preupload/{revision}",
-        json=payload,
-        headers=headers,
-        params={"create_pr": "1"} if create_pr else None,
-    )
-    hf_raise_for_status(resp, endpoint_name="preupload")
+    # Fetch upload mode (LFS or regular) chunk by chunk.
+    path2mode: Dict[str, UploadMode] = {}
+    for chunk in chunk_iterable(additions, 256):
+        payload = {
+            "files": [
+                {
+                    "path": op.path_in_repo,
+                    "sample": base64.b64encode(op._upload_info().sample).decode(
+                        "ascii"
+                    ),
+                    "size": op._upload_info().size,
+                    "sha": op._upload_info().sha256.hex(),
+                }
+                for op in chunk
+            ]
+        }
 
-    preupload_info = validate_preupload_info(resp.json())
-
-    path2mode: Dict[str, UploadMode] = {
-        file["path"]: file["uploadMode"] for file in preupload_info["files"]
-    }
+        resp = requests.post(
+            f"{endpoint}/api/{repo_type}s/{repo_id}/preupload/{revision}",
+            json=payload,
+            headers=headers,
+        )
+        hf_raise_for_status(resp)
+        preupload_info = validate_preupload_info(resp.json())
+        path2mode.update(
+            **{file["path"]: file["uploadMode"] for file in preupload_info["files"]}
+        )
 
     return [(op, path2mode[op.path_in_repo]) for op in additions]
 
@@ -393,35 +410,56 @@ def prepare_commit_payload(
     commit_message: str,
     commit_description: Optional[str] = None,
     parent_commit: Optional[str] = None,
-):
+) -> Iterable[Dict[str, Any]]:
     """
-    Builds the payload to POST to the `/commit` API of the Hub
+    Builds the payload to POST to the `/commit` API of the Hub.
+
+    Payload is returned as an iterator so that it can be streamed as a ndjson in the
+    POST request.
+
+    For more information, see:
+        - https://github.com/huggingface/huggingface_hub/issues/1085#issuecomment-1265208073
+        - http://ndjson.org/
     """
     commit_description = commit_description if commit_description is not None else ""
 
-    payload = {
-        **({"parentCommit": parent_commit} if parent_commit is not None else {}),
-        "summary": commit_message,
-        "description": commit_description,
-        "files": [
-            {
+    # 1. Send a header item with the commit metadata
+    header_value = {"summary": commit_message, "description": commit_description}
+    if parent_commit is not None:
+        header_value["parentCommit"] = parent_commit
+    yield {"key": "header", "value": header_value}
+
+    # 2. Send regular files, one per line
+    yield from (
+        {
+            "key": "file",
+            "value": {
+                "content": add_op.b64content().decode(),
                 "path": add_op.path_in_repo,
                 "encoding": "base64",
-                "content": add_op.b64content().decode(),
-            }
-            for (add_op, upload_mode) in additions
-            if upload_mode == "regular"
-        ],
-        "lfsFiles": [
-            {
+            },
+        }
+        for (add_op, upload_mode) in additions
+        if upload_mode == "regular"
+    )
+
+    # 3. Send LFS files, one per line
+    yield from (
+        {
+            "key": "lfsFile",
+            "value": {
                 "path": add_op.path_in_repo,
                 "algo": "sha256",
                 "oid": add_op._upload_info().sha256.hex(),
                 "size": add_op._upload_info().size,
-            }
-            for (add_op, upload_mode) in additions
-            if upload_mode == "lfs"
-        ],
-        "deletedFiles": [{"path": del_op.path_in_repo} for del_op in deletions],
-    }
-    return payload
+            },
+        }
+        for (add_op, upload_mode) in additions
+        if upload_mode == "lfs"
+    )
+
+    # 4. Send deleted files, one per line
+    yield from (
+        {"key": "deletedFile", "value": {"path": del_op.path_in_repo}}
+        for del_op in deletions
+    )

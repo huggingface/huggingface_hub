@@ -29,7 +29,11 @@ from urllib.parse import quote
 import pytest
 
 import requests
-from huggingface_hub._commit_api import CommitOperationAdd, CommitOperationDelete
+from huggingface_hub._commit_api import (
+    CommitOperationAdd,
+    CommitOperationDelete,
+    fetch_upload_modes,
+)
 from huggingface_hub._login import _login
 from huggingface_hub.community import DiscussionComment, DiscussionWithDetails
 from huggingface_hub.constants import (
@@ -836,25 +840,32 @@ class CommitApiTest(HfApiCommonTestWithLogin):
     @retry_endpoint
     def test_create_commit_repo_does_not_exist(self) -> None:
         """Test error message is detailed when creating a commit on a missing repo."""
-        with self.assertRaises(RepositoryNotFoundError) as context:
-            self._api.create_commit(
-                repo_id=f"{USER}/repo_that_do_not_exist",
-                operations=[],  # empty commit
-                commit_message="fake_message",
-            )
+        # Test once with empty commit and once with an addition commit.
+        for route, operations in (
+            ("commit", []),
+            ("preupload", [CommitOperationAdd("config.json", b"content")]),
+        ):
+            with self.subTest():
+                with self.assertRaises(RepositoryNotFoundError) as context:
+                    self._api.create_commit(
+                        repo_id=f"{USER}/repo_that_do_not_exist",
+                        operations=operations,
+                        commit_message="fake_message",
+                    )
 
-        request_id = context.exception.response.headers.get("X-Request-Id")
-        expected_message = (
-            f"404 Client Error. (Request ID: {request_id})"
-            + "\n\nRepository Not Found for url:"
-            + f" {self._api.endpoint}/api/models/{USER}/repo_that_do_not_exist/preupload/main."
-            + "\nPlease make sure you specified the correct `repo_id` and `repo_type`."
-            + "\nIf the repo is private, make sure you are authenticated."
-            + "\nNote: Creating a commit assumes that the repo already exists on the"
-            + " Huggingface Hub. Please use `create_repo` if it's not the case."
-        )
+                request_id = context.exception.response.headers.get("X-Request-Id")
+                expected_message = (
+                    f"404 Client Error. (Request ID: {request_id})\n\nRepository Not"
+                    " Found for url:"
+                    f" {self._api.endpoint}/api/models/{USER}/repo_that_do_not_exist/{route}/main.\nPlease"
+                    " make sure you specified the correct `repo_id` and"
+                    " `repo_type`.\nIf the repo is private, make sure you are"
+                    " authenticated.\nNote: Creating a commit assumes that the repo"
+                    " already exists on the Huggingface Hub. Please use `create_repo`"
+                    " if it's not the case."
+                )
 
-        self.assertEqual(str(context.exception), expected_message)
+                self.assertEqual(str(context.exception), expected_message)
 
     @retry_endpoint
     def test_create_commit_lfs_file_implicit_token(self):
@@ -907,6 +918,78 @@ class CommitApiTest(HfApiCommonTestWithLogin):
         with patch.object(self._api, "token", None):  # no default token
             with patch("huggingface_hub.utils.HfFolder.get_token") as mock:
                 _inner(mock)  # just to avoid indenting twice the code code
+
+    @retry_endpoint
+    def test_create_commit_huge_regular_files(self):
+        """Test committing 12 text files (>100MB in total) at once.
+
+        This was not possible when using `json` format instead of `ndjson`
+        on the `/create-commit` endpoint.
+
+        See https://github.com/huggingface/huggingface_hub/pull/1117.
+        """
+        REPO_NAME = repo_name("create_commit_huge_regular_files")
+        self._api.create_repo(repo_id=REPO_NAME, exist_ok=False)
+        try:
+            operations = []
+            for num in range(12):
+                operations.append(
+                    CommitOperationAdd(
+                        path_in_repo=f"file-{num}.text",
+                        path_or_fileobj=b"Hello regular " + b"a" * 1024 * 1024 * 9,
+                    )
+                )
+            self._api.create_commit(
+                operations=operations,  # 12*9MB regular => too much for "old" method
+                commit_message="Test create_commit with huge regular files",
+                repo_id=f"{USER}/{REPO_NAME}",
+            )
+        except Exception as err:
+            self.fail(err)
+        finally:
+            self._api.delete_repo(repo_id=REPO_NAME)
+
+    @retry_endpoint
+    def test_commit_preflight_on_lots_of_lfs_files(self):
+        """Test committing 1300 LFS files at once.
+
+        This was not possible when `fetch_upload_modes` was not fetching metadata by
+        chunks. We are not testing the full upload as it would require to upload 1300
+        files which is unnecessary for the test. Having an overall large payload (for
+        `/create-commit` endpoint) is tested in `test_create_commit_huge_regular_files`.
+
+        There is also a 25k LFS files limit on the Hub but this is not tested.
+
+        See https://github.com/huggingface/huggingface_hub/pull/1117.
+        """
+        REPO_NAME = repo_name("commit_preflight_lots_of_lfs_files")
+        self._api.create_repo(repo_id=REPO_NAME, exist_ok=False)
+        try:
+            operations = []
+            for num in range(1300):
+                operations.append(
+                    CommitOperationAdd(
+                        path_in_repo=f"file-{num}.bin",  # considered as LFS
+                        path_or_fileobj=b"Hello LFS" + b"a" * 2048,  # big enough sample
+                    )
+                )
+
+            # Test `fetch_upload_modes` preflight ("are they regular or LFS files?")
+            res = fetch_upload_modes(
+                additions=operations,
+                repo_type="model",
+                repo_id=f"{USER}/{REPO_NAME}",
+                token=TOKEN,
+                revision="main",
+                endpoint=ENDPOINT_STAGING,
+            )
+            self.assertEqual(len(res), 1300)
+            for _, mode in res:
+                self.assertEqual(mode, "lfs")
+        except Exception as err:
+            self.fail(err)
+        finally:
+            self._api.delete_repo(repo_id=REPO_NAME)
 
 
 class HfApiTagEndpointTest(HfApiCommonTestWithLogin):

@@ -37,10 +37,12 @@ from huggingface_hub.file_download import (
 )
 from huggingface_hub.utils import (
     EntryNotFoundError,
+    HfHubHTTPError,
     LocalEntryNotFoundError,
     RepositoryNotFoundError,
     RevisionNotFoundError,
 )
+from tests.testing_constants import TOKEN
 
 from .testing_utils import (
     DUMMY_MODEL_ID,
@@ -372,6 +374,27 @@ class CachedDownloadTests(unittest.TestCase):
             metadata.location,
             url.replace(DUMMY_RENAMED_OLD_MODEL_ID, DUMMY_RENAMED_NEW_MODEL_ID),
         )
+
+
+class StagingCachedDownloadTest(unittest.TestCase):
+    def test_download_from_a_gated_repo_with_hf_hub_download(self):
+        """Checks `hf_hub_download` outputs error on gated repo.
+
+        Regression test for #1121.
+        https://github.com/huggingface/huggingface_hub/pull/1121
+        """
+        with TemporaryDirectory() as tmpdir:
+            with self.assertRaisesRegex(
+                HfHubHTTPError,
+                "Access to model .* is restricted and you are not in the authorized"
+                " list",
+            ):
+                hf_hub_download(
+                    repo_id="datasets_server_org/gated_repo_for_huggingface_hub_ci",
+                    filename="config.json",
+                    use_auth_token=TOKEN,
+                    cache_dir=tmpdir,
+                )
 
 
 class CreateSymlinkTest(unittest.TestCase):
