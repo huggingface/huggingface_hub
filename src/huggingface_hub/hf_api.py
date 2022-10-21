@@ -12,6 +12,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+import json
 import os
 import re
 import subprocess
@@ -1878,7 +1879,18 @@ class HfApi:
         [`~hf_api.create_repo`].
 
         </Tip>
+
+        <Tip warning={true}>
+
+        `create_commit` is limited to 25k LFS files and a 1GB payload for regular files.
+
+        </Tip>
         """
+        _CREATE_COMMIT_NO_REPO_ERROR_MESSAGE = (
+            "\nNote: Creating a commit assumes that the repo already exists on the"
+            " Huggingface Hub. Please use `create_repo` if it's not the case."
+        )
+
         if parent_commit is not None and not REGEX_COMMIT_OID.fullmatch(parent_commit):
             raise ValueError(
                 "`parent_commit` is not a valid commit OID. It must match the"
@@ -1928,13 +1940,9 @@ class HfApi:
                 token=token or self.token,
                 revision=revision,
                 endpoint=self.endpoint,
-                create_pr=create_pr,
             )
         except RepositoryNotFoundError as e:
-            e.append_to_message(
-                "\nNote: Creating a commit assumes that the repo already exists on the"
-                " Huggingface Hub. Please use `create_repo` if it's not the case."
-            )
+            e.append_to_message(_CREATE_COMMIT_NO_REPO_ERROR_MESSAGE)
             raise
 
         upload_lfs_files(
@@ -1958,14 +1966,29 @@ class HfApi:
         )
         commit_url = f"{self.endpoint}/api/{repo_type}s/{repo_id}/commit/{revision}"
 
-        headers = self._build_hf_headers(use_auth_token=token, is_write_action=True)
-        commit_resp = requests.post(
-            url=commit_url,
-            headers=headers,
-            json=commit_payload,
-            params={"create_pr": "1"} if create_pr else None,
-        )
-        hf_raise_for_status(commit_resp, endpoint_name="commit")
+        def _payload_as_ndjson() -> Iterable[bytes]:
+            for item in commit_payload:
+                yield json.dumps(item).encode()
+                yield b"\n"
+
+        headers = {
+            # See https://github.com/huggingface/huggingface_hub/issues/1085#issuecomment-1265208073
+            "Content-Type": "application/x-ndjson",
+            **self._build_hf_headers(use_auth_token=token, is_write_action=True),
+        }
+
+        try:
+            commit_resp = requests.post(
+                url=commit_url,
+                headers=headers,
+                data=_payload_as_ndjson(),  # type: ignore
+                params={"create_pr": "1"} if create_pr else None,
+            )
+            hf_raise_for_status(commit_resp, endpoint_name="commit")
+        except RepositoryNotFoundError as e:
+            e.append_to_message(_CREATE_COMMIT_NO_REPO_ERROR_MESSAGE)
+            raise
+
         commit_data = commit_resp.json()
         return CommitInfo(
             commit_url=commit_data["commitUrl"],

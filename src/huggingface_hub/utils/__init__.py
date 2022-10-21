@@ -27,6 +27,7 @@ from ._cache_manager import (
     HFCacheInfo,
     scan_cache_dir,
 )
+from ._chunk_utils import chunk_iterable
 from ._datetime import parse_datetime
 from ._errors import (
     BadRequestError,
