@@ -295,7 +295,6 @@ def from_pretrained_keras(*args, **kwargs):
         "repo_path_or_name",
         "repo_url",
         "organization",
-        "use_auth_token",
         "git_user",
         "git_email",
     },
