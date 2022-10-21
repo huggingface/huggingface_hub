@@ -1459,9 +1459,9 @@ class HfApi:
         if repo_type is None or repo_type == "model":
             method = self.model_info
         elif repo_type == "dataset":
-            method = self.dataset_info
+            method = self.dataset_info  # type: ignore
         elif repo_type == "space":
-            method = self.space_info
+            method = self.space_info  # type: ignore
         else:
             raise ValueError("Unsupported repo type.")
         return method(

@@ -130,6 +130,7 @@ class InferenceApi:
             )
             self.task = task
         else:
+            assert model_info.pipeline_tag is not None, "Pipeline tag cannot be None"
             self.task = model_info.pipeline_tag
 
         self.api_url = f"{ENDPOINT}/pipeline/{self.task}/{repo_id}"
