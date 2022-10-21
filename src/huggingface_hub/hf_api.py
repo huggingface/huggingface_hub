@@ -1203,7 +1203,6 @@ class HfApi:
         return [SpaceInfo(**x) for x in d]
 
     @validate_hf_hub_args
-    @_deprecate_arguments(version="0.12", deprecated_args={"token"})
     def model_info(
         self,
         repo_id: str,
