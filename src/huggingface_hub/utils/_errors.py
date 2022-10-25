@@ -277,7 +277,7 @@ def hf_raise_for_status(
 
         # Convert `HTTPError` into a `HfHubHTTPError` to display request information
         # as well (request id and/or server error message)
-        raise HfHubHTTPError(str(HTTPError), response=response) from e
+        raise HfHubHTTPError(str(e), response=response) from e
 
 
 @_deprecate_method(version="0.13", message="Use `hf_raise_for_status` instead.")
