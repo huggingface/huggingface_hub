@@ -60,6 +60,7 @@ from huggingface_hub.hf_api import (
 )
 from huggingface_hub.utils import (
     HfFolder,
+    HfHubHTTPError,
     RepositoryNotFoundError,
     RevisionNotFoundError,
     logging,
@@ -1102,7 +1103,14 @@ class HfApiTagEndpointTest(HfApiCommonTestWithLogin):
 
     @retry_endpoint
     @use_tmp_repo("model")
-    def test_delete_tag_create_and_delete_tag(self) -> None:
+    def test_create_tag_twice(self) -> None:
+        """Check `create_tag` called twice on same tag should not fail."""
+        self._api.create_tag(self._repo_id, tag="tag_1")
+        self._api.create_tag(self._repo_id, tag="tag_1")
+
+    @retry_endpoint
+    @use_tmp_repo("model")
+    def test_create_and_delete_tag(self) -> None:
         """Check `delete_tag` deletes the tag."""
         self._api.create_tag(self._repo_id, tag="v0")
         self._api.model_info(self._repo_id, revision="v0")
@@ -1126,7 +1134,7 @@ class HfApiTagEndpointTest(HfApiCommonTestWithLogin):
         Currently getting a HTTP 500.
         See https://github.com/huggingface/moon-landing/issues/4223.
         """
-        with self.assertRaises(HTTPError):
+        with self.assertRaises(HfHubHTTPError):
             self._api.delete_tag(self._repo_id, tag="main")
 
 
