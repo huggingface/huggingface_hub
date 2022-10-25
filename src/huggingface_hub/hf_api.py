@@ -2415,15 +2415,15 @@ class HfApi:
                 Authentication token. Will default to the stored token.
 
             repo_type (`str`, *optional*):
-                Set to `"dataset"` or `"space"` if uploading to a dataset or
-                space, `None` or `"model"` if uploading to a model. Default is
+                Set to `"dataset"` or `"space"` if tagging a dataset or
+                space, `None` or `"model"` if tagging a model. Default is
                 `None`.
 
         Raises:
             [`~utils.RepositoryNotFoundError`]:
                 If repository is not found (error 404): wrong repo_id/repo_type, private
                 but not authenticated or repo does not exist.
-            [`~utils.RepositoryNotFoundError`]:
+            [`~utils.RevisionNotFoundError`]:
                 If revision is not found (error 404) on the repo.
         """
         if repo_type is None:
@@ -2441,6 +2441,53 @@ class HfApi:
 
         # Tag
         response = requests.post(url=tag_url, headers=headers, json=payload)
+        hf_raise_for_status(response)
+
+    @validate_hf_hub_args
+    def delete_tag(
+        self,
+        repo_id: str,
+        *,
+        tag: str,
+        token: Optional[str] = None,
+        repo_type: Optional[str] = None,
+    ) -> None:
+        """
+        Delete a tag from a repo on the Hub.
+
+        Args:
+            repo_id (`str`):
+                The repository in which a commit will be deleted.
+                Example: `"user/my-cool-model"`.
+
+            tag (`str`):
+                The name of the tag to delete.
+
+            token (`str`, *optional*):
+                Authentication token. Will default to the stored token.
+
+            repo_type (`str`, *optional*):
+                Set to `"dataset"` or `"space"` if tagging a dataset or
+                space, `None` or `"model"` if tagging a model. Default is
+                `None`.
+
+        Raises:
+            [`~utils.RepositoryNotFoundError`]:
+                If repository is not found (error 404): wrong repo_id/repo_type, private
+                but not authenticated or repo does not exist.
+            [`~utils.RevisionNotFoundError`]:
+                If tag is not found.
+
+        """
+        if repo_type is None:
+            repo_type = REPO_TYPE_MODEL
+
+        # Prepare request
+        tag_url = f"{self.endpoint}/api/{repo_type}s/{repo_id}/tag/{tag}"
+        headers = self._build_hf_headers(use_auth_token=token, is_write_action=True)
+
+        # Un-tag
+        response = requests.delete(url=tag_url, headers=headers)
         hf_raise_for_status(response)
 
     @validate_hf_hub_args
@@ -3320,6 +3367,7 @@ upload_file = api.upload_file
 upload_folder = api.upload_folder
 delete_file = api.delete_file
 create_tag = api.create_tag
+delete_tag = api.delete_tag
 get_full_repo_name = api.get_full_repo_name
 
 get_discussion_details = api.get_discussion_details
