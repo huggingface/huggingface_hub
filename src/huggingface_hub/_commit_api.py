@@ -371,7 +371,7 @@ def fetch_upload_modes(
             If the Hub API returned an HTTP 400 error (bad request)
     """
     endpoint = endpoint if endpoint is not None else ENDPOINT
-    headers = build_hf_headers(use_auth_token=token)
+    headers = build_hf_headers(token=token)
 
     # Fetch upload mode (LFS or regular) chunk by chunk.
     path2mode: Dict[str, UploadMode] = {}

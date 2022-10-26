@@ -1683,12 +1683,7 @@ class HfApiPrivateTest(HfApiCommonTestWithLogin):
                 ),
             ):
                 _ = self._api.model_info(repo_id=f"{USER}/{self.REPO_NAME}")
-            # Test we can access model info with a token
-            with self.assertWarns(FutureWarning):
-                model_info = self._api.model_info(
-                    repo_id=f"{USER}/{self.REPO_NAME}", token=self._token
-                )
-                self.assertIsInstance(model_info, ModelInfo)
+
             model_info = self._api.model_info(
                 repo_id=f"{USER}/{self.REPO_NAME}", use_auth_token=self._token
             )
@@ -1706,12 +1701,7 @@ class HfApiPrivateTest(HfApiCommonTestWithLogin):
                 ),
             ):
                 _ = self._api.dataset_info(repo_id=f"{USER}/{self.REPO_NAME}")
-            # Test we can access model info with a token
-            with self.assertWarns(FutureWarning):
-                dataset_info = self._api.dataset_info(
-                    repo_id=f"{USER}/{self.REPO_NAME}", token=self._token
-                )
-                self.assertIsInstance(dataset_info, DatasetInfo)
+
             dataset_info = self._api.dataset_info(
                 repo_id=f"{USER}/{self.REPO_NAME}", use_auth_token=self._token
             )
@@ -2054,7 +2044,7 @@ class HfApiDiscussionsTest(HfApiCommonTestWithLogin):
 class HfApiTokenAttributeTest(unittest.TestCase):
     def test_token_passed(self, mock_build_hf_headers: Mock) -> None:
         api = HfApi(token="default token")
-        api._build_hf_headers(use_auth_token="A token")
+        api._build_hf_headers(token="A token")
         self._assert_token_is(mock_build_hf_headers, "A token")
 
     def test_no_token_passed(self, mock_build_hf_headers: Mock) -> None:
@@ -2064,22 +2054,20 @@ class HfApiTokenAttributeTest(unittest.TestCase):
 
     def test_token_true_passed(self, mock_build_hf_headers: Mock) -> None:
         api = HfApi(token="default token")
-        api._build_hf_headers(use_auth_token=True)
+        api._build_hf_headers(token=True)
         self._assert_token_is(mock_build_hf_headers, True)
 
     def test_token_false_passed(self, mock_build_hf_headers: Mock) -> None:
         api = HfApi(token="default token")
-        api._build_hf_headers(use_auth_token=False)
+        api._build_hf_headers(token=False)
         self._assert_token_is(mock_build_hf_headers, False)
 
     def test_no_token_at_all(self, mock_build_hf_headers: Mock) -> None:
         api = HfApi()
-        api._build_hf_headers(use_auth_token=None)
+        api._build_hf_headers(token=None)
         self._assert_token_is(mock_build_hf_headers, None)
 
     def _assert_token_is(
         self, mock_build_hf_headers: Mock, expected_value: str
     ) -> None:
-        self.assertEqual(
-            mock_build_hf_headers.call_args[1]["use_auth_token"], expected_value
-        )
+        self.assertEqual(mock_build_hf_headers.call_args[1]["token"], expected_value)
