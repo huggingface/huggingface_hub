@@ -1766,8 +1766,8 @@ class HfApi:
             hf_raise_for_status(r)
         except HfHubHTTPError as e:
             e.append_to_message(
-                f"\nFor additional documentation please see"
-                f" https://hf.co/docs/hub/main#how-can-i-rename-or-transfer-a-repo."
+                "\nFor additional documentation please see"
+                " https://hf.co/docs/hub/main#how-can-i-rename-or-transfer-a-repo."
             )
             raise
 
