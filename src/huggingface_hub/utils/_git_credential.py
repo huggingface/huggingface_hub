@@ -1,12 +1,26 @@
-import subprocess
-from contextlib import contextmanager
-from typing import IO, Generator, Optional, Tuple, Union
+# coding=utf-8
+# Copyright 2022-present, the HuggingFace Inc. team.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+"""Contains utilities to manage Git credentials."""
+from typing import Optional, Tuple, Union
 
 from ..constants import ENDPOINT
+from ._subprocess import run_interactive_subprocess
 
 
 def write_to_credential_store(username: str, password: str) -> None:
-    with _interactive_subprocess("git credential-store store") as (stdin, _):
+    with run_interactive_subprocess("git credential-store store") as (stdin, _):
         input_username = f"username={username.lower()}"
         input_password = f"password={password}"
 
@@ -32,7 +46,7 @@ def read_from_credential_store(
         None/None if credential has not been found. The returned username is always
         lowercase.
     """
-    with _interactive_subprocess("git credential-store get") as (stdin, stdout):
+    with run_interactive_subprocess("git credential-store get") as (stdin, stdout):
         standard_input = f"url={ENDPOINT}\n"
         if username is not None:
             standard_input += f"username={username.lower()}\n"
@@ -58,7 +72,7 @@ def erase_from_credential_store(username: Optional[str] = None) -> None:
             A username to filter to search. If not specified, all entries under
             `huggingface.co` endpoint is erased.
     """
-    with _interactive_subprocess("git credential-store erase") as (stdin, _):
+    with run_interactive_subprocess("git credential-store erase") as (stdin, _):
         standard_input = f"url={ENDPOINT}\n"
         if username is not None:
             standard_input += f"username={username.lower()}\n"
@@ -66,18 +80,3 @@ def erase_from_credential_store(username: Optional[str] = None) -> None:
 
         stdin.write(standard_input.encode("utf-8"))
         stdin.flush()
-
-
-@contextmanager
-def _interactive_subprocess(
-    command: str,
-) -> Generator[Tuple[IO[bytes], IO[bytes]], None, None]:
-    with subprocess.Popen(
-        command.split(),
-        stdin=subprocess.PIPE,
-        stdout=subprocess.PIPE,
-        stderr=subprocess.STDOUT,
-    ) as process:
-        assert process.stdin is not None, "subprocess is opened as subprocess.PIPE"
-        assert process.stdout is not None, "subprocess is opened as subprocess.PIPE"
-        yield process.stdin, process.stdout
