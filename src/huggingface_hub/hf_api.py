@@ -2484,7 +2484,7 @@ class HfApi:
 
         # Prepare request
         tag_url = f"{self.endpoint}/api/{repo_type}s/{repo_id}/tag/{tag}"
-        headers = self._build_hf_headers(use_auth_token=token, is_write_action=True)
+        headers = self._build_hf_headers(token=token, is_write_action=True)
 
         # Un-tag
         response = requests.delete(url=tag_url, headers=headers)
