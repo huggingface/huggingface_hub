@@ -30,7 +30,7 @@ def snapshot_download(
     proxies: Optional[Dict] = None,
     etag_timeout: float = 10,
     resume_download: bool = False,
-    use_auth_token: Optional[Union[bool, str]] = None,
+    token: Optional[Union[bool, str]] = None,
     local_files_only: bool = False,
     allow_regex: Optional[Union[List[str], str]] = None,
     ignore_regex: Optional[Union[List[str], str]] = None,
@@ -72,7 +72,7 @@ def snapshot_download(
             data before giving up which is passed to `requests.request`.
         resume_download (`bool`, *optional*, defaults to `False):
             If `True`, resume a previously interrupted download.
-        use_auth_token (`str`, `bool`, *optional*):
+        token (`str`, `bool`, *optional*):
             A token to be used for the download.
                 - If `True`, the token is read from the HuggingFace config
                   folder.
@@ -93,7 +93,7 @@ def snapshot_download(
     Raises the following errors:
 
     - [`EnvironmentError`](https://docs.python.org/3/library/exceptions.html#EnvironmentError)
-      if `use_auth_token=True` and the token cannot be found.
+      if `token=True` and the token cannot be found.
     - [`OSError`](https://docs.python.org/3/library/exceptions.html#OSError) if
       ETag cannot be determined.
     - [`ValueError`](https://docs.python.org/3/library/exceptions.html#ValueError)
@@ -158,7 +158,7 @@ def snapshot_download(
         repo_id=repo_id,
         repo_type=repo_type,
         revision=revision,
-        use_auth_token=use_auth_token,
+        token=token,
     )
     assert (
         repo_info.sha is not None
@@ -200,7 +200,7 @@ def snapshot_download(
             proxies=proxies,
             etag_timeout=etag_timeout,
             resume_download=resume_download,
-            use_auth_token=use_auth_token,
+            token=token,
         )
 
     return snapshot_folder

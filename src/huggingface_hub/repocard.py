@@ -163,7 +163,7 @@ class RepoCard:
                 repo_id_or_path,
                 REPOCARD_NAME,
                 repo_type=repo_type or cls.repo_type,
-                use_auth_token=token,
+                token=token,
             )
         else:
             raise ValueError(

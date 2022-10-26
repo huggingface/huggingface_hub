@@ -76,7 +76,6 @@ class ModelHubMixin:
                 kwargs.get("repo_url") is not None
                 or kwargs.get("repo_path_or_name") is not None
                 or kwargs.get("organization") is not None
-                or kwargs.get("use_auth_token") is not None
                 or kwargs.get("git_user") is not None
                 or kwargs.get("git_email") is not None
                 or kwargs.get("skip_lfs_files") is not None
@@ -97,13 +96,14 @@ class ModelHubMixin:
         raise NotImplementedError
 
     @classmethod
+    @validate_hf_hub_args
     def from_pretrained(
         cls,
         pretrained_model_name_or_path: str,
         force_download: bool = False,
         resume_download: bool = False,
         proxies: Optional[Dict] = None,
-        use_auth_token: Optional[str] = None,
+        token: Optional[Union[str, bool]] = None,
         cache_dir: Optional[str] = None,
         local_files_only: bool = False,
         **model_kwargs,
@@ -151,7 +151,7 @@ class ModelHubMixin:
                         endpoint, e.g., `{'http': 'foo.bar:3128',
                         'http://hostname': 'foo.bar:4012'}`. The proxies are
                         used on each request.
-                    use_auth_token (`str` or `bool`, *optional*):
+                    token (`str` or `bool`, *optional*):
                         The token to use as HTTP bearer authorization for remote
                         files. If `True`, will use the token generated when
                         running `transformers-cli login` (stored in
@@ -169,7 +169,7 @@ class ModelHubMixin:
 
                 <Tip>
 
-                Passing `use_auth_token=True` is required when you want to use a
+                Passing `token=True` is required when you want to use a
                 private model.
 
                 </Tip>
@@ -197,7 +197,7 @@ class ModelHubMixin:
                     force_download=force_download,
                     proxies=proxies,
                     resume_download=resume_download,
-                    use_auth_token=use_auth_token,
+                    token=token,
                     local_files_only=local_files_only,
                 )
             except requests.exceptions.RequestException:
@@ -216,7 +216,7 @@ class ModelHubMixin:
             proxies,
             resume_download,
             local_files_only,
-            use_auth_token,
+            token,
             **model_kwargs,
         )
 
@@ -230,7 +230,7 @@ class ModelHubMixin:
         proxies,
         resume_download,
         local_files_only,
-        use_auth_token,
+        token,
         **model_kwargs,
     ):
         """Overwrite this method in subclass to define how to load your model from
@@ -244,7 +244,6 @@ class ModelHubMixin:
             "repo_url",
             "repo_path_or_name",
             "organization",
-            "use_auth_token",
             "git_user",
             "git_email",
             "skip_lfs_files",
@@ -261,14 +260,13 @@ class ModelHubMixin:
         organization: Optional[str] = None,
         private: bool = False,
         api_endpoint: Optional[str] = None,
-        use_auth_token: Optional[Union[bool, str]] = None,
+        token: Optional[str] = None,
         git_user: Optional[str] = None,
         git_email: Optional[str] = None,
         config: Optional[dict] = None,
         skip_lfs_files: bool = False,
         # NOTE: New arguments since 0.9
         repo_id: Optional[str] = None,  # optional only until 0.12
-        token: Optional[str] = None,
         branch: Optional[str] = None,
         create_pr: Optional[bool] = None,
         allow_patterns: Optional[Union[List[str], str]] = None,
@@ -357,17 +355,17 @@ class ModelHubMixin:
                 "You need to specify a `repo_path_or_name` or a `repo_url`."
             )
 
-        if use_auth_token is None and repo_url is None:
+        if token is None and repo_url is None:
             token = HfFolder.get_token()
             if token is None:
                 raise ValueError(
                     "You must login to the Hugging Face hub on this computer by typing"
                     " `huggingface-cli login` and entering your credentials to use"
-                    " `use_auth_token=True`. Alternatively, you can pass your own token"
-                    " as the `use_auth_token` argument."
+                    " `token=True`. Alternatively, you can pass your own token"
+                    " as the `token` argument."
                 )
-        elif isinstance(use_auth_token, str):
-            token = use_auth_token
+        elif isinstance(token, str):
+            token = token
         else:
             token = None
 
@@ -391,7 +389,7 @@ class ModelHubMixin:
         repo = Repository(
             repo_path_or_name,
             clone_from=repo_url,
-            use_auth_token=use_auth_token,
+            token=token,
             git_user=git_user,
             git_email=git_email,
             skip_lfs_files=skip_lfs_files,
@@ -461,7 +459,7 @@ class PyTorchModelHubMixin(ModelHubMixin):
         proxies,
         resume_download,
         local_files_only,
-        use_auth_token,
+        token,
         map_location="cpu",
         strict=False,
         **model_kwargs,
@@ -484,7 +482,7 @@ class PyTorchModelHubMixin(ModelHubMixin):
                 force_download=force_download,
                 proxies=proxies,
                 resume_download=resume_download,
-                use_auth_token=use_auth_token,
+                token=token,
                 local_files_only=local_files_only,
             )
         model = cls(**model_kwargs)

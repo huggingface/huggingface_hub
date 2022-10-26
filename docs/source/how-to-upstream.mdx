@@ -2,34 +2,34 @@
 
 Sharing your files and work is an important aspect of the Hub. The `huggingface_hub` offers several options for uploading your files to the Hub. You can use these functions independently or integrate them into your library, making it more convenient for your users to interact with the Hub. This guide will show you how to push files:
 
-* without using Git.
-* that are very large with [Git LFS](https://git-lfs.github.com/).
-* with the `commit` context manager.
-* with the [`~Repository.push_to_hub`] function.
+- without using Git.
+- that are very large with [Git LFS](https://git-lfs.github.com/).
+- with the `commit` context manager.
+- with the [`~Repository.push_to_hub`] function.
 
 Whenever you want to upload files to the Hub, you need to log in to your Hugging Face account:
 
 - Log in to your Hugging Face account with the following command:
 
-   ```bash
-   huggingface-cli login
-   ```
+  ```bash
+  huggingface-cli login
+  ```
 
 - Alternatively, you can programmatically login using [`login`] in a notebook or a script:
 
-   ```python
-   >>> from huggingface_hub import login
-   >>> login()
-   ```
+  ```python
+  >>> from huggingface_hub import login
+  >>> login()
+  ```
 
-   If ran in a Jupyter or Colaboratory notebook, [`login`] will launch a widget from
-   which you can enter your Hugging Face access token. Otherwise, a message will be
-   prompted in the terminal.
+  If ran in a Jupyter or Colaboratory notebook, [`login`] will launch a widget from
+  which you can enter your Hugging Face access token. Otherwise, a message will be
+  prompted in the terminal.
 
-   It is also possible to login programmatically without the widget by directly passing
-   the token to [`login`]. If you do so, be careful when sharing your notebook. It is
-   best practice to load the token from a secure vault instead of saving it in plain in
-   your Colaboratory notebook.
+  It is also possible to login programmatically without the widget by directly passing
+  the token to [`login`]. If you do so, be careful when sharing your notebook. It is
+  best practice to load the token from a secure vault instead of saving it in plain in
+  your Colaboratory notebook.
 
 ## Push files without Git
 
@@ -39,7 +39,7 @@ However, [`create_commit`] is a low-level API for working at a commit level. The
 
 ### Upload a file
 
-Once you've created a repository with the [`create_repo`](./how-to-manage#create-a-repository) function, you can upload a file to your repository with the [`upload_file`] function. 
+Once you've created a repository with the [`create_repo`](./how-to-manage#create-a-repository) function, you can upload a file to your repository with the [`upload_file`] function.
 
 Specify the path of the file to upload, where you want to upload the file to in the repository, and the name of the repository you want to add the file to. Depending on your repository type, you can optionally set the repository type as a `dataset`, `model`, or `space`.
 
@@ -80,8 +80,8 @@ If you want to work at a commit-level, use the [`create_commit`] function direct
 
 - `CommitOperationAdd` uploads a file to the Hub. If the file already exists, the file contents are overwritten. This operation accepts two arguments:
 
-   * `path_in_repo`: the repository path to upload a file to.
-   * `path_or_fileobj`: either a path to a file on your filesystem or a file-like object. This is the content of the file to upload to the Hub.
+  - `path_in_repo`: the repository path to upload a file to.
+  - `path_or_fileobj`: either a path to a file on your filesystem or a file-like object. This is the content of the file to upload to the Hub.
 
 - `CommitOperationDelete` removes a file from a repository. This operation accepts `path_in_repo` as an argument.
 
@@ -109,10 +109,10 @@ For example, if you want to upload two files and delete a file in a Hub reposito
 ... )
 ```
 
-In addition to [`upload_file`] and [`upload_folder`], the following functions also use [`create_commit`] under the hood: 
+In addition to [`upload_file`] and [`upload_folder`], the following functions also use [`create_commit`] under the hood:
 
-* [`delete_file`] deletes a single file from a repository on the Hub. 
-* [`metadata_update`] updates a repository's metadata.
+- [`delete_file`] deletes a single file from a repository on the Hub.
+- [`metadata_update`] updates a repository's metadata.
 
 For more detailed information, take a look at the [`HfApi`] reference.
 
@@ -147,7 +147,7 @@ Here is another example of how to use the `commit` context manager to save and u
 ```python
 >>> import torch
 >>> model = torch.nn.Transformer()
->>> with Repository("torch-model", clone_from="<user>/torch-model", use_auth_token=True).commit(commit_message="My cool model :)"):
+>>> with Repository("torch-model", clone_from="<user>/torch-model", token=True).commit(commit_message="My cool model :)"):
 ...     torch.save(model.state_dict(), "model.pt")
 ```
 
@@ -167,7 +167,7 @@ You can check the status of your push with the `command_queue` method:
 Refer to the table below for the possible statuses:
 
 | Status   | Description                          |
-|----------|--------------------------------------|
+| -------- | ------------------------------------ |
 | -1       | The push is ongoing.                 |
 | 0        | The push has completed successfully. |
 | Non-zero | An error has occurred.               |

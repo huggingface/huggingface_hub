@@ -15,7 +15,7 @@ from huggingface_hub.repocard import metadata_load, metadata_save
 
 from .hf_api import HfApi, repo_type_and_id_from_hf_id
 from .lfs import LFS_MULTIPART_UPLOAD_COMMAND
-from .utils import HfFolder, logging, run_subprocess, tqdm
+from .utils import HfFolder, logging, run_subprocess, tqdm, validate_hf_hub_args
 from .utils._deprecation import _deprecate_arguments, _deprecate_method
 from .utils._typing import TypedDict
 
@@ -438,12 +438,13 @@ class Repository:
             "private"
         ],
     )
+    @validate_hf_hub_args
     def __init__(
         self,
         local_dir: str,
         clone_from: Optional[str] = None,
         repo_type: Optional[str] = None,
-        use_auth_token: Union[bool, str] = True,
+        token: Union[bool, str] = True,
         git_user: Optional[str] = None,
         git_email: Optional[str] = None,
         revision: Optional[str] = None,
@@ -474,10 +475,11 @@ class Repository:
                 - `"philschmid/playground-tests"`
             repo_type (`str`, *optional*):
                 To set when cloning a repo from a repo_id. Default is model.
-            use_auth_token (`str` or `bool`, *optional*, defaults to `True`):
-                huggingface_token can be extract from `HfApi().login(username,
-                password)` and is used to authenticate against the hub (useful
-                from Google Colab for instance).
+            token (`bool` or `str`, *optional*):
+                A valid authentication token (see https://huggingface.co/settings/token).
+                If `None` or `True` and machine is logged in (through `huggingface-cli login`
+                or [`~huggingface_hub.login`]), token will be retrieved from the cache.
+                If `False`, token is not sent in the request header.
             git_user (`str`, *optional*):
                 will override the `git config user.name` for committing and
                 pushing files to the hub.
@@ -505,9 +507,9 @@ class Repository:
 
         self.check_git_versions()
 
-        if isinstance(use_auth_token, str):
-            self.huggingface_token: Optional[str] = use_auth_token
-        elif use_auth_token is False:
+        if isinstance(token, str):
+            self.huggingface_token: Optional[str] = token
+        elif token is False:
             self.huggingface_token = None
         else:
             # if `True` -> explicit use of the cached token
@@ -616,7 +618,8 @@ class Repository:
             )
         logger.info(git_version + "\n" + lfs_version)
 
-    def clone_from(self, repo_url: str, use_auth_token: Union[bool, str, None] = None):
+    @validate_hf_hub_args
+    def clone_from(self, repo_url: str, token: Union[bool, str, None] = None):
         """
         Clone from a remote. If the folder already exists, will try to clone the
         repository within it.
@@ -627,7 +630,7 @@ class Repository:
         Args:
             repo_url (`str`):
                 The URL from which to clone the repository
-            use_auth_token (`Union[str, bool]`, *optional*):
+            token (`Union[str, bool]`, *optional*):
                 Whether to use the authentication token. It can be:
                  - a string which is the token itself
                  - `False`, which would not use the authentication token
@@ -656,11 +659,11 @@ class Repository:
         </Tip>
         """
         token = (
-            use_auth_token  # str -> use it
-            if isinstance(use_auth_token, str)
+            token  # str -> use it
+            if isinstance(token, str)
             else (
                 None  # `False` -> explicit no token
-                if use_auth_token is False
+                if token is False
                 else self.huggingface_token  # `None` or `True` -> use default
             )
         )
@@ -669,7 +672,7 @@ class Repository:
                 "Couldn't load Hugging Face Authorization Token. Credentials are"
                 " required to work with private repositories. Please login in using"
                 " `huggingface-cli login` or provide your token manually with the"
-                " `use_auth_token` key."
+                " `token` key."
             )
         elif token is not None and token.startswith("api_org"):
             raise ValueError(
@@ -1438,7 +1441,7 @@ class Repository:
         >>> with Repository(
         ...     "text-files",
         ...     clone_from="<user>/text-files",
-        ...     use_auth_token=True,
+        ...     token=True,
         >>> ).commit("My first file :)"):
         ...     with open("file.txt", "w+") as f:
         ...         f.write(json.dumps({"hey": 8}))
@@ -1449,7 +1452,7 @@ class Repository:
         >>> with Repository(
         ...     "torch-model",
         ...     clone_from="<user>/torch-model",
-        ...     use_auth_token=True,
+        ...     token=True,
         >>> ).commit("My cool model :)"):
         ...     torch.save(model.state_dict(), "model.pt")
         ```
@@ -1507,7 +1510,7 @@ class Repository:
                 if "could not read Username" in str(e):
                     raise OSError(
                         "Couldn't authenticate user for push. Did you set"
-                        " `use_auth_token` to `True`?"
+                        " `token` to `True`?"
                     ) from e
                 else:
                     raise e
