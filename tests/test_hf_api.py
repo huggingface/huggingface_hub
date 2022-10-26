@@ -2080,6 +2080,6 @@ class HfApiTokenAttributeTest(unittest.TestCase):
     def _assert_token_is(
         self, mock_build_hf_headers: Mock, expected_value: str
     ) -> None:
-        self.assertEquals(
+        self.assertEqual(
             mock_build_hf_headers.call_args[1]["use_auth_token"], expected_value
         )

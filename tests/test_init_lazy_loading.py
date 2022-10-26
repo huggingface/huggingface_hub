@@ -17,17 +17,17 @@ class TestHuggingfaceHubInit(unittest.TestCase):
         for completion in completions:
             if completion.name == "create_commit":
                 # Assert `create_commit` is suggestion from `huggingface_hub` lib
-                self.assertEquals(completion.module_name, "huggingface_hub")
+                self.assertEqual(completion.module_name, "huggingface_hub")
 
                 # Assert autocomplete knows where `create_commit` lives
                 # It would not be the case with a dynamic import.
                 goto_list = completion.goto()
-                self.assertEquals(len(goto_list), 1)
+                self.assertEqual(len(goto_list), 1)
 
                 # Assert docstring is find. This means autocomplete can also provide
                 # the help section.
                 signature_list = goto_list[0].get_signatures()
-                self.assertEquals(len(signature_list), 1)
+                self.assertEqual(len(signature_list), 1)
                 self.assertTrue(
                     signature_list[0]
                     .docstring()
