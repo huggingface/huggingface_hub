@@ -39,6 +39,11 @@ from ._errors import (
     hf_raise_for_status,
 )
 from ._fixes import yaml_dump
+from ._git_credential import (
+    erase_from_credential_store,
+    read_from_credential_store,
+    write_to_credential_store,
+)
 from ._headers import build_hf_headers, get_token_to_send
 from ._hf_folder import HfFolder
 from ._http import http_backoff
