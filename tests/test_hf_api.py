@@ -295,25 +295,44 @@ class HfApiEndpointsTest(HfApiCommonTestWithLogin):
             self._api.delete_repo(repo_id=SPACE_REPO_NAME, repo_type=REPO_TYPE_SPACE)
 
     @retry_endpoint
-    def test_move_repo(self):
-        REPO_NAME = repo_name("crud")
-        repo_id = f"__DUMMY_TRANSFORMERS_USER__/{REPO_NAME}"
-        NEW_REPO_NAME = repo_name("crud2")
-        new_repo_id = f"__DUMMY_TRANSFORMERS_USER__/{NEW_REPO_NAME}"
+    def test_move_repo_normal_usage(self):
+        repo_id = f"{USER}/{repo_name()}"
+        new_repo_id = f"{USER}/{repo_name()}"
 
-        for repo_type in [REPO_TYPE_MODEL, REPO_TYPE_DATASET, REPO_TYPE_SPACE]:
+        for repo_type in [None, REPO_TYPE_MODEL, REPO_TYPE_DATASET, REPO_TYPE_SPACE]:
             self._api.create_repo(
-                repo_id=REPO_NAME, repo_type=repo_type, space_sdk="static"
+                repo_id=repo_id,
+                repo_type=repo_type,
+                space_sdk="static" if repo_type == REPO_TYPE_SPACE else None,
             )
-
-            with pytest.raises(ValueError, match=r"Invalid repo_id*"):
-                self._api.move_repo(
-                    from_id=repo_id, to_id="invalid_repo_id", repo_type=repo_type
-                )
-
             # Should raise an error if it fails
             self._api.move_repo(from_id=repo_id, to_id=new_repo_id, repo_type=repo_type)
-            self._api.delete_repo(repo_id=NEW_REPO_NAME, repo_type=repo_type)
+            self._api.delete_repo(repo_id=new_repo_id, repo_type=repo_type)
+
+    def test_move_repo_target_already_exists(self) -> None:
+        repo_id_1 = f"{USER}/{repo_name()}"
+        repo_id_2 = f"{USER}/{repo_name()}"
+
+        self._api.create_repo(repo_id=repo_id_1)
+        self._api.create_repo(repo_id=repo_id_2)
+
+        with pytest.raises(
+            HfHubHTTPError, match=r"A model repository called .* already exists"
+        ):
+            self._api.move_repo(
+                from_id=repo_id_1, to_id=repo_id_2, repo_type=REPO_TYPE_MODEL
+            )
+
+        self._api.delete_repo(repo_id=repo_id_1)
+        self._api.delete_repo(repo_id=repo_id_2)
+
+    def test_move_repo_invalid_repo_id(self) -> None:
+        """Test from_id and to_id must be in the form `"namespace/repo_name"`."""
+        with pytest.raises(ValueError, match=r"Invalid repo_id*"):
+            self._api.move_repo(from_id="namespace/repo_name", to_id="invalid_repo_id")
+
+        with pytest.raises(ValueError, match=r"Invalid repo_id*"):
+            self._api.move_repo(from_id="invalid_repo_id", to_id="namespace/repo_name")
 
 
 class CommitApiTest(HfApiCommonTestWithLogin):
