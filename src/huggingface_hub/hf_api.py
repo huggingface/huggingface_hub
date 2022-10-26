@@ -54,6 +54,7 @@ from .constants import (
 )
 from .utils import HfFolder  # noqa: F401 # imported for backward compatibility
 from .utils import (
+    HfHubHTTPError,
     build_hf_headers,
     filter_repo_objects,
     hf_raise_for_status,
@@ -1753,6 +1754,9 @@ class HfApi:
                 " (:namespace:/:repo_name:)"
             )
 
+        if repo_type is None:
+            repo_type = REPO_TYPE_MODEL  # Hub won't accept `None`.
+
         json = {"fromRepo": from_id, "toRepo": to_id, "type": repo_type}
 
         path = f"{self.endpoint}/api/repos/move"
@@ -1760,19 +1764,12 @@ class HfApi:
         r = requests.post(path, headers=headers, json=json)
         try:
             hf_raise_for_status(r)
-        except HTTPError as e:
-            if r.text:
-                raise HTTPError(
-                    f"{r.status_code} Error Message: {r.text}. For additional"
-                    " documentation please see"
-                    " https://hf.co/docs/hub/main#how-can-i-rename-or-transfer-a-repo."
-                ) from e
-            else:
-                raise e
-        logger.info(
-            "Accepted transfer request. You will get an email once this is successfully"
-            " completed."
-        )
+        except HfHubHTTPError as e:
+            e.append_to_message(
+                "\nFor additional documentation please see"
+                " https://hf.co/docs/hub/main#how-can-i-rename-or-transfer-a-repo."
+            )
+            raise
 
     @validate_hf_hub_args
     def create_commit(
