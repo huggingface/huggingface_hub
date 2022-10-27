@@ -74,7 +74,7 @@ def run_interactive_subprocess(
     command: Union[str, List[str]],
     folder: Optional[Union[str, Path]] = None,
     **kwargs,
-) -> Generator[Tuple[IO[bytes], IO[bytes]], None, None]:
+) -> Generator[Tuple[IO[str], IO[str]], None, None]:
     """Run a subprocess in an interactive mode in a context manager.
 
     Args:
@@ -87,8 +87,8 @@ def run_interactive_subprocess(
             Keyword arguments to be passed to the `subprocess.run` underlying command.
 
     Returns:
-        `Tuple[IO[bytes], IO[bytes]]`: A tuple with `stdin` and `stdout` to interact
-        with the process.
+        `Tuple[IO[str], IO[str]]`: A tuple with `stdin` and `stdout` to interact
+        with the process (input and output are utf-8 encoded).
 
     Example:
     ```python

@@ -41,6 +41,9 @@ from ._errors import (
 from ._fixes import yaml_dump
 from ._git_credential import (
     erase_from_credential_store,
+    git_credential_approve,
+    git_credential_fill,
+    git_credential_reject,
     read_from_credential_store,
     write_to_credential_store,
 )
