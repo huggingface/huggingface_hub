@@ -18,7 +18,15 @@ from typing import List, Optional
 
 from .commands._cli_utils import ANSI
 from .hf_api import HfApi
-from .utils import HfFolder, is_google_colab, is_notebook, logging, run_subprocess
+from .utils import (
+    HfFolder,
+    is_google_colab,
+    is_notebook,
+    list_credential_helpers,
+    logging,
+    run_subprocess,
+)
+from .utils._deprecation import _deprecate_method
 
 
 logger = logging.get_logger(__name__)
@@ -236,18 +244,8 @@ def _set_store_as_git_credential_helper_globally() -> None:
         raise EnvironmentError(exc.stderr)
 
 
-def _currently_setup_credential_helpers(directory=None) -> List[str]:
-    try:
-        output = run_subprocess(
-            "git config --list".split(),
-            directory,
-        ).stdout.split("\n")
-
-        current_credential_helpers = []
-        for line in output:
-            if "credential.helper" in line:
-                current_credential_helpers.append(line.split("=")[-1])
-    except subprocess.CalledProcessError as exc:
-        raise EnvironmentError(exc.stderr)
-
-    return current_credential_helpers
+@_deprecate_method(
+    version="0.14", message="Please use `list_credential_helpers` instead."
+)
+def _currently_setup_credential_helpers(directory: Optional[str] = None) -> List[str]:
+    return list_credential_helpers(directory)

@@ -180,8 +180,6 @@ _SUBMOD_ATTRS = {
         "cached_assets_path",
         "logging",
         "scan_cache_dir",
-        "set_git_credential",
-        "unset_git_credential",
     ],
     "utils.endpoint_helpers": [
         "DatasetFilter",
@@ -390,7 +388,5 @@ if TYPE_CHECKING:  # pragma: no cover
     from .utils import cached_assets_path  # noqa: F401
     from .utils import logging  # noqa: F401
     from .utils import scan_cache_dir  # noqa: F401
-    from .utils import set_git_credential  # noqa: F401
-    from .utils import unset_git_credential  # noqa: F401
     from .utils.endpoint_helpers import DatasetFilter  # noqa: F401
     from .utils.endpoint_helpers import ModelFilter  # noqa: F401
