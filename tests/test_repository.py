@@ -65,6 +65,7 @@ class RepositoryCommonTest(unittest.TestCase):
 
 class RepositoryTest(RepositoryCommonTest):
     @classmethod
+    @expect_deprecation("set_access_token")
     def setUpClass(cls):
         """
         Share this valid token in all tests below.
@@ -1455,6 +1456,7 @@ class RepositoryOfflineTest(RepositoryCommonTest):
         files = os.listdir(current_head_repo.local_dir)
         self.assertIn("file.txt", files)
 
+    @expect_deprecation("set_access_token")
     def test_repo_user(self):
         api = HfApi(endpoint=ENDPOINT_STAGING)
         token = TOKEN
@@ -1483,6 +1485,7 @@ class RepositoryOfflineTest(RepositoryCommonTest):
         self.assertEqual(username, user["fullname"])
         self.assertEqual(email, user["email"])
 
+    @expect_deprecation("set_access_token")
     def test_repo_passed_user(self):
         api = HfApi(endpoint=ENDPOINT_STAGING)
         token = TOKEN

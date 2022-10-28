@@ -200,16 +200,3 @@ def erase_from_credential_store(username: Optional[str] = None) -> None:
 #         username_match.groupdict()["username"],
 #         password_match.groupdict()["password"],
 #     )
-
-
-def _is_git_credential_helper_configured() -> bool:
-    """Return True if `git credential` has at least 1 helper configured."""
-    try:
-        output = run_subprocess("git config --list").stdout.split("\n")
-    except subprocess.CalledProcessError as exc:
-        raise EnvironmentError(exc.stderr)
-
-    for line in output:
-        if "credential.helper" in line:
-            return True
-    return False
