@@ -22,10 +22,11 @@ logger = logging.get_logger(__name__)
 
 class ModelHubMixin:
     """
-    A Generic Base Model Hub Mixin. Define your own mixin for anything by
-    inheriting from this class and overwriting `_from_pretrained` and
-    `_save_pretrained` to define custom logic for saving/loading your classes.
-    See [`PyTorchModelHubMixin`] for an example.
+    A generic Hub mixin for machine learning models. Define your own mixin for
+    any framework by inheriting from this class and overwriting the
+    [`_from_pretrained`] and [`_save_pretrained`] methods to define custom logic
+    for saving and loading your classes. See [`PyTorchModelHubMixin`] for an
+    example.
     """
 
     def save_pretrained(
@@ -45,7 +46,7 @@ class ModelHubMixin:
                 Specify config (must be dict) in case you want to save
                 it.
             push_to_hub (`bool`, *optional*, defaults to `False`):
-                Whether or not to push your model to the Hugging Face model hub after
+                Whether or not to push your model to the Hugging Face Hub after
                 saving it. You can specify the repository you want to push to with
                 `repo_id` (will default to the name of `save_directory` in your
                 namespace).
@@ -109,11 +110,7 @@ class ModelHubMixin:
         **model_kwargs,
     ):
         r"""
-        Instantiate a pretrained PyTorch model from a pre-trained model
-                configuration from huggingface-hub. The model is set in
-                evaluation mode by default using `model.eval()` (Dropout modules
-                are deactivated). To train the model, you should first set it
-                back in training mode with `model.train()`.
+        Download and instantiate a model from the Hugging Face Hub.
 
                 Parameters:
                     pretrained_model_name_or_path (`str` or `os.PathLike`):
@@ -406,44 +403,48 @@ class ModelHubMixin:
 
 
 class PyTorchModelHubMixin(ModelHubMixin):
+    """
+    Implementation of [`ModelHubMixin`] to provide model Hub upload/download
+    capabilities to PyTorch models. The model is set in evaluation mode by
+    default using `model.eval()` (dropout modules are deactivated). To train
+    the model, you should first set it back in training mode with
+    `model.train()`.
+
+    Example:
+
+    ```python
+    >>> import torch
+    >>> import torch.nn as nn
+    >>> from huggingface_hub import PyTorchModelHubMixin
+
+
+    >>> class MyModel(nn.Module, PyTorchModelHubMixin):
+    ...     def __init__(self):
+    ...         super().__init__()
+    ...         self.param = nn.Parameter(torch.rand(3, 4))
+    ...         self.linear = nn.Linear(4, 5)
+
+    ...     def forward(self, x):
+    ...         return self.linear(x + self.param)
+
+
+    >>> model = MyModel()
+    >>> # Save model weights to local directory
+    >>> model.save_pretrained("my-awesome-model")
+    >>> # Push model weights to the Hub
+    >>> model.push_to_hub("my-awesome-model")
+    >>> # Download and initialize weights from the Hub
+    >>> model = MyModel.from_pretrained("username/my-awesome-model")
+    ```
+    """
+
     def __init__(self, *args, **kwargs):
-        """
-        Mix this class with your torch-model class for ease process of saving &
-        loading from huggingface-hub.
-
-        Example:
-
-        ```python
-        >>> from huggingface_hub import PyTorchModelHubMixin
-
-
-        >>> class MyModel(nn.Module, PyTorchModelHubMixin):
-        ...     def __init__(self, **kwargs):
-        ...         super().__init__()
-        ...         self.config = kwargs.pop("config", None)
-        ...         self.layer = ...
-
-        ...     def forward(self, *args):
-        ...         return ...
-
-
-        >>> model = MyModel()
-        >>> model.save_pretrained(
-        ...     "mymodel", push_to_hub=False
-        >>> )  # Saving model weights in the directory
-        >>> model.push_to_hub(
-        ...     repo_id="mymodel", commit_message="model-1"
-        >>> )  # Pushing model-weights to hf-hub
-
-        >>> # Downloading weights from hf-hub & model will be initialized from those weights
-        >>> model = MyModel.from_pretrained("username/mymodel@main")
-        ```
-        """
+        super().__init__(*args, **kwargs)
 
     def _save_pretrained(self, save_directory):
         """
-        Overwrite this method in case you don't want to save complete model,
-        rather some specific layers
+        Overwrite this method if you wish to save specific layers instead of the
+        complete model.
         """
         path = os.path.join(save_directory, PYTORCH_WEIGHTS_NAME)
         model_to_save = self.module if hasattr(self, "module") else self
@@ -465,8 +466,7 @@ class PyTorchModelHubMixin(ModelHubMixin):
         **model_kwargs,
     ):
         """
-        Overwrite this method in case you wish to initialize your model in a
-        different way.
+        Overwrite this method to initialize your model in a different way.
         """
         map_location = torch.device(map_location)
 

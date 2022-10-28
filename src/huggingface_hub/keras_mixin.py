@@ -232,7 +232,7 @@ def save_pretrained_keras(
 def from_pretrained_keras(*args, **kwargs):
     r"""
     Instantiate a pretrained Keras model from a pre-trained model from the Hub.
-    The model is expected to be in SavedModel format.```
+    The model is expected to be in `SavedModel` format.
 
     Parameters:
         pretrained_model_name_or_path (`str` or `os.PathLike`):
@@ -533,51 +533,42 @@ def push_to_hub_keras(
 
 class KerasModelHubMixin(ModelHubMixin):
     """
-    Mixin to provide model Hub upload/download capabilities to Keras models.
-    Override this class to obtain the following internal methods:
-    - `_from_pretrained`, to load a model from the Hub or from local files.
-    - `_save_pretrained`, to save a model in the `SavedModel` format.
+    Implementation of [`ModelHubMixin`] to provide model Hub upload/download
+    capabilities to Keras models.
+
+
+    ```python
+    >>> import tensorflow as tf
+    >>> from huggingface_hub import KerasModelHubMixin
+
+
+    >>> class MyModel(tf.keras.Model, KerasModelHubMixin):
+    ...     def __init__(self, **kwargs):
+    ...         super().__init__()
+    ...         self.config = kwargs.pop("config", None)
+    ...         self.dummy_inputs = ...
+    ...         self.layer = ...
+
+    ...     def call(self, *args):
+    ...         return ...
+
+
+    >>> # Initialize and compile the model as you normally would
+    >>> model = MyModel()
+    >>> model.compile(...)
+    >>> # Build the graph by training it or passing dummy inputs
+    >>> _ = model(model.dummy_inputs)
+    >>> # Save model weights to local directory
+    >>> model.save_pretrained("my-awesome-model")
+    >>> # Push model weights to the Hub
+    >>> model.push_to_hub("my-awesome-model")
+    >>> # Download and initialize weights from the Hub
+    >>> model = MyModel.from_pretrained("username/super-cool-model")
+    ```
     """
 
     def __init__(self, *args, **kwargs):
-        """
-        Mix this class with your keras-model class for ease process of saving &
-        loading from huggingface-hub.
-
-
-        ```python
-        >>> from huggingface_hub import KerasModelHubMixin
-
-
-        >>> class MyModel(tf.keras.Model, KerasModelHubMixin):
-        ...     def __init__(self, **kwargs):
-        ...         super().__init__()
-        ...         self.config = kwargs.pop("config", None)
-        ...         self.dummy_inputs = ...
-        ...         self.layer = ...
-
-        ...     def call(self, *args):
-        ...         return ...
-
-
-        >>> # Init and compile the model as you normally would
-        >>> model = MyModel()
-        >>> model.compile(...)
-        >>> # Build the graph by training it or passing dummy inputs
-        >>> _ = model(model.dummy_inputs)
-        >>> # You can save your model like this
-        >>> model.save_pretrained("local_model_dir/", push_to_hub=False)
-        >>> # Or, you can push to a new public model repo like this
-        >>> model.push_to_hub(
-        ...     "super-cool-model",
-        ...     git_user="your-hf-username",
-        ...     git_email="you@somesite.com",
-        ... )
-
-        >>> # Downloading weights from hf-hub & model will be initialized from those weights
-        >>> model = MyModel.from_pretrained("username/mymodel@main")
-        ```
-        """
+        super().__init__(*args, **kwargs)
 
     def _save_pretrained(self, save_directory):
         save_pretrained_keras(self, save_directory)
