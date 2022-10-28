@@ -25,7 +25,7 @@ class ModelHubMixin:
     A Generic Base Model Hub Mixin. Define your own mixin for anything by
     inheriting from this class and overwriting `_from_pretrained` and
     `_save_pretrained` to define custom logic for saving/loading your classes.
-    See `huggingface_hub.PyTorchModelHubMixin` for an example.
+    See [`PyTorchModelHubMixin`] for an example.
     """
 
     def save_pretrained(
