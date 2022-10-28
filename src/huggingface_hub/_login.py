@@ -132,9 +132,7 @@ def interpreter_login() -> None:
     """
     )
     token = getpass("Token: ")
-    add_to_git_credential = _ask_for_confirmation_no_tui(
-        f"Add token as git credential?"
-    )
+    add_to_git_credential = _ask_for_confirmation_no_tui("Add token as git credential?")
 
     _login(token=token, add_to_git_credential=add_to_git_credential)
 
