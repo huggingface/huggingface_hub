@@ -41,10 +41,10 @@ from ._errors import (
 from ._fixes import yaml_dump
 from ._git_credential import (
     erase_from_credential_store,
-    git_credential_approve,
     git_credential_fill,
-    git_credential_reject,
     read_from_credential_store,
+    set_git_credential,
+    unset_git_credential,
     write_to_credential_store,
 )
 from ._headers import build_hf_headers, get_token_to_send

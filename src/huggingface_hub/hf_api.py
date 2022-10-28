@@ -64,7 +64,7 @@ from .utils import (  # noqa: F401 # imported for backward compatibility
     validate_hf_hub_args,
     write_to_credential_store,
 )
-from .utils._deprecation import _deprecate_positional_args
+from .utils._deprecation import _deprecate_method, _deprecate_positional_args
 from .utils._typing import Literal, TypedDict
 from .utils.endpoint_helpers import (
     AttributeDictionary,
@@ -612,6 +612,13 @@ class HfApi:
             return False
 
     @staticmethod
+    @_deprecate_method(
+        version="0.14",
+        message=(
+            "`HfApi.set_access_token` is deprecated as it is very ambiguous. Use"
+            " `login` or `set_git_credential` instead."
+        ),
+    )
     def set_access_token(access_token: str):
         """
         Saves the passed access token so git can correctly authenticate the
@@ -624,6 +631,13 @@ class HfApi:
         write_to_credential_store(USERNAME_PLACEHOLDER, access_token)
 
     @staticmethod
+    @_deprecate_method(
+        version="0.14",
+        message=(
+            "`HfApi.unset_access_token` is deprecated as it is very ambiguous. Use"
+            " `login` or `unset_git_credential` instead."
+        ),
+    )
     def unset_access_token():
         """
         Resets the user's access token.
