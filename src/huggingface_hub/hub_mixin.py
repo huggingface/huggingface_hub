@@ -438,9 +438,6 @@ class PyTorchModelHubMixin(ModelHubMixin):
     ```
     """
 
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-
     def _save_pretrained(self, save_directory):
         """
         Overwrite this method if you wish to save specific layers instead of the

@@ -567,9 +567,6 @@ class KerasModelHubMixin(ModelHubMixin):
     ```
     """
 
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-
     def _save_pretrained(self, save_directory):
         save_pretrained_keras(self, save_directory)
 
@@ -586,7 +583,7 @@ class KerasModelHubMixin(ModelHubMixin):
         token,
         **model_kwargs,
     ):
-        """Here we just call from_pretrained_keras function so both the mixin and
+        """Here we just call [`from_pretrained_keras`] function so both the mixin and
         functional APIs stay in sync.
 
                 TODO - Some args above aren't used since we are calling
@@ -596,7 +593,7 @@ class KerasModelHubMixin(ModelHubMixin):
             import tensorflow as tf
         else:
             raise ImportError(
-                "Called a Tensorflow-specific function but could not import it."
+                "Called a TensorFlow-specific function but could not import it."
             )
 
         # TODO - Figure out what to do about these config values. Config is not going to be needed to load model
