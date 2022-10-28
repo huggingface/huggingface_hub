@@ -1516,6 +1516,7 @@ class RepositoryOfflineTest(RepositoryCommonTest):
         self.assertEqual(username, "RANDOM_USER")
         self.assertEqual(email, "EMAIL@EMAIL.EMAIL")
 
+    @expect_deprecation("_currently_setup_credential_helpers")
     def test_correct_helper(self):
         subprocess.run(
             ["git", "config", "--global", "credential.helper", "get"],

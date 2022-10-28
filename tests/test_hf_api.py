@@ -149,7 +149,7 @@ class HfApiLoginTest(HfApiCommonTest):
             read_from_credential_store(USERNAME_PLACEHOLDER), (None, None)
         )
 
-        _login(token=TOKEN)
+        _login(token=TOKEN, add_to_git_credential=True)
         self.assertTupleEqual(
             read_from_credential_store(USERNAME_PLACEHOLDER),
             (USERNAME_PLACEHOLDER, TOKEN),
@@ -163,7 +163,7 @@ class HfApiLoginTest(HfApiCommonTest):
         with pytest.raises(
             ValueError, match="You must use your personal account token."
         ):
-            _login(token="api_org_dummy_token")
+            _login(token="api_org_dummy_token", add_to_git_credential=True)
 
 
 class HfApiCommonTestWithLogin(HfApiCommonTest):
