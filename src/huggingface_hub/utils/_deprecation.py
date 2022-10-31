@@ -1,7 +1,7 @@
 import warnings
 from functools import wraps
 from inspect import Parameter, signature
-from typing import Iterable, Optional
+from typing import Generator, Iterable, Optional
 
 
 def _deprecate_positional_args(*, version: str):
@@ -131,3 +131,100 @@ def _deprecate_method(*, version: str, message: Optional[str] = None):
         return inner_f
 
     return _inner_deprecate_method
+
+
+def _deprecate_list_output(*, version: str):
+    """Decorator to deprecate the usage as a list of the output of a method.
+
+    To be used when a method currently returns a list of objects but is planned to return
+    an generator instead in the future. Output is still a list but tweaked to issue a
+    warning message when it is specifically used as a list (e.g. get/set/del item, get
+    length,...).
+
+    Args:
+        version (`str`):
+            The version when output will start to be an generator.
+    """
+
+    def _inner_deprecate_method(f):
+        @wraps(f)
+        def inner_f(*args, **kwargs):
+            list_value = f(*args, **kwargs)
+            return DeprecatedList(
+                list_value,
+                warning_message=(
+                    "'{f.__name__}' currently returns a list of objects but is planned"
+                    " to be a generator starting from version {version} in order to"
+                    " implement pagination. Please avoid to use"
+                    " `{f.__name__}(...).{attr_name}` or explicitly convert the output"
+                    " to a list first with `list(iter({f.__name__})(...))`.".format(
+                        f=f,
+                        version=version,
+                        # Dumb but working workaround to render `attr_name` later
+                        # Taken from https://stackoverflow.com/a/35300723
+                        attr_name="{attr_name}",
+                    )
+                ),
+            )
+
+        return inner_f
+
+    return _inner_deprecate_method
+
+
+def _empty_gen() -> Generator:
+    # Create an empty generator
+    # Taken from https://stackoverflow.com/a/13243870
+    return
+    yield
+
+
+# Build the set of attributes that are specific to a List object (and will be deprecated)
+_LIST_ONLY_ATTRS = frozenset(set(dir([])) - set(dir(_empty_gen())))
+
+
+class DeprecateListMetaclass(type):
+    """Metaclass that overwrites all list-only methods, including magic ones."""
+
+    def __new__(cls, clsname, bases, attrs):
+        # Check consistency
+        assert (
+            "_deprecate" in attrs
+        ), "A `_deprecate` method must be implemented to use `DeprecateListMetaclass`."
+        assert (
+            list in bases
+        ), "Class must inherit from `list` to use `DeprecateListMetaclass`."
+
+        # Create decorator to deprecate list-only methods, including magic ones
+        def _with_deprecation(f, name):
+            @wraps(f)
+            def _inner(self, *args, **kwargs):
+                self._deprecate(name)  # Use the `_deprecate`
+                return f(self, *args, **kwargs)
+
+            return _inner
+
+        # Deprecate list-only methods
+        for attr in _LIST_ONLY_ATTRS:
+            attrs[attr] = _with_deprecation(getattr(list, attr), attr)
+
+        return super().__new__(cls, clsname, bases, attrs)
+
+
+class DeprecatedList(list, metaclass=DeprecateListMetaclass):
+    """Custom List class for which all calls to a list-specific method is deprecated.
+
+    Methods that are shared with a generator are not deprecated.
+    See `_deprecate_list_output` for more details.
+    """
+
+    def __init__(self, iterable, warning_message: str):
+        """Initialize the list with a default warning message.
+
+        Warning message will be formatted at runtime with a "{attr_name}" value.
+        """
+        super().__init__(iterable)
+        self._deprecation_msg = warning_message
+
+    def _deprecate(self, attr_name: str) -> None:
+        warnings.warn(self._deprecation_msg.format(attr_name=attr_name), FutureWarning)

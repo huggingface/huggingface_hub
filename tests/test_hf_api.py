@@ -85,6 +85,7 @@ from .testing_utils import (
     DUMMY_MODEL_ID,
     DUMMY_MODEL_ID_REVISION_ONE_SPECIFIC_COMMIT,
     SAMPLE_DATASET_IDENTIFIER,
+    expect_deprecation,
     repo_name,
     require_git_lfs,
     retry_endpoint,
@@ -1162,6 +1163,7 @@ class HfApiPublicTest(unittest.TestCase):
         _api = HfApi(endpoint=ENDPOINT_STAGING)
         _ = _api.list_models()
 
+    @expect_deprecation("list_models")
     @with_production_testing
     def test_list_models(self):
         _api = HfApi()
@@ -1169,6 +1171,7 @@ class HfApiPublicTest(unittest.TestCase):
         self.assertGreater(len(models), 100)
         self.assertIsInstance(models[0], ModelInfo)
 
+    @expect_deprecation("list_models")
     @with_production_testing
     def test_list_models_author(self):
         _api = HfApi()
@@ -1178,6 +1181,7 @@ class HfApiPublicTest(unittest.TestCase):
         for model in models:
             self.assertTrue(model.modelId.startswith("google/"))
 
+    @expect_deprecation("list_models")
     @with_production_testing
     def test_list_models_search(self):
         _api = HfApi()
@@ -1190,6 +1194,7 @@ class HfApiPublicTest(unittest.TestCase):
             # (and changes it in the future) but for now it should do the trick.
             self.assertTrue("bert" in model.modelId.lower())
 
+    @expect_deprecation("list_models")
     @with_production_testing
     def test_list_models_complex_query(self):
         # Let's list the 10 most recent models
@@ -1281,13 +1286,15 @@ class HfApiPublicTest(unittest.TestCase):
         _api = HfApi(endpoint=ENDPOINT_STAGING)
         _ = _api.list_datasets()
 
+    @expect_deprecation("list_datasets")
     @with_production_testing
-    def test_list_datasets(self):
+    def test_list_datasets_aaa(self):
         _api = HfApi()
         datasets = _api.list_datasets()
         self.assertGreater(len(datasets), 100)
         self.assertIsInstance(datasets[0], DatasetInfo)
 
+    @expect_deprecation("list_datasets")
     @with_production_testing
     def test_filter_datasets_by_author_and_name(self):
         _api = HfApi()
@@ -1297,6 +1304,7 @@ class HfApiPublicTest(unittest.TestCase):
         self.assertTrue("huggingface" in datasets[0].author)
         self.assertTrue("DataMeasurementsFiles" in datasets[0].id)
 
+    @expect_deprecation("list_datasets")
     @with_production_testing
     def test_filter_datasets_by_benchmark(self):
         _api = HfApi()
@@ -1305,6 +1313,7 @@ class HfApiPublicTest(unittest.TestCase):
         self.assertGreater(len(datasets), 0)
         self.assertTrue("benchmark:raft" in datasets[0].tags)
 
+    @expect_deprecation("list_datasets")
     @with_production_testing
     def test_filter_datasets_by_language_creator(self):
         _api = HfApi()
@@ -1313,6 +1322,7 @@ class HfApiPublicTest(unittest.TestCase):
         self.assertGreater(len(datasets), 0)
         self.assertTrue("language_creators:crowdsourced" in datasets[0].tags)
 
+    @expect_deprecation("list_datasets")
     @with_production_testing
     def test_filter_datasets_by_language(self):
         _api = HfApi()
@@ -1327,6 +1337,7 @@ class HfApiPublicTest(unittest.TestCase):
         self.assertTrue("languages:en" in datasets[0].tags)
         self.assertTrue("languages:fr" in datasets[0].tags)
 
+    @expect_deprecation("list_datasets")
     @with_production_testing
     def test_filter_datasets_by_multilinguality(self):
         _api = HfApi()
@@ -1335,6 +1346,7 @@ class HfApiPublicTest(unittest.TestCase):
         self.assertGreater(len(datasets), 0)
         self.assertTrue("multilinguality:multilingual" in datasets[0].tags)
 
+    @expect_deprecation("list_datasets")
     @with_production_testing
     def test_filter_datasets_by_size_categories(self):
         _api = HfApi()
@@ -1343,6 +1355,7 @@ class HfApiPublicTest(unittest.TestCase):
         self.assertGreater(len(datasets), 0)
         self.assertTrue("size_categories:100K<n<1M" in datasets[0].tags)
 
+    @expect_deprecation("list_datasets")
     @with_production_testing
     def test_filter_datasets_by_task_categories(self):
         _api = HfApi()
@@ -1351,6 +1364,7 @@ class HfApiPublicTest(unittest.TestCase):
         self.assertGreater(len(datasets), 0)
         self.assertTrue("task_categories:audio-classification" in datasets[0].tags)
 
+    @expect_deprecation("list_datasets")
     @with_production_testing
     def test_filter_datasets_by_task_ids(self):
         _api = HfApi()
@@ -1359,6 +1373,7 @@ class HfApiPublicTest(unittest.TestCase):
         self.assertGreater(len(datasets), 0)
         self.assertTrue("task_ids:automatic-speech-recognition" in datasets[0].tags)
 
+    @expect_deprecation("list_datasets")
     @with_production_testing
     def test_list_datasets_full(self):
         _api = HfApi()
@@ -1368,6 +1383,7 @@ class HfApiPublicTest(unittest.TestCase):
         self.assertIsInstance(dataset, DatasetInfo)
         self.assertTrue(any(dataset.cardData for dataset in datasets))
 
+    @expect_deprecation("list_datasets")
     @with_production_testing
     def test_list_datasets_author(self):
         _api = HfApi()
@@ -1375,6 +1391,7 @@ class HfApiPublicTest(unittest.TestCase):
         self.assertGreater(len(datasets), 1)
         self.assertIsInstance(datasets[0], DatasetInfo)
 
+    @expect_deprecation("list_datasets")
     @with_production_testing
     def test_list_datasets_search(self):
         _api = HfApi()
@@ -1451,6 +1468,7 @@ class HfApiPublicTest(unittest.TestCase):
         self.assertIsInstance(metrics[0], MetricInfo)
         self.assertTrue(any(metric.description for metric in metrics))
 
+    @expect_deprecation("list_models")
     @with_production_testing
     def test_filter_models_by_author(self):
         _api = HfApi()
@@ -1459,6 +1477,7 @@ class HfApiPublicTest(unittest.TestCase):
         self.assertGreater(len(models), 0)
         self.assertTrue("muellerzr" in models[0].modelId)
 
+    @expect_deprecation("list_models")
     @with_production_testing
     def test_filter_models_by_author_and_name(self):
         # Test we can search by an author and a name, but the model is not found
@@ -1467,6 +1486,7 @@ class HfApiPublicTest(unittest.TestCase):
         models = _api.list_models(filter=f)
         self.assertTrue("facebook/bart-base" in models[0].modelId)
 
+    @expect_deprecation("list_models")
     @with_production_testing
     def test_failing_filter_models_by_author_and_model_name(self):
         # Test we can search by an author and a name, but the model is not found
@@ -1475,6 +1495,7 @@ class HfApiPublicTest(unittest.TestCase):
         models = _api.list_models(filter=f)
         self.assertEqual(len(models), 0)
 
+    @expect_deprecation("list_models")
     @with_production_testing
     def test_filter_models_with_library(self):
         _api = HfApi()
@@ -1485,6 +1506,7 @@ class HfApiPublicTest(unittest.TestCase):
         models = _api.list_models(filter=f)
         self.assertGreater(len(models), 0)
 
+    @expect_deprecation("list_models")
     @with_production_testing
     def test_filter_models_with_task(self):
         _api = HfApi()
@@ -1496,6 +1518,7 @@ class HfApiPublicTest(unittest.TestCase):
         models = _api.list_models(filter=f)
         self.assertGreater(1, len(models))
 
+    @expect_deprecation("list_models")
     @with_production_testing
     def test_filter_models_by_language(self):
         _api = HfApi()
@@ -1507,6 +1530,7 @@ class HfApiPublicTest(unittest.TestCase):
 
         assert len(res_fr) != len(res_en)
 
+    @expect_deprecation("list_models")
     @with_production_testing
     def test_filter_models_with_complex_query(self):
         _api = HfApi()
@@ -1595,6 +1619,7 @@ class HfApiPublicTest(unittest.TestCase):
             )
         )
 
+    @expect_deprecation("list_spaces")
     @with_production_testing
     def test_list_spaces_full(self):
         _api = HfApi()
@@ -1604,6 +1629,7 @@ class HfApiPublicTest(unittest.TestCase):
         self.assertIsInstance(space, SpaceInfo)
         self.assertTrue(any(space.cardData for space in spaces))
 
+    @expect_deprecation("list_spaces")
     @with_production_testing
     def test_list_spaces_author(self):
         _api = HfApi()
@@ -1615,6 +1641,7 @@ class HfApiPublicTest(unittest.TestCase):
             )
         )
 
+    @expect_deprecation("list_spaces")
     @with_production_testing
     def test_list_spaces_search(self):
         _api = HfApi()
@@ -1622,6 +1649,7 @@ class HfApiPublicTest(unittest.TestCase):
         space = spaces[0]
         self.assertTrue("wikipedia" in space.id.lower())
 
+    @expect_deprecation("list_spaces")
     @with_production_testing
     def test_list_spaces_sort_and_direction(self):
         _api = HfApi()
@@ -1634,18 +1662,21 @@ class HfApiPublicTest(unittest.TestCase):
             spaces_ascending_likes[-2].likes, spaces_ascending_likes[-1].likes
         )
 
+    @expect_deprecation("list_spaces")
     @with_production_testing
     def test_list_spaces_limit(self):
         _api = HfApi()
         spaces = _api.list_spaces(limit=5)
         self.assertEqual(len(spaces), 5)
 
+    @expect_deprecation("list_spaces")
     @with_production_testing
     def test_list_spaces_with_models(self):
         _api = HfApi()
         spaces = _api.list_spaces(models="bert-base-uncased")
         self.assertTrue("bert-base-uncased" in getattr(spaces[0], "models", []))
 
+    @expect_deprecation("list_spaces")
     @with_production_testing
     def test_list_spaces_with_datasets(self):
         _api = HfApi()
@@ -1726,16 +1757,19 @@ class HfApiPrivateTest(HfApiCommonTestWithLogin):
             )
             self.assertIsInstance(dataset_info, DatasetInfo)
 
+    @expect_deprecation("list_datasets")
     def test_list_private_datasets(self):
         orig = len(self._api.list_datasets(use_auth_token=False))
         new = len(self._api.list_datasets(use_auth_token=self._token))
         self.assertGreater(new, orig)
 
+    @expect_deprecation("list_models")
     def test_list_private_models(self):
         orig = len(self._api.list_models(use_auth_token=False))
         new = len(self._api.list_models(use_auth_token=self._token))
         self.assertGreater(new, orig)
 
+    @expect_deprecation("list_spaces")
     @with_production_testing
     def test_list_private_spaces(self):
         orig = len(self._api.list_spaces(use_auth_token=False))
