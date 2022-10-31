@@ -591,29 +591,50 @@ def metadata_eval_result(
         `dict`: a metadata dict with the result from a model evaluated on a dataset.
 
     Example:
-        ```python >>> from huggingface_hub import metadata_eval_result >>>
-        results = metadata_eval_result( ...         model_pretty_name="RoBERTa
-        fine-tuned on ReactionGIF", ...         task_pretty_name="Text
-        Classification", ...         task_id="text-classification", ...
-        metrics_pretty_name="Accuracy", ...         metrics_id="accuracy", ...
-        metrics_value=0.2662102282047272, ...
-        dataset_pretty_name="ReactionJPEG", ...
-        dataset_id="julien-c/reactionjpeg", ...
-        dataset_config="default", ...         dataset_split="test", ... ) >>>
-        results == { ...     'model-index': [ ...         { ...
-        'name': 'RoBERTa fine-tuned on ReactionGIF', ...             'results':
-        [ ...                 { ...                     'task': { ...
-        'type': 'text-classification', ...                         'name': 'Text
-        Classification' ...                     }, ...
-        'dataset': { ...                         'name': 'ReactionJPEG', ...
-        'type': 'julien-c/reactionjpeg', ...                         'config':
-        'default', ...                         'split': 'test' ...
-        }, ...                     'metrics': [ ...                         {
-        ...                             'type': 'accuracy', ...
-        'value': 0.2662102282047272, ...                             'name':
-        'Accuracy', ...                             'verified': False ...
-        } ...                     ] ...                 } ...             ] ...
-        } ...     ] ... } True
+        ```python
+        >>> from huggingface_hub import metadata_eval_result
+        >>> results = metadata_eval_result(
+        ...         model_pretty_name="RoBERTa fine-tuned on ReactionGIF",
+        ...         task_pretty_name="Text Classification",
+        ...         task_id="text-classification",
+        ...         metrics_pretty_name="Accuracy",
+        ...         metrics_id="accuracy",
+        ...         metrics_value=0.2662102282047272,
+        ...         dataset_pretty_name="ReactionJPEG",
+        ...         dataset_id="julien-c/reactionjpeg",
+        ...         dataset_config="default",
+        ...         dataset_split="test",
+        ... )
+        >>> results == {
+        ...     'model-index': [
+        ...         {
+        ...             'name': 'RoBERTa fine-tuned on ReactionGIF',
+        ...             'results': [
+        ...                 {
+        ...                     'task': {
+        ...                         'type': 'text-classification',
+        ...                         'name': 'Text Classification'
+        ...                     },
+        ...                     'dataset': {
+        ...                         'name': 'ReactionJPEG',
+        ...                         'type': 'julien-c/reactionjpeg',
+        ...                         'config': 'default',
+        ...                         'split': 'test'
+        ...                     },
+        ...                     'metrics': [
+        ...                         {
+        ...                             'type': 'accuracy',
+        ...                             'value': 0.2662102282047272,
+        ...                             'name': 'Accuracy',
+        ...                             'verified': False
+        ...                         }
+        ...                     ]
+        ...                 }
+        ...             ]
+        ...         }
+        ...     ]
+        ... }
+        True
 
         ```
     """
