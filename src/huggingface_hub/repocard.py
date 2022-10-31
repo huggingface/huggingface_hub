@@ -581,8 +581,7 @@ def metadata_eval_result(
         dataset_config (`str`, *optional*):
             Example: fr. The name of the dataset configuration used in `load_dataset()`.
         dataset_split (`str`, *optional*):
-            Example: test. The name of the dataset split used in
-            `load_dataset()`.
+            Example: test. The name of the dataset split used in `load_dataset()`.
         dataset_revision (`str`, *optional*):
             Example: 5503434ddd753f426f4b38109466949a1217c2bb. The name of the dataset dataset revision
             used in `load_dataset()`.
