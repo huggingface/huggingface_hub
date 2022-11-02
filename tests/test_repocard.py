@@ -656,6 +656,14 @@ class RepoCardTest(TestCaseWithCapLog):
         card = RepoCard.load(card_path)
         self.assertIn("\r\n", str(card))
 
+    def test_updating_text_updates_content(self):
+        sample_path = SAMPLE_CARDS_DIR / "sample_simple.md"
+        card = RepoCard.load(sample_path)
+        card.text = "Hello, world!"
+        self.assertEqual(
+            card.content, f"---\n{card.data.to_yaml()}\n---\nHello, world!"
+        )
+
 
 class ModelCardTest(TestCaseWithCapLog):
     def test_model_card_with_invalid_model_index(self):
