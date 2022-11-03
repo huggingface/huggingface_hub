@@ -35,13 +35,13 @@ CommitOperationT = Union["CommitOperationAdd", "CommitOperationDelete"]
 @dataclass
 class CommitOperationDelete:
     """
-    Data structure holding necessary info to delete
-    a file from a repository on the Hub
+    Data structure holding necessary info to delete a file or a folder from a repository
+    on the Hub.
 
     Args:
         path_in_repo (`str`):
-            Relative filepath in the repo, for example:
-            `"checkpoints/1fec34a/weights.bin"`
+            Relative filepath in the repo, for example: `"checkpoints/1fec34a/weights.bin"`
+            for a file or `"checkpoints/1fec34a/"` for a folder.
     """
 
     path_in_repo: str

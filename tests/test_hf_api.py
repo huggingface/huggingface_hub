@@ -59,6 +59,7 @@ from huggingface_hub.hf_api import (
     repo_type_and_id_from_hf_id,
 )
 from huggingface_hub.utils import (
+    EntryNotFoundError,
     HfFolder,
     HfHubHTTPError,
     RepositoryNotFoundError,
@@ -1015,6 +1016,38 @@ class CommitApiTest(HfApiCommonTestWithLogin):
             self.fail(err)
         finally:
             self._api.delete_repo(repo_id=REPO_NAME)
+
+    @retry_endpoint
+    def test_create_commit_delete_folder(self):
+        repo_id = f"{USER}/{repo_name('create_commit_delete_folder')}"
+        self._api.create_repo(repo_id=repo_id, exist_ok=False)
+
+        self._api.upload_file(
+            path_or_fileobj=b"some data", path_in_repo="1/file_1.md", repo_id=repo_id
+        )
+        self._api.upload_file(
+            path_or_fileobj=b"some data", path_in_repo="1/file_2.md", repo_id=repo_id
+        )
+        self._api.upload_file(
+            path_or_fileobj=b"some data", path_in_repo="2/file_3.md", repo_id=repo_id
+        )
+
+        self._api.create_commit(
+            operations=[CommitOperationDelete(path_in_repo="1/")],
+            commit_message="Test delete folder",
+            repo_id=repo_id,
+        )
+
+        with self.assertRaises(EntryNotFoundError):
+            hf_hub_download(repo_id, "1/file_1.md", use_auth_token=self._token)
+
+        with self.assertRaises(EntryNotFoundError):
+            hf_hub_download(repo_id, "1/file_2.md", use_auth_token=self._token)
+
+        # Still exists
+        hf_hub_download(repo_id, "2/file_3.md", use_auth_token=self._token)
+
+        self._api.delete_repo(repo_id=repo_id)
 
 
 class HfApiTagEndpointTest(HfApiCommonTestWithLogin):
