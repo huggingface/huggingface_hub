@@ -1215,15 +1215,17 @@ class HfApiPublicTest(unittest.TestCase):
 
     @with_production_testing
     def test_list_models_with_config(self):
-        _api = HfApi()
-        models = _api.list_models(
+        for model in HfApi().list_models(
             filter="adapter-transformers", fetch_config=True, limit=20
-        )
-        found_configs = 0
-        for model in models:
-            if model.config:
-                found_configs = found_configs + 1
-        self.assertGreater(found_configs, 0)
+        ):
+            self.assertIsNotNone(model.config)
+
+    @with_production_testing
+    def test_list_models_without_config(self):
+        for model in HfApi().list_models(
+            filter="adapter-transformers", fetch_config=False, limit=20
+        ):
+            self.assertIsNone(model.config)
 
     @with_production_testing
     def test_model_info(self):
