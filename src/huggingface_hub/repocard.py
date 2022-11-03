@@ -79,7 +79,22 @@ class RepoCard:
 
         </Tip>
         """
+
+        # Set the content of the RepoCard, as well as underlying .data and .text attributes.
+        # See the `content` property setter for more details.
         self.content = content
+
+    @property
+    def content(self):
+        """The content of the RepoCard, including the YAML block and the Markdown body."""
+        line_break = _detect_line_ending(self._content) or "\n"
+        return f"---{line_break}{self.data.to_yaml(line_break=line_break)}{line_break}---{line_break}{self.text}"
+
+    @content.setter
+    def content(self, content: str):
+        """Set the content of the RepoCard."""
+        self._content = content
+
         match = REGEX_YAML_BLOCK.search(content)
         if match:
             # Metadata found in the YAML block
@@ -101,8 +116,7 @@ class RepoCard:
         self.data = self.card_data_class(**data_dict)
 
     def __str__(self):
-        line_break = _detect_line_ending(self.content) or "\n"
-        return f"---{line_break}{self.data.to_yaml(line_break=line_break)}{line_break}---{line_break}{self.text}"
+        return self.content
 
     def save(self, filepath: Union[Path, str]):
         r"""Save a RepoCard to a file.
