@@ -576,7 +576,7 @@ def metadata_eval_result(
             The name of the metric configuration used in `load_metric()`.
             Example: bleurt-large-512 in `load_metric("bleurt", "bleurt-large-512")`.
         metrics_verified (`bool`, *optional*, defaults to `False`):
-            Indicates whether the metrics have originate from Hugging Face's [evaluation service](https://huggingface.co/spaces/autoevaluate/model-evaluator) or not. Automatically computed by Hugging Face, do not set.
+            Indicates whether the metrics originate from Hugging Face's [evaluation service](https://huggingface.co/spaces/autoevaluate/model-evaluator) or not. Automatically computed by Hugging Face, do not set.
         dataset_config (`str`, *optional*):
             Example: fr. The name of the dataset configuration used in `load_dataset()`.
         dataset_split (`str`, *optional*):

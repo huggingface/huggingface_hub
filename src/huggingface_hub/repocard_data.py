@@ -51,7 +51,7 @@ class EvalResult:
         metric_args (`Dict[str, Any]`, *optional*):
             The arguments passed during `Metric.compute()`. Example for `bleu`: max_order: 4
         verified (`bool`, *optional*):
-            Indicates whether the metrics have originate from Hugging Face's [evaluation service](https://huggingface.co/spaces/autoevaluate/model-evaluator) or not. Automatically computed by Hugging Face, do not set.
+            Indicates whether the metrics originate from Hugging Face's [evaluation service](https://huggingface.co/spaces/autoevaluate/model-evaluator) or not. Automatically computed by Hugging Face, do not set.
         verifyToken (`str`, *optional*):
             A JSON Web Token that is used to verify whether the metrics originate from Hugging Face's [evaluation service](https://huggingface.co/spaces/autoevaluate/model-evaluator) or not.
     """
@@ -115,7 +115,7 @@ class EvalResult:
     # Example for `bleu`: max_order: 4
     metric_args: Optional[Dict[str, Any]] = None
 
-    # Indicates whether the metrics have originate from Hugging Face's [evaluation service](https://huggingface.co/spaces/autoevaluate/model-evaluator) or not. Automatically computed by Hugging Face, do not set.
+    # Indicates whether the metrics originate from Hugging Face's [evaluation service](https://huggingface.co/spaces/autoevaluate/model-evaluator) or not. Automatically computed by Hugging Face, do not set.
     verified: Optional[bool] = None
 
     # A JSON Web Token that is used to verify whether the metrics originate from Hugging Face's [evaluation service](https://huggingface.co/spaces/autoevaluate/model-evaluator) or not.
