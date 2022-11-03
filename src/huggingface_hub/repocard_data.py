@@ -421,7 +421,7 @@ def model_index_to_eval_results(
                 metric_args = metric.get("args")
                 metric_config = metric.get("config")
                 verified = metric.get("verified")
-                verifyToken = metric.get("verifyToken")
+                verify_token = metric.get("verifyToken")
 
                 eval_result = EvalResult(
                     task_type=task_type,  # Required
@@ -438,7 +438,7 @@ def model_index_to_eval_results(
                     metric_args=metric_args,
                     metric_config=metric_config,
                     verified=verified,
-                    verifyToken=verifyToken,
+                    verifyToken=verify_token,
                 )
                 eval_results.append(eval_result)
     return name, eval_results
@@ -528,7 +528,7 @@ def eval_results_to_model_index(
                     "config": result.metric_config,
                     "args": result.metric_args,
                     "verified": result.verified,
-                    "verifyToken": result.verifyToken,
+                    "verifyToken": result.verify_token,
                 }
                 for result in results
             ],
