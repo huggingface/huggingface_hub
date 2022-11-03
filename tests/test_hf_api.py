@@ -267,6 +267,11 @@ class HfApiEndpointsTest(HfApiCommonTestWithLogin):
         self.assertFalse(res["private"])
         self._api.delete_repo(repo_id=DATASET_REPO_NAME, repo_type=REPO_TYPE_DATASET)
 
+    @unittest.skip(
+        "Create repo fails on staging endpoint. See"
+        " https://huggingface.slack.com/archives/C02EMARJ65P/p1666795928977419"
+        " (internal link)."
+    )
     @retry_endpoint
     def test_create_update_and_delete_space_repo(self):
         SPACE_REPO_NAME = space_repo_name("failing")
@@ -1123,9 +1128,11 @@ class HfApiTagEndpointTest(HfApiCommonTestWithLogin):
     @retry_endpoint
     @use_tmp_repo("model")
     def test_create_tag_twice(self) -> None:
-        """Check `create_tag` called twice on same tag should not fail."""
+        """Check `create_tag` called twice on same tag should fail with HTTP 409."""
         self._api.create_tag(self._repo_id, tag="tag_1")
-        self._api.create_tag(self._repo_id, tag="tag_1")
+        with self.assertRaises(HfHubHTTPError) as err:
+            self._api.create_tag(self._repo_id, tag="tag_1")
+        self.assertEqual(err.exception.response.status_code, 409)
 
     @retry_endpoint
     @use_tmp_repo("model")
