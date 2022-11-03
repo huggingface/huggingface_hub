@@ -536,6 +536,7 @@ def metadata_save(local_path: Union[str, Path], data: Dict) -> None:
 
 @_deprecate_positional_args(version="0.12")
 def metadata_eval_result(
+    *,
     model_pretty_name: str,
     task_pretty_name: str,
     task_id: str,
