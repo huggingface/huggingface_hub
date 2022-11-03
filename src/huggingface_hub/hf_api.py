@@ -62,7 +62,11 @@ from .utils import (
     parse_datetime,
     validate_hf_hub_args,
 )
-from .utils._deprecation import _deprecate_arguments, _deprecate_positional_args
+from .utils._deprecation import (
+    _deprecate_arguments,
+    _deprecate_method,
+    _deprecate_positional_args,
+)
 from .utils._typing import Literal, TypedDict
 from .utils.endpoint_helpers import (
     AttributeDictionary,
@@ -728,11 +732,6 @@ class HfApi:
         d = r.json()
         return DatasetTags(d)
 
-    @_deprecate_arguments(
-        version="0.14",
-        deprecated_args={"cardData"},
-        custom_message="Use 'card_data' instead.",
-    )
     @validate_hf_hub_args
     def list_models(
         self,
@@ -745,10 +744,9 @@ class HfApi:
         direction: Optional[Literal[-1]] = None,
         limit: Optional[int] = None,
         full: Optional[bool] = None,
-        card_data: bool = False,
+        cardData: bool = False,
         fetch_config: bool = False,
         token: Optional[Union[bool, str]] = None,
-        cardData: Optional[bool] = None,
     ) -> List[ModelInfo]:
         """
         Get the public list of all the models on huggingface.co
@@ -779,7 +777,7 @@ class HfApi:
                 Whether to fetch all model data, including the `lastModified`,
                 the `sha`, the files and the `tags`. This is set to `True` by
                 default when using a filter.
-            card_data (`bool`, *optional*):
+            cardData (`bool`, *optional*):
                 Whether to grab the metadata for the model as well. Can contain
                 useful information such as carbon emissions, metrics, and
                 datasets trained on.
@@ -868,7 +866,7 @@ class HfApi:
                 del params["full"]
         if fetch_config:
             params.update({"config": True})
-        if cardData or card_data:
+        if cardData:
             params.update({"cardData": True})
         r = requests.get(path, params=params, headers=headers)
         hf_raise_for_status(r)
