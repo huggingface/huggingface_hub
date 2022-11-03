@@ -267,7 +267,11 @@ class HfApiEndpointsTest(HfApiCommonTestWithLogin):
         self.assertFalse(res["private"])
         self._api.delete_repo(repo_id=DATASET_REPO_NAME, repo_type=REPO_TYPE_DATASET)
 
-    @unittest.skip("Create repo fails on staging endpoint. See https://huggingface.slack.com/archives/C02EMARJ65P/p1666795928977419 (internal link).")
+    @unittest.skip(
+        "Create repo fails on staging endpoint. See"
+        " https://huggingface.slack.com/archives/C02EMARJ65P/p1666795928977419"
+        " (internal link)."
+    )
     @retry_endpoint
     def test_create_update_and_delete_space_repo(self):
         SPACE_REPO_NAME = space_repo_name("failing")
