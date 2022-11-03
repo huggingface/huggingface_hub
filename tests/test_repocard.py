@@ -606,7 +606,7 @@ class RepoCardTest(TestCaseWithCapLog):
             metrics="acc",
         )
         # Mock what RepoCard.from_template does so we can test w/o Jinja2
-        content = f"{card_data.to_yaml()}\n\n# MyModel\n\nHello, world!"
+        content = f"---\n{card_data.to_yaml()}\n---\n\n# MyModel\n\nHello, world!"
         card = RepoCard(content)
 
         url = f"{ENDPOINT_STAGING_BASIC_AUTH}/{repo_id}/resolve/main/README.md"
@@ -637,7 +637,7 @@ class RepoCardTest(TestCaseWithCapLog):
             metrics="acc",
         )
         # Mock what RepoCard.from_template does so we can test w/o Jinja2
-        content = f"{card_data.to_yaml()}\n\n# MyModel\n\nHello, world!"
+        content = f"---\n{card_data.to_yaml()}\n---\n\n# MyModel\n\nHello, world!"
         card = RepoCard(content)
 
         url = f"{ENDPOINT_STAGING_BASIC_AUTH}/api/models/{repo_id}/discussions"
