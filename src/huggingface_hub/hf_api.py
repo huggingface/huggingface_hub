@@ -62,11 +62,7 @@ from .utils import (
     parse_datetime,
     validate_hf_hub_args,
 )
-from .utils._deprecation import (
-    _deprecate_arguments,
-    _deprecate_method,
-    _deprecate_positional_args,
-)
+from .utils._deprecation import _deprecate_arguments, _deprecate_positional_args
 from .utils._typing import Literal, TypedDict
 from .utils.endpoint_helpers import (
     AttributeDictionary,
