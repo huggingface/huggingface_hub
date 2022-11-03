@@ -85,6 +85,7 @@ from .testing_utils import (
     DUMMY_MODEL_ID,
     DUMMY_MODEL_ID_REVISION_ONE_SPECIFIC_COMMIT,
     SAMPLE_DATASET_IDENTIFIER,
+    expect_deprecation,
     repo_name,
     require_git_lfs,
     retry_endpoint,
@@ -1391,6 +1392,7 @@ class HfApiPublicTest(unittest.TestCase):
         self.assertGreater(len(datasets), 10)
         self.assertIsInstance(datasets[0], DatasetInfo)
 
+    @expect_deprecation("list_datasets")
     @with_production_testing
     def test_filter_datasets_with_cardData(self):
         _api = HfApi()
