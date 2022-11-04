@@ -35,7 +35,7 @@ from .utils._deprecation import _deprecate_method
 logger = logging.get_logger(__name__)
 
 
-def login(token: Optional[str] = None, add_to_git_credential: bool = False) -> None:
+def login(token: Optional[str] = None, add_to_git_credential: bool = True) -> None:
     """Login the machine to access the Hub.
 
     The `token` is persisted in cache and set as a git credential. Once done, the machine

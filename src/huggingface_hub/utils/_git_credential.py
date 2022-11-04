@@ -21,7 +21,7 @@ from ._deprecation import _deprecate_method
 from ._subprocess import run_interactive_subprocess, run_subprocess
 
 
-def list_credential_helpers(directory: Optional[str] = None) -> List[str]:
+def list_credential_helpers(folder: Optional[str] = None) -> List[str]:
     """Return the list of git credential helpers configured.
 
     See https://git-scm.com/docs/gitcredentials.
@@ -30,23 +30,27 @@ def list_credential_helpers(directory: Optional[str] = None) -> List[str]:
     Calls "`git credential approve`" internally. See https://git-scm.com/docs/git-credential.
 
     Args:
-        directory (`str`, *optional*):
-            The directory in which to check the configured helpers.
+        folder (`str`, *optional*):
+            The folder in which to check the configured helpers.
     """
     try:
-        output = run_subprocess("git config --list", directory).stdout
-        return [
-            line.split("=")[-1]
-            for line in output.split("\n")
-            if "credential.helper" in line
-        ]
+        output = run_subprocess("git config --list", folder=folder).stdout
+        # NOTE: If user has set an helper for a custom URL, it will not we caught here.
+        #       Example: `credential.https://huggingface.co.helper=store`
+        #       See: https://github.com/huggingface/huggingface_hub/pull/1138#discussion_r1013324508
+        return sorted(  # Sort for nice printing
+            {  # Might have some duplicates
+                line.split("=")[-1].split()[0]
+                for line in output.split("\n")
+                if "credential.helper" in line
+            }
+        )
     except subprocess.CalledProcessError as exc:
         raise EnvironmentError(exc.stderr)
 
 
 def set_git_credential(
-    token: str,
-    username: str = "hf_user",
+    token: str, username: str = "hf_user", folder: Optional[str] = None
 ) -> None:
     """Save a username/token pair in git credential for HF Hub registry.
 
@@ -59,15 +63,22 @@ def set_git_credential(
         token (`str`, defaults to `"hf_user"`):
             A git password. In practice, the User Access Token for the Hub.
             See https://huggingface.co/settings/tokens.
+        folder (`str`, *optional*):
+            The folder in which to check the configured helpers.
     """
-    with run_interactive_subprocess("git credential approve") as (stdin, _):
+    with run_interactive_subprocess("git credential approve", folder=folder) as (
+        stdin,
+        _,
+    ):
         stdin.write(
             f"url={ENDPOINT}\nusername={username.lower()}\npassword={token}\n\n"
         )
         stdin.flush()
 
 
-def unset_git_credential(username: str = "hf_user") -> None:
+def unset_git_credential(
+    username: str = "hf_user", folder: Optional[str] = None
+) -> None:
     """Erase credentials from git credential for HF Hub registry.
 
     Credentials are erased from the configured helpers (store, cache, macos
@@ -78,8 +89,13 @@ def unset_git_credential(username: str = "hf_user") -> None:
     Args:
         username (`str`, defaults to `"hf_user"`):
             A git username. Defaults to `"hf_user"`, the default user used in the Hub.
+        folder (`str`, *optional*):
+            The folder in which to check the configured helpers.
     """
-    with run_interactive_subprocess("git credential reject") as (stdin, _):
+    with run_interactive_subprocess("git credential reject", folder=folder) as (
+        stdin,
+        _,
+    ):
         standard_input = f"url={ENDPOINT}\n"
         if username is not None:
             standard_input += f"username={username.lower()}\n"
@@ -168,35 +184,3 @@ def erase_from_credential_store(username: Optional[str] = None) -> None:
 
         stdin.write(standard_input)
         stdin.flush()
-
-
-# def git_credential_fill(
-#     username: Optional[str] = None,
-# ) -> Union[Tuple[str, str], Tuple[None, None]]:
-#     """Retrieve a username/password pair from git credential for HF Hub registry.
-
-#     Credentials are retrieved from the configured helpers (store, cache, macos
-#     keychain,...), if any. If no pair is found, a tuple `(None, None)` is returned.
-#     If `username` is not provided, the first credential configured for HF Hub endpoint
-#     is returned.
-
-#     See https://git-scm.com/docs/git-credential.
-#     """
-#     with run_interactive_subprocess("git credential fill") as (stdin, stdout):
-#         standard_input = f"url={ENDPOINT}\n"
-#         if username is not None:
-#             standard_input += f"username={username.lower()}\n"
-#         standard_input += "\n"
-#         stdin.write(standard_input)
-#         stdin.flush()
-#         output = stdout.read()
-
-#     username_match = USERNAME_REGEX.search(output)
-#     password_match = PASSWORD_REGEX.search(output)
-#     if username_match is None or password_match is None:
-#         return None, None
-
-#     return (
-#         username_match.groupdict()["username"],
-#         password_match.groupdict()["password"],
-#     )
