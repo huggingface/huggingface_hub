@@ -188,12 +188,15 @@ class DeprecateListMetaclass(type):
 
     def __new__(cls, clsname, bases, attrs):
         # Check consistency
-        assert (
-            "_deprecate" in attrs
-        ), "A `_deprecate` method must be implemented to use `DeprecateListMetaclass`."
-        assert (
-            list in bases
-        ), "Class must inherit from `list` to use `DeprecateListMetaclass`."
+        if "_deprecate" not in attrs:
+            raise TypeError(
+                "A `_deprecate` method must be implemented to use"
+                " `DeprecateListMetaclass`."
+            )
+        if list in bases:
+            raise TypeError(
+                "Class must inherit from `list` to use `DeprecateListMetaclass`."
+            )
 
         # Create decorator to deprecate list-only methods, including magic ones
         def _with_deprecation(f, name):

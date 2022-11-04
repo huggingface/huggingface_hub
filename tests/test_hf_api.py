@@ -1301,7 +1301,7 @@ class HfApiPublicTest(unittest.TestCase):
 
     @expect_deprecation("list_datasets")
     @with_production_testing
-    def test_list_datasets_aaa(self):
+    def test_list_datasets_no_filter(self):
         _api = HfApi()
         datasets = _api.list_datasets()
         self.assertGreater(len(datasets), 100)
