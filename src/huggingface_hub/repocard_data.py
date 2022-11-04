@@ -52,7 +52,7 @@ class EvalResult:
             The arguments passed during `Metric.compute()`. Example for `bleu`: max_order: 4
         verified (`bool`, *optional*):
             Indicates whether the metrics originate from Hugging Face's [evaluation service](https://huggingface.co/spaces/autoevaluate/model-evaluator) or not. Automatically computed by Hugging Face, do not set.
-        verifyToken (`str`, *optional*):
+        verify_token (`str`, *optional*):
             A JSON Web Token that is used to verify whether the metrics originate from Hugging Face's [evaluation service](https://huggingface.co/spaces/autoevaluate/model-evaluator) or not.
     """
 
@@ -119,7 +119,7 @@ class EvalResult:
     verified: Optional[bool] = None
 
     # A JSON Web Token that is used to verify whether the metrics originate from Hugging Face's [evaluation service](https://huggingface.co/spaces/autoevaluate/model-evaluator) or not.
-    verifyToken: Optional[str] = None
+    verify_token: Optional[str] = None
 
 
 @dataclass
@@ -438,7 +438,7 @@ def model_index_to_eval_results(
                     metric_args=metric_args,
                     metric_config=metric_config,
                     verified=verified,
-                    verifyToken=verify_token,
+                    verify_token=verify_token,
                 )
                 eval_results.append(eval_result)
     return name, eval_results

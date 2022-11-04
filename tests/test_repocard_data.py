@@ -91,6 +91,8 @@ class ModelCardDataTest(unittest.TestCase):
                             {
                                 "type": "acc",
                                 "value": 0.9,
+                                "verified": True,
+                                "verifyToken": 1234,
                             }
                         ],
                     },

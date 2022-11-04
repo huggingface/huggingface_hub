@@ -653,7 +653,7 @@ def metadata_eval_result(
                     dataset_type=dataset_id,
                     metric_config=metrics_config,
                     verified=metrics_verified,
-                    verifyToken=metrics_verification_token,
+                    verify_token=metrics_verification_token,
                     dataset_config=dataset_config,
                     dataset_split=dataset_split,
                     dataset_revision=dataset_revision,
