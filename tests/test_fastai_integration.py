@@ -15,7 +15,7 @@ from huggingface_hub.utils import (
 )
 
 from .testing_constants import ENDPOINT_STAGING, TOKEN, USER
-from .testing_utils import repo_name, set_write_permission_and_retry
+from .testing_utils import expect_deprecation, repo_name, set_write_permission_and_retry
 
 
 WORKING_REPO_SUBDIR = f"fixtures/working_repo_{__name__.split('.')[-1]}"
@@ -65,6 +65,7 @@ else:
 @require_fastai_fastcore
 class TestFastaiUtils(TestCase):
     @classmethod
+    @expect_deprecation("set_access_token")
     def setUpClass(cls):
         """
         Share this valid token in all tests below.

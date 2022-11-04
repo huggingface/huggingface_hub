@@ -17,14 +17,25 @@ from getpass import getpass
 from typing import List, Optional
 
 from .commands._cli_utils import ANSI
+from .commands.delete_cache import _ask_for_confirmation_no_tui
 from .hf_api import HfApi
-from .utils import HfFolder, is_google_colab, is_notebook, logging, run_subprocess
+from .utils import (
+    HfFolder,
+    is_google_colab,
+    is_notebook,
+    list_credential_helpers,
+    logging,
+    run_subprocess,
+    set_git_credential,
+    unset_git_credential,
+)
+from .utils._deprecation import _deprecate_method
 
 
 logger = logging.get_logger(__name__)
 
 
-def login(token: Optional[str] = None) -> None:
+def login(token: Optional[str] = None, add_to_git_credential: bool = True) -> None:
     """Login the machine to access the Hub.
 
     The `token` is persisted in cache and set as a git credential. Once done, the machine
@@ -50,6 +61,12 @@ def login(token: Optional[str] = None) -> None:
     Args:
         token (`str`, *optional*):
             User access token to generate from https://huggingface.co/settings/token.
+        add_to_git_credential (`bool`, defaults to `False`):
+            If `True`, token will be set as git credential. If no git credential helper
+            is configured, a warning will be displayed to the user. If `token` is `None`,
+            the value of `add_to_git_credential` is ignored and will be prompted again
+            to the end user.
+
 
     Raises:
         [`ValueError`](https://docs.python.org/3/library/exceptions.html#ValueError)
@@ -61,7 +78,13 @@ def login(token: Optional[str] = None) -> None:
             If running in a notebook but `ipywidgets` is not installed.
     """
     if token is not None:
-        _login(token)
+        if not add_to_git_credential:
+            print(
+                "Token will not been saved to git credential helper. Pass"
+                " `add_to_git_credential=True` if you want to set the git"
+                " credential as well."
+            )
+        _login(token, add_to_git_credential=add_to_git_credential)
     elif is_notebook():
         notebook_login()
     else:
@@ -78,7 +101,7 @@ def logout() -> None:
         print("Not logged in!")
         return
     HfFolder.delete_token()
-    HfApi.unset_access_token()
+    unset_git_credential()
     print("Successfully logged out.")
 
 
@@ -108,7 +131,10 @@ def interpreter_login() -> None:
     To login, `huggingface_hub` now requires a token generated from https://huggingface.co/settings/tokens .
     """
     )
-    _login(token=getpass("Token: "))
+    token = getpass("Token: ")
+    add_to_git_credential = _ask_for_confirmation_no_tui("Add token as git credential?")
+
+    _login(token=token, add_to_git_credential=add_to_git_credential)
 
 
 ###
@@ -159,12 +185,16 @@ def notebook_login() -> None:
     )
 
     token_widget = widgets.Password(description="Token:")
+    git_checkbox_widget = widgets.Checkbox(
+        value=True, description="Add token as git credential?"
+    )
     token_finish_button = widgets.Button(description="Login")
 
     login_token_widget = widgets.VBox(
         [
             widgets.HTML(NOTEBOOK_LOGIN_TOKEN_HTML_START),
             token_widget,
+            git_checkbox_widget,
             token_finish_button,
             widgets.HTML(NOTEBOOK_LOGIN_TOKEN_HTML_END),
         ],
@@ -175,10 +205,11 @@ def notebook_login() -> None:
     # On click events
     def login_token_event(t):
         token = token_widget.value
+        add_to_git_credential = git_checkbox_widget.value
         # Erase token and clear value to make sure it's not saved in the notebook.
         token_widget.value = ""
         clear_output()
-        _login(token)
+        _login(token, add_to_git_credential=add_to_git_credential)
 
     token_finish_button.on_click(login_token_event)
 
@@ -188,34 +219,58 @@ def notebook_login() -> None:
 ###
 
 
-def _login(token: str) -> None:
+def _login(token: str, add_to_git_credential: bool) -> None:
     hf_api = HfApi()
     if token.startswith("api_org"):
         raise ValueError("You must use your personal account token.")
     if not hf_api._is_valid_token(token=token):
         raise ValueError("Invalid token passed!")
-    hf_api.set_access_token(token)
+    print("Token is valid.")
+
+    if add_to_git_credential:
+        if _is_git_credential_helper_configured():
+            set_git_credential(token)
+            print(
+                "Your token has been saved in your configured git credential helpers"
+                f" ({','.join(list_credential_helpers())})."
+            )
+        else:
+            print("Token has not been saved to git credential helper.")
+
     HfFolder.save_token(token)
-    print("Login successful")
     print("Your token has been saved to", HfFolder.path_token)
+    print("Login successful")
+
+
+def _is_git_credential_helper_configured() -> bool:
+    """Check if a git credential helper is configured.
+
+    Warns user if not the case (except for Google Colab where "store" is set by default
+    by `huggingface_hub`).
+    """
+    helpers = list_credential_helpers()
+    if len(helpers) > 0:
+        return True  # Do not warn: at least 1 helper is set
 
     # Only in Google Colab to avoid the warning message
     # See https://github.com/huggingface/huggingface_hub/issues/1043#issuecomment-1247010710
     if is_google_colab():
         _set_store_as_git_credential_helper_globally()
+        return True  # Do not warn: "store" is used by default in Google Colab
 
-    helpers = _currently_setup_credential_helpers()
-
-    if "store" not in helpers:
-        print(
-            ANSI.red(
-                "Authenticated through git-credential store but this isn't the helper"
-                " defined on your machine.\nYou might have to re-authenticate when"
-                " pushing to the Hugging Face Hub. Run the following command in your"
-                " terminal in case you want to set this credential helper as the"
-                " default\n\ngit config --global credential.helper store"
-            )
+    # Otherwise, warn user
+    print(
+        ANSI.red(
+            "Cannot authenticate through git-credential as no helper is defined on your"
+            " machine.\nYou might have to re-authenticate when pushing to the Hugging"
+            " Face Hub.\nRun the following command in your terminal in case you want to"
+            " set the 'store' credential helper as default.\n\ngit config --global"
+            " credential.helper store\n\nRead"
+            " https://git-scm.com/book/en/v2/Git-Tools-Credential-Storage for more"
+            " details."
         )
+    )
+    return False
 
 
 def _set_store_as_git_credential_helper_globally() -> None:
@@ -236,18 +291,8 @@ def _set_store_as_git_credential_helper_globally() -> None:
         raise EnvironmentError(exc.stderr)
 
 
-def _currently_setup_credential_helpers(directory=None) -> List[str]:
-    try:
-        output = run_subprocess(
-            "git config --list".split(),
-            directory,
-        ).stdout.split("\n")
-
-        current_credential_helpers = []
-        for line in output:
-            if "credential.helper" in line:
-                current_credential_helpers.append(line.split("=")[-1])
-    except subprocess.CalledProcessError as exc:
-        raise EnvironmentError(exc.stderr)
-
-    return current_credential_helpers
+@_deprecate_method(
+    version="0.14", message="Please use `list_credential_helpers` instead."
+)
+def _currently_setup_credential_helpers(directory: Optional[str] = None) -> List[str]:
+    return list_credential_helpers(directory)
