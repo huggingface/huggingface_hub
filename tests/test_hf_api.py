@@ -150,7 +150,7 @@ class HfApiLoginTest(HfApiCommonTest):
         )
 
         _set_store_as_git_credential_helper_globally()
-        _login(token=TOKEN)
+        _login(token=TOKEN, add_to_git_credential=True)
         self.assertTupleEqual(
             read_from_credential_store(USERNAME_PLACEHOLDER),
             (USERNAME_PLACEHOLDER, TOKEN),
