@@ -211,17 +211,16 @@ def save_pretrained_keras(
         else:
             metadata["tags"] = [task_name]
 
-    if model.history is not None:
-        if model.history.history != {}:
-            path = save_directory / "history.json"
-            if path.exists():
-                warnings.warn(
-                    "`history.json` file already exists, it will be overwritten by the"
-                    " history of this version.",
-                    UserWarning,
-                )
-            with path.open("w", encoding="utf-8") as f:
-                json.dump(model.history.history, f, indent=2, sort_keys=True)
+    if model.history is not None and model.history.history != {}:
+        path = save_directory / "history.json"
+        if path.exists():
+            warnings.warn(
+                "`history.json` file already exists, it will be overwritten by the"
+                " history of this version.",
+                UserWarning,
+            )
+        with path.open("w", encoding="utf-8") as f:
+            json.dump(model.history.history, f, indent=2, sort_keys=True)
 
     _create_model_card(model, save_directory, plot_model, metadata)
     tf.keras.models.save_model(
@@ -600,16 +599,17 @@ class KerasModelHubMixin(ModelHubMixin):
         cfg = model_kwargs.pop("config", None)
 
         # Root is either a local filepath matching model_id or a cached snapshot
-        if not os.path.isdir(model_id):
-            storage_folder = snapshot_download(
+        storage_folder = (
+            model_id
+            if os.path.isdir(model_id)
+            else snapshot_download(
                 repo_id=model_id,
                 revision=revision,
                 cache_dir=cache_dir,
                 library_name="keras",
                 library_version=get_tf_version(),
             )
-        else:
-            storage_folder = model_id
+        )
 
         model = tf.keras.models.load_model(storage_folder, **model_kwargs)
 

@@ -52,8 +52,7 @@ def _get_default_logging_level():
     return that as the new default level. If it is not - fall back to
     `_default_log_level`
     """
-    env_level_str = os.getenv("HUGGINGFACE_HUB_VERBOSITY", None)
-    if env_level_str:
+    if env_level_str := os.getenv("HUGGINGFACE_HUB_VERBOSITY", None):
         if env_level_str in log_levels:
             return log_levels[env_level_str]
         else:

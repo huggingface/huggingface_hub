@@ -236,7 +236,7 @@ class CacheFileLayoutSnapshotDownload(unittest.TestCase):
                 for link in snapshot_links
             ]
 
-            self.assertTrue(all([os.path.isfile(l) for l in resolved_snapshot_links]))
+            self.assertTrue(all(os.path.isfile(l) for l in resolved_snapshot_links))
 
     def test_file_downloaded_in_cache_several_revisions(self):
         with tempfile.TemporaryDirectory() as cache:

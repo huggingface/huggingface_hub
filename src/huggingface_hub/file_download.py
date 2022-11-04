@@ -261,7 +261,7 @@ def url_to_filename(url: str, etag: Optional[str] = None) -> str:
 
     if etag:
         etag_bytes = etag.encode("utf-8")
-        filename += "." + sha256(etag_bytes).hexdigest()
+        filename += f".{sha256(etag_bytes).hexdigest()}"
 
     if url.endswith(".h5"):
         filename += ".h5"
@@ -303,7 +303,7 @@ def filename_to_url(
     if not os.path.exists(cache_path):
         raise EnvironmentError(f"file {cache_path} not found")
 
-    meta_path = cache_path + ".json"
+    meta_path = f"{cache_path}.json"
     if not os.path.exists(meta_path):
         raise EnvironmentError(f"file {meta_path} not found")
 
@@ -340,7 +340,7 @@ def _raise_if_offline_mode_is_enabled(msg: Optional[str] = None):
         raise OfflineModeIsEnabled(
             "Offline mode is enabled."
             if msg is None
-            else "Offline mode is enabled. " + str(msg)
+            else f"Offline mode is enabled. {str(msg)}"
         )
 
 
@@ -483,8 +483,9 @@ def http_get(
         total=total,
         initial=resume_size,
         desc="Downloading",
-        disable=bool(logger.getEffectiveLevel() == logging.NOTSET),
+        disable=logger.getEffectiveLevel() == logging.NOTSET,
     )
+
     for chunk in r.iter_content(chunk_size=1024):
         if chunk:  # filter out keep-alive new chunks
             progress.update(len(chunk))
@@ -508,7 +509,7 @@ def cached_download(
     token: Union[bool, str, None] = None,
     local_files_only: bool = False,
     legacy_cache_layout: bool = False,
-) -> Optional[str]:  # pragma: no cover
+) -> Optional[str]:    # pragma: no cover
     """
     Download from a given URL and cache it if it's not already present in the
     local cache.
@@ -657,43 +658,37 @@ def cached_download(
     if etag is None:
         if os.path.exists(cache_path) and not force_download:
             return cache_path
+        matching_files = [
+            file
+            for file in fnmatch.filter(
+                os.listdir(cache_dir), filename.split(".")[0] + ".*"
+            )
+            if not file.endswith(".json") and not file.endswith(".lock")
+        ]
+        if matching_files and not force_download and force_filename is None:
+            return os.path.join(cache_dir, matching_files[-1])
+        # If files cannot be found and local_files_only=True,
+        # the models might've been found if local_files_only=False
+        # Notify the user about that
+        if local_files_only:
+            raise LocalEntryNotFoundError(
+                "Cannot find the requested files in the cached path and"
+                " outgoing traffic has been disabled. To enable model look-ups"
+                " and downloads online, set 'local_files_only' to False."
+            )
         else:
-            matching_files = [
-                file
-                for file in fnmatch.filter(
-                    os.listdir(cache_dir), filename.split(".")[0] + ".*"
-                )
-                if not file.endswith(".json") and not file.endswith(".lock")
-            ]
-            if (
-                len(matching_files) > 0
-                and not force_download
-                and force_filename is None
-            ):
-                return os.path.join(cache_dir, matching_files[-1])
-            else:
-                # If files cannot be found and local_files_only=True,
-                # the models might've been found if local_files_only=False
-                # Notify the user about that
-                if local_files_only:
-                    raise LocalEntryNotFoundError(
-                        "Cannot find the requested files in the cached path and"
-                        " outgoing traffic has been disabled. To enable model look-ups"
-                        " and downloads online, set 'local_files_only' to False."
-                    )
-                else:
-                    raise LocalEntryNotFoundError(
-                        "Connection error, and we cannot find the requested files in"
-                        " the cached path. Please try again or make sure your Internet"
-                        " connection is on."
-                    )
+            raise LocalEntryNotFoundError(
+                "Connection error, and we cannot find the requested files in"
+                " the cached path. Please try again or make sure your Internet"
+                " connection is on."
+            )
 
     # From now on, etag is not None.
     if os.path.exists(cache_path) and not force_download:
         return cache_path
 
     # Prevent parallel downloads of the same file with a lock.
-    lock_path = cache_path + ".lock"
+    lock_path = f"{cache_path}.lock"
 
     # Some Windows versions do not allow for paths longer than 255 characters.
     # In this case, we must specify it is an extended path by using the "\\?\" prefix.
@@ -710,7 +705,7 @@ def cached_download(
             return cache_path
 
         if resume_download:
-            incomplete_path = cache_path + ".incomplete"
+            incomplete_path = f"{cache_path}.incomplete"
 
             @contextmanager
             def _resumable_file_manager() -> Generator[io.BufferedWriter, None, None]:
@@ -747,7 +742,7 @@ def cached_download(
         if force_filename is None:
             logger.info("creating metadata file for %s", cache_path)
             meta = {"url": url, "etag": etag}
-            meta_path = cache_path + ".json"
+            meta_path = f"{cache_path}.json"
             with open(meta_path, "w") as meta_file:
                 json.dump(meta, meta_file)
 
@@ -770,9 +765,7 @@ def _normalize_etag(etag: Optional[str]) -> Optional[str]:
         `str` or `None`: string that can be used as a nice directory name.
         Returns `None` if input is None.
     """
-    if etag is None:
-        return None
-    return etag.strip('"')
+    return None if etag is None else etag.strip('"')
 
 
 def _create_relative_symlink(src: str, dst: str, new_blob: bool = False) -> None:
@@ -807,12 +800,9 @@ def _create_relative_symlink(src: str, dst: str, new_blob: bool = False) -> None
         try:
             os.symlink(relative_src, dst)
         except FileExistsError:
-            if os.path.islink(dst) and os.path.realpath(dst) == os.path.realpath(src):
-                # `dst` already exists and is a symlink to the `src` blob. It is most
-                # likely that the file has been cached twice concurrently (exactly
-                # between `os.remove` and `os.symlink`). Do nothing.
-                pass
-            else:
+            if not os.path.islink(dst) or os.path.realpath(
+                dst
+            ) != os.path.realpath(src):
                 # Very unlikely to happen. Means a file `dst` has been created exactly
                 # between `os.remove` and `os.symlink` and is not a symlink to the `src`
                 # blob file. Raise exception.
@@ -1140,9 +1130,7 @@ def hf_hub_download(
             commit_hash = revision
         else:
             ref_path = os.path.join(storage_folder, "refs", revision)
-            with open(ref_path) as f:
-                commit_hash = f.read()
-
+            commit_hash = Path(ref_path).read_text()
         pointer_path = os.path.join(
             storage_folder, "snapshots", commit_hash, relative_filename
         )
@@ -1192,7 +1180,7 @@ def hf_hub_download(
         return pointer_path
 
     # Prevent parallel downloads of the same file with a lock.
-    lock_path = blob_path + ".lock"
+    lock_path = f"{blob_path}.lock"
 
     # Some Windows versions do not allow for paths longer than 255 characters.
     # In this case, we must specify it is an extended path by using the "\\?\" prefix.
@@ -1209,7 +1197,7 @@ def hf_hub_download(
             return pointer_path
 
         if resume_download:
-            incomplete_path = blob_path + ".incomplete"
+            incomplete_path = f"{blob_path}.incomplete"
 
             @contextmanager
             def _resumable_file_manager() -> Generator[io.BufferedWriter, None, None]:
@@ -1311,9 +1299,7 @@ def try_to_load_from_cache(
     # Resolve refs (for instance to convert main to the associated commit sha)
     cached_refs = os.listdir(os.path.join(repo_cache, "refs"))
     if revision in cached_refs:
-        with open(os.path.join(repo_cache, "refs", revision)) as f:
-            revision = f.read()
-
+        revision = Path(os.path.join(repo_cache, "refs", revision)).read_text()
     if os.path.isfile(os.path.join(repo_cache, ".no_exist", revision, filename)):
         return _CACHED_NO_EXIST
 

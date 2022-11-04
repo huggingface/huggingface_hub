@@ -233,8 +233,7 @@ class ModelCardData(CardData):
         self.eval_results = eval_results
         self.model_name = model_name
 
-        model_index = kwargs.pop("model-index", None)
-        if model_index:
+        if model_index := kwargs.pop("model-index", None):
             try:
                 model_name, eval_results = model_index_to_eval_results(model_index)
                 self.model_name = model_name

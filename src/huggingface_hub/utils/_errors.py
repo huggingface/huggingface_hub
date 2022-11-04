@@ -61,12 +61,16 @@ class HfHubHTTPError(HTTPError):
             _server_message = ""
             if server_message_from_headers is not None:  # from headers
                 _server_message += server_message_from_headers + "\n"
-            if server_message_from_body is not None:  # from body "error"
-                if server_message_from_body not in _server_message:
-                    _server_message += server_message_from_body + "\n"
-            if server_multiple_messages_from_body is not None:  # from body "errors"
-                if server_multiple_messages_from_body not in _server_message:
-                    _server_message += server_multiple_messages_from_body + "\n"
+            if (
+                server_message_from_body is not None
+                and server_message_from_body not in _server_message
+            ):
+                _server_message += server_message_from_body + "\n"
+            if (
+                server_multiple_messages_from_body is not None
+                and server_multiple_messages_from_body not in _server_message
+            ):
+                _server_message += server_multiple_messages_from_body + "\n"
             _server_message = _server_message.strip()
 
             # Set message to `HfHubHTTPError` (if any)

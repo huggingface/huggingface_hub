@@ -243,17 +243,14 @@ def _get_tui_choices_from_scan(
     Return:
         The list of choices to pass to `inquirer.checkbox`.
     """
-    choices: List[Union[Choice, Separator]] = []
-
-    # First choice is to cancel the deletion. If selected, nothing will be deleted,
-    # no matter the other selected items.
-    choices.append(
+    choices: List[Union[Choice, Separator]] = [
         Choice(
             _CANCEL_DELETION_STR,
             name="None of the following (if selected, nothing will be deleted).",
             enabled=False,
         )
-    )
+    ]
+
 
     # Display a separator per repo and a Choice for each revisions of the repo
     for repo in sorted(repos, key=_repo_sorting_order):
@@ -264,19 +261,18 @@ def _get_tui_choices_from_scan(
                 f" used {repo.last_accessed_str})"
             )
         )
-        for revision in sorted(repo.revisions, key=_revision_sorting_order):
-            # Revision as choice
-            choices.append(
-                Choice(
-                    revision.commit_hash,
-                    name=(
-                        f"{revision.commit_hash[:8]}:"
-                        f" {', '.join(sorted(revision.refs)) or '(detached)'} #"
-                        f" modified {revision.last_modified_str}"
-                    ),
-                    enabled=revision.commit_hash in preselected,
-                )
+        choices.extend(
+            Choice(
+                revision.commit_hash,
+                name=(
+                    f"{revision.commit_hash[:8]}:"
+                    f" {', '.join(sorted(revision.refs)) or '(detached)'} #"
+                    f" modified {revision.last_modified_str}"
+                ),
+                enabled=revision.commit_hash in preselected,
             )
+            for revision in sorted(repo.revisions, key=_revision_sorting_order)
+        )
 
     # Return choices
     return choices
@@ -300,16 +296,10 @@ def _manual_review_no_tui(
             f"\n# {repo.repo_type.capitalize()} {repo.repo_id} ({repo.size_on_disk_str},"
             f" used {repo.last_accessed_str})"
         )
-        for revision in sorted(repo.revisions, key=_revision_sorting_order):
-            lines.append(
-                # Deselect by prepending a '#'
-                f"{'' if revision.commit_hash in preselected else '#'}   "
-                f" {revision.commit_hash} # Refs:"
-                # Print `refs` as comment on same line
-                f" {', '.join(sorted(revision.refs)) or '(detached)'} # modified"
-                # Print `last_modified` as comment on same line
-                f" {revision.last_modified_str}"
-            )
+        lines.extend(
+            f"{'' if revision.commit_hash in preselected else '#'}    {revision.commit_hash} # Refs: {', '.join(sorted(revision.refs)) or '(detached)'} # modified {revision.last_modified_str}"
+            for revision in sorted(repo.revisions, key=_revision_sorting_order)
+        )
 
     with open(tmp_path, "w") as f:
         f.write(_MANUAL_REVIEW_NO_TUI_INSTRUCTIONS)
@@ -329,7 +319,7 @@ def _manual_review_no_tui(
     while True:
         selected_hashes = _read_manual_review_tmp_file(tmp_path)
         if _ask_for_confirmation_no_tui(
-            _get_expectations_str(hf_cache_info, selected_hashes) + " Continue ?",
+            f"{_get_expectations_str(hf_cache_info, selected_hashes)} Continue ?",
             default=False,
         ):
             break

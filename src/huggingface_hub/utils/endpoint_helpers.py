@@ -45,21 +45,20 @@ def _filter_emissions(
         maximum_threshold = math.inf
     emissions = []
     for i, model in enumerate(models):
-        if hasattr(model, "cardData"):
-            if isinstance(model.cardData, dict):
-                emission = model.cardData.get("co2_eq_emissions", None)
-                if isinstance(emission, dict):
-                    emission = emission["emissions"]
-                if emission:
-                    emission = str(emission)
-                    matched = re.search(r"\d+\.\d+|\d+", emission)
-                    if matched is not None:
-                        emissions.append((i, float(matched.group(0))))
-    filtered_results = []
-    for idx, emission in emissions:
-        if emission >= minimum_threshold and emission <= maximum_threshold:
-            filtered_results.append(models[idx])
-    return filtered_results
+        if hasattr(model, "cardData") and isinstance(model.cardData, dict):
+            emission = model.cardData.get("co2_eq_emissions", None)
+            if isinstance(emission, dict):
+                emission = emission["emissions"]
+            if emission:
+                emission = str(emission)
+                matched = re.search(r"\d+\.\d+|\d+", emission)
+                if matched is not None:
+                    emissions.append((i, float(matched[0])))
+    return [
+        models[idx]
+        for idx, emission in emissions
+        if emission >= minimum_threshold and emission <= maximum_threshold
+    ]
 
 
 @dataclass

@@ -155,9 +155,6 @@ class InferenceApi:
         if params:
             payload["parameters"] = params
 
-        # TODO: Decide if we should raise an error instead of
-        # returning the json.
-        response = requests.post(
+        return requests.post(
             self.api_url, headers=self.headers, json=payload, data=data
         ).json()
-        return response

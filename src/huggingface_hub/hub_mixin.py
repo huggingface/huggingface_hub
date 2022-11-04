@@ -203,7 +203,7 @@ class ModelHubMixin:
         if config_file is not None:
             with open(config_file, "r", encoding="utf-8") as f:
                 config = json.load(f)
-            model_kwargs.update({"config": config})
+            model_kwargs["config"] = config
 
         return cls._from_pretrained(
             model_id,

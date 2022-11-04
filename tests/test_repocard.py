@@ -151,10 +151,11 @@ def require_jinja(test_case):
 
     These tests are skipped when Jinja2 is not installed.
     """
-    if not is_jinja_available():
-        return unittest.skip("test requires Jinja2.")(test_case)
-    else:
-        return test_case
+    return (
+        test_case
+        if is_jinja_available()
+        else unittest.skip("test requires Jinja2.")(test_case)
+    )
 
 
 class RepocardMetadataTest(unittest.TestCase):

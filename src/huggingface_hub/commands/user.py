@@ -131,8 +131,7 @@ class WhoamiCommand(BaseUserCommand):
         try:
             info = self._api.whoami(token)
             print(info["name"])
-            orgs = [org["name"] for org in info["orgs"]]
-            if orgs:
+            if orgs := [org["name"] for org in info["orgs"]]:
                 print(ANSI.bold("orgs: "), ",".join(orgs))
 
             if ENDPOINT != "https://huggingface.co":
@@ -188,7 +187,7 @@ class RepoCreateCommand(BaseUserCommand):
 
         if not self.args.yes:
             choice = input("Proceed? [Y/n] ").lower()
-            if not (choice == "" or choice == "y" or choice == "yes"):
+            if choice not in ["", "y", "yes"]:
                 print("Abort")
                 exit()
         try:

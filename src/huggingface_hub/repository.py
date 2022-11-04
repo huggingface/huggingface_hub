@@ -99,11 +99,7 @@ class CommandInProgress:
         if status == -1:
             status = "running"
 
-        return (
-            f"[{self.title} command, status code: {status},"
-            f" {'in progress.' if not self.is_done else 'finished.'} PID:"
-            f" {self._process.pid}]"
-        )
+        return f"[{self.title} command, status code: {status}, {'finished.' if self.is_done else 'in progress.'} PID: {self._process.pid}]"
 
 
 def is_git_repo(folder: Union[str, Path]) -> bool:
@@ -180,7 +176,7 @@ def is_tracked_with_lfs(filename: Union[str, Path]) -> bool:
     found_lfs_tag = {"diff": False, "merge": False, "filter": False}
 
     for attribute in attributes.split("\n"):
-        for tag in found_lfs_tag.keys():
+        for tag in found_lfs_tag:
             if tag in attribute and "lfs" in attribute:
                 found_lfs_tag[tag] = True
 
@@ -254,10 +250,7 @@ def files_to_be_staged(
     """
     try:
         p = run_subprocess("git ls-files -mo".split() + [pattern], folder)
-        if len(p.stdout.strip()):
-            files = p.stdout.strip().split("\n")
-        else:
-            files = []
+        files = p.stdout.strip().split("\n") if len(p.stdout.strip()) else []
     except subprocess.CalledProcessError as exc:
         raise EnvironmentError(exc.stderr)
 
@@ -356,7 +349,7 @@ def _lfs_log_progress():
                         break
 
                     line_bit = file.readline()
-                    if line_bit is not None and not len(line_bit.strip()) == 0:
+                    if line_bit is not None and len(line_bit.strip()) != 0:
                         current_line += line_bit
                         if current_line.endswith("\n"):
                             yield current_line
@@ -518,14 +511,13 @@ class Repository:
 
         if clone_from is not None:
             self.clone_from(repo_url=clone_from)
+        elif is_git_repo(self.local_dir):
+            logger.debug("[Repository] is a valid git repo")
         else:
-            if is_git_repo(self.local_dir):
-                logger.debug("[Repository] is a valid git repo")
-            else:
-                raise ValueError(
-                    "If not specifying `clone_from`, you need to pass Repository a"
-                    " valid git clone."
-                )
+            raise ValueError(
+                "If not specifying `clone_from`, you need to pass Repository a"
+                " valid git clone."
+            )
 
         if self.huggingface_token is not None and (
             git_email is None or git_user is None
@@ -691,7 +683,7 @@ class Repository:
             if repo_type is not None:
                 self._repo_type = repo_type
 
-            repo_url = hub_url + "/"
+            repo_url = f"{hub_url}/"
 
             if self._repo_type in REPO_TYPES_URL_PREFIXES:
                 repo_url += REPO_TYPES_URL_PREFIXES[self._repo_type]
@@ -873,12 +865,7 @@ class Repository:
             status for status in modified_files_statuses if "D" in status.split()[0]
         ]
 
-        # Remove the D prefix and strip to keep only the relevant filename
-        deleted_files = [
-            status.split()[-1].strip() for status in deleted_files_statuses
-        ]
-
-        return deleted_files
+        return [status.split()[-1].strip() for status in deleted_files_statuses]
 
     def lfs_track(self, patterns: Union[str, List[str]], filename: bool = False):
         """
@@ -967,9 +954,7 @@ class Repository:
                         " recommended so as to not load the full file in memory."
                     )
 
-                is_binary = is_binary_file(path_to_file)
-
-                if is_binary:
+                if is_binary := is_binary_file(path_to_file):
                     self.lfs_track(filename)
                     files_to_be_tracked_with_lfs.append(filename)
 
@@ -1049,7 +1034,7 @@ class Repository:
                 files; calling `repo.git_pull(lfs=True)` will then fetch the LFS
                 file from the remote repository.
         """
-        command = "git pull" if not lfs else "git lfs pull"
+        command = "git lfs pull" if lfs else "git pull"
         if rebase:
             command += " --rebase"
         try:
@@ -1184,10 +1169,7 @@ class Repository:
 
             def status_method():
                 status = process.poll()
-                if status is None:
-                    return -1
-                else:
-                    return status
+                return -1 if status is None else status
 
             command_in_progress = CommandInProgress(
                 "push",
@@ -1228,18 +1210,17 @@ class Repository:
         except subprocess.CalledProcessError as exc:
             if not create_branch_ok:
                 raise EnvironmentError(exc.stderr)
-            else:
-                try:
-                    result = run_subprocess(
-                        f"git checkout -b {revision}", self.local_dir
-                    )
-                    logger.warning(
-                        f"Revision `{revision}` does not exist. Created and checked out"
-                        f" branch `{revision}`."
-                    )
-                    logger.warning(result.stdout)
-                except subprocess.CalledProcessError as exc:
-                    raise EnvironmentError(exc.stderr)
+            try:
+                result = run_subprocess(
+                    f"git checkout -b {revision}", self.local_dir
+                )
+                logger.warning(
+                    f"Revision `{revision}` does not exist. Created and checked out"
+                    f" branch `{revision}`."
+                )
+                logger.warning(result.stdout)
+            except subprocess.CalledProcessError as exc:
+                raise EnvironmentError(exc.stderr)
 
     def tag_exists(self, tag_name: str, remote: Optional[str] = None) -> bool:
         """
@@ -1287,15 +1268,8 @@ class Repository:
              `bool`: `True` if deleted, `False` if the tag didn't exist.
                 If remote is not passed, will just be updated locally
         """
-        delete_locally = True
-        delete_remotely = True
-
-        if not self.tag_exists(tag_name):
-            delete_locally = False
-
-        if not self.tag_exists(tag_name, remote=remote):
-            delete_remotely = False
-
+        delete_locally = bool(self.tag_exists(tag_name))
+        delete_remotely = bool(self.tag_exists(tag_name, remote=remote))
         if delete_locally:
             try:
                 run_subprocess(
@@ -1463,7 +1437,7 @@ class Repository:
 
         if len(files_to_stage):
             if len(files_to_stage) > 5:
-                files_in_msg = str(files_to_stage[:5])[:-1] + ", ...]"
+                files_in_msg = f"{str(files_to_stage[:5])[:-1]}, ...]"
 
             logger.error(
                 "There exists some updated files in the local repository that are not"
@@ -1519,9 +1493,7 @@ class Repository:
 
     def repocard_metadata_load(self) -> Optional[Dict]:
         filepath = os.path.join(self.local_dir, REPOCARD_NAME)
-        if os.path.isfile(filepath):
-            return metadata_load(filepath)
-        return None
+        return metadata_load(filepath) if os.path.isfile(filepath) else None
 
     def repocard_metadata_save(self, data: Dict) -> None:
         return metadata_save(os.path.join(self.local_dir, REPOCARD_NAME), data)

@@ -522,9 +522,7 @@ class HubKerasSequentialTest(CommonKerasTest):
         self.assertEqual(model_info.modelId, repo_id)
 
         with tempfile.TemporaryDirectory() as tmpdirname:
-            Repository(
-                local_dir=tmpdirname, clone_from=ENDPOINT_STAGING + "/" + repo_id
-            )
+            Repository(local_dir=tmpdirname, clone_from=f"{ENDPOINT_STAGING}/{repo_id}")
             from_pretrained_keras(tmpdirname)
             self.assertRaises(
                 ValueError, msg="Exception encountered when calling layer*"

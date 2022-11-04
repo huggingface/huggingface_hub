@@ -320,7 +320,7 @@ class SnapshotDownloadTests(unittest.TestCase):
     def check_download_model_with_regex(self, regex, allow=True):
         # Test `main` branch
         allow_regex = regex if allow else None
-        ignore_regex = regex if not allow else None
+        ignore_regex = None if allow else regex
 
         with tempfile.TemporaryDirectory() as tmpdirname:
             storage_folder = snapshot_download(

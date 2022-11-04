@@ -167,8 +167,7 @@ class TestDeleteCacheHelpers(unittest.TestCase):
         # Mock input from user
         def _input_answers():
             self.assertTrue(os.path.isfile(tmp_path))  # not deleted yet
-            with open(tmp_path) as f:
-                content = f.read()
+            content = Path(tmp_path).read_text()
             self.assertTrue(content.startswith("# INSTRUCTIONS"))
 
             # older_hash_id is not commented

@@ -82,7 +82,7 @@ def parse_flag_from_env(key, default=False):
             _value = strtobool(value)
         except ValueError:
             # More values are supported, but let's keep the message simple.
-            raise ValueError("If set, {} must be yes or no.".format(key))
+            raise ValueError(f"If set, {key} must be yes or no.")
     return _value
 
 
@@ -95,7 +95,7 @@ def parse_int_from_env(key, default=None):
         try:
             _value = int(value)
         except ValueError:
-            raise ValueError("If set, {} must be a int.".format(key))
+            raise ValueError(f"If set, {key} must be a int.")
     return _value
 
 
@@ -109,10 +109,11 @@ def require_git_lfs(test_case):
     git-lfs requires additional dependencies, and tests are skipped by default. Set the RUN_GIT_LFS_TESTS environment
     variable to a truthy value to run them.
     """
-    if not _run_git_lfs_tests:
-        return unittest.skip("test of git lfs workflow")(test_case)
-    else:
-        return test_case
+    return (
+        test_case
+        if _run_git_lfs_tests
+        else unittest.skip("test of git lfs workflow")(test_case)
+    )
 
 
 class RequestWouldHangIndefinitelyError(Exception):
@@ -400,10 +401,10 @@ def handle_injection_in_test(fn: Callable) -> Callable:
 
     @wraps(fn)
     def _inner(*args, **kwargs):
-        assert kwargs == {}
+        assert not kwargs
 
         # Initialize new dict at least with `self`.
-        assert len(args) > 0
+        assert args
         assert len(parameters) > 0
         new_kwargs = {"self": args[0]}
 
@@ -411,7 +412,7 @@ def handle_injection_in_test(fn: Callable) -> Callable:
         mocks = {}
         for value in args[1:]:
             assert isinstance(value, Mock)
-            mock_name = "mock_" + value._extract_mock_name()
+            mock_name = f"mock_{value._extract_mock_name()}"
             mocks[mock_name] = value
 
         # Check which mocks are expected

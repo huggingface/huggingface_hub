@@ -89,7 +89,7 @@ def _deprecate_arguments(
                     used_deprecated_args.append(kwarg_name)
 
             # Warn and proceed
-            if len(used_deprecated_args) > 0:
+            if used_deprecated_args:
                 message = (
                     f"Deprecated argument(s) used in '{f.__name__}':"
                     f" {', '.join(used_deprecated_args)}. Will not be supported from"
@@ -124,7 +124,7 @@ def _deprecate_method(*, version: str, message: Optional[str] = None):
                 f" removed from version '{version}'."
             )
             if message is not None:
-                warning_message += " " + message
+                warning_message += f" {message}"
             warnings.warn(warning_message, FutureWarning)
             return f(*args, **kwargs)
 
@@ -176,7 +176,6 @@ def _empty_gen() -> Generator:
     # Create an empty generator
     # Taken from https://stackoverflow.com/a/13243870
     return
-    yield
 
 
 # Build the set of attributes that are specific to a List object (and will be deprecated)

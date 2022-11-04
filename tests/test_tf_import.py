@@ -11,10 +11,11 @@ def require_tf(test_case):
     These tests are skipped when TensorFlow is not installed.
 
     """
-    if not is_tf_available():
-        return unittest.skip("test requires Tensorflow")(test_case)
-    else:
-        return test_case
+    return (
+        test_case
+        if is_tf_available()
+        else unittest.skip("test requires Tensorflow")(test_case)
+    )
 
 
 @require_tf

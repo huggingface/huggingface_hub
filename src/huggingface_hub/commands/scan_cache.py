@@ -81,7 +81,7 @@ class ScanCacheCommand(BaseHuggingfaceCLICommand):
                 for warning in hf_cache_info.warnings:
                     print(ANSI.gray(warning))
             else:
-                print(ANSI.gray(message + " Use -vvv to print details."))
+                print(ANSI.gray(f"{message} Use -vvv to print details."))
 
     def _print_hf_cache_info_as_table(self, hf_cache_info: HFCacheInfo) -> None:
         if self.verbosity == 0:

@@ -40,10 +40,7 @@ class ANSI:
 
     @classmethod
     def _format(cls, s: str, code: str) -> str:
-        if os.environ.get("NO_COLOR"):
-            # See https://no-color.org/
-            return s
-        return f"{code}{s}{cls._reset}"
+        return s if os.environ.get("NO_COLOR") else f"{code}{s}{cls._reset}"
 
 
 def tabulate(rows: List[List[Union[str, int]]], headers: List[str]) -> str:
@@ -55,9 +52,7 @@ def tabulate(rows: List[List[Union[str, int]]], headers: List[str]) -> str:
     """
     col_widths = [max(len(str(x)) for x in col) for col in zip(*rows, headers)]
     row_format = ("{{:{}}} " * len(headers)).format(*col_widths)
-    lines = []
-    lines.append(row_format.format(*headers))
+    lines = [row_format.format(*headers)]
     lines.append(row_format.format(*["-" * w for w in col_widths]))
-    for row in rows:
-        lines.append(row_format.format(*row))
+    lines.extend(row_format.format(*row) for row in rows)
     return "\n".join(lines)

@@ -163,10 +163,11 @@ def is_notebook() -> bool:
     """
     try:
         shell_class = get_ipython().__class__  # type: ignore # noqa: F821
-        for parent_class in shell_class.__mro__:  # e.g. "is subclass of"
-            if parent_class.__name__ == "ZMQInteractiveShell":
-                return True  # Jupyter notebook, Google colab or qtconsole
-        return False
+        return any(
+            parent_class.__name__ == "ZMQInteractiveShell"
+            for parent_class in shell_class.__mro__
+        )
+
     except NameError:
         return False  # Probably standard Python interpreter
 

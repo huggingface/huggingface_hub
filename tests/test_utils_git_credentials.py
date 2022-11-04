@@ -39,7 +39,7 @@ class TestGitCredentials(unittest.TestCase):
         self.assertIn("store", helpers)
 
     def test_set_and_unset_git_credential(self) -> None:
-        username = "hf_test_user_" + str(round(time.time()))  # make username unique
+        username = f"hf_test_user_{str(round(time.time()))}"
 
         # Set credentials
         set_git_credential(
