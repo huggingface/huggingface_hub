@@ -9,7 +9,7 @@ from huggingface_hub.utils import logging
 from huggingface_hub.utils._errors import EntryNotFoundError
 
 from .testing_constants import ENDPOINT_STAGING, TOKEN, USER
-from .testing_utils import repo_name, with_production_testing
+from .testing_utils import expect_deprecation, repo_name, with_production_testing
 
 
 logger = logging.get_logger(__name__)
@@ -315,6 +315,7 @@ class ReferenceUpdates(unittest.TestCase):
     _api = HfApi(endpoint=ENDPOINT_STAGING, token=TOKEN)
 
     @classmethod
+    @expect_deprecation("set_access_token")
     def setUpClass(cls):
         """
         Share this valid token in all tests below.

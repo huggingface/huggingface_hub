@@ -39,6 +39,14 @@ from ._errors import (
     hf_raise_for_status,
 )
 from ._fixes import yaml_dump
+from ._git_credential import (
+    erase_from_credential_store,
+    list_credential_helpers,
+    read_from_credential_store,
+    set_git_credential,
+    unset_git_credential,
+    write_to_credential_store,
+)
 from ._headers import build_hf_headers, get_token_to_send
 from ._hf_folder import HfFolder
 from ._http import http_backoff
@@ -63,7 +71,7 @@ from ._runtime import (
     is_tf_available,
     is_torch_available,
 )
-from ._subprocess import run_subprocess
+from ._subprocess import run_interactive_subprocess, run_subprocess
 from ._validators import (
     HFValidationError,
     smoothly_deprecate_use_auth_token,
