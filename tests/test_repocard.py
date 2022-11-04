@@ -420,6 +420,50 @@ class RepocardMetadataUpdateTest(unittest.TestCase):
         expected_metadata = {"license": "cc-by-sa-4.0", "tag": "test"}
         self.assertDictEqual(updated_metadata, expected_metadata)
 
+    def test_update_with_existing_name(self):
+        new_metadata = copy.deepcopy(self.existing_metadata)
+        new_metadata["model-index"][0].pop("name")
+        new_metadata["model-index"][0]["results"][0]["metrics"][0][
+            "value"
+        ] = 0.2862102282047272
+
+        metadata_update(
+            f"{USER}/{self.REPO_NAME}",
+            new_metadata,
+            token=self._token,
+            overwrite=True,
+        )
+
+        card_data = ModelCard.load(f"{USER}/{self.REPO_NAME}", token=self._token)
+
+        self.assertEqual(
+            card_data.data.model_name, self.existing_metadata["model-index"][0]["name"]
+        )
+
+    def test_update_without_existing_name(self):
+
+        # delete existing metadata
+        self._api.upload_file(
+            path_or_fileobj="# Test".encode(),
+            repo_id=f"{USER}/{self.REPO_NAME}",
+            path_in_repo="README.md",
+            commit_message="Add README to main branch",
+        )
+
+        new_metadata = copy.deepcopy(self.existing_metadata)
+        new_metadata["model-index"][0].pop("name")
+
+        metadata_update(
+            f"{USER}/{self.REPO_NAME}",
+            new_metadata,
+            token=self._token,
+            overwrite=True,
+        )
+
+        card_data = ModelCard.load(f"{USER}/{self.REPO_NAME}", token=self._token)
+
+        self.assertEqual(card_data.data.model_name, f"{USER}/{self.REPO_NAME}")
+
 
 class TestMetadataUpdateOnMissingCard(unittest.TestCase):
     def setUp(self) -> None:
