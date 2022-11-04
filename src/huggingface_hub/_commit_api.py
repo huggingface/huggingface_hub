@@ -45,6 +45,10 @@ class CommitOperationDelete:
     """
 
     path_in_repo: str
+    path_type: Literal["as_file", "as_folder"] = field(init=False)
+
+    def __post_init__(self):
+        self.path_type = "as_folder" if self.path_in_repo.endswith("/") else "as_file"
 
 
 @dataclass
@@ -460,6 +464,9 @@ def prepare_commit_payload(
 
     # 4. Send deleted files, one per line
     yield from (
-        {"key": "deletedFile", "value": {"path": del_op.path_in_repo}}
+        {
+            "key": "deletedFile" if del_op.path_type == "is_file" else "deletedFolder",
+            "value": {"path": del_op.path_in_repo},
+        }
         for del_op in deletions
     )

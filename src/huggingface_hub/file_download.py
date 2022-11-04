@@ -1368,6 +1368,9 @@ def get_hf_file_metadata(
     )
     hf_raise_for_status(r)
 
+    import pdb
+
+    pdb.set_trace()
     # Return
     return HfFileMetadata(
         commit_hash=r.headers.get(HUGGINGFACE_HEADER_X_REPO_COMMIT),
