@@ -66,6 +66,7 @@ from .utils import (  # noqa: F401 # imported for backward compatibility
 )
 from .utils._deprecation import (
     _deprecate_arguments,
+    _deprecate_list_output,
     _deprecate_method,
     _deprecate_positional_args,
 )
@@ -666,6 +667,7 @@ class HfApi:
         d = r.json()
         return DatasetTags(d)
 
+    @_deprecate_list_output(version="0.14")
     @validate_hf_hub_args
     def list_models(
         self,
@@ -683,7 +685,7 @@ class HfApi:
         token: Optional[Union[bool, str]] = None,
     ) -> List[ModelInfo]:
         """
-        Get the public list of all the models on huggingface.co
+        Get the list of all the models on huggingface.co
 
         Args:
             filter ([`ModelFilter`] or `str` or `Iterable`, *optional*):
@@ -724,7 +726,10 @@ class HfApi:
                 or [`~huggingface_hub.login`]), token will be retrieved from the cache.
                 If `False`, token is not sent in the request header.
 
-        Returns: List of [`huggingface_hub.hf_api.ModelInfo`] objects
+        Returns:
+            `List[ModelInfo]`: a list of [`huggingface_hub.hf_api.ModelInfo`] objects.
+             To anticipate future pagination, please consider the return value to be a
+             simple iterator.
 
         Example usage with the `filter` argument:
 
@@ -883,6 +888,7 @@ class HfApi:
         deprecated_args={"cardData"},
         custom_message="Use 'full' instead.",
     )
+    @_deprecate_list_output(version="0.14")
     @validate_hf_hub_args
     def list_datasets(
         self,
@@ -898,7 +904,7 @@ class HfApi:
         token: Optional[str] = None,
     ) -> List[DatasetInfo]:
         """
-        Get the public list of all the datasets on huggingface.co
+        Get the list of all the datasets on huggingface.co
 
         Args:
             filter ([`DatasetFilter`] or `str` or `Iterable`, *optional*):
@@ -926,6 +932,11 @@ class HfApi:
                 If `None` or `True` and machine is logged in (through `huggingface-cli login`
                 or [`~huggingface_hub.login`]), token will be retrieved from the cache.
                 If `False`, token is not sent in the request header.
+
+        Returns:
+            `List[DatasetInfo]`: a list of [`huggingface_hub.hf_api.DatasetInfo`] objects.
+             To anticipate future pagination, please consider the return value to be a
+             simple iterator.
 
         Example usage with the `filter` argument:
 
@@ -1055,6 +1066,7 @@ class HfApi:
         d = r.json()
         return [MetricInfo(**x) for x in d]
 
+    @_deprecate_list_output(version="0.14")
     @validate_hf_hub_args
     def list_spaces(
         self,
@@ -1108,7 +1120,9 @@ class HfApi:
                 If `False`, token is not sent in the request header.
 
         Returns:
-            `List[SpaceInfo]`: a list of [`huggingface_hub.hf_api.SpaceInfo`] objects
+            `List[SpaceInfo]`: a list of [`huggingface_hub.hf_api.SpaceInfo`] objects.
+             To anticipate future pagination, please consider the return value to be a
+             simple iterator.
         """
         path = f"{self.endpoint}/api/spaces"
         headers = self._build_hf_headers(token=token)
