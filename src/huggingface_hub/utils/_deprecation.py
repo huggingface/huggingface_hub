@@ -193,7 +193,7 @@ class DeprecateListMetaclass(type):
                 "A `_deprecate` method must be implemented to use"
                 " `DeprecateListMetaclass`."
             )
-        if list in bases:
+        if list not in bases:
             raise TypeError(
                 "Class must inherit from `list` to use `DeprecateListMetaclass`."
             )
