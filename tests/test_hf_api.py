@@ -34,7 +34,7 @@ from huggingface_hub._commit_api import (
     CommitOperationDelete,
     fetch_upload_modes,
 )
-from huggingface_hub._login import _login
+from huggingface_hub._login import _login, _set_store_as_git_credential_helper_globally
 from huggingface_hub.community import DiscussionComment, DiscussionWithDetails
 from huggingface_hub.constants import (
     REPO_TYPE_DATASET,
@@ -149,7 +149,8 @@ class HfApiLoginTest(HfApiCommonTest):
             read_from_credential_store(USERNAME_PLACEHOLDER), (None, None)
         )
 
-        _login(token=TOKEN, add_to_git_credential=True)
+        _set_store_as_git_credential_helper_globally()
+        _login(token=TOKEN)
         self.assertTupleEqual(
             read_from_credential_store(USERNAME_PLACEHOLDER),
             (USERNAME_PLACEHOLDER, TOKEN),
