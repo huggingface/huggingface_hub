@@ -15,7 +15,6 @@
 import json
 import os
 import re
-import subprocess
 import warnings
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -52,17 +51,24 @@ from .constants import (
     REPO_TYPES_URL_PREFIXES,
     SPACES_SDK_TYPES,
 )
-from .utils import HfFolder  # noqa: F401 # imported for backward compatibility
-from .utils import (
+from .utils import (  # noqa: F401 # imported for backward compatibility
+    HfFolder,
     HfHubHTTPError,
     build_hf_headers,
+    erase_from_credential_store,
     filter_repo_objects,
     hf_raise_for_status,
     logging,
     parse_datetime,
+    read_from_credential_store,
     validate_hf_hub_args,
+    write_to_credential_store,
 )
-from .utils._deprecation import _deprecate_arguments, _deprecate_positional_args
+from .utils._deprecation import (
+    _deprecate_arguments,
+    _deprecate_method,
+    _deprecate_positional_args,
+)
 from .utils._typing import Literal, TypedDict
 from .utils.endpoint_helpers import (
     AttributeDictionary,
@@ -558,88 +564,6 @@ class DatasetSearchArguments(AttributeDictionary):
         self["author"] = author_dict
 
 
-def write_to_credential_store(username: str, password: str):
-    with subprocess.Popen(
-        "git credential-store store".split(),
-        stdin=subprocess.PIPE,
-        stdout=subprocess.PIPE,
-        stderr=subprocess.STDOUT,
-    ) as process:
-        input_username = f"username={username.lower()}"
-        input_password = f"password={password}"
-
-        assert (
-            process.stdin is not None
-        ), "subprocess must be opened with subprocess.PIPE"
-        process.stdin.write(
-            f"url={ENDPOINT}\n{input_username}\n{input_password}\n\n".encode("utf-8")
-        )
-        process.stdin.flush()
-
-
-def read_from_credential_store(
-    username=None,
-) -> Tuple[Union[str, None], Union[str, None]]:
-    """
-    Reads the credential store relative to huggingface.co. If no `username` is
-    specified, will read the first entry for huggingface.co, otherwise will read
-    the entry corresponding to the username specified.
-
-    The username returned will be all lowercase.
-    """
-    with subprocess.Popen(
-        "git credential-store get".split(),
-        stdin=subprocess.PIPE,
-        stdout=subprocess.PIPE,
-        stderr=subprocess.STDOUT,
-    ) as process:
-        standard_input = f"url={ENDPOINT}\n"
-
-        if username is not None:
-            standard_input += f"username={username.lower()}\n"
-
-        standard_input += "\n"
-
-        assert (
-            process.stdin is not None
-        ), "subprocess must be opened with subprocess.PIPE"
-        assert (
-            process.stdout is not None
-        ), "subprocess must be opened with subprocess.PIPE"
-        process.stdin.write(standard_input.encode("utf-8"))
-        process.stdin.flush()
-        output = process.stdout.read().decode("utf-8")
-
-    if len(output) == 0:
-        return None, None
-
-    username, password = [line for line in output.split("\n") if len(line) != 0]
-    return username.split("=")[1], password.split("=")[1]
-
-
-def erase_from_credential_store(username=None):
-    """
-    Erases the credential store relative to huggingface.co. If no `username` is
-    specified, will erase the first entry for huggingface.co, otherwise will
-    erase the entry corresponding to the username specified.
-    """
-    with subprocess.Popen(
-        "git credential-store erase".split(),
-        stdin=subprocess.PIPE,
-        stdout=subprocess.PIPE,
-        stderr=subprocess.STDOUT,
-    ) as process:
-        standard_input = f"url={ENDPOINT}\n"
-
-        if username is not None:
-            standard_input += f"username={username.lower()}\n"
-
-        standard_input += "\n"
-
-        process.stdin.write(standard_input.encode("utf-8"))
-        process.stdin.flush()
-
-
 class HfApi:
     def __init__(
         self, endpoint: Optional[str] = None, token: Optional[str] = None
@@ -692,6 +616,13 @@ class HfApi:
             return False
 
     @staticmethod
+    @_deprecate_method(
+        version="0.14",
+        message=(
+            "`HfApi.set_access_token` is deprecated as it is very ambiguous. Use"
+            " `login` or `set_git_credential` instead."
+        ),
+    )
     def set_access_token(access_token: str):
         """
         Saves the passed access token so git can correctly authenticate the
@@ -704,6 +635,13 @@ class HfApi:
         write_to_credential_store(USERNAME_PLACEHOLDER, access_token)
 
     @staticmethod
+    @_deprecate_method(
+        version="0.14",
+        message=(
+            "`HfApi.unset_access_token` is deprecated as it is very ambiguous. Use"
+            " `login` or `unset_git_credential` instead."
+        ),
+    )
     def unset_access_token():
         """
         Resets the user's access token.

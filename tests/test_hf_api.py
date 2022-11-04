@@ -34,7 +34,7 @@ from huggingface_hub._commit_api import (
     CommitOperationDelete,
     fetch_upload_modes,
 )
-from huggingface_hub._login import _login
+from huggingface_hub._login import _login, _set_store_as_git_credential_helper_globally
 from huggingface_hub.community import DiscussionComment, DiscussionWithDetails
 from huggingface_hub.constants import (
     REPO_TYPE_DATASET,
@@ -113,13 +113,16 @@ class HfApiCommonTest(unittest.TestCase):
 
 
 class HfApiLoginTest(HfApiCommonTest):
+    @expect_deprecation("erase_from_credential_store")
     def setUp(self) -> None:
         erase_from_credential_store(USERNAME_PLACEHOLDER)
 
     @classmethod
+    @expect_deprecation("set_access_token")
     def tearDownClass(cls) -> None:
         cls._api.set_access_token(TOKEN)
 
+    @expect_deprecation("read_from_credential_store")
     def test_login_git_credentials(self):
         self.assertTupleEqual(
             read_from_credential_store(USERNAME_PLACEHOLDER), (None, None)
@@ -134,6 +137,7 @@ class HfApiLoginTest(HfApiCommonTest):
             read_from_credential_store(USERNAME_PLACEHOLDER), (None, None)
         )
 
+    @expect_deprecation("read_from_credential_store")
     def test_login_cli(self):
         self._api.set_access_token(TOKEN)
         self.assertTupleEqual(
@@ -145,7 +149,8 @@ class HfApiLoginTest(HfApiCommonTest):
             read_from_credential_store(USERNAME_PLACEHOLDER), (None, None)
         )
 
-        _login(token=TOKEN)
+        _set_store_as_git_credential_helper_globally()
+        _login(token=TOKEN, add_to_git_credential=True)
         self.assertTupleEqual(
             read_from_credential_store(USERNAME_PLACEHOLDER),
             (USERNAME_PLACEHOLDER, TOKEN),
@@ -159,11 +164,12 @@ class HfApiLoginTest(HfApiCommonTest):
         with pytest.raises(
             ValueError, match="You must use your personal account token."
         ):
-            _login(token="api_org_dummy_token")
+            _login(token="api_org_dummy_token", add_to_git_credential=True)
 
 
 class HfApiCommonTestWithLogin(HfApiCommonTest):
     @classmethod
+    @expect_deprecation("set_access_token")
     def setUpClass(cls):
         """
         Share this valid token in all tests below.
@@ -1777,6 +1783,7 @@ class HfFolderTest(unittest.TestCase):
 @require_git_lfs
 class HfLargefilesTest(HfApiCommonTest):
     @classmethod
+    @expect_deprecation("set_access_token")
     def setUpClass(cls):
         """
         Share this valid token in all tests below.
