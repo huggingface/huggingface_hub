@@ -1024,37 +1024,52 @@ class CommitApiTest(HfApiCommonTestWithLogin):
         finally:
             self._api.delete_repo(repo_id=REPO_NAME)
 
-    @retry_endpoint
-    def test_create_commit_delete_folder(self):
-        repo_id = f"{USER}/{repo_name('create_commit_delete_folder')}"
-        self._api.create_repo(repo_id=repo_id, exist_ok=False)
 
-        self._api.upload_file(
-            path_or_fileobj=b"some data", path_in_repo="1/file_1.md", repo_id=repo_id
-        )
-        self._api.upload_file(
-            path_or_fileobj=b"some data", path_in_repo="1/file_2.md", repo_id=repo_id
-        )
-        self._api.upload_file(
-            path_or_fileobj=b"some data", path_in_repo="2/file_3.md", repo_id=repo_id
-        )
+class HfApiDeleteFolderTest(HfApiCommonTestWithLogin):
+    def setUp(self):
+        self.repo_id = f"{USER}/{repo_name('create_commit_delete_folder')}"
+        self._api.create_repo(repo_id=self.repo_id, exist_ok=False)
 
         self._api.create_commit(
+            repo_id=self.repo_id,
+            commit_message="Init repo",
+            operations=[
+                CommitOperationAdd(path_or_fileobj=b"data", path_in_repo="1/file_1.md"),
+                CommitOperationAdd(path_or_fileobj=b"data", path_in_repo="1/file_2.md"),
+                CommitOperationAdd(path_or_fileobj=b"data", path_in_repo="2/file_3.md"),
+            ],
+        )
+
+    def tearDown(self):
+        self._api.delete_repo(repo_id=self.repo_id)
+
+    @retry_endpoint
+    def test_create_commit_delete_folder_implicit(self):
+        self._api.create_commit(
             operations=[CommitOperationDelete(path_in_repo="1/")],
-            commit_message="Test delete folder",
-            repo_id=repo_id,
+            commit_message="Test delete folder implicit",
+            repo_id=self.repo_id,
         )
 
         with self.assertRaises(EntryNotFoundError):
-            hf_hub_download(repo_id, "1/file_1.md", use_auth_token=self._token)
+            hf_hub_download(self.repo_id, "1/file_1.md", use_auth_token=self._token)
 
         with self.assertRaises(EntryNotFoundError):
-            hf_hub_download(repo_id, "1/file_2.md", use_auth_token=self._token)
+            hf_hub_download(self.repo_id, "1/file_2.md", use_auth_token=self._token)
 
         # Still exists
-        hf_hub_download(repo_id, "2/file_3.md", use_auth_token=self._token)
+        hf_hub_download(self.repo_id, "2/file_3.md", use_auth_token=self._token)
 
-        self._api.delete_repo(repo_id=repo_id)
+    @retry_endpoint
+    def test_create_commit_delete_folder_explicit(self):
+        self._api.create_commit(
+            operations=[CommitOperationDelete(path_in_repo="1", is_folder=True)],
+            commit_message="Test delete folder explicit",
+            repo_id=self.repo_id,
+        )
+
+        with self.assertRaises(EntryNotFoundError):
+            hf_hub_download(self.repo_id, "1/file_1.md", use_auth_token=self._token)
 
 
 class HfApiTagEndpointTest(HfApiCommonTestWithLogin):
