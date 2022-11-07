@@ -408,20 +408,36 @@ class StagingCachedDownloadOnAwfulFilenamesTest(unittest.TestCase):
 
     cache_dir: Path
     repo_id = "valid_org/repo_with_awful_filename"
-    filename = "subfolder/to/awful?filename%you:should,never.give"
+    subfolder = "subfolder/to?"
+    filename = "awful?filename%you:should,never.give"
+    filepath = "subfolder/to?/awful?filename%you:should,never.give"
+    expected_url = "https://hub-ci.huggingface.co/valid_org/repo_with_awful_filename/resolve/main/subfolder/to%3F/awful%3Ffilename%25you%3Ashould%2Cnever.give"
 
-    def test_hf_hub_url_on_awful_filename(self):
+    def test_hf_hub_url_on_awful_filepath(self):
+        self.assertEqual(hf_hub_url(self.repo_id, self.filepath), self.expected_url)
+
+    def test_hf_hub_url_on_awful_subfolder_and_filename(self):
         self.assertEqual(
-            hf_hub_url(self.repo_id, self.filename),
-            "https://hub-ci.huggingface.co/valid_org/repo_with_awful_filename/resolve/main/subfolder/to/awful%3Ffilename%25you%3Ashould%2Cnever.give",
+            hf_hub_url(self.repo_id, self.filename, subfolder=self.subfolder),
+            self.expected_url,
         )
 
-    def test_hf_hub_download_on_awful_filename(self):
+    def test_hf_hub_download_on_awful_filepath(self):
         local_path = hf_hub_download(
-            self.repo_id, self.filename, cache_dir=self.cache_dir
+            self.repo_id, self.filepath, cache_dir=self.cache_dir
         )
         # Local path is not url-encoded
-        self.assertTrue(local_path.endswith(self.filename))
+        self.assertTrue(local_path.endswith(self.filepath))
+
+    def test_hf_hub_download_on_awful_subfolder_and_filename(self):
+        local_path = hf_hub_download(
+            self.repo_id,
+            self.filename,
+            subfolder=self.subfolder,
+            cache_dir=self.cache_dir,
+        )
+        # Local path is not url-encoded
+        self.assertTrue(local_path.endswith(self.filepath))
 
 
 class CreateSymlinkTest(unittest.TestCase):
