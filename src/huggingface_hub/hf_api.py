@@ -65,6 +65,7 @@ from .utils import (  # noqa: F401 # imported for backward compatibility
     write_to_credential_store,
 )
 from .utils._deprecation import (
+    _deprecate_arguments,
     _deprecate_list_output,
     _deprecate_method,
     _deprecate_positional_args,
@@ -510,7 +511,7 @@ class ModelSearchArguments(AttributeDictionary):
         self._process_models()
 
     def _process_models(self):
-        def clean(s: str):
+        def clean(s: str) -> str:
             return s.replace(" ", "").replace("-", "_").replace(".", "_")
 
         models = self._api.list_models()
@@ -679,8 +680,8 @@ class HfApi:
         direction: Optional[Literal[-1]] = None,
         limit: Optional[int] = None,
         full: Optional[bool] = None,
-        cardData: Optional[bool] = None,
-        fetch_config: Optional[bool] = None,
+        cardData: bool = False,
+        fetch_config: bool = False,
         token: Optional[Union[bool, str]] = None,
     ) -> List[ModelInfo]:
         """
@@ -802,10 +803,10 @@ class HfApi:
                 params.update({"full": True})
             elif "full" in params:
                 del params["full"]
-        if fetch_config is not None:
-            params.update({"config": fetch_config})
-        if cardData is not None:
-            params.update({"cardData": cardData})
+        if fetch_config:
+            params.update({"config": True})
+        if cardData:
+            params.update({"cardData": True})
         r = requests.get(path, params=params, headers=headers)
         hf_raise_for_status(r)
         d = r.json()
@@ -882,6 +883,11 @@ class HfApi:
         query_dict["filter"] = tuple(filter_list)
         return query_dict
 
+    @_deprecate_arguments(
+        version="0.14",
+        deprecated_args={"cardData"},
+        custom_message="Use 'full' instead.",
+    )
     @_deprecate_list_output(version="0.14")
     @validate_hf_hub_args
     def list_datasets(
@@ -893,7 +899,7 @@ class HfApi:
         sort: Union[Literal["lastModified"], str, None] = None,
         direction: Optional[Literal[-1]] = None,
         limit: Optional[int] = None,
-        cardData: Optional[bool] = None,
+        cardData: Optional[bool] = None,  # deprecated
         full: Optional[bool] = None,
         token: Optional[str] = None,
     ) -> List[DatasetInfo]:
@@ -917,12 +923,10 @@ class HfApi:
             limit (`int`, *optional*):
                 The limit on the number of datasets fetched. Leaving this option
                 to `None` fetches all datasets.
-            cardData (`bool`, *optional*):
-                Whether to grab the metadata for the dataset as well. Can
-                contain useful information such as the PapersWithCode ID.
             full (`bool`, *optional*):
                 Whether to fetch all dataset data, including the `lastModified`
-                and the `cardData`.
+                and the `cardData`. Can contain useful information such as the
+                PapersWithCode ID.
             token (`bool` or `str`, *optional*):
                 A valid authentication token (see https://huggingface.co/settings/token).
                 If `None` or `True` and machine is logged in (through `huggingface-cli login`
@@ -1001,12 +1005,8 @@ class HfApi:
             params.update({"direction": direction})
         if limit is not None:
             params.update({"limit": limit})
-        if full is not None:
-            if full:
-                params.update({"full": True})
-        if cardData is not None:
-            if cardData:
-                params.update({"full": True})
+        if full or cardData:
+            params.update({"full": True})
         r = requests.get(path, params=params, headers=headers)
         hf_raise_for_status(r)
         d = r.json()
@@ -1079,7 +1079,7 @@ class HfApi:
         limit: Optional[int] = None,
         datasets: Union[str, Iterable[str], None] = None,
         models: Union[str, Iterable[str], None] = None,
-        linked: Optional[bool] = None,
+        linked: bool = False,
         full: Optional[bool] = None,
         token: Optional[str] = None,
     ) -> List[SpaceInfo]:
@@ -1139,12 +1139,10 @@ class HfApi:
             params.update({"direction": direction})
         if limit is not None:
             params.update({"limit": limit})
-        if full is not None:
-            if full:
-                params.update({"full": True})
-        if linked is not None:
-            if linked:
-                params.update({"linked": True})
+        if full:
+            params.update({"full": True})
+        if linked:
+            params.update({"linked": True})
         if datasets is not None:
             params.update({"datasets": datasets})
         if models is not None:
