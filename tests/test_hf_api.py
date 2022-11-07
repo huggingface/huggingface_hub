@@ -1066,6 +1066,18 @@ class HfApiDeleteFolderTest(HfApiCommonTestWithLogin):
         with self.assertRaises(EntryNotFoundError):
             hf_hub_download(self.repo_id, "1/file_1.md", use_auth_token=self._token)
 
+    @retry_endpoint
+    def test_create_commit_failing_implicit_delete_folder(self):
+        with self.assertRaisesRegex(
+            EntryNotFoundError,
+            "Make sure to differentiate file and folder paths",
+        ):
+            self._api.create_commit(
+                operations=[CommitOperationDelete(path_in_repo="1")],
+                commit_message="Failing delete folder",
+                repo_id=self.repo_id,
+            )
+
 
 class HfApiTagEndpointTest(HfApiCommonTestWithLogin):
     _user = USER

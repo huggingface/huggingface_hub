@@ -22,7 +22,7 @@ from typing import Any, BinaryIO, Dict, Iterable, Iterator, List, Optional, Tupl
 from urllib.parse import quote
 
 import requests
-from huggingface_hub.utils import RepositoryNotFoundError
+from huggingface_hub.utils import EntryNotFoundError, RepositoryNotFoundError
 from requests.exceptions import HTTPError
 
 from ._commit_api import (
@@ -1919,6 +1919,13 @@ class HfApi:
             hf_raise_for_status(commit_resp, endpoint_name="commit")
         except RepositoryNotFoundError as e:
             e.append_to_message(_CREATE_COMMIT_NO_REPO_ERROR_MESSAGE)
+            raise
+        except EntryNotFoundError as e:
+            if len(deletions) > 0 and "A file with this name doesn't exist" in str(e):
+                e.append_to_message(
+                    "\nMake sure to differentiate file and folder paths in delete"
+                    " operations with a trailing '/' or using `is_folder=True/False`."
+                )
             raise
 
         commit_data = commit_resp.json()
