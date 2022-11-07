@@ -1062,12 +1062,7 @@ class HfApiDeleteFolderTest(HfApiCommonTestWithLogin):
 
     @retry_endpoint
     def test_create_commit_delete_folder_explicit(self):
-        self._api.create_commit(
-            operations=[CommitOperationDelete(path_in_repo="1", is_folder=True)],
-            commit_message="Test delete folder explicit",
-            repo_id=self.repo_id,
-        )
-
+        self._api.delete_folder(path_in_repo="1", repo_id=self.repo_id)
         with self.assertRaises(EntryNotFoundError):
             hf_hub_download(self.repo_id, "1/file_1.md", use_auth_token=self._token)
 

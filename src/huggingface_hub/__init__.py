@@ -112,6 +112,7 @@ _SUBMOD_ATTRS = {
         "create_tag",
         "dataset_info",
         "delete_file",
+        "delete_folder",
         "delete_repo",
         "delete_tag",
         "edit_discussion_comment",
@@ -334,6 +335,7 @@ if TYPE_CHECKING:  # pragma: no cover
     from .hf_api import create_tag  # noqa: F401
     from .hf_api import dataset_info  # noqa: F401
     from .hf_api import delete_file  # noqa: F401
+    from .hf_api import delete_folder  # noqa: F401
     from .hf_api import delete_repo  # noqa: F401
     from .hf_api import delete_tag  # noqa: F401
     from .hf_api import edit_discussion_comment  # noqa: F401
