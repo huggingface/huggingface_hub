@@ -234,7 +234,7 @@ def hf_hub_url(
     return HUGGINGFACE_CO_URL_TEMPLATE.format(
         repo_id=repo_id,
         revision=quote(revision, safe=""),
-        filename=filename,
+        filename=quote(filename),
     )
 
 
