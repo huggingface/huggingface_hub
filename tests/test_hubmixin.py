@@ -67,6 +67,7 @@ class HubMixingTest(HubMixingCommonTest):
         )
 
     @classmethod
+    @expect_deprecation("set_access_token")
     def setUpClass(cls):
         """
         Share this valid token in all tests below.

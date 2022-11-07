@@ -15,7 +15,6 @@
 import json
 import os
 import re
-import subprocess
 import warnings
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -52,17 +51,25 @@ from .constants import (
     REPO_TYPES_URL_PREFIXES,
     SPACES_SDK_TYPES,
 )
-from .utils import HfFolder  # noqa: F401 # imported for backward compatibility
-from .utils import (
+from .utils import (  # noqa: F401 # imported for backward compatibility
+    HfFolder,
     HfHubHTTPError,
     build_hf_headers,
+    erase_from_credential_store,
     filter_repo_objects,
     hf_raise_for_status,
     logging,
     parse_datetime,
+    read_from_credential_store,
     validate_hf_hub_args,
+    write_to_credential_store,
 )
-from .utils._deprecation import _deprecate_positional_args
+from .utils._deprecation import (
+    _deprecate_arguments,
+    _deprecate_list_output,
+    _deprecate_method,
+    _deprecate_positional_args,
+)
 from .utils._typing import Literal, TypedDict
 from .utils.endpoint_helpers import (
     AttributeDictionary,
@@ -504,7 +511,7 @@ class ModelSearchArguments(AttributeDictionary):
         self._process_models()
 
     def _process_models(self):
-        def clean(s: str):
+        def clean(s: str) -> str:
             return s.replace(" ", "").replace("-", "_").replace(".", "_")
 
         models = self._api.list_models()
@@ -556,88 +563,6 @@ class DatasetSearchArguments(AttributeDictionary):
             dataset_name_dict[name] = clean(name)
         self["dataset_name"] = dataset_name_dict
         self["author"] = author_dict
-
-
-def write_to_credential_store(username: str, password: str):
-    with subprocess.Popen(
-        "git credential-store store".split(),
-        stdin=subprocess.PIPE,
-        stdout=subprocess.PIPE,
-        stderr=subprocess.STDOUT,
-    ) as process:
-        input_username = f"username={username.lower()}"
-        input_password = f"password={password}"
-
-        assert (
-            process.stdin is not None
-        ), "subprocess must be opened with subprocess.PIPE"
-        process.stdin.write(
-            f"url={ENDPOINT}\n{input_username}\n{input_password}\n\n".encode("utf-8")
-        )
-        process.stdin.flush()
-
-
-def read_from_credential_store(
-    username=None,
-) -> Tuple[Union[str, None], Union[str, None]]:
-    """
-    Reads the credential store relative to huggingface.co. If no `username` is
-    specified, will read the first entry for huggingface.co, otherwise will read
-    the entry corresponding to the username specified.
-
-    The username returned will be all lowercase.
-    """
-    with subprocess.Popen(
-        "git credential-store get".split(),
-        stdin=subprocess.PIPE,
-        stdout=subprocess.PIPE,
-        stderr=subprocess.STDOUT,
-    ) as process:
-        standard_input = f"url={ENDPOINT}\n"
-
-        if username is not None:
-            standard_input += f"username={username.lower()}\n"
-
-        standard_input += "\n"
-
-        assert (
-            process.stdin is not None
-        ), "subprocess must be opened with subprocess.PIPE"
-        assert (
-            process.stdout is not None
-        ), "subprocess must be opened with subprocess.PIPE"
-        process.stdin.write(standard_input.encode("utf-8"))
-        process.stdin.flush()
-        output = process.stdout.read().decode("utf-8")
-
-    if len(output) == 0:
-        return None, None
-
-    username, password = [line for line in output.split("\n") if len(line) != 0]
-    return username.split("=")[1], password.split("=")[1]
-
-
-def erase_from_credential_store(username=None):
-    """
-    Erases the credential store relative to huggingface.co. If no `username` is
-    specified, will erase the first entry for huggingface.co, otherwise will
-    erase the entry corresponding to the username specified.
-    """
-    with subprocess.Popen(
-        "git credential-store erase".split(),
-        stdin=subprocess.PIPE,
-        stdout=subprocess.PIPE,
-        stderr=subprocess.STDOUT,
-    ) as process:
-        standard_input = f"url={ENDPOINT}\n"
-
-        if username is not None:
-            standard_input += f"username={username.lower()}\n"
-
-        standard_input += "\n"
-
-        process.stdin.write(standard_input.encode("utf-8"))
-        process.stdin.flush()
 
 
 class HfApi:
@@ -692,6 +617,13 @@ class HfApi:
             return False
 
     @staticmethod
+    @_deprecate_method(
+        version="0.14",
+        message=(
+            "`HfApi.set_access_token` is deprecated as it is very ambiguous. Use"
+            " `login` or `set_git_credential` instead."
+        ),
+    )
     def set_access_token(access_token: str):
         """
         Saves the passed access token so git can correctly authenticate the
@@ -704,6 +636,13 @@ class HfApi:
         write_to_credential_store(USERNAME_PLACEHOLDER, access_token)
 
     @staticmethod
+    @_deprecate_method(
+        version="0.14",
+        message=(
+            "`HfApi.unset_access_token` is deprecated as it is very ambiguous. Use"
+            " `login` or `unset_git_credential` instead."
+        ),
+    )
     def unset_access_token():
         """
         Resets the user's access token.
@@ -728,6 +667,7 @@ class HfApi:
         d = r.json()
         return DatasetTags(d)
 
+    @_deprecate_list_output(version="0.14")
     @validate_hf_hub_args
     def list_models(
         self,
@@ -740,12 +680,12 @@ class HfApi:
         direction: Optional[Literal[-1]] = None,
         limit: Optional[int] = None,
         full: Optional[bool] = None,
-        cardData: Optional[bool] = None,
-        fetch_config: Optional[bool] = None,
+        cardData: bool = False,
+        fetch_config: bool = False,
         token: Optional[Union[bool, str]] = None,
     ) -> List[ModelInfo]:
         """
-        Get the public list of all the models on huggingface.co
+        Get the list of all the models on huggingface.co
 
         Args:
             filter ([`ModelFilter`] or `str` or `Iterable`, *optional*):
@@ -786,7 +726,10 @@ class HfApi:
                 or [`~huggingface_hub.login`]), token will be retrieved from the cache.
                 If `False`, token is not sent in the request header.
 
-        Returns: List of [`huggingface_hub.hf_api.ModelInfo`] objects
+        Returns:
+            `List[ModelInfo]`: a list of [`huggingface_hub.hf_api.ModelInfo`] objects.
+             To anticipate future pagination, please consider the return value to be a
+             simple iterator.
 
         Example usage with the `filter` argument:
 
@@ -860,10 +803,10 @@ class HfApi:
                 params.update({"full": True})
             elif "full" in params:
                 del params["full"]
-        if fetch_config is not None:
-            params.update({"config": fetch_config})
-        if cardData is not None:
-            params.update({"cardData": cardData})
+        if fetch_config:
+            params.update({"config": True})
+        if cardData:
+            params.update({"cardData": True})
         r = requests.get(path, params=params, headers=headers)
         hf_raise_for_status(r)
         d = r.json()
@@ -940,6 +883,12 @@ class HfApi:
         query_dict["filter"] = tuple(filter_list)
         return query_dict
 
+    @_deprecate_arguments(
+        version="0.14",
+        deprecated_args={"cardData"},
+        custom_message="Use 'full' instead.",
+    )
+    @_deprecate_list_output(version="0.14")
     @validate_hf_hub_args
     def list_datasets(
         self,
@@ -950,12 +899,12 @@ class HfApi:
         sort: Union[Literal["lastModified"], str, None] = None,
         direction: Optional[Literal[-1]] = None,
         limit: Optional[int] = None,
-        cardData: Optional[bool] = None,
+        cardData: Optional[bool] = None,  # deprecated
         full: Optional[bool] = None,
         token: Optional[str] = None,
     ) -> List[DatasetInfo]:
         """
-        Get the public list of all the datasets on huggingface.co
+        Get the list of all the datasets on huggingface.co
 
         Args:
             filter ([`DatasetFilter`] or `str` or `Iterable`, *optional*):
@@ -974,17 +923,20 @@ class HfApi:
             limit (`int`, *optional*):
                 The limit on the number of datasets fetched. Leaving this option
                 to `None` fetches all datasets.
-            cardData (`bool`, *optional*):
-                Whether to grab the metadata for the dataset as well. Can
-                contain useful information such as the PapersWithCode ID.
             full (`bool`, *optional*):
                 Whether to fetch all dataset data, including the `lastModified`
-                and the `cardData`.
+                and the `cardData`. Can contain useful information such as the
+                PapersWithCode ID.
             token (`bool` or `str`, *optional*):
                 A valid authentication token (see https://huggingface.co/settings/token).
                 If `None` or `True` and machine is logged in (through `huggingface-cli login`
                 or [`~huggingface_hub.login`]), token will be retrieved from the cache.
                 If `False`, token is not sent in the request header.
+
+        Returns:
+            `List[DatasetInfo]`: a list of [`huggingface_hub.hf_api.DatasetInfo`] objects.
+             To anticipate future pagination, please consider the return value to be a
+             simple iterator.
 
         Example usage with the `filter` argument:
 
@@ -1053,12 +1005,8 @@ class HfApi:
             params.update({"direction": direction})
         if limit is not None:
             params.update({"limit": limit})
-        if full is not None:
-            if full:
-                params.update({"full": True})
-        if cardData is not None:
-            if cardData:
-                params.update({"full": True})
+        if full or cardData:
+            params.update({"full": True})
         r = requests.get(path, params=params, headers=headers)
         hf_raise_for_status(r)
         d = r.json()
@@ -1118,6 +1066,7 @@ class HfApi:
         d = r.json()
         return [MetricInfo(**x) for x in d]
 
+    @_deprecate_list_output(version="0.14")
     @validate_hf_hub_args
     def list_spaces(
         self,
@@ -1130,7 +1079,7 @@ class HfApi:
         limit: Optional[int] = None,
         datasets: Union[str, Iterable[str], None] = None,
         models: Union[str, Iterable[str], None] = None,
-        linked: Optional[bool] = None,
+        linked: bool = False,
         full: Optional[bool] = None,
         token: Optional[str] = None,
     ) -> List[SpaceInfo]:
@@ -1171,7 +1120,9 @@ class HfApi:
                 If `False`, token is not sent in the request header.
 
         Returns:
-            `List[SpaceInfo]`: a list of [`huggingface_hub.hf_api.SpaceInfo`] objects
+            `List[SpaceInfo]`: a list of [`huggingface_hub.hf_api.SpaceInfo`] objects.
+             To anticipate future pagination, please consider the return value to be a
+             simple iterator.
         """
         path = f"{self.endpoint}/api/spaces"
         headers = self._build_hf_headers(token=token)
@@ -1188,12 +1139,10 @@ class HfApi:
             params.update({"direction": direction})
         if limit is not None:
             params.update({"limit": limit})
-        if full is not None:
-            if full:
-                params.update({"full": True})
-        if linked is not None:
-            if linked:
-                params.update({"linked": True})
+        if full:
+            params.update({"full": True})
+        if linked:
+            params.update({"linked": True})
         if datasets is not None:
             params.update({"datasets": datasets})
         if models is not None:

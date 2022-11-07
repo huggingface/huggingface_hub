@@ -49,7 +49,12 @@ from .testing_constants import (
     TOKEN,
     USER,
 )
-from .testing_utils import repo_name, retry_endpoint, set_write_permission_and_retry
+from .testing_utils import (
+    expect_deprecation,
+    repo_name,
+    retry_endpoint,
+    set_write_permission_and_retry,
+)
 
 
 SAMPLE_CARDS_DIR = Path(__file__).parent / "fixtures/cards"
@@ -223,6 +228,7 @@ class RepocardMetadataUpdateTest(unittest.TestCase):
     _api = HfApi(endpoint=ENDPOINT_STAGING, token=TOKEN)
 
     @classmethod
+    @expect_deprecation("set_access_token")
     def setUpClass(cls):
         """
         Share this valid token in all tests below.
@@ -606,7 +612,7 @@ class RepoCardTest(TestCaseWithCapLog):
             metrics="acc",
         )
         # Mock what RepoCard.from_template does so we can test w/o Jinja2
-        content = f"{card_data.to_yaml()}\n\n# MyModel\n\nHello, world!"
+        content = f"---\n{card_data.to_yaml()}\n---\n\n# MyModel\n\nHello, world!"
         card = RepoCard(content)
 
         url = f"{ENDPOINT_STAGING_BASIC_AUTH}/{repo_id}/resolve/main/README.md"
@@ -637,7 +643,7 @@ class RepoCardTest(TestCaseWithCapLog):
             metrics="acc",
         )
         # Mock what RepoCard.from_template does so we can test w/o Jinja2
-        content = f"{card_data.to_yaml()}\n\n# MyModel\n\nHello, world!"
+        content = f"---\n{card_data.to_yaml()}\n---\n\n# MyModel\n\nHello, world!"
         card = RepoCard(content)
 
         url = f"{ENDPOINT_STAGING_BASIC_AUTH}/api/models/{repo_id}/discussions"
@@ -655,6 +661,14 @@ class RepoCardTest(TestCaseWithCapLog):
         card_path = SAMPLE_CARDS_DIR / "sample_windows_line_breaks.md"
         card = RepoCard.load(card_path)
         self.assertIn("\r\n", str(card))
+
+    def test_updating_text_updates_content(self):
+        sample_path = SAMPLE_CARDS_DIR / "sample_simple.md"
+        card = RepoCard.load(sample_path)
+        card.text = "Hello, world!"
+        self.assertEqual(
+            card.content, f"---\n{card.data.to_yaml()}\n---\nHello, world!"
+        )
 
 
 class ModelCardTest(TestCaseWithCapLog):
