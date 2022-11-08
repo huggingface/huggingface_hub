@@ -22,7 +22,7 @@ from typing import Any, BinaryIO, Dict, Iterable, Iterator, List, Optional, Tupl
 from urllib.parse import quote
 
 import requests
-from huggingface_hub.utils import RepositoryNotFoundError
+from huggingface_hub.utils import EntryNotFoundError, RepositoryNotFoundError
 from requests.exceptions import HTTPError
 
 from ._commit_api import (
@@ -1920,6 +1920,13 @@ class HfApi:
         except RepositoryNotFoundError as e:
             e.append_to_message(_CREATE_COMMIT_NO_REPO_ERROR_MESSAGE)
             raise
+        except EntryNotFoundError as e:
+            if len(deletions) > 0 and "A file with this name doesn't exist" in str(e):
+                e.append_to_message(
+                    "\nMake sure to differentiate file and folder paths in delete"
+                    " operations with a trailing '/' or using `is_folder=True/False`."
+                )
+            raise
 
         commit_data = commit_resp.json()
         return CommitInfo(
@@ -2322,6 +2329,73 @@ class HfApi:
             operations=operations,
             revision=revision,
             commit_message=commit_message,
+            commit_description=commit_description,
+            create_pr=create_pr,
+            parent_commit=parent_commit,
+        )
+
+    @validate_hf_hub_args
+    def delete_folder(
+        self,
+        path_in_repo: str,
+        repo_id: str,
+        *,
+        token: Optional[str] = None,
+        repo_type: Optional[str] = None,
+        revision: Optional[str] = None,
+        commit_message: Optional[str] = None,
+        commit_description: Optional[str] = None,
+        create_pr: Optional[bool] = None,
+        parent_commit: Optional[str] = None,
+    ) -> CommitInfo:
+        """
+        Deletes a folder in the given repo.
+
+        Simple wrapper around [`create_commit`] method.
+
+        Args:
+            path_in_repo (`str`):
+                Relative folder path in the repo, for example: `"checkpoints/1fec34a"`.
+            repo_id (`str`):
+                The repository from which the folder will be deleted, for example:
+                `"username/custom_transformers"`
+            token (`str`, *optional*):
+                Authentication token, obtained with `HfApi.login` method. Will default
+                to the stored token.
+            repo_type (`str`, *optional*):
+                Set to `"dataset"` or `"space"` if the folder is in a dataset or
+                space, `None` or `"model"` if in a model. Default is `None`.
+            revision (`str`, *optional*):
+                The git revision to commit from. Defaults to the head of the `"main"`
+                branch.
+            commit_message (`str`, *optional*):
+                The summary / title / first line of the generated commit. Defaults to
+                `f"Delete folder {path_in_repo} with huggingface_hub"`.
+            commit_description (`str` *optional*)
+                The description of the generated commit.
+            create_pr (`boolean`, *optional*):
+                Whether or not to create a Pull Request from `revision` with the changes.
+                Defaults to `False`.
+            parent_commit (`str`, *optional*):
+                The OID / SHA of the parent commit, as a hexadecimal string. Shorthands (7 first characters) are also supported.
+                If specified and `create_pr` is `False`, the commit will fail if `revision` does not point to `parent_commit`.
+                If specified and `create_pr` is `True`, the pull request will be created from `parent_commit`.
+                Specifying `parent_commit` ensures the repo has not changed before committing the changes, and can be
+                especially useful if the repo is updated / committed to concurrently.
+        """
+        return self.create_commit(
+            repo_id=repo_id,
+            repo_type=repo_type,
+            token=token,
+            operations=[
+                CommitOperationDelete(path_in_repo=path_in_repo, is_folder=True)
+            ],
+            revision=revision,
+            commit_message=(
+                commit_message
+                if commit_message is not None
+                else f"Delete folder {path_in_repo} with huggingface_hub"
+            ),
             commit_description=commit_description,
             create_pr=create_pr,
             parent_commit=parent_commit,
@@ -3312,6 +3386,7 @@ move_repo = api.move_repo
 upload_file = api.upload_file
 upload_folder = api.upload_folder
 delete_file = api.delete_file
+delete_folder = api.delete_folder
 create_tag = api.create_tag
 delete_tag = api.delete_tag
 get_full_repo_name = api.get_full_repo_name

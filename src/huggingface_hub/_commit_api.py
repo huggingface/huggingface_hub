@@ -35,16 +35,31 @@ CommitOperationT = Union["CommitOperationAdd", "CommitOperationDelete"]
 @dataclass
 class CommitOperationDelete:
     """
-    Data structure holding necessary info to delete
-    a file from a repository on the Hub
+    Data structure holding necessary info to delete a file or a folder from a repository
+    on the Hub.
 
     Args:
         path_in_repo (`str`):
-            Relative filepath in the repo, for example:
-            `"checkpoints/1fec34a/weights.bin"`
+            Relative filepath in the repo, for example: `"checkpoints/1fec34a/weights.bin"`
+            for a file or `"checkpoints/1fec34a/"` for a folder.
+        is_folder (`bool` or `Literal["auto"]`, *optional*)
+            Whether the Delete Operation applies to a folder or not. If "auto", the path
+            type (file or folder) is guessed automatically by looking if path ends with
+            a "/" (folder) or not (file). To explicitly set the path type, you can set
+            `is_folder=True` or `is_folder=False`.
     """
 
     path_in_repo: str
+    is_folder: Union[bool, Literal["auto"]] = "auto"
+
+    def __post_init__(self):
+        if self.is_folder == "auto":
+            self.is_folder = self.path_in_repo.endswith("/")
+        if not isinstance(self.is_folder, bool):
+            raise ValueError(
+                "Wrong value for `is_folder`. Must be one of [`True`, `False`,"
+                f" `'auto'`]. Got '{self.is_folder}'."
+            )
 
 
 @dataclass
@@ -460,6 +475,9 @@ def prepare_commit_payload(
 
     # 4. Send deleted files, one per line
     yield from (
-        {"key": "deletedFile", "value": {"path": del_op.path_in_repo}}
+        {
+            "key": "deletedFolder" if del_op.is_folder else "deletedFile",
+            "value": {"path": del_op.path_in_repo},
+        }
         for del_op in deletions
     )

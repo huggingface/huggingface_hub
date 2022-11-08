@@ -78,16 +78,16 @@ If both `allow_patterns` and `ignore_patterns` are provided, both constraints ap
 
 If you want to work at a commit-level, use the [`create_commit`] function directly. There are two types of operations supported by [`create_commit`]:
 
-- `CommitOperationAdd` uploads a file to the Hub. If the file already exists, the file contents are overwritten. This operation accepts two arguments:
+- [`CommitOperationAdd`] uploads a file to the Hub. If the file already exists, the file contents are overwritten. This operation accepts two arguments:
 
   - `path_in_repo`: the repository path to upload a file to.
   - `path_or_fileobj`: either a path to a file on your filesystem or a file-like object. This is the content of the file to upload to the Hub.
 
-- `CommitOperationDelete` removes a file from a repository. This operation accepts `path_in_repo` as an argument.
+- [`CommitOperationDelete`] removes a file or a folder from a repository. This operation accepts `path_in_repo` as an argument.
 
 For example, if you want to upload two files and delete a file in a Hub repository:
 
-1. Use the appropriate `CommitOperation` to add and delete a file:
+1. Use the appropriate `CommitOperation` to add or delete a file and to delete a folder:
 
 ```py
 >>> from huggingface_hub import HfApi, CommitOperationAdd, CommitOperationDelete
@@ -96,6 +96,7 @@ For example, if you want to upload two files and delete a file in a Hub reposito
 ...     CommitOperationAdd(path_in_repo="LICENSE.md", path_or_fileobj="~/repo/LICENSE.md"),
 ...     CommitOperationAdd(path_in_repo="weights.h5", path_or_fileobj="~/repo/weights-final.h5"),
 ...     CommitOperationDelete(path_in_repo="old-weights.h5"),
+...     CommitOperationDelete(path_in_repo="logs/"),
 ... ]
 ```
 
@@ -112,6 +113,7 @@ For example, if you want to upload two files and delete a file in a Hub reposito
 In addition to [`upload_file`] and [`upload_folder`], the following functions also use [`create_commit`] under the hood:
 
 - [`delete_file`] deletes a single file from a repository on the Hub.
+- [`delete_folder`] deletes an entire folder from a repository on the Hub.
 - [`metadata_update`] updates a repository's metadata.
 
 For more detailed information, take a look at the [`HfApi`] reference.

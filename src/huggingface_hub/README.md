@@ -89,6 +89,7 @@ single file to a repo or listing models from the Hub, you'll find helpers in
 * `create_commit()`
 * `upload_file()`
 * `delete_file()`
+* `delete_folder()`
 
 Those API utilities are also exposed through the `huggingface-cli` CLI:
 
