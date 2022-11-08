@@ -188,11 +188,12 @@ class ModelCardData(CardData):
             at https://hf.co/metrics. Example: 'accuracy'. Defaults to None.
         eval_results (`Union[List[EvalResult], EvalResult]`, *optional*):
             List of `huggingface_hub.EvalResult` that define evaluation results of the model. If provided,
-            `model_name` kwarg must be provided. Defaults to `None`.
+            `model_name` is used to as a name on PapersWithCode's leaderboards. Defaults to `None`.
         model_name (`str`, *optional*):
-            A name for this model. Required if you provide `eval_results`. It is used along with
+            A name for this model. It is used along with
             `eval_results` to construct the `model-index` within the card's metadata. The name
-            you supply here is what will be used on PapersWithCode's leaderboards. Defaults to None.
+            you supply here is what will be used on PapersWithCode's leaderboards. If None is provided
+            then the repo name is used as a default. Defaults to None.
         kwargs (`dict`, *optional*):
             Additional metadata that will be added to the model card. Defaults to None.
 

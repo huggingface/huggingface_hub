@@ -778,6 +778,9 @@ def metadata_update(
 
     for key, value in metadata.items():
         if key == "model-index":
+            # if the new metadata doesn't include a name, either use existing one or repo name
+            if "name" not in value[0]:
+                value[0]["name"] = getattr(card, "model_name", repo_id)
             model_name, new_results = model_index_to_eval_results(value)
             if card.data.eval_results is None:
                 card.data.eval_results = new_results
