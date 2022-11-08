@@ -56,7 +56,6 @@ from huggingface_hub.hf_api import (
     RepoFile,
     SpaceInfo,
     erase_from_credential_store,
-    list_datasets,
     read_from_credential_store,
     repo_type_and_id_from_hf_id,
 )
