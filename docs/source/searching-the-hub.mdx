@@ -187,8 +187,8 @@ Available Attributes or Keys:
  * benchmark
  * dataset_name
  * language_creators
- * languages
- * licenses
+ * language
+ * license
  * multilinguality
  * size_categories
  * task_categories
@@ -283,11 +283,11 @@ Available Attributes or Keys:
 
 There you will find `text_classification`, so you should use `dataset_args.task_categories.text_classification`.
 
-Next we need to find the proper language. There is a `languages` property we can check. These are two-letter language codes, so you should check if it has `en`:
+Next we need to find the proper language. There is a `language` property we can check. These are two-letter language codes, so you should check if it has `en`:
 
 
 ```python
->>> "en" in dataset_args.languages
+>>> "en" in dataset_args.language
 True
 ```
 
@@ -296,7 +296,7 @@ Now that the pieces are found, you can write a filter:
 
 ```python
 >>> filt = DatasetFilter(
-...    languages=dataset_args.languages.en,
+...    language=dataset_args.language.en,
 ...    task_categories=dataset_args.task_categories.text_classification
 ... )
 ```
@@ -309,7 +309,7 @@ And search the API!
 DatasetInfo: {
     id: Abirate/english_quotes
     lastModified: None
-    tags: ['annotations_creators:expert-generated', 'language_creators:expert-generated', 'language_creators:crowdsourced', 'languages:en', 'multilinguality:monolingual', 'source_datasets:original', 'task_categories:text-classification', 'task_ids:multi-label-classification']
+    tags: ['annotations_creators:expert-generated', 'language_creators:expert-generated', 'language_creators:crowdsourced', 'language:en', 'multilinguality:monolingual', 'source_datasets:original', 'task_categories:text-classification', 'task_ids:multi-label-classification']
     private: False
     author: Abirate
     description: None
