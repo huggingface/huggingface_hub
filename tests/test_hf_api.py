@@ -790,12 +790,12 @@ class CommitApiTest(HfApiCommonTestWithLogin):
         # Create PR against a oid fails
         with self.assertRaises(RevisionNotFoundError):
             self._api.create_commit(
-            operations=[],
-            commit_message="PR against a oid",
-            repo_id=repo_id,
-            revision=head,
-            create_pr=True,
-        )
+                operations=[],
+                commit_message="PR against a oid",
+                repo_id=repo_id,
+                revision=head,
+                create_pr=True,
+            )
 
         # Create PR against a non-existing branch fails
         with self.assertRaises(RevisionNotFoundError):
