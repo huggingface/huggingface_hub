@@ -73,7 +73,7 @@
 
 <!-- This section is meant to convey recommendations with respect to the bias, risk, and technical limitations. -->
 
-{{ bias_recommendations | default("Users (both direct and downstream) should be made aware of the risks, biases and limitations of the model. More information needed for further recomendations.", true)}}
+{{ bias_recommendations | default("Users (both direct and downstream) should be made aware of the risks, biases and limitations of the model. More information needed for further recommendations.", true)}}
 
 # Training Details
 
