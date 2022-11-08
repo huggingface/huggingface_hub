@@ -1765,13 +1765,14 @@ class HfApi:
                 `None`.
 
             revision (`str`, *optional*):
-                The git revision to commit from. Defaults to the head of the
-                `"main"` branch.
+                The git revision to commit from. Defaults to the head of the `"main"` branch.
 
             create_pr (`boolean`, *optional*):
-                Whether or not to create a Pull Request from `revision` with that commit.
-                Defaults to `False`. If set to `True`, this function will return the URL
-                to the newly created Pull Request on the Hub.
+                Whether or not to create a Pull Request with that commit. Defaults to `False`.
+                If `revision` is not set, PR is opened against the `"main"` branch. If
+                `revision` is set and is a branch, PR is opened against this branch. If
+                `revision` is set and is not a branch name (example: a commit oid), an
+                `RevisionNotFoundError` is returned by the server.
 
             num_threads (`int`, *optional*):
                 Number of concurrent threads for uploading files. Defaults to 5.
@@ -1842,9 +1843,6 @@ class HfApi:
             quote(revision, safe="") if revision is not None else DEFAULT_REVISION
         )
         create_pr = create_pr if create_pr is not None else False
-
-        if create_pr and revision != DEFAULT_REVISION:
-            raise ValueError("Can only create pull requests against {DEFAULT_REVISION}")
 
         operations = list(operations)
         additions = [op for op in operations if isinstance(op, CommitOperationAdd)]
@@ -1975,15 +1973,17 @@ class HfApi:
                 space, `None` or `"model"` if uploading to a model. Default is
                 `None`.
             revision (`str`, *optional*):
-                The git revision to commit from. Defaults to the head of the
-                `"main"` branch.
+                The git revision to commit from. Defaults to the head of the `"main"` branch.
             commit_message (`str`, *optional*):
                 The summary / title / first line of the generated commit
             commit_description (`str` *optional*)
                 The description of the generated commit
             create_pr (`boolean`, *optional*):
-                Whether or not to create a Pull Request from `revision` with that commit.
-                Defaults to `False`.
+                Whether or not to create a Pull Request with that commit. Defaults to `False`.
+                If `revision` is not set, PR is opened against the `"main"` branch. If
+                `revision` is set and is a branch, PR is opened against this branch. If
+                `revision` is set and is not a branch name (example: a commit oid), an
+                `RevisionNotFoundError` is returned by the server.
             parent_commit (`str`, *optional*):
                 The OID / SHA of the parent commit, as a hexadecimal string. Shorthands (7 first characters) are also supported.
                 If specified and `create_pr` is `False`, the commit will fail if `revision` does not point to `parent_commit`.
@@ -2137,16 +2137,18 @@ class HfApi:
                 space, `None` or `"model"` if uploading to a model. Default is
                 `None`.
             revision (`str`, *optional*):
-                The git revision to commit from. Defaults to the head of the
-                `"main"` branch.
+                The git revision to commit from. Defaults to the head of the `"main"` branch.
             commit_message (`str`, *optional*):
                 The summary / title / first line of the generated commit. Defaults to:
                 `f"Upload {path_in_repo} with huggingface_hub"`
             commit_description (`str` *optional*):
                 The description of the generated commit
             create_pr (`boolean`, *optional*):
-                Whether or not to create a Pull Request from the pushed changes. Defaults
-                to `False`.
+                Whether or not to create a Pull Request with that commit. Defaults to `False`.
+                If `revision` is not set, PR is opened against the `"main"` branch. If
+                `revision` is set and is a branch, PR is opened against this branch. If
+                `revision` is set and is not a branch name (example: a commit oid), an
+                `RevisionNotFoundError` is returned by the server.
             parent_commit (`str`, *optional*):
                 The OID / SHA of the parent commit, as a hexadecimal string. Shorthands (7 first characters) are also supported.
                 If specified and `create_pr` is `False`, the commit will fail if `revision` does not point to `parent_commit`.
@@ -2277,16 +2279,18 @@ class HfApi:
                 Set to `"dataset"` or `"space"` if the file is in a dataset or
                 space, `None` or `"model"` if in a model. Default is `None`.
             revision (`str`, *optional*):
-                The git revision to commit from. Defaults to the head of the
-                `"main"` branch.
+                The git revision to commit from. Defaults to the head of the `"main"` branch.
             commit_message (`str`, *optional*):
                 The summary / title / first line of the generated commit. Defaults to
                 `f"Delete {path_in_repo} with huggingface_hub"`.
             commit_description (`str` *optional*)
                 The description of the generated commit
             create_pr (`boolean`, *optional*):
-                Whether or not to create a Pull Request from `revision` with the changes.
-                Defaults to `False`.
+                Whether or not to create a Pull Request with that commit. Defaults to `False`.
+                If `revision` is not set, PR is opened against the `"main"` branch. If
+                `revision` is set and is a branch, PR is opened against this branch. If
+                `revision` is set and is not a branch name (example: a commit oid), an
+                `RevisionNotFoundError` is returned by the server.
             parent_commit (`str`, *optional*):
                 The OID / SHA of the parent commit, as a hexadecimal string. Shorthands (7 first characters) are also supported.
                 If specified and `create_pr` is `False`, the commit will fail if `revision` does not point to `parent_commit`.
@@ -2366,16 +2370,18 @@ class HfApi:
                 Set to `"dataset"` or `"space"` if the folder is in a dataset or
                 space, `None` or `"model"` if in a model. Default is `None`.
             revision (`str`, *optional*):
-                The git revision to commit from. Defaults to the head of the `"main"`
-                branch.
+                The git revision to commit from. Defaults to the head of the `"main"` branch.
             commit_message (`str`, *optional*):
                 The summary / title / first line of the generated commit. Defaults to
                 `f"Delete folder {path_in_repo} with huggingface_hub"`.
             commit_description (`str` *optional*)
                 The description of the generated commit.
             create_pr (`boolean`, *optional*):
-                Whether or not to create a Pull Request from `revision` with the changes.
-                Defaults to `False`.
+                Whether or not to create a Pull Request with that commit. Defaults to `False`.
+                If `revision` is not set, PR is opened against the `"main"` branch. If
+                `revision` is set and is a branch, PR is opened against this branch. If
+                `revision` is set and is not a branch name (example: a commit oid), an
+                `RevisionNotFoundError` is returned by the server.
             parent_commit (`str`, *optional*):
                 The OID / SHA of the parent commit, as a hexadecimal string. Shorthands (7 first characters) are also supported.
                 If specified and `create_pr` is `False`, the commit will fail if `revision` does not point to `parent_commit`.

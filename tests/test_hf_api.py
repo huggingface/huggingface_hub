@@ -29,6 +29,7 @@ from urllib.parse import quote
 import pytest
 
 import requests
+from huggingface_hub import Repository
 from huggingface_hub._commit_api import (
     CommitOperationAdd,
     CommitOperationDelete,
@@ -763,6 +764,51 @@ class CommitApiTest(HfApiCommonTestWithLogin):
             self.fail(err)
         finally:
             self._api.delete_repo(repo_id=REPO_NAME)
+
+    @retry_endpoint
+    def test_create_commit_create_pr_against_branch(self):
+        repo_id = f"{USER}/{repo_name()}"
+
+        # Create repo and create a non-main branch
+        self._api.create_repo(repo_id=repo_id, exist_ok=False)
+        with tempfile.TemporaryDirectory() as tmpdir:
+            repo = Repository(local_dir=tmpdir, clone_from=repo_id, token=TOKEN)
+            repo.git_checkout("test_branch", create_branch_ok=True)
+            head = repo.git_head_hash()
+            repo.git_push("origin test_branch")
+
+        # Create PR against non-main branch works
+        resp = self._api.create_commit(
+            operations=[],
+            commit_message="PR against existing branch",
+            repo_id=repo_id,
+            revision="test_branch",
+            create_pr=True,
+        )
+        self.assertIsInstance(resp, CommitInfo)
+
+        # Create PR against a oid fails
+        with self.assertRaises(RevisionNotFoundError):
+            self._api.create_commit(
+            operations=[],
+            commit_message="PR against a oid",
+            repo_id=repo_id,
+            revision=head,
+            create_pr=True,
+        )
+
+        # Create PR against a non-existing branch fails
+        with self.assertRaises(RevisionNotFoundError):
+            self._api.create_commit(
+                operations=[],
+                commit_message="PR against missing branch",
+                repo_id=repo_id,
+                revision="missing_branch",
+                create_pr=True,
+            )
+
+        # Cleanup
+        self._api.delete_repo(repo_id=repo_id)
 
     @retry_endpoint
     def test_create_commit(self):
