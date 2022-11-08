@@ -66,7 +66,7 @@ extras["quality"] = [
     "flake8>=3.8.3",
     "flake8-bugbear",
     "isort>=5.5.4",
-    "mypy",
+    "mypy==0.982",
 ]
 
 extras["all"] = extras["testing"] + extras["quality"] + extras["typing"]
