@@ -179,6 +179,7 @@ _SUBMOD_ATTRS = {
         "HFCacheInfo",
         "HfFolder",
         "cached_assets_path",
+        "dump_environment_info",
         "logging",
         "scan_cache_dir",
     ],
@@ -388,6 +389,7 @@ if TYPE_CHECKING:  # pragma: no cover
     from .utils import HFCacheInfo  # noqa: F401
     from .utils import HfFolder  # noqa: F401
     from .utils import cached_assets_path  # noqa: F401
+    from .utils import dump_environment_info  # noqa: F401
     from .utils import logging  # noqa: F401
     from .utils import scan_cache_dir  # noqa: F401
     from .utils.endpoint_helpers import DatasetFilter  # noqa: F401

@@ -13,7 +13,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 """Check presence of installed packages at runtime."""
+import platform
 import sys
+from typing import Dict
 
 import packaging.version
 
@@ -177,3 +179,46 @@ def is_google_colab() -> bool:
     Taken from https://stackoverflow.com/a/63519730.
     """
     return _is_google_colab
+
+
+def dump_environment_info() -> Dict[str, str]:
+    from huggingface_hub import HfFolder, whoami
+    from huggingface_hub.utils import list_credential_helpers
+
+    token = HfFolder().get_token()
+
+    # Generic machine info
+    info = {
+        "huggingface_hub version": get_hf_hub_version(),
+        "Platform": platform.platform(),
+        "Python version": get_python_version(),
+        "Running in notebook ?": is_notebook(),
+        "Running in Google Colab ?": is_google_colab(),
+    }
+
+    # Login info
+    info["Token path ?"] = HfFolder().path_token
+    info["Has saved token ?"] = token is not None
+    if token is not None:
+        info["Token type"] = (
+            "Organization token" if token.startswith("hf_org") else "Personal token"
+        )
+        try:
+            info["Who am I ?"] = whoami()["name"]
+        except Exception:
+            pass
+
+    try:
+        info["Configured git credential helpers"] = ", ".join(list_credential_helpers())
+    except Exception:
+        pass
+
+    # Installed dependencies
+    info["FastAI"] = get_fastai_version()
+    info["Tensorflow"] = get_tf_version()
+    info["Torch"] = get_torch_version()
+    info["Jinja2"] = get_jinja_version()
+    info["Graphviz"] = get_graphviz_version()
+    info["Pydot"] = get_pydot_version()
+
+    return info
