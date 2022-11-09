@@ -1868,17 +1868,12 @@ class HfApi:
 
         operations = list(operations)
         additions = [op for op in operations if isinstance(op, CommitOperationAdd)]
-        deletions = [op for op in operations if isinstance(op, CommitOperationDelete)]
-
-        if len(additions) + len(deletions) != len(operations):
-            raise ValueError(
-                "Unknown operation, must be one of `CommitOperationAdd` or"
-                " `CommitOperationDelete`"
-            )
+        nb_additions = len(additions)
+        nb_deletions = len(operations) - nb_additions
 
         logger.debug(
             f"About to commit to the hub: {len(additions)} addition(s) and"
-            f" {len(deletions)} deletion(s)."
+            f" {nb_deletions} deletion(s)."
         )
 
         # If updating twice the same file or update then delete a file in a single commit
@@ -1941,7 +1936,7 @@ class HfApi:
             e.append_to_message(_CREATE_COMMIT_NO_REPO_ERROR_MESSAGE)
             raise
         except EntryNotFoundError as e:
-            if len(deletions) > 0 and "A file with this name doesn't exist" in str(e):
+            if nb_deletions > 0 and "A file with this name doesn't exist" in str(e):
                 e.append_to_message(
                     "\nMake sure to differentiate file and folder paths in delete"
                     " operations with a trailing '/' or using `is_folder=True/False`."
