@@ -84,7 +84,7 @@ class DatasetFilter:
             A string or list of strings that can be used to identify datasets on
             the Hub with how the data was curated, such as `crowdsourced` or
             `machine_generated`.
-        languages (`str` or `List`, *optional*):
+        language (`str` or `List`, *optional*):
             A string or list of strings representing a two-character language to
             filter datasets by on the Hub.
         multilinguality (`str` or `List`, *optional*):
@@ -141,7 +141,7 @@ class DatasetFilter:
     benchmark: Optional[Union[str, List[str]]] = None
     dataset_name: Optional[str] = None
     language_creators: Optional[Union[str, List[str]]] = None
-    languages: Optional[Union[str, List[str]]] = None
+    language: Optional[Union[str, List[str]]] = None
     multilinguality: Optional[Union[str, List[str]]] = None
     size_categories: Optional[Union[str, List[str]]] = None
     task_categories: Optional[Union[str, List[str]]] = None
@@ -355,13 +355,13 @@ class DatasetTags(GeneralTags):
 
     def __init__(self, dataset_tag_dictionary: dict):
         keys = [
-            "languages",
+            "language",
             "multilinguality",
             "language_creators",
             "task_categories",
             "size_categories",
             "benchmark",
             "task_ids",
-            "licenses",
+            "license",
         ]
         super().__init__(dataset_tag_dictionary, keys)
