@@ -807,15 +807,9 @@ class HfApi:
             params.update({"config": True})
         if cardData:
             params.update({"cardData": True})
-        r = requests.get(path, params=params, headers=headers)
-        hf_raise_for_status(r)
-        items = [ModelInfo(**x) for x in r.json()]
 
-        # If pagination has been enabled server-side, older versions of `huggingface_hub`
-        # are deprecated as output is truncated.
-        _warn_if_truncated(
-            items, total_count=r.headers.get("X-Total-Count"), limit=limit
-        )
+        data = _paginate(path, params=params, headers=headers)
+        items = [ModelInfo(**x) for x in data]
 
         if emissions_thresholds is not None:
             if cardData is None:
@@ -1014,17 +1008,9 @@ class HfApi:
             params.update({"limit": limit})
         if full or cardData:
             params.update({"full": True})
-        r = requests.get(path, params=params, headers=headers)
-        hf_raise_for_status(r)
-        items = [DatasetInfo(**x) for x in r.json()]
 
-        # If pagination has been enabled server-side, older versions of `huggingface_hub`
-        # are deprecated as output is truncated.
-        _warn_if_truncated(
-            items, total_count=r.headers.get("X-Total-Count"), limit=limit
-        )
-
-        return items
+        data = _paginate(path, params=params, headers=headers)
+        return [DatasetInfo(**x) for x in data]
 
     def _unpack_dataset_filter(self, dataset_filter: DatasetFilter):
         """
@@ -1161,17 +1147,9 @@ class HfApi:
             params.update({"datasets": datasets})
         if models is not None:
             params.update({"models": models})
-        r = requests.get(path, params=params, headers=headers)
-        hf_raise_for_status(r)
-        items = [SpaceInfo(**x) for x in r.json()]
 
-        # If pagination has been enabled server-side, older versions of `huggingface_hub`
-        # are deprecated as output is truncated.
-        _warn_if_truncated(
-            items, total_count=r.headers.get("X-Total-Count"), limit=limit
-        )
-
-        return items
+        data = _paginate(path, params=params, headers=headers)
+        return [SpaceInfo(**x) for x in data]
 
     @validate_hf_hub_args
     def model_info(
@@ -3381,36 +3359,26 @@ def _parse_revision_from_pr_url(pr_url: str) -> str:
     return f"refs/pr/{re_match[1]}"
 
 
-def _warn_if_truncated(
-    items: List[Any], limit: Optional[int], total_count: Optional[str]
-) -> None:
-    # TODO: remove this once pagination is properly implemented in `huggingface_hub`.
-    if total_count is None:
-        # Total count header not implemented
-        return
+def _paginate(path: str, params: Dict, headers: Dict) -> Iterable:
+    """Fetch a list of models/datasets/spaces and paginate through results.
 
-    try:
-        total_count_int = int(total_count)
-    except ValueError:
-        # Total count header not implemented properly server-side
-        return
+    For now, pagination is not mandatory on the Hub. However at some point the number of
+    repos per page will be limited for performance reasons. This helper makes `huggingface_hub`
+    compliant with future server-side updates.
+    """
+    r = requests.get(path, params=params, headers=headers)
+    hf_raise_for_status(r)
+    yield from r.json()
 
-    if len(items) == total_count_int:
-        # All items have been returned => not truncated
-        return
-
-    if limit is not None and len(items) == limit:
-        # `limit` is set => truncation is expected
-        return
-
-    # Otherwise, pagination has been enabled server-side and the output has been
-    # truncated by server => warn user.
-    warnings.warn(
-        "The list of repos returned by the server has been truncated. Listing repos"
-        " from the Hub using `list_models`, `list_datasets` and `list_spaces` now"
-        " requires pagination. To get the full list of repos, please consider upgrading"
-        " `huggingface_hub` to its latest version."
-    )
+    # If pagination is implemented server-side, follow pages
+    # Next link already contains query params
+    next_page = r.headers.get("Link")
+    while next_page is not None:
+        logger.debug(f"Pagination detected. Requesting next page: {next_page}")
+        r = requests.get(next_page, headers=headers)
+        hf_raise_for_status(r)
+        yield from r.json()
+        next_page = r.headers.get("Link")
 
 
 api = HfApi()
