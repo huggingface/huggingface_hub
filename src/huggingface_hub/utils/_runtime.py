@@ -192,9 +192,17 @@ def dump_environment_info() -> Dict[str, str]:
         "huggingface_hub version": get_hf_hub_version(),
         "Platform": platform.platform(),
         "Python version": get_python_version(),
-        "Running in notebook ?": is_notebook(),
-        "Running in Google Colab ?": is_google_colab(),
     }
+
+    # Interpreter info
+    try:
+        shell_class = get_ipython().__class__  # type: ignore # noqa: F821
+        info["Running in iPython ?"] = "Yes"
+        info["iPython shell"] = shell_class.__name__
+    except NameError:
+        info["Running in iPython ?"] = "No"
+    info["Running in notebook ?"] = is_notebook()
+    info["Running in Google Colab ?"] = is_google_colab()
 
     # Login info
     info["Token path ?"] = HfFolder().path_token
@@ -221,4 +229,6 @@ def dump_environment_info() -> Dict[str, str]:
     info["Graphviz"] = get_graphviz_version()
     info["Pydot"] = get_pydot_version()
 
+    print("\nCopy-and-paste the text below in your GitHub issue.\n")
+    print("\n".join([f"- {prop}: {val}" for prop, val in info.items()]) + "\n")
     return info

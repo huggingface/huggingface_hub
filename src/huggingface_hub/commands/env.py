@@ -34,9 +34,4 @@ class EnvironmentCommand(BaseHuggingfaceCLICommand):
         env_parser.set_defaults(func=EnvironmentCommand)
 
     def run(self) -> None:
-        print("\nCopy-and-paste the text below in your GitHub issue.\n")
-        print(self.format_dict(dump_environment_info()))
-
-    @staticmethod
-    def format_dict(d):
-        return "\n".join([f"- {prop}: {val}" for prop, val in d.items()]) + "\n"
+        dump_environment_info()
