@@ -21,6 +21,7 @@ from .utils import (
     logging,
     validate_hf_hub_args,
 )
+from .utils._deprecation import _deprecate_method
 from .utils._typing import Literal
 
 
@@ -65,35 +66,35 @@ class CommitOperationDelete:
 @dataclass
 class CommitOperationAdd:
     """
-    Data structure holding necessary info to upload a file
-    to a repository on the Hub
+    Data structure holding necessary info to upload a file to a repository on the Hub.
 
     Args:
         path_in_repo (`str`):
-            Relative filepath in the repo, for example:
-            `"checkpoints/1fec34a/weights.bin"`
+            Relative filepath in the repo, for example: `"checkpoints/1fec34a/weights.bin"`
         path_or_fileobj (`str`, `bytes`, or `BinaryIO`):
             Either:
             - a path to a local file (as str) to upload
             - a buffer of bytes (`bytes`) holding the content of the file to upload
             - a "file object" (subclass of `io.BufferedIOBase`), typically obtained
                 with `open(path, "rb")`. It must support `seek()` and `tell()` methods.
+
+    Raises:
+        [`ValueError`](https://docs.python.org/3/library/exceptions.html#ValueError)
+            If `path_or_fileobj` is not one of `str`, `bytes` or `io.BufferedIOBase`.
+        [`ValueError`](https://docs.python.org/3/library/exceptions.html#ValueError)
+            If `path_or_fileobj` is a `str` but not a path to an existing file.
+        [`ValueError`](https://docs.python.org/3/library/exceptions.html#ValueError)
+            If `path_or_fileobj` is a `io.BufferedIOBase` but it doesn't support both
+            `seek()` and `tell()`.
     """
 
     path_in_repo: str
     path_or_fileobj: Union[str, bytes, BinaryIO]
+    upload_info: UploadInfo = field(init=False, repr=False)
 
-    __upload_info: Optional[UploadInfo] = field(default=None, init=False)
-
-    def validate(self):
-        """
-        Ensures `path_or_fileobj` is valid:
-        - Ensures it is either a `str`, `bytes` or an instance of `io.BufferedIOBase`
-        - If it is a `str`, ensure that it is a file path and that the file exists
-        - If it is an instance of `io.BufferedIOBase`, ensures it supports `seek()` and `tell()`
-
-        Raises: `ValueError` if `path_or_fileobj` is not valid
-        """
+    def __post_init__(self) -> None:
+        """Validates `path_or_fileobj` and compute `upload_info`."""
+        # Validate `path_or_fileobj` value
         if isinstance(self.path_or_fileobj, str):
             path_or_fileobj = os.path.normpath(os.path.expanduser(self.path_or_fileobj))
             if not os.path.isfile(path_or_fileobj):
@@ -118,32 +119,29 @@ class CommitOperationAdd:
                     " seek() and tell()"
                 ) from exc
 
-    def _upload_info(self) -> UploadInfo:
-        """
-        Computes and caches UploadInfo for the underlying data behind `path_or_fileobj`
-        Triggers `self.validate`.
+        # Compute "upload_info" attribute
+        if isinstance(self.path_or_fileobj, str):
+            self.upload_info = UploadInfo.from_path(self.path_or_fileobj)
+        elif isinstance(self.path_or_fileobj, bytes):
+            self.upload_info = UploadInfo.from_bytes(self.path_or_fileobj)
+        else:
+            self.upload_info = UploadInfo.from_fileobj(self.path_or_fileobj)
 
-        Raises: `ValueError` if self.validate fails
-        """
-        self.validate()
-        if self.__upload_info is None:
-            if isinstance(self.path_or_fileobj, str):
-                self.__upload_info = UploadInfo.from_path(self.path_or_fileobj)
-            elif isinstance(self.path_or_fileobj, bytes):
-                self.__upload_info = UploadInfo.from_bytes(self.path_or_fileobj)
-            else:
-                self.__upload_info = UploadInfo.from_fileobj(self.path_or_fileobj)
-        return self.__upload_info
+    @_deprecate_method(
+        version="0.14", message="Operation is validated at initialization."
+    )
+    def validate(self) -> None:
+        pass
+
+    @_deprecate_method(version="0.14", message="Use `upload_info` property instead.")
+    def _upload_info(self) -> UploadInfo:
+        return self.upload_info
 
     @contextmanager
     def as_file(self):
         """
         A context manager that yields a file-like object allowing to read the underlying
         data behind `path_or_fileobj`.
-
-        Triggers `self.validate`.
-
-        Raises: `ValueError` if self.validate fails
 
         Example:
 
@@ -152,14 +150,13 @@ class CommitOperationAdd:
         ...        path_in_repo="remote/dir/weights.h5",
         ...        path_or_fileobj="./local/weights.h5",
         ... )
-        CommitOperationAdd(path_in_repo='remote/dir/weights.h5', path_or_fileobj='./local/weights.h5', _upload_info=None)
+        CommitOperationAdd(path_in_repo='remote/dir/weights.h5', path_or_fileobj='./local/weights.h5')
 
         >>> with operation.as_file() as file:
         ...     content = file.read()
         ```
 
         """
-        self.validate()
         if isinstance(self.path_or_fileobj, str):
             with open(self.path_or_fileobj, "rb") as file:
                 yield file
@@ -227,7 +224,7 @@ def upload_lfs_files(
     batch_actions: List[Dict] = []
     for chunk in chunk_iterable(additions, chunk_size=256):
         batch_actions_chunk, batch_errors_chunk = post_lfs_batch_info(
-            upload_infos=[op._upload_info() for op in chunk],
+            upload_infos=[op.upload_info for op in chunk],
             token=token,
             repo_id=repo_id,
             repo_type=repo_type,
@@ -248,7 +245,7 @@ def upload_lfs_files(
         batch_actions += batch_actions_chunk
 
     # Step 2: upload files concurrently according to these instructions
-    oid2addop = {add_op._upload_info().sha256.hex(): add_op for add_op in additions}
+    oid2addop = {add_op.upload_info.sha256.hex(): add_op for add_op in additions}
     with ThreadPoolExecutor(max_workers=num_threads) as pool:
         logger.debug(
             f"Uploading {len(batch_actions)} LFS files to the Hub using up to"
@@ -309,7 +306,7 @@ def _upload_lfs_object(
     Raises: `ValueError` if `lfs_batch_action` is improperly formatted
     """
     _validate_batch_actions(lfs_batch_action)
-    upload_info = operation._upload_info()
+    upload_info = operation.upload_info
     actions = lfs_batch_action.get("actions")
     if actions is None:
         # The file was already uploaded
@@ -395,11 +392,9 @@ def fetch_upload_modes(
             "files": [
                 {
                     "path": op.path_in_repo,
-                    "sample": base64.b64encode(op._upload_info().sample).decode(
-                        "ascii"
-                    ),
-                    "size": op._upload_info().size,
-                    "sha": op._upload_info().sha256.hex(),
+                    "sample": base64.b64encode(op.upload_info.sample).decode("ascii"),
+                    "size": op.upload_info.size,
+                    "sha": op.upload_info.sha256.hex(),
                 }
                 for op in chunk
             ]
@@ -465,8 +460,8 @@ def prepare_commit_payload(
             "value": {
                 "path": add_op.path_in_repo,
                 "algo": "sha256",
-                "oid": add_op._upload_info().sha256.hex(),
-                "size": add_op._upload_info().size,
+                "oid": add_op.upload_info.sha256.hex(),
+                "size": add_op.upload_info.size,
             },
         }
         for (add_op, upload_mode) in additions

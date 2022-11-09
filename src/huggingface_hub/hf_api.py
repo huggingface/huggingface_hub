@@ -1859,9 +1859,6 @@ class HfApi:
             f" {len(deletions)} deletion(s)."
         )
 
-        for addition in additions:
-            addition.validate()
-
         try:
             additions_with_upload_mode = fetch_upload_modes(
                 additions=additions,
