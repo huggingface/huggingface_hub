@@ -1,5 +1,6 @@
 ---
-{{card_data}} # Please use the metadata as defined in https://github.com/huggingface/hub-docs/blob/main/modelcard.md?plain=1
+# For reference on model card metadata, see: https://github.com/huggingface/hub-docs/blob/main/modelcard.md?plain=1
+{{card_data}}
 ---
 
 # Model Card for {{ model_id | default("Model ID", true) }}
