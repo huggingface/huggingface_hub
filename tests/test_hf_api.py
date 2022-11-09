@@ -55,6 +55,7 @@ from huggingface_hub.hf_api import (
     ModelSearchArguments,
     RepoFile,
     SpaceInfo,
+    _warn_if_truncated,
     erase_from_credential_store,
     read_from_credential_store,
     repo_type_and_id_from_hf_id,
@@ -2170,3 +2171,26 @@ class HfApiTokenAttributeTest(unittest.TestCase):
         self, mock_build_hf_headers: Mock, expected_value: str
     ) -> None:
         self.assertEqual(mock_build_hf_headers.call_args[1]["token"], expected_value)
+
+
+class WarnIfTruncatedTest(unittest.TestCase):
+    def test_warn_if_truncated(self) -> None:
+        # Can't tell if output is truncated
+        _warn_if_truncated([1, 2, 3], limit=None, total_count=None)
+
+        # Can't tell if output is truncated
+        _warn_if_truncated([1, 2, 3], limit=None, total_count="foo")
+
+        # All items returned
+        _warn_if_truncated([1, 2, 3], limit=None, total_count="3")
+
+        # Output is truncated (no limit, received 3)
+        with self.assertWarns(UserWarning):
+            _warn_if_truncated([1, 2, 3], limit=None, total_count="5")
+
+        # Output is truncated (limit is 4, received 3)
+        with self.assertWarns(UserWarning):
+            _warn_if_truncated([1, 2, 3], limit=4, total_count="5")
+
+        # Output is truncated by the user
+        _warn_if_truncated([1, 2, 3], limit=3, total_count="5")
