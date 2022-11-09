@@ -3382,15 +3382,20 @@ def _parse_revision_from_pr_url(pr_url: str) -> str:
 
 
 def _warn_if_truncated(
-    items: List[Any], limit: Optional[int], total_count: Optional[int]
+    items: List[Any], limit: Optional[int], total_count: Optional[str]
 ) -> None:
     # TODO: remove this once pagination is properly implemented in `huggingface_hub`.
-
     if total_count is None:
-        # Total count header not implemented server-side
+        # Total count header not implemented
         return
 
-    if len(items) == total_count:
+    try:
+        total_count_int = int(total_count)
+    except ValueError:
+        # Total count header not implemented properly server-side
+        return
+
+    if len(items) == total_count_int:
         # All items have been returned => not truncated
         return
 

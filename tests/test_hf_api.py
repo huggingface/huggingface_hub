@@ -2178,16 +2178,19 @@ class WarnIfTruncatedTest(unittest.TestCase):
         # Can't tell if output is truncated
         _warn_if_truncated([1, 2, 3], limit=None, total_count=None)
 
+        # Can't tell if output is truncated
+        _warn_if_truncated([1, 2, 3], limit=None, total_count="foo")
+
         # All items returned
-        _warn_if_truncated([1, 2, 3], limit=None, total_count=3)
+        _warn_if_truncated([1, 2, 3], limit=None, total_count="3")
 
         # Output is truncated (no limit, received 3)
         with self.assertWarns(UserWarning):
-            _warn_if_truncated([1, 2, 3], limit=None, total_count=5)
+            _warn_if_truncated([1, 2, 3], limit=None, total_count="5")
 
         # Output is truncated (limit is 4, received 3)
         with self.assertWarns(UserWarning):
-            _warn_if_truncated([1, 2, 3], limit=4, total_count=5)
+            _warn_if_truncated([1, 2, 3], limit=4, total_count="5")
 
         # Output is truncated by the user
-        _warn_if_truncated([1, 2, 3], limit=3, total_count=5)
+        _warn_if_truncated([1, 2, 3], limit=3, total_count="5")
