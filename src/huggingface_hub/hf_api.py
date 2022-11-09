@@ -504,8 +504,8 @@ class ModelSearchArguments(AttributeDictionary):
     ```
     """
 
-    def __init__(self):
-        self._api = HfApi()
+    def __init__(self, api: Optional["HfApi"] = None):
+        self._api = api if api is not None else HfApi()
         tags = self._api.get_model_tags()
         super().__init__(tags)
         self._process_models()
@@ -542,8 +542,8 @@ class DatasetSearchArguments(AttributeDictionary):
     ```
     """
 
-    def __init__(self):
-        self._api = HfApi()
+    def __init__(self, api: Optional["HfApi"] = None):
+        self._api = api if api is not None else HfApi()
         tags = self._api.get_dataset_tags()
         super().__init__(tags)
         self._process_models()
@@ -961,13 +961,13 @@ class HfApi:
 
         >>> # List only the datasets in russian for language modeling
         >>> api.list_datasets(
-        ...     filter=("languages:ru", "task_ids:language-modeling")
+        ...     filter=("language:ru", "task_ids:language-modeling")
         ... )
         >>> # Using the `DatasetFilter`
-        >>> filt = DatasetFilter(languages="ru", task_ids="language-modeling")
+        >>> filt = DatasetFilter(language="ru", task_ids="language-modeling")
         >>> # With `DatasetSearchArguments`
         >>> filt = DatasetFilter(
-        ...     languages=args.languages.ru,
+        ...     language=args.language.ru,
         ...     task_ids=args.task_ids.language_modeling,
         ... )
         >>> api.list_datasets(filter=filt)
@@ -1030,7 +1030,7 @@ class HfApi:
         data_attributes = [
             "benchmark",
             "language_creators",
-            "languages",
+            "language",
             "multilinguality",
             "size_categories",
             "task_categories",

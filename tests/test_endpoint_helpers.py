@@ -100,10 +100,10 @@ class AttributeDictionaryTest(AttributeDictionaryCommonTest):
 
 class GeneralTagsCommonTest(unittest.TestCase):
     # Similar to the output from /api/***-tags-by-type
-    # id = how we can search hfapi, such as `'id': 'languages:en'`
+    # id = how we can search hfapi, such as `'id': 'language:en'`
     # label = A human readable version assigned to everything, such as `"label":"en"`
     _tag_dictionary = {
-        "languages": [
+        "language": [
             {"id": "itemA", "label": "Item A"},
             {"id": "itemB", "label": "1Item-B"},
         ],
@@ -117,8 +117,7 @@ class GeneralTagsCommonTest(unittest.TestCase):
 class GeneralTagsTest(GeneralTagsCommonTest):
     def test_init(self):
         _tags = GeneralTags(self._tag_dictionary)
-        self.assertTrue(all(hasattr(_tags, kind) for kind in ["languages", "license"]))
-        languages = _tags.languages
+        languages = _tags.language
         licenses = _tags.license
         # Ensure they have the right bits
 
@@ -165,13 +164,13 @@ class DatasetTagsTest(unittest.TestCase):
         d = r.json()
         o = DatasetTags(d)
         for kind in [
-            "languages",
+            "language",
             "multilinguality",
             "language_creators",
             "task_categories",
             "size_categories",
             "benchmark",
             "task_ids",
-            "licenses",
+            "license",
         ]:
             self.assertTrue(len(getattr(o, kind).keys()) > 0)
