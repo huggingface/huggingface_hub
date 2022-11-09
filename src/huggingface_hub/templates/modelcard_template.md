@@ -1,4 +1,5 @@
 ---
+# For reference on model card metadata, see: https://github.com/huggingface/hub-docs/blob/main/modelcard.md?plain=1
 {{card_data}}
 ---
 
