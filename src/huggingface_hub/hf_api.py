@@ -32,6 +32,7 @@ from ._commit_api import (
     fetch_upload_modes,
     prepare_commit_payload,
     upload_lfs_files,
+    warn_on_overwriting_operations,
 )
 from .community import (
     Discussion,
@@ -1880,8 +1881,11 @@ class HfApi:
             f" {len(deletions)} deletion(s)."
         )
 
+        # If updating twice the same file or update then delete a file in a single commit
+        warn_on_overwriting_operations(operations)
+
         try:
-            additions_with_upload_mode = fetch_upload_modes(
+            upload_modes = fetch_upload_modes(
                 additions=additions,
                 repo_type=repo_type,
                 repo_id=repo_id,
@@ -1896,8 +1900,8 @@ class HfApi:
         upload_lfs_files(
             additions=[
                 addition
-                for (addition, upload_mode) in additions_with_upload_mode
-                if upload_mode == "lfs"
+                for addition in additions
+                if upload_modes[addition.path_in_repo] == "lfs"
             ],
             repo_type=repo_type,
             repo_id=repo_id,
@@ -1906,8 +1910,8 @@ class HfApi:
             num_threads=num_threads,
         )
         commit_payload = prepare_commit_payload(
-            additions=additions_with_upload_mode,
-            deletions=deletions,
+            operations=operations,
+            upload_modes=upload_modes,
             commit_message=commit_message,
             commit_description=commit_description,
             parent_commit=parent_commit,
