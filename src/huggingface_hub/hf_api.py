@@ -70,6 +70,7 @@ from .utils._deprecation import (
     _deprecate_method,
     _deprecate_positional_args,
 )
+from .utils._pagination import paginate
 from .utils._typing import Literal, TypedDict
 from .utils.endpoint_helpers import (
     AttributeDictionary,
@@ -808,7 +809,7 @@ class HfApi:
         if cardData:
             params.update({"cardData": True})
 
-        data = _paginate(path, params=params, headers=headers)
+        data = paginate(path, params=params, headers=headers)
         items = [ModelInfo(**x) for x in data]
 
         if emissions_thresholds is not None:
@@ -1009,7 +1010,7 @@ class HfApi:
         if full or cardData:
             params.update({"full": True})
 
-        data = _paginate(path, params=params, headers=headers)
+        data = paginate(path, params=params, headers=headers)
         return [DatasetInfo(**x) for x in data]
 
     def _unpack_dataset_filter(self, dataset_filter: DatasetFilter):
@@ -1148,7 +1149,7 @@ class HfApi:
         if models is not None:
             params.update({"models": models})
 
-        data = _paginate(path, params=params, headers=headers)
+        data = paginate(path, params=params, headers=headers)
         return [SpaceInfo(**x) for x in data]
 
     @validate_hf_hub_args
@@ -3357,28 +3358,6 @@ def _parse_revision_from_pr_url(pr_url: str) -> str:
             f" '{pr_url}'"
         )
     return f"refs/pr/{re_match[1]}"
-
-
-def _paginate(path: str, params: Dict, headers: Dict) -> Iterable:
-    """Fetch a list of models/datasets/spaces and paginate through results.
-
-    For now, pagination is not mandatory on the Hub. However at some point the number of
-    repos per page will be limited for performance reasons. This helper makes `huggingface_hub`
-    compliant with future server-side updates.
-    """
-    r = requests.get(path, params=params, headers=headers)
-    hf_raise_for_status(r)
-    yield from r.json()
-
-    # If pagination is implemented server-side, follow pages
-    # Next link already contains query params
-    next_page = r.headers.get("Link")
-    while next_page is not None:
-        logger.debug(f"Pagination detected. Requesting next page: {next_page}")
-        r = requests.get(next_page, headers=headers)
-        hf_raise_for_status(r)
-        yield from r.json()
-        next_page = r.headers.get("Link")
 
 
 api = HfApi()

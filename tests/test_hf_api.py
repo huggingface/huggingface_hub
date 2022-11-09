@@ -23,7 +23,7 @@ import warnings
 from functools import partial
 from io import BytesIO
 from typing import List
-from unittest.mock import Mock, call, patch
+from unittest.mock import Mock, patch
 from urllib.parse import quote
 
 import pytest
@@ -55,7 +55,6 @@ from huggingface_hub.hf_api import (
     ModelSearchArguments,
     RepoFile,
     SpaceInfo,
-    _paginate,
     erase_from_credential_store,
     read_from_credential_store,
     repo_type_and_id_from_hf_id,
@@ -89,7 +88,6 @@ from .testing_utils import (
     DUMMY_MODEL_ID_REVISION_ONE_SPECIFIC_COMMIT,
     SAMPLE_DATASET_IDENTIFIER,
     expect_deprecation,
-    handle_injection_in_test,
     repo_name,
     require_git_lfs,
     retry_endpoint,
@@ -2172,56 +2170,3 @@ class HfApiTokenAttributeTest(unittest.TestCase):
         self, mock_build_hf_headers: Mock, expected_value: str
     ) -> None:
         self.assertEqual(mock_build_hf_headers.call_args[1]["token"], expected_value)
-
-
-class TestPaginateHelper(unittest.TestCase):
-    @patch("huggingface_hub.hf_api.requests.get")
-    @patch("huggingface_hub.hf_api.hf_raise_for_status")
-    @handle_injection_in_test
-    def test_paginate(self, mock_get: Mock, mock_hf_raise_for_status: Mock) -> None:
-        mock_params = Mock()
-        mock_headers = Mock()
-
-        # Simulate page 1
-        mock_response_page_1 = Mock()
-        mock_response_page_1.json.return_value = [1, 2, 3]
-        mock_response_page_1.headers.get.return_value = "url_p2"
-
-        # Simulate page 2
-        mock_response_page_2 = Mock()
-        mock_response_page_2.json.return_value = [4, 5, 6]
-        mock_response_page_2.headers.get.return_value = "url_p3"
-
-        # Simulate page 3
-        mock_response_page_3 = Mock()
-        mock_response_page_3.json.return_value = [7, 8]
-        mock_response_page_3.headers.get.return_value = None
-
-        # Mock response
-        mock_get.side_effect = [
-            mock_response_page_1,
-            mock_response_page_2,
-            mock_response_page_3,
-        ]
-
-        results = _paginate("url", params=mock_params, headers=mock_headers)
-
-        # Requests are made only when generator is yielded
-        self.assertEqual(mock_get.call_count, 0)
-
-        # Results after concatenating pages
-        self.assertListEqual(list(results), [1, 2, 3, 4, 5, 6, 7, 8])
-
-        # All pages requested: 3 requests, 3 raise for status
-        self.assertEqual(mock_get.call_count, 3)
-        self.assertEqual(mock_hf_raise_for_status.call_count, 3)
-
-        # Params not passed to next pages
-        self.assertListEqual(
-            mock_get.call_args_list,
-            [
-                call("url", params=mock_params, headers=mock_headers),
-                call("url_p2", headers=mock_headers),
-                call("url_p3", headers=mock_headers),
-            ],
-        )
