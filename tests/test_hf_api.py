@@ -1061,7 +1061,7 @@ class CommitApiTest(HfApiCommonTestWithLogin):
                 endpoint=ENDPOINT_STAGING,
             )
             self.assertEqual(len(res), 1300)
-            for _, mode in res:
+            for _, mode in res.items():
                 self.assertEqual(mode, "lfs")
         except Exception as err:
             self.fail(err)
