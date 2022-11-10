@@ -526,9 +526,6 @@ class HubKerasSequentialTest(CommonKerasTest):
                 local_dir=tmpdirname, clone_from=ENDPOINT_STAGING + "/" + repo_id
             )
             from_pretrained_keras(tmpdirname)
-            self.assertRaises(
-                ValueError, msg="Exception encountered when calling layer*"
-            )
 
         self._api.delete_repo(repo_id=f"{REPO_NAME}")
 
