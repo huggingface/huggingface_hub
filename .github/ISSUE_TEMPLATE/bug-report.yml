@@ -28,8 +28,8 @@ body:
       render: shell
   - type: textarea
     id: system-info
-    label: System info
     attributes:
+      label: System info
       description: |
         Please dump your environment info by running the following command and copy-paste the result here:
         ```txt
