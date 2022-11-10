@@ -380,24 +380,21 @@ class CommitApiTest(HfApiCommonTestWithLogin):
 
     def test_commit_operation_validation(self):
         with open(self.tmp_file, "rt") as ftext:
-            operation = CommitOperationAdd(
-                path_or_fileobj=ftext,  # type: ignore
-                path_in_repo="README.md",
-            )
             with self.assertRaises(
                 ValueError,
                 msg="If you passed a file-like object, make sure it is in binary mode",
             ):
-                operation.validate()
+                CommitOperationAdd(
+                    path_or_fileobj=ftext, path_in_repo="README.md"  # type: ignore
+                )
 
-        operation = CommitOperationAdd(
-            path_or_fileobj=os.path.join(self.tmp_dir, "nofile.pth"),
-            path_in_repo="README.md",
-        )
         with self.assertRaises(
             ValueError, msg="path_or_fileobj is str but does not point to a file"
         ):
-            operation.validate()
+            CommitOperationAdd(
+                path_or_fileobj=os.path.join(self.tmp_dir, "nofile.pth"),
+                path_in_repo="README.md",
+            )
 
     @retry_endpoint
     def test_upload_file_path(self):
@@ -1064,7 +1061,7 @@ class CommitApiTest(HfApiCommonTestWithLogin):
                 endpoint=ENDPOINT_STAGING,
             )
             self.assertEqual(len(res), 1300)
-            for _, mode in res:
+            for _, mode in res.items():
                 self.assertEqual(mode, "lfs")
         except Exception as err:
             self.fail(err)

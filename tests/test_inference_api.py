@@ -52,7 +52,7 @@ class InferenceApiTest(unittest.TestCase):
 
     @with_production_testing
     def test_inference_with_dict_inputs(self):
-        api = InferenceApi("deepset/roberta-base-squad2")
+        api = InferenceApi("distilbert-base-cased-distilled-squad")
         inputs = {
             "question": "What's my name?",
             "context": "My name is Clara and I live in Berkeley.",
