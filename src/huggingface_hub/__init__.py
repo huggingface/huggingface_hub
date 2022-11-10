@@ -105,12 +105,14 @@ _SUBMOD_ATTRS = {
         "ModelSearchArguments",
         "change_discussion_status",
         "comment_discussion",
+        "create_branch",
         "create_commit",
         "create_discussion",
         "create_pull_request",
         "create_repo",
         "create_tag",
         "dataset_info",
+        "delete_branch",
         "delete_file",
         "delete_folder",
         "delete_repo",
@@ -329,12 +331,14 @@ if TYPE_CHECKING:  # pragma: no cover
     from .hf_api import ModelSearchArguments  # noqa: F401
     from .hf_api import change_discussion_status  # noqa: F401
     from .hf_api import comment_discussion  # noqa: F401
+    from .hf_api import create_branch  # noqa: F401
     from .hf_api import create_commit  # noqa: F401
     from .hf_api import create_discussion  # noqa: F401
     from .hf_api import create_pull_request  # noqa: F401
     from .hf_api import create_repo  # noqa: F401
     from .hf_api import create_tag  # noqa: F401
     from .hf_api import dataset_info  # noqa: F401
+    from .hf_api import delete_branch  # noqa: F401
     from .hf_api import delete_file  # noqa: F401
     from .hf_api import delete_folder  # noqa: F401
     from .hf_api import delete_repo  # noqa: F401

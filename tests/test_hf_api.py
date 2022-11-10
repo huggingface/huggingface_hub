@@ -61,6 +61,7 @@ from huggingface_hub.hf_api import (
     repo_type_and_id_from_hf_id,
 )
 from huggingface_hub.utils import (
+    BadRequestError,
     EntryNotFoundError,
     HfFolder,
     HfHubHTTPError,
@@ -1268,6 +1269,75 @@ class HfApiTagEndpointTest(HfApiCommonTestWithLogin):
         """
         with self.assertRaises(HfHubHTTPError):
             self._api.delete_tag(self._repo_id, tag="main")
+
+
+class HfApiBranchEndpointTest(HfApiCommonTestWithLogin):
+    _user = USER
+    _repo_id: str
+
+    @retry_endpoint
+    @use_tmp_repo()
+    def test_create_and_delete_branch(self) -> None:
+        """Test `create_branch` from main branch."""
+        self._api.create_branch(self._repo_id, branch="cool-branch")
+
+        # Check `cool-branch` branch exists
+        self._api.model_info(self._repo_id, revision="cool-branch")
+
+        # Delete it
+        self._api.delete_branch(self._repo_id, branch="cool-branch")
+
+        # Check doesn't exist anymore
+        with self.assertRaises(RevisionNotFoundError):
+            self._api.model_info(self._repo_id, revision="cool-branch")
+
+    @retry_endpoint
+    @use_tmp_repo()
+    def test_create_branch_existing_branch_fails(self) -> None:
+        """Test `create_branch` on existing branch."""
+        self._api.create_branch(self._repo_id, branch="cool-branch")
+
+        with self.assertRaisesRegex(HfHubHTTPError, "Reference already exists"):
+            self._api.create_branch(self._repo_id, branch="cool-branch")
+
+        with self.assertRaisesRegex(HfHubHTTPError, "Reference already exists"):
+            self._api.create_branch(self._repo_id, branch="main")
+
+    @retry_endpoint
+    @use_tmp_repo()
+    def test_create_branch_existing_tag_does_not_fail(self) -> None:
+        """Test `create_branch` on existing tag."""
+        self._api.create_tag(self._repo_id, tag="tag")
+        self._api.create_branch(self._repo_id, branch="tag")
+
+    @retry_endpoint
+    @use_tmp_repo()
+    def test_create_branch_forbidden_ref_branch_fails(self) -> None:
+        """Test `create_branch` on forbidden ref branch."""
+        with self.assertRaisesRegex(BadRequestError, "Invalid reference for a branch"):
+            self._api.create_branch(self._repo_id, branch="refs/pr/5")
+
+        with self.assertRaisesRegex(BadRequestError, "Invalid reference for a branch"):
+            self._api.create_branch(self._repo_id, branch="refs/something/random")
+
+    @retry_endpoint
+    @use_tmp_repo()
+    def test_delete_branch_on_protected_branch_fails(self) -> None:
+        """Test `delete_branch` fails on protected branch."""
+        with self.assertRaisesRegex(HfHubHTTPError, "Cannot delete refs/heads/main"):
+            self._api.delete_branch(self._repo_id, branch="main")
+
+    @retry_endpoint
+    @use_tmp_repo()
+    def test_delete_branch_on_missing_branch_fails(self) -> None:
+        """Test `delete_branch` fails on missing branch."""
+        with self.assertRaisesRegex(HfHubHTTPError, "Reference does not exist"):
+            self._api.delete_branch(self._repo_id, branch="cool-branch")
+
+        # Using a tag instead of branch -> fails
+        self._api.create_tag(self._repo_id, tag="cool-tag")
+        with self.assertRaisesRegex(HfHubHTTPError, "Reference does not exist"):
+            self._api.delete_branch(self._repo_id, branch="cool-tag")
 
 
 class HfApiPublicStagingTest(unittest.TestCase):
