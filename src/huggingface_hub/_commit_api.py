@@ -505,7 +505,7 @@ def prepare_commit_payload(
             isinstance(operation, CommitOperationAdd)
             and upload_modes.get(operation.path_in_repo) == "lfs"
         ):
-            {
+            yield {
                 "key": "lfsFile",
                 "value": {
                     "path": operation.path_in_repo,
