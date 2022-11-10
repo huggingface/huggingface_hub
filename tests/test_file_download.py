@@ -359,6 +359,7 @@ class CachedDownloadTests(unittest.TestCase):
         )
         self.assertIsNotNone(metadata.etag)  # example: "85c2fc2dcdd86563aaa85ef4911..."
         self.assertEqual(metadata.location, url)  # no redirect
+        self.assertEqual(metadata.size, 851)
 
     def test_get_hf_file_metadata_from_a_renamed_repo(self) -> None:
         """Test getting metadata from a file in a renamed repo on the Hub."""
