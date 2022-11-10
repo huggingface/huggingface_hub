@@ -26,11 +26,11 @@ body:
       label: Logs
       description: "Please include the Python logs if you can."
       render: shell
-  - type: markdown
+  - type: textarea
+    id: system-info
     attributes:
-      value: |
-        ## System Info
-
+      label: System info
+      description: |
         Please dump your environment info by running the following command and copy-paste the result here:
         ```txt
         huggingface-cli env
@@ -42,10 +42,6 @@ body:
 
         dump_environment_info()
         ```
-  - type: textarea
-    id: system-info
-    attributes:
-      description: Please dump your environment info.
       render: shell
       placeholder: |
         - huggingface_hub version: 0.11.0.dev0
