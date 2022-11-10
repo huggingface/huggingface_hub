@@ -1,4 +1,5 @@
 ---
+# For reference on model card metadata, see: https://github.com/huggingface/hub-docs/blob/main/modelcard.md?plain=1
 {{card_data}}
 ---
 
@@ -37,8 +38,7 @@
 - **Model type:** {{ model_type | default("[More Information Needed]", true)}}
 - **Language(s) (NLP):** {{ language | default("[More Information Needed]", true)}}
 - **License:** {{ license | default("[More Information Needed]", true)}}
-- **Related Models [optional]:** {{ related_models | default("[More Information Needed]", true)}}
-    - **Parent Model [optional]:** {{ parent_model | default("[More Information Needed]", true)}}
+- **Parent Model [optional]:** {{ parent_model | default("[More Information Needed]", true)}}
 - **Resources for more information:** {{ more_resources | default("[More Information Needed]", true)}}
 
 # Uses

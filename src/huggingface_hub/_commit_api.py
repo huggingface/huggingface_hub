@@ -4,11 +4,14 @@ Type definitions and utilities for the `create_commit` API
 import base64
 import io
 import os
+import warnings
+from collections import defaultdict
 from concurrent import futures
 from concurrent.futures import ThreadPoolExecutor
 from contextlib import contextmanager
 from dataclasses import dataclass, field
-from typing import Any, BinaryIO, Dict, Iterable, List, Optional, Tuple, Union
+from pathlib import PurePosixPath
+from typing import Any, BinaryIO, Dict, Iterable, List, Optional, Union
 
 import requests
 
@@ -21,6 +24,7 @@ from .utils import (
     logging,
     validate_hf_hub_args,
 )
+from .utils._deprecation import _deprecate_method
 from .utils._typing import Literal
 
 
@@ -28,8 +32,6 @@ logger = logging.get_logger(__name__)
 
 
 UploadMode = Literal["lfs", "regular"]
-
-CommitOperationT = Union["CommitOperationAdd", "CommitOperationDelete"]
 
 
 @dataclass
@@ -65,35 +67,35 @@ class CommitOperationDelete:
 @dataclass
 class CommitOperationAdd:
     """
-    Data structure holding necessary info to upload a file
-    to a repository on the Hub
+    Data structure holding necessary info to upload a file to a repository on the Hub.
 
     Args:
         path_in_repo (`str`):
-            Relative filepath in the repo, for example:
-            `"checkpoints/1fec34a/weights.bin"`
+            Relative filepath in the repo, for example: `"checkpoints/1fec34a/weights.bin"`
         path_or_fileobj (`str`, `bytes`, or `BinaryIO`):
             Either:
             - a path to a local file (as str) to upload
             - a buffer of bytes (`bytes`) holding the content of the file to upload
             - a "file object" (subclass of `io.BufferedIOBase`), typically obtained
                 with `open(path, "rb")`. It must support `seek()` and `tell()` methods.
+
+    Raises:
+        [`ValueError`](https://docs.python.org/3/library/exceptions.html#ValueError)
+            If `path_or_fileobj` is not one of `str`, `bytes` or `io.BufferedIOBase`.
+        [`ValueError`](https://docs.python.org/3/library/exceptions.html#ValueError)
+            If `path_or_fileobj` is a `str` but not a path to an existing file.
+        [`ValueError`](https://docs.python.org/3/library/exceptions.html#ValueError)
+            If `path_or_fileobj` is a `io.BufferedIOBase` but it doesn't support both
+            `seek()` and `tell()`.
     """
 
     path_in_repo: str
     path_or_fileobj: Union[str, bytes, BinaryIO]
+    upload_info: UploadInfo = field(init=False, repr=False)
 
-    __upload_info: Optional[UploadInfo] = field(default=None, init=False)
-
-    def validate(self):
-        """
-        Ensures `path_or_fileobj` is valid:
-        - Ensures it is either a `str`, `bytes` or an instance of `io.BufferedIOBase`
-        - If it is a `str`, ensure that it is a file path and that the file exists
-        - If it is an instance of `io.BufferedIOBase`, ensures it supports `seek()` and `tell()`
-
-        Raises: `ValueError` if `path_or_fileobj` is not valid
-        """
+    def __post_init__(self) -> None:
+        """Validates `path_or_fileobj` and compute `upload_info`."""
+        # Validate `path_or_fileobj` value
         if isinstance(self.path_or_fileobj, str):
             path_or_fileobj = os.path.normpath(os.path.expanduser(self.path_or_fileobj))
             if not os.path.isfile(path_or_fileobj):
@@ -118,32 +120,29 @@ class CommitOperationAdd:
                     " seek() and tell()"
                 ) from exc
 
-    def _upload_info(self) -> UploadInfo:
-        """
-        Computes and caches UploadInfo for the underlying data behind `path_or_fileobj`
-        Triggers `self.validate`.
+        # Compute "upload_info" attribute
+        if isinstance(self.path_or_fileobj, str):
+            self.upload_info = UploadInfo.from_path(self.path_or_fileobj)
+        elif isinstance(self.path_or_fileobj, bytes):
+            self.upload_info = UploadInfo.from_bytes(self.path_or_fileobj)
+        else:
+            self.upload_info = UploadInfo.from_fileobj(self.path_or_fileobj)
 
-        Raises: `ValueError` if self.validate fails
-        """
-        self.validate()
-        if self.__upload_info is None:
-            if isinstance(self.path_or_fileobj, str):
-                self.__upload_info = UploadInfo.from_path(self.path_or_fileobj)
-            elif isinstance(self.path_or_fileobj, bytes):
-                self.__upload_info = UploadInfo.from_bytes(self.path_or_fileobj)
-            else:
-                self.__upload_info = UploadInfo.from_fileobj(self.path_or_fileobj)
-        return self.__upload_info
+    @_deprecate_method(
+        version="0.14", message="Operation is validated at initialization."
+    )
+    def validate(self) -> None:
+        pass
+
+    @_deprecate_method(version="0.14", message="Use `upload_info` property instead.")
+    def _upload_info(self) -> UploadInfo:
+        return self.upload_info
 
     @contextmanager
     def as_file(self):
         """
         A context manager that yields a file-like object allowing to read the underlying
         data behind `path_or_fileobj`.
-
-        Triggers `self.validate`.
-
-        Raises: `ValueError` if self.validate fails
 
         Example:
 
@@ -152,14 +151,13 @@ class CommitOperationAdd:
         ...        path_in_repo="remote/dir/weights.h5",
         ...        path_or_fileobj="./local/weights.h5",
         ... )
-        CommitOperationAdd(path_in_repo='remote/dir/weights.h5', path_or_fileobj='./local/weights.h5', _upload_info=None)
+        CommitOperationAdd(path_in_repo='remote/dir/weights.h5', path_or_fileobj='./local/weights.h5')
 
         >>> with operation.as_file() as file:
         ...     content = file.read()
         ```
 
         """
-        self.validate()
         if isinstance(self.path_or_fileobj, str):
             with open(self.path_or_fileobj, "rb") as file:
                 yield file
@@ -183,10 +181,56 @@ class CommitOperationAdd:
 CommitOperation = Union[CommitOperationAdd, CommitOperationDelete]
 
 
+def warn_on_overwriting_operations(operations: List[CommitOperation]) -> None:
+    """
+    Warn user when a list of operations is expected to overwrite itself in a single
+    commit.
+
+    Rules:
+    - If a filepath is updated by multiple `CommitOperationAdd` operations, a warning
+      message is triggered.
+    - If a filepath is updated at least once by a `CommitOperationAdd` and then deleted
+      by a `CommitOperationDelete`, a warning is triggered.
+    - If a `CommitOperationDelete` deletes a filepath that is then updated by a
+      `CommitOperationAdd`, no warning is triggered. This is usually useless (no need to
+      delete before upload) but can happen if a user deletes an entire folder and then
+      add new files to it.
+    """
+    nb_additions_per_path: Dict[str, int] = defaultdict(int)
+    for operation in operations:
+        path_in_repo = operation.path_in_repo
+        if isinstance(operation, CommitOperationAdd):
+            if nb_additions_per_path[path_in_repo] > 0:
+                warnings.warn(
+                    "About to update multiple times the same file in the same commit:"
+                    f" '{path_in_repo}'. This can cause undesired inconsistencies in"
+                    " your repo."
+                )
+            nb_additions_per_path[path_in_repo] += 1
+            for parent in PurePosixPath(path_in_repo).parents:
+                # Also keep track of number of updated files per folder
+                # => warns if deleting a folder overwrite some contained files
+                nb_additions_per_path[str(parent)] += 1
+        if isinstance(operation, CommitOperationDelete):
+            if nb_additions_per_path[str(PurePosixPath(path_in_repo))] > 0:
+                if operation.is_folder:
+                    warnings.warn(
+                        "About to delete a folder containing files that have just been"
+                        f" updated within the same commit: '{path_in_repo}'. This can"
+                        " cause undesired inconsistencies in your repo."
+                    )
+                else:
+                    warnings.warn(
+                        "About to delete a file that have just been updated within the"
+                        f" same commit: '{path_in_repo}'. This can cause undesired"
+                        " inconsistencies in your repo."
+                    )
+
+
 @validate_hf_hub_args
 def upload_lfs_files(
     *,
-    additions: Iterable[CommitOperationAdd],
+    additions: List[CommitOperationAdd],
     repo_type: str,
     repo_id: str,
     token: Optional[str],
@@ -200,7 +244,7 @@ def upload_lfs_files(
         - LFS Batch API: https://github.com/git-lfs/git-lfs/blob/main/docs/api/batch.md
 
     Args:
-        additions (`Iterable` of `CommitOperationAdd`):
+        additions (`List` of `CommitOperationAdd`):
             The files to be uploaded
         repo_type (`str`):
             Type of the repo to upload to: `"model"`, `"dataset"` or `"space"`.
@@ -227,7 +271,7 @@ def upload_lfs_files(
     batch_actions: List[Dict] = []
     for chunk in chunk_iterable(additions, chunk_size=256):
         batch_actions_chunk, batch_errors_chunk = post_lfs_batch_info(
-            upload_infos=[op._upload_info() for op in chunk],
+            upload_infos=[op.upload_info for op in chunk],
             token=token,
             repo_id=repo_id,
             repo_type=repo_type,
@@ -248,7 +292,7 @@ def upload_lfs_files(
         batch_actions += batch_actions_chunk
 
     # Step 2: upload files concurrently according to these instructions
-    oid2addop = {add_op._upload_info().sha256.hex(): add_op for add_op in additions}
+    oid2addop = {add_op.upload_info.sha256.hex(): add_op for add_op in additions}
     with ThreadPoolExecutor(max_workers=num_threads) as pool:
         logger.debug(
             f"Uploading {len(batch_actions)} LFS files to the Hub using up to"
@@ -298,7 +342,7 @@ def _upload_lfs_object(
     large file storage.
 
     Args:
-        operation (`CommitOprationAdd`):
+        operation (`CommitOperationAdd`):
             The add operation triggering this upload
         lfs_batch_action (`dict`):
             Upload instructions from the LFS batch endpoint for this object.
@@ -309,7 +353,7 @@ def _upload_lfs_object(
     Raises: `ValueError` if `lfs_batch_action` is improperly formatted
     """
     _validate_batch_actions(lfs_batch_action)
-    upload_info = operation._upload_info()
+    upload_info = operation.upload_info
     actions = lfs_batch_action.get("actions")
     if actions is None:
         # The file was already uploaded
@@ -333,7 +377,7 @@ def _upload_lfs_object(
         logger.debug(f"{operation.path_in_repo}: Upload successful")
 
 
-def validate_preupload_info(preupload_info: dict):
+def _validate_preupload_info(preupload_info: dict):
     files = preupload_info.get("files")
     if not isinstance(files, list):
         raise ValueError("preupload_info is improperly formatted")
@@ -356,7 +400,7 @@ def fetch_upload_modes(
     token: Optional[str],
     revision: str,
     endpoint: Optional[str] = None,
-) -> List[Tuple[CommitOperationAdd, UploadMode]]:
+) -> Dict[str, UploadMode]:
     """
     Requests the Hub "preupload" endpoint to determine wether each input file
     should be uploaded as a regular git blob or as git LFS blob.
@@ -375,31 +419,28 @@ def fetch_upload_modes(
         revision (`str`):
             The git revision to upload the files to. Can be any valid git revision.
 
-    Returns:
-        list of 2-tuples, the first element being the add operation and
-        the second element the associated upload mode
+    Returns: `Dict[str, UploadMode]`
+        Key is the file path, value is the upload mode ("regular" or "lfs").
 
     Raises:
-        :class:`requests.HTTPError`:
-            If the Hub API returned an error
-        :class:`ValueError`:
-            If the Hub API returned an HTTP 400 error (bad request)
+        [`~utils.HfHubHTTPError`]
+            If the Hub API returned an error.
+        [`ValueError`](https://docs.python.org/3/library/exceptions.html#ValueError)
+            If the Hub API response is improperly formatted.
     """
     endpoint = endpoint if endpoint is not None else ENDPOINT
     headers = build_hf_headers(token=token)
 
     # Fetch upload mode (LFS or regular) chunk by chunk.
-    path2mode: Dict[str, UploadMode] = {}
+    upload_modes: Dict[str, UploadMode] = {}
     for chunk in chunk_iterable(additions, 256):
         payload = {
             "files": [
                 {
                     "path": op.path_in_repo,
-                    "sample": base64.b64encode(op._upload_info().sample).decode(
-                        "ascii"
-                    ),
-                    "size": op._upload_info().size,
-                    "sha": op._upload_info().sha256.hex(),
+                    "sample": base64.b64encode(op.upload_info.sample).decode("ascii"),
+                    "size": op.upload_info.size,
+                    "sha": op.upload_info.sha256.hex(),
                 }
                 for op in chunk
             ]
@@ -411,17 +452,17 @@ def fetch_upload_modes(
             headers=headers,
         )
         hf_raise_for_status(resp)
-        preupload_info = validate_preupload_info(resp.json())
-        path2mode.update(
+        preupload_info = _validate_preupload_info(resp.json())
+        upload_modes.update(
             **{file["path"]: file["uploadMode"] for file in preupload_info["files"]}
         )
 
-    return [(op, path2mode[op.path_in_repo]) for op in additions]
+    return upload_modes
 
 
 def prepare_commit_payload(
-    additions: Iterable[Tuple[CommitOperationAdd, UploadMode]],
-    deletions: Iterable[CommitOperationDelete],
+    operations: Iterable[CommitOperation],
+    upload_modes: Dict[str, UploadMode],
     commit_message: str,
     commit_description: Optional[str] = None,
     parent_commit: Optional[str] = None,
@@ -444,40 +485,44 @@ def prepare_commit_payload(
         header_value["parentCommit"] = parent_commit
     yield {"key": "header", "value": header_value}
 
-    # 2. Send regular files, one per line
-    yield from (
-        {
-            "key": "file",
-            "value": {
-                "content": add_op.b64content().decode(),
-                "path": add_op.path_in_repo,
-                "encoding": "base64",
-            },
-        }
-        for (add_op, upload_mode) in additions
-        if upload_mode == "regular"
-    )
-
-    # 3. Send LFS files, one per line
-    yield from (
-        {
-            "key": "lfsFile",
-            "value": {
-                "path": add_op.path_in_repo,
-                "algo": "sha256",
-                "oid": add_op._upload_info().sha256.hex(),
-                "size": add_op._upload_info().size,
-            },
-        }
-        for (add_op, upload_mode) in additions
-        if upload_mode == "lfs"
-    )
-
-    # 4. Send deleted files, one per line
-    yield from (
-        {
-            "key": "deletedFolder" if del_op.is_folder else "deletedFile",
-            "value": {"path": del_op.path_in_repo},
-        }
-        for del_op in deletions
-    )
+    # 2. Send operations, one per line
+    for operation in operations:
+        # 2.a. Case adding a regular file
+        if (
+            isinstance(operation, CommitOperationAdd)
+            and upload_modes.get(operation.path_in_repo) == "regular"
+        ):
+            yield {
+                "key": "file",
+                "value": {
+                    "content": operation.b64content().decode(),
+                    "path": operation.path_in_repo,
+                    "encoding": "base64",
+                },
+            }
+        # 2.b. Case adding an LFS file
+        elif (
+            isinstance(operation, CommitOperationAdd)
+            and upload_modes.get(operation.path_in_repo) == "lfs"
+        ):
+            yield {
+                "key": "lfsFile",
+                "value": {
+                    "path": operation.path_in_repo,
+                    "algo": "sha256",
+                    "oid": operation.upload_info.sha256.hex(),
+                    "size": operation.upload_info.size,
+                },
+            }
+        # 2.c. Case deleting a file or folder
+        elif isinstance(operation, CommitOperationDelete):
+            yield {
+                "key": "deletedFolder" if operation.is_folder else "deletedFile",
+                "value": {"path": operation.path_in_repo},
+            }
+        # 2.d. Never expected to happen
+        else:
+            raise ValueError(
+                f"Unknown operation to commit. Operation: {operation}. Upload mode:"
+                f" {upload_modes.get(operation.path_in_repo)}"
+            )

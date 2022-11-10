@@ -1,6 +1,6 @@
 name: "\U0001F41B Bug Report"
 description: Report a bug on huggingface_hub
-labels: [ "bug" ]
+labels: ["bug"]
 body:
   - type: markdown
     attributes:
@@ -29,9 +29,24 @@ body:
   - type: textarea
     id: system-info
     attributes:
-      label: System Info
-      description: Please share your system info with us,
+      label: System info
+      description: |
+        Please dump your environment info by running the following command and copy-paste the result here:
+        ```txt
+        huggingface-cli env
+        ```
+
+        If your are working in a notebook, please run it in a code cell:
+        ```py
+        from huggingface_hub import dump_environment_info
+
+        dump_environment_info()
+        ```
       render: shell
-      placeholder: huggingface_hub version, Python Version, etc
+      placeholder: |
+        - huggingface_hub version: 0.11.0.dev0
+        - Platform: Linux-5.15.0-52-generic-x86_64-with-glibc2.35
+        - Python version: 3.10.6
+        ...
     validations:
       required: true

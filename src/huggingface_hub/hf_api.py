@@ -32,6 +32,7 @@ from ._commit_api import (
     fetch_upload_modes,
     prepare_commit_payload,
     upload_lfs_files,
+    warn_on_overwriting_operations,
 )
 from .community import (
     Discussion,
@@ -1846,24 +1847,19 @@ class HfApi:
 
         operations = list(operations)
         additions = [op for op in operations if isinstance(op, CommitOperationAdd)]
-        deletions = [op for op in operations if isinstance(op, CommitOperationDelete)]
-
-        if len(additions) + len(deletions) != len(operations):
-            raise ValueError(
-                "Unknown operation, must be one of `CommitOperationAdd` or"
-                " `CommitOperationDelete`"
-            )
+        nb_additions = len(additions)
+        nb_deletions = len(operations) - nb_additions
 
         logger.debug(
             f"About to commit to the hub: {len(additions)} addition(s) and"
-            f" {len(deletions)} deletion(s)."
+            f" {nb_deletions} deletion(s)."
         )
 
-        for addition in additions:
-            addition.validate()
+        # If updating twice the same file or update then delete a file in a single commit
+        warn_on_overwriting_operations(operations)
 
         try:
-            additions_with_upload_mode = fetch_upload_modes(
+            upload_modes = fetch_upload_modes(
                 additions=additions,
                 repo_type=repo_type,
                 repo_id=repo_id,
@@ -1878,8 +1874,8 @@ class HfApi:
         upload_lfs_files(
             additions=[
                 addition
-                for (addition, upload_mode) in additions_with_upload_mode
-                if upload_mode == "lfs"
+                for addition in additions
+                if upload_modes[addition.path_in_repo] == "lfs"
             ],
             repo_type=repo_type,
             repo_id=repo_id,
@@ -1888,8 +1884,8 @@ class HfApi:
             num_threads=num_threads,
         )
         commit_payload = prepare_commit_payload(
-            additions=additions_with_upload_mode,
-            deletions=deletions,
+            operations=operations,
+            upload_modes=upload_modes,
             commit_message=commit_message,
             commit_description=commit_description,
             parent_commit=parent_commit,
@@ -1919,7 +1915,7 @@ class HfApi:
             e.append_to_message(_CREATE_COMMIT_NO_REPO_ERROR_MESSAGE)
             raise
         except EntryNotFoundError as e:
-            if len(deletions) > 0 and "A file with this name doesn't exist" in str(e):
+            if nb_deletions > 0 and "A file with this name doesn't exist" in str(e):
                 e.append_to_message(
                     "\nMake sure to differentiate file and folder paths in delete"
                     " operations with a trailing '/' or using `is_folder=True/False`."
