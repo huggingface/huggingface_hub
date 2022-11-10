@@ -13,7 +13,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 """Check presence of installed packages at runtime."""
+import platform
 import sys
+from typing import Any, Dict
 
 import packaging.version
 
@@ -177,3 +179,53 @@ def is_google_colab() -> bool:
     Taken from https://stackoverflow.com/a/63519730.
     """
     return _is_google_colab
+
+
+def dump_environment_info() -> Dict[str, Any]:
+    from huggingface_hub import HfFolder, whoami
+    from huggingface_hub.utils import list_credential_helpers
+
+    token = HfFolder().get_token()
+
+    # Generic machine info
+    info: Dict[str, Any] = {
+        "huggingface_hub version": get_hf_hub_version(),
+        "Platform": platform.platform(),
+        "Python version": get_python_version(),
+    }
+
+    # Interpreter info
+    try:
+        shell_class = get_ipython().__class__  # type: ignore # noqa: F821
+        info["Running in iPython ?"] = "Yes"
+        info["iPython shell"] = shell_class.__name__
+    except NameError:
+        info["Running in iPython ?"] = "No"
+    info["Running in notebook ?"] = "Yes" if is_notebook() else "No"
+    info["Running in Google Colab ?"] = "Yes" if is_google_colab() else "No"
+
+    # Login info
+    info["Token path ?"] = HfFolder().path_token
+    info["Has saved token ?"] = token is not None
+    if token is not None:
+        try:
+            info["Who am I ?"] = whoami()["name"]
+        except Exception:
+            pass
+
+    try:
+        info["Configured git credential helpers"] = ", ".join(list_credential_helpers())
+    except Exception:
+        pass
+
+    # Installed dependencies
+    info["FastAI"] = get_fastai_version()
+    info["Tensorflow"] = get_tf_version()
+    info["Torch"] = get_torch_version()
+    info["Jinja2"] = get_jinja_version()
+    info["Graphviz"] = get_graphviz_version()
+    info["Pydot"] = get_pydot_version()
+
+    print("\nCopy-and-paste the text below in your GitHub issue.\n")
+    print("\n".join([f"- {prop}: {val}" for prop, val in info.items()]) + "\n")
+    return info

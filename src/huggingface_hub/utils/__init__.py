@@ -52,6 +52,7 @@ from ._hf_folder import HfFolder
 from ._http import http_backoff
 from ._paths import filter_repo_objects
 from ._runtime import (
+    dump_environment_info,
     get_fastai_version,
     get_fastcore_version,
     get_graphviz_version,
