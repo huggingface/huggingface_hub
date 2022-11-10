@@ -1392,4 +1392,4 @@ def _int_or_none(value: Optional[str]) -> Optional[int]:
     try:
         return int(value)  # type: ignore
     except (TypeError, ValueError):
-        pass
+        return None
