@@ -208,9 +208,6 @@ def dump_environment_info() -> Dict[str, str]:
     info["Token path ?"] = HfFolder().path_token
     info["Has saved token ?"] = token is not None
     if token is not None:
-        info["Token type"] = (
-            "Organization token" if token.startswith("hf_org") else "Personal token"
-        )
         try:
             info["Who am I ?"] = whoami()["name"]
         except Exception:
