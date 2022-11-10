@@ -15,7 +15,7 @@
 """Check presence of installed packages at runtime."""
 import platform
 import sys
-from typing import Dict
+from typing import Any, Dict
 
 import packaging.version
 
@@ -181,14 +181,14 @@ def is_google_colab() -> bool:
     return _is_google_colab
 
 
-def dump_environment_info() -> Dict[str, str]:
+def dump_environment_info() -> Dict[str, Any]:
     from huggingface_hub import HfFolder, whoami
     from huggingface_hub.utils import list_credential_helpers
 
     token = HfFolder().get_token()
 
     # Generic machine info
-    info = {
+    info: Dict[str, Any] = {
         "huggingface_hub version": get_hf_hub_version(),
         "Platform": platform.platform(),
         "Python version": get_python_version(),
@@ -201,8 +201,8 @@ def dump_environment_info() -> Dict[str, str]:
         info["iPython shell"] = shell_class.__name__
     except NameError:
         info["Running in iPython ?"] = "No"
-    info["Running in notebook ?"] = is_notebook()
-    info["Running in Google Colab ?"] = is_google_colab()
+    info["Running in notebook ?"] = "Yes" if is_notebook() else "No"
+    info["Running in Google Colab ?"] = "Yes" if is_google_colab() else "No"
 
     # Login info
     info["Token path ?"] = HfFolder().path_token
