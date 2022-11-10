@@ -400,6 +400,7 @@ def fetch_upload_modes(
     token: Optional[str],
     revision: str,
     endpoint: Optional[str] = None,
+    create_pr: bool = False,
 ) -> Dict[str, UploadMode]:
     """
     Requests the Hub "preupload" endpoint to determine wether each input file
@@ -450,6 +451,7 @@ def fetch_upload_modes(
             f"{endpoint}/api/{repo_type}s/{repo_id}/preupload/{revision}",
             json=payload,
             headers=headers,
+            params={"create_pr": "1"} if create_pr else None,
         )
         hf_raise_for_status(resp)
         preupload_info = _validate_preupload_info(resp.json())

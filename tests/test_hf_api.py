@@ -809,6 +809,24 @@ class CommitApiTest(HfApiCommonTestWithLogin):
         self._api.delete_repo(repo_id=repo_id)
 
     @retry_endpoint
+    def test_create_commit_create_pr_on_foreign_repo(self):
+        # Repo on which we don't have right
+        # We must be able to create a PR on it
+        self._api.create_commit(
+            operations=[
+                CommitOperationAdd(
+                    path_in_repo="regular.txt", path_or_fileobj=b"File content"
+                ),
+                CommitOperationAdd(
+                    path_in_repo="lfs.pkl", path_or_fileobj=b"File content"
+                ),
+            ],
+            commit_message="PR on foreign repo",
+            repo_id="datasets_server_org/repo_for_huggingface_hub_ci_with_prs",
+            create_pr=True,
+        )
+
+    @retry_endpoint
     def test_create_commit(self):
         for private in (False, True):
             visibility = "private" if private else "public"
