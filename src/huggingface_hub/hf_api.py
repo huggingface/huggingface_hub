@@ -2426,6 +2426,103 @@ class HfApi:
         )
 
     @validate_hf_hub_args
+    def create_branch(
+        self,
+        repo_id: str,
+        *,
+        branch: str,
+        token: Optional[str] = None,
+        repo_type: Optional[str] = None,
+    ) -> None:
+        """
+        Create a new branch from `main` on a repo on the Hub.
+
+        Args:
+            repo_id (`str`):
+                The repository in which the branch will be created.
+                Example: `"user/my-cool-model"`.
+
+            branch (`str`):
+                The name of the branch to create.
+
+            token (`str`, *optional*):
+                Authentication token. Will default to the stored token.
+
+            repo_type (`str`, *optional*):
+                Set to `"dataset"` or `"space"` if creating a branch on a dataset or
+                space, `None` or `"model"` if tagging a model. Default is `None`.
+
+        Raises:
+            [`~utils.RepositoryNotFoundError`]:
+                If repository is not found (error 404): wrong repo_id/repo_type, private
+                but not authenticated or repo does not exist.
+            [`~utils.BadRequestError`]:
+                If invalid reference for a branch. Ex: `refs/pr/5` or 'refs/foo/bar'.
+            [`~utils.HfHubHTTPError`]:
+                If the branch already exists on the repo (error 409).
+        """
+        if repo_type is None:
+            repo_type = REPO_TYPE_MODEL
+        branch = quote(branch, safe="")
+
+        # Prepare request
+        branch_url = f"{self.endpoint}/api/{repo_type}s/{repo_id}/branch/{branch}"
+        headers = self._build_hf_headers(token=token, is_write_action=True)
+
+        # Create branch
+        response = requests.post(url=branch_url, headers=headers)
+        hf_raise_for_status(response)
+
+    @validate_hf_hub_args
+    def delete_branch(
+        self,
+        repo_id: str,
+        *,
+        branch: str,
+        token: Optional[str] = None,
+        repo_type: Optional[str] = None,
+    ) -> None:
+        """
+        Delete a branch from a repo on the Hub.
+
+        Args:
+            repo_id (`str`):
+                The repository in which a branch will be deleted.
+                Example: `"user/my-cool-model"`.
+
+            branch (`str`):
+                The name of the branch to delete.
+
+            token (`str`, *optional*):
+                Authentication token. Will default to the stored token.
+
+            repo_type (`str`, *optional*):
+                Set to `"dataset"` or `"space"` if creating a branch on a dataset or
+                space, `None` or `"model"` if tagging a model. Default is `None`.
+
+        Raises:
+            [`~utils.RepositoryNotFoundError`]:
+                If repository is not found (error 404): wrong repo_id/repo_type, private
+                but not authenticated or repo does not exist.
+            [`~utils.HfHubHTTPError`]:
+                If trying to delete a protected branch. Ex: `main` cannot be deleted.
+            [`~utils.HfHubHTTPError`]:
+                If trying to delete a branch that does not exist.
+
+        """
+        if repo_type is None:
+            repo_type = REPO_TYPE_MODEL
+        branch = quote(branch, safe="")
+
+        # Prepare request
+        branch_url = f"{self.endpoint}/api/{repo_type}s/{repo_id}/branch/{branch}"
+        headers = self._build_hf_headers(token=token, is_write_action=True)
+
+        # Delete branch
+        response = requests.delete(url=branch_url, headers=headers)
+        hf_raise_for_status(response)
+
+    @validate_hf_hub_args
     def create_tag(
         self,
         repo_id: str,
@@ -2501,7 +2598,7 @@ class HfApi:
 
         Args:
             repo_id (`str`):
-                The repository in which a commit will be deleted.
+                The repository in which a tag will be deleted.
                 Example: `"user/my-cool-model"`.
 
             tag (`str`):
@@ -2511,9 +2608,8 @@ class HfApi:
                 Authentication token. Will default to the stored token.
 
             repo_type (`str`, *optional*):
-                Set to `"dataset"` or `"space"` if tagging a dataset or
-                space, `None` or `"model"` if tagging a model. Default is
-                `None`.
+                Set to `"dataset"` or `"space"` if tagging a dataset or space, `None` or
+                `"model"` if tagging a model. Default is `None`.
 
         Raises:
             [`~utils.RepositoryNotFoundError`]:
@@ -2521,10 +2617,10 @@ class HfApi:
                 but not authenticated or repo does not exist.
             [`~utils.RevisionNotFoundError`]:
                 If tag is not found.
-
         """
         if repo_type is None:
             repo_type = REPO_TYPE_MODEL
+        tag = quote(tag, safe="")
 
         # Prepare request
         tag_url = f"{self.endpoint}/api/{repo_type}s/{repo_id}/tag/{tag}"
@@ -3443,6 +3539,8 @@ upload_file = api.upload_file
 upload_folder = api.upload_folder
 delete_file = api.delete_file
 delete_folder = api.delete_folder
+create_branch = api.create_branch
+delete_branch = api.delete_branch
 create_tag = api.create_tag
 delete_tag = api.delete_tag
 get_full_repo_name = api.get_full_repo_name
