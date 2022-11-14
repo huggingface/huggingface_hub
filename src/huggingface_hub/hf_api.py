@@ -813,7 +813,7 @@ class HfApi:
 
         data = paginate(path, params=params, headers=headers)
         if limit is not None:
-            data = islice(data, limit)
+            data = islice(data, limit)  # Do not iterate over all pages
         items = [ModelInfo(**x) for x in data]
 
         if emissions_thresholds is not None:
@@ -1016,7 +1016,7 @@ class HfApi:
 
         data = paginate(path, params=params, headers=headers)
         if limit is not None:
-            data = islice(data, limit)
+            data = islice(data, limit)  # Do not iterate over all pages
         return [DatasetInfo(**x) for x in data]
 
     def _unpack_dataset_filter(self, dataset_filter: DatasetFilter):
@@ -1157,7 +1157,7 @@ class HfApi:
 
         data = paginate(path, params=params, headers=headers)
         if limit is not None:
-            data = islice(data, limit)
+            data = islice(data, limit)  # Do not iterate over all pages
         return [SpaceInfo(**x) for x in data]
 
     @validate_hf_hub_args
