@@ -17,6 +17,7 @@ import os
 import re
 import warnings
 from dataclasses import dataclass, field
+from itertools import islice
 from pathlib import Path
 from typing import Any, BinaryIO, Dict, Iterable, Iterator, List, Optional, Tuple, Union
 from urllib.parse import quote
@@ -811,6 +812,8 @@ class HfApi:
             params.update({"cardData": True})
 
         data = paginate(path, params=params, headers=headers)
+        if limit is not None:
+            data = islice(data, limit)
         items = [ModelInfo(**x) for x in data]
 
         if emissions_thresholds is not None:
@@ -1012,6 +1015,8 @@ class HfApi:
             params.update({"full": True})
 
         data = paginate(path, params=params, headers=headers)
+        if limit is not None:
+            data = islice(data, limit)
         return [DatasetInfo(**x) for x in data]
 
     def _unpack_dataset_filter(self, dataset_filter: DatasetFilter):
@@ -1151,6 +1156,8 @@ class HfApi:
             params.update({"models": models})
 
         data = paginate(path, params=params, headers=headers)
+        if limit is not None:
+            data = islice(data, limit)
         return [SpaceInfo(**x) for x in data]
 
     @validate_hf_hub_args
