@@ -145,11 +145,14 @@ class HfFileMetadata:
             Etag of the file on the server.
         location (`str`):
             Location where to download the file. Can be a Hub url or not (CDN).
+        size (`size`):
+            Size of the file.
     """
 
     commit_hash: Optional[str]
     etag: Optional[str]
     location: str
+    size: Optional[int]
 
 
 @validate_hf_hub_args
@@ -1351,7 +1354,7 @@ def get_hf_file_metadata(
             How many seconds to wait for the server to send metadata before giving up.
 
     Returns:
-        A [`HfFileMetadata`] object containing metadata such as location, etag and
+        A [`HfFileMetadata`] object containing metadata such as location, etag, size and
         commit_hash.
     """
     headers = build_hf_headers(token=token)
@@ -1381,4 +1384,12 @@ def get_hf_file_metadata(
         # Do not use directly `url`, as `_request_wrapper` might have followed relative
         # redirects.
         location=r.headers.get("Location") or r.request.url,  # type: ignore
+        size=_int_or_none(r.headers.get("Content-Length")),
     )
+
+
+def _int_or_none(value: Optional[str]) -> Optional[int]:
+    try:
+        return int(value)  # type: ignore
+    except (TypeError, ValueError):
+        return None
