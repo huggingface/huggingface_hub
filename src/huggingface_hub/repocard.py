@@ -788,39 +788,29 @@ def metadata_update(
             else:
                 existing_results = card.data.eval_results
 
+                # Iterate over new results
+                #   Iterate over existing results
+                #       If both results describe the same metric but value is different:
+                #           If overwrite=True: overwrite the metric value
+                #           Else: raise ValueError
+                #       Else: append new result to existing ones.
                 for new_result in new_results:
                     result_found = False
-                    for existing_result_index, existing_result in enumerate(
-                        existing_results
-                    ):
-                        if all(
-                            [
-                                new_result.dataset_name == existing_result.dataset_name,
-                                new_result.dataset_type == existing_result.dataset_type,
-                                new_result.task_type == existing_result.task_type,
-                                new_result.task_name == existing_result.task_name,
-                                new_result.metric_name == existing_result.metric_name,
-                                new_result.metric_type == existing_result.metric_type,
-                            ]
-                        ):
-                            if (
-                                new_result.metric_value != existing_result.metric_value
-                                and not overwrite
-                            ):
-                                existing_str = (
-                                    f"name: {new_result.metric_name}, type:"
-                                    f" {new_result.metric_type}"
-                                )
+                    for existing_result in existing_results:
+                        if new_result.is_equal_except_value(existing_result):
+                            if new_result != existing_result and not overwrite:
                                 raise ValueError(
                                     "You passed a new value for the existing metric"
-                                    f" '{existing_str}'. Set `overwrite=True` to"
-                                    " overwrite existing metrics."
+                                    f" 'name: {new_result.metric_name}, type: "
+                                    f" {new_result.metric_type}'. Set `overwrite=True`"
+                                    " to overwrite existing metrics."
                                 )
                             result_found = True
-                            card.data.eval_results[existing_result_index] = new_result
+                            existing_result.metric_value = new_result.metric_value
                     if not result_found:
                         card.data.eval_results.append(new_result)
         else:
+            # Any metadata that is not a result metric
             if (
                 hasattr(card.data, key)
                 and getattr(card.data, key) is not None
@@ -828,7 +818,8 @@ def metadata_update(
                 and getattr(card.data, key) != value
             ):
                 raise ValueError(
-                    f"""You passed a new value for the existing meta data field '{key}'. Set `overwrite=True` to overwrite existing metadata."""
+                    f"You passed a new value for the existing meta data field '{key}'."
+                    " Set `overwrite=True` to overwrite existing metadata."
                 )
             else:
                 setattr(card.data, key, value)
