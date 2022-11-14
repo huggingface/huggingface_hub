@@ -17,6 +17,7 @@ import os
 import re
 import warnings
 from dataclasses import dataclass, field
+from itertools import islice
 from pathlib import Path
 from typing import Any, BinaryIO, Dict, Iterable, Iterator, List, Optional, Tuple, Union
 from urllib.parse import quote
@@ -71,6 +72,7 @@ from .utils._deprecation import (
     _deprecate_method,
     _deprecate_positional_args,
 )
+from .utils._pagination import paginate
 from .utils._typing import Literal, TypedDict
 from .utils.endpoint_helpers import (
     AttributeDictionary,
@@ -808,15 +810,11 @@ class HfApi:
             params.update({"config": True})
         if cardData:
             params.update({"cardData": True})
-        r = requests.get(path, params=params, headers=headers)
-        hf_raise_for_status(r)
-        items = [ModelInfo(**x) for x in r.json()]
 
-        # If pagination has been enabled server-side, older versions of `huggingface_hub`
-        # are deprecated as output is truncated.
-        _warn_if_truncated(
-            items, total_count=r.headers.get("X-Total-Count"), limit=limit
-        )
+        data = paginate(path, params=params, headers=headers)
+        if limit is not None:
+            data = islice(data, limit)  # Do not iterate over all pages
+        items = [ModelInfo(**x) for x in data]
 
         if emissions_thresholds is not None:
             if cardData is None:
@@ -1015,17 +1013,11 @@ class HfApi:
             params.update({"limit": limit})
         if full or cardData:
             params.update({"full": True})
-        r = requests.get(path, params=params, headers=headers)
-        hf_raise_for_status(r)
-        items = [DatasetInfo(**x) for x in r.json()]
 
-        # If pagination has been enabled server-side, older versions of `huggingface_hub`
-        # are deprecated as output is truncated.
-        _warn_if_truncated(
-            items, total_count=r.headers.get("X-Total-Count"), limit=limit
-        )
-
-        return items
+        data = paginate(path, params=params, headers=headers)
+        if limit is not None:
+            data = islice(data, limit)  # Do not iterate over all pages
+        return [DatasetInfo(**x) for x in data]
 
     def _unpack_dataset_filter(self, dataset_filter: DatasetFilter):
         """
@@ -1162,17 +1154,11 @@ class HfApi:
             params.update({"datasets": datasets})
         if models is not None:
             params.update({"models": models})
-        r = requests.get(path, params=params, headers=headers)
-        hf_raise_for_status(r)
-        items = [SpaceInfo(**x) for x in r.json()]
 
-        # If pagination has been enabled server-side, older versions of `huggingface_hub`
-        # are deprecated as output is truncated.
-        _warn_if_truncated(
-            items, total_count=r.headers.get("X-Total-Count"), limit=limit
-        )
-
-        return items
+        data = paginate(path, params=params, headers=headers)
+        if limit is not None:
+            data = islice(data, limit)  # Do not iterate over all pages
+        return [SpaceInfo(**x) for x in data]
 
     @validate_hf_hub_args
     def model_info(
@@ -3472,38 +3458,6 @@ def _parse_revision_from_pr_url(pr_url: str) -> str:
             f" '{pr_url}'"
         )
     return f"refs/pr/{re_match[1]}"
-
-
-def _warn_if_truncated(
-    items: List[Any], limit: Optional[int], total_count: Optional[str]
-) -> None:
-    # TODO: remove this once pagination is properly implemented in `huggingface_hub`.
-    if total_count is None:
-        # Total count header not implemented
-        return
-
-    try:
-        total_count_int = int(total_count)
-    except ValueError:
-        # Total count header not implemented properly server-side
-        return
-
-    if len(items) == total_count_int:
-        # All items have been returned => not truncated
-        return
-
-    if limit is not None and len(items) == limit:
-        # `limit` is set => truncation is expected
-        return
-
-    # Otherwise, pagination has been enabled server-side and the output has been
-    # truncated by server => warn user.
-    warnings.warn(
-        "The list of repos returned by the server has been truncated. Listing repos"
-        " from the Hub using `list_models`, `list_datasets` and `list_spaces` now"
-        " requires pagination. To get the full list of repos, please consider upgrading"
-        " `huggingface_hub` to its latest version."
-    )
 
 
 api = HfApi()
