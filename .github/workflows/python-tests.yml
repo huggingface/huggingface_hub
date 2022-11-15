@@ -75,11 +75,11 @@ jobs:
           case "${{ matrix.test_name }}" in
 
             "Repository only")
-              eval "$PYTEST ../tests -k 'RepositoryTest'"
+              eval "$PYTEST ../tests -k 'RepositoryTest or RepositoryDatasetTest'"
               ;;
 
             "Everything else")
-              eval "$PYTEST ../tests -k 'not RepositoryTest'"
+              eval "$PYTEST ../tests -k 'not RepositoryTest and not RepositoryDatasetTest'"
               ;;
 
             lfs)
