@@ -5,6 +5,7 @@ import subprocess
 import tempfile
 import threading
 import time
+import warnings
 from contextlib import contextmanager
 from pathlib import Path
 from typing import Callable, Dict, Iterator, List, Optional, Tuple, Union
@@ -15,7 +16,14 @@ from huggingface_hub.repocard import metadata_load, metadata_save
 
 from .hf_api import HfApi, repo_type_and_id_from_hf_id
 from .lfs import LFS_MULTIPART_UPLOAD_COMMAND
-from .utils import HfFolder, logging, run_subprocess, tqdm, validate_hf_hub_args
+from .utils import (
+    HfFolder,
+    RepositoryNotFoundError,
+    logging,
+    run_subprocess,
+    tqdm,
+    validate_hf_hub_args,
+)
 from .utils._deprecation import _deprecate_arguments, _deprecate_method
 from .utils._typing import TypedDict
 
@@ -704,6 +712,30 @@ class Repository:
             if namespace is not None:
                 repo_url += f"{namespace}/"
             repo_url += repo_id
+
+            # To be removed: check if repo exists. If not, create it first.
+            try:
+                HfApi().repo_info(f"{repo_id}", repo_type=self._repo_type, token=token)
+            except RepositoryNotFoundError:
+                if self._repo_type == "space":
+                    raise ValueError(
+                        "Creating a Space through passing Space link to clone_from is"
+                        " not allowed. Make sure the Space exists on Hugging Face Hub."
+                    )
+                else:
+                    warnings.warn(
+                        "Creating a repository through 'clone_from' is deprecated and"
+                        " will be removed in v0.12. Please create the repository first"
+                        " using `create_repo(..., exists_ok=True)`.",
+                        FutureWarning,
+                    )
+                    self.client.create_repo(
+                        repo_id=repo_id,
+                        token=token,
+                        repo_type=self._repo_type,
+                        exist_ok=True,
+                        private=self._private,
+                    )
 
         # For error messages, it's cleaner to show the repo url without the token.
         clean_repo_url = re.sub(r"(https?)://.*@", r"\1://", repo_url)
