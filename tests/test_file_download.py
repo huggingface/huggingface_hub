@@ -376,6 +376,17 @@ class CachedDownloadTests(unittest.TestCase):
             url.replace(DUMMY_RENAMED_OLD_MODEL_ID, DUMMY_RENAMED_NEW_MODEL_ID),
         )
 
+    def test_get_hf_file_metadata_from_a_lfs_file(self) -> None:
+        """Test getting metadata from an LFS file.
+
+        Must get size of the LFS file, not size of the pointer file
+        """
+        url = hf_hub_url("gpt2", filename="tf_model.h5")
+        metadata = get_hf_file_metadata(url)
+
+        self.assertIn("cdn-lfs", metadata.location)  # Redirection
+        self.assertEqual(metadata.size, 497933648)  # Size of LFS file, not pointer
+
 
 class StagingCachedDownloadTest(unittest.TestCase):
     def test_download_from_a_gated_repo_with_hf_hub_download(self):
