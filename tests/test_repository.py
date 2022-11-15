@@ -481,6 +481,7 @@ class RepositoryTest(RepositoryCommonTest):
         self.assertTrue("model.bin" in files)
 
     @retry_endpoint
+    @expect_deprecation("clone_from")
     def test_clone_with_repo_name_and_no_namespace(self):
         with self.assertRaises(EnvironmentError):
             Repository(
@@ -1742,6 +1743,7 @@ class RepositoryDatasetTest(RepositoryCommonTest):
         self.assertTrue("test.py" in files)
 
     @retry_endpoint
+    @expect_deprecation("clone_from")
     def test_clone_with_repo_name_and_no_namespace(self):
         self.assertRaises(
             OSError,
