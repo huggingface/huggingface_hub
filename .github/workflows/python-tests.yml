@@ -18,12 +18,12 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        python-version: ["3.7", "3.10"]
+        python-version: ["3.7", "3.11"]
         test_name:
           [
             "Repository only",
             "Everything else",
-            "fastai",
+            "torch",
           ]
         include:
           - python-version: "3.11" # LFS not ran on 3.7
