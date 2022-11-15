@@ -26,6 +26,7 @@ from .constants import (
     HF_HUB_DISABLE_SYMLINKS_WARNING,
     HUGGINGFACE_CO_URL_TEMPLATE,
     HUGGINGFACE_HEADER_X_LINKED_ETAG,
+    HUGGINGFACE_HEADER_X_LINKED_SIZE,
     HUGGINGFACE_HEADER_X_REPO_COMMIT,
     HUGGINGFACE_HUB_CACHE,
     REPO_ID_SEPARATOR,
@@ -146,7 +147,8 @@ class HfFileMetadata:
         location (`str`):
             Location where to download the file. Can be a Hub url or not (CDN).
         size (`size`):
-            Size of the file.
+            Size of the file. In case of an LFS file, contains the size of the actual
+            LFS file, not the pointer.
     """
 
     commit_hash: Optional[str]
@@ -1384,7 +1386,10 @@ def get_hf_file_metadata(
         # Do not use directly `url`, as `_request_wrapper` might have followed relative
         # redirects.
         location=r.headers.get("Location") or r.request.url,  # type: ignore
-        size=_int_or_none(r.headers.get("Content-Length")),
+        size=_int_or_none(
+            r.headers.get(HUGGINGFACE_HEADER_X_LINKED_SIZE)
+            or r.headers.get("Content-Length")
+        ),
     )
 
 
