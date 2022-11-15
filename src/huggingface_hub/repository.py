@@ -692,9 +692,10 @@ class Repository:
         if hub_url in repo_url or (
             "http" not in repo_url and len(repo_url.split("/")) <= 2
         ):
-            repo_type, namespace, repo_id = repo_type_and_id_from_hf_id(
+            repo_type, namespace, repo_name = repo_type_and_id_from_hf_id(
                 repo_url, hub_url=hub_url
             )
+            repo_id = f"{namespace}/{repo_name}" if namespace is not None else repo_name
 
             if repo_type is not None:
                 self._repo_type = repo_type
@@ -709,8 +710,6 @@ class Repository:
                 scheme = urlparse(repo_url).scheme
                 repo_url = repo_url.replace(f"{scheme}://", f"{scheme}://user:{token}@")
 
-            if namespace is not None:
-                repo_url += f"{namespace}/"
             repo_url += repo_id
 
             # To be removed: check if repo exists. If not, create it first.
