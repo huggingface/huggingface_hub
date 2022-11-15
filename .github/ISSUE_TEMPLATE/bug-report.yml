@@ -36,7 +36,7 @@ body:
         huggingface-cli env
         ```
 
-        If your are working in a notebook, please run it in a code cell:
+        If you are working in a notebook, please run it in a code cell:
         ```py
         from huggingface_hub import dump_environment_info
 

@@ -121,6 +121,18 @@ class EvalResult:
     # A JSON Web Token that is used to verify whether the metrics originate from Hugging Face's [evaluation service](https://huggingface.co/spaces/autoevaluate/model-evaluator) or not.
     verify_token: Optional[str] = None
 
+    def is_equal_except_value(self, other: "EvalResult") -> bool:
+        """
+        Return True if `self` and `other` describe exactly the same metric but with a
+        different value.
+        """
+        for key, _ in self.__dict__.items():
+            if key == "metric_value":
+                continue
+            if getattr(self, key) != getattr(other, key):
+                return False
+        return True
+
 
 @dataclass
 class CardData:

@@ -471,7 +471,7 @@ def fetch_upload_modes(
             if not path.endswith(".gitkeep"):
                 warnings.warn(
                     f"About to commit an empty file: '{path}'. Are you sure this is"
-                    " intended ?"
+                    " intended?"
                 )
             upload_modes[path] = "regular"
 

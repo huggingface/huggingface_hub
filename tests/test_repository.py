@@ -22,8 +22,6 @@ import unittest
 import uuid
 from io import BytesIO
 
-import pytest
-
 import requests
 from huggingface_hub._login import _currently_setup_credential_helpers
 from huggingface_hub.hf_api import HfApi
@@ -118,17 +116,16 @@ class RepositoryTest(RepositoryCommonTest):
             repo_id=f"{USER}/{self.REPO_NAME}-temp", repo_type="space"
         )
 
+    @expect_deprecation("clone_from")
     def test_clone_from_missing_repo(self):
         """
-        If the repo does not exist, it is not created automatically. This behavior
-        was possible before but has been deprecated and removed.
+        If the repo does not exist, it is created automatically.
+
+        This behavior is deprecated and will be removed in v0.12.
         """
-        with pytest.raises(EnvironmentError, match=".*remote: Repository not found.*"):
-            Repository(
-                WORKING_REPO_DIR,
-                clone_from=f"{USER}/{uuid.uuid4()}",
-                use_auth_token=self._token,
-            )
+        Repository(
+            WORKING_REPO_DIR, clone_from=f"{USER}/{uuid.uuid4()}", token=self._token
+        )
 
     def test_clone_from_model(self):
         temp_repo_url = self._api.create_repo(
@@ -484,6 +481,7 @@ class RepositoryTest(RepositoryCommonTest):
         self.assertTrue("model.bin" in files)
 
     @retry_endpoint
+    @expect_deprecation("clone_from")
     def test_clone_with_repo_name_and_no_namespace(self):
         with self.assertRaises(EnvironmentError):
             Repository(
@@ -1745,6 +1743,7 @@ class RepositoryDatasetTest(RepositoryCommonTest):
         self.assertTrue("test.py" in files)
 
     @retry_endpoint
+    @expect_deprecation("clone_from")
     def test_clone_with_repo_name_and_no_namespace(self):
         self.assertRaises(
             OSError,
