@@ -46,6 +46,7 @@ ENDPOINT = os.getenv("HF_ENDPOINT") or (
 HUGGINGFACE_CO_URL_TEMPLATE = ENDPOINT + "/{repo_id}/resolve/{revision}/{filename}"
 HUGGINGFACE_HEADER_X_REPO_COMMIT = "X-Repo-Commit"
 HUGGINGFACE_HEADER_X_LINKED_ETAG = "X-Linked-Etag"
+HUGGINGFACE_HEADER_X_LINKED_SIZE = "X-Linked-Size"
 
 REPO_ID_SEPARATOR = "--"
 # ^ this substring is not allowed in repo_ids on hf.co
