@@ -802,7 +802,7 @@ def metadata_update(
                                 raise ValueError(
                                     "You passed a new value for the existing metric"
                                     f" 'name: {new_result.metric_name}, type: "
-                                    f" {new_result.metric_type}'. Set `overwrite=True`"
+                                    f"{new_result.metric_type}'. Set `overwrite=True`"
                                     " to overwrite existing metrics."
                                 )
                             result_found = True
