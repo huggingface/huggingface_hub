@@ -113,35 +113,6 @@ class HubMixingTest(HubMixingCommonTest):
         mocked_model.save_pretrained(save_directory, push_to_hub=True, config=config)
         mocked_model.push_to_hub.assert_called_with(repo_id=REPO_NAME, config=config)
 
-        # Push to hub with deprecated kwargs (git-based)
-        mocked_model.save_pretrained(
-            save_directory,
-            push_to_hub=True,
-            config=config,
-            repo_path_or_name="custom_repo_name",
-            git_email="myemail",
-            git_user="gituser",
-        )
-        mocked_model.push_to_hub.assert_called_with(
-            repo_path_or_name="custom_repo_name",
-            config=config,
-            git_email="myemail",
-            git_user="gituser",
-        )
-
-        # Push to hub with deprecated kwargs + use default repo_name + no config
-        mocked_model.save_pretrained(
-            save_directory,
-            push_to_hub=True,
-            git_email="myemail",
-            git_user="gituser",
-        )
-        mocked_model.push_to_hub.assert_called_with(
-            repo_path_or_name=save_directory,
-            git_email="myemail",
-            git_user="gituser",
-        )
-
     def test_rel_path_from_pretrained(self):
         model = DummyModel()
         model.save_pretrained(
