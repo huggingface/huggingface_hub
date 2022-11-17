@@ -4,7 +4,7 @@ import os
 import tempfile
 import warnings
 from pathlib import Path
-from shutil import copytree, rmtree
+from shutil import copytree
 from typing import Any, Dict, List, Optional, Union
 from urllib.parse import quote
 
@@ -20,9 +20,7 @@ from huggingface_hub.utils import (
 
 from .constants import CONFIG_NAME, DEFAULT_REVISION
 from .hf_api import HfApi, _parse_revision_from_pr_url, _prepare_upload_folder_commit
-from .repository import Repository
-from .utils import HfFolder, logging, validate_hf_hub_args
-from .utils._deprecation import _deprecate_arguments, _deprecate_positional_args
+from .utils import logging, validate_hf_hub_args
 
 
 logger = logging.get_logger(__name__)
@@ -288,61 +286,25 @@ def from_pretrained_keras(*args, **kwargs):
     return KerasModelHubMixin.from_pretrained(*args, **kwargs)
 
 
-@_deprecate_positional_args(version="0.12")
-@_deprecate_arguments(
-    version="0.12",
-    deprecated_args={
-        "repo_path_or_name",
-        "repo_url",
-        "organization",
-        "git_user",
-        "git_email",
-    },
-)
 @validate_hf_hub_args
 def push_to_hub_keras(
-    # NOTE: deprecated signature that will change in 0.12
     model,
+    repo_id: str,
     *,
-    repo_path_or_name: Optional[str] = None,
-    repo_url: Optional[str] = None,
-    log_dir: Optional[str] = None,
-    commit_message: str = "Add Keras model",
-    organization: Optional[str] = None,
+    config: Optional[dict] = None,
+    commit_message: str = "Push Keras model using huggingface_hub.",
     private: bool = False,
     api_endpoint: Optional[str] = None,
-    git_user: Optional[str] = None,
-    git_email: Optional[str] = None,
-    config: Optional[dict] = None,
-    include_optimizer: bool = False,
-    tags: Optional[Union[list, str]] = None,
-    plot_model: bool = True,
-    # NOTE: New arguments since 0.9
     token: Optional[str] = None,
-    repo_id: Optional[str] = None,  # optional only until 0.12
     branch: Optional[str] = None,
     create_pr: Optional[bool] = None,
     allow_patterns: Optional[Union[List[str], str]] = None,
     ignore_patterns: Optional[Union[List[str], str]] = None,
+    log_dir: Optional[str] = None,
+    include_optimizer: bool = False,
+    tags: Optional[Union[list, str]] = None,
+    plot_model: bool = True,
     **model_save_kwargs,
-    # TODO (release 0.12): signature must be the following
-    # model,
-    # repo_id: str,
-    # *,
-    # commit_message: str = "Add model",
-    # private: bool = None,
-    # api_endpoint: Optional[str] = None,
-    # token: Optional[str] = True,
-    # branch: Optional[str] = None,
-    # create_pr: Optional[bool] = None,
-    # config: Optional[dict] = None,
-    # allow_patterns: Optional[Union[List[str], str]] = None,
-    # ignore_patterns: Optional[Union[List[str], str]] = None,
-    # log_dir: Optional[str] = None,
-    # include_optimizer: bool = False,
-    # tags: Optional[Union[list, str]] = None,
-    # plot_model: Optional[bool] = True,
-    # **model_save_kwargs,
 ):
     """
     Upload model checkpoint or tokenizer files to the Hub while synchronizing a
@@ -400,135 +362,68 @@ def push_to_hub_keras(
     Returns:
         The url of the commit of your model in the given repository.
     """
-    if repo_id is not None:
-        api = HfApi(endpoint=api_endpoint)
-        api.create_repo(
-            repo_id=repo_id,
-            repo_type="model",
-            token=token,
-            private=private,
-            exist_ok=True,
-        )
-
-        # Push the files to the repo in a single commit
-        with tempfile.TemporaryDirectory() as tmp:
-            saved_path = Path(tmp) / repo_id
-            save_pretrained_keras(
-                model,
-                saved_path,
-                config=config,
-                include_optimizer=include_optimizer,
-                tags=tags,
-                plot_model=plot_model,
-                **model_save_kwargs,
-            )
-
-            # If log dir is provided, delete old logs + add new ones
-            operations: List[CommitOperation] = []
-            if log_dir is not None:
-                # Delete previous log files from Hub
-                operations += [
-                    CommitOperationDelete(path_in_repo=file)
-                    for file in api.list_repo_files(repo_id=repo_id, token=token)
-                    if file.startswith("logs/")
-                ]
-
-                # Copy new log files
-                copytree(log_dir, saved_path / "logs")
-
-            # NOTE: `_prepare_upload_folder_commit` and `create_commit` calls are
-            #       duplicate code from `upload_folder`. We are not directly using
-            #       `upload_folder` since we want to add delete operations to the
-            #       commit as well.
-            operations += _prepare_upload_folder_commit(
-                saved_path,
-                path_in_repo="",
-                allow_patterns=allow_patterns,
-                ignore_patterns=ignore_patterns,
-            )
-            commit_info = api.create_commit(
-                repo_type="model",
-                repo_id=repo_id,
-                operations=operations,
-                commit_message=commit_message,
-                token=token,
-                revision=branch,
-                create_pr=create_pr,
-            )
-            revision = branch
-            if revision is None:
-                revision = (
-                    quote(_parse_revision_from_pr_url(commit_info.pr_url), safe="")
-                    if commit_info.pr_url is not None
-                    else DEFAULT_REVISION
-                )
-            return f"{api.endpoint}/{repo_id}/tree/{revision}/"
-
-    # Repo id is None means we use the deprecated version using Git
-    # TODO: remove code between here and `return repo.git_push()` in release 0.12
-    if repo_path_or_name is None and repo_url is None:
-        raise ValueError("You need to specify a `repo_path_or_name` or a `repo_url`.")
-
-    if isinstance(token, bool) and token:
-        token = HfFolder.get_token()
-    elif isinstance(token, str):
-        token = token
-    else:
-        token = None
-
-    if token is None:
-        raise ValueError(
-            "You must login to the Hugging Face hub on this computer by typing"
-            " `huggingface-cli login` and entering your credentials to use"
-            " `token=True`. Alternatively, you can pass your own token as the"
-            " `token` argument."
-        )
-
-    if repo_path_or_name is None:
-        assert repo_url is not None, "A `None` repo URL would have raised above"
-        repo_path_or_name = repo_url.split("/")[-1]
-
-    # If no URL is passed and there's no path to a directory containing files, create a repo
-    if repo_url is None and not os.path.exists(repo_path_or_name):
-        repo_id = Path(repo_path_or_name).name
-        if organization:
-            repo_id = f"{organization}/{repo_id}"
-        repo_url = HfApi(endpoint=api_endpoint).create_repo(
-            repo_id=repo_id,
-            token=token,
-            private=private,
-            repo_type=None,
-            exist_ok=True,
-        )
-
-    repo = Repository(
-        repo_path_or_name,
-        clone_from=repo_url,
+    api = HfApi(endpoint=api_endpoint)
+    api.create_repo(
+        repo_id=repo_id,
+        repo_type="model",
         token=token,
-        git_user=git_user,
-        git_email=git_email,
-    )
-    repo.git_pull(rebase=True)
-
-    save_pretrained_keras(
-        model,
-        repo_path_or_name,
-        config=config,
-        include_optimizer=include_optimizer,
-        tags=tags,
-        plot_model=plot_model,
-        **model_save_kwargs,
+        private=private,
+        exist_ok=True,
     )
 
-    if log_dir is not None:
-        if os.path.exists(f"{repo_path_or_name}/logs"):
-            rmtree(f"{repo_path_or_name}/logs")
-        copytree(log_dir, f"{repo_path_or_name}/logs")
+    # Push the files to the repo in a single commit
+    with tempfile.TemporaryDirectory() as tmp:
+        saved_path = Path(tmp) / repo_id
+        save_pretrained_keras(
+            model,
+            saved_path,
+            config=config,
+            include_optimizer=include_optimizer,
+            tags=tags,
+            plot_model=plot_model,
+            **model_save_kwargs,
+        )
 
-    # Commit and push!
-    repo.git_add(auto_lfs_track=True)
-    repo.git_commit(commit_message)
-    return repo.git_push()
+        # If log dir is provided, delete old logs + add new ones
+        operations: List[CommitOperation] = []
+        if log_dir is not None:
+            # Delete previous log files from Hub
+            operations += [
+                CommitOperationDelete(path_in_repo=file)
+                for file in api.list_repo_files(repo_id=repo_id, token=token)
+                if file.startswith("logs/")
+            ]
+
+            # Copy new log files
+            copytree(log_dir, saved_path / "logs")
+
+        # NOTE: `_prepare_upload_folder_commit` and `create_commit` calls are
+        #       duplicate code from `upload_folder`. We are not directly using
+        #       `upload_folder` since we want to add delete operations to the
+        #       commit as well.
+        operations += _prepare_upload_folder_commit(
+            saved_path,
+            path_in_repo="",
+            allow_patterns=allow_patterns,
+            ignore_patterns=ignore_patterns,
+        )
+        commit_info = api.create_commit(
+            repo_type="model",
+            repo_id=repo_id,
+            operations=operations,
+            commit_message=commit_message,
+            token=token,
+            revision=branch,
+            create_pr=create_pr,
+        )
+        revision = branch
+        if revision is None:
+            revision = (
+                quote(_parse_revision_from_pr_url(commit_info.pr_url), safe="")
+                if commit_info.pr_url is not None
+                else DEFAULT_REVISION
+            )
+        return f"{api.endpoint}/{repo_id}/tree/{revision}/"
 
 
 class KerasModelHubMixin(ModelHubMixin):
