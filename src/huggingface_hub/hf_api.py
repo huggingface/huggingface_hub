@@ -70,7 +70,6 @@ from .utils._deprecation import (
     _deprecate_arguments,
     _deprecate_list_output,
     _deprecate_method,
-    _deprecate_positional_args,
 )
 from .utils._pagination import paginate
 from .utils._typing import Literal, TypedDict
@@ -1475,7 +1474,6 @@ class HfApi:
         return [f.rfilename for f in repo_info.siblings]
 
     @validate_hf_hub_args
-    @_deprecate_positional_args(version="0.12")
     def create_repo(
         self,
         repo_id: str,
