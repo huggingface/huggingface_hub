@@ -1582,34 +1582,6 @@ class RepositoryOfflineTest(RepositoryCommonTest):
 
         self.assertFalse(repo.is_repo_clean())
 
-    @expect_deprecation("__init__")
-    def test_private_deprecation_on_init(self):
-        Repository(
-            WORKING_REPO_DIR,
-            private=True,
-            git_user="RANDOM_USER",
-            git_email="EMAIL@EMAIL.EMAIL",
-        )
-
-    @expect_deprecation("private")
-    def test_private_deprecation_on_attribute(self):
-        repo = Repository(
-            WORKING_REPO_DIR,
-            git_user="RANDOM_USER",
-            git_email="EMAIL@EMAIL.EMAIL",
-        )
-        self.assertFalse(repo.private)
-
-    @expect_deprecation("repo_type")
-    def test_repo_type_deprecation_on_attribute(self):
-        repo = Repository(
-            WORKING_REPO_DIR,
-            git_user="RANDOM_USER",
-            git_email="EMAIL@EMAIL.EMAIL",
-            repo_type="toto",
-        )
-        self.assertEqual(repo.repo_type, "toto")
-
 
 class RepositoryDatasetTest(RepositoryCommonTest):
     @classmethod
