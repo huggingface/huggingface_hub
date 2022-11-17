@@ -5,7 +5,6 @@ import subprocess
 import tempfile
 import threading
 import time
-import warnings
 from contextlib import contextmanager
 from pathlib import Path
 from typing import Callable, Dict, Iterator, List, Optional, Tuple, Union
@@ -16,15 +15,7 @@ from huggingface_hub.repocard import metadata_load, metadata_save
 
 from .hf_api import HfApi, repo_type_and_id_from_hf_id
 from .lfs import LFS_MULTIPART_UPLOAD_COMMAND
-from .utils import (
-    HfFolder,
-    RepositoryNotFoundError,
-    logging,
-    run_subprocess,
-    tqdm,
-    validate_hf_hub_args,
-)
-from .utils._deprecation import _deprecate_arguments, _deprecate_method
+from .utils import HfFolder, logging, run_subprocess, tqdm, validate_hf_hub_args
 from .utils._typing import TypedDict
 
 
@@ -438,14 +429,6 @@ class Repository:
 
     command_queue: List[CommandInProgress]
 
-    @_deprecate_arguments(
-        version="0.12",
-        deprecated_args=[
-            # Private arg is only used to create the repo if it doesn't exist which is a
-            # deprecated behavior.
-            "private"
-        ],
-    )
     @validate_hf_hub_args
     def __init__(
         self,
@@ -456,7 +439,6 @@ class Repository:
         git_user: Optional[str] = None,
         git_email: Optional[str] = None,
         revision: Optional[str] = None,
-        private: bool = False,
         skip_lfs_files: bool = False,
         client: Optional[HfApi] = None,
     ):
@@ -509,7 +491,6 @@ class Repository:
         self.local_dir = os.path.join(os.getcwd(), local_dir)
         self._repo_type = repo_type
         self.command_queue = []
-        self._private = private
         self.skip_lfs_files = skip_lfs_files
         self.client = client if client is not None else HfApi()
 
@@ -576,30 +557,6 @@ class Repository:
 
         return result
 
-    @property
-    @_deprecate_method(
-        version="0.12",
-        message="`repo_type` is only used in a deprecated use case of `clone_from`.",
-    )
-    def repo_type(self) -> Optional[str]:
-        """Make `repo_type` a private attribute to warn users this is not a value to
-        access from `Repository` object (error-prone). Property to be removed when
-        `repo_type` will be definitely removed (v0.12).
-        """
-        return self._repo_type
-
-    @property
-    @_deprecate_method(
-        version="0.12",
-        message="`private` is only used in a deprecated use case of `clone_from`.",
-    )
-    def private(self) -> bool:
-        """Make `private` a private attribute to warn users this is not a value to
-        access from `Repository` object (error-prone). Property to be removed when
-        `private` will be definitely removed (v0.12).
-        """
-        return self._private
-
     def check_git_versions(self):
         """
         Checks that `git` and `git-lfs` can be run.
@@ -653,10 +610,6 @@ class Repository:
         Raises the following error:
 
             - [`ValueError`](https://docs.python.org/3/library/exceptions.html#ValueError)
-              if the `token` cannot be identified and the `private` keyword is set to
-              `True`. The `token` must be passed in order to handle private repositories.
-
-            - [`ValueError`](https://docs.python.org/3/library/exceptions.html#ValueError)
               if an organization token (starts with "api_org") is passed. Use must use
               your own personal access token (see https://hf.co/settings/tokens).
 
@@ -675,14 +628,7 @@ class Repository:
                 else self.huggingface_token  # `None` or `True` -> use default
             )
         )
-        if token is None and self._private:
-            raise ValueError(
-                "Couldn't load Hugging Face Authorization Token. Credentials are"
-                " required to work with private repositories. Please login in using"
-                " `huggingface-cli login` or provide your token manually with the"
-                " `token` key."
-            )
-        elif token is not None and token.startswith("api_org"):
+        if token is not None and token.startswith("api_org"):
             raise ValueError(
                 "You must use your personal access token, not an Organization token"
                 " (see https://hf.co/settings/tokens)."
@@ -711,30 +657,6 @@ class Repository:
                 repo_url = repo_url.replace(f"{scheme}://", f"{scheme}://user:{token}@")
 
             repo_url += repo_id
-
-            # To be removed: check if repo exists. If not, create it first.
-            try:
-                HfApi().repo_info(f"{repo_id}", repo_type=self._repo_type, token=token)
-            except RepositoryNotFoundError:
-                if self._repo_type == "space":
-                    raise ValueError(
-                        "Creating a Space through passing Space link to clone_from is"
-                        " not allowed. Make sure the Space exists on Hugging Face Hub."
-                    )
-                else:
-                    warnings.warn(
-                        "Creating a repository through 'clone_from' is deprecated and"
-                        " will be removed in v0.12. Please create the repository first"
-                        " using `create_repo(..., exists_ok=True)`.",
-                        FutureWarning,
-                    )
-                    self.client.create_repo(
-                        repo_id=repo_id,
-                        token=token,
-                        repo_type=self._repo_type,
-                        exist_ok=True,
-                        private=self._private,
-                    )
 
         # For error messages, it's cleaner to show the repo url without the token.
         clean_repo_url = re.sub(r"(https?)://.*@", r"\1://", repo_url)

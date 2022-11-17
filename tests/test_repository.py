@@ -116,16 +116,12 @@ class RepositoryTest(RepositoryCommonTest):
             repo_id=f"{USER}/{self.REPO_NAME}-temp", repo_type="space"
         )
 
-    @expect_deprecation("clone_from")
     def test_clone_from_missing_repo(self):
-        """
-        If the repo does not exist, it is created automatically.
-
-        This behavior is deprecated and will be removed in v0.12.
-        """
-        Repository(
-            WORKING_REPO_DIR, clone_from=f"{USER}/{uuid.uuid4()}", token=self._token
-        )
+        """If the repo does not exist an EnvironmentError is raised."""
+        with self.assertRaises(EnvironmentError):
+            Repository(
+                WORKING_REPO_DIR, clone_from=f"{USER}/{uuid.uuid4()}", token=self._token
+            )
 
     def test_clone_from_model(self):
         temp_repo_url = self._api.create_repo(
@@ -481,7 +477,6 @@ class RepositoryTest(RepositoryCommonTest):
         self.assertTrue("model.bin" in files)
 
     @retry_endpoint
-    @expect_deprecation("clone_from")
     def test_clone_with_repo_name_and_no_namespace(self):
         with self.assertRaises(EnvironmentError):
             Repository(
@@ -1743,18 +1738,16 @@ class RepositoryDatasetTest(RepositoryCommonTest):
         self.assertTrue("test.py" in files)
 
     @retry_endpoint
-    @expect_deprecation("clone_from")
     def test_clone_with_repo_name_and_no_namespace(self):
-        self.assertRaises(
-            OSError,
-            Repository,
-            f"{WORKING_DATASET_DIR}/{self.REPO_NAME}",
-            clone_from=self.REPO_NAME,
-            repo_type="dataset",
-            use_auth_token=self._token,
-            git_user="ci",
-            git_email="ci@dummy.com",
-        )
+        with self.assertRaises(EnvironmentError):
+            Repository(
+                f"{WORKING_DATASET_DIR}/{self.REPO_NAME}",
+                clone_from=self.REPO_NAME,
+                repo_type="dataset",
+                use_auth_token=self._token,
+                git_user="ci",
+                git_email="ci@dummy.com",
+            )
 
     @retry_endpoint
     def test_clone_with_repo_name_user_and_no_auth_token(self):
