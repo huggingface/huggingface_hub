@@ -55,7 +55,3 @@ def cleanup_repo(user: str, repo_name: str) -> None:
     """
     yield  # run test
     delete_repo(repo_id=f"{user}/{repo_name}")
-
-
-# ENDPOINT_PRODUCTION = "https://huggingface.co"
-# ENDPOINT_STAGING = "https://hub-ci.huggingface.co"
