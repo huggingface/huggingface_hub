@@ -762,7 +762,7 @@ class Repository:
                     raise EnvironmentError(
                         "Tried to clone a repository in a non-empty folder that isn't a"
                         f" git repository ('{self.local_dir}'). If you really want to do this, do it"
-                        " manually:\ngit init && git remote add origin && git pull"
+                        f" manually:\n cd {self.local_dir} && git init && git remote add origin && git pull"
                         " origin main\n or clone repo to a new folder and move your"
                         " existing files there afterwards."
                     )
