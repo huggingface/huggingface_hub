@@ -1,0 +1,32 @@
+name: Contrib tests
+
+on: workflow_dispatch
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.7", "3.11"]
+
+    steps:
+      - uses: actions/checkout@v2
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v2
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      # Install huggingface_hub
+      - name: Install `huggingface_hub`
+        run: |
+          pip install --upgrade pip
+          pip install .
+
+      # Install downstream libraries
+      - name: Install downstream libraries
+        run: pip install -r contrib/requirements.txt
+
+      # Run tests
+      - name: Run tests
+        run: pytest contrib/ -n 4
