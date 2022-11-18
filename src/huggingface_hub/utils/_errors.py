@@ -256,16 +256,22 @@ def hf_raise_for_status(
             )
             raise EntryNotFoundError(message, response) from e
 
-        elif error_code == "RepoNotFound" or response.status_code == 401:
+        elif error_code == "RepoNotFound":
             message = (
                 f"{response.status_code} Client Error."
                 + "\n\n"
                 + f"Repository Not Found for url: {response.url}."
                 + "\nPlease make sure you specified the correct `repo_id` and"
                 " `repo_type`."
-                + "\nIf the repo is private, make sure you are authenticated."
             )
             raise RepositoryNotFoundError(message, response) from e
+
+        elif response.status_code == 401:
+            message = (
+                f"{e}\n\nIf you try to access a private or gated repo, make sure you"
+                " are authenticated."
+            )
+            raise RepositoryNotFoundError(message, response=response) from e
 
         elif response.status_code == 400:
             message = (
