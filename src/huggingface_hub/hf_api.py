@@ -569,10 +569,43 @@ class DatasetSearchArguments(AttributeDictionary):
 
 class HfApi:
     def __init__(
-        self, endpoint: Optional[str] = None, token: Optional[str] = None
+        self,
+        endpoint: Optional[str] = None,
+        token: Optional[str] = None,
+        library_name: Optional[str] = None,
+        library_version: Optional[str] = None,
+        user_agent: Union[Dict, str, None] = None,
     ) -> None:
+        """Create a HF client to interact with the Hub via HTTP.
+
+        The client is initialized with some high-level settings used in all requests
+        made to the Hub (HF endpoint, authentication, user agents...). Using the `HfApi`
+        client is preferred but not mandatory as all of its public methods are exposed
+        directly at the root of `huggingface_hub`.
+
+        Args:
+            endpoint (`str`, *optional*):
+                Hugging Face Hub base url. Will default to https://huggingface.co/. To
+                be set if you are using a private hub. Otherwise, one can set the
+                `HF_ENDPOINT` environment variable.
+            token (`str`, *optional*):
+                Hugging Face token. Will default to the locally saved token if
+                not provided.
+            library_name (`str`, *optional*):
+                The name of the library that is making the HTTP request. Will be added to
+                the user-agent header. Example: `"transformers"`.
+            library_version (`str`, *optional*):
+                The version of the library that is making the HTTP request. Will be added
+                to the user-agent header. Example: `"4.24.0"`.
+            user_agent (`str`, `dict`, *optional*):
+                The user agent info in the form of a dictionary or a single string. It will
+                be completed with information about the installed packages.
+        """
         self.endpoint = endpoint if endpoint is not None else ENDPOINT
         self.token = token
+        self.library_name = library_name
+        self.library_version = library_version
+        self.user_agent = user_agent
 
     def whoami(self, token: Optional[str] = None) -> Dict:
         """
@@ -3391,13 +3424,14 @@ class HfApi:
         when `token` is not provided.
         """
         if token is None:
+            # Cannot do `token = token or self.token` as token can be `False`.
             token = self.token
         return build_hf_headers(
             token=token,
             is_write_action=is_write_action,
-            library_name=library_name,
-            library_version=library_version,
-            user_agent=user_agent,
+            library_name=library_name or self.library_name,
+            library_version=library_version or self.library_version,
+            user_agent=user_agent or self.user_agent,
         )
 
 
