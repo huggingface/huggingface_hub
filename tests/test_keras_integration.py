@@ -106,7 +106,7 @@ class HubMixingTestKeras(CommonKerasTest):
         self.assertTrue("keras_metadata.pb" in files)
         self.assertTrue("README.md" in files)
         self.assertTrue("model.png" in files)
-        self.assertEqual(len(files), 6)
+        self.assertEqual(len(files), 7)
 
         model.save_pretrained(
             f"{WORKING_REPO_DIR}/{REPO_NAME}", config={"num": 12, "act": "gelu"}
@@ -114,7 +114,7 @@ class HubMixingTestKeras(CommonKerasTest):
         files = os.listdir(f"{WORKING_REPO_DIR}/{REPO_NAME}")
         self.assertTrue("config.json" in files)
         self.assertTrue("saved_model.pb" in files)
-        self.assertEqual(len(files), 7)
+        self.assertEqual(len(files), 8)
 
     def test_keras_from_pretrained_weights(self):
         model = DummyModel()
@@ -244,7 +244,7 @@ class HubKerasSequentialTest(CommonKerasTest):
         self.assertIn("keras_metadata.pb", files)
         self.assertIn("model.png", files)
         self.assertIn("README.md", files)
-        self.assertEqual(len(files), 6)
+        self.assertEqual(len(files), 7)
         loaded_model = from_pretrained_keras(f"{WORKING_REPO_DIR}/{REPO_NAME}")
         self.assertIsNone(loaded_model.optimizer)
 
@@ -268,7 +268,7 @@ class HubKerasSequentialTest(CommonKerasTest):
             history = json.load(f)
 
         self.assertEqual(history, model.history.history)
-        self.assertEqual(len(files), 7)
+        self.assertEqual(len(files), 8)
 
     def test_save_model_card_history_removal(self):
         REPO_NAME = repo_name("save")
@@ -556,7 +556,7 @@ class HubKerasFunctionalTest(CommonKerasTest):
 
         self.assertIn("saved_model.pb", files)
         self.assertIn("keras_metadata.pb", files)
-        self.assertEqual(len(files), 6)
+        self.assertEqual(len(files), 7)
 
     def test_save_pretrained_fit(self):
         REPO_NAME = repo_name("functional")
@@ -568,4 +568,4 @@ class HubKerasFunctionalTest(CommonKerasTest):
 
         self.assertIn("saved_model.pb", files)
         self.assertIn("keras_metadata.pb", files)
-        self.assertEqual(len(files), 7)
+        self.assertEqual(len(files), 8)
