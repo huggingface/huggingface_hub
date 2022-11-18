@@ -954,10 +954,10 @@ class CommitApiTest(HfApiCommonTestWithLogin):
                     " Found for url:"
                     f" {self._api.endpoint}/api/models/{USER}/repo_that_do_not_exist/{route}/main.\nPlease"
                     " make sure you specified the correct `repo_id` and"
-                    " `repo_type`.\nIf the repo is private, make sure you are"
-                    " authenticated.\nNote: Creating a commit assumes that the repo"
-                    " already exists on the Huggingface Hub. Please use `create_repo`"
-                    " if it's not the case."
+                    " `repo_type`.\nIf you try to access a private or gated repo, make"
+                    " sure you are authenticated.\nNote: Creating a commit assumes"
+                    " that the repo already exists on the Huggingface Hub. Please use"
+                    " `create_repo` if it's not the case."
                 )
 
                 self.assertEqual(str(context.exception), expected_message)
