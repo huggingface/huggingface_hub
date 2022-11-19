@@ -267,7 +267,7 @@ def hf_raise_for_status(
                 + "\n\n"
                 + f"Repository Not Found for url: {response.url}."
                 + "\nPlease make sure you specified the correct `repo_id` and"
-                " `repo_type`.\nIf you try to access a private or gated repo, make"
+                " `repo_type`.\nIf you are trying to access a private or gated repo, make"
                 " sure you are authenticated."
             )
             raise RepositoryNotFoundError(message, response) from e
