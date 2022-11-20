@@ -22,10 +22,17 @@ from huggingface_hub.commands.scan_cache import ScanCacheCommand
 from huggingface_hub.commands.user import UserCommands
 
 
+try:
+    import shtab
+except ImportError:
+    from . import _shtab as shtab
+
+
 def main():
     parser = ArgumentParser(
         "huggingface-cli", usage="huggingface-cli <command> [<args>]"
     )
+    shtab.add_argument_to(parser)
     commands_parser = parser.add_subparsers(help="huggingface-cli command helpers")
 
     # Register commands

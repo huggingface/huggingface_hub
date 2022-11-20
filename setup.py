@@ -23,7 +23,11 @@ install_requires = [
 
 extras = {}
 
-extras["cli"] = [
+extras["completion"] = [
+    "shtab",
+]
+
+extras["cli"] = extras["completion"] + [
     "InquirerPy==0.3.4",
     # Note: installs `prompt-toolkit` in the background
 ]
