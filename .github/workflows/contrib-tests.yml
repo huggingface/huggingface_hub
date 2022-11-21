@@ -28,9 +28,13 @@ jobs:
       - name: Install pip
         run: pip install --upgrade pip
 
+      # Install common dependencies
+      - name: Install common dependencies
+        run: pip install -r contrib/requirements.txt
+
       # Install downstream library
       - name: Install ${{ matrix.contrib }}
-        run: pip install -r contrib/reqs_${{ matrix.contrib }}.txt
+        run: pip install -r contrib/${{ matrix.contrib }}/requirements.txt
 
       # Install huggingface_hub as last from source code
       - name: Install `huggingface_hub`

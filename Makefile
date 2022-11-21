@@ -1,4 +1,4 @@
-.PHONY: quality style test
+.PHONY: contrib quality style test
 
 
 check_dirs := contrib src tests utils setup.py
@@ -18,3 +18,12 @@ style:
 
 test:
 	pytest ./tests/
+
+contrib:
+	python3 -m venv contrib/timm/.venv
+	. contrib/timm/.venv/bin/activate
+	pip install -r contrib/requirements.txt
+	pip install -r contrib/timm/requirements.txt
+	pip uninstall -y huggingface_hub
+	pip install -e .
+	pytest contrib/timm

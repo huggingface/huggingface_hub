@@ -13,21 +13,13 @@ Tests are not run in the default test suite (for each PR) as this would slow dow
 Tests must be ran individually for each dependent library. Here is an example to run
 `timm` tests. Tests are separated to avoid conflicts between version dependencies.
 
-### Install dependencies
+### Using make command
 
-```sh
-# Create a separate contrib environment
-python3 -m venv .venv_contrib_timm
-source .venv_contrib_timm/bin/activate
+The command will take care of installing dependencies in separated virtual envs and to
+run tests independently.
 
-# Install requirements
-pip install -r contrib/reqs_common.txt
-pip install -r contrib/reqs_timm.txt
-pip install . # huggingface_hub
-```
-
-### Run tests !
+TODO: accept multiple contrib libs
 
 ```
-pytest contrib/test_timm.py
+make contrib
 ```
