@@ -807,10 +807,7 @@ def metadata_update(
                                 )
                             result_found = True
                             existing_result.metric_value = new_result.metric_value
-                            # If metric is from Hugging Face's evaluation service
-                            # (https://huggingface.co/spaces/autoevaluate/model-evaluator),
-                            # we also need to update the verification token.
-                            if new_result.verified is True:
+                            if existing_result.verified is True:
                                 existing_result.verify_token = new_result.verify_token
                     if not result_found:
                         card.data.eval_results.append(new_result)

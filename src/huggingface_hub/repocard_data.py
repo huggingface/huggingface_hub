@@ -129,7 +129,9 @@ class EvalResult:
         for key, _ in self.__dict__.items():
             if key == "metric_value":
                 continue
-            if getattr(self, key) != getattr(other, key):
+            # For metrics computed by Hugging Face's evaluation service, `verify_token` is derived from `metric_value`,
+            # so we exclude it here in the comparison.
+            if key != "verify_token" and getattr(self, key) != getattr(other, key):
                 return False
         return True
 
@@ -514,12 +516,22 @@ def eval_results_to_model_index(
     # Here, we make a map of those pairs and the associated EvalResults.
     task_and_ds_types_map = defaultdict(list)
     for eval_result in eval_results:
-        task_and_ds_pair = (eval_result.task_type, eval_result.dataset_type)
+        task_and_ds_pair = (
+            eval_result.task_type,
+            eval_result.dataset_type,
+            eval_result.dataset_config,
+            eval_result.dataset_split,
+        )
         task_and_ds_types_map[task_and_ds_pair].append(eval_result)
 
     # Use the map from above to generate the model index data.
     model_index_data = []
-    for (task_type, dataset_type), results in task_and_ds_types_map.items():
+    for (
+        task_type,
+        dataset_type,
+        dataset_config,
+        dataset_split,
+    ), results in task_and_ds_types_map.items():
         data = {
             "task": {
                 "type": task_type,
@@ -528,8 +540,8 @@ def eval_results_to_model_index(
             "dataset": {
                 "name": results[0].dataset_name,
                 "type": dataset_type,
-                "config": results[0].dataset_config,
-                "split": results[0].dataset_split,
+                "config": dataset_config,
+                "split": dataset_split,
                 "revision": results[0].dataset_revision,
                 "args": results[0].dataset_args,
             },
