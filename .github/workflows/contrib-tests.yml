@@ -29,8 +29,8 @@ jobs:
         run: pip install --upgrade pip
 
       # Install downstream library
-      - name: Install ${{ matrix.python-version }}
-        run: pip install -r contrib/reqs_${{ matrix.python-version }}.txt
+      - name: Install ${{ matrix.contrib }}
+        run: pip install -r contrib/reqs_${{ matrix.contrib }}.txt
 
       # Install huggingface_hub as last from source code
       - name: Install `huggingface_hub`
@@ -40,4 +40,4 @@ jobs:
 
       # Run tests
       - name: Run tests
-        run: pytest contrib/${{ matrix.python-version }}
+        run: pytest contrib/${{ matrix.contrib }}
