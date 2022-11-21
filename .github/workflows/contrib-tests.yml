@@ -35,8 +35,8 @@ jobs:
       # Install huggingface_hub as last from source code
       - name: Install `huggingface_hub`
         run: |
-          pip uninstall huggingface_hub
-          pip install .[testing]
+          pip uninstall -y huggingface_hub
+          pip install .
 
       # Run tests
       - name: Run tests
