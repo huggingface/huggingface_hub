@@ -36,7 +36,7 @@ jobs:
       - name: Install `huggingface_hub`
         run: |
           pip uninstall huggingface_hub
-          pip install .
+          pip install .[testing]
 
       # Run tests
       - name: Run tests
