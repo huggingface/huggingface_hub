@@ -760,11 +760,12 @@ class Repository:
                 # Check if the folder is the root of a git repository
                 if not is_git_repo(self.local_dir):
                     raise EnvironmentError(
-                        "Tried to clone a repository in a non-empty folder that isn't a"
-                        f" git repository ('{self.local_dir}'). If you really want to do this, do it"
-                        f" manually:\n cd {self.local_dir} && git init && git remote add origin && git pull"
-                        " origin main\n or clone repo to a new folder and move your"
-                        " existing files there afterwards."
+                        "Tried to clone a repository in a non-empty folder that isn't"
+                        f" a git repository ('{self.local_dir}'). If you really want to"
+                        f" do this, do it manually:\n cd {self.local_dir} && git init"
+                        " && git remote add origin && git pull origin main\n or clone"
+                        " repo to a new folder and move your existing files there"
+                        " afterwards."
                     )
 
                 if is_local_clone(self.local_dir, repo_url):
