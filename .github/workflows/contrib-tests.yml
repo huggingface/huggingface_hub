@@ -26,7 +26,7 @@ jobs:
 
       # Install pip
       - name: Install pip
-          pip install --upgrade pip
+        run: pip install --upgrade pip
 
       # Install downstream library
       - name: Install ${{ matrix.python-version }}
