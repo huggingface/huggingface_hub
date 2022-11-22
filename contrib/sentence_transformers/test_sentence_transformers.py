@@ -1,6 +1,7 @@
+import pytest
+
 from sentence_transformers import SentenceTransformer, util
 
-import pytest
 from ..utils import production_endpoint
 
 
@@ -22,7 +23,11 @@ def test_from_pretrained(multi_qa_model: SentenceTransformer) -> None:
     print("Similarity:", util.dot_score(query_embedding, passage_embedding))
 
 
-@pytest.mark.xfail(reason="Production endpoint is hardcoded in sentence_transformers when pushing to Hub.")
+@pytest.mark.xfail(
+    reason=(
+        "Production endpoint is hardcoded in sentence_transformers when pushing to Hub."
+    )
+)
 def test_push_to_hub(
     multi_qa_model: SentenceTransformer, repo_name: str, cleanup_repo: None
 ) -> None:

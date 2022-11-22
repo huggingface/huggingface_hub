@@ -38,6 +38,7 @@ def production_endpoint() -> Generator:
     ]
 
     from huggingface_hub.hf_api import api
+
     patchers = (
         [patch(target + ".ENDPOINT", PROD_ENDPOINT) for target in ENDPOINT_TARGETS]
         + [
