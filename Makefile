@@ -19,11 +19,42 @@ style:
 test:
 	pytest ./tests/
 
-contrib:
-	python3 -m venv contrib/timm/.venv
-	. contrib/timm/.venv/bin/activate
-	pip install -r contrib/requirements.txt
-	pip install -r contrib/timm/requirements.txt
-	pip uninstall -y huggingface_hub
-	pip install -e .
-	pytest contrib/timm
+# Taken from https://stackoverflow.com/a/12110773
+# Commands:
+#	make contrib_setup_timm : setup tests for timm
+#	make contrib_test_timm  : run tests for timm
+#	make contrib_timm       : setup and run tests for timm
+#	make contrib_clear_timm : delete timm virtual env
+#
+#	make contrib_setup      : setup ALL tests
+#	make contrib_test       : run ALL tests
+#	make contrib            : setup and run ALL tests
+#	make contrib_clear      : delete all virtual envs
+# Use -j4 flag to run jobs in parallel.
+CONTRIB_LIBS := timm
+CONTRIB_JOBS := $(addprefix contrib_,${CONTRIB_LIBS})
+CONTRIB_CLEAR_JOBS := $(addprefix contrib_clear_,${CONTRIB_LIBS})
+CONTRIB_SETUP_JOBS := $(addprefix contrib_setup_,${CONTRIB_LIBS})
+CONTRIB_TEST_JOBS := $(addprefix contrib_test_,${CONTRIB_LIBS})
+
+contrib_clear_%:
+	rm -rf contrib/$*/.venv
+
+contrib_setup_%:
+	python3 -m venv contrib/$*/.venv
+	./contrib/$*/.venv/bin/pip install -r contrib/requirements.txt
+	./contrib/$*/.venv/bin/pip install -r contrib/$*/requirements.txt
+	./contrib/$*/.venv/bin/pip uninstall -y huggingface_hub
+	./contrib/$*/.venv/bin/pip install -e .
+
+contrib_test_%:
+	./contrib/$*/.venv/bin/python -m pytest contrib/$*
+
+contrib_%:
+	make contrib_setup_$*
+	make contrib_test_$*
+
+contrib: ${CONTRIB_JOBS};
+contrib_clear: ${CONTRIB_CLEAR_JOBS}; echo "Successful contrib tests."
+contrib_setup: ${CONTRIB_SETUP_JOBS}; echo "Successful contrib setup."
+contrib_test: ${CONTRIB_TEST_JOBS}; echo "Successful contrib tests."
