@@ -25,7 +25,7 @@ from huggingface_hub.commands.user import UserCommands
 try:
     import shtab
 except ImportError:
-    from . import _shtab as shtab
+    from . import _shtab as shtab  # type: ignore
 
 
 def main():
