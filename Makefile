@@ -31,7 +31,7 @@ test:
 #	make contrib            : setup and run ALL tests
 #	make contrib_clear      : delete all virtual envs
 # Use -j4 flag to run jobs in parallel.
-CONTRIB_LIBS := timm
+CONTRIB_LIBS := sentence_transformers timm
 CONTRIB_JOBS := $(addprefix contrib_,${CONTRIB_LIBS})
 CONTRIB_CLEAR_JOBS := $(addprefix contrib_clear_,${CONTRIB_LIBS})
 CONTRIB_SETUP_JOBS := $(addprefix contrib_setup_,${CONTRIB_LIBS})

@@ -1,6 +1,7 @@
-def test_push_to_hub(repo_name: str, cleanup_repo: None) -> None:
-    import timm
+import timm
 
+
+def test_push_to_hub(repo_name: str, cleanup_repo: None) -> None:
     # Build a model 🔧
     model = timm.create_model("resnet18", pretrained=True, num_classes=4)
 
