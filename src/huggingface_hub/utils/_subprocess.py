@@ -64,6 +64,7 @@ def run_subprocess(
         stdout=subprocess.PIPE,
         check=check,
         encoding="utf-8",
+        errors="replace",  # if not utf-8, replace char by �
         cwd=folder or os.getcwd(),
         **kwargs,
     )
@@ -110,6 +111,7 @@ def run_interactive_subprocess(
         stdout=subprocess.PIPE,
         stderr=subprocess.STDOUT,
         encoding="utf-8",
+        errors="replace",  # if not utf-8, replace char by �
         cwd=folder or os.getcwd(),
         **kwargs,
     ) as process:
