@@ -158,15 +158,13 @@ class CachedDownloadTests(unittest.TestCase):
             hf_hub_download(DUMMY_MODEL_ID, filename=CONFIG_NAME, cache_dir=tmpdir)
 
             # Set read-only permission recursively
-            # Taken from https://stackoverflow.com/a/2853934
-            for root, dirs, files in os.walk(tmpdir):
-                for d in dirs:
-                    os.chmod(os.path.join(root, d), 0o555)
-                for f in files:
-                    os.chmod(os.path.join(root, f), 0o555)
+            _recursive_chmod(tmpdir, 0o555)
 
             # Get without write-access must succeed
             hf_hub_download(DUMMY_MODEL_ID, filename=CONFIG_NAME, cache_dir=tmpdir)
+
+            # Set permission back for cleanup
+            _recursive_chmod(tmpdir, 0o777)
 
     def test_revision_not_found(self):
         # Valid file but missing revision
@@ -506,3 +504,12 @@ class CreateSymlinkTest(unittest.TestCase):
             mock_are_symlinks_supported.side_effect = _are_symlinks_supported
             with self.assertRaises(FileExistsError):
                 _create_relative_symlink(src, dst)
+
+
+def _recursive_chmod(path: str, mode: int) -> None:
+    # Taken from https://stackoverflow.com/a/2853934
+    for root, dirs, files in os.walk(path):
+        for d in dirs:
+            os.chmod(os.path.join(root, d), mode)
+        for f in files:
+            os.chmod(os.path.join(root, f), mode)
