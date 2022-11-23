@@ -13,6 +13,7 @@
 # limitations under the License.
 import os
 import re
+import stat
 import unittest
 from pathlib import Path
 from tempfile import TemporaryDirectory
@@ -222,6 +223,24 @@ class CachedDownloadTests(unittest.TestCase):
             metadata,
             (url, '"95aa6a52d5d6a735563366753ca50492a658031da74f301ac5238b03966972c9"'),
         )
+
+    def test_hf_hub_download_custom_cache_permission(self):
+        """Checks `hf_hub_download` respect the cache dir permission.
+
+        Regression test for #1141 #1215.
+        https://github.com/huggingface/huggingface_hub/issues/1141
+        https://github.com/huggingface/huggingface_hub/issues/1215
+        """
+        with TemporaryDirectory() as tmpdir:
+            previous_umask = os.umask(0o017)
+            try:
+                filepath = hf_hub_download(
+                    DUMMY_RENAMED_OLD_MODEL_ID, "config.json", cache_dir=tmpdir
+                )
+                # Permission is respected
+                self.assertEqual(stat.S_IMODE(os.stat(filepath).st_mode), 0o760)
+            finally:
+                os.umask(previous_umask)
 
     def test_download_from_a_renamed_repo_with_hf_hub_download(self):
         """Checks `hf_hub_download` works also on a renamed repo.
