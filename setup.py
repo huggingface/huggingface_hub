@@ -14,7 +14,7 @@ def get_version() -> str:
 install_requires = [
     "filelock",
     "requests",
-    "tqdm>=4.62.1",
+    "tqdm>=4.42.1",
     "pyyaml>=5.1",
     "typing-extensions>=3.7.4.3",  # to be able to import TypeAlias
     "importlib_metadata;python_version<'3.8'",
