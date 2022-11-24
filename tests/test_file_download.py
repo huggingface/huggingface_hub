@@ -251,13 +251,14 @@ class CachedDownloadTests(unittest.TestCase):
         https://github.com/huggingface/huggingface_hub/issues/1215
         """
         with TemporaryDirectory() as tmpdir:
-            previous_umask = os.umask(0o017)
+            # Equivalent to umask u=rwx,g=r,o=
+            previous_umask = os.umask(0o037)
             try:
                 filepath = hf_hub_download(
                     DUMMY_RENAMED_OLD_MODEL_ID, "config.json", cache_dir=tmpdir
                 )
-                # Permission is respected
-                self.assertEqual(stat.S_IMODE(os.stat(filepath).st_mode), 0o760)
+                # Permissions are honored (640: u=rw,g=r,o=)
+                self.assertEqual(stat.S_IMODE(os.stat(filepath).st_mode), 0o640)
             finally:
                 os.umask(previous_umask)
 

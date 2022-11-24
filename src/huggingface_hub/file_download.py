@@ -7,6 +7,7 @@ import re
 import shutil
 import stat
 import tempfile
+import uuid
 import warnings
 from contextlib import contextmanager
 from dataclasses import dataclass
@@ -1413,10 +1414,17 @@ def _chmod_and_replace(src: str, dst: str) -> None:
     See:
     - About umask: https://docs.python.org/3/library/os.html#os.umask
     - Thread-safety: https://stackoverflow.com/a/70343066
+    - About solution: https://github.com/huggingface/huggingface_hub/pull/1220#issuecomment-1326211591
     - Fix issue: https://github.com/huggingface/huggingface_hub/issues/1141
     - Fix issue: https://github.com/huggingface/huggingface_hub/issues/1215
     """
-    # Get `blobs/` directory permission
-    cache_dir_mode = Path(dst).parent.stat().st_mode
-    os.chmod(src, stat.S_IMODE(cache_dir_mode))
+    # Get umask by creating a temporary file in the cached repo folder.
+    tmp_file = Path(dst).parent.parent / f"tmp_{uuid.uuid4()}"
+    try:
+        tmp_file.touch()
+        cache_dir_mode = Path(tmp_file).stat().st_mode
+        os.chmod(src, stat.S_IMODE(cache_dir_mode))
+    finally:
+        tmp_file.unlink()
+
     os.replace(src, dst)
