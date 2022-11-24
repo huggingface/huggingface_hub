@@ -18,9 +18,9 @@
 Example:
     1. Use `huggingface_hub.utils.tqdm` as you would use `tqdm.tqdm` or `tqdm.auto.tqdm`.
     2. To disable progress bars, either use `disable_progress_bars()` helper or set the
-       environement variable `HF_HUB_DISABLE_PROGRESS_BARS` to 1.
+       environment variable `HF_HUB_DISABLE_PROGRESS_BARS` to 1.
     3. To re-enable progress bars, use `enable_progress_bars()`.
-    4. To check weither progress bars are disabled, use `are_progress_bars_disabled()`.
+    4. To check whether progress bars are disabled, use `are_progress_bars_disabled()`.
 
 NOTE: Environment variable `HF_HUB_DISABLE_PROGRESS_BARS` has the priority.
 

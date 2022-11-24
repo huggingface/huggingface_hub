@@ -2,10 +2,15 @@ import os
 from pathlib import Path
 from typing import Dict, List, Optional, Union
 
+from tqdm.auto import tqdm as base_tqdm
+from tqdm.contrib.concurrent import thread_map
+
 from .constants import DEFAULT_REVISION, HUGGINGFACE_HUB_CACHE, REPO_TYPES
 from .file_download import REGEX_COMMIT_HASH, hf_hub_download, repo_folder_name
 from .hf_api import HfApi
-from .utils import filter_repo_objects, logging, tqdm, validate_hf_hub_args
+from .utils import filter_repo_objects, logging
+from .utils import tqdm as hf_tqdm
+from .utils import validate_hf_hub_args
 from .utils._deprecation import _deprecate_arguments
 
 
@@ -36,6 +41,8 @@ def snapshot_download(
     ignore_regex: Optional[Union[List[str], str]] = None,
     allow_patterns: Optional[Union[List[str], str]] = None,
     ignore_patterns: Optional[Union[List[str], str]] = None,
+    max_workers: int = 8,
+    tqdm_class: Optional[base_tqdm] = None,
 ) -> str:
     """Download all files of a repo.
 
@@ -184,11 +191,8 @@ def snapshot_download(
     # we pass the commit_hash to hf_hub_download
     # so no network call happens if we already
     # have the file locally.
-
-    for repo_file in tqdm(
-        filtered_repo_files, f"Fetching {len(filtered_repo_files)} files"
-    ):
-        _ = hf_hub_download(
+    def _inner_hf_hub_download(repo_file: str):
+        return hf_hub_download(
             repo_id,
             filename=repo_file,
             repo_type=repo_type,
@@ -202,5 +206,14 @@ def snapshot_download(
             resume_download=resume_download,
             token=token,
         )
+
+    thread_map(
+        _inner_hf_hub_download,
+        filtered_repo_files,
+        desc=f"Fetching {len(filtered_repo_files)} files",
+        max_workers=max_workers,
+        # User can use its own tqdm class or the default one from `huggingface_hub.utils`
+        tqdm_class=tqdm_class or hf_tqdm,
+    )
 
     return snapshot_folder
