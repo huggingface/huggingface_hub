@@ -91,6 +91,15 @@ def snapshot_download(
             If provided, only files matching at least one pattern are downloaded.
         ignore_patterns (`List[str]` or `str`, *optional*):
             If provided, files matching any of the patterns are not downloaded.
+        max_workers (`int`, *optional*):
+            Number of concurrent threads to download files (1 thread = 1 file download).
+            Defaults to 8.
+        tqdm_class (`tqdm`, *optional*):
+            If provided, overwrites the default behavior for the progress bar. Passed
+            argument must inherit from `tqdm.auto.tqdm` or at least mimic its behavior.
+            Note that the `tqdm_class` is not passed to each individual download.
+            Defaults to the custom HF progress bar that can be disabled by setting
+            `HF_HUB_DISABLE_PROGRESS_BARS` environment variable.
 
     Returns:
         Local folder path (string) of repo snapshot

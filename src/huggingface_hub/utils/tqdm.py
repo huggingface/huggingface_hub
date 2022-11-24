@@ -74,7 +74,7 @@ _hf_hub_progress_bars_disabled: bool = HF_HUB_DISABLE_PROGRESS_BARS or False
 def disable_progress_bars() -> None:
     """
     Disable globally progress bars used in `huggingface_hub` except if
-    `HF_HUB_DISABLE_PROGRESS_BARS` environement variable has been set.
+    `HF_HUB_DISABLE_PROGRESS_BARS` environment variable has been set.
     """
     if HF_HUB_DISABLE_PROGRESS_BARS is False:
         warnings.warn(
@@ -89,7 +89,7 @@ def disable_progress_bars() -> None:
 def enable_progress_bars() -> None:
     """
     Enable globally progress bars used in `huggingface_hub` except if
-    `HF_HUB_DISABLE_PROGRESS_BARS` environement variable has been set.
+    `HF_HUB_DISABLE_PROGRESS_BARS` environment variable has been set.
     """
     if HF_HUB_DISABLE_PROGRESS_BARS is True:
         warnings.warn(
@@ -102,7 +102,7 @@ def enable_progress_bars() -> None:
 
 
 def are_progress_bars_disabled() -> bool:
-    """Return weither progress bars are globally disabled or not."""
+    """Return whether progress bars are globally disabled or not."""
     global _hf_hub_progress_bars_disabled
     return _hf_hub_progress_bars_disabled
 
