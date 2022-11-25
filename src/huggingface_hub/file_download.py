@@ -112,7 +112,7 @@ def are_symlinks_supported(cache_dir: Union[str, Path, None] = None) -> bool:
                         " your disk. This warning can be disabled by setting the"
                         " `HF_HUB_DISABLE_SYMLINKS_WARNING` environment variable. For"
                         " more details, see"
-                        " https://huggingface.co/docs/huggingface_hub/how-to-cache#limitations."
+                        " https://huggingface.co/docs/huggingface_hub/guides/how-to-cache#limitations."
                     )
                     if os.name == "nt":
                         message += (

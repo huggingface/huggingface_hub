@@ -1,28 +1,31 @@
-- sections:
+- title: "Get started"
+  sections:
     - local: index
       title: Home
     - local: quick-start
-      title: Quick start
-  title: "Get started"
-- sections:
-    - local: how-to-manage
+      title: Quickstart
+    - local: installation
+      title: Installation
+- title: "How-to guides"
+  sections:
+    - local: guides/how-to-manage
       title: Create and manage repositories
-    - local: how-to-downstream
+    - local: guides/how-to-downstream
       title: Download files from the Hub
-    - local: how-to-upstream
+    - local: guides/how-to-upstream
       title: Upload files to the Hub
-    - local: searching-the-hub
+    - local: guides/searching-the-hub
       title: Searching the Hub
-    - local: how-to-inference
+    - local: guides/how-to-inference
       title: Access the Inference API
-    - local: how-to-discussions-and-pull-requests
+    - local: guides/how-to-discussions-and-pull-requests
       title: Interact with Discussions and Pull Requests
-    - local: how-to-cache
+    - local: guides/how-to-cache
       title: Manage the Cache
-    - local: how-to-model-cards
+    - local: guides/how-to-model-cards
       title: Create and Share Model Cards
-  title: "Guides"
-- sections:
+- title: "Reference"
+  sections:
     - local: package_reference/login
       title: Login and logout
     - local: package_reference/repository
@@ -43,4 +46,3 @@
       title: Cache-system reference
     - local: package_reference/cards
       title: Repo Cards and Repo Card Data
-  title: "Reference"
