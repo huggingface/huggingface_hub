@@ -1518,6 +1518,7 @@ class HfApi:
         repo_type: Optional[str] = None,
         exist_ok: bool = False,
         space_sdk: Optional[str] = None,
+        space_sdk_version: Optional[str] = None,
     ) -> str:
         """Create an empty repo on the HuggingFace Hub.
 
@@ -1538,6 +1539,9 @@ class HfApi:
             space_sdk (`str`, *optional*):
                 Choice of SDK to use if repo_type is "space". Can be
                 "streamlit", "gradio", or "static".
+            space_sdk_version (`str`, *optional*):
+                SDK version to use if repo_type is "space". Default to latest available
+                version. Example: "3.9.1".
 
         Returns:
             `str`: URL to the newly created repo.
@@ -1563,9 +1567,15 @@ class HfApi:
                     f"Invalid space_sdk. Please choose one of {SPACES_SDK_TYPES}."
                 )
             json["sdk"] = space_sdk
+            if space_sdk_version is not None:
+                json["sdkVersion"] = space_sdk_version
         if space_sdk is not None and repo_type != "space":
             warnings.warn(
                 "Ignoring provided space_sdk because repo_type is not 'space'."
+            )
+        if space_sdk_version is not None and repo_type != "space":
+            warnings.warn(
+                "Ignoring provided space_sdk_version because repo_type is not 'space'."
             )
 
         if getattr(self, "_lfsmultipartthresh", None):
@@ -1577,11 +1587,9 @@ class HfApi:
 
         try:
             hf_raise_for_status(r)
-        except HTTPError as err:
-            if exist_ok and err.response.status_code == 409:
-                # Repo already exists and `exist_ok=True`
-                pass
-            else:
+        except HTTPError as e:
+            if not (e.response.status_code == 409 and exist_ok):
+                # Repo already exists and `exist_ok=False`
                 raise
 
         d = r.json()

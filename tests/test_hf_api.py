@@ -310,6 +310,20 @@ class HfApiEndpointsTest(HfApiCommonTestWithLogin):
             self._api.delete_repo(repo_id=SPACE_REPO_NAME, repo_type=REPO_TYPE_SPACE)
 
     @retry_endpoint
+    def test_create_space_repo_with_version(self):
+        repo_id = f"{USER}/{space_repo_name('with_version')}"
+        self._api.create_repo(
+            repo_id=repo_id,
+            repo_type=REPO_TYPE_SPACE,
+            space_sdk="gradio",
+            space_sdk_version="3.9.0",
+        )
+
+        metadata = self._api.space_info(repo_id).cardData
+        self.assertEqual(metadata["sdk"], "gradio")
+        self.assertEqual(metadata["sdk_version"], "3.9.0")
+
+    @retry_endpoint
     def test_move_repo_normal_usage(self):
         repo_id = f"{USER}/{repo_name()}"
         new_repo_id = f"{USER}/{repo_name()}"
