@@ -5,7 +5,6 @@ on:
   push:
     branches:
       - ci_contrib_*
-      - 1190-rfc-add-contrib-test-suite
 
 jobs:
   build:
@@ -33,7 +32,7 @@ jobs:
       - name: Install common dependencies
         run: pip install -r contrib/requirements.txt
 
-      # Install downstream library
+      # Install downstream library and its specific dependencies
       - name: Install ${{ matrix.contrib }}
         run: pip install -r contrib/${{ matrix.contrib }}/requirements.txt
 
