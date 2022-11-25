@@ -108,6 +108,28 @@ class RepositoryNotFoundError(HfHubHTTPError):
     """
 
 
+class GatedRepoError(RepositoryNotFoundError):
+    """
+    Raised when trying to access a gated repository for which the user is not on the
+    authorized list.
+
+    Note: derives from `RepositoryNotFoundError` to ensure backward compatibility.
+
+    Example:
+
+    ```py
+    >>> from huggingface_hub import model_info
+    >>> model_info("<gated_repository>")
+    (...)
+    huggingface_hub.utils._errors.GatedRepoError: 403 Client Error. (Request ID: ViT1Bf7O_026LGSQuVqfa)
+
+    Cannot access gated repo for url https://huggingface.co/api/models/ardent-figment/gated-model.
+    Access to model ardent-figment/gated-model is restricted and you are not in the authorized list.
+    Visit https://huggingface.co/ardent-figment/gated-model to ask for access.
+    ```
+    """
+
+
 class RevisionNotFoundError(HfHubHTTPError):
     """
     Raised when trying to access a hf.co URL with a valid repository but an invalid
@@ -223,6 +245,9 @@ def hf_raise_for_status(
             If the repository to download from cannot be found. This may be because it
             doesn't exist, because `repo_type` is not set correctly, or because the repo
             is `private` and you do not have access.
+        - [`~utils.GatedRepoError`]
+            If the repository exists but is gated and the user is not on the authorized
+            list.
         - [`~utils.RevisionNotFoundError`]
             If the repository exists but the revision couldn't be find.
         - [`~utils.EntryNotFoundError`]
@@ -255,6 +280,14 @@ def hf_raise_for_status(
                 + f"Entry Not Found for url: {response.url}."
             )
             raise EntryNotFoundError(message, response) from e
+
+        elif error_code == "GatedRepo":
+            message = (
+                f"{response.status_code} Client Error."
+                + "\n\n"
+                + f"Cannot access gated repo for url {response.url}."
+            )
+            raise GatedRepoError(message, response) from e
 
         elif error_code == "RepoNotFound" or response.status_code == 401:
             # 401 is misleading as it is returned for:

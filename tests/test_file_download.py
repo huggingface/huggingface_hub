@@ -37,7 +37,7 @@ from huggingface_hub.file_download import (
 )
 from huggingface_hub.utils import (
     EntryNotFoundError,
-    HfHubHTTPError,
+    GatedRepoError,
     LocalEntryNotFoundError,
     RepositoryNotFoundError,
     RevisionNotFoundError,
@@ -416,7 +416,7 @@ class StagingCachedDownloadTest(unittest.TestCase):
         """
         with TemporaryDirectory() as tmpdir:
             with self.assertRaisesRegex(
-                HfHubHTTPError,
+                GatedRepoError,
                 "Access to model .* is restricted and you are not in the authorized"
                 " list",
             ):
