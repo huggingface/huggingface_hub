@@ -2452,6 +2452,7 @@ class HfApi:
         branch: str,
         token: Optional[str] = None,
         repo_type: Optional[str] = None,
+        exist_ok: bool = False,
     ) -> None:
         """
         Create a new branch from `main` on a repo on the Hub.
@@ -2471,6 +2472,9 @@ class HfApi:
                 Set to `"dataset"` or `"space"` if creating a branch on a dataset or
                 space, `None` or `"model"` if tagging a model. Default is `None`.
 
+            exist_ok (`bool`, *optional*, defaults to `False`):
+                If `True`, do not raise an error if branch already exists.
+
         Raises:
             [`~utils.RepositoryNotFoundError`]:
                 If repository is not found (error 404): wrong repo_id/repo_type, private
@@ -2478,7 +2482,8 @@ class HfApi:
             [`~utils.BadRequestError`]:
                 If invalid reference for a branch. Ex: `refs/pr/5` or 'refs/foo/bar'.
             [`~utils.HfHubHTTPError`]:
-                If the branch already exists on the repo (error 409).
+                If the branch already exists on the repo (error 409) and `exist_ok` is
+                set to `False`.
         """
         if repo_type is None:
             repo_type = REPO_TYPE_MODEL
@@ -2490,7 +2495,11 @@ class HfApi:
 
         # Create branch
         response = requests.post(url=branch_url, headers=headers)
-        hf_raise_for_status(response)
+        try:
+            hf_raise_for_status(response)
+        except HfHubHTTPError as e:
+            if not (e.response.status_code == 409 and exist_ok):
+                raise
 
     @validate_hf_hub_args
     def delete_branch(
@@ -2551,6 +2560,7 @@ class HfApi:
         revision: Optional[str] = None,
         token: Optional[str] = None,
         repo_type: Optional[str] = None,
+        exist_ok: bool = False,
     ) -> None:
         """
         Tag a given commit of a repo on the Hub.
@@ -2579,12 +2589,18 @@ class HfApi:
                 space, `None` or `"model"` if tagging a model. Default is
                 `None`.
 
+            exist_ok (`bool`, *optional*, defaults to `False`):
+                If `True`, do not raise an error if tag already exists.
+
         Raises:
             [`~utils.RepositoryNotFoundError`]:
                 If repository is not found (error 404): wrong repo_id/repo_type, private
                 but not authenticated or repo does not exist.
             [`~utils.RevisionNotFoundError`]:
                 If revision is not found (error 404) on the repo.
+            [`~utils.HfHubHTTPError`]:
+                If the branch already exists on the repo (error 409) and `exist_ok` is
+                set to `False`.
         """
         if repo_type is None:
             repo_type = REPO_TYPE_MODEL
@@ -2601,7 +2617,11 @@ class HfApi:
 
         # Tag
         response = requests.post(url=tag_url, headers=headers, json=payload)
-        hf_raise_for_status(response)
+        try:
+            hf_raise_for_status(response)
+        except HfHubHTTPError as e:
+            if not (e.response.status_code == 409 and exist_ok):
+                raise
 
     @validate_hf_hub_args
     def delete_tag(
