@@ -1299,6 +1299,9 @@ class HfApiTagEndpointTest(HfApiCommonTestWithLogin):
             self._api.create_tag(self._repo_id, tag="tag_1")
         self.assertEqual(err.exception.response.status_code, 409)
 
+        # exist_ok=True => doesn't fail
+        self._api.create_tag(self._repo_id, tag="tag_1", exist_ok=True)
+
     @retry_endpoint
     @use_tmp_repo("model")
     def test_create_and_delete_tag(self) -> None:
@@ -1360,6 +1363,10 @@ class HfApiBranchEndpointTest(HfApiCommonTestWithLogin):
 
         with self.assertRaisesRegex(HfHubHTTPError, "Reference already exists"):
             self._api.create_branch(self._repo_id, branch="main")
+
+        # exist_ok=True => doesn't fail
+        self._api.create_branch(self._repo_id, branch="cool-branch", exist_ok=True)
+        self._api.create_branch(self._repo_id, branch="main", exist_ok=True)
 
     @retry_endpoint
     @use_tmp_repo()

@@ -487,7 +487,7 @@ def http_get(
         unit_scale=True,
         total=total,
         initial=resume_size,
-        desc="Downloading",
+        desc=f"Downloading (…){url[-20:]}",
         disable=bool(logger.getEffectiveLevel() == logging.NOTSET),
     )
     for chunk in r.iter_content(chunk_size=1024):

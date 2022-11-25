@@ -32,6 +32,7 @@ from ._datetime import parse_datetime
 from ._errors import (
     BadRequestError,
     EntryNotFoundError,
+    GatedRepoError,
     HfHubHTTPError,
     LocalEntryNotFoundError,
     RepositoryNotFoundError,
