@@ -127,7 +127,7 @@ model-index:
       value: 0.2662102282047272
       name: Accuracy
       config: default
-      verified: false
+      verified: true
 ---
 """
 
@@ -318,6 +318,20 @@ class RepocardMetadataUpdateTest(unittest.TestCase):
         ] = 0.2862102282047272
         metadata_update(self.repo_id, new_metadata, token=self._token, overwrite=True)
 
+        self.repo.git_pull()
+        updated_metadata = metadata_load(self.repo_path / self.REPO_NAME / "README.md")
+        self.assertDictEqual(updated_metadata, new_metadata)
+
+    def test_update_verification(self):
+        """Tests whether updating the verification fields updates in-place.
+
+        Regression test for https://github.com/huggingface/huggingface_hub/issues/1210
+        """
+        new_metadata = copy.deepcopy(self.existing_metadata)
+        new_metadata["model-index"][0]["results"][0]["metrics"][0][
+            "verifyToken"
+        ] = "1234"
+        metadata_update(self.repo_id, new_metadata, token=self._token, overwrite=True)
         self.repo.git_pull()
         updated_metadata = metadata_load(self.repo_path / self.REPO_NAME / "README.md")
         self.assertDictEqual(updated_metadata, new_metadata)
