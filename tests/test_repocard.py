@@ -766,6 +766,16 @@ class ModelCardTest(TestCaseWithCapLog):
         )
         self.assertIsNone(card.data.eval_results)
 
+    def test_model_card_with_model_index(self):
+        """Test that loading a model card with multiple evaluations is consistent with `metadata_load`.
+
+        Regression test for https://github.com/huggingface/huggingface_hub/issues/1208
+        """
+        sample_path = SAMPLE_CARDS_DIR / "sample_simple_model_index.md"
+        card = ModelCard.load(sample_path)
+        metadata = metadata_load(sample_path)
+        self.assertDictEqual(card.data.to_dict(), metadata)
+
     def test_load_model_card_from_file(self):
         sample_path = SAMPLE_CARDS_DIR / "sample_simple.md"
         card = ModelCard.load(sample_path)
