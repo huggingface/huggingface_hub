@@ -248,7 +248,7 @@ class RepocardMetadataTest(unittest.TestCase):
             metrics_id="accuracy",
             metrics_value=0.2662102282047272,
             metrics_config="default",
-            metrics_verified=False,
+            metrics_verified=True,
             dataset_pretty_name="ReactionGIF",
             dataset_id="julien-c/reactiongif",
             dataset_config="default",
@@ -322,8 +322,8 @@ class RepocardMetadataUpdateTest(unittest.TestCase):
         updated_metadata = metadata_load(self.repo_path / self.REPO_NAME / "README.md")
         self.assertDictEqual(updated_metadata, new_metadata)
 
-    def test_update_verification(self):
-        """Tests whether updating the verification fields updates in-place.
+    def test_update_verify_token(self):
+        """Tests whether updating the verification token updates in-place.
 
         Regression test for https://github.com/huggingface/huggingface_hub/issues/1210
         """
@@ -848,7 +848,7 @@ class ModelCardTest(TestCaseWithCapLog):
                         metric_value=0.2662102282047272,
                         metric_name="Accuracy",
                         metric_config="default",
-                        verified=False,
+                        verified=True,
                     ),
                 ],
                 model_name="RoBERTa fine-tuned on ReactionGIF",

@@ -121,6 +121,18 @@ class EvalResult:
     # A JSON Web Token that is used to verify whether the metrics originate from Hugging Face's [evaluation service](https://huggingface.co/spaces/autoevaluate/model-evaluator) or not.
     verify_token: Optional[str] = None
 
+    @property
+    def unique_identifier(self) -> Tuple:
+        """Returns a tuple that uniquely identifies this evaluation."""
+        return (
+            self.task_type,
+            self.dataset_type,
+            self.dataset_config,
+            self.dataset_split,
+            self.dataset_revision,
+            self.dataset_args,
+        )
+
     def is_equal_except_value(self, other: "EvalResult") -> bool:
         """
         Return True if `self` and `other` describe exactly the same metric but with a
@@ -516,34 +528,23 @@ def eval_results_to_model_index(
     # Here, we make a map of those pairs and the associated EvalResults.
     task_and_ds_types_map = defaultdict(list)
     for eval_result in eval_results:
-        task_and_ds_pair = (
-            eval_result.task_type,
-            eval_result.dataset_type,
-            eval_result.dataset_config,
-            eval_result.dataset_split,
-        )
-        task_and_ds_types_map[task_and_ds_pair].append(eval_result)
+        task_and_ds_types_map[eval_result.unique_identifier].append(eval_result)
 
     # Use the map from above to generate the model index data.
     model_index_data = []
-    for (
-        task_type,
-        dataset_type,
-        dataset_config,
-        dataset_split,
-    ), results in task_and_ds_types_map.items():
+    for eval_result_identifier, results in task_and_ds_types_map.items():
         data = {
             "task": {
-                "type": task_type,
+                "type": eval_result_identifier[0],
                 "name": results[0].task_name,
             },
             "dataset": {
                 "name": results[0].dataset_name,
-                "type": dataset_type,
-                "config": dataset_config,
-                "split": dataset_split,
-                "revision": results[0].dataset_revision,
-                "args": results[0].dataset_args,
+                "type": eval_result_identifier[1],
+                "config": eval_result_identifier[2],
+                "split": eval_result_identifier[3],
+                "revision": eval_result_identifier[4],
+                "args": eval_result_identifier[5],
             },
             "metrics": [
                 {
