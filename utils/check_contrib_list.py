@@ -86,7 +86,7 @@ def check_contrib_list(update: bool) -> NoReturn:
                 f"✅ Contrib libs have been updated in `{WORKFLOW_PATH}`."
                 "\n   Please make sure the changes are accurate and commit them."
             )
-            MAKEFILE_PATH.write_text(makefile_expected_content)
+            WORKFLOW_PATH.write_text(workflow_content_expected)
         else:
             print(
                 f"❌ Expected content mismatch in `{WORKFLOW_PATH}`.\n   It is most"
