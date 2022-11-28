@@ -2,6 +2,8 @@ name: Contrib tests
 
 on:
   workflow_dispatch:
+  schedule:
+  - cron:  '0 0 * * 6' # Run once a week, Saturday midnight
   push:
     branches:
       - ci_contrib_*
@@ -28,19 +30,15 @@ jobs:
       - name: Install pip
         run: pip install --upgrade pip
 
-      # Install common dependencies
-      - name: Install common dependencies
-        run: pip install -r contrib/requirements.txt
-
       # Install downstream library and its specific dependencies
       - name: Install ${{ matrix.contrib }}
         run: pip install -r contrib/${{ matrix.contrib }}/requirements.txt
 
-      # Install huggingface_hub as last from source code
+      # Install huggingface_hub from source code + testing extras
       - name: Install `huggingface_hub`
         run: |
           pip uninstall -y huggingface_hub
-          pip install .
+          pip install .[testing]
 
       # Run tests
       - name: Run tests

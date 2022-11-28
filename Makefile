@@ -44,10 +44,9 @@ contrib_clear_%:
 
 contrib_setup_%:
 	python3 -m venv contrib/$*/.venv
-	./contrib/$*/.venv/bin/pip install -r contrib/requirements.txt
 	./contrib/$*/.venv/bin/pip install -r contrib/$*/requirements.txt
 	./contrib/$*/.venv/bin/pip uninstall -y huggingface_hub
-	./contrib/$*/.venv/bin/pip install -e .
+	./contrib/$*/.venv/bin/pip install -e .[testing]
 
 contrib_test_%:
 	./contrib/$*/.venv/bin/python -m pytest contrib/$*
