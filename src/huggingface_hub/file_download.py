@@ -5,7 +5,9 @@ import json
 import os
 import re
 import shutil
+import stat
 import tempfile
+import uuid
 import warnings
 from contextlib import contextmanager
 from dataclasses import dataclass
@@ -747,7 +749,7 @@ def cached_download(
             )
 
         logger.info("storing %s in cache at %s", url, cache_path)
-        os.replace(temp_file.name, cache_path)
+        _chmod_and_replace(temp_file.name, cache_path)
 
         if force_filename is None:
             logger.info("creating metadata file for %s", cache_path)
@@ -1249,7 +1251,7 @@ def hf_hub_download(
             )
 
         logger.info("storing %s in cache at %s", url, blob_path)
-        os.replace(temp_file.name, blob_path)
+        _chmod_and_replace(temp_file.name, blob_path)
 
         logger.info("creating pointer to %s from %s", blob_path, pointer_path)
         _create_relative_symlink(blob_path, pointer_path, new_blob=True)
@@ -1401,3 +1403,28 @@ def _int_or_none(value: Optional[str]) -> Optional[int]:
         return int(value)  # type: ignore
     except (TypeError, ValueError):
         return None
+
+
+def _chmod_and_replace(src: str, dst: str) -> None:
+    """Set correct permission before moving a blob from tmp directory to cache dir.
+
+    Do not take into account the `umask` from the process as there is no convenient way
+    to get it that is thread-safe.
+
+    See:
+    - About umask: https://docs.python.org/3/library/os.html#os.umask
+    - Thread-safety: https://stackoverflow.com/a/70343066
+    - About solution: https://github.com/huggingface/huggingface_hub/pull/1220#issuecomment-1326211591
+    - Fix issue: https://github.com/huggingface/huggingface_hub/issues/1141
+    - Fix issue: https://github.com/huggingface/huggingface_hub/issues/1215
+    """
+    # Get umask by creating a temporary file in the cached repo folder.
+    tmp_file = Path(dst).parent.parent / f"tmp_{uuid.uuid4()}"
+    try:
+        tmp_file.touch()
+        cache_dir_mode = Path(tmp_file).stat().st_mode
+        os.chmod(src, stat.S_IMODE(cache_dir_mode))
+    finally:
+        tmp_file.unlink()
+
+    os.replace(src, dst)
