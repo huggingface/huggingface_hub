@@ -29,7 +29,7 @@ IF_TYPE_CHECKING_LINE = "\nif TYPE_CHECKING:  # pragma: no cover\n"
 SUBMOD_ATTRS_PATTERN = re.compile("_SUBMOD_ATTRS = {[^}]+}")  # match the all dict
 
 
-def check_static_imports(update_file: bool) -> NoReturn:
+def check_static_imports(update: bool) -> NoReturn:
     """Check all imports are made twice (1 in lazy-loading and 1 in static checks).
 
     For more explanations, see `./src/huggingface_hub/__init__.py`.
@@ -85,7 +85,7 @@ def check_static_imports(update_file: bool) -> NoReturn:
     # If expected `__init__.py` content is different, test fails. If '--update-init-file'
     # is used, `__init__.py` file is updated before the test fails.
     if init_content != expected_init_content:
-        if update_file:
+        if update:
             with INIT_FILE_PATH.open("w") as f:
                 f.write(expected_init_content)
 
@@ -100,18 +100,18 @@ def check_static_imports(update_file: bool) -> NoReturn:
                 " `./src/huggingface_hub/__init__.py`.\n   It is most likely that you"
                 " added a module/function to `_SUBMOD_ATTRS` and did not update the"
                 " 'static import'-part.\n   Please run `make style` or `python"
-                " utils/check_static_imports.py --update-file`."
+                " utils/check_static_imports.py --update`."
             )
             exit(1)
 
-    print("✅ All good!")
+    print("✅ All good! (static imports)")
     exit(0)
 
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument(
-        "--update-file",
+        "--update",
         action="store_true",
         help=(
             "Whether to fix `./src/huggingface_hub/__init__.py` if a change is"
@@ -120,4 +120,4 @@ if __name__ == "__main__":
     )
     args = parser.parse_args()
 
-    check_static_imports(update_file=args.update_file)
+    check_static_imports(update=args.update)

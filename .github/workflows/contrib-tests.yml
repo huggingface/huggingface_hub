@@ -13,8 +13,8 @@ jobs:
       fail-fast: false
       matrix:
         contrib: [
-          "sentence_transformers",
           "timm",
+          "sentence_transformers",
         ]
 
     steps:

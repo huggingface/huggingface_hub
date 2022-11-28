@@ -8,8 +8,7 @@ To add another contrib lib, one must:
 1. Create a subfolder with the lib name. Example: `./contrib/transformers`
 2. Create a `requirements.txt` file specific to this lib. Example `./contrib/transformers/requirements.txt`
 3. Implements tests for this lib. Example: `./contrib/transformers/test_push_to_hub.py`
-4. Edit `makefile` to add the lib to `CONTRIB_LIBS` variable. Example: `CONTRIB_LIBS := timm transformers`
-5. Edit `.github/workflows/contrib-tests.yml` to add the lib to `matrix.contrib` list. Example: `contrib: ["timm", "transformers"]`
+4. Run `make style`. This will edit both `makefile` and `.github/workflows/contrib-tests.yml` to add the lib to list of libs to test. Make sure changes are accurate before committing.
 
 ## Run contrib tests on CI
 
