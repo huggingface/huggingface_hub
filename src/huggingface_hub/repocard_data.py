@@ -130,7 +130,6 @@ class EvalResult:
             self.dataset_config,
             self.dataset_split,
             self.dataset_revision,
-            self.dataset_args,
         )
 
     def is_equal_except_value(self, other: "EvalResult") -> bool:
@@ -544,7 +543,7 @@ def eval_results_to_model_index(
                 "config": eval_result_identifier[2],
                 "split": eval_result_identifier[3],
                 "revision": eval_result_identifier[4],
-                "args": eval_result_identifier[5],
+                "args": results[0].dataset_args,
             },
             "metrics": [
                 {
