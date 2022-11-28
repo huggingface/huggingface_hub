@@ -13,6 +13,7 @@
 # limitations under the License.
 import os
 import re
+import stat
 import unittest
 from pathlib import Path
 from tempfile import TemporaryDirectory
@@ -37,7 +38,7 @@ from huggingface_hub.file_download import (
 )
 from huggingface_hub.utils import (
     EntryNotFoundError,
-    HfHubHTTPError,
+    GatedRepoError,
     LocalEntryNotFoundError,
     RepositoryNotFoundError,
     RevisionNotFoundError,
@@ -147,6 +148,25 @@ class CachedDownloadTests(unittest.TestCase):
                     cache_dir=tmpdir,
                 )
 
+    def test_file_cached_and_read_only_access(self):
+        """Should works if file is already cached and user has read-only permission.
+
+        Regression test for https://github.com/huggingface/huggingface_hub/issues/1216.
+        """
+        # Valid file but missing locally and network is disabled.
+        with TemporaryDirectory() as tmpdir:
+            # Download a first time to get the refs ok
+            hf_hub_download(DUMMY_MODEL_ID, filename=CONFIG_NAME, cache_dir=tmpdir)
+
+            # Set read-only permission recursively
+            _recursive_chmod(tmpdir, 0o555)
+
+            # Get without write-access must succeed
+            hf_hub_download(DUMMY_MODEL_ID, filename=CONFIG_NAME, cache_dir=tmpdir)
+
+            # Set permission back for cleanup
+            _recursive_chmod(tmpdir, 0o777)
+
     def test_revision_not_found(self):
         # Valid file but missing revision
         url = hf_hub_url(
@@ -222,6 +242,25 @@ class CachedDownloadTests(unittest.TestCase):
             metadata,
             (url, '"95aa6a52d5d6a735563366753ca50492a658031da74f301ac5238b03966972c9"'),
         )
+
+    def test_hf_hub_download_custom_cache_permission(self):
+        """Checks `hf_hub_download` respect the cache dir permission.
+
+        Regression test for #1141 #1215.
+        https://github.com/huggingface/huggingface_hub/issues/1141
+        https://github.com/huggingface/huggingface_hub/issues/1215
+        """
+        with TemporaryDirectory() as tmpdir:
+            # Equivalent to umask u=rwx,g=r,o=
+            previous_umask = os.umask(0o037)
+            try:
+                filepath = hf_hub_download(
+                    DUMMY_RENAMED_OLD_MODEL_ID, "config.json", cache_dir=tmpdir
+                )
+                # Permissions are honored (640: u=rw,g=r,o=)
+                self.assertEqual(stat.S_IMODE(os.stat(filepath).st_mode), 0o640)
+            finally:
+                os.umask(previous_umask)
 
     def test_download_from_a_renamed_repo_with_hf_hub_download(self):
         """Checks `hf_hub_download` works also on a renamed repo.
@@ -397,7 +436,7 @@ class StagingCachedDownloadTest(unittest.TestCase):
         """
         with TemporaryDirectory() as tmpdir:
             with self.assertRaisesRegex(
-                HfHubHTTPError,
+                GatedRepoError,
                 "Access to model .* is restricted and you are not in the authorized"
                 " list",
             ):
@@ -485,3 +524,12 @@ class CreateSymlinkTest(unittest.TestCase):
             mock_are_symlinks_supported.side_effect = _are_symlinks_supported
             with self.assertRaises(FileExistsError):
                 _create_relative_symlink(src, dst)
+
+
+def _recursive_chmod(path: str, mode: int) -> None:
+    # Taken from https://stackoverflow.com/a/2853934
+    for root, dirs, files in os.walk(path):
+        for d in dirs:
+            os.chmod(os.path.join(root, d), mode)
+        for f in files:
+            os.chmod(os.path.join(root, f), mode)
