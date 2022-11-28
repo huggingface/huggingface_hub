@@ -954,10 +954,10 @@ class CommitApiTest(HfApiCommonTestWithLogin):
                     " Found for url:"
                     f" {self._api.endpoint}/api/models/{USER}/repo_that_do_not_exist/{route}/main.\nPlease"
                     " make sure you specified the correct `repo_id` and"
-                    " `repo_type`.\nIf the repo is private, make sure you are"
-                    " authenticated.\nNote: Creating a commit assumes that the repo"
-                    " already exists on the Huggingface Hub. Please use `create_repo`"
-                    " if it's not the case."
+                    " `repo_type`.\nIf you are trying to access a private or gated"
+                    " repo, make sure you are authenticated.\nNote: Creating a commit"
+                    " assumes that the repo already exists on the Huggingface Hub."
+                    " Please use `create_repo` if it's not the case."
                 )
 
                 self.assertEqual(str(context.exception), expected_message)
@@ -1299,6 +1299,9 @@ class HfApiTagEndpointTest(HfApiCommonTestWithLogin):
             self._api.create_tag(self._repo_id, tag="tag_1")
         self.assertEqual(err.exception.response.status_code, 409)
 
+        # exist_ok=True => doesn't fail
+        self._api.create_tag(self._repo_id, tag="tag_1", exist_ok=True)
+
     @retry_endpoint
     @use_tmp_repo("model")
     def test_create_and_delete_tag(self) -> None:
@@ -1360,6 +1363,10 @@ class HfApiBranchEndpointTest(HfApiCommonTestWithLogin):
 
         with self.assertRaisesRegex(HfHubHTTPError, "Reference already exists"):
             self._api.create_branch(self._repo_id, branch="main")
+
+        # exist_ok=True => doesn't fail
+        self._api.create_branch(self._repo_id, branch="cool-branch", exist_ok=True)
+        self._api.create_branch(self._repo_id, branch="main", exist_ok=True)
 
     @retry_endpoint
     @use_tmp_repo()
