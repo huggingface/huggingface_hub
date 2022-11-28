@@ -531,18 +531,20 @@ def eval_results_to_model_index(
 
     # Use the map from above to generate the model index data.
     model_index_data = []
-    for eval_result_identifier, results in task_and_ds_types_map.items():
+    for results in task_and_ds_types_map.values():
+        # All items from `results` share same metadata
+        sample_result = results[0]
         data = {
             "task": {
-                "type": eval_result_identifier[0],
-                "name": results[0].task_name,
+                "type": sample_result.task_type,
+                "name": sample_result.task_name,
             },
             "dataset": {
-                "name": results[0].dataset_name,
-                "type": eval_result_identifier[1],
-                "config": eval_result_identifier[2],
-                "split": eval_result_identifier[3],
-                "revision": eval_result_identifier[4],
+                "name": sample_result.dataset_name,
+                "type": sample_result.dataset_type,
+                "config": sample_result.dataset_config,
+                "split": sample_result.dataset_split,
+                "revision": sample_result.dataset_revision,
                 "args": results[0].dataset_args,
             },
             "metrics": [
