@@ -1,3 +1,108 @@
 # Installation
 
-TO_BE_COMPLETED
+Before you start, you will need to setup your environment by installing the appropriate packages.
+`huggingface_hub` is tested on Python 3.7+.
+
+## Install with pip
+
+It is highly recommended to install 🤗 `huggingface_hub` in a [virtual environment](https://docs.python.org/3/library/venv.html).
+If you are unfamiliar with Python virtual environments, take a look at this [guide](https://packaging.python.org/en/latest/guides/installing-using-pip-and-virtual-environments/).
+A virtual environment makes it easier to manage different projects, and avoid compatibility issues between dependencies.
+
+Start by creating a virtual environment in your project directory:
+
+```bash
+python -m venv .env
+```
+
+Activate the virtual environment. On Linux and MacOs:
+
+```bash
+source .env/bin/activate
+```
+
+Activate Virtual environment on Windows
+
+```bash
+.env/Scripts/activate
+```
+
+Now you’re ready to install 🤗 `huggingface_hub` with the following command:
+
+```bash
+pip install --upgrade huggingface_hub
+```
+
+## Check installation
+
+Once installed, check if 🤗 `huggingface_hub` is properly running with the following command:
+
+```bash
+python -c "from huggingface_hub import model_info; print(model_info('gpt2'))"
+```
+
+This command will fetch information from the Hub about [gpt2](https://huggingface.co/gpt2) model.
+Output should look like this:
+
+```json
+Model Name: gpt2
+Tags: ['pytorch', 'tf', 'jax', 'tflite', 'rust', 'safetensors', 'gpt2', 'text-generation', 'en', 'doi:10.57967/hf/0039', 'transformers', 'exbert', 'license:mit', 'has_space']
+Task: text-generation
+```
+
+## Install from source
+
+In some cases, it is interesting to install 🤗 `huggingface_hub` directly from source.
+This allows you to use the bleeding edge `main` version rather than the latest stable version.
+The `main` version is useful for staying up-to-date with the latest developments, for instance
+if a bug has been fixed since the last official release but a new release hasn't been rolled out yet.
+
+However, this means the `main` version may not always be stable. We strive to keep the
+`main` version operational, and most issues are usually resolved
+within a few hours or a day. If you run into a problem, please open an Issue so we can
+fix it even sooner!
+
+```bash
+pip install git+https://github.com/huggingface/huggingface_hub
+```
+
+When installing from source, you can also specify a specific branch. This is useful if you
+want to test a new feature or a new bug-fix that has not been merged yet:
+
+```bash
+pip install git+https://github.com/huggingface/huggingface_hub@my-feature-branch
+```
+
+Once done, [check installation](#check-installation) is working correctly.
+
+### Editable install
+
+Installing from source allows you to setup an [editable install](https://pip.pypa.io/en/stable/topics/local-project-installs/#editable-installs).
+This is a more advanced installation if you plan to contribute to 🤗 `huggingface_hub`
+and need to test changes in the code. You need to clone a local copy of `huggingface_hub`
+on your machine.
+
+```bash
+# First, clone repo locally
+git clone https://github.com/huggingface/huggingface_hub.git
+
+# Then, install with -e flag
+cd huggingface_hub
+pip install -e .
+```
+
+These commands will link the folder you cloned the repository to and your Python library paths.
+Python will now look inside the folder you cloned to in addition to the normal library paths.
+For example, if your Python packages are typically installed in `./.venv/lib/python3.11/site-packages/`,
+Python will also search the folder you cloned `./huggingface_hub/`.
+
+## Install with conda
+
+If you are more familiar with it, you can install 🤗 `huggingface_hub` using [conda-forge channel](https://anaconda.org/conda-forge/huggingface_hub):
+
+
+```bash
+conda install -c conda-forge huggingface_hub
+```
+
+Once done, [check installation](#check-installation) is working correctly.

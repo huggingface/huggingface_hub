@@ -6,24 +6,17 @@ the Hub without leaving your development environment. You can create and manage
 repositories easily, download and upload files, and get useful model and dataset
 metadata from the Hub.
 
-## Install the Hub library
+## Installation
 
-To get started, you should install the `huggingface_hub` library. You can install the
-library with `pip` or `conda`.
-
-With `pip`:
+To get started, install the `huggingface_hub` library:
 
 ```bash
-pip install huggingface_hub
+pip install --upgrade huggingface_hub
 ```
 
-With `conda`:
+For more details, check out the [installation page](installation).
 
-```bash
-conda install -c conda-forge huggingface_hub
-```
-
-## Download files from the Hub
+## Download files
 
 Repositories on the Hub are git version controlled, and users can download a single file
 or the whole repository. You can use the [`hf_hub_download`] function to download files.
@@ -120,7 +113,7 @@ token in your [Settings page](https://huggingface.co/settings/tokens).
 
 </Tip>
 
-## Share files to the Hub
+## Upload files
 
 Use the [`upload_file`] function to add a file to your newly created repository. You
 need to specify:
