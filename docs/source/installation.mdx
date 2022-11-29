@@ -36,7 +36,30 @@ pip install --upgrade huggingface_hub
 
 Once done, [check installation](#check-installation) is working correctly.
 
-## Install from source
+### Install optional dependencies
+
+Some dependencies of `huggingface_hub` are [optional](https://setuptools.pypa.io/en/latest/userguide/dependency_management.html#optional-dependencies).
+When not installed, some `huggingface_hub` features might be disabled or degraded. Those dependencies
+are optional as they are not required to run the core features of `huggingface_hub`.
+
+You can install optional dependencies via `pip`:
+```bash
+# Install dependencies for tensorflow-specific features
+# /!\ Warning: this is not equivalent to `pip install tensorflow`
+pip install 'huggingface_hub[tensorflow]'
+
+# Install dependencies for both torch-specific and CLI-specific features.
+pip install 'huggingface_hub[cli,torch]'
+```
+
+Here is the list of optional dependencies in `huggingface_hub`:
+- `cli`: provide a more convenient CLI interface. `huggingface-cli` can still be run without these.
+- `fastai`, `torch`, `tensorflow`: dependencies to run ML-specific features.
+- `dev`: dependencies to contribute to the lib. Includes `testing` (to run tests), `typing` (to run type checker) and `quality` (to run linters).
+
+
+
+### Install from source
 
 In some cases, it is interesting to install 🤗 `huggingface_hub` directly from source.
 This allows you to use the bleeding edge `main` version rather than the latest stable version.
