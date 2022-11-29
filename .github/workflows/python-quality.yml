@@ -30,6 +30,7 @@ jobs:
       - run: black --check tests src
       - run: isort --check-only tests src
       - run: flake8 tests src
+      - run: python utils/check_contrib_list.py
       - run: python utils/check_static_imports.py
 
       # Run type checking at least on huggingface_hub root file to check all modules
