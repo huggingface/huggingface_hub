@@ -8,7 +8,7 @@ tags:
 datasets:
 - beans
 metrics:
-- acc
+- accuracy
 model-index:
 - name: my-cool-model
   results:
@@ -18,12 +18,25 @@ model-index:
       type: beans
       name: Beans
     metrics:
-    - type: acc
+    - type: accuracy
       value: 0.9
+  - task:
+      type: image-classification
+    dataset:
+      type: beans
+      name: Beans
+      config: default
+      split: test
+      revision: 5503434ddd753f426f4b38109466949a1217c2bb
+      args:
+        date: 20220120
+    metrics:
+    - type: f1
+      value: 0.66
 ---
 
 # my-cool-model
 
 ## Model description
 
-You can embed local or remote images using `![](...)`
+This is a test model card with multiple evaluations across different (dataset, metric) configurations.
