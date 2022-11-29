@@ -545,7 +545,7 @@ def eval_results_to_model_index(
                 "config": sample_result.dataset_config,
                 "split": sample_result.dataset_split,
                 "revision": sample_result.dataset_revision,
-                "args": results[0].dataset_args,
+                "args": sample_result.dataset_args,
             },
             "metrics": [
                 {
