@@ -1,4 +1,4 @@
-# Hub client library
+# 🤗 Hub client library
 
 The `huggingface_hub` library allows you to interact with the [Hugging Face
 Hub](https://hf.co), a machine learning platform for creators and collaborators.
@@ -9,19 +9,30 @@ do all these things with Python.
 
 Read the [quick start guide](quick-start) to get up and running with the
 `huggingface_hub` library. You will learn how to download files from the Hub, create a
-repository, and upload files to the Hub.
+repository, and upload files to the Hub. Keep reading to learn more about how to manage
+your repositories on the 🤗 Hub, how to interact in discussions or even how to access
+the Inference API.
 
-Keep reading to learn even more about how to:
-
-- [Delete and clone a repository, and create and update a branch](how-to-manage).
-- [Download an entire repository and use regex matching to filter and download specific
-  files](guides/how-to-downstream).
-- [Upload your files with a context manager or use a helper to push files to a remote
-  repository](guides/how-to-upstream).
-- [Search thousands of models and datasets on the Hub with specific filters and
-  parameters to only return the best results](searching-the-hub).
-- [Access the Inference API for accelerated inference](guides/how-to-inference).
-- [Interact with Discussions and Pull Requests ](guides/how-to-discussions-and-pull-requests).
+<div class="mt-10">
+  <div class="w-full flex flex-col space-y-4 md:space-y-0 md:grid md:grid-cols-2 md:gap-y-4 md:gap-x-5">
+    <a class="!no-underline border dark:border-gray-700 p-5 rounded-lg shadow hover:shadow-lg" href="./tutorials/overview"
+      ><div class="w-full text-center bg-gradient-to-br from-blue-400 to-blue-500 rounded-lg py-1.5 font-semibold mb-5 text-white text-lg leading-relaxed">Tutorials</div>
+      <p class="text-gray-700">Learn the basics and become familiar with using huggingface_hub to programmatically interact with the 🤗 Hub!</p>
+    </a>
+    <a class="!no-underline border dark:border-gray-700 p-5 rounded-lg shadow hover:shadow-lg" href="./guides/overview"
+      ><div class="w-full text-center bg-gradient-to-br from-indigo-400 to-indigo-500 rounded-lg py-1.5 font-semibold mb-5 text-white text-lg leading-relaxed">How-to guides</div>
+      <p class="text-gray-700">Practical guides to help you achieve a specific goal. Take a look at these guides to learn how to use huggingface_hub to solve real-world problems.</p>
+    </a>
+    <a class="!no-underline border dark:border-gray-700 p-5 rounded-lg shadow hover:shadow-lg" href="./concepts/overview"
+      ><div class="w-full text-center bg-gradient-to-br from-pink-400 to-pink-500 rounded-lg py-1.5 font-semibold mb-5 text-white text-lg leading-relaxed">Conceptual guides</div>
+      <p class="text-gray-700">High-level explanations for building a better understanding of important topics such as huggingface_hub philosophy, the git-based vs http-based paradigm or the cache system internals.</p>
+   </a>
+    <a class="!no-underline border dark:border-gray-700 p-5 rounded-lg shadow hover:shadow-lg" href="./package_reference/overview"
+      ><div class="w-full text-center bg-gradient-to-br from-purple-400 to-purple-500 rounded-lg py-1.5 font-semibold mb-5 text-white text-lg leading-relaxed">Reference</div>
+      <p class="text-gray-700">Exhaustive and technical description of huggingface_hub classes and methods.</p>
+    </a>
+  </div>
+</div>
 
 ## Contribute
 
@@ -37,24 +48,3 @@ request, and how to test your contributions to make sure everything works as exp
 Contributors should also be respectful of our [code of
 conduct](https://github.com/huggingface/huggingface_hub/blob/main/CODE_OF_CONDUCT.md) to
 create an inclusive and welcoming collaborative space for everyone.
-
-<div class="mt-10">
-  <div class="w-full flex flex-col space-y-4 md:space-y-0 md:grid md:grid-cols-2 md:gap-y-4 md:gap-x-5">
-    <a class="!no-underline border dark:border-gray-700 p-5 rounded-lg shadow hover:shadow-lg" href="./tutorials"
-      ><div class="w-full text-center bg-gradient-to-br from-blue-400 to-blue-500 rounded-lg py-1.5 font-semibold mb-5 text-white text-lg leading-relaxed">Tutorials</div>
-      <p class="text-gray-700">Learn the basics and become familiar with using huggingface_hub to programmatically interact with the 🤗 Hub!</p>
-    </a>
-    <a class="!no-underline border dark:border-gray-700 p-5 rounded-lg shadow hover:shadow-lg" href="./guides"
-      ><div class="w-full text-center bg-gradient-to-br from-indigo-400 to-indigo-500 rounded-lg py-1.5 font-semibold mb-5 text-white text-lg leading-relaxed">How-to guides</div>
-      <p class="text-gray-700">Practical guides to help you achieve a specific goal. Take a look at these guides to learn how to use huggingface_hub to solve real-world problems.</p>
-    </a>
-    <a class="!no-underline border dark:border-gray-700 p-5 rounded-lg shadow hover:shadow-lg" href="./concepts"
-      ><div class="w-full text-center bg-gradient-to-br from-pink-400 to-pink-500 rounded-lg py-1.5 font-semibold mb-5 text-white text-lg leading-relaxed">Conceptual guides</div>
-      <p class="text-gray-700">High-level explanations for building a better understanding of important topics such as huggingface_hub philosophy, the git-based vs http-based paradigm or the cache system internals.</p>
-   </a>
-    <a class="!no-underline border dark:border-gray-700 p-5 rounded-lg shadow hover:shadow-lg" href="./package_reference"
-      ><div class="w-full text-center bg-gradient-to-br from-purple-400 to-purple-500 rounded-lg py-1.5 font-semibold mb-5 text-white text-lg leading-relaxed">Reference</div>
-      <p class="text-gray-700">Exhaustive and technical description of huggingface_hub classes and methods.</p>
-    </a>
-  </div>
-</div>
