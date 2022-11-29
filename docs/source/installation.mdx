@@ -1,7 +1,8 @@
 # Installation
 
 Before you start, you will need to setup your environment by installing the appropriate packages.
-`huggingface_hub` is tested on Python 3.7+.
+
+🤗 `huggingface_hub` is tested on **Python 3.7+**.
 
 ## Install with pip
 
@@ -27,28 +28,13 @@ Activate Virtual environment on Windows
 .env/Scripts/activate
 ```
 
-Now you’re ready to install 🤗 `huggingface_hub` with the following command:
+Now you're ready to install 🤗 `huggingface_hub` [from the PyPi registry](https://pypi.org/project/huggingface-hub/):
 
 ```bash
 pip install --upgrade huggingface_hub
 ```
 
-## Check installation
-
-Once installed, check if 🤗 `huggingface_hub` is properly running with the following command:
-
-```bash
-python -c "from huggingface_hub import model_info; print(model_info('gpt2'))"
-```
-
-This command will fetch information from the Hub about [gpt2](https://huggingface.co/gpt2) model.
-Output should look like this:
-
-```json
-Model Name: gpt2
-Tags: ['pytorch', 'tf', 'jax', 'tflite', 'rust', 'safetensors', 'gpt2', 'text-generation', 'en', 'doi:10.57967/hf/0039', 'transformers', 'exbert', 'license:mit', 'has_space']
-Task: text-generation
-```
+Once done, [check installation](#check-installation) is working correctly.
 
 ## Install from source
 
@@ -106,3 +92,20 @@ conda install -c conda-forge huggingface_hub
 ```
 
 Once done, [check installation](#check-installation) is working correctly.
+
+## Check installation
+
+Once installed, check that 🤗 `huggingface_hub` works properly by running the following command:
+
+```bash
+python -c "from huggingface_hub import model_info; print(model_info('gpt2'))"
+```
+
+This command will fetch information from the Hub about [gpt2](https://huggingface.co/gpt2) model.
+Output should look like this:
+
+```text
+Model Name: gpt2
+Tags: ['pytorch', 'tf', 'jax', 'tflite', 'rust', 'safetensors', 'gpt2', 'text-generation', 'en', 'doi:10.57967/hf/0039', 'transformers', 'exbert', 'license:mit', 'has_space']
+Task: text-generation
+```
