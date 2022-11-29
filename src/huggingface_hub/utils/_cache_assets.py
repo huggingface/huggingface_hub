@@ -33,7 +33,7 @@ def cached_assets_path(
 
     The distinction is made between files cached from the Hub and assets. Files from the
     Hub are cached in a git-aware manner and entirely managed by `huggingface_hub`. See
-    [related documentation](https://huggingface.co/docs/huggingface_hub/guides/how-to-cache).
+    [related documentation](https://huggingface.co/docs/huggingface_hub/how-to-cache).
     All other files that a downstream library caches are considered to be "assets"
     (files downloaded from external sources, extracted from a .tar archive, preprocessed
     for training,...).
