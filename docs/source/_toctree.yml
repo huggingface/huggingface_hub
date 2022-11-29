@@ -6,6 +6,8 @@
       title: Quickstart
     - local: installation
       title: Installation
+    - local: configuration
+      title: Configuration
 - title: "Tutorials"
   sections:
     - local: tutorials/overview
