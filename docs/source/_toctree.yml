@@ -8,10 +8,6 @@
       title: Installation
     - local: configuration
       title: Configuration
-- title: "Tutorials"
-  sections:
-    - local: tutorials/overview
-      title: Overview
 - title: "How-to guides"
   sections:
     - local: guides/overview
@@ -32,10 +28,6 @@
       title: Manage the Cache
     - local: how-to-model-cards
       title: Create and Share Model Cards
-- title: "Conceptual guides"
-  sections:
-    - local: concepts/overview
-      title: Overview
 - title: "Reference"
   sections:
     - local: package_reference/overview
