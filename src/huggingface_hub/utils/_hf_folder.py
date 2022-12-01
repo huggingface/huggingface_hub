@@ -14,22 +14,31 @@
 # limitations under the License.
 """Contain helper class to retrieve/store token from/to local cache."""
 import os
+import warnings
 from pathlib import Path
 from typing import Optional
 
+from .. import constants
+
 
 class HfFolder:
-    path_token = Path("~/.huggingface/token").expanduser()
+    path_token = Path(constants.HF_TOKEN_PATH)
+    # Private attribute. Will be removed in v0.15
+    _old_path_token = Path(constants.OLD_HF_TOKEN_PATH)
 
     @classmethod
     def save_token(cls, token: str) -> None:
         """
         Save token, creating folder as needed.
 
+        Token is saved in the huggingface home folder. You can configure it by setting
+        the `HF_HOME` environment variable.
+
         Args:
             token (`str`):
                 The token to save to the [`HfFolder`]
         """
+        cls._warn_on_old_token_path()
         cls.path_token.parent.mkdir(exist_ok=True)
         with cls.path_token.open("w+") as f:
             f.write(token)
@@ -39,19 +48,41 @@ class HfFolder:
         """
         Get token or None if not existent.
 
-        Note that a token can be also provided using the
-        `HUGGING_FACE_HUB_TOKEN` environment variable.
+        Note that a token can be also provided using the `HUGGING_FACE_HUB_TOKEN` environment variable.
+
+        Token is saved in the huggingface home folder. You can configure it by setting
+        the `HF_HOME` environment variable. Previous location was `~/.huggingface/token`.
+        If token is not found in the new location, previous location is read. If it exists,
+        token is duplicated to the new location.
+        For more details, see https://github.com/huggingface/huggingface_hub/issues/1232.
 
         Returns:
             `str` or `None`: The token, `None` if it doesn't exist.
         """
+        cls._warn_on_old_token_path()
+
+        # 1. Is it set by environment variable ?
         token: Optional[str] = os.environ.get("HUGGING_FACE_HUB_TOKEN")
-        if token is None:
-            try:
-                return cls.path_token.read_text()
-            except FileNotFoundError:
-                pass
-        return token
+        if token is not None:
+            return token
+
+        # 2. Is it set in new token path ?
+        try:
+            return cls.path_token.read_text()
+        except FileNotFoundError:
+            pass
+
+        # 3. Is it set in old token path ?
+        #    If yes, store it in new location before returning.
+        try:
+            token = cls._old_path_token.read_text()
+            cls.save_token(token)
+            return token
+        except FileNotFoundError:
+            pass
+
+        # Token not found
+        return None
 
     @classmethod
     def delete_token(cls) -> None:
@@ -62,3 +93,19 @@ class HfFolder:
             cls.path_token.unlink()
         except FileNotFoundError:
             pass
+
+        try:
+            cls._old_path_token.unlink()
+        except FileNotFoundError:
+            pass
+
+    @classmethod
+    def _warn_on_old_token_path(cls):
+        if cls._old_path_token.exists():
+            warnings.warn(
+                f"A token has been found in `{cls._old_path_token}`. This is the old"
+                " path where tokens were stored. The new location is"
+                f" `{cls.path_token}` which is configurable using `HF_HOME` environment"
+                " variable. You can now safely delete the old token file manually or"
+                " use `huggingface-cli logout`."
+            )

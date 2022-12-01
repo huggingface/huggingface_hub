@@ -89,6 +89,9 @@ HUGGINGFACE_ASSETS_CACHE = os.getenv(
 
 HF_HUB_OFFLINE = _is_true(os.environ.get("HF_HUB_OFFLINE"))
 
+OLD_HF_TOKEN_PATH = os.path.expanduser("~/.huggingface/token")
+HF_TOKEN_PATH = os.path.join(hf_cache_home, "token")
+
 
 # Here, `True` will disable progress bars globally without possibility of enabling it
 # programmatically. `False` will enable them without possibility of disabling them.
