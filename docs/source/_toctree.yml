@@ -1,10 +1,15 @@
-- sections:
+- title: "Get started"
+  sections:
     - local: index
       title: Home
     - local: quick-start
-      title: Quick start
-  title: "Get started"
-- sections:
+      title: Quickstart
+    - local: installation
+      title: Installation
+- title: "How-to guides"
+  sections:
+    - local: guides/overview
+      title: Overview
     - local: how-to-manage
       title: Create and manage repositories
     - local: how-to-downstream
@@ -21,10 +26,14 @@
       title: Manage the Cache
     - local: how-to-model-cards
       title: Create and Share Model Cards
-  title: "Guides"
-- sections:
+- title: "Reference"
+  sections:
+    - local: package_reference/overview
+      title: Overview
     - local: package_reference/login
       title: Login and logout
+    - local: package_reference/environment_variables
+      title: Environment variables
     - local: package_reference/repository
       title: Managing local and online repositories
     - local: package_reference/hf_api
@@ -43,4 +52,3 @@
       title: Cache-system reference
     - local: package_reference/cards
       title: Repo Cards and Repo Card Data
-  title: "Reference"
