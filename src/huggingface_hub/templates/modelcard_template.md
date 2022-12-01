@@ -39,7 +39,14 @@
 - **Language(s) (NLP):** {{ language | default("[More Information Needed]", true)}}
 - **License:** {{ license | default("[More Information Needed]", true)}}
 - **Finetuned from model [optional]:** {{ finetuned_from | default("[More Information Needed]", true)}}
-- **Resources for more information:** {{ more_resources | default("[More Information Needed]", true)}}
+
+## Model Sources [optional]
+
+<!-- Provide the basic links for the model. -->
+
+- **Repository:** {{ repo | default("[More Information Needed]", true)}}
+- **Paper [optional]:** {{ paper | default("[More Information Needed]", true)}}
+- **Demo [optional]:** {{ demo | default("[More Information Needed]", true)}}
 
 # Uses
 
