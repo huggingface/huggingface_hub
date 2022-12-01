@@ -16,13 +16,13 @@ Start by creating a virtual environment in your project directory:
 python -m venv .env
 ```
 
-Activate the virtual environment. On Linux and MacOs:
+Activate the virtual environment. On Linux and macOS:
 
 ```bash
 source .env/bin/activate
 ```
 
-Activate Virtual environment on Windows
+Activate virtual environment on Windows:
 
 ```bash
 .env/Scripts/activate
@@ -38,9 +38,7 @@ Once done, [check installation](#check-installation) is working correctly.
 
 ### Install optional dependencies
 
-Some dependencies of `huggingface_hub` are [optional](https://setuptools.pypa.io/en/latest/userguide/dependency_management.html#optional-dependencies).
-When not installed, some `huggingface_hub` features might be disabled or degraded. Those dependencies
-are optional as they are not required to run the core features of `huggingface_hub`.
+Some dependencies of `huggingface_hub` are [optional](https://setuptools.pypa.io/en/latest/userguide/dependency_management.html#optional-dependencies) because they are not required to run the core features of `huggingface_hub`. However, some features of the `huggingface_hub` may not be available if the optional dependencies aren't installed.
 
 You can install optional dependencies via `pip`:
 ```bash
@@ -53,8 +51,8 @@ pip install 'huggingface_hub[cli,torch]'
 ```
 
 Here is the list of optional dependencies in `huggingface_hub`:
-- `cli`: provide a more convenient CLI interface. `huggingface-cli` can still be run without these.
-- `fastai`, `torch`, `tensorflow`: dependencies to run ML-specific features.
+- `cli`: provide a more convenient CLI interface for `huggingface_hub`.
+- `fastai`, `torch`, `tensorflow`: dependencies to run library specific features.
 - `dev`: dependencies to contribute to the lib. Includes `testing` (to run tests), `typing` (to run type checker) and `quality` (to run linters).
 
 
@@ -124,7 +122,7 @@ Once installed, check that 🤗 `huggingface_hub` works properly by running the 
 python -c "from huggingface_hub import model_info; print(model_info('gpt2'))"
 ```
 
-This command will fetch information from the Hub about [gpt2](https://huggingface.co/gpt2) model.
+This command will fetch information from the Hub about the [gpt2](https://huggingface.co/gpt2) model.
 Output should look like this:
 
 ```text
