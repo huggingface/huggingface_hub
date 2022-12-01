@@ -39,7 +39,6 @@
 - **Language(s) (NLP):** {{ language | default("[More Information Needed]", true)}}
 - **License:** {{ license | default("[More Information Needed]", true)}}
 - **Finetuned from model [optional]:** {{ finetuned_from | default("[More Information Needed]", true)}}
-- **Resources for more information:** {{ more_resources | default("[More Information Needed]", true)}}
 
 # Uses
 
