@@ -89,7 +89,10 @@ HUGGINGFACE_ASSETS_CACHE = os.getenv(
 
 HF_HUB_OFFLINE = _is_true(os.environ.get("HF_HUB_OFFLINE"))
 
-OLD_HF_TOKEN_PATH = os.path.expanduser("~/.huggingface/token")
+# In the past, token was stored in a hardcoded location
+# `_OLD_HF_TOKEN_PATH` is deprecated and will be removed "at some point".
+# See https://github.com/huggingface/huggingface_hub/issues/1232
+_OLD_HF_TOKEN_PATH = os.path.expanduser("~/.huggingface/token")
 HF_TOKEN_PATH = os.path.join(hf_cache_home, "token")
 
 

@@ -24,7 +24,7 @@ from .. import constants
 class HfFolder:
     path_token = Path(constants.HF_TOKEN_PATH)
     # Private attribute. Will be removed in v0.15
-    _old_path_token = Path(constants.OLD_HF_TOKEN_PATH)
+    _old_path_token = Path(constants._OLD_HF_TOKEN_PATH)
 
     @classmethod
     def save_token(cls, token: str) -> None:
