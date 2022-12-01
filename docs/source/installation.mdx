@@ -2,11 +2,11 @@
 
 Before you start, you will need to setup your environment by installing the appropriate packages.
 
-🤗 `huggingface_hub` is tested on **Python 3.7+**.
+`huggingface_hub` is tested on **Python 3.7+**.
 
 ## Install with pip
 
-It is highly recommended to install 🤗 `huggingface_hub` in a [virtual environment](https://docs.python.org/3/library/venv.html).
+It is highly recommended to install `huggingface_hub` in a [virtual environment](https://docs.python.org/3/library/venv.html).
 If you are unfamiliar with Python virtual environments, take a look at this [guide](https://packaging.python.org/en/latest/guides/installing-using-pip-and-virtual-environments/).
 A virtual environment makes it easier to manage different projects, and avoid compatibility issues between dependencies.
 
@@ -28,7 +28,7 @@ Activate virtual environment on Windows:
 .env/Scripts/activate
 ```
 
-Now you're ready to install 🤗 `huggingface_hub` [from the PyPi registry](https://pypi.org/project/huggingface-hub/):
+Now you're ready to install `huggingface_hub` [from the PyPi registry](https://pypi.org/project/huggingface-hub/):
 
 ```bash
 pip install --upgrade huggingface_hub
@@ -52,14 +52,14 @@ pip install 'huggingface_hub[cli,torch]'
 
 Here is the list of optional dependencies in `huggingface_hub`:
 - `cli`: provide a more convenient CLI interface for `huggingface_hub`.
-- `fastai`, `torch`, `tensorflow`: dependencies to run library specific features.
+- `fastai`, `torch`, `tensorflow`: dependencies to run framework-specific features.
 - `dev`: dependencies to contribute to the lib. Includes `testing` (to run tests), `typing` (to run type checker) and `quality` (to run linters).
 
 
 
 ### Install from source
 
-In some cases, it is interesting to install 🤗 `huggingface_hub` directly from source.
+In some cases, it is interesting to install `huggingface_hub` directly from source.
 This allows you to use the bleeding edge `main` version rather than the latest stable version.
 The `main` version is useful for staying up-to-date with the latest developments, for instance
 if a bug has been fixed since the last official release but a new release hasn't been rolled out yet.
@@ -85,7 +85,7 @@ Once done, [check installation](#check-installation) is working correctly.
 ### Editable install
 
 Installing from source allows you to setup an [editable install](https://pip.pypa.io/en/stable/topics/local-project-installs/#editable-installs).
-This is a more advanced installation if you plan to contribute to 🤗 `huggingface_hub`
+This is a more advanced installation if you plan to contribute to `huggingface_hub`
 and need to test changes in the code. You need to clone a local copy of `huggingface_hub`
 on your machine.
 
@@ -105,7 +105,7 @@ Python will also search the folder you cloned `./huggingface_hub/`.
 
 ## Install with conda
 
-If you are more familiar with it, you can install 🤗 `huggingface_hub` using the [conda-forge channel](https://anaconda.org/conda-forge/huggingface_hub):
+If you are more familiar with it, you can install `huggingface_hub` using the [conda-forge channel](https://anaconda.org/conda-forge/huggingface_hub):
 
 
 ```bash
@@ -116,7 +116,7 @@ Once done, [check installation](#check-installation) is working correctly.
 
 ## Check installation
 
-Once installed, check that 🤗 `huggingface_hub` works properly by running the following command:
+Once installed, check that `huggingface_hub` works properly by running the following command:
 
 ```bash
 python -c "from huggingface_hub import model_info; print(model_info('gpt2'))"
@@ -133,5 +133,5 @@ Task: text-generation
 
 ## Next steps
 
-Once 🤗 `huggingface_hub` is properly installed on your machine, you might want
+Once `huggingface_hub` is properly installed on your machine, you might want
 [configure environment variables](package_reference/environment_variables) or [check one of our guides](guides/overview) to get started.
