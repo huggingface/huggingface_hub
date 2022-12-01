@@ -1,4 +1,4 @@
-# Configuration
+# Environment variables
 
 🤗 `huggingface_hub` can be configured using environment variables.
 
@@ -23,14 +23,14 @@ Defaults to `"https://huggingface.co"`.
 to configure where `huggingface_hub` will store data. In particular the cache will be stored
 in this folder.
 
-Defaults to `~/.cache/huggingface` unless [XDG_CACHE_HOME](#xdgcachehome) is set.
+Defaults to `"~/.cache/huggingface"` unless [XDG_CACHE_HOME](#xdgcachehome) is set.
 
 ### HUGGINGFACE_HUB_CACHE
 
 To configure where repositories from the Hub will be cached locally (models, datasets and
 spaces).
 
-Defaults to `$HF_HOME/hub` (e.g. `~/.cache/huggingface/hub` by default).
+Defaults to `"$HF_HOME/hub"` (e.g. `"~/.cache/huggingface/hub"` by default).
 
 ### HUGGINGFACE_ASSETS_CACHE
 
@@ -38,12 +38,12 @@ To configure where [assets](how-to-cache#caching-assets) created by downstream l
 will be cached locally. Those assets can be preprocessed data, files downloaded from GitHub,
 logs,...
 
-Defaults to `$HF_HOME/assets` (e.g. `~/.cache/huggingface/assets` by default).
+Defaults to `"$HF_HOME/assets"` (e.g. `"~/.cache/huggingface/assets"` by default).
 
-## HUGGING_FACE_HUB_TOKEN
+### HUGGING_FACE_HUB_TOKEN
 
 To configure the User Access Token to authenticate to the Hub. If set, this value will
-overwrite the token stored on the machine (under `~/huggingface/token`).
+overwrite the token stored on the machine (under `"~/huggingface/token"`).
 
 See [login reference](package_reference/login) for more details.
 
@@ -129,5 +129,5 @@ Used only when `HF_HOME` is not set!
 This is the default way to configure where [user-specific non-essential (cached) data should be written](https://wiki.archlinux.org/title/XDG_Base_Directory)
 on linux machines. 
 
-If `HF_HOME` is not set, the default home will be `$XDG_CACHE_HOME/huggingface` instead
-of `~/.cache/huggingface`.
+If `HF_HOME` is not set, the default home will be `"$XDG_CACHE_HOME/huggingface"` instead
+of `"~/.cache/huggingface"`.
