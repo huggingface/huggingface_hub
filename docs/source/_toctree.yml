@@ -26,6 +26,8 @@
       title: Manage the Cache
     - local: how-to-model-cards
       title: Create and Share Model Cards
+    - local: guides/manage_spaces
+      title: Manage your Space runtime
 - title: "Reference"
   sections:
     - local: package_reference/overview
