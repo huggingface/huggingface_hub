@@ -29,7 +29,7 @@ from urllib.parse import quote
 import pytest
 
 import requests
-from huggingface_hub import Repository
+from huggingface_hub import Repository, SpaceHardware, SpaceStage
 from huggingface_hub._commit_api import (
     CommitOperationAdd,
     CommitOperationDelete,
@@ -2270,6 +2270,57 @@ class HfApiDiscussionsTest(HfApiCommonTestWithLogin):
         )
         self.assertEqual(retrieved.status, "merged")
         self.assertIsNotNone(retrieved.merge_commit_oid)
+
+
+class TestSpaceAPI(HfApiCommonTestWithLogin):
+    def setUp(self):
+        super().setUp()
+        self.repo_id = f"{USER}/{repo_name()}"
+        self._api.create_repo(
+            repo_id=self.repo_id, repo_type="space", space_sdk="static"
+        )
+
+    def tearDown(self):
+        self._api.delete_repo(repo_id=self.repo_id, repo_type="space")
+        super().tearDown()
+
+    def test_manage_secrets(self) -> None:
+        # Add 3 secrets
+        self._api.add_space_secret(self.repo_id, "foo", "123")
+        self._api.add_space_secret(self.repo_id, "token", "hf_api_123456")
+        self._api.add_space_secret(self.repo_id, "gh_api_key", "******")
+
+        # Update secret
+        self._api.add_space_secret(self.repo_id, "foo", "456")
+
+        # Delete secret
+        self._api.delete_space_secret(self.repo_id, "gh_api_key")
+
+        # Doesn't fail on missing key
+        self._api.delete_space_secret(self.repo_id, "missing_key")
+
+        # Get all
+        self.assertEqual(
+            self._api.get_space_secrets(repo_id=self.repo_id),
+            {"foo": "456", "token": "hf_api_123456"},
+        )
+
+    def test_space_runtime(self) -> None:
+        runtime = self._api.get_space_runtime(self.repo_id)
+
+        self.assertEqual(runtime.hardware, SpaceHardware.CPU_BASIC)
+        self.assertEqual(runtime.hardware, "cpu-basic")  # is a string well
+        self.assertEqual(runtime.requested_hardware, SpaceHardware.CPU_BASIC)
+        self.assertEqual(runtime.stage, SpaceStage.NO_APP_FILE)
+        self.assertEqual(runtime.stage, "NO_APP_FILE")
+
+    def test_request_space_hardware(self) -> None:
+        self._api.request_space_hardware(self.repo_id, SpaceHardware.T4_MEDIUM)
+        runtime = self._api.get_space_runtime(self.repo_id)
+        self.assertEqual(runtime.requested_hardware, SpaceHardware.T4_MEDIUM)
+
+    def test_unexistent_space_hardware(self) -> None:
+        self._api.request_space_hardware(self.repo_id, "atari-2600")
 
 
 @patch("huggingface_hub.hf_api.build_hf_headers")
