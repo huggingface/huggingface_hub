@@ -6,7 +6,7 @@ In this guide, we will see how to manage your Space runtime (secrets and hardwar
 
 Here is an end-to-end example to create and setup a Space on the Hub.
 
-1. Create a Space on the Hub.
+**1. Create a Space on the Hub.**
 
 ```py
 >>> from huggingface_hub import HfApi
@@ -17,7 +17,8 @@ Here is an end-to-end example to create and setup a Space on the Hub.
 >>> api.create_repo(repo_id=repo_id, repo_type="space", space_sdk="gradio")
 ```
 
-2. Upload your code using your preferred solution.
+**2. Upload your code using your preferred solution.**
+
 Here is an example to upload the local folder `src/` from your machine to your Space:
 
 ```py
@@ -25,9 +26,9 @@ Here is an example to upload the local folder `src/` from your machine to your S
 ```
 
 At this step, your app should already be running on the Hub for free !
-However, you might want to configure it further with secret and upgraded hardware.
+However, you might want to configure it further with secrets and upgraded hardware.
 
-3. Configure secrets
+**3. Configure secrets**
 
 Your Space might require some secret keys or token to work.
 See [docs](https://huggingface.co/docs/hub/spaces-overview#managing-secrets) for more details.
@@ -37,7 +38,22 @@ For example, an HF token to upload your an image dataset to the Hub once generat
 >>> api.add_space_secret(repo_id=repo_id, key="HF_TOKEN", value="hf_api_***")
 ```
 
-4. Configure the hardware
+Secrets can be listed from the API as well:
+```py
+>>> api.get_space_secrets(repo_id=repo_id)
+```
+
+<Tip>
+From within your Space, secrets are available as environment variables (or
+[Streamlit Secrets Management](https://blog.streamlit.io/secrets-in-sharing-apps/) if using Streamlit).
+You do not need the API to fetch the secrets dynamically.
+</Tip>
+
+<Tip warning={true}>
+Any change in your Space configuration (secrets or hardware) will trigger a restart of your app.
+</Tip>
+
+**4. Configure the hardware**
 
 By default, your Space will run on a CPU environment for free. You can upgrade the hardware
 to run it on GPUs. A payment card or a community grant is required to access upgrade your
@@ -72,28 +88,37 @@ when you are done using it.
 ## More advanced: temporarily upgrade your Space !
 
 Huggingface Spaces allow for a lot of different use cases. In some cases you might want
-to temporarily run a Space on a specific hardware, do something and then shut it down.
-
-In this guide, we will explore how to benefit from HF Spaces to finetune a model on demand.
-This is only one way of solving a particular problem. It has to be taken as a suggestion
+to temporarily run a Space on a specific hardware, do something and then shut it down. In
+this section, we will explore how to benefit from HF Spaces to finetune a model on demand.
+This is only one way of solving this particular problem. It has to be taken as a suggestion
 and adapted to your own use case.
 
 Let's assume we have a Space to finetune a model. It is a Gradio app that takes as input
 a model id and a dataset id. The workflow is as follow:
+
+0. (Prompt the user for a model and a dataset)
 1. Load the model from the Hub.
 2. Load the dataset from the Hub.
 3. Finetune the model on the dataset.
 4. Upload the new model to the Hub.
 
-Step 3. requires a custom hardware but you don't want it to be running all time on a paid
-GPU. A possible solution is to dynamically request a hardware for the training and shut it
+Step 3. requires a custom hardware but you don't want your Space to be running all the time on a paid
+GPU. A solution is to dynamically request hardware for the training and shut it
 down afterwards. Since requesting hardware restarts your Space, your app must somehow "remember"
 the current task it is performing. There are multiple ways of doing this. In this guide
 we will see one solution using a Dataset as "task scheduler".
 
+### App.py skeleton
+
 Here is what your app would look like. On startup, check if a task is scheduled and if yes
 run it on the correct hardware. Once done, set back hardware to a the free-plan cpu and
 prompt user for a new task.
+
+<Tip warning={true}>
+Such a workflow does not support concurrent access as normal demos.
+In particular, the interface will be disabled when training occurs.
+It is preferable to set your repo as private to ensure you are the only user.
+</Tip>
 
 ```py
 # Space will need your token to request hardware: set it as a Secret !
@@ -132,11 +157,7 @@ else:
         api.request_hardware(repo_id=TRAINING_SPACE_ID, hardware=SpaceHardware.T4_MEDIUM)
 ```
 
-<Tip warning={true}>
-**Disclaimer:** such a workflow does not support concurrent access as normal demos.
-In particular, the interface will be disabled when training occurs.
-It is preferable to set your repo as private to ensure you are the only user.
-</Tip>
+### Task scheduler
 
 Scheduling tasks can be done in many ways. Here is an example how it could be done using
 a simple CSV stored as a Dataset.
@@ -149,11 +170,12 @@ a simple CSV stored as a Dataset.
 #     multimodalart/sd-fine-tunable,Wauplin/concept-2,PENDING
 TASK_DATASET_ID = "Wauplin/dreambooth-task-scheduler"
 
+def _get_csv_file():
+    return hf_hub_download(repo_id=TASK_DATASET_ID, filename="tasks.csv", repo_type="dataset" token=HF_TOKEN)
+
 def get_task():
     csv_file = 
-    with open(
-        hf_hub_download(repo_id=TASK_DATASET_ID, filename="tasks.csv", repo_type="dataset" token=HF_TOKEN)
-    ) as csv_file:
+    with open(_get_csv_file()) as csv_file:
         csv_reader = csv.reader(csv_file, delimiter=',')
         for row in csv_reader:
             if row[2] == "PENDING":
@@ -161,34 +183,30 @@ def get_task():
 
 def add_task(task):
     model_id, dataset_id = task
-    with open(
-        hf_hub_download(repo_id=TASK_DATASET_ID, filename="tasks.csv", repo_type="dataset" token=HF_TOKEN)
-    ) as csv_file:
+    with open(_get_csv_file()) as csv_file:
         with open(csv_file, "r") as f:
-            tasks_text = f.read()
+            tasks = f.read()
 
     api.upload_file(
         repo_id=repo_id,
         repo_type=repo_type,
         path_in_repo="tasks.csv",
         # Quick and dirty way to add a task
-        path_or_fileobj=(tasks_text + f"\n{model_id},{dataset_id},PENDING").encode()
+        path_or_fileobj=(tasks + f"\n{model_id},{dataset_id},PENDING").encode()
     )
 
 def mark_as_done(task):
     model_id, dataset_id = task
-    with open(
-        hf_hub_download(repo_id=TASK_DATASET_ID, filename="tasks.csv", repo_type="dataset" token=HF_TOKEN)
-    ) as csv_file:
+    with open(_get_csv_file()) as csv_file:
         with open(csv_file, "r") as f:
-            tasks_text = f.read()
+            tasks = f.read()
 
     api.upload_file(
         repo_id=repo_id,
         repo_type=repo_type,
         path_in_repo="tasks.csv",
         # Quick and dirty way to set the task as DONE
-        path_or_fileobj=tasks_text.replace(
+        path_or_fileobj=tasks.replace(
             f"{model_id},{dataset_id},PENDING",
             f"{model_id},{dataset_id},DONE"
         ).encode()
