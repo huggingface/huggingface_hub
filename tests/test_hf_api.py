@@ -2313,7 +2313,7 @@ class TestSpaceAPI(HfApiCommonTestWithLogin):
         self.assertEqual(runtime.requested_hardware, SpaceHardware.CPU_BASIC)
         self.assertEqual(runtime.stage, SpaceStage.NO_APP_FILE)
         self.assertEqual(runtime.stage, "NO_APP_FILE")
-        self.assertIsInstance(runtime.raw, dict) # Raw response from Hub
+        self.assertIsInstance(runtime.raw, dict)  # Raw response from Hub
 
     def test_request_space_hardware(self) -> None:
         self._api.request_space_hardware(self.repo_id, SpaceHardware.T4_MEDIUM)
