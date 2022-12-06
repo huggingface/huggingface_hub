@@ -2272,57 +2272,55 @@ class HfApiDiscussionsTest(HfApiCommonTestWithLogin):
         self.assertIsNotNone(retrieved.merge_commit_oid)
 
 
-class TestSpaceAPI(HfApiCommonTestWithLogin):
-    def setUp(self):
-        super().setUp()
-        self.repo_id = f"{USER}/{repo_name()}"
-        self._api.create_repo(
-            repo_id=self.repo_id, repo_type="space", space_sdk="static"
-        )
+@pytest.mark.usefixtures("fx_production_space")
+class TestSpaceAPI(unittest.TestCase):
+    """
+    Testing Space API is not possible on staging. Tests are run against production
+    server using a token stored under `HUGGINGFACE_PRODUCTION_USER_TOKEN` environment
+    variable.
+    """
 
-    def tearDown(self):
-        self._api.delete_repo(repo_id=self.repo_id, repo_type="space")
-        super().tearDown()
+    repo_id: str
+    api: HfApi
 
     def test_manage_secrets(self) -> None:
         # Add 3 secrets
-        self._api.add_space_secret(self.repo_id, "foo", "123")
-        self._api.add_space_secret(self.repo_id, "token", "hf_api_123456")
-        self._api.add_space_secret(self.repo_id, "gh_api_key", "******")
+        self.api.add_space_secret(self.repo_id, "foo", "123")
+        self.api.add_space_secret(self.repo_id, "token", "hf_api_123456")
+        self.api.add_space_secret(self.repo_id, "gh_api_key", "******")
 
         # Update secret
-        self._api.add_space_secret(self.repo_id, "foo", "456")
+        self.api.add_space_secret(self.repo_id, "foo", "456")
 
         # Delete secret
-        self._api.delete_space_secret(self.repo_id, "gh_api_key")
+        self.api.delete_space_secret(self.repo_id, "gh_api_key")
 
         # Doesn't fail on missing key
-        self._api.delete_space_secret(self.repo_id, "missing_key")
+        self.api.delete_space_secret(self.repo_id, "missing_key")
 
         # Get all
         self.assertEqual(
-            self._api.get_space_secrets(repo_id=self.repo_id),
+            self.api.get_space_secrets(repo_id=self.repo_id),
             {"foo": "456", "token": "hf_api_123456"},
         )
 
     def test_space_runtime(self) -> None:
-        runtime = self._api.get_space_runtime(self.repo_id)
+        runtime = self.api.get_space_runtime(self.repo_id)
 
-        self.assertEqual(runtime.hardware, SpaceHardware.CPU_BASIC)
-        self.assertEqual(runtime.hardware, "cpu-basic")  # is a string well
-        self.assertEqual(runtime.requested_hardware, SpaceHardware.CPU_BASIC)
-        self.assertEqual(runtime.stage, SpaceStage.NO_APP_FILE)
-        self.assertEqual(runtime.stage, "NO_APP_FILE")
+        self.assertEqual(runtime.hardware, None)  # No hardware while building
+        self.assertEqual(runtime.requested_hardware, None)
+        self.assertEqual(runtime.stage, SpaceStage.BUILDING)
+        self.assertEqual(runtime.stage, "BUILDING")  # is a string well
         self.assertIsInstance(runtime.raw, dict)  # Raw response from Hub
 
     def test_request_space_hardware(self) -> None:
-        self._api.request_space_hardware(self.repo_id, SpaceHardware.T4_MEDIUM)
-        runtime = self._api.get_space_runtime(self.repo_id)
+        self.api.request_space_hardware(self.repo_id, SpaceHardware.T4_MEDIUM)
+        runtime = self.api.get_space_runtime(self.repo_id)
         self.assertEqual(runtime.requested_hardware, SpaceHardware.T4_MEDIUM)
 
     def test_unexistent_space_hardware(self) -> None:
         with self.assertRaises(BadRequestError):
-            self._api.request_space_hardware(self.repo_id, "atari-2600")
+            self.api.request_space_hardware(self.repo_id, "atari-2600")
 
 
 @patch("huggingface_hub.hf_api.build_hf_headers")

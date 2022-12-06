@@ -14,7 +14,7 @@
 # limitations under the License.
 from dataclasses import dataclass
 from enum import Enum
-from typing import Dict
+from typing import Dict, Optional
 
 
 class SpaceStage(str, Enum):
@@ -70,17 +70,19 @@ class SpaceRuntime:
     Args:
         stage (`str`):
             Current stage of the space. Example: RUNNING.
-        hardware (`str`):
-            Current hardware of the space. Example: "cpu-basic".
-        requested_hardware (`str`):
+        hardware (`str` or `None`):
+            Current hardware of the space. Example: "cpu-basic". Can be `None` if Space
+            is `BUILDING` for the first time.
+        requested_hardware (`str` or `None`):
             Requested hardware. Can be different than `hardware` especially if the request
-            has just been made. Example: "t4-medium".
+            has just been made. Example: "t4-medium". Can be `None` if no hardware has
+            been requested yet.
         raw (`dict`):
             Raw response from the server. Contains more information about the Space
             runtime like number of replicas, number of cpu, memory size,...
     """
 
     stage: SpaceStage
-    hardware: SpaceHardware
-    requested_hardware: SpaceHardware
+    hardware: Optional[SpaceHardware]
+    requested_hardware: Optional[SpaceHardware]
     raw: Dict
