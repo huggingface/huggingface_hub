@@ -68,7 +68,7 @@ class HfFolder:
         try:
             return cls.path_token.read_text()
         except FileNotFoundError:
-            pass
+            return None
 
     @classmethod
     def delete_token(cls) -> None:
