@@ -2321,7 +2321,7 @@ class TestSpaceAPI(HfApiCommonTestWithLogin):
         self.assertEqual(runtime.requested_hardware, SpaceHardware.T4_MEDIUM)
 
     def test_unexistent_space_hardware(self) -> None:
-        with self.assertRaises(HTTPError):
+        with self.assertRaises(BadRequestError):
             self._api.request_space_hardware(self.repo_id, "atari-2600")
 
 
