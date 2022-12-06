@@ -1955,26 +1955,6 @@ class HfApiPrivateTest(HfApiCommonTestWithLogin):
         self.assertGreaterEqual(new, orig)
 
 
-class HfFolderTest(unittest.TestCase):
-    def test_token_workflow(self):
-        """
-        Test the whole token save/get/delete workflow,
-        with the desired behavior with respect to non-existent tokens.
-        """
-        token = "token-{}".format(int(time.time()))
-        HfFolder.save_token(token)
-        self.assertEqual(HfFolder.get_token(), token)
-        HfFolder.delete_token()
-        HfFolder.delete_token()
-        # ^^ not an error, we test that the
-        # second call does not fail.
-        self.assertEqual(HfFolder.get_token(), None)
-        # test TOKEN in env
-        self.assertEqual(HfFolder.get_token(), None)
-        with unittest.mock.patch.dict(os.environ, {"HUGGING_FACE_HUB_TOKEN": token}):
-            self.assertEqual(HfFolder.get_token(), token)
-
-
 @require_git_lfs
 class HfLargefilesTest(HfApiCommonTest):
     @classmethod
