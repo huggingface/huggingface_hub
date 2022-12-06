@@ -1,9 +1,9 @@
 # Environment variables
 
-🤗 `huggingface_hub` can be configured using environment variables.
+`huggingface_hub` can be configured using environment variables.
 
 If you are unfamiliar with environment variable, here are generic articles about them
-[on MacOS and Linux](https://linuxize.com/post/how-to-set-and-list-environment-variables-in-linux/)
+[on macOS and Linux](https://linuxize.com/post/how-to-set-and-list-environment-variables-in-linux/)
 and on [Windows](https://phoenixnap.com/kb/windows-set-environment-variable).
 
 This page will guide you through all environment variables specific to `huggingface_hub`
@@ -13,15 +13,15 @@ and their meaning.
 
 ### HF_ENDPOINT
 
-To configure the 🤗 Hub base url. You might want to set this variable if your organization
+To configure the Hub base url. You might want to set this variable if your organization
 is using a [Private Hub](https://huggingface.co/platform).
 
 Defaults to `"https://huggingface.co"`.
 
 ### HF_HOME
 
-to configure where `huggingface_hub` will store data. In particular the cache will be stored
-in this folder.
+To configure where `huggingface_hub` will locally store data. In particular, your token
+and the cache will be stored in this folder.
 
 Defaults to `"~/.cache/huggingface"` unless [XDG_CACHE_HOME](#xdgcachehome) is set.
 
@@ -47,6 +47,15 @@ overwrite the token stored on the machine (in `"$HF_HOME/token"`).
 
 See [login reference](package_reference/login) for more details.
 
+### HUGGINGFACE_HUB_VERBOSITY
+
+Set the verbosity level of the `huggingface_hub`'s logger. Must be one of
+`{"debug", "info", "warning", "error", "critical"}`.
+
+Defaults to `"warning"`.
+
+For more details, see [logging reference](package_reference/utilities#huggingface_hub.utils.logging.get_verbosity).
+
 ## Boolean values
 
 The following environment variables expect a boolean value. The variable will be considered
@@ -66,15 +75,15 @@ skip this call which speeds up your loading time.
 ### HF_HUB_DISABLE_IMPLICIT_TOKEN
 
 Authentication is not mandatory for every requests to the Hub. For instance, requesting
-details about `"gpt2"` model does not require to be authenticated. However if a user is
+details about `"gpt2"` model does not require to be authenticated. However, if a user is
 [logged in](package_reference/login), the default behavior will be to always send the token
-is order to ease user experience (never get a HTTP 401 Unauthorized). For privacy, you can
-choose to disable this behavior by setting `HF_HUB_DISABLE_IMPLICIT_TOKEN=1`. In this case,
-token will be sent only for "write-access" calls (example: create a commit).
+in order to ease user experience (never get a HTTP 401 Unauthorized) when accessing private or gated repositories. For privacy, you can
+disable this behavior by setting `HF_HUB_DISABLE_IMPLICIT_TOKEN=1`. In this case,
+the token will be sent only for "write-access" calls (example: create a commit).
 
 **Note:** disabling implicit sending of token can have weird side effects. For example,
 if you want to list all models on the Hub, your private models will not be listed. You
-would need to explicitly set pass `token=True` argument in your script.
+would need to explicitly pass `token=True` argument in your script.
 
 ### HF_HUB_DISABLE_PROGRESS_BARS
 
@@ -91,26 +100,6 @@ message is triggered to warn you about this behavior. Set `HF_HUB_DISABLE_SYMLIN
 to disable this warning.
 
 For more details, see [cache limitations](how-to-cache#limitations).
-
-## Advanced
-
-Environment variables listed in this section are less often used. They are still documented
-for reference.
-
-### HUGGINGFACE_CO_STAGING
-
-Boolean value. If set, `huggingface_hub` will interact with the staging environment.
-To be used only when running tests locally. Staging environment should never be considered
-as stable or reliable to store your models.
-
-### HUGGINGFACE_HUB_VERBOSITY
-
-Set the verbosity level of the `huggingface_hub`'s logger. Must be one of
-`{"debug", "info", "warning", "error", "critical"}`.
-
-Defaults to `"warning"`.
-
-For more details, see [logging reference](package_reference/utilities#huggingface_hub.utils.logging.get_verbosity).
 
 ## From external tools
 
