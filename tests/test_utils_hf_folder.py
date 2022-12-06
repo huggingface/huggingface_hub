@@ -77,10 +77,9 @@ class HfFolderTest(unittest.TestCase):
             self.assertFalse(old_path_token.exists())
             self.assertEqual(path_token.read_text(), token)
 
-            # Read -> new path has priority
+            # Read -> new path has priority. No warning message.
             old_path_token.write_text(token2)
-            with self.assertWarns(UserWarning):
-                self.assertEqual(HfFolder.get_token(), token)
+            self.assertEqual(HfFolder.get_token(), token)
 
             # Un-patch
             new_patcher.stop()
