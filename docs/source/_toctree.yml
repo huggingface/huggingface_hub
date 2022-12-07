@@ -26,6 +26,10 @@
       title: Manage the Cache
     - local: how-to-model-cards
       title: Create and Share Model Cards
+- title: "Conceptual guides"
+  sections:
+    - local: concepts/http_vs_git
+      title: Git vs HTTP approaches
 - title: "Reference"
   sections:
     - local: package_reference/overview
