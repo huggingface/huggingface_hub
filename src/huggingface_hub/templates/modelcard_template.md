@@ -39,9 +39,6 @@
 - **Language(s) (NLP):** {{ language | default("[More Information Needed]", true)}}
 - **License:** {{ license | default("[More Information Needed]", true)}}
 - **Finetuned from model [optional]:** {{ finetuned_from | default("[More Information Needed]", true)}}
-{% if more_resources is defined and more_resources|length %}
-- **Other [optional]:** {{ more_resources)}
-{% endif %}
 
 ## Model Sources [optional]
 
