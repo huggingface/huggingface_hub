@@ -431,7 +431,7 @@ class CommitApiTest(HfApiCommonTestWithLogin):
     @retry_endpoint
     def test_upload_file_pathlib_path(self):
         """Regression test for https://github.com/huggingface/huggingface_hub/issues/1246."""
-        repo_id=f"{USER}/{repo_name()}"
+        repo_id = f"{USER}/{repo_name()}"
         self._api.create_repo(repo_id=repo_id)
         self._api.upload_file(
             path_or_fileobj=Path(self.tmp_file),
