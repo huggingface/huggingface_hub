@@ -1193,6 +1193,33 @@ class HfApi:
             data = islice(data, limit)  # Do not iterate over all pages
         return [SpaceInfo(**x) for x in data]
 
+    def list_liked_repos(
+        self,
+        *,
+        user: Optional[str] = None,
+        token: Optional[Union[bool, str]] = None,
+    ) -> List[ModelInfo]:
+        # User is either provided explicitly or retrieved from current token.
+        if user is None:
+            me = self.whoami(token=token)
+            if me["type"] == "user":
+                user = me["name"]
+            else:
+                raise ValueError(
+                    "Cannot list liked repos. You must provide a 'user' as input or be"
+                    " logged in as a user."
+                )
+
+        path = f"{self.endpoint}/api/users/{user}/likes"
+        headers = self._build_hf_headers(token=token)
+
+        r = requests.get(path, headers=headers)
+        hf_raise_for_status(r)
+
+        # TODO: make an object
+        yield from r.json()["visibleLikes"]
+
+
     @validate_hf_hub_args
     def model_info(
         self,
