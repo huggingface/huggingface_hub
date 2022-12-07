@@ -22,6 +22,7 @@ import unittest
 import warnings
 from functools import partial
 from io import BytesIO
+from pathlib import Path
 from typing import List
 from unittest.mock import Mock, patch
 from urllib.parse import quote
@@ -397,8 +398,8 @@ class CommitApiTest(HfApiCommonTestWithLogin):
             )
 
     @retry_endpoint
-    def test_upload_file_path(self):
-        REPO_NAME = repo_name("path")
+    def test_upload_file_str_path(self):
+        REPO_NAME = repo_name("str_path")
         self._api.create_repo(repo_id=REPO_NAME)
         try:
             return_val = self._api.upload_file(
@@ -426,6 +427,19 @@ class CommitApiTest(HfApiCommonTestWithLogin):
             self.fail(err)
         finally:
             self._api.delete_repo(repo_id=REPO_NAME)
+
+    @retry_endpoint
+    def test_upload_file_pathlib_path(self):
+        """Regression test for https://github.com/huggingface/huggingface_hub/issues/1246."""
+        repo_id=f"{USER}/{repo_name()}"
+        self._api.create_repo(repo_id=repo_id)
+        self._api.upload_file(
+            path_or_fileobj=Path(self.tmp_file),
+            path_in_repo="README.md",
+            repo_id=repo_id,
+        )
+        self.assertIn("README.md", self._api.list_repo_files(repo_id=repo_id))
+        self._api.delete_repo(repo_id=repo_id)
 
     @retry_endpoint
     def test_upload_file_fileobj(self):
