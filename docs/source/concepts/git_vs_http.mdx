@@ -4,17 +4,17 @@ The `huggingface_hub` library is a library for interacting with the 🤗 Hub, wh
 collections of git-based repositories (models, datasets or spaces). There are two main
 ways to access the Hub using `huggingface_hub`.
 
-The first approach, known as the "Git-based" approach, is led by the [`Repository`] class.
+The first approach, the so-called "git-based" approach, is led by the [`Repository`] class.
 This method uses a wrapper around the `git` tool with additional functions specifically
 designed to interact with the Hub. The second option, called the "HTTP-based" approach,
 involves making HTTP requests using the [`HfApi`] client. Let's examine the pros and cons
 of each approach.
 
-## [`Repository`]: the historical git-based approach
+## Repository: the historical git-based approach
 
 At first, `huggingface_hub` was mostly built around the [`Repository`] class. It provides
-Python wrappers for common `git` commands such as `git add`, `git commit`, `git push`,
-`git tag`, `git checkout`,...
+Python wrappers for common `git` commands such as `"git add"`, `"git commit"`, `"git push"`,
+`"git tag"`, `"git checkout"`,...
 The library also helps with setting credentials and tracking large files, which are often
 used in machine learning repositories. Additionally, the library allows you to execute its
 methods in the background, making it useful for uploading data during training.
@@ -28,7 +28,7 @@ this may not always be necessary as users may only need to download weights for 
 or convert weights from one format to another without the need to clone the entire
 repository.
 
-## [`HfApi`]: a flexible and convenient http client
+## HfApi: a flexible and convenient http client
 
 The [`HfApi`] class was developed to provide an alternative to local git repositories, which
 can be cumbersome to maintain, especially when dealing with large models or datasets. The
