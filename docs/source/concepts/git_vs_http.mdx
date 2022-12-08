@@ -5,7 +5,7 @@ collections of git-based repositories (models, datasets or spaces). There are tw
 ways to access the Hub using `huggingface_hub`.
 
 The first approach, the so-called "git-based" approach, is led by the [`Repository`] class.
-This method uses a wrapper around the `git` tool with additional functions specifically
+This method uses a wrapper around the `git` command with additional functions specifically
 designed to interact with the Hub. The second option, called the "HTTP-based" approach,
 involves making HTTP requests using the [`HfApi`] client. Let's examine the pros and cons
 of each approach.
@@ -43,7 +43,7 @@ discussions, PRs, and comments, and configure HF Spaces for hardware and secrets
 
 ## What should I use ? And when ?
 
-Overall, the **HTTP-based approach is the most recommended way to use** `huggingface_hub`
+Overall, the **HTTP-based approach is the recommended way to use** `huggingface_hub`
 in most cases. However, there are a few situations where maintaining a local git clone
 (using [`Repository`]) may be more beneficial:
 - If you are training a model on your machine, it may be more efficient to use a traditional
