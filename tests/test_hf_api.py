@@ -2276,6 +2276,45 @@ class HfApiDiscussionsTest(HfApiCommonTestWithLogin):
         self.assertIsNotNone(retrieved.merge_commit_oid)
 
 
+class ActivityApiTest(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls) -> None:
+        cls.api = HfApi()
+        return super().setUpClass()
+
+    def test_list_liked_repos_no_auth(self) -> None:
+        likes = self.api.list_liked_repos(USER)
+        self.assertEqual(likes.user, USER)
+        self.assertGreater(likes.total, 0)
+        self.assertEqual(
+            likes.total, len(likes.models) + len(likes.datasets) + len(likes.spaces)
+        )
+        self.assertIn(f"{USER}/repo-that-is-liked-public", likes.models)
+
+    def test_list_likes_repos_auth_and_implicit_user(self) -> None:
+        # User is implicit
+        likes = self.api.list_liked_repos(token=TOKEN)
+        self.assertEqual(likes.user, USER)
+
+    def test_list_likes_repos_auth_and_explicit_user(self) -> None:
+        # User is explicit even if auth
+        likes = self.api.list_liked_repos(
+            user="__DUMMY_DATASETS_SERVER_USER__", token=TOKEN
+        )
+        self.assertEqual(likes.user, "__DUMMY_DATASETS_SERVER_USER__")
+
+    @with_production_testing
+    def test_list_likes_on_production(self) -> None:
+        # Test julien-c likes a lot of repos !
+        likes = HfApi().list_liked_repos("julien-c")
+        self.assertGreater(len(likes.models), 0)
+        self.assertGreater(len(likes.datasets), 0)
+        self.assertGreater(len(likes.spaces), 0)
+        self.assertEqual(
+            likes.total, len(likes.models) + len(likes.datasets) + len(likes.spaces)
+        )
+
+
 @pytest.mark.usefixtures("fx_production_space")
 class TestSpaceAPI(unittest.TestCase):
     """

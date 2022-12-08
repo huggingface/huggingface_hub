@@ -52,6 +52,9 @@ __version__ = "0.12.0.dev0"
 # WARNING: any comment added in this dictionary definition will be lost when
 # re-generating the file !
 _SUBMOD_ATTRS = {
+    "_activity_api": [
+        "UserLikes",
+    ],
     "_login": [
         "interpreter_login",
         "login",
@@ -133,6 +136,7 @@ _SUBMOD_ATTRS = {
         "get_space_runtime",
         "get_space_secrets",
         "list_datasets",
+        "list_liked_repos",
         "list_metrics",
         "list_models",
         "list_repo_files",
@@ -301,6 +305,7 @@ __getattr__, __dir__, __all__ = _attach(
 # make style
 # ```
 if TYPE_CHECKING:  # pragma: no cover
+    from ._activity_api import UserLikes  # noqa: F401
     from ._login import interpreter_login  # noqa: F401
     from ._login import login  # noqa: F401
     from ._login import logout  # noqa: F401
@@ -367,6 +372,7 @@ if TYPE_CHECKING:  # pragma: no cover
     from .hf_api import get_space_runtime  # noqa: F401
     from .hf_api import get_space_secrets  # noqa: F401
     from .hf_api import list_datasets  # noqa: F401
+    from .hf_api import list_liked_repos  # noqa: F401
     from .hf_api import list_metrics  # noqa: F401
     from .hf_api import list_models  # noqa: F401
     from .hf_api import list_repo_files  # noqa: F401

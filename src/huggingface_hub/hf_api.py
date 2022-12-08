@@ -26,6 +26,7 @@ import requests
 from huggingface_hub.utils import EntryNotFoundError, RepositoryNotFoundError
 from requests.exceptions import HTTPError
 
+from ._activity_api import UserLikes
 from ._commit_api import (
     CommitOperation,
     CommitOperationAdd,
@@ -1128,7 +1129,7 @@ class HfApi:
         Get the public list of all Spaces on huggingface.co
 
         Args:
-            filter `str` or `Iterable`, *optional*):
+            filter (`str` or `Iterable`, *optional*):
                 A string tag or list of tags that can be used to identify Spaces on the Hub.
             author (`str`, *optional*):
                 A string which identify the author of the returned Spaces.
@@ -1196,10 +1197,48 @@ class HfApi:
 
     def list_liked_repos(
         self,
-        *,
         user: Optional[str] = None,
-        token: Optional[Union[bool, str]] = None,
-    ) -> List[ModelInfo]:
+        *,
+        token: Optional[str] = None,
+    ) -> UserLikes:
+        """
+        List all repos liked by a user on huggingface.co.
+
+        This list is public so token is optional. If `user` is not passed, it defaults to
+        the logged in user.
+
+        Args:
+            user (`str`, *optional*):
+                Name of the user for which you want to fetch the likes.
+            token (`str`, *optional*):
+                A valid authentication token (see https://huggingface.co/settings/token).
+                Used only if `user` is not passed to implicitly determine the current
+                user name.
+
+        Returns:
+            [`UserLikes`]: object containing the user name, the total count of likes and
+            3 lists of repo ids (1 for models, 1 for datasets and 1 for Spaces).
+
+        Raises:
+            [`ValueError`](https://docs.python.org/3/library/exceptions.html#ValueError)
+                If `user` is not passed and no token found (either from argument or from machine).
+
+        Example:
+        ```python
+        >>> from huggingface_hub import list_liked_repos
+
+        >>> likes = list_liked_repos("julien-c")
+
+        >>> likes.user
+        "julien-c"
+
+        >>> likes.total
+        626
+
+        >>> likes.models
+        ["osanseviero/streamlit_1.15", "Xhaheen/ChatGPT_HF", ...]
+        ```
+        """
         # User is either provided explicitly or retrieved from current token.
         if user is None:
             me = self.whoami(token=token)
@@ -1216,10 +1255,35 @@ class HfApi:
 
         r = requests.get(path, headers=headers)
         hf_raise_for_status(r)
-
-        # TODO: make an object
-        yield from r.json()["visibleLikes"]
-
+        data = r.json()
+        # Looping over a list of items similar to:
+        #   {
+        #       'createdAt': '2021-09-09T21:53:27.000Z',
+        #       'repo': {
+        #           'name': 'PaddlePaddle/PaddleOCR',
+        #           'type': 'space'
+        #        }
+        #   }
+        # Let's loop 3 times over the received list. Less efficient but more straightforward to read.
+        return UserLikes(
+            user=user,
+            total=data["totalCount"],
+            models=[
+                like["repo"]["name"]
+                for like in data["visibleLikes"]
+                if like["repo"]["type"] == "model"
+            ],
+            datasets=[
+                like["repo"]["name"]
+                for like in data["visibleLikes"]
+                if like["repo"]["type"] == "dataset"
+            ],
+            spaces=[
+                like["repo"]["name"]
+                for like in data["visibleLikes"]
+                if like["repo"]["type"] == "space"
+            ],
+        )
 
     @validate_hf_hub_args
     def model_info(
@@ -3699,6 +3763,7 @@ repo_info = api.repo_info
 list_repo_files = api.list_repo_files
 
 list_metrics = api.list_metrics
+list_liked_repos = api.list_liked_repos
 
 get_model_tags = api.get_model_tags
 get_dataset_tags = api.get_dataset_tags
