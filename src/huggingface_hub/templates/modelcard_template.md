@@ -7,6 +7,8 @@
 
 <!-- Provide a quick summary of what the model is/does. -->
 
+{{ model_summary | default("", true) }}
+
 #  Table of Contents
 
 1. [Model Details](#model-details)
@@ -131,6 +133,10 @@
 ## Results
 
 {{ results | default("[More Information Needed]", true)}}
+
+### Summary
+
+{{ results_summary | default("", true) }}
 
 # Model Examination [optional]
 
