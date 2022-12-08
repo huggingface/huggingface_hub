@@ -49,9 +49,9 @@ def clean_hf_folder_token_for_tests() -> Generator:
 
 @pytest.fixture
 def fx_production_space(request: SubRequest) -> Generator[None, None, None]:
-    """Add a `repo_id` attribute referencing a space repo on the production Hub.
+    """Add a `repo_id` attribute referencing a Space repo on the production Hub.
 
-    Fully testing Spaces is not possible on staging to we need to use the production
+    Fully testing Spaces is not possible on staging so we need to use the production
     environment for it. Tests are skipped if we can't find a `HUGGINGFACE_PRODUCTION_USER_TOKEN`
     environment variable.
 

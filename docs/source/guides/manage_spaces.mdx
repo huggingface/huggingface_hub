@@ -32,7 +32,7 @@ However, you might want to configure it further with secrets and upgraded hardwa
 
 Your Space might require some secret keys or token to work.
 See [docs](https://huggingface.co/docs/hub/spaces-overview#managing-secrets) for more details.
-For example, an HF token to upload your an image dataset to the Hub once generated from your Space.
+For example, an HF token to upload an image dataset to the Hub once generated from your Space.
 
 ```py
 >>> api.add_space_secret(repo_id=repo_id, key="HF_TOKEN", value="hf_api_***")
@@ -45,7 +45,7 @@ Secrets can be listed from the API as well:
 
 <Tip>
 From within your Space, secrets are available as environment variables (or
-[Streamlit Secrets Management if using Streamlit). No need to fetch them via the API !
+Streamlit Secrets Management if using Streamlit). No need to fetch them via the API!
 </Tip>
 
 <Tip warning={true}>
@@ -84,7 +84,7 @@ has been met.
 You now have a Space fully configured. Make sure to downgrade your Space back to "cpu-classic"
 when you are done using it.
 
-**Bonus: request hardware when creating the Space !**
+**Bonus: request hardware when creating the Space!**
 
 Upgraded hardware will be automatically assigned to your Space once it's built.
 
@@ -99,14 +99,14 @@ Upgraded hardware will be automatically assigned to your Space once it's built.
 
 ## More advanced: temporarily upgrade your Space !
 
-Huggingface Spaces allow for a lot of different use cases. In some cases you might want
+Spaces allow for a lot of different use cases. Sometimes, you might want
 to temporarily run a Space on a specific hardware, do something and then shut it down. In
-this section, we will explore how to benefit from HF Spaces to finetune a model on demand.
+this section, we will explore how to benefit from Spaces to finetune a model on demand.
 This is only one way of solving this particular problem. It has to be taken as a suggestion
-and adapted to your own use case.
+and adapted to your use case.
 
 Let's assume we have a Space to finetune a model. It is a Gradio app that takes as input
-a model id and a dataset id. The workflow is as follow:
+a model id and a dataset id. The workflow is as follows:
 
 0. (Prompt the user for a model and a dataset)
 1. Load the model from the Hub.
@@ -120,11 +120,11 @@ down afterwards. Since requesting hardware restarts your Space, your app must so
 the current task it is performing. There are multiple ways of doing this. In this guide
 we will see one solution using a Dataset as "task scheduler".
 
-### App.py skeleton
+### App skeleton
 
-Here is what your app would look like. On startup, check if a task is scheduled and if yes
-run it on the correct hardware. Once done, set back hardware to a the free-plan cpu and
-prompt user for a new task.
+Here is what your app would look like. On startup, check if a task is scheduled and if yes,
+run it on the correct hardware. Once done, set back hardware to the free-plan CPU and
+prompt the user for a new task.
 
 <Tip warning={true}>
 Such a workflow does not support concurrent access as normal demos.
@@ -142,7 +142,7 @@ TRAINING_SPACE_ID = "Wauplin/dreambooth-training"
 from huggingface_hub import HfApi, SpaceHardware
 api = HfApi(token=HF_TOKEN)
 
-# On Space startup, check if a task is schedule. If yes, finetune the model. If not,
+# On Space startup, check if a task is scheduled. If yes, finetune the model. If not,
 # display an interface to request a new task.
 task = get_task()
 if task is None:
@@ -183,10 +183,9 @@ a simple CSV stored as a Dataset.
 TASK_DATASET_ID = "Wauplin/dreambooth-task-scheduler"
 
 def _get_csv_file():
-    return hf_hub_download(repo_id=TASK_DATASET_ID, filename="tasks.csv", repo_type="dataset" token=HF_TOKEN)
+    return hf_hub_download(repo_id=TASK_DATASET_ID, filename="tasks.csv", repo_type="dataset", token=HF_TOKEN)
 
 def get_task():
-    csv_file = 
     with open(_get_csv_file()) as csv_file:
         csv_reader = csv.reader(csv_file, delimiter=',')
         for row in csv_reader:

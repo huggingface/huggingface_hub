@@ -3451,7 +3451,7 @@ class HfApi:
         """Adds or updates a secret in a Space.
 
         Secrets allow to set secret keys or tokens to a Space without hardcoding them.
-        More for details, see https://huggingface.co/docs/hub/spaces-overview#managing-secrets.
+        For more details, see https://huggingface.co/docs/hub/spaces-overview#managing-secrets.
 
         Args:
             repo_id (`str`):
@@ -3476,7 +3476,7 @@ class HfApi:
         """Deletes a secret from a Space.
 
         Secrets allow to set secret keys or tokens to a Space without hardcoding them.
-        More for details, see https://huggingface.co/docs/hub/spaces-overview#managing-secrets.
+        For more details, see https://huggingface.co/docs/hub/spaces-overview#managing-secrets.
 
         Args:
             repo_id (`str`):
@@ -3559,7 +3559,7 @@ class HfApi:
 
         <Tip>
 
-        It is possible to request hardware directly in when creating the Space repo !
+        It is also possible to request hardware directly when creating the Space repo!
         See [`create_repo`] for details.
 
         </Tip>
