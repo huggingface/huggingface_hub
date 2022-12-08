@@ -123,4 +123,4 @@
 
 ### Contributions
 
-Thanks to [@github-username](https://github.com/<github-username>) for adding this dataset.
+{{ contributions_section | default("[More Information Needed]", true)}}
