@@ -1555,6 +1555,11 @@ class HfApiPublicProductionTest(unittest.TestCase):
         self.assertTrue("huggingface" in datasets[0].author)
         self.assertTrue("DataMeasurementsFiles" in datasets[0].id)
 
+    @unittest.skip(
+        "DatasetFilter is currently broken. See"
+        " https://github.com/huggingface/huggingface_hub/pull/1250. Skip test until"
+        " it's fixed."
+    )
     @expect_deprecation("list_datasets")
     def test_filter_datasets_by_benchmark(self):
         f = DatasetFilter(benchmark="raft")
@@ -1569,6 +1574,11 @@ class HfApiPublicProductionTest(unittest.TestCase):
         self.assertGreater(len(datasets), 0)
         self.assertTrue("language_creators:crowdsourced" in datasets[0].tags)
 
+    @unittest.skip(
+        "DatasetFilter is currently broken. See"
+        " https://github.com/huggingface/huggingface_hub/pull/1250. Skip test until"
+        " it's fixed."
+    )
     @expect_deprecation("list_datasets")
     def test_filter_datasets_by_language_only(self):
         datasets = self._api.list_datasets(filter=DatasetFilter(language="en"))
