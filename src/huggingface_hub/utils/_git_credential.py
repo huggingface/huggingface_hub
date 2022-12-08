@@ -26,7 +26,7 @@ def list_credential_helpers(folder: Optional[str] = None) -> List[str]:
 
     See https://git-scm.com/docs/gitcredentials.
 
-    Credentials are saved in all configured helpers (store, cache, macos keychain,...).
+    Credentials are saved in all configured helpers (store, cache, macOS keychain,...).
     Calls "`git credential approve`" internally. See https://git-scm.com/docs/git-credential.
 
     Args:
@@ -54,7 +54,7 @@ def set_git_credential(
 ) -> None:
     """Save a username/token pair in git credential for HF Hub registry.
 
-    Credentials are saved in all configured helpers (store, cache, macos keychain,...).
+    Credentials are saved in all configured helpers (store, cache, macOS keychain,...).
     Calls "`git credential approve`" internally. See https://git-scm.com/docs/git-credential.
 
     Args:
@@ -81,7 +81,7 @@ def unset_git_credential(
 ) -> None:
     """Erase credentials from git credential for HF Hub registry.
 
-    Credentials are erased from the configured helpers (store, cache, macos
+    Credentials are erased from the configured helpers (store, cache, macOS
     keychain,...), if any. If `username` is not provided, any credential configured for
     HF Hub endpoint is erased.
     Calls "`git credential erase`" internally. See https://git-scm.com/docs/git-credential.

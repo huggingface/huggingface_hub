@@ -1,4 +1,4 @@
-# Quick start
+# Quickstart
 
 The [Hugging Face Hub](https://hf.co/) is the go-to place for sharing machine learning
 models, demos, datasets, and metrics. `huggingface_hub` library helps you interact with
@@ -6,24 +6,17 @@ the Hub without leaving your development environment. You can create and manage
 repositories easily, download and upload files, and get useful model and dataset
 metadata from the Hub.
 
-## Install the Hub library
+## Installation
 
-To get started, you should install the `huggingface_hub` library. You can install the
-library with `pip` or `conda`.
-
-With `pip`:
+To get started, install the `huggingface_hub` library:
 
 ```bash
-pip install huggingface_hub
+pip install --upgrade huggingface_hub
 ```
 
-With `conda`:
+For more details, check out the [installation](installation) guide.
 
-```bash
-conda install -c conda-forge huggingface_hub
-```
-
-## Download files from the Hub
+## Download files
 
 Repositories on the Hub are git version controlled, and users can download a single file
 or the whole repository. You can use the [`hf_hub_download`] function to download files.
@@ -120,7 +113,7 @@ token in your [Settings page](https://huggingface.co/settings/tokens).
 
 </Tip>
 
-## Share files to the Hub
+## Upload files
 
 Use the [`upload_file`] function to add a file to your newly created repository. You
 need to specify:
@@ -147,7 +140,7 @@ The `huggingface_hub` library provides an easy way for users to interact with th
 with Python. To learn more about how you can manage your files and repositories on the
 Hub, we recommend reading our how-to guides for how to:
 
-- [Create and manage repositories](how-to-manage). 
+- [Create and manage repositories](how-to-manage).
 - [Download](how-to-downstream) files from the Hub.
 - [Upload](how-to-upstream) files to the Hub.
 - [Search the Hub](searching-the-hub) for your desired model or dataset.

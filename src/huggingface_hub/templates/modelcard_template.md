@@ -7,6 +7,8 @@
 
 <!-- Provide a quick summary of what the model is/does. -->
 
+{{ model_summary | default("", true) }}
+
 #  Table of Contents
 
 1. [Model Details](#model-details)
@@ -39,7 +41,14 @@
 - **Language(s) (NLP):** {{ language | default("[More Information Needed]", true)}}
 - **License:** {{ license | default("[More Information Needed]", true)}}
 - **Finetuned from model [optional]:** {{ finetuned_from | default("[More Information Needed]", true)}}
-- **Resources for more information:** {{ more_resources | default("[More Information Needed]", true)}}
+
+## Model Sources [optional]
+
+<!-- Provide the basic links for the model. -->
+
+- **Repository:** {{ repo | default("[More Information Needed]", true)}}
+- **Paper [optional]:** {{ paper | default("[More Information Needed]", true)}}
+- **Demo [optional]:** {{ demo | default("[More Information Needed]", true)}}
 
 # Uses
 
@@ -124,6 +133,10 @@
 ## Results
 
 {{ results | default("[More Information Needed]", true)}}
+
+### Summary
+
+{{ results_summary | default("", true) }}
 
 # Model Examination [optional]
 

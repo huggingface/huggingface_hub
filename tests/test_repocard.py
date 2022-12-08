@@ -127,7 +127,7 @@ model-index:
       value: 0.2662102282047272
       name: Accuracy
       config: default
-      verified: false
+      verified: true
 ---
 """
 
@@ -248,7 +248,7 @@ class RepocardMetadataTest(unittest.TestCase):
             metrics_id="accuracy",
             metrics_value=0.2662102282047272,
             metrics_config="default",
-            metrics_verified=False,
+            metrics_verified=True,
             dataset_pretty_name="ReactionGIF",
             dataset_id="julien-c/reactiongif",
             dataset_config="default",
@@ -318,6 +318,20 @@ class RepocardMetadataUpdateTest(unittest.TestCase):
         ] = 0.2862102282047272
         metadata_update(self.repo_id, new_metadata, token=self._token, overwrite=True)
 
+        self.repo.git_pull()
+        updated_metadata = metadata_load(self.repo_path / self.REPO_NAME / "README.md")
+        self.assertDictEqual(updated_metadata, new_metadata)
+
+    def test_update_verify_token(self):
+        """Tests whether updating the verification token updates in-place.
+
+        Regression test for https://github.com/huggingface/huggingface_hub/issues/1210
+        """
+        new_metadata = copy.deepcopy(self.existing_metadata)
+        new_metadata["model-index"][0]["results"][0]["metrics"][0][
+            "verifyToken"
+        ] = "1234"
+        metadata_update(self.repo_id, new_metadata, token=self._token, overwrite=True)
         self.repo.git_pull()
         updated_metadata = metadata_load(self.repo_path / self.REPO_NAME / "README.md")
         self.assertDictEqual(updated_metadata, new_metadata)
@@ -766,6 +780,16 @@ class ModelCardTest(TestCaseWithCapLog):
         )
         self.assertIsNone(card.data.eval_results)
 
+    def test_model_card_with_model_index(self):
+        """Test that loading a model card with multiple evaluations is consistent with `metadata_load`.
+
+        Regression test for https://github.com/huggingface/huggingface_hub/issues/1208
+        """
+        sample_path = SAMPLE_CARDS_DIR / "sample_simple_model_index.md"
+        card = ModelCard.load(sample_path)
+        metadata = metadata_load(sample_path)
+        self.assertDictEqual(card.data.to_dict(), metadata)
+
     def test_load_model_card_from_file(self):
         sample_path = SAMPLE_CARDS_DIR / "sample_simple.md"
         card = ModelCard.load(sample_path)
@@ -824,7 +848,7 @@ class ModelCardTest(TestCaseWithCapLog):
                         metric_value=0.2662102282047272,
                         metric_name="Accuracy",
                         metric_config="default",
-                        verified=False,
+                        verified=True,
                     ),
                 ],
                 model_name="RoBERTa fine-tuned on ReactionGIF",

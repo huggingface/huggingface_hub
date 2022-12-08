@@ -22,6 +22,7 @@ import unittest
 import warnings
 from functools import partial
 from io import BytesIO
+from pathlib import Path
 from typing import List
 from unittest.mock import Mock, patch
 from urllib.parse import quote
@@ -397,8 +398,8 @@ class CommitApiTest(HfApiCommonTestWithLogin):
             )
 
     @retry_endpoint
-    def test_upload_file_path(self):
-        REPO_NAME = repo_name("path")
+    def test_upload_file_str_path(self):
+        REPO_NAME = repo_name("str_path")
         self._api.create_repo(repo_id=REPO_NAME)
         try:
             return_val = self._api.upload_file(
@@ -426,6 +427,19 @@ class CommitApiTest(HfApiCommonTestWithLogin):
             self.fail(err)
         finally:
             self._api.delete_repo(repo_id=REPO_NAME)
+
+    @retry_endpoint
+    def test_upload_file_pathlib_path(self):
+        """Regression test for https://github.com/huggingface/huggingface_hub/issues/1246."""
+        repo_id = f"{USER}/{repo_name()}"
+        self._api.create_repo(repo_id=repo_id)
+        self._api.upload_file(
+            path_or_fileobj=Path(self.tmp_file),
+            path_in_repo="README.md",
+            repo_id=repo_id,
+        )
+        self.assertIn("README.md", self._api.list_repo_files(repo_id=repo_id))
+        self._api.delete_repo(repo_id=repo_id)
 
     @retry_endpoint
     def test_upload_file_fileobj(self):
@@ -1541,6 +1555,11 @@ class HfApiPublicProductionTest(unittest.TestCase):
         self.assertTrue("huggingface" in datasets[0].author)
         self.assertTrue("DataMeasurementsFiles" in datasets[0].id)
 
+    @unittest.skip(
+        "DatasetFilter is currently broken. See"
+        " https://github.com/huggingface/huggingface_hub/pull/1250. Skip test until"
+        " it's fixed."
+    )
     @expect_deprecation("list_datasets")
     def test_filter_datasets_by_benchmark(self):
         f = DatasetFilter(benchmark="raft")
@@ -1555,6 +1574,11 @@ class HfApiPublicProductionTest(unittest.TestCase):
         self.assertGreater(len(datasets), 0)
         self.assertTrue("language_creators:crowdsourced" in datasets[0].tags)
 
+    @unittest.skip(
+        "DatasetFilter is currently broken. See"
+        " https://github.com/huggingface/huggingface_hub/pull/1250. Skip test until"
+        " it's fixed."
+    )
     @expect_deprecation("list_datasets")
     def test_filter_datasets_by_language_only(self):
         datasets = self._api.list_datasets(filter=DatasetFilter(language="en"))
@@ -1953,26 +1977,6 @@ class HfApiPrivateTest(HfApiCommonTestWithLogin):
         orig = len(self._api.list_spaces(use_auth_token=False))
         new = len(self._api.list_spaces(use_auth_token=self._token))
         self.assertGreaterEqual(new, orig)
-
-
-class HfFolderTest(unittest.TestCase):
-    def test_token_workflow(self):
-        """
-        Test the whole token save/get/delete workflow,
-        with the desired behavior with respect to non-existent tokens.
-        """
-        token = "token-{}".format(int(time.time()))
-        HfFolder.save_token(token)
-        self.assertEqual(HfFolder.get_token(), token)
-        HfFolder.delete_token()
-        HfFolder.delete_token()
-        # ^^ not an error, we test that the
-        # second call does not fail.
-        self.assertEqual(HfFolder.get_token(), None)
-        # test TOKEN in env
-        self.assertEqual(HfFolder.get_token(), None)
-        with unittest.mock.patch.dict(os.environ, {"HUGGING_FACE_HUB_TOKEN": token}):
-            self.assertEqual(HfFolder.get_token(), token)
 
 
 @require_git_lfs
