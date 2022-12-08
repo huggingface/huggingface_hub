@@ -84,6 +84,19 @@ has been met.
 You now have a Space fully configured. Make sure to downgrade your Space back to "cpu-classic"
 when you are done using it.
 
+**Bonus: request hardware when creating the Space !**
+
+Upgraded hardware will be automatically assigned to your Space once it's built.
+
+```py
+>>> api.create_repo(
+...     repo_id=repo_id,
+...     repo_type="space",
+...     space_sdk="gradio"
+...     space_hardware="cpu-upgrade",
+... )
+```
+
 ## More advanced: temporarily upgrade your Space !
 
 Huggingface Spaces allow for a lot of different use cases. In some cases you might want
