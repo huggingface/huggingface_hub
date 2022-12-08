@@ -12,6 +12,9 @@ on:
     paths-ignore:
       - "docs/**"
 
+env:
+  HUGGINGFACE_PRODUCTION_USER_TOKEN: ${{ secrets.HUGGINGFACE_PRODUCTION_USER_TOKEN }}
+
 jobs:
   build:
     runs-on: ubuntu-latest

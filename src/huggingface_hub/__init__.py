@@ -61,6 +61,11 @@ _SUBMOD_ATTRS = {
     "_snapshot_download": [
         "snapshot_download",
     ],
+    "_space_api": [
+        "SpaceHardware",
+        "SpaceRuntime",
+        "SpaceStage",
+    ],
     "community": [
         "Discussion",
         "DiscussionComment",
@@ -103,6 +108,7 @@ _SUBMOD_ATTRS = {
         "DatasetSearchArguments",
         "HfApi",
         "ModelSearchArguments",
+        "add_space_secret",
         "change_discussion_status",
         "comment_discussion",
         "create_branch",
@@ -116,6 +122,7 @@ _SUBMOD_ATTRS = {
         "delete_file",
         "delete_folder",
         "delete_repo",
+        "delete_space_secret",
         "delete_tag",
         "edit_discussion_comment",
         "get_dataset_tags",
@@ -123,6 +130,8 @@ _SUBMOD_ATTRS = {
         "get_full_repo_name",
         "get_model_tags",
         "get_repo_discussions",
+        "get_space_runtime",
+        "get_space_secrets",
         "list_datasets",
         "list_metrics",
         "list_models",
@@ -133,6 +142,7 @@ _SUBMOD_ATTRS = {
         "move_repo",
         "rename_discussion",
         "repo_type_and_id_from_hf_id",
+        "request_space_hardware",
         "set_access_token",
         "space_info",
         "unset_access_token",
@@ -296,6 +306,9 @@ if TYPE_CHECKING:  # pragma: no cover
     from ._login import logout  # noqa: F401
     from ._login import notebook_login  # noqa: F401
     from ._snapshot_download import snapshot_download  # noqa: F401
+    from ._space_api import SpaceHardware  # noqa: F401
+    from ._space_api import SpaceRuntime  # noqa: F401
+    from ._space_api import SpaceStage  # noqa: F401
     from .community import Discussion  # noqa: F401
     from .community import DiscussionComment  # noqa: F401
     from .community import DiscussionCommit  # noqa: F401
@@ -329,6 +342,7 @@ if TYPE_CHECKING:  # pragma: no cover
     from .hf_api import DatasetSearchArguments  # noqa: F401
     from .hf_api import HfApi  # noqa: F401
     from .hf_api import ModelSearchArguments  # noqa: F401
+    from .hf_api import add_space_secret  # noqa: F401
     from .hf_api import change_discussion_status  # noqa: F401
     from .hf_api import comment_discussion  # noqa: F401
     from .hf_api import create_branch  # noqa: F401
@@ -342,6 +356,7 @@ if TYPE_CHECKING:  # pragma: no cover
     from .hf_api import delete_file  # noqa: F401
     from .hf_api import delete_folder  # noqa: F401
     from .hf_api import delete_repo  # noqa: F401
+    from .hf_api import delete_space_secret  # noqa: F401
     from .hf_api import delete_tag  # noqa: F401
     from .hf_api import edit_discussion_comment  # noqa: F401
     from .hf_api import get_dataset_tags  # noqa: F401
@@ -349,6 +364,8 @@ if TYPE_CHECKING:  # pragma: no cover
     from .hf_api import get_full_repo_name  # noqa: F401
     from .hf_api import get_model_tags  # noqa: F401
     from .hf_api import get_repo_discussions  # noqa: F401
+    from .hf_api import get_space_runtime  # noqa: F401
+    from .hf_api import get_space_secrets  # noqa: F401
     from .hf_api import list_datasets  # noqa: F401
     from .hf_api import list_metrics  # noqa: F401
     from .hf_api import list_models  # noqa: F401
@@ -359,6 +376,7 @@ if TYPE_CHECKING:  # pragma: no cover
     from .hf_api import move_repo  # noqa: F401
     from .hf_api import rename_discussion  # noqa: F401
     from .hf_api import repo_type_and_id_from_hf_id  # noqa: F401
+    from .hf_api import request_space_hardware  # noqa: F401
     from .hf_api import set_access_token  # noqa: F401
     from .hf_api import space_info  # noqa: F401
     from .hf_api import unset_access_token  # noqa: F401

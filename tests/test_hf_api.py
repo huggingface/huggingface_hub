@@ -30,7 +30,7 @@ from urllib.parse import quote
 import pytest
 
 import requests
-from huggingface_hub import Repository
+from huggingface_hub import Repository, SpaceHardware, SpaceStage
 from huggingface_hub._commit_api import (
     CommitOperationAdd,
     CommitOperationDelete,
@@ -2274,6 +2274,83 @@ class HfApiDiscussionsTest(HfApiCommonTestWithLogin):
         )
         self.assertEqual(retrieved.status, "merged")
         self.assertIsNotNone(retrieved.merge_commit_oid)
+
+
+@pytest.mark.usefixtures("fx_production_space")
+class TestSpaceAPI(unittest.TestCase):
+    """
+    Testing Space API is not possible on staging. Tests are run against production
+    server using a token stored under `HUGGINGFACE_PRODUCTION_USER_TOKEN` environment
+    variable.
+    """
+
+    repo_id: str
+    api: HfApi
+
+    def test_manage_secrets(self) -> None:
+        # Add 3 secrets
+        self.api.add_space_secret(self.repo_id, "foo", "123")
+        self.api.add_space_secret(self.repo_id, "token", "hf_api_123456")
+        self.api.add_space_secret(self.repo_id, "gh_api_key", "******")
+
+        # Update secret
+        self.api.add_space_secret(self.repo_id, "foo", "456")
+
+        # Delete secret
+        self.api.delete_space_secret(self.repo_id, "gh_api_key")
+
+        # Doesn't fail on missing key
+        self.api.delete_space_secret(self.repo_id, "missing_key")
+
+        # Get all
+        self.assertEqual(
+            self.api.get_space_secrets(repo_id=self.repo_id),
+            {"foo": "456", "token": "hf_api_123456"},
+        )
+
+    def test_create_space_with_hardware(self) -> None:
+        # Clunky but OK: delete repo from fixture
+        self.api.delete_repo(self.repo_id, repo_type="space")
+
+        # Bad request if hardware not supported
+        with self.assertRaises(BadRequestError):
+            self.api.create_repo(
+                self.repo_id,
+                private=True,
+                repo_type="space",
+                space_sdk="gradio",
+                space_hardware="atari-2600",
+            )
+
+        # OK if valid hardware
+        self.api.create_repo(
+            self.repo_id,
+            private=True,
+            repo_type="space",
+            space_sdk="gradio",
+            space_hardware=SpaceHardware.T4_MEDIUM,
+        )
+
+    def test_space_runtime(self) -> None:
+        runtime = self.api.get_space_runtime(self.repo_id)
+
+        # Space has just been created: hardware might not be set yet.
+        self.assertIn(runtime.hardware, (None, SpaceHardware.CPU_BASIC))
+        self.assertIn(runtime.requested_hardware, (None, SpaceHardware.CPU_BASIC))
+
+        # Other fields are fine
+        self.assertEqual(runtime.stage, SpaceStage.BUILDING)
+        self.assertEqual(runtime.stage, "BUILDING")  # Can compare to a string as well
+        self.assertIsInstance(runtime.raw, dict)  # Raw response from Hub
+
+    def test_request_space_hardware(self) -> None:
+        self.api.request_space_hardware(self.repo_id, SpaceHardware.T4_MEDIUM)
+        runtime = self.api.get_space_runtime(self.repo_id)
+        self.assertEqual(runtime.requested_hardware, SpaceHardware.T4_MEDIUM)
+
+    def test_unexistent_space_hardware(self) -> None:
+        with self.assertRaises(BadRequestError):
+            self.api.request_space_hardware(self.repo_id, "atari-2600")
 
 
 @patch("huggingface_hub.hf_api.build_hf_headers")
