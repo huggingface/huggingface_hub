@@ -35,6 +35,7 @@ from ._commit_api import (
     upload_lfs_files,
     warn_on_overwriting_operations,
 )
+from ._space_api import SpaceHardware, SpaceRuntime
 from .community import (
     Discussion,
     DiscussionComment,
@@ -1545,6 +1546,7 @@ class HfApi:
         repo_type: Optional[str] = None,
         exist_ok: bool = False,
         space_sdk: Optional[str] = None,
+        space_hardware: Optional[str] = None,
     ) -> str:
         """Create an empty repo on the HuggingFace Hub.
 
@@ -1563,8 +1565,9 @@ class HfApi:
             exist_ok (`bool`, *optional*, defaults to `False`):
                 If `True`, do not raise an error if repo already exists.
             space_sdk (`str`, *optional*):
-                Choice of SDK to use if repo_type is "space". Can be
-                "streamlit", "gradio", or "static".
+                Choice of SDK to use if repo_type is "space". Can be "streamlit", "gradio", or "static".
+            space_hardware (`SpaceHardware` or `str`, *optional*):
+                Choice of Hardware if repo_type is "space". See [`SpaceHardware`] for a complete list.
 
         Returns:
             `str`: URL to the newly created repo.
@@ -1590,10 +1593,19 @@ class HfApi:
                     f"Invalid space_sdk. Please choose one of {SPACES_SDK_TYPES}."
                 )
             json["sdk"] = space_sdk
+
         if space_sdk is not None and repo_type != "space":
             warnings.warn(
                 "Ignoring provided space_sdk because repo_type is not 'space'."
             )
+
+        if space_hardware is not None:
+            if repo_type == "space":
+                json["hardware"] = space_hardware
+            else:
+                warnings.warn(
+                    "Ignoring provided space_hardware because repo_type is not 'space'."
+                )
 
         if getattr(self, "_lfsmultipartthresh", None):
             # Testing purposes only.
@@ -2003,7 +2015,7 @@ class HfApi:
     def upload_file(
         self,
         *,
-        path_or_fileobj: Union[str, bytes, BinaryIO],
+        path_or_fileobj: Union[str, Path, bytes, BinaryIO],
         path_in_repo: str,
         repo_id: str,
         token: Optional[str] = None,
@@ -2020,7 +2032,7 @@ class HfApi:
         installed.
 
         Args:
-            path_or_fileobj (`str`, `bytes`, or `IO`):
+            path_or_fileobj (`str`, `Path`, `bytes`, or `IO`):
                 Path to a file on the local machine or binary data stream /
                 fileobj / buffer.
             path_in_repo (`str`):
@@ -3460,6 +3472,132 @@ class HfApi:
         )
         return deserialize_event(resp.json()["updatedComment"])  # type: ignore
 
+    def add_space_secret(
+        self, repo_id: str, key: str, value: str, *, token: Optional[str] = None
+    ) -> None:
+        """Adds or updates a secret in a Space.
+
+        Secrets allow to set secret keys or tokens to a Space without hardcoding them.
+        For more details, see https://huggingface.co/docs/hub/spaces-overview#managing-secrets.
+
+        Args:
+            repo_id (`str`):
+                ID of the repo to update. Example: `"bigcode/in-the-stack"`.
+            key (`str`):
+                Secret key. Example: `"GITHUB_API_KEY"`
+            value (`str`):
+                Secret value. Example: `"your_github_api_key"`.
+            token (`str`, *optional*):
+                Hugging Face token. Will default to the locally saved token if not provided.
+        """
+        r = requests.post(
+            f"{self.endpoint}/api/spaces/{repo_id}/secrets",
+            headers=self._build_hf_headers(token=token),
+            json={"key": key, "value": value},
+        )
+        hf_raise_for_status(r)
+
+    def delete_space_secret(
+        self, repo_id: str, key: str, *, token: Optional[str] = None
+    ) -> None:
+        """Deletes a secret from a Space.
+
+        Secrets allow to set secret keys or tokens to a Space without hardcoding them.
+        For more details, see https://huggingface.co/docs/hub/spaces-overview#managing-secrets.
+
+        Args:
+            repo_id (`str`):
+                ID of the repo to update. Example: `"bigcode/in-the-stack"`.
+            key (`str`):
+                Secret key. Example: `"GITHUB_API_KEY"`.
+            token (`str`, *optional*):
+                Hugging Face token. Will default to the locally saved token if not provided.
+        """
+        r = requests.delete(
+            f"{self.endpoint}/api/spaces/{repo_id}/secrets",
+            headers=self._build_hf_headers(token=token),
+            json={"key": key},
+        )
+        hf_raise_for_status(r)
+
+    def get_space_secrets(
+        self, repo_id: str, *, token: Optional[str] = None
+    ) -> Dict[str, str]:
+        """Gets all secrets from a Space.
+
+        Secrets allow to set secret keys or tokens to a Space without hardcoding them.
+        More for details, see https://huggingface.co/docs/hub/spaces-overview#managing-secrets.
+
+        Args:
+            repo_id (`str`):
+                ID of the repo to update. Example: `"bigcode/in-the-stack"`.
+            token (`str`, *optional*):
+                Hugging Face token. Will default to the locally saved token if not provided.
+        Returns:
+            `Dict[str, str]`: dictionary containing all key/value pairs.
+        """
+        r = requests.get(
+            f"{self.endpoint}/api/spaces/{repo_id}/secrets",
+            headers=self._build_hf_headers(token=token),
+        )
+        hf_raise_for_status(r)
+        return r.json()
+
+    def get_space_runtime(
+        self, repo_id: str, *, token: Optional[str] = None
+    ) -> SpaceRuntime:
+        """Gets runtime information about a Space.
+
+        Args:
+            repo_id (`str`):
+                ID of the repo to update. Example: `"bigcode/in-the-stack"`.
+            token (`str`, *optional*):
+                Hugging Face token. Will default to the locally saved token if
+                not provided.
+        Returns:
+            `SpaceRuntime`: dataclass containing runtime information about a Space
+             including Space stage and hardware.
+        """
+        r = requests.get(
+            f"{self.endpoint}/api/spaces/{repo_id}/runtime",
+            headers=self._build_hf_headers(token=token),
+        )
+        hf_raise_for_status(r)
+        data = r.json()
+        return SpaceRuntime(
+            stage=data["stage"],
+            hardware=data["hardware"]["current"],
+            requested_hardware=data["hardware"]["requested"],
+            raw=data,
+        )
+
+    def request_space_hardware(
+        self, repo_id: str, hardware: SpaceHardware, *, token: Optional[str] = None
+    ) -> None:
+        """Request new hardware for a Space.
+
+        Args:
+            repo_id (`str`):
+                ID of the repo to update. Example: `"bigcode/in-the-stack"`.
+            hardware (`str` or [`SpaceHardware`]):
+                Hardware on which to run the Space. Example: `"t4-medium"`.
+            token (`str`, *optional*):
+                Hugging Face token. Will default to the locally saved token if not provided.
+
+        <Tip>
+
+        It is also possible to request hardware directly when creating the Space repo!
+        See [`create_repo`] for details.
+
+        </Tip>
+        """
+        r = requests.post(
+            f"{self.endpoint}/api/spaces/{repo_id}/hardware",
+            headers=self._build_hf_headers(token=token),
+            json={"flavor": hardware},
+        )
+        hf_raise_for_status(r)
+
     def _build_hf_headers(
         self,
         token: Optional[Union[bool, str]] = None,
@@ -3589,3 +3727,10 @@ comment_discussion = api.comment_discussion
 edit_discussion_comment = api.edit_discussion_comment
 rename_discussion = api.rename_discussion
 merge_pull_request = api.merge_pull_request
+
+# Space API
+add_space_secret = api.add_space_secret
+delete_space_secret = api.delete_space_secret
+get_space_secrets = api.get_space_secrets
+get_space_runtime = api.get_space_runtime
+request_space_hardware = api.request_space_hardware

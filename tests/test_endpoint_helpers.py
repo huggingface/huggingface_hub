@@ -155,6 +155,11 @@ class ModelTagsTest(unittest.TestCase):
 
 
 class DatasetTagsTest(unittest.TestCase):
+    @unittest.skip(
+        "DatasetTags is currently broken. See"
+        " https://github.com/huggingface/huggingface_hub/pull/1250. Skip test until"
+        " it's fixed."
+    )
     @with_production_testing
     def test_tags(self):
         _api = HfApi()

@@ -10,7 +10,7 @@ from concurrent import futures
 from concurrent.futures import ThreadPoolExecutor
 from contextlib import contextmanager
 from dataclasses import dataclass, field
-from pathlib import PurePosixPath
+from pathlib import Path, PurePosixPath
 from typing import Any, BinaryIO, Dict, Iterable, List, Optional, Union
 
 import requests
@@ -72,30 +72,32 @@ class CommitOperationAdd:
     Args:
         path_in_repo (`str`):
             Relative filepath in the repo, for example: `"checkpoints/1fec34a/weights.bin"`
-        path_or_fileobj (`str`, `bytes`, or `BinaryIO`):
+        path_or_fileobj (`str`, `Path`, `bytes`, or `BinaryIO`):
             Either:
-            - a path to a local file (as str) to upload
+            - a path to a local file (as `str` or `pathlib.Path`) to upload
             - a buffer of bytes (`bytes`) holding the content of the file to upload
             - a "file object" (subclass of `io.BufferedIOBase`), typically obtained
                 with `open(path, "rb")`. It must support `seek()` and `tell()` methods.
 
     Raises:
         [`ValueError`](https://docs.python.org/3/library/exceptions.html#ValueError)
-            If `path_or_fileobj` is not one of `str`, `bytes` or `io.BufferedIOBase`.
+            If `path_or_fileobj` is not one of `str`, `Path`, `bytes` or `io.BufferedIOBase`.
         [`ValueError`](https://docs.python.org/3/library/exceptions.html#ValueError)
-            If `path_or_fileobj` is a `str` but not a path to an existing file.
+            If `path_or_fileobj` is a `str` or `Path` but not a path to an existing file.
         [`ValueError`](https://docs.python.org/3/library/exceptions.html#ValueError)
             If `path_or_fileobj` is a `io.BufferedIOBase` but it doesn't support both
             `seek()` and `tell()`.
     """
 
     path_in_repo: str
-    path_or_fileobj: Union[str, bytes, BinaryIO]
+    path_or_fileobj: Union[str, Path, bytes, BinaryIO]
     upload_info: UploadInfo = field(init=False, repr=False)
 
     def __post_init__(self) -> None:
         """Validates `path_or_fileobj` and compute `upload_info`."""
         # Validate `path_or_fileobj` value
+        if isinstance(self.path_or_fileobj, Path):
+            self.path_or_fileobj = str(self.path_or_fileobj)
         if isinstance(self.path_or_fileobj, str):
             path_or_fileobj = os.path.normpath(os.path.expanduser(self.path_or_fileobj))
             if not os.path.isfile(path_or_fileobj):
