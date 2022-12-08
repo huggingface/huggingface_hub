@@ -2328,7 +2328,7 @@ class TestSpaceAPI(unittest.TestCase):
         runtime = self.api.get_space_runtime(self.repo_id)
 
         self.assertEqual(runtime.hardware, None)  # No hardware while building
-        self.assertEqual(runtime.requested_hardware, None)
+        self.assertEqual(runtime.requested_hardware, SpaceHardware.CPU_BASIC)
         self.assertEqual(runtime.stage, SpaceStage.BUILDING)
         self.assertEqual(runtime.stage, "BUILDING")  # is a string well
         self.assertIsInstance(runtime.raw, dict)  # Raw response from Hub
