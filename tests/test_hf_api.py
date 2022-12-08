@@ -2298,6 +2298,32 @@ class TestSpaceAPI(unittest.TestCase):
             {"foo": "456", "token": "hf_api_123456"},
         )
 
+    def test_create_space_with_hardware(self) -> None:
+        # Clunky but OK: delete repo from fixture
+        self.api.delete_repo(self.repo_id, repo_type="space")
+
+        # Bad request if hardware not supported
+        with self.assertRaises(BadRequestError):
+            self.api.create_repo(
+                self.repo_id,
+                private=True,
+                repo_type="space",
+                space_sdk="gradio",
+                space_hardware="atari-2600",
+            )
+
+        # OK if valid hardware
+        self.api.create_repo(
+            self.repo_id,
+            private=True,
+            repo_type="space",
+            space_sdk="gradio",
+            space_hardware=SpaceHardware.T4_MEDIUM,
+        )
+        self.assertEqual(
+            self.api.get_space_runtime(self.repo_id).requested_hardware, "t4-medium"
+        )
+
     def test_space_runtime(self) -> None:
         runtime = self.api.get_space_runtime(self.repo_id)
 

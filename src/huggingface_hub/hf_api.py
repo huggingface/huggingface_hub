@@ -1519,6 +1519,7 @@ class HfApi:
         repo_type: Optional[str] = None,
         exist_ok: bool = False,
         space_sdk: Optional[str] = None,
+        space_hardware: Optional[str] = None,
     ) -> str:
         """Create an empty repo on the HuggingFace Hub.
 
@@ -1537,8 +1538,9 @@ class HfApi:
             exist_ok (`bool`, *optional*, defaults to `False`):
                 If `True`, do not raise an error if repo already exists.
             space_sdk (`str`, *optional*):
-                Choice of SDK to use if repo_type is "space". Can be
-                "streamlit", "gradio", or "static".
+                Choice of SDK to use if repo_type is "space". Can be "streamlit", "gradio", or "static".
+            space_hardware (`SpaceHardware` or `str`, *optional*):
+                Choice of Hardware if repo_type is "space". See [`SpaceHardware`] for a complete list.
 
         Returns:
             `str`: URL to the newly created repo.
@@ -1564,10 +1566,19 @@ class HfApi:
                     f"Invalid space_sdk. Please choose one of {SPACES_SDK_TYPES}."
                 )
             json["sdk"] = space_sdk
+
         if space_sdk is not None and repo_type != "space":
             warnings.warn(
                 "Ignoring provided space_sdk because repo_type is not 'space'."
             )
+
+        if space_hardware is not None:
+            if repo_type == "space":
+                json["hardware"] = space_hardware
+            else:
+                warnings.warn(
+                    "Ignoring provided space_hardware because repo_type is not 'space'."
+                )
 
         if getattr(self, "_lfsmultipartthresh", None):
             # Testing purposes only.
