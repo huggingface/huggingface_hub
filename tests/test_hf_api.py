@@ -2320,17 +2320,17 @@ class TestSpaceAPI(unittest.TestCase):
             space_sdk="gradio",
             space_hardware=SpaceHardware.T4_MEDIUM,
         )
-        self.assertEqual(
-            self.api.get_space_runtime(self.repo_id).requested_hardware, "t4-medium"
-        )
 
     def test_space_runtime(self) -> None:
         runtime = self.api.get_space_runtime(self.repo_id)
 
-        self.assertEqual(runtime.hardware, None)  # No hardware while building
-        self.assertEqual(runtime.requested_hardware, SpaceHardware.CPU_BASIC)
+        # Space has just been created: hardware might not be set yet.
+        self.assertIn(runtime.hardware, (None, SpaceHardware.CPU_BASIC))
+        self.assertIn(runtime.requested_hardware, (None, SpaceHardware.CPU_BASIC))
+
+        # Other fields are fine
         self.assertEqual(runtime.stage, SpaceStage.BUILDING)
-        self.assertEqual(runtime.stage, "BUILDING")  # is a string well
+        self.assertEqual(runtime.stage, "BUILDING")  # Can compare to a string as well
         self.assertIsInstance(runtime.raw, dict)  # Raw response from Hub
 
     def test_request_space_hardware(self) -> None:
