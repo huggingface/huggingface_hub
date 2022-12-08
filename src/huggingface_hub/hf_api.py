@@ -3556,6 +3556,13 @@ class HfApi:
                 Hardware on which to run the Space. Example: `"t4-medium"`.
             token (`str`, *optional*):
                 Hugging Face token. Will default to the locally saved token if not provided.
+
+        <Tip>
+
+        It is possible to request hardware directly in when creating the Space repo !
+        See [`create_repo`] for details.
+
+        </Tip>
         """
         r = requests.post(
             f"{self.endpoint}/api/spaces/{repo_id}/hardware",
