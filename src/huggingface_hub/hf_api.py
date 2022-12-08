@@ -1977,7 +1977,7 @@ class HfApi:
     def upload_file(
         self,
         *,
-        path_or_fileobj: Union[str, bytes, BinaryIO],
+        path_or_fileobj: Union[str, Path, bytes, BinaryIO],
         path_in_repo: str,
         repo_id: str,
         token: Optional[str] = None,
@@ -1994,7 +1994,7 @@ class HfApi:
         installed.
 
         Args:
-            path_or_fileobj (`str`, `bytes`, or `IO`):
+            path_or_fileobj (`str`, `Path`, `bytes`, or `IO`):
                 Path to a file on the local machine or binary data stream /
                 fileobj / buffer.
             path_in_repo (`str`):
