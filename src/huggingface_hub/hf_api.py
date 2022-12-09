@@ -1538,7 +1538,7 @@ class HfApi:
             exist_ok (`bool`, *optional*, defaults to `False`):
                 If `True`, do not raise an error if repo already exists.
             space_sdk (`str`, *optional*):
-                Choice of SDK to use if repo_type is "space". Can be "streamlit", "gradio", or "static".
+                Choice of SDK to use if repo_type is "space". Can be "streamlit", "gradio", "docker", or "static".
             space_hardware (`SpaceHardware` or `str`, *optional*):
                 Choice of Hardware if repo_type is "space". See [`SpaceHardware`] for a complete list.
 
