@@ -25,7 +25,10 @@ class UserLikes:
         user (`str`):
             Name of the user for which we fetched the likes.
         total (`int`):
-            Total number of likes (models, datasets and Spaces combined).
+            Total number of likes (models, datasets and Spaces combined). Likes on private
+            repos are also counted.
+        total_visible (`int`):
+            Total number of likes on repos that you have access to.
         datasets (`List[str]`):
             List of datasets liked by the user (as repo_ids).
         models (`List[str]`):
@@ -37,6 +40,7 @@ class UserLikes:
     # Metadata
     user: str
     total: int
+    total_visible: int
 
     # User likes
     datasets: List[str]

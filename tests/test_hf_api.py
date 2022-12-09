@@ -2282,12 +2282,64 @@ class ActivityApiTest(unittest.TestCase):
         cls.api = HfApi()
         return super().setUpClass()
 
+    def test_like_and_unlike_repo(self) -> None:
+        # Create and like repo
+        repo_id = f"{USER}/{repo_name()}"
+        self.api.create_repo(repo_id, token=TOKEN, private=True)
+        self.api.like(repo_id, token=TOKEN)
+
+        # Get likes as public and authenticated
+        likes = self.api.list_liked_repos(USER)
+        likes_with_auth = self.api.list_liked_repos(USER, token=TOKEN)
+
+        # New repo is not public: still see the like, not the repo_id
+        self.assertNotIn(repo_id, likes.models)
+        self.assertIn(repo_id, likes_with_auth.models)
+        self.assertEqual(likes.total, likes_with_auth.total)
+        self.assertLess(likes.total_visible, likes_with_auth.total_visible)
+
+        # Unlike and check not in liked list
+        self.api.unlike(repo_id, token=TOKEN)
+        likes_after_unliking_with_auth = self.api.list_liked_repos(USER, token=TOKEN)
+        self.assertEqual(
+            likes_after_unliking_with_auth.total, likes_with_auth.total - 1
+        )
+        self.assertNotIn(repo_id, likes_after_unliking_with_auth.models)  # Unliked
+
+        # Cleanup
+        self.api.delete_repo(repo_id, token=TOKEN)
+
+    def test_like_missing_repo(self) -> None:
+        with self.assertRaises(RepositoryNotFoundError):
+            self.api.like("missing_repo_id", token=TOKEN)
+
+        with self.assertRaises(RepositoryNotFoundError):
+            self.api.unlike("missing_repo_id", token=TOKEN)
+
+    def test_like_twice(self) -> None:
+        # Create and like repo
+        repo_id = f"{USER}/{repo_name()}"
+        self.api.create_repo(repo_id, token=TOKEN, private=True)
+
+        # Can like twice
+        self.api.like(repo_id, token=TOKEN)
+        self.api.like(repo_id, token=TOKEN)
+
+        # Can unlike twice
+        self.api.unlike(repo_id, token=TOKEN)
+        self.api.unlike(repo_id, token=TOKEN)
+
+        # Cleanup
+        self.api.delete_repo(repo_id, token=TOKEN)
+
     def test_list_liked_repos_no_auth(self) -> None:
         likes = self.api.list_liked_repos(USER)
         self.assertEqual(likes.user, USER)
         self.assertGreater(likes.total, 0)
+        self.assertGreater(likes.total, likes.total_visible)
         self.assertEqual(
-            likes.total, len(likes.models) + len(likes.datasets) + len(likes.spaces)
+            likes.total_visible,
+            len(likes.models) + len(likes.datasets) + len(likes.spaces),
         )
         self.assertIn(f"{USER}/repo-that-is-liked-public", likes.models)
 
@@ -2311,6 +2363,10 @@ class ActivityApiTest(unittest.TestCase):
         self.assertGreater(len(likes.datasets), 0)
         self.assertGreater(len(likes.spaces), 0)
         self.assertEqual(
+            likes.total_visible,
+            len(likes.models) + len(likes.datasets) + len(likes.spaces),
+        )
+        self.assertGreater(  # Some repos are not visible: we see the likes, not the repo ids
             likes.total, len(likes.models) + len(likes.datasets) + len(likes.spaces)
         )
 

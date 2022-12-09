@@ -135,6 +135,7 @@ _SUBMOD_ATTRS = {
         "get_repo_discussions",
         "get_space_runtime",
         "get_space_secrets",
+        "like",
         "list_datasets",
         "list_liked_repos",
         "list_metrics",
@@ -149,6 +150,7 @@ _SUBMOD_ATTRS = {
         "request_space_hardware",
         "set_access_token",
         "space_info",
+        "unlike",
         "unset_access_token",
         "update_repo_visibility",
         "upload_file",
@@ -371,6 +373,7 @@ if TYPE_CHECKING:  # pragma: no cover
     from .hf_api import get_repo_discussions  # noqa: F401
     from .hf_api import get_space_runtime  # noqa: F401
     from .hf_api import get_space_secrets  # noqa: F401
+    from .hf_api import like  # noqa: F401
     from .hf_api import list_datasets  # noqa: F401
     from .hf_api import list_liked_repos  # noqa: F401
     from .hf_api import list_metrics  # noqa: F401
@@ -385,6 +388,7 @@ if TYPE_CHECKING:  # pragma: no cover
     from .hf_api import request_space_hardware  # noqa: F401
     from .hf_api import set_access_token  # noqa: F401
     from .hf_api import space_info  # noqa: F401
+    from .hf_api import unlike  # noqa: F401
     from .hf_api import unset_access_token  # noqa: F401
     from .hf_api import update_repo_visibility  # noqa: F401
     from .hf_api import upload_file  # noqa: F401
