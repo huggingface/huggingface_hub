@@ -18,6 +18,10 @@ style:
 	python utils/check_contrib_list.py --update
 	python utils/check_static_imports.py --update
 
+repocard:
+	python utils/push_repocard_examples.py
+
+
 test:
 	pytest ./tests/
 

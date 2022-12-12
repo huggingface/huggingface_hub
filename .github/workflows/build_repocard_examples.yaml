@@ -1,0 +1,31 @@
+name: Build and push Model Card and Dataset Card examples
+
+on:
+  push:
+    branches:
+      - main
+
+env:
+  HUGGING_FACE_HUB_TOKEN: ${{ secrets.HUGGINGFACE_PRODUCTION_USER_TOKEN }}
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v2
+      - name: Set up Python
+        uses: actions/setup-python@v2
+        with:
+          python-version: 3.11
+
+      # Install dependencies
+      - name: Configure and install dependencies
+        run: |
+          pip install --upgrade pip
+          pip install .
+          pip install Jinja2          
+
+      # Push cards
+      - name: Push cards
+        run: python utils/push_repocard_examples.py
