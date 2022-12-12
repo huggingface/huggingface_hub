@@ -15,18 +15,40 @@
 """Generate and push an empty ModelCard and DatasetCard to the Hub as examples."""
 import argparse
 
-from huggingface_hub import DatasetCard, DatasetCardData, ModelCard, ModelCardData
+from huggingface_hub import (
+    DatasetCard,
+    DatasetCardData,
+    ModelCard,
+    ModelCardData,
+    whoami,
+)
 
 
-MODEL_CARD_REPO_ID = "huggingface/model-card-example"
-DATASET_CARD_REPO_ID = "huggingface/dataset-card-example"
+ORG_NAME = "templates"
+MODEL_CARD_REPO_ID = "templates/model-card-example"
+DATASET_CARD_REPO_ID = "templates/dataset-card-example"
+
+
+def check_can_push():
+    """Check the user can push to the `templates/` folder with its credentials."""
+    try:
+        me = whoami()
+    except EnvironmentError:
+        print("You must be logged in to push repo card examples.")
+
+    if all(org["name"] != ORG_NAME for org in me.get("orgs", [])):
+        print(
+            f"❌ You must have access to organization '{ORG_NAME}' to push repo card"
+            " examples."
+        )
+        exit(1)
 
 
 def push_model_card_example(overwrite: bool) -> None:
     """Generate an empty model card from template for documentation purposes.
 
     Do not push if content has not changed. Script is triggered in CI on main branch.
-    Card is pushed to https://huggingface.co/huggingface/model-card-example.
+    Card is pushed to https://huggingface.co/templates/model-card-example.
     """
 
     card = ModelCard.from_template(ModelCardData())
@@ -43,7 +65,7 @@ def push_dataset_card_example(overwrite: bool) -> None:
     """Generate an empty dataset card from template for documentation purposes.
 
     Do not push if content has not changed. Script is triggered in CI on main branch.
-    Card is pushed to https://huggingface.co/datasets/huggingface/dataset-card-example.
+    Card is pushed to https://huggingface.co/datasets/templates/dataset-card-example.
     """
     card = DatasetCard.from_template(DatasetCardData())
     if not overwrite:
@@ -67,5 +89,6 @@ if __name__ == "__main__":
     )
     args = parser.parse_args()
 
+    check_can_push()
     push_model_card_example(args.overwrite)
     push_dataset_card_example(args.overwrite)
