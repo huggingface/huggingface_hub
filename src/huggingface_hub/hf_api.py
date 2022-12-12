@@ -1286,8 +1286,8 @@ class HfApi:
         if repo_type is None:
             repo_type = REPO_TYPE_MODEL
         # TODO: use requests.delete(".../like") instead when https://github.com/huggingface/moon-landing/pull/4813 is merged
-        response = requests.post(
-            url=f"{self.endpoint}/api/{repo_type}s/{repo_id}/unlike",
+        response = requests.delete(
+            url=f"{self.endpoint}/api/{repo_type}s/{repo_id}/like",
             headers=self._build_hf_headers(token=token),
         )
         hf_raise_for_status(response)

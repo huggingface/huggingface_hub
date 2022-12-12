@@ -2403,6 +2403,7 @@ class TestSpaceAPI(unittest.TestCase):
             {"foo": "456", "token": "hf_api_123456"},
         )
 
+    @unittest.skip("Skip hardware tests for now (no payment card in CI)")
     def test_create_space_with_hardware(self) -> None:
         # Clunky but OK: delete repo from fixture
         self.api.delete_repo(self.repo_id, repo_type="space")
@@ -2438,11 +2439,13 @@ class TestSpaceAPI(unittest.TestCase):
         self.assertEqual(runtime.stage, "BUILDING")  # Can compare to a string as well
         self.assertIsInstance(runtime.raw, dict)  # Raw response from Hub
 
+    @unittest.skip("Skip hardware tests for now (no payment card in CI)")
     def test_request_space_hardware(self) -> None:
         self.api.request_space_hardware(self.repo_id, SpaceHardware.T4_MEDIUM)
         runtime = self.api.get_space_runtime(self.repo_id)
         self.assertEqual(runtime.requested_hardware, SpaceHardware.T4_MEDIUM)
 
+    @unittest.skip("Skip hardware tests for now (no payment card in CI)")
     def test_unexistent_space_hardware(self) -> None:
         with self.assertRaises(BadRequestError):
             self.api.request_space_hardware(self.repo_id, "atari-2600")
