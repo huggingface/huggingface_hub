@@ -1617,16 +1617,13 @@ class HfApiPublicProductionTest(unittest.TestCase):
         self.assertGreater(len(datasets), 0)
         self.assertTrue("task_categories:audio-classification" in datasets[0].tags)
 
-    @unittest.skip(
-        "Filtering is been revamped on the Hub. Let's revisit this when it's fixed."
-    )
     @expect_deprecation("list_datasets")
     def test_filter_datasets_by_task_ids(self):
         datasets = self._api.list_datasets(
-            filter=DatasetFilter(task_ids="automatic-speech-recognition")
+            filter=DatasetFilter(task_ids="natural-language-inference")
         )
         self.assertGreater(len(datasets), 0)
-        self.assertTrue("task_ids:automatic-speech-recognition" in datasets[0].tags)
+        self.assertTrue("task_ids:natural-language-inference" in datasets[0].tags)
 
     @expect_deprecation("list_datasets")
     def test_list_datasets_full(self):
