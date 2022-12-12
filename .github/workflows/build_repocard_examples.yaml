@@ -4,7 +4,6 @@ on:
   push:
     branches:
       - main
-      - push-empty-model-card-example
 
 env:
   HUGGING_FACE_HUB_TOKEN: ${{ secrets.HUGGINGFACE_PRODUCTION_USER_TOKEN }}
