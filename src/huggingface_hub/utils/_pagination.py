@@ -35,7 +35,7 @@ def paginate(path: str, params: Dict, headers: Dict) -> Iterable:
     hf_raise_for_status(r)
     yield from r.json()
 
-    # If pagination is implemented server-side, follow pages
+    # Follow pages
     # Next link already contains query params
     next_page = _get_next_page(r)
     while next_page is not None:
