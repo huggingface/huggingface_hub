@@ -26,10 +26,6 @@ logger = logging.get_logger(__name__)
 def paginate(path: str, params: Dict, headers: Dict) -> Iterable:
     """Fetch a list of models/datasets/spaces and paginate through results.
 
-    For now, pagination is not mandatory on the Hub. However at some point the number of
-    repos per page will be limited for performance reasons. This helper makes `huggingface_hub`
-    compliant with future server-side updates.
-
     This is using the same "Link" header format as GitHub.
     See:
     - https://requests.readthedocs.io/en/latest/api/#requests.Response.links
@@ -39,7 +35,7 @@ def paginate(path: str, params: Dict, headers: Dict) -> Iterable:
     hf_raise_for_status(r)
     yield from r.json()
 
-    # If pagination is implemented server-side, follow pages
+    # Follow pages
     # Next link already contains query params
     next_page = _get_next_page(r)
     while next_page is not None:
