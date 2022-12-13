@@ -317,18 +317,18 @@ class SnapshotDownloadTests(unittest.TestCase):
             # folder name contains the 2nd commit sha and not the 3rd
             self.assertTrue(self.second_commit_hash in storage_folder)
 
-    def check_download_model_with_regex(self, regex, allow=True):
+    def check_download_model_with_pattern(self, pattern, allow=True):
         # Test `main` branch
-        allow_regex = regex if allow else None
-        ignore_regex = regex if not allow else None
+        allow_patterns = pattern if allow else None
+        ignore_patterns = pattern if not allow else None
 
         with tempfile.TemporaryDirectory() as tmpdirname:
             storage_folder = snapshot_download(
                 f"{USER}/{REPO_NAME}",
                 revision="main",
                 cache_dir=tmpdirname,
-                allow_regex=allow_regex,
-                ignore_regex=ignore_regex,
+                allow_patterns=allow_patterns,
+                ignore_patterns=ignore_patterns,
             )
 
             # folder contains the two files contributed and the .gitattributes
@@ -345,22 +345,14 @@ class SnapshotDownloadTests(unittest.TestCase):
             # folder name contains the revision's commit sha.
             self.assertTrue(self.second_commit_hash in storage_folder)
 
-    # TODO: from version 0.12, replace `regex` by 'patterns` and remove expected
-    #       deprecation. Could be possible to already do tests with `allow_patterns` and
-    #       `ignore_patterns` but current test implementation is convenient since it
-    #       covers both old and new naming + check deprecation.
-    @expect_deprecation("snapshot_download")
-    def test_download_model_with_allow_regex(self):
-        self.check_download_model_with_regex("*.txt")
+    def test_download_model_with_allow_pattern(self):
+        self.check_download_model_with_pattern("*.txt")
 
-    @expect_deprecation("snapshot_download")
-    def test_download_model_with_allow_regex_list(self):
-        self.check_download_model_with_regex(["dummy_file.txt", "dummy_file_2.txt"])
+    def test_download_model_with_allow_pattern_list(self):
+        self.check_download_model_with_pattern(["dummy_file.txt", "dummy_file_2.txt"])
 
-    @expect_deprecation("snapshot_download")
-    def test_download_model_with_ignore_regex(self):
-        self.check_download_model_with_regex(".gitattributes", allow=False)
+    def test_download_model_with_ignore_pattern(self):
+        self.check_download_model_with_pattern(".gitattributes", allow=False)
 
-    @expect_deprecation("snapshot_download")
-    def test_download_model_with_ignore_regex_list(self):
-        self.check_download_model_with_regex(["*.git*", "*.pt"], allow=False)
+    def test_download_model_with_ignore_pattern_list(self):
+        self.check_download_model_with_pattern(["*.git*", "*.pt"], allow=False)

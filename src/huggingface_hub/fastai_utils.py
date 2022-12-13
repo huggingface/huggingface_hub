@@ -17,7 +17,6 @@ from huggingface_hub.utils import (
 )
 
 from .utils import logging, validate_hf_hub_args
-from .utils._deprecation import _deprecate_arguments, _deprecate_positional_args
 from .utils._runtime import _PY_VERSION  # noqa: F401 # for backward compatibility...
 
 
@@ -353,21 +352,12 @@ def from_pretrained_fastai(
     return load_learner(os.path.join(storage_folder, "model.pkl"))
 
 
-@_deprecate_positional_args(version="0.12")
-@_deprecate_arguments(
-    version="0.12",
-    deprecated_args={
-        "git_user",
-        "git_email",
-    },
-)
 @validate_hf_hub_args
 def push_to_hub_fastai(
-    # NOTE: New arguments since 0.9
     learner,
     *,
     repo_id: str,
-    commit_message: str = "Add model",
+    commit_message: str = "Push FastAI model using huggingface_hub.",
     private: bool = False,
     token: Optional[str] = None,
     config: Optional[dict] = None,
@@ -376,21 +366,6 @@ def push_to_hub_fastai(
     allow_patterns: Optional[Union[List[str], str]] = None,
     ignore_patterns: Optional[Union[List[str], str]] = None,
     api_endpoint: Optional[str] = None,
-    # NOTE: deprecated signature that will change in 0.12
-    git_user: Optional[str] = None,
-    git_email: Optional[str] = None,
-    # TODO (release 0.12): signature must be the following
-    # learner,
-    # repo_id: Optional[str] = None,  # optional only until 0.12
-    # commit_message: str = "Add model",
-    # private: Optional[bool] = None,
-    # token: Optional[str] = None,
-    # config: Optional[dict] = None,
-    # branch: Optional[str] = None,
-    # create_pr: Optional[bool] = None,
-    # allow_patterns: Optional[Union[List[str], str]] = None,
-    # ignore_patterns: Optional[Union[List[str], str]] = None,
-    # api_endpoint: Optional[str] = None,
 ):
     """
     Upload learner checkpoint files to the Hub.
@@ -436,15 +411,10 @@ def push_to_hub_fastai(
 
     </Tip>
     """
-
     _check_fastai_fastcore_versions()
     api = HfApi(endpoint=api_endpoint)
     api.create_repo(
-        repo_id=repo_id,
-        repo_type="model",
-        token=token,
-        private=private,
-        exist_ok=True,
+        repo_id=repo_id, repo_type="model", token=token, private=private, exist_ok=True
     )
 
     # Push the files to the repo in a single commit
