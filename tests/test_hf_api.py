@@ -2372,11 +2372,11 @@ class ActivityApiTest(unittest.TestCase):
 
 
 @pytest.mark.usefixtures("fx_production_space")
-class TestSpaceAPI(unittest.TestCase):
+class TestSpaceAPIProduction(unittest.TestCase):
     """
     Testing Space API is not possible on staging. Tests are run against production
     server using a token stored under `HUGGINGFACE_PRODUCTION_USER_TOKEN` environment
-    variable.
+    variable. Tests requiring hardware are mocked to spare some resources.
     """
 
     repo_id: str
@@ -2397,36 +2397,6 @@ class TestSpaceAPI(unittest.TestCase):
         # Doesn't fail on missing key
         self.api.delete_space_secret(self.repo_id, "missing_key")
 
-        # Get all
-        self.assertEqual(
-            self.api.get_space_secrets(repo_id=self.repo_id),
-            {"foo": "456", "token": "hf_api_123456"},
-        )
-
-    @unittest.skip("Skip hardware tests for now (no payment card in CI)")
-    def test_create_space_with_hardware(self) -> None:
-        # Clunky but OK: delete repo from fixture
-        self.api.delete_repo(self.repo_id, repo_type="space")
-
-        # Bad request if hardware not supported
-        with self.assertRaises(BadRequestError):
-            self.api.create_repo(
-                self.repo_id,
-                private=True,
-                repo_type="space",
-                space_sdk="gradio",
-                space_hardware="atari-2600",
-            )
-
-        # OK if valid hardware
-        self.api.create_repo(
-            self.repo_id,
-            private=True,
-            repo_type="space",
-            space_sdk="gradio",
-            space_hardware=SpaceHardware.T4_MEDIUM,
-        )
-
     def test_space_runtime(self) -> None:
         runtime = self.api.get_space_runtime(self.repo_id)
 
@@ -2434,21 +2404,54 @@ class TestSpaceAPI(unittest.TestCase):
         self.assertIn(runtime.hardware, (None, SpaceHardware.CPU_BASIC))
         self.assertIn(runtime.requested_hardware, (None, SpaceHardware.CPU_BASIC))
 
-        # Other fields are fine
-        self.assertEqual(runtime.stage, SpaceStage.BUILDING)
-        self.assertEqual(runtime.stage, "BUILDING")  # Can compare to a string as well
-        self.assertIsInstance(runtime.raw, dict)  # Raw response from Hub
+        # Space is either "BUILDING" (if not yet done) or "NO_APP_FILE" (if building failed)
+        self.assertIn(runtime.stage, (SpaceStage.NO_APP_FILE, SpaceStage.BUILDING))
+        self.assertIn(runtime.stage, ("NO_APP_FILE", "BUILDING"))  # str works as well
 
-    @unittest.skip("Skip hardware tests for now (no payment card in CI)")
-    def test_request_space_hardware(self) -> None:
+        # Raw response from Hub
+        self.assertIsInstance(runtime.raw, dict)
+
+
+class TestSpaceAPIMocked(unittest.TestCase):
+    """
+    Testing Space hardware requests is resource intensive for the server (need to spawn
+    GPUs). Tests are mocked to check the correct values are sent.
+    """
+
+    def setUp(self) -> None:
+        self.api = HfApi(token="fake_token")
+        self.repo_id = "fake_repo_id"
+        return super().setUp()
+
+    @patch("huggingface_hub.hf_api.requests.post")
+    def test_create_space_with_hardware(self, post_mock: Mock) -> None:
+        self.api.create_repo(
+            self.repo_id,
+            repo_type="space",
+            space_sdk="gradio",
+            space_hardware=SpaceHardware.T4_MEDIUM,
+        )
+        post_mock.assert_called_once_with(
+            f"{self.api.endpoint}/api/repos/create",
+            headers=self.api._build_hf_headers(),
+            json={
+                "name": self.repo_id,
+                "organization": None,
+                "private": False,
+                "type": "space",
+                "sdk": "gradio",
+                "hardware": "t4-medium",
+            },
+        )
+
+    @patch("huggingface_hub.hf_api.requests.post")
+    def test_request_space_hardware(self, post_mock: Mock) -> None:
         self.api.request_space_hardware(self.repo_id, SpaceHardware.T4_MEDIUM)
-        runtime = self.api.get_space_runtime(self.repo_id)
-        self.assertEqual(runtime.requested_hardware, SpaceHardware.T4_MEDIUM)
-
-    @unittest.skip("Skip hardware tests for now (no payment card in CI)")
-    def test_unexistent_space_hardware(self) -> None:
-        with self.assertRaises(BadRequestError):
-            self.api.request_space_hardware(self.repo_id, "atari-2600")
+        post_mock.assert_called_once_with(
+            f"{self.api.endpoint}/api/spaces/{self.repo_id}/hardware",
+            headers=self.api._build_hf_headers(),
+            json={"flavor": "t4-medium"},
+        )
 
 
 @patch("huggingface_hub.hf_api.build_hf_headers")
