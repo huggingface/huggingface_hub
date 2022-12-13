@@ -2277,11 +2277,11 @@ class HfApiDiscussionsTest(HfApiCommonTestWithLogin):
 
 
 @pytest.mark.usefixtures("fx_production_space")
-class TestSpaceAPI(unittest.TestCase):
+class TestSpaceAPIProduction(unittest.TestCase):
     """
     Testing Space API is not possible on staging. Tests are run against production
     server using a token stored under `HUGGINGFACE_PRODUCTION_USER_TOKEN` environment
-    variable.
+    variable. Tests requiring hardware are mocked to spare some resources.
     """
 
     repo_id: str
@@ -2308,29 +2308,6 @@ class TestSpaceAPI(unittest.TestCase):
             {"foo": "456", "token": "hf_api_123456"},
         )
 
-    def test_create_space_with_hardware(self) -> None:
-        # Clunky but OK: delete repo from fixture
-        self.api.delete_repo(self.repo_id, repo_type="space")
-
-        # Bad request if hardware not supported
-        with self.assertRaises(BadRequestError):
-            self.api.create_repo(
-                self.repo_id,
-                private=True,
-                repo_type="space",
-                space_sdk="gradio",
-                space_hardware="atari-2600",
-            )
-
-        # OK if valid hardware
-        self.api.create_repo(
-            self.repo_id,
-            private=True,
-            repo_type="space",
-            space_sdk="gradio",
-            space_hardware=SpaceHardware.T4_MEDIUM,
-        )
-
     def test_space_runtime(self) -> None:
         runtime = self.api.get_space_runtime(self.repo_id)
 
@@ -2343,14 +2320,39 @@ class TestSpaceAPI(unittest.TestCase):
         self.assertEqual(runtime.stage, "BUILDING")  # Can compare to a string as well
         self.assertIsInstance(runtime.raw, dict)  # Raw response from Hub
 
-    def test_request_space_hardware(self) -> None:
-        self.api.request_space_hardware(self.repo_id, SpaceHardware.T4_MEDIUM)
-        runtime = self.api.get_space_runtime(self.repo_id)
-        self.assertEqual(runtime.requested_hardware, SpaceHardware.T4_MEDIUM)
 
-    def test_unexistent_space_hardware(self) -> None:
-        with self.assertRaises(BadRequestError):
-            self.api.request_space_hardware(self.repo_id, "atari-2600")
+class TestSpaceAPIMocked(unittest.TestCase):
+    """
+    Testing Space hardware requests is resource intensive for the server (need to spawn
+    GPUs). Tests are mocked to check the correct values are sent.
+    """
+
+    def setUp(self) -> None:
+        self.api = HfApi(token="fake_token")
+        self.repo_id = "fake_repo_id"
+        return super().setUp()
+
+    @patch("huggingface_hub.hf_api.requests.post")
+    def test_create_space_with_hardware(self, post_mock: Mock) -> None:
+        self.api.create_repo(
+            self.repo_id,
+            private=True,
+            repo_type="space",
+            space_sdk="gradio",
+            space_hardware=SpaceHardware.T4_MEDIUM,
+        )
+        kwargs = post_mock.call_args.kwargs
+        self.assertIn("json", kwargs)
+        self.assertIn("hardware", kwargs["json"])
+        self.assertEqual(kwargs["json"]["hardware"], "t4-medium")
+
+    @patch("huggingface_hub.hf_api.requests.post")
+    def test_request_space_hardware(self, post_mock: Mock) -> None:
+        self.api.request_space_hardware(self.repo_id, SpaceHardware.T4_MEDIUM)
+        kwargs = post_mock.call_args.kwargs
+        self.assertIn("json", kwargs)
+        self.assertIn("flavor", kwargs["json"])
+        self.assertEqual(kwargs["json"]["flavor"], "t4-medium")
 
 
 @patch("huggingface_hub.hf_api.build_hf_headers")
