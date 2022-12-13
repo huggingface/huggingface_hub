@@ -2295,15 +2295,10 @@ class ActivityApiTest(unittest.TestCase):
         # New repo is not public: still see the like, not the repo_id
         self.assertNotIn(repo_id, likes.models)
         self.assertIn(repo_id, likes_with_auth.models)
-        self.assertEqual(likes.total, likes_with_auth.total)
-        self.assertLess(likes.total_visible, likes_with_auth.total_visible)
 
         # Unlike and check not in liked list
         self.api.unlike(repo_id, token=TOKEN)
         likes_after_unliking_with_auth = self.api.list_liked_repos(USER, token=TOKEN)
-        self.assertEqual(
-            likes_after_unliking_with_auth.total, likes_with_auth.total - 1
-        )
         self.assertNotIn(repo_id, likes_after_unliking_with_auth.models)  # Unliked
 
         # Cleanup
@@ -2335,11 +2330,8 @@ class ActivityApiTest(unittest.TestCase):
     def test_list_liked_repos_no_auth(self) -> None:
         likes = self.api.list_liked_repos(USER)
         self.assertEqual(likes.user, USER)
-        self.assertGreater(likes.total, 0)
-        self.assertGreater(likes.total, likes.total_visible)
-        self.assertEqual(
-            likes.total_visible,
-            len(likes.models) + len(likes.datasets) + len(likes.spaces),
+        self.assertGreater(
+            len(likes.models) + len(likes.datasets) + len(likes.spaces), 0
         )
         self.assertIn(f"{USER}/repo-that-is-liked-public", likes.models)
 
@@ -2362,13 +2354,6 @@ class ActivityApiTest(unittest.TestCase):
         self.assertGreater(len(likes.models), 0)
         self.assertGreater(len(likes.datasets), 0)
         self.assertGreater(len(likes.spaces), 0)
-        self.assertEqual(
-            likes.total_visible,
-            len(likes.models) + len(likes.datasets) + len(likes.spaces),
-        )
-        self.assertGreater(  # Some repos are not visible: we see the likes, not the repo ids
-            likes.total, len(likes.models) + len(likes.datasets) + len(likes.spaces)
-        )
 
 
 @pytest.mark.usefixtures("fx_production_space")

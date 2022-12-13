@@ -577,11 +577,6 @@ class UserLikes:
     Args:
         user (`str`):
             Name of the user for which we fetched the likes.
-        total (`int`):
-            Total number of likes (models, datasets and Spaces combined). Likes on private
-            repos are also counted.
-        total_visible (`int`):
-            Total number of likes on repos that you have access to.
         datasets (`List[str]`):
             List of datasets liked by the user (as repo_ids).
         models (`List[str]`):
@@ -592,8 +587,6 @@ class UserLikes:
 
     # Metadata
     user: str
-    total: int
-    total_visible: int
 
     # User likes
     datasets: List[str]
@@ -1363,9 +1356,6 @@ class HfApi:
         >>> likes.user
         "julien-c"
 
-        >>> likes.total
-        626
-
         >>> likes.models
         ["osanseviero/streamlit_1.15", "Xhaheen/ChatGPT_HF", ...]
         ```
@@ -1398,8 +1388,6 @@ class HfApi:
         # Let's loop 3 times over the received list. Less efficient but more straightforward to read.
         return UserLikes(
             user=user,
-            total=data["totalCount"],
-            total_visible=len(data["visibleLikes"]),
             models=[
                 like["repo"]["name"]
                 for like in data["visibleLikes"]
