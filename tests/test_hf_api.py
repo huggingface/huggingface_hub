@@ -2315,10 +2315,12 @@ class TestSpaceAPIProduction(unittest.TestCase):
         self.assertIn(runtime.hardware, (None, SpaceHardware.CPU_BASIC))
         self.assertIn(runtime.requested_hardware, (None, SpaceHardware.CPU_BASIC))
 
-        # Other fields are fine
-        self.assertEqual(runtime.stage, SpaceStage.BUILDING)
-        self.assertEqual(runtime.stage, "BUILDING")  # Can compare to a string as well
-        self.assertIsInstance(runtime.raw, dict)  # Raw response from Hub
+        # Space is either "BUILDING" (if not yet done) or "NO_APP_FILE" (if building failed)
+        self.assertIn(runtime.stage, (SpaceStage.NO_APP_FILE, SpaceStage.BUILDING))
+        self.assertIn(runtime.stage, ("NO_APP_FILE", "BUILDING")) # str works as well
+
+        # Raw response from Hub
+        self.assertIsInstance(runtime.raw, dict)
 
 
 class TestSpaceAPIMocked(unittest.TestCase):
