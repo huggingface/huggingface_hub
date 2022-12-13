@@ -131,7 +131,6 @@ _SUBMOD_ATTRS = {
         "get_model_tags",
         "get_repo_discussions",
         "get_space_runtime",
-        "get_space_secrets",
         "list_datasets",
         "list_metrics",
         "list_models",
@@ -365,7 +364,6 @@ if TYPE_CHECKING:  # pragma: no cover
     from .hf_api import get_model_tags  # noqa: F401
     from .hf_api import get_repo_discussions  # noqa: F401
     from .hf_api import get_space_runtime  # noqa: F401
-    from .hf_api import get_space_secrets  # noqa: F401
     from .hf_api import list_datasets  # noqa: F401
     from .hf_api import list_metrics  # noqa: F401
     from .hf_api import list_models  # noqa: F401

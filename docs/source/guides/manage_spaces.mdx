@@ -40,9 +40,9 @@ For example, an HF token to upload an image dataset to the Hub once generated fr
 >>> api.add_space_secret(repo_id=repo_id, key="HF_TOKEN", value="hf_api_***")
 ```
 
-Secrets can be listed from the API as well:
+Secrets can be deleted as well:
 ```py
->>> api.get_space_secrets(repo_id=repo_id)
+>>> api.delete_space_secret(repo_id=repo_id, key="HF_TOKEN")
 ```
 
 <Tip>
