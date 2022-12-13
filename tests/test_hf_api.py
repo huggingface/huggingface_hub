@@ -2332,23 +2332,31 @@ class TestSpaceAPIMocked(unittest.TestCase):
     def test_create_space_with_hardware(self, post_mock: Mock) -> None:
         self.api.create_repo(
             self.repo_id,
-            private=True,
             repo_type="space",
             space_sdk="gradio",
             space_hardware=SpaceHardware.T4_MEDIUM,
         )
-        kwargs = post_mock.call_args.kwargs
-        self.assertIn("json", kwargs)
-        self.assertIn("hardware", kwargs["json"])
-        self.assertEqual(kwargs["json"]["hardware"], "t4-medium")
+        post_mock.assert_called_once_with(
+            f"{self.api.endpoint}/api/repos/create",
+            headers=self.api._build_hf_headers(),
+            json={
+                "name": self.repo_id,
+                "organization": None,
+                "private": False,
+                "type": "space",
+                "sdk": "gradio",
+                "hardware": "t4-medium",
+            },
+        )
 
     @patch("huggingface_hub.hf_api.requests.post")
     def test_request_space_hardware(self, post_mock: Mock) -> None:
         self.api.request_space_hardware(self.repo_id, SpaceHardware.T4_MEDIUM)
-        kwargs = post_mock.call_args.kwargs
-        self.assertIn("json", kwargs)
-        self.assertIn("flavor", kwargs["json"])
-        self.assertEqual(kwargs["json"]["flavor"], "t4-medium")
+        post_mock.assert_called_once_with(
+            f"{self.api.endpoint}/api/spaces/{self.repo_id}/hardware",
+            headers=self.api._build_hf_headers(),
+            json={"flavor": "t4-medium"},
+        )
 
 
 @patch("huggingface_hub.hf_api.build_hf_headers")
