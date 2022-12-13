@@ -11,17 +11,11 @@ from .hf_api import HfApi
 from .utils import filter_repo_objects, logging
 from .utils import tqdm as hf_tqdm
 from .utils import validate_hf_hub_args
-from .utils._deprecation import _deprecate_arguments
 
 
 logger = logging.get_logger(__name__)
 
 
-@_deprecate_arguments(
-    version="0.12",
-    deprecated_args={"allow_regex", "ignore_regex"},
-    custom_message="Please use `allow_patterns` and `ignore_patterns` instead.",
-)
 @validate_hf_hub_args
 def snapshot_download(
     repo_id: str,
@@ -37,8 +31,6 @@ def snapshot_download(
     resume_download: bool = False,
     token: Optional[Union[bool, str]] = None,
     local_files_only: bool = False,
-    allow_regex: Optional[Union[List[str], str]] = None,
-    ignore_regex: Optional[Union[List[str], str]] = None,
     allow_patterns: Optional[Union[List[str], str]] = None,
     ignore_patterns: Optional[Union[List[str], str]] = None,
     max_workers: int = 8,
@@ -135,13 +127,6 @@ def snapshot_download(
     storage_folder = os.path.join(
         cache_dir, repo_folder_name(repo_id=repo_id, repo_type=repo_type)
     )
-
-    # TODO: remove these 4 lines in version 0.12
-    #       Deprecated code to ensure backward compatibility.
-    if allow_regex is not None:
-        allow_patterns = allow_regex
-    if ignore_regex is not None:
-        ignore_patterns = ignore_regex
 
     # if we have no internet connection we will look for an
     # appropriate folder in the cache
