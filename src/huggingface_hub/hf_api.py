@@ -3493,29 +3493,6 @@ class HfApi:
         )
         hf_raise_for_status(r)
 
-    def get_space_secrets(
-        self, repo_id: str, *, token: Optional[str] = None
-    ) -> Dict[str, str]:
-        """Gets all secrets from a Space.
-
-        Secrets allow to set secret keys or tokens to a Space without hardcoding them.
-        More for details, see https://huggingface.co/docs/hub/spaces-overview#managing-secrets.
-
-        Args:
-            repo_id (`str`):
-                ID of the repo to update. Example: `"bigcode/in-the-stack"`.
-            token (`str`, *optional*):
-                Hugging Face token. Will default to the locally saved token if not provided.
-        Returns:
-            `Dict[str, str]`: dictionary containing all key/value pairs.
-        """
-        r = requests.get(
-            f"{self.endpoint}/api/spaces/{repo_id}/secrets",
-            headers=self._build_hf_headers(token=token),
-        )
-        hf_raise_for_status(r)
-        return r.json()
-
     def get_space_runtime(
         self, repo_id: str, *, token: Optional[str] = None
     ) -> SpaceRuntime:
@@ -3704,6 +3681,5 @@ merge_pull_request = api.merge_pull_request
 # Space API
 add_space_secret = api.add_space_secret
 delete_space_secret = api.delete_space_secret
-get_space_secrets = api.get_space_secrets
 get_space_runtime = api.get_space_runtime
 request_space_hardware = api.request_space_hardware

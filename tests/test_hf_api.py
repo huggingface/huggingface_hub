@@ -2302,12 +2302,6 @@ class TestSpaceAPIProduction(unittest.TestCase):
         # Doesn't fail on missing key
         self.api.delete_space_secret(self.repo_id, "missing_key")
 
-        # Get all
-        self.assertEqual(
-            self.api.get_space_secrets(repo_id=self.repo_id),
-            {"foo": "456", "token": "hf_api_123456"},
-        )
-
     def test_space_runtime(self) -> None:
         runtime = self.api.get_space_runtime(self.repo_id)
 
@@ -2317,7 +2311,7 @@ class TestSpaceAPIProduction(unittest.TestCase):
 
         # Space is either "BUILDING" (if not yet done) or "NO_APP_FILE" (if building failed)
         self.assertIn(runtime.stage, (SpaceStage.NO_APP_FILE, SpaceStage.BUILDING))
-        self.assertIn(runtime.stage, ("NO_APP_FILE", "BUILDING")) # str works as well
+        self.assertIn(runtime.stage, ("NO_APP_FILE", "BUILDING"))  # str works as well
 
         # Raw response from Hub
         self.assertIsInstance(runtime.raw, dict)
