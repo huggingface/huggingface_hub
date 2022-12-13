@@ -52,9 +52,6 @@ __version__ = "0.12.0.dev0"
 # WARNING: any comment added in this dictionary definition will be lost when
 # re-generating the file !
 _SUBMOD_ATTRS = {
-    "_activity_api": [
-        "UserLikes",
-    ],
     "_login": [
         "interpreter_login",
         "login",
@@ -111,6 +108,7 @@ _SUBMOD_ATTRS = {
         "DatasetSearchArguments",
         "HfApi",
         "ModelSearchArguments",
+        "UserLikes",
         "add_space_secret",
         "change_discussion_status",
         "comment_discussion",
@@ -306,7 +304,6 @@ __getattr__, __dir__, __all__ = _attach(
 # make style
 # ```
 if TYPE_CHECKING:  # pragma: no cover
-    from ._activity_api import UserLikes  # noqa: F401
     from ._login import interpreter_login  # noqa: F401
     from ._login import login  # noqa: F401
     from ._login import logout  # noqa: F401
@@ -348,6 +345,7 @@ if TYPE_CHECKING:  # pragma: no cover
     from .hf_api import DatasetSearchArguments  # noqa: F401
     from .hf_api import HfApi  # noqa: F401
     from .hf_api import ModelSearchArguments  # noqa: F401
+    from .hf_api import UserLikes  # noqa: F401
     from .hf_api import add_space_secret  # noqa: F401
     from .hf_api import change_discussion_status  # noqa: F401
     from .hf_api import comment_discussion  # noqa: F401

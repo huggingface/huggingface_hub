@@ -26,7 +26,6 @@ import requests
 from huggingface_hub.utils import EntryNotFoundError, RepositoryNotFoundError
 from requests.exceptions import HTTPError
 
-from ._activity_api import UserLikes
 from ._commit_api import (
     CommitOperation,
     CommitOperationAdd,
@@ -568,6 +567,38 @@ class DatasetSearchArguments(AttributeDictionary):
             dataset_name_dict[name] = clean(name)
         self["dataset_name"] = dataset_name_dict
         self["author"] = author_dict
+
+
+@dataclass
+class UserLikes:
+    """
+    Contains information about a user likes on the Hub.
+
+    Args:
+        user (`str`):
+            Name of the user for which we fetched the likes.
+        total (`int`):
+            Total number of likes (models, datasets and Spaces combined). Likes on private
+            repos are also counted.
+        total_visible (`int`):
+            Total number of likes on repos that you have access to.
+        datasets (`List[str]`):
+            List of datasets liked by the user (as repo_ids).
+        models (`List[str]`):
+            List of models liked by the user (as repo_ids).
+        spaces (`List[str]`):
+            List of spaces liked by the user (as repo_ids).
+    """
+
+    # Metadata
+    user: str
+    total: int
+    total_visible: int
+
+    # User likes
+    datasets: List[str]
+    models: List[str]
+    spaces: List[str]
 
 
 class HfApi:
