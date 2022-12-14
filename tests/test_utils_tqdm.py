@@ -1,4 +1,7 @@
+import tempfile
+import time
 import unittest
+from pathlib import Path
 from unittest.mock import patch
 
 import pytest
@@ -9,6 +12,7 @@ from huggingface_hub.utils import (
     disable_progress_bars,
     enable_progress_bars,
     tqdm,
+    tqdm_stream_file,
 )
 
 
@@ -114,3 +118,22 @@ class TestTqdmUtils(unittest.TestCase):
         captured = self.capsys.readouterr()
         self.assertEqual(captured.out, "")
         self.assertIn("10/10", captured.err)  # tqdm log
+
+    def test_tqdm_stream_file(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            filepath = Path(tmpdir) / "config.json"
+            with filepath.open("w") as f:
+                f.write("#" * 1000)
+
+            with tqdm_stream_file(filepath) as f:
+                while True:
+                    data = f.read(100)
+                    if not data:
+                        break
+                    time.sleep(0.001)  # Simulate a delay between each chunk
+
+            captured = self.capsys.readouterr()
+            self.assertEqual(captured.out, "")
+            self.assertIn("config.json: 100%", captured.err)  # log file name
+            self.assertIn("|█████████", captured.err)  # tqdm bar
+            self.assertIn("1.00k/1.00k", captured.err)  # size in B
