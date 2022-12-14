@@ -143,7 +143,7 @@ class CommitOperationAdd:
         data behind `path_or_fileobj`.
 
         Args:
-            with_tqdm (bool, *optional*):
+            with_tqdm (`bool`, *optional*, defaults to `False`):
                 If True, iterating over the file object will display a progress bar. Only
                 works if the file-like object is a path to a file. Pure bytes and buffers
                 are not supported.
