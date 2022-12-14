@@ -145,8 +145,8 @@ class CommitOperationAdd:
         Args:
             with_tqdm (bool, *optional*):
                 If True, iterating over the file object will display a progress bar. Only
-                works if the file-like object is itself a path to a file. Pure bytes and
-                buffers are supported.
+                works if the file-like object is a path to a file. Pure bytes and buffers
+                are not supported.
 
         Example:
 
