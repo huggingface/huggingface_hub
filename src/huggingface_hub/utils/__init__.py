@@ -85,4 +85,5 @@ from .tqdm import (
     disable_progress_bars,
     enable_progress_bars,
     tqdm,
+    tqdm_stream_file,
 )

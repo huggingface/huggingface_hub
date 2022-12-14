@@ -6,24 +6,20 @@ import io
 import os
 import warnings
 from collections import defaultdict
-from concurrent import futures
-from concurrent.futures import ThreadPoolExecutor
 from contextlib import contextmanager
 from dataclasses import dataclass, field
 from pathlib import Path, PurePosixPath
-from typing import Any, BinaryIO, Dict, Iterable, List, Optional, Union
+from typing import Any, BinaryIO, Dict, Iterable, Iterator, List, Optional, Union
+
+from tqdm.contrib.concurrent import thread_map
 
 import requests
 
 from .constants import ENDPOINT
 from .lfs import UploadInfo, _validate_batch_actions, lfs_upload, post_lfs_batch_info
-from .utils import (
-    build_hf_headers,
-    chunk_iterable,
-    hf_raise_for_status,
-    logging,
-    validate_hf_hub_args,
-)
+from .utils import build_hf_headers, chunk_iterable, hf_raise_for_status, logging
+from .utils import tqdm as hf_tqdm
+from .utils import tqdm_stream_file, validate_hf_hub_args
 from .utils._deprecation import _deprecate_method
 from .utils._typing import Literal
 
@@ -141,10 +137,16 @@ class CommitOperationAdd:
         return self.upload_info
 
     @contextmanager
-    def as_file(self):
+    def as_file(self, with_tqdm: bool = False) -> Iterator[BinaryIO]:
         """
         A context manager that yields a file-like object allowing to read the underlying
         data behind `path_or_fileobj`.
+
+        Args:
+            with_tqdm (bool, *optional*):
+                If True, iterating over the file object will display a progress bar. Only
+                works if the file-like object is itself a path to a file. Pure bytes and
+                buffers are supported.
 
         Example:
 
@@ -157,12 +159,28 @@ class CommitOperationAdd:
 
         >>> with operation.as_file() as file:
         ...     content = file.read()
-        ```
 
+        >>> with operation.as_file(with_tqdm=True) as file:
+        ...     while True:
+        ...         data = file.read(1024)
+        ...         if not data:
+        ...              break
+        config.json: 100%|█████████████████████████| 8.19k/8.19k [00:02<00:00, 3.72kB/s]
+
+        >>> with operation.as_file(with_tqdm=True) as file:
+        ...     requests.put(..., data=file)
+        config.json: 100%|█████████████████████████| 8.19k/8.19k [00:02<00:00, 3.72kB/s]
+        ```
         """
-        if isinstance(self.path_or_fileobj, str):
-            with open(self.path_or_fileobj, "rb") as file:
-                yield file
+        if isinstance(self.path_or_fileobj, str) or isinstance(
+            self.path_or_fileobj, Path
+        ):
+            if with_tqdm:
+                with tqdm_stream_file(self.path_or_fileobj) as file:
+                    yield file
+            else:
+                with open(self.path_or_fileobj, "rb") as file:
+                    yield file
         elif isinstance(self.path_or_fileobj, bytes):
             yield io.BytesIO(self.path_or_fileobj)
         elif isinstance(self.path_or_fileobj, io.BufferedIOBase):
@@ -292,44 +310,46 @@ def upload_lfs_files(
             raise ValueError(f"LFS batch endpoint returned errors:\n{message}")
 
         batch_actions += batch_actions_chunk
-
-    # Step 2: upload files concurrently according to these instructions
     oid2addop = {add_op.upload_info.sha256.hex(): add_op for add_op in additions}
-    with ThreadPoolExecutor(max_workers=num_threads) as pool:
-        logger.debug(
-            f"Uploading {len(batch_actions)} LFS files to the Hub using up to"
-            f" {num_threads} threads concurrently"
-        )
-        # Upload the files concurrently, stopping on the first exception
-        futures2operation: Dict[futures.Future, CommitOperationAdd] = {
-            pool.submit(
-                _upload_lfs_object,
-                operation=oid2addop[batch_action["oid"]],
-                lfs_batch_action=batch_action,
-                token=token,
-            ): oid2addop[batch_action["oid"]]
-            for batch_action in batch_actions
-        }
-        completed, pending = futures.wait(
-            futures2operation,
-            return_when=futures.FIRST_EXCEPTION,
-        )
 
-        for pending_future in pending:
-            # Cancel pending futures
-            # Uploads already in progress can't be stopped unfortunately,
-            # as `requests` does not support cancelling / aborting a request
-            pending_future.cancel()
+    # Step 2: ignore files that have already been uploaded
+    filtered_actions = []
+    for action in batch_actions:
+        if action.get("actions") is None:
+            logger.debug(
+                f"Content of file {oid2addop[action['oid']].path_in_repo} is already"
+                " present upstream - skipping upload."
+            )
+        else:
+            filtered_actions.append(action)
 
-        for future in completed:
-            operation = futures2operation[future]
-            try:
-                future.result()
-            except Exception as exc:
-                # Raise the first exception encountered
-                raise RuntimeError(
-                    f"Error while uploading {operation.path_in_repo} to the Hub"
-                ) from exc
+    if len(filtered_actions) == 0:
+        logger.debug("No LFS files to upload.")
+        return
+
+    # Step 3: upload files concurrently according to these instructions
+    def _inner_upload_lfs_object(batch_action):
+        try:
+            operation = oid2addop[batch_action["oid"]]
+            return _upload_lfs_object(
+                operation=operation, lfs_batch_action=batch_action, token=token
+            )
+        except Exception as exc:
+            raise RuntimeError(
+                f"Error while uploading '{operation.path_in_repo}' to the Hub."
+            ) from exc
+
+    logger.debug(
+        f"Uploading {len(filtered_actions)} LFS files to the Hub using up to"
+        f" {num_threads} threads concurrently"
+    )
+    thread_map(
+        _inner_upload_lfs_object,
+        filtered_actions,
+        desc=f"Upload {len(filtered_actions)} LFS files",
+        max_workers=num_threads,
+        tqdm_class=hf_tqdm,
+    )
 
 
 def _upload_lfs_object(
@@ -366,8 +386,7 @@ def _upload_lfs_object(
         return
     upload_action = lfs_batch_action["actions"].get("upload")
     verify_action = lfs_batch_action["actions"].get("verify")
-
-    with operation.as_file() as fileobj:
+    with operation.as_file(with_tqdm=True) as fileobj:
         logger.debug(f"Uploading {operation.path_in_repo} as LFS file...")
         lfs_upload(
             fileobj=fileobj,
