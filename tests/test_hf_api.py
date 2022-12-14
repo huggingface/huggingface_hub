@@ -2276,6 +2276,86 @@ class HfApiDiscussionsTest(HfApiCommonTestWithLogin):
         self.assertIsNotNone(retrieved.merge_commit_oid)
 
 
+class ActivityApiTest(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls) -> None:
+        cls.api = HfApi()
+        return super().setUpClass()
+
+    def test_like_and_unlike_repo(self) -> None:
+        # Create and like repo
+        repo_id = f"{USER}/{repo_name()}"
+        self.api.create_repo(repo_id, token=TOKEN, private=True)
+        self.api.like(repo_id, token=TOKEN)
+
+        # Get likes as public and authenticated
+        likes = self.api.list_liked_repos(USER)
+        likes_with_auth = self.api.list_liked_repos(USER, token=TOKEN)
+
+        # New repo is not public: still see the like, not the repo_id
+        self.assertNotIn(repo_id, likes.models)
+        self.assertIn(repo_id, likes_with_auth.models)
+
+        # Unlike and check not in liked list
+        self.api.unlike(repo_id, token=TOKEN)
+        likes_after_unliking_with_auth = self.api.list_liked_repos(USER, token=TOKEN)
+        self.assertNotIn(repo_id, likes_after_unliking_with_auth.models)  # Unliked
+
+        # Cleanup
+        self.api.delete_repo(repo_id, token=TOKEN)
+
+    def test_like_missing_repo(self) -> None:
+        with self.assertRaises(RepositoryNotFoundError):
+            self.api.like("missing_repo_id", token=TOKEN)
+
+        with self.assertRaises(RepositoryNotFoundError):
+            self.api.unlike("missing_repo_id", token=TOKEN)
+
+    def test_like_twice(self) -> None:
+        # Create and like repo
+        repo_id = f"{USER}/{repo_name()}"
+        self.api.create_repo(repo_id, token=TOKEN, private=True)
+
+        # Can like twice
+        self.api.like(repo_id, token=TOKEN)
+        self.api.like(repo_id, token=TOKEN)
+
+        # Can unlike twice
+        self.api.unlike(repo_id, token=TOKEN)
+        self.api.unlike(repo_id, token=TOKEN)
+
+        # Cleanup
+        self.api.delete_repo(repo_id, token=TOKEN)
+
+    def test_list_liked_repos_no_auth(self) -> None:
+        likes = self.api.list_liked_repos(USER)
+        self.assertEqual(likes.user, USER)
+        self.assertGreater(
+            len(likes.models) + len(likes.datasets) + len(likes.spaces), 0
+        )
+        self.assertIn(f"{USER}/repo-that-is-liked-public", likes.models)
+
+    def test_list_likes_repos_auth_and_implicit_user(self) -> None:
+        # User is implicit
+        likes = self.api.list_liked_repos(token=TOKEN)
+        self.assertEqual(likes.user, USER)
+
+    def test_list_likes_repos_auth_and_explicit_user(self) -> None:
+        # User is explicit even if auth
+        likes = self.api.list_liked_repos(
+            user="__DUMMY_DATASETS_SERVER_USER__", token=TOKEN
+        )
+        self.assertEqual(likes.user, "__DUMMY_DATASETS_SERVER_USER__")
+
+    @with_production_testing
+    def test_list_likes_on_production(self) -> None:
+        # Test julien-c likes a lot of repos !
+        likes = HfApi().list_liked_repos("julien-c")
+        self.assertGreater(len(likes.models), 0)
+        self.assertGreater(len(likes.datasets), 0)
+        self.assertGreater(len(likes.spaces), 0)
+
+
 @pytest.mark.usefixtures("fx_production_space")
 class TestSpaceAPIProduction(unittest.TestCase):
     """
