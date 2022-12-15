@@ -232,6 +232,9 @@ class RepoUrl(str):
 
     >>> RepoUrl('https://hub-ci.huggingface.co/dataset/dummy_user/dummy_dataset', endpoint='https://hub-ci.huggingface.co')
     RepoUrl('https://hub-ci.huggingface.co/dataset/dummy_user/dummy_dataset', endpoint='https://hub-ci.huggingface.co', repo_type='dataset', repo_id='dummy_user/dummy_dataset')
+
+    >>> HfApi.create_repo("dummy_model")
+    RepoUrl('https://huggingface.co/Wauplin/dummy_model', endpoint='https://huggingface.co', repo_type='model', repo_id='Wauplin/dummy_model')
     ```
     """
 
