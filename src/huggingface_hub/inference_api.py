@@ -158,6 +158,21 @@ class InferenceApi:
         data: Optional[bytes] = None,
         raw_response: bool = False,
     ) -> Any:
+        """Make a call to the Inference API.
+
+        Args:
+            inputs (`str` or `Dict` or `List[str]` or `List[List[str]]`, *optional*):
+                Inputs for the prediction.
+            params (`Dict`, *optional*):
+                Additional parameters for the models. Will be sent as `parameters` in the
+                payload.
+            data (`bytes`, *optional*):
+                Bytes content of the request. In this case, leave `inputs` and `params` empty.
+            raw_response (`bool`, defaults to `False`):
+                If `True`, the raw `Response` object is returned. You can parse its content
+                as preferred. By default, the content is parsed into a more practical format
+                (json dictionary or PIL Image for example).
+        """
         # Build payload
         payload: Dict[str, Any] = {
             "options": self.options,
