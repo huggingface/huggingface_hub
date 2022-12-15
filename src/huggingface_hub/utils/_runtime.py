@@ -51,6 +51,7 @@ _CANDIDATES = {
     "fastai": {"fastai"},
     "fastcore": {"fastcore"},
     "jinja": {"Jinja2"},
+    "pillow": {"Pillow"},
 }
 
 # Check once at runtime
@@ -116,6 +117,15 @@ def is_jinja_available() -> bool:
 
 def get_jinja_version() -> str:
     return _get_version("jinja")
+
+
+# Pillow
+def is_pillow_available() -> bool:
+    return _is_available("pillow")
+
+
+def get_pillow_version() -> str:
+    return _get_version("pillow")
 
 
 # Pydot
@@ -232,6 +242,7 @@ def dump_environment_info() -> Dict[str, Any]:
     info["Jinja2"] = get_jinja_version()
     info["Graphviz"] = get_graphviz_version()
     info["Pydot"] = get_pydot_version()
+    info["Pillow"] = get_pillow_version()
 
     print("\nCopy-and-paste the text below in your GitHub issue.\n")
     print("\n".join([f"- {prop}: {val}" for prop, val in info.items()]) + "\n")
