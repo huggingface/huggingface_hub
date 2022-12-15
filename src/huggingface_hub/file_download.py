@@ -1117,12 +1117,8 @@ def hf_hub_download(
             # Useful for lfs blobs that are stored on a CDN.
             if metadata.location != url:
                 url_to_download = metadata.location
-                if (
-                    "lfs.huggingface.co" in url_to_download
-                    or "lfs-staging.huggingface.co" in url_to_download
-                ):
-                    # Remove authorization header when downloading a LFS blob
-                    headers.pop("authorization", None)
+                # Remove authorization header when downloading a LFS blob
+                headers.pop("authorization", None)
         except (requests.exceptions.SSLError, requests.exceptions.ProxyError):
             # Actually raise for those subclasses of ConnectionError
             raise
