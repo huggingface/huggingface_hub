@@ -66,6 +66,10 @@ from .utils._headers import _http_user_agent
 from .utils._runtime import _PY_VERSION  # noqa: F401 # for backward compatibility
 from .utils._typing import HTTP_METHOD_T
 
+if is_hf_transfer_available():
+    from hf_transfer import download
+else:
+    download = None
 
 logger = logging.get_logger(__name__)
 
@@ -473,6 +477,7 @@ def http_get(
     Download a remote file. Do not gobble up errors, and will return errors tailored to the Hugging Face Hub.
     """
     if not resume_size:
+<<<<<<< HEAD
         if HF_HUB_ENABLE_HF_TRANSFER:
             try:
                 # Download file using an external Rust-based package. Download is faster
@@ -496,6 +501,22 @@ def http_get(
                     "An error occurred while downloading using `hf_transfer`. Consider"
                     " disabling HF_HUB_ENABLE_HF_TRANSFER for better error handling."
                 ) from e
+=======
+        if os.getenv("HF_TRANSFER") == "1":
+            if download is None:
+                raise ValueError(
+                    "You have set HF_TRANSFER=1 but hf_transfer is not available in"
+                    " your environment try `pip install hf_transfer`"
+                )
+            max_files = 100
+            chunk_size = 10 * 1024 * 1024  # 10 MB
+            import datetime
+
+            start = datetime.datetime.now()
+            download(url, temp_file.name, max_files, chunk_size)
+            print(f"Using HF_TRANSFER took {datetime.datetime.now() - start}")
+            return
+>>>>>>> 0646cd9 (Optional rust_dl_py)
 
     headers = copy.deepcopy(headers) or {}
     if resume_size > 0:
@@ -534,7 +555,9 @@ def http_get(
         desc=f"Downloading {displayed_name}",
         disable=bool(logger.getEffectiveLevel() == logging.NOTSET),
     )
-    for chunk in r.iter_content(chunk_size=10 * 1024 * 1024):
+    CHUNK_SIZE = int(os.getenv("HF_CHUNK_SIZE", 10 * 1024 * 1024))
+    print(f"chunk size: f{CHUNK_SIZE}")
+    for chunk in r.iter_content(chunk_size=CHUNK_SIZE):
         if chunk:  # filter out keep-alive new chunks
             progress.update(len(chunk))
             temp_file.write(chunk)

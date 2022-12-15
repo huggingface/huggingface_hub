@@ -165,6 +165,15 @@ def get_torch_version() -> str:
     return _get_version("torch")
 
 
+# hf_transfer
+def is_hf_transfer_available() -> bool:
+    return _is_available("hf_transfer")
+
+
+def get_hf_transfer_version() -> str:
+    return _get_version("hf_transfer")
+
+
 # Shell-related helpers
 try:
     # Set to `True` if script is running in a Google Colab notebook.
