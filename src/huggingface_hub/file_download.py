@@ -492,7 +492,7 @@ def http_get(
         desc=f"Downloading (…){url[-20:]}",
         disable=bool(logger.getEffectiveLevel() == logging.NOTSET),
     )
-    for chunk in r.iter_content(chunk_size=1024):
+    for chunk in r.iter_content(chunk_size=10 * 1024 * 1024):
         if chunk:  # filter out keep-alive new chunks
             progress.update(len(chunk))
             temp_file.write(chunk)
