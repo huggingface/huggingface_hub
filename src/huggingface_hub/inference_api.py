@@ -1,9 +1,10 @@
+import io
 from typing import Any, Dict, List, Optional, Union
 
 import requests
 
 from .hf_api import HfApi
-from .utils import logging, validate_hf_hub_args
+from .utils import build_hf_headers, is_pillow_available, logging, validate_hf_hub_args
 
 
 logger = logging.get_logger(__name__)
@@ -74,6 +75,19 @@ class InferenceApi:
 
     >>> # Overriding configured task
     >>> inference = InferenceApi("bert-base-uncased", task="feature-extraction")
+
+    >>> # Text-to-image
+    >>> inference = InferenceApi("stabilityai/stable-diffusion-2-1")
+    >>> inference("cat")
+    <PIL.PngImagePlugin.PngImageFile image (...)>
+
+    >>> # Return as raw response to parse the output yourself
+    >>> inference = InferenceApi("mio/amadeus")
+    >>> response = inference("hello world", raw_response=True)
+    >>> response.headers
+    {"Content-Type": "audio/flac", ...}
+    >>> response.content # raw bytes from server
+    b'(...)'
     ```
     """
 
@@ -99,20 +113,15 @@ class InferenceApi:
                 https://huggingface.co/settings/token. Alternatively, you can
                 find both your organizations and personal API tokens using
                 `HfApi().whoami(token)`.
-            gpu (``bool``, `optional`, defaults ``False``):
+            gpu (`bool`, `optional`, defaults `False`):
                 Whether to use GPU instead of CPU for inference(requires Startup
                 plan at least).
-        .. note::
-            Setting `token` is required when you want to use a private model.
         """
         self.options = {"wait_for_model": True, "use_gpu": gpu}
-
-        self.headers = {}
-        if isinstance(token, str):
-            self.headers["Authorization"] = f"Bearer {token}"
+        self.headers = build_hf_headers(token=token)
 
         # Configure task
-        model_info = HfApi().model_info(repo_id=repo_id, token=token)
+        model_info = HfApi(token=token).model_info(repo_id=repo_id)
         if not model_info.pipeline_tag and not task:
             raise ValueError(
                 "Task not specified in the repository. Please add it to the model card"
@@ -136,28 +145,71 @@ class InferenceApi:
         self.api_url = f"{ENDPOINT}/pipeline/{self.task}/{repo_id}"
 
     def __repr__(self):
-        items = (f"{k}='{v}'" for k, v in self.__dict__.items())
-        return f"{self.__class__.__name__}({', '.join(items)})"
+        # Do not add headers to repr to avoid leaking token.
+        return (
+            f"InferenceAPI(api_url='{self.api_url}', task='{self.task}',"
+            f" options={self.options})"
+        )
 
     def __call__(
         self,
         inputs: Optional[Union[str, Dict, List[str], List[List[str]]]] = None,
         params: Optional[Dict] = None,
         data: Optional[bytes] = None,
-    ):
+        raw_response: bool = False,
+    ) -> Any:
+        """Make a call to the Inference API.
+
+        Args:
+            inputs (`str` or `Dict` or `List[str]` or `List[List[str]]`, *optional*):
+                Inputs for the prediction.
+            params (`Dict`, *optional*):
+                Additional parameters for the models. Will be sent as `parameters` in the
+                payload.
+            data (`bytes`, *optional*):
+                Bytes content of the request. In this case, leave `inputs` and `params` empty.
+            raw_response (`bool`, defaults to `False`):
+                If `True`, the raw `Response` object is returned. You can parse its content
+                as preferred. By default, the content is parsed into a more practical format
+                (json dictionary or PIL Image for example).
+        """
+        # Build payload
         payload: Dict[str, Any] = {
             "options": self.options,
         }
-
         if inputs:
             payload["inputs"] = inputs
-
         if params:
             payload["parameters"] = params
 
-        # TODO: Decide if we should raise an error instead of
-        # returning the json.
+        # Make API call
         response = requests.post(
             self.api_url, headers=self.headers, json=payload, data=data
-        ).json()
-        return response
+        )
+
+        # Let the user handle the response
+        if raw_response:
+            return response
+
+        # By default, parse the response for the user.
+        content_type = response.headers.get("Content-Type") or ""
+        if content_type.startswith("image"):
+            if not is_pillow_available():
+                raise ImportError(
+                    f"Task '{self.task}' returned as image but Pillow is not installed."
+                    " Please install it (`pip install Pillow`) or pass"
+                    " `raw_response=True` to get the raw `Response` object and parse"
+                    " the image by yourself."
+                )
+
+            from PIL import Image
+
+            return Image.open(io.BytesIO(response.content))
+        elif content_type == "application/json":
+            return response.json()
+        else:
+            raise NotImplementedError(
+                f"{content_type} output type is not implemented yet. You can pass"
+                " `raw_response=True` to get the raw `Response` object and parse the"
+                " output by yourself."
+            )
