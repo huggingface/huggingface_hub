@@ -55,6 +55,7 @@ from huggingface_hub.hf_api import (
     ModelInfo,
     ModelSearchArguments,
     RepoFile,
+    RepoUrl,
     SpaceInfo,
     erase_from_credential_store,
     read_from_credential_store,
@@ -501,6 +502,15 @@ class CommitApiTest(HfApiCommonTestWithLogin):
             self.fail(err)
         finally:
             self._api.delete_repo(repo_id=REPO_NAME)
+
+    @retry_endpoint
+    def test_create_repo_return_value(self):
+        REPO_NAME = repo_name("org")
+        url = self._api.create_repo(repo_id=REPO_NAME)
+        self.assertIsInstance(url, str)
+        self.assertIsInstance(url, RepoUrl)
+        self.assertEqual(url.repo_id, f"{USER}/{REPO_NAME}")
+        self._api.delete_repo(repo_id=url.repo_id)
 
     @retry_endpoint
     def test_create_repo_org_token_fail(self):
@@ -2488,3 +2498,62 @@ class HfApiTokenAttributeTest(unittest.TestCase):
     def test_user_agent_is_overwritten(self, mock_build_hf_headers: Mock) -> None:
         HfApi(user_agent={"a": "b"})._build_hf_headers(user_agent={"A": "B"})
         self.assertEqual(mock_build_hf_headers.call_args[1]["user_agent"], {"A": "B"})
+
+
+@patch("huggingface_hub.hf_api.ENDPOINT", "https://huggingface.co")
+class RepoUrlTest(unittest.TestCase):
+    def test_repo_url_class(self):
+        url = RepoUrl("https://huggingface.co/gpt2")
+
+        # RepoUrl Is a string
+        self.assertIsInstance(url, str)
+        self.assertEqual(url, "https://huggingface.co/gpt2")
+
+        # Any str-method can be applied
+        self.assertEqual(url.split("/"), "https://huggingface.co/gpt2".split("/"))
+
+        # String formatting and concatenation work
+        self.assertEqual(f"New repo: {url}", "New repo: https://huggingface.co/gpt2")
+        self.assertEqual("New repo: " + url, "New repo: https://huggingface.co/gpt2")
+
+        # __repr__ is modified for debugging purposes
+        self.assertEqual(
+            repr(url),
+            "RepoUrl('https://huggingface.co/gpt2', endpoint='https://huggingface.co',"
+            " repo_type='model', repo_id='gpt2')",
+        )
+
+    def test_repo_url_endpoint(self):
+        # Implicit endpoint
+        url = RepoUrl("https://huggingface.co/gpt2")
+        self.assertEqual(url.endpoint, "https://huggingface.co")
+
+        # Explicit endpoint
+        url = RepoUrl("https://example.com/gpt2", endpoint="https://example.com")
+        self.assertEqual(url.endpoint, "https://example.com")
+
+    def test_repo_url_repo_type(self):
+        # Explicit repo type
+        url = RepoUrl("https://huggingface.co/user/repo_name")
+        self.assertEqual(url.repo_type, "model")
+
+        url = RepoUrl("https://huggingface.co/datasets/user/repo_name")
+        self.assertEqual(url.repo_type, "dataset")
+
+        url = RepoUrl("https://huggingface.co/spaces/user/repo_name")
+        self.assertEqual(url.repo_type, "space")
+
+        # Implicit repo type (model)
+        url = RepoUrl("https://huggingface.co/user/repo_name")
+        self.assertEqual(url.repo_type, "model")
+
+    def test_repo_url_namespace(self):
+        # Canonical model (e.g. no username)
+        url = RepoUrl("https://huggingface.co/gpt2")
+        self.assertIsNone(url.namespace)
+        self.assertEqual(url.repo_id, "gpt2")
+
+        # "Normal" model
+        url = RepoUrl("https://huggingface.co/dummy_user/dummy_model")
+        self.assertEqual(url.namespace, "dummy_user")
+        self.assertEqual(url.repo_id, "dummy_user/dummy_model")

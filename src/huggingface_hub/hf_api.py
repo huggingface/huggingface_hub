@@ -212,6 +212,52 @@ class CommitInfo:
             self.pr_num = None
 
 
+class RepoUrl(str):
+    """Subclass of `str` describing a repo URL on the Hub.
+
+    Inherits from `str` for backward compatibility.
+
+    RepoUrl adds new properties:
+    - endpoint (`str`)
+    - namespace (`Optional[str]`)
+    - repo_id (`str`)
+    - repo_type (`Literal["model", "dataset", "space"]`)
+
+    `RepoUrl` is returned by `HfApi.create_repo`.
+
+    Example:
+    ```py
+    >>> RepoUrl('https://huggingface.co/gpt2')
+    RepoUrl('https://huggingface.co/gpt2', endpoint='https://huggingface.co', repo_type='model', repo_id='gpt2')
+
+    >>> RepoUrl('https://hub-ci.huggingface.co/dataset/dummy_user/dummy_dataset', endpoint='https://hub-ci.huggingface.co')
+    RepoUrl('https://hub-ci.huggingface.co/dataset/dummy_user/dummy_dataset', endpoint='https://hub-ci.huggingface.co', repo_type='dataset', repo_id='dummy_user/dummy_dataset')
+    ```
+    """
+
+    def __new__(cls, content: Any, endpoint: Optional[str] = None):
+        return super(RepoUrl, cls).__new__(cls, content)
+
+    def __init__(self, content: Any, endpoint: Optional[str] = None) -> None:
+        super().__init__()
+        # Parse URL
+        self.endpoint = endpoint or ENDPOINT
+        repo_type, namespace, repo_name = repo_type_and_id_from_hf_id(
+            self, hub_url=self.endpoint
+        )
+
+        # Populate fields
+        self.namespace = namespace
+        self.repo_id = repo_name if namespace is None else f"{namespace}/{repo_name}"
+        self.repo_type = repo_type or REPO_TYPE_MODEL
+
+    def __repr__(self) -> str:
+        return (
+            f"RepoUrl('{self}', endpoint='{self.endpoint}',"
+            f" repo_type='{self.repo_type}', repo_id='{self.repo_id}')"
+        )
+
+
 class RepoFile:
     """
     Data structure that represents a public file inside a repo, accessible from
@@ -1729,7 +1775,7 @@ class HfApi:
         exist_ok: bool = False,
         space_sdk: Optional[str] = None,
         space_hardware: Optional[str] = None,
-    ) -> str:
+    ) -> RepoUrl:
         """Create an empty repo on the HuggingFace Hub.
 
         Args:
@@ -1752,7 +1798,8 @@ class HfApi:
                 Choice of Hardware if repo_type is "space". See [`SpaceHardware`] for a complete list.
 
         Returns:
-            `str`: URL to the newly created repo.
+            [`RepoUrl`]: URL to the newly created repo. Value is a subclass of `str` containing
+            attributes like `endpoint`, `repo_type` and `repo_id`.
         """
         organization, name = repo_id.split("/") if "/" in repo_id else (None, repo_id)
 
@@ -1806,7 +1853,7 @@ class HfApi:
                 raise
 
         d = r.json()
-        return d["url"]
+        return RepoUrl(d["url"], endpoint=self.endpoint)
 
     @validate_hf_hub_args
     def delete_repo(
