@@ -48,6 +48,7 @@ extras["testing"] = extras["cli"] + [
     "pytest-cov",
     "pytest-env",
     "soundfile",
+    "Pillow",
 ]
 
 # Typing extra dependencies list is duplicated in `.pre-commit-config.yaml`
