@@ -222,6 +222,7 @@ class RepoUrl(str):
     - namespace (`Optional[str]`)
     - repo_id (`str`)
     - repo_type (`Literal["model", "dataset", "space"]`)
+    - url (`str`)
 
     `RepoUrl` is returned by `HfApi.create_repo`.
 
@@ -253,6 +254,7 @@ class RepoUrl(str):
         self.namespace = namespace
         self.repo_id = repo_name if namespace is None else f"{namespace}/{repo_name}"
         self.repo_type = repo_type or REPO_TYPE_MODEL
+        self.url = str(self)  # just in case it's needed
 
     def __repr__(self) -> str:
         return (

@@ -2557,3 +2557,11 @@ class RepoUrlTest(unittest.TestCase):
         url = RepoUrl("https://huggingface.co/dummy_user/dummy_model")
         self.assertEqual(url.namespace, "dummy_user")
         self.assertEqual(url.repo_id, "dummy_user/dummy_model")
+
+    def test_repo_url_url_property(self):
+        # RepoUrl.url returns a pure `str` value
+        url = RepoUrl("https://huggingface.co/gpt2")
+        self.assertEqual(url, "https://huggingface.co/gpt2")
+        self.assertEqual(url.url, "https://huggingface.co/gpt2")
+        self.assertIsInstance(url, RepoUrl)
+        self.assertNotIsInstance(url.url, RepoUrl)
