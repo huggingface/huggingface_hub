@@ -484,15 +484,22 @@ def http_get(
     hf_raise_for_status(r)
     content_length = r.headers.get("Content-Length")
     total = resume_size + int(content_length) if content_length is not None else None
+
+    displayed_name = url
+    content_disposition = r.headers.get("Content-Disposition")
+    if content_disposition is not None and "filename=" in content_disposition:
+        # Means file is on CDN
+        displayed_name = content_disposition.split("filename=")[-1]
+
     progress = tqdm(
         unit="B",
         unit_scale=True,
         total=total,
         initial=resume_size,
-        desc=f"Downloading (…){url[-20:]}",
+        desc=f"Downloading (…){displayed_name[-20:]}",
         disable=bool(logger.getEffectiveLevel() == logging.NOTSET),
     )
-    for chunk in r.iter_content(chunk_size=1024):
+    for chunk in r.iter_content(chunk_size=10 * 1024 * 1024):
         if chunk:  # filter out keep-alive new chunks
             progress.update(len(chunk))
             temp_file.write(chunk)
