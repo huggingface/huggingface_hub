@@ -17,6 +17,12 @@ from pathlib import Path
 from typing import Any, BinaryIO, Dict, Generator, Optional, Tuple, Union
 from urllib.parse import quote, urlparse
 
+try:
+    from rust_dl_py import download
+except Exception:
+    download = None
+
+
 import requests
 from filelock import FileLock
 from huggingface_hub import constants
@@ -469,9 +475,15 @@ def http_get(
     """
     Download a remote file. Do not gobble up errors, and will return errors tailored to the Hugging Face Hub.
     """
+    if not resume_size and download:
+        max_files = 100
+        download(url, temp_file.name, max_files, 10 * 1024 * 1024)
+        return
+
     headers = copy.deepcopy(headers) or {}
     if resume_size > 0:
         headers["Range"] = "bytes=%d-" % (resume_size,)
+
     r = _request_wrapper(
         method="GET",
         url=url,
