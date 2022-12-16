@@ -57,7 +57,7 @@ REPO_TYPE_DATASET = "dataset"
 REPO_TYPE_SPACE = "space"
 REPO_TYPE_MODEL = "model"
 REPO_TYPES = [None, REPO_TYPE_MODEL, REPO_TYPE_DATASET, REPO_TYPE_SPACE]
-SPACES_SDK_TYPES = ["gradio", "streamlit", "static"]
+SPACES_SDK_TYPES = ["gradio", "streamlit", "docker", "static"]
 
 REPO_TYPES_URL_PREFIXES = {
     REPO_TYPE_DATASET: "datasets/",
