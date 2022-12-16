@@ -483,8 +483,10 @@ def http_get(
                 )
             max_files = 100
             chunk_size = 10 * 1024 * 1024  # 10 MB
-            print("USING HF_TRANSFER")
+            import datetime
+            start = datetime.datetime.now()
             download(url, temp_file.name, max_files, chunk_size)
+            print(f"Using HF_TRANSFER took {datetime.datetime.now() - start}")
             return
 
     headers = copy.deepcopy(headers) or {}
