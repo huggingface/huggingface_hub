@@ -52,7 +52,7 @@ _CANDIDATES = {
     "fastcore": {"fastcore"},
     "jinja": {"Jinja2"},
     "pillow": {"Pillow"},
-    "hf_transfer": {"hf_transfer"}
+    "hf_transfer": {"hf_transfer"},
 }
 
 # Check once at runtime
@@ -154,6 +154,7 @@ def is_torch_available() -> bool:
 
 def get_torch_version() -> str:
     return _get_version("torch")
+
 
 # hf_transfer
 def is_hf_transfer_available() -> bool:
