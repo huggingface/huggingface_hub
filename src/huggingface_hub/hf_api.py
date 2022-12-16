@@ -239,10 +239,24 @@ class RepoUrl(str):
     ```
     """
 
-    def __new__(cls, content: Any, endpoint: Optional[str] = None):
-        return super(RepoUrl, cls).__new__(cls, content)
+    def __new__(cls, url: Any, endpoint: Optional[str] = None):
+        return super(RepoUrl, cls).__new__(cls, url)
 
-    def __init__(self, content: Any, endpoint: Optional[str] = None) -> None:
+    def __init__(self, url: Any, endpoint: Optional[str] = None) -> None:
+        """Initialize a `RepoUrl` object by parsing the input URL.
+
+        Args:
+            url (`Any`):
+                String value of the repo url.
+            endpoint (`str`, *optional*):
+                Endpoint of the Hub. Defaults to <https://huggingface.co>.
+
+        Example:
+        ```py
+        >>> RepoUrl('https://huggingface.co/gpt2')
+        RepoUrl('https://huggingface.co/gpt2', endpoint='https://huggingface.co', repo_type='model', repo_id='gpt2')
+        ```
+        """
         super().__init__()
         # Parse URL
         self.endpoint = endpoint or ENDPOINT
