@@ -55,6 +55,7 @@ from huggingface_hub.hf_api import (
     ModelInfo,
     ModelSearchArguments,
     RepoFile,
+    RepoUrl,
     SpaceInfo,
     erase_from_credential_store,
     read_from_credential_store,
@@ -501,6 +502,15 @@ class CommitApiTest(HfApiCommonTestWithLogin):
             self.fail(err)
         finally:
             self._api.delete_repo(repo_id=REPO_NAME)
+
+    @retry_endpoint
+    def test_create_repo_return_value(self):
+        REPO_NAME = repo_name("org")
+        url = self._api.create_repo(repo_id=REPO_NAME)
+        self.assertIsInstance(url, str)
+        self.assertIsInstance(url, RepoUrl)
+        self.assertEqual(url.repo_id, f"{USER}/{REPO_NAME}")
+        self._api.delete_repo(repo_id=url.repo_id)
 
     @retry_endpoint
     def test_create_repo_org_token_fail(self):
@@ -2276,12 +2286,92 @@ class HfApiDiscussionsTest(HfApiCommonTestWithLogin):
         self.assertIsNotNone(retrieved.merge_commit_oid)
 
 
+class ActivityApiTest(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls) -> None:
+        cls.api = HfApi()
+        return super().setUpClass()
+
+    def test_like_and_unlike_repo(self) -> None:
+        # Create and like repo
+        repo_id = f"{USER}/{repo_name()}"
+        self.api.create_repo(repo_id, token=TOKEN, private=True)
+        self.api.like(repo_id, token=TOKEN)
+
+        # Get likes as public and authenticated
+        likes = self.api.list_liked_repos(USER)
+        likes_with_auth = self.api.list_liked_repos(USER, token=TOKEN)
+
+        # New repo is not public: still see the like, not the repo_id
+        self.assertNotIn(repo_id, likes.models)
+        self.assertIn(repo_id, likes_with_auth.models)
+
+        # Unlike and check not in liked list
+        self.api.unlike(repo_id, token=TOKEN)
+        likes_after_unliking_with_auth = self.api.list_liked_repos(USER, token=TOKEN)
+        self.assertNotIn(repo_id, likes_after_unliking_with_auth.models)  # Unliked
+
+        # Cleanup
+        self.api.delete_repo(repo_id, token=TOKEN)
+
+    def test_like_missing_repo(self) -> None:
+        with self.assertRaises(RepositoryNotFoundError):
+            self.api.like("missing_repo_id", token=TOKEN)
+
+        with self.assertRaises(RepositoryNotFoundError):
+            self.api.unlike("missing_repo_id", token=TOKEN)
+
+    def test_like_twice(self) -> None:
+        # Create and like repo
+        repo_id = f"{USER}/{repo_name()}"
+        self.api.create_repo(repo_id, token=TOKEN, private=True)
+
+        # Can like twice
+        self.api.like(repo_id, token=TOKEN)
+        self.api.like(repo_id, token=TOKEN)
+
+        # Can unlike twice
+        self.api.unlike(repo_id, token=TOKEN)
+        self.api.unlike(repo_id, token=TOKEN)
+
+        # Cleanup
+        self.api.delete_repo(repo_id, token=TOKEN)
+
+    def test_list_liked_repos_no_auth(self) -> None:
+        likes = self.api.list_liked_repos(USER)
+        self.assertEqual(likes.user, USER)
+        self.assertGreater(
+            len(likes.models) + len(likes.datasets) + len(likes.spaces), 0
+        )
+        self.assertIn(f"{USER}/repo-that-is-liked-public", likes.models)
+
+    def test_list_likes_repos_auth_and_implicit_user(self) -> None:
+        # User is implicit
+        likes = self.api.list_liked_repos(token=TOKEN)
+        self.assertEqual(likes.user, USER)
+
+    def test_list_likes_repos_auth_and_explicit_user(self) -> None:
+        # User is explicit even if auth
+        likes = self.api.list_liked_repos(
+            user="__DUMMY_DATASETS_SERVER_USER__", token=TOKEN
+        )
+        self.assertEqual(likes.user, "__DUMMY_DATASETS_SERVER_USER__")
+
+    @with_production_testing
+    def test_list_likes_on_production(self) -> None:
+        # Test julien-c likes a lot of repos !
+        likes = HfApi().list_liked_repos("julien-c")
+        self.assertGreater(len(likes.models), 0)
+        self.assertGreater(len(likes.datasets), 0)
+        self.assertGreater(len(likes.spaces), 0)
+
+
 @pytest.mark.usefixtures("fx_production_space")
-class TestSpaceAPI(unittest.TestCase):
+class TestSpaceAPIProduction(unittest.TestCase):
     """
     Testing Space API is not possible on staging. Tests are run against production
     server using a token stored under `HUGGINGFACE_PRODUCTION_USER_TOKEN` environment
-    variable.
+    variable. Tests requiring hardware are mocked to spare some resources.
     """
 
     repo_id: str
@@ -2302,35 +2392,6 @@ class TestSpaceAPI(unittest.TestCase):
         # Doesn't fail on missing key
         self.api.delete_space_secret(self.repo_id, "missing_key")
 
-        # Get all
-        self.assertEqual(
-            self.api.get_space_secrets(repo_id=self.repo_id),
-            {"foo": "456", "token": "hf_api_123456"},
-        )
-
-    def test_create_space_with_hardware(self) -> None:
-        # Clunky but OK: delete repo from fixture
-        self.api.delete_repo(self.repo_id, repo_type="space")
-
-        # Bad request if hardware not supported
-        with self.assertRaises(BadRequestError):
-            self.api.create_repo(
-                self.repo_id,
-                private=True,
-                repo_type="space",
-                space_sdk="gradio",
-                space_hardware="atari-2600",
-            )
-
-        # OK if valid hardware
-        self.api.create_repo(
-            self.repo_id,
-            private=True,
-            repo_type="space",
-            space_sdk="gradio",
-            space_hardware=SpaceHardware.T4_MEDIUM,
-        )
-
     def test_space_runtime(self) -> None:
         runtime = self.api.get_space_runtime(self.repo_id)
 
@@ -2338,19 +2399,54 @@ class TestSpaceAPI(unittest.TestCase):
         self.assertIn(runtime.hardware, (None, SpaceHardware.CPU_BASIC))
         self.assertIn(runtime.requested_hardware, (None, SpaceHardware.CPU_BASIC))
 
-        # Other fields are fine
-        self.assertEqual(runtime.stage, SpaceStage.BUILDING)
-        self.assertEqual(runtime.stage, "BUILDING")  # Can compare to a string as well
-        self.assertIsInstance(runtime.raw, dict)  # Raw response from Hub
+        # Space is either "BUILDING" (if not yet done) or "NO_APP_FILE" (if building failed)
+        self.assertIn(runtime.stage, (SpaceStage.NO_APP_FILE, SpaceStage.BUILDING))
+        self.assertIn(runtime.stage, ("NO_APP_FILE", "BUILDING"))  # str works as well
 
-    def test_request_space_hardware(self) -> None:
+        # Raw response from Hub
+        self.assertIsInstance(runtime.raw, dict)
+
+
+class TestSpaceAPIMocked(unittest.TestCase):
+    """
+    Testing Space hardware requests is resource intensive for the server (need to spawn
+    GPUs). Tests are mocked to check the correct values are sent.
+    """
+
+    def setUp(self) -> None:
+        self.api = HfApi(token="fake_token")
+        self.repo_id = "fake_repo_id"
+        return super().setUp()
+
+    @patch("huggingface_hub.hf_api.requests.post")
+    def test_create_space_with_hardware(self, post_mock: Mock) -> None:
+        self.api.create_repo(
+            self.repo_id,
+            repo_type="space",
+            space_sdk="gradio",
+            space_hardware=SpaceHardware.T4_MEDIUM,
+        )
+        post_mock.assert_called_once_with(
+            f"{self.api.endpoint}/api/repos/create",
+            headers=self.api._build_hf_headers(),
+            json={
+                "name": self.repo_id,
+                "organization": None,
+                "private": False,
+                "type": "space",
+                "sdk": "gradio",
+                "hardware": "t4-medium",
+            },
+        )
+
+    @patch("huggingface_hub.hf_api.requests.post")
+    def test_request_space_hardware(self, post_mock: Mock) -> None:
         self.api.request_space_hardware(self.repo_id, SpaceHardware.T4_MEDIUM)
-        runtime = self.api.get_space_runtime(self.repo_id)
-        self.assertEqual(runtime.requested_hardware, SpaceHardware.T4_MEDIUM)
-
-    def test_unexistent_space_hardware(self) -> None:
-        with self.assertRaises(BadRequestError):
-            self.api.request_space_hardware(self.repo_id, "atari-2600")
+        post_mock.assert_called_once_with(
+            f"{self.api.endpoint}/api/spaces/{self.repo_id}/hardware",
+            headers=self.api._build_hf_headers(),
+            json={"flavor": "t4-medium"},
+        )
 
 
 @patch("huggingface_hub.hf_api.build_hf_headers")
@@ -2402,3 +2498,70 @@ class HfApiTokenAttributeTest(unittest.TestCase):
     def test_user_agent_is_overwritten(self, mock_build_hf_headers: Mock) -> None:
         HfApi(user_agent={"a": "b"})._build_hf_headers(user_agent={"A": "B"})
         self.assertEqual(mock_build_hf_headers.call_args[1]["user_agent"], {"A": "B"})
+
+
+@patch("huggingface_hub.hf_api.ENDPOINT", "https://huggingface.co")
+class RepoUrlTest(unittest.TestCase):
+    def test_repo_url_class(self):
+        url = RepoUrl("https://huggingface.co/gpt2")
+
+        # RepoUrl Is a string
+        self.assertIsInstance(url, str)
+        self.assertEqual(url, "https://huggingface.co/gpt2")
+
+        # Any str-method can be applied
+        self.assertEqual(url.split("/"), "https://huggingface.co/gpt2".split("/"))
+
+        # String formatting and concatenation work
+        self.assertEqual(f"New repo: {url}", "New repo: https://huggingface.co/gpt2")
+        self.assertEqual("New repo: " + url, "New repo: https://huggingface.co/gpt2")
+
+        # __repr__ is modified for debugging purposes
+        self.assertEqual(
+            repr(url),
+            "RepoUrl('https://huggingface.co/gpt2', endpoint='https://huggingface.co',"
+            " repo_type='model', repo_id='gpt2')",
+        )
+
+    def test_repo_url_endpoint(self):
+        # Implicit endpoint
+        url = RepoUrl("https://huggingface.co/gpt2")
+        self.assertEqual(url.endpoint, "https://huggingface.co")
+
+        # Explicit endpoint
+        url = RepoUrl("https://example.com/gpt2", endpoint="https://example.com")
+        self.assertEqual(url.endpoint, "https://example.com")
+
+    def test_repo_url_repo_type(self):
+        # Explicit repo type
+        url = RepoUrl("https://huggingface.co/user/repo_name")
+        self.assertEqual(url.repo_type, "model")
+
+        url = RepoUrl("https://huggingface.co/datasets/user/repo_name")
+        self.assertEqual(url.repo_type, "dataset")
+
+        url = RepoUrl("https://huggingface.co/spaces/user/repo_name")
+        self.assertEqual(url.repo_type, "space")
+
+        # Implicit repo type (model)
+        url = RepoUrl("https://huggingface.co/user/repo_name")
+        self.assertEqual(url.repo_type, "model")
+
+    def test_repo_url_namespace(self):
+        # Canonical model (e.g. no username)
+        url = RepoUrl("https://huggingface.co/gpt2")
+        self.assertIsNone(url.namespace)
+        self.assertEqual(url.repo_id, "gpt2")
+
+        # "Normal" model
+        url = RepoUrl("https://huggingface.co/dummy_user/dummy_model")
+        self.assertEqual(url.namespace, "dummy_user")
+        self.assertEqual(url.repo_id, "dummy_user/dummy_model")
+
+    def test_repo_url_url_property(self):
+        # RepoUrl.url returns a pure `str` value
+        url = RepoUrl("https://huggingface.co/gpt2")
+        self.assertEqual(url, "https://huggingface.co/gpt2")
+        self.assertEqual(url.url, "https://huggingface.co/gpt2")
+        self.assertIsInstance(url, RepoUrl)
+        self.assertNotIsInstance(url.url, RepoUrl)

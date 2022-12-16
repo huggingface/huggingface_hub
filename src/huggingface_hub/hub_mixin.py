@@ -9,9 +9,7 @@ import requests
 from .constants import CONFIG_NAME, PYTORCH_WEIGHTS_NAME
 from .file_download import hf_hub_download, is_torch_available
 from .hf_api import HfApi
-from .repository import Repository
-from .utils import HfFolder, logging, validate_hf_hub_args
-from .utils._deprecation import _deprecate_arguments, _deprecate_positional_args
+from .utils import logging, validate_hf_hub_args
 
 
 if is_torch_available():
@@ -70,21 +68,7 @@ class ModelHubMixin:
             if config is not None:  # kwarg for `push_to_hub`
                 kwargs["config"] = config
 
-            if (
-                # If a deprecated argument is passed, we have to use the deprecated
-                # version of `push_to_hub`.
-                # TODO: remove this possibility in v0.12
-                kwargs.get("repo_url") is not None
-                or kwargs.get("repo_path_or_name") is not None
-                or kwargs.get("organization") is not None
-                or kwargs.get("git_user") is not None
-                or kwargs.get("git_email") is not None
-                or kwargs.get("skip_lfs_files") is not None
-            ):
-                if kwargs.get("repo_path_or_name") is None:
-                    # Repo name defaults to `save_directory` name
-                    kwargs["repo_path_or_name"] = save_directory
-            elif kwargs.get("repo_id") is None:
+            if kwargs.get("repo_id") is None:
                 # Repo name defaults to `save_directory` name
                 kwargs["repo_id"] = Path(save_directory).name
 
@@ -234,52 +218,20 @@ class ModelHubMixin:
         pretrained"""
         raise NotImplementedError
 
-    @_deprecate_positional_args(version="0.12")
-    @_deprecate_arguments(
-        version="0.12",
-        deprecated_args={
-            "repo_url",
-            "repo_path_or_name",
-            "organization",
-            "git_user",
-            "git_email",
-            "skip_lfs_files",
-        },
-    )
     @validate_hf_hub_args
     def push_to_hub(
         self,
-        # NOTE: deprecated signature that will change in 0.12
+        repo_id: str,
         *,
-        repo_path_or_name: Optional[str] = None,
-        repo_url: Optional[str] = None,
-        commit_message: str = "Add model",
-        organization: Optional[str] = None,
+        config: Optional[dict] = None,
+        commit_message: str = "Push model using huggingface_hub.",
         private: bool = False,
         api_endpoint: Optional[str] = None,
         token: Optional[str] = None,
-        git_user: Optional[str] = None,
-        git_email: Optional[str] = None,
-        config: Optional[dict] = None,
-        skip_lfs_files: bool = False,
-        # NOTE: New arguments since 0.9
-        repo_id: Optional[str] = None,  # optional only until 0.12
         branch: Optional[str] = None,
         create_pr: Optional[bool] = None,
         allow_patterns: Optional[Union[List[str], str]] = None,
         ignore_patterns: Optional[Union[List[str], str]] = None,
-        # TODO (release 0.12): signature must be the following
-        # repo_id: str,
-        # *,
-        # commit_message: str = "Add model",
-        # private: bool = False,
-        # api_endpoint: Optional[str] = None,
-        # token: Optional[str] = None,
-        # branch: Optional[str] = None,
-        # create_pr: Optional[bool] = None,
-        # config: Optional[dict] = None,
-        # allow_patterns: Optional[Union[List[str], str]] = None,
-        # ignore_patterns: Optional[Union[List[str], str]] = None,
     ) -> str:
         """
         Upload model checkpoint to the Hub.
@@ -290,6 +242,8 @@ class ModelHubMixin:
         Parameters:
             repo_id (`str`, *optional*):
                 Repository name to which push.
+            config (`dict`, *optional*):
+                Configuration object to be saved alongside the model weights.
             commit_message (`str`, *optional*):
                 Message to commit while pushing.
             private (`bool`, *optional*, defaults to `False`):
@@ -307,8 +261,6 @@ class ModelHubMixin:
             create_pr (`boolean`, *optional*):
                 Whether or not to create a Pull Request from `branch` with that commit.
                 Defaults to `False`.
-            config (`dict`, *optional*):
-                Configuration object to be saved alongside the model weights.
             allow_patterns (`List[str]` or `str`, *optional*):
                 If provided, only files matching at least one pattern are pushed.
             ignore_patterns (`List[str]` or `str`, *optional*):
@@ -317,89 +269,30 @@ class ModelHubMixin:
         Returns:
             The url of the commit of your model in the given repository.
         """
-        # If the repo id is set, it means we use the new version using HTTP endpoint
-        # (introduced in v0.9).
-        if repo_id is not None:
-            api = HfApi(endpoint=api_endpoint)
-            api.create_repo(
+        api = HfApi(endpoint=api_endpoint)
+        api.create_repo(
+            repo_id=repo_id,
+            repo_type="model",
+            token=token,
+            private=private,
+            exist_ok=True,
+        )
+
+        # Push the files to the repo in a single commit
+        with tempfile.TemporaryDirectory() as tmp:
+            saved_path = Path(tmp) / repo_id
+            self.save_pretrained(saved_path, config=config)
+            return api.upload_folder(
                 repo_id=repo_id,
                 repo_type="model",
                 token=token,
-                private=private,
-                exist_ok=True,
+                folder_path=saved_path,
+                commit_message=commit_message,
+                revision=branch,
+                create_pr=create_pr,
+                allow_patterns=allow_patterns,
+                ignore_patterns=ignore_patterns,
             )
-
-            # Push the files to the repo in a single commit
-            with tempfile.TemporaryDirectory() as tmp:
-                saved_path = Path(tmp) / repo_id
-                self.save_pretrained(saved_path, config=config)
-                return api.upload_folder(
-                    repo_id=repo_id,
-                    repo_type="model",
-                    token=token,
-                    folder_path=saved_path,
-                    commit_message=commit_message,
-                    revision=branch,
-                    create_pr=create_pr,
-                    allow_patterns=allow_patterns,
-                    ignore_patterns=ignore_patterns,
-                )
-
-        # If the repo id is None, it means we use the deprecated version using Git
-        # TODO: remove code between here and `return repo.git_push()` in release 0.12
-        if repo_path_or_name is None and repo_url is None:
-            raise ValueError(
-                "You need to specify a `repo_path_or_name` or a `repo_url`."
-            )
-
-        if token is None and repo_url is None:
-            token = HfFolder.get_token()
-            if token is None:
-                raise ValueError(
-                    "You must login to the Hugging Face hub on this computer by typing"
-                    " `huggingface-cli login` and entering your credentials to use"
-                    " `token=True`. Alternatively, you can pass your own token"
-                    " as the `token` argument."
-                )
-        elif isinstance(token, str):
-            token = token
-        else:
-            token = None
-
-        if repo_path_or_name is None:
-            assert repo_url is not None, "A `None` repo URL would have raised above"
-            repo_path_or_name = repo_url.split("/")[-1]
-
-        # If no URL is passed and there's no path to a directory containing files, create a repo
-        if repo_url is None and not os.path.exists(repo_path_or_name):
-            repo_id = Path(repo_path_or_name).name
-            if organization:
-                repo_id = f"{organization}/{repo_id}"
-            repo_url = HfApi(endpoint=api_endpoint).create_repo(
-                repo_id=repo_id,
-                token=token,
-                private=private,
-                repo_type=None,
-                exist_ok=True,
-            )
-
-        repo = Repository(
-            repo_path_or_name,
-            clone_from=repo_url,
-            token=token,
-            git_user=git_user,
-            git_email=git_email,
-            skip_lfs_files=skip_lfs_files,
-        )
-        repo.git_pull(rebase=True)
-
-        # Save the files in the cloned repo
-        self.save_pretrained(repo_path_or_name, config=config)
-
-        # Commit and push!
-        repo.git_add(auto_lfs_track=True)
-        repo.git_commit(commit_message)
-        return repo.git_push()
 
 
 class PyTorchModelHubMixin(ModelHubMixin):

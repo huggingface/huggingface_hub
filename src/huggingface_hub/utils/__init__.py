@@ -59,6 +59,7 @@ from ._runtime import (
     get_graphviz_version,
     get_hf_hub_version,
     get_jinja_version,
+    get_pillow_version,
     get_pydot_version,
     get_python_version,
     get_tf_version,
@@ -69,6 +70,7 @@ from ._runtime import (
     is_graphviz_available,
     is_jinja_available,
     is_notebook,
+    is_pillow_available,
     is_pydot_available,
     is_tf_available,
     is_torch_available,
@@ -85,4 +87,5 @@ from .tqdm import (
     disable_progress_bars,
     enable_progress_bars,
     tqdm,
+    tqdm_stream_file,
 )

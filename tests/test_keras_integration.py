@@ -189,27 +189,6 @@ class HubMixingTestKeras(CommonKerasTest):
         os.remove(tmp_config_path)
         self._api.delete_repo(repo_id=repo_id)
 
-    @retry_endpoint
-    @expect_deprecation("push_to_hub")
-    def test_push_to_hub_keras_mixin_via_git_deprecated(self):
-        REPO_NAME = repo_name("PUSH_TO_HUB_KERAS_via_git")
-        repo_id = f"{USER}/{REPO_NAME}"
-        model = DummyModel()
-        model(model.dummy_inputs)
-
-        model.push_to_hub(
-            repo_path_or_name=f"{WORKING_REPO_DIR}/{REPO_NAME}",
-            api_endpoint=ENDPOINT_STAGING,
-            use_auth_token=self._token,
-            git_user="ci",
-            git_email="ci@dummy.com",
-            config={"num": 7, "act": "gelu_fast"},
-        )
-
-        model_info = self._api.model_info(repo_id)
-        self.assertEqual(model_info.modelId, repo_id)
-        self._api.delete_repo(repo_id=repo_id)
-
 
 @require_tf
 class HubKerasSequentialTest(CommonKerasTest):
@@ -437,30 +416,6 @@ class HubKerasSequentialTest(CommonKerasTest):
         model_info = HfApi(endpoint=ENDPOINT_STAGING).model_info(repo_id)
         self.assertFalse("model.png" in [f.rfilename for f in model_info.siblings])
         self._api.delete_repo(repo_id=repo_id)
-
-    @retry_endpoint
-    @expect_deprecation("push_to_hub_keras")
-    def test_push_to_hub_keras_sequential_via_git_deprecated(self):
-        REPO_NAME = repo_name("PUSH_TO_HUB_KERAS_sequential_via_git")
-        model = self.model_init()
-        model.build((None, 2))
-
-        push_to_hub_keras(
-            model,
-            repo_path_or_name=f"{WORKING_REPO_DIR}/{REPO_NAME}",
-            api_endpoint=ENDPOINT_STAGING,
-            use_auth_token=self._token,
-            git_user="ci",
-            git_email="ci@dummy.com",
-            config={"num": 7, "act": "gelu_fast"},
-            include_optimizer=False,
-        )
-
-        model_info = self._api.model_info(f"{USER}/{REPO_NAME}")
-        self.assertEqual(model_info.modelId, f"{USER}/{REPO_NAME}")
-        self.assertTrue("README.md" in [f.rfilename for f in model_info.siblings])
-        self.assertTrue("model.png" in [f.rfilename for f in model_info.siblings])
-        self._api.delete_repo(repo_id=f"{REPO_NAME}")
 
     @retry_endpoint
     def test_push_to_hub_keras_via_http_override_tensorboard(self):

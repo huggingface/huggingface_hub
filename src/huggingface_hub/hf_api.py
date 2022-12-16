@@ -71,7 +71,6 @@ from .utils._deprecation import (
     _deprecate_arguments,
     _deprecate_list_output,
     _deprecate_method,
-    _deprecate_positional_args,
 )
 from .utils._pagination import paginate
 from .utils._typing import Literal, TypedDict
@@ -211,6 +210,60 @@ class CommitInfo:
         else:
             self.pr_revision = None
             self.pr_num = None
+
+
+class RepoUrl(str):
+    """Subclass of `str` describing a repo URL on the Hub.
+
+    `RepoUrl` is returned by `HfApi.create_repo`. It inherits from `str` for backward
+    compatibility. At initialization, the URL is parsed to populate properties:
+    - endpoint (`str`)
+    - namespace (`Optional[str]`)
+    - repo_id (`str`)
+    - repo_type (`Literal["model", "dataset", "space"]`)
+    - url (`str`)
+
+    Args:
+        url (`Any`):
+            String value of the repo url.
+        endpoint (`str`, *optional*):
+            Endpoint of the Hub. Defaults to <https://huggingface.co>.
+
+    Example:
+    ```py
+    >>> RepoUrl('https://huggingface.co/gpt2')
+    RepoUrl('https://huggingface.co/gpt2', endpoint='https://huggingface.co', repo_type='model', repo_id='gpt2')
+
+    >>> RepoUrl('https://hub-ci.huggingface.co/dataset/dummy_user/dummy_dataset', endpoint='https://hub-ci.huggingface.co')
+    RepoUrl('https://hub-ci.huggingface.co/dataset/dummy_user/dummy_dataset', endpoint='https://hub-ci.huggingface.co', repo_type='dataset', repo_id='dummy_user/dummy_dataset')
+
+    >>> HfApi.create_repo("dummy_model")
+    RepoUrl('https://huggingface.co/Wauplin/dummy_model', endpoint='https://huggingface.co', repo_type='model', repo_id='Wauplin/dummy_model')
+    ```
+    """
+
+    def __new__(cls, url: Any, endpoint: Optional[str] = None):
+        return super(RepoUrl, cls).__new__(cls, url)
+
+    def __init__(self, url: Any, endpoint: Optional[str] = None) -> None:
+        super().__init__()
+        # Parse URL
+        self.endpoint = endpoint or ENDPOINT
+        repo_type, namespace, repo_name = repo_type_and_id_from_hf_id(
+            self, hub_url=self.endpoint
+        )
+
+        # Populate fields
+        self.namespace = namespace
+        self.repo_id = repo_name if namespace is None else f"{namespace}/{repo_name}"
+        self.repo_type = repo_type or REPO_TYPE_MODEL
+        self.url = str(self)  # just in case it's needed
+
+    def __repr__(self) -> str:
+        return (
+            f"RepoUrl('{self}', endpoint='{self.endpoint}',"
+            f" repo_type='{self.repo_type}', repo_id='{self.repo_id}')"
+        )
 
 
 class RepoFile:
@@ -567,6 +620,31 @@ class DatasetSearchArguments(AttributeDictionary):
             dataset_name_dict[name] = clean(name)
         self["dataset_name"] = dataset_name_dict
         self["author"] = author_dict
+
+
+@dataclass
+class UserLikes:
+    """
+    Contains information about a user likes on the Hub.
+
+    Args:
+        user (`str`):
+            Name of the user for which we fetched the likes.
+        datasets (`List[str]`):
+            List of datasets liked by the user (as repo_ids).
+        models (`List[str]`):
+            List of models liked by the user (as repo_ids).
+        spaces (`List[str]`):
+            List of spaces liked by the user (as repo_ids).
+    """
+
+    # Metadata
+    user: str
+
+    # User likes
+    datasets: List[str]
+    models: List[str]
+    spaces: List[str]
 
 
 class HfApi:
@@ -1128,7 +1206,7 @@ class HfApi:
         Get the public list of all Spaces on huggingface.co
 
         Args:
-            filter `str` or `Iterable`, *optional*):
+            filter (`str` or `Iterable`, *optional*):
                 A string tag or list of tags that can be used to identify Spaces on the Hub.
             author (`str`, *optional*):
                 A string which identify the author of the returned Spaces.
@@ -1193,6 +1271,192 @@ class HfApi:
         if limit is not None:
             data = islice(data, limit)  # Do not iterate over all pages
         return [SpaceInfo(**x) for x in data]
+
+    @validate_hf_hub_args
+    def like(
+        self,
+        repo_id: str,
+        *,
+        token: Optional[str] = None,
+        repo_type: Optional[str] = None,
+    ) -> None:
+        """
+        Like a given repo on the Hub (e.g. set as favorite).
+
+        See also [`unlike`] and [`list_liked_repos`].
+
+        Args:
+            repo_id (`str`):
+                The repository to like. Example: `"user/my-cool-model"`.
+
+            token (`str`, *optional*):
+                Authentication token. Will default to the stored token.
+
+            repo_type (`str`, *optional*):
+                Set to `"dataset"` or `"space"` if liking a dataset or space, `None` or
+                `"model"` if liking a model. Default is `None`.
+
+        Raises:
+            [`~utils.RepositoryNotFoundError`]:
+                If repository is not found (error 404): wrong repo_id/repo_type, private
+                but not authenticated or repo does not exist.
+
+        Example:
+        ```python
+        >>> from huggingface_hub import like, list_liked_repos, unlike
+        >>> like("gpt2")
+        >>> "gpt2" in list_liked_repos().models
+        True
+        >>> unlike("gpt2")
+        >>> "gpt2" in list_liked_repos().models
+        False
+        ```
+        """
+        if repo_type is None:
+            repo_type = REPO_TYPE_MODEL
+        response = requests.post(
+            url=f"{self.endpoint}/api/{repo_type}s/{repo_id}/like",
+            headers=self._build_hf_headers(token=token),
+        )
+        hf_raise_for_status(response)
+
+    @validate_hf_hub_args
+    def unlike(
+        self,
+        repo_id: str,
+        *,
+        token: Optional[str] = None,
+        repo_type: Optional[str] = None,
+    ) -> None:
+        """
+        Unlike a given repo on the Hub (e.g. remove from favorite list).
+
+        See also [`like`] and [`list_liked_repos`].
+
+        Args:
+            repo_id (`str`):
+                The repository to unlike. Example: `"user/my-cool-model"`.
+
+            token (`str`, *optional*):
+                Authentication token. Will default to the stored token.
+
+            repo_type (`str`, *optional*):
+                Set to `"dataset"` or `"space"` if unliking a dataset or space, `None` or
+                `"model"` if unliking a model. Default is `None`.
+
+        Raises:
+            [`~utils.RepositoryNotFoundError`]:
+                If repository is not found (error 404): wrong repo_id/repo_type, private
+                but not authenticated or repo does not exist.
+
+        Example:
+        ```python
+        >>> from huggingface_hub import like, list_liked_repos, unlike
+        >>> like("gpt2")
+        >>> "gpt2" in list_liked_repos().models
+        True
+        >>> unlike("gpt2")
+        >>> "gpt2" in list_liked_repos().models
+        False
+        ```
+        """
+        if repo_type is None:
+            repo_type = REPO_TYPE_MODEL
+        # TODO: use requests.delete(".../like") instead when https://github.com/huggingface/moon-landing/pull/4813 is merged
+        response = requests.delete(
+            url=f"{self.endpoint}/api/{repo_type}s/{repo_id}/like",
+            headers=self._build_hf_headers(token=token),
+        )
+        hf_raise_for_status(response)
+
+    @validate_hf_hub_args
+    def list_liked_repos(
+        self,
+        user: Optional[str] = None,
+        *,
+        token: Optional[str] = None,
+    ) -> UserLikes:
+        """
+        List all repos liked by a user on huggingface.co.
+
+        This list is public so token is optional. If `user` is not passed, it defaults to
+        the logged in user.
+
+        See also [`like`] and [`unlike`].
+
+        Args:
+            user (`str`, *optional*):
+                Name of the user for which you want to fetch the likes.
+            token (`str`, *optional*):
+                A valid authentication token (see https://huggingface.co/settings/token).
+                Used only if `user` is not passed to implicitly determine the current
+                user name.
+
+        Returns:
+            [`UserLikes`]: object containing the user name, the total count of likes and
+            3 lists of repo ids (1 for models, 1 for datasets and 1 for Spaces).
+
+        Raises:
+            [`ValueError`](https://docs.python.org/3/library/exceptions.html#ValueError)
+                If `user` is not passed and no token found (either from argument or from machine).
+
+        Example:
+        ```python
+        >>> from huggingface_hub import list_liked_repos
+
+        >>> likes = list_liked_repos("julien-c")
+
+        >>> likes.user
+        "julien-c"
+
+        >>> likes.models
+        ["osanseviero/streamlit_1.15", "Xhaheen/ChatGPT_HF", ...]
+        ```
+        """
+        # User is either provided explicitly or retrieved from current token.
+        if user is None:
+            me = self.whoami(token=token)
+            if me["type"] == "user":
+                user = me["name"]
+            else:
+                raise ValueError(
+                    "Cannot list liked repos. You must provide a 'user' as input or be"
+                    " logged in as a user."
+                )
+
+        path = f"{self.endpoint}/api/users/{user}/likes"
+        headers = self._build_hf_headers(token=token)
+
+        r = requests.get(path, headers=headers)
+        hf_raise_for_status(r)
+        data = r.json()
+        # Looping over a list of items similar to:
+        #   {
+        #       'createdAt': '2021-09-09T21:53:27.000Z',
+        #       'repo': {
+        #           'name': 'PaddlePaddle/PaddleOCR',
+        #           'type': 'space'
+        #        }
+        #   }
+        # Let's loop 3 times over the received list. Less efficient but more straightforward to read.
+        return UserLikes(
+            user=user,
+            models=[
+                like["repo"]["name"]
+                for like in data["visibleLikes"]
+                if like["repo"]["type"] == "model"
+            ],
+            datasets=[
+                like["repo"]["name"]
+                for like in data["visibleLikes"]
+                if like["repo"]["type"] == "dataset"
+            ],
+            spaces=[
+                like["repo"]["name"]
+                for like in data["visibleLikes"]
+                if like["repo"]["type"] == "space"
+            ],
+        )
 
     @validate_hf_hub_args
     def model_info(
@@ -1509,7 +1773,6 @@ class HfApi:
         return [f.rfilename for f in repo_info.siblings]
 
     @validate_hf_hub_args
-    @_deprecate_positional_args(version="0.12")
     def create_repo(
         self,
         repo_id: str,
@@ -1520,7 +1783,7 @@ class HfApi:
         exist_ok: bool = False,
         space_sdk: Optional[str] = None,
         space_hardware: Optional[str] = None,
-    ) -> str:
+    ) -> RepoUrl:
         """Create an empty repo on the HuggingFace Hub.
 
         Args:
@@ -1543,7 +1806,8 @@ class HfApi:
                 Choice of Hardware if repo_type is "space". See [`SpaceHardware`] for a complete list.
 
         Returns:
-            `str`: URL to the newly created repo.
+            [`RepoUrl`]: URL to the newly created repo. Value is a subclass of `str` containing
+            attributes like `endpoint`, `repo_type` and `repo_id`.
         """
         organization, name = repo_id.split("/") if "/" in repo_id else (None, repo_id)
 
@@ -1597,7 +1861,7 @@ class HfApi:
                 raise
 
         d = r.json()
-        return d["url"]
+        return RepoUrl(d["url"], endpoint=self.endpoint)
 
     @validate_hf_hub_args
     def delete_repo(
@@ -3445,6 +3709,7 @@ class HfApi:
         )
         return deserialize_event(resp.json()["updatedComment"])  # type: ignore
 
+    @validate_hf_hub_args
     def add_space_secret(
         self, repo_id: str, key: str, value: str, *, token: Optional[str] = None
     ) -> None:
@@ -3470,6 +3735,7 @@ class HfApi:
         )
         hf_raise_for_status(r)
 
+    @validate_hf_hub_args
     def delete_space_secret(
         self, repo_id: str, key: str, *, token: Optional[str] = None
     ) -> None:
@@ -3493,29 +3759,7 @@ class HfApi:
         )
         hf_raise_for_status(r)
 
-    def get_space_secrets(
-        self, repo_id: str, *, token: Optional[str] = None
-    ) -> Dict[str, str]:
-        """Gets all secrets from a Space.
-
-        Secrets allow to set secret keys or tokens to a Space without hardcoding them.
-        More for details, see https://huggingface.co/docs/hub/spaces-overview#managing-secrets.
-
-        Args:
-            repo_id (`str`):
-                ID of the repo to update. Example: `"bigcode/in-the-stack"`.
-            token (`str`, *optional*):
-                Hugging Face token. Will default to the locally saved token if not provided.
-        Returns:
-            `Dict[str, str]`: dictionary containing all key/value pairs.
-        """
-        r = requests.get(
-            f"{self.endpoint}/api/spaces/{repo_id}/secrets",
-            headers=self._build_hf_headers(token=token),
-        )
-        hf_raise_for_status(r)
-        return r.json()
-
+    @validate_hf_hub_args
     def get_space_runtime(
         self, repo_id: str, *, token: Optional[str] = None
     ) -> SpaceRuntime:
@@ -3544,6 +3788,7 @@ class HfApi:
             raw=data,
         )
 
+    @validate_hf_hub_args
     def request_space_hardware(
         self, repo_id: str, hardware: SpaceHardware, *, token: Optional[str] = None
     ) -> None:
@@ -3691,6 +3936,12 @@ create_tag = api.create_tag
 delete_tag = api.delete_tag
 get_full_repo_name = api.get_full_repo_name
 
+# Activity API
+list_liked_repos = api.list_liked_repos
+like = api.like
+unlike = api.unlike
+
+# Community API
 get_discussion_details = api.get_discussion_details
 get_repo_discussions = api.get_repo_discussions
 create_discussion = api.create_discussion
@@ -3704,6 +3955,5 @@ merge_pull_request = api.merge_pull_request
 # Space API
 add_space_secret = api.add_space_secret
 delete_space_secret = api.delete_space_secret
-get_space_secrets = api.get_space_secrets
 get_space_runtime = api.get_space_runtime
 request_space_hardware = api.request_space_hardware

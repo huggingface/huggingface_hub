@@ -27,7 +27,6 @@ from huggingface_hub.utils import is_jinja_available, yaml_dump
 
 from .constants import REPOCARD_NAME
 from .utils import EntryNotFoundError, validate_hf_hub_args
-from .utils._deprecation import _deprecate_positional_args
 from .utils.logging import get_logger
 
 
@@ -548,7 +547,6 @@ def metadata_save(local_path: Union[str, Path], data: Dict) -> None:
         readme.close()
 
 
-@_deprecate_positional_args(version="0.12")
 def metadata_eval_result(
     *,
     model_pretty_name: str,
