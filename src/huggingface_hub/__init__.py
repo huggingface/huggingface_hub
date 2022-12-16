@@ -108,6 +108,7 @@ _SUBMOD_ATTRS = {
         "DatasetSearchArguments",
         "HfApi",
         "ModelSearchArguments",
+        "RepoUrl",
         "UserLikes",
         "add_space_secret",
         "change_discussion_status",
@@ -345,6 +346,7 @@ if TYPE_CHECKING:  # pragma: no cover
     from .hf_api import DatasetSearchArguments  # noqa: F401
     from .hf_api import HfApi  # noqa: F401
     from .hf_api import ModelSearchArguments  # noqa: F401
+    from .hf_api import RepoUrl  # noqa: F401
     from .hf_api import UserLikes  # noqa: F401
     from .hf_api import add_space_secret  # noqa: F401
     from .hf_api import change_discussion_status  # noqa: F401
