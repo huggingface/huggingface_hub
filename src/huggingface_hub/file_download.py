@@ -49,6 +49,7 @@ from .utils import is_jinja_available  # noqa: F401 # for backward compatibility
 from .utils import is_pydot_available  # noqa: F401 # for backward compatibility
 from .utils import is_tf_available  # noqa: F401 # for backward compatibility
 from .utils import is_torch_available  # noqa: F401 # for backward compatibility
+from .utils import is_hf_transfer_available  # noqa: F401 # for backward compatibility
 from .utils import (
     EntryNotFoundError,
     LocalEntryNotFoundError,
@@ -63,6 +64,10 @@ from .utils._headers import _http_user_agent
 from .utils._runtime import _PY_VERSION  # noqa: F401 # for backward compatibility
 from .utils._typing import HTTP_METHOD_T
 
+if is_hf_transfer_available():
+    from hf_transfer import download
+else:
+    download = None
 
 logger = logging.get_logger(__name__)
 
@@ -471,18 +476,16 @@ def http_get(
     """
     if not resume_size:
         if os.getenv("HF_TRANSFER") == "1":
-            try:
-                from hf_transfer import download
-
-                max_files = 100
-                chunk_size = 10 * 1024 * 1024  # 10 MB
-                download(url, temp_file.name, max_files, chunk_size)
-                return
-            except ImportError:
+            if download is None:
                 raise ValueError(
                     "You have set HF_TRANSFER=1 but hf_transfer is not available in"
                     " your environment try `pip install hf_transfer`"
                 )
+            max_files = 100
+            chunk_size = 10 * 1024 * 1024  # 10 MB
+            print("USING HF_TRANSFER")
+            download(url, temp_file.name, max_files, chunk_size)
+            return
 
     headers = copy.deepcopy(headers) or {}
     if resume_size > 0:
