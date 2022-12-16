@@ -215,16 +215,19 @@ class CommitInfo:
 class RepoUrl(str):
     """Subclass of `str` describing a repo URL on the Hub.
 
-    Inherits from `str` for backward compatibility.
-
-    RepoUrl adds new properties:
+    `RepoUrl` is returned by `HfApi.create_repo`. It inherits from `str` for backward
+    compatibility. At initialization, the URL is parsed to populate properties:
     - endpoint (`str`)
     - namespace (`Optional[str]`)
     - repo_id (`str`)
     - repo_type (`Literal["model", "dataset", "space"]`)
     - url (`str`)
 
-    `RepoUrl` is returned by `HfApi.create_repo`.
+    Args:
+        url (`Any`):
+            String value of the repo url.
+        endpoint (`str`, *optional*):
+            Endpoint of the Hub. Defaults to <https://huggingface.co>.
 
     Example:
     ```py
@@ -243,20 +246,6 @@ class RepoUrl(str):
         return super(RepoUrl, cls).__new__(cls, url)
 
     def __init__(self, url: Any, endpoint: Optional[str] = None) -> None:
-        """Initialize a `RepoUrl` object by parsing the input URL.
-
-        Args:
-            url (`Any`):
-                String value of the repo url.
-            endpoint (`str`, *optional*):
-                Endpoint of the Hub. Defaults to <https://huggingface.co>.
-
-        Example:
-        ```py
-        >>> RepoUrl('https://huggingface.co/gpt2')
-        RepoUrl('https://huggingface.co/gpt2', endpoint='https://huggingface.co', repo_type='model', repo_id='gpt2')
-        ```
-        """
         super().__init__()
         # Parse URL
         self.endpoint = endpoint or ENDPOINT
