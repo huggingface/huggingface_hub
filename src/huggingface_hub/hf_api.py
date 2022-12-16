@@ -1377,7 +1377,7 @@ class HfApi:
         token: Optional[str] = None,
     ) -> UserLikes:
         """
-        List all repos liked by a user on huggingface.co.
+        List all public repos liked by a user on huggingface.co.
 
         This list is public so token is optional. If `user` is not passed, it defaults to
         the logged in user.
@@ -1393,8 +1393,8 @@ class HfApi:
                 user name.
 
         Returns:
-            [`UserLikes`]: object containing the user name, the total count of likes and
-            3 lists of repo ids (1 for models, 1 for datasets and 1 for Spaces).
+            [`UserLikes`]: object containing the user name and 3 lists of repo ids (1 for
+            models, 1 for datasets and 1 for Spaces).
 
         Raises:
             [`ValueError`](https://docs.python.org/3/library/exceptions.html#ValueError)
@@ -1443,17 +1443,17 @@ class HfApi:
             user=user,
             models=[
                 like["repo"]["name"]
-                for like in data["visibleLikes"]
+                for like in data["likes"]
                 if like["repo"]["type"] == "model"
             ],
             datasets=[
                 like["repo"]["name"]
-                for like in data["visibleLikes"]
+                for like in data["likes"]
                 if like["repo"]["type"] == "dataset"
             ],
             spaces=[
                 like["repo"]["name"]
-                for like in data["visibleLikes"]
+                for like in data["likes"]
                 if like["repo"]["type"] == "space"
             ],
         )
