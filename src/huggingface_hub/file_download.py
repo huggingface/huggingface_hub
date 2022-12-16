@@ -63,6 +63,7 @@ from .utils._headers import _http_user_agent
 from .utils._runtime import _PY_VERSION  # noqa: F401 # for backward compatibility
 from .utils._typing import HTTP_METHOD_T
 
+
 logger = logging.get_logger(__name__)
 
 
