@@ -201,13 +201,19 @@ def snapshot_download(
             token=token,
         )
 
-    thread_map(
-        _inner_hf_hub_download,
-        filtered_repo_files,
-        desc=f"Fetching {len(filtered_repo_files)} files",
-        max_workers=max_workers,
-        # User can use its own tqdm class or the default one from `huggingface_hub.utils`
-        tqdm_class=tqdm_class or hf_tqdm,
-    )
+    if os.getenv("HF_TRANSFER") == "1":
+        # when using hf_transfer we don't want extra parallelism
+        # from the one hf_transfer provides
+        for file in filtered_repo_files:
+            _inner_hf_hub_download(file)
+    else:
+        thread_map(
+            _inner_hf_hub_download,
+            filtered_repo_files,
+            desc=f"Fetching {len(filtered_repo_files)} files",
+            max_workers=max_workers,
+            # User can use its own tqdm class or the default one from `huggingface_hub.utils`
+            tqdm_class=tqdm_class or hf_tqdm,
+        )
 
     return snapshot_folder

@@ -52,6 +52,7 @@ _CANDIDATES = {
     "fastcore": {"fastcore"},
     "jinja": {"Jinja2"},
     "pillow": {"Pillow"},
+    "hf_transfer": {"hf_transfer"}
 }
 
 # Check once at runtime
@@ -154,6 +155,14 @@ def is_torch_available() -> bool:
 def get_torch_version() -> str:
     return _get_version("torch")
 
+# hf_transfer
+def is_hf_transfer_available() -> bool:
+    return _is_available("hf_transfer")
+
+
+def get_hf_transfer_version() -> str:
+    return _get_version("hf_transfer")
+
 
 # Shell-related helpers
 try:
@@ -243,6 +252,7 @@ def dump_environment_info() -> Dict[str, Any]:
     info["Graphviz"] = get_graphviz_version()
     info["Pydot"] = get_pydot_version()
     info["Pillow"] = get_pillow_version()
+    info["hf_transfer"] = get_hf_transfer_version()
 
     print("\nCopy-and-paste the text below in your GitHub issue.\n")
     print("\n".join([f"- {prop}: {val}" for prop, val in info.items()]) + "\n")

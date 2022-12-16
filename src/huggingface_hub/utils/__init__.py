@@ -64,6 +64,7 @@ from ._runtime import (
     get_python_version,
     get_tf_version,
     get_torch_version,
+    get_hf_transfer_version,
     is_fastai_available,
     is_fastcore_available,
     is_google_colab,
@@ -74,6 +75,7 @@ from ._runtime import (
     is_pydot_available,
     is_tf_available,
     is_torch_available,
+    is_hf_transfer_availabel,
 )
 from ._subprocess import run_interactive_subprocess, run_subprocess
 from ._validators import (
