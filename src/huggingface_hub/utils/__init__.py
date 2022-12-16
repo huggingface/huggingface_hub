@@ -69,7 +69,7 @@ from ._runtime import (
     is_fastcore_available,
     is_google_colab,
     is_graphviz_available,
-    is_hf_transfer_availabel,
+    is_hf_transfer_available,
     is_jinja_available,
     is_notebook,
     is_pillow_available,
