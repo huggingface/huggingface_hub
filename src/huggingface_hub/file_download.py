@@ -469,16 +469,19 @@ def http_get(
     Download a remote file. Do not gobble up errors, and will return errors tailored to the Hugging Face Hub.
     """
     if not resume_size:
-        if os.getenv("HF_TRANSFER") == "1"
-           try:
-               from hf_transfer import download
+        if os.getenv("HF_TRANSFER") == "1":
+            try:
+                from hf_transfer import download
+
                 max_files = 100
                 chunk_size = 10 * 1024 * 1024  # 10 MB
                 download(url, temp_file.name, max_files, chunk_size)
                 return
-           except ImportError:
-               raise ValueError("You have set HF_TRANSFER=1 but hf_transfer is not available in your environment try `pip install hf_transfer`")
-
+            except ImportError:
+                raise ValueError(
+                    "You have set HF_TRANSFER=1 but hf_transfer is not available in"
+                    " your environment try `pip install hf_transfer`"
+                )
 
     headers = copy.deepcopy(headers) or {}
     if resume_size > 0:
