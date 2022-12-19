@@ -117,3 +117,9 @@ HF_HUB_DISABLE_SYMLINKS_WARNING: bool = _is_true(
 HF_HUB_DISABLE_IMPLICIT_TOKEN: bool = _is_true(
     os.environ.get("HF_HUB_DISABLE_IMPLICIT_TOKEN")
 )
+
+# Enable fast-download using external dependency "hf_transfer"
+# See:
+# - https://pypi.org/project/hf-transfer/
+# - https://github.com/huggingface/hf_transfer (private)
+HF_HUB_ENABLE_HF_TRANSFER: bool = _is_true(os.environ.get("HF_HUB_ENABLE_HF_TRANSFER"))
