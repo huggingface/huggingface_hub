@@ -655,7 +655,7 @@ class RepoRefs:
     Args:
         branches (`List[RefInfo]`):
             A list of [`RefInfo`] containing information about branches on the repo.
-        converts (`str`):
+        converts (`List[RefInfo]`):
             A list of [`RefInfo`] containing information about "convert" refs on the repo.
             Converts are refs used (internally) to push preprocessed data in Dataset repos.
         tags (`List[RefInfo]`):
