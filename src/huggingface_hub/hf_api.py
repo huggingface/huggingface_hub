@@ -652,6 +652,8 @@ class RepoRefs:
     """
     Contains information about all git references for a repo on the Hub.
 
+    Object is returned by [`list_repo_refs`].
+
     Args:
         branches (`List[RefInfo]`):
             A list of [`RefInfo`] containing information about branches on the repo.
