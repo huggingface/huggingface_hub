@@ -2,9 +2,9 @@
 
 A repository is a place where you can store your model or dataset files. This guide will show you how to:
 
-* Create and delete a repository.
-* Adjust repository visibility.
-* Use the [`Repository`] class for common Git operations like clone, branch, and pull.
+- Create and delete a repository.
+- Adjust repository visibility.
+- Use the [`Repository`] class for common Git operations like clone, branch, and pull.
 
 If you want to create a repository on the Hub, you need to log in to your Hugging Face account:
 
@@ -14,14 +14,21 @@ If you want to create a repository on the Hub, you need to log in to your Huggin
    huggingface-cli login
    ```
 
-2. Alternatively, if you prefer working from a Jupyter or Colaboratory notebook, login with [`notebook_login`]:
+2. Alternatively, you can programmatically login using [`login`] in a notebook or a script:
 
    ```python
-   >>> from huggingface_hub import notebook_login
-   >>> notebook_login()
+   >>> from huggingface_hub import login
+   >>> login()
    ```
 
-   [`notebook_login`] will launch a widget in your notebook from which you can enter your Hugging Face credentials.
+   If ran in a Jupyter or Colaboratory notebook, [`login`] will launch a widget from
+   which you can enter your Hugging Face access token. Otherwise, a message will be
+   prompted in the terminal.
+
+   It is also possible to login programmatically without the widget by directly passing
+   the token to [`login`]. If you do so, be careful when sharing your notebook. It is
+   best practice to load the token from a secure vault instead of saving it in plain in
+   your Colaboratory notebook.
 
 ## Create a repository
 
@@ -38,7 +45,7 @@ By default, [`create_repo`] creates a model repository. But you can use the `rep
 ```py
 >>> from huggingface_hub import create_repo
 >>> create_repo("lysandre/test-dataset", repo_type="dataset")
-'https://huggingface.co/lysandre/test-dataset'
+'https://huggingface.co/datasets/lysandre/test-dataset'
 ```
 
 When you create a repository, you can set your repository visibility with the `private` parameter. For example, if you want to create a private repository:
@@ -48,7 +55,7 @@ When you create a repository, you can set your repository visibility with the `p
 >>> create_repo("lysandre/test-private", private=True)
 ```
 
-If you want to change the repository visibility at a later time, you can use the [`update_repo_visibility`] function. 
+If you want to change the repository visibility at a later time, you can use the [`update_repo_visibility`] function.
 
 ## Delete a repository
 
@@ -75,7 +82,7 @@ A repository can be public or private. A private repository is only visible to y
 >>> update_repo_visibility(name=REPO_NAME, private=True)
 ```
 
-## The Repository class 
+## The Repository class
 
 The [`Repository`] class allows you to interact with files and repositories on the Hub with functions similar to Git commands. [`Repository`] is a wrapper over Git and Git-LFS methods, so make sure you have Git-LFS installed (see [here](https://git-lfs.github.com/) for installation instructions) and set up before you begin. With [`Repository`], you can use the Git commands you already know and love.
 
@@ -114,9 +121,9 @@ You can also attribute a Git username and email to a cloned repository by specif
 
 ```py
 >>> repo = Repository(
-...   "my-dataset", 
-...   clone_from="<user>/<dataset_id>", 
-...   use_auth_token=True, 
+...   "my-dataset",
+...   clone_from="<user>/<dataset_id>",
+...   token=True,
 ...   repo_type="dataset",
 ...   git_user="MyName",
 ...   git_email="me@cool.mail"

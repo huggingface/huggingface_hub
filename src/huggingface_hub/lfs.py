@@ -32,6 +32,7 @@ from .utils import (
     http_backoff,
     validate_hf_hub_args,
 )
+from .utils._typing import TypedDict
 from .utils.sha import sha256, sha_fileobj
 
 
@@ -305,6 +306,18 @@ def _upload_single_part(upload_url: str, fileobj: BinaryIO):
     return upload_res
 
 
+class PayloadPartT(TypedDict):
+    partNumber: int
+    etag: str
+
+
+class CompletionPayloadT(TypedDict):
+    """Payload that will be sent to the Hub when uploading multi-part."""
+
+    oid: str
+    parts: List[PayloadPartT]
+
+
 def _upload_multi_part(
     completion_url: str,
     fileobj: BinaryIO,
@@ -351,7 +364,7 @@ def _upload_multi_part(
     if num_parts != ceil(upload_info.size / chunk_size):
         raise ValueError("Invalid server response to upload large LFS file")
 
-    completion_payload = {
+    completion_payload: CompletionPayloadT = {
         "oid": upload_info.sha256.hex(),
         "parts": [
             {

@@ -48,7 +48,12 @@ from .testing_constants import (
     TOKEN,
     USER,
 )
-from .testing_utils import repo_name, retry_endpoint, rmtree_with_retry
+from .testing_utils import (
+    expect_deprecation,
+    repo_name,
+    retry_endpoint,
+    rmtree_with_retry,
+)
 
 
 SAMPLE_CARDS_DIR = Path(__file__).parent / "fixtures/cards"
@@ -121,13 +126,50 @@ model-index:
       value: 0.2662102282047272
       name: Accuracy
       config: default
-      verified: false
+      verified: true
 ---
 """
 
 DUMMY_MODELCARD_NO_TEXT_CONTENT = """---
 license: cc-by-sa-4.0
 ---
+"""
+
+DUMMY_MODELCARD_EVAL_RESULT_BOTH_VERIFIED_AND_UNVERIFIED = """---
+model-index:
+- name: RoBERTa fine-tuned on ReactionGIF
+  results:
+  - task:
+      type: text-classification
+      name: Text Classification
+    dataset:
+      name: ReactionGIF
+      type: julien-c/reactiongif
+      config: default
+      split: test
+    metrics:
+    - type: accuracy
+      value: 0.2662102282047272
+      name: Accuracy
+      config: default
+      verified: false
+  - task:
+      type: text-classification
+      name: Text Classification
+    dataset:
+      name: ReactionGIF
+      type: julien-c/reactiongif
+      config: default
+      split: test
+    metrics:
+    - type: accuracy
+      value: 0.6666666666666666
+      name: Accuracy
+      config: default
+      verified: true
+---
+
+This is a test model card.
 """
 
 logger = logging.get_logger(__name__)
@@ -205,7 +247,7 @@ class RepocardMetadataTest(unittest.TestCase):
             metrics_id="accuracy",
             metrics_value=0.2662102282047272,
             metrics_config="default",
-            metrics_verified=False,
+            metrics_verified=True,
             dataset_pretty_name="ReactionGIF",
             dataset_id="julien-c/reactiongif",
             dataset_config="default",
@@ -219,9 +261,10 @@ class RepocardMetadataTest(unittest.TestCase):
 
 
 class RepocardMetadataUpdateTest(unittest.TestCase):
-    _api = HfApi(endpoint=ENDPOINT_STAGING)
+    _api = HfApi(endpoint=ENDPOINT_STAGING, token=TOKEN)
 
     @classmethod
+    @expect_deprecation("set_access_token")
     def setUpClass(cls):
         """
         Share this valid token in all tests below.
@@ -233,18 +276,18 @@ class RepocardMetadataUpdateTest(unittest.TestCase):
     def setUp(self) -> None:
         self.repo_path = Path(tempfile.mkdtemp())
         self.REPO_NAME = repo_name()
-        self._api.create_repo(f"{USER}/{self.REPO_NAME}", token=self._token)
+        self.repo_id = f"{USER}/{self.REPO_NAME}"
+        self._api.create_repo(self.repo_id)
         self._api.upload_file(
             path_or_fileobj=DUMMY_MODELCARD_EVAL_RESULT.encode(),
-            repo_id=f"{USER}/{self.REPO_NAME}",
+            repo_id=self.repo_id,
             path_in_repo="README.md",
             commit_message="Add README to main branch",
-            token=self._token,
         )
 
         self.repo = Repository(
             self.repo_path / self.REPO_NAME,
-            clone_from=f"{USER}/{self.REPO_NAME}",
+            clone_from=self.repo_id,
             use_auth_token=self._token,
             git_user="ci",
             git_email="ci@dummy.com",
@@ -254,14 +297,12 @@ class RepocardMetadataUpdateTest(unittest.TestCase):
         )
 
     def tearDown(self) -> None:
-        self._api.delete_repo(repo_id=f"{self.REPO_NAME}", token=self._token)
+        self._api.delete_repo(repo_id=self.repo_id)
         rmtree_with_retry(self.repo_path)
 
     def test_update_dataset_name(self):
         new_datasets_data = {"datasets": ["test/test_dataset"]}
-        metadata_update(
-            f"{USER}/{self.REPO_NAME}", new_datasets_data, token=self._token
-        )
+        metadata_update(self.repo_id, new_datasets_data, token=self._token)
 
         self.repo.git_pull()
         updated_metadata = metadata_load(self.repo_path / self.REPO_NAME / "README.md")
@@ -274,10 +315,22 @@ class RepocardMetadataUpdateTest(unittest.TestCase):
         new_metadata["model-index"][0]["results"][0]["metrics"][0][
             "value"
         ] = 0.2862102282047272
-        metadata_update(
-            f"{USER}/{self.REPO_NAME}", new_metadata, token=self._token, overwrite=True
-        )
+        metadata_update(self.repo_id, new_metadata, token=self._token, overwrite=True)
 
+        self.repo.git_pull()
+        updated_metadata = metadata_load(self.repo_path / self.REPO_NAME / "README.md")
+        self.assertDictEqual(updated_metadata, new_metadata)
+
+    def test_update_verify_token(self):
+        """Tests whether updating the verification token updates in-place.
+
+        Regression test for https://github.com/huggingface/huggingface_hub/issues/1210
+        """
+        new_metadata = copy.deepcopy(self.existing_metadata)
+        new_metadata["model-index"][0]["results"][0]["metrics"][0][
+            "verifyToken"
+        ] = "1234"
+        metadata_update(self.repo_id, new_metadata, token=self._token, overwrite=True)
         self.repo.git_pull()
         updated_metadata = metadata_load(self.repo_path / self.REPO_NAME / "README.md")
         self.assertDictEqual(updated_metadata, new_metadata)
@@ -287,14 +340,12 @@ class RepocardMetadataUpdateTest(unittest.TestCase):
         new_metadata["model-index"][0]["results"][0]["metrics"][0]["value"] = 0.1
 
         path = hf_hub_download(
-            f"{USER}/{self.REPO_NAME}",
+            self.repo_id,
             filename=REPOCARD_NAME,
             use_auth_token=self._token,
         )
 
-        metadata_update(
-            f"{USER}/{self.REPO_NAME}", new_metadata, token=self._token, overwrite=True
-        )
+        metadata_update(self.repo_id, new_metadata, token=self._token, overwrite=True)
 
         self.assertNotEqual(metadata_load(path), new_metadata)
         self.assertEqual(metadata_load(path), self.existing_metadata)
@@ -313,17 +364,12 @@ class RepocardMetadataUpdateTest(unittest.TestCase):
             ),
         ):
             metadata_update(
-                f"{USER}/{self.REPO_NAME}",
-                new_metadata,
-                token=self._token,
-                overwrite=False,
+                self.repo_id, new_metadata, token=self._token, overwrite=False
             )
 
     def test_update_existing_field_without_overwrite(self):
         new_datasets_data = {"datasets": "['test/test_dataset']"}
-        metadata_update(
-            f"{USER}/{self.REPO_NAME}", new_datasets_data, token=self._token
-        )
+        metadata_update(self.repo_id, new_datasets_data, token=self._token)
 
         with pytest.raises(
             ValueError,
@@ -334,7 +380,7 @@ class RepocardMetadataUpdateTest(unittest.TestCase):
         ):
             new_datasets_data = {"datasets": "['test/test_dataset_2']"}
             metadata_update(
-                f"{USER}/{self.REPO_NAME}",
+                self.repo_id,
                 new_datasets_data,
                 token=self._token,
                 overwrite=False,
@@ -356,9 +402,7 @@ class RepocardMetadataUpdateTest(unittest.TestCase):
             dataset_split="test",
         )
 
-        metadata_update(
-            f"{USER}/{self.REPO_NAME}", new_result, token=self._token, overwrite=False
-        )
+        metadata_update(self.repo_id, new_result, token=self._token, overwrite=False)
 
         expected_metadata = copy.deepcopy(self.existing_metadata)
         expected_metadata["model-index"][0]["results"][0]["metrics"].append(
@@ -385,9 +429,7 @@ class RepocardMetadataUpdateTest(unittest.TestCase):
             dataset_split="test",
         )
 
-        metadata_update(
-            f"{USER}/{self.REPO_NAME}", new_result, token=self._token, overwrite=False
-        )
+        metadata_update(self.repo_id, new_result, token=self._token, overwrite=False)
 
         expected_metadata = copy.deepcopy(self.existing_metadata)
         expected_metadata["model-index"][0]["results"].append(
@@ -406,13 +448,71 @@ class RepocardMetadataUpdateTest(unittest.TestCase):
         with self.repo.commit("Add README to main branch"):
             with open("README.md", "w") as f:
                 f.write(DUMMY_MODELCARD_NO_TEXT_CONTENT)
-        metadata_update(f"{USER}/{self.REPO_NAME}", {"tag": "test"}, token=self._token)
+        metadata_update(self.repo_id, {"tag": "test"}, token=self._token)
 
         # Check update went fine
         self.repo.git_pull()
         updated_metadata = metadata_load(self.repo_path / self.REPO_NAME / "README.md")
         expected_metadata = {"license": "cc-by-sa-4.0", "tag": "test"}
         self.assertDictEqual(updated_metadata, expected_metadata)
+
+    def test_update_with_existing_name(self):
+        new_metadata = copy.deepcopy(self.existing_metadata)
+        new_metadata["model-index"][0].pop("name")
+        new_metadata["model-index"][0]["results"][0]["metrics"][0][
+            "value"
+        ] = 0.2862102282047272
+        metadata_update(self.repo_id, new_metadata, token=self._token, overwrite=True)
+
+        card_data = ModelCard.load(self.repo_id, token=self._token)
+        self.assertEqual(
+            card_data.data.model_name, self.existing_metadata["model-index"][0]["name"]
+        )
+
+    def test_update_without_existing_name(self):
+        # delete existing metadata
+        self._api.upload_file(
+            path_or_fileobj="# Test".encode(),
+            repo_id=self.repo_id,
+            path_in_repo="README.md",
+        )
+
+        new_metadata = copy.deepcopy(self.existing_metadata)
+        new_metadata["model-index"][0].pop("name")
+
+        metadata_update(self.repo_id, new_metadata, token=self._token, overwrite=True)
+
+        card_data = ModelCard.load(self.repo_id, token=self._token)
+
+        self.assertEqual(card_data.data.model_name, self.repo_id)
+
+    def test_update_with_both_verified_and_unverified_metric(self):
+        """Regression test for #1185.
+
+        See https://github.com/huggingface/huggingface_hub/issues/1185.
+        """
+        self._api.upload_file(
+            path_or_fileobj=DUMMY_MODELCARD_EVAL_RESULT_BOTH_VERIFIED_AND_UNVERIFIED.encode(),
+            repo_id=self.repo_id,
+            path_in_repo="README.md",
+        )
+        card = ModelCard.load(self.repo_id)
+        metadata = card.data.to_dict()
+        metadata_update(self.repo_id, metadata=metadata, overwrite=True, token=TOKEN)
+
+        card_data = ModelCard.load(self.repo_id, token=self._token)
+
+        self.assertEqual(len(card_data.data.eval_results), 2)
+        first_result = card_data.data.eval_results[0]
+        second_result = card_data.data.eval_results[1]
+
+        # One is verified, the other not
+        self.assertFalse(first_result.verified)
+        self.assertTrue(second_result.verified)
+
+        # Result values are different
+        self.assertEqual(first_result.metric_value, 0.2662102282047272)
+        self.assertEqual(second_result.metric_value, 0.6666666666666666)
 
 
 class TestMetadataUpdateOnMissingCard(unittest.TestCase):
@@ -421,11 +521,11 @@ class TestMetadataUpdateOnMissingCard(unittest.TestCase):
         Share this valid token in all tests below.
         """
         self._token = TOKEN
-        self._api = HfApi(endpoint=ENDPOINT_STAGING)
+        self._api = HfApi(endpoint=ENDPOINT_STAGING, token=TOKEN)
         self._repo_id = f"{USER}/{repo_name()}"
 
     def test_metadata_update_missing_readme_on_model(self) -> None:
-        self._api.create_repo(self._repo_id, token=self._token)
+        self._api.create_repo(self._repo_id)
         metadata_update(self._repo_id, {"tag": "this_is_a_test"}, token=self._token)
         model_card = ModelCard.load(self._repo_id, token=self._token)
 
@@ -433,10 +533,10 @@ class TestMetadataUpdateOnMissingCard(unittest.TestCase):
         self.assertIn("# Model Card for Model ID", str(model_card))
         self.assertEqual(model_card.data.to_dict(), {"tag": "this_is_a_test"})
 
-        self._api.delete_repo(self._repo_id, token=self._token)
+        self._api.delete_repo(self._repo_id)
 
     def test_metadata_update_missing_readme_on_dataset(self) -> None:
-        self._api.create_repo(self._repo_id, repo_type="dataset", token=self._token)
+        self._api.create_repo(self._repo_id, repo_type="dataset")
         metadata_update(
             self._repo_id,
             {"tag": "this is a dataset test"},
@@ -449,15 +549,11 @@ class TestMetadataUpdateOnMissingCard(unittest.TestCase):
         self.assertIn("# Dataset Card for Dataset Name", str(dataset_card))
         self.assertEqual(dataset_card.data.to_dict(), {"tag": "this is a dataset test"})
 
-        self._api.delete_repo(self._repo_id, repo_type="dataset", token=self._token)
+        self._api.delete_repo(self._repo_id, repo_type="dataset")
 
     def test_metadata_update_missing_readme_on_space(self) -> None:
-        self._api.create_repo(
-            self._repo_id, repo_type="space", token=self._token, space_sdk="static"
-        )
-        self._api.delete_file(
-            "README.md", self._repo_id, repo_type="space", token=self._token
-        )
+        self._api.create_repo(self._repo_id, repo_type="space", space_sdk="static")
+        self._api.delete_file("README.md", self._repo_id, repo_type="space")
         with self.assertRaises(ValueError):
             # Cannot create a default readme on a space repo (should be automatically
             # created on the Hub).
@@ -467,11 +563,11 @@ class TestMetadataUpdateOnMissingCard(unittest.TestCase):
                 token=self._token,
                 repo_type="space",
             )
-        self._api.delete_repo(self._repo_id, repo_type="space", token=self._token)
+        self._api.delete_repo(self._repo_id, repo_type="space")
 
 
 class TestCaseWithCapLog(unittest.TestCase):
-    _api = HfApi(endpoint=ENDPOINT_STAGING)
+    _api = HfApi(endpoint=ENDPOINT_STAGING, token=TOKEN)
 
     @pytest.fixture(autouse=True)
     def inject_fixtures(self, caplog):
@@ -599,7 +695,7 @@ class RepoCardTest(TestCaseWithCapLog):
 
     def test_push_to_hub(self):
         repo_id = f"{USER}/{repo_name('push-card')}"
-        self._api.create_repo(repo_id, token=TOKEN)
+        self._api.create_repo(repo_id)
 
         card_data = CardData(
             language="en",
@@ -610,7 +706,7 @@ class RepoCardTest(TestCaseWithCapLog):
             metrics="acc",
         )
         # Mock what RepoCard.from_template does so we can test w/o Jinja2
-        content = f"{card_data.to_yaml()}\n\n# MyModel\n\nHello, world!"
+        content = f"---\n{card_data.to_yaml()}\n---\n\n# MyModel\n\nHello, world!"
         card = RepoCard(content)
 
         url = f"{ENDPOINT_STAGING_BASIC_AUTH}/{repo_id}/resolve/main/README.md"
@@ -627,11 +723,11 @@ class RepoCardTest(TestCaseWithCapLog):
         r = requests.get(url)
         r.raise_for_status()
 
-        self._api.delete_repo(repo_id=repo_id, token=TOKEN)
+        self._api.delete_repo(repo_id=repo_id)
 
     def test_push_and_create_pr(self):
         repo_id = f"{USER}/{repo_name('pr-card')}"
-        self._api.create_repo(repo_id, token=TOKEN)
+        self._api.create_repo(repo_id)
         card_data = CardData(
             language="en",
             license="mit",
@@ -641,7 +737,7 @@ class RepoCardTest(TestCaseWithCapLog):
             metrics="acc",
         )
         # Mock what RepoCard.from_template does so we can test w/o Jinja2
-        content = f"{card_data.to_yaml()}\n\n# MyModel\n\nHello, world!"
+        content = f"---\n{card_data.to_yaml()}\n---\n\n# MyModel\n\nHello, world!"
         card = RepoCard(content)
 
         url = f"{ENDPOINT_STAGING_BASIC_AUTH}/api/models/{repo_id}/discussions"
@@ -653,12 +749,20 @@ class RepoCardTest(TestCaseWithCapLog):
         data = r.json()
         self.assertEqual(data["count"], 1)
 
-        self._api.delete_repo(repo_id=repo_id, token=TOKEN)
+        self._api.delete_repo(repo_id=repo_id)
 
     def test_preserve_windows_linebreaks(self):
         card_path = SAMPLE_CARDS_DIR / "sample_windows_line_breaks.md"
         card = RepoCard.load(card_path)
         self.assertIn("\r\n", str(card))
+
+    def test_updating_text_updates_content(self):
+        sample_path = SAMPLE_CARDS_DIR / "sample_simple.md"
+        card = RepoCard.load(sample_path)
+        card.text = "Hello, world!"
+        self.assertEqual(
+            card.content, f"---\n{card.data.to_yaml()}\n---\nHello, world!"
+        )
 
 
 class ModelCardTest(TestCaseWithCapLog):
@@ -674,6 +778,16 @@ class ModelCardTest(TestCaseWithCapLog):
             self.caplog.text,
         )
         self.assertIsNone(card.data.eval_results)
+
+    def test_model_card_with_model_index(self):
+        """Test that loading a model card with multiple evaluations is consistent with `metadata_load`.
+
+        Regression test for https://github.com/huggingface/huggingface_hub/issues/1208
+        """
+        sample_path = SAMPLE_CARDS_DIR / "sample_simple_model_index.md"
+        card = ModelCard.load(sample_path)
+        metadata = metadata_load(sample_path)
+        self.assertDictEqual(card.data.to_dict(), metadata)
 
     def test_load_model_card_from_file(self):
         sample_path = SAMPLE_CARDS_DIR / "sample_simple.md"
@@ -733,7 +847,7 @@ class ModelCardTest(TestCaseWithCapLog):
                         metric_value=0.2662102282047272,
                         metric_name="Accuracy",
                         metric_config="default",
-                        verified=False,
+                        verified=True,
                     ),
                 ],
                 model_name="RoBERTa fine-tuned on ReactionGIF",

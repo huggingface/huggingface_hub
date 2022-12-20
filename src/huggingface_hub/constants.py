@@ -46,6 +46,7 @@ ENDPOINT = os.getenv("HF_ENDPOINT") or (
 HUGGINGFACE_CO_URL_TEMPLATE = ENDPOINT + "/{repo_id}/resolve/{revision}/{filename}"
 HUGGINGFACE_HEADER_X_REPO_COMMIT = "X-Repo-Commit"
 HUGGINGFACE_HEADER_X_LINKED_ETAG = "X-Linked-Etag"
+HUGGINGFACE_HEADER_X_LINKED_SIZE = "X-Linked-Size"
 
 REPO_ID_SEPARATOR = "--"
 # ^ this substring is not allowed in repo_ids on hf.co
@@ -56,7 +57,7 @@ REPO_TYPE_DATASET = "dataset"
 REPO_TYPE_SPACE = "space"
 REPO_TYPE_MODEL = "model"
 REPO_TYPES = [None, REPO_TYPE_MODEL, REPO_TYPE_DATASET, REPO_TYPE_SPACE]
-SPACES_SDK_TYPES = ["gradio", "streamlit", "static"]
+SPACES_SDK_TYPES = ["gradio", "streamlit", "docker", "static"]
 
 REPO_TYPES_URL_PREFIXES = {
     REPO_TYPE_DATASET: "datasets/",
@@ -88,17 +89,24 @@ HUGGINGFACE_ASSETS_CACHE = os.getenv(
 
 HF_HUB_OFFLINE = _is_true(os.environ.get("HF_HUB_OFFLINE"))
 
+# In the past, token was stored in a hardcoded location
+# `_OLD_HF_TOKEN_PATH` is deprecated and will be removed "at some point".
+# See https://github.com/huggingface/huggingface_hub/issues/1232
+_OLD_HF_TOKEN_PATH = os.path.expanduser("~/.huggingface/token")
+HF_TOKEN_PATH = os.path.join(hf_cache_home, "token")
+
 
 # Here, `True` will disable progress bars globally without possibility of enabling it
 # programmatically. `False` will enable them without possibility of disabling them.
 # If environment variable is not set (None), then the user is free to enable/disable
 # them programmatically.
 # TL;DR: env variable has priority over code
-HF_HUB_DISABLE_PROGRESS_BARS: Optional[bool] = os.environ.get(
-    "HF_HUB_DISABLE_PROGRESS_BARS"
+__HF_HUB_DISABLE_PROGRESS_BARS = os.environ.get("HF_HUB_DISABLE_PROGRESS_BARS")
+HF_HUB_DISABLE_PROGRESS_BARS: Optional[bool] = (
+    _is_true(__HF_HUB_DISABLE_PROGRESS_BARS)
+    if __HF_HUB_DISABLE_PROGRESS_BARS is not None
+    else None
 )
-if HF_HUB_DISABLE_PROGRESS_BARS is not None:
-    HF_HUB_DISABLE_PROGRESS_BARS = _is_true(HF_HUB_DISABLE_PROGRESS_BARS)
 
 # Disable warning on machines that do not support symlinks (e.g. Windows non-developer)
 HF_HUB_DISABLE_SYMLINKS_WARNING: bool = _is_true(

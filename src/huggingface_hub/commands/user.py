@@ -12,9 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 import subprocess
-from argparse import ArgumentParser
-from getpass import getpass
-from typing import List
+from argparse import _SubParsersAction
 
 from huggingface_hub.commands import BaseHuggingfaceCLICommand
 from huggingface_hub.constants import (
@@ -26,26 +24,26 @@ from huggingface_hub.constants import (
 from huggingface_hub.hf_api import HfApi
 from requests.exceptions import HTTPError
 
-from ..utils import HfFolder, run_subprocess
+from .._login import (  # noqa: F401 # for backward compatibility
+    NOTEBOOK_LOGIN_PASSWORD_HTML,
+    NOTEBOOK_LOGIN_TOKEN_HTML_END,
+    NOTEBOOK_LOGIN_TOKEN_HTML_START,
+)
+from .._login import (  # noqa: F401 # for backward compatibility
+    _currently_setup_credential_helpers as currently_setup_credential_helpers,
+)
+from .._login import (  # noqa: F401 # for backward compatibility
+    login,
+    logout,
+    notebook_login,
+)
+from ..utils import HfFolder
 from ._cli_utils import ANSI
-
-
-try:
-    # Set to `True` if script is running in a Google Colab notebook.
-    # If running in Google Colab, git credential store is set globally which makes the
-    # warning disappear. See https://github.com/huggingface/huggingface_hub/issues/1043
-    #
-    # Taken from https://stackoverflow.com/a/63519730.
-    # Got some trouble to make it work inside `login_token_event` callback so now set as
-    # global variable.
-    _is_google_colab = "google.colab" in str(get_ipython())  # noqa: F821
-except NameError:
-    _is_google_colab = False
 
 
 class UserCommands(BaseHuggingfaceCLICommand):
     @staticmethod
-    def register_subcommand(parser: ArgumentParser):
+    def register_subcommand(parser: _SubParsersAction):
         login_parser = parser.add_parser(
             "login", help="Log in using a token from huggingface.co/settings/tokens"
         )
@@ -108,23 +106,6 @@ class UserCommands(BaseHuggingfaceCLICommand):
         repo_create_parser.set_defaults(func=lambda args: RepoCreateCommand(args))
 
 
-def currently_setup_credential_helpers(directory=None) -> List[str]:
-    try:
-        output = run_subprocess(
-            "git config --list".split(),
-            directory,
-        ).stdout.split("\n")
-
-        current_credential_helpers = []
-        for line in output:
-            if "credential.helper" in line:
-                current_credential_helpers.append(line.split("=")[-1])
-    except subprocess.CalledProcessError as exc:
-        raise EnvironmentError(exc.stderr)
-
-    return current_credential_helpers
-
-
 class BaseUserCommand:
     def __init__(self, args):
         self.args = args
@@ -133,20 +114,12 @@ class BaseUserCommand:
 
 class LoginCommand(BaseUserCommand):
     def run(self):
-        print(  # docstyle-ignore
-            """
-        _|    _|  _|    _|    _|_|_|    _|_|_|  _|_|_|  _|      _|    _|_|_|      _|_|_|_|    _|_|      _|_|_|  _|_|_|_|
-        _|    _|  _|    _|  _|        _|          _|    _|_|    _|  _|            _|        _|    _|  _|        _|
-        _|_|_|_|  _|    _|  _|  _|_|  _|  _|_|    _|    _|  _|  _|  _|  _|_|      _|_|_|    _|_|_|_|  _|        _|_|_|
-        _|    _|  _|    _|  _|    _|  _|    _|    _|    _|    _|_|  _|    _|      _|        _|    _|  _|        _|
-        _|    _|    _|_|      _|_|_|    _|_|_|  _|_|_|  _|      _|    _|_|_|      _|        _|    _|    _|_|_|  _|_|_|_|
+        login()
 
-        To login, `huggingface_hub` now requires a token generated from https://huggingface.co/settings/tokens .
-        """
-        )
 
-        token = getpass("Token: ")
-        _login(self._api, token=token)
+class LogoutCommand(BaseUserCommand):
+    def run(self):
+        logout()
 
 
 class WhoamiCommand(BaseUserCommand):
@@ -168,17 +141,6 @@ class WhoamiCommand(BaseUserCommand):
             print(e)
             print(ANSI.red(e.response.text))
             exit(1)
-
-
-class LogoutCommand(BaseUserCommand):
-    def run(self):
-        token = HfFolder.get_token()
-        if token is None:
-            print("Not logged in")
-            exit()
-        HfFolder.delete_token()
-        HfApi.unset_access_token()
-        print("Successfully logged out.")
 
 
 class RepoCreateCommand(BaseUserCommand):
@@ -248,112 +210,3 @@ class RepoCreateCommand(BaseUserCommand):
         )
         print(f"\n  git clone {url}")
         print("")
-
-
-NOTEBOOK_LOGIN_PASSWORD_HTML = """<center> <img
-src=https://huggingface.co/front/assets/huggingface_logo-noborder.svg
-alt='Hugging Face'> <br> Immediately click login after typing your password or
-it might be stored in plain text in this notebook file. </center>"""
-
-
-NOTEBOOK_LOGIN_TOKEN_HTML_START = """<center> <img
-src=https://huggingface.co/front/assets/huggingface_logo-noborder.svg
-alt='Hugging Face'> <br> Copy a token from <a
-href="https://huggingface.co/settings/tokens" target="_blank">your Hugging Face
-tokens page</a> and paste it below. <br> Immediately click login after copying
-your token or it might be stored in plain text in this notebook file. </center>"""
-
-
-NOTEBOOK_LOGIN_TOKEN_HTML_END = """
-<b>Pro Tip:</b> If you don't already have one, you can create a dedicated
-'notebooks' token with 'write' access, that you can then easily reuse for all
-notebooks. </center>"""
-
-
-def notebook_login():
-    """
-    Displays a widget to login to the HF website and store the token.
-    """
-    try:
-        import ipywidgets.widgets as widgets
-        from IPython.display import clear_output, display
-    except ImportError:
-        raise ImportError(
-            "The `notebook_login` function can only be used in a notebook (Jupyter or"
-            " Colab) and you need the `ipywidgets` module: `pip install ipywidgets`."
-        )
-
-    box_layout = widgets.Layout(
-        display="flex", flex_flow="column", align_items="center", width="50%"
-    )
-
-    token_widget = widgets.Password(description="Token:")
-    token_finish_button = widgets.Button(description="Login")
-
-    login_token_widget = widgets.VBox(
-        [
-            widgets.HTML(NOTEBOOK_LOGIN_TOKEN_HTML_START),
-            token_widget,
-            token_finish_button,
-            widgets.HTML(NOTEBOOK_LOGIN_TOKEN_HTML_END),
-        ],
-        layout=box_layout,
-    )
-    display(login_token_widget)
-
-    # On click events
-    def login_token_event(t):
-        token = token_widget.value
-        # Erase token and clear value to make sure it's not saved in the notebook.
-        token_widget.value = ""
-        clear_output()
-        _login(hf_api=HfApi(), token=token)
-
-    token_finish_button.on_click(login_token_event)
-
-
-def _login(hf_api: HfApi, token: str) -> None:
-    if token.startswith("api_org"):
-        raise ValueError("You must use your personal account token.")
-    if not hf_api._is_valid_token(token=token):
-        raise ValueError("Invalid token passed!")
-    hf_api.set_access_token(token)
-    HfFolder.save_token(token)
-    print("Login successful")
-    print("Your token has been saved to", HfFolder.path_token)
-
-    # Only in Google Colab to avoid the warning message
-    # See https://github.com/huggingface/huggingface_hub/issues/1043#issuecomment-1247010710
-    if _is_google_colab:
-        _set_store_as_git_credential_helper_globally()
-
-    helpers = currently_setup_credential_helpers()
-
-    if "store" not in helpers:
-        print(
-            ANSI.red(
-                "Authenticated through git-credential store but this isn't the helper"
-                " defined on your machine.\nYou might have to re-authenticate when"
-                " pushing to the Hugging Face Hub. Run the following command in your"
-                " terminal in case you want to set this credential helper as the"
-                " default\n\ngit config --global credential.helper store"
-            )
-        )
-
-
-def _set_store_as_git_credential_helper_globally() -> None:
-    """Set globally the credential.helper to `store`.
-
-    To be used only in Google Colab as we assume the user doesn't care about the git
-    credential config. It is the only particular case where we don't want to display the
-    warning message in `notebook_login()`.
-
-    Related:
-    - https://github.com/huggingface/huggingface_hub/issues/1043
-    - https://github.com/huggingface/huggingface_hub/issues/1051
-    - https://git-scm.com/docs/git-credential-store
-    """
-    try:
-        run_subprocess("git config --global credential.helper store")
-    except subprocess.CalledProcessError as exc:
-        raise EnvironmentError(exc.stderr)

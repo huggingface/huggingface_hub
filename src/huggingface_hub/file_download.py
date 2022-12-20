@@ -5,14 +5,16 @@ import json
 import os
 import re
 import shutil
+import stat
 import tempfile
+import uuid
 import warnings
 from contextlib import contextmanager
 from dataclasses import dataclass
 from functools import partial
 from hashlib import sha256
 from pathlib import Path
-from typing import BinaryIO, Dict, Optional, Tuple, Union
+from typing import Any, BinaryIO, Dict, Generator, Optional, Tuple, Union
 from urllib.parse import quote, urlparse
 
 import requests
@@ -26,6 +28,7 @@ from .constants import (
     HF_HUB_DISABLE_SYMLINKS_WARNING,
     HUGGINGFACE_CO_URL_TEMPLATE,
     HUGGINGFACE_HEADER_X_LINKED_ETAG,
+    HUGGINGFACE_HEADER_X_LINKED_SIZE,
     HUGGINGFACE_HEADER_X_REPO_COMMIT,
     HUGGINGFACE_HUB_CACHE,
     REPO_ID_SEPARATOR,
@@ -58,6 +61,7 @@ from .utils import (
 )
 from .utils._headers import _http_user_agent
 from .utils._runtime import _PY_VERSION  # noqa: F401 # for backward compatibility
+from .utils._typing import HTTP_METHOD_T
 
 
 logger = logging.get_logger(__name__)
@@ -127,6 +131,7 @@ def are_symlinks_supported(cache_dir: Union[str, Path, None] = None) -> bool:
 
 # Return value when trying to load a file from cache but the file does not exist in the distant repo.
 _CACHED_NO_EXIST = object()
+_CACHED_NO_EXIST_T = Any
 REGEX_COMMIT_HASH = re.compile(r"^[0-9a-f]{40}$")
 
 
@@ -143,18 +148,18 @@ class HfFileMetadata:
             Etag of the file on the server.
         location (`str`):
             Location where to download the file. Can be a Hub url or not (CDN).
+        size (`size`):
+            Size of the file. In case of an LFS file, contains the size of the actual
+            LFS file, not the pointer.
     """
 
     commit_hash: Optional[str]
     etag: Optional[str]
     location: str
+    size: Optional[int]
 
 
-# Do not validate `repo_id` in `hf_hub_url` for now as the `repo_id="datasets/.../..."`
-# pattern is used/advertised in Transformers examples.
-# Related: https://github.com/huggingface/huggingface_hub/pull/1029
-# TODO: set back validation in V0.12.
-# @validate_hf_hub_args
+@validate_hf_hub_args
 def hf_hub_url(
     repo_id: str,
     filename: str,
@@ -236,7 +241,7 @@ def hf_hub_url(
     return HUGGINGFACE_CO_URL_TEMPLATE.format(
         repo_id=repo_id,
         revision=quote(revision, safe=""),
-        filename=filename,
+        filename=quote(filename),
     )
 
 
@@ -274,7 +279,7 @@ def url_to_filename(url: str, etag: Optional[str] = None) -> str:
 def filename_to_url(
     filename,
     cache_dir: Optional[str] = None,
-    legacy_cache_layout: Optional[bool] = False,
+    legacy_cache_layout: bool = False,
 ) -> Tuple[str, str]:
     """
     Return the url and etag (which may be `None`) stored for `filename`. Raise
@@ -347,7 +352,7 @@ def _raise_if_offline_mode_is_enabled(msg: Optional[str] = None):
 
 
 def _request_wrapper(
-    method: str,
+    method: HTTP_METHOD_T,
     url: str,
     *,
     max_retries: int = 0,
@@ -464,7 +469,7 @@ def http_get(
     """
     Download a remote file. Do not gobble up errors, and will return errors tailored to the Hugging Face Hub.
     """
-    headers = copy.deepcopy(headers)
+    headers = copy.deepcopy(headers) or {}
     if resume_size > 0:
         headers["Range"] = "bytes=%d-" % (resume_size,)
     r = _request_wrapper(
@@ -479,21 +484,29 @@ def http_get(
     hf_raise_for_status(r)
     content_length = r.headers.get("Content-Length")
     total = resume_size + int(content_length) if content_length is not None else None
+
+    displayed_name = url
+    content_disposition = r.headers.get("Content-Disposition")
+    if content_disposition is not None and "filename=" in content_disposition:
+        # Means file is on CDN
+        displayed_name = content_disposition.split("filename=")[-1]
+
     progress = tqdm(
         unit="B",
         unit_scale=True,
         total=total,
         initial=resume_size,
-        desc="Downloading",
+        desc=f"Downloading (…){displayed_name[-20:]}",
         disable=bool(logger.getEffectiveLevel() == logging.NOTSET),
     )
-    for chunk in r.iter_content(chunk_size=1024):
+    for chunk in r.iter_content(chunk_size=10 * 1024 * 1024):
         if chunk:  # filter out keep-alive new chunks
             progress.update(len(chunk))
             temp_file.write(chunk)
     progress.close()
 
 
+@validate_hf_hub_args
 def cached_download(
     url: str,
     *,
@@ -501,14 +514,14 @@ def cached_download(
     library_version: Optional[str] = None,
     cache_dir: Union[str, Path, None] = None,
     user_agent: Union[Dict, str, None] = None,
-    force_download: Optional[bool] = False,
+    force_download: bool = False,
     force_filename: Optional[str] = None,
     proxies: Optional[Dict] = None,
-    etag_timeout: Optional[float] = 10,
-    resume_download: Optional[bool] = False,
-    use_auth_token: Union[bool, str, None] = None,
-    local_files_only: Optional[bool] = False,
-    legacy_cache_layout: Optional[bool] = False,
+    etag_timeout: float = 10,
+    resume_download: bool = False,
+    token: Union[bool, str, None] = None,
+    local_files_only: bool = False,
+    legacy_cache_layout: bool = False,
 ) -> Optional[str]:  # pragma: no cover
     """
     Download from a given URL and cache it if it's not already present in the
@@ -544,7 +557,7 @@ def cached_download(
             data before giving up which is passed to `requests.request`.
         resume_download (`bool`, *optional*, defaults to `False`):
             If `True`, resume a previously interrupted download.
-        use_auth_token (`bool`, `str`, *optional*):
+        token (`bool`, `str`, *optional*):
             A token to be used for the download.
                 - If `True`, the token is read from the HuggingFace config
                   folder.
@@ -567,7 +580,7 @@ def cached_download(
     Raises the following errors:
 
         - [`EnvironmentError`](https://docs.python.org/3/library/exceptions.html#EnvironmentError)
-          if `use_auth_token=True` and the token cannot be found.
+          if `token=True` and the token cannot be found.
         - [`OSError`](https://docs.python.org/3/library/exceptions.html#OSError)
           if ETag cannot be determined.
         - [`ValueError`](https://docs.python.org/3/library/exceptions.html#ValueError)
@@ -599,7 +612,7 @@ def cached_download(
     os.makedirs(cache_dir, exist_ok=True)
 
     headers = build_hf_headers(
-        use_auth_token=use_auth_token,
+        token=token,
         library_name=library_name,
         library_version=library_version,
         user_agent=user_agent,
@@ -714,7 +727,7 @@ def cached_download(
             incomplete_path = cache_path + ".incomplete"
 
             @contextmanager
-            def _resumable_file_manager() -> "io.BufferedWriter":
+            def _resumable_file_manager() -> Generator[io.BufferedWriter, None, None]:
                 with open(incomplete_path, "ab") as f:
                     yield f
 
@@ -724,7 +737,7 @@ def cached_download(
             else:
                 resume_size = 0
         else:
-            temp_file_manager = partial(
+            temp_file_manager = partial(  # type: ignore
                 tempfile.NamedTemporaryFile, mode="wb", dir=cache_dir, delete=False
             )
             resume_size = 0
@@ -743,7 +756,7 @@ def cached_download(
             )
 
         logger.info("storing %s in cache at %s", url, cache_path)
-        os.replace(temp_file.name, cache_path)
+        _chmod_and_replace(temp_file.name, cache_path)
 
         if force_filename is None:
             logger.info("creating metadata file for %s", cache_path)
@@ -832,10 +845,13 @@ def _cache_commit_hash_for_specific_revision(
     Does nothing if `revision` is already a proper `commit_hash` or reference is already cached.
     """
     if revision != commit_hash:
-        ref_path = os.path.join(storage_folder, "refs", revision)
-        os.makedirs(os.path.dirname(ref_path), exist_ok=True)
-        with open(ref_path, "w") as f:
-            f.write(commit_hash)
+        ref_path = Path(storage_folder) / "refs" / revision
+        ref_path.parent.mkdir(parents=True, exist_ok=True)
+        if not ref_path.exists() or commit_hash != ref_path.read_text():
+            # Update ref only if has been updated. Could cause useless error in case
+            # repo is already cached and user doesn't have write access to cache folder.
+            # See https://github.com/huggingface/huggingface_hub/issues/1216.
+            ref_path.write_text(commit_hash)
 
 
 @validate_hf_hub_args
@@ -850,11 +866,7 @@ def repo_folder_name(*, repo_id: str, repo_type: str) -> str:
     return REPO_ID_SEPARATOR.join(parts)
 
 
-# Do not validate `repo_id` in `hf_hub_download` for now as the `repo_id="datasets/.../..."`
-# pattern is used/advertised in Transformers examples.
-# Related: https://github.com/huggingface/huggingface_hub/pull/1029
-# TODO: set back validation in V0.12.
-# @validate_hf_hub_args
+@validate_hf_hub_args
 def hf_hub_download(
     repo_id: str,
     filename: str,
@@ -866,14 +878,14 @@ def hf_hub_download(
     library_version: Optional[str] = None,
     cache_dir: Union[str, Path, None] = None,
     user_agent: Union[Dict, str, None] = None,
-    force_download: Optional[bool] = False,
+    force_download: bool = False,
     force_filename: Optional[str] = None,
     proxies: Optional[Dict] = None,
-    etag_timeout: Optional[float] = 10,
-    resume_download: Optional[bool] = False,
-    use_auth_token: Union[bool, str, None] = None,
-    local_files_only: Optional[bool] = False,
-    legacy_cache_layout: Optional[bool] = False,
+    etag_timeout: float = 10,
+    resume_download: bool = False,
+    token: Union[bool, str, None] = None,
+    local_files_only: bool = False,
+    legacy_cache_layout: bool = False,
 ):
     """Download a given file if it's not already present in the local cache.
 
@@ -937,7 +949,7 @@ def hf_hub_download(
             data before giving up which is passed to `requests.request`.
         resume_download (`bool`, *optional*, defaults to `False`):
             If `True`, resume a previously interrupted download.
-        use_auth_token (`str`, `bool`, *optional*):
+        token (`str`, `bool`, *optional*):
             A token to be used for the download.
                 - If `True`, the token is read from the HuggingFace config
                   folder.
@@ -959,7 +971,7 @@ def hf_hub_download(
     Raises the following errors:
 
         - [`EnvironmentError`](https://docs.python.org/3/library/exceptions.html#EnvironmentError)
-          if `use_auth_token=True` and the token cannot be found.
+          if `token=True` and the token cannot be found.
         - [`OSError`](https://docs.python.org/3/library/exceptions.html#OSError)
           if ETag cannot be determined.
         - [`ValueError`](https://docs.python.org/3/library/exceptions.html#ValueError)
@@ -1004,7 +1016,7 @@ def hf_hub_download(
             proxies=proxies,
             etag_timeout=etag_timeout,
             resume_download=resume_download,
-            use_auth_token=use_auth_token,
+            token=token,
             local_files_only=local_files_only,
             legacy_cache_layout=legacy_cache_layout,
         )
@@ -1050,7 +1062,7 @@ def hf_hub_download(
     url = hf_hub_url(repo_id, filename, repo_type=repo_type, revision=revision)
 
     headers = build_hf_headers(
-        use_auth_token=use_auth_token,
+        token=token,
         library_name=library_name,
         library_version=library_version,
         user_agent=user_agent,
@@ -1064,7 +1076,7 @@ def hf_hub_download(
             try:
                 metadata = get_hf_file_metadata(
                     url=url,
-                    use_auth_token=use_auth_token,
+                    token=token,
                     proxies=proxies,
                     timeout=etag_timeout,
                 )
@@ -1112,12 +1124,8 @@ def hf_hub_download(
             # Useful for lfs blobs that are stored on a CDN.
             if metadata.location != url:
                 url_to_download = metadata.location
-                if (
-                    "lfs.huggingface.co" in url_to_download
-                    or "lfs-staging.huggingface.co" in url_to_download
-                ):
-                    # Remove authorization header when downloading a LFS blob
-                    headers.pop("authorization", None)
+                # Remove authorization header when downloading a LFS blob
+                headers.pop("authorization", None)
         except (requests.exceptions.SSLError, requests.exceptions.ProxyError):
             # Actually raise for those subclasses of ConnectionError
             raise
@@ -1173,6 +1181,8 @@ def hf_hub_download(
             )
 
     # From now on, etag and commit_hash are not None.
+    assert etag is not None, "etag must have been retrieved from server"
+    assert commit_hash is not None, "commit_hash must have been retrieved from server"
     blob_path = os.path.join(storage_folder, "blobs", etag)
     pointer_path = os.path.join(
         storage_folder, "snapshots", commit_hash, relative_filename
@@ -1215,7 +1225,7 @@ def hf_hub_download(
             incomplete_path = blob_path + ".incomplete"
 
             @contextmanager
-            def _resumable_file_manager() -> "io.BufferedWriter":
+            def _resumable_file_manager() -> Generator[io.BufferedWriter, None, None]:
                 with open(incomplete_path, "ab") as f:
                     yield f
 
@@ -1225,7 +1235,7 @@ def hf_hub_download(
             else:
                 resume_size = 0
         else:
-            temp_file_manager = partial(
+            temp_file_manager = partial(  # type: ignore
                 tempfile.NamedTemporaryFile, mode="wb", dir=cache_dir, delete=False
             )
             resume_size = 0
@@ -1244,7 +1254,7 @@ def hf_hub_download(
             )
 
         logger.info("storing %s in cache at %s", url, blob_path)
-        os.replace(temp_file.name, blob_path)
+        _chmod_and_replace(temp_file.name, blob_path)
 
         logger.info("creating pointer to %s from %s", blob_path, pointer_path)
         _create_relative_symlink(blob_path, pointer_path, new_blob=True)
@@ -1264,7 +1274,7 @@ def try_to_load_from_cache(
     cache_dir: Union[str, Path, None] = None,
     revision: Optional[str] = None,
     repo_type: Optional[str] = None,
-) -> Optional[str]:
+) -> Union[str, _CACHED_NO_EXIST_T, None]:
     """
     Explores the cache to return the latest cached file for a given revision if found.
 
@@ -1329,18 +1339,19 @@ def try_to_load_from_cache(
     return cached_file if os.path.isfile(cached_file) else None
 
 
+@validate_hf_hub_args
 def get_hf_file_metadata(
     url: str,
-    use_auth_token: Union[bool, str, None] = None,
+    token: Union[bool, str, None] = None,
     proxies: Optional[Dict] = None,
-    timeout: Optional[float] = 10,
+    timeout: float = 10,
 ) -> HfFileMetadata:
     """Fetch metadata of a file versioned on the Hub for a given url.
 
     Args:
         url (`str`):
             File url, for example returned by [`hf_hub_url`].
-        use_auth_token (`str` or `bool`, *optional*):
+        token (`str` or `bool`, *optional*):
             A token to be used for the download.
                 - If `True`, the token is read from the HuggingFace config
                   folder.
@@ -1349,14 +1360,14 @@ def get_hf_file_metadata(
         proxies (`dict`, *optional*):
             Dictionary mapping protocol to the URL of the proxy passed to
             `requests.request`.
-        etag_timeout (`float`, *optional*, defaults to 10):
+        timeout (`float`, *optional*, defaults to 10):
             How many seconds to wait for the server to send metadata before giving up.
 
     Returns:
-        A [`HfFileMetadata`] object containing metadata such as location, etag and
+        A [`HfFileMetadata`] object containing metadata such as location, etag, size and
         commit_hash.
     """
-    headers = build_hf_headers(use_auth_token=use_auth_token)
+    headers = build_hf_headers(token=token)
 
     # Retrieve metadata
     r = _request_wrapper(
@@ -1382,5 +1393,41 @@ def get_hf_file_metadata(
         # Either from response headers (if redirected) or defaults to request url
         # Do not use directly `url`, as `_request_wrapper` might have followed relative
         # redirects.
-        location=r.headers.get("Location") or r.request.url,
+        location=r.headers.get("Location") or r.request.url,  # type: ignore
+        size=_int_or_none(
+            r.headers.get(HUGGINGFACE_HEADER_X_LINKED_SIZE)
+            or r.headers.get("Content-Length")
+        ),
     )
+
+
+def _int_or_none(value: Optional[str]) -> Optional[int]:
+    try:
+        return int(value)  # type: ignore
+    except (TypeError, ValueError):
+        return None
+
+
+def _chmod_and_replace(src: str, dst: str) -> None:
+    """Set correct permission before moving a blob from tmp directory to cache dir.
+
+    Do not take into account the `umask` from the process as there is no convenient way
+    to get it that is thread-safe.
+
+    See:
+    - About umask: https://docs.python.org/3/library/os.html#os.umask
+    - Thread-safety: https://stackoverflow.com/a/70343066
+    - About solution: https://github.com/huggingface/huggingface_hub/pull/1220#issuecomment-1326211591
+    - Fix issue: https://github.com/huggingface/huggingface_hub/issues/1141
+    - Fix issue: https://github.com/huggingface/huggingface_hub/issues/1215
+    """
+    # Get umask by creating a temporary file in the cached repo folder.
+    tmp_file = Path(dst).parent.parent / f"tmp_{uuid.uuid4()}"
+    try:
+        tmp_file.touch()
+        cache_dir_mode = Path(tmp_file).stat().st_mode
+        os.chmod(src, stat.S_IMODE(cache_dir_mode))
+    finally:
+        tmp_file.unlink()
+
+    os.replace(src, dst)

@@ -29,11 +29,13 @@ from ._runtime import (
     is_tf_available,
     is_torch_available,
 )
+from ._validators import validate_hf_hub_args
 
 
+@validate_hf_hub_args
 def build_hf_headers(
     *,
-    use_auth_token: Optional[Union[bool, str]] = None,
+    token: Optional[Union[bool, str]] = None,
     is_write_action: bool = False,
     library_name: Optional[str] = None,
     library_version: Optional[str] = None,
@@ -44,7 +46,7 @@ def build_hf_headers(
 
     By default, authorization token is always provided either from argument (explicit
     use) or retrieved from the cache (implicit use). To explicitly avoid sending the
-    token to the Hub, set `use_auth_token=False` or set the `HF_HUB_DISABLE_IMPLICIT_TOKEN`
+    token to the Hub, set `token=False` or set the `HF_HUB_DISABLE_IMPLICIT_TOKEN`
     environment variable.
 
     In case of an API call that requires write access, an error is thrown if token is
@@ -55,7 +57,7 @@ def build_hf_headers(
     fastai and fastcore).
 
     Args:
-        use_auth_token (`str`, `bool`, *optional*):
+        token (`str`, `bool`, *optional*):
             The token to be sent in authorization header for the Hub call:
                 - if a string, it is used as the Hugging Face token
                 - if `True`, the token is read from the machine (cache or env variable)
@@ -80,13 +82,13 @@ def build_hf_headers(
 
     Example:
     ```py
-        >>> build_hf_headers(use_auth_token="hf_***") # explicit token
+        >>> build_hf_headers(token="hf_***") # explicit token
         {"authorization": "Bearer hf_***", "user-agent": ""}
 
-        >>> build_hf_headers(use_auth_token=True) # explicitly use cached token
+        >>> build_hf_headers(token=True) # explicitly use cached token
         {"authorization": "Bearer hf_***",...}
 
-        >>> build_hf_headers(use_auth_token=False) # explicitly don't use cached token
+        >>> build_hf_headers(token=False) # explicitly don't use cached token
         {"user-agent": ...}
 
         >>> build_hf_headers() # implicit use of the cached token
@@ -96,7 +98,7 @@ def build_hf_headers(
         >>> build_hf_headers() # token is not sent
         {"user-agent": ...}
 
-        >>> build_hf_headers(use_auth_token="api_org_***", is_write_action=True)
+        >>> build_hf_headers(token="api_org_***", is_write_action=True)
         ValueError: You must use your personal account token for write-access methods.
 
         >>> build_hf_headers(library_name="transformers", library_version="1.2.3")
@@ -109,10 +111,10 @@ def build_hf_headers(
         [`ValueError`](https://docs.python.org/3/library/exceptions.html#ValueError)
             If "write" access is required but token is not passed and not saved locally.
         [`EnvironmentError`](https://docs.python.org/3/library/exceptions.html#EnvironmentError)
-            If `use_auth_token=True` but token is not saved locally.
+            If `token=True` but token is not saved locally.
     """
     # Get auth token to send
-    token_to_send = get_token_to_send(use_auth_token)
+    token_to_send = get_token_to_send(token)
     _validate_token_to_send(token_to_send, is_write_action=is_write_action)
 
     # Combine headers
@@ -128,26 +130,26 @@ def build_hf_headers(
     return headers
 
 
-def get_token_to_send(use_auth_token: Optional[Union[bool, str]]) -> Optional[str]:
-    """Select the token to send from either `use_auth_token` or the cache."""
+def get_token_to_send(token: Optional[Union[bool, str]]) -> Optional[str]:
+    """Select the token to send from either `token` or the cache."""
     # Case token is explicitly provided
-    if isinstance(use_auth_token, str):
-        return use_auth_token
+    if isinstance(token, str):
+        return token
 
     # Case token is explicitly forbidden
-    if use_auth_token is False:
+    if token is False:
         return None
 
     # Token is not provided: we get it from local cache
     cached_token = HfFolder().get_token()
 
     # Case token is explicitly required
-    if use_auth_token is True:
+    if token is True:
         if cached_token is None:
             raise EnvironmentError(
-                "Token is required (`use_auth_token=True`), but no token found. You"
+                "Token is required (`token=True`), but no token found. You"
                 " need to provide a token or be logged in to Hugging Face with"
-                " `huggingface-cli login` or `notebook_login`. See"
+                " `huggingface-cli login` or `huggingface_hub.login`. See"
                 " https://huggingface.co/settings/tokens."
             )
         return cached_token
@@ -166,7 +168,7 @@ def _validate_token_to_send(token: Optional[str], is_write_action: bool) -> None
             raise ValueError(
                 "Token is required (write-access action) but no token found. You need"
                 " to provide a token or be logged in to Hugging Face with"
-                " `huggingface-cli login` or `notebook_login`. See"
+                " `huggingface-cli login` or `huggingface_hub.login`. See"
                 " https://huggingface.co/settings/tokens."
             )
         if token.startswith("api_org"):

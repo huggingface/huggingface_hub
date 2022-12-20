@@ -9,28 +9,27 @@ import requests
 from .constants import CONFIG_NAME, PYTORCH_WEIGHTS_NAME
 from .file_download import hf_hub_download, is_torch_available
 from .hf_api import HfApi
-from .repository import Repository
-from .utils import HfFolder, logging, validate_hf_hub_args
-from .utils._deprecation import _deprecate_arguments, _deprecate_positional_args
+from .utils import logging, validate_hf_hub_args
 
 
 if is_torch_available():
-    import torch
+    import torch  # type: ignore
 
 logger = logging.get_logger(__name__)
 
 
 class ModelHubMixin:
     """
-    A Generic Base Model Hub Mixin. Define your own mixin for anything by
-    inheriting from this class and overwriting `_from_pretrained` and
-    `_save_pretrained` to define custom logic for saving/loading your classes.
-    See `huggingface_hub.PyTorchModelHubMixin` for an example.
+    A generic Hub mixin for machine learning models. Define your own mixin for
+    any framework by inheriting from this class and overwriting the
+    [`_from_pretrained`] and [`_save_pretrained`] methods to define custom logic
+    for saving and loading your classes. See [`PyTorchModelHubMixin`] for an
+    example.
     """
 
     def save_pretrained(
         self,
-        save_directory: str,
+        save_directory: Union[str, Path],
         config: Optional[dict] = None,
         push_to_hub: bool = False,
         **kwargs,
@@ -39,13 +38,13 @@ class ModelHubMixin:
         Save weights in local directory.
 
         Parameters:
-            save_directory (`str`):
+            save_directory (`str` or `Path`):
                 Specify directory in which you want to save weights.
             config (`dict`, *optional*):
                 Specify config (must be dict) in case you want to save
                 it.
             push_to_hub (`bool`, *optional*, defaults to `False`):
-                Whether or not to push your model to the Hugging Face model hub after
+                Whether or not to push your model to the Hugging Face Hub after
                 saving it. You can specify the repository you want to push to with
                 `repo_id` (will default to the name of `save_directory` in your
                 namespace).
@@ -69,51 +68,33 @@ class ModelHubMixin:
             if config is not None:  # kwarg for `push_to_hub`
                 kwargs["config"] = config
 
-            if (
-                # If a deprecated argument is passed, we have to use the deprecated
-                # version of `push_to_hub`.
-                # TODO: remove this possibility in v0.12
-                kwargs.get("repo_url") is not None
-                or kwargs.get("repo_path_or_name") is not None
-                or kwargs.get("organization") is not None
-                or kwargs.get("use_auth_token") is not None
-                or kwargs.get("git_user") is not None
-                or kwargs.get("git_email") is not None
-                or kwargs.get("skip_lfs_files") is not None
-            ):
-                if kwargs.get("repo_path_or_name") is None:
-                    # Repo name defaults to `save_directory` name
-                    kwargs["repo_path_or_name"] = save_directory
-            elif kwargs.get("repo_id") is None:
+            if kwargs.get("repo_id") is None:
                 # Repo name defaults to `save_directory` name
                 kwargs["repo_id"] = Path(save_directory).name
 
             return self.push_to_hub(**kwargs)
 
-    def _save_pretrained(self, save_directory: str):
+    def _save_pretrained(self, save_directory: Union[str, Path]):
         """
         Overwrite this method in subclass to define how to save your model.
         """
         raise NotImplementedError
 
     @classmethod
+    @validate_hf_hub_args
     def from_pretrained(
         cls,
         pretrained_model_name_or_path: str,
         force_download: bool = False,
         resume_download: bool = False,
-        proxies: Dict = None,
-        use_auth_token: Optional[str] = None,
+        proxies: Optional[Dict] = None,
+        token: Optional[Union[str, bool]] = None,
         cache_dir: Optional[str] = None,
         local_files_only: bool = False,
         **model_kwargs,
     ):
         r"""
-        Instantiate a pretrained PyTorch model from a pre-trained model
-                configuration from huggingface-hub. The model is set in
-                evaluation mode by default using `model.eval()` (Dropout modules
-                are deactivated). To train the model, you should first set it
-                back in training mode with `model.train()`.
+        Download and instantiate a model from the Hugging Face Hub.
 
                 Parameters:
                     pretrained_model_name_or_path (`str` or `os.PathLike`):
@@ -151,7 +132,7 @@ class ModelHubMixin:
                         endpoint, e.g., `{'http': 'foo.bar:3128',
                         'http://hostname': 'foo.bar:4012'}`. The proxies are
                         used on each request.
-                    use_auth_token (`str` or `bool`, *optional*):
+                    token (`str` or `bool`, *optional*):
                         The token to use as HTTP bearer authorization for remote
                         files. If `True`, will use the token generated when
                         running `transformers-cli login` (stored in
@@ -169,7 +150,7 @@ class ModelHubMixin:
 
                 <Tip>
 
-                Passing `use_auth_token=True` is required when you want to use a
+                Passing `token=True` is required when you want to use a
                 private model.
 
                 </Tip>
@@ -197,7 +178,7 @@ class ModelHubMixin:
                     force_download=force_download,
                     proxies=proxies,
                     resume_download=resume_download,
-                    use_auth_token=use_auth_token,
+                    token=token,
                     local_files_only=local_files_only,
                 )
             except requests.exceptions.RequestException:
@@ -216,7 +197,7 @@ class ModelHubMixin:
             proxies,
             resume_download,
             local_files_only,
-            use_auth_token,
+            token,
             **model_kwargs,
         )
 
@@ -230,61 +211,27 @@ class ModelHubMixin:
         proxies,
         resume_download,
         local_files_only,
-        use_auth_token,
+        token,
         **model_kwargs,
     ):
         """Overwrite this method in subclass to define how to load your model from
         pretrained"""
         raise NotImplementedError
 
-    @_deprecate_positional_args(version="0.12")
-    @_deprecate_arguments(
-        version="0.12",
-        deprecated_args={
-            "repo_url",
-            "repo_path_or_name",
-            "organization",
-            "use_auth_token",
-            "git_user",
-            "git_email",
-            "skip_lfs_files",
-        },
-    )
     @validate_hf_hub_args
     def push_to_hub(
         self,
-        # NOTE: deprecated signature that will change in 0.12
+        repo_id: str,
         *,
-        repo_path_or_name: Optional[str] = None,
-        repo_url: Optional[str] = None,
-        commit_message: Optional[str] = "Add model",
-        organization: Optional[str] = None,
+        config: Optional[dict] = None,
+        commit_message: str = "Push model using huggingface_hub.",
         private: bool = False,
         api_endpoint: Optional[str] = None,
-        use_auth_token: Optional[Union[bool, str]] = None,
-        git_user: Optional[str] = None,
-        git_email: Optional[str] = None,
-        config: Optional[dict] = None,
-        skip_lfs_files: bool = False,
-        # NOTE: New arguments since 0.9
-        repo_id: Optional[str] = None,  # optional only until 0.12
         token: Optional[str] = None,
         branch: Optional[str] = None,
         create_pr: Optional[bool] = None,
         allow_patterns: Optional[Union[List[str], str]] = None,
         ignore_patterns: Optional[Union[List[str], str]] = None,
-        # TODO (release 0.12): signature must be the following
-        # repo_id: str,
-        # *,
-        # commit_message: Optional[str] = "Add model",
-        # private: bool = False,
-        # api_endpoint: Optional[str] = None,
-        # token: Optional[str] = None,
-        # branch: Optional[str] = None,
-        # create_pr: Optional[bool] = None,
-        # config: Optional[dict] = None,
-        # allow_patterns: Optional[Union[List[str], str]] = None,
-        # ignore_patterns: Optional[Union[List[str], str]] = None,
     ) -> str:
         """
         Upload model checkpoint to the Hub.
@@ -295,6 +242,8 @@ class ModelHubMixin:
         Parameters:
             repo_id (`str`, *optional*):
                 Repository name to which push.
+            config (`dict`, *optional*):
+                Configuration object to be saved alongside the model weights.
             commit_message (`str`, *optional*):
                 Message to commit while pushing.
             private (`bool`, *optional*, defaults to `False`):
@@ -312,8 +261,6 @@ class ModelHubMixin:
             create_pr (`boolean`, *optional*):
                 Whether or not to create a Pull Request from `branch` with that commit.
                 Defaults to `False`.
-            config (`dict`, *optional*):
-                Configuration object to be saved alongside the model weights.
             allow_patterns (`List[str]` or `str`, *optional*):
                 If provided, only files matching at least one pattern are pushed.
             ignore_patterns (`List[str]` or `str`, *optional*):
@@ -322,129 +269,72 @@ class ModelHubMixin:
         Returns:
             The url of the commit of your model in the given repository.
         """
-        # If the repo id is set, it means we use the new version using HTTP endpoint
-        # (introduced in v0.9).
-        if repo_id is not None:
-            api = HfApi(endpoint=api_endpoint)
-            api.create_repo(
+        api = HfApi(endpoint=api_endpoint)
+        api.create_repo(
+            repo_id=repo_id,
+            repo_type="model",
+            token=token,
+            private=private,
+            exist_ok=True,
+        )
+
+        # Push the files to the repo in a single commit
+        with tempfile.TemporaryDirectory() as tmp:
+            saved_path = Path(tmp) / repo_id
+            self.save_pretrained(saved_path, config=config)
+            return api.upload_folder(
                 repo_id=repo_id,
                 repo_type="model",
                 token=token,
-                private=private,
-                exist_ok=True,
+                folder_path=saved_path,
+                commit_message=commit_message,
+                revision=branch,
+                create_pr=create_pr,
+                allow_patterns=allow_patterns,
+                ignore_patterns=ignore_patterns,
             )
-
-            # Push the files to the repo in a single commit
-            with tempfile.TemporaryDirectory() as tmp:
-                saved_path = Path(tmp) / repo_id
-                self.save_pretrained(saved_path, config=config)
-                return api.upload_folder(
-                    repo_id=repo_id,
-                    repo_type="model",
-                    token=token,
-                    folder_path=saved_path,
-                    commit_message=commit_message,
-                    revision=branch,
-                    create_pr=create_pr,
-                    allow_patterns=allow_patterns,
-                    ignore_patterns=ignore_patterns,
-                )
-
-        # If the repo id is None, it means we use the deprecated version using Git
-        # TODO: remove code between here and `return repo.git_push()` in release 0.12
-        if repo_path_or_name is None and repo_url is None:
-            raise ValueError(
-                "You need to specify a `repo_path_or_name` or a `repo_url`."
-            )
-
-        if use_auth_token is None and repo_url is None:
-            token = HfFolder.get_token()
-            if token is None:
-                raise ValueError(
-                    "You must login to the Hugging Face hub on this computer by typing"
-                    " `huggingface-cli login` and entering your credentials to use"
-                    " `use_auth_token=True`. Alternatively, you can pass your own token"
-                    " as the `use_auth_token` argument."
-                )
-        elif isinstance(use_auth_token, str):
-            token = use_auth_token
-        else:
-            token = None
-
-        if repo_path_or_name is None:
-            repo_path_or_name = repo_url.split("/")[-1]
-
-        # If no URL is passed and there's no path to a directory containing files, create a repo
-        if repo_url is None and not os.path.exists(repo_path_or_name):
-            repo_id = Path(repo_path_or_name).name
-            if organization:
-                repo_id = f"{organization}/{repo_id}"
-            repo_url = HfApi(endpoint=api_endpoint).create_repo(
-                repo_id=repo_id,
-                token=token,
-                private=private,
-                repo_type=None,
-                exist_ok=True,
-            )
-
-        repo = Repository(
-            repo_path_or_name,
-            clone_from=repo_url,
-            use_auth_token=use_auth_token,
-            git_user=git_user,
-            git_email=git_email,
-            skip_lfs_files=skip_lfs_files,
-        )
-        repo.git_pull(rebase=True)
-
-        # Save the files in the cloned repo
-        self.save_pretrained(repo_path_or_name, config=config)
-
-        # Commit and push!
-        repo.git_add(auto_lfs_track=True)
-        repo.git_commit(commit_message)
-        return repo.git_push()
 
 
 class PyTorchModelHubMixin(ModelHubMixin):
-    def __init__(self, *args, **kwargs):
-        """
-        Mix this class with your torch-model class for ease process of saving &
-        loading from huggingface-hub.
+    """
+    Implementation of [`ModelHubMixin`] to provide model Hub upload/download
+    capabilities to PyTorch models. The model is set in evaluation mode by
+    default using `model.eval()` (dropout modules are deactivated). To train
+    the model, you should first set it back in training mode with
+    `model.train()`.
 
-        Example:
+    Example:
 
-        ```python
-        >>> from huggingface_hub import PyTorchModelHubMixin
-
-
-        >>> class MyModel(nn.Module, PyTorchModelHubMixin):
-        ...     def __init__(self, **kwargs):
-        ...         super().__init__()
-        ...         self.config = kwargs.pop("config", None)
-        ...         self.layer = ...
-
-        ...     def forward(self, *args):
-        ...         return ...
+    ```python
+    >>> import torch
+    >>> import torch.nn as nn
+    >>> from huggingface_hub import PyTorchModelHubMixin
 
 
-        >>> model = MyModel()
-        >>> model.save_pretrained(
-        ...     "mymodel", push_to_hub=False
-        >>> )  # Saving model weights in the directory
-        >>> model.push_to_hub(
-        ...     repo_id="mymodel", commit_message="model-1"
-        >>> )  # Pushing model-weights to hf-hub
+    >>> class MyModel(nn.Module, PyTorchModelHubMixin):
+    ...     def __init__(self):
+    ...         super().__init__()
+    ...         self.param = nn.Parameter(torch.rand(3, 4))
+    ...         self.linear = nn.Linear(4, 5)
 
-        >>> # Downloading weights from hf-hub & model will be initialized from those weights
-        >>> model = MyModel.from_pretrained("username/mymodel@main")
-        ```
-        """
+    ...     def forward(self, x):
+    ...         return self.linear(x + self.param)
+
+
+    >>> model = MyModel()
+    >>> # Save model weights to local directory
+    >>> model.save_pretrained("my-awesome-model")
+    >>> # Push model weights to the Hub
+    >>> model.push_to_hub("my-awesome-model")
+    >>> # Download and initialize weights from the Hub
+    >>> model = MyModel.from_pretrained("username/my-awesome-model")
+    ```
+    """
 
     def _save_pretrained(self, save_directory):
         """
-        Overwrite this method in case you don't want to save complete model,
-        rather some specific layers
+        Overwrite this method if you wish to save specific layers instead of the
+        complete model.
         """
         path = os.path.join(save_directory, PYTORCH_WEIGHTS_NAME)
         model_to_save = self.module if hasattr(self, "module") else self
@@ -460,14 +350,13 @@ class PyTorchModelHubMixin(ModelHubMixin):
         proxies,
         resume_download,
         local_files_only,
-        use_auth_token,
+        token,
         map_location="cpu",
         strict=False,
         **model_kwargs,
     ):
         """
-        Overwrite this method in case you wish to initialize your model in a
-        different way.
+        Overwrite this method to initialize your model in a different way.
         """
         map_location = torch.device(map_location)
 
@@ -483,7 +372,7 @@ class PyTorchModelHubMixin(ModelHubMixin):
                 force_download=force_download,
                 proxies=proxies,
                 resume_download=resume_download,
-                use_auth_token=use_auth_token,
+                token=token,
                 local_files_only=local_files_only,
             )
         model = cls(**model_kwargs)

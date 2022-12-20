@@ -102,50 +102,50 @@ class TestValidCacheUtils(unittest.TestCase):
         report = scan_cache_dir(self.cache_dir)
 
         # Check general information about downloaded snapshots
-        self.assertEquals(report.size_on_disk, 3547)
-        self.assertEquals(len(report.repos), 2)  # Model and dataset
-        self.assertEquals(len(report.warnings), 0)  # Repos are valid
+        self.assertEqual(report.size_on_disk, 3547)
+        self.assertEqual(len(report.repos), 2)  # Model and dataset
+        self.assertEqual(len(report.warnings), 0)  # Repos are valid
 
         repo_a = [repo for repo in report.repos if repo.repo_id == VALID_MODEL_ID][0]
 
         # Check repo A general information
         repo_a_path = self.cache_dir / "models--valid_org--test_scan_repo_a"
-        self.assertEquals(repo_a.repo_id, VALID_MODEL_ID)
-        self.assertEquals(repo_a.repo_type, "model")
-        self.assertEquals(repo_a.repo_path, repo_a_path)
+        self.assertEqual(repo_a.repo_id, VALID_MODEL_ID)
+        self.assertEqual(repo_a.repo_type, "model")
+        self.assertEqual(repo_a.repo_path, repo_a_path)
 
         # 4 downloads but 3 revisions because "main" and REPO_A_MAIN_HASH are the same
-        self.assertEquals(len(repo_a.revisions), 3)
-        self.assertEquals(
+        self.assertEqual(len(repo_a.revisions), 3)
+        self.assertEqual(
             {rev.commit_hash for rev in repo_a.revisions},
             {REPO_A_MAIN_HASH, REPO_A_PR_1_HASH, REPO_A_OTHER_HASH},
         )
 
         # Repo size on disk is less than sum of revisions !
-        self.assertEquals(repo_a.size_on_disk, 1391)
-        self.assertEquals(sum(rev.size_on_disk for rev in repo_a.revisions), 4102)
+        self.assertEqual(repo_a.size_on_disk, 1391)
+        self.assertEqual(sum(rev.size_on_disk for rev in repo_a.revisions), 4102)
 
         # Repo nb files is less than sum of revisions !
-        self.assertEquals(repo_a.nb_files, 4)
-        self.assertEquals(sum(rev.nb_files for rev in repo_a.revisions), 8)
+        self.assertEqual(repo_a.nb_files, 4)
+        self.assertEqual(sum(rev.nb_files for rev in repo_a.revisions), 8)
 
         # 2 REFS in the repo: "main" and "refs/pr/1"
         # We could have add a tag as well
-        self.assertEquals(set(repo_a.refs.keys()), {"main", "refs/pr/1"})
-        self.assertEquals(repo_a.refs["main"].commit_hash, REPO_A_MAIN_HASH)
-        self.assertEquals(repo_a.refs["refs/pr/1"].commit_hash, REPO_A_PR_1_HASH)
+        self.assertEqual(set(repo_a.refs.keys()), {"main", "refs/pr/1"})
+        self.assertEqual(repo_a.refs["main"].commit_hash, REPO_A_MAIN_HASH)
+        self.assertEqual(repo_a.refs["refs/pr/1"].commit_hash, REPO_A_PR_1_HASH)
 
         # Check "main" revision information
         main_revision = repo_a.refs["main"]
         main_revision_path = repo_a_path / "snapshots" / REPO_A_MAIN_HASH
 
-        self.assertEquals(main_revision.commit_hash, REPO_A_MAIN_HASH)
-        self.assertEquals(main_revision.snapshot_path, main_revision_path)
-        self.assertEquals(main_revision.refs, {"main"})
+        self.assertEqual(main_revision.commit_hash, REPO_A_MAIN_HASH)
+        self.assertEqual(main_revision.snapshot_path, main_revision_path)
+        self.assertEqual(main_revision.refs, {"main"})
 
         # Same nb of files and size on disk that the sum
-        self.assertEquals(main_revision.nb_files, len(main_revision.files))
-        self.assertEquals(
+        self.assertEqual(main_revision.nb_files, len(main_revision.files))
+        self.assertEqual(
             main_revision.size_on_disk,
             sum(file.size_on_disk for file in main_revision.files),
         )
@@ -157,9 +157,9 @@ class TestValidCacheUtils(unittest.TestCase):
         main_readme_file_path = main_revision_path / "README.md"
         main_readme_blob_path = repo_a_path / "blobs" / REPO_A_MAIN_README_BLOB_HASH
 
-        self.assertEquals(main_readme_file.file_name, "README.md")
-        self.assertEquals(main_readme_file.file_path, main_readme_file_path)
-        self.assertEquals(main_readme_file.blob_path, main_readme_blob_path)
+        self.assertEqual(main_readme_file.file_name, "README.md")
+        self.assertEqual(main_readme_file.file_path, main_readme_file_path)
+        self.assertEqual(main_readme_file.blob_path, main_readme_blob_path)
 
         # Check readme file from "refs/pr/1" revision
         pr_1_revision = repo_a.refs["refs/pr/1"]
@@ -170,10 +170,8 @@ class TestValidCacheUtils(unittest.TestCase):
         pr_1_readme_file_path = pr_1_revision_path / "README.md"
 
         # file_path in "refs/pr/1" revision is different than "main" but same blob path
-        self.assertEquals(
-            pr_1_readme_file.file_path, pr_1_readme_file_path
-        )  # different
-        self.assertEquals(pr_1_readme_file.blob_path, main_readme_blob_path)  # same
+        self.assertEqual(pr_1_readme_file.file_path, pr_1_readme_file_path)  # different
+        self.assertEqual(pr_1_readme_file.blob_path, main_readme_blob_path)  # same
 
     def test_cli_scan_cache_quiet(self) -> None:
         """Test output from CLI scan cache with non verbose output.
@@ -279,7 +277,7 @@ class TestCorruptedCacheUtils(unittest.TestCase):
         repo_path.touch()
 
         report = scan_cache_dir(self.cache_dir)
-        self.assertEquals(len(report.repos), 1)  # Scan still worked !
+        self.assertEqual(len(report.repos), 1)  # Scan still worked !
 
         self.assertEqual(len(report.warnings), 1)
         self.assertEqual(
@@ -292,7 +290,7 @@ class TestCorruptedCacheUtils(unittest.TestCase):
         repo_path.mkdir()
 
         report = scan_cache_dir(self.cache_dir)
-        self.assertEquals(len(report.repos), 1)  # Scan still worked !
+        self.assertEqual(len(report.repos), 1)  # Scan still worked !
 
         self.assertEqual(len(report.warnings), 1)
         self.assertEqual(
@@ -306,7 +304,7 @@ class TestCorruptedCacheUtils(unittest.TestCase):
         repo_path.mkdir()
 
         report = scan_cache_dir(self.cache_dir)
-        self.assertEquals(len(report.repos), 1)  # Scan still worked !
+        self.assertEqual(len(report.repos), 1)  # Scan still worked !
 
         self.assertEqual(len(report.warnings), 1)
         self.assertEqual(
@@ -320,7 +318,7 @@ class TestCorruptedCacheUtils(unittest.TestCase):
         rmtree_with_retry(self.snapshots_path)
 
         report = scan_cache_dir(self.cache_dir)
-        self.assertEquals(len(report.repos), 0)  # Failed
+        self.assertEqual(len(report.repos), 0)  # Failed
 
         self.assertEqual(len(report.warnings), 1)
         self.assertEqual(
@@ -334,7 +332,7 @@ class TestCorruptedCacheUtils(unittest.TestCase):
         wrong_file_path.touch()
 
         report = scan_cache_dir(self.cache_dir)
-        self.assertEquals(len(report.repos), 0)  # Failed
+        self.assertEqual(len(report.repos), 0)  # Failed
 
         self.assertEqual(len(report.warnings), 1)
         self.assertEqual(
@@ -393,7 +391,7 @@ class TestCorruptedCacheUtils(unittest.TestCase):
             f.write("revision_hash_that_does_not_exist")
 
         report = scan_cache_dir(self.cache_dir)
-        self.assertEquals(len(report.repos), 0)  # Failed
+        self.assertEqual(len(report.repos), 0)  # Failed
 
         self.assertEqual(len(report.warnings), 1)
         self.assertEqual(
@@ -458,15 +456,15 @@ class TestCorruptedCacheUtils(unittest.TestCase):
         # Readme.md has been modified and then accessed more recently
         self.assertGreaterEqual(
             readme_file_2.blob_last_modified - readme_file_1.blob_last_modified,
-            TIME_GAP * 0.999,  # 0.999 factor because not exactly precise
+            TIME_GAP * 0.9,  # 0.9 factor because not exactly precise
         )
         self.assertGreaterEqual(
             readme_file_2.blob_last_accessed - readme_file_1.blob_last_accessed,
-            2 * TIME_GAP * 0.999,  # 0.999 factor because not exactly precise
+            2 * TIME_GAP * 0.9,  # 0.9 factor because not exactly precise
         )
         self.assertGreaterEqual(
             readme_file_2.blob_last_accessed - readme_file_2.blob_last_modified,
-            TIME_GAP * 0.999,  # 0.999 factor because not exactly precise
+            TIME_GAP * 0.9,  # 0.9 factor because not exactly precise
         )
 
         # Comparison of last_accessed/last_modified between file and repo
@@ -727,7 +725,7 @@ class TestTryDeletePath(unittest.TestCase):
             _try_delete_path(file_path, path_type="TYPE")
 
         # Assert warning message with traceback for debug purposes
-        self.assertEquals(len(captured.output), 1)
+        self.assertEqual(len(captured.output), 1)
         self.assertTrue(
             captured.output[0].startswith(
                 "WARNING:huggingface_hub.utils._cache_manager:Couldn't delete TYPE:"
@@ -743,7 +741,7 @@ class TestTryDeletePath(unittest.TestCase):
             _try_delete_path(dir_path, path_type="TYPE")
 
         # Assert warning message with traceback for debug purposes
-        self.assertEquals(len(captured.output), 1)
+        self.assertEqual(len(captured.output), 1)
         self.assertTrue(
             captured.output[0].startswith(
                 "WARNING:huggingface_hub.utils._cache_manager:Couldn't delete TYPE:"
@@ -766,7 +764,7 @@ class TestTryDeletePath(unittest.TestCase):
         self.assertTrue(dir_path.is_dir())
 
         # Assert warning message with traceback for debug purposes
-        self.assertEquals(len(captured.output), 1)
+        self.assertEqual(len(captured.output), 1)
         self.assertTrue(
             captured.output[0].startswith(
                 "WARNING:huggingface_hub.utils._cache_manager:Couldn't delete TYPE:"

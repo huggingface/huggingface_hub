@@ -22,10 +22,8 @@ import unittest
 import uuid
 from io import BytesIO
 
-import pytest
-
 import requests
-from huggingface_hub.commands.user import currently_setup_credential_helpers
+from huggingface_hub._login import _currently_setup_credential_helpers
 from huggingface_hub.hf_api import HfApi
 from huggingface_hub.repository import (
     Repository,
@@ -60,11 +58,12 @@ WORKING_DATASET_DIR = os.path.join(
 
 
 class RepositoryCommonTest(unittest.TestCase):
-    _api = HfApi(endpoint=ENDPOINT_STAGING)
+    _api = HfApi(endpoint=ENDPOINT_STAGING, token=TOKEN)
 
 
 class RepositoryTest(RepositoryCommonTest):
     @classmethod
+    @expect_deprecation("set_access_token")
     def setUpClass(cls):
         """
         Share this valid token in all tests below.
@@ -80,40 +79,32 @@ class RepositoryTest(RepositoryCommonTest):
             f"Does {WORKING_REPO_DIR} exist: {os.path.exists(WORKING_REPO_DIR)}"
         )
         self.REPO_NAME = repo_name()
-        self._repo_url = self._api.create_repo(
-            repo_id=self.REPO_NAME, token=self._token
-        )
+        self._repo_url = self._api.create_repo(repo_id=self.REPO_NAME)
         self._api.upload_file(
             path_or_fileobj=BytesIO(b"some initial binary data: \x00\x01"),
             path_in_repo="random_file.txt",
             repo_id=f"{USER}/{self.REPO_NAME}",
-            token=self._token,
         )
 
     def tearDown(self):
         try:
-            self._api.delete_repo(repo_id=f"{USER}/{self.REPO_NAME}", token=self._token)
+            self._api.delete_repo(repo_id=f"{USER}/{self.REPO_NAME}")
         except requests.exceptions.HTTPError:
             pass
 
         try:
-            self._api.delete_repo(repo_id=self.REPO_NAME, token=self._token)
+            self._api.delete_repo(repo_id=self.REPO_NAME)
         except requests.exceptions.HTTPError:
             pass
 
         try:
-            self._api.delete_repo(
-                repo_id=f"valid_org/{self.REPO_NAME}", token=self._token
-            )
+            self._api.delete_repo(repo_id=f"valid_org/{self.REPO_NAME}")
         except requests.exceptions.HTTPError:
             pass
 
     def test_init_clone_from(self):
         temp_repo_url = self._api.create_repo(
-            repo_id=f"{self.REPO_NAME}-temp",
-            token=self._token,
-            repo_type="space",
-            space_sdk="static",
+            repo_id=f"{self.REPO_NAME}-temp", repo_type="space", space_sdk="static"
         )
         Repository(
             WORKING_REPO_DIR,
@@ -122,26 +113,19 @@ class RepositoryTest(RepositoryCommonTest):
             use_auth_token=self._token,
         )
         self._api.delete_repo(
-            repo_id=f"{USER}/{self.REPO_NAME}-temp",
-            token=self._token,
-            repo_type="space",
+            repo_id=f"{USER}/{self.REPO_NAME}-temp", repo_type="space"
         )
 
     def test_clone_from_missing_repo(self):
-        """
-        If the repo does not exist, it is not created automatically. This behavior
-        was possible before but has been deprecated and removed.
-        """
-        with pytest.raises(EnvironmentError, match=".*remote: Repository not found.*"):
+        """If the repo does not exist an EnvironmentError is raised."""
+        with self.assertRaises(EnvironmentError):
             Repository(
-                WORKING_REPO_DIR,
-                clone_from=f"{USER}/{uuid.uuid4()}",
-                use_auth_token=self._token,
+                WORKING_REPO_DIR, clone_from=f"{USER}/{uuid.uuid4()}", token=self._token
             )
 
     def test_clone_from_model(self):
         temp_repo_url = self._api.create_repo(
-            repo_id=f"{self.REPO_NAME}-temp", token=self._token, repo_type="model"
+            repo_id=f"{self.REPO_NAME}-temp", repo_type="model"
         )
         Repository(
             WORKING_REPO_DIR,
@@ -149,9 +133,7 @@ class RepositoryTest(RepositoryCommonTest):
             repo_type="model",
             use_auth_token=self._token,
         )
-        self._api.delete_repo(
-            repo_id=f"{USER}/{self.REPO_NAME}-temp", token=self._token
-        )
+        self._api.delete_repo(repo_id=f"{USER}/{self.REPO_NAME}-temp")
 
     def test_init_from_existing_local_clone(self):
         subprocess.run(
@@ -216,14 +198,11 @@ class RepositoryTest(RepositoryCommonTest):
     @retry_endpoint
     def test_init_clone_in_nonempty_non_linked_git_repo(self):
         # Create a new repository on the HF Hub
-        temp_repo_url = self._api.create_repo(
-            repo_id=f"{self.REPO_NAME}-temp", token=self._token
-        )
+        temp_repo_url = self._api.create_repo(repo_id=f"{self.REPO_NAME}-temp")
         self._api.upload_file(
             path_or_fileobj=BytesIO(b"some initial binary data: \x00\x01"),
             path_in_repo="random_file_2.txt",
             repo_id=f"{USER}/{self.REPO_NAME}-temp",
-            token=self._token,
         )
 
         # Clone the new repository
@@ -235,7 +214,7 @@ class RepositoryTest(RepositoryCommonTest):
         with self.assertRaises(EnvironmentError):
             Repository(WORKING_REPO_DIR, clone_from=temp_repo_url)
 
-        self._api.delete_repo(repo_id=f"{self.REPO_NAME}-temp", token=self._token)
+        self._api.delete_repo(repo_id=f"{self.REPO_NAME}-temp")
 
     @retry_endpoint
     def test_init_clone_in_nonempty_linked_git_repo_with_token(self):
@@ -259,7 +238,6 @@ class RepositoryTest(RepositoryCommonTest):
             path_or_fileobj=BytesIO(b"some initial binary data: \x00\x01"),
             path_in_repo="random_file_3.txt",
             repo_id=f"{USER}/{self.REPO_NAME}",
-            token=self._token,
         )
 
         # Cloning the repository in the same directory should not result in a git pull.
@@ -287,7 +265,6 @@ class RepositoryTest(RepositoryCommonTest):
             path_or_fileobj=BytesIO(b"some initial binary data: \x00\x01"),
             path_in_repo="random_file_3.txt",
             repo_id=f"{USER}/{self.REPO_NAME}",
-            token=self._token,
         )
 
         # The repo should initialize correctly as the remote is the same, even with unrelated historied
@@ -405,7 +382,7 @@ class RepositoryTest(RepositoryCommonTest):
 
     @retry_endpoint
     def test_clone_with_endpoint(self):
-        self._api.create_repo(f"valid_org/{self.REPO_NAME}", token=self._token)
+        self._api.create_repo(f"valid_org/{self.REPO_NAME}")
 
         clone = Repository(
             f"{WORKING_REPO_DIR}/{self.REPO_NAME}",
@@ -437,7 +414,7 @@ class RepositoryTest(RepositoryCommonTest):
 
     @retry_endpoint
     def test_clone_with_repo_name_and_org(self):
-        self._api.create_repo(f"valid_org/{self.REPO_NAME}", token=self._token)
+        self._api.create_repo(f"valid_org/{self.REPO_NAME}")
 
         clone = Repository(
             f"{WORKING_REPO_DIR}/{self.REPO_NAME}",
@@ -512,7 +489,7 @@ class RepositoryTest(RepositoryCommonTest):
 
     @retry_endpoint
     def test_clone_with_repo_name_org_and_no_auth_token(self):
-        self._api.create_repo(f"valid_org/{self.REPO_NAME}", token=self._token)
+        self._api.create_repo(f"valid_org/{self.REPO_NAME}")
 
         # Instantiate it without token
         Repository(
@@ -1472,6 +1449,7 @@ class RepositoryOfflineTest(RepositoryCommonTest):
         files = os.listdir(current_head_repo.local_dir)
         self.assertIn("file.txt", files)
 
+    @expect_deprecation("set_access_token")
     def test_repo_user(self):
         api = HfApi(endpoint=ENDPOINT_STAGING)
         token = TOKEN
@@ -1500,6 +1478,7 @@ class RepositoryOfflineTest(RepositoryCommonTest):
         self.assertEqual(username, user["fullname"])
         self.assertEqual(email, user["email"])
 
+    @expect_deprecation("set_access_token")
     def test_repo_passed_user(self):
         api = HfApi(endpoint=ENDPOINT_STAGING)
         token = TOKEN
@@ -1530,6 +1509,7 @@ class RepositoryOfflineTest(RepositoryCommonTest):
         self.assertEqual(username, "RANDOM_USER")
         self.assertEqual(email, "EMAIL@EMAIL.EMAIL")
 
+    @expect_deprecation("_currently_setup_credential_helpers")
     def test_correct_helper(self):
         subprocess.run(
             ["git", "config", "--global", "credential.helper", "get"],
@@ -1540,9 +1520,9 @@ class RepositoryOfflineTest(RepositoryCommonTest):
         )
         repo = Repository(WORKING_REPO_DIR)
         self.assertListEqual(
-            currently_setup_credential_helpers(repo.local_dir), ["get", "store"]
+            _currently_setup_credential_helpers(repo.local_dir), ["get", "store"]
         )
-        self.assertEqual(currently_setup_credential_helpers(), ["get"])
+        self.assertEqual(_currently_setup_credential_helpers(), ["get"])
 
     def test_add_tag(self):
         repo = Repository(
@@ -1602,37 +1582,10 @@ class RepositoryOfflineTest(RepositoryCommonTest):
 
         self.assertFalse(repo.is_repo_clean())
 
-    @expect_deprecation("__init__")
-    def test_private_deprecation_on_init(self):
-        Repository(
-            WORKING_REPO_DIR,
-            private=True,
-            git_user="RANDOM_USER",
-            git_email="EMAIL@EMAIL.EMAIL",
-        )
-
-    @expect_deprecation("private")
-    def test_private_deprecation_on_attribute(self):
-        repo = Repository(
-            WORKING_REPO_DIR,
-            git_user="RANDOM_USER",
-            git_email="EMAIL@EMAIL.EMAIL",
-        )
-        self.assertFalse(repo.private)
-
-    @expect_deprecation("repo_type")
-    def test_repo_type_deprecation_on_attribute(self):
-        repo = Repository(
-            WORKING_REPO_DIR,
-            git_user="RANDOM_USER",
-            git_email="EMAIL@EMAIL.EMAIL",
-            repo_type="toto",
-        )
-        self.assertEqual(repo.repo_type, "toto")
-
 
 class RepositoryDatasetTest(RepositoryCommonTest):
     @classmethod
+    @expect_deprecation("set_access_token")
     def setUpClass(cls):
         """
         Share this valid token in all tests below.
@@ -1648,21 +1601,15 @@ class RepositoryDatasetTest(RepositoryCommonTest):
             f"Does {WORKING_DATASET_DIR}/{self.REPO_NAME} exist:"
             f" {os.path.exists(f'{WORKING_DATASET_DIR}/{self.REPO_NAME}')}"
         )
-        self._api.create_repo(
-            token=self._token, repo_id=self.REPO_NAME, repo_type="dataset"
-        )
+        self._api.create_repo(repo_id=self.REPO_NAME, repo_type="dataset")
 
     def tearDown(self):
         try:
-            self._api.delete_repo(
-                repo_id=self.REPO_NAME, token=self._token, repo_type="dataset"
-            )
+            self._api.delete_repo(repo_id=self.REPO_NAME, repo_type="dataset")
         except requests.exceptions.HTTPError:
             try:
                 self._api.delete_repo(
-                    repo_id=f"valid_org/{self.REPO_NAME}",
-                    token=self._token,
-                    repo_type="dataset",
+                    repo_id=f"valid_org/{self.REPO_NAME}", repo_type="dataset"
                 )
             except requests.exceptions.HTTPError:
                 pass
@@ -1699,9 +1646,7 @@ class RepositoryDatasetTest(RepositoryCommonTest):
 
     @retry_endpoint
     def test_clone_with_repo_name_and_org(self):
-        self._api.create_repo(
-            f"valid_org/{self.REPO_NAME}", repo_type="dataset", token=self._token
-        )
+        self._api.create_repo(f"valid_org/{self.REPO_NAME}", repo_type="dataset")
 
         clone = Repository(
             f"{WORKING_DATASET_DIR}/{self.REPO_NAME}",
@@ -1763,16 +1708,15 @@ class RepositoryDatasetTest(RepositoryCommonTest):
 
     @retry_endpoint
     def test_clone_with_repo_name_and_no_namespace(self):
-        self.assertRaises(
-            OSError,
-            Repository,
-            f"{WORKING_DATASET_DIR}/{self.REPO_NAME}",
-            clone_from=self.REPO_NAME,
-            repo_type="dataset",
-            use_auth_token=self._token,
-            git_user="ci",
-            git_email="ci@dummy.com",
-        )
+        with self.assertRaises(EnvironmentError):
+            Repository(
+                f"{WORKING_DATASET_DIR}/{self.REPO_NAME}",
+                clone_from=self.REPO_NAME,
+                repo_type="dataset",
+                use_auth_token=self._token,
+                git_user="ci",
+                git_email="ci@dummy.com",
+            )
 
     @retry_endpoint
     def test_clone_with_repo_name_user_and_no_auth_token(self):
@@ -1797,9 +1741,7 @@ class RepositoryDatasetTest(RepositoryCommonTest):
 
     @retry_endpoint
     def test_clone_with_repo_name_org_and_no_auth_token(self):
-        self._api.create_repo(
-            f"valid_org/{self.REPO_NAME}", repo_type="dataset", token=self._token
-        )
+        self._api.create_repo(f"valid_org/{self.REPO_NAME}", repo_type="dataset")
 
         # Instantiate it without token
         Repository(

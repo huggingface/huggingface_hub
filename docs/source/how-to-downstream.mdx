@@ -53,6 +53,13 @@ To specify a file revision with a tag identifier. For example, if you want `v1.0
 >>> hf_hub_download(repo_id="lysandre/arxiv-nlp", filename="config.json", revision="v1.0")
 ```
 
+To download from a `dataset` or a `space`, specify the `repo_type`. By default, file will
+be considered as being part of a `model` repo.
+
+```python
+>>> hf_hub_download(repo_id="google/fleurs", filename="fleurs.py", repo_type="dataset")
+```
+
 ## Construct a download URL
 
 In case you want to construct the URL used to download a file from a repo, you can use [`hf_hub_url`] which returns a URL.

@@ -4,11 +4,12 @@ import os
 import tempfile
 import warnings
 from pathlib import Path
-from shutil import copytree, rmtree
+from shutil import copytree
 from typing import Any, Dict, List, Optional, Union
 from urllib.parse import quote
 
 from huggingface_hub import CommitOperationDelete, ModelHubMixin, snapshot_download
+from huggingface_hub._commit_api import CommitOperation
 from huggingface_hub.utils import (
     get_tf_version,
     is_graphviz_available,
@@ -19,15 +20,13 @@ from huggingface_hub.utils import (
 
 from .constants import CONFIG_NAME, DEFAULT_REVISION
 from .hf_api import HfApi, _parse_revision_from_pr_url, _prepare_upload_folder_commit
-from .repository import Repository
-from .utils import HfFolder, logging, validate_hf_hub_args
-from .utils._deprecation import _deprecate_arguments, _deprecate_positional_args
+from .utils import logging, validate_hf_hub_args
 
 
 logger = logging.get_logger(__name__)
 
 if is_tf_available():
-    import tensorflow as tf
+    import tensorflow as tf  # type: ignore
 
 
 def _flatten_dict(dictionary, parent_key=""):
@@ -93,7 +92,7 @@ def _plot_network(model, save_directory):
 def _create_model_card(
     model,
     repo_dir: Path,
-    plot_model: Optional[bool] = True,
+    plot_model: bool = True,
     metadata: Optional[dict] = None,
 ):
     """
@@ -102,9 +101,11 @@ def _create_model_card(
     hyperparameters = _create_hyperparameter_table(model)
     if plot_model and is_graphviz_available() and is_pydot_available():
         _plot_network(model, repo_dir)
+    if metadata is None:
+        metadata = {}
     readme_path = f"{repo_dir}/README.md"
     metadata["library_name"] = "keras"
-    model_card = "---\n"
+    model_card: str = "---\n"
     model_card += yaml_dump(metadata, default_flow_style=False)
     model_card += "---\n"
     model_card += "\n## Model description\n\nMore information needed\n"
@@ -135,10 +136,10 @@ def _create_model_card(
 
 def save_pretrained_keras(
     model,
-    save_directory: str,
+    save_directory: Union[str, Path],
     config: Optional[Dict[str, Any]] = None,
-    include_optimizer: Optional[bool] = False,
-    plot_model: Optional[bool] = True,
+    include_optimizer: bool = False,
+    plot_model: bool = True,
     tags: Optional[Union[list, str]] = None,
     **model_save_kwargs,
 ):
@@ -151,7 +152,7 @@ def save_pretrained_keras(
             The [Keras
             model](https://www.tensorflow.org/api_docs/python/tf/keras/Model)
             you'd like to save. The model must be compiled and built.
-        save_directory (`str`):
+        save_directory (`str` or `Path`):
             Specify directory in which you want to save the Keras model.
         config (`dict`, *optional*):
             Configuration object to be saved alongside the model weights.
@@ -177,7 +178,8 @@ def save_pretrained_keras(
     if not model.built:
         raise ValueError("Model should be built before trying to save")
 
-    os.makedirs(save_directory, exist_ok=True)
+    save_directory = Path(save_directory)
+    save_directory.mkdir(parents=True, exist_ok=True)
 
     # saving config
     if config:
@@ -186,8 +188,8 @@ def save_pretrained_keras(
                 "Provided config to save_pretrained_keras should be a dict. Got:"
                 f" '{type(config)}'"
             )
-        path = os.path.join(save_directory, CONFIG_NAME)
-        with open(path, "w") as f:
+
+        with (save_directory / CONFIG_NAME).open("w") as f:
             json.dump(config, f)
 
     metadata = {}
@@ -209,14 +211,14 @@ def save_pretrained_keras(
 
     if model.history is not None:
         if model.history.history != {}:
-            path = os.path.join(save_directory, "history.json")
-            if os.path.exists(path):
+            path = save_directory / "history.json"
+            if path.exists():
                 warnings.warn(
                     "`history.json` file already exists, it will be overwritten by the"
                     " history of this version.",
                     UserWarning,
                 )
-            with open(path, "w", encoding="utf-8") as f:
+            with path.open("w", encoding="utf-8") as f:
                 json.dump(model.history.history, f, indent=2, sort_keys=True)
 
     _create_model_card(model, save_directory, plot_model, metadata)
@@ -228,7 +230,7 @@ def save_pretrained_keras(
 def from_pretrained_keras(*args, **kwargs):
     r"""
     Instantiate a pretrained Keras model from a pre-trained model from the Hub.
-    The model is expected to be in SavedModel format.```
+    The model is expected to be in `SavedModel` format.
 
     Parameters:
         pretrained_model_name_or_path (`str` or `os.PathLike`):
@@ -260,7 +262,7 @@ def from_pretrained_keras(*args, **kwargs):
             A dictionary of proxy servers to use by protocol or endpoint, e.g.,
             `{'http': 'foo.bar:3128', 'http://hostname': 'foo.bar:4012'}`. The
             proxies are used on each request.
-        use_auth_token (`str` or `bool`, *optional*):
+        token (`str` or `bool`, *optional*):
             The token to use as HTTP bearer authorization for remote files. If
             `True`, will use the token generated when running `transformers-cli
             login` (stored in `~/.huggingface`).
@@ -276,7 +278,7 @@ def from_pretrained_keras(*args, **kwargs):
 
     <Tip>
 
-    Passing `use_auth_token=True` is required when you want to use a private
+    Passing `token=True` is required when you want to use a private
     model.
 
     </Tip>
@@ -284,63 +286,25 @@ def from_pretrained_keras(*args, **kwargs):
     return KerasModelHubMixin.from_pretrained(*args, **kwargs)
 
 
-@_deprecate_positional_args(version="0.12")
-@_deprecate_arguments(
-    version="0.12",
-    deprecated_args={
-        "repo_path_or_name",
-        "repo_url",
-        "organization",
-        "use_auth_token",
-        "git_user",
-        "git_email",
-    },
-)
 @validate_hf_hub_args
 def push_to_hub_keras(
-    # NOTE: deprecated signature that will change in 0.12
     model,
+    repo_id: str,
     *,
-    repo_path_or_name: Optional[str] = None,
-    repo_url: Optional[str] = None,
-    log_dir: Optional[str] = None,
-    commit_message: Optional[str] = "Add model",
-    organization: Optional[str] = None,
+    config: Optional[dict] = None,
+    commit_message: str = "Push Keras model using huggingface_hub.",
     private: bool = False,
     api_endpoint: Optional[str] = None,
-    use_auth_token: Optional[Union[bool, str]] = True,
-    git_user: Optional[str] = None,
-    git_email: Optional[str] = None,
-    config: Optional[dict] = None,
-    include_optimizer: Optional[bool] = False,
-    tags: Optional[Union[list, str]] = None,
-    plot_model: Optional[bool] = True,
-    # NOTE: New arguments since 0.9
-    token: Optional[str] = True,
-    repo_id: Optional[str] = None,  # optional only until 0.12
+    token: Optional[str] = None,
     branch: Optional[str] = None,
     create_pr: Optional[bool] = None,
     allow_patterns: Optional[Union[List[str], str]] = None,
     ignore_patterns: Optional[Union[List[str], str]] = None,
+    log_dir: Optional[str] = None,
+    include_optimizer: bool = False,
+    tags: Optional[Union[list, str]] = None,
+    plot_model: bool = True,
     **model_save_kwargs,
-    # TODO (release 0.12): signature must be the following
-    # model,
-    # repo_id: str,
-    # *,
-    # commit_message: Optional[str] = "Add model",
-    # private: bool = None,
-    # api_endpoint: Optional[str] = None,
-    # token: Optional[str] = True,
-    # branch: Optional[str] = None,
-    # create_pr: Optional[bool] = None,
-    # config: Optional[dict] = None,
-    # allow_patterns: Optional[Union[List[str], str]] = None,
-    # ignore_patterns: Optional[Union[List[str], str]] = None,
-    # log_dir: Optional[str] = None,
-    # include_optimizer: Optional[bool] = False,
-    # tags: Optional[Union[list, str]] = None,
-    # plot_model: Optional[bool] = True,
-    # **model_save_kwargs,
 ):
     """
     Upload model checkpoint or tokenizer files to the Hub while synchronizing a
@@ -356,7 +320,7 @@ def push_to_hub_keras(
             you'd like to push to the Hub. The model must be compiled and built.
         repo_id (`str`):
             Repository name to which push
-        commit_message (`str`, *optional*, defaults to "Add message"):
+        commit_message (`str`, *optional*, defaults to "Add Keras model"):
             Message to commit while pushing.
         private (`bool`, *optional*, defaults to `False`):
             Whether the repository created should be private.
@@ -398,185 +362,105 @@ def push_to_hub_keras(
     Returns:
         The url of the commit of your model in the given repository.
     """
-    if repo_id is not None:
-        api = HfApi(endpoint=api_endpoint)
-        api.create_repo(
-            repo_id=repo_id,
+    api = HfApi(endpoint=api_endpoint)
+    api.create_repo(
+        repo_id=repo_id,
+        repo_type="model",
+        token=token,
+        private=private,
+        exist_ok=True,
+    )
+
+    # Push the files to the repo in a single commit
+    with tempfile.TemporaryDirectory() as tmp:
+        saved_path = Path(tmp) / repo_id
+        save_pretrained_keras(
+            model,
+            saved_path,
+            config=config,
+            include_optimizer=include_optimizer,
+            tags=tags,
+            plot_model=plot_model,
+            **model_save_kwargs,
+        )
+
+        # If log dir is provided, delete old logs + add new ones
+        operations: List[CommitOperation] = []
+        if log_dir is not None:
+            # Delete previous log files from Hub
+            operations += [
+                CommitOperationDelete(path_in_repo=file)
+                for file in api.list_repo_files(repo_id=repo_id, token=token)
+                if file.startswith("logs/")
+            ]
+
+            # Copy new log files
+            copytree(log_dir, saved_path / "logs")
+
+        # NOTE: `_prepare_upload_folder_commit` and `create_commit` calls are
+        #       duplicate code from `upload_folder`. We are not directly using
+        #       `upload_folder` since we want to add delete operations to the
+        #       commit as well.
+        operations += _prepare_upload_folder_commit(
+            saved_path,
+            path_in_repo="",
+            allow_patterns=allow_patterns,
+            ignore_patterns=ignore_patterns,
+        )
+        commit_info = api.create_commit(
             repo_type="model",
-            token=token,
-            private=private,
-            exist_ok=True,
-        )
-
-        # Push the files to the repo in a single commit
-        with tempfile.TemporaryDirectory() as tmp:
-            saved_path = Path(tmp) / repo_id
-            save_pretrained_keras(
-                model,
-                saved_path,
-                config=config,
-                include_optimizer=include_optimizer,
-                tags=tags,
-                plot_model=plot_model,
-                **model_save_kwargs,
-            )
-
-            # If log dir is provided, delete old logs + add new ones
-            operations = []
-            if log_dir is not None:
-                # Delete previous log files from Hub
-                operations += [
-                    CommitOperationDelete(path_in_repo=file)
-                    for file in api.list_repo_files(
-                        repo_id=repo_id, use_auth_token=token
-                    )
-                    if file.startswith("logs/")
-                ]
-
-                # Copy new log files
-                copytree(log_dir, saved_path / "logs")
-
-            # NOTE: `_prepare_upload_folder_commit` and `create_commit` calls are
-            #       duplicate code from `upload_folder`. We are not directly using
-            #       `upload_folder` since we want to add delete operations to the
-            #       commit as well.
-            operations += _prepare_upload_folder_commit(
-                saved_path,
-                path_in_repo="",
-                allow_patterns=allow_patterns,
-                ignore_patterns=ignore_patterns,
-            )
-            commit_info = api.create_commit(
-                repo_type="model",
-                repo_id=repo_id,
-                operations=operations,
-                commit_message=commit_message,
-                token=token,
-                revision=branch,
-                create_pr=create_pr,
-            )
-            revision = branch
-            if revision is None:
-                revision = (
-                    quote(_parse_revision_from_pr_url(commit_info.pr_url), safe="")
-                    if commit_info.pr_url is not None
-                    else DEFAULT_REVISION
-                )
-            return f"{api.endpoint}/{repo_id}/tree/{revision}/"
-
-    # Repo id is None means we use the deprecated version using Git
-    # TODO: remove code between here and `return repo.git_push()` in release 0.12
-    if repo_path_or_name is None and repo_url is None:
-        raise ValueError("You need to specify a `repo_path_or_name` or a `repo_url`.")
-
-    if isinstance(use_auth_token, bool) and use_auth_token:
-        token = HfFolder.get_token()
-    elif isinstance(use_auth_token, str):
-        token = use_auth_token
-    else:
-        token = None
-
-    if token is None:
-        raise ValueError(
-            "You must login to the Hugging Face hub on this computer by typing"
-            " `huggingface-cli login` and entering your credentials to use"
-            " `use_auth_token=True`. Alternatively, you can pass your own token as the"
-            " `use_auth_token` argument."
-        )
-
-    if repo_path_or_name is None:
-        repo_path_or_name = repo_url.split("/")[-1]
-
-    # If no URL is passed and there's no path to a directory containing files, create a repo
-    if repo_url is None and not os.path.exists(repo_path_or_name):
-        repo_id = Path(repo_path_or_name).name
-        if organization:
-            repo_id = f"{organization}/{repo_id}"
-        repo_url = HfApi(endpoint=api_endpoint).create_repo(
             repo_id=repo_id,
+            operations=operations,
+            commit_message=commit_message,
             token=token,
-            private=private,
-            repo_type=None,
-            exist_ok=True,
+            revision=branch,
+            create_pr=create_pr,
         )
-
-    repo = Repository(
-        repo_path_or_name,
-        clone_from=repo_url,
-        use_auth_token=use_auth_token,
-        git_user=git_user,
-        git_email=git_email,
-    )
-    repo.git_pull(rebase=True)
-
-    save_pretrained_keras(
-        model,
-        repo_path_or_name,
-        config=config,
-        include_optimizer=include_optimizer,
-        tags=tags,
-        plot_model=plot_model,
-        **model_save_kwargs,
-    )
-
-    if log_dir is not None:
-        if os.path.exists(f"{repo_path_or_name}/logs"):
-            rmtree(f"{repo_path_or_name}/logs")
-        copytree(log_dir, f"{repo_path_or_name}/logs")
-
-    # Commit and push!
-    repo.git_add(auto_lfs_track=True)
-    repo.git_commit(commit_message)
-    return repo.git_push()
+        revision = branch
+        if revision is None:
+            revision = (
+                quote(_parse_revision_from_pr_url(commit_info.pr_url), safe="")
+                if commit_info.pr_url is not None
+                else DEFAULT_REVISION
+            )
+        return f"{api.endpoint}/{repo_id}/tree/{revision}/"
 
 
 class KerasModelHubMixin(ModelHubMixin):
     """
-    Mixin to provide model Hub upload/download capabilities to Keras models.
-    Override this class to obtain the following internal methods:
-    - `_from_pretrained`, to load a model from the Hub or from local files.
-    - `_save_pretrained`, to save a model in the `SavedModel` format.
+    Implementation of [`ModelHubMixin`] to provide model Hub upload/download
+    capabilities to Keras models.
+
+
+    ```python
+    >>> import tensorflow as tf
+    >>> from huggingface_hub import KerasModelHubMixin
+
+
+    >>> class MyModel(tf.keras.Model, KerasModelHubMixin):
+    ...     def __init__(self, **kwargs):
+    ...         super().__init__()
+    ...         self.config = kwargs.pop("config", None)
+    ...         self.dummy_inputs = ...
+    ...         self.layer = ...
+
+    ...     def call(self, *args):
+    ...         return ...
+
+
+    >>> # Initialize and compile the model as you normally would
+    >>> model = MyModel()
+    >>> model.compile(...)
+    >>> # Build the graph by training it or passing dummy inputs
+    >>> _ = model(model.dummy_inputs)
+    >>> # Save model weights to local directory
+    >>> model.save_pretrained("my-awesome-model")
+    >>> # Push model weights to the Hub
+    >>> model.push_to_hub("my-awesome-model")
+    >>> # Download and initialize weights from the Hub
+    >>> model = MyModel.from_pretrained("username/super-cool-model")
+    ```
     """
-
-    def __init__(self, *args, **kwargs):
-        """
-        Mix this class with your keras-model class for ease process of saving &
-        loading from huggingface-hub.
-
-
-        ```python
-        >>> from huggingface_hub import KerasModelHubMixin
-
-
-        >>> class MyModel(tf.keras.Model, KerasModelHubMixin):
-        ...     def __init__(self, **kwargs):
-        ...         super().__init__()
-        ...         self.config = kwargs.pop("config", None)
-        ...         self.dummy_inputs = ...
-        ...         self.layer = ...
-
-        ...     def call(self, *args):
-        ...         return ...
-
-
-        >>> # Init and compile the model as you normally would
-        >>> model = MyModel()
-        >>> model.compile(...)
-        >>> # Build the graph by training it or passing dummy inputs
-        >>> _ = model(model.dummy_inputs)
-        >>> # You can save your model like this
-        >>> model.save_pretrained("local_model_dir/", push_to_hub=False)
-        >>> # Or, you can push to a new public model repo like this
-        >>> model.push_to_hub(
-        ...     "super-cool-model",
-        ...     git_user="your-hf-username",
-        ...     git_email="you@somesite.com",
-        ... )
-
-        >>> # Downloading weights from hf-hub & model will be initialized from those weights
-        >>> model = MyModel.from_pretrained("username/mymodel@main")
-        ```
-        """
 
     def _save_pretrained(self, save_directory):
         save_pretrained_keras(self, save_directory)
@@ -591,10 +475,10 @@ class KerasModelHubMixin(ModelHubMixin):
         proxies,
         resume_download,
         local_files_only,
-        use_auth_token,
+        token,
         **model_kwargs,
     ):
-        """Here we just call from_pretrained_keras function so both the mixin and
+        """Here we just call [`from_pretrained_keras`] function so both the mixin and
         functional APIs stay in sync.
 
                 TODO - Some args above aren't used since we are calling
@@ -604,7 +488,7 @@ class KerasModelHubMixin(ModelHubMixin):
             import tensorflow as tf
         else:
             raise ImportError(
-                "Called a Tensorflow-specific function but could not import it."
+                "Called a TensorFlow-specific function but could not import it."
             )
 
         # TODO - Figure out what to do about these config values. Config is not going to be needed to load model

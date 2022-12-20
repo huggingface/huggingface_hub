@@ -7,7 +7,6 @@ import time
 import unittest
 import uuid
 from contextlib import contextmanager
-from distutils.util import strtobool
 from enum import Enum
 from functools import wraps
 from io import StringIO
@@ -53,6 +52,9 @@ DUMMY_DATASET_ID_REVISION_ONE_SPECIFIC_COMMIT = (  # on branch "test-branch"
     "81d06f998585f8ee10e6e3a2ea47203dc75f2a16"
 )
 
+YES = ("y", "yes", "t", "true", "on", "1")
+NO = ("n", "no", "f", "false", "off", "0")
+
 
 def repo_name(id: Optional[str] = None, prefix: str = "repo") -> str:
     """
@@ -72,20 +74,21 @@ def repo_name(id: Optional[str] = None, prefix: str = "repo") -> str:
     return f"{prefix}-{id}-{ts}"
 
 
-def parse_flag_from_env(key, default=False):
+def parse_flag_from_env(key: str, default: bool = False) -> bool:
     try:
         value = os.environ[key]
     except KeyError:
         # KEY isn't set, default to `default`.
-        _value = default
+        return default
+
+    # KEY is set, convert it to True or False.
+    if value.lower() in YES:
+        return True
+    elif value.lower() in NO:
+        return False
     else:
-        # KEY is set, convert it to True or False.
-        try:
-            _value = strtobool(value)
-        except ValueError:
-            # More values are supported, but let's keep the message simple.
-            raise ValueError("If set, {} must be yes or no.".format(key))
-    return _value
+        # More values are supported, but let's keep the message simple.
+        raise ValueError(f"If set, '{key}' must be one of {YES+NO}. Got '{value}'.")
 
 
 def parse_int_from_env(key, default=None):
@@ -448,8 +451,7 @@ def use_tmp_repo(repo_type: str = "model") -> Callable[[T], T]:
     from .testing_utils import use_tmp_repo
 
     class HfApiCommonTest(unittest.TestCase):
-        _api = HfApi(endpoint=ENDPOINT_STAGING)
-        _token = TOKEN
+        _api = HfApi(endpoint=ENDPOINT_STAGING, token=TOKEN)
         _user = USER
         _repo_id: str
 
@@ -470,17 +472,14 @@ def use_tmp_repo(repo_type: str = "model") -> Callable[[T], T]:
         def _inner(*args, **kwargs):
             self = args[0]
             assert isinstance(self, unittest.TestCase)
-            token = self._token
 
             repo_id = f"{self._user}/{repo_name(prefix=repo_type)}"
-            self._api.create_repo(repo_id=repo_id, token=token, repo_type=repo_type)
+            self._api.create_repo(repo_id=repo_id, repo_type=repo_type)
             try:
                 self._repo_id = repo_id
                 return test_fn(*args, **kwargs)
             finally:
-                self._api.delete_repo(
-                    repo_id=repo_id, token=self._token, repo_type=repo_type
-                )
+                self._api.delete_repo(repo_id=repo_id, repo_type=repo_type)
 
         return _inner
 

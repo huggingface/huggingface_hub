@@ -91,6 +91,8 @@ class ModelCardDataTest(unittest.TestCase):
                             {
                                 "type": "acc",
                                 "value": 0.9,
+                                "verified": True,
+                                "verifyToken": 1234,
                             }
                         ],
                     },
@@ -106,6 +108,8 @@ class ModelCardDataTest(unittest.TestCase):
         self.assertEqual(eval_results[1].metric_value, 0.9)
         self.assertEqual(eval_results[2].task_type, "image-classification")
         self.assertEqual(eval_results[2].dataset_type, "beans")
+        self.assertEqual(eval_results[2].verified, True)
+        self.assertEqual(eval_results[2].verify_token, 1234)
 
     def test_card_data_requires_model_name_for_eval_results(self):
         with pytest.raises(

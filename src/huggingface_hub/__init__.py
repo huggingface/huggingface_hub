@@ -46,17 +46,25 @@ import sys
 from typing import TYPE_CHECKING
 
 
-__version__ = "0.11.0.dev0"
+__version__ = "0.12.0.dev0"
 
 # Alphabetical order of definitions is ensured in tests
 # WARNING: any comment added in this dictionary definition will be lost when
 # re-generating the file !
 _SUBMOD_ATTRS = {
+    "_login": [
+        "interpreter_login",
+        "login",
+        "logout",
+        "notebook_login",
+    ],
     "_snapshot_download": [
         "snapshot_download",
     ],
-    "commands.user": [
-        "notebook_login",
+    "_space_api": [
+        "SpaceHardware",
+        "SpaceRuntime",
+        "SpaceStage",
     ],
     "community": [
         "Discussion",
@@ -100,33 +108,47 @@ _SUBMOD_ATTRS = {
         "DatasetSearchArguments",
         "HfApi",
         "ModelSearchArguments",
+        "RepoUrl",
+        "UserLikes",
+        "add_space_secret",
         "change_discussion_status",
         "comment_discussion",
+        "create_branch",
         "create_commit",
         "create_discussion",
         "create_pull_request",
         "create_repo",
         "create_tag",
         "dataset_info",
+        "delete_branch",
         "delete_file",
+        "delete_folder",
         "delete_repo",
+        "delete_space_secret",
+        "delete_tag",
         "edit_discussion_comment",
         "get_dataset_tags",
         "get_discussion_details",
         "get_full_repo_name",
         "get_model_tags",
         "get_repo_discussions",
+        "get_space_runtime",
+        "like",
         "list_datasets",
+        "list_liked_repos",
         "list_metrics",
         "list_models",
         "list_repo_files",
+        "list_spaces",
         "merge_pull_request",
         "model_info",
         "move_repo",
         "rename_discussion",
         "repo_type_and_id_from_hf_id",
+        "request_space_hardware",
         "set_access_token",
         "space_info",
+        "unlike",
         "unset_access_token",
         "update_repo_visibility",
         "upload_file",
@@ -173,6 +195,7 @@ _SUBMOD_ATTRS = {
         "HFCacheInfo",
         "HfFolder",
         "cached_assets_path",
+        "dump_environment_info",
         "logging",
         "scan_cache_dir",
     ],
@@ -282,8 +305,14 @@ __getattr__, __dir__, __all__ = _attach(
 # make style
 # ```
 if TYPE_CHECKING:  # pragma: no cover
+    from ._login import interpreter_login  # noqa: F401
+    from ._login import login  # noqa: F401
+    from ._login import logout  # noqa: F401
+    from ._login import notebook_login  # noqa: F401
     from ._snapshot_download import snapshot_download  # noqa: F401
-    from .commands.user import notebook_login  # noqa: F401
+    from ._space_api import SpaceHardware  # noqa: F401
+    from ._space_api import SpaceRuntime  # noqa: F401
+    from ._space_api import SpaceStage  # noqa: F401
     from .community import Discussion  # noqa: F401
     from .community import DiscussionComment  # noqa: F401
     from .community import DiscussionCommit  # noqa: F401
@@ -317,33 +346,47 @@ if TYPE_CHECKING:  # pragma: no cover
     from .hf_api import DatasetSearchArguments  # noqa: F401
     from .hf_api import HfApi  # noqa: F401
     from .hf_api import ModelSearchArguments  # noqa: F401
+    from .hf_api import RepoUrl  # noqa: F401
+    from .hf_api import UserLikes  # noqa: F401
+    from .hf_api import add_space_secret  # noqa: F401
     from .hf_api import change_discussion_status  # noqa: F401
     from .hf_api import comment_discussion  # noqa: F401
+    from .hf_api import create_branch  # noqa: F401
     from .hf_api import create_commit  # noqa: F401
     from .hf_api import create_discussion  # noqa: F401
     from .hf_api import create_pull_request  # noqa: F401
     from .hf_api import create_repo  # noqa: F401
     from .hf_api import create_tag  # noqa: F401
     from .hf_api import dataset_info  # noqa: F401
+    from .hf_api import delete_branch  # noqa: F401
     from .hf_api import delete_file  # noqa: F401
+    from .hf_api import delete_folder  # noqa: F401
     from .hf_api import delete_repo  # noqa: F401
+    from .hf_api import delete_space_secret  # noqa: F401
+    from .hf_api import delete_tag  # noqa: F401
     from .hf_api import edit_discussion_comment  # noqa: F401
     from .hf_api import get_dataset_tags  # noqa: F401
     from .hf_api import get_discussion_details  # noqa: F401
     from .hf_api import get_full_repo_name  # noqa: F401
     from .hf_api import get_model_tags  # noqa: F401
     from .hf_api import get_repo_discussions  # noqa: F401
+    from .hf_api import get_space_runtime  # noqa: F401
+    from .hf_api import like  # noqa: F401
     from .hf_api import list_datasets  # noqa: F401
+    from .hf_api import list_liked_repos  # noqa: F401
     from .hf_api import list_metrics  # noqa: F401
     from .hf_api import list_models  # noqa: F401
     from .hf_api import list_repo_files  # noqa: F401
+    from .hf_api import list_spaces  # noqa: F401
     from .hf_api import merge_pull_request  # noqa: F401
     from .hf_api import model_info  # noqa: F401
     from .hf_api import move_repo  # noqa: F401
     from .hf_api import rename_discussion  # noqa: F401
     from .hf_api import repo_type_and_id_from_hf_id  # noqa: F401
+    from .hf_api import request_space_hardware  # noqa: F401
     from .hf_api import set_access_token  # noqa: F401
     from .hf_api import space_info  # noqa: F401
+    from .hf_api import unlike  # noqa: F401
     from .hf_api import unset_access_token  # noqa: F401
     from .hf_api import update_repo_visibility  # noqa: F401
     from .hf_api import upload_file  # noqa: F401
@@ -376,6 +419,7 @@ if TYPE_CHECKING:  # pragma: no cover
     from .utils import HFCacheInfo  # noqa: F401
     from .utils import HfFolder  # noqa: F401
     from .utils import cached_assets_path  # noqa: F401
+    from .utils import dump_environment_info  # noqa: F401
     from .utils import logging  # noqa: F401
     from .utils import scan_cache_dir  # noqa: F401
     from .utils.endpoint_helpers import DatasetFilter  # noqa: F401

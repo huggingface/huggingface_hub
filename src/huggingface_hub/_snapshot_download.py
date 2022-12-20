@@ -2,21 +2,20 @@ import os
 from pathlib import Path
 from typing import Dict, List, Optional, Union
 
+from tqdm.auto import tqdm as base_tqdm
+from tqdm.contrib.concurrent import thread_map
+
 from .constants import DEFAULT_REVISION, HUGGINGFACE_HUB_CACHE, REPO_TYPES
 from .file_download import REGEX_COMMIT_HASH, hf_hub_download, repo_folder_name
 from .hf_api import HfApi
-from .utils import filter_repo_objects, logging, tqdm, validate_hf_hub_args
-from .utils._deprecation import _deprecate_arguments
+from .utils import filter_repo_objects, logging
+from .utils import tqdm as hf_tqdm
+from .utils import validate_hf_hub_args
 
 
 logger = logging.get_logger(__name__)
 
 
-@_deprecate_arguments(
-    version="0.12",
-    deprecated_args={"allow_regex", "ignore_regex"},
-    custom_message="Please use `allow_patterns` and `ignore_patterns` instead.",
-)
 @validate_hf_hub_args
 def snapshot_download(
     repo_id: str,
@@ -28,14 +27,14 @@ def snapshot_download(
     library_version: Optional[str] = None,
     user_agent: Optional[Union[Dict, str]] = None,
     proxies: Optional[Dict] = None,
-    etag_timeout: Optional[float] = 10,
-    resume_download: Optional[bool] = False,
-    use_auth_token: Optional[Union[bool, str]] = None,
-    local_files_only: Optional[bool] = False,
-    allow_regex: Optional[Union[List[str], str]] = None,
-    ignore_regex: Optional[Union[List[str], str]] = None,
+    etag_timeout: float = 10,
+    resume_download: bool = False,
+    token: Optional[Union[bool, str]] = None,
+    local_files_only: bool = False,
     allow_patterns: Optional[Union[List[str], str]] = None,
     ignore_patterns: Optional[Union[List[str], str]] = None,
+    max_workers: int = 8,
+    tqdm_class: Optional[base_tqdm] = None,
 ) -> str:
     """Download all files of a repo.
 
@@ -72,7 +71,7 @@ def snapshot_download(
             data before giving up which is passed to `requests.request`.
         resume_download (`bool`, *optional*, defaults to `False):
             If `True`, resume a previously interrupted download.
-        use_auth_token (`str`, `bool`, *optional*):
+        token (`str`, `bool`, *optional*):
             A token to be used for the download.
                 - If `True`, the token is read from the HuggingFace config
                   folder.
@@ -84,6 +83,15 @@ def snapshot_download(
             If provided, only files matching at least one pattern are downloaded.
         ignore_patterns (`List[str]` or `str`, *optional*):
             If provided, files matching any of the patterns are not downloaded.
+        max_workers (`int`, *optional*):
+            Number of concurrent threads to download files (1 thread = 1 file download).
+            Defaults to 8.
+        tqdm_class (`tqdm`, *optional*):
+            If provided, overwrites the default behavior for the progress bar. Passed
+            argument must inherit from `tqdm.auto.tqdm` or at least mimic its behavior.
+            Note that the `tqdm_class` is not passed to each individual download.
+            Defaults to the custom HF progress bar that can be disabled by setting
+            `HF_HUB_DISABLE_PROGRESS_BARS` environment variable.
 
     Returns:
         Local folder path (string) of repo snapshot
@@ -93,7 +101,7 @@ def snapshot_download(
     Raises the following errors:
 
     - [`EnvironmentError`](https://docs.python.org/3/library/exceptions.html#EnvironmentError)
-      if `use_auth_token=True` and the token cannot be found.
+      if `token=True` and the token cannot be found.
     - [`OSError`](https://docs.python.org/3/library/exceptions.html#OSError) if
       ETag cannot be determined.
     - [`ValueError`](https://docs.python.org/3/library/exceptions.html#ValueError)
@@ -119,13 +127,6 @@ def snapshot_download(
     storage_folder = os.path.join(
         cache_dir, repo_folder_name(repo_id=repo_id, repo_type=repo_type)
     )
-
-    # TODO: remove these 4 lines in version 0.12
-    #       Deprecated code to ensure backward compatibility.
-    if allow_regex is not None:
-        allow_patterns = allow_regex
-    if ignore_regex is not None:
-        ignore_patterns = ignore_regex
 
     # if we have no internet connection we will look for an
     # appropriate folder in the cache
@@ -158,8 +159,11 @@ def snapshot_download(
         repo_id=repo_id,
         repo_type=repo_type,
         revision=revision,
-        use_auth_token=use_auth_token,
+        token=token,
     )
+    assert (
+        repo_info.sha is not None
+    ), "Repo info returned from server must have a revision sha."
     filtered_repo_files = list(
         filter_repo_objects(
             items=[f.rfilename for f in repo_info.siblings],
@@ -181,11 +185,8 @@ def snapshot_download(
     # we pass the commit_hash to hf_hub_download
     # so no network call happens if we already
     # have the file locally.
-
-    for repo_file in tqdm(
-        filtered_repo_files, f"Fetching {len(filtered_repo_files)} files"
-    ):
-        _ = hf_hub_download(
+    def _inner_hf_hub_download(repo_file: str):
+        return hf_hub_download(
             repo_id,
             filename=repo_file,
             repo_type=repo_type,
@@ -197,7 +198,16 @@ def snapshot_download(
             proxies=proxies,
             etag_timeout=etag_timeout,
             resume_download=resume_download,
-            use_auth_token=use_auth_token,
+            token=token,
         )
+
+    thread_map(
+        _inner_hf_hub_download,
+        filtered_repo_files,
+        desc=f"Fetching {len(filtered_repo_files)} files",
+        max_workers=max_workers,
+        # User can use its own tqdm class or the default one from `huggingface_hub.utils`
+        tqdm_class=tqdm_class or hf_tqdm,
+    )
 
     return snapshot_folder

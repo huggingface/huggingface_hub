@@ -1,4 +1,5 @@
 ---
+# For reference on model card metadata, see: https://github.com/huggingface/hub-docs/blob/main/modelcard.md?plain=1
 {{card_data}}
 ---
 
@@ -6,23 +7,7 @@
 
 <!-- Provide a quick summary of what the model is/does. -->
 
-#  Table of Contents
-
-1. [Model Details](#model-details)
-2. [Uses](#uses)
-3. [Bias, Risks, and Limitations](#bias-risks-and-limitations)
-4. [Training Details](#training-details)
-5. [Evaluation](#evaluation)
-6. [Model Examination](#model-examination-optional)
-7. [Environmental Impact](#environmental-impact)
-8. [Technical Specifications](#technical-specifications-optional)
-9. [Citation](#citation-optional)
-10. [Glossary](#glossary-optional)
-11. [More Information](#more-information-optional)
-12. [Model Card Authors](#model-card-authors-optional)
-13. [Model Card Contact](#model-card-contact)
-14. [How To Get Started With the Model](#how-to-get-started-with-the-model)
-
+{{ model_summary | default("", true) }}
 
 # Model Details
 
@@ -37,9 +22,15 @@
 - **Model type:** {{ model_type | default("[More Information Needed]", true)}}
 - **Language(s) (NLP):** {{ language | default("[More Information Needed]", true)}}
 - **License:** {{ license | default("[More Information Needed]", true)}}
-- **Related Models [optional]:** {{ related_models | default("[More Information Needed]", true)}}
-    - **Parent Model [optional]:** {{ parent_model | default("[More Information Needed]", true)}}
-- **Resources for more information:** {{ more_resources | default("[More Information Needed]", true)}}
+- **Finetuned from model [optional]:** {{ finetuned_from | default("[More Information Needed]", true)}}
+
+## Model Sources [optional]
+
+<!-- Provide the basic links for the model. -->
+
+- **Repository:** {{ repo | default("[More Information Needed]", true)}}
+- **Paper [optional]:** {{ paper | default("[More Information Needed]", true)}}
+- **Demo [optional]:** {{ demo | default("[More Information Needed]", true)}}
 
 # Uses
 
@@ -73,7 +64,7 @@
 
 <!-- This section is meant to convey recommendations with respect to the bias, risk, and technical limitations. -->
 
-{{ bias_recommendations | default("Users (both direct and downstream) should be made aware of the risks, biases and limitations of the model. More information needed for further recomendations.", true)}}
+{{ bias_recommendations | default("Users (both direct and downstream) should be made aware of the risks, biases and limitations of the model. More information needed for further recommendations.", true)}}
 
 # Training Details
 
@@ -124,6 +115,10 @@
 ## Results
 
 {{ results | default("[More Information Needed]", true)}}
+
+### Summary
+
+{{ results_summary | default("", true) }}
 
 # Model Examination [optional]
 

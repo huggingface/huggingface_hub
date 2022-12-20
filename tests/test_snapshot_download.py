@@ -1,25 +1,30 @@
 import os
 import tempfile
-import time
 import unittest
 
 import requests
 from huggingface_hub import HfApi, Repository, snapshot_download
-from huggingface_hub.utils import HfFolder, logging
+from huggingface_hub.utils import HfFolder, RepositoryNotFoundError, logging
 
 from .testing_constants import ENDPOINT_STAGING, TOKEN, USER
-from .testing_utils import expect_deprecation, retry_endpoint, rmtree_with_retry
+from .testing_utils import (
+    expect_deprecation,
+    repo_name,
+    retry_endpoint,
+    rmtree_with_retry,
+)
 
 
 logger = logging.get_logger(__name__)
 
-REPO_NAME = "dummy-hf-hub-{}".format(int(time.time() * 10e3))
+REPO_NAME = repo_name("dummy-hf-hub")
 
 
 class SnapshotDownloadTests(unittest.TestCase):
-    _api = HfApi(endpoint=ENDPOINT_STAGING)
+    _api = HfApi(endpoint=ENDPOINT_STAGING, token=TOKEN)
 
     @classmethod
+    @expect_deprecation("set_access_token")
     def setUpClass(cls):
         """
         Share this valid token in all tests below.
@@ -32,7 +37,13 @@ class SnapshotDownloadTests(unittest.TestCase):
         if os.path.exists(REPO_NAME):
             rmtree_with_retry(REPO_NAME)
         logger.info(f"Does {REPO_NAME} exist: {os.path.exists(REPO_NAME)}")
-        self._api.create_repo(f"{USER}/{REPO_NAME}", token=self._token)
+
+        try:
+            self._api.delete_repo(repo_id=REPO_NAME)
+        except RepositoryNotFoundError:
+            pass
+        self._api.create_repo(f"{USER}/{REPO_NAME}")
+
         repo = Repository(
             REPO_NAME,
             clone_from=f"{USER}/{REPO_NAME}",
@@ -62,7 +73,7 @@ class SnapshotDownloadTests(unittest.TestCase):
         self.third_commit_hash = repo.git_head_hash()
 
     def tearDown(self) -> None:
-        self._api.delete_repo(repo_id=REPO_NAME, token=self._token)
+        self._api.delete_repo(repo_id=REPO_NAME)
         rmtree_with_retry(REPO_NAME)
 
     def test_download_model(self):
@@ -108,9 +119,7 @@ class SnapshotDownloadTests(unittest.TestCase):
             self.assertTrue(self.first_commit_hash in storage_folder)
 
     def test_download_private_model(self):
-        self._api.update_repo_visibility(
-            token=self._token, repo_id=REPO_NAME, private=True
-        )
+        self._api.update_repo_visibility(repo_id=REPO_NAME, private=True)
 
         # Test download fails without token
         with tempfile.TemporaryDirectory() as tmpdirname:
@@ -168,9 +177,7 @@ class SnapshotDownloadTests(unittest.TestCase):
             # folder name contains the revision's commit sha.
             self.assertTrue(self.second_commit_hash in storage_folder)
 
-        self._api.update_repo_visibility(
-            token=self._token, repo_id=REPO_NAME, private=False
-        )
+        self._api.update_repo_visibility(repo_id=REPO_NAME, private=False)
 
     def test_download_model_local_only(self):
         # Test no branch specified
@@ -309,18 +316,18 @@ class SnapshotDownloadTests(unittest.TestCase):
             # folder name contains the 2nd commit sha and not the 3rd
             self.assertTrue(self.second_commit_hash in storage_folder)
 
-    def check_download_model_with_regex(self, regex, allow=True):
+    def check_download_model_with_pattern(self, pattern, allow=True):
         # Test `main` branch
-        allow_regex = regex if allow else None
-        ignore_regex = regex if not allow else None
+        allow_patterns = pattern if allow else None
+        ignore_patterns = pattern if not allow else None
 
         with tempfile.TemporaryDirectory() as tmpdirname:
             storage_folder = snapshot_download(
                 f"{USER}/{REPO_NAME}",
                 revision="main",
                 cache_dir=tmpdirname,
-                allow_regex=allow_regex,
-                ignore_regex=ignore_regex,
+                allow_patterns=allow_patterns,
+                ignore_patterns=ignore_patterns,
             )
 
             # folder contains the two files contributed and the .gitattributes
@@ -337,22 +344,14 @@ class SnapshotDownloadTests(unittest.TestCase):
             # folder name contains the revision's commit sha.
             self.assertTrue(self.second_commit_hash in storage_folder)
 
-    # TODO: from version 0.12, replace `regex` by 'patterns` and remove expected
-    #       deprecation. Could be possible to already do tests with `allow_patterns` and
-    #       `ignore_patterns` but current test implementation is convenient since it
-    #       covers both old and new naming + check deprecation.
-    @expect_deprecation("snapshot_download")
-    def test_download_model_with_allow_regex(self):
-        self.check_download_model_with_regex("*.txt")
+    def test_download_model_with_allow_pattern(self):
+        self.check_download_model_with_pattern("*.txt")
 
-    @expect_deprecation("snapshot_download")
-    def test_download_model_with_allow_regex_list(self):
-        self.check_download_model_with_regex(["dummy_file.txt", "dummy_file_2.txt"])
+    def test_download_model_with_allow_pattern_list(self):
+        self.check_download_model_with_pattern(["dummy_file.txt", "dummy_file_2.txt"])
 
-    @expect_deprecation("snapshot_download")
-    def test_download_model_with_ignore_regex(self):
-        self.check_download_model_with_regex(".gitattributes", allow=False)
+    def test_download_model_with_ignore_pattern(self):
+        self.check_download_model_with_pattern(".gitattributes", allow=False)
 
-    @expect_deprecation("snapshot_download")
-    def test_download_model_with_ignore_regex_list(self):
-        self.check_download_model_with_regex(["*.git*", "*.pt"], allow=False)
+    def test_download_model_with_ignore_pattern_list(self):
+        self.check_download_model_with_pattern(["*.git*", "*.pt"], allow=False)

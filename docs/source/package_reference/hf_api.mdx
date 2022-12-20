@@ -23,11 +23,28 @@ hf_api = HfApi()
 models = hf_api.list_models()
 ```
 
-Using the `HfApi` class directly enables you to set a different endpoint to that of the Hugging Face's Hub.
+Using the [`HfApi`] class directly enables you to configure the client. In particular, a
+token can be passed to be authenticated in all API calls. This is different than
+`huggingface-cli login` or [`login`] as the token is not persisted on the machine. One
+can also specify a different endpoint than the Hugging Face's Hub (for example to interact
+with a Private Hub).
+
+```py
+from huggingface_hub import HfApi
+
+hf_api = HfApi(
+    endpoint="https://huggingface.co", # Can be a Private Hub endpoint.
+    token="hf_xxx", # Token is not persisted on the machine.
+)
+```
 
 ### HfApi
 
 [[autodoc]] HfApi
+
+### RepoUrl
+
+[[autodoc]] huggingface_hub.hf_api.RepoUrl
 
 ### ModelInfo
 
@@ -48,6 +65,10 @@ Using the `HfApi` class directly enables you to set a different endpoint to that
 ### CommitInfo
 
 [[autodoc]] huggingface_hub.hf_api.CommitInfo
+
+### UserLikes
+
+[[autodoc]] huggingface_hub.hf_api.UserLikes
 
 ## `create_commit` API
 

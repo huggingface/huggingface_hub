@@ -2,14 +2,15 @@
 # This allows us to support older requests for users
 # More information: https://github.com/psf/requests/pull/5856
 try:
-    from requests import JSONDecodeError  # noqa
+    from requests import JSONDecodeError  # type: ignore  # noqa: F401
 except ImportError:
     try:
-        from simplejson import JSONDecodeError  # noqa
+        from simplejson import JSONDecodeError  # type: ignore # noqa: F401
     except ImportError:
-        from json import JSONDecodeError  # noqa
+        from json import JSONDecodeError  # type: ignore  # noqa: F401
 
 from functools import partial
+from typing import Callable
 
 import yaml
 
@@ -24,4 +25,6 @@ import yaml
 # >>> yaml_dump({"emoji": "👀", "some unicode": "日本か"})
 # 'emoji: "👀"\nsome unicode: "日本か"\n'
 # ```
-yaml_dump = partial(yaml.dump, allow_unicode=True)
+yaml_dump: Callable[..., str] = partial(  # type: ignore
+    yaml.dump, stream=None, allow_unicode=True
+)

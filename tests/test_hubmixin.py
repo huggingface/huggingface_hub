@@ -1,12 +1,10 @@
 import json
 import os
-import tempfile
 import unittest
 from unittest.mock import Mock
 
 from huggingface_hub import HfApi, hf_hub_download
 from huggingface_hub.hub_mixin import PyTorchModelHubMixin
-from huggingface_hub.repository import Repository
 from huggingface_hub.utils import is_torch_available, logging
 
 from .testing_constants import ENDPOINT_STAGING, TOKEN, USER
@@ -66,11 +64,13 @@ class HubMixingTest(HubMixingCommonTest):
         )
 
     @classmethod
+    @expect_deprecation("set_access_token")
     def setUpClass(cls):
         """
         Share this valid token in all tests below.
         """
         cls._token = TOKEN
+        cls._api.token = TOKEN
         cls._api.set_access_token(TOKEN)
 
     def test_save_pretrained(self):
@@ -112,35 +112,6 @@ class HubMixingTest(HubMixingCommonTest):
         mocked_model.save_pretrained(save_directory, push_to_hub=True, config=config)
         mocked_model.push_to_hub.assert_called_with(repo_id=REPO_NAME, config=config)
 
-        # Push to hub with deprecated kwargs (git-based)
-        mocked_model.save_pretrained(
-            save_directory,
-            push_to_hub=True,
-            config=config,
-            repo_path_or_name="custom_repo_name",
-            git_email="myemail",
-            git_user="gituser",
-        )
-        mocked_model.push_to_hub.assert_called_with(
-            repo_path_or_name="custom_repo_name",
-            config=config,
-            git_email="myemail",
-            git_user="gituser",
-        )
-
-        # Push to hub with deprecated kwargs + use default repo_name + no config
-        mocked_model.save_pretrained(
-            save_directory,
-            push_to_hub=True,
-            git_email="myemail",
-            git_user="gituser",
-        )
-        mocked_model.push_to_hub.assert_called_with(
-            repo_path_or_name=save_directory,
-            git_email="myemail",
-            git_user="gituser",
-        )
-
     def test_rel_path_from_pretrained(self):
         model = DummyModel()
         model.save_pretrained(
@@ -176,7 +147,7 @@ class HubMixingTest(HubMixingCommonTest):
         )
 
         # Test model id exists
-        model_info = self._api.model_info(repo_id, use_auth_token=self._token)
+        model_info = self._api.model_info(repo_id)
         self.assertEqual(model_info.modelId, repo_id)
 
         # Test config has been pushed to hub
@@ -188,55 +159,4 @@ class HubMixingTest(HubMixingCommonTest):
 
         # Delete tmp file and repo
         os.remove(tmp_config_path)
-        self._api.delete_repo(repo_id=repo_id, token=self._token)
-
-    @expect_deprecation("push_to_hub")
-    def test_push_to_hub_via_git_deprecated(self):
-        # TODO: remove in 0.12 when git method will be removed
-        REPO_NAME = repo_name("PUSH_TO_HUB_via_git")
-        repo_id = f"{USER}/{REPO_NAME}"
-
-        DummyModel().push_to_hub(
-            repo_path_or_name=f"{WORKING_REPO_DIR}/{REPO_NAME}",
-            api_endpoint=ENDPOINT_STAGING,
-            use_auth_token=self._token,
-        )
-
-        model_info = self._api.model_info(repo_id, use_auth_token=self._token)
-        self.assertEqual(model_info.modelId, repo_id)
-        self._api.delete_repo(repo_id=repo_id, token=self._token)
-
-    @expect_deprecation("push_to_hub")
-    def test_push_to_hub_via_git_use_lfs_by_default(self):
-        # TODO: remove in 0.12 when git method will be removed
-        REPO_NAME = repo_name("PUSH_TO_HUB_with_lfs_file")
-        with tempfile.TemporaryDirectory() as tmpdirname:
-            os.makedirs(f"{tmpdirname}/{WORKING_REPO_DIR}/{REPO_NAME}")
-            self._repo_url = self._api.create_repo(repo_id=REPO_NAME, token=self._token)
-            Repository(
-                local_dir=f"{tmpdirname}/{WORKING_REPO_DIR}/{REPO_NAME}",
-                clone_from=self._repo_url,
-                use_auth_token=self._token,
-            )
-
-            model = DummyModel()
-            large_file = [100] * int(4e6)
-            with open(
-                f"{tmpdirname}/{WORKING_REPO_DIR}/{REPO_NAME}/large_file.txt", "w+"
-            ) as f:
-                f.write(json.dumps(large_file))
-
-            model.push_to_hub(
-                f"{tmpdirname}/{WORKING_REPO_DIR}/{REPO_NAME}",
-                api_endpoint=ENDPOINT_STAGING,
-                use_auth_token=self._token,
-                git_user="ci",
-                git_email="ci@dummy.com",
-            )
-
-        model_info = self._api.model_info(
-            f"{USER}/{REPO_NAME}", use_auth_token=self._token
-        )
-
-        self.assertTrue("large_file.txt" in [f.rfilename for f in model_info.siblings])
-        self._api.delete_repo(repo_id=f"{REPO_NAME}", token=self._token)
+        self._api.delete_repo(repo_id=repo_id)

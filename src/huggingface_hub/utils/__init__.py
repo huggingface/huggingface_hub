@@ -27,10 +27,12 @@ from ._cache_manager import (
     HFCacheInfo,
     scan_cache_dir,
 )
+from ._chunk_utils import chunk_iterable
 from ._datetime import parse_datetime
 from ._errors import (
     BadRequestError,
     EntryNotFoundError,
+    GatedRepoError,
     HfHubHTTPError,
     LocalEntryNotFoundError,
     RepositoryNotFoundError,
@@ -38,33 +40,52 @@ from ._errors import (
     hf_raise_for_status,
 )
 from ._fixes import yaml_dump
+from ._git_credential import (
+    erase_from_credential_store,
+    list_credential_helpers,
+    read_from_credential_store,
+    set_git_credential,
+    unset_git_credential,
+    write_to_credential_store,
+)
 from ._headers import build_hf_headers, get_token_to_send
 from ._hf_folder import HfFolder
 from ._http import http_backoff
 from ._paths import filter_repo_objects
 from ._runtime import (
+    dump_environment_info,
     get_fastai_version,
     get_fastcore_version,
     get_graphviz_version,
     get_hf_hub_version,
     get_jinja_version,
+    get_pillow_version,
     get_pydot_version,
     get_python_version,
     get_tf_version,
     get_torch_version,
     is_fastai_available,
     is_fastcore_available,
+    is_google_colab,
     is_graphviz_available,
     is_jinja_available,
+    is_notebook,
+    is_pillow_available,
     is_pydot_available,
     is_tf_available,
     is_torch_available,
 )
-from ._subprocess import run_subprocess
-from ._validators import HFValidationError, validate_hf_hub_args, validate_repo_id
+from ._subprocess import run_interactive_subprocess, run_subprocess
+from ._validators import (
+    HFValidationError,
+    smoothly_deprecate_use_auth_token,
+    validate_hf_hub_args,
+    validate_repo_id,
+)
 from .tqdm import (
     are_progress_bars_disabled,
     disable_progress_bars,
     enable_progress_bars,
     tqdm,
+    tqdm_stream_file,
 )

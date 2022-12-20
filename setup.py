@@ -14,7 +14,7 @@ def get_version() -> str:
 install_requires = [
     "filelock",
     "requests",
-    "tqdm",
+    "tqdm>=4.42.1",
     "pyyaml>=5.1",
     "typing-extensions>=3.7.4.3",  # to be able to import TypeAlias
     "importlib_metadata;python_version<'3.8'",
@@ -48,6 +48,18 @@ extras["testing"] = extras["cli"] + [
     "pytest-cov",
     "pytest-env",
     "soundfile",
+    "Pillow",
+]
+
+# Typing extra dependencies list is duplicated in `.pre-commit-config.yaml`
+# Please make sure to update the list there when adding a new typing dependency.
+extras["typing"] = [
+    "types-PyYAML",
+    "types-requests",
+    "types-simplejson",
+    "types-toml",
+    "types-tqdm",
+    "types-urllib3",
 ]
 
 extras["quality"] = [
@@ -55,10 +67,10 @@ extras["quality"] = [
     "flake8>=3.8.3",
     "flake8-bugbear",
     "isort>=5.5.4",
-    "mypy",
+    "mypy==0.982",
 ]
 
-extras["all"] = extras["testing"] + extras["quality"]
+extras["all"] = extras["testing"] + extras["quality"] + extras["typing"]
 
 extras["dev"] = extras["all"]
 
@@ -97,6 +109,12 @@ setup(
         "License :: OSI Approved :: Apache Software License",
         "Operating System :: OS Independent",
         "Programming Language :: Python :: 3",
+        "Programming Language :: Python :: 3 :: Only",
+        "Programming Language :: Python :: 3.7",
+        "Programming Language :: Python :: 3.8",
+        "Programming Language :: Python :: 3.9",
+        "Programming Language :: Python :: 3.10",
+        "Programming Language :: Python :: 3.11",
         "Topic :: Scientific/Engineering :: Artificial Intelligence",
     ],
     include_package_data=True,

@@ -13,12 +13,13 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 """Contains utilities to handle datetimes in Huggingface Hub."""
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 
 
-# Local machine offset compared to UTC
+# Local machine offset compared to UTC.
 # Taken from https://stackoverflow.com/a/3168394.
-UTC_OFFSET = datetime.now(timezone.utc).astimezone().utcoffset()
+# `utcoffset()` returns `None` if no offset -> empty timedelta.
+UTC_OFFSET = datetime.now(timezone.utc).astimezone().utcoffset() or timedelta()
 
 
 def parse_datetime(date_string: str) -> datetime:

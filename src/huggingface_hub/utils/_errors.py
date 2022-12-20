@@ -15,6 +15,7 @@ class HfHubHTTPError(HTTPError):
 
     Added details:
     - Request id from "X-Request-Id" header if exists.
+    - Server error message from the header "X-Error-Message".
     - Server error message if we can found one in the response body.
 
     Example:
@@ -43,9 +44,34 @@ class HfHubHTTPError(HTTPError):
         if response is not None:
             self.request_id = response.headers.get("X-Request-Id")
             try:
-                self.server_message = response.json().get("error", None)
+                server_data = response.json()
             except JSONDecodeError:
-                pass
+                server_data = {}
+
+            # Retrieve server error message from multiple sources
+            server_message_from_headers = response.headers.get("X-Error-Message")
+            server_message_from_body = server_data.get("error")
+            server_multiple_messages_from_body = "\n".join(
+                error["message"]
+                for error in server_data.get("errors", [])
+                if "message" in error
+            )
+
+            # Concatenate error messages
+            _server_message = ""
+            if server_message_from_headers is not None:  # from headers
+                _server_message += server_message_from_headers + "\n"
+            if server_message_from_body is not None:  # from body "error"
+                if server_message_from_body not in _server_message:
+                    _server_message += server_message_from_body + "\n"
+            if server_multiple_messages_from_body is not None:  # from body "errors"
+                if server_multiple_messages_from_body not in _server_message:
+                    _server_message += server_multiple_messages_from_body + "\n"
+            _server_message = _server_message.strip()
+
+            # Set message to `HfHubHTTPError` (if any)
+            if _server_message != "":
+                self.server_message = _server_message
 
         super().__init__(
             _format_error_message(
@@ -78,6 +104,28 @@ class RepositoryNotFoundError(HfHubHTTPError):
     Please make sure you specified the correct `repo_id` and `repo_type`.
     If the repo is private, make sure you are authenticated.
     Invalid username or password.
+    ```
+    """
+
+
+class GatedRepoError(RepositoryNotFoundError):
+    """
+    Raised when trying to access a gated repository for which the user is not on the
+    authorized list.
+
+    Note: derives from `RepositoryNotFoundError` to ensure backward compatibility.
+
+    Example:
+
+    ```py
+    >>> from huggingface_hub import model_info
+    >>> model_info("<gated_repository>")
+    (...)
+    huggingface_hub.utils._errors.GatedRepoError: 403 Client Error. (Request ID: ViT1Bf7O_026LGSQuVqfa)
+
+    Cannot access gated repo for url https://huggingface.co/api/models/ardent-figment/gated-model.
+    Access to model ardent-figment/gated-model is restricted and you are not in the authorized list.
+    Visit https://huggingface.co/ardent-figment/gated-model to ask for access.
     ```
     """
 
@@ -197,6 +245,9 @@ def hf_raise_for_status(
             If the repository to download from cannot be found. This may be because it
             doesn't exist, because `repo_type` is not set correctly, or because the repo
             is `private` and you do not have access.
+        - [`~utils.GatedRepoError`]
+            If the repository exists but is gated and the user is not on the authorized
+            list.
         - [`~utils.RevisionNotFoundError`]
             If the repository exists but the revision couldn't be find.
         - [`~utils.EntryNotFoundError`]
@@ -230,14 +281,27 @@ def hf_raise_for_status(
             )
             raise EntryNotFoundError(message, response) from e
 
+        elif error_code == "GatedRepo":
+            message = (
+                f"{response.status_code} Client Error."
+                + "\n\n"
+                + f"Cannot access gated repo for url {response.url}."
+            )
+            raise GatedRepoError(message, response) from e
+
         elif error_code == "RepoNotFound" or response.status_code == 401:
+            # 401 is misleading as it is returned for:
+            #    - private and gated repos if user is not authenticated
+            #    - missing repos
+            # => for now, we process them as `RepoNotFound` anyway.
+            # See https://gist.github.com/Wauplin/46c27ad266b15998ce56a6603796f0b9
             message = (
                 f"{response.status_code} Client Error."
                 + "\n\n"
                 + f"Repository Not Found for url: {response.url}."
                 + "\nPlease make sure you specified the correct `repo_id` and"
-                " `repo_type`."
-                + "\nIf the repo is private, make sure you are authenticated."
+                " `repo_type`.\nIf you are trying to access a private or gated repo,"
+                " make sure you are authenticated."
             )
             raise RepositoryNotFoundError(message, response) from e
 
@@ -251,7 +315,7 @@ def hf_raise_for_status(
 
         # Convert `HTTPError` into a `HfHubHTTPError` to display request information
         # as well (request id and/or server error message)
-        raise HfHubHTTPError(str(HTTPError), response=response) from e
+        raise HfHubHTTPError(str(e), response=response) from e
 
 
 @_deprecate_method(version="0.13", message="Use `hf_raise_for_status` instead.")

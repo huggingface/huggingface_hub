@@ -3,12 +3,13 @@
 <a href="https://github.com/psf/black"><img alt="Code style: black" src="https://img.shields.io/badge/code%20style-black-000000.svg"></a>
 <a href="https://codecov.io/gh/huggingface/huggingface_hub"><img alt="Code coverage" src="https://codecov.io/gh/huggingface/huggingface_hub/branch/main/graph/badge.svg?token=RXP95LE2XL"></a>
 <a href="https://github.com/huggingface/huggingface_hub/releases"><img alt="GitHub release" src="https://img.shields.io/github/release/huggingface/huggingface_hub.svg"></a>
+<a href="https://github.com/huggingface/huggingface_hub"><img alt="Documentation" src="https://img.shields.io/pypi/pyversions/huggingface_hub.svg"></a>
 <a href="https://huggingface.co/docs/huggingface_hub/index"><img alt="Documentation" src="https://img.shields.io/website/http/huggingface.co/docs/huggingface_hub/index.svg?down_color=red&down_message=offline&up_message=online&label=doc"></a>
 
 ## Welcome to the huggingface_hub library
 
 
-The `huggingface_hub` is a client library to interact with the Hugging Face Hub. The Hugging Face Hub is a platform with over 35K models, 4K datasets, and 2K demos in which people can easily collaborate in their ML workflows. The Hub works as a central place where anyone can share, explore, discover, and experiment with open-source Machine Learning.
+The `huggingface_hub` is a client library to interact with the Hugging Face Hub. The Hugging Face Hub is a platform with over 90K models, 14K datasets, and 12K demos in which people can easily collaborate in their ML workflows. The Hub works as a central place where anyone can share, explore, discover, and experiment with open-source Machine Learning.
 
 With `huggingface_hub`, you can easily download and upload models, datasets, and Spaces. You can extract useful information from the Hub, and do much more. Some example use cases:
 * Downloading and caching files from a Hub repository.

@@ -7,7 +7,10 @@ import pytest
 
 import huggingface_hub
 from _pytest.fixtures import SubRequest
-from huggingface_hub import HfFolder
+from huggingface_hub import HfApi, HfFolder
+
+from .testing_constants import ENDPOINT_PRODUCTION, PRODUCTION_TOKEN
+from .testing_utils import repo_name
 
 
 @pytest.fixture
@@ -61,3 +64,62 @@ def disable_symlinks_on_windows_ci(monkeypatch: pytest.MonkeyPatch) -> None:
             "_are_symlinks_supported_in_dir",
             FakeSymlinkDict(),
         )
+
+
+@pytest.fixture
+def fx_production_space(request: SubRequest) -> Generator[None, None, None]:
+    """Add a `repo_id` attribute referencing a Space repo on the production Hub.
+
+    Fully testing Spaces is not currently possible on staging so we need to use the production
+    environment for it. Tests are skipped if we can't find a `HUGGINGFACE_PRODUCTION_USER_TOKEN`
+    environment variable.
+
+    Example:
+    ```py
+    @pytest.mark.usefixtures("fx_production_space")
+    class TestSpaceAPI(unittest.TestCase):
+        repo_id: str
+        api: HfApi
+
+        def test_space(self) -> None:
+            api.repo_info(repo_id, repo_type="space")
+    ```
+    """
+    # Check if production token exists
+    if PRODUCTION_TOKEN is None:
+        pytest.skip(
+            "Skip Space tests. `HUGGINGFACE_PRODUCTION_USER_TOKEN` environment variable"
+            " is not set."
+        )
+
+    # Generate repo id from prod token
+    api = HfApi(token=PRODUCTION_TOKEN, endpoint=ENDPOINT_PRODUCTION)
+    user = api.whoami()["name"]
+    repo_id = f"{user}/{repo_name(prefix='tmp_test_space')}"
+    request.cls.api = api
+    request.cls.repo_id = repo_id
+
+    # Create and clean space repo
+    api.create_repo(
+        repo_id=repo_id, repo_type="space", space_sdk="gradio", private=True
+    )
+    api.upload_file(
+        path_or_fileobj=_BASIC_APP_PY_TEMPLATE,
+        repo_id=repo_id,
+        repo_type="space",
+        path_in_repo="app.py",
+    )
+    yield
+    api.delete_repo(repo_id=repo_id, repo_type="space")
+
+
+_BASIC_APP_PY_TEMPLATE = """
+import gradio as gr
+
+
+def greet(name):
+    return "Hello " + name + "!!"
+
+iface = gr.Interface(fn=greet, inputs="text", outputs="text")
+iface.launch()
+""".encode()

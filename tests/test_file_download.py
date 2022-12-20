@@ -13,6 +13,7 @@
 # limitations under the License.
 import os
 import re
+import stat
 import unittest
 from pathlib import Path
 from tempfile import TemporaryDirectory
@@ -37,10 +38,12 @@ from huggingface_hub.file_download import (
 )
 from huggingface_hub.utils import (
     EntryNotFoundError,
+    GatedRepoError,
     LocalEntryNotFoundError,
     RepositoryNotFoundError,
     RevisionNotFoundError,
 )
+from tests.testing_constants import TOKEN
 
 from .testing_utils import (
     DUMMY_MODEL_ID,
@@ -145,6 +148,25 @@ class CachedDownloadTests(unittest.TestCase):
                     cache_dir=tmpdir,
                 )
 
+    def test_file_cached_and_read_only_access(self):
+        """Should works if file is already cached and user has read-only permission.
+
+        Regression test for https://github.com/huggingface/huggingface_hub/issues/1216.
+        """
+        # Valid file but missing locally and network is disabled.
+        with TemporaryDirectory() as tmpdir:
+            # Download a first time to get the refs ok
+            hf_hub_download(DUMMY_MODEL_ID, filename=CONFIG_NAME, cache_dir=tmpdir)
+
+            # Set read-only permission recursively
+            _recursive_chmod(tmpdir, 0o555)
+
+            # Get without write-access must succeed
+            hf_hub_download(DUMMY_MODEL_ID, filename=CONFIG_NAME, cache_dir=tmpdir)
+
+            # Set permission back for cleanup
+            _recursive_chmod(tmpdir, 0o777)
+
     def test_revision_not_found(self):
         # Valid file but missing revision
         url = hf_hub_url(
@@ -220,6 +242,25 @@ class CachedDownloadTests(unittest.TestCase):
             metadata,
             (url, '"95aa6a52d5d6a735563366753ca50492a658031da74f301ac5238b03966972c9"'),
         )
+
+    def test_hf_hub_download_custom_cache_permission(self):
+        """Checks `hf_hub_download` respect the cache dir permission.
+
+        Regression test for #1141 #1215.
+        https://github.com/huggingface/huggingface_hub/issues/1141
+        https://github.com/huggingface/huggingface_hub/issues/1215
+        """
+        with TemporaryDirectory() as tmpdir:
+            # Equivalent to umask u=rwx,g=r,o=
+            previous_umask = os.umask(0o037)
+            try:
+                filepath = hf_hub_download(
+                    DUMMY_RENAMED_OLD_MODEL_ID, "config.json", cache_dir=tmpdir
+                )
+                # Permissions are honored (640: u=rw,g=r,o=)
+                self.assertEqual(stat.S_IMODE(os.stat(filepath).st_mode), 0o640)
+            finally:
+                os.umask(previous_umask)
 
     def test_download_from_a_renamed_repo_with_hf_hub_download(self):
         """Checks `hf_hub_download` works also on a renamed repo.
@@ -357,6 +398,7 @@ class CachedDownloadTests(unittest.TestCase):
         )
         self.assertIsNotNone(metadata.etag)  # example: "85c2fc2dcdd86563aaa85ef4911..."
         self.assertEqual(metadata.location, url)  # no redirect
+        self.assertEqual(metadata.size, 851)
 
     def test_get_hf_file_metadata_from_a_renamed_repo(self) -> None:
         """Test getting metadata from a file in a renamed repo on the Hub."""
@@ -372,6 +414,81 @@ class CachedDownloadTests(unittest.TestCase):
             metadata.location,
             url.replace(DUMMY_RENAMED_OLD_MODEL_ID, DUMMY_RENAMED_NEW_MODEL_ID),
         )
+
+    def test_get_hf_file_metadata_from_a_lfs_file(self) -> None:
+        """Test getting metadata from an LFS file.
+
+        Must get size of the LFS file, not size of the pointer file
+        """
+        url = hf_hub_url("gpt2", filename="tf_model.h5")
+        metadata = get_hf_file_metadata(url)
+
+        self.assertIn("cdn-lfs", metadata.location)  # Redirection
+        self.assertEqual(metadata.size, 497933648)  # Size of LFS file, not pointer
+
+
+class StagingCachedDownloadTest(unittest.TestCase):
+    def test_download_from_a_gated_repo_with_hf_hub_download(self):
+        """Checks `hf_hub_download` outputs error on gated repo.
+
+        Regression test for #1121.
+        https://github.com/huggingface/huggingface_hub/pull/1121
+        """
+        with TemporaryDirectory() as tmpdir:
+            with self.assertRaisesRegex(
+                GatedRepoError,
+                "Access to model .* is restricted and you are not in the authorized"
+                " list",
+            ):
+                hf_hub_download(
+                    repo_id="datasets_server_org/gated_repo_for_huggingface_hub_ci",
+                    filename="config.json",
+                    use_auth_token=TOKEN,
+                    cache_dir=tmpdir,
+                )
+
+
+@pytest.mark.usefixtures("fx_cache_dir")
+class StagingCachedDownloadOnAwfulFilenamesTest(unittest.TestCase):
+    """Implement regression tests for #1161.
+
+    Issue was on filename not url encoded by `hf_hub_download` and `hf_hub_url`.
+
+    See https://github.com/huggingface/huggingface_hub/issues/1161
+    """
+
+    cache_dir: Path
+    repo_id = "valid_org/repo_with_awful_filename"
+    subfolder = "subfolder/to?"
+    filename = "awful?filename%you:should,never.give"
+    filepath = "subfolder/to?/awful?filename%you:should,never.give"
+    expected_url = "https://hub-ci.huggingface.co/valid_org/repo_with_awful_filename/resolve/main/subfolder/to%3F/awful%3Ffilename%25you%3Ashould%2Cnever.give"
+
+    def test_hf_hub_url_on_awful_filepath(self):
+        self.assertEqual(hf_hub_url(self.repo_id, self.filepath), self.expected_url)
+
+    def test_hf_hub_url_on_awful_subfolder_and_filename(self):
+        self.assertEqual(
+            hf_hub_url(self.repo_id, self.filename, subfolder=self.subfolder),
+            self.expected_url,
+        )
+
+    def test_hf_hub_download_on_awful_filepath(self):
+        local_path = hf_hub_download(
+            self.repo_id, self.filepath, cache_dir=self.cache_dir
+        )
+        # Local path is not url-encoded
+        self.assertTrue(local_path.endswith(self.filepath))
+
+    def test_hf_hub_download_on_awful_subfolder_and_filename(self):
+        local_path = hf_hub_download(
+            self.repo_id,
+            self.filename,
+            subfolder=self.subfolder,
+            cache_dir=self.cache_dir,
+        )
+        # Local path is not url-encoded
+        self.assertTrue(local_path.endswith(self.filepath))
 
 
 class CreateSymlinkTest(unittest.TestCase):
@@ -407,3 +524,12 @@ class CreateSymlinkTest(unittest.TestCase):
             mock_are_symlinks_supported.side_effect = _are_symlinks_supported
             with self.assertRaises(FileExistsError):
                 _create_relative_symlink(src, dst)
+
+
+def _recursive_chmod(path: str, mode: int) -> None:
+    # Taken from https://stackoverflow.com/a/2853934
+    for root, dirs, files in os.walk(path):
+        for d in dirs:
+            os.chmod(os.path.join(root, d), mode)
+        for f in files:
+            os.chmod(os.path.join(root, f), mode)
