@@ -2449,7 +2449,7 @@ class TestSpaceAPIMocked(unittest.TestCase):
         )
 
 
-class ListRepoRefsTest(unittest.TestCase):
+class ListGitRefsTest(unittest.TestCase):
     @classmethod
     @with_production_testing
     def setUpClass(cls) -> None:

@@ -623,7 +623,7 @@ class DatasetSearchArguments(AttributeDictionary):
 
 
 @dataclass
-class RefInfo:
+class GitRefInfo:
     """
     Contains information about a git reference for a repo on the Hub.
 
@@ -640,33 +640,32 @@ class RefInfo:
     ref: str
     target_commit: str
 
-    @classmethod
-    def from_dict(cls, data: Dict) -> "RefInfo":
-        return cls(
-            name=data["name"], ref=data["ref"], target_commit=data["targetCommit"]
-        )
+    def __init__(self, data: Dict) -> None:
+        self.name = data["name"]
+        self.ref = data["ref"]
+        self.target_commit = data["targetCommit"]
 
 
 @dataclass
-class RepoRefs:
+class GitRefs:
     """
     Contains information about all git references for a repo on the Hub.
 
     Object is returned by [`list_repo_refs`].
 
     Args:
-        branches (`List[RefInfo]`):
-            A list of [`RefInfo`] containing information about branches on the repo.
-        converts (`List[RefInfo]`):
-            A list of [`RefInfo`] containing information about "convert" refs on the repo.
+        branches (`List[GitRefInfo]`):
+            A list of [`GitRefInfo`] containing information about branches on the repo.
+        converts (`List[GitRefInfo]`):
+            A list of [`GitRefInfo`] containing information about "convert" refs on the repo.
             Converts are refs used (internally) to push preprocessed data in Dataset repos.
-        tags (`List[RefInfo]`):
-            A list of [`RefInfo`] containing information about tags on the repo.
+        tags (`List[GitRefInfo]`):
+            A list of [`GitRefInfo`] containing information about tags on the repo.
     """
 
-    branches: List[RefInfo]
-    converts: List[RefInfo]
-    tags: List[RefInfo]
+    branches: List[GitRefInfo]
+    converts: List[GitRefInfo]
+    tags: List[GitRefInfo]
 
 
 @dataclass
@@ -1826,7 +1825,7 @@ class HfApi:
         *,
         repo_type: Optional[str] = None,
         token: Optional[Union[bool, str]] = None,
-    ) -> RepoRefs:
+    ) -> GitRefs:
         """
         Get the list of refs of a given repo (both tags and branches).
 
@@ -1848,23 +1847,23 @@ class HfApi:
         >>> from huggingface_hub import HfApi
         >>> api = HfApi()
         >>> api.list_repo_refs("gpt2")
-        RepoRefs(branches=[RefInfo(name='main', ref='refs/heads/main', target_commit='e7da7f221d5bf496a48136c0cd264e630fe9fcc8')], converts=[], tags=[])
+        GitRefs(branches=[GitRefInfo(name='main', ref='refs/heads/main', target_commit='e7da7f221d5bf496a48136c0cd264e630fe9fcc8')], converts=[], tags=[])
 
         >>> api.list_repo_refs("bigcode/the-stack", repo_type='dataset')
-        RepoRefs(
+        GitRefs(
             branches=[
-                RefInfo(name='main', ref='refs/heads/main', target_commit='18edc1591d9ce72aa82f56c4431b3c969b210ae3'),
-                RefInfo(name='v1.1.a1', ref='refs/heads/v1.1.a1', target_commit='f9826b862d1567f3822d3d25649b0d6d22ace714')
+                GitRefInfo(name='main', ref='refs/heads/main', target_commit='18edc1591d9ce72aa82f56c4431b3c969b210ae3'),
+                GitRefInfo(name='v1.1.a1', ref='refs/heads/v1.1.a1', target_commit='f9826b862d1567f3822d3d25649b0d6d22ace714')
             ],
             converts=[],
             tags=[
-                RefInfo(name='v1.0', ref='refs/tags/v1.0', target_commit='c37a8cd1e382064d8aced5e05543c5f7753834da')
+                GitRefInfo(name='v1.0', ref='refs/tags/v1.0', target_commit='c37a8cd1e382064d8aced5e05543c5f7753834da')
             ]
         )
         ```
 
         Returns:
-            [`RepoRefs`]: object containing all information about branches and tags for a
+            [`GitRefs`]: object containing all information about branches and tags for a
             repo on the Hub.
         """
         repo_type = repo_type or REPO_TYPE_MODEL
@@ -1874,10 +1873,10 @@ class HfApi:
         )
         hf_raise_for_status(response)
         data = response.json()
-        return RepoRefs(
-            branches=[RefInfo.from_dict(item) for item in data["branches"]],
-            converts=[RefInfo.from_dict(item) for item in data["converts"]],
-            tags=[RefInfo.from_dict(item) for item in data["tags"]],
+        return GitRefs(
+            branches=[GitRefInfo(item) for item in data["branches"]],
+            converts=[GitRefInfo(item) for item in data["converts"]],
+            tags=[GitRefInfo(item) for item in data["tags"]],
         )
 
     @validate_hf_hub_args
