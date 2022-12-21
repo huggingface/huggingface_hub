@@ -21,9 +21,6 @@ import time
 import unittest
 import uuid
 from io import BytesIO
-from pathlib import Path
-
-import pytest
 
 import requests
 from huggingface_hub._login import _currently_setup_credential_helpers
@@ -33,7 +30,7 @@ from huggingface_hub.repository import (
     is_tracked_upstream,
     is_tracked_with_lfs,
 )
-from huggingface_hub.utils import logging, run_subprocess
+from huggingface_hub.utils import logging
 
 from .testing_constants import ENDPOINT_STAGING, TOKEN, USER
 from .testing_utils import (
@@ -979,329 +976,611 @@ class RepositoryTest(RepositoryCommonTest):
         self.assertEqual(post_prune_git_lfs_files_size, git_lfs_files_size)
 
 
-@pytest.mark.usefixtures("fx_cache_dir")
 class RepositoryOfflineTest(RepositoryCommonTest):
-    cache_dir: Path
-    repo_path: Path
+    @classmethod
+    def setUpClass(cls) -> None:
+        if os.path.exists(WORKING_REPO_DIR):
+            shutil.rmtree(WORKING_REPO_DIR, onerror=set_write_permission_and_retry)
+        logger.info(
+            f"Does {WORKING_REPO_DIR} exist: {os.path.exists(WORKING_REPO_DIR)}"
+        )
+        os.makedirs(WORKING_REPO_DIR, exist_ok=True)
+        subprocess.run(
+            ["git", "init"],
+            stderr=subprocess.PIPE,
+            stdout=subprocess.PIPE,
+            check=True,
+            cwd=WORKING_REPO_DIR,
+        )
 
-    # This content is 5MB (under 10MB)
-    small_content = json.dumps([100] * int(1e6))
+        repo = Repository(WORKING_REPO_DIR, git_user="ci", git_email="ci@dummy.ci")
 
-    # This content is 20MB (over 10MB)
-    large_content = json.dumps([100] * int(4e6))
+        with open(f"{WORKING_REPO_DIR}/.gitattributes", "w+") as f:
+            f.write("*.pt filter=lfs diff=lfs merge=lfs -text")
 
-    # This content is binary (contains the null character)
-    binary_content = "\x00\x00\x00\x00"
+        repo.git_add(".gitattributes")
+        repo.git_commit("Add .gitattributes")
+
+    def tearDown(self):
+        subprocess.run(
+            ["git", "reset", "--hard"],
+            stderr=subprocess.PIPE,
+            stdout=subprocess.PIPE,
+            check=True,
+            cwd=WORKING_REPO_DIR,
+        )
+        subprocess.run(
+            ["git", "clean", "-fdx"],
+            stderr=subprocess.PIPE,
+            stdout=subprocess.PIPE,
+            check=True,
+            cwd=WORKING_REPO_DIR,
+        )
+
+        all_local_tags = subprocess.run(
+            ["git", "tag", "-l"],
+            stderr=subprocess.PIPE,
+            stdout=subprocess.PIPE,
+            check=True,
+            cwd=WORKING_REPO_DIR,
+        ).stdout.strip()
+
+        if len(all_local_tags):
+            subprocess.run(
+                ["git", "tag", "-d", all_local_tags],
+                stderr=subprocess.PIPE,
+                stdout=subprocess.PIPE,
+                check=True,
+                cwd=WORKING_REPO_DIR,
+            )
 
     @classmethod
-    def setUp(self) -> None:
-        self.repo_path = self.cache_dir / "working_dir"
-        self.repo_path.mkdir()
-
-        run_subprocess("git init", folder=self.repo_path)
-
-        self.repo = Repository(self.repo_path, git_user="ci", git_email="ci@dummy.ci")
-
-        git_attributes_path = self.repo_path / ".gitattributes"
-        git_attributes_path.write_text("*.pt filter=lfs diff=lfs merge=lfs -text")
-
-        self.repo.git_add(".gitattributes")
-        self.repo.git_commit("Add .gitattributes")
+    def tearDownClass(cls) -> None:
+        if os.path.exists(WORKING_REPO_DIR):
+            shutil.rmtree(WORKING_REPO_DIR, onerror=set_write_permission_and_retry)
+        logger.info(
+            f"Does {WORKING_REPO_DIR} exist: {os.path.exists(WORKING_REPO_DIR)}"
+        )
 
     def test_is_tracked_with_lfs(self):
-        txt_1 = self.repo_path / "small_file_1.txt"
-        txt_2 = self.repo_path / "small_file_2.txt"
-        pt_1 = self.repo_path / "model.pt"
+        repo = Repository(WORKING_REPO_DIR)
 
-        txt_1.write_text(self.small_content)
-        txt_2.write_text(self.small_content)
-        pt_1.write_text(self.small_content)
+        # This content is under 10MB
+        small_file = [100]
 
-        self.repo.lfs_track("small_file_1.txt")
+        with open(f"{WORKING_REPO_DIR}/small_file.txt", "w+") as f:
+            f.write(json.dumps(small_file))
 
-        self.assertTrue(is_tracked_with_lfs(txt_1))
-        self.assertFalse(is_tracked_with_lfs(txt_2))
-        self.assertTrue(pt_1)
+        with open(f"{WORKING_REPO_DIR}/small_file_2.txt", "w+") as f:
+            f.write(json.dumps(small_file))
+
+        with open(f"{WORKING_REPO_DIR}/model.pt", "w+") as f:
+            f.write(json.dumps(small_file))
+
+        repo.lfs_track("small_file.txt")
+
+        self.assertTrue(
+            is_tracked_with_lfs(os.path.join(WORKING_REPO_DIR, "small_file.txt"))
+        )
+        self.assertFalse(
+            is_tracked_with_lfs(os.path.join(WORKING_REPO_DIR, "small_file_2.txt"))
+        )
+        self.assertTrue(is_tracked_with_lfs(os.path.join(WORKING_REPO_DIR, "model.pt")))
 
     def test_is_tracked_with_lfs_with_pattern(self):
-        txt_small_file = self.repo_path / "small_file.txt"
-        txt_small_file.write_text(self.small_content)
+        repo = Repository(WORKING_REPO_DIR)
 
-        txt_large_file = self.repo_path / "large_file.txt"
-        txt_large_file.write_text(self.large_content)
+        # This content is 5MB (under 10MB)
+        small_file = [100] * int(1e6)
 
-        (self.repo_path / "dir").mkdir()
-        txt_small_file_in_dir = self.repo_path / "dir" / "small_file.txt"
-        txt_small_file_in_dir.write_text(self.small_content)
+        # This content is 20MB (over 10MB)
+        large_file = [100] * int(4e6)
 
-        txt_large_file_in_dir = self.repo_path / "dir" / "large_file.txt"
-        txt_large_file_in_dir.write_text(self.large_content)
+        with open(f"{WORKING_REPO_DIR}/large_file.txt", "w+") as f:
+            f.write(json.dumps(large_file))
 
-        self.repo.auto_track_large_files("dir")
+        with open(f"{WORKING_REPO_DIR}/small_file.txt", "w+") as f:
+            f.write(json.dumps(small_file))
 
-        self.assertFalse(is_tracked_with_lfs(txt_large_file))
-        self.assertFalse(is_tracked_with_lfs(txt_small_file))
-        self.assertTrue(is_tracked_with_lfs(txt_large_file_in_dir))
-        self.assertFalse(is_tracked_with_lfs(txt_small_file_in_dir))
+        os.makedirs(f"{WORKING_REPO_DIR}/dir", exist_ok=True)
+
+        with open(f"{WORKING_REPO_DIR}/dir/large_file.txt", "w+") as f:
+            f.write(json.dumps(large_file))
+
+        with open(f"{WORKING_REPO_DIR}/dir/small_file.txt", "w+") as f:
+            f.write(json.dumps(small_file))
+
+        repo.auto_track_large_files("dir")
+
+        self.assertFalse(
+            is_tracked_with_lfs(os.path.join(WORKING_REPO_DIR, "large_file.txt"))
+        )
+        self.assertFalse(
+            is_tracked_with_lfs(os.path.join(WORKING_REPO_DIR, "small_file.txt"))
+        )
+        self.assertTrue(
+            is_tracked_with_lfs(os.path.join(WORKING_REPO_DIR, "dir/large_file.txt"))
+        )
+        self.assertFalse(
+            is_tracked_with_lfs(os.path.join(WORKING_REPO_DIR, "dir/small_file.txt"))
+        )
 
     def test_auto_track_large_files(self):
-        txt_small_file = self.repo_path / "small_file.txt"
-        txt_small_file.write_text(self.small_content)
+        repo = Repository(WORKING_REPO_DIR)
 
-        txt_large_file = self.repo_path / "large_file.txt"
-        txt_large_file.write_text(self.large_content)
+        # This content is 5MB (under 10MB)
+        small_file = [100] * int(1e6)
 
-        self.repo.auto_track_large_files()
+        # This content is 20MB (over 10MB)
+        large_file = [100] * int(4e6)
 
-        self.assertTrue(is_tracked_with_lfs(txt_large_file))
-        self.assertFalse(is_tracked_with_lfs(txt_small_file))
+        with open(f"{WORKING_REPO_DIR}/large_file.txt", "w+") as f:
+            f.write(json.dumps(large_file))
+
+        with open(f"{WORKING_REPO_DIR}/small_file.txt", "w+") as f:
+            f.write(json.dumps(small_file))
+
+        repo.auto_track_large_files()
+
+        self.assertTrue(
+            is_tracked_with_lfs(os.path.join(WORKING_REPO_DIR, "large_file.txt"))
+        )
+        self.assertFalse(
+            is_tracked_with_lfs(os.path.join(WORKING_REPO_DIR, "small_file.txt"))
+        )
 
     def test_auto_track_binary_files(self):
-        non_binary_file = self.repo_path / "non_binary_file.txt"
-        non_binary_file.write_text(self.small_content)
+        repo = Repository(WORKING_REPO_DIR)
 
-        binary_file = self.repo_path / "binary_file.txt"
-        binary_file.write_text(self.binary_content)
+        # This content is non-binary
+        non_binary_file = [100] * int(1e6)
 
-        self.repo.auto_track_binary_files()
+        # This content is binary (contains the null character)
+        binary_file = "\x00\x00\x00\x00"
 
-        self.assertFalse(is_tracked_with_lfs(non_binary_file))
-        self.assertTrue(is_tracked_with_lfs(binary_file))
+        with open(f"{WORKING_REPO_DIR}/non_binary_file.txt", "w+") as f:
+            f.write(json.dumps(non_binary_file))
+
+        with open(f"{WORKING_REPO_DIR}/binary_file.txt", "w+") as f:
+            f.write(binary_file)
+
+        repo.auto_track_binary_files()
+
+        self.assertFalse(
+            is_tracked_with_lfs(os.path.join(WORKING_REPO_DIR, "non_binary)file.txt"))
+        )
+        self.assertTrue(
+            is_tracked_with_lfs(os.path.join(WORKING_REPO_DIR, "binary_file.txt"))
+        )
 
     def test_auto_track_large_files_ignored_with_gitignore(self):
-        (self.repo_path / "dir").mkdir()
+        repo = Repository(WORKING_REPO_DIR)
+
+        # This content is 20MB (over 10MB)
+        large_file = [100] * int(4e6)
 
         # Test nested gitignores
-        gitignore_file = self.repo_path / ".gitignore"
-        gitignore_file.write_text("large_file.txt")
+        os.makedirs(f"{WORKING_REPO_DIR}/directory")
 
-        gitignore_file_in_dir = self.repo_path / "dir" / ".gitignore"
-        gitignore_file_in_dir.write_text("large_file_3.txt")
+        with open(f"{WORKING_REPO_DIR}/.gitignore", "w+") as f:
+            f.write("large_file.txt")
 
-        large_file = self.repo_path / "large_file.txt"
-        large_file.write_text(self.large_content)
+        with open(f"{WORKING_REPO_DIR}/directory/.gitignore", "w+") as f:
+            f.write("large_file_3.txt")
 
-        large_file_2 = self.repo_path / "large_file_2.txt"
-        large_file_2.write_text(self.large_content)
+        with open(f"{WORKING_REPO_DIR}/large_file.txt", "w+") as f:
+            f.write(json.dumps(large_file))
 
-        large_file_3 = self.repo_path / "dir" / "large_file_3.txt"
-        large_file_3.write_text(self.large_content)
+        with open(f"{WORKING_REPO_DIR}/large_file_2.txt", "w+") as f:
+            f.write(json.dumps(large_file))
 
-        large_file_4 = self.repo_path / "dir" / "large_file_4.txt"
-        large_file_4.write_text(self.large_content)
+        with open(f"{WORKING_REPO_DIR}/directory/large_file_3.txt", "w+") as f:
+            f.write(json.dumps(large_file))
 
-        self.repo.auto_track_large_files()
+        with open(f"{WORKING_REPO_DIR}/directory/large_file_4.txt", "w+") as f:
+            f.write(json.dumps(large_file))
+
+        repo.auto_track_large_files()
 
         # Large files
-        self.assertFalse(is_tracked_with_lfs(large_file))
-        self.assertTrue(is_tracked_with_lfs(large_file_2))
+        self.assertFalse(
+            is_tracked_with_lfs(os.path.join(WORKING_REPO_DIR, "large_file.txt"))
+        )
+        self.assertTrue(
+            is_tracked_with_lfs(os.path.join(WORKING_REPO_DIR, "large_file_2.txt"))
+        )
 
-        self.assertFalse(is_tracked_with_lfs(large_file_3))
-        self.assertTrue(is_tracked_with_lfs(large_file_4))
+        self.assertFalse(
+            is_tracked_with_lfs(
+                os.path.join(WORKING_REPO_DIR, "directory/large_file_3.txt")
+            )
+        )
+        self.assertTrue(
+            is_tracked_with_lfs(
+                os.path.join(WORKING_REPO_DIR, "directory/large_file_4.txt")
+            )
+        )
 
     def test_auto_track_binary_files_ignored_with_gitignore(self):
-        (self.repo_path / "dir").mkdir()
+        repo = Repository(WORKING_REPO_DIR)
+
+        # This content is binary (contains the null character)
+        binary_file = "\x00\x00\x00\x00"
 
         # Test nested gitignores
-        gitignore_file = self.repo_path / ".gitignore"
-        gitignore_file.write_text("binary_file.txt")
+        os.makedirs(f"{WORKING_REPO_DIR}/directory")
 
-        gitignore_file_in_dir = self.repo_path / "dir" / ".gitignore"
-        gitignore_file_in_dir.write_text("binary_file_3.txt")
+        with open(f"{WORKING_REPO_DIR}/.gitignore", "w+") as f:
+            f.write("binary_file.txt")
 
-        binary_file = self.repo_path / "binary_file.txt"
-        binary_file.write_text(self.binary_content)
+        with open(f"{WORKING_REPO_DIR}/directory/.gitignore", "w+") as f:
+            f.write("binary_file_3.txt")
 
-        binary_file_2 = self.repo_path / "binary_file_2.txt"
-        binary_file_2.write_text(self.binary_content)
+        with open(f"{WORKING_REPO_DIR}/binary_file.txt", "w+") as f:
+            f.write(binary_file)
 
-        binary_file_3 = self.repo_path / "dir" / "binary_file_3.txt"
-        binary_file_3.write_text(self.binary_content)
+        with open(f"{WORKING_REPO_DIR}/binary_file_2.txt", "w+") as f:
+            f.write(binary_file)
 
-        binary_file_4 = self.repo_path / "dir" / "binary_file_4.txt"
-        binary_file_4.write_text(self.binary_content)
+        with open(f"{WORKING_REPO_DIR}/directory/binary_file_3.txt", "w+") as f:
+            f.write(binary_file)
 
-        self.repo.auto_track_binary_files()
+        with open(f"{WORKING_REPO_DIR}/directory/binary_file_4.txt", "w+") as f:
+            f.write(binary_file)
+
+        repo.auto_track_binary_files()
 
         # Binary files
-        self.assertFalse(is_tracked_with_lfs(binary_file))
-        self.assertTrue(is_tracked_with_lfs(binary_file_2))
-        self.assertFalse(is_tracked_with_lfs(binary_file_3))
-        self.assertTrue(is_tracked_with_lfs(binary_file_4))
+        self.assertFalse(
+            is_tracked_with_lfs(os.path.join(WORKING_REPO_DIR, "binary_file.txt"))
+        )
+        self.assertTrue(
+            is_tracked_with_lfs(os.path.join(WORKING_REPO_DIR, "binary_file_2.txt"))
+        )
+
+        self.assertFalse(
+            is_tracked_with_lfs(
+                os.path.join(WORKING_REPO_DIR, "directory/binary_file_3.txt")
+            )
+        )
+        self.assertTrue(
+            is_tracked_with_lfs(
+                os.path.join(WORKING_REPO_DIR, "directory/binary_file_4.txt")
+            )
+        )
 
     def test_auto_track_large_files_through_git_add(self):
-        txt_small_file = self.repo_path / "small_file.txt"
-        txt_small_file.write_text(self.small_content)
+        repo = Repository(WORKING_REPO_DIR)
 
-        txt_large_file = self.repo_path / "large_file.txt"
-        txt_large_file.write_text(self.large_content)
+        # This content is 5MB (under 10MB)
+        small_file = [100] * int(1e6)
 
-        self.repo.git_add(auto_lfs_track=True)
+        # This content is 20MB (over 10MB)
+        large_file = [100] * int(4e6)
 
-        self.assertTrue(is_tracked_with_lfs(txt_large_file))
-        self.assertFalse(is_tracked_with_lfs(txt_small_file))
+        with open(f"{WORKING_REPO_DIR}/large_file.txt", "w+") as f:
+            f.write(json.dumps(large_file))
+
+        with open(f"{WORKING_REPO_DIR}/small_file.txt", "w+") as f:
+            f.write(json.dumps(small_file))
+
+        repo.git_add(auto_lfs_track=True)
+
+        self.assertTrue(
+            is_tracked_with_lfs(os.path.join(WORKING_REPO_DIR, "large_file.txt"))
+        )
+        self.assertFalse(
+            is_tracked_with_lfs(os.path.join(WORKING_REPO_DIR, "small_file.txt"))
+        )
 
     def test_auto_track_binary_files_through_git_add(self):
-        non_binary_file = self.repo_path / "small_file.txt"
-        non_binary_file.write_text(self.small_content)
+        repo = Repository(WORKING_REPO_DIR)
 
-        binary_file = self.repo_path / "binary.txt"
-        binary_file.write_text(self.binary_content)
+        # This content is non binary
+        non_binary_file = [100] * int(1e6)
 
-        self.repo.git_add(auto_lfs_track=True)
+        # This content is binary (contains the null character)
+        binary_file = "\x00\x00\x00\x00"
 
-        self.assertTrue(is_tracked_with_lfs(binary_file))
-        self.assertFalse(is_tracked_with_lfs(non_binary_file))
+        with open(f"{WORKING_REPO_DIR}/small_file.txt", "w+") as f:
+            f.write(json.dumps(non_binary_file))
+
+        with open(f"{WORKING_REPO_DIR}/binary_file.txt", "w+") as f:
+            f.write(binary_file)
+
+        repo.git_add(auto_lfs_track=True)
+
+        self.assertFalse(
+            is_tracked_with_lfs(os.path.join(WORKING_REPO_DIR, "non_binary_file.txt"))
+        )
+        self.assertTrue(
+            is_tracked_with_lfs(os.path.join(WORKING_REPO_DIR, "binary_file.txt"))
+        )
 
     def test_auto_no_track_large_files_through_git_add(self):
-        txt_small_file = self.repo_path / "small_file.txt"
-        txt_small_file.write_text(self.small_content)
+        repo = Repository(WORKING_REPO_DIR)
 
-        txt_large_file = self.repo_path / "large_file.txt"
-        txt_large_file.write_text(self.large_content)
+        # This content is 5MB (under 10MB)
+        small_file = [100] * int(1e6)
 
-        self.repo.git_add(auto_lfs_track=False)
+        # This content is 20MB (over 10MB)
+        large_file = [100] * int(4e6)
 
-        self.assertFalse(is_tracked_with_lfs(txt_large_file))
-        self.assertFalse(is_tracked_with_lfs(txt_small_file))
+        with open(f"{WORKING_REPO_DIR}/large_file.txt", "w+") as f:
+            f.write(json.dumps(large_file))
+
+        with open(f"{WORKING_REPO_DIR}/small_file.txt", "w+") as f:
+            f.write(json.dumps(small_file))
+
+        repo.git_add(auto_lfs_track=False)
+
+        self.assertFalse(
+            is_tracked_with_lfs(os.path.join(WORKING_REPO_DIR, "large_file.txt"))
+        )
+        self.assertFalse(
+            is_tracked_with_lfs(os.path.join(WORKING_REPO_DIR, "small_file.txt"))
+        )
 
     def test_auto_no_track_binary_files_through_git_add(self):
-        non_binary_file = self.repo_path / "small_file.txt"
-        non_binary_file.write_text(self.small_content)
+        repo = Repository(WORKING_REPO_DIR)
 
-        binary_file = self.repo_path / "binary.txt"
-        binary_file.write_text(self.binary_content)
+        # This content is non-binary
+        non_binary_file = [100] * int(1e6)
 
-        self.repo.git_add(auto_lfs_track=False)
+        # This content is binary (contains the null character)
+        binary_file = "\x00\x00\x00\x00"
 
-        self.assertFalse(is_tracked_with_lfs(binary_file))
-        self.assertFalse(is_tracked_with_lfs(non_binary_file))
+        with open(f"{WORKING_REPO_DIR}/small_file.txt", "w+") as f:
+            f.write(json.dumps(non_binary_file))
+
+        with open(f"{WORKING_REPO_DIR}/binary_file.txt", "w+") as f:
+            f.write(binary_file)
+
+        repo.git_add(auto_lfs_track=False)
+
+        self.assertFalse(
+            is_tracked_with_lfs(os.path.join(WORKING_REPO_DIR, "non_binary_file.txt"))
+        )
+        self.assertFalse(
+            is_tracked_with_lfs(os.path.join(WORKING_REPO_DIR, "binary_file.txt"))
+        )
 
     def test_auto_track_updates_removed_gitattributes(self):
-        txt_small_file = self.repo_path / "small_file.txt"
-        txt_small_file.write_text(self.small_content)
+        repo = Repository(WORKING_REPO_DIR)
 
-        txt_large_file = self.repo_path / "large_file.txt"
-        txt_large_file.write_text(self.large_content)
+        # This content is 5MB (under 10MB)
+        small_file = [100] * int(1e6)
 
-        self.repo.git_add(auto_lfs_track=True)
+        # This content is 20MB (over 10MB)
+        large_file = [100] * int(4e6)
 
-        self.assertTrue(is_tracked_with_lfs(txt_large_file))
-        self.assertFalse(is_tracked_with_lfs(txt_small_file))
+        with open(f"{WORKING_REPO_DIR}/large_file.txt", "w+") as f:
+            f.write(json.dumps(large_file))
+
+        with open(f"{WORKING_REPO_DIR}/small_file.txt", "w+") as f:
+            f.write(json.dumps(small_file))
+
+        repo.git_add(auto_lfs_track=True)
+
+        self.assertTrue(
+            is_tracked_with_lfs(os.path.join(WORKING_REPO_DIR, "large_file.txt"))
+        )
+        self.assertFalse(
+            is_tracked_with_lfs(os.path.join(WORKING_REPO_DIR, "small_file.txt"))
+        )
 
         # Remove large file
-        txt_large_file.unlink()
+        os.remove(f"{WORKING_REPO_DIR}/large_file.txt")
 
         # Auto track should remove the entry from .gitattributes
-        self.repo.auto_track_large_files()
+        repo.auto_track_large_files()
 
         # Recreate the large file with smaller contents
-        txt_large_file.write_text(self.small_content)
+        with open(f"{WORKING_REPO_DIR}/large_file.txt", "w+") as f:
+            f.write(json.dumps(large_file))
 
         # Ensure the file is not LFS tracked anymore
-        self.repo.auto_track_large_files()
-        self.assertFalse(is_tracked_with_lfs(txt_large_file))
+        self.assertFalse(
+            is_tracked_with_lfs(os.path.join(WORKING_REPO_DIR, "large_file.txt"))
+        )
 
     def test_checkout_non_existant_branch(self):
-        self.assertRaises(EnvironmentError, self.repo.git_checkout, "brand-new-branch")
+        repo = Repository(WORKING_REPO_DIR)
+        self.assertRaises(EnvironmentError, repo.git_checkout, "brand-new-branch")
 
     def test_checkout_new_branch(self):
-        self.repo.git_checkout("new-branch", create_branch_ok=True)
-        self.assertEqual(self.repo.current_branch, "new-branch")
+        repo = Repository(WORKING_REPO_DIR)
+        repo.git_checkout("new-branch", create_branch_ok=True)
+
+        self.assertEqual(repo.current_branch, "new-branch")
 
     def test_is_not_tracked_upstream(self):
-        self.repo.git_checkout("new-branch", create_branch_ok=True)
-        self.assertFalse(is_tracked_upstream(self.repo.local_dir))
+        repo = Repository(WORKING_REPO_DIR)
+        repo.git_checkout("new-branch", create_branch_ok=True)
+        self.assertFalse(is_tracked_upstream(repo.local_dir))
 
     def test_no_branch_checked_out_raises(self):
-        head_commit_ref = run_subprocess(
-            "git show --oneline -s", folder=self.repo_path
-        ).stdout.split()[0]
+        repo = Repository(WORKING_REPO_DIR)
 
-        self.repo.git_checkout(head_commit_ref)
-        self.assertRaises(OSError, is_tracked_upstream, self.repo.local_dir)
+        head_commit_ref = (
+            subprocess.run(
+                "git show --oneline -s".split(),
+                stderr=subprocess.PIPE,
+                stdout=subprocess.PIPE,
+                check=True,
+                cwd=WORKING_REPO_DIR,
+            )
+            .stdout.decode()
+            .split()[0]
+        )
+
+        repo.git_checkout(head_commit_ref)
+        self.assertRaises(OSError, is_tracked_upstream, repo.local_dir)
 
     def test_repo_init_checkout_default_revision(self):
         # Instantiate repository on a given revision
-        repo = Repository(self.repo_path, revision="new-branch")
+        repo = Repository(WORKING_REPO_DIR, revision="new-branch")
         self.assertEqual(repo.current_branch, "new-branch")
 
         # The revision should be kept when re-initializing the repo
-        repo_2 = Repository(self.repo_path)
+        repo_2 = Repository(WORKING_REPO_DIR)
         self.assertEqual(repo_2.current_branch, "new-branch")
 
     def test_repo_init_checkout_revision(self):
-        current_head_hash = self.repo.git_head_hash()
+        # Instantiate repository on a given revision
+        repo = Repository(WORKING_REPO_DIR)
+        current_head_hash = repo.git_head_hash()
 
-        (self.repo_path / "file.txt").write_text("hello world")
+        with open(os.path.join(repo.local_dir, "file.txt"), "w+") as f:
+            f.write("File")
 
-        self.repo.git_add()
-        self.repo.git_commit("Add file.txt")
+        repo.git_add()
+        repo.git_commit("Add file.txt")
 
-        new_head_hash = self.repo.git_head_hash()
+        new_head_hash = repo.git_head_hash()
 
         self.assertNotEqual(current_head_hash, new_head_hash)
 
-        previous_head_repo = Repository(self.repo_path, revision=current_head_hash)
+        previous_head_repo = Repository(WORKING_REPO_DIR, revision=current_head_hash)
         files = os.listdir(previous_head_repo.local_dir)
         self.assertNotIn("file.txt", files)
 
-        current_head_repo = Repository(self.repo_path, revision=new_head_hash)
+        current_head_repo = Repository(WORKING_REPO_DIR, revision=new_head_hash)
         files = os.listdir(current_head_repo.local_dir)
         self.assertIn("file.txt", files)
 
+    @expect_deprecation("set_access_token")
     def test_repo_user(self):
-        _ = Repository(self.repo_path, use_auth_token=TOKEN)
-        username = run_subprocess("git config user.name", folder=self.repo_path).stdout
-        email = run_subprocess("git config user.email", folder=self.repo_path).stdout
+        api = HfApi(endpoint=ENDPOINT_STAGING)
+        token = TOKEN
+        api.set_access_token(TOKEN)
 
-        # hardcode values to avoid another api call to whoami
-        self.assertEqual(username.strip(), "Dummy User")
-        self.assertEqual(email.strip(), "julien@huggingface.co")
+        repo = Repository(WORKING_REPO_DIR, use_auth_token=token)
+        user = api.whoami(token)
 
+        username = subprocess.run(
+            ["git", "config", "user.name"],
+            stderr=subprocess.PIPE,
+            stdout=subprocess.PIPE,
+            check=True,
+            encoding="utf-8",
+            cwd=repo.local_dir,
+        ).stdout.strip()
+        email = subprocess.run(
+            ["git", "config", "user.email"],
+            stderr=subprocess.PIPE,
+            stdout=subprocess.PIPE,
+            check=True,
+            encoding="utf-8",
+            cwd=repo.local_dir,
+        ).stdout.strip()
+
+        self.assertEqual(username, user["fullname"])
+        self.assertEqual(email, user["email"])
+
+    @expect_deprecation("set_access_token")
     def test_repo_passed_user(self):
-        _ = Repository(
-            self.repo_path,
-            use_auth_token=TOKEN,  # token ignored
+        api = HfApi(endpoint=ENDPOINT_STAGING)
+        token = TOKEN
+        api.set_access_token(TOKEN)
+        repo = Repository(
+            WORKING_REPO_DIR,
             git_user="RANDOM_USER",
             git_email="EMAIL@EMAIL.EMAIL",
+            use_auth_token=token,
         )
-        username = run_subprocess("git config user.name", folder=self.repo_path).stdout
-        email = run_subprocess("git config user.email", folder=self.repo_path).stdout
+        username = subprocess.run(
+            ["git", "config", "user.name"],
+            stderr=subprocess.PIPE,
+            stdout=subprocess.PIPE,
+            check=True,
+            encoding="utf-8",
+            cwd=repo.local_dir,
+        ).stdout.strip()
+        email = subprocess.run(
+            ["git", "config", "user.email"],
+            stderr=subprocess.PIPE,
+            stdout=subprocess.PIPE,
+            check=True,
+            encoding="utf-8",
+            cwd=repo.local_dir,
+        ).stdout.strip()
 
-        self.assertEqual(username.strip(), "RANDOM_USER")
-        self.assertEqual(email.strip(), "EMAIL@EMAIL.EMAIL")
+        self.assertEqual(username, "RANDOM_USER")
+        self.assertEqual(email, "EMAIL@EMAIL.EMAIL")
 
     @expect_deprecation("_currently_setup_credential_helpers")
     def test_correct_helper(self):
-        run_subprocess("git config --global credential.helper get")
+        subprocess.run(
+            ["git", "config", "--global", "credential.helper", "get"],
+            stderr=subprocess.PIPE,
+            stdout=subprocess.PIPE,
+            check=True,
+            encoding="utf-8",
+        )
+        repo = Repository(WORKING_REPO_DIR)
         self.assertListEqual(
-            _currently_setup_credential_helpers(self.repo.local_dir), ["get", "store"]
+            _currently_setup_credential_helpers(repo.local_dir), ["get", "store"]
         )
         self.assertEqual(_currently_setup_credential_helpers(), ["get"])
 
     def test_add_tag(self):
-        self.repo.add_tag("v4.6.0")
-        self.assertTrue(self.repo.tag_exists("v4.6.0"))
+        repo = Repository(
+            WORKING_REPO_DIR,
+            git_user="RANDOM_USER",
+            git_email="EMAIL@EMAIL.EMAIL",
+        )
+
+        repo.add_tag("v4.6.0")
+        self.assertTrue(repo.tag_exists("v4.6.0"))
 
     def test_add_annotated_tag(self):
-        self.repo.add_tag("v4.6.0", message="This is an annotated tag")
-        self.assertTrue(self.repo.tag_exists("v4.6.0"))
+        repo = Repository(
+            WORKING_REPO_DIR,
+            git_user="RANDOM_USER",
+            git_email="EMAIL@EMAIL.EMAIL",
+        )
 
-        result = run_subprocess("git tag -n9", folder=self.repo_path).stdout.strip()
+        repo.add_tag("v4.6.0", message="This is an annotated tag")
+        self.assertTrue(repo.tag_exists("v4.6.0"))
+
+        result = subprocess.run(
+            ["git", "tag", "-n9"],
+            stderr=subprocess.PIPE,
+            stdout=subprocess.PIPE,
+            check=True,
+            encoding="utf-8",
+            cwd=repo.local_dir,
+        ).stdout.strip()
+
         self.assertIn("This is an annotated tag", result)
 
     def test_delete_tag(self):
-        self.repo.add_tag("v4.6.0", message="This is an annotated tag")
-        self.assertTrue(self.repo.tag_exists("v4.6.0"))
+        repo = Repository(
+            WORKING_REPO_DIR,
+            git_user="RANDOM_USER",
+            git_email="EMAIL@EMAIL.EMAIL",
+        )
 
-        self.repo.delete_tag("v4.6.0")
-        self.assertFalse(self.repo.tag_exists("v4.6.0"))
+        repo.add_tag("v4.6.0", message="This is an annotated tag")
+        self.assertTrue(repo.tag_exists("v4.6.0"))
+
+        repo.delete_tag("v4.6.0")
+        self.assertFalse(repo.tag_exists("v4.6.0"))
 
     def test_repo_clean(self):
-        self.assertTrue(self.repo.is_repo_clean())
-        (self.repo_path / "file.txt").write_text("hello world")
-        self.assertFalse(self.repo.is_repo_clean())
+        repo = Repository(
+            WORKING_REPO_DIR,
+            git_user="RANDOM_USER",
+            git_email="EMAIL@EMAIL.EMAIL",
+        )
+
+        self.assertTrue(repo.is_repo_clean())
+
+        with open(os.path.join(repo.local_dir, "file.txt"), "w+") as f:
+            f.write("Test")
+
+        self.assertFalse(repo.is_repo_clean())
 
 
 class RepositoryDatasetTest(RepositoryCommonTest):
