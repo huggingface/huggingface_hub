@@ -2449,6 +2449,41 @@ class TestSpaceAPIMocked(unittest.TestCase):
         )
 
 
+class ListGitRefsTest(unittest.TestCase):
+    @classmethod
+    @with_production_testing
+    def setUpClass(cls) -> None:
+        cls.api = HfApi()
+        return super().setUpClass()
+
+    def test_list_refs_gpt2(self) -> None:
+        refs = self.api.list_repo_refs("gpt2")
+        self.assertGreater(len(refs.branches), 0)
+        main_branch = [branch for branch in refs.branches if branch.name == "main"][0]
+        self.assertEqual(main_branch.ref, "refs/heads/main")
+        # Can get info by revision
+        self.api.repo_info("gpt2", revision=main_branch.target_commit)
+
+    def test_list_refs_bigcode(self) -> None:
+        refs = self.api.list_repo_refs("bigcode/evaluation", repo_type="dataset")
+        self.assertGreater(len(refs.branches), 0)
+        self.assertGreater(len(refs.converts), 0)
+        main_branch = [branch for branch in refs.branches if branch.name == "main"][0]
+        self.assertEqual(main_branch.ref, "refs/heads/main")
+
+        convert_branch = [
+            branch for branch in refs.converts if branch.name == "parquet"
+        ][0]
+        self.assertEqual(convert_branch.ref, "refs/convert/parquet")
+
+        # Can get info by convert revision
+        self.api.repo_info(
+            "bigcode/evaluation",
+            repo_type="dataset",
+            revision=convert_branch.target_commit,
+        )
+
+
 @patch("huggingface_hub.hf_api.build_hf_headers")
 class HfApiTokenAttributeTest(unittest.TestCase):
     def test_token_passed(self, mock_build_hf_headers: Mock) -> None:

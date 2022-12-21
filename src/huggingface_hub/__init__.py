@@ -106,6 +106,8 @@ _SUBMOD_ATTRS = {
         "CommitOperationAdd",
         "CommitOperationDelete",
         "DatasetSearchArguments",
+        "GitRefInfo",
+        "GitRefs",
         "HfApi",
         "ModelSearchArguments",
         "RepoUrl",
@@ -139,6 +141,7 @@ _SUBMOD_ATTRS = {
         "list_metrics",
         "list_models",
         "list_repo_files",
+        "list_repo_refs",
         "list_spaces",
         "merge_pull_request",
         "model_info",
@@ -344,6 +347,8 @@ if TYPE_CHECKING:  # pragma: no cover
     from .hf_api import CommitOperationAdd  # noqa: F401
     from .hf_api import CommitOperationDelete  # noqa: F401
     from .hf_api import DatasetSearchArguments  # noqa: F401
+    from .hf_api import GitRefInfo  # noqa: F401
+    from .hf_api import GitRefs  # noqa: F401
     from .hf_api import HfApi  # noqa: F401
     from .hf_api import ModelSearchArguments  # noqa: F401
     from .hf_api import RepoUrl  # noqa: F401
@@ -377,6 +382,7 @@ if TYPE_CHECKING:  # pragma: no cover
     from .hf_api import list_metrics  # noqa: F401
     from .hf_api import list_models  # noqa: F401
     from .hf_api import list_repo_files  # noqa: F401
+    from .hf_api import list_repo_refs  # noqa: F401
     from .hf_api import list_spaces  # noqa: F401
     from .hf_api import merge_pull_request  # noqa: F401
     from .hf_api import model_info  # noqa: F401
