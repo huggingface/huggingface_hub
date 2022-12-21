@@ -676,6 +676,8 @@ class UserLikes:
     Args:
         user (`str`):
             Name of the user for which we fetched the likes.
+        total (`int`):
+            Total number of likes.
         datasets (`List[str]`):
             List of datasets liked by the user (as repo_ids).
         models (`List[str]`):
@@ -686,6 +688,7 @@ class UserLikes:
 
     # Metadata
     user: str
+    total: int
 
     # User likes
     datasets: List[str]
@@ -1423,7 +1426,7 @@ class HfApi:
         token: Optional[str] = None,
     ) -> UserLikes:
         """
-        List all repos liked by a user on huggingface.co.
+        List all public repos liked by a user on huggingface.co.
 
         This list is public so token is optional. If `user` is not passed, it defaults to
         the logged in user.
@@ -1439,8 +1442,8 @@ class HfApi:
                 user name.
 
         Returns:
-            [`UserLikes`]: object containing the user name, the total count of likes and
-            3 lists of repo ids (1 for models, 1 for datasets and 1 for Spaces).
+            [`UserLikes`]: object containing the user name and 3 lists of repo ids (1 for
+            models, 1 for datasets and 1 for Spaces).
 
         Raises:
             [`ValueError`](https://docs.python.org/3/library/exceptions.html#ValueError)
@@ -1473,9 +1476,7 @@ class HfApi:
         path = f"{self.endpoint}/api/users/{user}/likes"
         headers = self._build_hf_headers(token=token)
 
-        r = requests.get(path, headers=headers)
-        hf_raise_for_status(r)
-        data = r.json()
+        likes = list(paginate(path, params={}, headers=headers))
         # Looping over a list of items similar to:
         #   {
         #       'createdAt': '2021-09-09T21:53:27.000Z',
@@ -1487,19 +1488,20 @@ class HfApi:
         # Let's loop 3 times over the received list. Less efficient but more straightforward to read.
         return UserLikes(
             user=user,
+            total=len(likes),
             models=[
                 like["repo"]["name"]
-                for like in data["visibleLikes"]
+                for like in likes
                 if like["repo"]["type"] == "model"
             ],
             datasets=[
                 like["repo"]["name"]
-                for like in data["visibleLikes"]
+                for like in likes
                 if like["repo"]["type"] == "dataset"
             ],
             spaces=[
                 like["repo"]["name"]
-                for like in data["visibleLikes"]
+                for like in likes
                 if like["repo"]["type"] == "space"
             ],
         )

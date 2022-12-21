@@ -2361,6 +2361,9 @@ class ActivityApiTest(unittest.TestCase):
     def test_list_likes_on_production(self) -> None:
         # Test julien-c likes a lot of repos !
         likes = HfApi().list_liked_repos("julien-c")
+        self.assertEqual(
+            len(likes.models) + len(likes.datasets) + len(likes.spaces), likes.total
+        )
         self.assertGreater(len(likes.models), 0)
         self.assertGreater(len(likes.datasets), 0)
         self.assertGreater(len(likes.spaces), 0)
