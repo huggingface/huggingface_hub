@@ -195,7 +195,7 @@ def post_lfs_batch_info(
         },
         auth=HTTPBasicAuth(
             "access_token",
-            get_token_to_send(token or True),  # Token must be provided or retrieved
+            get_token_to_send(token or True),  # type: ignore  # Token must be provided or retrieved
         ),
     )
     hf_raise_for_status(resp)
@@ -280,7 +280,7 @@ def lfs_upload(
             auth=HTTPBasicAuth(
                 username="USER",
                 # Token must be provided or retrieved
-                password=get_token_to_send(token or True),
+                password=get_token_to_send(token or True),  # type: ignore
             ),
             json={"oid": upload_info.sha256.hex(), "size": upload_info.size},
         )
