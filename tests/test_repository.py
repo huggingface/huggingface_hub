@@ -19,13 +19,13 @@ import subprocess
 import tempfile
 import time
 import unittest
-import uuid
 from io import BytesIO
 from pathlib import Path
 
 import pytest
 
 import requests
+from huggingface_hub import RepoUrl
 from huggingface_hub._login import _currently_setup_credential_helpers
 from huggingface_hub.hf_api import HfApi
 from huggingface_hub.repository import (
@@ -41,6 +41,7 @@ from .testing_utils import (
     repo_name,
     retry_endpoint,
     set_write_permission_and_retry,
+    use_tmp_repo,
     with_production_testing,
 )
 
@@ -60,8 +61,26 @@ WORKING_DATASET_DIR = os.path.join(
 )
 
 
+@pytest.mark.usefixtures("fx_cache_dir")
 class RepositoryCommonTest(unittest.TestCase):
+    cache_dir: Path
+    repo_path: Path
+
+    # This content is 5MB (under 10MB)
+    small_content = json.dumps([100] * int(1e6))
+
+    # This content is 20MB (over 10MB)
+    large_content = json.dumps([100] * int(4e6))
+
+    # This content is binary (contains the null character)
+    binary_content = "\x00\x00\x00\x00"
+
     _api = HfApi(endpoint=ENDPOINT_STAGING, token=TOKEN)
+
+    @classmethod
+    def setUp(self) -> None:
+        self.repo_path = self.cache_dir / "working_dir"
+        self.repo_path.mkdir()
 
 
 class RepositoryTest(RepositoryCommonTest):
@@ -71,228 +90,178 @@ class RepositoryTest(RepositoryCommonTest):
         """
         Share this valid token in all tests below.
         """
+        super().setUpClass()
         cls._api.set_access_token(TOKEN)
         cls._token = TOKEN
 
     @retry_endpoint
     def setUp(self):
-        if os.path.exists(WORKING_REPO_DIR):
-            shutil.rmtree(WORKING_REPO_DIR, onerror=set_write_permission_and_retry)
-        logger.info(
-            f"Does {WORKING_REPO_DIR} exist: {os.path.exists(WORKING_REPO_DIR)}"
-        )
-        self.REPO_NAME = repo_name()
-        self._repo_url = self._api.create_repo(repo_id=self.REPO_NAME)
+        super().setUp()
+        self.repo_url = self._api.create_repo(repo_id=repo_name())
+        self.repo_id = self.repo_url.repo_id
         self._api.upload_file(
-            path_or_fileobj=BytesIO(b"some initial binary data: \x00\x01"),
+            path_or_fileobj=self.binary_content.encode(),
             path_in_repo="random_file.txt",
-            repo_id=f"{USER}/{self.REPO_NAME}",
+            repo_id=self.repo_id,
         )
 
     def tearDown(self):
         try:
-            self._api.delete_repo(repo_id=f"{USER}/{self.REPO_NAME}")
+            self._api.delete_repo(repo_id=self.repo_id)
         except requests.exceptions.HTTPError:
             pass
 
-        try:
-            self._api.delete_repo(repo_id=self.REPO_NAME)
-        except requests.exceptions.HTTPError:
-            pass
+    def _create_dummy_files(self):
+        # Create dummy files
+        # one is lfs-tracked, the other is not.
+        small_file = self.repo_path / "dummy.txt"
+        small_file.write_text(self.small_content)
 
-        try:
-            self._api.delete_repo(repo_id=f"valid_org/{self.REPO_NAME}")
-        except requests.exceptions.HTTPError:
-            pass
+        binary_file = self.repo_path / "model.bin"
+        binary_file.write_text(self.binary_content)
 
-    def test_init_clone_from(self):
-        temp_repo_url = self._api.create_repo(
-            repo_id=f"{self.REPO_NAME}-temp", repo_type="space", space_sdk="static"
-        )
+    def test_clone_from_repo_url(self):
+        Repository(self.repo_path, clone_from=self.repo_url)
+
+    @retry_endpoint
+    def test_clone_from_repo_id(self):
+        Repository(self.repo_path, clone_from=self.repo_id)
+
+    @retry_endpoint
+    def test_clone_from_repo_name_no_namespace_fails(self):
+        with self.assertRaises(EnvironmentError):
+            Repository(self.repo_path, clone_from=self.repo_id.split("/")[1])
+
+    @retry_endpoint
+    def test_clone_from_not_hf_url(self):
+        # Should not error out
         Repository(
-            WORKING_REPO_DIR,
-            clone_from=temp_repo_url,
-            repo_type="space",
-            use_auth_token=self._token,
-        )
-        self._api.delete_repo(
-            repo_id=f"{USER}/{self.REPO_NAME}-temp", repo_type="space"
+            self.repo_path,
+            clone_from=(
+                "https://hf.co/hf-internal-testing/huggingface-hub-dummy-repository"
+            ),
         )
 
     def test_clone_from_missing_repo(self):
         """If the repo does not exist an EnvironmentError is raised."""
         with self.assertRaises(EnvironmentError):
-            Repository(
-                WORKING_REPO_DIR, clone_from=f"{USER}/{uuid.uuid4()}", token=self._token
-            )
+            Repository(WORKING_REPO_DIR, clone_from="missing_repo", token=self._token)
 
-    def test_clone_from_model(self):
-        temp_repo_url = self._api.create_repo(
-            repo_id=f"{self.REPO_NAME}-temp", repo_type="model"
-        )
+    @with_production_testing
+    @retry_endpoint
+    def test_clone_from_prod_canonical_repo_id(self):
+        Repository(self.repo_path, clone_from="bert-base-cased", skip_lfs_files=True)
+
+    @with_production_testing
+    @retry_endpoint
+    def test_clone_from_prod_canonical_repo_url(self):
         Repository(
-            WORKING_REPO_DIR,
-            clone_from=temp_repo_url,
-            repo_type="model",
-            use_auth_token=self._token,
+            self.repo_path,
+            clone_from="https://huggingface.co/bert-base-cased",
+            skip_lfs_files=True,
         )
-        self._api.delete_repo(repo_id=f"{USER}/{self.REPO_NAME}-temp")
 
     def test_init_from_existing_local_clone(self):
-        subprocess.run(
-            ["git", "clone", self._repo_url, WORKING_REPO_DIR],
-            check=True,
-        )
+        run_subprocess(["git", "clone", self.repo_url, self.repo_path])
 
-        repo = Repository(WORKING_REPO_DIR)
+        repo = Repository(self.repo_path)
         repo.lfs_track(["*.pdf"])
         repo.lfs_enable_largefiles()
         repo.git_pull()
 
     def test_init_failure(self):
-        with tempfile.TemporaryDirectory() as tmpdirname:
-            with self.assertRaises(ValueError):
-                _ = Repository(tmpdirname)
+        Repository(self.repo_path)  # repo is not initialized
 
     @retry_endpoint
     def test_init_clone_in_empty_folder(self):
-        repo = Repository(WORKING_REPO_DIR, clone_from=self._repo_url)
+        repo = Repository(self.repo_path, clone_from=self.repo_url)
         repo.lfs_track(["*.pdf"])
         repo.lfs_enable_largefiles()
         repo.git_pull()
-
-        self.assertIn("random_file.txt", os.listdir(WORKING_REPO_DIR))
+        self.assertIn("random_file.txt", os.listdir(self.repo_path))
 
     def test_git_lfs_filename(self):
-        os.mkdir(WORKING_REPO_DIR)
-        subprocess.run(
-            ["git", "init"],
-            stderr=subprocess.PIPE,
-            stdout=subprocess.PIPE,
-            check=True,
-            cwd=WORKING_REPO_DIR,
-        )
+        run_subprocess("git init", folder=self.repo_path)
 
-        repo = Repository(WORKING_REPO_DIR)
-
-        large_file = [100] * int(4e6)
-        with open(os.path.join(WORKING_REPO_DIR, "[].txt"), "w") as f:
-            f.write(json.dumps(large_file))
+        repo = Repository(self.repo_path)
+        large_file = self.repo_path / "large_file[].txt"
+        large_file.write_text(self.large_content)
 
         repo.git_add()
 
-        repo.lfs_track(["[].txt"])
-        self.assertFalse(is_tracked_with_lfs(f"{WORKING_REPO_DIR}/[].txt"))
+        repo.lfs_track([large_file.name])
+        self.assertFalse(is_tracked_with_lfs(large_file))
 
-        repo.lfs_track(["[].txt"], filename=True)
-        self.assertTrue(is_tracked_with_lfs(f"{WORKING_REPO_DIR}/[].txt"))
+        repo.lfs_track([large_file.name], filename=True)
+        self.assertTrue(is_tracked_with_lfs(large_file))
 
     def test_init_clone_in_nonempty_folder(self):
-        # Create dummy files
-        # one is lfs-tracked, the other is not.
-        os.makedirs(WORKING_REPO_DIR, exist_ok=True)
-        with open(os.path.join(WORKING_REPO_DIR, "dummy.txt"), "w") as f:
-            f.write("hello")
-        with open(os.path.join(WORKING_REPO_DIR, "model.bin"), "w") as f:
-            f.write("hello")
+        self._create_dummy_files()
         with self.assertRaises(EnvironmentError):
-            Repository(WORKING_REPO_DIR, clone_from=self._repo_url)
+            Repository(self.repo_path, clone_from=self.repo_url)
 
     @retry_endpoint
-    def test_init_clone_in_nonempty_non_linked_git_repo(self):
-        # Create a new repository on the HF Hub
-        temp_repo_url = self._api.create_repo(repo_id=f"{self.REPO_NAME}-temp")
-        self._api.upload_file(
-            path_or_fileobj=BytesIO(b"some initial binary data: \x00\x01"),
-            path_in_repo="random_file_2.txt",
-            repo_id=f"{USER}/{self.REPO_NAME}-temp",
-        )
-
-        # Clone the new repository
-        os.makedirs(WORKING_REPO_DIR, exist_ok=True)
-        Repository(WORKING_REPO_DIR, clone_from=self._repo_url)
+    @use_tmp_repo()
+    def test_init_clone_in_nonempty_non_linked_git_repo(self, repo_url: RepoUrl):
+        Repository(self.repo_path, clone_from=self.repo_url)
 
         # Try and clone another repository within the same directory.
         # Should error out due to mismatched remotes.
         with self.assertRaises(EnvironmentError):
-            Repository(WORKING_REPO_DIR, clone_from=temp_repo_url)
-
-        self._api.delete_repo(repo_id=f"{self.REPO_NAME}-temp")
+            Repository(self.repo_path, clone_from=repo_url)
 
     @retry_endpoint
     def test_init_clone_in_nonempty_linked_git_repo_with_token(self):
-        logger.info(
-            f"Does {WORKING_REPO_DIR} exist: {os.path.exists(WORKING_REPO_DIR)}"
-        )
-        Repository(
-            WORKING_REPO_DIR, clone_from=self._repo_url, use_auth_token=self._token
-        )
-        Repository(
-            WORKING_REPO_DIR, clone_from=self._repo_url, use_auth_token=self._token
-        )
+        Repository(self.repo_path, clone_from=self.repo_url, use_auth_token=self._token)
+        Repository(self.repo_path, clone_from=self.repo_url, use_auth_token=self._token)
 
     @retry_endpoint
     def test_init_clone_in_nonempty_linked_git_repo(self):
         # Clone the repository to disk
-        Repository(WORKING_REPO_DIR, clone_from=self._repo_url)
+        Repository(self.repo_path, clone_from=self.repo_url)
 
         # Add to the remote repository without doing anything to the local repository.
         self._api.upload_file(
-            path_or_fileobj=BytesIO(b"some initial binary data: \x00\x01"),
+            path_or_fileobj=self.binary_content.encode(),
             path_in_repo="random_file_3.txt",
-            repo_id=f"{USER}/{self.REPO_NAME}",
+            repo_id=self.repo_id,
         )
 
         # Cloning the repository in the same directory should not result in a git pull.
-        Repository(WORKING_REPO_DIR, clone_from=self._repo_url)
-        self.assertNotIn("random_file_3.txt", os.listdir(WORKING_REPO_DIR))
+        Repository(self.repo_path, clone_from=self.repo_url)
+        self.assertNotIn("random_file_3.txt", os.listdir(self.repo_path))
 
     @retry_endpoint
     def test_init_clone_in_nonempty_linked_git_repo_unrelated_histories(self):
         # Clone the repository to disk
-        repo = Repository(
-            WORKING_REPO_DIR,
-            clone_from=self._repo_url,
-            git_user="ci",
-            git_email="ci@dummy.com",
-        )
+        repo = Repository(self.repo_path, clone_from=self.repo_url)
 
-        with open(f"{WORKING_REPO_DIR}/random_file_3.txt", "w+") as f:
-            f.write("New file.")
-
+        # Create and commit file locally
+        (self.repo_path / "random_file_3.txt").write_text("hello world")
         repo.git_add()
         repo.git_commit("Unrelated commit")
 
         # Add to the remote repository without doing anything to the local repository.
         self._api.upload_file(
-            path_or_fileobj=BytesIO(b"some initial binary data: \x00\x01"),
+            path_or_fileobj=self.binary_content.encode(),
             path_in_repo="random_file_3.txt",
-            repo_id=f"{USER}/{self.REPO_NAME}",
+            repo_id=self.repo_id,
         )
 
         # The repo should initialize correctly as the remote is the same, even with unrelated historied
-        Repository(WORKING_REPO_DIR, clone_from=self._repo_url)
+        Repository(self.repo_path, clone_from=self.repo_url)
 
     @retry_endpoint
     def test_add_commit_push(self):
+
         repo = Repository(
-            WORKING_REPO_DIR,
-            clone_from=self._repo_url,
-            use_auth_token=self._token,
-            git_user="ci",
-            git_email="ci@dummy.com",
+            self.repo_path, clone_from=self.repo_url, use_auth_token=self._token
         )
-
-        # Create dummy files
-        # one is lfs-tracked, the other is not.
-        with open(os.path.join(WORKING_REPO_DIR, "dummy.txt"), "w") as f:
-            f.write("hello")
-        with open(os.path.join(WORKING_REPO_DIR, "model.bin"), "w") as f:
-            f.write("hello")
-
+        self._create_dummy_files()
         repo.git_add()
         repo.git_commit()
         url = repo.git_push()
+
         # Check that the returned commit url
         # actually exists.
         r = requests.head(url)
@@ -300,27 +269,13 @@ class RepositoryTest(RepositoryCommonTest):
 
     @retry_endpoint
     def test_add_commit_push_non_blocking(self):
-        repo = Repository(
-            WORKING_REPO_DIR,
-            clone_from=self._repo_url,
-            use_auth_token=self._token,
-            git_user="ci",
-            git_email="ci@dummy.com",
-        )
-
-        # Create dummy files
-        # one is lfs-tracked, the other is not.
-        with open(os.path.join(WORKING_REPO_DIR, "dummy.txt"), "w") as f:
-            f.write("hello")
-        with open(os.path.join(WORKING_REPO_DIR, "model.bin"), "w") as f:
-            f.write("hello")
-
+        repo = Repository(self.repo_path, clone_from=self.repo_url)
+        self._create_dummy_files()
         repo.git_add()
         repo.git_commit()
         url, result = repo.git_push(blocking=False)
-        # Check that the returned commit url
-        # actually exists.
 
+        # Check background process
         if result._process.poll() is None:
             self.assertEqual(result.status, -1)
 
@@ -330,22 +285,17 @@ class RepositoryTest(RepositoryCommonTest):
         self.assertTrue(result.is_done)
         self.assertEqual(result.status, 0)
 
+        # Check that the returned commit url
+        # actually exists.
         r = requests.head(url)
         r.raise_for_status()
 
     @retry_endpoint
     def test_context_manager_non_blocking(self):
-        repo = Repository(
-            WORKING_REPO_DIR,
-            clone_from=self._repo_url,
-            use_auth_token=self._token,
-            git_user="ci",
-            git_email="ci@dummy.com",
-        )
+        repo = Repository(self.repo_path, clone_from=self.repo_url)
 
         with repo.commit("New commit", blocking=False):
-            with open(os.path.join(WORKING_REPO_DIR, "dummy.txt"), "w") as f:
-                f.write("hello")
+            (self.repo_path / "dummy.txt").write_text("hello world")
 
         while repo.commands_in_progress:
             time.sleep(1)
@@ -358,22 +308,13 @@ class RepositoryTest(RepositoryCommonTest):
 
     @retry_endpoint
     def test_add_commit_push_non_blocking_process_killed(self):
-        repo = Repository(
-            WORKING_REPO_DIR,
-            clone_from=self._repo_url,
-            use_auth_token=self._token,
-            git_user="ci",
-            git_email="ci@dummy.com",
-        )
+        repo = Repository(self.repo_path, clone_from=self.repo_url)
 
-        # Create dummy files
-        # one is lfs-tracked, the other is not.
-        with open(os.path.join(WORKING_REPO_DIR, "dummy.txt"), "w") as f:
-            f.write(str([[[1] * 10000] * 1000] * 10))
-
+        # Far too big file: will take forever
+        (self.repo_path / "dummy.txt").write_text(str([[[1] * 10000] * 1000] * 10))
         repo.git_add(auto_lfs_track=True)
         repo.git_commit()
-        url, result = repo.git_push(blocking=False)
+        _, result = repo.git_push(blocking=False)
 
         result._process.kill()
 
@@ -384,16 +325,9 @@ class RepositoryTest(RepositoryCommonTest):
         self.assertEqual(result.status, -9)
 
     @retry_endpoint
-    def test_clone_with_endpoint(self):
-        self._api.create_repo(f"valid_org/{self.REPO_NAME}")
-
-        clone = Repository(
-            f"{WORKING_REPO_DIR}/{self.REPO_NAME}",
-            clone_from=f"{ENDPOINT_STAGING}/valid_org/{self.REPO_NAME}",
-            use_auth_token=self._token,
-            git_user="ci",
-            git_email="ci@dummy.com",
-        )
+    def test_commit_context_manager(self):
+        subpath = self.repo_path / "subpath"
+        clone = Repository(subpath, clone_from=self.repo_url)
 
         with clone.commit("Commit"):
             with open("dummy.txt", "w") as f:
@@ -401,200 +335,41 @@ class RepositoryTest(RepositoryCommonTest):
             with open("model.bin", "w") as f:
                 f.write("hello")
 
-        shutil.rmtree(f"{WORKING_REPO_DIR}/{self.REPO_NAME}")
+        shutil.rmtree(subpath)
 
-        Repository(
-            f"{WORKING_REPO_DIR}/{self.REPO_NAME}",
-            clone_from=f"{ENDPOINT_STAGING}/valid_org/{self.REPO_NAME}",
-            use_auth_token=self._token,
-            git_user="ci",
-            git_email="ci@dummy.com",
-        )
-
-        files = os.listdir(f"{WORKING_REPO_DIR}/{self.REPO_NAME}")
+        Repository(subpath, clone_from=self.repo_url)
+        files = os.listdir(subpath)
         self.assertTrue("dummy.txt" in files)
         self.assertTrue("model.bin" in files)
 
     @retry_endpoint
-    def test_clone_with_repo_name_and_org(self):
-        self._api.create_repo(f"valid_org/{self.REPO_NAME}")
-
-        clone = Repository(
-            f"{WORKING_REPO_DIR}/{self.REPO_NAME}",
-            clone_from=f"valid_org/{self.REPO_NAME}",
-            use_auth_token=self._token,
-            git_user="ci",
-            git_email="ci@dummy.com",
+    def test_clone_skip_lfs_files(self):
+        # Upload LFS file
+        self._api.upload_file(
+            path_or_fileobj="bin file", path_in_repo="file.bin", repo_id=self.repo_id
         )
 
-        with clone.commit("Commit"):
-            with open("dummy.txt", "w") as f:
-                f.write("hello")
-            with open("model.bin", "w") as f:
-                f.write("hello")
+        repo = Repository(self.repo_path, clone_from=self.repo_id, skip_lfs_files=True)
+        file_bin = self.repo_path / "file.bin"
 
-        shutil.rmtree(f"{WORKING_REPO_DIR}/{self.REPO_NAME}")
-
-        Repository(
-            f"{WORKING_REPO_DIR}/{self.REPO_NAME}",
-            clone_from=f"valid_org/{self.REPO_NAME}",
-            use_auth_token=self._token,
-            git_user="ci",
-            git_email="ci@dummy.com",
-        )
-
-        files = os.listdir(f"{WORKING_REPO_DIR}/{self.REPO_NAME}")
-        self.assertTrue("dummy.txt" in files)
-        self.assertTrue("model.bin" in files)
-
-    @retry_endpoint
-    def test_clone_with_repo_name_and_user_namespace(self):
-        clone = Repository(
-            f"{WORKING_REPO_DIR}/{self.REPO_NAME}",
-            clone_from=f"{USER}/{self.REPO_NAME}",
-            use_auth_token=self._token,
-            git_user="ci",
-            git_email="ci@dummy.com",
-        )
-
-        with clone.commit("Commit"):
-            # Create dummy files
-            # one is lfs-tracked, the other is not.
-            with open("dummy.txt", "w") as f:
-                f.write("hello")
-            with open("model.bin", "w") as f:
-                f.write("hello")
-
-        shutil.rmtree(f"{WORKING_REPO_DIR}/{self.REPO_NAME}")
-
-        Repository(
-            f"{WORKING_REPO_DIR}/{self.REPO_NAME}",
-            clone_from=f"{USER}/{self.REPO_NAME}",
-            use_auth_token=self._token,
-            git_user="ci",
-            git_email="ci@dummy.com",
-        )
-
-        files = os.listdir(f"{WORKING_REPO_DIR}/{self.REPO_NAME}")
-        self.assertTrue("dummy.txt" in files)
-        self.assertTrue("model.bin" in files)
-
-    @retry_endpoint
-    def test_clone_with_repo_name_and_no_namespace(self):
-        with self.assertRaises(EnvironmentError):
-            Repository(
-                f"{WORKING_REPO_DIR}/{self.REPO_NAME}",
-                clone_from=self.REPO_NAME,
-                use_auth_token=self._token,
-                git_user="ci",
-                git_email="ci@dummy.com",
-            )
-
-    @retry_endpoint
-    def test_clone_with_repo_name_org_and_no_auth_token(self):
-        self._api.create_repo(f"valid_org/{self.REPO_NAME}")
-
-        # Instantiate it without token
-        Repository(
-            f"{WORKING_REPO_DIR}/{self.REPO_NAME}",
-            clone_from=f"valid_org/{self.REPO_NAME}",
-            git_user="ci",
-            git_email="ci@dummy.com",
-        )
-
-    @retry_endpoint
-    def test_clone_not_hf_url(self):
-        # Should not error out
-        Repository(
-            f"{WORKING_REPO_DIR}/{self.REPO_NAME}",
-            clone_from=(
-                "https://hf.co/hf-internal-testing/huggingface-hub-dummy-repository"
-            ),
-        )
-
-    @with_production_testing
-    @retry_endpoint
-    def test_clone_repo_at_root(self):
-        Repository(
-            f"{WORKING_REPO_DIR}/{self.REPO_NAME}",
-            clone_from="bert-base-cased",
-            skip_lfs_files=True,
-        )
-
-        shutil.rmtree(f"{WORKING_REPO_DIR}/{self.REPO_NAME}")
-
-        Repository(
-            f"{WORKING_REPO_DIR}/{self.REPO_NAME}",
-            clone_from="https://huggingface.co/bert-base-cased",
-            skip_lfs_files=True,
-        )
-
-    @retry_endpoint
-    def test_skip_lfs_files(self):
-        repo = Repository(
-            self.REPO_NAME,
-            clone_from=f"{USER}/{self.REPO_NAME}",
-            use_auth_token=self._token,
-            git_user="ci",
-            git_email="ci@dummy.com",
-        )
-
-        with repo.commit("Add LFS file"):
-            with open("file.bin", "w+") as f:
-                f.write("Bin file")
-
-        shutil.rmtree(repo.local_dir)
-
-        repo = Repository(
-            self.REPO_NAME,
-            clone_from=f"{USER}/{self.REPO_NAME}",
-            use_auth_token=self._token,
-            skip_lfs_files=True,
-        )
-
-        with open(pathlib.Path(repo.local_dir) / "file.bin", "r") as f:
-            content = f.read()
-            self.assertTrue(content.startswith("version"))
+        self.assertTrue(file_bin.read_text().startswith("version"))
 
         repo.git_pull(lfs=True)
 
-        with open(pathlib.Path(repo.local_dir) / "file.bin", "r") as f:
-            content = f.read()
-            self.assertEqual(content, "Bin file")
+        self.assertEqual(file_bin.read_text(), "Bin file")
 
     @retry_endpoint
     def test_is_tracked_upstream(self):
-        repo = Repository(
-            self.REPO_NAME,
-            clone_from=f"{USER}/{self.REPO_NAME}",
-            use_auth_token=self._token,
-            git_user="ci",
-            git_email="ci@dummy.com",
-        )
-
-        self.assertTrue(is_tracked_upstream(repo.local_dir))
+        Repository(self.repo_path, clone_from=self.repo_id)
+        self.assertTrue(is_tracked_upstream(self.repo_path))
 
     @retry_endpoint
     def test_push_errors_on_wrong_checkout(self):
-        repo = Repository(
-            WORKING_REPO_DIR,
-            clone_from=f"{USER}/{self.REPO_NAME}",
-            use_auth_token=self._token,
-            git_user="ci",
-            git_email="ci@dummy.com",
-        )
+        repo = Repository(self.repo_path, clone_from=self.repo_id)
 
-        head_commit_ref = (
-            subprocess.run(
-                "git show --oneline -s".split(),
-                stderr=subprocess.PIPE,
-                stdout=subprocess.PIPE,
-                check=True,
-                cwd=repo.local_dir,
-            )
-            .stdout.decode()
-            .split()[0]
-        )
+        head_commit_ref = run_subprocess(
+            "git show --oneline -s", folder=self.repo_path
+        ).stdout.split()[0]
 
         repo.git_checkout(head_commit_ref)
 
@@ -603,15 +378,13 @@ class RepositoryTest(RepositoryCommonTest):
                 with open("new_file", "w+") as f:
                     f.write("Ok")
 
+    "================================================================"
+    "ABOVE IS FINE"
+    "================================================================"
+
     @retry_endpoint
     def test_commits_on_correct_branch(self):
-        repo = Repository(
-            WORKING_REPO_DIR,
-            clone_from=f"{USER}/{self.REPO_NAME}",
-            use_auth_token=self._token,
-            git_user="ci",
-            git_email="ci@dummy.com",
-        )
+        repo = Repository(self.repo_path, clone_from=self.repo_id)
         branch = repo.current_branch
         repo.git_checkout("new-branch", create_branch_ok=True)
         repo.git_checkout(branch)
@@ -979,24 +752,12 @@ class RepositoryTest(RepositoryCommonTest):
         self.assertEqual(post_prune_git_lfs_files_size, git_lfs_files_size)
 
 
-@pytest.mark.usefixtures("fx_cache_dir")
 class RepositoryOfflineTest(RepositoryCommonTest):
-    cache_dir: Path
-    repo_path: Path
-
-    # This content is 5MB (under 10MB)
-    small_content = json.dumps([100] * int(1e6))
-
-    # This content is 20MB (over 10MB)
-    large_content = json.dumps([100] * int(4e6))
-
-    # This content is binary (contains the null character)
-    binary_content = "\x00\x00\x00\x00"
+    repo: Repository
 
     @classmethod
     def setUp(self) -> None:
-        self.repo_path = self.cache_dir / "working_dir"
-        self.repo_path.mkdir()
+        super().setUp()
 
         run_subprocess("git init", folder=self.repo_path)
 
