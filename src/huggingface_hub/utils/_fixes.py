@@ -61,14 +61,19 @@ def TemporaryDirectory(
     try:
         # First once with normal cleanup
         shutil.rmtree(tmpdir.name)
-        tmpdir.cleanup()
     except Exception:
         # If failed, try to set write permission and retry
         try:
             shutil.rmtree(tmpdir.name, onerror=_set_write_permission_and_retry)
         except Exception:
             pass
-        # If failed again, give up but do not throw error
+
+    # And finally, cleanup the tmpdir.
+    # If it fails again, give up but do not throw error
+    try:
+        tmpdir.cleanup()
+    except Exception:
+        pass
 
 
 def _set_write_permission_and_retry(func, path, excinfo):
