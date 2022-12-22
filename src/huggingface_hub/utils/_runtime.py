@@ -19,7 +19,7 @@ from typing import Any, Dict
 
 import packaging.version
 
-from .. import __version__
+from .. import __version__, constants
 
 
 _PY_VERSION: str = sys.version.split()[0].rstrip("+")
@@ -52,6 +52,7 @@ _CANDIDATES = {
     "fastcore": {"fastcore"},
     "jinja": {"Jinja2"},
     "pillow": {"Pillow"},
+    "hf_transfer": {"hf_transfer"},
 }
 
 # Check once at runtime
@@ -108,6 +109,15 @@ def is_graphviz_available() -> bool:
 
 def get_graphviz_version() -> str:
     return _get_version("graphviz")
+
+
+# hf_transfer
+def is_hf_transfer_available() -> bool:
+    return _is_available("hf_transfer")
+
+
+def get_hf_transfer_version() -> str:
+    return _get_version("hf_transfer")
 
 
 # Jinja
@@ -243,6 +253,18 @@ def dump_environment_info() -> Dict[str, Any]:
     info["Graphviz"] = get_graphviz_version()
     info["Pydot"] = get_pydot_version()
     info["Pillow"] = get_pillow_version()
+    info["hf_transfer"] = get_hf_transfer_version()
+
+    # Environment variables
+    info["ENDPOINT"] = constants.ENDPOINT
+    info["HUGGINGFACE_HUB_CACHE"] = constants.HUGGINGFACE_HUB_CACHE
+    info["HUGGINGFACE_ASSETS_CACHE"] = constants.HUGGINGFACE_ASSETS_CACHE
+    info["HF_HUB_OFFLINE"] = constants.HF_HUB_OFFLINE
+    info["HF_TOKEN_PATH"] = constants.HF_TOKEN_PATH
+    info["HF_HUB_DISABLE_PROGRESS_BARS"] = constants.HF_HUB_DISABLE_PROGRESS_BARS
+    info["HF_HUB_DISABLE_SYMLINKS_WARNING"] = constants.HF_HUB_DISABLE_SYMLINKS_WARNING
+    info["HF_HUB_DISABLE_IMPLICIT_TOKEN"] = constants.HF_HUB_DISABLE_IMPLICIT_TOKEN
+    info["HF_HUB_ENABLE_HF_TRANSFER"] = constants.HF_HUB_ENABLE_HF_TRANSFER
 
     print("\nCopy-and-paste the text below in your GitHub issue.\n")
     print("\n".join([f"- {prop}: {val}" for prop, val in info.items()]) + "\n")

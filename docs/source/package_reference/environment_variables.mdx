@@ -101,6 +101,15 @@ to disable this warning.
 
 For more details, see [cache limitations](how-to-cache#limitations).
 
+### HF_HUB_ENABLE_HF_TRANSFER
+
+Set to `True` to download files from the Hub using `hf_transfer`. It's a Rust-based package
+that enables faster download (up to x2 speed-up). Be aware that this is still experimental
+so it might cause issues in your workflow. In particular, it does not support features such
+as progress bars, resume download, proxies or error handling.
+
+**Note:** `hf_transfer` has to be installed separately [from Pypi](https://pypi.org/project/hf-transfer/).
+
 ## From external tools
 
 Some environment variables are not specific to `huggingface_hub` but still taken into account

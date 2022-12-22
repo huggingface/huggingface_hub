@@ -623,6 +623,52 @@ class DatasetSearchArguments(AttributeDictionary):
 
 
 @dataclass
+class GitRefInfo:
+    """
+    Contains information about a git reference for a repo on the Hub.
+
+    Args:
+        name (`str`):
+            Name of the reference (e.g. tag name or branch name).
+        ref (`str`):
+            Full git ref on the Hub (e.g. `"refs/heads/main"` or `"refs/tags/v1.0"`).
+        target_commit (`str`):
+            OID of the target commit for the ref (e.g. `"e7da7f221d5bf496a48136c0cd264e630fe9fcc8"`)
+    """
+
+    name: str
+    ref: str
+    target_commit: str
+
+    def __init__(self, data: Dict) -> None:
+        self.name = data["name"]
+        self.ref = data["ref"]
+        self.target_commit = data["targetCommit"]
+
+
+@dataclass
+class GitRefs:
+    """
+    Contains information about all git references for a repo on the Hub.
+
+    Object is returned by [`list_repo_refs`].
+
+    Args:
+        branches (`List[GitRefInfo]`):
+            A list of [`GitRefInfo`] containing information about branches on the repo.
+        converts (`List[GitRefInfo]`):
+            A list of [`GitRefInfo`] containing information about "convert" refs on the repo.
+            Converts are refs used (internally) to push preprocessed data in Dataset repos.
+        tags (`List[GitRefInfo]`):
+            A list of [`GitRefInfo`] containing information about tags on the repo.
+    """
+
+    branches: List[GitRefInfo]
+    converts: List[GitRefInfo]
+    tags: List[GitRefInfo]
+
+
+@dataclass
 class UserLikes:
     """
     Contains information about a user likes on the Hub.
@@ -630,6 +676,8 @@ class UserLikes:
     Args:
         user (`str`):
             Name of the user for which we fetched the likes.
+        total (`int`):
+            Total number of likes.
         datasets (`List[str]`):
             List of datasets liked by the user (as repo_ids).
         models (`List[str]`):
@@ -640,6 +688,7 @@ class UserLikes:
 
     # Metadata
     user: str
+    total: int
 
     # User likes
     datasets: List[str]
@@ -1377,7 +1426,7 @@ class HfApi:
         token: Optional[str] = None,
     ) -> UserLikes:
         """
-        List all repos liked by a user on huggingface.co.
+        List all public repos liked by a user on huggingface.co.
 
         This list is public so token is optional. If `user` is not passed, it defaults to
         the logged in user.
@@ -1393,8 +1442,8 @@ class HfApi:
                 user name.
 
         Returns:
-            [`UserLikes`]: object containing the user name, the total count of likes and
-            3 lists of repo ids (1 for models, 1 for datasets and 1 for Spaces).
+            [`UserLikes`]: object containing the user name and 3 lists of repo ids (1 for
+            models, 1 for datasets and 1 for Spaces).
 
         Raises:
             [`ValueError`](https://docs.python.org/3/library/exceptions.html#ValueError)
@@ -1427,9 +1476,7 @@ class HfApi:
         path = f"{self.endpoint}/api/users/{user}/likes"
         headers = self._build_hf_headers(token=token)
 
-        r = requests.get(path, headers=headers)
-        hf_raise_for_status(r)
-        data = r.json()
+        likes = list(paginate(path, params={}, headers=headers))
         # Looping over a list of items similar to:
         #   {
         #       'createdAt': '2021-09-09T21:53:27.000Z',
@@ -1441,19 +1488,20 @@ class HfApi:
         # Let's loop 3 times over the received list. Less efficient but more straightforward to read.
         return UserLikes(
             user=user,
+            total=len(likes),
             models=[
                 like["repo"]["name"]
-                for like in data["visibleLikes"]
+                for like in likes
                 if like["repo"]["type"] == "model"
             ],
             datasets=[
                 like["repo"]["name"]
-                for like in data["visibleLikes"]
+                for like in likes
                 if like["repo"]["type"] == "dataset"
             ],
             spaces=[
                 like["repo"]["name"]
-                for like in data["visibleLikes"]
+                for like in likes
                 if like["repo"]["type"] == "space"
             ],
         )
@@ -1771,6 +1819,67 @@ class HfApi:
             timeout=timeout,
         )
         return [f.rfilename for f in repo_info.siblings]
+
+    @validate_hf_hub_args
+    def list_repo_refs(
+        self,
+        repo_id: str,
+        *,
+        repo_type: Optional[str] = None,
+        token: Optional[Union[bool, str]] = None,
+    ) -> GitRefs:
+        """
+        Get the list of refs of a given repo (both tags and branches).
+
+        Args:
+            repo_id (`str`):
+                A namespace (user or an organization) and a repo name separated
+                by a `/`.
+            repo_type (`str`, *optional*):
+                Set to `"dataset"` or `"space"` if listing refs from a dataset or a Space,
+                `None` or `"model"` if listing from a model. Default is `None`.
+            token (`bool` or `str`, *optional*):
+                A valid authentication token (see https://huggingface.co/settings/token).
+                If `None` or `True` and machine is logged in (through `huggingface-cli login`
+                or [`~huggingface_hub.login`]), token will be retrieved from the cache.
+                If `False`, token is not sent in the request header.
+
+        Example:
+        ```py
+        >>> from huggingface_hub import HfApi
+        >>> api = HfApi()
+        >>> api.list_repo_refs("gpt2")
+        GitRefs(branches=[GitRefInfo(name='main', ref='refs/heads/main', target_commit='e7da7f221d5bf496a48136c0cd264e630fe9fcc8')], converts=[], tags=[])
+
+        >>> api.list_repo_refs("bigcode/the-stack", repo_type='dataset')
+        GitRefs(
+            branches=[
+                GitRefInfo(name='main', ref='refs/heads/main', target_commit='18edc1591d9ce72aa82f56c4431b3c969b210ae3'),
+                GitRefInfo(name='v1.1.a1', ref='refs/heads/v1.1.a1', target_commit='f9826b862d1567f3822d3d25649b0d6d22ace714')
+            ],
+            converts=[],
+            tags=[
+                GitRefInfo(name='v1.0', ref='refs/tags/v1.0', target_commit='c37a8cd1e382064d8aced5e05543c5f7753834da')
+            ]
+        )
+        ```
+
+        Returns:
+            [`GitRefs`]: object containing all information about branches and tags for a
+            repo on the Hub.
+        """
+        repo_type = repo_type or REPO_TYPE_MODEL
+        response = requests.get(
+            f"{self.endpoint}/api/{repo_type}s/{repo_id}/refs",
+            headers=self._build_hf_headers(token=token),
+        )
+        hf_raise_for_status(response)
+        data = response.json()
+        return GitRefs(
+            branches=[GitRefInfo(item) for item in data["branches"]],
+            converts=[GitRefInfo(item) for item in data["converts"]],
+            tags=[GitRefInfo(item) for item in data["tags"]],
+        )
 
     @validate_hf_hub_args
     def create_repo(
@@ -3915,6 +4024,7 @@ space_info = api.space_info
 
 repo_info = api.repo_info
 list_repo_files = api.list_repo_files
+list_repo_refs = api.list_repo_refs
 
 list_metrics = api.list_metrics
 

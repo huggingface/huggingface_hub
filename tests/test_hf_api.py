@@ -2359,6 +2359,9 @@ class ActivityApiTest(unittest.TestCase):
     def test_list_likes_on_production(self) -> None:
         # Test julien-c likes a lot of repos !
         likes = HfApi().list_liked_repos("julien-c")
+        self.assertEqual(
+            len(likes.models) + len(likes.datasets) + len(likes.spaces), likes.total
+        )
         self.assertGreater(len(likes.models), 0)
         self.assertGreater(len(likes.datasets), 0)
         self.assertGreater(len(likes.spaces), 0)
@@ -2444,6 +2447,41 @@ class TestSpaceAPIMocked(unittest.TestCase):
             f"{self.api.endpoint}/api/spaces/{self.repo_id}/hardware",
             headers=self.api._build_hf_headers(),
             json={"flavor": "t4-medium"},
+        )
+
+
+class ListGitRefsTest(unittest.TestCase):
+    @classmethod
+    @with_production_testing
+    def setUpClass(cls) -> None:
+        cls.api = HfApi()
+        return super().setUpClass()
+
+    def test_list_refs_gpt2(self) -> None:
+        refs = self.api.list_repo_refs("gpt2")
+        self.assertGreater(len(refs.branches), 0)
+        main_branch = [branch for branch in refs.branches if branch.name == "main"][0]
+        self.assertEqual(main_branch.ref, "refs/heads/main")
+        # Can get info by revision
+        self.api.repo_info("gpt2", revision=main_branch.target_commit)
+
+    def test_list_refs_bigcode(self) -> None:
+        refs = self.api.list_repo_refs("bigcode/evaluation", repo_type="dataset")
+        self.assertGreater(len(refs.branches), 0)
+        self.assertGreater(len(refs.converts), 0)
+        main_branch = [branch for branch in refs.branches if branch.name == "main"][0]
+        self.assertEqual(main_branch.ref, "refs/heads/main")
+
+        convert_branch = [
+            branch for branch in refs.converts if branch.name == "parquet"
+        ][0]
+        self.assertEqual(convert_branch.ref, "refs/convert/parquet")
+
+        # Can get info by convert revision
+        self.api.repo_info(
+            "bigcode/evaluation",
+            repo_type="dataset",
+            revision=convert_branch.target_commit,
         )
 
 
