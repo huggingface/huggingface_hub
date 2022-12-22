@@ -6,6 +6,7 @@ import os
 import re
 import shutil
 import stat
+import tempfile
 import uuid
 import warnings
 from contextlib import contextmanager
