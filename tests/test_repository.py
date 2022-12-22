@@ -883,10 +883,12 @@ class TestRepositoryOffline(RepositoryTestAbstract):
     @expect_deprecation("_currently_setup_credential_helpers")
     def test_correct_helper(self):
         run_subprocess("git config --global credential.helper get")
-        self.assertListEqual(
-            _currently_setup_credential_helpers(self.repo.local_dir), ["get", "store"]
-        )
-        self.assertEqual(_currently_setup_credential_helpers(), ["get"])
+        local_helpers = _currently_setup_credential_helpers(self.repo.local_dir)
+        global_helpers = _currently_setup_credential_helpers()
+        self.assertIn("get", local_helpers)
+        self.assertIn("store", local_helpers)
+        self.assertIn("get", global_helpers)
+        self.assertNotIn("store", global_helpers)
 
     def test_add_tag(self):
         self.repo.add_tag("v4.6.0")
