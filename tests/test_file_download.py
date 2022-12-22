@@ -16,7 +16,6 @@ import re
 import stat
 import unittest
 from pathlib import Path
-from tempfile import TemporaryDirectory
 from unittest.mock import Mock, patch
 
 import pytest
@@ -42,6 +41,7 @@ from huggingface_hub.utils import (
     LocalEntryNotFoundError,
     RepositoryNotFoundError,
     RevisionNotFoundError,
+    TemporaryDirectory,
 )
 from tests.testing_constants import TOKEN
 

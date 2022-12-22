@@ -6,7 +6,6 @@ import os
 import re
 import shutil
 import stat
-import tempfile
 import uuid
 import warnings
 from contextlib import contextmanager
@@ -53,6 +52,7 @@ from .utils import is_torch_available  # noqa: F401 # for backward compatibility
 from .utils import (
     EntryNotFoundError,
     LocalEntryNotFoundError,
+    TemporaryDirectory,
     build_hf_headers,
     hf_raise_for_status,
     http_backoff,
@@ -93,7 +93,7 @@ def are_symlinks_supported(cache_dir: Union[str, Path, None] = None) -> bool:
         _are_symlinks_supported_in_dir[cache_dir] = True
 
         os.makedirs(cache_dir, exist_ok=True)
-        with tempfile.TemporaryDirectory(dir=cache_dir) as tmpdir:
+        with TemporaryDirectory(dir=cache_dir) as tmpdir:
             src_path = Path(tmpdir) / "dummy_file_src"
             src_path.touch()
             dst_path = Path(tmpdir) / "dummy_file_dst"

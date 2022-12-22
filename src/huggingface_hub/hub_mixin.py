@@ -1,6 +1,5 @@
 import json
 import os
-import tempfile
 from pathlib import Path
 from typing import Dict, List, Optional, Union
 
@@ -9,7 +8,7 @@ import requests
 from .constants import CONFIG_NAME, PYTORCH_WEIGHTS_NAME
 from .file_download import hf_hub_download, is_torch_available
 from .hf_api import HfApi
-from .utils import logging, validate_hf_hub_args
+from .utils import TemporaryDirectory, logging, validate_hf_hub_args
 
 
 if is_torch_available():
@@ -279,7 +278,7 @@ class ModelHubMixin:
         )
 
         # Push the files to the repo in a single commit
-        with tempfile.TemporaryDirectory() as tmp:
+        with TemporaryDirectory() as tmp:
             saved_path = Path(tmp) / repo_id
             self.save_pretrained(saved_path, config=config)
             return api.upload_folder(

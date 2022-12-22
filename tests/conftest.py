@@ -1,11 +1,11 @@
 from pathlib import Path
-from tempfile import TemporaryDirectory
 from typing import Generator
 
 import pytest
 
 from _pytest.fixtures import SubRequest
 from huggingface_hub import HfApi, HfFolder
+from huggingface_hub.utils import TemporaryDirectory
 
 from .testing_constants import ENDPOINT_PRODUCTION, PRODUCTION_TOKEN
 from .testing_utils import repo_name

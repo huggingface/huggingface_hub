@@ -1,4 +1,3 @@
-import tempfile
 import time
 import unittest
 from pathlib import Path
@@ -8,6 +7,7 @@ import pytest
 from pytest import CaptureFixture
 
 from huggingface_hub.utils import (
+    TemporaryDirectory,
     are_progress_bars_disabled,
     disable_progress_bars,
     enable_progress_bars,
@@ -120,7 +120,7 @@ class TestTqdmUtils(unittest.TestCase):
         self.assertIn("10/10", captured.err)  # tqdm log
 
     def test_tqdm_stream_file(self) -> None:
-        with tempfile.TemporaryDirectory() as tmpdir:
+        with TemporaryDirectory() as tmpdir:
             filepath = Path(tmpdir) / "config.json"
             with filepath.open("w") as f:
                 f.write("#" * 1000)
