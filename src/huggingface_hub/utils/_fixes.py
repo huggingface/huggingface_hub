@@ -9,8 +9,14 @@ except ImportError:
     except ImportError:
         from json import JSONDecodeError  # type: ignore  # noqa: F401
 
+import contextlib
+import os
+import shutil
+import stat
+import tempfile
 from functools import partial
-from typing import Callable
+from pathlib import Path
+from typing import Callable, Generator, Optional, Union
 
 import yaml
 
@@ -28,3 +34,48 @@ import yaml
 yaml_dump: Callable[..., str] = partial(  # type: ignore
     yaml.dump, stream=None, allow_unicode=True
 )
+
+
+@contextlib.contextmanager
+def TemporaryDirectory(
+    suffix: Optional[str] = None,
+    prefix: Optional[str] = None,
+    dir: Optional[Union[Path, str]] = None,
+    **kwargs,
+) -> Generator[str, None, None]:
+    """
+    Context manager to create a temporary directory and safely delete it.
+
+    If tmp directory cannot be deleted normally, we set the WRITE permission and retry.
+    If cleanup still fails, we give up but don't raise an exception. This is equivalent
+    to  `tempfile.TemporaryDirectory(..., ignore_cleanup_errors=True)` introduced in
+    Python 3.10.
+
+    See https://www.scivision.dev/python-tempfile-permission-error-windows/.
+    """
+    tmpdir = tempfile.TemporaryDirectory(
+        prefix=prefix, suffix=suffix, dir=dir, **kwargs
+    )
+    yield tmpdir.name
+
+    try:
+        # First once with normal cleanup
+        shutil.rmtree(tmpdir.name)
+    except Exception:
+        # If failed, try to set write permission and retry
+        try:
+            shutil.rmtree(tmpdir.name, onerror=_set_write_permission_and_retry)
+        except Exception:
+            pass
+
+    # And finally, cleanup the tmpdir.
+    # If it fails again, give up but do not throw error
+    try:
+        tmpdir.cleanup()
+    except Exception:
+        pass
+
+
+def _set_write_permission_and_retry(func, path, excinfo):
+    os.chmod(path, stat.S_IWRITE)
+    func(path)

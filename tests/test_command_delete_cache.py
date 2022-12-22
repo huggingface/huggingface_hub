@@ -1,7 +1,7 @@
 import os
 import unittest
 from pathlib import Path
-from tempfile import TemporaryDirectory, mkstemp
+from tempfile import mkstemp
 from unittest.mock import Mock, patch
 
 from huggingface_hub.commands.delete_cache import (
@@ -13,6 +13,7 @@ from huggingface_hub.commands.delete_cache import (
     _manual_review_no_tui,
     _read_manual_review_tmp_file,
 )
+from huggingface_hub.utils import TemporaryDirectory
 from InquirerPy.base.control import Choice
 from InquirerPy.separator import Separator
 

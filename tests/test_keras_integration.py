@@ -1,7 +1,6 @@
 import json
 import os
 import re
-import tempfile
 import unittest
 
 import pytest
@@ -15,6 +14,7 @@ from huggingface_hub.keras_mixin import (
 )
 from huggingface_hub.repository import Repository
 from huggingface_hub.utils import (
+    TemporaryDirectory,
     is_graphviz_available,
     is_pydot_available,
     is_tf_available,
@@ -252,7 +252,7 @@ class HubKerasSequentialTest(CommonKerasTest):
         REPO_NAME = repo_name("save")
         model = self.model_init()
         model = self.model_fit(model)
-        with tempfile.TemporaryDirectory() as tmpdirname:
+        with TemporaryDirectory() as tmpdirname:
             os.makedirs(f"{tmpdirname}/{WORKING_REPO_DIR}/{REPO_NAME}")
             with open(
                 f"{tmpdirname}/{WORKING_REPO_DIR}/{REPO_NAME}/history.json", "w+"
@@ -421,7 +421,7 @@ class HubKerasSequentialTest(CommonKerasTest):
         """Test log directory is overwritten when pushing a keras model a 2nd time."""
         REPO_NAME = repo_name("PUSH_TO_HUB_KERAS_via_http_override_tensorboard")
         repo_id = f"{USER}/{REPO_NAME}"
-        with tempfile.TemporaryDirectory() as tmpdirname:
+        with TemporaryDirectory() as tmpdirname:
             os.makedirs(f"{tmpdirname}/tb_log_dir")
             with open(f"{tmpdirname}/tb_log_dir/tensorboard.txt", "w") as fp:
                 fp.write("Keras FTW")
@@ -475,7 +475,7 @@ class HubKerasSequentialTest(CommonKerasTest):
         model_info = HfApi(endpoint=ENDPOINT_STAGING).model_info(repo_id)
         self.assertEqual(model_info.modelId, repo_id)
 
-        with tempfile.TemporaryDirectory() as tmpdirname:
+        with TemporaryDirectory() as tmpdirname:
             Repository(
                 local_dir=tmpdirname, clone_from=ENDPOINT_STAGING + "/" + repo_id
             )

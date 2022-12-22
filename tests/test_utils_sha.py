@@ -2,8 +2,8 @@ import os
 import unittest
 from hashlib import sha256
 from io import BytesIO
-from tempfile import TemporaryDirectory
 
+from huggingface_hub.utils import TemporaryDirectory
 from huggingface_hub.utils.sha import sha_fileobj
 
 

@@ -2,9 +2,9 @@ import os
 import unittest
 from hashlib import sha256
 from io import BytesIO
-from tempfile import TemporaryDirectory
 
 from huggingface_hub.lfs import SliceFileObj, UploadInfo
+from huggingface_hub.utils import TemporaryDirectory
 
 
 class TestUploadInfo(unittest.TestCase):

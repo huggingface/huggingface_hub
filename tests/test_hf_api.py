@@ -15,7 +15,6 @@ import os
 import re
 import shutil
 import subprocess
-import tempfile
 import time
 import types
 import unittest
@@ -68,6 +67,7 @@ from huggingface_hub.utils import (
     HfHubHTTPError,
     RepositoryNotFoundError,
     RevisionNotFoundError,
+    TemporaryDirectory,
     logging,
 )
 from huggingface_hub.utils.endpoint_helpers import (
@@ -791,7 +791,7 @@ class CommitApiTest(HfApiCommonTestWithLogin):
 
         # Create repo and create a non-main branch
         self._api.create_repo(repo_id=repo_id, exist_ok=False)
-        with tempfile.TemporaryDirectory() as tmpdir:
+        with TemporaryDirectory() as tmpdir:
             repo = Repository(local_dir=tmpdir, clone_from=repo_id, token=TOKEN)
             repo.git_checkout("test_branch", create_branch_ok=True)
             head = repo.git_head_hash()

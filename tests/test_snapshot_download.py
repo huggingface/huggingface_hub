@@ -1,10 +1,14 @@
 import os
-import tempfile
 import unittest
 
 import requests
 from huggingface_hub import HfApi, Repository, snapshot_download
-from huggingface_hub.utils import HfFolder, RepositoryNotFoundError, logging
+from huggingface_hub.utils import (
+    HfFolder,
+    RepositoryNotFoundError,
+    TemporaryDirectory,
+    logging,
+)
 
 from .testing_constants import ENDPOINT_STAGING, TOKEN, USER
 from .testing_utils import (
@@ -78,7 +82,7 @@ class SnapshotDownloadTests(unittest.TestCase):
 
     def test_download_model(self):
         # Test `main` branch
-        with tempfile.TemporaryDirectory() as tmpdirname:
+        with TemporaryDirectory() as tmpdirname:
             storage_folder = snapshot_download(
                 f"{USER}/{REPO_NAME}", revision="main", cache_dir=tmpdirname
             )
@@ -98,7 +102,7 @@ class SnapshotDownloadTests(unittest.TestCase):
             self.assertTrue(self.second_commit_hash in storage_folder)
 
         # Test with specific revision
-        with tempfile.TemporaryDirectory() as tmpdirname:
+        with TemporaryDirectory() as tmpdirname:
             storage_folder = snapshot_download(
                 f"{USER}/{REPO_NAME}",
                 revision=self.first_commit_hash,
@@ -122,7 +126,7 @@ class SnapshotDownloadTests(unittest.TestCase):
         self._api.update_repo_visibility(repo_id=REPO_NAME, private=True)
 
         # Test download fails without token
-        with tempfile.TemporaryDirectory() as tmpdirname:
+        with TemporaryDirectory() as tmpdirname:
             with self.assertRaisesRegex(
                 requests.exceptions.HTTPError, "401 Client Error"
             ):
@@ -131,7 +135,7 @@ class SnapshotDownloadTests(unittest.TestCase):
                 )
 
         # Test we can download with token from cache
-        with tempfile.TemporaryDirectory() as tmpdirname:
+        with TemporaryDirectory() as tmpdirname:
             HfFolder.save_token(self._token)
             storage_folder = snapshot_download(
                 f"{USER}/{REPO_NAME}",
@@ -155,7 +159,7 @@ class SnapshotDownloadTests(unittest.TestCase):
             self.assertTrue(self.second_commit_hash in storage_folder)
 
         # Test we can download with explicit token
-        with tempfile.TemporaryDirectory() as tmpdirname:
+        with TemporaryDirectory() as tmpdirname:
             storage_folder = snapshot_download(
                 f"{USER}/{REPO_NAME}",
                 revision="main",
@@ -181,7 +185,7 @@ class SnapshotDownloadTests(unittest.TestCase):
 
     def test_download_model_local_only(self):
         # Test no branch specified
-        with tempfile.TemporaryDirectory() as tmpdirname:
+        with TemporaryDirectory() as tmpdirname:
             # first download folder to cache it
             snapshot_download(f"{USER}/{REPO_NAME}", cache_dir=tmpdirname)
 
@@ -207,7 +211,7 @@ class SnapshotDownloadTests(unittest.TestCase):
             self.assertTrue(self.second_commit_hash in storage_folder)
 
         # Test with specific revision branch
-        with tempfile.TemporaryDirectory() as tmpdirname:
+        with TemporaryDirectory() as tmpdirname:
             # first download folder to cache it
             snapshot_download(
                 f"{USER}/{REPO_NAME}",
@@ -237,7 +241,7 @@ class SnapshotDownloadTests(unittest.TestCase):
             self.assertTrue(self.third_commit_hash in storage_folder)
 
         # Test with specific revision hash
-        with tempfile.TemporaryDirectory() as tmpdirname:
+        with TemporaryDirectory() as tmpdirname:
             # first download folder to cache it
             snapshot_download(
                 f"{USER}/{REPO_NAME}",
@@ -268,7 +272,7 @@ class SnapshotDownloadTests(unittest.TestCase):
 
     def test_download_model_local_only_multiple(self):
         # Test `main` branch
-        with tempfile.TemporaryDirectory() as tmpdirname:
+        with TemporaryDirectory() as tmpdirname:
             # download both from branch and from commit
             snapshot_download(
                 f"{USER}/{REPO_NAME}",
@@ -282,7 +286,7 @@ class SnapshotDownloadTests(unittest.TestCase):
             )
 
         # cache multiple commits and make sure correct commit is taken
-        with tempfile.TemporaryDirectory() as tmpdirname:
+        with TemporaryDirectory() as tmpdirname:
             # first download folder to cache it
             snapshot_download(
                 f"{USER}/{REPO_NAME}",
@@ -321,7 +325,7 @@ class SnapshotDownloadTests(unittest.TestCase):
         allow_patterns = pattern if allow else None
         ignore_patterns = pattern if not allow else None
 
-        with tempfile.TemporaryDirectory() as tmpdirname:
+        with TemporaryDirectory() as tmpdirname:
             storage_folder = snapshot_download(
                 f"{USER}/{REPO_NAME}",
                 revision="main",
