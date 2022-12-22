@@ -46,7 +46,7 @@ logger = logging.get_logger(__name__)
 
 
 @pytest.mark.usefixtures("fx_cache_dir")
-class RepositoryCommonTest(unittest.TestCase):
+class RepositoryTestAbstract(unittest.TestCase):
     cache_dir: Path
     repo_path: Path
 
@@ -76,7 +76,7 @@ class RepositoryCommonTest(unittest.TestCase):
         binary_file.write_text(self.binary_content)
 
 
-class SharedRepositoryTest(RepositoryCommonTest):
+class TestRepositoryShared(RepositoryTestAbstract):
     """Tests in this class shares a single repo on the Hub (common to all tests).
 
     These tests must not push data to it.
@@ -218,7 +218,7 @@ class SharedRepositoryTest(RepositoryCommonTest):
                     f.write("Ok")
 
 
-class UniqueRepositoryTest(RepositoryCommonTest):
+class TestRepositoryUniqueRepos(RepositoryTestAbstract):
     """Tests in this class use separated repos on the Hub (i.e. 1 test = 1 repo).
 
     These tests can push data to it.
@@ -597,7 +597,9 @@ class UniqueRepositoryTest(RepositoryCommonTest):
         self.assertEqual(post_prune_git_lfs_files_size, git_lfs_files_size)
 
 
-class RepositoryOfflineTest(RepositoryCommonTest):
+class TestRepositoryOffline(RepositoryTestAbstract):
+    """Class to test `Repository` object on local folders only (no cloning from Hub)."""
+
     repo: Repository
 
     @classmethod
@@ -910,7 +912,7 @@ class RepositoryOfflineTest(RepositoryCommonTest):
         self.assertFalse(self.repo.is_repo_clean())
 
 
-class RepositoryDatasetTest(RepositoryCommonTest):
+class TestRepositoryDataset(RepositoryTestAbstract):
     """Class to test that cloning from a different repo_type works fine."""
 
     @classmethod
