@@ -23,7 +23,6 @@ import pytest
 
 import requests
 from huggingface_hub import RepoUrl
-from huggingface_hub._login import _currently_setup_credential_helpers
 from huggingface_hub.hf_api import HfApi
 from huggingface_hub.repository import (
     Repository,
@@ -879,16 +878,6 @@ class TestRepositoryOffline(RepositoryTestAbstract):
 
         self.assertEqual(username.strip(), "RANDOM_USER")
         self.assertEqual(email.strip(), "EMAIL@EMAIL.EMAIL")
-
-    @expect_deprecation("_currently_setup_credential_helpers")
-    def test_correct_helper(self):
-        run_subprocess("git config --global credential.helper get")
-        local_helpers = _currently_setup_credential_helpers(self.repo.local_dir)
-        global_helpers = _currently_setup_credential_helpers()
-        self.assertIn("get", local_helpers)
-        self.assertIn("store", local_helpers)
-        self.assertIn("get", global_helpers)
-        self.assertNotIn("store", global_helpers)
 
     def test_add_tag(self):
         self.repo.add_tag("v4.6.0")
