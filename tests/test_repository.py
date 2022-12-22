@@ -13,7 +13,6 @@
 # limitations under the License.
 import json
 import os
-import pathlib
 import shutil
 import tempfile
 import time
@@ -33,26 +32,17 @@ from huggingface_hub.repository import (
 )
 from huggingface_hub.utils import logging, run_subprocess
 
-from .testing_constants import ENDPOINT_STAGING, TOKEN, USER
+from .testing_constants import ENDPOINT_STAGING, TOKEN
 from .testing_utils import (
     expect_deprecation,
     repo_name,
     retry_endpoint,
-    set_write_permission_and_retry,
     use_tmp_repo,
     with_production_testing,
 )
 
 
 logger = logging.get_logger(__name__)
-
-
-DATASET_FIXTURE = os.path.join(
-    os.path.dirname(os.path.abspath(__file__)), "fixtures/tiny_dataset"
-)
-WORKING_DATASET_DIR = os.path.join(
-    os.path.dirname(os.path.abspath(__file__)), "fixtures/working_dataset"
-)
 
 
 @pytest.mark.usefixtures("fx_cache_dir")
@@ -415,7 +405,7 @@ class UniqueRepositoryTest(RepositoryCommonTest):
     def test_clone_skip_lfs_files(self):
         # Upload LFS file
         self._api.upload_file(
-            path_or_fileobj="bin file", path_in_repo="file.bin", repo_id=self.repo_id
+            path_or_fileobj=b"Bin file", path_in_repo="file.bin", repo_id=self.repo_id
         )
 
         repo = self.clone_repo(skip_lfs_files=True)
@@ -926,170 +916,73 @@ class RepositoryDatasetTest(RepositoryCommonTest):
     @classmethod
     @expect_deprecation("set_access_token")
     def setUpClass(cls):
-        """
-        Share this valid token in all tests below.
-        """
-        cls._token = TOKEN
+        super().setUpClass()
         cls._api.set_access_token(TOKEN)
+        cls._token = TOKEN
 
-    def setUp(self):
-        self.REPO_NAME = repo_name()
-        if os.path.exists(f"{WORKING_DATASET_DIR}/{self.REPO_NAME}"):
-            shutil.rmtree(
-                f"{WORKING_DATASET_DIR}/{self.REPO_NAME}",
-                onerror=set_write_permission_and_retry,
-            )
-        logger.info(
-            f"Does {WORKING_DATASET_DIR}/{self.REPO_NAME} exist:"
-            f" {os.path.exists(f'{WORKING_DATASET_DIR}/{self.REPO_NAME}')}"
+        cls.repo_url = cls._api.create_repo(repo_id=repo_name(), repo_type="dataset")
+        cls.repo_id = cls.repo_url.repo_id
+        cls._api.upload_file(
+            path_or_fileobj=cls.binary_content.encode(),
+            path_in_repo="file.txt",
+            repo_id=cls.repo_id,
+            repo_type="dataset",
         )
-        self._api.create_repo(repo_id=self.REPO_NAME, repo_type="dataset")
 
-    def tearDown(self):
+    @classmethod
+    def tearDownClass(cls):
+        super().tearDownClass()
         try:
-            self._api.delete_repo(repo_id=self.REPO_NAME, repo_type="dataset")
+            cls._api.delete_repo(repo_id=cls.repo_id)
         except requests.exceptions.HTTPError:
-            try:
-                self._api.delete_repo(
-                    repo_id=f"valid_org/{self.REPO_NAME}", repo_type="dataset"
-                )
-            except requests.exceptions.HTTPError:
-                pass
+            pass
 
     @retry_endpoint
-    def test_clone_with_endpoint(self):
-        clone = Repository(
-            f"{WORKING_DATASET_DIR}/{self.REPO_NAME}",
-            clone_from=f"{ENDPOINT_STAGING}/datasets/{USER}/{self.REPO_NAME}",
-            repo_type="dataset",
-            use_auth_token=self._token,
-            git_user="ci",
-            git_email="ci@dummy.com",
-        )
-
-        with clone.commit("Commit"):
-            for file in os.listdir(DATASET_FIXTURE):
-                shutil.copyfile(pathlib.Path(DATASET_FIXTURE) / file, file)
-
-        shutil.rmtree(f"{WORKING_DATASET_DIR}/{self.REPO_NAME}")
-
+    def test_clone_dataset_with_endpoint_explicit_repo_type(self):
         Repository(
-            f"{WORKING_DATASET_DIR}/{self.REPO_NAME}",
-            clone_from=f"{ENDPOINT_STAGING}/datasets/{USER}/{self.REPO_NAME}",
-            use_auth_token=self._token,
+            self.repo_path,
+            clone_from=self.repo_url,
             repo_type="dataset",
             git_user="ci",
             git_email="ci@dummy.com",
         )
-
-        files = os.listdir(f"{WORKING_DATASET_DIR}/{self.REPO_NAME}")
-        self.assertTrue("some_text.txt" in files)
-        self.assertTrue("test.py" in files)
+        self.assertTrue((self.repo_path / "file.txt").exists())
 
     @retry_endpoint
-    def test_clone_with_repo_name_and_org(self):
-        self._api.create_repo(f"valid_org/{self.REPO_NAME}", repo_type="dataset")
-
-        clone = Repository(
-            f"{WORKING_DATASET_DIR}/{self.REPO_NAME}",
-            clone_from=f"valid_org/{self.REPO_NAME}",
-            repo_type="dataset",
-            use_auth_token=self._token,
-            git_user="ci",
-            git_email="ci@dummy.com",
-        )
-
-        with clone.commit("Commit"):
-            for file in os.listdir(DATASET_FIXTURE):
-                shutil.copyfile(pathlib.Path(DATASET_FIXTURE) / file, file)
-
-        shutil.rmtree(f"{WORKING_DATASET_DIR}/{self.REPO_NAME}")
-
+    def test_clone_dataset_with_endpoint_implicit_repo_type(self):
+        self.assertIn("dataset", self.repo_url)  # Implicit
         Repository(
-            f"{WORKING_DATASET_DIR}/{self.REPO_NAME}",
-            clone_from=f"valid_org/{self.REPO_NAME}",
-            use_auth_token=self._token,
-            repo_type="dataset",
+            self.repo_path,
+            clone_from=self.repo_url,
             git_user="ci",
             git_email="ci@dummy.com",
         )
-
-        files = os.listdir(f"{WORKING_DATASET_DIR}/{self.REPO_NAME}")
-        self.assertTrue("some_text.txt" in files)
-        self.assertTrue("test.py" in files)
+        self.assertTrue((self.repo_path / "file.txt").exists())
 
     @retry_endpoint
-    def test_clone_with_repo_name_and_user_namespace(self):
-        clone = Repository(
-            f"{WORKING_DATASET_DIR}/{self.REPO_NAME}",
-            clone_from=f"{USER}/{self.REPO_NAME}",
-            repo_type="dataset",
-            use_auth_token=self._token,
-            git_user="ci",
-            git_email="ci@dummy.com",
-        )
-
-        with clone.commit("Commit"):
-            for file in os.listdir(DATASET_FIXTURE):
-                shutil.copyfile(pathlib.Path(DATASET_FIXTURE) / file, file)
-
-        shutil.rmtree(f"{WORKING_DATASET_DIR}/{self.REPO_NAME}")
-
+    def test_clone_dataset_with_repo_id_and_repo_type(self):
         Repository(
-            f"{WORKING_DATASET_DIR}/{self.REPO_NAME}",
-            clone_from=f"{USER}/{self.REPO_NAME}",
-            use_auth_token=self._token,
+            self.repo_path,
+            clone_from=self.repo_id,
             repo_type="dataset",
             git_user="ci",
             git_email="ci@dummy.com",
         )
-
-        files = os.listdir(f"{WORKING_DATASET_DIR}/{self.REPO_NAME}")
-        self.assertTrue("some_text.txt" in files)
-        self.assertTrue("test.py" in files)
+        self.assertTrue((self.repo_path / "file.txt").exists())
 
     @retry_endpoint
-    def test_clone_with_repo_name_and_no_namespace(self):
+    def test_clone_dataset_no_ci_user_and_email(self):
+        Repository(self.repo_path, clone_from=self.repo_id, repo_type="dataset")
+        self.assertTrue((self.repo_path / "file.txt").exists())
+
+    @retry_endpoint
+    def test_clone_dataset_with_repo_name_and_repo_type_fails(self):
         with self.assertRaises(EnvironmentError):
             Repository(
-                f"{WORKING_DATASET_DIR}/{self.REPO_NAME}",
-                clone_from=self.REPO_NAME,
+                self.repo_path,
+                clone_from=self.repo_id.split("/")[1],
                 repo_type="dataset",
                 use_auth_token=self._token,
                 git_user="ci",
                 git_email="ci@dummy.com",
             )
-
-    @retry_endpoint
-    def test_clone_with_repo_name_user_and_no_auth_token(self):
-        # Create repo
-        Repository(
-            f"{WORKING_DATASET_DIR}/{self.REPO_NAME}",
-            clone_from=f"{USER}/{self.REPO_NAME}",
-            repo_type="dataset",
-            use_auth_token=self._token,
-            git_user="ci",
-            git_email="ci@dummy.com",
-        )
-
-        # Instantiate it without token
-        Repository(
-            f"{WORKING_DATASET_DIR}/{self.REPO_NAME}",
-            clone_from=f"{USER}/{self.REPO_NAME}",
-            repo_type="dataset",
-            git_user="ci",
-            git_email="ci@dummy.com",
-        )
-
-    @retry_endpoint
-    def test_clone_with_repo_name_org_and_no_auth_token(self):
-        self._api.create_repo(f"valid_org/{self.REPO_NAME}", repo_type="dataset")
-
-        # Instantiate it without token
-        Repository(
-            f"{WORKING_DATASET_DIR}/{self.REPO_NAME}",
-            clone_from=f"valid_org/{self.REPO_NAME}",
-            repo_type="dataset",
-            git_user="ci",
-            git_email="ci@dummy.com",
-        )
