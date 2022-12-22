@@ -19,7 +19,6 @@ import subprocess
 import tempfile
 import time
 import unittest
-from io import BytesIO
 from pathlib import Path
 
 import pytest
@@ -82,8 +81,22 @@ class RepositoryCommonTest(unittest.TestCase):
         self.repo_path = self.cache_dir / "working_dir"
         self.repo_path.mkdir()
 
+    def _create_dummy_files(self):
+        # Create dummy files
+        # one is lfs-tracked, the other is not.
+        small_file = self.repo_path / "dummy.txt"
+        small_file.write_text(self.small_content)
 
-class RepositoryTest(RepositoryCommonTest):
+        binary_file = self.repo_path / "model.bin"
+        binary_file.write_text(self.binary_content)
+
+
+class SharedRepositoryTest(RepositoryCommonTest):
+    """Tests in this class shares a single repo on the Hub (common to all tests).
+
+    These tests must not push data to it.
+    """
+
     @classmethod
     @expect_deprecation("set_access_token")
     def setUpClass(cls):
@@ -94,31 +107,20 @@ class RepositoryTest(RepositoryCommonTest):
         cls._api.set_access_token(TOKEN)
         cls._token = TOKEN
 
-    @retry_endpoint
-    def setUp(self):
-        super().setUp()
-        self.repo_url = self._api.create_repo(repo_id=repo_name())
-        self.repo_id = self.repo_url.repo_id
-        self._api.upload_file(
-            path_or_fileobj=self.binary_content.encode(),
+        cls.repo_url = cls._api.create_repo(repo_id=repo_name())
+        cls.repo_id = cls.repo_url.repo_id
+        cls._api.upload_file(
+            path_or_fileobj=cls.binary_content.encode(),
             path_in_repo="random_file.txt",
-            repo_id=self.repo_id,
+            repo_id=cls.repo_id,
         )
 
-    def tearDown(self):
+    @classmethod
+    def tearDownClass(cls):
         try:
-            self._api.delete_repo(repo_id=self.repo_id)
+            cls._api.delete_repo(repo_id=cls.repo_id)
         except requests.exceptions.HTTPError:
             pass
-
-    def _create_dummy_files(self):
-        # Create dummy files
-        # one is lfs-tracked, the other is not.
-        small_file = self.repo_path / "dummy.txt"
-        small_file.write_text(self.small_content)
-
-        binary_file = self.repo_path / "model.bin"
-        binary_file.write_text(self.binary_content)
 
     def test_clone_from_repo_url(self):
         Repository(self.repo_path, clone_from=self.repo_url)
@@ -130,7 +132,11 @@ class RepositoryTest(RepositoryCommonTest):
     @retry_endpoint
     def test_clone_from_repo_name_no_namespace_fails(self):
         with self.assertRaises(EnvironmentError):
-            Repository(self.repo_path, clone_from=self.repo_id.split("/")[1])
+            Repository(
+                self.repo_path,
+                clone_from=self.repo_id.split("/")[1],
+                use_auth_token=self._token,
+            )
 
     @retry_endpoint
     def test_clone_from_not_hf_url(self):
@@ -170,7 +176,8 @@ class RepositoryTest(RepositoryCommonTest):
         repo.git_pull()
 
     def test_init_failure(self):
-        Repository(self.repo_path)  # repo is not initialized
+        with self.assertRaises(ValueError):
+            Repository(self.repo_path)
 
     @retry_endpoint
     def test_init_clone_in_empty_folder(self):
@@ -201,19 +208,73 @@ class RepositoryTest(RepositoryCommonTest):
             Repository(self.repo_path, clone_from=self.repo_url)
 
     @retry_endpoint
+    def test_init_clone_in_nonempty_linked_git_repo_with_token(self):
+        Repository(self.repo_path, clone_from=self.repo_url, use_auth_token=self._token)
+        Repository(self.repo_path, clone_from=self.repo_url, use_auth_token=self._token)
+
+    @retry_endpoint
+    def test_is_tracked_upstream(self):
+        Repository(self.repo_path, clone_from=self.repo_id)
+        self.assertTrue(is_tracked_upstream(self.repo_path))
+
+    @retry_endpoint
+    def test_push_errors_on_wrong_checkout(self):
+        repo = Repository(self.repo_path, clone_from=self.repo_id)
+
+        head_commit_ref = run_subprocess(
+            "git show --oneline -s", folder=self.repo_path
+        ).stdout.split()[0]
+
+        repo.git_checkout(head_commit_ref)
+
+        with self.assertRaises(OSError):
+            with repo.commit("New commit"):
+                with open("new_file", "w+") as f:
+                    f.write("Ok")
+
+
+class UniqueRepositoryTest(RepositoryCommonTest):
+    """Tests in this class use separated repos on the Hub (i.e. 1 test = 1 repo).
+
+    These tests can push data to it.
+    """
+
+    @classmethod
+    @expect_deprecation("set_access_token")
+    def setUpClass(cls):
+        """
+        Share this valid token in all tests below.
+        """
+        super().setUpClass()
+        cls._api.set_access_token(TOKEN)
+        cls._token = TOKEN
+
+    @retry_endpoint
+    def setUp(self):
+        super().setUp()
+        self.repo_url = self._api.create_repo(repo_id=repo_name())
+        self.repo_id = self.repo_url.repo_id
+        self._api.upload_file(
+            path_or_fileobj=self.binary_content.encode(),
+            path_in_repo="random_file.txt",
+            repo_id=self.repo_id,
+        )
+
+    def tearDown(self):
+        try:
+            self._api.delete_repo(repo_id=self.repo_id)
+        except requests.exceptions.HTTPError:
+            pass
+
+    @retry_endpoint
     @use_tmp_repo()
     def test_init_clone_in_nonempty_non_linked_git_repo(self, repo_url: RepoUrl):
-        Repository(self.repo_path, clone_from=self.repo_url)
+        Repository(self.repo_path, clone_from=self.common_repo_url)
 
         # Try and clone another repository within the same directory.
         # Should error out due to mismatched remotes.
         with self.assertRaises(EnvironmentError):
             Repository(self.repo_path, clone_from=repo_url)
-
-    @retry_endpoint
-    def test_init_clone_in_nonempty_linked_git_repo_with_token(self):
-        Repository(self.repo_path, clone_from=self.repo_url, use_auth_token=self._token)
-        Repository(self.repo_path, clone_from=self.repo_url, use_auth_token=self._token)
 
     @retry_endpoint
     def test_init_clone_in_nonempty_linked_git_repo(self):
@@ -245,7 +306,7 @@ class RepositoryTest(RepositoryCommonTest):
         self._api.upload_file(
             path_or_fileobj=self.binary_content.encode(),
             path_in_repo="random_file_3.txt",
-            repo_id=self.repo_id,
+            repo_id=self.repo_url.repo_id,
         )
 
         # The repo should initialize correctly as the remote is the same, even with unrelated historied
@@ -253,7 +314,6 @@ class RepositoryTest(RepositoryCommonTest):
 
     @retry_endpoint
     def test_add_commit_push(self):
-
         repo = Repository(
             self.repo_path, clone_from=self.repo_url, use_auth_token=self._token
         )
@@ -357,26 +417,6 @@ class RepositoryTest(RepositoryCommonTest):
         repo.git_pull(lfs=True)
 
         self.assertEqual(file_bin.read_text(), "Bin file")
-
-    @retry_endpoint
-    def test_is_tracked_upstream(self):
-        Repository(self.repo_path, clone_from=self.repo_id)
-        self.assertTrue(is_tracked_upstream(self.repo_path))
-
-    @retry_endpoint
-    def test_push_errors_on_wrong_checkout(self):
-        repo = Repository(self.repo_path, clone_from=self.repo_id)
-
-        head_commit_ref = run_subprocess(
-            "git show --oneline -s", folder=self.repo_path
-        ).stdout.split()[0]
-
-        repo.git_checkout(head_commit_ref)
-
-        with self.assertRaises(OSError):
-            with repo.commit("New commit"):
-                with open("new_file", "w+") as f:
-                    f.write("Ok")
 
     "================================================================"
     "ABOVE IS FINE"
