@@ -1,4 +1,5 @@
 import os
+import shutil
 from pathlib import Path
 from tempfile import TemporaryDirectory
 from typing import Generator
@@ -10,7 +11,7 @@ from _pytest.fixtures import SubRequest
 from huggingface_hub import HfApi, HfFolder
 
 from .testing_constants import ENDPOINT_PRODUCTION, PRODUCTION_TOKEN
-from .testing_utils import repo_name
+from .testing_utils import repo_name, set_write_permission_and_retry
 
 
 @pytest.fixture
@@ -30,6 +31,9 @@ def fx_cache_dir(request: SubRequest) -> Generator[None, None, None]:
     with TemporaryDirectory() as cache_dir:
         request.cls.cache_dir = Path(cache_dir).resolve()
         yield
+        # TemporaryDirectory is not super robust on Windows when a git repository is
+        # cloned in it. See https://www.scivision.dev/python-tempfile-permission-error-windows/.
+        shutil.rmtree(cache_dir, onerror=set_write_permission_and_retry)
 
 
 @pytest.fixture(autouse=True, scope="session")
