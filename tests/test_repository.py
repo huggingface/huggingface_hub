@@ -381,22 +381,19 @@ class TestRepositoryUniqueRepos(RepositoryTestAbstract):
 
     @retry_endpoint
     def test_commit_context_manager(self):
-        # Use a sub directory that we will delete manually
-        subpath = self.repo_path / "subpath"
-
-        clone = self.clone_repo(local_dir=subpath)
-
+        # Clone and commit from a first folder
+        folder_1 = self.repo_path / "folder_1"
+        clone = self.clone_repo(local_dir=folder_1)
         with clone.commit("Commit"):
             with open("dummy.txt", "w") as f:
                 f.write("hello")
             with open("model.bin", "w") as f:
                 f.write("hello")
 
-        shutil.rmtree(subpath)
-
-        self.clone_repo(local_dir=subpath)
-        Repository(subpath, clone_from=self.repo_url)
-        files = os.listdir(subpath)
+        # Clone in second folder. Check existence of committed files
+        folder_2 = self.repo_path / "folder_2"
+        self.clone_repo(local_dir=folder_2)
+        files = os.listdir(folder_2)
         self.assertTrue("dummy.txt" in files)
         self.assertTrue("model.bin" in files)
 
