@@ -448,21 +448,18 @@ def use_tmp_repo(repo_type: str = "model") -> Callable[[T], T]:
 
     Example:
     ```py
+    from huggingface_hub import RepoUrl
     from .testing_utils import use_tmp_repo
 
     class HfApiCommonTest(unittest.TestCase):
         _api = HfApi(endpoint=ENDPOINT_STAGING, token=TOKEN)
-        _user = USER
-        _repo_id: str
 
         @use_tmp_repo()
-        def test_create_tag_on_model(self) -> None:
-            self._repo_id  # populated
+        def test_create_tag_on_model(self, repo_url: RepoUrl) -> None:
             (...)
 
         @use_tmp_repo("dataset")
-        def test_create_tag_on_dataset(self) -> None:
-            self._repo_id  # populated
+        def test_create_tag_on_dataset(self, repo_url: RepoUrl) -> None:
             (...)
     ```
     """
@@ -473,13 +470,13 @@ def use_tmp_repo(repo_type: str = "model") -> Callable[[T], T]:
             self = args[0]
             assert isinstance(self, unittest.TestCase)
 
-            repo_id = f"{self._user}/{repo_name(prefix=repo_type)}"
-            self._api.create_repo(repo_id=repo_id, repo_type=repo_type)
+            repo_url = self._api.create_repo(
+                repo_id=repo_name(prefix=repo_type), repo_type=repo_type
+            )
             try:
-                self._repo_id = repo_id
-                return test_fn(*args, **kwargs)
+                return test_fn(*args, **kwargs, repo_url=repo_url)
             finally:
-                self._api.delete_repo(repo_id=repo_id, repo_type=repo_type)
+                self._api.delete_repo(repo_id=repo_url.repo_id, repo_type=repo_type)
 
         return _inner
 

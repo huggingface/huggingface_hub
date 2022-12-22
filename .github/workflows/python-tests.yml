@@ -84,12 +84,17 @@ jobs:
           case "${{ matrix.test_name }}" in
 
             "Repository only")
-              eval "$PYTEST ../tests -k 'RepositoryTest or RepositoryDatasetTest'"
-              ;;
+              # Run repo tests concurrently
+              PYTEST="$PYTEST ../tests -k 'TestRepository' -n8"
+              echo $PYTEST
+              eval $PYTEST
+            ;;
 
             "Everything else")
-              eval "$PYTEST ../tests -k 'not RepositoryTest and not RepositoryDatasetTest'"
-              ;;
+              PYTEST="$PYTEST ../tests -k 'not TestRepository'"
+              echo $PYTEST
+              eval $PYTEST
+            ;;
 
             lfs)
               eval "RUN_GIT_LFS_TESTS=1 $PYTEST ../tests -k 'HfLargefilesTest'"
