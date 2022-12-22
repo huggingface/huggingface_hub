@@ -15,7 +15,6 @@ import json
 import os
 import pathlib
 import shutil
-import subprocess
 import tempfile
 import time
 import unittest
@@ -47,10 +46,6 @@ from .testing_utils import (
 
 logger = logging.get_logger(__name__)
 
-
-WORKING_REPO_DIR = os.path.join(
-    os.path.dirname(os.path.abspath(__file__)), "fixtures/working_repo_2"
-)
 
 DATASET_FIXTURE = os.path.join(
     os.path.dirname(os.path.abspath(__file__)), "fixtures/tiny_dataset"
@@ -151,7 +146,7 @@ class SharedRepositoryTest(RepositoryCommonTest):
     def test_clone_from_missing_repo(self):
         """If the repo does not exist an EnvironmentError is raised."""
         with self.assertRaises(EnvironmentError):
-            Repository(WORKING_REPO_DIR, clone_from="missing_repo", token=self._token)
+            Repository(self.repo_path, clone_from="missing_repo", token=self._token)
 
     @with_production_testing
     @retry_endpoint
@@ -418,10 +413,6 @@ class UniqueRepositoryTest(RepositoryCommonTest):
 
         self.assertEqual(file_bin.read_text(), "Bin file")
 
-    "================================================================"
-    "ABOVE IS FINE"
-    "================================================================"
-
     @retry_endpoint
     def test_commits_on_correct_branch(self):
         repo = Repository(self.repo_path, clone_from=self.repo_id)
@@ -440,13 +431,7 @@ class UniqueRepositoryTest(RepositoryCommonTest):
                 f.write("Ok")
 
         with tempfile.TemporaryDirectory() as tmp:
-            clone = Repository(
-                tmp,
-                clone_from=f"{USER}/{self.REPO_NAME}",
-                use_auth_token=self._token,
-                git_user="ci",
-                git_email="ci@dummy.com",
-            )
+            clone = Repository(tmp, clone_from=self.repo_id)
             files = os.listdir(clone.local_dir)
             self.assertTrue("file.txt" in files)
             self.assertFalse("new_file.txt" in files)
@@ -458,36 +443,22 @@ class UniqueRepositoryTest(RepositoryCommonTest):
 
     @retry_endpoint
     def test_repo_checkout_push(self):
-        repo = Repository(
-            WORKING_REPO_DIR,
-            clone_from=f"{USER}/{self.REPO_NAME}",
-            use_auth_token=self._token,
-            git_user="ci",
-            git_email="ci@dummy.com",
-        )
+        repo = Repository(self.repo_path, clone_from=self.repo_id)
 
         repo.git_checkout("new-branch", create_branch_ok=True)
         repo.git_checkout("main")
 
-        with open(os.path.join(repo.local_dir, "file.txt"), "w+") as f:
-            f.write("Ok")
+        (self.repo_path / "file.txt").write_text("OK")
 
         repo.push_to_hub("Commit #1")
         repo.git_checkout("new-branch", create_branch_ok=True)
 
-        with open(os.path.join(repo.local_dir, "new_file.txt"), "w+") as f:
-            f.write("Ok")
+        (self.repo_path / "new_file.txt").write_text("OK")
 
         repo.push_to_hub("Commit #2")
 
         with tempfile.TemporaryDirectory() as tmp:
-            clone = Repository(
-                tmp,
-                clone_from=f"{USER}/{self.REPO_NAME}",
-                use_auth_token=self._token,
-                git_user="ci",
-                git_email="ci@dummy.com",
-            )
+            clone = Repository(tmp, clone_from=self.repo_id)
             files = os.listdir(clone.local_dir)
             self.assertTrue("file.txt" in files)
             self.assertFalse("new_file.txt" in files)
@@ -499,14 +470,7 @@ class UniqueRepositoryTest(RepositoryCommonTest):
 
     @retry_endpoint
     def test_repo_checkout_commit_context_manager(self):
-        repo = Repository(
-            WORKING_REPO_DIR,
-            clone_from=f"{USER}/{self.REPO_NAME}",
-            use_auth_token=self._token,
-            git_user="ci",
-            git_email="ci@dummy.com",
-            revision="main",
-        )
+        repo = Repository(self.repo_path, clone_from=self.repo_id)
 
         with repo.commit("Commit #1", branch="new-branch"):
             with open(os.path.join(repo.local_dir, "file.txt"), "w+") as f:
@@ -522,13 +486,7 @@ class UniqueRepositoryTest(RepositoryCommonTest):
                 f.write("Ok")
 
         with tempfile.TemporaryDirectory() as tmp:
-            clone = Repository(
-                tmp,
-                clone_from=f"{USER}/{self.REPO_NAME}",
-                use_auth_token=self._token,
-                git_user="ci",
-                git_email="ci@dummy.com",
-            )
+            clone = Repository(tmp, clone_from=self.repo_id)
             files = os.listdir(clone.local_dir)
             self.assertFalse("file.txt" in files)
             self.assertTrue("new_file-2.txt" in files)
@@ -542,32 +500,13 @@ class UniqueRepositoryTest(RepositoryCommonTest):
 
     @retry_endpoint
     def test_add_tag(self):
-        # Eventually see why this is needed
-        if os.path.exists(WORKING_REPO_DIR):
-            shutil.rmtree(WORKING_REPO_DIR, onerror=set_write_permission_and_retry)
-        repo = Repository(
-            WORKING_REPO_DIR,
-            clone_from=f"{USER}/{self.REPO_NAME}",
-            use_auth_token=self._token,
-            git_user="ci",
-            git_email="ci@dummy.com",
-            revision="main",
-        )
-
+        repo = Repository(self.repo_path, clone_from=self.repo_id)
         repo.add_tag("v4.6.0", remote="origin")
         self.assertTrue(repo.tag_exists("v4.6.0", remote="origin"))
 
     @retry_endpoint
     def test_add_annotated_tag(self):
-        repo = Repository(
-            WORKING_REPO_DIR,
-            clone_from=f"{USER}/{self.REPO_NAME}",
-            use_auth_token=self._token,
-            git_user="ci",
-            git_email="ci@dummy.com",
-            revision="main",
-        )
-
+        repo = Repository(self.repo_path, clone_from=self.repo_id)
         repo.add_tag("v4.5.0", message="This is an annotated tag", remote="origin")
 
         # Unfortunately git offers no built-in way to check the annotated
@@ -581,38 +520,17 @@ class UniqueRepositoryTest(RepositoryCommonTest):
         self.assertTrue(repo.tag_exists("v4.5.0", remote="origin"))
         self.assertFalse(repo.tag_exists("v4.5.0"))
 
-        subprocess.run(
-            ["git", "pull", "--tags"],
-            stderr=subprocess.PIPE,
-            stdout=subprocess.PIPE,
-            check=True,
-            encoding="utf-8",
-            cwd=repo.local_dir,
-        )
-
+        # Tag still exists on remote
+        run_subprocess("git pull --tags", folder=self.repo_path)
         self.assertTrue(repo.tag_exists("v4.5.0"))
 
-        result = subprocess.run(
-            ["git", "tag", "-n9"],
-            stderr=subprocess.PIPE,
-            stdout=subprocess.PIPE,
-            check=True,
-            encoding="utf-8",
-            cwd=repo.local_dir,
-        ).stdout.strip()
-
+        # Tag is annotated
+        result = run_subprocess("git tag -n9", folder=self.repo_path).stdout.strip()
         self.assertIn("This is an annotated tag", result)
 
     @retry_endpoint
     def test_delete_tag(self):
-        repo = Repository(
-            WORKING_REPO_DIR,
-            clone_from=f"{USER}/{self.REPO_NAME}",
-            use_auth_token=self._token,
-            git_user="ci",
-            git_email="ci@dummy.com",
-            revision="main",
-        )
+        repo = Repository(self.repo_path, clone_from=self.repo_id)
 
         repo.add_tag("v4.6.0", message="This is an annotated tag", remote="origin")
         self.assertTrue(repo.tag_exists("v4.6.0", remote="origin"))
@@ -626,14 +544,7 @@ class UniqueRepositoryTest(RepositoryCommonTest):
 
     @retry_endpoint
     def test_lfs_prune(self):
-        repo = Repository(
-            WORKING_REPO_DIR,
-            clone_from=f"{USER}/{self.REPO_NAME}",
-            use_auth_token=self._token,
-            git_user="ci",
-            git_email="ci@dummy.com",
-            revision="main",
-        )
+        repo = Repository(self.repo_path, clone_from=self.repo_id)
 
         with repo.commit("Committing LFS file"):
             with open("file.bin", "w+") as f:
@@ -643,7 +554,7 @@ class UniqueRepositoryTest(RepositoryCommonTest):
             with open("file.bin", "w+") as f:
                 f.write("Random string 2")
 
-        root_directory = pathlib.Path(repo.local_dir) / ".git" / "lfs"
+        root_directory = self.repo_path / ".git" / "lfs"
         git_lfs_files_size = sum(
             f.stat().st_size for f in root_directory.glob("**/*") if f.is_file()
         )
@@ -657,20 +568,13 @@ class UniqueRepositoryTest(RepositoryCommonTest):
 
     @retry_endpoint
     def test_lfs_prune_git_push(self):
-        repo = Repository(
-            WORKING_REPO_DIR,
-            clone_from=f"{USER}/{self.REPO_NAME}",
-            use_auth_token=self._token,
-            git_user="ci",
-            git_email="ci@dummy.com",
-            revision="main",
-        )
+        repo = Repository(self.repo_path, clone_from=self.repo_id)
 
         with repo.commit("Committing LFS file"):
             with open("file.bin", "w+") as f:
                 f.write("Random string 1")
 
-        root_directory = pathlib.Path(repo.local_dir) / ".git" / "lfs"
+        root_directory = self.repo_path / ".git" / "lfs"
         git_lfs_files_size = sum(
             f.stat().st_size for f in root_directory.glob("**/*") if f.is_file()
         )
@@ -681,108 +585,6 @@ class UniqueRepositoryTest(RepositoryCommonTest):
         repo.git_add()
         repo.git_commit("New commit")
         repo.git_push(auto_lfs_prune=True)
-
-        post_prune_git_lfs_files_size = sum(
-            f.stat().st_size for f in root_directory.glob("**/*") if f.is_file()
-        )
-
-        # Size of the directory holding LFS files is the exact same
-        self.assertEqual(post_prune_git_lfs_files_size, git_lfs_files_size)
-
-    @retry_endpoint
-    def test_lfs_prune_git_push_non_blocking(self):
-        repo = Repository(
-            WORKING_REPO_DIR,
-            clone_from=f"{USER}/{self.REPO_NAME}",
-            use_auth_token=self._token,
-            git_user="ci",
-            git_email="ci@dummy.com",
-            revision="main",
-        )
-
-        with repo.commit("Committing LFS file"):
-            with open("file.bin", "w+") as f:
-                f.write("Random string 1")
-
-        root_directory = pathlib.Path(repo.local_dir) / ".git" / "lfs"
-        git_lfs_files_size = sum(
-            f.stat().st_size for f in root_directory.glob("**/*") if f.is_file()
-        )
-
-        with open(os.path.join(repo.local_dir, "file.bin"), "w+") as f:
-            f.write("Random string 2")
-
-        repo.git_add()
-        repo.git_commit("New commit")
-        repo.git_push(blocking=False, auto_lfs_prune=True)
-
-        while len(repo.commands_in_progress):
-            time.sleep(0.2)
-
-        post_prune_git_lfs_files_size = sum(
-            f.stat().st_size for f in root_directory.glob("**/*") if f.is_file()
-        )
-
-        # Size of the directory holding LFS files is the exact same
-        self.assertEqual(post_prune_git_lfs_files_size, git_lfs_files_size)
-
-    @retry_endpoint
-    def test_lfs_prune_context_manager(self):
-        repo = Repository(
-            WORKING_REPO_DIR,
-            clone_from=f"{USER}/{self.REPO_NAME}",
-            use_auth_token=self._token,
-            git_user="ci",
-            git_email="ci@dummy.com",
-            revision="main",
-        )
-
-        with repo.commit("Committing LFS file"):
-            with open("file.bin", "w+") as f:
-                f.write("Random string 1")
-
-        root_directory = pathlib.Path(repo.local_dir) / ".git" / "lfs"
-        git_lfs_files_size = sum(
-            f.stat().st_size for f in root_directory.glob("**/*") if f.is_file()
-        )
-
-        with repo.commit("Committing LFS file", auto_lfs_prune=True):
-            with open("file.bin", "w+") as f:
-                f.write("Random string 2")
-
-        post_prune_git_lfs_files_size = sum(
-            f.stat().st_size for f in root_directory.glob("**/*") if f.is_file()
-        )
-
-        # Size of the directory holding LFS files is the exact same
-        self.assertEqual(post_prune_git_lfs_files_size, git_lfs_files_size)
-
-    @retry_endpoint
-    def test_lfs_prune_context_manager_non_blocking(self):
-        repo = Repository(
-            WORKING_REPO_DIR,
-            clone_from=f"{USER}/{self.REPO_NAME}",
-            use_auth_token=self._token,
-            git_user="ci",
-            git_email="ci@dummy.com",
-            revision="main",
-        )
-
-        with repo.commit("Committing LFS file"):
-            with open("file.bin", "w+") as f:
-                f.write("Random string 1")
-
-        root_directory = pathlib.Path(repo.local_dir) / ".git" / "lfs"
-        git_lfs_files_size = sum(
-            f.stat().st_size for f in root_directory.glob("**/*") if f.is_file()
-        )
-
-        with repo.commit("Committing LFS file", auto_lfs_prune=True, blocking=False):
-            with open("file.bin", "w+") as f:
-                f.write("Random string 2")
-
-        while len(repo.commands_in_progress):
-            time.sleep(0.2)
 
         post_prune_git_lfs_files_size = sum(
             f.stat().st_size for f in root_directory.glob("**/*") if f.is_file()
