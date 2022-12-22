@@ -85,12 +85,14 @@ jobs:
 
             "Repository only")
               # Run repo tests concurrently
-              eval "$PYTEST ../tests -k RepositoryTest -n16"
-              ;;
+              PYTEST="$PYTEST ../tests -k RepositoryTest -n8"
+              eval $PYTEST
+            ;;
 
             "Everything else")
-              eval "$PYTEST ../tests -k 'not RepositoryTest'"
-              ;;
+              PYTEST="$PYTEST ../tests -k 'not RepositoryTest'"
+              eval $PYTEST
+            ;;
 
             lfs)
               eval "RUN_GIT_LFS_TESTS=1 $PYTEST ../tests -k 'HfLargefilesTest'"
