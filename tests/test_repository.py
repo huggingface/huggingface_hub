@@ -261,10 +261,23 @@ class UniqueRepositoryTest(RepositoryCommonTest):
         except requests.exceptions.HTTPError:
             pass
 
+    def clone_repo(self, **kwargs) -> Repository:
+        if "local_dir" not in kwargs:
+            kwargs["local_dir"] = self.repo_path
+        if "clone_from" not in kwargs:
+            kwargs["clone_from"] = self.repo_url
+        if "use_auth_token" not in kwargs:
+            kwargs["use_auth_token"] = self._token
+        if "git_user" not in kwargs:
+            kwargs["git_user"] = "ci"
+        if "git_email" not in kwargs:
+            kwargs["git_email"] = "ci@dummy.com"
+        return Repository(**kwargs)
+
     @retry_endpoint
     @use_tmp_repo()
     def test_init_clone_in_nonempty_non_linked_git_repo(self, repo_url: RepoUrl):
-        Repository(self.repo_path, clone_from=self.common_repo_url)
+        self.clone_repo()
 
         # Try and clone another repository within the same directory.
         # Should error out due to mismatched remotes.
@@ -274,7 +287,7 @@ class UniqueRepositoryTest(RepositoryCommonTest):
     @retry_endpoint
     def test_init_clone_in_nonempty_linked_git_repo(self):
         # Clone the repository to disk
-        Repository(self.repo_path, clone_from=self.repo_url)
+        self.clone_repo()
 
         # Add to the remote repository without doing anything to the local repository.
         self._api.upload_file(
@@ -284,13 +297,13 @@ class UniqueRepositoryTest(RepositoryCommonTest):
         )
 
         # Cloning the repository in the same directory should not result in a git pull.
-        Repository(self.repo_path, clone_from=self.repo_url)
+        self.clone_repo(clone_from=self.repo_url)
         self.assertNotIn("random_file_3.txt", os.listdir(self.repo_path))
 
     @retry_endpoint
     def test_init_clone_in_nonempty_linked_git_repo_unrelated_histories(self):
         # Clone the repository to disk
-        repo = Repository(self.repo_path, clone_from=self.repo_url)
+        repo = self.clone_repo()
 
         # Create and commit file locally
         (self.repo_path / "random_file_3.txt").write_text("hello world")
@@ -305,13 +318,11 @@ class UniqueRepositoryTest(RepositoryCommonTest):
         )
 
         # The repo should initialize correctly as the remote is the same, even with unrelated historied
-        Repository(self.repo_path, clone_from=self.repo_url)
+        self.clone_repo()
 
     @retry_endpoint
     def test_add_commit_push(self):
-        repo = Repository(
-            self.repo_path, clone_from=self.repo_url, use_auth_token=self._token
-        )
+        repo = self.clone_repo()
         self._create_dummy_files()
         repo.git_add()
         repo.git_commit()
@@ -324,7 +335,7 @@ class UniqueRepositoryTest(RepositoryCommonTest):
 
     @retry_endpoint
     def test_add_commit_push_non_blocking(self):
-        repo = Repository(self.repo_path, clone_from=self.repo_url)
+        repo = self.clone_repo()
         self._create_dummy_files()
         repo.git_add()
         repo.git_commit()
@@ -347,7 +358,7 @@ class UniqueRepositoryTest(RepositoryCommonTest):
 
     @retry_endpoint
     def test_context_manager_non_blocking(self):
-        repo = Repository(self.repo_path, clone_from=self.repo_url)
+        repo = self.clone_repo()
 
         with repo.commit("New commit", blocking=False):
             (self.repo_path / "dummy.txt").write_text("hello world")
@@ -363,7 +374,7 @@ class UniqueRepositoryTest(RepositoryCommonTest):
 
     @retry_endpoint
     def test_add_commit_push_non_blocking_process_killed(self):
-        repo = Repository(self.repo_path, clone_from=self.repo_url)
+        repo = self.clone_repo()
 
         # Far too big file: will take forever
         (self.repo_path / "dummy.txt").write_text(str([[[1] * 10000] * 1000] * 10))
@@ -381,8 +392,10 @@ class UniqueRepositoryTest(RepositoryCommonTest):
 
     @retry_endpoint
     def test_commit_context_manager(self):
+        # Use a sub directory that we will delete manually
         subpath = self.repo_path / "subpath"
-        clone = Repository(subpath, clone_from=self.repo_url)
+
+        clone = self.clone_repo(local_dir=subpath)
 
         with clone.commit("Commit"):
             with open("dummy.txt", "w") as f:
@@ -392,6 +405,7 @@ class UniqueRepositoryTest(RepositoryCommonTest):
 
         shutil.rmtree(subpath)
 
+        self.clone_repo(local_dir=subpath)
         Repository(subpath, clone_from=self.repo_url)
         files = os.listdir(subpath)
         self.assertTrue("dummy.txt" in files)
@@ -404,7 +418,7 @@ class UniqueRepositoryTest(RepositoryCommonTest):
             path_or_fileobj="bin file", path_in_repo="file.bin", repo_id=self.repo_id
         )
 
-        repo = Repository(self.repo_path, clone_from=self.repo_id, skip_lfs_files=True)
+        repo = self.clone_repo(skip_lfs_files=True)
         file_bin = self.repo_path / "file.bin"
 
         self.assertTrue(file_bin.read_text().startswith("version"))
@@ -415,7 +429,7 @@ class UniqueRepositoryTest(RepositoryCommonTest):
 
     @retry_endpoint
     def test_commits_on_correct_branch(self):
-        repo = Repository(self.repo_path, clone_from=self.repo_id)
+        repo = self.clone_repo()
         branch = repo.current_branch
         repo.git_checkout("new-branch", create_branch_ok=True)
         repo.git_checkout(branch)
@@ -431,7 +445,7 @@ class UniqueRepositoryTest(RepositoryCommonTest):
                 f.write("Ok")
 
         with tempfile.TemporaryDirectory() as tmp:
-            clone = Repository(tmp, clone_from=self.repo_id)
+            clone = self.clone_repo(local_dir=tmp)
             files = os.listdir(clone.local_dir)
             self.assertTrue("file.txt" in files)
             self.assertFalse("new_file.txt" in files)
@@ -443,7 +457,7 @@ class UniqueRepositoryTest(RepositoryCommonTest):
 
     @retry_endpoint
     def test_repo_checkout_push(self):
-        repo = Repository(self.repo_path, clone_from=self.repo_id)
+        repo = self.clone_repo()
 
         repo.git_checkout("new-branch", create_branch_ok=True)
         repo.git_checkout("main")
@@ -458,7 +472,7 @@ class UniqueRepositoryTest(RepositoryCommonTest):
         repo.push_to_hub("Commit #2")
 
         with tempfile.TemporaryDirectory() as tmp:
-            clone = Repository(tmp, clone_from=self.repo_id)
+            clone = self.clone_repo(local_dir=tmp)
             files = os.listdir(clone.local_dir)
             self.assertTrue("file.txt" in files)
             self.assertFalse("new_file.txt" in files)
@@ -470,7 +484,7 @@ class UniqueRepositoryTest(RepositoryCommonTest):
 
     @retry_endpoint
     def test_repo_checkout_commit_context_manager(self):
-        repo = Repository(self.repo_path, clone_from=self.repo_id)
+        repo = self.clone_repo()
 
         with repo.commit("Commit #1", branch="new-branch"):
             with open(os.path.join(repo.local_dir, "file.txt"), "w+") as f:
@@ -486,7 +500,7 @@ class UniqueRepositoryTest(RepositoryCommonTest):
                 f.write("Ok")
 
         with tempfile.TemporaryDirectory() as tmp:
-            clone = Repository(tmp, clone_from=self.repo_id)
+            clone = self.clone_repo(local_dir=tmp)
             files = os.listdir(clone.local_dir)
             self.assertFalse("file.txt" in files)
             self.assertTrue("new_file-2.txt" in files)
@@ -500,13 +514,13 @@ class UniqueRepositoryTest(RepositoryCommonTest):
 
     @retry_endpoint
     def test_add_tag(self):
-        repo = Repository(self.repo_path, clone_from=self.repo_id)
+        repo = self.clone_repo()
         repo.add_tag("v4.6.0", remote="origin")
         self.assertTrue(repo.tag_exists("v4.6.0", remote="origin"))
 
     @retry_endpoint
     def test_add_annotated_tag(self):
-        repo = Repository(self.repo_path, clone_from=self.repo_id)
+        repo = self.clone_repo()
         repo.add_tag("v4.5.0", message="This is an annotated tag", remote="origin")
 
         # Unfortunately git offers no built-in way to check the annotated
@@ -530,7 +544,7 @@ class UniqueRepositoryTest(RepositoryCommonTest):
 
     @retry_endpoint
     def test_delete_tag(self):
-        repo = Repository(self.repo_path, clone_from=self.repo_id)
+        repo = self.clone_repo()
 
         repo.add_tag("v4.6.0", message="This is an annotated tag", remote="origin")
         self.assertTrue(repo.tag_exists("v4.6.0", remote="origin"))
@@ -544,7 +558,7 @@ class UniqueRepositoryTest(RepositoryCommonTest):
 
     @retry_endpoint
     def test_lfs_prune(self):
-        repo = Repository(self.repo_path, clone_from=self.repo_id)
+        repo = self.clone_repo()
 
         with repo.commit("Committing LFS file"):
             with open("file.bin", "w+") as f:
@@ -568,8 +582,7 @@ class UniqueRepositoryTest(RepositoryCommonTest):
 
     @retry_endpoint
     def test_lfs_prune_git_push(self):
-        repo = Repository(self.repo_path, clone_from=self.repo_id)
-
+        repo = self.clone_repo()
         with repo.commit("Committing LFS file"):
             with open("file.bin", "w+") as f:
                 f.write("Random string 1")
@@ -908,6 +921,8 @@ class RepositoryOfflineTest(RepositoryCommonTest):
 
 
 class RepositoryDatasetTest(RepositoryCommonTest):
+    """Class to test that cloning from a different repo_type works fine."""
+
     @classmethod
     @expect_deprecation("set_access_token")
     def setUpClass(cls):
