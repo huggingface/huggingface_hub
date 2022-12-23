@@ -29,7 +29,7 @@ from huggingface_hub.repository import (
     is_tracked_upstream,
     is_tracked_with_lfs,
 )
-from huggingface_hub.utils import TemporaryDirectory, logging
+from huggingface_hub.utils import SoftTemporaryDirectory, logging
 
 from .testing_constants import ENDPOINT_STAGING, TOKEN, USER
 from .testing_utils import (
@@ -146,7 +146,7 @@ class RepositoryTest(RepositoryCommonTest):
         repo.git_pull()
 
     def test_init_failure(self):
-        with TemporaryDirectory() as tmpdirname:
+        with SoftTemporaryDirectory() as tmpdirname:
             with self.assertRaises(ValueError):
                 _ = Repository(tmpdirname)
 
@@ -622,7 +622,7 @@ class RepositoryTest(RepositoryCommonTest):
             with open("new_file.txt", "w+") as f:
                 f.write("Ok")
 
-        with TemporaryDirectory() as tmp:
+        with SoftTemporaryDirectory() as tmp:
             clone = Repository(
                 tmp,
                 clone_from=f"{USER}/{self.REPO_NAME}",
@@ -663,7 +663,7 @@ class RepositoryTest(RepositoryCommonTest):
 
         repo.push_to_hub("Commit #2")
 
-        with TemporaryDirectory() as tmp:
+        with SoftTemporaryDirectory() as tmp:
             clone = Repository(
                 tmp,
                 clone_from=f"{USER}/{self.REPO_NAME}",
@@ -704,7 +704,7 @@ class RepositoryTest(RepositoryCommonTest):
             with open(os.path.join(repo.local_dir, "new_file-2.txt"), "w+") as f:
                 f.write("Ok")
 
-        with TemporaryDirectory() as tmp:
+        with SoftTemporaryDirectory() as tmp:
             clone = Repository(
                 tmp,
                 clone_from=f"{USER}/{self.REPO_NAME}",

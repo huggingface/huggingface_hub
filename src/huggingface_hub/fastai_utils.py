@@ -10,7 +10,7 @@ from huggingface_hub import snapshot_download
 from huggingface_hub.constants import CONFIG_NAME
 from huggingface_hub.hf_api import HfApi
 from huggingface_hub.utils import (
-    TemporaryDirectory,
+    SoftTemporaryDirectory,
     get_fastai_version,
     get_fastcore_version,
     get_python_version,
@@ -418,7 +418,7 @@ def push_to_hub_fastai(
     )
 
     # Push the files to the repo in a single commit
-    with TemporaryDirectory() as tmp:
+    with SoftTemporaryDirectory() as tmp:
         saved_path = Path(tmp) / repo_id
         _save_pretrained_fastai(learner, saved_path, config=config)
         return api.upload_folder(

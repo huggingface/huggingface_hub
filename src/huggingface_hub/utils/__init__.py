@@ -39,7 +39,7 @@ from ._errors import (
     RevisionNotFoundError,
     hf_raise_for_status,
 )
-from ._fixes import TemporaryDirectory, yaml_dump
+from ._fixes import SoftTemporaryDirectory, yaml_dump
 from ._git_credential import (
     erase_from_credential_store,
     list_credential_helpers,

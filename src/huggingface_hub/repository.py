@@ -16,7 +16,7 @@ from .hf_api import HfApi, repo_type_and_id_from_hf_id
 from .lfs import LFS_MULTIPART_UPLOAD_COMMAND
 from .utils import (
     HfFolder,
-    TemporaryDirectory,
+    SoftTemporaryDirectory,
     logging,
     run_subprocess,
     tqdm,
@@ -407,7 +407,7 @@ def _lfs_log_progress():
 
     current_lfs_progress_value = os.environ.get("GIT_LFS_PROGRESS", "")
 
-    with TemporaryDirectory() as tmpdir:
+    with SoftTemporaryDirectory() as tmpdir:
         os.environ["GIT_LFS_PROGRESS"] = os.path.join(tmpdir, "lfs_progress")
         logger.debug(f"Following progress in {os.environ['GIT_LFS_PROGRESS']}")
 

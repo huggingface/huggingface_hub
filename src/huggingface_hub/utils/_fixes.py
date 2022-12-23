@@ -37,7 +37,7 @@ yaml_dump: Callable[..., str] = partial(  # type: ignore
 
 
 @contextlib.contextmanager
-def TemporaryDirectory(
+def SoftTemporaryDirectory(
     suffix: Optional[str] = None,
     prefix: Optional[str] = None,
     dir: Optional[Union[Path, str]] = None,

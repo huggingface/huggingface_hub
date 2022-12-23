@@ -41,7 +41,7 @@ from huggingface_hub.hf_api import HfApi
 from huggingface_hub.repocard import RepoCard
 from huggingface_hub.repocard_data import CardData
 from huggingface_hub.repository import Repository
-from huggingface_hub.utils import TemporaryDirectory, is_jinja_available, logging
+from huggingface_hub.utils import SoftTemporaryDirectory, is_jinja_available, logging
 
 from .testing_constants import (
     ENDPOINT_STAGING,
@@ -601,7 +601,7 @@ class RepoCardTest(TestCaseWithCapLog):
         card = RepoCard.load(sample_path)
         card.data.language = ["fr"]
 
-        with TemporaryDirectory() as tempdir:
+        with SoftTemporaryDirectory() as tempdir:
             updated_card_path = Path(tempdir) / "updated.md"
             card.save(updated_card_path)
 

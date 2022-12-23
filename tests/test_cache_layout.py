@@ -4,7 +4,7 @@ import unittest
 from io import BytesIO
 
 from huggingface_hub import HfApi, hf_hub_download, snapshot_download
-from huggingface_hub.utils import TemporaryDirectory, logging
+from huggingface_hub.utils import SoftTemporaryDirectory, logging
 from huggingface_hub.utils._errors import EntryNotFoundError
 
 from .testing_constants import ENDPOINT_STAGING, TOKEN, USER
@@ -29,7 +29,7 @@ class CacheFileLayoutHfHubDownload(unittest.TestCase):
             (None, "main"),
             ("file-2", "file-2"),
         ):
-            with self.subTest(revision), TemporaryDirectory() as cache:
+            with self.subTest(revision), SoftTemporaryDirectory() as cache:
                 hf_hub_download(
                     MODEL_IDENTIFIER,
                     "file_0.txt",
@@ -80,7 +80,7 @@ class CacheFileLayoutHfHubDownload(unittest.TestCase):
         revisions = [None, "file-2"]
         expected_references = ["main", "file-2"]
         for revision, expected_reference in zip(revisions, expected_references):
-            with self.subTest(revision), TemporaryDirectory() as cache:
+            with self.subTest(revision), SoftTemporaryDirectory() as cache:
                 filename = "this_does_not_exist.txt"
                 with self.assertRaises(EntryNotFoundError):
                     # The file does not exist, so we get an exception.
@@ -125,7 +125,7 @@ class CacheFileLayoutHfHubDownload(unittest.TestCase):
     def test_file_download_happens_once(self):
         # Tests that a file is only downloaded once if it's not updated.
 
-        with TemporaryDirectory() as cache:
+        with SoftTemporaryDirectory() as cache:
             path = hf_hub_download(MODEL_IDENTIFIER, "file_0.txt", cache_dir=cache)
             creation_time_0 = os.path.getmtime(path)
 
@@ -139,7 +139,7 @@ class CacheFileLayoutHfHubDownload(unittest.TestCase):
     def test_file_download_happens_once_intra_revision(self):
         # Tests that a file is only downloaded once if it's not updated, even across different revisions.
 
-        with TemporaryDirectory() as cache:
+        with SoftTemporaryDirectory() as cache:
             path = hf_hub_download(MODEL_IDENTIFIER, "file_0.txt", cache_dir=cache)
             creation_time_0 = os.path.getmtime(path)
 
@@ -153,7 +153,7 @@ class CacheFileLayoutHfHubDownload(unittest.TestCase):
             self.assertEqual(creation_time_0, creation_time_1)
 
     def test_multiple_refs_for_same_file(self):
-        with TemporaryDirectory() as cache:
+        with SoftTemporaryDirectory() as cache:
             hf_hub_download(MODEL_IDENTIFIER, "file_0.txt", cache_dir=cache)
             hf_hub_download(
                 MODEL_IDENTIFIER, "file_0.txt", cache_dir=cache, revision="file-2"
@@ -193,7 +193,7 @@ class CacheFileLayoutHfHubDownload(unittest.TestCase):
 @with_production_testing
 class CacheFileLayoutSnapshotDownload(unittest.TestCase):
     def test_file_downloaded_in_cache(self):
-        with TemporaryDirectory() as cache:
+        with SoftTemporaryDirectory() as cache:
             snapshot_download(MODEL_IDENTIFIER, cache_dir=cache)
 
             expected_directory_name = f'models--{MODEL_IDENTIFIER.replace("/", "--")}'
@@ -231,7 +231,7 @@ class CacheFileLayoutSnapshotDownload(unittest.TestCase):
             self.assertTrue(all([os.path.isfile(l) for l in resolved_snapshot_links]))
 
     def test_file_downloaded_in_cache_several_revisions(self):
-        with TemporaryDirectory() as cache:
+        with SoftTemporaryDirectory() as cache:
             snapshot_download(MODEL_IDENTIFIER, cache_dir=cache, revision="file-3")
             snapshot_download(MODEL_IDENTIFIER, cache_dir=cache, revision="file-2")
 
@@ -326,7 +326,7 @@ class ReferenceUpdates(unittest.TestCase):
                 repo_id=repo_id,
             )
 
-            with TemporaryDirectory() as cache:
+            with SoftTemporaryDirectory() as cache:
                 hf_hub_download(repo_id, "file.txt", cache_dir=cache)
 
                 expected_directory_name = f'models--{repo_id.replace("/", "--")}'

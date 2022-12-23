@@ -19,7 +19,7 @@ from huggingface_hub.utils import (
 
 from .constants import CONFIG_NAME, DEFAULT_REVISION
 from .hf_api import HfApi, _parse_revision_from_pr_url, _prepare_upload_folder_commit
-from .utils import TemporaryDirectory, logging, validate_hf_hub_args
+from .utils import SoftTemporaryDirectory, logging, validate_hf_hub_args
 
 
 logger = logging.get_logger(__name__)
@@ -371,7 +371,7 @@ def push_to_hub_keras(
     )
 
     # Push the files to the repo in a single commit
-    with TemporaryDirectory() as tmp:
+    with SoftTemporaryDirectory() as tmp:
         saved_path = Path(tmp) / repo_id
         save_pretrained_keras(
             model,
