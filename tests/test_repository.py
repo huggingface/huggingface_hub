@@ -27,7 +27,7 @@ from huggingface_hub.repository import (
     is_tracked_upstream,
     is_tracked_with_lfs,
 )
-from huggingface_hub.utils import TemporaryDirectory, logging, run_subprocess
+from huggingface_hub.utils import SoftTemporaryDirectory, logging, run_subprocess
 
 from .testing_constants import ENDPOINT_STAGING, TOKEN
 from .testing_utils import (
@@ -428,7 +428,7 @@ class TestRepositoryUniqueRepos(RepositoryTestAbstract):
             with open("new_file.txt", "w+") as f:
                 f.write("Ok")
 
-        with TemporaryDirectory() as tmp:
+        with SoftTemporaryDirectory() as tmp:
             clone = self.clone_repo(local_dir=tmp)
             files = os.listdir(clone.local_dir)
             self.assertTrue("file.txt" in files)
@@ -455,7 +455,7 @@ class TestRepositoryUniqueRepos(RepositoryTestAbstract):
 
         repo.push_to_hub("Commit #2")
 
-        with TemporaryDirectory() as tmp:
+        with SoftTemporaryDirectory() as tmp:
             clone = self.clone_repo(local_dir=tmp)
             files = os.listdir(clone.local_dir)
             self.assertTrue("file.txt" in files)
@@ -483,7 +483,7 @@ class TestRepositoryUniqueRepos(RepositoryTestAbstract):
             with open(os.path.join(repo.local_dir, "new_file-2.txt"), "w+") as f:
                 f.write("Ok")
 
-        with TemporaryDirectory() as tmp:
+        with SoftTemporaryDirectory() as tmp:
             clone = self.clone_repo(local_dir=tmp)
             files = os.listdir(clone.local_dir)
             self.assertFalse("file.txt" in files)

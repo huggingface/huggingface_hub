@@ -8,7 +8,7 @@ import pytest
 import huggingface_hub
 from _pytest.fixtures import SubRequest
 from huggingface_hub import HfApi, HfFolder
-from huggingface_hub.utils import TemporaryDirectory
+from huggingface_hub.utils import SoftTemporaryDirectory
 
 from .testing_constants import ENDPOINT_PRODUCTION, PRODUCTION_TOKEN
 from .testing_utils import repo_name, set_write_permission_and_retry
@@ -28,7 +28,7 @@ def fx_cache_dir(request: SubRequest) -> Generator[None, None, None]:
             self.assertTrue(self.cache_dir.is_dir())
     ```
     """
-    with TemporaryDirectory() as cache_dir:
+    with SoftTemporaryDirectory() as cache_dir:
         request.cls.cache_dir = Path(cache_dir).resolve()
         yield
         # TemporaryDirectory is not super robust on Windows when a git repository is

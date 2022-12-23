@@ -13,7 +13,7 @@ from huggingface_hub.commands.delete_cache import (
     _manual_review_no_tui,
     _read_manual_review_tmp_file,
 )
-from huggingface_hub.utils import TemporaryDirectory
+from huggingface_hub.utils import SoftTemporaryDirectory
 from InquirerPy.base.control import Choice
 from InquirerPy.separator import Separator
 
@@ -122,7 +122,7 @@ class TestDeleteCacheHelpers(unittest.TestCase):
     def test_read_manual_review_tmp_file(self) -> None:
         """Test `_read_manual_review_tmp_file`."""
 
-        with TemporaryDirectory() as tmp_dir:
+        with SoftTemporaryDirectory() as tmp_dir:
             tmp_path = Path(tmp_dir) / "file.txt"
 
             with tmp_path.open("w") as f:

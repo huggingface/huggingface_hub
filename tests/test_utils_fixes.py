@@ -1,7 +1,7 @@
 import unittest
 from pathlib import Path
 
-from huggingface_hub.utils import TemporaryDirectory, yaml_dump
+from huggingface_hub.utils import SoftTemporaryDirectory, yaml_dump
 
 
 class TestYamlDump(unittest.TestCase):
@@ -19,7 +19,7 @@ class TestYamlDump(unittest.TestCase):
 
 class TestTemporaryDirectory(unittest.TestCase):
     def test_temporary_directory(self) -> None:
-        with TemporaryDirectory(prefix="prefix", suffix="suffix") as tmpdir:
+        with SoftTemporaryDirectory(prefix="prefix", suffix="suffix") as tmpdir:
             self.assertIsInstance(tmpdir, str)
             path = Path(tmpdir)
             self.assertTrue(path.name.startswith("prefix"))
