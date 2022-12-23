@@ -475,6 +475,7 @@ class StagingCachedDownloadOnAwfulFilenamesTest(unittest.TestCase):
             self.expected_url,
         )
 
+    @xfail_on_windows(reason="Windows paths cannot contain a '?'.")
     def test_hf_hub_download_on_awful_filepath(self):
         local_path = hf_hub_download(
             self.repo_id, self.filepath, cache_dir=self.cache_dir
@@ -482,6 +483,7 @@ class StagingCachedDownloadOnAwfulFilenamesTest(unittest.TestCase):
         # Local path is not url-encoded
         self.assertTrue(local_path.endswith(self.filepath))
 
+    @xfail_on_windows(reason="Windows paths cannot contain a '?'.")
     def test_hf_hub_download_on_awful_subfolder_and_filename(self):
         local_path = hf_hub_download(
             self.repo_id,
