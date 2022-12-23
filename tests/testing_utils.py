@@ -303,7 +303,7 @@ def expect_deprecation(function_name: str):
     return _inner_decorator
 
 
-def xfail_on_windows(reason: str, raises: Type[Exception]):
+def xfail_on_windows(reason: str, raises: Optional[Type[Exception]] = None):
     """
     Decorator to flag tests that we expect to fail on Windows.
 
@@ -318,21 +318,9 @@ def xfail_on_windows(reason: str, raises: Type[Exception]):
     """
 
     def _inner_decorator(test_function: Callable) -> Callable:
-        if os.name != "nt":
-            return test_function
-
-        @wraps(test_function)
-        def _inner_test_function(*args, **kwargs):
-            try:
-                test_function(*args, **kwargs)
-                raise Exception(
-                    f"Test '{test_function.name}' should have failed but did not."
-                    f" Excepted error: {raises} ({reason})."
-                )
-            except raises:
-                pass
-
-        return _inner_test_function
+        return pytest.mark.xfail(
+            os.name == "nt", reason=reason, raises=raises, strict=True, run=True
+        )(test_function)
 
     return _inner_decorator
 

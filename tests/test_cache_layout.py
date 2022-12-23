@@ -141,9 +141,7 @@ class CacheFileLayoutHfHubDownload(unittest.TestCase):
 
             self.assertEqual(creation_time_0, creation_time_1)
 
-    @xfail_on_windows(
-        reason="Files from different revisions are duplicated.", raises=AssertionError
-    )
+    @xfail_on_windows(reason="Files from different revisions are duplicated.")
     def test_file_download_happens_once_intra_revision(self):
         # Tests that a file is only downloaded once if it's not updated, even across different revisions.
 
