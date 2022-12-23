@@ -57,6 +57,7 @@ from .testing_utils import (
     OfflineSimulationMode,
     offline,
     with_production_testing,
+    xfail_on_windows,
 )
 
 
@@ -243,6 +244,7 @@ class CachedDownloadTests(unittest.TestCase):
             (url, '"95aa6a52d5d6a735563366753ca50492a658031da74f301ac5238b03966972c9"'),
         )
 
+    @xfail_on_windows(reason="umask is UNIX-specific")
     def test_hf_hub_download_custom_cache_permission(self):
         """Checks `hf_hub_download` respect the cache dir permission.
 
