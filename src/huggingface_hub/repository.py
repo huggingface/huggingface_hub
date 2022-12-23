@@ -463,7 +463,7 @@ class Repository:
         Args:
             local_dir (`str`):
                 path (e.g. `'my_trained_model/'`) to the local directory, where
-                the `Repository` will be initalized.
+                the `Repository` will be initialized.
             clone_from (`str`, *optional*):
                 Either a repository url or `repo_id`.
                 Example:
