@@ -11,7 +11,7 @@ from enum import Enum
 from functools import wraps
 from io import StringIO
 from pathlib import Path
-from typing import Callable, Generator, Optional, TypeVar, Union
+from typing import Callable, Generator, Optional, Type, TypeVar, Union
 from unittest.mock import Mock, patch
 
 import pytest
@@ -297,6 +297,40 @@ def expect_deprecation(function_name: str):
         def _inner_test_function(*args, **kwargs):
             with pytest.warns(FutureWarning, match=f".*'{function_name}'.*"):
                 return test_function(*args, **kwargs)
+
+        return _inner_test_function
+
+    return _inner_decorator
+
+
+def xfail_on_windows(reason: str, raises: Type[Exception]):
+    """
+    Decorator to flag tests that we expect to fail on Windows.
+
+    Will not raise an error if the expected error happens while running on Windows machine.
+    If error is expected but does not happen, the test fails as well.
+
+    Parameters:
+        reason (`str`):
+            Reason why it should fail.
+        raises (`Type[Exception]`):
+            The error type we except to happen.
+    """
+
+    def _inner_decorator(test_function: Callable) -> Callable:
+        if os.name != "nt":
+            return test_function
+
+        @wraps(test_function)
+        def _inner_test_function(*args, **kwargs):
+            try:
+                test_function(*args, **kwargs)
+                raise Exception(
+                    f"Test '{test_function.name}' should have failed but did not."
+                    f" Excepted error: {raises} ({reason})."
+                )
+            except raises:
+                pass
 
         return _inner_test_function
 

@@ -8,7 +8,12 @@ from huggingface_hub.utils import SoftTemporaryDirectory, logging
 from huggingface_hub.utils._errors import EntryNotFoundError
 
 from .testing_constants import ENDPOINT_STAGING, TOKEN, USER
-from .testing_utils import expect_deprecation, repo_name, with_production_testing
+from .testing_utils import (
+    expect_deprecation,
+    repo_name,
+    with_production_testing,
+    xfail_on_windows,
+)
 
 
 logger = logging.get_logger(__name__)
@@ -136,6 +141,9 @@ class CacheFileLayoutHfHubDownload(unittest.TestCase):
 
             self.assertEqual(creation_time_0, creation_time_1)
 
+    @xfail_on_windows(
+        reason="Files from different revisions are duplicated.", raises=AssertionError
+    )
     def test_file_download_happens_once_intra_revision(self):
         # Tests that a file is only downloaded once if it's not updated, even across different revisions.
 
