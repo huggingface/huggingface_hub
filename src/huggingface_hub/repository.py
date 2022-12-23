@@ -438,7 +438,7 @@ class Repository:
     @validate_hf_hub_args
     def __init__(
         self,
-        local_dir: str,
+        local_dir: Union[str, Path],
         clone_from: Optional[str] = None,
         repo_type: Optional[str] = None,
         token: Union[bool, str] = True,
