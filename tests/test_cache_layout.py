@@ -159,6 +159,7 @@ class CacheFileLayoutHfHubDownload(unittest.TestCase):
 
             self.assertEqual(creation_time_0, creation_time_1)
 
+    @xfail_on_windows(reason="Symlinks are deactivated in Windows tests.")
     def test_multiple_refs_for_same_file(self):
         with SoftTemporaryDirectory() as cache:
             hf_hub_download(MODEL_IDENTIFIER, "file_0.txt", cache_dir=cache)
