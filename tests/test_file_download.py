@@ -492,6 +492,7 @@ class StagingCachedDownloadOnAwfulFilenamesTest(unittest.TestCase):
 
 
 class CreateSymlinkTest(unittest.TestCase):
+    @unittest.skipIf(os.name == "nt", "No symlinks on Windows")
     @patch("huggingface_hub.file_download.are_symlinks_supported")
     def test_create_relative_symlink_concurrent_access(
         self, mock_are_symlinks_supported: Mock
