@@ -461,7 +461,7 @@ class Repository:
         explicitly specified.
 
         Args:
-            local_dir (`str`):
+            local_dir (`str` or `Path`):
                 path (e.g. `'my_trained_model/'`) to the local directory, where
                 the `Repository` will be initalized.
             clone_from (`str`, *optional*):
@@ -492,7 +492,8 @@ class Repository:
                 Instance of HfApi to use when calling the HF Hub API. A new
                 instance will be created if this is left to `None`.
         """
-
+        if isinstance(local_dir, Path):
+            local_dir = str(local_dir)
         os.makedirs(local_dir, exist_ok=True)
         self.local_dir = os.path.join(os.getcwd(), local_dir)
         self._repo_type = repo_type
