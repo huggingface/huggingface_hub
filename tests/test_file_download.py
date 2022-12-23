@@ -16,7 +16,6 @@ import re
 import stat
 import unittest
 from pathlib import Path
-from tempfile import TemporaryDirectory
 from unittest.mock import Mock, patch
 
 import pytest
@@ -42,6 +41,7 @@ from huggingface_hub.utils import (
     LocalEntryNotFoundError,
     RepositoryNotFoundError,
     RevisionNotFoundError,
+    SoftTemporaryDirectory,
 )
 from tests.testing_constants import TOKEN
 
@@ -114,7 +114,7 @@ class CachedDownloadTests(unittest.TestCase):
 
     def test_file_not_found_locally_and_network_disabled(self):
         # Valid file but missing locally and network is disabled.
-        with TemporaryDirectory() as tmpdir:
+        with SoftTemporaryDirectory() as tmpdir:
             # Download a first time to get the refs ok
             filepath = hf_hub_download(
                 DUMMY_MODEL_ID,
@@ -138,7 +138,7 @@ class CachedDownloadTests(unittest.TestCase):
     def test_file_not_found_locally_and_network_disabled_legacy(self):
         # Valid file but missing locally and network is disabled.
         url = hf_hub_url(DUMMY_MODEL_ID, filename=CONFIG_NAME)
-        with TemporaryDirectory() as tmpdir:
+        with SoftTemporaryDirectory() as tmpdir:
             # Get without network must fail
             with pytest.raises(LocalEntryNotFoundError):
                 cached_download(
@@ -154,7 +154,7 @@ class CachedDownloadTests(unittest.TestCase):
         Regression test for https://github.com/huggingface/huggingface_hub/issues/1216.
         """
         # Valid file but missing locally and network is disabled.
-        with TemporaryDirectory() as tmpdir:
+        with SoftTemporaryDirectory() as tmpdir:
             # Download a first time to get the refs ok
             hf_hub_download(DUMMY_MODEL_ID, filename=CONFIG_NAME, cache_dir=tmpdir)
 
@@ -250,7 +250,7 @@ class CachedDownloadTests(unittest.TestCase):
         https://github.com/huggingface/huggingface_hub/issues/1141
         https://github.com/huggingface/huggingface_hub/issues/1215
         """
-        with TemporaryDirectory() as tmpdir:
+        with SoftTemporaryDirectory() as tmpdir:
             # Equivalent to umask u=rwx,g=r,o=
             previous_umask = os.umask(0o037)
             try:
@@ -268,7 +268,7 @@ class CachedDownloadTests(unittest.TestCase):
         Regression test for #981.
         https://github.com/huggingface/huggingface_hub/issues/981
         """
-        with TemporaryDirectory() as tmpdir:
+        with SoftTemporaryDirectory() as tmpdir:
             filepath = hf_hub_download(
                 DUMMY_RENAMED_OLD_MODEL_ID, "config.json", cache_dir=tmpdir
             )
@@ -281,7 +281,7 @@ class CachedDownloadTests(unittest.TestCase):
         https://github.com/huggingface/huggingface_hub/issues/981
         """
         with pytest.warns(FutureWarning):
-            with TemporaryDirectory() as tmpdir:
+            with SoftTemporaryDirectory() as tmpdir:
                 filepath = cached_download(
                     hf_hub_url(
                         DUMMY_RENAMED_OLD_MODEL_ID,
@@ -434,7 +434,7 @@ class StagingCachedDownloadTest(unittest.TestCase):
         Regression test for #1121.
         https://github.com/huggingface/huggingface_hub/pull/1121
         """
-        with TemporaryDirectory() as tmpdir:
+        with SoftTemporaryDirectory() as tmpdir:
             with self.assertRaisesRegex(
                 GatedRepoError,
                 "Access to model .* is restricted and you are not in the authorized"
@@ -496,7 +496,7 @@ class CreateSymlinkTest(unittest.TestCase):
     def test_create_relative_symlink_concurrent_access(
         self, mock_are_symlinks_supported: Mock
     ) -> None:
-        with TemporaryDirectory() as tmpdir:
+        with SoftTemporaryDirectory() as tmpdir:
             src = os.path.join(tmpdir, "source")
             other = os.path.join(tmpdir, "other")
             dst = os.path.join(tmpdir, "destination")

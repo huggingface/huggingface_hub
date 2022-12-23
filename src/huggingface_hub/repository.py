@@ -2,7 +2,6 @@ import atexit
 import os
 import re
 import subprocess
-import tempfile
 import threading
 import time
 from contextlib import contextmanager
@@ -15,7 +14,14 @@ from huggingface_hub.repocard import metadata_load, metadata_save
 
 from .hf_api import HfApi, repo_type_and_id_from_hf_id
 from .lfs import LFS_MULTIPART_UPLOAD_COMMAND
-from .utils import HfFolder, logging, run_subprocess, tqdm, validate_hf_hub_args
+from .utils import (
+    HfFolder,
+    SoftTemporaryDirectory,
+    logging,
+    run_subprocess,
+    tqdm,
+    validate_hf_hub_args,
+)
 from .utils._typing import TypedDict
 
 
@@ -401,7 +407,7 @@ def _lfs_log_progress():
 
     current_lfs_progress_value = os.environ.get("GIT_LFS_PROGRESS", "")
 
-    with tempfile.TemporaryDirectory() as tmpdir:
+    with SoftTemporaryDirectory() as tmpdir:
         os.environ["GIT_LFS_PROGRESS"] = os.path.join(tmpdir, "lfs_progress")
         logger.debug(f"Following progress in {os.environ['GIT_LFS_PROGRESS']}")
 
