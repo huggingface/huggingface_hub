@@ -18,7 +18,7 @@ from huggingface_hub.utils._cache_manager import (
 )
 
 from .testing_constants import TOKEN
-from .testing_utils import capture_output, rmtree_with_retry
+from .testing_utils import capture_output, rmtree_with_retry, xfail_on_windows
 
 
 VALID_MODEL_ID = "valid_org/test_scan_repo_a"
@@ -749,6 +749,7 @@ class TestTryDeletePath(unittest.TestCase):
             )
         )
 
+    @xfail_on_windows(reason="Permissions are handled differently on Windows.")
     def test_delete_path_on_local_folder_with_wrong_permission(self) -> None:
         """Try delete a local folder that is protected."""
         dir_path = self.cache_dir / "something"
