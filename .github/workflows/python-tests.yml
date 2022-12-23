@@ -130,7 +130,7 @@ jobs:
     # Lighter version of the tests with only 1 test suite running on Python3.7.
     runs-on: windows-latest
     env:
-      RUNNING_ON_WINDOWS_CI_WITHOUT_SYMLINKS: 1
+      DISABLE_SYMLINKS_IN_WINDOWS_TESTS: 1
     strategy:
       fail-fast: false
       matrix:

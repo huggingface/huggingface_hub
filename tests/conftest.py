@@ -62,7 +62,7 @@ def disable_symlinks_on_windows_ci(monkeypatch: pytest.MonkeyPatch) -> None:
         def __getitem__(self, __key: str) -> bool:
             return False  # symlinks are never supported
 
-    if os.name == "nt" and os.environ.get("RUNNING_ON_WINDOWS_CI_WITHOUT_SYMLINKS"):
+    if os.name == "nt" and os.environ.get("DISABLE_SYMLINKS_IN_WINDOWS_TESTS"):
         monkeypatch.setattr(
             huggingface_hub.file_download,
             "_are_symlinks_supported_in_dir",
