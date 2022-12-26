@@ -1,4 +1,5 @@
 ---
+# For reference on dataset card metadata, see: https://huggingface.co/docs/hub/datasets-cards
 {{ card_data }}
 ---
 
