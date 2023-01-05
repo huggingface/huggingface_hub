@@ -32,6 +32,12 @@
 - **Paper [optional]:** {{ paper | default("[More Information Needed]", true)}}
 - **Demo [optional]:** {{ demo | default("[More Information Needed]", true)}}
 
+## How to Get Started with the Model
+
+Use the code below to get started with the model.
+
+{{ get_started_code | default("[More Information Needed]", true)}}
+
 # Uses
 
 <!-- Address questions around how the model is intended to be used, including the foreseeable users of the model and those affected by the model. -->
@@ -186,13 +192,5 @@ Carbon emissions can be estimated using the [Machine Learning Impact calculator]
 
 {{ model_card_contact | default("[More Information Needed]", true)}}
 
-# How to Get Started with the Model
 
-Use the code below to get started with the model.
 
-<details>
-<summary> Click to expand </summary>
-
-{{ get_started_code | default("[More Information Needed]", true)}}
-
-</details>
