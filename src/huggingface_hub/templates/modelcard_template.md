@@ -32,12 +32,6 @@
 - **Paper [optional]:** {{ paper | default("[More Information Needed]", true)}}
 - **Demo [optional]:** {{ demo | default("[More Information Needed]", true)}}
 
-## How to Get Started with the Model
-
-Use the code below to get started with the model.
-
-{{ get_started_code | default("[More Information Needed]", true)}}
-
 # Uses
 
 <!-- Address questions around how the model is intended to be used, including the foreseeable users of the model and those affected by the model. -->
@@ -71,6 +65,12 @@ Use the code below to get started with the model.
 <!-- This section is meant to convey recommendations with respect to the bias, risk, and technical limitations. -->
 
 {{ bias_recommendations | default("Users (both direct and downstream) should be made aware of the risks, biases and limitations of the model. More information needed for further recommendations.", true)}}
+
+## How to Get Started with the Model
+
+Use the code below to get started with the model.
+
+{{ get_started_code | default("[More Information Needed]", true)}}
 
 # Training Details
 
