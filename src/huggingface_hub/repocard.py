@@ -1,15 +1,7 @@
 import os
 import re
-import sys
-import tempfile
 from pathlib import Path
 from typing import Any, Dict, Optional, Type, Union
-
-
-if sys.version_info >= (3, 8):
-    from typing import Literal
-else:
-    from typing_extensions import Literal
 
 import requests
 import yaml
@@ -26,7 +18,8 @@ from huggingface_hub.repocard_data import (
 from huggingface_hub.utils import is_jinja_available, yaml_dump
 
 from .constants import REPOCARD_NAME
-from .utils import EntryNotFoundError, validate_hf_hub_args
+from .utils import EntryNotFoundError, SoftTemporaryDirectory, validate_hf_hub_args
+from .utils._typing import Literal
 from .utils.logging import get_logger
 
 
@@ -275,7 +268,7 @@ class RepoCard:
         # Validate card before pushing to hub
         self.validate(repo_type=repo_type)
 
-        with tempfile.TemporaryDirectory() as tmpdir:
+        with SoftTemporaryDirectory() as tmpdir:
             tmp_path = Path(tmpdir) / REPOCARD_NAME
             tmp_path.write_text(str(self))
             url = upload_file(

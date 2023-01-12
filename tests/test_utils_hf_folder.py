@@ -13,13 +13,12 @@
 # limitations under the License.
 """Contain tests for `HfFolder` utility."""
 import os
-import tempfile
 import unittest
 from pathlib import Path
 from unittest.mock import patch
 from uuid import uuid4
 
-from huggingface_hub.utils import HfFolder
+from huggingface_hub.utils import HfFolder, SoftTemporaryDirectory
 
 
 def _generate_token() -> str:
@@ -48,7 +47,7 @@ class HfFolderTest(unittest.TestCase):
     def test_token_in_old_path(self):
         token = _generate_token()
         token2 = _generate_token()
-        with tempfile.TemporaryDirectory() as tmpdir:
+        with SoftTemporaryDirectory() as tmpdir:
             path_token = Path(tmpdir) / "new_token_path"
             old_path_token = Path(tmpdir) / "old_path_token"
 

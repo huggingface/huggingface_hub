@@ -2,9 +2,9 @@ import os
 import unittest
 from hashlib import sha256
 from io import BytesIO
-from tempfile import TemporaryDirectory
 
 from huggingface_hub.lfs import SliceFileObj, UploadInfo
+from huggingface_hub.utils import SoftTemporaryDirectory
 
 
 class TestUploadInfo(unittest.TestCase):
@@ -15,7 +15,7 @@ class TestUploadInfo(unittest.TestCase):
         self.sample = self.content[:512]
 
     def test_upload_info_from_path(self):
-        with TemporaryDirectory() as tmpdir:
+        with SoftTemporaryDirectory() as tmpdir:
             filepath = os.path.join(tmpdir, "file.bin")
             with open(filepath, "wb+") as file:
                 file.write(self.content)
@@ -111,7 +111,7 @@ class TestSliceFileObj(unittest.TestCase):
     def test_slice_fileobj_file(self):
         self.content = b"RANDOM self.content uauabciabeubahveb" * 1024
 
-        with TemporaryDirectory() as tmpdir:
+        with SoftTemporaryDirectory() as tmpdir:
             filepath = os.path.join(tmpdir, "file.bin")
             with open(filepath, "wb+") as f:
                 f.write(self.content)

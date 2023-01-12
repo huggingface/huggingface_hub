@@ -68,6 +68,7 @@ from huggingface_hub.utils import (
     HfHubHTTPError,
     RepositoryNotFoundError,
     RevisionNotFoundError,
+    SoftTemporaryDirectory,
     logging,
 )
 from huggingface_hub.utils.endpoint_helpers import (
@@ -793,7 +794,7 @@ class CommitApiTest(HfApiCommonTestWithLogin):
 
         # Create repo and create a non-main branch
         self._api.create_repo(repo_id=repo_id, exist_ok=False)
-        with tempfile.TemporaryDirectory() as tmpdir:
+        with SoftTemporaryDirectory() as tmpdir:
             repo = Repository(local_dir=tmpdir, clone_from=repo_id, token=TOKEN)
             repo.git_checkout("test_branch", create_branch_ok=True)
             head = repo.git_head_hash()
@@ -2291,26 +2292,37 @@ class ActivityApiTest(unittest.TestCase):
         return super().setUpClass()
 
     def test_like_and_unlike_repo(self) -> None:
-        # Create and like repo
-        repo_id = f"{USER}/{repo_name()}"
-        self.api.create_repo(repo_id, token=TOKEN, private=True)
-        self.api.like(repo_id, token=TOKEN)
+        # Create and like a private and a public repo
+        repo_id_private = f"{USER}/{repo_name()}"
+        self.api.create_repo(repo_id_private, token=TOKEN, private=True)
+        self.api.like(repo_id_private, token=TOKEN)
+
+        repo_id_public = f"{USER}/{repo_name()}"
+        self.api.create_repo(repo_id_public, token=TOKEN, private=False)
+        self.api.like(repo_id_public, token=TOKEN)
 
         # Get likes as public and authenticated
         likes = self.api.list_liked_repos(USER)
         likes_with_auth = self.api.list_liked_repos(USER, token=TOKEN)
 
-        # New repo is not public: still see the like, not the repo_id
-        self.assertNotIn(repo_id, likes.models)
-        self.assertIn(repo_id, likes_with_auth.models)
+        # Public repo is shown in liked repos
+        self.assertIn(repo_id_public, likes.models)
+        self.assertIn(repo_id_public, likes_with_auth.models)
 
-        # Unlike and check not in liked list
-        self.api.unlike(repo_id, token=TOKEN)
-        likes_after_unliking_with_auth = self.api.list_liked_repos(USER, token=TOKEN)
-        self.assertNotIn(repo_id, likes_after_unliking_with_auth.models)  # Unliked
+        # Private repo is NOT shown in liked repos, even when authenticated
+        # This is by design. See https://github.com/huggingface/moon-landing/pull/4879 (internal link)
+        self.assertNotIn(repo_id_private, likes.models)
+        self.assertNotIn(repo_id_private, likes_with_auth.models)
+
+        # Unlike repo and check not in liked list
+        self.api.unlike(repo_id_public, token=TOKEN)
+        self.api.unlike(repo_id_private, token=TOKEN)
+        likes_after_unlike = self.api.list_liked_repos(USER)
+        self.assertNotIn(repo_id_public, likes_after_unlike.models)  # Unliked
 
         # Cleanup
-        self.api.delete_repo(repo_id, token=TOKEN)
+        self.api.delete_repo(repo_id_public, token=TOKEN)
+        self.api.delete_repo(repo_id_private, token=TOKEN)
 
     def test_like_missing_repo(self) -> None:
         with self.assertRaises(RepositoryNotFoundError):
