@@ -71,9 +71,6 @@ widget:
 """
 
 DUMMY_MODELCARD = """
-
-Hi
-
 ---
 license: mit
 datasets:
@@ -84,11 +81,7 @@ datasets:
 Hello
 """
 
-DUMMY_MODELCARD_TARGET = """
-
-Hi
-
----
+DUMMY_MODELCARD_TARGET = """---
 meaning_of_life: 42
 ---
 
