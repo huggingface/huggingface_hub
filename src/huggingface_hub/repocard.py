@@ -29,7 +29,7 @@ TEMPLATE_DATASETCARD_PATH = (
 )
 
 # exact same regex as in the Hub server. Please keep in sync.
-REGEX_YAML_BLOCK = re.compile(r"---[\n\r]+([\S\s]*?)[\n\r]+---[\n\r]")
+REGEX_YAML_BLOCK = re.compile(r"^(\s*---[\n\r]+)([\S\s]*?)([\n\r]+---([\n\r]|$))")
 
 logger = get_logger(__name__)
 
@@ -91,7 +91,7 @@ class RepoCard:
         match = REGEX_YAML_BLOCK.search(content)
         if match:
             # Metadata found in the YAML block
-            yaml_block = match.group(1)
+            yaml_block = match.group(2)
             self.text = content[match.end() :]
             data_dict = yaml.safe_load(yaml_block)
 
@@ -494,7 +494,7 @@ def metadata_load(local_path: Union[str, Path]) -> Optional[Dict]:
     content = Path(local_path).read_text()
     match = REGEX_YAML_BLOCK.search(content)
     if match:
-        yaml_block = match.group(1)
+        yaml_block = match.group(2)
         data = yaml.safe_load(yaml_block)
         if isinstance(data, dict):
             return data
