@@ -47,6 +47,7 @@ extras["testing"] = extras["cli"] + [
     "pytest",
     "pytest-cov",
     "pytest-env",
+    "pytest-xdist",
     "soundfile",
     "Pillow",
 ]
