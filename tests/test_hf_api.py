@@ -1208,29 +1208,26 @@ class HfApiDeleteFolderTest(HfApiCommonTestWithLogin):
 
 
 class HfApiTagEndpointTest(HfApiCommonTestWithLogin):
-    _user = USER
-    _repo_id: str
-
     @retry_endpoint
     @use_tmp_repo("model")
-    def test_create_tag_on_main(self) -> None:
+    def test_create_tag_on_main(self, repo_url: RepoUrl) -> None:
         """Check `create_tag` on default main branch works."""
         self._api.create_tag(
-            self._repo_id, tag="v0", tag_message="This is a tag message."
+            repo_url.repo_id, tag="v0", tag_message="This is a tag message."
         )
 
         # Check tag  is on `main`
-        tag_info = self._api.model_info(self._repo_id, revision="v0")
-        main_info = self._api.model_info(self._repo_id, revision="main")
+        tag_info = self._api.model_info(repo_url.repo_id, revision="v0")
+        main_info = self._api.model_info(repo_url.repo_id, revision="main")
         self.assertEqual(tag_info.sha, main_info.sha)
 
     @retry_endpoint
     @use_tmp_repo("model")
-    def test_create_tag_on_pr(self) -> None:
+    def test_create_tag_on_pr(self, repo_url: RepoUrl) -> None:
         """Check `create_tag` on a PR ref works."""
         # Create a PR with a readme
         commit_info: CommitInfo = self._api.create_commit(
-            repo_id=self._repo_id,
+            repo_id=repo_url.repo_id,
             create_pr=True,
             commit_message="upload readme",
             operations=[
@@ -1241,26 +1238,30 @@ class HfApiTagEndpointTest(HfApiCommonTestWithLogin):
         )
 
         # Tag the PR
-        self._api.create_tag(self._repo_id, tag="v0", revision=commit_info.pr_revision)
+        self._api.create_tag(
+            repo_url.repo_id, tag="v0", revision=commit_info.pr_revision
+        )
 
         # Check tag  is on `refs/pr/1`
-        tag_info = self._api.model_info(self._repo_id, revision="v0")
-        pr_info = self._api.model_info(self._repo_id, revision=commit_info.pr_revision)
-        main_info = self._api.model_info(self._repo_id)
+        tag_info = self._api.model_info(repo_url.repo_id, revision="v0")
+        pr_info = self._api.model_info(
+            repo_url.repo_id, revision=commit_info.pr_revision
+        )
+        main_info = self._api.model_info(repo_url.repo_id)
 
         self.assertEqual(tag_info.sha, pr_info.sha)
         self.assertNotEqual(tag_info.sha, main_info.sha)
 
     @retry_endpoint
     @use_tmp_repo("dataset")
-    def test_create_tag_on_commit_oid(self) -> None:
+    def test_create_tag_on_commit_oid(self, repo_url: RepoUrl) -> None:
         """Check `create_tag` on specific commit oid works (both long and shorthands).
 
         Test it on a `dataset` repo.
         """
         # Create a PR with a readme
         commit_info_1: CommitInfo = self._api.create_commit(
-            repo_id=self._repo_id,
+            repo_id=repo_url.repo_id,
             repo_type="dataset",
             commit_message="upload readme",
             operations=[
@@ -1270,7 +1271,7 @@ class HfApiTagEndpointTest(HfApiCommonTestWithLogin):
             ],
         )
         commit_info_2: CommitInfo = self._api.create_commit(
-            repo_id=self._repo_id,
+            repo_id=repo_url.repo_id,
             repo_type="dataset",
             commit_message="upload config",
             operations=[
@@ -1282,152 +1283,149 @@ class HfApiTagEndpointTest(HfApiCommonTestWithLogin):
 
         # Tag commits
         self._api.create_tag(
-            self._repo_id,
+            repo_url.repo_id,
             tag="commit_1",
             repo_type="dataset",
             revision=commit_info_1.oid,  # long version
         )
         self._api.create_tag(
-            self._repo_id,
+            repo_url.repo_id,
             tag="commit_2",
             repo_type="dataset",
             revision=commit_info_2.oid[:7],  # use shorthand !
         )
 
         # Check tags
-        tag_1_info = self._api.dataset_info(self._repo_id, revision="commit_1")
-        tag_2_info = self._api.dataset_info(self._repo_id, revision="commit_2")
+        tag_1_info = self._api.dataset_info(repo_url.repo_id, revision="commit_1")
+        tag_2_info = self._api.dataset_info(repo_url.repo_id, revision="commit_2")
 
         self.assertEqual(tag_1_info.sha, commit_info_1.oid)
         self.assertEqual(tag_2_info.sha, commit_info_2.oid)
 
     @retry_endpoint
     @use_tmp_repo("model")
-    def test_invalid_tag_name(self) -> None:
+    def test_invalid_tag_name(self, repo_url: RepoUrl) -> None:
         """Check `create_tag` with an invalid tag name."""
         with self.assertRaises(HTTPError):
-            self._api.create_tag(self._repo_id, tag="invalid tag")
+            self._api.create_tag(repo_url.repo_id, tag="invalid tag")
 
     @retry_endpoint
     @use_tmp_repo("model")
-    def test_create_tag_on_missing_revision(self) -> None:
+    def test_create_tag_on_missing_revision(self, repo_url: RepoUrl) -> None:
         """Check `create_tag` on a missing revision."""
         with self.assertRaises(RevisionNotFoundError):
-            self._api.create_tag(self._repo_id, tag="invalid tag", revision="foobar")
+            self._api.create_tag(repo_url.repo_id, tag="invalid tag", revision="foobar")
 
     @retry_endpoint
     @use_tmp_repo("model")
-    def test_create_tag_twice(self) -> None:
+    def test_create_tag_twice(self, repo_url: RepoUrl) -> None:
         """Check `create_tag` called twice on same tag should fail with HTTP 409."""
-        self._api.create_tag(self._repo_id, tag="tag_1")
+        self._api.create_tag(repo_url.repo_id, tag="tag_1")
         with self.assertRaises(HfHubHTTPError) as err:
-            self._api.create_tag(self._repo_id, tag="tag_1")
+            self._api.create_tag(repo_url.repo_id, tag="tag_1")
         self.assertEqual(err.exception.response.status_code, 409)
 
         # exist_ok=True => doesn't fail
-        self._api.create_tag(self._repo_id, tag="tag_1", exist_ok=True)
+        self._api.create_tag(repo_url.repo_id, tag="tag_1", exist_ok=True)
 
     @retry_endpoint
     @use_tmp_repo("model")
-    def test_create_and_delete_tag(self) -> None:
+    def test_create_and_delete_tag(self, repo_url: RepoUrl) -> None:
         """Check `delete_tag` deletes the tag."""
-        self._api.create_tag(self._repo_id, tag="v0")
-        self._api.model_info(self._repo_id, revision="v0")
+        self._api.create_tag(repo_url.repo_id, tag="v0")
+        self._api.model_info(repo_url.repo_id, revision="v0")
 
-        self._api.delete_tag(self._repo_id, tag="v0")
+        self._api.delete_tag(repo_url.repo_id, tag="v0")
         with self.assertRaises(RevisionNotFoundError):
-            self._api.model_info(self._repo_id, revision="v0")
+            self._api.model_info(repo_url.repo_id, revision="v0")
 
     @retry_endpoint
     @use_tmp_repo("model")
-    def test_delete_tag_missing_tag(self) -> None:
+    def test_delete_tag_missing_tag(self, repo_url: RepoUrl) -> None:
         """Check cannot `delete_tag` if tag doesn't exist."""
         with self.assertRaises(RevisionNotFoundError):
-            self._api.delete_tag(self._repo_id, tag="v0")
+            self._api.delete_tag(repo_url.repo_id, tag="v0")
 
     @retry_endpoint
     @use_tmp_repo("model")
-    def test_delete_tag_with_branch_name(self) -> None:
+    def test_delete_tag_with_branch_name(self, repo_url: RepoUrl) -> None:
         """Try to `delete_tag` if tag is a branch name.
 
         Currently getting a HTTP 500.
         See https://github.com/huggingface/moon-landing/issues/4223.
         """
         with self.assertRaises(HfHubHTTPError):
-            self._api.delete_tag(self._repo_id, tag="main")
+            self._api.delete_tag(repo_url.repo_id, tag="main")
 
 
 class HfApiBranchEndpointTest(HfApiCommonTestWithLogin):
-    _user = USER
-    _repo_id: str
-
     @retry_endpoint
     @use_tmp_repo()
-    def test_create_and_delete_branch(self) -> None:
+    def test_create_and_delete_branch(self, repo_url: RepoUrl) -> None:
         """Test `create_branch` from main branch."""
-        self._api.create_branch(self._repo_id, branch="cool-branch")
+        self._api.create_branch(repo_url.repo_id, branch="cool-branch")
 
         # Check `cool-branch` branch exists
-        self._api.model_info(self._repo_id, revision="cool-branch")
+        self._api.model_info(repo_url.repo_id, revision="cool-branch")
 
         # Delete it
-        self._api.delete_branch(self._repo_id, branch="cool-branch")
+        self._api.delete_branch(repo_url.repo_id, branch="cool-branch")
 
         # Check doesn't exist anymore
         with self.assertRaises(RevisionNotFoundError):
-            self._api.model_info(self._repo_id, revision="cool-branch")
+            self._api.model_info(repo_url.repo_id, revision="cool-branch")
 
     @retry_endpoint
     @use_tmp_repo()
-    def test_create_branch_existing_branch_fails(self) -> None:
+    def test_create_branch_existing_branch_fails(self, repo_url: RepoUrl) -> None:
         """Test `create_branch` on existing branch."""
-        self._api.create_branch(self._repo_id, branch="cool-branch")
+        self._api.create_branch(repo_url.repo_id, branch="cool-branch")
 
         with self.assertRaisesRegex(HfHubHTTPError, "Reference already exists"):
-            self._api.create_branch(self._repo_id, branch="cool-branch")
+            self._api.create_branch(repo_url.repo_id, branch="cool-branch")
 
         with self.assertRaisesRegex(HfHubHTTPError, "Reference already exists"):
-            self._api.create_branch(self._repo_id, branch="main")
+            self._api.create_branch(repo_url.repo_id, branch="main")
 
         # exist_ok=True => doesn't fail
-        self._api.create_branch(self._repo_id, branch="cool-branch", exist_ok=True)
-        self._api.create_branch(self._repo_id, branch="main", exist_ok=True)
+        self._api.create_branch(repo_url.repo_id, branch="cool-branch", exist_ok=True)
+        self._api.create_branch(repo_url.repo_id, branch="main", exist_ok=True)
 
     @retry_endpoint
     @use_tmp_repo()
-    def test_create_branch_existing_tag_does_not_fail(self) -> None:
+    def test_create_branch_existing_tag_does_not_fail(self, repo_url: RepoUrl) -> None:
         """Test `create_branch` on existing tag."""
-        self._api.create_tag(self._repo_id, tag="tag")
-        self._api.create_branch(self._repo_id, branch="tag")
+        self._api.create_tag(repo_url.repo_id, tag="tag")
+        self._api.create_branch(repo_url.repo_id, branch="tag")
 
     @retry_endpoint
     @use_tmp_repo()
-    def test_create_branch_forbidden_ref_branch_fails(self) -> None:
+    def test_create_branch_forbidden_ref_branch_fails(self, repo_url: RepoUrl) -> None:
         """Test `create_branch` on forbidden ref branch."""
         with self.assertRaisesRegex(BadRequestError, "Invalid reference for a branch"):
-            self._api.create_branch(self._repo_id, branch="refs/pr/5")
+            self._api.create_branch(repo_url.repo_id, branch="refs/pr/5")
 
         with self.assertRaisesRegex(BadRequestError, "Invalid reference for a branch"):
-            self._api.create_branch(self._repo_id, branch="refs/something/random")
+            self._api.create_branch(repo_url.repo_id, branch="refs/something/random")
 
     @retry_endpoint
     @use_tmp_repo()
-    def test_delete_branch_on_protected_branch_fails(self) -> None:
+    def test_delete_branch_on_protected_branch_fails(self, repo_url: RepoUrl) -> None:
         """Test `delete_branch` fails on protected branch."""
         with self.assertRaisesRegex(HfHubHTTPError, "Cannot delete refs/heads/main"):
-            self._api.delete_branch(self._repo_id, branch="main")
+            self._api.delete_branch(repo_url.repo_id, branch="main")
 
     @retry_endpoint
     @use_tmp_repo()
-    def test_delete_branch_on_missing_branch_fails(self) -> None:
+    def test_delete_branch_on_missing_branch_fails(self, repo_url: RepoUrl) -> None:
         """Test `delete_branch` fails on missing branch."""
         with self.assertRaisesRegex(HfHubHTTPError, "Reference does not exist"):
-            self._api.delete_branch(self._repo_id, branch="cool-branch")
+            self._api.delete_branch(repo_url.repo_id, branch="cool-branch")
 
         # Using a tag instead of branch -> fails
-        self._api.create_tag(self._repo_id, tag="cool-tag")
+        self._api.create_tag(repo_url.repo_id, tag="cool-tag")
         with self.assertRaisesRegex(HfHubHTTPError, "Reference does not exist"):
-            self._api.delete_branch(self._repo_id, branch="cool-tag")
+            self._api.delete_branch(repo_url.repo_id, branch="cool-tag")
 
 
 class HfApiPublicStagingTest(unittest.TestCase):
