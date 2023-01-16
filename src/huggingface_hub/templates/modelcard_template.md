@@ -67,6 +67,12 @@
 
 {{ bias_recommendations | default("Users (both direct and downstream) should be made aware of the risks, biases and limitations of the model. More information needed for further recommendations.", true)}}
 
+## How to Get Started with the Model
+
+Use the code below to get started with the model.
+
+{{ get_started_code | default("[More Information Needed]", true)}}
+
 # Training Details
 
 ## Training Data
@@ -187,13 +193,5 @@ Carbon emissions can be estimated using the [Machine Learning Impact calculator]
 
 {{ model_card_contact | default("[More Information Needed]", true)}}
 
-# How to Get Started with the Model
 
-Use the code below to get started with the model.
 
-<details>
-<summary> Click to expand </summary>
-
-{{ get_started_code | default("[More Information Needed]", true)}}
-
-</details>
