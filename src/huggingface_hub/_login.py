@@ -132,8 +132,8 @@ def interpreter_login() -> None:
     To login, `huggingface_hub` now requires a token generated from https://huggingface.co/settings/tokens .
     """
     )
-    if sys.platform.startswith('win'):
-        print("Token can be pasted by `Right-Click`\n")
+    if os.name == "nt":
+        print("Token can be pasted using 'Right-Click'.")
     token = getpass("Token: ")
     add_to_git_credential = _ask_for_confirmation_no_tui("Add token as git credential?")
 
