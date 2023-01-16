@@ -114,7 +114,8 @@ class BaseUserCommand:
 
 class LoginCommand(BaseUserCommand):
     def run(self):
-        login()
+        token = HfFolder.get_token()
+        login(token)
 
 
 class LogoutCommand(BaseUserCommand):

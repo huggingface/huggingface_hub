@@ -89,7 +89,7 @@ def login(token: Optional[str] = None, add_to_git_credential: bool = False) -> N
     elif is_notebook():
         notebook_login()
     else:
-        interpreter_login()
+        interpreter_login(token)
 
 
 def logout() -> None:
@@ -111,7 +111,7 @@ def logout() -> None:
 ###
 
 
-def interpreter_login() -> None:
+def interpreter_login(token: Optional[str] = None) -> None:
     """
     Displays a prompt to login to the HF website and store the token.
 
@@ -128,9 +128,19 @@ def interpreter_login() -> None:
     _|_|_|_|  _|    _|  _|  _|_|  _|  _|_|    _|    _|  _|  _|  _|  _|_|      _|_|_|    _|_|_|_|  _|        _|_|_|
     _|    _|  _|    _|  _|    _|  _|    _|    _|    _|    _|_|  _|    _|      _|        _|    _|  _|        _|
     _|    _|    _|_|      _|_|_|    _|_|_|  _|_|_|  _|      _|    _|_|_|      _|        _|    _|    _|_|_|  _|_|_|_|
-
-    To login, `huggingface_hub` now requires a token generated from https://huggingface.co/settings/tokens .
     """
+    )
+    if token is not None:
+        print(
+            "    A token is already saved on your machine. Run `huggingface - cli"
+            " whoami` to get more information or `huggingface - cli logout` if you want"
+            " to log out. Setting a new token will erase the existing one."
+        )
+        return
+
+    print(
+        "    To login, `huggingface_hub` now requires a token generated from"
+        " https://huggingface.co/settings/tokens ."
     )
     if os.name == "nt":
         print("Token can be pasted using 'Right-Click'.")
