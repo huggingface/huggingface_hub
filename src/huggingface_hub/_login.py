@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 """Contains methods to login to the Hub."""
+import os
 import subprocess
 from getpass import getpass
 from typing import List, Optional
@@ -131,6 +132,8 @@ def interpreter_login() -> None:
     To login, `huggingface_hub` now requires a token generated from https://huggingface.co/settings/tokens .
     """
     )
+    if os.name == "nt":
+        print("Token can be pasted using 'Right-Click'.")
     token = getpass("Token: ")
     add_to_git_credential = _ask_for_confirmation_no_tui("Add token as git credential?")
 
