@@ -753,8 +753,11 @@ class RepoCardTest(TestCaseWithCapLog):
         sample_path = SAMPLE_CARDS_DIR / "sample_simple.md"
         card = RepoCard.load(sample_path)
         card.text = "Hello, world!"
+        line_break = "\r\n" if os.name == "nt" else "\n"
         self.assertEqual(
-            card.content, f"---\n{card.data.to_yaml()}\n---\nHello, world!"
+            card.content,
+            # line_break depends on platform. Correctly set when using RepoCard.save(...) to avoid diffs
+            f"---\n{card.data.to_yaml()}\n---\nHello, world!".replace("\n", line_break),
         )
 
 
