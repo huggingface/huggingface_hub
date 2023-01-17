@@ -191,7 +191,7 @@ class TestValidCacheUtils(unittest.TestCase):
         report = scan_cache_dir(self.cache_dir)
 
         # Check general information about downloaded snapshots
-        self.assertEqual(report.size_on_disk, 3547)
+        self.assertEqual(report.size_on_disk, 6258)
         self.assertEqual(len(report.repos), 2)  # Model and dataset
         self.assertEqual(len(report.warnings), 0)  # Repos are valid
 
