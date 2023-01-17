@@ -29,7 +29,8 @@ TEMPLATE_DATASETCARD_PATH = (
 )
 
 # exact same regex as in the Hub server. Please keep in sync.
-REGEX_YAML_BLOCK = re.compile(r"^(\s*---[\n\r]+)([\S\s]*?)([\n\r]+---([\n\r]|$))")
+# See https://github.com/huggingface/moon-landing/blob/main/server/lib/ViewMarkdown.ts#L18
+REGEX_YAML_BLOCK = re.compile(r"^(\s*---[\r\n]+)([\S\s]*?)([\r\n]+---(\r\n|\n|$))")
 
 logger = get_logger(__name__)
 
@@ -516,11 +517,11 @@ def metadata_save(local_path: Union[str, Path], data: Dict) -> None:
     # try to detect existing newline character
     if os.path.exists(local_path):
         with open(local_path, "r", newline="") as readme:
-            if type(readme.newlines) is tuple:
-                line_break = readme.newlines[0]
-            if type(readme.newlines) is str:
-                line_break = readme.newlines
             content = readme.read()
+            if isinstance(readme.newlines, tuple):
+                line_break = readme.newlines[0]
+            elif isinstance(readme.newlines, str):
+                line_break = readme.newlines
 
     # creates a new file if it not
     with open(local_path, "w", newline="") as readme:
