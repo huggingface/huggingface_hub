@@ -749,6 +749,15 @@ class RepoCardTest(TestCaseWithCapLog):
         card = RepoCard.load(card_path)
         self.assertIn("\r\n", str(card))
 
+    def test_preserve_linebreaks_when_saving(self):
+        card_path = SAMPLE_CARDS_DIR / "sample_simple.md"
+        card = RepoCard.load(card_path)
+        with SoftTemporaryDirectory() as tmpdir:
+            tmpfile = os.path.join(tmpdir, "readme.md")
+            card.save(tmpfile)
+            card2 = RepoCard.load(tmpfile)
+        self.assertEqual(str(card), str(card2))
+
     def test_updating_text_updates_content(self):
         sample_path = SAMPLE_CARDS_DIR / "sample_simple.md"
         card = RepoCard.load(sample_path)
