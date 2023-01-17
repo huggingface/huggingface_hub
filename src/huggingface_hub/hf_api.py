@@ -1571,12 +1571,7 @@ class HfApi:
             params["securityStatus"] = True
         if files_metadata:
             params["blobs"] = True
-        r = requests.get(
-            path,
-            headers=headers,
-            timeout=timeout,
-            params=params,
-        )
+        r = requests.get(path, headers=headers, timeout=timeout, params=params)
         hf_raise_for_status(r)
         d = r.json()
         return ModelInfo(**d)
@@ -2206,7 +2201,7 @@ class HfApi:
 
             parent_commit (`str`, *optional*):
                 The OID / SHA of the parent commit, as a hexadecimal string.
-                Shorthands (7 first characters) are also supported.If specified and `create_pr` is `False`,
+                Shorthands (7 first characters) are also supported. If specified and `create_pr` is `False`,
                 the commit will fail if `revision` does not point to `parent_commit`. If specified and `create_pr`
                 is `True`, the pull request will be created from `parent_commit`. Specifying `parent_commit`
                 ensures the repo has not changed before committing the changes, and can be especially useful
@@ -2835,6 +2830,7 @@ class HfApi:
         repo_id: str,
         *,
         branch: str,
+        revision: Optional[str] = None,
         token: Optional[str] = None,
         repo_type: Optional[str] = None,
         exist_ok: bool = False,
@@ -2849,6 +2845,11 @@ class HfApi:
 
             branch (`str`):
                 The name of the branch to create.
+
+            revision (`str`, *optional*):
+                The git revision to create the branch from. It can be a branch name or
+                the OID/SHA of a commit, as a hexadecimal string. Defaults to the head
+                of the `"main"` branch.
 
             token (`str`, *optional*):
                 Authentication token. Will default to the stored token.
@@ -2877,9 +2878,12 @@ class HfApi:
         # Prepare request
         branch_url = f"{self.endpoint}/api/{repo_type}s/{repo_id}/branch/{branch}"
         headers = self._build_hf_headers(token=token, is_write_action=True)
+        payload = {}
+        if revision is not None:
+            payload["startingPoint"] = revision
 
         # Create branch
-        response = requests.post(url=branch_url, headers=headers)
+        response = requests.post(url=branch_url, headers=headers, json=payload)
         try:
             hf_raise_for_status(response)
         except HfHubHTTPError as e:
