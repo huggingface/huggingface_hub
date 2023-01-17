@@ -2225,7 +2225,7 @@ class HfApiDiscussionsTest(HfApiCommonTestWithLogin):
             repo_id=self.repo_name, discussion_num=self.discussion.num
         )
         self.assertEqual(len(retrieved.events), 2)
-        self.assertIn(new_comment, retrieved.events)
+        self.assertIn(new_comment.id, {event.id for event in retrieved.events})
 
     def test_rename_discussion(self):
         rename_event = self._api.rename_discussion(
