@@ -150,7 +150,7 @@ class TestRepositoryShared(RepositoryTestAbstract):
         )
 
     def test_init_from_existing_local_clone(self):
-        run_subprocess(["git", "clone", self.repo_url, self.repo_path])
+        run_subprocess(["git", "clone", self.repo_url, str(self.repo_path)])
 
         repo = Repository(self.repo_path)
         repo.lfs_track(["*.pdf"])
