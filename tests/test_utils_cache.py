@@ -341,7 +341,7 @@ class TestValidCacheUtils(unittest.TestCase):
             ScanCacheCommand(args).run()
 
         expected_output = f"""
-        Cache directory not found: {tmp_dir}
+        Cache directory not found: {Path(tmp_dir).resolve()}
         """
 
         self.assertListEqual(output.getvalue().split(), expected_output.split())
