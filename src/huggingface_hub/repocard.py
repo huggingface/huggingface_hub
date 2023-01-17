@@ -128,7 +128,8 @@ class RepoCard:
         """
         filepath = Path(filepath)
         filepath.parent.mkdir(parents=True, exist_ok=True)
-        filepath.write_text(str(self), encoding="utf-8")
+        # Preserve newlines as in the existing file.
+        filepath.write_text(str(self), newline="", encoding="utf-8")
 
     @classmethod
     def load(
