@@ -2516,7 +2516,7 @@ class ListGitRefsTest(unittest.TestCase):
         self.api.repo_info("gpt2", revision=main_branch.target_commit)
 
     def test_list_refs_bigcode(self) -> None:
-        refs = self.api.list_repo_refs("bigcode/evaluation", repo_type="dataset")
+        refs = self.api.list_repo_refs("bigcode/admin", repo_type="dataset")
         self.assertGreater(len(refs.branches), 0)
         self.assertGreater(len(refs.converts), 0)
         main_branch = [branch for branch in refs.branches if branch.name == "main"][0]
@@ -2529,7 +2529,7 @@ class ListGitRefsTest(unittest.TestCase):
 
         # Can get info by convert revision
         self.api.repo_info(
-            "bigcode/evaluation",
+            "bigcode/admin",
             repo_type="dataset",
             revision=convert_branch.target_commit,
         )

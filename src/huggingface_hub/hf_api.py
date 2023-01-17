@@ -2086,7 +2086,7 @@ class HfApi:
 
         Note there are certain limitations. For more information about moving
         repositories, please see
-        https://hf.co/docs/hub/main#how-can-i-rename-or-transfer-a-repo.
+        https://hf.co/docs/hub/repositories-settings#renaming-or-transferring-a-repo.
 
         Args:
             from_id (`str`):
@@ -2137,7 +2137,7 @@ class HfApi:
         except HfHubHTTPError as e:
             e.append_to_message(
                 "\nFor additional documentation please see"
-                " https://hf.co/docs/hub/main#how-can-i-rename-or-transfer-a-repo."
+                " https://hf.co/docs/hub/repositories-settings#renaming-or-transferring-a-repo."
             )
             raise
 
