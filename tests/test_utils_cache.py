@@ -269,6 +269,7 @@ class TestValidCacheUtils(unittest.TestCase):
             pr_1_readme_file.blob_path, main_readme_file.blob_path
         )
 
+    @xfail_on_windows("Size on disk and paths differ on Windows. Not useful to test.")
     def test_cli_scan_cache_quiet(self) -> None:
         """Test output from CLI scan cache with non verbose output.
 
@@ -295,6 +296,7 @@ class TestValidCacheUtils(unittest.TestCase):
             expected_output.replace("-", "").split(),
         )
 
+    @xfail_on_windows("Size on disk and paths differ on Windows. Not useful to test.")
     def test_cli_scan_cache_verbose(self) -> None:
         """Test output from CLI scan cache with verbose output.
 
