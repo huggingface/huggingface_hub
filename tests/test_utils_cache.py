@@ -499,6 +499,7 @@ class TestCorruptedCacheUtils(unittest.TestCase):
             + f"({self.repo_path }).",
         )
 
+    @xfail_on_windows("Last modified/last accessed work a bit differently on Windows.")
     def test_scan_cache_last_modified_and_last_accessed(self) -> None:
         """Scan the last_modified and last_accessed properties when scanning."""
         TIME_GAP = 0.1
