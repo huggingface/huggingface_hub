@@ -37,7 +37,7 @@ from huggingface_hub import (
 from huggingface_hub.constants import REPOCARD_NAME
 from huggingface_hub.file_download import hf_hub_download
 from huggingface_hub.hf_api import HfApi
-from huggingface_hub.repocard import RepoCard
+from huggingface_hub.repocard import REGEX_YAML_BLOCK, RepoCard
 from huggingface_hub.repocard_data import CardData
 from huggingface_hub.repository import Repository
 from huggingface_hub.utils import SoftTemporaryDirectory, is_jinja_available, logging
@@ -70,9 +70,6 @@ widget:
 """
 
 DUMMY_MODELCARD = """
-
-Hi
-
 ---
 license: mit
 datasets:
@@ -83,11 +80,7 @@ datasets:
 Hello
 """
 
-DUMMY_MODELCARD_TARGET = """
-
-Hi
-
----
+DUMMY_MODELCARD_TARGET = """---
 meaning_of_life: 42
 ---
 
@@ -763,6 +756,17 @@ class RepoCardTest(TestCaseWithCapLog):
         self.assertEqual(
             card.content, f"---\n{card.data.to_yaml()}\n---\nHello, world!"
         )
+
+
+class TestRegexYamlBlock(unittest.TestCase):
+    def test_match_with_leading_whitespace(self):
+        self.assertIsNotNone(REGEX_YAML_BLOCK.search("   \n---\nmetadata: 1\n---"))
+
+    def test_match_without_leading_whitespace(self):
+        self.assertIsNotNone(REGEX_YAML_BLOCK.search("---\nmetadata: 1\n---"))
+
+    def test_does_not_match_with_leading_text(self):
+        self.assertIsNone(REGEX_YAML_BLOCK.search("something\n---\nmetadata: 1\n---"))
 
 
 class ModelCardTest(TestCaseWithCapLog):

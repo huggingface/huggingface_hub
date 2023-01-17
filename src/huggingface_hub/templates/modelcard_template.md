@@ -1,6 +1,7 @@
 ---
-# For reference on model card metadata, see: https://github.com/huggingface/hub-docs/blob/main/modelcard.md?plain=1
-{{card_data}}
+# For reference on model card metadata, see the spec: https://github.com/huggingface/hub-docs/blob/main/modelcard.md?plain=1
+# Doc / guide: https://huggingface.co/docs/hub/model-cards
+{{ card_data }}
 ---
 
 # Model Card for {{ model_id | default("Model ID", true) }}
@@ -65,6 +66,12 @@
 <!-- This section is meant to convey recommendations with respect to the bias, risk, and technical limitations. -->
 
 {{ bias_recommendations | default("Users (both direct and downstream) should be made aware of the risks, biases and limitations of the model. More information needed for further recommendations.", true)}}
+
+## How to Get Started with the Model
+
+Use the code below to get started with the model.
+
+{{ get_started_code | default("[More Information Needed]", true)}}
 
 # Training Details
 
@@ -186,13 +193,5 @@ Carbon emissions can be estimated using the [Machine Learning Impact calculator]
 
 {{ model_card_contact | default("[More Information Needed]", true)}}
 
-# How to Get Started with the Model
 
-Use the code below to get started with the model.
 
-<details>
-<summary> Click to expand </summary>
-
-{{ get_started_code | default("[More Information Needed]", true)}}
-
-</details>

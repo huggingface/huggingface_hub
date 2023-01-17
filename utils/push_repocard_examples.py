@@ -14,14 +14,11 @@
 # limitations under the License.
 """Generate and push an empty ModelCard and DatasetCard to the Hub as examples."""
 import argparse
+from pathlib import Path
 
-from huggingface_hub import (
-    DatasetCard,
-    DatasetCardData,
-    ModelCard,
-    ModelCardData,
-    whoami,
-)
+import jinja2
+from huggingface_hub import DatasetCard, ModelCard, hf_hub_download, upload_file, whoami
+from huggingface_hub.constants import REPOCARD_NAME
 
 
 ORG_NAME = "templates"
@@ -50,15 +47,30 @@ def push_model_card_example(overwrite: bool) -> None:
     Do not push if content has not changed. Script is triggered in CI on main branch.
     Card is pushed to https://huggingface.co/templates/model-card-example.
     """
-
-    card = ModelCard.from_template(ModelCardData())
+    # Not using ModelCard directly to preserve comments in metadata part
+    template = jinja2.Template(ModelCard.default_template_path.read_text())
+    content = template.render(
+        card_data="{}",
+        model_summary=(
+            "This modelcard aims to be a base template for new models. "
+            "It has been generated using [this raw template]"
+            "(https://github.com/huggingface/huggingface_hub/blob/main/src/huggingface_hub/templates/modelcard_template.md?plain=1)."
+        ),
+    )
     if not overwrite:
-        existing_card = ModelCard.load(MODEL_CARD_REPO_ID)
-        if str(existing_card) == str(card):
+        existing_content = Path(
+            hf_hub_download(MODEL_CARD_REPO_ID, REPOCARD_NAME, repo_type="model")
+        ).read_text()
+        if content == existing_content:
             print("Model Card not pushed: did not change.")
             return
     print(f"Pushing empty Model Card to Hub: {MODEL_CARD_REPO_ID}")
-    card.push_to_hub(MODEL_CARD_REPO_ID)
+    upload_file(
+        path_or_fileobj=content.encode(),
+        path_in_repo=REPOCARD_NAME,
+        repo_id=MODEL_CARD_REPO_ID,
+        repo_type="model",
+    )
 
 
 def push_dataset_card_example(overwrite: bool) -> None:
@@ -67,14 +79,30 @@ def push_dataset_card_example(overwrite: bool) -> None:
     Do not push if content has not changed. Script is triggered in CI on main branch.
     Card is pushed to https://huggingface.co/datasets/templates/dataset-card-example.
     """
-    card = DatasetCard.from_template(DatasetCardData())
+    # Not using DatasetCard directly to preserve comments in metadata part
+    template = jinja2.Template(DatasetCard.default_template_path.read_text())
+    content = template.render(
+        card_data="{}",
+        dataset_summary=(
+            "This dataset card aims to be a base template for new datasets. "
+            "It has been generated using [this raw template]"
+            "(https://github.com/huggingface/huggingface_hub/blob/main/src/huggingface_hub/templates/datasetcard_template.md?plain=1)."
+        ),
+    )
     if not overwrite:
-        existing_card = DatasetCard.load(DATASET_CARD_REPO_ID)
-        if str(existing_card) == str(card):
+        existing_content = Path(
+            hf_hub_download(DATASET_CARD_REPO_ID, REPOCARD_NAME, repo_type="dataset")
+        ).read_text()
+        if content == existing_content:
             print("Dataset Card not pushed: did not change.")
             return
     print(f"Pushing empty Dataset Card to Hub: {DATASET_CARD_REPO_ID}")
-    card.push_to_hub(DATASET_CARD_REPO_ID)
+    upload_file(
+        path_or_fileobj=content.encode(),
+        path_in_repo=REPOCARD_NAME,
+        repo_id=DATASET_CARD_REPO_ID,
+        repo_type="dataset",
+    )
 
 
 if __name__ == "__main__":
