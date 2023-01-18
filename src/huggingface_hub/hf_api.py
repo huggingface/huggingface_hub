@@ -103,6 +103,8 @@ def repo_type_and_id_from_hf_id(
 
             - https://huggingface.co/<repo_type>/<namespace>/<repo_id>
             - https://huggingface.co/<namespace>/<repo_id>
+            - hf://<repo_type>/<namespace>/<repo_id>
+            - hf://<namespace>/<repo_id>
             - <repo_type>/<namespace>/<repo_id>
             - <namespace>/<repo_id>
             - <repo_id>
@@ -112,9 +114,21 @@ def repo_type_and_id_from_hf_id(
     Returns:
         A tuple with three items: repo_type (`str` or `None`), namespace (`str` or
         `None`) and repo_id (`str`).
+
+    Raises:
+        - [`ValueError`](https://docs.python.org/3/library/exceptions.html#ValueError)
+            If URL cannot be parsed.
+        - [`ValueError`](https://docs.python.org/3/library/exceptions.html#ValueError)
+            If `repo_type` is unknown.
     """
+    input_hf_id = hf_id
     hub_url = re.sub(r"https?://", "", hub_url if hub_url is not None else ENDPOINT)
     is_hf_url = hub_url in hf_id and "@" not in hf_id
+
+    HFFS_PREFIX = "hf://"
+    if hf_id.startswith(HFFS_PREFIX):  # Remove "hf://" prefix if exists
+        hf_id = hf_id[len(HFFS_PREFIX) :]
+
     url_segments = hf_id.split("/")
     is_hf_id = len(url_segments) <= 3
 
@@ -144,9 +158,13 @@ def repo_type_and_id_from_hf_id(
             f"Unable to retrieve user and repo ID from the passed HF ID: {hf_id}"
         )
 
+    # Check if repo type is known (mapping "spaces" => "space" + empty value => `None`)
+    if repo_type in REPO_TYPES_MAPPING:
+        repo_type = REPO_TYPES_MAPPING[repo_type]
+    if repo_type == "":
+        repo_type = None
     if repo_type not in REPO_TYPES:
-        assert repo_type is not None, "repo_type `None` do not have mapping"
-        repo_type = REPO_TYPES_MAPPING.get(repo_type)
+        raise ValueError(f"Unknown `repo_type`: '{repo_type}' ('{input_hf_id}')")
 
     return repo_type, namespace, repo_id
 
@@ -234,12 +252,21 @@ class RepoUrl(str):
     >>> RepoUrl('https://huggingface.co/gpt2')
     RepoUrl('https://huggingface.co/gpt2', endpoint='https://huggingface.co', repo_type='model', repo_id='gpt2')
 
-    >>> RepoUrl('https://hub-ci.huggingface.co/dataset/dummy_user/dummy_dataset', endpoint='https://hub-ci.huggingface.co')
-    RepoUrl('https://hub-ci.huggingface.co/dataset/dummy_user/dummy_dataset', endpoint='https://hub-ci.huggingface.co', repo_type='dataset', repo_id='dummy_user/dummy_dataset')
+    >>> RepoUrl('https://hub-ci.huggingface.co/datasets/dummy_user/dummy_dataset', endpoint='https://hub-ci.huggingface.co')
+    RepoUrl('https://hub-ci.huggingface.co/datasets/dummy_user/dummy_dataset', endpoint='https://hub-ci.huggingface.co', repo_type='dataset', repo_id='dummy_user/dummy_dataset')
+
+    >>> RepoUrl('hf://datasets/my-user/my-dataset')
+    RepoUrl('hf://datasets/my-user/my-dataset', endpoint='https://huggingface.co', repo_type='dataset', repo_id='user/dataset')
 
     >>> HfApi.create_repo("dummy_model")
     RepoUrl('https://huggingface.co/Wauplin/dummy_model', endpoint='https://huggingface.co', repo_type='model', repo_id='Wauplin/dummy_model')
     ```
+
+    Raises:
+        - [`ValueError`](https://docs.python.org/3/library/exceptions.html#ValueError)
+            If URL cannot be parsed.
+        - [`ValueError`](https://docs.python.org/3/library/exceptions.html#ValueError)
+            If `repo_type` is unknown.
     """
 
     def __new__(cls, url: Any, endpoint: Optional[str] = None):
