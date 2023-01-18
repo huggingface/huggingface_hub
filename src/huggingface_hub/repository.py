@@ -451,14 +451,12 @@ class Repository:
         """
         Instantiate a local clone of a git repo.
 
+        If `clone_from` is set, the repo will be cloned from an existing remote repository.
+        If the remote repo does not exist, a `EnvironmentError` exception will be thrown.
+        Please create the remote repo first using `HfApi().create_repo(repo_id=repo_id)`.
 
-        If specifying a `clone_from`, it will clone an existing remote
-        repository, for instance one that was previously created using
-        `HfApi().create_repo(repo_id=repo_name)`.
-
-        `Repository` uses the local git credentials by default, but if required,
-        the `huggingface_token` as well as the git `user` and the `email` can be
-        explicitly specified.
+        `Repository` uses the local git credentials by default. If explicitly set, the `token`
+        or the `git_user`/`git_email` pair will be used instead.
 
         Args:
             local_dir (`str`):
@@ -489,8 +487,12 @@ class Repository:
             skip_lfs_files (`bool`, *optional*, defaults to `False`):
                 whether to skip git-LFS files or not.
             client (`HfApi`, *optional*):
-                Instance of HfApi to use when calling the HF Hub API. A new
+                Instance of [`HfApi`] to use when calling the HF Hub API. A new
                 instance will be created if this is left to `None`.
+
+        Raises:
+            - [`EnvironmentError`](https://docs.python.org/3/library/exceptions.html#EnvironmentError)
+              if the remote repository set in `clone_from` does not exist.
         """
 
         os.makedirs(local_dir, exist_ok=True)
@@ -568,7 +570,8 @@ class Repository:
         Checks that `git` and `git-lfs` can be run.
 
         Raises:
-            `EnvironmentError`: if `git` or `git-lfs` are not installed.
+            - [`EnvironmentError`](https://docs.python.org/3/library/exceptions.html#EnvironmentError)
+              if `git` or `git-lfs` are not installed.
         """
         try:
             git_version = run_subprocess("git --version", self.local_dir).stdout.strip()
@@ -680,6 +683,9 @@ class Repository:
                         env.update({"GIT_LFS_SKIP_SMUDGE": "1"})
 
                     run_subprocess(
+                        # 'git lfs clone' is deprecated (will display a warning in the terminal)
+                        # but we still use it as it provides a nicer UX when downloading large
+                        # files (shows progress).
                         f"{'git clone' if self.skip_lfs_files else 'git lfs clone'} {repo_url} .",
                         self.local_dir,
                         env=env,
