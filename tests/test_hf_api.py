@@ -1425,6 +1425,44 @@ class HfApiBranchEndpointTest(HfApiCommonTestWithLogin):
         with self.assertRaisesRegex(HfHubHTTPError, "Reference does not exist"):
             self._api.delete_branch(repo_url.repo_id, branch="cool-tag")
 
+    @retry_endpoint
+    @use_tmp_repo()
+    def test_create_branch_from_revision(self, repo_url: RepoUrl) -> None:
+        """Test `create_branch` from a different revision than main HEAD."""
+        # Create commit and remember initial/latest commit
+        initial_commit = self._api.model_info(repo_url.repo_id).sha
+        self._api.create_commit(
+            repo_url.repo_id,
+            operations=[
+                CommitOperationAdd(path_in_repo="app.py", path_or_fileobj=b"content")
+            ],
+            commit_message="test commit",
+        )
+        latest_commit = self._api.model_info(repo_url.repo_id).sha
+
+        # Create branches
+        self._api.create_branch(repo_url.repo_id, branch="from-head")
+        self._api.create_branch(
+            repo_url.repo_id, branch="from-initial", revision=initial_commit
+        )
+        self._api.create_branch(
+            repo_url.repo_id, branch="from-branch", revision="from-initial"
+        )
+
+        # Checks branches start from expected commits
+        self.assertEqual(
+            {
+                "main": latest_commit,
+                "from-head": latest_commit,
+                "from-initial": initial_commit,
+                "from-branch": initial_commit,
+            },
+            {
+                ref.name: ref.target_commit
+                for ref in self._api.list_repo_refs(repo_id=repo_url.repo_id).branches
+            },
+        )
+
 
 class HfApiPublicStagingTest(unittest.TestCase):
     def setUp(self) -> None:

@@ -128,9 +128,19 @@ def interpreter_login() -> None:
     _|_|_|_|  _|    _|  _|  _|_|  _|  _|_|    _|    _|  _|  _|  _|  _|_|      _|_|_|    _|_|_|_|  _|        _|_|_|
     _|    _|  _|    _|  _|    _|  _|    _|    _|    _|    _|_|  _|    _|      _|        _|    _|  _|        _|
     _|    _|    _|_|      _|_|_|    _|_|_|  _|_|_|  _|      _|    _|_|_|      _|        _|    _|    _|_|_|  _|_|_|_|
-
-    To login, `huggingface_hub` now requires a token generated from https://huggingface.co/settings/tokens .
     """
+    )
+    if HfFolder.get_token() is not None:
+        print(
+            "    A token is already saved on your machine. Run `huggingface-cli"
+            " whoami` to get more information or `huggingface-cli logout` if you want"
+            " to log out."
+        )
+        print("    Setting a new token will erase the existing one.")
+
+    print(
+        "    To login, `huggingface_hub` requires a token generated from"
+        " https://huggingface.co/settings/tokens ."
     )
     if os.name == "nt":
         print("Token can be pasted using 'Right-Click'.")
