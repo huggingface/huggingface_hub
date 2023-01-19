@@ -527,7 +527,7 @@ class TestCorruptedCacheUtils(unittest.TestCase):
             file for file in revision_1.files if file.file_name == "README.md"
         ][0]
         another_file_1 = [
-            file for file in revision_1.files if file.file_name == "Another file.md"
+            file for file in revision_1.files if file.file_name == ".gitattributes"
         ][0]
 
         # Comparison of last_accessed/last_modified between file and repo
@@ -555,7 +555,7 @@ class TestCorruptedCacheUtils(unittest.TestCase):
             file for file in revision_2.files if file.file_name == "README.md"
         ][0]
         another_file_2 = [
-            file for file in revision_1.files if file.file_name == "Another file.md"
+            file for file in revision_1.files if file.file_name == ".gitattributes"
         ][0]
 
         # Report 1 is not updated when cache changes
