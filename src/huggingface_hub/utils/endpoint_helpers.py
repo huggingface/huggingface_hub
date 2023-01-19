@@ -304,11 +304,9 @@ class GeneralTags(AttributeDictionary):
         ref = AttributeDictionary()
         setattr(self, key, ref)
         for item in self._tag_dictionary.get(key, []):
-            setattr(
-                ref,
-                item["label"].replace(" ", "").replace("-", "_").replace(".", "_"),
-                item["id"],
-            )
+            label = item["label"].replace(" ", "").replace("-", "_").replace(".", "_")
+            ref[label] = item["id"]
+        self[key] = ref
 
 
 class ModelTags(GeneralTags):
