@@ -18,16 +18,28 @@ from huggingface_hub.utils._cache_manager import (
 )
 
 from .testing_constants import TOKEN
-from .testing_utils import capture_output, rmtree_with_retry, xfail_on_windows
+from .testing_utils import (
+    capture_output,
+    rmtree_with_retry,
+    with_production_testing,
+    xfail_on_windows,
+)
 
 
-VALID_MODEL_ID = "valid_org/test_scan_repo_a"
-VALID_DATASET_ID = "valid_org/test_scan_dataset_b"
+# On production server to avoid recreating them all the time
+MODEL_ID = "hf-internal-testing/hfh_ci_scan_repo_a"
+MODEL_PATH = "models--hf-internal-testing--hfh_ci_scan_repo_a"
 
-REPO_A_MAIN_HASH = "401874e6a9c254a8baae85edd8a073921ecbd7f5"
-REPO_A_PR_1_HASH = "fc674b0d440d3ea6f94bc4012e33ebd1dfc11b5b"
-REPO_A_OTHER_HASH = "1da18ebd9185d146bcf84e308de53715d97d67d1"
-REPO_A_MAIN_README_BLOB_HASH = "4baf04727c45b660add228b2934001991bd34b29"
+DATASET_ID = "hf-internal-testing/hfh_ci_scan_dataset_b"
+DATASET_PATH = "datasets--hf-internal-testing--hfh_ci_scan_dataset_b"
+
+REPO_A_MAIN_HASH = "c0d57e03d9f128062eadb6665618982db612b2e3"
+REPO_A_PR_1_HASH = "1a665a9d28a66b1d0f8edd9359fc824aacc63234"
+REPO_A_OTHER_HASH = "f95875cd910793299a545417cc4b3c9055202883"
+REPO_A_MAIN_README_BLOB_HASH = "fffc22b462ba2368b09b4d38527760051c9090a9"
+REPO_B_MAIN_HASH = "f1cdcd4641b3ea2dfa8d4333dba1ea3b532735e1"
+
+REF_1_NAME = "refs/pr/1"
 
 
 @pytest.mark.usefixtures("fx_cache_dir")
@@ -51,11 +63,12 @@ class TestMissingCacheUtils(unittest.TestCase):
 class TestValidCacheUtils(unittest.TestCase):
     cache_dir: Path
 
+    @with_production_testing
     def setUp(self) -> None:
         """Setup a clean cache for tests that will remain valid in all tests."""
         # Download latest main
         snapshot_download(
-            repo_id=VALID_MODEL_ID,
+            repo_id=MODEL_ID,
             repo_type="model",
             cache_dir=self.cache_dir,
             use_auth_token=TOKEN,
@@ -63,7 +76,7 @@ class TestValidCacheUtils(unittest.TestCase):
 
         # Download latest commit which is same as `main`
         snapshot_download(
-            repo_id=VALID_MODEL_ID,
+            repo_id=MODEL_ID,
             revision=REPO_A_MAIN_HASH,
             repo_type="model",
             cache_dir=self.cache_dir,
@@ -72,7 +85,7 @@ class TestValidCacheUtils(unittest.TestCase):
 
         # Download the first commit
         snapshot_download(
-            repo_id=VALID_MODEL_ID,
+            repo_id=MODEL_ID,
             revision=REPO_A_OTHER_HASH,
             repo_type="model",
             cache_dir=self.cache_dir,
@@ -81,7 +94,7 @@ class TestValidCacheUtils(unittest.TestCase):
 
         # Download from a PR
         snapshot_download(
-            repo_id=VALID_MODEL_ID,
+            repo_id=MODEL_ID,
             revision="refs/pr/1",
             repo_type="model",
             cache_dir=self.cache_dir,
@@ -90,7 +103,7 @@ class TestValidCacheUtils(unittest.TestCase):
 
         # Download a Dataset repo from "main"
         snapshot_download(
-            repo_id=VALID_DATASET_ID,
+            repo_id=DATASET_ID,
             revision="main",
             repo_type="dataset",
             cache_dir=self.cache_dir,
@@ -107,15 +120,15 @@ class TestValidCacheUtils(unittest.TestCase):
         report = scan_cache_dir(self.cache_dir)
 
         # Check general information about downloaded snapshots
-        self.assertEqual(report.size_on_disk, 3547)
+        self.assertEqual(report.size_on_disk, 3766)
         self.assertEqual(len(report.repos), 2)  # Model and dataset
         self.assertEqual(len(report.warnings), 0)  # Repos are valid
 
-        repo_a = [repo for repo in report.repos if repo.repo_id == VALID_MODEL_ID][0]
+        repo_a = [repo for repo in report.repos if repo.repo_id == MODEL_ID][0]
 
         # Check repo A general information
-        repo_a_path = self.cache_dir / "models--valid_org--test_scan_repo_a"
-        self.assertEqual(repo_a.repo_id, VALID_MODEL_ID)
+        repo_a_path = self.cache_dir / MODEL_PATH
+        self.assertEqual(repo_a.repo_id, MODEL_ID)
         self.assertEqual(repo_a.repo_type, "model")
         self.assertEqual(repo_a.repo_path, repo_a_path)
 
@@ -127,16 +140,15 @@ class TestValidCacheUtils(unittest.TestCase):
         )
 
         # Repo size on disk is less than sum of revisions !
-        self.assertEqual(repo_a.size_on_disk, 1391)
-        self.assertEqual(sum(rev.size_on_disk for rev in repo_a.revisions), 4102)
+        self.assertEqual(repo_a.size_on_disk, 1501)
+        self.assertEqual(sum(rev.size_on_disk for rev in repo_a.revisions), 4463)
 
         # Repo nb files is less than sum of revisions !
-        self.assertEqual(repo_a.nb_files, 4)
-        self.assertEqual(sum(rev.nb_files for rev in repo_a.revisions), 8)
+        self.assertEqual(repo_a.nb_files, 3)
+        self.assertEqual(sum(rev.nb_files for rev in repo_a.revisions), 6)
 
         # 2 REFS in the repo: "main" and "refs/pr/1"
         # We could have add a tag as well
-        REF_1_NAME = "refs/pr/1"
         self.assertEqual(set(repo_a.refs.keys()), {"main", REF_1_NAME})
         self.assertEqual(repo_a.refs["main"].commit_hash, REPO_A_MAIN_HASH)
         self.assertEqual(repo_a.refs[REF_1_NAME].commit_hash, REPO_A_PR_1_HASH)
@@ -195,11 +207,11 @@ class TestValidCacheUtils(unittest.TestCase):
         self.assertEqual(len(report.repos), 2)  # Model and dataset
         self.assertEqual(len(report.warnings), 0)  # Repos are valid
 
-        repo_a = [repo for repo in report.repos if repo.repo_id == VALID_MODEL_ID][0]
+        repo_a = [repo for repo in report.repos if repo.repo_id == MODEL_ID][0]
 
         # Check repo A general information
-        repo_a_path = self.cache_dir / "models--valid_org--test_scan_repo_a"
-        self.assertEqual(repo_a.repo_id, VALID_MODEL_ID)
+        repo_a_path = self.cache_dir / MODEL_PATH
+        self.assertEqual(repo_a.repo_id, MODEL_ID)
         self.assertEqual(repo_a.repo_type, "model")
         self.assertEqual(repo_a.repo_path, repo_a_path)
 
@@ -285,10 +297,10 @@ class TestValidCacheUtils(unittest.TestCase):
         expected_output = f"""
         REPO ID                       REPO TYPE SIZE ON DISK NB FILES LAST_ACCESSED     LAST_MODIFIED     REFS            LOCAL PATH
         ----------------------------- --------- ------------ -------- ----------------- ----------------- --------------- ---------------------------------------------------------
-        valid_org/test_scan_dataset_b dataset           2.2K        2 a few seconds ago a few seconds ago main            {self.cache_dir}/datasets--valid_org--test_scan_dataset_b
-        valid_org/test_scan_repo_a    model             1.4K        4 a few seconds ago a few seconds ago main, refs/pr/1 {self.cache_dir}/models--valid_org--test_scan_repo_a
+        {DATASET_ID} dataset           2.3K        1 a few seconds ago a few seconds ago main            {self.cache_dir}/{DATASET_PATH}
+        {MODEL_ID}   model             1.5K        3 a few seconds ago a few seconds ago main, refs/pr/1 {self.cache_dir}/{MODEL_PATH}
 
-        Done in 0.0s. Scanned 2 repo(s) for a total of \x1b[1m\x1b[31m3.5K\x1b[0m.
+        Done in 0.0s. Scanned 2 repo(s) for a total of \x1b[1m\x1b[31m3.8K\x1b[0m.
         """
 
         self.assertListEqual(
@@ -312,12 +324,12 @@ class TestValidCacheUtils(unittest.TestCase):
         expected_output = f"""
         REPO ID                       REPO TYPE REVISION                                 SIZE ON DISK NB FILES LAST_MODIFIED     REFS      LOCAL PATH
         ----------------------------- --------- ---------------------------------------- ------------ -------- ----------------- --------- ------------------------------------------------------------------------------------------------------------
-        valid_org/test_scan_dataset_b dataset   1ac47c6f707cbc4825c2aa431ad5ab8cf09e60ed         2.2K        2 a few seconds ago main      {self.cache_dir}/datasets--valid_org--test_scan_dataset_b/snapshots/1ac47c6f707cbc4825c2aa431ad5ab8cf09e60ed
-        valid_org/test_scan_repo_a    model     1da18ebd9185d146bcf84e308de53715d97d67d1         1.3K        1 a few seconds ago           {self.cache_dir}/models--valid_org--test_scan_repo_a/snapshots/1da18ebd9185d146bcf84e308de53715d97d67d1
-        valid_org/test_scan_repo_a    model     401874e6a9c254a8baae85edd8a073921ecbd7f5         1.4K        3 a few seconds ago main      {self.cache_dir}/models--valid_org--test_scan_repo_a/snapshots/401874e6a9c254a8baae85edd8a073921ecbd7f5
-        valid_org/test_scan_repo_a    model     fc674b0d440d3ea6f94bc4012e33ebd1dfc11b5b         1.4K        4 a few seconds ago refs/pr/1 {self.cache_dir}/models--valid_org--test_scan_repo_a/snapshots/fc674b0d440d3ea6f94bc4012e33ebd1dfc11b5b
+        {DATASET_ID} dataset   {REPO_B_MAIN_HASH}          2.3K        1 a few seconds ago main      {self.cache_dir}/{DATASET_PATH}/snapshots/{REPO_B_MAIN_HASH}
+        {MODEL_ID}   model     {REPO_A_PR_1_HASH}          1.5K        3 a few seconds ago refs/pr/1 {self.cache_dir}/{MODEL_PATH}/snapshots/{REPO_A_PR_1_HASH}
+        {MODEL_ID}   model     {REPO_A_MAIN_HASH}          1.5K        2 a few seconds ago main      {self.cache_dir}/{MODEL_PATH}/snapshots/{REPO_A_MAIN_HASH}
+        {MODEL_ID}   model     {REPO_A_OTHER_HASH}         1.5K        1 a few seconds ago           {self.cache_dir}/{MODEL_PATH}/snapshots/{REPO_A_OTHER_HASH}
 
-        Done in 0.0s. Scanned 2 repo(s) for a total of \x1b[1m\x1b[31m3.5K\x1b[0m.
+        Done in 0.0s. Scanned 2 repo(s) for a total of \x1b[1m\x1b[31m3.8K\x1b[0m.
         """
 
         self.assertListEqual(
@@ -354,17 +366,18 @@ class TestCorruptedCacheUtils(unittest.TestCase):
     refs_path: Path
     snapshots_path: Path
 
+    @with_production_testing
     def setUp(self) -> None:
         """Setup a clean cache for tests that will get corrupted/modified in tests."""
         # Download latest main
         snapshot_download(
-            repo_id=VALID_MODEL_ID,
+            repo_id=MODEL_ID,
             repo_type="model",
             cache_dir=self.cache_dir,
             use_auth_token=TOKEN,
         )
 
-        self.repo_path = self.cache_dir / "models--valid_org--test_scan_repo_a"
+        self.repo_path = self.cache_dir / MODEL_PATH
         self.refs_path = self.repo_path / "refs"
         self.snapshots_path = self.repo_path / "snapshots"
 
