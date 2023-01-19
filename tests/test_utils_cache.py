@@ -203,7 +203,7 @@ class TestValidCacheUtils(unittest.TestCase):
         report = scan_cache_dir(self.cache_dir)
 
         # Check general information about downloaded snapshots
-        self.assertEqual(report.size_on_disk, 6258)
+        self.assertEqual(report.size_on_disk, 6728)
         self.assertEqual(len(report.repos), 2)  # Model and dataset
         self.assertEqual(len(report.warnings), 0)  # Repos are valid
 
@@ -223,12 +223,12 @@ class TestValidCacheUtils(unittest.TestCase):
         )
 
         # Repo size on disk is equal to the sum of revisions (no symlinks)
-        self.assertEqual(repo_a.size_on_disk, 4102)  # Windows-specific
-        self.assertEqual(sum(rev.size_on_disk for rev in repo_a.revisions), 4102)
+        self.assertEqual(repo_a.size_on_disk, 4463)  # Windows-specific
+        self.assertEqual(sum(rev.size_on_disk for rev in repo_a.revisions), 4463)
 
         # Repo nb files is equal to the sum of revisions !
-        self.assertEqual(repo_a.nb_files, 8)  # Windows-specific
-        self.assertEqual(sum(rev.nb_files for rev in repo_a.revisions), 8)
+        self.assertEqual(repo_a.nb_files, 6)  # Windows-specific
+        self.assertEqual(sum(rev.nb_files for rev in repo_a.revisions), 6)
 
         # 2 REFS in the repo: "main" and "refs/pr/1"
         # We could have add a tag as well
