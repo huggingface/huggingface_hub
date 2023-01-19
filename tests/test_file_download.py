@@ -47,7 +47,7 @@ from huggingface_hub.utils import (
 )
 from tests.testing_constants import TOKEN
 
-from .testing_constants import OTHER_TOKEN
+from .testing_constants import ENDPOINT_STAGING, OTHER_TOKEN
 from .testing_utils import (
     DUMMY_MODEL_ID,
     DUMMY_MODEL_ID_PINNED_SHA1,
@@ -59,6 +59,7 @@ from .testing_utils import (
     SAMPLE_DATASET_IDENTIFIER,
     OfflineSimulationMode,
     offline,
+    repo_name,
     with_production_testing,
     xfail_on_windows,
 )
@@ -476,25 +477,40 @@ class StagingCachedDownloadOnAwfulFilenamesTest(unittest.TestCase):
     """
 
     cache_dir: Path
-    repo_id = "valid_org/repo_with_awful_filename"
     subfolder = "subfolder/to?"
     filename = "awful?filename%you:should,never.give"
-    filepath = "subfolder/to?/awful?filename%you:should,never.give"
-    expected_url = "https://hub-ci.huggingface.co/valid_org/repo_with_awful_filename/resolve/main/subfolder/to%3F/awful%3Ffilename%25you%3Ashould%2Cnever.give"
+    filepath = f"subfolder/to?/{filename}"
+
+    @classmethod
+    def setUpClass(cls):
+        cls.api = HfApi(endpoint=ENDPOINT_STAGING, token=TOKEN)
+        cls.repo_url = cls.api.create_repo(repo_id=repo_name("awful_filename"))
+        cls.expected_resolve_url = f"{cls.repo_url}/resolve/main/subfolder/to%3F/awful%3Ffilename%25you%3Ashould%2Cnever.give"
+        cls.api.upload_file(
+            path_or_fileobj=b"content",
+            path_in_repo=cls.filepath,
+            repo_id=cls.repo_url.repo_id,
+        )
+
+    @classmethod
+    def tearDownClass(cls) -> None:
+        cls.api.delete_repo(repo_id=cls.repo_url.repo_id)
 
     def test_hf_hub_url_on_awful_filepath(self):
-        self.assertEqual(hf_hub_url(self.repo_id, self.filepath), self.expected_url)
+        self.assertEqual(
+            hf_hub_url(self.repo_url.repo_id, self.filepath), self.expected_resolve_url
+        )
 
     def test_hf_hub_url_on_awful_subfolder_and_filename(self):
         self.assertEqual(
-            hf_hub_url(self.repo_id, self.filename, subfolder=self.subfolder),
-            self.expected_url,
+            hf_hub_url(self.repo_url.repo_id, self.filename, subfolder=self.subfolder),
+            self.expected_resolve_url,
         )
 
     @xfail_on_windows(reason="Windows paths cannot contain a '?'.")
     def test_hf_hub_download_on_awful_filepath(self):
         local_path = hf_hub_download(
-            self.repo_id, self.filepath, cache_dir=self.cache_dir
+            self.repo_url.repo_id, self.filepath, cache_dir=self.cache_dir
         )
         # Local path is not url-encoded
         self.assertTrue(local_path.endswith(self.filepath))
@@ -502,7 +518,7 @@ class StagingCachedDownloadOnAwfulFilenamesTest(unittest.TestCase):
     @xfail_on_windows(reason="Windows paths cannot contain a '?'.")
     def test_hf_hub_download_on_awful_subfolder_and_filename(self):
         local_path = hf_hub_download(
-            self.repo_id,
+            self.repo_url.repo_id,
             self.filename,
             subfolder=self.subfolder,
             cache_dir=self.cache_dir,
