@@ -2405,12 +2405,18 @@ class ActivityApiTest(unittest.TestCase):
         self.api.delete_repo(repo_id, token=TOKEN)
 
     def test_list_liked_repos_no_auth(self) -> None:
+        # Create a list 1 liked repo
+        liked_repo_name = "repo-that-is-liked-public"
+        repo_url = self.api.create_repo(liked_repo_name, exist_ok=True, token=TOKEN)
+        self.api.like(repo_url.repo_id, token=TOKEN)
+
+        # Fetch liked repos without auth
         likes = self.api.list_liked_repos(USER)
         self.assertEqual(likes.user, USER)
         self.assertGreater(
             len(likes.models) + len(likes.datasets) + len(likes.spaces), 0
         )
-        self.assertIn(f"{USER}/repo-that-is-liked-public", likes.models)
+        self.assertIn(repo_url.repo_id, likes.models)
 
     def test_list_likes_repos_auth_and_implicit_user(self) -> None:
         # User is implicit
