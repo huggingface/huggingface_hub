@@ -453,7 +453,7 @@ class Repository:
 
         If `clone_from` is set, the repo will be cloned from an existing remote repository.
         If the remote repo does not exist, a `EnvironmentError` exception will be thrown.
-        Please create the remote repo first using `HfApi().create_repo(repo_id=repo_id)`.
+        Please create the remote repo first using [`create_repo`].
 
         `Repository` uses the local git credentials by default. If explicitly set, the `token`
         or the `git_user`/`git_email` pair will be used instead.
