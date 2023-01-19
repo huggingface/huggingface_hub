@@ -2155,8 +2155,8 @@ class HfLargefilesTest(HfApiCommonTest):
         print("took", time.time() - start_time)
 
 
-class HfApiMiscTest(unittest.TestCase):
-    def test_repo_type_and_id_from_hf_id(self):
+class ParseHFUrlTest(unittest.TestCase):
+    def test_repo_type_and_id_from_hf_id_on_correct_values(self):
         possible_values = {
             "https://huggingface.co/id": [None, None, "id"],
             "https://huggingface.co/user/id": [None, "user", "id"],
@@ -2166,6 +2166,10 @@ class HfApiMiscTest(unittest.TestCase):
             "dataset/user/id": ["dataset", "user", "id"],
             "space/user/id": ["space", "user", "id"],
             "id": [None, None, "id"],
+            "hf://id": [None, None, "id"],
+            "hf://user/id": [None, "user", "id"],
+            "hf://model/user/name": ["model", "user", "name"],  # 's' is optional
+            "hf://models/user/name": ["model", "user", "name"],
         }
 
         for key, value in possible_values.items():
@@ -2173,6 +2177,17 @@ class HfApiMiscTest(unittest.TestCase):
                 repo_type_and_id_from_hf_id(key, hub_url="https://huggingface.co"),
                 tuple(value),
             )
+
+    def test_repo_type_and_id_from_hf_id_on_wrong_values(self):
+        for hub_id in [
+            "https://unknown-endpoint.co/id",
+            "https://huggingface.co/datasets/user/id@revision",  # @ forbidden
+            "datasets/user/id/subpath",
+            "hffs://model/user/name",
+            "spaeces/user/id",  # with typo in repo type
+        ]:
+            with self.assertRaises(ValueError):
+                repo_type_and_id_from_hf_id(hub_id, hub_url="https://huggingface.co")
 
 
 class HfApiDiscussionsTest(HfApiCommonTestWithLogin):
