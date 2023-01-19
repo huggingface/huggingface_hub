@@ -82,6 +82,7 @@ from .testing_constants import (
     ENDPOINT_STAGING,
     ENDPOINT_STAGING_BASIC_AUTH,
     FULL_NAME,
+    OTHER_TOKEN,
     TOKEN,
     USER,
 )
@@ -833,8 +834,11 @@ class CommitApiTest(HfApiCommonTestWithLogin):
 
     @retry_endpoint
     def test_create_commit_create_pr_on_foreign_repo(self):
-        # Repo on which we don't have right
+        # Create a repo with another user. The normal CI user don't have rights on it.
         # We must be able to create a PR on it
+        foreign_api = HfApi(token=OTHER_TOKEN)
+        foreign_repo_url = foreign_api.create_repo(repo_id=repo_name("repo-for-hfh-ci"))
+
         self._api.create_commit(
             operations=[
                 CommitOperationAdd(
@@ -845,9 +849,11 @@ class CommitApiTest(HfApiCommonTestWithLogin):
                 ),
             ],
             commit_message="PR on foreign repo",
-            repo_id="datasets_server_org/repo_for_huggingface_hub_ci_with_prs",
+            repo_id=foreign_repo_url.repo_id,
             create_pr=True,
         )
+
+        foreign_api.delete_repo(repo_id=foreign_repo_url.repo_id)
 
     @retry_endpoint
     def test_create_commit(self):
