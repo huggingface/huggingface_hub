@@ -20,6 +20,8 @@ from unittest.mock import Mock, patch
 
 import pytest
 
+import requests
+from huggingface_hub import HfApi
 from huggingface_hub.constants import (
     CONFIG_NAME,
     PYTORCH_WEIGHTS_NAME,
@@ -45,6 +47,7 @@ from huggingface_hub.utils import (
 )
 from tests.testing_constants import TOKEN
 
+from .testing_constants import OTHER_TOKEN
 from .testing_utils import (
     DUMMY_MODEL_ID,
     DUMMY_MODEL_ID_PINNED_SHA1,
@@ -436,6 +439,19 @@ class StagingCachedDownloadTest(unittest.TestCase):
         Regression test for #1121.
         https://github.com/huggingface/huggingface_hub/pull/1121
         """
+        # Create a gated repo on the fly. Repo is created by "other user" so that the
+        # usual CI user don't have access to it.
+        api = HfApi(token=OTHER_TOKEN)
+        repo_url = api.create_repo(
+            repo_id="gated_repo_for_huggingface_hub_ci", exist_ok=True
+        )
+        requests.put(
+            f"{repo_url.endpoint}/api/models/{repo_url.repo_id}/settings",
+            headers=api._build_hf_headers(),
+            json={"gated": True},
+        ).raise_for_status()
+
+        # Cannot download file as repo is gated
         with SoftTemporaryDirectory() as tmpdir:
             with self.assertRaisesRegex(
                 GatedRepoError,
@@ -443,8 +459,8 @@ class StagingCachedDownloadTest(unittest.TestCase):
                 " list",
             ):
                 hf_hub_download(
-                    repo_id="datasets_server_org/gated_repo_for_huggingface_hub_ci",
-                    filename="config.json",
+                    repo_id=repo_url.repo_id,
+                    filename=".gitattributes",
                     use_auth_token=TOKEN,
                     cache_dir=tmpdir,
                 )
