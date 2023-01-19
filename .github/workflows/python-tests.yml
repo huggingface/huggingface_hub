@@ -16,7 +16,7 @@ env:
   HUGGINGFACE_PRODUCTION_USER_TOKEN: ${{ secrets.HUGGINGFACE_PRODUCTION_USER_TOKEN }}
 
 jobs:
-  build:
+  build-ubuntu:
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
@@ -116,6 +116,44 @@ jobs:
             ;;
 
           esac
+
+      # Upload code coverage
+      - name: Upload coverage reports to Codecov with GitHub Action
+        uses: codecov/codecov-action@v3
+        with:
+          files: ./coverage.xml
+          verbose: true
+
+  build-windows:
+    # (almost) Duplicate config compared to `build-ubuntu` but running on Windows.
+    # Please make sure to keep it updated as well.
+    # Lighter version of the tests with only 1 test suite running on Python3.7.
+    runs-on: windows-latest
+    env:
+      DISABLE_SYMLINKS_IN_WINDOWS_TESTS: 1
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.7"]
+
+    steps:
+      - uses: actions/checkout@v2
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v2
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      # Install dependencies
+      - name: Configure and install dependencies
+        run: |
+          pip install --upgrade pip
+          pip install .[testing]
+        # sudo apt install -y libsndfile1-dev
+
+      # Run tests
+      - name: Run tests
+        working-directory: ./src # For code coverage to work
+        run: python -m pytest --cov=./huggingface_hub --cov-report=xml:../coverage.xml ../tests
 
       # Upload code coverage
       - name: Upload coverage reports to Codecov with GitHub Action

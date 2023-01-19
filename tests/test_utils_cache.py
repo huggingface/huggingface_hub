@@ -1,5 +1,4 @@
 import os
-import shutil
 import tempfile
 import time
 import unittest
@@ -19,7 +18,7 @@ from huggingface_hub.utils._cache_manager import (
 )
 
 from .testing_constants import TOKEN
-from .testing_utils import capture_output
+from .testing_utils import capture_output, rmtree_with_retry, xfail_on_windows
 
 
 VALID_MODEL_ID = "valid_org/test_scan_repo_a"
@@ -98,8 +97,13 @@ class TestValidCacheUtils(unittest.TestCase):
             use_auth_token=TOKEN,
         )
 
-    def test_scan_cache_on_valid_cache(self) -> None:
-        """Scan the cache dir without warnings."""
+    @unittest.skipIf(os.name == "nt", "Windows cache is tested separately")
+    def test_scan_cache_on_valid_cache_unix(self) -> None:
+        """Scan the cache dir without warnings (on unix-based platform).
+
+        This test is duplicated and adapted for Windows in `test_scan_cache_on_valid_cache_windows`.
+        Note: Please make sure to updated both if any change is made.
+        """
         report = scan_cache_dir(self.cache_dir)
 
         # Check general information about downloaded snapshots
@@ -132,9 +136,10 @@ class TestValidCacheUtils(unittest.TestCase):
 
         # 2 REFS in the repo: "main" and "refs/pr/1"
         # We could have add a tag as well
-        self.assertEqual(set(repo_a.refs.keys()), {"main", "refs/pr/1"})
+        REF_1_NAME = "refs/pr/1"
+        self.assertEqual(set(repo_a.refs.keys()), {"main", REF_1_NAME})
         self.assertEqual(repo_a.refs["main"].commit_hash, REPO_A_MAIN_HASH)
-        self.assertEqual(repo_a.refs["refs/pr/1"].commit_hash, REPO_A_PR_1_HASH)
+        self.assertEqual(repo_a.refs[REF_1_NAME].commit_hash, REPO_A_PR_1_HASH)
 
         # Check "main" revision information
         main_revision = repo_a.refs["main"]
@@ -163,7 +168,7 @@ class TestValidCacheUtils(unittest.TestCase):
         self.assertEqual(main_readme_file.blob_path, main_readme_blob_path)
 
         # Check readme file from "refs/pr/1" revision
-        pr_1_revision = repo_a.refs["refs/pr/1"]
+        pr_1_revision = repo_a.refs[REF_1_NAME]
         pr_1_revision_path = repo_a_path / "snapshots" / REPO_A_PR_1_HASH
         pr_1_readme_file = [
             file for file in pr_1_revision.files if file.file_name == "README.md"
@@ -174,6 +179,97 @@ class TestValidCacheUtils(unittest.TestCase):
         self.assertEqual(pr_1_readme_file.file_path, pr_1_readme_file_path)  # different
         self.assertEqual(pr_1_readme_file.blob_path, main_readme_blob_path)  # same
 
+    @unittest.skipIf(os.name != "nt", "Windows cache is tested separately")
+    def test_scan_cache_on_valid_cache_windows(self) -> None:
+        """Scan the cache dir without warnings (on Windows).
+
+        Windows tests do not use symlinks which leads to duplication in the cache.
+        This test is duplicated from `test_scan_cache_on_valid_cache_unix` with a few
+        tweaks specific to windows.
+        Note: Please make sure to updated both if any change is made.
+        """
+        report = scan_cache_dir(self.cache_dir)
+
+        # Check general information about downloaded snapshots
+        self.assertEqual(report.size_on_disk, 6258)
+        self.assertEqual(len(report.repos), 2)  # Model and dataset
+        self.assertEqual(len(report.warnings), 0)  # Repos are valid
+
+        repo_a = [repo for repo in report.repos if repo.repo_id == VALID_MODEL_ID][0]
+
+        # Check repo A general information
+        repo_a_path = self.cache_dir / "models--valid_org--test_scan_repo_a"
+        self.assertEqual(repo_a.repo_id, VALID_MODEL_ID)
+        self.assertEqual(repo_a.repo_type, "model")
+        self.assertEqual(repo_a.repo_path, repo_a_path)
+
+        # 4 downloads but 3 revisions because "main" and REPO_A_MAIN_HASH are the same
+        self.assertEqual(len(repo_a.revisions), 3)
+        self.assertEqual(
+            {rev.commit_hash for rev in repo_a.revisions},
+            {REPO_A_MAIN_HASH, REPO_A_PR_1_HASH, REPO_A_OTHER_HASH},
+        )
+
+        # Repo size on disk is equal to the sum of revisions (no symlinks)
+        self.assertEqual(repo_a.size_on_disk, 4102)  # Windows-specific
+        self.assertEqual(sum(rev.size_on_disk for rev in repo_a.revisions), 4102)
+
+        # Repo nb files is equal to the sum of revisions !
+        self.assertEqual(repo_a.nb_files, 8)  # Windows-specific
+        self.assertEqual(sum(rev.nb_files for rev in repo_a.revisions), 8)
+
+        # 2 REFS in the repo: "main" and "refs/pr/1"
+        # We could have add a tag as well
+        REF_1_NAME = "refs\\pr\\1"  # Windows-specific
+        self.assertEqual(set(repo_a.refs.keys()), {"main", REF_1_NAME})
+        self.assertEqual(repo_a.refs["main"].commit_hash, REPO_A_MAIN_HASH)
+        self.assertEqual(repo_a.refs[REF_1_NAME].commit_hash, REPO_A_PR_1_HASH)
+
+        # Check "main" revision information
+        main_revision = repo_a.refs["main"]
+        main_revision_path = repo_a_path / "snapshots" / REPO_A_MAIN_HASH
+
+        self.assertEqual(main_revision.commit_hash, REPO_A_MAIN_HASH)
+        self.assertEqual(main_revision.snapshot_path, main_revision_path)
+        self.assertEqual(main_revision.refs, {"main"})
+
+        # Same nb of files and size on disk that the sum
+        self.assertEqual(main_revision.nb_files, len(main_revision.files))
+        self.assertEqual(
+            main_revision.size_on_disk,
+            sum(file.size_on_disk for file in main_revision.files),
+        )
+
+        # Check readme file from "main" revision
+        main_readme_file = [
+            file for file in main_revision.files if file.file_name == "README.md"
+        ][0]
+        main_readme_file_path = main_revision_path / "README.md"
+        main_readme_blob_path = repo_a_path / "blobs" / REPO_A_MAIN_README_BLOB_HASH
+
+        self.assertEqual(main_readme_file.file_name, "README.md")
+        self.assertEqual(main_readme_file.file_path, main_readme_file_path)
+        self.assertEqual(  # Windows-specific: no blob file
+            main_readme_file.blob_path, main_readme_file_path
+        )
+        self.assertFalse(main_readme_blob_path.exists())  # Windows-specific
+
+        # Check readme file from "refs/pr/1" revision
+        pr_1_revision = repo_a.refs[REF_1_NAME]
+        pr_1_revision_path = repo_a_path / "snapshots" / REPO_A_PR_1_HASH
+        pr_1_readme_file = [
+            file for file in pr_1_revision.files if file.file_name == "README.md"
+        ][0]
+        pr_1_readme_file_path = pr_1_revision_path / "README.md"
+
+        # file_path in "refs/pr/1" revision is different than "main"
+        # Windows-specific: even blob path is different
+        self.assertEqual(pr_1_readme_file.file_path, pr_1_readme_file_path)
+        self.assertNotEqual(  # Windows-specific: different as well
+            pr_1_readme_file.blob_path, main_readme_file.blob_path
+        )
+
+    @xfail_on_windows("Size on disk and paths differ on Windows. Not useful to test.")
     def test_cli_scan_cache_quiet(self) -> None:
         """Test output from CLI scan cache with non verbose output.
 
@@ -200,6 +296,7 @@ class TestValidCacheUtils(unittest.TestCase):
             expected_output.replace("-", "").split(),
         )
 
+    @xfail_on_windows("Size on disk and paths differ on Windows. Not useful to test.")
     def test_cli_scan_cache_verbose(self) -> None:
         """Test output from CLI scan cache with verbose output.
 
@@ -244,7 +341,7 @@ class TestValidCacheUtils(unittest.TestCase):
             ScanCacheCommand(args).run()
 
         expected_output = f"""
-        Cache directory not found: {tmp_dir}
+        Cache directory not found: {Path(tmp_dir).resolve()}
         """
 
         self.assertListEqual(output.getvalue().split(), expected_output.split())
@@ -300,7 +397,7 @@ class TestCorruptedCacheUtils(unittest.TestCase):
         )
 
         # Case 3: good naming but not a dataset/model/space
-        shutil.rmtree(repo_path)
+        rmtree_with_retry(repo_path)
         repo_path = self.cache_dir / "not-models--t5-small"
         repo_path.mkdir()
 
@@ -316,7 +413,7 @@ class TestCorruptedCacheUtils(unittest.TestCase):
 
     def test_snapshots_path_not_found(self) -> None:
         """Test if snapshots directory is missing in cached repo."""
-        shutil.rmtree(self.snapshots_path)
+        rmtree_with_retry(self.snapshots_path)
 
         report = scan_cache_dir(self.cache_dir)
         self.assertEqual(len(report.repos), 0)  # Failed
@@ -345,7 +442,7 @@ class TestCorruptedCacheUtils(unittest.TestCase):
         """Test if a snapshot directory (e.g. a cached revision) is empty."""
         for revision_path in self.snapshots_path.glob("*"):
             # Delete content of the revision
-            shutil.rmtree(revision_path)
+            rmtree_with_retry(revision_path)
             revision_path.mkdir()
 
         # Scan
@@ -367,8 +464,8 @@ class TestCorruptedCacheUtils(unittest.TestCase):
 
     def test_repo_with_no_snapshots(self) -> None:
         """Test if the snapshot directory exists but is empty."""
-        shutil.rmtree(self.refs_path)
-        shutil.rmtree(self.snapshots_path)
+        rmtree_with_retry(self.refs_path)
+        rmtree_with_retry(self.snapshots_path)
         self.snapshots_path.mkdir()
 
         # Scan
@@ -402,6 +499,7 @@ class TestCorruptedCacheUtils(unittest.TestCase):
             + f"({self.repo_path }).",
         )
 
+    @xfail_on_windows("Last modified/last accessed work a bit differently on Windows.")
     def test_scan_cache_last_modified_and_last_accessed(self) -> None:
         """Scan the last_modified and last_accessed properties when scanning."""
         TIME_GAP = 0.1
@@ -750,6 +848,7 @@ class TestTryDeletePath(unittest.TestCase):
             )
         )
 
+    @xfail_on_windows(reason="Permissions are handled differently on Windows.")
     def test_delete_path_on_local_folder_with_wrong_permission(self) -> None:
         """Try delete a local folder that is protected."""
         dir_path = self.cache_dir / "something"

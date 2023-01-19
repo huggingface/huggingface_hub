@@ -110,18 +110,18 @@ class TestHttpBackoff(unittest.TestCase):
             while True:
                 yield ConnectTimeout()
                 t1 = time.time()
-                sleep_times.append(round(t1 - t0, 2))
+                sleep_times.append(round(t1 - t0, 1))
                 t0 = t1
 
         mock_request.side_effect = _side_effect_timer()
 
         with self.assertRaises(ConnectTimeout):
             http_backoff(
-                "GET", URL, base_wait_time=0.01, max_wait_time=0.05, max_retries=5
+                "GET", URL, base_wait_time=0.1, max_wait_time=0.5, max_retries=5
             )
 
         self.assertEqual(mock_request.call_count, 6)
 
         # Assert sleep times are exponential until plateau
-        expected_sleep_times = [0.01, 0.02, 0.04, 0.05, 0.05]
+        expected_sleep_times = [0.1, 0.2, 0.4, 0.5, 0.5]
         self.assertListEqual(sleep_times, expected_sleep_times)

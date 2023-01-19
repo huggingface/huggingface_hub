@@ -14,7 +14,6 @@
 import copy
 import os
 import re
-import shutil
 import tempfile
 import unittest
 from functools import partial
@@ -53,7 +52,7 @@ from .testing_utils import (
     expect_deprecation,
     repo_name,
     retry_endpoint,
-    set_write_permission_and_retry,
+    rmtree_with_retry,
 )
 
 
@@ -193,7 +192,7 @@ class RepocardMetadataTest(unittest.TestCase):
 
     def tearDown(self) -> None:
         if os.path.exists(REPOCARD_DIR):
-            shutil.rmtree(REPOCARD_DIR, onerror=set_write_permission_and_retry)
+            rmtree_with_retry(REPOCARD_DIR)
         logger.info(f"Does {REPOCARD_DIR} exist: {os.path.exists(REPOCARD_DIR)}")
 
     def test_metadata_load(self):
@@ -292,7 +291,7 @@ class RepocardMetadataUpdateTest(unittest.TestCase):
 
     def tearDown(self) -> None:
         self._api.delete_repo(repo_id=self.repo_id)
-        shutil.rmtree(self.repo_path)
+        rmtree_with_retry(self.repo_path)
 
     def test_update_dataset_name(self):
         new_datasets_data = {"datasets": ["test/test_dataset"]}
@@ -750,12 +749,24 @@ class RepoCardTest(TestCaseWithCapLog):
         card = RepoCard.load(card_path)
         self.assertIn("\r\n", str(card))
 
+    def test_preserve_linebreaks_when_saving(self):
+        card_path = SAMPLE_CARDS_DIR / "sample_simple.md"
+        card = RepoCard.load(card_path)
+        with SoftTemporaryDirectory() as tmpdir:
+            tmpfile = os.path.join(tmpdir, "readme.md")
+            card.save(tmpfile)
+            card2 = RepoCard.load(tmpfile)
+        self.assertEqual(str(card), str(card2))
+
     def test_updating_text_updates_content(self):
         sample_path = SAMPLE_CARDS_DIR / "sample_simple.md"
         card = RepoCard.load(sample_path)
         card.text = "Hello, world!"
+        line_break = "\r\n" if os.name == "nt" else "\n"
         self.assertEqual(
-            card.content, f"---\n{card.data.to_yaml()}\n---\nHello, world!"
+            card.content,
+            # line_break depends on platform. Correctly set when using RepoCard.save(...) to avoid diffs
+            f"---\n{card.data.to_yaml()}\n---\nHello, world!".replace("\n", line_break),
         )
 
 

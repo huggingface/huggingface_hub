@@ -1,5 +1,6 @@
 import inspect
 import os
+import shutil
 import stat
 import sys
 import time
@@ -9,7 +10,8 @@ from contextlib import contextmanager
 from enum import Enum
 from functools import wraps
 from io import StringIO
-from typing import Callable, Generator, Optional, TypeVar
+from pathlib import Path
+from typing import Callable, Generator, Optional, Type, TypeVar, Union
 from unittest.mock import Mock, patch
 
 import pytest
@@ -191,6 +193,10 @@ def set_write_permission_and_retry(func, path, excinfo):
     func(path)
 
 
+def rmtree_with_retry(path: Union[str, Path]) -> None:
+    shutil.rmtree(path, onerror=set_write_permission_and_retry)
+
+
 def with_production_testing(func):
     file_download = patch(
         "huggingface_hub.file_download.HUGGINGFACE_CO_URL_TEMPLATE",
@@ -293,6 +299,28 @@ def expect_deprecation(function_name: str):
                 return test_function(*args, **kwargs)
 
         return _inner_test_function
+
+    return _inner_decorator
+
+
+def xfail_on_windows(reason: str, raises: Optional[Type[Exception]] = None):
+    """
+    Decorator to flag tests that we expect to fail on Windows.
+
+    Will not raise an error if the expected error happens while running on Windows machine.
+    If error is expected but does not happen, the test fails as well.
+
+    Parameters:
+        reason (`str`):
+            Reason why it should fail.
+        raises (`Type[Exception]`):
+            The error type we except to happen.
+    """
+
+    def _inner_decorator(test_function: Callable) -> Callable:
+        return pytest.mark.xfail(
+            os.name == "nt", reason=reason, raises=raises, strict=True, run=True
+        )(test_function)
 
     return _inner_decorator
 

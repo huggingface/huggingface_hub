@@ -131,6 +131,25 @@ Tags: ['pytorch', 'tf', 'jax', 'tflite', 'rust', 'safetensors', 'gpt2', 'text-ge
 Task: text-generation
 ```
 
+## Windows limitations
+
+With our goal of democratizing good ML everywhere, we built `huggingface_hub` to be a
+cross-platform library and in particular to work correctly on both Unix-based and Windows
+systems. However, there are a few cases where `huggingface_hub` has some limitations when
+run on Windows. Here is an exhaustive list of known issues. Please let us know if you
+encounter any undocumented problem by opening [an issue on Github](https://github.com/huggingface/huggingface_hub/issues/new/choose).
+
+- `huggingface_hub`'s cache system relies on symlinks to efficiently cache files downloaded
+from the Hub. On Windows, you must activate developer mode or run your script as admin to
+enable symlinks. If they are not activated, the cache-system still works but in an non-optimized
+manner. Please read [this page](./how-to-cache#limitations) for more details.
+- Filepaths on the Hub can have special characters (e.g. `"path/to?/my/file"`). Windows is
+more restrictive on [special characters](https://learn.microsoft.com/en-us/windows/win32/intl/character-sets-used-in-file-names)
+which makes it impossible to download those files on Windows. Hopefully this is a rare case.
+Please reach out to the repo owner if you think this is a mistake or to us to figure out
+a solution.
+
+
 ## Next steps
 
 Once `huggingface_hub` is properly installed on your machine, you might want

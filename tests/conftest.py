@@ -1,14 +1,17 @@
+import os
+import shutil
 from pathlib import Path
 from typing import Generator
 
 import pytest
 
+import huggingface_hub
 from _pytest.fixtures import SubRequest
 from huggingface_hub import HfApi, HfFolder
 from huggingface_hub.utils import SoftTemporaryDirectory
 
 from .testing_constants import ENDPOINT_PRODUCTION, PRODUCTION_TOKEN
-from .testing_utils import repo_name
+from .testing_utils import repo_name, set_write_permission_and_retry
 
 
 @pytest.fixture
@@ -28,6 +31,9 @@ def fx_cache_dir(request: SubRequest) -> Generator[None, None, None]:
     with SoftTemporaryDirectory() as cache_dir:
         request.cls.cache_dir = Path(cache_dir).resolve()
         yield
+        # TemporaryDirectory is not super robust on Windows when a git repository is
+        # cloned in it. See https://www.scivision.dev/python-tempfile-permission-error-windows/.
+        shutil.rmtree(cache_dir, onerror=set_write_permission_and_retry)
 
 
 @pytest.fixture(autouse=True, scope="session")
@@ -45,6 +51,23 @@ def clean_hf_folder_token_for_tests() -> Generator:
     # Set back token once all tests have passed
     if token is not None:
         HfFolder().save_token(token)
+
+
+@pytest.fixture(autouse=True)
+def disable_symlinks_on_windows_ci(monkeypatch: pytest.MonkeyPatch) -> None:
+    class FakeSymlinkDict(dict):
+        def __contains__(self, __o: object) -> bool:
+            return True  # consider any `cache_dir` to be already checked
+
+        def __getitem__(self, __key: str) -> bool:
+            return False  # symlinks are never supported
+
+    if os.name == "nt" and os.environ.get("DISABLE_SYMLINKS_IN_WINDOWS_TESTS"):
+        monkeypatch.setattr(
+            huggingface_hub.file_download,
+            "_are_symlinks_supported_in_dir",
+            FakeSymlinkDict(),
+        )
 
 
 @pytest.fixture

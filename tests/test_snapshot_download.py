@@ -1,5 +1,4 @@
 import os
-import shutil
 import unittest
 
 import requests
@@ -16,7 +15,7 @@ from .testing_utils import (
     expect_deprecation,
     repo_name,
     retry_endpoint,
-    set_write_permission_and_retry,
+    rmtree_with_retry,
 )
 
 
@@ -40,7 +39,7 @@ class SnapshotDownloadTests(unittest.TestCase):
     @retry_endpoint
     def setUp(self) -> None:
         if os.path.exists(REPO_NAME):
-            shutil.rmtree(REPO_NAME, onerror=set_write_permission_and_retry)
+            rmtree_with_retry(REPO_NAME)
         logger.info(f"Does {REPO_NAME} exist: {os.path.exists(REPO_NAME)}")
 
         try:
@@ -79,7 +78,7 @@ class SnapshotDownloadTests(unittest.TestCase):
 
     def tearDown(self) -> None:
         self._api.delete_repo(repo_id=REPO_NAME)
-        shutil.rmtree(REPO_NAME)
+        rmtree_with_retry(REPO_NAME)
 
     def test_download_model(self):
         # Test `main` branch

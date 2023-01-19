@@ -438,7 +438,7 @@ class Repository:
     @validate_hf_hub_args
     def __init__(
         self,
-        local_dir: str,
+        local_dir: Union[str, Path],
         clone_from: Optional[str] = None,
         repo_type: Optional[str] = None,
         token: Union[bool, str] = True,
@@ -459,7 +459,7 @@ class Repository:
         or the `git_user`/`git_email` pair will be used instead.
 
         Args:
-            local_dir (`str`):
+            local_dir (`str` or `Path`):
                 path (e.g. `'my_trained_model/'`) to the local directory, where
                 the `Repository` will be initialized.
             clone_from (`str`, *optional*):
@@ -494,7 +494,8 @@ class Repository:
             - [`EnvironmentError`](https://docs.python.org/3/library/exceptions.html#EnvironmentError)
               if the remote repository set in `clone_from` does not exist.
         """
-
+        if isinstance(local_dir, Path):
+            local_dir = str(local_dir)
         os.makedirs(local_dir, exist_ok=True)
         self.local_dir = os.path.join(os.getcwd(), local_dir)
         self._repo_type = repo_type

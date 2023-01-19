@@ -13,7 +13,6 @@
 # limitations under the License.
 import json
 import os
-import shutil
 import time
 import unittest
 from pathlib import Path
@@ -22,7 +21,6 @@ import pytest
 
 import requests
 from huggingface_hub import RepoUrl
-from huggingface_hub._login import _currently_setup_credential_helpers
 from huggingface_hub.hf_api import HfApi
 from huggingface_hub.repository import (
     Repository,
@@ -152,7 +150,7 @@ class TestRepositoryShared(RepositoryTestAbstract):
         )
 
     def test_init_from_existing_local_clone(self):
-        run_subprocess(["git", "clone", self.repo_url, self.repo_path])
+        run_subprocess(["git", "clone", self.repo_url, str(self.repo_path)])
 
         repo = Repository(self.repo_path)
         repo.lfs_track(["*.pdf"])
@@ -361,7 +359,7 @@ class TestRepositoryUniqueRepos(RepositoryTestAbstract):
         self.assertEqual(repo.command_queue[-1].is_done, True)
         self.assertEqual(repo.command_queue[-1].title, "push")
 
-    @retry_endpoint
+    @unittest.skipIf(os.name == "nt", "Killing a process on Windows works differently.")
     def test_add_commit_push_non_blocking_process_killed(self):
         repo = self.clone_repo()
 
@@ -381,22 +379,19 @@ class TestRepositoryUniqueRepos(RepositoryTestAbstract):
 
     @retry_endpoint
     def test_commit_context_manager(self):
-        # Use a sub directory that we will delete manually
-        subpath = self.repo_path / "subpath"
-
-        clone = self.clone_repo(local_dir=subpath)
-
+        # Clone and commit from a first folder
+        folder_1 = self.repo_path / "folder_1"
+        clone = self.clone_repo(local_dir=folder_1)
         with clone.commit("Commit"):
             with open("dummy.txt", "w") as f:
                 f.write("hello")
             with open("model.bin", "w") as f:
                 f.write("hello")
 
-        shutil.rmtree(subpath)
-
-        self.clone_repo(local_dir=subpath)
-        Repository(subpath, clone_from=self.repo_url)
-        files = os.listdir(subpath)
+        # Clone in second folder. Check existence of committed files
+        folder_2 = self.repo_path / "folder_2"
+        self.clone_repo(local_dir=folder_2)
+        files = os.listdir(folder_2)
         self.assertTrue("dummy.txt" in files)
         self.assertTrue("model.bin" in files)
 
@@ -878,14 +873,6 @@ class TestRepositoryOffline(RepositoryTestAbstract):
 
         self.assertEqual(username.strip(), "RANDOM_USER")
         self.assertEqual(email.strip(), "EMAIL@EMAIL.EMAIL")
-
-    @expect_deprecation("_currently_setup_credential_helpers")
-    def test_correct_helper(self):
-        run_subprocess("git config --global credential.helper get")
-        self.assertListEqual(
-            _currently_setup_credential_helpers(self.repo.local_dir), ["get", "store"]
-        )
-        self.assertEqual(_currently_setup_credential_helpers(), ["get"])
 
     def test_add_tag(self):
         self.repo.add_tag("v4.6.0")

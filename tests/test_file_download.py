@@ -57,6 +57,7 @@ from .testing_utils import (
     OfflineSimulationMode,
     offline,
     with_production_testing,
+    xfail_on_windows,
 )
 
 
@@ -243,6 +244,7 @@ class CachedDownloadTests(unittest.TestCase):
             (url, '"95aa6a52d5d6a735563366753ca50492a658031da74f301ac5238b03966972c9"'),
         )
 
+    @xfail_on_windows(reason="umask is UNIX-specific")
     def test_hf_hub_download_custom_cache_permission(self):
         """Checks `hf_hub_download` respect the cache dir permission.
 
@@ -473,6 +475,7 @@ class StagingCachedDownloadOnAwfulFilenamesTest(unittest.TestCase):
             self.expected_url,
         )
 
+    @xfail_on_windows(reason="Windows paths cannot contain a '?'.")
     def test_hf_hub_download_on_awful_filepath(self):
         local_path = hf_hub_download(
             self.repo_id, self.filepath, cache_dir=self.cache_dir
@@ -480,6 +483,7 @@ class StagingCachedDownloadOnAwfulFilenamesTest(unittest.TestCase):
         # Local path is not url-encoded
         self.assertTrue(local_path.endswith(self.filepath))
 
+    @xfail_on_windows(reason="Windows paths cannot contain a '?'.")
     def test_hf_hub_download_on_awful_subfolder_and_filename(self):
         local_path = hf_hub_download(
             self.repo_id,
@@ -492,6 +496,7 @@ class StagingCachedDownloadOnAwfulFilenamesTest(unittest.TestCase):
 
 
 class CreateSymlinkTest(unittest.TestCase):
+    @unittest.skipIf(os.name == "nt", "No symlinks on Windows")
     @patch("huggingface_hub.file_download.are_symlinks_supported")
     def test_create_relative_symlink_concurrent_access(
         self, mock_are_symlinks_supported: Mock
