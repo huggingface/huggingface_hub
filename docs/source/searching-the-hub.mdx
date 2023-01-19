@@ -45,6 +45,15 @@ The `huggingface_hub` provides a user-friendly interface to know what exactly ca
 
 These are nested namespace objects that have **every single option** available on the Hub and that will return what should be passed to `filter`. The best of all is: it has tab completion 🎊 .
 
+<Tip warning={true}>
+
+[`ModelSearchArguments`] and [`DatasetSearchArguments`] are legacy helpers meant for exploratory
+purposes only. Their initialization require listing all models and datasets on the Hub which
+makes them increasingly slower as the number of repos on the Hub increases. For some production-ready code,
+consider passing raw strings when making a filtered search on the Hub.
+
+</Tip>
+
 ## Searching for a Model
 
 Let's pose a problem that would be complicated to solve without access to this information:

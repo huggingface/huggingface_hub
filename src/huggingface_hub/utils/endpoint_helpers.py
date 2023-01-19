@@ -300,14 +300,13 @@ class GeneralTags(AttributeDictionary):
             self._unpack_and_assign_dictionary(key)
 
     def _unpack_and_assign_dictionary(self, key: str):
-        "Assignes nested attributes to `self.key` containing information as an `AttributeDictionary`"
-        setattr(self, key, AttributeDictionary())
-        for item in self._tag_dictionary[key]:
-            ref = getattr(self, key)
-            item["label"] = (
-                item["label"].replace(" ", "").replace("-", "_").replace(".", "_")
-            )
-            setattr(ref, item["label"], item["id"])
+        "Assign nested attributes to `self.key` containing information as an `AttributeDictionary`"
+        ref = AttributeDictionary()
+        setattr(self, key, ref)
+        for item in self._tag_dictionary.get(key, []):
+            label = item["label"].replace(" ", "").replace("-", "_").replace(".", "_")
+            ref[label] = item["id"]
+        self[key] = ref
 
 
 class ModelTags(GeneralTags):

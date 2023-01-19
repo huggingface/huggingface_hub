@@ -583,9 +583,21 @@ class ModelSearchArguments(AttributeDictionary):
 
     ```python
     >>> args = ModelSearchArguments()
-    >>> args.author_or_organization.huggingface
+
+    >>> args.author.huggingface
+    'huggingface'
+
     >>> args.language.en
+    'en'
     ```
+
+    <Tip warning={true}>
+
+    `ModelSearchArguments` is a legacy class meant for exploratory purposes only. Its
+    initialization requires listing all models on the Hub which makes it increasingly
+    slower as the number of repos on the Hub increases.
+
+    </Tip>
     """
 
     def __init__(self, api: Optional["HfApi"] = None):
@@ -621,9 +633,21 @@ class DatasetSearchArguments(AttributeDictionary):
 
     ```python
     >>> args = DatasetSearchArguments()
-    >>> args.author_or_organization.huggingface
+
+    >>> args.author.huggingface
+    'huggingface'
+
     >>> args.language.en
+    'language:en'
     ```
+
+    <Tip warning={true}>
+
+    `DatasetSearchArguments` is a legacy class meant for exploratory purposes only. Its
+    initialization requires listing all datasets on the Hub which makes it increasingly
+    slower as the number of repos on the Hub increases.
+
+    </Tip>
     """
 
     def __init__(self, api: Optional["HfApi"] = None):
