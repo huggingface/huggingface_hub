@@ -28,6 +28,7 @@ class SnapshotDownloadTests(unittest.TestCase):
     _api = HfApi(endpoint=ENDPOINT_STAGING, token=TOKEN)
 
     @classmethod
+    @retry_endpoint
     @expect_deprecation("set_access_token")
     def setUpClass(cls):
         """
@@ -36,22 +37,20 @@ class SnapshotDownloadTests(unittest.TestCase):
         cls._token = TOKEN
         cls._api.set_access_token(TOKEN)
 
-    @retry_endpoint
-    def setUp(self) -> None:
         if os.path.exists(REPO_NAME):
             rmtree_with_retry(REPO_NAME)
         logger.info(f"Does {REPO_NAME} exist: {os.path.exists(REPO_NAME)}")
 
         try:
-            self._api.delete_repo(repo_id=REPO_NAME)
+            cls._api.delete_repo(repo_id=REPO_NAME)
         except RepositoryNotFoundError:
             pass
-        self._api.create_repo(f"{USER}/{REPO_NAME}")
+        cls._api.create_repo(f"{USER}/{REPO_NAME}")
 
         repo = Repository(
             REPO_NAME,
             clone_from=f"{USER}/{REPO_NAME}",
-            use_auth_token=self._token,
+            use_auth_token=cls._token,
             git_user="ci",
             git_email="ci@dummy.com",
         )
@@ -60,7 +59,7 @@ class SnapshotDownloadTests(unittest.TestCase):
             with open("dummy_file.txt", "w+") as f:
                 f.write("v1")
 
-        self.first_commit_hash = repo.git_head_hash()
+        cls.first_commit_hash = repo.git_head_hash()
 
         with repo.commit("Add file to main branch"):
             with open("dummy_file.txt", "w+") as f:
@@ -68,16 +67,17 @@ class SnapshotDownloadTests(unittest.TestCase):
             with open("dummy_file_2.txt", "w+") as f:
                 f.write("v3")
 
-        self.second_commit_hash = repo.git_head_hash()
+        cls.second_commit_hash = repo.git_head_hash()
 
         with repo.commit("Add file to other branch", branch="other"):
             with open("dummy_file_2.txt", "w+") as f:
                 f.write("v4")
 
-        self.third_commit_hash = repo.git_head_hash()
+        cls.third_commit_hash = repo.git_head_hash()
 
-    def tearDown(self) -> None:
-        self._api.delete_repo(repo_id=REPO_NAME)
+    @classmethod
+    def tearDownClass(cls) -> None:
+        cls._api.delete_repo(repo_id=REPO_NAME)
         rmtree_with_retry(REPO_NAME)
 
     def test_download_model(self):
