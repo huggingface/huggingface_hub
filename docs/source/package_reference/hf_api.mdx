@@ -1,84 +1,71 @@
-# Hugging Face Hub API
+# HfApi Client
 
-Below is the documentation for the `HfApi` class, which serves as a Python wrapper for the Hugging Face
-Hub's API.
+Below is the documentation for the `HfApi` class, which serves as a Python wrapper for the Hugging Face Hub's API.
 
-All methods from the `HfApi` are also accessible from the package's root directly, both approaches are detailed
-below.
+All methods from the `HfApi` are also accessible from the package's root directly. Both approaches are detailed below.
 
-The following approach uses the method from the root of the package:
+Using the root method is more straightforward but the [`HfApi`] class gives you more flexibility.
+In particular, you can pass a token that will be reused in all HTTP calls. This is different
+than `huggingface-cli login` or [`login`] as the token is not persisted on the machine.
+It is also possible to provide a different endpoint or configure a custom user-agent.
 
 ```python
-from huggingface_hub import list_models
+from huggingface_hub import HfApi, list_models
 
+# Use root method
 models = list_models()
-```
 
-The following approach uses the `HfApi` class:
-
-```python
-from huggingface_hub import HfApi
-
-hf_api = HfApi()
-models = hf_api.list_models()
-```
-
-Using the [`HfApi`] class directly enables you to configure the client. In particular, a
-token can be passed to be authenticated in all API calls. This is different than
-`huggingface-cli login` or [`login`] as the token is not persisted on the machine. One
-can also specify a different endpoint than the Hugging Face's Hub (for example to interact
-with a Private Hub).
-
-```py
-from huggingface_hub import HfApi
-
+# Or configure a HfApi client
 hf_api = HfApi(
     endpoint="https://huggingface.co", # Can be a Private Hub endpoint.
     token="hf_xxx", # Token is not persisted on the machine.
 )
+models = hf_api.list_models()
 ```
 
-### HfApi
+## HfApi
 
 [[autodoc]] HfApi
 
-### RepoUrl
-
-[[autodoc]] huggingface_hub.hf_api.RepoUrl
-
-### ModelInfo
-
-[[autodoc]] huggingface_hub.hf_api.ModelInfo
-
-### DatasetInfo
-
-[[autodoc]] huggingface_hub.hf_api.DatasetInfo
-
-### SpaceInfo
-
-[[autodoc]] huggingface_hub.hf_api.SpaceInfo
-
-### RepoFile
-
-[[autodoc]] huggingface_hub.hf_api.RepoFile
-
-### GitRefs
-
-[[autodoc]] huggingface_hub.hf_api.GitRefs
-
-### GitRefInfo
-
-[[autodoc]] huggingface_hub.hf_api.GitRefInfo
+## API Dataclasses
 
 ### CommitInfo
 
 [[autodoc]] huggingface_hub.hf_api.CommitInfo
 
+### DatasetInfo
+
+[[autodoc]] huggingface_hub.hf_api.DatasetInfo
+
+### GitRefInfo
+
+[[autodoc]] huggingface_hub.hf_api.GitRefInfo
+
+### GitRefs
+
+[[autodoc]] huggingface_hub.hf_api.GitRefs
+
+### ModelInfo
+
+[[autodoc]] huggingface_hub.hf_api.ModelInfo
+
+### RepoFile
+
+[[autodoc]] huggingface_hub.hf_api.RepoFile
+
+### RepoUrl
+
+[[autodoc]] huggingface_hub.hf_api.RepoUrl
+
+### SpaceInfo
+
+[[autodoc]] huggingface_hub.hf_api.SpaceInfo
+
 ### UserLikes
 
 [[autodoc]] huggingface_hub.hf_api.UserLikes
 
-## `create_commit` API
+## CommitOperation
 
 Below are the supported values for [`CommitOperation`]:
 
@@ -86,7 +73,7 @@ Below are the supported values for [`CommitOperation`]:
 
 [[autodoc]] CommitOperationDelete
 
-## Hugging Face local storage
+## Token helper
 
 `huggingface_hub` stores the authentication information locally so that it may be re-used in subsequent
 methods.
@@ -95,7 +82,7 @@ It does this using the [`HfFolder`] utility, which saves data at the root of the
 
 [[autodoc]] HfFolder
 
-## Filtering helpers
+## Search helpers
 
 Some helpers to filter repositories on the Hub are available in the `huggingface_hub` package.
 
