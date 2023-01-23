@@ -1345,15 +1345,22 @@ def try_to_load_from_cache(
     if not os.path.isdir(repo_cache):
         # No cache for this model
         return None
+    # is anything in the cache?
+    cache_empty = True
     for subfolder in ["refs", "snapshots"]:
-        if not os.path.isdir(os.path.join(repo_cache, subfolder)):
-            return None
+        if os.path.isdir(os.path.join(repo_cache, subfolder)):
+            cache_empty = False
+
+    if cache_empty:
+        return None
 
     # Resolve refs (for instance to convert main to the associated commit sha)
-    cached_refs = os.listdir(os.path.join(repo_cache, "refs"))
-    if revision in cached_refs:
-        with open(os.path.join(repo_cache, "refs", revision)) as f:
-            revision = f.read()
+    refs_dir = os.path.join(repo_cache, "refs")
+    if os.path.isdir(refs_dir):
+        cached_refs = os.listdir(refs_dir)
+        if revision in cached_refs:
+            with open(os.path.join(repo_cache, "refs", revision)) as f:
+                revision = f.read()
 
     if os.path.isfile(os.path.join(repo_cache, ".no_exist", revision, filename)):
         return _CACHED_NO_EXIST
