@@ -1327,6 +1327,23 @@ def try_to_load_from_cache(
             - The exact path to the cached file if it's found in the cache
             - A special value `_CACHED_NO_EXIST` if the file does not exist at the given commit hash and this fact was
               cached.
+
+    Example:
+
+    ```python
+    from huggingface_hub import try_to_load_from_cache, _CACHED_NO_EXIST
+
+    filepath = try_to_load_from_cache()
+    if isinstance(filepath, str):
+        # file exists and is cached
+        ...
+    elif filepath is _CACHED_NO_EXIST:
+        # non-existence of file is cached
+        ...
+    else:
+        # file is not cached
+        ...
+    ```
     """
     if revision is None:
         revision = "main"
