@@ -1365,7 +1365,7 @@ def try_to_load_from_cache(
 
     refs_dir = os.path.join(repo_cache, "refs")
     snapshots_dir = os.path.join(repo_cache, "snapshots")
-    no_exists_dir = os.path.join(repo_cache, ".no_exist")
+    no_exist_dir = os.path.join(repo_cache, ".no_exist")
 
     # Resolve refs (for instance to convert main to the associated commit sha)
     if os.path.isdir(refs_dir):
@@ -1374,8 +1374,8 @@ def try_to_load_from_cache(
             with open(os.path.join(refs_dir, revision)) as f:
                 revision = f.read()
 
-    # Check if file is cached as "no_exists"
-    if os.path.isfile(os.path.join(no_exists_dir, revision, filename)):
+    # Check if file is cached as "no_exist"
+    if os.path.isfile(os.path.join(no_exist_dir, revision, filename)):
         return _CACHED_NO_EXIST
 
     # Check if revision folder exists
