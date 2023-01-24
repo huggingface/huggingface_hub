@@ -348,7 +348,7 @@ class CachedDownloadTests(unittest.TestCase):
         metadata = filename_to_url(filepath, legacy_cache_layout=True)
         self.assertEqual(metadata[1], f'"{DUMMY_MODEL_ID_PINNED_SHA1}"')
 
-    def test_try_to_load_from_cache(self):
+    def test_try_to_load_from_cache_exist(self):
         # Make sure the file is cached
         filepath = hf_hub_download(DUMMY_MODEL_ID, filename=CONFIG_NAME)
 
@@ -388,6 +388,53 @@ class CachedDownloadTests(unittest.TestCase):
 
         # If file non-existence is not cached, returns None
         self.assertIsNone(try_to_load_from_cache(DUMMY_MODEL_ID, filename="dummy2"))
+
+    def test_try_to_load_from_cache_specific_commit_id_exist(self):
+        """Regression test for #1306.
+
+        See https://github.com/huggingface/huggingface_hub/pull/1306."""
+        with SoftTemporaryDirectory() as cache_dir:
+            # Cache file from specific commit id (no "refs/"" folder)
+            commit_id = HfApi().model_info(DUMMY_MODEL_ID).sha
+            filepath = hf_hub_download(
+                DUMMY_MODEL_ID,
+                filename=CONFIG_NAME,
+                revision=commit_id,
+                cache_dir=cache_dir,
+            )
+
+            # Must be able to retrieve it "offline"
+            attempt = try_to_load_from_cache(
+                DUMMY_MODEL_ID,
+                filename=CONFIG_NAME,
+                revision=commit_id,
+                cache_dir=cache_dir,
+            )
+            self.assertEqual(filepath, attempt)
+
+    def test_try_to_load_from_cache_specific_commit_id_no_exist(self):
+        """Regression test for #1306.
+
+        See https://github.com/huggingface/huggingface_hub/pull/1306."""
+        with SoftTemporaryDirectory() as cache_dir:
+            # Cache file from specific commit id (no "refs/"" folder)
+            commit_id = HfApi().model_info(DUMMY_MODEL_ID).sha
+            with self.assertRaises(EntryNotFoundError):
+                hf_hub_download(
+                    DUMMY_MODEL_ID,
+                    filename="missing_file",
+                    revision=commit_id,
+                    cache_dir=cache_dir,
+                )
+
+            # Must be able to retrieve it "offline"
+            attempt = try_to_load_from_cache(
+                DUMMY_MODEL_ID,
+                filename="missing_file",
+                revision=commit_id,
+                cache_dir=cache_dir,
+            )
+            self.assertEqual(attempt, _CACHED_NO_EXIST)
 
     def test_get_hf_file_metadata_basic(self) -> None:
         """Test getting metadata from a file on the Hub."""

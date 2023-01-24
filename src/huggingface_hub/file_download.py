@@ -1345,32 +1345,32 @@ def try_to_load_from_cache(
     if not os.path.isdir(repo_cache):
         # No cache for this model
         return None
-    # is anything in the cache?
-    cache_empty = True
-    for subfolder in ["refs", "snapshots"]:
-        if os.path.isdir(os.path.join(repo_cache, subfolder)):
-            cache_empty = False
 
-    if cache_empty:
-        return None
+    refs_dir = os.path.join(repo_cache, "refs")
+    snapshots_dir = os.path.join(repo_cache, "snapshots")
+    no_exists_dir = os.path.join(repo_cache, ".no_exist")
 
     # Resolve refs (for instance to convert main to the associated commit sha)
-    refs_dir = os.path.join(repo_cache, "refs")
     if os.path.isdir(refs_dir):
         cached_refs = os.listdir(refs_dir)
         if revision in cached_refs:
-            with open(os.path.join(repo_cache, "refs", revision)) as f:
+            with open(os.path.join(refs_dir, revision)) as f:
                 revision = f.read()
 
-    if os.path.isfile(os.path.join(repo_cache, ".no_exist", revision, filename)):
+    # Check if file is cached as "no_exists"
+    if os.path.isfile(os.path.join(no_exists_dir, revision, filename)):
         return _CACHED_NO_EXIST
 
-    cached_shas = os.listdir(os.path.join(repo_cache, "snapshots"))
+    # Check if revision folder exists
+    if not os.path.exists(snapshots_dir):
+        return None
+    cached_shas = os.listdir(snapshots_dir)
     if revision not in cached_shas:
         # No cache for this revision and we won't try to return a random revision
         return None
 
-    cached_file = os.path.join(repo_cache, "snapshots", revision, filename)
+    # Check if file exists in cache
+    cached_file = os.path.join(snapshots_dir, revision, filename)
     return cached_file if os.path.isfile(cached_file) else None
 
 
