@@ -1177,18 +1177,24 @@ def hf_hub_download(
                 "We have no connection or you passed local_files_only, so"
                 " force_download is not an accepted option."
             )
+
+        # Try to get "commit_hash" from "revision"
+        commit_hash = None
         if REGEX_COMMIT_HASH.match(revision):
             commit_hash = revision
         else:
             ref_path = os.path.join(storage_folder, "refs", revision)
-            with open(ref_path) as f:
-                commit_hash = f.read()
+            if os.path.isfile(ref_path):
+                with open(ref_path) as f:
+                    commit_hash = f.read()
 
-        pointer_path = os.path.join(
-            storage_folder, "snapshots", commit_hash, relative_filename
-        )
-        if os.path.exists(pointer_path):
-            return pointer_path
+        # Return pointer file if exists
+        if commit_hash is not None:
+            pointer_path = os.path.join(
+                storage_folder, "snapshots", commit_hash, relative_filename
+            )
+            if os.path.exists(pointer_path):
+                return pointer_path
 
         # If we couldn't find an appropriate file on disk,
         # raise an error.

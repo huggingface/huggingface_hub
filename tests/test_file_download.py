@@ -318,6 +318,24 @@ class CachedDownloadTests(unittest.TestCase):
         self.assertEqual(filepath.name, CONFIG_NAME)
         self.assertEqual(Path(filepath).parent.parent.name, "snapshots")
 
+    def test_hf_hub_download_offline_no_refs(self):
+        """Regression test for #1305.
+
+        If "refs/" dir did not exists on "local_files_only" (or connection broken), a
+        non-explicit `FileNotFoundError` was raised (for the "/refs/revision" file) instead
+        of the documented `LocalEntryNotFoundError` (for the actual searched file).
+
+        See https://github.com/huggingface/huggingface_hub/issues/1305.
+        """
+        with SoftTemporaryDirectory() as cache_dir:
+            with self.assertRaises(LocalEntryNotFoundError):
+                hf_hub_download(
+                    DUMMY_MODEL_ID,
+                    filename=CONFIG_NAME,
+                    local_files_only=True,
+                    cache_dir=cache_dir,
+                )
+
     def test_hf_hub_url_with_empty_subfolder(self):
         """
         Check subfolder arg is processed correctly when empty string is passed to
