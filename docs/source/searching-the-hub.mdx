@@ -1,40 +1,70 @@
-# Searching the Hub Efficiently with Python
+# Searching the Hub
 
-In this tutorial, we will explore how to interact and explore the Hugging Face Hub with the `huggingface_hub` library to help find available models and datasets quickly.
+In this tutorial, you will learn how to search models, datasets and spaces on the Hub using `huggingface_hub`.
 
-## The Basics
+## How to list repositories ?
 
-`huggingface_hub` is a Python library that allows anyone to freely extract useful information from the Hub, as well as downloading and publishing models. You can install it with:
+`huggingface_hub` library includes an HTTP client [`HfApi`] to interact with the Hub.
+Among other things, it can list models, datasets and spaces stored on the Hub:
 
-
-```bash
-pip install huggingface_hub
-```
-
-It comes packaged with an interface that can interact with the Hub in the [`HfApi`] class:
-
-
-```python
+```py
 >>> from huggingface_hub import HfApi
 >>> api = HfApi()
+>>> models = api.list_models()
 ```
 
-This class lets you perform a variety of operations that interact with the raw Hub API. We'll be focusing on two specific functions:
-- [`list_models`]
-- [`list_datasets`]
+The output of [`list_models`] is an iterator over the models stored on the Hub.
 
-If you look at what can be passed into each function, you will find the parameter list looks something like:
+Similarly, you can use [`list_datasets`] to list datasets and [`list_spaces`] to list Spaces.
+
+## How to filter repositories ?
+
+Listing repositories is great but now you might want to filter your search.
+The list helpers have several attributes like:
 - `filter`
 - `author`
 - `search`
 - ...
 
-Two of these parameters are intuitive (`author` and `search`), but what about that `filter`? 🤔 Let's dive into a few helpers quickly and revisit that question.
+Two of these parameters are intuitive (`author` and `search`), but what about that `filter`?
+`filter` takes as input a [`ModelFilter`] object (or [`DatasetFilter`]). You can instantiate
+it by specifying which models you want to filter. 
 
-## Search Parameters
+Let's see an example to get all models on the Hub that does image classification, have been
+trained on the imagenet dataset and that runs with PyTorch. That can be done with a single
+[`ModelFilter`]. Attributes are combined as "logical AND".
 
-The `huggingface_hub` provides a user-friendly interface to know what exactly can be passed into this `filter` parameter through the [`ModelSearchArguments`] and [`DatasetSearchArguments`] classes:
+```py
+models = hf_api.list_models(
+    filter=ModelFilter(
+		task="image-classification",
+		library="pytorch",
+		trained_dataset="imagenet"
+	)
+)
+```
 
+While filtering, you can also sort the models and take only the top results. For example,
+the following example fetches the top 5 most downloaded datasets on the Hub:
+
+```py
+>>> list_datasets(sort="downloads", direction=-1, limit=5)
+[DatasetInfo: {
+        id: glue
+		downloads: 897789
+		(...)
+```
+
+
+## How to explore filter options ?
+
+Now you know how to filter your list of models/datasets/spaces. The problem you might
+have is that you don't know exactly what you are looking for. No worries! We also provide
+some helpers that allows you to discover what arguments can be passed in your query.
+
+[`ModelSearchArguments`] and [`DatasetSearchArguments`] are nested namespace objects that
+have **every single option** available on the Hub and that will return what should be passed
+to `filter`. The best of all is: it has tab completion 🎊 .
 
 ```python
 >>> from huggingface_hub import ModelSearchArguments, DatasetSearchArguments
@@ -43,24 +73,17 @@ The `huggingface_hub` provides a user-friendly interface to know what exactly ca
 >>> dataset_args = DatasetSearchArguments()
 ```
 
-These are nested namespace objects that have **every single option** available on the Hub and that will return what should be passed to `filter`. The best of all is: it has tab completion 🎊 .
-
 <Tip warning={true}>
 
-[`ModelSearchArguments`] and [`DatasetSearchArguments`] are legacy helpers meant for exploratory
-purposes only. Their initialization require listing all models and datasets on the Hub which
-makes them increasingly slower as the number of repos on the Hub increases. For some production-ready code,
-consider passing raw strings when making a filtered search on the Hub.
+Before continuing, please we aware that [`ModelSearchArguments`] and [`DatasetSearchArguments`]
+are legacy helpers meant for exploratory purposes only. Their initialization require listing
+all models and datasets on the Hub which makes them increasingly slower as the number of repos
+on the Hub increases. For some production-ready code, consider passing raw strings when making
+a filtered search on the Hub.
 
 </Tip>
 
-## Searching for a Model
-
-Let's pose a problem that would be complicated to solve without access to this information:
-> I want to search the Hub for all PyTorch models trained on the `glue` dataset that can do Text Classification.
-
-If you check what is available in `model_args` by checking it's output, you will find:
-
+Now, let's check what is available in `model_args` by checking it's output, you will find:
 
 ```python
 >>> model_args
@@ -74,10 +97,10 @@ Available Attributes or Keys:
  * pipeline_tag
 ```
 
-It has a variety of attributes or keys available to you. This is because it is both an object and a dictionary, so you can either do `model_args["author"]` or `model_args.author`. For this tutorial, let's follow the latter format.
+It has a variety of attributes or keys available to you. This is because it is both an object
+and a dictionary, so you can either do `model_args["author"]` or `model_args.author`.
 
 The first criteria is getting all PyTorch models. This would be found under the `library` attribute, so let's see if it is there:
-
 
 ```python
 >>> model_args.library
@@ -113,7 +136,6 @@ Available Attributes or Keys:
 
 It is! The `PyTorch` name is there, so you'll need to use `model_args.library.PyTorch`:
 
-
 ```python
 >>> model_args.library.PyTorch
 'pytorch'
@@ -125,7 +147,8 @@ Below is an animation repeating the process for finding both the `Text Classific
 
 ![Animation exploring `model_args.dataset`](https://huggingface.co/datasets/huggingface/documentation-images/resolve/main/search_glue.gif)
 
-Now that all the pieces are there, the last step is to combine them all for something the API can use through the [`ModelFilter`] and [`DatasetFilter`] classes. The classes transform the outputs of the previous step into something the API can use conveniently:
+Now that all the pieces are there, the last step is to combine them all for something the
+API can use through the [`ModelFilter`] and [`DatasetFilter`] classes (i.e. strings).
 
 
 ```python
@@ -153,14 +176,16 @@ ModelInfo: {
 }
 ```
 
-As you can see, it found the models that fit all the criteria. You can even take it further by passing in an array for each of the parameters from before. For example, let's take a look for the same configuration, but also include `TensorFlow` in the filter:
+As you can see, it found the models that fit all the criteria. You can even take it further
+by passing in an array for each of the parameters from before. For example, let's take a look
+for the same configuration, but also include `TensorFlow` in the filter:
 
 
 ```python
 >>> filt = ModelFilter(
 ...     task=model_args.pipeline_tag.TextClassification, 
 ...     library=[model_args.library.PyTorch, model_args.library.TensorFlow]
->>> )
+... )
 >>> api.list_models(filter=filt)[0]
 ModelInfo: {
 	modelId: distilbert-base-uncased-finetuned-sst-2-english
@@ -178,156 +203,17 @@ ModelInfo: {
 }
 ```
 
-## Searching for a Dataset
+This query is strictly equivalent to:
 
-Similarly to finding a model, you can find a dataset easily by following the same steps.
-
-The new scenario will be:
-> I want to search the Hub for all datasets that can be used for `text_classification` and are in English.
-
-First, you should look at what is available in the [`DatasetSearchArguments`], similar to the [`ModelSearchArguments`]:
-
-
-```python
->>> dataset_args = DatasetSearchArguments()
->>> dataset_args
-Available Attributes or Keys:
- * author
- * benchmark
- * dataset_name
- * language_creators
- * language
- * license
- * multilinguality
- * size_categories
- * task_categories
- * task_ids
-```
-
-`text_classification` is a *task*, so first you should check `task_categories`:
-
-
-```python
->>> dataset_args.task_categories
-Available Attributes or Keys:
- * CodeGeneration
- * Evaluationoflanguagemodels
- * InclusiveLanguage
- * InformationRetrieval
- * SemanticSearch
- * Summarization
- * Text2Textgeneration (Key only)
- * TextNeutralization
- * TokenClassification
- * Translation
- * audio_classification
- * automatic_speech_recognition
- * caption_retrieval
- * code_generation
- * computer_vision
- * conditional_text_generation
- * conversational
- * cross_language_transcription
- * crowdsourced
- * dialogue_system
- * entity_extraction
- * feature_extraction
- * fill_mask
- * generative_modelling
- * gpt_3 (Key only)
- * grammaticalerrorcorrection
- * image
- * image_captioning
- * image_classification
- * image_retrieval
- * image_segmentation
- * image_to_text
- * information_retrieval
- * language_modeling
- * machine_translation
- * multiple_choice
- * named_entity_disambiguation
- * named_entity_recognition
- * natural_language_inference
- * news_classification
- * object_detection
- * other
- * other_test
- * other_text_search
- * paraphrase
- * paraphrasedetection
- * query_paraphrasing
- * question_answering
- * question_generation
- * question_pairing
- * sentiment_analysis
- * sequence2sequence (Key only)
- * sequence_modeling
- * speech_processing
- * structure_prediction
- * summarization
- * table_to_text
- * tabular_to_text
- * text2text_generation (Key only)
- * text_classification
- * text_generation
- * text_generation_other_code_modeling
- * text_generation_other_common_sense_inference
- * text_generation_other_discourse_analysis
- * text_regression
- * text_retrieval
- * text_scoring
- * text_to_structured
- * text_to_tabular
- * textual_entailment
- * time_series_forecasting
- * token_classification
- * transkation
- * translation
- * tts
- * unpaired_image_to_image_translation
- * zero_shot_information_retrieval
- * zero_shot_retrieval
-```
-
-There you will find `text_classification`, so you should use `dataset_args.task_categories.text_classification`.
-
-Next we need to find the proper language. There is a `language` property we can check. These are two-letter language codes, so you should check if it has `en`:
-
-
-```python
->>> "en" in dataset_args.language
-True
-```
-
-Now that the pieces are found, you can write a filter:
-
-
-```python
->>> filt = DatasetFilter(
-...    language=dataset_args.language.en,
-...    task_categories=dataset_args.task_categories.text_classification
+```py
+>>> filt = ModelFilter(
+...     task="text-classification", 
+...     library=["pytorch", "tensorflow"],
 ... )
 ```
 
-And search the API!
+Here, the [`ModelSearchArguments`] has been a helper to explore the options available on the Hub.
+However, it is not a requirement to make a search. Another way to do that is to visit the
+[models](https://huggingface.co/models) and [datasets](https://huggingface.co/datasets) pages
+in your browser, search for some parameters and look at the values in the URL.
 
-
-```python
->>> api.list_datasets(filter=filt)[0]
-DatasetInfo: {
-    id: Abirate/english_quotes
-    lastModified: None
-    tags: ['annotations_creators:expert-generated', 'language_creators:expert-generated', 'language_creators:crowdsourced', 'language:en', 'multilinguality:monolingual', 'source_datasets:original', 'task_categories:text-classification', 'task_ids:multi-label-classification']
-    private: False
-    author: Abirate
-    description: None
-    citation: None
-    cardData: None
-    siblings: None
-    gated: False
-}
-```
-
-
-With these two functionalities combined, you can search for all available parameters and tags within the Hub to search for with ease for both Datasets and Models!
