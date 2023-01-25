@@ -94,6 +94,7 @@ _SUBMOD_ATTRS = {
     ],
     "file_download": [
         "HfFileMetadata",
+        "_CACHED_NO_EXIST",
         "cached_download",
         "get_hf_file_metadata",
         "hf_hub_download",
@@ -336,6 +337,7 @@ if TYPE_CHECKING:  # pragma: no cover
     from .fastai_utils import _save_pretrained_fastai  # noqa: F401
     from .fastai_utils import from_pretrained_fastai  # noqa: F401
     from .fastai_utils import push_to_hub_fastai  # noqa: F401
+    from .file_download import _CACHED_NO_EXIST  # noqa: F401
     from .file_download import HfFileMetadata  # noqa: F401
     from .file_download import cached_download  # noqa: F401
     from .file_download import get_hf_file_metadata  # noqa: F401

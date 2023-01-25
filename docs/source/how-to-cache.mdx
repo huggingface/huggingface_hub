@@ -87,6 +87,46 @@ That `README.md` file is actually a symlink linking to the blob that has the has
 By creating the skeleton this way we open the mechanism to file sharing: if the same file was fetched in
 revision `bbbbbb`, it would have the same hash and the file would not need to be re-downloaded.
 
+### .no_exist (advanced)
+
+In addition to the `blobs`, `refs` and `snapshots` folders, you might also find a `.no_exist` folder
+in your cache. This folder keeps track of files that you've tried to download once but don't exist
+on the Hub. Its structure is the same as the `snapshots` folder with 1 subfolder per known revision:
+
+```
+<CACHE_DIR>/<REPO_NAME>/.no_exist/aaaaaa/config_that_does_not_exist.json
+```
+
+Unlike the `snapshots` folder, files are simple empty files (no symlinks). In this example,
+the file `"config_that_does_not_exist.json"` does not exist on the Hub for the revision `"aaaaaa"`.
+As it only stores empty files, this folder is neglectable is term of disk usage.
+
+So now you might wonder, why is this information even relevant?
+In some cases, a framework tries to load optional files for a model. Saving the non-existence
+of optional files makes it faster to load a model as it saves 1 HTTP call per possible optional file.
+This is for example the case in `transformers` where each tokenizer can support additional files.
+The first time you load the tokenizer on your machine, it will cache which optional files exists (and
+which doesn't) to make the loading time faster for the next initializations.
+
+To test if a file is cached locally (without making any HTTP request), you can use the [`try_to_load_from_cache`]
+helper. It will either return the filepath (if exists and cached), the object `_CACHED_NO_EXIST` (if non-existence
+is cached) or `None` (if we don't know).
+
+```python
+from huggingface_hub import try_to_load_from_cache, _CACHED_NO_EXIST
+
+filepath = try_to_load_from_cache()
+if isinstance(filepath, str):
+    # file exists and is cached
+    ...
+elif filepath is _CACHED_NO_EXIST:
+    # non-existence of file is cached
+    ...
+else:
+    # file is not cached
+    ...
+```
+
 ### In practice
 
 In practice, your cache should look like the following tree:
