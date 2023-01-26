@@ -239,7 +239,7 @@ class ModelHubMixin:
         should be pushed to the hub. See [`upload_folder`] reference for more details.
 
         Parameters:
-            repo_id (`str`, *optional*):
+            repo_id (`str`):
                 Repository name to which push.
             config (`dict`, *optional*):
                 Configuration object to be saved alongside the model weights.
