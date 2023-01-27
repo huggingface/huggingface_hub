@@ -185,8 +185,8 @@ def hf_hub_url(
         subfolder (`str`, *optional*):
             An optional value corresponding to a folder inside the repo.
         repo_type (`str`, *optional*):
-            Set to `"dataset"` or `"space"` if uploading to a dataset or space,
-            `None` or `"model"` if uploading to a model. Default is `None`.
+            Set to `"dataset"` or `"space"` if downloading from a dataset or space,
+            `None` or `"model"` if downloading from a model. Default is `None`.
         revision (`str`, *optional*):
             An optional Git revision id which can be a branch name, a tag, or a
             commit hash.
@@ -953,8 +953,8 @@ def hf_hub_download(
         subfolder (`str`, *optional*):
             An optional value corresponding to a folder inside the model repo.
         repo_type (`str`, *optional*):
-            Set to `"dataset"` or `"space"` if uploading to a dataset or space,
-            `None` or `"model"` if uploading to a model. Default is `None`.
+            Set to `"dataset"` or `"space"` if downloading from a dataset or space,
+            `None` or `"model"` if downloading from a model. Default is `None`.
         revision (`str`, *optional*):
             An optional Git revision id which can be a branch name, a tag, or a
             commit hash.
