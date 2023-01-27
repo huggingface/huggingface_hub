@@ -58,8 +58,8 @@ def snapshot_download(
             An optional Git revision id which can be a branch name, a tag, or a
             commit hash.
         repo_type (`str`, *optional*):
-            Set to `"dataset"` or `"space"` if uploading to a dataset or space,
-            `None` or `"model"` if uploading to a model. Default is `None`.
+            Set to `"dataset"` or `"space"` if downloading from a dataset or space,
+            `None` or `"model"` if downloading from a model. Default is `None`.
         cache_dir (`str`, `Path`, *optional*):
             Path to the folder where cached files are stored.
         library_name (`str`, *optional*):
