@@ -8,10 +8,10 @@ import pytest
 
 from huggingface_hub import HfApi, hf_hub_download
 from huggingface_hub.hub_mixin import PyTorchModelHubMixin
-from huggingface_hub.utils import SoftTemporaryDirectory, is_torch_available, logging
+from huggingface_hub.utils import SoftTemporaryDirectory, is_torch_available
 
 from .testing_constants import ENDPOINT_STAGING, TOKEN, USER
-from .testing_utils import expect_deprecation, repo_name, rmtree_with_retry
+from .testing_utils import repo_name
 
 
 if is_torch_available():

@@ -133,11 +133,11 @@ class ModelHubMixin:
         model_id = pretrained_model_name_or_path
 
         if isinstance(model_id, str) and len(model_id.split("@")) == 2:
-            warnings.warns(
-                FutureWarning,
+            warnings.warn(
                 "Passing a revision using 'namespace/model_id@revision' pattern is"
                 " deprecated and will be removed in version v0.16. Please pass"
                 " 'revision=...' as argument.",
+                FutureWarning,
             )
             model_id, revision = model_id.split("@")
 
@@ -147,10 +147,10 @@ class ModelHubMixin:
                 config_file = os.path.join(model_id, CONFIG_NAME)
             else:
                 logger.warning(f"{CONFIG_NAME} not found in {Path(model_id).resolve()}")
-        else:
+        elif isinstance(model_id, str):
             try:
                 config_file = hf_hub_download(
-                    repo_id=model_id,
+                    repo_id=str(model_id),
                     filename=CONFIG_NAME,
                     revision=revision,
                     cache_dir=cache_dir,
@@ -336,8 +336,6 @@ class PyTorchModelHubMixin(ModelHubMixin):
         """
         Overwrite this method to initialize your model in a different way.
         """
-        map_location = torch.device(map_location)
-
         if os.path.isdir(model_id):
             print("Loading weights from local directory")
             model_file = os.path.join(model_id, PYTORCH_WEIGHTS_NAME)
@@ -355,8 +353,8 @@ class PyTorchModelHubMixin(ModelHubMixin):
             )
         model = cls(**model_kwargs)
 
-        state_dict = torch.load(model_file, map_location=map_location)
-        model.load_state_dict(state_dict, strict=strict)
-        model.eval()
+        state_dict = torch.load(model_file, map_location=torch.device(map_location))
+        model.load_state_dict(state_dict, strict=strict)  # type: ignore
+        model.eval()  # type: ignore
 
         return model
