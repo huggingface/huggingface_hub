@@ -76,6 +76,7 @@ class ModelHubMixin:
                 repo_id = Path(save_directory).name
 
             return self.push_to_hub(repo_id=repo_id, **kwargs)
+        return None
 
     def _save_pretrained(self, save_directory: Union[str, Path]) -> None:
         """
@@ -310,7 +311,7 @@ class PyTorchModelHubMixin(ModelHubMixin):
     def _save_pretrained(self, save_directory: Union[str, Path]):
         """Save weights from a Pytorch model to a local directory."""
         path = os.path.join(save_directory, PYTORCH_WEIGHTS_NAME)
-        model_to_save = self.module if hasattr(self, "module") else self
+        model_to_save = self.module if hasattr(self, "module") else self  # type: ignore
         torch.save(model_to_save.state_dict(), path)
 
     @classmethod
