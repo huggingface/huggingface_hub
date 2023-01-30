@@ -37,7 +37,7 @@ class ModelHubMixin:
         repo_id: Optional[str] = None,
         push_to_hub: bool = False,
         **kwargs,
-    ):
+    ) -> Optional[str]:
         """
         Save weights in local directory.
 
@@ -77,7 +77,7 @@ class ModelHubMixin:
 
             return self.push_to_hub(repo_id=repo_id, **kwargs)
 
-    def _save_pretrained(self, save_directory: Union[str, Path]):
+    def _save_pretrained(self, save_directory: Union[str, Path]) -> None:
         """
         Overwrite this method in subclass to define how to save your model.
         """
@@ -307,11 +307,8 @@ class PyTorchModelHubMixin(ModelHubMixin):
     ```
     """
 
-    def _save_pretrained(self, save_directory):
-        """
-        Overwrite this method if you wish to save specific layers instead of the
-        complete model.
-        """
+    def _save_pretrained(self, save_directory: Union[str, Path]):
+        """Save weights from a Pytorch model to a local directory."""
         path = os.path.join(save_directory, PYTORCH_WEIGHTS_NAME)
         model_to_save = self.module if hasattr(self, "module") else self
         torch.save(model_to_save.state_dict(), path)
