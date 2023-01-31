@@ -65,9 +65,7 @@ from .utils._headers import _http_user_agent
 from .utils._runtime import _PY_VERSION  # noqa: F401 # for backward compatibility
 from .utils._typing import HTTP_METHOD_T
 
-
 logger = logging.get_logger(__name__)
-
 
 _are_symlinks_supported_in_dir: Dict[str, bool] = {}
 
@@ -163,12 +161,12 @@ class HfFileMetadata:
 
 @validate_hf_hub_args
 def hf_hub_url(
-    repo_id: str,
-    filename: str,
-    *,
-    subfolder: Optional[str] = None,
-    repo_type: Optional[str] = None,
-    revision: Optional[str] = None,
+        repo_id: str,
+        filename: str,
+        *,
+        subfolder: Optional[str] = None,
+        repo_type: Optional[str] = None,
+        revision: Optional[str] = None,
 ) -> str:
     """Construct the URL of a file from the given information.
 
@@ -279,9 +277,9 @@ def url_to_filename(url: str, etag: Optional[str] = None) -> str:
 
 
 def filename_to_url(
-    filename,
-    cache_dir: Optional[str] = None,
-    legacy_cache_layout: bool = False,
+        filename,
+        cache_dir: Optional[str] = None,
+        legacy_cache_layout: bool = False,
 ) -> Tuple[str, str]:
     """
     Return the url and etag (which may be `None`) stored for `filename`. Raise
@@ -325,10 +323,10 @@ def filename_to_url(
 
 
 def http_user_agent(
-    *,
-    library_name: Optional[str] = None,
-    library_version: Optional[str] = None,
-    user_agent: Union[Dict, str, None] = None,
+        *,
+        library_name: Optional[str] = None,
+        library_version: Optional[str] = None,
+        user_agent: Union[Dict, str, None] = None,
 ) -> str:
     """Deprecated in favor of [`build_hf_headers`]."""
     return _http_user_agent(
@@ -354,15 +352,15 @@ def _raise_if_offline_mode_is_enabled(msg: Optional[str] = None):
 
 
 def _request_wrapper(
-    method: HTTP_METHOD_T,
-    url: str,
-    *,
-    max_retries: int = 0,
-    base_wait_time: float = 0.5,
-    max_wait_time: float = 2,
-    timeout: float = 10.0,
-    follow_relative_redirects: bool = False,
-    **params,
+        method: HTTP_METHOD_T,
+        url: str,
+        *,
+        max_retries: int = 0,
+        base_wait_time: float = 0.5,
+        max_wait_time: float = 2,
+        timeout: float = 10.0,
+        follow_relative_redirects: bool = False,
+        **params,
 ) -> requests.Response:
     """Wrapper around requests methods to add several features.
 
@@ -459,14 +457,14 @@ def _request_with_retry(*args, **kwargs) -> requests.Response:
 
 
 def http_get(
-    url: str,
-    temp_file: BinaryIO,
-    *,
-    proxies=None,
-    resume_size=0,
-    headers: Optional[Dict[str, str]] = None,
-    timeout=10.0,
-    max_retries=0,
+        url: str,
+        temp_file: BinaryIO,
+        *,
+        proxies=None,
+        resume_size=0,
+        headers: Optional[Dict[str, str]] = None,
+        timeout=10.0,
+        max_retries=0,
 ):
     """
     Download a remote file. Do not gobble up errors, and will return errors tailored to the Hugging Face Hub.
@@ -536,20 +534,20 @@ def http_get(
 
 @validate_hf_hub_args
 def cached_download(
-    url: str,
-    *,
-    library_name: Optional[str] = None,
-    library_version: Optional[str] = None,
-    cache_dir: Union[str, Path, None] = None,
-    user_agent: Union[Dict, str, None] = None,
-    force_download: bool = False,
-    force_filename: Optional[str] = None,
-    proxies: Optional[Dict] = None,
-    etag_timeout: float = 10,
-    resume_download: bool = False,
-    token: Union[bool, str, None] = None,
-    local_files_only: bool = False,
-    legacy_cache_layout: bool = False,
+        url: str,
+        *,
+        library_name: Optional[str] = None,
+        library_version: Optional[str] = None,
+        cache_dir: Union[str, Path, None] = None,
+        user_agent: Union[Dict, str, None] = None,
+        force_download: bool = False,
+        force_filename: Optional[str] = None,
+        proxies: Optional[Dict] = None,
+        etag_timeout: float = 10,
+        resume_download: bool = False,
+        token: Union[bool, str, None] = None,
+        local_files_only: bool = False,
+        legacy_cache_layout: bool = False,
 ) -> Optional[str]:  # pragma: no cover
     """
     Download from a given URL and cache it if it's not already present in the
@@ -679,9 +677,9 @@ def cached_download(
             # Actually raise for those subclasses of ConnectionError
             raise
         except (
-            requests.exceptions.ConnectionError,
-            requests.exceptions.Timeout,
-            OfflineModeIsEnabled,
+                requests.exceptions.ConnectionError,
+                requests.exceptions.Timeout,
+                OfflineModeIsEnabled,
         ):
             # Otherwise, our Internet connection is down.
             # etag is None
@@ -708,9 +706,9 @@ def cached_download(
                 if not file.endswith(".json") and not file.endswith(".lock")
             ]
             if (
-                len(matching_files) > 0
-                and not force_download
-                and force_filename is None
+                    len(matching_files) > 0
+                    and not force_download
+                    and force_filename is None
             ):
                 return os.path.join(cache_dir, matching_files[-1])
             else:
@@ -866,7 +864,7 @@ def _create_relative_symlink(src: str, dst: str, new_blob: bool = False) -> None
 
 
 def _cache_commit_hash_for_specific_revision(
-    storage_folder: str, revision: str, commit_hash: str
+        storage_folder: str, revision: str, commit_hash: str
 ) -> None:
     """Cache reference between a revision (tag, branch or truncated commit hash) and the corresponding commit hash.
 
@@ -896,24 +894,24 @@ def repo_folder_name(*, repo_id: str, repo_type: str) -> str:
 
 @validate_hf_hub_args
 def hf_hub_download(
-    repo_id: str,
-    filename: str,
-    *,
-    subfolder: Optional[str] = None,
-    repo_type: Optional[str] = None,
-    revision: Optional[str] = None,
-    library_name: Optional[str] = None,
-    library_version: Optional[str] = None,
-    cache_dir: Union[str, Path, None] = None,
-    user_agent: Union[Dict, str, None] = None,
-    force_download: bool = False,
-    force_filename: Optional[str] = None,
-    proxies: Optional[Dict] = None,
-    etag_timeout: float = 10,
-    resume_download: bool = False,
-    token: Union[bool, str, None] = None,
-    local_files_only: bool = False,
-    legacy_cache_layout: bool = False,
+        repo_id: str,
+        filename: str,
+        *,
+        subfolder: Optional[str] = None,
+        repo_type: Optional[str] = None,
+        revision: Optional[str] = None,
+        library_name: Optional[str] = None,
+        library_version: Optional[str] = None,
+        cache_dir: Union[str, Path, None] = None,
+        user_agent: Union[Dict, str, None] = None,
+        force_download: bool = False,
+        force_filename: Optional[str] = None,
+        proxies: Optional[Dict] = None,
+        etag_timeout: float = 10,
+        resume_download: bool = False,
+        token: Union[bool, str, None] = None,
+        local_files_only: bool = False,
+        legacy_cache_layout: bool = False,
 ):
     """Download a given file if it's not already present in the local cache.
 
@@ -1115,10 +1113,10 @@ def hf_hub_download(
                 )
                 if commit_hash is not None and not legacy_cache_layout:
                     no_exist_file_path = (
-                        Path(storage_folder)
-                        / ".no_exist"
-                        / commit_hash
-                        / relative_filename
+                            Path(storage_folder)
+                            / ".no_exist"
+                            / commit_hash
+                            / relative_filename
                     )
                     no_exist_file_path.parent.mkdir(parents=True, exist_ok=True)
                     no_exist_file_path.touch()
@@ -1158,9 +1156,9 @@ def hf_hub_download(
             # Actually raise for those subclasses of ConnectionError
             raise
         except (
-            requests.exceptions.ConnectionError,
-            requests.exceptions.Timeout,
-            OfflineModeIsEnabled,
+                requests.exceptions.ConnectionError,
+                requests.exceptions.Timeout,
+                OfflineModeIsEnabled,
         ):
             # Otherwise, our Internet connection is down.
             # etag is None
@@ -1303,11 +1301,11 @@ def hf_hub_download(
 
 @validate_hf_hub_args
 def try_to_load_from_cache(
-    repo_id: str,
-    filename: str,
-    cache_dir: Union[str, Path, None] = None,
-    revision: Optional[str] = None,
-    repo_type: Optional[str] = None,
+        repo_id: str,
+        filename: str,
+        cache_dir: Union[str, Path, None] = None,
+        revision: Optional[str] = None,
+        repo_type: Optional[str] = None,
 ) -> Union[str, _CACHED_NO_EXIST_T, None]:
     """
     Explores the cache to return the latest cached file for a given revision if found.
@@ -1375,11 +1373,10 @@ def try_to_load_from_cache(
 
     # Resolve refs (for instance to convert main to the associated commit sha)
     if os.path.isdir(refs_dir):
-        for p in Path(refs_dir).rglob("*"):
-            if str(p).endswith(revision):
-                with open(os.path.join(refs_dir, revision)) as f:
-                    revision = f.read()
-                break
+        revision_file = os.path.join(refs_dir, revision)
+        if os.path.isfile(revision_file):
+            with open(revision_file) as f:
+                revision = f.read()
 
     # Check if file is cached as "no_exist"
     if os.path.isfile(os.path.join(no_exist_dir, revision, filename)):
@@ -1400,10 +1397,10 @@ def try_to_load_from_cache(
 
 @validate_hf_hub_args
 def get_hf_file_metadata(
-    url: str,
-    token: Union[bool, str, None] = None,
-    proxies: Optional[Dict] = None,
-    timeout: float = 10,
+        url: str,
+        token: Union[bool, str, None] = None,
+        proxies: Optional[Dict] = None,
+        timeout: float = 10,
 ) -> HfFileMetadata:
     """Fetch metadata of a file versioned on the Hub for a given url.
 
