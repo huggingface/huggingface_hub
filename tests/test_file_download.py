@@ -404,7 +404,6 @@ class CachedDownloadTests(unittest.TestCase):
         # If revision does not exist, returns None
         self.assertIsNone(try_to_load_from_cache(DUMMY_MODEL_ID, filename=CONFIG_NAME, revision="does-not-exist"))
 
-
     def test_try_to_load_from_cache_no_exist(self):
         # Make sure the file is cached
         with self.assertRaises(EntryNotFoundError):
