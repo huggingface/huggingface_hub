@@ -64,6 +64,7 @@ from .testing_utils import (
     xfail_on_windows,
 )
 
+
 REVISION_ID_DEFAULT = "main"
 # Default branch name
 
@@ -111,8 +112,8 @@ class CachedDownloadTests(unittest.TestCase):
         # Valid revision (None) but missing file on repo.
         url = hf_hub_url(DUMMY_MODEL_ID, filename="missing.bin")
         with self.assertRaisesRegex(
-                EntryNotFoundError,
-                re.compile("404 Client Error(.*)Entry Not Found", flags=re.DOTALL),
+            EntryNotFoundError,
+            re.compile("404 Client Error(.*)Entry Not Found", flags=re.DOTALL),
         ):
             _ = cached_download(url, legacy_cache_layout=True)
 
@@ -179,8 +180,8 @@ class CachedDownloadTests(unittest.TestCase):
             revision=DUMMY_MODEL_ID_REVISION_INVALID,
         )
         with self.assertRaisesRegex(
-                RevisionNotFoundError,
-                re.compile("404 Client Error(.*)Revision Not Found", flags=re.DOTALL),
+            RevisionNotFoundError,
+            re.compile("404 Client Error(.*)Revision Not Found", flags=re.DOTALL),
         ):
             _ = cached_download(url, legacy_cache_layout=True)
 
@@ -188,8 +189,8 @@ class CachedDownloadTests(unittest.TestCase):
         # Invalid model file.
         url = hf_hub_url("bert-base", filename="pytorch_model.bin")
         with self.assertRaisesRegex(
-                RepositoryNotFoundError,
-                re.compile("401 Client Error(.*)Repository Not Found", flags=re.DOTALL),
+            RepositoryNotFoundError,
+            re.compile("401 Client Error(.*)Repository Not Found", flags=re.DOTALL),
         ):
             _ = cached_download(url, legacy_cache_layout=True)
 
@@ -403,6 +404,7 @@ class CachedDownloadTests(unittest.TestCase):
         # If revision does not exist, returns None
         self.assertIsNone(try_to_load_from_cache(DUMMY_MODEL_ID, filename=CONFIG_NAME, revision="does-not-exist"))
 
+
     def test_try_to_load_from_cache_no_exist(self):
         # Make sure the file is cached
         with self.assertRaises(EntryNotFoundError):
@@ -532,9 +534,9 @@ class StagingCachedDownloadTest(unittest.TestCase):
         # Cannot download file as repo is gated
         with SoftTemporaryDirectory() as tmpdir:
             with self.assertRaisesRegex(
-                    GatedRepoError,
-                    "Access to model .* is restricted and you are not in the authorized"
-                    " list",
+                GatedRepoError,
+                "Access to model .* is restricted and you are not in the authorized"
+                " list",
             ):
                 hf_hub_download(
                     repo_id=repo_url.repo_id,
@@ -608,7 +610,7 @@ class CreateSymlinkTest(unittest.TestCase):
     @unittest.skipIf(os.name == "nt", "No symlinks on Windows")
     @patch("huggingface_hub.file_download.are_symlinks_supported")
     def test_create_relative_symlink_concurrent_access(
-            self, mock_are_symlinks_supported: Mock
+        self, mock_are_symlinks_supported: Mock
     ) -> None:
         with SoftTemporaryDirectory() as tmpdir:
             src = os.path.join(tmpdir, "source")
