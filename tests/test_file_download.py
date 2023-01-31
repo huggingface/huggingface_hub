@@ -391,6 +391,31 @@ class CachedDownloadTests(unittest.TestCase):
         # Same for uncached models
         self.assertIsNone(try_to_load_from_cache("bert-base", filename=CONFIG_NAME))
 
+    def test_try_to_load_from_cache_specific_pr_revision_exists(self):
+        # Make sure the file is cached
+        file_path = hf_hub_download(
+            DUMMY_MODEL_ID, filename=CONFIG_NAME, revision="refs/pr/1"
+        )
+
+        new_file_path = try_to_load_from_cache(
+            DUMMY_MODEL_ID, filename=CONFIG_NAME, revision="refs/pr/1"
+        )
+        self.assertEqual(file_path, new_file_path)
+
+        # If file is not cached, returns None
+        self.assertIsNone(
+            try_to_load_from_cache(
+                DUMMY_MODEL_ID, filename="conf.json", revision="refs/pr/1"
+            )
+        )
+
+        # If revision does not exist, returns None
+        self.assertIsNone(
+            try_to_load_from_cache(
+                DUMMY_MODEL_ID, filename=CONFIG_NAME, revision="does-not-exist"
+            )
+        )
+
     def test_try_to_load_from_cache_no_exist(self):
         # Make sure the file is cached
         with self.assertRaises(EntryNotFoundError):

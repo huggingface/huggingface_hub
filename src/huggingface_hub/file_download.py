@@ -1375,9 +1375,9 @@ def try_to_load_from_cache(
 
     # Resolve refs (for instance to convert main to the associated commit sha)
     if os.path.isdir(refs_dir):
-        cached_refs = os.listdir(refs_dir)
-        if revision in cached_refs:
-            with open(os.path.join(refs_dir, revision)) as f:
+        revision_file = os.path.join(refs_dir, revision)
+        if os.path.isfile(revision_file):
+            with open(revision_file) as f:
                 revision = f.read()
 
     # Check if file is cached as "no_exist"
