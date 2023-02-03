@@ -152,7 +152,7 @@ if task is None:
     def gradio_fn(task):
         # On user request, add task and request hardware
         add_task(task)
-        api.request_hardware(repo_id=TRAINING_SPACE_ID, hardware=SpaceHardware.T4_MEDIUM)
+        api.request_space_hardware(repo_id=TRAINING_SPACE_ID, hardware=SpaceHardware.T4_MEDIUM)
 
     gr.Interface(fn=gradio_fn, ...).launch()
 else:
@@ -166,9 +166,9 @@ else:
         mark_as_done(task)
 
         # DO NOT FORGET: set back CPU hardware
-        api.request_hardware(repo_id=TRAINING_SPACE_ID, hardware=SpaceHardware.CPU_BASIC)
+        api.request_space_hardware(repo_id=TRAINING_SPACE_ID, hardware=SpaceHardware.CPU_BASIC)
     else:
-        api.request_hardware(repo_id=TRAINING_SPACE_ID, hardware=SpaceHardware.T4_MEDIUM)
+        api.request_space_hardware(repo_id=TRAINING_SPACE_ID, hardware=SpaceHardware.T4_MEDIUM)
 ```
 
 ### Task scheduler
