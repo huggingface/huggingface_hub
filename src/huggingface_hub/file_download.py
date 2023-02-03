@@ -68,6 +68,8 @@ from .utils._typing import HTTP_METHOD_T
 
 logger = logging.get_logger(__name__)
 
+# Regex to get filename from a "Content-Disposition" header for CDN-served files
+HEADER_FILENAME_PATTERN = re.compile(r'filename="(?P<filename>.*?)";')
 
 _are_symlinks_supported_in_dir: Dict[str, bool] = {}
 
@@ -515,16 +517,22 @@ def http_get(
 
     displayed_name = url
     content_disposition = r.headers.get("Content-Disposition")
-    if content_disposition is not None and "filename=" in content_disposition:
-        # Means file is on CDN
-        displayed_name = content_disposition.split("filename=")[-1]
+    if content_disposition is not None:
+        match = HEADER_FILENAME_PATTERN.search(content_disposition)
+        if match is not None:
+            # Means file is on CDN
+            displayed_name = match.groupdict()["filename"]
+
+    # Truncate filename if too long to display
+    if len(displayed_name) > 22:
+        displayed_name = f"(…){displayed_name[-20:]}"
 
     progress = tqdm(
         unit="B",
         unit_scale=True,
         total=total,
         initial=resume_size,
-        desc=f"Downloading (…){displayed_name[-20:]}",
+        desc=f"Downloading {displayed_name}",
         disable=bool(logger.getEffectiveLevel() == logging.NOTSET),
     )
     for chunk in r.iter_content(chunk_size=10 * 1024 * 1024):
