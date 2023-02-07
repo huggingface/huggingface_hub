@@ -1108,7 +1108,7 @@ class HfApiDeleteFolderTest(HfApiCommonTestWithLogin):
     def test_create_commit_failing_implicit_delete_folder(self):
         with self.assertRaisesRegex(
             EntryNotFoundError,
-            "Make sure to differentiate file and folder paths",
+            'A file with the name "1" does not exist',
         ):
             self._api.create_commit(
                 operations=[CommitOperationDelete(path_in_repo="1")],
