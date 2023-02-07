@@ -478,7 +478,7 @@ def http_get(
                 # Download file using an external Rust-based package. Download is faster
                 # (~2x speed-up) but support less features (no error handling, no retries,
                 # no progress bars).
-                from hf_transfer import download  # type: ignore
+                from hf_transfer import download
 
                 logger.debug(f"Download {url} using HF_TRANSFER.")
                 max_files = 100

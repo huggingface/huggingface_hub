@@ -3,6 +3,11 @@ line-length = 119
 target_version = ['py37', 'py38', 'py39', 'py310']
 preview = true
 
+[tool.mypy]
+ignore_missing_imports = true
+no_implicit_optional = true
+scripts_are_modules = true
+
 [tool.ruff]
 # Ignored rules:
 #   "E501" -> line length violation
