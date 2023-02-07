@@ -4,9 +4,9 @@ from pathlib import Path
 from typing import Generator
 
 import pytest
+from _pytest.fixtures import SubRequest
 
 import huggingface_hub
-from _pytest.fixtures import SubRequest
 from huggingface_hub import HfApi, HfFolder
 from huggingface_hub.utils import SoftTemporaryDirectory
 
@@ -91,10 +91,7 @@ def fx_production_space(request: SubRequest) -> Generator[None, None, None]:
     """
     # Check if production token exists
     if PRODUCTION_TOKEN is None:
-        pytest.skip(
-            "Skip Space tests. `HUGGINGFACE_PRODUCTION_USER_TOKEN` environment variable"
-            " is not set."
-        )
+        pytest.skip("Skip Space tests. `HUGGINGFACE_PRODUCTION_USER_TOKEN` environment variable is not set.")
 
     # Generate repo id from prod token
     api = HfApi(token=PRODUCTION_TOKEN, endpoint=ENDPOINT_PRODUCTION)
@@ -104,9 +101,7 @@ def fx_production_space(request: SubRequest) -> Generator[None, None, None]:
     request.cls.repo_id = repo_id
 
     # Create and clean space repo
-    api.create_repo(
-        repo_id=repo_id, repo_type="space", space_sdk="gradio", private=True
-    )
+    api.create_repo(repo_id=repo_id, repo_type="space", space_sdk="gradio", private=True)
     api.upload_file(
         path_or_fileobj=_BASIC_APP_PY_TEMPLATE,
         repo_id=repo_id,

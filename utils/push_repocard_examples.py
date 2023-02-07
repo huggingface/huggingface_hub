@@ -17,6 +17,7 @@ import argparse
 from pathlib import Path
 
 import jinja2
+
 from huggingface_hub import DatasetCard, ModelCard, hf_hub_download, upload_file, whoami
 from huggingface_hub.constants import REPOCARD_NAME
 
@@ -34,10 +35,7 @@ def check_can_push():
         print("You must be logged in to push repo card examples.")
 
     if all(org["name"] != ORG_NAME for org in me.get("orgs", [])):
-        print(
-            f"❌ You must have access to organization '{ORG_NAME}' to push repo card"
-            " examples."
-        )
+        print(f"❌ You must have access to organization '{ORG_NAME}' to push repo card examples.")
         exit(1)
 
 
@@ -58,9 +56,7 @@ def push_model_card_example(overwrite: bool) -> None:
         ),
     )
     if not overwrite:
-        existing_content = Path(
-            hf_hub_download(MODEL_CARD_REPO_ID, REPOCARD_NAME, repo_type="model")
-        ).read_text()
+        existing_content = Path(hf_hub_download(MODEL_CARD_REPO_ID, REPOCARD_NAME, repo_type="model")).read_text()
         if content == existing_content:
             print("Model Card not pushed: did not change.")
             return
@@ -90,9 +86,7 @@ def push_dataset_card_example(overwrite: bool) -> None:
         ),
     )
     if not overwrite:
-        existing_content = Path(
-            hf_hub_download(DATASET_CARD_REPO_ID, REPOCARD_NAME, repo_type="dataset")
-        ).read_text()
+        existing_content = Path(hf_hub_download(DATASET_CARD_REPO_ID, REPOCARD_NAME, repo_type="dataset")).read_text()
         if content == existing_content:
             print("Dataset Card not pushed: did not change.")
             return
@@ -110,10 +104,7 @@ if __name__ == "__main__":
     parser.add_argument(
         "--overwrite",
         action="store_true",
-        help=(
-            "Whether to force updating examples. By default, push to hub only if card"
-            " is updated."
-        ),
+        help="Whether to force updating examples. By default, push to hub only if card is updated.",
     )
     args = parser.parse_args()
 

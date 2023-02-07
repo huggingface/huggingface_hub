@@ -6,15 +6,14 @@ check_dirs := contrib src tests utils setup.py
 
 quality:
 	black --check $(check_dirs)
-	isort --check-only $(check_dirs)
-	flake8 $(check_dirs)
+	ruff $(check_dirs)
 	mypy src
 	python utils/check_contrib_list.py
 	python utils/check_static_imports.py
 
 style:
 	black $(check_dirs)
-	isort $(check_dirs)
+	ruff $(check_dirs) --fix
 	python utils/check_contrib_list.py --update
 	python utils/check_static_imports.py --update
 

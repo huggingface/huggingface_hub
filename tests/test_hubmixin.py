@@ -13,9 +13,7 @@ from .testing_utils import expect_deprecation, repo_name, rmtree_with_retry
 
 logger = logging.get_logger(__name__)
 WORKING_REPO_SUBDIR = "fixtures/working_repo_2"
-WORKING_REPO_DIR = os.path.join(
-    os.path.dirname(os.path.abspath(__file__)), WORKING_REPO_SUBDIR
-)
+WORKING_REPO_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), WORKING_REPO_SUBDIR)
 
 if is_torch_available():
     import torch.nn as nn
@@ -59,9 +57,7 @@ class HubMixingTest(HubMixingCommonTest):
     def tearDown(self) -> None:
         if os.path.exists(WORKING_REPO_DIR):
             rmtree_with_retry(WORKING_REPO_DIR)
-        logger.info(
-            f"Does {WORKING_REPO_DIR} exist: {os.path.exists(WORKING_REPO_DIR)}"
-        )
+        logger.info(f"Does {WORKING_REPO_DIR} exist: {os.path.exists(WORKING_REPO_DIR)}")
 
     @classmethod
     @expect_deprecation("set_access_token")
@@ -82,9 +78,7 @@ class HubMixingTest(HubMixingCommonTest):
         self.assertTrue("pytorch_model.bin" in files)
         self.assertEqual(len(files), 1)
 
-        model.save_pretrained(
-            f"{WORKING_REPO_DIR}/{REPO_NAME}", config={"num": 12, "act": "gelu"}
-        )
+        model.save_pretrained(f"{WORKING_REPO_DIR}/{REPO_NAME}", config={"num": 12, "act": "gelu"})
         files = os.listdir(f"{WORKING_REPO_DIR}/{REPO_NAME}")
         self.assertTrue("config.json" in files)
         self.assertTrue("pytorch_model.bin" in files)
@@ -103,9 +97,7 @@ class HubMixingTest(HubMixingCommonTest):
         mocked_model.push_to_hub.assert_not_called()
 
         # Push to hub with repo_id
-        mocked_model.save_pretrained(
-            save_directory, push_to_hub=True, repo_id="CustomID", config=config
-        )
+        mocked_model.save_pretrained(save_directory, push_to_hub=True, repo_id="CustomID", config=config)
         mocked_model.push_to_hub.assert_called_with(repo_id="CustomID", config=config)
 
         # Push to hub with default repo_id (based on dir name)
@@ -119,9 +111,7 @@ class HubMixingTest(HubMixingCommonTest):
             config={"num": 10, "act": "gelu_fast"},
         )
 
-        model = DummyModel.from_pretrained(
-            f"tests/{WORKING_REPO_SUBDIR}/FROM_PRETRAINED"
-        )
+        model = DummyModel.from_pretrained(f"tests/{WORKING_REPO_SUBDIR}/FROM_PRETRAINED")
         self.assertTrue(model.config == {"num": 10, "act": "gelu_fast"})
 
     def test_abs_path_from_pretrained(self):
@@ -151,9 +141,7 @@ class HubMixingTest(HubMixingCommonTest):
         self.assertEqual(model_info.modelId, repo_id)
 
         # Test config has been pushed to hub
-        tmp_config_path = hf_hub_download(
-            repo_id=repo_id, filename="config.json", use_auth_token=self._token
-        )
+        tmp_config_path = hf_hub_download(repo_id=repo_id, filename="config.json", use_auth_token=self._token)
         with open(tmp_config_path) as f:
             self.assertEqual(json.load(f), {"num": 7, "act": "gelu_fast"})
 

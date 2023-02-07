@@ -258,9 +258,7 @@ def _attach(package_name, submodules=None, submod_attrs=None):
     else:
         submodules = set(submodules)
 
-    attr_to_modules = {
-        attr: mod for mod, attrs in submod_attrs.items() for attr in attrs
-    }
+    attr_to_modules = {attr: mod for mod, attrs in submod_attrs.items() for attr in attrs}
 
     __all__ = list(submodules | attr_to_modules.keys())
 
@@ -293,9 +291,7 @@ def _attach(package_name, submodules=None, submod_attrs=None):
     return __getattr__, __dir__, list(__all__)
 
 
-__getattr__, __dir__, __all__ = _attach(
-    __name__, submodules=[], submod_attrs=_SUBMOD_ATTRS
-)
+__getattr__, __dir__, __all__ = _attach(__name__, submodules=[], submod_attrs=_SUBMOD_ATTRS)
 
 # WARNING: any content below this statement is generated automatically. Any manual edit
 # will be lost when re-generating this file !

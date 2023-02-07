@@ -138,10 +138,7 @@ def interpreter_login() -> None:
         )
         print("    Setting a new token will erase the existing one.")
 
-    print(
-        "    To login, `huggingface_hub` requires a token generated from"
-        " https://huggingface.co/settings/tokens ."
-    )
+    print("    To login, `huggingface_hub` requires a token generated from https://huggingface.co/settings/tokens .")
     if os.name == "nt":
         print("Token can be pasted using 'Right-Click'.")
     token = getpass("Token: ")
@@ -193,14 +190,10 @@ def notebook_login() -> None:
             " Colab) and you need the `ipywidgets` module: `pip install ipywidgets`."
         )
 
-    box_layout = widgets.Layout(
-        display="flex", flex_flow="column", align_items="center", width="50%"
-    )
+    box_layout = widgets.Layout(display="flex", flex_flow="column", align_items="center", width="50%")
 
     token_widget = widgets.Password(description="Token:")
-    git_checkbox_widget = widgets.Checkbox(
-        value=True, description="Add token as git credential?"
-    )
+    git_checkbox_widget = widgets.Checkbox(value=True, description="Add token as git credential?")
     token_finish_button = widgets.Button(description="Login")
 
     login_token_widget = widgets.VBox(
@@ -304,8 +297,6 @@ def _set_store_as_git_credential_helper_globally() -> None:
         raise EnvironmentError(exc.stderr)
 
 
-@_deprecate_method(
-    version="0.14", message="Please use `list_credential_helpers` instead."
-)
+@_deprecate_method(version="0.14", message="Please use `list_credential_helpers` instead.")
 def _currently_setup_credential_helpers(directory: Optional[str] = None) -> List[str]:
     return list_credential_helpers(directory)

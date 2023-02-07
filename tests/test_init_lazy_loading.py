@@ -28,11 +28,7 @@ class TestHuggingfaceHubInit(unittest.TestCase):
                 # the help section.
                 signature_list = goto_list[0].get_signatures()
                 self.assertEqual(len(signature_list), 1)
-                self.assertTrue(
-                    signature_list[0]
-                    .docstring()
-                    .startswith("create_commit(repo_id: str,")
-                )
+                self.assertTrue(signature_list[0].docstring().startswith("create_commit(repo_id: str,"))
                 break
         else:
             self.fail(

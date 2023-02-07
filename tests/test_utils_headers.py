@@ -110,10 +110,12 @@ class TestUserAgentHeadersUtil(unittest.TestCase):
         mock_is_torch_available.return_value = True
         self.assertEqual(
             self._get_user_agent(),
-            f"unknown/None; hf_hub/{get_hf_hub_version()};"
-            f" python/{get_python_version()}; torch/torch_version;"
-            " tensorflow/tf_version; fastai/fastai_version;"
-            " fastcore/fastcore_version",
+            (
+                f"unknown/None; hf_hub/{get_hf_hub_version()};"
+                f" python/{get_python_version()}; torch/torch_version;"
+                " tensorflow/tf_version; fastai/fastai_version;"
+                " fastcore/fastcore_version"
+            ),
         )
 
     @patch("huggingface_hub.utils._headers.is_torch_available")
@@ -136,18 +138,10 @@ class TestUserAgentHeadersUtil(unittest.TestCase):
         )
 
     def test_user_agent_with_library_name_no_version(self) -> None:
-        self.assertTrue(
-            self._get_user_agent(library_name="foo").startswith("foo/None;")
-        )
+        self.assertTrue(self._get_user_agent(library_name="foo").startswith("foo/None;"))
 
     def test_user_agent_with_custom_agent_string(self) -> None:
-        self.assertTrue(
-            self._get_user_agent(user_agent="this is a custom agent").endswith(
-                "this is a custom agent"
-            )
-        )
+        self.assertTrue(self._get_user_agent(user_agent="this is a custom agent").endswith("this is a custom agent"))
 
     def test_user_agent_with_custom_agent_dict(self) -> None:
-        self.assertTrue(
-            self._get_user_agent(user_agent={"a": "b", "c": "d"}).endswith("a/b; c/d")
-        )
+        self.assertTrue(self._get_user_agent(user_agent={"a": "b", "c": "d"}).endswith("a/b; c/d"))

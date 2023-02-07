@@ -18,9 +18,7 @@ from .testing_utils import expect_deprecation, repo_name, rmtree_with_retry
 
 
 WORKING_REPO_SUBDIR = f"fixtures/working_repo_{__name__.split('.')[-1]}"
-WORKING_REPO_DIR = os.path.join(
-    os.path.dirname(os.path.abspath(__file__)), WORKING_REPO_SUBDIR
-)
+WORKING_REPO_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), WORKING_REPO_SUBDIR)
 
 if is_fastai_available():
     from fastai.data.block import DataBlock
@@ -90,9 +88,7 @@ class TestFastaiUtils(TestCase):
 
     def test_save_pretrained_with_config(self):
         REPO_NAME = repo_name("fastai-save")
-        _save_pretrained_fastai(
-            dummy_model, f"{WORKING_REPO_DIR}/{REPO_NAME}", config=dummy_config
-        )
+        _save_pretrained_fastai(dummy_model, f"{WORKING_REPO_DIR}/{REPO_NAME}", config=dummy_config)
         files = os.listdir(f"{WORKING_REPO_DIR}/{REPO_NAME}")
         self.assertTrue("config.json" in files)
         self.assertEqual(len(files), 4)
@@ -109,7 +105,5 @@ class TestFastaiUtils(TestCase):
         self.assertEqual(model_info.modelId, f"{USER}/{REPO_NAME}")
 
         loaded_model = from_pretrained_fastai(f"{USER}/{REPO_NAME}")
-        self.assertEqual(
-            dummy_model.show_training_loop(), loaded_model.show_training_loop()
-        )
+        self.assertEqual(dummy_model.show_training_loop(), loaded_model.show_training_loop())
         self._api.delete_repo(repo_id=f"{REPO_NAME}")

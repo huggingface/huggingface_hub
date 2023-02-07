@@ -17,9 +17,7 @@ ENDPOINT_PRODUCTION = "https://huggingface.co"
 ENDPOINT_STAGING = "https://hub-ci.huggingface.co"
 ENDPOINT_STAGING_BASIC_AUTH = f"https://{USER}:{PASS}@hub-ci.huggingface.co"
 
-ENDPOINT_PRODUCTION_URL_SCHEME = (
-    ENDPOINT_PRODUCTION + "/{repo_id}/resolve/{revision}/{filename}"
-)
+ENDPOINT_PRODUCTION_URL_SCHEME = ENDPOINT_PRODUCTION + "/{repo_id}/resolve/{revision}/{filename}"
 
 # Token to be set as environment variable.
 # Almost all features are tested on staging environment. However, Spaces are not supported

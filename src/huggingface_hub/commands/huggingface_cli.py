@@ -23,9 +23,7 @@ from huggingface_hub.commands.user import UserCommands
 
 
 def main():
-    parser = ArgumentParser(
-        "huggingface-cli", usage="huggingface-cli <command> [<args>]"
-    )
+    parser = ArgumentParser("huggingface-cli", usage="huggingface-cli <command> [<args>]")
     commands_parser = parser.add_subparsers(help="huggingface-cli command helpers")
 
     # Register commands

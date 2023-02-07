@@ -12,9 +12,7 @@ class TestYamlDump(unittest.TestCase):
         self.assertEqual(yaml_dump({"some unicode": "日本か"}), "some unicode: 日本か\n")
 
     def test_yaml_dump_explicit_no_unicode(self) -> None:
-        self.assertEqual(
-            yaml_dump({"emoji": "👀"}, allow_unicode=False), 'emoji: "\\U0001F440"\n'
-        )
+        self.assertEqual(yaml_dump({"emoji": "👀"}, allow_unicode=False), 'emoji: "\\U0001F440"\n')
 
 
 class TestTemporaryDirectory(unittest.TestCase):

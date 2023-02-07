@@ -36,9 +36,11 @@ def _deprecate_positional_args(*, version: str):
             ]
             args_msg = ", ".join(args_msg)
             warnings.warn(
-                f"Deprecated positional argument(s) used in '{f.__name__}': pass"
-                f" {args_msg} as keyword args. From version {version} passing these as"
-                " positional arguments will result in an error,",
+                (
+                    f"Deprecated positional argument(s) used in '{f.__name__}': pass"
+                    f" {args_msg} as keyword args. From version {version} passing these"
+                    " as positional arguments will result in an error,"
+                ),
                 FutureWarning,
             )
             kwargs.update(zip(sig.parameters, args))
@@ -120,8 +122,7 @@ def _deprecate_method(*, version: str, message: Optional[str] = None):
         @wraps(f)
         def inner_f(*args, **kwargs):
             warning_message = (
-                f"'{f.__name__}' (from '{f.__module__}') is deprecated and will be"
-                f" removed from version '{version}'."
+                f"'{f.__name__}' (from '{f.__module__}') is deprecated and will be removed from version '{version}'."
             )
             if message is not None:
                 warning_message += " " + message
@@ -189,14 +190,9 @@ class DeprecateListMetaclass(type):
     def __new__(cls, clsname, bases, attrs):
         # Check consistency
         if "_deprecate" not in attrs:
-            raise TypeError(
-                "A `_deprecate` method must be implemented to use"
-                " `DeprecateListMetaclass`."
-            )
+            raise TypeError("A `_deprecate` method must be implemented to use `DeprecateListMetaclass`.")
         if list not in bases:
-            raise TypeError(
-                "Class must inherit from `list` to use `DeprecateListMetaclass`."
-            )
+            raise TypeError("Class must inherit from `list` to use `DeprecateListMetaclass`.")
 
         # Create decorator to deprecate list-only methods, including magic ones
         def _with_deprecation(f, name):

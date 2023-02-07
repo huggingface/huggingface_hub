@@ -19,6 +19,7 @@ from pathlib import Path
 from typing import NoReturn
 
 import isort
+
 from huggingface_hub import _SUBMOD_ATTRS
 
 
@@ -46,10 +47,7 @@ def check_static_imports(update: bool) -> NoReturn:
     # Search and replace `_SUBMOD_ATTRS` dictionary definition. This ensures modules
     # and functions that can be lazy-loaded are alphabetically ordered for readability.
     if SUBMOD_ATTRS_PATTERN.search(init_content_before_static_checks) is None:
-        print(
-            "Error: _SUBMOD_ATTRS dictionary definition not found in"
-            " `./src/huggingface_hub/__init__.py`."
-        )
+        print("Error: _SUBMOD_ATTRS dictionary definition not found in `./src/huggingface_hub/__init__.py`.")
         exit(1)
 
     _submod_attrs_definition = (
@@ -75,10 +73,7 @@ def check_static_imports(update: bool) -> NoReturn:
 
     # Generate the expected `__init__.py` file content and apply formatter on it.
     expected_init_content = isort.code(
-        reordered_content_before_static_checks
-        + IF_TYPE_CHECKING_LINE
-        + "\n".join(static_imports)
-        + "\n",
+        reordered_content_before_static_checks + IF_TYPE_CHECKING_LINE + "\n".join(static_imports) + "\n",
         config=isort.Config(settings_path=SETUP_CFG_PATH),
     )
 
@@ -113,10 +108,7 @@ if __name__ == "__main__":
     parser.add_argument(
         "--update",
         action="store_true",
-        help=(
-            "Whether to fix `./src/huggingface_hub/__init__.py` if a change is"
-            " detected."
-        ),
+        help="Whether to fix `./src/huggingface_hub/__init__.py` if a change is detected.",
     )
     args = parser.parse_args()
 

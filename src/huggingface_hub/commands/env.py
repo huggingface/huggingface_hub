@@ -28,9 +28,7 @@ class EnvironmentCommand(BaseHuggingfaceCLICommand):
 
     @staticmethod
     def register_subcommand(parser: _SubParsersAction):
-        env_parser = parser.add_parser(
-            "env", help="Print information about the environment."
-        )
+        env_parser = parser.add_parser("env", help="Print information about the environment.")
         env_parser.set_defaults(func=EnvironmentCommand)
 
     def run(self) -> None:

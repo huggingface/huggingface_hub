@@ -15,9 +15,9 @@ from typing import Callable, Generator, Optional, Type, TypeVar, Union
 from unittest.mock import Mock, patch
 
 import pytest
+from requests.exceptions import HTTPError
 
 from huggingface_hub.utils import logging
-from requests.exceptions import HTTPError
 from tests.testing_constants import ENDPOINT_PRODUCTION, ENDPOINT_PRODUCTION_URL_SCHEME
 
 
@@ -36,9 +36,7 @@ DUMMY_MODEL_ID_REVISION_INVALID = "aaaaaaa"
 # This commit does not exist, so we should 404.
 DUMMY_MODEL_ID_PINNED_SHA1 = "d9e9f15bc825e4b2c9249e9578f884bbcb5e3684"
 # Sha-1 of config.json on the top of `main`, for checking purposes
-DUMMY_MODEL_ID_PINNED_SHA256 = (
-    "4b243c475af8d0a7754e87d7d096c92e5199ec2fe168a2ee7998e3b8e9bcb1d3"
-)
+DUMMY_MODEL_ID_PINNED_SHA256 = "4b243c475af8d0a7754e87d7d096c92e5199ec2fe168a2ee7998e3b8e9bcb1d3"
 # Sha-256 of pytorch_model.bin on the top of `main`, for checking purposes
 
 # "hf-internal-testing/dummy-will-be-renamed" has been renamed to "hf-internal-testing/dummy-renamed"
@@ -48,9 +46,7 @@ DUMMY_RENAMED_NEW_MODEL_ID = "hf-internal-testing/dummy-renamed"
 SAMPLE_DATASET_IDENTIFIER = "lhoestq/custom_squad"
 # Example dataset ids
 DUMMY_DATASET_ID = "lhoestq/test"
-DUMMY_DATASET_ID_REVISION_ONE_SPECIFIC_COMMIT = (  # on branch "test-branch"
-    "81d06f998585f8ee10e6e3a2ea47203dc75f2a16"
-)
+DUMMY_DATASET_ID_REVISION_ONE_SPECIFIC_COMMIT = "81d06f998585f8ee10e6e3a2ea47203dc75f2a16"  # on branch "test-branch"
 
 YES = ("y", "yes", "t", "true", "on", "1")
 NO = ("n", "no", "f", "false", "off", "0")
@@ -154,8 +150,7 @@ def offline(mode=OfflineSimulationMode.CONNECTION_FAILS, timeout=1e-16):
         invalid_url = "https://10.255.255.1"
         if kwargs.get("timeout") is None:
             raise RequestWouldHangIndefinitelyError(
-                f"Tried a call to {url} in offline mode with no timeout set. Please set"
-                " a timeout."
+                f"Tried a call to {url} in offline mode with no timeout set. Please set a timeout."
             )
         kwargs["timeout"] = timeout
         try:
@@ -164,9 +159,7 @@ def offline(mode=OfflineSimulationMode.CONNECTION_FAILS, timeout=1e-16):
             # The following changes in the error are just here to make the offline timeout error prettier
             e.request.url = url
             max_retry_error = e.args[0]
-            max_retry_error.args = (
-                max_retry_error.args[0].replace("10.255.255.1", f"OfflineMock[{url}]"),
-            )
+            max_retry_error.args = (max_retry_error.args[0].replace("10.255.255.1", f"OfflineMock[{url}]"),)
             e.args = (max_retry_error,)
             raise
 
@@ -318,9 +311,7 @@ def xfail_on_windows(reason: str, raises: Optional[Type[Exception]] = None):
     """
 
     def _inner_decorator(test_function: Callable) -> Callable:
-        return pytest.mark.xfail(
-            os.name == "nt", reason=reason, raises=raises, strict=True, run=True
-        )(test_function)
+        return pytest.mark.xfail(os.name == "nt", reason=reason, raises=raises, strict=True, run=True)(test_function)
 
     return _inner_decorator
 
@@ -450,10 +441,9 @@ def handle_injection_in_test(fn: Callable) -> Callable:
             if name == "self":
                 continue
             assert parameter.annotation is Mock
-            assert name in mocks, (
-                f"Mock `{name}` not found for test `{fn.__name__}`. Available:"
-                f" {', '.join(sorted(mocks.keys()))}"
-            )
+            assert (
+                name in mocks
+            ), f"Mock `{name}` not found for test `{fn.__name__}`. Available: {', '.join(sorted(mocks.keys()))}"
             new_kwargs[name] = mocks[name]
 
         # Run test only with a subset of mocks
@@ -492,9 +482,7 @@ def use_tmp_repo(repo_type: str = "model") -> Callable[[T], T]:
             self = args[0]
             assert isinstance(self, unittest.TestCase)
 
-            repo_url = self._api.create_repo(
-                repo_id=repo_name(prefix=repo_type), repo_type=repo_type
-            )
+            repo_url = self._api.create_repo(repo_id=repo_name(prefix=repo_type), repo_type=repo_type)
             try:
                 return test_fn(*args, **kwargs, repo_url=repo_url)
             finally:

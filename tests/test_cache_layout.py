@@ -43,9 +43,7 @@ class CacheFileLayoutHfHubDownload(unittest.TestCase):
                     revision=revision,
                 )
 
-                expected_directory_name = (
-                    f'models--{MODEL_IDENTIFIER.replace("/", "--")}'
-                )
+                expected_directory_name = f'models--{MODEL_IDENTIFIER.replace("/", "--")}'
                 expected_path = os.path.join(cache, expected_directory_name)
 
                 refs = os.listdir(os.path.join(expected_path, "refs"))
@@ -72,9 +70,7 @@ class CacheFileLayoutHfHubDownload(unittest.TestCase):
                 self.assertTrue(os.path.islink(snapshot_content_path))
 
                 resolved_blob_relative = os.readlink(snapshot_content_path)
-                resolved_blob_absolute = os.path.normpath(
-                    os.path.join(snapshot_path, resolved_blob_relative)
-                )
+                resolved_blob_absolute = os.path.normpath(os.path.join(snapshot_path, resolved_blob_relative))
 
                 with open(resolved_blob_absolute) as f:
                     blob_contents = f.readline().strip()
@@ -90,19 +86,13 @@ class CacheFileLayoutHfHubDownload(unittest.TestCase):
                 filename = "this_does_not_exist.txt"
                 with self.assertRaises(EntryNotFoundError):
                     # The file does not exist, so we get an exception.
-                    hf_hub_download(
-                        MODEL_IDENTIFIER, filename, cache_dir=cache, revision=revision
-                    )
+                    hf_hub_download(MODEL_IDENTIFIER, filename, cache_dir=cache, revision=revision)
 
-                expected_directory_name = (
-                    f'models--{MODEL_IDENTIFIER.replace("/", "--")}'
-                )
+                expected_directory_name = f'models--{MODEL_IDENTIFIER.replace("/", "--")}'
                 expected_path = os.path.join(cache, expected_directory_name)
 
                 refs = os.listdir(os.path.join(expected_path, "refs"))
-                no_exist_snapshots = os.listdir(
-                    os.path.join(expected_path, ".no_exist")
-                )
+                no_exist_snapshots = os.listdir(os.path.join(expected_path, ".no_exist"))
 
                 # Only reference should be `main`.
                 self.assertListEqual(refs, [expected_reference])
@@ -152,9 +142,7 @@ class CacheFileLayoutHfHubDownload(unittest.TestCase):
 
             time.sleep(2)
 
-            path = hf_hub_download(
-                MODEL_IDENTIFIER, "file_0.txt", cache_dir=cache, revision="file-2"
-            )
+            path = hf_hub_download(MODEL_IDENTIFIER, "file_0.txt", cache_dir=cache, revision="file-2")
             creation_time_1 = os.path.getmtime(path)
 
             self.assertEqual(creation_time_0, creation_time_1)
@@ -163,9 +151,7 @@ class CacheFileLayoutHfHubDownload(unittest.TestCase):
     def test_multiple_refs_for_same_file(self):
         with SoftTemporaryDirectory() as cache:
             hf_hub_download(MODEL_IDENTIFIER, "file_0.txt", cache_dir=cache)
-            hf_hub_download(
-                MODEL_IDENTIFIER, "file_0.txt", cache_dir=cache, revision="file-2"
-            )
+            hf_hub_download(MODEL_IDENTIFIER, "file_0.txt", cache_dir=cache, revision="file-2")
 
             expected_directory_name = f'models--{MODEL_IDENTIFIER.replace("/", "--")}'
             expected_path = os.path.join(cache, expected_directory_name)
@@ -179,19 +165,14 @@ class CacheFileLayoutHfHubDownload(unittest.TestCase):
             # Directory should contain two revisions
             self.assertListEqual(refs, ["file-2", "main"])
 
-            refs_contents = [
-                get_file_contents(os.path.join(expected_path, "refs", f)) for f in refs
-            ]
+            refs_contents = [get_file_contents(os.path.join(expected_path, "refs", f)) for f in refs]
             refs_contents.sort()
 
             # snapshots directory should contain two snapshots
             self.assertListEqual(refs_contents, snapshots)
 
             snapshot_links = [
-                os.readlink(
-                    os.path.join(expected_path, "snapshots", filename, "file_0.txt")
-                )
-                for filename in snapshots
+                os.readlink(os.path.join(expected_path, "snapshots", filename, "file_0.txt")) for filename in snapshots
             ]
 
             # All snapshot links should point to the same file.
@@ -216,9 +197,7 @@ class CacheFileLayoutSnapshotDownload(unittest.TestCase):
             # Directory should contain two revisions
             self.assertListEqual(refs, ["main"])
 
-            ref_content = get_file_contents(
-                os.path.join(expected_path, "refs", refs[0])
-            )
+            ref_content = get_file_contents(os.path.join(expected_path, "refs", refs[0]))
 
             # snapshots directory should contain two snapshots
             self.assertListEqual([ref_content], snapshots)
@@ -227,17 +206,11 @@ class CacheFileLayoutSnapshotDownload(unittest.TestCase):
 
             files_in_snapshot = os.listdir(snapshot_path)
 
-            snapshot_links = [
-                os.readlink(os.path.join(snapshot_path, filename))
-                for filename in files_in_snapshot
-            ]
+            snapshot_links = [os.readlink(os.path.join(snapshot_path, filename)) for filename in files_in_snapshot]
 
-            resolved_snapshot_links = [
-                os.path.normpath(os.path.join(snapshot_path, link))
-                for link in snapshot_links
-            ]
+            resolved_snapshot_links = [os.path.normpath(os.path.join(snapshot_path, link)) for link in snapshot_links]
 
-            self.assertTrue(all([os.path.isfile(l) for l in resolved_snapshot_links]))
+            self.assertTrue(all([os.path.isfile(link) for link in resolved_snapshot_links]))
 
     @xfail_on_windows(reason="Symlinks are deactivated in Windows tests.")
     def test_file_downloaded_in_cache_several_revisions(self):
@@ -257,28 +230,21 @@ class CacheFileLayoutSnapshotDownload(unittest.TestCase):
             # Directory should contain two revisions
             self.assertListEqual(refs, ["file-2", "file-3"])
 
-            refs_content = [
-                get_file_contents(os.path.join(expected_path, "refs", ref))
-                for ref in refs
-            ]
+            refs_content = [get_file_contents(os.path.join(expected_path, "refs", ref)) for ref in refs]
             refs_content.sort()
 
             # snapshots directory should contain two snapshots
             self.assertListEqual(refs_content, snapshots)
 
-            snapshots_paths = [
-                os.path.join(expected_path, "snapshots", s) for s in snapshots
-            ]
+            snapshots_paths = [os.path.join(expected_path, "snapshots", s) for s in snapshots]
 
             files_in_snapshots = {s: os.listdir(s) for s in snapshots_paths}
             links_in_snapshots = {
-                k: [os.readlink(os.path.join(k, _v)) for _v in v]
-                for k, v in files_in_snapshots.items()
+                k: [os.readlink(os.path.join(k, _v)) for _v in v] for k, v in files_in_snapshots.items()
             }
 
             resolved_snapshots_links = {
-                k: [os.path.normpath(os.path.join(k, link)) for link in v]
-                for k, v in links_in_snapshots.items()
+                k: [os.path.normpath(os.path.join(k, link)) for link in v] for k, v in links_in_snapshots.items()
             }
 
             all_links = [b for a in resolved_snapshots_links.values() for b in a]
@@ -347,9 +313,7 @@ class ReferenceUpdates(unittest.TestCase):
                 # Directory should contain two revisions
                 self.assertListEqual(refs, ["main"])
 
-                initial_ref_content = get_file_contents(
-                    os.path.join(expected_path, "refs", refs[0])
-                )
+                initial_ref_content = get_file_contents(os.path.join(expected_path, "refs", refs[0]))
 
                 # Upload a new file on the same branch
                 self._api.upload_file(
@@ -360,36 +324,18 @@ class ReferenceUpdates(unittest.TestCase):
 
                 hf_hub_download(repo_id, "file.txt", cache_dir=cache)
 
-                final_ref_content = get_file_contents(
-                    os.path.join(expected_path, "refs", refs[0])
-                )
+                final_ref_content = get_file_contents(os.path.join(expected_path, "refs", refs[0]))
 
                 # The `main` reference should point to two different, but existing snapshots which contain
                 # a 'file.txt'
                 self.assertNotEqual(initial_ref_content, final_ref_content)
+                self.assertTrue(os.path.isdir(os.path.join(expected_path, "snapshots", initial_ref_content)))
                 self.assertTrue(
-                    os.path.isdir(
-                        os.path.join(expected_path, "snapshots", initial_ref_content)
-                    )
+                    os.path.isfile(os.path.join(expected_path, "snapshots", initial_ref_content, "file.txt"))
                 )
+                self.assertTrue(os.path.isdir(os.path.join(expected_path, "snapshots", final_ref_content)))
                 self.assertTrue(
-                    os.path.isfile(
-                        os.path.join(
-                            expected_path, "snapshots", initial_ref_content, "file.txt"
-                        )
-                    )
-                )
-                self.assertTrue(
-                    os.path.isdir(
-                        os.path.join(expected_path, "snapshots", final_ref_content)
-                    )
-                )
-                self.assertTrue(
-                    os.path.isfile(
-                        os.path.join(
-                            expected_path, "snapshots", final_ref_content, "file.txt"
-                        )
-                    )
+                    os.path.isfile(os.path.join(expected_path, "snapshots", final_ref_content, "file.txt"))
                 )
         except Exception:
             raise
