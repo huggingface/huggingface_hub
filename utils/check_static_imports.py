@@ -14,11 +14,13 @@
 # limitations under the License.
 """Contains a tool to reformat static imports in `huggingface_hub.__init__.py`."""
 import argparse
+import os
 import re
+import tempfile
 from pathlib import Path
 from typing import NoReturn
 
-import isort
+from ruff.__main__ import find_ruff_bin
 
 from huggingface_hub import _SUBMOD_ATTRS
 
@@ -72,10 +74,14 @@ def check_static_imports(update: bool) -> NoReturn:
     ]
 
     # Generate the expected `__init__.py` file content and apply formatter on it.
-    expected_init_content = isort.code(
-        reordered_content_before_static_checks + IF_TYPE_CHECKING_LINE + "\n".join(static_imports) + "\n",
-        config=isort.Config(settings_path=SETUP_CFG_PATH),
-    )
+    with tempfile.TemporaryDirectory() as tmpdir:
+        filepath = Path(tmpdir) / "__init__.py"
+        filepath.write_text(
+            reordered_content_before_static_checks + IF_TYPE_CHECKING_LINE + "\n".join(static_imports) + "\n"
+        )
+        ruff_bin = find_ruff_bin()
+        os.spawnv(os.P_WAIT, ruff_bin, ["ruff", str(filepath), "--fix"])
+        expected_init_content = filepath.read_text()
 
     # If expected `__init__.py` content is different, test fails. If '--update-init-file'
     # is used, `__init__.py` file is updated before the test fails.
