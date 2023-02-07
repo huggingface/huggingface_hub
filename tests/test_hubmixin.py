@@ -1,5 +1,6 @@
 import json
 import os
+from typing import TypeVar
 import unittest
 from pathlib import Path
 from unittest.mock import Mock, patch
@@ -139,6 +140,28 @@ class HubMixingTest(unittest.TestCase):
         DummyModel().save_pretrained(save_directory, config=CONFIG)
         model = DummyModel.from_pretrained(save_directory)
         self.assertDictEqual(model.config, CONFIG)
+
+    def test_return_type_hint_from_pretrained(self):
+        self.assertIn(
+            "return",
+            DummyModel.from_pretrained.__annotations__,
+            "`PyTorchModelHubMixin.from_pretrained` does not set a return type"
+            " annotation.",
+        )
+        self.assertIsInstance(
+            DummyModel.from_pretrained.__annotations__["return"],
+            TypeVar,
+            "`PyTorchModelHubMixin.from_pretrained` return type annotation is not a"
+            " TypeVar.",
+        )
+        self.assertEqual(
+            DummyModel.from_pretrained.__annotations__[
+                "return"
+            ].__bound__.__forward_arg__,
+            "ModelHubMixin",
+            "`PyTorchModelHubMixin.from_pretrained` return type annotation is not a"
+            " TypeVar bound by `ModelHubMixin`.",
+        )
 
     def test_push_to_hub(self):
         repo_id = f"{USER}/{repo_name('push_to_hub')}"
