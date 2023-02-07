@@ -18,8 +18,8 @@ import unittest
 from pathlib import Path
 
 import pytest
-
 import requests
+
 from huggingface_hub import RepoUrl
 from huggingface_hub.hf_api import HfApi
 from huggingface_hub.repository import (
@@ -125,9 +125,7 @@ class TestRepositoryShared(RepositoryTestAbstract):
         # Should not error out
         Repository(
             self.repo_path,
-            clone_from=(
-                "https://hf.co/hf-internal-testing/huggingface-hub-dummy-repository"
-            ),
+            clone_from="https://hf.co/hf-internal-testing/huggingface-hub-dummy-repository",
         )
 
     def test_clone_from_missing_repo(self):
@@ -203,9 +201,7 @@ class TestRepositoryShared(RepositoryTestAbstract):
     def test_push_errors_on_wrong_checkout(self):
         repo = Repository(self.repo_path, clone_from=self.repo_id)
 
-        head_commit_ref = run_subprocess(
-            "git show --oneline -s", folder=self.repo_path
-        ).stdout.split()[0]
+        head_commit_ref = run_subprocess("git show --oneline -s", folder=self.repo_path).stdout.split()[0]
 
         repo.git_checkout(head_commit_ref)
 
@@ -398,9 +394,7 @@ class TestRepositoryUniqueRepos(RepositoryTestAbstract):
     @retry_endpoint
     def test_clone_skip_lfs_files(self):
         # Upload LFS file
-        self._api.upload_file(
-            path_or_fileobj=b"Bin file", path_in_repo="file.bin", repo_id=self.repo_id
-        )
+        self._api.upload_file(path_or_fileobj=b"Bin file", path_in_repo="file.bin", repo_id=self.repo_id)
 
         repo = self.clone_repo(skip_lfs_files=True)
         file_bin = self.repo_path / "file.bin"
@@ -553,13 +547,9 @@ class TestRepositoryUniqueRepos(RepositoryTestAbstract):
                 f.write("Random string 2")
 
         root_directory = self.repo_path / ".git" / "lfs"
-        git_lfs_files_size = sum(
-            f.stat().st_size for f in root_directory.glob("**/*") if f.is_file()
-        )
+        git_lfs_files_size = sum(f.stat().st_size for f in root_directory.glob("**/*") if f.is_file())
         repo.lfs_prune()
-        post_prune_git_lfs_files_size = sum(
-            f.stat().st_size for f in root_directory.glob("**/*") if f.is_file()
-        )
+        post_prune_git_lfs_files_size = sum(f.stat().st_size for f in root_directory.glob("**/*") if f.is_file())
 
         # Size of the directory holding LFS files was reduced
         self.assertLess(post_prune_git_lfs_files_size, git_lfs_files_size)
@@ -572,9 +562,7 @@ class TestRepositoryUniqueRepos(RepositoryTestAbstract):
                 f.write("Random string 1")
 
         root_directory = self.repo_path / ".git" / "lfs"
-        git_lfs_files_size = sum(
-            f.stat().st_size for f in root_directory.glob("**/*") if f.is_file()
-        )
+        git_lfs_files_size = sum(f.stat().st_size for f in root_directory.glob("**/*") if f.is_file())
 
         with open(os.path.join(repo.local_dir, "file.bin"), "w+") as f:
             f.write("Random string 2")
@@ -583,9 +571,7 @@ class TestRepositoryUniqueRepos(RepositoryTestAbstract):
         repo.git_commit("New commit")
         repo.git_push(auto_lfs_prune=True)
 
-        post_prune_git_lfs_files_size = sum(
-            f.stat().st_size for f in root_directory.glob("**/*") if f.is_file()
-        )
+        post_prune_git_lfs_files_size = sum(f.stat().st_size for f in root_directory.glob("**/*") if f.is_file())
 
         # Size of the directory holding LFS files is the exact same
         self.assertEqual(post_prune_git_lfs_files_size, git_lfs_files_size)
@@ -816,9 +802,7 @@ class TestRepositoryOffline(RepositoryTestAbstract):
         self.assertFalse(is_tracked_upstream(self.repo.local_dir))
 
     def test_no_branch_checked_out_raises(self):
-        head_commit_ref = run_subprocess(
-            "git show --oneline -s", folder=self.repo_path
-        ).stdout.split()[0]
+        head_commit_ref = run_subprocess("git show --oneline -s", folder=self.repo_path).stdout.split()[0]
 
         self.repo.git_checkout(head_commit_ref)
         self.assertRaises(OSError, is_tracked_upstream, self.repo.local_dir)

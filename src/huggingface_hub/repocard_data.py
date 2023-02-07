@@ -266,9 +266,7 @@ class ModelCardData(CardData):
                 self.model_name = model_name
                 self.eval_results = eval_results
             except KeyError:
-                logger.warning(
-                    "Invalid model-index. Not loading eval results into CardData."
-                )
+                logger.warning("Invalid model-index. Not loading eval results into CardData.")
 
         super().__init__(**kwargs)
 
@@ -276,16 +274,12 @@ class ModelCardData(CardData):
             if type(self.eval_results) == EvalResult:
                 self.eval_results = [self.eval_results]
             if self.model_name is None:
-                raise ValueError(
-                    "Passing `eval_results` requires `model_name` to be set."
-                )
+                raise ValueError("Passing `eval_results` requires `model_name` to be set.")
 
     def _to_dict(self, data_dict):
         """Format the internal data dict. In this case, we convert eval results to a valid model index"""
         if self.eval_results is not None:
-            data_dict["model-index"] = eval_results_to_model_index(
-                self.model_name, self.eval_results
-            )
+            data_dict["model-index"] = eval_results_to_model_index(self.model_name, self.eval_results)
             del data_dict["eval_results"], data_dict["model_name"]
 
 
@@ -368,9 +362,7 @@ class DatasetCardData(CardData):
         data_dict["train-eval-index"] = data_dict.pop("train_eval_index")
 
 
-def model_index_to_eval_results(
-    model_index: List[Dict[str, Any]]
-) -> Tuple[str, List[EvalResult]]:
+def model_index_to_eval_results(model_index: List[Dict[str, Any]]) -> Tuple[str, List[EvalResult]]:
     """Takes in a model index and returns the model name and a list of `huggingface_hub.EvalResult` objects.
 
     A detailed spec of the model index can be found here:
@@ -477,18 +469,12 @@ def _remove_none(obj):
     if isinstance(obj, (list, tuple, set)):
         return type(obj)(_remove_none(x) for x in obj if x is not None)
     elif isinstance(obj, dict):
-        return type(obj)(
-            (_remove_none(k), _remove_none(v))
-            for k, v in obj.items()
-            if k is not None and v is not None
-        )
+        return type(obj)((_remove_none(k), _remove_none(v)) for k, v in obj.items() if k is not None and v is not None)
     else:
         return obj
 
 
-def eval_results_to_model_index(
-    model_name: str, eval_results: List[EvalResult]
-) -> List[Dict[str, Any]]:
+def eval_results_to_model_index(model_name: str, eval_results: List[EvalResult]) -> List[Dict[str, Any]]:
     """Takes in given model name and list of `huggingface_hub.EvalResult` and returns a
     valid model-index that will be compatible with the format expected by the
     Hugging Face Hub.

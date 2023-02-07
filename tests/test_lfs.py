@@ -118,9 +118,7 @@ class TestSliceFileObj(unittest.TestCase):
             with open(filepath, "rb") as fileobj:
                 prev_pos = fileobj.tell()
                 # Test read
-                with SliceFileObj(
-                    fileobj, seek_from=24, read_limit=18
-                ) as fileobj_slice:
+                with SliceFileObj(fileobj, seek_from=24, read_limit=18) as fileobj_slice:
                     self.assertEqual(fileobj_slice.tell(), 0)
                     self.assertEqual(fileobj_slice.read(), self.content[24:42])
                     self.assertEqual(fileobj_slice.tell(), 18)
@@ -129,9 +127,7 @@ class TestSliceFileObj(unittest.TestCase):
 
                 self.assertEqual(fileobj.tell(), prev_pos)
 
-                with SliceFileObj(
-                    fileobj, seek_from=0, read_limit=990
-                ) as fileobj_slice:
+                with SliceFileObj(fileobj, seek_from=0, read_limit=990) as fileobj_slice:
                     self.assertEqual(fileobj_slice.tell(), 0)
                     self.assertEqual(fileobj_slice.read(200), self.content[0:200])
                     self.assertEqual(fileobj_slice.read(500), self.content[200:700])
@@ -140,9 +136,7 @@ class TestSliceFileObj(unittest.TestCase):
                     self.assertEqual(fileobj_slice.read(200), b"")
 
                 # Test seek with whence = os.SEEK_SET
-                with SliceFileObj(
-                    fileobj, seek_from=100, read_limit=100
-                ) as fileobj_slice:
+                with SliceFileObj(fileobj, seek_from=100, read_limit=100) as fileobj_slice:
                     self.assertEqual(fileobj_slice.tell(), 0)
                     fileobj_slice.seek(2, os.SEEK_SET)
                     self.assertEqual(fileobj_slice.tell(), 2)
@@ -155,9 +149,7 @@ class TestSliceFileObj(unittest.TestCase):
                     self.assertEqual(fileobj_slice.fileobj.tell(), 200)
 
                 # Test seek with whence = os.SEEK_CUR
-                with SliceFileObj(
-                    fileobj, seek_from=100, read_limit=100
-                ) as fileobj_slice:
+                with SliceFileObj(fileobj, seek_from=100, read_limit=100) as fileobj_slice:
                     self.assertEqual(fileobj_slice.tell(), 0)
                     fileobj_slice.seek(-5, os.SEEK_CUR)
                     self.assertEqual(fileobj_slice.tell(), 0)
@@ -173,9 +165,7 @@ class TestSliceFileObj(unittest.TestCase):
                     self.assertEqual(fileobj_slice.fileobj.tell(), 100)
 
                 # Test seek with whence = os.SEEK_END
-                with SliceFileObj(
-                    fileobj, seek_from=100, read_limit=100
-                ) as fileobj_slice:
+                with SliceFileObj(fileobj, seek_from=100, read_limit=100) as fileobj_slice:
                     self.assertEqual(fileobj_slice.tell(), 0)
                     fileobj_slice.seek(-5, os.SEEK_END)
                     self.assertEqual(fileobj_slice.tell(), 95)

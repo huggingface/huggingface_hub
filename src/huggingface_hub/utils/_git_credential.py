@@ -40,18 +40,14 @@ def list_credential_helpers(folder: Optional[str] = None) -> List[str]:
         #       See: https://github.com/huggingface/huggingface_hub/pull/1138#discussion_r1013324508
         return sorted(  # Sort for nice printing
             {  # Might have some duplicates
-                line.split("=")[-1].split()[0]
-                for line in output.split("\n")
-                if "credential.helper" in line
+                line.split("=")[-1].split()[0] for line in output.split("\n") if "credential.helper" in line
             }
         )
     except subprocess.CalledProcessError as exc:
         raise EnvironmentError(exc.stderr)
 
 
-def set_git_credential(
-    token: str, username: str = "hf_user", folder: Optional[str] = None
-) -> None:
+def set_git_credential(token: str, username: str = "hf_user", folder: Optional[str] = None) -> None:
     """Save a username/token pair in git credential for HF Hub registry.
 
     Credentials are saved in all configured helpers (store, cache, macOS keychain,...).
@@ -70,15 +66,11 @@ def set_git_credential(
         stdin,
         _,
     ):
-        stdin.write(
-            f"url={ENDPOINT}\nusername={username.lower()}\npassword={token}\n\n"
-        )
+        stdin.write(f"url={ENDPOINT}\nusername={username.lower()}\npassword={token}\n\n")
         stdin.flush()
 
 
-def unset_git_credential(
-    username: str = "hf_user", folder: Optional[str] = None
-) -> None:
+def unset_git_credential(username: str = "hf_user", folder: Optional[str] = None) -> None:
     """Erase credentials from git credential for HF Hub registry.
 
     Credentials are erased from the configured helpers (store, cache, macOS
@@ -122,10 +114,7 @@ def write_to_credential_store(username: str, password: str) -> None:
 
 @_deprecate_method(
     version="0.14",
-    message=(
-        "Please open an issue on https://github.com/huggingface/huggingface_hub if this"
-        " a useful feature for you."
-    ),
+    message="Please open an issue on https://github.com/huggingface/huggingface_hub if this a useful feature for you.",
 )
 def read_from_credential_store(
     username: Optional[str] = None,

@@ -1,6 +1,7 @@
+from spacy_huggingface_hub import push
+
 from huggingface_hub import delete_repo, hf_hub_download, model_info
 from huggingface_hub.utils import HfHubHTTPError
-from spacy_huggingface_hub import push
 
 from ..utils import production_endpoint
 

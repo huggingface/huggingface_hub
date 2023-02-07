@@ -144,16 +144,11 @@ def _check_fastai_fastcore_pyproject_versions(
     # If the package is specified but not the version (e.g. "fastai" instead of "fastai=2.4"), the default versions are the highest.
     fastai_packages = [pck for pck in package_versions if pck.startswith("fastai")]
     if len(fastai_packages) == 0:
-        logger.warning(
-            "The repository does not have a fastai version specified in the"
-            " `pyproject.toml`."
-        )
+        logger.warning("The repository does not have a fastai version specified in the `pyproject.toml`.")
     # fastai_version is an empty string if not specified
     else:
         fastai_version = str(fastai_packages[0]).partition("=")[2]
-        if fastai_version != "" and version.Version(fastai_version) < version.Version(
-            fastai_min_version
-        ):
+        if fastai_version != "" and version.Version(fastai_version) < version.Version(fastai_min_version):
             raise ImportError(
                 "`from_pretrained_fastai` requires"
                 f" fastai>={fastai_min_version} version but the model to load uses"
@@ -162,16 +157,11 @@ def _check_fastai_fastcore_pyproject_versions(
 
     fastcore_packages = [pck for pck in package_versions if pck.startswith("fastcore")]
     if len(fastcore_packages) == 0:
-        logger.warning(
-            "The repository does not have a fastcore version specified in the"
-            " `pyproject.toml`."
-        )
+        logger.warning("The repository does not have a fastcore version specified in the `pyproject.toml`.")
     # fastcore_version is an empty string if not specified
     else:
         fastcore_version = str(fastcore_packages[0]).partition("=")[2]
-        if fastcore_version != "" and version.Version(
-            fastcore_version
-        ) < version.Version(fastcore_min_version):
+        if fastcore_version != "" and version.Version(fastcore_version) < version.Version(fastcore_min_version):
             raise ImportError(
                 "`from_pretrained_fastai` requires"
                 f" fastcore>={fastcore_min_version} version, but you are using fastcore"
@@ -281,9 +271,7 @@ def _save_pretrained_fastai(
     # if the user provides config then we update it with the fastai and fastcore versions in CONFIG_TEMPLATE.
     if config is not None:
         if not isinstance(config, dict):
-            raise RuntimeError(
-                f"Provided config should be a dict. Got: '{type(config)}'"
-            )
+            raise RuntimeError(f"Provided config should be a dict. Got: '{type(config)}'")
         path = os.path.join(save_directory, CONFIG_NAME)
         with open(path, "w") as f:
             json.dump(config, f)
@@ -413,9 +401,7 @@ def push_to_hub_fastai(
     """
     _check_fastai_fastcore_versions()
     api = HfApi(endpoint=api_endpoint)
-    api.create_repo(
-        repo_id=repo_id, repo_type="model", token=token, private=private, exist_ok=True
-    )
+    api.create_repo(repo_id=repo_id, repo_type="model", token=token, private=private, exist_ok=True)
 
     # Push the files to the repo in a single commit
     with SoftTemporaryDirectory() as tmp:

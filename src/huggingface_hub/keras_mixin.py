@@ -63,9 +63,7 @@ def _create_hyperparameter_table(model):
         optimizer_params = model.optimizer.get_config()
         # flatten the configuration
         optimizer_params = _flatten_dict(optimizer_params)
-        optimizer_params[
-            "training_precision"
-        ] = tf.keras.mixed_precision.global_policy().name
+        optimizer_params["training_precision"] = tf.keras.mixed_precision.global_policy().name
         table = "| Hyperparameters | Value |\n| :-- | :-- |\n"
         for key, value in optimizer_params.items():
             table += f"| {key} | {value} |\n"
@@ -170,9 +168,7 @@ def save_pretrained_keras(
     if is_tf_available():
         import tensorflow as tf
     else:
-        raise ImportError(
-            "Called a Tensorflow-specific function but could not import it."
-        )
+        raise ImportError("Called a Tensorflow-specific function but could not import it.")
 
     if not model.built:
         raise ValueError("Model should be built before trying to save")
@@ -183,10 +179,7 @@ def save_pretrained_keras(
     # saving config
     if config:
         if not isinstance(config, dict):
-            raise RuntimeError(
-                "Provided config to save_pretrained_keras should be a dict. Got:"
-                f" '{type(config)}'"
-            )
+            raise RuntimeError(f"Provided config to save_pretrained_keras should be a dict. Got: '{type(config)}'")
 
         with (save_directory / CONFIG_NAME).open("w") as f:
             json.dump(config, f)
@@ -213,17 +206,14 @@ def save_pretrained_keras(
             path = save_directory / "history.json"
             if path.exists():
                 warnings.warn(
-                    "`history.json` file already exists, it will be overwritten by the"
-                    " history of this version.",
+                    "`history.json` file already exists, it will be overwritten by the history of this version.",
                     UserWarning,
                 )
             with path.open("w", encoding="utf-8") as f:
                 json.dump(model.history.history, f, indent=2, sort_keys=True)
 
     _create_model_card(model, save_directory, plot_model, metadata)
-    tf.keras.models.save_model(
-        model, save_directory, include_optimizer=include_optimizer, **model_save_kwargs
-    )
+    tf.keras.models.save_model(model, save_directory, include_optimizer=include_optimizer, **model_save_kwargs)
 
 
 def from_pretrained_keras(*args, **kwargs):
@@ -486,9 +476,7 @@ class KerasModelHubMixin(ModelHubMixin):
         if is_tf_available():
             import tensorflow as tf
         else:
-            raise ImportError(
-                "Called a TensorFlow-specific function but could not import it."
-            )
+            raise ImportError("Called a TensorFlow-specific function but could not import it.")
 
         # TODO - Figure out what to do about these config values. Config is not going to be needed to load model
         cfg = model_kwargs.pop("config", None)

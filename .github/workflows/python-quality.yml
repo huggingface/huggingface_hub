@@ -27,9 +27,8 @@ jobs:
         run: |
           pip install --upgrade pip
           pip install .[dev]
-      - run: black --check tests src
-      - run: isort --check-only tests src
-      - run: flake8 tests src
+      - run: black --check tests src contrib
+      - run: ruff tests src contrib
       - run: python utils/check_contrib_list.py
       - run: python utils/check_static_imports.py
 

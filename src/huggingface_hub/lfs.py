@@ -23,8 +23,9 @@ from os.path import getsize
 from typing import BinaryIO, Iterable, List, Optional, Tuple
 
 import requests
-from huggingface_hub.constants import ENDPOINT, REPO_TYPES_URL_PREFIXES
 from requests.auth import HTTPBasicAuth
+
+from huggingface_hub.constants import ENDPOINT, REPO_TYPES_URL_PREFIXES
 
 from .utils import (
     get_token_to_send,
@@ -92,10 +93,7 @@ def _validate_lfs_action(lfs_action: dict):
     """validates response from the LFS batch endpoint"""
     if not (
         isinstance(lfs_action.get("href"), str)
-        and (
-            lfs_action.get("header") is None
-            or isinstance(lfs_action.get("header"), dict)
-        )
+        and (lfs_action.get("header") is None or isinstance(lfs_action.get("header"), dict))
     ):
         raise ValueError("lfs_action is improperly formatted")
     return lfs_action
@@ -103,10 +101,7 @@ def _validate_lfs_action(lfs_action: dict):
 
 def _validate_batch_actions(lfs_batch_actions: dict):
     """validates response from the LFS batch endpoint"""
-    if not (
-        isinstance(lfs_batch_actions.get("oid"), str)
-        and isinstance(lfs_batch_actions.get("size"), int)
-    ):
+    if not (isinstance(lfs_batch_actions.get("oid"), str) and isinstance(lfs_batch_actions.get("size"), int)):
         raise ValueError("lfs_batch_actions is improperly formatted")
 
     upload_action = lfs_batch_actions.get("actions", {}).get("upload")
@@ -120,10 +115,7 @@ def _validate_batch_actions(lfs_batch_actions: dict):
 
 def _validate_batch_error(lfs_batch_error: dict):
     """validates response from the LFS batch endpoint"""
-    if not (
-        isinstance(lfs_batch_error.get("oid"), str)
-        and isinstance(lfs_batch_error.get("size"), int)
-    ):
+    if not (isinstance(lfs_batch_error.get("oid"), str) and isinstance(lfs_batch_error.get("size"), int)):
         raise ValueError("lfs_batch_error is improperly formatted")
     error_info = lfs_batch_error.get("error")
     if not (
@@ -258,10 +250,7 @@ def lfs_upload(
         if isinstance(chunk_size, str):
             chunk_size = int(chunk_size, 10)
         else:
-            raise ValueError(
-                "Malformed response from LFS batch endpoint: `chunk_size`"
-                " should be a string"
-            )
+            raise ValueError("Malformed response from LFS batch endpoint: `chunk_size` should be a string")
         _upload_multi_part(
             completion_url=upload_action["href"],
             fileobj=fileobj,
@@ -385,10 +374,7 @@ def _upload_multi_part(
             hf_raise_for_status(part_upload_res)
             etag = part_upload_res.headers.get("etag")
             if etag is None or etag == "":
-                raise ValueError(
-                    f"Invalid etag (`{etag}`) returned for part {part_idx +1} of"
-                    f" {num_parts}"
-                )
+                raise ValueError(f"Invalid etag (`{etag}`) returned for part {part_idx +1} of {num_parts}")
             completion_payload["parts"][part_idx]["etag"] = etag
 
     completion_res = requests.post(
@@ -466,9 +452,7 @@ class SliceFileObj(AbstractContextManager):
         if pos >= self._len:
             return b""
         remaining_amount = self._len - pos
-        data = self.fileobj.read(
-            remaining_amount if n < 0 else min(n, remaining_amount)
-        )
+        data = self.fileobj.read(remaining_amount if n < 0 else min(n, remaining_amount))
         return data
 
     def tell(self) -> int:

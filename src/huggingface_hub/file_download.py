@@ -19,8 +19,9 @@ from urllib.parse import quote, urlparse
 
 import requests
 from filelock import FileLock
-from huggingface_hub import constants
 from requests.exceptions import ConnectTimeout, ProxyError
+
+from huggingface_hub import constants
 
 from . import __version__  # noqa: F401 # for backward compatibility
 from .constants import (
@@ -36,27 +37,27 @@ from .constants import (
     REPO_TYPES,
     REPO_TYPES_URL_PREFIXES,
 )
-from .utils import get_fastai_version  # noqa: F401 # for backward compatibility
-from .utils import get_fastcore_version  # noqa: F401 # for backward compatibility
-from .utils import get_graphviz_version  # noqa: F401 # for backward compatibility
-from .utils import get_jinja_version  # noqa: F401 # for backward compatibility
-from .utils import get_pydot_version  # noqa: F401 # for backward compatibility
-from .utils import get_tf_version  # noqa: F401 # for backward compatibility
-from .utils import get_torch_version  # noqa: F401 # for backward compatibility
-from .utils import is_fastai_available  # noqa: F401 # for backward compatibility
-from .utils import is_fastcore_available  # noqa: F401 # for backward compatibility
-from .utils import is_graphviz_available  # noqa: F401 # for backward compatibility
-from .utils import is_jinja_available  # noqa: F401 # for backward compatibility
-from .utils import is_pydot_available  # noqa: F401 # for backward compatibility
-from .utils import is_tf_available  # noqa: F401 # for backward compatibility
-from .utils import is_torch_available  # noqa: F401 # for backward compatibility
 from .utils import (
     EntryNotFoundError,
     LocalEntryNotFoundError,
     SoftTemporaryDirectory,
     build_hf_headers,
+    get_fastai_version,  # noqa: F401 # for backward compatibility
+    get_fastcore_version,  # noqa: F401 # for backward compatibility
+    get_graphviz_version,  # noqa: F401 # for backward compatibility
+    get_jinja_version,  # noqa: F401 # for backward compatibility
+    get_pydot_version,  # noqa: F401 # for backward compatibility
+    get_tf_version,  # noqa: F401 # for backward compatibility
+    get_torch_version,  # noqa: F401 # for backward compatibility
     hf_raise_for_status,
     http_backoff,
+    is_fastai_available,  # noqa: F401 # for backward compatibility
+    is_fastcore_available,  # noqa: F401 # for backward compatibility
+    is_graphviz_available,  # noqa: F401 # for backward compatibility
+    is_jinja_available,  # noqa: F401 # for backward compatibility
+    is_pydot_available,  # noqa: F401 # for backward compatibility
+    is_tf_available,  # noqa: F401 # for backward compatibility
+    is_torch_available,  # noqa: F401 # for backward compatibility
     logging,
     tqdm,
     validate_hf_hub_args,
@@ -349,9 +350,7 @@ def _raise_if_offline_mode_is_enabled(msg: Optional[str] = None):
     HF_HUB_OFFLINE is True."""
     if constants.HF_HUB_OFFLINE:
         raise OfflineModeIsEnabled(
-            "Offline mode is enabled."
-            if msg is None
-            else "Offline mode is enabled. " + str(msg)
+            "Offline mode is enabled." if msg is None else "Offline mode is enabled. " + str(msg)
         )
 
 
@@ -635,8 +634,10 @@ def cached_download(
     """
     if not legacy_cache_layout:
         warnings.warn(
-            "`cached_download` is the legacy way to download files from the HF hub,"
-            " please consider upgrading to `hf_hub_download`",
+            (
+                "`cached_download` is the legacy way to download files from the HF hub,"
+                " please consider upgrading to `hf_hub_download`"
+            ),
             FutureWarning,
         )
 
@@ -674,8 +675,7 @@ def cached_download(
             # If we don't have any of those, raise an error.
             if etag is None:
                 raise OSError(
-                    "Distant resource does not have an ETag, we won't be able to"
-                    " reliably ensure reproducibility."
+                    "Distant resource does not have an ETag, we won't be able to reliably ensure reproducibility."
                 )
             # In case of a redirect, save an extra redirect on the request.get call,
             # and ensure we download the exact atomic version even if it changed
@@ -695,9 +695,7 @@ def cached_download(
             # etag is None
             pass
 
-    filename = (
-        force_filename if force_filename is not None else url_to_filename(url, etag)
-    )
+    filename = force_filename if force_filename is not None else url_to_filename(url, etag)
 
     # get cache path to put the file
     cache_path = os.path.join(cache_dir, filename)
@@ -710,16 +708,10 @@ def cached_download(
         else:
             matching_files = [
                 file
-                for file in fnmatch.filter(
-                    os.listdir(cache_dir), filename.split(".")[0] + ".*"
-                )
+                for file in fnmatch.filter(os.listdir(cache_dir), filename.split(".")[0] + ".*")
                 if not file.endswith(".json") and not file.endswith(".lock")
             ]
-            if (
-                len(matching_files) > 0
-                and not force_download
-                and force_filename is None
-            ):
+            if len(matching_files) > 0 and not force_download and force_filename is None:
                 return os.path.join(cache_dir, matching_files[-1])
             else:
                 # If files cannot be found and local_files_only=True,
@@ -873,9 +865,7 @@ def _create_relative_symlink(src: str, dst: str, new_blob: bool = False) -> None
         shutil.copyfile(src, dst)
 
 
-def _cache_commit_hash_for_specific_revision(
-    storage_folder: str, revision: str, commit_hash: str
-) -> None:
+def _cache_commit_hash_for_specific_revision(storage_folder: str, revision: str, commit_hash: str) -> None:
     """Cache reference between a revision (tag, branch or truncated commit hash) and the corresponding commit hash.
 
     Does nothing if `revision` is already a proper `commit_hash` or reference is already cached.
@@ -1026,8 +1016,10 @@ def hf_hub_download(
     """
     if force_filename is not None:
         warnings.warn(
-            "The `force_filename` parameter is deprecated as a new caching system, "
-            "which keeps the filenames as they are on the Hub, is now in place.",
+            (
+                "The `force_filename` parameter is deprecated as a new caching system, "
+                "which keeps the filenames as they are on the Hub, is now in place."
+            ),
             FutureWarning,
         )
         legacy_cache_layout = True
@@ -1073,14 +1065,9 @@ def hf_hub_download(
     if repo_type is None:
         repo_type = "model"
     if repo_type not in REPO_TYPES:
-        raise ValueError(
-            f"Invalid repo type: {repo_type}. Accepted repo types are:"
-            f" {str(REPO_TYPES)}"
-        )
+        raise ValueError(f"Invalid repo type: {repo_type}. Accepted repo types are: {str(REPO_TYPES)}")
 
-    storage_folder = os.path.join(
-        cache_dir, repo_folder_name(repo_id=repo_id, repo_type=repo_type)
-    )
+    storage_folder = os.path.join(cache_dir, repo_folder_name(repo_id=repo_id, repo_type=repo_type))
     os.makedirs(storage_folder, exist_ok=True)
 
     # cross platform transcription of filename, to be used as a local file path.
@@ -1089,9 +1076,7 @@ def hf_hub_download(
     # if user provides a commit_hash and they already have the file on disk,
     # shortcut everything.
     if REGEX_COMMIT_HASH.match(revision):
-        pointer_path = os.path.join(
-            storage_folder, "snapshots", revision, relative_filename
-        )
+        pointer_path = os.path.join(storage_folder, "snapshots", revision, relative_filename)
         if os.path.exists(pointer_path):
             return pointer_path
 
@@ -1118,30 +1103,18 @@ def hf_hub_download(
                 )
             except EntryNotFoundError as http_error:
                 # Cache the non-existence of the file and raise
-                commit_hash = http_error.response.headers.get(
-                    HUGGINGFACE_HEADER_X_REPO_COMMIT
-                )
+                commit_hash = http_error.response.headers.get(HUGGINGFACE_HEADER_X_REPO_COMMIT)
                 if commit_hash is not None and not legacy_cache_layout:
-                    no_exist_file_path = (
-                        Path(storage_folder)
-                        / ".no_exist"
-                        / commit_hash
-                        / relative_filename
-                    )
+                    no_exist_file_path = Path(storage_folder) / ".no_exist" / commit_hash / relative_filename
                     no_exist_file_path.parent.mkdir(parents=True, exist_ok=True)
                     no_exist_file_path.touch()
-                    _cache_commit_hash_for_specific_revision(
-                        storage_folder, revision, commit_hash
-                    )
+                    _cache_commit_hash_for_specific_revision(storage_folder, revision, commit_hash)
                 raise
 
             # Commit hash must exist
             commit_hash = metadata.commit_hash
             if commit_hash is None:
-                raise OSError(
-                    "Distant resource does not seem to be on huggingface.co (missing"
-                    " commit header)."
-                )
+                raise OSError("Distant resource does not seem to be on huggingface.co (missing commit header).")
 
             # Etag must exist
             etag = metadata.etag
@@ -1150,8 +1123,7 @@ def hf_hub_download(
             # If we don't have any of those, raise an error.
             if etag is None:
                 raise OSError(
-                    "Distant resource does not have an ETag, we won't be able to"
-                    " reliably ensure reproducibility."
+                    "Distant resource does not have an ETag, we won't be able to reliably ensure reproducibility."
                 )
 
             # In case of a redirect, save an extra redirect on the request.get call,
@@ -1182,8 +1154,7 @@ def hf_hub_download(
         # In those cases, we cannot force download.
         if force_download:
             raise ValueError(
-                "We have no connection or you passed local_files_only, so"
-                " force_download is not an accepted option."
+                "We have no connection or you passed local_files_only, so force_download is not an accepted option."
             )
 
         # Try to get "commit_hash" from "revision"
@@ -1198,9 +1169,7 @@ def hf_hub_download(
 
         # Return pointer file if exists
         if commit_hash is not None:
-            pointer_path = os.path.join(
-                storage_folder, "snapshots", commit_hash, relative_filename
-            )
+            pointer_path = os.path.join(storage_folder, "snapshots", commit_hash, relative_filename)
             if os.path.exists(pointer_path):
                 return pointer_path
 
@@ -1226,9 +1195,7 @@ def hf_hub_download(
     assert etag is not None, "etag must have been retrieved from server"
     assert commit_hash is not None, "commit_hash must have been retrieved from server"
     blob_path = os.path.join(storage_folder, "blobs", etag)
-    pointer_path = os.path.join(
-        storage_folder, "snapshots", commit_hash, relative_filename
-    )
+    pointer_path = os.path.join(storage_folder, "snapshots", commit_hash, relative_filename)
 
     os.makedirs(os.path.dirname(blob_path), exist_ok=True)
     os.makedirs(os.path.dirname(pointer_path), exist_ok=True)
@@ -1364,10 +1331,7 @@ def try_to_load_from_cache(
     if repo_type is None:
         repo_type = "model"
     if repo_type not in REPO_TYPES:
-        raise ValueError(
-            f"Invalid repo type: {repo_type}. Accepted repo types are:"
-            f" {str(REPO_TYPES)}"
-        )
+        raise ValueError(f"Invalid repo type: {repo_type}. Accepted repo types are: {str(REPO_TYPES)}")
     if cache_dir is None:
         cache_dir = HUGGINGFACE_HUB_CACHE
 
@@ -1460,10 +1424,7 @@ def get_hf_file_metadata(
         # Do not use directly `url`, as `_request_wrapper` might have followed relative
         # redirects.
         location=r.headers.get("Location") or r.request.url,  # type: ignore
-        size=_int_or_none(
-            r.headers.get(HUGGINGFACE_HEADER_X_LINKED_SIZE)
-            or r.headers.get("Content-Length")
-        ),
+        size=_int_or_none(r.headers.get(HUGGINGFACE_HEADER_X_LINKED_SIZE) or r.headers.get("Content-Length")),
     )
 
 

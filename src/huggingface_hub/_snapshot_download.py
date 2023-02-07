@@ -13,9 +13,8 @@ from .constants import (
 )
 from .file_download import REGEX_COMMIT_HASH, hf_hub_download, repo_folder_name
 from .hf_api import HfApi
-from .utils import filter_repo_objects, logging
+from .utils import filter_repo_objects, logging, validate_hf_hub_args
 from .utils import tqdm as hf_tqdm
-from .utils import validate_hf_hub_args
 
 
 logger = logging.get_logger(__name__)
@@ -124,14 +123,9 @@ def snapshot_download(
     if repo_type is None:
         repo_type = "model"
     if repo_type not in REPO_TYPES:
-        raise ValueError(
-            f"Invalid repo type: {repo_type}. Accepted repo types are:"
-            f" {str(REPO_TYPES)}"
-        )
+        raise ValueError(f"Invalid repo type: {repo_type}. Accepted repo types are: {str(REPO_TYPES)}")
 
-    storage_folder = os.path.join(
-        cache_dir, repo_folder_name(repo_id=repo_id, repo_type=repo_type)
-    )
+    storage_folder = os.path.join(cache_dir, repo_folder_name(repo_id=repo_id, repo_type=repo_type))
 
     # if we have no internet connection we will look for an
     # appropriate folder in the cache
@@ -166,9 +160,7 @@ def snapshot_download(
         revision=revision,
         token=token,
     )
-    assert (
-        repo_info.sha is not None
-    ), "Repo info returned from server must have a revision sha."
+    assert repo_info.sha is not None, "Repo info returned from server must have a revision sha."
     filtered_repo_files = list(
         filter_repo_objects(
             items=[f.rfilename for f in repo_info.siblings],

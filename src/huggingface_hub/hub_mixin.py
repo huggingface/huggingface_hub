@@ -135,9 +135,11 @@ class ModelHubMixin:
 
         if isinstance(model_id, str) and len(model_id.split("@")) == 2:
             warnings.warn(
-                "Passing a revision using 'namespace/model_id@revision' pattern is"
-                " deprecated and will be removed in version v0.16. Please pass"
-                " 'revision=...' as argument.",
+                (
+                    "Passing a revision using 'namespace/model_id@revision' pattern is"
+                    " deprecated and will be removed in version v0.16. Please pass"
+                    " 'revision=...' as argument."
+                ),
                 FutureWarning,
             )
             model_id, revision = model_id.split("@")
@@ -252,9 +254,7 @@ class ModelHubMixin:
             The url of the commit of your model in the given repository.
         """
         api = HfApi(endpoint=api_endpoint, token=token)
-        api.create_repo(
-            repo_id=repo_id, repo_type="model", private=private, exist_ok=True
-        )
+        api.create_repo(repo_id=repo_id, repo_type="model", private=private, exist_ok=True)
 
         # Push the files to the repo in a single commit
         with SoftTemporaryDirectory() as tmp:

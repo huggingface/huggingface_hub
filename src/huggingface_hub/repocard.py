@@ -5,6 +5,7 @@ from typing import Any, Dict, Optional, Type, Union
 
 import requests
 import yaml
+
 from huggingface_hub.file_download import hf_hub_download
 from huggingface_hub.hf_api import upload_file
 from huggingface_hub.repocard_data import (
@@ -24,9 +25,7 @@ from .utils.logging import get_logger
 
 
 TEMPLATE_MODELCARD_PATH = Path(__file__).parent / "templates" / "modelcard_template.md"
-TEMPLATE_DATASETCARD_PATH = (
-    Path(__file__).parent / "templates" / "datasetcard_template.md"
-)
+TEMPLATE_DATASETCARD_PATH = Path(__file__).parent / "templates" / "datasetcard_template.md"
 
 # exact same regex as in the Hub server. Please keep in sync.
 # See https://github.com/huggingface/moon-landing/blob/main/server/lib/ViewMarkdown.ts#L18
@@ -101,9 +100,7 @@ class RepoCard:
                 raise ValueError("repo card metadata block should be a dict")
         else:
             # Model card without metadata... create empty metadata
-            logger.warning(
-                "Repo card metadata block was not found. Setting CardData to empty."
-            )
+            logger.warning("Repo card metadata block was not found. Setting CardData to empty.")
             data_dict = {}
             self.text = content
 
@@ -176,9 +173,7 @@ class RepoCard:
                 token=token,
             )
         else:
-            raise ValueError(
-                f"Cannot load RepoCard: path not found on disk ({repo_id_or_path})."
-            )
+            raise ValueError(f"Cannot load RepoCard: path not found on disk ({repo_id_or_path}).")
 
         # Preserve newlines in the existing file.
         with Path(card_path).open(mode="r", newline="", encoding="utf-8") as f:
@@ -215,9 +210,7 @@ class RepoCard:
         headers = {"Accept": "text/plain"}
 
         try:
-            r = requests.post(
-                "https://huggingface.co/api/validate-yaml", body, headers=headers
-            )
+            r = requests.post("https://huggingface.co/api/validate-yaml", body, headers=headers)
             r.raise_for_status()
         except requests.exceptions.HTTPError as exc:
             if r.status_code == 400:
@@ -321,9 +314,7 @@ class RepoCard:
 
         kwargs = card_data.to_dict().copy()
         kwargs.update(template_kwargs)  # Template_kwargs have priority
-        template = jinja2.Template(
-            Path(template_path or cls.default_template_path).read_text()
-        )
+        template = jinja2.Template(Path(template_path or cls.default_template_path).read_text())
         content = template.render(card_data=card_data.to_yaml(), **kwargs)
         return cls(content)
 
@@ -472,7 +463,7 @@ class DatasetCard(RepoCard):
         return super().from_template(card_data, template_path, **template_kwargs)
 
 
-def _detect_line_ending(content: str) -> Literal["\r", "\n", "\r\n", None]:
+def _detect_line_ending(content: str) -> Literal["\r", "\n", "\r\n", None]:  # noqa: F722
     """Detect the line ending of a string. Used by RepoCard to avoid making huge diff on newlines.
 
     Uses same implem as in Hub server, keep it in sync.
@@ -531,11 +522,7 @@ def metadata_save(local_path: Union[str, Path], data: Dict) -> None:
         # sort_keys: keep dict order
         match = REGEX_YAML_BLOCK.search(content)
         if match:
-            output = (
-                content[: match.start()]
-                + f"---{line_break}{data_yaml}---{line_break}"
-                + content[match.end() :]
-            )
+            output = content[: match.start()] + f"---{line_break}{data_yaml}---{line_break}" + content[match.end() :]
         else:
             output = f"---{line_break}{data_yaml}---{line_break}{content}"
 
@@ -739,11 +726,7 @@ def metadata_update(
 
         ```
     """
-    commit_message = (
-        commit_message
-        if commit_message is not None
-        else "Update metadata with huggingface_hub"
-    )
+    commit_message = commit_message if commit_message is not None else "Update metadata with huggingface_hub"
 
     # Card class given repo_type
     card_class: Type[RepoCard]
@@ -762,10 +745,7 @@ def metadata_update(
         card = card_class.load(repo_id, token=token, repo_type=repo_type)
     except EntryNotFoundError:
         if repo_type == "space":
-            raise ValueError(
-                "Cannot update metadata on a Space that doesn't contain a `README.md`"
-                " file."
-            )
+            raise ValueError("Cannot update metadata on a Space that doesn't contain a `README.md` file.")
 
         # Initialize a ModelCard or DatasetCard from default template and no data.
         card = card_class.from_template(CardData())

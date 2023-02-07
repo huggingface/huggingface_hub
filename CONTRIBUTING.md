@@ -155,7 +155,7 @@ Follow these steps to start contributing:
    $ make test
    ```
 
-   `hugginface_hub` relies on `black` and `isort` to format its source code
+   `hugginface_hub` relies on `black` and `ruff` to format its source code
    consistently. You can install pre-commit hooks so that these styles are
    applied and checked on files that you have touched in each commit:
 
@@ -181,7 +181,7 @@ Follow these steps to start contributing:
    $ make style
    ```
 
-   `huggingface_hub` also uses `flake8` and a few custom scripts to check for coding mistakes. Quality
+   `huggingface_hub` also uses `ruff` and a few custom scripts to check for coding mistakes. Quality
    control runs in CI, however you can also run the same checks with:
 
    ```bash
@@ -223,7 +223,7 @@ Follow these steps to start contributing:
    too! So everyone can see the changes in the Pull request, work in your local
    branch and push the changes to your fork. They will automatically appear in
    the pull request.
-   
+
 8. Once your changes have been approved, one of the project maintainers will
  merge your pull request for you.
 
