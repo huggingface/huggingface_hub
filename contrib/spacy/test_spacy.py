@@ -5,7 +5,7 @@ from spacy_huggingface_hub import push
 from ..utils import production_endpoint
 
 
-def test_space_push(user: str) -> None:
+def test_push_to_hub(user: str) -> None:
     """Test equivalent of `python -m spacy huggingface-hub push`.
 
     (0. Delete existing repo on the Hub (if any))
