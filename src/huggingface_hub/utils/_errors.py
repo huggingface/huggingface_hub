@@ -39,7 +39,7 @@ class HfHubHTTPError(HTTPError):
     request_id: Optional[str] = None
     server_message: Optional[str] = None
 
-    def __init__(self, message: str, response: Optional[Response]):
+    def __init__(self, message: str, response: Optional[Response] = None):
         # Parse server information if any.
         if response is not None:
             self.request_id = response.headers.get("X-Request-Id")
