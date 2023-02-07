@@ -1,19 +1,18 @@
 import json
 import os
 import unittest
-from unittest.mock import Mock
+from pathlib import Path
+from unittest.mock import Mock, patch
+
+import pytest
 
 from huggingface_hub import HfApi, hf_hub_download
 from huggingface_hub.hub_mixin import PyTorchModelHubMixin
-from huggingface_hub.utils import is_torch_available, logging
+from huggingface_hub.utils import SoftTemporaryDirectory, is_torch_available
 
 from .testing_constants import ENDPOINT_STAGING, TOKEN, USER
-from .testing_utils import expect_deprecation, repo_name, rmtree_with_retry
+from .testing_utils import repo_name
 
-
-logger = logging.get_logger(__name__)
-WORKING_REPO_SUBDIR = "fixtures/working_repo_2"
-WORKING_REPO_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), WORKING_REPO_SUBDIR)
 
 if is_torch_available():
     import torch.nn as nn
@@ -22,9 +21,7 @@ if is_torch_available():
 def require_torch(test_case):
     """
     Decorator marking a test that requires PyTorch.
-
     These tests are skipped when PyTorch isn't installed.
-
     """
     if not is_torch_available():
         return unittest.skip("test requires PyTorch")(test_case)
@@ -33,6 +30,7 @@ def require_torch(test_case):
 
 
 if is_torch_available():
+    CONFIG = {"num": 10, "act": "gelu_fast"}
 
     class DummyModel(nn.Module, PyTorchModelHubMixin):
         def __init__(self, **kwargs):
@@ -48,45 +46,34 @@ else:
 
 
 @require_torch
-class HubMixingCommonTest(unittest.TestCase):
-    _api = HfApi(endpoint=ENDPOINT_STAGING)
-
-
-@require_torch
-class HubMixingTest(HubMixingCommonTest):
-    def tearDown(self) -> None:
-        if os.path.exists(WORKING_REPO_DIR):
-            rmtree_with_retry(WORKING_REPO_DIR)
-        logger.info(f"Does {WORKING_REPO_DIR} exist: {os.path.exists(WORKING_REPO_DIR)}")
+@pytest.mark.usefixtures("fx_cache_dir")
+class HubMixingTest(unittest.TestCase):
+    cache_dir: Path
 
     @classmethod
-    @expect_deprecation("set_access_token")
     def setUpClass(cls):
         """
         Share this valid token in all tests below.
         """
-        cls._token = TOKEN
-        cls._api.token = TOKEN
-        cls._api.set_access_token(TOKEN)
+        cls._api = HfApi(endpoint=ENDPOINT_STAGING, token=TOKEN)
 
-    def test_save_pretrained(self):
-        REPO_NAME = repo_name("save")
-        model = DummyModel()
-
-        model.save_pretrained(f"{WORKING_REPO_DIR}/{REPO_NAME}")
-        files = os.listdir(f"{WORKING_REPO_DIR}/{REPO_NAME}")
+    def test_save_pretrained_basic(self):
+        DummyModel().save_pretrained(self.cache_dir)
+        files = os.listdir(self.cache_dir)
         self.assertTrue("pytorch_model.bin" in files)
         self.assertEqual(len(files), 1)
 
-        model.save_pretrained(f"{WORKING_REPO_DIR}/{REPO_NAME}", config={"num": 12, "act": "gelu"})
-        files = os.listdir(f"{WORKING_REPO_DIR}/{REPO_NAME}")
+    def test_save_pretrained_with_config(self):
+        DummyModel().save_pretrained(self.cache_dir, config=CONFIG)
+        files = os.listdir(self.cache_dir)
         self.assertTrue("config.json" in files)
         self.assertTrue("pytorch_model.bin" in files)
         self.assertEqual(len(files), 2)
 
     def test_save_pretrained_with_push_to_hub(self):
-        REPO_NAME = repo_name("save")
-        save_directory = f"{WORKING_REPO_DIR}/{REPO_NAME}"
+        repo_id = repo_name("save")
+        save_directory = self.cache_dir / repo_id
+
         config = {"hello": "world"}
         mocked_model = DummyModel()
         mocked_model.push_to_hub = Mock()
@@ -102,49 +89,67 @@ class HubMixingTest(HubMixingCommonTest):
 
         # Push to hub with default repo_id (based on dir name)
         mocked_model.save_pretrained(save_directory, push_to_hub=True, config=config)
-        mocked_model.push_to_hub.assert_called_with(repo_id=REPO_NAME, config=config)
+        mocked_model.push_to_hub.assert_called_with(repo_id=repo_id, config=config)
 
-    def test_rel_path_from_pretrained(self):
-        model = DummyModel()
-        model.save_pretrained(
-            f"tests/{WORKING_REPO_SUBDIR}/FROM_PRETRAINED",
-            config={"num": 10, "act": "gelu_fast"},
+    @patch.object(DummyModel, "_from_pretrained")
+    def test_from_pretrained_model_id_only(self, from_pretrained_mock: Mock) -> None:
+        model = DummyModel.from_pretrained("namespace/repo_name")
+        from_pretrained_mock.assert_called_once()
+        self.assertIs(model, from_pretrained_mock.return_value)
+
+    @patch.object(DummyModel, "_from_pretrained")
+    def test_from_pretrained_model_id_and_revision(self, from_pretrained_mock: Mock) -> None:
+        """Regression test for #1313.
+        See https://github.com/huggingface/huggingface_hub/issues/1313."""
+        model = DummyModel.from_pretrained("namespace/repo_name", revision="123456789")
+        from_pretrained_mock.assert_called_once_with(
+            model_id="namespace/repo_name",
+            revision="123456789",  # Revision is passed correctly!
+            cache_dir=None,
+            force_download=False,
+            proxies=None,
+            resume_download=False,
+            local_files_only=False,
+            token=None,
         )
+        self.assertIs(model, from_pretrained_mock.return_value)
 
-        model = DummyModel.from_pretrained(f"tests/{WORKING_REPO_SUBDIR}/FROM_PRETRAINED")
-        self.assertTrue(model.config == {"num": 10, "act": "gelu_fast"})
+    def test_from_pretrained_to_relative_path(self):
+        with SoftTemporaryDirectory(dir=Path(".")) as tmp_relative_dir:
+            relative_save_directory = Path(tmp_relative_dir) / "model"
+            DummyModel().save_pretrained(relative_save_directory, config=CONFIG)
+            model = DummyModel.from_pretrained(relative_save_directory)
+            self.assertDictEqual(model.config, CONFIG)
 
-    def test_abs_path_from_pretrained(self):
-        REPO_NAME = repo_name("FROM_PRETRAINED")
-        model = DummyModel()
-        model.save_pretrained(
-            f"{WORKING_REPO_DIR}/{REPO_NAME}",
-            config={"num": 10, "act": "gelu_fast"},
-        )
+    def test_from_pretrained_to_absolute_path(self):
+        save_directory = self.cache_dir / "subfolder"
+        DummyModel().save_pretrained(save_directory, config=CONFIG)
+        model = DummyModel.from_pretrained(save_directory)
+        self.assertDictEqual(model.config, CONFIG)
 
-        model = DummyModel.from_pretrained(f"{WORKING_REPO_DIR}/{REPO_NAME}")
-        self.assertDictEqual(model.config, {"num": 10, "act": "gelu_fast"})
+    def test_from_pretrained_to_absolute_string_path(self):
+        save_directory = str(self.cache_dir / "subfolder")
+        DummyModel().save_pretrained(save_directory, config=CONFIG)
+        model = DummyModel.from_pretrained(save_directory)
+        self.assertDictEqual(model.config, CONFIG)
 
-    def test_push_to_hub_via_http_basic(self):
-        REPO_NAME = repo_name("PUSH_TO_HUB_via_http")
-        repo_id = f"{USER}/{REPO_NAME}"
-
-        DummyModel().push_to_hub(
-            repo_id=repo_id,
-            api_endpoint=ENDPOINT_STAGING,
-            token=self._token,
-            config={"num": 7, "act": "gelu_fast"},
-        )
+    def test_push_to_hub(self):
+        repo_id = f"{USER}/{repo_name('push_to_hub')}"
+        DummyModel().push_to_hub(repo_id=repo_id, api_endpoint=ENDPOINT_STAGING, token=TOKEN, config=CONFIG)
 
         # Test model id exists
         model_info = self._api.model_info(repo_id)
         self.assertEqual(model_info.modelId, repo_id)
 
         # Test config has been pushed to hub
-        tmp_config_path = hf_hub_download(repo_id=repo_id, filename="config.json", use_auth_token=self._token)
+        tmp_config_path = hf_hub_download(
+            repo_id=repo_id,
+            filename="config.json",
+            use_auth_token=TOKEN,
+            cache_dir=self.cache_dir,
+        )
         with open(tmp_config_path) as f:
-            self.assertEqual(json.load(f), {"num": 7, "act": "gelu_fast"})
+            self.assertDictEqual(json.load(f), CONFIG)
 
-        # Delete tmp file and repo
-        os.remove(tmp_config_path)
+        # Delete repo
         self._api.delete_repo(repo_id=repo_id)

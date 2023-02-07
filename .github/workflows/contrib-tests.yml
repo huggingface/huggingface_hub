@@ -16,6 +16,7 @@ jobs:
       matrix:
         contrib: [
           "sentence_transformers",
+          "spacy",
           "timm",
         ]
 
