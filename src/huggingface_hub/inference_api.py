@@ -146,10 +146,7 @@ class InferenceApi:
 
     def __repr__(self):
         # Do not add headers to repr to avoid leaking token.
-        return (
-            f"InferenceAPI(api_url='{self.api_url}', task='{self.task}',"
-            f" options={self.options})"
-        )
+        return f"InferenceAPI(api_url='{self.api_url}', task='{self.task}', options={self.options})"
 
     def __call__(
         self,
@@ -183,9 +180,7 @@ class InferenceApi:
             payload["parameters"] = params
 
         # Make API call
-        response = requests.post(
-            self.api_url, headers=self.headers, json=payload, data=data
-        )
+        response = requests.post(self.api_url, headers=self.headers, json=payload, data=data)
 
         # Let the user handle the response
         if raw_response:

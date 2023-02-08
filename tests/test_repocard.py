@@ -20,9 +20,9 @@ from functools import partial
 from pathlib import Path
 
 import pytest
-
 import requests
 import yaml
+
 from huggingface_hub import (
     DatasetCard,
     DatasetCardData,
@@ -167,9 +167,7 @@ This is a test model card.
 
 logger = logging.get_logger(__name__)
 
-REPOCARD_DIR = os.path.join(
-    os.path.dirname(os.path.abspath(__file__)), "fixtures/repocard"
-)
+REPOCARD_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "fixtures/repocard")
 
 repo_name = partial(repo_name, prefix="dummy-hf-hub")
 
@@ -285,9 +283,7 @@ class RepocardMetadataUpdateTest(unittest.TestCase):
             git_user="ci",
             git_email="ci@dummy.com",
         )
-        self.existing_metadata = yaml.safe_load(
-            DUMMY_MODELCARD_EVAL_RESULT.strip().strip("-")
-        )
+        self.existing_metadata = yaml.safe_load(DUMMY_MODELCARD_EVAL_RESULT.strip().strip("-"))
 
     def tearDown(self) -> None:
         self._api.delete_repo(repo_id=self.repo_id)
@@ -305,9 +301,7 @@ class RepocardMetadataUpdateTest(unittest.TestCase):
 
     def test_update_existing_result_with_overwrite(self):
         new_metadata = copy.deepcopy(self.existing_metadata)
-        new_metadata["model-index"][0]["results"][0]["metrics"][0][
-            "value"
-        ] = 0.2862102282047272
+        new_metadata["model-index"][0]["results"][0]["metrics"][0]["value"] = 0.2862102282047272
         metadata_update(self.repo_id, new_metadata, token=self._token, overwrite=True)
 
         self.repo.git_pull()
@@ -320,9 +314,7 @@ class RepocardMetadataUpdateTest(unittest.TestCase):
         Regression test for https://github.com/huggingface/huggingface_hub/issues/1210
         """
         new_metadata = copy.deepcopy(self.existing_metadata)
-        new_metadata["model-index"][0]["results"][0]["metrics"][0][
-            "verifyToken"
-        ] = "1234"
+        new_metadata["model-index"][0]["results"][0]["metrics"][0]["verifyToken"] = "1234"
         metadata_update(self.repo_id, new_metadata, token=self._token, overwrite=True)
         self.repo.git_pull()
         updated_metadata = metadata_load(self.repo_path / self.REPO_NAME / "README.md")
@@ -345,9 +337,7 @@ class RepocardMetadataUpdateTest(unittest.TestCase):
 
     def test_update_existing_result_without_overwrite(self):
         new_metadata = copy.deepcopy(self.existing_metadata)
-        new_metadata["model-index"][0]["results"][0]["metrics"][0][
-            "value"
-        ] = 0.2862102282047272
+        new_metadata["model-index"][0]["results"][0]["metrics"][0]["value"] = 0.2862102282047272
 
         with pytest.raises(
             ValueError,
@@ -356,9 +346,7 @@ class RepocardMetadataUpdateTest(unittest.TestCase):
                 " accuracy'. Set `overwrite=True` to overwrite existing metrics."
             ),
         ):
-            metadata_update(
-                self.repo_id, new_metadata, token=self._token, overwrite=False
-            )
+            metadata_update(self.repo_id, new_metadata, token=self._token, overwrite=False)
 
     def test_update_existing_field_without_overwrite(self):
         new_datasets_data = {"datasets": "['test/test_dataset']"}
@@ -425,9 +413,7 @@ class RepocardMetadataUpdateTest(unittest.TestCase):
         metadata_update(self.repo_id, new_result, token=self._token, overwrite=False)
 
         expected_metadata = copy.deepcopy(self.existing_metadata)
-        expected_metadata["model-index"][0]["results"].append(
-            new_result["model-index"][0]["results"][0]
-        )
+        expected_metadata["model-index"][0]["results"].append(new_result["model-index"][0]["results"][0])
         self.repo.git_pull()
         updated_metadata = metadata_load(self.repo_path / self.REPO_NAME / "README.md")
         self.assertDictEqual(updated_metadata, expected_metadata)
@@ -452,15 +438,11 @@ class RepocardMetadataUpdateTest(unittest.TestCase):
     def test_update_with_existing_name(self):
         new_metadata = copy.deepcopy(self.existing_metadata)
         new_metadata["model-index"][0].pop("name")
-        new_metadata["model-index"][0]["results"][0]["metrics"][0][
-            "value"
-        ] = 0.2862102282047272
+        new_metadata["model-index"][0]["results"][0]["metrics"][0]["value"] = 0.2862102282047272
         metadata_update(self.repo_id, new_metadata, token=self._token, overwrite=True)
 
         card_data = ModelCard.load(self.repo_id, token=self._token)
-        self.assertEqual(
-            card_data.data.model_name, self.existing_metadata["model-index"][0]["name"]
-        )
+        self.assertEqual(card_data.data.model_name, self.existing_metadata["model-index"][0]["name"])
 
     def test_update_without_existing_name(self):
         # delete existing metadata
@@ -598,9 +580,7 @@ class RepoCardTest(TestCaseWithCapLog):
             card.save(updated_card_path)
 
             updated_card = RepoCard.load(updated_card_path)
-            self.assertEqual(
-                updated_card.data.language, ["fr"], "Card data not updated properly"
-            )
+            self.assertEqual(updated_card.data.language, ["fr"], "Card data not updated properly")
 
     @require_jinja
     def test_repo_card_from_default_template(self):
@@ -661,9 +641,7 @@ class RepoCardTest(TestCaseWithCapLog):
 
     def test_repo_card_data_must_be_dict(self):
         sample_path = SAMPLE_CARDS_DIR / "sample_invalid_card_data.md"
-        with pytest.raises(
-            ValueError, match="repo card metadata block should be a dict"
-        ):
+        with pytest.raises(ValueError, match="repo card metadata block should be a dict"):
             RepoCard(sample_path.read_text())
 
     def test_repo_card_without_metadata(self):
@@ -874,9 +852,7 @@ class ModelCardTest(TestCaseWithCapLog):
         self.assertIsInstance(card, ModelCard)
         self.assertTrue(card.text.endswith("asdf"))
         self.assertTrue(card.data.to_dict().get("eval_results") is None)
-        self.assertEqual(
-            str(card)[: len(DUMMY_MODELCARD_EVAL_RESULT)], DUMMY_MODELCARD_EVAL_RESULT
-        )
+        self.assertEqual(str(card)[: len(DUMMY_MODELCARD_EVAL_RESULT)], DUMMY_MODELCARD_EVAL_RESULT)
 
 
 class DatasetCardTest(TestCaseWithCapLog):
@@ -920,9 +896,7 @@ class DatasetCardTest(TestCaseWithCapLog):
 
         # Here we pass the card data as kwargs as well so template picks up pretty_name.
         card = DatasetCard.from_template(card_data, **card_data.to_dict())
-        self.assertTrue(
-            card.text.strip().startswith("# Dataset Card for My Cool Dataset")
-        )
+        self.assertTrue(card.text.strip().startswith("# Dataset Card for My Cool Dataset"))
 
         self.assertIsInstance(card, DatasetCard)
 
@@ -946,9 +920,7 @@ class DatasetCardTest(TestCaseWithCapLog):
                 "in the dataset card template are working."
             ),
         )
-        self.assertTrue(
-            card.text.strip().startswith("# Dataset Card for My Cool Dataset")
-        )
+        self.assertTrue(card.text.strip().startswith("# Dataset Card for My Cool Dataset"))
         self.assertIsInstance(card, DatasetCard)
 
         matches = re.findall(r"Homepage:\*\* https:\/\/huggingface\.co", str(card))

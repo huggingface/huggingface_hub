@@ -39,9 +39,7 @@ HUGGINGFACE_CO_URL_HOME = "https://huggingface.co/"
 
 _staging_mode = _is_true(os.environ.get("HUGGINGFACE_CO_STAGING"))
 
-ENDPOINT = os.getenv("HF_ENDPOINT") or (
-    "https://hub-ci.huggingface.co" if _staging_mode else "https://huggingface.co"
-)
+ENDPOINT = os.getenv("HF_ENDPOINT") or ("https://hub-ci.huggingface.co" if _staging_mode else "https://huggingface.co")
 
 HUGGINGFACE_CO_URL_TEMPLATE = ENDPOINT + "/{repo_id}/resolve/{revision}/{filename}"
 HUGGINGFACE_HEADER_X_REPO_COMMIT = "X-Repo-Commit"
@@ -83,9 +81,7 @@ default_cache_path = os.path.join(hf_cache_home, "hub")
 default_assets_cache_path = os.path.join(hf_cache_home, "assets")
 
 HUGGINGFACE_HUB_CACHE = os.getenv("HUGGINGFACE_HUB_CACHE", default_cache_path)
-HUGGINGFACE_ASSETS_CACHE = os.getenv(
-    "HUGGINGFACE_ASSETS_CACHE", default_assets_cache_path
-)
+HUGGINGFACE_ASSETS_CACHE = os.getenv("HUGGINGFACE_ASSETS_CACHE", default_assets_cache_path)
 
 HF_HUB_OFFLINE = _is_true(os.environ.get("HF_HUB_OFFLINE"))
 
@@ -103,20 +99,14 @@ HF_TOKEN_PATH = os.path.join(hf_cache_home, "token")
 # TL;DR: env variable has priority over code
 __HF_HUB_DISABLE_PROGRESS_BARS = os.environ.get("HF_HUB_DISABLE_PROGRESS_BARS")
 HF_HUB_DISABLE_PROGRESS_BARS: Optional[bool] = (
-    _is_true(__HF_HUB_DISABLE_PROGRESS_BARS)
-    if __HF_HUB_DISABLE_PROGRESS_BARS is not None
-    else None
+    _is_true(__HF_HUB_DISABLE_PROGRESS_BARS) if __HF_HUB_DISABLE_PROGRESS_BARS is not None else None
 )
 
 # Disable warning on machines that do not support symlinks (e.g. Windows non-developer)
-HF_HUB_DISABLE_SYMLINKS_WARNING: bool = _is_true(
-    os.environ.get("HF_HUB_DISABLE_SYMLINKS_WARNING")
-)
+HF_HUB_DISABLE_SYMLINKS_WARNING: bool = _is_true(os.environ.get("HF_HUB_DISABLE_SYMLINKS_WARNING"))
 
 # Disable sending the cached token by default is all HTTP requests to the Hub
-HF_HUB_DISABLE_IMPLICIT_TOKEN: bool = _is_true(
-    os.environ.get("HF_HUB_DISABLE_IMPLICIT_TOKEN")
-)
+HF_HUB_DISABLE_IMPLICIT_TOKEN: bool = _is_true(os.environ.get("HF_HUB_DISABLE_IMPLICIT_TOKEN"))
 
 # Enable fast-download using external dependency "hf_transfer"
 # See:

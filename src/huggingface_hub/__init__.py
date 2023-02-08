@@ -258,9 +258,7 @@ def _attach(package_name, submodules=None, submod_attrs=None):
     else:
         submodules = set(submodules)
 
-    attr_to_modules = {
-        attr: mod for mod, attrs in submod_attrs.items() for attr in attrs
-    }
+    attr_to_modules = {attr: mod for mod, attrs in submod_attrs.items() for attr in attrs}
 
     __all__ = list(submodules | attr_to_modules.keys())
 
@@ -293,9 +291,7 @@ def _attach(package_name, submodules=None, submod_attrs=None):
     return __getattr__, __dir__, list(__all__)
 
 
-__getattr__, __dir__, __all__ = _attach(
-    __name__, submodules=[], submod_attrs=_SUBMOD_ATTRS
-)
+__getattr__, __dir__, __all__ = _attach(__name__, submodules=[], submod_attrs=_SUBMOD_ATTRS)
 
 # WARNING: any content below this statement is generated automatically. Any manual edit
 # will be lost when re-generating this file !
@@ -309,126 +305,152 @@ __getattr__, __dir__, __all__ = _attach(
 # make style
 # ```
 if TYPE_CHECKING:  # pragma: no cover
-    from ._login import interpreter_login  # noqa: F401
-    from ._login import login  # noqa: F401
-    from ._login import logout  # noqa: F401
-    from ._login import notebook_login  # noqa: F401
+    from ._login import (
+        interpreter_login,  # noqa: F401
+        login,  # noqa: F401
+        logout,  # noqa: F401
+        notebook_login,  # noqa: F401
+    )
     from ._snapshot_download import snapshot_download  # noqa: F401
-    from ._space_api import SpaceHardware  # noqa: F401
-    from ._space_api import SpaceRuntime  # noqa: F401
-    from ._space_api import SpaceStage  # noqa: F401
-    from .community import Discussion  # noqa: F401
-    from .community import DiscussionComment  # noqa: F401
-    from .community import DiscussionCommit  # noqa: F401
-    from .community import DiscussionEvent  # noqa: F401
-    from .community import DiscussionStatusChange  # noqa: F401
-    from .community import DiscussionTitleChange  # noqa: F401
-    from .community import DiscussionWithDetails  # noqa: F401
-    from .constants import CONFIG_NAME  # noqa: F401
-    from .constants import FLAX_WEIGHTS_NAME  # noqa: F401
-    from .constants import HUGGINGFACE_CO_URL_HOME  # noqa: F401
-    from .constants import HUGGINGFACE_CO_URL_TEMPLATE  # noqa: F401
-    from .constants import PYTORCH_WEIGHTS_NAME  # noqa: F401
-    from .constants import REPO_TYPE_DATASET  # noqa: F401
-    from .constants import REPO_TYPE_MODEL  # noqa: F401
-    from .constants import REPO_TYPE_SPACE  # noqa: F401
-    from .constants import TF2_WEIGHTS_NAME  # noqa: F401
-    from .constants import TF_WEIGHTS_NAME  # noqa: F401
-    from .fastai_utils import _save_pretrained_fastai  # noqa: F401
-    from .fastai_utils import from_pretrained_fastai  # noqa: F401
-    from .fastai_utils import push_to_hub_fastai  # noqa: F401
-    from .file_download import _CACHED_NO_EXIST  # noqa: F401
-    from .file_download import HfFileMetadata  # noqa: F401
-    from .file_download import cached_download  # noqa: F401
-    from .file_download import get_hf_file_metadata  # noqa: F401
-    from .file_download import hf_hub_download  # noqa: F401
-    from .file_download import hf_hub_url  # noqa: F401
-    from .file_download import try_to_load_from_cache  # noqa: F401
-    from .hf_api import CommitInfo  # noqa: F401
-    from .hf_api import CommitOperation  # noqa: F401
-    from .hf_api import CommitOperationAdd  # noqa: F401
-    from .hf_api import CommitOperationDelete  # noqa: F401
-    from .hf_api import DatasetSearchArguments  # noqa: F401
-    from .hf_api import GitRefInfo  # noqa: F401
-    from .hf_api import GitRefs  # noqa: F401
-    from .hf_api import HfApi  # noqa: F401
-    from .hf_api import ModelSearchArguments  # noqa: F401
-    from .hf_api import RepoUrl  # noqa: F401
-    from .hf_api import UserLikes  # noqa: F401
-    from .hf_api import add_space_secret  # noqa: F401
-    from .hf_api import change_discussion_status  # noqa: F401
-    from .hf_api import comment_discussion  # noqa: F401
-    from .hf_api import create_branch  # noqa: F401
-    from .hf_api import create_commit  # noqa: F401
-    from .hf_api import create_discussion  # noqa: F401
-    from .hf_api import create_pull_request  # noqa: F401
-    from .hf_api import create_repo  # noqa: F401
-    from .hf_api import create_tag  # noqa: F401
-    from .hf_api import dataset_info  # noqa: F401
-    from .hf_api import delete_branch  # noqa: F401
-    from .hf_api import delete_file  # noqa: F401
-    from .hf_api import delete_folder  # noqa: F401
-    from .hf_api import delete_repo  # noqa: F401
-    from .hf_api import delete_space_secret  # noqa: F401
-    from .hf_api import delete_tag  # noqa: F401
-    from .hf_api import edit_discussion_comment  # noqa: F401
-    from .hf_api import get_dataset_tags  # noqa: F401
-    from .hf_api import get_discussion_details  # noqa: F401
-    from .hf_api import get_full_repo_name  # noqa: F401
-    from .hf_api import get_model_tags  # noqa: F401
-    from .hf_api import get_repo_discussions  # noqa: F401
-    from .hf_api import get_space_runtime  # noqa: F401
-    from .hf_api import like  # noqa: F401
-    from .hf_api import list_datasets  # noqa: F401
-    from .hf_api import list_liked_repos  # noqa: F401
-    from .hf_api import list_metrics  # noqa: F401
-    from .hf_api import list_models  # noqa: F401
-    from .hf_api import list_repo_files  # noqa: F401
-    from .hf_api import list_repo_refs  # noqa: F401
-    from .hf_api import list_spaces  # noqa: F401
-    from .hf_api import merge_pull_request  # noqa: F401
-    from .hf_api import model_info  # noqa: F401
-    from .hf_api import move_repo  # noqa: F401
-    from .hf_api import rename_discussion  # noqa: F401
-    from .hf_api import repo_type_and_id_from_hf_id  # noqa: F401
-    from .hf_api import request_space_hardware  # noqa: F401
-    from .hf_api import set_access_token  # noqa: F401
-    from .hf_api import space_info  # noqa: F401
-    from .hf_api import unlike  # noqa: F401
-    from .hf_api import unset_access_token  # noqa: F401
-    from .hf_api import update_repo_visibility  # noqa: F401
-    from .hf_api import upload_file  # noqa: F401
-    from .hf_api import upload_folder  # noqa: F401
-    from .hf_api import whoami  # noqa: F401
-    from .hub_mixin import ModelHubMixin  # noqa: F401
-    from .hub_mixin import PyTorchModelHubMixin  # noqa: F401
+    from ._space_api import (
+        SpaceHardware,  # noqa: F401
+        SpaceRuntime,  # noqa: F401
+        SpaceStage,  # noqa: F401
+    )
+    from .community import (
+        Discussion,  # noqa: F401
+        DiscussionComment,  # noqa: F401
+        DiscussionCommit,  # noqa: F401
+        DiscussionEvent,  # noqa: F401
+        DiscussionStatusChange,  # noqa: F401
+        DiscussionTitleChange,  # noqa: F401
+        DiscussionWithDetails,  # noqa: F401
+    )
+    from .constants import (
+        CONFIG_NAME,  # noqa: F401
+        FLAX_WEIGHTS_NAME,  # noqa: F401
+        HUGGINGFACE_CO_URL_HOME,  # noqa: F401
+        HUGGINGFACE_CO_URL_TEMPLATE,  # noqa: F401
+        PYTORCH_WEIGHTS_NAME,  # noqa: F401
+        REPO_TYPE_DATASET,  # noqa: F401
+        REPO_TYPE_MODEL,  # noqa: F401
+        REPO_TYPE_SPACE,  # noqa: F401
+        TF2_WEIGHTS_NAME,  # noqa: F401
+        TF_WEIGHTS_NAME,  # noqa: F401
+    )
+    from .fastai_utils import (
+        _save_pretrained_fastai,  # noqa: F401
+        from_pretrained_fastai,  # noqa: F401
+        push_to_hub_fastai,  # noqa: F401
+    )
+    from .file_download import (
+        _CACHED_NO_EXIST,  # noqa: F401
+        HfFileMetadata,  # noqa: F401
+        cached_download,  # noqa: F401
+        get_hf_file_metadata,  # noqa: F401
+        hf_hub_download,  # noqa: F401
+        hf_hub_url,  # noqa: F401
+        try_to_load_from_cache,  # noqa: F401
+    )
+    from .hf_api import (
+        CommitInfo,  # noqa: F401
+        CommitOperation,  # noqa: F401
+        CommitOperationAdd,  # noqa: F401
+        CommitOperationDelete,  # noqa: F401
+        DatasetSearchArguments,  # noqa: F401
+        GitRefInfo,  # noqa: F401
+        GitRefs,  # noqa: F401
+        HfApi,  # noqa: F401
+        ModelSearchArguments,  # noqa: F401
+        RepoUrl,  # noqa: F401
+        UserLikes,  # noqa: F401
+        add_space_secret,  # noqa: F401
+        change_discussion_status,  # noqa: F401
+        comment_discussion,  # noqa: F401
+        create_branch,  # noqa: F401
+        create_commit,  # noqa: F401
+        create_discussion,  # noqa: F401
+        create_pull_request,  # noqa: F401
+        create_repo,  # noqa: F401
+        create_tag,  # noqa: F401
+        dataset_info,  # noqa: F401
+        delete_branch,  # noqa: F401
+        delete_file,  # noqa: F401
+        delete_folder,  # noqa: F401
+        delete_repo,  # noqa: F401
+        delete_space_secret,  # noqa: F401
+        delete_tag,  # noqa: F401
+        edit_discussion_comment,  # noqa: F401
+        get_dataset_tags,  # noqa: F401
+        get_discussion_details,  # noqa: F401
+        get_full_repo_name,  # noqa: F401
+        get_model_tags,  # noqa: F401
+        get_repo_discussions,  # noqa: F401
+        get_space_runtime,  # noqa: F401
+        like,  # noqa: F401
+        list_datasets,  # noqa: F401
+        list_liked_repos,  # noqa: F401
+        list_metrics,  # noqa: F401
+        list_models,  # noqa: F401
+        list_repo_files,  # noqa: F401
+        list_repo_refs,  # noqa: F401
+        list_spaces,  # noqa: F401
+        merge_pull_request,  # noqa: F401
+        model_info,  # noqa: F401
+        move_repo,  # noqa: F401
+        rename_discussion,  # noqa: F401
+        repo_type_and_id_from_hf_id,  # noqa: F401
+        request_space_hardware,  # noqa: F401
+        set_access_token,  # noqa: F401
+        space_info,  # noqa: F401
+        unlike,  # noqa: F401
+        unset_access_token,  # noqa: F401
+        update_repo_visibility,  # noqa: F401
+        upload_file,  # noqa: F401
+        upload_folder,  # noqa: F401
+        whoami,  # noqa: F401
+    )
+    from .hub_mixin import (
+        ModelHubMixin,  # noqa: F401
+        PyTorchModelHubMixin,  # noqa: F401
+    )
     from .inference_api import InferenceApi  # noqa: F401
-    from .keras_mixin import KerasModelHubMixin  # noqa: F401
-    from .keras_mixin import from_pretrained_keras  # noqa: F401
-    from .keras_mixin import push_to_hub_keras  # noqa: F401
-    from .keras_mixin import save_pretrained_keras  # noqa: F401
-    from .repocard import DatasetCard  # noqa: F401
-    from .repocard import ModelCard  # noqa: F401
-    from .repocard import metadata_eval_result  # noqa: F401
-    from .repocard import metadata_load  # noqa: F401
-    from .repocard import metadata_save  # noqa: F401
-    from .repocard import metadata_update  # noqa: F401
-    from .repocard_data import CardData  # noqa: F401
-    from .repocard_data import DatasetCardData  # noqa: F401
-    from .repocard_data import EvalResult  # noqa: F401
-    from .repocard_data import ModelCardData  # noqa: F401
+    from .keras_mixin import (
+        KerasModelHubMixin,  # noqa: F401
+        from_pretrained_keras,  # noqa: F401
+        push_to_hub_keras,  # noqa: F401
+        save_pretrained_keras,  # noqa: F401
+    )
+    from .repocard import (
+        DatasetCard,  # noqa: F401
+        ModelCard,  # noqa: F401
+        metadata_eval_result,  # noqa: F401
+        metadata_load,  # noqa: F401
+        metadata_save,  # noqa: F401
+        metadata_update,  # noqa: F401
+    )
+    from .repocard_data import (
+        CardData,  # noqa: F401
+        DatasetCardData,  # noqa: F401
+        EvalResult,  # noqa: F401
+        ModelCardData,  # noqa: F401
+    )
     from .repository import Repository  # noqa: F401
-    from .utils import CachedFileInfo  # noqa: F401
-    from .utils import CachedRepoInfo  # noqa: F401
-    from .utils import CachedRevisionInfo  # noqa: F401
-    from .utils import CacheNotFound  # noqa: F401
-    from .utils import CorruptedCacheException  # noqa: F401
-    from .utils import DeleteCacheStrategy  # noqa: F401
-    from .utils import HFCacheInfo  # noqa: F401
-    from .utils import HfFolder  # noqa: F401
-    from .utils import cached_assets_path  # noqa: F401
-    from .utils import dump_environment_info  # noqa: F401
-    from .utils import logging  # noqa: F401
-    from .utils import scan_cache_dir  # noqa: F401
-    from .utils.endpoint_helpers import DatasetFilter  # noqa: F401
-    from .utils.endpoint_helpers import ModelFilter  # noqa: F401
+    from .utils import (
+        CachedFileInfo,  # noqa: F401
+        CachedRepoInfo,  # noqa: F401
+        CachedRevisionInfo,  # noqa: F401
+        CacheNotFound,  # noqa: F401
+        CorruptedCacheException,  # noqa: F401
+        DeleteCacheStrategy,  # noqa: F401
+        HFCacheInfo,  # noqa: F401
+        HfFolder,  # noqa: F401
+        cached_assets_path,  # noqa: F401
+        dump_environment_info,  # noqa: F401
+        logging,  # noqa: F401
+        scan_cache_dir,  # noqa: F401
+    )
+    from .utils.endpoint_helpers import (
+        DatasetFilter,  # noqa: F401
+        ModelFilter,  # noqa: F401
+    )

@@ -78,6 +78,7 @@ except ImportError:
 
 def require_inquirer_py(fn: Callable) -> Callable:
     """Decorator to flag methods that require `InquirerPy`."""
+
     # TODO: refactor this + imports in a unified pattern across codebase
     @wraps(fn)
     def _inner(*args, **kwargs):
@@ -100,17 +101,13 @@ _CANCEL_DELETION_STR = "CANCEL_DELETION"
 class DeleteCacheCommand(BaseHuggingfaceCLICommand):
     @staticmethod
     def register_subcommand(parser: _SubParsersAction):
-        delete_cache_parser = parser.add_parser(
-            "delete-cache", help="Delete revisions from the cache directory."
-        )
+        delete_cache_parser = parser.add_parser("delete-cache", help="Delete revisions from the cache directory.")
 
         delete_cache_parser.add_argument(
             "--dir",
             type=str,
             default=None,
-            help=(
-                "cache directory (optional). Default to the default HuggingFace cache."
-            ),
+            help="cache directory (optional). Default to the default HuggingFace cache.",
         )
 
         delete_cache_parser.add_argument(
@@ -141,10 +138,7 @@ class DeleteCacheCommand(BaseHuggingfaceCLICommand):
 
         # If deletion is not cancelled
         if len(selected_hashes) > 0 and _CANCEL_DELETION_STR not in selected_hashes:
-            confirm_message = (
-                _get_expectations_str(hf_cache_info, selected_hashes)
-                + " Confirm deletion ?"
-            )
+            confirm_message = _get_expectations_str(hf_cache_info, selected_hashes) + " Confirm deletion ?"
 
             # Confirm deletion
             if self.disable_tui:
@@ -175,9 +169,7 @@ def _manual_review_tui(hf_cache_info: HFCacheInfo, preselected: List[str]) -> Li
     Displays a multi-select menu in the terminal (TUI).
     """
     # Define multiselect list
-    choices = _get_tui_choices_from_scan(
-        repos=hf_cache_info.repos, preselected=preselected
-    )
+    choices = _get_tui_choices_from_scan(repos=hf_cache_info.repos, preselected=preselected)
     checkbox = inquirer.checkbox(
         message="Select revisions to delete:",
         choices=choices,  # List of revisions with some pre-selection
@@ -187,15 +179,10 @@ def _manual_review_tui(hf_cache_info: HFCacheInfo, preselected: List[str]) -> Li
         # deletion.
         instruction=_get_expectations_str(
             hf_cache_info,
-            selected_hashes=[
-                c.value for c in choices if isinstance(c, Choice) and c.enabled
-            ],
+            selected_hashes=[c.value for c in choices if isinstance(c, Choice) and c.enabled],
         ),
         # We use the long instruction to should keybindings instructions to the user
-        long_instruction=(
-            "Press <space> to select, <enter> to validate and <ctrl+c> to quit"
-            " without modification."
-        ),
+        long_instruction="Press <space> to select, <enter> to validate and <ctrl+c> to quit without modification.",
         # Message that is displayed once the user validates its selection.
         transformer=lambda result: f"{len(result)} revision(s) selected.",
     )
@@ -207,11 +194,7 @@ def _manual_review_tui(hf_cache_info: HFCacheInfo, preselected: List[str]) -> Li
         # a revision hash is selected/unselected.
         checkbox._instruction = _get_expectations_str(
             hf_cache_info,
-            selected_hashes=[
-                choice["value"]
-                for choice in checkbox.content_control.choices
-                if choice["enabled"]
-            ],
+            selected_hashes=[choice["value"] for choice in checkbox.content_control.choices if choice["enabled"]],
         )
 
     checkbox.kb_func_lookup["toggle"].append({"func": _update_expectations})
@@ -229,9 +212,7 @@ def _ask_for_confirmation_tui(message: str, default: bool = True) -> bool:
     return inquirer.confirm(message, default=default).execute()
 
 
-def _get_tui_choices_from_scan(
-    repos: Iterable[CachedRepoInfo], preselected: List[str]
-) -> List:
+def _get_tui_choices_from_scan(repos: Iterable[CachedRepoInfo], preselected: List[str]) -> List:
     """Build a list of choices from the scanned repos.
 
     Args:
@@ -282,9 +263,7 @@ def _get_tui_choices_from_scan(
     return choices
 
 
-def _manual_review_no_tui(
-    hf_cache_info: HFCacheInfo, preselected: List[str]
-) -> List[str]:
+def _manual_review_no_tui(hf_cache_info: HFCacheInfo, preselected: List[str]) -> List[str]:
     """Ask the user for a manual review of the revisions to delete.
 
     Used when TUI is disabled. Manual review happens in a separate tmp file that the
@@ -317,7 +296,7 @@ def _manual_review_no_tui(
 
     # 2. Prompt instructions to user.
     instructions = f"""
-    TUI is disabled. In other to select which revisions you want to delete, please edit
+    TUI is disabled. In order to select which revisions you want to delete, please edit
     the following file using the text editor of your choice. Instructions for manual
     editing are located at the beginning of the file. Edit the file, save it and confirm
     to continue.
@@ -357,9 +336,7 @@ def _ask_for_confirmation_no_tui(message: str, default: bool = True) -> bool:
         print(f"Invalid input. Must be one of {ALL}")
 
 
-def _get_expectations_str(
-    hf_cache_info: HFCacheInfo, selected_hashes: List[str]
-) -> str:
+def _get_expectations_str(hf_cache_info: HFCacheInfo, selected_hashes: List[str]) -> str:
     """Format a string to display to the user how much space would be saved.
 
     Example:
@@ -371,10 +348,7 @@ def _get_expectations_str(
     if _CANCEL_DELETION_STR in selected_hashes:
         return "Nothing will be deleted."
     strategy = hf_cache_info.delete_revisions(*selected_hashes)
-    return (
-        f"{len(selected_hashes)} revisions selected counting for"
-        f" {strategy.expected_freed_size_str}."
-    )
+    return f"{len(selected_hashes)} revisions selected counting for {strategy.expected_freed_size_str}."
 
 
 def _read_manual_review_tmp_file(tmp_path: str) -> List[str]:

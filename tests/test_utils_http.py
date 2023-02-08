@@ -3,8 +3,9 @@ import unittest
 from typing import Generator
 from unittest.mock import Mock, call, patch
 
-from huggingface_hub.utils._http import http_backoff
 from requests import ConnectTimeout, HTTPError
+
+from huggingface_hub.utils._http import http_backoff
 
 
 URL = "https://www.google.com"
@@ -87,9 +88,7 @@ class TestHttpBackoff(unittest.TestCase):
         mock_200.status_code = 200
         mock_request.side_effect = (mock_200, mock_200, mock_200, mock_200)
 
-        response = http_backoff(
-            "GET", URL, base_wait_time=0.0, max_retries=3, retry_on_status_codes=200
-        )
+        response = http_backoff("GET", URL, base_wait_time=0.0, max_retries=3, retry_on_status_codes=200)
 
         self.assertEqual(mock_request.call_count, 4)
         self.assertIs(response, mock_200)
@@ -116,9 +115,7 @@ class TestHttpBackoff(unittest.TestCase):
         mock_request.side_effect = _side_effect_timer()
 
         with self.assertRaises(ConnectTimeout):
-            http_backoff(
-                "GET", URL, base_wait_time=0.1, max_wait_time=0.5, max_retries=5
-            )
+            http_backoff("GET", URL, base_wait_time=0.1, max_wait_time=0.5, max_retries=5)
 
         self.assertEqual(mock_request.call_count, 6)
 

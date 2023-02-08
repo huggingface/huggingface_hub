@@ -22,9 +22,7 @@ if is_torch_available():
 def require_torch(test_case):
     """
     Decorator marking a test that requires PyTorch.
-
     These tests are skipped when PyTorch isn't installed.
-
     """
     if not is_torch_available():
         return unittest.skip("test requires PyTorch")(test_case)
@@ -87,9 +85,7 @@ class HubMixingTest(unittest.TestCase):
         mocked_model.push_to_hub.assert_not_called()
 
         # Push to hub with repo_id
-        mocked_model.save_pretrained(
-            save_directory, push_to_hub=True, repo_id="CustomID", config=config
-        )
+        mocked_model.save_pretrained(save_directory, push_to_hub=True, repo_id="CustomID", config=config)
         mocked_model.push_to_hub.assert_called_with(repo_id="CustomID", config=config)
 
         # Push to hub with default repo_id (based on dir name)
@@ -103,11 +99,8 @@ class HubMixingTest(unittest.TestCase):
         self.assertIs(model, from_pretrained_mock.return_value)
 
     @patch.object(DummyModel, "_from_pretrained")
-    def test_from_pretrained_model_id_and_revision(
-        self, from_pretrained_mock: Mock
-    ) -> None:
+    def test_from_pretrained_model_id_and_revision(self, from_pretrained_mock: Mock) -> None:
         """Regression test for #1313.
-
         See https://github.com/huggingface/huggingface_hub/issues/1313."""
         model = DummyModel.from_pretrained("namespace/repo_name", revision="123456789")
         from_pretrained_mock.assert_called_once_with(
@@ -171,9 +164,7 @@ class HubMixingTest(unittest.TestCase):
 
     def test_push_to_hub(self):
         repo_id = f"{USER}/{repo_name('push_to_hub')}"
-        DummyModel().push_to_hub(
-            repo_id=repo_id, api_endpoint=ENDPOINT_STAGING, token=TOKEN, config=CONFIG
-        )
+        DummyModel().push_to_hub(repo_id=repo_id, api_endpoint=ENDPOINT_STAGING, token=TOKEN, config=CONFIG)
 
         # Test model id exists
         model_info = self._api.model_info(repo_id)

@@ -15,6 +15,7 @@
 import unittest
 
 import requests
+
 from huggingface_hub.hf_api import HfApi
 from huggingface_hub.utils.endpoint_helpers import (
     AttributeDictionary,
@@ -91,10 +92,7 @@ class AttributeDictionaryTest(AttributeDictionaryCommonTest):
         self._attrdict.itemB = 3
         self._attrdict["1a"] = 2
         self._attrdict["itemA?"] = 4
-        repr_string = (
-            "Available Attributes or Keys:\n * 1a (Key only)\n * itemA\n * itemA? (Key"
-            " only)\n * itemB\n"
-        )
+        repr_string = "Available Attributes or Keys:\n * 1a (Key only)\n * itemA\n * itemA? (Key only)\n * itemB\n"
         self.assertEqual(repr_string, repr(self._attrdict))
 
 
@@ -128,17 +126,13 @@ class GeneralTagsTest(GeneralTagsCommonTest):
 
         self.assertTrue("1Item_B" not in dir(languages))
 
-        self.assertEqual(
-            licenses, AttributeDictionary({"ItemC": "itemC", "Item_D": "itemD"})
-        )
+        self.assertEqual(licenses, AttributeDictionary({"ItemC": "itemC", "Item_D": "itemD"}))
 
     def test_filter(self):
         _tags = GeneralTags(self._tag_dictionary, keys=["license"])
         self.assertTrue(hasattr(_tags, "license"))
         self.assertFalse(hasattr(_tags, "languages"))
-        self.assertEqual(
-            _tags.license, AttributeDictionary({"ItemC": "itemC", "Item_D": "itemD"})
-        )
+        self.assertEqual(_tags.license, AttributeDictionary({"ItemC": "itemC", "Item_D": "itemD"}))
 
 
 class ModelTagsTest(unittest.TestCase):

@@ -48,9 +48,7 @@ class TestMissingCacheUtils(unittest.TestCase):
 
     def test_cache_dir_is_missing(self) -> None:
         """Directory to scan does not exist raises CacheNotFound."""
-        self.assertRaises(
-            CacheNotFound, scan_cache_dir, self.cache_dir / "does_not_exist"
-        )
+        self.assertRaises(CacheNotFound, scan_cache_dir, self.cache_dir / "does_not_exist")
 
     def test_cache_dir_is_a_file(self) -> None:
         """Directory to scan is a file raises ValueError."""
@@ -169,9 +167,7 @@ class TestValidCacheUtils(unittest.TestCase):
         )
 
         # Check readme file from "main" revision
-        main_readme_file = [
-            file for file in main_revision.files if file.file_name == "README.md"
-        ][0]
+        main_readme_file = [file for file in main_revision.files if file.file_name == "README.md"][0]
         main_readme_file_path = main_revision_path / "README.md"
         main_readme_blob_path = repo_a_path / "blobs" / REPO_A_MAIN_README_BLOB_HASH
 
@@ -182,9 +178,7 @@ class TestValidCacheUtils(unittest.TestCase):
         # Check readme file from "refs/pr/1" revision
         pr_1_revision = repo_a.refs[REF_1_NAME]
         pr_1_revision_path = repo_a_path / "snapshots" / REPO_A_PR_1_HASH
-        pr_1_readme_file = [
-            file for file in pr_1_revision.files if file.file_name == "README.md"
-        ][0]
+        pr_1_readme_file = [file for file in pr_1_revision.files if file.file_name == "README.md"][0]
         pr_1_readme_file_path = pr_1_revision_path / "README.md"
 
         # file_path in "refs/pr/1" revision is different than "main" but same blob path
@@ -253,25 +247,19 @@ class TestValidCacheUtils(unittest.TestCase):
         )
 
         # Check readme file from "main" revision
-        main_readme_file = [
-            file for file in main_revision.files if file.file_name == "README.md"
-        ][0]
+        main_readme_file = [file for file in main_revision.files if file.file_name == "README.md"][0]
         main_readme_file_path = main_revision_path / "README.md"
         main_readme_blob_path = repo_a_path / "blobs" / REPO_A_MAIN_README_BLOB_HASH
 
         self.assertEqual(main_readme_file.file_name, "README.md")
         self.assertEqual(main_readme_file.file_path, main_readme_file_path)
-        self.assertEqual(  # Windows-specific: no blob file
-            main_readme_file.blob_path, main_readme_file_path
-        )
+        self.assertEqual(main_readme_file.blob_path, main_readme_file_path)  # Windows-specific: no blob file
         self.assertFalse(main_readme_blob_path.exists())  # Windows-specific
 
         # Check readme file from "refs/pr/1" revision
         pr_1_revision = repo_a.refs[REF_1_NAME]
         pr_1_revision_path = repo_a_path / "snapshots" / REPO_A_PR_1_HASH
-        pr_1_readme_file = [
-            file for file in pr_1_revision.files if file.file_name == "README.md"
-        ][0]
+        pr_1_readme_file = [file for file in pr_1_revision.files if file.file_name == "README.md"][0]
         pr_1_readme_file_path = pr_1_revision_path / "README.md"
 
         # file_path in "refs/pr/1" revision is different than "main"
@@ -391,9 +379,7 @@ class TestCorruptedCacheUtils(unittest.TestCase):
         self.assertEqual(len(report.repos), 1)  # Scan still worked !
 
         self.assertEqual(len(report.warnings), 1)
-        self.assertEqual(
-            str(report.warnings[0]), f"Repo path is not a directory: {repo_path}"
-        )
+        self.assertEqual(str(report.warnings[0]), f"Repo path is not a directory: {repo_path}")
 
         # Case 2: a folder with wrong naming
         os.remove(repo_path)
@@ -420,8 +406,7 @@ class TestCorruptedCacheUtils(unittest.TestCase):
         self.assertEqual(len(report.warnings), 1)
         self.assertEqual(
             str(report.warnings[0]),
-            "Repo type must be `dataset`, `model` or `space`, found `not-model`"
-            f" ({repo_path}).",
+            f"Repo type must be `dataset`, `model` or `space`, found `not-model` ({repo_path}).",
         )
 
     def test_snapshots_path_not_found(self) -> None:
@@ -507,8 +492,7 @@ class TestCorruptedCacheUtils(unittest.TestCase):
         self.assertEqual(len(report.warnings), 1)
         self.assertEqual(
             str(report.warnings[0]),
-            "Reference(s) refer to missing commit hashes:"
-            " {'revision_hash_that_does_not_exist': {'not_main'}} "
+            "Reference(s) refer to missing commit hashes: {'revision_hash_that_does_not_exist': {'not_main'}} "
             + f"({self.repo_path }).",
         )
 
@@ -523,12 +507,8 @@ class TestCorruptedCacheUtils(unittest.TestCase):
         # Values from first report
         repo_1 = list(report_1.repos)[0]
         revision_1 = list(repo_1.revisions)[0]
-        readme_file_1 = [
-            file for file in revision_1.files if file.file_name == "README.md"
-        ][0]
-        another_file_1 = [
-            file for file in revision_1.files if file.file_name == ".gitattributes"
-        ][0]
+        readme_file_1 = [file for file in revision_1.files if file.file_name == "README.md"][0]
+        another_file_1 = [file for file in revision_1.files if file.file_name == ".gitattributes"][0]
 
         # Comparison of last_accessed/last_modified between file and repo
         self.assertLessEqual(readme_file_1.blob_last_accessed, repo_1.last_accessed)
@@ -551,12 +531,8 @@ class TestCorruptedCacheUtils(unittest.TestCase):
         # Values from second report
         repo_2 = list(report_2.repos)[0]
         revision_2 = list(repo_2.revisions)[0]
-        readme_file_2 = [
-            file for file in revision_2.files if file.file_name == "README.md"
-        ][0]
-        another_file_2 = [
-            file for file in revision_1.files if file.file_name == ".gitattributes"
-        ][0]
+        readme_file_2 = [file for file in revision_2.files if file.file_name == "README.md"][0]
+        another_file_2 = [file for file in revision_1.files if file.file_name == ".gitattributes"][0]
 
         # Report 1 is not updated when cache changes
         self.assertLess(repo_1.last_accessed, repo_2.last_accessed)
@@ -608,9 +584,7 @@ class TestDeleteRevisionsDryRun(unittest.TestCase):
         pr_1_only_file.size_on_disk = 100
 
         detached_and_pr_1_only_file = Mock()
-        detached_and_pr_1_only_file.blob_path = (
-            blobs_path / "detached_and_pr_1_only_hash"
-        )
+        detached_and_pr_1_only_file.blob_path = blobs_path / "detached_and_pr_1_only_hash"
         detached_and_pr_1_only_file.size_on_disk = 1000
 
         shared_file = Mock()
@@ -684,9 +658,7 @@ class TestDeleteRevisionsDryRun(unittest.TestCase):
         self.assertEqual(strategy, expected)
 
     def test_delete_pr_1_and_detached(self) -> None:
-        strategy = HFCacheInfo.delete_revisions(
-            self.cache_info, "repo_A_rev_detached", "repo_A_rev_pr_1"
-        )
+        strategy = HFCacheInfo.delete_revisions(self.cache_info, "repo_A_rev_detached", "repo_A_rev_pr_1")
         expected = DeleteCacheStrategy(
             expected_freed_size=1110,
             blobs={
@@ -719,9 +691,7 @@ class TestDeleteRevisionsDryRun(unittest.TestCase):
 
     def test_delete_unknown_revision(self) -> None:
         with self.assertLogs() as captured:
-            strategy = HFCacheInfo.delete_revisions(
-                self.cache_info, "repo_A_rev_detached", "abcdef123456789"
-            )
+            strategy = HFCacheInfo.delete_revisions(self.cache_info, "repo_A_rev_detached", "abcdef123456789")
 
         # Expected is same strategy as without "abcdef123456789"
         expected = HFCacheInfo.delete_revisions(self.cache_info, "repo_A_rev_detached")

@@ -41,7 +41,6 @@ extras["fastai"] = [
 extras["tensorflow"] = ["tensorflow", "pydot", "graphviz"]
 
 extras["testing"] = extras["cli"] + [
-    "isort>=5.5.4",
     "jedi",
     "Jinja2",
     "pytest",
@@ -64,10 +63,8 @@ extras["typing"] = [
 ]
 
 extras["quality"] = [
-    "black==22.3",
-    "flake8>=3.8.3",
-    "flake8-bugbear",
-    "isort>=5.5.4",
+    "black~=23.1",
+    "ruff>=0.0.241",
     "mypy==0.982",
 ]
 
@@ -81,26 +78,16 @@ setup(
     version=get_version(),
     author="Hugging Face, Inc.",
     author_email="julien@huggingface.co",
-    description=(
-        "Client library to download and publish models, datasets and other repos on the"
-        " huggingface.co hub"
-    ),
+    description="Client library to download and publish models, datasets and other repos on the huggingface.co hub",
     long_description=open("README.md", "r", encoding="utf-8").read(),
     long_description_content_type="text/markdown",
-    keywords=(
-        "model-hub machine-learning models natural-language-processing deep-learning"
-        " pytorch pretrained-models"
-    ),
+    keywords="model-hub machine-learning models natural-language-processing deep-learning pytorch pretrained-models",
     license="Apache",
     url="https://github.com/huggingface/huggingface_hub",
     package_dir={"": "src"},
     packages=find_packages("src"),
     extras_require=extras,
-    entry_points={
-        "console_scripts": [
-            "huggingface-cli=huggingface_hub.commands.huggingface_cli:main"
-        ]
-    },
+    entry_points={"console_scripts": ["huggingface-cli=huggingface_hub.commands.huggingface_cli:main"]},
     python_requires=">=3.7.0",
     install_requires=install_requires,
     classifiers=[

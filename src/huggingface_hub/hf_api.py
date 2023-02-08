@@ -23,8 +23,9 @@ from typing import Any, BinaryIO, Dict, Iterable, Iterator, List, Optional, Tupl
 from urllib.parse import quote
 
 import requests
-from huggingface_hub.utils import EntryNotFoundError, RepositoryNotFoundError
 from requests.exceptions import HTTPError
+
+from huggingface_hub.utils import EntryNotFoundError, RepositoryNotFoundError
 
 from ._commit_api import (
     CommitOperation,
@@ -90,9 +91,7 @@ _REGEX_DISCUSSION_URL = re.compile(r".*/discussions/(\d+)$")
 logger = logging.get_logger(__name__)
 
 
-def repo_type_and_id_from_hf_id(
-    hf_id: str, hub_url: Optional[str] = None
-) -> Tuple[Optional[str], Optional[str], str]:
+def repo_type_and_id_from_hf_id(hf_id: str, hub_url: Optional[str] = None) -> Tuple[Optional[str], Optional[str], str]:
     """
     Returns the repo type and ID from a huggingface.co URL linking to a
     repository
@@ -154,9 +153,7 @@ def repo_type_and_id_from_hf_id(
             repo_id = url_segments[0]
             namespace, repo_type = None, None
     else:
-        raise ValueError(
-            f"Unable to retrieve user and repo ID from the passed HF ID: {hf_id}"
-        )
+        raise ValueError(f"Unable to retrieve user and repo ID from the passed HF ID: {hf_id}")
 
     # Check if repo type is known (mapping "spaces" => "space" + empty value => `None`)
     if repo_type in REPO_TYPES_MAPPING:
@@ -276,9 +273,7 @@ class RepoUrl(str):
         super().__init__()
         # Parse URL
         self.endpoint = endpoint or ENDPOINT
-        repo_type, namespace, repo_name = repo_type_and_id_from_hf_id(
-            self, hub_url=self.endpoint
-        )
+        repo_type, namespace, repo_name = repo_type_and_id_from_hf_id(self, hub_url=self.endpoint)
 
         # Populate fields
         self.namespace = namespace
@@ -287,10 +282,7 @@ class RepoUrl(str):
         self.url = str(self)  # just in case it's needed
 
     def __repr__(self) -> str:
-        return (
-            f"RepoUrl('{self}', endpoint='{self.endpoint}',"
-            f" repo_type='{self.repo_type}', repo_id='{self.repo_id}')"
-        )
+        return f"RepoUrl('{self}', endpoint='{self.endpoint}', repo_type='{self.repo_type}', repo_id='{self.repo_id}')"
 
 
 class RepoFile:
@@ -389,9 +381,7 @@ class ModelInfo:
         self.lastModified = lastModified
         self.tags = tags
         self.pipeline_tag = pipeline_tag
-        self.siblings = (
-            [RepoFile(**x) for x in siblings] if siblings is not None else []
-        )
+        self.siblings = [RepoFile(**x) for x in siblings] if siblings is not None else []
         self.private = private
         self.author = author
         self.config = config
@@ -465,9 +455,7 @@ class DatasetInfo:
         self.description = description
         self.citation = citation
         self.cardData = cardData
-        self.siblings = (
-            [RepoFile(**x) for x in siblings] if siblings is not None else []
-        )
+        self.siblings = [RepoFile(**x) for x in siblings] if siblings is not None else []
         # Legacy stuff, "key" is always returned with an empty string
         # because of old versions of the datasets lib that need this field
         kwargs.pop("key", None)
@@ -524,9 +512,7 @@ class SpaceInfo:
         self.id = id
         self.sha = sha
         self.lastModified = lastModified
-        self.siblings = (
-            [RepoFile(**x) for x in siblings] if siblings is not None else []
-        )
+        self.siblings = [RepoFile(**x) for x in siblings] if siblings is not None else []
         self.private = private
         self.author = author
         for k, v in kwargs.items():
@@ -1030,10 +1016,7 @@ class HfApi:
 
         if emissions_thresholds is not None:
             if cardData is None:
-                raise ValueError(
-                    "`emissions_thresholds` were passed without setting"
-                    " `cardData=True`."
-                )
+                raise ValueError("`emissions_thresholds` were passed without setting `cardData=True`.")
             else:
                 return _filter_emissions(items, *emissions_thresholds)
 
@@ -1058,11 +1041,7 @@ class HfApi:
 
         # Handling tasks
         if model_filter.task is not None:
-            filter_list.extend(
-                [model_filter.task]
-                if isinstance(model_filter.task, str)
-                else model_filter.task
-            )
+            filter_list.extend([model_filter.task] if isinstance(model_filter.task, str) else model_filter.task)
 
         # Handling dataset
         if model_filter.trained_dataset is not None:
@@ -1076,18 +1055,12 @@ class HfApi:
         # Handling library
         if model_filter.library:
             filter_list.extend(
-                [model_filter.library]
-                if isinstance(model_filter.library, str)
-                else model_filter.library
+                [model_filter.library] if isinstance(model_filter.library, str) else model_filter.library
             )
 
         # Handling tags
         if model_filter.tags:
-            tags.extend(
-                [model_filter.tags]
-                if isinstance(model_filter.tags, str)
-                else model_filter.tags
-            )
+            tags.extend([model_filter.tags] if isinstance(model_filter.tags, str) else model_filter.tags)
 
         query_dict: Dict[str, Any] = {}
         if model_str is not None:
@@ -1520,8 +1493,7 @@ class HfApi:
                 user = me["name"]
             else:
                 raise ValueError(
-                    "Cannot list liked repos. You must provide a 'user' as input or be"
-                    " logged in as a user."
+                    "Cannot list liked repos. You must provide a 'user' as input or be logged in as a user."
                 )
 
         path = f"{self.endpoint}/api/users/{user}/likes"
@@ -1540,21 +1512,9 @@ class HfApi:
         return UserLikes(
             user=user,
             total=len(likes),
-            models=[
-                like["repo"]["name"]
-                for like in likes
-                if like["repo"]["type"] == "model"
-            ],
-            datasets=[
-                like["repo"]["name"]
-                for like in likes
-                if like["repo"]["type"] == "dataset"
-            ],
-            spaces=[
-                like["repo"]["name"]
-                for like in likes
-                if like["repo"]["type"] == "space"
-            ],
+            models=[like["repo"]["name"] for like in likes if like["repo"]["type"] == "model"],
+            datasets=[like["repo"]["name"] for like in likes if like["repo"]["type"] == "dataset"],
+            spaces=[like["repo"]["name"] for like in likes if like["repo"]["type"] == "space"],
         )
 
     @validate_hf_hub_args
@@ -1613,9 +1573,7 @@ class HfApi:
         path = (
             f"{self.endpoint}/api/models/{repo_id}"
             if revision is None
-            else (
-                f"{self.endpoint}/api/models/{repo_id}/revision/{quote(revision, safe='')}"
-            )
+            else (f"{self.endpoint}/api/models/{repo_id}/revision/{quote(revision, safe='')}")
         )
         params = {}
         if securityStatus:
@@ -1679,9 +1637,7 @@ class HfApi:
         path = (
             f"{self.endpoint}/api/datasets/{repo_id}"
             if revision is None
-            else (
-                f"{self.endpoint}/api/datasets/{repo_id}/revision/{quote(revision, safe='')}"
-            )
+            else (f"{self.endpoint}/api/datasets/{repo_id}/revision/{quote(revision, safe='')}")
         )
         params = {}
         if files_metadata:
@@ -1744,9 +1700,7 @@ class HfApi:
         path = (
             f"{self.endpoint}/api/spaces/{repo_id}"
             if revision is None
-            else (
-                f"{self.endpoint}/api/spaces/{repo_id}/revision/{quote(revision, safe='')}"
-            )
+            else (f"{self.endpoint}/api/spaces/{repo_id}/revision/{quote(revision, safe='')}")
         )
         params = {}
         if files_metadata:
@@ -1981,23 +1935,17 @@ class HfApi:
                     f" of {SPACES_SDK_TYPES} when repo_type is 'space'`"
                 )
             if space_sdk not in SPACES_SDK_TYPES:
-                raise ValueError(
-                    f"Invalid space_sdk. Please choose one of {SPACES_SDK_TYPES}."
-                )
+                raise ValueError(f"Invalid space_sdk. Please choose one of {SPACES_SDK_TYPES}.")
             json["sdk"] = space_sdk
 
         if space_sdk is not None and repo_type != "space":
-            warnings.warn(
-                "Ignoring provided space_sdk because repo_type is not 'space'."
-            )
+            warnings.warn("Ignoring provided space_sdk because repo_type is not 'space'.")
 
         if space_hardware is not None:
             if repo_type == "space":
                 json["hardware"] = space_hardware
             else:
-                warnings.warn(
-                    "Ignoring provided space_hardware because repo_type is not 'space'."
-                )
+                warnings.warn("Ignoring provided space_hardware because repo_type is not 'space'.")
 
         if getattr(self, "_lfsmultipartthresh", None):
             # Testing purposes only.
@@ -2164,16 +2112,10 @@ class HfApi:
         </Tip>
         """
         if len(from_id.split("/")) != 2:
-            raise ValueError(
-                f"Invalid repo_id: {from_id}. It should have a namespace"
-                " (:namespace:/:repo_name:)"
-            )
+            raise ValueError(f"Invalid repo_id: {from_id}. It should have a namespace (:namespace:/:repo_name:)")
 
         if len(to_id.split("/")) != 2:
-            raise ValueError(
-                f"Invalid repo_id: {to_id}. It should have a namespace"
-                " (:namespace:/:repo_name:)"
-            )
+            raise ValueError(f"Invalid repo_id: {to_id}. It should have a namespace (:namespace:/:repo_name:)")
 
         if repo_type is None:
             repo_type = REPO_TYPE_MODEL  # Hub won't accept `None`.
@@ -2298,22 +2240,17 @@ class HfApi:
 
         if parent_commit is not None and not REGEX_COMMIT_OID.fullmatch(parent_commit):
             raise ValueError(
-                "`parent_commit` is not a valid commit OID. It must match the"
-                f" following regex: {REGEX_COMMIT_OID}"
+                f"`parent_commit` is not a valid commit OID. It must match the following regex: {REGEX_COMMIT_OID}"
             )
 
         if commit_message is None or len(commit_message) == 0:
             raise ValueError("`commit_message` can't be empty, please pass a value.")
 
-        commit_description = (
-            commit_description if commit_description is not None else ""
-        )
+        commit_description = commit_description if commit_description is not None else ""
         repo_type = repo_type if repo_type is not None else REPO_TYPE_MODEL
         if repo_type not in REPO_TYPES:
             raise ValueError(f"Invalid repo type, must be one of {REPO_TYPES}")
-        revision = (
-            quote(revision, safe="") if revision is not None else DEFAULT_REVISION
-        )
+        revision = quote(revision, safe="") if revision is not None else DEFAULT_REVISION
         create_pr = create_pr if create_pr is not None else False
 
         operations = list(operations)
@@ -2321,10 +2258,7 @@ class HfApi:
         nb_additions = len(additions)
         nb_deletions = len(operations) - nb_additions
 
-        logger.debug(
-            f"About to commit to the hub: {len(additions)} addition(s) and"
-            f" {nb_deletions} deletion(s)."
-        )
+        logger.debug(f"About to commit to the hub: {len(additions)} addition(s) and {nb_deletions} deletion(s).")
 
         # If updating twice the same file or update then delete a file in a single commit
         warn_on_overwriting_operations(operations)
@@ -2344,11 +2278,7 @@ class HfApi:
             raise
 
         upload_lfs_files(
-            additions=[
-                addition
-                for addition in additions
-                if upload_modes[addition.path_in_repo] == "lfs"
-            ],
+            additions=[addition for addition in additions if upload_modes[addition.path_in_repo] == "lfs"],
             repo_type=repo_type,
             repo_id=repo_id,
             token=token or self.token,
@@ -2525,9 +2455,7 @@ class HfApi:
             raise ValueError(f"Invalid repo type, must be one of {REPO_TYPES}")
 
         commit_message = (
-            commit_message
-            if commit_message is not None
-            else f"Upload {path_in_repo} with huggingface_hub"
+            commit_message if commit_message is not None else f"Upload {path_in_repo} with huggingface_hub"
         )
         operation = CommitOperationAdd(
             path_or_fileobj=path_or_fileobj,
@@ -2684,9 +2612,7 @@ class HfApi:
             path_in_repo = ""
 
         commit_message = (
-            commit_message
-            if commit_message is not None
-            else f"Upload {path_in_repo} with huggingface_hub"
+            commit_message if commit_message is not None else f"Upload {path_in_repo} with huggingface_hub"
         )
 
         files_to_add = _prepare_upload_folder_commit(
@@ -2787,9 +2713,7 @@ class HfApi:
 
         """
         commit_message = (
-            commit_message
-            if commit_message is not None
-            else f"Delete {path_in_repo} with huggingface_hub"
+            commit_message if commit_message is not None else f"Delete {path_in_repo} with huggingface_hub"
         )
 
         operations = [CommitOperationDelete(path_in_repo=path_in_repo)]
@@ -2861,14 +2785,10 @@ class HfApi:
             repo_id=repo_id,
             repo_type=repo_type,
             token=token,
-            operations=[
-                CommitOperationDelete(path_in_repo=path_in_repo, is_folder=True)
-            ],
+            operations=[CommitOperationDelete(path_in_repo=path_in_repo, is_folder=True)],
             revision=revision,
             commit_message=(
-                commit_message
-                if commit_message is not None
-                else f"Delete folder {path_in_repo} with huggingface_hub"
+                commit_message if commit_message is not None else f"Delete folder {path_in_repo} with huggingface_hub"
             ),
             commit_description=commit_description,
             create_pr=create_pr,
@@ -3044,9 +2964,7 @@ class HfApi:
         """
         if repo_type is None:
             repo_type = REPO_TYPE_MODEL
-        revision = (
-            quote(revision, safe="") if revision is not None else DEFAULT_REVISION
-        )
+        revision = quote(revision, safe="") if revision is not None else DEFAULT_REVISION
 
         # Prepare request
         tag_url = f"{self.endpoint}/api/{repo_type}s/{repo_id}/tag/{revision}"
@@ -3196,9 +3114,7 @@ class HfApi:
         headers = self._build_hf_headers(token=token)
 
         def _fetch_discussion_page(page_index: int):
-            path = (
-                f"{self.endpoint}/api/{repo_type}s/{repo_id}/discussions?p={page_index}"
-            )
+            path = f"{self.endpoint}/api/{repo_type}s/{repo_id}/discussions?p={page_index}"
             resp = requests.get(path, headers=headers)
             hf_raise_for_status(resp)
             paginated_discussions = resp.json()
@@ -3272,9 +3188,7 @@ class HfApi:
         if repo_type is None:
             repo_type = REPO_TYPE_MODEL
 
-        path = (
-            f"{self.endpoint}/api/{repo_type}s/{repo_id}/discussions/{discussion_num}"
-        )
+        path = f"{self.endpoint}/api/{repo_type}s/{repo_id}/discussions/{discussion_num}"
         headers = self._build_hf_headers(token=token)
         resp = requests.get(path, params={"diff": "1"}, headers=headers)
         hf_raise_for_status(resp)
@@ -3282,17 +3196,9 @@ class HfApi:
         discussion_details = resp.json()
         is_pull_request = discussion_details["isPullRequest"]
 
-        target_branch = (
-            discussion_details["changes"]["base"] if is_pull_request else None
-        )
-        conflicting_files = (
-            discussion_details["filesWithConflicts"] if is_pull_request else None
-        )
-        merge_commit_oid = (
-            discussion_details["changes"].get("mergeCommitId", None)
-            if is_pull_request
-            else None
-        )
+        target_branch = discussion_details["changes"]["base"] if is_pull_request else None
+        conflicting_files = discussion_details["filesWithConflicts"] if is_pull_request else None
+        merge_commit_oid = discussion_details["changes"].get("mergeCommitId", None) if is_pull_request else None
 
         return DiscussionWithDetails(
             title=discussion_details["title"],
@@ -3860,8 +3766,7 @@ class HfApi:
         </Tip>
         """
         warnings.warn(
-            "Hidden comments' content cannot be retrieved anymore. Hiding a comment is"
-            " irreversible.",
+            "Hidden comments' content cannot be retrieved anymore. Hiding a comment is irreversible.",
             UserWarning,
         )
         resp = self._post_discussion_changes(
@@ -3874,9 +3779,7 @@ class HfApi:
         return deserialize_event(resp.json()["updatedComment"])  # type: ignore
 
     @validate_hf_hub_args
-    def add_space_secret(
-        self, repo_id: str, key: str, value: str, *, token: Optional[str] = None
-    ) -> None:
+    def add_space_secret(self, repo_id: str, key: str, value: str, *, token: Optional[str] = None) -> None:
         """Adds or updates a secret in a Space.
 
         Secrets allow to set secret keys or tokens to a Space without hardcoding them.
@@ -3900,9 +3803,7 @@ class HfApi:
         hf_raise_for_status(r)
 
     @validate_hf_hub_args
-    def delete_space_secret(
-        self, repo_id: str, key: str, *, token: Optional[str] = None
-    ) -> None:
+    def delete_space_secret(self, repo_id: str, key: str, *, token: Optional[str] = None) -> None:
         """Deletes a secret from a Space.
 
         Secrets allow to set secret keys or tokens to a Space without hardcoding them.
@@ -3924,9 +3825,7 @@ class HfApi:
         hf_raise_for_status(r)
 
     @validate_hf_hub_args
-    def get_space_runtime(
-        self, repo_id: str, *, token: Optional[str] = None
-    ) -> SpaceRuntime:
+    def get_space_runtime(self, repo_id: str, *, token: Optional[str] = None) -> SpaceRuntime:
         """Gets runtime information about a Space.
 
         Args:
@@ -3953,9 +3852,7 @@ class HfApi:
         )
 
     @validate_hf_hub_args
-    def request_space_hardware(
-        self, repo_id: str, hardware: SpaceHardware, *, token: Optional[str] = None
-    ) -> None:
+    def request_space_hardware(self, repo_id: str, hardware: SpaceHardware, *, token: Optional[str] = None) -> None:
         """Request new hardware for a Space.
 
         Args:
@@ -4027,9 +3924,7 @@ def _prepare_upload_folder_commit(
             files_to_add.append(
                 CommitOperationAdd(
                     path_or_fileobj=abs_path,
-                    path_in_repo=os.path.normpath(
-                        os.path.join(path_in_repo, rel_path)
-                    ).replace(os.sep, "/"),
+                    path_in_repo=os.path.normpath(os.path.join(path_in_repo, rel_path)).replace(os.sep, "/"),
                 )
             )
 
@@ -4054,10 +3949,7 @@ def _parse_revision_from_pr_url(pr_url: str) -> str:
     """
     re_match = re.match(_REGEX_DISCUSSION_URL, pr_url)
     if re_match is None:
-        raise RuntimeError(
-            "Unexpected response from the hub, expected a Pull Request URL but got:"
-            f" '{pr_url}'"
-        )
+        raise RuntimeError(f"Unexpected response from the hub, expected a Pull Request URL but got: '{pr_url}'")
     return f"refs/pr/{re_match[1]}"
 
 

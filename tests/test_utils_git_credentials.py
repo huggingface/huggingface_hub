@@ -42,14 +42,10 @@ class TestGitCredentials(unittest.TestCase):
         username = "hf_test_user_" + str(round(time.time()))  # make username unique
 
         # Set credentials
-        set_git_credential(
-            token="hf_test_token", username=username, folder=self.cache_dir
-        )
+        set_git_credential(token="hf_test_token", username=username, folder=self.cache_dir)
 
         # Check credentials are stored
-        with run_interactive_subprocess(
-            "git credential fill", folder=self.cache_dir
-        ) as (stdin, stdout):
+        with run_interactive_subprocess("git credential fill", folder=self.cache_dir) as (stdin, stdout):
             stdin.write(f"url={ENDPOINT}\nusername={username}\n\n")
             stdin.flush()
             output = stdout.read()
@@ -61,9 +57,7 @@ class TestGitCredentials(unittest.TestCase):
         # Check credentials are NOT stored
         # Cannot check with `git credential fill` as it would hang forever: only
         # checking `store` helper instead.
-        with run_interactive_subprocess(
-            "git credential-store get", folder=self.cache_dir
-        ) as (stdin, stdout):
+        with run_interactive_subprocess("git credential-store get", folder=self.cache_dir) as (stdin, stdout):
             stdin.write(f"url={ENDPOINT}\nusername={username}\n\n")
             stdin.flush()
             output = stdout.read()

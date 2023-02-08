@@ -131,10 +131,7 @@ def http_backoff(
                 return response
 
             # Wrong status code returned (HTTP 503 for instance)
-            logger.warning(
-                f"HTTP Error {response.status_code} thrown while requesting"
-                f" {method} {url}"
-            )
+            logger.warning(f"HTTP Error {response.status_code} thrown while requesting {method} {url}")
             if nb_tries > max_retries:
                 response.raise_for_status()  # Will raise uncaught exception
                 # We return response to avoid infinite loop in the corner case where the

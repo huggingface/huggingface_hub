@@ -10,9 +10,7 @@ class TestPagination(unittest.TestCase):
     @patch("huggingface_hub.utils._pagination.requests.get")
     @patch("huggingface_hub.utils._pagination.hf_raise_for_status")
     @handle_injection_in_test
-    def test_mocked_paginate(
-        self, mock_get: Mock, mock_hf_raise_for_status: Mock
-    ) -> None:
+    def test_mocked_paginate(self, mock_get: Mock, mock_hf_raise_for_status: Mock) -> None:
         mock_params = Mock()
         mock_headers = Mock()
 

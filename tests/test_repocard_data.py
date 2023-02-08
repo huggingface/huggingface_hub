@@ -1,8 +1,8 @@
 import unittest
 
 import pytest
-
 import yaml
+
 from huggingface_hub.repocard_data import (
     DatasetCardData,
     EvalResult,
@@ -112,9 +112,7 @@ class ModelCardDataTest(unittest.TestCase):
         self.assertEqual(eval_results[2].verify_token, 1234)
 
     def test_card_data_requires_model_name_for_eval_results(self):
-        with pytest.raises(
-            ValueError, match="`eval_results` requires `model_name` to be set."
-        ):
+        with pytest.raises(ValueError, match="`eval_results` requires `model_name` to be set."):
             ModelCardData(
                 eval_results=[
                     EvalResult(
@@ -143,9 +141,7 @@ class ModelCardDataTest(unittest.TestCase):
         model_index = eval_results_to_model_index(data.model_name, data.eval_results)
 
         self.assertEqual(model_index[0]["name"], "my-cool-model")
-        self.assertEqual(
-            model_index[0]["results"][0]["task"]["type"], "image-classification"
-        )
+        self.assertEqual(model_index[0]["results"][0]["task"]["type"], "image-classification")
 
     def test_abitrary_incoming_card_data(self):
         data = ModelCardData(

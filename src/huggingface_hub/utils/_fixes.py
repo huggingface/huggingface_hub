@@ -31,9 +31,7 @@ import yaml
 # >>> yaml_dump({"emoji": "👀", "some unicode": "日本か"})
 # 'emoji: "👀"\nsome unicode: "日本か"\n'
 # ```
-yaml_dump: Callable[..., str] = partial(  # type: ignore
-    yaml.dump, stream=None, allow_unicode=True
-)
+yaml_dump: Callable[..., str] = partial(yaml.dump, stream=None, allow_unicode=True)  # type: ignore
 
 
 @contextlib.contextmanager
@@ -53,9 +51,7 @@ def SoftTemporaryDirectory(
 
     See https://www.scivision.dev/python-tempfile-permission-error-windows/.
     """
-    tmpdir = tempfile.TemporaryDirectory(
-        prefix=prefix, suffix=suffix, dir=dir, **kwargs
-    )
+    tmpdir = tempfile.TemporaryDirectory(prefix=prefix, suffix=suffix, dir=dir, **kwargs)
     yield tmpdir.name
 
     try:

@@ -4,6 +4,9 @@ from pathlib import Path
 from tempfile import mkstemp
 from unittest.mock import Mock, patch
 
+from InquirerPy.base.control import Choice
+from InquirerPy.separator import Separator
+
 from huggingface_hub.commands.delete_cache import (
     _CANCEL_DELETION_STR,
     DeleteCacheCommand,
@@ -14,8 +17,6 @@ from huggingface_hub.commands.delete_cache import (
     _read_manual_review_tmp_file,
 )
 from huggingface_hub.utils import SoftTemporaryDirectory
-from InquirerPy.base.control import Choice
-from InquirerPy.separator import Separator
 
 from .testing_utils import capture_output, handle_injection
 
@@ -48,9 +49,7 @@ class TestDeleteCacheHelpers(unittest.TestCase):
 
         # Dataset repo separator
         self.assertIsInstance(choices[1], Separator)
-        self.assertEqual(
-            choices[1]._line, "\nDataset dummy_dataset (8M, used 2 weeks ago)"
-        )
+        self.assertEqual(choices[1]._line, "\nDataset dummy_dataset (8M, used 2 weeks ago)")
 
         # Only revision of `dummy_dataset`
         self.assertIsInstance(choices[2], Choice)
@@ -64,9 +63,7 @@ class TestDeleteCacheHelpers(unittest.TestCase):
 
         # Model `dummy_model` separator
         self.assertIsInstance(choices[3], Separator)
-        self.assertEqual(
-            choices[3]._line, "\nModel dummy_model (1.4K, used 2 years ago)"
-        )
+        self.assertEqual(choices[3]._line, "\nModel dummy_model (1.4K, used 2 years ago)")
 
         # Oldest revision of `dummy_model`
         self.assertIsInstance(choices[4], Choice)
@@ -87,9 +84,7 @@ class TestDeleteCacheHelpers(unittest.TestCase):
         # Only revision of `gpt2`
         self.assertIsInstance(choices[7], Choice)
         self.assertEqual(choices[7].value, "abcdef123456789")
-        self.assertEqual(
-            choices[7].name, "abcdef12: main, refs/pr/1 # modified 2 years ago"
-        )
+        self.assertEqual(choices[7].name, "abcdef12: main, refs/pr/1 # modified 2 years ago")
         self.assertFalse(choices[7].enabled)
 
     def test_get_expectations_str_on_no_deletion_item(self) -> None:
@@ -182,9 +177,7 @@ class TestDeleteCacheHelpers(unittest.TestCase):
             self.assertIn("#    recent_hash_id", content)
 
             # Select dataset revision
-            content = content.replace(
-                "#    dataset_revision_hash_id", "dataset_revision_hash_id"
-            )
+            content = content.replace("#    dataset_revision_hash_id", "dataset_revision_hash_id")
             # Deselect abcdef123456789
             content = content.replace("abcdef123456789", "# abcdef123456789")
             with open(tmp_path, "w") as f:
@@ -207,9 +200,7 @@ class TestDeleteCacheHelpers(unittest.TestCase):
         self.assertFalse(os.path.isfile(tmp_path))  # now deleted
 
         # User changed the selection
-        self.assertListEqual(
-            selected_hashes, ["dataset_revision_hash_id", "older_hash_id"]
-        )
+        self.assertListEqual(selected_hashes, ["dataset_revision_hash_id", "older_hash_id"])
 
         # Check printed instructions
         printed = output.getvalue()
@@ -292,12 +283,8 @@ class TestMockedDeleteCacheCommand(unittest.TestCase):
         mock__manual_review_tui.assert_called_once_with(cache_mock, preselected=[])
 
         # Step 3: ask confirmation
-        mock__get_expectations_str.assert_called_once_with(
-            cache_mock, ["hash_1", "hash_2"]
-        )
-        mock_confirm.assert_called_once_with(
-            "Will delete A and B. Confirm deletion ?", default=True
-        )
+        mock__get_expectations_str.assert_called_once_with(cache_mock, ["hash_1", "hash_2"])
+        mock_confirm.assert_called_once_with("Will delete A and B. Confirm deletion ?", default=True)
         mock_confirm().execute.assert_called_once_with()
 
         # Step 4: delete
@@ -308,8 +295,7 @@ class TestMockedDeleteCacheCommand(unittest.TestCase):
         # Check output
         self.assertEqual(
             output.getvalue(),
-            "Start deletion.\n"
-            "Done. Deleted 0 repo(s) and 0 revision(s) for a total of 5.1M.\n",
+            "Start deletion.\nDone. Deleted 0 repo(s) and 0 revision(s) for a total of 5.1M.\n",
         )
 
     def test_run_nothing_selected_with_tui(self, mock__manual_review_tui: Mock) -> None:
@@ -325,9 +311,7 @@ class TestMockedDeleteCacheCommand(unittest.TestCase):
         # Check output
         self.assertEqual(output.getvalue(), "Deletion is cancelled. Do nothing.\n")
 
-    def test_run_stuff_selected_but_cancel_item_as_well_with_tui(
-        self, mock__manual_review_tui: Mock
-    ) -> None:
+    def test_run_stuff_selected_but_cancel_item_as_well_with_tui(self, mock__manual_review_tui: Mock) -> None:
         """Test command run when some are selected but "cancel item" as well."""
         # Mock return value
         mock__manual_review_tui.return_value = [
@@ -371,12 +355,8 @@ class TestMockedDeleteCacheCommand(unittest.TestCase):
         mock__manual_review_no_tui.assert_called_once_with(cache_mock, preselected=[])
 
         # Step 3: ask confirmation
-        mock__get_expectations_str.assert_called_once_with(
-            cache_mock, ["hash_1", "hash_2"]
-        )
-        mock__ask_for_confirmation_no_tui.assert_called_once_with(
-            "Will delete A and B. Confirm deletion ?"
-        )
+        mock__get_expectations_str.assert_called_once_with(cache_mock, ["hash_1", "hash_2"])
+        mock__ask_for_confirmation_no_tui.assert_called_once_with("Will delete A and B. Confirm deletion ?")
 
         # Step 4: delete
         cache_mock.delete_revisions.assert_called_once_with("hash_1", "hash_2")
@@ -386,8 +366,7 @@ class TestMockedDeleteCacheCommand(unittest.TestCase):
         # Check output
         self.assertEqual(
             output.getvalue(),
-            "Start deletion.\n"
-            "Done. Deleted 0 repo(s) and 0 revision(s) for a total of 5.1M.\n",
+            "Start deletion.\nDone. Deleted 0 repo(s) and 0 revision(s) for a total of 5.1M.\n",
         )
 
 

@@ -31,9 +31,7 @@ class InferenceApiTest(unittest.TestCase):
     @classmethod
     @with_production_testing
     def setUpClass(cls) -> None:
-        cls.image_file = hf_hub_download(
-            repo_id="Narsil/image_dummy", repo_type="dataset", filename="lena.png"
-        )
+        cls.image_file = hf_hub_download(repo_id="Narsil/image_dummy", repo_type="dataset", filename="lena.png")
         return super().setUpClass()
 
     def test_simple_inference(self):
@@ -49,10 +47,7 @@ class InferenceApiTest(unittest.TestCase):
 
     def test_inference_with_params(self):
         api = InferenceApi("typeform/distilbert-base-uncased-mnli")
-        inputs = (
-            "I bought a device but it is not working and I would like to get"
-            " reimbursed!"
-        )
+        inputs = "I bought a device but it is not working and I would like to get reimbursed!"
         params = {"candidate_labels": ["refund", "legal", "faq"]}
         result = api(inputs, params)
         self.assertIsInstance(result, dict)
@@ -119,9 +114,7 @@ class InferenceApiTest(unittest.TestCase):
         self.assertIsInstance(result, list)
 
     def test_inference_overriding_invalid_task(self):
-        with self.assertRaises(
-            ValueError, msg="Invalid task invalid-task. Make sure it's valid."
-        ):
+        with self.assertRaises(ValueError, msg="Invalid task invalid-task. Make sure it's valid."):
             InferenceApi("bert-base-uncased", task="invalid-task")
 
     def test_inference_missing_input(self):

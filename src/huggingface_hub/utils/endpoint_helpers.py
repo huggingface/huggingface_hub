@@ -36,9 +36,7 @@ def _filter_emissions(
             A maximum carbon threshold to filter by, such as 10.
     """
     if minimum_threshold is None and maximum_threshold is None:
-        raise ValueError(
-            "Both `minimum_threshold` and `maximum_threshold` cannot both be `None`"
-        )
+        raise ValueError("Both `minimum_threshold` and `maximum_threshold` cannot both be `None`")
     if minimum_threshold is None:
         minimum_threshold = -1
     if maximum_threshold is None:

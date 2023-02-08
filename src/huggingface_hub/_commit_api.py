@@ -11,15 +11,20 @@ from dataclasses import dataclass, field
 from pathlib import Path, PurePosixPath
 from typing import Any, BinaryIO, Dict, Iterable, Iterator, List, Optional, Union
 
-from tqdm.contrib.concurrent import thread_map
-
 import requests
+from tqdm.contrib.concurrent import thread_map
 
 from .constants import ENDPOINT
 from .lfs import UploadInfo, _validate_batch_actions, lfs_upload, post_lfs_batch_info
-from .utils import build_hf_headers, chunk_iterable, hf_raise_for_status, logging
+from .utils import (
+    build_hf_headers,
+    chunk_iterable,
+    hf_raise_for_status,
+    logging,
+    tqdm_stream_file,
+    validate_hf_hub_args,
+)
 from .utils import tqdm as hf_tqdm
-from .utils import tqdm_stream_file, validate_hf_hub_args
 from .utils._deprecation import _deprecate_method
 from .utils._typing import Literal
 
@@ -55,8 +60,7 @@ class CommitOperationDelete:
             self.is_folder = self.path_in_repo.endswith("/")
         if not isinstance(self.is_folder, bool):
             raise ValueError(
-                "Wrong value for `is_folder`. Must be one of [`True`, `False`,"
-                f" `'auto'`]. Got '{self.is_folder}'."
+                f"Wrong value for `is_folder`. Must be one of [`True`, `False`, `'auto'`]. Got '{self.is_folder}'."
             )
 
 
@@ -97,10 +101,7 @@ class CommitOperationAdd:
         if isinstance(self.path_or_fileobj, str):
             path_or_fileobj = os.path.normpath(os.path.expanduser(self.path_or_fileobj))
             if not os.path.isfile(path_or_fileobj):
-                raise ValueError(
-                    f"Provided path: '{path_or_fileobj}' is not a file on the local"
-                    " file system"
-                )
+                raise ValueError(f"Provided path: '{path_or_fileobj}' is not a file on the local file system")
         elif not isinstance(self.path_or_fileobj, (io.BufferedIOBase, bytes)):
             # ^^ Inspired from: https://stackoverflow.com/questions/44584829/how-to-determine-if-file-is-opened-in-binary-or-text-mode
             raise ValueError(
@@ -114,8 +115,7 @@ class CommitOperationAdd:
                 self.path_or_fileobj.seek(0, os.SEEK_CUR)
             except (OSError, AttributeError) as exc:
                 raise ValueError(
-                    "path_or_fileobj is a file-like object but does not implement"
-                    " seek() and tell()"
+                    "path_or_fileobj is a file-like object but does not implement seek() and tell()"
                 ) from exc
 
         # Compute "upload_info" attribute
@@ -126,9 +126,7 @@ class CommitOperationAdd:
         else:
             self.upload_info = UploadInfo.from_fileobj(self.path_or_fileobj)
 
-    @_deprecate_method(
-        version="0.14", message="Operation is validated at initialization."
-    )
+    @_deprecate_method(version="0.14", message="Operation is validated at initialization.")
     def validate(self) -> None:
         pass
 
@@ -172,9 +170,7 @@ class CommitOperationAdd:
         config.json: 100%|█████████████████████████| 8.19k/8.19k [00:02<00:00, 3.72kB/s]
         ```
         """
-        if isinstance(self.path_or_fileobj, str) or isinstance(
-            self.path_or_fileobj, Path
-        ):
+        if isinstance(self.path_or_fileobj, str) or isinstance(self.path_or_fileobj, Path):
             if with_tqdm:
                 with tqdm_stream_file(self.path_or_fileobj) as file:
                     yield file
@@ -302,8 +298,7 @@ def upload_lfs_files(
         if batch_errors_chunk:
             message = "\n".join(
                 [
-                    f'Encountered error for file with OID {err.get("oid")}:'
-                    f' `{err.get("error", {}).get("message")}'
+                    f'Encountered error for file with OID {err.get("oid")}: `{err.get("error", {}).get("message")}'
                     for err in batch_errors_chunk
                 ]
             )
@@ -331,17 +326,12 @@ def upload_lfs_files(
     def _inner_upload_lfs_object(batch_action):
         try:
             operation = oid2addop[batch_action["oid"]]
-            return _upload_lfs_object(
-                operation=operation, lfs_batch_action=batch_action, token=token
-            )
+            return _upload_lfs_object(operation=operation, lfs_batch_action=batch_action, token=token)
         except Exception as exc:
-            raise RuntimeError(
-                f"Error while uploading '{operation.path_in_repo}' to the Hub."
-            ) from exc
+            raise RuntimeError(f"Error while uploading '{operation.path_in_repo}' to the Hub.") from exc
 
     logger.debug(
-        f"Uploading {len(filtered_actions)} LFS files to the Hub using up to"
-        f" {num_threads} threads concurrently"
+        f"Uploading {len(filtered_actions)} LFS files to the Hub using up to {num_threads} threads concurrently"
     )
     thread_map(
         _inner_upload_lfs_object,
@@ -352,9 +342,7 @@ def upload_lfs_files(
     )
 
 
-def _upload_lfs_object(
-    operation: CommitOperationAdd, lfs_batch_action: dict, token: Optional[str]
-):
+def _upload_lfs_object(operation: CommitOperationAdd, lfs_batch_action: dict, token: Optional[str]):
     """
     Handles uploading a given object to the Hub with the LFS protocol.
 
@@ -379,10 +367,7 @@ def _upload_lfs_object(
     actions = lfs_batch_action.get("actions")
     if actions is None:
         # The file was already uploaded
-        logger.debug(
-            f"Content of file {operation.path_in_repo} is already present upstream"
-            " - skipping upload"
-        )
+        logger.debug(f"Content of file {operation.path_in_repo} is already present upstream - skipping upload")
         return
     upload_action = lfs_batch_action["actions"].get("upload")
     verify_action = lfs_batch_action["actions"].get("verify")
@@ -476,9 +461,7 @@ def fetch_upload_modes(
         )
         hf_raise_for_status(resp)
         preupload_info = _validate_preupload_info(resp.json())
-        upload_modes.update(
-            **{file["path"]: file["uploadMode"] for file in preupload_info["files"]}
-        )
+        upload_modes.update(**{file["path"]: file["uploadMode"] for file in preupload_info["files"]})
 
     # If a file is empty, it is most likely a mistake.
     # => a warning message is triggered to warn the user.
@@ -490,10 +473,7 @@ def fetch_upload_modes(
         if addition.upload_info.size == 0:
             path = addition.path_in_repo
             if not path.endswith(".gitkeep"):
-                warnings.warn(
-                    f"About to commit an empty file: '{path}'. Are you sure this is"
-                    " intended?"
-                )
+                warnings.warn(f"About to commit an empty file: '{path}'. Are you sure this is intended?")
             upload_modes[path] = "regular"
 
     return upload_modes
@@ -527,10 +507,7 @@ def prepare_commit_payload(
     # 2. Send operations, one per line
     for operation in operations:
         # 2.a. Case adding a regular file
-        if (
-            isinstance(operation, CommitOperationAdd)
-            and upload_modes.get(operation.path_in_repo) == "regular"
-        ):
+        if isinstance(operation, CommitOperationAdd) and upload_modes.get(operation.path_in_repo) == "regular":
             yield {
                 "key": "file",
                 "value": {
@@ -540,10 +517,7 @@ def prepare_commit_payload(
                 },
             }
         # 2.b. Case adding an LFS file
-        elif (
-            isinstance(operation, CommitOperationAdd)
-            and upload_modes.get(operation.path_in_repo) == "lfs"
-        ):
+        elif isinstance(operation, CommitOperationAdd) and upload_modes.get(operation.path_in_repo) == "lfs":
             yield {
                 "key": "lfsFile",
                 "value": {

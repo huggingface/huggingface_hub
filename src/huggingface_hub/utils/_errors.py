@@ -52,9 +52,7 @@ class HfHubHTTPError(HTTPError):
             server_message_from_headers = response.headers.get("X-Error-Message")
             server_message_from_body = server_data.get("error")
             server_multiple_messages_from_body = "\n".join(
-                error["message"]
-                for error in server_data.get("errors", [])
-                if "message" in error
+                error["message"] for error in server_data.get("errors", []) if "message" in error
             )
 
             # Concatenate error messages
@@ -203,9 +201,7 @@ class BadRequestError(HfHubHTTPError, ValueError):
     """
 
 
-def hf_raise_for_status(
-    response: Response, endpoint_name: Optional[str] = None
-) -> None:
+def hf_raise_for_status(response: Response, endpoint_name: Optional[str] = None) -> None:
     """
     Internal version of `response.raise_for_status()` that will refine a
     potential HTTPError. Raised exception will be an instance of `HfHubHTTPError`.
@@ -266,26 +262,16 @@ def hf_raise_for_status(
         error_code = response.headers.get("X-Error-Code")
 
         if error_code == "RevisionNotFound":
-            message = (
-                f"{response.status_code} Client Error."
-                + "\n\n"
-                + f"Revision Not Found for url: {response.url}."
-            )
+            message = f"{response.status_code} Client Error." + "\n\n" + f"Revision Not Found for url: {response.url}."
             raise RevisionNotFoundError(message, response) from e
 
         elif error_code == "EntryNotFound":
-            message = (
-                f"{response.status_code} Client Error."
-                + "\n\n"
-                + f"Entry Not Found for url: {response.url}."
-            )
+            message = f"{response.status_code} Client Error." + "\n\n" + f"Entry Not Found for url: {response.url}."
             raise EntryNotFoundError(message, response) from e
 
         elif error_code == "GatedRepo":
             message = (
-                f"{response.status_code} Client Error."
-                + "\n\n"
-                + f"Cannot access gated repo for url {response.url}."
+                f"{response.status_code} Client Error." + "\n\n" + f"Cannot access gated repo for url {response.url}."
             )
             raise GatedRepoError(message, response) from e
 
@@ -307,9 +293,7 @@ def hf_raise_for_status(
 
         elif response.status_code == 400:
             message = (
-                f"\n\nBad request for {endpoint_name} endpoint:"
-                if endpoint_name is not None
-                else "\n\nBad request:"
+                f"\n\nBad request for {endpoint_name} endpoint:" if endpoint_name is not None else "\n\nBad request:"
             )
             raise BadRequestError(message, response=response) from e
 
@@ -340,9 +324,7 @@ def _raise_convert_bad_request(response: Response, endpoint_name: str):
     hf_raise_for_status(response, endpoint_name=endpoint_name)
 
 
-def _format_error_message(
-    message: str, request_id: Optional[str], server_message: Optional[str]
-) -> str:
+def _format_error_message(message: str, request_id: Optional[str], server_message: Optional[str]) -> str:
     """
     Format the `HfHubHTTPError` error message based on initial message and information
     returned by the server.
@@ -350,11 +332,7 @@ def _format_error_message(
     Used when initializing `HfHubHTTPError`.
     """
     # Add message from response body
-    if (
-        server_message is not None
-        and len(server_message) > 0
-        and server_message.lower() not in message.lower()
-    ):
+    if server_message is not None and len(server_message) > 0 and server_message.lower() not in message.lower():
         if "\n\n" in message:
             message += "\n" + server_message
         else:
@@ -365,9 +343,7 @@ def _format_error_message(
         request_id_message = f" (Request ID: {request_id})"
         if "\n" in message:
             newline_index = message.index("\n")
-            message = (
-                message[:newline_index] + request_id_message + message[newline_index:]
-            )
+            message = message[:newline_index] + request_id_message + message[newline_index:]
         else:
             message += request_id_message
 

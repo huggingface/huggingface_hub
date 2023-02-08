@@ -19,8 +19,8 @@ from pathlib import Path
 from unittest.mock import Mock, patch
 
 import pytest
-
 import requests
+
 from huggingface_hub import HfApi
 from huggingface_hub.constants import (
     CONFIG_NAME,
@@ -90,23 +90,15 @@ class CachedDownloadTests(unittest.TestCase):
             filename=CONFIG_NAME,
             revision=DUMMY_MODEL_ID_REVISION_INVALID,
         )
-        valid_url = hf_hub_url(
-            DUMMY_MODEL_ID, filename=CONFIG_NAME, revision=REVISION_ID_DEFAULT
-        )
-        self.assertIsNotNone(
-            cached_download(valid_url, force_download=True, legacy_cache_layout=True)
-        )
+        valid_url = hf_hub_url(DUMMY_MODEL_ID, filename=CONFIG_NAME, revision=REVISION_ID_DEFAULT)
+        self.assertIsNotNone(cached_download(valid_url, force_download=True, legacy_cache_layout=True))
         for offline_mode in OfflineSimulationMode:
             with offline(mode=offline_mode):
                 with self.assertRaisesRegex(ValueError, "Connection error"):
                     _ = cached_download(invalid_url, legacy_cache_layout=True)
                 with self.assertRaisesRegex(ValueError, "Connection error"):
-                    _ = cached_download(
-                        valid_url, force_download=True, legacy_cache_layout=True
-                    )
-                self.assertIsNotNone(
-                    cached_download(valid_url, legacy_cache_layout=True)
-                )
+                    _ = cached_download(valid_url, force_download=True, legacy_cache_layout=True)
+                self.assertIsNotNone(cached_download(valid_url, legacy_cache_layout=True))
 
     def test_file_not_found_on_repo(self):
         # Valid revision (None) but missing file on repo.
@@ -195,9 +187,7 @@ class CachedDownloadTests(unittest.TestCase):
             _ = cached_download(url, legacy_cache_layout=True)
 
     def test_standard_object(self):
-        url = hf_hub_url(
-            DUMMY_MODEL_ID, filename=CONFIG_NAME, revision=REVISION_ID_DEFAULT
-        )
+        url = hf_hub_url(DUMMY_MODEL_ID, filename=CONFIG_NAME, revision=REVISION_ID_DEFAULT)
         filepath = cached_download(url, force_download=True, legacy_cache_layout=True)
         metadata = filename_to_url(filepath, legacy_cache_layout=True)
         self.assertEqual(metadata, (url, f'"{DUMMY_MODEL_ID_PINNED_SHA1}"'))
@@ -215,9 +205,7 @@ class CachedDownloadTests(unittest.TestCase):
         # Caution: check that the etag is *not* equal to the one from `test_standard_object`
 
     def test_lfs_object(self):
-        url = hf_hub_url(
-            DUMMY_MODEL_ID, filename=PYTORCH_WEIGHTS_NAME, revision=REVISION_ID_DEFAULT
-        )
+        url = hf_hub_url(DUMMY_MODEL_ID, filename=PYTORCH_WEIGHTS_NAME, revision=REVISION_ID_DEFAULT)
         filepath = cached_download(url, force_download=True, legacy_cache_layout=True)
         metadata = filename_to_url(filepath, legacy_cache_layout=True)
         self.assertEqual(metadata, (url, f'"{DUMMY_MODEL_ID_PINNED_SHA256}"'))
@@ -260,9 +248,7 @@ class CachedDownloadTests(unittest.TestCase):
             # Equivalent to umask u=rwx,g=r,o=
             previous_umask = os.umask(0o037)
             try:
-                filepath = hf_hub_download(
-                    DUMMY_RENAMED_OLD_MODEL_ID, "config.json", cache_dir=tmpdir
-                )
+                filepath = hf_hub_download(DUMMY_RENAMED_OLD_MODEL_ID, "config.json", cache_dir=tmpdir)
                 # Permissions are honored (640: u=rw,g=r,o=)
                 self.assertEqual(stat.S_IMODE(os.stat(filepath).st_mode), 0o640)
             finally:
@@ -275,9 +261,7 @@ class CachedDownloadTests(unittest.TestCase):
         https://github.com/huggingface/huggingface_hub/issues/981
         """
         with SoftTemporaryDirectory() as tmpdir:
-            filepath = hf_hub_download(
-                DUMMY_RENAMED_OLD_MODEL_ID, "config.json", cache_dir=tmpdir
-            )
+            filepath = hf_hub_download(DUMMY_RENAMED_OLD_MODEL_ID, "config.json", cache_dir=tmpdir)
             self.assertTrue(os.path.exists(filepath))
 
     def test_download_from_a_renamed_repo_with_cached_download(self):
@@ -373,9 +357,7 @@ class CachedDownloadTests(unittest.TestCase):
         new_file_path = try_to_load_from_cache(DUMMY_MODEL_ID, filename=CONFIG_NAME)
         self.assertEqual(filepath, new_file_path)
 
-        new_file_path = try_to_load_from_cache(
-            DUMMY_MODEL_ID, filename=CONFIG_NAME, revision="main"
-        )
+        new_file_path = try_to_load_from_cache(DUMMY_MODEL_ID, filename=CONFIG_NAME, revision="main")
         self.assertEqual(filepath, new_file_path)
 
         # If file is not cached, returns None
@@ -393,28 +375,16 @@ class CachedDownloadTests(unittest.TestCase):
 
     def test_try_to_load_from_cache_specific_pr_revision_exists(self):
         # Make sure the file is cached
-        file_path = hf_hub_download(
-            DUMMY_MODEL_ID, filename=CONFIG_NAME, revision="refs/pr/1"
-        )
+        file_path = hf_hub_download(DUMMY_MODEL_ID, filename=CONFIG_NAME, revision="refs/pr/1")
 
-        new_file_path = try_to_load_from_cache(
-            DUMMY_MODEL_ID, filename=CONFIG_NAME, revision="refs/pr/1"
-        )
+        new_file_path = try_to_load_from_cache(DUMMY_MODEL_ID, filename=CONFIG_NAME, revision="refs/pr/1")
         self.assertEqual(file_path, new_file_path)
 
         # If file is not cached, returns None
-        self.assertIsNone(
-            try_to_load_from_cache(
-                DUMMY_MODEL_ID, filename="conf.json", revision="refs/pr/1"
-            )
-        )
+        self.assertIsNone(try_to_load_from_cache(DUMMY_MODEL_ID, filename="conf.json", revision="refs/pr/1"))
 
         # If revision does not exist, returns None
-        self.assertIsNone(
-            try_to_load_from_cache(
-                DUMMY_MODEL_ID, filename=CONFIG_NAME, revision="does-not-exist"
-            )
-        )
+        self.assertIsNone(try_to_load_from_cache(DUMMY_MODEL_ID, filename=CONFIG_NAME, revision="does-not-exist"))
 
     def test_try_to_load_from_cache_no_exist(self):
         # Make sure the file is cached
@@ -424,9 +394,7 @@ class CachedDownloadTests(unittest.TestCase):
         new_file_path = try_to_load_from_cache(DUMMY_MODEL_ID, filename="dummy")
         self.assertEqual(new_file_path, _CACHED_NO_EXIST)
 
-        new_file_path = try_to_load_from_cache(
-            DUMMY_MODEL_ID, filename="dummy", revision="main"
-        )
+        new_file_path = try_to_load_from_cache(DUMMY_MODEL_ID, filename="dummy", revision="main")
         self.assertEqual(new_file_path, _CACHED_NO_EXIST)
 
         # If file non-existence is not cached, returns None
@@ -489,9 +457,7 @@ class CachedDownloadTests(unittest.TestCase):
         metadata = get_hf_file_metadata(url)
 
         # Metadata
-        self.assertEqual(
-            metadata.commit_hash, DUMMY_MODEL_ID_REVISION_ONE_SPECIFIC_COMMIT
-        )
+        self.assertEqual(metadata.commit_hash, DUMMY_MODEL_ID_REVISION_ONE_SPECIFIC_COMMIT)
         self.assertIsNotNone(metadata.etag)  # example: "85c2fc2dcdd86563aaa85ef4911..."
         self.assertEqual(metadata.location, url)  # no redirect
         self.assertEqual(metadata.size, 851)
@@ -533,9 +499,7 @@ class StagingCachedDownloadTest(unittest.TestCase):
         # Create a gated repo on the fly. Repo is created by "other user" so that the
         # usual CI user don't have access to it.
         api = HfApi(token=OTHER_TOKEN)
-        repo_url = api.create_repo(
-            repo_id="gated_repo_for_huggingface_hub_ci", exist_ok=True
-        )
+        repo_url = api.create_repo(repo_id="gated_repo_for_huggingface_hub_ci", exist_ok=True)
         requests.put(
             f"{repo_url.endpoint}/api/models/{repo_url.repo_id}/settings",
             headers=api._build_hf_headers(),
@@ -546,8 +510,7 @@ class StagingCachedDownloadTest(unittest.TestCase):
         with SoftTemporaryDirectory() as tmpdir:
             with self.assertRaisesRegex(
                 GatedRepoError,
-                "Access to model .* is restricted and you are not in the authorized"
-                " list",
+                "Access to model .* is restricted and you are not in the authorized list",
             ):
                 hf_hub_download(
                     repo_id=repo_url.repo_id,
@@ -575,7 +538,9 @@ class StagingCachedDownloadOnAwfulFilenamesTest(unittest.TestCase):
     def setUpClass(cls):
         cls.api = HfApi(endpoint=ENDPOINT_STAGING, token=TOKEN)
         cls.repo_url = cls.api.create_repo(repo_id=repo_name("awful_filename"))
-        cls.expected_resolve_url = f"{cls.repo_url}/resolve/main/subfolder/to%3F/awful%3Ffilename%25you%3Ashould%2Cnever.give"
+        cls.expected_resolve_url = (
+            f"{cls.repo_url}/resolve/main/subfolder/to%3F/awful%3Ffilename%25you%3Ashould%2Cnever.give"
+        )
         cls.api.upload_file(
             path_or_fileobj=b"content",
             path_in_repo=cls.filepath,
@@ -587,9 +552,7 @@ class StagingCachedDownloadOnAwfulFilenamesTest(unittest.TestCase):
         cls.api.delete_repo(repo_id=cls.repo_url.repo_id)
 
     def test_hf_hub_url_on_awful_filepath(self):
-        self.assertEqual(
-            hf_hub_url(self.repo_url.repo_id, self.filepath), self.expected_resolve_url
-        )
+        self.assertEqual(hf_hub_url(self.repo_url.repo_id, self.filepath), self.expected_resolve_url)
 
     def test_hf_hub_url_on_awful_subfolder_and_filename(self):
         self.assertEqual(
@@ -599,9 +562,7 @@ class StagingCachedDownloadOnAwfulFilenamesTest(unittest.TestCase):
 
     @xfail_on_windows(reason="Windows paths cannot contain a '?'.")
     def test_hf_hub_download_on_awful_filepath(self):
-        local_path = hf_hub_download(
-            self.repo_url.repo_id, self.filepath, cache_dir=self.cache_dir
-        )
+        local_path = hf_hub_download(self.repo_url.repo_id, self.filepath, cache_dir=self.cache_dir)
         # Local path is not url-encoded
         self.assertTrue(local_path.endswith(self.filepath))
 
@@ -620,9 +581,7 @@ class StagingCachedDownloadOnAwfulFilenamesTest(unittest.TestCase):
 class CreateSymlinkTest(unittest.TestCase):
     @unittest.skipIf(os.name == "nt", "No symlinks on Windows")
     @patch("huggingface_hub.file_download.are_symlinks_supported")
-    def test_create_relative_symlink_concurrent_access(
-        self, mock_are_symlinks_supported: Mock
-    ) -> None:
+    def test_create_relative_symlink_concurrent_access(self, mock_are_symlinks_supported: Mock) -> None:
         with SoftTemporaryDirectory() as tmpdir:
             src = os.path.join(tmpdir, "source")
             other = os.path.join(tmpdir, "other")
