@@ -296,7 +296,7 @@ def _manual_review_no_tui(hf_cache_info: HFCacheInfo, preselected: List[str]) ->
 
     # 2. Prompt instructions to user.
     instructions = f"""
-    TUI is disabled. In other to select which revisions you want to delete, please edit
+    TUI is disabled. In order to select which revisions you want to delete, please edit
     the following file using the text editor of your choice. Instructions for manual
     editing are located at the beginning of the file. Edit the file, save it and confirm
     to continue.
