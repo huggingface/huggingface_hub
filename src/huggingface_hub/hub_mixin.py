@@ -2,7 +2,7 @@ import json
 import os
 import warnings
 from pathlib import Path
-from typing import Dict, List, Optional, Union
+from typing import Dict, List, Optional, Type, TypeVar, Union
 
 import requests
 
@@ -17,6 +17,9 @@ if is_torch_available():
     import torch  # type: ignore
 
 logger = logging.get_logger(__name__)
+
+# Generic variable that is either ModelHubMixin or a subclass thereof
+T = TypeVar("T", bound="ModelHubMixin")
 
 
 class ModelHubMixin:
@@ -88,7 +91,7 @@ class ModelHubMixin:
     @validate_hf_hub_args
     @_deprecate_positional_args(version="0.16")
     def from_pretrained(
-        cls,
+        cls: Type[T],
         pretrained_model_name_or_path: Union[str, Path],
         *,
         force_download: bool = False,
@@ -99,7 +102,7 @@ class ModelHubMixin:
         local_files_only: bool = False,
         revision: Optional[str] = None,
         **model_kwargs,
-    ):
+    ) -> T:
         """
         Download a model from the Huggingface Hub and instantiate it.
 

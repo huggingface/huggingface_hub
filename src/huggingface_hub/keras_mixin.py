@@ -216,7 +216,7 @@ def save_pretrained_keras(
     tf.keras.models.save_model(model, save_directory, include_optimizer=include_optimizer, **model_save_kwargs)
 
 
-def from_pretrained_keras(*args, **kwargs):
+def from_pretrained_keras(*args, **kwargs) -> "KerasModelHubMixin":
     r"""
     Instantiate a pretrained Keras model from a pre-trained model from the Hub.
     The model is expected to be in `SavedModel` format.
