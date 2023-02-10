@@ -3871,7 +3871,7 @@ class HfApi:
         """Pause your Space.
 
         A paused Space stops executing until manually restarted by its owner. This is different from the sleeping
-        state in which free Spaces go after 72h of inactivity. Paused time not billed to your account, no matter the
+        state in which free Spaces go after 72h of inactivity. Paused time is not billed to your account, no matter the
         hardware you've selected. To restart your Space, use [`restart_space`] and go to your Space settings page.
 
         For more details, please visit [the docs](https://huggingface.co/docs/hub/spaces-gpus#pause).
@@ -3887,14 +3887,14 @@ class HfApi:
 
         Raises:
             [`~utils.RepositoryNotFoundError`]:
-                If your Space is not found (error 404). Most probably wrong repo_id or your space is private but your
+                If your Space is not found (error 404). Most probably wrong repo_id or your space is private but you
                 are not authenticated.
             [`~utils.HfHubHTTPError`]:
                 403 Forbidden: only the owner of a Space can pause it. If you want to manage a Space that you don't
-                own, either ask the owner by opening a Discussion or duplicate the Space to your account.
+                own, either ask the owner by opening a Discussion or duplicate the Space.
             [`~utils.BadRequestError`]:
                 If your Space is a static Space. Static Spaces are always running and never billed. If you want to hide
-                a static space, you can set it to private.
+                a static Space, you can set it to private.
         """
         r = requests.post(f"{self.endpoint}/api/spaces/{repo_id}/pause", headers=self._build_hf_headers(token=token))
         hf_raise_for_status(r)
@@ -3906,7 +3906,7 @@ class HfApi:
 
         This is the only way to programmatically restart a Space if you've put it on Pause. You must be the owner of
         the Space to restart it. If you are using an upgraded hardware, your account will be billed as soon as the Space
-        is restarted. It is also possible to restart a Space that was Sleeping or Running (triggers a re-deployment)
+        is restarted. It is also possible to restart a Space that was Sleeping or Running (re-deploys it).
 
         For more details, please visit [the docs](https://huggingface.co/docs/hub/spaces-gpus#pause).
 
@@ -3921,14 +3921,14 @@ class HfApi:
 
         Raises:
             [`~utils.RepositoryNotFoundError`]:
-                If your Space is not found (error 404). Most probably wrong repo_id or your space is private but your
+                If your Space is not found (error 404). Most probably wrong repo_id or your space is private but you
                 are not authenticated.
             [`~utils.HfHubHTTPError`]:
                 403 Forbidden: only the owner of a Space can restart it. If you want to restart a Space that you don't
-                own, either ask the owner by opening a Discussion or duplicate the Space to your account.
+                own, either ask the owner by opening a Discussion or duplicate the Space.
             [`~utils.BadRequestError`]:
                 If your Space is a static Space. Static Spaces are always running and never billed. If you want to hide
-                a static space, you can set it to private.
+                a static Space, you can set it to private.
         """
         r = requests.post(f"{self.endpoint}/api/spaces/{repo_id}/restart", headers=self._build_hf_headers(token=token))
         hf_raise_for_status(r)
