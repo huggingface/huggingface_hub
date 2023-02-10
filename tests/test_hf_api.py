@@ -47,7 +47,6 @@ from huggingface_hub.constants import (
 )
 from huggingface_hub.file_download import cached_download, hf_hub_download
 from huggingface_hub.hf_api import (
-    GitCommitInfo,
     USERNAME_PLACEHOLDER,
     CommitInfo,
     DatasetInfo,

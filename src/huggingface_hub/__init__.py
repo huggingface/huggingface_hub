@@ -107,6 +107,7 @@ _SUBMOD_ATTRS = {
         "CommitOperationAdd",
         "CommitOperationDelete",
         "DatasetSearchArguments",
+        "GitCommitInfo",
         "GitRefInfo",
         "GitRefs",
         "HfApi",
@@ -122,7 +123,6 @@ _SUBMOD_ATTRS = {
         "create_pull_request",
         "create_repo",
         "create_tag",
-        "GitCommitInfo",
         "dataset_info",
         "delete_branch",
         "delete_file",
@@ -360,6 +360,7 @@ if TYPE_CHECKING:  # pragma: no cover
         CommitOperationAdd,  # noqa: F401
         CommitOperationDelete,  # noqa: F401
         DatasetSearchArguments,  # noqa: F401
+        GitCommitInfo,  # noqa: F401
         GitRefInfo,  # noqa: F401
         GitRefs,  # noqa: F401
         HfApi,  # noqa: F401

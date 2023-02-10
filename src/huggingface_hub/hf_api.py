@@ -15,9 +15,9 @@
 import json
 import os
 import re
-from datetime import datetime
 import warnings
 from dataclasses import dataclass, field
+from datetime import datetime
 from itertools import islice
 from pathlib import Path
 from typing import Any, BinaryIO, Dict, Iterable, Iterator, List, Optional, Tuple, Union
