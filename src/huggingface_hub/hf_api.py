@@ -709,7 +709,7 @@ class GitRefs:
 @dataclass
 class GitCommitInfo:
     """
-    Contains information about a git commit for a repo on the Hub.
+    Contains information about a git commit for a repo on the Hub. Check out [`list_repo_commits`] for more details.
 
     Args:
         commit_id (`str`):
