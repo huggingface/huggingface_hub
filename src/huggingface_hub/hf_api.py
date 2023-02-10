@@ -3904,9 +3904,9 @@ class HfApi:
     def restart_space(self, repo_id: str, *, token: Optional[str] = None) -> SpaceRuntime:
         """Restart your Space.
 
-        This is the only way to programmatically restart a Space if you've put it on Pause. You must be the owner of
-        the Space to restart it. If you are using an upgraded hardware, your account will be billed as soon as the Space
-        is restarted. It is also possible to restart a Space that was Sleeping or Running (re-deploys it).
+        This is the only way to programmatically restart a Space if you've put it on Pause (see [`pause_space`]). You
+        must be the owner of the Space to restart it. If you are using an upgraded hardware, your account will be
+        billed as soon as the Space is restarted. You can trigger a restart no matter the current state of a Space.
 
         For more details, please visit [the docs](https://huggingface.co/docs/hub/spaces-gpus#pause).
 
