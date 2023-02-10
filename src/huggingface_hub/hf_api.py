@@ -3835,7 +3835,7 @@ class HfApi:
                 Hugging Face token. Will default to the locally saved token if
                 not provided.
         Returns:
-            [`SpaceRuntime`]: runtime information about a Space including Space stage and hardware.
+            [`SpaceRuntime`]: Runtime information about a Space including Space stage and hardware.
         """
         r = requests.get(f"{self.endpoint}/api/spaces/{repo_id}/runtime", headers=self._build_hf_headers(token=token))
         hf_raise_for_status(r)
@@ -3883,7 +3883,7 @@ class HfApi:
                 Hugging Face token. Will default to the locally saved token if not provided.
 
         Returns:
-            [`SpaceRuntime`]: runtime information about your Space including `stage=PAUSED` and requested hardware.
+            [`SpaceRuntime`]: Runtime information about your Space including `stage=PAUSED` and requested hardware.
 
         Raises:
             [`~utils.RepositoryNotFoundError`]:
@@ -3917,7 +3917,7 @@ class HfApi:
                 Hugging Face token. Will default to the locally saved token if not provided.
 
         Returns:
-            [`SpaceRuntime`]: runtime information about your Space.
+            [`SpaceRuntime`]: Runtime information about your Space.
 
         Raises:
             [`~utils.RepositoryNotFoundError`]:
