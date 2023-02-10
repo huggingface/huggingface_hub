@@ -1999,7 +1999,7 @@ class HfApi:
             for item in paginate(
                 f"{self.endpoint}/api/{repo_type}s/{repo_id}/commits/{revision}",
                 headers=self._build_hf_headers(token=token),
-                params={"expand[]": "formatted"} if formatted else None,
+                params={"expand[]": "formatted"} if formatted else {},
             )
         ]
 
