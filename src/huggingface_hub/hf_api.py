@@ -724,7 +724,7 @@ class GitCommitInfo:
             Description of the commit. This is a free-text value entered by the authors.
         formatted_title (`str`):
             Title of the commit formatted as HTML. Only returned if `formatted=True` is set.
-        message (`str`):
+        formatted_message (`str`):
             Description of the commit formatted as HTML. Only returned if `formatted=True` is set.
     """
 
