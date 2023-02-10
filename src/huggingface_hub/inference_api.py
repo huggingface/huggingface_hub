@@ -1,4 +1,5 @@
 import io
+import os
 from typing import Any, Dict, List, Optional, Union
 
 import requests
@@ -10,7 +11,7 @@ from .utils import build_hf_headers, is_pillow_available, logging, validate_hf_h
 logger = logging.get_logger(__name__)
 
 
-ENDPOINT = "https://api-inference.huggingface.co"
+ENDPOINT = os.environ.get("HF_INFERENCE_ENDPOINT", "https://api-inference.huggingface.co")
 
 ALL_TASKS = [
     # NLP
