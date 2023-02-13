@@ -138,6 +138,10 @@ def repo_type_and_id_from_hf_id(hf_id: str, hub_url: Optional[str] = None) -> Tu
             namespace = None
         if len(url_segments) > 2 and hub_url not in url_segments[-3]:
             repo_type = url_segments[-3]
+        elif namespace in REPO_TYPES_MAPPING:
+            # Mean canonical dataset or model
+            repo_type = REPO_TYPES_MAPPING[namespace]
+            namespace = None
         else:
             repo_type = None
     elif is_hf_id:
@@ -145,9 +149,15 @@ def repo_type_and_id_from_hf_id(hf_id: str, hub_url: Optional[str] = None) -> Tu
             # Passed <repo_type>/<user>/<model_id> or <repo_type>/<org>/<model_id>
             repo_type, namespace, repo_id = url_segments[-3:]
         elif len(url_segments) == 2:
-            # Passed <user>/<model_id> or <org>/<model_id>
-            namespace, repo_id = hf_id.split("/")[-2:]
-            repo_type = None
+            if url_segments[0] in REPO_TYPES_MAPPING:
+                # Passed '<model_id>' or 'datasets/<dataset_id>' for a canonical model or dataset
+                repo_type = REPO_TYPES_MAPPING[url_segments[0]]
+                namespace = None
+                repo_id = hf_id.split("/")[-1]
+            else:
+                # Passed <user>/<model_id> or <org>/<model_id>
+                namespace, repo_id = hf_id.split("/")[-2:]
+                repo_type = None
         else:
             # Passed <model_id>
             repo_id = url_segments[0]
