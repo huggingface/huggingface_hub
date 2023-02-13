@@ -62,7 +62,7 @@ Once you have your User Access Token, run the following command in your terminal
 huggingface-cli login
 ```
 
-Or if you prefer to work from a Jupyter or Colaboratory notebook, then use [`login`]:
+Alternatively, you can programmatically login using [`login`] in a notebook or a script:
 
 ```py
 >>> from huggingface_hub import login
@@ -70,18 +70,26 @@ Or if you prefer to work from a Jupyter or Colaboratory notebook, then use [`log
 ```
 
 <Tip>
-
-You can also provide your token to the functions and methods. This way you don't need to
-store your token anywhere.
-
+It is also possible to login programmatically without asking the user for the token by directly
+passing the token to [`login`] (i.e. `login(token="hf_xxx")`). If you do so, be careful when
+sharing your source code. It is a best practice to load the token from a secure vault instead
+of saving it in plain in your codebase/notebook.
 </Tip>
 
 <Tip>
+Another way to authenticate is to provide your token when calling every methods. This way your token
+is never stored on the machine.
+</Tip>
 
+<Tip>
 Once you are logged in, all requests to the Hub will use your access token by default.
 If you want to disable implicit use of your token, you should set the
 `HF_HUB_DISABLE_IMPLICIT_TOKEN` environment variable.
+</Tip>
 
+<Tip>
+You can be logged in only to 1 account at a time. If you login your machine to a new account, you will get logged out
+from the previous. Make sure to always which account you are using with the command `huggingface-cli whoami`.
 </Tip>
 
 ## Create a repository
@@ -125,9 +133,10 @@ need to specify:
 ```py
 >>> from huggingface_hub import HfApi
 >>> api = HfApi()
->>> api.upload_file(path_or_fileobj="/home/lysandre/dummy-test/README.md", 
-...                 path_in_repo="README.md", 
-...                 repo_id="lysandre/test-model",
+>>> api.upload_file(
+...     path_or_fileobj="/home/lysandre/dummy-test/README.md",
+...     path_in_repo="README.md",
+...     repo_id="lysandre/test-model",
 ... )
 ```
 
@@ -138,9 +147,9 @@ which will introduce you to several methods for uploading files (with or without
 
 The `huggingface_hub` library provides an easy way for users to interact with the Hub
 with Python. To learn more about how you can manage your files and repositories on the
-Hub, we recommend reading our how-to guides for how to:
+Hub, we recommend reading our [how-to guides](./guides/overview) to:
 
-- [Create and manage repositories](./guides/repository).
+- [Manage your repository](./guides/repository).
 - [Download](./guides/download) files from the Hub.
 - [Upload](./guides/upload) files to the Hub.
 - [Search the Hub](./guides/search) for your desired model or dataset.
