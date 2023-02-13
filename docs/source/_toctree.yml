@@ -10,24 +10,24 @@
   sections:
     - local: guides/overview
       title: Overview
-    - local: how-to-manage
-      title: Create and manage repositories
-    - local: how-to-downstream
-      title: Download files from the Hub
-    - local: how-to-upstream
-      title: Upload files to the Hub
-    - local: searching-the-hub
-      title: Searching the Hub
-    - local: how-to-inference
-      title: Access the Inference API
-    - local: how-to-discussions-and-pull-requests
-      title: Interact with Discussions and Pull Requests
-    - local: how-to-cache
-      title: Manage the Cache
-    - local: how-to-model-cards
-      title: Create and Share Model Cards
-    - local: guides/manage_spaces
-      title: Manage your Space runtime
+    - local: guides/download
+      title: Download files
+    - local: guides/upload
+      title: Upload files
+    - local: guides/repository
+      title: Repository
+    - local: guides/search
+      title: Search
+    - local: guides/inference
+      title: Inference
+    - local: guides/community
+      title: Community
+    - local: guides/manage-cache
+      title: Cache
+    - local: guides/modelcards
+      title: Model Cards
+    - local: guides/manage-spaces
+      title: Manage your Space
 - title: "Conceptual guides"
   sections:
     - local: concepts/git_vs_http
