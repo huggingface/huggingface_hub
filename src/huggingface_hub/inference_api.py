@@ -4,14 +4,13 @@ from typing import Any, Dict, List, Optional, Union
 
 import requests
 
+from .constants import INFERENCE_ENDPOINT
 from .hf_api import HfApi
 from .utils import build_hf_headers, is_pillow_available, logging, validate_hf_hub_args
 
 
 logger = logging.get_logger(__name__)
 
-
-ENDPOINT = os.environ.get("HF_INFERENCE_ENDPOINT", "https://api-inference.huggingface.co")
 
 ALL_TASKS = [
     # NLP
@@ -143,7 +142,7 @@ class InferenceApi:
             assert model_info.pipeline_tag is not None, "Pipeline tag cannot be None"
             self.task = model_info.pipeline_tag
 
-        self.api_url = f"{ENDPOINT}/pipeline/{self.task}/{repo_id}"
+        self.api_url = f"{INFERENCE_ENDPOINT}/pipeline/{self.task}/{repo_id}"
 
     def __repr__(self):
         # Do not add headers to repr to avoid leaking token.
