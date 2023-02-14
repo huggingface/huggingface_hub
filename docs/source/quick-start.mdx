@@ -69,27 +69,22 @@ Alternatively, you can programmatically login using [`login`] in a notebook or a
 >>> login()
 ```
 
-<Tip>
 It is also possible to login programmatically without being prompted to enter your token by directly
 passing the token to [`login`] like `login(token="hf_xxx")`. If you do so, be careful when
 sharing your source code. It is a best practice to load the token from a secure vault instead
 of saving it explicitly in your codebase/notebook.
-</Tip>
 
-<Tip>
-Another way to authenticate is to provide your token when calling every methods. This way your token
-is never stored on the machine.
-</Tip>
-
-<Tip>
-Once you are logged in, all requests to the Hub will use your access token by default.
-If you want to disable implicit use of your token, you should set the
-`HF_HUB_DISABLE_IMPLICIT_TOKEN` environment variable.
-</Tip>
-
-<Tip>
 You can be logged in only to 1 account at a time. If you login your machine to a new account, you will get logged out
 from the previous. Make sure to always which account you are using with the command `huggingface-cli whoami`.
+If you want to handle several accounts in the same script, you can provide your token when calling each method. This
+is also useful if you don't want to store any token on your machine.
+
+<Tip warning={true}>
+
+Once you are logged in, all requests to the Hub -even methods that don't necessarily require authentication- will use your
+access token by default. If you want to disable implicit use of your token, you should set the
+`HF_HUB_DISABLE_IMPLICIT_TOKEN` environment variable.
+
 </Tip>
 
 ## Create a repository

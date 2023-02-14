@@ -15,7 +15,8 @@ repositories on the Hub, especially:
 If you are used to working with platforms such as Gitlab/Github/Bitbucket, your first instinct
 might be to use `git` CLI to clone your repo (`git clone`), commit changes (`git add, git commit`) and push them
 (`git push`). This is still valid when using the Hugging Face Hub. However, software engineering and machine learning do
-not share the same requirements and workflows. In ML, it may be more efficient to use HTTP, so you don't have to maintain a local folder with massive model weights. You can read our [Git vs HTTP paradigm](../concepts/git_vs_http) explanation page
+not share the same requirements and workflows. In ML, it may be more efficient to use HTTP, so you don't have to maintain
+a local folder with massive model weights. You can read our [Git vs HTTP paradigm](../concepts/git_vs_http) explanation page
 for more details.
 
 </Tip>
@@ -24,6 +25,9 @@ If you want to create and manage a repository on the Hub, your machine must be l
 [this section](../quick-start#login). In the rest of this guide, we will assume that your machine is logged in.
 
 ## Repo creation and deletion
+
+The first step is to know how to create and delete repositories. You can only manage repositories that you own (under
+your username namespace) or from organizations in which you have write permissions.
 
 ### Create a repository
 
@@ -111,7 +115,13 @@ GitRefs(
 )
 ``` 
 
-## Change repository configuration
+## Change repository settings
+
+Repositories come with some settings that you can configure. Most of the time, you will want to do that manually in the
+repo settings page in your browser. You must have write access to a repo to configure it (either own it or being part of
+an organization). In this section, we will see the settings that you can also configure programmatically using `huggingface_hub`.
+
+Some settings are specific to Spaces (hardware, environment variables,...). To configure those, please refer to our [Manage your Spaces](../guides/manage-spaces) guide.
 
 ### Update visibility
 

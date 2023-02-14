@@ -24,7 +24,7 @@
       title: Community
     - local: guides/manage-cache
       title: Cache
-    - local: guides/modelcards
+    - local: guides/model-cards
       title: Model Cards
     - local: guides/manage-spaces
       title: Manage your Space
