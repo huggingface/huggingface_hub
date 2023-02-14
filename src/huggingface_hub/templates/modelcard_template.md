@@ -85,7 +85,7 @@ Use the code below to get started with the model.
 
 <!-- This relates heavily to the Technical Specifications. Content here should link to that section when it is relevant to the training procedure. -->
 
-### Preprocessing[optional]
+### Preprocessing [optional]
 
 {{ preprocessing | default("[More Information Needed]", true)}}
 
