@@ -2447,3 +2447,17 @@ class RepoUrlTest(unittest.TestCase):
         self.assertEqual(url.url, "https://huggingface.co/gpt2")
         self.assertIsInstance(url, RepoUrl)
         self.assertNotIsInstance(url.url, RepoUrl)
+
+    def test_repo_url_canonical_model(self):
+        for _id in ("gpt2", "hf://gpt2", "https://huggingface.co/gpt2"):
+            with self.subTest(_id):
+                url = RepoUrl(_id)
+                self.assertEqual(url.repo_id, "gpt2")
+                self.assertEqual(url.repo_type, "model")
+
+    def test_repo_url_canonical_dataset(self):
+        for _id in ("datasets/squad", "hf://datasets/squad", "https://huggingface.co/datasets/squad"):
+            with self.subTest(_id):
+                url = RepoUrl(_id)
+                self.assertEqual(url.repo_id, "squad")
+                self.assertEqual(url.repo_type, "dataset")
