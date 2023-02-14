@@ -252,7 +252,7 @@ def files_to_be_staged(pattern: str = ".", folder: Union[str, Path, None] = None
         `List[str]`: List of files that are to be staged.
     """
     try:
-        p = run_subprocess("git ls-files -mo".split() + [pattern], folder)
+        p = run_subprocess("git ls-files --exclude-standard -mo".split() + [pattern], folder)
         if len(p.stdout.strip()):
             files = p.stdout.strip().split("\n")
         else:
