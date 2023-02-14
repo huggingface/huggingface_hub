@@ -70,10 +70,10 @@ Alternatively, you can programmatically login using [`login`] in a notebook or a
 ```
 
 <Tip>
-It is also possible to login programmatically without asking the user for the token by directly
-passing the token to [`login`] (i.e. `login(token="hf_xxx")`). If you do so, be careful when
+It is also possible to login programmatically without being prompted to enter your token by directly
+passing the token to [`login`] like `login(token="hf_xxx")`. If you do so, be careful when
 sharing your source code. It is a best practice to load the token from a secure vault instead
-of saving it in plain in your codebase/notebook.
+of saving it explicitly in your codebase/notebook.
 </Tip>
 
 <Tip>
@@ -140,7 +140,7 @@ need to specify:
 ... )
 ```
 
-To upload more than one file at a time, take a look at this [guide](./guides/upload)
+To upload more than one file at a time, take a look at the [Upload](./guides/upload) guide
 which will introduce you to several methods for uploading files (with or without git).
 
 ## Next steps
