@@ -89,6 +89,11 @@ Use the code below to get started with the model.
 
 {{ preprocessing | default("[More Information Needed]", true)}}
 
+
+### Training hyperparameters
+- **Precision:** [More Information Needed] <!--fp16, bf16, fp8, fp32 -->
+- **Regime:** [More Information Needed] <!--mixed precision or not -->
+
 ### Speeds, Sizes, Times
 
 <!-- This section provides information about throughput, start/end time, checkpoint size if relevant, etc. -->
