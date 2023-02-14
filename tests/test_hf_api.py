@@ -2259,6 +2259,13 @@ class TestSpaceAPIProduction(unittest.TestCase):
         # Raw response from Hub
         self.assertIsInstance(runtime.raw, dict)
 
+    def test_pause_and_restart_space(self) -> None:
+        runtime_after_pause = self.api.pause_space(self.repo_id)
+        self.assertEqual(runtime_after_pause.stage, SpaceStage.PAUSED)
+
+        runtime_after_restart = self.api.restart_space(self.repo_id)
+        self.assertIn(runtime_after_restart.stage, (SpaceStage.BUILDING, SpaceStage.RUNNING_BUILDING))
+
 
 class TestSpaceAPIMocked(unittest.TestCase):
     """
@@ -2509,3 +2516,17 @@ class RepoUrlTest(unittest.TestCase):
         self.assertEqual(url.url, "https://huggingface.co/gpt2")
         self.assertIsInstance(url, RepoUrl)
         self.assertNotIsInstance(url.url, RepoUrl)
+
+    def test_repo_url_canonical_model(self):
+        for _id in ("gpt2", "hf://gpt2", "https://huggingface.co/gpt2"):
+            with self.subTest(_id):
+                url = RepoUrl(_id)
+                self.assertEqual(url.repo_id, "gpt2")
+                self.assertEqual(url.repo_type, "model")
+
+    def test_repo_url_canonical_dataset(self):
+        for _id in ("datasets/squad", "hf://datasets/squad", "https://huggingface.co/datasets/squad"):
+            with self.subTest(_id):
+                url = RepoUrl(_id)
+                self.assertEqual(url.repo_id, "squad")
+                self.assertEqual(url.repo_type, "dataset")

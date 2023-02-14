@@ -149,9 +149,11 @@ _SUBMOD_ATTRS = {
         "merge_pull_request",
         "model_info",
         "move_repo",
+        "pause_space",
         "rename_discussion",
         "repo_type_and_id_from_hf_id",
         "request_space_hardware",
+        "restart_space",
         "set_access_token",
         "space_info",
         "unlike",
@@ -402,9 +404,11 @@ if TYPE_CHECKING:  # pragma: no cover
         merge_pull_request,  # noqa: F401
         model_info,  # noqa: F401
         move_repo,  # noqa: F401
+        pause_space,  # noqa: F401
         rename_discussion,  # noqa: F401
         repo_type_and_id_from_hf_id,  # noqa: F401
         request_space_hardware,  # noqa: F401
+        restart_space,  # noqa: F401
         set_access_token,  # noqa: F401
         space_info,  # noqa: F401
         unlike,  # noqa: F401

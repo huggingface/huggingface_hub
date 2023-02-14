@@ -139,6 +139,10 @@ def repo_type_and_id_from_hf_id(hf_id: str, hub_url: Optional[str] = None) -> Tu
             namespace = None
         if len(url_segments) > 2 and hub_url not in url_segments[-3]:
             repo_type = url_segments[-3]
+        elif namespace in REPO_TYPES_MAPPING:
+            # Mean canonical dataset or model
+            repo_type = REPO_TYPES_MAPPING[namespace]
+            namespace = None
         else:
             repo_type = None
     elif is_hf_id:
@@ -146,9 +150,15 @@ def repo_type_and_id_from_hf_id(hf_id: str, hub_url: Optional[str] = None) -> Tu
             # Passed <repo_type>/<user>/<model_id> or <repo_type>/<org>/<model_id>
             repo_type, namespace, repo_id = url_segments[-3:]
         elif len(url_segments) == 2:
-            # Passed <user>/<model_id> or <org>/<model_id>
-            namespace, repo_id = hf_id.split("/")[-2:]
-            repo_type = None
+            if url_segments[0] in REPO_TYPES_MAPPING:
+                # Passed '<model_id>' or 'datasets/<dataset_id>' for a canonical model or dataset
+                repo_type = REPO_TYPES_MAPPING[url_segments[0]]
+                namespace = None
+                repo_id = hf_id.split("/")[-1]
+            else:
+                # Passed <user>/<model_id> or <org>/<model_id>
+                namespace, repo_id = hf_id.split("/")[-2:]
+                repo_type = None
         else:
             # Passed <model_id>
             repo_id = url_segments[0]
@@ -3958,21 +3968,11 @@ class HfApi:
                 Hugging Face token. Will default to the locally saved token if
                 not provided.
         Returns:
-            `SpaceRuntime`: dataclass containing runtime information about a Space
-             including Space stage and hardware.
+            [`SpaceRuntime`]: Runtime information about a Space including Space stage and hardware.
         """
-        r = requests.get(
-            f"{self.endpoint}/api/spaces/{repo_id}/runtime",
-            headers=self._build_hf_headers(token=token),
-        )
+        r = requests.get(f"{self.endpoint}/api/spaces/{repo_id}/runtime", headers=self._build_hf_headers(token=token))
         hf_raise_for_status(r)
-        data = r.json()
-        return SpaceRuntime(
-            stage=data["stage"],
-            hardware=data["hardware"]["current"],
-            requested_hardware=data["hardware"]["requested"],
-            raw=data,
-        )
+        return SpaceRuntime(r.json())
 
     @validate_hf_hub_args
     def request_space_hardware(self, repo_id: str, hardware: SpaceHardware, *, token: Optional[str] = None) -> None:
@@ -3988,8 +3988,7 @@ class HfApi:
 
         <Tip>
 
-        It is also possible to request hardware directly when creating the Space repo!
-        See [`create_repo`] for details.
+        It is also possible to request hardware directly when creating the Space repo! See [`create_repo`] for details.
 
         </Tip>
         """
@@ -3999,6 +3998,74 @@ class HfApi:
             json={"flavor": hardware},
         )
         hf_raise_for_status(r)
+
+    @validate_hf_hub_args
+    def pause_space(self, repo_id: str, *, token: Optional[str] = None) -> SpaceRuntime:
+        """Pause your Space.
+
+        A paused Space stops executing until manually restarted by its owner. This is different from the sleeping
+        state in which free Spaces go after 72h of inactivity. Paused time is not billed to your account, no matter the
+        hardware you've selected. To restart your Space, use [`restart_space`] and go to your Space settings page.
+
+        For more details, please visit [the docs](https://huggingface.co/docs/hub/spaces-gpus#pause).
+
+        Args:
+            repo_id (`str`):
+                ID of the Space to pause. Example: `"Salesforce/BLIP2"`.
+            token (`str`, *optional*):
+                Hugging Face token. Will default to the locally saved token if not provided.
+
+        Returns:
+            [`SpaceRuntime`]: Runtime information about your Space including `stage=PAUSED` and requested hardware.
+
+        Raises:
+            [`~utils.RepositoryNotFoundError`]:
+                If your Space is not found (error 404). Most probably wrong repo_id or your space is private but you
+                are not authenticated.
+            [`~utils.HfHubHTTPError`]:
+                403 Forbidden: only the owner of a Space can pause it. If you want to manage a Space that you don't
+                own, either ask the owner by opening a Discussion or duplicate the Space.
+            [`~utils.BadRequestError`]:
+                If your Space is a static Space. Static Spaces are always running and never billed. If you want to hide
+                a static Space, you can set it to private.
+        """
+        r = requests.post(f"{self.endpoint}/api/spaces/{repo_id}/pause", headers=self._build_hf_headers(token=token))
+        hf_raise_for_status(r)
+        return SpaceRuntime(r.json())
+
+    @validate_hf_hub_args
+    def restart_space(self, repo_id: str, *, token: Optional[str] = None) -> SpaceRuntime:
+        """Restart your Space.
+
+        This is the only way to programmatically restart a Space if you've put it on Pause (see [`pause_space`]). You
+        must be the owner of the Space to restart it. If you are using an upgraded hardware, your account will be
+        billed as soon as the Space is restarted. You can trigger a restart no matter the current state of a Space.
+
+        For more details, please visit [the docs](https://huggingface.co/docs/hub/spaces-gpus#pause).
+
+        Args:
+            repo_id (`str`):
+                ID of the Space to restart. Example: `"Salesforce/BLIP2"`.
+            token (`str`, *optional*):
+                Hugging Face token. Will default to the locally saved token if not provided.
+
+        Returns:
+            [`SpaceRuntime`]: Runtime information about your Space.
+
+        Raises:
+            [`~utils.RepositoryNotFoundError`]:
+                If your Space is not found (error 404). Most probably wrong repo_id or your space is private but you
+                are not authenticated.
+            [`~utils.HfHubHTTPError`]:
+                403 Forbidden: only the owner of a Space can restart it. If you want to restart a Space that you don't
+                own, either ask the owner by opening a Discussion or duplicate the Space.
+            [`~utils.BadRequestError`]:
+                If your Space is a static Space. Static Spaces are always running and never billed. If you want to hide
+                a static Space, you can set it to private.
+        """
+        r = requests.post(f"{self.endpoint}/api/spaces/{repo_id}/restart", headers=self._build_hf_headers(token=token))
+        hf_raise_for_status(r)
+        return SpaceRuntime(r.json())
 
     def _build_hf_headers(
         self,
@@ -4138,3 +4205,5 @@ add_space_secret = api.add_space_secret
 delete_space_secret = api.delete_space_secret
 get_space_runtime = api.get_space_runtime
 request_space_hardware = api.request_space_hardware
+pause_space = api.pause_space
+restart_space = api.restart_space
