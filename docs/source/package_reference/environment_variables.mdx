@@ -18,6 +18,13 @@ is using a [Private Hub](https://huggingface.co/platform).
 
 Defaults to `"https://huggingface.co"`.
 
+### HF_INFERENCE_ENDPOINT
+
+To configure the inference api base url. You might want to set this variable if your organization
+is pointing at an API Gateway rather than directly at the inference api.
+
+Defaults to `"https://api-inference.huggingface.com"`.
+
 ### HF_HOME
 
 To configure where `huggingface_hub` will locally store data. In particular, your token
