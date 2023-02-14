@@ -81,11 +81,11 @@ Use the code below to get started with the model.
 
 {{ training_data | default("[More Information Needed]", true)}}
 
-## Training Procedure [optional]
+## Training Procedure 
 
 <!-- This relates heavily to the Technical Specifications. Content here should link to that section when it is relevant to the training procedure. -->
 
-### Preprocessing
+### Preprocessing[optional]
 
 {{ preprocessing | default("[More Information Needed]", true)}}
 
@@ -94,7 +94,7 @@ Use the code below to get started with the model.
 - **Precision:** [More Information Needed] <!--fp16, bf16, fp8, fp32 -->
 - **Regime:** [More Information Needed] <!--mixed precision or not -->
 
-### Speeds, Sizes, Times
+### Speeds, Sizes, Times [optional]
 
 <!-- This section provides information about throughput, start/end time, checkpoint size if relevant, etc. -->
 
