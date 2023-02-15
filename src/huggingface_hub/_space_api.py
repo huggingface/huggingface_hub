@@ -39,6 +39,7 @@ class SpaceStage(str, Enum):
     RUNTIME_ERROR = "RUNTIME_ERROR"
     DELETING = "DELETING"
     STOPPED = "STOPPED"
+    PAUSED = "PAUSED"
 
 
 class SpaceHardware(str, Enum):
@@ -86,3 +87,9 @@ class SpaceRuntime:
     hardware: Optional[SpaceHardware]
     requested_hardware: Optional[SpaceHardware]
     raw: Dict
+
+    def __init__(self, data: Dict) -> None:
+        self.stage = data["stage"]
+        self.hardware = data["hardware"]["current"]
+        self.requested_hardware = data["hardware"]["requested"]
+        self.raw = data
