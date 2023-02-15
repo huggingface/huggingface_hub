@@ -15,9 +15,10 @@ repositories on the Hub, especially:
 If you are used to working with platforms such as GitLab/GitHub/Bitbucket, your first instinct
 might be to use `git` CLI to clone your repo (`git clone`), commit changes (`git add, git commit`) and push them
 (`git push`). This is valid when using the Hugging Face Hub. However, software engineering and machine learning do
-not share the same requirements and workflows. In ML, it may be more efficient to use HTTP, so you don't have to maintain
-a local folder with massive model weights. You can read our [Git vs HTTP paradigm](../concepts/git_vs_http) explanation page
-for more details.
+not share the same requirements and workflows. Model repositories might maintain large model weight files for different
+frameworks and tools, so cloning the repository can lead to you maintaining large local folders with massive sizes. As
+a result, it may be more efficient to use our custom HTTP methods. You can read our [Git vs HTTP paradigm](../concepts/git_vs_http)
+explanation page for more details.
 
 </Tip>
 
