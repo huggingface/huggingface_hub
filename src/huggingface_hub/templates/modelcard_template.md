@@ -90,7 +90,8 @@ Use the code below to get started with the model.
 {{ preprocessing | default("[More Information Needed]", true)}}
 
 
-### Training hyperparameters
+### Training Hyperparameters
+
 - **Precision:** [More Information Needed] <!--fp16, bf16, fp8, fp32 -->
 - **Regime:** [More Information Needed] <!--mixed precision or not -->
 
