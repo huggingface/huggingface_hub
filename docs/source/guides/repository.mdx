@@ -12,9 +12,9 @@ repositories on the Hub, especially:
 
 <Tip warning={true}>
 
-If you are used to working with platforms such as Gitlab/Github/Bitbucket, your first instinct
+If you are used to working with platforms such as GitLab/GitHub/Bitbucket, your first instinct
 might be to use `git` CLI to clone your repo (`git clone`), commit changes (`git add, git commit`) and push them
-(`git push`). This is still valid when using the Hugging Face Hub. However, software engineering and machine learning do
+(`git push`). This is valid when using the Hugging Face Hub. However, software engineering and machine learning do
 not share the same requirements and workflows. In ML, it may be more efficient to use HTTP, so you don't have to maintain
 a local folder with massive model weights. You can read our [Git vs HTTP paradigm](../concepts/git_vs_http) explanation page
 for more details.
@@ -47,7 +47,7 @@ By default, [`create_repo`] creates a model repository. But you can use the `rep
 'https://huggingface.co/datasets/lysandre/test-dataset'
 ```
 
-When you create a repository, you can set your repository visibility with the `private` parameter. For example, if you want to create a private repository:
+When you create a repository, you can set your repository visibility with the `private` parameter.
 
 ```py
 >>> from huggingface_hub import create_repo
