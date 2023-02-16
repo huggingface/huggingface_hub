@@ -93,7 +93,6 @@ Use the code below to get started with the model.
 ### Training Hyperparameters
 
 - **Training regime:** {{ training_regime | default("[More Information Needed]", true)}} <!--fp32, fp16 mixed precision, bf16 mixed precision, bf16 non-mixed precision, fp16 non-mixed precision, fp8 mixed precision -->
-- **Regime:** [More Information Needed] <!--mixed precision or not -->
 
 ### Speeds, Sizes, Times [optional]
 
