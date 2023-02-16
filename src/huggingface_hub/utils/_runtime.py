@@ -259,8 +259,9 @@ def dump_environment_info() -> Dict[str, Any]:
     info["ENDPOINT"] = constants.ENDPOINT
     info["HUGGINGFACE_HUB_CACHE"] = constants.HUGGINGFACE_HUB_CACHE
     info["HUGGINGFACE_ASSETS_CACHE"] = constants.HUGGINGFACE_ASSETS_CACHE
-    info["HF_HUB_OFFLINE"] = constants.HF_HUB_OFFLINE
     info["HF_TOKEN_PATH"] = constants.HF_TOKEN_PATH
+    info["HF_HUB_OFFLINE"] = constants.HF_HUB_OFFLINE
+    info["HF_HUB_DISABLE_TELEMETRY"] = constants.HF_HUB_DISABLE_TELEMETRY
     info["HF_HUB_DISABLE_PROGRESS_BARS"] = constants.HF_HUB_DISABLE_PROGRESS_BARS
     info["HF_HUB_DISABLE_SYMLINKS_WARNING"] = constants.HF_HUB_DISABLE_SYMLINKS_WARNING
     info["HF_HUB_DISABLE_IMPLICIT_TOKEN"] = constants.HF_HUB_DISABLE_IMPLICIT_TOKEN
