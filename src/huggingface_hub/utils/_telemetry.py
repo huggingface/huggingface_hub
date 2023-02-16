@@ -4,7 +4,10 @@ from urllib.parse import quote
 import requests
 
 from .. import constants
-from . import build_hf_headers
+from . import build_hf_headers, hf_raise_for_status
+from .. import logging
+
+logger = logging.get_logger(__name__)
 
 
 def send_telemetry(
@@ -39,7 +42,7 @@ def send_telemetry(
     path = "/".join(quote(part) for part in topic.split("/") if len(part) > 0)
     try:
         r = requests.head(
-            f"{constants.ENDPOINT}/telemetry/{path}",
+            f"{constants.ENDPOINT}/api/telemetry/{path}",
             headers=build_hf_headers(
                 token=False,  # no need to send a token for telemetry
                 library_name=library_name,
@@ -47,7 +50,7 @@ def send_telemetry(
                 user_agent=user_agent,
             ),
         )
-        r.raise_for_status()
-    except Exception:
+        hf_raise_for_status(r)
+    except Exception as e:
         # We don't want to error in case of connection errors of any kind.
-        pass
+        logger.debug(f"Error while sending telemetry: {e}")
