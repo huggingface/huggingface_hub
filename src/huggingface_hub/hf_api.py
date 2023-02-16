@@ -17,6 +17,7 @@ import os
 import re
 import warnings
 from dataclasses import dataclass, field
+from datetime import datetime
 from itertools import islice
 from pathlib import Path
 from typing import Any, BinaryIO, Dict, Iterable, Iterator, List, Optional, Tuple, Union
@@ -713,6 +714,49 @@ class GitRefs:
     branches: List[GitRefInfo]
     converts: List[GitRefInfo]
     tags: List[GitRefInfo]
+
+
+@dataclass
+class GitCommitInfo:
+    """
+    Contains information about a git commit for a repo on the Hub. Check out [`list_repo_commits`] for more details.
+
+    Args:
+        commit_id (`str`):
+            OID of the commit (e.g. `"e7da7f221d5bf496a48136c0cd264e630fe9fcc8"`)
+        authors (`List[str]`):
+            List of authors of the commit.
+        created_at (`datetime`):
+            Datetime when the commit was created.
+        title (`str`):
+            Title of the commit. This is a free-text value entered by the authors.
+        message (`str`):
+            Description of the commit. This is a free-text value entered by the authors.
+        formatted_title (`str`):
+            Title of the commit formatted as HTML. Only returned if `formatted=True` is set.
+        formatted_message (`str`):
+            Description of the commit formatted as HTML. Only returned if `formatted=True` is set.
+    """
+
+    commit_id: str
+
+    authors: List[str]
+    created_at: datetime
+    title: str
+    message: str
+
+    formatted_title: Optional[str]
+    formatted_message: Optional[str]
+
+    def __init__(self, data: Dict) -> None:
+        self.commit_id = data["id"]
+        self.authors = [author["user"] for author in data["authors"]]
+        self.created_at = parse_datetime(data["date"])
+        self.title = data["title"]
+        self.message = data["message"]
+
+        self.formatted_title = data.get("formatted", {}).get("title")
+        self.formatted_message = data.get("formatted", {}).get("message")
 
 
 @dataclass
@@ -1892,6 +1936,84 @@ class HfApi:
         )
 
     @validate_hf_hub_args
+    def list_repo_commits(
+        self,
+        repo_id: str,
+        *,
+        repo_type: Optional[str] = None,
+        token: Optional[Union[bool, str]] = None,
+        revision: Optional[str] = None,
+        formatted: bool = False,
+    ) -> List[GitCommitInfo]:
+        """
+        Get the list of commits of a given revision for a repo on the Hub.
+
+        Commits are sorted by date (last commit first).
+
+        Args:
+            repo_id (`str`):
+                A namespace (user or an organization) and a repo name separated by a `/`.
+            repo_type (`str`, *optional*):
+                Set to `"dataset"` or `"space"` if listing commits from a dataset or a Space, `None` or `"model"` if
+                listing from a model. Default is `None`.
+            token (`bool` or `str`, *optional*):
+                A valid authentication token (see https://huggingface.co/settings/token).
+                If `None` or `True` and machine is logged in (through `huggingface-cli login`
+                or [`~huggingface_hub.login`]), token will be retrieved from the cache.
+                If `False`, token is not sent in the request header.
+            revision (`str`, *optional*):
+                The git revision to commit from. Defaults to the head of the `"main"` branch.
+            formatted (`bool`):
+                Whether to return the HTML-formatted title and description of the commits. Defaults to False.
+
+        Example:
+        ```py
+        >>> from huggingface_hub import HfApi
+        >>> api = HfApi()
+
+        # Commits are sorted by date (last commit first)
+        >>> initial_commit = api.list_repo_commits("gpt2")[-1]
+
+        # Initial commit is always a system commit containing the `.gitattributes` file.
+        >>> initial_commit
+        GitCommitInfo(
+            commit_id='9b865efde13a30c13e0a33e536cf3e4a5a9d71d8',
+            authors=['system'],
+            created_at=datetime.datetime(2019, 2, 18, 10, 36, 15, tzinfo=datetime.timezone.utc),
+            title='initial commit',
+            message='',
+            formatted_title=None,
+            formatted_message=None
+        )
+
+        # Create an empty branch by deriving from initial commit
+        >>> api.create_branch("gpt2", "new_empty_branch", revision=initial_commit.commit_id)
+        ```
+
+        Returns:
+            List[[`GitCommitInfo`]]: list of objects containing information about the commits for a repo on the Hub.
+
+        Raises:
+            [`~utils.RepositoryNotFoundError`]:
+                If repository is not found (error 404): wrong repo_id/repo_type, private but not authenticated or repo
+                does not exist.
+            [`~utils.RevisionNotFoundError`]:
+                If revision is not found (error 404) on the repo.
+        """
+        repo_type = repo_type or REPO_TYPE_MODEL
+        revision = quote(revision, safe="") if revision is not None else DEFAULT_REVISION
+
+        # Paginate over results and return the list of commits.
+        return [
+            GitCommitInfo(item)
+            for item in paginate(
+                f"{self.endpoint}/api/{repo_type}s/{repo_id}/commits/{revision}",
+                headers=self._build_hf_headers(token=token),
+                params={"expand[]": "formatted"} if formatted else {},
+            )
+        ]
+
+    @validate_hf_hub_args
     def create_repo(
         self,
         repo_id: str,
@@ -2817,7 +2939,8 @@ class HfApi:
         exist_ok: bool = False,
     ) -> None:
         """
-        Create a new branch from `main` on a repo on the Hub.
+        Create a new branch for a repo on the Hub, starting from the specified revision (defaults to `main`).
+        To find a revision suiting your needs, you can use [`list_repo_refs`] or [`list_repo_commits`].
 
         Args:
             repo_id (`str`):
@@ -4039,6 +4162,7 @@ space_info = api.space_info
 repo_info = api.repo_info
 list_repo_files = api.list_repo_files
 list_repo_refs = api.list_repo_refs
+list_repo_commits = api.list_repo_commits
 
 list_metrics = api.list_metrics
 

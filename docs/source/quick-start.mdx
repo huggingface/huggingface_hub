@@ -1,6 +1,6 @@
 # Quickstart
 
-The [Hugging Face Hub](https://hf.co/) is the go-to place for sharing machine learning
+The [Hugging Face Hub](https://huggingface.co/) is the go-to place for sharing machine learning
 models, demos, datasets, and metrics. `huggingface_hub` library helps you interact with
 the Hub without leaving your development environment. You can create and manage
 repositories easily, download and upload files, and get useful model and dataset
@@ -51,7 +51,7 @@ For more details and options, see the API reference for [`hf_hub_download`].
 
 In a lot of cases, you must be logged in with a Hugging Face account to interact with
 the Hub: download private repos, upload files, create PRs,...
-[Create an account](https://hf.co/join) if you don't already have one, and then sign in
+[Create an account](https://huggingface.co/join) if you don't already have one, and then sign in
 to get your [User Access Token](https://huggingface.co/docs/hub/security-tokens) from
 your [Settings page](https://huggingface.co/settings/tokens). The User Access Token is
 used to authenticate your identity to the Hub.
@@ -62,24 +62,27 @@ Once you have your User Access Token, run the following command in your terminal
 huggingface-cli login
 ```
 
-Or if you prefer to work from a Jupyter or Colaboratory notebook, then use [`login`]:
+Alternatively, you can programmatically login using [`login`] in a notebook or a script:
 
 ```py
 >>> from huggingface_hub import login
 >>> login()
 ```
 
-<Tip>
+It is also possible to login programmatically without being prompted to enter your token by directly
+passing the token to [`login`] like `login(token="hf_xxx")`. If you do so, be careful when
+sharing your source code. It is a best practice to load the token from a secure vault instead
+of saving it explicitly in your codebase/notebook.
 
-You can also provide your token to the functions and methods. This way you don't need to
-store your token anywhere.
+You can be logged in only to 1 account at a time. If you login your machine to a new account, you will get logged out
+from the previous. Make sure to always which account you are using with the command `huggingface-cli whoami`.
+If you want to handle several accounts in the same script, you can provide your token when calling each method. This
+is also useful if you don't want to store any token on your machine.
 
-</Tip>
+<Tip warning={true}>
 
-<Tip>
-
-Once you are logged in, all requests to the Hub will use your access token by default.
-If you want to disable implicit use of your token, you should set the
+Once you are logged in, all requests to the Hub -even methods that don't necessarily require authentication- will use your
+access token by default. If you want to disable implicit use of your token, you should set the
 `HF_HUB_DISABLE_IMPLICIT_TOKEN` environment variable.
 
 </Tip>
@@ -125,23 +128,24 @@ need to specify:
 ```py
 >>> from huggingface_hub import HfApi
 >>> api = HfApi()
->>> api.upload_file(path_or_fileobj="/home/lysandre/dummy-test/README.md", 
-...                 path_in_repo="README.md", 
-...                 repo_id="lysandre/test-model",
+>>> api.upload_file(
+...     path_or_fileobj="/home/lysandre/dummy-test/README.md",
+...     path_in_repo="README.md",
+...     repo_id="lysandre/test-model",
 ... )
 ```
 
-To upload more than one file at a time, take a look at this [guide](how-to-upstream)
+To upload more than one file at a time, take a look at the [Upload](./guides/upload) guide
 which will introduce you to several methods for uploading files (with or without git).
 
 ## Next steps
 
 The `huggingface_hub` library provides an easy way for users to interact with the Hub
 with Python. To learn more about how you can manage your files and repositories on the
-Hub, we recommend reading our how-to guides for how to:
+Hub, we recommend reading our [how-to guides](./guides/overview) to:
 
-- [Create and manage repositories](how-to-manage).
-- [Download](how-to-downstream) files from the Hub.
-- [Upload](how-to-upstream) files to the Hub.
-- [Search the Hub](searching-the-hub) for your desired model or dataset.
-- [Access the Inference API](how-to-inference) for fast inference.
+- [Manage your repository](./guides/repository).
+- [Download](./guides/download) files from the Hub.
+- [Upload](./guides/upload) files to the Hub.
+- [Search the Hub](./guides/search) for your desired model or dataset.
+- [Access the Inference API](./guides/inference) for fast inference.

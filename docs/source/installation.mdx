@@ -142,7 +142,7 @@ encounter any undocumented problem by opening [an issue on Github](https://githu
 - `huggingface_hub`'s cache system relies on symlinks to efficiently cache files downloaded
 from the Hub. On Windows, you must activate developer mode or run your script as admin to
 enable symlinks. If they are not activated, the cache-system still works but in an non-optimized
-manner. Please read [this page](./how-to-cache#limitations) for more details.
+manner. Please read [the cache limitations](./guides/manage-cache#limitations) section for more details.
 - Filepaths on the Hub can have special characters (e.g. `"path/to?/my/file"`). Windows is
 more restrictive on [special characters](https://learn.microsoft.com/en-us/windows/win32/intl/character-sets-used-in-file-names)
 which makes it impossible to download those files on Windows. Hopefully this is a rare case.

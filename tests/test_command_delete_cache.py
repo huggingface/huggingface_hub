@@ -204,7 +204,7 @@ class TestDeleteCacheHelpers(unittest.TestCase):
 
         # Check printed instructions
         printed = output.getvalue()
-        self.assertTrue(printed.startswith("TUI is disabled. In other to"))  # ...
+        self.assertTrue(printed.startswith("TUI is disabled. In order to"))  # ...
         self.assertIn(tmp_path, printed)
 
         # Check input called twice
