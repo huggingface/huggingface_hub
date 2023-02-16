@@ -2342,6 +2342,68 @@ class ListGitRefsTest(unittest.TestCase):
         )
 
 
+class ListGitCommitsTest(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls) -> None:
+        cls.api = HfApi(token=TOKEN)
+        # Create repo (with initial commit)
+        cls.repo_id = cls.api.create_repo(repo_name()).repo_id
+
+        # Create a commit on `main` branch
+        cls.api.upload_file(repo_id=cls.repo_id, path_or_fileobj=b"content", path_in_repo="content.txt")
+
+        # Create a commit in a PR
+        cls.api.upload_file(repo_id=cls.repo_id, path_or_fileobj=b"on_pr", path_in_repo="on_pr.txt", create_pr=True)
+
+        # Create another commit on `main` branch
+        cls.api.upload_file(repo_id=cls.repo_id, path_or_fileobj=b"on_main", path_in_repo="on_main.txt")
+        return super().setUpClass()
+
+    @classmethod
+    def tearDownClass(cls) -> None:
+        cls.api.delete_repo(cls.repo_id)
+        return super().tearDownClass()
+
+    def test_list_commits_on_main(self) -> None:
+        commits = self.api.list_repo_commits(self.repo_id)
+
+        # "on_pr" commit not returned
+        self.assertEquals(len(commits), 3)
+        self.assertTrue(all("on_pr" not in commit.title for commit in commits))
+
+        # USER is always the author
+        self.assertTrue(all(commit.authors == [USER] for commit in commits))
+
+        # latest commit first
+        self.assertEquals(commits[0].title, "Upload on_main.txt with huggingface_hub")
+
+        # Formatted field not returned by default
+        for commit in commits:
+            self.assertIsNone(commit.formatted_title)
+            self.assertIsNone(commit.formatted_message)
+
+    def test_list_commits_on_pr(self) -> None:
+        commits = self.api.list_repo_commits(self.repo_id, revision="refs/pr/1")
+
+        # "on_pr" commit returned but not the "on_main" one
+        self.assertEquals(len(commits), 3)
+        self.assertTrue(all("on_main" not in commit.title for commit in commits))
+        self.assertEquals(commits[0].title, "Upload on_pr.txt with huggingface_hub")
+
+    def test_list_commits_include_formatted(self) -> None:
+        for commit in self.api.list_repo_commits(self.repo_id, formatted=True):
+            self.assertIsNotNone(commit.formatted_title)
+            self.assertIsNotNone(commit.formatted_message)
+
+    def test_list_commits_on_missing_repo(self) -> None:
+        with self.assertRaises(RepositoryNotFoundError):
+            self.api.list_repo_commits("missing_repo_id")
+
+    def test_list_commits_on_missing_revision(self) -> None:
+        with self.assertRaises(RevisionNotFoundError):
+            self.api.list_repo_commits(self.repo_id, revision="missing_revision")
+
+
 @patch("huggingface_hub.hf_api.build_hf_headers")
 class HfApiTokenAttributeTest(unittest.TestCase):
     def test_token_passed(self, mock_build_hf_headers: Mock) -> None:
