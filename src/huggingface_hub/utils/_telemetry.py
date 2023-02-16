@@ -35,6 +35,25 @@ def send_telemetry(
             The version of the library that is making the HTTP request. Will be added to the user-agent header.
         user_agent (`str`, `dict`, *optional*):
             The user agent info in the form of a dictionary or a single string. It will be completed with information about the installed packages.
+
+    Example:
+    ```py
+    >>> from huggingface_hub.utils import send_telemetry
+
+    # Send telemetry without library information
+    >>> send_telemetry("ping")
+
+    # Send telemetry to subtopic with library information
+    >>> send_telemetry("gradio/local_link", library_name="gradio", library_version="3.22.1")
+
+    # Send telemetry with additional data
+    >>> send_telemetry(
+    ...     topic="examples",
+    ...     library_name="transformers",
+    ...     library_version="4.26.0",
+    ...     user_agent={"pipeline": "text_classification", "framework": "flax"},
+    ... )
+    ```
     """
     if constants.HF_HUB_OFFLINE or constants.HF_HUB_DISABLE_TELEMETRY:
         return
