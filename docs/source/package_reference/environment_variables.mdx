@@ -41,7 +41,7 @@ Defaults to `"$HF_HOME/hub"` (e.g. `"~/.cache/huggingface/hub"` by default).
 
 ### HUGGINGFACE_ASSETS_CACHE
 
-To configure where [assets](how-to-cache#caching-assets) created by downstream libraries
+To configure where [assets](../guides/manage-cache#caching-assets) created by downstream libraries
 will be cached locally. Those assets can be preprocessed data, files downloaded from GitHub,
 logs,...
 
@@ -52,7 +52,7 @@ Defaults to `"$HF_HOME/assets"` (e.g. `"~/.cache/huggingface/assets"` by default
 To configure the User Access Token to authenticate to the Hub. If set, this value will
 overwrite the token stored on the machine (in `"$HF_HOME/token"`).
 
-See [login reference](package_reference/login) for more details.
+See [login reference](../package_reference/login) for more details.
 
 ### HUGGINGFACE_HUB_VERBOSITY
 
@@ -61,7 +61,7 @@ Set the verbosity level of the `huggingface_hub`'s logger. Must be one of
 
 Defaults to `"warning"`.
 
-For more details, see [logging reference](package_reference/utilities#huggingface_hub.utils.logging.get_verbosity).
+For more details, see [logging reference](../package_reference/utilities#huggingface_hub.utils.logging.get_verbosity).
 
 ## Boolean values
 
@@ -83,7 +83,7 @@ skip this call which speeds up your loading time.
 
 Authentication is not mandatory for every requests to the Hub. For instance, requesting
 details about `"gpt2"` model does not require to be authenticated. However, if a user is
-[logged in](package_reference/login), the default behavior will be to always send the token
+[logged in](../package_reference/login), the default behavior will be to always send the token
 in order to ease user experience (never get a HTTP 401 Unauthorized) when accessing private or gated repositories. For privacy, you can
 disable this behavior by setting `HF_HUB_DISABLE_IMPLICIT_TOKEN=1`. In this case,
 the token will be sent only for "write-access" calls (example: create a commit).
@@ -106,7 +106,7 @@ will be degraded as some huge files might end-up duplicated on your hard-drive. 
 message is triggered to warn you about this behavior. Set `HF_HUB_DISABLE_SYMLINKS_WARNING=1`,
 to disable this warning.
 
-For more details, see [cache limitations](how-to-cache#limitations).
+For more details, see [cache limitations](../guides/manage-cache#limitations).
 
 ### HF_HUB_DISABLE_TELEMETRY
 

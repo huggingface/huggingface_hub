@@ -1,4 +1,4 @@
-# Creating and Sharing Model Cards
+# Create and share Model Cards
 
 The `huggingface_hub` library provides a Python interface to create, share, and update Model Cards.
 Visit [the dedicated documentation page](https://huggingface.co/docs/hub/models-cards)
@@ -10,7 +10,7 @@ for a deeper view of what Model Cards on the Hub are, and how they work under th
 
 </Tip>
 
-## Loading a Model Card from the Hub
+## Load a Model Card from the Hub
 
 To load an existing card from the Hub, you can use the [`ModelCard.load`] function. Here, we'll load the card from [`nateraw/vit-base-beans`](https://huggingface.co/nateraw/vit-base-beans).
 
@@ -25,7 +25,7 @@ This card has some helpful attributes that you may want to access/leverage:
   - `card.text`: Returns the text of the card, *excluding the metadata header*.
   - `card.content`: Returns the text content of the card, *including the metadata header*.
 
-## Creating Model Cards
+## Create Model Cards
 
 ### From Text
 
@@ -183,7 +183,7 @@ card.save('my_model_card_2.md')
 print(card)
 ```
 
-## Sharing Model Cards
+## Share Model Cards
 
 If you're authenticated with the Hugging Face Hub (either by using `huggingface-cli login` or [`login`]), you can push cards to the Hub by simply calling [`ModelCard.push_to_hub`]. Let's take a look at how to do that...
 
@@ -226,7 +226,7 @@ card.push_to_hub(repo_id, create_pr=True)
 
 A resulting PR created from this command can be seen [here](https://huggingface.co/nateraw/hf-hub-modelcards-pr-test/discussions/3).
 
-### Including Evaluation Results
+### Include Evaluation Results
 
 To include evaluation results in the metadata `model-index`, you can pass an [`EvalResult`] or a list of `EvalResult` with your associated evaluation results. Under the hood it'll create the `model-index` when you call `card.data.to_dict()`. For more information on how this works, you can check out [this section of the Hub docs](https://huggingface.co/docs/hub/models-cards#evaluation-results).
 

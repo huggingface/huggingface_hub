@@ -107,6 +107,7 @@ _SUBMOD_ATTRS = {
         "CommitOperationAdd",
         "CommitOperationDelete",
         "DatasetSearchArguments",
+        "GitCommitInfo",
         "GitRefInfo",
         "GitRefs",
         "HfApi",
@@ -141,6 +142,7 @@ _SUBMOD_ATTRS = {
         "list_liked_repos",
         "list_metrics",
         "list_models",
+        "list_repo_commits",
         "list_repo_files",
         "list_repo_refs",
         "list_spaces",
@@ -360,6 +362,7 @@ if TYPE_CHECKING:  # pragma: no cover
         CommitOperationAdd,  # noqa: F401
         CommitOperationDelete,  # noqa: F401
         DatasetSearchArguments,  # noqa: F401
+        GitCommitInfo,  # noqa: F401
         GitRefInfo,  # noqa: F401
         GitRefs,  # noqa: F401
         HfApi,  # noqa: F401
@@ -394,6 +397,7 @@ if TYPE_CHECKING:  # pragma: no cover
         list_liked_repos,  # noqa: F401
         list_metrics,  # noqa: F401
         list_models,  # noqa: F401
+        list_repo_commits,  # noqa: F401
         list_repo_files,  # noqa: F401
         list_repo_refs,  # noqa: F401
         list_spaces,  # noqa: F401
