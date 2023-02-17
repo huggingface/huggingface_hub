@@ -7,6 +7,10 @@ on:
   push:
     branches:
       - ci_contrib_*
+  pull_request:
+    types: [assigned, opened, synchronize, reopened]
+    paths:
+      - contrib/**
 
 jobs:
   build:
