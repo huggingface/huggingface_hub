@@ -675,6 +675,7 @@ def cached_download(
             # Useful for lfs blobs that are stored on a CDN.
             if 300 <= r.status_code <= 399:
                 url_to_download = r.headers["Location"]
+                headers.pop("authorization", None)
         except (requests.exceptions.SSLError, requests.exceptions.ProxyError):
             # Actually raise for those subclasses of ConnectionError
             raise
