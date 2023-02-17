@@ -1,7 +1,8 @@
 import unittest
-from unittest.mock import Mock, call, patch
+from unittest.mock import Mock, patch
 
 from huggingface_hub.utils._telemetry import send_telemetry
+
 from .testing_constants import ENDPOINT_STAGING
 
 

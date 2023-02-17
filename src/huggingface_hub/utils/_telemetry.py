@@ -3,9 +3,9 @@ from urllib.parse import quote
 
 import requests
 
-from .. import constants
+from .. import constants, logging
 from . import build_hf_headers, hf_raise_for_status
-from .. import logging
+
 
 logger = logging.get_logger(__name__)
 
