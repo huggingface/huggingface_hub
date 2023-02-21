@@ -130,6 +130,7 @@ _SUBMOD_ATTRS = {
         "delete_repo",
         "delete_space_secret",
         "delete_tag",
+        "duplicate_space",
         "edit_discussion_comment",
         "get_dataset_tags",
         "get_discussion_details",
