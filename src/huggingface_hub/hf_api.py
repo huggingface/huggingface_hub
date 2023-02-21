@@ -4120,7 +4120,7 @@ class HfApi:
             if parsed_to_id is not None and parsed_to_id.namespace is not None
             else self.whoami(token)["name"]
         )
-        to_repo_name = parsed_to_id.repo_name if to_id is not None else RepoUrl(from_id).repo_name
+        to_repo_name = parsed_to_id.repo_name if to_id is not None else RepoUrl(from_id).repo_name  # type: ignore
 
         # repository must be a valid repo_id (namespace/repo_name).
         payload: Dict[str, Any] = {"repository": f"{to_namespace}/{to_repo_name}"}
