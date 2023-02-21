@@ -4118,7 +4118,7 @@ class HfApi:
         dest_repo_id = f"{dest_namespace}/{dest_repo_name}"
 
         # repository must be valid repo_id (namespace/repo_name).
-        data = {"repository": dest_repo_id}
+        data = {"repository": dest_repo_id}  # type: Dict[str, Any]
 
         # private is optional with this endpoint, with None defaulting to the original space's privacy.
         if private is not None:
