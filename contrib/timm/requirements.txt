@@ -1,2 +1,3 @@
 # Timm
 git+https://github.com/rwightman/pytorch-image-models.git#egg=timm
+safetensors
