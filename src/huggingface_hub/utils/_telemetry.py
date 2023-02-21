@@ -1,11 +1,13 @@
+from queue import Queue
+from threading import Lock, Thread
 from typing import Dict, Optional, Union
 from urllib.parse import quote
 
 import requests
-from queue import Queue
+
 from .. import constants, logging
 from . import build_hf_headers, hf_raise_for_status
-from threading import Thread, Lock
+
 
 logger = logging.get_logger(__name__)
 
@@ -14,7 +16,7 @@ logger = logging.get_logger(__name__)
 # If the thread stops for some reason -shouldn't happen-, we restart a new one.
 _TELEMETRY_THREAD: Optional[Thread] = None
 _TELEMETRY_THREAD_LOCK = Lock()  # Lock to avoid starting multiple threads in parallel
-_TELEMETRY_QUEUE = Queue()
+_TELEMETRY_QUEUE: Queue = Queue()
 
 
 def send_telemetry(

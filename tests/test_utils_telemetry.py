@@ -1,10 +1,10 @@
 import unittest
+from queue import Queue
 from unittest.mock import Mock, patch
 
-from huggingface_hub.utils._telemetry import send_telemetry, _TELEMETRY_QUEUE
+from huggingface_hub.utils._telemetry import send_telemetry
 
 from .testing_constants import ENDPOINT_STAGING
-from queue import Queue
 
 
 @patch("huggingface_hub.utils._telemetry.requests.head")
