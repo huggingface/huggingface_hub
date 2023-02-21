@@ -149,6 +149,15 @@ class EvalResult:
 
 @dataclass
 class CardData:
+    """Structure containing metadata from a RepoCard.
+
+    [`CardData`] is the parent class of [`ModelCardData`] and [`DatasetCardData`].
+
+    Metadata can be exported as a dictionary or YAML. Export can be customized to alter the representation of the data
+    (example: flatten evaluation results). `CardData` behaves as a dictionary (can get, pop, set values) but do not
+    inherit from `dict` to allow this export step.
+    """
+
     def __init__(self, **kwargs):
         self.__dict__.update(kwargs)
 
@@ -186,6 +195,22 @@ class CardData:
 
     def __repr__(self):
         return self.to_yaml()
+
+    def get(self, key: str, default: Any = None) -> Any:
+        """Get value for a given metadata key."""
+        return self.__dict__.get(key, default)
+
+    def pop(self, key: str, default: Any = None) -> Any:
+        """Pop value for a given metadata key."""
+        return self.__dict__.pop(key, default)
+
+    def __getitem__(self, key: str) -> Any:
+        """Get value for a given metadata key."""
+        return self.__dict__[key]
+
+    def __setitem__(self, key: str, value: Any) -> None:
+        """Set value for a given metadata key."""
+        self.__dict__[key] = value
 
 
 class ModelCardData(CardData):

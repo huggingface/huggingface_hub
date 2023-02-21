@@ -4,6 +4,7 @@ import pytest
 import yaml
 
 from huggingface_hub.repocard_data import (
+    CardData,
     DatasetCardData,
     EvalResult,
     ModelCardData,
@@ -35,6 +36,29 @@ model-index:
     - type: acc
       value: 0.9
 """
+
+
+class BaseCardDataTest(unittest.TestCase):
+    def test_metadata_behave_as_dict(self):
+        metadata = CardData(foo="bar")
+
+        # .get and __getitem__
+        self.assertEqual(metadata.get("foo"), "bar")
+        self.assertEqual(metadata.get("FOO"), None)  # case sensitive
+        self.assertEqual(metadata["foo"], "bar")
+        with self.assertRaises(KeyError):  # case sensitive
+            _ = metadata["FOO"]
+
+        # __setitem__
+        metadata["foo"] = "BAR"
+        self.assertEqual(metadata.get("foo"), "BAR")
+        self.assertEqual(metadata["foo"], "BAR")
+
+        # export
+        self.assertEqual(str(metadata), "foo: BAR")
+
+        # .pop
+        self.assertEqual(metadata.pop("foo"), "BAR")
 
 
 class ModelCardDataTest(unittest.TestCase):
@@ -143,7 +167,7 @@ class ModelCardDataTest(unittest.TestCase):
         self.assertEqual(model_index[0]["name"], "my-cool-model")
         self.assertEqual(model_index[0]["results"][0]["task"]["type"], "image-classification")
 
-    def test_abitrary_incoming_card_data(self):
+    def test_arbitrary_incoming_card_data(self):
         data = ModelCardData(
             model_name="my-cool-model",
             eval_results=[

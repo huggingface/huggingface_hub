@@ -179,6 +179,7 @@ _SUBMOD_ATTRS = {
     "repocard": [
         "DatasetCard",
         "ModelCard",
+        "RepoCard",
         "metadata_eval_result",
         "metadata_load",
         "metadata_save",
@@ -432,6 +433,7 @@ if TYPE_CHECKING:  # pragma: no cover
     from .repocard import (
         DatasetCard,  # noqa: F401
         ModelCard,  # noqa: F401
+        RepoCard,  # noqa: F401
         metadata_eval_result,  # noqa: F401
         metadata_load,  # noqa: F401
         metadata_save,  # noqa: F401

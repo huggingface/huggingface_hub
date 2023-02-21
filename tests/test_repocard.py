@@ -29,6 +29,7 @@ from huggingface_hub import (
     EvalResult,
     ModelCard,
     ModelCardData,
+    RepoCard,
     metadata_eval_result,
     metadata_load,
     metadata_save,
@@ -37,7 +38,7 @@ from huggingface_hub import (
 from huggingface_hub.constants import REPOCARD_NAME
 from huggingface_hub.file_download import hf_hub_download
 from huggingface_hub.hf_api import HfApi
-from huggingface_hub.repocard import REGEX_YAML_BLOCK, RepoCard
+from huggingface_hub.repocard import REGEX_YAML_BLOCK
 from huggingface_hub.repocard_data import CardData
 from huggingface_hub.repository import Repository
 from huggingface_hub.utils import SoftTemporaryDirectory, is_jinja_available, logging

@@ -3452,7 +3452,7 @@ class HfApi:
 
         Creating a Pull Request with changes can also be done at once with [`HfApi.create_commit`];
 
-        This is a wrapper around [`HfApi.create_discusssion`].
+        This is a wrapper around [`HfApi.create_discussion`].
 
         Args:
             repo_id (`str`):
