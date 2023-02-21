@@ -4075,7 +4075,7 @@ class HfApi:
         self,
         src_repo_id: str,
         *,
-        dest_repo_id: str = None,
+        dest_repo_id: Optional[str] = None,
         private: Optional[bool] = None,
         token: Optional[str] = None,
     ) -> str:
