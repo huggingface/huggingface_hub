@@ -178,6 +178,7 @@ _SUBMOD_ATTRS = {
     ],
     "repocard": [
         "DatasetCard",
+        "SpaceCard",
         "ModelCard",
         "RepoCard",
         "metadata_eval_result",

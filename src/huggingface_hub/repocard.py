@@ -463,6 +463,17 @@ class DatasetCard(RepoCard):
         return super().from_template(card_data, template_path, **template_kwargs)
 
 
+class SpaceCard:
+    """Space card is an alias for [`RepoCard`].
+
+    At the moment, it does not implement any specific logic. `SpaceCard` is defined for
+    consistency purposes. It might get extended in the future."""
+
+    card_data_class = CardData
+    default_template_path = TEMPLATE_MODELCARD_PATH
+    repo_type = "space"
+
+
 def _detect_line_ending(content: str) -> Literal["\r", "\n", "\r\n", None]:  # noqa: F722
     """Detect the line ending of a string. Used by RepoCard to avoid making huge diff on newlines.
 
