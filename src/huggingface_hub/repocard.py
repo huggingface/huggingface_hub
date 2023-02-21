@@ -13,6 +13,7 @@ from huggingface_hub.repocard_data import (
     DatasetCardData,
     EvalResult,
     ModelCardData,
+    SpaceCardData,
     eval_results_to_model_index,
     model_index_to_eval_results,
 )
@@ -463,13 +464,8 @@ class DatasetCard(RepoCard):
         return super().from_template(card_data, template_path, **template_kwargs)
 
 
-class SpaceCard:
-    """Space card is an alias for [`RepoCard`].
-
-    At the moment, it does not implement any specific logic. `SpaceCard` is defined for
-    consistency purposes. It might get extended in the future."""
-
-    card_data_class = CardData
+class SpaceCard(RepoCard):
+    card_data_class = SpaceCardData
     default_template_path = TEMPLATE_MODELCARD_PATH
     repo_type = "space"
 

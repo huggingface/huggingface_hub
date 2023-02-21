@@ -191,6 +191,7 @@ _SUBMOD_ATTRS = {
         "DatasetCardData",
         "EvalResult",
         "ModelCardData",
+        "SpaceCardData",
     ],
     "repository": [
         "Repository",
@@ -446,6 +447,7 @@ if TYPE_CHECKING:  # pragma: no cover
         DatasetCardData,  # noqa: F401
         EvalResult,  # noqa: F401
         ModelCardData,  # noqa: F401
+        SpaceCardData,  # noqa: F401
     )
     from .repository import Repository  # noqa: F401
     from .utils import (

@@ -3,6 +3,7 @@ import unittest
 import pytest
 import yaml
 
+from huggingface_hub import SpaceCardData
 from huggingface_hub.repocard_data import (
     CardData,
     DatasetCardData,
@@ -223,3 +224,23 @@ class DatasetCardDataTest(unittest.TestCase):
         self.assertTrue(card_data.to_dict().get("train_eval_index") is None)
         # And train-eval-index should be in the dict
         self.assertEqual(card_data.to_dict()["train-eval-index"], train_eval_index)
+
+
+class SpaceCardDataTest(unittest.TestCase):
+    def test_space_card_data(self) -> None:
+        card_data = SpaceCardData(
+            title="Dreambooth Training",
+            license="mit",
+            sdk="gradio",
+            duplicated_from="multimodalart/dreambooth-training",
+        )
+        self.assertEqual(
+            card_data.to_dict(),
+            {
+                "title": "Dreambooth Training",
+                "sdk": "gradio",
+                "license": "mit",
+                "duplicated_from": "multimodalart/dreambooth-training",
+            },
+        )
+        self.assertIsNone(card_data.tags)  # SpaceCardData has some default attributes

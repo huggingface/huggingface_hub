@@ -30,6 +30,8 @@ from huggingface_hub import (
     ModelCard,
     ModelCardData,
     RepoCard,
+    SpaceCard,
+    SpaceCardData,
     metadata_eval_result,
     metadata_load,
     metadata_save,
@@ -54,6 +56,7 @@ from .testing_utils import (
     repo_name,
     retry_endpoint,
     rmtree_with_retry,
+    with_production_testing,
 )
 
 
@@ -946,3 +949,13 @@ class DatasetCardTest(TestCaseWithCapLog):
 
         # some_data is at the bottom of the template, so should end with whatever we passed to it
         self.assertTrue(card.text.strip().endswith("asdf"))
+
+
+@with_production_testing
+class SpaceCardTest(TestCaseWithCapLog):
+    def test_load_spacecard_from_hub(self) -> None:
+        card = SpaceCard.load("multimodalart/dreambooth-training")
+        self.assertIsInstance(card, SpaceCard)
+        self.assertIsInstance(card.data, SpaceCardData)
+        self.assertEqual(card.data.title, "Dreambooth Training")
+        self.assertIsNone(card.data.app_port)
