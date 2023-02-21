@@ -415,12 +415,12 @@ class SpaceCardData(CardData):
             https://huggingface.co/docs/hub/repositories-licenses.
         duplicated_from (`str`, *optional*)
             ID of the original Space if this is a duplicated Space.
-        models (List[`str`] or `str`, *optional*)
-            Model (or list of models) related to this Space. Should be a dataset ID found on https://hf.co/models.
-        datasets (`List[str]` or `str`, *optional*)
-            Dataset (or list of datasets) related to this Space. Should be a dataset ID found on https://hf.co/datasets.
-        tags (`List[str]` or `str`, *optional*)
-            Tag (or list of tags) to add to your Space that can be used when filtering on the Hub.
+        models (List[`str`], *optional*)
+            List of models related to this Space. Should be a dataset ID found on https://hf.co/models.
+        datasets (`List[str]`, *optional*)
+            List of datasets related to this Space. Should be a dataset ID found on https://hf.co/datasets.
+        tags (`List[str]`, *optional*)
+            List of tags to add to your Space that can be used when filtering on the Hub.
         kwargs (`dict`, *optional*):
             Additional metadata that will be added to the space card.
 
@@ -449,9 +449,9 @@ class SpaceCardData(CardData):
         app_port: Optional[int] = None,
         license: Optional[str] = None,
         duplicated_from: Optional[str] = None,
-        models: Optional[Union[List[str], str]] = None,
-        datasets: Optional[Union[List[str], str]] = None,
-        tags: Optional[Union[List[str], str]] = None,
+        models: Optional[List[str]] = None,
+        datasets: Optional[List[str]] = None,
+        tags: Optional[List[str]] = None,
         **kwargs,
     ):
         self.title = title
