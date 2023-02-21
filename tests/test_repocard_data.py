@@ -54,6 +54,10 @@ class BaseCardDataTest(unittest.TestCase):
         self.assertEqual(metadata.get("foo"), "BAR")
         self.assertEqual(metadata["foo"], "BAR")
 
+        # __contains__
+        self.assertTrue("foo" in metadata)
+        self.assertFalse("FOO" in metadata)
+
         # export
         self.assertEqual(str(metadata), "foo: BAR")
 

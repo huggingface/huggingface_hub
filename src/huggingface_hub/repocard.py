@@ -787,18 +787,13 @@ def metadata_update(
                         card.data.eval_results.append(new_result)
         else:
             # Any metadata that is not a result metric
-            if (
-                hasattr(card.data, key)
-                and getattr(card.data, key) is not None
-                and not overwrite
-                and getattr(card.data, key) != value
-            ):
+            if card.data.get(key) is not None and not overwrite and card.data.get(key) != value:
                 raise ValueError(
                     f"You passed a new value for the existing meta data field '{key}'."
                     " Set `overwrite=True` to overwrite existing metadata."
                 )
             else:
-                setattr(card.data, key, value)
+                card.data[key] = value
 
     return card.push_to_hub(
         repo_id,

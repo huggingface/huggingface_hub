@@ -212,6 +212,10 @@ class CardData:
         """Set value for a given metadata key."""
         self.__dict__[key] = value
 
+    def __contains__(self, key: str) -> bool:
+        """Check if a given metadata key is set."""
+        return key in self.__dict__
+
 
 class ModelCardData(CardData):
     """Model Card Metadata that is used by Hugging Face Hub when included at the top of your README.md
