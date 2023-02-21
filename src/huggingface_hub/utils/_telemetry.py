@@ -2,12 +2,19 @@ from typing import Dict, Optional, Union
 from urllib.parse import quote
 
 import requests
-
+from queue import Queue
 from .. import constants, logging
 from . import build_hf_headers, hf_raise_for_status
-
+from threading import Thread, Lock
 
 logger = logging.get_logger(__name__)
+
+# Telemetry is sent by a separate thread to avoid blocking the main thread.
+# A daemon thread is started once and consume tasks from the _TELEMETRY_QUEUE.
+# If the thread stops for some reason -shouldn't happen-, we restart a new one.
+_TELEMETRY_THREAD: Optional[Thread] = None
+_TELEMETRY_THREAD_LOCK = Lock()  # Lock to avoid starting multiple threads in parallel
+_TELEMETRY_QUEUE = Queue()
 
 
 def send_telemetry(
@@ -24,6 +31,8 @@ def send_telemetry(
     to share additional information, and we respect your privacy. You can disable telemetry collection by setting the
     `HF_HUB_DISABLE_TELEMETRY=1` as environment variable. Telemetry is also disabled in offline mode (i.e. when setting
     `HF_HUB_OFFLINE=1`).
+
+    Telemetry collection is run in a separate thread to minimize impact for the user.
 
     Args:
         topic (`str`):
@@ -58,6 +67,40 @@ def send_telemetry(
     if constants.HF_HUB_OFFLINE or constants.HF_HUB_DISABLE_TELEMETRY:
         return
 
+    _start_telemetry_thread()  # starts thread only if doesn't exist yet
+    _TELEMETRY_QUEUE.put(
+        {"topic": topic, "library_name": library_name, "library_version": library_version, "user_agent": user_agent}
+    )
+
+
+def _start_telemetry_thread():
+    """Start a daemon thread to consume tasks from the telemetry queue.
+
+    If the thread is interrupted, start a new one.
+    """
+    with _TELEMETRY_THREAD_LOCK:  # avoid to start multiple threads if called concurrently
+        global _TELEMETRY_THREAD
+        if _TELEMETRY_THREAD is None or not _TELEMETRY_THREAD.is_alive():
+            _TELEMETRY_THREAD = Thread(target=_telemetry_worker, daemon=True)
+            _TELEMETRY_THREAD.start()
+
+
+def _telemetry_worker():
+    """Wait for a task and consume it."""
+    while True:
+        kwargs = _TELEMETRY_QUEUE.get()
+        _send_telemetry_in_thread(**kwargs)
+        _TELEMETRY_QUEUE.task_done()
+
+
+def _send_telemetry_in_thread(
+    topic: str,
+    *,
+    library_name: Optional[str] = None,
+    library_version: Optional[str] = None,
+    user_agent: Union[Dict, str, None] = None,
+) -> None:
+    """Contains the actual data sending data to the Hub."""
     path = "/".join(quote(part) for part in topic.split("/") if len(part) > 0)
     try:
         r = requests.head(
