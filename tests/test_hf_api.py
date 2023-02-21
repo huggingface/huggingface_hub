@@ -83,6 +83,7 @@ from .testing_constants import (
     ENDPOINT_STAGING_BASIC_AUTH,
     FULL_NAME,
     OTHER_TOKEN,
+    OTHER_USER,
     TOKEN,
     USER,
 )
@@ -2530,3 +2531,44 @@ class RepoUrlTest(unittest.TestCase):
                 url = RepoUrl(_id)
                 self.assertEqual(url.repo_id, "squad")
                 self.assertEqual(url.repo_type, "dataset")
+
+
+class HfApiDuplicateSpaceTest(HfApiCommonTestWithLogin):
+    @retry_endpoint
+    def test_duplicate_space_success(self) -> None:
+        """Check `duplicate_space` works."""
+        from_repo_name = space_repo_name("original_repo_name")
+        from_repo_id = self._api.create_repo(
+            repo_id=from_repo_name,
+            repo_type="space",
+            space_sdk="static",
+            token=OTHER_TOKEN,
+        ).repo_id
+        self._api.upload_file(
+            path_or_fileobj=b"data",
+            path_in_repo="temp/new_file.md",
+            repo_id=from_repo_id,
+            repo_type="space",
+            token=OTHER_TOKEN,
+        )
+
+        to_repo_id = self._api.duplicate_space(from_repo_id).repo_id
+
+        self.assertEqual(to_repo_id, f"{USER}/{self.FROM_REPO_NAME}")
+        self.assertEqual(
+            self._api.list_repo_files(repo_id=from_repo_id, repo_type="space"),
+            [".gitattributes", "README.md", "index.html", "style.css", "temp/new_file.md"],
+        )
+        self.assertEqual(
+            self._api.list_repo_files(repo_id=to_repo_id, repo_type="space"),
+            self._api.list_repo_files(repo_id=from_repo_id, repo_type="space"),
+        )
+
+        self._api.delete_repo(repo_id=from_repo_id, repo_type="space", token=OTHER_TOKEN)
+        self._api.delete_repo(repo_id=to_repo_id, repo_type="space")
+
+    def test_duplicate_space_from_missing_repo(self) -> None:
+        """Check `duplicate_space` fails when the from_repo doesn't exist."""
+
+        with self.assertRaises(RepositoryNotFoundError):
+            self._api.duplicate_space(f"{OTHER_USER}/repo_that_does_not_exist")
