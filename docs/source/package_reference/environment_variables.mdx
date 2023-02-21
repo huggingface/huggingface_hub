@@ -110,7 +110,10 @@ For more details, see [cache limitations](../guides/manage-cache#limitations).
 
 ### HF_HUB_DISABLE_TELEMETRY
 
-TODO: complete this
+By default, some data is collected by HF libraries (`transformers`, `datasets`, `gradio`,..) to monitor usage, debug issues and help prioritize features.
+Each library defines its own policy (i.e. which usage to monitor) but the core implementation happens in `huggingface_hub` (see [`send_telemetry`]).
+
+You can set `HF_HUB_DISABLE_TELEMETRY=1` as environment variable to globally disable telemetry.
 
 ### HF_HUB_ENABLE_HF_TRANSFER
 
