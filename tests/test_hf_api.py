@@ -1291,8 +1291,8 @@ class HfApiBranchEndpointTest(HfApiCommonTestWithLogin):
         self._api.create_branch(repo_url.repo_id, branch="tag")
 
     @unittest.skip(
-        "Test user permissions changed to isHf=True, so this test now fails, as"
-        " the request is no longer bad. Skip test until it's fixed."
+        "Test user is flagged as isHF which gives permissions to create invalid references."
+        "Not relevant to test it anyway (i.e. it's more a server-side test)."
     )
     @retry_endpoint
     @use_tmp_repo()
@@ -2109,7 +2109,6 @@ class HfApiDiscussionsTest(HfApiCommonTestWithLogin):
                 new_status="published",
             )
 
-    # @unittest.skip("To unskip when create_commit works for arbitrary references")
     def test_merge_pull_request(self):
         self._api.create_commit(
             repo_id=self.repo_name,
