@@ -130,6 +130,7 @@ _SUBMOD_ATTRS = {
         "delete_repo",
         "delete_space_secret",
         "delete_tag",
+        "duplicate_space",
         "edit_discussion_comment",
         "get_dataset_tags",
         "get_discussion_details",
@@ -388,6 +389,7 @@ if TYPE_CHECKING:  # pragma: no cover
         delete_repo,  # noqa: F401
         delete_space_secret,  # noqa: F401
         delete_tag,  # noqa: F401
+        duplicate_space,  # noqa: F401
         edit_discussion_comment,  # noqa: F401
         get_dataset_tags,  # noqa: F401
         get_discussion_details,  # noqa: F401

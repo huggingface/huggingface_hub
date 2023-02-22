@@ -19,6 +19,15 @@ Here is an end-to-end example to create and setup a Space on the Hub.
 >>> api.create_repo(repo_id=repo_id, repo_type="space", space_sdk="gradio")
 ```
 
+**1. (bis) Duplicate a Space.**
+
+This can prove useful if you want to build up from an existing Space instead of starting from scratch.
+It is also useful is you want control over the configuration/settings of a public Space. See [`duplicate_space`] for more details.
+
+```py
+>>> duplicate_space("multimodalart/dreambooth-training")
+```
+
 **2. Upload your code using your preferred solution.**
 
 Here is an example to upload the local folder `src/` from your machine to your Space:

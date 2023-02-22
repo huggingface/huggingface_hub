@@ -108,7 +108,7 @@ def validate_hf_hub_args(fn: CallableT) -> CallableT:
             zip(signature.parameters, args),  # Args values
             kwargs.items(),  # Kwargs values
         ):
-            if arg_name == "repo_id":
+            if arg_name in ["repo_id", "from_id", "to_id"]:
                 validate_repo_id(arg_value)
 
             elif arg_name == "token" and arg_value is not None:
