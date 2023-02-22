@@ -2087,10 +2087,8 @@ class HfApiDiscussionsTest(HfApiCommonTestWithLogin):
             discussion_num=self.discussion.num,
             new_title="New titlee",
         )
-        # HACK - Rename event here correctly returns isHf as True, but discussion details shows it as False.
-        rename_event._event["author"]["isHf"] = False
         retrieved = self._api.get_discussion_details(repo_id=self.repo_name, discussion_num=self.discussion.num)
-        self.assertIn(rename_event, retrieved.events)
+        self.assertIn(rename_event.id, (event.id for event in retrieved.events))
         self.assertEqual(rename_event.old_title, self.discussion.title)
         self.assertEqual(rename_event.new_title, "New titlee")
 
@@ -2100,10 +2098,8 @@ class HfApiDiscussionsTest(HfApiCommonTestWithLogin):
             discussion_num=self.discussion.num,
             new_status="closed",
         )
-        # HACK - status change event here correctly returns isHf as True, but discussion details shows it as False.
-        status_change_event._event["author"]["isHf"] = False
         retrieved = self._api.get_discussion_details(repo_id=self.repo_name, discussion_num=self.discussion.num)
-        self.assertIn(status_change_event, retrieved.events)
+        self.assertIn(status_change_event.id, (event.id for event in retrieved.events))
         self.assertEqual(status_change_event.new_status, "closed")
 
         with self.assertRaises(ValueError):
