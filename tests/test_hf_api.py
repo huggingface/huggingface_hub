@@ -1290,6 +1290,10 @@ class HfApiBranchEndpointTest(HfApiCommonTestWithLogin):
         self._api.create_tag(repo_url.repo_id, tag="tag")
         self._api.create_branch(repo_url.repo_id, branch="tag")
 
+    @unittest.skip(
+        "Test user is flagged as isHF which gives permissions to create invalid references."
+        "Not relevant to test it anyway (i.e. it's more a server-side test)."
+    )
     @retry_endpoint
     @use_tmp_repo()
     def test_create_branch_forbidden_ref_branch_fails(self, repo_url: RepoUrl) -> None:
@@ -2084,7 +2088,7 @@ class HfApiDiscussionsTest(HfApiCommonTestWithLogin):
             new_title="New titlee",
         )
         retrieved = self._api.get_discussion_details(repo_id=self.repo_name, discussion_num=self.discussion.num)
-        self.assertIn(rename_event, retrieved.events)
+        self.assertIn(rename_event.id, (event.id for event in retrieved.events))
         self.assertEqual(rename_event.old_title, self.discussion.title)
         self.assertEqual(rename_event.new_title, "New titlee")
 
@@ -2095,7 +2099,7 @@ class HfApiDiscussionsTest(HfApiCommonTestWithLogin):
             new_status="closed",
         )
         retrieved = self._api.get_discussion_details(repo_id=self.repo_name, discussion_num=self.discussion.num)
-        self.assertIn(status_change_event, retrieved.events)
+        self.assertIn(status_change_event.id, (event.id for event in retrieved.events))
         self.assertEqual(status_change_event.new_status, "closed")
 
         with self.assertRaises(ValueError):
@@ -2105,7 +2109,6 @@ class HfApiDiscussionsTest(HfApiCommonTestWithLogin):
                 new_status="published",
             )
 
-    # @unittest.skip("To unskip when create_commit works for arbitrary references")
     def test_merge_pull_request(self):
         self._api.create_commit(
             repo_id=self.repo_name,
