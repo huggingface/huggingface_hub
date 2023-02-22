@@ -208,7 +208,7 @@ class ModelCardData(CardData):
         datasets (`List[str]`, *optional*):
             List of datasets that were used to train this model. Should be a dataset ID
             found on https://hf.co/datasets. Defaults to None.
-        metrics (`Union[str, List[str]]`, *optional*):
+        metrics (`List[str]`, *optional*):
             List of metrics used to evaluate this model. Should be a metric name that can be found
             at https://hf.co/metrics. Example: 'accuracy'. Defaults to None.
         eval_results (`Union[List[EvalResult], EvalResult]`, *optional*):
@@ -245,7 +245,7 @@ class ModelCardData(CardData):
         library_name: Optional[str] = None,
         tags: Optional[List[str]] = None,
         datasets: Optional[List[str]] = None,
-        metrics: Optional[Union[str, List[str]]] = None,
+        metrics: Optional[List[str]] = None,
         eval_results: Optional[List[EvalResult]] = None,
         model_name: Optional[str] = None,
         **kwargs,
@@ -287,7 +287,7 @@ class DatasetCardData(CardData):
     """Dataset Card Metadata that is used by Hugging Face Hub when included at the top of your README.md
 
     Args:
-        language (`Union[str, List[str]]`, *optional*):
+        language (`List[str]`, *optional*):
             Language of dataset's data or metadata. It must be an ISO 639-1, 639-2 or
             639-3 code (two/three letters), or a special value like "code", "multilingual".
         license (`Union[str, List[str]]`, *optional*):
@@ -305,7 +305,7 @@ class DatasetCardData(CardData):
         size_categories (`Union[str, List[str]]`, *optional*):
             The number of examples in the dataset. Options are: 'n<1K', '1K<n<10K', '10K<n<100K',
             '100K<n<1M', '1M<n<10M', '10M<n<100M', '100M<n<1B', '1B<n<10B', '10B<n<100B', '100B<n<1T', 'n>1T', and 'other'.
-        source_datasets (`Union[str, List[str]]`, *optional*):
+        source_datasets (`List[str]]`, *optional*):
             Indicates whether the dataset is an original dataset or extended from another existing dataset.
             Options are: 'original' and 'extended'.
         task_categories (`Union[str, List[str]]`, *optional*):
