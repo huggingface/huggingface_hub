@@ -2554,7 +2554,7 @@ class HfApiDuplicateSpaceTest(HfApiCommonTestWithLogin):
 
         to_repo_id = self._api.duplicate_space(from_repo_id).repo_id
 
-        self.assertEqual(to_repo_id, f"{USER}/{self.FROM_REPO_NAME}")
+        self.assertEqual(to_repo_id, f"{USER}/{from_repo_name}")
         self.assertEqual(
             self._api.list_repo_files(repo_id=from_repo_id, repo_type="space"),
             [".gitattributes", "README.md", "index.html", "style.css", "temp/new_file.md"],
