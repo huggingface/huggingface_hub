@@ -180,6 +180,8 @@ _SUBMOD_ATTRS = {
     "repocard": [
         "DatasetCard",
         "ModelCard",
+        "RepoCard",
+        "SpaceCard",
         "metadata_eval_result",
         "metadata_load",
         "metadata_save",
@@ -190,6 +192,7 @@ _SUBMOD_ATTRS = {
         "DatasetCardData",
         "EvalResult",
         "ModelCardData",
+        "SpaceCardData",
     ],
     "repository": [
         "Repository",
@@ -434,6 +437,8 @@ if TYPE_CHECKING:  # pragma: no cover
     from .repocard import (
         DatasetCard,  # noqa: F401
         ModelCard,  # noqa: F401
+        RepoCard,  # noqa: F401
+        SpaceCard,  # noqa: F401
         metadata_eval_result,  # noqa: F401
         metadata_load,  # noqa: F401
         metadata_save,  # noqa: F401
@@ -444,6 +449,7 @@ if TYPE_CHECKING:  # pragma: no cover
         DatasetCardData,  # noqa: F401
         EvalResult,  # noqa: F401
         ModelCardData,  # noqa: F401
+        SpaceCardData,  # noqa: F401
     )
     from .repository import Repository  # noqa: F401
     from .utils import (
