@@ -1,5 +1,4 @@
 import unittest
-from unittest.mock import Mock, patch
 
 from requests.models import Response
 
@@ -9,13 +8,8 @@ from huggingface_hub.utils._errors import (
     HfHubHTTPError,
     RepositoryNotFoundError,
     RevisionNotFoundError,
-    _raise_convert_bad_request,
-    _raise_for_status,
-    _raise_with_request_id,
     hf_raise_for_status,
 )
-
-from .testing_utils import expect_deprecation
 
 
 class TestErrorUtils(unittest.TestCase):
@@ -88,31 +82,6 @@ class TestErrorUtils(unittest.TestCase):
 
         self.assertEqual(context.exception.response.status_code, 404)
         self.assertEqual(context.exception.response.url, "test_URL")
-
-    @expect_deprecation("_raise_for_status")
-    @patch("huggingface_hub.utils._errors.hf_raise_for_status")
-    def test_raise_for_status(self, mock_hf_raise_for_status: Mock) -> None:
-        """Test `_raise_for_status` alias."""
-        response_mock = Mock()
-        _raise_for_status(response_mock)
-        mock_hf_raise_for_status.assert_called_once_with(response_mock)
-
-    @expect_deprecation("_raise_with_request_id")
-    @patch("huggingface_hub.utils._errors.hf_raise_for_status")
-    def test_raise_with_request_id(self, mock_hf_raise_for_status: Mock) -> None:
-        """Test `_raise_with_request_id` alias."""
-        response_mock = Mock()
-        _raise_with_request_id(response_mock)
-        mock_hf_raise_for_status.assert_called_once_with(response_mock)
-
-    @expect_deprecation("_raise_convert_bad_request")
-    @patch("huggingface_hub.utils._errors.hf_raise_for_status")
-    def test_raise_convert_bad_request(self, mock_hf_raise_for_status: Mock) -> None:
-        """Test `_raise_convert_bad_request` alias."""
-        response_mock = Mock()
-        endpoint_name_mock = Mock()
-        _raise_convert_bad_request(response_mock, endpoint_name_mock)
-        mock_hf_raise_for_status.assert_called_once_with(response_mock, endpoint_name=endpoint_name_mock)
 
 
 class TestHfHubHTTPError(unittest.TestCase):
