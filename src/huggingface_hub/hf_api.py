@@ -4110,6 +4110,19 @@ class HfApi:
             - [`~utils.RepositoryNotFoundError`]
               If one of `from_id` or `to_id` cannot be found. This may be because it doesn't exist,
               or because it is set to `private` and you do not have access.
+
+        Example:
+        ```python
+        >>> from huggingface_hub import duplicate_space
+
+        # Duplicate a Space to your account
+        >>> duplicate_space("multimodalart/dreambooth-training")
+        RepoUrl('https://huggingface.co/spaces/nateraw/dreambooth-training',...)
+
+        # Can set custom destination id and visibility flag.
+        >>> duplicate_space("multimodalart/dreambooth-training", to_id="my-dreambooth", private=True)
+        RepoUrl('https://huggingface.co/spaces/nateraw/my-dreambooth',...)
+        ```
         """
         # Parse to_id if provided
         parsed_to_id = RepoUrl(to_id) if to_id is not None else None
