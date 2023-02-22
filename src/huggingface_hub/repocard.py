@@ -359,7 +359,7 @@ class ModelCard(RepoCard):
             ...     license='mit',
             ...     library_name='timm',
             ...     tags=['image-classification', 'resnet'],
-            ...     datasets='beans',
+            ...     datasets=['beans'],
             ...     metrics=['accuracy'],
             ... )
             >>> card = ModelCard.from_template(

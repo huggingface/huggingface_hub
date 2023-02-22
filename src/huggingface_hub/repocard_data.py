@@ -234,8 +234,8 @@ class ModelCardData(CardData):
         tags (`List[str]`, *optional*):
             List of tags to add to your model that can be used when filtering on the Hugging
             Face Hub. Defaults to None.
-        datasets (`Union[str, List[str]]`, *optional*):
-            Dataset or list of datasets that were used to train this model. Should be a dataset ID
+        datasets (`List[str]`, *optional*):
+            List of datasets that were used to train this model. Should be a dataset ID
             found on https://hf.co/datasets. Defaults to None.
         metrics (`Union[str, List[str]]`, *optional*):
             List of metrics used to evaluate this model. Should be a metric name that can be found
@@ -273,7 +273,7 @@ class ModelCardData(CardData):
         license: Optional[str] = None,
         library_name: Optional[str] = None,
         tags: Optional[List[str]] = None,
-        datasets: Optional[Union[str, List[str]]] = None,
+        datasets: Optional[List[str]] = None,
         metrics: Optional[Union[str, List[str]]] = None,
         eval_results: Optional[List[EvalResult]] = None,
         model_name: Optional[str] = None,
