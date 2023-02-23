@@ -1,8 +1,9 @@
 import os
 import unittest
+from pathlib import Path
 
 import requests
-from pathlib import Path
+
 from huggingface_hub import HfApi, Repository, snapshot_download
 from huggingface_hub.utils import (
     HfFolder,
@@ -367,18 +368,21 @@ class SnapshotDownloadTests(unittest.TestCase):
         """
         with SoftTemporaryDirectory() as cache_dir:
             with SoftTemporaryDirectory() as local_dir:
-                snapshot_download(
+                returned_path = snapshot_download(
                     f"{USER}/{REPO_NAME}",
                     cache_dir=cache_dir,
                     local_dir=local_dir,
                 )
 
                 # Files have been downloaded and are symlinks
-                self.assertTrue(Path(local_dir) / "dummy_file.txt".is_symlink())
-                self.assertTrue(Path(local_dir) / "dummy_file_2.txt".is_symlink())
+                self.assertTrue((Path(local_dir) / "dummy_file.txt").is_symlink())
+                self.assertTrue((Path(local_dir) / "dummy_file_2.txt").is_symlink())
 
                 # File structure is preserved (+check content)
                 subpath_file = Path(local_dir) / "subpath" / "file.txt"
                 self.assertTrue(subpath_file.is_file())
                 self.assertTrue(subpath_file.is_symlink())
                 self.assertEqual(subpath_file.read_text(), "content in subpath")
+
+                # Check returns local dir and not cache dir
+                self.assertEqual(returned_path, local_dir)

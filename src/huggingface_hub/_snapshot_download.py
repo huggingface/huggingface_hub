@@ -232,4 +232,6 @@ def snapshot_download(
             tqdm_class=tqdm_class or hf_tqdm,
         )
 
+    if local_dir is not None:
+        return str(os.path.realpath(local_dir))
     return snapshot_folder
