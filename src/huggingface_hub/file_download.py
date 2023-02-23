@@ -1304,6 +1304,7 @@ def hf_hub_download(
             _create_relative_symlink(blob_path, pointer_path, new_blob=True)
         else:
             local_dir_filepath = os.path.join(local_dir, relative_filename)
+            os.makedirs(os.path.dirname(local_dir_filepath), exist_ok=True)
             if local_dir_use_symlinks:
                 logger.info(f"Storing {url} in cache at {blob_path}")
                 _chmod_and_replace(temp_file.name, blob_path)
@@ -1511,6 +1512,7 @@ def _to_local_dir(path: str, local_dir: str, relative_filename: str, use_symlink
     Either symlink to blob file in cache or duplicate file if symlink is disabled.
     """
     local_dir_filepath = os.path.join(local_dir, relative_filename)
+    os.makedirs(os.path.dirname(local_dir_filepath), exist_ok=True)
     real_blob_path = os.path.realpath(path)
     if use_symlinks:
         _create_relative_symlink(real_blob_path, local_dir_filepath, new_blob=False)

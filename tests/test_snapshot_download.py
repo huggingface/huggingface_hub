@@ -2,7 +2,7 @@ import os
 import unittest
 
 import requests
-
+from pathlib import Path
 from huggingface_hub import HfApi, Repository, snapshot_download
 from huggingface_hub.utils import (
     HfFolder,
@@ -59,6 +59,9 @@ class SnapshotDownloadTests(unittest.TestCase):
         with repo.commit("Add file to main branch"):
             with open("dummy_file.txt", "w+") as f:
                 f.write("v1")
+            os.mkdir("subpath")
+            with open(os.path.join("subpath", "file.txt"), "w+") as f:
+                f.write("content in subpath")
 
         cls.first_commit_hash = repo.git_head_hash()
 
@@ -354,3 +357,28 @@ class SnapshotDownloadTests(unittest.TestCase):
 
     def test_download_model_with_ignore_pattern_list(self):
         self.check_download_model_with_pattern(["*.git*", "*.pt"], allow=False)
+
+    def test_download_to_local_dir(self) -> None:
+        """Download a repository to local dir.
+
+        Cache dir is used and symlinks are adding to local dir. This test is here to check once the normal behavior
+        with snapshot_download. More combinations of cache_dir/local_dir/use_symlinks are tested separately in
+        `test_file_download.py`.
+        """
+        with SoftTemporaryDirectory() as cache_dir:
+            with SoftTemporaryDirectory() as local_dir:
+                snapshot_download(
+                    f"{USER}/{REPO_NAME}",
+                    cache_dir=cache_dir,
+                    local_dir=local_dir,
+                )
+
+                # Files have been downloaded and are symlinks
+                self.assertTrue(Path(local_dir) / "dummy_file.txt".is_symlink())
+                self.assertTrue(Path(local_dir) / "dummy_file_2.txt".is_symlink())
+
+                # File structure is preserved (+check content)
+                subpath_file = Path(local_dir) / "subpath" / "file.txt"
+                self.assertTrue(subpath_file.is_file())
+                self.assertTrue(subpath_file.is_symlink())
+                self.assertEqual(subpath_file.read_text(), "content in subpath")
