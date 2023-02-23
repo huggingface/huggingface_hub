@@ -83,6 +83,7 @@ from .testing_constants import (
     ENDPOINT_STAGING_BASIC_AUTH,
     FULL_NAME,
     OTHER_TOKEN,
+    OTHER_USER,
     TOKEN,
     USER,
 )
@@ -1290,6 +1291,10 @@ class HfApiBranchEndpointTest(HfApiCommonTestWithLogin):
         self._api.create_tag(repo_url.repo_id, tag="tag")
         self._api.create_branch(repo_url.repo_id, branch="tag")
 
+    @unittest.skip(
+        "Test user is flagged as isHF which gives permissions to create invalid references."
+        "Not relevant to test it anyway (i.e. it's more a server-side test)."
+    )
     @retry_endpoint
     @use_tmp_repo()
     def test_create_branch_forbidden_ref_branch_fails(self, repo_url: RepoUrl) -> None:
@@ -2084,7 +2089,7 @@ class HfApiDiscussionsTest(HfApiCommonTestWithLogin):
             new_title="New titlee",
         )
         retrieved = self._api.get_discussion_details(repo_id=self.repo_name, discussion_num=self.discussion.num)
-        self.assertIn(rename_event, retrieved.events)
+        self.assertIn(rename_event.id, (event.id for event in retrieved.events))
         self.assertEqual(rename_event.old_title, self.discussion.title)
         self.assertEqual(rename_event.new_title, "New titlee")
 
@@ -2095,7 +2100,7 @@ class HfApiDiscussionsTest(HfApiCommonTestWithLogin):
             new_status="closed",
         )
         retrieved = self._api.get_discussion_details(repo_id=self.repo_name, discussion_num=self.discussion.num)
-        self.assertIn(status_change_event, retrieved.events)
+        self.assertIn(status_change_event.id, (event.id for event in retrieved.events))
         self.assertEqual(status_change_event.new_status, "closed")
 
         with self.assertRaises(ValueError):
@@ -2105,7 +2110,6 @@ class HfApiDiscussionsTest(HfApiCommonTestWithLogin):
                 new_status="published",
             )
 
-    # @unittest.skip("To unskip when create_commit works for arbitrary references")
     def test_merge_pull_request(self):
         self._api.create_commit(
             repo_id=self.repo_name,
@@ -2530,3 +2534,44 @@ class RepoUrlTest(unittest.TestCase):
                 url = RepoUrl(_id)
                 self.assertEqual(url.repo_id, "squad")
                 self.assertEqual(url.repo_type, "dataset")
+
+
+class HfApiDuplicateSpaceTest(HfApiCommonTestWithLogin):
+    @retry_endpoint
+    def test_duplicate_space_success(self) -> None:
+        """Check `duplicate_space` works."""
+        from_repo_name = space_repo_name("original_repo_name")
+        from_repo_id = self._api.create_repo(
+            repo_id=from_repo_name,
+            repo_type="space",
+            space_sdk="static",
+            token=OTHER_TOKEN,
+        ).repo_id
+        self._api.upload_file(
+            path_or_fileobj=b"data",
+            path_in_repo="temp/new_file.md",
+            repo_id=from_repo_id,
+            repo_type="space",
+            token=OTHER_TOKEN,
+        )
+
+        to_repo_id = self._api.duplicate_space(from_repo_id).repo_id
+
+        self.assertEqual(to_repo_id, f"{USER}/{from_repo_name}")
+        self.assertEqual(
+            self._api.list_repo_files(repo_id=from_repo_id, repo_type="space"),
+            [".gitattributes", "README.md", "index.html", "style.css", "temp/new_file.md"],
+        )
+        self.assertEqual(
+            self._api.list_repo_files(repo_id=to_repo_id, repo_type="space"),
+            self._api.list_repo_files(repo_id=from_repo_id, repo_type="space"),
+        )
+
+        self._api.delete_repo(repo_id=from_repo_id, repo_type="space", token=OTHER_TOKEN)
+        self._api.delete_repo(repo_id=to_repo_id, repo_type="space")
+
+    def test_duplicate_space_from_missing_repo(self) -> None:
+        """Check `duplicate_space` fails when the from_repo doesn't exist."""
+
+        with self.assertRaises(RepositoryNotFoundError):
+            self._api.duplicate_space(f"{OTHER_USER}/repo_that_does_not_exist")

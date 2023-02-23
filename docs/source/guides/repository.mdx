@@ -67,6 +67,18 @@ Specify the `repo_id` of the repository you want to delete:
 >>> delete_repo(repo_id="lysandre/my-corrupted-dataset", repo_type="dataset")
 ```
 
+### Clone a repository (only for Spaces)
+
+In some cases, you want to copy someone else's repo to adapt it to your use case.
+This is possible for Spaces using the [`duplicate_space`] method. It will duplicate the whole repository.
+You will still need to configure your own settings (hardware and secrets). Check out our [Manage your Space](./manage-spaces) guide for more details.
+
+```py
+>>> from huggingface_hub import duplicate_space
+>>> duplicate_space("multimodalart/dreambooth-training", private=False)
+RepoUrl('https://huggingface.co/spaces/nateraw/dreambooth-training',...)
+```
+
 ## Upload and download files
 
 Now that you have created your repository, you are interested in pushing changes to it and downloading files from it.

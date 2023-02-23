@@ -245,6 +245,7 @@ class RepoUrl(str):
     compatibility. At initialization, the URL is parsed to populate properties:
     - endpoint (`str`)
     - namespace (`Optional[str]`)
+    - repo_name (`str`)
     - repo_id (`str`)
     - repo_type (`Literal["model", "dataset", "space"]`)
     - url (`str`)
@@ -288,6 +289,7 @@ class RepoUrl(str):
 
         # Populate fields
         self.namespace = namespace
+        self.repo_name = repo_name
         self.repo_id = repo_name if namespace is None else f"{namespace}/{repo_name}"
         self.repo_type = repo_type or REPO_TYPE_MODEL
         self.url = str(self)  # just in case it's needed
@@ -3455,7 +3457,7 @@ class HfApi:
 
         Creating a Pull Request with changes can also be done at once with [`HfApi.create_commit`];
 
-        This is a wrapper around [`HfApi.create_discusssion`].
+        This is a wrapper around [`HfApi.create_discussion`].
 
         Args:
             repo_id (`str`):
@@ -4070,6 +4072,93 @@ class HfApi:
         hf_raise_for_status(r)
         return SpaceRuntime(r.json())
 
+    @validate_hf_hub_args
+    def duplicate_space(
+        self,
+        from_id: str,
+        to_id: Optional[str] = None,
+        *,
+        private: Optional[bool] = None,
+        token: Optional[str] = None,
+        exist_ok: bool = False,
+    ) -> str:
+        """Duplicate a Space.
+
+        Programmatically duplicate a Space. The new Space will be created in your account and will be in the same state
+        as the original Space (running or paused). You can duplicate a Space no matter the current state of a Space.
+
+        Args:
+            from_id (`str`):
+                ID of the Space to duplicate. Example: `"pharma/CLIP-Interrogator"`.
+            to_id (`str`, *optional*):
+                ID of the new Space. Example: `"dog/CLIP-Interrogator"`. If not provided, the new Space will have the same
+                name as the original Space, but in your account.
+            private (`bool`, *optional*):
+                Whether the new Space should be private or not. Defaults to the same privacy as the original Space.
+            token (`str`, *optional*):
+                Hugging Face token. Will default to the locally saved token if not provided.
+            exist_ok (`bool`, *optional*, defaults to `False`):
+                If `True`, do not raise an error if repo already exists.
+
+        Returns:
+            [`RepoUrl`]: URL to the newly created repo. Value is a subclass of `str` containing
+            attributes like `endpoint`, `repo_type` and `repo_id`.
+
+        Raises:
+            - [`HTTPError`](https://2.python-requests.org/en/master/api/#requests.HTTPError)
+              if the HuggingFace API returned an error
+            - [`~utils.RepositoryNotFoundError`]
+              If one of `from_id` or `to_id` cannot be found. This may be because it doesn't exist,
+              or because it is set to `private` and you do not have access.
+
+        Example:
+        ```python
+        >>> from huggingface_hub import duplicate_space
+
+        # Duplicate a Space to your account
+        >>> duplicate_space("multimodalart/dreambooth-training")
+        RepoUrl('https://huggingface.co/spaces/nateraw/dreambooth-training',...)
+
+        # Can set custom destination id and visibility flag.
+        >>> duplicate_space("multimodalart/dreambooth-training", to_id="my-dreambooth", private=True)
+        RepoUrl('https://huggingface.co/spaces/nateraw/my-dreambooth',...)
+        ```
+        """
+        # Parse to_id if provided
+        parsed_to_id = RepoUrl(to_id) if to_id is not None else None
+
+        # Infer target repo_id
+        to_namespace = (  # set namespace manually or default to username
+            parsed_to_id.namespace
+            if parsed_to_id is not None and parsed_to_id.namespace is not None
+            else self.whoami(token)["name"]
+        )
+        to_repo_name = parsed_to_id.repo_name if to_id is not None else RepoUrl(from_id).repo_name  # type: ignore
+
+        # repository must be a valid repo_id (namespace/repo_name).
+        payload: Dict[str, Any] = {"repository": f"{to_namespace}/{to_repo_name}"}
+
+        # private is optional with this endpoint, with None defaulting to the original space's privacy.
+        if private is not None:
+            payload["private"] = private
+
+        r = requests.post(
+            f"{self.endpoint}/api/spaces/{from_id}/duplicate",
+            headers=self._build_hf_headers(token=token, is_write_action=True),
+            json=payload,
+        )
+
+        try:
+            hf_raise_for_status(r)
+        except HTTPError as err:
+            if exist_ok and err.response.status_code == 409:
+                # Repo already exists and `exist_ok=True`
+                pass
+            else:
+                raise
+
+        return RepoUrl(r.json()["url"], endpoint=self.endpoint)
+
     def _build_hf_headers(
         self,
         token: Optional[Union[bool, str]] = None,
@@ -4210,3 +4299,4 @@ get_space_runtime = api.get_space_runtime
 request_space_hardware = api.request_space_hardware
 pause_space = api.pause_space
 restart_space = api.restart_space
+duplicate_space = api.duplicate_space

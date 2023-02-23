@@ -29,6 +29,9 @@ from huggingface_hub import (
     EvalResult,
     ModelCard,
     ModelCardData,
+    RepoCard,
+    SpaceCard,
+    SpaceCardData,
     metadata_eval_result,
     metadata_load,
     metadata_save,
@@ -37,7 +40,7 @@ from huggingface_hub import (
 from huggingface_hub.constants import REPOCARD_NAME
 from huggingface_hub.file_download import hf_hub_download
 from huggingface_hub.hf_api import HfApi
-from huggingface_hub.repocard import REGEX_YAML_BLOCK, RepoCard
+from huggingface_hub.repocard import REGEX_YAML_BLOCK
 from huggingface_hub.repocard_data import CardData
 from huggingface_hub.repository import Repository
 from huggingface_hub.utils import SoftTemporaryDirectory, is_jinja_available, logging
@@ -53,6 +56,7 @@ from .testing_utils import (
     repo_name,
     retry_endpoint,
     rmtree_with_retry,
+    with_production_testing,
 )
 
 
@@ -945,3 +949,13 @@ class DatasetCardTest(TestCaseWithCapLog):
 
         # some_data is at the bottom of the template, so should end with whatever we passed to it
         self.assertTrue(card.text.strip().endswith("asdf"))
+
+
+@with_production_testing
+class SpaceCardTest(TestCaseWithCapLog):
+    def test_load_spacecard_from_hub(self) -> None:
+        card = SpaceCard.load("multimodalart/dreambooth-training")
+        self.assertIsInstance(card, SpaceCard)
+        self.assertIsInstance(card.data, SpaceCardData)
+        self.assertEqual(card.data.title, "Dreambooth Training")
+        self.assertIsNone(card.data.app_port)
