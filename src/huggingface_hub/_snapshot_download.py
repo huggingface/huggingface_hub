@@ -27,6 +27,8 @@ def snapshot_download(
     revision: Optional[str] = None,
     repo_type: Optional[str] = None,
     cache_dir: Union[str, Path, None] = None,
+    local_dir: Union[str, Path, None] = None,
+    local_dir_use_symlinks: bool = True,
     library_name: Optional[str] = None,
     library_version: Optional[str] = None,
     user_agent: Optional[Union[Dict, str]] = None,
@@ -42,13 +44,21 @@ def snapshot_download(
 ) -> str:
     """Download all files of a repo.
 
-    Downloads a whole snapshot of a repo's files at the specified revision. This
-    is useful when you want all files from a repo, because you don't know which
-    ones you will need a priori. All files are nested inside a folder in order
-    to keep their actual filename relative to that folder.
+    Download a whole snapshot of a repo's files at the specified revision. This is useful when you want all files from
+    a repo, because you don't know which ones you will need a priori. All files are nested inside a folder in order
+    to keep their actual filename relative to that folder. You can also filter which files to download using
+    `allow_patterns` and `ignore_patterns`.
 
-    An alternative would be to just clone a repo but this would require that the
-    user always has git and git-lfs installed, and properly configured.
+    If `local_dir` is provided, the downloaded files will be placed in this location. If `local_dir_use_symlinks` is
+    set to `True`, files are downloaded and stored in the cache directory (as blob files) and symlinks pointing to them
+    are placed in `local_dir`. If `local_dir_use_symlinks` is False and the blob files exist in the cache directory,
+    they are duplicated in the local dir. This means disk usage is not optimized. Finally, if `local_dir_use_symlinks`
+    is False and the blob files do not exist in the cache directory, then the files are downloaded and directly placed
+    under `local_dir`. This means if you need to download them again later, they will be re-downloaded entirely.
+
+
+    An alternative would be to clone the repo but this requires git and git-lfs to be installed and properly
+    configured. It is also not possible to filter which files to download when cloning a repository using git.
 
     Args:
         repo_id (`str`):
@@ -61,6 +71,13 @@ def snapshot_download(
             `None` or `"model"` if downloading from a model. Default is `None`.
         cache_dir (`str`, `Path`, *optional*):
             Path to the folder where cached files are stored.
+        local_dir (`str` or `Path`, *optional*:
+            If provided, the downloaded files will be placed under this directory, either as symlinks (default) or
+            regular files (see description for more details).
+        local_dir_use_symlinks (`bool`, defaults to `True`):
+            To be used with `local_dir`. If set to `True` (the default), cache directory will still be used and
+            symlinks will be added to your local directory. If set to `False`, files will either be duplicated from
+            cache (if already exist) or downloaded from the Hub and not cached. See description for more details.
         library_name (`str`, *optional*):
             The name of the library to which the object corresponds.
         library_version (`str`, *optional*):
@@ -189,6 +206,8 @@ def snapshot_download(
             repo_type=repo_type,
             revision=commit_hash,
             cache_dir=cache_dir,
+            local_dir=local_dir,
+            local_dir_use_symlinks=local_dir_use_symlinks,
             library_name=library_name,
             library_version=library_version,
             user_agent=user_agent,

@@ -844,11 +844,17 @@ def _create_relative_symlink(src: str, dst: str, new_blob: bool = False) -> None
     except OSError:
         pass
 
-    cache_dir = os.path.dirname(os.path.commonpath([src, dst]))
-    if are_symlinks_supported(cache_dir=cache_dir):
-        relative_src = os.path.relpath(src, start=os.path.dirname(dst))
+    try:
+        _support_symlinks = are_symlinks_supported(os.path.dirname(os.path.commonpath([src, dst])))
+    except PermissionError:
+        # Permission error means src and dst are not in the same folder (e.g. destination path has been provided
+        # by the user via `local_dir`. Let's test symlink support there)
+        _support_symlinks = are_symlinks_supported(os.path.dirname(dst))
+
+    if _support_symlinks:
+        logger.info(f"Creating pointer from {src} to {dst}")
         try:
-            os.symlink(relative_src, dst)
+            os.symlink(src, dst)
         except FileExistsError:
             if os.path.islink(dst) and os.path.realpath(dst) == os.path.realpath(src):
                 # `dst` already exists and is a symlink to the `src` blob. It is most
@@ -861,8 +867,10 @@ def _create_relative_symlink(src: str, dst: str, new_blob: bool = False) -> None
                 # blob file. Raise exception.
                 raise
     elif new_blob:
+        logger.info(f"Symlink not supported. Moving file from {src} to {dst}")
         os.replace(src, dst)
     else:
+        logger.info(f"Symlink not supported. Copying file from {src} to {dst}")
         shutil.copyfile(src, dst)
 
 
@@ -904,6 +912,8 @@ def hf_hub_download(
     library_name: Optional[str] = None,
     library_version: Optional[str] = None,
     cache_dir: Union[str, Path, None] = None,
+    local_dir: Union[str, Path, None] = None,
+    local_dir_use_symlinks: bool = True,
     user_agent: Union[Dict, str, None] = None,
     force_download: bool = False,
     force_filename: Optional[str] = None,
@@ -925,6 +935,13 @@ def hf_hub_download(
         - snapshots contains one subfolder per commit, each "commit" contains the subset of the files
           that have been resolved at that particular commit. Each filename is a symlink to the blob
           at that particular commit.
+
+    If `local_dir` is provided, the downloaded file will be placed in this location. If `local_dir_use_symlinks` is set to
+    `True`, the file is downloaded and stored in the cache directory (as blob file) and a symlink pointing to it is
+    placed in `local_dir`. If `local_dir_use_symlinks` is False and the blob file exists in the cache directory, it is
+    duplicated in the local dir. This means disk usage is not optimized. Finally, if `local_dir_use_symlinks` is False
+    and the blob file does not exist in the cache directory, then the file is downloaded and directly placed under
+    `local_dir`. This means if you need to download it again later, it will be re-downloaded entirely.
 
     ```
     [  96]  .
@@ -963,6 +980,13 @@ def hf_hub_download(
             The version of the library.
         cache_dir (`str`, `Path`, *optional*):
             Path to the folder where cached files are stored.
+        local_dir (`str` or `Path`, *optional*:
+            If provided, the downloaded file will be placed under this directory, either as a symlink (default) or
+            a regular file (see description for more details).
+        local_dir_use_symlinks (`bool`, defaults to `True`):
+            To be used with `local_dir`. If set to `True` (the default), cache directory will still be used and a
+            symlink will be added to your local directory. If set to `False`, the file will either be duplicated from
+            cache (if already exists) or downloaded from the Hub and not cached. See description for more details.
         user_agent (`dict`, `str`, *optional*):
             The user-agent info in the form of a dictionary or a string.
         force_download (`bool`, *optional*, defaults to `False`):
@@ -1056,6 +1080,8 @@ def hf_hub_download(
         revision = DEFAULT_REVISION
     if isinstance(cache_dir, Path):
         cache_dir = str(cache_dir)
+    if isinstance(local_dir, Path):
+        local_dir = str(local_dir)
 
     if subfolder == "":
         subfolder = None
@@ -1079,6 +1105,8 @@ def hf_hub_download(
     if REGEX_COMMIT_HASH.match(revision):
         pointer_path = os.path.join(storage_folder, "snapshots", revision, relative_filename)
         if os.path.exists(pointer_path):
+            if local_dir is not None:
+                return _to_local_dir(pointer_path, local_dir, relative_filename, use_symlinks=local_dir_use_symlinks)
             return pointer_path
 
     url = hf_hub_url(repo_id, filename, repo_type=repo_type, revision=revision)
@@ -1172,10 +1200,13 @@ def hf_hub_download(
         if commit_hash is not None:
             pointer_path = os.path.join(storage_folder, "snapshots", commit_hash, relative_filename)
             if os.path.exists(pointer_path):
+                if local_dir is not None:
+                    return _to_local_dir(
+                        pointer_path, local_dir, relative_filename, use_symlinks=local_dir_use_symlinks
+                    )
                 return pointer_path
 
-        # If we couldn't find an appropriate file on disk,
-        # raise an error.
+        # If we couldn't find an appropriate file on disk, raise an error.
         # If files cannot be found and local_files_only=True,
         # the models might've been found if local_files_only=False
         # Notify the user about that
@@ -1206,13 +1237,17 @@ def hf_hub_download(
     _cache_commit_hash_for_specific_revision(storage_folder, revision, commit_hash)
 
     if os.path.exists(pointer_path) and not force_download:
+        if local_dir is not None:
+            return _to_local_dir(pointer_path, local_dir, relative_filename, use_symlinks=local_dir_use_symlinks)
         return pointer_path
 
     if os.path.exists(blob_path) and not force_download:
         # we have the blob already, but not the pointer
-        logger.info("creating pointer to %s from %s", blob_path, pointer_path)
-        _create_relative_symlink(blob_path, pointer_path, new_blob=False)
-        return pointer_path
+        if local_dir is not None:  # to local dir
+            return _to_local_dir(blob_path, local_dir, relative_filename, use_symlinks=local_dir_use_symlinks)
+        else:  # or in snapshot cache
+            _create_relative_symlink(blob_path, pointer_path, new_blob=False)
+            return pointer_path
 
     # Prevent parallel downloads of the same file with a lock.
     lock_path = blob_path + ".lock"
@@ -1263,11 +1298,20 @@ def hf_hub_download(
                 headers=headers,
             )
 
-        logger.info("storing %s in cache at %s", url, blob_path)
-        _chmod_and_replace(temp_file.name, blob_path)
-
-        logger.info("creating pointer to %s from %s", blob_path, pointer_path)
-        _create_relative_symlink(blob_path, pointer_path, new_blob=True)
+        if local_dir is None:
+            logger.info(f"Storing {url} in cache at {blob_path}")
+            _chmod_and_replace(temp_file.name, blob_path)
+            _create_relative_symlink(blob_path, pointer_path, new_blob=True)
+        else:
+            local_dir_filepath = os.path.join(local_dir, relative_filename)
+            if local_dir_use_symlinks:
+                logger.info(f"Storing {url} in cache at {blob_path}")
+                _chmod_and_replace(temp_file.name, blob_path)
+                logger.info("Create symlink to local dir")
+                _create_relative_symlink(blob_path, local_dir_filepath, new_blob=True)
+            else:
+                logger.info(f"Storing {url} in local_dir at {local_dir_filepath} (not cached).")
+                _chmod_and_replace(temp_file.name, local_dir_filepath)
 
     try:
         os.remove(lock_path)
@@ -1459,3 +1503,17 @@ def _chmod_and_replace(src: str, dst: str) -> None:
         tmp_file.unlink()
 
     os.replace(src, dst)
+
+
+def _to_local_dir(path: str, local_dir: str, relative_filename: str, use_symlinks: bool) -> str:
+    """Place a file in a local dir (different than cache_dir).
+
+    Either symlink to blob file in cache or duplicate file if symlink is disabled.
+    """
+    local_dir_filepath = os.path.join(local_dir, relative_filename)
+    real_blob_path = os.path.realpath(path)
+    if use_symlinks:
+        _create_relative_symlink(real_blob_path, local_dir_filepath, new_blob=False)
+    else:
+        shutil.copyfile(real_blob_path, local_dir_filepath)
+    return local_dir_filepath

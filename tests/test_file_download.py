@@ -21,6 +21,7 @@ from unittest.mock import Mock, patch
 import pytest
 import requests
 
+import huggingface_hub.file_download
 from huggingface_hub import HfApi
 from huggingface_hub.constants import (
     CONFIG_NAME,
@@ -487,6 +488,92 @@ class CachedDownloadTests(unittest.TestCase):
 
         self.assertIn("cdn-lfs", metadata.location)  # Redirection
         self.assertEqual(metadata.size, 497933648)  # Size of LFS file, not pointer
+
+
+@with_production_testing
+@pytest.mark.usefixtures("fx_cache_dir")
+class HfHubDownloadToLocalDir(unittest.TestCase):
+    cache_dir: Path
+
+    def test_with_local_dir_and_symlinks_and_file_cached(self) -> None:
+        # File already cached
+        hf_hub_download(DUMMY_MODEL_ID, filename=CONFIG_NAME, cache_dir=self.cache_dir)
+
+        # Download to local dir
+        with SoftTemporaryDirectory() as local_dir:
+            hf_hub_download(
+                DUMMY_MODEL_ID,
+                filename=CONFIG_NAME,
+                cache_dir=self.cache_dir,
+                local_dir=local_dir,
+                local_dir_use_symlinks=True,
+            )
+            config_file = Path(local_dir) / CONFIG_NAME
+            self.assertTrue(config_file.is_file())
+            self.assertTrue(config_file.is_symlink())
+
+    def test_with_local_dir_and_symlinks_and_file_not_cached(self) -> None:
+        # Download to local dir
+        with SoftTemporaryDirectory() as local_dir:
+            hf_hub_download(
+                DUMMY_MODEL_ID,
+                filename=CONFIG_NAME,
+                cache_dir=self.cache_dir,
+                local_dir=local_dir,
+                local_dir_use_symlinks=True,
+            )
+            config_file = Path(local_dir) / CONFIG_NAME
+            self.assertTrue(config_file.is_file())
+            self.assertTrue(config_file.is_symlink())
+            blob_path = config_file.readlink()
+            self.assertTrue(self.cache_dir in blob_path.parents)  # blob is cached!
+
+    def test_with_local_dir_and_no_symlink_and_file_cached(self) -> None:
+        # File already cached
+        hf_hub_download(DUMMY_MODEL_ID, filename=CONFIG_NAME, cache_dir=self.cache_dir)
+
+        # Download to local dir
+        with SoftTemporaryDirectory() as local_dir:
+            with patch.object(
+                huggingface_hub.file_download, "http_get", wraps=huggingface_hub.file_download.http_get
+            ) as mock:
+                hf_hub_download(
+                    DUMMY_MODEL_ID,
+                    filename=CONFIG_NAME,
+                    cache_dir=self.cache_dir,
+                    local_dir=local_dir,
+                    local_dir_use_symlinks=False,  # no symlinks
+                )
+                mock.assert_not_called()  # reused file from cache
+
+            config_file = Path(local_dir) / CONFIG_NAME
+            self.assertTrue(config_file.is_file())
+            self.assertFalse(config_file.is_symlink())
+
+    def test_with_local_dir_and_no_symlink_and_file_not_cached(self) -> None:
+        # Download to local dir
+        with SoftTemporaryDirectory() as local_dir:
+            with patch.object(
+                huggingface_hub.file_download, "http_get", wraps=huggingface_hub.file_download.http_get
+            ) as mock:
+                hf_hub_download(
+                    DUMMY_MODEL_ID,
+                    filename=CONFIG_NAME,
+                    cache_dir=self.cache_dir,
+                    local_dir=local_dir,
+                    local_dir_use_symlinks=False,  # no symlinks
+                )
+                mock.assert_called()  # no file cached => had to download it
+
+            config_file = Path(local_dir) / CONFIG_NAME
+            self.assertTrue(config_file.is_file())
+            self.assertFalse(config_file.is_symlink())
+
+            # Cache directory not used (no blobs, no symlinks in it)
+            for path in self.cache_dir.glob("**/blobs/**"):
+                self.assertFalse(path.is_file())
+            for path in self.cache_dir.glob("**/snapshots/**"):
+                self.assertFalse(path.is_file())
 
 
 class StagingCachedDownloadTest(unittest.TestCase):
