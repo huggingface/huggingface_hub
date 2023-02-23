@@ -332,7 +332,7 @@ class DatasetCardData(CardData):
         language_creators: Optional[Union[str, List[str]]] = None,
         multilinguality: Optional[Union[str, List[str]]] = None,
         size_categories: Optional[Union[str, List[str]]] = None,
-        source_datasets: Optional[Union[str, List[str]]] = None,
+        source_datasets: Optional[List[str]] = None,
         task_categories: Optional[Union[str, List[str]]] = None,
         task_ids: Optional[Union[str, List[str]]] = None,
         paperswithcode_id: Optional[str] = None,
