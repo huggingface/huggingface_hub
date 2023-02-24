@@ -92,7 +92,7 @@ class SnapshotDownloadTests(unittest.TestCase):
 
             # folder contains the two files contributed and the .gitattributes
             folder_contents = os.listdir(storage_folder)
-            self.assertEqual(len(folder_contents), 3)
+            self.assertEqual(len(folder_contents), 4)
             self.assertTrue("dummy_file.txt" in folder_contents)
             self.assertTrue("dummy_file_2.txt" in folder_contents)
             self.assertTrue(".gitattributes" in folder_contents)
@@ -114,7 +114,7 @@ class SnapshotDownloadTests(unittest.TestCase):
 
             # folder contains the two files contributed and the .gitattributes
             folder_contents = os.listdir(storage_folder)
-            self.assertEqual(len(folder_contents), 2)
+            self.assertEqual(len(folder_contents), 3)
             self.assertTrue("dummy_file.txt" in folder_contents)
             self.assertTrue(".gitattributes" in folder_contents)
 
@@ -145,7 +145,7 @@ class SnapshotDownloadTests(unittest.TestCase):
 
             # folder contains the two files contributed and the .gitattributes
             folder_contents = os.listdir(storage_folder)
-            self.assertEqual(len(folder_contents), 3)
+            self.assertEqual(len(folder_contents), 4)
             self.assertTrue("dummy_file.txt" in folder_contents)
             self.assertTrue("dummy_file_2.txt" in folder_contents)
             self.assertTrue(".gitattributes" in folder_contents)
@@ -168,7 +168,7 @@ class SnapshotDownloadTests(unittest.TestCase):
 
             # folder contains the two files contributed and the .gitattributes
             folder_contents = os.listdir(storage_folder)
-            self.assertEqual(len(folder_contents), 3)
+            self.assertEqual(len(folder_contents), 4)
             self.assertTrue("dummy_file.txt" in folder_contents)
             self.assertTrue("dummy_file_2.txt" in folder_contents)
             self.assertTrue(".gitattributes" in folder_contents)
@@ -197,7 +197,7 @@ class SnapshotDownloadTests(unittest.TestCase):
 
             # folder contains the two files contributed and the .gitattributes
             folder_contents = os.listdir(storage_folder)
-            self.assertEqual(len(folder_contents), 3)
+            self.assertEqual(len(folder_contents), 4)
             self.assertTrue("dummy_file.txt" in folder_contents)
             self.assertTrue("dummy_file_2.txt" in folder_contents)
             self.assertTrue(".gitattributes" in folder_contents)
@@ -228,7 +228,7 @@ class SnapshotDownloadTests(unittest.TestCase):
 
             # folder contains the two files contributed and the .gitattributes
             folder_contents = os.listdir(storage_folder)
-            self.assertEqual(len(folder_contents), 3)
+            self.assertEqual(len(folder_contents), 4)
             self.assertTrue("dummy_file.txt" in folder_contents)
             self.assertTrue(".gitattributes" in folder_contents)
 
@@ -258,7 +258,7 @@ class SnapshotDownloadTests(unittest.TestCase):
 
             # folder contains the two files contributed and the .gitattributes
             folder_contents = os.listdir(storage_folder)
-            self.assertEqual(len(folder_contents), 2)
+            self.assertEqual(len(folder_contents), 3)
             self.assertTrue("dummy_file.txt" in folder_contents)
             self.assertTrue(".gitattributes" in folder_contents)
 
@@ -308,7 +308,7 @@ class SnapshotDownloadTests(unittest.TestCase):
 
             # folder contains the two files contributed and the .gitattributes
             folder_contents = os.listdir(storage_folder)
-            self.assertEqual(len(folder_contents), 3)
+            self.assertEqual(len(folder_contents), 4)
             self.assertTrue("dummy_file.txt" in folder_contents)
             self.assertTrue(".gitattributes" in folder_contents)
 
@@ -335,7 +335,7 @@ class SnapshotDownloadTests(unittest.TestCase):
 
             # folder contains the two files contributed and the .gitattributes
             folder_contents = os.listdir(storage_folder)
-            self.assertEqual(len(folder_contents), 2)
+            self.assertEqual(len(folder_contents), 3)
             self.assertTrue("dummy_file.txt" in folder_contents)
             self.assertTrue("dummy_file_2.txt" in folder_contents)
             self.assertTrue(".gitattributes" not in folder_contents)
@@ -351,7 +351,7 @@ class SnapshotDownloadTests(unittest.TestCase):
         self.check_download_model_with_pattern("*.txt")
 
     def test_download_model_with_allow_pattern_list(self):
-        self.check_download_model_with_pattern(["dummy_file.txt", "dummy_file_2.txt"])
+        self.check_download_model_with_pattern(["dummy_file.txt", "dummy_file_2.txt", "subpath/*"])
 
     def test_download_model_with_ignore_pattern(self):
         self.check_download_model_with_pattern(".gitattributes", allow=False)
