@@ -18,7 +18,7 @@ def require_tf(test_case):
 
 
 @require_tf
-def test_import_huggingface_hub_doesnt_import_tensorfow():
+def test_import_huggingface_hub_does_not_import_tensorflow():
     # `import huggingface_hub` is not necessary since huggingface_hub is already imported at the top of this file,
     # but let's keep it here anyway just in case
     import huggingface_hub  # noqa

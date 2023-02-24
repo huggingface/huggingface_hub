@@ -196,7 +196,7 @@ class DiscussionComment(DiscussionEvent):
 
     @property
     def last_edited_by(self) -> str:
-        """The last edit tiem, as a `datetime` object."""
+        """The last edit time, as a `datetime` object."""
         return self._event["data"]["latest"].get("author", {}).get("name", "deleted")
 
     @property
