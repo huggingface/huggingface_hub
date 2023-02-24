@@ -201,16 +201,18 @@ class SnapshotDownloadTests(unittest.TestCase):
             with SoftTemporaryDirectory() as local_dir:
                 returned_path = snapshot_download(self.repo_id, cache_dir=cache_dir, local_dir=local_dir)
 
-                # Files have been downloaded and are symlinks
-                self.assertTrue((Path(local_dir) / "dummy_file.txt").is_symlink())
-                self.assertTrue((Path(local_dir) / "dummy_file_2.txt").is_symlink())
+                # Files have been downloaded
+                self.assertTrue((Path(local_dir) / "dummy_file.txt").is_file())
+                self.assertTrue((Path(local_dir) / "dummy_file_2.txt").is_file())
+
+                # Files are symlinks (except on Windows CI)
+                if os.name != "nt":
+                    self.assertTrue((Path(local_dir) / "dummy_file.txt").is_symlink())
+                    self.assertTrue((Path(local_dir) / "dummy_file_2.txt").is_symlink())
 
                 # File structure is preserved (+check content)
                 subpath_file = Path(local_dir) / "subpath" / "file.txt"
                 self.assertTrue(subpath_file.is_file())
-                self.assertTrue(  # File is symlink (except in Windows CI)
-                    subpath_file.is_symlink() if os.name != "nt" else not subpath_file.is_symlink()
-                )
                 self.assertEqual(subpath_file.read_text(), "content in subpath")
 
                 # Check returns local dir and not cache dir
