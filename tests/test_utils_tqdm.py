@@ -77,7 +77,7 @@ class TestTqdmUtils(unittest.TestCase):
 
     @patch("huggingface_hub.utils._tqdm.HF_HUB_DISABLE_PROGRESS_BARS", None)
     def test_tqdm_disabled(self) -> None:
-        """Test TQDM not outputing anything when globally disabled."""
+        """Test TQDM not outputting anything when globally disabled."""
         disable_progress_bars()
         for _ in tqdm(range(10)):
             pass

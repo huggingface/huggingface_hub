@@ -426,7 +426,7 @@ class DatasetInfo:
             repo sha at this particular revision
         lastModified (`str`, *optional*):
             date of last commit to repo
-        tags (`Listr[str]`, *optional*):
+        tags (`List[str]`, *optional*):
             List of tags.
         siblings (`List[RepoFile]`, *optional*):
             list of [`huggingface_hub.hf_api.RepoFile`] objects that constitute the dataset.
