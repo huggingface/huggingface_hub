@@ -46,9 +46,8 @@ from huggingface_hub.utils import (
     RevisionNotFoundError,
     SoftTemporaryDirectory,
 )
-from tests.testing_constants import TOKEN
 
-from .testing_constants import ENDPOINT_STAGING, OTHER_TOKEN
+from .testing_constants import ENDPOINT_STAGING, OTHER_TOKEN, TOKEN
 from .testing_utils import (
     DUMMY_MODEL_ID,
     DUMMY_MODEL_ID_PINNED_SHA1,
@@ -495,6 +494,7 @@ class CachedDownloadTests(unittest.TestCase):
 class HfHubDownloadToLocalDir(unittest.TestCase):
     cache_dir: Path
 
+    @xfail_on_windows("Symlinks not supported in Windows CI.")
     def test_with_local_dir_and_symlinks_and_file_cached(self) -> None:
         # File already cached
         hf_hub_download(DUMMY_MODEL_ID, filename=CONFIG_NAME, cache_dir=self.cache_dir)
@@ -512,6 +512,7 @@ class HfHubDownloadToLocalDir(unittest.TestCase):
             self.assertTrue(config_file.is_file())
             self.assertTrue(config_file.is_symlink())
 
+    @xfail_on_windows("Symlinks not supported in Windows CI.")
     def test_with_local_dir_and_symlinks_and_file_not_cached(self) -> None:
         # Download to local dir
         with SoftTemporaryDirectory() as local_dir:
@@ -525,7 +526,7 @@ class HfHubDownloadToLocalDir(unittest.TestCase):
             config_file = Path(local_dir) / CONFIG_NAME
             self.assertTrue(config_file.is_file())
             self.assertTrue(config_file.is_symlink())
-            blob_path = config_file.readlink()
+            blob_path = os.readlink(str(config_file))  # config_file.readlink() not supported on Python3.7
             self.assertTrue(self.cache_dir in blob_path.parents)  # blob is cached!
 
     def test_with_local_dir_and_no_symlink_and_file_cached(self) -> None:

@@ -208,8 +208,13 @@ class SnapshotDownloadTests(unittest.TestCase):
                 # File structure is preserved (+check content)
                 subpath_file = Path(local_dir) / "subpath" / "file.txt"
                 self.assertTrue(subpath_file.is_file())
-                self.assertTrue(subpath_file.is_symlink())
                 self.assertEqual(subpath_file.read_text(), "content in subpath")
 
                 # Check returns local dir and not cache dir
                 self.assertEqual(returned_path, local_dir)
+
+                # Check is a symlink (except in Windows CI)
+                if os.name != "nt":
+                    self.assertTrue(subpath_file.is_symlink())
+                else:
+                    self.assertFalse(subpath_file.is_symlink())
