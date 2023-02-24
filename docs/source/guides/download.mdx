@@ -148,3 +148,6 @@ Here is a table that summarizes the different options to help chose which parame
 | `local_dir="path/to/folder"`<br>`local_dir_use_symlinks=True` |  | symlink in folder | ✅ | ⚠️<br>_(do not resolve path before saving)_ | ✅ | ✅ |
 | `local_dir="path/to/folder"`<br>`local_dir_use_symlinks=False` | No | file in folder | ✅ | ✅ | ❌<br>_(if re-run, file is re-downloaded)_ | ⚠️<br>(multiple copies if ran in multiple folders) |
 | `local_dir="path/to/folder"`<br>`local_dir_use_symlinks=False` | Yes | file in folder | ✅ | ✅ | ⚠️<br>_(file has to be cached first)_ | ❌<br>_(file is duplicated)_ |
+
+**Note:** if you are on a Windows machine, you need to enable developer mode or run `huggingface_hub` as admin to enable
+symlinks. Check out the [cache limitations](../guides/manage-cache#limitations) section for more details.
