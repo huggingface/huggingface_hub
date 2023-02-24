@@ -17,7 +17,6 @@ class SnapshotDownloadTests(unittest.TestCase):
         """
         Share this valid token in all tests below.
         """
-        cls.token = TOKEN
         cls.api = HfApi(token=TOKEN)
         cls.repo_id = cls.api.create_repo(repo_name("snapshot-download")).repo_id
 
