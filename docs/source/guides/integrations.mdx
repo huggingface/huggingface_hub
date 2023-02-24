@@ -1,0 +1,86 @@
+# Integrate any framework to the Hub
+
+The Huggingface Hub makes it easy to host and share models with the community. It already has support for
+[dozens of libraries](https://huggingface.co/docs/hub/models-libraries) in the Open Source ecosystem. We are always
+working on expanding this support to push Machine Learning forward. The `huggingface_hub` library plays a key role in
+this process, allowing any Python script to easily push and load files.
+
+When talking about integrating a library to the Hub, we have 4 main topics:
+1. **Push to Hub:** implement a `push_to_hub()`-like method to upload a model to the Hub.
+   This includes the model weights as well as the modelcard and any other relevant information/data necessary to run the model (example: logs from training).
+2. **Download from Hub:** implement a `from_pretrained`-like method to load a model from the Hub.
+   Takes care of downloading the model configuration/weights and instantiating it.
+3. **Inference API:** collaborate with the HF Team to make it possible to run inference on our servers, using your library.
+4. **Widgets:** collaborate with the HF Team to display a widget on the landing page of your models on the Hub. It allows users to quickly try a model from the browser.
+
+In this guide, we will focus on topic 1 and 2. If you are interested in Inference and Widgets, please let us know!
+You can also reach out to us if you are integrating your library with the Hub and want to be listed [in our docs](https://huggingface.co/docs/hub/models-libraries).
+
+## The recommended way: use class inheritance
+
+
+As we saw above, we are interested in having 2 methods: one to upload files (`push_to_hub`) and one to download files (`from_pretrained`).
+In most cases, a library will implement its model using a Python class. The class contains the properties of the model
+and methods to load, run, train, evaluate,... it. It would be nice to extend the class with the 2 new methods!
+
+The recommended approach to do so is to use inheritance, and more precisely mixins. A [Mixin](https://stackoverflow.com/a/547714)
+is a class that is meant to extend an existing class with a set of specific features using multiple inheritance.
+`huggingface_hub` defined its own mixin [`ModelHubMixin`]. The key here is to understand its behavior and how to customize it.
+
+### A bit of theory
+
+The [`ModelHubMixin`] class defines 3 *public* methods (`push_to_hub`, `save_pretrained` and `from_pretrained`) and 2
+*private* ones (`_save_pretrained` and `_from_pretrained`). Let's see how to use them!
+
+1. Make your Model class inherit from [`ModelHubMixin`].
+2. Implement the private methods:
+    - `_save_pretrained`: method taking as input a path to a directory and saving the model to it. You must write all the logic to
+    dump your model in this method: model weights, model card, configuration files, training logs and figures,... Any
+    information that is relevant for this model must be handled by this method.
+    - `_from_pretrained`: class method taking as input a model_id and returning an instantiate model. The method must download the
+    relevant files and load them.
+3. You are done!
+
+The advantage of using [`ModelHubMixin`] is that you only take care of the serialization/loading of the files and you are ready to
+go. In particular, you don't need to care about stuff like repo creation, commits, PRs, revisions,... All of this is handled by
+the mixin and available for your user.
+
+### A concrete example: PyTorch
+
+A good example of what we saw above is [`PyTorchModelHubMixin`], our integration for the PyTorch framework.
+This is a ready-to-use integration. Here is how to use it:
+
+```python
+>>> import torch
+>>> import torch.nn as nn
+>>> from huggingface_hub import PyTorchModelHubMixin
+
+# 1. Define your Pytorch model exactly the same way you are used to
+>>> class MyModel(nn.Module, PyTorchModelHubMixin): # multiple inheritance
+...     def __init__(self):
+...         super().__init__() 
+...         self.param = nn.Parameter(torch.rand(3, 4))
+...         self.linear = nn.Linear(4, 5)
+
+...     def forward(self, x):
+...         return self.linear(x + self.param)
+>>> model = MyModel()
+
+# 2. (optional) Save model to local directory
+>>> model.save_pretrained("path/to/my-awesome-model")
+
+# 3. Push model weights to the Hub
+>>> model.push_to_hub("my-awesome-model")
+
+# 4. Initialize model from the Hub
+>>> model = MyModel.from_pretrained("username/my-awesome-model")
+```
+
+How easy is that? Now, we are interested in how it is implemented under the hood.
+
+## The other way: write functions
+
+### Example: FastAI
+
+
+
