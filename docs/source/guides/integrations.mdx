@@ -47,7 +47,11 @@ of this is handled by the mixin and available to your users.
 ## A concrete example: PyTorch
 
 A good example of what we saw above is [`PyTorchModelHubMixin`], our integration for the PyTorch framework. This is a
-ready-to-use integration. Here is how to use it:
+ready-to-use integration.
+
+### How to use it?
+
+Here is how any user can load/save a Pytorch model from/to the Hub:
 
 ```python
 >>> import torch
@@ -75,8 +79,10 @@ ready-to-use integration. Here is how to use it:
 >>> model = MyModel.from_pretrained("username/my-awesome-model")
 ```
 
-How easy is that? Now, we are interested in how it is implemented under the hood. Full implementation can be found
-[here](https://github.com/huggingface/huggingface_hub/blob/main/src/huggingface_hub/hub_mixin.py).
+### Implementation
+
+How easy was that? Now, we are interested in how it is implemented under the hood. It is very straightforward.
+Full implementation can be found [here](https://github.com/huggingface/huggingface_hub/blob/main/src/huggingface_hub/hub_mixin.py).
 
 1. First, inherit your class from `ModelHubMixin`:
 
