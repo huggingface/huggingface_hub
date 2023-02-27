@@ -42,14 +42,14 @@ def snapshot_download(
     max_workers: int = 8,
     tqdm_class: Optional[base_tqdm] = None,
 ) -> str:
-    """Download all files of a repo.
+    """Download repo files.
 
     Download a whole snapshot of a repo's files at the specified revision. This is useful when you want all files from
     a repo, because you don't know which ones you will need a priori. All files are nested inside a folder in order
     to keep their actual filename relative to that folder. You can also filter which files to download using
     `allow_patterns` and `ignore_patterns`.
 
-    If `local_dir` is provided, the downloaded files will be placed in this location. If `local_dir_use_symlinks` is
+    If `local_dir` is provided, the file structure from the repo will be replicated in this location. If `local_dir_use_symlinks` is
     set to `True`, files are downloaded and stored in the cache directory (as blob files) and symlinks pointing to them
     are placed in `local_dir`. If `local_dir_use_symlinks` is False and the blob files exist in the cache directory,
     they are duplicated in the local dir. This means disk usage is not optimized. Finally, if `local_dir_use_symlinks`

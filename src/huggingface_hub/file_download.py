@@ -849,7 +849,7 @@ def _create_relative_symlink(src: str, dst: str, new_blob: bool = False) -> None
             os.path.dirname(os.path.commonpath([os.path.realpath(src), os.path.realpath(dst)]))
         )
     except PermissionError:
-        # Permission error means src and dst are not in the same folder (e.g. destination path has been provided
+        # Permission error means src and dst are not in the same volume (e.g. destination path has been provided
         # by the user via `local_dir`. Let's test symlink support there)
         _support_symlinks = are_symlinks_supported(os.path.dirname(dst))
 

@@ -135,11 +135,11 @@ repo. For example if `filename="data/train.csv"` and `local_dir="path/to/folder"
 - `local_dir_use_symlinks` defines how the file must be saved in your local folder. The default behavior is to keep a
 symlink to the blob file stored in the cache. Doing this allows you to optimize both bandwidth and disk usage. However,
 if you don't want symlinks you can disable them. The cache directory will still be used to check wether the file is
-already cached or not. If already cached, the file is **duplicated** from the cache (i.e. saves bandwidth but increase
-disk usage). If the file is not already cached, it will be downloaded and move directly to the local dir. This means that
+already cached or not. If already cached, the file is **duplicated** from the cache (i.e. saves bandwidth but increases
+disk usage). If the file is not already cached, it will be downloaded and moved directly to the local dir. This means that
 if you need to reuse it somewhere else later, it will be **re-downloaded**.
 
-Here is a table that summarizes the different options to help chose which parameters suit best your use case.
+Here is a table that summarizes the different options to help you choose the parameters that best suit your use case.
 
 <!-- Generated with https://www.tablesgenerator.com/markdown_tables -->
 | Parameters | File already cached | Returned path | Can read path? | Can save to path? | Optimized bandwidth | Optimized disk usage |
