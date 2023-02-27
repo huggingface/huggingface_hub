@@ -2,7 +2,6 @@ from typing import Optional
 
 from requests import HTTPError, Response
 
-from ._deprecation import _deprecate_method
 from ._fixes import JSONDecodeError
 
 
@@ -300,28 +299,6 @@ def hf_raise_for_status(response: Response, endpoint_name: Optional[str] = None)
         # Convert `HTTPError` into a `HfHubHTTPError` to display request information
         # as well (request id and/or server error message)
         raise HfHubHTTPError(str(e), response=response) from e
-
-
-@_deprecate_method(version="0.13", message="Use `hf_raise_for_status` instead.")
-def _raise_for_status(response):
-    """Keep alias for now."""
-    hf_raise_for_status(response)
-
-
-@_deprecate_method(version="0.13", message="Use `hf_raise_for_status` instead.")
-def _raise_with_request_id(response):
-    """Keep alias for now."""
-    hf_raise_for_status(response)
-
-
-@_deprecate_method(version="0.13", message="Use `hf_raise_for_status` instead.")
-def _raise_convert_bad_request(response: Response, endpoint_name: str):
-    """
-    Calls hf_raise_for_status on resp and converts HTTP 400 errors into ValueError.
-
-    Keep alias for now.
-    """
-    hf_raise_for_status(response, endpoint_name=endpoint_name)
 
 
 def _format_error_message(message: str, request_id: Optional[str], server_message: Optional[str]) -> str:

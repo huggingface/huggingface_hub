@@ -21,7 +21,7 @@
     - local: guides/inference
       title: Inference
     - local: guides/community
-      title: Community
+      title: Community Tab
     - local: guides/manage-cache
       title: Cache
     - local: guides/model-cards

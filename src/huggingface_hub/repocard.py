@@ -13,6 +13,7 @@ from huggingface_hub.repocard_data import (
     DatasetCardData,
     EvalResult,
     ModelCardData,
+    SpaceCardData,
     eval_results_to_model_index,
     model_index_to_eval_results,
 )
@@ -463,10 +464,16 @@ class DatasetCard(RepoCard):
         return super().from_template(card_data, template_path, **template_kwargs)
 
 
+class SpaceCard(RepoCard):
+    card_data_class = SpaceCardData
+    default_template_path = TEMPLATE_MODELCARD_PATH
+    repo_type = "space"
+
+
 def _detect_line_ending(content: str) -> Literal["\r", "\n", "\r\n", None]:  # noqa: F722
     """Detect the line ending of a string. Used by RepoCard to avoid making huge diff on newlines.
 
-    Uses same implem as in Hub server, keep it in sync.
+    Uses same implementation as in Hub server, keep it in sync.
 
     Returns:
         str: The detected line ending of the string.
@@ -787,18 +794,13 @@ def metadata_update(
                         card.data.eval_results.append(new_result)
         else:
             # Any metadata that is not a result metric
-            if (
-                hasattr(card.data, key)
-                and getattr(card.data, key) is not None
-                and not overwrite
-                and getattr(card.data, key) != value
-            ):
+            if card.data.get(key) is not None and not overwrite and card.data.get(key) != value:
                 raise ValueError(
                     f"You passed a new value for the existing meta data field '{key}'."
                     " Set `overwrite=True` to overwrite existing metadata."
                 )
             else:
-                setattr(card.data, key, value)
+                card.data[key] = value
 
     return card.push_to_hub(
         repo_id,

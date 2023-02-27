@@ -130,6 +130,7 @@ _SUBMOD_ATTRS = {
         "delete_repo",
         "delete_space_secret",
         "delete_tag",
+        "duplicate_space",
         "edit_discussion_comment",
         "get_dataset_tags",
         "get_discussion_details",
@@ -179,6 +180,8 @@ _SUBMOD_ATTRS = {
     "repocard": [
         "DatasetCard",
         "ModelCard",
+        "RepoCard",
+        "SpaceCard",
         "metadata_eval_result",
         "metadata_load",
         "metadata_save",
@@ -189,6 +192,7 @@ _SUBMOD_ATTRS = {
         "DatasetCardData",
         "EvalResult",
         "ModelCardData",
+        "SpaceCardData",
     ],
     "repository": [
         "Repository",
@@ -385,6 +389,7 @@ if TYPE_CHECKING:  # pragma: no cover
         delete_repo,  # noqa: F401
         delete_space_secret,  # noqa: F401
         delete_tag,  # noqa: F401
+        duplicate_space,  # noqa: F401
         edit_discussion_comment,  # noqa: F401
         get_dataset_tags,  # noqa: F401
         get_discussion_details,  # noqa: F401
@@ -432,6 +437,8 @@ if TYPE_CHECKING:  # pragma: no cover
     from .repocard import (
         DatasetCard,  # noqa: F401
         ModelCard,  # noqa: F401
+        RepoCard,  # noqa: F401
+        SpaceCard,  # noqa: F401
         metadata_eval_result,  # noqa: F401
         metadata_load,  # noqa: F401
         metadata_save,  # noqa: F401
@@ -442,6 +449,7 @@ if TYPE_CHECKING:  # pragma: no cover
         DatasetCardData,  # noqa: F401
         EvalResult,  # noqa: F401
         ModelCardData,  # noqa: F401
+        SpaceCardData,  # noqa: F401
     )
     from .repository import Repository  # noqa: F401
     from .utils import (

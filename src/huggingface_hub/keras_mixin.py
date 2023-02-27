@@ -36,7 +36,7 @@ def _flatten_dict(dictionary, parent_key=""):
         dictionary (`dict`):
             The nested dictionary to be flattened.
         parent_key (`str`):
-            The parent key to be prefixed to the childer keys.
+            The parent key to be prefixed to the children keys.
             Necessary for recursing over the nested dictionary.
 
     Returns:

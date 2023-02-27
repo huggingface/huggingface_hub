@@ -790,7 +790,7 @@ class TestRepositoryOffline(RepositoryTestAbstract):
         self.repo.auto_track_large_files()
         self.assertFalse(is_tracked_with_lfs(txt_large_file))
 
-    def test_checkout_non_existant_branch(self):
+    def test_checkout_non_existing_branch(self):
         self.assertRaises(EnvironmentError, self.repo.git_checkout, "brand-new-branch")
 
     def test_checkout_new_branch(self):

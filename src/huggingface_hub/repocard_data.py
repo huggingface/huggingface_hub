@@ -149,6 +149,15 @@ class EvalResult:
 
 @dataclass
 class CardData:
+    """Structure containing metadata from a RepoCard.
+
+    [`CardData`] is the parent class of [`ModelCardData`] and [`DatasetCardData`].
+
+    Metadata can be exported as a dictionary or YAML. Export can be customized to alter the representation of the data
+    (example: flatten evaluation results). `CardData` behaves as a dictionary (can get, pop, set values) but do not
+    inherit from `dict` to allow this export step.
+    """
+
     def __init__(self, **kwargs):
         self.__dict__.update(kwargs)
 
@@ -187,6 +196,26 @@ class CardData:
     def __repr__(self):
         return self.to_yaml()
 
+    def get(self, key: str, default: Any = None) -> Any:
+        """Get value for a given metadata key."""
+        return self.__dict__.get(key, default)
+
+    def pop(self, key: str, default: Any = None) -> Any:
+        """Pop value for a given metadata key."""
+        return self.__dict__.pop(key, default)
+
+    def __getitem__(self, key: str) -> Any:
+        """Get value for a given metadata key."""
+        return self.__dict__[key]
+
+    def __setitem__(self, key: str, value: Any) -> None:
+        """Set value for a given metadata key."""
+        self.__dict__[key] = value
+
+    def __contains__(self, key: str) -> bool:
+        """Check if a given metadata key is set."""
+        return key in self.__dict__
+
 
 class ModelCardData(CardData):
     """Model Card Metadata that is used by Hugging Face Hub when included at the top of your README.md
@@ -208,7 +237,7 @@ class ModelCardData(CardData):
         datasets (`List[str]`, *optional*):
             List of datasets that were used to train this model. Should be a dataset ID
             found on https://hf.co/datasets. Defaults to None.
-        metrics (`Union[str, List[str]]`, *optional*):
+        metrics (`List[str]`, *optional*):
             List of metrics used to evaluate this model. Should be a metric name that can be found
             at https://hf.co/metrics. Example: 'accuracy'. Defaults to None.
         eval_results (`Union[List[EvalResult], EvalResult]`, *optional*):
@@ -245,7 +274,7 @@ class ModelCardData(CardData):
         library_name: Optional[str] = None,
         tags: Optional[List[str]] = None,
         datasets: Optional[List[str]] = None,
-        metrics: Optional[Union[str, List[str]]] = None,
+        metrics: Optional[List[str]] = None,
         eval_results: Optional[List[EvalResult]] = None,
         model_name: Optional[str] = None,
         **kwargs,
@@ -287,7 +316,7 @@ class DatasetCardData(CardData):
     """Dataset Card Metadata that is used by Hugging Face Hub when included at the top of your README.md
 
     Args:
-        language (`Union[str, List[str]]`, *optional*):
+        language (`List[str]`, *optional*):
             Language of dataset's data or metadata. It must be an ISO 639-1, 639-2 or
             639-3 code (two/three letters), or a special value like "code", "multilingual".
         license (`Union[str, List[str]]`, *optional*):
@@ -305,7 +334,7 @@ class DatasetCardData(CardData):
         size_categories (`Union[str, List[str]]`, *optional*):
             The number of examples in the dataset. Options are: 'n<1K', '1K<n<10K', '10K<n<100K',
             '100K<n<1M', '1M<n<10M', '10M<n<100M', '100M<n<1B', '1B<n<10B', '10B<n<100B', '100B<n<1T', 'n>1T', and 'other'.
-        source_datasets (`Union[str, List[str]]`, *optional*):
+        source_datasets (`List[str]]`, *optional*):
             Indicates whether the dataset is an original dataset or extended from another existing dataset.
             Options are: 'original' and 'extended'.
         task_categories (`Union[str, List[str]]`, *optional*):
@@ -332,7 +361,7 @@ class DatasetCardData(CardData):
         language_creators: Optional[Union[str, List[str]]] = None,
         multilinguality: Optional[Union[str, List[str]]] = None,
         size_categories: Optional[Union[str, List[str]]] = None,
-        source_datasets: Optional[Union[str, List[str]]] = None,
+        source_datasets: Optional[List[str]] = None,
         task_categories: Optional[Union[str, List[str]]] = None,
         task_ids: Optional[Union[str, List[str]]] = None,
         paperswithcode_id: Optional[str] = None,
@@ -360,6 +389,83 @@ class DatasetCardData(CardData):
 
     def _to_dict(self, data_dict):
         data_dict["train-eval-index"] = data_dict.pop("train_eval_index")
+
+
+class SpaceCardData(CardData):
+    """Space Card Metadata that is used by Hugging Face Hub when included at the top of your README.md
+
+    To get an exhaustive reference of Spaces configuration, please visit https://huggingface.co/docs/hub/spaces-config-reference#spaces-configuration-reference.
+
+    Args:
+        title (`str`, *optional*)
+            Title of the Space.
+        sdk (`str`, *optional*)
+            SDK of the Space (one of `gradio`, `streamlit`, `docker`, or `static`).
+        sdk_version (`str`, *optional*)
+            Version of the used SDK (if Gradio/Streamlit sdk).
+        python_version (`str`, *optional*)
+            Python version used in the Space (if Gradio/Streamlit sdk).
+        app_file (`str`, *optional*)
+            Path to your main application file (which contains either gradio or streamlit Python code, or static html code).
+            Path is relative to the root of the repository.
+        app_port (`str`, *optional*)
+            Port on which your application is running. Used only if sdk is `docker`.
+        license (`str`, *optional*)
+            License of this model. Example: apache-2.0 or any license from
+            https://huggingface.co/docs/hub/repositories-licenses.
+        duplicated_from (`str`, *optional*)
+            ID of the original Space if this is a duplicated Space.
+        models (List[`str`], *optional*)
+            List of models related to this Space. Should be a dataset ID found on https://hf.co/models.
+        datasets (`List[str]`, *optional*)
+            List of datasets related to this Space. Should be a dataset ID found on https://hf.co/datasets.
+        tags (`List[str]`, *optional*)
+            List of tags to add to your Space that can be used when filtering on the Hub.
+        kwargs (`dict`, *optional*):
+            Additional metadata that will be added to the space card.
+
+    Example:
+        ```python
+        >>> from huggingface_hub import SpaceCardData
+        >>> card_data = SpaceCardData(
+        ...     title="Dreambooth Training",
+        ...     license="mit",
+        ...     sdk="gradio",
+        ...     duplicated_from="multimodalart/dreambooth-training"
+        ... )
+        >>> card_data.to_dict()
+        {'title': 'Dreambooth Training', 'sdk': 'gradio', 'license': 'mit', 'duplicated_from': 'multimodalart/dreambooth-training'}
+        ```
+    """
+
+    def __init__(
+        self,
+        *,
+        title: Optional[str] = None,
+        sdk: Optional[str] = None,
+        sdk_version: Optional[str] = None,
+        python_version: Optional[str] = None,
+        app_file: Optional[str] = None,
+        app_port: Optional[int] = None,
+        license: Optional[str] = None,
+        duplicated_from: Optional[str] = None,
+        models: Optional[List[str]] = None,
+        datasets: Optional[List[str]] = None,
+        tags: Optional[List[str]] = None,
+        **kwargs,
+    ):
+        self.title = title
+        self.sdk = sdk
+        self.sdk_version = sdk_version
+        self.python_version = python_version
+        self.app_file = app_file
+        self.app_port = app_port
+        self.license = license
+        self.duplicated_from = duplicated_from
+        self.models = models
+        self.datasets = datasets
+        self.tags = tags
+        super().__init__(**kwargs)
 
 
 def model_index_to_eval_results(model_index: List[Dict[str, Any]]) -> Tuple[str, List[EvalResult]]:
