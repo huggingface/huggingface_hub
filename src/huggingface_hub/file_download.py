@@ -4,153 +4,167 @@ import io
 import json
 import os
 import re
-import sys
+import shutil
+import stat
 import tempfile
-import time
+import uuid
 import warnings
 from contextlib import contextmanager
+from dataclasses import dataclass
 from functools import partial
 from hashlib import sha256
 from pathlib import Path
-from typing import BinaryIO, Dict, Optional, Tuple, Union
-
-import packaging.version
-from tqdm.auto import tqdm
+from typing import Any, BinaryIO, Dict, Generator, Optional, Tuple, Union
+from urllib.parse import quote, urlparse
 
 import requests
 from filelock import FileLock
+from requests.exceptions import ConnectTimeout, ProxyError
+
 from huggingface_hub import constants
 
-from . import __version__
+from . import __version__  # noqa: F401 # for backward compatibility
 from .constants import (
     DEFAULT_REVISION,
+    HF_HUB_DISABLE_SYMLINKS_WARNING,
+    HF_HUB_ENABLE_HF_TRANSFER,
     HUGGINGFACE_CO_URL_TEMPLATE,
     HUGGINGFACE_HEADER_X_LINKED_ETAG,
+    HUGGINGFACE_HEADER_X_LINKED_SIZE,
     HUGGINGFACE_HEADER_X_REPO_COMMIT,
     HUGGINGFACE_HUB_CACHE,
     REPO_ID_SEPARATOR,
     REPO_TYPES,
     REPO_TYPES_URL_PREFIXES,
 )
-from .hf_api import HfFolder
-from .utils import logging
-from .utils._deprecation import _deprecate_positional_args
+from .utils import (
+    EntryNotFoundError,
+    LocalEntryNotFoundError,
+    SoftTemporaryDirectory,
+    build_hf_headers,
+    get_fastai_version,  # noqa: F401 # for backward compatibility
+    get_fastcore_version,  # noqa: F401 # for backward compatibility
+    get_graphviz_version,  # noqa: F401 # for backward compatibility
+    get_jinja_version,  # noqa: F401 # for backward compatibility
+    get_pydot_version,  # noqa: F401 # for backward compatibility
+    get_tf_version,  # noqa: F401 # for backward compatibility
+    get_torch_version,  # noqa: F401 # for backward compatibility
+    hf_raise_for_status,
+    http_backoff,
+    is_fastai_available,  # noqa: F401 # for backward compatibility
+    is_fastcore_available,  # noqa: F401 # for backward compatibility
+    is_graphviz_available,  # noqa: F401 # for backward compatibility
+    is_jinja_available,  # noqa: F401 # for backward compatibility
+    is_pydot_available,  # noqa: F401 # for backward compatibility
+    is_tf_available,  # noqa: F401 # for backward compatibility
+    is_torch_available,  # noqa: F401 # for backward compatibility
+    logging,
+    tqdm,
+    validate_hf_hub_args,
+)
+from .utils._headers import _http_user_agent
+from .utils._runtime import _PY_VERSION  # noqa: F401 # for backward compatibility
+from .utils._typing import HTTP_METHOD_T
 
 
 logger = logging.get_logger(__name__)
 
-_PY_VERSION: str = sys.version.split()[0].rstrip("+")
+# Regex to get filename from a "Content-Disposition" header for CDN-served files
+HEADER_FILENAME_PATTERN = re.compile(r'filename="(?P<filename>.*?)";')
 
-if packaging.version.Version(_PY_VERSION) < packaging.version.Version("3.8.0"):
-    import importlib_metadata
-else:
-    import importlib.metadata as importlib_metadata
-
-_torch_version = "N/A"
-_torch_available = False
-try:
-    _torch_version = importlib_metadata.version("torch")
-    _torch_available = True
-except importlib_metadata.PackageNotFoundError:
-    pass
-
-_pydot_available = False
-
-try:
-    _pydot_version = importlib_metadata.version("pydot")
-    _pydot_available = True
-except importlib_metadata.PackageNotFoundError:
-    pass
+_are_symlinks_supported_in_dir: Dict[str, bool] = {}
 
 
-def is_pydot_available():
-    return _pydot_available
+def are_symlinks_supported(cache_dir: Union[str, Path, None] = None) -> bool:
+    """Return whether the symlinks are supported on the machine.
+
+    Since symlinks support can change depending on the mounted disk, we need to check
+    on the precise cache folder. By default, the default HF cache directory is checked.
+
+    Args:
+        cache_dir (`str`, `Path`, *optional*):
+            Path to the folder where cached files are stored.
+
+    Returns: [bool] Whether symlinks are supported in the directory.
+    """
+    # Defaults to HF cache
+    if cache_dir is None:
+        cache_dir = HUGGINGFACE_HUB_CACHE
+    cache_dir = str(Path(cache_dir).expanduser().resolve())  # make it unique
+
+    # Check symlink compatibility only once (per cache directory) at first time use
+    if cache_dir not in _are_symlinks_supported_in_dir:
+        _are_symlinks_supported_in_dir[cache_dir] = True
+
+        os.makedirs(cache_dir, exist_ok=True)
+        with SoftTemporaryDirectory(dir=cache_dir) as tmpdir:
+            src_path = Path(tmpdir) / "dummy_file_src"
+            src_path.touch()
+            dst_path = Path(tmpdir) / "dummy_file_dst"
+
+            # Relative source path as in `_create_relative_symlink``
+            relative_src = os.path.relpath(src_path, start=os.path.dirname(dst_path))
+            try:
+                os.symlink(relative_src, dst_path)
+            except OSError:
+                # Likely running on Windows
+                _are_symlinks_supported_in_dir[cache_dir] = False
+
+                if not HF_HUB_DISABLE_SYMLINKS_WARNING:
+                    message = (
+                        "`huggingface_hub` cache-system uses symlinks by default to"
+                        " efficiently store duplicated files but your machine does not"
+                        f" support them in {cache_dir}. Caching files will still work"
+                        " but in a degraded version that might require more space on"
+                        " your disk. This warning can be disabled by setting the"
+                        " `HF_HUB_DISABLE_SYMLINKS_WARNING` environment variable. For"
+                        " more details, see"
+                        " https://huggingface.co/docs/huggingface_hub/how-to-cache#limitations."
+                    )
+                    if os.name == "nt":
+                        message += (
+                            "\nTo support symlinks on Windows, you either need to"
+                            " activate Developer Mode or to run Python as an"
+                            " administrator. In order to see activate developer mode,"
+                            " see this article:"
+                            " https://docs.microsoft.com/en-us/windows/apps/get-started/enable-your-device-for-development"
+                        )
+                    warnings.warn(message)
+
+    return _are_symlinks_supported_in_dir[cache_dir]
 
 
-_graphviz_available = False
-
-try:
-    _graphviz_version = importlib_metadata.version("graphviz")
-    _graphviz_available = True
-except importlib_metadata.PackageNotFoundError:
-    pass
-
-
-def is_graphviz_available():
-    return _graphviz_available
-
-
-_tf_version = "N/A"
-_tf_available = False
-_tf_candidates = (
-    "tensorflow",
-    "tensorflow-cpu",
-    "tensorflow-gpu",
-    "tf-nightly",
-    "tf-nightly-cpu",
-    "tf-nightly-gpu",
-    "intel-tensorflow",
-    "intel-tensorflow-avx512",
-    "tensorflow-rocm",
-    "tensorflow-macos",
-)
-for package_name in _tf_candidates:
-    try:
-        _tf_version = importlib_metadata.version(package_name)
-        _tf_available = True
-        break
-    except importlib_metadata.PackageNotFoundError:
-        pass
-
-_fastai_version = "N/A"
-_fastai_available = False
-try:
-    _fastai_version: str = importlib_metadata.version("fastai")
-    _fastai_available = True
-except importlib_metadata.PackageNotFoundError:
-    pass
-
-_fastcore_version = "N/A"
-_fastcore_available = False
-try:
-    _fastcore_version: str = importlib_metadata.version("fastcore")
-    _fastcore_available = True
-except importlib_metadata.PackageNotFoundError:
-    pass
-
-
-def is_torch_available():
-    return _torch_available
-
-
-def is_tf_available():
-    return _tf_available
-
-
-def get_tf_version():
-    return _tf_version
-
-
-def is_fastai_available():
-    return _fastai_available
-
-
-def get_fastai_version():
-    return _fastai_version
-
-
-def is_fastcore_available():
-    return _fastcore_available
-
-
-def get_fastcore_version():
-    return _fastcore_version
-
-
+# Return value when trying to load a file from cache but the file does not exist in the distant repo.
+_CACHED_NO_EXIST = object()
+_CACHED_NO_EXIST_T = Any
 REGEX_COMMIT_HASH = re.compile(r"^[0-9a-f]{40}$")
 
 
-@_deprecate_positional_args
+@dataclass(frozen=True)
+class HfFileMetadata:
+    """Data structure containing information about a file versioned on the Hub.
+
+    Returned by [`get_hf_file_metadata`] based on a URL.
+
+    Args:
+        commit_hash (`str`, *optional*):
+            The commit_hash related to the file.
+        etag (`str`, *optional*):
+            Etag of the file on the server.
+        location (`str`):
+            Location where to download the file. Can be a Hub url or not (CDN).
+        size (`size`):
+            Size of the file. In case of an LFS file, contains the size of the actual
+            LFS file, not the pointer.
+    """
+
+    commit_hash: Optional[str]
+    etag: Optional[str]
+    location: str
+    size: Optional[int]
+
+
+@validate_hf_hub_args
 def hf_hub_url(
     repo_id: str,
     filename: str,
@@ -174,8 +188,8 @@ def hf_hub_url(
         subfolder (`str`, *optional*):
             An optional value corresponding to a folder inside the repo.
         repo_type (`str`, *optional*):
-            Set to `"dataset"` or `"space"` if uploading to a dataset or space,
-            `None` or `"model"` if uploading to a model. Default is `None`.
+            Set to `"dataset"` or `"space"` if downloading from a dataset or space,
+            `None` or `"model"` if downloading from a model. Default is `None`.
         revision (`str`, *optional*):
             An optional Git revision id which can be a branch name, a tag, or a
             commit hash.
@@ -216,6 +230,8 @@ def hf_hub_url(
 
     -  [1] https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/ETag
     """
+    if subfolder == "":
+        subfolder = None
     if subfolder is not None:
         filename = f"{subfolder}/{filename}"
 
@@ -228,7 +244,9 @@ def hf_hub_url(
     if revision is None:
         revision = DEFAULT_REVISION
     return HUGGINGFACE_CO_URL_TEMPLATE.format(
-        repo_id=repo_id, revision=revision, filename=filename
+        repo_id=repo_id,
+        revision=quote(revision, safe=""),
+        filename=quote(filename),
     )
 
 
@@ -266,7 +284,7 @@ def url_to_filename(url: str, etag: Optional[str] = None) -> str:
 def filename_to_url(
     filename,
     cache_dir: Optional[str] = None,
-    legacy_cache_layout: Optional[bool] = False,
+    legacy_cache_layout: bool = False,
 ) -> Tuple[str, str]:
     """
     Return the url and etag (which may be `None`) stored for `filename`. Raise
@@ -309,45 +327,18 @@ def filename_to_url(
     return url, etag
 
 
-@_deprecate_positional_args
 def http_user_agent(
     *,
     library_name: Optional[str] = None,
     library_version: Optional[str] = None,
     user_agent: Union[Dict, str, None] = None,
 ) -> str:
-    """Formats a user-agent string with basic info about a request.
-
-    Args:
-        library_name (`str`, *optional*):
-            The name of the library to which the object corresponds.
-        library_version (`str`, *optional*):
-            The version of the library.
-        user_agent (`str`, `dict`, *optional*):
-            The user agent info in the form of a dictionary or a single string.
-
-    Returns:
-        The formatted user-agent string.
-    """
-    if library_name is not None:
-        ua = f"{library_name}/{library_version}"
-    else:
-        ua = "unknown/None"
-    ua += f"; hf_hub/{__version__}"
-    ua += f"; python/{_PY_VERSION}"
-    if is_torch_available():
-        ua += f"; torch/{_torch_version}"
-    if is_tf_available():
-        ua += f"; tensorflow/{_tf_version}"
-    if is_fastai_available():
-        ua += f"; fastai/{_fastai_version}"
-    if is_fastcore_available():
-        ua += f"; fastcore/{_fastcore_version}"
-    if isinstance(user_agent, dict):
-        ua += "; " + "; ".join(f"{k}/{v}" for k, v in user_agent.items())
-    elif isinstance(user_agent, str):
-        ua += "; " + user_agent
-    return ua
+    """Deprecated in favor of [`build_hf_headers`]."""
+    return _http_user_agent(
+        library_name=library_name,
+        library_version=library_version,
+        user_agent=user_agent,
+    )
 
 
 class OfflineModeIsEnabled(ConnectionError):
@@ -359,72 +350,115 @@ def _raise_if_offline_mode_is_enabled(msg: Optional[str] = None):
     HF_HUB_OFFLINE is True."""
     if constants.HF_HUB_OFFLINE:
         raise OfflineModeIsEnabled(
-            "Offline mode is enabled."
-            if msg is None
-            else "Offline mode is enabled. " + str(msg)
+            "Offline mode is enabled." if msg is None else "Offline mode is enabled. " + str(msg)
         )
 
 
-def _request_with_retry(
-    method: str,
+def _request_wrapper(
+    method: HTTP_METHOD_T,
     url: str,
     *,
     max_retries: int = 0,
     base_wait_time: float = 0.5,
     max_wait_time: float = 2,
     timeout: float = 10.0,
+    follow_relative_redirects: bool = False,
     **params,
 ) -> requests.Response:
-    """Wrapper around requests to retry in case it fails with a `ConnectTimeout`, with
-    exponential backoff.
+    """Wrapper around requests methods to add several features.
 
-        Note that if the environment variable HF_HUB_OFFLINE is set to 1, then a
-        `OfflineModeIsEnabled` error is raised.
+    What it does:
+    1. Ensure offline mode is disabled (env variable `HF_HUB_OFFLINE` not set to 1).
+       If enabled, a `OfflineModeIsEnabled` exception is raised.
+    2. Follow relative redirections if `follow_relative_redirects=True` even when
+       `allow_redirection` kwarg is set to False.
+    3. Retry in case request fails with a `ConnectTimeout`, with exponential backoff.
 
-        Args:
-            method (`str`):
-                HTTP method, such as 'GET' or 'HEAD'.
-            url (`str`):
-                The URL of the resource to fetch.
-            max_retries (`int`, *optional*, defaults to `0`):
-                Maximum number of retries, defaults to 0 (no retries).
-            base_wait_time (`float`, *optional*, defaults to `0.5`):
-                Duration (in seconds) to wait before retrying the first time.
-                Wait time between retries then grows exponentially, capped by
-                `max_wait_time`.
-            max_wait_time (`float`, *optional*, defaults to `2`):
-                Maximum amount of time between two retries, in seconds.
-            timeout (`float`, *optional*, defaults to `10`):
-                How many seconds to wait for the server to send data before
-                giving up which is passed to `requests.request`.
-            **params (`dict`, *optional*):
-                Params to pass to `requests.request`.
+    Args:
+        method (`str`):
+            HTTP method, such as 'GET' or 'HEAD'.
+        url (`str`):
+            The URL of the resource to fetch.
+        max_retries (`int`, *optional*, defaults to `0`):
+            Maximum number of retries, defaults to 0 (no retries).
+        base_wait_time (`float`, *optional*, defaults to `0.5`):
+            Duration (in seconds) to wait before retrying the first time.
+            Wait time between retries then grows exponentially, capped by
+            `max_wait_time`.
+        max_wait_time (`float`, *optional*, defaults to `2`):
+            Maximum amount of time between two retries, in seconds.
+        timeout (`float`, *optional*, defaults to `10`):
+            How many seconds to wait for the server to send data before
+            giving up which is passed to `requests.request`.
+        follow_relative_redirects (`bool`, *optional*, defaults to `False`)
+            If True, relative redirection (redirection to the same site) will be
+            resolved even when `allow_redirection` kwarg is set to False. Useful when we
+            want to follow a redirection to a renamed repository without following
+            redirection to a CDN.
+        **params (`dict`, *optional*):
+            Params to pass to `requests.request`.
     """
+    # 1. Check online mode
     _raise_if_offline_mode_is_enabled(f"Tried to reach {url}")
-    tries, success = 0, False
-    while not success:
-        tries += 1
-        try:
-            response = requests.request(
-                method=method.upper(), url=url, timeout=timeout, **params
-            )
-            success = True
-        except requests.exceptions.ConnectTimeout as err:
-            if tries > max_retries:
-                raise err
-            else:
-                logger.info(
-                    f"{method} request to {url} timed out, retrying..."
-                    f" [{tries/max_retries}]"
+
+    # 2. Force relative redirection
+    if follow_relative_redirects:
+        response = _request_wrapper(
+            method=method,
+            url=url,
+            max_retries=max_retries,
+            base_wait_time=base_wait_time,
+            max_wait_time=max_wait_time,
+            timeout=timeout,
+            follow_relative_redirects=False,
+            **params,
+        )
+
+        # If redirection, we redirect only relative paths.
+        # This is useful in case of a renamed repository.
+        if 300 <= response.status_code <= 399:
+            parsed_target = urlparse(response.headers["Location"])
+            if parsed_target.netloc == "":
+                # This means it is a relative 'location' headers, as allowed by RFC 7231.
+                # (e.g. '/path/to/resource' instead of 'http://domain.tld/path/to/resource')
+                # We want to follow this relative redirect !
+                #
+                # Highly inspired by `resolve_redirects` from requests library.
+                # See https://github.com/psf/requests/blob/main/requests/sessions.py#L159
+                return _request_wrapper(
+                    method=method,
+                    url=urlparse(url)._replace(path=parsed_target.path).geturl(),
+                    max_retries=max_retries,
+                    base_wait_time=base_wait_time,
+                    max_wait_time=max_wait_time,
+                    timeout=timeout,
+                    follow_relative_redirects=True,  # resolve recursively
+                    **params,
                 )
-                sleep_time = min(
-                    max_wait_time, base_wait_time * 2 ** (tries - 1)
-                )  # Exponential backoff
-                time.sleep(sleep_time)
-    return response
+        return response
+
+    # 3. Exponential backoff
+    return http_backoff(
+        method=method,
+        url=url,
+        max_retries=max_retries,
+        base_wait_time=base_wait_time,
+        max_wait_time=max_wait_time,
+        retry_on_exceptions=(ConnectTimeout, ProxyError),
+        retry_on_status_codes=(),
+        timeout=timeout,
+        **params,
+    )
 
 
-@_deprecate_positional_args
+def _request_with_retry(*args, **kwargs) -> requests.Response:
+    """Deprecated method. Please use `_request_wrapper` instead.
+
+    Alias to keep backward compatibility (used in Transformers).
+    """
+    return _request_wrapper(*args, **kwargs)
+
+
 def http_get(
     url: str,
     temp_file: BinaryIO,
@@ -436,12 +470,38 @@ def http_get(
     max_retries=0,
 ):
     """
-    Donwload remote file. Do not gobble up errors.
+    Download a remote file. Do not gobble up errors, and will return errors tailored to the Hugging Face Hub.
     """
-    headers = copy.deepcopy(headers)
+    if not resume_size:
+        if HF_HUB_ENABLE_HF_TRANSFER:
+            try:
+                # Download file using an external Rust-based package. Download is faster
+                # (~2x speed-up) but support less features (no error handling, no retries,
+                # no progress bars).
+                from hf_transfer import download
+
+                logger.debug(f"Download {url} using HF_TRANSFER.")
+                max_files = 100
+                chunk_size = 10 * 1024 * 1024  # 10 MB
+                download(url, temp_file.name, max_files, chunk_size)
+                return
+            except ImportError:
+                raise ValueError(
+                    "Fast download using 'hf_transfer' is enabled"
+                    " (HF_HUB_ENABLE_HF_TRANSFER=1) but 'hf_transfer' package is not"
+                    " available in your environment. Try `pip install hf_transfer`."
+                )
+            except Exception as e:
+                raise RuntimeError(
+                    "An error occurred while downloading using `hf_transfer`. Consider"
+                    " disabling HF_HUB_ENABLE_HF_TRANSFER for better error handling."
+                ) from e
+
+    headers = copy.deepcopy(headers) or {}
     if resume_size > 0:
         headers["Range"] = "bytes=%d-" % (resume_size,)
-    r = _request_with_retry(
+
+    r = _request_wrapper(
         method="GET",
         url=url,
         stream=True,
@@ -450,25 +510,38 @@ def http_get(
         timeout=timeout,
         max_retries=max_retries,
     )
-    r.raise_for_status()
+    hf_raise_for_status(r)
     content_length = r.headers.get("Content-Length")
     total = resume_size + int(content_length) if content_length is not None else None
+
+    displayed_name = url
+    content_disposition = r.headers.get("Content-Disposition")
+    if content_disposition is not None:
+        match = HEADER_FILENAME_PATTERN.search(content_disposition)
+        if match is not None:
+            # Means file is on CDN
+            displayed_name = match.groupdict()["filename"]
+
+    # Truncate filename if too long to display
+    if len(displayed_name) > 22:
+        displayed_name = f"(…){displayed_name[-20:]}"
+
     progress = tqdm(
         unit="B",
         unit_scale=True,
         total=total,
         initial=resume_size,
-        desc="Downloading",
+        desc=f"Downloading {displayed_name}",
         disable=bool(logger.getEffectiveLevel() == logging.NOTSET),
     )
-    for chunk in r.iter_content(chunk_size=1024):
+    for chunk in r.iter_content(chunk_size=10 * 1024 * 1024):
         if chunk:  # filter out keep-alive new chunks
             progress.update(len(chunk))
             temp_file.write(chunk)
     progress.close()
 
 
-@_deprecate_positional_args
+@validate_hf_hub_args
 def cached_download(
     url: str,
     *,
@@ -476,14 +549,14 @@ def cached_download(
     library_version: Optional[str] = None,
     cache_dir: Union[str, Path, None] = None,
     user_agent: Union[Dict, str, None] = None,
-    force_download: Optional[bool] = False,
+    force_download: bool = False,
     force_filename: Optional[str] = None,
     proxies: Optional[Dict] = None,
-    etag_timeout: Optional[float] = 10,
-    resume_download: Optional[bool] = False,
-    use_auth_token: Union[bool, str, None] = None,
-    local_files_only: Optional[bool] = False,
-    legacy_cache_layout: Optional[bool] = False,
+    etag_timeout: float = 10,
+    resume_download: bool = False,
+    token: Union[bool, str, None] = None,
+    local_files_only: bool = False,
+    legacy_cache_layout: bool = False,
 ) -> Optional[str]:  # pragma: no cover
     """
     Download from a given URL and cache it if it's not already present in the
@@ -492,6 +565,8 @@ def cached_download(
     Given a URL, this function looks for the corresponding file in the local
     cache. If it's not there, download it. Then return the path to the cached
     file.
+
+    Will raise errors tailored to the Hugging Face Hub.
 
     Args:
         url (`str`):
@@ -517,7 +592,7 @@ def cached_download(
             data before giving up which is passed to `requests.request`.
         resume_download (`bool`, *optional*, defaults to `False`):
             If `True`, resume a previously interrupted download.
-        use_auth_token (`bool`, `str`, *optional*):
+        token (`bool`, `str`, *optional*):
             A token to be used for the download.
                 - If `True`, the token is read from the HuggingFace config
                   folder.
@@ -540,18 +615,29 @@ def cached_download(
     Raises the following errors:
 
         - [`EnvironmentError`](https://docs.python.org/3/library/exceptions.html#EnvironmentError)
-          if `use_auth_token=True` and the token cannot be found.
+          if `token=True` and the token cannot be found.
         - [`OSError`](https://docs.python.org/3/library/exceptions.html#OSError)
           if ETag cannot be determined.
         - [`ValueError`](https://docs.python.org/3/library/exceptions.html#ValueError)
           if some parameter value is invalid
+        - [`~utils.RepositoryNotFoundError`]
+          If the repository to download from cannot be found. This may be because it doesn't exist,
+          or because it is set to `private` and you do not have access.
+        - [`~utils.RevisionNotFoundError`]
+          If the revision to download from cannot be found.
+        - [`~utils.EntryNotFoundError`]
+          If the file to download cannot be found.
+        - [`~utils.LocalEntryNotFoundError`]
+          If network is disabled or unavailable and file is not found in cache.
 
     </Tip>
     """
     if not legacy_cache_layout:
         warnings.warn(
-            "`cached_download` is the legacy way to download files from the HF hub,"
-            " please consider upgrading to `hf_hub_download`",
+            (
+                "`cached_download` is the legacy way to download files from the HF hub,"
+                " please consider upgrading to `hf_hub_download`"
+            ),
             FutureWarning,
         )
 
@@ -562,52 +648,42 @@ def cached_download(
 
     os.makedirs(cache_dir, exist_ok=True)
 
-    headers = {
-        "user-agent": http_user_agent(
-            library_name=library_name,
-            library_version=library_version,
-            user_agent=user_agent,
-        )
-    }
-    if isinstance(use_auth_token, str):
-        headers["authorization"] = f"Bearer {use_auth_token}"
-    elif use_auth_token:
-        token = HfFolder.get_token()
-        if token is None:
-            raise EnvironmentError(
-                "You specified use_auth_token=True, but a huggingface token was not"
-                " found."
-            )
-        headers["authorization"] = f"Bearer {token}"
+    headers = build_hf_headers(
+        token=token,
+        library_name=library_name,
+        library_version=library_version,
+        user_agent=user_agent,
+    )
 
     url_to_download = url
     etag = None
     if not local_files_only:
         try:
-            r = _request_with_retry(
+            r = _request_wrapper(
                 method="HEAD",
                 url=url,
                 headers=headers,
                 allow_redirects=False,
+                follow_relative_redirects=True,
                 proxies=proxies,
                 timeout=etag_timeout,
             )
-            r.raise_for_status()
+            hf_raise_for_status(r)
             etag = r.headers.get("X-Linked-Etag") or r.headers.get("ETag")
             # We favor a custom header indicating the etag of the linked resource, and
             # we fallback to the regular etag header.
             # If we don't have any of those, raise an error.
             if etag is None:
                 raise OSError(
-                    "Distant resource does not have an ETag, we won't be able to"
-                    " reliably ensure reproducibility."
+                    "Distant resource does not have an ETag, we won't be able to reliably ensure reproducibility."
                 )
-            # In case of a redirect,
-            # save an extra redirect on the request.get call,
+            # In case of a redirect, save an extra redirect on the request.get call,
             # and ensure we download the exact atomic version even if it changed
             # between the HEAD and the GET (unlikely, but hey).
+            # Useful for lfs blobs that are stored on a CDN.
             if 300 <= r.status_code <= 399:
                 url_to_download = r.headers["Location"]
+                headers.pop("authorization", None)
         except (requests.exceptions.SSLError, requests.exceptions.ProxyError):
             # Actually raise for those subclasses of ConnectionError
             raise
@@ -620,9 +696,7 @@ def cached_download(
             # etag is None
             pass
 
-    filename = (
-        force_filename if force_filename is not None else url_to_filename(url, etag)
-    )
+    filename = force_filename if force_filename is not None else url_to_filename(url, etag)
 
     # get cache path to put the file
     cache_path = os.path.join(cache_dir, filename)
@@ -635,29 +709,23 @@ def cached_download(
         else:
             matching_files = [
                 file
-                for file in fnmatch.filter(
-                    os.listdir(cache_dir), filename.split(".")[0] + ".*"
-                )
+                for file in fnmatch.filter(os.listdir(cache_dir), filename.split(".")[0] + ".*")
                 if not file.endswith(".json") and not file.endswith(".lock")
             ]
-            if (
-                len(matching_files) > 0
-                and not force_download
-                and force_filename is None
-            ):
+            if len(matching_files) > 0 and not force_download and force_filename is None:
                 return os.path.join(cache_dir, matching_files[-1])
             else:
                 # If files cannot be found and local_files_only=True,
                 # the models might've been found if local_files_only=False
                 # Notify the user about that
                 if local_files_only:
-                    raise ValueError(
+                    raise LocalEntryNotFoundError(
                         "Cannot find the requested files in the cached path and"
                         " outgoing traffic has been disabled. To enable model look-ups"
                         " and downloads online, set 'local_files_only' to False."
                     )
                 else:
-                    raise ValueError(
+                    raise LocalEntryNotFoundError(
                         "Connection error, and we cannot find the requested files in"
                         " the cached path. Please try again or make sure your Internet"
                         " connection is on."
@@ -679,7 +747,6 @@ def cached_download(
         cache_path = "\\\\?\\" + os.path.abspath(cache_path)
 
     with FileLock(lock_path):
-
         # If the download just completed while the lock was activated.
         if os.path.exists(cache_path) and not force_download:
             # Even if returning early like here, the lock will be released.
@@ -689,7 +756,7 @@ def cached_download(
             incomplete_path = cache_path + ".incomplete"
 
             @contextmanager
-            def _resumable_file_manager() -> "io.BufferedWriter":
+            def _resumable_file_manager() -> Generator[io.BufferedWriter, None, None]:
                 with open(incomplete_path, "ab") as f:
                     yield f
 
@@ -699,7 +766,7 @@ def cached_download(
             else:
                 resume_size = 0
         else:
-            temp_file_manager = partial(
+            temp_file_manager = partial(  # type: ignore
                 tempfile.NamedTemporaryFile, mode="wb", dir=cache_dir, delete=False
             )
             resume_size = 0
@@ -718,7 +785,7 @@ def cached_download(
             )
 
         logger.info("storing %s in cache at %s", url, cache_path)
-        os.replace(temp_file.name, cache_path)
+        _chmod_and_replace(temp_file.name, cache_path)
 
         if force_filename is None:
             logger.info("creating metadata file for %s", cache_path)
@@ -730,7 +797,7 @@ def cached_download(
     return cache_path
 
 
-def _normalize_etag(etag: str) -> str:
+def _normalize_etag(etag: Optional[str]) -> Optional[str]:
     """Normalize ETag HTTP header, so it can be used to create nice filepaths.
 
     The HTTP spec allows two forms of ETag:
@@ -740,15 +807,18 @@ def _normalize_etag(etag: str) -> str:
     The hf.co hub guarantees to only send the second form.
 
     Args:
-        etag (`str`): HTTP header
+        etag (`str`, *optional*): HTTP header
 
     Returns:
-        `str`: string that can be used as a nice directory name.
+        `str` or `None`: string that can be used as a nice directory name.
+        Returns `None` if input is None.
     """
+    if etag is None:
+        return None
     return etag.strip('"')
 
 
-def _create_relative_symlink(src: str, dst: str) -> None:
+def _create_relative_symlink(src: str, dst: str, new_blob: bool = False) -> None:
     """Create a symbolic link named dst pointing to src as a relative path to dst.
 
     The relative part is mostly because it seems more elegant to the author.
@@ -758,27 +828,60 @@ def _create_relative_symlink(src: str, dst: str) -> None:
             ├── [ 128]  2439f60ef33a0d46d85da5001d52aeda5b00ce9f
             │   ├── [  52]  README.md -> ../../blobs/d7edf6bd2a681fb0175f7735299831ee1b22b812
             │   └── [  76]  pytorch_model.bin -> ../../blobs/403450e234d65943a7dcf7e05a771ce3c92faa84dd07db4ac20f592037a1e4bd
+
+    If symlinks cannot be created on this platform (most likely to be Windows), the
+    workaround is to avoid symlinks by having the actual file in `dst`. If it is a new
+    file (`new_blob=True`), we move it to `dst`. If it is not a new file
+    (`new_blob=False`), we don't know if the blob file is already referenced elsewhere.
+    To avoid breaking existing cache, the file is duplicated on the disk.
+
+    In case symlinks are not supported, a warning message is displayed to the user once
+    when loading `huggingface_hub`. The warning message can be disable with the
+    `DISABLE_SYMLINKS_WARNING` environment variable.
     """
-    relative_src = os.path.relpath(src, start=os.path.dirname(dst))
     try:
         os.remove(dst)
     except OSError:
         pass
-    try:
-        os.symlink(relative_src, dst)
-    except OSError:
-        # Likely running on Windows
-        if os.name == "nt":
-            raise OSError(
-                "Windows requires Developer Mode to be activated, or to run Python as "
-                "an administrator, in order to create symlinks.\nIn order to "
-                "activate Developer Mode, see this article: "
-                "https://docs.microsoft.com/en-us/windows/apps/get-started/enable-your-device-for-development"
-            )
-        else:
-            raise
+
+    cache_dir = os.path.dirname(os.path.commonpath([src, dst]))
+    if are_symlinks_supported(cache_dir=cache_dir):
+        relative_src = os.path.relpath(src, start=os.path.dirname(dst))
+        try:
+            os.symlink(relative_src, dst)
+        except FileExistsError:
+            if os.path.islink(dst) and os.path.realpath(dst) == os.path.realpath(src):
+                # `dst` already exists and is a symlink to the `src` blob. It is most
+                # likely that the file has been cached twice concurrently (exactly
+                # between `os.remove` and `os.symlink`). Do nothing.
+                pass
+            else:
+                # Very unlikely to happen. Means a file `dst` has been created exactly
+                # between `os.remove` and `os.symlink` and is not a symlink to the `src`
+                # blob file. Raise exception.
+                raise
+    elif new_blob:
+        os.replace(src, dst)
+    else:
+        shutil.copyfile(src, dst)
 
 
+def _cache_commit_hash_for_specific_revision(storage_folder: str, revision: str, commit_hash: str) -> None:
+    """Cache reference between a revision (tag, branch or truncated commit hash) and the corresponding commit hash.
+
+    Does nothing if `revision` is already a proper `commit_hash` or reference is already cached.
+    """
+    if revision != commit_hash:
+        ref_path = Path(storage_folder) / "refs" / revision
+        ref_path.parent.mkdir(parents=True, exist_ok=True)
+        if not ref_path.exists() or commit_hash != ref_path.read_text():
+            # Update ref only if has been updated. Could cause useless error in case
+            # repo is already cached and user doesn't have write access to cache folder.
+            # See https://github.com/huggingface/huggingface_hub/issues/1216.
+            ref_path.write_text(commit_hash)
+
+
+@validate_hf_hub_args
 def repo_folder_name(*, repo_id: str, repo_type: str) -> str:
     """Return a serialized version of a hf.co repo name and type, safe for disk storage
     as a single non-nested folder.
@@ -790,7 +893,7 @@ def repo_folder_name(*, repo_id: str, repo_type: str) -> str:
     return REPO_ID_SEPARATOR.join(parts)
 
 
-@_deprecate_positional_args
+@validate_hf_hub_args
 def hf_hub_download(
     repo_id: str,
     filename: str,
@@ -802,14 +905,14 @@ def hf_hub_download(
     library_version: Optional[str] = None,
     cache_dir: Union[str, Path, None] = None,
     user_agent: Union[Dict, str, None] = None,
-    force_download: Optional[bool] = False,
+    force_download: bool = False,
     force_filename: Optional[str] = None,
     proxies: Optional[Dict] = None,
-    etag_timeout: Optional[float] = 10,
-    resume_download: Optional[bool] = False,
-    use_auth_token: Union[bool, str, None] = None,
-    local_files_only: Optional[bool] = False,
-    legacy_cache_layout: Optional[bool] = False,
+    etag_timeout: float = 10,
+    resume_download: bool = False,
+    token: Union[bool, str, None] = None,
+    local_files_only: bool = False,
+    legacy_cache_layout: bool = False,
 ):
     """Download a given file if it's not already present in the local cache.
 
@@ -823,6 +926,7 @@ def hf_hub_download(
           that have been resolved at that particular commit. Each filename is a symlink to the blob
           at that particular commit.
 
+    ```
     [  96]  .
     └── [ 160]  models--julien-c--EsperBERTo-small
         ├── [ 160]  blobs
@@ -838,6 +942,7 @@ def hf_hub_download(
             └── [ 128]  bbc77c8132af1cc5cf678da3f1ddf2de43606d48
                 ├── [  52]  README.md -> ../../blobs/7cb18dc9bafbfcf74629a4b760af1b160957a83e
                 └── [  76]  pytorch_model.bin -> ../../blobs/403450e234d65943a7dcf7e05a771ce3c92faa84dd07db4ac20f592037a1e4bd
+    ```
 
     Args:
         repo_id (`str`):
@@ -847,8 +952,8 @@ def hf_hub_download(
         subfolder (`str`, *optional*):
             An optional value corresponding to a folder inside the model repo.
         repo_type (`str`, *optional*):
-            Set to `"dataset"` or `"space"` if uploading to a dataset or space,
-            `None` or `"model"` if uploading to a model. Default is `None`.
+            Set to `"dataset"` or `"space"` if downloading from a dataset or space,
+            `None` or `"model"` if downloading from a model. Default is `None`.
         revision (`str`, *optional*):
             An optional Git revision id which can be a branch name, a tag, or a
             commit hash.
@@ -871,7 +976,7 @@ def hf_hub_download(
             data before giving up which is passed to `requests.request`.
         resume_download (`bool`, *optional*, defaults to `False`):
             If `True`, resume a previously interrupted download.
-        use_auth_token (`str`, `bool`, *optional*):
+        token (`str`, `bool`, *optional*):
             A token to be used for the download.
                 - If `True`, the token is read from the HuggingFace config
                   folder.
@@ -893,18 +998,29 @@ def hf_hub_download(
     Raises the following errors:
 
         - [`EnvironmentError`](https://docs.python.org/3/library/exceptions.html#EnvironmentError)
-          if `use_auth_token=True` and the token cannot be found.
+          if `token=True` and the token cannot be found.
         - [`OSError`](https://docs.python.org/3/library/exceptions.html#OSError)
           if ETag cannot be determined.
         - [`ValueError`](https://docs.python.org/3/library/exceptions.html#ValueError)
           if some parameter value is invalid
+        - [`~utils.RepositoryNotFoundError`]
+          If the repository to download from cannot be found. This may be because it doesn't exist,
+          or because it is set to `private` and you do not have access.
+        - [`~utils.RevisionNotFoundError`]
+          If the revision to download from cannot be found.
+        - [`~utils.EntryNotFoundError`]
+          If the file to download cannot be found.
+        - [`~utils.LocalEntryNotFoundError`]
+          If network is disabled or unavailable and file is not found in cache.
 
     </Tip>
     """
     if force_filename is not None:
         warnings.warn(
-            "The `force_filename` parameter is deprecated as a new caching system, "
-            "which keeps the filenames as they are on the Hub, is now in place.",
+            (
+                "The `force_filename` parameter is deprecated as a new caching system, "
+                "which keeps the filenames as they are on the Hub, is now in place."
+            ),
             FutureWarning,
         )
         legacy_cache_layout = True
@@ -929,7 +1045,7 @@ def hf_hub_download(
             proxies=proxies,
             etag_timeout=etag_timeout,
             resume_download=resume_download,
-            use_auth_token=use_auth_token,
+            token=token,
             local_files_only=local_files_only,
             legacy_cache_layout=legacy_cache_layout,
         )
@@ -941,6 +1057,8 @@ def hf_hub_download(
     if isinstance(cache_dir, Path):
         cache_dir = str(cache_dir)
 
+    if subfolder == "":
+        subfolder = None
     if subfolder is not None:
         # This is used to create a URL, and not a local path, hence the forward slash.
         filename = f"{subfolder}/{filename}"
@@ -948,14 +1066,9 @@ def hf_hub_download(
     if repo_type is None:
         repo_type = "model"
     if repo_type not in REPO_TYPES:
-        raise ValueError(
-            f"Invalid repo type: {repo_type}. Accepted repo types are:"
-            f" {str(REPO_TYPES)}"
-        )
+        raise ValueError(f"Invalid repo type: {repo_type}. Accepted repo types are: {str(REPO_TYPES)}")
 
-    storage_folder = os.path.join(
-        cache_dir, repo_folder_name(repo_id=repo_id, repo_type=repo_type)
-    )
+    storage_folder = os.path.join(cache_dir, repo_folder_name(repo_id=repo_id, repo_type=repo_type))
     os.makedirs(storage_folder, exist_ok=True)
 
     # cross platform transcription of filename, to be used as a local file path.
@@ -964,70 +1077,64 @@ def hf_hub_download(
     # if user provides a commit_hash and they already have the file on disk,
     # shortcut everything.
     if REGEX_COMMIT_HASH.match(revision):
-        pointer_path = os.path.join(
-            storage_folder, "snapshots", revision, relative_filename
-        )
+        pointer_path = os.path.join(storage_folder, "snapshots", revision, relative_filename)
         if os.path.exists(pointer_path):
             return pointer_path
 
     url = hf_hub_url(repo_id, filename, repo_type=repo_type, revision=revision)
 
-    headers = {
-        "user-agent": http_user_agent(
-            library_name=library_name,
-            library_version=library_version,
-            user_agent=user_agent,
-        )
-    }
-    if isinstance(use_auth_token, str):
-        headers["authorization"] = f"Bearer {use_auth_token}"
-    elif use_auth_token:
-        token = HfFolder.get_token()
-        if token is None:
-            raise EnvironmentError(
-                "You specified use_auth_token=True, but a huggingface token was not"
-                " found."
-            )
-        headers["authorization"] = f"Bearer {token}"
+    headers = build_hf_headers(
+        token=token,
+        library_name=library_name,
+        library_version=library_version,
+        user_agent=user_agent,
+    )
 
     url_to_download = url
     etag = None
     commit_hash = None
     if not local_files_only:
         try:
-            r = _request_with_retry(
-                method="HEAD",
-                url=url,
-                headers=headers,
-                allow_redirects=False,
-                proxies=proxies,
-                timeout=etag_timeout,
-            )
-            r.raise_for_status()
-            commit_hash = r.headers[HUGGINGFACE_HEADER_X_REPO_COMMIT]
-            if commit_hash is None:
-                raise OSError(
-                    "Distant resource does not seem to be on huggingface.co (missing"
-                    " commit header)."
+            try:
+                metadata = get_hf_file_metadata(
+                    url=url,
+                    token=token,
+                    proxies=proxies,
+                    timeout=etag_timeout,
                 )
-            etag = r.headers.get(HUGGINGFACE_HEADER_X_LINKED_ETAG) or r.headers.get(
-                "ETag"
-            )
+            except EntryNotFoundError as http_error:
+                # Cache the non-existence of the file and raise
+                commit_hash = http_error.response.headers.get(HUGGINGFACE_HEADER_X_REPO_COMMIT)
+                if commit_hash is not None and not legacy_cache_layout:
+                    no_exist_file_path = Path(storage_folder) / ".no_exist" / commit_hash / relative_filename
+                    no_exist_file_path.parent.mkdir(parents=True, exist_ok=True)
+                    no_exist_file_path.touch()
+                    _cache_commit_hash_for_specific_revision(storage_folder, revision, commit_hash)
+                raise
+
+            # Commit hash must exist
+            commit_hash = metadata.commit_hash
+            if commit_hash is None:
+                raise OSError("Distant resource does not seem to be on huggingface.co (missing commit header).")
+
+            # Etag must exist
+            etag = metadata.etag
             # We favor a custom header indicating the etag of the linked resource, and
             # we fallback to the regular etag header.
             # If we don't have any of those, raise an error.
             if etag is None:
                 raise OSError(
-                    "Distant resource does not have an ETag, we won't be able to"
-                    " reliably ensure reproducibility."
+                    "Distant resource does not have an ETag, we won't be able to reliably ensure reproducibility."
                 )
-            etag = _normalize_etag(etag)
-            # In case of a redirect,
-            # save an extra redirect on the request.get call,
+
+            # In case of a redirect, save an extra redirect on the request.get call,
             # and ensure we download the exact atomic version even if it changed
             # between the HEAD and the GET (unlikely, but hey).
-            if 300 <= r.status_code <= 399:
-                url_to_download = r.headers["Location"]
+            # Useful for lfs blobs that are stored on a CDN.
+            if metadata.location != url:
+                url_to_download = metadata.location
+                # Remove authorization header when downloading a LFS blob
+                headers.pop("authorization", None)
         except (requests.exceptions.SSLError, requests.exceptions.ProxyError):
             # Actually raise for those subclasses of ConnectionError
             raise
@@ -1048,21 +1155,24 @@ def hf_hub_download(
         # In those cases, we cannot force download.
         if force_download:
             raise ValueError(
-                "We have no connection or you passed local_files_only, so"
-                " force_download is not an accepted option."
+                "We have no connection or you passed local_files_only, so force_download is not an accepted option."
             )
+
+        # Try to get "commit_hash" from "revision"
+        commit_hash = None
         if REGEX_COMMIT_HASH.match(revision):
             commit_hash = revision
         else:
             ref_path = os.path.join(storage_folder, "refs", revision)
-            with open(ref_path) as f:
-                commit_hash = f.read()
+            if os.path.isfile(ref_path):
+                with open(ref_path) as f:
+                    commit_hash = f.read()
 
-        pointer_path = os.path.join(
-            storage_folder, "snapshots", commit_hash, relative_filename
-        )
-        if os.path.exists(pointer_path):
-            return pointer_path
+        # Return pointer file if exists
+        if commit_hash is not None:
+            pointer_path = os.path.join(storage_folder, "snapshots", commit_hash, relative_filename)
+            if os.path.exists(pointer_path):
+                return pointer_path
 
         # If we couldn't find an appropriate file on disk,
         # raise an error.
@@ -1070,34 +1180,30 @@ def hf_hub_download(
         # the models might've been found if local_files_only=False
         # Notify the user about that
         if local_files_only:
-            raise ValueError(
+            raise LocalEntryNotFoundError(
                 "Cannot find the requested files in the disk cache and"
                 " outgoing traffic has been disabled. To enable hf.co look-ups"
                 " and downloads online, set 'local_files_only' to False."
             )
         else:
-            raise ValueError(
+            raise LocalEntryNotFoundError(
                 "Connection error, and we cannot find the requested files in"
                 " the disk cache. Please try again or make sure your Internet"
                 " connection is on."
             )
 
     # From now on, etag and commit_hash are not None.
+    assert etag is not None, "etag must have been retrieved from server"
+    assert commit_hash is not None, "commit_hash must have been retrieved from server"
     blob_path = os.path.join(storage_folder, "blobs", etag)
-    pointer_path = os.path.join(
-        storage_folder, "snapshots", commit_hash, relative_filename
-    )
+    pointer_path = os.path.join(storage_folder, "snapshots", commit_hash, relative_filename)
 
     os.makedirs(os.path.dirname(blob_path), exist_ok=True)
     os.makedirs(os.path.dirname(pointer_path), exist_ok=True)
     # if passed revision is not identical to commit_hash
     # then revision has to be a branch name or tag name.
     # In that case store a ref.
-    if revision != commit_hash:
-        ref_path = os.path.join(storage_folder, "refs", revision)
-        os.makedirs(os.path.dirname(ref_path), exist_ok=True)
-        with open(ref_path, "w") as f:
-            f.write(commit_hash)
+    _cache_commit_hash_for_specific_revision(storage_folder, revision, commit_hash)
 
     if os.path.exists(pointer_path) and not force_download:
         return pointer_path
@@ -1105,7 +1211,7 @@ def hf_hub_download(
     if os.path.exists(blob_path) and not force_download:
         # we have the blob already, but not the pointer
         logger.info("creating pointer to %s from %s", blob_path, pointer_path)
-        _create_relative_symlink(blob_path, pointer_path)
+        _create_relative_symlink(blob_path, pointer_path, new_blob=False)
         return pointer_path
 
     # Prevent parallel downloads of the same file with a lock.
@@ -1120,7 +1226,6 @@ def hf_hub_download(
         blob_path = "\\\\?\\" + os.path.abspath(blob_path)
 
     with FileLock(lock_path):
-
         # If the download just completed while the lock was activated.
         if os.path.exists(pointer_path) and not force_download:
             # Even if returning early like here, the lock will be released.
@@ -1130,7 +1235,7 @@ def hf_hub_download(
             incomplete_path = blob_path + ".incomplete"
 
             @contextmanager
-            def _resumable_file_manager() -> "io.BufferedWriter":
+            def _resumable_file_manager() -> Generator[io.BufferedWriter, None, None]:
                 with open(incomplete_path, "ab") as f:
                     yield f
 
@@ -1140,7 +1245,7 @@ def hf_hub_download(
             else:
                 resume_size = 0
         else:
-            temp_file_manager = partial(
+            temp_file_manager = partial(  # type: ignore
                 tempfile.NamedTemporaryFile, mode="wb", dir=cache_dir, delete=False
             )
             resume_size = 0
@@ -1159,10 +1264,10 @@ def hf_hub_download(
             )
 
         logger.info("storing %s in cache at %s", url, blob_path)
-        os.replace(temp_file.name, blob_path)
+        _chmod_and_replace(temp_file.name, blob_path)
 
         logger.info("creating pointer to %s from %s", blob_path, pointer_path)
-        _create_relative_symlink(blob_path, pointer_path)
+        _create_relative_symlink(blob_path, pointer_path, new_blob=True)
 
     try:
         os.remove(lock_path)
@@ -1170,3 +1275,187 @@ def hf_hub_download(
         pass
 
     return pointer_path
+
+
+@validate_hf_hub_args
+def try_to_load_from_cache(
+    repo_id: str,
+    filename: str,
+    cache_dir: Union[str, Path, None] = None,
+    revision: Optional[str] = None,
+    repo_type: Optional[str] = None,
+) -> Union[str, _CACHED_NO_EXIST_T, None]:
+    """
+    Explores the cache to return the latest cached file for a given revision if found.
+
+    This function will not raise any exception if the file in not cached.
+
+    Args:
+        cache_dir (`str` or `os.PathLike`):
+            The folder where the cached files lie.
+        repo_id (`str`):
+            The ID of the repo on huggingface.co.
+        filename (`str`):
+            The filename to look for inside `repo_id`.
+        revision (`str`, *optional*):
+            The specific model version to use. Will default to `"main"` if it's not provided and no `commit_hash` is
+            provided either.
+        repo_type (`str`, *optional*):
+            The type of the repository. Will default to `"model"`.
+
+    Returns:
+        `Optional[str]` or `_CACHED_NO_EXIST`:
+            Will return `None` if the file was not cached. Otherwise:
+            - The exact path to the cached file if it's found in the cache
+            - A special value `_CACHED_NO_EXIST` if the file does not exist at the given commit hash and this fact was
+              cached.
+
+    Example:
+
+    ```python
+    from huggingface_hub import try_to_load_from_cache, _CACHED_NO_EXIST
+
+    filepath = try_to_load_from_cache()
+    if isinstance(filepath, str):
+        # file exists and is cached
+        ...
+    elif filepath is _CACHED_NO_EXIST:
+        # non-existence of file is cached
+        ...
+    else:
+        # file is not cached
+        ...
+    ```
+    """
+    if revision is None:
+        revision = "main"
+    if repo_type is None:
+        repo_type = "model"
+    if repo_type not in REPO_TYPES:
+        raise ValueError(f"Invalid repo type: {repo_type}. Accepted repo types are: {str(REPO_TYPES)}")
+    if cache_dir is None:
+        cache_dir = HUGGINGFACE_HUB_CACHE
+
+    object_id = repo_id.replace("/", "--")
+    repo_cache = os.path.join(cache_dir, f"{repo_type}s--{object_id}")
+    if not os.path.isdir(repo_cache):
+        # No cache for this model
+        return None
+
+    refs_dir = os.path.join(repo_cache, "refs")
+    snapshots_dir = os.path.join(repo_cache, "snapshots")
+    no_exist_dir = os.path.join(repo_cache, ".no_exist")
+
+    # Resolve refs (for instance to convert main to the associated commit sha)
+    if os.path.isdir(refs_dir):
+        revision_file = os.path.join(refs_dir, revision)
+        if os.path.isfile(revision_file):
+            with open(revision_file) as f:
+                revision = f.read()
+
+    # Check if file is cached as "no_exist"
+    if os.path.isfile(os.path.join(no_exist_dir, revision, filename)):
+        return _CACHED_NO_EXIST
+
+    # Check if revision folder exists
+    if not os.path.exists(snapshots_dir):
+        return None
+    cached_shas = os.listdir(snapshots_dir)
+    if revision not in cached_shas:
+        # No cache for this revision and we won't try to return a random revision
+        return None
+
+    # Check if file exists in cache
+    cached_file = os.path.join(snapshots_dir, revision, filename)
+    return cached_file if os.path.isfile(cached_file) else None
+
+
+@validate_hf_hub_args
+def get_hf_file_metadata(
+    url: str,
+    token: Union[bool, str, None] = None,
+    proxies: Optional[Dict] = None,
+    timeout: float = 10,
+) -> HfFileMetadata:
+    """Fetch metadata of a file versioned on the Hub for a given url.
+
+    Args:
+        url (`str`):
+            File url, for example returned by [`hf_hub_url`].
+        token (`str` or `bool`, *optional*):
+            A token to be used for the download.
+                - If `True`, the token is read from the HuggingFace config
+                  folder.
+                - If `False` or `None`, no token is provided.
+                - If a string, it's used as the authentication token.
+        proxies (`dict`, *optional*):
+            Dictionary mapping protocol to the URL of the proxy passed to
+            `requests.request`.
+        timeout (`float`, *optional*, defaults to 10):
+            How many seconds to wait for the server to send metadata before giving up.
+
+    Returns:
+        A [`HfFileMetadata`] object containing metadata such as location, etag, size and
+        commit_hash.
+    """
+    headers = build_hf_headers(token=token)
+
+    # Retrieve metadata
+    r = _request_wrapper(
+        method="HEAD",
+        url=url,
+        headers=headers,
+        allow_redirects=False,
+        follow_relative_redirects=True,
+        proxies=proxies,
+        timeout=timeout,
+    )
+    hf_raise_for_status(r)
+
+    # Return
+    return HfFileMetadata(
+        commit_hash=r.headers.get(HUGGINGFACE_HEADER_X_REPO_COMMIT),
+        etag=_normalize_etag(
+            # We favor a custom header indicating the etag of the linked resource, and
+            # we fallback to the regular etag header.
+            r.headers.get("ETag")
+            or r.headers.get(HUGGINGFACE_HEADER_X_LINKED_ETAG)
+        ),
+        # Either from response headers (if redirected) or defaults to request url
+        # Do not use directly `url`, as `_request_wrapper` might have followed relative
+        # redirects.
+        location=r.headers.get("Location") or r.request.url,  # type: ignore
+        size=_int_or_none(r.headers.get(HUGGINGFACE_HEADER_X_LINKED_SIZE) or r.headers.get("Content-Length")),
+    )
+
+
+def _int_or_none(value: Optional[str]) -> Optional[int]:
+    try:
+        return int(value)  # type: ignore
+    except (TypeError, ValueError):
+        return None
+
+
+def _chmod_and_replace(src: str, dst: str) -> None:
+    """Set correct permission before moving a blob from tmp directory to cache dir.
+
+    Do not take into account the `umask` from the process as there is no convenient way
+    to get it that is thread-safe.
+
+    See:
+    - About umask: https://docs.python.org/3/library/os.html#os.umask
+    - Thread-safety: https://stackoverflow.com/a/70343066
+    - About solution: https://github.com/huggingface/huggingface_hub/pull/1220#issuecomment-1326211591
+    - Fix issue: https://github.com/huggingface/huggingface_hub/issues/1141
+    - Fix issue: https://github.com/huggingface/huggingface_hub/issues/1215
+    """
+    # Get umask by creating a temporary file in the cached repo folder.
+    tmp_file = Path(dst).parent.parent / f"tmp_{uuid.uuid4()}"
+    try:
+        tmp_file.touch()
+        cache_dir_mode = Path(tmp_file).stat().st_mode
+        os.chmod(src, stat.S_IMODE(cache_dir_mode))
+    finally:
+        tmp_file.unlink()
+
+    os.replace(src, dst)

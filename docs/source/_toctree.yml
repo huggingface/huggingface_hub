@@ -1,22 +1,45 @@
-- sections:
-  - local: index
-    title: Home
-  - local: quick-start
-    title: Quick start
-  title: "Get started"
-- sections:
-  - local: how-to-manage
-    title: Create and manage repositories
-  - local: how-to-downstream
-    title: Download files from the Hub
-  - local: how-to-upstream
-    title: Upload files to the Hub
-  - local: searching-the-hub
-    title: Searching the Hub
-  - local: how-to-inference
-    title: Access the Inference API
-  title: "Guides"
-- sections:
+- title: "Get started"
+  sections:
+    - local: index
+      title: Home
+    - local: quick-start
+      title: Quickstart
+    - local: installation
+      title: Installation
+- title: "How-to guides"
+  sections:
+    - local: guides/overview
+      title: Overview
+    - local: guides/download
+      title: Download files
+    - local: guides/upload
+      title: Upload files
+    - local: guides/repository
+      title: Repository
+    - local: guides/search
+      title: Search
+    - local: guides/inference
+      title: Inference
+    - local: guides/community
+      title: Community Tab
+    - local: guides/manage-cache
+      title: Cache
+    - local: guides/model-cards
+      title: Model Cards
+    - local: guides/manage-spaces
+      title: Manage your Space
+- title: "Conceptual guides"
+  sections:
+    - local: concepts/git_vs_http
+      title: Git vs HTTP paradigm
+- title: "Reference"
+  sections:
+    - local: package_reference/overview
+      title: Overview
+    - local: package_reference/login
+      title: Login and logout
+    - local: package_reference/environment_variables
+      title: Environment variables
     - local: package_reference/repository
       title: Managing local and online repositories
     - local: package_reference/hf_api
@@ -27,6 +50,13 @@
       title: Mixins & serialization methods
     - local: package_reference/inference_api
       title: Inference API
-    - local: package_reference/logging
-      title: Logging
-  title: "Reference"
+    - local: package_reference/utilities
+      title: Utilities
+    - local: package_reference/community
+      title: Discussions and Pull Requests
+    - local: package_reference/cache
+      title: Cache-system reference
+    - local: package_reference/cards
+      title: Repo Cards and Repo Card Data
+    - local: package_reference/space_runtime
+      title: Space runtime

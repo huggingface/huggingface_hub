@@ -14,7 +14,7 @@ def get_version() -> str:
 install_requires = [
     "filelock",
     "requests",
-    "tqdm",
+    "tqdm>=4.42.1",
     "pyyaml>=5.1",
     "typing-extensions>=3.7.4.3",  # to be able to import TypeAlias
     "importlib_metadata;python_version<'3.8'",
@@ -22,6 +22,11 @@ install_requires = [
 ]
 
 extras = {}
+
+extras["cli"] = [
+    "InquirerPy==0.3.4",
+    # Note: installs `prompt-toolkit` in the background
+]
 
 extras["torch"] = [
     "torch",
@@ -35,20 +40,35 @@ extras["fastai"] = [
 
 extras["tensorflow"] = ["tensorflow", "pydot", "graphviz"]
 
-extras["testing"] = [
+extras["testing"] = extras["cli"] + [
+    "jedi",
+    "Jinja2",
     "pytest",
     "pytest-cov",
-    "datasets",
+    "pytest-env",
+    "pytest-xdist",
     "soundfile",
+    "Pillow",
+]
+
+# Typing extra dependencies list is duplicated in `.pre-commit-config.yaml`
+# Please make sure to update the list there when adding a new typing dependency.
+extras["typing"] = [
+    "types-PyYAML",
+    "types-requests",
+    "types-simplejson",
+    "types-toml",
+    "types-tqdm",
+    "types-urllib3",
 ]
 
 extras["quality"] = [
-    "black~=22.0",
-    "isort>=5.5.4",
-    "flake8>=3.8.3",
+    "black~=23.1",
+    "ruff>=0.0.241",
+    "mypy==0.982",
 ]
 
-extras["all"] = extras["testing"] + extras["quality"]
+extras["all"] = extras["testing"] + extras["quality"] + extras["typing"]
 
 extras["dev"] = extras["all"]
 
@@ -58,26 +78,16 @@ setup(
     version=get_version(),
     author="Hugging Face, Inc.",
     author_email="julien@huggingface.co",
-    description=(
-        "Client library to download and publish models, datasets and other repos on the"
-        " huggingface.co hub"
-    ),
+    description="Client library to download and publish models, datasets and other repos on the huggingface.co hub",
     long_description=open("README.md", "r", encoding="utf-8").read(),
     long_description_content_type="text/markdown",
-    keywords=(
-        "model-hub machine-learning models natural-language-processing deep-learning"
-        " pytorch pretrained-models"
-    ),
+    keywords="model-hub machine-learning models natural-language-processing deep-learning pytorch pretrained-models",
     license="Apache",
     url="https://github.com/huggingface/huggingface_hub",
     package_dir={"": "src"},
     packages=find_packages("src"),
     extras_require=extras,
-    entry_points={
-        "console_scripts": [
-            "huggingface-cli=huggingface_hub.commands.huggingface_cli:main"
-        ]
-    },
+    entry_points={"console_scripts": ["huggingface-cli=huggingface_hub.commands.huggingface_cli:main"]},
     python_requires=">=3.7.0",
     install_requires=install_requires,
     classifiers=[
@@ -87,6 +97,13 @@ setup(
         "License :: OSI Approved :: Apache Software License",
         "Operating System :: OS Independent",
         "Programming Language :: Python :: 3",
+        "Programming Language :: Python :: 3 :: Only",
+        "Programming Language :: Python :: 3.7",
+        "Programming Language :: Python :: 3.8",
+        "Programming Language :: Python :: 3.9",
+        "Programming Language :: Python :: 3.10",
+        "Programming Language :: Python :: 3.11",
         "Topic :: Scientific/Engineering :: Artificial Intelligence",
     ],
+    include_package_data=True,
 )

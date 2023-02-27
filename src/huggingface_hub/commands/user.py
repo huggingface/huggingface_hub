@@ -11,34 +11,41 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-
 import subprocess
-from argparse import ArgumentParser
-from getpass import getpass
-from typing import List, Union
+from argparse import _SubParsersAction
+
+from requests.exceptions import HTTPError
 
 from huggingface_hub.commands import BaseHuggingfaceCLICommand
 from huggingface_hub.constants import (
+    ENDPOINT,
     REPO_TYPES,
     REPO_TYPES_URL_PREFIXES,
     SPACES_SDK_TYPES,
 )
-from huggingface_hub.hf_api import HfApi, HfFolder
-from requests.exceptions import HTTPError
+from huggingface_hub.hf_api import HfApi
 
-from ..utils import run_subprocess
+from .._login import (  # noqa: F401 # for backward compatibility  # noqa: F401 # for backward compatibility
+    NOTEBOOK_LOGIN_PASSWORD_HTML,
+    NOTEBOOK_LOGIN_TOKEN_HTML_END,
+    NOTEBOOK_LOGIN_TOKEN_HTML_START,
+    login,
+    logout,
+    notebook_login,
+)
+from .._login import (
+    _currently_setup_credential_helpers as currently_setup_credential_helpers,  # noqa: F401 # for backward compatibility
+)
+from ..utils import HfFolder
+from ._cli_utils import ANSI
 
 
 class UserCommands(BaseHuggingfaceCLICommand):
     @staticmethod
-    def register_subcommand(parser: ArgumentParser):
-        login_parser = parser.add_parser(
-            "login", help="Log in using the same credentials as on huggingface.co"
-        )
+    def register_subcommand(parser: _SubParsersAction):
+        login_parser = parser.add_parser("login", help="Log in using a token from huggingface.co/settings/tokens")
         login_parser.set_defaults(func=lambda args: LoginCommand(args))
-        whoami_parser = parser.add_parser(
-            "whoami", help="Find out which huggingface.co account you are logged in as."
-        )
+        whoami_parser = parser.add_parser("whoami", help="Find out which huggingface.co account you are logged in as.")
         whoami_parser.set_defaults(func=lambda args: WhoamiCommand(args))
         logout_parser = parser.add_parser("logout", help="Log out")
         logout_parser.set_defaults(func=lambda args: LogoutCommand(args))
@@ -46,43 +53,25 @@ class UserCommands(BaseHuggingfaceCLICommand):
         # new system: git-based repo system
         repo_parser = parser.add_parser(
             "repo",
-            help=(
-                "{create, ls-files} Commands to interact with your huggingface.co"
-                " repos."
-            ),
+            help="{create, ls-files} Commands to interact with your huggingface.co repos.",
         )
-        repo_subparsers = repo_parser.add_subparsers(
-            help="huggingface.co repos related commands"
-        )
-        repo_create_parser = repo_subparsers.add_parser(
-            "create", help="Create a new repo on huggingface.co"
-        )
+        repo_subparsers = repo_parser.add_subparsers(help="huggingface.co repos related commands")
+        repo_create_parser = repo_subparsers.add_parser("create", help="Create a new repo on huggingface.co")
         repo_create_parser.add_argument(
             "name",
             type=str,
-            help=(
-                "Name for your repo. Will be namespaced under your username to build"
-                " the repo id."
-            ),
+            help="Name for your repo. Will be namespaced under your username to build the repo id.",
         )
         repo_create_parser.add_argument(
             "--type",
             type=str,
-            help=(
-                'Optional: repo_type: set to "dataset" or "space" if creating a dataset'
-                " or space, default is model."
-            ),
+            help='Optional: repo_type: set to "dataset" or "space" if creating a dataset or space, default is model.',
         )
-        repo_create_parser.add_argument(
-            "--organization", type=str, help="Optional: organization namespace."
-        )
+        repo_create_parser.add_argument("--organization", type=str, help="Optional: organization namespace.")
         repo_create_parser.add_argument(
             "--space_sdk",
             type=str,
-            help=(
-                "Optional: Hugging Face Spaces SDK type. Required when --type is set to"
-                ' "space".'
-            ),
+            help='Optional: Hugging Face Spaces SDK type. Required when --type is set to "space".',
             choices=SPACES_SDK_TYPES,
         )
         repo_create_parser.add_argument(
@@ -94,63 +83,6 @@ class UserCommands(BaseHuggingfaceCLICommand):
         repo_create_parser.set_defaults(func=lambda args: RepoCreateCommand(args))
 
 
-class ANSI:
-    """
-    Helper for en.wikipedia.org/wiki/ANSI_escape_code
-    """
-
-    _bold = "\u001b[1m"
-    _red = "\u001b[31m"
-    _gray = "\u001b[90m"
-    _reset = "\u001b[0m"
-
-    @classmethod
-    def bold(cls, s):
-        return f"{cls._bold}{s}{cls._reset}"
-
-    @classmethod
-    def red(cls, s):
-        return f"{cls._bold + cls._red}{s}{cls._reset}"
-
-    @classmethod
-    def gray(cls, s):
-        return f"{cls._gray}{s}{cls._reset}"
-
-
-def tabulate(rows: List[List[Union[str, int]]], headers: List[str]) -> str:
-    """
-    Inspired by:
-
-    - stackoverflow.com/a/8356620/593036
-    - stackoverflow.com/questions/9535954/printing-lists-as-tabular-data
-    """
-    col_widths = [max(len(str(x)) for x in col) for col in zip(*rows, headers)]
-    row_format = ("{{:{}}} " * len(headers)).format(*col_widths)
-    lines = []
-    lines.append(row_format.format(*headers))
-    lines.append(row_format.format(*["-" * w for w in col_widths]))
-    for row in rows:
-        lines.append(row_format.format(*row))
-    return "\n".join(lines)
-
-
-def currently_setup_credential_helpers(directory=None) -> List[str]:
-    try:
-        output = run_subprocess(
-            "git config --list".split(),
-            directory,
-        ).stdout.split("\n")
-
-        current_credential_helpers = []
-        for line in output:
-            if "credential.helper" in line:
-                current_credential_helpers.append(line.split("=")[-1])
-    except subprocess.CalledProcessError as exc:
-        raise EnvironmentError(exc.stderr)
-
-    return current_credential_helpers
-
-
 class BaseUserCommand:
     def __init__(self, args):
         self.args = args
@@ -159,27 +91,12 @@ class BaseUserCommand:
 
 class LoginCommand(BaseUserCommand):
     def run(self):
-        print(  # docstyle-ignore
-            """
-        _|    _|  _|    _|    _|_|_|    _|_|_|  _|_|_|  _|      _|    _|_|_|      _|_|_|_|    _|_|      _|_|_|  _|_|_|_|
-        _|    _|  _|    _|  _|        _|          _|    _|_|    _|  _|            _|        _|    _|  _|        _|
-        _|_|_|_|  _|    _|  _|  _|_|  _|  _|_|    _|    _|  _|  _|  _|  _|_|      _|_|_|    _|_|_|_|  _|        _|_|_|
-        _|    _|  _|    _|  _|    _|  _|    _|    _|    _|    _|_|  _|    _|      _|        _|    _|  _|        _|
-        _|    _|    _|_|      _|_|_|    _|_|_|  _|_|_|  _|      _|    _|_|_|      _|        _|    _|    _|_|_|  _|_|_|_|
+        login()
 
-        To login, `huggingface_hub` now requires a token generated from https://huggingface.co/settings/tokens .
-        (Deprecated, will be removed in v0.3.0) To login with username and password instead, interrupt with Ctrl+C.
-        """
-        )
 
-        try:
-            token = getpass("Token: ")
-            _login(self._api, token=token)
-
-        except KeyboardInterrupt:
-            username = input("\rUsername: ")
-            password = getpass()
-            _login(self._api, username, password)
+class LogoutCommand(BaseUserCommand):
+    def run(self):
+        logout()
 
 
 class WhoamiCommand(BaseUserCommand):
@@ -194,27 +111,13 @@ class WhoamiCommand(BaseUserCommand):
             orgs = [org["name"] for org in info["orgs"]]
             if orgs:
                 print(ANSI.bold("orgs: "), ",".join(orgs))
+
+            if ENDPOINT != "https://huggingface.co":
+                print(f"Authenticated through private endpoint: {ENDPOINT}")
         except HTTPError as e:
             print(e)
             print(ANSI.red(e.response.text))
             exit(1)
-
-
-class LogoutCommand(BaseUserCommand):
-    def run(self):
-        token = HfFolder.get_token()
-        if token is None:
-            print("Not logged in")
-            exit()
-        HfFolder.delete_token()
-        HfApi.unset_access_token()
-        try:
-            self._api.logout(token)
-        except HTTPError as e:
-            # Logging out with an access token will return a client error.
-            if not e.response.status_code == 400:
-                raise e
-        print("Successfully logged out.")
 
 
 class RepoCreateCommand(BaseUserCommand):
@@ -243,9 +146,7 @@ class RepoCreateCommand(BaseUserCommand):
         print("")
 
         user = self._api.whoami(token)["name"]
-        namespace = (
-            self.args.organization if self.args.organization is not None else user
-        )
+        namespace = self.args.organization if self.args.organization is not None else user
 
         repo_id = f"{namespace}/{self.args.name}"
 
@@ -266,7 +167,6 @@ class RepoCreateCommand(BaseUserCommand):
                 print("Abort")
                 exit()
         try:
-
             url = self._api.create_repo(
                 repo_id=repo_id,
                 token=token,
@@ -279,135 +179,6 @@ class RepoCreateCommand(BaseUserCommand):
             exit(1)
         print("\nYour repo now lives at:")
         print(f"  {ANSI.bold(url)}")
-        print(
-            "\nYou can clone it locally with the command below,"
-            " and commit/push as usual."
-        )
+        print("\nYou can clone it locally with the command below, and commit/push as usual.")
         print(f"\n  git clone {url}")
         print("")
-
-
-NOTEBOOK_LOGIN_PASSWORD_HTML = """<center> <img
-src=https://huggingface.co/front/assets/huggingface_logo-noborder.svg
-alt='Hugging Face'> <br> Immediately click login after typing your password or
-it might be stored in plain text in this notebook file. </center>"""
-
-
-NOTEBOOK_LOGIN_TOKEN_HTML_START = """<center> <img
-src=https://huggingface.co/front/assets/huggingface_logo-noborder.svg
-alt='Hugging Face'> <br> Copy a token from <a
-href="https://huggingface.co/settings/tokens" target="_blank">your Hugging Face
-tokens page</a> and paste it below. <br> Immediately click login after copying
-your token or it might be stored in plain text in this notebook file. </center>"""
-
-
-NOTEBOOK_LOGIN_TOKEN_HTML_END = """
-<b>Pro Tip:</b> If you don't already have one, you can create a dedicated
-'notebooks' token with 'write' access, that you can then easily reuse for all
-notebooks. <br> <i>Logging in with your username and password is deprecated and
-won't be possible anymore in the near future. You can still use them for now by
-clicking below.</i> </center>"""
-
-
-def notebook_login():
-    """
-    Displays a widget to login to the HF website and store the token.
-    """
-    try:
-        import ipywidgets.widgets as widgets
-        from IPython.display import clear_output, display
-    except ImportError:
-        raise ImportError(
-            "The `notebook_login` function can only be used in a notebook (Jupyter or"
-            " Colab) and you need the `ipywdidgets` module: `pip install ipywidgets`."
-        )
-
-    box_layout = widgets.Layout(
-        display="flex", flex_flow="column", align_items="center", width="50%"
-    )
-
-    token_widget = widgets.Password(description="Token:")
-    token_finish_button = widgets.Button(description="Login")
-    switch_button = widgets.Button(description="Use password")
-
-    login_token_widget = widgets.VBox(
-        [
-            widgets.HTML(NOTEBOOK_LOGIN_TOKEN_HTML_START),
-            token_widget,
-            token_finish_button,
-            widgets.HTML(NOTEBOOK_LOGIN_TOKEN_HTML_END),
-            switch_button,
-        ],
-        layout=box_layout,
-    )
-    display(login_token_widget)
-
-    # Deprecated page for login
-    input_widget = widgets.Text(description="Username:")
-    password_widget = widgets.Password(description="Password:")
-    password_finish_button = widgets.Button(description="Login")
-
-    login_password_widget = widgets.VBox(
-        [
-            widgets.HTML(value=NOTEBOOK_LOGIN_PASSWORD_HTML),
-            widgets.HBox([input_widget, password_widget]),
-            password_finish_button,
-        ],
-        layout=box_layout,
-    )
-
-    # On click events
-    def login_token_event(t):
-        token = token_widget.value
-        # Erase token and clear value to make sure it's not saved in the notebook.
-        token_widget.value = ""
-        clear_output()
-        _login(HfApi(), token=token)
-
-    token_finish_button.on_click(login_token_event)
-
-    def login_password_event(t):
-        username = input_widget.value
-        password = password_widget.value
-        # Erase password and clear value to make sure it's not saved in the notebook.
-        password_widget.value = ""
-        clear_output()
-        _login(HfApi(), username=username, password=password)
-
-    password_finish_button.on_click(login_password_event)
-
-    def switch_event(t):
-        clear_output()
-        display(login_password_widget)
-
-    switch_button.on_click(switch_event)
-
-
-def _login(hf_api, username=None, password=None, token=None):
-    if token is None:
-        try:
-            token = hf_api.login(username, password)
-        except HTTPError as e:
-            # probably invalid credentials, display error message.
-            print(e)
-            print(ANSI.red(e.response.text))
-            exit(1)
-    else:
-        token, name = hf_api._validate_or_retrieve_token(token)
-
-    hf_api.set_access_token(token)
-    HfFolder.save_token(token)
-    print("Login successful")
-    print("Your token has been saved to", HfFolder.path_token)
-    helpers = currently_setup_credential_helpers()
-
-    if "store" not in helpers:
-        print(
-            ANSI.red(
-                "Authenticated through git-credential store but this isn't the helper"
-                " defined on your machine.\nYou might have to re-authenticate when"
-                " pushing to the Hugging Face Hub. Run the following command in your"
-                " terminal in case you want to set this credential helper as the"
-                " default\n\ngit config --global credential.helper store"
-            )
-        )

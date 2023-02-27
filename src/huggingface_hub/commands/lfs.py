@@ -20,15 +20,15 @@ import json
 import os
 import subprocess
 import sys
-from argparse import ArgumentParser
-from contextlib import AbstractContextManager
+from argparse import _SubParsersAction
 from typing import Dict, List, Optional
 
 import requests
-from huggingface_hub.commands import BaseHuggingfaceCLICommand
-from huggingface_hub.lfs import LFS_MULTIPART_UPLOAD_COMMAND
 
-from ..utils import logging
+from huggingface_hub.commands import BaseHuggingfaceCLICommand
+from huggingface_hub.lfs import LFS_MULTIPART_UPLOAD_COMMAND, SliceFileObj
+
+from ..utils import hf_raise_for_status, logging
 
 
 logger = logging.get_logger(__name__)
@@ -56,14 +56,12 @@ class LfsCommands(BaseHuggingfaceCLICommand):
     """
 
     @staticmethod
-    def register_subcommand(parser: ArgumentParser):
+    def register_subcommand(parser: _SubParsersAction):
         enable_parser = parser.add_parser(
             "lfs-enable-largefiles",
             help="Configure your repository to enable upload of files > 5GB.",
         )
-        enable_parser.add_argument(
-            "path", type=str, help="Local path to repository you want to configure."
-        )
+        enable_parser.add_argument("path", type=str, help="Local path to repository you want to configure.")
         enable_parser.set_defaults(func=lambda args: LfsEnableCommand(args))
 
         upload_parser = parser.add_parser(
@@ -88,8 +86,7 @@ class LfsEnableCommand:
             cwd=local_path,
         )
         subprocess.run(
-            "git config lfs.customtransfer.multipart.args"
-            f" {LFS_MULTIPART_UPLOAD_COMMAND}".split(),
+            f"git config lfs.customtransfer.multipart.args {LFS_MULTIPART_UPLOAD_COMMAND}".split(),
             check=True,
             cwd=local_path,
         )
@@ -98,8 +95,8 @@ class LfsEnableCommand:
 
 def write_msg(msg: Dict):
     """Write out the message in Line delimited JSON."""
-    msg = json.dumps(msg) + "\n"
-    sys.stdout.write(msg)
+    msg_str = json.dumps(msg) + "\n"
+    sys.stdout.write(msg_str)
     sys.stdout.flush()
 
 
@@ -118,43 +115,6 @@ def read_msg() -> Optional[Dict]:
     return msg
 
 
-class FileSlice(AbstractContextManager):
-    """
-    File-like object that only reads a slice of a file
-
-    Inspired by stackoverflow.com/a/29838711/593036
-    """
-
-    def __init__(self, filepath: str, seek_from: int, read_limit: int):
-        self.filepath = filepath
-        self.seek_from = seek_from
-        self.read_limit = read_limit
-        self.n_seen = 0
-
-    def __enter__(self):
-        self.f = open(self.filepath, "rb")
-        self.f.seek(self.seek_from)
-        return self
-
-    def __len__(self):
-        total_length = os.fstat(self.f.fileno()).st_size
-        return min(self.read_limit, total_length - self.seek_from)
-
-    def read(self, n=-1):
-        if self.n_seen >= self.read_limit:
-            return b""
-        remaining_amount = self.read_limit - self.n_seen
-        data = self.f.read(remaining_amount if n < 0 else min(n, remaining_amount))
-        self.n_seen += len(data)
-        return data
-
-    def __iter__(self):
-        yield self.read(n=4 * 1024 * 1024)
-
-    def __exit__(self, *args):
-        self.f.close()
-
-
 class LfsUploadCommand:
     def __init__(self, args):
         self.args = args
@@ -164,9 +124,7 @@ class LfsUploadCommand:
         # sends initiation data to the process over stdin.
         # This tells the process useful information about the configuration.
         init_msg = json.loads(sys.stdin.readline().strip())
-        if not (
-            init_msg.get("event") == "init" and init_msg.get("operation") == "upload"
-        ):
+        if not (init_msg.get("event") == "init" and init_msg.get("operation") == "upload"):
             write_msg({"error": {"code": 32, "message": "Wrong lfs init operation"}})
             sys.exit(1)
 
@@ -207,29 +165,32 @@ class LfsUploadCommand:
             )
 
             parts = []
-            for i, presigned_url in enumerate(presigned_urls):
-                with FileSlice(
-                    filepath, seek_from=i * chunk_size, read_limit=chunk_size
-                ) as data:
-                    r = requests.put(presigned_url, data=data)
-                    r.raise_for_status()
-                    parts.append(
-                        {
-                            "etag": r.headers.get("etag"),
-                            "partNumber": i + 1,
-                        }
-                    )
-                    # In order to support progress reporting while data is uploading / downloading,
-                    # the transfer process should post messages to stdout
-                    write_msg(
-                        {
-                            "event": "progress",
-                            "oid": oid,
-                            "bytesSoFar": (i + 1) * chunk_size,
-                            "bytesSinceLast": chunk_size,
-                        }
-                    )
-                    # Not precise but that's ok.
+            with open(filepath, "rb") as file:
+                for i, presigned_url in enumerate(presigned_urls):
+                    with SliceFileObj(
+                        file,
+                        seek_from=i * chunk_size,
+                        read_limit=chunk_size,
+                    ) as data:
+                        r = requests.put(presigned_url, data=data)
+                        hf_raise_for_status(r)
+                        parts.append(
+                            {
+                                "etag": r.headers.get("etag"),
+                                "partNumber": i + 1,
+                            }
+                        )
+                        # In order to support progress reporting while data is uploading / downloading,
+                        # the transfer process should post messages to stdout
+                        write_msg(
+                            {
+                                "event": "progress",
+                                "oid": oid,
+                                "bytesSoFar": (i + 1) * chunk_size,
+                                "bytesSinceLast": chunk_size,
+                            }
+                        )
+                        # Not precise but that's ok.
 
             r = requests.post(
                 completion_url,
@@ -238,6 +199,6 @@ class LfsUploadCommand:
                     "parts": parts,
                 },
             )
-            r.raise_for_status()
+            hf_raise_for_status(r)
 
             write_msg({"event": "complete", "oid": oid})

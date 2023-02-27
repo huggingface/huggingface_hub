@@ -51,5 +51,4 @@ __version__ = "<VERSION+1>.dev0"  # For example, after releasing v0.5.0 or v0.5.
 10. Push the changes!
 ```
 git push origin main
-    ```
-"""
+```

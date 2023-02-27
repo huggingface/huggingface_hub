@@ -1,0 +1,2 @@
+include src/huggingface_hub/templates/modelcard_template.md
+include src/huggingface_hub/templates/datasetcard_template.md

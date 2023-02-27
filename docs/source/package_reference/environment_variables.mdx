@@ -1,0 +1,145 @@
+# Environment variables
+
+`huggingface_hub` can be configured using environment variables.
+
+If you are unfamiliar with environment variable, here are generic articles about them
+[on macOS and Linux](https://linuxize.com/post/how-to-set-and-list-environment-variables-in-linux/)
+and on [Windows](https://phoenixnap.com/kb/windows-set-environment-variable).
+
+This page will guide you through all environment variables specific to `huggingface_hub`
+and their meaning.
+
+## Generic
+
+### HF_ENDPOINT
+
+To configure the Hub base url. You might want to set this variable if your organization
+is using a [Private Hub](https://huggingface.co/platform).
+
+Defaults to `"https://huggingface.co"`.
+
+### HF_INFERENCE_ENDPOINT
+
+To configure the inference api base url. You might want to set this variable if your organization
+is pointing at an API Gateway rather than directly at the inference api.
+
+Defaults to `"https://api-inference.huggingface.com"`.
+
+### HF_HOME
+
+To configure where `huggingface_hub` will locally store data. In particular, your token
+and the cache will be stored in this folder.
+
+Defaults to `"~/.cache/huggingface"` unless [XDG_CACHE_HOME](#xdgcachehome) is set.
+
+### HUGGINGFACE_HUB_CACHE
+
+To configure where repositories from the Hub will be cached locally (models, datasets and
+spaces).
+
+Defaults to `"$HF_HOME/hub"` (e.g. `"~/.cache/huggingface/hub"` by default).
+
+### HUGGINGFACE_ASSETS_CACHE
+
+To configure where [assets](../guides/manage-cache#caching-assets) created by downstream libraries
+will be cached locally. Those assets can be preprocessed data, files downloaded from GitHub,
+logs,...
+
+Defaults to `"$HF_HOME/assets"` (e.g. `"~/.cache/huggingface/assets"` by default).
+
+### HUGGING_FACE_HUB_TOKEN
+
+To configure the User Access Token to authenticate to the Hub. If set, this value will
+overwrite the token stored on the machine (in `"$HF_HOME/token"`).
+
+See [login reference](../package_reference/login) for more details.
+
+### HUGGINGFACE_HUB_VERBOSITY
+
+Set the verbosity level of the `huggingface_hub`'s logger. Must be one of
+`{"debug", "info", "warning", "error", "critical"}`.
+
+Defaults to `"warning"`.
+
+For more details, see [logging reference](../package_reference/utilities#huggingface_hub.utils.logging.get_verbosity).
+
+## Boolean values
+
+The following environment variables expect a boolean value. The variable will be considered
+as `True` if its value is one of `{"1", "ON", "YES", "TRUE"}` (case-insensitive). Any other value
+(or undefined) will be considered as `False`.
+
+### HF_HUB_OFFLINE
+
+If set, no HTTP calls will me made when trying to fetch files. Only files that are already
+cached will be accessed. This is useful in case your network is slow and you don't care
+about having absolutely the latest version of a file.
+
+**Note:** even if the latest version of a file is cached, calling `hf_hub_download` still triggers
+a HTTP request to check that a new version is not available. Setting `HF_HUB_OFFLINE=1` will
+skip this call which speeds up your loading time.
+
+### HF_HUB_DISABLE_IMPLICIT_TOKEN
+
+Authentication is not mandatory for every requests to the Hub. For instance, requesting
+details about `"gpt2"` model does not require to be authenticated. However, if a user is
+[logged in](../package_reference/login), the default behavior will be to always send the token
+in order to ease user experience (never get a HTTP 401 Unauthorized) when accessing private or gated repositories. For privacy, you can
+disable this behavior by setting `HF_HUB_DISABLE_IMPLICIT_TOKEN=1`. In this case,
+the token will be sent only for "write-access" calls (example: create a commit).
+
+**Note:** disabling implicit sending of token can have weird side effects. For example,
+if you want to list all models on the Hub, your private models will not be listed. You
+would need to explicitly pass `token=True` argument in your script.
+
+### HF_HUB_DISABLE_PROGRESS_BARS
+
+For time consuming tasks, `huggingface_hub` displays a progress bar by default (using tqdm).
+You can disable all the progress bars at once by setting `HF_HUB_DISABLE_PROGRESS_BARS=1`.
+
+### HF_HUB_DISABLE_SYMLINKS_WARNING
+
+If you are on a Windows machine, it is recommended to enable the developer mode or to run
+`huggingface_hub` in admin mode. If not, `huggingface_hub` will not be able to create
+symlinks in your cache system. You will be able to execute any script but your user experience
+will be degraded as some huge files might end-up duplicated on your hard-drive. A warning
+message is triggered to warn you about this behavior. Set `HF_HUB_DISABLE_SYMLINKS_WARNING=1`,
+to disable this warning.
+
+For more details, see [cache limitations](../guides/manage-cache#limitations).
+
+### HF_HUB_DISABLE_TELEMETRY
+
+By default, some data is collected by HF libraries (`transformers`, `datasets`, `gradio`,..) to monitor usage, debug issues and help prioritize features.
+Each library defines its own policy (i.e. which usage to monitor) but the core implementation happens in `huggingface_hub` (see [`send_telemetry`]).
+
+You can set `HF_HUB_DISABLE_TELEMETRY=1` as environment variable to globally disable telemetry.
+
+### HF_HUB_ENABLE_HF_TRANSFER
+
+Set to `True` to download files from the Hub using `hf_transfer`. It's a Rust-based package
+that enables faster download (up to x2 speed-up). Be aware that this is still experimental
+so it might cause issues in your workflow. In particular, it does not support features such
+as progress bars, resume download, proxies or error handling.
+
+**Note:** `hf_transfer` has to be installed separately [from Pypi](https://pypi.org/project/hf-transfer/).
+
+## From external tools
+
+Some environment variables are not specific to `huggingface_hub` but still taken into account
+when they are set.
+
+### NO_COLOR
+
+Boolean value. When set, `huggingface-cli` tool will not print any ANSI color.
+See [no-color.org](https://no-color.org/).
+
+### XDG_CACHE_HOME
+
+Used only when `HF_HOME` is not set!
+
+This is the default way to configure where [user-specific non-essential (cached) data should be written](https://wiki.archlinux.org/title/XDG_Base_Directory)
+on linux machines. 
+
+If `HF_HOME` is not set, the default home will be `"$XDG_CACHE_HOME/huggingface"` instead
+of `"~/.cache/huggingface"`.

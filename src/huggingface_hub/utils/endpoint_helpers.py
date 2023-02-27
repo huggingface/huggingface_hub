@@ -11,19 +11,18 @@
 # limitations under the License.
 """
 Helpful utility functions and classes in relation to exploring API endpoints
-with the aim for a user-friendly interface
+with the aim for a user-friendly interface.
 """
-
 import math
 import re
 from dataclasses import dataclass
-from typing import List, Union
+from typing import List, Optional, Union
 
 
 def _filter_emissions(
     models,
-    minimum_threshold: float = None,
-    maximum_threshold: float = None,
+    minimum_threshold: Optional[float] = None,
+    maximum_threshold: Optional[float] = None,
 ):
     """Filters a list of models for those that include an emission tag
     and limit them to between two thresholds
@@ -37,9 +36,7 @@ def _filter_emissions(
             A maximum carbon threshold to filter by, such as 10.
     """
     if minimum_threshold is None and maximum_threshold is None:
-        raise ValueError(
-            "Both `minimum_threshold` and `maximum_threshold` cannot both be `None`"
-        )
+        raise ValueError("Both `minimum_threshold` and `maximum_threshold` cannot both be `None`")
     if minimum_threshold is None:
         minimum_threshold = -1
     if maximum_threshold is None:
@@ -53,9 +50,9 @@ def _filter_emissions(
                     emission = emission["emissions"]
                 if emission:
                     emission = str(emission)
-                    if any(char.isdigit() for char in emission):
-                        emission = re.search("\d+\.\d+|\d+", emission).group(0)
-                        emissions.append((i, float(emission)))
+                    matched = re.search(r"\d+\.\d+|\d+", emission)
+                    if matched is not None:
+                        emissions.append((i, float(matched.group(0))))
     filtered_results = []
     for idx, emission in emissions:
         if emission >= minimum_threshold and emission <= maximum_threshold:
@@ -85,7 +82,7 @@ class DatasetFilter:
             A string or list of strings that can be used to identify datasets on
             the Hub with how the data was curated, such as `crowdsourced` or
             `machine_generated`.
-        languages (`str` or `List`, *optional*):
+        language (`str` or `List`, *optional*):
             A string or list of strings representing a two-character language to
             filter datasets by on the Hub.
         multilinguality (`str` or `List`, *optional*):
@@ -125,7 +122,7 @@ class DatasetFilter:
     >>> new_filter = DatasetFilter(language="en")
 
     >>> # Using multilinguality
-    >>> new_filter = DatasetFilter(multilinguality="yes")
+    >>> new_filter = DatasetFilter(multilinguality="multilingual")
 
     >>> # Using size_categories
     >>> new_filter = DatasetFilter(size_categories="100K<n<1M")
@@ -138,15 +135,15 @@ class DatasetFilter:
     ```
     """
 
-    author: str = None
-    benchmark: Union[str, List[str]] = None
-    dataset_name: str = None
-    language_creators: Union[str, List[str]] = None
-    languages: Union[str, List[str]] = None
-    multilinguality: Union[str, List[str]] = None
-    size_categories: Union[str, List[str]] = None
-    task_categories: Union[str, List[str]] = None
-    task_ids: Union[str, List[str]] = None
+    author: Optional[str] = None
+    benchmark: Optional[Union[str, List[str]]] = None
+    dataset_name: Optional[str] = None
+    language_creators: Optional[Union[str, List[str]]] = None
+    language: Optional[Union[str, List[str]]] = None
+    multilinguality: Optional[Union[str, List[str]]] = None
+    size_categories: Optional[Union[str, List[str]]] = None
+    task_categories: Optional[Union[str, List[str]]] = None
+    task_ids: Optional[Union[str, List[str]]] = None
 
 
 @dataclass
@@ -216,13 +213,13 @@ class ModelFilter:
     ```
     """
 
-    author: str = None
-    library: Union[str, List[str]] = None
-    language: Union[str, List[str]] = None
-    model_name: str = None
-    task: Union[str, List[str]] = None
-    trained_dataset: Union[str, List[str]] = None
-    tags: Union[str, List[str]] = None
+    author: Optional[str] = None
+    library: Optional[Union[str, List[str]]] = None
+    language: Optional[Union[str, List[str]]] = None
+    model_name: Optional[str] = None
+    task: Optional[Union[str, List[str]]] = None
+    trained_dataset: Optional[Union[str, List[str]]] = None
+    tags: Optional[Union[str, List[str]]] = None
 
 
 class AttributeDictionary(dict):
@@ -232,7 +229,7 @@ class AttributeDictionary(dict):
     If a key starts with a number, it will exist in the dictionary but not as an
     attribute
 
-    Example usage:
+    Example:
 
     ```python
     >>> d = AttributeDictionary()
@@ -277,7 +274,7 @@ class GeneralTags(AttributeDictionary):
     A namespace object holding all tags, filtered by `keys` If a tag starts with
     a number, it will only exist in the dictionary
 
-    Example usage:
+    Example:
     ```python
     >>> a.b["1a"]  # will work
     >>> a["b"]["1a"]  # will work
@@ -293,7 +290,7 @@ class GeneralTags(AttributeDictionary):
             `["library","language"]`
     """
 
-    def __init__(self, tag_dictionary: dict, keys: list = None):
+    def __init__(self, tag_dictionary: dict, keys: Optional[list] = None):
         self._tag_dictionary = tag_dictionary
         if keys is None:
             keys = list(self._tag_dictionary.keys())
@@ -301,14 +298,13 @@ class GeneralTags(AttributeDictionary):
             self._unpack_and_assign_dictionary(key)
 
     def _unpack_and_assign_dictionary(self, key: str):
-        "Assignes nested attributes to `self.key` containing information as an `AttributeDictionary`"
-        setattr(self, key, AttributeDictionary())
-        for item in self._tag_dictionary[key]:
-            ref = getattr(self, key)
-            item["label"] = (
-                item["label"].replace(" ", "").replace("-", "_").replace(".", "_")
-            )
-            setattr(ref, item["label"], item["id"])
+        "Assign nested attributes to `self.key` containing information as an `AttributeDictionary`"
+        ref = AttributeDictionary()
+        setattr(self, key, ref)
+        for item in self._tag_dictionary.get(key, []):
+            label = item["label"].replace(" ", "").replace("-", "_").replace(".", "_")
+            ref[label] = item["id"]
+        self[key] = ref
 
 
 class ModelTags(GeneralTags):
@@ -316,7 +312,7 @@ class ModelTags(GeneralTags):
     A namespace object holding all available model tags If a tag starts with a
     number, it will only exist in the dictionary
 
-    Example usage:
+    Example:
 
     ```python
     >>> a.dataset["1_5BArabicCorpus"]  # will work
@@ -356,13 +352,13 @@ class DatasetTags(GeneralTags):
 
     def __init__(self, dataset_tag_dictionary: dict):
         keys = [
-            "languages",
+            "language",
             "multilinguality",
             "language_creators",
             "task_categories",
             "size_categories",
             "benchmark",
             "task_ids",
-            "licenses",
+            "license",
         ]
         super().__init__(dataset_tag_dictionary, keys)

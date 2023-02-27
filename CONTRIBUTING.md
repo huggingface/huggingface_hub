@@ -143,7 +143,7 @@ Follow these steps to start contributing:
    below an explanation regarding the environment variable):
 
    ```bash
-   $ HUGGINGFACE_CO_STAGING=1 pytest tests/<TEST_TO_RUN>.py
+   $ pytest tests/<TEST_TO_RUN>.py
    ```
 
    > For the following commands leveraging the `make` utility, we recommend using the WSL system when running on
@@ -155,7 +155,7 @@ Follow these steps to start contributing:
    $ make test
    ```
 
-   `hugginface_hub` relies on `black` and `isort` to format its source code
+   `hugginface_hub` relies on `black` and `ruff` to format its source code
    consistently. You can install pre-commit hooks so that these styles are
    applied and checked on files that you have touched in each commit:
 
@@ -181,7 +181,7 @@ Follow these steps to start contributing:
    $ make style
    ```
 
-   `huggingface_hub` also uses `flake8` and a few custom scripts to check for coding mistakes. Quality
+   `huggingface_hub` also uses `ruff` and a few custom scripts to check for coding mistakes. Quality
    control runs in CI, however you can also run the same checks with:
 
    ```bash
@@ -223,7 +223,7 @@ Follow these steps to start contributing:
    too! So everyone can see the changes in the Pull request, work in your local
    branch and push the changes to your fork. They will automatically appear in
    the pull request.
-   
+
 8. Once your changes have been approved, one of the project maintainers will
  merge your pull request for you.
 
@@ -250,28 +250,40 @@ An extensive test suite is included to test the library behavior and several exa
 the [tests folder](https://github.com/huggingface/huggingface_hub/tree/main/tests).
 
 The `huggingface_hub` library's normal behavior is to work with the production Hugging Face Hub. However,
-for tests, we prefer to run on a staging version. In order to do this, it's important to set the
-`HUGGINGFACE_CO_STAGING` environment variable to `1` when running tests. It is preferred to pass this in when running the tests, than setting a permanent environmental variable, as shown below.
+for tests, we prefer to run on a staging version. In order to do this, the `HUGGINGFACE_CO_STAGING`
+environment variable to `1` when running tests (see `setup.cfg` config file).
 
 We use `pytest` in order to run the tests for the library . From the root of the
 repository they can be run with the following:
 
 ```bash
-$ HUGGINGFACE_CO_STAGING=1 python -m pytest -sv ./tests
+$ python -m pytest ./tests
+```
 
-In fact, that's how `make test` is implemented (sans the `pip install` line)!
+In fact, that's how `make test` is implemented (without the `pip install` line)!
 
 You can specify a smaller set of tests in order to test only the feature
 you're working on.
 
-For example, the following will only run the tests hel in the `test_repository.py` file:
+For example, the following will only run the tests in the `test_repository.py` file:
 
 ```bash
-$ HUGGINGFACE_CO_STAGING=1 python -m pytest -sv ./tests/test_repository.py
+$ python -m pytest ./tests/test_repository.py
 ```
 
 And the following will only run the tests that include `tag` in their name:
 
 ```bash
-$ HUGGINGFACE_CO_STAGING=1 python -m pytest -sv ./tests -k tag
+$ python -m pytest ./tests -k tag
 ```
+
+#### A corner case: testing Spaces
+
+Fully testing Spaces is not possible on staging. We need to use the production environment
+ for it (e.g huggingface.co). To do so, a personal User Access Token has to be set as
+ `HUGGINGFACE_PRODUCTION_USER_TOKEN` environment variable, specifically for these tests.
+ This value is configured in the Github CI but you need to set it on your machine to run
+ the tests locally. The token requires write permission and a credit card must be set on
+ your account.
+
+ Note that if the token is not find, the related tests are skipped.

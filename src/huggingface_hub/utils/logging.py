@@ -16,14 +16,16 @@
 
 import logging
 import os
-from logging import CRITICAL  # NOQA
-from logging import DEBUG  # NOQA
-from logging import ERROR  # NOQA
-from logging import FATAL  # NOQA
-from logging import INFO  # NOQA
-from logging import NOTSET  # NOQA
-from logging import WARN  # NOQA
-from logging import WARNING  # NOQA
+from logging import (
+    CRITICAL,  # NOQA
+    DEBUG,  # NOQA
+    ERROR,  # NOQA
+    FATAL,  # NOQA
+    INFO,  # NOQA
+    NOTSET,  # NOQA
+    WARN,  # NOQA
+    WARNING,  # NOQA
+)
 from typing import Optional
 
 
@@ -43,7 +45,6 @@ def _get_library_name() -> str:
 
 
 def _get_library_root_logger() -> logging.Logger:
-
     return logging.getLogger(_get_library_name())
 
 
@@ -85,7 +86,7 @@ def get_logger(name: Optional[str] = None) -> logging.Logger:
             name (`str`, *optional*):
                 The name of the logger to get, usually the filename
 
-        Example Usage:
+        Example:
 
     ```python
     >>> from huggingface_hub import get_logger
