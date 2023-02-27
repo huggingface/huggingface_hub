@@ -57,8 +57,8 @@ class SnapshotDownloadTests(unittest.TestCase):
 
     def test_download_model(self):
         # Test `main` branch
-        with SoftTemporaryDirectory() as tmpdirname:
-            storage_folder = snapshot_download(self.repo_id, revision="main", cache_dir=tmpdirname)
+        with SoftTemporaryDirectory() as tmpdir:
+            storage_folder = snapshot_download(self.repo_id, revision="main", cache_dir=tmpdir)
 
             # folder contains the two files contributed and the .gitattributes
             folder_contents = os.listdir(storage_folder)
@@ -75,11 +75,11 @@ class SnapshotDownloadTests(unittest.TestCase):
             self.assertTrue(self.second_commit_hash in storage_folder)
 
         # Test with specific revision
-        with SoftTemporaryDirectory() as tmpdirname:
+        with SoftTemporaryDirectory() as tmpdir:
             storage_folder = snapshot_download(
                 self.repo_id,
                 revision=self.first_commit_hash,
-                cache_dir=tmpdirname,
+                cache_dir=tmpdir,
             )
 
             # folder contains the two files contributed and the .gitattributes
@@ -99,62 +99,60 @@ class SnapshotDownloadTests(unittest.TestCase):
         self.api.update_repo_visibility(repo_id=self.repo_id, private=True)
 
         # Test download fails without token
-        with SoftTemporaryDirectory() as tmpdirname:
+        with SoftTemporaryDirectory() as tmpdir:
             with self.assertRaisesRegex(requests.exceptions.HTTPError, "401 Client Error"):
-                _ = snapshot_download(self.repo_id, revision="main", cache_dir=tmpdirname)
+                _ = snapshot_download(self.repo_id, revision="main", cache_dir=tmpdir)
 
         # Test we can download with token from cache
-        with SoftTemporaryDirectory() as tmpdirname:
+        with SoftTemporaryDirectory() as tmpdir:
             HfFolder.save_token(TOKEN)
-            storage_folder = snapshot_download(self.repo_id, revision="main", cache_dir=tmpdirname)
+            storage_folder = snapshot_download(self.repo_id, revision="main", cache_dir=tmpdir)
             self.assertTrue(self.second_commit_hash in storage_folder)
 
         # Test we can download with explicit token
-        with SoftTemporaryDirectory() as tmpdirname:
-            storage_folder = snapshot_download(self.repo_id, revision="main", cache_dir=tmpdirname, token=TOKEN)
+        with SoftTemporaryDirectory() as tmpdir:
+            storage_folder = snapshot_download(self.repo_id, revision="main", cache_dir=tmpdir, token=TOKEN)
             self.assertTrue(self.second_commit_hash in storage_folder)
 
         self.api.update_repo_visibility(repo_id=self.repo_id, private=False)
 
     def test_download_model_local_only(self):
         # Test no branch specified
-        with SoftTemporaryDirectory() as tmpdirname:
+        with SoftTemporaryDirectory() as tmpdir:
             # first download folder to cache it
-            snapshot_download(self.repo_id, cache_dir=tmpdirname)
+            snapshot_download(self.repo_id, cache_dir=tmpdir)
             # now load from cache
-            storage_folder = snapshot_download(self.repo_id, cache_dir=tmpdirname, local_files_only=True)
+            storage_folder = snapshot_download(self.repo_id, cache_dir=tmpdir, local_files_only=True)
             self.assertTrue(self.second_commit_hash in storage_folder)  # has expected revision
 
         # Test with specific revision branch
-        with SoftTemporaryDirectory() as tmpdirname:
+        with SoftTemporaryDirectory() as tmpdir:
             # first download folder to cache it
-            snapshot_download(self.repo_id, revision="other", cache_dir=tmpdirname)
+            snapshot_download(self.repo_id, revision="other", cache_dir=tmpdir)
             # now load from cache
-            storage_folder = snapshot_download(
-                self.repo_id, revision="other", cache_dir=tmpdirname, local_files_only=True
-            )
+            storage_folder = snapshot_download(self.repo_id, revision="other", cache_dir=tmpdir, local_files_only=True)
             self.assertTrue(self.third_commit_hash in storage_folder)  # has expected revision
 
         # Test with specific revision hash
-        with SoftTemporaryDirectory() as tmpdirname:
+        with SoftTemporaryDirectory() as tmpdir:
             # first download folder to cache it
-            snapshot_download(self.repo_id, revision=self.first_commit_hash, cache_dir=tmpdirname)
+            snapshot_download(self.repo_id, revision=self.first_commit_hash, cache_dir=tmpdir)
             # now load from cache
             storage_folder = snapshot_download(
-                self.repo_id, revision=self.first_commit_hash, cache_dir=tmpdirname, local_files_only=True
+                self.repo_id, revision=self.first_commit_hash, cache_dir=tmpdir, local_files_only=True
             )
             self.assertTrue(self.first_commit_hash in storage_folder)  # has expected revision
 
     def test_download_model_local_only_multiple(self):
         # cache multiple commits and make sure correct commit is taken
-        with SoftTemporaryDirectory() as tmpdirname:
+        with SoftTemporaryDirectory() as tmpdir:
             # download folder from main and other to cache it
-            snapshot_download(self.repo_id, cache_dir=tmpdirname)
-            snapshot_download(self.repo_id, revision="other", cache_dir=tmpdirname)
+            snapshot_download(self.repo_id, cache_dir=tmpdir)
+            snapshot_download(self.repo_id, revision="other", cache_dir=tmpdir)
 
             # now make sure that loading "main" branch gives correct branch
             # folder name contains the 2nd commit sha and not the 3rd
-            storage_folder = snapshot_download(self.repo_id, cache_dir=tmpdirname, local_files_only=True)
+            storage_folder = snapshot_download(self.repo_id, cache_dir=tmpdir, local_files_only=True)
             self.assertTrue(self.second_commit_hash in storage_folder)
 
     def check_download_model_with_pattern(self, pattern, allow=True):
@@ -162,11 +160,11 @@ class SnapshotDownloadTests(unittest.TestCase):
         allow_patterns = pattern if allow else None
         ignore_patterns = pattern if not allow else None
 
-        with SoftTemporaryDirectory() as tmpdirname:
+        with SoftTemporaryDirectory() as tmpdir:
             storage_folder = snapshot_download(
                 self.repo_id,
                 revision="main",
-                cache_dir=tmpdirname,
+                cache_dir=tmpdir,
                 allow_patterns=allow_patterns,
                 ignore_patterns=ignore_patterns,
             )

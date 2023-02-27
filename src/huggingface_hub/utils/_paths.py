@@ -41,10 +41,10 @@ def filter_repo_objects(
         items (`Iterable`):
             List of items to filter.
         allow_patterns (`str` or `List[str]`, *optional*):
-            Patterns constituing the allowlist. If provided, item paths must match at
+            Patterns constituting the allowlist. If provided, item paths must match at
             least one pattern from the allowlist.
         ignore_patterns (`str` or `List[str]`, *optional*):
-            Patterns constituing the denylist. If provided, item paths must not match
+            Patterns constituting the denylist. If provided, item paths must not match
             any patterns from the denylist.
         key (`Callable[[T], str]`, *optional*):
             Single-argument function to extract a path from each item. If not provided,

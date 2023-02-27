@@ -184,13 +184,13 @@ class ModelCardDataTest(unittest.TestCase):
                     metric_value=0.9,
                 ),
             ],
-            some_abitrary_kwarg="some_value",
+            some_arbitrary_kwarg="some_value",
         )
 
-        self.assertEqual(data.some_abitrary_kwarg, "some_value")
+        self.assertEqual(data.some_arbitrary_kwarg, "some_value")
 
         data_dict = data.to_dict()
-        self.assertEqual(data_dict["some_abitrary_kwarg"], "some_value")
+        self.assertEqual(data_dict["some_arbitrary_kwarg"], "some_value")
 
 
 class DatasetCardDataTest(unittest.TestCase):

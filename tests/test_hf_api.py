@@ -273,7 +273,7 @@ class HfApiEndpointsTest(HfApiCommonTestWithLogin):
         with pytest.raises(ValueError, match=r"No space_sdk provided.*"):
             self._api.create_repo(repo_id=SPACE_REPO_NAME, repo_type=REPO_TYPE_SPACE, space_sdk=None)
         with pytest.raises(ValueError, match=r"Invalid space_sdk.*"):
-            self._api.create_repo(repo_id=SPACE_REPO_NAME, repo_type=REPO_TYPE_SPACE, space_sdk="asdfasdf")
+            self._api.create_repo(repo_id=SPACE_REPO_NAME, repo_type=REPO_TYPE_SPACE, space_sdk="something")
 
         for sdk in SPACES_SDK_TYPES:
             SPACE_REPO_NAME = space_repo_name(sdk)
@@ -2086,12 +2086,12 @@ class HfApiDiscussionsTest(HfApiCommonTestWithLogin):
         rename_event = self._api.rename_discussion(
             repo_id=self.repo_name,
             discussion_num=self.discussion.num,
-            new_title="New titlee",
+            new_title="New title2",
         )
         retrieved = self._api.get_discussion_details(repo_id=self.repo_name, discussion_num=self.discussion.num)
         self.assertIn(rename_event.id, (event.id for event in retrieved.events))
         self.assertEqual(rename_event.old_title, self.discussion.title)
-        self.assertEqual(rename_event.new_title, "New titlee")
+        self.assertEqual(rename_event.new_title, "New title2")
 
     def test_change_discussion_status(self):
         status_change_event = self._api.change_discussion_status(

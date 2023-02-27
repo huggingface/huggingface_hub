@@ -15,7 +15,7 @@
 """Contains utilities to handle headers to send in calls to Huggingface Hub."""
 from typing import Dict, Optional, Union
 
-from ..constants import HF_HUB_DISABLE_IMPLICIT_TOKEN
+from .. import constants
 from ._hf_folder import HfFolder
 from ._runtime import (
     get_fastai_version,
@@ -155,7 +155,7 @@ def get_token_to_send(token: Optional[Union[bool, str]]) -> Optional[str]:
         return cached_token
 
     # Case implicit use of the token is forbidden by env variable
-    if HF_HUB_DISABLE_IMPLICIT_TOKEN:
+    if constants.HF_HUB_DISABLE_IMPLICIT_TOKEN:
         return None
 
     # Otherwise: we use the cached token as the user has not explicitly forbidden it
@@ -204,16 +204,27 @@ def _http_user_agent(
         ua = "unknown/None"
     ua += f"; hf_hub/{get_hf_hub_version()}"
     ua += f"; python/{get_python_version()}"
-    if is_torch_available():
-        ua += f"; torch/{get_torch_version()}"
-    if is_tf_available():
-        ua += f"; tensorflow/{get_tf_version()}"
-    if is_fastai_available():
-        ua += f"; fastai/{get_fastai_version()}"
-    if is_fastcore_available():
-        ua += f"; fastcore/{get_fastcore_version()}"
+
+    if not constants.HF_HUB_DISABLE_TELEMETRY:
+        if is_torch_available():
+            ua += f"; torch/{get_torch_version()}"
+        if is_tf_available():
+            ua += f"; tensorflow/{get_tf_version()}"
+        if is_fastai_available():
+            ua += f"; fastai/{get_fastai_version()}"
+        if is_fastcore_available():
+            ua += f"; fastcore/{get_fastcore_version()}"
+
     if isinstance(user_agent, dict):
         ua += "; " + "; ".join(f"{k}/{v}" for k, v in user_agent.items())
     elif isinstance(user_agent, str):
         ua += "; " + user_agent
-    return ua
+
+    return _deduplicate_user_agent(ua)
+
+
+def _deduplicate_user_agent(user_agent: str) -> str:
+    """Deduplicate redundant information in the generated user-agent."""
+    # Split around ";" > Strip whitespaces > Store as dict keys (ensure unicity) > format back as string
+    # Order is implicitly preserved by dictionary structure (see https://stackoverflow.com/a/53657523).
+    return "; ".join({key.strip(): None for key in user_agent.split(";")}.keys())

@@ -234,28 +234,28 @@ class HubKerasSequentialTest(CommonKerasTest):
         REPO_NAME = repo_name("save")
         model = self.model_init()
         model = self.model_fit(model)
-        with SoftTemporaryDirectory() as tmpdirname:
-            os.makedirs(f"{tmpdirname}/{WORKING_REPO_DIR}/{REPO_NAME}")
-            with open(f"{tmpdirname}/{WORKING_REPO_DIR}/{REPO_NAME}/history.json", "w+") as fp:
+        with SoftTemporaryDirectory() as tmpdir:
+            os.makedirs(f"{tmpdir}/{WORKING_REPO_DIR}/{REPO_NAME}")
+            with open(f"{tmpdir}/{WORKING_REPO_DIR}/{REPO_NAME}/history.json", "w+") as fp:
                 fp.write("Keras FTW")
 
             with pytest.warns(UserWarning, match="`history.json` file already exists, *"):
                 save_pretrained_keras(
                     model,
-                    f"{tmpdirname}/{WORKING_REPO_DIR}/{REPO_NAME}",
+                    f"{tmpdir}/{WORKING_REPO_DIR}/{REPO_NAME}",
                 )
                 # assert that it's not the same as old history file and it's overridden
-                with open(f"{tmpdirname}/{WORKING_REPO_DIR}/{REPO_NAME}/history.json", "r") as f:
+                with open(f"{tmpdir}/{WORKING_REPO_DIR}/{REPO_NAME}/history.json", "r") as f:
                     history_content = f.read()
                     self.assertNotEqual("Keras FTW", history_content)
 
             # Check the history is saved as a json in the repository.
-            files = os.listdir(f"{tmpdirname}/{WORKING_REPO_DIR}/{REPO_NAME}")
+            files = os.listdir(f"{tmpdir}/{WORKING_REPO_DIR}/{REPO_NAME}")
             self.assertIn("history.json", files)
 
             # Check that there is no "Training Metrics" section in the model card.
             # This was done in an older version.
-            with open(f"{tmpdirname}/{WORKING_REPO_DIR}/{REPO_NAME}/README.md", "r") as file:
+            with open(f"{tmpdir}/{WORKING_REPO_DIR}/{REPO_NAME}/README.md", "r") as file:
                 data = file.read()
             self.assertNotIn(data, "Training Metrics")
 
@@ -385,27 +385,27 @@ class HubKerasSequentialTest(CommonKerasTest):
         """Test log directory is overwritten when pushing a keras model a 2nd time."""
         REPO_NAME = repo_name("PUSH_TO_HUB_KERAS_via_http_override_tensorboard")
         repo_id = f"{USER}/{REPO_NAME}"
-        with SoftTemporaryDirectory() as tmpdirname:
-            os.makedirs(f"{tmpdirname}/tb_log_dir")
-            with open(f"{tmpdirname}/tb_log_dir/tensorboard.txt", "w") as fp:
+        with SoftTemporaryDirectory() as tmpdir:
+            os.makedirs(f"{tmpdir}/tb_log_dir")
+            with open(f"{tmpdir}/tb_log_dir/tensorboard.txt", "w") as fp:
                 fp.write("Keras FTW")
             model = self.model_init()
             model.build((None, 2))
             push_to_hub_keras(
                 model,
                 repo_id=repo_id,
-                log_dir=f"{tmpdirname}/tb_log_dir",
+                log_dir=f"{tmpdir}/tb_log_dir",
                 api_endpoint=ENDPOINT_STAGING,
                 token=self._token,
             )
 
-            os.makedirs(f"{tmpdirname}/tb_log_dir2")
-            with open(f"{tmpdirname}/tb_log_dir2/override.txt", "w") as fp:
+            os.makedirs(f"{tmpdir}/tb_log_dir2")
+            with open(f"{tmpdir}/tb_log_dir2/override.txt", "w") as fp:
                 fp.write("Keras FTW")
             push_to_hub_keras(
                 model,
                 repo_id=repo_id,
-                log_dir=f"{tmpdirname}/tb_log_dir2",
+                log_dir=f"{tmpdir}/tb_log_dir2",
                 api_endpoint=ENDPOINT_STAGING,
                 token=self._token,
             )
@@ -435,9 +435,9 @@ class HubKerasSequentialTest(CommonKerasTest):
         model_info = HfApi(endpoint=ENDPOINT_STAGING).model_info(repo_id)
         self.assertEqual(model_info.modelId, repo_id)
 
-        with SoftTemporaryDirectory() as tmpdirname:
-            Repository(local_dir=tmpdirname, clone_from=ENDPOINT_STAGING + "/" + repo_id)
-            from_pretrained_keras(tmpdirname)
+        with SoftTemporaryDirectory() as tmpdir:
+            Repository(local_dir=tmpdir, clone_from=ENDPOINT_STAGING + "/" + repo_id)
+            from_pretrained_keras(tmpdir)
 
         self._api.delete_repo(repo_id=f"{REPO_NAME}")
 

@@ -57,7 +57,7 @@ class AttributeDictionaryTest(AttributeDictionaryCommonTest):
 
     def test_dir(self):
         # Since we subclass dict, dir should have everything
-        # from dict and the atttributes
+        # from dict and the attributes
         _dict_keys = dir(dict) + [
             "__dict__",
             "__getattr__",
