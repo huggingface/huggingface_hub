@@ -2,7 +2,7 @@ import unittest
 from unittest.mock import Mock, patch
 
 from huggingface_hub.utils import get_hf_hub_version, get_python_version
-from huggingface_hub.utils._headers import _http_user_agent, build_hf_headers
+from huggingface_hub.utils._headers import _deduplicate_user_agent, _http_user_agent, build_hf_headers
 
 from .testing_utils import handle_injection, handle_injection_in_test
 
@@ -61,14 +61,14 @@ class TestAuthHeadersUtil(unittest.TestCase):
 
     def test_implicit_use_disabled(self, mock_HfFolder: Mock) -> None:
         with patch(  # not as decorator to avoid friction with @handle_injection
-            "huggingface_hub.utils._headers.HF_HUB_DISABLE_IMPLICIT_TOKEN", True
+            "huggingface_hub.constants.HF_HUB_DISABLE_IMPLICIT_TOKEN", True
         ):
             mock_HfFolder().get_token.return_value = FAKE_TOKEN
             self.assertEqual(build_hf_headers(), NO_AUTH_HEADER)  # token is not sent
 
     def test_implicit_use_disabled_but_explicit_use(self, mock_HfFolder: Mock) -> None:
         with patch(  # not as decorator to avoid friction with @handle_injection
-            "huggingface_hub.utils._headers.HF_HUB_DISABLE_IMPLICIT_TOKEN", True
+            "huggingface_hub.constants.HF_HUB_DISABLE_IMPLICIT_TOKEN", True
         ):
             mock_HfFolder().get_token.return_value = FAKE_TOKEN
 
@@ -145,3 +145,15 @@ class TestUserAgentHeadersUtil(unittest.TestCase):
 
     def test_user_agent_with_custom_agent_dict(self) -> None:
         self.assertTrue(self._get_user_agent(user_agent={"a": "b", "c": "d"}).endswith("a/b; c/d"))
+
+    def test_user_agent_deduplicate(self) -> None:
+        self.assertEqual(
+            _deduplicate_user_agent(
+                "python/3.7; python/3.8; hf_hub/0.12; transformers/None; hf_hub/0.12; python/3.7; diffusers/0.12.1"
+            ),
+            # 1. "python" is kept twice with different values
+            # 2. "python/3.7" second occurrence is removed
+            # 3. "hf_hub" second occurrence is removed
+            # 4. order is preserved
+            "python/3.7; python/3.8; hf_hub/0.12; transformers/None; diffusers/0.12.1",
+        )

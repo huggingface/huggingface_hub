@@ -91,3 +91,4 @@ from .tqdm import (
     tqdm,
     tqdm_stream_file,
 )
+from ._telemetry import send_telemetry
