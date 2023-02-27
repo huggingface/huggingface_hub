@@ -310,7 +310,7 @@ class RepoUrl(str):
         return f"RepoUrl('{self}', endpoint='{self.endpoint}', repo_type='{self.repo_type}', repo_id='{self.repo_id}')"
 
 
-class RepoFile(ReprMixin):
+class RepoFile:
     """
     Data structure that represents a public file inside a repo, accessible from
     huggingface.co
