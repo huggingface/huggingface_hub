@@ -187,7 +187,7 @@ class ModelHubMixin:
     @classmethod
     @_deprecate_positional_args(version="0.16")
     def _from_pretrained(
-        cls,
+        cls: Type[T],
         *,
         model_id: str,
         revision: Optional[str],
