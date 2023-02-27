@@ -16,39 +16,38 @@ When talking about integrating a library to the Hub, we have 4 main topics:
 In this guide, we will focus on topic 1 and 2. If you are interested in Inference and Widgets, please let us know!
 You can also reach out to us if you are integrating your library with the Hub and want to be listed [in our docs](https://huggingface.co/docs/hub/models-libraries).
 
-## The recommended way: use class inheritance
-
+## A bit of theory: use class inheritance
 
 As we saw above, we are interested in having 2 methods: one to upload files (`push_to_hub`) and one to download files (`from_pretrained`).
-In most cases, a library will implement its model using a Python class. The class contains the properties of the model
+In most cases, a library already implements its model using a Python class. The class contains the properties of the model
 and methods to load, run, train, evaluate,... it. It would be nice to extend the class with the 2 new methods!
 
 The recommended approach to do so is to use inheritance, and more precisely mixins. A [Mixin](https://stackoverflow.com/a/547714)
 is a class that is meant to extend an existing class with a set of specific features using multiple inheritance.
 `huggingface_hub` defined its own mixin [`ModelHubMixin`]. The key here is to understand its behavior and how to customize it.
 
-### A bit of theory
-
 The [`ModelHubMixin`] class defines 3 *public* methods (`push_to_hub`, `save_pretrained` and `from_pretrained`) and 2
-*private* ones (`_save_pretrained` and `_from_pretrained`). Let's see how to use them!
+*private* ones (`_save_pretrained` and `_from_pretrained`). To integrate it, you should:
 
 1. Make your Model class inherit from [`ModelHubMixin`].
 2. Implement the private methods:
-    - `_save_pretrained`: method taking as input a path to a directory and saving the model to it. You must write all the logic to
-    dump your model in this method: model weights, model card, configuration files, training logs and figures,... Any
-    information that is relevant for this model must be handled by this method.
-    - `_from_pretrained`: class method taking as input a model_id and returning an instantiate model. The method must download the
-    relevant files and load them.
+    - [`~ModelHubMixin._save_pretrained`]: method taking as input a path to a directory and saving the model to it.
+    You must write all the logic to dump your model in this method: model card, model weights, configuration files,
+    training logs and figures,... Any information that is relevant for this model must be handled by this method.
+    [Model Cards](https://huggingface.co/docs/hub/model-cards) are particularly important to describe your model. Check
+    out [our implementation guide](./model-cards) for more details.
+    - [`~ModelHubMixin._from_pretrained`]: **class method** taking as input a model_id and returning an instantiated
+    model. The method must download the relevant files and load them.
 3. You are done!
 
-The advantage of using [`ModelHubMixin`] is that you only take care of the serialization/loading of the files and you are ready to
-go. In particular, you don't need to care about stuff like repo creation, commits, PRs, revisions,... All of this is handled by
-the mixin and available for your user.
+The advantage of using [`ModelHubMixin`] is that you only take care of the serialization/loading of the files and you
+are ready to go. In particular, you don't need to care about stuff like repo creation, commits, PRs, revisions,... All
+of this is handled by the mixin and available to your users.
 
-### A concrete example: PyTorch
+## A concrete example: PyTorch
 
-A good example of what we saw above is [`PyTorchModelHubMixin`], our integration for the PyTorch framework.
-This is a ready-to-use integration. Here is how to use it:
+A good example of what we saw above is [`PyTorchModelHubMixin`], our integration for the PyTorch framework. This is a
+ready-to-use integration. Here is how to use it:
 
 ```python
 >>> import torch
@@ -76,11 +75,90 @@ This is a ready-to-use integration. Here is how to use it:
 >>> model = MyModel.from_pretrained("username/my-awesome-model")
 ```
 
-How easy is that? Now, we are interested in how it is implemented under the hood.
+How easy is that? Now, we are interested in how it is implemented under the hood. Full implementation can be found
+[here](https://github.com/huggingface/huggingface_hub/blob/main/src/huggingface_hub/hub_mixin.py).
 
-## The other way: write functions
+1. First, inherit your class from `ModelHubMixin`:
 
-### Example: FastAI
+```python
+from huggingface_hub import ModelHubMixin
+
+class PyTorchModelHubMixin(ModelHubMixin):
+   (...)
+```
+
+2. Implement the `_save_pretrained` method:
+
+```py
+from huggingface_hub import ModelCard, ModelCardData
+
+class PyTorchModelHubMixin(ModelHubMixin):
+   (...)
+
+   def _save_pretrained(self, save_directory: Path):
+      """Generate Model Card and save weights from a Pytorch model to a local directory."""
+      model_card = ModelCard.from_template(
+         card_data=ModelCardData(
+            license='mit',
+            library_name="pytorch",
+            ...
+         ),
+         model_summary=...,
+         model_type=...,
+         ...
+      )
+      (save_directory / "README.md").write_text(str(model))
+      torch.save(obj=self.module.state_dict(), f=save_directory / "pytorch_model.bin")
+```
+
+3. Implement the `_from_pretrained` method:
+
+```python
+class PyTorchModelHubMixin(ModelHubMixin):
+   (...)
+
+   @classmethod # Must be a classmethod!
+   def _from_pretrained(
+      cls,
+      *,
+      model_id: str,
+      revision: str,
+      cache_dir: str,
+      force_download: bool,
+      proxies: Optional[Dict],
+      resume_download: bool,
+      local_files_only: bool,
+      token: Union[str, bool, None],
+      map_location: str = "cpu", # additional argument
+      strict: bool = False, # additional argument
+      **model_kwargs,
+   ):
+      """Load Pytorch pretrained weights and return the loaded model."""
+      if os.path.isdir(model_id): # Can either be a local directory
+         print("Loading weights from local directory")
+         model_file = os.path.join(model_id, "pytorch_model.bin")
+      else: # Or a model on the Hub
+         model_file = hf_hub_download( # Download from the hub, passing same input args
+            repo_id=model_id,
+            filename="pytorch_model.bin",
+            revision=revision,
+            cache_dir=cache_dir,
+            force_download=force_download,
+            proxies=proxies,
+            resume_download=resume_download,
+            token=token,
+            local_files_only=local_files_only,
+         )
+
+      # Load model and return - custom logic depending on your framework
+      model = cls(**model_kwargs)
+      state_dict = torch.load(model_file, map_location=torch.device(map_location))
+      model.load_state_dict(state_dict, strict=strict)
+      model.eval()
+      return model
+```
+
+And that's it!
 
 
 
