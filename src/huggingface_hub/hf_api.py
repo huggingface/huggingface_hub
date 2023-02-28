@@ -98,10 +98,11 @@ class ReprMixin:
     """Mixin to create the __repr__ for a class"""
 
     def __repr__(self):
-        s = f"{self.__class__.__name__}: {{ \n"
-        s += textwrap.indent(pprint.pformat(self.__dict__, width=88, sort_dicts=False), "        ")
-        s += "\n\t}"
-        return s
+        formatted_value = pprint.pformat(self.__dict__, width=119, compact=True, sort_dicts=False)
+        if "\n" in formatted_value:
+            return f"{self.__class__.__name__}: {{ \n{textwrap.indent(formatted_value, '  ')}\n}}"
+        else:
+            return f"{self.__class__.__name__}: {formatted_value}"
 
 
 def repo_type_and_id_from_hf_id(hf_id: str, hub_url: Optional[str] = None) -> Tuple[Optional[str], Optional[str], str]:
@@ -310,7 +311,7 @@ class RepoUrl(str):
         return f"RepoUrl('{self}', endpoint='{self.endpoint}', repo_type='{self.repo_type}', repo_id='{self.repo_id}')"
 
 
-class RepoFile:
+class RepoFile(ReprMixin):
     """
     Data structure that represents a public file inside a repo, accessible from
     huggingface.co
