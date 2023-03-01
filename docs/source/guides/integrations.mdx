@@ -1,13 +1,13 @@
 # Integrate any ML framework with the Hub
 
-The Huggingface Hub makes it easy to host and share models with the community. It already has support for
+The Hugging Face Hub makes hosting and sharing models with the community easy. It supports
 [dozens of libraries](https://huggingface.co/docs/hub/models-libraries) in the Open Source ecosystem. We are always
-working on expanding this support to push Machine Learning forward. The `huggingface_hub` library plays a key role in
+working on expanding this support to push collaborative Machine Learning forward. The `huggingface_hub` library plays a key role in
 this process, allowing any Python script to easily push and load files.
 
-When talking about integrating a library to the Hub, we have 4 main topics:
+There are four main ways to integrate a library with the Hub:
 1. **Push to Hub:** implement a `push_to_hub()`-like method to upload a model to the Hub.
-   This includes the model weights as well as the modelcard and any other relevant information/data necessary to run the model (example: logs from training).
+   This includes the model weights, as well as [the model card](https://huggingface.co/docs/huggingface_hub/how-to-model-cards) and any other relevant information or data necessary to run the model (for example, training logs).
 2. **Download from Hub:** implement a `from_pretrained`-like method to load a model from the Hub.
    Takes care of downloading the model configuration/weights and instantiating it.
 3. **Inference API:** collaborate with the HF Team to make it possible to run inference on our servers, using your library.
