@@ -20,11 +20,11 @@ You can also reach out to us if you are integrating your library with the Hub an
 
 As we saw above, there are two main methods to include in your library to integrate it with the Hub: upload files (`push_to_hub`) and download files (`from_pretrained`).
 In most cases, a library already implements its model using a Python class. The class contains the properties of the model
-and methods to load, run, train, evaluate,... it. It would be nice to extend the class with the 2 new methods!
+and methods to load, run, train, and evaluate it. You can extend the class to include functionality for uploading and downloading files to the Hub!
 
-The recommended approach to do so is to use inheritance, and more precisely mixins. A [Mixin](https://stackoverflow.com/a/547714)
+The best way to do this is by using inheritance, specifically mixins. A [Mixin](https://stackoverflow.com/a/547714)
 is a class that is meant to extend an existing class with a set of specific features using multiple inheritance.
-`huggingface_hub` defined its own mixin [`ModelHubMixin`]. The key here is to understand its behavior and how to customize it.
+`huggingface_hub` provides its own mixin, the [`ModelHubMixin`]. The key here is to understand its behavior and how to customize it.
 
 The [`ModelHubMixin`] class defines 3 *public* methods (`push_to_hub`, `save_pretrained` and `from_pretrained`) and 2
 *private* ones (`_save_pretrained` and `_from_pretrained`). To integrate it, you should:
@@ -33,16 +33,16 @@ The [`ModelHubMixin`] class defines 3 *public* methods (`push_to_hub`, `save_pre
 2. Implement the private methods:
     - [`~ModelHubMixin._save_pretrained`]: method taking as input a path to a directory and saving the model to it.
     You must write all the logic to dump your model in this method: model card, model weights, configuration files,
-    training logs and figures,... Any information that is relevant for this model must be handled by this method.
+    training logs, and figures. Any relevant information for this model must be handled by this method.
     [Model Cards](https://huggingface.co/docs/hub/model-cards) are particularly important to describe your model. Check
     out [our implementation guide](./model-cards) for more details.
-    - [`~ModelHubMixin._from_pretrained`]: **class method** taking as input a model_id and returning an instantiated
+    - [`~ModelHubMixin._from_pretrained`]: **class method** taking as input a `model_id` and returning an instantiated
     model. The method must download the relevant files and load them.
 3. You are done!
 
-The advantage of using [`ModelHubMixin`] is that you only take care of the serialization/loading of the files and you
-are ready to go. In particular, you don't need to care about stuff like repo creation, commits, PRs, revisions,... All
-of this is handled by the mixin and available to your users.
+The advantage of using [`ModelHubMixin`] is that once you take care of the serialization/loading of the files, you
+are ready to go. You don't need to worry about stuff like repo creation, commits, PRs, or revisions. All
+of this is handled by the mixin and is available to your users.
 
 ## A concrete example: PyTorch
 
@@ -51,7 +51,7 @@ ready-to-use integration.
 
 ### How to use it?
 
-Here is how any user can load/save a Pytorch model from/to the Hub:
+Here is how any user can load/save a PyTorch model from/to the Hub:
 
 ```python
 >>> import torch
@@ -81,8 +81,7 @@ Here is how any user can load/save a Pytorch model from/to the Hub:
 
 ### Implementation
 
-How easy was that? Now, we are interested in how it is implemented under the hood. It is very straightforward.
-Full implementation can be found [here](https://github.com/huggingface/huggingface_hub/blob/main/src/huggingface_hub/hub_mixin.py).
+The implementation is actually very straightforward, and the full implementation can be found [here](https://github.com/huggingface/huggingface_hub/blob/main/src/huggingface_hub/hub_mixin.py).
 
 1. First, inherit your class from `ModelHubMixin`:
 
@@ -164,7 +163,7 @@ class PyTorchModelHubMixin(ModelHubMixin):
       return model
 ```
 
-And that's it!
+And that's it! Your library now enables users to upload and download files to and from the Hub.
 
 
 
