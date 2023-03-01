@@ -10,7 +10,7 @@ There are four main ways to integrate a library with the Hub:
    [the model card](https://huggingface.co/docs/huggingface_hub/how-to-model-cards) and any other relevant information
    or data necessary to run the model (for example, training logs). This method is often called `push_to_hub()`.
 2. **Download from Hub:** implement a method to load a model from the Hub. The method should download the model
-   configuration/weights and load the model. This method is often called `from_pretrained`. 
+   configuration/weights and load the model. This method is often called `from_pretrained` or `load_from_hub()`.
 3. **Inference API:** use our servers to run inference on models supported by your library for free.
 4. **Widgets:** display a widget on the landing page of your models on the Hub. It allows users to quickly try a model
    from the browser.
@@ -19,17 +19,108 @@ In this guide, we will focus on the first two topics. If you are interested in I
 [this guide](https://huggingface.co/docs/hub/models-adding-libraries#set-up-the-inference-api). In both cases, you can
 reach out to us if you are integrating your library with the Hub and want to be listed [in our docs](https://huggingface.co/docs/hub/models-libraries). 
 
-## A bit of theory: use class inheritance
+## A first approach: helpers
+
+The first approach to integrate a library to the Hub is to actually implement the `push_to_hub` and `from_pretrained`
+methods by yourself. This gives you full flexibility on which files you need to upload/download and how to handle inputs
+specific to your framework. You can refers to the two [upload files](./upload) and [download files](./download) guides
+to learn more on how to do that. This is for example how FastAI integration is implemented (see [`push_to_hub_fastai`]
+and [`from_pretrained_fastai`]).
+
+Implementation can defer between libraries but the workflow is often similar.
+
+### from_pretrained
+
+This is how a `from_pretrained` method usually look like:
+
+```python
+def from_pretrained(model_id: str):
+   # Download model from Hub
+   cached_model = hf_hub_download(
+      repo_id=repo_id,
+      filename="model.pkl",
+      library_name="fastai",
+      library_version=get_fastai_version(),
+   )
+
+   # Load model
+    return load_model(cached_model)
+```
+
+### push_to_hub
+
+The `push_to_hub` often require a bit more complexity to handle repo creation, generate the model card and save weights.
+A common approach is to save all of these files in a temporary folder, upload it and then delete it.
+
+```python
+def push_to_hub(model, repo_name: str) -> None:
+   api = HfApi()
+
+   # Create repo if not existing yet and get the associated repo_id
+   repo_id = api.create_repo(repo_name, exist_ok=True)
+
+   # Save all files in a temporary directory and push them in a single commit
+   with TemporaryDirectory() as tmpdir:
+      tmpdir = Path(tmpdir)
+
+      # Save weights
+      save_model(model, tmpdir / "model.safetensors")
+
+      # Generate model card
+      card = generate_model_card(model)
+      (tmpdir / "README.md").write_text(card)
+
+      # Save logs
+      # Save figures
+      # Save evaluation metrics
+      # ...
+
+      # Push to hub
+      return api.upload_folder(repo_id=repo_id, folder_path=tmpdir)
+```
+
+This is of course only an example. If you are interested in more complex manipulations (delete remote files, upload
+weights on the fly, persist weights locally,...) please refer to the [upload files](./upload) guide.
+
+### Limitations
+
+While being flexible, this approach has some drawbacks, especially in term of maintenance. Huggingface users are often
+used to additional features when working with `huggingface_hub`. For example, when load files from the Hub, it is
+common to offer parameters like
+- `token`: to download from a private repo
+- `revision`: to download from a specific branch
+- `cache_dir`: to cache files in a specific directory
+- `force_download`/`resume_download`/`local_files_only`: to reuse the cache or not
+- `api_endpoint`/`proxies`: configure HTTP session
+
+When pushing models, similar parameters are supported:
+- `commit_message`: custom commit message
+- `private`: create a private repo if missing
+- `create_pr`: create a PR instead of pushing to `main`
+- `branch`: push to a branch instead of the `main` branch
+- `allow_patterns`/`ignore_patterns`: filter which files to upload
+- `token`
+- `api_endpoint`
+- ...
+
+All of these parameters can be added to the implementations we saw above and passed to the `huggingface_hub` methods.
+However, if a parameter changes or a new feature is added, you will need to update your package. Supporting those
+parameters also means more documentation to maintain on your side. To see how to mitigate these limitations, let's jump
+to our next section **class inheritance**.
+
+## A more complex approach: class inheritance
+
+### A bit of theory
 
 As we saw above, there are two main methods to include in your library to integrate it with the Hub: upload files
-(`push_to_hub`) and download files (`from_pretrained`). In most cases, a library already implements its model using a
-Python class. The class contains the properties of the model and methods to load, run, train, and evaluate it. You can
-extend the class to include functionality for uploading and downloading files to the Hub!
+(`push_to_hub`) and download files (`from_pretrained`). You can implement those methods by yourself but it comes with
+caveats. To tackle this, `huggingface_hub` provides a tool that uses class inheritance. Let's see how it works!
 
-The best way to do this is by using inheritance, specifically mixins. A [Mixin](https://stackoverflow.com/a/547714)
-is a class that is meant to extend an existing class with a set of specific features using multiple inheritance.
-`huggingface_hub` provides its own mixin, the [`ModelHubMixin`]. The key here is to understand its behavior and how to
-customize it.
+In a lot of cases, a library already implements its model using a Python class. The class contains the properties of
+the model and methods to load, run, train, and evaluate it. Our approach is to extend this class to include upload and
+download features using mixins. A [Mixin](https://stackoverflow.com/a/547714) is a class that is meant to extend an
+existing class with a set of specific features using multiple inheritance. `huggingface_hub` provides its own mixin,
+the [`ModelHubMixin`]. The key here is to understand its behavior and how to customize it.
 
 The [`ModelHubMixin`] class implements 3 *public* methods (`push_to_hub`, `save_pretrained` and `from_pretrained`). Those
 are the methods that your users will call to load/save models with your library. [`ModelHubMixin`] also defines 2
@@ -49,14 +140,15 @@ your library, you should:
 
 The advantage of using [`ModelHubMixin`] is that once you take care of the serialization/loading of the files, you
 are ready to go. You don't need to worry about stuff like repo creation, commits, PRs, or revisions. All
-of this is handled by the mixin and is available to your users.
+of this is handled by the mixin and is available to your users. The Mixin also ensures that public methods are well
+documented and type annotated.
 
-## A concrete example: PyTorch
+### A concrete example: PyTorch
 
 A good example of what we saw above is [`PyTorchModelHubMixin`], our integration for the PyTorch framework. This is a
 ready-to-use integration.
 
-### How to use it?
+#### How to use it?
 
 Here is how any user can load/save a PyTorch model from/to the Hub:
 
@@ -86,7 +178,7 @@ Here is how any user can load/save a PyTorch model from/to the Hub:
 >>> model = MyModel.from_pretrained("username/my-awesome-model")
 ```
 
-### Implementation
+#### Implementation
 
 The implementation is actually very straightforward, and the full implementation can be found [here](https://github.com/huggingface/huggingface_hub/blob/main/src/huggingface_hub/hub_mixin.py).
 
@@ -171,6 +263,3 @@ class PyTorchModelHubMixin(ModelHubMixin):
 ```
 
 And that's it! Your library now enables users to upload and download files to and from the Hub.
-
-
-
