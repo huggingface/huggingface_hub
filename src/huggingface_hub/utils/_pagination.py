@@ -23,7 +23,7 @@ from . import hf_raise_for_status, logging
 logger = logging.get_logger(__name__)
 
 
-def paginate(path: str, params: Dict, headers: Dict) -> Iterable:
+def paginate(path: str, params: Dict, headers: Dict, session: requests.Session) -> Iterable:
     """Fetch a list of models/datasets/spaces and paginate through results.
 
     This is using the same "Link" header format as GitHub.
@@ -31,7 +31,7 @@ def paginate(path: str, params: Dict, headers: Dict) -> Iterable:
     - https://requests.readthedocs.io/en/latest/api/#requests.Response.links
     - https://docs.github.com/en/rest/guides/traversing-with-pagination#link-header
     """
-    r = requests.get(path, params=params, headers=headers)
+    r = session.get(path, params=params, headers=headers)
     hf_raise_for_status(r)
     yield from r.json()
 
@@ -40,7 +40,7 @@ def paginate(path: str, params: Dict, headers: Dict) -> Iterable:
     next_page = _get_next_page(r)
     while next_page is not None:
         logger.debug(f"Pagination detected. Requesting next page: {next_page}")
-        r = requests.get(next_page, headers=headers)
+        r = session.get(next_page, headers=headers)
         hf_raise_for_status(r)
         yield from r.json()
         next_page = _get_next_page(r)

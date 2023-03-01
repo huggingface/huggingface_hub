@@ -1054,7 +1054,7 @@ class HfApi:
         if cardData:
             params.update({"cardData": True})
 
-        data = paginate(path, params=params, headers=headers)
+        data = paginate(path, params=params, headers=headers, session=self.session)
         if limit is not None:
             data = islice(data, limit)  # Do not iterate over all pages
         items = [ModelInfo(**x) for x in data]
@@ -1244,7 +1244,7 @@ class HfApi:
         if full or cardData:
             params.update({"full": True})
 
-        data = paginate(path, params=params, headers=headers)
+        data = paginate(path, params=params, headers=headers, session=self.session)
         if limit is not None:
             data = islice(data, limit)  # Do not iterate over all pages
         return [DatasetInfo(**x) for x in data]
@@ -1385,7 +1385,7 @@ class HfApi:
         if models is not None:
             params.update({"models": models})
 
-        data = paginate(path, params=params, headers=headers)
+        data = paginate(path, params=params, headers=headers, session=self.session)
         if limit is not None:
             data = islice(data, limit)  # Do not iterate over all pages
         return [SpaceInfo(**x) for x in data]
@@ -1543,7 +1543,7 @@ class HfApi:
         path = f"{self.endpoint}/api/users/{user}/likes"
         headers = self.build_hf_headers(token=token)
 
-        likes = list(paginate(path, params={}, headers=headers))
+        likes = list(paginate(path, params={}, headers=headers, session=self.session))
         # Looping over a list of items similar to:
         #   {
         #       'createdAt': '2021-09-09T21:53:27.000Z',
@@ -2003,6 +2003,7 @@ class HfApi:
                 f"{self.endpoint}/api/{repo_type}s/{repo_id}/commits/{revision}",
                 headers=self.build_hf_headers(token=token),
                 params={"expand[]": "formatted"} if formatted else {},
+                session=self.session,
             )
         ]
 

@@ -1,13 +1,14 @@
 import unittest
 from unittest.mock import Mock, call, patch
 
+import requests
+
 from huggingface_hub.utils._pagination import paginate
 
 from .testing_utils import handle_injection_in_test
 
 
 class TestPagination(unittest.TestCase):
-    @patch("huggingface_hub.utils._pagination.requests.get")
     @patch("huggingface_hub.utils._pagination.hf_raise_for_status")
     @handle_injection_in_test
     def test_mocked_paginate(self, mock_get: Mock, mock_hf_raise_for_status: Mock) -> None:
@@ -30,13 +31,15 @@ class TestPagination(unittest.TestCase):
         mock_response_page_3.links = {}
 
         # Mock response
+        mock_session = Mock
         mock_get.side_effect = [
             mock_response_page_1,
             mock_response_page_2,
             mock_response_page_3,
         ]
+        mock_session.get = mock_get
 
-        results = paginate("url", params=mock_params, headers=mock_headers)
+        results = paginate("url", params=mock_params, headers=mock_headers, session=mock_session)
 
         # Requests are made only when generator is yielded
         self.assertEqual(mock_get.call_count, 0)
@@ -66,6 +69,7 @@ class TestPagination(unittest.TestCase):
                 "https://api.github.com/orgs/huggingface/repos?limit=4",
                 params={},
                 headers={},
+                session=requests.Session(),
             )
         ):
             if num == 6:
