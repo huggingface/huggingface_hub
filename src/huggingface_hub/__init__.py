@@ -152,6 +152,7 @@ _SUBMOD_ATTRS = {
         "move_repo",
         "pause_space",
         "rename_discussion",
+        "repo_info",
         "repo_type_and_id_from_hf_id",
         "request_space_hardware",
         "restart_space",
@@ -411,6 +412,7 @@ if TYPE_CHECKING:  # pragma: no cover
         move_repo,  # noqa: F401
         pause_space,  # noqa: F401
         rename_discussion,  # noqa: F401
+        repo_info,  # noqa: F401
         repo_type_and_id_from_hf_id,  # noqa: F401
         request_space_hardware,  # noqa: F401
         restart_space,  # noqa: F401

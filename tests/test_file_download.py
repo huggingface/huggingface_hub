@@ -19,7 +19,6 @@ from pathlib import Path
 from unittest.mock import Mock, patch
 
 import pytest
-import requests
 
 from huggingface_hub import HfApi
 from huggingface_hub.constants import (

@@ -1,11 +1,9 @@
 import io
 from typing import Any, Dict, List, Optional, Union
 
-import requests
-
 from .constants import INFERENCE_ENDPOINT
 from .hf_api import HfApi
-from .utils import build_hf_headers, is_pillow_available, logging, validate_hf_hub_args
+from .utils import is_pillow_available, logging, validate_hf_hub_args
 
 
 logger = logging.get_logger(__name__)
