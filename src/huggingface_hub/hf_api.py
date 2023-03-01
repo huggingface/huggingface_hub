@@ -782,37 +782,41 @@ class HfApi:
         library_name: Optional[str] = None,
         library_version: Optional[str] = None,
         user_agent: Union[Dict, str, None] = None,
+        session: Optional[requests.Session] = None,
     ) -> None:
         """Create a HF client to interact with the Hub via HTTP.
 
-        The client is initialized with some high-level settings used in all requests
-        made to the Hub (HF endpoint, authentication, user agents...). Using the `HfApi`
-        client is preferred but not mandatory as all of its public methods are exposed
-        directly at the root of `huggingface_hub`.
+        The client is initialized with some high-level settings used in all requests made to the Hub (HF endpoint,
+        authentication, user agents...). Using the `HfApi` client is preferred but not mandatory as all of its public
+        methods are exposed directly at the root of `huggingface_hub`.
 
         Args:
             endpoint (`str`, *optional*):
-                Hugging Face Hub base url. Will default to https://huggingface.co/. To
-                be set if you are using a private hub. Otherwise, one can set the
-                `HF_ENDPOINT` environment variable.
+                Hugging Face Hub base url. Will default to https://huggingface.co/. To be set if you are using a
+                private hub. Otherwise, one can set the `HF_ENDPOINT` environment variable.
             token (`str`, *optional*):
-                Hugging Face token. Will default to the locally saved token if
-                not provided.
+                Hugging Face token. Will default to the locally saved token if not provided.
             library_name (`str`, *optional*):
-                The name of the library that is making the HTTP request. Will be added to
-                the user-agent header. Example: `"transformers"`.
+                The name of the library that is making the HTTP request. Will be added to the user-agent header.
+                Example: `"transformers"`.
             library_version (`str`, *optional*):
-                The version of the library that is making the HTTP request. Will be added
-                to the user-agent header. Example: `"4.24.0"`.
+                The version of the library that is making the HTTP request. Will be added to the user-agent header.
+                Example: `"4.24.0"`.
             user_agent (`str`, `dict`, *optional*):
-                The user agent info in the form of a dictionary or a single string. It will
-                be completed with information about the installed packages.
+                The user agent info in the form of a dictionary or a single string. It will be completed with information
+                about the installed packages.
+            session (`requests.Session`, *optional*):
+                A Session object to be used for all requests made to the Hub. The session object can be configured for
+                your use case (proxy, headers, auth, cookies,...). By default an empty Session object is created. Using
+                a session keeps the TCP connection to the Hub open which significantly improves performances when
+                chaining requests. For more details, see https://requests.readthedocs.io/en/latest/user/advanced/#session-objects
         """
         self.endpoint = endpoint if endpoint is not None else ENDPOINT
         self.token = token
         self.library_name = library_name
         self.library_version = library_version
         self.user_agent = user_agent
+        self.session = session or requests.Session()
 
     def whoami(self, token: Optional[str] = None) -> Dict:
         """
@@ -823,9 +827,9 @@ class HfApi:
                 Hugging Face token. Will default to the locally saved token if
                 not provided.
         """
-        r = requests.get(
+        r = self.session.get(
             f"{self.endpoint}/api/whoami-v2",
-            headers=self._build_hf_headers(
+            headers=self.build_hf_headers(
                 # If `token` is provided and not `None`, it will be used by default.
                 # Otherwise, the token must be retrieved from cache or env variable.
                 token=(token or self.token or True),
@@ -894,7 +898,7 @@ class HfApi:
     def get_model_tags(self) -> ModelTags:
         "Gets all valid model tags as a nested namespace object"
         path = f"{self.endpoint}/api/models-tags-by-type"
-        r = requests.get(path)
+        r = self.session.get(path)
         hf_raise_for_status(r)
         d = r.json()
         return ModelTags(d)
@@ -904,7 +908,7 @@ class HfApi:
         Gets all valid dataset tags as a nested namespace object.
         """
         path = f"{self.endpoint}/api/datasets-tags-by-type"
-        r = requests.get(path)
+        r = self.session.get(path)
         hf_raise_for_status(r)
         d = r.json()
         return DatasetTags(d)
@@ -1022,7 +1026,7 @@ class HfApi:
         ```
         """
         path = f"{self.endpoint}/api/models"
-        headers = self._build_hf_headers(token=token)
+        headers = self.build_hf_headers(token=token)
         params = {}
         if filter is not None:
             if isinstance(filter, ModelFilter):
@@ -1220,7 +1224,7 @@ class HfApi:
         ```
         """
         path = f"{self.endpoint}/api/datasets"
-        headers = self._build_hf_headers(token=token)
+        headers = self.build_hf_headers(token=token)
         params = {}
         if filter is not None:
             if isinstance(filter, DatasetFilter):
@@ -1294,7 +1298,7 @@ class HfApi:
             `List[MetricInfo]`: a list of [`MetricInfo`] objects which.
         """
         path = f"{self.endpoint}/api/metrics"
-        r = requests.get(path)
+        r = self.session.get(path)
         hf_raise_for_status(r)
         d = r.json()
         return [MetricInfo(**x) for x in d]
@@ -1358,7 +1362,7 @@ class HfApi:
              simple iterator.
         """
         path = f"{self.endpoint}/api/spaces"
-        headers = self._build_hf_headers(token=token)
+        headers = self.build_hf_headers(token=token)
         params: Dict[str, Any] = {}
         if filter is not None:
             params.update({"filter": filter})
@@ -1428,9 +1432,9 @@ class HfApi:
         """
         if repo_type is None:
             repo_type = REPO_TYPE_MODEL
-        response = requests.post(
+        response = self.session.post(
             url=f"{self.endpoint}/api/{repo_type}s/{repo_id}/like",
-            headers=self._build_hf_headers(token=token),
+            headers=self.build_hf_headers(token=token),
         )
         hf_raise_for_status(response)
 
@@ -1476,10 +1480,9 @@ class HfApi:
         """
         if repo_type is None:
             repo_type = REPO_TYPE_MODEL
-        # TODO: use requests.delete(".../like") instead when https://github.com/huggingface/moon-landing/pull/4813 is merged
-        response = requests.delete(
+        response = self.session.delete(
             url=f"{self.endpoint}/api/{repo_type}s/{repo_id}/like",
-            headers=self._build_hf_headers(token=token),
+            headers=self.build_hf_headers(token=token),
         )
         hf_raise_for_status(response)
 
@@ -1538,7 +1541,7 @@ class HfApi:
                 )
 
         path = f"{self.endpoint}/api/users/{user}/likes"
-        headers = self._build_hf_headers(token=token)
+        headers = self.build_hf_headers(token=token)
 
         likes = list(paginate(path, params={}, headers=headers))
         # Looping over a list of items similar to:
@@ -1610,7 +1613,7 @@ class HfApi:
 
         </Tip>
         """
-        headers = self._build_hf_headers(token=token)
+        headers = self.build_hf_headers(token=token)
         path = (
             f"{self.endpoint}/api/models/{repo_id}"
             if revision is None
@@ -1621,7 +1624,7 @@ class HfApi:
             params["securityStatus"] = True
         if files_metadata:
             params["blobs"] = True
-        r = requests.get(path, headers=headers, timeout=timeout, params=params)
+        r = self.session.get(path, headers=headers, timeout=timeout, params=params)
         hf_raise_for_status(r)
         d = r.json()
         return ModelInfo(**d)
@@ -1674,7 +1677,7 @@ class HfApi:
 
         </Tip>
         """
-        headers = self._build_hf_headers(token=token)
+        headers = self.build_hf_headers(token=token)
         path = (
             f"{self.endpoint}/api/datasets/{repo_id}"
             if revision is None
@@ -1684,7 +1687,7 @@ class HfApi:
         if files_metadata:
             params["blobs"] = True
 
-        r = requests.get(path, headers=headers, timeout=timeout, params=params)
+        r = self.session.get(path, headers=headers, timeout=timeout, params=params)
         hf_raise_for_status(r)
         d = r.json()
         return DatasetInfo(**d)
@@ -1737,7 +1740,7 @@ class HfApi:
 
         </Tip>
         """
-        headers = self._build_hf_headers(token=token)
+        headers = self.build_hf_headers(token=token)
         path = (
             f"{self.endpoint}/api/spaces/{repo_id}"
             if revision is None
@@ -1747,7 +1750,7 @@ class HfApi:
         if files_metadata:
             params["blobs"] = True
 
-        r = requests.get(path, headers=headers, timeout=timeout, params=params)
+        r = self.session.get(path, headers=headers, timeout=timeout, params=params)
         hf_raise_for_status(r)
         d = r.json()
         return SpaceInfo(**d)
@@ -1913,9 +1916,9 @@ class HfApi:
             repo on the Hub.
         """
         repo_type = repo_type or REPO_TYPE_MODEL
-        response = requests.get(
+        response = self.session.get(
             f"{self.endpoint}/api/{repo_type}s/{repo_id}/refs",
-            headers=self._build_hf_headers(token=token),
+            headers=self.build_hf_headers(token=token),
         )
         hf_raise_for_status(response)
         data = response.json()
@@ -1998,7 +2001,7 @@ class HfApi:
             GitCommitInfo(item)
             for item in paginate(
                 f"{self.endpoint}/api/{repo_type}s/{repo_id}/commits/{revision}",
-                headers=self._build_hf_headers(token=token),
+                headers=self.build_hf_headers(token=token),
                 params={"expand[]": "formatted"} if formatted else {},
             )
         ]
@@ -2073,8 +2076,8 @@ class HfApi:
             # Testing purposes only.
             # See https://github.com/huggingface/huggingface_hub/pull/733/files#r820604472
             json["lfsmultipartthresh"] = self._lfsmultipartthresh  # type: ignore
-        headers = self._build_hf_headers(token=token, is_write_action=True)
-        r = requests.post(path, headers=headers, json=json)
+        headers = self.build_hf_headers(token=token, is_write_action=True)
+        r = self.session.post(path, headers=headers, json=json)
 
         try:
             hf_raise_for_status(r)
@@ -2130,8 +2133,8 @@ class HfApi:
         if repo_type is not None:
             json["type"] = repo_type
 
-        headers = self._build_hf_headers(token=token, is_write_action=True)
-        r = requests.delete(path, headers=headers, json=json)
+        headers = self.build_hf_headers(token=token, is_write_action=True)
+        r = self.session.delete(path, headers=headers, json=json)
         hf_raise_for_status(r)
 
     @validate_hf_hub_args
@@ -2186,9 +2189,9 @@ class HfApi:
         if repo_type is None:
             repo_type = REPO_TYPE_MODEL  # default repo type
 
-        r = requests.put(
+        r = self.session.put(
             url=f"{self.endpoint}/api/{repo_type}s/{namespace}/{name}/settings",
-            headers=self._build_hf_headers(token=token, is_write_action=True),
+            headers=self.build_hf_headers(token=token, is_write_action=True),
             json={"private": private},
         )
         hf_raise_for_status(r)
@@ -2245,8 +2248,8 @@ class HfApi:
         json = {"fromRepo": from_id, "toRepo": to_id, "type": repo_type}
 
         path = f"{self.endpoint}/api/repos/move"
-        headers = self._build_hf_headers(token=token, is_write_action=True)
-        r = requests.post(path, headers=headers, json=json)
+        headers = self.build_hf_headers(token=token, is_write_action=True)
+        r = self.session.post(path, headers=headers, json=json)
         try:
             hf_raise_for_status(r)
         except HfHubHTTPError as e:
@@ -2424,11 +2427,11 @@ class HfApi:
         headers = {
             # See https://github.com/huggingface/huggingface_hub/issues/1085#issuecomment-1265208073
             "Content-Type": "application/x-ndjson",
-            **self._build_hf_headers(token=token, is_write_action=True),
+            **self.build_hf_headers(token=token, is_write_action=True),
         }
 
         try:
-            commit_resp = requests.post(
+            commit_resp = self.session.post(
                 url=commit_url,
                 headers=headers,
                 data=_payload_as_ndjson(),  # type: ignore
@@ -2971,13 +2974,13 @@ class HfApi:
 
         # Prepare request
         branch_url = f"{self.endpoint}/api/{repo_type}s/{repo_id}/branch/{branch}"
-        headers = self._build_hf_headers(token=token, is_write_action=True)
+        headers = self.build_hf_headers(token=token, is_write_action=True)
         payload = {}
         if revision is not None:
             payload["startingPoint"] = revision
 
         # Create branch
-        response = requests.post(url=branch_url, headers=headers, json=payload)
+        response = self.session.post(url=branch_url, headers=headers, json=payload)
         try:
             hf_raise_for_status(response)
         except HfHubHTTPError as e:
@@ -3027,10 +3030,10 @@ class HfApi:
 
         # Prepare request
         branch_url = f"{self.endpoint}/api/{repo_type}s/{repo_id}/branch/{branch}"
-        headers = self._build_hf_headers(token=token, is_write_action=True)
+        headers = self.build_hf_headers(token=token, is_write_action=True)
 
         # Delete branch
-        response = requests.delete(url=branch_url, headers=headers)
+        response = self.session.delete(url=branch_url, headers=headers)
         hf_raise_for_status(response)
 
     @validate_hf_hub_args
@@ -3091,13 +3094,13 @@ class HfApi:
 
         # Prepare request
         tag_url = f"{self.endpoint}/api/{repo_type}s/{repo_id}/tag/{revision}"
-        headers = self._build_hf_headers(token=token, is_write_action=True)
+        headers = self.build_hf_headers(token=token, is_write_action=True)
         payload = {"tag": tag}
         if tag_message is not None:
             payload["message"] = tag_message
 
         # Tag
-        response = requests.post(url=tag_url, headers=headers, json=payload)
+        response = self.session.post(url=tag_url, headers=headers, json=payload)
         try:
             hf_raise_for_status(response)
         except HfHubHTTPError as e:
@@ -3144,10 +3147,10 @@ class HfApi:
 
         # Prepare request
         tag_url = f"{self.endpoint}/api/{repo_type}s/{repo_id}/tag/{tag}"
-        headers = self._build_hf_headers(token=token, is_write_action=True)
+        headers = self.build_hf_headers(token=token, is_write_action=True)
 
         # Un-tag
-        response = requests.delete(url=tag_url, headers=headers)
+        response = self.session.delete(url=tag_url, headers=headers)
         hf_raise_for_status(response)
 
     @validate_hf_hub_args
@@ -3234,11 +3237,11 @@ class HfApi:
         if repo_type is None:
             repo_type = REPO_TYPE_MODEL
 
-        headers = self._build_hf_headers(token=token)
+        headers = self.build_hf_headers(token=token)
 
         def _fetch_discussion_page(page_index: int):
             path = f"{self.endpoint}/api/{repo_type}s/{repo_id}/discussions?p={page_index}"
-            resp = requests.get(path, headers=headers)
+            resp = self.session.get(path, headers=headers)
             hf_raise_for_status(resp)
             paginated_discussions = resp.json()
             total = paginated_discussions["count"]
@@ -3312,8 +3315,8 @@ class HfApi:
             repo_type = REPO_TYPE_MODEL
 
         path = f"{self.endpoint}/api/{repo_type}s/{repo_id}/discussions/{discussion_num}"
-        headers = self._build_hf_headers(token=token)
-        resp = requests.get(path, params={"diff": "1"}, headers=headers)
+        headers = self.build_hf_headers(token=token)
+        resp = self.session.get(path, params={"diff": "1"}, headers=headers)
         hf_raise_for_status(resp)
 
         discussion_details = resp.json()
@@ -3409,8 +3412,8 @@ class HfApi:
             )
         )
 
-        headers = self._build_hf_headers(token=token, is_write_action=True)
-        resp = requests.post(
+        headers = self.build_hf_headers(token=token, is_write_action=True)
+        resp = self.session.post(
             f"{self.endpoint}/api/{repo_type}s/{repo_id}/discussions",
             json={
                 "title": title.strip(),
@@ -3507,8 +3510,8 @@ class HfApi:
 
         path = f"{self.endpoint}/api/{repo_id}/discussions/{discussion_num}/{resource}"
 
-        headers = self._build_hf_headers(token=token, is_write_action=True)
-        resp = requests.post(path, headers=headers, json=body)
+        headers = self.build_hf_headers(token=token, is_write_action=True)
+        resp = self.session.post(path, headers=headers, json=body)
         hf_raise_for_status(resp)
         return resp
 
@@ -3918,9 +3921,9 @@ class HfApi:
             token (`str`, *optional*):
                 Hugging Face token. Will default to the locally saved token if not provided.
         """
-        r = requests.post(
+        r = self.session.post(
             f"{self.endpoint}/api/spaces/{repo_id}/secrets",
-            headers=self._build_hf_headers(token=token),
+            headers=self.build_hf_headers(token=token),
             json={"key": key, "value": value},
         )
         hf_raise_for_status(r)
@@ -3940,9 +3943,9 @@ class HfApi:
             token (`str`, *optional*):
                 Hugging Face token. Will default to the locally saved token if not provided.
         """
-        r = requests.delete(
+        r = self.session.delete(
             f"{self.endpoint}/api/spaces/{repo_id}/secrets",
-            headers=self._build_hf_headers(token=token),
+            headers=self.build_hf_headers(token=token),
             json={"key": key},
         )
         hf_raise_for_status(r)
@@ -3960,7 +3963,9 @@ class HfApi:
         Returns:
             [`SpaceRuntime`]: Runtime information about a Space including Space stage and hardware.
         """
-        r = requests.get(f"{self.endpoint}/api/spaces/{repo_id}/runtime", headers=self._build_hf_headers(token=token))
+        r = self.session.get(
+            f"{self.endpoint}/api/spaces/{repo_id}/runtime", headers=self.build_hf_headers(token=token)
+        )
         hf_raise_for_status(r)
         return SpaceRuntime(r.json())
 
@@ -3982,9 +3987,9 @@ class HfApi:
 
         </Tip>
         """
-        r = requests.post(
+        r = self.session.post(
             f"{self.endpoint}/api/spaces/{repo_id}/hardware",
-            headers=self._build_hf_headers(token=token),
+            headers=self.build_hf_headers(token=token),
             json={"flavor": hardware},
         )
         hf_raise_for_status(r)
@@ -4019,7 +4024,9 @@ class HfApi:
                 If your Space is a static Space. Static Spaces are always running and never billed. If you want to hide
                 a static Space, you can set it to private.
         """
-        r = requests.post(f"{self.endpoint}/api/spaces/{repo_id}/pause", headers=self._build_hf_headers(token=token))
+        r = self.session.post(
+            f"{self.endpoint}/api/spaces/{repo_id}/pause", headers=self.build_hf_headers(token=token)
+        )
         hf_raise_for_status(r)
         return SpaceRuntime(r.json())
 
@@ -4053,7 +4060,9 @@ class HfApi:
                 If your Space is a static Space. Static Spaces are always running and never billed. If you want to hide
                 a static Space, you can set it to private.
         """
-        r = requests.post(f"{self.endpoint}/api/spaces/{repo_id}/restart", headers=self._build_hf_headers(token=token))
+        r = self.session.post(
+            f"{self.endpoint}/api/spaces/{repo_id}/restart", headers=self.build_hf_headers(token=token)
+        )
         hf_raise_for_status(r)
         return SpaceRuntime(r.json())
 
@@ -4127,9 +4136,9 @@ class HfApi:
         if private is not None:
             payload["private"] = private
 
-        r = requests.post(
+        r = self.session.post(
             f"{self.endpoint}/api/spaces/{from_id}/duplicate",
-            headers=self._build_hf_headers(token=token, is_write_action=True),
+            headers=self.build_hf_headers(token=token, is_write_action=True),
             json=payload,
         )
 
@@ -4144,7 +4153,7 @@ class HfApi:
 
         return RepoUrl(r.json()["url"], endpoint=self.endpoint)
 
-    def _build_hf_headers(
+    def build_hf_headers(
         self,
         token: Optional[Union[bool, str]] = None,
         is_write_action: bool = False,
@@ -4165,6 +4174,24 @@ class HfApi:
             library_name=library_name or self.library_name,
             library_version=library_version or self.library_version,
             user_agent=user_agent or self.user_agent,
+        )
+
+    @_deprecate_method(version="0.17", message="`HfApi.build_hf_headers` is now a public method.")
+    def _build_hf_headers(
+        self,
+        token: Optional[Union[bool, str]] = None,
+        is_write_action: bool = False,
+        library_name: Optional[str] = None,
+        library_version: Optional[str] = None,
+        user_agent: Union[Dict, str, None] = None,
+    ) -> Dict[str, str]:
+        """Deprecated alias for [`HfApi.build_hf_headers`]."""
+        return self.build_hf_headers(
+            token=token,
+            is_write_action=is_write_action,
+            library_name=library_name,
+            library_version=library_version,
+            user_agent=user_agent,
         )
 
 
