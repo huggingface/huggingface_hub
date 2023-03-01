@@ -358,6 +358,7 @@ def _request_wrapper(
     method: HTTP_METHOD_T,
     url: str,
     *,
+    session: requests.Session,
     max_retries: int = 0,
     base_wait_time: float = 0.5,
     max_wait_time: float = 2,
@@ -379,6 +380,9 @@ def _request_wrapper(
             HTTP method, such as 'GET' or 'HEAD'.
         url (`str`):
             The URL of the resource to fetch.
+        session (`requests.Session`):
+            A [Session](https://requests.readthedocs.io/en/latest/user/advanced/#session-objects) object to make
+            requests. Configure the session object to match your requirements (proxy, headers, auth, cookies,...).
         max_retries (`int`, *optional*, defaults to `0`):
             Maximum number of retries, defaults to 0 (no retries).
         base_wait_time (`float`, *optional*, defaults to `0.5`):
@@ -406,6 +410,7 @@ def _request_wrapper(
         response = _request_wrapper(
             method=method,
             url=url,
+            session=session,
             max_retries=max_retries,
             base_wait_time=base_wait_time,
             max_wait_time=max_wait_time,
@@ -428,6 +433,7 @@ def _request_wrapper(
                 return _request_wrapper(
                     method=method,
                     url=urlparse(url)._replace(path=parsed_target.path).geturl(),
+                    session=session,
                     max_retries=max_retries,
                     base_wait_time=base_wait_time,
                     max_wait_time=max_wait_time,
@@ -451,23 +457,16 @@ def _request_wrapper(
     )
 
 
-def _request_with_retry(*args, **kwargs) -> requests.Response:
-    """Deprecated method. Please use `_request_wrapper` instead.
-
-    Alias to keep backward compatibility (used in Transformers).
-    """
-    return _request_wrapper(*args, **kwargs)
-
-
 def http_get(
     url: str,
     temp_file: BinaryIO,
     *,
-    proxies=None,
-    resume_size=0,
+    session: Optional[requests.Session] = None,
+    proxies: Optional[Dict] = None,
+    resume_size: int = 0,
     headers: Optional[Dict[str, str]] = None,
-    timeout=10.0,
-    max_retries=0,
+    timeout: float = 10.0,
+    max_retries: int = 0,
 ):
     """
     Download a remote file. Do not gobble up errors, and will return errors tailored to the Hugging Face Hub.
@@ -505,6 +504,7 @@ def http_get(
         method="GET",
         url=url,
         stream=True,
+        session=session or requests.Session(),
         proxies=proxies,
         headers=headers,
         timeout=timeout,
@@ -551,6 +551,7 @@ def cached_download(
     user_agent: Union[Dict, str, None] = None,
     force_download: bool = False,
     force_filename: Optional[str] = None,
+    session: Optional[requests.Session] = None,
     proxies: Optional[Dict] = None,
     etag_timeout: float = 10,
     resume_download: bool = False,
@@ -585,8 +586,11 @@ def cached_download(
         force_filename (`str`, *optional*):
             Use this name instead of a generated file name.
         proxies (`dict`, *optional*):
-            Dictionary mapping protocol to the URL of the proxy passed to
-            `requests.request`.
+            Dictionary mapping protocol to the URL of the proxy passed to `requests.request`.
+        session (`requests.Session`, *optional*):
+            A [Session](https://requests.readthedocs.io/en/latest/user/advanced/#session-objects) object to make
+            requests. Configure the session object to match your requirements (proxy, headers, auth, cookies,...).
+            By default an empty Session object is created.
         etag_timeout (`float`, *optional* defaults to `10`):
             When fetching ETag, how many seconds to wait for the server to send
             data before giving up which is passed to `requests.request`.
@@ -648,6 +652,7 @@ def cached_download(
 
     os.makedirs(cache_dir, exist_ok=True)
 
+    session = session or requests.Session()
     headers = build_hf_headers(
         token=token,
         library_name=library_name,
@@ -665,6 +670,7 @@ def cached_download(
                 headers=headers,
                 allow_redirects=False,
                 follow_relative_redirects=True,
+                session=session,
                 proxies=proxies,
                 timeout=etag_timeout,
             )
@@ -779,6 +785,7 @@ def cached_download(
             http_get(
                 url_to_download,
                 temp_file,
+                session=session,
                 proxies=proxies,
                 resume_size=resume_size,
                 headers=headers,
@@ -907,6 +914,7 @@ def hf_hub_download(
     user_agent: Union[Dict, str, None] = None,
     force_download: bool = False,
     force_filename: Optional[str] = None,
+    session: Optional[requests.Session] = None,
     proxies: Optional[Dict] = None,
     etag_timeout: float = 10,
     resume_download: bool = False,
@@ -969,8 +977,11 @@ def hf_hub_download(
             Whether the file should be downloaded even if it already exists in
             the local cache.
         proxies (`dict`, *optional*):
-            Dictionary mapping protocol to the URL of the proxy passed to
-            `requests.request`.
+            Dictionary mapping protocol to the URL of the proxy passed to `requests.request`.
+        session (`requests.Session`, *optional*):
+            A [Session](https://requests.readthedocs.io/en/latest/user/advanced/#session-objects) object to make
+            requests. Configure the session object to match your requirements (proxy, headers, auth, cookies,...).
+            By default an empty Session object is created.
         etag_timeout (`float`, *optional*, defaults to `10`):
             When fetching ETag, how many seconds to wait for the server to send
             data before giving up which is passed to `requests.request`.
@@ -1083,6 +1094,7 @@ def hf_hub_download(
 
     url = hf_hub_url(repo_id, filename, repo_type=repo_type, revision=revision)
 
+    session = session or requests.Session()
     headers = build_hf_headers(
         token=token,
         library_name=library_name,
@@ -1258,6 +1270,7 @@ def hf_hub_download(
             http_get(
                 url_to_download,
                 temp_file,
+                session=session,
                 proxies=proxies,
                 resume_size=resume_size,
                 headers=headers,
@@ -1376,6 +1389,7 @@ def get_hf_file_metadata(
     token: Union[bool, str, None] = None,
     proxies: Optional[Dict] = None,
     timeout: float = 10,
+    session: Optional[requests.Session] = None,
 ) -> HfFileMetadata:
     """Fetch metadata of a file versioned on the Hub for a given url.
 
@@ -1407,6 +1421,7 @@ def get_hf_file_metadata(
         headers=headers,
         allow_redirects=False,
         follow_relative_redirects=True,
+        session=session or requests.Session(),
         proxies=proxies,
         timeout=timeout,
     )

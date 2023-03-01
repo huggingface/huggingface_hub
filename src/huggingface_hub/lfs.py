@@ -285,7 +285,7 @@ def _upload_single_part(upload_url: str, fileobj: BinaryIO, session: requests.Se
             The file-like object holding the data to upload.
         session (`requests.Session`, *optional*):
             A [Session](https://requests.readthedocs.io/en/latest/user/advanced/#session-objects) object to make
-            requests. The session object can be configured for your use case (proxy, headers, auth, cookies,...).
+            requests. Configure the session object to match your requirements (proxy, headers, auth, cookies,...).
 
     Returns: `requests.Response`
 
@@ -334,7 +334,7 @@ def _upload_multi_part(
             `UploadInfo` for `fileobj`.
         session (`requests.Session`, *optional*):
             A [Session](https://requests.readthedocs.io/en/latest/user/advanced/#session-objects) object to make
-            requests. The session object can be configured for your use case (proxy, headers, auth, cookies,...).
+            requests. Configure the session object to match your requirements (proxy, headers, auth, cookies,...).
             By default an empty Session object is created.
 
     Returns: `requests.Response`: The response from requesting `completion_url`.

@@ -2,6 +2,7 @@ import os
 from pathlib import Path
 from typing import Dict, List, Optional, Union
 
+import requests
 from tqdm.auto import tqdm as base_tqdm
 from tqdm.contrib.concurrent import thread_map
 
@@ -30,6 +31,7 @@ def snapshot_download(
     library_name: Optional[str] = None,
     library_version: Optional[str] = None,
     user_agent: Optional[Union[Dict, str]] = None,
+    session: Optional[requests.Session] = None,
     proxies: Optional[Dict] = None,
     etag_timeout: float = 10,
     resume_download: bool = False,
@@ -68,8 +70,11 @@ def snapshot_download(
         user_agent (`str`, `dict`, *optional*):
             The user-agent info in the form of a dictionary or a string.
         proxies (`dict`, *optional*):
-            Dictionary mapping protocol to the URL of the proxy passed to
-            `requests.request`.
+            Dictionary mapping protocol to the URL of the proxy passed to `requests.request`.
+        session (`requests.Session`, *optional*):
+            A [Session](https://requests.readthedocs.io/en/latest/user/advanced/#session-objects) object to make
+            requests. Configure the session object to match your requirements (proxy, headers, auth, cookies,...).
+            By default an empty Session object is created.
         etag_timeout (`float`, *optional*, defaults to `10`):
             When fetching ETag, how many seconds to wait for the server to send
             data before giving up which is passed to `requests.request`.
@@ -153,13 +158,9 @@ def snapshot_download(
         )
 
     # if we have internet connection we retrieve the correct folder name from the huggingface api
-    _api = HfApi()
-    repo_info = _api.repo_info(
-        repo_id=repo_id,
-        repo_type=repo_type,
-        revision=revision,
-        token=token,
-    )
+    if session is None:
+        session = requests.Session()
+    repo_info = HfApi(session=session).repo_info(repo_id=repo_id, repo_type=repo_type, revision=revision, token=token)
     assert repo_info.sha is not None, "Repo info returned from server must have a revision sha."
     filtered_repo_files = list(
         filter_repo_objects(
@@ -192,6 +193,7 @@ def snapshot_download(
             library_name=library_name,
             library_version=library_version,
             user_agent=user_agent,
+            session=session,
             proxies=proxies,
             etag_timeout=etag_timeout,
             resume_download=resume_download,
