@@ -9,16 +9,16 @@ There are four main ways to integrate a library with the Hub:
 1. **Push to Hub:** implement a `push_to_hub()`-like method to upload a model to the Hub.
    This includes the model weights, as well as [the model card](https://huggingface.co/docs/huggingface_hub/how-to-model-cards) and any other relevant information or data necessary to run the model (for example, training logs).
 2. **Download from Hub:** implement a `from_pretrained`-like method to load a model from the Hub.
-   Takes care of downloading the model configuration/weights and instantiating it.
-3. **Inference API:** collaborate with the HF Team to make it possible to run inference on our servers, using your library.
+   The method should download the model configuration/weights and load the model.
+3. **Inference API:** use our servers to run inference on models supported by your library for free.
 4. **Widgets:** collaborate with the HF Team to display a widget on the landing page of your models on the Hub. It allows users to quickly try a model from the browser.
 
-In this guide, we will focus on topic 1 and 2. If you are interested in Inference and Widgets, please let us know!
+In this guide, we will focus on the first two topics. If you are interested in Inference and Widgets, please let us know!
 You can also reach out to us if you are integrating your library with the Hub and want to be listed [in our docs](https://huggingface.co/docs/hub/models-libraries).
 
 ## A bit of theory: use class inheritance
 
-As we saw above, we are interested in having 2 methods: one to upload files (`push_to_hub`) and one to download files (`from_pretrained`).
+As we saw above, there are two main methods to include in your library to integrate it with the Hub: upload files (`push_to_hub`) and download files (`from_pretrained`).
 In most cases, a library already implements its model using a Python class. The class contains the properties of the model
 and methods to load, run, train, evaluate,... it. It would be nice to extend the class with the 2 new methods!
 
