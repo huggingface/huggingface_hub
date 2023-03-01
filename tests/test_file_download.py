@@ -500,9 +500,9 @@ class StagingCachedDownloadTest(unittest.TestCase):
         # usual CI user don't have access to it.
         api = HfApi(token=OTHER_TOKEN)
         repo_url = api.create_repo(repo_id="gated_repo_for_huggingface_hub_ci", exist_ok=True)
-        requests.put(
+        api.session.put(
             f"{repo_url.endpoint}/api/models/{repo_url.repo_id}/settings",
-            headers=api._build_hf_headers(),
+            headers=api.build_hf_headers(),
             json={"gated": True},
         ).raise_for_status()
 

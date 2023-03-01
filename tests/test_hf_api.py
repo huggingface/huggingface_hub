@@ -2292,7 +2292,7 @@ class TestSpaceAPIMocked(unittest.TestCase):
         )
         post_mock.assert_called_once_with(
             f"{self.api.endpoint}/api/repos/create",
-            headers=self.api._build_hf_headers(),
+            headers=self.api.build_hf_headers(),
             json={
                 "name": self.repo_id,
                 "organization": None,
@@ -2308,7 +2308,7 @@ class TestSpaceAPIMocked(unittest.TestCase):
         self.api.request_space_hardware(self.repo_id, SpaceHardware.T4_MEDIUM)
         post_mock.assert_called_once_with(
             f"{self.api.endpoint}/api/spaces/{self.repo_id}/hardware",
-            headers=self.api._build_hf_headers(),
+            headers=self.api.build_hf_headers(),
             json={"flavor": "t4-medium"},
         )
 
@@ -2411,45 +2411,45 @@ class ListGitCommitsTest(unittest.TestCase):
 @patch("huggingface_hub.hf_api.build_hf_headers")
 class HfApiTokenAttributeTest(unittest.TestCase):
     def test_token_passed(self, mock_build_hf_headers: Mock) -> None:
-        HfApi(token="default token")._build_hf_headers(token="A token")
+        HfApi(token="default token").build_hf_headers(token="A token")
         self._assert_token_is(mock_build_hf_headers, "A token")
 
     def test_no_token_passed(self, mock_build_hf_headers: Mock) -> None:
-        HfApi(token="default token")._build_hf_headers()
+        HfApi(token="default token").build_hf_headers()
         self._assert_token_is(mock_build_hf_headers, "default token")
 
     def test_token_true_passed(self, mock_build_hf_headers: Mock) -> None:
-        HfApi(token="default token")._build_hf_headers(token=True)
+        HfApi(token="default token").build_hf_headers(token=True)
         self._assert_token_is(mock_build_hf_headers, True)
 
     def test_token_false_passed(self, mock_build_hf_headers: Mock) -> None:
-        HfApi(token="default token")._build_hf_headers(token=False)
+        HfApi(token="default token").build_hf_headers(token=False)
         self._assert_token_is(mock_build_hf_headers, False)
 
     def test_no_token_at_all(self, mock_build_hf_headers: Mock) -> None:
-        HfApi()._build_hf_headers(token=None)
+        HfApi().build_hf_headers(token=None)
         self._assert_token_is(mock_build_hf_headers, None)
 
     def _assert_token_is(self, mock_build_hf_headers: Mock, expected_value: str) -> None:
         self.assertEqual(mock_build_hf_headers.call_args[1]["token"], expected_value)
 
     def test_library_name_and_version_are_set(self, mock_build_hf_headers: Mock) -> None:
-        HfApi(library_name="a", library_version="b")._build_hf_headers()
+        HfApi(library_name="a", library_version="b").build_hf_headers()
         self.assertEqual(mock_build_hf_headers.call_args[1]["library_name"], "a")
         self.assertEqual(mock_build_hf_headers.call_args[1]["library_version"], "b")
 
     def test_library_name_and_version_are_overwritten(self, mock_build_hf_headers: Mock) -> None:
         api = HfApi(library_name="a", library_version="b")
-        api._build_hf_headers(library_name="A", library_version="B")
+        api.build_hf_headers(library_name="A", library_version="B")
         self.assertEqual(mock_build_hf_headers.call_args[1]["library_name"], "A")
         self.assertEqual(mock_build_hf_headers.call_args[1]["library_version"], "B")
 
     def test_user_agent_is_set(self, mock_build_hf_headers: Mock) -> None:
-        HfApi(user_agent={"a": "b"})._build_hf_headers()
+        HfApi(user_agent={"a": "b"}).build_hf_headers()
         self.assertEqual(mock_build_hf_headers.call_args[1]["user_agent"], {"a": "b"})
 
     def test_user_agent_is_overwritten(self, mock_build_hf_headers: Mock) -> None:
-        HfApi(user_agent={"a": "b"})._build_hf_headers(user_agent={"A": "B"})
+        HfApi(user_agent={"a": "b"}).build_hf_headers(user_agent={"A": "B"})
         self.assertEqual(mock_build_hf_headers.call_args[1]["user_agent"], {"A": "B"})
 
 
