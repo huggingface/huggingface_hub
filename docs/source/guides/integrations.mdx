@@ -2,32 +2,39 @@
 
 The Hugging Face Hub makes hosting and sharing models with the community easy. It supports
 [dozens of libraries](https://huggingface.co/docs/hub/models-libraries) in the Open Source ecosystem. We are always
-working on expanding this support to push collaborative Machine Learning forward. The `huggingface_hub` library plays a key role in
-this process, allowing any Python script to easily push and load files.
+working on expanding this support to push collaborative Machine Learning forward. The `huggingface_hub` library plays a
+key role in this process, allowing any Python script to easily push and load files.
 
 There are four main ways to integrate a library with the Hub:
-1. **Push to Hub:** implement a `push_to_hub()`-like method to upload a model to the Hub.
-   This includes the model weights, as well as [the model card](https://huggingface.co/docs/huggingface_hub/how-to-model-cards) and any other relevant information or data necessary to run the model (for example, training logs).
-2. **Download from Hub:** implement a `from_pretrained`-like method to load a model from the Hub.
-   The method should download the model configuration/weights and load the model.
+1. **Push to Hub:** implement a method to upload a model to the Hub. This includes the model weights, as well as
+   [the model card](https://huggingface.co/docs/huggingface_hub/how-to-model-cards) and any other relevant information
+   or data necessary to run the model (for example, training logs). This method is often called `push_to_hub()`.
+2. **Download from Hub:** implement a method to load a model from the Hub. The method should download the model
+   configuration/weights and load the model. This method is often called `from_pretrained`. 
 3. **Inference API:** use our servers to run inference on models supported by your library for free.
-4. **Widgets:** collaborate with the HF Team to display a widget on the landing page of your models on the Hub. It allows users to quickly try a model from the browser.
+4. **Widgets:** display a widget on the landing page of your models on the Hub. It allows users to quickly try a model
+   from the browser.
 
-In this guide, we will focus on the first two topics. If you are interested in Inference and Widgets, please let us know!
-You can also reach out to us if you are integrating your library with the Hub and want to be listed [in our docs](https://huggingface.co/docs/hub/models-libraries).
+In this guide, we will focus on the first two topics. If you are interested in Inference and Widgets, you can follow
+[this guide](https://huggingface.co/docs/hub/models-adding-libraries#set-up-the-inference-api). In both cases, you can
+reach out to us if you are integrating your library with the Hub and want to be listed [in our docs](https://huggingface.co/docs/hub/models-libraries). 
 
 ## A bit of theory: use class inheritance
 
-As we saw above, there are two main methods to include in your library to integrate it with the Hub: upload files (`push_to_hub`) and download files (`from_pretrained`).
-In most cases, a library already implements its model using a Python class. The class contains the properties of the model
-and methods to load, run, train, and evaluate it. You can extend the class to include functionality for uploading and downloading files to the Hub!
+As we saw above, there are two main methods to include in your library to integrate it with the Hub: upload files
+(`push_to_hub`) and download files (`from_pretrained`). In most cases, a library already implements its model using a
+Python class. The class contains the properties of the model and methods to load, run, train, and evaluate it. You can
+extend the class to include functionality for uploading and downloading files to the Hub!
 
 The best way to do this is by using inheritance, specifically mixins. A [Mixin](https://stackoverflow.com/a/547714)
 is a class that is meant to extend an existing class with a set of specific features using multiple inheritance.
-`huggingface_hub` provides its own mixin, the [`ModelHubMixin`]. The key here is to understand its behavior and how to customize it.
+`huggingface_hub` provides its own mixin, the [`ModelHubMixin`]. The key here is to understand its behavior and how to
+customize it.
 
-The [`ModelHubMixin`] class defines 3 *public* methods (`push_to_hub`, `save_pretrained` and `from_pretrained`) and 2
-*private* ones (`_save_pretrained` and `_from_pretrained`). To integrate it, you should:
+The [`ModelHubMixin`] class implements 3 *public* methods (`push_to_hub`, `save_pretrained` and `from_pretrained`). Those
+are the methods that your users will call to load/save models with your library. [`ModelHubMixin`] also defines 2
+*private* methods (`_save_pretrained` and `_from_pretrained`). Those are the ones you must implement. So to integrate
+your library, you should:
 
 1. Make your Model class inherit from [`ModelHubMixin`].
 2. Implement the private methods:
