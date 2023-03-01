@@ -263,3 +263,17 @@ class PyTorchModelHubMixin(ModelHubMixin):
 ```
 
 And that's it! Your library now enables users to upload and download files to and from the Hub.
+
+## Quick comparison
+
+Let's quickly sum up the two approaches we saw with their advantages and drawbacks. The table below is only indicative.
+Your framework might have some specificities that you need to address. This guide is only here to give guidelines and
+ideas on how to handle integration. In any case, feel free to contact us if you have any questions!
+
+<!-- Generated using https://www.tablesgenerator.com/markdown_tables -->
+| Integration | Using helpers | Using [`ModelHubMixin`] |
+|:---:|:---:|:---:|
+| User experience | Good.<br><br>`model = load_from_hub(...)`<br>`push_to_hub(model, ...)` | Good.<br><br>`model = MyModel.from_pretrained(...)`<br>`model.push_to_hub(...)` |
+| Flexibility | Very flexible.<br>You fully control the implementation. | Less flexible.<br>Your framework must have a model class. |
+| Maintenance | More maintenance to add support for configuration,<br>new features,... Might also requires to fix issues<br>reported by users. | Less maintenance as most of the interactions with<br>the Hub are implemented in `huggingface_hub`. |
+| Documentation /<br>Type annotation | To be written manually. | Partially handled by `huggingface_hub`. |
