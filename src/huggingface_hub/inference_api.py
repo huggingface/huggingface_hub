@@ -116,11 +116,12 @@ class InferenceApi:
                 Whether to use GPU instead of CPU for inference(requires Startup
                 plan at least).
         """
+        self.hf_api = HfApi(token=token)
         self.options = {"wait_for_model": True, "use_gpu": gpu}
-        self.headers = build_hf_headers(token=token)
+        self.headers = self.hf_api.build_hf_headers(token=token)
 
         # Configure task
-        model_info = HfApi(token=token).model_info(repo_id=repo_id)
+        model_info = self.hf_api.model_info(repo_id=repo_id)
         if not model_info.pipeline_tag and not task:
             raise ValueError(
                 "Task not specified in the repository. Please add it to the model card"
@@ -179,7 +180,7 @@ class InferenceApi:
             payload["parameters"] = params
 
         # Make API call
-        response = requests.post(self.api_url, headers=self.headers, json=payload, data=data)
+        response = self.hf_api.session.post(self.api_url, headers=self.headers, json=payload, data=data)
 
         # Let the user handle the response
         if raw_response:
