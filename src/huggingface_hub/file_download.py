@@ -1113,6 +1113,7 @@ def hf_hub_download(
                     token=token,
                     proxies=proxies,
                     timeout=etag_timeout,
+                    session=session,
                 )
             except EntryNotFoundError as http_error:
                 # Cache the non-existence of the file and raise
