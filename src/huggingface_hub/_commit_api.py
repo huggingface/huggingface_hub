@@ -4,6 +4,7 @@ Type definitions and utilities for the `create_commit` API
 import base64
 import io
 import os
+import typing
 import warnings
 from collections import defaultdict
 from contextlib import contextmanager
@@ -11,13 +12,10 @@ from dataclasses import dataclass, field
 from pathlib import Path, PurePosixPath
 from typing import Any, BinaryIO, Dict, Iterable, Iterator, List, Optional, Union
 
-import requests
 from tqdm.contrib.concurrent import thread_map
 
-from .constants import ENDPOINT
 from .lfs import UploadInfo, _validate_batch_actions, lfs_upload, post_lfs_batch_info
 from .utils import (
-    build_hf_headers,
     chunk_iterable,
     hf_raise_for_status,
     logging,
@@ -28,6 +26,9 @@ from .utils import tqdm as hf_tqdm
 from .utils._deprecation import _deprecate_method
 from .utils._typing import Literal
 
+
+if typing.TYPE_CHECKING:
+    from .hf_api import HfApi
 
 logger = logging.get_logger(__name__)
 
@@ -245,12 +246,12 @@ def warn_on_overwriting_operations(operations: List[CommitOperation]) -> None:
 
 @validate_hf_hub_args
 def upload_lfs_files(
+    hf_api: "HfApi",
     *,
     additions: List[CommitOperationAdd],
     repo_type: str,
     repo_id: str,
     token: Optional[str],
-    endpoint: Optional[str] = None,
     num_threads: int = 5,
 ):
     """
@@ -287,11 +288,11 @@ def upload_lfs_files(
     batch_actions: List[Dict] = []
     for chunk in chunk_iterable(additions, chunk_size=256):
         batch_actions_chunk, batch_errors_chunk = post_lfs_batch_info(
+            hf_api=hf_api,
             upload_infos=[op.upload_info for op in chunk],
             token=token,
             repo_id=repo_id,
             repo_type=repo_type,
-            endpoint=endpoint,
         )
 
         # If at least 1 error, we do not retrieve information for other chunks
@@ -326,7 +327,7 @@ def upload_lfs_files(
     def _inner_upload_lfs_object(batch_action):
         try:
             operation = oid2addop[batch_action["oid"]]
-            return _upload_lfs_object(operation=operation, lfs_batch_action=batch_action, token=token)
+            return _upload_lfs_object(hf_api=hf_api, operation=operation, lfs_batch_action=batch_action, token=token)
         except Exception as exc:
             raise RuntimeError(f"Error while uploading '{operation.path_in_repo}' to the Hub.") from exc
 
@@ -342,21 +343,23 @@ def upload_lfs_files(
     )
 
 
-def _upload_lfs_object(operation: CommitOperationAdd, lfs_batch_action: dict, token: Optional[str]):
+def _upload_lfs_object(hf_api: "HfApi", operation: CommitOperationAdd, lfs_batch_action: dict, token: Optional[str]):
     """
     Handles uploading a given object to the Hub with the LFS protocol.
 
-    Defers to [`~utils.lfs.lfs_upload`] for the actual upload logic.
+    Defers to [`~lfs.lfs_upload`] for the actual upload logic.
 
     Can be a No-op if the content of the file is already present on the hub
     large file storage.
 
     Args:
+        hf_api ([`HfApi`]):
+            An instance of the HfApi client.
         operation (`CommitOperationAdd`):
             The add operation triggering this upload
         lfs_batch_action (`dict`):
             Upload instructions from the LFS batch endpoint for this object.
-            See [`~utils.lfs.post_lfs_batch_info`] for more details.
+            See [`~lfs.post_lfs_batch_info`] for more details.
         token (`str`, *optional*):
             A [user access token](https://hf.co/settings/tokens) to authenticate requests against the Hub
 
@@ -374,6 +377,7 @@ def _upload_lfs_object(operation: CommitOperationAdd, lfs_batch_action: dict, to
     with operation.as_file(with_tqdm=True) as fileobj:
         logger.debug(f"Uploading {operation.path_in_repo} as LFS file...")
         lfs_upload(
+            hf_api=hf_api,
             fileobj=fileobj,
             upload_action=upload_action,
             verify_action=verify_action,
@@ -400,12 +404,12 @@ def _validate_preupload_info(preupload_info: dict):
 
 @validate_hf_hub_args
 def fetch_upload_modes(
+    hf_api: "HfApi",
     additions: Iterable[CommitOperationAdd],
     repo_type: str,
     repo_id: str,
     token: Optional[str],
     revision: str,
-    endpoint: Optional[str] = None,
     create_pr: bool = False,
 ) -> Dict[str, UploadMode]:
     """
@@ -413,6 +417,8 @@ def fetch_upload_modes(
     should be uploaded as a regular git blob or as git LFS blob.
 
     Args:
+        hf_api ([`HfApi`]):
+            An instance of the HfApi client.
         additions (`Iterable` of :class:`CommitOperationAdd`):
             Iterable of :class:`CommitOperationAdd` describing the files to
             upload to the Hub.
@@ -435,8 +441,7 @@ def fetch_upload_modes(
         [`ValueError`](https://docs.python.org/3/library/exceptions.html#ValueError)
             If the Hub API response is improperly formatted.
     """
-    endpoint = endpoint if endpoint is not None else ENDPOINT
-    headers = build_hf_headers(token=token)
+    headers = hf_api.build_hf_headers(token=token)
 
     # Fetch upload mode (LFS or regular) chunk by chunk.
     upload_modes: Dict[str, UploadMode] = {}
@@ -453,8 +458,8 @@ def fetch_upload_modes(
             ]
         }
 
-        resp = requests.post(
-            f"{endpoint}/api/{repo_type}s/{repo_id}/preupload/{revision}",
+        resp = hf_api.session.post(
+            f"{hf_api.endpoint}/api/{repo_type}s/{repo_id}/preupload/{revision}",
             json=payload,
             headers=headers,
             params={"create_pr": "1"} if create_pr else None,

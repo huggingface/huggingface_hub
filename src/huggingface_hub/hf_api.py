@@ -2391,12 +2391,12 @@ class HfApi:
 
         try:
             upload_modes = fetch_upload_modes(
+                hf_api=self,
                 additions=additions,
                 repo_type=repo_type,
                 repo_id=repo_id,
                 token=token or self.token,
                 revision=revision,
-                endpoint=self.endpoint,
                 create_pr=create_pr,
             )
         except RepositoryNotFoundError as e:
@@ -2404,11 +2404,11 @@ class HfApi:
             raise
 
         upload_lfs_files(
+            hf_api=self,
             additions=[addition for addition in additions if upload_modes[addition.path_in_repo] == "lfs"],
             repo_type=repo_type,
             repo_id=repo_id,
             token=token or self.token,
-            endpoint=self.endpoint,
             num_threads=num_threads,
         )
         commit_payload = prepare_commit_payload(

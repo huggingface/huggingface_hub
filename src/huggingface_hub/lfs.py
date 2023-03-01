@@ -16,6 +16,7 @@
 import io
 import os
 import re
+import typing
 from contextlib import AbstractContextManager
 from dataclasses import dataclass
 from math import ceil
@@ -25,7 +26,7 @@ from typing import BinaryIO, Iterable, List, Optional, Tuple
 import requests
 from requests.auth import HTTPBasicAuth
 
-from huggingface_hub.constants import ENDPOINT, REPO_TYPES_URL_PREFIXES
+from huggingface_hub.constants import REPO_TYPES_URL_PREFIXES
 
 from .utils import (
     get_token_to_send,
@@ -36,6 +37,9 @@ from .utils import (
 from .utils._typing import TypedDict
 from .utils.sha import sha256, sha_fileobj
 
+
+if typing.TYPE_CHECKING:
+    from huggingface_hub import HfApi
 
 OID_REGEX = re.compile(r"^[0-9a-f]{40}$")
 
@@ -129,11 +133,7 @@ def _validate_batch_error(lfs_batch_error: dict):
 
 @validate_hf_hub_args
 def post_lfs_batch_info(
-    upload_infos: Iterable[UploadInfo],
-    token: Optional[str],
-    repo_type: str,
-    repo_id: str,
-    endpoint: Optional[str] = None,
+    hf_api: "HfApi", upload_infos: Iterable[UploadInfo], token: Optional[str], repo_type: str, repo_id: str
 ) -> Tuple[List[dict], List[dict]]:
     """
     Requests the LFS batch endpoint to retrieve upload instructions
@@ -141,14 +141,14 @@ def post_lfs_batch_info(
     Learn more: https://github.com/git-lfs/git-lfs/blob/main/docs/api/batch.md
 
     Args:
+        hf_api ([`HfApi`]):
+            An instance of the HfApi client.
         upload_infos (`Iterable` of `UploadInfo`):
-            `UploadInfo` for the files that are being uploaded, typically obtained
-            from `CommitOperationAdd.upload_info`
+            `UploadInfo` for the files that are being uploaded, typically obtained from `CommitOperationAdd.upload_info`
         repo_type (`str`):
             Type of the repo to upload to: `"model"`, `"dataset"` or `"space"`.
         repo_id (`str`):
-            A namespace (user or an organization) and a repo name separated
-            by a `/`.
+            A namespace (user or an organization) and a repo name separated by a `/`.
         token (`str`, *optional*):
             An authentication token ( See https://huggingface.co/settings/tokens )
 
@@ -162,12 +162,11 @@ def post_lfs_batch_info(
 
         `HTTPError`: If the server returned an error
     """
-    endpoint = endpoint if endpoint is not None else ENDPOINT
     url_prefix = ""
     if repo_type in REPO_TYPES_URL_PREFIXES:
         url_prefix = REPO_TYPES_URL_PREFIXES[repo_type]
-    batch_url = f"{endpoint}/{url_prefix}{repo_id}.git/info/lfs/objects/batch"
-    resp = requests.post(
+    batch_url = f"{hf_api.endpoint}/{url_prefix}{repo_id}.git/info/lfs/objects/batch"
+    resp = hf_api.session.post(
         batch_url,
         headers={
             "Accept": "application/vnd.git-lfs+json",
@@ -204,28 +203,29 @@ def post_lfs_batch_info(
 
 
 def lfs_upload(
+    hf_api: "HfApi",
     fileobj: BinaryIO,
     upload_info: UploadInfo,
     upload_action: dict,
     verify_action: Optional[dict],
     token: Optional[str],
-):
+) -> None:
     """
-    Uploads a file using the git lfs protocol and determines automatically whether or not
-    to use the multipart transfer protocol
+    Uploads a file using the git lfs protocol and determines automatically whether or not to use the multipart transfer
+    protocol
 
     Args:
+        hf_api ([`HfApi`]):
+            An instance of the HfApi client.
         fileobj (file-like object):
             The content of the file to upload
         upload_info (`UploadInfo`):
             Upload info for `fileobj`
         upload_action (`dict`):
-            The `upload` action from the LFS Batch endpoint. Must contain
-            a `href` field, and optionally a `header` field.
+            The `upload` action from the LFS Batch endpoint. Must contain a `href` field, and optionally a `header` field.
         verify_action (`dict`):
-            The `verify` action from the LFS Batch endpoint. Must contain
-            a `href` field, and optionally a `header` field. The `href` URL will
-            be called after a successful upload.
+            The `verify` action from the LFS Batch endpoint. Must contain a `href` field, and optionally a `header` field.
+            The `href` URL will be called after a successful upload.
         token (`str`, *optional*):
             A [user access token](https://hf.co/settings/tokens) to authenticate requests
             against the Hub.
@@ -257,26 +257,24 @@ def lfs_upload(
             chunk_size=chunk_size,
             header=header,
             upload_info=upload_info,
+            session=hf_api.session,
         )
     else:
-        _upload_single_part(
-            upload_url=upload_action["href"],
-            fileobj=fileobj,
-        )
+        _upload_single_part(upload_url=upload_action["href"], fileobj=fileobj, session=hf_api.session)
     if verify_action is not None:
-        verify_resp = requests.post(
+        verify_resp = hf_api.session.post(
             verify_action["href"],
             auth=HTTPBasicAuth(
                 username="USER",
                 # Token must be provided or retrieved
-                password=get_token_to_send(token or True),  # type: ignore
+                password=get_token_to_send(token or hf_api.token or True),
             ),
             json={"oid": upload_info.sha256.hex(), "size": upload_info.size},
         )
         hf_raise_for_status(verify_resp)
 
 
-def _upload_single_part(upload_url: str, fileobj: BinaryIO):
+def _upload_single_part(upload_url: str, fileobj: BinaryIO, session: requests.Session):
     """
     Uploads `fileobj` as a single PUT HTTP request (basic LFS transfer protocol)
 
@@ -285,12 +283,15 @@ def _upload_single_part(upload_url: str, fileobj: BinaryIO):
             The URL to PUT the file to.
         fileobj:
             The file-like object holding the data to upload.
+        session (`requests.Session`, *optional*):
+            A [Session](https://requests.readthedocs.io/en/latest/user/advanced/#session-objects) object to make
+            requests. The session object can be configured for your use case (proxy, headers, auth, cookies,...).
 
     Returns: `requests.Response`
 
     Raises: `requests.HTTPError` if the upload resulted in an error
     """
-    upload_res = http_backoff("PUT", upload_url, data=fileobj)
+    upload_res = http_backoff("PUT", upload_url, data=fileobj, session=session)
     hf_raise_for_status(upload_res)
     return upload_res
 
@@ -313,6 +314,7 @@ def _upload_multi_part(
     header: dict,
     chunk_size: int,
     upload_info: UploadInfo,
+    session: requests.Session,
 ):
     """
     Uploads `fileobj` using HF multipart LFS transfer protocol.
@@ -330,6 +332,10 @@ def _upload_multi_part(
             of `chunk_size` bytes (except for the last part who can be smaller)
         upload_info (`UploadInfo`):
             `UploadInfo` for `fileobj`.
+        session (`requests.Session`, *optional*):
+            A [Session](https://requests.readthedocs.io/en/latest/user/advanced/#session-objects) object to make
+            requests. The session object can be configured for your use case (proxy, headers, auth, cookies,...).
+            By default an empty Session object is created.
 
     Returns: `requests.Response`: The response from requesting `completion_url`.
 
@@ -370,14 +376,14 @@ def _upload_multi_part(
             seek_from=chunk_size * part_idx,
             read_limit=chunk_size,
         ) as fileobj_slice:
-            part_upload_res = http_backoff("PUT", part_upload_url, data=fileobj_slice)
+            part_upload_res = http_backoff("PUT", part_upload_url, data=fileobj_slice, session=session)
             hf_raise_for_status(part_upload_res)
             etag = part_upload_res.headers.get("etag")
             if etag is None or etag == "":
                 raise ValueError(f"Invalid etag (`{etag}`) returned for part {part_idx +1} of {num_parts}")
             completion_payload["parts"][part_idx]["etag"] = etag
 
-    completion_res = requests.post(
+    completion_res = session.post(
         completion_url,
         json=completion_payload,
         headers=LFS_HEADERS,

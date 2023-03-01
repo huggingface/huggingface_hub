@@ -16,7 +16,7 @@
 import io
 import time
 from http import HTTPStatus
-from typing import Tuple, Type, Union
+from typing import Optional, Tuple, Type, Union
 
 import requests
 from requests import Response
@@ -41,6 +41,7 @@ def http_backoff(
         ProxyError,
     ),
     retry_on_status_codes: Union[int, Tuple[int, ...]] = HTTPStatus.SERVICE_UNAVAILABLE,
+    session: Optional[requests.Session] = None,
     **kwargs,
 ) -> Response:
     """Wrapper around requests to retry calls on an endpoint, with exponential backoff.
@@ -73,6 +74,10 @@ def http_backoff(
         retry_on_status_codes (`int` or `Tuple[int]`, *optional*, defaults to `503`):
             Define on which status codes the request must be retried. By default, only
             HTTP 503 Service Unavailable is retried.
+        session (`requests.Session`, *optional*):
+            A [Session](https://requests.readthedocs.io/en/latest/user/advanced/#session-objects) object to make
+            requests. The session object can be configured for your use case (proxy, headers, auth, cookies,...).
+            By default an empty Session object is created.
         **kwargs (`dict`, *optional*):
             kwargs to pass to `requests.request`.
 
@@ -86,6 +91,12 @@ def http_backoff(
 
     # If you expect a Gateway Timeout from time to time
     >>> http_backoff("PUT", upload_url, data=data, retry_on_status_codes=504)
+    >>> response.raise_for_status()
+
+    # If you need to configure a proxy
+    >>> session = requests.Session()
+    >>> session.proxies = {'http': 'http://10.10.10.10:8000', 'https': 'http://10.10.10.10:8000'}
+    >>> http_backoff("PUT", upload_url, data=data, session=session)
     >>> response.raise_for_status()
     ```
 
@@ -107,6 +118,9 @@ def http_backoff(
     if isinstance(retry_on_status_codes, int):  # Tuple from single status code
         retry_on_status_codes = (retry_on_status_codes,)
 
+    if session is None:
+        session = requests.Session()
+
     nb_tries = 0
     sleep_time = base_wait_time
 
@@ -126,7 +140,7 @@ def http_backoff(
                 kwargs["data"].seek(io_obj_initial_pos)
 
             # Perform request and return if status_code is not in the retry list.
-            response = requests.request(method=method, url=url, **kwargs)
+            response = session.request(method=method, url=url, **kwargs)
             if response.status_code not in retry_on_status_codes:
                 return response
 

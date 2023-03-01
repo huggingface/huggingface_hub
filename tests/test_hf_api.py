@@ -1000,7 +1000,7 @@ class CommitApiTest(HfApiCommonTestWithLogin):
         See https://github.com/huggingface/huggingface_hub/pull/1117.
         """
         REPO_NAME = repo_name("commit_preflight_lots_of_lfs_files")
-        self._api.create_repo(repo_id=REPO_NAME, exist_ok=False)
+        repo_id = self._api.create_repo(repo_id=REPO_NAME, exist_ok=False).repo_id
         try:
             operations = []
             for num in range(1300):
@@ -1013,12 +1013,12 @@ class CommitApiTest(HfApiCommonTestWithLogin):
 
             # Test `fetch_upload_modes` preflight ("are they regular or LFS files?")
             res = fetch_upload_modes(
+                hf_api=self._api,
                 additions=operations,
                 repo_type="model",
-                repo_id=f"{USER}/{REPO_NAME}",
-                token=TOKEN,
+                repo_id=repo_id,
+                token=None,
                 revision="main",
-                endpoint=ENDPOINT_STAGING,
             )
             self.assertEqual(len(res), 1300)
             for _, mode in res.items():
