@@ -14,7 +14,9 @@
 # limitations under the License.
 import json
 import os
+import pprint
 import re
+import textwrap
 import warnings
 from dataclasses import dataclass, field
 from datetime import datetime
@@ -90,6 +92,17 @@ USERNAME_PLACEHOLDER = "hf_user"
 _REGEX_DISCUSSION_URL = re.compile(r".*/discussions/(\d+)$")
 
 logger = logging.get_logger(__name__)
+
+
+class ReprMixin:
+    """Mixin to create the __repr__ for a class"""
+
+    def __repr__(self):
+        formatted_value = pprint.pformat(self.__dict__, width=119, compact=True, sort_dicts=False)
+        if "\n" in formatted_value:
+            return f"{self.__class__.__name__}: {{ \n{textwrap.indent(formatted_value, '  ')}\n}}"
+        else:
+            return f"{self.__class__.__name__}: {formatted_value}"
 
 
 def repo_type_and_id_from_hf_id(hf_id: str, hub_url: Optional[str] = None) -> Tuple[Optional[str], Optional[str], str]:
@@ -298,7 +311,7 @@ class RepoUrl(str):
         return f"RepoUrl('{self}', endpoint='{self.endpoint}', repo_type='{self.repo_type}', repo_id='{self.repo_id}')"
 
 
-class RepoFile:
+class RepoFile(ReprMixin):
     """
     Data structure that represents a public file inside a repo, accessible from
     huggingface.co
@@ -339,12 +352,8 @@ class RepoFile:
         for k, v in kwargs.items():
             setattr(self, k, v)
 
-    def __repr__(self):
-        items = (f"{k}='{v}'" for k, v in self.__dict__.items())
-        return f"{self.__class__.__name__}({', '.join(items)})"
 
-
-class ModelInfo:
+class ModelInfo(ReprMixin):
     """
     Info about a model accessible from huggingface.co
 
@@ -402,12 +411,6 @@ class ModelInfo:
         for k, v in kwargs.items():
             setattr(self, k, v)
 
-    def __repr__(self):
-        s = f"{self.__class__.__name__}:" + " {"
-        for key, val in self.__dict__.items():
-            s += f"\n\t{key}: {val}"
-        return s + "\n}"
-
     def __str__(self):
         r = f"Model Name: {self.modelId}, Tags: {self.tags}"
         if self.pipeline_tag:
@@ -415,7 +418,7 @@ class ModelInfo:
         return r
 
 
-class DatasetInfo:
+class DatasetInfo(ReprMixin):
     """
     Info about a dataset accessible from huggingface.co
 
@@ -476,18 +479,12 @@ class DatasetInfo:
         for k, v in kwargs.items():
             setattr(self, k, v)
 
-    def __repr__(self):
-        s = f"{self.__class__.__name__}:" + " {"
-        for key, val in self.__dict__.items():
-            s += f"\n\t{key}: {val}"
-        return s + "\n}"
-
     def __str__(self):
         r = f"Dataset Name: {self.id}, Tags: {self.tags}"
         return r
 
 
-class SpaceInfo:
+class SpaceInfo(ReprMixin):
     """
     Info about a Space accessible from huggingface.co
 
@@ -531,14 +528,8 @@ class SpaceInfo:
         for k, v in kwargs.items():
             setattr(self, k, v)
 
-    def __repr__(self):
-        s = f"{self.__class__.__name__}:" + " {"
-        for key, val in self.__dict__.items():
-            s += f"\n\t{key}: {val}"
-        return s + "\n}"
 
-
-class MetricInfo:
+class MetricInfo(ReprMixin):
     """
     Info about a public metric accessible from huggingface.co
     """
@@ -560,12 +551,6 @@ class MetricInfo:
         # Store all the other fields returned by the API
         for k, v in kwargs.items():
             setattr(self, k, v)
-
-    def __repr__(self):
-        s = f"{self.__class__.__name__}:" + " {"
-        for key, val in self.__dict__.items():
-            s += f"\n\t{key}: {val}"
-        return s + "\n}"
 
     def __str__(self):
         r = f"Metric Name: {self.id}"

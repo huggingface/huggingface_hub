@@ -1,6 +1,6 @@
 # Utilities
 
-## Controlling the logging of `huggingface_hub`
+## Configure logging
 
 The `huggingface_hub` package exposes a `logging` utility to control the logging level of the package itself.
 You can import it as such:
@@ -49,7 +49,7 @@ Using these shouldn't be necessary if you use `huggingface_hub` and you don't mo
 
 [[autodoc]] logging.get_logger
 
-## Handling HTTP errors
+## Handle HTTP errors
 
 `huggingface_hub` defines its own HTTP errors to refine the `HTTPError` raised by
 `requests` with additional information sent back by the server.
@@ -114,9 +114,21 @@ user as possible.
 
 [[autodoc]] huggingface_hub.utils.LocalEntryNotFoundError
 
+## Telemetry
+
+`huggingface_hub` includes an helper to send telemetry data. This information helps us debug issues and prioritize new features.
+Users can disable telemetry collection at any time by setting the `HF_HUB_DISABLE_TELEMETRY=1` environment variable.
+Telemetry is also disabled in offline mode (i.e. when setting HF_HUB_OFFLINE=1).
+
+If you are maintainer of a third-party library, sending telemetry data is as simple as making a call to [`send_telemetry`].
+Data is sent in a separate thread to reduce as much as possible the impact for users.
+
+[[autodoc]] utils.send_telemetry
+
+
 ## Validators
 
-`huggingface_hub` include custom validators to validate method arguments automatically.
+`huggingface_hub` includes custom validators to validate method arguments automatically.
 Validation is inspired by the work done in [Pydantic](https://pydantic-docs.helpmanual.io/)
 to validate type hints but with more limited features.
 
