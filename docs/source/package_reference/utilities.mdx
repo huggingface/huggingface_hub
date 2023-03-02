@@ -120,7 +120,7 @@ user as possible.
 Users can disable telemetry collection at any time by setting the `HF_HUB_DISABLE_TELEMETRY=1` environment variable.
 Telemetry is also disabled in offline mode (i.e. when setting HF_HUB_OFFLINE=1).
 
-If you are maintainer of a third-party library, sending telemetry data is as simple as making a call to |`send_telemetry`].
+If you are maintainer of a third-party library, sending telemetry data is as simple as making a call to [`send_telemetry`].
 Data is sent in a separate thread to reduce as much as possible the impact for users.
 
 [[autodoc]] utils.send_telemetry
