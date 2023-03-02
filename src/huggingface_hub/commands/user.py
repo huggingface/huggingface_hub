@@ -47,12 +47,12 @@ class UserCommands(BaseHuggingfaceCLICommand):
         login_parser.add_argument(
             "--token",
             type=str,
-            help="Token generated from https://huggingface.co/settings/tokens"
+            help="Token generated from https://huggingface.co/settings/tokens",
         )
         login_parser.add_argument(
             "--add-to-git-credential",
             action="store_true",
-            help="Optional: Save token to git credential helper."
+            help="Optional: Save token to git credential helper.",
         )
         login_parser.set_defaults(func=lambda args: LoginCommand(args))
         whoami_parser = parser.add_parser("whoami", help="Find out which huggingface.co account you are logged in as.")
@@ -101,7 +101,7 @@ class BaseUserCommand:
 
 class LoginCommand(BaseUserCommand):
     def run(self):
-        login(self.args.token, self.args.add_to_git_credential)
+        login(token=self.args.token, add_to_git_credential=self.args.add_to_git_credential)
 
 
 class LogoutCommand(BaseUserCommand):
