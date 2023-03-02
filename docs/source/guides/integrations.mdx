@@ -23,11 +23,11 @@ reach out to us if you are integrating your library with the Hub and want to be 
 
 The first approach to integrate a library to the Hub is to actually implement the `push_to_hub` and `from_pretrained`
 methods by yourself. This gives you full flexibility on which files you need to upload/download and how to handle inputs
-specific to your framework. You can refers to the two [upload files](./upload) and [download files](./download) guides
-to learn more on how to do that. This is for example how FastAI integration is implemented (see [`push_to_hub_fastai`]
+specific to your framework. You can refer to the two [upload files](./upload) and [download files](./download) guides
+to learn more about how to do that. This is, for example how the FastAI integration is implemented (see [`push_to_hub_fastai`]
 and [`from_pretrained_fastai`]).
 
-Implementation can defer between libraries but the workflow is often similar.
+Implementation can differ between libraries, but the workflow is often similar.
 
 ### from_pretrained
 
@@ -49,7 +49,7 @@ def from_pretrained(model_id: str):
 
 ### push_to_hub
 
-The `push_to_hub` often require a bit more complexity to handle repo creation, generate the model card and save weights.
+The `push_to_hub` method often requires a bit more complexity to handle repo creation, generate the model card and save weights.
 A common approach is to save all of these files in a temporary folder, upload it and then delete it.
 
 ```python
@@ -80,13 +80,13 @@ def push_to_hub(model, repo_name: str) -> None:
 ```
 
 This is of course only an example. If you are interested in more complex manipulations (delete remote files, upload
-weights on the fly, persist weights locally,...) please refer to the [upload files](./upload) guide.
+weights on the fly, persist weights locally, etc.) please refer to the [upload files](./upload) guide.
 
 ### Limitations
 
-While being flexible, this approach has some drawbacks, especially in term of maintenance. Huggingface users are often
-used to additional features when working with `huggingface_hub`. For example, when load files from the Hub, it is
-common to offer parameters like
+While being flexible, this approach has some drawbacks, especially in terms of maintenance. Hugging Face users are often
+used to additional features when working with `huggingface_hub`. For example, when loading files from the Hub, it is
+common to offer parameters like:
 - `token`: to download from a private repo
 - `revision`: to download from a specific branch
 - `cache_dir`: to cache files in a specific directory
@@ -275,5 +275,5 @@ ideas on how to handle integration. In any case, feel free to contact us if you 
 |:---:|:---:|:---:|
 | User experience | Good.<br>`model = load_from_hub(...)`<br>`push_to_hub(model, ...)` | Good.<br>`model = MyModel.from_pretrained(...)`<br>`model.push_to_hub(...)` |
 | Flexibility | Very flexible.<br>You fully control the implementation. | Less flexible.<br>Your framework must have a model class. |
-| Maintenance | More maintenance to add support for configuration, new features,... Might also requires to fix issues reported by users. | Less maintenance as most of the interactions with the Hub are implemented in `huggingface_hub`. |
+| Maintenance | More maintenance to add support for configuration, and new features. Might also require fixing issues reported by users. | Less maintenance as most of the interactions with the Hub are implemented in `huggingface_hub`. |
 | Documentation / Type annotation | To be written manually. | Partially handled by `huggingface_hub`. |
