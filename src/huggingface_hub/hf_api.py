@@ -2086,7 +2086,9 @@ class HfApi:
                 # No write permission on the namespace but repo might already exist
                 try:
                     self.repo_info(repo_id=repo_id, repo_type=repo_type, token=token)
-                    return RepoUrl(repo_id, endpoint=self.endpoint, repo_type=repo_type)
+                    if repo_type is None or repo_type == REPO_TYPE_MODEL:
+                        return RepoUrl(repo_id, endpoint=self.endpoint)
+                    return RepoUrl(f"{repo_type}/{repo_id}", endpoint=self.endpoint)
                 except HfHubHTTPError:
                     raise
             else:
