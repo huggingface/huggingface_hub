@@ -1899,7 +1899,7 @@ class UploadFolderMockedTest(unittest.TestCase):
         if "folder_path" not in kwargs:
             kwargs["folder_path"] = self.cache_dir
         self.api.upload_folder(repo_id="repo_id", **kwargs)
-        return self.create_commit_mock.call_args_list[0].kwargs["operations"]
+        return self.create_commit_mock.call_args_list[0][1]["operations"]
 
     def test_allow_everything(self):
         operations = self._upload_folder_alias()
