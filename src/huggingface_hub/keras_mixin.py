@@ -5,10 +5,8 @@ import warnings
 from pathlib import Path
 from shutil import copytree
 from typing import Any, Dict, List, Optional, Union
-from urllib.parse import quote
 
-from huggingface_hub import CommitOperationDelete, ModelHubMixin, snapshot_download
-from huggingface_hub._commit_api import CommitOperation
+from huggingface_hub import ModelHubMixin, snapshot_download
 from huggingface_hub.utils import (
     get_tf_version,
     is_graphviz_available,
@@ -17,8 +15,8 @@ from huggingface_hub.utils import (
     yaml_dump,
 )
 
-from .constants import CONFIG_NAME, DEFAULT_REVISION
-from .hf_api import HfApi, _parse_revision_from_pr_url, _prepare_upload_folder_commit
+from .constants import CONFIG_NAME
+from .hf_api import HfApi
 from .utils import SoftTemporaryDirectory, logging, validate_hf_hub_args
 
 
@@ -289,6 +287,7 @@ def push_to_hub_keras(
     create_pr: Optional[bool] = None,
     allow_patterns: Optional[Union[List[str], str]] = None,
     ignore_patterns: Optional[Union[List[str], str]] = None,
+    delete_patterns: Optional[Union[List[str], str]] = None,
     log_dir: Optional[str] = None,
     include_optimizer: bool = False,
     tags: Optional[Union[list, str]] = None,
@@ -296,11 +295,11 @@ def push_to_hub_keras(
     **model_save_kwargs,
 ):
     """
-    Upload model checkpoint or tokenizer files to the Hub while synchronizing a
-    local clone of the repo in `repo_path_or_name`.
+    Upload model checkpoint to the Hub.
 
-    Use `allow_patterns` and `ignore_patterns` to precisely filter which files should be
-    pushed to the hub. See [`upload_folder`] reference for more details.
+    Use `allow_patterns` and `ignore_patterns` to precisely filter which files should be pushed to the hub. Use
+    `delete_patterns` to delete existing remote files in the same commit. See [`upload_folder`] reference for more
+    details.
 
     Parameters:
         model (`Keras.Model`):
@@ -332,6 +331,8 @@ def push_to_hub_keras(
             If provided, only files matching at least one pattern are pushed.
         ignore_patterns (`List[str]` or `str`, *optional*):
             If provided, files matching any of the patterns are not pushed.
+        delete_patterns (`List[str]` or `str`, *optional*):
+            If provided, remote files matching any of the patterns will be deleted from the repo.
         log_dir (`str`, *optional*):
             TensorBoard logging directory to be pushed. The Hub automatically
             hosts and displays a TensorBoard instance if log files are included
@@ -352,13 +353,7 @@ def push_to_hub_keras(
         The url of the commit of your model in the given repository.
     """
     api = HfApi(endpoint=api_endpoint)
-    api.create_repo(
-        repo_id=repo_id,
-        repo_type="model",
-        token=token,
-        private=private,
-        exist_ok=True,
-    )
+    repo_id = api.create_repo(repo_id=repo_id, token=token, private=private, exist_ok=True).repo_id
 
     # Push the files to the repo in a single commit
     with SoftTemporaryDirectory() as tmp:
@@ -373,46 +368,32 @@ def push_to_hub_keras(
             **model_save_kwargs,
         )
 
-        # If log dir is provided, delete old logs + add new ones
-        operations: List[CommitOperation] = []
+        # If `log_dir` provided, delete remote logs and upload new ones
         if log_dir is not None:
-            # Delete previous log files from Hub
-            operations += [
-                CommitOperationDelete(path_in_repo=file)
-                for file in api.list_repo_files(repo_id=repo_id, token=token)
-                if file.startswith("logs/")
-            ]
-
-            # Copy new log files
+            delete_patterns = (
+                []
+                if delete_patterns is None
+                else (
+                    [delete_patterns]  # convert `delete_patterns` to a list
+                    if isinstance(delete_patterns, str)
+                    else delete_patterns
+                )
+            )
+            delete_patterns.append("logs/*")
             copytree(log_dir, saved_path / "logs")
 
-        # NOTE: `_prepare_upload_folder_commit` and `create_commit` calls are
-        #       duplicate code from `upload_folder`. We are not directly using
-        #       `upload_folder` since we want to add delete operations to the
-        #       commit as well.
-        operations += _prepare_upload_folder_commit(
-            saved_path,
-            path_in_repo="",
-            allow_patterns=allow_patterns,
-            ignore_patterns=ignore_patterns,
-        )
-        commit_info = api.create_commit(
+        return api.upload_folder(
             repo_type="model",
             repo_id=repo_id,
-            operations=operations,
+            folder_path=saved_path,
             commit_message=commit_message,
             token=token,
             revision=branch,
             create_pr=create_pr,
+            allow_patterns=allow_patterns,
+            ignore_patterns=ignore_patterns,
+            delete_patterns=delete_patterns,
         )
-        revision = branch
-        if revision is None:
-            revision = (
-                quote(_parse_revision_from_pr_url(commit_info.pr_url), safe="")
-                if commit_info.pr_url is not None
-                else DEFAULT_REVISION
-            )
-        return f"{api.endpoint}/{repo_id}/tree/{revision}/"
 
 
 class KerasModelHubMixin(ModelHubMixin):

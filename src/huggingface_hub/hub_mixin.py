@@ -219,12 +219,15 @@ class ModelHubMixin:
         create_pr: Optional[bool] = None,
         allow_patterns: Optional[Union[List[str], str]] = None,
         ignore_patterns: Optional[Union[List[str], str]] = None,
+        delete_patterns: Optional[Union[List[str], str]] = None,
     ) -> str:
         """
         Upload model checkpoint to the Hub.
 
-        Use `allow_patterns` and `ignore_patterns` to precisely filter which files
-        should be pushed to the hub. See [`upload_folder`] reference for more details.
+        Use `allow_patterns` and `ignore_patterns` to precisely filter which files should be pushed to the hub. Use
+        `delete_patterns` to delete existing remote files in the same commit. See [`upload_folder`] reference for more
+        details.
+
 
         Parameters:
             repo_id (`str`):
@@ -252,12 +255,14 @@ class ModelHubMixin:
                 If provided, only files matching at least one pattern are pushed.
             ignore_patterns (`List[str]` or `str`, *optional*):
                 If provided, files matching any of the patterns are not pushed.
+            delete_patterns (`List[str]` or `str`, *optional*):
+                If provided, remote files matching any of the patterns will be deleted from the repo.
 
         Returns:
             The url of the commit of your model in the given repository.
         """
         api = HfApi(endpoint=api_endpoint, token=token)
-        api.create_repo(repo_id=repo_id, repo_type="model", private=private, exist_ok=True)
+        repo_id = api.create_repo(repo_id=repo_id, private=private, exist_ok=True).repo_id
 
         # Push the files to the repo in a single commit
         with SoftTemporaryDirectory() as tmp:
@@ -272,6 +277,7 @@ class ModelHubMixin:
                 create_pr=create_pr,
                 allow_patterns=allow_patterns,
                 ignore_patterns=ignore_patterns,
+                delete_patterns=delete_patterns,
             )
 
 
@@ -299,14 +305,15 @@ class PyTorchModelHubMixin(ModelHubMixin):
 
     ...     def forward(self, x):
     ...         return self.linear(x + self.param)
-
-
     >>> model = MyModel()
-    >>> # Save model weights to local directory
+
+    # Save model weights to local directory
     >>> model.save_pretrained("my-awesome-model")
-    >>> # Push model weights to the Hub
+
+    # Push model weights to the Hub
     >>> model.push_to_hub("my-awesome-model")
-    >>> # Download and initialize weights from the Hub
+
+    # Download and initialize weights from the Hub
     >>> model = MyModel.from_pretrained("username/my-awesome-model")
     ```
     """

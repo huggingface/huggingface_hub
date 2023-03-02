@@ -353,13 +353,15 @@ def push_to_hub_fastai(
     create_pr: Optional[bool] = None,
     allow_patterns: Optional[Union[List[str], str]] = None,
     ignore_patterns: Optional[Union[List[str], str]] = None,
+    delete_patterns: Optional[Union[List[str], str]] = None,
     api_endpoint: Optional[str] = None,
 ):
     """
     Upload learner checkpoint files to the Hub.
 
-    Use `allow_patterns` and `ignore_patterns` to precisely filter which files should be
-    pushed to the hub. See [`upload_folder`] reference for more details.
+    Use `allow_patterns` and `ignore_patterns` to precisely filter which files should be pushed to the hub. Use
+    `delete_patterns` to delete existing remote files in the same commit. See [`upload_folder`] reference for more
+    details.
 
     Args:
         learner (`Learner`):
@@ -387,6 +389,9 @@ def push_to_hub_fastai(
             If provided, only files matching at least one pattern are pushed.
         ignore_patterns (`List[str]` or `str`, *optional*):
             If provided, files matching any of the patterns are not pushed.
+        delete_patterns (`List[str]` or `str`, *optional*):
+            If provided, remote files matching any of the patterns will be deleted from the repo.
+
     Returns:
         The url of the commit of your model in the given repository.
 
@@ -401,7 +406,7 @@ def push_to_hub_fastai(
     """
     _check_fastai_fastcore_versions()
     api = HfApi(endpoint=api_endpoint)
-    api.create_repo(repo_id=repo_id, repo_type="model", token=token, private=private, exist_ok=True)
+    repo_id = api.create_repo(repo_id=repo_id, token=token, private=private, exist_ok=True).repo_id
 
     # Push the files to the repo in a single commit
     with SoftTemporaryDirectory() as tmp:
@@ -409,7 +414,6 @@ def push_to_hub_fastai(
         _save_pretrained_fastai(learner, saved_path, config=config)
         return api.upload_folder(
             repo_id=repo_id,
-            repo_type="model",
             token=token,
             folder_path=saved_path,
             commit_message=commit_message,
@@ -417,4 +421,5 @@ def push_to_hub_fastai(
             create_pr=create_pr,
             allow_patterns=allow_patterns,
             ignore_patterns=ignore_patterns,
+            delete_patterns=delete_patterns,
         )
