@@ -2087,8 +2087,8 @@ class HfApi:
                 try:
                     self.repo_info(repo_id=repo_id, repo_type=repo_type, token=token)
                     if repo_type is None or repo_type == REPO_TYPE_MODEL:
-                        return RepoUrl(repo_id, endpoint=self.endpoint)
-                    return RepoUrl(f"{repo_type}/{repo_id}", endpoint=self.endpoint)
+                        return RepoUrl(f"{self.endpoint}/{repo_id}")
+                    return RepoUrl(f"{self.endpoint}/{repo_type}/{repo_id}")
                 except HfHubHTTPError:
                     raise
             else:
