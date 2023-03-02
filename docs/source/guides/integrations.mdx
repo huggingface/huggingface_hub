@@ -15,11 +15,15 @@ There are four main ways to integrate a library with the Hub:
 4. **Widgets:** display a widget on the landing page of your models on the Hub. It allows users to quickly try a model
    from the browser.
 
-In this guide, we will focus on the first two topics. If you are interested in Inference and Widgets, you can follow
-[this guide](https://huggingface.co/docs/hub/models-adding-libraries#set-up-the-inference-api). In both cases, you can
-reach out to us if you are integrating your library with the Hub and want to be listed [in our docs](https://huggingface.co/docs/hub/models-libraries). 
+In this guide, we will focus on the first two topics. We will present the two main approaches you can use to integrate
+a library, with their advantages and drawbacks. Everything is summarized at the end of the guide to help you choose
+between the two. Please keep in mind that these are only guidelines that you are free to adapt to you requirements.
 
-## A first approach: helpers
+If you are interested in Inference and Widgets, you can follow [this guide](https://huggingface.co/docs/hub/models-adding-libraries#set-up-the-inference-api).
+In both cases, you can reach out to us if you are integrating a library with the Hub and want to be listed
+[in our docs](https://huggingface.co/docs/hub/models-libraries).
+
+## A flexible approach: helpers
 
 The first approach to integrate a library to the Hub is to actually implement the `push_to_hub` and `from_pretrained`
 methods by yourself. This gives you full flexibility on which files you need to upload/download and how to handle inputs
@@ -34,7 +38,7 @@ Implementation can differ between libraries, but the workflow is often similar.
 This is how a `from_pretrained` method usually look like:
 
 ```python
-def from_pretrained(model_id: str):
+def from_pretrained(model_id: str) -> MyModelClass:
    # Download model from Hub
    cached_model = hf_hub_download(
       repo_id=repo_id,
@@ -53,7 +57,7 @@ The `push_to_hub` method often requires a bit more complexity to handle repo cre
 A common approach is to save all of these files in a temporary folder, upload it and then delete it.
 
 ```python
-def push_to_hub(model, repo_name: str) -> None:
+def push_to_hub(model: MyModelClass, repo_name: str) -> None:
    api = HfApi()
 
    # Create repo if not existing yet and get the associated repo_id
@@ -109,8 +113,6 @@ parameters also means more documentation to maintain on your side. To see how to
 to our next section **class inheritance**.
 
 ## A more complex approach: class inheritance
-
-### A bit of theory
 
 As we saw above, there are two main methods to include in your library to integrate it with the Hub: upload files
 (`push_to_hub`) and download files (`from_pretrained`). You can implement those methods by yourself but it comes with
@@ -273,7 +275,7 @@ ideas on how to handle integration. In any case, feel free to contact us if you 
 <!-- Generated using https://www.tablesgenerator.com/markdown_tables -->
 | Integration | Using helpers | Using [`ModelHubMixin`] |
 |:---:|:---:|:---:|
-| User experience | Good.<br>`model = load_from_hub(...)`<br>`push_to_hub(model, ...)` | Good.<br>`model = MyModel.from_pretrained(...)`<br>`model.push_to_hub(...)` |
+| User experience | `model = load_from_hub(...)`<br>`push_to_hub(model, ...)` | `model = MyModel.from_pretrained(...)`<br>`model.push_to_hub(...)` |
 | Flexibility | Very flexible.<br>You fully control the implementation. | Less flexible.<br>Your framework must have a model class. |
 | Maintenance | More maintenance to add support for configuration, and new features. Might also require fixing issues reported by users. | Less maintenance as most of the interactions with the Hub are implemented in `huggingface_hub`. |
 | Documentation / Type annotation | To be written manually. | Partially handled by `huggingface_hub`. |
