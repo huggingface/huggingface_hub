@@ -219,7 +219,7 @@ def from_pretrained_keras(*args, **kwargs) -> "KerasModelHubMixin":
     Instantiate a pretrained Keras model from a pre-trained model from the Hub.
     The model is expected to be in `SavedModel` format.
 
-    Parameters:
+    Args:
         pretrained_model_name_or_path (`str` or `os.PathLike`):
             Can be either:
                 - A string, the `model id` of a pretrained model hosted inside a
@@ -301,11 +301,10 @@ def push_to_hub_keras(
     `delete_patterns` to delete existing remote files in the same commit. See [`upload_folder`] reference for more
     details.
 
-    Parameters:
+    Args:
         model (`Keras.Model`):
-            The [Keras
-            model](`https://www.tensorflow.org/api_docs/python/tf/keras/Model`)
-            you'd like to push to the Hub. The model must be compiled and built.
+            The [Keras model](`https://www.tensorflow.org/api_docs/python/tf/keras/Model`) you'd like to push to the
+            Hub. The model must be compiled and built.
         repo_id (`str`):
             Repository name to which push
         commit_message (`str`, *optional*, defaults to "Add Keras model"):

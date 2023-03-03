@@ -24,11 +24,11 @@ T = TypeVar("T", bound="ModelHubMixin")
 
 class ModelHubMixin:
     """
-    A generic Hub mixin for machine learning models. Define your own mixin for any framework
-    by inheriting from this class and overwriting the [`_from_pretrained`] and [`_save_pretrained`]
-    methods to define custom logic for saving and loading your classes.
+    A generic mixin to integrate ANY machine learning framework with the Hub.
 
-    See [`PyTorchModelHubMixin`] for an example.
+    To integrate your framework, your model class must inherit from this class. Custom logic for saving/loading models
+    have to be overwritten in  [`_from_pretrained`] and [`_save_pretrained`]. [`PyTorchModelHubMixin`] is a good example
+    of mixin integration with the Hub. Check out our [integration guide](../guides/integrations) for more instructions.
     """
 
     @_deprecate_positional_args(version="0.16")
@@ -44,7 +44,7 @@ class ModelHubMixin:
         """
         Save weights in local directory.
 
-        Parameters:
+        Args:
             save_directory (`str` or `Path`):
                 Path to directory in which the model weights and configuration will be saved.
             config (`dict`, *optional*):
@@ -52,38 +52,38 @@ class ModelHubMixin:
             push_to_hub (`bool`, *optional*, defaults to `False`):
                 Whether or not to push your model to the Huggingface Hub after saving it.
             repo_id (`str`, *optional*):
-                ID of your repository on the Hub. Used only if `push_to_hub=True`. Will
-                default to the folder name if not provided.
+                ID of your repository on the Hub. Used only if `push_to_hub=True`. Will default to the folder name if
+                not provided.
             kwargs:
-                Additional key word arguments passed along to the
-                [`~utils.PushToHubMixin.push_to_hub`] method.
+                Additional key word arguments passed along to the [`~ModelHubMixin._from_pretrained`] method.
         """
-        os.makedirs(save_directory, exist_ok=True)
+        save_directory = Path(save_directory)
+        save_directory.mkdir(parents=True, exist_ok=True)
 
         # saving model weights/files
         self._save_pretrained(save_directory)
 
         # saving config
         if isinstance(config, dict):
-            path = os.path.join(save_directory, CONFIG_NAME)
-            with open(path, "w") as f:
-                json.dump(config, f)
+            (save_directory / CONFIG_NAME).write_text(json.dumps(config))
 
         if push_to_hub:
             kwargs = kwargs.copy()  # soft-copy to avoid mutating input
             if config is not None:  # kwarg for `push_to_hub`
                 kwargs["config"] = config
-
             if repo_id is None:
-                # Repo name defaults to `save_directory` name
-                repo_id = Path(save_directory).name
-
+                repo_id = save_directory.name  # Defaults to `save_directory` name
             return self.push_to_hub(repo_id=repo_id, **kwargs)
         return None
 
-    def _save_pretrained(self, save_directory: Union[str, Path]) -> None:
+    def _save_pretrained(self, save_directory: Path) -> None:
         """
         Overwrite this method in subclass to define how to save your model.
+        Check out our [integration guide](../guides/integrations) for instructions.
+
+        Args:
+            save_directory (`str` or `Path`):
+                Path to directory in which the model weights and configuration will be saved.
         """
         raise NotImplementedError
 
@@ -106,7 +106,7 @@ class ModelHubMixin:
         """
         Download a model from the Huggingface Hub and instantiate it.
 
-        Parameters:
+        Args:
             pretrained_model_name_or_path (`str`, `Path`):
                 - Either the `model_id` (string) of a model hosted on the Hub, e.g. `bigscience/bloom`.
                 - Or a path to a `directory` containing model weights saved using
@@ -115,22 +115,20 @@ class ModelHubMixin:
                 Revision of the model on the Hub. Can be a branch name, a git tag or any commit id.
                 Defaults to the latest commit on `main` branch.
             force_download (`bool`, *optional*, defaults to `False`):
-                Whether to force (re-)downloading the model weights and configuration
-                files from the Hub, overriding the existing cache.
+                Whether to force (re-)downloading the model weights and configuration files from the Hub, overriding
+                the existing cache.
             resume_download (`bool`, *optional*, defaults to `False`):
-                Whether to delete incompletely received files. Will attempt to resume the
-                download if such a file exists.
+                Whether to delete incompletely received files. Will attempt to resume the download if such a file exists.
             proxies (`Dict[str, str]`, *optional*):
                 A dictionary of proxy servers to use by protocol or endpoint, e.g., `{'http': 'foo.bar:3128',
                 'http://hostname': 'foo.bar:4012'}`. The proxies are used on every request.
             token (`str` or `bool`, *optional*):
-                The token to use as HTTP bearer authorization for remote files. By default,
-                it will use the token cached when running `huggingface-cli login`.
+                The token to use as HTTP bearer authorization for remote files. By default, it will use the token
+                cached when running `huggingface-cli login`.
             cache_dir (`str`, `Path`, *optional*):
                 Path to the folder where cached files are stored.
             local_files_only (`bool`, *optional*, defaults to `False`):
-                If `True`, avoid downloading the file and return the path to the
-                local cached file if it exists.
+                If `True`, avoid downloading the file and return the path to the local cached file if it exists.
             model_kwargs (`Dict`, *optional*):
                 Additional kwargs to pass to the model during initialization.
         """
@@ -189,20 +187,51 @@ class ModelHubMixin:
     @classmethod
     @_deprecate_positional_args(version="0.16")
     def _from_pretrained(
-        cls,
+        cls: Type[T],
         *,
         model_id: str,
-        revision: str,
-        cache_dir: str,
+        revision: Optional[str],
+        cache_dir: Optional[Union[str, Path]],
         force_download: bool,
         proxies: Optional[Dict],
         resume_download: bool,
         local_files_only: bool,
-        token: Union[str, bool, None],
+        token: Optional[Union[str, bool]],
         **model_kwargs,
-    ):
-        """Overwrite this method in subclass to define how to load your model from
-        pretrained"""
+    ) -> T:
+        """Overwrite this method in subclass to define how to load your model from pretrained.
+
+        Use [`hf_hub_download`] or [`snapshot_download`] to download files from the Hub before loading them. Most
+        args taken as input can be directly passed to those 2 methods. If needed, you can add more arguments to this
+        method using "model_kwargs". For example [`PyTorchModelHubMixin._from_pretrained`] takes as input a `map_location`
+        parameter to set on which device the model should be loaded.
+
+        Check out our [integration guide](../guides/integrations) for more instructions.
+
+        Args:
+            model_id (`str`):
+                ID of the model to load from the Huggingface Hub (e.g. `bigscience/bloom`).
+            revision (`str`, *optional*):
+                Revision of the model on the Hub. Can be a branch name, a git tag or any commit id. Defaults to the
+                latest commit on `main` branch.
+            force_download (`bool`, *optional*, defaults to `False`):
+                Whether to force (re-)downloading the model weights and configuration files from the Hub, overriding
+                the existing cache.
+            resume_download (`bool`, *optional*, defaults to `False`):
+                Whether to delete incompletely received files. Will attempt to resume the download if such a file exists.
+            proxies (`Dict[str, str]`, *optional*):
+                A dictionary of proxy servers to use by protocol or endpoint (e.g., `{'http': 'foo.bar:3128',
+                'http://hostname': 'foo.bar:4012'}`).
+            token (`str` or `bool`, *optional*):
+                The token to use as HTTP bearer authorization for remote files. By default, it will use the token
+                cached when running `huggingface-cli login`.
+            cache_dir (`str`, `Path`, *optional*):
+                Path to the folder where cached files are stored.
+            local_files_only (`bool`, *optional*, defaults to `False`):
+                If `True`, avoid downloading the file and return the path to the local cached file if it exists.
+            model_kwargs:
+                Additional keyword arguments passed along to the [`~ModelHubMixin._from_pretrained`] method.
+        """
         raise NotImplementedError
 
     @validate_hf_hub_args
@@ -229,7 +258,7 @@ class ModelHubMixin:
         details.
 
 
-        Parameters:
+        Args:
             repo_id (`str`):
                 Repository name to which push.
             config (`dict`, *optional*):
@@ -241,16 +270,12 @@ class ModelHubMixin:
             api_endpoint (`str`, *optional*):
                 The API endpoint to use when pushing the model to the hub.
             token (`str`, *optional*):
-                The token to use as HTTP bearer authorization for remote files.
-                If not set, will use the token set when logging in with
-                `transformers-cli login` (stored in `~/.huggingface`).
+                The token to use as HTTP bearer authorization for remote files. By default, it will use the token
+                cached when running `huggingface-cli login`.
             branch (`str`, *optional*):
-                The git branch on which to push the model. This defaults to
-                the default branch as specified in your repository, which
-                defaults to `"main"`.
+                The git branch on which to push the model. This defaults to `"main"`.
             create_pr (`boolean`, *optional*):
-                Whether or not to create a Pull Request from `branch` with that commit.
-                Defaults to `False`.
+                Whether or not to create a Pull Request from `branch` with that commit. Defaults to `False`.
             allow_patterns (`List[str]` or `str`, *optional*):
                 If provided, only files matching at least one pattern are pushed.
             ignore_patterns (`List[str]` or `str`, *optional*):
@@ -283,11 +308,9 @@ class ModelHubMixin:
 
 class PyTorchModelHubMixin(ModelHubMixin):
     """
-    Implementation of [`ModelHubMixin`] to provide model Hub upload/download
-    capabilities to PyTorch models. The model is set in evaluation mode by
-    default using `model.eval()` (dropout modules are deactivated). To train
-    the model, you should first set it back in training mode with
-    `model.train()`.
+    Implementation of [`ModelHubMixin`] to provide model Hub upload/download capabilities to PyTorch models. The model
+    is set in evaluation mode by default using `model.eval()` (dropout modules are deactivated). To train the model,
+    you should first set it back in training mode with `model.train()`.
 
     Example:
 
@@ -318,11 +341,10 @@ class PyTorchModelHubMixin(ModelHubMixin):
     ```
     """
 
-    def _save_pretrained(self, save_directory: Union[str, Path]):
+    def _save_pretrained(self, save_directory: Path) -> None:
         """Save weights from a Pytorch model to a local directory."""
-        path = os.path.join(save_directory, PYTORCH_WEIGHTS_NAME)
         model_to_save = self.module if hasattr(self, "module") else self  # type: ignore
-        torch.save(model_to_save.state_dict(), path)
+        torch.save(model_to_save.state_dict(), save_directory / PYTORCH_WEIGHTS_NAME)
 
     @classmethod
     @_deprecate_positional_args(version="0.16")

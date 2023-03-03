@@ -28,6 +28,8 @@
       title: Model Cards
     - local: guides/manage-spaces
       title: Manage your Space
+    - local: guides/integrations
+      title: Integrate a library
 - title: "Conceptual guides"
   sections:
     - local: concepts/git_vs_http

@@ -246,7 +246,7 @@ def expect_deprecation(function_name: str):
     """
     Decorator to flag tests that we expect to use deprecated arguments.
 
-    Parameters:
+    Args:
         function_name (`str`):
             Name of the function that we expect to use in a deprecated way.
 
@@ -303,7 +303,7 @@ def xfail_on_windows(reason: str, raises: Optional[Type[Exception]] = None):
     Will not raise an error if the expected error happens while running on Windows machine.
     If error is expected but does not happen, the test fails as well.
 
-    Parameters:
+    Args:
         reason (`str`):
             Reason why it should fail.
         raises (`Type[Exception]`):
