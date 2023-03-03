@@ -29,6 +29,7 @@ from requests.exceptions import HTTPError
 
 from huggingface_hub.utils import EntryNotFoundError, RepositoryNotFoundError
 
+from ._chunked_commit import commit_by_chunks
 from ._commit_api import (
     CommitOperation,
     CommitOperationAdd,
@@ -2270,6 +2271,7 @@ class HfApi:
         create_pr: Optional[bool] = None,
         num_threads: int = 5,
         parent_commit: Optional[str] = None,
+        chunked_commits: bool = False,
     ) -> CommitInfo:
         """
         Creates a commit in the given repo, deleting & uploading files as needed.
@@ -2355,6 +2357,22 @@ class HfApi:
 
         </Tip>
         """
+        if chunked_commits:
+            return commit_by_chunks(
+                api=self,
+                repo_id=repo_id,
+                operations=list(operations),
+                commit_message=commit_message,
+                commit_description=commit_description,
+                token=token,
+                repo_type=repo_type,
+                # revision=revision,
+                create_pr=create_pr,
+                num_threads=num_threads,
+                # parent_commit=parent_commit,
+                verbose=True,
+            )
+
         _CREATE_COMMIT_NO_REPO_ERROR_MESSAGE = (
             "\nNote: Creating a commit assumes that the repo already exists on the"
             " Huggingface Hub. Please use `create_repo` if it's not the case."
@@ -2621,6 +2639,7 @@ class HfApi:
         allow_patterns: Optional[Union[List[str], str]] = None,
         ignore_patterns: Optional[Union[List[str], str]] = None,
         delete_patterns: Optional[Union[List[str], str]] = None,
+        chunked_commits: bool = False,
     ):
         """
         Upload a local folder to the given repo. The upload is done through a HTTP requests, and doesn't require git or
@@ -2754,9 +2773,7 @@ class HfApi:
         if path_in_repo is None:
             path_in_repo = ""
 
-        commit_message = (
-            commit_message if commit_message is not None else f"Upload {path_in_repo} with huggingface_hub"
-        )
+        commit_message = commit_message if commit_message is not None else "Upload folder using huggingface_hub"
 
         delete_operations = self._prepare_upload_folder_deletions(
             repo_id=repo_id,
@@ -2791,9 +2808,11 @@ class HfApi:
             revision=revision,
             create_pr=create_pr,
             parent_commit=parent_commit,
+            chunked_commits=chunked_commits,
         )
 
-        if commit_info.pr_url is not None:
+        # TODO: would be worth not changing `create_commit` behavior and have `commit_by_chunks` separately
+        if commit_info is not None and commit_info.pr_url is not None:
             revision = quote(_parse_revision_from_pr_url(commit_info.pr_url), safe="")
         if repo_type in REPO_TYPES_URL_PREFIXES:
             repo_id = REPO_TYPES_URL_PREFIXES[repo_type] + repo_id
@@ -3298,6 +3317,7 @@ class HfApi:
                     repo_id=discussion["repo"]["name"],
                     repo_type=discussion["repo"]["type"],
                     is_pull_request=discussion["isPullRequest"],
+                    endpoint=self.endpoint,
                 )
             page_index = page_index + 1
 
@@ -3374,6 +3394,7 @@ class HfApi:
             target_branch=target_branch,
             merge_commit_oid=merge_commit_oid,
             diff=discussion_details.get("diff"),
+            endpoint=self.endpoint,
         )
 
     @validate_hf_hub_args
