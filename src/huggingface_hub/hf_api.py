@@ -29,7 +29,7 @@ from requests.exceptions import HTTPError
 
 from huggingface_hub.utils import EntryNotFoundError, RepositoryNotFoundError
 
-from ._chunked_commit import commit_by_chunks
+from ._chunked_commit import commit_in_chunks
 from ._commit_api import (
     CommitOperation,
     CommitOperationAdd,
@@ -2358,7 +2358,7 @@ class HfApi:
         </Tip>
         """
         if chunked_commits:
-            return commit_by_chunks(
+            return commit_in_chunks(
                 api=self,
                 repo_id=repo_id,
                 operations=list(operations),
@@ -2811,7 +2811,7 @@ class HfApi:
             chunked_commits=chunked_commits,
         )
 
-        # TODO: would be worth not changing `create_commit` behavior and have `commit_by_chunks` separately
+        # TODO: would be worth not changing `create_commit` behavior and have `commit_in_chunks` separately
         if commit_info is not None and commit_info.pr_url is not None:
             revision = quote(_parse_revision_from_pr_url(commit_info.pr_url), safe="")
         if repo_type in REPO_TYPES_URL_PREFIXES:

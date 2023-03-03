@@ -150,7 +150,7 @@ class ChunkedCommitStrategy:
         self.id = sha.hexdigest()
 
 
-def commit_by_chunks(
+def commit_in_chunks(
     *,
     api: "HfApi",
     repo_id: str,
