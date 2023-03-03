@@ -161,7 +161,7 @@ def commit_in_chunks(
     repo_type: Optional[str] = None,
     create_pr: Optional[bool] = None,
     num_threads: int = 5,
-    verbose: True,
+    verbose: bool = True,
     # TODO Cannot revision: Optional[str] = None,
     # TODO Cannot parent_commit: Optional[str] = None,
 ) -> None:
