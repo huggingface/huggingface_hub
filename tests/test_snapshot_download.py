@@ -1,6 +1,7 @@
 import os
 import unittest
 from pathlib import Path
+from unittest.mock import patch
 
 import requests
 
@@ -9,7 +10,6 @@ from huggingface_hub.utils import HfFolder, SoftTemporaryDirectory
 
 from .testing_constants import TOKEN
 from .testing_utils import repo_name
-from unittest.mock import patch
 
 
 class SnapshotDownloadTests(unittest.TestCase):
