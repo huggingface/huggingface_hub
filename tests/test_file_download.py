@@ -615,6 +615,38 @@ class HfHubDownloadToLocalDir(unittest.TestCase):
             if os.name != "nt":
                 self.assertTrue(Path(readme).is_symlink())  # 1.11kB => big => symlink
 
+    def test_with_local_dir_and_symlinks_and_overwrite(self) -> None:
+        # Download to local dir
+        with SoftTemporaryDirectory() as local_dir:
+            config_path = Path(local_dir) / CONFIG_NAME
+            config_path.write_text("this will be overwritten")
+            hf_hub_download(
+                DUMMY_MODEL_ID,
+                filename=CONFIG_NAME,
+                cache_dir=self.cache_dir,
+                local_dir=local_dir,
+                local_dir_use_symlinks=True,
+            )
+            if os.name != "nt":
+                self.assertTrue(config_path.is_symlink())
+            self.assertNotEqual(config_path.read_text(), "this will be overwritten")
+
+    def test_with_local_dir_and_no_symlinks_and_overwrite(self) -> None:
+        # Download to local dir
+        with SoftTemporaryDirectory() as local_dir:
+            config_path = Path(local_dir) / CONFIG_NAME
+            config_path.write_text("this will be overwritten")
+            hf_hub_download(
+                DUMMY_MODEL_ID,
+                filename=CONFIG_NAME,
+                cache_dir=self.cache_dir,
+                local_dir=local_dir,
+                local_dir_use_symlinks=False,
+            )
+            if os.name != "nt":
+                self.assertTrue(config_path.is_symlink())
+            self.assertNotEquals(config_path.read_text(), "this will be overwritten")
+
 
 class StagingCachedDownloadTest(unittest.TestCase):
     def test_download_from_a_gated_repo_with_hf_hub_download(self):
