@@ -643,8 +643,7 @@ class HfHubDownloadToLocalDir(unittest.TestCase):
                 local_dir=local_dir,
                 local_dir_use_symlinks=False,
             )
-            if os.name != "nt":
-                self.assertTrue(config_path.is_symlink())
+            self.assertFalse(config_path.is_symlink())
             self.assertNotEquals(config_path.read_text(), "this will be overwritten")
 
 
