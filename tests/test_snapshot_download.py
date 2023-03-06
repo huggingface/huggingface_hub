@@ -9,6 +9,7 @@ from huggingface_hub.utils import HfFolder, SoftTemporaryDirectory
 
 from .testing_constants import TOKEN
 from .testing_utils import repo_name
+from unittest.mock import patch
 
 
 class SnapshotDownloadTests(unittest.TestCase):
@@ -188,6 +189,7 @@ class SnapshotDownloadTests(unittest.TestCase):
     def test_download_model_with_ignore_pattern_list(self):
         self.check_download_model_with_pattern(["*.git*", "*.pt"], allow=False)
 
+    @patch("huggingface_hub.constants.HF_HUB_LOCAL_DIR_AUTO_SYMLINK_THRESHOLD", 10)  # >10b => "big file"
     def test_download_to_local_dir(self) -> None:
         """Download a repository to local dir.
 
@@ -203,15 +205,16 @@ class SnapshotDownloadTests(unittest.TestCase):
                 self.assertTrue((Path(local_dir) / "dummy_file.txt").is_file())
                 self.assertTrue((Path(local_dir) / "dummy_file_2.txt").is_file())
 
-                # Files are symlinks (except on Windows CI)
-                if os.name != "nt":
-                    self.assertTrue((Path(local_dir) / "dummy_file.txt").is_symlink())
-                    self.assertTrue((Path(local_dir) / "dummy_file_2.txt").is_symlink())
+                # Files are small so duplicated from cache (no symlinks)
+                self.assertFalse((Path(local_dir) / "dummy_file.txt").is_symlink())  # smaller than 10b => duplicated
+                self.assertFalse((Path(local_dir) / "dummy_file_2.txt").is_symlink())  # smaller than 10b => duplicated
 
                 # File structure is preserved (+check content)
                 subpath_file = Path(local_dir) / "subpath" / "file.txt"
                 self.assertTrue(subpath_file.is_file())
                 self.assertEqual(subpath_file.read_text(), "content in subpath")
+                if os.name != "nt":
+                    self.assertTrue(subpath_file.is_symlink())  # bigger than 10b => symlinked
 
                 # Check returns local dir and not cache dir
                 self.assertEqual(returned_path, local_dir)
