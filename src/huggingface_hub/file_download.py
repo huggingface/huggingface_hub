@@ -953,6 +953,7 @@ def hf_hub_download(
       - Finally, if `local_dir_use_symlinks=False` and the blob files do not exist in the cache directory, then the
         files are downloaded and directly placed under `local_dir`. This means if you need to download them again later,
         they will be re-downloaded entirely.
+
     ```
     [  96]  .
     └── [ 160]  models--julien-c--EsperBERTo-small
