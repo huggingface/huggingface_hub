@@ -15,6 +15,7 @@ from .file_download import REGEX_COMMIT_HASH, hf_hub_download, repo_folder_name
 from .hf_api import HfApi
 from .utils import filter_repo_objects, logging, validate_hf_hub_args
 from .utils import tqdm as hf_tqdm
+from .utils._typing import Literal
 
 
 logger = logging.get_logger(__name__)
@@ -28,7 +29,7 @@ def snapshot_download(
     repo_type: Optional[str] = None,
     cache_dir: Union[str, Path, None] = None,
     local_dir: Union[str, Path, None] = None,
-    local_dir_use_symlinks: bool = True,
+    local_dir_use_symlinks: Union[bool, Literal["auto"]] = "auto",
     library_name: Optional[str] = None,
     library_version: Optional[str] = None,
     user_agent: Optional[Union[Dict, str]] = None,
@@ -49,13 +50,20 @@ def snapshot_download(
     to keep their actual filename relative to that folder. You can also filter which files to download using
     `allow_patterns` and `ignore_patterns`.
 
-    If `local_dir` is provided, the file structure from the repo will be replicated in this location. If `local_dir_use_symlinks` is
-    set to `True`, files are downloaded and stored in the cache directory (as blob files) and symlinks pointing to them
-    are placed in `local_dir`. If `local_dir_use_symlinks` is False and the blob files exist in the cache directory,
-    they are duplicated in the local dir. This means disk usage is not optimized. Finally, if `local_dir_use_symlinks`
-    is False and the blob files do not exist in the cache directory, then the files are downloaded and directly placed
-    under `local_dir`. This means if you need to download them again later, they will be re-downloaded entirely.
-
+    If `local_dir` is provided, the file structure from the repo will be replicated in this location. You can configure
+    how you want to move those files:
+      - If `local_dir_use_symlinks="auto"` (default), files are downloaded and stored in the cache directory as blob
+        files. Small files (<5MB) are duplicated in `local_dir` while a symlink is created for bigger files. The goal
+        is to be able to manually edit and save small files without corrupting the cache while saving disk space for
+        binary files. The 5MB threshold can be configured with the `HF_HUB_LOCAL_DIR_AUTO_SYMLINK_THRESHOLD`
+        environment variable.
+      - If `local_dir_use_symlinks=True`, files are downloaded, stored in the cache directory and symlinked in `local_dir`.
+        This is optimal in term of disk usage but files must not be manually edited.
+      - If `local_dir_use_symlinks=False` and the blob files exist in the cache directory, they are duplicated in the
+        local dir. This means disk usage is not optimized.
+      - Finally, if `local_dir_use_symlinks=False` and the blob files do not exist in the cache directory, then the
+        files are downloaded and directly placed under `local_dir`. This means if you need to download them again later,
+        they will be re-downloaded entirely.
 
     An alternative would be to clone the repo but this requires git and git-lfs to be installed and properly
     configured. It is also not possible to filter which files to download when cloning a repository using git.
@@ -74,10 +82,11 @@ def snapshot_download(
         local_dir (`str` or `Path`, *optional*:
             If provided, the downloaded files will be placed under this directory, either as symlinks (default) or
             regular files (see description for more details).
-        local_dir_use_symlinks (`bool`, defaults to `True`):
-            To be used with `local_dir`. If set to `True` (the default), cache directory will still be used and
-            symlinks will be added to your local directory. If set to `False`, files will either be duplicated from
-            cache (if already exist) or downloaded from the Hub and not cached. See description for more details.
+        local_dir_use_symlinks (`"auto"` or `bool`, defaults to `"auto"`):
+            To be used with `local_dir`. If set to "auto", the cache directory will be used and the file will be either
+            duplicated or symlinked to the local directory depending on its size. It set to `True`, a symlink will be
+            created, no matter the file size. If set to `False`, the file will either be duplicated from cache (if
+            already exists) or downloaded from the Hub and not cached. See description for more details.
         library_name (`str`, *optional*):
             The name of the library to which the object corresponds.
         library_version (`str`, *optional*):

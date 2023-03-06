@@ -64,13 +64,14 @@ from .utils import (
 )
 from .utils._headers import _http_user_agent
 from .utils._runtime import _PY_VERSION  # noqa: F401 # for backward compatibility
-from .utils._typing import HTTP_METHOD_T
+from .utils._typing import HTTP_METHOD_T, Literal
 
 
 logger = logging.get_logger(__name__)
 
 # Regex to get filename from a "Content-Disposition" header for CDN-served files
 HEADER_FILENAME_PATTERN = re.compile(r'filename="(?P<filename>.*?)";')
+
 
 _are_symlinks_supported_in_dir: Dict[str, bool] = {}
 
@@ -915,7 +916,7 @@ def hf_hub_download(
     library_version: Optional[str] = None,
     cache_dir: Union[str, Path, None] = None,
     local_dir: Union[str, Path, None] = None,
-    local_dir_use_symlinks: bool = True,
+    local_dir_use_symlinks: Union[bool, Literal["auto"]] = "auto",
     user_agent: Union[Dict, str, None] = None,
     force_download: bool = False,
     force_filename: Optional[str] = None,
@@ -938,13 +939,20 @@ def hf_hub_download(
           that have been resolved at that particular commit. Each filename is a symlink to the blob
           at that particular commit.
 
-    If `local_dir` is provided, the downloaded file will be placed in this location. If `local_dir_use_symlinks` is set to
-    `True`, the file is downloaded and stored in the cache directory (as blob file) and a symlink pointing to it is
-    placed in `local_dir`. If `local_dir_use_symlinks` is False and the blob file exists in the cache directory, it is
-    duplicated in the local dir. This means disk usage is not optimized. Finally, if `local_dir_use_symlinks` is False
-    and the blob file does not exist in the cache directory, then the file is downloaded and directly placed under
-    `local_dir`. This means if you need to download it again later, it will be re-downloaded entirely.
-
+    If `local_dir` is provided, the file structure from the repo will be replicated in this location. You can configure
+    how you want to move those files:
+      - If `local_dir_use_symlinks="auto"` (default), files are downloaded and stored in the cache directory as blob
+        files. Small files (<5MB) are duplicated in `local_dir` while a symlink is created for bigger files. The goal
+        is to be able to manually edit and save small files without corrupting the cache while saving disk space for
+        binary files. The 5MB threshold can be configured with the `HF_HUB_LOCAL_DIR_AUTO_SYMLINK_THRESHOLD`
+        environment variable.
+      - If `local_dir_use_symlinks=True`, files are downloaded, stored in the cache directory and symlinked in `local_dir`.
+        This is optimal in term of disk usage but files must not be manually edited.
+      - If `local_dir_use_symlinks=False` and the blob files exist in the cache directory, they are duplicated in the
+        local dir. This means disk usage is not optimized.
+      - Finally, if `local_dir_use_symlinks=False` and the blob files do not exist in the cache directory, then the
+        files are downloaded and directly placed under `local_dir`. This means if you need to download them again later,
+        they will be re-downloaded entirely.
     ```
     [  96]  .
     └── [ 160]  models--julien-c--EsperBERTo-small
@@ -985,10 +993,11 @@ def hf_hub_download(
         local_dir (`str` or `Path`, *optional*:
             If provided, the downloaded file will be placed under this directory, either as a symlink (default) or
             a regular file (see description for more details).
-        local_dir_use_symlinks (`bool`, defaults to `True`):
-            To be used with `local_dir`. If set to `True` (the default), cache directory will still be used and a
-            symlink will be added to your local directory. If set to `False`, the file will either be duplicated from
-            cache (if already exists) or downloaded from the Hub and not cached. See description for more details.
+        local_dir_use_symlinks (`"auto"` or `bool`, defaults to `"auto"`):
+            To be used with `local_dir`. If set to "auto", the cache directory will be used and the file will be either
+            duplicated or symlinked to the local directory depending on its size. It set to `True`, a symlink will be
+            created, no matter the file size. If set to `False`, the file will either be duplicated from cache (if
+            already exists) or downloaded from the Hub and not cached. See description for more details.
         user_agent (`dict`, `str`, *optional*):
             The user-agent info in the form of a dictionary or a string.
         force_download (`bool`, *optional*, defaults to `False`):
@@ -1307,14 +1316,24 @@ def hf_hub_download(
         else:
             local_dir_filepath = os.path.join(local_dir, relative_filename)
             os.makedirs(os.path.dirname(local_dir_filepath), exist_ok=True)
-            if local_dir_use_symlinks:
+
+            # If "auto" (default) copy-paste small files to ease manual editing but symlink big files to save disk
+            # In both cases, blob file is cached.
+            is_big_file = os.stat(temp_file.name).st_size > constants.HF_HUB_LOCAL_DIR_AUTO_SYMLINK_THRESHOLD
+            if local_dir_use_symlinks is True or (local_dir_use_symlinks == "auto" and is_big_file):
                 logger.info(f"Storing {url} in cache at {blob_path}")
                 _chmod_and_replace(temp_file.name, blob_path)
                 logger.info("Create symlink to local dir")
-                _create_relative_symlink(blob_path, local_dir_filepath, new_blob=True)
+                _create_relative_symlink(blob_path, local_dir_filepath, new_blob=False)
+            elif local_dir_use_symlinks == "auto" and not is_big_file:
+                logger.info(f"Storing {url} in cache at {blob_path}")
+                _chmod_and_replace(temp_file.name, blob_path)
+                logger.info("Duplicate in local dir (small file and use_symlink set to 'auto')")
+                shutil.copyfile(blob_path, local_dir_filepath)
             else:
                 logger.info(f"Storing {url} in local_dir at {local_dir_filepath} (not cached).")
                 _chmod_and_replace(temp_file.name, local_dir_filepath)
+            pointer_path = local_dir_filepath  # for return value
 
     try:
         os.remove(lock_path)
@@ -1508,14 +1527,21 @@ def _chmod_and_replace(src: str, dst: str) -> None:
     os.replace(src, dst)
 
 
-def _to_local_dir(path: str, local_dir: str, relative_filename: str, use_symlinks: bool) -> str:
+def _to_local_dir(
+    path: str, local_dir: str, relative_filename: str, use_symlinks: Union[bool, Literal["auto"]]
+) -> str:
     """Place a file in a local dir (different than cache_dir).
 
-    Either symlink to blob file in cache or duplicate file if symlink is disabled.
+    Either symlink to blob file in cache or duplicate file depending on `use_symlinks` and file size.
     """
     local_dir_filepath = os.path.join(local_dir, relative_filename)
     os.makedirs(os.path.dirname(local_dir_filepath), exist_ok=True)
     real_blob_path = os.path.realpath(path)
+
+    # If "auto" (default) copy-paste small files to ease manual editing but symlink big files to save disk
+    if use_symlinks == "auto":
+        use_symlinks = os.stat(real_blob_path).st_size > constants.HF_HUB_LOCAL_DIR_AUTO_SYMLINK_THRESHOLD
+
     if use_symlinks:
         _create_relative_symlink(real_blob_path, local_dir_filepath, new_blob=False)
     else:

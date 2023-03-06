@@ -500,7 +500,7 @@ class HfHubDownloadToLocalDir(unittest.TestCase):
 
         # Download to local dir
         with SoftTemporaryDirectory() as local_dir:
-            hf_hub_download(
+            returned_path = hf_hub_download(
                 DUMMY_MODEL_ID,
                 filename=CONFIG_NAME,
                 cache_dir=self.cache_dir,
@@ -508,6 +508,7 @@ class HfHubDownloadToLocalDir(unittest.TestCase):
                 local_dir_use_symlinks=True,
             )
             config_file = Path(local_dir) / CONFIG_NAME
+            self.assertEqual(returned_path, str(config_file))
             self.assertTrue(config_file.is_file())
             self.assertTrue(  # File is symlink (except in Windows CI)
                 config_file.is_symlink() if os.name != "nt" else not config_file.is_symlink()
@@ -516,7 +517,7 @@ class HfHubDownloadToLocalDir(unittest.TestCase):
     def test_with_local_dir_and_symlinks_and_file_not_cached(self) -> None:
         # Download to local dir
         with SoftTemporaryDirectory() as local_dir:
-            hf_hub_download(
+            returned_path = hf_hub_download(
                 DUMMY_MODEL_ID,
                 filename=CONFIG_NAME,
                 cache_dir=self.cache_dir,
@@ -524,6 +525,7 @@ class HfHubDownloadToLocalDir(unittest.TestCase):
                 local_dir_use_symlinks=True,
             )
             config_file = Path(local_dir) / CONFIG_NAME
+            self.assertEqual(returned_path, str(config_file))
             self.assertTrue(config_file.is_file())
             if os.name != "nt":  # File is symlink (except in Windows CI)
                 self.assertTrue(config_file.is_symlink())
@@ -541,7 +543,7 @@ class HfHubDownloadToLocalDir(unittest.TestCase):
             with patch.object(
                 huggingface_hub.file_download, "http_get", wraps=huggingface_hub.file_download.http_get
             ) as mock:
-                hf_hub_download(
+                returned_path = hf_hub_download(
                     DUMMY_MODEL_ID,
                     filename=CONFIG_NAME,
                     cache_dir=self.cache_dir,
@@ -551,6 +553,7 @@ class HfHubDownloadToLocalDir(unittest.TestCase):
                 mock.assert_not_called()  # reused file from cache
 
             config_file = Path(local_dir) / CONFIG_NAME
+            self.assertEqual(returned_path, str(config_file))
             self.assertTrue(config_file.is_file())
             self.assertFalse(config_file.is_symlink())
 
@@ -560,7 +563,7 @@ class HfHubDownloadToLocalDir(unittest.TestCase):
             with patch.object(
                 huggingface_hub.file_download, "http_get", wraps=huggingface_hub.file_download.http_get
             ) as mock:
-                hf_hub_download(
+                returned_path = hf_hub_download(
                     DUMMY_MODEL_ID,
                     filename=CONFIG_NAME,
                     cache_dir=self.cache_dir,
@@ -570,6 +573,7 @@ class HfHubDownloadToLocalDir(unittest.TestCase):
                 mock.assert_called()  # no file cached => had to download it
 
             config_file = Path(local_dir) / CONFIG_NAME
+            self.assertEqual(returned_path, str(config_file))
             self.assertTrue(config_file.is_file())
             self.assertFalse(config_file.is_symlink())
 
@@ -578,6 +582,38 @@ class HfHubDownloadToLocalDir(unittest.TestCase):
                 self.assertFalse(path.is_file())
             for path in self.cache_dir.glob("**/snapshots/**"):
                 self.assertFalse(path.is_file())
+
+    @patch("huggingface_hub.constants.HF_HUB_LOCAL_DIR_AUTO_SYMLINK_THRESHOLD", 1024)
+    def test_with_local_dir_and_auto_symlinks_and_file_cached(self) -> None:
+        # File already cached
+        hf_hub_download(DUMMY_MODEL_ID, filename=CONFIG_NAME, cache_dir=self.cache_dir)  # 496 bytes -> small
+        hf_hub_download(DUMMY_MODEL_ID, filename="README.md", cache_dir=self.cache_dir)  # 1.11kB -> "big"
+
+        # Download to local dir
+        with SoftTemporaryDirectory() as local_dir:
+            config = hf_hub_download(
+                DUMMY_MODEL_ID, filename=CONFIG_NAME, cache_dir=self.cache_dir, local_dir=local_dir
+            )
+            readme = hf_hub_download(
+                DUMMY_MODEL_ID, filename="README.md", cache_dir=self.cache_dir, local_dir=local_dir
+            )
+            self.assertFalse(Path(config).is_symlink())  # 496b => small => duplicated
+            if os.name != "nt":
+                self.assertTrue(Path(readme).is_symlink())  # 1.11kB => big => symlink
+
+    @patch("huggingface_hub.constants.HF_HUB_LOCAL_DIR_AUTO_SYMLINK_THRESHOLD", 1024)
+    def test_with_local_dir_and_auto_symlinks_and_file_not_cached(self) -> None:
+        # Download to local dir
+        with SoftTemporaryDirectory() as local_dir:
+            config = hf_hub_download(
+                DUMMY_MODEL_ID, filename=CONFIG_NAME, cache_dir=self.cache_dir, local_dir=local_dir
+            )
+            readme = hf_hub_download(
+                DUMMY_MODEL_ID, filename="README.md", cache_dir=self.cache_dir, local_dir=local_dir
+            )
+            self.assertFalse(Path(config).is_symlink())  # 496b => small => duplicated
+            if os.name != "nt":
+                self.assertTrue(Path(readme).is_symlink())  # 1.11kB => big => symlink
 
 
 class StagingCachedDownloadTest(unittest.TestCase):

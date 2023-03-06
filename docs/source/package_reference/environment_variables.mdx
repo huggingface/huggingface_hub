@@ -63,6 +63,13 @@ Defaults to `"warning"`.
 
 For more details, see [logging reference](../package_reference/utilities#huggingface_hub.utils.logging.get_verbosity).
 
+### HF_HUB_LOCAL_DIR_AUTO_SYMLINK_THRESHOLD
+
+Integer value to define under which size a file is considered as "small". When downloading files to a local directory,
+small files will be duplicated to ease user experience while bigger files are symlinked to save disk usage.
+
+For more details, see the [download guide](../guides/download#download-files-to-local-folder).
+
 ## Boolean values
 
 The following environment variables expect a boolean value. The variable will be considered
