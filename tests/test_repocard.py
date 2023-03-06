@@ -765,12 +765,19 @@ class TestRegexYamlBlock(unittest.TestCase):
 
 class ModelCardTest(TestCaseWithCapLog):
     def test_model_card_with_invalid_model_index(self):
-        """
-        Test that when loading a card that has invalid model-index, no eval_results are added + it logs a warning
+        """Test raise an error when loading a card that has invalid model-index."""
+        sample_path = SAMPLE_CARDS_DIR / "sample_invalid_model_index.md"
+        with self.assertRaises(ValueError):
+            ModelCard.load(sample_path)
+
+    def test_model_card_with_invalid_model_index_and_ignore_error(self):
+        """Test trigger a warning when loading a card that has invalid model-index and `ignore_metadata_errors=True`
+
+        Some information is lost.
         """
         sample_path = SAMPLE_CARDS_DIR / "sample_invalid_model_index.md"
         with self.caplog.at_level(logging.WARNING):
-            card = ModelCard.load(sample_path)
+            card = ModelCard.load(sample_path, ignore_metadata_errors=True)
         self.assertIn(
             "Invalid model-index. Not loading eval results into CardData.",
             self.caplog.text,
