@@ -188,49 +188,38 @@ def require_jinja(test_case):
         return test_case
 
 
+@pytest.mark.usefixtures("fx_cache_dir")
 class RepocardMetadataTest(unittest.TestCase):
-    def setUp(self):
-        os.makedirs(REPOCARD_DIR, exist_ok=True)
+    cache_dir: Path
 
-    def tearDown(self) -> None:
-        if os.path.exists(REPOCARD_DIR):
-            rmtree_with_retry(REPOCARD_DIR)
-        logger.info(f"Does {REPOCARD_DIR} exist: {os.path.exists(REPOCARD_DIR)}")
+    def setUp(self) -> None:
+        self.filepath = self.cache_dir / REPOCARD_NAME
 
     def test_metadata_load(self):
-        filepath = Path(REPOCARD_DIR) / REPOCARD_NAME
-        filepath.write_text(DUMMY_MODELCARD)
-        data = metadata_load(filepath)
+        self.filepath.write_text(DUMMY_MODELCARD)
+        data = metadata_load(self.filepath)
         self.assertDictEqual(data, {"license": "mit", "datasets": ["foo", "bar"]})
 
     def test_metadata_save(self):
-        filename = "dummy_target.md"
-        filepath = Path(REPOCARD_DIR) / filename
-        filepath.write_text(DUMMY_MODELCARD)
-        metadata_save(filepath, {"meaning_of_life": 42})
-        content = filepath.read_text()
+        self.filepath.write_text(DUMMY_MODELCARD)
+        metadata_save(self.filepath, {"meaning_of_life": 42})
+        content = self.filepath.read_text()
         self.assertEqual(content, DUMMY_MODELCARD_TARGET)
 
     def test_metadata_save_from_file_no_yaml(self):
-        filename = "dummy_target_2.md"
-        filepath = Path(REPOCARD_DIR) / filename
-        filepath.write_text("Hello\n")
-        metadata_save(filepath, {"meaning_of_life": 42})
-        content = filepath.read_text()
+        self.filepath.write_text("Hello\n")
+        metadata_save(self.filepath, {"meaning_of_life": 42})
+        content = self.filepath.read_text()
         self.assertEqual(content, DUMMY_MODELCARD_TARGET_NO_YAML)
 
     def test_metadata_save_new_file(self):
-        filename = "new_dummy_target.md"
-        filepath = Path(REPOCARD_DIR) / filename
-        metadata_save(filepath, {"meaning_of_life": 42})
-        content = filepath.read_text()
+        metadata_save(self.filepath, {"meaning_of_life": 42})
+        content = self.filepath.read_text()
         self.assertEqual(content, DUMMY_NEW_MODELCARD_TARGET)
 
     def test_no_metadata_returns_none(self):
-        filename = "dummy_target_3.md"
-        filepath = Path(REPOCARD_DIR) / filename
-        filepath.write_text(DUMMY_MODELCARD_TARGET_NO_TAGS)
-        data = metadata_load(filepath)
+        self.filepath.write_text(DUMMY_MODELCARD_TARGET_NO_TAGS)
+        data = metadata_load(self.filepath)
         self.assertEqual(data, None)
 
     def test_metadata_eval_result(self):
@@ -248,10 +237,8 @@ class RepocardMetadataTest(unittest.TestCase):
             dataset_config="default",
             dataset_split="test",
         )
-        filename = "eval_results.md"
-        filepath = Path(REPOCARD_DIR) / filename
-        metadata_save(filepath, data)
-        content = filepath.read_text().splitlines()
+        metadata_save(self.filepath, data)
+        content = self.filepath.read_text().splitlines()
         self.assertEqual(content, DUMMY_MODELCARD_EVAL_RESULT.splitlines())
 
 
