@@ -14,9 +14,7 @@
 import copy
 import os
 import re
-import tempfile
 import unittest
-from functools import partial
 from pathlib import Path
 
 import pytest
@@ -42,7 +40,6 @@ from huggingface_hub.file_download import hf_hub_download
 from huggingface_hub.hf_api import HfApi
 from huggingface_hub.repocard import REGEX_YAML_BLOCK
 from huggingface_hub.repocard_data import CardData
-from huggingface_hub.repository import Repository
 from huggingface_hub.utils import SoftTemporaryDirectory, is_jinja_available, logging
 
 from .testing_constants import (
@@ -52,10 +49,8 @@ from .testing_constants import (
     USER,
 )
 from .testing_utils import (
-    expect_deprecation,
     repo_name,
     retry_endpoint,
-    rmtree_with_retry,
     with_production_testing,
 )
 
@@ -169,12 +164,6 @@ model-index:
 This is a test model card.
 """
 
-logger = logging.get_logger(__name__)
-
-REPOCARD_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "fixtures/repocard")
-
-repo_name = partial(repo_name, prefix="dummy-hf-hub")
-
 
 def require_jinja(test_case):
     """
@@ -243,49 +232,29 @@ class RepocardMetadataTest(unittest.TestCase):
 
 
 class RepocardMetadataUpdateTest(unittest.TestCase):
-    _api = HfApi(endpoint=ENDPOINT_STAGING, token=TOKEN)
-
-    @classmethod
-    @expect_deprecation("set_access_token")
-    def setUpClass(cls):
-        """
-        Share this valid token in all tests below.
-        """
-        cls._token = TOKEN
-        cls._api.set_access_token(TOKEN)
-
     @retry_endpoint
     def setUp(self) -> None:
-        self.repo_path = Path(tempfile.mkdtemp())
-        self.REPO_NAME = repo_name()
-        self.repo_id = f"{USER}/{self.REPO_NAME}"
-        self._api.create_repo(self.repo_id)
-        self._api.upload_file(
-            path_or_fileobj=DUMMY_MODELCARD_EVAL_RESULT.encode(),
-            repo_id=self.repo_id,
-            path_in_repo="README.md",
-            commit_message="Add README to main branch",
-        )
+        self.token = TOKEN
+        self.api = HfApi(token=TOKEN)
 
-        self.repo = Repository(
-            self.repo_path / self.REPO_NAME,
-            clone_from=self.repo_id,
-            use_auth_token=self._token,
-            git_user="ci",
-            git_email="ci@dummy.com",
+        self.repo_id = self.api.create_repo(repo_name()).repo_id
+        self.api.upload_file(
+            path_or_fileobj=DUMMY_MODELCARD_EVAL_RESULT.encode(), repo_id=self.repo_id, path_in_repo=REPOCARD_NAME
         )
         self.existing_metadata = yaml.safe_load(DUMMY_MODELCARD_EVAL_RESULT.strip().strip("-"))
 
     def tearDown(self) -> None:
-        self._api.delete_repo(repo_id=self.repo_id)
-        rmtree_with_retry(self.repo_path)
+        self.api.delete_repo(repo_id=self.repo_id)
+
+    def _get_remote_card(self) -> str:
+        return hf_hub_download(repo_id=self.repo_id, filename=REPOCARD_NAME)
 
     def test_update_dataset_name(self):
         new_datasets_data = {"datasets": ["test/test_dataset"]}
-        metadata_update(self.repo_id, new_datasets_data, token=self._token)
+        metadata_update(self.repo_id, new_datasets_data, token=self.token)
 
-        self.repo.git_pull()
-        updated_metadata = metadata_load(self.repo_path / self.REPO_NAME / "README.md")
+        hf_hub_download(repo_id=self.repo_id, filename=REPOCARD_NAME)
+        updated_metadata = metadata_load(self._get_remote_card())
         expected_metadata = copy.deepcopy(self.existing_metadata)
         expected_metadata.update(new_datasets_data)
         self.assertDictEqual(updated_metadata, expected_metadata)
@@ -293,10 +262,9 @@ class RepocardMetadataUpdateTest(unittest.TestCase):
     def test_update_existing_result_with_overwrite(self):
         new_metadata = copy.deepcopy(self.existing_metadata)
         new_metadata["model-index"][0]["results"][0]["metrics"][0]["value"] = 0.2862102282047272
-        metadata_update(self.repo_id, new_metadata, token=self._token, overwrite=True)
+        metadata_update(self.repo_id, new_metadata, token=self.token, overwrite=True)
 
-        self.repo.git_pull()
-        updated_metadata = metadata_load(self.repo_path / self.REPO_NAME / "README.md")
+        updated_metadata = metadata_load(self._get_remote_card())
         self.assertDictEqual(updated_metadata, new_metadata)
 
     def test_update_verify_token(self):
@@ -306,22 +274,18 @@ class RepocardMetadataUpdateTest(unittest.TestCase):
         """
         new_metadata = copy.deepcopy(self.existing_metadata)
         new_metadata["model-index"][0]["results"][0]["metrics"][0]["verifyToken"] = "1234"
-        metadata_update(self.repo_id, new_metadata, token=self._token, overwrite=True)
-        self.repo.git_pull()
-        updated_metadata = metadata_load(self.repo_path / self.REPO_NAME / "README.md")
+        metadata_update(self.repo_id, new_metadata, token=self.token, overwrite=True)
+
+        updated_metadata = metadata_load(self._get_remote_card())
         self.assertDictEqual(updated_metadata, new_metadata)
 
     def test_metadata_update_upstream(self):
         new_metadata = copy.deepcopy(self.existing_metadata)
         new_metadata["model-index"][0]["results"][0]["metrics"][0]["value"] = 0.1
 
-        path = hf_hub_download(
-            self.repo_id,
-            filename=REPOCARD_NAME,
-            use_auth_token=self._token,
-        )
-
-        metadata_update(self.repo_id, new_metadata, token=self._token, overwrite=True)
+        # download first, then update
+        path = self._get_remote_card()
+        metadata_update(self.repo_id, new_metadata, token=self.token, overwrite=True)
 
         self.assertNotEqual(metadata_load(path), new_metadata)
         self.assertEqual(metadata_load(path), self.existing_metadata)
@@ -337,11 +301,11 @@ class RepocardMetadataUpdateTest(unittest.TestCase):
                 " accuracy'. Set `overwrite=True` to overwrite existing metrics."
             ),
         ):
-            metadata_update(self.repo_id, new_metadata, token=self._token, overwrite=False)
+            metadata_update(self.repo_id, new_metadata, token=self.token, overwrite=False)
 
     def test_update_existing_field_without_overwrite(self):
         new_datasets_data = {"datasets": "['test/test_dataset']"}
-        metadata_update(self.repo_id, new_datasets_data, token=self._token)
+        metadata_update(self.repo_id, new_datasets_data, token=self.token)
 
         with pytest.raises(
             ValueError,
@@ -351,12 +315,7 @@ class RepocardMetadataUpdateTest(unittest.TestCase):
             ),
         ):
             new_datasets_data = {"datasets": "['test/test_dataset_2']"}
-            metadata_update(
-                self.repo_id,
-                new_datasets_data,
-                token=self._token,
-                overwrite=False,
-            )
+            metadata_update(self.repo_id, new_datasets_data, token=self.token, overwrite=False)
 
     def test_update_new_result_existing_dataset(self):
         new_result = metadata_eval_result(
@@ -374,15 +333,14 @@ class RepocardMetadataUpdateTest(unittest.TestCase):
             dataset_split="test",
         )
 
-        metadata_update(self.repo_id, new_result, token=self._token, overwrite=False)
+        metadata_update(self.repo_id, new_result, token=self.token, overwrite=False)
 
         expected_metadata = copy.deepcopy(self.existing_metadata)
         expected_metadata["model-index"][0]["results"][0]["metrics"].append(
             new_result["model-index"][0]["results"][0]["metrics"][0]
         )
 
-        self.repo.git_pull()
-        updated_metadata = metadata_load(self.repo_path / self.REPO_NAME / "README.md")
+        updated_metadata = metadata_load(self._get_remote_card())
         self.assertDictEqual(updated_metadata, expected_metadata)
 
     def test_update_new_result_new_dataset(self):
@@ -401,12 +359,12 @@ class RepocardMetadataUpdateTest(unittest.TestCase):
             dataset_split="test",
         )
 
-        metadata_update(self.repo_id, new_result, token=self._token, overwrite=False)
+        metadata_update(self.repo_id, new_result, token=self.token, overwrite=False)
 
         expected_metadata = copy.deepcopy(self.existing_metadata)
         expected_metadata["model-index"][0]["results"].append(new_result["model-index"][0]["results"][0])
-        self.repo.git_pull()
-        updated_metadata = metadata_load(self.repo_path / self.REPO_NAME / "README.md")
+
+        updated_metadata = metadata_load(self._get_remote_card())
         self.assertDictEqual(updated_metadata, expected_metadata)
 
     def test_update_metadata_on_empty_text_content(self) -> None:
@@ -415,14 +373,13 @@ class RepocardMetadataUpdateTest(unittest.TestCase):
         Regression test for https://github.com/huggingface/huggingface_hub/issues/1010
         """
         # Create modelcard with metadata but empty text content
-        with self.repo.commit("Add README to main branch"):
-            with open("README.md", "w") as f:
-                f.write(DUMMY_MODELCARD_NO_TEXT_CONTENT)
-        metadata_update(self.repo_id, {"tag": "test"}, token=self._token)
+        self.api.upload_file(
+            path_or_fileobj=DUMMY_MODELCARD_NO_TEXT_CONTENT.encode(), path_in_repo=REPOCARD_NAME, repo_id=self.repo_id
+        )
+        metadata_update(self.repo_id, {"tag": "test"}, token=self.token)
 
         # Check update went fine
-        self.repo.git_pull()
-        updated_metadata = metadata_load(self.repo_path / self.REPO_NAME / "README.md")
+        updated_metadata = metadata_load(self._get_remote_card())
         expected_metadata = {"license": "cc-by-sa-4.0", "tag": "test"}
         self.assertDictEqual(updated_metadata, expected_metadata)
 
@@ -430,26 +387,21 @@ class RepocardMetadataUpdateTest(unittest.TestCase):
         new_metadata = copy.deepcopy(self.existing_metadata)
         new_metadata["model-index"][0].pop("name")
         new_metadata["model-index"][0]["results"][0]["metrics"][0]["value"] = 0.2862102282047272
-        metadata_update(self.repo_id, new_metadata, token=self._token, overwrite=True)
+        metadata_update(self.repo_id, new_metadata, token=self.token, overwrite=True)
 
-        card_data = ModelCard.load(self.repo_id, token=self._token)
+        card_data = ModelCard.load(self.repo_id)
         self.assertEqual(card_data.data.model_name, self.existing_metadata["model-index"][0]["name"])
 
     def test_update_without_existing_name(self):
         # delete existing metadata
-        self._api.upload_file(
-            path_or_fileobj="# Test".encode(),
-            repo_id=self.repo_id,
-            path_in_repo="README.md",
-        )
+        self.api.upload_file(path_or_fileobj="# Test".encode(), repo_id=self.repo_id, path_in_repo="README.md")
 
         new_metadata = copy.deepcopy(self.existing_metadata)
         new_metadata["model-index"][0].pop("name")
 
-        metadata_update(self.repo_id, new_metadata, token=self._token, overwrite=True)
+        metadata_update(self.repo_id, new_metadata, token=self.token, overwrite=True)
 
-        card_data = ModelCard.load(self.repo_id, token=self._token)
-
+        card_data = ModelCard.load(self.repo_id)
         self.assertEqual(card_data.data.model_name, self.repo_id)
 
     def test_update_with_both_verified_and_unverified_metric(self):
@@ -464,13 +416,12 @@ class RepocardMetadataUpdateTest(unittest.TestCase):
         )
         card = ModelCard.load(self.repo_id)
         metadata = card.data.to_dict()
-        metadata_update(self.repo_id, metadata=metadata, overwrite=True, token=TOKEN)
+        metadata_update(self.repo_id, metadata=metadata, overwrite=True, token=self.token)
 
-        card_data = ModelCard.load(self.repo_id, token=self._token)
-
-        self.assertEqual(len(card_data.data.eval_results), 2)
-        first_result = card_data.data.eval_results[0]
-        second_result = card_data.data.eval_results[1]
+        new_card = ModelCard.load(self.repo_id)
+        self.assertEqual(len(new_card.data.eval_results), 2)
+        first_result = new_card.data.eval_results[0]
+        second_result = new_card.data.eval_results[1]
 
         # One is verified, the other not
         self.assertFalse(first_result.verified)
