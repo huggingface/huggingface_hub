@@ -409,7 +409,7 @@ class RepocardMetadataUpdateTest(unittest.TestCase):
 
         See https://github.com/huggingface/huggingface_hub/issues/1185.
         """
-        self._api.upload_file(
+        self.api.upload_file(
             path_or_fileobj=DUMMY_MODELCARD_EVAL_RESULT_BOTH_VERIFIED_AND_UNVERIFIED.encode(),
             repo_id=self.repo_id,
             path_in_repo="README.md",
