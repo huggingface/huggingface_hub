@@ -152,7 +152,7 @@ class RepoCard:
                 Authentication token, obtained with `huggingface_hub.HfApi.login` method. Will default to the stored token.
             ignore_metadata_errors (`str`):
                 If True, errors while parsing the metadata section will be ignored. Some information might be lost during
-                the process. Use it at your own risks.
+                the process. Use it at your own risk.
 
         Returns:
             [`huggingface_hub.repocard.RepoCard`]: The RepoCard (or subclass) initialized from the repo's

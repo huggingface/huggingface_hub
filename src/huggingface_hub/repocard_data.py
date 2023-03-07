@@ -250,7 +250,7 @@ class ModelCardData(CardData):
             then the repo name is used as a default. Defaults to None.
         ignore_metadata_errors (`str`):
             If True, errors while parsing the metadata section will be ignored. Some information might be lost during
-            the process. Use it at your own risks.
+            the process. Use it at your own risk.
         kwargs (`dict`, *optional*):
             Additional metadata that will be added to the model card. Defaults to None.
 
@@ -363,7 +363,7 @@ class DatasetCardData(CardData):
             A list of the available dataset configs for the dataset.
         ignore_metadata_errors (`str`):
             If True, errors while parsing the metadata section will be ignored. Some information might be lost during
-            the process. Use it at your own risks.
+            the process. Use it at your own risk.
     """
 
     def __init__(
@@ -438,7 +438,7 @@ class SpaceCardData(CardData):
             List of tags to add to your Space that can be used when filtering on the Hub.
         ignore_metadata_errors (`str`):
             If True, errors while parsing the metadata section will be ignored. Some information might be lost during
-            the process. Use it at your own risks.
+            the process. Use it at your own risk.
         kwargs (`dict`, *optional*):
             Additional metadata that will be added to the space card.
 
