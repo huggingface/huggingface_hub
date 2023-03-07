@@ -60,6 +60,8 @@ Once you have your User Access Token, run the following command in your terminal
 
 ```bash
 huggingface-cli login
+# or using an environment variable
+huggingface-cli login --token $HUGGINGFACE_TOKEN
 ```
 
 Alternatively, you can programmatically login using [`login`] in a notebook or a script:

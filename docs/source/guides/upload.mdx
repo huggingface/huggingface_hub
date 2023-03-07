@@ -13,6 +13,8 @@ Whenever you want to upload files to the Hub, you need to log in to your Hugging
 
   ```bash
   huggingface-cli login
+  # or using an environment variable
+  huggingface-cli login --token $HUGGINGFACE_TOKEN
   ```
 
 - Alternatively, you can programmatically login using [`login`] in a notebook or a script:
