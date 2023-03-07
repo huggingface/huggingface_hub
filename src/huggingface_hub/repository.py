@@ -373,7 +373,11 @@ def _lfs_log_progress():
             time.sleep(2)
 
         for line in tail_file(os.environ["GIT_LFS_PROGRESS"]):
-            state, file_progress, byte_progress, filename = line.split()
+            try:
+                state, file_progress, byte_progress, filename = line.split()
+            except ValueError as error:
+                # Try/except to ease debugging. See https://github.com/huggingface/huggingface_hub/issues/1373.
+                raise ValueError(f"Cannot unpack LFS progress line:\n{line}") from error
             description = f"{state.capitalize()} file {filename}"
 
             current_bytes, total_bytes = byte_progress.split("/")
