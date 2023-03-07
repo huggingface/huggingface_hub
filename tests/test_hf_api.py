@@ -1028,6 +1028,37 @@ class CommitApiTest(HfApiCommonTestWithLogin):
         finally:
             self._api.delete_repo(repo_id=REPO_NAME)
 
+    @retry_endpoint
+    def test_create_commit_repo_id_case_insensitive(self):
+        """Test create commit but repo_id is lowercased.
+
+        Regression test for #1371. Hub API is already case insensitive. Somehow the issue was with the `requests`
+        streaming implementation when generating the ndjson payload "on the fly". It seems that the server was
+        receiving only the first line which causes a confusing "400 Bad Request - Add a line with the key `lfsFile`,
+        `file` or `deletedFile`". Passing raw bytes instead of a generator fixes the problem.
+
+        See https://github.com/huggingface/huggingface_hub/issues/1371.
+        """
+        REPO_NAME = repo_name("CaSe_Is_ImPoRtAnT")
+        repo_id = self._api.create_repo(repo_id=REPO_NAME, exist_ok=False).repo_id
+
+        try:
+            self._api.create_commit(
+                repo_id=repo_id.lower(),  # API is case-insensitive!
+                commit_message="Add 1 regular and 1 LFs files.",
+                operations=[
+                    CommitOperationAdd(path_in_repo="file.txt", path_or_fileobj=b"content"),
+                    CommitOperationAdd(path_in_repo="lfs.bin", path_or_fileobj=b"LFS content"),
+                ],
+            )
+            repo_files = self._api.list_repo_files(repo_id=repo_id)
+            self.assertIn("file.txt", repo_files)
+            self.assertIn("lfs.bin", repo_files)
+        except Exception as err:
+            self.fail(err)
+        finally:
+            self._api.delete_repo(repo_id=repo_id)
+
 
 class HfApiUploadEmptyFileTest(HfApiCommonTestWithLogin):
     @classmethod

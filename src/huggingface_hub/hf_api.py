@@ -2426,14 +2426,11 @@ class HfApi:
             "Content-Type": "application/x-ndjson",
             **self._build_hf_headers(token=token, is_write_action=True),
         }
+        data = b"".join(_payload_as_ndjson())
+        params = {"create_pr": "1"} if create_pr else None
 
         try:
-            commit_resp = requests.post(
-                url=commit_url,
-                headers=headers,
-                data=_payload_as_ndjson(),  # type: ignore
-                params={"create_pr": "1"} if create_pr else None,
-            )
+            commit_resp = requests.post(url=commit_url, headers=headers, data=data, params=params)
             hf_raise_for_status(commit_resp, endpoint_name="commit")
         except RepositoryNotFoundError as e:
             e.append_to_message(_CREATE_COMMIT_NO_REPO_ERROR_MESSAGE)
