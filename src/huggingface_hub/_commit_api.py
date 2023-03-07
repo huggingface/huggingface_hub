@@ -409,7 +409,7 @@ def fetch_upload_modes(
     create_pr: bool = False,
 ) -> Dict[str, UploadMode]:
     """
-    Requests the Hub "preupload" endpoint to determine wether each input file
+    Requests the Hub "preupload" endpoint to determine whether each input file
     should be uploaded as a regular git blob or as git LFS blob.
 
     Args:
