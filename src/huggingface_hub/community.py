@@ -44,7 +44,7 @@ class Discussion:
             The username of the Discussion / Pull Request author.
             Can be `"deleted"` if the user has been deleted since.
         is_pull_request (`bool`):
-            Wether or not this is a Pull Request.
+            Whether or not this is a Pull Request.
         created_at (`datetime`):
             The `datetime` of creation of the Discussion / Pull Request.
     """
@@ -96,7 +96,7 @@ class DiscussionWithDetails(Discussion):
             The username of the Discussion / Pull Request author.
             Can be `"deleted"` if the user has been deleted since.
         is_pull_request (`bool`):
-            Wether or not this is a Pull Request.
+            Whether or not this is a Pull Request.
         created_at (`datetime`):
             The `datetime` of creation of the Discussion / Pull Request.
         events (`list` of [`DiscussionEvent`])
@@ -175,7 +175,7 @@ class DiscussionComment(DiscussionEvent):
         content (`str`):
             The raw markdown content of the comment. Mentions, links and images are not rendered.
         edited (`bool`):
-            Wether or not this comment has been edited.
+            Whether or not this comment has been edited.
         hidden (`bool`):
             Whether or not this comment has been hidden.
     """

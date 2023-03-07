@@ -158,7 +158,7 @@ class CardData:
     inherit from `dict` to allow this export step.
     """
 
-    def __init__(self, **kwargs):
+    def __init__(self, ignore_metadata_errors: bool = False, **kwargs):
         self.__dict__.update(kwargs)
 
     def to_dict(self) -> Dict[str, Any]:
