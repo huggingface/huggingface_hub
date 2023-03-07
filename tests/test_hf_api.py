@@ -478,6 +478,16 @@ class CommitApiTest(HfApiCommonTestWithLogin):
             with patch.object(self._api, "token", None):  # no default token
                 self._api.create_repo(repo_id=repo_name("org"))
 
+    def test_create_repo_already_exists_but_no_write_permission(self):
+        # Create under other user namespace
+        repo_id = self._api.create_repo(repo_id=repo_name(), token=OTHER_TOKEN).repo_id
+
+        # Try to create with our namespace -> should not fail as the repo already exists
+        self._api.create_repo(repo_id=repo_id, token=TOKEN, exist_ok=True)
+
+        # Clean up
+        self._api.delete_repo(repo_id=repo_id, token=OTHER_TOKEN)
+
     @retry_endpoint
     def test_upload_buffer(self):
         REPO_NAME = repo_name("buffer")

@@ -2082,6 +2082,15 @@ class HfApi:
             if exist_ok and err.response.status_code == 409:
                 # Repo already exists and `exist_ok=True`
                 pass
+            elif exist_ok and err.response.status_code == 403:
+                # No write permission on the namespace but repo might already exist
+                try:
+                    self.repo_info(repo_id=repo_id, repo_type=repo_type, token=token)
+                    if repo_type is None or repo_type == REPO_TYPE_MODEL:
+                        return RepoUrl(f"{self.endpoint}/{repo_id}")
+                    return RepoUrl(f"{self.endpoint}/{repo_type}/{repo_id}")
+                except HfHubHTTPError:
+                    raise
             else:
                 raise
 
