@@ -78,8 +78,6 @@ programmatic way of creating a repo, deleting it (`⚠️ caution`), pushing a
 single file to a repo or listing models from the Hub, you'll find helpers in
 `hf_api.py`. Some example functionality available with the `HfApi` class:
 
-* `set_access_token()`
-* `unset_access_token()`
 * `whoami()`
 * `create_repo()`
 * `list_repo_files()`
