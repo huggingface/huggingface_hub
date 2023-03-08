@@ -58,23 +58,53 @@ Specify the path of the file to upload, where you want to upload the file to in 
 
 ### Upload a folder
 
-Use the [`upload_folder`] function to upload a local folder to an existing repository. Specify the path of the local folder to upload, where you want to upload the folder to in the repository, and the name of the repository you want to add the folder to. Depending on your repository type, you can optionally set the repository type as a `dataset`, `model`, or `space`.
+Use the [`upload_folder`] function to upload a local folder to an existing repository. Specify the path of the local folder
+to upload, where you want to upload the folder to in the repository, and the name of the repository you want to add the
+folder to. Depending on your repository type, you can optionally set the repository type as a `dataset`, `model`, or `space`.
+
+```py
+>>> from huggingface_hub import HfApi
+>>> api = HfApi()
+
+# Upload all the content from the local folder to your remote Space.
+# By default, files are uploaded at the root of the repo
+>>> api.upload_folder(
+...     folder_path="/path/to/local/space",
+...     repo_id="username/my-cool-space",
+...     repo_type="space",
+... )
+```
 
 Use the `allow_patterns` and `ignore_patterns` arguments to specify which files to upload. These parameters accept either a single pattern or a list of patterns.
 Patterns are Standard Wildcards (globbing patterns) as documented [here](https://tldp.org/LDP/GNU-Linux-Tools-Summary/html/x11655.htm).
 If both `allow_patterns` and `ignore_patterns` are provided, both constraints apply. By default, all files from the folder are uploaded.
 
 ```py
->>> from huggingface_hub import HfApi
->>> api = HfApi()
 >>> api.upload_folder(
 ...     folder_path="/path/to/local/folder",
-...     path_in_repo="my-dataset/train",
+...     path_in_repo="my-dataset/train", # Upload to a specific folder
 ...     repo_id="username/test-dataset",
 ...     repo_type="dataset",
-...     ignore_patterns="**/logs/*.txt",
+...     ignore_patterns="**/logs/*.txt", # Ignore all text logs
 ... )
 ```
+
+You can also use the `delete_patterns` argument to specify files you want to delete from the repo in the same commit.
+This can prove useful if you want to clean a remote folder before pushing files in it and you don't know which files
+already exists.
+
+The example below uploads the local `./logs` folder to the remote `/experiment/logs/` folder. Only txt files are uploaded
+but before that, all previous logs on the repo on deleted. All of this in a single commit.
+```py
+>>> api.upload_folder(
+...     folder_path="/path/to/local/folder/logs",
+...     repo_id="username/trained-model",
+...     path_in_repo="experiment/logs/",
+...     allow_patterns="*.txt", # Upload all local text files
+...     delete_patterns="*.txt", # Delete all remote text files before
+... )
+```
+
 
 ### create_commit
 

@@ -13,7 +13,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 import json
-import os
 import pprint
 import re
 import textwrap
@@ -1855,6 +1854,7 @@ class HfApi:
         Returns:
             `List[str]`: the list of files in a given repository.
         """
+        # TODO: use https://huggingface.co/api/{repo_type}/{repo_id}/tree/{revision}/{subfolder}
         repo_info = self.repo_info(
             repo_id,
             revision=revision,
@@ -2626,21 +2626,25 @@ class HfApi:
         parent_commit: Optional[str] = None,
         allow_patterns: Optional[Union[List[str], str]] = None,
         ignore_patterns: Optional[Union[List[str], str]] = None,
+        delete_patterns: Optional[Union[List[str], str]] = None,
     ):
         """
-        Upload a local folder to the given repo. The upload is done
-        through a HTTP requests, and doesn't require git or git-lfs to be
-        installed.
+        Upload a local folder to the given repo. The upload is done through a HTTP request and doesn't require git or
+        git-lfs to be installed.
 
-        The structure of the folder will be preserved. Files with the same name
-        already present in the repository will be overwritten, others will be left untouched.
+        The structure of the folder will be preserved. Files with the same name already present in the repository will
+        be overwritten. Others will be left untouched.
 
-        Use the `allow_patterns` and `ignore_patterns` arguments to specify which files
-        to upload. These parameters accept either a single pattern or a list of
-        patterns. Patterns are Standard Wildcards (globbing patterns) as documented
-        [here](https://tldp.org/LDP/GNU-Linux-Tools-Summary/html/x11655.htm). If both
-        `allow_patterns` and `ignore_patterns` are provided, both constraints apply. By
-        default, all files from the folder are uploaded.
+        Use the `allow_patterns` and `ignore_patterns` arguments to specify which files to upload. These parameters
+        accept either a single pattern or a list of patterns. Patterns are Standard Wildcards (globbing patterns) as
+        documented [here](https://tldp.org/LDP/GNU-Linux-Tools-Summary/html/x11655.htm). If both `allow_patterns` and
+        `ignore_patterns` are provided, both constraints apply. By default, all files from the folder are uploaded.
+
+        Use the `delete_patterns` argument to specify remote files you want to delete. Input type is the same as for
+        `allow_patterns` (see above). If `path_in_repo` is also provided, the patterns are matched against paths
+        relative to this folder. For example, `upload_folder(..., path_in_repo="experiment", delete_patterns="logs/*")`
+        will delete any remote file under `experiment/logs/`. Note that the `.gitattributes` file will not be deleted
+        even if it matches the patterns.
 
         Uses `HfApi.create_commit` under the hood.
 
@@ -2683,6 +2687,10 @@ class HfApi:
                 If provided, only files matching at least one pattern are uploaded.
             ignore_patterns (`List[str]` or `str`, *optional*):
                 If provided, files matching any of the patterns are not uploaded.
+            delete_patterns (`List[str]` or `str`, *optional*):
+                If provided, remote files matching any of the patterns will be deleted from the repo while committing
+                new files. This is useful if you don't know which files have already been uploaded.
+                Note: to avoid discrepancies the `.gitattributes` file is not deleted even if it matches the pattern.
 
         Returns:
             `str`: A URL to visualize the uploaded folder on the hub
@@ -2700,16 +2708,16 @@ class HfApi:
 
         <Tip warning={true}>
 
-        `upload_folder` assumes that the repo already exists on the Hub. If you get a
-        Client error 404, please make sure you are authenticated and that `repo_id` and
-        `repo_type` are set correctly. If repo does not exist, create it first using
-        [`~hf_api.create_repo`].
+        `upload_folder` assumes that the repo already exists on the Hub. If you get a Client error 404, please make
+        sure you are authenticated and that `repo_id` and `repo_type` are set correctly. If repo does not exist, create
+        it first using [`~hf_api.create_repo`].
 
         </Tip>
 
         Example:
 
         ```python
+        # Upload checkpoints folder except the log files
         >>> upload_folder(
         ...     folder_path="local/checkpoints",
         ...     path_in_repo="remote/experiment/checkpoints",
@@ -2720,6 +2728,19 @@ class HfApi:
         ... )
         # "https://huggingface.co/datasets/username/my-dataset/tree/main/remote/experiment/checkpoints"
 
+        # Upload checkpoints folder including logs while deleting existing logs from the repo
+        # Useful if you don't know exactly which log files have already being pushed
+        >>> upload_folder(
+        ...     folder_path="local/checkpoints",
+        ...     path_in_repo="remote/experiment/checkpoints",
+        ...     repo_id="username/my-dataset",
+        ...     repo_type="datasets",
+        ...     token="my_token",
+        ...     delete_patterns="**/logs/*.txt",
+        ... )
+        "https://huggingface.co/datasets/username/my-dataset/tree/main/remote/experiment/checkpoints"
+
+        # Upload checkpoints folder while creating a PR
         >>> upload_folder(
         ...     folder_path="local/checkpoints",
         ...     path_in_repo="remote/experiment/checkpoints",
@@ -2743,17 +2764,33 @@ class HfApi:
             commit_message if commit_message is not None else f"Upload {path_in_repo} with huggingface_hub"
         )
 
-        files_to_add = _prepare_upload_folder_commit(
+        delete_operations = self._prepare_upload_folder_deletions(
+            repo_id=repo_id,
+            repo_type=repo_type,
+            revision=DEFAULT_REVISION if create_pr else revision,
+            token=token,
+            path_in_repo=path_in_repo,
+            delete_patterns=delete_patterns,
+        )
+        add_operations = _prepare_upload_folder_additions(
             folder_path,
             path_in_repo,
             allow_patterns=allow_patterns,
             ignore_patterns=ignore_patterns,
         )
 
+        # Optimize operations: if some files will be overwritten, we don't need to delete them first
+        if len(add_operations) > 0:
+            added_paths = set(op.path_in_repo for op in add_operations)
+            delete_operations = [
+                delete_op for delete_op in delete_operations if delete_op.path_in_repo not in added_paths
+            ]
+        commit_operations = delete_operations + add_operations
+
         commit_info = self.create_commit(
             repo_type=repo_type,
             repo_id=repo_id,
-            operations=files_to_add,
+            operations=commit_operations,
             commit_message=commit_message,
             commit_description=commit_description,
             token=token,
@@ -4173,8 +4210,48 @@ class HfApi:
             user_agent=user_agent or self.user_agent,
         )
 
+    def _prepare_upload_folder_deletions(
+        self,
+        repo_id: str,
+        repo_type: Optional[str],
+        revision: Optional[str],
+        token: Optional[str],
+        path_in_repo: str,
+        delete_patterns: Optional[Union[List[str], str]],
+    ) -> List[CommitOperationDelete]:
+        """Generate the list of Delete operations for a commit to delete files from a repo.
 
-def _prepare_upload_folder_commit(
+        List remote files and match them against the `delete_patterns` constraints. Returns a list of [`CommitOperationDelete`]
+        with the matching items.
+
+        Note: `.gitattributes` file is essential to make a repo work properly on the Hub. This file will always be
+              kept even if it matches the `delete_patterns` constraints.
+        """
+        if delete_patterns is None:
+            # If no delete patterns, no need to list and filter remote files
+            return []
+
+        # List remote files
+        filenames = self.list_repo_files(repo_id=repo_id, revision=revision, repo_type=repo_type, token=token)
+
+        # Compute relative path in repo
+        if path_in_repo:
+            path_in_repo = path_in_repo.strip("/") + "/"  # harmonize
+            relpath_to_abspath = {
+                file[len(path_in_repo) :]: file for file in filenames if file.startswith(path_in_repo)
+            }
+        else:
+            relpath_to_abspath = {file: file for file in filenames}
+
+        # Apply filter on relative paths and return
+        return [
+            CommitOperationDelete(path_in_repo=relpath_to_abspath[relpath], is_folder=False)
+            for relpath in filter_repo_objects(relpath_to_abspath.keys(), allow_patterns=delete_patterns)
+            if relpath_to_abspath[relpath] != ".gitattributes"
+        ]
+
+
+def _prepare_upload_folder_additions(
     folder_path: Union[str, Path],
     path_in_repo: str,
     allow_patterns: Optional[Union[List[str], str]] = None,
@@ -4185,30 +4262,29 @@ def _prepare_upload_folder_commit(
     Files not matching the `allow_patterns` (allowlist) and `ignore_patterns` (denylist)
     constraints are discarded.
     """
-    folder_path = os.path.normpath(os.path.expanduser(folder_path))
-    if not os.path.isdir(folder_path):
+    folder_path = Path(folder_path).expanduser().resolve()
+    if not folder_path.is_dir():
         raise ValueError(f"Provided path: '{folder_path}' is not a directory")
 
-    files_to_add: List[CommitOperationAdd] = []
-    for dirpath, _, filenames in os.walk(folder_path):
-        for filename in filenames:
-            abs_path = os.path.join(dirpath, filename)
-            rel_path = os.path.relpath(abs_path, folder_path)
-            files_to_add.append(
-                CommitOperationAdd(
-                    path_or_fileobj=abs_path,
-                    path_in_repo=os.path.normpath(os.path.join(path_in_repo, rel_path)).replace(os.sep, "/"),
-                )
-            )
+    # List files from folder
+    relpath_to_abspath = {
+        path.relative_to(folder_path).as_posix(): path
+        for path in sorted(folder_path.glob("**/*"))  # sorted to be deterministic
+        if path.is_file()
+    }
 
-    return list(
-        filter_repo_objects(
-            files_to_add,
-            allow_patterns=allow_patterns,
-            ignore_patterns=ignore_patterns,
-            key=lambda x: x.path_in_repo,
+    # Filter files and return
+    # Patterns are applied on the path relative to `folder_path`. `path_in_repo` is prefixed after the filtering.
+    prefix = f"{path_in_repo.strip('/')}/" if path_in_repo else ""
+    return [
+        CommitOperationAdd(
+            path_or_fileobj=relpath_to_abspath[relpath],  # absolute path on disk
+            path_in_repo=prefix + relpath,  # "absolute" path in repo
         )
-    )
+        for relpath in filter_repo_objects(
+            relpath_to_abspath.keys(), allow_patterns=allow_patterns, ignore_patterns=ignore_patterns
+        )
+    ]
 
 
 def _parse_revision_from_pr_url(pr_url: str) -> str:

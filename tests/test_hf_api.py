@@ -23,7 +23,7 @@ import warnings
 from functools import partial
 from io import BytesIO
 from pathlib import Path
-from typing import List
+from typing import List, Union
 from unittest.mock import Mock, patch
 from urllib.parse import quote
 
@@ -1891,6 +1891,126 @@ class HfApiPrivateTest(HfApiCommonTestWithLogin):
         orig = len(self._api.list_spaces(use_auth_token=False))
         new = len(self._api.list_spaces(use_auth_token=self._token))
         self.assertGreaterEqual(new, orig)
+
+
+@pytest.mark.usefixtures("fx_cache_dir")
+class UploadFolderMockedTest(unittest.TestCase):
+    api = HfApi()
+    cache_dir: Path
+
+    def setUp(self) -> None:
+        (self.cache_dir / "file.txt").write_text("content")
+        (self.cache_dir / "lfs.bin").write_text("content")
+
+        (self.cache_dir / "sub").mkdir()
+        (self.cache_dir / "sub" / "file.txt").write_text("content")
+        (self.cache_dir / "sub" / "lfs_in_sub.bin").write_text("content")
+
+        (self.cache_dir / "subdir").mkdir()
+        (self.cache_dir / "subdir" / "file.txt").write_text("content")
+        (self.cache_dir / "subdir" / "lfs_in_subdir.bin").write_text("content")
+
+        self.all_local_files = {
+            "lfs.bin",
+            "file.txt",
+            "sub/file.txt",
+            "sub/lfs_in_sub.bin",
+            "subdir/file.txt",
+            "subdir/lfs_in_subdir.bin",
+        }
+
+        self.repo_files_mock = Mock()
+        self.repo_files_mock.return_value = [  # all remote files
+            ".gitattributes",
+            "file.txt",
+            "file1.txt",
+            "sub/file.txt",
+            "sub/file1.txt",
+            "subdir/file.txt",
+            "subdir/lfs_in_subdir.bin",
+        ]
+        self.api.list_repo_files = self.repo_files_mock
+
+        self.create_commit_mock = Mock()
+        self.create_commit_mock.return_value.pr_url = None
+        self.api.create_commit = self.create_commit_mock
+
+    def _upload_folder_alias(self, **kwargs) -> List[Union[CommitOperationAdd, CommitOperationDelete]]:
+        """Alias to call `upload_folder` + retrieve the CommitOperation list passed to `create_commit`."""
+        if "folder_path" not in kwargs:
+            kwargs["folder_path"] = self.cache_dir
+        self.api.upload_folder(repo_id="repo_id", **kwargs)
+        return self.create_commit_mock.call_args_list[0][1]["operations"]
+
+    def test_allow_everything(self):
+        operations = self._upload_folder_alias()
+        self.assertTrue(all(isinstance(op, CommitOperationAdd) for op in operations))
+        self.assertEqual({op.path_in_repo for op in operations}, self.all_local_files)
+
+    def test_allow_everything_in_subdir_no_trailing_slash(self):
+        operations = self._upload_folder_alias(folder_path=self.cache_dir / "subdir", path_in_repo="subdir")
+        self.assertTrue(all(isinstance(op, CommitOperationAdd) for op in operations))
+        self.assertEqual(
+            {op.path_in_repo for op in operations},
+            {"subdir/file.txt", "subdir/lfs_in_subdir.bin"},  # correct `path_in_repo`
+        )
+
+    def test_allow_everything_in_subdir_with_trailing_slash(self):
+        operations = self._upload_folder_alias(folder_path=self.cache_dir / "subdir", path_in_repo="subdir/")
+        self.assertTrue(all(isinstance(op, CommitOperationAdd) for op in operations))
+        self.assertEqual(
+            {op.path_in_repo for op in operations},
+            {"subdir/file.txt", "subdir/lfs_in_subdir.bin"},  # correct `path_in_repo`
+        )
+
+    def test_allow_txt_ignore_subdir(self):
+        operations = self._upload_folder_alias(allow_patterns="*.txt", ignore_patterns="subdir/*")
+        self.assertTrue(all(isinstance(op, CommitOperationAdd) for op in operations))
+        self.assertEqual(
+            {op.path_in_repo for op in operations},
+            {"sub/file.txt", "file.txt"},  # only .txt files, not in subdir
+        )
+
+    def test_allow_txt_not_root_ignore_subdir(self):
+        operations = self._upload_folder_alias(allow_patterns="**/*.txt", ignore_patterns="subdir/*")
+        self.assertTrue(all(isinstance(op, CommitOperationAdd) for op in operations))
+        self.assertEqual(
+            {op.path_in_repo for op in operations},
+            {"sub/file.txt"},  # only .txt files, not in subdir, not at root
+        )
+
+    def test_delete_txt(self):
+        operations = self._upload_folder_alias(delete_patterns="*.txt")
+        added_files = {op.path_in_repo for op in operations if isinstance(op, CommitOperationAdd)}
+        deleted_files = {op.path_in_repo for op in operations if isinstance(op, CommitOperationDelete)}
+
+        self.assertEqual(added_files, self.all_local_files)
+        self.assertEqual(deleted_files, {"file1.txt", "sub/file1.txt"})
+
+        # since "file.txt" and "sub/file.txt" are overwritten, no need to delete them first
+        self.assertIn("file.txt", added_files)
+        self.assertIn("sub/file.txt", added_files)
+
+    def test_delete_txt_in_sub(self):
+        operations = self._upload_folder_alias(
+            path_in_repo="sub/", folder_path=self.cache_dir / "sub", delete_patterns="*.txt"
+        )
+        added_files = {op.path_in_repo for op in operations if isinstance(op, CommitOperationAdd)}
+        deleted_files = {op.path_in_repo for op in operations if isinstance(op, CommitOperationDelete)}
+
+        self.assertEqual(added_files, {"sub/file.txt", "sub/lfs_in_sub.bin"})  # added only in sub/
+        self.assertEqual(deleted_files, {"sub/file1.txt"})  # delete only in sub/
+
+    def test_delete_txt_in_sub_ignore_sub_file_txt(self):
+        operations = self._upload_folder_alias(
+            path_in_repo="sub", folder_path=self.cache_dir / "sub", ignore_patterns="file.txt", delete_patterns="*.txt"
+        )
+        added_files = {op.path_in_repo for op in operations if isinstance(op, CommitOperationAdd)}
+        deleted_files = {op.path_in_repo for op in operations if isinstance(op, CommitOperationDelete)}
+
+        # since "sub/file.txt" should be deleted and is not overwritten (ignore_patterns), we delete it explicitly
+        self.assertEqual(added_files, {"sub/lfs_in_sub.bin"})  # no "sub/file.txt"
+        self.assertEqual(deleted_files, {"sub/file1.txt", "sub/file.txt"})
 
 
 @require_git_lfs
