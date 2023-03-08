@@ -2623,7 +2623,7 @@ class HfApi:
         delete_patterns: Optional[Union[List[str], str]] = None,
     ):
         """
-        Upload a local folder to the given repo. The upload is done through a HTTP requests, and doesn't require git or
+        Upload a local folder to the given repo. The upload is done through a HTTP request and doesn't require git or
         git-lfs to be installed.
 
         The structure of the folder will be preserved. Files with the same name already present in the repository will
@@ -2637,7 +2637,7 @@ class HfApi:
         Use the `delete_patterns` argument to specify remote files you want to delete. Input type is the same as for
         `allow_patterns` (see above). If `path_in_repo` is also provided, the patterns are matched against paths
         relative to this folder. For example, `upload_folder(..., path_in_repo="experiment", delete_patterns="logs/*")`
-        will delete any remote file under `./experiment/logs/`. Note that the `.gitattributes` file will not be deleted
+        will delete any remote file under `experiment/logs/`. Note that the `.gitattributes` file will not be deleted
         even if it matches the patterns.
 
         Uses `HfApi.create_commit` under the hood.
@@ -2732,7 +2732,7 @@ class HfApi:
         ...     token="my_token",
         ...     delete_patterns="**/logs/*.txt",
         ... )
-        # "https://huggingface.co/datasets/username/my-dataset/tree/main/remote/experiment/checkpoints"
+        "https://huggingface.co/datasets/username/my-dataset/tree/main/remote/experiment/checkpoints"
 
         # Upload checkpoints folder while creating a PR
         >>> upload_folder(
