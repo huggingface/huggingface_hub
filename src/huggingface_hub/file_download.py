@@ -991,7 +991,7 @@ def hf_hub_download(
             The version of the library.
         cache_dir (`str`, `Path`, *optional*):
             Path to the folder where cached files are stored.
-        local_dir (`str` or `Path`, *optional*:
+        local_dir (`str` or `Path`, *optional*):
             If provided, the downloaded file will be placed under this directory, either as a symlink (default) or
             a regular file (see description for more details).
         local_dir_use_symlinks (`"auto"` or `bool`, defaults to `"auto"`):
