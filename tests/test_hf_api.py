@@ -23,7 +23,7 @@ import warnings
 from functools import partial
 from io import BytesIO
 from pathlib import Path
-from typing import List, Union
+from typing import Any, Dict, List, Union
 from unittest.mock import Mock, patch
 from urllib.parse import quote
 
@@ -57,6 +57,7 @@ from huggingface_hub.hf_api import (
     ModelSearchArguments,
     RepoFile,
     RepoUrl,
+    ReprMixin,
     SpaceInfo,
     erase_from_credential_store,
     read_from_credential_store,
@@ -2736,3 +2737,15 @@ class HfApiDuplicateSpaceTest(HfApiCommonTestWithLogin):
 
         with self.assertRaises(RepositoryNotFoundError):
             self._api.duplicate_space(f"{OTHER_USER}/repo_that_does_not_exist")
+
+
+class ReprMixinTest(unittest.TestCase):
+    def test_repr_mixin(self) -> None:
+        class MyClass(ReprMixin):
+            def __init__(self, **kwargs: Dict[str, Any]) -> None:
+                self.__dict__.update(kwargs)
+
+        self.assertEqual(
+            repr(MyClass(foo="foo", bar="bar")),
+            "MyClass: {'bar': 'bar', 'foo': 'foo'}",  # keys are sorted
+        )

@@ -97,7 +97,7 @@ class ReprMixin:
     """Mixin to create the __repr__ for a class"""
 
     def __repr__(self):
-        formatted_value = pprint.pformat(self.__dict__, width=119, compact=True, sort_dicts=False)
+        formatted_value = pprint.pformat(self.__dict__, width=119, compact=True)
         if "\n" in formatted_value:
             return f"{self.__class__.__name__}: {{ \n{textwrap.indent(formatted_value, '  ')}\n}}"
         else:
