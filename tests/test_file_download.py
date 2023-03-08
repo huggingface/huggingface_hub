@@ -21,6 +21,7 @@ from unittest.mock import Mock, patch
 import pytest
 import requests
 
+import huggingface_hub.file_download
 from huggingface_hub import HfApi
 from huggingface_hub.constants import (
     CONFIG_NAME,
@@ -45,9 +46,8 @@ from huggingface_hub.utils import (
     RevisionNotFoundError,
     SoftTemporaryDirectory,
 )
-from tests.testing_constants import TOKEN
 
-from .testing_constants import ENDPOINT_STAGING, OTHER_TOKEN
+from .testing_constants import ENDPOINT_STAGING, OTHER_TOKEN, TOKEN
 from .testing_utils import (
     DUMMY_MODEL_ID,
     DUMMY_MODEL_ID_PINNED_SHA1,
@@ -487,6 +487,164 @@ class CachedDownloadTests(unittest.TestCase):
 
         self.assertIn("cdn-lfs", metadata.location)  # Redirection
         self.assertEqual(metadata.size, 497933648)  # Size of LFS file, not pointer
+
+
+@with_production_testing
+@pytest.mark.usefixtures("fx_cache_dir")
+class HfHubDownloadToLocalDir(unittest.TestCase):
+    cache_dir: Path
+
+    def test_with_local_dir_and_symlinks_and_file_cached(self) -> None:
+        # File already cached
+        hf_hub_download(DUMMY_MODEL_ID, filename=CONFIG_NAME, cache_dir=self.cache_dir)
+
+        # Download to local dir
+        with SoftTemporaryDirectory() as local_dir:
+            returned_path = hf_hub_download(
+                DUMMY_MODEL_ID,
+                filename=CONFIG_NAME,
+                cache_dir=self.cache_dir,
+                local_dir=local_dir,
+                local_dir_use_symlinks=True,
+            )
+            config_file = Path(local_dir) / CONFIG_NAME
+            self.assertEqual(returned_path, str(config_file))
+            self.assertTrue(config_file.is_file())
+            self.assertTrue(  # File is symlink (except in Windows CI)
+                config_file.is_symlink() if os.name != "nt" else not config_file.is_symlink()
+            )
+
+    def test_with_local_dir_and_symlinks_and_file_not_cached(self) -> None:
+        # Download to local dir
+        with SoftTemporaryDirectory() as local_dir:
+            returned_path = hf_hub_download(
+                DUMMY_MODEL_ID,
+                filename=CONFIG_NAME,
+                cache_dir=self.cache_dir,
+                local_dir=local_dir,
+                local_dir_use_symlinks=True,
+            )
+            config_file = Path(local_dir) / CONFIG_NAME
+            self.assertEqual(returned_path, str(config_file))
+            self.assertTrue(config_file.is_file())
+            if os.name != "nt":  # File is symlink (except in Windows CI)
+                self.assertTrue(config_file.is_symlink())
+                blob_path = Path(os.readlink(str(config_file)))  # config_file.readlink() not supported on Python3.7
+                self.assertTrue(self.cache_dir in blob_path.parents)  # blob is cached!
+            else:
+                self.assertFalse(config_file.is_symlink())
+
+    def test_with_local_dir_and_no_symlink_and_file_cached(self) -> None:
+        # File already cached
+        hf_hub_download(DUMMY_MODEL_ID, filename=CONFIG_NAME, cache_dir=self.cache_dir)
+
+        # Download to local dir
+        with SoftTemporaryDirectory() as local_dir:
+            with patch.object(
+                huggingface_hub.file_download, "http_get", wraps=huggingface_hub.file_download.http_get
+            ) as mock:
+                returned_path = hf_hub_download(
+                    DUMMY_MODEL_ID,
+                    filename=CONFIG_NAME,
+                    cache_dir=self.cache_dir,
+                    local_dir=local_dir,
+                    local_dir_use_symlinks=False,  # no symlinks
+                )
+                mock.assert_not_called()  # reused file from cache
+
+            config_file = Path(local_dir) / CONFIG_NAME
+            self.assertEqual(returned_path, str(config_file))
+            self.assertTrue(config_file.is_file())
+            self.assertFalse(config_file.is_symlink())
+
+    def test_with_local_dir_and_no_symlink_and_file_not_cached(self) -> None:
+        # Download to local dir
+        with SoftTemporaryDirectory() as local_dir:
+            with patch.object(
+                huggingface_hub.file_download, "http_get", wraps=huggingface_hub.file_download.http_get
+            ) as mock:
+                returned_path = hf_hub_download(
+                    DUMMY_MODEL_ID,
+                    filename=CONFIG_NAME,
+                    cache_dir=self.cache_dir,
+                    local_dir=local_dir,
+                    local_dir_use_symlinks=False,  # no symlinks
+                )
+                mock.assert_called()  # no file cached => had to download it
+
+            config_file = Path(local_dir) / CONFIG_NAME
+            self.assertEqual(returned_path, str(config_file))
+            self.assertTrue(config_file.is_file())
+            self.assertFalse(config_file.is_symlink())
+
+            # Cache directory not used (no blobs, no symlinks in it)
+            for path in self.cache_dir.glob("**/blobs/**"):
+                self.assertFalse(path.is_file())
+            for path in self.cache_dir.glob("**/snapshots/**"):
+                self.assertFalse(path.is_file())
+
+    @patch("huggingface_hub.constants.HF_HUB_LOCAL_DIR_AUTO_SYMLINK_THRESHOLD", 1024)
+    def test_with_local_dir_and_auto_symlinks_and_file_cached(self) -> None:
+        # File already cached
+        hf_hub_download(DUMMY_MODEL_ID, filename=CONFIG_NAME, cache_dir=self.cache_dir)  # 496 bytes -> small
+        hf_hub_download(DUMMY_MODEL_ID, filename="README.md", cache_dir=self.cache_dir)  # 1.11kB -> "big"
+
+        # Download to local dir
+        with SoftTemporaryDirectory() as local_dir:
+            config = hf_hub_download(
+                DUMMY_MODEL_ID, filename=CONFIG_NAME, cache_dir=self.cache_dir, local_dir=local_dir
+            )
+            readme = hf_hub_download(
+                DUMMY_MODEL_ID, filename="README.md", cache_dir=self.cache_dir, local_dir=local_dir
+            )
+            self.assertFalse(Path(config).is_symlink())  # 496b => small => duplicated
+            if os.name != "nt":
+                self.assertTrue(Path(readme).is_symlink())  # 1.11kB => big => symlink
+
+    @patch("huggingface_hub.constants.HF_HUB_LOCAL_DIR_AUTO_SYMLINK_THRESHOLD", 1024)
+    def test_with_local_dir_and_auto_symlinks_and_file_not_cached(self) -> None:
+        # Download to local dir
+        with SoftTemporaryDirectory() as local_dir:
+            config = hf_hub_download(
+                DUMMY_MODEL_ID, filename=CONFIG_NAME, cache_dir=self.cache_dir, local_dir=local_dir
+            )
+            readme = hf_hub_download(
+                DUMMY_MODEL_ID, filename="README.md", cache_dir=self.cache_dir, local_dir=local_dir
+            )
+            self.assertFalse(Path(config).is_symlink())  # 496b => small => duplicated
+            if os.name != "nt":
+                self.assertTrue(Path(readme).is_symlink())  # 1.11kB => big => symlink
+
+    def test_with_local_dir_and_symlinks_and_overwrite(self) -> None:
+        # Download to local dir
+        with SoftTemporaryDirectory() as local_dir:
+            config_path = Path(local_dir) / CONFIG_NAME
+            config_path.write_text("this will be overwritten")
+            hf_hub_download(
+                DUMMY_MODEL_ID,
+                filename=CONFIG_NAME,
+                cache_dir=self.cache_dir,
+                local_dir=local_dir,
+                local_dir_use_symlinks=True,
+            )
+            if os.name != "nt":
+                self.assertTrue(config_path.is_symlink())
+            self.assertNotEqual(config_path.read_text(), "this will be overwritten")
+
+    def test_with_local_dir_and_no_symlinks_and_overwrite(self) -> None:
+        # Download to local dir
+        with SoftTemporaryDirectory() as local_dir:
+            config_path = Path(local_dir) / CONFIG_NAME
+            config_path.write_text("this will be overwritten")
+            hf_hub_download(
+                DUMMY_MODEL_ID,
+                filename=CONFIG_NAME,
+                cache_dir=self.cache_dir,
+                local_dir=local_dir,
+                local_dir_use_symlinks=False,
+            )
+            self.assertFalse(config_path.is_symlink())
+            self.assertNotEquals(config_path.read_text(), "this will be overwritten")
 
 
 class StagingCachedDownloadTest(unittest.TestCase):

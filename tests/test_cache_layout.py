@@ -120,7 +120,6 @@ class CacheFileLayoutHfHubDownload(unittest.TestCase):
 
     def test_file_download_happens_once(self):
         # Tests that a file is only downloaded once if it's not updated.
-
         with SoftTemporaryDirectory() as cache:
             path = hf_hub_download(MODEL_IDENTIFIER, "file_0.txt", cache_dir=cache)
             creation_time_0 = os.path.getmtime(path)
