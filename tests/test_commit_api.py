@@ -32,6 +32,38 @@ class TestCommitOperationDelete(unittest.TestCase):
             CommitOperationDelete(path_in_repo="path/to/folder", is_folder="any value")
 
 
+class TestCommitOperationAdd(unittest.TestCase):
+    def test_path_in_repo_normal_path(self):
+        self.assertEqual(
+            CommitOperationAdd(path_in_repo="file.txt", path_or_fileobj=b"").path_in_repo,
+            "file.txt",
+        )
+
+    def test_path_in_repo_prefix_stripped(self):
+        self.assertEqual(
+            CommitOperationAdd(path_in_repo="./file.txt", path_or_fileobj=b"").path_in_repo,
+            "file.txt",
+        )
+
+    def test_path_in_repo_not_stripped_on_hidden_file(self):
+        self.assertEqual(
+            CommitOperationAdd(path_in_repo=".file.txt", path_or_fileobj=b"").path_in_repo,
+            ".file.txt",
+        )
+
+    def test_path_in_repo_invalid_single_dot(self):
+        with self.assertRaises(ValueError):
+            CommitOperationAdd(path_in_repo=".", path_or_fileobj=b"")
+
+    def test_path_in_repo_invalid_double_dot(self):
+        with self.assertRaises(ValueError):
+            CommitOperationAdd(path_in_repo="..", path_or_fileobj=b"")
+
+    def test_path_in_repo_invalid_double_dot_slash_prefix(self):
+        with self.assertRaises(ValueError):
+            CommitOperationAdd(path_in_repo="../file.txt", path_or_fileobj=b"")
+
+
 class TestWarnOnOverwritingOperations(unittest.TestCase):
     add_file_ab = CommitOperationAdd(path_in_repo="a/b.txt", path_or_fileobj=b"data")
     add_file_abc = CommitOperationAdd(path_in_repo="a/b/c.md", path_or_fileobj=b"data")
