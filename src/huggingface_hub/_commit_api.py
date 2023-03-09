@@ -56,6 +56,8 @@ class CommitOperationDelete:
     is_folder: Union[bool, Literal["auto"]] = "auto"
 
     def __post_init__(self):
+        self.path_in_repo = _validate_path_in_repo(self.path_in_repo)
+
         if self.is_folder == "auto":
             self.is_folder = self.path_in_repo.endswith("/")
         if not isinstance(self.is_folder, bool):
@@ -95,6 +97,8 @@ class CommitOperationAdd:
 
     def __post_init__(self) -> None:
         """Validates `path_or_fileobj` and compute `upload_info`."""
+        self.path_in_repo = _validate_path_in_repo(self.path_in_repo)
+
         # Validate `path_or_fileobj` value
         if isinstance(self.path_or_fileobj, Path):
             self.path_or_fileobj = str(self.path_or_fileobj)
@@ -192,6 +196,17 @@ class CommitOperationAdd:
         """
         with self.as_file() as file:
             return base64.b64encode(file.read())
+
+
+def _validate_path_in_repo(path_in_repo: str) -> str:
+    # Validate `path_in_repo` value to prevent a server-side issue
+    if path_in_repo.startswith("/"):
+        path_in_repo = path_in_repo[1:]
+    if path_in_repo == "." or path_in_repo == ".." or path_in_repo.startswith("../"):
+        raise ValueError(f"Invalid `path_in_repo` in CommitOperation: '{path_in_repo}'")
+    if path_in_repo.startswith("./"):
+        path_in_repo = path_in_repo[2:]
+    return path_in_repo
 
 
 CommitOperation = Union[CommitOperationAdd, CommitOperationDelete]
