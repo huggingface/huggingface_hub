@@ -855,10 +855,10 @@ class TestRepositoryDataset(RepositoryTestAbstract):
     """Class to test that cloning from a different repo_type works fine."""
 
     @classmethod
-    @expect_deprecation("set_access_token")
+    # @expect_deprecation("set_access_token")
     def setUpClass(cls):
         super().setUpClass()
-        cls._api.set_access_token(TOKEN)
+        # cls._api.set_access_token(TOKEN)
         cls._token = TOKEN
 
         cls.repo_url = cls._api.create_repo(repo_id=repo_name(), repo_type="dataset")
