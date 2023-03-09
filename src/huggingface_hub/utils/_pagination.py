@@ -23,7 +23,7 @@ from . import hf_raise_for_status, logging
 logger = logging.get_logger(__name__)
 
 
-def paginate(path: str, params: Dict, headers: Dict) -> Iterable:
+def paginate(path: str, params: Optional[Dict] = None, headers: Optional[Dict] = None) -> Iterable:
     """Fetch a list of models/datasets/spaces and paginate through results.
 
     This is using the same "Link" header format as GitHub.
