@@ -84,6 +84,7 @@ class TestRepositoryShared(RepositoryTestAbstract):
         """
         Share this valid token in all tests below.
         """
+        super().setUpClass()
         cls.repo_url = cls._api.create_repo(repo_id=repo_name())
         cls.repo_id = cls.repo_url.repo_id
         cls._api.upload_file(
@@ -198,15 +199,14 @@ class TestRepositoryUniqueRepos(RepositoryTestAbstract):
     These tests can push data to it.
     """
 
-    @classmethod
-    @expect_deprecation("set_access_token")
-    def setUpClass(cls):
-        """
-        Share this valid token in all tests below.
-        """
-        super().setUpClass()
-        cls._api.set_access_token(TOKEN)
-        cls._token = TOKEN
+    # @classmethod
+    # @expect_deprecation("set_access_token")
+    # def setUpClass(cls):
+    #     """
+    #     Share this valid token in all tests below.
+    #     """
+    #     super().setUpClass()
+    #     cls._api.set_access_token("TOKEN")
 
     @retry_endpoint
     def setUp(self):
@@ -214,24 +214,19 @@ class TestRepositoryUniqueRepos(RepositoryTestAbstract):
         self.repo_url = self._api.create_repo(repo_id=repo_name())
         self.repo_id = self.repo_url.repo_id
         self._api.upload_file(
-            path_or_fileobj=self.binary_content.encode(),
-            path_in_repo="random_file.txt",
-            repo_id=self.repo_id,
+            path_or_fileobj=self.binary_content.encode(), path_in_repo="random_file.txt", repo_id=self.repo_id
         )
 
     def tearDown(self):
-        try:
-            self._api.delete_repo(repo_id=self.repo_id)
-        except requests.exceptions.HTTPError:
-            pass
+        self._api.delete_repo(repo_id=self.repo_id)
 
     def clone_repo(self, **kwargs) -> Repository:
         if "local_dir" not in kwargs:
             kwargs["local_dir"] = self.repo_path
         if "clone_from" not in kwargs:
             kwargs["clone_from"] = self.repo_url
-        if "use_auth_token" not in kwargs:
-            kwargs["use_auth_token"] = self._token
+        if "token" not in kwargs:
+            kwargs["token"] = TOKEN
         if "git_user" not in kwargs:
             kwargs["git_user"] = "ci"
         if "git_email" not in kwargs:
@@ -255,9 +250,7 @@ class TestRepositoryUniqueRepos(RepositoryTestAbstract):
 
         # Add to the remote repository without doing anything to the local repository.
         self._api.upload_file(
-            path_or_fileobj=self.binary_content.encode(),
-            path_in_repo="random_file_3.txt",
-            repo_id=self.repo_id,
+            path_or_fileobj=self.binary_content.encode(), path_in_repo="random_file_3.txt", repo_id=self.repo_id
         )
 
         # Cloning the repository in the same directory should not result in a git pull.
@@ -818,7 +811,7 @@ class TestRepositoryOffline(RepositoryTestAbstract):
         self.assertIn("file.txt", files)
 
     def test_repo_user(self):
-        _ = Repository(self.repo_path, use_auth_token=TOKEN)
+        _ = Repository(self.repo_path, token=TOKEN)
         username = run_subprocess("git config user.name", folder=self.repo_path).stdout
         email = run_subprocess("git config user.email", folder=self.repo_path).stdout
 
@@ -827,12 +820,7 @@ class TestRepositoryOffline(RepositoryTestAbstract):
         self.assertEqual(email.strip(), "julien@huggingface.co")
 
     def test_repo_passed_user(self):
-        _ = Repository(
-            self.repo_path,
-            use_auth_token=TOKEN,  # token ignored
-            git_user="RANDOM_USER",
-            git_email="EMAIL@EMAIL.EMAIL",
-        )
+        _ = Repository(self.repo_path, token=TOKEN, git_user="RANDOM_USER", git_email="EMAIL@EMAIL.EMAIL")
         username = run_subprocess("git config user.name", folder=self.repo_path).stdout
         email = run_subprocess("git config user.email", folder=self.repo_path).stdout
 
@@ -935,7 +923,7 @@ class TestRepositoryDataset(RepositoryTestAbstract):
                 self.repo_path,
                 clone_from=self.repo_id.split("/")[1],
                 repo_type="dataset",
-                use_auth_token=self._token,
+                token=TOKEN,
                 git_user="ci",
                 git_email="ci@dummy.com",
             )

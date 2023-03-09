@@ -867,8 +867,7 @@ class HfApi:
     )
     def set_access_token(access_token: str):
         """
-        Saves the passed access token so git can correctly authenticate the
-        user.
+        Saves the passed access token so git can correctly authenticate the user.
 
         Args:
             access_token (`str`):
