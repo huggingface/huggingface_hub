@@ -158,7 +158,7 @@ class CardData:
     inherit from `dict` to allow this export step.
     """
 
-    def __init__(self, **kwargs):
+    def __init__(self, ignore_metadata_errors: bool = False, **kwargs):
         self.__dict__.update(kwargs)
 
     def to_dict(self) -> Dict[str, Any]:
@@ -248,6 +248,9 @@ class ModelCardData(CardData):
             `eval_results` to construct the `model-index` within the card's metadata. The name
             you supply here is what will be used on PapersWithCode's leaderboards. If None is provided
             then the repo name is used as a default. Defaults to None.
+        ignore_metadata_errors (`str`):
+            If True, errors while parsing the metadata section will be ignored. Some information might be lost during
+            the process. Use it at your own risk.
         kwargs (`dict`, *optional*):
             Additional metadata that will be added to the model card. Defaults to None.
 
@@ -277,6 +280,7 @@ class ModelCardData(CardData):
         metrics: Optional[List[str]] = None,
         eval_results: Optional[List[EvalResult]] = None,
         model_name: Optional[str] = None,
+        ignore_metadata_errors: bool = False,
         **kwargs,
     ):
         self.language = language
@@ -294,8 +298,15 @@ class ModelCardData(CardData):
                 model_name, eval_results = model_index_to_eval_results(model_index)
                 self.model_name = model_name
                 self.eval_results = eval_results
-            except KeyError:
-                logger.warning("Invalid model-index. Not loading eval results into CardData.")
+            except KeyError as error:
+                if ignore_metadata_errors:
+                    logger.warning("Invalid model-index. Not loading eval results into CardData.")
+                else:
+                    raise ValueError(
+                        f"Invalid `model_index` in metadata cannot be parsed: KeyError {error}. Pass"
+                        " `ignore_metadata_errors=True` to ignore this error while loading a Model Card. Warning:"
+                        " some information will be lost. Use it at your own risk."
+                    )
 
         super().__init__(**kwargs)
 
@@ -350,6 +361,9 @@ class DatasetCardData(CardData):
             If not provided, it will be gathered from the 'train-eval-index' key of the kwargs.
         configs (`Union[str, List[str]]`, *optional*):
             A list of the available dataset configs for the dataset.
+        ignore_metadata_errors (`str`):
+            If True, errors while parsing the metadata section will be ignored. Some information might be lost during
+            the process. Use it at your own risk.
     """
 
     def __init__(
@@ -368,6 +382,7 @@ class DatasetCardData(CardData):
         pretty_name: Optional[str] = None,
         train_eval_index: Optional[Dict] = None,
         configs: Optional[Union[str, List[str]]] = None,
+        ignore_metadata_errors: bool = False,
         **kwargs,
     ):
         self.annotations_creators = annotations_creators
@@ -421,6 +436,9 @@ class SpaceCardData(CardData):
             List of datasets related to this Space. Should be a dataset ID found on https://hf.co/datasets.
         tags (`List[str]`, *optional*)
             List of tags to add to your Space that can be used when filtering on the Hub.
+        ignore_metadata_errors (`str`):
+            If True, errors while parsing the metadata section will be ignored. Some information might be lost during
+            the process. Use it at your own risk.
         kwargs (`dict`, *optional*):
             Additional metadata that will be added to the space card.
 
@@ -452,6 +470,7 @@ class SpaceCardData(CardData):
         models: Optional[List[str]] = None,
         datasets: Optional[List[str]] = None,
         tags: Optional[List[str]] = None,
+        ignore_metadata_errors: bool = False,
         **kwargs,
     ):
         self.title = title

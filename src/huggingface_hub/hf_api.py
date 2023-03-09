@@ -98,7 +98,7 @@ class ReprMixin:
     """Mixin to create the __repr__ for a class"""
 
     def __repr__(self):
-        formatted_value = pprint.pformat(self.__dict__, width=119, compact=True, sort_dicts=False)
+        formatted_value = pprint.pformat(self.__dict__, width=119, compact=True)
         if "\n" in formatted_value:
             return f"{self.__class__.__name__}: {{ \n{textwrap.indent(formatted_value, '  ')}\n}}"
         else:
@@ -2083,6 +2083,15 @@ class HfApi:
             if exist_ok and err.response.status_code == 409:
                 # Repo already exists and `exist_ok=True`
                 pass
+            elif exist_ok and err.response.status_code == 403:
+                # No write permission on the namespace but repo might already exist
+                try:
+                    self.repo_info(repo_id=repo_id, repo_type=repo_type, token=token)
+                    if repo_type is None or repo_type == REPO_TYPE_MODEL:
+                        return RepoUrl(f"{self.endpoint}/{repo_id}")
+                    return RepoUrl(f"{self.endpoint}/{repo_type}/{repo_id}")
+                except HfHubHTTPError:
+                    raise
             else:
                 raise
 
@@ -2444,14 +2453,11 @@ class HfApi:
             "Content-Type": "application/x-ndjson",
             **self._build_hf_headers(token=token, is_write_action=True),
         }
+        data = b"".join(_payload_as_ndjson())
+        params = {"create_pr": "1"} if create_pr else None
 
         try:
-            commit_resp = requests.post(
-                url=commit_url,
-                headers=headers,
-                data=_payload_as_ndjson(),  # type: ignore
-                params={"create_pr": "1"} if create_pr else None,
-            )
+            commit_resp = requests.post(url=commit_url, headers=headers, data=data, params=params)
             hf_raise_for_status(commit_resp, endpoint_name="commit")
         except RepositoryNotFoundError as e:
             e.append_to_message(_CREATE_COMMIT_NO_REPO_ERROR_MESSAGE)
@@ -2751,7 +2757,7 @@ class HfApi:
         ...     token="my_token",
         ...     delete_patterns="**/logs/*.txt",
         ... )
-        # "https://huggingface.co/datasets/username/my-dataset/tree/main/remote/experiment/checkpoints"
+        "https://huggingface.co/datasets/username/my-dataset/tree/main/remote/experiment/checkpoints"
 
         # Upload checkpoints folder while creating a PR
         >>> upload_folder(
@@ -2762,7 +2768,7 @@ class HfApi:
         ...     token="my_token",
         ...     create_pr=True,
         ... )
-        # "https://huggingface.co/datasets/username/my-dataset/tree/refs%2Fpr%2F1/remote/experiment/checkpoints"
+        "https://huggingface.co/datasets/username/my-dataset/tree/refs%2Fpr%2F1/remote/experiment/checkpoints"
 
         ```
         """

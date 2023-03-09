@@ -23,7 +23,7 @@ import warnings
 from functools import partial
 from io import BytesIO
 from pathlib import Path
-from typing import List, Union
+from typing import Any, Dict, List, Union
 from unittest.mock import Mock, patch
 from urllib.parse import quote
 
@@ -57,6 +57,7 @@ from huggingface_hub.hf_api import (
     ModelSearchArguments,
     RepoFile,
     RepoUrl,
+    ReprMixin,
     SpaceInfo,
     erase_from_credential_store,
     read_from_credential_store,
@@ -477,6 +478,16 @@ class CommitApiTest(HfApiCommonTestWithLogin):
         with pytest.raises(ValueError, match="You must use your personal account token."):
             with patch.object(self._api, "token", None):  # no default token
                 self._api.create_repo(repo_id=repo_name("org"))
+
+    def test_create_repo_already_exists_but_no_write_permission(self):
+        # Create under other user namespace
+        repo_id = self._api.create_repo(repo_id=repo_name(), token=OTHER_TOKEN).repo_id
+
+        # Try to create with our namespace -> should not fail as the repo already exists
+        self._api.create_repo(repo_id=repo_id, token=TOKEN, exist_ok=True)
+
+        # Clean up
+        self._api.delete_repo(repo_id=repo_id, token=OTHER_TOKEN)
 
     @retry_endpoint
     def test_upload_buffer(self):
@@ -1027,6 +1038,37 @@ class CommitApiTest(HfApiCommonTestWithLogin):
             self.fail(err)
         finally:
             self._api.delete_repo(repo_id=REPO_NAME)
+
+    @retry_endpoint
+    def test_create_commit_repo_id_case_insensitive(self):
+        """Test create commit but repo_id is lowercased.
+
+        Regression test for #1371. Hub API is already case insensitive. Somehow the issue was with the `requests`
+        streaming implementation when generating the ndjson payload "on the fly". It seems that the server was
+        receiving only the first line which causes a confusing "400 Bad Request - Add a line with the key `lfsFile`,
+        `file` or `deletedFile`". Passing raw bytes instead of a generator fixes the problem.
+
+        See https://github.com/huggingface/huggingface_hub/issues/1371.
+        """
+        REPO_NAME = repo_name("CaSe_Is_ImPoRtAnT")
+        repo_id = self._api.create_repo(repo_id=REPO_NAME, exist_ok=False).repo_id
+
+        try:
+            self._api.create_commit(
+                repo_id=repo_id.lower(),  # API is case-insensitive!
+                commit_message="Add 1 regular and 1 LFs files.",
+                operations=[
+                    CommitOperationAdd(path_in_repo="file.txt", path_or_fileobj=b"content"),
+                    CommitOperationAdd(path_in_repo="lfs.bin", path_or_fileobj=b"LFS content"),
+                ],
+            )
+            repo_files = self._api.list_repo_files(repo_id=repo_id)
+            self.assertIn("file.txt", repo_files)
+            self.assertIn("lfs.bin", repo_files)
+        except Exception as err:
+            self.fail(err)
+        finally:
+            self._api.delete_repo(repo_id=repo_id)
 
 
 class HfApiUploadEmptyFileTest(HfApiCommonTestWithLogin):
@@ -2695,3 +2737,15 @@ class HfApiDuplicateSpaceTest(HfApiCommonTestWithLogin):
 
         with self.assertRaises(RepositoryNotFoundError):
             self._api.duplicate_space(f"{OTHER_USER}/repo_that_does_not_exist")
+
+
+class ReprMixinTest(unittest.TestCase):
+    def test_repr_mixin(self) -> None:
+        class MyClass(ReprMixin):
+            def __init__(self, **kwargs: Dict[str, Any]) -> None:
+                self.__dict__.update(kwargs)
+
+        self.assertEqual(
+            repr(MyClass(foo="foo", bar="bar")),
+            "MyClass: {'bar': 'bar', 'foo': 'foo'}",  # keys are sorted
+        )

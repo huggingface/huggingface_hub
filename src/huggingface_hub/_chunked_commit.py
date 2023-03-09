@@ -416,15 +416,15 @@ def _plan_commits(operations: List[CommitOperation]) -> ChunkedCommitStrategy:
     # TODO: review strategy
     # TODO: maybe as first-class citizen
     # TODO: should we preserve order? I'd say deletes first, then additions
-    steps = []
+    steps: List[ChunkedCommitStep] = []
 
     # Start by deleting everything
-    delete_operations = [op for op in operations if isinstance(op, CommitOperationDelete)]
+    delete_operations: List[CommitOperation] = [op for op in operations if isinstance(op, CommitOperationDelete)]
     if len(delete_operations) > 0:
         steps.append(ChunkedCommitStep(num=0, operations=delete_operations))
 
     # Then upload 10 files by 10 files
-    step_ops = []
+    step_ops: List[CommitOperation] = []
     for op in operations:
         if isinstance(op, CommitOperationAdd):
             step_ops.append(op)
