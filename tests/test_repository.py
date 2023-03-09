@@ -80,15 +80,10 @@ class TestRepositoryShared(RepositoryTestAbstract):
     """
 
     @classmethod
-    @expect_deprecation("set_access_token")
     def setUpClass(cls):
         """
         Share this valid token in all tests below.
         """
-        super().setUpClass()
-        cls._api.set_access_token(TOKEN)
-        cls._token = TOKEN
-
         cls.repo_url = cls._api.create_repo(repo_id=repo_name())
         cls.repo_id = cls.repo_url.repo_id
         cls._api.upload_file(
@@ -99,10 +94,7 @@ class TestRepositoryShared(RepositoryTestAbstract):
 
     @classmethod
     def tearDownClass(cls):
-        try:
-            cls._api.delete_repo(repo_id=cls.repo_id)
-        except requests.exceptions.HTTPError:
-            pass
+        cls._api.delete_repo(repo_id=cls.repo_id)
 
     def test_clone_from_repo_url(self):
         Repository(self.repo_path, clone_from=self.repo_url)
@@ -114,24 +106,17 @@ class TestRepositoryShared(RepositoryTestAbstract):
     @retry_endpoint
     def test_clone_from_repo_name_no_namespace_fails(self):
         with self.assertRaises(EnvironmentError):
-            Repository(
-                self.repo_path,
-                clone_from=self.repo_id.split("/")[1],
-                use_auth_token=self._token,
-            )
+            Repository(self.repo_path, clone_from=self.repo_id.split("/")[1], token=TOKEN)
 
     @retry_endpoint
     def test_clone_from_not_hf_url(self):
         # Should not error out
-        Repository(
-            self.repo_path,
-            clone_from="https://hf.co/hf-internal-testing/huggingface-hub-dummy-repository",
-        )
+        Repository(self.repo_path, clone_from="https://hf.co/hf-internal-testing/huggingface-hub-dummy-repository")
 
     def test_clone_from_missing_repo(self):
         """If the repo does not exist an EnvironmentError is raised."""
         with self.assertRaises(EnvironmentError):
-            Repository(self.repo_path, clone_from="missing_repo", token=self._token)
+            Repository(self.repo_path, clone_from="missing_repo")
 
     @with_production_testing
     @retry_endpoint
@@ -141,11 +126,7 @@ class TestRepositoryShared(RepositoryTestAbstract):
     @with_production_testing
     @retry_endpoint
     def test_clone_from_prod_canonical_repo_url(self):
-        Repository(
-            self.repo_path,
-            clone_from="https://huggingface.co/bert-base-cased",
-            skip_lfs_files=True,
-        )
+        Repository(self.repo_path, clone_from="https://huggingface.co/bert-base-cased", skip_lfs_files=True)
 
     def test_init_from_existing_local_clone(self):
         run_subprocess(["git", "clone", self.repo_url, str(self.repo_path)])
@@ -189,8 +170,8 @@ class TestRepositoryShared(RepositoryTestAbstract):
 
     @retry_endpoint
     def test_init_clone_in_nonempty_linked_git_repo_with_token(self):
-        Repository(self.repo_path, clone_from=self.repo_url, use_auth_token=self._token)
-        Repository(self.repo_path, clone_from=self.repo_url, use_auth_token=self._token)
+        Repository(self.repo_path, clone_from=self.repo_url, token=TOKEN)
+        Repository(self.repo_path, clone_from=self.repo_url, token=TOKEN)
 
     @retry_endpoint
     def test_is_tracked_upstream(self):
