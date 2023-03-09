@@ -284,7 +284,7 @@ class HubKerasSequentialTest(CommonKerasTest):
 
         log_dir = self.cache_dir / "tb_log_dir"
         log_dir.mkdir(parents=True, exist_ok=True)
-        (log_dir / "tensorboard.txt").write_bytes("Keras FTW")
+        (log_dir / "tensorboard.txt").write_text("Keras FTW")
 
         model = self.model_init()
         model.build((None, 2))
@@ -292,7 +292,7 @@ class HubKerasSequentialTest(CommonKerasTest):
 
         log_dir2 = self.cache_dir / "tb_log_dir2"
         log_dir2.mkdir(parents=True, exist_ok=True)
-        (log_dir2 / "override.txt").write_bytes("Keras FTW")
+        (log_dir2 / "override.txt").write_text("Keras FTW")
         push_to_hub_keras(model, repo_id=repo_id, log_dir=log_dir2, api_endpoint=ENDPOINT_STAGING, token=TOKEN)
 
         files = self._api.list_repo_files(repo_id)
