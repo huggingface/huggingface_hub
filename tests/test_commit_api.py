@@ -32,42 +32,28 @@ class TestCommitOperationDelete(unittest.TestCase):
             CommitOperationDelete(path_in_repo="path/to/folder", is_folder="any value")
 
 
-class TestCommitOperationAdd(unittest.TestCase):
-    def test_absolute_path_in_repo_is_stripped(self):
-        self.assertEqual(
-            CommitOperationAdd(path_in_repo="/file.txt", path_or_fileobj=b"").path_in_repo,
-            "file.txt",
-        )
+class TestCommitOperationPathInRepo(unittest.TestCase):
+    valid_values = {  # key is input, value is expected validated output
+        "file.txt": "file.txt",
+        ".file.txt": ".file.txt",
+        "/file.txt": "file.txt",
+        "./file.txt": "file.txt",
+    }
+    invalid_values = [".", "..", "../file.txt"]
 
-    def test_path_in_repo_normal_path(self):
-        self.assertEqual(
-            CommitOperationAdd(path_in_repo="file.txt", path_or_fileobj=b"").path_in_repo,
-            "file.txt",
-        )
+    def test_path_in_repo_valid(self) -> None:
+        for input, expected in self.valid_values.items():
+            with self.subTest(f"Testing with valid input: '{input}'"):
+                self.assertEqual(CommitOperationAdd(path_in_repo=input, path_or_fileobj=b"").path_in_repo, expected)
+                self.assertEqual(CommitOperationDelete(path_in_repo=input).path_in_repo, expected)
 
-    def test_path_in_repo_prefix_stripped(self):
-        self.assertEqual(
-            CommitOperationAdd(path_in_repo="./file.txt", path_or_fileobj=b"").path_in_repo,
-            "file.txt",
-        )
-
-    def test_path_in_repo_not_stripped_on_hidden_file(self):
-        self.assertEqual(
-            CommitOperationAdd(path_in_repo=".file.txt", path_or_fileobj=b"").path_in_repo,
-            ".file.txt",
-        )
-
-    def test_path_in_repo_invalid_single_dot(self):
-        with self.assertRaises(ValueError):
-            CommitOperationAdd(path_in_repo=".", path_or_fileobj=b"")
-
-    def test_path_in_repo_invalid_double_dot(self):
-        with self.assertRaises(ValueError):
-            CommitOperationAdd(path_in_repo="..", path_or_fileobj=b"")
-
-    def test_path_in_repo_invalid_double_dot_slash_prefix(self):
-        with self.assertRaises(ValueError):
-            CommitOperationAdd(path_in_repo="../file.txt", path_or_fileobj=b"")
+    def test_path_in_repo_invalid(self) -> None:
+        for input in self.invalid_values:
+            with self.subTest(f"Testing with invalid input: '{input}'"):
+                with self.assertRaises(ValueError):
+                    CommitOperationAdd(path_in_repo=input, path_or_fileobj=b"")
+                with self.assertRaises(ValueError):
+                    CommitOperationDelete(path_in_repo=input)
 
 
 class TestWarnOnOverwritingOperations(unittest.TestCase):
