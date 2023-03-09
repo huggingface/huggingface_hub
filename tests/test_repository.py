@@ -31,7 +31,6 @@ from huggingface_hub.utils import SoftTemporaryDirectory, logging, run_subproces
 
 from .testing_constants import ENDPOINT_STAGING, TOKEN
 from .testing_utils import (
-    expect_deprecation,
     repo_name,
     retry_endpoint,
     use_tmp_repo,
@@ -198,15 +197,6 @@ class TestRepositoryUniqueRepos(RepositoryTestAbstract):
 
     These tests can push data to it.
     """
-
-    # @classmethod
-    # @expect_deprecation("set_access_token")
-    # def setUpClass(cls):
-    #     """
-    #     Share this valid token in all tests below.
-    #     """
-    #     super().setUpClass()
-    #     cls._api.set_access_token("TOKEN")
 
     @retry_endpoint
     def setUp(self):
@@ -855,12 +845,8 @@ class TestRepositoryDataset(RepositoryTestAbstract):
     """Class to test that cloning from a different repo_type works fine."""
 
     @classmethod
-    # @expect_deprecation("set_access_token")
     def setUpClass(cls):
         super().setUpClass()
-        # cls._api.set_access_token(TOKEN)
-        cls._token = TOKEN
-
         cls.repo_url = cls._api.create_repo(repo_id=repo_name(), repo_type="dataset")
         cls.repo_id = cls.repo_url.repo_id
         cls._api.upload_file(
@@ -873,41 +859,25 @@ class TestRepositoryDataset(RepositoryTestAbstract):
     @classmethod
     def tearDownClass(cls):
         super().tearDownClass()
-        try:
-            cls._api.delete_repo(repo_id=cls.repo_id)
-        except requests.exceptions.HTTPError:
-            pass
+        cls._api.delete_repo(repo_id=cls.repo_id, repo_type="dataset")
 
     @retry_endpoint
     def test_clone_dataset_with_endpoint_explicit_repo_type(self):
         Repository(
-            self.repo_path,
-            clone_from=self.repo_url,
-            repo_type="dataset",
-            git_user="ci",
-            git_email="ci@dummy.com",
+            self.repo_path, clone_from=self.repo_url, repo_type="dataset", git_user="ci", git_email="ci@dummy.com"
         )
         self.assertTrue((self.repo_path / "file.txt").exists())
 
     @retry_endpoint
     def test_clone_dataset_with_endpoint_implicit_repo_type(self):
         self.assertIn("dataset", self.repo_url)  # Implicit
-        Repository(
-            self.repo_path,
-            clone_from=self.repo_url,
-            git_user="ci",
-            git_email="ci@dummy.com",
-        )
+        Repository(self.repo_path, clone_from=self.repo_url, git_user="ci", git_email="ci@dummy.com")
         self.assertTrue((self.repo_path / "file.txt").exists())
 
     @retry_endpoint
     def test_clone_dataset_with_repo_id_and_repo_type(self):
         Repository(
-            self.repo_path,
-            clone_from=self.repo_id,
-            repo_type="dataset",
-            git_user="ci",
-            git_email="ci@dummy.com",
+            self.repo_path, clone_from=self.repo_id, repo_type="dataset", git_user="ci", git_email="ci@dummy.com"
         )
         self.assertTrue((self.repo_path / "file.txt").exists())
 
