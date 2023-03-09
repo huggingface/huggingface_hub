@@ -96,6 +96,8 @@ class CommitOperationAdd:
     def __post_init__(self) -> None:
         """Validates `path_or_fileobj` and compute `upload_info`."""
         # Validate `path_in_repo` value to prevent a server-side issue
+        if self.path_in_repo.startswith("/"):
+            self.path_in_repo = self.path_in_repo[1:]
         if self.path_in_repo == "." or self.path_in_repo == ".." or self.path_in_repo.startswith("../"):
             raise ValueError(f"Invalid `path_in_repo` in CommitOperationAdd: '{self.path_in_repo}'")
         if self.path_in_repo.startswith("./"):

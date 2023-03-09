@@ -33,6 +33,12 @@ class TestCommitOperationDelete(unittest.TestCase):
 
 
 class TestCommitOperationAdd(unittest.TestCase):
+    def test_absolute_path_in_repo_is_stripped(self):
+        self.assertEqual(
+            CommitOperationAdd(path_in_repo="/file.txt", path_or_fileobj=b"").path_in_repo,
+            "file.txt",
+        )
+
     def test_path_in_repo_normal_path(self):
         self.assertEqual(
             CommitOperationAdd(path_in_repo="file.txt", path_or_fileobj=b"").path_in_repo,
