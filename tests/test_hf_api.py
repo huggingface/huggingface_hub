@@ -1958,10 +1958,6 @@ class UploadFolderMockedTest(unittest.TestCase):
 class HfLargefilesTest(HfApiCommonTest):
     cache_dir: Path
 
-    def setUp(self):
-        self.repo_url = self._api.create_repo(repo_id=repo_name())
-        self.repo_id = self.repo_url.repo_id
-
     def tearDown(self):
         self._api.delete_repo(repo_id=self.repo_id)
 
@@ -1978,7 +1974,10 @@ class HfLargefilesTest(HfApiCommonTest):
 
     @retry_endpoint
     def test_end_to_end_thresh_6M(self):
+        # Little-hack: create repo with defined `_lfsmultipartthresh`. Only for tests purposes
         self._api._lfsmultipartthresh = 6 * 10**6
+        self.repo_url = self._api.create_repo(repo_id=repo_name())
+        self.repo_id = self.repo_url.repo_id
         self._api._lfsmultipartthresh = None
         self.setup_local_clone()
 
@@ -2020,7 +2019,10 @@ class HfLargefilesTest(HfApiCommonTest):
     @retry_endpoint
     def test_end_to_end_thresh_16M(self):
         # Here we'll push one multipart and one non-multipart file in the same commit, and see what happens
+        # Little-hack: create repo with defined `_lfsmultipartthresh`. Only for tests purposes
         self._api._lfsmultipartthresh = 16 * 10**6
+        self.repo_url = self._api.create_repo(repo_id=repo_name())
+        self.repo_id = self.repo_url.repo_id
         self._api._lfsmultipartthresh = None
         self.setup_local_clone()
 
