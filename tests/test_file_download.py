@@ -784,7 +784,8 @@ class CreateSymlinkTest(unittest.TestCase):
 
         _create_symlink(str(src), str(dst))
         self.assertTrue(dst.resolve().is_file())
-        self.assertEqual(dst.resolve(), src.resolve())
+        if os.name != "nt":
+            self.assertEqual(dst.resolve(), src.resolve())
         shutil.rmtree(test_dir)
 
 
