@@ -13,6 +13,7 @@
 # limitations under the License.
 import os
 import re
+import shutil
 import stat
 import unittest
 from pathlib import Path
@@ -774,14 +775,17 @@ class CreateSymlinkTest(unittest.TestCase):
 
         See https://github.com/huggingface/huggingface_hub/issues/1388.
         """
-        with SoftTemporaryDirectory(dir="tests/fixtures") as tmpdir:
-            src = Path(tmpdir) / "source"
-            src.touch()
-            dst = Path(tmpdir) / "destination"
+        # Test dir has to be relative
+        test_dir = Path(".") / "dir_for_create_symlink_test"
+        test_dir.mkdir(parents=True, exist_ok=True)
+        src = Path(test_dir) / "source"
+        src.touch()
+        dst = Path(test_dir) / "destination"
 
-            _create_symlink(str(src), str(dst))
-            self.assertTrue(dst.resolve().is_file())
-            self.assertEqual(dst.resolve(), src.resolve())
+        _create_symlink(str(src), str(dst))
+        self.assertTrue(dst.resolve().is_file())
+        self.assertEqual(dst.resolve(), src.resolve())
+        shutil.rmtree(test_dir)
 
 
 def _recursive_chmod(path: str, mode: int) -> None:
