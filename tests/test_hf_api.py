@@ -1919,6 +1919,17 @@ class UploadFolderMockedTest(unittest.TestCase):
             {"sub/file.txt"},  # only .txt files, not in subdir, not at root
         )
 
+    def test_path_in_repo_dot(self):
+        """Regression test for #1382 when using `path_in_repo="."`.
+
+        Using `path_in_repo="."` or `path_in_repo=None` should be equivalent.
+        See https://github.com/huggingface/huggingface_hub/pull/1382.
+        """
+        operation_with_dot = self._upload_folder_alias(path_in_repo=".", allow_patterns=["file.txt"])[0]
+        operation_with_none = self._upload_folder_alias(path_in_repo=None, allow_patterns=["file.txt"])[0]
+        self.assertEqual(operation_with_dot.path_in_repo, "file.txt")
+        self.assertEqual(operation_with_none.path_in_repo, "file.txt")
+
     def test_delete_txt(self):
         operations = self._upload_folder_alias(delete_patterns="*.txt")
         added_files = {op.path_in_repo for op in operations if isinstance(op, CommitOperationAdd)}
@@ -2593,7 +2604,7 @@ class RepoUrlTest(unittest.TestCase):
 
 class HfApiDuplicateSpaceTest(HfApiCommonTest):
     @retry_endpoint
-    @unittest.skip("HTTP 500 currently on staging")  # TODO fix this
+    @unittest.skip("HTTP 500 currently on staging")
     def test_duplicate_space_success(self) -> None:
         """Check `duplicate_space` works."""
         from_repo_name = space_repo_name("original_repo_name")

@@ -170,17 +170,19 @@ class RepoCard:
         if Path(repo_id_or_path).exists():
             card_path = Path(repo_id_or_path)
         elif isinstance(repo_id_or_path, str):
-            card_path = hf_hub_download(
-                repo_id_or_path,
-                REPOCARD_NAME,
-                repo_type=repo_type or cls.repo_type,
-                token=token,
+            card_path = Path(
+                hf_hub_download(
+                    repo_id_or_path,
+                    REPOCARD_NAME,
+                    repo_type=repo_type or cls.repo_type,
+                    token=token,
+                )
             )
         else:
             raise ValueError(f"Cannot load RepoCard: path not found on disk ({repo_id_or_path}).")
 
         # Preserve newlines in the existing file.
-        with Path(card_path).open(mode="r", newline="", encoding="utf-8") as f:
+        with card_path.open(mode="r", newline="", encoding="utf-8") as f:
             return cls(f.read(), ignore_metadata_errors=ignore_metadata_errors)
 
     def validate(self, repo_type: Optional[str] = None):

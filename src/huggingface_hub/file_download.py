@@ -103,7 +103,7 @@ def are_symlinks_supported(cache_dir: Union[str, Path, None] = None) -> bool:
             src_path.touch()
             dst_path = Path(tmpdir) / "dummy_file_dst"
 
-            # Relative source path as in `_create_relative_symlink``
+            # Relative source path as in `_create_symlink``
             relative_src = os.path.relpath(src_path, start=os.path.dirname(dst_path))
             try:
                 os.symlink(relative_src, dst_path)
@@ -558,7 +558,7 @@ def cached_download(
     token: Union[bool, str, None] = None,
     local_files_only: bool = False,
     legacy_cache_layout: bool = False,
-) -> Optional[str]:  # pragma: no cover
+) -> str:
     """
     Download from a given URL and cache it if it's not already present in the
     local cache.
@@ -819,61 +819,56 @@ def _normalize_etag(etag: Optional[str]) -> Optional[str]:
     return etag.strip('"')
 
 
-def _create_relative_symlink(src: str, dst: str, new_blob: bool = False) -> None:
-    """Create a symbolic link named dst pointing to src as a relative path to dst.
-
-    The relative part is mostly because it seems more elegant to the author.
+def _create_symlink(src: str, dst: str, new_blob: bool = False) -> None:
+    """Create a symbolic link named dst pointing to src as an absolute path.
 
     The result layout looks something like
         └── [ 128]  snapshots
             ├── [ 128]  2439f60ef33a0d46d85da5001d52aeda5b00ce9f
-            │   ├── [  52]  README.md -> ../../blobs/d7edf6bd2a681fb0175f7735299831ee1b22b812
-            │   └── [  76]  pytorch_model.bin -> ../../blobs/403450e234d65943a7dcf7e05a771ce3c92faa84dd07db4ac20f592037a1e4bd
+            │   ├── [  52]  README.md -> /path/to/cache/blobs/d7edf6bd2a681fb0175f7735299831ee1b22b812
+            │   └── [  76]  pytorch_model.bin -> /path/to/cache/blobs/403450e234d65943a7dcf7e05a771ce3c92faa84dd07db4ac20f592037a1e4bd
 
-    If symlinks cannot be created on this platform (most likely to be Windows), the
-    workaround is to avoid symlinks by having the actual file in `dst`. If it is a new
-    file (`new_blob=True`), we move it to `dst`. If it is not a new file
-    (`new_blob=False`), we don't know if the blob file is already referenced elsewhere.
-    To avoid breaking existing cache, the file is duplicated on the disk.
+    If symlinks cannot be created on this platform (most likely to be Windows), the workaround is to avoid symlinks by
+    having the actual file in `dst`. If it is a new file (`new_blob=True`), we move it to `dst`. If it is not a new file
+    (`new_blob=False`), we don't know if the blob file is already referenced elsewhere. To avoid breaking existing
+    cache, the file is duplicated on the disk.
 
-    In case symlinks are not supported, a warning message is displayed to the user once
-    when loading `huggingface_hub`. The warning message can be disable with the
-    `DISABLE_SYMLINKS_WARNING` environment variable.
+    In case symlinks are not supported, a warning message is displayed to the user once when loading `huggingface_hub`.
+    The warning message can be disable with the `DISABLE_SYMLINKS_WARNING` environment variable.
     """
     try:
         os.remove(dst)
     except OSError:
         pass
 
+    abs_src = os.path.abspath(os.path.expanduser(src))
+    abs_dst = os.path.abspath(os.path.expanduser(dst))
+
     try:
-        _support_symlinks = are_symlinks_supported(
-            os.path.dirname(os.path.commonpath([os.path.realpath(src), os.path.realpath(dst)]))
-        )
+        _support_symlinks = are_symlinks_supported(os.path.dirname(os.path.commonpath([abs_src, abs_dst])))
     except PermissionError:
         # Permission error means src and dst are not in the same volume (e.g. destination path has been provided
         # by the user via `local_dir`. Let's test symlink support there)
-        _support_symlinks = are_symlinks_supported(os.path.dirname(dst))
+        _support_symlinks = are_symlinks_supported(os.path.dirname(abs_dst))
 
     if _support_symlinks:
-        logger.info(f"Creating pointer from {src} to {dst}")
+        logger.info(f"Creating pointer from {abs_src} to {abs_dst}")
         try:
-            os.symlink(src, dst)
+            os.symlink(abs_src, abs_dst)
         except FileExistsError:
-            if os.path.islink(dst) and os.path.realpath(dst) == os.path.realpath(src):
-                # `dst` already exists and is a symlink to the `src` blob. It is most
-                # likely that the file has been cached twice concurrently (exactly
-                # between `os.remove` and `os.symlink`). Do nothing.
+            if os.path.islink(abs_dst) and os.path.realpath(abs_dst) == os.path.realpath(abs_src):
+                # `abs_dst` already exists and is a symlink to the `abs_src` blob. It is most likely that the file has
+                # been cached twice concurrently (exactly between `os.remove` and `os.symlink`). Do nothing.
                 pass
             else:
-                # Very unlikely to happen. Means a file `dst` has been created exactly
-                # between `os.remove` and `os.symlink` and is not a symlink to the `src`
-                # blob file. Raise exception.
+                # Very unlikely to happen. Means a file `dst` has been created exactly between `os.remove` and
+                # `os.symlink` and is not a symlink to the `abs_src` blob file. Raise exception.
                 raise
     elif new_blob:
-        logger.info(f"Symlink not supported. Moving file from {src} to {dst}")
+        logger.info(f"Symlink not supported. Moving file from {abs_src} to {abs_dst}")
         os.replace(src, dst)
     else:
-        logger.info(f"Symlink not supported. Copying file from {src} to {dst}")
+        logger.info(f"Symlink not supported. Copying file from {abs_src} to {abs_dst}")
         shutil.copyfile(src, dst)
 
 
@@ -926,7 +921,7 @@ def hf_hub_download(
     token: Union[bool, str, None] = None,
     local_files_only: bool = False,
     legacy_cache_layout: bool = False,
-):
+) -> str:
     """Download a given file if it's not already present in the local cache.
 
     The new cache file layout looks like this:
@@ -1258,7 +1253,7 @@ def hf_hub_download(
         if local_dir is not None:  # to local dir
             return _to_local_dir(blob_path, local_dir, relative_filename, use_symlinks=local_dir_use_symlinks)
         else:  # or in snapshot cache
-            _create_relative_symlink(blob_path, pointer_path, new_blob=False)
+            _create_symlink(blob_path, pointer_path, new_blob=False)
             return pointer_path
 
     # Prevent parallel downloads of the same file with a lock.
@@ -1313,7 +1308,7 @@ def hf_hub_download(
         if local_dir is None:
             logger.info(f"Storing {url} in cache at {blob_path}")
             _chmod_and_replace(temp_file.name, blob_path)
-            _create_relative_symlink(blob_path, pointer_path, new_blob=True)
+            _create_symlink(blob_path, pointer_path, new_blob=True)
         else:
             local_dir_filepath = os.path.join(local_dir, relative_filename)
             os.makedirs(os.path.dirname(local_dir_filepath), exist_ok=True)
@@ -1325,7 +1320,7 @@ def hf_hub_download(
                 logger.info(f"Storing {url} in cache at {blob_path}")
                 _chmod_and_replace(temp_file.name, blob_path)
                 logger.info("Create symlink to local dir")
-                _create_relative_symlink(blob_path, local_dir_filepath, new_blob=False)
+                _create_symlink(blob_path, local_dir_filepath, new_blob=False)
             elif local_dir_use_symlinks == "auto" and not is_big_file:
                 logger.info(f"Storing {url} in cache at {blob_path}")
                 _chmod_and_replace(temp_file.name, blob_path)
@@ -1544,7 +1539,7 @@ def _to_local_dir(
         use_symlinks = os.stat(real_blob_path).st_size > constants.HF_HUB_LOCAL_DIR_AUTO_SYMLINK_THRESHOLD
 
     if use_symlinks:
-        _create_relative_symlink(real_blob_path, local_dir_filepath, new_blob=False)
+        _create_symlink(real_blob_path, local_dir_filepath, new_blob=False)
     else:
         shutil.copyfile(real_blob_path, local_dir_filepath)
     return local_dir_filepath
