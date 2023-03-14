@@ -2711,6 +2711,7 @@ class RepoUrlTest(unittest.TestCase):
 
 class HfApiDuplicateSpaceTest(HfApiCommonTestWithLogin):
     @retry_endpoint
+    @unittest.skip("HTTP 500 currently on staging")
     def test_duplicate_space_success(self) -> None:
         """Check `duplicate_space` works."""
         from_repo_name = space_repo_name("original_repo_name")

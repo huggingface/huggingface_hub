@@ -662,7 +662,7 @@ class StagingCachedDownloadTest(unittest.TestCase):
         requests.put(
             f"{repo_url.endpoint}/api/models/{repo_url.repo_id}/settings",
             headers=api._build_hf_headers(),
-            json={"gated": True},
+            json={"gated": "auto"},
         ).raise_for_status()
 
         # Cannot download file as repo is gated
