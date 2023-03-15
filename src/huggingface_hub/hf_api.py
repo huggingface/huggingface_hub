@@ -38,7 +38,7 @@ from ._commit_api import (
     upload_lfs_files,
     warn_on_overwriting_operations,
 )
-from ._multi_commit import (
+from ._multi_commits import (
     MULTI_COMMIT_PR_CLOSE_COMMENT_FAILURE_BAD_REQUEST_TEMPLATE,
     MULTI_COMMIT_PR_CLOSE_COMMENT_FAILURE_NO_CHANGES_TEMPLATE,
     MULTI_COMMIT_PR_CLOSING_COMMENT_TEMPLATE,
