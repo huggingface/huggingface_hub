@@ -13,6 +13,7 @@
 # limitations under the License.
 import os
 import re
+import shutil
 import stat
 import unittest
 from pathlib import Path
@@ -30,7 +31,7 @@ from huggingface_hub.constants import (
 )
 from huggingface_hub.file_download import (
     _CACHED_NO_EXIST,
-    _create_relative_symlink,
+    _create_symlink,
     cached_download,
     filename_to_url,
     get_hf_file_metadata,
@@ -661,7 +662,7 @@ class StagingCachedDownloadTest(unittest.TestCase):
         requests.put(
             f"{repo_url.endpoint}/api/models/{repo_url.repo_id}/settings",
             headers=api._build_hf_headers(),
-            json={"gated": True},
+            json={"gated": "auto"},
         ).raise_for_status()
 
         # Cannot download file as repo is gated
@@ -739,7 +740,7 @@ class StagingCachedDownloadOnAwfulFilenamesTest(unittest.TestCase):
 class CreateSymlinkTest(unittest.TestCase):
     @unittest.skipIf(os.name == "nt", "No symlinks on Windows")
     @patch("huggingface_hub.file_download.are_symlinks_supported")
-    def test_create_relative_symlink_concurrent_access(self, mock_are_symlinks_supported: Mock) -> None:
+    def test_create_symlink_concurrent_access(self, mock_are_symlinks_supported: Mock) -> None:
         with SoftTemporaryDirectory() as tmpdir:
             src = os.path.join(tmpdir, "source")
             other = os.path.join(tmpdir, "other")
@@ -747,7 +748,7 @@ class CreateSymlinkTest(unittest.TestCase):
 
             # Normal case: symlink does not exist
             mock_are_symlinks_supported.return_value = True
-            _create_relative_symlink(src, dst)
+            _create_symlink(src, dst)
             self.assertEqual(os.path.realpath(dst), os.path.realpath(src))
 
             # Symlink already exists when it tries to create it (most probably from a
@@ -757,7 +758,7 @@ class CreateSymlinkTest(unittest.TestCase):
                 return True
 
             mock_are_symlinks_supported.side_effect = _are_symlinks_supported
-            _create_relative_symlink(src, dst)
+            _create_symlink(src, dst)
 
             # Symlink already exists but pointing to a different source file. This should
             # never happen in the context of HF cache system -> raise exception
@@ -767,7 +768,25 @@ class CreateSymlinkTest(unittest.TestCase):
 
             mock_are_symlinks_supported.side_effect = _are_symlinks_supported
             with self.assertRaises(FileExistsError):
-                _create_relative_symlink(src, dst)
+                _create_symlink(src, dst)
+
+    def test_create_symlink_relative_src(self) -> None:
+        """Regression test for #1388.
+
+        See https://github.com/huggingface/huggingface_hub/issues/1388.
+        """
+        # Test dir has to be relative
+        test_dir = Path(".") / "dir_for_create_symlink_test"
+        test_dir.mkdir(parents=True, exist_ok=True)
+        src = Path(test_dir) / "source"
+        src.touch()
+        dst = Path(test_dir) / "destination"
+
+        _create_symlink(str(src), str(dst))
+        self.assertTrue(dst.resolve().is_file())
+        if os.name != "nt":
+            self.assertEqual(dst.resolve(), src.resolve())
+        shutil.rmtree(test_dir)
 
 
 def _recursive_chmod(path: str, mode: int) -> None:

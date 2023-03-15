@@ -32,6 +32,30 @@ class TestCommitOperationDelete(unittest.TestCase):
             CommitOperationDelete(path_in_repo="path/to/folder", is_folder="any value")
 
 
+class TestCommitOperationPathInRepo(unittest.TestCase):
+    valid_values = {  # key is input, value is expected validated output
+        "file.txt": "file.txt",
+        ".file.txt": ".file.txt",
+        "/file.txt": "file.txt",
+        "./file.txt": "file.txt",
+    }
+    invalid_values = [".", "..", "../file.txt"]
+
+    def test_path_in_repo_valid(self) -> None:
+        for input, expected in self.valid_values.items():
+            with self.subTest(f"Testing with valid input: '{input}'"):
+                self.assertEqual(CommitOperationAdd(path_in_repo=input, path_or_fileobj=b"").path_in_repo, expected)
+                self.assertEqual(CommitOperationDelete(path_in_repo=input).path_in_repo, expected)
+
+    def test_path_in_repo_invalid(self) -> None:
+        for input in self.invalid_values:
+            with self.subTest(f"Testing with invalid input: '{input}'"):
+                with self.assertRaises(ValueError):
+                    CommitOperationAdd(path_in_repo=input, path_or_fileobj=b"")
+                with self.assertRaises(ValueError):
+                    CommitOperationDelete(path_in_repo=input)
+
+
 class TestWarnOnOverwritingOperations(unittest.TestCase):
     add_file_ab = CommitOperationAdd(path_in_repo="a/b.txt", path_or_fileobj=b"data")
     add_file_abc = CommitOperationAdd(path_in_repo="a/b/c.md", path_or_fileobj=b"data")
