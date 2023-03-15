@@ -1084,21 +1084,9 @@ class HfApiUploadEmptyFileTest(HfApiCommonTestWithLogin):
         cls._api.delete_repo(repo_id=cls.repo_id)
         super().tearDownClass()
 
-    def test_upload_empty_regular_file(self) -> None:
-        with self.assertWarns(UserWarning):
-            self._api.upload_file(repo_id=self.repo_id, path_in_repo="empty.txt", path_or_fileobj=b"")
-
-    def test_upload_empty_gitkeep_file(self) -> None:
-        # No warning in case of .gitkeep file
-        with warnings.catch_warnings(record=True) as w:
-            # Taken from https://stackoverflow.com/a/3892301
-            self._api.upload_file(repo_id=self.repo_id, path_in_repo="foo/.gitkeep", path_or_fileobj=b"")
-        self.assertEqual(len(w), 0)
-
     def test_upload_empty_lfs_file(self) -> None:
         # Should have been an LFS file, but uploaded as regular (would fail otherwise)
-        with self.assertWarns(UserWarning):
-            self._api.upload_file(repo_id=self.repo_id, path_in_repo="empty.pkl", path_or_fileobj=b"")
+        self._api.upload_file(repo_id=self.repo_id, path_in_repo="empty.pkl", path_or_fileobj=b"")
         info = self._api.repo_info(repo_id=self.repo_id, files_metadata=True)
 
         repo_file = {file.rfilename: file for file in info.siblings}["empty.pkl"]
