@@ -50,7 +50,7 @@ from ._git_credential import (
 )
 from ._headers import build_hf_headers, get_token_to_send
 from ._hf_folder import HfFolder
-from ._http import http_backoff
+from ._http import configure_http_backend, get_session, http_backoff
 from ._paths import filter_repo_objects
 from ._runtime import (
     dump_environment_info,
