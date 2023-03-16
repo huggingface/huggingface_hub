@@ -143,6 +143,11 @@ class TestConfigureSession(unittest.TestCase):
         # Reconfigure + clear session cache between each test
         configure_http_backend()
 
+    @classmethod
+    def tearDownClass(cls) -> None:
+        # Clear all sessions after tests
+        configure_http_backend()
+
     def test_default_configuration(self) -> None:
         session = get_session()
         self.assertEqual(session.headers["connection"], "keep-alive")  # keep connection alive by default
