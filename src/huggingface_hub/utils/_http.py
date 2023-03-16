@@ -253,6 +253,7 @@ def http_backoff(
     if "data" in kwargs and isinstance(kwargs["data"], io.IOBase):
         io_obj_initial_pos = kwargs["data"].tell()
 
+    session = get_session()
     while True:
         nb_tries += 1
         try:
@@ -262,7 +263,7 @@ def http_backoff(
                 kwargs["data"].seek(io_obj_initial_pos)
 
             # Perform request and return if status_code is not in the retry list.
-            response = requests.request(method=method, url=url, **kwargs)
+            response = session.request(method=method, url=url, **kwargs)
             if response.status_code not in retry_on_status_codes:
                 return response
 

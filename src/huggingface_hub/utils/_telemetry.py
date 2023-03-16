@@ -3,10 +3,8 @@ from threading import Lock, Thread
 from typing import Dict, Optional, Union
 from urllib.parse import quote
 
-import requests
-
 from .. import constants, logging
-from . import build_hf_headers, hf_raise_for_status
+from . import build_hf_headers, get_session, hf_raise_for_status
 
 
 logger = logging.get_logger(__name__)
@@ -105,7 +103,7 @@ def _send_telemetry_in_thread(
     """Contains the actual data sending data to the Hub."""
     path = "/".join(quote(part) for part in topic.split("/") if len(part) > 0)
     try:
-        r = requests.head(
+        r = get_session().head(
             f"{constants.ENDPOINT}/api/telemetry/{path}",
             headers=build_hf_headers(
                 token=False,  # no need to send a token for telemetry
