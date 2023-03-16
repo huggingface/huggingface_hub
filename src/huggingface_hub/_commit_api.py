@@ -14,7 +14,7 @@ from typing import Any, BinaryIO, Dict, Iterable, Iterator, List, Optional, Unio
 import requests
 from tqdm.contrib.concurrent import thread_map
 
-from .constants import ENDPOINT
+from .constants import HF_HUB_ENABLE_HF_TRANSFER, ENDPOINT
 from .lfs import UploadInfo, _validate_batch_actions, lfs_upload, post_lfs_batch_info
 from .utils import (
     build_hf_headers,
@@ -386,16 +386,40 @@ def _upload_lfs_object(operation: CommitOperationAdd, lfs_batch_action: dict, to
         return
     upload_action = lfs_batch_action["actions"].get("upload")
     verify_action = lfs_batch_action["actions"].get("verify")
-    with operation.as_file(with_tqdm=True) as fileobj:
-        logger.debug(f"Uploading {operation.path_in_repo} as LFS file...")
-        lfs_upload(
-            fileobj=fileobj,
-            upload_action=upload_action,
-            verify_action=verify_action,
-            upload_info=upload_info,
-            token=token,
-        )
-        logger.debug(f"{operation.path_in_repo}: Upload successful")
+    if HF_HUB_ENABLE_HF_TRANSFER:
+        if not isinstance(operation.path_or_fileobj, str):
+            raise ValueError("When using hf_transfer, you should not open the file beforehand and pass the file path as a string instead")
+        try:
+            # Upload file using an external Rust-based package. Upload is faster
+            # but support less features (no progress bars).
+            from hf_transfer import upload
+
+            logger.debug(f"Uploading {operation.path_in_repo} as LFS file...")
+            upload(operation.path_or_fileobj, upload_action, verify_action, upload_info, token, max_files=128, parallel_failures=127, max_retries=5)
+            logger.debug(f"{operation.path_in_repo}: Upload successful")
+            return
+        except ImportError:
+            raise ValueError(
+                "Fast uploading using 'hf_transfer' is enabled"
+                " (HF_HUB_ENABLE_HF_TRANSFER=1) but 'hf_transfer' package is not"
+                " available in your environment. Try `pip install hf_transfer`."
+            )
+        except Exception as e:
+            raise RuntimeError(
+                "An error occurred while downloading using `hf_transfer`. Consider"
+                " disabling HF_HUB_ENABLE_HF_TRANSFER for better error handling."
+            ) from e
+    else:
+        with operation.as_file(with_tqdm=True) as fileobj:
+            logger.debug(f"Uploading {operation.path_in_repo} as LFS file...")
+            lfs_upload(
+                fileobj=fileobj,
+                upload_action=upload_action,
+                verify_action=verify_action,
+                upload_info=upload_info,
+                token=token,
+            )
+            logger.debug(f"{operation.path_in_repo}: Upload successful")
 
 
 def _validate_preupload_info(preupload_info: dict):
