@@ -2453,17 +2453,24 @@ class TestSpaceAPIMocked(unittest.TestCase):
     def setUp(self) -> None:
         self.api = HfApi(token="fake_token")
         self.repo_id = "fake_repo_id"
-        return super().setUp()
 
-    @patch("huggingface_hub.hf_api.requests.post")
-    def test_create_space_with_hardware(self, post_mock: Mock) -> None:
+        get_session_mock = Mock()
+        self.post_mock = get_session_mock().post
+        self.post_mock.return_value.json.return_value = {"url": f"{self.api.endpoint}/spaces/user/repo_id"}
+        self.patcher = patch("huggingface_hub.hf_api.get_session", get_session_mock)
+        self.patcher.start()
+
+    def tearDown(self) -> None:
+        self.patcher.stop()
+
+    def test_create_space_with_hardware(self) -> None:
         self.api.create_repo(
             self.repo_id,
             repo_type="space",
             space_sdk="gradio",
             space_hardware=SpaceHardware.T4_MEDIUM,
         )
-        post_mock.assert_called_once_with(
+        self.post_mock.assert_called_once_with(
             f"{self.api.endpoint}/api/repos/create",
             headers=self.api._build_hf_headers(),
             json={
@@ -2476,10 +2483,9 @@ class TestSpaceAPIMocked(unittest.TestCase):
             },
         )
 
-    @patch("huggingface_hub.hf_api.requests.post")
-    def test_request_space_hardware(self, post_mock: Mock) -> None:
+    def test_request_space_hardware(self) -> None:
         self.api.request_space_hardware(self.repo_id, SpaceHardware.T4_MEDIUM)
-        post_mock.assert_called_once_with(
+        self.post_mock.assert_called_once_with(
             f"{self.api.endpoint}/api/spaces/{self.repo_id}/hardware",
             headers=self.api._build_hf_headers(),
             json={"flavor": "t4-medium"},
