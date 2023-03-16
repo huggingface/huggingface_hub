@@ -406,7 +406,7 @@ def _upload_lfs_object(operation: CommitOperationAdd, lfs_batch_action: dict, to
             )
         except Exception as e:
             raise RuntimeError(
-                "An error occurred while downloading using `hf_transfer`. Consider"
+                "An error occurred while uploading using `hf_transfer`. Consider"
                 " disabling HF_HUB_ENABLE_HF_TRANSFER for better error handling."
             ) from e
     else:
