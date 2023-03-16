@@ -15,6 +15,7 @@ from typing import Callable, Generator, Optional, Type, TypeVar, Union
 from unittest.mock import Mock, patch
 
 import pytest
+import requests
 from requests.exceptions import HTTPError
 
 from huggingface_hub.utils import logging
@@ -169,7 +170,9 @@ def offline(mode=OfflineSimulationMode.CONNECTION_FAILS, timeout=1e-16):
     if mode is OfflineSimulationMode.CONNECTION_FAILS:
         # inspired from https://stackoverflow.com/a/18601897
         with patch("socket.socket", offline_socket):
-            yield
+            with patch("huggingface_hub.utils._http.get_session") as get_session_mock:
+                get_session_mock.return_value = requests.Session()  # not an existing one
+                yield
     elif mode is OfflineSimulationMode.CONNECTION_TIMES_OUT:
         # inspired from https://stackoverflow.com/a/904609
         with patch("requests.request", timeout_request):
