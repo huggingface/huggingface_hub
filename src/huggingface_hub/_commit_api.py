@@ -395,7 +395,17 @@ def _upload_lfs_object(operation: CommitOperationAdd, lfs_batch_action: dict, to
             from hf_transfer import upload
 
             logger.debug(f"Uploading {operation.path_in_repo} as LFS file...")
-            upload(operation.path_or_fileobj, upload_action, verify_action, upload_info.sha256, upload_info.size, token, max_files=128, parallel_failures=127, max_retries=5)
+            upload(
+                file_path=operation.path_or_fileobj,
+                upload_action=upload_action,
+                verify_action=verify_action,
+                sha256=upload_info.sha256,
+                size=upload_info.size,
+                token=token,
+                max_files=128,
+                parallel_failures=127,  # could be removed
+                max_retries=5
+            )
             logger.debug(f"{operation.path_in_repo}: Upload successful")
             return
         except ImportError:
