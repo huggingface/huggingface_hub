@@ -386,9 +386,11 @@ def _upload_lfs_object(operation: CommitOperationAdd, lfs_batch_action: dict, to
         return
     upload_action = lfs_batch_action["actions"].get("upload")
     verify_action = lfs_batch_action["actions"].get("verify")
-    if HF_HUB_ENABLE_HF_TRANSFER:
-        if not isinstance(operation.path_or_fileobj, str):
-            raise ValueError("When using hf_transfer, you should not open the file beforehand and pass the file path as a string instead")
+    use_hf_transfer = HF_HUB_ENABLE_HF_TRANSFER
+    if not (isinstance(operation.path_or_fileobj, str) or isinstance(operation.path_or_fileobj, Path)) and HF_HUB_ENABLE_HF_TRANSFER:
+        logger.warning("hf_transfer is enabled but does not support uploading from bytes or BinaryIO, falling back to regular upload")
+        use_hf_transfer &= False
+    if use_hf_transfer:
         try:
             # Upload file using an external Rust-based package. Upload is faster
             # but support less features (no progress bars).
@@ -399,8 +401,7 @@ def _upload_lfs_object(operation: CommitOperationAdd, lfs_batch_action: dict, to
                 file_path=operation.path_or_fileobj,
                 upload_action=upload_action,
                 verify_action=verify_action,
-                sha256=upload_info.sha256,
-                size=upload_info.size,
+                upload_info=upload_info,
                 token=token,
                 max_files=128,
                 parallel_failures=127,  # could be removed
