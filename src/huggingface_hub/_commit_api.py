@@ -367,8 +367,6 @@ def _upload_lfs_object(operation: CommitOperationAdd, lfs_batch_action: dict, to
     """
     Handles uploading a given object to the Hub with the LFS protocol.
 
-    Defers to [`~utils.lfs.lfs_upload`] for the actual upload logic.
-
     Can be a No-op if the content of the file is already present on the hub
     large file storage.
 
