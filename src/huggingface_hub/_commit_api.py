@@ -400,7 +400,7 @@ def _upload_lfs_object(operation: CommitOperationAdd, lfs_batch_action: dict, to
             "hf_transfer is enabled but does not support uploading from bytes or BinaryIO, falling back to regular"
             " upload"
         )
-        use_hf_transfer &= False
+        use_hf_transfer = False
     if use_hf_transfer:
         try:
             # Upload file using an external Rust-based package. Upload is faster
