@@ -14,7 +14,7 @@ from typing import Any, BinaryIO, Dict, Iterable, Iterator, List, Optional, Unio
 import requests
 from tqdm.contrib.concurrent import thread_map
 
-from .constants import HF_HUB_ENABLE_HF_TRANSFER, ENDPOINT
+from .constants import ENDPOINT, HF_HUB_ENABLE_HF_TRANSFER
 from .lfs import UploadInfo, _validate_batch_actions, lfs_upload, post_lfs_batch_info
 from .utils import (
     build_hf_headers,
@@ -387,8 +387,14 @@ def _upload_lfs_object(operation: CommitOperationAdd, lfs_batch_action: dict, to
     upload_action = lfs_batch_action["actions"].get("upload")
     verify_action = lfs_batch_action["actions"].get("verify")
     use_hf_transfer = HF_HUB_ENABLE_HF_TRANSFER
-    if not (isinstance(operation.path_or_fileobj, str) or isinstance(operation.path_or_fileobj, Path)) and HF_HUB_ENABLE_HF_TRANSFER:
-        logger.warning("hf_transfer is enabled but does not support uploading from bytes or BinaryIO, falling back to regular upload")
+    if (
+        not (isinstance(operation.path_or_fileobj, str) or isinstance(operation.path_or_fileobj, Path))
+        and HF_HUB_ENABLE_HF_TRANSFER
+    ):
+        warnings.warn(
+            "hf_transfer is enabled but does not support uploading from bytes or BinaryIO, falling back to regular"
+            " upload"
+        )
         use_hf_transfer &= False
     if use_hf_transfer:
         try:
@@ -405,7 +411,7 @@ def _upload_lfs_object(operation: CommitOperationAdd, lfs_batch_action: dict, to
                 token=token,
                 max_files=128,
                 parallel_failures=127,  # could be removed
-                max_retries=5
+                max_retries=5,
             )
             logger.debug(f"{operation.path_in_repo}: Upload successful")
             return
