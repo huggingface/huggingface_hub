@@ -345,16 +345,21 @@ def upload_lfs_files(
         except Exception as exc:
             raise RuntimeError(f"Error while uploading '{operation.path_in_repo}' to the Hub.") from exc
 
-    logger.debug(
-        f"Uploading {len(filtered_actions)} LFS files to the Hub using up to {num_threads} threads concurrently"
-    )
-    thread_map(
-        _inner_upload_lfs_object,
-        filtered_actions,
-        desc=f"Upload {len(filtered_actions)} LFS files",
-        max_workers=num_threads,
-        tqdm_class=hf_tqdm,
-    )
+    if HF_HUB_ENABLE_HF_TRANSFER:
+        logger.debug(f"Uploading {len(filtered_actions)} LFS files to the Hub using `hf_transfer`.")
+        for action in filtered_actions:
+            _inner_upload_lfs_object(action)
+    else:
+        logger.debug(
+            f"Uploading {len(filtered_actions)} LFS files to the Hub using up to {num_threads} threads concurrently"
+        )
+        thread_map(
+            _inner_upload_lfs_object,
+            filtered_actions,
+            desc=f"Upload {len(filtered_actions)} LFS files",
+            max_workers=num_threads,
+            tqdm_class=hf_tqdm,
+        )
 
 
 def _upload_lfs_object(operation: CommitOperationAdd, lfs_batch_action: dict, token: Optional[str]):
