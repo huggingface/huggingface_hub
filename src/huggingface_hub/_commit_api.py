@@ -398,10 +398,12 @@ def _upload_lfs_object(operation: CommitOperationAdd, lfs_batch_action: dict, to
     chunk_size = header.pop("chunk_size", None)
     logger.debug(f"Uploading {operation.path_in_repo} as LFS file...")
     if chunk_size is not None:
-        if isinstance(chunk_size, str):
-            chunk_size = int(chunk_size, 10)
-        else:
-            raise ValueError("Malformed response from LFS batch endpoint: `chunk_size` should be a string")
+        try:
+            chunk_size = int(chunk_size)
+        except (ValueError, TypeError):
+            raise ValueError(
+                f"Malformed response from LFS batch endpoint: `chunk_size` should be an integer. Got '{chunk_size}'."
+            )
         use_hf_transfer = HF_HUB_ENABLE_HF_TRANSFER
         if (
             not (isinstance(operation.path_or_fileobj, str) or isinstance(operation.path_or_fileobj, Path))
