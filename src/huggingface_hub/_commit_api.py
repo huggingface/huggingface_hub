@@ -9,13 +9,14 @@ from collections import defaultdict
 from contextlib import contextmanager
 from dataclasses import dataclass, field
 from pathlib import Path, PurePosixPath
+from requests.auth import HTTPBasicAuth
 from typing import Any, BinaryIO, Dict, Iterable, Iterator, List, Optional, Union
 
 import requests
 from tqdm.contrib.concurrent import thread_map
 
 from .constants import ENDPOINT, HF_HUB_ENABLE_HF_TRANSFER
-from .lfs import UploadInfo, _validate_batch_actions, lfs_upload, post_lfs_batch_info
+from .lfs import UploadInfo, _validate_batch_actions, _validate_lfs_action, post_lfs_batch_info, _upload_multi_part, _upload_single_part
 from .utils import (
     build_hf_headers,
     chunk_iterable,
@@ -391,57 +392,83 @@ def _upload_lfs_object(operation: CommitOperationAdd, lfs_batch_action: dict, to
         return
     upload_action = lfs_batch_action["actions"].get("upload")
     verify_action = lfs_batch_action["actions"].get("verify")
-    use_hf_transfer = HF_HUB_ENABLE_HF_TRANSFER
-    if (
-        not (isinstance(operation.path_or_fileobj, str) or isinstance(operation.path_or_fileobj, Path))
-        and HF_HUB_ENABLE_HF_TRANSFER
-    ):
-        warnings.warn(
-            "hf_transfer is enabled but does not support uploading from bytes or BinaryIO, falling back to regular"
-            " upload"
-        )
-        use_hf_transfer = False
-    if use_hf_transfer:
-        try:
-            # Upload file using an external Rust-based package. Upload is faster
-            # but support less features (no progress bars).
-            from hf_transfer import upload
+    _validate_lfs_action(upload_action)
+    if verify_action is not None:
+        _validate_lfs_action(verify_action)
 
-            logger.debug(f"Uploading {operation.path_in_repo} as LFS file...")
-            upload(
-                file_path=operation.path_or_fileobj,
-                upload_action=upload_action,
-                verify_action=verify_action,
-                upload_info=upload_info,
-                token=token,
-                max_files=128,
-                parallel_failures=127,  # could be removed
-                max_retries=5,
+    header = upload_action.get("header", {})
+    chunk_size = header.pop("chunk_size", None)
+    logger.debug(f"Uploading {operation.path_in_repo} as LFS file...")
+    if chunk_size is not None:
+        if isinstance(chunk_size, str):
+            chunk_size = int(chunk_size, 10)
+        else:
+            raise ValueError("Malformed response from LFS batch endpoint: `chunk_size` should be a string")
+        use_hf_transfer = HF_HUB_ENABLE_HF_TRANSFER
+        if (
+            not (isinstance(operation.path_or_fileobj, str) or isinstance(operation.path_or_fileobj, Path))
+            and HF_HUB_ENABLE_HF_TRANSFER
+        ):
+            warnings.warn(
+                "hf_transfer is enabled but does not support uploading from bytes or BinaryIO, falling back to regular"
+                " upload"
             )
-            logger.debug(f"{operation.path_in_repo}: Upload successful")
-            return
-        except ImportError:
-            raise ValueError(
-                "Fast uploading using 'hf_transfer' is enabled"
-                " (HF_HUB_ENABLE_HF_TRANSFER=1) but 'hf_transfer' package is not"
-                " available in your environment. Try `pip install hf_transfer`."
-            )
-        except Exception as e:
-            raise RuntimeError(
-                "An error occurred while uploading using `hf_transfer`. Consider"
-                " disabling HF_HUB_ENABLE_HF_TRANSFER for better error handling."
-            ) from e
+            use_hf_transfer = False
+        if use_hf_transfer:
+            try:
+                # Upload file using an external Rust-based package. Upload is faster
+                # but support less features (no progress bars).
+                from hf_transfer import upload
+
+                upload(
+                    file_path=operation.path_or_fileobj,
+                    file_size=upload_info.size,
+                    oid=upload_info.sha256.hex(),
+                    parts_urls=header,
+                    completion_url=upload_action["href"],
+                    chunk_size=chunk_size,
+                    max_files=128,
+                    parallel_failures=127,  # could be removed
+                    max_retries=5,
+                )
+            except ImportError:
+                raise ValueError(
+                    "Fast uploading using 'hf_transfer' is enabled"
+                    " (HF_HUB_ENABLE_HF_TRANSFER=1) but 'hf_transfer' package is not"
+                    " available in your environment. Try `pip install hf_transfer`."
+                )
+            except Exception as e:
+                raise RuntimeError(
+                    "An error occurred while uploading using `hf_transfer`. Consider"
+                    " disabling HF_HUB_ENABLE_HF_TRANSFER for better error handling."
+                ) from e
+        else:
+            with operation.as_file(with_tqdm=True) as fileobj:
+                _upload_multi_part(
+                    completion_url=upload_action["href"],
+                    fileobj=fileobj,
+                    chunk_size=chunk_size,
+                    header=header,
+                    upload_info=upload_info,
+                )
     else:
         with operation.as_file(with_tqdm=True) as fileobj:
-            logger.debug(f"Uploading {operation.path_in_repo} as LFS file...")
-            lfs_upload(
+            _upload_single_part(
+                upload_url=upload_action["href"],
                 fileobj=fileobj,
-                upload_action=upload_action,
-                verify_action=verify_action,
-                upload_info=upload_info,
-                token=token,
             )
-            logger.debug(f"{operation.path_in_repo}: Upload successful")
+    if verify_action is not None:
+        verify_resp = requests.post(
+            verify_action["href"],
+            auth=HTTPBasicAuth(
+                username="USER",
+                # Token must be provided or retrieved
+                password=get_token_to_send(token or True),  # type: ignore
+            ),
+            json={"oid": upload_info.sha256.hex(), "size": upload_info.size},
+        )
+        hf_raise_for_status(verify_resp)
+    logger.debug(f"{operation.path_in_repo}: Upload successful")
 
 
 def _validate_preupload_info(preupload_info: dict):
