@@ -530,7 +530,7 @@ class HfHubDownloadToLocalDir(unittest.TestCase):
             self.assertTrue(config_file.is_file())
             if os.name != "nt":  # File is symlink (except in Windows CI)
                 self.assertTrue(config_file.is_symlink())
-                blob_path = Path(os.readlink(str(config_file)))  # config_file.readlink() not supported on Python3.7
+                blob_path = config_file.resolve()
                 self.assertTrue(self.cache_dir in blob_path.parents)  # blob is cached!
             else:
                 self.assertFalse(config_file.is_symlink())
