@@ -877,10 +877,10 @@ def _create_symlink(src: str, dst: str, new_blob: bool = False) -> None:
         _support_symlinks = are_symlinks_supported(os.path.dirname(abs_dst))
 
     if _support_symlinks:
-        relative_src = relative_src or abs_src
-        logger.info(f"Creating pointer from {relative_src} to {abs_dst}")
+        src_rel_or_abs = relative_src or abs_src
+        logger.info(f"Creating pointer from {src_rel_or_abs} to {abs_dst}")
         try:
-            os.symlink(relative_src, abs_dst)
+            os.symlink(src_rel_or_abs, abs_dst)
         except FileExistsError:
             if os.path.islink(abs_dst) and os.path.realpath(abs_dst) == os.path.realpath(abs_src):
                 # `abs_dst` already exists and is a symlink to the `abs_src` blob. It is most likely that the file has
