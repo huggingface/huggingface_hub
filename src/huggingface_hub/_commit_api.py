@@ -449,11 +449,9 @@ def _upload_lfs_object(operation: CommitOperationAdd, lfs_batch_action: dict, to
                         {
                             "partNumber": resp.part_number,
                             "etag": etag,
-                        })
-                completion_payload: CompletionPayloadT = {
-                    "oid": upload_info.sha256.hex(),
-                    "parts": parts
-                }
+                        }
+                    )
+                completion_payload: CompletionPayloadT = {"oid": upload_info.sha256.hex(), "parts": parts}
                 completion_res = requests.post(
                     upload_action["href"],
                     json=completion_payload,
