@@ -25,7 +25,7 @@ from .utils import (
     tqdm_stream_file,
     validate_hf_hub_args,
 )
-from .utils import tqdm as hf_tqdm
+from .utils import get_token_to_send, tqdm as hf_tqdm
 from .utils._deprecation import _deprecate_method
 from .utils._typing import Literal
 
@@ -418,11 +418,10 @@ def _upload_lfs_object(operation: CommitOperationAdd, lfs_batch_action: dict, to
             try:
                 # Upload file using an external Rust-based package. Upload is faster
                 # but support less features (no progress bars).
-                from hf_transfer import upload
+                from hf_transfer import multipart_upload
 
-                upload(
+                multipart_upload(
                     file_path=operation.path_or_fileobj,
-                    file_size=upload_info.size,
                     oid=upload_info.sha256.hex(),
                     parts_urls=header,
                     completion_url=upload_action["href"],
