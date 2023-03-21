@@ -9,23 +9,33 @@ from collections import defaultdict
 from contextlib import contextmanager
 from dataclasses import dataclass, field
 from pathlib import Path, PurePosixPath
-from requests.auth import HTTPBasicAuth
 from typing import Any, BinaryIO, Dict, Iterable, Iterator, List, Optional, Union
 
 import requests
+from requests.auth import HTTPBasicAuth
 from tqdm.contrib.concurrent import thread_map
 
 from .constants import ENDPOINT, HF_HUB_ENABLE_HF_TRANSFER
-from .lfs import UploadInfo, _validate_batch_actions, _validate_lfs_action, post_lfs_batch_info, _upload_multi_part, _upload_single_part
+from .lfs import (
+    LFS_HEADERS,
+    CompletionPayloadT,
+    UploadInfo,
+    _upload_multi_part,
+    _upload_single_part,
+    _validate_batch_actions,
+    _validate_lfs_action,
+    post_lfs_batch_info,
+)
 from .utils import (
     build_hf_headers,
     chunk_iterable,
+    get_token_to_send,
     hf_raise_for_status,
     logging,
     tqdm_stream_file,
     validate_hf_hub_args,
 )
-from .utils import get_token_to_send, tqdm as hf_tqdm
+from .utils import tqdm as hf_tqdm
 from .utils._deprecation import _deprecate_method
 from .utils._typing import Literal
 
@@ -420,16 +430,36 @@ def _upload_lfs_object(operation: CommitOperationAdd, lfs_batch_action: dict, to
                 # but support less features (no progress bars).
                 from hf_transfer import multipart_upload
 
-                multipart_upload(
+                responses = multipart_upload(
                     file_path=operation.path_or_fileobj,
-                    oid=upload_info.sha256.hex(),
                     parts_urls=header,
-                    completion_url=upload_action["href"],
                     chunk_size=chunk_size,
                     max_files=128,
                     parallel_failures=127,  # could be removed
                     max_retries=5,
                 )
+                responses.sort(key=lambda r: r.part_number)
+
+                parts = []
+                for resp in responses:
+                    etag = resp.headers.get("etag")
+                    if etag is None or etag == "":
+                        raise ValueError(f"Invalid etag (`{etag}`) returned for part {resp.part_number}")
+                    parts.append(
+                        {
+                            "partNumber": resp.part_number,
+                            "etag": etag,
+                        })
+                completion_payload: CompletionPayloadT = {
+                    "oid": upload_info.sha256.hex(),
+                    "parts": parts
+                }
+                completion_res = requests.post(
+                    upload_action["href"],
+                    json=completion_payload,
+                    headers=LFS_HEADERS,
+                )
+                hf_raise_for_status(completion_res)
             except ImportError:
                 raise ValueError(
                     "Fast uploading using 'hf_transfer' is enabled"
