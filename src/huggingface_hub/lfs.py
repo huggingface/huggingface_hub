@@ -234,7 +234,7 @@ class CompletionPayloadT(TypedDict):
     parts: List[PayloadPartT]
 
 
-def get_sorted_parts_urls(header: Dict, upload_info: UploadInfo, chunk_size: int) -> Tuple[List[str], int]:
+def get_sorted_parts_urls(header: Dict, upload_info: UploadInfo, chunk_size: int) -> List[str]:
     sorted_part_upload_urls = [
         upload_url
         for _, upload_url in sorted(
@@ -249,7 +249,34 @@ def get_sorted_parts_urls(header: Dict, upload_info: UploadInfo, chunk_size: int
     num_parts = len(sorted_part_upload_urls)
     if num_parts != ceil(upload_info.size / chunk_size):
         raise ValueError("Invalid server response to upload large LFS file")
-    return sorted_part_upload_urls, num_parts
+    return sorted_part_upload_urls
+
+
+def get_completion_payload(response_headers: List, oid: str) -> CompletionPayloadT:
+    parts = []
+    for part_number, header in enumerate(response_headers):
+        etag = header.get("etag")
+        if etag is None or etag == "":
+            raise ValueError(f"Invalid etag (`{etag}`) returned for part {part_number + 1}")
+        parts.append(
+            {
+                "partNumber": part_number + 1,
+                "etag": etag,
+            }
+        )
+    completion_payload: CompletionPayloadT = {"oid": oid, "parts": parts}
+    return completion_payload
+
+
+def send_completion_payload(completion_url: str, completion_payload: CompletionPayloadT):
+    completion_res = requests.post(
+        completion_url,
+        json=completion_payload,
+        headers=LFS_HEADERS,
+    )
+    hf_raise_for_status(completion_res)
+
+    return completion_res
 
 
 def _upload_multi_part(
@@ -283,21 +310,9 @@ def _upload_multi_part(
     Raises: `requests.HTTPError` if requesting `completion_url` resulted in an error.
 
     """
-    sorted_part_upload_urls, num_parts = get_sorted_parts_urls(
-        header=header, upload_info=upload_info, chunk_size=chunk_size
-    )
+    sorted_part_upload_urls = get_sorted_parts_urls(header=header, upload_info=upload_info, chunk_size=chunk_size)
 
-    completion_payload: CompletionPayloadT = {
-        "oid": upload_info.sha256.hex(),
-        "parts": [
-            {
-                "partNumber": idx + 1,
-                "etag": "",
-            }
-            for idx in range(num_parts)
-        ],
-    }
-
+    headers = []
     for part_idx, part_upload_url in enumerate(sorted_part_upload_urls):
         with SliceFileObj(
             fileobj,
@@ -306,18 +321,9 @@ def _upload_multi_part(
         ) as fileobj_slice:
             part_upload_res = http_backoff("PUT", part_upload_url, data=fileobj_slice)
             hf_raise_for_status(part_upload_res)
-            etag = part_upload_res.headers.get("etag")
-            if etag is None or etag == "":
-                raise ValueError(f"Invalid etag (`{etag}`) returned for part {part_idx +1} of {num_parts}")
-            completion_payload["parts"][part_idx]["etag"] = etag
+            headers.append(part_upload_res.headers)
 
-    completion_res = requests.post(
-        completion_url,
-        json=completion_payload,
-        headers=LFS_HEADERS,
-    )
-    hf_raise_for_status(completion_res)
-    return completion_res
+    return send_completion_payload(completion_url, get_completion_payload(headers, upload_info.sha256.hex()))
 
 
 class SliceFileObj(AbstractContextManager):

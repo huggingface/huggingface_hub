@@ -17,15 +17,15 @@ from tqdm.contrib.concurrent import thread_map
 
 from .constants import ENDPOINT, HF_HUB_ENABLE_HF_TRANSFER
 from .lfs import (
-    LFS_HEADERS,
-    CompletionPayloadT,
     UploadInfo,
     _upload_multi_part,
     _upload_single_part,
     _validate_batch_actions,
     _validate_lfs_action,
+    get_completion_payload,
     get_sorted_parts_urls,
     post_lfs_batch_info,
+    send_completion_payload,
 )
 from .utils import (
     build_hf_headers,
@@ -431,7 +431,7 @@ def _upload_lfs_object(operation: CommitOperationAdd, lfs_batch_action: dict, to
                 # but support less features (no progress bars).
                 from hf_transfer import multipart_upload
 
-                sorted_parts_urls, _ = get_sorted_parts_urls(
+                sorted_parts_urls = get_sorted_parts_urls(
                     header=header, upload_info=upload_info, chunk_size=chunk_size
                 )
 
@@ -444,24 +444,10 @@ def _upload_lfs_object(operation: CommitOperationAdd, lfs_batch_action: dict, to
                     max_retries=5,
                 )
 
-                parts = []
-                for part_number, header in enumerate(response_headers):
-                    etag = header.get("etag")
-                    if etag is None or etag == "":
-                        raise ValueError(f"Invalid etag (`{etag}`) returned for part {part_number + 1}")
-                    parts.append(
-                        {
-                            "partNumber": part_number + 1,
-                            "etag": etag,
-                        }
-                    )
-                completion_payload: CompletionPayloadT = {"oid": upload_info.sha256.hex(), "parts": parts}
-                completion_res = requests.post(
-                    upload_action["href"],
-                    json=completion_payload,
-                    headers=LFS_HEADERS,
+                send_completion_payload(
+                    upload_action["href"], get_completion_payload(response_headers, upload_info.sha256.hex())
                 )
-                hf_raise_for_status(completion_res)
+
             except ImportError:
                 raise ValueError(
                     "Fast uploading using 'hf_transfer' is enabled"
