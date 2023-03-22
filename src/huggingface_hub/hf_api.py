@@ -2760,6 +2760,14 @@ class HfApi:
         if path_in_repo is None:
             path_in_repo = ""
 
+        # Do not upload .git folder
+        if ignore_patterns is None:
+            ignore_patterns = []
+        if isinstance(ignore_patterns, str):
+            ignore_patterns = [ignore_patterns]
+        ignore_patterns.append(".git/")
+        ignore_patterns.append(".git/**")
+
         commit_message = (
             commit_message if commit_message is not None else f"Upload {path_in_repo} with huggingface_hub"
         )
