@@ -8,6 +8,7 @@ coverage:
   status:
     # not in PRs
     patch: false
+    project: false
 
 github_checks:
   annotations: false
