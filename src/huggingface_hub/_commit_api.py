@@ -24,6 +24,7 @@ from .lfs import (
     _upload_single_part,
     _validate_batch_actions,
     _validate_lfs_action,
+    get_sorted_parts_urls,
     post_lfs_batch_info,
 )
 from .utils import (
@@ -430,24 +431,27 @@ def _upload_lfs_object(operation: CommitOperationAdd, lfs_batch_action: dict, to
                 # but support less features (no progress bars).
                 from hf_transfer import multipart_upload
 
-                responses = multipart_upload(
+                sorted_parts_urls, _ = get_sorted_parts_urls(
+                    header=header, upload_info=upload_info, chunk_size=chunk_size
+                )
+
+                response_headers = multipart_upload(
                     file_path=operation.path_or_fileobj,
-                    parts_urls=header,
+                    parts_urls=sorted_parts_urls,
                     chunk_size=chunk_size,
                     max_files=128,
                     parallel_failures=127,  # could be removed
                     max_retries=5,
                 )
-                responses.sort(key=lambda r: r.part_number)
 
                 parts = []
-                for resp in responses:
-                    etag = resp.headers.get("etag")
+                for part_number, header in enumerate(response_headers):
+                    etag = header.get("etag")
                     if etag is None or etag == "":
-                        raise ValueError(f"Invalid etag (`{etag}`) returned for part {resp.part_number}")
+                        raise ValueError(f"Invalid etag (`{etag}`) returned for part {part_number + 1}")
                     parts.append(
                         {
-                            "partNumber": resp.part_number,
+                            "partNumber": part_number + 1,
                             "etag": etag,
                         }
                     )

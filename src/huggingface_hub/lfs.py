@@ -20,7 +20,7 @@ from contextlib import AbstractContextManager
 from dataclasses import dataclass
 from math import ceil
 from os.path import getsize
-from typing import BinaryIO, Iterable, List, Optional, Tuple
+from typing import BinaryIO, Dict, Iterable, List, Optional, Tuple
 
 import requests
 from requests.auth import HTTPBasicAuth
@@ -234,6 +234,24 @@ class CompletionPayloadT(TypedDict):
     parts: List[PayloadPartT]
 
 
+def get_sorted_parts_urls(header: Dict, upload_info: UploadInfo, chunk_size: int) -> Tuple[List[str], int]:
+    sorted_part_upload_urls = [
+        upload_url
+        for _, upload_url in sorted(
+            [
+                (int(part_num, 10), upload_url)
+                for part_num, upload_url in header.items()
+                if part_num.isdigit() and len(part_num) > 0
+            ],
+            key=lambda t: t[0],
+        )
+    ]
+    num_parts = len(sorted_part_upload_urls)
+    if num_parts != ceil(upload_info.size / chunk_size):
+        raise ValueError("Invalid server response to upload large LFS file")
+    return sorted_part_upload_urls, num_parts
+
+
 def _upload_multi_part(
     completion_url: str,
     fileobj: BinaryIO,
@@ -265,20 +283,9 @@ def _upload_multi_part(
     Raises: `requests.HTTPError` if requesting `completion_url` resulted in an error.
 
     """
-    sorted_part_upload_urls = [
-        upload_url
-        for _, upload_url in sorted(
-            [
-                (int(part_num, 10), upload_url)
-                for part_num, upload_url in header.items()
-                if part_num.isdigit() and len(part_num) > 0
-            ],
-            key=lambda t: t[0],
-        )
-    ]
-    num_parts = len(sorted_part_upload_urls)
-    if num_parts != ceil(upload_info.size / chunk_size):
-        raise ValueError("Invalid server response to upload large LFS file")
+    sorted_part_upload_urls, num_parts = get_sorted_parts_urls(
+        header=header, upload_info=upload_info, chunk_size=chunk_size
+    )
 
     completion_payload: CompletionPayloadT = {
         "oid": upload_info.sha256.hex(),
