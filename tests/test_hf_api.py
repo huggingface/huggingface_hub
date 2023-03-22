@@ -2440,7 +2440,9 @@ class TestSpaceAPIProduction(unittest.TestCase):
         runtime_after_pause = self.api.pause_space(self.repo_id)
         self.assertEqual(runtime_after_pause.stage, SpaceStage.PAUSED)
 
-        runtime_after_restart = self.api.restart_space(self.repo_id)
+        self.api.restart_space(self.repo_id)
+        time.sleep(0.2)
+        runtime_after_restart = self.api.get_space_runtime(self.repo_id)
         self.assertIn(runtime_after_restart.stage, (SpaceStage.BUILDING, SpaceStage.RUNNING_BUILDING))
 
 
