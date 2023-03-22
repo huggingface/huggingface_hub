@@ -517,7 +517,7 @@ class CachedDownloadTests(unittest.TestCase):
 
             def _mocked_request_wrapper(*args, **kwargs):
                 response = _request_wrapper(*args, **kwargs)
-                response.headers["Content-Length"] = "65000"  # will expect 450 bytes but will download 65074 bytes
+                response.headers["Content-Length"] = "65000"  # will expect 65000 bytes but will download 65074 bytes
                 return response
 
             with patch("huggingface_hub.file_download._request_wrapper", _mocked_request_wrapper):
