@@ -67,7 +67,7 @@
 
 {{ bias_recommendations | default("Users (both direct and downstream) should be made aware of the risks, biases and limitations of the model. More information needed for further recommendations.", true)}}
 
-### How to Get Started with the Model
+## How to Get Started with the Model
 
 Use the code below to get started with the model.
 
