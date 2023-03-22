@@ -56,6 +56,44 @@ class TestCommitOperationPathInRepo(unittest.TestCase):
                     CommitOperationDelete(path_in_repo=input)
 
 
+class TestCommitOperationForbiddenPathInRepo(unittest.TestCase):
+    """Commit operations must throw an error on files in the .git/ folder.
+
+    Server would error anyway so it's best to prevent early.
+    """
+
+    INVALID_PATHS_IN_REPO = {
+        ".git",
+        ".git/path/to/file",
+        "./.git/path/to/file",
+        "subfolder/path/.git/to/file",
+        "./subfolder/path/.git/to/file",
+    }
+
+    VALID_PATHS_IN_REPO = {
+        ".gitignore",
+        "path/to/.gitignore",
+        "path/to/something.git",
+        "path/to/something.git/more",
+    }
+
+    def test_cannot_update_file_in_git_folder(self):
+        for path in self.INVALID_PATHS_IN_REPO:
+            with self.subTest(msg=f"Add: '{path}'"):
+                with self.assertRaises(ValueError):
+                    CommitOperationAdd(path_in_repo=path, path_or_fileobj=b"content")
+            with self.subTest(msg=f"Delete: '{path}'"):
+                with self.assertRaises(ValueError):
+                    CommitOperationDelete(path_in_repo=path)
+
+    def test_valid_path_in_repo_containing_git(self):
+        for path in self.VALID_PATHS_IN_REPO:
+            with self.subTest(msg=f"Add: '{path}'"):
+                CommitOperationAdd(path_in_repo=path, path_or_fileobj=b"content")
+            with self.subTest(msg=f"Delete: '{path}'"):
+                CommitOperationDelete(path_in_repo=path)
+
+
 class TestWarnOnOverwritingOperations(unittest.TestCase):
     add_file_ab = CommitOperationAdd(path_in_repo="a/b.txt", path_or_fileobj=b"data")
     add_file_abc = CommitOperationAdd(path_in_repo="a/b/c.md", path_or_fileobj=b"data")
