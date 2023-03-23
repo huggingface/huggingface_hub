@@ -25,7 +25,6 @@ from .utils import (
     validate_hf_hub_args,
 )
 from .utils import tqdm as hf_tqdm
-from .utils._deprecation import _deprecate_method
 from .utils._typing import Literal
 
 
@@ -129,14 +128,6 @@ class CommitOperationAdd:
             self.upload_info = UploadInfo.from_bytes(self.path_or_fileobj)
         else:
             self.upload_info = UploadInfo.from_fileobj(self.path_or_fileobj)
-
-    @_deprecate_method(version="0.14", message="Operation is validated at initialization.")
-    def validate(self) -> None:
-        pass
-
-    @_deprecate_method(version="0.14", message="Use `upload_info` property instead.")
-    def _upload_info(self) -> UploadInfo:
-        return self.upload_info
 
     @contextmanager
     def as_file(self, with_tqdm: bool = False) -> Iterator[BinaryIO]:

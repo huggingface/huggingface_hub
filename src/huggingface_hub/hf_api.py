@@ -61,19 +61,15 @@ from .utils import (  # noqa: F401 # imported for backward compatibility
     HfFolder,
     HfHubHTTPError,
     build_hf_headers,
-    erase_from_credential_store,
     filter_repo_objects,
     hf_raise_for_status,
     logging,
     parse_datetime,
-    read_from_credential_store,
     validate_hf_hub_args,
-    write_to_credential_store,
 )
 from .utils._deprecation import (
     _deprecate_arguments,
     _deprecate_list_output,
-    _deprecate_method,
 )
 from .utils._pagination import paginate
 from .utils._typing import Literal, TypedDict
@@ -856,39 +852,6 @@ class HfApi:
             return True
         except HTTPError:
             return False
-
-    @staticmethod
-    @_deprecate_method(
-        version="0.14",
-        message=(
-            "`HfApi.set_access_token` is deprecated as it is very ambiguous. Use"
-            " `login` or `set_git_credential` instead."
-        ),
-    )
-    def set_access_token(access_token: str):
-        """
-        Saves the passed access token so git can correctly authenticate the
-        user.
-
-        Args:
-            access_token (`str`):
-                The access token to save.
-        """
-        write_to_credential_store(USERNAME_PLACEHOLDER, access_token)
-
-    @staticmethod
-    @_deprecate_method(
-        version="0.14",
-        message=(
-            "`HfApi.unset_access_token` is deprecated as it is very ambiguous. Use"
-            " `login` or `unset_git_credential` instead."
-        ),
-    )
-    def unset_access_token():
-        """
-        Resets the user's access token.
-        """
-        erase_from_credential_store(USERNAME_PLACEHOLDER)
 
     def get_model_tags(self) -> ModelTags:
         "Gets all valid model tags as a nested namespace object"
@@ -4303,9 +4266,6 @@ def _parse_revision_from_pr_url(pr_url: str) -> str:
 
 
 api = HfApi()
-
-set_access_token = api.set_access_token
-unset_access_token = api.unset_access_token
 
 whoami = api.whoami
 

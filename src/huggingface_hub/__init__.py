@@ -46,7 +46,7 @@ import sys
 from typing import TYPE_CHECKING
 
 
-__version__ = "0.13.0.dev0"
+__version__ = "0.14.0.dev0"
 
 # Alphabetical order of definitions is ensured in tests
 # WARNING: any comment added in this dictionary definition will be lost when
@@ -155,10 +155,8 @@ _SUBMOD_ATTRS = {
         "repo_type_and_id_from_hf_id",
         "request_space_hardware",
         "restart_space",
-        "set_access_token",
         "space_info",
         "unlike",
-        "unset_access_token",
         "update_repo_visibility",
         "upload_file",
         "upload_folder",
@@ -414,10 +412,8 @@ if TYPE_CHECKING:  # pragma: no cover
         repo_type_and_id_from_hf_id,  # noqa: F401
         request_space_hardware,  # noqa: F401
         restart_space,  # noqa: F401
-        set_access_token,  # noqa: F401
         space_info,  # noqa: F401
         unlike,  # noqa: F401
-        unset_access_token,  # noqa: F401
         update_repo_visibility,  # noqa: F401
         upload_file,  # noqa: F401
         upload_folder,  # noqa: F401

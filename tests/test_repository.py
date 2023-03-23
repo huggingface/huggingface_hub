@@ -31,7 +31,6 @@ from huggingface_hub.utils import SoftTemporaryDirectory, logging, run_subproces
 
 from .testing_constants import ENDPOINT_STAGING, TOKEN
 from .testing_utils import (
-    expect_deprecation,
     repo_name,
     retry_endpoint,
     use_tmp_repo,
@@ -80,15 +79,11 @@ class TestRepositoryShared(RepositoryTestAbstract):
     """
 
     @classmethod
-    @expect_deprecation("set_access_token")
     def setUpClass(cls):
         """
         Share this valid token in all tests below.
         """
         super().setUpClass()
-        cls._api.set_access_token(TOKEN)
-        cls._token = TOKEN
-
         cls.repo_url = cls._api.create_repo(repo_id=repo_name())
         cls.repo_id = cls.repo_url.repo_id
         cls._api.upload_file(
@@ -99,10 +94,7 @@ class TestRepositoryShared(RepositoryTestAbstract):
 
     @classmethod
     def tearDownClass(cls):
-        try:
-            cls._api.delete_repo(repo_id=cls.repo_id)
-        except requests.exceptions.HTTPError:
-            pass
+        cls._api.delete_repo(repo_id=cls.repo_id)
 
     def test_clone_from_repo_url(self):
         Repository(self.repo_path, clone_from=self.repo_url)
@@ -114,24 +106,17 @@ class TestRepositoryShared(RepositoryTestAbstract):
     @retry_endpoint
     def test_clone_from_repo_name_no_namespace_fails(self):
         with self.assertRaises(EnvironmentError):
-            Repository(
-                self.repo_path,
-                clone_from=self.repo_id.split("/")[1],
-                use_auth_token=self._token,
-            )
+            Repository(self.repo_path, clone_from=self.repo_id.split("/")[1], token=TOKEN)
 
     @retry_endpoint
     def test_clone_from_not_hf_url(self):
         # Should not error out
-        Repository(
-            self.repo_path,
-            clone_from="https://hf.co/hf-internal-testing/huggingface-hub-dummy-repository",
-        )
+        Repository(self.repo_path, clone_from="https://hf.co/hf-internal-testing/huggingface-hub-dummy-repository")
 
     def test_clone_from_missing_repo(self):
         """If the repo does not exist an EnvironmentError is raised."""
         with self.assertRaises(EnvironmentError):
-            Repository(self.repo_path, clone_from="missing_repo", token=self._token)
+            Repository(self.repo_path, clone_from="missing_repo")
 
     @with_production_testing
     @retry_endpoint
@@ -141,11 +126,7 @@ class TestRepositoryShared(RepositoryTestAbstract):
     @with_production_testing
     @retry_endpoint
     def test_clone_from_prod_canonical_repo_url(self):
-        Repository(
-            self.repo_path,
-            clone_from="https://huggingface.co/bert-base-cased",
-            skip_lfs_files=True,
-        )
+        Repository(self.repo_path, clone_from="https://huggingface.co/bert-base-cased", skip_lfs_files=True)
 
     def test_init_from_existing_local_clone(self):
         run_subprocess(["git", "clone", self.repo_url, str(self.repo_path)])
@@ -189,8 +170,8 @@ class TestRepositoryShared(RepositoryTestAbstract):
 
     @retry_endpoint
     def test_init_clone_in_nonempty_linked_git_repo_with_token(self):
-        Repository(self.repo_path, clone_from=self.repo_url, use_auth_token=self._token)
-        Repository(self.repo_path, clone_from=self.repo_url, use_auth_token=self._token)
+        Repository(self.repo_path, clone_from=self.repo_url, token=TOKEN)
+        Repository(self.repo_path, clone_from=self.repo_url, token=TOKEN)
 
     @retry_endpoint
     def test_is_tracked_upstream(self):
@@ -217,40 +198,25 @@ class TestRepositoryUniqueRepos(RepositoryTestAbstract):
     These tests can push data to it.
     """
 
-    @classmethod
-    @expect_deprecation("set_access_token")
-    def setUpClass(cls):
-        """
-        Share this valid token in all tests below.
-        """
-        super().setUpClass()
-        cls._api.set_access_token(TOKEN)
-        cls._token = TOKEN
-
     @retry_endpoint
     def setUp(self):
         super().setUp()
         self.repo_url = self._api.create_repo(repo_id=repo_name())
         self.repo_id = self.repo_url.repo_id
         self._api.upload_file(
-            path_or_fileobj=self.binary_content.encode(),
-            path_in_repo="random_file.txt",
-            repo_id=self.repo_id,
+            path_or_fileobj=self.binary_content.encode(), path_in_repo="random_file.txt", repo_id=self.repo_id
         )
 
     def tearDown(self):
-        try:
-            self._api.delete_repo(repo_id=self.repo_id)
-        except requests.exceptions.HTTPError:
-            pass
+        self._api.delete_repo(repo_id=self.repo_id)
 
     def clone_repo(self, **kwargs) -> Repository:
         if "local_dir" not in kwargs:
             kwargs["local_dir"] = self.repo_path
         if "clone_from" not in kwargs:
             kwargs["clone_from"] = self.repo_url
-        if "use_auth_token" not in kwargs:
-            kwargs["use_auth_token"] = self._token
+        if "token" not in kwargs:
+            kwargs["token"] = TOKEN
         if "git_user" not in kwargs:
             kwargs["git_user"] = "ci"
         if "git_email" not in kwargs:
@@ -274,9 +240,7 @@ class TestRepositoryUniqueRepos(RepositoryTestAbstract):
 
         # Add to the remote repository without doing anything to the local repository.
         self._api.upload_file(
-            path_or_fileobj=self.binary_content.encode(),
-            path_in_repo="random_file_3.txt",
-            repo_id=self.repo_id,
+            path_or_fileobj=self.binary_content.encode(), path_in_repo="random_file_3.txt", repo_id=self.repo_id
         )
 
         # Cloning the repository in the same directory should not result in a git pull.
@@ -837,7 +801,7 @@ class TestRepositoryOffline(RepositoryTestAbstract):
         self.assertIn("file.txt", files)
 
     def test_repo_user(self):
-        _ = Repository(self.repo_path, use_auth_token=TOKEN)
+        _ = Repository(self.repo_path, token=TOKEN)
         username = run_subprocess("git config user.name", folder=self.repo_path).stdout
         email = run_subprocess("git config user.email", folder=self.repo_path).stdout
 
@@ -846,12 +810,7 @@ class TestRepositoryOffline(RepositoryTestAbstract):
         self.assertEqual(email.strip(), "julien@huggingface.co")
 
     def test_repo_passed_user(self):
-        _ = Repository(
-            self.repo_path,
-            use_auth_token=TOKEN,  # token ignored
-            git_user="RANDOM_USER",
-            git_email="EMAIL@EMAIL.EMAIL",
-        )
+        _ = Repository(self.repo_path, token=TOKEN, git_user="RANDOM_USER", git_email="EMAIL@EMAIL.EMAIL")
         username = run_subprocess("git config user.name", folder=self.repo_path).stdout
         email = run_subprocess("git config user.email", folder=self.repo_path).stdout
 
@@ -886,12 +845,8 @@ class TestRepositoryDataset(RepositoryTestAbstract):
     """Class to test that cloning from a different repo_type works fine."""
 
     @classmethod
-    @expect_deprecation("set_access_token")
     def setUpClass(cls):
         super().setUpClass()
-        cls._api.set_access_token(TOKEN)
-        cls._token = TOKEN
-
         cls.repo_url = cls._api.create_repo(repo_id=repo_name(), repo_type="dataset")
         cls.repo_id = cls.repo_url.repo_id
         cls._api.upload_file(
@@ -904,41 +859,25 @@ class TestRepositoryDataset(RepositoryTestAbstract):
     @classmethod
     def tearDownClass(cls):
         super().tearDownClass()
-        try:
-            cls._api.delete_repo(repo_id=cls.repo_id)
-        except requests.exceptions.HTTPError:
-            pass
+        cls._api.delete_repo(repo_id=cls.repo_id, repo_type="dataset")
 
     @retry_endpoint
     def test_clone_dataset_with_endpoint_explicit_repo_type(self):
         Repository(
-            self.repo_path,
-            clone_from=self.repo_url,
-            repo_type="dataset",
-            git_user="ci",
-            git_email="ci@dummy.com",
+            self.repo_path, clone_from=self.repo_url, repo_type="dataset", git_user="ci", git_email="ci@dummy.com"
         )
         self.assertTrue((self.repo_path / "file.txt").exists())
 
     @retry_endpoint
     def test_clone_dataset_with_endpoint_implicit_repo_type(self):
         self.assertIn("dataset", self.repo_url)  # Implicit
-        Repository(
-            self.repo_path,
-            clone_from=self.repo_url,
-            git_user="ci",
-            git_email="ci@dummy.com",
-        )
+        Repository(self.repo_path, clone_from=self.repo_url, git_user="ci", git_email="ci@dummy.com")
         self.assertTrue((self.repo_path / "file.txt").exists())
 
     @retry_endpoint
     def test_clone_dataset_with_repo_id_and_repo_type(self):
         Repository(
-            self.repo_path,
-            clone_from=self.repo_id,
-            repo_type="dataset",
-            git_user="ci",
-            git_email="ci@dummy.com",
+            self.repo_path, clone_from=self.repo_id, repo_type="dataset", git_user="ci", git_email="ci@dummy.com"
         )
         self.assertTrue((self.repo_path / "file.txt").exists())
 
@@ -954,7 +893,7 @@ class TestRepositoryDataset(RepositoryTestAbstract):
                 self.repo_path,
                 clone_from=self.repo_id.split("/")[1],
                 repo_type="dataset",
-                use_auth_token=self._token,
+                token=TOKEN,
                 git_user="ci",
                 git_email="ci@dummy.com",
             )
