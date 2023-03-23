@@ -7,9 +7,8 @@ from huggingface_hub import HfApi, hf_hub_download, snapshot_download
 from huggingface_hub.utils import SoftTemporaryDirectory, logging
 from huggingface_hub.utils._errors import EntryNotFoundError
 
-from .testing_constants import ENDPOINT_STAGING, TOKEN, USER
+from .testing_constants import ENDPOINT_STAGING, TOKEN
 from .testing_utils import (
-    expect_deprecation,
     repo_name,
     with_production_testing,
     xfail_on_windows,
@@ -281,25 +280,11 @@ class CacheFileLayoutSnapshotDownload(unittest.TestCase):
 class ReferenceUpdates(unittest.TestCase):
     _api = HfApi(endpoint=ENDPOINT_STAGING, token=TOKEN)
 
-    @classmethod
-    @expect_deprecation("set_access_token")
-    def setUpClass(cls):
-        """
-        Share this valid token in all tests below.
-        """
-        cls._token = TOKEN
-        cls._api.set_access_token(TOKEN)
-
     def test_update_reference(self):
-        repo_id = f"{USER}/{repo_name()}"
-        self._api.create_repo(repo_id, exist_ok=True)
+        repo_id = self._api.create_repo(repo_name(), exist_ok=True).repo_id
 
         try:
-            self._api.upload_file(
-                path_or_fileobj=BytesIO(b"Some string"),
-                path_in_repo="file.txt",
-                repo_id=repo_id,
-            )
+            self._api.upload_file(path_or_fileobj=BytesIO(b"Some string"), path_in_repo="file.txt", repo_id=repo_id)
 
             with SoftTemporaryDirectory() as cache:
                 hf_hub_download(repo_id, "file.txt", cache_dir=cache)

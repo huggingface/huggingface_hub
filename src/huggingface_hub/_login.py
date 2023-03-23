@@ -15,7 +15,7 @@
 import os
 import subprocess
 from getpass import getpass
-from typing import List, Optional
+from typing import Optional
 
 from .commands._cli_utils import ANSI
 from .commands.delete_cache import _ask_for_confirmation_no_tui
@@ -30,7 +30,6 @@ from .utils import (
     set_git_credential,
     unset_git_credential,
 )
-from .utils._deprecation import _deprecate_method
 
 
 logger = logging.get_logger(__name__)
@@ -295,8 +294,3 @@ def _set_store_as_git_credential_helper_globally() -> None:
         run_subprocess("git config --global credential.helper store")
     except subprocess.CalledProcessError as exc:
         raise EnvironmentError(exc.stderr)
-
-
-@_deprecate_method(version="0.14", message="Please use `list_credential_helpers` instead.")
-def _currently_setup_credential_helpers(directory: Optional[str] = None) -> List[str]:
-    return list_credential_helpers(directory)
