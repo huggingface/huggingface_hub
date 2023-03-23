@@ -89,20 +89,20 @@ class InferenceApiTest(unittest.TestCase):
 
     def test_text_to_image(self):
         api = InferenceApi("stabilityai/stable-diffusion-2-1")
-        with patch("huggingface_hub.inference_api.requests") as mock:
-            mock.post.return_value.headers = {"Content-Type": "image/jpeg"}
-            mock.post.return_value.content = self.read(self.image_file)
+        with patch("huggingface_hub.inference_api.get_session") as mock:
+            mock().post.return_value.headers = {"Content-Type": "image/jpeg"}
+            mock().post.return_value.content = self.read(self.image_file)
             output = api("cat")
         self.assertIsInstance(output, Image.Image)
 
     def test_text_to_image_raw_response(self):
         api = InferenceApi("stabilityai/stable-diffusion-2-1")
-        with patch("huggingface_hub.inference_api.requests") as mock:
-            mock.post.return_value.headers = {"Content-Type": "image/jpeg"}
-            mock.post.return_value.content = self.read(self.image_file)
+        with patch("huggingface_hub.inference_api.get_session") as mock:
+            mock().post.return_value.headers = {"Content-Type": "image/jpeg"}
+            mock().post.return_value.content = self.read(self.image_file)
             output = api("cat", raw_response=True)
         # Raw response is returned
-        self.assertEqual(output, mock.post.return_value)
+        self.assertEqual(output, mock().post.return_value)
 
     def test_inference_overriding_task(self):
         api = InferenceApi(

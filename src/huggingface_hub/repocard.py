@@ -17,7 +17,7 @@ from huggingface_hub.repocard_data import (
     eval_results_to_model_index,
     model_index_to_eval_results,
 )
-from huggingface_hub.utils import is_jinja_available, yaml_dump
+from huggingface_hub.utils import get_session, is_jinja_available, yaml_dump
 
 from .constants import REPOCARD_NAME
 from .utils import EntryNotFoundError, SoftTemporaryDirectory, validate_hf_hub_args
@@ -216,7 +216,7 @@ class RepoCard:
         headers = {"Accept": "text/plain"}
 
         try:
-            r = requests.post("https://huggingface.co/api/validate-yaml", body, headers=headers)
+            r = get_session().post("https://huggingface.co/api/validate-yaml", body, headers=headers)
             r.raise_for_status()
         except requests.exceptions.HTTPError as exc:
             if r.status_code == 400:

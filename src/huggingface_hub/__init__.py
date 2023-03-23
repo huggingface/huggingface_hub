@@ -205,7 +205,9 @@ _SUBMOD_ATTRS = {
         "HFCacheInfo",
         "HfFolder",
         "cached_assets_path",
+        "configure_http_backend",
         "dump_environment_info",
+        "get_session",
         "logging",
         "scan_cache_dir",
     ],
@@ -458,7 +460,9 @@ if TYPE_CHECKING:  # pragma: no cover
         HFCacheInfo,  # noqa: F401
         HfFolder,  # noqa: F401
         cached_assets_path,  # noqa: F401
+        configure_http_backend,  # noqa: F401
         dump_environment_info,  # noqa: F401
+        get_session,  # noqa: F401
         logging,  # noqa: F401
         scan_cache_dir,  # noqa: F401
     )

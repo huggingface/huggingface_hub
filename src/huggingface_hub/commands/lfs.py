@@ -23,12 +23,10 @@ import sys
 from argparse import _SubParsersAction
 from typing import Dict, List, Optional
 
-import requests
-
 from huggingface_hub.commands import BaseHuggingfaceCLICommand
 from huggingface_hub.lfs import LFS_MULTIPART_UPLOAD_COMMAND, SliceFileObj
 
-from ..utils import hf_raise_for_status, logging
+from ..utils import get_session, hf_raise_for_status, logging
 
 
 logger = logging.get_logger(__name__)
@@ -172,7 +170,7 @@ class LfsUploadCommand:
                         seek_from=i * chunk_size,
                         read_limit=chunk_size,
                     ) as data:
-                        r = requests.put(presigned_url, data=data)
+                        r = get_session().put(presigned_url, data=data)
                         hf_raise_for_status(r)
                         parts.append(
                             {
@@ -192,7 +190,7 @@ class LfsUploadCommand:
                         )
                         # Not precise but that's ok.
 
-            r = requests.post(
+            r = get_session().post(
                 completion_url,
                 json={
                     "oid": oid,

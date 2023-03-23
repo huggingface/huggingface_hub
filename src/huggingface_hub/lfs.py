@@ -24,10 +24,10 @@ from os.path import getsize
 from pathlib import Path
 from typing import TYPE_CHECKING, BinaryIO, Dict, Iterable, List, Optional, Tuple
 
-import requests
 from requests.auth import HTTPBasicAuth
 
 from huggingface_hub.constants import ENDPOINT, HF_HUB_ENABLE_HF_TRANSFER, REPO_TYPES_URL_PREFIXES
+from huggingface_hub.utils import get_session
 
 from .utils import get_token_to_send, hf_raise_for_status, http_backoff, logging, validate_hf_hub_args
 from .utils._typing import TypedDict
@@ -169,7 +169,7 @@ def post_lfs_batch_info(
     if repo_type in REPO_TYPES_URL_PREFIXES:
         url_prefix = REPO_TYPES_URL_PREFIXES[repo_type]
     batch_url = f"{endpoint}/{url_prefix}{repo_id}.git/info/lfs/objects/batch"
-    resp = requests.post(
+    resp = get_session().post(
         batch_url,
         headers={
             "Accept": "application/vnd.git-lfs+json",
@@ -287,7 +287,7 @@ def lfs_upload(operation: "CommitOperationAdd", lfs_batch_action: Dict, token: O
     # 3. Verify upload went well
     if verify_action is not None:
         _validate_lfs_action(verify_action)
-        verify_resp = requests.post(
+        verify_resp = get_session().post(
             verify_action["href"],
             auth=HTTPBasicAuth(username="USER", password=get_token_to_send(token or True)),  # type: ignore
             json={"oid": operation.upload_info.sha256.hex(), "size": operation.upload_info.size},
@@ -357,7 +357,7 @@ def _get_completion_payload(response_headers: List[Dict], oid: str) -> Completio
 
 
 def _send_completion_payload(completion_url: str, completion_payload: CompletionPayloadT) -> None:
-    completion_res = requests.post(
+    completion_res = get_session().post(
         completion_url,
         json=completion_payload,
         headers=LFS_HEADERS,
