@@ -2056,7 +2056,7 @@ class HfLargefilesTest(HfApiCommonTest):
     def test_upload_lfs_file_multipart(self):
         """End to end test to check upload an LFS file using multipart upload works."""
         self._api._lfsmultipartthresh = 16 * 10**6
-        repo_id = self._api.create_repo(repo_id=repo_name()).repo_id
+        self.repo_id = self._api.create_repo(repo_id=repo_name()).repo_id
         self._api._lfsmultipartthresh = None
 
         with patch.object(
@@ -2064,10 +2064,8 @@ class HfLargefilesTest(HfApiCommonTest):
             "_upload_parts_iteratively",
             wraps=huggingface_hub.lfs._upload_parts_iteratively,
         ) as mock:
-            self._api.upload_file(repo_id=repo_id, path_or_fileobj=b"a" * 18 * 10**6, path_in_repo="lfs.bin")
+            self._api.upload_file(repo_id=self.repo_id, path_or_fileobj=b"0" * 18 * 10**6, path_in_repo="lfs.bin")
             mock.assert_called_once()  # It used multipart upload
-
-        self._api.delete_repo(repo_id=repo_id)
 
 
 class ParseHFUrlTest(unittest.TestCase):
