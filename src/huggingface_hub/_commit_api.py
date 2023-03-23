@@ -12,25 +12,13 @@ from pathlib import Path, PurePosixPath
 from typing import Any, BinaryIO, Dict, Iterable, Iterator, List, Optional, Union
 
 import requests
-from requests.auth import HTTPBasicAuth
 from tqdm.contrib.concurrent import thread_map
 
 from .constants import ENDPOINT, HF_HUB_ENABLE_HF_TRANSFER
-from .lfs import (
-    UploadInfo,
-    _upload_multi_part,
-    _upload_single_part,
-    _validate_batch_actions,
-    _validate_lfs_action,
-    get_completion_payload,
-    get_sorted_parts_urls,
-    post_lfs_batch_info,
-    send_completion_payload,
-)
+from .lfs import UploadInfo, lfs_upload, post_lfs_batch_info
 from .utils import (
     build_hf_headers,
     chunk_iterable,
-    get_token_to_send,
     hf_raise_for_status,
     logging,
     tqdm_stream_file,
@@ -350,142 +338,28 @@ def upload_lfs_files(
         return
 
     # Step 3: upload files concurrently according to these instructions
-    def _inner_upload_lfs_object(batch_action):
+    def _wrapped_lfs_upload(batch_action) -> None:
         try:
             operation = oid2addop[batch_action["oid"]]
-            return _upload_lfs_object(operation=operation, lfs_batch_action=batch_action, token=token)
+            lfs_upload(operation=operation, lfs_batch_action=batch_action, token=token)
         except Exception as exc:
             raise RuntimeError(f"Error while uploading '{operation.path_in_repo}' to the Hub.") from exc
 
     if HF_HUB_ENABLE_HF_TRANSFER:
         logger.debug(f"Uploading {len(filtered_actions)} LFS files to the Hub using `hf_transfer`.")
         for action in filtered_actions:
-            _inner_upload_lfs_object(action)
+            _wrapped_lfs_upload(action)
     else:
         logger.debug(
             f"Uploading {len(filtered_actions)} LFS files to the Hub using up to {num_threads} threads concurrently"
         )
         thread_map(
-            _inner_upload_lfs_object,
+            _wrapped_lfs_upload,
             filtered_actions,
             desc=f"Upload {len(filtered_actions)} LFS files",
             max_workers=num_threads,
             tqdm_class=hf_tqdm,
         )
-
-
-def _upload_lfs_object(operation: CommitOperationAdd, lfs_batch_action: dict, token: Optional[str]):
-    """
-    Handles uploading a given object to the Hub with the LFS protocol.
-
-    Can be a No-op if the content of the file is already present on the hub
-    large file storage.
-
-    Args:
-        operation (`CommitOperationAdd`):
-            The add operation triggering this upload
-        lfs_batch_action (`dict`):
-            Upload instructions from the LFS batch endpoint for this object.
-            See [`~utils.lfs.post_lfs_batch_info`] for more details.
-        token (`str`, *optional*):
-            A [user access token](https://hf.co/settings/tokens) to authenticate requests against the Hub
-
-    Raises: `ValueError` if `lfs_batch_action` is improperly formatted
-    """
-    _validate_batch_actions(lfs_batch_action)
-    upload_info = operation.upload_info
-    actions = lfs_batch_action.get("actions")
-    if actions is None:
-        # The file was already uploaded
-        logger.debug(f"Content of file {operation.path_in_repo} is already present upstream - skipping upload")
-        return
-    upload_action = lfs_batch_action["actions"].get("upload")
-    verify_action = lfs_batch_action["actions"].get("verify")
-    _validate_lfs_action(upload_action)
-    if verify_action is not None:
-        _validate_lfs_action(verify_action)
-
-    header = upload_action.get("header", {})
-    chunk_size = header.pop("chunk_size", None)
-    logger.debug(f"Uploading {operation.path_in_repo} as LFS file...")
-    if chunk_size is not None:
-        try:
-            chunk_size = int(chunk_size)
-        except (ValueError, TypeError):
-            raise ValueError(
-                f"Malformed response from LFS batch endpoint: `chunk_size` should be an integer. Got '{chunk_size}'."
-            )
-        use_hf_transfer = HF_HUB_ENABLE_HF_TRANSFER
-        if (
-            not (isinstance(operation.path_or_fileobj, str) or isinstance(operation.path_or_fileobj, Path))
-            and HF_HUB_ENABLE_HF_TRANSFER
-        ):
-            warnings.warn(
-                "hf_transfer is enabled but does not support uploading from bytes or BinaryIO, falling back to regular"
-                " upload"
-            )
-            use_hf_transfer = False
-        if use_hf_transfer:
-            try:
-                # Upload file using an external Rust-based package. Upload is faster
-                # but support less features (no progress bars).
-                from hf_transfer import multipart_upload
-
-                sorted_parts_urls = get_sorted_parts_urls(
-                    header=header, upload_info=upload_info, chunk_size=chunk_size
-                )
-
-                response_headers = multipart_upload(
-                    file_path=operation.path_or_fileobj,
-                    parts_urls=sorted_parts_urls,
-                    chunk_size=chunk_size,
-                    max_files=128,
-                    parallel_failures=127,  # could be removed
-                    max_retries=5,
-                )
-
-                send_completion_payload(
-                    upload_action["href"], get_completion_payload(response_headers, upload_info.sha256.hex())
-                )
-
-            except ImportError:
-                raise ValueError(
-                    "Fast uploading using 'hf_transfer' is enabled"
-                    " (HF_HUB_ENABLE_HF_TRANSFER=1) but 'hf_transfer' package is not"
-                    " available in your environment. Try `pip install hf_transfer`."
-                )
-            except Exception as e:
-                raise RuntimeError(
-                    "An error occurred while uploading using `hf_transfer`. Consider"
-                    " disabling HF_HUB_ENABLE_HF_TRANSFER for better error handling."
-                ) from e
-        else:
-            with operation.as_file(with_tqdm=True) as fileobj:
-                _upload_multi_part(
-                    completion_url=upload_action["href"],
-                    fileobj=fileobj,
-                    chunk_size=chunk_size,
-                    header=header,
-                    upload_info=upload_info,
-                )
-    else:
-        with operation.as_file(with_tqdm=True) as fileobj:
-            _upload_single_part(
-                upload_url=upload_action["href"],
-                fileobj=fileobj,
-            )
-    if verify_action is not None:
-        verify_resp = requests.post(
-            verify_action["href"],
-            auth=HTTPBasicAuth(
-                username="USER",
-                # Token must be provided or retrieved
-                password=get_token_to_send(token or True),  # type: ignore
-            ),
-            json={"oid": upload_info.sha256.hex(), "size": upload_info.size},
-        )
-        hf_raise_for_status(verify_resp)
-    logger.debug(f"{operation.path_in_repo}: Upload successful")
 
 
 def _validate_preupload_info(preupload_info: dict):
