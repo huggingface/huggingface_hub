@@ -669,7 +669,7 @@ def cached_download(
                 timeout=etag_timeout,
             )
             hf_raise_for_status(r)
-            etag = r.headers.get("X-Linked-Etag") or r.headers.get("ETag")
+            etag = r.headers.get(HUGGINGFACE_HEADER_X_LINKED_ETAG) or r.headers.get("ETag")
             # We favor a custom header indicating the etag of the linked resource, and
             # we fallback to the regular etag header.
             # If we don't have any of those, raise an error.
