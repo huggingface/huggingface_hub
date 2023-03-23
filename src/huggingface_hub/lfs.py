@@ -91,44 +91,6 @@ class UploadInfo:
         return cls(size=size, sha256=sha, sample=sample)
 
 
-def _validate_lfs_action(lfs_action: dict):
-    """validates response from the LFS batch endpoint"""
-    if not (
-        isinstance(lfs_action.get("href"), str)
-        and (lfs_action.get("header") is None or isinstance(lfs_action.get("header"), dict))
-    ):
-        raise ValueError("lfs_action is improperly formatted")
-    return lfs_action
-
-
-def _validate_batch_actions(lfs_batch_actions: dict):
-    """validates response from the LFS batch endpoint"""
-    if not (isinstance(lfs_batch_actions.get("oid"), str) and isinstance(lfs_batch_actions.get("size"), int)):
-        raise ValueError("lfs_batch_actions is improperly formatted")
-
-    upload_action = lfs_batch_actions.get("actions", {}).get("upload")
-    verify_action = lfs_batch_actions.get("actions", {}).get("verify")
-    if upload_action is not None:
-        _validate_lfs_action(upload_action)
-    if verify_action is not None:
-        _validate_lfs_action(verify_action)
-    return lfs_batch_actions
-
-
-def _validate_batch_error(lfs_batch_error: dict):
-    """validates response from the LFS batch endpoint"""
-    if not (isinstance(lfs_batch_error.get("oid"), str) and isinstance(lfs_batch_error.get("size"), int)):
-        raise ValueError("lfs_batch_error is improperly formatted")
-    error_info = lfs_batch_error.get("error")
-    if not (
-        isinstance(error_info, dict)
-        and isinstance(error_info.get("message"), str)
-        and isinstance(error_info.get("code"), int)
-    ):
-        raise ValueError("lfs_batch_error is improperly formatted")
-    return lfs_batch_error
-
-
 @validate_hf_hub_args
 def post_lfs_batch_info(
     upload_infos: Iterable[UploadInfo],
@@ -171,10 +133,7 @@ def post_lfs_batch_info(
     batch_url = f"{endpoint}/{url_prefix}{repo_id}.git/info/lfs/objects/batch"
     resp = get_session().post(
         batch_url,
-        headers={
-            "Accept": "application/vnd.git-lfs+json",
-            "Content-Type": "application/vnd.git-lfs+json",
-        },
+        headers=LFS_HEADERS,
         json={
             "operation": "upload",
             "transfers": ["basic", "multipart"],
@@ -203,25 +162,6 @@ def post_lfs_batch_info(
         [_validate_batch_actions(obj) for obj in objects if "error" not in obj],
         [_validate_batch_error(obj) for obj in objects if "error" in obj],
     )
-
-
-def _upload_single_part(operation: "CommitOperationAdd", upload_url: str) -> None:
-    """
-    Uploads `fileobj` as a single PUT HTTP request (basic LFS transfer protocol)
-
-    Args:
-        upload_url (`str`):
-            The URL to PUT the file to.
-        fileobj:
-            The file-like object holding the data to upload.
-
-    Returns: `requests.Response`
-
-    Raises: `requests.HTTPError` if the upload resulted in an error
-    """
-    with operation.as_file(with_tqdm=True) as fileobj:
-        response = http_backoff("PUT", upload_url, data=fileobj)
-        hf_raise_for_status(response)
 
 
 class PayloadPartT(TypedDict):
@@ -296,12 +236,71 @@ def lfs_upload(operation: "CommitOperationAdd", lfs_batch_action: Dict, token: O
     logger.debug(f"{operation.path_in_repo}: Upload successful")
 
 
+def _validate_lfs_action(lfs_action: dict):
+    """validates response from the LFS batch endpoint"""
+    if not (
+        isinstance(lfs_action.get("href"), str)
+        and (lfs_action.get("header") is None or isinstance(lfs_action.get("header"), dict))
+    ):
+        raise ValueError("lfs_action is improperly formatted")
+    return lfs_action
+
+
+def _validate_batch_actions(lfs_batch_actions: dict):
+    """validates response from the LFS batch endpoint"""
+    if not (isinstance(lfs_batch_actions.get("oid"), str) and isinstance(lfs_batch_actions.get("size"), int)):
+        raise ValueError("lfs_batch_actions is improperly formatted")
+
+    upload_action = lfs_batch_actions.get("actions", {}).get("upload")
+    verify_action = lfs_batch_actions.get("actions", {}).get("verify")
+    if upload_action is not None:
+        _validate_lfs_action(upload_action)
+    if verify_action is not None:
+        _validate_lfs_action(verify_action)
+    return lfs_batch_actions
+
+
+def _validate_batch_error(lfs_batch_error: dict):
+    """validates response from the LFS batch endpoint"""
+    if not (isinstance(lfs_batch_error.get("oid"), str) and isinstance(lfs_batch_error.get("size"), int)):
+        raise ValueError("lfs_batch_error is improperly formatted")
+    error_info = lfs_batch_error.get("error")
+    if not (
+        isinstance(error_info, dict)
+        and isinstance(error_info.get("message"), str)
+        and isinstance(error_info.get("code"), int)
+    ):
+        raise ValueError("lfs_batch_error is improperly formatted")
+    return lfs_batch_error
+
+
+def _upload_single_part(operation: "CommitOperationAdd", upload_url: str) -> None:
+    """
+    Uploads `fileobj` as a single PUT HTTP request (basic LFS transfer protocol)
+
+    Args:
+        upload_url (`str`):
+            The URL to PUT the file to.
+        fileobj:
+            The file-like object holding the data to upload.
+
+    Returns: `requests.Response`
+
+    Raises: `requests.HTTPError` if the upload resulted in an error
+    """
+    with operation.as_file(with_tqdm=True) as fileobj:
+        response = http_backoff("PUT", upload_url, data=fileobj)
+        hf_raise_for_status(response)
+
+
 def _upload_multi_part(operation: "CommitOperationAdd", header: Dict, chunk_size: int, upload_url: str) -> None:
     """
     Uploads file using HF multipart LFS transfer protocol.
     """
+    # 1. Get upload URLs for each part
     sorted_parts_urls = _get_sorted_parts_urls(header=header, upload_info=operation.upload_info, chunk_size=chunk_size)
 
+    # 2. Upload parts (either with hf_transfer or in pure Python)
     use_hf_transfer = HF_HUB_ENABLE_HF_TRANSFER
     if (
         HF_HUB_ENABLE_HF_TRANSFER
@@ -320,7 +319,13 @@ def _upload_multi_part(operation: "CommitOperationAdd", header: Dict, chunk_size
         else _upload_parts_iteratively(operation=operation, sorted_parts_urls=sorted_parts_urls, chunk_size=chunk_size)
     )
 
-    _send_completion_payload(upload_url, _get_completion_payload(response_headers, operation.upload_info.sha256.hex()))
+    # 3. Send completion request
+    completion_res = get_session().post(
+        upload_url,
+        json=_get_completion_payload(response_headers, operation.upload_info.sha256.hex()),
+        headers=LFS_HEADERS,
+    )
+    hf_raise_for_status(completion_res)
 
 
 def _get_sorted_parts_urls(header: Dict, upload_info: UploadInfo, chunk_size: int) -> List[str]:
@@ -354,15 +359,6 @@ def _get_completion_payload(response_headers: List[Dict], oid: str) -> Completio
             }
         )
     return {"oid": oid, "parts": parts}
-
-
-def _send_completion_payload(completion_url: str, completion_payload: CompletionPayloadT) -> None:
-    completion_res = get_session().post(
-        completion_url,
-        json=completion_payload,
-        headers=LFS_HEADERS,
-    )
-    hf_raise_for_status(completion_res)
 
 
 def _upload_parts_iteratively(
