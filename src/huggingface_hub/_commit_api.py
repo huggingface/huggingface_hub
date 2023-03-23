@@ -11,8 +11,9 @@ from dataclasses import dataclass, field
 from pathlib import Path, PurePosixPath
 from typing import Any, BinaryIO, Dict, Iterable, Iterator, List, Optional, Union
 
-import requests
 from tqdm.contrib.concurrent import thread_map
+
+from huggingface_hub import get_session
 
 from .constants import ENDPOINT
 from .lfs import UploadInfo, _validate_batch_actions, lfs_upload, post_lfs_batch_info
@@ -459,7 +460,7 @@ def fetch_upload_modes(
             ]
         }
 
-        resp = requests.post(
+        resp = get_session().post(
             f"{endpoint}/api/{repo_type}s/{repo_id}/preupload/{revision}",
             json=payload,
             headers=headers,
