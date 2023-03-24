@@ -44,7 +44,7 @@ from huggingface_hub.constants import (
     REPO_TYPE_SPACE,
     SPACES_SDK_TYPES,
 )
-from huggingface_hub.file_download import cached_download, hf_hub_download
+from huggingface_hub.file_download import hf_hub_download
 from huggingface_hub.hf_api import (
     CommitInfo,
     DatasetInfo,
@@ -66,6 +66,7 @@ from huggingface_hub.utils import (
     HfHubHTTPError,
     RepositoryNotFoundError,
     RevisionNotFoundError,
+    SoftTemporaryDirectory,
     logging,
 )
 from huggingface_hub.utils.endpoint_helpers import (
@@ -280,13 +281,12 @@ class CommitApiTest(HfApiCommonTest):
         self.addCleanup(rmtree_with_retry, self.tmp_dir)
 
     @retry_endpoint
-    def test_upload_file_validation(self):
-        REPO_NAME = repo_name("upload")
+    def test_upload_file_validation(self) -> None:
         with self.assertRaises(ValueError, msg="Wrong repo type"):
             self._api.upload_file(
                 path_or_fileobj=self.tmp_file,
                 path_in_repo="README.md",
-                repo_id=f"{USER}/{REPO_NAME}",
+                repo_id="something",
                 repo_type="this type does not exist",
             )
 
@@ -305,102 +305,61 @@ class CommitApiTest(HfApiCommonTest):
             )
 
     @retry_endpoint
-    def test_upload_file_str_path(self):
-        REPO_NAME = repo_name("str_path")
-        self._api.create_repo(repo_id=REPO_NAME)
-        try:
-            return_val = self._api.upload_file(
-                path_or_fileobj=self.tmp_file,
-                path_in_repo="temp/new_file.md",
-                repo_id=f"{USER}/{REPO_NAME}",
-            )
-            self.assertEqual(
-                return_val,
-                f"{self._api.endpoint}/{USER}/{REPO_NAME}/blob/main/temp/new_file.md",
-            )
-            url = "{}/{user}/{repo}/resolve/main/temp/new_file.md".format(
-                ENDPOINT_STAGING,
-                user=USER,
-                repo=REPO_NAME,
-            )
-            filepath = cached_download(url, force_download=True, legacy_cache_layout=True)
-            with open(filepath) as downloaded_file:
-                content = downloaded_file.read()
-            self.assertEqual(content, self.tmp_file_content)
-
-        except Exception as err:
-            self.fail(err)
-        finally:
-            self._api.delete_repo(repo_id=REPO_NAME)
-
-    @retry_endpoint
-    def test_upload_file_pathlib_path(self):
-        """Regression test for https://github.com/huggingface/huggingface_hub/issues/1246."""
-        repo_id = f"{USER}/{repo_name()}"
-        self._api.create_repo(repo_id=repo_id)
-        self._api.upload_file(
-            path_or_fileobj=Path(self.tmp_file),
-            path_in_repo="README.md",
+    @use_tmp_repo()
+    def test_upload_file_str_path(self, repo_url: RepoUrl) -> None:
+        repo_id = repo_url.repo_id
+        return_val = self._api.upload_file(
+            path_or_fileobj=self.tmp_file,
+            path_in_repo="temp/new_file.md",
             repo_id=repo_id,
         )
-        self.assertIn("README.md", self._api.list_repo_files(repo_id=repo_id))
-        self._api.delete_repo(repo_id=repo_id)
+        self.assertEqual(return_val, f"{repo_url}/blob/main/temp/new_file.md")
+
+        with SoftTemporaryDirectory() as cache_dir:
+            with open(hf_hub_download(repo_id=repo_id, filename="temp/new_file.md", cache_dir=cache_dir)) as f:
+                self.assertEqual(f.read(), self.tmp_file_content)
 
     @retry_endpoint
-    def test_upload_file_fileobj(self):
-        REPO_NAME = repo_name("fileobj")
-        self._api.create_repo(repo_id=REPO_NAME)
-        try:
-            with open(self.tmp_file, "rb") as filestream:
-                return_val = self._api.upload_file(
-                    path_or_fileobj=filestream,
-                    path_in_repo="temp/new_file.md",
-                    repo_id=f"{USER}/{REPO_NAME}",
-                )
-            self.assertEqual(
-                return_val,
-                f"{self._api.endpoint}/{USER}/{REPO_NAME}/blob/main/temp/new_file.md",
-            )
-            url = "{}/{user}/{repo}/resolve/main/temp/new_file.md".format(ENDPOINT_STAGING, user=USER, repo=REPO_NAME)
-            filepath = cached_download(url, force_download=True, legacy_cache_layout=True)
-            with open(filepath) as downloaded_file:
-                content = downloaded_file.read()
-            self.assertEqual(content, self.tmp_file_content)
-
-        except Exception as err:
-            self.fail(err)
-        finally:
-            self._api.delete_repo(repo_id=REPO_NAME)
+    @use_tmp_repo()
+    def test_upload_file_pathlib_path(self, repo_url: RepoUrl) -> None:
+        """Regression test for https://github.com/huggingface/huggingface_hub/issues/1246."""
+        self._api.upload_file(path_or_fileobj=Path(self.tmp_file), path_in_repo="README.md", repo_id=repo_url.repo_id)
+        self.assertIn("README.md", self._api.list_repo_files(repo_id=repo_url.repo_id))
 
     @retry_endpoint
-    def test_upload_file_bytesio(self):
-        REPO_NAME = repo_name("bytesio")
-        self._api.create_repo(repo_id=REPO_NAME)
-        try:
-            filecontent = BytesIO(b"File content, but in bytes IO")
+    @use_tmp_repo()
+    def test_upload_file_fileobj(self, repo_url: RepoUrl) -> None:
+        repo_id = repo_url.repo_id
+        with open(self.tmp_file, "rb") as filestream:
             return_val = self._api.upload_file(
-                path_or_fileobj=filecontent,
+                path_or_fileobj=filestream,
                 path_in_repo="temp/new_file.md",
-                repo_id=f"{USER}/{REPO_NAME}",
+                repo_id=repo_id,
             )
-            self.assertEqual(
-                return_val,
-                f"{self._api.endpoint}/{USER}/{REPO_NAME}/blob/main/temp/new_file.md",
-            )
+        self.assertEqual(return_val, f"{repo_url}/blob/main/temp/new_file.md")
 
-            url = "{}/{user}/{repo}/resolve/main/temp/new_file.md".format(ENDPOINT_STAGING, user=USER, repo=REPO_NAME)
-            filepath = cached_download(url, force_download=True, legacy_cache_layout=True)
-            with open(filepath) as downloaded_file:
-                content = downloaded_file.read()
-            self.assertEqual(content, filecontent.getvalue().decode())
-
-        except Exception as err:
-            self.fail(err)
-        finally:
-            self._api.delete_repo(repo_id=REPO_NAME)
+        with SoftTemporaryDirectory() as cache_dir:
+            with open(hf_hub_download(repo_id=repo_id, filename="temp/new_file.md", cache_dir=cache_dir)) as f:
+                self.assertEqual(f.read(), self.tmp_file_content)
 
     @retry_endpoint
-    def test_create_repo_return_value(self):
+    @use_tmp_repo()
+    def test_upload_file_bytesio(self, repo_url: RepoUrl) -> None:
+        repo_id = repo_url.repo_id
+        content = BytesIO(b"File content, but in bytes IO")
+        return_val = self._api.upload_file(
+            path_or_fileobj=content,
+            path_in_repo="temp/new_file.md",
+            repo_id=repo_id,
+        )
+        self.assertEqual(return_val, f"{repo_url}/blob/main/temp/new_file.md")
+
+        with SoftTemporaryDirectory() as cache_dir:
+            with open(hf_hub_download(repo_id=repo_id, filename="temp/new_file.md", cache_dir=cache_dir)) as f:
+                self.assertEqual(f.read(), content.getvalue().decode())
+
+    @retry_endpoint
+    def test_create_repo_return_value(self) -> None:
         REPO_NAME = repo_name("org")
         url = self._api.create_repo(repo_id=REPO_NAME)
         self.assertIsInstance(url, str)
@@ -432,85 +391,38 @@ class CommitApiTest(HfApiCommonTest):
         self._api.delete_repo(repo_id=repo_id, token=OTHER_TOKEN)
 
     @retry_endpoint
-    def test_upload_buffer(self):
-        REPO_NAME = repo_name("buffer")
-        self._api.create_repo(repo_id=REPO_NAME)
-        try:
-            buffer = BytesIO()
-            buffer.write(self.tmp_file_content.encode())
-            return_val = self._api.upload_file(
-                path_or_fileobj=buffer.getvalue(),
-                path_in_repo="temp/new_file.md",
-                repo_id=f"{USER}/{REPO_NAME}",
-            )
-            self.assertEqual(
-                return_val,
-                f"{self._api.endpoint}/{USER}/{REPO_NAME}/blob/main/temp/new_file.md",
-            )
+    @use_tmp_repo()
+    def test_upload_file_create_pr(self, repo_url: RepoUrl) -> None:
+        repo_id = repo_url.repo_id
+        return_val = self._api.upload_file(
+            path_or_fileobj=self.tmp_file_content.encode(),
+            path_in_repo="temp/new_file.md",
+            repo_id=repo_id,
+            create_pr=True,
+        )
+        self.assertEqual(return_val, f"{repo_url}/blob/{quote('refs/pr/1', safe='')}/temp/new_file.md")
 
-            url = "{}/{user}/{repo}/resolve/main/temp/new_file.md".format(ENDPOINT_STAGING, user=USER, repo=REPO_NAME)
-            filepath = cached_download(url, force_download=True, legacy_cache_layout=True)
-            with open(filepath) as downloaded_file:
-                content = downloaded_file.read()
-            self.assertEqual(content, self.tmp_file_content)
-
-        except Exception as err:
-            self.fail(err)
-        finally:
-            self._api.delete_repo(repo_id=REPO_NAME)
+        with SoftTemporaryDirectory() as cache_dir:
+            with open(
+                hf_hub_download(
+                    repo_id=repo_id, filename="temp/new_file.md", revision="refs/pr/1", cache_dir=cache_dir
+                )
+            ) as f:
+                self.assertEqual(f.read(), self.tmp_file_content)
 
     @retry_endpoint
-    def test_upload_file_create_pr(self):
-        REPO_NAME = repo_name("buffer")
-        pr_revision = quote("refs/pr/1", safe="")
-        self._api.create_repo(repo_id=REPO_NAME)
-        try:
-            buffer = BytesIO()
-            buffer.write(self.tmp_file_content.encode())
-            return_val = self._api.upload_file(
-                path_or_fileobj=buffer.getvalue(),
-                path_in_repo="temp/new_file.md",
-                repo_id=f"{USER}/{REPO_NAME}",
-                create_pr=True,
-            )
-            self.assertEqual(
-                return_val,
-                f"{self._api.endpoint}/{USER}/{REPO_NAME}/blob/{pr_revision}/temp/new_file.md",
-            )
+    @use_tmp_repo()
+    def test_delete_file(self, repo_url: RepoUrl) -> None:
+        self._api.upload_file(
+            path_or_fileobj=self.tmp_file,
+            path_in_repo="temp/new_file.md",
+            repo_id=repo_url.repo_id,
+        )
+        self._api.delete_file(path_in_repo="temp/new_file.md", repo_id=repo_url.repo_id)
 
-            url = "{}/{user}/{repo}/resolve/{revision}/temp/new_file.md".format(
-                ENDPOINT_STAGING, revision=pr_revision, user=USER, repo=REPO_NAME
-            )
-            filepath = cached_download(url, force_download=True, legacy_cache_layout=True)
-            with open(filepath) as downloaded_file:
-                content = downloaded_file.read()
-            self.assertEqual(content, self.tmp_file_content)
-
-        except Exception as err:
-            self.fail(err)
-        finally:
-            self._api.delete_repo(repo_id=REPO_NAME)
-
-    @retry_endpoint
-    def test_delete_file(self):
-        REPO_NAME = repo_name("delete")
-        self._api.create_repo(repo_id=REPO_NAME)
-        try:
-            self._api.upload_file(
-                path_or_fileobj=self.tmp_file,
-                path_in_repo="temp/new_file.md",
-                repo_id=f"{USER}/{REPO_NAME}",
-            )
-            self._api.delete_file(path_in_repo="temp/new_file.md", repo_id=f"{USER}/{REPO_NAME}")
-
-            with self.assertRaises(HTTPError):
-                # Should raise a 404
-                hf_hub_download(f"{USER}/{REPO_NAME}", "temp/new_file.md")
-
-        except Exception as err:
-            self.fail(err)
-        finally:
-            self._api.delete_repo(repo_id=REPO_NAME)
+        with self.assertRaises(EntryNotFoundError):
+            # Should raise a 404
+            hf_hub_download(repo_url.repo_id, "temp/new_file.md")
 
     def test_get_full_repo_name(self):
         repo_name_with_no_org = self._api.get_full_repo_name("model")
@@ -609,6 +521,29 @@ class CommitApiTest(HfApiCommonTest):
         url = self._api.upload_folder(folder_path=self.tmp_dir, repo_id=f"{USER}/{REPO_NAME}")
         # URL to root of repository
         self.assertEqual(url, f"{self._api.endpoint}/{USER}/{REPO_NAME}/tree/main/")
+
+    @retry_endpoint
+    @use_tmp_repo()
+    def test_upload_folder_git_folder_excluded(self, repo_url: RepoUrl) -> None:
+        # Simulate a folder with a .git folder
+        def _create_file(*parts) -> None:
+            path = Path(self.tmp_dir, *parts)
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_text("content")
+
+        _create_file(".git", "file.txt")
+        _create_file(".git", "folder", "file.txt")
+        _create_file("folder", ".git", "file.txt")
+        _create_file("folder", ".git", "folder", "file.txt")
+        _create_file(".git_something", "file.txt")
+        _create_file("file.git")
+
+        # Upload folder and check that .git folder is excluded
+        self._api.upload_folder(folder_path=self.tmp_dir, repo_id=repo_url.repo_id)
+        self.assertEqual(
+            set(self._api.list_repo_files(repo_id=repo_url.repo_id)),
+            {".gitattributes", ".git_something/file.txt", "file.git", "temp", "nested/file.bin"},
+        )
 
     @retry_endpoint
     def test_create_commit_create_pr(self):

@@ -3,7 +3,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Callable, List, Optional, Union
 
-from huggingface_hub.utils import filter_repo_objects
+from huggingface_hub.utils import IGNORE_GIT_FOLDER_PATTERNS, filter_repo_objects
 
 
 @dataclass
@@ -101,3 +101,27 @@ class TestPathsUtils(unittest.TestCase):
             ),
             expected_items,
         )
+
+
+class TestGitFolderExclusion(unittest.TestCase):
+    GIT_FOLDER_PATHS = [
+        ".git",
+        ".git/file.txt",
+        ".git/folder/file.txt",
+        "path/to/folder/.git",
+        "path/to/folder/.git/file.txt",
+        "path/to/.git/folder/file.txt",
+    ]
+
+    NOT_GIT_FOLDER_PATHS = [
+        ".gitignore",
+        "path/foo.git/file.txt",
+        "path/.git_bar/file.txt",
+        "path/to/file.git",
+    ]
+
+    def test_exclude_git_folder(self):
+        filtered_paths = filter_repo_objects(
+            items=self.GIT_FOLDER_PATHS + self.NOT_GIT_FOLDER_PATHS, ignore_patterns=IGNORE_GIT_FOLDER_PATTERNS
+        )
+        self.assertListEqual(list(filtered_paths), self.NOT_GIT_FOLDER_PATHS)

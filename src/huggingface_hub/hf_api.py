@@ -27,7 +27,7 @@ from urllib.parse import quote
 import requests
 from requests.exceptions import HTTPError
 
-from huggingface_hub.utils import EntryNotFoundError, RepositoryNotFoundError, get_session
+from huggingface_hub.utils import IGNORE_GIT_FOLDER_PATTERNS, EntryNotFoundError, RepositoryNotFoundError, get_session
 
 from ._commit_api import (
     CommitOperation,
@@ -85,6 +85,7 @@ from .utils.endpoint_helpers import (
 
 USERNAME_PLACEHOLDER = "hf_user"
 _REGEX_DISCUSSION_URL = re.compile(r".*/discussions/(\d+)$")
+
 
 logger = logging.get_logger(__name__)
 
@@ -2725,8 +2726,7 @@ class HfApi:
             ignore_patterns = []
         if isinstance(ignore_patterns, str):
             ignore_patterns = [ignore_patterns]
-        ignore_patterns.append(".git/")
-        ignore_patterns.append(".git/**")
+        ignore_patterns += IGNORE_GIT_FOLDER_PATTERNS
 
         commit_message = (
             commit_message if commit_message is not None else f"Upload {path_in_repo} with huggingface_hub"
