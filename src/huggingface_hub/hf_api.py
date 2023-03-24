@@ -27,7 +27,7 @@ from urllib.parse import quote
 import requests
 from requests.exceptions import HTTPError
 
-from huggingface_hub.utils import EntryNotFoundError, RepositoryNotFoundError, get_session
+from huggingface_hub.utils import IGNORE_GIT_FOLDER_PATTERNS, EntryNotFoundError, RepositoryNotFoundError, get_session
 
 from ._commit_api import (
     CommitOperation,
@@ -85,6 +85,7 @@ from .utils.endpoint_helpers import (
 
 USERNAME_PLACEHOLDER = "hf_user"
 _REGEX_DISCUSSION_URL = re.compile(r".*/discussions/(\d+)$")
+
 
 logger = logging.get_logger(__name__)
 
@@ -2606,6 +2607,9 @@ class HfApi:
         will delete any remote file under `experiment/logs/`. Note that the `.gitattributes` file will not be deleted
         even if it matches the patterns.
 
+        Any `.git/` folder present in any subdirectory will be ignored. However, please be aware that the `.gitignore`
+        file is not taken into account.
+
         Uses `HfApi.create_commit` under the hood.
 
         Args:
@@ -2719,6 +2723,13 @@ class HfApi:
         # By default, upload folder to the root directory in repo.
         if path_in_repo is None:
             path_in_repo = ""
+
+        # Do not upload .git folder
+        if ignore_patterns is None:
+            ignore_patterns = []
+        elif isinstance(ignore_patterns, str):
+            ignore_patterns = [ignore_patterns]
+        ignore_patterns += IGNORE_GIT_FOLDER_PATTERNS
 
         commit_message = (
             commit_message if commit_message is not None else f"Upload {path_in_repo} with huggingface_hub"

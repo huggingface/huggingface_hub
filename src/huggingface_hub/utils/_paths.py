@@ -20,6 +20,8 @@ from typing import Callable, Generator, Iterable, List, Optional, TypeVar, Union
 
 T = TypeVar("T")
 
+IGNORE_GIT_FOLDER_PATTERNS = [".git", ".git/*", "*/.git", "**/.git/**"]
+
 
 def filter_repo_objects(
     items: Iterable[T],

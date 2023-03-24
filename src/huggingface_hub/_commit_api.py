@@ -198,6 +198,11 @@ def _validate_path_in_repo(path_in_repo: str) -> str:
         raise ValueError(f"Invalid `path_in_repo` in CommitOperation: '{path_in_repo}'")
     if path_in_repo.startswith("./"):
         path_in_repo = path_in_repo[2:]
+    if any(part == ".git" for part in path_in_repo.split("/")):
+        raise ValueError(
+            "Invalid `path_in_repo` in CommitOperation: cannot update files under a '.git/' folder (path:"
+            f" '{path_in_repo}')."
+        )
     return path_in_repo
 
 
