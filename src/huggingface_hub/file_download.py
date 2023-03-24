@@ -538,6 +538,15 @@ def http_get(
         if chunk:  # filter out keep-alive new chunks
             progress.update(len(chunk))
             temp_file.write(chunk)
+
+    if total is not None and total != temp_file.tell():
+        raise EnvironmentError(
+            f"Consistency check failed: file should be of size {total} but has size"
+            f" {temp_file.tell()} ({displayed_name}).\nWe are sorry for the inconvenience. Please retry download and"
+            " pass `force_download=True, resume_download=False` as argument.\nIf the issue persists, please let us"
+            " know by opening an issue on https://github.com/huggingface/huggingface_hub."
+        )
+
     progress.close()
 
 

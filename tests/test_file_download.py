@@ -32,6 +32,7 @@ from huggingface_hub.constants import (
 from huggingface_hub.file_download import (
     _CACHED_NO_EXIST,
     _create_symlink,
+    _request_wrapper,
     cached_download,
     filename_to_url,
     get_hf_file_metadata,
@@ -488,6 +489,40 @@ class CachedDownloadTests(unittest.TestCase):
 
         self.assertIn("cdn-lfs", metadata.location)  # Redirection
         self.assertEqual(metadata.size, 497933648)  # Size of LFS file, not pointer
+
+    def test_file_consistency_check_fails_regular_file(self):
+        """Regression test for #1396 (regular file).
+
+        Download fails if file size is different than the expected one (from headers metadata).
+
+        See https://github.com/huggingface/huggingface_hub/pull/1396."""
+        with SoftTemporaryDirectory() as cache_dir:
+
+            def _mocked_request_wrapper(*args, **kwargs):
+                response = _request_wrapper(*args, **kwargs)
+                response.headers["Content-Length"] = "450"  # will expect 450 bytes but will download 496 bytes
+                return response
+
+            with patch("huggingface_hub.file_download._request_wrapper", _mocked_request_wrapper):
+                with self.assertRaises(EnvironmentError):
+                    hf_hub_download(DUMMY_MODEL_ID, filename=CONFIG_NAME, cache_dir=cache_dir)
+
+    def test_file_consistency_check_fails_LFS_file(self):
+        """Regression test for #1396 (LFS file).
+
+        Download fails if file size is different than the expected one (from headers metadata).
+
+        See https://github.com/huggingface/huggingface_hub/pull/1396."""
+        with SoftTemporaryDirectory() as cache_dir:
+
+            def _mocked_request_wrapper(*args, **kwargs):
+                response = _request_wrapper(*args, **kwargs)
+                response.headers["Content-Length"] = "65000"  # will expect 65000 bytes but will download 65074 bytes
+                return response
+
+            with patch("huggingface_hub.file_download._request_wrapper", _mocked_request_wrapper):
+                with self.assertRaises(EnvironmentError):
+                    hf_hub_download(DUMMY_MODEL_ID, filename="pytorch_model.bin", cache_dir=cache_dir)
 
 
 @with_production_testing
