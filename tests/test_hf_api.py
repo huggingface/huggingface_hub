@@ -31,6 +31,7 @@ import pytest
 import requests
 from requests.exceptions import HTTPError
 
+import huggingface_hub.lfs
 from huggingface_hub import SpaceHardware, SpaceStage
 from huggingface_hub._commit_api import (
     CommitOperationAdd,
@@ -1899,7 +1900,6 @@ class UploadFolderMockedTest(unittest.TestCase):
         self.assertEqual(deleted_files, {"sub/file1.txt", "sub/file.txt"})
 
 
-@require_git_lfs
 @pytest.mark.usefixtures("fx_cache_dir")
 class HfLargefilesTest(HfApiCommonTest):
     cache_dir: Path
@@ -1919,6 +1919,7 @@ class HfLargefilesTest(HfApiCommonTest):
         subprocess.run(["git", "lfs", "track", "*.epub"], check=True, cwd=self.cache_dir)
 
     @retry_endpoint
+    @require_git_lfs
     def test_end_to_end_thresh_6M(self):
         # Little-hack: create repo with defined `_lfsmultipartthresh`. Only for tests purposes
         self._api._lfsmultipartthresh = 6 * 10**6
@@ -1963,6 +1964,7 @@ class HfLargefilesTest(HfApiCommonTest):
         self.assertEqual(dest_filesize, 18685041)
 
     @retry_endpoint
+    @require_git_lfs
     def test_end_to_end_thresh_16M(self):
         # Here we'll push one multipart and one non-multipart file in the same commit, and see what happens
         # Little-hack: create repo with defined `_lfsmultipartthresh`. Only for tests purposes
@@ -1985,6 +1987,20 @@ class HfLargefilesTest(HfApiCommonTest):
         start_time = time.time()
         subprocess.run(["git", "push"], check=True, cwd=self.cache_dir)
         print("took", time.time() - start_time)
+
+    def test_upload_lfs_file_multipart(self):
+        """End to end test to check upload an LFS file using multipart upload works."""
+        self._api._lfsmultipartthresh = 16 * 10**6
+        self.repo_id = self._api.create_repo(repo_id=repo_name()).repo_id
+        self._api._lfsmultipartthresh = None
+
+        with patch.object(
+            huggingface_hub.lfs,
+            "_upload_parts_iteratively",
+            wraps=huggingface_hub.lfs._upload_parts_iteratively,
+        ) as mock:
+            self._api.upload_file(repo_id=self.repo_id, path_or_fileobj=b"0" * 18 * 10**6, path_in_repo="lfs.bin")
+            mock.assert_called_once()  # It used multipart upload
 
 
 class ParseHFUrlTest(unittest.TestCase):
