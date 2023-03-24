@@ -2607,6 +2607,9 @@ class HfApi:
         will delete any remote file under `experiment/logs/`. Note that the `.gitattributes` file will not be deleted
         even if it matches the patterns.
 
+        Any `.git/` folder present in any subdirectory will be ignored. However, please be aware that the `.gitignore`
+        file is not taken into account.
+
         Uses `HfApi.create_commit` under the hood.
 
         Args:
