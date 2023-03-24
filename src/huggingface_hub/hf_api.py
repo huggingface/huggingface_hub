@@ -2727,7 +2727,7 @@ class HfApi:
         # Do not upload .git folder
         if ignore_patterns is None:
             ignore_patterns = []
-        if isinstance(ignore_patterns, str):
+        elif isinstance(ignore_patterns, str):
             ignore_patterns = [ignore_patterns]
         ignore_patterns += IGNORE_GIT_FOLDER_PATTERNS
 
