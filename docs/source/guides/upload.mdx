@@ -79,6 +79,9 @@ Use the `allow_patterns` and `ignore_patterns` arguments to specify which files 
 Patterns are Standard Wildcards (globbing patterns) as documented [here](https://tldp.org/LDP/GNU-Linux-Tools-Summary/html/x11655.htm).
 If both `allow_patterns` and `ignore_patterns` are provided, both constraints apply. By default, all files from the folder are uploaded.
 
+Any `.git/` folder present in any subdirectory will be ignored. However, please be aware that the `.gitignore` file is not taken into account.
+So must use `allow_patterns` and `ignore_patterns` to specify which files to upload instead.
+
 ```py
 >>> api.upload_folder(
 ...     folder_path="/path/to/local/folder",
