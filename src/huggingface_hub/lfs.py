@@ -22,10 +22,10 @@ from math import ceil
 from os.path import getsize
 from typing import BinaryIO, Iterable, List, Optional, Tuple
 
-import requests
 from requests.auth import HTTPBasicAuth
 
 from huggingface_hub.constants import ENDPOINT, REPO_TYPES_URL_PREFIXES
+from huggingface_hub.utils import get_session
 
 from .utils import (
     get_token_to_send,
@@ -167,7 +167,7 @@ def post_lfs_batch_info(
     if repo_type in REPO_TYPES_URL_PREFIXES:
         url_prefix = REPO_TYPES_URL_PREFIXES[repo_type]
     batch_url = f"{endpoint}/{url_prefix}{repo_id}.git/info/lfs/objects/batch"
-    resp = requests.post(
+    resp = get_session().post(
         batch_url,
         headers={
             "Accept": "application/vnd.git-lfs+json",
@@ -264,7 +264,7 @@ def lfs_upload(
             fileobj=fileobj,
         )
     if verify_action is not None:
-        verify_resp = requests.post(
+        verify_resp = get_session().post(
             verify_action["href"],
             auth=HTTPBasicAuth(
                 username="USER",
@@ -377,7 +377,7 @@ def _upload_multi_part(
                 raise ValueError(f"Invalid etag (`{etag}`) returned for part {part_idx +1} of {num_parts}")
             completion_payload["parts"][part_idx]["etag"] = etag
 
-    completion_res = requests.post(
+    completion_res = get_session().post(
         completion_url,
         json=completion_payload,
         headers=LFS_HEADERS,

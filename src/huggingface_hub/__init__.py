@@ -46,7 +46,7 @@ import sys
 from typing import TYPE_CHECKING
 
 
-__version__ = "0.13.0.dev0"
+__version__ = "0.14.0.dev0"
 
 # Alphabetical order of definitions is ensured in tests
 # WARNING: any comment added in this dictionary definition will be lost when
@@ -155,10 +155,8 @@ _SUBMOD_ATTRS = {
         "repo_type_and_id_from_hf_id",
         "request_space_hardware",
         "restart_space",
-        "set_access_token",
         "space_info",
         "unlike",
-        "unset_access_token",
         "update_repo_visibility",
         "upload_file",
         "upload_folder",
@@ -207,7 +205,9 @@ _SUBMOD_ATTRS = {
         "HFCacheInfo",
         "HfFolder",
         "cached_assets_path",
+        "configure_http_backend",
         "dump_environment_info",
+        "get_session",
         "logging",
         "scan_cache_dir",
     ],
@@ -414,10 +414,8 @@ if TYPE_CHECKING:  # pragma: no cover
         repo_type_and_id_from_hf_id,  # noqa: F401
         request_space_hardware,  # noqa: F401
         restart_space,  # noqa: F401
-        set_access_token,  # noqa: F401
         space_info,  # noqa: F401
         unlike,  # noqa: F401
-        unset_access_token,  # noqa: F401
         update_repo_visibility,  # noqa: F401
         upload_file,  # noqa: F401
         upload_folder,  # noqa: F401
@@ -462,7 +460,9 @@ if TYPE_CHECKING:  # pragma: no cover
         HFCacheInfo,  # noqa: F401
         HfFolder,  # noqa: F401
         cached_assets_path,  # noqa: F401
+        configure_http_backend,  # noqa: F401
         dump_environment_info,  # noqa: F401
+        get_session,  # noqa: F401
         logging,  # noqa: F401
         scan_cache_dir,  # noqa: F401
     )

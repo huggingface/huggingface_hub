@@ -670,7 +670,7 @@ def cached_download(
                 timeout=etag_timeout,
             )
             hf_raise_for_status(r)
-            etag = r.headers.get("X-Linked-Etag") or r.headers.get("ETag")
+            etag = r.headers.get(HUGGINGFACE_HEADER_X_LINKED_ETAG) or r.headers.get("ETag")
             # We favor a custom header indicating the etag of the linked resource, and
             # we fallback to the regular etag header.
             # If we don't have any of those, raise an error.
@@ -1506,8 +1506,8 @@ def get_hf_file_metadata(
         etag=_normalize_etag(
             # We favor a custom header indicating the etag of the linked resource, and
             # we fallback to the regular etag header.
-            r.headers.get("ETag")
-            or r.headers.get(HUGGINGFACE_HEADER_X_LINKED_ETAG)
+            r.headers.get(HUGGINGFACE_HEADER_X_LINKED_ETAG)
+            or r.headers.get("ETag")
         ),
         # Either from response headers (if redirected) or defaults to request url
         # Do not use directly `url`, as `_request_wrapper` might have followed relative

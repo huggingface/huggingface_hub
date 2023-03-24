@@ -49,6 +49,24 @@ Using these shouldn't be necessary if you use `huggingface_hub` and you don't mo
 
 [[autodoc]] logging.get_logger
 
+## Configure HTTP backend
+
+In some environments, you might want to configure how HTTP calls are made, for example if you are using a proxy.
+`huggingface_hub` let you configure this globally using [`configure_http_backend`]. All requests made to the Hub will
+then use your settings. Under the hood, `huggingface_hub` uses `requests.Session` so you might want to refer to the
+[`requests` documentation](https://requests.readthedocs.io/en/latest/user/advanced) to learn more about the parameters
+available.
+
+Since `requests.Session` is not guaranteed to be thread-safe, `huggingface_hub` creates one session instance per thread.
+Using sessions allows us to keep the connection open between HTTP calls and ultimately save time. If you are
+integrating `huggingface_hub` in a third-party library and wants to make a custom call to the Hub, use [`get_session`]
+to get a Session configured by your users (i.e. replace any `requests.get(...)` call by `get_session().get(...)`).
+
+[[autodoc]] configure_http_backend
+
+[[autodoc]] get_session
+
+
 ## Handle HTTP errors
 
 `huggingface_hub` defines its own HTTP errors to refine the `HTTPError` raised by

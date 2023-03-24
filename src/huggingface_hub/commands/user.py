@@ -33,9 +33,6 @@ from .._login import (  # noqa: F401 # for backward compatibility  # noqa: F401 
     logout,
     notebook_login,
 )
-from .._login import (
-    _currently_setup_credential_helpers as currently_setup_credential_helpers,  # noqa: F401 # for backward compatibility
-)
 from ..utils import HfFolder
 from ._cli_utils import ANSI
 
