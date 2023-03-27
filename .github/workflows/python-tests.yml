@@ -147,7 +147,7 @@ jobs:
       - name: Configure and install dependencies
         run: |
           pip install --upgrade pip
-          pip install .[testing]
+          pip install .[testing,webhooks]
         # sudo apt install -y libsndfile1-dev
 
       # Run tests

@@ -106,7 +106,7 @@ class TestWebhookAppRun(unittest.TestCase):
     def tearDownClass(cls) -> None:
         cls.ui.server.close()
 
-    def mocked_run_app(self) -> TestClient:
+    def mocked_run_app(self) -> "TestClient":
         with patch.object(self.ui, "block_thread"):
             # Run without blocking
             with patch.object(huggingface_hub._webhooks_app, "_is_local", False):
