@@ -7,10 +7,11 @@ from .testing_utils import handle_injection_in_test
 
 
 class TestPagination(unittest.TestCase):
-    @patch("huggingface_hub.utils._pagination.requests.get")
+    @patch("huggingface_hub.utils._pagination.get_session")
     @patch("huggingface_hub.utils._pagination.hf_raise_for_status")
     @handle_injection_in_test
-    def test_mocked_paginate(self, mock_get: Mock, mock_hf_raise_for_status: Mock) -> None:
+    def test_mocked_paginate(self, mock_get_session: Mock, mock_hf_raise_for_status: Mock) -> None:
+        mock_get = mock_get_session().get
         mock_params = Mock()
         mock_headers = Mock()
 
@@ -62,11 +63,7 @@ class TestPagination(unittest.TestCase):
         # Real test: paginate over huggingface repos on Github
         # Use enumerate and stop after first page to avoid loading all repos
         for num, _ in enumerate(
-            paginate(
-                "https://api.github.com/orgs/huggingface/repos?limit=4",
-                params={},
-                headers={},
-            )
+            paginate("https://api.github.com/orgs/huggingface/repos?limit=4", params={}, headers={})
         ):
             if num == 6:
                 break

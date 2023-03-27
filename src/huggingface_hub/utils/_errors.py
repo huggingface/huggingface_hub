@@ -20,9 +20,9 @@ class HfHubHTTPError(HTTPError):
     Example:
     ```py
         import requests
-        from huggingface_hub.utils import hf_raise_for_status, HfHubHTTPError
+        from huggingface_hub.utils import get_session, hf_raise_for_status, HfHubHTTPError
 
-        response = requests.post(...)
+        response = get_session().post(...)
         try:
             hf_raise_for_status(response)
         except HfHubHTTPError as e:
@@ -211,9 +211,9 @@ def hf_raise_for_status(response: Response, endpoint_name: Optional[str] = None)
     Example:
     ```py
         import requests
-        from huggingface_hub.utils import hf_raise_for_status, HfHubHTTPError
+        from huggingface_hub.utils import get_session, hf_raise_for_status, HfHubHTTPError
 
-        response = requests.post(...)
+        response = get_session().post(...)
         try:
             hf_raise_for_status(response)
         except HfHubHTTPError as e:

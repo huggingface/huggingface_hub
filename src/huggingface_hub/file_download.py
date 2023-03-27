@@ -477,8 +477,7 @@ def http_get(
         if HF_HUB_ENABLE_HF_TRANSFER:
             try:
                 # Download file using an external Rust-based package. Download is faster
-                # (~2x speed-up) but support less features (no error handling, no retries,
-                # no progress bars).
+                # (~2x speed-up) but support less features (no progress bars).
                 from hf_transfer import download
 
                 logger.debug(f"Download {url} using HF_TRANSFER.")
@@ -539,6 +538,15 @@ def http_get(
         if chunk:  # filter out keep-alive new chunks
             progress.update(len(chunk))
             temp_file.write(chunk)
+
+    if total is not None and total != temp_file.tell():
+        raise EnvironmentError(
+            f"Consistency check failed: file should be of size {total} but has size"
+            f" {temp_file.tell()} ({displayed_name}).\nWe are sorry for the inconvenience. Please retry download and"
+            " pass `force_download=True, resume_download=False` as argument.\nIf the issue persists, please let us"
+            " know by opening an issue on https://github.com/huggingface/huggingface_hub."
+        )
+
     progress.close()
 
 
@@ -670,7 +678,7 @@ def cached_download(
                 timeout=etag_timeout,
             )
             hf_raise_for_status(r)
-            etag = r.headers.get("X-Linked-Etag") or r.headers.get("ETag")
+            etag = r.headers.get(HUGGINGFACE_HEADER_X_LINKED_ETAG) or r.headers.get("ETag")
             # We favor a custom header indicating the etag of the linked resource, and
             # we fallback to the regular etag header.
             # If we don't have any of those, raise an error.
@@ -1506,8 +1514,8 @@ def get_hf_file_metadata(
         etag=_normalize_etag(
             # We favor a custom header indicating the etag of the linked resource, and
             # we fallback to the regular etag header.
-            r.headers.get("ETag")
-            or r.headers.get(HUGGINGFACE_HEADER_X_LINKED_ETAG)
+            r.headers.get(HUGGINGFACE_HEADER_X_LINKED_ETAG)
+            or r.headers.get("ETag")
         ),
         # Either from response headers (if redirected) or defaults to request url
         # Do not use directly `url`, as `_request_wrapper` might have followed relative

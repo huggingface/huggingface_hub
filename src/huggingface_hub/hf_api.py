@@ -27,7 +27,7 @@ from urllib.parse import quote
 import requests
 from requests.exceptions import HTTPError
 
-from huggingface_hub.utils import EntryNotFoundError, RepositoryNotFoundError
+from huggingface_hub.utils import IGNORE_GIT_FOLDER_PATTERNS, EntryNotFoundError, RepositoryNotFoundError, get_session
 
 from ._commit_api import (
     CommitOperation,
@@ -75,19 +75,15 @@ from .utils import (  # noqa: F401 # imported for backward compatibility
     HfFolder,
     HfHubHTTPError,
     build_hf_headers,
-    erase_from_credential_store,
     filter_repo_objects,
     hf_raise_for_status,
     logging,
     parse_datetime,
-    read_from_credential_store,
     validate_hf_hub_args,
-    write_to_credential_store,
 )
 from .utils._deprecation import (
     _deprecate_arguments,
     _deprecate_list_output,
-    _deprecate_method,
 )
 from .utils._pagination import paginate
 from .utils._typing import Literal, TypedDict
@@ -103,6 +99,7 @@ from .utils.endpoint_helpers import (
 
 USERNAME_PLACEHOLDER = "hf_user"
 _REGEX_DISCUSSION_URL = re.compile(r".*/discussions/(\d+)$")
+
 
 logger = logging.get_logger(__name__)
 
@@ -836,7 +833,7 @@ class HfApi:
                 Hugging Face token. Will default to the locally saved token if
                 not provided.
         """
-        r = requests.get(
+        r = get_session().get(
             f"{self.endpoint}/api/whoami-v2",
             headers=self._build_hf_headers(
                 # If `token` is provided and not `None`, it will be used by default.
@@ -871,43 +868,10 @@ class HfApi:
         except HTTPError:
             return False
 
-    @staticmethod
-    @_deprecate_method(
-        version="0.14",
-        message=(
-            "`HfApi.set_access_token` is deprecated as it is very ambiguous. Use"
-            " `login` or `set_git_credential` instead."
-        ),
-    )
-    def set_access_token(access_token: str):
-        """
-        Saves the passed access token so git can correctly authenticate the
-        user.
-
-        Args:
-            access_token (`str`):
-                The access token to save.
-        """
-        write_to_credential_store(USERNAME_PLACEHOLDER, access_token)
-
-    @staticmethod
-    @_deprecate_method(
-        version="0.14",
-        message=(
-            "`HfApi.unset_access_token` is deprecated as it is very ambiguous. Use"
-            " `login` or `unset_git_credential` instead."
-        ),
-    )
-    def unset_access_token():
-        """
-        Resets the user's access token.
-        """
-        erase_from_credential_store(USERNAME_PLACEHOLDER)
-
     def get_model_tags(self) -> ModelTags:
         "Gets all valid model tags as a nested namespace object"
         path = f"{self.endpoint}/api/models-tags-by-type"
-        r = requests.get(path)
+        r = get_session().get(path)
         hf_raise_for_status(r)
         d = r.json()
         return ModelTags(d)
@@ -917,7 +881,7 @@ class HfApi:
         Gets all valid dataset tags as a nested namespace object.
         """
         path = f"{self.endpoint}/api/datasets-tags-by-type"
-        r = requests.get(path)
+        r = get_session().get(path)
         hf_raise_for_status(r)
         d = r.json()
         return DatasetTags(d)
@@ -1307,7 +1271,7 @@ class HfApi:
             `List[MetricInfo]`: a list of [`MetricInfo`] objects which.
         """
         path = f"{self.endpoint}/api/metrics"
-        r = requests.get(path)
+        r = get_session().get(path)
         hf_raise_for_status(r)
         d = r.json()
         return [MetricInfo(**x) for x in d]
@@ -1441,7 +1405,7 @@ class HfApi:
         """
         if repo_type is None:
             repo_type = REPO_TYPE_MODEL
-        response = requests.post(
+        response = get_session().post(
             url=f"{self.endpoint}/api/{repo_type}s/{repo_id}/like",
             headers=self._build_hf_headers(token=token),
         )
@@ -1489,10 +1453,8 @@ class HfApi:
         """
         if repo_type is None:
             repo_type = REPO_TYPE_MODEL
-        # TODO: use requests.delete(".../like") instead when https://github.com/huggingface/moon-landing/pull/4813 is merged
-        response = requests.delete(
-            url=f"{self.endpoint}/api/{repo_type}s/{repo_id}/like",
-            headers=self._build_hf_headers(token=token),
+        response = get_session().delete(
+            url=f"{self.endpoint}/api/{repo_type}s/{repo_id}/like", headers=self._build_hf_headers(token=token)
         )
         hf_raise_for_status(response)
 
@@ -1634,7 +1596,7 @@ class HfApi:
             params["securityStatus"] = True
         if files_metadata:
             params["blobs"] = True
-        r = requests.get(path, headers=headers, timeout=timeout, params=params)
+        r = get_session().get(path, headers=headers, timeout=timeout, params=params)
         hf_raise_for_status(r)
         d = r.json()
         return ModelInfo(**d)
@@ -1697,7 +1659,7 @@ class HfApi:
         if files_metadata:
             params["blobs"] = True
 
-        r = requests.get(path, headers=headers, timeout=timeout, params=params)
+        r = get_session().get(path, headers=headers, timeout=timeout, params=params)
         hf_raise_for_status(r)
         d = r.json()
         return DatasetInfo(**d)
@@ -1760,7 +1722,7 @@ class HfApi:
         if files_metadata:
             params["blobs"] = True
 
-        r = requests.get(path, headers=headers, timeout=timeout, params=params)
+        r = get_session().get(path, headers=headers, timeout=timeout, params=params)
         hf_raise_for_status(r)
         d = r.json()
         return SpaceInfo(**d)
@@ -1927,9 +1889,8 @@ class HfApi:
             repo on the Hub.
         """
         repo_type = repo_type or REPO_TYPE_MODEL
-        response = requests.get(
-            f"{self.endpoint}/api/{repo_type}s/{repo_id}/refs",
-            headers=self._build_hf_headers(token=token),
+        response = get_session().get(
+            f"{self.endpoint}/api/{repo_type}s/{repo_id}/refs", headers=self._build_hf_headers(token=token)
         )
         hf_raise_for_status(response)
         data = response.json()
@@ -2088,7 +2049,7 @@ class HfApi:
             # See https://github.com/huggingface/huggingface_hub/pull/733/files#r820604472
             json["lfsmultipartthresh"] = self._lfsmultipartthresh  # type: ignore
         headers = self._build_hf_headers(token=token, is_write_action=True)
-        r = requests.post(path, headers=headers, json=json)
+        r = get_session().post(path, headers=headers, json=json)
 
         try:
             hf_raise_for_status(r)
@@ -2154,7 +2115,7 @@ class HfApi:
             json["type"] = repo_type
 
         headers = self._build_hf_headers(token=token, is_write_action=True)
-        r = requests.delete(path, headers=headers, json=json)
+        r = get_session().delete(path, headers=headers, json=json)
         hf_raise_for_status(r)
 
     @validate_hf_hub_args
@@ -2209,7 +2170,7 @@ class HfApi:
         if repo_type is None:
             repo_type = REPO_TYPE_MODEL  # default repo type
 
-        r = requests.put(
+        r = get_session().put(
             url=f"{self.endpoint}/api/{repo_type}s/{namespace}/{name}/settings",
             headers=self._build_hf_headers(token=token, is_write_action=True),
             json={"private": private},
@@ -2269,7 +2230,7 @@ class HfApi:
 
         path = f"{self.endpoint}/api/repos/move"
         headers = self._build_hf_headers(token=token, is_write_action=True)
-        r = requests.post(path, headers=headers, json=json)
+        r = get_session().post(path, headers=headers, json=json)
         try:
             hf_raise_for_status(r)
         except HfHubHTTPError as e:
@@ -2453,7 +2414,7 @@ class HfApi:
         params = {"create_pr": "1"} if create_pr else None
 
         try:
-            commit_resp = requests.post(url=commit_url, headers=headers, data=data, params=params)
+            commit_resp = get_session().post(url=commit_url, headers=headers, data=data, params=params)
             hf_raise_for_status(commit_resp, endpoint_name="commit")
         except RepositoryNotFoundError as e:
             e.append_to_message(_CREATE_COMMIT_NO_REPO_ERROR_MESSAGE)
@@ -2588,10 +2549,10 @@ class HfApi:
         logger.info(f"Multi-commits strategy with ID {strategy.id}.")
 
         # 2. Get or create a PR with this strategy ID
-        for discussion in api.get_repo_discussions(repo_id=repo_id, repo_type=repo_type, token=token):
+        for discussion in self.get_repo_discussions(repo_id=repo_id, repo_type=repo_type, token=token):
             # search for a draft PR with strategy ID
             if discussion.is_pull_request and discussion.status == "draft" and strategy.id in discussion.title:
-                pr = api.get_discussion_details(
+                pr = self.get_discussion_details(
                     repo_id=repo_id, discussion_num=discussion.num, repo_type=repo_type, token=token
                 )
                 logger.info(f"PR already exists: {pr.url}. Will resume process where it stopped.")
@@ -2599,7 +2560,7 @@ class HfApi:
         else:
             # did not find a PR matching the strategy ID
             pr = multi_commit_create_pull_request(
-                api,
+                self,
                 repo_id=repo_id,
                 commit_message=commit_message,
                 commit_description=commit_description,
@@ -2633,13 +2594,13 @@ class HfApi:
         # 4. Retrieve commit history (and check consistency)
         commits_on_main_branch = {
             commit.commit_id
-            for commit in api.list_repo_commits(
+            for commit in self.list_repo_commits(
                 repo_id=repo_id, repo_type=repo_type, token=token, revision=DEFAULT_REVISION
             )
         }
         pr_commits = [
             commit
-            for commit in api.list_repo_commits(
+            for commit in self.list_repo_commits(
                 repo_id=repo_id, repo_type=repo_type, token=token, revision=pr.git_reference
             )
             if commit.commit_id not in commits_on_main_branch
@@ -2682,7 +2643,7 @@ class HfApi:
         # TODO: multi-thread this
         for step in list(remaining_deletions.values()) + list(remaining_additions.values()):
             # Push new commit
-            api.create_commit(
+            self.create_commit(
                 repo_id=repo_id,
                 repo_type=repo_type,
                 token=token,
@@ -2697,7 +2658,7 @@ class HfApi:
             logger.info(f"  step {step.id} completed (still {nb_remaining} to go).")
 
             # Update PR description
-            api.edit_discussion_comment(
+            self.edit_discussion_comment(
                 repo_id=repo_id,
                 repo_type=repo_type,
                 token=token,
@@ -2710,14 +2671,14 @@ class HfApi:
         logger.info("All commits have been pushed.")
 
         # 6. Update PR (and merge)
-        api.rename_discussion(
+        self.rename_discussion(
             repo_id=repo_id,
             repo_type=repo_type,
             token=token,
             discussion_num=pr.num,
             new_title=commit_message,
         )
-        api.change_discussion_status(
+        self.change_discussion_status(
             repo_id=repo_id,
             repo_type=repo_type,
             token=token,
@@ -2729,7 +2690,7 @@ class HfApi:
 
         if merge_pr:  # User don't want a PR => merge it
             try:
-                api.merge_pull_request(
+                self.merge_pull_request(
                     repo_id=repo_id,
                     repo_type=repo_type,
                     token=token,
@@ -2741,7 +2702,7 @@ class HfApi:
                 if error.server_message is not None and "no associated changes" in error.server_message:
                     # PR cannot be merged as no changes are associated. We close the PR without merging with a comment to
                     # explain.
-                    api.change_discussion_status(
+                    self.change_discussion_status(
                         repo_id=repo_id,
                         repo_type=repo_type,
                         token=token,
@@ -2753,7 +2714,7 @@ class HfApi:
                 else:
                     # PR cannot be merged for another reason (conflicting files for example). We comment the PR to explain
                     # and re-raise the exception.
-                    api.comment_discussion(
+                    self.comment_discussion(
                         repo_id=repo_id,
                         repo_type=repo_type,
                         token=token,
@@ -2955,6 +2916,9 @@ class HfApi:
         will delete any remote file under `./experiment/logs/`. Note that the `.gitattributes` file will not be deleted
         even if it matches the patterns.
 
+        Any `.git/` folder present in any subdirectory will be ignored. However, please be aware that the `.gitignore`
+        file is not taken into account.
+
         Uses `HfApi.create_commit` under the hood.
 
         Args:
@@ -3077,7 +3041,12 @@ class HfApi:
         if path_in_repo is None:
             path_in_repo = ""
 
-        commit_message = commit_message if commit_message is not None else "Upload folder using huggingface_hub"
+        # Do not upload .git folder
+        if ignore_patterns is None:
+            ignore_patterns = []
+        elif isinstance(ignore_patterns, str):
+            ignore_patterns = [ignore_patterns]
+        ignore_patterns += IGNORE_GIT_FOLDER_PATTERNS
 
         delete_operations = self._prepare_upload_folder_deletions(
             repo_id=repo_id,
@@ -3103,6 +3072,7 @@ class HfApi:
         commit_operations = delete_operations + add_operations
 
         pr_url: Optional[str]
+        commit_message = commit_message or "Upload folder using huggingface_hub"
         if multi_commits:
             addition_commits, deletion_commits = plan_multi_commits(operations=commit_operations)
             pr_url = self.create_commits_on_pr(
@@ -3351,7 +3321,7 @@ class HfApi:
             payload["startingPoint"] = revision
 
         # Create branch
-        response = requests.post(url=branch_url, headers=headers, json=payload)
+        response = get_session().post(url=branch_url, headers=headers, json=payload)
         try:
             hf_raise_for_status(response)
         except HfHubHTTPError as e:
@@ -3404,7 +3374,7 @@ class HfApi:
         headers = self._build_hf_headers(token=token, is_write_action=True)
 
         # Delete branch
-        response = requests.delete(url=branch_url, headers=headers)
+        response = get_session().delete(url=branch_url, headers=headers)
         hf_raise_for_status(response)
 
     @validate_hf_hub_args
@@ -3471,7 +3441,7 @@ class HfApi:
             payload["message"] = tag_message
 
         # Tag
-        response = requests.post(url=tag_url, headers=headers, json=payload)
+        response = get_session().post(url=tag_url, headers=headers, json=payload)
         try:
             hf_raise_for_status(response)
         except HfHubHTTPError as e:
@@ -3521,7 +3491,7 @@ class HfApi:
         headers = self._build_hf_headers(token=token, is_write_action=True)
 
         # Un-tag
-        response = requests.delete(url=tag_url, headers=headers)
+        response = get_session().delete(url=tag_url, headers=headers)
         hf_raise_for_status(response)
 
     @validate_hf_hub_args
@@ -3612,7 +3582,7 @@ class HfApi:
 
         def _fetch_discussion_page(page_index: int):
             path = f"{self.endpoint}/api/{repo_type}s/{repo_id}/discussions?p={page_index}"
-            resp = requests.get(path, headers=headers)
+            resp = get_session().get(path, headers=headers)
             hf_raise_for_status(resp)
             paginated_discussions = resp.json()
             total = paginated_discussions["count"]
@@ -3688,7 +3658,7 @@ class HfApi:
 
         path = f"{self.endpoint}/api/{repo_type}s/{repo_id}/discussions/{discussion_num}"
         headers = self._build_hf_headers(token=token)
-        resp = requests.get(path, params={"diff": "1"}, headers=headers)
+        resp = get_session().get(path, params={"diff": "1"}, headers=headers)
         hf_raise_for_status(resp)
 
         discussion_details = resp.json()
@@ -3786,7 +3756,7 @@ class HfApi:
         )
 
         headers = self._build_hf_headers(token=token, is_write_action=True)
-        resp = requests.post(
+        resp = get_session().post(
             f"{self.endpoint}/api/{repo_type}s/{repo_id}/discussions",
             json={
                 "title": title.strip(),
@@ -4294,7 +4264,7 @@ class HfApi:
             token (`str`, *optional*):
                 Hugging Face token. Will default to the locally saved token if not provided.
         """
-        r = requests.post(
+        r = get_session().post(
             f"{self.endpoint}/api/spaces/{repo_id}/secrets",
             headers=self._build_hf_headers(token=token),
             json={"key": key, "value": value},
@@ -4316,7 +4286,7 @@ class HfApi:
             token (`str`, *optional*):
                 Hugging Face token. Will default to the locally saved token if not provided.
         """
-        r = requests.delete(
+        r = get_session().delete(
             f"{self.endpoint}/api/spaces/{repo_id}/secrets",
             headers=self._build_hf_headers(token=token),
             json={"key": key},
@@ -4336,7 +4306,9 @@ class HfApi:
         Returns:
             [`SpaceRuntime`]: Runtime information about a Space including Space stage and hardware.
         """
-        r = requests.get(f"{self.endpoint}/api/spaces/{repo_id}/runtime", headers=self._build_hf_headers(token=token))
+        r = get_session().get(
+            f"{self.endpoint}/api/spaces/{repo_id}/runtime", headers=self._build_hf_headers(token=token)
+        )
         hf_raise_for_status(r)
         return SpaceRuntime(r.json())
 
@@ -4358,7 +4330,7 @@ class HfApi:
 
         </Tip>
         """
-        r = requests.post(
+        r = get_session().post(
             f"{self.endpoint}/api/spaces/{repo_id}/hardware",
             headers=self._build_hf_headers(token=token),
             json={"flavor": hardware},
@@ -4395,7 +4367,9 @@ class HfApi:
                 If your Space is a static Space. Static Spaces are always running and never billed. If you want to hide
                 a static Space, you can set it to private.
         """
-        r = requests.post(f"{self.endpoint}/api/spaces/{repo_id}/pause", headers=self._build_hf_headers(token=token))
+        r = get_session().post(
+            f"{self.endpoint}/api/spaces/{repo_id}/pause", headers=self._build_hf_headers(token=token)
+        )
         hf_raise_for_status(r)
         return SpaceRuntime(r.json())
 
@@ -4429,7 +4403,9 @@ class HfApi:
                 If your Space is a static Space. Static Spaces are always running and never billed. If you want to hide
                 a static Space, you can set it to private.
         """
-        r = requests.post(f"{self.endpoint}/api/spaces/{repo_id}/restart", headers=self._build_hf_headers(token=token))
+        r = get_session().post(
+            f"{self.endpoint}/api/spaces/{repo_id}/restart", headers=self._build_hf_headers(token=token)
+        )
         hf_raise_for_status(r)
         return SpaceRuntime(r.json())
 
@@ -4503,7 +4479,7 @@ class HfApi:
         if private is not None:
             payload["private"] = private
 
-        r = requests.post(
+        r = get_session().post(
             f"{self.endpoint}/api/spaces/{from_id}/duplicate",
             headers=self._build_hf_headers(token=token, is_write_action=True),
             json=payload,
@@ -4636,9 +4612,6 @@ def _parse_revision_from_pr_url(pr_url: str) -> str:
 
 
 api = HfApi()
-
-set_access_token = api.set_access_token
-unset_access_token = api.unset_access_token
 
 whoami = api.whoami
 

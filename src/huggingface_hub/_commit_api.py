@@ -11,11 +11,12 @@ from dataclasses import dataclass, field
 from pathlib import Path, PurePosixPath
 from typing import Any, BinaryIO, Dict, Iterable, Iterator, List, Optional, Union
 
-import requests
 from tqdm.contrib.concurrent import thread_map
 
-from .constants import ENDPOINT
-from .lfs import UploadInfo, _validate_batch_actions, lfs_upload, post_lfs_batch_info
+from huggingface_hub import get_session
+
+from .constants import ENDPOINT, HF_HUB_ENABLE_HF_TRANSFER
+from .lfs import UploadInfo, lfs_upload, post_lfs_batch_info
 from .utils import (
     build_hf_headers,
     chunk_iterable,
@@ -25,7 +26,6 @@ from .utils import (
     validate_hf_hub_args,
 )
 from .utils import tqdm as hf_tqdm
-from .utils._deprecation import _deprecate_method
 from .utils._typing import Literal
 
 
@@ -130,14 +130,6 @@ class CommitOperationAdd:
         else:
             self.upload_info = UploadInfo.from_fileobj(self.path_or_fileobj)
 
-    @_deprecate_method(version="0.14", message="Operation is validated at initialization.")
-    def validate(self) -> None:
-        pass
-
-    @_deprecate_method(version="0.14", message="Use `upload_info` property instead.")
-    def _upload_info(self) -> UploadInfo:
-        return self.upload_info
-
     @contextmanager
     def as_file(self, with_tqdm: bool = False) -> Iterator[BinaryIO]:
         """
@@ -206,6 +198,11 @@ def _validate_path_in_repo(path_in_repo: str) -> str:
         raise ValueError(f"Invalid `path_in_repo` in CommitOperation: '{path_in_repo}'")
     if path_in_repo.startswith("./"):
         path_in_repo = path_in_repo[2:]
+    if any(part == ".git" for part in path_in_repo.split("/")):
+        raise ValueError(
+            "Invalid `path_in_repo` in CommitOperation: cannot update files under a '.git/' folder (path:"
+            f" '{path_in_repo}')."
+        )
     return path_in_repo
 
 
@@ -338,64 +335,28 @@ def upload_lfs_files(
         return
 
     # Step 3: upload files concurrently according to these instructions
-    def _inner_upload_lfs_object(batch_action):
+    def _wrapped_lfs_upload(batch_action) -> None:
         try:
             operation = oid2addop[batch_action["oid"]]
-            return _upload_lfs_object(operation=operation, lfs_batch_action=batch_action, token=token)
+            lfs_upload(operation=operation, lfs_batch_action=batch_action, token=token)
         except Exception as exc:
             raise RuntimeError(f"Error while uploading '{operation.path_in_repo}' to the Hub.") from exc
 
-    logger.debug(
-        f"Uploading {len(filtered_actions)} LFS files to the Hub using up to {num_threads} threads concurrently"
-    )
-    thread_map(
-        _inner_upload_lfs_object,
-        filtered_actions,
-        desc=f"Upload {len(filtered_actions)} LFS files",
-        max_workers=num_threads,
-        tqdm_class=hf_tqdm,
-    )
-
-
-def _upload_lfs_object(operation: CommitOperationAdd, lfs_batch_action: dict, token: Optional[str]):
-    """
-    Handles uploading a given object to the Hub with the LFS protocol.
-
-    Defers to [`~utils.lfs.lfs_upload`] for the actual upload logic.
-
-    Can be a No-op if the content of the file is already present on the hub
-    large file storage.
-
-    Args:
-        operation (`CommitOperationAdd`):
-            The add operation triggering this upload
-        lfs_batch_action (`dict`):
-            Upload instructions from the LFS batch endpoint for this object.
-            See [`~utils.lfs.post_lfs_batch_info`] for more details.
-        token (`str`, *optional*):
-            A [user access token](https://hf.co/settings/tokens) to authenticate requests against the Hub
-
-    Raises: `ValueError` if `lfs_batch_action` is improperly formatted
-    """
-    _validate_batch_actions(lfs_batch_action)
-    upload_info = operation.upload_info
-    actions = lfs_batch_action.get("actions")
-    if actions is None:
-        # The file was already uploaded
-        logger.debug(f"Content of file {operation.path_in_repo} is already present upstream - skipping upload")
-        return
-    upload_action = lfs_batch_action["actions"].get("upload")
-    verify_action = lfs_batch_action["actions"].get("verify")
-    with operation.as_file(with_tqdm=True) as fileobj:
-        logger.debug(f"Uploading {operation.path_in_repo} as LFS file...")
-        lfs_upload(
-            fileobj=fileobj,
-            upload_action=upload_action,
-            verify_action=verify_action,
-            upload_info=upload_info,
-            token=token,
+    if HF_HUB_ENABLE_HF_TRANSFER:
+        logger.debug(f"Uploading {len(filtered_actions)} LFS files to the Hub using `hf_transfer`.")
+        for action in filtered_actions:
+            _wrapped_lfs_upload(action)
+    else:
+        logger.debug(
+            f"Uploading {len(filtered_actions)} LFS files to the Hub using up to {num_threads} threads concurrently"
         )
-        logger.debug(f"{operation.path_in_repo}: Upload successful")
+        thread_map(
+            _wrapped_lfs_upload,
+            filtered_actions,
+            desc=f"Upload {len(filtered_actions)} LFS files",
+            max_workers=num_threads,
+            tqdm_class=hf_tqdm,
+        )
 
 
 def _validate_preupload_info(preupload_info: dict):
@@ -468,7 +429,7 @@ def fetch_upload_modes(
             ]
         }
 
-        resp = requests.post(
+        resp = get_session().post(
             f"{endpoint}/api/{repo_type}s/{repo_id}/preupload/{revision}",
             json=payload,
             headers=headers,
