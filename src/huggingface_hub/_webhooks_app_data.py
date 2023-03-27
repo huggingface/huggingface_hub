@@ -1,8 +1,16 @@
 from typing import List, Optional
 
-from pydantic import BaseModel
-
+from .utils import is_gradio_available
 from .utils._typing import Literal
+
+
+if not is_gradio_available():
+    raise ImportError(
+        "You must have `gradio` installed to use the `WebhookApp`. Please run `pip install huggingface_hub[webhooks]`"
+        " first."
+    )
+
+from pydantic import BaseModel
 
 
 # This is an adaptation of the ReportV3 interface implemented in moon-landing. V0, V1 and V2 have been ignored as they
