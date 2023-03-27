@@ -1,7 +1,7 @@
 import atexit
 import os
 from functools import wraps
-from typing import Awaitable, Callable, Dict, Optional, Iterable
+from typing import Awaitable, Callable, Dict, Optional
 
 import gradio as gr
 from fastapi import FastAPI, Request
@@ -14,25 +14,63 @@ _is_local = os.getenv("SYSTEM") != "spaces"
 
 class WebhookApp:
     """
-    ```py
-    from huggingface_hub import WebhookApp
+    The [`WebhookApp`] class lets you create an instance of a Gradio app that can receive Huggingface webhooks.
+    These webhooks can be registered using the [`~WebhookApp.add_webhook`] decorator. Webhook endpoints are added to
+    the app as a POST endpoint to the FastAPI router. Once all the webhooks are registered, the `run` method has to be
+    called to start the app.
 
-    app = WebhookApp()
+    The [`WebhookApp`] is meant to be debugged locally before being deployed to a Space. Local debugging works with
+    the HF Hub by opening a tunnel to your machine (using Gradio). You can protect your webhook server by setting a
+    `webhook_secret`.
 
-    @app.add_webhook("/test_webhook")
-    async def hello():
-        return {"in_gradio": True}
+    It is recommended to accept [`WebhookPayload`] as the first argument of the webhook function. It is a Pydantic
+    model that contains all the information about the webhook event. The data will be parsed automatically for you.
 
-    app.run()
-    ```
+    Args:
+        ui (`gradio.Blocks`, optional):
+            A Gradio UI instance that will be use as the Space landing page. If None, a basic interface displaying
+            information about the configured webhooks is created.
+        webhook_secret (`str`, optional):
+            A secret key to verify incoming webhook requests. You can set this value to any secret you want as long as
+            you configure it as well in your [webhooks settings panel](https://huggingface.co/settings/webhooks). You
+            can also set this value as the `WEBHOOK_SECRET` environment variable. If no secret is provided, the
+            webhook endpoints are opened without any security.
 
-    ```py
-    from huggingface_hub import as_webhook
+    Example:
 
-    @as_webhook
-    async def hello():
-        return {"in_gradio": True}
-    ```
+        The quickest way to define a webhook app is to use the [`hf_webhook`] decorator. Under the hood it will create
+        a [`WebhookApp`] with the default UI and register the decorated function as a webhook. Multiple webhooks can
+        be added in the same script. Once all the webhooks are defined, the `run` method will be called automatically.
+
+
+        ```python
+        from huggingface_hub import hf_webhook, WebhookPayload
+
+        @hf_webhook
+        async def trigger_training(payload: WebhookPayload):
+            if payload.repo.type == "dataset" and payload.event.action == "update":
+                # Trigger a training job if a dataset is updated
+                ...
+        ```
+
+        If you need more control over the app, you can create a [`WebhookApp`] instance yourself and register webhooks
+        as you would register FastAPI routes. The `run` method will have to be called manually to start the app.
+
+        ```python
+        import gradio as gr
+        from huggingface_hub import WebhookApp, WebhookPayload
+
+        with gr.Blocks as ui:
+            ...
+
+        app = WebhookApp(ui=ui, webhook_secret="my_secret_key")
+
+        @app.add_webhook("/say_hello")
+        async def hello(payload: WebhookPayload):
+            return {"message": "hello"}
+
+        app.run()
+        ```
     """
 
     def __init__(
@@ -40,10 +78,6 @@ class WebhookApp:
         ui: Optional[gr.Blocks] = None,
         webhook_secret: Optional[str] = None,
     ) -> None:
-        """Initialize WebhookApp.
-
-        At this stage, it is an empty wrapper. The Gradio (and FastAPI) app will be created when `run` is called.
-        """
         self._ui = ui
 
         self.webhook_secret = webhook_secret or os.getenv("WEBHOOK_SECRET")
@@ -51,8 +85,32 @@ class WebhookApp:
         _warn_on_empty_secret(self.webhook_secret)
 
     def add_webhook(self, path: Optional[str] = None) -> Callable:
-        """Decorator to add a webhook to the server app."""
+        """
+        Decorator to add a webhook to the [`WebhookApp`] server.
 
+        Args:
+            path (`str`, optional):
+                The URL path to register the webhook function. If not provided, the function name will be used as the
+                path. In any case, all webhooks are registered under the `/webhooks` path.
+
+        Raises:
+            ValueError: If the provided path is already registered as a webhook.
+
+        Example:
+            ```python
+            from huggingface_hub import WebhookApp, WebhookPayload
+
+            app = WebhookApp()
+
+            @app.add_webhook
+            async def trigger_training(payload: WebhookPayload):
+                if payload.repo.type == "dataset" and payload.event.action == "update":
+                    # Trigger a training job if a dataset is updated
+                    ...
+
+            app.run()
+        ```
+        """
         # Usage: directly as decorator. Example: `@app.add_webhook`
         if callable(path):
             # If path is a function, it means it was used as a decorator without arguments
@@ -70,18 +128,18 @@ class WebhookApp:
         return _inner_post
 
     def run(self) -> None:
-        """Set the app as "ready" and block main thread to keep it running."""
+        """Starts the Gradio app with the FastAPI server and registers the webhooks."""
         ui = self._ui or self._get_default_ui()
 
         # Start Gradio App
         #   - as non-blocking so that webhooks can be added afterwards
         #   - as shared if launch locally (to debug webhooks)
-        fastapi_app, _, _ = ui.launch(prevent_thread_lock=True, share=_is_local)
-        fastapi_app.middleware("http")(self._webhook_secret_middleware)
+        self.fastapi_app, _, _ = ui.launch(prevent_thread_lock=True, share=_is_local)
+        self.fastapi_app.middleware("http")(self._webhook_secret_middleware)
 
         # Register webhooks to FastAPI app
         for path, func in self.registered_webhooks.items():
-            fastapi_app.post(path)(func)
+            self.fastapi_app.post(path)(func)
 
         # Print instructions and block main thread
         url = (ui.share_url or ui.local_url).strip("/")
@@ -93,6 +151,7 @@ class WebhookApp:
         ui.block_thread()
 
     def _get_default_ui(self) -> gr.Blocks:
+        """Default UI if not provided (lists webhooks and provides basic instructions)."""
         with gr.Blocks() as ui:
             gr.Markdown("# This is an app to process 🤗 Webhooks")
             gr.Markdown(
@@ -134,9 +193,33 @@ class WebhookApp:
         return await call_next(request)
 
 
-def as_webhook(path: Optional[str] = None) -> Callable:
-    """Decorator to start a webhook server app."""
+def hf_webhook(path: Optional[str] = None) -> Callable:
+    """Decorator to start a [`WebhookApp`] and register the decorated function as a webhook endpoint.
 
+    This is an helper to get started quickly. If you need more flexibility (custom landing page or webhook secret),
+    please use [`WebhookApp`] directly.
+
+    Args:
+        path (`str`, optional):
+            The URL path to register the webhook function. If not provided, the function name will be used as the path.
+            In any case, all webhooks are registered under the `/webhooks` path.
+
+    Example:
+        ```python
+        from huggingface_hub import hf_webhook, WebhookPayload
+
+        @hf_webhook
+        async def trigger_training(payload: WebhookPayload):
+            if payload.repo.type == "dataset" and payload.event.action == "update":
+                # Trigger a training job if a dataset is updated
+                ...
+        ```
+    """
+    if callable(path):
+        # If path is a function, it means it was used as a decorator without arguments
+        return hf_webhook()(path)
+
+    @wraps(WebhookApp.add_webhook)
     def _inner(func: Callable) -> None:
         app = _get_global_app()
         app.add_webhook(path)(func)

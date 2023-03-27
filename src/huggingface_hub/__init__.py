@@ -66,15 +66,20 @@ _SUBMOD_ATTRS = {
         "SpaceRuntime",
         "SpaceStage",
     ],
-    "_webhooks": [
+    "_webhooks_app": [
         "WebhookApp",
-        "as_webhook",
+        "hf_webhook",
     ],
-    "_webhooks_data": [
+    "_webhooks_app_data": [
         "WebhookPayload",
+        "WebhookPayloadComment",
         "WebhookPayloadDiscussion",
+        "WebhookPayloadDiscussionChanges",
         "WebhookPayloadEvent",
+        "WebhookPayloadMovedTo",
         "WebhookPayloadRepo",
+        "WebhookPayloadUrl",
+        "WebhookPayloadWebhook",
     ],
     "community": [
         "Discussion",
@@ -335,15 +340,20 @@ if TYPE_CHECKING:  # pragma: no cover
         SpaceRuntime,  # noqa: F401
         SpaceStage,  # noqa: F401
     )
-    from ._webhooks import (
+    from ._webhooks_app import (
         WebhookApp,  # noqa: F401
-        as_webhook,  # noqa: F401
+        hf_webhook,  # noqa: F401
     )
-    from ._webhooks_data import (
+    from ._webhooks_app_data import (
         WebhookPayload,  # noqa: F401
+        WebhookPayloadComment,  # noqa: F401
         WebhookPayloadDiscussion,  # noqa: F401
+        WebhookPayloadDiscussionChanges,  # noqa: F401
         WebhookPayloadEvent,  # noqa: F401
+        WebhookPayloadMovedTo,  # noqa: F401
         WebhookPayloadRepo,  # noqa: F401
+        WebhookPayloadUrl,  # noqa: F401
+        WebhookPayloadWebhook,  # noqa: F401
     )
     from .community import (
         Discussion,  # noqa: F401
