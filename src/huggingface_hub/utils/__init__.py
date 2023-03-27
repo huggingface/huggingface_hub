@@ -49,6 +49,8 @@ from ._runtime import (
     dump_environment_info,
     get_fastai_version,
     get_fastcore_version,
+    get_gradio_version,
+    is_gradio_available,
     get_graphviz_version,
     get_hf_hub_version,
     get_hf_transfer_version,

@@ -1,13 +1,17 @@
 import unittest
 from unittest.mock import patch
 
-import gradio as gr
-from fastapi.testclient import TestClient
+from huggingface_hub.utils import is_gradio_available
 
-import huggingface_hub._webhooks_app
-from huggingface_hub import WebhookApp, WebhookPayload
+from .testing_utils import capture_output, require_webhooks
 
-from .testing_utils import capture_output
+
+if is_gradio_available():
+    import gradio as gr
+    from fastapi.testclient import TestClient
+
+    import huggingface_hub._webhooks_app
+    from huggingface_hub import WebhookApp, WebhookPayload
 
 
 # Taken from https://huggingface.co/docs/hub/webhooks#event
@@ -45,6 +49,7 @@ WEBHOOK_PAYLOAD_EXAMPLE = {
 }
 
 
+@require_webhooks
 class TestWebhookAppStatic(unittest.TestCase):
     def test_add_webhook_implicit_path(self):
         # Test adding a webhook
@@ -82,6 +87,7 @@ class TestWebhookAppStatic(unittest.TestCase):
                 pass
 
 
+@require_webhooks
 class TestWebhookAppRun(unittest.TestCase):
     @classmethod
     def setUpClass(cls) -> None:

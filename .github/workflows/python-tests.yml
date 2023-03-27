@@ -51,7 +51,7 @@ jobs:
       - name: Configure and install dependencies
         run: |
           pip install --upgrade pip
-          pip install .[testing]
+          pip install .[testing,webhooks]
 
           case "${{ matrix.test_name }}" in
 

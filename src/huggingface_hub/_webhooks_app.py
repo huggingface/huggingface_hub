@@ -3,6 +3,15 @@ import os
 from functools import wraps
 from typing import Awaitable, Callable, Dict, Optional
 
+from .utils import is_gradio_available
+
+
+if not is_gradio_available():
+    raise ImportError(
+        "You must have `gradio` installed to use the `WebhookApp`. Please run `pip install huggingface_hub[webhooks]`"
+        " first."
+    )
+
 import gradio as gr
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
