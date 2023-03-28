@@ -89,8 +89,7 @@ class TestWebhooksServerDontRun(unittest.TestCase):
 
 @require_webhooks
 class TestWebhooksServerRun(unittest.TestCase):
-    @classmethod
-    def setUpClass(cls) -> None:
+    def setUp(self) -> None:
         with gr.Blocks() as ui:
             gr.Markdown("Hello World!")
         app = WebhooksServer(ui=ui, webhook_secret="my_webhook_secret")
@@ -99,12 +98,11 @@ class TestWebhooksServerRun(unittest.TestCase):
         async def test_webhook(payload: WebhookPayload) -> None:
             return {"scope": payload.event.scope}
 
-        cls.ui = ui
-        cls.app = app
+        self.ui = ui
+        self.app = app
 
-    @classmethod
-    def tearDownClass(cls) -> None:
-        cls.ui.server.close()
+    def tearDown(self) -> None:
+        self.ui.server.close()
 
     def mocked_run_app(self) -> "TestClient":
         with patch.object(self.ui, "block_thread"):
