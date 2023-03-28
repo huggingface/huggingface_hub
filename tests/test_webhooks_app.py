@@ -10,8 +10,8 @@ if is_gradio_available():
     import gradio as gr
     from fastapi.testclient import TestClient
 
-    import huggingface_hub._webhooks_app
-    from huggingface_hub import WebhookApp, WebhookPayload
+    import huggingface_hub._webhooks_server
+    from huggingface_hub import WebhookPayload, WebhooksServer
 
 
 # Taken from https://huggingface.co/docs/hub/webhooks#event
@@ -50,10 +50,10 @@ WEBHOOK_PAYLOAD_EXAMPLE = {
 
 
 @require_webhooks
-class TestWebhookAppStatic(unittest.TestCase):
+class TestWebhooksServerDontRun(unittest.TestCase):
     def test_add_webhook_implicit_path(self):
         # Test adding a webhook
-        app = WebhookApp()
+        app = WebhooksServer()
 
         @app.add_webhook
         async def handler():
@@ -63,7 +63,7 @@ class TestWebhookAppStatic(unittest.TestCase):
 
     def test_add_webhook_explicit_path(self):
         # Test adding a webhook
-        app = WebhookApp()
+        app = WebhooksServer()
 
         @app.add_webhook(path="/test_webhook")
         async def handler():
@@ -73,7 +73,7 @@ class TestWebhookAppStatic(unittest.TestCase):
 
     def test_add_webhook_twice_should_fail(self):
         # Test adding a webhook
-        app = WebhookApp()
+        app = WebhooksServer()
 
         @app.add_webhook("my_webhook")
         async def test_webhook():
@@ -88,12 +88,12 @@ class TestWebhookAppStatic(unittest.TestCase):
 
 
 @require_webhooks
-class TestWebhookAppRun(unittest.TestCase):
+class TestWebhooksServerRun(unittest.TestCase):
     @classmethod
     def setUpClass(cls) -> None:
         with gr.Blocks() as ui:
             gr.Markdown("Hello World!")
-        app = WebhookApp(ui=ui, webhook_secret="my_webhook_secret")
+        app = WebhooksServer(ui=ui, webhook_secret="my_webhook_secret")
 
         @app.add_webhook
         async def test_webhook(payload: WebhookPayload) -> None:
@@ -109,7 +109,7 @@ class TestWebhookAppRun(unittest.TestCase):
     def mocked_run_app(self) -> "TestClient":
         with patch.object(self.ui, "block_thread"):
             # Run without blocking
-            with patch.object(huggingface_hub._webhooks_app, "_is_local", False):
+            with patch.object(huggingface_hub._webhooks_server, "_is_local", False):
                 # Run without tunnel
                 self.app.run()
                 return TestClient(self.app.fastapi_app)

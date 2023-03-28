@@ -6,8 +6,8 @@ from .utils._typing import Literal
 
 if not is_gradio_available():
     raise ImportError(
-        "You must have `gradio` installed to use the `WebhookApp`. Please run `pip install huggingface_hub[webhooks]`"
-        " first."
+        "You must have `gradio` installed to use the `WebhooksServer`. Please run `pip install"
+        " huggingface_hub[webhooks]` first."
     )
 
 from pydantic import BaseModel

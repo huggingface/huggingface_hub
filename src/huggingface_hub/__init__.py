@@ -66,11 +66,11 @@ _SUBMOD_ATTRS = {
         "SpaceRuntime",
         "SpaceStage",
     ],
-    "_webhooks_app": [
-        "WebhookApp",
-        "hf_webhook",
+    "_webhooks_server": [
+        "WebhooksServer",
+        "hf_webhook_route",
     ],
-    "_webhooks_app_data": [
+    "_webhooks_server_data": [
         "WebhookPayload",
         "WebhookPayloadComment",
         "WebhookPayloadDiscussion",
@@ -340,11 +340,11 @@ if TYPE_CHECKING:  # pragma: no cover
         SpaceRuntime,  # noqa: F401
         SpaceStage,  # noqa: F401
     )
-    from ._webhooks_app import (
-        WebhookApp,  # noqa: F401
-        hf_webhook,  # noqa: F401
+    from ._webhooks_server import (
+        WebhooksServer,  # noqa: F401
+        hf_webhook_route,  # noqa: F401
     )
-    from ._webhooks_app_data import (
+    from ._webhooks_server_data import (
         WebhookPayload,  # noqa: F401
         WebhookPayloadComment,  # noqa: F401
         WebhookPayloadDiscussion,  # noqa: F401

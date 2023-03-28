@@ -8,8 +8,8 @@ from .utils import is_gradio_available
 
 if not is_gradio_available():
     raise ImportError(
-        "You must have `gradio` installed to use the `WebhookApp`. Please run `pip install huggingface_hub[webhooks]`"
-        " first."
+        "You must have `gradio` installed to use the `WebhooksServer`. Please run `pip install"
+        " huggingface_hub[webhooks]` first."
     )
 
 import gradio as gr
@@ -17,18 +17,18 @@ from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
 
 
-_global_app: Optional["WebhookApp"] = None
+_global_app: Optional["WebhooksServer"] = None
 _is_local = os.getenv("SYSTEM") != "spaces"
 
 
-class WebhookApp:
+class WebhooksServer:
     """
-    The [`WebhookApp`] class lets you create an instance of a Gradio app that can receive Huggingface webhooks.
-    These webhooks can be registered using the [`~WebhookApp.add_webhook`] decorator. Webhook endpoints are added to
+    The [`WebhooksServer`] class lets you create an instance of a Gradio app that can receive Huggingface webhooks.
+    These webhooks can be registered using the [`~WebhooksServer.add_webhook`] decorator. Webhook endpoints are added to
     the app as a POST endpoint to the FastAPI router. Once all the webhooks are registered, the `run` method has to be
     called to start the app.
 
-    The [`WebhookApp`] is meant to be debugged locally before being deployed to a Space. Local debugging works with
+    The [`WebhooksServer`] is meant to be debugged locally before being deployed to a Space. Local debugging works with
     the HF Hub by opening a tunnel to your machine (using Gradio). You can protect your webhook server by setting a
     `webhook_secret`.
 
@@ -47,32 +47,32 @@ class WebhookApp:
 
     Example:
 
-        The quickest way to define a webhook app is to use the [`hf_webhook`] decorator. Under the hood it will create
-        a [`WebhookApp`] with the default UI and register the decorated function as a webhook. Multiple webhooks can
+        The quickest way to define a webhook app is to use the [`hf_webhook_route`] decorator. Under the hood it will create
+        a [`WebhooksServer`] with the default UI and register the decorated function as a webhook. Multiple webhooks can
         be added in the same script. Once all the webhooks are defined, the `run` method will be called automatically.
 
 
         ```python
-        from huggingface_hub import hf_webhook, WebhookPayload
+        from huggingface_hub import hf_webhook_route, WebhookPayload
 
-        @hf_webhook
+        @hf_webhook_route
         async def trigger_training(payload: WebhookPayload):
             if payload.repo.type == "dataset" and payload.event.action == "update":
                 # Trigger a training job if a dataset is updated
                 ...
         ```
 
-        If you need more control over the app, you can create a [`WebhookApp`] instance yourself and register webhooks
+        If you need more control over the app, you can create a [`WebhooksServer`] instance yourself and register webhooks
         as you would register FastAPI routes. The `run` method will have to be called manually to start the app.
 
         ```python
         import gradio as gr
-        from huggingface_hub import WebhookApp, WebhookPayload
+        from huggingface_hub import WebhooksServer, WebhookPayload
 
         with gr.Blocks as ui:
             ...
 
-        app = WebhookApp(ui=ui, webhook_secret="my_secret_key")
+        app = WebhooksServer(ui=ui, webhook_secret="my_secret_key")
 
         @app.add_webhook("/say_hello")
         async def hello(payload: WebhookPayload):
@@ -95,7 +95,7 @@ class WebhookApp:
 
     def add_webhook(self, path: Optional[str] = None) -> Callable:
         """
-        Decorator to add a webhook to the [`WebhookApp`] server.
+        Decorator to add a webhook to the [`WebhooksServer`] server.
 
         Args:
             path (`str`, optional):
@@ -107,9 +107,9 @@ class WebhookApp:
 
         Example:
             ```python
-            from huggingface_hub import WebhookApp, WebhookPayload
+            from huggingface_hub import WebhooksServer, WebhookPayload
 
-            app = WebhookApp()
+            app = WebhooksServer()
 
             @app.add_webhook
             async def trigger_training(payload: WebhookPayload):
@@ -202,11 +202,11 @@ class WebhookApp:
         return await call_next(request)
 
 
-def hf_webhook(path: Optional[str] = None) -> Callable:
-    """Decorator to start a [`WebhookApp`] and register the decorated function as a webhook endpoint.
+def hf_webhook_route(path: Optional[str] = None) -> Callable:
+    """Decorator to start a [`WebhooksServer`] and register the decorated function as a webhook endpoint.
 
     This is an helper to get started quickly. If you need more flexibility (custom landing page or webhook secret),
-    please use [`WebhookApp`] directly.
+    please use [`WebhooksServer`] directly.
 
     Args:
         path (`str`, optional):
@@ -215,9 +215,9 @@ def hf_webhook(path: Optional[str] = None) -> Callable:
 
     Example:
         ```python
-        from huggingface_hub import hf_webhook, WebhookPayload
+        from huggingface_hub import hf_webhook_route, WebhookPayload
 
-        @hf_webhook
+        @hf_webhook_route
         async def trigger_training(payload: WebhookPayload):
             if payload.repo.type == "dataset" and payload.event.action == "update":
                 # Trigger a training job if a dataset is updated
@@ -226,9 +226,9 @@ def hf_webhook(path: Optional[str] = None) -> Callable:
     """
     if callable(path):
         # If path is a function, it means it was used as a decorator without arguments
-        return hf_webhook()(path)
+        return hf_webhook_route()(path)
 
-    @wraps(WebhookApp.add_webhook)
+    @wraps(WebhooksServer.add_webhook)
     def _inner(func: Callable) -> None:
         app = _get_global_app()
         app.add_webhook(path)(func)
@@ -239,10 +239,10 @@ def hf_webhook(path: Optional[str] = None) -> Callable:
     return _inner
 
 
-def _get_global_app() -> WebhookApp:
+def _get_global_app() -> WebhooksServer:
     global _global_app
     if _global_app is None:
-        _global_app = WebhookApp()
+        _global_app = WebhooksServer()
     return _global_app
 
 
@@ -251,7 +251,7 @@ def _warn_on_empty_secret(webhook_secret: Optional[str]) -> None:
         print("Webhook secret is not defined. This means your webhook endpoints will be open to everyone.")
         print(
             "To add a secret, set `WEBHOOK_SECRET` as environment variable or pass it at initialization: "
-            "\n\t`app = GradioWebhookApp(webhook_secret='my_secret', ...)`"
+            "\n\t`app = WebhooksServer(webhook_secret='my_secret', ...)`"
         )
         print(
             "For more details about webhook secrets, please refer to"
