@@ -12,7 +12,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-"""Contains `WebhooksServer` and `hf_webhook_route` to create a webhook server easily."""
+"""Contains `WebhooksServer` and `as_webhook_endpoint` to create a webhook server easily."""
 import atexit
 import inspect
 import os
@@ -64,15 +64,15 @@ class WebhooksServer:
 
     Example:
 
-        The quickest way to define a webhook app is to use the [`hf_webhook_route`] decorator. Under the hood it will create
+        The quickest way to define a webhook app is to use the [`as_webhook_endpoint`] decorator. Under the hood it will create
         a [`WebhooksServer`] with the default UI and register the decorated function as a webhook. Multiple webhooks can
         be added in the same script. Once all the webhooks are defined, the `run` method will be called automatically.
 
 
         ```python
-        from huggingface_hub import hf_webhook_route, WebhookPayload
+        from huggingface_hub import as_webhook_endpoint, WebhookPayload
 
-        @hf_webhook_route
+        @as_webhook_endpoint
         async def trigger_training(payload: WebhookPayload):
             if payload.repo.type == "dataset" and payload.event.action == "update":
                 # Trigger a training job if a dataset is updated
@@ -212,7 +212,7 @@ class WebhooksServer:
 
 
 @experimental
-def hf_webhook_route(path: Optional[str] = None) -> Callable:
+def as_webhook_endpoint(path: Optional[str] = None) -> Callable:
     """Decorator to start a [`WebhooksServer`] and register the decorated function as a webhook endpoint.
 
     This is an helper to get started quickly. If you need more flexibility (custom landing page or webhook secret),
@@ -233,9 +233,9 @@ def hf_webhook_route(path: Optional[str] = None) -> Callable:
         The server will be started automatically at exit (i.e. at the end of the script).
 
         ```python
-        from huggingface_hub import hf_webhook_route, WebhookPayload
+        from huggingface_hub import as_webhook_endpoint, WebhookPayload
 
-        @hf_webhook_route
+        @as_webhook_endpoint
         async def trigger_training(payload: WebhookPayload):
             if payload.repo.type == "dataset" and payload.event.action == "update":
                 # Trigger a training job if a dataset is updated
@@ -248,9 +248,9 @@ def hf_webhook_route(path: Optional[str] = None) -> Callable:
         are running it in a notebook.
 
         ```python
-        from huggingface_hub import hf_webhook_route, WebhookPayload
+        from huggingface_hub import as_webhook_endpoint, WebhookPayload
 
-        @hf_webhook_route
+        @as_webhook_endpoint
         async def trigger_training(payload: WebhookPayload):
             if payload.repo.type == "dataset" and payload.event.action == "update":
                 # Trigger a training job if a dataset is updated
@@ -261,7 +261,7 @@ def hf_webhook_route(path: Optional[str] = None) -> Callable:
     """
     if callable(path):
         # If path is a function, it means it was used as a decorator without arguments
-        return hf_webhook_route()(path)
+        return as_webhook_endpoint()(path)
 
     @wraps(WebhooksServer.add_webhook)
     def _inner(func: Callable) -> Callable:
