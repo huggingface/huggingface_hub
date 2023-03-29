@@ -21,12 +21,10 @@ from .utils._typing import Literal
 
 if not is_gradio_available():
     raise ImportError(
-        "You must have `gradio` installed to use the `WebhooksServer`. Please run `pip install"
-        " huggingface_hub[webhooks]` first."
+        "You must have `gradio` installed to use `WebhooksServer`. Please run `pip install --upgrade gradio` first."
     )
 
 from pydantic import BaseModel
-
 
 # This is an adaptation of the ReportV3 interface implemented in moon-landing. V0, V1 and V2 have been ignored as they
 # are not in used anymore. To keep in sync when format is updated in

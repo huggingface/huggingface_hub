@@ -24,9 +24,9 @@ from .utils import experimental, is_gradio_available
 
 if not is_gradio_available():
     raise ImportError(
-        "You must have `gradio` installed to use the `WebhooksServer`. Please run `pip install"
-        " huggingface_hub[webhooks]` first."
+        "You must have `gradio` installed to use `WebhooksServer`. Please run `pip install --upgrade gradio` first."
     )
+
 
 import gradio as gr
 from fastapi import FastAPI, Request
@@ -51,6 +51,18 @@ class WebhooksServer:
 
     It is recommended to accept [`WebhookPayload`] as the first argument of the webhook function. It is a Pydantic
     model that contains all the information about the webhook event. The data will be parsed automatically for you.
+
+    <Tip warning={true}>
+
+    `WebhooksServer` is experimental. Its API is subject to change in the future.
+
+    <Tip
+
+    <Tip warning={true}>
+
+    You must have `gradio` installed to use `WebhooksServer` (`pip install --upgrade gradio`).
+
+    <Tip
 
     Args:
         ui (`gradio.Blocks`, optional):
@@ -222,6 +234,18 @@ def as_webhook_endpoint(path: Optional[str] = None) -> Callable:
     By default, the server is started at exit, i.e. at the end of the script. If you are running it in a notebook,
     you can start the server manually by calling `decorated_function.run()` (see examples). Since a unique server is
     used, you only have to start the server once even if you have multiple decorated functions.
+
+    <Tip warning={true}>
+
+    `as_webhook_endpoint` is experimental. Its API is subject to change in the future.
+
+    <Tip
+
+    <Tip warning={true}>
+
+    You must have `gradio` installed to use `as_webhook_endpoint` (`pip install --upgrade gradio`).
+
+    <Tip
 
     Args:
         path (`str`, optional):

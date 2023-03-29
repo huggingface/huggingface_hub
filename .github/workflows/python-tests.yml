@@ -51,7 +51,7 @@ jobs:
       - name: Configure and install dependencies
         run: |
           pip install --upgrade pip
-          pip install .[testing,webhooks]
+          pip install .[testing]
 
           case "${{ matrix.test_name }}" in
 
@@ -147,7 +147,7 @@ jobs:
       - name: Configure and install dependencies
         run: |
           pip install --upgrade pip
-          pip install .[testing,webhooks]
+          pip install .[testing]
         # sudo apt install -y libsndfile1-dev
 
       # Run tests

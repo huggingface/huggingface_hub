@@ -40,10 +40,6 @@ extras["fastai"] = [
 
 extras["tensorflow"] = ["tensorflow", "pydot", "graphviz"]
 
-extras["webhooks"] = [
-    "gradio",
-    "pydantic>=1.0,<2.0",  # pydantic 2.0 is supposed to introduce breaking changes, so let's pin it to 1.x for now
-]
 
 extras["testing"] = extras["cli"] + [
     "jedi",
@@ -54,6 +50,7 @@ extras["testing"] = extras["cli"] + [
     "pytest-xdist",
     "soundfile",
     "Pillow",
+    "gradio",  # to test webhooks
 ]
 
 # Typing extra dependencies list is duplicated in `.pre-commit-config.yaml`
