@@ -1,6 +1,8 @@
 import unittest
 from unittest.mock import patch
 
+from fastapi import Request
+
 from huggingface_hub.utils import is_gradio_available
 
 from .testing_utils import capture_output, require_webhooks
@@ -89,17 +91,45 @@ class TestWebhooksServerDontRun(unittest.TestCase):
 
 @require_webhooks
 class TestWebhooksServerRun(unittest.TestCase):
+    HEADERS_VALID_SECRET = {"x-webhook-secret": "my_webhook_secret"}
+    HEADERS_WRONG_SECRET = {"x-webhook-secret": "wrong_webhook_secret"}
+
     def setUp(self) -> None:
         with gr.Blocks() as ui:
             gr.Markdown("Hello World!")
         app = WebhooksServer(ui=ui, webhook_secret="my_webhook_secret")
 
+        # Route to check payload parsing
         @app.add_webhook
         async def test_webhook(payload: WebhookPayload) -> None:
             return {"scope": payload.event.scope}
 
+        # Routes to check secret validation
+        # Checks all 4 cases (async/sync, with/without request parameter)
+        @app.add_webhook
+        async def async_with_request(request: Request) -> None:
+            return {"success": True}
+
+        @app.add_webhook
+        def sync_with_request(request: Request) -> None:
+            return {"success": True}
+
+        @app.add_webhook
+        async def async_no_request() -> None:
+            return {"success": True}
+
+        @app.add_webhook
+        def sync_no_request() -> None:
+            return {"success": True}
+
+        # Route to check explicit path
+        @app.add_webhook(path="/explicit_path")
+        async def with_explicit_path() -> None:
+            return {"success": True}
+
         self.ui = ui
         self.app = app
+        self.client = self.mocked_run_app()
 
     def tearDown(self) -> None:
         self.ui.server.close()
@@ -113,6 +143,7 @@ class TestWebhooksServerRun(unittest.TestCase):
                 return TestClient(self.app.fastapi_app)
 
     def test_run_print_instructions(self):
+        """Test that the instructions are printed when running the app."""
         # Test running the app
         with capture_output() as output:
             self.mocked_run_app()
@@ -122,18 +153,36 @@ class TestWebhooksServerRun(unittest.TestCase):
         self.assertIn("- POST http://127.0.0.1:7860/webhooks/test_webhook", instructions)
 
     def test_run_parse_payload(self):
-        client = self.mocked_run_app()
-        response = client.post(
-            "/webhooks/test_webhook",
-            headers={"x-webhook-secret": "my_webhook_secret"},
-            json=WEBHOOK_PAYLOAD_EXAMPLE,
+        """Test that the payload is correctly parsed when running the app."""
+        response = self.client.post(
+            "/webhooks/test_webhook", headers=self.HEADERS_VALID_SECRET, json=WEBHOOK_PAYLOAD_EXAMPLE
         )
-
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.json(), {"scope": "discussion"})
 
-    def test_no_webhook_secret_should_fail(self):
-        client = self.mocked_run_app()
+    def test_with_webhook_secret_should_succeed(self):
+        """Test success if valid secret is sent."""
+        for path in ["async_with_request", "sync_with_request", "async_no_request", "sync_no_request"]:
+            with self.subTest(path):
+                response = self.client.post(f"/webhooks/{path}", headers=self.HEADERS_VALID_SECRET)
+                self.assertEqual(response.status_code, 200)
+                self.assertEqual(response.json(), {"success": True})
 
-        response = client.post("/webhooks/test_webhook")
-        assert response.status_code == 401
+    def test_no_webhook_secret_should_be_unauthorized(self):
+        """Test failure if valid secret is sent."""
+        for path in ["async_with_request", "sync_with_request", "async_no_request", "sync_no_request"]:
+            with self.subTest(path):
+                response = self.client.post(f"/webhooks/{path}")
+                self.assertEqual(response.status_code, 401)
+
+    def test_wrong_webhook_secret_should_be_forbidden(self):
+        """Test failure if valid secret is sent."""
+        for path in ["async_with_request", "sync_with_request", "async_no_request", "sync_no_request"]:
+            with self.subTest(path):
+                response = self.client.post(f"/webhooks/{path}", headers=self.HEADERS_WRONG_SECRET)
+                self.assertEqual(response.status_code, 403)
+
+    def test_route_with_explicit_path(self):
+        """Test that the route with an explicit path is correctly registered."""
+        response = self.client.post("/webhooks/explicit_path", headers=self.HEADERS_VALID_SECRET)
+        self.assertEqual(response.status_code, 200)
