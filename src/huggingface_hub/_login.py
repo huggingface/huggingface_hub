@@ -198,7 +198,6 @@ def notebook_login() -> None:
     login_token_widget = widgets.VBox(
         [
             widgets.HTML(NOTEBOOK_LOGIN_TOKEN_HTML_START),
-            widgets.HTML("flo test"),
             token_widget,
             git_checkbox_widget,
             token_finish_button,
