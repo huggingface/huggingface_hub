@@ -282,6 +282,7 @@ def as_webhook_endpoint(path: Optional[str] = None) -> Callable:
 
         # Start the server manually
         trigger_training.run()
+        ```
     """
     if callable(path):
         # If path is a function, it means it was used as a decorator without arguments

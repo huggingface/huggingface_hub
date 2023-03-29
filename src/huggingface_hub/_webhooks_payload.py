@@ -26,6 +26,7 @@ if not is_gradio_available():
 
 from pydantic import BaseModel
 
+
 # This is an adaptation of the ReportV3 interface implemented in moon-landing. V0, V1 and V2 have been ignored as they
 # are not in used anymore. To keep in sync when format is updated in
 # https://github.com/huggingface/moon-landing/blob/main/server/lib/HFWebhooks.ts (internal link).
