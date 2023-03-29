@@ -209,7 +209,7 @@ def notebook_login() -> None:
 
     def add_string_to_widget_output(*strings: str) -> None:
         content_str = " ".join(strings)
-        login_token_widget.children = login_token_widget.children + (widgets.Label(content_str), )
+        login_token_widget.children = login_token_widget.children + (widgets.Label(content_str),)
 
     # On click events
     def login_token_event(t):
@@ -244,8 +244,8 @@ def _login(token: str, add_to_git_credential: bool, print_output: Callable[[str]
         if _is_git_credential_helper_configured():
             set_git_credential(token)
             print_output(
-                "Your token has been saved in your configured git credential helpers" +
-                f" ({','.join(list_credential_helpers())})."
+                "Your token has been saved in your configured git credential helpers"
+                + f" ({','.join(list_credential_helpers())})."
             )
         else:
             print_output("Token has not been saved to git credential helper.")
