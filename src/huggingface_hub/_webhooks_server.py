@@ -56,18 +56,18 @@ class WebhooksServer:
 
     `WebhooksServer` is experimental. Its API is subject to change in the future.
 
-    <Tip
+    </Tip>
 
     <Tip warning={true}>
 
     You must have `gradio` installed to use `WebhooksServer` (`pip install --upgrade gradio`).
 
-    <Tip
+    </Tip>
 
     Args:
         ui (`gradio.Blocks`, optional):
-            A Gradio UI instance that will be use as the Space landing page. If None, a basic interface displaying
-            information about the configured webhooks is created.
+            A Gradio UI instance that will be use as the Space landing page. If None, a UI displaying instructions
+            about the configured webhooks is created.
         webhook_secret (`str`, optional):
             A secret key to verify incoming webhook requests. You can set this value to any secret you want as long as
             you configure it as well in your [webhooks settings panel](https://huggingface.co/settings/webhooks). You
@@ -76,9 +76,10 @@ class WebhooksServer:
 
     Example:
 
-        The quickest way to define a webhook app is to use the [`as_webhook_endpoint`] decorator. Under the hood it will create
-        a [`WebhooksServer`] with the default UI and register the decorated function as a webhook. Multiple webhooks can
-        be added in the same script. Once all the webhooks are defined, the `run` method will be called automatically.
+        The quickest way to define a webhook app is to use the [`as_webhook_endpoint`] decorator. Under the hood it will
+        create a global [`WebhooksServer`] with the default UI and register the decorated function as a webhook.
+        Multiple webhooks can be added iteratively. Once all the webhooks are registered, the `run` method will be
+        called automatically.
 
 
         ```python
@@ -239,13 +240,13 @@ def as_webhook_endpoint(path: Optional[str] = None) -> Callable:
 
     `as_webhook_endpoint` is experimental. Its API is subject to change in the future.
 
-    <Tip
+    </Tip>
 
     <Tip warning={true}>
 
     You must have `gradio` installed to use `as_webhook_endpoint` (`pip install --upgrade gradio`).
 
-    <Tip
+    </Tip>
 
     Args:
         path (`str`, optional):
