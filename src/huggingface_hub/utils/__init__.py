@@ -45,6 +45,7 @@ from ._headers import build_hf_headers, get_token_to_send
 from ._hf_folder import HfFolder
 from ._http import configure_http_backend, get_session, http_backoff
 from ._paths import filter_repo_objects, IGNORE_GIT_FOLDER_PATTERNS
+from ._experimental import experimental
 from ._runtime import (
     dump_environment_info,
     get_fastai_version,

@@ -1,10 +1,25 @@
+# coding=utf-8
+# Copyright 2023-present, the HuggingFace Inc. team.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+"""Contains `WebhooksServer` and `hf_webhook_route` to create a webhook server easily."""
 import atexit
 import inspect
 import os
 from functools import wraps
 from typing import Callable, Dict, Optional
 
-from .utils import is_gradio_available
+from .utils import experimental, is_gradio_available
 
 
 if not is_gradio_available():
@@ -22,6 +37,7 @@ _global_app: Optional["WebhooksServer"] = None
 _is_local = os.getenv("SYSTEM") != "spaces"
 
 
+@experimental
 class WebhooksServer:
     """
     The [`WebhooksServer`] class lets you create an instance of a Gradio app that can receive Huggingface webhooks.
@@ -195,18 +211,27 @@ class WebhooksServer:
         return ui
 
 
+@experimental
 def hf_webhook_route(path: Optional[str] = None) -> Callable:
     """Decorator to start a [`WebhooksServer`] and register the decorated function as a webhook endpoint.
 
     This is an helper to get started quickly. If you need more flexibility (custom landing page or webhook secret),
-    please use [`WebhooksServer`] directly.
+    please use [`WebhooksServer`] directly. You can defined webhook endpoints multiple times. All routes will share
+    the same server.
+
+    By default, the server is started at exit, i.e. at the end of the script. If you are running it in a notebook,
+    you can start the server manually by calling `decorated_function.run()` (see examples). Since a unique server is
+    used, you only have to start the server once even if you have multiple decorated functions.
 
     Args:
         path (`str`, optional):
             The URL path to register the webhook function. If not provided, the function name will be used as the path.
             In any case, all webhooks are registered under the `/webhooks` path.
 
-    Example:
+    Examples:
+        Default usage: register a function as a webhook endpoint. The function name will be used as the path.
+        The server will be started automatically at exit (i.e. at the end of the script).
+
         ```python
         from huggingface_hub import hf_webhook_route, WebhookPayload
 
@@ -215,19 +240,45 @@ def hf_webhook_route(path: Optional[str] = None) -> Callable:
             if payload.repo.type == "dataset" and payload.event.action == "update":
                 # Trigger a training job if a dataset is updated
                 ...
+
+        # Server is automatically started at the end of the script.
         ```
+
+        Advanced usage: register a function as a webhook endpoint and start the server manually. This is useful is you
+        are running it in a notebook.
+
+        ```python
+        from huggingface_hub import hf_webhook_route, WebhookPayload
+
+        @hf_webhook_route
+        async def trigger_training(payload: WebhookPayload):
+            if payload.repo.type == "dataset" and payload.event.action == "update":
+                # Trigger a training job if a dataset is updated
+                ...
+
+        # Start the server manually
+        trigger_training.run()
     """
     if callable(path):
         # If path is a function, it means it was used as a decorator without arguments
         return hf_webhook_route()(path)
 
     @wraps(WebhooksServer.add_webhook)
-    def _inner(func: Callable) -> None:
+    def _inner(func: Callable) -> Callable:
         app = _get_global_app()
         app.add_webhook(path)(func)
         if len(app.registered_webhooks) == 1:
             # Register `app.run` to run at exit (only once)
             atexit.register(app.run)
+
+        @wraps(app.run)
+        def _run_now():
+            # Run the app directly (without waiting atexit)
+            atexit.unregister(app.run)
+            app.run()
+
+        func.run = _run_now  # type: ignore
+        return func
 
     return _inner
 
