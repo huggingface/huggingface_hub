@@ -229,12 +229,12 @@ def as_webhook_endpoint(path: Optional[str] = None) -> Callable:
     """Decorator to start a [`WebhooksServer`] and register the decorated function as a webhook endpoint.
 
     This is an helper to get started quickly. If you need more flexibility (custom landing page or webhook secret),
-    please use [`WebhooksServer`] directly. You can defined webhook endpoints multiple times. All routes will share
-    the same server.
+    you can use [`WebhooksServer`] directly. You can register multiple webhook endpoints (to the same server) by using
+    this decorator multiple times.
 
     By default, the server is started at exit, i.e. at the end of the script. If you are running it in a notebook,
     you can start the server manually by calling `decorated_function.run()` (see examples). Since a unique server is
-    used, you only have to start the server once even if you have multiple decorated functions.
+    used, you only have to start the server once even if you have multiple endpoints.
 
     <Tip warning={true}>
 
