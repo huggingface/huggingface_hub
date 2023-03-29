@@ -30,11 +30,11 @@ by redirecting Huggingface webhooks to your machine (using a gradio tunnel) befo
 
 [[autodoc]] huggingface_hub.as_webhook_endpoint
 
-## Data structure
+## Payload
 
-This is a data structure that represents the payload you would expect from an HF webhook. This is a pydantic class
-which makes it very easy to use with FastAPI. If you pass it as a parameter to a webhook endpoint, it will be
-automatically validated and parsed as a Python object.
+[`WebhookPayload`] is the main data structure that represents the payload you would expect from an HF webhook. This is
+a pydantic class which makes it very easy to use with FastAPI. If you pass it as a parameter to a webhook endpoint, it
+will be automatically validated and parsed as a Python object.
 
 For more information about webhooks payload, you can refer to [this guide](https://huggingface.co/docs/hub/webhooks#webhook-payloads).
 
