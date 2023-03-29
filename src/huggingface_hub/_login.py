@@ -207,7 +207,8 @@ def notebook_login() -> None:
     )
     display(login_token_widget)
 
-    def add_string_to_widget_output(string_content: str):
+    def add_string_to_widget_output(*objects):
+        string_content = " ".join([str(item) for item in objects])
         login_token_widget.children = login_token_widget.children + (widgets.Label(string_content), )
 
     # On click events
