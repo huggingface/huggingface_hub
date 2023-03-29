@@ -130,7 +130,7 @@ class WebhooksServer:
         Args:
             path (`str`, optional):
                 The URL path to register the webhook function. If not provided, the function name will be used as the
-                path. In any case, all webhooks are registered under the `/webhooks` path.
+                path. In any case, all webhooks are registered under `/webhooks`.
 
         Raises:
             ValueError: If the provided path is already registered as a webhook.
@@ -251,7 +251,7 @@ def as_webhook_endpoint(path: Optional[str] = None) -> Callable:
     Args:
         path (`str`, optional):
             The URL path to register the webhook function. If not provided, the function name will be used as the path.
-            In any case, all webhooks are registered under the `/webhooks` path.
+            In any case, all webhooks are registered under `/webhooks`.
 
     Examples:
         Default usage: register a function as a webhook endpoint. The function name will be used as the path.
