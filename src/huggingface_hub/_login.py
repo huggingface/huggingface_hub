@@ -218,7 +218,10 @@ def notebook_login() -> None:
         token_widget.value = ""
         # Hide inputs
         login_token_widget.children = []
-        _login(token, add_to_git_credential=add_to_git_credential, print_output=add_string_to_widget_output)
+        try:
+            _login(token, add_to_git_credential=add_to_git_credential, print_output=add_string_to_widget_output)
+        except:
+            login_token_widget.children = [widgets.HTML("error")]
 
     token_finish_button.on_click(login_token_event)
 
