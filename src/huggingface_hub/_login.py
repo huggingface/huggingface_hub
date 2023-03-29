@@ -221,8 +221,9 @@ def notebook_login() -> None:
         login_token_widget.children = []
         try:
             _login(token, add_to_git_credential=add_to_git_credential, print_output=add_string_to_widget_output)
-        except:
-            login_token_widget.children = [widgets.HTML("error")]
+        except Exception as error:
+            output = widgets.Label(f"{error.__class__}: {str(error)}")
+            login_token_widget.children = [output]
 
     token_finish_button.on_click(login_token_event)
 
