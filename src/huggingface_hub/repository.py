@@ -1452,7 +1452,7 @@ class Repository:
 
         while self.commands_in_progress:
             if index % 10 == 0:
-                logger.error(
+                logger.warning(
                     f"Waiting for the following commands to finish before shutting down: {self.commands_in_progress}."
                 )
 
