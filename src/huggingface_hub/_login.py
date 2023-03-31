@@ -15,7 +15,7 @@
 import os
 import subprocess
 from getpass import getpass
-from typing import Optional, Callable
+from typing import Callable, Optional
 
 from .commands._cli_utils import ANSI
 from .commands.delete_cache import _ask_for_confirmation_no_tui
@@ -120,15 +120,13 @@ def interpreter_login() -> None:
 
     For more details, see [`login`].
     """
-    print(  # docstyle-ignore
-        """
+    print("""
     _|    _|  _|    _|    _|_|_|    _|_|_|  _|_|_|  _|      _|    _|_|_|      _|_|_|_|    _|_|      _|_|_|  _|_|_|_|
     _|    _|  _|    _|  _|        _|          _|    _|_|    _|  _|            _|        _|    _|  _|        _|
     _|_|_|_|  _|    _|  _|  _|_|  _|  _|_|    _|    _|  _|  _|  _|  _|_|      _|_|_|    _|_|_|_|  _|        _|_|_|
     _|    _|  _|    _|  _|    _|  _|    _|    _|    _|    _|_|  _|    _|      _|        _|    _|  _|        _|
     _|    _|    _|_|      _|_|_|    _|_|_|  _|_|_|  _|      _|    _|_|_|      _|        _|    _|    _|_|_|  _|_|_|_|
-    """
-    )
+    """)  # docstyle-ignore
     if HfFolder.get_token() is not None:
         print(
             "    A token is already saved on your machine. Run `huggingface-cli"
@@ -182,7 +180,7 @@ def notebook_login() -> None:
     """
     try:
         import ipywidgets.widgets as widgets  # type: ignore
-        from IPython.display import clear_output, display  # type: ignore
+        from IPython.display import display  # type: ignore
     except ImportError:
         raise ImportError(
             "The `notebook_login` function can only be used in a notebook (Jupyter or"
