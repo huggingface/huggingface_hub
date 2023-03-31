@@ -49,6 +49,46 @@ Using these shouldn't be necessary if you use `huggingface_hub` and you don't mo
 
 [[autodoc]] logging.get_logger
 
+## Configure progress bars
+
+Progress bars are a useful tool to display information to the user while a long-running task is being executed (e.g.
+when downloading or uploading files). `huggingface_hub` exposes a [`~utils.tqdm`] wrapper to display progress bars in a
+consistent way across the library.
+
+By default, progress bars are enabled. You can disable them globally by setting `HF_HUB_DISABLE_PROGRESS_BARS`
+environment variable. You can also enable/disable them using [`~utils.enable_progress_bars`] and 
+[`~utils.disable_progress_bars`]. If set, the environment variable has priority on the helpers.
+
+
+```py
+>>> from huggingface_hub import snapshot_download
+>>> from huggingface_hub.utils import are_progress_bars_disabled, disable_progress_bars, enable_progress_bars
+
+>>> # Disable progress bars globally
+>>> disable_progress_bars()
+
+>>> # Progress bar will not be shown !
+>>> snapshot_download("gpt2")
+
+>>> are_progress_bars_disabled()
+True
+
+>>> # Re-enable progress bars globally
+>>> enable_progress_bars()
+```
+
+### are_progress_bars_disabled
+
+[[autodoc]] huggingface_hub.utils.are_progress_bars_disabled
+
+### disable_progress_bars
+
+[[autodoc]] huggingface_hub.utils.disable_progress_bars
+
+### enable_progress_bars
+
+[[autodoc]] huggingface_hub.utils.enable_progress_bars
+
 ## Configure HTTP backend
 
 In some environments, you might want to configure how HTTP calls are made, for example if you are using a proxy.

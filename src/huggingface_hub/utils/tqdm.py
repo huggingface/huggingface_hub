@@ -77,13 +77,15 @@ _hf_hub_progress_bars_disabled: bool = HF_HUB_DISABLE_PROGRESS_BARS or False
 
 def disable_progress_bars() -> None:
     """
-    Disable globally progress bars used in `huggingface_hub` except if
-    `HF_HUB_DISABLE_PROGRESS_BARS` environment variable has been set.
+    Disable globally progress bars used in `huggingface_hub` except if `HF_HUB_DISABLE_PROGRESS_BARS` environment
+    variable has been set.
+
+    Use [`~utils.enable_progress_bars`] to re-enable them.
     """
     if HF_HUB_DISABLE_PROGRESS_BARS is False:
         warnings.warn(
-            "Cannot disable progress bars: environment variable"
-            " `HF_HUB_DISABLE_PROGRESS_BARS=0` is set and has priority."
+            "Cannot disable progress bars: environment variable `HF_HUB_DISABLE_PROGRESS_BARS=0` is set and has"
+            " priority."
         )
         return
     global _hf_hub_progress_bars_disabled
@@ -92,13 +94,15 @@ def disable_progress_bars() -> None:
 
 def enable_progress_bars() -> None:
     """
-    Enable globally progress bars used in `huggingface_hub` except if
-    `HF_HUB_DISABLE_PROGRESS_BARS` environment variable has been set.
+    Enable globally progress bars used in `huggingface_hub` except if `HF_HUB_DISABLE_PROGRESS_BARS` environment
+    variable has been set.
+
+    Use [`~utils.disable_progress_bars`] to disable them.
     """
     if HF_HUB_DISABLE_PROGRESS_BARS is True:
         warnings.warn(
-            "Cannot enable progress bars: environment variable"
-            " `HF_HUB_DISABLE_PROGRESS_BARS=1` is set and has priority."
+            "Cannot enable progress bars: environment variable `HF_HUB_DISABLE_PROGRESS_BARS=1` is set and has"
+            " priority."
         )
         return
     global _hf_hub_progress_bars_disabled
@@ -106,7 +110,11 @@ def enable_progress_bars() -> None:
 
 
 def are_progress_bars_disabled() -> bool:
-    """Return whether progress bars are globally disabled or not."""
+    """Return whether progress bars are globally disabled or not.
+
+    Progress bars used in `huggingface_hub` can be enable or disabled globally using [`~utils.enable_progress_bars`]
+    and [`~utils.disable_progress_bars`] or by setting `HF_HUB_DISABLE_PROGRESS_BARS` as environment variable.
+    """
     global _hf_hub_progress_bars_disabled
     return _hf_hub_progress_bars_disabled
 
@@ -127,17 +135,14 @@ class tqdm(old_tqdm):
 @contextmanager
 def tqdm_stream_file(path: Union[Path, str]) -> Iterator[io.BufferedReader]:
     """
-    Open a file as binary and wrap the `read` method to display a progress bar when it's
-    streamed.
+    Open a file as binary and wrap the `read` method to display a progress bar when it's streamed.
 
-    First implemented in `transformers` in 2019 but removed when switched to git-lfs.
-    Today used in `huggingface_hub` to show progress bar when uploading an LFS file to
-    the Hub. See github.com/huggingface/transformers/pull/2078#discussion_r354739608 for
-    implementation details.
+    First implemented in `transformers` in 2019 but removed when switched to git-lfs. Used in `huggingface_hub` to show
+    progress bar when uploading an LFS file to the Hub. See github.com/huggingface/transformers/pull/2078#discussion_r354739608
+    for implementation details.
 
-    Note: currently implementation handles only files stored on disk as it is the most
-          common use case. Could be extended to stream any `BinaryIO` object but we might
-          have to debug some corner cases.
+    Note: currently implementation handles only files stored on disk as it is the most common use case. Could be
+          extended to stream any `BinaryIO` object but we might have to debug some corner cases.
 
     Example:
     ```py

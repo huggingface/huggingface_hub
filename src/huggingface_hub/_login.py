@@ -126,7 +126,7 @@ def interpreter_login() -> None:
     _|_|_|_|  _|    _|  _|  _|_|  _|  _|_|    _|    _|  _|  _|  _|  _|_|      _|_|_|    _|_|_|_|  _|        _|_|_|
     _|    _|  _|    _|  _|    _|  _|    _|    _|    _|    _|_|  _|    _|      _|        _|    _|  _|        _|
     _|    _|    _|_|      _|_|_|    _|_|_|  _|_|_|  _|      _|    _|_|_|      _|        _|    _|    _|_|_|  _|_|_|_|
-    """)  # docstyle-ignore
+    """)
     if HfFolder.get_token() is not None:
         print(
             "    A token is already saved on your machine. Run `huggingface-cli"
