@@ -101,6 +101,7 @@ class WebhookPayloadDiscussion(ObjectId):
     isPullRequest: bool
     status: DiscussionStatus_T
     changes: Optional[WebhookPayloadDiscussionChanges]
+    pinned: Optional[bool]
 
 
 class WebhookPayloadRepo(ObjectId):
