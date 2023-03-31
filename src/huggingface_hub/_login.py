@@ -15,13 +15,14 @@
 import os
 import subprocess
 from getpass import getpass
-from typing import Callable, Optional
+from typing import Optional
 
 from .commands._cli_utils import ANSI
 from .commands.delete_cache import _ask_for_confirmation_no_tui
 from .hf_api import HfApi
 from .utils import (
     HfFolder,
+    capture_output,
     is_google_colab,
     is_notebook,
     list_credential_helpers,
@@ -218,9 +219,13 @@ def notebook_login() -> None:
         # Hide inputs
         login_token_widget.children = []
         try:
-            _login(token, add_to_git_credential=add_to_git_credential, print_output=add_string_to_widget_output)
+            with capture_output() as captured:
+                _login(token, add_to_git_credential=add_to_git_credential)
+            message = captured
         except Exception as error:
-            login_token_widget.children = [widgets.Label(str(error))]
+            message = str(error)
+        # Print result (success message or error)
+        login_token_widget.children = [widgets.Label(message)]
 
     token_finish_button.on_click(login_token_event)
 
@@ -230,27 +235,27 @@ def notebook_login() -> None:
 ###
 
 
-def _login(token: str, add_to_git_credential: bool, print_output: Callable[[str], None] = print) -> None:
+def _login(token: str, add_to_git_credential: bool) -> None:
     hf_api = HfApi()
     if token.startswith("api_org"):
         raise ValueError("You must use your personal account token.")
     if not hf_api._is_valid_token(token=token):
         raise ValueError("Invalid token passed!")
-    print_output("Token is valid.")
+    print("Token is valid.")
 
     if add_to_git_credential:
         if _is_git_credential_helper_configured():
             set_git_credential(token)
-            print_output(
+            print(
                 "Your token has been saved in your configured git credential helpers"
                 + f" ({','.join(list_credential_helpers())})."
             )
         else:
-            print_output("Token has not been saved to git credential helper.")
+            print("Token has not been saved to git credential helper.")
 
     HfFolder.save_token(token)
-    print_output(f"Your token has been saved to {HfFolder.path_token}")
-    print_output("Login successful")
+    print(f"Your token has been saved to {HfFolder.path_token}")
+    print("Login successful")
 
 
 def _is_git_credential_helper_configured() -> bool:

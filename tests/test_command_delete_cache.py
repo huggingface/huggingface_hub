@@ -16,9 +16,9 @@ from huggingface_hub.commands.delete_cache import (
     _manual_review_no_tui,
     _read_manual_review_tmp_file,
 )
-from huggingface_hub.utils import SoftTemporaryDirectory
+from huggingface_hub.utils import SoftTemporaryDirectory, capture_output
 
-from .testing_utils import capture_output, handle_injection
+from .testing_utils import handle_injection
 
 
 class TestDeleteCacheHelpers(unittest.TestCase):
@@ -203,9 +203,8 @@ class TestDeleteCacheHelpers(unittest.TestCase):
         self.assertListEqual(selected_hashes, ["dataset_revision_hash_id", "older_hash_id"])
 
         # Check printed instructions
-        printed = output.getvalue()
-        self.assertTrue(printed.startswith("TUI is disabled. In order to"))  # ...
-        self.assertIn(tmp_path, printed)
+        self.assertTrue(output.startswith("TUI is disabled. In order to"))  # ...
+        self.assertIn(tmp_path, output)
 
         # Check input called twice
         self.assertEqual(mock_input.call_count, 2)
@@ -231,10 +230,7 @@ class TestDeleteCacheHelpers(unittest.TestCase):
             value = _ask_for_confirmation_no_tui("custom message 3", default=False)
         mock_input.assert_called_with("custom message 3 (y/N) ")
         self.assertFalse(value)
-        self.assertEqual(
-            output.getvalue(),
-            "Invalid input. Must be one of ('y', 'yes', '1', 'n', 'no', '0', '')\n",
-        )
+        self.assertEqual(output, "Invalid input. Must be one of ('y', 'yes', '1', 'n', 'no', '0', '')\n")
 
 
 @patch("huggingface_hub.commands.delete_cache._ask_for_confirmation_no_tui")
@@ -293,10 +289,7 @@ class TestMockedDeleteCacheCommand(unittest.TestCase):
         strategy_mock.execute.assert_called_once_with()
 
         # Check output
-        self.assertEqual(
-            output.getvalue(),
-            "Start deletion.\nDone. Deleted 0 repo(s) and 0 revision(s) for a total of 5.1M.\n",
-        )
+        self.assertEqual(output, "Start deletion.\nDone. Deleted 0 repo(s) and 0 revision(s) for a total of 5.1M.\n")
 
     def test_run_nothing_selected_with_tui(self, mock__manual_review_tui: Mock) -> None:
         """Test command run but nothing is selected in manual review."""
@@ -309,7 +302,7 @@ class TestMockedDeleteCacheCommand(unittest.TestCase):
             self.command.run()
 
         # Check output
-        self.assertEqual(output.getvalue(), "Deletion is cancelled. Do nothing.\n")
+        self.assertEqual(output, "Deletion is cancelled. Do nothing.\n")
 
     def test_run_stuff_selected_but_cancel_item_as_well_with_tui(self, mock__manual_review_tui: Mock) -> None:
         """Test command run when some are selected but "cancel item" as well."""
@@ -326,7 +319,7 @@ class TestMockedDeleteCacheCommand(unittest.TestCase):
             self.command.run()
 
         # Check output
-        self.assertEqual(output.getvalue(), "Deletion is cancelled. Do nothing.\n")
+        self.assertEqual(output, "Deletion is cancelled. Do nothing.\n")
 
     def test_run_and_delete_no_tui(
         self,
@@ -364,10 +357,7 @@ class TestMockedDeleteCacheCommand(unittest.TestCase):
         strategy_mock.execute.assert_called_once_with()
 
         # Check output
-        self.assertEqual(
-            output.getvalue(),
-            "Start deletion.\nDone. Deleted 0 repo(s) and 0 revision(s) for a total of 5.1M.\n",
-        )
+        self.assertEqual(output, "Start deletion.\nDone. Deleted 0 repo(s) and 0 revision(s) for a total of 5.1M.\n")
 
 
 def _get_cache_mock() -> Mock:
