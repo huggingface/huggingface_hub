@@ -206,10 +206,6 @@ def notebook_login() -> None:
     )
     display(login_token_widget)
 
-    def add_string_to_widget_output(*strings: str) -> None:
-        content_str = " ".join(strings)
-        login_token_widget.children = login_token_widget.children + (widgets.Label(content_str),)
-
     # On click events
     def login_token_event(t):
         token = token_widget.value
@@ -217,15 +213,15 @@ def notebook_login() -> None:
         # Erase token and clear value to make sure it's not saved in the notebook.
         token_widget.value = ""
         # Hide inputs
-        login_token_widget.children = []
+        login_token_widget.children = [widgets.Label("Connecting...")]
         try:
             with capture_output() as captured:
                 _login(token, add_to_git_credential=add_to_git_credential)
-            message = captured
+            message = captured.getvalue()
         except Exception as error:
             message = str(error)
         # Print result (success message or error)
-        login_token_widget.children = [widgets.Label(message)]
+        login_token_widget.children = [widgets.Label(line) for line in message.split("\n") if line.strip()]
 
     token_finish_button.on_click(login_token_event)
 

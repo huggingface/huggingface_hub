@@ -29,7 +29,7 @@ logger = get_logger(__name__)
 
 
 @contextmanager
-def capture_output() -> Generator[str, None, None]:
+def capture_output() -> Generator[StringIO, None, None]:
     """Capture output that is printed to terminal.
 
     Taken from https://stackoverflow.com/a/34738440
@@ -38,13 +38,13 @@ def capture_output() -> Generator[str, None, None]:
     ```py
     >>> with capture_output() as output:
     ...     print("hello world")
-    >>> assert output == "hello world\n"
+    >>> assert output.getvalue() == "hello world\n"
     ```
     """
     output = StringIO()
     previous_output = sys.stdout
     sys.stdout = output
-    yield output.getvalue()
+    yield output
     sys.stdout = previous_output
 
 

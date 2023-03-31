@@ -45,7 +45,6 @@ from ._headers import build_hf_headers, get_token_to_send
 from ._hf_folder import HfFolder
 from ._http import configure_http_backend, get_session, http_backoff
 from ._paths import filter_repo_objects, IGNORE_GIT_FOLDER_PATTERNS
-from ._subprocess import capture_output
 from ._runtime import (
     dump_environment_info,
     get_fastai_version,
@@ -71,7 +70,7 @@ from ._runtime import (
     is_tf_available,
     is_torch_available,
 )
-from ._subprocess import run_interactive_subprocess, run_subprocess
+from ._subprocess import capture_output, run_interactive_subprocess, run_subprocess
 from ._validators import (
     HFValidationError,
     smoothly_deprecate_use_auth_token,
