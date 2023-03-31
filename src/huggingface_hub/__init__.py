@@ -79,7 +79,7 @@ _SUBMOD_ATTRS = {
     ],
     "_webhooks_server": [
         "WebhooksServer",
-        "as_webhook_endpoint",
+        "webhook_endpoint",
     ],
     "community": [
         "Discussion",
@@ -353,7 +353,7 @@ if TYPE_CHECKING:  # pragma: no cover
     )
     from ._webhooks_server import (
         WebhooksServer,  # noqa: F401
-        as_webhook_endpoint,  # noqa: F401
+        webhook_endpoint,  # noqa: F401
     )
     from .community import (
         Discussion,  # noqa: F401

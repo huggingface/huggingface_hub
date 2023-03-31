@@ -12,7 +12,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-"""Contains `WebhooksServer` and `as_webhook_endpoint` to create a webhook server easily."""
+"""Contains `WebhooksServer` and `webhook_endpoint` to create a webhook server easily."""
 import atexit
 import inspect
 import os
@@ -76,16 +76,16 @@ class WebhooksServer:
 
     Example:
 
-        The quickest way to define a webhook app is to use the [`as_webhook_endpoint`] decorator. Under the hood it will
+        The quickest way to define a webhook app is to use the [`webhook_endpoint`] decorator. Under the hood it will
         create a global [`WebhooksServer`] with the default UI and register the decorated function as a webhook.
         Multiple webhooks can be added iteratively. Once all the webhooks are registered, the `run` method will be
         called automatically.
 
 
         ```python
-        from huggingface_hub import as_webhook_endpoint, WebhookPayload
+        from huggingface_hub import webhook_endpoint, WebhookPayload
 
-        @as_webhook_endpoint
+        @webhook_endpoint
         async def trigger_training(payload: WebhookPayload):
             if payload.repo.type == "dataset" and payload.event.action == "update":
                 # Trigger a training job if a dataset is updated
@@ -225,7 +225,7 @@ class WebhooksServer:
 
 
 @experimental
-def as_webhook_endpoint(path: Optional[str] = None) -> Callable:
+def webhook_endpoint(path: Optional[str] = None) -> Callable:
     """Decorator to start a [`WebhooksServer`] and register the decorated function as a webhook endpoint.
 
     This is an helper to get started quickly. If you need more flexibility (custom landing page or webhook secret),
@@ -238,13 +238,13 @@ def as_webhook_endpoint(path: Optional[str] = None) -> Callable:
 
     <Tip warning={true}>
 
-    `as_webhook_endpoint` is experimental. Its API is subject to change in the future.
+    `webhook_endpoint` is experimental. Its API is subject to change in the future.
 
     </Tip>
 
     <Tip warning={true}>
 
-    You must have `gradio` installed to use `as_webhook_endpoint` (`pip install --upgrade gradio`).
+    You must have `gradio` installed to use `webhook_endpoint` (`pip install --upgrade gradio`).
 
     </Tip>
 
@@ -258,9 +258,9 @@ def as_webhook_endpoint(path: Optional[str] = None) -> Callable:
         The server will be started automatically at exit (i.e. at the end of the script).
 
         ```python
-        from huggingface_hub import as_webhook_endpoint, WebhookPayload
+        from huggingface_hub import webhook_endpoint, WebhookPayload
 
-        @as_webhook_endpoint
+        @webhook_endpoint
         async def trigger_training(payload: WebhookPayload):
             if payload.repo.type == "dataset" and payload.event.action == "update":
                 # Trigger a training job if a dataset is updated
@@ -273,9 +273,9 @@ def as_webhook_endpoint(path: Optional[str] = None) -> Callable:
         are running it in a notebook.
 
         ```python
-        from huggingface_hub import as_webhook_endpoint, WebhookPayload
+        from huggingface_hub import webhook_endpoint, WebhookPayload
 
-        @as_webhook_endpoint
+        @webhook_endpoint
         async def trigger_training(payload: WebhookPayload):
             if payload.repo.type == "dataset" and payload.event.action == "update":
                 # Trigger a training job if a dataset is updated
@@ -287,7 +287,7 @@ def as_webhook_endpoint(path: Optional[str] = None) -> Callable:
     """
     if callable(path):
         # If path is a function, it means it was used as a decorator without arguments
-        return as_webhook_endpoint()(path)
+        return webhook_endpoint()(path)
 
     @wraps(WebhooksServer.add_webhook)
     def _inner(func: Callable) -> Callable:
