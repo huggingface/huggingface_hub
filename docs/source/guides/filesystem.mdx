@@ -29,7 +29,7 @@ In addition to the [`HfApi`], the `huggingface_hub` library provides [`HfFileSys
 ...     f.write("Fantastic movie!,good")
 ```
 
-The optional `revision` argument can be passed to run an operation from a specific commit (any revision such as a branch or a tag name or a commit hash).
+The optional `revision` argument can be passed to run an operation from a specific commit such as a branch, tag name, or a commit hash.
 
 Unlike Python's built-in `open`, `fsspec`'s `open` defaults to binary mode, `"rb"`. This means you must explicitly set encoding as `"r"` for reading and `"w"` for writing in text mode.
 
@@ -41,9 +41,9 @@ The [`HfFileSystem`] can be used with any library that integrates `fsspec`, prov
 hf://[<repo_type_prefix>]<repo_id>[@<revision>]/<path/in/repo>
 ```
 
-The "repo_type_prefix" is "datasets/" for datasets, "spaces/" for spaces, and models don't need a prefix in the URL.
+The `repo_type_prefix` is `datasets/` for datasets, `spaces/` for spaces, and models don't need a prefix in the URL.
 
-Some interesting integrations where [`HfFileSystem`] can be utilized to simplify interacting with the Hub are listed below:
+Some interesting integrations where [`HfFileSystem`] simplifies interacting with the Hub are listed below:
 
 * Reading/writing a [Pandas](https://pandas.pydata.org/pandas-docs/stable/user_guide/io.html#reading-writing-remote-files) DataFrame from/to a Hub repository:
 
@@ -95,7 +95,7 @@ The same workflow can also be used for [Dask](https://docs.dask.org/en/stable/ho
 
 In many cases, you must be logged in with a Hugging Face account to interact with the Hub. Refer to the [Login](../quick-start#login) section of the documentation to learn more about authentication methods on the Hub. 
 
-It is also possible to login programmatically by passing your `token` as an argument to `HfFileSystem`:
+It is also possible to login programmatically by passing your `token` as an argument to [`HfFileSystem`]:
 
 ```python
 >>> from huggingface_hub import HfFileSystem
