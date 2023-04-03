@@ -19,7 +19,7 @@
     - local: guides/search
       title: Search
     - local: guides/filesystem
-    - title: Filesystem
+      title: Filesystem
     - local: guides/inference
       title: Inference
     - local: guides/community
