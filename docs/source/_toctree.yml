@@ -18,6 +18,8 @@
       title: Repository
     - local: guides/search
       title: Search
+    - local: guides/filesystem
+    - title: Filesystem
     - local: guides/inference
       title: Inference
     - local: guides/community
@@ -52,6 +54,8 @@
       title: Mixins & serialization methods
     - local: package_reference/inference_api
       title: Inference API
+    - local: package_reference/hf_filesystem
+      title: Hugging Face Hub Filesystem
     - local: package_reference/utilities
       title: Utilities
     - local: package_reference/community
