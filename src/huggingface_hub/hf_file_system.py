@@ -89,7 +89,9 @@ class HfFileSystem(fsspec.AbstractFileSystem):
         # Maps (repo_type, repo_id, revision) to a 2-tuple with:
         #  * the 1st element indicating whether the repositoy and the revision exist
         #  * the 2nd element being the exception raised if the repository or revision doesn't exist
-        self._repo_and_revision_exists_cache: Dict[Tuple[str, str, str], Tuple[bool, Optional[Exception]]] = {}
+        self._repo_and_revision_exists_cache: Dict[
+            Tuple[str, str, Optional[str]], Tuple[bool, Optional[Exception]]
+        ] = {}
 
     def _repo_and_revision_exist(
         self, repo_type: str, repo_id: str, revision: Optional[str]
@@ -291,7 +293,7 @@ class HfFileSystem(fsspec.AbstractFileSystem):
             .rstrip("/")
         )
         headers = self._api._build_hf_headers()
-        yield from paginate(path, params=None, headers=headers)
+        yield from paginate(path, params={}, headers=headers)
 
     def cp_file(self, path1, path2, revision: Optional[str] = None, **kwargs):
         path1 = self._strip_protocol(path1)
