@@ -1,6 +1,6 @@
 # Interact with the Hub through the Filesystem API
 
-In addition to the [`HfApi`], the `huggingface_hub` library provides [`HfFileSystem`], a pythonic [fsspec-compatible](https://filesystem-spec.readthedocs.io/en/latest/) file interface to the Hugging Face Hub. The [`HfFileSystem`] builds of the [`HfApi`] and offers typical filesystem style operations like `cp`, `mv`, `ls`, `du`, `glob`, `get_file`, `put_file` etc.
+In addition to the [`HfApi`], the `huggingface_hub` library provides [`HfFileSystem`], a pythonic [fsspec-compatible](https://filesystem-spec.readthedocs.io/en/latest/) file interface to the Hugging Face Hub. The [`HfFileSystem`] builds of top of the [`HfApi`] and offers typical filesystem style operations like `cp`, `mv`, `ls`, `du`, `glob`, `get_file`, `put_file` etc.
 
 Below is a snippet with the basic usage:
 
@@ -58,7 +58,7 @@ If you login this way, be careful not to accidentally leak the token when sharin
 
 ## Integrations
 
-This sections lists `fsspec`'s interesting integrations where the `HfFileSystem` can be utilized:
+This section lists `fsspec`'s interesting integrations that utilize the [`HfFileSystem`] to make interacting with the Hub simpler:
 
 * Reading/writing a [Pandas](https://pandas.pydata.org/pandas-docs/stable/user_guide/io.html#reading-writing-remote-files) DataFrame from/to a 🤗 Hub repository:
 
