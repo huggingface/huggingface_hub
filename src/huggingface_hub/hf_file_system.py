@@ -49,7 +49,7 @@ class HfFileSystem(fsspec.AbstractFileSystem):
         endpoint (`str`, *optional*):
             The endpoint to use. If not provided, the default one (https://huggingface.co) is used.
         token (`str`, *optional*):
-            Authentication token, obtained with `HfApi.login` method. Will default to the stored token.
+            Authentication token, obtained with [`HfApi.login`] method. Will default to the stored token.
 
     Usage:
 
