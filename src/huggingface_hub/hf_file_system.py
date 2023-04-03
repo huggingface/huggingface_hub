@@ -238,6 +238,7 @@ class HfFileSystem(fsspec.AbstractFileSystem):
         self.invalidate_cache(path=resolved_path.unresolve())
 
     def ls(self, path, detail=True, refresh=False, revision: Optional[str] = None, **kwargs):
+        """List the contents of a directory."""
         path = self._strip_protocol(path)
         resolved_path = self.resolve_path(path, revision=revision)
         revision_in_path = "@" + quote(resolved_path.revision, "")
@@ -248,13 +249,14 @@ class HfFileSystem(fsspec.AbstractFileSystem):
                 ResolvedPath(resolved_path.repo_type, resolved_path.repo_id, resolved_path.revision, "").unresolve()
                 + "/"
             )
-            tree_iter = self._iter_tree(path, revision=resolved_path.revision)
+            tree_path = path
+            tree_iter = self._iter_tree(tree_path, revision=resolved_path.revision)
             try:
                 tree_item = next(tree_iter)
             except EntryNotFoundError:
                 if "/" in resolved_path.path_in_repo:
-                    path = self._parent(path)
-                    tree_iter = self._iter_tree(path)
+                    tree_path = self._parent(path)
+                    tree_iter = self._iter_tree(tree_path)
                 else:
                     raise
             else:
@@ -275,7 +277,7 @@ class HfFileSystem(fsspec.AbstractFileSystem):
                         },
                     )
                 child_infos.append(child_info)
-            self.dircache[path] = child_infos
+            self.dircache[tree_path] = child_infos
         out = self._ls_from_cache(path)
         if not has_revision_in_path:
             out = [{**o, "name": o["name"].replace(revision_in_path, "", 1)} for o in out]
@@ -345,8 +347,8 @@ class HfFileSystem(fsspec.AbstractFileSystem):
 
     def modified(self, path, **kwargs):
         info = self.info(path, **kwargs)
-        if info["type"] != "file":
-            raise FileNotFoundError(path)
+        if "last_modified" not in info:
+            raise IsADirectoryError(path)
         return info["last_modified"]
 
     def info(self, path, **kwargs):

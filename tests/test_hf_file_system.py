@@ -135,11 +135,11 @@ class HfFileSystemTests(unittest.TestCase):
     @retry_endpoint
     def test_modified_time(self):
         self.assertIsInstance(self.hffs.modified(self.hf_path + "/data/text_data.txt"), datetime.datetime)
-        # should fail on a non-existing file/directory
+        # should fail on a non-existing file
         with self.assertRaises(FileNotFoundError):
             self.hffs.modified(self.hf_path + "/data/not_existing_file.txt")
         # should fail on a directory
-        with self.assertRaises(FileNotFoundError):
+        with self.assertRaises(IsADirectoryError):
             self.hffs.modified(self.hf_path + "/data")
 
     @retry_endpoint
@@ -163,45 +163,62 @@ class HfFileSystemTests(unittest.TestCase):
 
 @pytest.mark.parametrize("path_in_repo", ["", "foo"])
 @pytest.mark.parametrize(
-    "root_path,repo_type,repo_id,revision",
+    "root_path,revision,repo_type,repo_id,resolved_revision",
     [
         # Parse without namespace
-        ("gpt2", "model", "gpt2", "main"),
-        ("gpt2@dev", "model", "gpt2", "dev"),
-        ("datasets/squad", "dataset", "squad", "main"),
-        ("datasets/squad@dev", "dataset", "squad", "dev"),
+        ("gpt2", None, "model", "gpt2", "main"),
+        ("gpt2", "dev", "model", "gpt2", "dev"),
+        ("gpt2@dev", None, "model", "gpt2", "dev"),
+        ("datasets/squad", None, "dataset", "squad", "main"),
+        ("datasets/squad", "dev", "dataset", "squad", "dev"),
+        ("datasets/squad@dev", None, "dataset", "squad", "dev"),
         # Parse with namespace
-        ("username/my_model", "model", "username/my_model", "main"),
-        ("username/my_model@dev", "model", "username/my_model", "dev"),
-        ("datasets/username/my_dataset", "dataset", "username/my_dataset", "main"),
-        ("datasets/username/my_dataset@dev", "dataset", "username/my_dataset", "dev"),
+        ("username/my_model", None, "model", "username/my_model", "main"),
+        ("username/my_model", "dev", "model", "username/my_model", "dev"),
+        ("username/my_model@dev", None, "model", "username/my_model", "dev"),
+        ("datasets/username/my_dataset", None, "dataset", "username/my_dataset", "main"),
+        ("datasets/username/my_dataset", "dev", "dataset", "username/my_dataset", "dev"),
+        ("datasets/username/my_dataset@dev", None, "dataset", "username/my_dataset", "dev"),
         # Parse with hf:// protocol
-        ("hf://gpt2", "model", "gpt2", "main"),
-        ("hf://gpt2@dev", "model", "gpt2", "dev"),
-        ("hf://datasets/squad", "dataset", "squad", "main"),
-        ("hf://datasets/squad@dev", "dataset", "squad", "dev"),
+        ("hf://gpt2", None, "model", "gpt2", "main"),
+        ("hf://gpt2", "dev", "model", "gpt2", "dev"),
+        ("hf://gpt2@dev", None, "model", "gpt2", "dev"),
+        ("hf://datasets/squad", None, "dataset", "squad", "main"),
+        ("hf://datasets/squad", "dev", "dataset", "squad", "dev"),
+        ("hf://datasets/squad@dev", None, "dataset", "squad", "dev"),
     ],
 )
 def test_resolve_path(
-    root_path: str, repo_type: Optional[str], repo_id: str, revision: str, path_in_repo: str
-) -> None:
+    root_path: str,
+    revision: Optional[str],
+    repo_type: str,
+    repo_id: str,
+    resolved_revision: str,
+    path_in_repo: str,
+):
     fs = HfFileSystem()
     path = root_path + "/" + path_in_repo if path_in_repo else root_path
 
-    def mock_repo_info(repo_id: str, *, repo_type: str, **kwargs):
+    def mock_repo_info(repo_id: str, *, revision: str, repo_type: str, **kwargs):
         if repo_id not in ["gpt2", "squad", "username/my_dataset", "username/my_model"]:
             raise RepositoryNotFoundError(repo_id)
         if revision is not None and revision not in ["main", "dev"]:
             raise RevisionNotFoundError(revision)
 
     with patch.object(fs._api, "repo_info", mock_repo_info):
-        resolved_path = fs.resolve_path(path)
+        resolved_path = fs.resolve_path(path, revision=revision)
         assert (
             resolved_path.repo_type,
             resolved_path.repo_id,
             resolved_path.revision,
             resolved_path.path_in_repo,
-        ) == (repo_type, repo_id, revision, path_in_repo)
+        ) == (repo_type, repo_id, resolved_revision, path_in_repo)
+
+
+def test_resolve_path_with_non_matching_revisions():
+    fs = HfFileSystem()
+    with pytest.raises(ValueError):
+        fs.resolve_path("gpt2@dev", revision="main")
 
 
 @pytest.mark.parametrize("not_supported_path", ["", "foo", "datasets", "datasets/foo"])
