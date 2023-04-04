@@ -234,13 +234,9 @@ class HfApiEndpointsTest(HfApiCommonTest):
         repo_id = f"{USER}/{repo_name()}"
         new_repo_id = f"{USER}/{repo_name()}"
 
-        for repo_type in [None, REPO_TYPE_MODEL, REPO_TYPE_DATASET, REPO_TYPE_SPACE]:
-            self._api.create_repo(
-                repo_id=repo_id,
-                repo_type=repo_type,
-                space_sdk="static" if repo_type == REPO_TYPE_SPACE else None,
-            )
-            # Should raise an error if it fails
+        # Spaces not tested on staging (error 500)
+        for repo_type in [None, REPO_TYPE_MODEL, REPO_TYPE_DATASET]:
+            self._api.create_repo(repo_id=repo_id, repo_type=repo_type)
             self._api.move_repo(from_id=repo_id, to_id=new_repo_id, repo_type=repo_type)
             self._api.delete_repo(repo_id=new_repo_id, repo_type=repo_type)
 
