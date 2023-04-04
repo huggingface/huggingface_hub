@@ -16,9 +16,9 @@ from huggingface_hub.commands.delete_cache import (
     _manual_review_no_tui,
     _read_manual_review_tmp_file,
 )
-from huggingface_hub.utils import SoftTemporaryDirectory
+from huggingface_hub.utils import SoftTemporaryDirectory, capture_output
 
-from .testing_utils import capture_output, handle_injection
+from .testing_utils import handle_injection
 
 
 class TestDeleteCacheHelpers(unittest.TestCase):
