@@ -20,7 +20,7 @@ In addition to the [`HfApi`], the `huggingface_hub` library provides [`HfFileSys
 >>> with fs.open("datasets/my-username/my-dataset-repo/data/train.csv", "r") as f:
 ...     train_data = f.readlines()
 
->>> # Read the contents of a remote file as a string
+>>> # Read the content of a remote file as a string
 >>> train_data = fs.read_text("datasets/my-username/my-dataset-repo/data/train.csv", revision="dev")
 
 >>> # Write a remote file

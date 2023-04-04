@@ -184,7 +184,6 @@ class HfFileSystem(fsspec.AbstractFileSystem):
             self.dircache.clear()
             self._repository_type_and_id_exists_cache.clear()
         else:
-            path = self._strip_protocol(path)
             path = self.resolve_path(path).unresolve()
             while path:
                 self.dircache.pop(path, None)
@@ -199,21 +198,17 @@ class HfFileSystem(fsspec.AbstractFileSystem):
     ):
         if mode == "ab":
             raise NotImplementedError("Appending to remote files is not yet supported.")
-        path = self._strip_protocol(path)
         return HfFile(self, path, mode=mode, revision=revision, **kwargs)
 
     def _rm(self, path, revision: Optional[str] = None, **kwargs):
-        path = self._strip_protocol(path)
         resolved_path = self.resolve_path(path, revision=revision)
-        operations = [CommitOperationDelete(path_in_repo=resolved_path.path_in_repo)]
-        commit_message = f"Delete {path}"
-        self._api.create_commit(
+        self._api.delete_file(
+            path_in_repo=resolved_path.path_in_repo,
             repo_id=resolved_path.repo_id,
-            repo_type=resolved_path.repo_type,
             token=self.token,
-            operations=operations,
+            repo_type=resolved_path.repo_type,
             revision=resolved_path.revision,
-            commit_message=kwargs.get("commit_message", commit_message),
+            commit_message=kwargs.get("commit_message"),
             commit_description=kwargs.get("commit_description"),
         )
         self.invalidate_cache(path=resolved_path.unresolve())
@@ -241,7 +236,6 @@ class HfFileSystem(fsspec.AbstractFileSystem):
 
     def ls(self, path, detail=True, refresh=False, revision: Optional[str] = None, **kwargs):
         """List the contents of a directory."""
-        path = self._strip_protocol(path)
         resolved_path = self.resolve_path(path, revision=revision)
         revision_in_path = "@" + quote(resolved_path.revision, "")
         has_revision_in_path = revision_in_path in path
@@ -286,7 +280,6 @@ class HfFileSystem(fsspec.AbstractFileSystem):
         return out if detail else [o["name"] for o in out]
 
     def _iter_tree(self, path: str, revision: Optional[str] = None):
-        path = self._strip_protocol(path)
         resolved_path = self.resolve_path(path, revision=revision)
         path = (
             f"{self._api.endpoint}/api/{resolved_path.repo_type}s/{resolved_path.repo_id}/tree/{quote(resolved_path.revision, safe='')}/{resolved_path.path_in_repo}"
@@ -295,10 +288,8 @@ class HfFileSystem(fsspec.AbstractFileSystem):
         headers = self._api._build_hf_headers()
         yield from paginate(path, params={}, headers=headers)
 
-    def cp_file(self, path1, path2, revision: Optional[str] = None, **kwargs):
-        path1 = self._strip_protocol(path1)
+    def cp_file(self, path1: str, path2: str, revision: Optional[str] = None, **kwargs) -> None:
         resolved_path1 = self.resolve_path(path1, revision=revision)
-        path2 = self._strip_protocol(path2)
         resolved_path2 = self.resolve_path(path2, revision=revision)
 
         same_repo = (
@@ -360,7 +351,7 @@ class HfFileSystem(fsspec.AbstractFileSystem):
             return {"name": path, "size": None, "type": "directory"}
         return super().info(path, **kwargs)
 
-    def expand_path(self, path, recursive=False, maxdepth=None, **kwargs):
+    def expand_path(self, path: str, recursive: bool = False, maxdepth: Optional[int] = None, **kwargs) -> List[str]:
         if maxdepth is not None and maxdepth < 1:
             raise ValueError("maxdepth must be at least 1")
 
@@ -414,7 +405,6 @@ class HfFile(fsspec.spec.AbstractBufferedFile):
         self.temp_file.write(block)
         if final:
             self.temp_file.close()
-            commit_message = f"Upload {self.path}"
             self.fs._api.upload_file(
                 path_or_fileobj=self.temp_file.name,
                 path_in_repo=self.resolved_path.path_in_repo,
@@ -422,7 +412,7 @@ class HfFile(fsspec.spec.AbstractBufferedFile):
                 token=self.fs.token,
                 repo_type=self.resolved_path.repo_type,
                 revision=self.resolved_path.revision,
-                commit_message=self.kwargs.get("commit_message", commit_message),
+                commit_message=self.kwargs.get("commit_message"),
                 commit_description=self.kwargs.get("commit_description"),
             )
             os.remove(self.temp_file.name)
