@@ -22,6 +22,7 @@ from .commands.delete_cache import _ask_for_confirmation_no_tui
 from .hf_api import HfApi
 from .utils import (
     HfFolder,
+    capture_output,
     is_google_colab,
     is_notebook,
     list_credential_helpers,
@@ -180,7 +181,7 @@ def notebook_login() -> None:
     """
     try:
         import ipywidgets.widgets as widgets  # type: ignore
-        from IPython.display import clear_output, display  # type: ignore
+        from IPython.display import display  # type: ignore
     except ImportError:
         raise ImportError(
             "The `notebook_login` function can only be used in a notebook (Jupyter or"
@@ -211,8 +212,16 @@ def notebook_login() -> None:
         add_to_git_credential = git_checkbox_widget.value
         # Erase token and clear value to make sure it's not saved in the notebook.
         token_widget.value = ""
-        clear_output()
-        _login(token, add_to_git_credential=add_to_git_credential)
+        # Hide inputs
+        login_token_widget.children = [widgets.Label("Connecting...")]
+        try:
+            with capture_output() as captured:
+                _login(token, add_to_git_credential=add_to_git_credential)
+            message = captured.getvalue()
+        except Exception as error:
+            message = str(error)
+        # Print result (success message or error)
+        login_token_widget.children = [widgets.Label(line) for line in message.split("\n") if line.strip()]
 
     token_finish_button.on_click(login_token_event)
 
@@ -235,13 +244,13 @@ def _login(token: str, add_to_git_credential: bool) -> None:
             set_git_credential(token)
             print(
                 "Your token has been saved in your configured git credential helpers"
-                f" ({','.join(list_credential_helpers())})."
+                + f" ({','.join(list_credential_helpers())})."
             )
         else:
             print("Token has not been saved to git credential helper.")
 
     HfFolder.save_token(token)
-    print("Your token has been saved to", HfFolder.path_token)
+    print(f"Your token has been saved to {HfFolder.path_token}")
     print("Login successful")
 
 

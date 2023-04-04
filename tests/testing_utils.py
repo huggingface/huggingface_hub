@@ -2,16 +2,14 @@ import inspect
 import os
 import shutil
 import stat
-import sys
 import time
 import unittest
 import uuid
 from contextlib import contextmanager
 from enum import Enum
 from functools import wraps
-from io import StringIO
 from pathlib import Path
-from typing import Callable, Generator, Optional, Type, TypeVar, Union
+from typing import Callable, Optional, Type, TypeVar, Union
 from unittest.mock import Mock, patch
 
 import pytest
@@ -319,30 +317,6 @@ def xfail_on_windows(reason: str, raises: Optional[Type[Exception]] = None):
         return pytest.mark.xfail(os.name == "nt", reason=reason, raises=raises, strict=True, run=True)(test_function)
 
     return _inner_decorator
-
-
-@contextmanager
-def capture_output() -> Generator[StringIO, None, None]:
-    """Capture output that is printed to console.
-
-    Especially useful to test CLI commands.
-
-    Taken from https://stackoverflow.com/a/34738440
-
-    Example:
-    ```py
-    class TestHelloWorld(unittest.TestCase):
-        def test_hello_world(self):
-            with capture_output() as output:
-                print("hello world")
-            self.assertEqual(output.getvalue(), "hello world\n")
-    ```
-    """
-    output = StringIO()
-    previous_output = sys.stdout
-    sys.stdout = output
-    yield output
-    sys.stdout = previous_output
 
 
 T = TypeVar("T")
