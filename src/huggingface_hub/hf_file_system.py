@@ -2,8 +2,9 @@ import itertools
 import os
 import tempfile
 from dataclasses import dataclass
+from datetime import datetime
 from glob import has_magic
-from typing import Dict, Optional, Tuple
+from typing import Any, Dict, List, Optional, Tuple, Union
 from urllib.parse import quote, unquote
 
 import fsspec
@@ -179,7 +180,7 @@ class HfFileSystem(fsspec.AbstractFileSystem):
         revision = revision if revision is not None else DEFAULT_REVISION
         return ResolvedPath(repo_type, repo_id, revision, path_in_repo)
 
-    def invalidate_cache(self, path=None):
+    def invalidate_cache(self, path=None) -> None:
         if not path:
             self.dircache.clear()
             self._repository_type_and_id_exists_cache.clear()
@@ -213,7 +214,7 @@ class HfFileSystem(fsspec.AbstractFileSystem):
         )
         self.invalidate_cache(path=resolved_path.unresolve())
 
-    def rm(self, path, recursive=False, maxdepth=None, revision: Optional[str] = None, **kwargs):
+    def rm(self, path, recursive=False, maxdepth=None, revision: Optional[str] = None, **kwargs) -> None:
         resolved_path = self.resolve_path(path, revision=revision)
         root_path = REPO_TYPES_URL_PREFIXES.get(resolved_path.repo_type, "") + resolved_path.repo_id
         paths = self.expand_path(path, recursive=recursive, maxdepth=maxdepth, revision=resolved_path.revision)
@@ -234,10 +235,12 @@ class HfFileSystem(fsspec.AbstractFileSystem):
         )
         self.invalidate_cache(path=resolved_path.unresolve())
 
-    def ls(self, path, detail=True, refresh=False, revision: Optional[str] = None, **kwargs):
+    def ls(
+        self, path, detail=True, refresh=False, revision: Optional[str] = None, **kwargs
+    ) -> List[Union[str, Dict[str, Any]]]:
         """List the contents of a directory."""
         resolved_path = self.resolve_path(path, revision=revision)
-        revision_in_path = "@" + quote(resolved_path.revision, "")
+        revision_in_path = "@" + quote(resolved_path.revision, safe="")
         has_revision_in_path = revision_in_path in path
         path = resolved_path.unresolve()
         if path not in self.dircache or refresh:
@@ -338,20 +341,26 @@ class HfFileSystem(fsspec.AbstractFileSystem):
         self.invalidate_cache(path=resolved_path1.unresolve())
         self.invalidate_cache(path=resolved_path2.unresolve())
 
-    def modified(self, path, **kwargs):
+    def modified(self, path: str, **kwargs) -> datetime:
         info = self.info(path, **kwargs)
         if "last_modified" not in info:
             raise IsADirectoryError(path)
         return info["last_modified"]
 
-    def info(self, path, **kwargs):
-        path = self._strip_protocol(path)
+    def info(self, path: str, **kwargs) -> Dict[str, Any]:
         resolved_path = self.resolve_path(path)
         if not resolved_path.path_in_repo:
-            return {"name": path, "size": None, "type": "directory"}
+            revision_in_path = "@" + quote(resolved_path.revision, safe="")
+            has_revision_in_path = revision_in_path in path
+            name = resolved_path.unresolve()
+            name = name.replace(revision_in_path, "", 1) if not has_revision_in_path else name
+            return {"name": name, "size": 0, "type": "directory"}
         return super().info(path, **kwargs)
 
-    def expand_path(self, path: str, recursive: bool = False, maxdepth: Optional[int] = None, **kwargs) -> List[str]:
+    def expand_path(
+        self, path: Union[str, List[str]], recursive: bool = False, maxdepth: Optional[int] = None, **kwargs
+    ):
+        # The default implementation does not allow passing custom kwargs (e.g., we use these kwargs to propage the `revision`)
         if maxdepth is not None and maxdepth < 1:
             raise ValueError("maxdepth must be at least 1")
 

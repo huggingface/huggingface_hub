@@ -55,7 +55,7 @@
     - local: package_reference/inference_api
       title: Inference API
     - local: package_reference/hf_filesystem
-      title: Hugging Face Hub Filesystem
+      title: Filesystem
     - local: package_reference/utilities
       title: Utilities
     - local: package_reference/community
