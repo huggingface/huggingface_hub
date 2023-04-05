@@ -360,7 +360,7 @@ class HfFileSystem(fsspec.AbstractFileSystem):
     def expand_path(
         self, path: Union[str, List[str]], recursive: bool = False, maxdepth: Optional[int] = None, **kwargs
     ):
-        # The default implementation does not allow passing custom kwargs (e.g., we use these kwargs to propage the `revision`)
+        # The default implementation does not allow passing custom kwargs (e.g., we use these kwargs to propagate the `revision`)
         if maxdepth is not None and maxdepth < 1:
             raise ValueError("maxdepth must be at least 1")
 
