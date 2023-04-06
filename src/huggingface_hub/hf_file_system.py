@@ -36,7 +36,7 @@ class HfFileSystemResolvedPath:
 
     def unresolve(self):
         path = (
-            f"{REPO_TYPES_URL_PREFIXES.get(self.repo_type, '') + self.repo_id}@{self.revision}/{self.path_in_repo}"
+            f"{REPO_TYPES_URL_PREFIXES.get(self.repo_type, '') + self.repo_id}@{quote(self.revision, safe='')}/{self.path_in_repo}"
             .rstrip("/")
         )
         return path
@@ -257,7 +257,7 @@ class HfFileSystem(fsspec.AbstractFileSystem):
             except EntryNotFoundError:
                 if "/" in resolved_path.path_in_repo:
                     tree_path = self._parent(path)
-                    tree_iter = self._iter_tree(tree_path)
+                    tree_iter = self._iter_tree(tree_path, revision=resolved_path.revision)
                 else:
                     raise
             else:
