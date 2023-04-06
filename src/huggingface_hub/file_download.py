@@ -1573,7 +1573,7 @@ def _get_pointer_path(storage_folder: str, revision: str, relative_filename: str
             f" `storage_folder='{storage_folder}'`, `revision='{revision}'` and"
             f" `relative_filename='{relative_filename}'`."
         )
-    return str(pointer_path)
+    return pointer_path
 
 
 def _to_local_dir(
