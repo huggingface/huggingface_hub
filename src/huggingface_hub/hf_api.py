@@ -64,6 +64,7 @@ from .utils import (  # noqa: F401 # imported for backward compatibility
     filter_repo_objects,
     hf_raise_for_status,
     logging,
+    paginate,
     parse_datetime,
     validate_hf_hub_args,
 )
@@ -71,7 +72,6 @@ from .utils._deprecation import (
     _deprecate_arguments,
     _deprecate_list_output,
 )
-from .utils._pagination import paginate
 from .utils._typing import Literal, TypedDict
 from .utils.endpoint_helpers import (
     AttributeDictionary,

@@ -162,6 +162,11 @@ _SUBMOD_ATTRS = {
         "upload_folder",
         "whoami",
     ],
+    "hf_file_system": [
+        "HfFileSystem",
+        "HfFileSystemFile",
+        "HfFileSystemResolvedPath",
+    ],
     "hub_mixin": [
         "ModelHubMixin",
         "PyTorchModelHubMixin",
@@ -420,6 +425,11 @@ if TYPE_CHECKING:  # pragma: no cover
         upload_file,  # noqa: F401
         upload_folder,  # noqa: F401
         whoami,  # noqa: F401
+    )
+    from .hf_file_system import (
+        HfFileSystem,  # noqa: F401
+        HfFileSystemFile,  # noqa: F401
+        HfFileSystemResolvedPath,  # noqa: F401
     )
     from .hub_mixin import (
         ModelHubMixin,  # noqa: F401
