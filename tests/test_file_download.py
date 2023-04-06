@@ -819,7 +819,7 @@ class TestHfHubDownloadRelativePaths(unittest.TestCase):
         # Cannot happen because of other protections, but just in case.
         self.assertEqual(
             _get_pointer_path("path/to/storage", "abcdef", "path/to/file.txt"),
-            "path/to/storage/snapshots/abcdef/path/to/file.txt",
+            os.path.join("path/to/storage", "snapshots", "abcdef", "path/to/file.txt"),
         )
 
     def test_get_pointer_path_but_invalid_relative_filename(self) -> None:
