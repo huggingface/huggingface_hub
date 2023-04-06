@@ -1140,11 +1140,17 @@ def hf_hub_download(
 
     # cross platform transcription of filename, to be used as a local file path.
     relative_filename = os.path.join(*filename.split("/"))
+    if os.name == "nt":
+        if relative_filename.startswith("..\\") or "\\..\\" in relative_filename:
+            raise ValueError(
+                f"Invalid filename: cannot handle filename '{relative_filename}' on Windows. Please ask the repository"
+                " owner to rename this file."
+            )
 
     # if user provides a commit_hash and they already have the file on disk,
     # shortcut everything.
     if REGEX_COMMIT_HASH.match(revision):
-        pointer_path = os.path.join(storage_folder, "snapshots", revision, relative_filename)
+        pointer_path = _get_pointer_path(storage_folder, revision, relative_filename)
         if os.path.exists(pointer_path):
             if local_dir is not None:
                 return _to_local_dir(pointer_path, local_dir, relative_filename, use_symlinks=local_dir_use_symlinks)
@@ -1239,7 +1245,7 @@ def hf_hub_download(
 
         # Return pointer file if exists
         if commit_hash is not None:
-            pointer_path = os.path.join(storage_folder, "snapshots", commit_hash, relative_filename)
+            pointer_path = _get_pointer_path(storage_folder, commit_hash, relative_filename)
             if os.path.exists(pointer_path):
                 if local_dir is not None:
                     return _to_local_dir(
@@ -1268,7 +1274,7 @@ def hf_hub_download(
     assert etag is not None, "etag must have been retrieved from server"
     assert commit_hash is not None, "commit_hash must have been retrieved from server"
     blob_path = os.path.join(storage_folder, "blobs", etag)
-    pointer_path = os.path.join(storage_folder, "snapshots", commit_hash, relative_filename)
+    pointer_path = _get_pointer_path(storage_folder, commit_hash, relative_filename)
 
     os.makedirs(os.path.dirname(blob_path), exist_ok=True)
     os.makedirs(os.path.dirname(pointer_path), exist_ok=True)
@@ -1557,6 +1563,18 @@ def _chmod_and_replace(src: str, dst: str) -> None:
     os.replace(src, dst)
 
 
+def _get_pointer_path(storage_folder: str, revision: str, relative_filename: str) -> str:
+    snapshot_path = Path(os.path.join(storage_folder, "snapshots"))
+    pointer_path = snapshot_path / revision / relative_filename
+    if snapshot_path.resolve() not in pointer_path.resolve().parents:
+        raise ValueError(
+            "Invalid pointer path: cannot create pointer path in snapshot folder if"
+            f" `storage_folder='{storage_folder}'`, `revision='{revision}'` and"
+            f" `relative_filename='{relative_filename}'`."
+        )
+    return str(pointer_path)
+
+
 def _to_local_dir(
     path: str, local_dir: str, relative_filename: str, use_symlinks: Union[bool, Literal["auto"]]
 ) -> str:
@@ -1565,6 +1583,12 @@ def _to_local_dir(
     Either symlink to blob file in cache or duplicate file depending on `use_symlinks` and file size.
     """
     local_dir_filepath = os.path.join(local_dir, relative_filename)
+    if Path(local_dir).resolve() not in Path(local_dir_filepath).resolve().parents:
+        raise ValueError(
+            f"Cannot copy file '{relative_filename}' to local dir '{local_dir}': file would not be in the local"
+            " directory."
+        )
+
     os.makedirs(os.path.dirname(local_dir_filepath), exist_ok=True)
     real_blob_path = os.path.realpath(path)
 
