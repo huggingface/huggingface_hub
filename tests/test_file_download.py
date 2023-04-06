@@ -32,6 +32,8 @@ from huggingface_hub.constants import (
 from huggingface_hub.file_download import (
     _CACHED_NO_EXIST,
     _create_symlink,
+    _get_pointer_path,
+    _to_local_dir,
     cached_download,
     filename_to_url,
     get_hf_file_metadata,
@@ -735,6 +737,69 @@ class StagingCachedDownloadOnAwfulFilenamesTest(unittest.TestCase):
         )
         # Local path is not url-encoded
         self.assertTrue(local_path.endswith(self.filepath))
+
+
+@pytest.mark.usefixtures("fx_cache_dir")
+class TestHfHubDownloadRelativePaths(unittest.TestCase):
+    """Regression test for HackerOne report 1928845.
+
+    Issue was that any file outside of the local dir could be overwritten (Windows only).
+
+    In the end, multiple protections have been added to prevent this (..\\ in filename forbidden on Windows, always check
+    the filepath is in local_dir/snapshot_dir).
+    """
+
+    cache_dir: Path
+
+    @classmethod
+    def setUpClass(cls):
+        cls.api = HfApi(endpoint=ENDPOINT_STAGING, token=TOKEN)
+        cls.repo_id = cls.api.create_repo(repo_id=repo_name()).repo_id
+        cls.api.upload_file(path_or_fileobj=b"content", path_in_repo="..\\ddd", repo_id=cls.repo_id)
+        cls.api.upload_file(path_or_fileobj=b"content", path_in_repo="folder/..\\..\\..\\file", repo_id=cls.repo_id)
+
+    @classmethod
+    def tearDownClass(cls) -> None:
+        cls.api.delete_repo(repo_id=cls.repo_id)
+
+    @xfail_on_windows(reason="Windows paths cannot start with '..\\'.", raises=ValueError)
+    def test_download_file_in_cache_dir(self) -> None:
+        hf_hub_download(self.repo_id, "..\\ddd", cache_dir=self.cache_dir)
+
+    @xfail_on_windows(reason="Windows paths cannot start with '..\\'.", raises=ValueError)
+    def test_download_file_to_local_dir(self) -> None:
+        with SoftTemporaryDirectory() as local_dir:
+            hf_hub_download(self.repo_id, "..\\ddd", cache_dir=self.cache_dir, local_dir=local_dir)
+
+    @xfail_on_windows(reason="Windows paths cannot contain '\\..\\'.", raises=ValueError)
+    def test_download_folder_file_in_cache_dir(self) -> None:
+        hf_hub_download(self.repo_id, "folder/..\\..\\..\\file", cache_dir=self.cache_dir)
+
+    @xfail_on_windows(reason="Windows paths cannot contain '\\..\\'.", raises=ValueError)
+    def test_download_folder_file_to_local_dir(self) -> None:
+        with SoftTemporaryDirectory() as local_dir:
+            hf_hub_download(self.repo_id, "folder/..\\..\\..\\file", cache_dir=self.cache_dir, local_dir=local_dir)
+
+    def test_get_pointer_path_and_valid_relative_filename(self) -> None:
+        # Cannot happen because of other protections, but just in case.
+        self.assertEqual(
+            _get_pointer_path("path/to/storage", "abcdef", "path/to/file.txt"),
+            os.path.join("path/to/storage", "snapshots", "abcdef", "path/to/file.txt"),
+        )
+
+    def test_get_pointer_path_but_invalid_relative_filename(self) -> None:
+        # Cannot happen because of other protections, but just in case.
+        relative_filename = "folder\\..\\..\\..\\file.txt" if os.name == "nt" else "folder/../../../file.txt"
+        with self.assertRaises(ValueError):
+            _get_pointer_path("path/to/storage", "abcdef", relative_filename)
+
+    def test_to_local_dir_but_invalid_relative_filename(self) -> None:
+        # Cannot happen because of other protections, but just in case.
+        relative_filename = "folder\\..\\..\\..\\file.txt" if os.name == "nt" else "folder/../../../file.txt"
+        with self.assertRaises(ValueError):
+            _to_local_dir(
+                "path/to/file_to_copy", "path/to/local/dir", relative_filename=relative_filename, use_symlinks=False
+            )
 
 
 class CreateSymlinkTest(unittest.TestCase):
