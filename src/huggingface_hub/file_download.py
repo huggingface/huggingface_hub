@@ -1564,9 +1564,10 @@ def _chmod_and_replace(src: str, dst: str) -> None:
 
 
 def _get_pointer_path(storage_folder: str, revision: str, relative_filename: str) -> str:
-    snapshot_path = Path(os.path.join(storage_folder, "snapshots"))
-    pointer_path = snapshot_path / revision / relative_filename
-    if snapshot_path.resolve() not in pointer_path.resolve().parents:
+    # Using `os.path.abspath` instead of `Path.resolve()` to avoid resolving symlinks
+    snapshot_path = os.path.join(storage_folder, "snapshots")
+    pointer_path = os.path.join(snapshot_path, revision, relative_filename)
+    if Path(os.path.abspath(snapshot_path)) not in Path(os.path.abspath(pointer_path)).parents:
         raise ValueError(
             "Invalid pointer path: cannot create pointer path in snapshot folder if"
             f" `storage_folder='{storage_folder}'`, `revision='{revision}'` and"
@@ -1582,8 +1583,9 @@ def _to_local_dir(
 
     Either symlink to blob file in cache or duplicate file depending on `use_symlinks` and file size.
     """
+    # Using `os.path.abspath` instead of `Path.resolve()` to avoid resolving symlinks
     local_dir_filepath = os.path.join(local_dir, relative_filename)
-    if Path(local_dir).resolve() not in Path(local_dir_filepath).resolve().parents:
+    if Path(os.path.abspath(local_dir)) not in Path(os.path.abspath(local_dir_filepath)).parents:
         raise ValueError(
             f"Cannot copy file '{relative_filename}' to local dir '{local_dir}': file would not be in the local"
             " directory."
