@@ -772,6 +772,53 @@ class StagingCachedDownloadOnAwfulFilenamesTest(unittest.TestCase):
         self.assertTrue(local_path.endswith(self.filepath))
 
 
+@pytest.mark.usefixtures("fx_cache_dir")
+class TestHfHubDownloadWindowsRelativePath(unittest.TestCase):
+    """Regression test for HackerOne report 1928845.
+
+    Issue was that any file outside of the local dir could be overwritten (Windows only).
+    """
+
+    cache_dir: Path
+
+    @classmethod
+    def setUpClass(cls):
+        cls.api = HfApi(endpoint=ENDPOINT_STAGING, token=TOKEN)
+        cls.repo_id = cls.api.create_repo(repo_id=repo_name()).repo_id
+        cls.api.upload_file(path_or_fileobj=b"content", path_in_repo="..\ddd", repo_id=cls.repo_id)
+        cls.api.upload_file(path_or_fileobj=b"content", path_in_repo="folder/..\..\..\\file", repo_id=cls.repo_id)
+
+    @classmethod
+    def tearDownClass(cls) -> None:
+        cls.api.delete_repo(repo_id=cls.repo_id)
+
+    def test_download_file_in_cache_dir(self) -> None:
+        # The file must be under the snapshots folder with filename "..\ddd"
+        path = Path(hf_hub_download(self.repo_id, "..\ddd", cache_dir=self.cache_dir))
+        self.assertEqual(path.name, "..\ddd")
+        self.assertEqual(path.parents[1].name, "snapshots")
+
+    def test_download_file_to_local_dir(self) -> None:
+        with SoftTemporaryDirectory() as local_dir:
+            path = Path(hf_hub_download(self.repo_id, "..\ddd", cache_dir=self.cache_dir, local_dir=local_dir))
+            self.assertEqual(path.name, "..\ddd")
+            self.assertEqual(str(path.parent), local_dir)
+
+    def test_download_folder_file_in_cache_dir(self) -> None:
+        # The file must be under the snapshots folder with filename "folder/..\..\..\\file"
+        path = Path(hf_hub_download(self.repo_id, "folder/..\..\..\\file", cache_dir=self.cache_dir))
+        self.assertEqual(path.name, "..\..\..\\file")
+        self.assertEqual(path.parents[2].name, "snapshots")
+
+    def test_download_folder_file_to_local_dir(self) -> None:
+        with SoftTemporaryDirectory() as local_dir:
+            path = Path(
+                hf_hub_download(self.repo_id, "folder/..\..\..\\file", cache_dir=self.cache_dir, local_dir=local_dir)
+            )
+            self.assertEqual(path.name, "..\..\..\\file")
+            self.assertEqual(str(path.parents[1]), local_dir)
+
+
 class CreateSymlinkTest(unittest.TestCase):
     @unittest.skipIf(os.name == "nt", "No symlinks on Windows")
     @patch("huggingface_hub.file_download.are_symlinks_supported")
