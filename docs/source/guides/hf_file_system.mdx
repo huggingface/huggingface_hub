@@ -99,7 +99,7 @@ It is also possible to login programmatically by passing your `token` as an argu
 
 ```python
 >>> from huggingface_hub import HfFileSystem
->>> fs = hffs.HfFileSystem(token=token)
+>>> fs = HfFileSystem(token=token)
 ```
 
 If you login this way, be careful not to accidentally leak the token when sharing your source code!
