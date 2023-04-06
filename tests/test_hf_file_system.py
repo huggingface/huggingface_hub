@@ -29,7 +29,14 @@ class HfFileSystemTests(unittest.TestCase):
         self.api = self.hffs._api
 
         # Create dummy repo
-        self.api.create_repo(self.repo_id, repo_type=self.repo_type, private=False)
+        self.api.create_repo(self.repo_id, repo_type=self.repo_type)
+        self.api.upload_file(
+            path_or_fileobj=b"dummy binary data on pr",
+            path_in_repo="data/binary_data_for_pr.bin",
+            repo_id=self.repo_id,
+            repo_type=self.repo_type,
+            create_pr=True,
+        )
         self.api.upload_file(
             path_or_fileobj="dummy text data".encode("utf-8"),
             path_in_repo="data/text_data.txt",
@@ -159,6 +166,51 @@ class HfFileSystemTests(unittest.TestCase):
         fs, _, paths = fsspec.get_fs_token_paths(f"hf://{self.repo_id}/data/text_data.txt")
         self.assertIsInstance(fs, HfFileSystem)
         self.assertEqual(paths, [f"{self.repo_id}/data/text_data.txt"])
+
+    @retry_endpoint
+    def test_list_root_directory_no_revision(self):
+        files = self.hffs.ls(self.hf_path)
+        self.assertEqual(len(files), 2)
+
+        self.assertEqual(files[0]["type"], "directory")
+        self.assertEqual(files[0]["size"], 0)
+        self.assertTrue(files[0]["name"].endswith("/data"))
+
+        self.assertEqual(files[1]["type"], "file")
+        self.assertGreater(files[1]["size"], 0)  # not empty
+        self.assertTrue(files[1]["name"].endswith("/.gitattributes"))
+
+    @retry_endpoint
+    def test_list_data_directory_no_revision(self):
+        files = self.hffs.ls(self.hf_path + "/data")
+        self.assertEqual(len(files), 2)
+
+        self.assertEqual(files[0]["type"], "file")
+        self.assertGreater(files[0]["size"], 0)  # not empty
+        self.assertTrue(files[0]["name"].endswith("/data/binary_data.bin"))
+        self.assertIsNotNone(files[0]["lfs"])
+        self.assertIn("oid", files[0]["lfs"])
+        self.assertIn("size", files[0]["lfs"])
+        self.assertIn("pointerSize", files[0]["lfs"])
+
+        self.assertEqual(files[1]["type"], "file")
+        self.assertGreater(files[1]["size"], 0)  # not empty
+        self.assertTrue(files[1]["name"].endswith("/data/text_data.txt"))
+        self.assertIsNone(files[1]["lfs"])
+
+    @retry_endpoint
+    def test_list_data_directory_with_revision(self):
+        files = self.hffs.ls(self.hf_path + "@refs%2Fpr%2F1" + "/data")
+
+        for test_name, files in {
+            "rev_in_path": self.hffs.ls(self.hf_path + "@refs%2Fpr%2F1" + "/data"),
+            "rev_as_arg": self.hffs.ls(self.hf_path + "/data", revision="refs/pr/1"),
+            "rev_in_path_and_as_arg": self.hffs.ls(self.hf_path + "@refs%2Fpr%2F1" + "/data", revision="refs/pr/1"),
+        }.items():
+            with self.subTest(test_name):
+                self.assertEqual(len(files), 1)  # only one file in PR
+                self.assertEqual(files[0]["type"], "file")
+                self.assertTrue(files[0]["name"].endswith("/data/binary_data_for_pr.bin"))  # PR file
 
 
 @pytest.mark.parametrize("path_in_repo", ["", "foo"])

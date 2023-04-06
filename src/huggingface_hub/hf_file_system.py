@@ -34,12 +34,11 @@ class HfFileSystemResolvedPath:
     revision: str
     path_in_repo: str
 
-    def unresolve(self):
-        path = (
-            f"{REPO_TYPES_URL_PREFIXES.get(self.repo_type, '') + self.repo_id}@{quote(self.revision, safe='')}/{self.path_in_repo}"
+    def unresolve(self) -> str:
+        return (
+            f"{REPO_TYPES_URL_PREFIXES.get(self.repo_type, '') + self.repo_id}@{safe_quote(self.revision)}/{self.path_in_repo}"
             .rstrip("/")
         )
-        return path
 
 
 class HfFileSystem(fsspec.AbstractFileSystem):
@@ -180,7 +179,7 @@ class HfFileSystem(fsspec.AbstractFileSystem):
         revision = revision if revision is not None else DEFAULT_REVISION
         return HfFileSystemResolvedPath(repo_type, repo_id, revision, path_in_repo)
 
-    def invalidate_cache(self, path=None) -> None:
+    def invalidate_cache(self, path: Optional[str] = None) -> None:
         if not path:
             self.dircache.clear()
             self._repository_type_and_id_exists_cache.clear()
@@ -196,12 +195,12 @@ class HfFileSystem(fsspec.AbstractFileSystem):
         mode: str = "rb",
         revision: Optional[str] = None,
         **kwargs,
-    ):
+    ) -> "HfFileSystemFile":
         if mode == "ab":
             raise NotImplementedError("Appending to remote files is not yet supported.")
         return HfFileSystemFile(self, path, mode=mode, revision=revision, **kwargs)
 
-    def _rm(self, path, revision: Optional[str] = None, **kwargs):
+    def _rm(self, path: str, revision: Optional[str] = None, **kwargs) -> None:
         resolved_path = self.resolve_path(path, revision=revision)
         self._api.delete_file(
             path_in_repo=resolved_path.path_in_repo,
@@ -214,7 +213,14 @@ class HfFileSystem(fsspec.AbstractFileSystem):
         )
         self.invalidate_cache(path=resolved_path.unresolve())
 
-    def rm(self, path, recursive=False, maxdepth=None, revision: Optional[str] = None, **kwargs) -> None:
+    def rm(
+        self,
+        path: str,
+        recursive: bool = False,
+        maxdepth: Optional[int] = None,
+        revision: Optional[str] = None,
+        **kwargs,
+    ) -> None:
         resolved_path = self.resolve_path(path, revision=revision)
         root_path = REPO_TYPES_URL_PREFIXES.get(resolved_path.repo_type, "") + resolved_path.repo_id
         paths = self.expand_path(path, recursive=recursive, maxdepth=maxdepth, revision=resolved_path.revision)
@@ -236,11 +242,11 @@ class HfFileSystem(fsspec.AbstractFileSystem):
         self.invalidate_cache(path=resolved_path.unresolve())
 
     def ls(
-        self, path, detail=True, refresh=False, revision: Optional[str] = None, **kwargs
+        self, path: str, detail: bool = True, refresh: bool = False, revision: Optional[str] = None, **kwargs
     ) -> List[Union[str, Dict[str, Any]]]:
         """List the contents of a directory."""
         resolved_path = self.resolve_path(path, revision=revision)
-        revision_in_path = "@" + quote(resolved_path.revision, safe="")
+        revision_in_path = "@" + safe_quote(resolved_path.revision)
         has_revision_in_path = revision_in_path in path
         path = resolved_path.unresolve()
         if path not in self.dircache or refresh:
@@ -286,9 +292,8 @@ class HfFileSystem(fsspec.AbstractFileSystem):
 
     def _iter_tree(self, path: str, revision: Optional[str] = None):
         resolved_path = self.resolve_path(path, revision=revision)
-        path = (
-            f"{self._api.endpoint}/api/{resolved_path.repo_type}s/{resolved_path.repo_id}/tree/{quote(resolved_path.revision, safe='')}/{resolved_path.path_in_repo}"
-            .rstrip("/")
+        path = f"{self._api.endpoint}/api/{resolved_path.repo_type}s/{resolved_path.repo_id}/tree/{safe_quote(resolved_path.revision)}/{resolved_path.path_in_repo}".rstrip(
+            "/"
         )
         headers = self._api._build_hf_headers()
         yield from paginate(path, params={}, headers=headers)
@@ -319,9 +324,7 @@ class HfFileSystem(fsspec.AbstractFileSystem):
                 "deletedFiles": [],
             }
             r = requests.post(
-                (
-                    f"{self.endpoint}/api/{resolved_path1.repo_type}s/{resolved_path1.repo_id}/commit/{quote(resolved_path2.revision, safe='')}"
-                ),
+                f"{self.endpoint}/api/{resolved_path1.repo_type}s/{resolved_path1.repo_id}/commit/{safe_quote(resolved_path2.revision)}",
                 json=payload,
                 headers=headers,
             )
@@ -352,7 +355,7 @@ class HfFileSystem(fsspec.AbstractFileSystem):
     def info(self, path: str, **kwargs) -> Dict[str, Any]:
         resolved_path = self.resolve_path(path)
         if not resolved_path.path_in_repo:
-            revision_in_path = "@" + quote(resolved_path.revision, safe="")
+            revision_in_path = "@" + safe_quote(resolved_path.revision)
             has_revision_in_path = revision_in_path in path
             name = resolved_path.unresolve()
             name = name.replace(revision_in_path, "", 1) if not has_revision_in_path else name
@@ -361,29 +364,29 @@ class HfFileSystem(fsspec.AbstractFileSystem):
 
     def expand_path(
         self, path: Union[str, List[str]], recursive: bool = False, maxdepth: Optional[int] = None, **kwargs
-    ):
+    ) -> List[str]:
         # The default implementation does not allow passing custom kwargs (e.g., we use these kwargs to propagate the `revision`)
         if maxdepth is not None and maxdepth < 1:
             raise ValueError("maxdepth must be at least 1")
 
         if isinstance(path, str):
-            out = self.expand_path([path], recursive, maxdepth)
-        else:
-            out = set()
-            path = [self._strip_protocol(p) for p in path]
-            for p in path:
-                if has_magic(p):
-                    bit = set(self.glob(p))
-                    out |= bit
-                    if recursive:
-                        out |= set(self.expand_path(list(bit), recursive=recursive, maxdepth=maxdepth, **kwargs))
-                    continue
-                elif recursive:
-                    rec = set(self.find(p, maxdepth=maxdepth, withdirs=True, detail=False, **kwargs))
-                    out |= rec
-                if p not in out and (recursive is False or self.exists(p)):
-                    # should only check once, for the root
-                    out.add(p)
+            return self.expand_path([path], recursive, maxdepth)
+
+        out = set()
+        path = [self._strip_protocol(p) for p in path]
+        for p in path:
+            if has_magic(p):
+                bit = set(self.glob(p))
+                out |= bit
+                if recursive:
+                    out |= set(self.expand_path(list(bit), recursive=recursive, maxdepth=maxdepth, **kwargs))
+                continue
+            elif recursive:
+                rec = set(self.find(p, maxdepth=maxdepth, withdirs=True, detail=False, **kwargs))
+                out |= rec
+            if p not in out and (recursive is False or self.exists(p)):
+                # should only check once, for the root
+                out.add(p)
         if not out:
             raise FileNotFoundError(path)
         return list(sorted(out))
@@ -395,22 +398,22 @@ class HfFileSystemFile(fsspec.spec.AbstractBufferedFile):
         self.fs: HfFileSystem
         self.resolved_path = fs.resolve_path(path, revision=revision)
 
-    def _fetch_range(self, start, end):
+    def _fetch_range(self, start: int, end: int) -> bytes:
         headers = {
             "range": f"bytes={start}-{end - 1}",
             **self.fs._api._build_hf_headers(),
         }
         url = (
-            f"{self.fs.endpoint}/{REPO_TYPES_URL_PREFIXES.get(self.resolved_path.repo_type, '') + self.resolved_path.repo_id}/resolve/{quote(self.resolved_path.revision, safe='')}/{quote(self.resolved_path.path_in_repo, safe='')}"
+            f"{self.fs.endpoint}/{REPO_TYPES_URL_PREFIXES.get(self.resolved_path.repo_type, '') + self.resolved_path.repo_id}/resolve/{safe_quote(self.resolved_path.revision)}/{safe_quote(self.resolved_path.path_in_repo)}"
         )
         r = http_backoff("GET", url, headers=headers)
         hf_raise_for_status(r)
         return r.content
 
-    def _initiate_upload(self):
+    def _initiate_upload(self) -> None:
         self.temp_file = tempfile.NamedTemporaryFile(prefix="hffs-", delete=False)
 
-    def _upload_chunk(self, final=False):
+    def _upload_chunk(self, final: bool = False) -> None:
         self.buffer.seek(0)
         block = self.buffer.read()
         self.temp_file.write(block)
@@ -430,3 +433,7 @@ class HfFileSystemFile(fsspec.spec.AbstractBufferedFile):
             self.fs.invalidate_cache(
                 path=self.resolved_path.unresolve(),
             )
+
+
+def safe_quote(s: str) -> str:
+    return quote(s, safe="")
