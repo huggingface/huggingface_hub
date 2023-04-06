@@ -20,14 +20,14 @@ from .utils import (
     RevisionNotFoundError,
     hf_raise_for_status,
     http_backoff,
+    paginate,
     parse_datetime,
 )
-from .utils._pagination import paginate
 
 
 @dataclass
-class ResolvedPath:
-    """Data structure containing information about a resolved path."""
+class HfFileSystemResolvedPath:
+    """Data structure containing information about a resolved hffs path."""
 
     repo_type: str
     repo_id: str
@@ -111,7 +111,7 @@ class HfFileSystem(fsspec.AbstractFileSystem):
                 self._repo_and_revision_exists_cache[(repo_type, repo_id, None)] = True, None
         return self._repo_and_revision_exists_cache[(repo_type, repo_id, revision)]
 
-    def resolve_path(self, path: str, revision: Optional[str] = None) -> ResolvedPath:
+    def resolve_path(self, path: str, revision: Optional[str] = None) -> HfFileSystemResolvedPath:
         def _align_revision_in_path_with_revision(
             revision_in_path: Optional[str], revision: Optional[str]
         ) -> Optional[str]:
@@ -178,7 +178,7 @@ class HfFileSystem(fsspec.AbstractFileSystem):
                 raise NotImplementedError("Acces to repositories lists is not implemented.")
 
         revision = revision if revision is not None else DEFAULT_REVISION
-        return ResolvedPath(repo_type, repo_id, revision, path_in_repo)
+        return HfFileSystemResolvedPath(repo_type, repo_id, revision, path_in_repo)
 
     def invalidate_cache(self, path=None) -> None:
         if not path:
@@ -199,7 +199,7 @@ class HfFileSystem(fsspec.AbstractFileSystem):
     ):
         if mode == "ab":
             raise NotImplementedError("Appending to remote files is not yet supported.")
-        return HfFile(self, path, mode=mode, revision=revision, **kwargs)
+        return HfFileSystemFile(self, path, mode=mode, revision=revision, **kwargs)
 
     def _rm(self, path, revision: Optional[str] = None, **kwargs):
         resolved_path = self.resolve_path(path, revision=revision)
@@ -245,7 +245,9 @@ class HfFileSystem(fsspec.AbstractFileSystem):
         path = resolved_path.unresolve()
         if path not in self.dircache or refresh:
             path_prefix = (
-                ResolvedPath(resolved_path.repo_type, resolved_path.repo_id, resolved_path.revision, "").unresolve()
+                HfFileSystemResolvedPath(
+                    resolved_path.repo_type, resolved_path.repo_id, resolved_path.revision, ""
+                ).unresolve()
                 + "/"
             )
             tree_path = path
@@ -387,7 +389,7 @@ class HfFileSystem(fsspec.AbstractFileSystem):
         return list(sorted(out))
 
 
-class HfFile(fsspec.spec.AbstractBufferedFile):
+class HfFileSystemFile(fsspec.spec.AbstractBufferedFile):
     def __init__(self, fs: HfFileSystem, path: str, revision: Optional[str] = None, **kwargs):
         super().__init__(fs, path, **kwargs)
         self.fs: HfFileSystem

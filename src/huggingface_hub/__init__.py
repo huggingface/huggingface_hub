@@ -163,9 +163,9 @@ _SUBMOD_ATTRS = {
         "whoami",
     ],
     "hf_file_system": [
-        "HfFile",
         "HfFileSystem",
-        "ResolvedPath",
+        "HfFileSystemFile",
+        "HfFileSystemResolvedPath",
     ],
     "hub_mixin": [
         "ModelHubMixin",
@@ -427,9 +427,9 @@ if TYPE_CHECKING:  # pragma: no cover
         whoami,  # noqa: F401
     )
     from .hf_file_system import (
-        HfFile,  # noqa: F401
         HfFileSystem,  # noqa: F401
-        ResolvedPath,  # noqa: F401
+        HfFileSystemFile,  # noqa: F401
+        HfFileSystemResolvedPath,  # noqa: F401
     )
     from .hub_mixin import (
         ModelHubMixin,  # noqa: F401
