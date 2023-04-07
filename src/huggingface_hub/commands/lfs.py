@@ -20,6 +20,8 @@ import json
 import os
 import subprocess
 import sys
+import threading
+import concurrent.futures as futures
 from argparse import _SubParsersAction
 from typing import Dict, List, Optional
 
@@ -88,6 +90,11 @@ class LfsEnableCommand:
             check=True,
             cwd=local_path,
         )
+        subprocess.run(
+            "git config lfs.customtransfer.multipart.concurrent false".split(),
+            check=True,
+            cwd=local_path,
+        )
         print("Local repo set up for largefiles")
 
 
@@ -126,6 +133,8 @@ class LfsUploadCommand:
             write_msg({"error": {"code": 32, "message": "Wrong lfs init operation"}})
             sys.exit(1)
 
+        ref_concurrency = max(init_msg.get("concurrenttransfers", 4), 1)
+
         # The transfer process should use the information it needs from the
         # initiation structure, and also perform any one-off setup tasks it
         # needs to do. It should then respond on stdout with a simple empty
@@ -162,33 +171,71 @@ class LfsUploadCommand:
                 }
             )
 
+            n_url = len(presigned_urls)
+            n_thread = min(n_url, ref_concurrency)
+            n_heavy = n_url % n_thread
+            #n_light = n_thread - n_heavy
+            n_per_light_thread = n_url // n_thread
+            n_per_heavy_thread = n_per_light_thread + 1
+
             parts = []
-            with open(filepath, "rb") as file:
-                for i, presigned_url in enumerate(presigned_urls):
-                    with SliceFileObj(
-                        file,
-                        seek_from=i * chunk_size,
-                        read_limit=chunk_size,
-                    ) as data:
-                        r = get_session().put(presigned_url, data=data)
-                        hf_raise_for_status(r)
-                        parts.append(
-                            {
-                                "etag": r.headers.get("etag"),
-                                "partNumber": i + 1,
-                            }
-                        )
-                        # In order to support progress reporting while data is uploading / downloading,
-                        # the transfer process should post messages to stdout
-                        write_msg(
-                            {
-                                "event": "progress",
-                                "oid": oid,
-                                "bytesSoFar": (i + 1) * chunk_size,
-                                "bytesSinceLast": chunk_size,
-                            }
-                        )
-                        # Not precise but that's ok.
+            n_processed_bytes = 0
+            lock = threading.Lock()
+
+            def _thread_process(start, n):
+                nonlocal parts, n_processed_bytes, lock
+                # open file for each thread
+                with open(filepath, "rb") as file:
+                    for i in range(start, start+n):
+                        presigned_url = presigned_urls[i]
+                        with SliceFileObj(
+                            file,
+                            seek_from=i * chunk_size,
+                            read_limit=chunk_size,
+                        ) as data:
+                            r = get_session().put(presigned_url, data=data)
+                            hf_raise_for_status(r)
+
+                            n_bytes = data.tell()
+                            with lock:
+                                parts.append(
+                                    {
+                                        "etag": r.headers.get("etag"),
+                                        "partNumber": i + 1,
+                                    }
+                                )
+                                n_processed_bytes += n_bytes
+
+                                # the transfer process should post messages to stdout
+                                write_msg(
+                                    {
+                                        "event": "progress",
+                                        "oid": oid,
+                                        "bytesSoFar": n_processed_bytes,
+                                        "bytesSinceLast": n_bytes,
+                                    }
+                                )
+
+
+            tasks = []
+            with futures.ThreadPoolExecutor(max_workers=n_thread) as executor:
+                for i in range(n_thread):
+                    if i < n_heavy:
+                        # prcoess more chunk
+                        n = n_per_heavy_thread
+                        start = i * n_per_heavy_thread
+                    else:
+                        # process less chunk
+                        n = n_per_light_thread
+                        start =  n_heavy * n_per_heavy_thread + (i - n_heavy) * n_per_light_thread
+
+                    tasks.append(executor.submit(_thread_process, start, n))
+
+                # wait finish or exception
+                for task in futures.as_completed(tasks):
+                    task.result()
+
+            parts = sorted(parts, key=lambda part: part["partNumber"])
 
             r = get_session().post(
                 completion_url,
