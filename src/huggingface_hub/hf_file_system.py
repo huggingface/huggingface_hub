@@ -396,7 +396,6 @@ class HfFileSystemFile(fsspec.spec.AbstractBufferedFile):
         super().__init__(fs, path, **kwargs)
         self.fs: HfFileSystem
         self.resolved_path = fs.resolve_path(path, revision=revision)
-        self._temp_file = None
 
         if "a" in self.mode and fs.info(path, revision=revision)["type"] == "file":
             self._initiate_upload()
@@ -420,7 +419,7 @@ class HfFileSystemFile(fsspec.spec.AbstractBufferedFile):
         return r.content
 
     def _initiate_upload(self):
-        if self._temp_file is None:
+        if not hasattr(self, "_temp_file") or self._temp_file is None:
             self._temp_file = tempfile.NamedTemporaryFile(delete=False)
 
     def _upload_chunk(self, final: bool = False) -> None:
