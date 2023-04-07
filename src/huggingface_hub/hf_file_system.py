@@ -398,7 +398,7 @@ class HfFileSystemFile(fsspec.spec.AbstractBufferedFile):
         self.resolved_path = fs.resolve_path(path, revision=revision)
         self._temp_file = None
 
-        if "a" in self.mode and fs.info(path, revision=revision)["type"] == "file":
+        if self.mode == "ab" and fs.info(path, revision=revision)["type"] == "file":
             self._initiate_upload()
             with fs.open(path, "rb", revision=revision) as f:
                 loc = 0
