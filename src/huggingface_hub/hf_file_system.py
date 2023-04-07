@@ -396,13 +396,14 @@ class HfFileSystemFile(fsspec.spec.AbstractBufferedFile):
         super().__init__(fs, path, **kwargs)
         self.fs: HfFileSystem
         self.resolved_path = fs.resolve_path(path, revision=revision)
+        self._temp_file = None
 
         if "a" in self.mode and fs.info(path, revision=revision)["type"] == "file":
             self._initiate_upload()
             with fs.open(path, "rb", revision=revision) as f:
                 loc = 0
                 for block in iter(partial(f.read, self.blocksize), b""):
-                    num_bytes_written = self.temp_file.write(block)
+                    num_bytes_written = self._temp_file.write(block)
                     loc += num_bytes_written
                 self.loc = loc
 
@@ -419,17 +420,17 @@ class HfFileSystemFile(fsspec.spec.AbstractBufferedFile):
         return r.content
 
     def _initiate_upload(self):
-        if not hasattr(self, "temp_file") or self.temp_file is None:
-            self.temp_file = tempfile.NamedTemporaryFile(delete=False)
+        if self._temp_file is None:
+            self._temp_file = tempfile.NamedTemporaryFile(delete=False)
 
     def _upload_chunk(self, final: bool = False) -> None:
         self.buffer.seek(0)
         block = self.buffer.read()
-        self.temp_file.write(block)
+        self._temp_file.write(block)
         if final:
-            self.temp_file.close()
+            self._temp_file.close()
             self.fs._api.upload_file(
-                path_or_fileobj=self.temp_file.name,
+                path_or_fileobj=self._temp_file.name,
                 path_in_repo=self.resolved_path.path_in_repo,
                 repo_id=self.resolved_path.repo_id,
                 token=self.fs.token,
@@ -438,7 +439,7 @@ class HfFileSystemFile(fsspec.spec.AbstractBufferedFile):
                 commit_message=self.kwargs.get("commit_message"),
                 commit_description=self.kwargs.get("commit_description"),
             )
-            os.remove(self.temp_file.name)
+            os.remove(self._temp_file.name)
             self.fs.invalidate_cache(
                 path=self.resolved_path.unresolve(),
             )
