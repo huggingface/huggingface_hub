@@ -290,13 +290,44 @@ class HfFileSystem(fsspec.AbstractFileSystem):
             out = [{**o, "name": o["name"].replace(revision_in_path, "", 1)} for o in out]
         return out if detail else [o["name"] for o in out]
 
-    def _iter_tree(self, path: str, revision: Optional[str] = None):
+    def _iter_tree(self, path: str, revision: Optional[str] = None, recursive: bool = False):
         resolved_path = self.resolve_path(path, revision=revision)
         path = f"{self._api.endpoint}/api/{resolved_path.repo_type}s/{resolved_path.repo_id}/tree/{safe_quote(resolved_path.revision)}/{resolved_path.path_in_repo}".rstrip(
             "/"
         )
         headers = self._api._build_hf_headers()
-        yield from paginate(path, params={}, headers=headers)
+        params = {"recursive": recursive} if recursive else {}
+        yield from paginate(path, params=params, headers=headers)
+
+    def find(self, path, maxdepth=None, withdirs=False, detail=False, refresh=False, revision: Optional[str] = None, **kwargs) -> List[Union[str, Dict[str, Any]]]:
+        if maxdepth:
+            return super().find(path, maxdepth=maxdepth, withdirs=withdirs, detail=detail, refresh=refresh, revision=revision, **kwargs)
+
+        resolved_path = self.resolve_path(path, revision=revision)
+        revision_in_path = "@" + quote(resolved_path.revision, safe="")
+        has_revision_in_path = revision_in_path in path
+        path = resolved_path.unresolve()
+
+        if path not in self.dircache or refresh:
+            path_prefix = (
+                HfFileSystemResolvedPath(resolved_path.repo_type, resolved_path.repo_id, resolved_path.revision, "").unresolve()
+                + "/"
+            )
+            tree_iter = self._iter_tree(path, revision=resolved_path.revision, recursive=True)
+            for tree_item in tree_iter:
+                child_info = {
+                    "name": path_prefix + tree_item["path"],
+                    "size": tree_item["size"],
+                    "type": tree_item["type"],
+                }
+                if tree_item["type"] == "file":
+                    child_info.update(
+                        {
+                            "blob_id": tree_item["oid"],
+                            "lfs": tree_item.get("lfs"),
+                            "last_modified": parse_datetime(tree_item["lastCommit"]["date"]),
+                        },
+                    )
 
     def cp_file(self, path1: str, path2: str, revision: Optional[str] = None, **kwargs) -> None:
         resolved_path1 = self.resolve_path(path1, revision=revision)
