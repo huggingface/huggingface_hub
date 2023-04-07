@@ -181,12 +181,17 @@ class LfsUploadCommand:
             parts = []
             n_processed_bytes = 0
             lock = threading.Lock()
+            err = False
 
             def _thread_process(start, n):
-                nonlocal parts, n_processed_bytes, lock
+                nonlocal parts, n_processed_bytes, lock, err
+
                 # open file for each thread
                 with open(filepath, "rb") as file:
                     for i in range(start, start+n):
+                        # cancel running if error occurred
+                        if err:
+                            return
                         presigned_url = presigned_urls[i]
                         with SliceFileObj(
                             file,
@@ -218,22 +223,40 @@ class LfsUploadCommand:
 
 
             tasks = []
-            with futures.ThreadPoolExecutor(max_workers=n_thread) as executor:
-                for i in range(n_thread):
-                    if i < n_heavy:
-                        # prcoess more chunk
-                        n = n_per_heavy_thread
-                        start = i * n_per_heavy_thread
-                    else:
-                        # process less chunk
-                        n = n_per_light_thread
-                        start =  n_heavy * n_per_heavy_thread + (i - n_heavy) * n_per_light_thread
+            executor = futures.ThreadPoolExecutor(max_workers=n_thread)
+            for i in range(n_thread):
+                if i < n_heavy:
+                    # prcoess more chunk
+                    n = n_per_heavy_thread
+                    start = i * n_per_heavy_thread
+                else:
+                    # process less chunk
+                    n = n_per_light_thread
+                    start =  n_heavy * n_per_heavy_thread + (i - n_heavy) * n_per_light_thread
 
-                    tasks.append(executor.submit(_thread_process, start, n))
+                tasks.append(executor.submit(_thread_process, start, n))
 
-                # wait finish or exception
-                for task in futures.as_completed(tasks):
+            # wait for first exception or all completed
+            done, _ = futures.wait(tasks, return_when=futures.FIRST_EXCEPTION)
+
+            # raise from failed task
+            try:
+                for task in done:
                     task.result()
+            except Exception as exc:
+                # set err flag to notice running futures to terminate immediatly
+                err = True
+                executor.shutdown(wait=False)
+                write_msg({
+                    "event": "complete",
+                    "oid": oid,
+                    "error": {
+                        "code": 2,
+                        "message": str(exc)
+                    }})
+                raise exc
+            else:
+                executor.shutdown(wait=True)
 
             parts = sorted(parts, key=lambda part: part["partNumber"])
 
