@@ -3,6 +3,7 @@ import os
 import tempfile
 from dataclasses import dataclass
 from datetime import datetime
+from functools import partial
 from glob import has_magic
 from typing import Any, Dict, List, Optional, Tuple, Union
 from urllib.parse import quote, unquote
@@ -195,9 +196,7 @@ class HfFileSystem(fsspec.AbstractFileSystem):
         mode: str = "rb",
         revision: Optional[str] = None,
         **kwargs,
-    ) -> "HfFileSystemFile":
-        if mode == "ab":
-            raise NotImplementedError("Appending to remote files is not yet supported.")
+    ):
         return HfFileSystemFile(self, path, mode=mode, revision=revision, **kwargs)
 
     def _rm(self, path: str, revision: Optional[str] = None, **kwargs) -> None:
@@ -398,7 +397,16 @@ class HfFileSystemFile(fsspec.spec.AbstractBufferedFile):
         self.fs: HfFileSystem
         self.resolved_path = fs.resolve_path(path, revision=revision)
 
-    def _fetch_range(self, start: int, end: int) -> bytes:
+        if "a" in self.mode and fs.info(path, revision=revision)["type"] == "file":
+            self._initiate_upload()
+            with fs.open(path, "rb", revision=revision) as f:
+                loc = 0
+                for block in iter(partial(f.read, self.blocksize), b""):
+                    num_bytes_written = self.temp_file.write(block)
+                    loc += num_bytes_written
+                self.loc = loc
+
+    def _fetch_range(self, start, end):
         headers = {
             "range": f"bytes={start}-{end - 1}",
             **self.fs._api._build_hf_headers(),
@@ -410,8 +418,9 @@ class HfFileSystemFile(fsspec.spec.AbstractBufferedFile):
         hf_raise_for_status(r)
         return r.content
 
-    def _initiate_upload(self) -> None:
-        self.temp_file = tempfile.NamedTemporaryFile(prefix="hffs-", delete=False)
+    def _initiate_upload(self):
+        if not hasattr(self, "temp_file") or self.temp_file is None:
+            self.temp_file = tempfile.NamedTemporaryFile(delete=False)
 
     def _upload_chunk(self, final: bool = False) -> None:
         self.buffer.seek(0)

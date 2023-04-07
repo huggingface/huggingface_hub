@@ -115,7 +115,6 @@ class HfFileSystemTests(unittest.TestCase):
             for _ in range(2):
                 self.assertEqual(f.read(len(data)), data)
 
-    @unittest.skip("Not implemented yet")
     @retry_endpoint
     def test_append_file(self):
         with self.hffs.open(self.hf_path + "/data/text_data.txt", "a") as f:
