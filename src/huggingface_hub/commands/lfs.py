@@ -16,12 +16,12 @@ path = /path/to/huggingface_hub/.env/bin/python args = -m debugpy --listen 5678
 /path/to/huggingface_hub/src/huggingface_hub/commands/huggingface_cli.py
 lfs-multipart-upload ```"""
 
+import concurrent.futures as futures
 import json
 import os
 import subprocess
 import sys
 import threading
-import concurrent.futures as futures
 from argparse import _SubParsersAction
 from typing import Dict, List, Optional
 
@@ -171,10 +171,11 @@ class LfsUploadCommand:
                 }
             )
 
+            # caculate workload per thread
             n_url = len(presigned_urls)
             n_thread = min(n_url, ref_concurrency)
             n_heavy = n_url % n_thread
-            #n_light = n_thread - n_heavy
+            # n_light = n_thread - n_heavy
             n_per_light_thread = n_url // n_thread
             n_per_heavy_thread = n_per_light_thread + 1
 
@@ -188,7 +189,7 @@ class LfsUploadCommand:
 
                 # open file for each thread
                 with open(filepath, "rb") as file:
-                    for i in range(start, start+n):
+                    for i in range(start, start + n):
                         # cancel running if error occurred
                         if err:
                             return
@@ -221,7 +222,6 @@ class LfsUploadCommand:
                                     }
                                 )
 
-
             tasks = []
             executor = futures.ThreadPoolExecutor(max_workers=n_thread)
             for i in range(n_thread):
@@ -232,7 +232,7 @@ class LfsUploadCommand:
                 else:
                     # process less chunk
                     n = n_per_light_thread
-                    start =  n_heavy * n_per_heavy_thread + (i - n_heavy) * n_per_light_thread
+                    start = n_heavy * n_per_heavy_thread + (i - n_heavy) * n_per_light_thread
 
                 tasks.append(executor.submit(_thread_process, start, n))
 
@@ -247,13 +247,7 @@ class LfsUploadCommand:
                 # set err flag to notice running futures to terminate immediatly
                 err = True
                 executor.shutdown(wait=False)
-                write_msg({
-                    "event": "complete",
-                    "oid": oid,
-                    "error": {
-                        "code": 2,
-                        "message": str(exc)
-                    }})
+                write_msg({"event": "complete", "oid": oid, "error": {"code": 2, "message": str(exc)}})
                 raise exc
             else:
                 executor.shutdown(wait=True)
