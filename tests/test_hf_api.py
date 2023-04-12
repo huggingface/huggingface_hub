@@ -1116,11 +1116,17 @@ class HfApiGetFilesInfoTest(HfApiCommonTest):
         self.assertEqual(len(files), 2)
         self.assertEqual({f.rfilename for f in files}, {"1/2/file_1_2.md", "1/file_1.md"})
 
-    def test_list_all(self):
+    def test_list_repo_files_manually(self):
         files = list(self._api.get_files_info(repo_id=self.repo_id))
         self.assertEqual(len(files), 7)
         self.assertEqual(
             {f.rfilename for f in files},
+            {".gitattributes", "1/2/file_1_2.md", "1/file_1.md", "2/file_2.md", "3/file_3.md", "file.md", "lfs.bin"},
+        )
+
+    def test_list_repo_files_alias(self):
+        self.assertEqual(
+            set(self._api.list_repo_files(repo_id=self.repo_id)),
             {".gitattributes", "1/2/file_1_2.md", "1/file_1.md", "2/file_2.md", "3/file_3.md", "file.md", "lfs.bin"},
         )
 
