@@ -3,9 +3,9 @@ from unittest.mock import patch
 
 from fastapi import Request
 
-from huggingface_hub.utils import is_gradio_available
+from huggingface_hub.utils import capture_output, is_gradio_available
 
-from .testing_utils import capture_output, require_webhooks
+from .testing_utils import require_webhooks
 
 
 if is_gradio_available():
