@@ -878,7 +878,13 @@ def _create_symlink(src: str, dst: str, new_blob: bool = False) -> None:
         relative_src = None
 
     try:
-        _support_symlinks = are_symlinks_supported(os.path.dirname(os.path.commonpath([abs_src, abs_dst])))
+        try:
+            commonpath = os.path.commonpath([abs_src, abs_dst])
+            _support_symlinks = are_symlinks_supported(os.path.dirname(commonpath))
+        except ValueError:
+            # Raised if src and dst are not on the same volume.
+            # See https://docs.python.org/3/library/os.path.html#os.path.commonpath
+            _support_symlinks = False
     except PermissionError:
         # Permission error means src and dst are not in the same volume (e.g. destination path has been provided
         # by the user via `local_dir`. Let's test symlink support there)
