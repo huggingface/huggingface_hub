@@ -1831,7 +1831,7 @@ class HfApi:
 
         Examples:
 
-            1. Get information about files on a repo.
+            Get information about files on a repo.
             ```py
             >>> from huggingface_hub import get_files_info
             >>> files_info = get_files_info("lysandre/arxiv-nlp", ["README.md", "config.json"])
@@ -1859,7 +1859,7 @@ class HfApi:
             }]
             ```
 
-            2. List LFS files from the "vae/" folder in "stabilityai/stable-diffusion-2" repository.
+            List LFS files from the "vae/" folder in "stabilityai/stable-diffusion-2" repository.
 
             ```py
             >>> from huggingface_hub import get_files_info
@@ -1867,7 +1867,7 @@ class HfApi:
             ['vae/diffusion_pytorch_model.bin', 'vae/diffusion_pytorch_model.safetensors']
             ```
 
-            3. List all files on a repo.
+            List all files on a repo.
             ```py
             >>> from huggingface_hub import get_files_info
             >>> [info.rfilename for info in get_files_info("glue", repo_type="dataset")]
