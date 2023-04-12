@@ -13,6 +13,7 @@ def get_version() -> str:
 
 install_requires = [
     "filelock",
+    "fsspec",
     "requests",
     "tqdm>=4.42.1",
     "pyyaml>=5.1",
@@ -89,7 +90,10 @@ setup(
     package_dir={"": "src"},
     packages=find_packages("src"),
     extras_require=extras,
-    entry_points={"console_scripts": ["huggingface-cli=huggingface_hub.commands.huggingface_cli:main"]},
+    entry_points={
+        "console_scripts": ["huggingface-cli=huggingface_hub.commands.huggingface_cli:main"],
+        "fsspec.specs": "hf=huggingface_hub.HfFileSystem",
+    },
     python_requires=">=3.7.0",
     install_requires=install_requires,
     classifiers=[

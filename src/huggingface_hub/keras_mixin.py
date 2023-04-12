@@ -306,7 +306,7 @@ def push_to_hub_keras(
             The [Keras model](`https://www.tensorflow.org/api_docs/python/tf/keras/Model`) you'd like to push to the
             Hub. The model must be compiled and built.
         repo_id (`str`):
-            Repository name to which push
+                ID of the repository to push to (example: `"username/my-model"`).
         commit_message (`str`, *optional*, defaults to "Add Keras model"):
             Message to commit while pushing.
         private (`bool`, *optional*, defaults to `False`):
